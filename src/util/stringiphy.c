@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
         d->end_phase = (f->frame + f->end - f->start + 1) % 3;
       }
       if (str_equals_charstr(f->feature, GFF_START_TYPE)) {
-        if (d->type == TERMINAL) d->type == SINGLETON;
+        if (d->type == TERMINAL) d->type = SINGLETON;
         else d->type = INITIAL; 
       }
       else if (str_equals_charstr(f->feature, GFF_STOP_TYPE)) {
