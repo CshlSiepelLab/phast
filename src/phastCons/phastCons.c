@@ -247,7 +247,7 @@ OPTIONS:\n\
         --states CDS --indels --reflect-strand background,CNS\n\
         --min-informative-types CDS, plus a set of default *.mod files.\n\
         (All of these options can be overridden.)\n\
-
+\n\
     --indels-only, -J\n\
         Like --indels but force the use of a single-state HMM.  This\n\
         option allows the effect of the indel model in isolation to be\n\
