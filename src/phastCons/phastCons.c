@@ -243,6 +243,15 @@ OPTIONS:\n\
         (1-coverage)/coverage.  Therefore, any value of <q> specified\n\
         via --transitions will be ignored; only <p> will be used.\n\
 \n\
+    --expected-lengths, -E [~]<len1>,<len2> | [~]<len1>\n\
+        (Alternative to --transitions)  Set transition probabilities\n\
+        such that the expected lengths of conserved and non-conserved\n\
+        regions are <len1> and <len2>, respectively.  Using this\n\
+        option is equivalent to using --transitions with arguments of\n\
+        1/(1+<len1>) and 1/(1+<len2>).  As with --transitions, the\n\
+        second argument is optional (and will be ignored) if\n\
+        --target-coverage is used.\n\
+\n\
     --ignore-missing, -z\n\
         (For use when estimating transition probabilities) Ignore\n\
         regions of missing data (i.e., in all sequences but the\n\
@@ -531,6 +540,7 @@ int main(int argc, char *argv[]) {
     {"lambda", 1, 0, 'l'},
     {"target-coverage", 1, 0, 'C'},
     {"transitions", 1, 0, 't'},
+    {"expected-lengths", 1, 0, 'E'},
     {"estimate-trees", 1, 0, 'T'},
     {"conserved-scale", 1, 0, 'R'},
     {"gc", 1, 0, 'G'},
@@ -572,7 +582,7 @@ int main(int argc, char *argv[]) {
   char *mods_fname = NULL, *newname;
   indel_mode_type indel_mode;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:G:zt:R:T:r:xL:s:N:P:g:U:c:IY:D:JM:F:pA:Xqh", 
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:G:zt:E:R:T:r:xL:s:N:P:g:U:c:IY:D:JM:F:pA:Xqh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
@@ -620,6 +630,18 @@ int main(int argc, char *argv[]) {
       if (lst_size(tmpl) == 2) q = lst_get_dbl(tmpl, 1);
       if (p <= 0 || p >= 1 || q <= 0 || q >= 1)
         die("ERROR: bad argument to --transitions.\n");
+      lst_free(tmpl);
+      break;
+    case 'E':
+      if (optarg[0] != '~') estim_transitions = FALSE;
+      else optarg = &optarg[1];
+      tmpl = get_arg_list_dbl(optarg);
+      if (lst_size(tmpl) > 2) 
+        die("ERROR: bad argument to --expected-lengths.\n");
+      p = 1.0/(1.0+lst_get_dbl(tmpl, 0));
+      if (lst_size(tmpl) == 2) q = 1.0/(1.0+lst_get_dbl(tmpl, 1));
+      if (p <= 0 || p >= 1 || q <= 0 || q >= 1)
+        die("ERROR: bad argument to --expected-lengths.\n");
       lst_free(tmpl);
       break;
     case 'T':
