@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.6 2004-06-05 07:02:49 acs Exp $
+/* $Id: clean_genes.c,v 1.7 2004-06-05 07:30:20 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -562,9 +562,10 @@ int are_introns_okay(List *intron_splice,  MSA *msa, List *badfeats,
           lst_push_ptr(badfeats, f2);
           lst_push_int(failure_types, BAD_INTRON);
           retval = 0;
+          break;
         }
       }
-      i++;                      /* no need to look at next one */
+      i++;                      /* no need to look at next feature */
     }
   }
   return retval;
@@ -653,7 +654,7 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
       }
       break;
     case BAD_INTRON:
-      reason = "3' splice site doesn't pair correctly with 5' splice site (not GT-AG, GC-AG, or AT-AC)";
+      reason = "Adjacent 5' and 3' splice sites don't match (not GT-AG, GC-AG, or AT-AC)";
       break;
     case NO_ALN:
       reason = "Incomplete alignment for cds";
