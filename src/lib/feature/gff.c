@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.7 2004-06-21 19:50:33 acs Exp $
+/* $Id: gff.c,v 1.8 2004-06-22 04:58:03 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -667,45 +667,103 @@ void gff_remove_overlaps(GFF_Set *gff,
                                 /**< If non-NULL, discarded features
                                    will be written here */
                          ) {
-  int i, j, last_end = -1;
-  List *starts, *ends, *keepers;
+  int i, j, k, last_end = -1;
+  List *starts, *ends, *scores, *keepers, *discards;
 
   if (gff->groups == NULL) 
     die("ERROR: gff_remove_overlaps requires groups.\n");
 
   starts = lst_new_int(lst_size(gff->groups));
   ends = lst_new_int(lst_size(gff->groups));
+  scores = lst_new_dbl(lst_size(gff->groups));
   keepers = lst_new_ptr(lst_size(gff->groups));
+  discards = lst_new_ptr(10);   /* handle only a few at a time */
 
   for (i = 0; i < lst_size(gff->groups); i++) {
     GFF_FeatureGroup *group = lst_get_ptr(gff->groups, i);
-    
+    double score = 0;
+    int has_scores = FALSE;
+
+    /* get a rough "score" to use in deciding which of a pair of
+       overlapping groups to keep.  Use sum of scores of features, or
+       if scores aren't available, just use span of group */
+    for (j = 0; j < lst_size(group->features); j++) {
+      GFF_Feature *f = lst_get_ptr(group->features, j);
+      if (!f->score_is_null) { score += f->score; has_scores = TRUE; }
+    }
+    if (!has_scores) score = group->end - group->start + 1;
+
     /* check for overlap */
     if (group->start > last_end) {   /* common case, has to be safe */
       lst_push_int(starts, group->start);
       lst_push_int(ends, group->end);
-      last_end = group->end;
+      lst_push_dbl(scores, score);
       lst_push_ptr(keepers, group);
+      last_end = group->end;
     }
-    else {                  /* have to search list */
+    else {                      /* have to search list */
       int list_idx = lst_bsearch_int(starts, group->start);
+                                /* indicates *previous* feature (-1 if
+                                   'group' belongs at front of list)  */
       int prev_end = list_idx >= 0 ? lst_get_int(ends, list_idx) : -1;
       int next_start = list_idx+1 < lst_size(starts) ?
-        lst_get_int(starts, list_idx+1) : group->end+1;         
+        lst_get_int(starts, list_idx+1) : INFTY;         
+      int add_this_group = TRUE;
+      lst_clear(discards);
+
       if (prev_end >= group->start || next_start <= group->end) {
-        if (discards_f != NULL)
-          for (j = 0; j < lst_size(group->features); j++)
-            gff_print_feat(discards_f, lst_get_ptr(group->features, j));
-        for (j = 0; j < lst_size(group->features); j++)
-          gff_free_feature(lst_get_ptr(group->features, j));
-        lst_free(group->features);
-        str_free(group->name);
+        /* overlaps a previous group: compute total score of all
+           overlapping groups; if less than score of this group,
+           replace all of them with this one */
+        int minidx, maxidx;
+        double altscore = 0;
+        for (minidx = list_idx; 
+             minidx >= 0 && lst_get_int(ends, minidx) >= group->start;
+             minidx--)
+          altscore += lst_get_dbl(scores, minidx);
+        minidx++;               /* will always go one too far */
+        for (maxidx = list_idx + 1; 
+             maxidx < lst_size(starts) && lst_get_int(starts, maxidx) <= group->end;
+             maxidx++)
+          altscore += lst_get_dbl(scores, maxidx);
+        maxidx--;
+
+        if (score > altscore) { /* discard the others and add this one */
+          for (; maxidx >= minidx; maxidx--) {
+            lst_delete_idx(starts, minidx);
+            lst_delete_idx(ends, minidx);
+            lst_delete_idx(scores, minidx);
+            lst_push_ptr(discards, lst_get_ptr(keepers, minidx));
+            lst_delete_idx(keepers, minidx);
+          }
+          add_this_group = TRUE;
+          list_idx = minidx - 1;  /* needed for insert, below */
+        }
+        else {                  /* discard this one */
+          lst_push_ptr(discards, group);
+          add_this_group = FALSE;
+        }
       }
-      else {
+
+      /* add group, if necessary */
+      if (add_this_group) {
         lst_insert_idx_int(starts, list_idx, group->start);
         lst_insert_idx_int(ends, list_idx, group->end);
+        lst_insert_idx_dbl(scores, list_idx, score);
+        lst_insert_idx_ptr(keepers, list_idx, group);
         if (group->end > last_end) last_end = group->end;
-        lst_push_ptr(keepers, group);
+      }
+
+      /* free discarded groups and dump to file, if necessary */
+      for (k = 0; k < lst_size(discards); k++) {
+        GFF_FeatureGroup *g = lst_get_ptr(discards, k);
+        if (discards_f != NULL)
+          for (j = 0; j < lst_size(g->features); j++)
+            gff_print_feat(discards_f, lst_get_ptr(g->features, j));
+        for (j = 0; j < lst_size(g->features); j++)
+          gff_free_feature(lst_get_ptr(g->features, j));
+        lst_free(g->features);
+        str_free(g->name);
       }
     }
   }
@@ -721,6 +779,8 @@ void gff_remove_overlaps(GFF_Set *gff,
 
   lst_free(starts);
   lst_free(ends);
+  lst_free(scores);
+  lst_free(discards);
 }
 
 /** Adjust coords of terminal cds exons such that stop codons are

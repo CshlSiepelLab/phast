@@ -18,44 +18,45 @@ PROGRAM:        %s\n\
 \n\
 DESCRIPTION:    Read a file representing a set of features, optionally\n\
                 alter the set in one or more of several possible ways, then\n\
-                output it in the desired format.  Currently, input and\n\
-                output formats may be GFF or BED.  Input format is\n\
-                automatically recognized.  The full, 12-column BED format \n\
-                is used for output, but abbreviated versions are accepted \n\
-                as input.\n\
+                output it in the desired format.  Input and output formats\n\
+                may be GFF, BED, or genepred.  Input format is automatically\n\
+                recognized.  The full, 12-column BED format is used for\n\
+                output, but abbreviated versions (e.g., 3-column, 4-column,\n\
+                or 6-column) are accepted as input.\n\
 \n\
 USAGE:          %s [OPTIONS] <infile>\n\
 \n\
 OPTIONS:\n\
-    --output, -o GFF|BED\n\
-        Output format (default GFF).\n\
-\n\
     --include, -i <types>\n\
         Include only features of the specified types (comma-delimited list).\n\
+\n\
+    --sort, -s\n\
+        Sort features primarily by start position and secondarily\n\
+        by end position (usually has desired effect in case of short\n\
+        overlapping features, e.g., start & stop codons).  Features\n\
+        will be sorted both across groups and within groups, but members\n\
+        of a group will be kept together.\n\
+\n\
+    --unique, -u\n\
+        Ensures that output contains no overlapping groups (or\n\
+        subgroups, if -e).  If groups overlap, the one with the highest\n\
+        score (if available) or longest length (if no score) is kept and\n\
+        others are discarded.  Warning: long UTRs can have undesirable\n\
+        results; filter out UTR exons to avoid.\n\
 \n\
     --groupby, -g <tag>\n\
         Group features according to specified tag (default \"transcript_id\")\n\
 \n\
     --exongroup, -e <tag>\n\
         Sub-group features into contiguous sets, and define\n\
-        sub-groups with specified tag (e.g., \"exon_id\").  Can be\n\
-        used to group the features describing individual exons, for\n\
-        example, each CDS and its flanking splice sites.  Only\n\
-        features in the same major group will be included in the same\n\
-        minor group (e.g., exons of the same transcript).\n\
+        sub-groups using specified tag (e.g., \"exon_id\").  Can be\n\
+        used to group the features describing individual exons, e.g.,\n\
+        each CDS and its flanking splice sites.  Only features in the\n\
+        same major group will be included in the same minor group\n\
+        (e.g., exons of the same transcript).\n\
 \n\
-    --unique, -u\n\
-        Ensures that output contains no overlapping groups or\n\
-        subgroups (if -e).  If groups overlap, the one with the highest\n\
-        score (if available) or longest length (if no score) is kept and\n\
-        others are discarded.\n\
-\n\
-    --sort, -s\n\
-        Sort features primarily by start position and secondarily\n\
-        by end position (usually has desired effect in case of short\n\
-        overlapping features, e.g., start & stop codons).  If features\n\
-        are grouped, they will be sorted both across groups and within\n\
-        groups, but members of a group will be kept together.\n\
+    --output, -o GFF|BED|genepred\n\
+        Output format (default GFF).\n\
 \n\
     --simplebed, -b\n\
         (for use with --output BED) Create a separate line for each\n\
@@ -77,7 +78,7 @@ int main(int argc, char *argv[]) {
   List *include = NULL;
   char *groupby = "transcript_id", *exongroup_tag = NULL;
   int unique = 0, sort = 0, simplebed = 0;
-  enum {GFF, BED} output_format = GFF;
+  enum {GFF, BED, genepred} output_format = GFF;
   FILE *discards_f = NULL;
 
   struct option long_opts[] = {
@@ -141,18 +142,16 @@ int main(int argc, char *argv[]) {
   /* subgroup */
   if (exongroup_tag != NULL) gff_exon_group(gff, exongroup_tag);
 
-  /* make unique */
-  if (unique) 
-    gff_remove_overlaps(gff, discards_f);
-                                /* do before sorting, so user has some
-                                   control over which groups are
-                                   retained */
-
   /* sort */
   if (sort) gff_sort(gff);
 
+  /* make unique */
+  if (unique) gff_remove_overlaps(gff, discards_f);
+
   if (output_format == BED)
     gff_print_bed(stdout, gff, simplebed ? NULL : groupby, NULL);
+  else if (output_format == genepred)
+    die("Sorry, no genepred output yet. :(\n");
   else 
     gff_print_set(stdout, gff);
   
