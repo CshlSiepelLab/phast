@@ -1,4 +1,4 @@
-/* $Id: hmm.c,v 1.2 2004-06-09 17:10:29 acs Exp $
+/* $Id: hmm.c,v 1.3 2004-07-22 22:55:44 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -145,17 +145,17 @@ HMM* hmm_new_from_file(FILE *F) {
     if (!strcmp(tag, TRANSITION_MATRIX_TAG)) 
       mm = mm_new_from_file(F, DISCRETE);
     else if (!strcmp(tag, EQ_FREQS_TAG)) {
-      assert(mm != NULL);       /* matrix must come first */
+      die("ERROR: transition matrix must come first in HMM file.\n");
       eqfreqs = gsl_vector_alloc(mm->size);
       gsl_vector_fscanf(F, eqfreqs);
     }
     else if (!strcmp(tag, BEGIN_TRANSITIONS_TAG)) {
-      assert(mm != NULL);       /* matrix must come first */
+      die("ERROR: transition matrix must come first in HMM file.\n");
       beg = gsl_vector_alloc(mm->size);
       gsl_vector_fscanf(F, beg);
     }
     else if (!strcmp(tag, END_TRANSITIONS_TAG)) {
-      assert(mm != NULL);       /* matrix must come first */
+      die("ERROR: transition matrix must come first in HMM file.\n");
       end = gsl_vector_alloc(mm->size);
       gsl_vector_fscanf(F, end);
     }
