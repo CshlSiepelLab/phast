@@ -1,7 +1,7 @@
 /* hmm_train - estimation of HMM transition probabilities from labeled
    training data */
 
-/* $Id: hmm_train.c,v 1.1 2004-07-26 19:42:43 acs Exp $
+/* $Id: hmm_train.c,v 1.2 2004-07-27 17:51:18 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -80,7 +80,7 @@ OPTIONS:\n\
         are exact multiples of the category range size.  Avoid -G with\n\
         this option.  If used in training mode, requires -T.\n\
 \n\
-    -T <tree_fname>\n\
+    -t <tree_fname>\n\
         Use the specified tree topology when training\n\
         for indels. \n\
 \n\
@@ -107,7 +107,6 @@ int main(int argc, char* argv[]) {
   int i, input_format = SS, msa_idx, quiet_mode = FALSE, 
     reverse_complement = FALSE, ncats, nmsas, ncats_unspooled, 
     indel_nseqs = -1;
-  char *tree_fname = NULL;
   String *msa_fname, *gff_fname;
   List *gff_fname_list = NULL, *msa_fname_list = NULL, 
     *msa_length_list = NULL, *model_indels_str = NULL;
@@ -118,7 +117,7 @@ int main(int argc, char* argv[]) {
   GapPatternMap *gpm = NULL;
   GFF_Set *gff;
 
-  while ((c = getopt(argc, argv, "i:g:c:m:M:RI:n:T:P:G:qh")) != -1) {
+  while ((c = getopt(argc, argv, "i:g:c:m:M:RI:n:t:P:G:qh")) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
@@ -146,8 +145,12 @@ int main(int argc, char* argv[]) {
     case 'n':
       indel_nseqs = get_arg_int(optarg);
       break;
-    case 'T':
-      tree_fname = optarg;
+    case 't':
+      if (optarg[0] == '(')     /* in this case, assume topology given
+                                   at command line */
+        tree = tr_new_from_string(optarg);
+      else 
+        tree = tr_new_from_file(fopen_fname(optarg, "r"));
       break;
     case 'q':
       quiet_mode = TRUE;
@@ -164,8 +167,8 @@ int main(int argc, char* argv[]) {
     die("ERROR: -g required in training mode.  Type 'hmm_train -h' for usage.\n");
   if (msa_length_list != NULL && msa_fname_list != NULL) 
     die("ERROR: -m and -M are mutually exclusive.  Type 'hmm_train -h' for usage.\n");
-  if (model_indels_str != NULL && tree_fname == NULL)
-    die("ERROR: -I requires -T in training mode.  Type 'hmm_train -h' for usage.\n");
+  if (model_indels_str != NULL && tree == NULL)
+    die("ERROR: -I requires -t.  Type 'hmm_train -h' for usage.\n");
   if (cm == NULL) 
     die("ERROR: category map required.\n");
   
@@ -176,7 +179,6 @@ int main(int argc, char* argv[]) {
            lst_size(msa_fname_list));
 
   if (model_indels_str != NULL) {
-    tree = tr_new_from_file(fopen_fname(tree_fname, "r"));
     gpm = gp_create_gapcats(cm, model_indels_str, 
                             indel_nseqs > 0 ? indel_nseqs :
                             (tree->nnodes+1)/2); /* note: no alignment yet */
