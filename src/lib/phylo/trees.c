@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.14 2004-08-04 17:13:17 acs Exp $ 
+/* $Id: trees.c,v 1.15 2004-08-05 07:15:04 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -98,6 +98,8 @@ TreeNode *tr_new_from_string(char *treestr) {
       nopen_parens++;
     }
     else if (c == ',') {
+      if (node->parent == NULL)
+        die("ERROR: invalid binary tree (check parens).\n");
       if (node->parent->lchild != NULL && node->parent->rchild != NULL){
         if (node->parent == root && !already_allowed)
           already_allowed = TRUE;
@@ -826,40 +828,10 @@ TreeNode *tr_get_node(TreeNode *t, char *name) {
   int i;
   for (i = 0; i < t->nnodes; i++) {
     TreeNode *n = lst_get_ptr(t->nodes, i);
-    if (n->name != NULL && !strcmp(n->name, name))
+    if (n->name[0] != '\0' && !strcmp(n->name, name))
       return n;
   }
   return NULL;
-}
-
-/** Replace leaf names by indices in given array of names */
-void tr_number_leaves(TreeNode *t, 
-                                /**< Root of tree */
-                      char **names, 
-                                /**< Array of names matching names of
-                                   leaves */
-                      int nnames
-                                /**< Number of leaves (equal to number
-                                   of elements in 'names')  */
-                      ) {
-  int i, j;
-  char *endptr;
-  for (i = 0; i < t->nnodes; i++) {
-    TreeNode *n = lst_get_ptr(t->nodes, i);
-    if (strlen(n->name) > 0) {
-      strtol(n->name, &endptr, 0);
-      if (*endptr != '\0') {    /* doesn't parse as int -- assume
-                                   name */
-        for (j = 0; j < nnames; j++) {
-          if (strcmp(names[j], n->name) == 0) {
-            sprintf(n->name, "%d", j+1);
-            break;
-          }
-        }
-        if (j == nnames) die("ERROR: no match for name '%s' given in tree topology.\n", n->name);
-      }
-    }
-  }
 }
 
 /** Scale all branch lengths by constant factor. */
@@ -877,7 +849,9 @@ void tr_scale(TreeNode *t, double scale_const) {
     added) to restore as a proper binary tree.  */
 void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
                                    because root can change) */
-              List *names,      /**< List of names  */
+              List *names,      /**< List of names.  On return, will
+                                   contain list of names of leaves
+                                   that were pruned away.  */
               int all_but       /**< if FALSE, prune leaves *in*
                                    'names'; if TRUE, prune leaves *not
                                    in* 'names'  */
@@ -886,7 +860,7 @@ void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
   TreeNode *n;
   int i, new_nnodes = (*t)->nnodes;
   int *is_leaf;
-  List *traversal;
+  List *traversal, *pruned_leaves = lst_new_ptr((*t)->nnodes / 2);
 
   /* first identify original leaves; will need to distinguish them
      from leaves that are created by pruning */
@@ -916,6 +890,9 @@ void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
         s = str_new_charstr(n->name);
         prune = str_in_list(s, names);
         if (all_but) prune = !prune;
+
+        if (prune) lst_push_ptr(pruned_leaves, s);
+        else str_free(s);
       }
 
       if (prune) {
@@ -981,6 +958,12 @@ void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
     tr_set_nnodes(*t);
   }
 
+  lst_free_strings(names);
+  lst_clear(names);
+  for (i = 0; i < lst_size(pruned_leaves); i++) 
+    lst_push_ptr(names, lst_get_ptr(pruned_leaves, i));
+
+  lst_free(pruned_leaves);
   free(is_leaf);
 }
 
@@ -1037,7 +1020,7 @@ TreeNode *tr_hybrid(TreeNode *sub, TreeNode *super) {
   TreeNode *retval, *n, *lca, *sub_copy;
   int i;
   double lfrac, sum;
-  List *names = lst_new_ptr((sub->nnodes - 1) / 2);
+  List *names = lst_new_ptr((sub->nnodes + 1) / 2);
 
   if (sub->nnodes < 3)
     die("ERROR: subtree must have at least two leaves in tr_hybrid.\n");

@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.12 2004-08-04 00:34:12 acs Exp $
+/* $Id: tree_model.c,v 1.13 2004-08-05 07:15:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -107,6 +107,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
 
   /* various attributes used when fitting a model to an alignment */
   tm->msa = NULL;
+  tm->msa_seq_idx = NULL;
   tm->lnL = NULL_LOG_LIKELIHOOD;
   tm->tree_posteriors = NULL;
   tm->use_conditionals = 0;
@@ -200,6 +201,7 @@ void tm_free(TreeModel *tm) {
         if (tm->P[i][j] != NULL) mm_free(tm->P[i][j]);
       free(tm->P[i]);
     }
+    if (tm->msa_seq_idx != NULL) free(tm->msa_seq_idx);
     free(tm->P);
     free(tm->rK);
     free(tm->freqK);
@@ -516,7 +518,7 @@ MSA *tm_generate_msa(int ncolumns,
                                     for generating each site */
                      ) {
 
-  int i, class, nseqs, col, ntreenodes;
+  int i, class, nseqs, col, ntreenodes, idx;
   MSA *msa;
   Stack *stack;
   char *newchar;
@@ -528,7 +530,7 @@ MSA *tm_generate_msa(int ncolumns,
   /* obtain number of sequences from tree models; ensure all have same
      number */
   ntreenodes = classmods[0]->tree->nnodes; 
-                                /* all should be the same (binary trees) */
+
   stack = stk_new_ptr(ntreenodes);
   nseqs = -1;
   for (i = 0; i < classmat->size; i++) {
@@ -539,23 +541,32 @@ MSA *tm_generate_msa(int ncolumns,
 
     if (nseqs == -1) 
       nseqs = num;
-    else if (nseqs != num) {
-      fprintf(stderr, "ERROR in msa_generate: model #%d has %d taxa, while a previous model had %d taxa.\n", i+1, num, nseqs);
-      assert(0);
-    }
+    else if (nseqs != num) 
+      die("ERROR in tm_generate_msa: model #%d has %d taxa, while a previous model had %d taxa.\n", i+1, num, nseqs);
   }
-
 
   /* create new MSA */
   names = (char**)smalloc(nseqs * sizeof(char*));
   seqs = (char**)smalloc(nseqs * sizeof(char*));
-  for (i = 0; i < nseqs; i++) {
-    names[i] = (char*)smalloc(MAX_NAME_LEN * sizeof(char));
+  for (i = 0; i < nseqs; i++) 
     seqs[i] = (char*)smalloc((ncolumns + 1) * sizeof(char));
-    sprintf(names[i], "seq%d", i + 1);
-  }
   msa = msa_new(seqs, names, nseqs, ncolumns, 
                 classmods[0]->rate_matrix->states);
+
+  /* build sequence idx map; only need one for first model */
+  /* FIXME: this assumes all tree models have the same topology; may
+     want to relax... */
+  classmods[0]->msa_seq_idx = smalloc(classmods[0]->tree->nnodes * 
+                                      sizeof(int));
+  for (i = 0, idx = 0; i < classmods[0]->tree->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(classmods[0]->tree->nodes, i);
+    if (n->lchild == NULL && n->rchild == NULL) {
+      classmods[0]->msa_seq_idx[i] = idx;
+      names[idx] = strdup(n->name);
+      idx++;
+    }
+    else classmods[0]->msa_seq_idx[i] = -1;
+  }
 
   /* generate sequences, column by column */
   class = 0;
@@ -572,10 +583,8 @@ MSA *tm_generate_msa(int ncolumns,
       TreeNode *r = n->rchild;
       assert ((l == NULL && r == NULL) || (l != NULL && r != NULL));
 
-      if (l == NULL) {
-        int seqno = atoi(n->name) - 1;
-        msa->seqs[seqno][col] = newchar[n->id];
-      }
+      if (l == NULL) 
+        msa->seqs[classmods[0]->msa_seq_idx[n->id]][col] = newchar[n->id];
       else {
         MarkovMatrix *lsubst_mat, *rsubst_mat;
         if (classmods[class]->P[l->id][0] == NULL)
@@ -1043,7 +1052,7 @@ int tm_get_nratevarparams(TreeModel *mod) {
   return 0;
 }
 
-/* number of branch length params */
+/** Return number of branch length params */
 int tm_get_nbranchlenparams(TreeModel *mod) {
   int retval;
   if (mod->estimate_branchlens == TM_BRANCHLENS_NONE) return 0;
@@ -1054,3 +1063,63 @@ int tm_get_nbranchlenparams(TreeModel *mod) {
   return retval;
 }
 
+/** Build index of leaf ids to sequence indices in given alignment.
+    Leaves not present in the alignment will be ignored.  Also, it's
+    not required that there's a leaf for every sequence in the
+    alignment. */
+void tm_build_seq_idx(TreeModel *mod, MSA *msa) {
+  int i, idx;
+  mod->msa_seq_idx = smalloc(mod->tree->nnodes * sizeof(int));
+  for (i = 0; i < mod->tree->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(mod->tree->nodes, i);
+    mod->msa_seq_idx[i] = -1;
+    if (n->lchild == NULL && n->rchild == NULL &&
+        (idx = msa_get_seq_idx(msa, n->name)) >= 0)
+      mod->msa_seq_idx[i] = idx;
+  }
+}
+
+/** Prune away leaves in tree that don't correspond to sequences in a
+    given alignment.  Warning: root of tree (value of mod->tree) may
+    change. */
+void tm_prune(TreeModel *mod,   /** TreeModel whose tree is to be pruned  */
+              MSA *msa,         /** Alignment; all leaves whose names
+                                    are not in msa->names will be
+                                    pruned away */
+              int warn          /**< if TRUE, a warning will be printed
+                                   to stderr listing the leaves of the
+                                   tree that are pruned away */
+              ) {
+  int i, j, old_nnodes = mod->tree->nnodes;
+  List *names = lst_new_ptr(msa->nseqs);
+  for (i = 0; i < msa->nseqs; i++)
+    lst_push_ptr(names, str_new_charstr(msa->names[i]));
+
+  assert(mod->tree->nnodes >= 3);
+
+  tm_free_rmp(mod);             /* necessary because parameter indices
+                                   can change */
+  tr_prune(&mod->tree, names, TRUE);
+  tm_init_rmp(mod);
+
+  if (lst_size(names) == (old_nnodes + 1) / 2)
+    die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
+
+  else if (lst_size(names) > 0) {
+    /* free memory for eliminated nodes */
+    for (i = mod->tree->nnodes; i < old_nnodes; i++) {
+      for (j = 0; j < mod->nratecats; j++)
+        if (mod->P[i][j] != NULL) mm_free(mod->P[i][j]);
+      free(mod->P[i]);
+    }
+
+    if (warn) {
+      fprintf(stderr, "WARNING: pruned away leaves of tree with no match in alignment (");
+      for (i = 0; i < lst_size(names); i++)
+        fprintf(stderr, "%s%s", ((String*)lst_get_ptr(names, i))->chars, 
+                i < lst_size(names) - 1 ? ", " : ").\n");
+    }
+  }
+  lst_free_strings(names);
+  lst_free(names);
+}

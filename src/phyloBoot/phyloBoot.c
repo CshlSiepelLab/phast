@@ -187,6 +187,7 @@ int main(int argc, char *argv[]) {
   char **descriptions = NULL;
   List *tmpl;
   char fname[STR_MED_LEN];
+  char tmpchstr[STR_MED_LEN];
 
   struct option long_opts[] = {
     {"nsites", 1, 0, 'L'},
@@ -299,21 +300,20 @@ int main(int argc, char *argv[]) {
     /* general set up -- different for parameteric and non-parameteric cases */
     if (!parameteric) {
       if (tree == NULL) {
-        if (msa->nseqs == 2)
-          tree = tr_new_from_string("(1,2)");
-        else if (msa->nseqs == 3 && tm_is_reversible(subst_mod))
-          tree = tr_new_from_string("(1,(2,3))");
+        if (msa->nseqs == 2) {
+          sprintf(tmpchstr, "(%s,%s)", msa->names[0], msa->names[1]);
+          tree = tr_new_from_string(tmpchstr);
+        }
+        else if (msa->nseqs == 3 && tm_is_reversible(subst_mod)) {
+          sprintf(tmpchstr, "(%s,(%s,%s))", msa->names[0], msa->names[1], 
+                  msa->names[2]);
+          tree = tr_new_from_string(tmpchstr);
+        }
         else 
           die("ERROR: must specify tree topology.\n");
       }
-      else {
-        if (msa->nseqs * 2 - 1 != tree->nnodes)
-          die("ERROR: Tree must have 2n-1 nodes, where n is the number of sequences in the\nalignment.  Even with a reversible model, specify a rooted tree; the root\nwill be ignored in the optimization procedure.\n");
-        
-        tr_number_leaves(tree, msa->names, msa->nseqs);
-                         /* convert from names to numbers, if
-                            necessary */
-      }
+      else if (msa->nseqs * 2 - 1 != tree->nnodes)
+        die("ERROR: Tree must have 2n-1 nodes, where n is the number of sequences in the\nalignment.  Even with a reversible model, specify a rooted tree; the root\nwill be ignored in the optimization procedure.\n");
 
       msa_remove_N_from_alph(msa); /* for backward compatibility */
 

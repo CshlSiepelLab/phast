@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.9 2004-07-01 23:58:25 acs Exp $
+/* $Id: phylo_hmm.c,v 1.10 2004-08-05 07:15:04 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -455,9 +455,6 @@ void phmm_compute_emissions(PhyloHmm *phmm,
 
   phmm->emissions = smalloc(phmm->hmm->nstates * sizeof(double*));  
   phmm->alloc_len = msa->length;
-
-  if (phmm->topology->nnodes != msa->nseqs * 2 - 1) 
-    die("ERROR: number of leaves in trees must equal number of sequences in alignment.\n");
 
   /* if HMM is reflected, we need the reverse complement of the
      alignment as well */

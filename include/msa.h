@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.11 2004-07-28 21:08:13 acs Exp $
+/* $Id: msa.h,v 1.12 2004-08-05 07:15:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -47,7 +47,6 @@ typedef struct {
 } MSA;
 
 #define NCHARS 256
-#define MAX_NAME_LEN 256
 #define MAX_LINE_LEN 10000
 #define OUTPUT_LINE_LEN 70
 /** Default alphabet, assumed throughout PHAST */
@@ -112,7 +111,7 @@ int msa_map_seq_to_msa(msa_coord_map *map, int seq_pos);
 int msa_map_msa_to_seq(msa_coord_map *map, int pos);
 void msa_map_free(msa_coord_map *map);
 void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm);
-int msa_get_seq_idx(MSA *msa, String *name);
+int msa_get_seq_idx(MSA *msa, char *name);
 void msa_map_gff_coords(MSA *msa, GFF_Set *set, int from_seq, int to_seq, 
                         int offset, CategoryMap *cm);
 int msa_map_seq_to_seq(msa_coord_map *from_map, msa_coord_map *to_map, 

@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.26 2004-08-03 00:03:51 acs Exp $
+/* $Id: msa.c,v 1.27 2004-08-05 07:15:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -127,7 +127,7 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
   msa->seqs = (char**)smalloc(nseqs * sizeof(char*));
 
   for (i = 0; i < nseqs; i++) {
-    msa->names[i] = (char*)smalloc(MAX_NAME_LEN * sizeof(char));
+    msa->names[i] = (char*)smalloc(STR_MED_LEN * sizeof(char));
     msa->seqs[i] = (char*)smalloc((len + 1) * sizeof(char));
   }
 
@@ -693,14 +693,12 @@ void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm) {
     ss_update_categories(msa);
 }
 
-/* uses indexing system starting with 1 (not same as storage system) */
-/* return -1 if not found */
-/* for now, do linear search (not likely to be many seqs) */
-int msa_get_seq_idx(MSA *msa, String *name) {
+/** Return sequence index of given sequence name or -1 if not found. */
+int msa_get_seq_idx(MSA *msa, char *name) {
   int i, retval = -1;
   for (i = 0; retval < 0 && i < msa->nseqs; i++) 
-    if (str_equals_charstr(name, msa->names[i]))
-      retval = i + 1;
+    if (!strcmp(name, msa->names[i]))
+      retval = i;
   return retval;
 }
 
@@ -742,11 +740,9 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
       else if (prev_name == NULL || !str_equals(prev_name, feat->seqname)) {
         /* generally all seqs will have the same name; take advantage of
            this property */
-        if ((fseq = msa_get_seq_idx(msa, feat->seqname)) == -1) {
-          fprintf(stderr, "ERROR: name %s not present in MSA.\n", 
-                  feat->seqname->chars);
-          exit(1);
-        }
+        if ((fseq = msa_get_seq_idx(msa, feat->seqname->chars)) == -1) 
+          die("ERROR: name %s not present in MSA.\n", feat->seqname->chars);
+        fseq++;                 /* need 1-based index */
         prev_name = feat->seqname;
       }
     }
@@ -754,12 +750,10 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
       if (str_equals_nocase_charstr(feat->seqname, "MSA")) 
         tseq = 0;
       else if (prev_name == NULL || !str_equals(prev_name, feat->seqname)) {
-        if ((tseq = msa_get_seq_idx(msa, feat->seqname)) == -1) {
-          fprintf(stderr, "ERROR: name %s not present in MSA.\n", 
-                  feat->seqname->chars);
-          exit(1);
-        }
+        if ((tseq = msa_get_seq_idx(msa, feat->seqname->chars)) == -1)
+          die("ERROR: name %s not present in MSA.\n", feat->seqname->chars);
         prev_name = feat->seqname;
+        tseq++;                 /* need 1-based index */
       }
     }
     if ((from_map = maps[fseq]) == NULL && fseq > 0) 
@@ -1783,9 +1777,7 @@ void msa_reorder_rows(MSA *msa, List *target_order) {
 
   for (i = 0; i < msa->nseqs; i++) covered[i] = 0;
   for (i = 0; i < lst_size(target_order); i++) {
-    new_to_old[i] = msa_get_seq_idx(msa, lst_get_ptr(target_order, i)) - 1;
-                                /* use zero-based indexing; will be < 0
-                                   if not present */
+    new_to_old[i] = msa_get_seq_idx(msa, ((String*)lst_get_ptr(target_order, i))->chars);
     if (new_to_old[i] >= 0) {
       assert(covered[new_to_old[i]] == 0); /* prohibits mult. refs */
       covered[new_to_old[i]] = 1;

@@ -364,7 +364,8 @@ int main(int argc, char *argv[]) {
   double lambda = DEFAULT_LAMBDA, p = DEFAULT_P, q = DEFAULT_Q;
   msa_format_type msa_format = SS;
   FILE *viterbi_f = NULL, *lnl_f = NULL, *log_f = NULL;
-  List *states = NULL, *pivot_states = NULL, *min_inform_str = NULL;
+  List *states = NULL, *pivot_states = NULL, *min_inform_str = NULL, 
+    *mod_fname_list;
   char *seqname = NULL, *idpref = NULL;
   HMM *hmm = NULL;
 
@@ -547,14 +548,14 @@ int main(int argc, char *argv[]) {
   }
   
   /* read tree models first (alignment may take a while) */
-  tmpl = get_arg_list(mods_fname);
+  mod_fname_list = get_arg_list(mods_fname);
 
-  if ((rates_cross || two_state) && lst_size(tmpl) != 1)
+  if ((rates_cross || two_state) && lst_size(mod_fname_list) != 1)
     die("ERROR: only one tree model allowed with --rates-cross or --cut-at.\n");
     
-  mod = (TreeModel**)smalloc(sizeof(TreeModel*) * lst_size(tmpl));
-  for (i = 0; i < lst_size(tmpl); i++) {
-    String *fname = lst_get_ptr(tmpl, i);
+  mod = (TreeModel**)smalloc(sizeof(TreeModel*) * lst_size(mod_fname_list));
+  for (i = 0; i < lst_size(mod_fname_list); i++) {
+    String *fname = lst_get_ptr(mod_fname_list, i);
     if (!quiet)
       fprintf(stderr, "Reading tree model from %s...\n", fname->chars);
     mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"));
@@ -581,7 +582,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (cm == NULL)
-    cm = cm_create_trivial(lst_size(tmpl)-1, NULL);
+    cm = cm_create_trivial(lst_size(mod_fname_list)-1, NULL);
 
   /* read alignment */
   if (!quiet)
@@ -590,6 +591,9 @@ int main(int argc, char *argv[]) {
   msa_remove_N_from_alph(msa);  /* for backward compatibility */
   if (msa_format == SS && msa->ss->tuple_idx == NULL) 
     die("ERROR: Ordered representation of alignment required.\n");
+
+  for (i = 0; i < lst_size(mod_fname_list); i++)
+    tm_prune(mod[i], msa, !quiet);
 
   /* use file name root for default seqname */
   if (viterbi_f != NULL && (seqname == NULL || idpref == NULL)) {

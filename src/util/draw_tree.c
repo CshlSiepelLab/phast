@@ -1,4 +1,4 @@
-/* $Id: draw_tree.c,v 1.3 2004-07-29 23:31:38 acs Exp $
+/* $Id: draw_tree.c,v 1.4 2004-08-05 07:15:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -6,17 +6,19 @@
 #include <stdio.h>
 #include <assert.h>
 #include <trees.h>
+#include <tree_model.h>
 #include <getopt.h>
 
 void print_usage() {
   fprintf(stderr, "\n\
 PROGRAM:        draw_tree\n\
 DESCRIPTION:    Produces a simple postscript rendering of a tree.\n\
-USAGE:          draw_tree [-dbvs] <tree_fname>\n\
+USAGE:          draw_tree [-dbvs] <tree.nh>|<tree.mod>\n\
 \n\
 OPTIONS:\n\
-    <tree_fname>    (Required) File name of tree (file must be in \n\
-                    Newick format).\n\
+    <tree_fname>    (Required) File name of tree (expected to be in \n\
+                    Newick format, unless filename ends with '.mod', in\n\
+                    which case expected to be a tree model file).\n\
     -d              Print \"diagonal\" branches, instead of \"right-angle\" or \n\
                     \"square\" ones (produces a \"cladogram\", as opposed to a \n\
                     \"phenogram\").  This option implies -s.\n\
@@ -31,9 +33,9 @@ int main(int argc, char *argv[]) {
   int show_branch_lens = 1;
   int draw_to_scale = 1;
 
-  FILE *F;
   TreeNode *tree;
   char c;
+  String *suffix;
 
   while ((c = getopt(argc, argv, "dbvs")) != -1) {
     switch(c) {
@@ -61,14 +63,17 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  if ((F = fopen(argv[optind], "r")) == NULL) {
-    fprintf(stderr, "ERROR: Cannot open %s.\n", argv[optind]);
-    exit(1);
+  suffix = str_new_charstr(argv[optind]);
+  str_suffix(suffix, '.');
+  if (str_equals_charstr(suffix, "mod")) {
+    TreeModel *tmp = tm_new_from_file(fopen_fname(argv[optind], "r"));
+    tree = tmp->tree;
   }
-  tree = tr_new_from_file(F);
+  else 
+    tree = tr_new_from_file(fopen_fname(argv[optind], "r"));
+
   tr_print_ps(stdout, tree, show_branch_lens, square_branches, draw_to_scale, 
               horizontal);
-  fclose(F);
 
   return 0;
 }

@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.31 2004-07-27 20:42:13 acs Exp $
+/* $Id: exoniphy.c,v 1.32 2004-08-05 07:15:04 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -429,6 +429,7 @@ int main(int argc, char* argv[]) {
     F = fopen_fname(fname->chars, "r");
     mod[i] = tm_new_from_file(F); 
     mod[i]->use_conditionals = 1;
+    tm_prune(mod[i], msa, !quiet);
     fclose(F);
   }
 

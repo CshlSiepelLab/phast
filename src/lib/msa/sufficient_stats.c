@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.10 2004-07-27 20:30:23 acs Exp $
+/* $Id: sufficient_stats.c,v 1.11 2004-08-05 07:15:04 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -550,7 +550,7 @@ void msa_read_AXT(MSA *msa, List *axt_fnames) {
   for (i = 0; i < lst_size(axt_fnames); i++) {
     String *axtfname = (String*)lst_get_ptr(axt_fnames, i);
 
-    msa->names[i+1] = (char*)smalloc(MAX_NAME_LEN * sizeof(char));
+    msa->names[i+1] = (char*)smalloc(STR_MED_LEN * sizeof(char));
     msa->seqs[i+1] = (char*)smalloc((msa->length+1) * sizeof(char));
     for (j = 0; j < msa->length; j++) msa->seqs[i+1][j] = GAP_CHAR;
     msa->seqs[i+1][msa->length] = '\0';
@@ -1191,8 +1191,9 @@ void ss_reorder_rows(MSA *msa, int *new_to_old, int new_nseqs) {
   }
 }
 
-/** Eliminate all tuples with counts of zero.  Main counts must reflect
-    cat counts (cat counts won't be checked). */
+/** Eliminate all tuples with counts of zero.  Main counts must
+    reflect cat counts (cat counts won't be checked).  Tuples with
+    counts of zero are assumed not to appear in tuple_idx.  */
 void ss_remove_zero_counts(MSA *msa) {
   int i, cat, new_ntuples = 0;
   int old_to_new[msa->ss->ntuples];
@@ -1229,22 +1230,31 @@ void ss_unique(MSA *msa) {
   char key[msa->nseqs * msa->ss->tuple_size + 1];
   Hashtable *hash = hsh_new(msa->ss->ntuples);
   int i, idx, cat;
+  int *old_to_new = smalloc(msa->ss->ntuples * sizeof(int));
   key[msa->nseqs * msa->ss->tuple_size] = '\0';
 
   for (i = 0; i < msa->ss->ntuples; i++) {
     strncpy(key, msa->ss->col_tuples[i], msa->nseqs * msa->ss->tuple_size);
-    if ((idx = (int)hsh_get(hash, key)) == -1) /* tuple not seen before */
+    if ((idx = (int)hsh_get(hash, key)) == -1) { /* tuple not seen before */
       hsh_put(hash, key, (void*)i);
+      old_to_new[i] = i;
+    }
     else { /* seen before: combine counts with prev, zero out this version */
       msa->ss->counts[idx] += msa->ss->counts[i];
       if (msa->ss->cat_counts != NULL) 
         for (cat = 0; cat <= msa->ncats; cat++)
           msa->ss->cat_counts[cat][idx] += msa->ss->cat_counts[cat][i];
       msa->ss->counts[i] = 0;   /* no need to zero cat_counts */
+      old_to_new[i] = idx;
     }
   }
 
+  if (msa->ss->tuple_idx != NULL)
+    for (i = 0; i < msa->length; i++)
+      msa->ss->tuple_idx[i] = old_to_new[msa->ss->tuple_idx[i]];
+
   ss_remove_zero_counts(msa);
+  free(old_to_new);
   hsh_free(hash);
 }
 
@@ -1278,6 +1288,7 @@ void ss_collapse_missing(MSA *msa, int do_gaps) {
    accordingly. */
 void ss_strip_gaps(MSA *msa, int gap_strip_mode) {
   int i, j;
+  int newlen = msa->length;
   for (i = 0; i < msa->ss->ntuples; i++) {
     int strip;
     if (gap_strip_mode > 0)    /* project on refseq */
@@ -1295,7 +1306,7 @@ void ss_strip_gaps(MSA *msa, int gap_strip_mode) {
       }
     }
     if (strip) {
-      msa->length -= msa->ss->counts[i];
+      newlen -= msa->ss->counts[i];
       msa->ss->counts[i] = 0;
     }
   }
@@ -1311,7 +1322,8 @@ void ss_strip_gaps(MSA *msa, int gap_strip_mode) {
     /* above assumes any tuple is to be removed that is present in
        tuple_idx but has a count of zero */
 
-    assert(msa->length == j);
+    assert(newlen == j);
+    msa->length = newlen;
   }
 
   ss_remove_zero_counts(msa);

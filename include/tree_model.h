@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.5 2004-07-25 16:56:41 acs Exp $
+/* $Id: tree_model.h,v 1.6 2004-08-05 07:15:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -47,6 +47,10 @@ struct tm_struct {
   gsl_vector *backgd_freqs;
   MarkovMatrix *rate_matrix;
   subst_mod_type subst_mod;
+  int *msa_seq_idx;             /**< (optional) Mapping from leaf
+                                   indices to sequence indices in a
+                                   given MSA; used in likelihood
+                                   computations */
   MSA *msa;                     /* (optional) MSA from which TreeModel
                                    was estimated; for use in tm_fit */
   int category;                 /* (optional) site category in MSA or -1 */
@@ -152,5 +156,9 @@ MSA *tm_generate_msa(int ncolumns, MarkovMatrix *classmat,
                      TreeModel **classmods, int *labels);
 
 TreeModel *tm_induced_aa(TreeModel *codon_mod);
+
+void tm_build_seq_idx(TreeModel *mod, MSA *msa);
+
+void tm_prune(TreeModel *mod, MSA *msa, int warn);
 
 #endif

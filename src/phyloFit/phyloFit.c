@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.18 2004-07-29 23:39:04 acs Exp $
+   $Id: phyloFit.c,v 1.19 2004-08-05 07:15:04 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -46,9 +46,7 @@ DESCRIPTION: \n\
     .mod files minimally include a substitution rate matrix, a tree with\n\
     branch lengths, and estimates of nucleotide equilibrium\n\
     frequencies.  They may also include information about parameters\n\
-    for modeling rate variation.  In addition to the .mod file, a\n\
-    description of each each estimated tree will be written to a file with\n\
-    the suffix \".nh\" (Newick, a.k.a. New Hampshire, format).\n\
+    for modeling rate variation.\n\
 \n\
 USAGE: phyloFit [OPTIONS] <msa_fname>\n\
 \n\
@@ -210,7 +208,7 @@ OPTIONS:\n\
         Initialize with specified tree model.  By choosing good\n\
         starting values for parameters, it is possible to reduce\n\
         execution time dramatically.  If this option is chosen, --tree\n\
-        is not required.  Note: currently only one mod_fname may be\n\
+        is not allowed.  Note: currently only one mod_fname may be\n\
         specified; it will be used for all categories.\n\
 \n\
     --init-random, -r\n\
@@ -588,13 +586,12 @@ void print_window_summary(FILE* WINDOWF, List *window_coords, int win,
 
 int main(int argc, char *argv[]) {
   char *msa_fname = NULL, *output_fname_root = "phyloFit", 
-    *log_fname = NULL, *reverse_group_tag = NULL, *alph = "ACGT";
-  int output_trees = TRUE, subst_mod = REV, quiet = FALSE,
-    nratecats = 1, use_em = FALSE, window_size = -1, 
-    window_shift = -1, use_conditionals = FALSE, 
-    precision = OPT_HIGH_PREC, 
-    likelihood_only = FALSE, do_bases = FALSE, do_expected_nsubst = FALSE, 
-    do_expected_nsubst_tot = FALSE, 
+    *log_fname = NULL, *reverse_group_tag = NULL, *alph = "ACGT", 
+    *root_seqname = NULL;
+  int subst_mod = REV, quiet = FALSE, nratecats = 1, use_em = FALSE, 
+    window_size = -1, window_shift = -1, use_conditionals = FALSE, 
+    precision = OPT_HIGH_PREC, likelihood_only = FALSE, do_bases = FALSE, 
+    do_expected_nsubst = FALSE, do_expected_nsubst_tot = FALSE, 
     random_init = FALSE, estimate_backgd = FALSE, estimate_scale_only = FALSE,
     do_column_probs = FALSE, nonoverlapping = FALSE, gaps_as_bases = FALSE;
   unsigned int nsites_threshold = DEFAULT_NSITES_THRESHOLD;
@@ -604,7 +601,7 @@ int main(int argc, char *argv[]) {
   TreeNode *tree = NULL;
   CategoryMap *cm = NULL;
   int i, j, win, opt_idx;
-  String *mod_fname, *out_tree_fname, *root_seqname = NULL;
+  String *mod_fname;
   MSA *msa, *source_msa;
   FILE *logf = NULL;
   String *tmpstr = str_new(STR_SHORT_LEN);
@@ -616,6 +613,7 @@ int main(int argc, char *argv[]) {
   TreeModel *input_mod = NULL;
   int root_leaf_id = -1;
   List *rate_consts = NULL;
+  char tmpchstr[STR_MED_LEN];
 
   struct option long_opts[] = {
     {"msa", 1, 0, 'm'},
@@ -686,10 +684,8 @@ int main(int argc, char *argv[]) {
     case 'o':
       output_fname_root = optarg;
       break;
-    case 'T':                   /* this is now done by default, but
-                                   we'll leave the option in for
-                                   backward compatibility */
-      output_trees = 1;
+    case 'T': 
+      fprintf(stderr, "WARNING: --output-tree (-T) is deprecated; leaf names now appear in .mod\nfile.  (If necessary, use 'tree_doctor --tree-only' to extract tree.)\n");
       break;
     case 'k':
       nratecats = get_arg_int_bounds(optarg, 0, INFTY);
@@ -768,7 +764,7 @@ int main(int argc, char *argv[]) {
       do_column_probs = 1;
       break;
     case 'A':
-      root_seqname = str_new_charstr(optarg);
+      root_seqname = optarg;
       break;
     case 'I':
       nsites_threshold = get_arg_int(optarg);
@@ -813,6 +809,9 @@ int main(int argc, char *argv[]) {
   if (likelihood_only && input_mod == NULL) 
     die("ERROR: --lnl requires --init-model.  Type 'phyloFit -h' for usage.\n");
 
+  if (input_mod != NULL && tree != NULL)
+    die("ERROR: --tree is not allowed with --init-model.\n");
+
   if (nonoverlapping && (use_conditionals || gff != NULL || 
                          cats_to_do_str || input_format == SS))
     die("ERROR: cannot use --non-overlapping with --markov, --features,\n--msa-format SS, or --do-cats.\n");
@@ -840,36 +839,27 @@ int main(int argc, char *argv[]) {
     msa = msa_new_from_file(fopen_fname(msa_fname, "r"), input_format, alph);
 
   if (tree == NULL) {
-    if (msa->nseqs == 2)
-      tree = tr_new_from_string("(1,2)");
-    else if (msa->nseqs == 3 && tm_is_reversible(subst_mod))
-      tree = tr_new_from_string("(1,(2,3))");
+    if (input_mod != NULL) tree = input_mod->tree;
+    else if (msa->nseqs == 2) {
+      sprintf(tmpchstr, "(%s,%s)", msa->names[0], msa->names[1]);
+      tree = tr_new_from_string(tmpchstr);
+    }
+    else if (msa->nseqs == 3 && tm_is_reversible(subst_mod)) {
+      sprintf(tmpchstr, "(%s,(%s,%s))", msa->names[0], msa->names[1], 
+              msa->names[2]);
+      tree = tr_new_from_string(tmpchstr);
+    }
     else die("ERROR: --tree required.\n");
   }
-  else 
-    tr_number_leaves(tree, msa->names, msa->nseqs);
-                         /* convert from names to numbers, if
-                            necessary */
-
-  /* make sure alignment and tree topology are consistent */
-  if (msa->nseqs * 2 - 1 != 
-      (input_mod == NULL ? tree->nnodes : input_mod->tree->nnodes)) 
-    die("ERROR: Tree must have 2n-1 nodes, where n is the number of sequences in the\nalignment.  Even with a reversible model, specify a rooted tree; the root\nwill be ignored in the optimization procedure.\n");
 
   /* allow for specified ancestor */
   if (root_seqname != NULL) {
-    char tmpstr[5];
-    int idx;
-    TreeNode *rl = NULL;
+    TreeNode *rl;
     if (tree == NULL || tm_is_reversible(subst_mod)) 
       die("ERROR: --ancestor requires --tree and a non-reversible model.\n");
-    idx = msa_get_seq_idx(msa, root_seqname);
-    sprintf(tmpstr, "%d", idx);
-    rl = tr_get_node(tree, tmpstr);
-    
+    rl = tr_get_node(tree, root_seqname);    
     if (rl == NULL || rl->parent != tree) 
       die("ERROR: Sequence specified by --ancestor must be a child of the root.\n");
-    
     root_leaf_id = rl->id;
   }
   
@@ -962,7 +952,6 @@ int main(int argc, char *argv[]) {
 
   /* now estimate models (window by window, if necessary) */
   mod_fname = str_new(STR_MED_LEN);
-  if (output_trees) out_tree_fname = str_new(STR_MED_LEN);
   source_msa = msa;
   for (win = 0; 
        win < (window_coords == NULL ? 1 : lst_size(window_coords)); 
@@ -1012,6 +1001,8 @@ int main(int argc, char *argv[]) {
         tm_init_rmp(mod);       /* necessary because number of
                                    parameters changes */
       }
+
+      tm_prune(mod, msa, !quiet);
 
       if (!quiet) {
         str_clear(tmpstr);
@@ -1132,33 +1123,6 @@ int main(int argc, char *argv[]) {
         print_post_prob_stats(mod, msa, output_fname_root, do_bases, 
                               do_expected_nsubst, do_expected_nsubst_tot, 
                               cat, quiet);
-
-      /* also print tree, if requested */
-      if (output_trees) {
-        /* first create a copy, with leaves labeled with sequence names */
-        TreeNode *trcpy = tr_create_copy(mod->tree);
-        for (j = 0; j < lst_size(trcpy->nodes); j++) {
-          int id;
-          TreeNode *n = lst_get_ptr(trcpy->nodes, j);
-          if (n->lchild != NULL) continue; /* internal node */
-          id = atoi(n->name);
-          strcpy(n->name, msa->names[id-1]);
-        }
-
-        /* now print altered tree */
-        str_cpy_charstr(out_tree_fname, output_fname_root);
-        if (cat != -1) {
-          str_append_charstr(out_tree_fname, ".");
-          str_append_int(out_tree_fname, cat);
-        }
-        str_append_charstr(out_tree_fname, ".nh");
-        if (!quiet) fprintf(stderr, "Writing tree to %s ...\n", 
-                            out_tree_fname->chars);
-        F = fopen_fname(out_tree_fname->chars, "w+");
-        tr_print(F, trcpy, 1);
-        fclose(F);
-        tr_free(trcpy);
-      }
 
       /* print window summary, if window mode */
       if (window_coords != NULL) 

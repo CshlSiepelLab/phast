@@ -1,4 +1,4 @@
-/* $Id: tree_likelihoods.c,v 1.7 2004-07-26 18:07:16 acs Exp $
+/* $Id: tree_likelihoods.c,v 1.8 2004-08-05 07:15:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -98,6 +98,10 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
     ss_from_msas(msa, mod->order+1, col_scores == NULL ? 0 : 1, 
                  NULL, NULL, NULL, -1);
 
+  /* set up leaf to sequence mapping, if necessary */
+  if (mod->msa_seq_idx == NULL)
+    tm_build_seq_idx(mod, msa);
+
   /* set up prob matrices, if necessary */
   for (i = 0; i < mod->tree->nnodes; i++) /* find a child node */
     if (((TreeNode*)lst_get_ptr(mod->tree->nodes, i))->parent != NULL) break;  
@@ -164,10 +168,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
               int thisseq;
 
               assert(n->name != NULL);
-              thisseq = atoi(n->name) - 1; /* should do this outside
-                                              of the main loop (store
-                                              a mapping by node id) */
-              assert(thisseq >= 0);
+              thisseq = mod->msa_seq_idx[n->id];
 
               /* first figure out whether there is a match for each
                  character in each position; we'll call this the record of

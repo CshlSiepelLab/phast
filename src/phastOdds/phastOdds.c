@@ -186,6 +186,11 @@ int main(int argc, char *argv[]) {
   if (msa->seqs == NULL && (msa->ss == NULL || msa->ss->tuple_idx == NULL) )
     die("ERROR: ordered sufficient statistics are required.\n");
 
+  for (i = 0; i < backgd_nmods; i++)
+    tm_prune(backgd_mods[i], msa, !verbose);
+  for (i = 0; i < feat_nmods; i++)
+    tm_prune(feat_mods[i], msa, !verbose);
+
   /* first have to subtract offset from features, if necessary */
   if (msa->idx_offset != 0 && features != NULL) {
     for (i = 0; i < lst_size(features->features); i++) {
