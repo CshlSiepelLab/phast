@@ -1,4 +1,4 @@
-/* $Id: display_rate_matrix.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: display_rate_matrix.c,v 1.2 2004-08-02 22:47:13 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -378,13 +378,7 @@ int main(int argc, char* argv[]) {
     switch(c) {
     case 't':
       if (optarg[0] == 'A') all_branches = 1;
-      else {
-        t = atof(optarg);
-        if (t < 0) {
-          fprintf(stderr, "ERROR: argument of -t must be 'A' or nonnegative.  Try \"display_rate_matrix -h\" for help.\n");
-          exit(1);
-        }
-      }
+      else t = get_arg_dbl_bounds(optarg, 0, INFTY);
       break;
     case 'f':
       do_eqfreqs = 1;
