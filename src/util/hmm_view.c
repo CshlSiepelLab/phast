@@ -1,4 +1,4 @@
-/* $Id: hmm_view.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: hmm_view.c,v 1.2 2004-07-27 22:22:12 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -18,7 +18,7 @@ DESCRIPTION: produces a graphical description of the state-transition\n\
 structure of a phylo-HMM, which can be converted to a viewable image\n\
 using the 'dot' program.\n\
 \n\
-USAGE: hmm_view [OPTIONS] <hmm_fname> <cat_map_fname>\n\
+USAGE: hmm_view [OPTIONS] <hmm_fname> <cat_map_fname>|<cat_map_str>\n\
 \n\
 OPTIONS:\n\
     -k <nrcats>   Assume a separate version of each state for each of \n\
@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
   }
 
   hmm = hmm_new_from_file(fopen_fname(argv[optind], "r"));
-  cm = cm_read(fopen_fname(argv[optind+1], "r"));
+  cm = cm_new_string_or_file(argv[optind+1]);
 
   show_cat = smalloc((cm->ncats+1) * sizeof(int));
   if (cats_to_show != NULL) {
