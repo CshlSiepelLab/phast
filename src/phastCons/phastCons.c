@@ -217,6 +217,12 @@ OPTIONS:\n\
         (Optionally use with --hmm) Expand HMM state space to model\n\
         indels as described in Siepel & Haussler (2004).\n\
 \n\
+    --max-micro-indel, -Y <length> \n\
+        (Optionally use with --indels) Maximum length of an alignment\n\
+        gap for it to be considered a \"micro-indel\" and therefore\n\
+        addressed by the indel model.  Gaps longer than this threshold\n\
+        will be treated as missing data.  Default value is 20.\n\
+\n\
     --reflect-strand, -U <pivot_states>\n\
         (Optionally use with --hmm) Given an HMM describing the\n\
         forward strand, create a larger HMM that allows for features\n\
@@ -477,7 +483,8 @@ int main(int argc, char *argv[]) {
     gff = FALSE, rates_cross = FALSE, estim_lambda = TRUE, 
     estim_transitions = TRUE, two_state = TRUE, indels = FALSE,
     coding_potential = FALSE, indels_only = FALSE;
-  int nrates = -1, rates_cut_idx = 1, refidx = 1, min_inform_bases = 2;
+  int nrates = -1, rates_cut_idx = 1, refidx = 1, min_inform_bases = 2, 
+    max_micro_indel = 20;
   double lambda = DEFAULT_LAMBDA, p = DEFAULT_P, q = DEFAULT_Q;
   msa_format_type msa_format = SS;
   FILE *viterbi_f = NULL, *lnl_f = NULL, *log_f = NULL;
@@ -503,6 +510,7 @@ int main(int argc, char *argv[]) {
     {"reflect-strand", 1, 0, 'U'},
     {"catmap", 1, 0, 'c'},
     {"indels", 0, 0, 'I'},
+    {"max-micro-indel", 1, 0, 'Y'},
     {"min-informative-types", 1, 0, 'M'},
     {"min-informative-bases", 1, 0, 'm'},
     {"lnl", 1, 0, 'L'},
@@ -529,7 +537,7 @@ int main(int argc, char *argv[]) {
   char *mods_fname = NULL;
   indel_mode_type indel_mode;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IJM:m:pXqh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IY:JM:m:pXqh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
       states = get_arg_list(optarg);
@@ -593,6 +601,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'I':
       indels = TRUE;
+      break;
+    case 'Y':
+      max_micro_indel = get_arg_int_bounds(optarg, 1, INFTY);
       break;
     case 'J':
       indels_only = TRUE;
@@ -721,6 +732,11 @@ int main(int argc, char *argv[]) {
   if (msa_format == SS && msa->ss->tuple_idx == NULL) 
     die("ERROR: Ordered representation of alignment required.\n");
 
+  /* mask out macro-indels, if necessary */
+  if (indels) 
+    msa_mask_macro_indels(msa, max_micro_indel);
+
+  /* prune away extra species, if possible */
   for (i = 0; i < lst_size(mod_fname_list); i++)
     tm_prune(mod[i], msa, !quiet);
 
