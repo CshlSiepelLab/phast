@@ -85,6 +85,8 @@ Hashtable *make_name_hash(char *mapstr) {
   lst_free_strings(mappings);
   lst_free(mappings);
   lst_free(names);
+  str_free(s);
+  str_re_free(map_re);
 
   return retval;
 }
