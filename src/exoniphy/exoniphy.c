@@ -1,6 +1,6 @@
 /* label - label the columns of alignment(s) by category */
 
-/* $Id: exoniphy.c,v 1.6 2004-06-15 22:33:57 acs Exp $
+/* $Id: exoniphy.c,v 1.7 2004-06-22 17:12:26 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, Adam Siepel, University of California 
 
@@ -890,7 +890,7 @@ int main(int argc, char* argv[]) {
 
   if (mode == TRAINING) {
     if (model_indels_str != NULL) {
-      tree = parse_nh_from_file(fopen_fname(tree_fname, "r"));
+      tree = tr_new_from_file(fopen_fname(tree_fname, "r"));
       if (tree == NULL) { 
         fprintf(stderr, "ERROR: invalid tree in %s.\n", tree_fname); 
         exit (1); 
@@ -1034,7 +1034,7 @@ int main(int argc, char* argv[]) {
     if (model_indels_str != NULL && tree == NULL) { 
       /* possible if all models are weight matrices */
       if (tree_fname == NULL || 
-          (tree = parse_nh_from_file(fopen_fname(tree_fname, "r"))) == NULL) { 
+          (tree = tr_new_from_file(fopen_fname(tree_fname, "r"))) == NULL) { 
         fprintf(stderr, "ERROR: indel mode requires a tree; you have not specified one, or you have specified one that is invalid.\n"); 
         exit (1); 
       }

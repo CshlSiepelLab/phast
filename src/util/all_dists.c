@@ -54,9 +54,9 @@ int main(int argc, char *argv[]) {
       break;
     case 't':
       if (optarg[0] == '(')
-        nametree = parse_nh_from_string(optarg);
+        nametree = tr_new_from_string(optarg);
       else 
-        nametree = parse_nh_from_file(fopen_fname(optarg, "r"));
+        nametree = tr_new_from_file(fopen_fname(optarg, "r"));
       break;
     case 'h':
       usage(argv[0]);
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
       tm_free(m);
     }
     else
-      tree[t] = parse_nh_from_file(fopen_fname(argv[optind+t], "r"));
+      tree[t] = tr_new_from_file(fopen_fname(argv[optind+t], "r"));
   }
 
   /* initialization */

@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.8 2004-06-19 20:35:14 acs Exp $
+/* $Id: tree_model.c,v 1.9 2004-06-22 17:12:26 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -221,7 +221,7 @@ void tm_free(TreeModel *tm) {
     free(tm->P);
     free(tm->rK);
     free(tm->freqK);
-    free_tree(tm->tree);
+    tr_free(tm->tree);
   }
   if (tm->rate_matrix != NULL) mm_free(tm->rate_matrix);
   if (tm->backgd_freqs != NULL) gsl_vector_free(tm->backgd_freqs);
@@ -335,7 +335,7 @@ TreeModel *tm_new_from_file(FILE *f) {
     }
     else if (!strcmp(tag, TREE_TAG)) {
       str_readline(tmpstr, f);
-      tree = parse_nh_from_string(tmpstr->chars);      
+      tree = tr_new_from_string(tmpstr->chars);      
     }
     else if (strcmp(tag, LNL_TAG) == 0) 
       str_readline(tmpstr, f);  /* discard */
@@ -436,7 +436,7 @@ void tm_print(FILE *F, TreeModel *tm) {
 
   if (tm->tree != NULL) {
     fprintf(F, "%s ", TREE_TAG);
-    print_tree(F, tm->tree, 1);
+    tr_print(F, tm->tree, 1);
   }
 }
 

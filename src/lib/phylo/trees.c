@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.7 2004-06-22 07:29:47 acs Exp $ 
+/* $Id: trees.c,v 1.8 2004-06-22 17:12:26 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -11,11 +11,8 @@
 */
 
 /* TODO: 
-   - reasonable way to handle unrooted trees (e.g., have "virtual root", 
-     understood to be ternary) 
    - better error checking in parsing function
    - make printing routines nonrecursive
-   - function names: consistent prefix (e.g., tr_)
    - use tr_inorder, tr_preorder, tr_postorder where possible 
    - possibly new scheme for labels at leaves; need general way to go 
      between leaf labels and leaf numbers (perhaps wrt a list of names) 
@@ -55,7 +52,7 @@ static int idcounter = 0;
                                 
 
 /** Parse a single tree from a file in "New Hampshire" format */
-TreeNode *parse_nh_from_file(FILE *f) { 
+TreeNode *tr_new_from_file(FILE *f) { 
   String *s = str_new(STR_VERY_LONG_LEN);
   TreeNode *retval;
 
@@ -68,13 +65,13 @@ TreeNode *parse_nh_from_file(FILE *f) {
   if (s->chars[s->length-1] == ';') 
     s->chars[--s->length] = '\0';
 
-  retval = parse_nh_from_string(s->chars);
+  retval = tr_new_from_string(s->chars);
   str_free(s);
   return retval;
 }
 
 /** Parse a single New Hampshire-formatted tree from a string */
-TreeNode *parse_nh_from_string(char *treestr) { 
+TreeNode *tr_new_from_string(char *treestr) { 
   char diststr[STR_MED_LEN];
   TreeNode *root, *node, *newnode;
   int i, in_distance = 0, len = strlen(treestr);
@@ -82,7 +79,7 @@ TreeNode *parse_nh_from_string(char *treestr) {
   char *currentname = NULL;
 
   idcounter = 0;                /* start at 0 for each tree */
-  root = new_tree_node(); root->nnodes = 1;
+  root = tr_new_node(); root->nnodes = 1;
   node = root;
   for (i = 0; i < len; i++) {
     c = treestr[i];
@@ -98,13 +95,13 @@ TreeNode *parse_nh_from_string(char *treestr) {
     }
 
     if (c == '(') {
-      addchild(node, newnode = new_tree_node());
+      tr_add_child(node, newnode = tr_new_node());
       node = newnode;
       currentname = newnode->name;
       root->nnodes++;
     }
     else if (c == ',') {
-      addchild(node->parent, newnode = new_tree_node());
+      tr_add_child(node->parent, newnode = tr_new_node());
       node = newnode;
       currentname = node->name;
       root->nnodes++;
@@ -175,7 +172,7 @@ void tr_set_nnodes(TreeNode *tree) {
 }
 
 /* Create and initialize a new tree node */
-TreeNode *new_tree_node() {
+TreeNode *tr_new_node() {
   TreeNode *n = (TreeNode*)smalloc(sizeof(TreeNode));
   n->parent = n->lchild = n->rchild = NULL;
   n->data = NULL;
@@ -191,7 +188,7 @@ TreeNode *new_tree_node() {
 /* Add specified child to specified parent, creating all requisite
    links.  If the parent already has two children, add a new node
    (to simulate an nary tree with a binary tree) */
-void addchild(TreeNode *parent, TreeNode *child) {
+void tr_add_child(TreeNode *parent, TreeNode *child) {
   if (parent->lchild == NULL) {
     parent->lchild = child;
   }
@@ -200,7 +197,7 @@ void addchild(TreeNode *parent, TreeNode *child) {
   }
   else {
     /* add intermediate node to accommodate extra child */
-    TreeNode *tmp = new_tree_node();
+    TreeNode *tmp = tr_new_node();
     tmp->lchild = parent->lchild;
     tmp->rchild = parent->rchild;
     tmp->parent = parent;
@@ -213,7 +210,7 @@ void addchild(TreeNode *parent, TreeNode *child) {
 }
 
 /* Print tree in New Hampshire format */
-void print_tree(FILE* f, TreeNode *root, int show_branch_lengths) {
+void tr_print(FILE* f, TreeNode *root, int show_branch_lengths) {
   print_tree_recur(f, root, show_branch_lengths);
   fprintf(f, ";\n");
 }
@@ -261,7 +258,7 @@ void print_node_debug(FILE *f, TreeNode *n) {
     fprintf(f, "\tChildren = (%d, %d)\n", n->lchild->id, n->rchild->id);
 }
 
-void free_tree(TreeNode *tree) {
+void tr_free(TreeNode *tree) {
   Stack *stack;
   TreeNode *n;
   stack = stk_new_ptr(tree->nnodes);
@@ -312,14 +309,14 @@ void tr_cpy(TreeNode *dest, TreeNode *src) {
     if (n->lchild != NULL) {
       lcpy = stk_pop_ptr(nodes);
       tr_node_cpy(lcpy, n->lchild);
-      addchild(ncpy, lcpy);
+      tr_add_child(ncpy, lcpy);
       stk_push_ptr(stack, n->lchild);
       stk_push_ptr(cpystack, lcpy);
     }
     if (n->rchild != NULL) {
       rcpy = stk_pop_ptr(nodes);
       tr_node_cpy(rcpy, n->rchild);
-      addchild(ncpy, rcpy);
+      tr_add_child(ncpy, rcpy);
       stk_push_ptr(stack, n->rchild);
       stk_push_ptr(cpystack, rcpy);
     }
@@ -339,22 +336,22 @@ TreeNode *tr_create_copy(TreeNode *src) {
   stack = stk_new_ptr(src->nnodes);
   cpystack = stk_new_ptr(src->nnodes);
   stk_push_ptr(stack, src); 
-  dest = new_tree_node();
+  dest = tr_new_node();
   tr_node_cpy(dest, src);
   stk_push_ptr(cpystack, dest);
   while ((n = stk_pop_ptr(stack)) != NULL) {
     ncpy = stk_pop_ptr(cpystack);
     if (n->lchild != NULL) {
-      lcpy = new_tree_node();
+      lcpy = tr_new_node();
       tr_node_cpy(lcpy, n->lchild);
-      addchild(ncpy, lcpy);
+      tr_add_child(ncpy, lcpy);
       stk_push_ptr(stack, n->lchild);
       stk_push_ptr(cpystack, lcpy);
     }
     if (n->rchild != NULL) {
-      rcpy = new_tree_node();
+      rcpy = tr_new_node();
       tr_node_cpy(rcpy, n->rchild);
-      addchild(ncpy, rcpy);
+      tr_add_child(ncpy, rcpy);
       stk_push_ptr(stack, n->rchild);
       stk_push_ptr(cpystack, rcpy);
     }

@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.10 2004-06-19 20:35:14 acs Exp $
+   $Id: phyloFit.c,v 1.11 2004-06-22 17:12:26 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -656,9 +656,9 @@ int main(int argc, char *argv[]) {
     case 't':
       if (optarg[0] == '(')     /* in this case, assume topology given
                                    at command line */
-        tree = parse_nh_from_string(optarg);
+        tree = tr_new_from_string(optarg);
       else 
-        tree = parse_nh_from_file(fopen_fname(optarg, "r"));
+        tree = tr_new_from_file(fopen_fname(optarg, "r"));
       break;
     case 's':
       subst_mod = tm_get_subst_mod_type(optarg);
@@ -828,9 +828,9 @@ int main(int argc, char *argv[]) {
 
   if (tree == NULL) {
     if (msa->nseqs == 2)
-      tree = parse_nh_from_string("(1,2)");
+      tree = tr_new_from_string("(1,2)");
     else if (msa->nseqs == 3 && tm_is_reversible(subst_mod))
-      tree = parse_nh_from_string("(1,(2,3))");
+      tree = tr_new_from_string("(1,(2,3))");
   }
   else 
     tr_number_leaves(tree, msa->names, msa->nseqs);
@@ -1140,9 +1140,9 @@ int main(int argc, char *argv[]) {
         if (!quiet) fprintf(stderr, "Writing tree to %s ...\n", 
                             out_tree_fname->chars);
         F = fopen_fname(out_tree_fname->chars, "w+");
-        print_tree(F, trcpy, 1);
+        tr_print(F, trcpy, 1);
         fclose(F);
-        free_tree(trcpy);
+        tr_free(trcpy);
       }
 
       /* print window summary, if window mode */

@@ -1,4 +1,4 @@
-/* $Id: trees.h,v 1.3 2004-06-17 23:54:45 acs Exp $
+/* $Id: trees.h,v 1.4 2004-06-22 17:12:26 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -52,14 +52,14 @@ struct tree_node {
                                    root */
 };
 
-TreeNode *parse_nh_from_file(FILE *f);
-TreeNode *parse_nh_from_string(char *s);
-TreeNode *new_tree_node();
-void addchild(TreeNode *parent, TreeNode *child);
-void print_tree(FILE* f, TreeNode *root, int show_branch_lengths);
+TreeNode *tr_new_from_file(FILE *f);
+TreeNode *tr_new_from_string(char *s);
+TreeNode *tr_new_node();
+void tr_add_child(TreeNode *parent, TreeNode *child);
+void tr_print(FILE* f, TreeNode *root, int show_branch_lengths);
 void print_tree_recur(FILE* f, TreeNode *n, int show_branch_lengths);
 void print_tree_debug(FILE *f, TreeNode *n);
-void free_tree(TreeNode *n);
+void tr_free(TreeNode *n);
 void tr_set_nnodes(TreeNode *tree);
 void tr_reset_id();
 void tr_cpy(TreeNode *dest, TreeNode *src);

@@ -1,4 +1,4 @@
-/* $Id: draw_tree.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: draw_tree.c,v 1.2 2004-06-22 17:12:27 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "ERROR: Cannot open %s.\n", argv[optind]);
     exit(1);
   }
-  tree = parse_nh_from_file(F);
+  tree = tr_new_from_file(F);
   tr_print_ps(stdout, tree, show_branch_lens, square_branches, draw_to_scale, 
               horizontal);
   fclose(F);

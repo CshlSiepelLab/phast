@@ -28,7 +28,8 @@ USAGE:          %s [OPTIONS] <infile>\n\
 \n\
 OPTIONS:\n\
     --include, -i <types>\n\
-        Include only features of the specified types (comma-delimited list).\n\
+        Include only features of the specified types (comma-delimited list);\n\
+        filter out everything else.\n\
 \n\
     --sort, -s\n\
         Sort features primarily by start position and secondarily\n\

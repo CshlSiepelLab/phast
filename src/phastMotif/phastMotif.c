@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
   while ((c = getopt(argc, argv, "t:i:b:sk:md:pn:I:R:P:w:c:SB:o:HDxh")) != -1) {
     switch (c) {
     case 't':
-      tree = parse_nh_from_file(fopen_fname(optarg, "r"));
+      tree = tr_new_from_file(fopen_fname(optarg, "r"));
       break;
     case 'i':
       msa_format = msa_str_to_format(optarg);
