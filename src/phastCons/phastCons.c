@@ -551,8 +551,8 @@ int main(int argc, char *argv[]) {
       collapse_cats(phmm->cm, states);
 
     if (!quiet) fprintf(stderr, "Running Viterbi algorithm...\n");
-    predictions = phmm_predict_viterbi_cats(phmm, states, seqname, NULL,
-                                            "phastCons_predicted");
+    predictions = phmm_predict_viterbi_cats(phmm, states, seqname, 
+                                            NULL, NULL,"phastCons_predicted");
     /* note that selected state numbers are also cat numbers  */
    
     /* score predictions, if necessary */

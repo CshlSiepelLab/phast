@@ -39,6 +39,11 @@ typedef struct {
   int alloc_len;                /**< length for which emissions and/or
                                    forward are (or are to be) allocated */
   int *state_pos, *state_neg;   /**< contain tracking data for emissions */
+  int do_indels;                /**< whether indel model is in use */
+  TreeNode *topology;           /**< representative tree from tree
+                                   models, used to define topology
+                                   with indel model (in this case, all
+                                   topologies must be the same) */
 } PhyloHmm;
 
 PhyloHmm *phmm_new(HMM *hmm, TreeModel **tree_models, CategoryMap *cm, 
@@ -52,9 +57,11 @@ void phmm_free(PhyloHmm *phmm);
 void phmm_compute_emissions(PhyloHmm *phmm, MSA *msa, int quiet);
 double phmm_fit_lambda(PhyloHmm *phmm, double *lambda, FILE *logf);
 void phmm_update_cross_prod(PhyloHmm *phmm, double lambda);
-GFF_Set* phmm_predict_viterbi(PhyloHmm *phmm, char *seqname, List *frame);
+GFF_Set* phmm_predict_viterbi(PhyloHmm *phmm, char *seqname, char *grouptag,
+                              List *frame);
 GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm, List *cats, char *seqname,
-                                     List *frame, char *new_type );
+                                   char *grouptag, List *frame, 
+                                   char *new_type);
 double phmm_lnl(PhyloHmm *phmm);
 double phmm_postprobs(PhyloHmm *phmm, double **post_probs);
 double* phmm_postprobs_cats(PhyloHmm *phmm, List *cats, double *lnl);
@@ -64,5 +71,6 @@ void phmm_score_predictions(PhyloHmm *phmm, GFF_Set *preds, List *score_cats,
 void phmm_rates_cut(PhyloHmm *phmm, int nrates, int cut_idx, double p, double q);
 double phmm_fit_rates_cut(PhyloHmm *phmm, double *p, double *q, FILE *logf);
 double phmm_fit_rates_cut_bfgs(PhyloHmm *phmm, double *p, double *q, FILE *logf);
+void phmm_add_bias(PhyloHmm *phmm, List *backgd_cat_names, double bias);
 
 #endif

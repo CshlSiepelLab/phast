@@ -1,34 +1,26 @@
-/* label - label the columns of alignment(s) by category */
-
-/* $Id: exoniphy.c,v 1.10 2004-06-29 03:18:03 acs Exp $
+/* $Id: exoniphy.c,v 1.11 2004-06-29 23:00:17 acs Exp $
    Written by Adam Siepel, 2002-2004
-   Copyright 2002-2004, Adam Siepel, University of California 
-*/
+   Copyright 2002-2004, Adam Siepel, University of California */
 
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <phylo_hmm.h>
 #include <assert.h>
 #include <getopt.h>
 #include <string.h>
-#include <tree_likelihoods.h>
+#include <phylo_hmm.h>
 #include <gff.h>
-#include <bed.h>
 #include <category_map.h>
-#include <dgamma.h>
-#include <numerical_opt.h>
 #include <sufficient_stats.h>
 #include <stringsplus.h>
-#include <gap_patterns.h>
 
 /* default background feature types; used when scoring predictions and
    reflecting HMM */
 #define DEFAULT_BACKGD_CATS "background,CNS"
 
 /* default "cds" and "signal" feature tupes */
-#define DEFAULT_CDS_CATS "CDS,start_codon"
-#define DEFAULT_SIGNAL_CATS "stop_codon,5'splice,3'splice"
+#define DEFAULT_CDS_CATS "CDS,start_codon,cds5'ss,cds3'ss"
+#define DEFAULT_SIGNAL_CATS "stop_codon,5'splice,3'splice,prestart"
                                 /* cat names that aren't present will
                                    be ignored */
 
@@ -40,135 +32,143 @@
 #define NSENS_SPEC_TRIES 10
 
 void print_usage() {
-    printf("
-PROGRAM: exoniphy
-
-USAGE: exoniphy --hmm <file> --tree-models <list> <msa_fname> > predictions.gff
-
-FIXME: need default HMM and tree models options (mammals), --tree option
-what about --tree for indel model?  
-
-
-DESCRIPTION: 
-    
-
-OPTIONS:
-    --msa-format, -i PHYLIP|FASTA|MPM|SS 
-        (default FASTA) Alignment format.
- 
-    --catmap, -c <category_map_fname>
-        (required) File defining mapping of feature types to category
-        numbers.
-
-    --tree-models, -m <model_fname_list>
-        List of files defining a tree model
-        for each functional category.  Order of models must correspond
-        to order of states in HMM.  Tree model
-        files may be produced with phyloFit.  Note: this option
-        is given a special interpretation with -D (see below).
-
-    --hmm, -H <hmm_fname>
-        (for use with -d; indicates testing mode)  Name of HMM file,
-        defining the probability of transition from each functional
-        category to each other.  Generally a file is used that was
-        produced by this same program, running in training mode.
-
-    --seqname, -s <name>
-        (For use with -f, -b, or -Q)  Use specified string as the \"seqname\"
-        field in GFF output (e.g., chr22).  By default, the root of the input file name is used.
-
-    --quiet, -q 
-        Proceed quietly (without updates to stderr).
-
-    --help -h
-        Print this help message.
-
-
-Auxiliary options
-
-    --reflect-strand, -U 
-        Given an HMM describing the forward
-        strand, create a larger HMM that allows for features on both
-        strands by \"reflecting\" the HMM about all states associated with background categories
-        (see -V).  The new HMM will be used for predictions on both strands.
-
-    --score, -S
-        Assign log-odds scores to predictions, equal to their log total
-        probability under an exon model minus their log total probability
-        under a background model.  The exon model can be altered using the --cds-types and --signal-types options and the background model can be altered using the --backgd-types option.
-
-    --bias, -b <val>         /* FIXME: use log */
-        Predict with a \"coding bias\" equal to the specified value.  The specified value is added to the log transition probabilities from background states to 
-        non-background states (see -V), then all transition probabilities are renormalized.  If the value is positive, more predictions will tend to be made and sensitivity will tend to increase, at some cost to specificity; if the value is negative, fewer predictions will tend to be made, and specificity will tend to improve, at some cost to sensitivity.
-
-    --sens-spec, -Y <fname-root
-        Make predictions for a range of different values of coding biase (see --bias), and write results to files with given filename root.  The range is fixed at %d to %d, and %d different sets of predictions are produced.  Allows analysis of sensitivity/specificity tradeoff.
-
-    --cds-types, -C <list>
-        Feature types that represent protein-coding regions (default value: \"%s\").  Used when scoring predictions and filling out 'frame' field in GFF output.
-
-    --backgd-types, -B <list>
-        Feature types to be considered \"background\" (default value: \"%s\").  Associated
-        states are considered \"background states\".  Affects --reflect-strand, --score, and --bias.  
-
-    --signal-types, -L <list>
-        (for use with --score)  Types of features to be considered \"signals\" during scoring (default value: \"%s\").  One score is produced for each CDS feature (as defined by --cds-types) and adjacent signal features; the score is then assigned to the CDS feature.  
-
-    --indel-types, -I <list>
-        Model indels for features of the specified types.  To have
-        nonzero probability for the states corresponding to a
-        specified category range, indels must be \"clean\"
-        (nonoverlapping), must be assignable by parsimony to a single
-        branch in the phylogenetic tree, and must have lengths that
-        are exact multiples of the category range size.
-
-    --gc-ranges, -D <range-cutoffs>
-        (Changes interpretation of -d) Use different sets of tree
-        models, depending on the G+C content of the input alignment.
-        The list <gc-thresholds> must consist of x ordered values in
-        (0,1), defining x+1 G+C classes.  The argument to -d must then
-        consist of the names of x+1 files, each of which contains a list
-        of tree-model filenames.
-
-    --no-gaps, -W <cat_list>
-        Prohibit gaps in the specified categories (gaps result in
-        emission probabilities of zero).  By default, gaps are treated
-        as missing data.\n\n", SCALE_RANGE_MIN, 
-           SCALE_RANGE_MAX, NSENS_SPEC_TRIES);
-}
-
-/* FIXME: put this in phylo_hmm.c; convert to use phmm */
-/* multiply all transition probabilities from designated background
-   categories to non-background categories by the specified factor,
-   then renormalize.  This provides a simple "knob" for the
-   sensitivity/specificity tradeoff.  Mathematically, it's a way of
-   changing the expected number of predicted features.  Category 0 is
-   assumed as a background category */
-void scale_trans_from_backgd(PhyloHmm *phmm, List *backgd_cat_names, 
-                             double scale_factor) {
-  /* FIXME: check cat nos */
-  double is_backgd_cat[phmm->cm->ncats+1];
-  int i, j;
-
-  is_backgd_cat[0] = 1;
-  for (i = 1; i <= phmm->cm->ncats; i++) is_backgd_cat[i] = 0;
-  if (backgd_cat_names != NULL) {
-    List *backgd_cat_nos = cm_get_category_list(phmm->cm, backgd_cat_names, 0); 
-    for (i = 0; i < lst_size(backgd_cat_nos); i++) 
-      is_backgd_cat[lst_get_int(backgd_cat_nos, i)] = 1;
-    lst_free(backgd_cat_nos);
-  }
-
-  for (i = 0; i < phmm->hmm->nstates; i++)
-    if (is_backgd_cat[phmm->state_to_cat[i]])
-      for (j = 0; j < phmm->hmm->nstates; j++)
-        if (!is_backgd_cat[phmm->state_to_cat[j]] && 
-            mm_get(phmm->hmm->transition_matrix, i, j) != 0) 
-          mm_set(phmm->hmm->transition_matrix, i, j, 
-                 scale_factor * 
-                 mm_get(phmm->hmm->transition_matrix, i, j));
-
-  hmm_renormalize(phmm->hmm);
+    printf("\n\
+PROGRAM: exoniphy\n\
+\n\
+USAGE: exoniphy --hmm <fname> --tree-models <list> \\\n\
+            --catmap <fname>|<string> > predictions.gff\n\
+\n\
+DESCRIPTION: \n\
+\n\
+        Prediction of evolutionarily conserved protein-coding exons,\n\
+        using a phylo-HMM, as described by Siepel & Haussler (RECOMB\n\
+        2004)\n\
+\n\
+EXAMPLES:\n\
+    (coming soon)    \n\
+\n\
+OPTIONS:\n\
+\n\
+ (Required)\n\
+    --hmm, -H <fname>\n\
+        Name of HMM file, defining the probability of transition from\n\
+        each functional category to each other.  Generally a file is\n\
+        used that was produced by this same program, running in\n\
+        training mode.\n\
+\n\
+    --tree-models, -m <fname_list>\n\
+        List of tree model (*.mod) files, one for each functional\n\
+        category.  Order of models must correspond to order of states\n\
+        in HMM.  \n\
+\n\
+    --catmap, -c <fname>|<string>\n\
+        Mapping of feature types to category numbers.  Can either give\n\
+        a filename or an \"inline\" description of a simple category\n\
+        map, e.g., --catmap \"NCATS = 3 ; CDS 1-3\" or --catmap\n\
+        \"NCATS = 1 ; UTR 1\".  Note that category 0 is reserved for\n\
+        \"background\" (everything that is not described by a defined\n\
+        feature type).\n\
+\n\
+ (Input and output)\n\
+    --msa-format, -i PHYLIP|FASTA|MPM|SS \n\
+        (default FASTA) Alignment format.\n\
+ \n\
+    --seqname, -s <name>\n\
+        Use specified string as the \"seqname\" field in GFF output\n\
+        (e.g., chr22).  By default, the filename root of the input\n\
+        file is used.\n\
+\n\
+    --grouptag, -g <tag>\n\
+        Use specified string as the tag denoting groups in GFF output\n\
+        (default is \"exon_id\").\n\
+\n\
+    --score, -S\n\
+        Report log-odds scores for predictions, equal to their log\n\
+        total probability under an exon model minus their log total\n\
+        probability under a background model.  The exon model can be\n\
+        altered using --cds-types and --signal-types and the\n\
+        background model can be altered using --backgd-types (see below).\n\
+\n\
+ (Altering the HMM)\n\
+    --reflect-strand, -U \n\
+        Given an HMM describing the forward strand, create a larger\n\
+        HMM that allows for features on both strands by \"reflecting\"\n\
+        the HMM about all states associated with background categories\n\
+        (see --backgd-cats).  The new HMM will be used for predictions\n\
+        on both strands.\n\
+\n\
+    --bias, -b <val>\n\
+        Set \"coding bias\" equal to the specified value (default 0).\n\
+        The coding bias is added to the log probabilities of\n\
+        transitions from background states to non-background states\n\
+        (see --backgd-cats), then all transition probabilities are\n\
+        renormalized.  If the coding bias is positive, then more\n\
+        predictions will tend to be made and sensitivity will tend to\n\
+        improve, at some cost to specificity; if it is negative, then\n\
+        fewer predictions will tend to be made, and specificity will\n\
+        tend to improve, at some cost to sensitivity.\n\
+\n\
+    --sens-spec, -Y <fname-root>\n\
+        Make predictions for a range of different coding\n\
+        biases (see --bias), and write results to files with given\n\
+        filename root.  This allows the sensitivity/specificity\n\
+        tradeoff to be examined.  The range is fixed at %d to %d, \n\
+        and %d different sets of predictions are produced.\n\
+\n\
+ (Feature types)\n\
+    --cds-types, -C <list>\n\
+        Feature types that represent protein-coding regions (default\n\
+        value: \"%s\").  Used when scoring predictions and filling out\n\
+        'frame' field in GFF output.\n\
+\n\
+    --backgd-types, -B <list>\n\
+        Feature types to be considered \"background\" (default value:\n\
+        \"%s\").  Affects --reflect-strand, --score, and --bias.\n\
+\n\
+    --signal-types, -L <list>\n\
+        (for use with --score) Types of features to be considered\n\
+        \"signals\" during scoring (default value: \n\
+        \"%s\").  One score is produced \n\
+        for each CDS feature (as defined by --cds-types) and \n\
+        adjacent signal features; the score is then assigned to\n\
+        the CDS feature.\n\
+\n\
+ (Indels and G+C content)\n\
+    --indel-types, -I <list>\n\
+        Model indels for features of the specified types.  To have\n\
+        nonzero probability for the states corresponding to a\n\
+        specified category range, indels must be \"clean\"\n\
+        (nonoverlapping), must be assignable by parsimony to a single\n\
+        branch in the phylogenetic tree, and must have lengths that\n\
+        are exact multiples of the category range size.\n\
+\n\
+    --no-gaps, -W <list>\n\
+        Prohibit gaps in the specified categories (gaps result in\n\
+        emission probabilities of zero).  By default, gaps are treated\n\
+        as missing data.\n\
+\n\
+    --gc-ranges, -D <range-cutoffs>\n\
+        (Changes interpretation of --models) Use different sets of\n\
+        tree models, depending on the G+C content of the input\n\
+        alignment.  The list <range-cutoffs> must consist of x ordered\n\
+        values in (0,1), defining x+1 G+C classes.  The argument to -d\n\
+        must then consist of the names of x+1 files, each of which\n\
+        contains a list of tree-model filenames.\n\
+\n\
+ (Other)\n\
+    --quiet, -q \n\
+        Proceed quietly (without messages to stderr).\n\
+\n\
+    --help -h\n\
+        Print this help message.\n\
+\n\
+\n\
+REFERENCES:\n\
+ \n\
+    A. Siepel and D. Haussler.  Computational identification of \n\
+      evolutionarily conserved exons.  RECOMB 2004.\n\n", SCALE_RANGE_MIN, 
+           SCALE_RANGE_MAX, NSENS_SPEC_TRIES, DEFAULT_CDS_CATS, 
+           DEFAULT_BACKGD_CATS, DEFAULT_SIGNAL_CATS);
 }
 
 int main(int argc, char* argv[]) {
@@ -176,13 +176,34 @@ int main(int argc, char* argv[]) {
   /* variables for options, with defaults */
   int msa_format = FASTA;
   int quiet = FALSE, reflect_hmm = FALSE, score = FALSE;
-  double mult_trans_probs = -1;
-  char *seqname = NULL, *sens_spec_fname_root = NULL;
+  double bias = NEGINFTY;
+  char *seqname = NULL, *grouptag = "exon_id", *sens_spec_fname_root = NULL;
   List *model_fname_list = NULL, *no_gaps_str = NULL, *model_indels_str = NULL,
-    *penalize_gaps_str = NULL, *gc_thresholds = NULL;
+    *gc_thresholds = NULL;
   List *backgd_cats = get_arg_list(DEFAULT_BACKGD_CATS), 
     *cds_cats = get_arg_list(DEFAULT_CDS_CATS), 
     *signal_cats = get_arg_list(DEFAULT_SIGNAL_CATS);
+
+  struct option long_opts[] = {
+    {"hmm", 1, 0, 'H'},
+    {"tree-models", 1, 0, 'm'},
+    {"catmap", 1, 0, 'c'},
+    {"msa-format", 1, 0, 'i'},
+    {"seqname", 1, 0, 's'},
+    {"grouptag", 1, 0, 'g'},
+    {"score", 0, 0, 'S'},
+    {"reflect-strand", 0, 0, 'U'},
+    {"bias", 1, 0, 'b'},
+    {"sens-spec", 1, 0, 'Y'},
+    {"cds-types", 1, 0, 'C'},
+    {"backgd-types", 1, 0, 'B'},
+    {"signal-types", 1, 0, 'L'},
+    {"indel-types", 1, 0, 'I'},
+    {"no-gaps", 1, 0, 'W'},
+    {"gc-ranges", 1, 0, 'D'},
+    {"quiet", 0, 0, 'q'},
+    {"help", 0, 0, 'h'},
+  };
 
   /* other variables */
   FILE* F;
@@ -191,14 +212,14 @@ int main(int argc, char* argv[]) {
   TreeModel **mod;
   HMM *hmm = NULL;
   CategoryMap *cm = NULL;
-  TreeNode *tree = NULL;
-  GapPatternMap *gpm = NULL;
   GFF_Set *predictions;
-  int *msa_gap_patterns = NULL;
   char c;
-  int i, j, ncats, ncats_unspooled,  trial, ntrials;
+  int i, ncats, ncats_unspooled, trial, ntrials, opt_idx;
+  double gc;
+  char tmpstr[STR_SHORT_LEN];
 
-  while ((c = getopt(argc, argv, "i:c:H:m:s:B:T:L:I:W:b:D:SYUhq")) != -1) {
+  while ((c = getopt_long(argc, argv, "i:c:H:m:s:g:B:T:L:I:W:b:D:SYUhq", 
+                          long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
       msa_format = msa_str_to_format(optarg);
@@ -233,7 +254,7 @@ int main(int argc, char* argv[]) {
       score = TRUE;
       break;
     case 'b':
-      mult_trans_probs = get_arg_dbl(optarg);
+      bias = get_arg_dbl(optarg);
       break;
     case 'Y':
       sens_spec_fname_root = optarg;
@@ -248,12 +269,16 @@ int main(int argc, char* argv[]) {
       gc_thresholds = str_list_as_dbl(get_arg_list(optarg));
       for (i = 0; i < lst_size(gc_thresholds); i++)
         if (lst_get_dbl(gc_thresholds, i) <= 0 || 
-            lst_get_dbl(gc_thresholds, i) >= 1) 
-          die("ERROR: Bad G+C threshold.\n");
-      lst_qsort_dbl(gc_thresholds, ASCENDING);
+            lst_get_dbl(gc_thresholds, i) >= 1 ||
+            (i > 0 && lst_get_dbl(gc_thresholds, i-1) >=
+             lst_get_dbl(gc_thresholds, i)))
+          die("ERROR: Bad args to --gc-ranges.\n");
       break; 
     case 's':
       seqname = optarg;
+      break;
+    case 'g':
+      grouptag = optarg;
       break;
     case 'q':
       quiet = TRUE;
@@ -267,12 +292,24 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  /* Check validity of arguments */
   if (optind != argc - 1) 
     die("ERROR: alignment filename is required argument.  Try 'exoniphy -h' for help.\n");
 
   if (model_fname_list == NULL) 
     die("ERROR: --tree-models is a required argument.  Try 'exoniphy -h' for help.\n");
+
+  if (hmm == NULL)
+    die("ERROR: --hmm is a required argument.  Try 'exoniphy -h for help.\n");
+
+  if (cm == NULL)
+    die("ERROR: --catmap is a required argument.  Try 'exoniphy -h for help.\n");
+
+  if (gc_thresholds != NULL && 
+      lst_size(model_fname_list) != lst_size(gc_thresholds) + 1)
+    die("ERROR: with --gc-ranges, number of args to --tree-models must be exactly\none more than number of args to --gc-ranges.  Try 'exoniphy -h' for help.\n");
+
+  if (sens_spec_fname_root != NULL && bias != NEGINFTY)
+    die("ERROR: can't use --bias and --sens-spec together.\n");
 
   /* read alignment */
   if (!quiet)
@@ -293,36 +330,30 @@ int main(int argc, char* argv[]) {
   }
 
   /* get default cat map if not specified */
-  if (cm == NULL)
-    cm = cm_read(fopen_fname(DEFAULT_CATMAP, "r"));
+/*   if (cm == NULL) */
+/*     cm = cm_read(fopen_fname(DEFAULT_CATMAP, "r")); */
 
   ncats = cm->ncats + 1;
   ncats_unspooled = cm->unspooler != NULL ? cm->unspooler->nstates_unspooled : 
     ncats;
 
+  /* if --gc-ranges, figure out which set of tree models to use */
   if (gc_thresholds != NULL) {
-    double gc;
-    String *models_fname;
-    char tmpstr[STR_SHORT_LEN];
+    String *gc_models_fname = NULL;
     gsl_vector *f = msa_get_base_freqs(msa, -1, -1); 
-    /* note: does not consider categories */
-    assert(msa->inv_alphabet[(int)'G'] >= 0 && 
-           msa->inv_alphabet[(int)'C'] >= 0);
     gc = gsl_vector_get(f, msa->inv_alphabet[(int)'G']) +
       gsl_vector_get(f, msa->inv_alphabet[(int)'C']);
-    assert(lst_size(model_fname_list) == lst_size(gc_thresholds) + 1);
-    for (i = 0; models_fname == NULL && i < lst_size(gc_thresholds); i++)
+    for (i = 0; gc_models_fname == NULL && i < lst_size(gc_thresholds); i++)
       if (gc < lst_get_dbl(gc_thresholds, i))
-        models_fname = lst_get_ptr(model_fname_list, i);
-    if (models_fname == NULL) 
-      models_fname = lst_get_ptr(model_fname_list, i); /* last element */
-    
+        gc_models_fname = lst_get_ptr(model_fname_list, i);
+    if (gc_models_fname == NULL) 
+      gc_models_fname = lst_get_ptr(model_fname_list, lst_size(gc_thresholds));     
     if (!quiet) 
-      fprintf(stderr, "G+C content is %.1f%%; using models for partition %d (%s) ...\n", gc*100, i, models_fname->chars);
+      fprintf(stderr, "G+C content is %.1f%%; using models for partition %d (%s) ...\n", gc*100, i, gc_models_fname->chars);
     
     /* this trick makes it as if the correct set of models had been
        specified directly */
-    sprintf(tmpstr, "*%s", models_fname->chars);
+    sprintf(tmpstr, "*%s", gc_models_fname->chars);
     lst_free_strings(model_fname_list); lst_clear(model_fname_list);
     model_fname_list = get_arg_list(tmpstr);
     
@@ -341,79 +372,30 @@ int main(int argc, char* argv[]) {
     F = fopen_fname(fname->chars, "r");
     mod[i] = tm_new_from_file(F); 
     mod[i]->use_conditionals = 1;
-    if (mod[i]->tree != NULL) { /* FIXME: put this in phylo_hmm.c */
-      if (tree == NULL)
-        tree = mod[i]->tree;
-      else if (mod[i]->tree->nnodes != tree->nnodes) 
-        die("ERROR: trees of models have different numbers of nodes.\n");
-    }
     fclose(F);
   }
 
-  if (tree != NULL && msa->nseqs * 2 - 1 != tree->nnodes) 
-    die("ERROR: number of leaves in trees must equal number of sequences in alignment.\n");
-
-  /* set up gap cats */
-  /* FIXME: put in phylo-hmm.c? */
+  /* disallow gaps, if necessary */
   if (no_gaps_str != NULL) {
     List *l = cm_get_category_list(cm, no_gaps_str, 0);
     for (i = 0; i < lst_size(l); i++) 
       mod[lst_get_int(l, i)]->allow_gaps = 0;
     lst_free(l);
   }      
-  else if (penalize_gaps_str != NULL) {
-    List *l = cm_get_category_list(cm, penalize_gaps_str, 0);
-    for (i = 0; i < lst_size(l); i++) 
-      mod[lst_get_int(l, i)]->allow_but_penalize_gaps = 1;
-    lst_free(l);
-  }      
 
   phmm = phmm_new(hmm, mod, cm, reflect_hmm ? backgd_cats : NULL, 
                   model_indels_str, msa->nseqs);
 
-  /* if modeling indels, obtain gap pattern for each site in the alignment */
-  /* FIXME: put some of this in phylo_hmm.c? */
-  if (model_indels_str != NULL) {
-    if (!quiet)
-      fprintf(stderr, "Obtaining gap patterns ...\n");
-    msa_gap_patterns = smalloc(msa->length * sizeof(int));
-    gp_set_phylo_patterns(msa_gap_patterns, msa, tree);
-  }
+  /* add bias, if necessary */
+  if (bias != NEGINFTY) phmm_add_bias(phmm, backgd_cats, bias);
 
-  /* multiply transition probs, if necessary */
-  if (mult_trans_probs > 0) 
-    scale_trans_from_backgd(phmm, backgd_cats, mult_trans_probs);
-
+  /* compute emissions */
   phmm_compute_emissions(phmm, msa, quiet);
 
-  /* redefine emissions for indel states, if necessary */
-  /* FIXME: put in phylo_hmm.c ! */
-  if (model_indels_str != NULL) {
-    if (!quiet)
-      fprintf(stderr, "Adjusting emission probs according to gap patterns ...\n");
-    for (i = phmm->hmm->nstates - 1; i >= 0; i--) {
-                                /* by going backwards, we ensure that
-                                   the "base" state (with gap pattern
-                                   == 0) is visited last (see
-                                   puzzler.c and gap_patterns.c) */
-      if (phmm->state_to_pattern[i] >= 0) {
-        double *orig_emissions = phmm->emissions[i];
-        if (phmm->state_to_pattern[i] > 0)
-          phmm->emissions[i] = smalloc(msa->length * sizeof(double));
-                                /* otherwise, use the array already
-                                   allocated */
-        for (j = 0; j < msa->length; j++) 
-          phmm->emissions[i][j] = 
-            (msa_gap_patterns[j] == phmm->state_to_pattern[i] ? 
-             orig_emissions[j] : NEGINFTY);                                 
-      }
-    }
-  }
-
-  /* need to do the part below in a loop in the case of sens-spec
-     mode */
+  /* now produce predictions.  Need to do this in a loop because
+     of sens-spec mode */
   if (sens_spec_fname_root != NULL) {    
-    scale_trans_from_backgd(phmm, backgd_cats, exp(SCALE_RANGE_MIN));
+    phmm_add_bias(phmm, backgd_cats, SCALE_RANGE_MIN);
     ntrials = NSENS_SPEC_TRIES;
   }
   else ntrials = 1;
@@ -425,8 +407,8 @@ int main(int argc, char* argv[]) {
 
     /* run Viterbi */
     if (!quiet)
-      fprintf(stderr, "Executing Viterbi algorithm ...\n");
-    predictions = phmm_predict_viterbi(phmm, seqname, cds_cats);
+      fprintf(stderr, "Executing Viterbi algorithm...\n");
+    predictions = phmm_predict_viterbi(phmm, seqname, grouptag, cds_cats);
 
     /* score predictions */
     if (score) {
@@ -445,9 +427,8 @@ int main(int argc, char* argv[]) {
       sprintf(tmpstr, "%s.v%d.gff", sens_spec_fname_root, trial+1);
       gff_print_set(fopen_fname(tmpstr, "w+"), predictions);      
       if (trial < ntrials - 1)     /* also set up for next iteration */
-        scale_trans_from_backgd(phmm, backgd_cats, 
-                                exp((SCALE_RANGE_MAX - SCALE_RANGE_MIN)/
-                                    (NSENS_SPEC_TRIES-1)));
+        phmm_add_bias(phmm, backgd_cats, (SCALE_RANGE_MAX - SCALE_RANGE_MIN)/
+                      (NSENS_SPEC_TRIES-1));
     }
     else                        /* just output to stdout */
       gff_print_set(stdout, predictions);

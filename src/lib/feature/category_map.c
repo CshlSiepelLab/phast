@@ -1,4 +1,4 @@
-/* $Id: category_map.c,v 1.5 2004-06-15 22:33:57 acs Exp $
+/* $Id: category_map.c,v 1.6 2004-06-29 23:00:17 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -59,10 +59,8 @@ CategoryMap *cm_read(FILE *F) {
         cm_new_category_range(str_new_charstr(BACKGD_CAT_NAME), 0, 0);
     }
 
-    else if (cm == NULL || cm->ncats == 0) {
-      fprintf(stderr, "ERROR: NCATS line must appear first, and must specify a positive number of categories.\n");
-      return NULL;
-    }
+    else if (cm == NULL || cm->ncats == 0) 
+      die("ERROR: NCATS line must appear first, and must specify a positive number of categories.\n");
 
     else if (str_re_match(line, label_re, l, 1) >= 0) {               
                                 /* LABELLING_PRECEDENCE line */
@@ -71,10 +69,8 @@ CategoryMap *cm_read(FILE *F) {
       str_split((String*)lst_get_ptr(l, 1), " ,", tmpl);
       for (i = 0; i < lst_size(tmpl); i++) {
         String *s = (String*)lst_get_ptr(tmpl, i);
-        if (str_as_int(s, &tmpi) != 0 || tmpi < 0 || tmpi > cm->ncats) {
-          fprintf(stderr, "ERROR: bad integer in LABELLING_PRECEDENCE.\n");
-          return NULL;
-        }
+        if (str_as_int(s, &tmpi) != 0 || tmpi < 0 || tmpi > cm->ncats) 
+          die("ERROR: bad integer in LABELLING_PRECEDENCE.\n");
         cm->labelling_precedence[tmpi] = i;
         str_free(s);
       }
@@ -88,10 +84,8 @@ CategoryMap *cm_read(FILE *F) {
       str_split(lst_get_ptr(l, 1), " ,", tmpl);
       for (i = 0; i < lst_size(tmpl); i++) {
         String *s = lst_get_ptr(tmpl, i);
-        if (str_as_int(s, &tmpi) != 0 || tmpi < 0 || tmpi > cm->ncats) {
-          fprintf(stderr, "ERROR: bad integer in FILL_PRECEDENCE.\n");
-          return NULL;
-        }
+        if (str_as_int(s, &tmpi) != 0 || tmpi < 0 || tmpi > cm->ncats) 
+          die("ERROR: bad integer in FILL_PRECEDENCE.\n");
         cm->fill_precedence[tmpi] = i;
         str_free(s);
       }
@@ -104,30 +98,22 @@ CategoryMap *cm_read(FILE *F) {
       List *sources = lst_new_ptr(2);
       str_split(lst_get_ptr(l, 1), " ,", sources);
 
-      if (cm == NULL || (cat = cm_get_category(cm, target)) == 0) {
-        fprintf(stderr, "ERROR: FEATURE_EXTEND target must be a previously-defined non-background feature type.\n");
-        return NULL;
-      }
-      if (cm->feat_ext_lst[cat] != NULL) { 
-        fprintf(stderr, "ERROR: only one FEATURE_EXTEND line is allowed per target feature type.\n");
-        return NULL;
-      }
+      if (cm == NULL || (cat = cm_get_category(cm, target)) == 0)
+        die("ERROR: FEATURE_EXTEND target must be a previously-defined non-background feature type.\n");
+      if (cm->feat_ext_lst[cat] != NULL) 
+        die("ERROR: only one FEATURE_EXTEND line is allowed per target feature type.\n");
 
       for (i = 0; i < lst_size(sources); i++) {
-        if (cm_get_category(cm, lst_get_ptr(sources, i)) == 0) {
-          fprintf(stderr, "ERROR: FEATURE_EXTEND source list must consist of previously-defined non-background feature types.\n");
-          return NULL;
-        }
+        if (cm_get_category(cm, lst_get_ptr(sources, i)) == 0) 
+          die("ERROR: FEATURE_EXTEND source list must consist of previously-defined non-background feature types.\n");
       }
 
       cm->feat_ext_lst[cat] = sources;
     }
 
     else {                      /* 'range' line */
-      if (str_re_match(line, cat_range_re, l, 6) < 0) {
-        fprintf(stderr, "ERROR at line %d: '%s'\n", lineno, line->chars);
-        return NULL;
-      }
+      if (str_re_match(line, cat_range_re, l, 6) < 0) 
+        die("ERROR at line %d: '%s'\n", lineno, line->chars);
 
       name = str_dup((String*)lst_get_ptr(l, 1));
       str_as_int((String*)lst_get_ptr(l, 2), &cat);
@@ -141,10 +127,8 @@ CategoryMap *cm_read(FILE *F) {
       if (lst_get_ptr(l, 4) != NULL) 
         str_as_int((String*)lst_get_ptr(l, 4), &cat2);
 
-      if (cat < 0 || cat2 < cat || cat2 > cm->ncats) {
-        fprintf(stderr, "ERROR: Illegal category range.\n");
-        return NULL;        
-      }
+      if (cat < 0 || cat2 < cat || cat2 > cm->ncats)
+        die("ERROR: Illegal category range.\n");
 
       /* check for existing definitions of the specified category
          range.  Either no such definition must exist, or one must
@@ -161,10 +145,8 @@ CategoryMap *cm_read(FILE *F) {
                                      existing_range->end_cat_no != cat2)) 
         error = 1;
 
-      if (error) {
-        fprintf(stderr, "ERROR: Overlapping category ranges.\n");
-        return NULL;
-      }
+      if (error) 
+        die("ERROR: Overlapping category ranges.\n");
 
       /* either add new category range, or add new type to existing one */
       if (existing_range != NULL) {
@@ -196,11 +178,9 @@ CategoryMap *cm_read(FILE *F) {
 
           for (i = 0; i < lst_size(tmpl); i++) {
             String *s = (String*)lst_get_ptr(tmpl, i);
-            if (str_as_int(s, &tmpi) != 0 || tmpi < 0 || tmpi > cm->ncats) {
-              fprintf(stderr, "ERROR: bad integer in 'conditioned on' list for type '%s'.\n", 
+            if (str_as_int(s, &tmpi) != 0 || tmpi < 0 || tmpi > cm->ncats) 
+              die("ERROR: bad integer in 'conditioned on' list for type '%s'.\n", 
                       name->chars);
-              return NULL;
-            }
             lst_push_int(cm->conditioned_on[cat], tmpi);
             str_free(s);
           }
@@ -218,10 +198,8 @@ CategoryMap *cm_read(FILE *F) {
 
   /* make sure every category has been specified */
   for (i = 0; i <= cm->ncats; i++) {
-    if (cm->ranges[i] == 0) {
-      fprintf(stderr, "ERROR: category %d has not been specified.\n", i);
-      return NULL;
-    }
+    if (cm->ranges[i] == 0) 
+      die("ERROR: category %d has not been specified.\n", i);
     /* also fill out remaining feat_ext_lsts */
     if (cm->feat_ext_lst[i] == NULL && i == cm->ranges[i]->start_cat_no) {
       cm->feat_ext_lst[i] = lst_new_ptr(1);

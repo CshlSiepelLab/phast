@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.5 2004-06-29 03:18:03 acs Exp $
+/* $Id: phylo_hmm.c,v 1.6 2004-06-29 23:00:17 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -81,7 +81,22 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
   phmm->forward = NULL;
   phmm->alloc_len = -1;
   phmm->state_pos = phmm->state_neg = NULL;
+  phmm->do_indels = (indel_cats != NULL);
+  phmm->topology = NULL;
 
+  /* make sure tree models all have trees and all have the same number
+     of leaves; keep a pointer to a representative tree for use with
+     indel model (in this case, topologies must be the same) */
+  for (s = 0; s < phmm->nmods; s++) {
+    if (phmm->mods[s]->tree == NULL) 
+      die("ERROR: tree model #%d for phylo-HMM has no tree.\n", s+1);
+    else if (phmm->topology == NULL)
+      phmm->topology = phmm->mods[s]->tree;
+    else if (phmm->mods[s]->tree->nnodes != phmm->topology->nnodes) 
+      die("ERROR: tree models for phylo-HMM have different numbers of nodes.\n");
+  }
+
+  /* now initialize mappings */
   max_nstates = phmm->reflected ? phmm->hmm->nstates * 2 : phmm->hmm->nstates;
   phmm->state_to_mod = smalloc(max_nstates * sizeof(int));
   phmm->state_to_cat = smalloc(max_nstates * sizeof(int));
@@ -101,7 +116,7 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
      "spooled" categories and models; with indel cats, multiple
      spooled gap categories map to the same model */
 
-  if (indel_cats != NULL)
+  if (indel_cats != NULL) 
     /* start by enlarging catmap to allows for gap cats, and creating
        mappings between cats and gapcats */
     gpm = gp_create_gapcats(phmm->cm, indel_cats, nseqs);
@@ -429,11 +444,14 @@ void phmm_compute_emissions(PhyloHmm *phmm,
                                 /**< Whether to report progress to stderr */
                             ) {
 
-  int i, mod;
+  int i, mod, j;
   MSA *msa_compl = NULL;
 
   phmm->emissions = smalloc(phmm->hmm->nstates * sizeof(double*));  
   phmm->alloc_len = msa->length;
+
+  if (phmm->topology->nnodes != msa->nseqs * 2 - 1) 
+    die("ERROR: number of leaves in trees must equal number of sequences in alignment.\n");
 
   /* if HMM is reflected, we need the reverse complement of the
      alignment as well */
@@ -491,6 +509,36 @@ void phmm_compute_emissions(PhyloHmm *phmm,
       else phmm->state_neg[mod] = i;            
     }
   }
+
+  /* finally, adjust for indel model, if necessary */
+  if (phmm->do_indels) {
+    int *msa_gap_patterns = smalloc(msa->length * sizeof(int));
+
+    if (!quiet)
+      fprintf(stderr, "Obtaining gap patterns...\n");
+
+    gp_set_phylo_patterns(msa_gap_patterns, msa, phmm->topology);
+
+    if (!quiet)
+      fprintf(stderr, "Adjusting emission probs according to gap patterns...\n");
+    for (i = phmm->hmm->nstates - 1; i >= 0; i--) {
+                                /* by going backwards, we ensure that
+                                   the "base" state (with gap pattern
+                                   == 0) is visited last */
+      if (phmm->state_to_pattern[i] >= 0) {
+        double *orig_emissions = phmm->emissions[i];
+        if (phmm->state_to_pattern[i] > 0)
+          phmm->emissions[i] = smalloc(msa->length * sizeof(double));
+                                /* otherwise, use the array already
+                                   allocated */
+        for (j = 0; j < msa->length; j++) 
+          phmm->emissions[i][j] = 
+            (msa_gap_patterns[j] == phmm->state_to_pattern[i] ? 
+             orig_emissions[j] : NEGINFTY);                                 
+      }
+    }
+    free(msa_gap_patterns);
+  }
 }
 
 /** Run the Viterbi algorithm and return a set of predictions.
@@ -498,10 +546,14 @@ void phmm_compute_emissions(PhyloHmm *phmm,
     phmm_compute_emissions) */
 GFF_Set* phmm_predict_viterbi(PhyloHmm *phmm, 
                                 /**< PhyloHmm object */
-                               char *seqname,
+                              char *seqname,
                                 /**< seqname for feature set (e.g.,
                                    "chr1") */
-                               List *frame 
+                              char *grouptag,
+                                /**< tag to use for groups (e.g.,
+                                   "exon_id", "transcript_id"); if
+                                   NULL, a default will be used */
+                              List *frame
                                 /**< names of features for which to obtain
                                    frame (NULL to ignore) */
                                ) {
@@ -517,32 +569,36 @@ GFF_Set* phmm_predict_viterbi(PhyloHmm *phmm,
                               phmm->state_to_cat, 
                               phmm->reverse_compl, seqname, "PHAST",  
                               phmm->reflected ? '-' : '+', frame, 
-                              NULL); /* add option for grouptag? */
+                              grouptag);
   free(path);
 
   return retval;
 }
 
 GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm, 
-                                     /**< PhyloHmm object */
+                                   /**< PhyloHmm object */
                                    List *cats,
-                                     /**< categories of interest, by
-                                        name or number */
+                                   /**< categories of interest, by
+                                      name or number */
                                    char *seqname,
-                                     /**< seqname for feature set (e.g.,
-                                        "chr1") */
+                                   /**< seqname for feature set (e.g.,
+                                      "chr1") */
+                                   char *grouptag,
+                                   /**< tag to use for groups (e.g.,
+                                      "exon_id", "transcript_id"); if
+                                   NULL, a default will be used */
                                    List *frame,
-                                     /**< features for which to obtain
-                                        frame (NULL to ignore) */
+                                   /**< features for which to obtain
+                                      frame (NULL to ignore) */
                                    char *new_type
-                                     /**< replace type of each
-                                        retained feature with this
-                                        string if non-NULL */
+                                   /**< replace type of each
+                                      retained feature with this
+                                      string if non-NULL */
                                    ) {
   int i;
   GFF_Feature *lastkeeper = NULL;
   List *types, *keepers, *catnos;
-  GFF_Set *retval = phmm_predict_viterbi(phmm, seqname, frame);
+  GFF_Set *retval = phmm_predict_viterbi(phmm, seqname, grouptag, frame);
 
   /* do this way to allow input to be numbers or names */
   catnos = cm_get_category_list(phmm->cm, cats, 1);
@@ -1014,3 +1070,32 @@ double phmm_fit_rates_cut_bfgs(PhyloHmm *phmm, double *p, double *q,
   return -neglnl;
 }
 
+/** Add specified "bias" to log transition probabilities from
+   designated background categories to non-background categories, then
+   renormalize.  Provides a simple "knob" for controlling the
+   sensitivity/specificity tradeoff.  Bias may be negative (increases
+   specificity) or positive (increases sensitivity). */
+void phmm_add_bias(PhyloHmm *phmm, List *backgd_cat_names, double bias) {
+  double is_backgd_cat[phmm->cm->ncats+1];
+  int i, j;
+  List *backgd_cat_nos;
+  double bias_factor = exp(bias); /* multiplicative factor for
+                                     transition probs implied by
+                                     bias */
+
+  for (i = 0; i <= phmm->cm->ncats; i++) is_backgd_cat[i] = 0;
+  backgd_cat_nos = cm_get_category_list(phmm->cm, backgd_cat_names, 0); 
+  for (i = 0; i < lst_size(backgd_cat_nos); i++) 
+    is_backgd_cat[lst_get_int(backgd_cat_nos, i)] = 1;
+  lst_free(backgd_cat_nos);
+
+  for (i = 0; i < phmm->hmm->nstates; i++)
+    if (is_backgd_cat[phmm->state_to_cat[i]])
+      for (j = 0; j < phmm->hmm->nstates; j++)
+        if (!is_backgd_cat[phmm->state_to_cat[j]] && 
+            mm_get(phmm->hmm->transition_matrix, i, j) != 0) 
+          mm_set(phmm->hmm->transition_matrix, i, j, 
+                 bias_factor * mm_get(phmm->hmm->transition_matrix, i, j));
+  
+  hmm_renormalize(phmm->hmm);
+}
