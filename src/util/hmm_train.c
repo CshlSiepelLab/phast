@@ -1,7 +1,7 @@
 /* hmm_train - estimation of HMM transition probabilities from labeled
    training data */
 
-/* $Id: hmm_train.c,v 1.5 2004-07-27 18:19:03 acs Exp $
+/* $Id: hmm_train.c,v 1.6 2004-07-27 20:31:22 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -22,7 +22,7 @@
 
 /* categories for which complex gap patterns are prohibited;
    temporarily hardwired */
-#define NO_COMPLEX "cds,cds5'ss,cds3'ss"
+#define NO_COMPLEX "CDS,cds5'ss,cds3'ss"
 
 void print_usage() {
   printf("\n\
@@ -217,7 +217,7 @@ int main(int argc, char* argv[]) {
     gff_fname = (String*)lst_get_ptr(gff_fname_list, msa_idx);
     if (!quiet_mode)
       fprintf(stderr, "Reading annotations from %s ...\n", gff_fname->chars);
-    gff_read_set(fopen_fname(gff_fname->chars, "r"));
+    gff = gff_read_set(fopen_fname(gff_fname->chars, "r"));
 
     /* convert GFF to coordinate frame of alignment */
     if (msa_length_list == NULL) {
