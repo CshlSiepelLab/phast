@@ -33,7 +33,7 @@ CFLAGS = -mcpu=pentiumpro -O3 -DGCC -DGSL_RANGE_CHECK_OFF
 CFLAGS += -DPHAST_VERSION=\"$(shell cat ${PHAST}/version)\" -DPHAST_HOME=\"${PHAST}\"
 
 # static linking ends up being simplest in our environment; comment
-# this line out to link dynamically
+# this line out to link dynamically (comment out for Mac)
 LFLAGS = -static
 
 # define if GSL files not in standard locations (such as /usr/include/gsl
