@@ -1,4 +1,4 @@
-/* $Id: genepred.c,v 1.2 2004-06-22 21:50:07 acs Exp $
+/* $Id: genepred.c,v 1.3 2004-06-22 22:04:38 acs Exp $
    Written by Adam Siepel, 2004
    Copyright 2004, Adam Siepel, University of California */
 
@@ -37,8 +37,8 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F, int do_utr) {
 
     str_split(line, "\t", l);
 
-    if (lst_size(l) != 10)
-      die("ERROR (line %d): 10 columns required in genepred file.\n", lineno);
+    if (lst_size(l) < 10)
+      die("ERROR (line %d): >= 10 columns required in genepred file.\n", lineno);
 
     name = lst_get_ptr(l, 0);
     chrom = lst_get_ptr(l, 1);

@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.10 2004-06-22 21:50:07 acs Exp $
+/* $Id: gff.c,v 1.11 2004-06-22 22:04:38 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -98,7 +98,7 @@ GFF_Set* gff_read_set(FILE *F) {
     /* if first record, check to see if the file's a BED or a
        genepred.  If there are 3-8 or 12 columns, and if the 2nd and
        3rd columns are integers, then we'll try reading it as a BED.
-       If 10 columns and cols 4-7 are integers, we'll try reading it
+       If >=10 columns and cols 4-7 are integers, we'll try reading it
        as a genepred */
     if (lst_size(set->features) == 0) {
       if (((lst_size(l) >= 3 && lst_size(l) <= 8) || lst_size(l) == 12) && 
@@ -110,7 +110,7 @@ GFF_Set* gff_read_set(FILE *F) {
         gff_read_from_bed(set, F);
         break;
       }
-      else if (lst_size(l) == 10 && 
+      else if (lst_size(l) >= 10 && 
           str_as_int(lst_get_ptr(l, 3), &start) == 0 && 
           str_as_int(lst_get_ptr(l, 4), &end) == 0 &&
           str_as_int(lst_get_ptr(l, 5), &start) == 0 &&
