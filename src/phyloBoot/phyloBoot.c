@@ -476,6 +476,6 @@ int main(int argc, char *argv[]) {
     gsl_vector_free(ave_params);
   }
 
-  if (!quiet) fprintf(stderr, "\nDone.\n");
+  if (!quiet) fprintf(stderr, "Done.\n");
   return 0;
 }
