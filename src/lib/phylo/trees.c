@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.9 2004-06-22 18:14:29 acs Exp $ 
+/* $Id: trees.c,v 1.10 2004-06-22 18:28:32 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -73,7 +73,7 @@ TreeNode *tr_new_from_file(FILE *f) {
 TreeNode *tr_new_from_string(char *treestr) { 
   TreeNode *root, *node, *newnode;
   int i, in_distance = 0, len = strlen(treestr), nopen_parens = 0,
-    nclose_parens = 0;
+    nclose_parens = 0, already_allowed = FALSE;
   char c;
   char *currentname = NULL;
   String *diststr = str_new(STR_SHORT_LEN);
@@ -105,8 +105,18 @@ TreeNode *tr_new_from_string(char *treestr) {
       nopen_parens++;
     }
     else if (c == ',') {
-      if (node->parent->lchild != NULL && node->parent->rchild != NULL)
-        die("ERROR (tree parser): invalid rooted binary tree (too many children)\n");
+      if (node->parent->lchild != NULL && node->parent->rchild != NULL){
+        if (node->parent == root && !already_allowed)
+          already_allowed = TRUE;
+        else
+          die("ERROR (tree parser): invalid binary tree (too many children)\n");
+                                /* we'll prohibit multinary
+                                   branchings, except that we'll allow
+                                   a single trinary branch immediately
+                                   below the root (common with
+                                   reversible models) */
+      }
+
       tr_add_child(node->parent, newnode = tr_new_node());
       node = newnode;
       currentname = node->name;
