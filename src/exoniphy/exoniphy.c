@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.29 2004-07-25 17:29:15 acs Exp $
+/* $Id: exoniphy.c,v 1.30 2004-07-25 19:34:23 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -173,12 +173,14 @@ OPTIONS:\n\
 \n\
     --min-informative-types, -N <list>\n\
         Require a minimum number of \"informative\" bases (i.e.,\n\
-        non-gap and non-missing-data bases) at sites of the specified\n\
+        non-missing-data characters) at sites of the specified\n\
         categories.  A number below the threshold defined by\n\
         --min-informative-bases will result an emission probabilities\n\
         of zero.  If the default category map is used (see --catmap),\n\
-        then this applies to start and stop codons and the canonical\n\
-        GT and AG positions of splice sites.\n\
+        then this applies to CDSs, start and stop codons, and the canonical\n\
+        GT and AG positions of splice sites.  Note that alignment gaps
+        *are* considered informative; the way they are handled is defined\n\
+        by --indels and --no-gaps.\n\
 \n\
     --min-informative-bases, -n <number>\n\
         Minimum number of informative bases for --min-informative-types \n\
@@ -410,7 +412,7 @@ int main(int argc, char* argv[]) {
     if (no_gaps_str == NULL) 
       no_gaps_str = get_arg_list("10,11,20,21,cds5\'ss,cds3\'ss,start_codon,stop_codon");
     if (min_inform_str == NULL) 
-      min_inform_str = get_arg_list("10,11,20,21,cds5\'ss,cds3\'ss,start_codon,stop_codon");
+      min_inform_str = get_arg_list("10,11,20,21,cds5\'ss,cds3\'ss,start_codon,stop_codon,CDS");
   }
 
   ncats = cm->ncats + 1;

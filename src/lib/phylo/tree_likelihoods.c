@@ -1,4 +1,4 @@
-/* $Id: tree_likelihoods.c,v 1.4 2004-07-25 16:56:41 acs Exp $
+/* $Id: tree_likelihoods.c,v 1.5 2004-07-25 19:34:23 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -139,7 +139,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
     if (!skip_fels && mod->min_informative > 0) {
       int ninform = 0;
       for (j = 0; j < msa->nseqs; j++) 
-        if (msa->inv_alphabet[(int)ss_get_char_tuple(msa, tupleidx, j, 0)] >= 0)
+        if (!msa->is_missing[(int)ss_get_char_tuple(msa, tupleidx, j, 0)])
           ninform++;
       if (ninform < mod->min_informative) skip_fels = TRUE;
     }
