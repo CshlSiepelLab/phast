@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.23 2004-07-28 21:08:13 acs Exp $
+/* $Id: msa.c,v 1.24 2004-07-28 22:08:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1943,10 +1943,11 @@ void msa_find_noaln(MSA *msa, int refseqidx, int min_block_size, int *noaln) {
    reference seq at specified column; otherwise returns FALSE */
 int msa_missing_col(MSA *msa, int ref, int pos) {
   int i;
-  for (i = 0; i < msa->nseqs; i++) 
+  for (i = 0; i < msa->nseqs; i++) {
     if (i == ref-1) continue;
     if (!msa->is_missing[(int)msa_get_char(msa, i, pos)])
       return FALSE;
+  }
   return TRUE;
 }
 
