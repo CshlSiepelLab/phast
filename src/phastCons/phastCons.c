@@ -30,30 +30,61 @@ void usage(char *prog) {
 PROGRAM: %s\n\
 \n\
 USAGE: %s [OPTIONS] <msa_fname> <mod_fname_list>\n\
-\n\
-    <msa_fname> must be the name of a multiple alignment file,\n\
-    which can use any of several possible file formats (see\n\
-    --msa-format); <mod_fname_list> must be a comma-delimited list of\n\
-    *.mod files, as produced by 'phyloFit.'\n\
+    The alignment file, <msa_fname>, can be in any of several file\n\
+    formats (see --msa-format); SS format is assumed by default (see\n\
+    msa_view).  The list of *.mod files, <mod_fname_list>, should be\n\
+    comma delimited.  (Files should be as output by phyloFit.)\n\
 \n\
 DESCRIPTION:\n\
-\n\
     Identify conserved elements or produce conservation scores, given\n\
     a multiple alignment and a phylo-HMM.  By default, a phylo-HMM\n\
-    consisting of a single conserved state and a single non-conserved\n\
-    state is assumed, and its transition probabilities are estimated\n\
-    from the data -- i.e., no HMM structure needs to be defined by the\n\
-    user.  (The transition probabilities can be set a priori if\n\
-    desired; see --transitions.)  It is also possible to use a k-state\n\
-    phylo-HMM of the kind described by Felsenstein and Churchill\n\
-    (1996) (see --rates-cross), or to define the state-transition\n\
-    structure of the HMM explicitly (see --hmm).\n\
+    consisting of two states is assumed: a \"conserved\" state and a\n\
+    \"non-conserved\" state.  Separate phylogenetic models can be\n\
+    specified for these two states, e.g.,\n\
 \n\
-    In the (default) two-state HMM and Felsenstein-Churchill cases, a\n\
-    single phylogenetic model (*.mod file) must be given, and this model\n\
-    must allow for variation in evolutionary rate (it can be produced\n\
-    using the -k/-K options to phyloFit).  In the --hmm case, a model\n\
-    file must be given for each state in the HMM.  These files must be\n\
+        phastCons myfile.ss conserved.mod,non-conserved.mod\n\
+\n\
+    or a single model can be given for the non-conserved state, e.g.,\n\
+\n\
+        phastCons myfile.ss --conserved-scale 0.5 non-conserved.mod\n\
+\n\
+    in which case the model for the conserved state will be obtained\n\
+    by multiplying all branch lengths by the specified factor (must be\n\
+    between 0 and 1; if not specified, the default value of 0.3 will\n\
+    be used).\n\
+\n\
+    By default, the phylogenetic models will be left unaltered, but if\n\
+    the --estimate-trees option is used, e.g.,\n\
+\n\
+        phastCons myfile.ss init.mod --estimate-trees newtree\n\
+\n\
+    then the phylogenetic models for the two states will be estimated\n\
+    from the data and the given model (there must be only one in this\n\
+    case) will be used for initialization only.  (The estimated models\n\
+    for the two states will differ only by a scale factor, which will\n\
+    be estimated from the data.)\n\
+\n\
+    The transition probabilities for the HMM will be estimated from\n\
+    the data using an EM algorithm.  This behavior can be overridden\n\
+    using the --transitions option (see below).  Also, the transition\n\
+    probabilities can be constrained such that the portion of sites\n\
+    predicted to be conserved will be approximately equal to some\n\
+    target value.  For example, to estimate parameters consistent with\n\
+    identifying the 5%% most conserved sites in a genome, use\n\
+    --target-coverage 0.05.  (You must also consider the coverage of\n\
+    your alignments, however.  For example, if only 40%% of the genome\n\
+    of interest is aligned to other genomes and you want to identify\n\
+    the 5%% most conserved sites, use a target coverage of 0.05/0.4 =\n\
+    0.125.)\n\
+\n\
+    It's also possible to use a a k-state phylo-HMM of the kind\n\
+    described by Felsenstein and Churchill (1996) (see --rates-cross),\n\
+    or to define the state-transition structure of the HMM explicitly\n\
+    (see --hmm).  In the Felsenstein-Churchill case, a single\n\
+    phylogenetic model (*.mod file) must be given, and this model must\n\
+    allow for variation in evolutionary rate (it can be produced using\n\
+    the -k/-K options to phyloFit).  In the --hmm case, a model file\n\
+    must be given for each state in the HMM.  These files must be\n\
     given in the same order as the states in the HMM file.\n\
 \n\
     By default, the program computes the posterior probability at each\n\
@@ -67,7 +98,7 @@ DESCRIPTION:\n\
     discrete elements can be predicted using the --viterbi option, and\n\
     they can be assigned log-odds scores using the --score option.\n\
     The set of states considered when predicting discrete elements is\n\
-    also controlled by --states.\n\
+    also defined by --states.\n\
 \n\
     This program is written in a general enough way that it can be\n\
     useful for other things besides analyzing rates of substitution\n\
@@ -76,47 +107,44 @@ DESCRIPTION:\n\
     and three states for the three codon positions), and specifying\n\
     the coding states via --states, you can obtain posterior\n\
     probabilities that can be interpreted as a measure of \"coding\n\
-    potential\" (see --coding-potential).\n\
+    potential.\" (The --coding-potential option sets appropriate\n\
+    defaults for such an application).\n\
 \n\
 EXAMPLES:\n\
+    1. Fit a phylogenetic model to a data set, then produce\n\
+    conservation scores via a two-state phylo-HMM.  Use an input file\n\
+    in SS format.\n\
 \n\
-    1. Fit a phylogenetic model to a data set, using the discrete\n\
-    gamma model for rate variation, then produce conservation scores\n\
-    via a two-state phylo-HMM.  Use an input file in SS format (see\n\
-    msa_view).\n\
-\n\
-        phyloFit --tree mytree.nh --subst-mod REV --nrates 5 \\\n\
-            mydata.ss --msa-format SS --out-root rev-dg\n\
-        phastCons mydata.ss rev-dg.mod --nrates 20 > cons.dat\n\
-\n\
-    (The --nrates 20 option to phastCons causes the estimated\n\
-    distribution of evolutionary rates to be partitioned into 20 parts\n\
-    of equal probability mass; as a result, the partition having\n\
-    the smallest rate [by default, the one used for the conserved\n\
-    state of the HMM] is representative of the most conserved 1 / 20 =\n\
-    5%% of sites in the data set.  Thus, the reported scores represent\n\
-    the posterior probability that each site is among the 5%% most\n\
-    conserved sites in the data set, modulo the \"smoothing\" imposed\n\
-    by the HMM.)\n\
+        phyloFit --tree mytree.nh mydata.ss --msa-format SS \\\n\
+            --out-root init\n\
+        phastCons mydata.ss init.mod --target-coverage 0.10 \\\n\
+            --estimate-trees newtree > cons.dat\n\
 \n\
     2. As in (1), but also predict discrete conserved elements and\n\
-    score them using log-odds scoring.  Write predictions in BED format\n\
-    to elements.bed.\n\
+    score them using log-odds scoring.  This time, use the tree models\n\
+    that were estimated above.  Write predictions in BED format to\n\
+    elements.bed.\n\
 \n\
-        phastCons mydata.ss rev-dg.mod --nrates 20 --viterbi elements.bed \\\n\
-            --score > cons.dat\n\
+        phastCons mydata.ss newtree.cons.mod,newtree.noncons.mod \\\n\
+             --target-coverage 0.10 --viterbi elements.bed \\\n\
+             --score > cons.dat\n\
 \n\
     (if output file were \"elements.gff,\" then output would be in GFF\n\
     instead)\n\
 \n\
-    3. As in (1), but bypass finding the maximum likelihood estimate of\n\
-    the state transition probabilities, and instead just use the values\n\
+    3. As above, but bypass finding the maximum likelihood estimate of\n\
+    the state transition probabilities, and instead just use the value\n\
     given (much faster).\n\
 \n\
-        phastCons mydata.ss rev-dg.mod --transitions 0.005,0.001 \\\n\
-            --nrates 20 > cons.dat\n\
+        phastCons mydata.ss newtree.cons.mod,newtree.noncons.mod \\\n\
+            --transitions 0.01 --target-coverage 0.10 \\\n\
+            --viterbi elements.bed --score > cons.dat\n\
 \n\
-    4. As in (1), but this time use a k-state HMM with transition\n\
+    (Notice that two transition parameters are required without\n\
+    --target-coverage and only one with --target-coverage; see details\n\
+    below)\n\
+\n\
+    4. Similar to above, but this time use a k-state HMM with transition\n\
     probabilities defined by an autocorrelation parameter lambda, as\n\
     described by Felsenstein and Churchill (1996).  Use k = 10 states\n\
     and estimate the parameter lambda from the data.  Report posterior\n\
@@ -150,7 +178,6 @@ EXAMPLES:\n\
 \n\
 \n\
 OPTIONS:\n\
-\n\
  (HMM structure and transition probabilities)\n\
     --hmm, -H <hmm_fname>\n\
         Name of HMM file explicitly defining the probabilities of all\n\
@@ -227,8 +254,8 @@ OPTIONS:\n\
     --estimate-trees, -T <fname_root>\n\
         (Optionally use with default two-state HMM) Re-estimate tree\n\
         model parameters, in the context of the two-state HMM, and\n\
-        write new models to files with given file-name root.  By\n\
-        default, the tree models are kept fixed.\n\
+        write new models to files with given file-name root (filenames\n\
+        will be given suffixes \".cons.mod\" and \".noncons.mod\").  \n\
 \n\
     --conserved-scale, -R <scale_factor>\n\
         (Optionally use with default two-state HMM) Set the *scale*\n\
