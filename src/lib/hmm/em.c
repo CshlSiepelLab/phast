@@ -1,4 +1,4 @@
-/* $Id: em.c,v 1.5 2004-08-14 04:24:26 acs Exp $
+/* $Id: em.c,v 1.6 2004-08-14 18:46:04 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <sufficient_stats.h>
 #include <fit_em.h>
+#include <sys/time.h>
 
 /* generic log function: show log likelihood and all HMM transitions
    probs */
@@ -52,13 +53,17 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
                        void (*log_function)(FILE*, double, HMM*, void*, int),
                        FILE *logf) { 
 
-  int i, k, l, s, obsidx, nobs, maxlen = 0, done;
+  int i, k, l, s, obsidx, nobs, maxlen = 0, done, it;
   double **emissions, **forward_scores, **backward_scores, **E = NULL, **A;
   double *totalE = NULL, *totalA;
   double total_logl, prev_total_logl, val;
   List *val_list;
   int do_state_models = (estimate_state_models != NULL &&
                          get_observation_index != NULL);
+  struct timeval start_time, end_time;
+
+  if (logf != NULL)
+    gettimeofday(&start_time, NULL);
 
   for (s = 0; s < nsamples; s++)
     if (sample_lens[s] > maxlen) maxlen = sample_lens[s];
@@ -91,14 +96,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
   prev_total_logl = NEGINFTY;
   done = FALSE;
 
-  if (logf != NULL) {
-    if (log_function != NULL)
-      log_function(logf, 0, hmm, data, TRUE);
-    else 
-      default_log_function(logf, 0, hmm, NULL, TRUE);
-  }
-
-  while (!done) {
+  for (it = 1; !done; it++) {
     total_logl = 0;
 
     /* initialize 'A' and 'E' counts (see below) */
@@ -172,9 +170,19 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
       }
     }
 
+    if (logf != NULL) {         /* do this before updating params;
+                                   otherwise you're outputting the current
+                                   likelihood with the new params,
+                                   which is confusing */
+      if (log_function != NULL)
+        log_function(logf, total_logl, hmm, data, it == 1);
+      else 
+        default_log_function(logf, total_logl, hmm, NULL, it == 1);
+    }
+
     /* check convergence */
     if (total_logl - prev_total_logl <= EM_CONVERGENCE_THRESHOLD)
-      done = TRUE;
+      done = TRUE;              /* no param update */
 
     else {
       prev_total_logl = total_logl;
@@ -187,7 +195,9 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
         for (k = 0; k < hmm->nstates; k++)
           for (l = 0; l < hmm->nstates; l++) 
             mm_set(hmm->transition_matrix, k, l, A[k][l] / totalA[k]);
+
       /* FIXME: begin and end */
+
       hmm_reset(hmm);
 
       /* FIXME: need to use pseudocounts here */  
@@ -196,13 +206,13 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
       if (do_state_models)
         estimate_state_models(models, hmm->nstates, data, E, nobs);
     }
+  }
 
-    if (logf != NULL) {
-      if (log_function != NULL)
-        log_function(logf, total_logl, hmm, data, FALSE);
-      else 
-        default_log_function(logf, total_logl, hmm, NULL, FALSE);
-    }
+  if (logf != NULL) {
+    gettimeofday(&end_time, NULL);
+    fprintf(logf, "\nNumber of iterations: %d\nTotal time: %.4f sec.\n", it, 
+            end_time.tv_sec - start_time.tv_sec + 
+            (end_time.tv_usec - start_time.tv_usec)/1.0e6);
   }
 
   for (i = 0; i < hmm->nstates; i++) {
