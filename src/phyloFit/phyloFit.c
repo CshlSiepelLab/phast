@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.9 2004-06-18 00:21:33 acs Exp $
+   $Id: phyloFit.c,v 1.10 2004-06-19 20:35:14 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -599,7 +599,7 @@ int main(int argc, char *argv[]) {
   TreeNode *tree = NULL;
   CategoryMap *cm = NULL;
   int i, j, win, opt_idx;
-  String *s, *mod_fname, *out_tree_fname, *root_seqname = NULL;
+  String *mod_fname, *out_tree_fname, *root_seqname = NULL;
   MSA *msa, *source_msa;
   FILE *logf = NULL;
   String *tmpstr = str_new(STR_SHORT_LEN);
@@ -629,7 +629,6 @@ int main(int argc, char *argv[]) {
     {"do-cats", 1, 0, 'C'},
     {"non-overlapping", 0, 0, 'V'},
     {"markov", 0, 0, 'N'},
-    {"gap-strip", 1, 0, 'G'},
     {"reverse-groups", 1, 0, 'R'},
     {"init-model", 1, 0, 'M'},
     {"init-random", 0, 0, 'r'},
@@ -641,7 +640,6 @@ int main(int argc, char *argv[]) {
     {"help", 0, 0, 'h'},
     {"windows", 1, 0, 'w'},
     {"windows-explicit", 1, 0, 'v'},
-    {"feature-counts", 1, 0, 'n'},
     {"ancestor", 1, 0, 'A'},
     {"post-probs", 1, 0, 'P'},
     {"expected-subs", 1, 0, 'X'},
@@ -659,24 +657,18 @@ int main(int argc, char *argv[]) {
       if (optarg[0] == '(')     /* in this case, assume topology given
                                    at command line */
         tree = parse_nh_from_string(optarg);
-      else {
-        if (!quiet) fprintf(stderr, "Reading tree from %s ...\n", optarg);
+      else 
         tree = parse_nh_from_file(fopen_fname(optarg, "r"));
-      }
       break;
     case 's':
-      subst_mod = tm_get_subst_mod_type(s = str_new_charstr(optarg));
+      subst_mod = tm_get_subst_mod_type(optarg);
       if (subst_mod == UNDEF_MOD) 
         die("ERROR: illegal substitution model.  Type \"phyloFit -h\" for usage.\n");
       break;
     case 'g':
-      if (!quiet) 
-        fprintf(stderr, "Reading annotations from %s ...\n", optarg);
       gff = gff_read_set(fopen_fname(optarg, "r"));
       break;
     case 'c':
-      if (!quiet) 
-        fprintf(stderr, "Reading category map from %s ...\n", optarg);
       cm = cm_new_string_or_file(optarg);
       break;
     case 'C':
@@ -744,8 +736,6 @@ int main(int argc, char *argv[]) {
       else die("ERROR: --precision must be LOW, MED, or HIGH.\n\n");
       break;
     case 'M':
-      if (!quiet) 
-        fprintf(stderr, "Reading tree model from %s ...\n", optarg);
       input_mod = tm_new_from_file(fopen_fname(optarg, "r"));
       break;
     case 'r':
@@ -846,9 +836,6 @@ int main(int argc, char *argv[]) {
     tr_number_leaves(tree, msa->names, msa->nseqs);
                          /* convert from names to numbers, if
                             necessary */
-
-  if (tree == NULL && input_mod == NULL)
-    die("ERROR: must specify --msa and either --tree or --init-model.  Type 'phyloFit -h' for usage.\n");
 
   /* make sure alignment and tree topology are consistent */
   if (msa->nseqs * 2 - 1 != 

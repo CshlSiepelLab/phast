@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.7 2004-06-15 22:33:57 acs Exp $
+/* $Id: tree_model.c,v 1.8 2004-06-19 20:35:14 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -301,7 +301,7 @@ TreeModel *tm_new_from_file(FILE *f) {
     else if (!strcmp(tag, SUBST_MOD_TAG)) {
       str_readline(tmpstr, f);
       str_double_trim(tmpstr);
-      subst_mod = tm_get_subst_mod_type(tmpstr); 
+      subst_mod = tm_get_subst_mod_type(tmpstr->chars); 
     }
     else if (!strcmp(tag, NRATECATS_TAG)) {
       str_readline(tmpstr, f);
@@ -538,8 +538,13 @@ void tm_scale(TreeModel *tm, double scale_const, int reset_subst_mats) {
 /* Generates an alignment according to set of Tree Models and a
    Markov matrix defing how to transition among them.  TreeModels must
    appear in same order as the states of the Markov matrix . */
-MSA *tm_generate_msa(int ncolumns, MarkovMatrix *classmat, 
-                     TreeModel **classmods, int *labels) {
+MSA *tm_generate_msa(int ncolumns, 
+                     MarkovMatrix *classmat, 
+                     TreeModel **classmods, 
+                     int *labels /* if non-NULL, will be used to
+                                    record state (model) responsible
+                                    for generating each site */
+                     ) {
 
   int i, class, nseqs, col, ntreenodes;
   MSA *msa;
@@ -611,7 +616,7 @@ MSA *tm_generate_msa(int ncolumns, MarkovMatrix *classmat,
         newchar[r->id] = mm_sample_char(rsubst_mat, newchar[n->id]);
       }
     }
-    labels[col] = class;
+    if (labels != NULL) labels[col] = class;
     class = mm_sample_state(classmat, class);
   }
 
@@ -681,6 +686,7 @@ int tm_fit(TreeModel *mod, MSA *msa, gsl_vector *params, int cat,
                                    matrix) */
     double scale = tm_scale_rate_matrix(mod);
     tm_scale(mod, scale, 0);    /* branch lengths */
+    tm_scale_params(mod, params, scale);
   }
 
   if (mod->estimate_branchlens == TM_SCALE_ONLY) { 

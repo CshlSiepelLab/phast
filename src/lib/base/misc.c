@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.4 2004-06-15 22:33:57 acs Exp $
+/* $Id: misc.c,v 1.5 2004-06-19 20:35:14 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -426,7 +426,7 @@ int is_transition(char b1, char b2) {
           (b1 == 'C' && b2 == 'T'));
 }
 
-/* normalize a probability vector.  Assumes all values are
+/** Normalize a probability vector.  Assumes all values are
    nonnegative.  Returns normalization constant */
 double normalize_probs(double *p, int size) {
   int i;
@@ -434,6 +434,66 @@ double normalize_probs(double *p, int size) {
   for (i = 0; i < size; i++) sum += p[i];
   for (i = 0; i < size; i++) p[i] /= sum;  
   return sum;
+}
+
+
+/** Make 'n' draws from a uniform distribution on the interval [min,
+   max], optionally with antithetics.  Store in 'draws'.  Designed for use with
+   real (floating-point) numbers.  Be sure to call srand externally. */ 
+void unif_draw(int n, double min, double max, double *draws, int antithetics) {
+  int i;
+  double range = max - min;
+  for (i = 0; i < n; i++) {
+    draws[i] = min + range * rand()/RAND_MAX;
+    if (antithetics) {
+      draws[i+1] = min + (max - draws[i]);
+      i++;
+    }
+  }
+}
+
+/** Make 'n' draws from a binomial distribution with parameters 'N' and 'p'.
+   Store numbers of successes in 'draws'.   Be sure to call srand externally. */
+void bn_draw(int n, int N, double p, int *draws) {
+  int i, j;
+  double *unif_draws;
+  assert(n >= 1 && N >= 1);
+  unif_draws = smalloc(N * sizeof(double));
+  for (i = 0; i < n; i++) {
+    unif_draw(N, 0, 1, unif_draws, FALSE);
+                                /* antithetics can have undesirable
+                                   effect; e.g., if p = 0.5, it will
+                                   always be true that draws[i] =
+                                   N/2 */
+    draws[i] = 0;
+    for (j = 0; j < N; j++) if (unif_draws[j] < p) draws[i]++;
+                                /* number of uniform draws less than p
+                                   is binomial */
+  }
+  free(unif_draws);
+}
+
+/** Make 'n' draws from a multinomial distribution defined by
+   probability vector 'p' with dimension 'd'.  Record the counts for
+   each category in 'counts'.  Sum of elements in 'counts' will equal
+   'n'.  Probability vector is assumed to be normalized.  Computational
+   complexity is O(n * d).   Be sure to call srand externally. */
+void mn_draw(int n, double *p, int d, int *counts) {
+  int i, nremaining = n;
+  double cum_p = 0;
+
+  /* recursively make draws from binomial */
+  for (i = 0; i < d-1; i++) {
+    if (p[i] == 0 || nremaining == 0) {
+      counts[i] = 0; /* save time and avoid possible div by 0 */
+      continue;
+    }
+    bn_draw(1, nremaining, p[i] / (1-cum_p), &counts[i]);
+    nremaining -= counts[i];
+    cum_p += p[i];
+  }
+  /* last category is constrained by prev */
+  counts[d-1] = nremaining;
 }
 
 /***************************************************************************/

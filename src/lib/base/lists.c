@@ -1,4 +1,4 @@
-/* $Id: lists.c,v 1.3 2004-06-18 17:34:14 acs Exp $
+/* $Id: lists.c,v 1.4 2004-06-19 20:35:14 acs Exp $
    Written by Adam Siepel, Spring 2001 and Summer 2002
    Copyright 2001, 2002, Adam Siepel, University of California */
 
@@ -234,6 +234,46 @@ void lst_free_strings(List *l) {
   int i;
   for (i = 0; i < lst_size(l); i++) 
     if (lst_get_ptr(l, i) != NULL) str_free(lst_get_ptr(l, i));
+}
+
+/* some simple statistical functions for lists of doubles */
+double lst_dbl_mean(List *l) {
+  int i;
+  double sum = 0;
+  for (i = 0; i < lst_size(l); i++)
+    sum += lst_get_dbl(l, i);
+  return sum / lst_size(l);
+}
+
+double lst_dbl_stdev(List *l) {
+  int i;
+  double sum = 0, mean = lst_dbl_mean(l);  
+  for (i = 0; i < lst_size(l); i++)
+    sum += pow(lst_get_dbl(l, i) - mean, 2);
+  return sqrt(sum / (lst_size(l) - 1));
+}
+
+/* assumes list is sorted in ascending order */
+void lst_dbl_quantiles(List *l, double *quantiles, int nquantiles, 
+                       double *quantile_vals) {
+  int i, max_idx = lst_size(l) - 1;
+  for (i = 0; i < nquantiles; i++) {
+    double lower_idx, upper_idx, lower_val, upper_val;
+    assert(quantiles[i] >= 0 && quantiles[i] <= 1);
+    lower_idx = floor(quantiles[i] * max_idx);
+    upper_idx = ceil(quantiles[i] * max_idx);
+    lower_val = lst_get_dbl(l, lower_idx);
+    upper_val = lst_get_dbl(l, upper_idx);
+
+    if (lower_idx == upper_idx) 
+      quantile_vals[i] = lower_val;
+    else {                      /* linearly interpolate */
+      double lower_q = (double)lower_idx / max_idx;
+      double upper_q = (double)upper_idx / max_idx;
+      double lambda = (quantiles[i] - lower_q) / (upper_q - lower_q);
+      quantile_vals[i] = lower_val + lambda * (upper_val - lower_val);
+    }
+  }
 }
 
 /****************************************************************************/

@@ -1,4 +1,4 @@
-/* $Id: subst_mods.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: subst_mods.c,v 1.2 2004-06-19 20:35:14 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -71,36 +71,39 @@ void tm_init_mat_from_model_U3S(TreeModel *mod, gsl_vector *params,
 
 /* Return the substitution model (enum val) corresponding to the
    specified string */
-subst_mod_type tm_get_subst_mod_type(String *subst_mod_str) {
+subst_mod_type tm_get_subst_mod_type(char *str) {
+  String *subst_mod_str = str_new_charstr(str);
+  subst_mod_type retval = UNDEF_MOD;
   if (str_equals_nocase_charstr(subst_mod_str, "JC69"))
-    return JC69;
-  if (str_equals_nocase_charstr(subst_mod_str, "K80"))
-    return K80;
-  if (str_equals_nocase_charstr(subst_mod_str, "F81"))
-    return F81;
-  if (str_equals_nocase_charstr(subst_mod_str, "HKY85"))
-    return HKY85;
-  if (str_equals_nocase_charstr(subst_mod_str, "REV"))
-    return REV;
-  if (str_equals_nocase_charstr(subst_mod_str, "UNREST"))
-    return UNREST;
-  if (str_equals_nocase_charstr(subst_mod_str, "R2"))
-    return R2;
-  if (str_equals_nocase_charstr(subst_mod_str, "U2"))
-    return U2;
-  if (str_equals_nocase_charstr(subst_mod_str, "R2S"))
-    return R2S;
-  if (str_equals_nocase_charstr(subst_mod_str, "U2S"))
-    return U2S;
-  if (str_equals_nocase_charstr(subst_mod_str, "R3"))
-    return R3;
-  if (str_equals_nocase_charstr(subst_mod_str, "R3S"))
-    return R3S;
-  if (str_equals_nocase_charstr(subst_mod_str, "U3"))
-    return U3;
-  if (str_equals_nocase_charstr(subst_mod_str, "U3S"))
-    return U3S;
-  return UNDEF_MOD;
+    retval = JC69;
+  else if (str_equals_nocase_charstr(subst_mod_str, "K80"))
+    retval = K80;
+  else if (str_equals_nocase_charstr(subst_mod_str, "F81"))
+    retval = F81;
+  else if (str_equals_nocase_charstr(subst_mod_str, "HKY85"))
+    retval = HKY85;
+  else if (str_equals_nocase_charstr(subst_mod_str, "REV"))
+    retval = REV;
+  else if (str_equals_nocase_charstr(subst_mod_str, "UNREST"))
+    retval = UNREST;
+  else if (str_equals_nocase_charstr(subst_mod_str, "R2"))
+    retval = R2;
+  else if (str_equals_nocase_charstr(subst_mod_str, "U2"))
+    retval = U2;
+  else if (str_equals_nocase_charstr(subst_mod_str, "R2S"))
+    retval = R2S;
+  else if (str_equals_nocase_charstr(subst_mod_str, "U2S"))
+    retval = U2S;
+  else if (str_equals_nocase_charstr(subst_mod_str, "R3"))
+    retval = R3;
+  else if (str_equals_nocase_charstr(subst_mod_str, "R3S"))
+    retval = R3S;
+  else if (str_equals_nocase_charstr(subst_mod_str, "U3"))
+    retval = U3;
+  else if (str_equals_nocase_charstr(subst_mod_str, "U3S"))
+    retval = U3S;
+  str_free(subst_mod_str);
+  return retval;
 }
 
 /* Return a string description for the specified subst_mod_type  */

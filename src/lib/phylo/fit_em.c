@@ -1,4 +1,4 @@
-/* $Id: fit_em.c,v 1.2 2004-06-15 22:33:57 acs Exp $
+/* $Id: fit_em.c,v 1.3 2004-06-19 20:35:14 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -231,8 +231,13 @@ int tm_fit_em(TreeModel *mod, MSA *msa, gsl_vector *params, int cat,
 
   /* take care of final scaling of rate matrix and branch lengths */
   branchlen_scale = 1;
-  if (mod->subst_mod != JC69 && mod->subst_mod != F81)
+  if (mod->subst_mod != JC69 && mod->subst_mod != F81) {
     branchlen_scale *= tm_scale_rate_matrix(mod); 
+    tm_scale_params(mod, params, branchlen_scale); 
+    /* FIXME: this inserted so params reflect model on exit, but won't
+       be correct if either condition below holds -- not currently an
+       issue because they aren't supported in phyloBoot anyway */
+  }
   if (mod->estimate_branchlens == TM_SCALE_ONLY) { 
     branchlen_scale *= mod->scale;
     mod->scale = 1;
