@@ -18,7 +18,6 @@ OPTIONS:\n\
 }
 
 int main(int argc, char *argv[]) {
-  FILE *INF;
   char c;
   int i, j, opt_idx;
   TreeNode *tree, *n, *node_i, *node_j, *lca;
