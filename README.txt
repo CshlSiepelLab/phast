@@ -28,10 +28,11 @@ DEVELOPMENT AND AVAILABILITY
 
 PHAST was developed at the University of California, Santa Cruz, by
 Adam Siepel, working under the direction of David Haussler (Computer
-Science Department and Center for Biomolecular Science and Engineering).
-All code has been developed in C under Linux, using GCC.  It has so far
-been compiled and run only under Linux, but should be very portable.  Note
-that a couple of auxiliary software packages are required (see below).
+Science Department and Center for Biomolecular Science and
+Engineering).  The package is written in ANSI C, and has been compiled
+and run on the Linux, SunOS, and Mac OS X operating systems; it should
+be easy to port it to other UNIX-based systems.  Note that a couple of
+auxiliary software packages are required (see below).
 
 The software is freely available for research purposes.
 
@@ -65,7 +66,6 @@ The library is composed of six packages, as follows:
                         models.
 
 
-(say something about executables)
 
 INSTALLATION
 
@@ -94,7 +94,7 @@ highly optimized BLAS implementation.
 
 The software also requires GNU Make, some standard UNIX tools such as "ar" and
 "ln", and the GNU Regex package.  All of these should be available on most
-UNIX systems, or via the Cygwin toolkit (or similar) for Windows.
+UNIX systems, on Mac OS X, and via the Cygwin toolkit (or similar) for Windows.
 
 Once the GSL and CLAPACK packages have been installed and "make-include.mk"
 has been editted, you can simply "cd" to the "src" directory and type
@@ -104,3 +104,5 @@ please report problems to acs@soe.ucsc.edu.
 The libraries and executables will be placed in directories called "lib"
 and "bin", respectively, at the top level of the "phast" tree. 
 
+See the file MACINSTALL.txt in this directory for some tips on installing PHAST
+under Mac OS X.
