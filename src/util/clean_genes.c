@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.13 2004-06-15 22:33:57 acs Exp $
+/* $Id: clean_genes.c,v 1.14 2004-06-19 02:42:58 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -681,8 +681,6 @@ void write_machine_log(FILE *mlogf, GFF_FeatureGroup *group, status_type status,
 
   /* special cases: no info on individual features */
   if (status == BAD_REF || status == NO_ALN || status == OKAY) {
-    String *seqname;
-
     switch(status) {
     case BAD_REF:
       reason = "bad_ref";
@@ -698,7 +696,8 @@ void write_machine_log(FILE *mlogf, GFF_FeatureGroup *group, status_type status,
     }
 
     fprintf(mlogf, "%s\t%s\t%d\t%d\t%s\n", group->name->chars, 
-            seqname->chars, msa_map_msa_to_seq(map, group->start), 
+            ((GFF_Feature*)lst_get_ptr(group->features, 0))->seqname->chars, 
+            msa_map_msa_to_seq(map, group->start), 
             msa_map_msa_to_seq(map, group->end), reason);
 
     return;
