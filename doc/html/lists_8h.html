@@ -14,13 +14,13 @@
 <tr><td nowrap align=right valign=top>struct &nbsp;</td><td valign=bottom><a class="el" href="structList.html">List</a></td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>Basic List object.</em> <a href="structList.html#_details">More...</a><em></em></font><br><br></td></tr>
 <tr><td colspan=2><br><h2>Enumerations</h2></td></tr>
-<tr><td nowrap align=right valign=top>enum &nbsp;</td><td valign=bottom><a class="el" href="lists_8h.html#a46">order_t</a> { <a class="el" href="lists_8h.html#a46a0">ASCENDING</a>, 
-<a class="el" href="lists_8h.html#a46a1">DESCENDING</a>
+<tr><td nowrap align=right valign=top>enum &nbsp;</td><td valign=bottom><a class="el" href="lists_8h.html#a49">order_t</a> { <a class="el" href="lists_8h.html#a49a0">ASCENDING</a>, 
+<a class="el" href="lists_8h.html#a49a1">DESCENDING</a>
  }</td></tr>
-<tr><td>&nbsp;</td><td><font size=-1><em><a class="el" href="structList.html">List</a> sorting.</em> <a href="#a46">More...</a><em></em></font><br><br></td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em><a class="el" href="structList.html">List</a> sorting.</em> <a href="#a49">More...</a><em></em></font><br><br></td></tr>
 <tr><td colspan=2><br><h2>Functions</h2></td></tr>
 <tr><td nowrap align=right valign=top><a name="a37" doxytag="lists.h::lst_qsort_int"></a>
-void&nbsp;</td><td valign=bottom><a class="el" href="lists_8h.html#a37">lst_qsort_int</a> (<a class="el" href="structList.html">List</a> *l, <a class="el" href="lists_8h.html#a46">order_t</a> ord)</td></tr>
+void&nbsp;</td><td valign=bottom><a class="el" href="lists_8h.html#a37">lst_qsort_int</a> (<a class="el" href="structList.html">List</a> *l, <a class="el" href="lists_8h.html#a49">order_t</a> ord)</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>Sort list of integers using qsort.</em></font><br><br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
@@ -31,7 +31,7 @@ Simple array-based lists and supporting functions.
 Supports storage of objects of arbitrary size. Convenience functions are available for common data types such as ints, doubles, and pointers. The "stacks" and "queues" libraries are layered on top of this one. Use these lists when memory locality is important or when you need to access elements by index; use linked-lists instead when (mid-list) insertions and deletions are important.
 <p>
 <hr><h2>Enumeration Type Documentation</h2>
-<a name="a46" doxytag="lists.h::order_t"></a><p>
+<a name="a49" doxytag="lists.h::order_t"></a><p>
 <table width="100%" cellpadding="2" cellspacing="0" border="0">
   <tr>
     <td class="md">
@@ -55,16 +55,16 @@ Supports storage of objects of arbitrary size. Convenience functions are availab
 <dl compact><dt><b>
 Enumeration values:</b><dd>
 <table border=0 cellspacing=2 cellpadding=0>
-<tr><td valign=top><em><a name="a46a0" doxytag="ASCENDING"></a><em>ASCENDING</em></em>&nbsp;</td><td>
+<tr><td valign=top><em><a name="a49a0" doxytag="ASCENDING"></a><em>ASCENDING</em></em>&nbsp;</td><td>
 sort in ascending order.</td></tr>
-<tr><td valign=top><em><a name="a46a1" doxytag="DESCENDING"></a><em>DESCENDING</em></em>&nbsp;</td><td>
+<tr><td valign=top><em><a name="a49a1" doxytag="DESCENDING"></a><em>DESCENDING</em></em>&nbsp;</td><td>
 sort in descending order.</td></tr>
 </table>
 </dl>
     </td>
   </tr>
 </table>
-<hr><address align="right"><small>Generated on Tue Jun 15 15:55:36 2004 for PHAST by
+<hr><address align="right"><small>Generated on Tue Jun 22 11:33:55 2004 for PHAST by
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border=0 
 width=110 height=53></a>1.2.15 </small></address>

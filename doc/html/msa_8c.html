@@ -13,16 +13,22 @@
 <tr><td colspan=2><br><h2>Functions</h2></td></tr>
 <tr><td nowrap align=right valign=top><a class="el" href="structMSA.html">MSA</a> *&nbsp;</td><td valign=bottom><a class="el" href="msa_8c.html#a4">msa_new</a> (char **seqs, char **names, int nseqs, int length, char *alphabet)</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>Creates a new <a class="el" href="structMSA.html">MSA</a> object.</em> <a href="#a4">More...</a><em></em></font><br><br></td></tr>
-<tr><td nowrap align=right valign=top><a class="el" href="structMSA.html">MSA</a> *&nbsp;</td><td valign=bottom><a class="el" href="msa_8c.html#a5">msa_new_from_file</a> (FILE *F, <a class="el" href="msa_8h.html#a67">msa_format_type</a> format, char *alphabet)</td></tr>
+<tr><td nowrap align=right valign=top><a class="el" href="structMSA.html">MSA</a> *&nbsp;</td><td valign=bottom><a class="el" href="msa_8c.html#a5">msa_new_from_file</a> (FILE *F, <a class="el" href="msa_8h.html#a69">msa_format_type</a> format, char *alphabet)</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>Creates a new alignment from the contents of the specified file, which is assumed to use the specified format.</em> <a href="#a5">More...</a><em></em></font><br><br></td></tr>
 <tr><td nowrap align=right valign=top><a class="el" href="structMSA.html">MSA</a> *&nbsp;</td><td valign=bottom><a class="el" href="msa_8c.html#a6">msa_create_copy</a> (<a class="el" href="structMSA.html">MSA</a> *msa, int suff_stats_only)</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>create a copy of an <a class="el" href="structMSA.html">MSA</a>.</em> <a href="#a6">More...</a><em></em></font><br><br></td></tr>
-<tr><td nowrap align=right valign=top>void&nbsp;</td><td valign=bottom><a class="el" href="msa_8c.html#a8">msa_print</a> (FILE *F, <a class="el" href="structMSA.html">MSA</a> *msa, <a class="el" href="msa_8h.html#a67">msa_format_type</a> format, int pretty_print)</td></tr>
+<tr><td nowrap align=right valign=top>void&nbsp;</td><td valign=bottom><a class="el" href="msa_8c.html#a8">msa_print</a> (FILE *F, <a class="el" href="structMSA.html">MSA</a> *msa, <a class="el" href="msa_8h.html#a69">msa_format_type</a> format, int pretty_print)</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>Prints <a class="el" href="structMSA.html">MSA</a> to file, using specified format.</em> <a href="#a8">More...</a><em></em></font><br><br></td></tr>
 <tr><td nowrap align=right valign=top>void&nbsp;</td><td valign=bottom><a class="el" href="msa_8c.html#a10">strip_gaps</a> (<a class="el" href="structMSA.html">MSA</a> *msa, int gap_strip_mode)</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>If gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all columns with ALL or ANY gaps, respectively.</em> <a href="#a10">More...</a><em></em></font><br><br></td></tr>
 <tr><td nowrap align=right valign=top>void&nbsp;</td><td valign=bottom><a class="el" href="msa_8c.html#a33">msa_reverse_compl_feats</a> (<a class="el" href="structMSA.html">MSA</a> *msa, <a class="el" href="structGFF__Set.html">GFF_Set</a> *feats, int *aux_data)</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>Reverse complement segments of an <a class="el" href="structMSA.html">MSA</a> corresponding to groups of features on the reverse strand.</em> <a href="#a33">More...</a><em></em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a name="a52" doxytag="msa.c::msa_format_for_suffix"></a>
+<a class="el" href="msa_8h.html#a69">msa_format_type</a>&nbsp;</td><td valign=bottom><a class="el" href="msa_8c.html#a52">msa_format_for_suffix</a> (char *fname)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Return format type indicated by filename suffix.</em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a name="a53" doxytag="msa.c::msa_suffix_for_format"></a>
+char *&nbsp;</td><td valign=bottom><a class="el" href="msa_8c.html#a53">msa_suffix_for_format</a> (<a class="el" href="msa_8h.html#a69">msa_format_type</a> t)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Return appropriate filename suffix for format type.</em></font><br><br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
 Multiple sequence alignments.
@@ -142,7 +148,7 @@ Two-dimensional character arrays must be passed in for sequences and names (no n
         <tr>
           <td></td>
           <td></td>
-          <td class="md" nowrap><a class="el" href="msa_8h.html#a67">msa_format_type</a>&nbsp;</td>
+          <td class="md" nowrap><a class="el" href="msa_8h.html#a69">msa_format_type</a>&nbsp;</td>
           <td class="mdname" nowrap>&nbsp; <em>format</em>, </td>
         </tr>
         <tr>
@@ -194,7 +200,7 @@ If "alphabet" is NULL, default alphabet for DNA will be used. This routine will 
         <tr>
           <td></td>
           <td></td>
-          <td class="md" nowrap><a class="el" href="msa_8h.html#a67">msa_format_type</a>&nbsp;</td>
+          <td class="md" nowrap><a class="el" href="msa_8h.html#a69">msa_format_type</a>&nbsp;</td>
           <td class="mdname" nowrap>&nbsp; <em>format</em>, </td>
         </tr>
         <tr>
@@ -322,7 +328,7 @@ If gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all columns with 
 Otherwise, assumes a projection* is desired onto the sequence whose index is gap_strip_mode (indexing starts with 1). Changes are made to original alignment. Gaps are expected to be represented by GAP_CHAR. If msa-&gt;categories is non-NULL, will be adjusted accordingly.     </td>
   </tr>
 </table>
-<hr><address align="right"><small>Generated on Tue Jun 15 15:55:37 2004 for PHAST by
+<hr><address align="right"><small>Generated on Tue Jun 22 11:33:55 2004 for PHAST by
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border=0 
 width=110 height=53></a>1.2.15 </small></address>

@@ -26,30 +26,36 @@
 #define&nbsp;</td><td valign=bottom><a class="el" href="msa_8h.html#a7">MDATA_CHAR</a>&nbsp;&nbsp;&nbsp;'N'</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>Missing data character, assumed throughout PHAST.</em></font><br><br></td></tr>
 <tr><td colspan=2><br><h2>Enumerations</h2></td></tr>
-<tr><td nowrap align=right valign=top>enum &nbsp;</td><td valign=bottom><a class="el" href="msa_8h.html#a67">msa_format_type</a> { <br>
-&nbsp;&nbsp;<a class="el" href="msa_8h.html#a67a11">PHYLIP</a>, 
-<a class="el" href="msa_8h.html#a67a12">MPM</a>, 
-<a class="el" href="msa_8h.html#a67a13">FASTA</a>, 
-<a class="el" href="msa_8h.html#a67a14">SS</a>, 
+<tr><td nowrap align=right valign=top>enum &nbsp;</td><td valign=bottom><a class="el" href="msa_8h.html#a69">msa_format_type</a> { <br>
+&nbsp;&nbsp;<a class="el" href="msa_8h.html#a69a11">PHYLIP</a>, 
+<a class="el" href="msa_8h.html#a69a12">MPM</a>, 
+<a class="el" href="msa_8h.html#a69a13">FASTA</a>, 
+<a class="el" href="msa_8h.html#a69a14">SS</a>, 
 <br>
-&nbsp;&nbsp;<a class="el" href="msa_8h.html#a67a15">LAV</a>, 
-<a class="el" href="msa_8h.html#a67a16">MAF</a>
+&nbsp;&nbsp;<a class="el" href="msa_8h.html#a69a15">LAV</a>, 
+<a class="el" href="msa_8h.html#a69a16">MAF</a>
 <br>
  }</td></tr>
-<tr><td>&nbsp;</td><td><font size=-1><em>Format types.</em> <a href="#a67">More...</a><em></em></font><br><br></td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Format types.</em> <a href="#a69">More...</a><em></em></font><br><br></td></tr>
 <tr><td colspan=2><br><h2>Functions</h2></td></tr>
 <tr><td nowrap align=right valign=top><a class="el" href="structMSA.html">MSA</a> *&nbsp;</td><td valign=bottom><a class="el" href="msa_8h.html#a17">msa_new</a> (char **seqs, char **names, int nseqs, int length, char *alphabet)</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>Creates a new <a class="el" href="structMSA.html">MSA</a> object.</em> <a href="#a17">More...</a><em></em></font><br><br></td></tr>
-<tr><td nowrap align=right valign=top><a class="el" href="structMSA.html">MSA</a> *&nbsp;</td><td valign=bottom><a class="el" href="msa_8h.html#a18">msa_new_from_file</a> (FILE *F, <a class="el" href="msa_8h.html#a67">msa_format_type</a> format, char *alphabet)</td></tr>
+<tr><td nowrap align=right valign=top><a class="el" href="structMSA.html">MSA</a> *&nbsp;</td><td valign=bottom><a class="el" href="msa_8h.html#a18">msa_new_from_file</a> (FILE *F, <a class="el" href="msa_8h.html#a69">msa_format_type</a> format, char *alphabet)</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>Creates a new alignment from the contents of the specified file, which is assumed to use the specified format.</em> <a href="#a18">More...</a><em></em></font><br><br></td></tr>
 <tr><td nowrap align=right valign=top><a class="el" href="structMSA.html">MSA</a> *&nbsp;</td><td valign=bottom><a class="el" href="msa_8h.html#a19">msa_create_copy</a> (<a class="el" href="structMSA.html">MSA</a> *msa, int suff_stats_only)</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>create a copy of an <a class="el" href="structMSA.html">MSA</a>.</em> <a href="#a19">More...</a><em></em></font><br><br></td></tr>
-<tr><td nowrap align=right valign=top>void&nbsp;</td><td valign=bottom><a class="el" href="msa_8h.html#a21">msa_print</a> (FILE *F, <a class="el" href="structMSA.html">MSA</a> *msa, <a class="el" href="msa_8h.html#a67">msa_format_type</a> format, int pretty_print)</td></tr>
+<tr><td nowrap align=right valign=top>void&nbsp;</td><td valign=bottom><a class="el" href="msa_8h.html#a21">msa_print</a> (FILE *F, <a class="el" href="structMSA.html">MSA</a> *msa, <a class="el" href="msa_8h.html#a69">msa_format_type</a> format, int pretty_print)</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>Prints <a class="el" href="structMSA.html">MSA</a> to file, using specified format.</em> <a href="#a21">More...</a><em></em></font><br><br></td></tr>
 <tr><td nowrap align=right valign=top>void&nbsp;</td><td valign=bottom><a class="el" href="msa_8h.html#a23">strip_gaps</a> (<a class="el" href="structMSA.html">MSA</a> *msa, int gap_strip_mode)</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>If gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all columns with ALL or ANY gaps, respectively.</em> <a href="#a23">More...</a><em></em></font><br><br></td></tr>
 <tr><td nowrap align=right valign=top>void&nbsp;</td><td valign=bottom><a class="el" href="msa_8h.html#a45">msa_reverse_compl_feats</a> (<a class="el" href="structMSA.html">MSA</a> *msa, <a class="el" href="structGFF__Set.html">GFF_Set</a> *feats, int *aux_data)</td></tr>
 <tr><td>&nbsp;</td><td><font size=-1><em>Reverse complement segments of an <a class="el" href="structMSA.html">MSA</a> corresponding to groups of features on the reverse strand.</em> <a href="#a45">More...</a><em></em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a name="a64" doxytag="msa.h::msa_format_for_suffix"></a>
+<a class="el" href="msa_8h.html#a69">msa_format_type</a>&nbsp;</td><td valign=bottom><a class="el" href="msa_8h.html#a64">msa_format_for_suffix</a> (char *fname)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Return format type indicated by filename suffix.</em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a name="a65" doxytag="msa.h::msa_suffix_for_format"></a>
+char *&nbsp;</td><td valign=bottom><a class="el" href="msa_8h.html#a65">msa_suffix_for_format</a> (<a class="el" href="msa_8h.html#a69">msa_format_type</a> t)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Return appropriate filename suffix for format type.</em></font><br><br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
 Multiple sequence alignments.
@@ -57,7 +63,7 @@ Multiple sequence alignments.
  Reading and writing are supported in a few common formats (currently FASTA, PHYLIP, and the format used in the "Zoo" project), and a sort of "grab bag" of auxiliary functionality is provided, including extraction of sub-alignments (by sequence or by column), stripping of columns with gaps (columns having either all gaps or any gaps), reporting of simple statistics on gap content, converting between coordinate frames of the alignment and of individual sequences, and computing simple measures of per-column sequence divergence (entropy and all-pairs identity; can be done directly or with a sliding window).
 <p>
 <hr><h2>Enumeration Type Documentation</h2>
-<a name="a67" doxytag="msa.h::msa_format_type"></a><p>
+<a name="a69" doxytag="msa.h::msa_format_type"></a><p>
 <table width="100%" cellpadding="2" cellspacing="0" border="0">
   <tr>
     <td class="md">
@@ -81,17 +87,17 @@ Format types.
 <dl compact><dt><b>
 Enumeration values:</b><dd>
 <table border=0 cellspacing=2 cellpadding=0>
-<tr><td valign=top><em><a name="a67a11" doxytag="PHYLIP"></a><em>PHYLIP</em></em>&nbsp;</td><td>
+<tr><td valign=top><em><a name="a69a11" doxytag="PHYLIP"></a><em>PHYLIP</em></em>&nbsp;</td><td>
 PHYLIP format.</td></tr>
-<tr><td valign=top><em><a name="a67a12" doxytag="MPM"></a><em>MPM</em></em>&nbsp;</td><td>
+<tr><td valign=top><em><a name="a69a12" doxytag="MPM"></a><em>MPM</em></em>&nbsp;</td><td>
 Format used by MultiPipMaker and some of Webb Miller's older tools.</td></tr>
-<tr><td valign=top><em><a name="a67a13" doxytag="FASTA"></a><em>FASTA</em></em>&nbsp;</td><td>
+<tr><td valign=top><em><a name="a69a13" doxytag="FASTA"></a><em>FASTA</em></em>&nbsp;</td><td>
 Standard FASTA format.</td></tr>
-<tr><td valign=top><em><a name="a67a14" doxytag="SS"></a><em>SS</em></em>&nbsp;</td><td>
+<tr><td valign=top><em><a name="a69a14" doxytag="SS"></a><em>SS</em></em>&nbsp;</td><td>
 "Sufficient statistics" format, in which each unique alignment column (or tuple of columns) is represented only once, and a count is maintained of how many times it occurs.</td></tr>
-<tr><td valign=top><em><a name="a67a15" doxytag="LAV"></a><em>LAV</em></em>&nbsp;</td><td>
+<tr><td valign=top><em><a name="a69a15" doxytag="LAV"></a><em>LAV</em></em>&nbsp;</td><td>
 lav format, used by BLASTZ.</td></tr>
-<tr><td valign=top><em><a name="a67a16" doxytag="MAF"></a><em>MAF</em></em>&nbsp;</td><td>
+<tr><td valign=top><em><a name="a69a16" doxytag="MAF"></a><em>MAF</em></em>&nbsp;</td><td>
 Multiple Alignment Format (MAF) used by MULTIZ and TBA.</td></tr>
 </table>
 </dl>
@@ -211,7 +217,7 @@ Two-dimensional character arrays must be passed in for sequences and names (no n
         <tr>
           <td></td>
           <td></td>
-          <td class="md" nowrap><a class="el" href="msa_8h.html#a67">msa_format_type</a>&nbsp;</td>
+          <td class="md" nowrap><a class="el" href="msa_8h.html#a69">msa_format_type</a>&nbsp;</td>
           <td class="mdname" nowrap>&nbsp; <em>format</em>, </td>
         </tr>
         <tr>
@@ -263,7 +269,7 @@ If "alphabet" is NULL, default alphabet for DNA will be used. This routine will 
         <tr>
           <td></td>
           <td></td>
-          <td class="md" nowrap><a class="el" href="msa_8h.html#a67">msa_format_type</a>&nbsp;</td>
+          <td class="md" nowrap><a class="el" href="msa_8h.html#a69">msa_format_type</a>&nbsp;</td>
           <td class="mdname" nowrap>&nbsp; <em>format</em>, </td>
         </tr>
         <tr>
@@ -381,7 +387,7 @@ If gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all columns with 
 Otherwise, assumes a projection* is desired onto the sequence whose index is gap_strip_mode (indexing starts with 1). Changes are made to original alignment. Gaps are expected to be represented by GAP_CHAR. If msa-&gt;categories is non-NULL, will be adjusted accordingly.     </td>
   </tr>
 </table>
-<hr><address align="right"><small>Generated on Tue Jun 15 15:55:37 2004 for PHAST by
+<hr><address align="right"><small>Generated on Tue Jun 22 11:33:55 2004 for PHAST by
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border=0 
 width=110 height=53></a>1.2.15 </small></address>

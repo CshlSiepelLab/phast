@@ -11,19 +11,429 @@
 <p>
 <table border=0 cellpadding=0 cellspacing=0>
 <tr><td colspan=2><br><h2>Functions</h2></td></tr>
-<tr><td nowrap align=right valign=top><a name="a5" doxytag="trees.c::parse_nh_from_file"></a>
-TreeNode *&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a5">parse_nh_from_file</a> (FILE *f)</td></tr>
-<tr><td>&nbsp;</td><td><font size=-1><em>Parse a single tree from a file in "New Hampshire" format.</em></font><br><br></td></tr>
-<tr><td nowrap align=right valign=top><a name="a6" doxytag="trees.c::parse_nh_from_string"></a>
-TreeNode *&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a6">parse_nh_from_string</a> (char *treestr)</td></tr>
-<tr><td>&nbsp;</td><td><font size=-1><em>Parse a single New Hampshire-formatted tree from a string.</em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a name="a5" doxytag="trees.c::tr_new_from_file"></a>
+TreeNode *&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a5">tr_new_from_file</a> (FILE *f)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Parse a tree from a file in Newick (New Hampshire) format.</em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a name="a6" doxytag="trees.c::tr_new_from_string"></a>
+TreeNode *&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a6">tr_new_from_string</a> (char *treestr)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Parse a single Newick-formatted tree from a string.</em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a name="a10" doxytag="trees.c::tr_print"></a>
+void&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a10">tr_print</a> (FILE *f, TreeNode *root, int show_branch_lengths)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Print tree in New Hampshire format.</em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a name="a12" doxytag="trees.c::tr_free"></a>
+void&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a12">tr_free</a> (TreeNode *tree)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Free memory for tree.</em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a name="a14" doxytag="trees.c::tr_cpy"></a>
+void&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a14">tr_cpy</a> (TreeNode *dest, TreeNode *src)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Copy tree.</em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a name="a15" doxytag="trees.c::tr_create_copy"></a>
+TreeNode *&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a15">tr_create_copy</a> (TreeNode *src)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Create a new tree that's a copy of another one.</em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top>void&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a17">tr_print_ordered</a> (FILE *f, TreeNode *root, int show_branch_lengths)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Print tree in Newick format.</em> <a href="#a17">More...</a><em></em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a class="el" href="structList.html">List</a> *&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a19">tr_preorder</a> (TreeNode *tr)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Obtain a list representing a preorder traversal of the tree.</em> <a href="#a19">More...</a><em></em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a class="el" href="structList.html">List</a> *&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a20">tr_inorder</a> (TreeNode *tr)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Obtain a list representing an in-order traversal of the tree.</em> <a href="#a20">More...</a><em></em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a class="el" href="structList.html">List</a> *&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a21">tr_postorder</a> (TreeNode *tr)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Obtain a list representing a postorder traversal of the tree.</em> <a href="#a21">More...</a><em></em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top>void&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a22">tr_layout_xy</a> (TreeNode *tree, int x0, int y0, int x1, int y1, int *x, int *y, int use_branch_lens, int horizontal)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Provide x-y coordinates for layout.</em> <a href="#a22">More...</a><em></em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top>void&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a23">tr_print_ps</a> (FILE *F, TreeNode *tree, int show_branch_lens, int square_branches, int use_branch_lens, int horizontal_layout)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Print a (very basic!) postscript rendering of a tree.</em> <a href="#a23">More...</a><em></em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a name="a24" doxytag="trees.c::tr_total_len"></a>
+double&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a24">tr_total_len</a> (TreeNode *t)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Compute and return sum of lengths at all edges.</em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top><a name="a25" doxytag="trees.c::tr_get_node"></a>
+TreeNode *&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a25">tr_get_node</a> (TreeNode *t, char *name)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Return node having specified name or NULL if none found.</em></font><br><br></td></tr>
+<tr><td nowrap align=right valign=top>void&nbsp;</td><td valign=bottom><a class="el" href="trees_8c.html#a26">tr_number_leaves</a> (TreeNode *t, char **names, int nnames)</td></tr>
+<tr><td>&nbsp;</td><td><font size=-1><em>Replace leaf names by indices in given array of names.</em> <a href="#a26">More...</a><em></em></font><br><br></td></tr>
 </table>
 <hr><a name="_details"></a><h2>Detailed Description</h2>
 Functions for manipulating phylogenetic trees.
 <p>
  Includes functions for reading, writing, traversing, and printing. Trees are represented as rooted binary trees with non-negative real branch lengths.
 <p>
-<hr><address align="right"><small>Generated on Tue Jun 15 15:55:37 2004 for PHAST by
+<hr><h2>Function Documentation</h2>
+<a name="a20" doxytag="trees.c::tr_inorder"></a><p>
+<table width="100%" cellpadding="2" cellspacing="0" border="0">
+  <tr>
+    <td class="md">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="md" nowrap valign="top"> <a class="el" href="structList.html">List</a>* tr_inorder </td>
+          <td class="md" valign="top">(&nbsp;</td>
+          <td class="md" nowrap valign="top">TreeNode *&nbsp;</td>
+          <td class="mdname1" valign="top" nowrap>&nbsp; <em>tr</em>          </td>
+          <td class="md" valign="top">)&nbsp;</td>
+          <td class="md" nowrap></td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+<table cellspacing=5 cellpadding=0 border=0>
+  <tr>
+    <td>
+      &nbsp;
+    </td>
+    <td>
+
+<p>
+Obtain a list representing an in-order traversal of the tree.
+<p>
+Allows for simplified loops (no stacks!) and improved efficiency     </td>
+  </tr>
+</table>
+<a name="a22" doxytag="trees.c::tr_layout_xy"></a><p>
+<table width="100%" cellpadding="2" cellspacing="0" border="0">
+  <tr>
+    <td class="md">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="md" nowrap valign="top"> void tr_layout_xy </td>
+          <td class="md" valign="top">(&nbsp;</td>
+          <td class="md" nowrap valign="top">TreeNode *&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>tree</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>x0</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>y0</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>x1</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>y1</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int *&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>x</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int *&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>y</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>use_branch_lens</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>horizontal</em></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td class="md">)&nbsp;</td>
+          <td class="md" colspan="2"></td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+<table cellspacing=5 cellpadding=0 border=0>
+  <tr>
+    <td>
+      &nbsp;
+    </td>
+    <td>
+
+<p>
+Provide x-y coordinates for layout.
+<p>
+<dl compact><dt><b>
+Parameters: </b><dd>
+<table border=0 cellspacing=2 cellpadding=0>
+<tr><td valign=top><em>x0</em>&nbsp;</td><td>
+Upper left x bound </td></tr>
+<tr><td valign=top><em>y0</em>&nbsp;</td><td>
+Upper left y bound </td></tr>
+<tr><td valign=top><em>x1</em>&nbsp;</td><td>
+Lower right x bound </td></tr>
+<tr><td valign=top><em>y1</em>&nbsp;</td><td>
+Lower right y bound </td></tr>
+<tr><td valign=top><em>x</em>&nbsp;</td><td>
+On return, will contain x-coordinates for nodes, in order of tree-&gt;nodes. Must be preallocated. </td></tr>
+<tr><td valign=top><em>y</em>&nbsp;</td><td>
+On return, will contain y-coordinates for nodes, in order of tree-&gt;nodes. Must be preallocated. </td></tr>
+<tr><td valign=top><em>use_branch_lens</em>&nbsp;</td><td>
+If TRUE, tree will be laid out such that edges are proportional to branch lengths (dparent attributes) </td></tr>
+<tr><td valign=top><em>horizontal</em>&nbsp;</td><td>
+If TRUE, tree will be laid out with root on left and leaves on right; otherwise, root will be at top and leaves at bottom </td></tr>
+</table>
+</dl>    </td>
+  </tr>
+</table>
+<a name="a26" doxytag="trees.c::tr_number_leaves"></a><p>
+<table width="100%" cellpadding="2" cellspacing="0" border="0">
+  <tr>
+    <td class="md">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="md" nowrap valign="top"> void tr_number_leaves </td>
+          <td class="md" valign="top">(&nbsp;</td>
+          <td class="md" nowrap valign="top">TreeNode *&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>t</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>char **&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>names</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>nnames</em></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td class="md">)&nbsp;</td>
+          <td class="md" colspan="2"></td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+<table cellspacing=5 cellpadding=0 border=0>
+  <tr>
+    <td>
+      &nbsp;
+    </td>
+    <td>
+
+<p>
+Replace leaf names by indices in given array of names.
+<p>
+<dl compact><dt><b>
+Parameters: </b><dd>
+<table border=0 cellspacing=2 cellpadding=0>
+<tr><td valign=top><em>t</em>&nbsp;</td><td>
+Root of tree </td></tr>
+<tr><td valign=top><em>names</em>&nbsp;</td><td>
+Array of names matching names of leaves </td></tr>
+<tr><td valign=top><em>nnames</em>&nbsp;</td><td>
+Number of leaves (equal to number of elements in 'names') </td></tr>
+</table>
+</dl>    </td>
+  </tr>
+</table>
+<a name="a21" doxytag="trees.c::tr_postorder"></a><p>
+<table width="100%" cellpadding="2" cellspacing="0" border="0">
+  <tr>
+    <td class="md">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="md" nowrap valign="top"> <a class="el" href="structList.html">List</a>* tr_postorder </td>
+          <td class="md" valign="top">(&nbsp;</td>
+          <td class="md" nowrap valign="top">TreeNode *&nbsp;</td>
+          <td class="mdname1" valign="top" nowrap>&nbsp; <em>tr</em>          </td>
+          <td class="md" valign="top">)&nbsp;</td>
+          <td class="md" nowrap></td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+<table cellspacing=5 cellpadding=0 border=0>
+  <tr>
+    <td>
+      &nbsp;
+    </td>
+    <td>
+
+<p>
+Obtain a list representing a postorder traversal of the tree.
+<p>
+Allows for simplified loops (no stacks!) and improved efficiency     </td>
+  </tr>
+</table>
+<a name="a19" doxytag="trees.c::tr_preorder"></a><p>
+<table width="100%" cellpadding="2" cellspacing="0" border="0">
+  <tr>
+    <td class="md">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="md" nowrap valign="top"> <a class="el" href="structList.html">List</a>* tr_preorder </td>
+          <td class="md" valign="top">(&nbsp;</td>
+          <td class="md" nowrap valign="top">TreeNode *&nbsp;</td>
+          <td class="mdname1" valign="top" nowrap>&nbsp; <em>tr</em>          </td>
+          <td class="md" valign="top">)&nbsp;</td>
+          <td class="md" nowrap></td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+<table cellspacing=5 cellpadding=0 border=0>
+  <tr>
+    <td>
+      &nbsp;
+    </td>
+    <td>
+
+<p>
+Obtain a list representing a preorder traversal of the tree.
+<p>
+Allows for simplified loops (no stacks!) and improved efficiency     </td>
+  </tr>
+</table>
+<a name="a17" doxytag="trees.c::tr_print_ordered"></a><p>
+<table width="100%" cellpadding="2" cellspacing="0" border="0">
+  <tr>
+    <td class="md">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="md" nowrap valign="top"> void tr_print_ordered </td>
+          <td class="md" valign="top">(&nbsp;</td>
+          <td class="md" nowrap valign="top">FILE *&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>f</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>TreeNode *&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>root</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>show_branch_lengths</em></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td class="md">)&nbsp;</td>
+          <td class="md" colspan="2"></td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+<table cellspacing=5 cellpadding=0 border=0>
+  <tr>
+    <td>
+      &nbsp;
+    </td>
+    <td>
+
+<p>
+Print tree in Newick format.
+<p>
+This version imposes an ordering on the leaves (useful when comparing trees that have been rearranged). At every internal node, we store the name of the leaf beneath it that comes first alphanumerically. When recursively printing the tree, at each internal node, we call its children in the order of these names.     </td>
+  </tr>
+</table>
+<a name="a23" doxytag="trees.c::tr_print_ps"></a><p>
+<table width="100%" cellpadding="2" cellspacing="0" border="0">
+  <tr>
+    <td class="md">
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td class="md" nowrap valign="top"> void tr_print_ps </td>
+          <td class="md" valign="top">(&nbsp;</td>
+          <td class="md" nowrap valign="top">FILE *&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>F</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>TreeNode *&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>tree</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>show_branch_lens</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>square_branches</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>use_branch_lens</em>, </td>
+        </tr>
+        <tr>
+          <td></td>
+          <td></td>
+          <td class="md" nowrap>int&nbsp;</td>
+          <td class="mdname" nowrap>&nbsp; <em>horizontal_layout</em></td>
+        </tr>
+        <tr>
+          <td></td>
+          <td class="md">)&nbsp;</td>
+          <td class="md" colspan="2"></td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+<table cellspacing=5 cellpadding=0 border=0>
+  <tr>
+    <td>
+      &nbsp;
+    </td>
+    <td>
+
+<p>
+Print a (very basic!) postscript rendering of a tree.
+<p>
+<dl compact><dt><b>
+Parameters: </b><dd>
+<table border=0 cellspacing=2 cellpadding=0>
+<tr><td valign=top><em>F</em>&nbsp;</td><td>
+Destination file </td></tr>
+<tr><td valign=top><em>tree</em>&nbsp;</td><td>
+Tree root </td></tr>
+<tr><td valign=top><em>show_branch_lens</em>&nbsp;</td><td>
+Whether to print branch lengths by edges </td></tr>
+<tr><td valign=top><em>square_branches</em>&nbsp;</td><td>
+If TRUE, branches will be right-angled, otherwise will be diagonal </td></tr>
+<tr><td valign=top><em>use_branch_lens</em>&nbsp;</td><td>
+If TRUE, tree will be laid out such that edges are proportional to branch lengths (dparent attributes) </td></tr>
+<tr><td valign=top><em>horizontal_layout</em>&nbsp;</td><td>
+If TRUE, tree will be laid out with root on left and leaves on right; otherwise, root will be at top and leaves at bottom </td></tr>
+</table>
+</dl>    </td>
+  </tr>
+</table>
+<hr><address align="right"><small>Generated on Tue Jun 22 11:33:55 2004 for PHAST by
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border=0 
 width=110 height=53></a>1.2.15 </small></address>

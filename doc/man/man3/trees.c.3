@@ -1,4 +1,4 @@
-.TH "trees.c" 3 "15 Jun 2004" "PHAST" \" -*- nroff -*-
+.TH "trees.c" 3 "22 Jun 2004" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -10,13 +10,65 @@ trees.c \- Functions for manipulating phylogenetic trees.
 
 .in +1c
 .ti -1c
-.RI "TreeNode * \fBparse_nh_from_file\fP (FILE *f)"
+.RI "TreeNode * \fBtr_new_from_file\fP (FILE *f)"
 .br
-.RI "\fIParse a single tree from a file in 'New Hampshire' format.\fP"
+.RI "\fIParse a tree from a file in Newick (New Hampshire) format.\fP"
 .ti -1c
-.RI "TreeNode * \fBparse_nh_from_string\fP (char *treestr)"
+.RI "TreeNode * \fBtr_new_from_string\fP (char *treestr)"
 .br
-.RI "\fIParse a single New Hampshire-formatted tree from a string.\fP"
+.RI "\fIParse a single Newick-formatted tree from a string.\fP"
+.ti -1c
+.RI "void \fBtr_print\fP (FILE *f, TreeNode *root, int show_branch_lengths)"
+.br
+.RI "\fIPrint tree in New Hampshire format.\fP"
+.ti -1c
+.RI "void \fBtr_free\fP (TreeNode *tree)"
+.br
+.RI "\fIFree memory for tree.\fP"
+.ti -1c
+.RI "void \fBtr_cpy\fP (TreeNode *dest, TreeNode *src)"
+.br
+.RI "\fICopy tree.\fP"
+.ti -1c
+.RI "TreeNode * \fBtr_create_copy\fP (TreeNode *src)"
+.br
+.RI "\fICreate a new tree that's a copy of another one.\fP"
+.ti -1c
+.RI "void \fBtr_print_ordered\fP (FILE *f, TreeNode *root, int show_branch_lengths)"
+.br
+.RI "\fIPrint tree in Newick format.\fP"
+.ti -1c
+.RI "\fBList\fP * \fBtr_preorder\fP (TreeNode *tr)"
+.br
+.RI "\fIObtain a list representing a preorder traversal of the tree.\fP"
+.ti -1c
+.RI "\fBList\fP * \fBtr_inorder\fP (TreeNode *tr)"
+.br
+.RI "\fIObtain a list representing an in-order traversal of the tree.\fP"
+.ti -1c
+.RI "\fBList\fP * \fBtr_postorder\fP (TreeNode *tr)"
+.br
+.RI "\fIObtain a list representing a postorder traversal of the tree.\fP"
+.ti -1c
+.RI "void \fBtr_layout_xy\fP (TreeNode *tree, int x0, int y0, int x1, int y1, int *x, int *y, int use_branch_lens, int horizontal)"
+.br
+.RI "\fIProvide x-y coordinates for layout.\fP"
+.ti -1c
+.RI "void \fBtr_print_ps\fP (FILE *F, TreeNode *tree, int show_branch_lens, int square_branches, int use_branch_lens, int horizontal_layout)"
+.br
+.RI "\fIPrint a (very basic!) postscript rendering of a tree.\fP"
+.ti -1c
+.RI "double \fBtr_total_len\fP (TreeNode *t)"
+.br
+.RI "\fICompute and return sum of lengths at all edges.\fP"
+.ti -1c
+.RI "TreeNode * \fBtr_get_node\fP (TreeNode *t, char *name)"
+.br
+.RI "\fIReturn node having specified name or NULL if none found.\fP"
+.ti -1c
+.RI "void \fBtr_number_leaves\fP (TreeNode *t, char **names, int nnames)"
+.br
+.RI "\fIReplace leaf names by indices in given array of names.\fP"
 .in -1c
 .SH "DETAILED DESCRIPTION"
 .PP 
@@ -24,6 +76,97 @@ Functions for manipulating phylogenetic trees.
 .PP
  Includes functions for reading, writing, traversing, and printing. Trees are represented as rooted binary trees with non-negative real branch lengths.
 .PP
+.SH "FUNCTION DOCUMENTATION"
+.PP 
+.SS "\fBList\fP* tr_inorder (TreeNode * tr)"
+.PP
+Obtain a list representing an in-order traversal of the tree.
+.PP
+Allows for simplified loops (no stacks!) and improved efficiency 
+.SS "void tr_layout_xy (TreeNode * tree, int x0, int y0, int x1, int y1, int * x, int * y, int use_branch_lens, int horizontal)"
+.PP
+Provide x-y coordinates for layout.
+.PP
+Parameters: \fP
+.in +1c
+.TP
+\fB\fIx0\fP\fP
+Upper left x bound 
+.TP
+\fB\fIy0\fP\fP
+Upper left y bound 
+.TP
+\fB\fIx1\fP\fP
+Lower right x bound 
+.TP
+\fB\fIy1\fP\fP
+Lower right y bound 
+.TP
+\fB\fIx\fP\fP
+On return, will contain x-coordinates for nodes, in order of tree->nodes. Must be preallocated. 
+.TP
+\fB\fIy\fP\fP
+On return, will contain y-coordinates for nodes, in order of tree->nodes. Must be preallocated. 
+.TP
+\fB\fIuse_branch_lens\fP\fP
+If TRUE, tree will be laid out such that edges are proportional to branch lengths (dparent attributes) 
+.TP
+\fB\fIhorizontal\fP\fP
+If TRUE, tree will be laid out with root on left and leaves on right; otherwise, root will be at top and leaves at bottom 
+.SS "void tr_number_leaves (TreeNode * t, char ** names, int nnames)"
+.PP
+Replace leaf names by indices in given array of names.
+.PP
+Parameters: \fP
+.in +1c
+.TP
+\fB\fIt\fP\fP
+Root of tree 
+.TP
+\fB\fInames\fP\fP
+Array of names matching names of leaves 
+.TP
+\fB\fInnames\fP\fP
+Number of leaves (equal to number of elements in 'names') 
+.SS "\fBList\fP* tr_postorder (TreeNode * tr)"
+.PP
+Obtain a list representing a postorder traversal of the tree.
+.PP
+Allows for simplified loops (no stacks!) and improved efficiency 
+.SS "\fBList\fP* tr_preorder (TreeNode * tr)"
+.PP
+Obtain a list representing a preorder traversal of the tree.
+.PP
+Allows for simplified loops (no stacks!) and improved efficiency 
+.SS "void tr_print_ordered (FILE * f, TreeNode * root, int show_branch_lengths)"
+.PP
+Print tree in Newick format.
+.PP
+This version imposes an ordering on the leaves (useful when comparing trees that have been rearranged). At every internal node, we store the name of the leaf beneath it that comes first alphanumerically. When recursively printing the tree, at each internal node, we call its children in the order of these names. 
+.SS "void tr_print_ps (FILE * F, TreeNode * tree, int show_branch_lens, int square_branches, int use_branch_lens, int horizontal_layout)"
+.PP
+Print a (very basic!) postscript rendering of a tree.
+.PP
+Parameters: \fP
+.in +1c
+.TP
+\fB\fIF\fP\fP
+Destination file 
+.TP
+\fB\fItree\fP\fP
+Tree root 
+.TP
+\fB\fIshow_branch_lens\fP\fP
+Whether to print branch lengths by edges 
+.TP
+\fB\fIsquare_branches\fP\fP
+If TRUE, branches will be right-angled, otherwise will be diagonal 
+.TP
+\fB\fIuse_branch_lens\fP\fP
+If TRUE, tree will be laid out such that edges are proportional to branch lengths (dparent attributes) 
+.TP
+\fB\fIhorizontal_layout\fP\fP
+If TRUE, tree will be laid out with root on left and leaves on right; otherwise, root will be at top and leaves at bottom 
 .SH "AUTHOR"
 .PP 
 Generated automatically by Doxygen for PHAST from the source code.

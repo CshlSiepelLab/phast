@@ -1,4 +1,4 @@
-.TH "msa.h" 3 "15 Jun 2004" "PHAST" \" -*- nroff -*-
+.TH "msa.h" 3 "22 Jun 2004" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -69,6 +69,14 @@ msa.h \- Multiple sequence alignments.
 .RI "void \fBmsa_reverse_compl_feats\fP (\fBMSA\fP *msa, \fBGFF_Set\fP *feats, int *aux_data)"
 .br
 .RI "\fIReverse complement segments of an \fBMSA\fP corresponding to groups of features on the reverse strand.\fP"
+.ti -1c
+.RI "\fBmsa_format_type\fP \fBmsa_format_for_suffix\fP (char *fname)"
+.br
+.RI "\fIReturn format type indicated by filename suffix.\fP"
+.ti -1c
+.RI "char * \fBmsa_suffix_for_format\fP (\fBmsa_format_type\fP t)"
+.br
+.RI "\fIReturn appropriate filename suffix for format type.\fP"
 .in -1c
 .SH "DETAILED DESCRIPTION"
 .PP 
