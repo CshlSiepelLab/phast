@@ -1,4 +1,4 @@
-/* $Id: lists.c,v 1.2 2004-06-09 17:10:29 acs Exp $
+/* $Id: lists.c,v 1.3 2004-06-18 17:34:14 acs Exp $
    Written by Adam Siepel, Spring 2001 and Summer 2002
    Copyright 2001, 2002, Adam Siepel, University of California */
 
@@ -135,7 +135,24 @@ int lst_insert_idx(List *l, int idx, void *o) {
   if (idx == lst_size(l) - 1) 
     lst_push(l, o);
   else {
-    lst_push(l, lst_get(l, lst_size(l)-1));
+    void *lastelement;
+
+  /* push copy of last element onto end of list.  We want to use
+     lst_push for automatic realloc (if necessary) but have to be
+     careful to pass a *copy* of the element, in case there is a
+     realloc (pointer will be stale) */
+    if (l->elementsz <= sizeof(void*)) {
+      lastelement = *((void**)lst_get(l, lst_size(l)-1));
+      lst_push(l, &lastelement); 
+    }
+    else {
+      lastelement = smalloc(l->elementsz);
+      memcpy(lastelement, lst_get(l, lst_size(l)-1), l->elementsz);
+      lst_push(l, lastelement);
+      free(lastelement);
+    }
+
+    /* now shift each downstream element right by one */
     for (i = lst_size(l) - 2; i >= idx+2; i--)
       lst_arr_set(l, l->lidx + i, lst_arr_get(l, l->lidx + i - 1));
     lst_arr_set(l, l->lidx + idx + 1, o);
