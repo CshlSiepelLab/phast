@@ -1,7 +1,7 @@
 /* hmm_train - estimation of HMM transition probabilities from labeled
    training data */
 
-/* $Id: hmm_train.c,v 1.4 2004-07-27 18:00:09 acs Exp $
+/* $Id: hmm_train.c,v 1.5 2004-07-27 18:19:03 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -65,6 +65,13 @@ OPTIONS:\n\
     -i PHYLIP|FASTA|MPM|SS \n\
         (default SS) Alignment format.\n\
 \n\
+    -R <tag>\n\
+        Before estimating transition probabilities, group features by <tag>\n\
+        (e.g., \"transcript_id\" or \"exon_id\") and reverse complement\n\
+        segments of the alignment corresponding to groups on the\n\
+        reverse strand.  Groups must be non-overlapping (see refeature\n\
+        --unique). \n\
+\n\
  (indel options)\n\
     -I <indel_cat_list>\n\
         Model indels for specified categories.  To have\n\
@@ -110,8 +117,9 @@ int main(int argc, char* argv[]) {
   char c;
   GapPatternMap *gpm = NULL;
   GFF_Set *gff;
+  char *reverse_groups_tag = NULL;
 
-  while ((c = getopt(argc, argv, "i:g:c:m:M:I:n:t:P:G:qh")) != -1) {
+  while ((c = getopt(argc, argv, "i:g:c:m:M:R:I:n:t:P:G:qh")) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
@@ -129,6 +137,9 @@ int main(int argc, char* argv[]) {
       break;
     case 'M':
       msa_length_list = str_list_as_int(get_arg_list(optarg));
+      break;
+    case 'R':
+      reverse_groups_tag = optarg;
       break;
     case 'I':
       model_indels_str = get_arg_list(optarg);
@@ -227,6 +238,17 @@ int main(int argc, char* argv[]) {
        can free them now, to avoid running out of memory */
     if (msa->ss != NULL) { ss_free(msa->ss); msa->ss = NULL; }
       
+    if (reverse_groups_tag != NULL) {
+      if (!quiet_mode)
+        fprintf(stderr, "Reverse complementing features on negative strand (group by '%s') ...\n", 
+                reverse_groups_tag);
+      /* we don't need to reverse complement the whole alignment --
+         just the gff and possibly the gap pattern array (pass a
+         NULL msa) */        
+      gff_group(gff, reverse_groups_tag);
+      msa_reverse_compl_feats(NULL, gff, msa_gap_patterns);
+    }
+
     if (!quiet_mode)
       fprintf(stderr, "Labeling sites by category ...\n");       
     msa_label_categories(msa, gff, cm);
