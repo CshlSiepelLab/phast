@@ -1,68 +1,12 @@
-/* Data structures and supporting functions to map between feature types and site categories.
-
-   Each feature is defined by a 'type' (a string), and each category
-   by an integer.  Category numbers must run consecutively from 1 to
-   the total number of categories (but they need not be defined in
-   order).  Categories fall into 'category ranges', each of which
-   spans a sequence of consecutive integers.  A 'simple' feature type
-   has a category range of size one, and a 'cyclic' feature type has a
-   range of size greater than one.  Multiple types may map to the same
-   category number, but if they are cyclic, the ranges must coincide
-   exactly.  The mapping from feature types to category numbers is
-   unambiguous.  To allow mapping in the other direction, however, one
-   type associated with a given category is designated as 'primary'.
-   By convention, the first type to be defined is considered the
-   primary type.  Two types of precedence may be defined among
-   category numbers: 'labelling precedence', which determines which
-   category should be used when a given site is described by multiple
-   feature types, and 'fill precedence', which describes which
-   category should expand to fill an unlabeled gap, when such behavior
-   is desired.  Category 0 is reserved as the 'background' or
-   'default' category (all other categories stand in relief to this
-   category).
-
-   The system is best understood by considering an example of a
-   category file:
-
-   NCATS = 6
-
-   cds         1-3
-   intron      4       1,2,3
-   5'UTR       5
-   3'UTR       6
-   start       1-3
-   stop        1-3
-   5'splice    4       
-   3'splice    4
-
-   LABELLING_PRECEDENCE = 1,2,3,4
-   FILL_PRECEDENCE = 4,5,6
-   
-   The NCATS line must appear first; it defines the number of
-   categories.  The LABELLING_PRECEDENCE and FILL_PRECEDENCE lines are
-   optional and may appear anywhere.  The categories listed must
-   appear in order of priority.  Categories not listed are assumed to
-   have low priority.  Blank lines are ignored throughout.  The
-   remaining lines define category ranges.  Each one must have two or
-   three columns separated by whitespace.  The first column gives the
-   feature type and the second the range of category numbers.  Strings
-   of the form 'a-b' indicate cyclic feature types, and single
-   integers indicate simple feature types.  The third column is a list
-   of categories to 'condition on'.  These are used in the definition
-   of a higher-order HMM (see hmm.h).
-
-   Here cds, start, and stop are cyclic feature types, mapped to the
-   same range, 1-3 (cds is the primary feature type).  The others are
-   all simple types.  The 'intron' category is conditioned on the
-   'cds' categories, meaning that an unspooled HMM will have different
-   states for intron states following state 1, state 2, and state 3.
-   The rest is fairly self-explanatory.
-
-   $Id: category_map.c,v 1.3 2004-06-11 05:58:51 acs Exp $
+/* $Id: category_map.c,v 1.4 2004-06-14 16:40:34 acs Exp $
    Written by Adam Siepel, Summer 2002
-   Copyright 2002, Adam Siepel, University of California 
-*/
+   Copyright 2002, Adam Siepel, University of California */
 
+/** \file category_map.c
+    Mapping between feature types and site categories.  See
+    category_map.h for details.
+   \ingroup feature
+*/
 
 #include "category_map.h"
 #include "gff.h"
@@ -71,6 +15,7 @@
 
 static int *prec;
 
+/** Read a CategoryMap from a file */
 CategoryMap *cm_read(FILE *F) {
   String *line, *name;
   List *l;
@@ -300,6 +245,7 @@ int compare_prec(const void* ptr1, const void* ptr2) {
   return (prec[val1] - prec[val2]);
 }
 
+/** Print a CategoryMap to a file */
 void cm_print(CategoryMap *cm, FILE *F) {
   int i, j, k;
   List *tmpl;
@@ -353,6 +299,8 @@ void cm_print(CategoryMap *cm, FILE *F) {
   lst_free(tmpl);
 }
 
+/** Return the 'base' category for a given feature type (first
+    category in range).  Returns 0 (background) if no match. */
 int cm_get_category(CategoryMap *cm, String *type) {
   int i, j;
   if (cm->ncats == 0) return 0;
@@ -369,9 +317,20 @@ int cm_get_category(CategoryMap *cm, String *type) {
   return 0;
 }
 
-/* return (integer) list of category numbers corresponding to list of
-   names and or numbers */
-List *cm_get_category_list(CategoryMap *cm, List *names, int ignore_missing) {
+/** Return a list of category numbers corresponding to a given list of
+   category names and or numbers.  */
+List *cm_get_category_list(CategoryMap *cm, 
+                                /**< CategoryMap object */
+                           List *names, 
+                                /**< List of categories.  May be
+                                   specified by name or number (useful
+                                   when accepting input from users) */
+                           int ignore_missing
+                                /**< Whether to ignore unrecognized
+                                   types.  If FALSE, then function
+                                   will abort when it encounters an
+                                   unrecognized type. */
+                           ) {
   int i, j, cat;
   List *retval = lst_new_int(lst_size(names));
   for (i = 0; i < lst_size(names); i++) {
@@ -396,11 +355,17 @@ List *cm_get_category_list(CategoryMap *cm, List *names, int ignore_missing) {
   return retval;
 }
 
+/** Retrieve the (primary) feature type associated with the specified
+   category number.  Note: return value is passed by reference -- do
+   not alter. */
 String *cm_get_feature(CategoryMap *cm, int cat) {
   assert (cat >= 0 && cat <= cm->ncats);
   return lst_get_ptr(cm->ranges[cat]->feature_types, 0);
 }
 
+/** Obtain a unique name based on the (primary) feature type
+   associated with the specified category number.  Returns a pointer
+   to a newly allocated String.*/
 String *cm_get_feature_unique(CategoryMap *cm, int cat) {
   String *retval = str_dup(lst_get_ptr(cm->ranges[cat]->feature_types, 0));
   assert (cat >= 0 && cat <= cm->ncats);
@@ -489,6 +454,7 @@ CategoryMap* cm_create_trivial(int ncats, char *feature_prefix) {
   return retval;
 }
 
+/** Reallocate a category map to allow for the specified size. */
 void cm_realloc(CategoryMap *cm, int new_ncats) {
   int i;
   int old_ncats = cm->ncats;
@@ -511,6 +477,7 @@ void cm_realloc(CategoryMap *cm, int new_ncats) {
   }
 }
 
+/** Free memory associated with category map. */
 void cm_free(CategoryMap *cm) {
   int i;
   for (i = 0; i <= cm->ncats; i++) {
@@ -569,6 +536,8 @@ void cm_free_category_range(CategoryRange *cr) {
   free(cr);
 }
 
+/** Add new feature to CategoryMap.  Assumes a feature of the
+   specified type does not already exist. */
 void cm_add_feature_type(CategoryMap *cm, String *type, int cycle_size) {
   int catstart = cm->ncats + 1;
   int catend = cm->ncats + cycle_size;
@@ -702,7 +671,7 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int length,
   return gff;
 }
 
-/* maps a sequence (array) of category numbers from the spooled space to
+/** maps a sequence (array) of category numbers from the spooled space to
    the unspooled space, using the current unspooler.  Original
    sequence is overwritten */
 void cm_spooled_to_unspooled(CategoryMap *cm, int *path, int pathlen) {
