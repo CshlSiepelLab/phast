@@ -147,9 +147,12 @@ int main(int argc, char *argv[]) {
             (d2->type == INTERNAL || d2->type == TERMINAL)) || 
            (d1->strand == '-' && d2->end_phase == d1->start_phase &&
             (d2->type == INITIAL || d2->type == INTERNAL) && 
-            (d1->type == INTERNAL || d1->type == TERMINAL))))
+            (d1->type == INTERNAL || d1->type == TERMINAL)))) {
 
         regroup(g2, gene_tag, g1->name->chars);
+        g1 = g2;
+        d1 = d2;
+      }
 
       else break;
     }
