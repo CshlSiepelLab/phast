@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.25 2004-07-02 04:58:51 acs Exp $
+/* $Id: exoniphy.c,v 1.26 2004-07-22 21:58:50 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -455,7 +455,6 @@ int main(int argc, char* argv[]) {
 
     /* adjust GFF -- absorb helper features, filter out unwanted
        types, add group_id tag */
-
     gff_group(predictions, grouptag);
     gff_absorb_helpers(predictions, cds_types, cds_absorb_types);
     gff_filter_by_type(predictions, invisible_types, TRUE, NULL);
