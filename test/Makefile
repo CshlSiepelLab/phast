@@ -111,6 +111,8 @@ phastCons:
 show-cons:
 	wigAsciiToBinary -chrom=chr22 -wibFile=chr22_phastConsTest cons_correct.dat
 	hgLoadWiggle hg16 phastConsTest chr22_phastConsTest.wig
-	cp chr22_phastConsTest.wib /gbdb/hg16/wib
+	mv chr22_phastConsTest.wib /gbdb/hg16/wib
 	hgLoadBed hg16 phastConsElementsTest elements_correct.bed
+	rm chr22_phastConsTest.wig
+
 
