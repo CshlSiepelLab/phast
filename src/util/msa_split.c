@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.21 2004-11-16 23:52:34 acs Exp $
+/* $Id: msa_split.c,v 1.22 2004-12-13 21:51:54 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -91,7 +91,7 @@ OPTIONS:\n\
  (Splitting options)\n\
     --windows, -w <win_size,win_overlap>\n\
         Split the alignment into \"windows\" of size <win_size> bases,\n\
-        overlapping by <win_overlap>\n\
+        overlapping by <win_overlap>.\n\
 \n\
     --by-category, -L\n\
         (Requires --features) Split by category, as defined by\n\
@@ -129,10 +129,10 @@ OPTIONS:\n\
         indices will not be moved more than <radius> sites.\n\
 \n\
     --features, -g <fname>\n\
-        (For use with --by-category, --by-group, or --for-features).\n\
-        Annotations file.  May be GFF, BED, or genepred format.\n\
-        Coordinates are assumed to be in the coordinate frame of the\n\
-        first sequence in the alignment (assumed to be the reference\n\
+        (For use with --by-category, --by-group, --for-features, or \n\
+	--windows) Annotations file.  May be GFF, BED, or genepred\n\
+        format.  Coordinates are assumed to be in the coordinate frame of \n\
+        the first sequence in the alignment (assumed to be the reference\n\
         sequence).\n\
 \n\
     --catmap, -c <fname>|<string>\n\
@@ -160,6 +160,12 @@ OPTIONS:\n\
 \n\
     --out-root, -r <name>\n\
         Filename root for output files (default \"msa_split\").\n\
+\n\
+    --sub-features, -f\n\
+	(For use with --features)  Output subsets of features\n\
+	corresponding to subalignments.  Features overlapping\n\
+	partition boundaries will be discarded.  Not permitted with\n\
+	--by-category.\n\
 \n\
     --reverse-compl, -s\n\
         Reverse complement all segments having at least one feature on\n\
@@ -228,18 +234,13 @@ void write_sub_msa(MSA *submsa, char *fname, msa_format_type output_format,
   if (output_format == SS) {
     if (submsa->ss == NULL)
       ss_from_msas(submsa, tuple_size, ordered_stats, NULL, NULL, NULL, -1);
-    else {
-      if (submsa->ss->tuple_size != tuple_size) 
-        die("ERROR: tuple size in SS file does not match desired tuple size for output.\nConversion not supported.\n");
-      if (submsa->ss->tuple_idx != NULL && ordered_stats == 0) {
-        free(submsa->ss->tuple_idx);
-        submsa->ss->tuple_idx = NULL;
-      }
-    }
+    else if (submsa->ss->tuple_size != tuple_size) 
+      die("ERROR: tuple size in SS file does not match desired tuple size for output.\nConversion not supported.\n");
+    ss_write(submsa, F, ordered_stats);
   }
+  else 
+    msa_print(F, submsa, output_format, 0);
 
-  /* write sub_msa */
-  msa_print(F, submsa, output_format, 0);
   fclose(F);
 }
 
@@ -397,11 +398,11 @@ int main(int argc, char* argv[]) {
     output_summary = 0, tuple_size = 1, win_size = -1, 
     win_overlap = -1, ordered_stats = 1, min_ninf_sites = -1, 
     adjust_radius = -1, opt_idx, by_category = FALSE, for_features = FALSE,
-    exclude_seqs = FALSE;
+    exclude_seqs = FALSE, sub_features = FALSE;
   List *split_indices_list, *cats_to_do_str = NULL, *order_list = NULL, 
     *segment_ends_list = NULL, *seqlist_str = NULL, *seqlist = NULL, 
     *cats_to_do = NULL;  
-  String *outfname, *sum_fname = NULL;
+  String *sum_fname = NULL;
   FILE *SUM_F = NULL;
   char c;
   int nallgaps, nallgaps_strip, nanygaps, nanygaps_strip, length, 
@@ -426,6 +427,7 @@ int main(int argc, char* argv[]) {
     {"refseq", 1, 0, 'M'},
     {"out-format", 1, 0, 'o'},
     {"out-root", 1, 0, 'r'},
+    {"sub-features", 0, 0, 'f'},
     {"reverse-compl", 0, 0, 's'},
     {"gap-strip", 1, 0, 'G'},
     {"seqs", 1, 0, 'l'},
@@ -518,6 +520,9 @@ int main(int argc, char* argv[]) {
     case 'F':
       for_features = TRUE;
       break;
+    case 'f':
+      sub_features = TRUE;
+      break;
     case 'S':
       output_summary = 1;
       break;
@@ -571,20 +576,43 @@ int main(int argc, char* argv[]) {
     die("ERROR: can't use --between-blocks with --by-category or --for-features.\nTry \"msa_split -h\" for help.\n");
 
   if (!quiet_mode)
-    fprintf(stderr, "Reading alignment from %s ...\n", 
+    fprintf(stderr, "Reading alignment from %s...\n", 
             !strcmp(msa_fname, "-") ? "stdin" : msa_fname);
 
+  if (gff != NULL && cm == NULL) cm = cm_new_from_features(gff);
+
   if (input_format == MAF) {
-    if (gff != NULL) die("Sorry, can't yet use GFF with MAF input.\n");
+    if (gff != NULL) fprintf(stderr, "WARNING: use of --features with a MAF file currently forces a projection onto the reference sequence.\n");
+
     msa = maf_read(fopen_fname(msa_fname, "r"), 
                    rseq_fname == NULL ? NULL : fopen_fname(rseq_fname, "r"), 
-                   tuple_size, NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE); 
+                   tuple_size, gff, cm, -1, TRUE, NULL, NO_STRIP, FALSE); 
+    /* NOTE: no support yet for reverse complementing groups on
+       reverse strand in MAF case */
   }
-  else 
+  else {
     msa = msa_new_from_file(fopen_fname(msa_fname, "r"),
                             input_format, NULL); 
 
+    if (gff != NULL) {
+      if (!quiet_mode)
+	fprintf(stderr, "Mapping feature coordinates to frame of alignment...\n");
+      msa_map_gff_coords(msa, gff, 1, 0, 0, NULL);
+
+      if (strand_sensitive) {
+        if (!quiet_mode)
+          fprintf(stderr, "Reverse complementing groups on reverse strand...\n");
+        msa_reverse_compl_feats(msa, gff, NULL);
+      }
+    }
+  }
   assert(msa->length > 0);
+
+  if (gff != NULL) {
+    if (!quiet_mode)
+      fprintf(stderr, "Labeling columns of alignment by category...\n");
+    msa_label_categories(msa, gff, cm);
+  }
 
   if (order_list != NULL)
     msa_reorder_rows(msa, order_list);
@@ -656,58 +684,40 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  /* map coords in GFF to frame of ref of alignment */
-  else if (gff != NULL) {       /* --by-group, --by-category, and
-                                   --for-features */
-    if (!quiet_mode)
-      fprintf(stderr, "Mapping GFF coordinates to frame of alignment  ...\n");
-    msa_map_gff_coords(msa, gff, 1, 0, 0, NULL);
+  else if (group_tag != NULL) {    /* --by-group */
+    GFF_FeatureGroup *prevg = NULL;
+    gff_group(gff, group_tag);
+    gff_sort(gff);
 
-    if (group_tag != NULL) {    /* --by-group */
-      GFF_FeatureGroup *prevg = NULL;
-      gff_group(gff, group_tag);
-      gff_sort(gff);
-
-      if (strand_sensitive) {
-        if (!quiet_mode)
-          fprintf(stderr, "Reverse complementing groups on reverse strand ...\n");
-        msa_reverse_compl_feats(msa, gff, NULL);
+    for (i = 0; i < lst_size(gff->groups); i++) {
+      GFF_FeatureGroup *g = lst_get_ptr(gff->groups, i);
+      if (g->start < 0 || g->end < 0) {
+	fprintf(stderr, "Ignoring group '%s' (bad coordinates).\n", g->name->chars);
+	continue;
       }
-
-      for (i = 0; i < lst_size(gff->groups); i++) {
-        GFF_FeatureGroup *g = lst_get_ptr(gff->groups, i);
-        if (g->start < 0 || g->end < 0) {
-          fprintf(stderr, "Ignoring group '%s' (bad coordinates).\n", g->name->chars);
-          continue;
-        }
-        if (prevg != NULL) {
-          if (prevg->end >= g->start)
-            die("ERROR: feature groups overlap.\n");
-          lst_push_int(split_indices_list, prevg->end + 
-                       (g->start - prevg->end)/2);
-        }
-        prevg = g;
+      if (prevg != NULL) {
+	if (prevg->end >= g->start)
+	  die("ERROR: feature groups overlap.\n");
+	lst_push_int(split_indices_list, prevg->end + 
+		     (g->start - prevg->end)/2);
       }
+      prevg = g;
     }
+  }
 
-    else if (for_features) {    /* --for-features */
-      segment_ends_list = lst_new_int(lst_size(gff->features));
+  else if (for_features) {    /* --for-features */
+    segment_ends_list = lst_new_int(lst_size(gff->features));
       
-      for (i = 0; i < lst_size(gff->features); i++) {
-        GFF_Feature *f = lst_get_ptr(gff->features, i);
-        lst_push_int(split_indices_list, f->start);
-        lst_push_int(segment_ends_list, f->end);
-      }
+    for (i = 0; i < lst_size(gff->features); i++) {
+      GFF_Feature *f = lst_get_ptr(gff->features, i);
+      lst_push_int(split_indices_list, f->start);
+      lst_push_int(segment_ends_list, f->end);
     }
+  }
 
-    else if (by_category) {
-      if (cm == NULL) cm = cm_new_from_features(gff);
-      if (cats_to_do_str != NULL) 
-        cats_to_do = cm_get_category_list(cm, cats_to_do_str, FALSE);
-      if (!quiet_mode)
-        fprintf(stderr, "Labeling columns of alignment by category ...\n");
-      msa_label_categories(msa, gff, cm);
-    }
+  else if (by_category) {
+    if (cats_to_do_str != NULL) 
+      cats_to_do = cm_get_category_list(cm, cats_to_do_str, FALSE);
   }
 
 
@@ -727,7 +737,6 @@ int main(int argc, char* argv[]) {
 
   if (!by_category) {           /* splitting by position
                                    (split_indices_list) */
-    outfname = str_new(STR_MED_LEN);
     for (i = 0; i < lst_size(split_indices_list); i++) {
       MSA *sub_msa;
       GFF_Set *sub_gff;
@@ -760,7 +769,7 @@ int main(int argc, char* argv[]) {
       orig_end = map == NULL ? end : msa_map_msa_to_seq(map, end);
 
       if (!quiet_mode)
-        fprintf(stderr, "Creating partition %d (column %d to column %d) ...\n",
+        fprintf(stderr, "Creating partition %d (column %d to column %d)...\n",
                 i+1, orig_start, orig_end);
       
       sub_msa = msa_sub_alignment(msa, seqlist, !exclude_seqs, start - 1, end);
@@ -799,36 +808,11 @@ int main(int argc, char* argv[]) {
         continue;
       }
       
-      if (group_tag != NULL) {
-        if (gap_strip_mode != NO_STRIP) 
-          die("ERROR: generation of GFF files for partitions not supported in gap-stripping mode.\n");
-
-        /* create fname for gff subset */
-        sub_gff = gff_subset_range(gff, start, end, TRUE);
-
-        /* map coords back to original frame(s) of ref */
-        msa_map_gff_coords(sub_msa, sub_gff, 0, 1, 0, NULL);
-
-        /* write gff file for subset */
-        str_cpy_charstr(outfname, out_fname_root);
-        str_append_charstr(outfname, ".");
-        str_append_int(outfname, i+1);
-        str_append_charstr(outfname, ".gff");
-
-        F = fopen_fname(outfname->chars, "w+");
-        if (!quiet_mode)
-          fprintf(stderr, "Writing GFF subset %d to %s...\n", i+1, 
-                  outfname->chars);
-        gff_print_set(F, sub_gff);
-        fclose(F);
-        gff_free_set(sub_gff);
-      }
-
       sprintf(subfname, "%s.%d-%d.%s", out_fname_root, orig_start, 
               orig_end, msa_suffix_for_format(output_format));
 
       if (!quiet_mode)
-        fprintf(stderr, "Writing partition %d to %s ...\n", i+1, subfname);
+        fprintf(stderr, "Writing partition %d to %s...\n", i+1, subfname);
       write_sub_msa(sub_msa, subfname, output_format, tuple_size, ordered_stats);
 
       if (SUM_F != NULL) 
@@ -836,14 +820,41 @@ int main(int argc, char* argv[]) {
                            freqs_strip, length, length_strip, nallgaps, 
                            nallgaps_strip, nanygaps, nanygaps_strip);
 
+      if (sub_features && gff != NULL) {
+        if (gap_strip_mode != NO_STRIP) 
+          die("ERROR: generation of GFF files for partitions not supported in gap-stripping mode.\n");
+
+        /* create fname for gff subset */
+        sub_gff = gff_subset_range(gff, start, end, TRUE);
+
+	if (lst_size(sub_gff->features) == 0) {
+	  if (!quiet_mode)
+	    fprintf(stderr, "(No features for subset %d)\n", i+1);
+	}
+	else {  /* write gff file for subset */
+	  /* map coords back to original frame(s) of ref */
+	  msa_map_gff_coords(sub_msa, sub_gff, 0, 1, 
+			     output_format == SS ? sub_msa->idx_offset : 0, 
+			     /* if output SS, add offset */
+			     NULL);
+
+	  sprintf(subfname, "%s.%d-%d.gff", out_fname_root, orig_start, orig_end);
+	  F = fopen_fname(subfname, "w+");
+	  if (!quiet_mode)
+	    fprintf(stderr, "Writing GFF subset %d to %s...\n", i+1, subfname);
+	  gff_print_set(F, sub_gff);
+	  fclose(F);
+	}
+	gff_free_set(sub_gff);
+      }
+
       msa_free(sub_msa);
     }
-    str_free(outfname);
   }
   else {                        /* by_category == TRUE */
     List *submsas = lst_new_ptr(10);
     if (!quiet_mode)
-      fprintf(stderr, "Partitioning alignment by category ...\n");
+      fprintf(stderr, "Partitioning alignment by category...\n");
     msa_partition_by_category(msa, submsas, cats_to_do, tuple_size);
     for (i = 0; i < lst_size(submsas); i++) {
       MSA *sub = (MSA*)lst_get_ptr(submsas, i);
@@ -876,7 +887,7 @@ int main(int argc, char* argv[]) {
               cat, msa_suffix_for_format(output_format));
 
       if (!quiet_mode) 
-        fprintf(stderr, "Writing partition (category) %d to %s ...\n", 
+        fprintf(stderr, "Writing partition (category) %d to %s...\n", 
                 cat, subfname);
 
       write_sub_msa(sub, subfname, output_format, tuple_size, ordered_stats);
@@ -894,7 +905,7 @@ int main(int argc, char* argv[]) {
 
   if (SUM_F != NULL) {
     if (!quiet_mode) 
-      fprintf(stderr, "Writing summary to %s ...\n", sum_fname->chars);
+      fprintf(stderr, "Writing summary to %s...\n", sum_fname->chars);
     fclose(SUM_F);
   }
 
