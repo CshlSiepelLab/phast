@@ -86,14 +86,13 @@ int main(int argc, char *argv[]) {
   while ((c = getopt(argc, argv, "m:a:e:f:t:i:n:F:T:zyRh")) != -1) {
     switch (c) {
     case 'm':
-      mult_fact = atof(optarg);
+      mult_fact = get_arg_dbl(optarg);
       break;
     case 'a':
-      add_const = atof(optarg);
+      add_const = get_arg_dbl(optarg);
       break;
     case 'e':
-      new_val = atof(optarg);
-      if (new_val < 0 || new_val > 1) die("ERROR: bad argument to -v.\n");
+      new_val = get_arg_dbl_bounds(optarg, 0, 1);
       break;
     case 'f':
       from_cats = get_arg_list(optarg);
