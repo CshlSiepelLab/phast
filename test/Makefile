@@ -62,7 +62,7 @@ phyloFit:
 	@if [[ -n `diff --brief phyloFit.mod hky-em.mod` ]] ; then echo "ERROR" ; exit 1 ; fi
 	phyloFit hmrc.ss --subst-mod REV --tree "(human, (mouse,rat), cow)" -i SS --EM --quiet
 	@if [[ -n `diff --brief phyloFit.mod rev-em.mod` ]] ; then echo "ERROR" ; exit 1 ; fi
-	phyloFit hmrc.ss --subst-mod REV --tree "(human, (mouse,rat), cow)" -i SS --gaps-as-bases --quiet  # could use better test case (missing data)
+	phyloFit hpmrc.ss --subst-mod REV --tree "(hg16, (mm3,rn3), galGal2)" -i SS --gaps-as-bases --quiet
 	@if [[ -n `diff --brief phyloFit.mod rev-gaps.mod` ]] ; then echo "ERROR" ; exit 1 ; fi
 	phyloFit hmrc.ss --subst-mod REV -i SS --init-model rev.mod --post-probs --lnl --quiet
 	@if [[ -n `diff --brief phyloFit.mod rev-lnl.mod` ]] ; then echo "ERROR" ; exit 1 ; fi
@@ -106,3 +106,10 @@ phastCons:
 
 
 #...
+
+# show output of phastCons test cases as tracks (run on hgwdev)
+show-cons:
+	wigAsciiToBinary -chrom=chr22 -wibFile=chr22_phastConsTest cons_correct.dat
+	hgLoadWiggle hg16 phastConsTest -pathPrefix=/gbdb/hg17/multiz7way/wib chr22_phastConsTest.wig
+	hgLoadBed hg16 phastConsElementsTest elements_correct.bed
+
