@@ -65,6 +65,11 @@ OPTIONS:\n\
         codons, as required by the GTF2 standard.  Assumes at most one\n\
         start_codon and at most one stop_codon per group.\n\
 \n\
+    --utr, -U\n\
+        Create UTR features for portions of exons outside CDS (only\n\
+        useful with GFF output; be sure features are grouped at level\n\
+        of transcript).\n\
+\n\
     --output, -o gff|bed|genepred\n\
         Output format (default gff).\n\
 \n\
@@ -87,7 +92,8 @@ int main(int argc, char *argv[]) {
   GFF_Set *gff;
   List *include = NULL;
   char *groupby = "transcript_id", *exongroup_tag = NULL;
-  int unique = FALSE, sort = FALSE, simplebed = FALSE, fix_start_stop = FALSE;
+  int unique = FALSE, sort = FALSE, simplebed = FALSE, fix_start_stop = FALSE,
+    utr = FALSE;
   enum {GFF, BED, GENEPRED} output_format = GFF;
   FILE *discards_f = NULL, *groups_f = NULL;
 
@@ -97,6 +103,7 @@ int main(int argc, char *argv[]) {
     {"include-groups", 1, 0, 'l'},
     {"groupby", 1, 0, 'g'},
     {"exongroup", 1, 0, 'e'},
+    {"utr", 0, 0, 'U'},
     {"fix-start-stop", 0, 0, 'f'},
     {"unique", 0, 0, 'u'},
     {"sort", 0, 0, 's'},
@@ -106,7 +113,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "o:i:l:g:e:d:fusbh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "o:i:l:g:e:d:Ufusbh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'o':
       if (!strcmp("bed", optarg)) output_format = BED;
@@ -124,6 +131,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'e':
       exongroup_tag = optarg;
+      break;
+    case 'U':
+      utr = TRUE;
       break;
     case 'f':
       fix_start_stop = TRUE;
@@ -161,6 +171,9 @@ int main(int argc, char *argv[]) {
 
   /* group */
   gff_group(gff, groupby);
+
+  /* utr */
+  if (utr) gff_create_utrs(gff);
 
   /* subgroup */
   if (exongroup_tag != NULL) gff_exon_group(gff, exongroup_tag);

@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.21 2004-08-07 19:05:53 acs Exp $
+/* $Id: gff.c,v 1.22 2004-09-22 04:22:29 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -945,4 +945,61 @@ void gff_filter_by_group(GFF_Set *feats, List *groups) {
   free(tag);
 
   hsh_free(hash);
+}
+
+/** Creates 5'UTR and 3'UTR features for cases in which exon features
+    extend beyond cds features of the same group */
+void gff_create_utrs(GFF_Set *feats) {
+  int i, j;
+  List *exons = lst_new_ptr(20);
+
+  if (feats->groups == NULL) 
+    die("ERROR: gff_create_utrs requires groups.\n");
+
+  for (i = 0; i < lst_size(feats->groups); i++) {
+    GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
+    int cds_start = INFTY, cds_end = -1;
+    char strand = '\0';
+
+    /* first scan for exon features, strand, and start/end of cds */
+    lst_clear(exons);
+    for (j = 0; j < lst_size(g->features); j++) {
+      GFF_Feature *f = lst_get_ptr(g->features, j);
+
+      if (str_equals_charstr(f->feature, GFF_CDS_TYPE)) {
+        if (f->start < cds_start) cds_start = f->start;
+        if (f->end > cds_end) cds_end = f->end;
+      }
+
+      else if (str_equals_charstr(f->feature, GFF_EXON_TYPE)) 
+        lst_push_ptr(exons, f);
+
+      if (strand == '\0') strand = f->strand;
+    }    
+
+    /* now add UTR features for upstream and downstream exons */
+    if (cds_end > 0) {
+      for (j = 0; j < lst_size(exons); j++) {
+        GFF_Feature *f = lst_get_ptr(exons, j);
+        GFF_Feature *utr_f;
+        if (f->start < cds_start) {
+          utr_f = gff_new_feature_copy(f);
+          if (utr_f->end >= cds_start) utr_f->end = cds_start - 1;
+          str_cpy_charstr(utr_f->feature, strand == '-' ? GFF_UTR3_TYPE : 
+                          GFF_UTR5_TYPE);
+          lst_push_ptr(feats->features, utr_f);
+          lst_push_ptr(g->features, utr_f);
+        }
+        if (f->end > cds_end) {
+          utr_f = gff_new_feature_copy(f);
+          if (utr_f->start <= cds_end) utr_f->start = cds_end + 1;
+          str_cpy_charstr(utr_f->feature, strand == '-' ? GFF_UTR5_TYPE : 
+                          GFF_UTR3_TYPE);
+          lst_push_ptr(feats->features, utr_f);
+          lst_push_ptr(g->features, utr_f);
+        }
+      }
+    }
+  }
+  lst_free(exons);
 }

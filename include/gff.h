@@ -1,4 +1,4 @@
-/* $Id: gff.h,v 1.10 2004-08-07 18:54:09 acs Exp $
+/* $Id: gff.h,v 1.11 2004-09-22 04:22:29 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -171,5 +171,7 @@ void gff_absorb_helpers(GFF_Set *feats, List *primary_types,
 void gff_add_gene_id(GFF_Set *feats);
 
 void gff_filter_by_group(GFF_Set *feats, List *groups);
+
+void gff_create_utrs(GFF_Set *feats);
 
 #endif
