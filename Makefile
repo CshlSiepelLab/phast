@@ -1,5 +1,5 @@
 TMPDIR = /tmp/phast
-export CVSROOT = /home/cvsroot
+#export CVSROOT = /projects/compbio/cvsroot
 CWD = ${PWD}
 
 all:
@@ -9,6 +9,7 @@ package:
 	rm -rf ${TMPDIR}
 	mkdir -p ${TMPDIR}
 	cd ${TMPDIR} ; cvs checkout phast 
-	rm -r `find ${TMPDIR}/phast -name "CVS"`
-	VERSION = `cat ${TMPDIR}/phast/version | sed 's/\./_/g'`
+	find ${TMPDIR}/phast -name "CVS" | xargs rm -rf
+	VERSION=`cat ${TMPDIR}/phast/version | sed 's/\./_/g'` ;\
 	cd ${TMPDIR} ; tar cfz ${CWD}/phast.$$VERSION.tgz phast
+	rm -rf ${TMPDIR}
