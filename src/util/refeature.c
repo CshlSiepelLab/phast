@@ -144,6 +144,9 @@ int main(int argc, char *argv[]) {
 
   gff = gff_read_set(fopen_fname(argv[optind], "r"));
 
+  if (lst_size(gff->features) == 0) exit(0); /* helps avoid unexpected
+                                                behavior below */
+
   /* filter by type */
   if (include != NULL) gff_filter_by_type(gff, include, FALSE, discards_f);
 

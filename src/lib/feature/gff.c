@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.18 2004-07-06 19:29:59 acs Exp $
+/* $Id: gff.c,v 1.19 2004-07-06 19:44:26 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -913,8 +913,8 @@ void gff_add_gene_id(GFF_Set *feats) {
 void gff_filter_by_group(GFF_Set *feats, List *groups) {
   int i, j;
   char *tag;
-  Hashtable *hash = hsh_new(lst_size(groups));
-  List *keepers = lst_new_ptr(lst_size(feats->features));
+  Hashtable *hash = hsh_new(lst_size(groups)+1);
+  List *keepers = lst_new_ptr(lst_size(feats->features)+1);
 
   if (feats->groups == NULL) 
     die("ERROR: gff_filter_by_group requires groups.\n");
