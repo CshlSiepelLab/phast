@@ -180,17 +180,17 @@ OPTIONS:\n\
     --cut-at, -c <cut_idx>\n\
         (For use with default two-state HMM) Use rate categories\n\
         1-<cut_idx> for the conserved state (state 1) and the\n\
-        remaining rate categories for the non-conserved state.  The\n\
-        given phylogenetic model must allow for rate variation, via\n\
-        either the discrete gamma (-k option to phyloFit) or\n\
-        non-parametric (-K option) method.  The new phylogenetic model\n\
-        associated with each state will be a mixture model of rates,\n\
-        whose (unnormalized) mixing proportions are given by the\n\
-        original *.mod file, either implicitly (discrete gamma case;\n\
-        mixing proportions uniform) or explicitly (non-parameteric\n\
-        case).  By default, the transition probabilities of the HMM\n\
-        will be estimated by maximum likelihood using an EM algorithm\n\
-        (see --transitions).\n\
+        remaining rate categories for the non-conserved state (default\n\
+        value is 1).  The given phylogenetic model must allow for rate\n\
+        variation, via either the discrete gamma (-k option to\n\
+        phyloFit) or non-parametric (-K option) method.  The new\n\
+        phylogenetic model associated with each state will be a\n\
+        mixture model of rates, whose (unnormalized) mixing\n\
+        proportions are given by the original *.mod file, either\n\
+        implicitly (discrete gamma case; mixing proportions uniform)\n\
+        or explicitly (non-parameteric case).  By default, the\n\
+        transition probabilities of the HMM will be estimated by\n\
+        maximum likelihood using an EM algorithm (see --transitions).\n\
 \n\
     --transitions, -p [~]<p>,<q>\n\
         (Optionally use with default two-state HMM) Fix the transition\n\
