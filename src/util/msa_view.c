@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.18 2004-08-16 22:22:01 acs Exp $
+/* $Id: msa_view.c,v 1.19 2004-08-25 18:20:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -95,7 +95,7 @@ EXAMPLES:\n\
     9. Pool sufficient statistics from several human chromosomes.\n\
 \n\
         msa_view --in-format SS --aggregate human,mouse,rat \n\
-            --out-format SS chr1.ss chr2.ss chr3.ss > chr123.ss\n\
+            --out-format SS chr1.ss,chr2.ss,chr3.ss > chr123.ss\n\
 \n\
     10. Extract separate sufficient statistics for the three codon\n\
     positions, as defined by annotations in a GFF file.\n\

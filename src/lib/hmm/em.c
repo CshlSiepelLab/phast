@@ -1,4 +1,4 @@
-/* $Id: em.c,v 1.6 2004-08-14 18:46:04 acs Exp $
+/* $Id: em.c,v 1.7 2004-08-25 18:20:37 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -235,52 +235,4 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
 
   return total_logl;
 }
-
-
-
-/* THESE FUNCTIONS SHOULD BE MOVED */
-
-#include <tree_likelihoods.h>
-
-/* implementation of generic routine required by EM code to fill out
-   matrix of emissions */
-void compute_emissions_phyhmm(double **emissions, void **models, int nmodels,
-                              void *data, int sample, int length) {
-  int k;
-  PooledMSA *pmsa = (PooledMSA*)data;
-  for (k = 0; k < nmodels; k++) 
-    tl_compute_log_likelihood((TreeModel*)models[k], 
-                              lst_get_ptr(pmsa->source_msas, sample),
-                              emissions[k], -1, NULL);
-}
-
-void estimate_state_models_phyhmm(void **models, int nmodels, void *data, 
-                                  double **E, int nobs) {
-  int k, obsidx;
-  gsl_vector *params;
-  PooledMSA *pmsa = (PooledMSA*)data;
-
-  for (k = 0; k < nmodels; k++) {
-    TreeModel *tm = (TreeModel*)models[k];
-    params = tm_params_init_from_model(tm);
-    for (obsidx = 0; obsidx < nobs; obsidx++) 
-      pmsa->pooled_msa->ss->cat_counts[k][obsidx] = E[k][obsidx];
-/*     msa_get_base_freqs_tuples(pmsa->pooled_msa, tm->backgd_freqs,  */
-/*                               tm->order+1, k); */
-                                /* need to reestimate background
-                                   freqs, using new category counts */
-    tm_fit(tm, pmsa->pooled_msa, params, k, OPT_HIGH_PREC, NULL);
-    gsl_vector_free(params); 
-  }
-}
-
-int get_observation_index_phyhmm(void *data, int sample, int position) {
-  PooledMSA *pmsa = (PooledMSA*)data;
-  MSA *msa;
-  if (sample == -1 || position == -1) 
-    return pmsa->pooled_msa->ss->ntuples;
-  msa = (MSA*)lst_get_ptr(pmsa->source_msas, sample);
-  return msa->ss->tuple_idx[position];
-}
-
 

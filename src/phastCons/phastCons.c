@@ -3,9 +3,24 @@
 #include <getopt.h>
 #include <misc.h>
 #include <phylo_hmm.h>
+#include <em.h>
 #include <sufficient_stats.h>
 #include <bed.h>
 #include <dgamma.h>
+#include <tree_likelihoods.h>
+
+/* functions implemented below and used internally */
+void setup_rates_cut(HMM **hmm, TreeModel ***mods, CategoryMap **cm, 
+                     int nrates, int cut_idx, double p, double q);
+
+double fit_rates_cut(PhyloHmm *phmm, int estim_func, int estim_indels,
+                     int estim_tree, double *p, double *q, 
+                     double *alpha_0, double *beta_0, double *omega_0, 
+                     double *alpha_1, double *beta_1, double *omega_1, 
+                     MSA *msa, FILE *logf);
+
+void reestimate_tree(void **models, int nmodels, void *data, 
+                     double **E, int nobs);
 
 void usage(char *prog) {
   printf("\n\
@@ -200,6 +215,12 @@ OPTIONS:\n\
         transition (probabilities of self transitions are thus 1-<p>\n\
         and 1-<q>).\n\
 \n\
+    --estimate-tree, -T <fname>\n\
+        (Optionally use with default two-state HMM) Re-estimate the\n\
+        parameters of the tree model itself, in the context of the\n\
+        two-state HMM, and write the new model to <fname>.  By default,\n\
+        the tree model is kept fixed.\n\
+\n\
     --nrates, -k <nrates>\n\
         (Optionally use with a discrete-gamma model) Assume the\n\
         specified number of rate categories, instead of the number\n\
@@ -217,7 +238,7 @@ OPTIONS:\n\
         addressed by the indel model.  Gaps longer than this threshold\n\
         will be treated as missing data.  Default value is 20.\n\
 \n\
-    --indel-params, -? [~]<alpha_0,beta_0,omega_0,alpha_1,beta_1,omega_1>\n\
+    --indel-params, -D [~]<alpha_0,beta_0,omega_0,alpha_1,beta_1,omega_1>\n\
         (Optionally use with --indels and default two-state HMM) Fix\n\
         the indel parameters at (alpha_0, beta_0, omega_0) for the\n\
         conserved state and at (alpha_1, beta_1, omega_1) for the\n\
@@ -381,148 +402,14 @@ void collapse_cats(CategoryMap *cm, List *cats_to_merge) {
   }
 }
 
-void setup_rates_cut(HMM **hmm, TreeModel ***mods, CategoryMap **cm, int nrates, 
-                     int cut_idx, double p, double q) {
-
-  double freq1 = 0;
-  int i;
-  int dgamma = !(*mods)[0]->empirical_rates; /* whether using discrete
-                                                gamma model */
-
-  List *rconsts, *rweights;
-  double tmp_rates[nrates], tmp_weights[nrates];
-
-  if (nrates <= 1) die("ERROR: must have nrates > 1.\n");
-  if (cut_idx < 1 || cut_idx > nrates) 
-    die("ERROR: must have 1 <= cut_idx <= nrates.\n");
-
-  *hmm = hmm_new_nstates(2, TRUE, FALSE);
-
-  if (dgamma) 
-    /* if using dgamma, need to compute rate consts and weights -- may
-       not have been computed yet */
-    DiscreteGamma(tmp_weights, tmp_rates, (*mods)[0]->alpha, 
-                  (*mods)[0]->alpha, nrates, 0); 
-  else {
-    for (i = 0; i < nrates; i++) {
-      tmp_weights[i] = (*mods)[0]->freqK[i];
-      tmp_rates[i] = (*mods)[0]->rK[i];
-    }
-  }
-
-  /* set HMM transitions according to p and q */
-  mm_set((*hmm)->transition_matrix, 0, 0, 1-p);
-  mm_set((*hmm)->transition_matrix, 0, 1, p);
-  mm_set((*hmm)->transition_matrix, 1, 0, q);
-  mm_set((*hmm)->transition_matrix, 1, 1, 1-q);
-
-  /* set HMM begin transitions according to weights */
-  for (i = 0; i < cut_idx; i++) freq1 += tmp_weights[i];
-  gsl_vector_set((*hmm)->begin_transitions, 0, freq1);
-  gsl_vector_set((*hmm)->begin_transitions, 1, 1 - freq1);
-
-  hmm_reset(*hmm);
-
-  /* create 2nd tree model, then update rate categories in both */
-  (*mods) = srealloc(*mods, 2 * sizeof(void*));
-  (*mods)[1] = tm_create_copy((*mods)[0]);
-
-  rconsts = lst_new_dbl(nrates);
-  rweights = lst_new_dbl(nrates);
-  for (i = 0; i < cut_idx; i++) {
-    lst_push_dbl(rweights, tmp_weights[i]);
-    lst_push_dbl(rconsts, tmp_rates[i]);
-  }
-
-  if (cut_idx == 1) {
-    tm_reinit((*mods)[0], (*mods)[0]->subst_mod, 1, 0, NULL, NULL);
-    tm_scale((*mods)[0], lst_get_dbl(rconsts, 0), TRUE);
-                                /* in this case, have to by-pass rate
-                                   variation machinery and just scale
-                                   tree; tree model code won't do
-                                   rate variation with single rate
-                                   category */
-  }
-  else
-    tm_reinit((*mods)[0], (*mods)[0]->subst_mod, cut_idx, 
-              (*mods)[0]->alpha, rconsts, rweights);
-                                /* note that dgamma model will be
-                                   redefined as empirical rates mod */
-
-  lst_clear(rconsts); lst_clear(rweights);
-  for (i = cut_idx; i < nrates; i++) {
-    lst_push_dbl(rweights, tmp_weights[i]);
-    lst_push_dbl(rconsts, tmp_rates[i]);
-  }
-
-  if (cut_idx == nrates-1) {    /* unlikely but possible */
-    tm_reinit((*mods)[1], (*mods)[1]->subst_mod, 1, 0, NULL, NULL);
-    tm_scale((*mods)[1], lst_get_dbl(rconsts, nrates-1), TRUE);
-  }
-  else
-    tm_reinit((*mods)[1], (*mods)[1]->subst_mod, nrates - cut_idx, 
-              (*mods)[1]->subst_mod, rconsts, rweights);
-  lst_free(rconsts); lst_free(rweights);
-
-  /* define two-category category map */
-  *cm = cm_create_trivial(1, "cons_");
-}
-
-/** Estimate the parameters 'p' and 'q' that define the two-state
-    "rates-cut" model using an EM algorithm.  Also estimate indel
-    parameters, if necessary.  Returns ln likelihood. */
-double fit_rates_cut(PhyloHmm *phmm, int estim_func, int estim_indels,
-                     double *p, double *q, 
-                     double *alpha_0, double *beta_0, double *omega_0, 
-                     double *alpha_1, double *beta_1, double *omega_1, 
-                     FILE *logf) {
-  double retval;
-
-  mm_set(phmm->functional_hmm->transition_matrix, 0, 0, 1-*p);
-  mm_set(phmm->functional_hmm->transition_matrix, 0, 1, *p);
-  mm_set(phmm->functional_hmm->transition_matrix, 1, 0, *q);
-  mm_set(phmm->functional_hmm->transition_matrix, 1, 1, 1-*q);
-                                /* note that phmm->functional_hmm ==
-                                   phmm->hmm if no indel model */
-
-  if (phmm->indel_mode == PARAMETERIC) {
-    phmm->alpha[0] = *alpha_0;
-    phmm->beta[0] = *beta_0;
-    phmm->omega[0] = *omega_0;
-    phmm->alpha[1] = *alpha_1;
-    phmm->beta[1] = *beta_1;
-    phmm->omega[1] = *omega_1;
-  }
-
-  phmm_reset(phmm); 
-
-  if (!estim_func) phmm->fix_functional = TRUE;
-  if (!estim_indels) phmm->fix_indel = TRUE;
-
-  retval = phmm_fit_em(phmm, NULL, logf);
-
-  *p = mm_get(phmm->functional_hmm->transition_matrix, 0, 1);
-  *q = mm_get(phmm->functional_hmm->transition_matrix, 1, 0);
-
-  if (phmm->indel_mode == PARAMETERIC) {
-    *alpha_0 = phmm->alpha[0];
-    *beta_0 = phmm->beta[0];
-    *omega_0 = phmm->omega[0];
-    *alpha_1 = phmm->alpha[1];
-    *beta_1 = phmm->beta[1];
-    *omega_1 = phmm->omega[1];
-  }
-
-  return retval;
-}
- 
 int main(int argc, char *argv[]) {
 
   /* arguments and defaults */
   int post_probs = TRUE, score = FALSE, quiet = FALSE, 
     gff = FALSE, rates_cross = FALSE, estim_lambda = TRUE, 
     estim_transitions = TRUE, two_state = TRUE, indels = FALSE,
-    coding_potential = FALSE, indels_only = FALSE, estim_indels = TRUE;
+    coding_potential = FALSE, indels_only = FALSE, estim_indels = TRUE,
+    estim_tree = FALSE;
   int nrates = -1, rates_cut_idx = 1, refidx = 1, min_inform_bases = 2, 
     max_micro_indel = 20;
   double lambda = 0.9, p = 0.01, q = 0.01, alpha_0 = 0.05, beta_0 = 0.05, 
@@ -531,7 +418,7 @@ int main(int argc, char *argv[]) {
   FILE *viterbi_f = NULL, *lnl_f = NULL, *log_f = NULL;
   List *states = NULL, *pivot_states = NULL, *min_inform_str = NULL, 
     *mod_fname_list;
-  char *seqname = NULL, *idpref = NULL;
+  char *seqname = NULL, *idpref = NULL, *estim_tree_fname = NULL;
   HMM *hmm = NULL;
   Hashtable *alias_hash = NULL;
 
@@ -545,6 +432,7 @@ int main(int argc, char *argv[]) {
     {"lambda", 1, 0, 'l'},
     {"cut-at", 1, 0, 'C'},
     {"transitions", 1, 0, 't'},
+    {"estimate-tree", 1, 0, 'T'},
     {"nrates", 1, 0, 'k'},
     {"log", 1, 0, 'g'},
     {"refidx", 1, 0, 'r'},
@@ -580,6 +468,7 @@ int main(int argc, char *argv[]) {
   CategoryMap *cm = NULL;
   char *mods_fname = NULL, *newname;
   indel_mode_type indel_mode;
+  TreeModel *source_mod = NULL;
 
   while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IY:D:JM:m:pA:Xqh", long_opts, &opt_idx)) != -1) {
     switch (c) {
@@ -625,6 +514,10 @@ int main(int argc, char *argv[]) {
       if (p <= 0 || p >= 1 || q <= 0 || q >= 1)
         die("ERROR: bad argument to --transitions.\n");
       lst_free(tmpl);
+      break;
+    case 'T':
+      estim_tree = TRUE;
+      estim_tree_fname = optarg;
       break;
     case 'k':
       nrates = get_arg_int_bounds(optarg, 2, 100);
@@ -723,6 +616,8 @@ int main(int argc, char *argv[]) {
   if ((!coding_potential && optind != argc - 2) ||
       (coding_potential && optind != argc - 2 && optind != argc - 1))
     die("ERROR: extra or missing arguments.  Try '%s -h'.\n", argv[0]);
+
+  if (!indels) estim_indels = FALSE;
 
   mods_fname = (optind == argc - 2 ? argv[argc - 1] : NULL);
   /* if there are two args, mods are the second one; otherwise will
@@ -837,6 +732,7 @@ int main(int argc, char *argv[]) {
   if (two_state) {
     if (!quiet) 
       fprintf(stderr, "Partitioning at rate category %d to create 'conserved' and 'nonconserved' states...\n", rates_cut_idx);
+    if (estim_tree) source_mod = tm_create_copy(mod[0]);
     setup_rates_cut(&hmm, &mod, &cm, nrates, rates_cut_idx, p, q);
   }
   else if (cm == NULL)
@@ -849,6 +745,7 @@ int main(int argc, char *argv[]) {
   else indel_mode = NONPARAMETERIC;
 
   phmm = phmm_new(hmm, mod, cm, pivot_states, indel_mode);
+  if (estim_tree) phmm->source_mod = source_mod;
 
   if (rates_cross) {
     if (!quiet) 
@@ -882,24 +779,34 @@ int main(int argc, char *argv[]) {
   }
 
   /* estimate p and q and indel params, if necessary */
-  else if (two_state && (estim_transitions || (indels && estim_indels))) {
+  else if (two_state && (estim_transitions || estim_indels || estim_tree)) {
     if (!quiet) {
       fprintf(stderr, "Finding MLE for (");
-      if (estim_transitions) fprintf(stderr, "p, q%s", estim_indels ? ", " : "");
-      if (indels && estim_indels) 
-        fprintf(stderr, "alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1");
+      if (estim_transitions) 
+        fprintf(stderr, "p, q%s", estim_indels || estim_tree ? ", " : "");
+      if (estim_indels) 
+        fprintf(stderr, "alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1%s",
+                estim_tree ? ", " : "");
+      if (estim_tree)
+        fprintf(stderr, "[tree model]");
       fprintf(stderr, ")...\n");
     }
-    lnl = fit_rates_cut(phmm, estim_transitions, estim_indels, &p, &q, 
-                        &alpha_0, &beta_0, &omega_0, 
-                        &alpha_1, &beta_1, &omega_1, log_f);
-    if (!quiet) {      
+    lnl = fit_rates_cut(phmm, estim_transitions, estim_indels, estim_tree,
+                        &p, &q, &alpha_0, &beta_0, &omega_0, 
+                        &alpha_1, &beta_1, &omega_1, msa, log_f);
+    if (!quiet && (estim_transitions || estim_indels)) {      
       fprintf(stderr, "(");
       if (estim_transitions)
         fprintf(stderr, "p = %f. q = %f%s", p, q, estim_indels ? ", " : "");
       if (estim_indels)
         fprintf(stderr, "alpha_0 = %f, beta_0 = %f, omega_0 = %f, alpha_1 = %f, beta_1 = %f, omega_1 = %f", alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1);
       fprintf(stderr, ")\n");
+    }
+
+    if (estim_tree) {
+      if (!quiet)
+        fprintf(stderr, "Writing re-estimated tree model to %s...", estim_tree_fname);
+      tm_print(fopen_fname(estim_tree_fname, "w+"), phmm->source_mod);
     }
   }
 
@@ -990,7 +897,7 @@ int main(int argc, char *argv[]) {
       fprintf(lnl_f, "(");
       if (estim_transitions)
         fprintf(lnl_f, "p = %f, q = %f%s", p, q, estim_indels ? ", " : "");
-      if (indels && estim_indels)
+      if (estim_indels)
         fprintf(lnl_f, "alpha_0 = %f, beta_0 = %f, omega_0 = %f, alpha_1 = %f, beta_1 = %f, omega_1 = %f", alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1);
       fprintf(lnl_f, ")\n");
     }
@@ -1001,3 +908,321 @@ int main(int argc, char *argv[]) {
 
   return 0;
 }
+
+void setup_rates_cut(HMM **hmm, TreeModel ***mods, CategoryMap **cm, int nrates, 
+                     int cut_idx, double p, double q) {
+
+  double freq1 = 0;
+  int i;
+  int dgamma = !(*mods)[0]->empirical_rates; /* whether using discrete
+                                                gamma model */
+
+  List *rconsts, *rweights;
+  double tmp_rates[nrates], tmp_weights[nrates];
+
+  if (nrates <= 1) die("ERROR: must have nrates > 1.\n");
+  if (cut_idx < 1 || cut_idx > nrates) 
+    die("ERROR: must have 1 <= cut_idx <= nrates.\n");
+
+  *hmm = hmm_new_nstates(2, TRUE, FALSE);
+
+  if (dgamma) 
+    /* if using dgamma, need to compute rate consts and weights -- may
+       not have been computed yet */
+    DiscreteGamma(tmp_weights, tmp_rates, (*mods)[0]->alpha, 
+                  (*mods)[0]->alpha, nrates, 0); 
+  else {
+    for (i = 0; i < nrates; i++) {
+      tmp_weights[i] = (*mods)[0]->freqK[i];
+      tmp_rates[i] = (*mods)[0]->rK[i];
+    }
+  }
+
+  /* set HMM transitions according to p and q */
+  mm_set((*hmm)->transition_matrix, 0, 0, 1-p);
+  mm_set((*hmm)->transition_matrix, 0, 1, p);
+  mm_set((*hmm)->transition_matrix, 1, 0, q);
+  mm_set((*hmm)->transition_matrix, 1, 1, 1-q);
+
+  /* set HMM begin transitions according to weights */
+  for (i = 0; i < cut_idx; i++) freq1 += tmp_weights[i];
+  gsl_vector_set((*hmm)->begin_transitions, 0, freq1);
+  gsl_vector_set((*hmm)->begin_transitions, 1, 1 - freq1);
+
+  hmm_reset(*hmm);
+
+  /* create 2nd tree model and update rate categories for both */
+  (*mods) = srealloc(*mods, 2 * sizeof(void*));
+  (*mods)[1] = tm_create_copy((*mods)[0]);
+
+  rconsts = lst_new_dbl(nrates);
+  rweights = lst_new_dbl(nrates);
+  for (i = 0; i < cut_idx; i++) {
+    lst_push_dbl(rweights, tmp_weights[i]);
+    lst_push_dbl(rconsts, tmp_rates[i]);
+  }
+
+  if (cut_idx == 1) {
+    tm_reinit((*mods)[0], (*mods)[0]->subst_mod, 1, 0, NULL, NULL);
+    tm_scale((*mods)[0], lst_get_dbl(rconsts, 0), TRUE);
+                                /* in this case, have to by-pass rate
+                                   variation machinery and just scale
+                                   tree; tree model code won't do
+                                   rate variation with single rate
+                                   category */
+  }
+  else
+    tm_reinit((*mods)[0], (*mods)[0]->subst_mod, cut_idx, 
+              (*mods)[0]->alpha, rconsts, rweights);
+                                /* note that dgamma model will be
+                                   redefined as empirical rates mod */
+
+  lst_clear(rconsts); lst_clear(rweights);
+  for (i = cut_idx; i < nrates; i++) {
+    lst_push_dbl(rweights, tmp_weights[i]);
+    lst_push_dbl(rconsts, tmp_rates[i]);
+  }
+
+  if (cut_idx == nrates-1) {    /* unlikely but possible */
+    tm_reinit((*mods)[1], (*mods)[1]->subst_mod, 1, 0, NULL, NULL);
+    tm_scale((*mods)[1], lst_get_dbl(rconsts, nrates-1), TRUE);
+  }
+  else
+    tm_reinit((*mods)[1], (*mods)[1]->subst_mod, nrates - cut_idx, 
+              (*mods)[1]->subst_mod, rconsts, rweights);
+  lst_free(rconsts); lst_free(rweights);
+
+  /* define two-category category map */
+  *cm = cm_create_trivial(1, "cons_");
+}
+
+/* Estimate the parameters 'p' and 'q' that define the two-state
+   "rates-cut" model using an EM algorithm.  Also estimate indel
+   parameters, if necessary.  Returns ln likelihood. */
+double fit_rates_cut(PhyloHmm *phmm, int estim_func, int estim_indels,
+                     int estim_tree, double *p, double *q, 
+                     double *alpha_0, double *beta_0, double *omega_0, 
+                     double *alpha_1, double *beta_1, double *omega_1, 
+                     MSA *msa,  /* ignored if estim_tree == FALSE */
+                     FILE *logf) {
+  double retval;
+
+  mm_set(phmm->functional_hmm->transition_matrix, 0, 0, 1-*p);
+  mm_set(phmm->functional_hmm->transition_matrix, 0, 1, *p);
+  mm_set(phmm->functional_hmm->transition_matrix, 1, 0, *q);
+  mm_set(phmm->functional_hmm->transition_matrix, 1, 1, 1-*q);
+                                /* note that phmm->functional_hmm ==
+                                   phmm->hmm if no indel model */
+
+  if (phmm->indel_mode == PARAMETERIC) {
+    phmm->alpha[0] = *alpha_0;
+    phmm->beta[0] = *beta_0;
+    phmm->omega[0] = *omega_0;
+    phmm->alpha[1] = *alpha_1;
+    phmm->beta[1] = *beta_1;
+    phmm->omega[1] = *omega_1;
+  }
+
+  phmm_reset(phmm); 
+
+  if (!estim_func) phmm->fix_functional = TRUE;
+  if (!estim_indels) phmm->fix_indel = TRUE;
+
+  if (estim_tree) {
+    if (msa->ss == NULL) 
+      ss_from_msas(msa, phmm->mods[0]->order+1, 0, NULL, NULL, NULL, -1);
+    phmm->msa = msa;
+
+    retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, NULL, 
+                             phmm_compute_emissions_em, reestimate_tree,
+                             phmm_estim_trans_em, phmm_get_obs_idx_em, 
+                             phmm_log_em, logf);
+
+    /* have to do final rescaling of tree models to get units of subst/site */
+    if (phmm->source_mod->subst_mod != JC69 && phmm->source_mod->subst_mod != F81) {   
+                                /* JC69 and F81 are exceptions */
+      double scale = tm_scale_rate_matrix(phmm->source_mod);
+      tm_scale_rate_matrix(phmm->mods[0]); /* will be the same as source_mod */
+      tm_scale_rate_matrix(phmm->mods[1]);
+      tm_scale(phmm->source_mod, scale, 0); 
+      tm_scale(phmm->mods[0], scale, 0); 
+      tm_scale(phmm->mods[1], scale, 0);
+    }
+  }
+
+  else                          /* not estimating tree model */
+    retval = phmm_fit_em(phmm, NULL, logf);
+
+  *p = mm_get(phmm->functional_hmm->transition_matrix, 0, 1);
+  *q = mm_get(phmm->functional_hmm->transition_matrix, 1, 0);
+
+  if (phmm->indel_mode == PARAMETERIC) {
+    *alpha_0 = phmm->alpha[0];
+    *beta_0 = phmm->beta[0];
+    *omega_0 = phmm->omega[0];
+    *alpha_1 = phmm->alpha[1];
+    *beta_1 = phmm->beta[1];
+    *omega_1 = phmm->omega[1];
+  }
+
+  return retval;
+}
+
+/* unpack parameters ignoring those for rate variation (used below) */
+void tm_unpack_no_ratevar(TreeModel *mod, gsl_vector *params, int nrate_params) {
+  int orig_nratecats = mod->nratecats;
+  double orig_alpha = mod->alpha;
+ 
+  /* force tm_unpack_params to skip rate var params */
+  mod->nratecats = -1;
+  mod->alpha = -nrate_params;
+
+  tm_unpack_params(mod, params, -1);
+  
+  /* restore */
+  mod->nratecats = orig_nratecats;
+  mod->alpha = orig_alpha;
+}
+ 
+/* Wrapper for computation of likelihood, for use by reestimate_tree (below) */
+double likelihood_wrapper(gsl_vector *params, void *data) {
+  PhyloHmm *phmm = (PhyloHmm*)data;
+  int nratecats0 = phmm->mods[0]->nratecats, nratecats1 = phmm->mods[1]->nratecats;
+  int nratecats = phmm->source_mod->nratecats;
+  double *freqK = smalloc(nratecats * sizeof(double));
+  double *rK = smalloc(nratecats * sizeof(double));
+  int i, idx;
+  assert(nratecats == nratecats0 + nratecats1);
+
+  /* reset rate constants and frequencies */
+  idx = tm_get_nbranchlenparams(phmm->source_mod) + 
+    tm_get_neqfreqparams(phmm->source_mod);
+  if (phmm->source_mod->empirical_rates == FALSE) { /* discrete gamma */
+    double alpha = gsl_vector_get(params, idx);
+    DiscreteGamma(freqK, rK, alpha, alpha,  phmm->source_mod->nratecats, 0); 
+  }
+  else {
+    for (i = 0; i < nratecats; i++)
+      freqK[i] = gsl_vector_get(params, idx++);
+  }
+  for (i = 0; i < nratecats0; i++) phmm->mods[0]->freqK[i] = freqK[i];
+  normalize_probs(phmm->mods[0]->freqK, nratecats0);
+  for (i = 0; i < nratecats1; i++) phmm->mods[1]->freqK[i] = freqK[nratecats0 + i];
+  normalize_probs(phmm->mods[1]->freqK, nratecats1);
+  /* in discrete gamma case, also reset rate constants */
+  if (phmm->source_mod->empirical_rates == FALSE) {
+    for (i = 0; i < nratecats0; i++) phmm->mods[0]->rK[i] = rK[i];
+    for (i = 0; i < nratecats1; i++) phmm->mods[1]->rK[i] = rK[nratecats0 + i];
+  }
+  /* FIXME: here is where to recompute cut in distrib */
+
+  tm_unpack_params(phmm->source_mod, params, -1);
+  tm_unpack_no_ratevar(phmm->mods[0], params, tm_get_nratevarparams(phmm->source_mod));
+  tm_unpack_no_ratevar(phmm->mods[1], params, tm_get_nratevarparams(phmm->source_mod));
+
+  free(freqK);
+  free(rK);
+
+  return -tl_compute_log_likelihood(phmm->mods[0], phmm->msa, NULL, 0, NULL)
+    + -tl_compute_log_likelihood(phmm->mods[1], phmm->msa, NULL, 1, NULL);
+                                /* FIXME: what happens when not one to
+                                   one cats and mods? */
+}
+
+/* re-estimate phylogenetic model based on expected counts; used in
+   fit_rates_cut, below */
+void reestimate_tree(void **models, int nmodels, void *data, 
+                     double **E, int nobs) {
+
+  PhyloHmm *phmm = (PhyloHmm*)data;
+  int k, obsidx;
+  gsl_vector *params, *lower_bounds = gsl_vector_calloc(params->size), 
+    *upper_bounds = NULL;
+  double ll;
+
+  /* FIXME: what about when multiple states per model?  Need to collapse sufficient
+     stats.  Could probably be done generally... */
+
+  /* FIXME: have to make sure cat_counts initialized */
+
+  for (k = 0; k < phmm->nmods; k++) {
+    for (obsidx = 0; obsidx < nobs; obsidx++) 
+      phmm->msa->ss->cat_counts[k][obsidx] = E[k][obsidx];
+    msa_get_base_freqs_tuples(phmm->msa, phmm->mods[k]->backgd_freqs, 
+                              phmm->mods[k]->order+1, k);
+                                /* need to reestimate background
+                                   freqs, using new category counts */
+  }
+
+  /* FIXME: need to use state_to_cat, etc. in deciding which categories to use */
+
+  params = tm_params_init_from_model(phmm->source_mod); 
+
+  if (opt_bfgs(likelihood_wrapper, params, phmm, &ll, 
+               lower_bounds, upper_bounds, NULL, NULL, OPT_HIGH_PREC, NULL) != 0)
+    die("ERROR returned by opt_bfgs.\n");
+
+  tm_unpack_params(phmm->source_mod, params, -1);
+  tm_unpack_no_ratevar(phmm->mods[0], params, tm_get_nratevarparams(phmm->source_mod));
+  tm_unpack_no_ratevar(phmm->mods[1], params, tm_get_nratevarparams(phmm->source_mod));
+
+  gsl_vector_free(lower_bounds);
+  gsl_vector_free(params); 
+}
+
+
+/***************************************************************************/
+/* Set specified TreeModel according to specified parameter vector as
+   in tm_unpack_params, but ignore parameters relating to rate
+   variation (special handling required here).  Also, don't reset
+   substitution matrices. */
+/* void unpack_ignore_rates(TreeModel *mod, gsl_vector *params, int nrate_params) { */
+/*   TreeNode *n; */
+/*   int nparams = tm_get_nparams(mod); */
+/*   int assigned = 0, nodeidx, i, j; */
+/*   List *traversal; */
+
+/*   assert(params->size == nparams && mod->tree->nnodes >= 3); */
+/*   assert(mod->estimate_branchlens == TM_BRANCHLENS_ALL && !mod->estimate_backgd); */
+
+   /* check parameter values */ 
+/*   for (i = 0; i < params->size; i++) { */
+/*     double p = gsl_vector_get(params, i); */
+/*     if (p < 0 && abs(p) < TM_IMAG_EPS) */ /* consider close enough to 0 */ 
+/*       gsl_vector_set(params, i, p=0); */
+/*     if (p < 0) die("ERROR: parameter %d has become negative (%f).\n", i, p); */
+/*     if (!finite(p)) die("ERROR: parameter %d is no longer finite (%f).\n",  */
+/*                           i, p); */
+/*   } */
+
+  /* first nnodes-2 elements define branch lengths */
+/*   i = 0; */
+/*   traversal = tr_preorder(mod->tree); */
+/*   for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) { */
+/*     n = lst_get_ptr(traversal, nodeidx); */
+
+/*     if (n->parent != NULL) { */
+/*       if ((n == mod->tree->lchild || n == mod->tree->rchild) &&  */
+/*           tm_is_reversible(mod->subst_mod)) { */
+/*         n->dparent = gsl_vector_get(params, 0)/2; */
+/*         if (!assigned) { */
+/*           i++;  */    /* only increment the first time */
+/*           assigned = 1; */
+/*         } */
+/*       } */
+/*       else if (n->id == mod->root_leaf_id)  */
+/*         n->dparent = 0; */
+/*       else  */
+/*         n->dparent = gsl_vector_get(params, i++); */
+/*     } */
+/*   } */
+
+/*   i += nrate_params; */
+
+/*   tm_set_rate_matrix(mod, params, i); */
+
+  /* diagonalize, if necessary */
+/*   if (mod->subst_mod != JC69 && mod->subst_mod != F81) */
+/*     mm_diagonalize(mod->rate_matrix); */
+/* } */
+

@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.13 2004-08-05 07:15:04 acs Exp $
+/* $Id: tree_model.c,v 1.14 2004-08-25 18:20:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -270,7 +270,7 @@ TreeModel *tm_new_from_file(FILE *f) {
 
       j = 0;
       for (i = 0; i < tmpstr->length; i++) 
-        if (isalnum(tmpstr->chars[i])) alphabet[j++] = tmpstr->chars[i];
+        if (!isspace(tmpstr->chars[i])) alphabet[j++] = tmpstr->chars[i];
       alphabet[j] = '\0';
       size = j;
     }

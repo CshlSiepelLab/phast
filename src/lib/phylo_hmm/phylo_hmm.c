@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.19 2004-08-17 17:13:33 acs Exp $
+/* $Id: phylo_hmm.c,v 1.20 2004-08-25 18:20:37 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -102,6 +102,7 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
   phmm->gpm = NULL;
   phmm->T = phmm->t = NULL;
   phmm->fix_functional = phmm->fix_indel = FALSE;
+  phmm->source_mod = NULL;
 
   /* make sure tree models all have trees and all have the same number
      of leaves; keep a pointer to a representative tree for use with
@@ -487,6 +488,7 @@ void phmm_free(PhyloHmm *phmm) {
   if (phmm->gpm != NULL) gp_free_map(phmm->gpm);
   if (phmm->functional_hmm != phmm->hmm) hmm_free(phmm->functional_hmm);
   if (phmm->autocorr_hmm != NULL) hmm_free(phmm->autocorr_hmm);
+  if (phmm->source_mod != NULL) tm_free(phmm->source_mod);
   if (phmm->alpha != NULL) free(phmm->alpha);
   if (phmm->beta != NULL) free(phmm->beta);
   if (phmm->omega != NULL) free(phmm->omega);
@@ -496,7 +498,7 @@ void phmm_free(PhyloHmm *phmm) {
 
 /** Compute emissions for given PhyloHmm and MSA.  Preprocessor for
     phmm_viterbi_features, phmm_posterior_probs, and phmm_lnl
-    (typically only needs to be run once). */
+    (often only needs to be run once). */
 void phmm_compute_emissions(PhyloHmm *phmm,
                                 /**< Initialized PhyloHmm */
                             MSA *msa,
@@ -946,18 +948,6 @@ void phmm_score_predictions(PhyloHmm *phmm,
   free(is_scored);
 }
 
-/* function used by phmm_fit_em */
-void compute_emissions(double **emissions, void **models, int nmodels,
-                       void *data, int sample, int length) {
-  /* just copy emissions; they're already computed.  FIXME: have to
-     change if allow reestim of state models */
-  PhyloHmm *phmm = (PhyloHmm*)data;
-  int i, j;
-  for (i = 0; i < phmm->hmm->nstates; i++)
-    for (j = 0; j < phmm->alloc_len; j++)
-      emissions[i][j] = phmm->emissions[i][j];
-}
-
 /** Add specified "bias" to log transition probabilities from
    designated background categories to non-background categories, then
    renormalize.  Provides a simple "knob" for controlling the
@@ -989,8 +979,8 @@ void phmm_add_bias(PhyloHmm *phmm, List *backgd_cat_names, double bias) {
 }
 
 /* special-purpose logging function for phmm_fit_em */
-void fit_em_log_func(FILE *logf, double logl, HMM *hmm, void *data, 
-                     int show_header) {
+void phmm_log_em(FILE *logf, double logl, HMM *hmm, void *data, 
+                 int show_header) {
   PhyloHmm *phmm = data;
   int i, j;
 
@@ -1022,29 +1012,99 @@ void fit_em_log_func(FILE *logf, double logl, HMM *hmm, void *data,
   fflush(logf);
 }
 
+/* The functions below are used by phmm_fit_em; they are phylo-HMM
+   specific implementations of generic routines required by
+   hmm_train_by_em.  Currently, a single training alignment is assumed
+   (i.e., no PooledMSA)  */
+
+/* fill out matrix of emissions by copying from phmm->emissions;
+   useful when state models are not being re-estimated */
+void phmm_compute_emissions_copy_em(double **emissions, void **models, 
+                                    int nmodels, void *data, int sample, 
+                                    int length) {
+  PhyloHmm *phmm = (PhyloHmm*)data;
+  int i, j;
+  for (i = 0; i < phmm->hmm->nstates; i++)
+    for (j = 0; j < phmm->alloc_len; j++)
+      emissions[i][j] = phmm->emissions[i][j];
+}
+
+/* resets phmm->emissions and copies to matrix of emissions */
+void phmm_compute_emissions_em(double **emissions, void **models, int nmodels,
+                               void *data, int sample, int length) {
+  PhyloHmm *phmm = (PhyloHmm*)data;
+  phmm_compute_emissions(phmm, phmm->msa, TRUE);
+  phmm_compute_emissions_copy_em(emissions, models, nmodels, data, 
+                                 sample, length);
+}
+
+/* re-estimate phylogenetic models based on expected counts */
+void phmm_estim_mods_em(void **models, int nmodels, void *data, 
+                        double **E, int nobs) {
+
+  /* FIXME: what about when multiple states per model?  Need to collapse sufficient
+     stats.  Could probably be done generally... */
+
+  /* FIXME: have to make sure cat_counts initialized */
+
+  int k, obsidx;
+  gsl_vector *params;
+  PhyloHmm *phmm = (PhyloHmm*)data;
+
+  for (k = 0; k < phmm->nmods; k++) {
+    params = tm_params_init_from_model(phmm->mods[k]);
+    for (obsidx = 0; obsidx < nobs; obsidx++) 
+      phmm->msa->ss->cat_counts[k][obsidx] = E[k][obsidx];
+    msa_get_base_freqs_tuples(phmm->msa, phmm->mods[k]->backgd_freqs, 
+                              phmm->mods[k]->order+1, k);
+                                /* need to reestimate background
+                                   freqs, using new category counts */
+
+    /* FIXME: need to use state_to_cat, etc. in deciding which categories to use */
+
+    tm_fit(phmm->mods[k], phmm->msa, params, k, OPT_HIGH_PREC, NULL);
+    gsl_vector_free(params); 
+  }
+}
+
+/* return observation index associated with given position, here a tuple index */
+int phmm_get_obs_idx_em(void *data, int sample, int position) {
+  MSA *msa = ((PhyloHmm*)data)->msa;
+  if (sample == -1 || position == -1) 
+    return msa->ss->ntuples;
+  return msa->ss->tuple_idx[position];
+}
+
 /** General routine to estimate the parameters of a phylo-HMM by EM.
    Can be used with or without the indel model, and for estimation of
-   transition params only or transition and emission params.  Returns ln likelihood. */
+   transition params only or transition params and tree models.
+   Returns ln likelihood. */
 double phmm_fit_em(PhyloHmm *phmm, 
-                   MSA *msa,     /* may be NULL if not re-estimating
-                                   state models */
+                   MSA *msa,     /* NULL means not to estimate tree
+                                    models (emissions must be
+                                    precomputed) */
                    FILE *logf
                    ) {
   double retval;
 
-  if (phmm->emissions == NULL)
-    phmm_compute_emissions(phmm, msa, TRUE);
+  if (msa == NULL && phmm->emissions == NULL)
+    die("ERROR (phmm_fit_em): emissions must be precomputed if not estimating tree models.\n");
 
-  retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, 
-                           NULL, compute_emissions, NULL, 
-                           phmm_estimate_transitions, NULL, fit_em_log_func, 
-                           logf);
+  if (msa != NULL) {            /* estimating tree models */
+    phmm->msa = msa;
+    retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, 
+                             &phmm->alloc_len, NULL, 
+                             phmm_compute_emissions_em, phmm_estim_mods_em,
+                             phmm_estim_trans_em, phmm_get_obs_idx_em, 
+                             phmm_log_em, logf);
+  }
 
-  /* FIXME: allow tree models to be re-estimated also (alternative
-     compute_emissions function and estimate_state_models function) */
-
-  /* FIXME: need a way of passing MSA to subroutine for case in which
-     models are re-estim */
+  else                          /* not estimating tree models */
+    retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, 
+                             &phmm->alloc_len, NULL, 
+                             phmm_compute_emissions_copy_em, NULL,
+                             phmm_estim_trans_em, NULL,
+                             phmm_log_em, logf);
 
   return log(2) * retval;
 }
@@ -1242,7 +1302,7 @@ void indel_max_gradient(gsl_vector *grad, gsl_vector *params,void *data,
 
 /* Maximize all params for state transition (M step of EM).  This
    function is passed to hmm_train_by_em in phmm_fit_em;  */
-void phmm_estimate_transitions(HMM *hmm, void *data, double **A) {
+void phmm_estim_trans_em(HMM *hmm, void *data, double **A) {
 
   /* NOTE: if re-estimating state models, be sure to call
      set_branch_len_factors; it's not called here */
@@ -1252,7 +1312,7 @@ void phmm_estimate_transitions(HMM *hmm, void *data, double **A) {
   double **fcounts = A;         /* will be reset if parameteric model */
   IndelEstimData ied;
 
-  assert(!phmm->fix_functional || !phmm->fix_indel);
+  if (phmm->fix_functional && phmm->fix_indel) return;
 
   if (phmm->indel_mode == PARAMETERIC) {
     /* initialize marginal counts for functional categories */
