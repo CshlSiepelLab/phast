@@ -8,20 +8,23 @@
 void usage(char *prog) {
   printf("\n\
 PROGRAM:      %s\n\
-DESCRIPTION:  Given a tree in Newick (*.nh) format, reports distances\n\
-              between all pairs of leaves.  If multiple files are given,\n\
-              then distances are computed by averaging, and statistics\n\
-              are reported describing the errors in the estimates (can\n\
-              be useful for bootstrapping; see 'phyloBoot --dump-mods').\n\
 \n\
-USAGE:        %s <tree.nh> [tree2.nh tree3.nh...]\n\
+DESCRIPTION:  Given a tree in Newick (*.nh) format, report distances\n\
+              between all pairs of leaves.  If multiple files are given,\n\
+              then distances are computed by averaging across models,\n\
+              and statistics describing the errors in the estimates\n\
+              are reported (can be useful for bootstrapping; see\n\
+              'phyloBoot --dump-mods').\n\
+\n\
+USAGE:        %s <tree.nh> [<tree2.nh> <tree3.nh>...]\n\
+\n\
 OPTIONS:\n\
     --mod, -m\n\
-        Read from tree model (*.mod) file instead of Newick file.\n\
+        Read from tree model (*.mod) file(s) instead of Newick file.\n\
 \n\
     --tree, -t <file>|<string>\n\
-        Use leaf names from given tree.  Can be used with --mod to cause\n\
-        leaves to be described by name rather than by number.\n\
+        Use leaf names from given tree.  Useful when primary files\n\
+        use numbers rather than names.\n\
 \n\
     --help, -h\n\
         Print this help message.\n\n", prog, prog);
