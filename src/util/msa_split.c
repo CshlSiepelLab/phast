@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.10 2004-06-23 21:22:15 acs Exp $
+/* $Id: msa_split.c,v 1.11 2004-06-25 04:41:27 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -22,129 +22,193 @@
 
 void print_usage() {
     printf("\n\
-USAGE: msa_split [OPTIONS] <msa_fname> \n\
+USAGE: msa_split [OPTIONS] <fname> \n\
 \n\
-Partitions a multiple sequence alignment either at designated columns,\n\
-or according to specified category labels, and outputs sub-alignments\n\
-for the partitions.  Optionally splits an associated annotations file.\n\
+DESCRIPTION:\n\
 \n\
-Options:\n\
+    Partitions a multiple sequence alignment either at designated\n\
+    columns, or according to specified category labels, and outputs\n\
+    sub-alignments for the partitions.  Optionally splits an\n\
+    associated annotations file.\n\
 \n\
-    -i FASTA|PHYLIP|MPM|MAF|SS\n\
-        Input alignment file format.  Default is FASTA.\n\
+EXAMPLES:\n\
 \n\
-    -M <rseq_fname>\n\
-        (for use with -i MAF) Name of file containing reference sequence, \n\
-        in FASTA format.\n\
+    (See below for details on options)\n\
 \n\
-    -g <gff_fname>\n\
-        Name of GFF file.  Frame of reference of feature indices is\n\
-        determined feature-by-feature according to 'seqname'\n\
-        attribute.\n\
+
+    1. Read an alignment for a whole human chromosome from a MAF file
+    and extract sub-alignments in 1Mb windows overlapping by 1kb.  Use
+    the \"sufficient statistics\" (SS) format for output (can be used
+    by phyloFit, phastCons, or exoniphy).  Set window boundaries
+    between alignment blocks, if possible.
+
+        msa__split chr1.maf --refseq chr1.fa --in-format MAF \\\n\
+            --windows 1000000,1000 --out-format SS \\\n\
+            --between-blocks 5000 --out-root chr1
+
+    (Windows will be defined using the coordinate system of the first
+    sequence in the alignment, assumed to be the reference sequence;
+    output will be to chr1.1.ss, chr1.2.ss, ...)
+
+    2. As in (1), but report unordered sufficient statistics (much
+    more compact and adequate for use with phyloFit).
+
+        msa__split chr1.maf --refseq chr1.fa --in-format MAF \\\n\
+            --windows 1000000,1000 --out-format SS \\\n\
+            --between-blocks 5000 --out-root chr1 --unordered-ss
+
+    3. Extract sub-alignments of sites in conserved elements and not
+    in conserved elements, as defined by a BED file (coordinates
+    assumed to be for 1st sequence).  Read multiple alignment in FASTA
+    format.
+
+        msa_split mydata.fa --features conserved.bed --by-category \\\n\
+            --out-root mydata
+
+    (Output will be to mydata.0.fa [non-conserved] and mydata.1.fa
+    [conserved])
+
+    3. Extract sub-alignments of sites in each of the three codon
+    positions, as defined by a GFF file (coordinates assumed to be for
+    1st sequence).  Reverse complement genes on minus strand.
+
+        msa-split chr22.maf --in-format MAF --features chr22.gff \\\n\
+            --by-category --catmap \"NCATS 3 ; CDS 1-3\" --do-cats cds \\\n\
+            --reverse-compl --out-root chr22 --out-format SS
+
+    (Output will be to chr22.cds1.ss, chr22.cds2.ss, chr22.cds3.ss)
+
+    4. Split an alignment into pieces corresponding to the genes in a
+    GFF file.  Assume genes are defined by the tag \"transcript_id\".
+
+        msa_split cftr.fa --features cftr.gff --by-group transcript_id
+
+    (Output will be to ??   Split point is midway between each gene)
+
+    5. Obtain a sub-alignment for each of a set of regulatory regions,\n\
+    as defined in a BED file.
+    
+        msa_split chr22.maf --refseq chr22.fa --features chr22.reg.bed \\\n\
+            --for-features --out-root chr22.reg
+
+OPTIONS:\n\
 \n\
-    -p <partition_indices>\n\
-        List of explicit indices at which to split alignment\n\
-        (comma-separated).  If the list of indices is \"10,20\",\n\
-        then sub-alignments will be output for columns 1-9, 10-19, and\n\
-        20-<msa_len>.  Default is the empty list (single partition).\n\
-\n\
-    -P <tag>\n\
-        (For use with -g)  Split by groups in GFF file, as defined\n\
-        by the specified tag.  Splits midway between every pair of\n\
-        consecutive groups.  Features will be sorted by group.\n\
-        There should be no overlapping features (see 'refeature --unique').\n\
-\n\
-    -d <partition_frame>\n\
-        Index of frame of reference for split indices.  Default is\n\
-        1 (1st sequence assumed reference).  For use with -p or -w.\n\
-\n\
-    -n <npartitions>\n\
-        Split the alignment equally into specified number of partitions.\n\
-\n\
-    -w <win_size,win_overlap>\n\
+ (Splitting options)\n\
+    --windows, -w <win_size,win_overlap>\n\
         Split the alignment into \"windows\" of size <win_size> bases,\n\
         overlapping by <win_overlap>\n\
 \n\
-    -L <cat_map_fname>\n\
-        Split according to category labels, as defined by category map\n\
-        and GFF file.  For use with -g.\n\
+    --by-category, -L\n\
+        (Requires --features) Split by category, as defined by\n\
+        annotations file and (optionally) category map (see\n\
+        --catmap)\n\
 \n\
-    -F <fname>\n\
-        Extract section of the alignment corresponding to every\n\
-        feature in <fname> (GFF or BED format).\n\
+    --by-group, -P <tag>\n\
+        (Requires --features) Split by groups in annotation file,\n\
+        as defined by specified tag.  Splits midway between every\n\
+        pair of consecutive groups.  Features will be sorted by group.\n\
+        There should be no overlapping features (see 'refeature\n\
+        --unique').\n\
 \n\
-    -C <cat_list>\n\
-        (For use with -g and -L) Output sub-alignments for only the\n\
-        specified categories (column-delimited list).\n\
+    --for-features, -F <fname>\n\
+        Extract section of alignment corresponding to every\n\
+        feature in <fname> (GFF or BED format).  There will be no\n\
+        output for regions not covered by features.\n\
 \n\
-    -s\n\
-        Strand-sensitive mode.  Reverse complement all segments having\n\
-        at least one feature on the reverse strand and none on the\n\
-        positive strand.  For use with -g and -P.  Can also be used with\n\
-         -L to ensure all sites in a category are represented in the same\n\
-        strand orientation.\n\
+    --by-index, -p <indices>\n\
+        List of explicit indices at which to split alignment\n\
+        (comma-separated).  If the list of indices is \"10,20\",\n\
+        then sub-alignments will be output for sites 1-9, 10-19, and\n\
+        20-<msa_len>.\n\
 \n\
-    -f\n\
-        Retain the coordinates of the original GFF file, rather than\n\
-        resetting them for each partition (such that the first column\n\
-        of each new alignment has coordinate 1).  For use with -g.\n\
+    --npartitions, -n <number>\n\
+        Split alignment equally into specified number of partitions.\n\
 \n\
-    -G ALL|ANY|<seqno>\n\
+    --between-blocks, -B <radius>\n\
+        (Not for use with --by-category or --for-features) Try to\n\
+        partition at sites between alignment blocks.  Assumes a\n\
+        reference sequence alignment, with the first sequence as the\n\
+        reference seq (as created by multiz).  Blocks of %d sites with\n\
+        gaps in all sequences but the reference seq are assumed to\n\
+        indicate boundaries between alignment blocks.  Partition\n\
+        indices will not be moved more than <radius> sites.\n\
+\n\
+    --features, -g <fname>\n\
+        (For use with --by-category, --by-group, or --for-features).\n\
+        Annotations file.  May be GFF, BED, or genepred format.\n\
+\n\
+    --refidx, -d <frame_index>\n\
+        (For use with --windows or --by-index) Index of frame of\n\
+        reference for split indices.  Default is 1 (1st sequence\n\
+        assumed reference).\n\
+\n\
+ (File names & formats, type of output, etc.)\n\
+    --in-format, -i FASTA|PHYLIP|MPM|MAF|SS\n\
+        Input alignment file format.  Default is FASTA.\n\
+\n\
+    --refseq, -M <fname>\n\
+        (For use with --in-format MAF) Name of file containing\n\
+        reference sequence, in FASTA format.\n\
+\n\
+    --out-format, -o FASTA|PHYLIP|MPM|SS\n\
+        Output alignment file format.  Default is FASTA.\n\
+\n\
+    --out-root, -r <name>\n\
+        Filename root for output files (default \"msa_split\").\n\
+\n\
+    --reverse-compl, -s\n\
+        Reverse complement all segments having at least one feature on\n\
+        the reverse strand and none on the positive strand.  For use\n\
+        with --by-group.  Can also be used with --by-category to ensure\n\
+        all sites in a category are represented in the same strand\n\
+        orientation.\n\
+\n\
+    --gap-strip, -G ALL|ANY|<seqno>\n\
         Strip columns in output alignments containing all gaps, any\n\
         gaps, or gaps in the specified sequence (<seqno>; indexing\n\
         begins with one).  Default is not to strip any columns.\n\
 \n\
-    -l <seq_list>\n\
+    --seqs, -l <seq_list>\n\
         Include only specified sequences in output.  Indicate by \n\
         sequence number, number starts with 1.\n\
 \n\
-    -r <output_fname_root>\n\
-        Root of filename for output files.  Suffixes will be .i.msa and\n\
-        .i.gff, for i between 1 and the total number of partitions.\n\
-        Default filename root is \"msa_split\".\n\
-\n\
-    -o FASTA|PHYLIP|MPM|SS\n\
-        Output alignment file format.  Default is FASTA.\n\
-\n\
-    -O <name_list>\n\
+    --order, -O <name_list>\n\
         Change order of rows in alignment to match sequence names\n\
         specified in name_list.  If a name appears in name_list but\n\
-        not in the alignment, a row of gaps will be inserted.  Order\n\
-        is changed *before* -c and -d are applied.\n\
+        not in the alignment, a row of gaps will be inserted.\n\
 \n\
-    -S \n\
-        Output summary of each partition to \"<output_fname_root>.sum\"\n\
-        (includes base frequencies and numbers of gapped columns).\n\
-\n\
-    -T <tuple_size>\n\
-        (for use with -L and -g or -o SS)  With -L and -g, insert \n\
-        tuple_size-1 columns of missing data ('N' characters) between \n\
-        sites that were not adjacent in the original alignment, to avoid\n\
-        the creation of artificial context.  With -o SS, express sufficient\n\
-        statistics in terms of specified tuple size.\n\
-\n\
-    -z  \n\
-        (For use with -o SS)  Suppress the portion of the sufficient \n\
-        statistics concerned with the order in which columns appear.  Useful \n\
-        for analyses for which order is unimportant.\n\
-\n\
-    -I <ninf_sites> \n\
-        Only output partitions having at least <ninf_sites> informative sites\n\
+    --min-informative, -I <n> \n\
+        Only output alignments having at least <n> informative sites\n\
         (sites at which at least two non-gap and non-N gaps are present).\n\
 \n\
-    -B <radius>\n\
-        (for use with -p, -P, -n, or -w) Try to partition at sites\n\
-        between alignment blocks.  Assumes a reference sequence\n\
-        alignment, with the first sequence as the reference (as\n\
-        created by multiz).  Blocks of %d sites with gaps in all\n\
-        sequences but the reference are assumed to indicate boundaries\n\
-        between alignment blocks.  Partition indices will not be moved \n\
-        more than <radius> sites.\n\
+    --do-cats, -C <cat_list>\n\
+        (For use with --by-category) Output sub-alignments for only the\n\
+        specified categories (column-delimited list).\n\
 \n\
-    -q\n\
+    --tuple-size, -T <tuple_size>\n\
+        (for use with --by-category or --out-format SS) Size of tuples\n\
+        of columns to consider in downstream analysis (e.g., with\n\
+        context-dependent phylogenetic models; see 'phyloFit').  With\n\
+        --by-category, insert tuple_size-1 columns of missing data\n\
+        ('N' characters) between sites that were not adjacent in the\n\
+        original alignment, to avoid creating artificial context.\n\
+        With --out-format SS, express sufficient statistics in terms\n\
+        of tuples of specified size.\n\
+\n\
+    --unordered-ss, -z  \n\
+        (For use with --out-format SS)  Suppress the portion of the\n\
+        sufficient statistics concerned with the order in which columns\n\
+        appear.\n\
+\n\
+    --summary, -S \n\
+        Output summary of each output alignment to a file with suffix\n\
+        \".sum\" (includes base frequencies and numbers of gapped columns).\n\
+\n\
+ (Other)\n\
+    --quiet, -q\n\
         Proceed quietly.\n\
 \n\
-    -h\n\
+    ---help, -h\n\
         Print this help message.\n\n", NSITES_BETWEEN_BLOCKS);
 }
 
@@ -326,7 +390,7 @@ int main(int argc, char* argv[]) {
     faithful = 0, partition_frame = 1, quiet_mode = 0, gap_strip_mode = NO_STRIP,
     output_summary = 0, tuple_size = 1, win_size = -1, 
     win_overlap = -1, ordered_stats = 1, min_ninf_sites = -1, 
-    adjust_radius = -1;
+    adjust_radius = -1, opt_idx;
   List *split_indices_list, *cats_to_do = NULL, *order_list = NULL, 
     *segment_ends_list = NULL, *seqlist = NULL;  
   String *outfname, *sum_fname = NULL;
@@ -339,7 +403,34 @@ int main(int argc, char* argv[]) {
   CategoryMap *cm = NULL;
   char subfname[STR_MED_LEN];
 
-  while ((c = getopt(argc, argv, "i:M:g:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:F:l:Szqh")) != -1) {
+  struct option long_opts[] = {
+    {"windows", 1, 0, 'w'},
+    {"by-category", 1, 0, 'L'},
+    {"by-group", 1, 0, 'P'},
+    {"for-features", 1, 0, 'F'},
+    {"by-index", 1, 0, 'p'},
+    {"npartitions", 1, 0, 'n'},
+    {"between-blocks", 1, 0, 'B'},
+    {"features", 1, 0, 'g'},
+    {"refidx", 1, 0, 'd'},
+    {"in-format", 1, 0, 'i'},
+    {"refseq", 1, 0, 'M'},
+    {"out-format", 1, 0, 'o'},
+    {"out-root", 1, 0, 'r'},
+    {"reverse-compl", 0, 0, 's'},
+    {"gap-strip", 1, 0, 'G'},
+    {"seqs", 1, 0, 'l'},
+    {"order", 1, 0, 'O'},
+    {"min-informative", 1, 0, 'I'},
+    {"do-cats", 1, 0, 'C'},
+    {"tuple-size", 1, 0, 'T'},
+    {"unordered-ss", 0, 0, 'z'},
+    {"summary", 0, 0, 'S'},
+    {"quiet", 0, 0, 'q'},
+    {"help", 0, 0, 'h'}
+  };
+
+  while ((c = getopt_long(argc, argv, "i:M:g:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:F:l:Szqh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
