@@ -7,12 +7,6 @@
 #include <bed.h>
 #include <dgamma.h>
 
-/* default starting value of lambda, used with --rates-cross */
-#define DEFAULT_LAMBDA 0.9
-/* default starting values of p and q, used with two-state model */
-#define DEFAULT_P 0.01
-#define DEFAULT_Q 0.01
-
 void usage(char *prog) {
   printf("\n\
 PROGRAM: %s\n\
@@ -222,6 +216,19 @@ OPTIONS:\n\
         gap for it to be considered a \"micro-indel\" and therefore\n\
         addressed by the indel model.  Gaps longer than this threshold\n\
         will be treated as missing data.  Default value is 20.\n\
+\n\
+    --indel-params, -? [~]<alpha_0,beta_0,omega_0,alpha_1,beta_1,omega_1>\n\
+        (Optionally use with --indels and default two-state HMM) Fix\n\
+        the indel parameters at (alpha_0, beta_0, omega_0) for the\n\
+        conserved state and at (alpha_1, beta_1, omega_1) for the\n\
+        non-conserved state, rather than estimating them by maximum\n\
+        likelihood.  Alternatively, if first character of argument is\n\
+        '~', estimate parameters, but initialize with specified\n\
+        values.  Alpha_j is the rate of insertion events per\n\
+        substitution per site in state j (typically ~0.05), beta_j is\n\
+        the rate of deletion events per substitution per site in state\n\
+        j (typically ~0.05), and omega_j is approximately the inverse\n\
+        of the expected indel length in state j (typically 0.2-0.5).\n\
 \n\
     --reflect-strand, -U <pivot_states>\n\
         (Optionally use with --hmm) Given an HMM describing the\n\
@@ -452,12 +459,12 @@ void setup_rates_cut(HMM **hmm, TreeModel ***mods, CategoryMap **cm, int nrates,
 }
 
 /** Estimate the parameters 'p' and 'q' that define the two-state
-    "rates-cut" model using an EM algorithm.  Returns ln likelihood. */
-double fit_rates_cut(PhyloHmm *phmm, 
-                          double *p, 
-                          double *q, 
-                          FILE *logf
-                          ) {
+    "rates-cut" model using an EM algorithm.  Also estimate indel
+    parameters, if necessary.  Returns ln likelihood. */
+double fit_rates_cut(PhyloHmm *phmm, double *p, double *q, 
+                     double *alpha_0, double *beta_0, double *omega_0, 
+                     double *alpha_1, double *beta_1, double *omega_1, 
+                     FILE *logf) {
   double retval;
 
   mm_set(phmm->functional_hmm->transition_matrix, 0, 0, 1-*p);
@@ -466,12 +473,31 @@ double fit_rates_cut(PhyloHmm *phmm,
   mm_set(phmm->functional_hmm->transition_matrix, 1, 1, 1-*q);
                                 /* note that phmm->functional_hmm ==
                                    phmm->hmm if no indel model */
+
+  if (phmm->indel_mode == PARAMETERIC) {
+    phmm->alpha[0] = *alpha_0;
+    phmm->beta[0] = *beta_0;
+    phmm->omega[0] = *omega_0;
+    phmm->alpha[1] = *alpha_1;
+    phmm->beta[1] = *beta_1;
+    phmm->omega[1] = *omega_1;
+  }
+
   phmm_reset(phmm); 
 
   retval = phmm_fit_em(phmm, NULL, logf);
 
   *p = mm_get(phmm->functional_hmm->transition_matrix, 0, 1);
   *q = mm_get(phmm->functional_hmm->transition_matrix, 1, 0);
+
+  if (phmm->indel_mode == PARAMETERIC) {
+    *alpha_0 = phmm->alpha[0];
+    *beta_0 = phmm->beta[0];
+    *omega_0 = phmm->omega[0];
+    *alpha_1 = phmm->alpha[1];
+    *beta_1 = phmm->beta[1];
+    *omega_1 = phmm->omega[1];
+  }
 
   return retval;
 }
@@ -482,10 +508,11 @@ int main(int argc, char *argv[]) {
   int post_probs = TRUE, score = FALSE, quiet = FALSE, 
     gff = FALSE, rates_cross = FALSE, estim_lambda = TRUE, 
     estim_transitions = TRUE, two_state = TRUE, indels = FALSE,
-    coding_potential = FALSE, indels_only = FALSE;
+    coding_potential = FALSE, indels_only = FALSE, estim_indels = TRUE;
   int nrates = -1, rates_cut_idx = 1, refidx = 1, min_inform_bases = 2, 
     max_micro_indel = 20;
-  double lambda = DEFAULT_LAMBDA, p = DEFAULT_P, q = DEFAULT_Q;
+  double lambda = 0.9, p = 0.01, q = 0.01, alpha_0 = 0.05, beta_0 = 0.05, 
+    omega_0 = 0.45, alpha_1 = 0.05, beta_1 = 0.05, omega_1 = 0.2;
   msa_format_type msa_format = SS;
   FILE *viterbi_f = NULL, *lnl_f = NULL, *log_f = NULL;
   List *states = NULL, *pivot_states = NULL, *min_inform_str = NULL, 
@@ -511,6 +538,7 @@ int main(int argc, char *argv[]) {
     {"catmap", 1, 0, 'c'},
     {"indels", 0, 0, 'I'},
     {"max-micro-indel", 1, 0, 'Y'},
+    {"indel-params", 1, 0, 'D'},
     {"min-informative-types", 1, 0, 'M'},
     {"min-informative-bases", 1, 0, 'm'},
     {"lnl", 1, 0, 'L'},
@@ -537,7 +565,7 @@ int main(int argc, char *argv[]) {
   char *mods_fname = NULL;
   indel_mode_type indel_mode;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IY:JM:m:pXqh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IY:D:JM:m:pXqh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
       states = get_arg_list(optarg);
@@ -604,6 +632,22 @@ int main(int argc, char *argv[]) {
       break;
     case 'Y':
       max_micro_indel = get_arg_int_bounds(optarg, 1, INFTY);
+      break;
+    case 'D':
+      if (optarg[0] != '~') estim_indels = FALSE;
+      else optarg = &optarg[1];
+      tmpl = get_arg_list_dbl(optarg);
+      if (lst_size(tmpl) != 6) die("ERROR: bad argument to --indel-params.\n");
+      alpha_0 = lst_get_dbl(tmpl, 0);
+      beta_0 = lst_get_dbl(tmpl, 1);
+      omega_0 = lst_get_dbl(tmpl, 2);
+      alpha_1 = lst_get_dbl(tmpl, 3);
+      beta_1 = lst_get_dbl(tmpl, 4);
+      omega_1 = lst_get_dbl(tmpl, 5);
+      if (alpha_0 < 0 || beta_0 < 0 || omega_0 < 0 || 
+          alpha_1 < 0 || beta_1 < 0 || omega_1 < 0)
+        die("ERROR: bad argument to --indel-params.\n");
+      lst_free(tmpl);
       break;
     case 'J':
       indels_only = TRUE;
@@ -729,8 +773,10 @@ int main(int argc, char *argv[]) {
     /* this little hack allows gaps in refseq to be restored before
        output (needed for proper coord conversion) */
     if (msa->seqs == NULL) { ss_to_msa(msa); ss_free(msa->ss); msa->ss = NULL; }
+    assert(strlen(msa->missing) >= 2);
     for (i = 0; i < msa->length; i++) 
       if (msa->is_missing[(int)msa->seqs[0][i]]) msa->seqs[0][i] = msa->missing[1];
+                                /* msa->missing[0] is used in msa_mask_macro_indels */
 
     msa_mask_macro_indels(msa, max_micro_indel);
   }
@@ -804,11 +850,24 @@ int main(int argc, char *argv[]) {
     phmm_update_cross_prod(phmm, lambda);
   }
 
-  /* estimate p and q, if necessary */
-  else if (two_state && estim_transitions) {
-    if (!quiet) fprintf(stderr, "Finding MLE for 'p' and 'q'...");
-    lnl = fit_rates_cut(phmm, &p, &q, log_f);
-    if (!quiet) fprintf(stderr, " (p = %f. q = %f)\n", p, q);
+  /* estimate p and q and indel params, if necessary */
+  else if (two_state && (estim_transitions || estim_indels)) {
+    if (!quiet) {
+      fprintf(stderr, "Finding MLE for (");
+      if (estim_transitions) fprintf(stderr, "p, q%s", estim_indels ? ", " : "");
+      if (estim_indels) fprintf(stderr, "alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1");
+      fprintf(stderr, ")...\n");
+    }
+    lnl = fit_rates_cut(phmm, &p, &q, &alpha_0, &beta_0, &omega_0, 
+                        &alpha_1, &beta_1, &omega_1, log_f);
+    if (!quiet) {      
+      fprintf(stderr, "(");
+      if (estim_transitions)
+        fprintf(stderr, "p = %f. q = %f%s", p, q, estim_indels ? ", " : "");
+      if (estim_indels)
+        fprintf(stderr, "alpha_0 = %f, beta_0 = %f, omega_0 = %f, alpha_1 = %f, beta_1 = %f, omega_1 = %f", alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1);
+      fprintf(stderr, ")\n");
+    }
   }
 
   /* estimate indel parameters only, if necessary */
