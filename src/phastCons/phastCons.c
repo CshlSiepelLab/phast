@@ -263,8 +263,16 @@ OPTIONS:\n\
 \n\
     --seqname, -N <name>\n\
         (Optionally use with --viterbi) Use specified string for\n\
-        'seqname' (GFF) or 'chrom' field in output file.  By default,\n\
-        the filename root of <msa_fname> will be used.\n\
+        'seqname' (GFF) or 'chrom' field in output file.  Default\n\
+        is obtained from input file name (double filename\n\
+        root, e.g., \"chr22\" if input file is \"chr22.35.ss\").\n\
+\n\
+    --idpref, -P <name>\n\
+        (Optionally use with --viterbi) Use specified string as\n\
+        prefix of generated ids in output file.  Can be used to\n\
+        ensure ids are unique.  Default is obtained from input\n\
+        file name (single filename root, e.g., \"chr22.35\" if\n\
+        input file is \"chr22.35.ss\").
 \n\
  (Other)\n\
     --msa-format, -i PHYLIP|FASTA|MPM|SS|MAF\n\
@@ -321,7 +329,7 @@ int main(int argc, char *argv[]) {
   msa_format_type msa_format = SS;
   FILE *viterbi_f = NULL, *lnl_f = NULL, *log_f = NULL;
   List *states = NULL, *pivot_states = NULL;
-  char *seqname = NULL;
+  char *seqname = NULL, *idpref = NULL;
   HMM *hmm = NULL;
 
   struct option long_opts[] = {
@@ -341,6 +349,7 @@ int main(int argc, char *argv[]) {
     {"reflect-strand", 0, 0, 'U'},
     {"lnl", 1, 0, 'L'},
     {"seqname", 1, 0, 'N'},
+    {"idpref", 1, 0, 'P'},
     {"score", 0, 0, 's'},
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
@@ -357,7 +366,7 @@ int main(int argc, char *argv[]) {
   TreeModel **mod;
   PhyloHmm *phmm;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:c:t:r:xL:s:N:g:Xqh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:c:t:r:xL:s:N:P:g:Xqh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
       states = get_arg_list(optarg);
@@ -425,6 +434,9 @@ int main(int argc, char *argv[]) {
     case 'N':
       seqname = optarg;
       break;
+    case 'P':
+      idpref = optarg;
+      break;
     case 's':
       score = TRUE;
       break;
@@ -481,11 +493,15 @@ int main(int argc, char *argv[]) {
     die("ERROR: Ordered representation of alignment required.\n");
 
   /* use file name root for default seqname */
-  if (seqname == NULL) {
+  if (viterbi_f != NULL && (seqname == NULL || idpref == NULL)) {
     String *tmp = str_new_charstr(argv[optind]);
-    str_remove_path(tmp);
-    str_root(tmp, '.');
-    seqname = tmp->chars;
+    if (!str_equals_charstr(tmp, "-")) {
+      str_remove_path(tmp);
+      str_root(tmp, '.');
+      if (idpref == NULL) idpref = strdup(tmp->chars);
+      str_root(tmp, '.');         /* apply one more time for double suffix */
+      if (seqname == NULL) seqname = tmp->chars;    
+    }
   }
 
   /* set up states */
@@ -551,8 +567,8 @@ int main(int argc, char *argv[]) {
       collapse_cats(phmm->cm, states);
 
     if (!quiet) fprintf(stderr, "Running Viterbi algorithm...\n");
-    predictions = phmm_predict_viterbi_cats(phmm, states, seqname, 
-                                            NULL, NULL,"phastCons_predicted");
+    predictions = phmm_predict_viterbi_cats(phmm, states, seqname, NULL,
+                                            idpref, NULL, "phastCons_predicted");
     /* note that selected state numbers are also cat numbers  */
    
     /* score predictions, if necessary */

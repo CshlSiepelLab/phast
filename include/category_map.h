@@ -1,4 +1,4 @@
-/* $Id: category_map.h,v 1.5 2004-06-15 22:33:57 acs Exp $
+/* $Id: category_map.h,v 1.6 2004-06-30 17:01:21 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -200,7 +200,7 @@ void cm_add_feature_type(CategoryMap *cm, String *type,
 
 GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int length, int *path_to_cat,
                             int *reverse_compl, char *seqname, char *source, 
-                            char defaultstrand, List *frame_cats, char *grouproot);
+                            List *frame_cats, char *grouproot, char *idpref);
 
 CategoryRange* cm_new_category_range(String *type, int start_cat_no,
                                      int end_cat_no);

@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.16 2004-06-30 06:57:07 acs Exp $
+/* $Id: exoniphy.c,v 1.17 2004-06-30 17:01:21 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -46,8 +46,9 @@ DESCRIPTION: \n\
     appropriate for exon prediction in human DNA, based on\n\
     human/mouse/rat alignments and a 60-state HMM.  Using the --hmm,\n\
     --tree-models, and --catmap options, however, it is possible to\n\
-    define alternative phylo-HMMs, e.g., for prediction of exon pairs\n\
-    or complete gene structures.\n\
+    define alternative phylo-HMMs, e.g., for different sets of species\n\
+    and different phylogenies, or for prediction of exon pairs or\n\
+    complete gene structures.\n\
 \n\
 OPTIONS:\n\
 \n\
@@ -62,35 +63,41 @@ OPTIONS:\n\
         List of tree model (*.mod) files, one for each state in the\n\
         HMM.  Order of models must correspond to order of states in\n\
         HMM file.  By default, a set of models appropriate for human,\n\
-        mouse, and rat are used, estimated as described in Siepel &\n\
-        Haussler (2004).\n\
+        mouse, and rat are used (estimated as described in Siepel &\n\
+        Haussler, 2004).\n\
 \n\
     --catmap, -c <fname>|<string>\n\
         Mapping of feature types to category numbers.  Can give either\n\
         a filename or an \"inline\" description of a simple category\n\
         map, e.g., --catmap \"NCATS = 3 ; CDS 1-3\".  By default, a\n\
         category map is used that is appropriate for the 60-state HMM\n\
-        mentioned above (see --hmm).\n\
+        mentioned above.\n\
 \n\
  (Input and output)\n\
     --msa-format, -i PHYLIP|FASTA|MPM|SS \n\
         (default SS) File format of input alignment.\n\
  \n\
-    --seqname, -s <name>\n\
-        Use specified string as the \"seqname\" field in GFF output\n\
-        (e.g., chr22).  By default, the filename root of the input\n\
-        file is used.\n\
-\n\
-    --grouptag, -g <tag>\n\
-        Use specified string as the tag denoting groups in GFF output\n\
-        (default is \"exon_id\").\n\
-\n\
     --score, -S\n\
         Report log-odds scores for predictions, equal to their log\n\
         total probability under an exon model minus their log total\n\
         probability under a background model.  The exon model can be\n\
         altered using --cds-types and --signal-types and the\n\
         background model can be altered using --backgd-types (see below).\n\
+\n\
+    --seqname, -s <name>\n\
+        Use specified string as \"seqname\" field in GFF output.\n\
+        Default is obtained from input file name (double filename\n\
+        root, e.g., \"chr22\" if input file is \"chr22.35.ss\").\n\
+\n\
+    --idpref, -p <name>\n\
+        Use specified string as prefix of generated ids in GFF output.\n\
+        Can be used to ensure ids are unique.  Default is obtained\n\
+        from input file name (single filename root, e.g., \"chr22.35\"\n\
+        if input file is \"chr22.35.ss\").
+
+    --grouptag, -g <tag>\n\
+        Use specified string as the tag denoting groups in GFF output\n\
+        (default is \"exon_id\").\n\
 \n\
  (Altering the states and transition probabilities of the HMM)\n\
     --no-cns, -x \n\
@@ -187,7 +194,8 @@ int main(int argc, char* argv[]) {
   int quiet = FALSE, reflect_hmm = FALSE, score = FALSE, indels = FALSE, 
     no_cns = FALSE;
   double bias = NEGINFTY;
-  char *seqname = NULL, *grouptag = "exon_id", *sens_spec_fname_root = NULL;
+  char *seqname = NULL, *grouptag = "exon_id", *sens_spec_fname_root = NULL,
+    *idpref = NULL;
   List *model_fname_list = NULL, *no_gaps_str = NULL, *gc_thresholds = NULL;
   List *backgd_cats = get_arg_list(DEFAULT_BACKGD_CATS), 
     *cds_cats = get_arg_list(DEFAULT_CDS_CATS), 
@@ -198,9 +206,10 @@ int main(int argc, char* argv[]) {
     {"tree-models", 1, 0, 'm'},
     {"catmap", 1, 0, 'c'},
     {"msa-format", 1, 0, 'i'},
-    {"seqname", 1, 0, 's'},
-    {"grouptag", 1, 0, 'g'},
     {"score", 0, 0, 'S'},
+    {"seqname", 1, 0, 's'},
+    {"idpref", 1, 0, 'p'},
+    {"grouptag", 1, 0, 'g'},
     {"no-cns", 0, 0, 'x'},
     {"reflect-strand", 0, 0, 'U'},
     {"bias", 1, 0, 'b'},
@@ -229,7 +238,7 @@ int main(int argc, char* argv[]) {
   char tmpstr[STR_LONG_LEN];
   String *fname_str = str_new(STR_LONG_LEN), *str;
 
-  while ((c = getopt_long(argc, argv, "i:c:H:m:s:g:B:T:L:IW:b:D:xSYUhq", 
+  while ((c = getopt_long(argc, argv, "i:c:H:m:s:p:g:B:T:L:IW:b:D:xSYUhq", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
@@ -289,6 +298,9 @@ int main(int argc, char* argv[]) {
       break; 
     case 's':
       seqname = optarg;
+      break;
+    case 'p':
+      idpref = optarg;
       break;
     case 'g':
       grouptag = optarg;
@@ -364,12 +376,16 @@ int main(int argc, char* argv[]) {
   if (msa_format == SS && msa->ss->tuple_idx == NULL) 
     die("ERROR: Ordered representation of alignment required.\n");
 
-  /* use filename root for default seqname */
-  if (seqname == NULL) {
+  /* use filename root for default seqname and/or idpref */
+  if (seqname == NULL || idpref == NULL) {
     String *tmp = str_new_charstr(argv[optind]);
-    str_remove_path(tmp);
-    str_root(tmp, '.');
-    seqname = tmp->chars;
+    if (!str_equals_charstr(tmp, "-")) {
+      str_remove_path(tmp);
+      str_root(tmp, '.');
+      if (idpref == NULL) idpref = strdup(tmp->chars);
+      str_root(tmp, '.');         /* apply one more time for double suffix */
+      if (seqname == NULL) seqname = tmp->chars;    
+    }
   }
 
   ncats = cm->ncats + 1;
@@ -445,7 +461,8 @@ int main(int argc, char* argv[]) {
     /* run Viterbi */
     if (!quiet)
       fprintf(stderr, "Executing Viterbi algorithm...\n");
-    predictions = phmm_predict_viterbi(phmm, seqname, grouptag, cds_cats);
+    predictions = phmm_predict_viterbi(phmm, seqname, grouptag, idpref,
+                                       cds_cats);
 
     /* score predictions */
     if (score) {

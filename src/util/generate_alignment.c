@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     reverse_compl[i] = 0;
   }
   gff = cm_labeling_as_gff(cm, labels, msa->length, path_to_cat, reverse_compl, 
-                           "simulated", "generate_alignment", '+', NULL, NULL);
+                           "simulated", "generate_alignment", NULL, NULL, NULL);
   free(path_to_cat);
   free(reverse_compl);
 

@@ -58,9 +58,9 @@ void phmm_compute_emissions(PhyloHmm *phmm, MSA *msa, int quiet);
 double phmm_fit_lambda(PhyloHmm *phmm, double *lambda, FILE *logf);
 void phmm_update_cross_prod(PhyloHmm *phmm, double lambda);
 GFF_Set* phmm_predict_viterbi(PhyloHmm *phmm, char *seqname, char *grouptag,
-                              List *frame);
+                              char *idpref, List *frame);
 GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm, List *cats, char *seqname,
-                                   char *grouptag, List *frame, 
+                                   char *grouptag, char *idpref, List *frame, 
                                    char *new_type);
 double phmm_lnl(PhyloHmm *phmm);
 double phmm_postprobs(PhyloHmm *phmm, double **post_probs);

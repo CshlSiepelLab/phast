@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.7 2004-06-29 23:57:39 acs Exp $
+/* $Id: phylo_hmm.c,v 1.8 2004-06-30 17:01:21 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -564,6 +564,9 @@ GFF_Set* phmm_predict_viterbi(PhyloHmm *phmm,
                                 /**< tag to use for groups (e.g.,
                                    "exon_id", "transcript_id"); if
                                    NULL, a default will be used */
+                              char *idpref,
+                                /**< prefix for assigned ids (e.g.,
+                                   "chr1.15") (may be NULL) */
                               List *frame
                                 /**< names of features for which to obtain
                                    frame (NULL to ignore) */
@@ -579,13 +582,16 @@ GFF_Set* phmm_predict_viterbi(PhyloHmm *phmm,
   retval = cm_labeling_as_gff(phmm->cm, path, phmm->alloc_len, 
                               phmm->state_to_cat, 
                               phmm->reverse_compl, seqname, "PHAST",  
-                              phmm->reflected ? '-' : '+', frame, 
-                              grouptag);
+                              frame, grouptag, idpref);
   free(path);
 
   return retval;
 }
 
+/** Run the Viterbi algorithm and return a set of features indicating
+    regions in which the Viterbi path remains in states corresponding
+    to any of the specified categories.  Emissions must have already
+    been computed (see phmm_compute_emissions) */
 GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm, 
                                    /**< PhyloHmm object */
                                    List *cats,
@@ -597,19 +603,25 @@ GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm,
                                    char *grouptag,
                                    /**< tag to use for groups (e.g.,
                                       "exon_id", "transcript_id"); if
-                                   NULL, a default will be used */
+                                      NULL, a default will be used */
+                                   char *idpref,
+                                   /**< prefix for assigned ids (e.g.,
+                                      "chr1.15") (may be NULL) */
                                    List *frame,
                                    /**< features for which to obtain
                                       frame (NULL to ignore) */
                                    char *new_type
-                                   /**< replace type of each
-                                      retained feature with this
-                                      string if non-NULL */
+                                   /**< replace type of each retained
+                                      feature with this string if
+                                      non-NULL (old types may no
+                                      longer make sense, because of
+                                      merging) */
                                    ) {
   int i;
   GFF_Feature *lastkeeper = NULL;
   List *types, *keepers, *catnos;
-  GFF_Set *retval = phmm_predict_viterbi(phmm, seqname, grouptag, frame);
+  GFF_Set *retval = phmm_predict_viterbi(phmm, seqname, grouptag, 
+                                         idpref, frame);
 
   /* do this way to allow input to be numbers or names */
   catnos = cm_get_category_list(phmm->cm, cats, 1);

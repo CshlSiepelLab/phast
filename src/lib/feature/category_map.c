@@ -1,4 +1,4 @@
-/* $Id: category_map.c,v 1.6 2004-06-29 23:00:17 acs Exp $
+/* $Id: category_map.c,v 1.7 2004-06-30 17:01:21 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -606,18 +606,40 @@ void cm_add_feature_type(CategoryMap *cm, String *type, int cycle_size) {
   }
 }
 
-/* create a GFF_Set from a sequence of category numbers, according to
-   specified category map.  Parameter 'frame_cats', if non-NULL,
-   should be a list of category names for which to record frame.
-   Parameter 'path_to_cat' is expected to provide a mapping from the
-   raw sequence to category numbers; 'reverse_compl' indicates whether
-   each raw-sequence value corresponds to the reverse strand.
+/** Create a GFF_Set from a sequence of category/state numbers, using
+   a specified category map and mapping from raw state numbers to category numbers.  
    Parameter 'grouptag' will be used as the tag for feature ids
    (may be NULL). */
-GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int length, 
-                            int *path_to_cat, int *reverse_compl, char *seqname, 
-                            char *source, char defaultstrand, List *frame_cats, 
-                            char *grouptag) {
+GFF_Set *cm_labeling_as_gff(CategoryMap *cm, 
+                                /**< CategoryMap to use in mapping */
+                            int *path, 
+                                /**< Raw sequence of state/category numbers  */
+                            int length, 
+                                /**< Length of sequence */
+                            int *path_to_cat, 
+                                /**< Mapping from raw numbers to
+                                   category numbers */
+                            int *reverse_compl, 
+                                /**< Array of boolean values indicating
+                                   whether each raw-sequence value
+                                   corresponds to the reverse strand  */
+                            char *seqname, 
+                                /**< char string to use as 'seqname' in
+                                   generated GFF_Set  */
+                            char *source, 
+                                /**< char string to use as 'source' in
+                                   generated GFF_Set  */
+                            List *frame_cats, 
+                                /**< Categories for which to obtain frame
+                                   information (by name) */
+                            char *grouptag,
+                            /**< Tag to use to define groups in
+                               GFF_Set (e.g., "transcript_id") */
+                            char *idpref
+                                /**< Prefix for ids of predicted
+                                   elements (may be NULL).  Can be
+                                   used to ensure ids are unique. */
+                            ) {
   int beg, end, i, j, lastcat, lastframe, groupno;
   GFF_Set *gff = gff_new_set_init("PHAST", PHAST_VERSION);
   GFF_Feature *feat = NULL;
@@ -641,11 +663,16 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int length,
     }
 
   groupno = 1;
-  sprintf(groupstr, "%s \"%d\"", grouptag != NULL ? grouptag : "id", groupno);
+  if (idpref != NULL)
+    sprintf(groupstr, "%s \"%s.%d\"", grouptag != NULL ? grouptag : "id", 
+            idpref, groupno);
+  else
+    sprintf(groupstr, "%s \"%d\"", grouptag != NULL ? grouptag : "id", groupno);
+
   i = 0;
   while (i < length) {
     lastcat = cm->ranges[path_to_cat[path[i]]]->start_cat_no;
-    laststrand = reverse_compl[path[i]] ? '-' : defaultstrand;
+    laststrand = reverse_compl[path[i]] ? '-' : '+';
     lastframe = do_frame[lastcat] ? 
       path_to_cat[path[i]] - lastcat : GFF_NULL_FRAME;
 
@@ -708,8 +735,11 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int length,
     if (lastcat == 0 && beg > 1) {
       groupno++;                /* increment group number each time a
                                    sequence of 0s is encountered  */
-      sprintf(groupstr, "%s \"%d\"", grouptag != NULL ? grouptag : "id", 
-              groupno);
+      if (idpref != NULL)
+        sprintf(groupstr, "%s \"%s.%d\"", grouptag != NULL ? grouptag : "id", 
+                idpref, groupno);
+      else
+        sprintf(groupstr, "%s \"%d\"", grouptag != NULL ? grouptag : "id", groupno);
     }
   }
 
