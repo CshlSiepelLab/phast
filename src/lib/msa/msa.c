@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.20 2004-07-26 15:02:42 acs Exp $
+/* $Id: msa.c,v 1.21 2004-07-27 20:30:53 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -970,10 +970,11 @@ void msa_reverse_compl_feats(MSA *msa,
     GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
     if (gff_reverse_strand_only(g->features)) {
       gff_reverse_compl(g->features, g->start, g->end);
-      if (msa != NULL)
+      if (msa != NULL) {
         msa_reverse_compl_segment(msa, g->start, g->end);
-      if (msa->categories != NULL)
-        msa_reverse_data_segment(msa->categories, g->start, g->end);
+        if (msa->categories != NULL)
+          msa_reverse_data_segment(msa->categories, g->start, g->end);
+      }
       if (aux_data != NULL) 
         msa_reverse_data_segment(aux_data, g->start, g->end);
     }
