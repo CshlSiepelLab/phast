@@ -1,4 +1,4 @@
-/* $Id: draw_tree.c,v 1.2 2004-06-22 17:12:27 acs Exp $
+/* $Id: draw_tree.c,v 1.3 2004-07-29 23:31:38 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -16,7 +16,7 @@ USAGE:          draw_tree [-dbvs] <tree_fname>\n\
 \n\
 OPTIONS:\n\
     <tree_fname>    (Required) File name of tree (file must be in \n\
-                    New Hampshire format).\n\
+                    Newick format).\n\
     -d              Print \"diagonal\" branches, instead of \"right-angle\" or \n\
                     \"square\" ones (produces a \"cladogram\", as opposed to a \n\
                     \"phenogram\").  This option implies -s.\n\
