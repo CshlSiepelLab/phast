@@ -1,4 +1,4 @@
-/* $Id: eval_predictions.c,v 1.2 2004-06-06 03:22:00 acs Exp $
+/* $Id: eval_predictions.c,v 1.3 2004-06-14 03:06:21 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -39,7 +39,8 @@ measures are reported:\n\
 All quantities are computed as described in \"Evaluation of Gene-Finding\n\
 Programs on Mammalian Sequences,\" by Rogic et al. (Genome Research\n\
 11:817-832).  Note that CRa + PCa + OLa + ME = 1 and CRp + PCp + OLp +\n\
-WE = 1.\n\
+WE = 1.  Note also that each set (predicted and real) should consist of\n\
+non-overlapping groups of features (see 'refeature').\n\
 \n\
 Options:\n\
     -r <real_fname_list> \n\
@@ -320,9 +321,6 @@ int main(int argc, char* argv[]) {
 
     seqlen = lst_get_int(seq_len_list, nfile);
 
-    gff_remove_overlaps(gff_real, feat_list);
-    gff_remove_overlaps(gff_pred, feat_list);
-    
     gff_sort(gff_real);
     gff_sort(gff_pred);
 

@@ -1,33 +1,30 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.3 2004-06-11 05:58:51 acs Exp $
+   $Id: phyloFit.c,v 1.4 2004-06-14 03:06:21 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
-
-   Things to add:
-        - if -g but not -c, then use default category map of one category for 
-        each type of feature 
 */
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "lists.h"
-#include "stringsplus.h"
-#include "msa.h"
-#include "gff.h"
-#include "category_map.h"
+#include <lists.h>
+#include <stringsplus.h>
+#include <msa.h>
+#include <gff.h>
+#include <category_map.h>
 #include <getopt.h>
-#include "tree_model.h"
-#include "fit_em.h"
-#include "subst_mods.h"
+#include <tree_model.h>
+#include <fit_em.h>
+#include <subst_mods.h>
 #include <string.h>
-#include "local_alignment.h"
+#include <local_alignment.h>
 #include <assert.h>
 #include <ctype.h>
-#include "tree_likelihoods.h"
-#include "numerical_opt.h"
-#include "sufficient_stats.h"
+#include <tree_likelihoods.h>
+#include <numerical_opt.h>
+#include <sufficient_stats.h>
 
+/* default minimum number of informative sites (see -I) */
 #define DEFAULT_NSITES_THRESHOLD 50
 
 /* default starting alpha for dgamma */
@@ -97,7 +94,8 @@ OPTIONS:\n\
 \n\
     --features, -g <gff_fname>\n\
         (must use with --catmap) File in GFF describing features on one\n\
-        or more of the sequences in the alignment.\n\
+        or more of the sequences in the alignment.  Features should be\n\
+        non-overlapping (see 'refeature --unique').\n\
 \n\
     --catmap, -c <cat_map_fname>\n\
         (must use with --features) File defining mapping of sequence\n\
@@ -828,8 +826,10 @@ int main(int argc, char *argv[]) {
 
     /* reverse complement segments of MSA corresponding to features on
        reverse strand (if necessary) */
-    if (reverse_complement) 
-      msa_reverse_compl_gff(msa, gff, NULL);
+    if (reverse_complement) {
+      gff_group(gff, "transcript_id");
+      msa_reverse_compl_feats(msa, gff, NULL);
+    }
 
     /* label categories */
     if (!quiet) fprintf(stderr, "Labeling alignment sites by category ...\n");

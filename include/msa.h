@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: msa.h,v 1.2 2004-06-14 03:06:21 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -196,6 +196,7 @@ void msa_reverse_compl_segment(MSA *msa, int start, int end);
    functions). */
 void msa_reverse_compl_gff(MSA *msa, GFF_Set *gff, int *aux_data);
 
+void msa_reverse_compl_feats(MSA *msa, GFF_Set *feats, int *aux_data);
 
 int msa_read_category_labels(MSA *msa, FILE *F);
 

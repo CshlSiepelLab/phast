@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.9 2004-06-09 17:10:30 acs Exp $
+/* $Id: clean_genes.c,v 1.10 2004-06-14 03:06:21 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -671,21 +671,6 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
   }
 }
 
-/* get range of group; used for machine log */
-void get_range(GFF_FeatureGroup *group, int *start, int *end,
-               String **seqname) {
-  int i;
-  *start = INFTY; *end = -1; *seqname = NULL;
-  for (i = 0; i < lst_size(group->features); i++) {
-    GFF_Feature *f = lst_get_ptr(group->features, i);
-    if (f->start < *start) *start = f->start;
-    if (f->end > *end) *end = f->end;
-    if (*seqname == NULL) *seqname = f->seqname;
-    else if (!str_equals(*seqname, f->seqname)) 
-      die("ERROR: Members of group '%s' have inconsistent sequence names (chromosomes).\n");
-  }
-}
-
 /* write machine-readable log entry for discarded feature */
 void write_machine_log(FILE *mlogf, GFF_FeatureGroup *group, status_type status, 
                        cds_gap_type gt, List *badfeats, List *failure_types, 
@@ -696,9 +681,7 @@ void write_machine_log(FILE *mlogf, GFF_FeatureGroup *group, status_type status,
 
   /* special cases: no info on individual features */
   if (status == BAD_REF || status == NO_ALN || status == OKAY) {
-    int s, e;
     String *seqname;
-    get_range(group, &s, &e, &seqname);
 
     switch(status) {
     case BAD_REF:
@@ -715,8 +698,8 @@ void write_machine_log(FILE *mlogf, GFF_FeatureGroup *group, status_type status,
     }
 
     fprintf(mlogf, "%s\t%s\t%d\t%d\t%s\n", group->name->chars, 
-            seqname->chars, msa_map_msa_to_seq(map, s), 
-            msa_map_msa_to_seq(map, e), reason);
+            seqname->chars, msa_map_msa_to_seq(map, group->start), 
+            msa_map_msa_to_seq(map, group->end), reason);
 
     return;
   }
@@ -922,7 +905,7 @@ int main(int argc, char *argv[]) {
   char *rseq_fname = NULL;
   FILE *logf = NULL, *mlogf = NULL, *statsf = NULL, *discardf = NULL;
   cds_gap_type fshift_mode = FSHIFT_BAD;
-  String *groupby = str_new_charstr("transcript_id");
+  char *groupby = "transcript_id";
   msa_coord_map *map;
 
   struct option long_opts[] = {
@@ -985,7 +968,7 @@ int main(int argc, char *argv[]) {
       check_alignment = check_splice = splice_strict = 1;
       break;
     case 'g':
-      groupby = str_new_charstr(optarg);
+      groupby = optarg;
       break;
     case 'i':
       if (!strcmp(optarg, "PSU")) msa_format = PSU;

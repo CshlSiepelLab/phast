@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.2 2004-06-11 05:58:51 acs Exp $
+/* $Id: maf.c,v 1.3 2004-06-14 03:06:21 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California 
 
@@ -168,8 +168,16 @@ MSA *maf_read(FILE *F, FILE *REFSEQF, char *alphabet, int tuple_size,
 /*       if (map == NULL && lst_size(mini_gff->features) > 0)  */
 /*         msa_map_gff_coords(mini_msa, mini_gff, 1, 0, 0, cm); */
 
-      if (rev_compl && lst_size(mini_gff->features) > 0)
-        msa_reverse_compl_gff(mini_msa, mini_gff, NULL);
+      if (rev_compl && lst_size(mini_gff->features) > 0) {
+        if (gff->groups != NULL)
+          gff_group(mini_gff, gff->group_tag->chars);
+        else 
+          gff_exon_group(mini_gff, "id");
+        /* group same way as parent gff, if grouped; otherwise, group
+           contiguous features */
+
+        msa_reverse_compl_feats(mini_msa, mini_gff, NULL);
+      }
 
       /* now label categories of mini_msa accordingly */
       msa_label_categories(mini_msa, mini_gff, cm);   

@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.3 2004-06-09 17:10:30 acs Exp $
+/* $Id: msa_view.c,v 1.4 2004-06-14 03:06:21 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -583,7 +583,8 @@ int main(int argc, char* argv[]) {
         exit(1);
       }
 
-      msa_reverse_compl_gff(msa, gff, NULL);
+      gff_exon_group(gff, "id"); /* FIXME: allow group tag to be passed in */
+      msa_reverse_compl_feats(msa, gff, NULL);
     }
 
     /* label categories */

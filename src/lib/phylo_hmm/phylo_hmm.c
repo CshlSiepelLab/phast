@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.2 2004-06-11 05:58:51 acs Exp $
+/* $Id: phylo_hmm.c,v 1.3 2004-06-14 03:06:21 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -548,7 +548,7 @@ GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm,
   types = cm_get_features(phmm->cm, catnos);
 
   /* filter out unwanted types */
-  gff_filter_by_type(retval, types);
+  gff_filter_by_type(retval, types, NULL);
 
   /* now merge adjacent features */
   keepers = lst_new_ptr(lst_size(retval->features));

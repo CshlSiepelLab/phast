@@ -50,14 +50,19 @@ OPTIONS:\n\
         is retained and subsequent ones are discarded.\n\
 \n\
     --sort, -s\n\
-        Sort features by start position.  If features are grouped,\n\
-        they will be sorted within groups, and groups will be sorted\n\
-        by first start position.\n\
+        Sort features primarily by start position and secondarily\n\
+        by end position (usually has desired effect in case of short\n\
+        overlapping features, e.g., start & stop codons).  If features\n\
+        are grouped, they will be sorted both across groups and within\n\
+        groups, but members of a group will be kept together.\n\
 \n\
     --simplebed, -b\n\
         (for use with --output BED) Create a separate line for each\n\
         feature in BED output (by default, all features of a group are\n\
         described by a single line).\n\
+\n\
+    --discards, -d <fname>\n\
+        Write any discarded features to specified file.\n\
 \n\
     --help, -h\n\
         Print this help message.\n\n", prog, prog);
@@ -69,9 +74,10 @@ int main(int argc, char *argv[]) {
   int opt_idx;
   GFF_Set *gff;
   List *include = NULL;
-  String *groupby = NULL, *exongroup_tag = NULL;
+  char *groupby = NULL, *exongroup_tag = NULL;
   int unique = 0, sort = 0, simplebed = 0;
   enum {GFF, BED} output_format = GFF;
+  FILE *discards_f = NULL;
 
   struct option long_opts[] = {
     {"output", 1, 0, 'o'},
@@ -81,11 +87,12 @@ int main(int argc, char *argv[]) {
     {"unique", 0, 0, 'u'},
     {"sort", 0, 0, 's'},
     {"simplebed", 0, 0, 'b'},
+    {"discards", 0, 0, 'd'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "o:i:g:e:usbh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "o:i:g:e:d:usbh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'o':
       if (!strcmp("BED", optarg)) output_format = BED;
@@ -95,16 +102,19 @@ int main(int argc, char *argv[]) {
       include = get_arg_list(optarg);
       break;
     case 'g':
-      groupby = str_new_charstr(optarg);
+      groupby = optarg;
       break;
     case 'e':
-      exongroup_tag = str_new_charstr(optarg);
+      exongroup_tag = optarg;
       break;
     case 'u':
       unique = 1;
       break;
     case 'b':
       simplebed = 1;
+      break;
+    case 'd':
+      discards_f = fopen_fname(optarg, "w+");
       break;
     case 's':
       sort = 1;
@@ -122,7 +132,7 @@ int main(int argc, char *argv[]) {
   gff = gff_read_set(fopen_fname(argv[optind], "r"));
 
   /* filter */
-  if (include != NULL) gff_filter_by_type(gff, include);
+  if (include != NULL) gff_filter_by_type(gff, include, discards_f);
 
   /* group */
   if (groupby != NULL) gff_group(gff, groupby);
@@ -131,9 +141,11 @@ int main(int argc, char *argv[]) {
   if (exongroup_tag != NULL) gff_exon_group(gff, exongroup_tag);
 
   /* make unique */
-  if (unique) {
-    die("Sorry, --unique not yet implemented...\n");
-  }
+  if (unique) 
+    gff_remove_overlaps(gff, discards_f);
+                                /* do before sorting, so user has some
+                                   control over which groups are
+                                   retained */
 
   /* sort */
   if (sort) gff_sort(gff);

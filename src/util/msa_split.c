@@ -1,9 +1,8 @@
-/* $Id: msa_split.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: msa_split.c,v 1.2 2004-06-14 03:06:21 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
-/* to do: possibly combine this program with 'msa_view'; reverse
-   compl stuff needs cleaning up (can use new routines in msa.c) */
+/* to do: possibly combine this program with 'msa_view' */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -393,8 +392,7 @@ int main(int argc, char* argv[]) {
   FILE *SUM_F = NULL;
   char c;
   int nallgaps, nallgaps_strip, nanygaps, nanygaps_strip, length, 
-    length_strip, i, j, k;
-  int *already_complemented;
+    length_strip, i;
   gsl_vector *freqs, *freqs_strip;
   msa_coord_map *map = NULL;
   
@@ -594,40 +592,22 @@ int main(int argc, char* argv[]) {
     if (!quiet_mode)
       fprintf(stderr, "Reading category map from %s ...\n", cat_map_fname);
 
-    if ((F = fopen(cat_map_fname, "r")) == NULL ||
-        (cm = cm_read(F)) == NULL) {
-      fprintf(stderr, "ERROR reading from %s.\n", cat_map_fname);
-      exit(1);
-    }      
-    fclose(F);
+    cm_read(fopen_fname(cat_map_fname, "r"));
 
     /* convert GFF to frame of ref of entire alignment */
-    msa_map_gff_coords(msa, gff, -1, 0, 0, NULL /* cm */);
+    msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
+
+    if (!quiet_mode)
+      fprintf(stderr, "Reverse complementing groups on reverse strand ...\n");
+
+    /* FIXME: should this really be done by default? */
+    gff_group(gff, "transcript_id"); /* FIXME: parameterize */
+    msa_reverse_compl_feats(msa, gff, NULL);
 
     if (!quiet_mode)
       fprintf(stderr, "Labeling columns of alignment by category ...\n");
     msa_label_categories(msa, gff, cm);
 
-    /* complement bases on reverse strand; it's easier not to
-       *reverse* the strand as well (not necessary, because we're
-       treating each site independently).  Note: msa_label_categories
-       will already have converted coordinates in the GFF_Set to the
-       frame of reference of the alignment */
-    already_complemented = (int*)smalloc(msa->length * sizeof(int));
-    for (j = 0; j < msa->length; j++) already_complemented[j] = 0;
-    for (i = 0; i < lst_size(gff->features); i++) {
-      GFF_Feature *feat = (GFF_Feature*)lst_get_ptr(gff->features, i);
-      if (feat->strand == '-') {
-        for (j = feat->start; j <= feat->end; j++) {
-          if (!already_complemented[j]) {
-            for (k = 0; k < msa->nseqs; k++)
-              msa->seqs[k][j-1] = msa_compl_char(msa->seqs[k][j-1]);
-            already_complemented[j] = 1;
-          }
-        }
-      }
-    }
-    free(already_complemented);
     cm_free(cm);
   }
 
@@ -733,29 +713,13 @@ int main(int argc, char* argv[]) {
   }
 
   if (cat_map_fname == NULL) {  /* not using features; splitting
-                                   according to split_indices_list */
+                                   by position (split_indices_list) */
     outfname = str_new(STR_MED_LEN);
     for (i = 0; i < lst_size(split_indices_list); i++) {
       MSA *sub_msa;
       GFF_Set *sub_gff;
       int start = lst_get_int(split_indices_list, i);
       int end;
-
-/*       if (win_size != -1) { */
-/*         if (map == NULL) { */
-/*           end = min(start + effective_win_size - 1, msa->length); */
-/*         } */
-/*         else { */
-/*           end = msa_map_seq_to_msa(map, msa_map_msa_to_seq(map, start) +  */
-/*                                    effective_win_size - 1); */
-                                /* here apply win_size to reference seq,
-                                   not to whole alignment */
-/*           if (end == -1) end = msa->length; */
-/*         } */
-/*       } */
-/*       else  */
-/*         end = (i == lst_size(split_indices_list)-1 ? msa->length : */
-/*           lst_get_int(split_indices_list, i+1) - 1); */
 
       end = (i == lst_size(split_indices_list)-1 ? msa->length :
              lst_get_int(split_indices_list, i+1) - 1);
@@ -767,11 +731,6 @@ int main(int argc, char* argv[]) {
                                   win_overlap));
         if (end == -1 || end >= msa->length) end = msa->length;
       }
-
-/*       if (end > msa->length) { */
-/*         fprintf(stderr, "ERROR: index out of range.\n\n"); */
-/*         exit(1); */
-/*       } */
 
       if (!quiet_mode)
         fprintf(stderr, "Creating partition %d (column %d to column %d) ...\n",
@@ -824,9 +783,9 @@ int main(int argc, char* argv[]) {
         sub_gff = gff_subset_range(gff, start, end, !faithful);
 
         /* reverse complement, if necessary */
-        if (strand_sensitive && gff_reverse_strand_only(sub_gff)) {
+        if (strand_sensitive && gff_reverse_strand_only(sub_gff->features)) {
           msa_reverse_compl(sub_msa);
-          gff_reverse_compl(sub_gff, 
+          gff_reverse_compl(sub_gff->features, 
                             faithful ? start : 1, 
                             faithful ? end : end - start + 1);
         }
@@ -874,7 +833,8 @@ int main(int argc, char* argv[]) {
     }
     str_free(outfname);
   }
-  else {                        /* cat_map_fname != NULL (using features) */
+  else {                        /* cat_map_fname != NULL (splitting by
+                                   category) */
     List *submsas = lst_new_ptr(10);
     if (!quiet_mode)
       fprintf(stderr, "Partitioning alignment by category ...\n");

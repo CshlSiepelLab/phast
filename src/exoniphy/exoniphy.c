@@ -1,6 +1,6 @@
 /* label - label the columns of alignment(s) by category */
 
-/* $Id: exoniphy.c,v 1.4 2004-06-11 06:15:39 acs Exp $
+/* $Id: exoniphy.c,v 1.5 2004-06-14 03:06:21 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, Adam Siepel, University of California 
 
@@ -571,29 +571,29 @@ int valid_group(GFF_Set *group, MSA *msa) {
 }
 
 /* filter a set of predictions according to 'valid_group' */
-void filter_predictions(GFF_Set *gff, MSA *msa) {
-  int i, j;
-  List *groups = lst_new_ptr(max(lst_size(gff->features) / 10, 5));
-  List *newfeats = lst_new_ptr(lst_size(gff->features));
-  gff_partition_by_group(gff, groups);
-  for (i = 0; i < lst_size(groups); i++) {
-    GFF_Set *g = lst_get_ptr(groups, i);
-    int valid = valid_group(g, msa);
-    for (j = 0; j < lst_size(g->features); j++) {
-      GFF_Feature *f = lst_get_ptr(g->features, j);
-      if (!valid)
-        str_append_char(f->feature, 'X');
-      lst_push_ptr(newfeats, f);      
-    }
-    lst_clear(g->features);
-    gff_free_set(g);
-  }
-  for (i = 0; i < lst_size(gff->features); i++)
-    gff_free_feature(lst_get_ptr(gff->features, i));
-  lst_free(gff->features);
-  gff->features = newfeats;
-  lst_free(groups);
-}
+/* void filter_predictions(GFF_Set *gff, MSA *msa) { */
+/*   int i, j; */
+/*   List *groups = lst_new_ptr(max(lst_size(gff->features) / 10, 5)); */
+/*   List *newfeats = lst_new_ptr(lst_size(gff->features)); */
+/*   gff_partition_by_group(gff, groups); */
+/*   for (i = 0; i < lst_size(groups); i++) { */
+/*     GFF_Set *g = lst_get_ptr(groups, i); */
+/*     int valid = valid_group(g, msa); */
+/*     for (j = 0; j < lst_size(g->features); j++) { */
+/*       GFF_Feature *f = lst_get_ptr(g->features, j); */
+/*       if (!valid) */
+/*         str_append_char(f->feature, 'X'); */
+/*       lst_push_ptr(newfeats, f);       */
+/*     } */
+/*     lst_clear(g->features); */
+/*     gff_free_set(g); */
+/*   } */
+/*   for (i = 0; i < lst_size(gff->features); i++) */
+/*     gff_free_feature(lst_get_ptr(gff->features, i)); */
+/*   lst_free(gff->features); */
+/*   gff->features = newfeats; */
+/*   lst_free(groups); */
+/* } */
 
 /* multiply all transition probabilities from designated background
    categories to non-background categories by the specified factor,
@@ -1083,8 +1083,10 @@ int main(int argc, char* argv[]) {
       }
       fclose(F);
 
-      if (reverse_complement)
-        msa_reverse_compl_gff(msa, gff, NULL);
+      if (reverse_complement) {
+        gff_group(gff, "exon_id");
+        msa_reverse_compl_feats(msa, gff, NULL);
+      }
 
       msa_label_categories(msa, gff, cm);
 
@@ -1294,9 +1296,11 @@ int main(int argc, char* argv[]) {
         msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
       }
 
-      if (!quiet_mode) 
-        fprintf(stderr, "Removing overlapping annotations ...\n");
-      gff_remove_overlaps_by_group(gff);
+/*       if (!quiet_mode)  */
+/*         fprintf(stderr, "Removing overlapping annotations ...\n"); */
+/*       gff_remove_overlaps_by_group(gff); */
+      
+      /* NOTE: be sure nonoverlapping input (put in USAGE) */
 
       if (model_indels_str != NULL) {
         if (!quiet_mode)
@@ -1316,7 +1320,8 @@ int main(int argc, char* argv[]) {
         /* we don't need to reverse complement the whole alignment --
            just the gff and possibly the gap pattern array (pass a
            NULL msa) */        
-        msa_reverse_compl_gff(NULL, gff, msa_gap_patterns);
+        gff_group(gff, "exon_id"); /* FIXME: tag? */
+        msa_reverse_compl_feats(NULL, gff, msa_gap_patterns);
       }
 
       if (!quiet_mode)

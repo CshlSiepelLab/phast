@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: gff.c,v 1.2 2004-06-14 03:06:21 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -238,6 +238,7 @@ GFF_Set *gff_new_set() {
   set->source_version = str_new(STR_SHORT_LEN);
   set->date = str_new(STR_SHORT_LEN);
   set->groups = NULL;
+  set->group_tag = NULL;
   return set;
 }
 
@@ -376,9 +377,17 @@ GFF_Set *gff_subset_range(GFF_Set *set, int startcol, int endcol,
   return subset;
 }
 
-/** Discard any features whose feature type is *not* in the specified
-    list.  Objects in list should be of type String. */
-void gff_filter_by_type(GFF_Set *gff, List *include) {
+/** Discard any feature whose feature type is *not* in the specified
+    list. */
+void gff_filter_by_type(GFF_Set *gff, 
+                                /**< GFF_Set to process */
+                        List *include, 
+                                /**< Feature types to include (List of
+                                   Strings) */
+                        FILE *discards_f
+                                /**< Discarded features will be
+                                   written here (if non-NULL) */
+                        ) {
   List *newfeats = lst_new_ptr(lst_size(gff->features));
   int i;
   for (i = 0; i < lst_size(gff->features); i++) {
@@ -387,19 +396,22 @@ void gff_filter_by_type(GFF_Set *gff, List *include) {
                                              probably not worth the
                                              overhead */
       lst_push_ptr(newfeats, f);
-    else gff_free_feature(f);
+    else {
+      gff_print_feat(discards_f, f);
+      gff_free_feature(f);
+    }
   }
   lst_free(gff->features);
   gff->features = newfeats;
 }
 
-/** Tests whether an entire GFF_Set appears to refer to the reverse
+/** Tests whether a set of GFF_Feature objects refers to the reverse
    strand.  Returns 1 if no features have strand equal to '+' and at
    least one has strand equal to '-'; otherwise returns 0. */
-int gff_reverse_strand_only(GFF_Set *set) {
+int gff_reverse_strand_only(List *features) {
   int i, impossible = 0, possible = 0;
-  for (i = 0; !impossible && i < lst_size(set->features); i++) {
-    GFF_Feature *feat = (GFF_Feature*)lst_get_ptr(set->features, i);
+  for (i = 0; !impossible && i < lst_size(features); i++) {
+    GFF_Feature *feat = (GFF_Feature*)lst_get_ptr(features, i);
     if (feat->strand == '-') 
       possible = 1;
     else if (feat->strand == '+')
@@ -410,29 +422,37 @@ int gff_reverse_strand_only(GFF_Set *set) {
   return 1;
 }
 
-/** Converts all features of specified GFF_Set to positive strand
-   (assuming they currently represent the negative strand).  Adjusts
-   positions and strand, and also reverses order of appearance.
-   start_range and end_range should indicate the first and last
-   coordinates of the range covered by the set (that is, the
-   coordinates are inclusive).  This function assumes all feature
-   coordinates are in the same frame of reference.
-*/
-void gff_reverse_compl(GFF_Set *set, int start_range, int end_range) {
+/** Adjusts coordinates and strand of GFF_Feature objects to reflect
+   reverse complementation of given interval of sequence.  Also
+   reverses order of appearance.  The coordinates of the features, as
+   well as start_range and end_range, are all assumed to be in the
+   same coordinate frame. */
+void gff_reverse_compl(List *features,
+                                /**< List of GFF_Feature objects */
+                       int start_range, 
+                                /**< First coordinate of interval 
+                                   (inclusive, 1-based indexing, as in
+                                   features) */
+                       int end_range
+                                /**< Last coordinate of interval
+                                   (inclusive, 1-based indexing, as in
+                                   features) */
+                       ) {
   int i;
-  for (i = 0; i < lst_size(set->features); i++) {
-    GFF_Feature *feat = (GFF_Feature*)lst_get_ptr(set->features, i);
+  for (i = 0; i < lst_size(features); i++) {
+    GFF_Feature *feat = lst_get_ptr(features, i);
     int tmp = feat->start;
     feat->start = end_range - feat->end + start_range;
     feat->end = end_range - tmp + start_range;
     if (feat->strand == '-') feat->strand = '+';
+    else if (feat->strand == '+') feat->strand = '-';
   }
   /* also reverse order of features (will generally be in ascending order) */
-  for (i = 0; i < lst_size(set->features)/2; i++) {
-    GFF_Feature *tmp = (GFF_Feature*)lst_get_ptr(set->features, i);
-    lst_set_ptr(set->features, i, 
-                lst_get_ptr(set->features, lst_size(set->features)-i-1));
-    lst_set_ptr(set->features, lst_size(set->features)-i-1, tmp);
+  for (i = 0; i < lst_size(features)/2; i++) {
+    GFF_Feature *tmp = lst_get_ptr(features, i);
+    lst_set_ptr(features, i, 
+                lst_get_ptr(features, lst_size(features)-i-1));
+    lst_set_ptr(features, lst_size(features)-i-1, tmp);
   }
 }
 
@@ -453,17 +473,13 @@ int gff_feature_start_comparator(const void* ptr1, const void* ptr2) {
 int gff_group_comparator(const void* ptr1, const void* ptr2) {
   GFF_FeatureGroup *group1 = *((GFF_FeatureGroup**)ptr1);
   GFF_FeatureGroup *group2 = *((GFF_FeatureGroup**)ptr2);
-  GFF_Feature *feat1, *feat2;
   if (lst_size(group1->features) == 0 || 
       lst_size(group2->features) == 0) 
-    return 0; 
-                                /* in this case, order doesn't matter */
+    return 0;                   /* just to be safe... */
 
-  feat1 = lst_get_ptr(group1->features, 0);
-  feat2 = lst_get_ptr(group2->features, 0);
-  if (feat1->start != feat2->start) 
-    return (feat1->start - feat2->start);
-  return (feat1->end - feat2->end);
+  if (group1->start != group2->start) 
+    return (group1->start - group2->start);
+  return (group1->end - group2->end);
 }
 
 /** Sorts features in ascending order by start position.  If features
@@ -491,7 +507,7 @@ void gff_sort(GFF_Set *set) {
 
 /** Group features by value of specified tag.  All features with
     undefined values will be placed in a single group. */
-void gff_group(GFF_Set *set, String *tag) {
+void gff_group(GFF_Set *set, char *tag) {
   char tmpstr[STR_SHORT_LEN];
   Regex *tag_re;
   List *l = lst_new_ptr(1);
@@ -499,17 +515,18 @@ void gff_group(GFF_Set *set, String *tag) {
   Hashtable *hash = hsh_new(est_no_groups);
   String *nullstr = str_new(1); /* empty string represents missing or
                                    null value for tag */
-  int i;
+  int i, taglen = strlen(tag);
 
   if (set->groups != NULL)
     gff_ungroup(set);
 
   set->groups = lst_new_ptr(est_no_groups);
+  set->group_tag = str_new_charstr(tag);
 
   /* since we only use the 'attribute' field for grouping, we'll store
      it unparsed, and parse it only when we need to group */
 
-  sprintf(tmpstr, ".*%s[[:space:]]+(\"[^\"]*\"|[^[:space:]])", tag->chars);
+  sprintf(tmpstr, ".*%s[[:space:]]+(\"[^\"]*\"|[^[:space:]])", tag);
   tag_re = str_re_new(tmpstr);
 
   for (i = 0; i < lst_size(set->features); i++) {
@@ -518,19 +535,26 @@ void gff_group(GFF_Set *set, String *tag) {
     GFF_FeatureGroup *group;
     lst_clear(l);
 
-    if (f->attribute->length > tag->length && /* avoid checking empty
-                                                 or null attrs */
+    if (f->attribute->length > taglen && /* avoid checking empty
+                                            or null attrs */
         str_re_match(f->attribute, tag_re, l, 1) >= 0) {
       val = lst_get_ptr(l, 1);
       str_remove_quotes(val);
     }
 
     if ((group = hsh_get(hash, val->chars)) == (void*)-1) {
+                                /* new group */
       group = smalloc(sizeof(GFF_FeatureGroup));
       group->name = str_dup(val);
       group->features = lst_new_ptr(5);
+      group->start = f->start;
+      group->end = f->end;
       lst_push_ptr(set->groups, group);
       hsh_put(hash, val->chars, group);
+    }
+    else {                      /* new member for existing group */
+      if (f->start < group->start) group->start = f->start;
+      if (f->end > group->end) group->end = f->end;
     }
     lst_push_ptr(group->features, f);
 
@@ -555,6 +579,8 @@ void gff_ungroup(GFF_Set *set) {
   }
   lst_free(set->groups);
   set->groups = NULL;
+  str_free(set->group_tag);
+  set->group_tag = NULL;
 }
 
 /** Groups features into sets that define contiguous blocks of
@@ -563,12 +589,15 @@ void gff_ungroup(GFF_Set *set) {
     id), then creates subgroups by adding new tags, with tag name as
     specified, and tag value composed of the tag value for the "outer"
     group (e.g., the transcript_id) and a unique suffix indicating the
-    "inner" group.  This function sorts the features as a side effect. */ 
-void gff_exon_group(GFF_Set *set, String *tag) {
+    "inner" group.  This function sorts the features as a side effect
+    (but sorting will reflect initial grouping, not grouping into
+    exons). */ 
+void gff_exon_group(GFF_Set *set, char *tag) {
   List *groups;
   int i, j;
   char tmpstr[STR_SHORT_LEN];
   GFF_FeatureGroup *dummy = NULL;
+  GFF_Feature *lastfeat = NULL;
 
   gff_sort(set);
 
@@ -587,10 +616,12 @@ void gff_exon_group(GFF_Set *set, String *tag) {
   for (i = 0; i < lst_size(groups); i++) {
     GFF_FeatureGroup *group = lst_get_ptr(groups, i);
 
-    int lastend = -1, idx = 0;
+    int idx = 0;
     for (j = 0; j < lst_size(group->features); j++) {
       GFF_Feature *f = lst_get_ptr(group->features, j);
-      if (f->start > lastend + 1) idx++;
+      if (lastfeat == NULL || f->start > lastfeat->end + 1 || 
+          f->strand != lastfeat->strand) 
+        idx++;
 
       if (f->attribute->length == 0 || str_equals_charstr(f->attribute, "."))
         str_clear(f->attribute);
@@ -598,14 +629,14 @@ void gff_exon_group(GFF_Set *set, String *tag) {
         str_append_charstr(f->attribute, " ; ");
 
       if (group->name == NULL || group->name->length == 0)
-        sprintf(tmpstr, "%s \"%d\"", tag->chars, idx);
+        sprintf(tmpstr, "%s \"%d\"", tag, idx);
       else 
-        sprintf(tmpstr, "%s \"%s.%d\"", tag->chars, group->name->chars, idx);
+        sprintf(tmpstr, "%s \"%s.%d\"", tag, group->name->chars, idx);
       
       str_append_charstr(f->attribute, tmpstr);
 
-      if (f->end > lastend)
-        lastend = f->end;
+      if (f->end > lastfeat->end)
+        lastfeat = f;
     }
   }
 
@@ -790,143 +821,209 @@ GFF_Set* gff_read_from_fname(char *fname) {
   return gff;
 }
 
-/** Identify overlapping groups of features and remove all but the
+/* Identify overlapping groups of features and remove all but the
    first instance.  Features of the same group are allowed to overlap
    (often done for convenience, e.g., with start/stop codons or splice
    sites, then resolved via labelling precedence).  Features with
    attribute "." are ignored (all are kept). */
-void gff_remove_overlaps_by_group(GFF_Set *gff) {
+/* void gff_remove_overlaps_by_group(GFF_Set *gff) { */
 
-  List *group_starts = lst_new_int(lst_size(gff->features));
-  List *group_ends = lst_new_int(lst_size(gff->features));
-  List *new_feats = lst_new_ptr(lst_size(gff->features));
-  int last_gend = -1;
-  int i, j, discard, gstart, gend;
-  String *gname;
-  GFF_Feature *feat;
-  List *group = lst_new_ptr(50);
+/*   List *group_starts = lst_new_int(lst_size(gff->features)); */
+/*   List *group_ends = lst_new_int(lst_size(gff->features)); */
+/*   List *new_feats = lst_new_ptr(lst_size(gff->features)); */
+/*   int last_gend = -1; */
+/*   int i, j, discard, gstart, gend; */
+/*   String *gname; */
+/*   GFF_Feature *feat; */
+/*   List *group = lst_new_ptr(50); */
   
-  if (lst_size(gff->features) == 0) return;
+/*   if (lst_size(gff->features) == 0) return; */
 
-  feat = lst_get_ptr(gff->features, 0);
-  for (i = 0; i < lst_size(gff->features); ) {
-    discard = 0;
+/*   feat = lst_get_ptr(gff->features, 0); */
+/*   for (i = 0; i < lst_size(gff->features); ) { */
+/*     discard = 0; */
 
-    gname = feat->attribute;
+/*     gname = feat->attribute; */
 
-    if (str_equals_charstr(gname, ".")) {
-      lst_push_ptr(new_feats, feat);
-      feat = lst_get_ptr(gff->features, ++i);
-      continue;
-    }
+/*     if (str_equals_charstr(gname, ".")) { */
+/*       lst_push_ptr(new_feats, feat); */
+/*       feat = lst_get_ptr(gff->features, ++i); */
+/*       continue; */
+/*     } */
 
     /* get boundaries of group */
-    gstart = feat->start;
-    gend = feat->end;
-    lst_push_ptr(group, feat);
-    for (i++; i < lst_size(gff->features); i++) {
-      feat = lst_get_ptr(gff->features, i);
-      if (!str_equals(feat->attribute, gname))
-        break;
-      if (feat->start < gstart) gstart = feat->start;
-      if (feat->end > gend) gend = feat->end;
-      lst_push_ptr(group, feat);
-    }
+/*     gstart = feat->start; */
+/*     gend = feat->end; */
+/*     lst_push_ptr(group, feat); */
+/*     for (i++; i < lst_size(gff->features); i++) { */
+/*       feat = lst_get_ptr(gff->features, i); */
+/*       if (!str_equals(feat->attribute, gname)) */
+/*         break; */
+/*       if (feat->start < gstart) gstart = feat->start; */
+/*       if (feat->end > gend) gend = feat->end; */
+/*       lst_push_ptr(group, feat); */
+/*     } */
     /* note: on exit, feat is always the first item in the *next*
        group, unless the end of the list has been reached */
 
     /* check for overlap */
-    if (gstart > last_gend) {   /* common case, has to be safe */
-      lst_push_int(group_starts, gstart);
-      lst_push_int(group_ends, gend);
-      last_gend = gend;
-    }
-    else {                  /* have to search list */
-      int group_list_idx = lst_bsearch_int(group_starts, gstart);
-      int prev_end = group_list_idx >= 0 ? 
-        lst_get_int(group_ends, group_list_idx) : -1;
-      int next_start = group_list_idx+1 < lst_size(group_starts) ?
-        lst_get_int(group_starts, group_list_idx+1) : gend+1;         
-      if (prev_end >= gstart || next_start <= gend) {
-        fprintf(stderr, "WARNING: group '%s' (%d-%d) overlaps a previous group -- ignoring.\n", gname->chars, gstart, gend);
-        discard = 1;
-      }
-      else {
-        lst_insert_idx_int(group_starts, group_list_idx, gstart);
-        lst_insert_idx_int(group_ends, group_list_idx, gend);
-        if (gend > last_gend) last_gend = gend;
-      }
-    }
+/*     if (gstart > last_gend) {  */  /* common case, has to be safe */
+/*       lst_push_int(group_starts, gstart); */
+/*       lst_push_int(group_ends, gend); */
+/*       last_gend = gend; */
+/*     } */
+/*     else {   */                /* have to search list */
+/*       int group_list_idx = lst_bsearch_int(group_starts, gstart); */
+/*       int prev_end = group_list_idx >= 0 ?  */
+/*         lst_get_int(group_ends, group_list_idx) : -1; */
+/*       int next_start = group_list_idx+1 < lst_size(group_starts) ? */
+/*         lst_get_int(group_starts, group_list_idx+1) : gend+1;          */
+/*       if (prev_end >= gstart || next_start <= gend) { */
+/*         fprintf(stderr, "WARNING: group '%s' (%d-%d) overlaps a previous group -- ignoring.\n", gname->chars, gstart, gend); */
+/*         discard = 1; */
+/*       } */
+/*       else { */
+/*         lst_insert_idx_int(group_starts, group_list_idx, gstart); */
+/*         lst_insert_idx_int(group_ends, group_list_idx, gend); */
+/*         if (gend > last_gend) last_gend = gend; */
+/*       } */
+/*     } */
     
-    for (j = 0; j < lst_size(group); j++) {
-      GFF_Feature *f = lst_get_ptr(group, j);
-      if (discard) 
-        gff_free_feature(f);
-      else
-        lst_push_ptr(new_feats, f);
-    }
-    lst_clear(group);
-  }
+/*     for (j = 0; j < lst_size(group); j++) { */
+/*       GFF_Feature *f = lst_get_ptr(group, j); */
+/*       if (discard)  */
+/*         gff_free_feature(f); */
+/*       else */
+/*         lst_push_ptr(new_feats, f); */
+/*     } */
+/*     lst_clear(group); */
+/*   } */
 
-  lst_free(gff->features);
-  gff->features = new_feats;
+/*   lst_free(gff->features); */
+/*   gff->features = new_feats; */
 
-  lst_free(group);
-  lst_free(group_starts);
-  lst_free(group_ends);
-}
+/*   lst_free(group); */
+/*   lst_free(group_starts); */
+/*   lst_free(group_ends); */
+/* } */
 
-/** Identify overlapping features and remove all but the first
-   instance.  This function differs from the above in that features
-   are not grouped.  If 'types' is non-NULL, then only features whose
-   types are listed are checked for overlap (features of other types are
-   always kept).  */
-void gff_remove_overlaps(GFF_Set *gff, List *types) {
-  int i, last_end = -1;
-  List *starts = lst_new_int(lst_size(gff->features));
-  List *ends = lst_new_int(lst_size(gff->features));
-  List *new_feats = lst_new_ptr(lst_size(gff->features));
+/** Identify overlapping groups and remove all but the first
+   one encountered.  Features must already be grouped. */
+void gff_remove_overlaps(GFF_Set *gff, 
+                                /**< GFF_Set to process */
+                         FILE *discards_f
+                                /**< If non-NULL, discarded features
+                                   will be written here */
+                         ) {
+  int i, j, last_end = -1;
+  List *starts, *ends, *keepers;
+
+  if (gff->groups == NULL) 
+    die("ERROR: gff_remove_overlaps requires groups.\n");
+
+  starts = lst_new_int(lst_size(gff->groups));
+  ends = lst_new_int(lst_size(gff->groups));
+  keepers = lst_new_ptr(lst_size(gff->groups));
 
   for (i = 0; i < lst_size(gff->features); i++) {
-    GFF_Feature *feat = lst_get_ptr(gff->features, i);
+    GFF_FeatureGroup *group = lst_get_ptr(gff->groups, i);
     
-    if (types != NULL && !str_in_list(feat->feature, types)) {
-      lst_push_ptr(new_feats, feat);
-      continue;
-    }
-
     /* check for overlap */
-    if (feat->start > last_end) {   /* common case, has to be safe */
-      lst_push_int(starts, feat->start);
-      lst_push_int(ends, feat->end);
-      last_end = feat->end;
-      lst_push_ptr(new_feats, feat);
+    if (group->start > last_end) {   /* common case, has to be safe */
+      lst_push_int(starts, group->start);
+      lst_push_int(ends, group->end);
+      last_end = group->end;
+      lst_push_ptr(keepers, group);
     }
     else {                  /* have to search list */
-      int list_idx = lst_bsearch_int(starts, feat->start);
+      int list_idx = lst_bsearch_int(starts, group->start);
       int prev_end = list_idx >= 0 ? 
         lst_get_int(ends, list_idx) : -1;
       int next_start = list_idx+1 < lst_size(starts) ?
-        lst_get_int(starts, list_idx+1) : feat->end+1;         
-      if (prev_end >= feat->start || next_start <= feat->end) {
-        fprintf(stderr, "WARNING: feature '%s (%s)' (%d-%d) overlaps a previous feature -- ignoring.\n", feat->feature->chars, feat->attribute->chars, feat->start, feat->end);
-        gff_free_feature(feat);
+        lst_get_int(starts, list_idx+1) : group->end+1;         
+      if (prev_end >= group->start || next_start <= group->end) {
+        if (discards_f != NULL)
+          for (j = 0; j < lst_size(group->features); j++)
+            gff_print_feat(discards_f, lst_get_ptr(group->features, j));
+        for (j = 0; j < lst_size(group->features); j++)
+          gff_free_feature(lst_get_ptr(group->features, j));
+        lst_free(group->features);
+        str_free(group->name);
       }
       else {
-        lst_insert_idx_int(starts, list_idx, feat->start);
-        lst_insert_idx_int(ends, list_idx, feat->end);
-        if (feat->end > last_end) last_end = feat->end;
-        lst_push_ptr(new_feats, feat);
+        lst_insert_idx_int(starts, list_idx, group->start);
+        lst_insert_idx_int(ends, list_idx, group->end);
+        if (group->end > last_end) last_end = group->end;
+        lst_push_ptr(keepers, group);
       }
     }
   }
 
-  lst_free(gff->features);
-  gff->features = new_feats;
+  lst_free(gff->groups);
+  gff->groups = keepers;
+  lst_clear(gff->features);
+  for (i = 0; i < lst_size(gff->groups); i++) {
+    GFF_FeatureGroup *group = lst_get_ptr(gff->groups, i);
+    for (j = 0; j < lst_size(group->features); j++)
+      lst_push_ptr(gff->features, lst_get_ptr(group->features, j));
+  }
 
   lst_free(starts);
   lst_free(ends);
 }
+
+
+/* Identify overlapping features and remove all but the first
+   instance.  This function differs from the above in that features
+   are not grouped.  If 'types' is non-NULL, then only features whose
+   types are listed are checked for overlap (features of other types are
+   always kept).  */
+/* void gff_remove_overlaps(GFF_Set *gff, List *types) { */
+/*   int i, last_end = -1; */
+/*   List *starts = lst_new_int(lst_size(gff->features)); */
+/*   List *ends = lst_new_int(lst_size(gff->features)); */
+/*   List *new_feats = lst_new_ptr(lst_size(gff->features)); */
+
+/*   for (i = 0; i < lst_size(gff->features); i++) { */
+/*     GFF_Feature *feat = lst_get_ptr(gff->features, i); */
+    
+/*     if (types != NULL && !str_in_list(feat->feature, types)) { */
+/*       lst_push_ptr(new_feats, feat); */
+/*       continue; */
+/*     } */
+
+    /* check for overlap */
+/*     if (feat->start > last_end) {  */  /* common case, has to be safe */
+/*       lst_push_int(starts, feat->start); */
+/*       lst_push_int(ends, feat->end); */
+/*       last_end = feat->end; */
+/*       lst_push_ptr(new_feats, feat); */
+/*     } */
+/*     else {                  */ /* have to search list */
+/*       int list_idx = lst_bsearch_int(starts, feat->start); */
+/*       int prev_end = list_idx >= 0 ?  */
+/*         lst_get_int(ends, list_idx) : -1; */
+/*       int next_start = list_idx+1 < lst_size(starts) ? */
+/*         lst_get_int(starts, list_idx+1) : feat->end+1;          */
+/*       if (prev_end >= feat->start || next_start <= feat->end) { */
+/*         fprintf(stderr, "WARNING: feature '%s (%s)' (%d-%d) overlaps a previous feature -- ignoring.\n", feat->feature->chars, feat->attribute->chars, feat->start, feat->end); */
+/*         gff_free_feature(feat); */
+/*       } */
+/*       else { */
+/*         lst_insert_idx_int(starts, list_idx, feat->start); */
+/*         lst_insert_idx_int(ends, list_idx, feat->end); */
+/*         if (feat->end > last_end) last_end = feat->end; */
+/*         lst_push_ptr(new_feats, feat); */
+/*       } */
+/*     } */
+/*   } */
+
+/*   lst_free(gff->features); */
+/*   gff->features = new_feats; */
+
+/*   lst_free(starts); */
+/*   lst_free(ends); */
+/* } */
 
 /** Adjust coords of terminal cds exons such that stop codons are included */
 void gff_fix_stops(GFF_Set *gff, String* cds_feat_type, String *stop_feat_type) {

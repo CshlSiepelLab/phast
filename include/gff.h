@@ -1,4 +1,4 @@
-/* $Id: gff.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: gff.h,v 1.2 2004-06-14 03:06:21 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -64,12 +64,14 @@ typedef struct {
   String *source_version;       /**< version of program used to generate file */
   String *date;                 /**< date of generation */
   List *groups;                 /**< used when grouping features by attribute */
+  String *group_tag;            /**< tag defining groups */
 } GFF_Set;
 
 /* Group of features:  used by gff_group and related functions */
 typedef struct {
   String *name;
   List *features;
+  int start, end;
 } GFF_FeatureGroup;
 
 /* total number of columns */
@@ -120,17 +122,17 @@ GFF_Feature *gff_new_feature_copy(GFF_Feature *orig);
 GFF_Set *gff_subset_range(GFF_Set *set, int startcol, int endcol, 
                           int reset_indices);
 
-void gff_filter_by_type(GFF_Set *gff, List *include);
+void gff_filter_by_type(GFF_Set *gff, List *include, FILE *discards_f);
 
-int gff_reverse_strand_only(GFF_Set *set);
+int gff_reverse_strand_only(List *features);
 
-void gff_reverse_compl(GFF_Set *set, int start_range, int end_range);
+void gff_reverse_compl(List *features, int start_range, int end_range);
 
 void gff_sort(GFF_Set *set);
 
-void gff_group(GFF_Set *set, String *tag);
+void gff_group(GFF_Set *set, char *tag);
 
-void gff_exon_group(GFF_Set *set, String *tag);
+void gff_exon_group(GFF_Set *set, char *tag);
 
 void gff_ungroup(GFF_Set *set);
 
@@ -141,9 +143,9 @@ void gff_partition_by_feature(GFF_Set *gff, List *partitions, List *features,
 
 GFF_Set* gff_read_from_fname(char *fname);
 
-void gff_remove_overlaps_by_group(GFF_Set *gff);
+/* void gff_remove_overlaps_by_group(GFF_Set *gff); */
 
-void gff_remove_overlaps(GFF_Set *gff, List *types);
+void gff_remove_overlaps(GFF_Set *gff, FILE *discards);
 
 void gff_fix_stops(GFF_Set *gff, String* cds_feat_type, String *stop_feat_type);
 

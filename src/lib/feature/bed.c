@@ -1,4 +1,4 @@
-/* $Id: bed.c,v 1.2 2004-06-11 05:58:51 acs Exp $
+/* $Id: bed.c,v 1.3 2004-06-14 03:06:21 acs Exp $
    Written by Adam Siepel, 2004
    Copyright 2004, Adam Siepel, University of California */
 
@@ -152,7 +152,7 @@ void gff_print_bed_line(FILE *OUTF, List *features,
     in the output file.  Use groupby == NULL to suppress grouping.  If
     'include' is non-NULL, then only features of specified types will
     be reported (should be list of String objects).  */
-void gff_print_bed(FILE *OUTF, GFF_Set *gff, String *groupby, List *include) {
+void gff_print_bed(FILE *OUTF, GFF_Set *gff, char *groupby, List *include) {
   GFF_Feature *feat;
   String *chrom;
   char strand;

@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.2 2004-06-09 17:10:30 acs Exp $
+/* $Id: msa.c,v 1.3 2004-06-14 03:06:21 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1042,7 +1042,7 @@ void msa_reverse_compl_gff(MSA *msa, GFF_Set *gff, int *aux_data) {
 
   for (i = 0; i < lst_size(sub_gffs); i++) {
     GFF_Set *sub = lst_get_ptr(sub_gffs, i);
-    if (gff_reverse_strand_only(sub)) {
+    if (gff_reverse_strand_only(sub->features)) {
 /*       gff_sort(sub); */
       if (lst_size(sub->features) > 0) {
         int start = 
@@ -1051,7 +1051,7 @@ void msa_reverse_compl_gff(MSA *msa, GFF_Set *gff, int *aux_data) {
         for (j = 1; j < lst_size(sub->features); j++)
           if (((GFF_Feature*)lst_get_ptr(sub->features, j))->end > end)
             end = ((GFF_Feature*)lst_get_ptr(sub->features, j))->end;
-        gff_reverse_compl(sub, start, end);
+        gff_reverse_compl(sub->features, start, end);
 
         if (msa != NULL)
           msa_reverse_compl_segment(msa, start, end);
@@ -1083,6 +1083,53 @@ void msa_reverse_compl_gff(MSA *msa, GFF_Set *gff, int *aux_data) {
     gff_free_set((GFF_Set*)lst_get_ptr(sub_gffs, i));
 
   lst_free(sub_gffs);
+}
+
+/** Reverse complement segments of an MSA corresponding to groups of
+   features on the reverse strand.  Adjusts the coordinates in the
+   GFF_Set accordingly.  This function can be used to ensure that
+   sites in strand-specific categories (e.g., 1st codon position,
+   intron) are oriented consistently.  It can be useful in phylogenetic
+   analysis and in training the transition probabilities of a phylo-HMM.
+   Features are assumed already to have been grouped as desired, and
+   groups are assumed to be nonoverlapping (see gff_group and
+   gff_remove_overlaps).  Strandedness is tested using
+   gff_reverse_strand_only.  The GFF_Set is assumed to use the
+   coordinate frame of the alignment.  */
+void msa_reverse_compl_feats(MSA *msa, 
+                                /**< Alignment object.  If NULL, only
+                                   the GFF_Set (and optionally
+                                   aux_data) will be altered */
+                             GFF_Set *feats, 
+                                /**< Set of features */
+                             int *aux_data
+                                /**< Auxiliary array of site-specific
+                                   integers (e.g., gap patterns) to be
+                                   kept in sync with the alignment
+                                   and/or GFF_Set */
+                             ) {
+  int i;
+
+  if (lst_size(feats->features) == 0) return;
+
+  if (msa != NULL) assert(msa->ss == NULL);      
+                                /* not yet equipped to handle suff stats */
+
+  if (feats->groups == NULL) 
+    die("ERROR: msa_reverse_compl_feats requires grouped features.\n");
+
+  for (i = 0; i < lst_size(feats->groups); i++) {
+    GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
+    if (gff_reverse_strand_only(g->features)) {
+      gff_reverse_compl(g->features, g->start, g->end);
+      if (msa != NULL)
+        msa_reverse_compl_segment(msa, g->start, g->end);
+      if (msa->categories != NULL)
+        msa_reverse_data_segment(msa->categories, g->start, g->end);
+      if (aux_data != NULL) 
+        msa_reverse_data_segment(aux_data, g->start, g->end);
+    }
+  }
 }
 
 int msa_read_category_labels(MSA *msa, FILE *F) {
