@@ -1,4 +1,4 @@
-/* $Id: eval_predictions.c,v 1.5 2004-06-24 03:09:22 acs Exp $
+/* $Id: eval_predictions.c,v 1.6 2004-06-26 05:52:25 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -67,16 +67,7 @@ Options:\n\
         Columns will be labeled \"NCa\" and \"NCp\".\n\
 \n\
     -h\n\
-        Print this help message.\n\
-\n\
-Lists must be comma-separated.  Optionally, an argument of the form\n\
-\"*<fname>\" may be specified, which will cause the elements of the\n\
-list to be read from <fname> (white-space-separated).  You can think\n\
-of the \"*\" as being like the dereferencing operator in C :)\n\
-\n\
-NOTE: This program does not allow for overlapping exons in either the real or \n\
-predicted sets.  Features that overlap previous features are removed in a\n\
-preprocessing step.\n\n");  
+        Print this help message.\n\n");  
 } 
 
 int is_exon(GFF_Feature *feat, List *l) {
