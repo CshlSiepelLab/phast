@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.3 2004-06-14 03:06:21 acs Exp $
+/* $Id: phylo_hmm.c,v 1.4 2004-06-16 06:21:18 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -13,6 +13,7 @@
 #include <sufficient_stats.h>
 #include <gap_patterns.h>
 #include <tree_likelihoods.h>
+#include <em.h>
 
 /** Create a new PhyloHmm object. Optionally expands original HMM to
     allow for features on both the positive and negative strands.
@@ -652,6 +653,7 @@ double* phmm_postprobs_cats(PhyloHmm *phmm,
   return retval;
 }
 
+/* wrapper for hmm_forward used by phmm_fit_lambda */
 double fit_lambda_lnl(double lambda, void *data) {
   PhyloHmm *phmm = data;
   if (lambda < 0 || lambda > 1) return INFTY;
@@ -672,7 +674,11 @@ double phmm_fit_lambda(PhyloHmm *phmm, double *lambda, FILE *logf) {
       phmm->forward[i] = smalloc(phmm->alloc_len * sizeof(double));
   }
 
-  ax = .80; bx = .97;           /* FIXME -- parameterize */
+  /* start with a range of 0.2 around the starting value of lambda;
+     seems to be a reasonable heuristic (mnbrak can go outside this
+     range) */
+  bx = min(*lambda + 0.1, .97);  /* don't get too close to boundary */
+  ax = bx - 0.2; 
   mnbrak(&ax, &bx, &cx, &fa, &fb, &fc, fit_lambda_lnl, phmm, logf);
   neglnl = opt_brent(ax, bx, cx, fit_lambda_lnl, 5e-3, lambda, phmm, logf);
 
@@ -925,7 +931,45 @@ void phmm_rates_cut(PhyloHmm *phmm,
   phmm->reverse_compl[1] = 0;
 }
 
-/* returns ln likelihood */
+/* function used by phmm_fit_rates_cut */
+void compute_emissions(double **emissions, void **models, int nmodels,
+                       void *data, int sample, int length) {
+  /* just copy emissions; they're already computed */
+  PhyloHmm *phmm = (PhyloHmm*)data;
+  int i, j;
+  for (i = 0; i < phmm->hmm->nstates; i++)
+    for (j = 0; j < phmm->alloc_len; j++)
+      emissions[i][j] = phmm->emissions[i][j];
+}
+
+/** Estimate the parameters 'p' and 'q' that define the two-state
+    "rates-cut" model using an EM algorithm.  Returns ln likelihood. */
+double phmm_fit_rates_cut(PhyloHmm *phmm, 
+                          double *p, 
+                          double *q, 
+                          FILE *logf
+                          ) {
+  double retval;
+
+  if (phmm->emissions == NULL)
+    die("ERROR: emissions required for phmm_fit_rates_cut.\n");
+
+  mm_set(phmm->hmm->transition_matrix, 0, 0, 1-*p);
+  mm_set(phmm->hmm->transition_matrix, 0, 1, *p);
+  mm_set(phmm->hmm->transition_matrix, 1, 0, *q);
+  mm_set(phmm->hmm->transition_matrix, 1, 1, 1-*q);
+  hmm_reset(phmm->hmm);
+
+  retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, 
+                           NULL, compute_emissions, NULL, NULL, logf);
+
+  *p = mm_get(phmm->hmm->transition_matrix, 0, 1);
+  *q = mm_get(phmm->hmm->transition_matrix, 1, 0);
+
+  return log(2) * retval;
+}
+ 
+/* wrapper function used by fit_rates_cut_bfgs */
 double fit_rates_cut_lnl(gsl_vector *params, void *data) {
   PhyloHmm *phmm = data;
   double p = exp(gsl_vector_get(params, 0)), 
@@ -940,7 +984,8 @@ double fit_rates_cut_lnl(gsl_vector *params, void *data) {
 }
 
 /* returns ln likelihood */
-double phmm_fit_rates_cut(PhyloHmm *phmm, double *p, double *q, FILE *logf) {
+double phmm_fit_rates_cut_bfgs(PhyloHmm *phmm, double *p, double *q, 
+                               FILE *logf) {
   int i;
   double neglnl = INFTY;
   gsl_vector *params = gsl_vector_alloc(2),  *lbounds = NULL, 
@@ -968,3 +1013,4 @@ double phmm_fit_rates_cut(PhyloHmm *phmm, double *p, double *q, FILE *logf) {
 
   return -neglnl;
 }
+

@@ -1,4 +1,4 @@
-/* $Id: em.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: em.h,v 1.2 2004-06-16 06:21:17 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -16,7 +16,8 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
                                                  int, int), 
                        void (*estimate_state_models)(void**, int, void*, 
                                                      double**, int),
-                       int (*get_observation_index)(void*, int, int));
+                       int (*get_observation_index)(void*, int, int),
+                       FILE *logf);
 
 void compute_emissions_phyhmm(double **emissions, void **models, int nmodels,
                               void *data, int sample, int length);

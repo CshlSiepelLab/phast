@@ -63,6 +63,6 @@ void phmm_score_predictions(PhyloHmm *phmm, GFF_Set *preds, List *score_cats,
                             int score_only_score_cats);
 void phmm_rates_cut(PhyloHmm *phmm, int nrates, int cut_idx, double p, double q);
 double phmm_fit_rates_cut(PhyloHmm *phmm, double *p, double *q, FILE *logf);
-double phmm_fit_rates_cut_em(PhyloHmm *phmm, double *p, double *q, FILE *logf);
+double phmm_fit_rates_cut_bfgs(PhyloHmm *phmm, double *p, double *q, FILE *logf);
 
 #endif
