@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.6 2004-06-23 19:50:00 acs Exp $
+/* $Id: maf.c,v 1.7 2004-06-23 21:22:15 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -61,7 +61,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
                                    collecting counts for
                                    strand-specific categories.  Can't
                                    be used if store_order == TRUE */
-              int gap_strip_mode 
+              int gap_strip_mode,
                                 /**< Gap stripping mode.  Currently,
                                    if store_order == 1, may only have
                                    value NO_STRIP or 1 (indicating
@@ -69,6 +69,12 @@ MSA *maf_read(FILE *F,          /**< MAF file */
                                    reference sequence).  This is
                                    simply to avoid some complexity in
                                    coordinate mapping. */
+              int keep_overlapping
+                                /**< If TRUE, keep overlapping blocks,
+                                   otherwise keep only first instance.
+                                   Must be FALSE if store_order ==
+                                   TRUE or gff != NULL or 
+                                   cycle_size != -1 */
               ) {
 
 /* NOTE: for now, if a GFF is defined, then all blocks are projected
@@ -104,6 +110,9 @@ MSA *maf_read(FILE *F,          /**< MAF file */
       die("ERROR: Gap strip mode must be either NO_STRIP or 1 if storing order in maf_read.\n");
   }
 
+  if (keep_overlapping && (gff != NULL || store_order || cycle_size > 0))
+    die("ERROR: Can't keep overlapping blocks if storing order or collecting stats for site categories (maf_read).\n");
+
   /* a coordinate map is necessary only if storing order AND not
      projecting on the reference sequence */
   if (store_order && gap_strip_mode == NO_STRIP)
@@ -115,7 +124,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
      if necessary */
   msa = msa_new(NULL, NULL, -1, 0, NULL);
   maf_peek(F, &msa->names, name_hash, &msa->nseqs, map, redundant_blocks, 
-           &refseqlen);
+           keep_overlapping, &refseqlen);
   /* NOTE: it seems as if this could be avoided when store_order == 0,
      but things would become quite a lot more complicated; e.g., if a
      new seq was encountered midway in the file, all previously
@@ -222,12 +231,6 @@ MSA *maf_read(FILE *F,          /**< MAF file */
        into the new msa */
     ss_from_msas(msa, tuple_size, store_order, NULL, mini_msa, 
                  tuple_hash, idx_offset);
-
-    /* NOTE: with context-dependent models, the first tuple_size-1
-       columns of each block will have incomplete context.
-       In the case of an ordered alignment (REFSEQF != NULL), this
-       could be fixed by post-processing, but it doesn't seem worth
-       the trouble ... */
 
     if (gff != NULL) {          /* free features and clear list */
       for (i = 0; i < lst_size(mini_gff->features); i++)
@@ -594,7 +597,7 @@ int gap_pair_compare(const void* ptr1, const void* ptr2) {
    sequence (map object assumed to be preallocated).  */
 void maf_peek(FILE *F, char ***names, Hashtable *name_hash, 
               int *nseqs, msa_coord_map *map, List *redundant_blocks,
-              int *refseqlen) {
+              int keep_overlapping, int *refseqlen) {
   String *line = str_new(STR_VERY_LONG_LEN);
   int count = 0, seqidx = 0, gaplen, tmp, startidx, i, 
     length, last_endidx = -1, block_no = 0, skip = 0, endidx;
@@ -628,15 +631,14 @@ void maf_peek(FILE *F, char ***names, Hashtable *name_hash,
         count++;
       }
 
-      if (seqidx == 0) { /* reference sequence */
+      if (seqidx == 0 && !keep_overlapping) { /* reference sequence */
         str_split(line, NULL, l);
         if (lst_size(l) != 7 || 
             str_as_int(lst_get_ptr(l, 2), &startidx) != 0 ||
             str_as_int(lst_get_ptr(l, 3), &length) != 0 ||
-            str_as_int(lst_get_ptr(l, 5), &tmp) != 0) {
-          fprintf(stderr, "ERROR: bad line in MAF file --\n\t\"%s\"\n", line->chars);
-          exit(1);
-        }
+            str_as_int(lst_get_ptr(l, 5), &tmp) != 0) 
+          die("ERROR: bad line in MAF file --\n\t\"%s\"\n", line->chars);
+
         if (*refseqlen == -1) *refseqlen = tmp;
 
         skip = 0;

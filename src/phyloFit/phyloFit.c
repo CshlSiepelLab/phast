@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.11 2004-06-22 17:12:26 acs Exp $
+   $Id: phyloFit.c,v 1.12 2004-06-23 21:22:15 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -822,7 +822,7 @@ int main(int argc, char *argv[]) {
   if (input_format == MAF)
     msa = maf_read(fopen_fname(msa_fname, "r"), NULL, tm_order(subst_mod) + 1, 
                    gff, cm, nonoverlapping ? tm_order(subst_mod) + 1 : -1, 
-                   FALSE, reverse_group_tag, NO_STRIP);
+                   FALSE, reverse_group_tag, NO_STRIP, FALSE);
   else 
     msa = msa_new_from_file(fopen_fname(msa_fname, "r"), input_format, "ACGT");
 

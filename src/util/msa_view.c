@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.9 2004-06-23 19:51:01 acs Exp $
+/* $Id: msa_view.c,v 1.10 2004-06-23 21:22:15 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -226,10 +226,13 @@ OPTIONS:\n\
         MAF file is assumed to be the one that appears first in each\n\
         block.\n\
 \n\
-    --allow-overlapping\n\
-        Allow blocks in MAF with overlapping coordinates in the\n\
-        reference sequence (by default, only the first one is kept).\n\
-        Cannot be used with --refseq, --features, or --cats-cycle.\n\
+    --keep-overlapping, -k\n\
+        Keep blocks in MAF that have overlapping coordinates in the\n\
+        reference (1st) sequence (by default, only the first one is\n\
+        kept.  Useful in extracting unordered stats from a jumbled\n\
+        collection of MAF blocks (e.g., output of Jim Kent's mafFrags\n\
+         program).  Cannot be used with --refseq, --features, or\n\
+        --cats-cycle.\n\
 \n\
  (Site categories: all options require --out-format SS)\n\
     --features, -g <gff_fname>\n\
@@ -344,10 +347,10 @@ int main(int argc, char* argv[]) {
   char *infname = NULL, *clean_seqname = NULL, *rseq_fname = NULL,
     *reverse_groups_tag = NULL;
   int i, opt_idx, startcol = 1, endcol = -1, include = 1, gap_strip_mode = NO_STRIP,
-    pretty_print = 0, refseq = 0, tuple_size = 1, 
-    ordered_stats = 1, cds_mode =- 0, indel_clean_nseqs = -1, cats_done = 0,
-    rand_perm = 0, reverse_compl = 0, stats_only = 0, win_size = -1, 
-    cycle_size = -1;
+    pretty_print = FALSE, refseq = 0, tuple_size = 1, 
+    ordered_stats = TRUE, cds_mode = FALSE, indel_clean_nseqs = -1, cats_done = FALSE,
+    rand_perm = FALSE, reverse_compl = FALSE, stats_only = FALSE, win_size = -1, 
+    cycle_size = -1, maf_keep_overlapping = FALSE;
   char c;
   List *cats_to_do = NULL, *aggregate_list = NULL, *msa_fname_list = NULL, 
     *order_list = NULL, *fill_N_list = NULL;
@@ -384,10 +387,11 @@ int main(int argc, char* argv[]) {
     {"clean-indels", 1, 0, 'I'},
     {"randomize", 0, 0, 'R'},
     {"fill-Ns", 1, 0, 'N'},
+    {"keep-overlapping", 0, 0, 'k'},
     {"help", 0, 0, 'h'}
   };
 
-  while ((c = getopt_long(argc, argv, "m:i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:DVxPzRSh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:DVxPzRSkh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       infname = optarg;
@@ -500,6 +504,9 @@ int main(int argc, char* argv[]) {
         lst_free(l);
       }
       break;
+    case 'k':
+      maf_keep_overlapping = TRUE;
+      break;
     case '?':
       fprintf(stderr, "Bad argument.  Try 'msa_view -h' for help.\n");
       exit(1); 
@@ -558,7 +565,7 @@ int main(int argc, char* argv[]) {
     msa = maf_read(fopen_fname(infname, "r"), RSEQF, tuple_size, 
                    gff, cm, cycle_size, 
                    output_format != SS || ordered_stats, 
-                   reverse_groups_tag, gap_strip_mode);
+                   reverse_groups_tag, gap_strip_mode, maf_keep_overlapping);
                                 /* store order unless output is SS and
                                    no ordered stats */
   }
