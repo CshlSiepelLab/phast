@@ -530,25 +530,14 @@ void init_eqfreqs(TreeModel *mod, MSA *msa, double gc) {
 
 /* Extrapolate tree model and prune leaves not represented in
    alignment.  Returns scale factor */
-double extrapolate_mod(TreeModel *mod, TreeNode *extrapolate_tree, 
-                     MSA *msa, int quiet) {
-  int i, old_nnodes = mod->tree->nnodes;
+double extrapolate_and_prune(TreeModel *mod, TreeNode *extrapolate_tree, 
+                             MSA *msa, List *pruned_names) {
+  int i;
   TreeNode *t = tr_create_copy(extrapolate_tree);
-  List *names = lst_new_ptr(msa->nseqs);
   double scale = tr_scale_by_subtree(t, mod->tree);
   for (i = 0; i < msa->nseqs; i++)
-    lst_push_ptr(names, str_new_charstr(msa->names[i]));
-  tr_prune(&t, names, TRUE);
-  if (lst_size(names) == (old_nnodes + 1) / 2)
-    die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
-  else if (lst_size(names) > 0 && !quiet) {
-    fprintf(stderr, "WARNING: pruned away leaves of new tree with no match in alignment (");
-    for (i = 0; i < lst_size(names); i++)
-      fprintf(stderr, "%s%s", ((String*)lst_get_ptr(names, i))->chars, 
-              i < lst_size(names) - 1 ? ", " : ").\n");
-  }
-  lst_free_strings(names);
-  lst_free(names);
+    lst_push_ptr(pruned_names, str_new_charstr(msa->names[i]));
+  tr_prune(&t, pruned_names, TRUE);
   tm_reset_tree(mod, t);
   return scale;
 }
@@ -918,11 +907,24 @@ int main(int argc, char *argv[]) {
 
     /* extrapolate tree if necessary, prune away extra species if possible */
     if (extrapolate_tree != NULL) {
-      double scale = 
-        extrapolate_mod(mod[i], extrapolate_tree, msa, quiet); /* (prunes also) */
-      if (!quiet) 
+      List *pruned_names = lst_new_ptr(msa->nseqs);
+      int old_nnodes = mod[i]->tree->nnodes;
+      double scale = extrapolate_and_prune(mod[i], extrapolate_tree, 
+                                           msa, pruned_names);
+      if (lst_size(pruned_names) == (old_nnodes + 1) / 2)
+        die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
+      if (!quiet) {
         fprintf(stderr, "Extrapolating based on %s (scale=%f)...\n", 
                 extrapolate_tree_fname, scale);
+        if (lst_size(pruned_names) > 0) {
+          fprintf(stderr, "WARNING: pruned away leaves of new tree with no match in alignment (");
+          for (i = 0; i < lst_size(pruned_names); i++)
+            fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, i))->chars, 
+                    i < lst_size(pruned_names) - 1 ? ", " : ").\n");
+        }
+      }
+      lst_free_strings(pruned_names);
+      lst_free(pruned_names);
     }
     else
       tm_prune(mod[i], msa, !quiet);
