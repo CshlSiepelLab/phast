@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.17 2004-09-10 16:36:46 acs Exp $
+/* $Id: sufficient_stats.c,v 1.18 2005-03-18 19:54:02 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -1315,4 +1315,51 @@ void ss_strip_missing(MSA *msa, /**< Input alignment; will be altered */
   }
 
   ss_remove_zero_counts(msa);
+}
+
+/* return 1 if a column triple represents a 4d site and 0 otherwise */
+int ss_is_4d(MSA *msa, int tuple) {
+  char base[2];
+  int offset, seq;
+  assert(msa->ss->tuple_size == 3);
+  for (offset = -2; offset < 0; offset++) {
+    base[offset+2] = '\0';
+    for (seq = 0; seq < msa->nseqs; seq++) {
+      char c = ss_get_char_tuple(msa, tuple, seq, offset);
+      if (msa->is_missing[(int)c]) continue;
+      else if (c == GAP_CHAR || msa->inv_alphabet[(int)c] < 0) return FALSE;
+      else if (base[offset+2] == '\0') base[offset+2] = c;
+      else if (base[offset+2] != c) return FALSE;
+    }
+    if (base[offset+2] == '\0') return FALSE; /* in case column has
+                                                 only missing data */
+  }
+  for (seq = 0; seq < msa->nseqs; seq++)
+    if (ss_get_char_tuple(msa, tuple, seq, 0) == GAP_CHAR)
+      return FALSE;             /* also prohibit gap in 3rd pos. */
+
+  if (((base[0] == 'A' || base[0] == 'T') && base[1] == 'C') ||
+      ((base[0] == 'C' || base[0] == 'G') && base[1] != 'A'))
+    return TRUE;                /* first two bases defining 4d codons in
+                                   standard genetic code */
+  return FALSE;
+}
+
+/* reduce to smaller tuple size representation */
+int ss_reduce_tuple_size(MSA *msa, int new_tuple_size) {
+  int i, j, len, offset;
+  if (new_tuple_size >= msa->ss->tuple_size)
+    die("ERROR: new tuple size must be smaller than old in ss_reduce_tuple_size.\n");
+  len = new_tuple_size * msa->nseqs;
+  offset = (msa->ss->tuple_size - new_tuple_size) * msa->nseqs;
+  for (i = 0; i < msa->ss->ntuples; i++) 
+    for (j = 0; j < len; j++) 
+      msa->ss->col_tuples[i][j] = msa->ss->col_tuples[i][j+offset];
+                                /* because of the way the tuples are
+                                   stored, we can just shift everthing
+                                   back offset bytes; could realloc
+                                   each col_tuple but probably not
+                                   worth the cost */
+  msa->ss->tuple_size = new_tuple_size;
+  ss_unique(msa);
 }

@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.23 2004-08-30 18:56:37 acs Exp $
+/* $Id: msa_view.c,v 1.24 2005-03-18 19:54:02 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -271,9 +271,9 @@ OPTIONS:\n\
         collected as file is read).\n\
 \n\
     --codons, -D\n\
-        (For use with --features/--catmap or --cats-cycle.) Implies\n\
-        --tuple-size 3 --cats-cycle 3 --do-cats 3.  Extract sufficient\n\
-        statistics for in-frame codons.\n\
+        Extract sufficient statistics for in-frame codons.  Implies\n\
+        --tuple-size 3 --cats-cycle 3 --do-cats 3.  Not appropriate\n\
+        for use with --features/--catmap.\n\
 \n\
     --reverse-groups, -W <tag>\n\
         (For use with --features) Group features by <tag> (e.g.,\n\
@@ -282,6 +282,12 @@ OPTIONS:\n\
         reverse strand.  Groups must be non-overlapping (see refeature\n\
         --unique).  Useful when extracting sufficient statistics for\n\
         strand-specific site categories (e.g., codon positions).\n\
+\n\
+    --4d, -4\n\
+        (For use with --features and --catmap; assumes coding regions have\n\
+        feature type 'CDS')  Extract sufficient statistics for fourfold\n\
+        degenerate synonymous sites.  Implies --out-format SS\n\
+        --unordered-stats --tuple-size 3 --reverse-groups transcript_id.\n\
 \n\
  (Alignment cleaning)\n\
     --clean-coding, -L <seqname>\n\
@@ -348,6 +354,31 @@ void fill_with_Ns(MSA *msa, List *fill_N_list, msa_coord_map *map) {
   str_re_free(fill_N_re);
 }
 
+/* reduce SS representation of alignment with nucleotide triples to 4d
+   sites only (supports --4d option) */
+void reduce_to_4d(MSA *msa, CategoryMap *cm) {
+  String *tmpstr = str_new_charstr("CDS");
+  int cat_pos3 = cm->ranges[cm_get_category(cm, tmpstr)]->end_cat_no;
+  int i, j, len = 0;
+  if (cat_pos3 == 0)
+    die("ERROR: no match for 'CDS' feature type (required with --4d).\n");
+  assert(msa->ss->cat_counts != NULL && msa->ncats >= cat_pos3);
+  for (i = 0; i < msa->ss->ntuples; i++) {
+    if (ss_is_4d(msa, i)) {
+      msa->ss->counts[i] = msa->ss->cat_counts[cat_pos3][i];
+      len += msa->ss->counts[i];
+    }
+    else 
+      msa->ss->counts[i] = 0;
+  }
+  for (j = 0; j <= msa->ncats; j++) free(msa->ss->cat_counts[j]);
+  free(msa->ss->cat_counts);
+  msa->ss->cat_counts = NULL;
+  msa->ncats = -1;
+  msa->length = len;
+  ss_remove_zero_counts(msa);
+  str_free(tmpstr);
+}
 
 int main(int argc, char* argv[]) {
   MSA *msa = NULL, *sub_msa = NULL;
@@ -357,9 +388,10 @@ int main(int argc, char* argv[]) {
     *reverse_groups_tag = NULL;
   int i, opt_idx, startcol = 1, endcol = -1, include = 1, gap_strip_mode = NO_STRIP,
     pretty_print = FALSE, refseq = 0, tuple_size = 1, 
-    ordered_stats = TRUE, cds_mode = FALSE, indel_clean_nseqs = -1, cats_done = FALSE,
+    ordered_stats = TRUE, indel_clean_nseqs = -1, cats_done = FALSE,
     rand_perm = FALSE, reverse_compl = FALSE, stats_only = FALSE, win_size = -1, 
-    cycle_size = -1, maf_keep_overlapping = FALSE, collapse_missing = FALSE;
+    cycle_size = -1, maf_keep_overlapping = FALSE, collapse_missing = FALSE,
+    fourD = FALSE;
   char c;
   List *cats_to_do = NULL, *aggregate_list = NULL, *msa_fname_list = NULL, 
     *order_list = NULL, *fill_N_list = NULL;
@@ -385,6 +417,7 @@ int main(int argc, char* argv[]) {
     {"cats-cycle", 1, 0, 'Y'},
     {"do-cats", 1, 0, 'C'},
     {"codons", 0, 0, 'D'},
+    {"4d", 0, 0, '4'},
     {"aggregate", 1, 0, 'A'},
     {"refseq", 1, 0, 'M'},
     {"order", 1, 0, 'O'},
@@ -402,7 +435,7 @@ int main(int argc, char* argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:DVxPzRSkh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:DVxPzRSk4h", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       infname = optarg;
@@ -460,6 +493,13 @@ int main(int argc, char* argv[]) {
       cycle_size = tuple_size = 3;
       if (cats_to_do == NULL) cats_to_do = lst_new_int(1);
       lst_push_int(cats_to_do, 3);
+      break;
+    case '4':
+      fourD = TRUE;
+      tuple_size = 3;
+      output_format = SS;
+      ordered_stats = FALSE;
+      reverse_groups_tag = "transcript_id";
       break;
     case 'z':
       ordered_stats = FALSE;
@@ -525,6 +565,9 @@ int main(int argc, char* argv[]) {
     output_format = SS; 
     ordered_stats = FALSE; 
   }
+
+  if (fourD && gff == NULL)
+    die("ERROR: --4d requires --features.\n");
 
   if (aggregate_list != NULL) {
     if (msa_fname_list == NULL)
@@ -684,11 +727,12 @@ int main(int argc, char* argv[]) {
     }
 
     /* in this case, assign categories *after* cleaning */
-    if (cds_mode && gff == NULL) {
+    /* FIXME: is this still necessary? */
+    if (cycle_size > 0 && clean_seqname != NULL) {
       sub_msa->categories = (int*)smalloc(sub_msa->length * sizeof(int));
-      sub_msa->ncats = 3;
+      sub_msa->ncats = cycle_size;
       for (i = 0; i < sub_msa->length; i++)
-        sub_msa->categories[i] = (i % 3) + 1;
+        sub_msa->categories[i] = (i % cycle_size) + 1;
     }
 
     str_free(errstr);
@@ -705,16 +749,15 @@ int main(int argc, char* argv[]) {
     if (sub_msa->ss == NULL)
       ss_from_msas(sub_msa, tuple_size, ordered_stats, cats_to_do, NULL, NULL, -1);
     else {
-      if (sub_msa->ss->tuple_size != tuple_size) {
-        fprintf(stderr, "ERROR: tuple size in SS file does not match desired tuple size for output.\nConversion not supported.\n");
-        exit(1);
-      }
+      if (sub_msa->ss->tuple_size < tuple_size)
+        die("ERROR: input tuple size must be at least as large as output tuple size.\n");
       if (sub_msa->ss->tuple_idx != NULL && ordered_stats == 0) {
         free(sub_msa->ss->tuple_idx);
         sub_msa->ss->tuple_idx = NULL;
       }
+      if (sub_msa->ss->tuple_size > tuple_size)
+        ss_reduce_tuple_size(sub_msa, tuple_size);
     }
-
     if (collapse_missing) ss_collapse_missing(sub_msa, TRUE);
   }
 
@@ -725,6 +768,9 @@ int main(int argc, char* argv[]) {
     }
     msa_reverse_compl(sub_msa);
   }
+
+  if (fourD)                    /* reduce to 4d sites */
+    reduce_to_4d(sub_msa, cm);
 
   if (stats_only) {             /* only print summary stats */
     msa_print_stats(sub_msa, stdout, NULL, 1, -1, -1);
