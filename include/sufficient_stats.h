@@ -1,7 +1,7 @@
 /* sufficient_stats.h - Representation of multiple alignments in terms of their sufficient statistics */
 
 /*   
-   $Id: sufficient_stats.h,v 1.4 2004-07-26 05:28:53 acs Exp $
+   $Id: sufficient_stats.h,v 1.5 2004-07-26 15:02:42 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -64,7 +64,7 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
 void ss_to_msa(MSA *msa);
 void msa_read_AXT(MSA *msa, List *axt_fnames);
 void ss_write(MSA *msa, FILE *F, int show_order);
-MSA* ss_read(FILE *F);
+MSA* ss_read(FILE *F, char *alphabet);
 void ss_free(MSA_SS *ss);
 void ss_update_categories(MSA *msa);
 void ss_new(MSA *msa, int tuple_size, int max_ntuples, int do_cats, 

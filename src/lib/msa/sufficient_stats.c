@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.8 2004-07-26 05:28:55 acs Exp $
+/* $Id: sufficient_stats.c,v 1.9 2004-07-26 15:02:42 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -705,8 +705,9 @@ void ss_write(MSA *msa, FILE *F, int show_order) {
   }
 }
 
-/* make reading order optional? */
-MSA* ss_read(FILE *F) {
+/* make reading order optional?  alphabet argument overrides alphabet
+   in file (use NULL to use version in file) */
+MSA* ss_read(FILE *F, char *alphabet) {
   Regex *nseqs_re, *length_re, *tuple_size_re, *ntuples_re, *tuple_re, 
     *names_re, *alph_re, *ncats_re, *order_re, *offset_re;
   String *line, *alph = NULL;
@@ -775,7 +776,8 @@ MSA* ss_read(FILE *F) {
 
       if (nseqs > 0 && length >= 0 && tuple_size > 0 && ntuples > 0 && 
           alph != NULL && names != NULL && ncats != -99) {
-        msa = msa_new(NULL, names, nseqs, length, alph->chars);
+        msa = msa_new(NULL, names, nseqs, length, alphabet != NULL ? alphabet : alph->chars);
+                                /* allow alphabet from file to be overridden */
         if (ncats > 0) msa->ncats = ncats;
         msa->idx_offset = idx_offset;
         ss_new(msa, tuple_size, ntuples, (ncats > 0 ? 1 : 0), 0);

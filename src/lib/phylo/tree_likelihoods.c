@@ -1,4 +1,4 @@
-/* $Id: tree_likelihoods.c,v 1.5 2004-07-25 19:34:23 acs Exp $
+/* $Id: tree_likelihoods.c,v 1.6 2004-07-26 15:02:42 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -487,7 +487,7 @@ void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,
           else if (col + i >= 0)
             tuple[mod->order+i] = msa->seqs[seq][col+i];
           else 
-            tuple[mod->order+i] = GAP_CHAR;
+            tuple[mod->order+i] = msa->missing[0];
         }
 
         if (!mod->allow_gaps && 
@@ -527,7 +527,7 @@ void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,
         col_val += log2(prob);
 
         if (mod->use_conditionals && mod->order > 0) {
-          tuple[mod->order] = GAP_CHAR;
+          tuple[mod->order] = msa->missing[0];
           col_val -= log2(gsl_vector_get(margfreqs, tuple_index_missing_data(tuple, msa->inv_alphabet, msa->is_missing, alph_size)));
         }
       }

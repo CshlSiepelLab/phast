@@ -1,4 +1,4 @@
-/* $Id: subst_mods.c,v 1.2 2004-06-19 20:35:14 acs Exp $
+/* $Id: subst_mods.c,v 1.3 2004-07-26 15:02:42 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -152,7 +152,9 @@ int tm_get_nratematparams(TreeModel *mod) {
   case HKY85:
     return 1;
   case REV:
-    return 6;
+    return (mod->rate_matrix->size * mod->rate_matrix->size 
+            - mod->rate_matrix->size) / 2; 
+    /* allows use with alternative alphabets, e.g., {ACGT-} */
   case UNREST:
     return 12;
   case R2:

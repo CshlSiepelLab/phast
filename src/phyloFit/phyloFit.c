@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.15 2004-07-25 22:51:29 acs Exp $
+   $Id: phyloFit.c,v 1.16 2004-07-26 15:02:42 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -172,6 +172,9 @@ OPTIONS:\n\
         Require at least <ninf_sites> \"informative\" sites -- i.e., \n\
         sites at which at least two non-gap and non-missing-data ('N'\n\
         or '*') characters are present.  Default is %d.\n\
+\n\
+    --gaps-as-bases, -G\n\
+        Treat alignment gaps like ordinary bases.\n\
 \n\
     --quiet, -q\n\
         Proceed quietly.\n\
@@ -584,7 +587,7 @@ void print_window_summary(FILE* WINDOWF, List *window_coords, int win,
 
 int main(int argc, char *argv[]) {
   char *msa_fname = NULL, *output_fname_root = "phyloFit", 
-    *log_fname = NULL, *reverse_group_tag = NULL;
+    *log_fname = NULL, *reverse_group_tag = NULL, *alph = "ACGT";
   int output_trees = TRUE, subst_mod = REV, quiet = FALSE,
     nratecats = 1, use_em = FALSE, window_size = -1, 
     window_shift = -1, use_conditionals = FALSE, 
@@ -592,7 +595,7 @@ int main(int argc, char *argv[]) {
     likelihood_only = FALSE, do_bases = FALSE, do_expected_nsubst = FALSE, 
     do_expected_nsubst_tot = FALSE, 
     random_init = FALSE, estimate_backgd = FALSE, estimate_scale_only = FALSE,
-    do_column_probs = FALSE, nonoverlapping = FALSE;
+    do_column_probs = FALSE, nonoverlapping = FALSE, gaps_as_bases = FALSE;
   unsigned int nsites_threshold = DEFAULT_NSITES_THRESHOLD;
   msa_format_type input_format = FASTA;
   char c;
@@ -637,6 +640,7 @@ int main(int argc, char *argv[]) {
     {"scale-only", 0, 0, 'B'},
     {"estimate-freqs", 0, 0, 'F'},
     {"min-informative", 1, 0, 'I'},
+    {"gaps-as-bases", 0, 0, 'G'},    
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {"windows", 1, 0, 'w'},
@@ -649,7 +653,7 @@ int main(int argc, char *argv[]) {
     {"rate-constants", 1, 0, 'K'},
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:VEeNDRTqLPXZUBFrh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:GVEeNDRTqLPXZUBFrh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -770,6 +774,10 @@ int main(int argc, char *argv[]) {
     case 'I':
       nsites_threshold = atoi(optarg);
       break;
+    case 'G':
+      gaps_as_bases = TRUE;
+      alph = "ACGT-";
+      break;
     case 'B':
       estimate_scale_only = 1;
       break;
@@ -825,7 +833,7 @@ int main(int argc, char *argv[]) {
                    gff, cm, nonoverlapping ? tm_order(subst_mod) + 1 : -1, 
                    FALSE, reverse_group_tag, NO_STRIP, FALSE);
   else 
-    msa = msa_new_from_file(fopen_fname(msa_fname, "r"), input_format, "ACGT");
+    msa = msa_new_from_file(fopen_fname(msa_fname, "r"), input_format, alph);
 
   if (tree == NULL) {
     if (msa->nseqs == 2)
@@ -1084,7 +1092,7 @@ int main(int argc, char *argv[]) {
                        cats_to_do_str != NULL ? cats_to_do : NULL, 
                        NULL, NULL, -1);
 
-        if (i == 0) ss_collapse_missing(msa, TRUE);
+        if (i == 0) ss_collapse_missing(msa, !gaps_as_bases);
                                 /* reduce number of tuples as much as
                                    possible */
 

@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.19 2004-07-26 05:28:55 acs Exp $
+/* $Id: msa.c,v 1.20 2004-07-26 15:02:42 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -126,10 +126,10 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
 
   if (format == FASTA) 
     return (msa_read_fasta(F, alphabet));
-  else if (format == SS)
-    return (ss_read(F));
   else if (format == LAV)
     return la_to_msa(la_read_lav(F, 1), 0);
+  else if (format == SS) 
+    return ss_read(F, alphabet);
 
   if (format == PHYLIP || format == MPM) {
     if (fscanf(F, "%d %d", &nseqs, &len) <= 0) {
@@ -1221,7 +1221,7 @@ gsl_vector *msa_get_base_freqs(MSA *msa, int start, int end) {
 void msa_get_base_freqs_tuples(MSA *msa, gsl_vector *freqs, int k, int cat) {
   double sum = 0;               /* better to use double than int (or
                                    long int) because of overflow */
-  int i, j, ignore, tup_idx, l;
+  int i, j, ignore, tup_idx, l, alph_idx;
   int alph_size = strlen(msa->alphabet);
   gsl_vector_set_zero(freqs);
 
@@ -1236,14 +1236,10 @@ void msa_get_base_freqs_tuples(MSA *msa, gsl_vector *freqs, int k, int cat) {
         tup_idx = 0;
         for (offset = -1*(k-1); !ignore && offset <= 0; offset++) {
           char c = ss_get_char_tuple(msa, i, j, offset);
-          if (c == GAP_CHAR || msa->is_missing[(int)c])
+          if ((alph_idx = msa->inv_alphabet[(int)c]) == -1)
             ignore = 1;
-          else {
-            int alph_idx = msa->inv_alphabet[(int)c];
-            if (alph_idx == -1) 
-              die("ERROR: unrecognized character in alignment ('%c').\n", c);
+          else 
             tup_idx += alph_idx * int_pow(alph_size, -offset); 
-          }
         }
         if (!ignore) {
           int thiscount = (cat >= 0 ? msa->ss->cat_counts[cat][i] :
@@ -1267,16 +1263,10 @@ void msa_get_base_freqs_tuples(MSA *msa, gsl_vector *freqs, int k, int cat) {
         tup_idx = 0;
         for (l = 0; !ignore && l < k; l++) {
           char c = msa->seqs[j][i+l];
-          if (c == GAP_CHAR || msa->is_missing[(int)c])
+          if ((alph_idx = msa->inv_alphabet[(int)c]) == -1)
             ignore = 1;
-          else {
-            int alph_idx = msa->inv_alphabet[(int)c];
-            if (alph_idx == -1) {
-              fprintf(stderr, "ERROR: unrecognized character in alignment ('%c').\n", c);
-              exit(1);
-            }
+          else 
             tup_idx += alph_idx * int_pow(alph_size, (k-l)-1); 
-          }
         }
         if (!ignore) {
           gsl_vector_set(freqs, tup_idx, 
