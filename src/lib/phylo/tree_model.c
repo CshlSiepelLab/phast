@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.2 2004-06-04 21:56:33 acs Exp $
+/* $Id: tree_model.c,v 1.3 2004-06-06 04:11:10 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -103,16 +103,16 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
     tm->freqK = smalloc(nratecats * sizeof(double));
 
     if (rate_consts != NULL) {  /* empirical rate model */
-      double interval_size, initalpha = alpha > 0 ? alpha : 1;
+      double interval_size, initalpha = (alpha > 0 ? alpha : 1);
       tm->empirical_rates = 1;
       if (nratecats != lst_size(rate_consts) )
         die("ERROR: number of explicitly defined rate constants must equal number of rate categories.\n");
       for (i = 0; i < nratecats; i++) {
         tm->rK[i] = lst_get_dbl(rate_consts, i);
         interval_size = tm->rK[i] - (i > 0 ? tm->rK[i-1] : 0);
-        tm->freqK[i] = gsl_ran_gamma_pdf(tm->rK[i], initalpha, 1/initalpha) *
+        tm->freqK[i] = gsl_ran_gamma_pdf(tm->rK[i], initalpha, 1/initalpha) * 
           interval_size; 
-        /* init to approx gamma with shape param alpha */
+        /* init to approx gamma with shape param alpha. */
       }
       normalize_probs(tm->freqK, tm->nratecats);
     }
