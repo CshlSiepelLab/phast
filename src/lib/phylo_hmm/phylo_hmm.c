@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.21 2004-08-27 17:13:41 acs Exp $
+/* $Id: phylo_hmm.c,v 1.22 2004-08-28 00:14:32 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -1074,6 +1074,9 @@ void phmm_estim_mods_em(void **models, int nmodels, void *data,
     tm_fit(phmm->mods[k], phmm->em_data->msa, params, k, OPT_HIGH_PREC, logf);
     gsl_vector_free(params); 
   }
+
+  if (phmm->indel_mode == PARAMETERIC)
+    phmm_set_branch_len_factors(phmm);
 }
 
 /* return observation index associated with given position, here a tuple index */
@@ -1128,7 +1131,7 @@ double phmm_fit_em(PhyloHmm *phmm,
 
 /* Set up phmm->T and phmm->t, the arrays of branch lengths and branch
    length sums that are used in the parameteric indel model */
-void set_branch_len_factors(PhyloHmm *phmm) {
+void phmm_set_branch_len_factors(PhyloHmm *phmm) {
   int i, j;
 
   if (phmm->T == NULL) {
@@ -1167,7 +1170,7 @@ void phmm_reset(PhyloHmm *phmm) {
 
   if (phmm->indel_mode == PARAMETERIC) {
 
-    set_branch_len_factors(phmm);
+    phmm_set_branch_len_factors(phmm);
 
     for (i = 0; i < phmm->hmm->nstates; i++) {
       cat_i = phmm->state_to_cat[i];
@@ -1323,7 +1326,7 @@ void indel_max_gradient(gsl_vector *grad, gsl_vector *params,void *data,
 void phmm_estim_trans_em(HMM *hmm, void *data, double **A) {
 
   /* NOTE: if re-estimating state models, be sure to call
-     set_branch_len_factors; it's not called here */
+     phmm_set_branch_len_factors; it's not called here */
 
   PhyloHmm *phmm = data;
   int i, j;

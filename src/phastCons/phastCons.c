@@ -1227,6 +1227,9 @@ void reestimate_trees(void **models, int nmodels, void *data,
 
   unpack_params_phmm(phmm, params);
 
+  if (phmm->indel_mode == PARAMETERIC)
+    phmm_set_branch_len_factors(phmm);
+
   gsl_vector_free(params); 
   gsl_vector_free(lower_bounds);
   gsl_vector_free(upper_bounds);
@@ -1236,9 +1239,6 @@ void reestimate_trees(void **models, int nmodels, void *data,
    target coverage (M step of EM).  For use with two-state HMM.  This
    function is passed to hmm_train_by_em in phmm_fit_em */
 void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
-
-  /* NOTE: if re-estimating state models, be sure to call
-     set_branch_len_factors; it's not called here */
 
   PhyloHmm *phmm = data;
   IndelEstimData *ied = NULL;
@@ -1256,6 +1256,9 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
      constraint on coverage */
   if (!phmm->em_data->fix_functional) {
     double a, b, c, p, q, q1, q2, z, tmp;
+    /* if you take the first derivative wrt q of the expression inside
+       the argmax and set it to zero, you get a quadradic eqn which
+       can be solved using the quadratic formula */
     z = (1-phmm->em_data->target_coverage)/phmm->em_data->target_coverage;
     a = z * (C[0][0] + C[0][1] + C[1][0] + C[1][1]);
     b = -C[0][1] - C[1][0] - C[1][1] - z * (C[0][0] + C[0][1] + C[1][0]);

@@ -114,6 +114,7 @@ void phmm_estim_mods_em(void **models, int nmodels, void *data,
 int phmm_get_obs_idx_em(void *data, int sample, int position);
 double phmm_fit_em(PhyloHmm *phmm, MSA *msa, int fix_functional,
                    int fix_indel, FILE *logf);
+void phmm_set_branch_len_factors(PhyloHmm *phmm);
 void phmm_reset(PhyloHmm *phmm);
 void phmm_estim_trans_em(HMM *hmm, void *data, double **A);
 IndelEstimData *phmm_new_ied(PhyloHmm *phmm, double **A);
