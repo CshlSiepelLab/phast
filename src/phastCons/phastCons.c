@@ -795,7 +795,8 @@ int main(int argc, char *argv[]) {
 
   if (!indels) estim_indels = FALSE;
 
-  if (!strcmp(extrapolate_tree_fname, "default")) {
+  if (extrapolate_tree_fname != NULL &&
+      !strcmp(extrapolate_tree_fname, "default")) {
     extrapolate_tree_fname = smalloc(1000 * sizeof(char));
     sprintf(extrapolate_tree_fname, 
             "%s/data/exoniphy/mammals/cftr25_hybrid.nh", PHAST_HOME);
