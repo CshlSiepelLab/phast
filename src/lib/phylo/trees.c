@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.3 2004-06-15 22:33:57 acs Exp $ 
+/* $Id: trees.c,v 1.4 2004-06-17 23:54:45 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -58,16 +58,6 @@ static int idcounter = 0;
 TreeNode *parse_nh_from_file(FILE *f) { 
   String *s = str_new(STR_VERY_LONG_LEN);
   TreeNode *retval;
-
-/*   char treestr [MAX_TREESTR_LEN]; */
-/*   char line [MAX_LINE_LEN]; */
-
-/*   treestr[0] = '\0'; */
-/*   while (fgets(line, MAX_LINE_LEN, f) != NULL) { */
-/*     if (line[strlen(line)-1] == '\n') */
-/*       line[strlen(line)-1] = '\0'; */
-/*     strcat(treestr, line); */
-/*   } */
 
   str_slurp(s, f);
 
@@ -805,4 +795,22 @@ TreeNode *tr_get_node(TreeNode *t, char *name) {
   return NULL;
 }
 
-
+void tr_number_leaves(TreeNode *t, char **names, int nnames) {
+  int i, j;
+  char *endptr;
+  for (i = 0; i < lst_size(t->nodes); i++) {
+    TreeNode *n = lst_get_ptr(t->nodes, i);
+    if (strlen(n->name) > 0) {
+      strtol(n->name, &endptr, 0);
+      if (*endptr != '\0') {    /* doesn't parse as int -- assume
+                                   name */
+        for (j = 0; j < nnames; j++) {
+          if (strcmp(names[j], n->name) == 0) {
+            sprintf(n->name, "%d", j+1);
+            break;
+          }
+        }
+      }
+    }
+  }
+}

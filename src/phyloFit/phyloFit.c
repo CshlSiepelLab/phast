@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.5 2004-06-15 22:33:57 acs Exp $
+   $Id: phyloFit.c,v 1.6 2004-06-17 23:54:45 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -846,6 +846,10 @@ int main(int argc, char *argv[]) {
     else if (msa->nseqs == 3 && tm_is_reversible(subst_mod))
       tree = parse_nh_from_string("(1,(2,3))");
   }
+  else 
+    tr_number_leaves(tree, msa->names, msa->nseqs);
+                         /* convert from names to numbers, if
+                            necessary */
 
   if (tree == NULL && input_mod == NULL)
     die("ERROR: must specify --msa and either --tree or --init-model.  Type 'phyloFit -h' for usage.\n");

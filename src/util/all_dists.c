@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
       lca = n;
       for (n = node_i; n != lca; n = n->parent)
         dist += n->dparent;            
-      printf ("%-10s %-10s %f\n", node_i->name, node_j->name, dist);
+      printf ("%s\t%s\t%f\n", node_i->name, node_j->name, dist);
     }
   }
 

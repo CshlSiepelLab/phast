@@ -1,4 +1,4 @@
-/* $Id: trees.h,v 1.2 2004-06-15 22:33:57 acs Exp $
+/* $Id: trees.h,v 1.3 2004-06-17 23:54:45 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -79,5 +79,6 @@ void tr_print_ps(FILE *F, TreeNode *tree, int show_branch_lens,
                  int horizontal_layout);
 double tr_total_len(TreeNode *t);
 TreeNode *tr_get_node(TreeNode *t, char *name);
+void tr_number_leaves(TreeNode *t, char **names, int nnames);
 
 #endif 
