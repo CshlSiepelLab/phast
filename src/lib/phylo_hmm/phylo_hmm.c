@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.4 2004-06-16 06:21:18 acs Exp $
+/* $Id: phylo_hmm.c,v 1.5 2004-06-29 03:18:03 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -162,7 +162,7 @@ void phmm_reflect_hmm(PhyloHmm *phmm, List *pivot_cats) {
   mark[0] = 1;                  /* background is implicit */
 
   if (pivot_cats != NULL) {
-    List *cats = cm_get_category_list(phmm->cm, pivot_cats, 0);
+    List *cats = cm_get_category_list(phmm->cm, pivot_cats, TRUE);
     for (i = 0; i < lst_size(cats); i++)
       mark[lst_get_int(cats, i)] = 1;
     lst_free(cats);
@@ -502,7 +502,7 @@ GFF_Set* phmm_predict_viterbi(PhyloHmm *phmm,
                                 /**< seqname for feature set (e.g.,
                                    "chr1") */
                                List *frame 
-                                /**< features for which to obtain
+                                /**< names of features for which to obtain
                                    frame (NULL to ignore) */
                                ) {
   int *path = (int*)smalloc(phmm->alloc_len * sizeof(int));

@@ -458,7 +458,7 @@ int main(int argc, char *argv[]) {
     if (!quiet)
       fprintf(stderr, "Reading tree model from %s...\n", fname->chars);
     mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"));
-    mod[i]->use_conditionals = 1; /* FIXME: necessary? */
+    mod[i]->use_conditionals = 1; 
   }
 
   /* check rates-cross and cut-at options vis-a-vis the tree model */
@@ -476,6 +476,9 @@ int main(int argc, char *argv[]) {
   if (!quiet)
     fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
   msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
+  msa_remove_N_from_alph(msa);
+  if (msa_format == SS && msa->ss->tuple_idx == NULL) 
+    die("ERROR: Ordered representation of alignment required.\n");
 
   /* use file name root for default seqname */
   if (seqname == NULL) {
@@ -483,13 +486,6 @@ int main(int argc, char *argv[]) {
     str_remove_path(tmp);
     str_root(tmp, '.');
     seqname = tmp->chars;
-  }
-
-  /* tweak alphabet, if necessary */
-  if (msa_format == SS) {
-    if (msa->ss->tuple_idx == NULL) 
-      die("ERROR: Ordered representation of alignment required.\n");
-    msa_remove_N_from_alph(msa);
   }
 
   /* set up states */
