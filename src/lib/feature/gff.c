@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.23 2004-09-22 06:08:30 acs Exp $
+/* $Id: gff.c,v 1.24 2004-11-18 00:30:07 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -999,6 +999,41 @@ void gff_create_utrs(GFF_Set *feats) {
           lst_push_ptr(g->features, utr_f);
         }
       }
+    }
+  }
+  lst_free(exons);
+}
+
+/** Creates intron features between exons of the same group */
+void gff_create_introns(GFF_Set *feats) {
+  int i, j;
+  List *exons = lst_new_ptr(20);
+
+  if (feats->groups == NULL) 
+    die("ERROR: gff_create_introns requires groups.\n");
+
+  for (i = 0; i < lst_size(feats->groups); i++) {
+    GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
+
+    /* first scan for exon features */
+    lst_clear(exons);
+    for (j = 0; j < lst_size(g->features); j++) {
+      GFF_Feature *f = lst_get_ptr(g->features, j);
+      if (str_equals_charstr(f->feature, GFF_EXON_TYPE)) 
+        lst_push_ptr(exons, f);
+    }    
+
+    /* now add intron features between exons */
+    lst_qsort(exons, gff_feature_comparator);
+    for (j = 0; j < lst_size(exons) - 1; j++) {
+      GFF_Feature *exon1 = lst_get_ptr(exons, j);
+      GFF_Feature *exon2 = lst_get_ptr(exons, j+1);
+      GFF_Feature *intron = gff_new_feature_copy(exon1);
+      intron->start = exon1->end + 1;
+      intron->end = exon2->start - 1;
+      str_cpy_charstr(intron->feature, GFF_INTRON_TYPE);
+      lst_push_ptr(feats->features, intron);
+      lst_push_ptr(g->features, intron);
     }
   }
   lst_free(exons);

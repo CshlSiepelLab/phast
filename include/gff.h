@@ -1,4 +1,4 @@
-/* $Id: gff.h,v 1.12 2004-09-22 06:08:30 acs Exp $
+/* $Id: gff.h,v 1.13 2004-11-18 00:30:07 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -104,6 +104,7 @@ typedef struct {
 /* default feature types */
 #define GFF_CDS_TYPE "CDS"
 #define GFF_EXON_TYPE "exon"
+#define GFF_INTRON_TYPE "intron"
 #define GFF_START_TYPE "start_codon"
 #define GFF_STOP_TYPE "stop_codon"
 #define GFF_UTR5_TYPE "5'UTR"
@@ -175,6 +176,8 @@ void gff_add_gene_id(GFF_Set *feats);
 void gff_filter_by_group(GFF_Set *feats, List *groups);
 
 void gff_create_utrs(GFF_Set *feats);
+
+void gff_create_introns(GFF_Set *feats);
 
 void gff_create_signals(GFF_Set *feats);
 

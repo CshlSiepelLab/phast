@@ -70,6 +70,10 @@ OPTIONS:\n\
         useful with GFF output; features must be grouped at level\n\
         of transcript).\n\
 \n\
+    --add-introns, -I\n\
+        Create intron features between exons (only useful with GFF output;\n\
+        features must be grouped at level of transcript).\n\
+\n\
     --add-signals, -S\n\
         Adds features for start and stop codons and 3' and 5' splice\n\
         sites (only useful with GFF output; features must be grouped\n\
@@ -101,7 +105,7 @@ int main(int argc, char *argv[]) {
   List *include = NULL;
   char *groupby = "transcript_id", *exongroup_tag = NULL;
   int unique = FALSE, sort = FALSE, simplebed = FALSE, fix_start_stop = FALSE,
-    add_utrs = FALSE, add_signals = FALSE;
+    add_utrs = FALSE, add_introns = FALSE, add_signals = FALSE;
   enum {GFF, BED, GENEPRED} output_format = GFF;
   FILE *discards_f = NULL, *groups_f = NULL;
 
@@ -112,6 +116,7 @@ int main(int argc, char *argv[]) {
     {"groupby", 1, 0, 'g'},
     {"exongroup", 1, 0, 'e'},
     {"add-utrs", 0, 0, 'U'},
+    {"add-introns", 0, 0, 'I'},
     {"add-signals", 0, 0, 'S'},
     {"fix-start-stop", 0, 0, 'f'},
     {"unique", 0, 0, 'u'},
@@ -122,7 +127,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "o:i:l:g:e:d:USfusbh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "o:i:l:g:e:d:UISfusbh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'o':
       if (!strcmp("bed", optarg)) output_format = BED;
@@ -143,6 +148,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'U':
       add_utrs = TRUE;
+      break;
+    case 'I':
+      add_introns = TRUE;
       break;
     case 'S':
       add_signals = TRUE;
@@ -184,8 +192,9 @@ int main(int argc, char *argv[]) {
   /* group */
   gff_group(gff, groupby);
 
-  /* utrs & signals */
+  /* utrs, introns, & signals */
   if (add_utrs) gff_create_utrs(gff);
+  if (add_introns) gff_create_introns(gff);
   if (add_signals) gff_create_signals(gff);
 
   /* subgroup */
