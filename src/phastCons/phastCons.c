@@ -705,14 +705,6 @@ int main(int argc, char *argv[]) {
     mod[i]->use_conditionals = 1; 
   }
 
-  /* set min informative bases, if necessary */
-  if (min_inform_str != NULL) {
-    List *l = cm_get_category_list(cm, min_inform_str, 0);
-    for (i = 0; i < lst_size(l); i++) 
-      mod[lst_get_int(l, i)]->min_informative = min_inform_bases;
-    lst_free(l);
-  }        
-
   /* check rates-cross and cut-at options vis-a-vis the tree model */
   if (rates_cross || two_state) {
     if (mod[0]->nratecats <= 1)
@@ -779,6 +771,16 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "Creating %d scaled versions of tree model...\n", nrates);
     phmm_rates_cross(phmm, nrates, lambda, TRUE);
   }
+
+  /* set min informative bases, if necessary.  This has to be done
+     *after* the set of models is expanded (two-state or
+     rates-cross) */
+  if (min_inform_str != NULL) {
+    List *l = cm_get_category_list(cm, min_inform_str, 0);
+    for (i = 0; i < lst_size(l); i++) 
+      mod[lst_get_int(l, i)]->min_informative = min_inform_bases;
+    lst_free(l);
+  }        
 
   /* compute emissions */
   phmm_compute_emissions(phmm, msa, quiet);
