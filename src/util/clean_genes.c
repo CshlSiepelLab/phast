@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.5 2004-06-05 06:53:07 acs Exp $
+/* $Id: clean_genes.c,v 1.6 2004-06-05 07:02:49 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -518,13 +518,15 @@ inline int is_valid_splice_pair(char *ss5, char *ss3) {
 
 /* given a list of 5' and 3' splice sites extracted from a group,
    check whether they form valid pairs in all species */
-int are_introns_okay(List *intron_splice,  MSA *msa, GFF_Feature **bad_feat,
-                     int offset5, int offset3) {
+int are_introns_okay(List *intron_splice,  MSA *msa, List *badfeats,
+                     List *failure_types, int offset5, int offset3) {
   int i, j, start1, start2;
   char str1[3], str2[3];
   char strand;
+  int retval = 1;
+
   str1[2] = '\0'; str2[2] = '\0';
-  
+
   if (lst_size(intron_splice) < 2) return 1;
 
   strand = ((GFF_Feature*)lst_get_ptr(intron_splice, 0))->strand;
@@ -555,14 +557,17 @@ int are_introns_okay(List *intron_splice,  MSA *msa, GFF_Feature **bad_feat,
           msa_reverse_compl_seq(str2, 2);
         }
         if (!is_valid_splice_pair(str1, str2)) {
-          *bad_feat = f2;
-          return 0;
+          lst_push_ptr(badfeats, f1);
+          lst_push_int(failure_types, BAD_INTRON);
+          lst_push_ptr(badfeats, f2);
+          lst_push_int(failure_types, BAD_INTRON);
+          retval = 0;
         }
       }
       i++;                      /* no need to look at next one */
     }
   }
-  return 1;
+  return retval;
 }
 
 
@@ -1221,11 +1226,8 @@ int main(int argc, char *argv[]) {
         /* still have to make sure splice sites are paired correctly
            (GT-AG, GC-AG, AT-AC) */
         if (status == OKAY && !splice_strict && lst_size(intron_splice) >= 2 &&
-            !are_introns_okay(intron_splice, msa, &feat, offset5, offset3)) {
+            !are_introns_okay(intron_splice, msa, badfeats, failure_types, offset5, offset3)) 
           status = BAD_INTRON;
-          lst_push_int(failure_types, BAD_INTRON);
-          lst_push_ptr(badfeats, feat);
-        }
 
         /* if collecting stats, record counts for failures */
         if (statsf != NULL) {
@@ -1235,8 +1237,11 @@ int main(int argc, char *argv[]) {
 
               if ((ftype == FSHIFT || ftype == NONSENSE) && 
                   status != FSHIFT && status != NONSENSE)
-                continue;           /* don't count secondary frame shifts
-                                       and nonsense mutations */ 
+                continue;       /* don't count secondary frame shifts
+                                   and nonsense mutations */ 
+
+              if (ftype == BAD_INTRON && j % 2 == 0)
+                continue;       /* only count one of every pair of these */
 
               nfail[ftype]++;
             }
