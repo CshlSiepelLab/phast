@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.19 2004-08-05 07:15:04 acs Exp $
+   $Id: phyloFit.c,v 1.20 2004-08-14 04:01:59 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -118,7 +118,7 @@ EXAMPLES:\n\
 \n\
     8. Given an alignment of several mammalian sequences (mammals.fa), a\n\
     tree topology (tree.nh), and a set of gene annotations in GFF\n\
-    (genes.gff), fit a separate model to sites in 1st, 2nd, and 3rd\n\
+    (genes.gff), fit separate models to sites in 1st, 2nd, and 3rd\n\
     codon positions.  Use the REV substitution model.  Assume coding\n\
     regions have feature type 'CDS'.\n\
 \n\
@@ -126,8 +126,7 @@ EXAMPLES:\n\
             --catmap \"NCATS = 3; CDS 1-3\" --do-cats 1,2,3 mammals.fa\n\
 \n\
     (output will be to mammals-rev.cds-1.mod, mammals-rev.cds-2.mod, and \n\
-    mammals-rev.cds-3.mod; first one is for non-coding sites, others are for\n\
-    three codon positions)\n\
+    mammals-rev.cds-3.mod)\n\
 \n\
 \n\
 OPTIONS:\n\
