@@ -881,7 +881,7 @@ int main(int argc, char *argv[]) {
   }
 
   /* estimate p and q and indel params, if necessary */
-  else if (two_state && (estim_transitions || estim_indels)) {
+  else if (two_state && (estim_transitions || (indels && estim_indels))) {
     if (!quiet) {
       fprintf(stderr, "Finding MLE for (");
       if (estim_transitions) fprintf(stderr, "p, q%s", estim_indels ? ", " : "");
