@@ -954,7 +954,7 @@ int main(int argc, char *argv[]) {
     else if (two_state) {
       fprintf(lnl_f, "(");
       if (estim_transitions)
-        fprintf(lnl_f, "p = %f. q = %f%s", p, q, estim_indels ? ", " : "");
+        fprintf(lnl_f, "p = %f, q = %f%s", p, q, estim_indels ? ", " : "");
       if (estim_indels)
         fprintf(lnl_f, "alpha_0 = %f, beta_0 = %f, omega_0 = %f, alpha_1 = %f, beta_1 = %f, omega_1 = %f", alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1);
       fprintf(lnl_f, ")\n");
