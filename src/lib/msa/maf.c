@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.16 2004-08-16 21:28:59 acs Exp $
+/* $Id: maf.c,v 1.17 2004-10-03 20:26:04 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -302,7 +302,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
 
       if (msa->ss->tuple_idx[msa_idx] == -1) { /* nothing known about this
                                                   position; set tuple_idx from refseq */
-        tuple_idx = -1;
+        tuple_idx = fasthash_idx = -1;
 
         /* try shortcut based on fact that most of the time we'll have
            tuple_size characters from the alphabet */
