@@ -259,7 +259,7 @@ int main(int argc, char *argv[]) {
     {"lnl", 1, 0, 'L'},
     {"seqname", 1, 0, 'N'},
     {"score", 0, 0, 's'},
-    {"quiet", 1, 0, 'q'},
+    {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -455,7 +455,7 @@ int main(int argc, char *argv[]) {
   /* fit p and q, if necessary */
   else if (rates_cut_idx != -1 && (p == -1 || q == -1)) {
     if (!quiet) fprintf(stderr, "Finding MLE for 'p' and 'q'...");
-    p = 0.01; q = 0.001;        /* initial values */
+    p = 0.038; q = 0.013;        /* initial values */
     lnl = phmm_fit_rates_cut(phmm, &p, &q, log_f);
     if (!quiet) fprintf(stderr, " (p = %f. q = %f)\n", p, q);
   }
