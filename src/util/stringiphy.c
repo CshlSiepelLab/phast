@@ -30,8 +30,8 @@ DESCRIPTION:  Attempt to string together predicted exons into full transcripts\n
               or gene fragments.\n\
 \n\
 USAGE:        %s [OPTIONS] <exons.gff>\n\
-              (Predictions should be sorted and non-overlapping; use 
-              'refeature --sort --unique')
+              (Predictions should be sorted and non-overlapping; use\n\
+              'refeature --sort --unique')\n\
 \n\
 OPTIONS:\n\
     --help, -h\n\
