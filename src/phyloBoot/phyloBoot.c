@@ -70,6 +70,10 @@ OPTIONS:\n\
         argument to the program (<model_fname>|<msa_fname>) will be\n\
         ignored.\n\
 \n\
+    --output-average, -A <fname>\n\
+        Output a tree model representing the average of all input\n\
+        models to the specified file.\n\
+\n\
     --quiet, -q\n\
         Proceed quietly.\n\
 \n\
@@ -172,7 +176,7 @@ int main(int argc, char *argv[]) {
   TreeNode *tree = NULL;
   TreeModel *model = NULL, *init_mod = NULL;
   MSA *msa;
-  char *dump_mods_root = NULL, *dump_msas_root = NULL;
+  char *dump_mods_root = NULL, *dump_msas_root = NULL, *ave_model = NULL;
   TreeModel **input_mods = NULL;
 
   /* other variables */
@@ -188,6 +192,7 @@ int main(int argc, char *argv[]) {
   List *tmpl;
   char fname[STR_MED_LEN];
   char tmpchstr[STR_MED_LEN];
+  TreeModel *repmod = NULL;
 
   struct option long_opts[] = {
     {"nsites", 1, 0, 'L'},
@@ -197,6 +202,7 @@ int main(int argc, char *argv[]) {
     {"dump-samples", 1, 0, 'm'},
     {"no-estimates", 0, 0, 'x'},
     {"read-mods", 1, 0, 'R'},
+    {"output-average", 1, 0, 'A'},
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {"tree", 1, 0, 't'},
@@ -241,6 +247,9 @@ int main(int argc, char *argv[]) {
         input_mods[i] = 
           tm_new_from_file(fopen_fname(((String*)lst_get_ptr(tmpl, i))->chars, "r"));
       lst_free_strings(tmpl); lst_free(tmpl);
+      break;
+    case 'A':
+      ave_model = optarg;
       break;
     case 'q':
       quiet = 1;
@@ -430,12 +439,16 @@ int main(int argc, char *argv[]) {
         lst_push_dbl(estimates[j], gsl_vector_get(params, j));
     }
 
-    if (input_mods == NULL && do_estimates) tm_free(thismod);
+    if (input_mods == NULL && do_estimates) {
+      if (repmod == NULL) repmod = thismod; /* keep around one representative model */
+      else tm_free(thismod);
+    }
     if (do_estimates) gsl_vector_free(params);
   }
 
   /* finally, compute and print stats */
   if (do_estimates) {
+    gsl_vector *ave_params = gsl_vector_alloc(nparams); 
     printf("%-7s %-25s %9s %9s %9s %9s %9s %9s %9s %9s %9s\n", "param", 
            "description", "mean", "stdev", "median", "min", "max", "95%_min", 
            "95%_max", "90%_min", "90%_max");
@@ -451,7 +464,15 @@ int main(int argc, char *argv[]) {
              j, descriptions[j], mean, stdev, quantile_vals[3], quantile_vals[0], 
              quantile_vals[6], quantile_vals[1], quantile_vals[5], quantile_vals[2], 
              quantile_vals[4]);
+      gsl_vector_set(ave_params, j, mean);
     }
+
+    if (ave_model != NULL) {
+      tm_unpack_params(repmod, ave_params, -1);
+      if (!quiet) fprintf(stderr, "Writing average model to %s...\n", ave_model);
+      tm_print(fopen_fname(ave_model, "w+"), repmod);
+    }
+    gsl_vector_free(ave_params);
   }
 
   if (!quiet) fprintf(stderr, "\nDone.\n");
