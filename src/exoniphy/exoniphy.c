@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.36 2004-10-04 05:49:03 acs Exp $
+/* $Id: exoniphy.c,v 1.37 2004-10-10 22:29:59 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -219,7 +219,7 @@ REFERENCES:\n\
  \n\
     A. Siepel and D. Haussler.  2004.  Computational identification of\n\
       evolutionarily conserved exons.  Proc. 8th Annual Int'l Conf.\n\
-      on Research in Computational Biology (RECOMB '04), pp. 177-186.\n
+      on Research in Computational Biology (RECOMB '04), pp. 177-186.\n\
 \n\
     J. Thomas et al.  2003.  Comparative analyses of multi-species\n\
       sequences from targeted genomic regions.  Nature 424:788-793.\n\n", 
