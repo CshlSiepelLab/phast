@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.24 2004-07-28 22:08:37 acs Exp $
+/* $Id: msa.c,v 1.25 2004-07-29 23:16:57 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1338,10 +1338,9 @@ String *msa_read_seq_fasta(FILE *F) {
     str_double_trim(line);
     if (line->length == 0) continue;
 
-    if (seq == NULL) {
-      fprintf(stderr, "ERROR in FASTA file: non-blank line preceding first description ('>') line.\n");
-      exit(1);
-    }
+    if (seq == NULL) 
+      die("ERROR in FASTA file: non-blank line preceding first description ('>') line.\n");
+
     str_append(seq, line);
   }
 
