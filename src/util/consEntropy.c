@@ -19,11 +19,16 @@ DESCRIPTION:\n\
     Also will make a recommendation for a new prior expected length\n\
     based on a constant value of NH (see --NH).\n\
 \n\
-USAGE: %s [OPTIONS] <cons.mod> <noncons.mod> <target-coverage> \\\n\
-                <expected-length>\n\
+USAGE: %s [OPTIONS] <target-coverage> <expected-length> \\\n\
+            [ <cons.mod> <noncons.mod> ]\n\
 \n\
 OPTIONS:\n\
-    --NH, -n <value>\n\
+    --H, -H <value>\n\
+        Instead of computing the relative entropy from two .mod files,\n\
+        just use the specified value.  The .mod files aren't required\n\
+        in this case.\n\
+\n\
+    --NH, -N <value>\n\
         Report the expected length that would produce the specified\n\
         value of NH, assuming H remains constant (it generally won't).\n\
         Can be used iteratively to converge on a desired value of NH.\n\
@@ -64,22 +69,26 @@ double solve_newton(double expected_len, double target_coverage, double H, doubl
 int main(int argc, char *argv[]) {
   char c;
   int i, j, opt_idx, nleaves, alph_size, nlabels;
-  double H, checksum1, checksum2;
   TreeModel *cons_mod, *noncons_mod;
   MSA *msa;
   double *cons_lprob, *noncons_lprob;
   char *leaf_labels;
-  double target_coverage, expected_len, mu, nu, N, new_exp_len, NH = -1;
+  double H = -1, checksum1, checksum2, target_coverage, expected_len, 
+    mu, nu, N, new_exp_len, NH = -1;
 
   struct option long_opts[] = {
-    {"NH", 1, 0, 'n'},
+    {"NH", 1, 0, 'N'},
+    {"H", 1, 0, 'H'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "n:h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "H:N::h", long_opts, &opt_idx)) != -1) {
     switch (c) {
-    case 'n':
+    case 'H':
+      H = get_arg_dbl_bounds(optarg, 0, INFTY);
+      break;
+    case 'N':
       NH = get_arg_dbl_bounds(optarg, 0, INFTY);
       break;
     case 'h':
@@ -89,55 +98,58 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (optind != argc - 4) 
-    die("Four arguments required.  Try '%s -h'.\n", argv[0]);
+  if ((H == -1 && optind != argc - 4) || (H != -1 && optind != argc - 2))
+    die("Missing mandatory arguments.  Try '%s -h'.\n", argv[0]);
     
-  cons_mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
-  noncons_mod = tm_new_from_file(fopen_fname(argv[optind+1], "r"));
-  target_coverage = get_arg_dbl_bounds(argv[optind+2], 0, 1);
-  expected_len = get_arg_dbl_bounds(argv[optind+3], 0, INFTY);
+  target_coverage = get_arg_dbl_bounds(argv[optind], 0, 1);
+  expected_len = get_arg_dbl_bounds(argv[optind+1], 0, INFTY);
 
-  nleaves = (cons_mod->tree->nnodes + 1)/2;
-  leaf_labels = smalloc((nleaves + 1) * sizeof(char));
-  leaf_labels[nleaves] = '\0';
-  alph_size = strlen(cons_mod->rate_matrix->states);
-  nlabels = int_pow(alph_size, nleaves);
+  if (H == -1) {                /* compute relative entropy */
+    cons_mod = tm_new_from_file(fopen_fname(argv[optind+2], "r"));
+    noncons_mod = tm_new_from_file(fopen_fname(argv[optind+3], "r"));
 
-  /* define dummy MSA */
-  msa = msa_new(NULL, NULL, nleaves, nlabels, cons_mod->rate_matrix->states);
-  msa->seqs = smalloc(nleaves * sizeof(void*));
-  msa->names = smalloc(nleaves * sizeof(void*));
-  for (j = 0; j < nleaves; j++) 
-    msa->seqs[j] = smalloc((nlabels+1) * sizeof(char));
-  for (j = 0, i = 0; j < cons_mod->tree->nnodes; j++) {
-    TreeNode *n = lst_get_ptr(cons_mod->tree->nodes, j);
-    if (n->lchild == NULL && n->rchild == NULL)
-      msa->names[i++] = strdup(n->name);
+    nleaves = (cons_mod->tree->nnodes + 1)/2;
+    leaf_labels = smalloc((nleaves + 1) * sizeof(char));
+    leaf_labels[nleaves] = '\0';
+    alph_size = strlen(cons_mod->rate_matrix->states);
+    nlabels = int_pow(alph_size, nleaves);
+
+    /* define dummy MSA */
+    msa = msa_new(NULL, NULL, nleaves, nlabels, cons_mod->rate_matrix->states);
+    msa->seqs = smalloc(nleaves * sizeof(void*));
+    msa->names = smalloc(nleaves * sizeof(void*));
+    for (j = 0; j < nleaves; j++) 
+      msa->seqs[j] = smalloc((nlabels+1) * sizeof(char));
+    for (j = 0, i = 0; j < cons_mod->tree->nnodes; j++) {
+      TreeNode *n = lst_get_ptr(cons_mod->tree->nodes, j);
+      if (n->lchild == NULL && n->rchild == NULL)
+        msa->names[i++] = strdup(n->name);
+    }
+
+    /* enumerate all possible columns and put in MSA */
+    for (i = 0; i < nlabels; i++) {
+      get_tuple_str(leaf_labels, i, nleaves, cons_mod->rate_matrix->states);
+      for (j = 0; j < nleaves; j++) msa->seqs[j][i] = leaf_labels[j];
+    }
+
+    /* compute log likelihoods of all columns */
+    cons_lprob = smalloc(nlabels * sizeof(double));
+    noncons_lprob = smalloc(nlabels * sizeof(double));
+    tl_compute_log_likelihood(cons_mod, msa, cons_lprob, -1, NULL);
+    tl_compute_log_likelihood(noncons_mod, msa, noncons_lprob, -1, NULL);
+
+    H = 0;
+    checksum1 = checksum2 = 0;
+    for (i = 0; i < nlabels; i++) {
+      double tmp = exp2(cons_lprob[i]); /* tl_compute_log_likelihood uses base 2 */
+      checksum1 += tmp;
+      checksum2 += exp2(noncons_lprob[i]);
+      H += tmp * (cons_lprob[i] - noncons_lprob[i]);
+    }
+
+    if (fabs(checksum1 - 1) > 1e-4 || fabs(checksum1 - 1) > 1e-4)
+      die("ERROR: checksum failed (%f or %f not 1 +/- 1.0e-4).\n", checksum1, checksum2);
   }
-
-  /* enumerate all possible columns and put in MSA */
-  for (i = 0; i < nlabels; i++) {
-    get_tuple_str(leaf_labels, i, nleaves, cons_mod->rate_matrix->states);
-    for (j = 0; j < nleaves; j++) msa->seqs[j][i] = leaf_labels[j];
-  }
-
-  /* compute log likelihoods of all columns */
-  cons_lprob = smalloc(nlabels * sizeof(double));
-  noncons_lprob = smalloc(nlabels * sizeof(double));
-  tl_compute_log_likelihood(cons_mod, msa, cons_lprob, -1, NULL);
-  tl_compute_log_likelihood(noncons_mod, msa, noncons_lprob, -1, NULL);
-
-  H = 0;
-  checksum1 = checksum2 = 0;
-  for (i = 0; i < nlabels; i++) {
-    double tmp = exp2(cons_lprob[i]); /* tl_compute_log_likelihood uses base 2 */
-    checksum1 += tmp;
-    checksum2 += exp2(noncons_lprob[i]);
-    H += tmp * (cons_lprob[i] - noncons_lprob[i]);
-  }
-
-  if (fabs(checksum1 - 1) > 1e-4 || fabs(checksum1 - 1) > 1e-4)
-    die("ERROR: checksum failed (%f or %f not 1 +/- 1.0e-4).\n", checksum1, checksum2);
 
   mu = 1/expected_len;
   nu = mu * target_coverage / (1-target_coverage);
