@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.12 2004-06-21 20:24:22 acs Exp $
+/* $Id: msa.c,v 1.13 2004-06-22 19:11:11 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -274,6 +274,9 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
 
     str_append(new_str, line);
   }
+
+  if (lst_size(seqs) == 0)
+    die("ERROR: empty FASTA file.\n");
 
   /* pad sequences with gaps if not same length */
   maxlen = 0;

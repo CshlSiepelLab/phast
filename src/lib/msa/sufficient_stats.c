@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: sufficient_stats.c,v 1.2 2004-06-22 19:11:11 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -777,10 +777,8 @@ MSA* ss_read(FILE *F) {
         }
         lst_free(names_list);
       }      
-      else {
-        fprintf(stderr, "ERROR: unrecognized line in sufficient statistics file.  Is your header information complete?\nOffending line: '%s'\n", line->chars);
-        exit(1);
-      }
+      else 
+        die("ERROR: unrecognized line in sufficient statistics file.  Is your header information complete?\nOffending line: '%s'\n", line->chars);
 
       if (nseqs > 0 && length >= 0 && tuple_size > 0 && ntuples > 0 && 
           alph != NULL && names != NULL && ncats != -99) {
@@ -853,6 +851,10 @@ MSA* ss_read(FILE *F) {
       str_free(lst_get_ptr(matches, i));
     lst_clear(matches);
   }
+
+  if (!header_done || msa == NULL)
+    die("ERROR: Missing or incomplete header in SS file.\n");
+
   lst_free(matches);
   str_re_free(nseqs_re);
   str_re_free(length_re);

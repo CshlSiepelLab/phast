@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.4 2004-06-14 21:11:10 acs Exp $
+/* $Id: maf.c,v 1.5 2004-06-22 19:11:11 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -607,7 +607,9 @@ void maf_peek(FILE *F, char ***names, Hashtable *name_hash,
 
   *refseqlen = -1;
 
-  fgetpos(F, &pos);
+  if (fgetpos(F, &pos) != 0)
+    die("ERROR: Currently, MAF input stream must be seekable (can't be stdin).\n");
+
   while (str_readline(line, F) != EOF) {
     if (line->chars[0] == 'a') seqidx = 0;
     else if (line->chars[0] == 's') {

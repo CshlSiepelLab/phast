@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.8 2004-06-22 04:58:03 acs Exp $
+/* $Id: gff.c,v 1.9 2004-06-22 19:11:11 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -31,7 +31,8 @@
    attribute is the empty string ('').  Columns must be separated by
    tabs.  */
 GFF_Set* gff_read_set(FILE *F) {
-  int start, end, frame, score_is_null, lineno, done_with_header = 0;
+  int start, end, frame, score_is_null, lineno, done_with_header = FALSE,
+    seekable = TRUE;
   double score;
   char strand;
   String *attr, *line;
@@ -39,11 +40,15 @@ GFF_Set* gff_read_set(FILE *F) {
   GFF_Set *set;
   List *l, *substrs;
   static Regex *spec_comment_re = NULL;
+  fpos_t pos;
 
   line = str_new(STR_LONG_LEN);
   set = gff_new_set();
   l = lst_new_ptr(GFF_NCOLS);
   substrs = lst_new_ptr(4);
+
+  /* mark start position; used for autodetection of bed and genepred formats */
+  if (fgetpos(F, &pos) != 0) seekable = FALSE;
 
   lineno = 0;
   while (str_readline(line, F) != EOF) {
@@ -99,7 +104,9 @@ GFF_Set* gff_read_set(FILE *F) {
       if (((lst_size(l) >= 3 && lst_size(l) <= 8) || lst_size(l) == 12) && 
           str_as_int(lst_get_ptr(l, 1), &start) == 0 && 
           str_as_int(lst_get_ptr(l, 2), &end) == 0) {
-        rewind(F);
+        if (!seekable) 
+          die("ERROR: Looks like BED format but can't rewind (non-seekable stream).\n");
+        fsetpos(F, &pos);
         gff_read_from_bed(set, F);
         break;
       }
@@ -108,7 +115,9 @@ GFF_Set* gff_read_set(FILE *F) {
           str_as_int(lst_get_ptr(l, 4), &end) == 0 &&
           str_as_int(lst_get_ptr(l, 5), &start) == 0 &&
           str_as_int(lst_get_ptr(l, 6), &end) == 0) {
-        rewind(F);
+        if (!seekable) 
+          die("ERROR: Looks like genepred format but can't rewind (non-seekable stream).\n");
+        fsetpos(F, &pos);
         gff_read_from_genepred(set, F, TRUE);
         break;
       }

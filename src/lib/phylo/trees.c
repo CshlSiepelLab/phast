@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.10 2004-06-22 18:28:32 acs Exp $ 
+/* $Id: trees.c,v 1.11 2004-06-22 19:11:11 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -7,13 +7,7 @@
   for reading, writing, traversing, and printing.  Trees are
   represented as rooted binary trees with non-negative real branch
   lengths.  
-  \ingroup base
-*/
-
-/* TODO: 
-   - better error checking in parsing function
-   - possibly new scheme for labels at leaves; need general way to go 
-     between leaf labels and leaf numbers (perhaps wrt a list of names) 
+  \ingroup phylo
 */
 
 #include <stdio.h>
@@ -69,7 +63,7 @@ TreeNode *tr_new_from_file(FILE *f) {
   return retval;
 }
 
-/** Parse a single Newick-formatted tree from a string */
+/** Parse a Newick-formatted tree from a character string */
 TreeNode *tr_new_from_string(char *treestr) { 
   TreeNode *root, *node, *newnode;
   int i, in_distance = 0, len = strlen(treestr), nopen_parens = 0,
