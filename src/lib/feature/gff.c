@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.19 2004-07-06 19:44:26 acs Exp $
+/* $Id: gff.c,v 1.20 2004-08-07 18:54:09 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -804,39 +804,38 @@ void gff_remove_overlaps(GFF_Set *gff,
   lst_free(discards);
 }
 
-/** Adjust coords of terminal cds exons such that stop codons are
-    included.  Assumes GFF is grouped such that at most one stop codon
-    occurs per group and it corresponds to at most one cds. */
-void gff_fix_stops(GFF_Set *gff, 
-                                /**< Set to process  */
-                   char* cds_type, 
-                                /**< Type indicating CDS features
-                                   (e.g., "CDS") */
-                   char *stop_type
-                                /**< Type indicating stop codons
-                                   (e.g., "stop_codon") */
-                   ) {
+/** Adjust coords of CDS features such that start codons are included
+    and stop codons are excluded, as required in GTF2.  Assumes GFF is
+    grouped such that at most one start codon and at most one stop
+    codon occur per group. */
+void gff_fix_start_stop(GFF_Set *gff) {
   int i, j;
 
-  if (gff->groups == NULL) die("ERROR: gff_fix_stops requires groups.\n");
+  if (gff->groups == NULL) die("ERROR: gff_fix_start_stop requires groups.\n");
 
   for (i = 0; i < lst_size(gff->groups); i++) {
-    GFF_Feature *f, *stop = NULL;
+    GFF_Feature *f, *start = NULL, *stop = NULL;
     GFF_FeatureGroup *g = lst_get_ptr(gff->groups, i);
-    /* first scan for stop codon */
-    for (j = 0; stop == NULL && j < lst_size(g->features); j++) {
+    /* first scan for start and/or stop codon */
+    for (j = 0; j < lst_size(g->features); j++) {
       f = lst_get_ptr(g->features, j);
-      if (str_equals_charstr(f->feature, stop_type)) stop = f;
+      if (str_equals_charstr(f->feature, GFF_START_TYPE)) start = f;
+      else if (str_equals_charstr(f->feature, GFF_STOP_TYPE)) stop = f;
     }
-    /* now adjust corresponding cds (assume at most one) */
-    if (stop != NULL) {
+    /* now adjust corresponding CDS's */
+    if (start != NULL || stop != NULL) {
       for (j = 0; j < lst_size(g->features); j++) {
         f = lst_get_ptr(g->features, j);
-        if (str_equals_charstr(f->feature, cds_type)) {
-          if (f->strand == '+' && f->end == stop->start - 1) 
-            { f->end = stop->end; break; }
-          else if (f->strand == '-' && f->start == stop->end + 1)
-            { f->start = stop->start; break; }
+        if (str_equals_charstr(f->feature, GFF_CDS_TYPE)) {
+          if (f->strand == '+' && f->start == start->end + 1) 
+            f->start = start->start;
+          else if (f->strand == '-' && f->end == start->start - 1)
+            f->end = start->end;
+
+          if (f->strand == '+' && f->end == stop->end) 
+            f->end = stop->start - 1; 
+          else if (f->strand == '-' && f->start == stop->start)
+            f->start = stop->end + 1; 
         }
       }
     }

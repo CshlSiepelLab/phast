@@ -60,6 +60,11 @@ OPTIONS:\n\
         same major group will be included in the same minor group\n\
         (e.g., exons of the same transcript).\n\
 \n\
+    --fix-start-stop, -f\n\
+        Ensure that CDS features include start codons and exclude stop\n\
+        codons, as required by the GTF2 standard.  Assumes at most one\n\
+        start_codon and at most one stop_codon per group.\n\
+\n\
     --output, -o gff|bed|genepred\n\
         Output format (default gff).\n\
 \n\
@@ -82,7 +87,7 @@ int main(int argc, char *argv[]) {
   GFF_Set *gff;
   List *include = NULL;
   char *groupby = "transcript_id", *exongroup_tag = NULL;
-  int unique = 0, sort = 0, simplebed = 0;
+  int unique = FALSE, sort = FALSE, simplebed = FALSE, fix_start_stop = FALSE;
   enum {GFF, BED, GENEPRED} output_format = GFF;
   FILE *discards_f = NULL, *groups_f = NULL;
 
@@ -92,6 +97,7 @@ int main(int argc, char *argv[]) {
     {"include-groups", 1, 0, 'l'},
     {"groupby", 1, 0, 'g'},
     {"exongroup", 1, 0, 'e'},
+    {"fix-start-stop", 0, 0, 'f'},
     {"unique", 0, 0, 'u'},
     {"sort", 0, 0, 's'},
     {"simplebed", 0, 0, 'b'},
@@ -100,7 +106,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "o:i:l:g:e:d:usbh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "o:i:l:g:e:d:fusbh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'o':
       if (!strcmp("bed", optarg)) output_format = BED;
@@ -119,18 +125,21 @@ int main(int argc, char *argv[]) {
     case 'e':
       exongroup_tag = optarg;
       break;
+    case 'f':
+      fix_start_stop = TRUE;
+      break;
     case 'u':
-      unique = 1;
+      unique = TRUE;
       break;
     case 'b':
-      simplebed = 1;
+      simplebed = TRUE;
       output_format = BED;
       break;
     case 'd':
       discards_f = fopen_fname(optarg, "w+");
       break;
     case 's':
-      sort = 1;
+      sort = TRUE;
       break;
     case 'h':
       usage(argv[0]);
@@ -172,6 +181,9 @@ int main(int argc, char *argv[]) {
 
   /* make unique */
   if (unique) gff_remove_overlaps(gff, discards_f);
+
+  if (fix_start_stop)
+    gff_fix_start_stop(gff);
 
   if (output_format == BED)
     gff_print_bed(stdout, gff, !simplebed);

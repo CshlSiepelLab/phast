@@ -1,4 +1,4 @@
-/* $Id: gff.h,v 1.9 2004-07-06 19:29:59 acs Exp $
+/* $Id: gff.h,v 1.10 2004-08-07 18:54:09 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -163,7 +163,7 @@ GFF_Set* gff_read_from_fname(char *fname);
 
 void gff_remove_overlaps(GFF_Set *gff, FILE *discards);
 
-void gff_fix_stops(GFF_Set *gff, char* cds_type, char *stop_type);
+void gff_fix_start_stop(GFF_Set *gff);
 
 void gff_absorb_helpers(GFF_Set *feats, List *primary_types, 
                         List *helper_types);
