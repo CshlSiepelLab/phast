@@ -373,7 +373,7 @@ int main(int argc, char *argv[]) {
 
   /* other vars */
   char c;
-  int opt_idx, i;
+  int opt_idx, i, state_no;
   List *tmpl = NULL;
   MSA *msa = NULL;
   double lnl = INFTY;
@@ -537,13 +537,23 @@ int main(int argc, char *argv[]) {
   }
   else {
     for (i = 0; i < lst_size(states); i++) {
-      int state_no;
       String *state = lst_get_ptr(states, i);
       if (str_as_int(state, &state_no) != 0 || state_no < 1) 
         die("ERROR: illegal state '%s'.\n", state->chars);
       str_clear(state);
       str_append_int(state, state_no-1); /* internally use 0-based
                                             indexing */
+    }
+  }
+
+  /* also need to map pivot-states to 0-based indices */
+  if (pivot_states != NULL) {
+    for (i = 0; i < lst_size(pivot_states); i++) {
+      String *state = lst_get_ptr(pivot_states, i);
+      if (str_as_int(state, &state_no) != 0 || state_no < 1) 
+        die("ERROR: illegal pivot state '%s'.\n", state->chars);
+      str_clear(state);
+      str_append_int(state, state_no-1);
     }
   }
 
