@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.11 2004-06-24 00:21:08 acs Exp $
+/* $Id: msa_view.c,v 1.12 2004-06-25 07:58:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -57,6 +57,8 @@ EXAMPLES:\n\
 \n\
         msa_view myfile.fa --seqs 1,4,5 > seqs145.fa\n\
         msa_view myfile.fa --seqs 1,4,5 --exclude > seqs236.fa\n\
+\n\
+    (can also specify sequences by name, e.g., --seqs cow,rat,pig)\n\
 \n\
     4. Concatenate alignments. \n\
 \n\
@@ -121,9 +123,10 @@ OPTIONS:\n\
         alignment.\n\
 \n\
     --seqs, -l <seq_list>\n\
-        Comma-separated list of indices of sequences to include\n\
-        (default) or exclude (if --exclude).  Default is all\n\
-        sequences.\n\
+        Comma-separated list of sequences to include (default)\n\
+        exclude (if --exclude).  Indicate by sequence number or name\n\
+        (numbering starts with 1 and is evaluated *after* --order is\n\
+        applied).\n\
 \n\
     --exclude, -x\n\
         Exclude rather than include specified sequences.\n\
@@ -255,9 +258,9 @@ OPTIONS:\n\
         (use with --do-cats).\n\
 \n\
     --do-cats, -C <cat_list>\n\
-        (For use with --features/--catmap or --cats-cycle)  Obtain\n\
+        (For use with --features or --cats-cycle)  Obtain\n\
         sufficient statistics only for the specified categories\n\
-        (comma-delimited list).  Currently has no effect with\n\
+        (comma-delimited list, by number).  Currently has no effect with\n\
         --in-format MAF (stats for all categories are automatically\n\
         collected as file is read).\n\
 \n\
@@ -343,7 +346,7 @@ void fill_with_Ns(MSA *msa, List *fill_N_list, msa_coord_map *map) {
 int main(int argc, char* argv[]) {
   MSA *msa = NULL, *sub_msa = NULL;
   msa_format_type input_format = FASTA, output_format = FASTA;
-  List *l = NULL;
+  List *seqlist_str = NULL, *l = NULL;
   char *infname = NULL, *clean_seqname = NULL, *rseq_fname = NULL,
     *reverse_groups_tag = NULL;
   int i, opt_idx, startcol = 1, endcol = -1, include = 1, gap_strip_mode = NO_STRIP,
@@ -407,9 +410,7 @@ int main(int argc, char* argv[]) {
       endcol = atoi(optarg);
       break;
     case 'l':
-      l = get_arg_list_int(optarg);
-      for (i = 0; i < lst_size(l); i++)
-        lst_set_int(l, i, lst_get_int(l, i) - 1);
+      seqlist_str = get_arg_list(optarg);
       break;
     case 'x':
       include = 0;
@@ -488,21 +489,7 @@ int main(int argc, char* argv[]) {
       print_usage();
       exit(0);
     case 'C':
-      {
-        List *l = get_arg_list(optarg);
-        int i;
-        cats_to_do = lst_new_int(lst_size(l));
-        for (i = 0; i < lst_size(l); i++) {
-          int cat;
-          if (str_as_int(lst_get_ptr(l, i), &cat) != 0 || cat < 0) {
-            fprintf(stderr, "ERROR: illegal value in argument to --do-cats.\n");
-            exit(1);
-          }
-          lst_push_int(cats_to_do, cat);
-          str_free((String*)lst_get_ptr(l, i));
-        }
-        lst_free(l);
-      }
+      cats_to_do = get_arg_list_int(optarg);
       break;
     case 'k':
       maf_keep_overlapping = TRUE;
@@ -528,7 +515,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (output_format == SS && ordered_stats == 0 && 
-        startcol == 1 && endcol == -1 && l == NULL) {
+        startcol == 1 && endcol == -1 && seqlist_str == NULL) {
       msa = ss_aggregate_from_files(msa_fname_list, input_format, 
                                     aggregate_list, NULL, tuple_size, 
                                     cats_to_do, cycle_size);
@@ -569,6 +556,9 @@ int main(int argc, char* argv[]) {
 
   if (order_list != NULL)
     msa_reorder_rows(msa, order_list);
+
+  if (seqlist_str != NULL)
+    l = msa_seq_indices(msa, seqlist_str);
 
   if (rand_perm) msa_permute(msa);
 

@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.6 2004-06-24 00:21:08 acs Exp $
+/* $Id: msa.h,v 1.7 2004-06-25 07:58:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -233,6 +233,6 @@ char *msa_suffix_for_format(msa_format_type t);
 void msa_remove_N_from_alph(MSA *msa);
 int msa_all_gaps_but_ref(MSA *msa, int pos, int ref);
 void msa_find_noaln(MSA *msa, int refseqidx, int min_block_size, int *noaln);
-
+List *msa_seq_indices(MSA *msa, List *seqnames);
 
 #endif

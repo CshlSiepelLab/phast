@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.11 2004-06-25 04:41:27 acs Exp $
+/* $Id: msa_split.c,v 1.12 2004-06-25 07:58:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -35,62 +35,59 @@ EXAMPLES:\n\
 \n\
     (See below for details on options)\n\
 \n\
-
-    1. Read an alignment for a whole human chromosome from a MAF file
-    and extract sub-alignments in 1Mb windows overlapping by 1kb.  Use
-    the \"sufficient statistics\" (SS) format for output (can be used
-    by phyloFit, phastCons, or exoniphy).  Set window boundaries
-    between alignment blocks, if possible.
-
-        msa__split chr1.maf --refseq chr1.fa --in-format MAF \\\n\
+    1. Read an alignment for a whole human chromosome from a MAF file\n\
+    and extract sub-alignments in 1Mb windows overlapping by 1kb.  Use\n\
+    sufficient statistics (SS) format for output (can be used by\n\
+    phyloFit, phastCons, or exoniphy).  Set window boundaries between\n\
+    alignment blocks, if possible.\n\
+\n\
+        msa_split chr1.maf --refseq chr1.fa --in-format MAF \\\n\
             --windows 1000000,1000 --out-format SS \\\n\
-            --between-blocks 5000 --out-root chr1
-
-    (Windows will be defined using the coordinate system of the first
-    sequence in the alignment, assumed to be the reference sequence;
-    output will be to chr1.1.ss, chr1.2.ss, ...)
-
-    2. As in (1), but report unordered sufficient statistics (much
-    more compact and adequate for use with phyloFit).
-
-        msa__split chr1.maf --refseq chr1.fa --in-format MAF \\\n\
+            --between-blocks 5000 --out-root chr1\n\
+\n\
+    (Windows will be defined using the coordinate system of the first\n\
+    sequence in the alignment, assumed to be the reference sequence;\n\
+    output will be to chr1.1-1000000.ss, chr1.999001-1999000.ss, ...)\n\
+\n\
+    2. As in (1), but report unordered sufficient statistics (much\n\
+    more compact and adequate for use with phyloFit).\n\
+\n\
+        msa_split chr1.maf --refseq chr1.fa --in-format MAF \\\n\
             --windows 1000000,1000 --out-format SS \\\n\
-            --between-blocks 5000 --out-root chr1 --unordered-ss
-
-    3. Extract sub-alignments of sites in conserved elements and not
-    in conserved elements, as defined by a BED file (coordinates
-    assumed to be for 1st sequence).  Read multiple alignment in FASTA
-    format.
-
+            --between-blocks 5000 --out-root chr1 --unordered-ss\n\
+\n\
+    3. Extract sub-alignments of sites in conserved elements and not\n\
+    in conserved elements, as defined by a BED file (coordinates\n\
+    assumed to be for 1st sequence).  Read multiple alignment in FASTA\n\
+    format.\n\
+\n\
         msa_split mydata.fa --features conserved.bed --by-category \\\n\
-            --out-root mydata
-
-    (Output will be to mydata.0.fa [non-conserved] and mydata.1.fa
-    [conserved])
-
-    3. Extract sub-alignments of sites in each of the three codon
-    positions, as defined by a GFF file (coordinates assumed to be for
-    1st sequence).  Reverse complement genes on minus strand.
-
-        msa-split chr22.maf --in-format MAF --features chr22.gff \\\n\
-            --by-category --catmap \"NCATS 3 ; CDS 1-3\" --do-cats cds \\\n\
-            --reverse-compl --out-root chr22 --out-format SS
-
-    (Output will be to chr22.cds1.ss, chr22.cds2.ss, chr22.cds3.ss)
-
-    4. Split an alignment into pieces corresponding to the genes in a
-    GFF file.  Assume genes are defined by the tag \"transcript_id\".
-
-        msa_split cftr.fa --features cftr.gff --by-group transcript_id
-
-    (Output will be to ??   Split point is midway between each gene)
-
+            --out-root mydata\n\
+\n\
+    (Output will be to mydata.background-0.fa and mydata.bed_feature-1.fa\n\
+    [latter has sites of category number 1, defined by bed file]\n\
+\n\
+    3. Extract sub-alignments of sites in each of the three codon\n\
+    positions, as defined by a GFF file (coordinates assumed to be for\n\
+    1st sequence).  Reverse complement genes on minus strand.\n\
+\n\
+        msa_split chr22.maf --in-format MAF --features chr22.gff \\\n\
+            --by-category --catmap \"NCATS 3 ; CDS 1-3\" --do-cats CDS \\\n\
+            --reverse-compl --out-root chr22 --out-format SS\n\
+\n\
+    (Output will be to chr22.cds-1.ss, chr22.cds-2.ss, chr22.cds-3.ss)\n\
+\n\
+    4. Split an alignment into pieces corresponding to the genes in a\n\
+    GFF file.  Assume genes are defined by the tag \"transcript_id\".\n\
+\n\
+        msa_split cftr.fa --features cftr.gff --by-group transcript_id\n\
+\n\
     5. Obtain a sub-alignment for each of a set of regulatory regions,\n\
-    as defined in a BED file.
-    
+    as defined in a BED file.\n\
+\n\
         msa_split chr22.maf --refseq chr22.fa --features chr22.reg.bed \\\n\
-            --for-features --out-root chr22.reg
-
+            --for-features --out-root chr22.reg\n\
+\n\
 OPTIONS:\n\
 \n\
  (Splitting options)\n\
@@ -110,10 +107,10 @@ OPTIONS:\n\
         There should be no overlapping features (see 'refeature\n\
         --unique').\n\
 \n\
-    --for-features, -F <fname>\n\
-        Extract section of alignment corresponding to every\n\
-        feature in <fname> (GFF or BED format).  There will be no\n\
-        output for regions not covered by features.\n\
+    --for-features, -F\n\
+        (Requires --features) Extract section of alignment\n\
+        corresponding to every feature.  There will be no output for\n\
+        regions not covered by features.\n\
 \n\
     --by-index, -p <indices>\n\
         List of explicit indices at which to split alignment\n\
@@ -136,6 +133,16 @@ OPTIONS:\n\
     --features, -g <fname>\n\
         (For use with --by-category, --by-group, or --for-features).\n\
         Annotations file.  May be GFF, BED, or genepred format.\n\
+        Coordinates are assumed to be in the coordinate frame of the\n\
+        first sequence in the alignment (assumed to be the reference\n\
+        sequence).\n\
+\n\
+    --catmap, -c <fname>|<string>\n\
+        (Optionally use with --by-category) Mapping of feature types\n\
+        to category numbers.  Can either give a filename or an\n\
+        \"inline\" description of a simple category map, e.g.,\n\
+        --catmap \"NCATS = 3 ; CDS 1-3\" or --catmap \"NCATS = 1 ; UTR\n\
+        1\".\n\
 \n\
     --refidx, -d <frame_index>\n\
         (For use with --windows or --by-index) Index of frame of\n\
@@ -170,7 +177,11 @@ OPTIONS:\n\
 \n\
     --seqs, -l <seq_list>\n\
         Include only specified sequences in output.  Indicate by \n\
-        sequence number, number starts with 1.\n\
+        sequence number or name (numbering starts with 1 and is\n\
+        evaluated *after* --order is applied).\n\
+\n\
+    --exclude, -x\n\
+        Exclude rather than include specified sequences.\n\
 \n\
     --order, -O <name_list>\n\
         Change order of rows in alignment to match sequence names\n\
@@ -385,14 +396,16 @@ int main(int argc, char* argv[]) {
   msa_format_type input_format = FASTA, output_format = FASTA;
   char *msa_fname = NULL, *split_indices_str = NULL, 
     *out_fname_root = "msa_split", *rseq_fname = NULL, *group_tag = NULL;
-  GFF_Set *gff = NULL, *coord_feats = NULL;
+  GFF_Set *gff = NULL;
   int npartitions = -1, strand_sensitive = 0, 
-    faithful = 0, partition_frame = 1, quiet_mode = 0, gap_strip_mode = NO_STRIP,
+    partition_frame = 1, quiet_mode = 0, gap_strip_mode = NO_STRIP,
     output_summary = 0, tuple_size = 1, win_size = -1, 
     win_overlap = -1, ordered_stats = 1, min_ninf_sites = -1, 
-    adjust_radius = -1, opt_idx;
-  List *split_indices_list, *cats_to_do = NULL, *order_list = NULL, 
-    *segment_ends_list = NULL, *seqlist = NULL;  
+    adjust_radius = -1, opt_idx, by_category = FALSE, for_features = FALSE,
+    exclude_seqs = FALSE;
+  List *split_indices_list, *cats_to_do_str = NULL, *order_list = NULL, 
+    *segment_ends_list = NULL, *seqlist_str = NULL, *seqlist = NULL, 
+    *cats_to_do = NULL;  
   String *outfname, *sum_fname = NULL;
   FILE *SUM_F = NULL;
   char c;
@@ -405,13 +418,14 @@ int main(int argc, char* argv[]) {
 
   struct option long_opts[] = {
     {"windows", 1, 0, 'w'},
-    {"by-category", 1, 0, 'L'},
+    {"by-category", 0, 0, 'L'},
     {"by-group", 1, 0, 'P'},
-    {"for-features", 1, 0, 'F'},
+    {"for-features", 0, 0, 'F'},
     {"by-index", 1, 0, 'p'},
     {"npartitions", 1, 0, 'n'},
     {"between-blocks", 1, 0, 'B'},
     {"features", 1, 0, 'g'},
+    {"catmap", 1, 0, 'c'},
     {"refidx", 1, 0, 'd'},
     {"in-format", 1, 0, 'i'},
     {"refseq", 1, 0, 'M'},
@@ -420,6 +434,7 @@ int main(int argc, char* argv[]) {
     {"reverse-compl", 0, 0, 's'},
     {"gap-strip", 1, 0, 'G'},
     {"seqs", 1, 0, 'l'},
+    {"exclude", 0, 0, 'x'},
     {"order", 1, 0, 'O'},
     {"min-informative", 1, 0, 'I'},
     {"do-cats", 1, 0, 'C'},
@@ -430,7 +445,7 @@ int main(int argc, char* argv[]) {
     {"help", 0, 0, 'h'}
   };
 
-  while ((c = getopt_long(argc, argv, "i:M:g:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:F:l:Szqh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "i:M:g:c:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:F:l:xSzqh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
@@ -441,6 +456,9 @@ int main(int argc, char* argv[]) {
       break;
     case 'g':
       gff = gff_read_set(fopen_fname(optarg, "r"));
+      break;
+    case 'c':
+      cm = cm_new_string_or_file(optarg);
       break;
     case 'p':
       split_indices_str = optarg;
@@ -466,13 +484,10 @@ int main(int argc, char* argv[]) {
       }
       break;
     case 'L':
-      cm = cm_new_string_or_file(optarg);
+      by_category = TRUE;
       break;
     case 's':
       strand_sensitive = 1;
-      break;
-    case 'f':
-      faithful = 1;
       break;
     case 'G':
       if (!strcmp(optarg, "ALL")) gap_strip_mode = STRIP_ALL_GAPS;
@@ -480,9 +495,10 @@ int main(int argc, char* argv[]) {
       else gap_strip_mode = atoi(optarg);
       break;
     case 'l':
-      seqlist = get_arg_list_int(optarg);
-      for (i = 0; i < lst_size(seqlist); i++) 
-        lst_set_int(seqlist, i, lst_get_int(seqlist, i) - 1);
+      seqlist_str = get_arg_list(optarg);
+      break;
+    case 'x':
+      exclude_seqs = TRUE;
       break;
     case 'r':
       out_fname_root = optarg;
@@ -501,21 +517,10 @@ int main(int argc, char* argv[]) {
       order_list = get_arg_list(optarg);
       break;
     case 'C':
-      {
-        List *l = get_arg_list(optarg);
-        cats_to_do = lst_new_int(lst_size(l));
-        for (i = 0; i < lst_size(l); i++) {
-          int cat;
-          if (str_as_int(lst_get_ptr(l, i), &cat) != 0 || cat < 0) 
-            die("ERROR: illegal value in argument to -C.  Try msa_split -h for help.\n");
-          lst_push_int(cats_to_do, cat);
-          str_free((String*)lst_get_ptr(l, i));
-        }
-        lst_free(l);
-      }
+      cats_to_do_str = get_arg_list(optarg);
       break;
     case 'F':
-      coord_feats = gff_read_set(fopen_fname(optarg, "r"));
+      for_features = TRUE;
       break;
     case 'S':
       output_summary = 1;
@@ -543,28 +548,38 @@ int main(int argc, char* argv[]) {
 
   msa_fname = argv[optind];
 
-  if ((strand_sensitive || faithful || group_tag != NULL || cm != NULL) && 
-      gff == NULL) 
-    die("ERROR: -P, -L, -s, and -f require -g.  Try \"msa_split -h\" for help.\n");
+  if (split_indices_str == NULL && npartitions == -1 && !by_category && 
+      win_size == -1 && !for_features && group_tag == NULL)
+    die ("ERROR: must specify one of --windows, --by-category, --by-group,\n--for-features, --by-index, and --npartitions.  Try \"msa_split -h\" for help.\n");
 
-  if ((split_indices_str == NULL && npartitions == -1 && cm == NULL && win_size == -1 && coord_feats == NULL) ||
-      (split_indices_str != NULL && (npartitions != -1 || cm != NULL || win_size != -1 || coord_feats != NULL)) ||
-      (npartitions != -1 && (split_indices_str != NULL || cm != NULL || win_size != -1 || coord_feats != NULL)) ||
-      (cm != NULL && (split_indices_str != NULL || npartitions != -1 || 
-                                 win_size != -1 || coord_feats != NULL)) ||
-      (coord_feats != NULL && (split_indices_str != NULL || npartitions != -1 || 
-                               win_size != -1 || cm != NULL)))
-    die("ERROR: must specify exactly one of -p, -n, -L, -F, and -w.\nTry \"msa_split -h\" for help.\n");
+  if ((split_indices_str != NULL && (npartitions != -1 || by_category || 
+                                     win_size != -1 || for_features || 
+                                     group_tag != NULL)) ||
+      (npartitions != -1 && (by_category || win_size != -1 || for_features ||
+                             group_tag != NULL)) ||
+      (by_category && (win_size != -1 || for_features || group_tag != NULL)) ||
+      (win_size != -1 && (for_features || group_tag != NULL)) ||
+      (for_features && group_tag != NULL))
+    die("ERROR: cannot select more than one of --windows, --by-category, --by-group,\n--for-features, --by-index, and --npartitions.  Try \"msa_split -h\" for help.\n");
+
+  if ((group_tag != NULL || by_category || for_features) && gff == NULL) 
+    die("ERROR: --by_category, --by-group, and --for-features require --features.  Try \"msa_split -h\" for help.\n");
+
+  if (strand_sensitive && group_tag == NULL && !by_category)
+    die("ERROR: --reverse-compl requires --by-group or --by-category.\n");
 
   if (npartitions != -1 && npartitions <= 0) 
     die("ERROR: number of partitions must be greater than 0.\nTry \"msa_split -h\" for help.\n");
+
+  if (adjust_radius >= 0 && (for_features || by_category))
+    die("ERROR: can't use --between-blocks with --by-category or --for-features.\nTry \"msa_split -h\" for help.\n");
 
   if (!quiet_mode)
     fprintf(stderr, "Reading alignment from %s ...\n", 
             !strcmp(msa_fname, "-") ? "stdin" : msa_fname);
 
   if (input_format == MAF) {
-    assert(gff == NULL);        /* use with GFF not yet supported */
+    if (gff != NULL) die("Sorry, can't yet use GFF with MAF input.\n");
     msa = maf_read(fopen_fname(msa_fname, "r"), 
                    rseq_fname == NULL ? NULL : fopen_fname(rseq_fname, "r"), 
                    tuple_size, NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE); 
@@ -578,6 +593,9 @@ int main(int argc, char* argv[]) {
   if (order_list != NULL)
     msa_reorder_rows(msa, order_list);
 
+  if (seqlist_str != NULL) 
+    seqlist = msa_seq_indices(msa, seqlist_str);
+
   if (input_format == SS && msa->ss->tuple_idx == NULL) 
     die("ERROR: ordered representation of alignment required.\n");
 
@@ -589,11 +607,12 @@ int main(int argc, char* argv[]) {
   if (partition_frame != 0) 
     map = msa_build_coord_map(msa, partition_frame);
 
-  if (coord_feats == NULL)
+  if (!for_features)            /* always add position 1 to list
+                                   *unless* --for-features */
     lst_push_int(split_indices_list, map != NULL ? 
                  msa_map_seq_to_msa(map, 1) : 1); 
 
-  if (split_indices_str != NULL) {
+  if (split_indices_str != NULL) { /* --by-index */
     List *l = lst_new_ptr(10);
     String *tmpstr = str_new_charstr(split_indices_str);
 
@@ -615,10 +634,9 @@ int main(int argc, char* argv[]) {
 
     str_free(tmpstr);
     lst_free(l);
-    if (map != NULL) msa_map_free(map);
   }
 
-  if (npartitions > 1) {
+  else if (npartitions > 1) {        /* --npartitions */
     /* NOTE: currently ignores partition frame */
     double split_size = (double)msa->length/npartitions;
     for (i = 1; i < npartitions; i++) { 
@@ -629,7 +647,7 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  if (win_size != -1) {
+  else if (win_size != -1) {         /* --windows */
     int startidx, mapped_startidx;
     for (startidx = 1 + win_size-win_overlap; startidx < msa->length; 
          startidx += win_size-win_overlap) {
@@ -643,12 +661,13 @@ int main(int argc, char* argv[]) {
   }
 
   /* map coords in GFF to frame of ref of alignment */
-  if (gff != NULL) {
+  else if (gff != NULL) {       /* --by-group, --by-category, and
+                                   --for-features */
     if (!quiet_mode)
       fprintf(stderr, "Mapping GFF coordinates to frame of alignment  ...\n");
     msa_map_gff_coords(msa, gff, 1, 0, 0, NULL);
 
-    if (group_tag != NULL) {
+    if (group_tag != NULL) {    /* --by-group */
       GFF_FeatureGroup *prevg = NULL;
       gff_group(gff, group_tag);
       gff_sort(gff);
@@ -661,6 +680,10 @@ int main(int argc, char* argv[]) {
 
       for (i = 0; i < lst_size(gff->groups); i++) {
         GFF_FeatureGroup *g = lst_get_ptr(gff->groups, i);
+        if (g->start < 0 || g->end < 0) {
+          fprintf(stderr, "Ignoring group '%s' (bad coordinates).\n", g->name->chars);
+          continue;
+        }
         if (prevg != NULL) {
           if (prevg->end >= g->start)
             die("ERROR: feature groups overlap.\n");
@@ -671,30 +694,26 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    if (cm != NULL) {
+    else if (for_features) {    /* --for-features */
+      segment_ends_list = lst_new_int(lst_size(gff->features));
+      
+      for (i = 0; i < lst_size(gff->features); i++) {
+        GFF_Feature *f = lst_get_ptr(gff->features, i);
+        lst_push_int(split_indices_list, f->start);
+        lst_push_int(segment_ends_list, f->end);
+      }
+    }
+
+    else if (by_category) {
+      if (cm == NULL) cm = cm_new_from_features(gff);
+      if (cats_to_do_str != NULL) 
+        cats_to_do = cm_get_category_list(cm, cats_to_do_str, FALSE);
       if (!quiet_mode)
         fprintf(stderr, "Labeling columns of alignment by category ...\n");
       msa_label_categories(msa, gff, cm);
     }
   }
 
-  if (coord_feats != NULL) {
-    /* make sure no adjust_radius or category map */
-    if (adjust_radius >= 0 || cm != NULL) 
-      die("ERROR: Cannot use -B or -L with -F.\n");
-
-    if (!quiet_mode)
-      fprintf(stderr, "Mapping feature coordinates to frame of alignment  ...\n");
-    msa_map_gff_coords(msa, coord_feats, 1, 0, 0, NULL);
-
-    segment_ends_list = lst_new_int(lst_size(coord_feats->features));
-
-    for (i = 0; i < lst_size(coord_feats->features); i++) {
-      GFF_Feature *f = lst_get_ptr(coord_feats->features, i);
-      lst_push_int(split_indices_list, f->start);
-      lst_push_int(segment_ends_list, f->end);
-    }
-  }
 
   if (adjust_radius >= 0)       /* try to adjust split indices to fall
                                    between alignment blocks */
@@ -710,8 +729,8 @@ int main(int argc, char* argv[]) {
     write_summary_header(SUM_F, msa->alphabet, gap_strip_mode);
   }
 
-  if (cm == NULL) {             /* not using features; splitting
-                                   by position (split_indices_list) */
+  if (!by_category) {           /* splitting by position
+                                   (split_indices_list) */
     outfname = str_new(STR_MED_LEN);
     for (i = 0; i < lst_size(split_indices_list); i++) {
       MSA *sub_msa;
@@ -741,7 +760,7 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Creating partition %d (column %d to column %d) ...\n",
                 i+1, orig_start, orig_end);
       
-      sub_msa = msa_sub_alignment(msa, seqlist, 1, start - 1, end);
+      sub_msa = msa_sub_alignment(msa, seqlist, !exclude_seqs, start - 1, end);
 
       if (map != NULL)
         sub_msa->idx_offset = msa->idx_offset + orig_start - 1;
@@ -777,16 +796,15 @@ int main(int argc, char* argv[]) {
         continue;
       }
       
-      if (gff != NULL) {
+      if (group_tag != NULL) {
         if (gap_strip_mode != NO_STRIP) 
           die("ERROR: generation of GFF files for partitions not supported in gap-stripping mode.\n");
 
         /* create fname for gff subset */
-        sub_gff = gff_subset_range(gff, start, end, !faithful);
+        sub_gff = gff_subset_range(gff, start, end, TRUE);
 
         /* map coords back to original frame(s) of ref */
-        msa_map_gff_coords(faithful ? msa : sub_msa, sub_gff, 0, 
-                           1, 0, NULL);
+        msa_map_gff_coords(sub_msa, sub_gff, 0, 1, 0, NULL);
 
         /* write gff file for subset */
         str_cpy_charstr(outfname, out_fname_root);
@@ -810,7 +828,6 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Writing partition %d to %s ...\n", i+1, subfname);
       write_sub_msa(sub_msa, subfname, output_format, tuple_size, ordered_stats);
 
-      /* if necessary, write line to summary file */
       if (SUM_F != NULL) 
         write_summary_line(SUM_F, subfname, sub_msa->alphabet, freqs, 
                            freqs_strip, length, length_strip, nallgaps, 
@@ -820,8 +837,7 @@ int main(int argc, char* argv[]) {
     }
     str_free(outfname);
   }
-  else {                        /* cm != NULL (splitting by
-                                   category) */
+  else {                        /* by_category == TRUE */
     List *submsas = lst_new_ptr(10);
     if (!quiet_mode)
       fprintf(stderr, "Partitioning alignment by category ...\n");
@@ -852,8 +868,9 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      sprintf(subfname, "%s.%d.%s", out_fname_root, cat, 
-              msa_suffix_for_format(output_format));
+      sprintf(subfname, "%s.%s-%d.%s", out_fname_root, 
+              ((String*)cm_get_feature(cm, cat))->chars,
+              cat, msa_suffix_for_format(output_format));
 
       if (!quiet_mode) 
         fprintf(stderr, "Writing partition (category) %d to %s ...\n", 
@@ -876,16 +893,10 @@ int main(int argc, char* argv[]) {
     if (!quiet_mode) 
       fprintf(stderr, "Writing summary to %s ...\n", sum_fname->chars);
     fclose(SUM_F);
-    str_free(sum_fname);
   }
 
   if (!quiet_mode)
     fprintf(stderr, "Done.\n");
-
-  msa_free(msa);  
-  lst_free(split_indices_list);
-  if (gff != NULL) gff_free_set(gff);
-  if (cats_to_do != NULL) lst_free(cats_to_do);
 
   return 0;
 }

@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.16 2004-06-24 03:09:21 acs Exp $
+/* $Id: msa.c,v 1.17 2004-06-25 07:58:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -455,12 +455,12 @@ void project(MSA *msa, int refseq) {
 
 /* Returns a sub-alignment consisting of the specified sequences
    within the specified range of columns.  Listed sequence will be
-   included if "include" == TRUE and excluded otherwise.  In either
-   case, indices, not names, must be used.  All memory is copied.  To
-   include all sequences, set seqlist to NULL.  The new alignment will
-   represent the interval [start_col, end_col), in a frame such that
-   the first character has index 0.  (that is, the end column will not
-   be included).  */
+   included if "include" == TRUE and excluded otherwise (include is
+   ignored if seqlist == NULL).  In either case, indices, not names,
+   must be used.  All memory is copied.  To include all sequences, set
+   seqlist to NULL.  The new alignment will represent the interval
+   [start_col, end_col), in a frame such that the first character has
+   index 0.  (that is, the end column will not be included).  */
 MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col, 
                        int end_col) {
   List *include_list;
@@ -1119,20 +1119,18 @@ void msa_partition_by_category(MSA *msa, List *submsas, List *cats_to_do,
   char ***seqs, ***names;
   List *cats;
 
+  /* scan for max category */ 
+  for (i = 0; i < msa->length; i++)
+    if (msa->categories[i] + 1 > ncats) 
+      ncats = msa->categories[i] + 1;
+
   if (cats_to_do == NULL) {
-    /* scan for max category */ 
-    for (i = 0; i < msa->length; i++)
-      if (msa->categories[i] + 1 > ncats) 
-        ncats = msa->categories[i] + 1;
     cats = lst_new_int(ncats);
     for (i = 0; i < ncats; i++) lst_push_int(cats, i);
   }
-  else {
+  else 
     cats = cats_to_do;
-    for (i = 0; i < lst_size(cats); i++) 
-      if (lst_get_int(cats, i) + 1 > ncats) 
-        ncats = lst_get_int(cats, i) + 1;
-  }
+
   do_cat = (int*)smalloc(ncats * sizeof(int));
   for (i = 0; i < ncats; i++) do_cat[i] = 0;
   for (i = 0; i < lst_size(cats); i++) 
@@ -1142,6 +1140,7 @@ void msa_partition_by_category(MSA *msa, List *submsas, List *cats_to_do,
   count = (int*)smalloc(ncats * sizeof(int));
   for (i = 0; i < ncats; i++) count[i] = 0;
   for (i = 0; i < msa->length; i++) {
+    assert(msa->categories[i] < ncats);
     count[msa->categories[i]]++;
     if (i > 0 && msa->categories[i] != msa->categories[i-1])
       count[msa->categories[i]] += tuple_size - 1;      
@@ -2200,4 +2199,32 @@ void msa_find_noaln(MSA *msa, int refseqidx, int min_block_size, int *noaln) {
   }
   if (run_start >= 0)   /* no alignment at end */
     for (k = run_start; k < msa->length; k++) noaln[k] = 1;
+}
+
+/** Given a list of sequence names and/or 1-based indices, return a
+    list of corresponding 0-based indices.  Abort if a name has no
+    match.  Useful in converting command-line arguments */
+List *msa_seq_indices(MSA *msa, List *seqnames) {
+  int i, j;
+  List *retval = lst_new_int(lst_size(seqnames));
+  for (i = 0; i < lst_size(seqnames); i++) {
+    String *name = lst_get_ptr(seqnames, i);
+    int idx;
+    if (str_as_int(name, &idx) == 0) {
+      if (idx <= 0 || idx > msa->nseqs) 
+        die("ERROR: sequence index %d is out of bounds.\n", idx);
+      lst_push_int(retval, idx - 1);
+    }
+    else {
+      for (j = 0; j < msa->nseqs; j++) {
+        if (str_equals_charstr(name, msa->names[j])) {
+          lst_push_int(retval, j);
+          break;
+        }
+      }
+      if (j == msa->nseqs) 
+        die("ERROR: No match for name \"%s\" in alignment.\n", name->chars);
+    }
+  }
+  return retval;
 }
