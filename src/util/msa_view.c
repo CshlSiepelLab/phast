@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.20 2004-08-29 18:51:13 acs Exp $
+/* $Id: msa_view.c,v 1.21 2004-08-29 21:16:17 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -512,31 +512,45 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  if (optind >= argc) {
-    fprintf(stderr, "Missing alignment filename.  Try 'msa_view -h' for help.\n");
-    exit(1);
-  }
-  else infname = argv[optind];
+  if (optind >= argc) 
+    die("Missing alignment filename.  Try 'msa_view -h' for help.\n");
+  infname = argv[optind];
 
   if (gff != NULL && cm == NULL) 
     cm = cm_new_from_features(gff);
 
+  if (stats_only) {             /* this simplifies the case handling below  */
+    output_format = SS; 
+    ordered_stats = FALSE; 
+  }
+
   if (aggregate_list != NULL) {
     msa_fname_list = get_arg_list(infname);
 
-    if (input_format == SS && output_format == SS && ordered_stats == 1) {
-      fprintf(stderr, "WARNING: ignoring request for ordered sufficient statistics (not supported with --aggregate).\n");
-      ordered_stats = 0;
-    }
+    if (gff != NULL) 
+      die("ERROR: --features not supported with --aggregate.\n");
 
-    if (output_format == SS && ordered_stats == 0 && 
-        startcol == 1 && endcol == -1 && seqlist_str == NULL) {
+    if (startcol != 1 || endcol != -1)
+      die("ERROR: --start and --end not supported with --aggregate.\n");
+
+    if (input_format == MAF && rseq_fname != NULL)
+      fprintf(stderr, "WARNING: --refseq ignored with --aggregate.\n");
+
+    if (input_format == MAF && (output_format != SS || ordered_stats)) {
+      fprintf(stderr, "WARNING: assuming --out-format SS --unordered with --in-format MAF and --aggregate.\n");
+      output_format = SS;
+      ordered_stats = FALSE;
+    }
+    else if (input_format == SS && (output_format != SS || ordered_stats))
+      fprintf(stderr, "WARNING: are you sure you don't want to use --out-format SS --unordered?  A lot of memory may be required...\n");
+
+    if (output_format == SS && !ordered_stats) {
       msa = ss_aggregate_from_files(msa_fname_list, input_format, 
                                     aggregate_list, tuple_size, 
                                     cats_to_do, cycle_size);
                                 /* avoid creating aggregate alignment
                                    explicitly, if possible */
-      cats_done = 1;            /* in this case, cats are taken care of */
+      cats_done = TRUE;         /* in this case, cats are taken care of */
     }
     else 
       msa = msa_concat_from_files(msa_fname_list, input_format, 
@@ -548,9 +562,9 @@ int main(int argc, char* argv[]) {
 
     if (rseq_fname != NULL) RSEQF = fopen_fname(rseq_fname, "r");
 
-    if (output_format == SS && RSEQF == NULL && ordered_stats == 1 && 
+    if (output_format == SS && RSEQF == NULL && ordered_stats && 
         gff == NULL && startcol == 1 && endcol == -1)
-      ordered_stats = 0;        /* in this case, assume unordered
+      ordered_stats = FALSE;    /* in this case, assume unordered
                                    stats are desired; can't think of
                                    any value in collecting ordered
                                    stats, and it's a common mistake to
@@ -719,7 +733,9 @@ int main(int argc, char* argv[]) {
                         min(i+win_size, msa->length));
       }
     }
-    else 
+    else if (aggregate_list != NULL)
+      msa_print_stats(sub_msa, stdout, "[aggregate]", 0, -1, -1);
+    else
       msa_print_stats(sub_msa, stdout, infname, 0, -1, -1);
   }
 
