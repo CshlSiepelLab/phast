@@ -288,7 +288,7 @@ OPTIONS:\n\
         This option is ignored if two tree models are given.\n\
 \n\
     --gc, -G <val>\n\
-        (Optionally use with --estimate-tree) Assume equilibrium base\n\
+        (Optionally use with --estimate-trees) Assume equilibrium base\n\
         frequencies consistent with the given average G+C content when\n\
         estimating tree models.  (The frequencies of G and C will be\n\
         set to <val>/2 and the frequencies of A and T will be set to\n\
@@ -299,6 +299,21 @@ OPTIONS:\n\
         for fragments of genome-wide alignments, then combined into a\n\
         single set of estimates which are to be applied globally.\n\
         The argument <val> should be between 0 and 1.\n\
+\n\
+    --extrapolate, -e <phylog.nh> | default\n\
+        Extrapolate to a larger set of species based on the given\n\
+        phylogeny (Newick-format).  The trees in the given tree models\n\
+        (*.mod files) must be subtrees of the larger phylogeny.  For\n\
+        each tree model M, a copy will be created of the larger\n\
+        phylogeny, then scaled such that the total branch length of\n\
+        the subtree corresponding to M's tree equals the total branch\n\
+        length of M's tree; this new version will then be used in\n\
+        place of M's tree.  (Any species name present in this tree but\n\
+        not in the data will be ignored.)  If the string \"default\"\n\
+        is given instead of a filename, then a phylogeny for 25\n\
+        vertebrate species, estimated from sequence data for Target 1\n\
+        (CFTR) of the NISC Comparative Sequencing Program (Thomas et\n\
+        al., 2003), will be assumed.\n\
 \n\
  (Indels, forward/reverse strands, missing data, and coding potential)\n\
     --indels, -I\n\
@@ -458,6 +473,9 @@ REFERENCES:\n\
       evolutionarily conserved exons.  Proc. 8th Annual Int'l Conf.\n\
       on Research in Computational Biology (RECOMB '04), pp. 177-186.\n\
 \n\
+    J. Thomas et al.  2003.  Comparative analyses of multi-species\n\
+      sequences from targeted genomic regions.  Nature 424:788-793.\n\
+\n\
     Z. Yang. 1994. Maximum likelihood phylogenetic estimation from\n\
       DNA sequences with variable rates over sites: approximate\n\
       methods. J. Mol. Evol., 39:306-314.\n\n", prog, prog);
@@ -526,9 +544,11 @@ int main(int argc, char *argv[]) {
   FILE *viterbi_f = NULL, *lnl_f = NULL, *log_f = NULL;
   List *states = NULL, *pivot_states = NULL, *inform_reqd = NULL, 
     *mod_fname_list = NULL, *not_informative = NULL;
-  char *seqname = NULL, *idpref = NULL, *estim_trees_fname_root = NULL;
+  char *seqname = NULL, *idpref = NULL, *estim_trees_fname_root = NULL,
+    *extrapolate_tree_fname;
   HMM *hmm = NULL;
   Hashtable *alias_hash = NULL;
+  TreeNode *extrapolate_tree = NULL;
 
   struct option long_opts[] = {
     {"states", 1, 0, 'S'},
@@ -551,6 +571,7 @@ int main(int argc, char *argv[]) {
     {"suppress-missing", 0, 0, 'x'}, /* for backward compatibility */
     {"reflect-strand", 1, 0, 'U'},
     {"catmap", 1, 0, 'c'},
+    {"extrapolate", 1, 0, 'e'},
     {"indels", 0, 0, 'I'},
     {"max-micro-indel", 1, 0, 'Y'},
     {"indel-params", 1, 0, 'D'},
@@ -682,6 +703,9 @@ int main(int argc, char *argv[]) {
       pivot_states = get_arg_list(optarg); /* we want strings not ints
                                              for phmm_new */
       break;
+    case 'e':
+      extrapolate_tree_fname = optarg;
+      break;
     case 'I':
       indels = TRUE;
       break;
@@ -771,6 +795,14 @@ int main(int argc, char *argv[]) {
 
   if (!indels) estim_indels = FALSE;
 
+  if (!strcmp(extrapolate_tree_fname, "default")) {
+    extrapolate_tree_fname = smalloc(1000 * sizeof(char));
+    sprintf(extrapolate_tree_fname, 
+            "%s/data/exoniphy/mammals/cftr25_hybrid.nh", PHAST_HOME);
+  }
+  if (extrapolate_tree_fname != NULL)
+    extrapolate_tree = tr_new_from_file(fopen_fname(extrapolate_tree_fname, "r"));
+
   mods_fname = (optind == argc - 2 ? argv[argc - 1] : NULL);
   /* if there are two args, mods are the second one; otherwise will
      use default mods for coding potential (see below) */
@@ -858,6 +890,17 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "Reading tree model from %s...\n", fname->chars);
     mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"));
     mod[i]->use_conditionals = 1;     
+
+    if (extrapolate_tree != NULL) {
+      TreeNode *t = tr_create_copy(extrapolate_tree);
+      double scale = tr_scale_by_subtree(t, mod[i]->tree);
+      if (!quiet) 
+        fprintf(stderr, "Extrapolating based on %s (scale=%f)...\n", 
+                extrapolate_tree_fname, scale);
+      tr_free(mod[i]->tree);
+      mod[i]->tree = t;
+    }
+
     tm_prune(mod[i], msa, !quiet); /* prune away extra species, if possible */
   }
 

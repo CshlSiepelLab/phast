@@ -27,23 +27,23 @@ OPTIONS:\n\
     --prune-all-but, -P <list>\n\
         Like --prune, but remove all leaves *except* the ones specified.\n\
 \n\
-    --merge, -m <file2.mod>|<file2.nh>\n\
+    --merge, -m <file2.mod> | <file2.nh>\n\
         Merge with another tree model or tree.  The primary model\n\
         (<file.mod>) must have a subset of the species (leaves) in the\n\
         secondary model (<file2.mod>), and the primary tree must be a\n\
-        subtree of the secondary tree (in terms of topology only).\n\
-        If a full tree model is given for the secondary tree, only the\n\
-        tree will be considered.  The merged tree model will have the\n\
-        rate matrix, equilibrium frequencies, and rate distribution of\n\
-        the primary model, but a merged tree that includes all species\n\
-        from both models.  The trees will be merged by first scaling\n\
-        the secondary tree such that the subtree corresponding to the\n\
-        primary tree has equal overall length to the primary tree,\n\
-        then combining the primary tree with the non-overlapping\n\
-        portion of the secondary tree.  The names of matching species\n\
-        (leaves) must be exactly equal.  The basic idea is to\n\
-        extrapolate from a small species set to a larger one, using\n\
-        the branch-length proportions of a given tree.\n\
+        proper subtree of the secondary tree (i.e., the subtree of the\n\
+        secondary tree beneath the LCA of the species in the primary\n\
+        tree must equal the primary tree in terms of topology and\n\
+        species names).  If a full tree model is given for the\n\
+        secondary tree, only the tree will be considered.  The merged\n\
+        tree model will have the rate matrix, equilibrium frequencies,\n\
+        and rate distribution of the primary model, but a merged tree\n\
+        that includes all species from both models.  The trees will be\n\
+        merged by first scaling the secondary tree such that the\n\
+        subtree corresponding to the primary tree has equal overall\n\
+        length to the primary tree, then combining the primary tree\n\
+        with the non-overlapping portion of the secondary tree.  The\n\
+        names of matching species (leaves) must be exactly equal.\n\
 \n\
     --rename, -r <mapping>\n\
         Rename leaves according to the given mapping.  The format of\n\
@@ -55,6 +55,24 @@ OPTIONS:\n\
     --scale, -s <factor>\n\
         Scale all branches by the specified factor.\n\
 \n\
+    --extrapolate, -e <phylog.nh> | default\n\
+        Extrapolate to a larger set of species based on the given\n\
+        phylogeny (Newick-format).  The primary tree must be a subtree\n\
+        of the phylogeny given in <phylog.nh>, but it need not be\n\
+        a \"proper\" subtree (see --merge).  A copy will be created\n\
+        of the larger phylogeny then scaled such that the total branch\n\
+        length of the subtree corresponding to the primary tree equals\n\
+        the total branch length of the primary tree; this new version\n\
+        will then be used in place of the primary tree.  If the string\n\
+        \"default\" is given instead of a filename, then a phylogeny\n\
+        for 25 vertebrate species, estimated from sequence data for\n\
+        Target 1 (CFTR) of the NISC Comparative Sequencing Program\n\
+        (Thomas et al., Nature 424:788-793, 2003), will be assumed.\n\
+        This option is similar to merge but differs in that the branch\n\
+        length proportions of the output tree come completely from the\n\
+        larger tree and the smaller tree doesn't have to be a proper\n\
+        subset of the larger tree.\n\
+\n\
     --tree-only, -t\n\
         Output tree only in Newick format rather than complete tree model.\n\
 \n\
@@ -65,7 +83,7 @@ OPTIONS:\n\
 
 int main(int argc, char *argv[]) {
   /* variables for options, with defaults */
-  TreeNode *tree = NULL, *merge_tree = NULL;
+  TreeNode *tree = NULL, *merge_tree = NULL, *extrapolate_tree = NULL;
   Hashtable *rename_hash = NULL;
   double scale_factor = 1;
   List *prune_names = NULL;
@@ -79,6 +97,7 @@ int main(int argc, char *argv[]) {
 
   struct option long_opts[] = {
     {"scale", 1, 0, 's'},
+    {"extrapolate", 1, 0, 'e'},
     {"prune", 1, 0, 'p'},
     {"prune-all-but", 1, 0, 'P'},
     {"merge", 1, 0, 'm'},
@@ -93,6 +112,14 @@ int main(int argc, char *argv[]) {
     switch (c) {
     case 's':
       scale_factor = get_arg_dbl_bounds(optarg, 0, INFTY);
+      break;
+    case 'e':
+      if (!strcmp(optarg, "default")) {
+        optarg = smalloc(1000 * sizeof(char));
+        sprintf(optarg, "%s/data/exoniphy/mammals/cftr25_hybrid.nh", 
+                PHAST_HOME);
+      }
+      extrapolate_tree = tr_new_from_file(fopen_fname(optarg, "r"));
       break;
     case 'p':
       prune_names = get_arg_list(optarg);
@@ -126,6 +153,9 @@ int main(int argc, char *argv[]) {
 
   if (optind != argc - 1) 
     die("Input filename required.  Try '%s -h'.\n", argv[0]);
+
+  if (merge_tree != NULL && extrapolate_tree != NULL)
+    die("ERROR: Can't use --merge and --extrapolate together");
     
   suffix = str_new_charstr(argv[optind]);
   str_suffix(suffix, '.');
@@ -147,7 +177,13 @@ int main(int argc, char *argv[]) {
     tree = tr_hybrid(tree, merge_tree);
     if (mod != NULL) mod->tree = tree;
   }
-  
+
+  else if (extrapolate_tree != NULL) {
+    tr_scale_by_subtree(extrapolate_tree, tree);
+    tree = extrapolate_tree;
+    if (mod != NULL) mod->tree = tree;
+  }
+
   if (scale_factor != 1)
     tr_scale(tree, scale_factor);
 

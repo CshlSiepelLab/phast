@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.16 2004-08-11 20:47:05 acs Exp $ 
+/* $Id: trees.c,v 1.17 2004-10-03 22:47:47 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1004,41 +1004,42 @@ TreeNode *tr_lca(TreeNode *tree, List *names) {
   return n;
 }
 
-/** Given two trees, one of which is a subtree of the other, create a
-    hybrid tree composed of the smaller tree and a scaled version of
-    the larger tree.  First, a copy of the larger tree will be created
-    and scaled such that the total branch length in the subtree in
-    question is equal to the total branch length of the smaller tree.
-    Then, (a copy of) the smaller tree will be used in place of the
-    overlapping subtree in the larger tree.  This function can be used
-    to extrapolate from a small phylogeny for which accurate branch
-    length estimation is possible (e.g., including eutherian mammals)
-    to a larger phylogeny for which approximate branch length
-    proportions are available, but absolute branch length estimates
-    are not (e.g., including more distant vertebrates). */
+/** Given two trees, one of which is a (proper) subtree of the
+    other, create a hybrid tree composed of the smaller tree and a
+    scaled version of the larger tree.  First, a copy of the larger
+    tree will be created and scaled such that the total branch length
+    in the subtree in question is equal to the total branch length of
+    the smaller tree.  Then, (a copy of) the smaller tree will be used
+    in place of the overlapping subtree in the larger tree.  This
+    function can be used to extrapolate from a small phylogeny for
+    which accurate branch length estimation is possible (e.g., of
+    eutherian mammals) to a larger phylogeny for which approximate
+    branch length proportions are available, but absolute branch
+    length estimates are not (e.g., of more distant vertebrates). */
 TreeNode *tr_hybrid(TreeNode *sub, TreeNode *super) {
-  TreeNode *retval, *n, *lca, *sub_copy;
-  int i;
+  TreeNode *retval, *lca, *sub_copy;
   double lfrac, sum;
-  List *names = lst_new_ptr((sub->nnodes + 1) / 2);
+  List *names = tr_leaf_names(sub);
 
-  if (sub->nnodes < 3)
+  if (lst_size(names) <= 2)
     die("ERROR: subtree must have at least two leaves in tr_hybrid.\n");
 
   /* copy supertree then find LCA corresponding to subtree */
   retval = tr_create_copy(super);
-  for (i = 0; i < sub->nnodes; i++) {
-    n = lst_get_ptr(sub->nodes, i);
-    if (n->lchild == NULL && n->rchild == NULL)
-      lst_push_ptr(names, str_new_charstr(n->name));
-  }
   lca = tr_lca(retval, names);
   lst_free_strings(names);
   lst_free(names);
 
   sub_copy = tr_create_copy(sub);
 
-  if (lca == super) {           /* rule out trivial case -- trees equal */
+  /* verify subtree is proper.  We know that all names in the subtree
+     were found in the supertree (otherwise tr_lca will abort), so
+     it's sufficient to verify that the numbers of nodes in the
+     subtree and beneath the LCA are equal */
+  if (lca->nnodes != sub->nnodes)
+    die("ERROR: subtree must be proper in tr_hybrid (must contain all leaves beneath LCA in supertree).\n");
+
+  if (lca == super) {           /* trivial case -- trees equal */
     tr_free(retval);
     return sub_copy;
   }
@@ -1063,6 +1064,38 @@ TreeNode *tr_hybrid(TreeNode *sub, TreeNode *super) {
   tr_free(lca);                 /* this works recursively */
 
   return retval;
+}
+
+/* Scale a tree so that the total branch length of some subtree is as
+   defined by a second tree.  Return value is scale factor.  The leaf
+   names of the second tree ('sub') must be a subset of those in the
+   first.  This function is similar to tr_extrapolate, but the branch
+   length proportions of the larger tree are used without change and
+   the smaller tree need not be a proper subtree of the larger
+   tree. */
+double tr_scale_by_subtree(TreeNode *tree, TreeNode *sub) {
+  TreeNode *n;
+  int i;
+  double scale;
+  List *leaf_names = tr_leaf_names(tree);
+  List *sub_names = tr_leaf_names(sub);
+
+  if (lst_size(sub_names) <= 2)
+    die("ERROR: (tr_scale_for_subtree) subtree must have at least two leaves.\n");
+
+  for (i = 0; i < lst_size(sub_names); i++)
+    if (!str_in_list(lst_get_ptr(sub_names, i), leaf_names))
+      die("ERROR: (tr_scale_for_subtree) leaf names in subtree must be subset of those in main tree.\n");
+
+  /* Now scale */
+  n = tr_create_copy(tree);
+  tr_prune(&n, sub_names, TRUE);
+  scale = tr_total_len(sub) / tr_total_len(n);
+  tr_scale(tree, scale);
+  tr_free(n);
+  lst_free_strings(leaf_names); lst_free(leaf_names);
+  lst_free_strings(sub_names); lst_free(sub_names);
+  return scale;
 }
 
 /** Partition leaves of tree at (branch above) given node.  All
@@ -1098,4 +1131,16 @@ void tr_partition_leaves(TreeNode *tree, TreeNode *sub, List *inside,
   }
   stk_free(stack);
   free(mark);
+}
+
+/** Return a list of the leaf names in a given tree */
+List *tr_leaf_names(TreeNode *tree) {
+  List *retval = lst_new_ptr((tree->nnodes + 1) / 2);
+  int i;
+  for (i = 0; i < tree->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(tree->nodes, i);
+    if (n->lchild == NULL && n->rchild == NULL)
+      lst_push_ptr(retval, str_new_charstr(n->name));
+  }
+  return retval;
 }

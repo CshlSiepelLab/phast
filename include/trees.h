@@ -1,4 +1,4 @@
-/* $Id: trees.h,v 1.9 2004-08-11 20:47:05 acs Exp $
+/* $Id: trees.h,v 1.10 2004-10-03 22:47:47 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -81,7 +81,9 @@ void tr_scale(TreeNode *t, double scale_const);
 void tr_prune(TreeNode **t, List *names, int all_but);
 TreeNode *tr_lca(TreeNode *tree, List *names);
 TreeNode *tr_hybrid(TreeNode *sub, TreeNode *super);
+double tr_scale_by_subtree(TreeNode *tree, TreeNode *sub);
 void tr_partition_leaves(TreeNode *tree, TreeNode *sub, List *inside, 
                          List *outside);
+List *tr_leaf_names(TreeNode *tree);
 
 #endif 
