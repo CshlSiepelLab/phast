@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.12 2004-08-05 07:15:04 acs Exp $
+/* $Id: msa.h,v 1.13 2004-08-14 04:02:27 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -170,5 +170,6 @@ void msa_remove_N_from_alph(MSA *msa);
 void msa_find_noaln(MSA *msa, int refseqidx, int min_block_size, int *noaln);
 int msa_missing_col(MSA *msa, int ref, int pos);
 List *msa_seq_indices(MSA *msa, List *seqnames);
+void msa_mask_macro_indels(MSA *msa, int k);
 
 #endif

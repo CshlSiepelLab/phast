@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.27 2004-08-05 07:15:04 acs Exp $
+/* $Id: msa.c,v 1.28 2004-08-14 04:02:27 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1963,4 +1963,45 @@ List *msa_seq_indices(MSA *msa, List *seqnames) {
     }
   }
   return retval;
+}
+
+/** Mask out all alignment gaps of length greater than k by changing
+    gap characters to missing data characters.  Useful when modeling
+    micro-indels.  Warning: if MSA is stored only in terms of
+    sufficient statistics, an explicit alignment will be created */
+void msa_mask_macro_indels(MSA *msa, int k) {
+  int seq;
+  
+  if (msa->seqs == NULL && (msa->ss == NULL || msa->ss->tuple_idx == NULL))
+    die("ERROR: ordered alignment required for msa_mask_macro_indels.\n");
+
+  if (msa->seqs == NULL) ss_to_msa(msa);
+
+  for (seq = 0; seq < msa->nseqs; seq++) {
+    int i, j, len = 0, prev_is_gap = FALSE;
+    for (i = 0; i < msa->length; i++) {
+      if (msa->seqs[seq][i] == GAP_CHAR) { /* gap open or extension */
+        len++; 
+        if (!prev_is_gap) prev_is_gap = TRUE;
+      }
+      else if (prev_is_gap) {   /* gap close */
+        if (len > k)
+          for (j = i - len; j < i; j++) 
+            msa->seqs[seq][j] = msa->is_missing[0];
+        len = 0;
+        prev_is_gap = FALSE;
+      }
+    }
+    if (prev_is_gap && len > k) /* long gap at end */ 
+      for (j = i - len; j < i; j++) 
+        msa->seqs[seq][j] = msa->is_missing[0];
+  }
+
+  if (msa->ss != NULL) {        /* have to rebuild; beware of stale
+                                   pointers to old version */
+    int tuple_size = msa->ss->tuple_size;
+    ss_free(msa->ss);
+    msa->ss = NULL;
+    ss_from_msas(msa, tuple_size, TRUE, NULL, NULL, NULL, -1);
+  }
 }
