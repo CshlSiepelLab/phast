@@ -1,7 +1,7 @@
 /* hmm_train - estimation of HMM transition probabilities from labeled
    training data */
 
-/* $Id: hmm_train.c,v 1.7 2004-07-27 21:02:11 acs Exp $
+/* $Id: hmm_train.c,v 1.8 2004-08-10 22:12:18 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -181,9 +181,8 @@ int main(int argc, char* argv[]) {
            lst_size(msa_fname_list));
 
   if (model_indels_str != NULL) {
-    gpm = gp_create_gapcats(cm, model_indels_str, 
-                            indel_nseqs > 0 ? indel_nseqs :
-                            (tree->nnodes+1)/2); /* note: no alignment yet */
+    assert(tree != NULL);       /* FIXME: indel_ncats broken */
+    gpm = gp_create_gapcats(cm, model_indels_str, tree); 
     ncats = cm->ncats + 1;    /* numbers will change */ 
     ncats_unspooled = cm->unspooler == NULL ? ncats : 
       cm->unspooler->nstates_unspooled;
@@ -230,7 +229,7 @@ int main(int argc, char* argv[]) {
       if (!quiet_mode)
         fprintf(stderr, "Obtaining gap patterns ...\n");
       msa_gap_patterns = smalloc(msa->length * sizeof(int));
-      gp_set_phylo_patterns(msa_gap_patterns, msa, tree);
+      gp_set_phylo_patterns(gpm, msa_gap_patterns, msa);
     }
 
     /* at this point, we don't actually need the alignment anymore;
