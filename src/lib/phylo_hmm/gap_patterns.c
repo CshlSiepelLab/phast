@@ -1,4 +1,4 @@
-/* $Id: gap_patterns.c,v 1.3 2004-08-11 20:47:05 acs Exp $
+/* $Id: gap_patterns.c,v 1.4 2004-08-11 20:54:46 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -477,10 +477,6 @@ void gp_tuple_matches_pattern(GapPatternMap *gpm, MSA *msa, int pattern,
       }
     }
   }
-
-  printf("matches for pattern #%d: ", pattern);
-  for (i = 0; i < msa->ss->ntuples; i++)
-    if (matches[i]) printf("%d ", i);
 
   free(leaf_to_seq);
   lst_free(active_seqs);
