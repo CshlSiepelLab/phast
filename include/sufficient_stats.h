@@ -1,0 +1,163 @@
+/* sufficient_stats.h - Representation of multiple alignments in terms of their sufficient statistics */
+
+/*   
+   $Id: sufficient_stats.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+   Written by Adam Siepel, 2002
+   Copyright 2002, Adam Siepel, University of California 
+*/
+
+#ifndef MSA_SS_H
+#define MSA_SS_H
+
+#include "hashtable.h"
+#include "lists.h"
+#include "msa.h"
+#include "assert.h"
+
+/* sufficient statistics for an alignment */
+/* for now, allow only one tuple_size per object */
+struct msa_ss_struct {
+  int tuple_size;               /* number of adjacent columns to
+                                   consider as a 'column tuple' */
+  int ntuples;                  /* number of distinct tuples */
+  char **col_tuples;            /* the actual column tuples;
+                                   col_tuples[i] is string of length
+                                   msa->nseqs * tuple_size */
+  int *tuple_idx;               /* defines order of column tuples in
+                                   alignment; tuple_idx[i] is the
+                                   index in col_tuples of the tuple
+                                   that appears at position i of the
+                                   MSA */
+  double *counts;
+  double **cat_counts;
+  MSA *msa;                     /* parent alignment */
+  int shared_col_tuples;        /* indicates col_tuples array is shared */
+  int alloc_len, alloc_ntuples; /* for ss_realloc */
+};
+
+typedef struct msa_ss_struct MSA_SS; /* note: declared as an
+                                        incomplete type in "msa.h" */
+
+/* a set of multiple alignments, whose statistics are "pooled" (e.g.,
+   to serve as a training set for a combined phylogenetic and hidden
+   Markov model).  The (unordered) sufficient stats for the pool will
+   be in pooled_msa->ss, and the (possibly ordered) sufficient stats
+   for the individual alignments will remain in the 'ss' attributes of
+   the source MSAs.  All MSAs (source and pooled) will use the same
+   'col_tuples' array. */
+typedef struct {
+  MSA *pooled_msa;              /* contains pooled statistics */
+  List *source_msas;            /* elements expected to be pointers to MSAs */
+  int *lens;                    /* length of each alignment */
+  int **tuple_idx_map;          /* mapping from tuple indices of
+                                   source msas to those of pooled msa */
+} PooledMSA;
+
+void ss_from_msas(MSA *msa, int tuple_size, int store_order, 
+                  List *cats_to_do, MSA *source_msa, 
+                  Hashtable *existing_hash, int idx_offset);
+PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size, 
+                               int ncats, List *cats_to_do);
+void ss_free_pooled_msa(PooledMSA *pmsa);
+MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
+                             List *seqnames, char *alphabet, int tuple_size, 
+                             List *cats_to_do, int cds_mode);
+void ss_to_msa(MSA *msa);
+void msa_read_AXT(MSA *msa, List *axt_fnames);
+void ss_write(MSA *msa, FILE *F, int show_order);
+MSA* ss_read(FILE *F);
+void ss_free(MSA_SS *ss);
+void ss_update_categories(MSA *msa);
+void ss_new(MSA *msa, int tuple_size, int max_ntuples, int do_cats, 
+            int store_order);
+void ss_realloc(MSA *msa, int tuple_size, int max_ntuples, int do_cats, 
+                int store_order);
+void ss_compact(MSA_SS *ss);
+MSA* ss_alt_msa(MSA *orig_msa, int new_tuple_size, int store_order, 
+                int col_offset);
+MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list, 
+                      int start_col, int end_col);
+void ss_reverse_compl(MSA *msa);
+void ss_reorder_rows(MSA *msa, int *new_to_old, int new_nseqs);
+
+
+/* Produce a string representation of an alignment column tuple, given
+   the model order; str must be allocated externally to size
+   msa->nseqs * (tuple_size) + 1 */
+extern inline 
+void col_to_string(char *str, MSA *msa, int col, int tuple_size) {
+  int col_offset, j;
+  for (col_offset = -1 * (tuple_size-1); col_offset <= 0; col_offset++) 
+  for (j = 0; j < msa->nseqs; j++) 
+    str[msa->nseqs*(tuple_size-1 + col_offset) + j] = 
+      (col+col_offset >= 0 ? msa->seqs[j][col+col_offset] : GAP_CHAR);
+  str[msa->nseqs*tuple_size] = '\0';
+}
+
+/* Given a string representation of a column tuple, return the
+   character corresponding to the specified sequence and column.  Here
+   sequence indexing begins with 0.  The index 'col_offset' is defined
+   relative to the last column in the tuple.  Specifically, if
+   col_offset == 0 then the last column is considered, if col_offset
+   == -1 then the preceding one is considered, and so on. */
+extern inline 
+char col_string_to_char(MSA *msa, char *str, int seqidx, int tuple_size, int col_offset) {
+  return str[msa->nseqs*(tuple_size-1+col_offset) + seqidx];
+                                /* FIXME: WRONG */
+}
+
+extern inline
+void set_col_char_in_string(MSA *msa, char *str, int seqidx, int tuple_size, int col_offset, char c) {
+  str[msa->nseqs*(tuple_size-1+col_offset) + seqidx] = c;
+}
+
+/* return character for specified sequence given index of tuple */
+extern inline
+char ss_get_char_tuple(MSA *msa, int tupleidx, int seqidx, 
+                       int col_offset) {
+  return col_string_to_char(msa, msa->ss->col_tuples[tupleidx], seqidx, 
+                            msa->ss->tuple_size, col_offset);
+}
+
+/* return character for specified sequence at specified alignment
+   position; requires representation of column order */
+extern inline
+char ss_get_char_pos(MSA *msa, int position, int seqidx,
+                     int col_offset) {
+  assert(msa->ss->tuple_idx != NULL);
+  return col_string_to_char(msa, 
+                            msa->ss->col_tuples[msa->ss->tuple_idx[position]], 
+                            seqidx, msa->ss->tuple_size, col_offset);
+}
+
+/* Produce a printable representation of the specified tuple.  Strings
+   representing each column will be separated by spaces */
+extern inline
+void tuple_to_string_pretty(char *str, MSA *msa, int tupleidx) {
+  int stridx = 0, offset, j;
+  for (offset = -1 * (msa->ss->tuple_size-1); offset <= 0; offset++) {
+    for (j = 0; j < msa->nseqs; j++) {
+      str[stridx++] = col_string_to_char(msa, msa->ss->col_tuples[tupleidx], 
+                                         j, msa->ss->tuple_size, offset);
+    }
+    if (offset < 0) str[stridx++] = ' ';
+  }
+  str[stridx] = '\0';
+}
+
+/* fill out 'tuplestr' with tuple of characters present in specified
+   sequence and column tuple; tuplestr must be allocated to at least
+   tuple_size (null terminator will not be added, but if present will
+   be left unchanged). */
+extern inline
+void ss_get_tuple_of_chars(MSA *msa, int tupleidx, int seqidx, 
+                           char *tuplestr) {
+  int offset;
+  for (offset = -1 * (msa->ss->tuple_size-1); offset <= 0; offset++) {
+    tuplestr[msa->ss->tuple_size + offset - 1] = 
+      col_string_to_char(msa, msa->ss->col_tuples[tupleidx], 
+                         seqidx, msa->ss->tuple_size, offset);
+  }
+}
+
+#endif
