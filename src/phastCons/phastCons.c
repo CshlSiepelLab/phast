@@ -9,7 +9,7 @@
 #include <dgamma.h>
 #include <tree_likelihoods.h>
 
-#define DEFAULT_CONSERVED_SCALE 0.5
+#define DEFAULT_CONSERVED_SCALE 0.3
 
 /* functions implemented below and used internally */
 void setup_rates_cut(HMM **hmm, CategoryMap **cm, double p, double q);
@@ -235,7 +235,7 @@ OPTIONS:\n\
         (overall evolutionary rate) of the model for the conserved\n\
         state to be <scale_factor> times that of the model for the\n\
         non-conserved state.  The parameter <scale_factor> must be\n\
-        between 0 and 1; default is 0.5.  If used with\n\
+        between 0 and 1; default is 0.3.  If used with\n\
         --estimate-trees, the specified value will be used for\n\
         initialization only (the scale factor will be estimated).\n\
         This option is ignored if two tree models are given.\n\
@@ -776,7 +776,8 @@ int main(int argc, char *argv[]) {
     if (!quiet)
       fprintf(stderr, "Reading tree model from %s...\n", fname->chars);
     mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"));
-    mod[i]->use_conditionals = 1; 
+    mod[i]->use_conditionals = 1;     
+    tm_prune(mod[i], msa, !quiet); /* prune away extra species, if possible */
   }
 
   /* initial checks and setup of tree models with two-state and
@@ -809,10 +810,6 @@ int main(int argc, char *argv[]) {
       die("ERROR: can't use --nrates with nonparameteric rate model.\n");
     if (nrates == -1) nrates = mod[0]->nratecats;
   }
-
-  /* prune away extra species, if possible */
-  for (i = 0; i < lst_size(mod_fname_list); i++)
-    tm_prune(mod[i], msa, !quiet);
 
   /* use file name root for default seqname */
   if (viterbi_f != NULL && (seqname == NULL || idpref == NULL)) {
