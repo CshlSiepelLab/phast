@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.5 2004-06-18 00:12:26 acs Exp $ 
+/* $Id: trees.c,v 1.6 2004-06-18 15:14:20 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -798,7 +798,7 @@ TreeNode *tr_get_node(TreeNode *t, char *name) {
 void tr_number_leaves(TreeNode *t, char **names, int nnames) {
   int i, j;
   char *endptr;
-  for (i = 0; i < lst_size(t->nodes); i++) {
+  for (i = 0; i < t->nnodes; i++) {
     TreeNode *n = lst_get_ptr(t->nodes, i);
     if (strlen(n->name) > 0) {
       strtol(n->name, &endptr, 0);
