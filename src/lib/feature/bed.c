@@ -1,4 +1,4 @@
-/* $Id: bed.c,v 1.4 2004-06-14 22:52:16 acs Exp $
+/* $Id: bed.c,v 1.5 2004-06-18 21:00:20 acs Exp $
    Written by Adam Siepel, 2004
    Copyright 2004, Adam Siepel, University of California */
 
@@ -48,8 +48,7 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
       }
       if (lst_size(l) >= 4) bed_name = lst_get_ptr(l, 3);
       if (lst_size(l) >= 5) {
-        if ((str_as_int(lst_get_ptr(l, 4), &score) != 0 || 
-           score < 0 || score > 1000)) 
+        if ((str_as_int(lst_get_ptr(l, 4), &score) != 0))
           error = 1;
         score_is_null = 0;
       }
