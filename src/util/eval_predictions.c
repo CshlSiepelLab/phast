@@ -1,4 +1,4 @@
-/* $Id: eval_predictions.c,v 1.8 2004-07-24 17:55:46 acs Exp $
+/* $Id: eval_predictions.c,v 1.9 2004-07-25 20:53:47 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -67,7 +67,11 @@ Options:\n\
         Columns will be labeled \"NCa\" and \"NCp\".\n\
 \n\
     -h\n\
-        Print this help message.\n\n");  
+        Print this help message.\n\
+\n\
+\n\
+NOTE: be sure stop codons are included in CDSs in both the predicted\n\
+and real sets, or in neither set.\n\n");  
 } 
 
 int is_exon(GFF_Feature *feat, List *l) {
@@ -309,11 +313,6 @@ int main(int argc, char* argv[]) {
     fclose(F);
 
     seqlen = lst_get_int(seq_len_list, nfile);
-
-    gff_exon_group(gff_real, "exon_id"); /* needed for gff_fix_stops */
-    gff_exon_group(gff_pred, "exon_id");
-    gff_fix_stops(gff_real, GFF_CDS_TYPE, GFF_STOP_TYPE);
-    gff_fix_stops(gff_pred, GFF_CDS_TYPE, GFF_STOP_TYPE);
 
     /* sort ungrouped -- only cds exons will be considered, and each
        one will be considered individually */
