@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.4 2004-06-05 06:28:55 acs Exp $
+/* $Id: clean_genes.c,v 1.5 2004-06-05 06:53:07 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -94,7 +94,7 @@ OPTIONS:        \n\
         Require that no premature stop codon is present in any species.\n\
 \n\
     --conserved, -c\n\
-        Implies --start, --stop, --splice, --fshift, and --nonsense.  
+        Implies --start, --stop, --splice, --fshift, and --nonsense.\n\
         Recommended option for cross-species analysis.\n\
 \n\
     --clean-gaps, -e\n\
@@ -562,7 +562,7 @@ int are_introns_okay(List *intron_splice,  MSA *msa, GFF_Feature **bad_feat,
       i++;                      /* no need to look at next one */
     }
   }
-  return 0;
+  return 1;
 }
 
 
