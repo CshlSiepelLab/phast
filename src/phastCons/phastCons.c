@@ -592,7 +592,7 @@ int main(int argc, char *argv[]) {
 
   /* other vars */
   char c;
-  int opt_idx, i, j;
+  int opt_idx, i, j, last;
   List *tmpl = NULL;
   MSA *msa = NULL;
   double lnl = INFTY;
@@ -1126,10 +1126,16 @@ int main(int argc, char *argv[]) {
     postprobs = phmm_postprobs_cats(phmm, states, &lnl);
 
     /* print to stdout */
+    last = -INFTY;
     for (j = 0, k = 0; j < msa->length; j++) {
       if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
-        if (!msa_missing_col(msa, refidx, j))
-          printf("%d\t%.4f\n", k + msa->idx_offset + 1, postprobs[j]);
+        if (!msa_missing_col(msa, refidx, j)) {
+	  if (k > last + 1) 
+	    printf("fixedStep chrom=%s start=%d step=1\n", seqname, 
+		   k + msa->idx_offset + 1);
+          printf("%.3f\n", postprobs[j]);
+	  last = k;
+	}
         k++;
       }
     }
