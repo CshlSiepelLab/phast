@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.9 2004-06-18 23:01:04 acs Exp $
+/* $Id: msa.c,v 1.10 2004-06-21 19:50:58 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -266,11 +266,6 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
     str_double_trim(line);
     if (line->length == 0) continue;
 
-    for (i = 0; i < line->length; i++) {
-      line->chars[i] = toupper(line->chars[i]);
-      if (line->chars[i] == '.') line->chars[i] = GAP_CHAR;
-    }
-
     if (new_str == NULL) 
       die("ERROR in FASTA file: non-blank line preceding first description ('>') line.\n");
 
@@ -305,11 +300,18 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
 
     s = (String*)lst_get_ptr(seqs, i);
     msa->seqs[i] = (char*)smalloc((maxlen + 1) * sizeof(char));
-    strcpy(msa->seqs[i], s->chars);
+
+    /* scan chars and adjust if necessary */
+    for (j = 0; j < s->length; j++) {
+      msa->seqs[i][j] = toupper(s->chars[j]);
+      if (msa->seqs[i][j] == '.') msa->seqs[i][j] = GAP_CHAR;
+      if (isalpha(msa->seqs[i][j]) && msa->inv_alphabet[(int)msa->seqs[i][j]] == -1)
+        msa->seqs[i][j] = 'N';
+                                /* for now, just assume 'N' if unrecognized letter */
+    }
+
     str_free(s);
   }  
-
-  /* TODO: check against alphabet */
 
   lst_free(names);
   lst_free(seqs);
