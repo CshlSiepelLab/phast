@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.6 2004-06-29 23:00:17 acs Exp $
+/* $Id: phylo_hmm.c,v 1.7 2004-06-29 23:57:39 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -40,15 +40,13 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
                                    Allows for prediction on both
                                    strands (see hmm_reverse_compl).
                                    Pass NULL for no reflection */
-                   List *indel_cats, 
-                                /**< Categories (by name or number)
-                                   for which to model indels.  Pass
-                                   NULL for no indel model.  */
+                   int indels, 
+                                /**< Whether to use indel model. */
                    int nseqs    /**< Number of sequences to be used.
-                                   Requied for indel modeling, ignored
-                                   if indel_cats == NULL. */
+                                   Required for indel modeling, ignored
+                                   if indels == FALSE. */
                    ) { 
-  int max_nstates, s, cat;
+  int max_nstates, s, cat, j;
 
   PhyloHmm *phmm = smalloc(sizeof(PhyloHmm));
   GapPatternMap *gpm = NULL;
@@ -64,7 +62,7 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
   if (cm != NULL)
     phmm->cm = cm_create_copy(cm);
   else {
-    if (indel_cats != NULL) 
+    if (indels) 
       die("ERROR: must pass non-NULL category map if using indel model");
                                 /* would get a little tricky without a cm */
     phmm->cm = cm_create_trivial(phmm->hmm->nstates-1, "model_");
@@ -81,7 +79,7 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
   phmm->forward = NULL;
   phmm->alloc_len = -1;
   phmm->state_pos = phmm->state_neg = NULL;
-  phmm->do_indels = (indel_cats != NULL);
+  phmm->do_indels = indels;
   phmm->topology = NULL;
 
   /* make sure tree models all have trees and all have the same number
@@ -116,10 +114,23 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
      "spooled" categories and models; with indel cats, multiple
      spooled gap categories map to the same model */
 
-  if (indel_cats != NULL) 
+  if (indels) {
     /* start by enlarging catmap to allows for gap cats, and creating
        mappings between cats and gapcats */
-    gpm = gp_create_gapcats(phmm->cm, indel_cats, nseqs);
+    /* need to pass gp_create_gapcats the feature types in question --
+       we'll use all except the ones for which gaps are completely
+       prohibited (i.e., in all categories in range) */
+    List *indel_types = lst_new_ptr(phmm->cm->ncats+1);
+    for (cat = 0; cat <= phmm->cm->ncats; ) {
+      int allow_gaps = FALSE;
+      for (j = cat; !allow_gaps && j <= phmm->cm->ranges[cat]->end_cat_no; j++)
+        if (phmm->mods[j]->allow_gaps) allow_gaps = TRUE;
+      if (allow_gaps) lst_push_ptr(indel_types, cm_get_feature(phmm->cm, cat));
+      cat = phmm->cm->ranges[cat]->end_cat_no + 1;
+    }
+    gpm = gp_create_gapcats(phmm->cm, indel_types, nseqs);
+    lst_free(indel_types);
+  }
 
   /* now the number of unspooled categories should equal the number of
      states in the HMM */
@@ -139,7 +150,7 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
 
     /* in both cases below, 'cat' is the spooled ordinary (non-gap)
        category corresponding to state s */
-    if (indel_cats == NULL) 
+    if (!indels) 
       cat = (phmm->cm->unspooler == NULL ? s : 
              phmm->cm->unspooler->unspooled_to_spooled[s]);
     else {

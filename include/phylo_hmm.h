@@ -47,7 +47,7 @@ typedef struct {
 } PhyloHmm;
 
 PhyloHmm *phmm_new(HMM *hmm, TreeModel **tree_models, CategoryMap *cm, 
-                   List *pivot_cats, List *indel_cats, int nseqs);
+                   List *pivot_cats, int indels, int nseqs);
 void phmm_reflect_hmm(PhyloHmm *phmm, List *pivot_cats);
 void phmm_create_autocorr_hmm(HMM *hmm, double lambda);
 void phmm_rates_cross(PhyloHmm *phmm, int nratecats, double lambda, 

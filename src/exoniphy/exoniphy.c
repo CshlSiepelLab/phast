@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.11 2004-06-29 23:00:17 acs Exp $
+/* $Id: exoniphy.c,v 1.12 2004-06-29 23:57:39 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -134,13 +134,8 @@ OPTIONS:\n\
         the CDS feature.\n\
 \n\
  (Indels and G+C content)\n\
-    --indel-types, -I <list>\n\
-        Model indels for features of the specified types.  To have\n\
-        nonzero probability for the states corresponding to a\n\
-        specified category range, indels must be \"clean\"\n\
-        (nonoverlapping), must be assignable by parsimony to a single\n\
-        branch in the phylogenetic tree, and must have lengths that\n\
-        are exact multiples of the category range size.\n\
+    --indels, -I\n\
+        Use the indel model described in Siepel & Haussler (2004).\n\
 \n\
     --no-gaps, -W <list>\n\
         Prohibit gaps in the specified categories (gaps result in\n\
@@ -175,11 +170,10 @@ int main(int argc, char* argv[]) {
 
   /* variables for options, with defaults */
   int msa_format = FASTA;
-  int quiet = FALSE, reflect_hmm = FALSE, score = FALSE;
+  int quiet = FALSE, reflect_hmm = FALSE, score = FALSE, indels = FALSE;
   double bias = NEGINFTY;
   char *seqname = NULL, *grouptag = "exon_id", *sens_spec_fname_root = NULL;
-  List *model_fname_list = NULL, *no_gaps_str = NULL, *model_indels_str = NULL,
-    *gc_thresholds = NULL;
+  List *model_fname_list = NULL, *no_gaps_str = NULL, *gc_thresholds = NULL;
   List *backgd_cats = get_arg_list(DEFAULT_BACKGD_CATS), 
     *cds_cats = get_arg_list(DEFAULT_CDS_CATS), 
     *signal_cats = get_arg_list(DEFAULT_SIGNAL_CATS);
@@ -198,7 +192,7 @@ int main(int argc, char* argv[]) {
     {"cds-types", 1, 0, 'C'},
     {"backgd-types", 1, 0, 'B'},
     {"signal-types", 1, 0, 'L'},
-    {"indel-types", 1, 0, 'I'},
+    {"indels", 0, 0, 'I'},
     {"no-gaps", 1, 0, 'W'},
     {"gc-ranges", 1, 0, 'D'},
     {"quiet", 0, 0, 'q'},
@@ -218,7 +212,7 @@ int main(int argc, char* argv[]) {
   double gc;
   char tmpstr[STR_SHORT_LEN];
 
-  while ((c = getopt_long(argc, argv, "i:c:H:m:s:g:B:T:L:I:W:b:D:SYUhq", 
+  while ((c = getopt_long(argc, argv, "i:c:H:m:s:g:B:T:L:IW:b:D:SYUhq", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
@@ -232,7 +226,6 @@ int main(int argc, char* argv[]) {
       model_fname_list = get_arg_list(optarg);
       break;
     case 'H':
-      if (!quiet) fprintf(stderr, "Reading HMM from %s...", optarg);
       hmm = hmm_new_from_file(fopen_fname(optarg, "r"));
       break;
     case 'U':
@@ -263,7 +256,7 @@ int main(int argc, char* argv[]) {
       no_gaps_str = get_arg_list(optarg);
       break;
     case 'I':
-      model_indels_str = get_arg_list(optarg);
+      indels = TRUE;
       break;
     case 'D':
       gc_thresholds = str_list_as_dbl(get_arg_list(optarg));
@@ -367,8 +360,6 @@ int main(int argc, char* argv[]) {
   mod = (TreeModel**)smalloc(sizeof(TreeModel*) * ncats);
   for (i = 0; i < ncats; i++) {
     String *fname = (String*)lst_get_ptr(model_fname_list, i);
-    if (!quiet)
-      fprintf(stderr, "Reading tree model from %s ...\n", fname->chars);
     F = fopen_fname(fname->chars, "r");
     mod[i] = tm_new_from_file(F); 
     mod[i]->use_conditionals = 1;
@@ -379,12 +370,12 @@ int main(int argc, char* argv[]) {
   if (no_gaps_str != NULL) {
     List *l = cm_get_category_list(cm, no_gaps_str, 0);
     for (i = 0; i < lst_size(l); i++) 
-      mod[lst_get_int(l, i)]->allow_gaps = 0;
+      mod[lst_get_int(l, i)]->allow_gaps = FALSE;
     lst_free(l);
   }      
 
   phmm = phmm_new(hmm, mod, cm, reflect_hmm ? backgd_cats : NULL, 
-                  model_indels_str, msa->nseqs);
+                  indels, msa->nseqs);
 
   /* add bias, if necessary */
   if (bias != NEGINFTY) phmm_add_bias(phmm, backgd_cats, bias);

@@ -506,7 +506,7 @@ int main(int argc, char *argv[]) {
   }
 
   /* set up PhyloHmm */
-  phmm = phmm_new(hmm, mod, NULL, pivot_states, NULL, -1);
+  phmm = phmm_new(hmm, mod, NULL, pivot_states, FALSE, -1);
 
   if (rates_cross) {
     if (!quiet) 
