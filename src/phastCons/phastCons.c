@@ -7,9 +7,9 @@
 #include <bed.h>
 #include <dgamma.h>
 
-/* default value of lambda, used with --rates-cross */
+/* default starting value of lambda, used with --rates-cross */
 #define DEFAULT_LAMBDA 0.9
-/* default values of p and q, used with two-state model */
+/* default starting values of p and q, used with two-state model */
 #define DEFAULT_P 0.01
 #define DEFAULT_Q 0.01
 
@@ -64,7 +64,7 @@ DESCRIPTION:\n\
     and three states for the three codon positions), and specifying\n\
     the coding states via --states, you can obtain posterior\n\
     probabilities that can be interpreted as a measure of \"coding\n\
-    potential (see --coding-potential).\"\n\
+    potential\" (see --coding-potential).\n\
 \n\
 EXAMPLES:\n\
 \n\
