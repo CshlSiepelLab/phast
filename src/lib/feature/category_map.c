@@ -1,4 +1,4 @@
-/* $Id: category_map.c,v 1.7 2004-06-30 17:01:21 acs Exp $
+/* $Id: category_map.c,v 1.8 2004-06-30 17:44:36 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -607,9 +607,8 @@ void cm_add_feature_type(CategoryMap *cm, String *type, int cycle_size) {
 }
 
 /** Create a GFF_Set from a sequence of category/state numbers, using
-   a specified category map and mapping from raw state numbers to category numbers.  
-   Parameter 'grouptag' will be used as the tag for feature ids
-   (may be NULL). */
+   a specified category map and mapping from raw state numbers to
+   category numbers.  */
 GFF_Set *cm_labeling_as_gff(CategoryMap *cm, 
                                 /**< CategoryMap to use in mapping */
                             int *path, 
@@ -676,14 +675,17 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm,
     lastframe = do_frame[lastcat] ? 
       path_to_cat[path[i]] - lastcat : GFF_NULL_FRAME;
 
-    beg = i + 1;                /* note offset */
+    /* scan ahead until enter new category range (or reach end of seq) */
+    beg = i + 1;                /* begin of feature (GFF coords) */
     for (i++; i < length && 
            cm->ranges[path_to_cat[path[i]]]->start_cat_no == lastcat; i++);
-    end = i;                    /* offset (i - 1 + 1) */
+    end = i;                    /* end of feature (GFF coords) */
 
+    /* if minus strand, adjust frame to reflect end */
     if (laststrand == '-' && do_frame[lastcat]) 
       lastframe = path_to_cat[path[i-1]] - lastcat;
 
+    /* if legitimate feature (non-background), then incorp into GFF_Set */
     if (lastcat != 0 || !ignore_0) {
       String *type = cm_get_feature(cm, lastcat);
 
