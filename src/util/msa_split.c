@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.6 2004-06-18 19:15:24 acs Exp $
+/* $Id: msa_split.c,v 1.7 2004-06-18 19:38:10 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -78,7 +78,7 @@ Options:\n\
         Split according to category labels, as defined by category map\n\
         and GFF file.  For use with -g.\n\
 \n\
-    -F <fname>
+    -F <fname>\n\
         Extract the section of the alignment corresponding to every\n\
         feature in <fname> (GFF or BED format).\n\
 \n\
@@ -103,7 +103,7 @@ Options:\n\
         gaps, or gaps in the specified sequence (<seqno>; indexing\n\
         begins with one).  Default is not to strip any columns.\n\
 \n\
-\n\ -l <seq_list>\n\
+ -l <seq_list>\n\
         Include only specified sequences in output.  Indicate by \n\
         sequence number, number starts with 1.\n\
 \n\
@@ -157,7 +157,7 @@ Options:\n\
         Print this help message.\n\n", NSITES_BETWEEN_BLOCKS);
 }
 
-void write_sub_msa(MSA *submsa, char *fname_root, int idx, 
+void write_sub_msa(MSA *submsa, char *fname_root, int idx,
                    msa_format_type output_format, int tuple_size, 
                    int ordered_stats) {
   String *outfname = str_new(STR_MED_LEN);
@@ -365,7 +365,7 @@ int main(int argc, char* argv[]) {
   msa_coord_map *map = NULL;
   CategoryMap *cm = NULL;
 
-  while ((c = getopt(argc, argv, "i:M:g:c:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:F:Szqh")) != -1) {
+  while ((c = getopt(argc, argv, "i:M:g:c:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:F:l:Szqh")) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
@@ -423,6 +423,7 @@ int main(int argc, char* argv[]) {
       seqlist = get_arg_list_int(optarg);
       for (i = 0; i < lst_size(seqlist); i++) 
         lst_set_int(seqlist, i, lst_get_int(seqlist, i) - 1);
+      break;
     case 'r':
       out_fname_root = optarg;
       break;
@@ -555,9 +556,9 @@ int main(int argc, char* argv[]) {
   if (partition_frame != 0) 
     map = msa_build_coord_map(msa, partition_frame);
 
-  lst_push_int(split_indices_list, map != NULL ? 
-               msa_map_seq_to_msa(map, 1) : 1); 
-                                /* always include 1st index */
+  if (coord_feats == NULL)
+    lst_push_int(split_indices_list, map != NULL ? 
+                 msa_map_seq_to_msa(map, 1) : 1); 
 
   if (split_indices_str != NULL) {
     List *l = lst_new_ptr(10);
