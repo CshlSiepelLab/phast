@@ -7,9 +7,6 @@
 #include <bed.h>
 #include <dgamma.h>
 
-#define MIN_BLOCK_SIZE 30
-/* defines block size for -x option */
-
 /* default value of lambda, used with --rates-cross */
 #define DEFAULT_LAMBDA 0.9
 /* default values of p and q, used with --rates-cut */
@@ -253,13 +250,6 @@ OPTIONS:\n\
         Viterbi path or likelihood is of interest (saves computation\n\
         time and disk space).\n\
 \n\
-    --suppress-missing, -x\n\
-        Suppress posterior probabilities where cross-species alignment\n\
-        data does not appear to be available.  The heuristic used is\n\
-        to consider blocks of %d or more sites in which only the\n\
-        reference sequence is present (as determined by --refidx) to\n\
-        be regions of \"missing data\".\n\
-\n\
     --log, -g <log_fname>\n\
         (Optionally use when estimating transition probabilities)\n\
         Write log of optimization procedure to specified file.\n\
@@ -309,7 +299,7 @@ REFERENCES:\n\
 \n\
     Z. Yang. 1994. Maximum likelihood phylogenetic estimation from\n\
       DNA sequences with variable rates over sites: approximate\n\
-      methods. J. Mol. Evol., 39:306-314.\n\n", prog, prog, MIN_BLOCK_SIZE);
+      methods. J. Mol. Evol., 39:306-314.\n\n", prog, prog);
 
   exit(0);
 }
@@ -334,7 +324,7 @@ void collapse_cats(CategoryMap *cm, List *cats_to_merge) {
 int main(int argc, char *argv[]) {
 
   /* arguments and defaults */
-  int post_probs = TRUE, no_missing = FALSE, score = FALSE, quiet = FALSE, 
+  int post_probs = TRUE, score = FALSE, quiet = FALSE, 
     gff = FALSE, rates_cross = FALSE, estim_lambda = TRUE, 
     estim_transitions = TRUE, two_state = TRUE, indels = FALSE;
   int nrates = -1, rates_cut_idx = 1, refidx = 1;
@@ -358,7 +348,7 @@ int main(int argc, char *argv[]) {
     {"nrates", 1, 0, 'k'},
     {"log", 1, 0, 'g'},
     {"refidx", 1, 0, 'r'},
-    {"suppress-missing", 0, 0, 'x'},
+    {"suppress-missing", 0, 0, 'x'}, /* for backward compatibility */
     {"reflect-strand", 1, 0, 'U'},
     {"catmap", 1, 0, 'c'},
     {"indels", 0, 0, 'I'},
@@ -438,7 +428,7 @@ int main(int argc, char *argv[]) {
       refidx = get_arg_int_bounds(optarg, 0, INFTY);
       break;
     case 'x':
-      no_missing = TRUE;
+      /* do nothing; left in for backward compatibility */
       break;
     case 'U':
       pivot_states = get_arg_list(optarg); /* we want strings not ints
@@ -629,23 +619,16 @@ int main(int argc, char *argv[]) {
   if (post_probs) {
     int j, k;
     double *postprobs;
-    int *missing;
 
     if (!quiet) fprintf(stderr, "Computing posterior probabilities...\n");
 
     postprobs = phmm_postprobs_cats(phmm, states, &lnl);
     /* note that selected state numbers are also cat numbers  */
 
-    /* check for missing data, if necessary */
-    if (no_missing) {
-      missing = smalloc(msa->length * sizeof(int));
-      msa_find_noaln(msa, refidx, MIN_BLOCK_SIZE, missing);
-    }
-
     /* print to stdout */
     for (j = 0, k = 0; j < msa->length; j++) {
       if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
-        if (!no_missing || !missing[j]) 
+        if (!msa_missing_col(msa, 1, j))
           printf("%d\t%.4f\n", k + msa->idx_offset + 1, postprobs[j]);
         k++;
       }

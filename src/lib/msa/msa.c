@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.22 2004-07-28 17:24:38 acs Exp $
+/* $Id: msa.c,v 1.23 2004-07-28 21:08:13 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1910,19 +1910,6 @@ void msa_remove_N_from_alph(MSA *msa) {
   msa->alphabet[j] = '\0';
 }
 
-/* returns 1 if alignment has gaps in all seqs but the reference seq at
-   specified position; otherwise returns 0 */
-int msa_all_gaps_but_ref(MSA *msa, int pos, int ref) {
-  int i;
-  if (msa_get_char(msa, ref-1, pos) == GAP_CHAR) return 0;
-  for (i = 0; i < msa->nseqs; i++) {
-    if (i == ref-1) continue;
-    if (msa_get_char(msa, i, pos) != GAP_CHAR)
-      return 0;
-  }
-  return 1;
-}
-
 /* for use with a reference-sequence alignment: find sites in the
    multiple alignment which consist only of the reference sequence,
    and appear to have no real alignment information.  These are taken
@@ -1931,13 +1918,15 @@ int msa_all_gaps_but_ref(MSA *msa, int pos, int ref) {
    other sequences.  The array 'missing' will be filled in with 1s
    (indicating no alignment information) or 0s.  It must be
    preallocated to size msa->length.  An ordered representation of the
-   alignment is required. */
+   alignment is required.  NOTE: this routine now can typically be
+   replaced by the simpler one below, because of better handling of
+   missing data */
 void msa_find_noaln(MSA *msa, int refseqidx, int min_block_size, int *noaln) {
   int j, k, run_start = -1, allbutref;
   assert(msa->seqs != NULL || (msa->ss != NULL && msa->ss->tuple_idx != NULL));
   for (j = 0; j < msa->length; j++) {
     noaln[j] = 0; 
-    allbutref = msa_all_gaps_but_ref(msa, j, refseqidx);
+    allbutref = msa_missing_col(msa, refseqidx, j);
     if (run_start == -1 && allbutref)
       run_start = j;
     else if (run_start >= 0 && !allbutref) {
@@ -1948,6 +1937,17 @@ void msa_find_noaln(MSA *msa, int refseqidx, int min_block_size, int *noaln) {
   }
   if (run_start >= 0)   /* no alignment at end */
     for (k = run_start; k < msa->length; k++) noaln[k] = 1;
+}
+
+/** Returns TRUE if alignment has missing data in all seqs but the
+   reference seq at specified column; otherwise returns FALSE */
+int msa_missing_col(MSA *msa, int ref, int pos) {
+  int i;
+  for (i = 0; i < msa->nseqs; i++) 
+    if (i == ref-1) continue;
+    if (!msa->is_missing[(int)msa_get_char(msa, i, pos)])
+      return FALSE;
+  return TRUE;
 }
 
 /** Given a list of sequence names and/or 1-based indices, return a

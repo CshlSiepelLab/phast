@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.15 2004-07-26 05:28:55 acs Exp $
+/* $Id: msa_split.c,v 1.16 2004-07-28 21:08:13 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -304,18 +304,6 @@ void write_summary_line(FILE *SUM_F, char *label, char *alphabet,
   fprintf(SUM_F, "\n");
 }
 
-/* return 1 if alignment has gaps in all seqs but the reference seq at
-   specified position (refseq assumed to be first one); otherwise
-   returns 0 */
-int all_gaps_but_ref(MSA *msa, int pos) {
-  int i;
-  if (msa_get_char(msa, 0, pos) == GAP_CHAR) return 0;
-  for (i = 1; i < msa->nseqs; i++) 
-    if (msa_get_char(msa, i, pos) != GAP_CHAR)
-      return 0;
-  return 1;
-}
-
 /* try to adjust split indices to fall between alignment blocks,
    assuming a reference alignment with respect to the first sequence.
    A block of NSITES_BETWEEN_BLOCKS sites with no gaps in the
@@ -332,7 +320,7 @@ void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list,
     okay = 0;
     j = k = idx;
     for (; j >= 0; j--) { /* look to left */
-      if (!all_gaps_but_ref(msa, j)) break;
+      if (!msa_missing_col(msa, 1, j)) break;
       if (idx - j + 1 >= NSITES_BETWEEN_BLOCKS) { okay = 1; break; } 
                                 /* we're done -- we know we're okay */
     }
@@ -340,7 +328,7 @@ void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list,
                                    that we're between blocks but we
                                    haven't yet seen enough sites */
       for (; k < msa->length; k++) {
-        if (!all_gaps_but_ref(msa, k)) break;
+        if (!msa_missing_col(msa, 1, k)) break;
         if (k - j >= NSITES_BETWEEN_BLOCKS) { okay = 1; break; }
       }
     }
@@ -356,7 +344,7 @@ void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list,
        s.t. all_gaps_but_ref is false */
     count = 0; new_idx = -1;
     for (; new_idx < 0 && j >= range_beg; j--) {
-      if (all_gaps_but_ref(msa, j)) {
+      if (msa_missing_col(msa, 1, j)) {
         count++;
         if (count == NSITES_BETWEEN_BLOCKS) 
           new_idx = j + NSITES_BETWEEN_BLOCKS / 2 ;
@@ -368,7 +356,7 @@ void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list,
        idx s.t. all_gaps_but_ref is false */
     count = 0;
     for (; new_idx < 0 && k <= range_end; k++) {
-      if (all_gaps_but_ref(msa, k)) {
+      if (msa_missing_col(msa, 1, k)) {
         count++;
         if (count == NSITES_BETWEEN_BLOCKS) 
           new_idx = k - NSITES_BETWEEN_BLOCKS / 2 ;
