@@ -1,4 +1,4 @@
-/* $Id: eval_predictions.c,v 1.6 2004-06-26 05:52:25 acs Exp $
+/* $Id: eval_predictions.c,v 1.7 2004-07-01 04:19:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -54,14 +54,14 @@ Options:\n\
 \n\
     -f <feat_list>  \n\
         List of names of all features denoting exon regions.  By\n\
-        default, equal to the single name \"cds\".\n\
+        default, equal to the single name \"CDS\".\n\
 \n\
     -d <fname_prefix>  \n\
         Dump full coords of correct, partially correct, wrong, missed, \n\
         and overlapping exons to a set of files having the specified \n\
         file name prefix.\n\
 \n\
-    -e <nbases>\n\
+    -n <nbases>\n\
         Also report stats on \"nearly correct\" exons, that is, incorrect\n\
         exons whose boundaries are within <nbases> of being correct.\n\
         Columns will be labeled \"NCa\" and \"NCp\".\n\
@@ -310,10 +310,10 @@ int main(int argc, char* argv[]) {
 
     seqlen = lst_get_int(seq_len_list, nfile);
 
-    gff_exon_group(gff_real, "exon_id"); /* needed for gff_fix_stops */
-    gff_exon_group(gff_pred, "exon_id");
-    gff_fix_stops(gff_real, GFF_CDS_TYPE, GFF_STOP_TYPE);
-    gff_fix_stops(gff_pred, GFF_CDS_TYPE, GFF_STOP_TYPE);
+/*     gff_exon_group(gff_real, "exon_id"); */ /* needed for gff_fix_stops */
+/*     gff_exon_group(gff_pred, "exon_id"); */
+/*     gff_fix_stops(gff_real, GFF_CDS_TYPE, GFF_STOP_TYPE); */
+/*     gff_fix_stops(gff_pred, GFF_CDS_TYPE, GFF_STOP_TYPE); */
 
     /* sort ungrouped -- only cds exons will be considered, and each
        one will be considered individually */
