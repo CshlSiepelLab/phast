@@ -778,7 +778,7 @@ int main(int argc, char *argv[]) {
   if (min_inform_str != NULL) {
     List *l = cm_get_category_list(cm, min_inform_str, 0);
     for (i = 0; i < lst_size(l); i++) 
-      mod[lst_get_int(l, i)]->min_informative = min_inform_bases;
+      phmm->mods[lst_get_int(l, i)]->min_informative = min_inform_bases;
     lst_free(l);
   }        
 
