@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.15 2004-07-01 23:58:25 acs Exp $
+/* $Id: gff.c,v 1.16 2004-07-02 03:55:49 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -416,7 +416,7 @@ void gff_filter_by_type(GFF_Set *gff,
                                    written here (if non-NULL) */
                         ) {
   List *newfeats = lst_new_ptr(lst_size(gff->features));
-  int i;
+  int i, changed = FALSE;
   for (i = 0; i < lst_size(gff->features); i++) {
     GFF_Feature *f = lst_get_ptr(gff->features, i);
     int in_list = str_in_list(f->feature, types);
@@ -427,10 +427,13 @@ void gff_filter_by_type(GFF_Set *gff,
     else {
       if (discards_f != NULL) gff_print_feat(discards_f, f);
       gff_free_feature(f);
+      changed = TRUE;
     }
   }
   lst_free(gff->features);
   gff->features = newfeats;
+  if (changed && gff->groups != NULL)
+    gff_ungroup(gff);
 }
 
 /** Test whether a set of GFF_Feature objects refers to the reverse
@@ -884,6 +887,24 @@ void gff_absorb_helpers(GFF_Set *feats, List *primary_types,
           else break;
         }
       }
+    }
+  }
+}
+
+/** Add a gene_id tag, along with whatever other tags are in use.
+   Required in output by some programs */
+void gff_add_gene_id(GFF_Set *feats) {
+  int i, j;
+  char tmp[STR_LONG_LEN];
+  if (feats->groups == NULL) 
+    die("ERROR: gff_apply_gene_id requires groups.\n");
+  for (i = 0; i < lst_size(feats->groups); i++) {
+    GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
+    for (j = 0; j < lst_size(g->features); j++) {
+      GFF_Feature *f = lst_get_ptr(g->features, j);
+      sprintf(tmp, "group_id \"%s\" ; %s", g->name->chars, f->attribute != NULL ?
+              f->attribute->chars : "");
+      str_cpy_charstr(f->attribute, tmp);
     }
   }
 }

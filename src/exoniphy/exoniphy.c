@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.23 2004-07-01 23:58:25 acs Exp $
+/* $Id: exoniphy.c,v 1.24 2004-07-02 03:55:49 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -23,10 +23,11 @@
 #define DEFAULT_SIGNAL_TYPES "start_codon,stop_codon,5'splice,3'splice,prestart,cds5'ss,cds3'ss"
 
 /* categories to be "absorbed" into CDS (want coords to be included in
-   CDS) and to be "invisible" in output. For now, these are fixed; all
-   of this should become simpler with generalized HMM architecture */
+   CDS) and categories to be "invisible" in output. For now, these are
+   fixed; all of this should become simpler with generalized HMM
+   architecture */
 #define CDS_ABSORB_TYPES "start,cds5'ss,cds3'ss"
-#define INVISIBLE_TYPES "cds5'ss,cds3'ss"
+#define INVISIBLE_TYPES "prestart,5'splice,3'splice,cds5'ss,cds3'ss"
 
 /* parameters controlling evaluation of Sn/Sp tradeoff (see -Y option) */
 #define SCALE_RANGE_MIN -20
@@ -104,7 +105,7 @@ OPTIONS:\n\
 \n\
     --grouptag, -g <tag>\n\
         Use specified string as the tag denoting groups in GFF output\n\
-        (default is \"exon_id\").\n\
+        (default is \"transcript_id\").\n\
 \n\
  (Altering the states and transition probabilities of the HMM)\n\
     --no-cns, -x \n\
@@ -194,7 +195,7 @@ int main(int argc, char* argv[]) {
   int quiet = FALSE, reflect_hmm = FALSE, score = FALSE, indels = FALSE, 
     no_cns = FALSE;
   double bias = NEGINFTY;
-  char *seqname = NULL, *grouptag = "exon_id", *sens_spec_fname_root = NULL,
+  char *seqname = NULL, *grouptag = "transcript_id", *sens_spec_fname_root = NULL,
     *idpref = NULL;
   List *model_fname_list = NULL, *no_gaps_str = NULL, 
     *backgd_types = get_arg_list(DEFAULT_BACKGD_TYPES), 
@@ -452,11 +453,14 @@ int main(int argc, char* argv[]) {
                              signal_types, backgd_types, TRUE);
     }
 
+    /* adjust GFF -- absorb helper features, filter out unwanted
+       types, add group_id tag */
+
     gff_group(predictions, grouptag);
     gff_absorb_helpers(predictions, cds_types, cds_absorb_types);
-
-    /* filter out cats that aren't wanted in output */
     gff_filter_by_type(predictions, invisible_types, TRUE, NULL);
+    gff_group(predictions, grouptag); /* will be ungrouped by gff_filter_by_type */
+    gff_add_gene_id(predictions);
 
     /* convert to coord frame of reference sequence and adjust for
        idx_offset.  FIXME: make clear in help page assuming refidx 1 */

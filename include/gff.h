@@ -1,4 +1,4 @@
-/* $Id: gff.h,v 1.7 2004-07-01 23:58:25 acs Exp $
+/* $Id: gff.h,v 1.8 2004-07-02 03:55:48 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -167,5 +167,7 @@ void gff_fix_stops(GFF_Set *gff, char* cds_type, char *stop_type);
 
 void gff_absorb_helpers(GFF_Set *feats, List *primary_types, 
                         List *helper_types);
+
+void gff_add_gene_id(GFF_Set *feats);
 
 #endif

@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.4 2004-06-23 23:46:43 acs Exp $
+/* $Id: sufficient_stats.c,v 1.5 2004-07-02 03:55:49 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -231,17 +231,10 @@ void ss_new(MSA *msa, int tuple_size, int max_ntuples, int do_cats,
   ss->ntuples = 0;
   ss->tuple_idx = NULL;
   ss->cat_counts = NULL;
-/*   ss->shared_col_tuples = 0; */
   if (store_order)
     ss->tuple_idx = (int*)smalloc(msa->length * sizeof(int));
-/*   if (col_tuples != NULL) { */
-/*     ss->col_tuples = col_tuples; */
-/*     ss->shared_col_tuples = 1; */
-/*   } */
-/*   else { */
-    ss->col_tuples = (char**)smalloc(max_ntuples * sizeof(char*));
-    for (i = 0; i < max_ntuples; i++) ss->col_tuples[i] = NULL;
-/*   } */
+  ss->col_tuples = (char**)smalloc(max_ntuples * sizeof(char*));
+  for (i = 0; i < max_ntuples; i++) ss->col_tuples[i] = NULL;
   ss->counts = (double*)smalloc(max_ntuples * sizeof(double));
   for (i = 0; i < max_ntuples; i++) ss->counts[i] = 0; 
   if (do_cats) {
@@ -868,11 +861,9 @@ MSA* ss_read(FILE *F) {
 /* free all memory associated with a sufficient stats object */
 void ss_free(MSA_SS *ss) {
   int j;
-/*   if (!ss->shared_col_tuples) { */
     for (j = 0; j < ss->alloc_ntuples; j++)
       free(ss->col_tuples[j]);
     free(ss->col_tuples);
-/*   } */
   if (ss->cat_counts != NULL) {
     for (j = 0; j <= ss->msa->ncats; j++) 
       free(ss->cat_counts[j]); 
@@ -909,9 +900,8 @@ void ss_update_categories(MSA *msa) {
 /* Shrinks arrays to size ss->ntuples. */
 void ss_compact(MSA_SS *ss) {
   int j;
-  if (!ss->shared_col_tuples) 
-    ss->col_tuples = (char**)srealloc(ss->col_tuples, 
-                                     ss->ntuples*sizeof(char*));
+  ss->col_tuples = (char**)srealloc(ss->col_tuples, 
+                                    ss->ntuples*sizeof(char*));
   ss->counts = (double*)srealloc(ss->counts, 
                                 ss->ntuples*sizeof(double));
   for (j = 0; ss->cat_counts != NULL && j <= ss->msa->ncats; j++)

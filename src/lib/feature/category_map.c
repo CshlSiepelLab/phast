@@ -1,4 +1,4 @@
-/* $Id: category_map.c,v 1.10 2004-07-01 23:58:25 acs Exp $
+/* $Id: category_map.c,v 1.11 2004-07-02 03:55:49 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -381,7 +381,7 @@ CategoryMap *cm_new(int ncats) {
 }
 
 CategoryMap *cm_create_copy(CategoryMap *src) {
-  int i, j, has_dependencies = 0;
+  int i, has_dependencies = 0;
   CategoryMap *retval = cm_new(src->ncats);
   for (i = 0; i <= src->ncats; i++) {
     retval->ranges[i] = cm_category_range_create_copy(src->ranges[i]);
@@ -609,9 +609,8 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm,
                                    elements (may be NULL).  Can be
                                    used to ensure ids are unique. */
                             ) {
-  int beg, end, i, j, cat, frame, groupno;
+  int beg, end, i, cat, frame, groupno;
   GFF_Set *gff = gff_new_set_init("PHAST", PHAST_VERSION);
-  GFF_Feature *prevfeat = NULL;
   int do_frame[cm->ncats+1];
   char strand;
   char groupstr[STR_SHORT_LEN];

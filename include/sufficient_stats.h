@@ -1,7 +1,7 @@
 /* sufficient_stats.h - Representation of multiple alignments in terms of their sufficient statistics */
 
 /*   
-   $Id: sufficient_stats.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+   $Id: sufficient_stats.h,v 1.2 2004-07-02 03:55:49 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -31,7 +31,6 @@ struct msa_ss_struct {
   double *counts;
   double **cat_counts;
   MSA *msa;                     /* parent alignment */
-  int shared_col_tuples;        /* indicates col_tuples array is shared */
   int alloc_len, alloc_ntuples; /* for ss_realloc */
 };
 

@@ -1,7 +1,7 @@
 /* String-handling functions, with automatic memory management and
    basic regex support.
    
-   $Id: stringsplus.c,v 1.4 2004-06-11 05:58:51 acs Exp $
+   $Id: stringsplus.c,v 1.5 2004-07-02 03:55:49 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -67,7 +67,7 @@ void str_append(String *s, String *suffix) {
 /* stops at null terminator if occurs before len */
 void str_nappend_charstr(String *s, char *charstr, int len) {
   int i;
-  if (s->length + len >= s->nchars)
+  if (s->length + len + 1 >= s->nchars)
     str_realloc(s, max(s->length + len, s->nchars * 2) + 1);
                                 /* try to avoid heavy srealloc when
                                    frequently appending short
