@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.15 2004-08-05 07:15:04 acs Exp $ 
+/* $Id: trees.c,v 1.16 2004-08-11 20:47:05 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1063,4 +1063,39 @@ TreeNode *tr_hybrid(TreeNode *sub, TreeNode *super) {
   tr_free(lca);                 /* this works recursively */
 
   return retval;
+}
+
+/** Partition leaves of tree at (branch above) given node.  All
+    descendant leaves of 'sub' will be added to 'inside' list and all
+    non-descendants will be added to 'outside' list.  Lists must be
+    pre-allocated. */
+void tr_partition_leaves(TreeNode *tree, TreeNode *sub, List *inside, 
+                         List *outside) {
+  int i;
+  TreeNode *n;
+  int *mark = smalloc(tree->nnodes * sizeof(int));
+  Stack *stack = stk_new_ptr(sub->nnodes);
+
+  for (i = 0; i < tree->nnodes; i++) mark[i] = FALSE;
+
+  lst_clear(inside);
+  lst_clear(outside);
+  stk_push_ptr(stack, sub);
+  while ((n = stk_pop_ptr(stack)) != NULL) {
+    if (n->lchild == NULL) {
+      lst_push_ptr(inside, n);
+      mark[n->id] = TRUE;
+    }
+    else {
+      stk_push_ptr(stack, n->rchild);
+      stk_push_ptr(stack, n->lchild);
+    }
+  }
+  for (i = 0; i < tree->nnodes; i++) {
+    n = lst_get_ptr(tree->nodes, i);
+    if (n->lchild == NULL && !mark[n->id])
+      lst_push_ptr(outside, n);
+  }
+  stk_free(stack);
+  free(mark);
 }

@@ -14,6 +14,7 @@ typedef struct {
   int ngap_patterns;
   int nbranches;
   TreeNode *topology;
+  char **pattern;
   int *gapcat_to_cat;
   int *gapcat_to_pattern;
   int **cat_x_pattern_to_gapcat;
@@ -28,10 +29,14 @@ typedef struct {
 typedef enum {NULL_PATTERN, DELETION_PATTERN, 
               INSERTION_PATTERN, COMPLEX_PATTERN} pattern_type;
 
+#define GP_BASE 'b'
+
 GapPatternMap *gp_create_gapcats(CategoryMap *cm, List *indel_cats, 
                                  TreeNode *topology);
 void gp_free_map(GapPatternMap *gpm);
 void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa);
 pattern_type gp_pattern_type(GapPatternMap *gpm, int pattern);
+void gp_tuple_matches_pattern(GapPatternMap *gpm, MSA *msa, int pattern, 
+                              int *matches);
 
 #endif

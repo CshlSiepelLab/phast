@@ -1,4 +1,4 @@
-/* $Id: gap_patterns.c,v 1.2 2004-08-10 22:03:30 acs Exp $
+/* $Id: gap_patterns.c,v 1.3 2004-08-11 20:47:05 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -33,6 +33,7 @@ GapPatternMap *gp_create_gapcats(CategoryMap *cm, List *indel_cats,
   GapPatternMap *gpm = smalloc(sizeof(GapPatternMap));
   gpm->ncats = cm->ncats + 1;
   gpm->topology = topology;
+  gpm->pattern = NULL;
   gpm->nbranches = topology->nnodes - 2; /* unrooted */
   gpm->ngap_patterns = 2 * gpm->nbranches + 2;
                                 /* phylogenetic gap patterns: two per
@@ -180,6 +181,10 @@ void gp_free_map(GapPatternMap *gpm) {
   free(gpm->cat_x_pattern_to_gapcat);
   free(gpm->node_to_branch);
   free(gpm->pattern_to_node);
+  if (gpm->pattern != NULL) {
+    for (i = 0; i < gpm->ngap_patterns; i++) free(gpm->pattern[i]);
+    free(gpm->pattern);
+  }
   free(gpm);
 }
 
@@ -365,3 +370,119 @@ pattern_type gp_pattern_type(GapPatternMap *gpm, int pattern) {
     return INSERTION_PATTERN;
   else return COMPLEX_PATTERN;
 }
+
+/** Define representative gap patterns for a given tree and multiple alignment */
+void gp_set_patterns(GapPatternMap *gpm, MSA *msa) {
+  int i, j;
+  List *inside = lst_new_ptr((gpm->topology->nnodes + 1) / 2);
+  List *outside = lst_new_ptr((gpm->topology->nnodes + 1) / 2);
+  int *leaf_to_seq;
+  TreeNode *n, *leaf;
+
+  /* set up mappings of node ids to sequence indices */
+  leaf_to_seq = smalloc(gpm->topology->nnodes * sizeof(int));
+  for (i = 0; i < gpm->topology->nnodes; i++) {
+    n = lst_get_ptr(gpm->topology->nodes, i);
+    if (n->lchild == NULL) 
+      leaf_to_seq[n->id] = msa_get_seq_idx(msa, n->name);
+    else leaf_to_seq[n->id] = -1;
+  }
+
+  gpm->pattern = smalloc((gpm->ngap_patterns - 1) * sizeof(void*));
+  for (i = 0; i < gpm->ngap_patterns - 1; i++) {
+    gpm->pattern[i] = smalloc((msa->nseqs + 1) * sizeof(char));
+    gpm->pattern[i][msa->nseqs] = '\0';
+  }
+
+  /* null gap pattern */
+  for (j = 0; j < msa->nseqs; j++) gpm->pattern[0][j] = GP_BASE;
+  
+  for (i = 1; i < gpm->ngap_patterns - 1; i++) {
+    pattern_type type = gp_pattern_type(gpm, i);
+    char inside_char = (type == INSERTION_PATTERN ? GP_BASE : GAP_CHAR);
+    char outside_char = (type == DELETION_PATTERN ? GP_BASE : GAP_CHAR);
+    TreeNode *n = lst_get_ptr(gpm->topology->nodes, gpm->pattern_to_node[i]);
+    tr_partition_leaves(gpm->topology, n, inside, outside);
+    for (j = 0; j < lst_size(inside); j++) {
+      leaf = lst_get_ptr(inside, j);
+      gpm->pattern[i][leaf_to_seq[leaf->id]] = inside_char;
+    }
+    for (j = 0; j < lst_size(outside); j++) {
+      leaf = lst_get_ptr(outside, j);
+      gpm->pattern[i][leaf_to_seq[leaf->id]] = outside_char;
+    }      
+  }
+
+  free(leaf_to_seq);
+  lst_free(inside);
+  lst_free(outside);
+}
+
+/* (used in gp_tuple_matches_pattern) Returns TRUE if a particular
+    column tuple matches a particular gap pattern and FALSE
+    otherwise */
+int match(MSA *msa, int tuple_idx, char *pattern, List *active_seqs) {
+  int j;
+  for (j = 0; j < lst_size(active_seqs); j++) {
+    int seq_idx = lst_get_int(active_seqs, j);
+    char seq_char = ss_get_char_tuple(msa, tuple_idx, seq_idx, 0);
+    if ((pattern[seq_idx] == GP_BASE && seq_char == GAP_CHAR) ||
+        (pattern[seq_idx] == GAP_CHAR && seq_char != GAP_CHAR && 
+         !msa->is_missing[(int)seq_char])) 
+      return FALSE;
+  }
+  return TRUE;
+}
+
+/** Fill out an array of TRUEs and FALSEs indicating whether each tuple in an
+    alignment matches a given gap pattern, allowing for missing data.
+    Array must be pre-allocated to size msa->ss->ntuples. */
+void gp_tuple_matches_pattern(GapPatternMap *gpm, MSA *msa, int pattern, 
+                              int *matches) {
+  int i;
+  TreeNode *n;
+  int *leaf_to_seq;
+  List *active_seqs;
+
+  if (gpm->pattern == NULL) gp_set_patterns(gpm, msa);
+  if (msa->ss == NULL)
+    die("ERROR: gp_tuple_matches_pattern requires sufficient statistics.\n");
+  
+  leaf_to_seq = smalloc(gpm->topology->nnodes * sizeof(int));
+  active_seqs = lst_new_int((gpm->topology->nnodes + 1) / 2);
+  for (i = 0; i < gpm->topology->nnodes; i++) {
+    n = lst_get_ptr(gpm->topology->nodes, i);
+    if (n->lchild == NULL) {
+      leaf_to_seq[n->id] = msa_get_seq_idx(msa, n->name);
+      lst_push_int(active_seqs, leaf_to_seq[n->id]);
+    }
+    else leaf_to_seq[n->id] = -1;
+  }
+
+  if (gp_pattern_type(gpm, pattern) != COMPLEX_PATTERN) 
+    for (i = 0; i < msa->ss->ntuples; i++) 
+      matches[i] = match(msa, i, gpm->pattern[pattern], active_seqs);
+
+  else {                        /* complex pattern: there's a match
+                                   iff there's *no* match with any
+                                   simple pattern */
+    for (i = 0; i < msa->ss->ntuples; i++) {
+      int pat;
+      matches[i] = TRUE;
+      for (pat = 0; pat < pattern; pat++) {
+        if (match(msa, i, gpm->pattern[pat], active_seqs)) {
+          matches[i] = FALSE;
+          break;
+        }
+      }
+    }
+  }
+
+  printf("matches for pattern #%d: ", pattern);
+  for (i = 0; i < msa->ss->ntuples; i++)
+    if (matches[i]) printf("%d ", i);
+
+  free(leaf_to_seq);
+  lst_free(active_seqs);
+}
+

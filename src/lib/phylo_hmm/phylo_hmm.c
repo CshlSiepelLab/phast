@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.11 2004-08-10 22:03:30 acs Exp $
+/* $Id: phylo_hmm.c,v 1.12 2004-08-11 20:47:05 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -565,12 +565,9 @@ void phmm_compute_emissions(PhyloHmm *phmm,
 
   /* finally, adjust for indel model, if necessary */
   if (phmm->indel_mode != MISSING_DATA) {
-    int *msa_gap_patterns = smalloc(msa->length * sizeof(int));
-
-    if (!quiet)
-      fprintf(stderr, "Obtaining gap patterns...\n");
-
-    gp_set_phylo_patterns(phmm->gpm, msa_gap_patterns, msa);
+    int *matches = smalloc(msa->ss->ntuples * sizeof(int));
+                                /* msa->ss should exist
+                                   (tl_compute_log_likelihood) */
 
     if (!quiet)
       fprintf(stderr, "Adjusting emission probs according to gap patterns...\n");
@@ -580,17 +577,21 @@ void phmm_compute_emissions(PhyloHmm *phmm,
                                    == 0) is visited last */
       if (phmm->state_to_pattern[i] >= 0) {
         double *orig_emissions = phmm->emissions[i];
+
         if (phmm->state_to_pattern[i] > 0)
           phmm->emissions[i] = smalloc(msa->length * sizeof(double));
                                 /* otherwise, use the array already
                                    allocated */
+
+        gp_tuple_matches_pattern(phmm->gpm, msa, phmm->state_to_pattern[i],
+                                 matches);
+
         for (j = 0; j < msa->length; j++) 
           phmm->emissions[i][j] = 
-            (msa_gap_patterns[j] == phmm->state_to_pattern[i] ? 
-             orig_emissions[j] : NEGINFTY);                                 
+            (matches[msa->ss->tuple_idx[j]] ? orig_emissions[j] : NEGINFTY);
       }
     }
-    free(msa_gap_patterns);
+    free(matches);
   }
 }
 
