@@ -816,7 +816,7 @@ int main(int argc, char *argv[]) {
 
   /* before output, have to restore gaps in reference sequence, for
      proper coord conversion */
-  if (indels) {
+  if (indels && (post_probs || viterbi_f != NULL)) {
     ss_free(msa->ss); msa->ss = NULL; /* msa->seqs must already exist */
     for (i = 0; i < msa->length; i++) 
       if (msa->seqs[0][i] == msa->missing[0]) msa->seqs[0][i] = GAP_CHAR;
