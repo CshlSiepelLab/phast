@@ -58,7 +58,7 @@
    states for intron states following state 1, state 2, and state 3.
    The rest is fairly self-explanatory.
 
-   $Id: category_map.c,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+   $Id: category_map.c,v 1.2 2004-06-09 17:10:29 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -375,23 +375,17 @@ List *cm_get_category_list(CategoryMap *cm, List *names, int ignore_missing) {
   for (i = 0; i < lst_size(names); i++) {
     String *n = lst_get_ptr(names, i);
     if (str_as_int(n, &cat) == 0) {
-      if (cat < 0 || cat > cm->ncats) {
-        fprintf(stderr, "ERROR: category number %d is out of bounds.\n", cat);
-        exit(1);
-      }
+      if (cat < 0 || cat > cm->ncats) 
+        die("ERROR: category number %d is out of bounds.\n", cat);
       lst_push_int(retval, cat);
     }
     else {
-      if (cm == NULL) {
-        fprintf(stderr, "ERROR: if categories are specified by name, a category map is required.\n");
-        exit(1);
-      }
+      if (cm == NULL) 
+        die("ERROR: if categories are specified by name, a category map is required.\n");
       cat = cm_get_category(cm, n);
-      if (cat == 0 && !str_equals_charstr(n, BACKGD_CAT_NAME)) {
-        if (ignore_missing) continue;
-        fprintf(stderr, "ERROR: illegal category name (\"%s\")\n", n->chars);
-        exit(1);
-      }
+      if (cat == 0 && !str_equals_charstr(n, BACKGD_CAT_NAME)) 
+        if (!ignore_missing) 
+          die("ERROR: illegal category name (\"%s\")\n", n->chars);
       for (j = cm->ranges[cat]->start_cat_no; 
            j <= cm->ranges[cat]->end_cat_no; j++)
         lst_push_int(retval, j);
@@ -434,6 +428,46 @@ CategoryMap *cm_new(int ncats) {
   cm->unspooler = NULL;
 
   return cm;
+}
+
+CategoryMap *cm_create_copy(CategoryMap *src) {
+  int i, j, has_dependencies = 0;
+  CategoryMap *retval = cm_new(src->ncats);
+  for (i = 0; i <= src->ncats; i++) {
+    retval->ranges[i] = cm_category_range_create_copy(src->ranges[i]);
+    if (retval->conditioned_on[i] != NULL) {
+      retval->conditioned_on[i] = lst_new_int(lst_size(src->conditioned_on[i]));
+      lst_cpy(retval->conditioned_on[i], src->conditioned_on[i]);
+      has_dependencies = 1;
+    }
+    retval->labelling_precedence[i] = src->labelling_precedence[i];
+    retval->fill_precedence[i] = src->fill_precedence[i];
+    if (src->feat_ext_lst[i] != NULL) { 
+      retval->feat_ext_lst[i] = lst_new_int(lst_size(src->feat_ext_lst[i]));
+      for (j = 0; j < lst_size(src->feat_ext_lst[i]); j++)
+        lst_push_ptr(retval->feat_ext_lst[i], 
+                     str_dup(lst_get_ptr(src->feat_ext_lst[i], j)));
+    }
+  }
+  if (has_dependencies) cm_create_unspooler(retval->ncats + 1, 
+                                            retval->conditioned_on);
+  return retval;
+}
+
+/* create a trivial CategoryMap, with feature types equal to category
+   numbers (plus an optional prefix) and ranges all of size one.  */
+CategoryMap* cm_create_trivial(int ncats, char *feature_prefix) {
+  int i;
+  CategoryMap *retval = cm_new(ncats);
+  for (i = 0; i <= ncats; i++) {
+    String *type = str_new(STR_SHORT_LEN);
+    if (feature_prefix != NULL) str_append_charstr(type, feature_prefix);
+    str_append_int(type, i);
+    retval->ranges[i] = cm_new_category_range(type, i, i);
+    retval->feat_ext_lst[i] = lst_new_ptr(1);
+    lst_push_ptr(retval->feat_ext_lst[i], type);
+  }
+  return retval;
 }
 
 void cm_realloc(CategoryMap *cm, int new_ncats) {
@@ -486,13 +520,24 @@ void cm_free(CategoryMap *cm) {
 }
 
 CategoryRange* cm_new_category_range(String *type, int start_cat_no,
-                                  int end_cat_no) {
+                                     int end_cat_no) {
   CategoryRange *cr = (CategoryRange*)smalloc(sizeof(CategoryRange));
   cr->feature_types = lst_new_ptr(1);
   lst_push_ptr(cr->feature_types, type);
   cr->start_cat_no = start_cat_no;
   cr->end_cat_no = end_cat_no;
   return cr;
+}
+
+CategoryRange* cm_category_range_create_copy(CategoryRange *src) {
+  int i;
+  CategoryRange *retval = 
+    cm_new_category_range(str_dup(lst_get_ptr(src->feature_types, 0)),
+                          src->start_cat_no, src->end_cat_no);
+  for (i = 1; i < lst_size(src->feature_types); i++)
+    lst_push_ptr(retval->feature_types, 
+                 str_dup(lst_get_ptr(src->feature_types, i)));
+  return retval;
 }
 
 void cm_free_category_range(CategoryRange *cr) {
@@ -535,10 +580,10 @@ void cm_add_feature_type(CategoryMap *cm, String *type, int cycle_size) {
    each raw-sequence value corresponds to the reverse strand (see
    label.c).  Parameter 'grouproot' is the root string to use for
    group names (may be NULL). */
-GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int *path_to_cat,
-                            int *reverse_compl, int length, String *seqname, 
-                            String *source, int offset, char defaultstrand, 
-                            List *frame_cats, String *grouproot) {
+GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int length, 
+                            int *path_to_cat, int *reverse_compl, char *seqname, 
+                            char *source, char defaultstrand, List *frame_cats, 
+                            char *grouproot) {
   int beg, end, i, j, lastcat, lastframe, groupno;
   GFF_Set *gff = gff_new_set_init("PHAST", PHAST_VERSION);
   GFF_Feature *feat = NULL;
@@ -560,7 +605,8 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int *path_to_cat,
     }
 
   groupno = 1;
-  groupstr = (grouproot == NULL ? str_new(STR_SHORT_LEN) : str_dup(grouproot));
+  groupstr = (grouproot == NULL ? str_new(STR_SHORT_LEN) : 
+              str_new_charstr(grouproot));
   str_append_char(groupstr, '.');
   str_append_int(groupstr, groupno);
   i = 0;
@@ -582,7 +628,7 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int *path_to_cat,
       String *type = cm_get_feature(cm, lastcat);
 
       /* check to see if new feature should be combined with prev one */
-      if (feat != NULL && beg + offset == feat->end + 1 &&
+      if (feat != NULL && beg == feat->end + 1 &&
           feat->strand == laststrand)
         str_list_overlap(shared_types, shared_types, 
                          cm->feat_ext_lst[lastcat]);
@@ -609,14 +655,13 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int *path_to_cat,
           str_cpy(feat->feature, lst_get_ptr(shared_types, 0));
                                 /* set of overlaps possibly shrinking;
                                    arbitrarily use the first element */
-        feat->end = end + offset;
+        feat->end = end;
       }
 
       else {
         /* otherwise, create a new feature */
-        feat = gff_new_feature(str_dup(seqname), str_dup(source), 
-                               str_dup(type), 
-                               beg + offset, end + offset, 0, laststrand, 
+        feat = gff_new_feature(str_new_charstr(seqname), str_new_charstr(source), 
+                               str_dup(type), beg, end, 0, laststrand, 
                                lastframe, str_dup(groupstr), 1);
         lst_push_ptr(gff->features, feat);
 
@@ -629,7 +674,7 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int *path_to_cat,
     else if (beg > 1) {
       groupno++;                /* increment group number each time a
                                    sequence of 0s is encountered  */
-      if (grouproot != NULL) str_cpy(groupstr, grouproot);
+      if (grouproot != NULL) str_cpy_charstr(groupstr, grouproot);
       else str_clear(groupstr);
       str_append_char(groupstr, '.');
       str_append_int(groupstr, groupno);

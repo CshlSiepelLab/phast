@@ -1,4 +1,4 @@
-/* $Id: hmm.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: hmm.h,v 1.2 2004-06-09 17:10:29 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -48,6 +48,7 @@ HMM* hmm_new(MarkovMatrix *mm, gsl_vector *eq_freqs,
              gsl_vector *begin_transitions, 
              gsl_vector *end_transitions);
 HMM *hmm_new_nstates(int nstates, int begin, int end);
+HMM *hmm_create_copy(HMM *src);
 void hmm_free(HMM *hmm);
 double hmm_get_transition_score(HMM *hmm, int from_state, int to_state);
 HMM* hmm_new_from_file(FILE *F);
@@ -57,8 +58,8 @@ double hmm_forward(HMM *hmm, double **emission_scores, int seqlen,
                    double **forward_scores);
 double hmm_backward(HMM *hmm, double **emission_scores, int seqlen,
                     double **backward_scores);
-void hmm_posterior_probs(HMM *hmm, double **emission_scores, int seqlen,
-                         double **posterior_probs);
+double hmm_posterior_probs(HMM *hmm, double **emission_scores, int seqlen,
+                           double **posterior_probs);
 void hmm_do_dp_forward(HMM *hmm, double **emission_scores, int seqlen, 
                        hmm_mode mode, double **full_scores, int **backptr);
 void hmm_do_dp_backward(HMM *hmm, double **emission_scores, int seqlen, 

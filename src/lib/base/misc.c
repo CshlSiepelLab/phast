@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.2 2004-06-04 21:56:33 acs Exp $
+/* $Id: misc.c,v 1.3 2004-06-09 17:10:29 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -296,6 +296,60 @@ List *get_arg_list(char *arg) {
 
   str_free(argstr);
   return l;
+}
+
+List *get_arg_list_int(char *arg) {
+  List *l = get_arg_list(arg);
+  List *retval = str_list_as_int(l);
+  lst_free_strings(l);
+  lst_free(l);
+  return retval;
+}
+
+List *get_arg_list_dbl(char *arg) {
+  List *l = get_arg_list(arg);
+  List *retval = str_list_as_dbl(l);
+  lst_free_strings(l);
+  lst_free(l);
+  return retval;
+}
+
+/* argument conversion with error checking (int) */
+int get_arg_int(char *arg) {
+  char *endptr;
+  int retval = (int)strtol(arg, &endptr, 0);
+  if (*endptr != '\0') die("ERROR: cannot parse integer '%s'\n", arg);
+  return retval;
+}
+
+/* argument conversion with error checking (double) */
+double get_arg_dbl(char *arg) {
+  char *endptr;
+  double retval = (double)strtod(arg, &endptr);
+  if (*endptr != '\0') die("ERROR: cannot parse floating point '%s' at command line\n", arg);
+  return retval;
+}
+
+/* argument conversion with error and bounds checking (int) */
+int get_arg_int_bounds(char *arg, int min, int max) {
+  char *endptr;
+  int retval = (int)strtol(arg, &endptr, 0);
+  if (*endptr != '\0') die("ERROR: cannot parse integer '%s' at command line\n", arg);
+  if (retval < min || retval > max) 
+    die("ERROR: integer %d at command line outside allowable range %d-%d.\n", 
+        retval, min, max);
+  return retval;
+}
+
+/* argument conversion with error checking (double) */
+double get_arg_dbl_bounds(char *arg, double min, double max) {
+  char *endptr;
+  double retval = (double)strtod(arg, &endptr);
+  if (*endptr != '\0') die("ERROR: cannot parse floating point '%s' at command line\n", arg);
+  if (retval < min || retval > max) 
+    die("ERROR: floating point %f at command line outside allowable range %f-%f.\n", 
+        retval, min, max);
+  return retval;
 }
 
 /* safe malloc and realloc */

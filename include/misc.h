@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: misc.h,v 1.2 2004-06-09 17:10:29 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -10,6 +10,9 @@
 #include <gsl/gsl_matrix.h>
 #include <lists.h>
 #include <ctype.h>
+
+#define TRUE 1
+#define FALSE 0
 
 /* for various reasons, it's often useful to represent infinity and
    negative infinity as very large numbers */
@@ -90,6 +93,12 @@ gsl_matrix* read_subst_mat(FILE *F, char *alph);
 FILE* fopen_fname(char *fname, char *mode);
 void die(char *warnfmt, ...);
 List *get_arg_list(char *arg);
+List *get_arg_list_int(char *arg);
+List *get_arg_list_dbl(char *arg);
+int get_arg_int(char *arg);
+double get_arg_dbl(char *arg);
+int get_arg_int_bounds(char *arg, int min, int max);
+double get_arg_dbl_bounds(char *arg, double min, double max);
 void *smalloc(size_t size);
 void *srealloc(void *ptr, size_t size);
 double log_sum(List *l);

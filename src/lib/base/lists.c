@@ -1,4 +1,4 @@
-/* $Id: lists.c,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: lists.c,v 1.2 2004-06-09 17:10:29 acs Exp $
    Written by Adam Siepel, Spring 2001 and Summer 2002
    Copyright 2001, 2002, Adam Siepel, University of California */
 
@@ -85,7 +85,7 @@ void lst_set(List *l, int i, void *o) {
    indexing.  For use internally only. */ 
 void lst_arr_set(List *l, int i, void *o) {
   if (l->elementsz <= sizeof(void*))
-    l->array[i] = *((void**)o);	/* ?? */
+    l->array[i] = *((void**)o);	
   else
     memcpy(&l->array[i * l->step], o, l->elementsz);
 }
@@ -99,7 +99,6 @@ void* lst_arr_get(List *l, int i) {
 void lst_cpy(List* dest, List* src) {
   int i;
   lst_clear(dest);
-/* FIXME: need to check for all calls to this function */
   for (i = 0; i < lst_size(src); i++)
     lst_push(dest, lst_get(src, i));  
 }

@@ -1,6 +1,6 @@
 /* stringsplus - String-handling functions, with automatic memory management and basic regex support. */
    
-/* $Id: stringsplus.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: stringsplus.h,v 1.2 2004-06-09 17:10:29 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 
@@ -226,6 +226,9 @@ int str_starts_with(String *s, String *substr);
    Returns 0 on exact match and 1 otherwise. */
 int str_starts_with_charstr(String *s, char *substr);
 
+int str_ends_with(String *s, String *substr);
+int str_ends_with_charstr(String *s, char *substr);
+
 /* Create new regular expression object based on the specified string.
    Character string re_str must be NULL terminated.  Function aborts
    and reports an error message to stderr if the expression cannot be
@@ -278,7 +281,7 @@ int str_re_search(String *s, Regex *re, int start_offset, List *l,
 void str_re_split(String *s, Regex *re, List *l);
 
 void str_get_name_root(String *prefix, String *src);
-void str_get_name_suffix(String *prefix, String *src);
+void str_get_name_suffix(String *suffix, String *src);
 void str_remove_path(String *str);
 int str_in_list(String *s, List *l);
 int str_list_overlap(List *dest, List *src1, List *src2);

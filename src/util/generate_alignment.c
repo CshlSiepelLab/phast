@@ -63,10 +63,8 @@ int main(int argc, char* argv[]) {
     path_to_cat[i] = i; 
     reverse_compl[i] = 0;
   }
-  gff = cm_labeling_as_gff(cm, labels, path_to_cat, reverse_compl, msa->length, 
-                           str_new_charstr("simulated"), 
-                           str_new_charstr("generate_alignment"), 0, '+',
-                           NULL, NULL);
+  gff = cm_labeling_as_gff(cm, labels, msa->length, path_to_cat, reverse_compl, 
+                           "simulated", "generate_alignment", '+', NULL, NULL);
   free(path_to_cat);
   free(reverse_compl);
 

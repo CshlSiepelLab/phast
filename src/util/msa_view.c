@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.2 2004-06-05 18:48:51 acs Exp $
+/* $Id: msa_view.c,v 1.3 2004-06-09 17:10:30 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -452,7 +452,7 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "ERROR: --catmap required with --features.\n");
     exit(1);
   }
-    
+
   if (aggregate_list != NULL) {
     msa_fname_list = get_arg_list(infname);
 
@@ -493,6 +493,15 @@ int main(int argc, char* argv[]) {
       gff = gff_read_from_fname(gff_fname);
       cm = cm_read_from_fname(cat_map_fname);
     }
+
+    if (output_format == SS && RSEQF == NULL && ordered_stats == 1 && 
+        gff == NULL && startcol == 1 && endcol == -1)
+      ordered_stats = 0;        /* in this case, assume unordered
+                                   stats are desired; can't think of
+                                   any value in collecting ordered
+                                   stats, and it's a common mistake to
+                                   forget -z */
+
     msa = maf_read(fopen_fname(infname, "r"), RSEQF, NULL, tuple_size, 
                    gff, cm, cycle_size, 
                    output_format != SS || ordered_stats == 1, 

@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.8 2004-06-06 03:22:00 acs Exp $
+/* $Id: clean_genes.c,v 1.9 2004-06-09 17:10:30 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -166,13 +166,14 @@ NOTES:  Currently, feature types are defined at compile time as follows.\n\
                3' splice site <-> \"%s\"\n\
 \n\
         In addition, splice sites in UTR can be separately designated as\n\
-        \"%s\" and \"%s\".  Errors in these sites will be given a different\n\
-        code in the log files, which can be useful for tracking purposes.\n\
+        \"%s\" and \"%s\".  Errors in these sites will be\n\
+        given a different code in the log files, which can be useful for\n\
+        tracking purposes.\n\
 \n\
         If evaluation is done at the level of individual exons (see\n\
         --groupby), then splice sites are considered independently\n\
         rather than in the context of introns.  Thus, the exons flanking\n\
-        a GT-AC or AT-AG intron might be considered \"clean\".\n\
+        a GT-AC or AT-AG intron might (misleadingly) be considered \"clean\".\n\
 \n\
         With --fshift and --nonsense, it is possible for entries\n\
         to pass through that have stop codons in the frame of the\n\

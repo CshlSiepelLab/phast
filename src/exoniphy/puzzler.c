@@ -1,4 +1,4 @@
-/* $Id: puzzler.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: puzzler.c,v 1.1 2004-06-09 17:11:56 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 

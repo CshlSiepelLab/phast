@@ -1,7 +1,7 @@
 /* String-handling functions, with automatic memory management and
    basic regex support.
    
-   $Id: stringsplus.c,v 1.2 2004-06-04 21:56:33 acs Exp $
+   $Id: stringsplus.c,v 1.3 2004-06-09 17:10:29 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -294,9 +294,20 @@ int str_starts_with(String *s, String *substr) {
 int str_starts_with_charstr(String *s, char *substr) {
   int len = strlen(substr);
   if (len > s->length) return 0;
-  return (strncmp(s->chars, substr, strlen(substr)) == 0);
+  return (strncmp(s->chars, substr, len) == 0);
 }
 
+int str_ends_with(String *s, String *substr) {
+  if (substr->length > s->length) return 0;
+  return (strncmp(&s->chars[s->length - substr->length], 
+                  substr->chars, substr->length) == 0);
+}
+
+int str_ends_with_charstr(String *s, char *substr) {
+  int len = strlen(substr);
+  if (len > s->length) return 0;
+  return (strncmp(&s->chars[s->length - len], substr, len) == 0);
+}
 
 Regex *str_re_new(char *re_str) {
   const char *retval;
@@ -427,11 +438,11 @@ void str_get_name_root(String *prefix, String *src) {
 /* Extracts portion of String after the final '.' character.  Useful
    for filenames.  If no '.' character is present, suffix is the empty
    string */
-void str_get_name_suffix(String *prefix, String *src) {
+void str_get_name_suffix(String *suffix, String *src) {
   int i;
   for (i = src->length - 1; i >= 0 && src->chars[i] != '.'; i--);
-  if (i == 0) str_clear(prefix);
-  else str_substring(prefix, src, i+1, src->length - (i+1));
+  if (i == 0) str_clear(suffix);
+  else str_substring(suffix, src, i+1, src->length - (i+1));
 }
 
 /* Removes portion of String prior to the final '/' or '\' character.

@@ -1,6 +1,6 @@
 /* category_map - Data structures and supporting functions to map between feature types and site categories. */
 
-/* $Id: category_map.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: category_map.h,v 1.2 2004-06-09 17:10:29 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 
@@ -136,6 +136,10 @@ typedef struct {
    for ncats categories. */
 CategoryMap *cm_new(int new_ncats); 
 
+CategoryMap *cm_create_copy(CategoryMap *src);
+
+CategoryMap* cm_create_trivial(int ncats, char *feature_prefix);
+
 /* Reallocate a category map to allow for the specified size. */
 void cm_realloc(CategoryMap *cm, int ncats);
 
@@ -192,14 +196,14 @@ void cm_add_feature_type(CategoryMap *cm, String *type,
                                              cycle_size=1 for a simple
                                              feature type  */
 
-GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int *path_to_cat,
-                            int *reverse_compl, int length, String *seqname, 
-                            String *source, int offset, char strand, 
-                            List *frame_cats, String *grouproot);
-
+GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int length, int *path_to_cat,
+                            int *reverse_compl, char *seqname, char *source, 
+                            char defaultstrand, List *frame_cats, char *grouproot);
 
 CategoryRange* cm_new_category_range(String *type, int start_cat_no,
                                      int end_cat_no);
+
+CategoryRange* cm_category_range_create_copy(CategoryRange *src);
 
 void cm_free_category_range(CategoryRange *cr);
 

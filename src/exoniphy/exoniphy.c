@@ -1,6 +1,6 @@
 /* label - label the columns of alignment(s) by category */
 
-/* $Id: exoniphy.c,v 1.2 2004-06-04 21:56:33 acs Exp $
+/* $Id: exoniphy.c,v 1.3 2004-06-09 17:10:29 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, Adam Siepel, University of California 
 
@@ -1587,11 +1587,11 @@ int main(int argc, char* argv[]) {
           str_cpy_charstr(group_root, output_fname_root);
           str_remove_path(group_root);
           gff = cm_labeling_as_gff(cm, mode == TRAINING ? msa->categories : path, 
-                                   puz->state_to_cat, puz->reverse_compl,
-                                   msa->length, str_new_charstr(source_name), 
-                                   str_new_charstr("PHAST"), 0 /* msa->idx_offset */,
+                                   msa->length, puz->state_to_cat, puz->reverse_compl,
+                                   source_name, 
+                                   "PHAST", 
                                    reverse_complement && mode == TESTING ? '-' : '+', 
-                                   framelist, group_root);
+                                   framelist, group_root->chars);
 
           /* score predictions */
           if (score_mode) { 

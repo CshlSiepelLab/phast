@@ -1,4 +1,4 @@
-/* $Id: hmm.c,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: hmm.c,v 1.2 2004-06-09 17:10:29 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -68,6 +68,34 @@ HMM *hmm_new_nstates(int nstates, int begin, int end) {
                  gsl_vector_calloc(nstates),
                  begin ? gsl_vector_calloc(nstates) : NULL,
                  end ? gsl_vector_calloc(nstates) : NULL);
+}
+
+/* Create a copy of an HMM */
+HMM *hmm_create_copy(HMM *src) {
+  MarkovMatrix *transition_matrix = NULL;
+  gsl_vector *eq_freqs = NULL, *begin_transitions = NULL, 
+    *end_transitions = NULL;
+
+  if (src->transition_matrix != NULL) 
+    transition_matrix = mm_create_copy(src->transition_matrix);
+
+  if (src->eq_freqs != NULL) {
+    eq_freqs = gsl_vector_calloc(src->nstates);
+    gsl_vector_memcpy(eq_freqs, src->eq_freqs);
+  }
+
+  if (src->begin_transitions != NULL) {
+    begin_transitions = gsl_vector_calloc(src->nstates);
+    gsl_vector_memcpy(begin_transitions, src->begin_transitions);
+  }
+
+  if (src->end_transitions != NULL) {
+    end_transitions = gsl_vector_calloc(src->nstates);
+    gsl_vector_memcpy(end_transitions, src->end_transitions);
+  }
+
+  return hmm_new(transition_matrix, eq_freqs, begin_transitions, 
+                 end_transitions);
 }
 
 /* Frees all memory associated with an HMM object */
@@ -313,8 +341,9 @@ double hmm_backward(HMM *hmm, double **emission_scores, int seqlen,
    filled by this function.  This function calls hmm_forward and
    hmm_backward, but it transparently handles the management of the
    arrays used by those routines.  NOTE: if the posterior probs for
-   any state i are not desired, set posterior_probs[i] = NULL */
-void hmm_posterior_probs(HMM *hmm, double **emission_scores, int seqlen,
+   any state i are not desired, set posterior_probs[i] = NULL.  The
+   return value is the log likelihood.  */
+double hmm_posterior_probs(HMM *hmm, double **emission_scores, int seqlen,
                          double **posterior_probs) {
   int i, j, len;
   double logp_fw, logp_bw;
@@ -364,6 +393,8 @@ void hmm_posterior_probs(HMM *hmm, double **emission_scores, int seqlen,
   free(forward_scores);
   free(backward_scores);
   lst_free(val_list);
+
+  return logp_fw;
 }
 
 /* This is the core dynamic programming routine used by hmm_viterbi
@@ -771,11 +802,11 @@ double hmm_path_likelihood(HMM *hmm, double **emission_scores, int seqlen,
   return l;
 }
 
-/* compute the total log likelihood of a subsequence of the input,
+/* Compute the total log likelihood of a subsequence of the input,
    using only the specified states.  Useful for scoring candidate
    predictions.  The parameter "states" must be a list of indices of
-   states.  WARNING: This routine was written to reuse existing
-   code rather than for maximum efficiency.  */
+   states.  This routine is not as efficient as it could be (trying to
+   reuse code).  */
 double hmm_score_subset(HMM *hmm, double **emission_scores, List *states,
                         int begidx, int len) {
   double **forward_scores;
@@ -930,22 +961,22 @@ void hmm_reset(HMM *hmm) {
 /* Given an HMM, some of whose states represent strand-specific
    phenomena in DNA (e.g., coding regions, UTRs, introns), create a
    new HMM with a second version of all such states, corresponding to
-   the reverse strand (assuming the original HMM describes the
-   forward strand).  Transition probabilities between reverse-strand
-   states will be a "reflection" of those for the forward-strand
-   states.  No transitions will be allowed between forward- and
-   reverse-strand states except via designated "pivot" states, which
-   are not reflected (e.g., background or intergenic states).  State 0
-   is automatically a pivot state; additional pivot states may be
-   defined by the list "pivot_states", which, if non-NULL, is expected
-   to contain integers corresponding to state indices.  All non-pivot
-   states will be reflected.  It is assumed that states on the forward
-   and reverse strands have equal overall probability.  The array
-   "mapping" (which must be preallocated to a size of hmm->nstates*2 -
-   lst_size(pivot_states) - 1), will define the correspondence between
-   forward and reverse states: specifically, mapping[i] == i if i is a
-   forward or pivot state, and mapping[i] = -j if i is a reflection of
-   j.  */ 
+   the reverse strand (assuming the original HMM describes the forward
+   strand).  Transition probabilities between reverse-strand states
+   will be a "reflection" of those for the forward-strand states,
+   based on an assumption of reversibility.  No transitions will be
+   allowed between forward- and reverse-strand states except via
+   designated "pivot" states, which are not reflected (e.g.,
+   background or intergenic states).  State 0 is automatically a pivot
+   state; additional pivot states may be defined by the list
+   "pivot_states", which, if non-NULL, is expected to contain integers
+   corresponding to state indices.  All non-pivot states will be
+   reflected.  States on the forward and reverse strands are assumed
+   to have equal overall probability.  On return, the array "mapping"
+   (must be preallocated to a size of hmm->nstates*2 -
+   lst_size(pivot_states) - 1), defines the correspondence between
+   forward and reverse states: mapping[i] == i if i is a forward or
+   pivot state, and mapping[i] = -j if i is a reflection of j.  */ 
 HMM *hmm_reverse_compl(HMM *hmm, List *pivot_states, int *mapping) {
   int npiv_states = 1 + (pivot_states != NULL ? lst_size(pivot_states) : 0);
   List *effective_pivot_states = lst_new_int(npiv_states);

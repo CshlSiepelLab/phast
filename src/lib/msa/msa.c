@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: msa.c,v 1.2 2004-06-09 17:10:30 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -972,18 +972,35 @@ void msa_reverse_data_segment(int *data, int start, int end) {
 
 /* Reverse complement an entire alignment. */
 void msa_reverse_compl(MSA *msa) {
-  int i;
+  int i, tupsize = -1, store_order = 0;
 
   if (msa->ss == NULL) assert(msa->categories == NULL);
                                 /* FIXME: ss case is handling
                                    categories but other case isn't */
   
+  /* temporary -- work-around for problem with context being wrong
+     in suff stats at boundaries of MAF blocks; reverse complement
+     using the complete alignment, not just the suff stats */
+  if (msa->ss != NULL && msa->ss->tuple_size > 1) {
+    tupsize = msa->ss->tuple_size;
+    store_order = (msa->ss->tuple_idx != NULL);
+    if (msa->seqs == NULL) ss_to_msa(msa);
+    ss_free(msa->ss);
+    msa->ss = NULL;
+  }
+  /* end temporary */
+
   if (msa->seqs != NULL) 
     for (i = 0; i < msa->nseqs; i++) 
       msa_reverse_compl_seq(msa->seqs[i], msa->length);
 
   if (msa->ss != NULL) 
     ss_reverse_compl(msa);
+
+  /* temporary (recreate SS)  FIXME: check */
+  if (tupsize != -1) 
+    ss_from_msas(msa, tupsize, store_order, NULL, NULL, NULL, -1);      
+  /* end temporary */
 }
 
 /* Reverse complement a segment of an alignment.  Note: start and end
