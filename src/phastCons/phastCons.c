@@ -223,6 +223,7 @@ OPTIONS:\n\
         two-state HMM, two values can be specified, for the numbers of\n\
         rates for the conserved and the nonconserved states, resp.\n\
 \n\
+ (Tree models)\n\
     --estimate-trees, -T <fname_root>\n\
         (Optionally use with default two-state HMM) Re-estimate tree\n\
         model parameters, in the context of the two-state HMM, and\n\
@@ -238,6 +239,19 @@ OPTIONS:\n\
         --estimate-trees, the specified value will be used for\n\
         initialization only (the scale factor will be estimated).\n\
         This option is ignored if two tree models are given.\n\
+\n\
+    --gc, -G <val>\n\
+        (Optionally use with --estimate-tree) Assume equilibrium base\n\
+        frequencies consistent with the given average G+C content when\n\
+        estimating tree models.  (The frequencies of G and C will be\n\
+        set to <val>/2 and the frequencies of A and T will be set to\n\
+        (1-<val>)/2.)  This option overrides the default behavior of\n\
+        estimating the equilibrium frequencies to be equal to the\n\
+        relative frequencies observed in the data.  It can be useful\n\
+        when model parameters are to be estimated separately, e.g.,\n\
+        for fragments of genome-wide alignments, then combined into a\n\
+        single set of estimates which are to be applied globally.\n\
+        The argument <val> should be between 0 and 1.\n\
 \n\
  (Indels, forward/reverse strands, missing data, and coding potential)\n\
     --indels, -I\n\
@@ -414,6 +428,34 @@ void collapse_cats(CategoryMap *cm, List *cats_to_merge) {
   }
 }
 
+/* initialize equilibrium freqs for tree model; either make consistent
+   with given G+C content or estimate from alignment */
+void init_eqfreqs(TreeModel *mod, MSA *msa, double gc) {
+  if (gc != -1) {               /* gc specified */
+    if (strlen(mod->rate_matrix->states) != 4 || 
+        mod->rate_matrix->inv_states[(int)'A'] < 0 ||
+        mod->rate_matrix->inv_states[(int)'C'] < 0 ||
+        mod->rate_matrix->inv_states[(int)'G'] < 0 ||
+        mod->rate_matrix->inv_states[(int)'T'] < 0)
+      die("ERROR: Four-character DNA alphabet required with --gc.\n");
+    assert(gc > 0 && gc < 1);
+    gsl_vector_set(mod->backgd_freqs, 
+                   mod->rate_matrix->inv_states[(int)'G'], gc/2);
+    gsl_vector_set(mod->backgd_freqs, 
+                   mod->rate_matrix->inv_states[(int)'C'], gc/2);
+    gsl_vector_set(mod->backgd_freqs, 
+                   mod->rate_matrix->inv_states[(int)'A'], (1-gc)/2);
+    gsl_vector_set(mod->backgd_freqs, 
+                   mod->rate_matrix->inv_states[(int)'T'], (1-gc)/2);
+  }
+  else {                        /* estimate from alignment */
+    if (mod->subst_mod == JC69 || mod->subst_mod == K80)
+      gsl_vector_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
+    else
+      msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order+1, -1);
+  }
+}
+
 int main(int argc, char *argv[]) {
 
   /* arguments and defaults */
@@ -425,7 +467,7 @@ int main(int argc, char *argv[]) {
   int nrates = -1, nrates2 = -1, refidx = 1, min_inform_bases = 2, 
     max_micro_indel = 20;
   double lambda = 0.9, p = 0.01, q = 0.01, alpha_0 = 0.05, beta_0 = 0.05, 
-    omega_0 = 0.45, alpha_1 = 0.05, beta_1 = 0.05, omega_1 = 0.2, 
+    omega_0 = 0.45, alpha_1 = 0.05, beta_1 = 0.05, omega_1 = 0.2, gc = -1,
     target_coverage = -1, conserved_scale = DEFAULT_CONSERVED_SCALE;
   msa_format_type msa_format = SS;
   FILE *viterbi_f = NULL, *lnl_f = NULL, *log_f = NULL;
@@ -447,6 +489,7 @@ int main(int argc, char *argv[]) {
     {"transitions", 1, 0, 't'},
     {"estimate-trees", 1, 0, 'T'},
     {"conserved-scale", 1, 0, 'R'},
+    {"gc", 1, 0, 'G'},
     {"nrates", 1, 0, 'k'},
     {"log", 1, 0, 'g'},
     {"refidx", 1, 0, 'r'},
@@ -483,7 +526,7 @@ int main(int argc, char *argv[]) {
   char *mods_fname = NULL, *newname;
   indel_mode_type indel_mode;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:R:T:r:xL:s:N:P:g:U:c:IY:D:JM:m:pA:Xqh", 
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:G:t:R:T:r:xL:s:N:P:g:U:c:IY:D:JM:m:pA:Xqh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
@@ -517,6 +560,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'C':
       target_coverage = get_arg_dbl_bounds(optarg, 0, 1);
+      break;
+    case 'G':
+      gc = get_arg_dbl_bounds(optarg, 0, 1);
       break;
     case 't':
       if (optarg[0] != '~') estim_transitions = FALSE;
@@ -684,50 +730,6 @@ int main(int argc, char *argv[]) {
     if (min_inform_str == NULL) min_inform_str = get_arg_list("CDS");
   }
   
-  /* read tree models first (alignment may take a while) */
-  mod_fname_list = get_arg_list(mods_fname);
-
-  if ((rates_cross || indels_only) && lst_size(mod_fname_list) != 1)
-    die("ERROR: only one tree model allowed with --rates-cross and --indels-only.\n");
-
-  if (two_state && lst_size(mod_fname_list) > 2)
-    die("ERROR: must specify either one or two tree models with default two-state model.\n");
-    
-  mod = (TreeModel**)smalloc(sizeof(TreeModel*) * lst_size(mod_fname_list));
-  for (i = 0; i < lst_size(mod_fname_list); i++) {
-    String *fname = lst_get_ptr(mod_fname_list, i);
-    if (!quiet)
-      fprintf(stderr, "Reading tree model from %s...\n", fname->chars);
-    mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"));
-    mod[i]->use_conditionals = 1; 
-  }
-
-  /* initial checks and setup of tree models with two-state and
-     rates-cross options */
-  if (two_state) {
-    if (lst_size(mod_fname_list) == 1) { /* create 2nd tree model &
-                                            rescale first */
-      mod = srealloc(mod, 2 * sizeof(void*));
-      mod[1] = tm_create_copy(mod[0]);
-      tm_scale(mod[0], conserved_scale, TRUE);
-    }
-    if (lst_size(mod_fname_list) == 2 && estim_trees)
-      die("ERROR: If re-estimating tree models, pass in only one model for initialization.\n");
-    if (mod[0]->empirical_rates || mod[1]->empirical_rates)
-      die("ERROR: nonparameteric rate variation not allowed with default two-state HMM.\n");
-    if (nrates != -1 && nrates != mod[0]->nratecats) 
-      tm_reinit(mod[0], mod[0]->subst_mod, nrates, mod[0]->alpha, NULL, NULL);
-    if (nrates2 != -1 && nrates2 != mod[1]->nratecats) 
-      tm_reinit(mod[1], mod[1]->subst_mod, nrates2, mod[1]->alpha, NULL, NULL);
-  }
-  else if (rates_cross) {
-    if (mod[0]->nratecats <= 1)
-      die("ERROR: a tree model allowing for rate variation is required.\n");
-    if (nrates != -1 && mod[0]->empirical_rates)
-      die("ERROR: can't use --nrates with nonparameteric rate model.\n");
-    if (nrates == -1) nrates = mod[0]->nratecats;
-  }
-
   /* read alignment */
   if (!quiet)
     fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
@@ -757,6 +759,55 @@ int main(int argc, char *argv[]) {
                                 /* msa->missing[0] is used in msa_mask_macro_indels */
 
     msa_mask_macro_indels(msa, max_micro_indel);
+  }
+
+  /* read tree models */
+  mod_fname_list = get_arg_list(mods_fname);
+
+  if ((rates_cross || indels_only) && lst_size(mod_fname_list) != 1)
+    die("ERROR: only one tree model allowed with --rates-cross and --indels-only.\n");
+
+  if (two_state && lst_size(mod_fname_list) > 2)
+    die("ERROR: must specify either one or two tree models with default two-state model.\n");
+    
+  mod = (TreeModel**)smalloc(sizeof(TreeModel*) * lst_size(mod_fname_list));
+  for (i = 0; i < lst_size(mod_fname_list); i++) {
+    String *fname = lst_get_ptr(mod_fname_list, i);
+    if (!quiet)
+      fprintf(stderr, "Reading tree model from %s...\n", fname->chars);
+    mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"));
+    mod[i]->use_conditionals = 1; 
+  }
+
+  /* initial checks and setup of tree models with two-state and
+     rates-cross options */
+  if (two_state) {
+    if (lst_size(mod_fname_list) == 2 && estim_trees)
+      die("ERROR: If re-estimating tree models, pass in only one model for initialization.\n");
+    if (mod[0]->empirical_rates || 
+        (lst_size(mod_fname_list) == 2 && mod[1]->empirical_rates))
+      die("ERROR: nonparameteric rate variation not allowed with default two-state HMM.\n");
+
+    /* set equilibrium frequencies if estimating tree models */
+    if (estim_trees) init_eqfreqs(mod[0], msa, gc);
+
+    if (lst_size(mod_fname_list) == 1) { /* create 2nd tree model &
+                                            rescale first */
+      mod = srealloc(mod, 2 * sizeof(void*));
+      mod[1] = tm_create_copy(mod[0]);
+      tm_scale(mod[0], conserved_scale, TRUE);
+    }
+    if (nrates != -1 && nrates != mod[0]->nratecats) 
+      tm_reinit(mod[0], mod[0]->subst_mod, nrates, mod[0]->alpha, NULL, NULL);
+    if (nrates2 != -1 && nrates2 != mod[1]->nratecats) 
+      tm_reinit(mod[1], mod[1]->subst_mod, nrates2, mod[1]->alpha, NULL, NULL);
+  }
+  else if (rates_cross) {
+    if (mod[0]->nratecats <= 1)
+      die("ERROR: a tree model allowing for rate variation is required.\n");
+    if (nrates != -1 && mod[0]->empirical_rates)
+      die("ERROR: can't use --nrates with nonparameteric rate model.\n");
+    if (nrates == -1) nrates = mod[0]->nratecats;
   }
 
   /* prune away extra species, if possible */
