@@ -77,12 +77,12 @@ EXAMPLES:\n\
     msa_view).\n\
 \n\
         phyloFit --tree mytree.nh --subst-mod REV --nrates 5 \\\n\
-            mydata.ss --out-root rev-dg\n\
+            mydata.ss --msa-format SS --out-root rev-dg\n\
         phastCons mydata.ss rev-dg.mod --nrates 20 > cons.dat\n\
 \n\
     (The --nrates 20 option to phastCons causes the estimated\n\
     distribution of evolutionary rates to be partitioned into 20 parts\n\
-    of equal probability density; as a result, the partition having\n\
+    of equal probability mass; as a result, the partition having\n\
     the smallest rate [by default, the one used for the conserved\n\
     state of the HMM] is representative of the most conserved 1 / 20 =\n\
     5%% of sites in the data set.  Thus, the reported scores represent\n\
@@ -100,9 +100,9 @@ EXAMPLES:\n\
     (if output file were \"elements.gff,\" then output would be in GFF\n\
     instead)\n\
 \n\
-    3. As in (1), but bypass the estimation of the state transition\n\
-    probabilities, and instead use values estimated separately (much\n\
-    faster).\n\
+    3. As in (1), but bypass finding the maximum likelihood estimate of\n\
+    the state transition probabilities, and instead just use the values\n\
+    given (much faster).\n\
 \n\
         phastCons mydata.ss rev-dg.mod --transitions 0.005,0.001 \\\n\
             --nrates 20 > cons.dat\n\
@@ -111,11 +111,11 @@ EXAMPLES:\n\
     probabilities defined by an autocorrelation parameter lambda, as\n\
     described by Felsenstein and Churchill (1996).  Use k = 10 states\n\
     and estimate the parameter lambda from the data.  Report posterior\n\
-    probabilities not just of the most conserved state, but of the two\n\
-    most conserved states.\n\
+    probabilities not just of the single most conserved state, but of\n\
+    the two most conserved states.\n\
 \n\
         phastCons mydata.ss rev-dg.mod --rates-cross --nrates 10 \\\n\
-            --states 1,2 cons.dat\n\
+            --states 1,2 > cons.dat\n\
 \n\
     5. As in (4), but fix lambda at 0.9 rather than estimating it from\n\
     the data.\n\
@@ -178,19 +178,19 @@ OPTIONS:\n\
         autocorrelation.\n\
 \n\
     --cut-at, -c <cut_idx>\n\
-        (For use with default two-state HMM; specify only one\n\
-        phylogenetic model) Use rate categories 1-<cut_idx> for the\n\
-        conserved state (state 1) and the remaining rate categories\n\
-        for the non-conserved state.  The *.mod file must allow for\n\
-        rate variation, via either the discrete gamma (-k option to\n\
-        phyloFit) or non-parametric (-K option) method.  The new\n\
-        phylogenetic model associated with each state will be a\n\
-        mixture model of rates, whose (unnormalized) mixing\n\
-        proportions are given by the *.mod file, either implicitly\n\
-        (discrete gamma case; mixing proportions uniform) or\n\
-        explicitly (non-parameteric case).  By default, the transition\n\
-        probabilities of the HMM will be estimated by maximum\n\
-        likelihood using an EM algorithm (see --transitions).\n\
+        (For use with default two-state HMM) Use rate categories\n\
+        1-<cut_idx> for the conserved state (state 1) and the\n\
+        remaining rate categories for the non-conserved state.  The\n\
+        given phylogenetic model must allow for rate variation, via\n\
+        either the discrete gamma (-k option to phyloFit) or\n\
+        non-parametric (-K option) method.  The new phylogenetic model\n\
+        associated with each state will be a mixture model of rates,\n\
+        whose (unnormalized) mixing proportions are given by the\n\
+        original *.mod file, either implicitly (discrete gamma case;\n\
+        mixing proportions uniform) or explicitly (non-parameteric\n\
+        case).  By default, the transition probabilities of the HMM\n\
+        will be estimated by maximum likelihood using an EM algorithm\n\
+        (see --transitions).\n\
 \n\
     --transitions, -p [~]<p>,<q>\n\
         (Optionally use with default two-state HMM) Fix the transition\n\
