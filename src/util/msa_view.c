@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.13 2004-07-25 22:31:36 acs Exp $
+/* $Id: msa_view.c,v 1.14 2004-07-26 05:28:55 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -680,7 +680,7 @@ int main(int argc, char* argv[]) {
                     tuple_size, 'N');
   }
   else if (gap_strip_mode != NO_STRIP && input_format != MAF)
-    strip_gaps(sub_msa, gap_strip_mode);
+    msa_strip_gaps(sub_msa, gap_strip_mode);
 
   /* create sufficient stats, if necessary */
   if (output_format == SS) {

@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.18 2004-07-24 17:55:46 acs Exp $
+/* $Id: msa.c,v 1.19 2004-07-26 05:28:55 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -399,39 +399,45 @@ void msa_free(MSA *msa) {
    *projection* is desired onto the sequence whose index is
    gap_strip_mode (indexing starts with 1).  Changes are made to
    original alignment.  Gaps are expected to be represented by
-   GAP_CHAR.  If msa->categories is non-NULL, will be
-   adjusted accordingly. */
-void strip_gaps(MSA *msa, int gap_strip_mode) {
+   GAP_CHAR.  If msa->categories is non-NULL, will be adjusted
+   accordingly. */
+void msa_strip_gaps(MSA *msa, int gap_strip_mode) {
   int i, j, k, strip;
+  char c;
 
-  assert(msa->seqs != NULL);
+  if (msa->seqs != NULL && msa->ss != NULL) { /* in this case, work
+                                                 with seqs */
+    ss_free(msa->ss);
+    msa->ss = NULL;
+  }
+
+  if (msa->ss != NULL) {
+    ss_strip_gaps(msa, gap_strip_mode);
+    return;
+  }
 
   if (gap_strip_mode > 0) { 
-    project(msa, gap_strip_mode);
+    msa_project(msa, gap_strip_mode);
     return;
   }
 
   assert(gap_strip_mode == STRIP_ALL_GAPS || gap_strip_mode == STRIP_ANY_GAPS);
-
   k = 0;
   for (i = 0; i < msa->length; i++) {
-    strip = (gap_strip_mode == STRIP_ALL_GAPS ? 1 : 0);
+    strip = (gap_strip_mode == STRIP_ALL_GAPS);
     for (j = 0; j < msa->nseqs; j++) {
-      if (gap_strip_mode == STRIP_ANY_GAPS && 
-          (msa->seqs[j][i] == GAP_CHAR || 
-           msa->is_missing[(int)msa->seqs[j][i]])) {
-        strip = 1; break;
+      c = msa->seqs[j][i];
+      if (gap_strip_mode == STRIP_ANY_GAPS && c == GAP_CHAR) {
+        strip = TRUE; break;
       }
-      else if (gap_strip_mode == STRIP_ALL_GAPS && 
-               msa->seqs[j][i] != GAP_CHAR && 
-               !msa->is_missing[(int)msa->seqs[j][i]]) {
-        strip = 0; break;
+      else if (gap_strip_mode == STRIP_ALL_GAPS && c != GAP_CHAR) {
+        strip = FALSE; break;
       }
     }
 
     if (k == i && !strip) k++;
     else if (!strip) {
-      for (j = 0; j < msa->nseqs; j++)
+      for (j = 0; j < msa->nseqs; j++) 
         msa->seqs[j][k] = msa->seqs[j][i];
       if (msa->categories != NULL)
         msa->categories[k] = msa->categories[i];
@@ -442,9 +448,9 @@ void strip_gaps(MSA *msa, int gap_strip_mode) {
 }
 
 /* "project" alignment on specified sequence, by eliminating all
-   columns in which that sequence has a gap.  First sequence is
-   assumed to have index 1 */
-void project(MSA *msa, int refseq) {
+   columns in which that sequence has a gap.  Indexing of sequences
+   starts with 1 */
+void msa_project(MSA *msa, int refseq) {
   int i, j, k;
   assert(refseq >= 1 && refseq <= msa->nseqs);
   k = 0;
@@ -545,46 +551,6 @@ MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col,
   return new_msa;
 }
 
-
-/* Reports sequence of number of non-gap characters per column, and sequence
-   of gapping patterns per column (e.g., "1011" indicates gap in
-   second of four sequences only).  Data is written to separate files
-   having indicated filename root. */
-void report_gap_stats(MSA *msa, char *fname_root) {
-  char number_fname[50], pattern_fname[50], non_gap_pattern[msa->nseqs];
-  FILE *NUMF, *PATF;
-  int i, j, num_non_gaps;
-
-  assert(strlen(fname_root) < 30);
-  strcpy(number_fname, fname_root);
-  strcat(number_fname, ".non-gap-num");
-  strcpy(pattern_fname, fname_root);
-  strcat(pattern_fname, ".non-gap-pattern");
-  if ((NUMF = fopen(number_fname, "w+")) == NULL || 
-      (PATF = fopen(pattern_fname, "w+")) == NULL) {
-    fprintf(stderr, "ERROR: cannot open files %s and %s for writing.\n",
-            number_fname, pattern_fname);
-    exit(1);
-  }
-  
-  for (i = 0; i < msa->length; i++) {
-    num_non_gaps = 0;
-    non_gap_pattern[0] = '\0';
-    for (j = 0; j < msa->nseqs; j++) {
-      if (msa->seqs[j][i] == GAP_CHAR)
-        strcat(non_gap_pattern, "0");
-      else {
-        strcat(non_gap_pattern, "1");
-        num_non_gaps++;
-      }
-    }
-    fprintf(NUMF, "%d\n", num_non_gaps);
-    fprintf(PATF, "%s\n", non_gap_pattern);
-  }
-
-  fclose(NUMF);
-  fclose(PATF);
-}
 
 /* Builds a "coordinate map" object with respect to the designated
    sequence.  Indexing begins with 1. */

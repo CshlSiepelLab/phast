@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.7 2004-07-25 22:51:29 acs Exp $
+/* $Id: sufficient_stats.c,v 1.8 2004-07-26 05:28:55 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -1189,21 +1189,14 @@ void ss_reorder_rows(MSA *msa, int *new_to_old, int new_nseqs) {
   }
 }
 
-/** Ensure all tuples are unique.  Combine counts and remap as
-    necessary. */
-void ss_unique(MSA *msa) {
-  char key[msa->nseqs * msa->ss->tuple_size + 1];
-  Hashtable *hash = hsh_new(msa->ss->ntuples);
-  int i, idx, cat, new_ntuples = 0;
+/** Eliminate all tuples with counts of zero.  Main counts must reflect
+    cat counts (cat counts won't be checked). */
+void ss_remove_zero_counts(MSA *msa) {
+  int i, cat, new_ntuples = 0;
   int old_to_new[msa->ss->ntuples];
-  key[msa->nseqs * msa->ss->tuple_size] = '\0';
 
   for (i = 0; i < msa->ss->ntuples; i++) {
-    strncpy(key, msa->ss->col_tuples[i], msa->nseqs * msa->ss->tuple_size);
-    /* check if this tuple has already been seen; if not, idx == -1; if
-       so, idx is the *new* index of the earlier version */
-    if ((idx = (int)hsh_get(hash, key)) == -1) {
-      /* not seen before: new index will be new_ntuples */
+    if (msa->ss->counts[i] > 0) {
       if (new_ntuples != i) {
         msa->ss->col_tuples[new_ntuples] = msa->ss->col_tuples[i];
                                 /* note new_ntuples <= i, so
@@ -1215,20 +1208,9 @@ void ss_unique(MSA *msa) {
           for (cat = 0; cat <= msa->ncats; cat++)
             msa->ss->cat_counts[cat][new_ntuples] = msa->ss->cat_counts[cat][i];
       }
-      hsh_put(hash, key, (void*)new_ntuples);
-      old_to_new[i] = new_ntuples;
-      new_ntuples++;
+      old_to_new[i] = new_ntuples++;
     }
-    else {
-      /* seen before: combine counts, free tuple */
-      msa->ss->counts[idx] += msa->ss->counts[i];
-      if (msa->ss->cat_counts != NULL) 
-        for (cat = 0; cat <= msa->ncats; cat++)
-          msa->ss->cat_counts[cat][idx] += msa->ss->cat_counts[cat][i];
-      free(msa->ss->col_tuples[i]);
-      msa->ss->col_tuples[i] = NULL;
-      old_to_new[i] = idx;
-    }
+    else { free(msa->ss->col_tuples[i]); msa->ss->col_tuples[i] = NULL; }
   }
 
   if (msa->ss->tuple_idx != NULL)
@@ -1236,8 +1218,31 @@ void ss_unique(MSA *msa) {
       msa->ss->tuple_idx[i] = old_to_new[msa->ss->tuple_idx[i]];
 
   msa->ss->ntuples = new_ntuples;
-  ss_compact(msa->ss);
+  ss_compact(msa->ss);  
+}
 
+/** Ensure all tuples are unique.  Combine counts and remap indices as
+    necessary. */
+void ss_unique(MSA *msa) {
+  char key[msa->nseqs * msa->ss->tuple_size + 1];
+  Hashtable *hash = hsh_new(msa->ss->ntuples);
+  int i, idx, cat;
+  key[msa->nseqs * msa->ss->tuple_size] = '\0';
+
+  for (i = 0; i < msa->ss->ntuples; i++) {
+    strncpy(key, msa->ss->col_tuples[i], msa->nseqs * msa->ss->tuple_size);
+    if ((idx = (int)hsh_get(hash, key)) == -1) /* tuple not seen before */
+      hsh_put(hash, key, (void*)i);
+    else { /* seen before: combine counts with prev, zero out this version */
+      msa->ss->counts[idx] += msa->ss->counts[i];
+      if (msa->ss->cat_counts != NULL) 
+        for (cat = 0; cat <= msa->ncats; cat++)
+          msa->ss->cat_counts[cat][idx] += msa->ss->cat_counts[cat][i];
+      msa->ss->counts[i] = 0;   /* no need to zero cat_counts */
+    }
+  }
+
+  ss_remove_zero_counts(msa);
   hsh_free(hash);
 }
 
@@ -1259,4 +1264,53 @@ void ss_collapse_missing(MSA *msa, int do_gaps) {
   }
 
   if (changed) ss_unique(msa);
+}
+
+/** Like msa_strip_gaps, but in terms of suffient statistics.  If
+   gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all
+   columns with ALL or ANY gaps, respectively.  Otherwise, assumes a
+   *projection* is desired onto the sequence whose index is
+   gap_strip_mode (indexing starts with 1).  Changes are made to
+   original alignment.  Gaps are expected to be represented by
+   GAP_CHAR.  If msa->categories is non-NULL, it will be adjusted
+   accordingly. */
+void ss_strip_gaps(MSA *msa, int gap_strip_mode) {
+  int i, j;
+  for (i = 0; i < msa->ss->ntuples; i++) {
+    int strip;
+    if (gap_strip_mode > 0)    /* project on refseq */
+      strip = (ss_get_char_tuple(msa, i, gap_strip_mode-1, 0) == GAP_CHAR);
+    else {                      /* stip columns with all or any gaps */
+      strip = (gap_strip_mode == STRIP_ALL_GAPS);
+      for (j = 0; j < msa->nseqs; j++) {
+        char c = ss_get_char_tuple(msa, i, j, 0);
+        if (gap_strip_mode == STRIP_ANY_GAPS && c == GAP_CHAR) {
+          strip = TRUE; break;
+        }
+        else if (gap_strip_mode == STRIP_ALL_GAPS && c != GAP_CHAR) {
+          strip = FALSE; break;
+        }        
+      }
+    }
+    if (strip) {
+      msa->length -= msa->ss->counts[i];
+      msa->ss->counts[i] = 0;
+    }
+  }
+  
+  if (msa->ss->tuple_idx != NULL) {
+    for (i = 0, j = 0; i < msa->length; i++)
+      if (msa->ss->counts[msa->ss->tuple_idx[i]] > 0) {
+        msa->ss->tuple_idx[j] = msa->ss->tuple_idx[i];
+        if (msa->categories != NULL)
+          msa->categories[j] = msa->categories[i];
+        j++;
+      }
+    /* above assumes any tuple is to be removed that is present in
+       tuple_idx but has a count of zero */
+
+    assert(msa->length == j);
+  }
+
+  ss_remove_zero_counts(msa);
 }

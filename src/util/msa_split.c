@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.14 2004-07-24 17:55:46 acs Exp $
+/* $Id: msa_split.c,v 1.15 2004-07-26 05:28:55 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -776,7 +776,7 @@ int main(int argc, char* argv[]) {
       }
 
       if (gap_strip_mode != NO_STRIP) {
-        strip_gaps(sub_msa, gap_strip_mode);
+        msa_strip_gaps(sub_msa, gap_strip_mode);
 
         /* collect new summary information (post gap strip) */
         if (SUM_F != NULL) {
@@ -856,7 +856,7 @@ int main(int argc, char* argv[]) {
       }
 
       if (gap_strip_mode != NO_STRIP) {
-        strip_gaps(sub, gap_strip_mode);
+        msa_strip_gaps(sub, gap_strip_mode);
 
         /* collect new summary information (post gap strip) */
         if (SUM_F != NULL) {

@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.9 2004-07-24 17:55:46 acs Exp $
+/* $Id: maf.c,v 1.10 2004-07-26 05:28:53 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -183,7 +183,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
     }
 
     if (gap_strip_mode != NO_STRIP) 
-      strip_gaps(mini_msa, gap_strip_mode);
+      msa_strip_gaps(mini_msa, gap_strip_mode);
 
     if (gff != NULL) {
       /* extract subset of features in GFF corresponding to block */

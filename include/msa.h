@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.8 2004-07-24 17:55:46 acs Exp $
+/* $Id: msa.h,v 1.9 2004-07-26 05:28:53 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -156,11 +156,10 @@ MSA *msa_create_copy(MSA *msa, int suff_stats_only);
 MSA *msa_read_fasta(FILE *F, char *alphabet);
 void msa_print(FILE *F, MSA *msa, msa_format_type format, int pretty_print);
 void msa_free(MSA *msa);
-void strip_gaps(MSA *msa, int gap_strip_mode);
-void project(MSA *msa, int refseq);
+void msa_strip_gaps(MSA *msa, int gap_strip_mode);
+void msa_project(MSA *msa, int refseq);
 MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col, 
                        int end_col);
-void report_gap_stats(MSA *msa, char *fname_root);
 msa_coord_map* msa_build_coord_map(MSA *msa, int refseq);
 void msa_coord_map_print(FILE *F, msa_coord_map *map);
 int msa_map_seq_to_msa(msa_coord_map *map, int seq_pos);

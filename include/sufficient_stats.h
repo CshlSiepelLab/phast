@@ -1,7 +1,7 @@
 /* sufficient_stats.h - Representation of multiple alignments in terms of their sufficient statistics */
 
 /*   
-   $Id: sufficient_stats.h,v 1.3 2004-07-25 22:31:36 acs Exp $
+   $Id: sufficient_stats.h,v 1.4 2004-07-26 05:28:53 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -78,8 +78,10 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
                       int start_col, int end_col);
 void ss_reverse_compl(MSA *msa);
 void ss_reorder_rows(MSA *msa, int *new_to_old, int new_nseqs);
+void ss_remove_zero_counts(MSA *msa);
 void ss_unique(MSA *msa);
 void ss_collapse_missing(MSA *msa, int do_gaps);
+void ss_strip_gaps(MSA *msa, int gap_strip_mode);
 
 
 
