@@ -1,4 +1,4 @@
-/* $Id: bed.c,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: bed.c,v 1.2 2004-06-11 05:58:51 acs Exp $
    Written by Adam Siepel, 2004
    Copyright 2004, Adam Siepel, University of California */
 
@@ -29,7 +29,7 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
     str_trim(line);
     if (line->length == 0) continue;
 
-    str_split(line, NULL, l);
+    str_split(line, "\t", l);
     if (str_equals_nocase_charstr(lst_get_ptr(l, 0), "Track")) {
       /* for now do nothing with Track info */
     }
@@ -110,25 +110,13 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
 
 /* used in gff_print_bed, below */
 void gff_print_bed_line(FILE *OUTF, List *features, 
-                        int bed_start, int bed_end) {
+                        int bed_start, int bed_end, char *name) {
   GFF_Feature *feat;
   int j;
   double score;
-  String *name = str_new(STR_SHORT_LEN);
 
   assert(lst_size(features) > 0);
   feat = lst_get_ptr(features, 0);
-
-  /* if available, use first whitespace-delimited word of attr as
-     name; otherwise, use feature type of first feature */
-  if (feat->attribute->length == 0 || 
-      str_equals_charstr(feat->attribute, "."))
-    str_cpy(name, feat->feature);
-  else {
-    for (j = 0; j < feat->attribute->length && 
-           !isspace(feat->attribute->chars[j]); j++);
-    str_substring(name, feat->attribute, 0, j);
-  }
 
   /* use sum of non-null scores */
   score = 0;
@@ -138,7 +126,12 @@ void gff_print_bed_line(FILE *OUTF, List *features,
       score += feat->score;
   }
 
-  fprintf(OUTF, "%s\t%d\t%d\t%s\t%.0f\t%c\t%d\t%d\t0\t%d\t", feat->seqname->chars, bed_start - 1, bed_end, name->chars, score, feat->strand, bed_start - 1, bed_end, lst_size(features));
+  if (name == NULL) name = ".";
+
+  fprintf(OUTF, "%s\t%d\t%d\t%s\t%.0f\t%c\t%d\t%d\t0\t%d\t", 
+          feat->seqname->chars, bed_start - 1, bed_end, 
+          name, score, feat->strand, 
+          bed_start - 1, bed_end, lst_size(features));
 
   for (j = 0; j < lst_size(features); j++) {
     feat = lst_get_ptr(features, j);
@@ -152,8 +145,6 @@ void gff_print_bed_line(FILE *OUTF, List *features,
             bed_start);
 
   fprintf(OUTF, "\n");
-
-  str_free(name);
 }
 
 /** Write a GFF_Set in bed format.  Features are grouped according to
@@ -174,7 +165,8 @@ void gff_print_bed(FILE *OUTF, GFF_Set *gff, String *groupby, List *include) {
       if (include == NULL || str_in_list(feat->feature, include)) {
         lst_clear(keepers);
         lst_push_ptr(keepers, feat);
-        gff_print_bed_line(OUTF, keepers, feat->start, feat->end);
+        gff_print_bed_line(OUTF, keepers, feat->start, feat->end, 
+                           feat->attribute->chars);
       }
     }
   }
@@ -194,7 +186,8 @@ void gff_print_bed(FILE *OUTF, GFF_Set *gff, String *groupby, List *include) {
           if (include == NULL || str_in_list(feat->feature, include)) {
             lst_clear(keepers);
             lst_push_ptr(keepers, feat);
-            gff_print_bed_line(OUTF, keepers, feat->start, feat->end);
+            gff_print_bed_line(OUTF, keepers, feat->start, feat->end,
+                               feat->attribute->chars);
           }
         }
       }
@@ -229,7 +222,8 @@ void gff_print_bed(FILE *OUTF, GFF_Set *gff, String *groupby, List *include) {
         }
 
         if (lst_size(keepers) > 0) 
-          gff_print_bed_line(OUTF, keepers, bed_start, bed_end);
+          gff_print_bed_line(OUTF, keepers, bed_start, bed_end, 
+                             group->name->chars);
       }
     }
   }

@@ -1,4 +1,4 @@
-/* $Id: numerical_opt.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: numerical_opt.h,v 1.2 2004-06-11 05:58:51 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -50,11 +50,12 @@ void opt_log(FILE *F, int header_only, double val, gsl_vector *params,
              gsl_vector *derivs, int trunc, double lambda);
 
 
-double opt_brent(double ax, double bx, double cx, double (*f)(double, void*), double tol,
-                 double *xmin, void *data);
+double opt_brent(double ax, double bx, double cx, 
+                 double (*f)(double, void*), double tol,
+                 double *xmin, void *data, FILE *logf);
 
 void mnbrak(double *ax, double *bx, double *cx, double *fa, double *fb, double *fc,
-            double (*func)(double, void*), void *data);
+            double (*func)(double, void*), void *data, FILE *logf);
 
 int opt_min_sigfig(gsl_vector *p1, gsl_vector *p2);
 

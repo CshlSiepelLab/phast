@@ -1,4 +1,4 @@
-/* $Id: numerical_opt.c,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: numerical_opt.c,v 1.2 2004-06-11 05:58:51 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -675,7 +675,7 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
       gsl_matrix_add(H, bfgs_term);
 
 #ifdef DEBUG
-      check_H(H, at_bounds);
+/*       check_H(H, at_bounds); */
 #endif
     }
     else {
@@ -899,8 +899,9 @@ void opt_log(FILE *logf, int header_only, double val, gsl_vector *params,
    trying to achieve fractional accuracy for a minimum that happens to
    be exactly zero. */
 #define SHFT(a,b,c,d) (a)=(b);(b)=(c);(c)=(d);
-double opt_brent(double ax, double bx, double cx, double (*f)(double, void*), double tol,
-            double *xmin, void *data)
+double opt_brent(double ax, double bx, double cx, 
+                 double (*f)(double, void*), double tol,
+                 double *xmin, void *data, FILE *logf)
      /* Given a function f, and given a bracketing triplet of
         abscissas ax, bx, cx (such that bx is between ax and cx, and
         f(bx) is less than both f(ax) and f(cx)), this routine
@@ -918,13 +919,15 @@ double opt_brent(double ax, double bx, double cx, double (*f)(double, void*), do
   b=(ax > cx ? ax : cx);
   x=w=v=bx;                     /*  Initializations... */
   fw=fv=fx=(*f)(x, data);
-  fprintf(stderr, "opt_brent: (%f, %f, %f)\n", ax, bx, cx);
-  fprintf(stderr, "opt_brent: %f -> %f\n", x, fw);
+  if (logf != NULL) 
+    fprintf(logf, "opt_brent:\nStarting with x_a = %f, x_b = %f, x_c = %f, f(x_b) = %f\n", ax, bx, cx, fx);
   for (iter=1;iter<=ITMAX_BRENT;iter++) { /* Main program loop. */
     xm=0.5*(a+b);
     tol2=2.0*(tol1=tol*fabs(x)+ZEPS);
     if (fabs(x-xm) <= (tol2-0.5*(b-a))) { /* Test for done here. */
       *xmin=x;
+      if (logf != NULL) 
+        fprintf(logf, "Returning x_min = %f, f(x_min) = %f\n", x, fx);
       return fx;
     }
     if (fabs(e) > tol1) {       /* Construct a trial parabolic fit. */
@@ -952,7 +955,10 @@ double opt_brent(double ax, double bx, double cx, double (*f)(double, void*), do
     }
     u=(fabs(d) >= tol1 ? x+d : x+SIGN(tol1,d));
     fu=(*f)(u, data);
-    fprintf(stderr, "opt_brent: %f -> %f\n", u, fu);
+    if (logf != NULL) {
+      fprintf(logf, "u = %f, f(u) = %f\n", u, fu);
+      fflush(logf);
+    }
     /* This is the one function evaluation per iteration. */
     if (fu <= fx) {             /* Now decide what to do with our
                                    function evaluation.  */
@@ -972,10 +978,8 @@ double opt_brent(double ax, double bx, double cx, double (*f)(double, void*), do
           }
         } /* Done with housekeeping. Back for another iteration. */ 
   }
-  fprintf(stderr, "Too many iterations in brent");
-  exit(1);
-  *xmin=x;                      /* Never get here. */
-  return fx;
+  die("ERROR: exceeded max iterations in brent.\n");
+  return -1;                    /* never get here */
 }
 
 #define GOLD 1.618034
@@ -984,8 +988,9 @@ double opt_brent(double ax, double bx, double cx, double (*f)(double, void*), do
 /* Here GOLD is the default ratio by which successive intervals are
    magnified; GLIMIT is the maximum magnification allowed for a
    parabolic-fit step. */
-void mnbrak(double *ax, double *bx, double *cx, double *fa, double *fb, double *fc,
-            double (*func)(double, void*), void *data)
+void mnbrak(double *ax, double *bx, double *cx, double *fa, double *fb, 
+            double *fc, double (*func)(double, void*), void *data,
+            FILE *logf)
      /* Given a function func, and given distinct initial points ax
         and bx, this routine searches in the downhill direction
         (defined by the function as evaluated at the initial points)
@@ -996,7 +1001,9 @@ void mnbrak(double *ax, double *bx, double *cx, double *fa, double *fb, double *
   double ulim,u,r,q,fu,dum;
   *fa=(*func)(*ax, data);
   *fb=(*func)(*bx, data);
-  fprintf(stderr, "opt_mnbrak: %f, %f -> %f, %f\n", *ax, *bx, *fa, *fb);
+  if (logf != NULL)
+    fprintf(logf, "opt_mnbrak:\nx_a = %f, f(x_a) = %f\nx_b = %f, f(x_b) = %f\n", 
+            *ax, *fa, *bx, *fb);
   if (*fb > *fa) {              /* Switch roles of a and b so that we
                                    can go downhill in the direction
                                    from a to b.*/
@@ -1007,7 +1014,9 @@ void mnbrak(double *ax, double *bx, double *cx, double *fa, double *fb, double *
   *fc=(*func)(*cx, data);
   while (*fb > *fc) {           /* Keep returning here until we
                                    bracket. */
-    fprintf(stderr, "opt_mnbrak: %f, %f, %f -> %f, %f, %f\n", *ax, *bx, *cx, *fa, *fb, *fc);
+    if (logf != NULL)
+      fprintf(logf, "x_a = %f, f(x_a) = %f\nx_b = %f, f(x_b) = %f\nx_c = %f, f(x_c) = %f\n", 
+              *ax, *fa, *bx, *fb, *cx, *fc);
     r=(*bx-*ax)*(*fb-*fc);      /* Compute u by parabolic
                                    extrapolation from a, b, c. TINY is
                                    used to prevent any possible
@@ -1056,8 +1065,9 @@ void mnbrak(double *ax, double *bx, double *cx, double *fa, double *fb, double *
                                    continue. */
       SHFT(*fa,*fb,*fc,fu)
       }
-  fprintf(stderr, "opt_mnbrak: %f, %f, %f -> %f, %f, %f\n", *ax, *bx, *cx, *fa, *fb, *fc);
-
+  if (logf != NULL)
+    fprintf(logf, "(final)\nx_a = %f, f(x_a) = %f\nx_b = %f, f(x_b) = %f\nx_c = %f, f(x_c) = %f\n", 
+              *ax, *fa, *bx, *fb, *cx, *fc);
 }
 
 /***************************************************************************/

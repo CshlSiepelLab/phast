@@ -1,6 +1,6 @@
 /* category_map - Data structures and supporting functions to map between feature types and site categories. */
 
-/* $Id: category_map.h,v 1.2 2004-06-09 17:10:29 acs Exp $
+/* $Id: category_map.h,v 1.3 2004-06-11 05:58:50 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 
@@ -179,6 +179,8 @@ String *cm_get_feature(CategoryMap *cm, int cat);
    with the specified category number.
    Returns a pointer to a newly allocated String.*/
 String *cm_get_feature_unique(CategoryMap *cm, int cat);
+
+List *cm_get_features(CategoryMap *cm, List *catnos);
 
 /* Print the category map to the specified stream, in the standard format. */
 void cm_print(CategoryMap *cm, FILE *F);

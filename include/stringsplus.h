@@ -1,6 +1,6 @@
 /* stringsplus - String-handling functions, with automatic memory management and basic regex support. */
    
-/* $Id: stringsplus.h,v 1.2 2004-06-09 17:10:29 acs Exp $
+/* $Id: stringsplus.h,v 1.3 2004-06-11 05:58:51 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 
@@ -53,6 +53,9 @@ String *str_new(int starting_nchars);
    Returns newly allocated String object, equal to specified char*
    string (string will be copied). */
 String *str_new_charstr(char *str);
+
+String *str_new_int(int i);
+String *str_new_dbl(double d);
 
 /* Free memory associated with string.  String itself will be freed also. */
 void str_free(String *s);
@@ -280,8 +283,8 @@ int str_re_search(String *s, Regex *re, int start_offset, List *l,
    freed externally. */
 void str_re_split(String *s, Regex *re, List *l);
 
-void str_get_name_root(String *prefix, String *src);
-void str_get_name_suffix(String *suffix, String *src);
+void str_root(String *str, char delim);
+void str_suffix(String *str, char delim);
 void str_remove_path(String *str);
 int str_in_list(String *s, List *l);
 int str_list_overlap(List *dest, List *src1, List *src2);

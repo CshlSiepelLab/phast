@@ -1,10 +1,10 @@
-/* $Id: phylo_hmm.c,v 1.1 2004-06-09 17:12:15 acs Exp $
+/* $Id: phylo_hmm.c,v 1.2 2004-06-11 05:58:51 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
 /* Code for phylo-HMMs.  Allows for automatic expansion of the state
    space to accommodate features on the reverse strand, and for the
-   indel model described in Siepel & Haussler (RECOMB '04).  Also
+   indel model described in Siepel & Haussler, RECOMB '04.  Also
    allows for cross-product constructions involving functional states
    and rate categories (Siepel & Haussler, RECOMB '03).  */
 
@@ -77,7 +77,8 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
   phmm->functional_hmm = phmm->autocorr_hmm = NULL;
   phmm->reflected = pivot_cats != NULL;
   phmm->emissions = NULL;
-  phmm->emissions_len = -1;
+  phmm->forward = NULL;
+  phmm->alloc_len = -1;
   phmm->state_pos = phmm->state_neg = NULL;
 
   max_nstates = phmm->reflected ? phmm->hmm->nstates * 2 : phmm->hmm->nstates;
@@ -219,10 +220,7 @@ void phmm_create_autocorr_hmm(HMM *hmm, double lambda) {
 void phmm_rates_cross(PhyloHmm *phmm, 
                                 /**< PhyloHmm to be altered */
                       int nratecats, 
-                                /**< Number of rate categories.  Use
-                                   -1 to obtain the number from the
-                                   individual tree models in the
-                                   PhyloHmm (all must be the same) */
+                                /**< Number of rate categories. */
                       double lambda,
                                 /**< Autocorrelation parameter  */
                       int expand_cats
@@ -242,21 +240,10 @@ void phmm_rates_cross(PhyloHmm *phmm,
                                    base index in new space */
   int *old_cat_to_new;           /* mapping of old to new category number */
 
-  phmm->nratecats = nratecats;
-
-  if (nratecats < 0) {          /* obtain nratecats from tree models;
-                                   all must be the same */
-    for (mod = 0; mod < phmm->nmods; mod++) {
-      if (phmm->mods[mod]->tree == NULL) continue; /* ignore weight-matrix 
-                                                      tree models */
-      if (phmm->nratecats < 0) phmm->nratecats = phmm->mods[mod]->nratecats;
-      else if (phmm->nratecats != phmm->mods[mod]->nratecats) 
-        die("ERROR: tree models specify different numbers of rate categories.\n");
-    }
-  }
-
-  if (phmm->nratecats <= 1) 
+  if (nratecats <= 1) 
     die("ERROR: phmm_rate_cats requires nratecats > 1.\n");
+
+  phmm->nratecats = nratecats;
 
   /* realloc and init */
   max_nstates = phmm->hmm->nstates * phmm->nratecats;
@@ -286,11 +273,11 @@ void phmm_rates_cross(PhyloHmm *phmm,
       /* in this case, the scaling constants must be determined from
          the model (and may be different for each model) */
       double freqs[phmm->nratecats];
-      assert(phmm->mods[mod]->alpha >= 0); /* FIXME: check in label.c */
+      assert(phmm->mods[mod]->alpha > 0); 
       DiscreteGamma(freqs, sconsts, phmm->mods[mod]->alpha, 
                     phmm->mods[mod]->alpha, phmm->nratecats, 0);
           
-      tm_reinit(phmm->mods[mod], phmm->mods[mod]->subst_mod, 1, 0, NULL);
+      tm_reinit(phmm->mods[mod], phmm->mods[mod]->subst_mod, 1, 0, NULL, NULL);
       /* we don't want to treat the scaled versions as
          models with rate variation (would be "counting twice") */
 
@@ -348,7 +335,6 @@ void phmm_rates_cross(PhyloHmm *phmm,
 
           }
         }
-        /* skip labelling precedence, fill precedence, feat_ext_list */
         old_cat_to_new[phmm->nratecats * cat + ratecat] = newcat;
         newcat += range_size;
       }
@@ -414,6 +400,11 @@ void phmm_free(PhyloHmm *phmm) {
     free(phmm->emissions); free(phmm->state_pos); free(phmm->state_neg);
   }
 
+  if (phmm->forward != NULL) {
+    for (i = 0; i < phmm->hmm->nstates; i++) free(phmm->forward[i]);
+    free(phmm->forward);
+  }
+
   free(phmm->state_to_mod);
   free(phmm->state_to_cat);
   free(phmm->state_to_pattern);
@@ -441,7 +432,7 @@ void phmm_compute_emissions(PhyloHmm *phmm,
   MSA *msa_compl = NULL;
 
   phmm->emissions = smalloc(phmm->hmm->nstates * sizeof(double*));  
-  phmm->emissions_len = msa->length;
+  phmm->alloc_len = msa->length;
 
   /* if HMM is reflected, we need the reverse complement of the
      alignment as well */
@@ -474,11 +465,16 @@ void phmm_compute_emissions(PhyloHmm *phmm,
     phmm->state_pos[i] = phmm->state_neg[i] = -1;
 
   for (i = 0; i < phmm->hmm->nstates; i++) {
-    if (!quiet)
-      fprintf(stderr, "Computing emission probs (state %d,  cat %d, mod %d, pattern %d, strand %c) ...\n", 
-              i, phmm->state_to_cat[i], phmm->state_to_mod[i], 
-              phmm->state_to_pattern[i], phmm->reverse_compl[i] ? '-' : '+');
-    
+    if (!quiet) {
+      fprintf(stderr, "Computing emission probs (state %d, cat %d, mod %d",
+              i+1, phmm->state_to_cat[i]+1, phmm->state_to_mod[i]+1);
+      if (phmm->state_to_pattern[i] != -1) 
+        fprintf(stderr, ", pattern %d", phmm->state_to_pattern[i]);
+      if (phmm->reflected) 
+        fprintf(stderr, ", strand %c", phmm->reverse_compl[i] ? '-' : '+');
+      fprintf(stderr, ")...\n");
+    }
+            
     /* reuse already computed values if possible */
     mod = phmm->state_to_mod[i];
     if (!phmm->reverse_compl[i] && phmm->state_pos[mod] != -1)
@@ -508,22 +504,19 @@ GFF_Set* phmm_predict_viterbi(PhyloHmm *phmm,
                                 /**< features for which to obtain
                                    frame (NULL to ignore) */
                                ) {
-  int *path = (int*)smalloc(phmm->emissions_len * sizeof(int));
+  int *path = (int*)smalloc(phmm->alloc_len * sizeof(int));
   GFF_Set *retval;
 
   if (phmm->emissions == NULL)
     die("ERROR: emissions required for phmm_viterbi_features.\n");
           
-  hmm_viterbi(phmm->hmm, phmm->emissions, phmm->emissions_len, path);
+  hmm_viterbi(phmm->hmm, phmm->emissions, phmm->alloc_len, path);
 
-  retval = cm_labeling_as_gff(phmm->cm, path, phmm->emissions_len, 
+  retval = cm_labeling_as_gff(phmm->cm, path, phmm->alloc_len, 
                               phmm->state_to_cat, 
                               phmm->reverse_compl, seqname, "PHAST",  
                               phmm->reflected ? '-' : '+', frame, 
-                              NULL);
-
-                                /* FIXME: gff groups (group_root)
-                                   should pass tag instead */
+                              NULL); /* add option for grouptag? */
   free(path);
 
   return retval;
@@ -532,9 +525,8 @@ GFF_Set* phmm_predict_viterbi(PhyloHmm *phmm,
 GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm, 
                                      /**< PhyloHmm object */
                                    List *cats,
-                                     /**< states of interest
-                                        (integers >= 0 and <
-                                        phmm->hmm->nstates) */
+                                     /**< categories of interest, by
+                                        name or number */
                                    char *seqname,
                                      /**< seqname for feature set (e.g.,
                                         "chr1") */
@@ -546,21 +538,14 @@ GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm,
                                         retained feature with this
                                         string if non-NULL */
                                    ) {
-  int i, cat, lastone = -1;
-  GFF_Set *retval = phmm_predict_viterbi(phmm, seqname, frame);
-  List *types = lst_new_ptr(lst_size(cats));
+  int i;
   GFF_Feature *lastkeeper = NULL;
-  List *keepers, *catnos;
+  List *types, *keepers, *catnos;
+  GFF_Set *retval = phmm_predict_viterbi(phmm, seqname, frame);
 
   /* do this way to allow input to be numbers or names */
   catnos = cm_get_category_list(phmm->cm, cats, 1);
-  for (i = 0; i < lst_size(catnos); i++) {
-    cat = lst_get_int(catnos, i);
-    if (phmm->cm->ranges[cat]->start_cat_no == lastone) continue;
-    lst_push_ptr(types, cm_get_feature(phmm->cm, cat));
-    lastone = phmm->cm->ranges[cat]->start_cat_no;
-  }
-  lst_free(catnos);
+  types = cm_get_features(phmm->cm, catnos);
 
   /* filter out unwanted types */
   gff_filter_by_type(retval, types);
@@ -569,7 +554,7 @@ GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm,
   keepers = lst_new_ptr(lst_size(retval->features));
   for (i = 0; i < lst_size(retval->features); i++) {
     GFF_Feature *f = lst_get_ptr(retval->features, i);
-    if (f->start == lastkeeper->end+1) {
+    if (lastkeeper != NULL && f->start == lastkeeper->end+1) {
       lastkeeper->end = f->end;
       gff_free_feature(f);
     }
@@ -596,9 +581,9 @@ double phmm_lnl(PhyloHmm *phmm) {
     die("ERROR: emissions required for phmm_lnl.\n");
           
   for (i = 0; i < phmm->hmm->nstates; i++)
-    forward[i] = (double*)smalloc(phmm->emissions_len * sizeof(double));
+    forward[i] = (double*)smalloc(phmm->alloc_len * sizeof(double));
   logl = hmm_forward(phmm->hmm, phmm->emissions, 
-                     phmm->emissions_len, forward);
+                     phmm->alloc_len, forward);
   for (i = 0; i < phmm->hmm->nstates; i++) free(forward[i]);
   free(forward);
   return logl * log(2); /* convert to natural log */
@@ -611,46 +596,55 @@ double phmm_postprobs(PhyloHmm *phmm, double **post_probs) {
   if (phmm->emissions == NULL)
     die("ERROR: emissions required for phmm_posterior_probs.\n");
 
-  return hmm_posterior_probs(phmm->hmm, phmm->emissions, phmm->emissions_len, 
+  return hmm_posterior_probs(phmm->hmm, phmm->emissions, phmm->alloc_len, 
                              post_probs) * log(2);
                                 /* convert to natural log */          
 }
 
-/** Computes and returns an array of length phmm->emissions_len
+/** Computes and returns an array of length phmm->alloc_len
     representing the marginal posterior prob at every site, summed
-    over all states in the specified list.  Emissions must have
-    already been computed (see phmm_compute_emissions) Computes log
-    likelihood as a side effect. */
-double* phmm_postprobs_states(PhyloHmm *phmm, 
+    over states corresponding to categories in the specified list.
+    Emissions must have already been computed (see
+    phmm_compute_emissions).  Computes log likelihood as a side
+    effect. */
+double* phmm_postprobs_cats(PhyloHmm *phmm, 
                                 /**< PhyloHmm object */
-                              List *states, 
-                                /**< List of states to consider
-                                   (integers >= 0 and <
-                                   phmm->hmm->nstates) */
+                              List *cats, 
+                                /**< Categories of interest, by name
+                                   or number */
                               double *lnl
                                 /**< if non-NULL, will point to log
                                    likelihood on return */
                               ) {
   int i, j, state;
   double **pp = smalloc(phmm->hmm->nstates * sizeof(double*));
-  double *retval = smalloc(phmm->emissions_len * sizeof(double));
+  double *retval = smalloc(phmm->alloc_len * sizeof(double));
   double l;
+  List *states = lst_new_int(phmm->hmm->nstates), *catnos;
+  int docat[phmm->cm->ncats+1];
 
+  /* get states corresponding to specified cats */
+  catnos = cm_get_category_list(phmm->cm, cats, 1);
+  for (i = 0; i <= phmm->cm->ncats; i++) docat[i] = 0;
+  for (i = 0; i < lst_size(catnos); i++) docat[lst_get_int(catnos, i)] = 1;
+  for (i = 0; i < phmm->hmm->nstates; i++)
+    if (docat[phmm->state_to_cat[i]]) lst_push_int(states, i);
+                                               
   /* only allocate memory for states of interest; NULLs for the others
      will cause hmm_postprobs to ignore them */
   for (i = 0; i < phmm->hmm->nstates; i++) pp[i] = NULL;
   for (i = 0; i < lst_size(states); i++) {
     state = lst_get_int(states, i);
     if (pp[state] == NULL)
-      pp[state] = smalloc(phmm->emissions_len * sizeof(double));
+      pp[state] = smalloc(phmm->alloc_len * sizeof(double));
   }
 
   l = phmm_postprobs(phmm, pp);
 
-  for (j = 0; j < phmm->emissions_len; j++) retval[j] = 0;
+  for (j = 0; j < phmm->alloc_len; j++) retval[j] = 0;
   for (i = 0; i < lst_size(states); i++) {
     state = lst_get_int(states, i);
-    for (j = 0; j < phmm->emissions_len; j++) retval[j] += pp[state][j];
+    for (j = 0; j < phmm->alloc_len; j++) retval[j] += pp[state][j];
   }
       
   if (lnl != NULL) *lnl = l;
@@ -658,43 +652,31 @@ double* phmm_postprobs_states(PhyloHmm *phmm,
   return retval;
 }
 
-typedef struct {                /* "package" for data needed by
-                                   log_likelihood_wrapper (see below) */
-  double **forward;
-  int msa_len;
-  PhyloHmm *phmm;
-} AutoratesData;
-
-double log_likelihood_wrapper(double lambda, void *data) {
-  AutoratesData *ad = (AutoratesData*)data;
+double fit_lambda_lnl(double lambda, void *data) {
+  PhyloHmm *phmm = data;
   if (lambda < 0 || lambda > 1) return INFTY;
-  phmm_update_cross_prod(ad->phmm, lambda);
-  return -hmm_forward(ad->phmm->hmm, ad->phmm->emissions, ad->msa_len, 
-                      ad->forward);
+  phmm_update_cross_prod(phmm, lambda);
+  return log(2) * -hmm_forward(phmm->hmm, phmm->emissions, 
+                               phmm->alloc_len, phmm->forward);
 }
 
-double phmm_fit_lambda(PhyloHmm *phmm, int msa_len) {
-  AutoratesData ad;
-  double lambda, final_score, ax, bx, cx, fa, fb, fc;
+/* returns log likelihood */
+double phmm_fit_lambda(PhyloHmm *phmm, double *lambda, FILE *logf) {
+  double neglnl, ax, bx, cx, fa, fb, fc;
   int i;
 
   /* allocate memory for forward alg */
-  ad.forward = smalloc(phmm->hmm->nstates * sizeof(double*));
-  for (i = 0; i < phmm->hmm->nstates; i++)
-    ad.forward[i] = smalloc(msa_len * sizeof(double));
-
-  ad.phmm = phmm;
-  ad.msa_len = msa_len;
+  if (phmm->forward == NULL) {  /* otherwise assume already alloc */
+    phmm->forward = smalloc(phmm->hmm->nstates * sizeof(double*));
+    for (i = 0; i < phmm->hmm->nstates; i++)
+      phmm->forward[i] = smalloc(phmm->alloc_len * sizeof(double));
+  }
 
   ax = .80; bx = .97;           /* FIXME -- parameterize */
-  mnbrak(&ax, &bx, &cx, &fa, &fb, &fc, log_likelihood_wrapper, &ad);
-  final_score = opt_brent(ax, bx, cx, log_likelihood_wrapper, 5e-3, &lambda, &ad);
-/*   fprintf(stderr, "Returned from opt_brent; freeing forward ...\n"); */
+  mnbrak(&ax, &bx, &cx, &fa, &fb, &fc, fit_lambda_lnl, phmm, logf);
+  neglnl = opt_brent(ax, bx, cx, fit_lambda_lnl, 5e-3, lambda, phmm, logf);
 
-  for (i = 0; i < phmm->hmm->nstates; i++) free(ad.forward[i]);
-  free(ad.forward);
-
-  return lambda;
+  return -neglnl;
 }
 
 /** Score a set of predicted features using log odds scoring. */
@@ -709,14 +691,18 @@ void phmm_score_predictions(PhyloHmm *phmm,
                                 /**< Secondary categories to be
                                    included in scoring if adjacent to
                                    main cats.  Pass NULL if none. */
-                            List *null_cats
+                            List *null_cats,
                                 /**< Categories in null model.  Pass
                                    NULL to use all categories not in
                                    score_cats or helper_cats */
+                            int score_only_score_cats
+                                /**< Restrict scoring to features
+                                   matching score_cats; if FALSE,
+                                   all features are scored */
                             )  {
 
   int i, j, cat, ncats, nscore, state;
-  List *cats, *score_states, *null_states;
+  List *cats, *score_states, *null_states, *score_types;
   List **cat_to_states;
   int *is_scored;
 
@@ -734,7 +720,7 @@ void phmm_score_predictions(PhyloHmm *phmm,
 
   /* now fill in state lists */
   nscore = lst_size(score_cats) + 
-    helper_cats != NULL ? lst_size(helper_cats) : 0;
+    (helper_cats != NULL ? lst_size(helper_cats) : 0);
   score_states = lst_new_int(nscore * 10);
   null_states = lst_new_int(20);
   is_scored = smalloc(phmm->hmm->nstates * sizeof(int));
@@ -749,6 +735,7 @@ void phmm_score_predictions(PhyloHmm *phmm,
       is_scored[state] = 1;
     }
   }
+  score_types = cm_get_features(phmm->cm, cats);
   lst_free(cats);
 
   if (helper_cats != NULL) {
@@ -782,12 +769,14 @@ void phmm_score_predictions(PhyloHmm *phmm,
   /* now score each feature */
   for (i = 0; i < lst_size(preds->features); i++) {
     GFF_Feature *feat = lst_get_ptr(preds->features, i);
-    if (str_in_list(feat->feature, score_cats)) {
+    int is_score_cat = str_in_list(feat->feature, score_types);
+    if (!score_only_score_cats || is_score_cat) {
       int start = feat->start;
       int end = feat->end;
 
-      /* extend range as far as possible using helper cats */
-      if (helper_cats != NULL) {
+      /* if score cat, extend range as far as possible using helper
+         cats */
+      if (is_score_cat && helper_cats != NULL) {
         for (j = i-1; j >= 0; j--) {
           GFF_Feature *prev_feat = lst_get_ptr(preds->features, j);
           if (str_in_list(prev_feat->feature, helper_cats) && 
@@ -815,7 +804,167 @@ void phmm_score_predictions(PhyloHmm *phmm,
 
   lst_free(score_states);
   lst_free(null_states);
+  lst_free(score_types);
   for (i = 0; i < ncats; i++) lst_free(cat_to_states[i]);
   free(cat_to_states);
   free(is_scored);
+}
+
+/* assumes 1-state HMM, 1-cat category map, and single tree model.
+   Currently not compatible with 'reflected' HMMs or indel model.
+   Assumes category map is to be updated */
+void phmm_rates_cut(PhyloHmm *phmm, 
+                    int nrates, /* may be different from value in tree
+                                   model if dgamma */
+                    int cut_idx, 
+                    double p, 
+                    double q) {
+  double freq1 = 0;
+  int i;
+  int dgamma = !phmm->mods[0]->empirical_rates; /* whether using
+                                                   discrete gamma
+                                                   model */
+
+  String *newtype;
+  List *rconsts, *rweights;
+  double tmp_rates[nrates], tmp_weights[nrates];
+
+  assert(phmm->hmm != NULL && phmm->hmm->nstates == 1 && phmm->nmods == 1);
+  assert(phmm->cm->ncats == 0);
+  assert(nrates > 1);
+  assert(cut_idx >= 1 && cut_idx <= nrates);
+
+  hmm_free(phmm->hmm);
+  phmm->hmm = hmm_new_nstates(2, TRUE, FALSE);
+
+  if (dgamma) 
+    /* if using dgamma, need to compute rate consts and weights -- may
+       not have been computed yet */
+    DiscreteGamma(tmp_weights, tmp_rates, phmm->mods[0]->alpha, 
+                  phmm->mods[0]->alpha, nrates, 0); 
+  else {
+    for (i = 0; i < nrates; i++) {
+      tmp_weights[i] = phmm->mods[0]->freqK[i];
+      tmp_rates[i] = phmm->mods[0]->rK[i];
+    }
+  }
+
+  /* set HMM transitions according to p and q */
+  mm_set(phmm->hmm->transition_matrix, 0, 0, 1-p);
+  mm_set(phmm->hmm->transition_matrix, 0, 1, p);
+  mm_set(phmm->hmm->transition_matrix, 1, 0, q);
+  mm_set(phmm->hmm->transition_matrix, 1, 1, 1-q);
+
+  /* set HMM begin transitions according to weights */
+  for (i = 0; i < cut_idx; i++) freq1 += tmp_weights[i];
+  gsl_vector_set(phmm->hmm->begin_transitions, 0, freq1);
+  gsl_vector_set(phmm->hmm->begin_transitions, 1, 1 - freq1);
+
+  hmm_reset(phmm->hmm);
+
+  /* create 2nd tree model, then update rate categories in both */
+  phmm->mods = srealloc(phmm->mods, 2 * sizeof(void*));
+  phmm->nmods = 2;
+  phmm->mods[1] = tm_create_copy(phmm->mods[0]);
+
+  rconsts = lst_new_dbl(nrates);
+  rweights = lst_new_dbl(nrates);
+  for (i = 0; i < cut_idx; i++) {
+    lst_push_dbl(rweights, tmp_weights[i]);
+    lst_push_dbl(rconsts, tmp_rates[i]);
+  }
+
+  if (cut_idx == 1) {
+    tm_reinit(phmm->mods[0], phmm->mods[0]->subst_mod, 1, 0, NULL, NULL);
+    tm_scale(phmm->mods[0], lst_get_dbl(rconsts, 0), TRUE);
+                                /* in this case, have to by-pass rate
+                                   variation machinery and just scale
+                                   tree; tree model code won't do
+                                   rate variation with single rate
+                                   category */
+  }
+  else
+    tm_reinit(phmm->mods[0], phmm->mods[0]->subst_mod, cut_idx, 
+              phmm->mods[0]->alpha, rconsts, rweights);
+                                /* note that dgamma model will be
+                                   redefined as empirical rates mod */
+
+  lst_clear(rconsts); lst_clear(rweights);
+  for (i = cut_idx; i < nrates; i++) {
+    lst_push_dbl(rweights, tmp_weights[i]);
+    lst_push_dbl(rconsts, tmp_rates[i]);
+  }
+
+  if (cut_idx == nrates-1) {    /* unlikely but possible */
+    tm_reinit(phmm->mods[1], phmm->mods[1]->subst_mod, 1, 0, NULL, NULL);
+    tm_scale(phmm->mods[1], lst_get_dbl(rconsts, nrates-1), TRUE);
+  }
+  else
+    tm_reinit(phmm->mods[1], phmm->mods[1]->subst_mod, nrates - cut_idx, 
+              phmm->mods[1]->subst_mod, rconsts, rweights);
+  lst_free(rconsts); lst_free(rweights);
+
+  /* expand category map */
+  cm_realloc(phmm->cm, 1);
+  str_cpy_charstr(lst_get_ptr(phmm->cm->ranges[0]->feature_types, 0), 
+                  "conserved");
+  newtype = str_new_charstr("nonconserved");
+  phmm->cm->ranges[1] = cm_new_category_range(newtype, 1, 1);
+  phmm->cm->feat_ext_lst[1] = lst_new_ptr(1);
+  lst_push_ptr(phmm->cm->feat_ext_lst[1], newtype);
+  assert(phmm->cm->conditioned_on[0] == NULL);
+  
+  /* update mappings */
+  phmm->state_to_mod = srealloc(phmm->state_to_mod, 2 * sizeof(int));
+  phmm->state_to_cat = srealloc(phmm->state_to_cat, 2 * sizeof(int));
+  phmm->state_to_pattern = srealloc(phmm->state_to_pattern, 2 * sizeof(int));
+  phmm->reverse_compl = srealloc(phmm->reverse_compl, 2 * sizeof(int));
+  phmm->state_to_mod[1] = 1; 
+  phmm->state_to_cat[1] = 1;
+  phmm->state_to_pattern[1] = -1;
+  phmm->reverse_compl[1] = 0;
+}
+
+/* returns ln likelihood */
+double fit_rates_cut_lnl(gsl_vector *params, void *data) {
+  PhyloHmm *phmm = data;
+  double p = exp(gsl_vector_get(params, 0)), 
+    q = exp(gsl_vector_get(params, 1));
+  mm_set(phmm->hmm->transition_matrix, 0, 0, 1-p);
+  mm_set(phmm->hmm->transition_matrix, 0, 1, p);
+  mm_set(phmm->hmm->transition_matrix, 1, 0, q);
+  mm_set(phmm->hmm->transition_matrix, 1, 1, 1-q);
+  hmm_reset(phmm->hmm);
+  return log(2) * -hmm_forward(phmm->hmm, phmm->emissions, 
+                               phmm->alloc_len, phmm->forward);
+}
+
+/* returns ln likelihood */
+double phmm_fit_rates_cut(PhyloHmm *phmm, double *p, double *q, FILE *logf) {
+  int i;
+  double neglnl = INFTY;
+  gsl_vector *params = gsl_vector_alloc(2),  *lbounds = NULL, 
+    *ubounds = gsl_vector_calloc(2);
+
+  /* initialize to given values */
+  gsl_vector_set(params, 0, log(*p)); /* use log parameterization */
+  gsl_vector_set(params, 1, log(*q));
+
+  /* allocate memory for forward alg */
+  if (phmm->forward == NULL) {  /* otherwise assume already alloc */
+    phmm->forward = smalloc(phmm->hmm->nstates * sizeof(double*));
+    for (i = 0; i < phmm->hmm->nstates; i++)
+      phmm->forward[i] = smalloc(phmm->alloc_len * sizeof(double));
+  }
+
+  opt_bfgs(fit_rates_cut_lnl, params, phmm, &neglnl, lbounds, ubounds, 
+           logf, NULL, OPT_HIGH_PREC, NULL);
+
+  *p = exp(gsl_vector_get(params, 0));
+  *q = exp(gsl_vector_get(params, 1));
+
+  gsl_vector_free(params);
+  gsl_vector_free(ubounds);
+
+  return -neglnl;
 }

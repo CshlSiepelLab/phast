@@ -1,7 +1,7 @@
 /* String-handling functions, with automatic memory management and
    basic regex support.
    
-   $Id: stringsplus.c,v 1.3 2004-06-09 17:10:29 acs Exp $
+   $Id: stringsplus.c,v 1.4 2004-06-11 05:58:51 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -30,6 +30,18 @@ String *str_new_charstr(char *str) {
   String *s = str_new(strlen(str));
   str_cpy_charstr(s, str);
   return s;
+}
+
+String *str_new_int(int i) {
+  char tmp[STR_SHORT_LEN];
+  sprintf(tmp, "%d", i);
+  return str_new_charstr(tmp);
+}
+
+String *str_new_dbl(double d) {
+  char tmp[STR_SHORT_LEN];
+  sprintf(tmp, "%f", d);
+  return str_new_charstr(tmp);
 }
 
 void str_free(String *s) {
@@ -229,7 +241,8 @@ void str_remove_all_whitespace(String *s) {
   s->chars[s->length] = '\0';
 }
 
-/** Remove quotes from around string, if they exist */
+/** Remove quotes from around string, if they exist.  Also removes
+    whitespace immediately inside quotes */
 void str_remove_quotes(String *str) {
   if ((str->chars[0] == '\"' || str->chars[0] == '\'') &&
       (str->chars[str->length-1] == '\"' || str->chars[str->length-1] == '\'')) {
@@ -425,24 +438,29 @@ void str_re_split(String *s, Regex *re, List *l) {
   lst_free(delim_l);
 }
 
-/* Extracts portion of String before the final '.' character.  Useful
-   for filenames.  If no '.' character is present, root is equal to
-   the original string. */
-void str_get_name_root(String *prefix, String *src) {
+/* Reduces to portion of String before final instance of specified
+   delimiter.  Useful for filenames.  If no delimiter is present,
+   string is left unchanged. */
+void str_root(String *str, char delim) {
   int i;
-  for (i = src->length - 1; i >= 0 && src->chars[i] != '.'; i--);
-  if (i == 0) str_cpy(prefix, src);
-  else str_substring(prefix, src, 0, i);
+  for (i = str->length - 1; i >= 0 && str->chars[i] != delim; i--);
+  if (i < 0) return;
+  str->length = i;
+  str->chars[str->length] = '\0';
 }
 
-/* Extracts portion of String after the final '.' character.  Useful
-   for filenames.  If no '.' character is present, suffix is the empty
-   string */
-void str_get_name_suffix(String *suffix, String *src) {
-  int i;
-  for (i = src->length - 1; i >= 0 && src->chars[i] != '.'; i--);
-  if (i == 0) str_clear(suffix);
-  else str_substring(suffix, src, i+1, src->length - (i+1));
+/* Reduces to portion of String after final instance of specified
+   delimiter .  Useful for filenames.  If no delimiter is present,
+   suffix is the empty string */
+void str_suffix(String *str, char delim) {
+  int i, j;
+  for (i = str->length - 1; i >= 0 && str->chars[i] != delim; i--);
+  if (i < 0) str_clear(str);
+  else {
+    str->length -= (i + 1);
+    for (j = 0; j < str->length; j++) str->chars[j] = str->chars[j+i+1];
+    str->chars[str->length] = '\0';
+  }
 }
 
 /* Removes portion of String prior to the final '/' or '\' character.

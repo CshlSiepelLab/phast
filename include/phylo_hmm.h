@@ -35,7 +35,9 @@ typedef struct {
   int reflected;                /**< whether "reflected" for reverse compl */
   double **emissions;           /**< values computed by
                                    phmm_compute_emissions */
-  int emissions_len;            /**< length of alignment for emissions */
+  double **forward;             /**< forward scores */
+  int alloc_len;                /**< length for which emissions and/or
+                                   forward are (or are to be) allocated */
   int *state_pos, *state_neg;   /**< contain tracking data for emissions */
 } PhyloHmm;
 
@@ -48,15 +50,20 @@ void phmm_rates_cross(PhyloHmm *phmm, int nratecats, double lambda,
 void phmm_update_cross_prod(PhyloHmm *phmm, double lambda);
 void phmm_free(PhyloHmm *phmm);
 void phmm_compute_emissions(PhyloHmm *phmm, MSA *msa, int quiet);
-double phmm_fit_lambda(PhyloHmm *phmm, int msa_len);
+double phmm_fit_lambda(PhyloHmm *phmm, double *lambda, FILE *logf);
 void phmm_update_cross_prod(PhyloHmm *phmm, double lambda);
 GFF_Set* phmm_predict_viterbi(PhyloHmm *phmm, char *seqname, List *frame);
 GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm, List *cats, char *seqname,
                                      List *frame, char *new_type );
 double phmm_lnl(PhyloHmm *phmm);
 double phmm_postprobs(PhyloHmm *phmm, double **post_probs);
-double* phmm_postprobs_states(PhyloHmm *phmm, List *states, double *lnl);
+double* phmm_postprobs_cats(PhyloHmm *phmm, List *cats, double *lnl);
 void phmm_score_predictions(PhyloHmm *phmm, GFF_Set *preds, List *score_cats, 
-                            List *helper_cats, List *null_cats);
+                            List *helper_cats, List *null_cats,
+                            int score_only_score_cats);
+void phmm_rates_cut(PhyloHmm *phmm, int nrates, int cut_idx, double p, double q);
+double phmm_fit_rates_cut(PhyloHmm *phmm, double *p, double *q, FILE *logf);
+
+
 
 #endif

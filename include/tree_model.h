@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.2 2004-06-04 21:56:33 acs Exp $
+/* $Id: tree_model.h,v 1.3 2004-06-11 05:58:51 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -107,7 +107,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
                   List *rate_consts, int root_leaf_id);
 void tm_reinit(TreeModel *tm, subst_mod_type subst_mod,
                int new_nratecats, double new_alpha, 
-               List *new_rate_consts);
+               List *new_rate_consts, List *new_rate_weights);
 TreeModel *tm_new_from_file(FILE *F);
 void tm_init_rmp(TreeModel *tm);
 void tm_free_rmp(TreeModel *tm);

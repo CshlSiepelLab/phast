@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.5 2004-06-06 04:26:15 acs Exp $
+/* $Id: tree_model.c,v 1.6 2004-06-11 05:58:51 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -143,11 +143,30 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   return tm;
 }
 
-/* re-initialize a tree model with an altered substitution model,
-   number of rate categories, alpha, set of rate consts, etc.  */ 
-void tm_reinit(TreeModel *tm, subst_mod_type new_subst_mod, 
-               int new_nratecats, double new_alpha, 
-               List *new_rate_consts) {
+/** Re-initialize a tree model with an altered substitution model,
+    number of rate categories, alpha, set of rate consts, or set of
+    rate weights. */ 
+void tm_reinit(TreeModel *tm,   /**< TreeModel object to reinitialize  */
+               subst_mod_type new_subst_mod, 
+                                /**< New substitution model */
+               int new_nratecats, 
+                                /**< New number of rate categories */
+               double new_alpha, 
+                                /**< New alpha parameter (ignored if
+                                   new_nratecats == 1) */
+               List *new_rate_consts, 
+                                /**< New list of explicit rate
+                                   constants.  If non-NULL, implies
+                                   use of empirical rates. */
+               List *new_rate_weights
+                                /**< New list of explicit rate weights
+                                   (mixing proportions).  Will be
+                                   normalized automatically.  If
+                                   new_rate_consts != NULL and
+                                   new_rate_weights == NULL, weights
+                                   will be initialized to approx gamma
+                                   distrib. defined by alpha */
+               ) {
   int i, j;
   int old_nratecats = tm->nratecats;
   assert(new_nratecats >= 1);
@@ -164,14 +183,19 @@ void tm_reinit(TreeModel *tm, subst_mod_type new_subst_mod,
 
   if (new_rate_consts != NULL) {  /* empirical rate model */
     double interval_size, initalpha = (new_alpha > 0 ? new_alpha : 1);
-    if (new_nratecats != lst_size(new_rate_consts))
-      die("ERROR: number of explicitly defined rate constants must equal number of rate categories.\n");
+    if (new_nratecats != lst_size(new_rate_consts) ||
+        (new_rate_weights != NULL && new_nratecats != lst_size(new_rate_weights)))
+      die("ERROR: number of explicitly defined rate constants and/or rate weights must equal number of rate categories.\n");
     for (i = 0; i < new_nratecats; i++) {
       tm->rK[i] = lst_get_dbl(new_rate_consts, i);
-      interval_size = tm->rK[i] - (i > 0 ? tm->rK[i-1] : 0);
-      tm->freqK[i] = gsl_ran_gamma_pdf(tm->rK[i], initalpha, 1/initalpha) * 
-        interval_size; 
-      /* init to approx gamma with shape param alpha. */
+      if (new_rate_weights != NULL)
+        tm->freqK[i] = lst_get_dbl(new_rate_weights, i);
+      else {
+        interval_size = tm->rK[i] - (i > 0 ? tm->rK[i-1] : 0);
+        tm->freqK[i] = gsl_ran_gamma_pdf(tm->rK[i], initalpha, 1/initalpha) * 
+          interval_size; 
+        /* init to approx gamma with shape param alpha. */
+      }
     }
     normalize_probs(tm->freqK, tm->nratecats);
   }

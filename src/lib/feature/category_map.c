@@ -58,7 +58,7 @@
    states for intron states following state 1, state 2, and state 3.
    The rest is fairly self-explanatory.
 
-   $Id: category_map.c,v 1.2 2004-06-09 17:10:29 acs Exp $
+   $Id: category_map.c,v 1.3 2004-06-11 05:58:51 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -369,6 +369,8 @@ int cm_get_category(CategoryMap *cm, String *type) {
   return 0;
 }
 
+/* return (integer) list of category numbers corresponding to list of
+   names and or numbers */
 List *cm_get_category_list(CategoryMap *cm, List *names, int ignore_missing) {
   int i, j, cat;
   List *retval = lst_new_int(lst_size(names));
@@ -406,6 +408,23 @@ String *cm_get_feature_unique(CategoryMap *cm, int cat) {
     str_append_char(retval, '-');
     str_append_int(retval, cat - cm->ranges[cat]->start_cat_no + 1);
   }    
+  return retval;
+}
+
+/* return list of category names corresponding to list of category
+   numbers */
+List *cm_get_features(CategoryMap *cm, List *catnos) {
+  int mark[cm->ncats+1];
+  List *retval = lst_new_ptr(lst_size(catnos));
+  int i, cat;
+  for (i = 0; i <= cm->ncats; i++) mark[i] = 0;
+  for (i = 0; i < lst_size(catnos); i++) {
+    cat = lst_get_int(catnos, i);
+    if (!mark[cm->ranges[cat]->start_cat_no]) {
+      lst_push_ptr(retval, cm_get_feature(cm, cat));
+      mark[cm->ranges[cat]->start_cat_no] = 1;
+    }
+  }
   return retval;
 }
 
@@ -577,20 +596,22 @@ void cm_add_feature_type(CategoryMap *cm, String *type, int cycle_size) {
    should be a list of category names for which to record frame.
    Parameter 'path_to_cat' is expected to provide a mapping from the
    raw sequence to category numbers; 'reverse_compl' indicates whether
-   each raw-sequence value corresponds to the reverse strand (see
-   label.c).  Parameter 'grouproot' is the root string to use for
-   group names (may be NULL). */
+   each raw-sequence value corresponds to the reverse strand.
+   Parameter 'grouptag' will be used as the tag for feature ids
+   (may be NULL). */
 GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int length, 
                             int *path_to_cat, int *reverse_compl, char *seqname, 
                             char *source, char defaultstrand, List *frame_cats, 
-                            char *grouproot) {
+                            char *grouptag) {
   int beg, end, i, j, lastcat, lastframe, groupno;
   GFF_Set *gff = gff_new_set_init("PHAST", PHAST_VERSION);
   GFF_Feature *feat = NULL;
   int do_frame[cm->ncats+1];
   char laststrand;
-  String *groupstr;
   List *shared_types;
+  char groupstr[STR_SHORT_LEN];
+  int ignore_0 = str_equals_charstr(cm_get_feature(cm, 0), BACKGD_CAT_NAME);
+                                /* ignore category 0 if background  */
 
   if (length <= 0) return gff;
 
@@ -605,10 +626,7 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int length,
     }
 
   groupno = 1;
-  groupstr = (grouproot == NULL ? str_new(STR_SHORT_LEN) : 
-              str_new_charstr(grouproot));
-  str_append_char(groupstr, '.');
-  str_append_int(groupstr, groupno);
+  sprintf(groupstr, "%s \"%d\"", grouptag != NULL ? grouptag : "id", groupno);
   i = 0;
   while (i < length) {
     lastcat = cm->ranges[path_to_cat[path[i]]]->start_cat_no;
@@ -624,7 +642,7 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int length,
     if (laststrand == '-' && do_frame[lastcat]) 
       lastframe = path_to_cat[path[i-1]] - lastcat;
 
-    if (lastcat != 0) {
+    if (lastcat != 0 || !ignore_0) {
       String *type = cm_get_feature(cm, lastcat);
 
       /* check to see if new feature should be combined with prev one */
@@ -662,7 +680,7 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int length,
         /* otherwise, create a new feature */
         feat = gff_new_feature(str_new_charstr(seqname), str_new_charstr(source), 
                                str_dup(type), beg, end, 0, laststrand, 
-                               lastframe, str_dup(groupstr), 1);
+                               lastframe, str_new_charstr(groupstr), 1);
         lst_push_ptr(gff->features, feat);
 
         /* reset shared_types */
@@ -671,17 +689,15 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, int length,
                        lst_get_ptr(cm->feat_ext_lst[lastcat], j));
       }
     }
-    else if (beg > 1) {
+
+    if (lastcat == 0 && beg > 1) {
       groupno++;                /* increment group number each time a
                                    sequence of 0s is encountered  */
-      if (grouproot != NULL) str_cpy_charstr(groupstr, grouproot);
-      else str_clear(groupstr);
-      str_append_char(groupstr, '.');
-      str_append_int(groupstr, groupno);
+      sprintf(groupstr, "%s \"%d\"", grouptag != NULL ? grouptag : "id", 
+              groupno);
     }
   }
 
-  str_free(groupstr);
   lst_free(shared_types);
   return gff;
 }

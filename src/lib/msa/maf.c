@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: maf.c,v 1.2 2004-06-11 05:58:51 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California 
 
@@ -398,7 +398,8 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
       fprintf(stderr, "ERROR: bad sequence line in MAF file --\n\t\"%s\"\n", linebuffer->chars);
       exit(1);
     }
-    str_get_name_root(this_name, lst_get_ptr(l, 1));
+    str_cpy(this_name, lst_get_ptr(l, 1));
+    str_root(this_name, '.');
     this_seq = lst_get_ptr(l, 6);
 
     /* if this is the reference sequence, also grab start_idx and
@@ -592,7 +593,8 @@ void maf_peek(FILE *F, char ***names, Hashtable *name_hash,
       str_clear(fullname);
       for (; i < line->length && !isspace(line->chars[i]); i++)
         str_append_char(fullname, line->chars[i]);
-      str_get_name_root(name, fullname);
+      str_cpy(name, fullname);
+      str_root(name, '.');
       assert(name->length > 0); /* must be a non-empty name */
       if ((int)hsh_get(name_hash, name->chars) == -1) {
         hsh_put(name_hash, name->chars, (void*)count);

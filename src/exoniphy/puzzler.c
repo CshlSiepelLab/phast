@@ -1,4 +1,4 @@
-/* $Id: puzzler.c,v 1.1 2004-06-09 17:11:56 acs Exp $
+/* $Id: puzzler.c,v 1.2 2004-06-11 05:58:51 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -271,7 +271,7 @@ void puz_rate_cats(PhyloHMM_Puzzler *puz, double *scaling_consts,
                       puz->mods[mod]->alpha, puz->nratecats, 0);
       }
           
-      tm_reinit(puz->mods[mod], puz->mods[mod]->subst_mod, 1, 0, NULL);
+      tm_reinit(puz->mods[mod], puz->mods[mod]->subst_mod, 1, 0, NULL, NULL);
       /* we don't want to treat the scaled versions as
          discrete-gamma model (would be "counting twice") */
 

@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.2 2004-06-04 21:56:33 acs Exp $
+   $Id: phyloFit.c,v 1.3 2004-06-11 05:58:51 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 
@@ -1069,7 +1069,7 @@ int main(int argc, char *argv[]) {
                                    not been specified, then use
                                    input_mod's alpha  */
         mod = input_mod;
-        tm_reinit(mod, subst_mod, nratecats, newalpha, rate_consts);
+        tm_reinit(mod, subst_mod, nratecats, newalpha, rate_consts, NULL);
       }
 
       mod->use_conditionals = use_conditionals;

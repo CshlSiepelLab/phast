@@ -5,6 +5,7 @@
 #include <phylo_hmm.h>
 #include <sufficient_stats.h>
 #include <bed.h>
+#include <dgamma.h>
 
 #define MIN_BLOCK_SIZE 30
 /* defines block size for -x option */
@@ -18,7 +19,7 @@ DESCRIPTION: Identify conserved elements or produce conservation
              given a multiple alignment and a phylo-HMM.  The
              state-transition structure of the phylo-HMM may be
              specified explicitly (see --hmm) or implicitly (see
-             --auto-dgamma and --cut-rates).  Phylogenetic models
+             --rates-cross and --rates-cut).  Phylogenetic models
              (*.mod files) must be provided in either case (they can
              be produced with 'phyloFit').  By default, the posterior
              probability of the selected states in the HMM (see
@@ -85,24 +86,26 @@ OPTIONS:
     --msa-format, -i PHYLIP|FASTA|PSU|SS|LAV|MAF
         (Default SS) Alignment file format.
 
-    --auto-dgamma, -k <nratecats>
+    --rates-cross, -X 
         (Alternative to --hmm; specify only one *.mod file with this
-        option) Use an HMM with <nratecats> states, corresponding to
-        \"scaled\" versions of the given phylogenetic model.  The
-        scaling (rate) constants will be computed using Yang's (1994)
-        discrete gamma method, and all transition probabilities will
-        be defined by a single autocorrelation parameter, lambda, as
-        in Felsenstein and Churchill (1996).  (See Siepel & Haussler,
-        2003 for details on how these methods are combined.)  The
-        parameter lambda will be estimated by maximum likelihood.  The
-        specified *.mod file must have been produced by phyloFit using
-        the -k option (an estimate of the shape parameter 'alpha' is
-        required).
-
-FIXME: actually, can do this with empirical rates as well
+        option) Create and use an HMM with a state for every rate
+        category in the given phylogenetic model, and transition
+        probabilities defined by an autocorrelation parameter lambda
+        (as described by Felsenstein and Churchill, 1996).  A rate
+        constant for each state (rate category) will be multiplied by
+        the branch lengths of the phylogenetic model, to create a
+        \"scaled\" version of the model for that state.  If the
+        phylogenetic model was estimated using Yang's discrete gamma
+        method (-k option to phyloFit), then the rate constants will
+        be defined according to the estimated shape parameter 'alpha',
+        as described by Yang (1994).  Otherwise, a nonparameteric
+        model of rate variation must have been used (-K option to
+        phyloFit), and the rate constants will be as defined
+        (explicitly) in the *.mod file.  By default, the parameter
+        lambda will be estimated by maximum likelihood (see --lambda).
 
     --lambda, -l <lambda>
-        (Optionally use with --auto-dgamma) Fix lambda at the
+        (Optionally use with --rates-cross) Fix lambda at the
         specified value rather than estimating it by maximum likelihood.
         Allowable range is 0-1.  With k rate categories, the
         transition probability between state i and state j will be
@@ -110,31 +113,40 @@ FIXME: actually, can do this with empirical rates as well
         function.  Thus, lambda = 0 implies no autocorrelation and
         lambda = 1 implies perfect autocorrelation.
 
-    --cut-rates, -c <cut_idx>
-        (Alternative to --hmm and --auto-dgamma; specify only one
+    --rates-cut, -c <cut_idx>
+        (Alternative to --hmm and --rates-cross; specify only one
         phylogenetic model) Define a simple HMM with a conserved state
-        (state 1) and a non-conserved state (state 2), such that rate
-        categories 1-<cut_idx> from the specified *.mod file are
-        associated with the conserved state, and the remaining rate
-        categories are associated with the non-conserved state.  The
-        *.mod file must allow for rate variation, via either the
-        discrete gamma model (-k option to phyloFit) or a
-        non-parametric alternative (-K option to phyloFit).  The
-        new phylogenetic model associated with each state will be a
-        mixture model with one or more mixture components, whose
-        (unnormalized) mixing proportions are given by the *.mod file,
-        either implicitly (discrete gamma case) or explicitly
-        (non-parameteric case).  The transition probabilities of the
-        HMM will be estimated by maximum likelihood.
+        (state 1) and a non-conserved state (state 2), such that the
+        conserved state is defined by rate categories 1-<cut_idx> from
+        the specified *.mod file, and the non-conserved state is
+        defined by the remaining rate categories.  The *.mod file must
+        allow for rate variation, via either the discrete gamma 
+        (-k option to phyloFit) or non-parametric (-K option) method.
+        The new phylogenetic model associated with each state will be
+        a mixture model of rates, whose (unnormalized) mixing
+        proportions are given by the *.mod file, either implicitly
+        (discrete gamma case) or explicitly (non-parameteric case).
+        The transition probabilities of the HMM will be estimated by
+        maximum likelihood.
 
-    --cut-params, -p <alpha, beta>
-        (Optionally use with --cut-rates) Fix the transition
+    --cut-params, -p <p>,<q>
+        (Optionally use with --rates-cut) Fix the transition
         probabilities of the HMM at the specified values, rather than
-        estimating them by maximum likelihood.  Here, alpha is the
+        estimating them by maximum likelihood.  Here, <p> is the
         probability of transitioning from the conserved to the
-        non-conserved state, and beta is the probability of the reverse
-        transition (probabilities of self transitions are thus 1-alpha
-        and 1-beta).
+        non-conserved state, and <q> is the probability of the reverse
+        transition (probabilities of self transitions are thus 1-<p>
+        and 1-<q>).
+
+    --nrates, -k <nrates>
+        (Optionally use with --rates-cross or --rates-cut and a
+        discrete-gamma model) Assume the specified number of rate
+        categories, instead of the number given in the *.mod file.
+        The shape parameter 'alpha' will be as given in the *.mod file.
+
+    --log, -g <log_fname>
+        (Optionally use with --rates-cross or --rates-cut) Write log
+        of optimization procedure to specified file.
 
     --refidx, -r <refseq_idx> 
         Use coordinate frame of specified sequence (the value 0
@@ -161,6 +173,11 @@ FIXME: actually, can do this with empirical rates as well
         transition probabilities.  Then you can use --states 2,3,4 to
         obtain posterior probabilities and/or a Viterbi path
         describing coding regions on either strand.
+
+    --seqname, -N <name>
+        (Optionally use with --viterbi) Use specified string for
+        'seqname' (GFF) or 'chrom' field in output file.  By default,
+        the filename root of <msa_fname> will be used.
 
     --score, -s
         (Optionally use with --viterbi) Assign a log-odds score to
@@ -215,12 +232,13 @@ int main(int argc, char *argv[]) {
 
   /* arguments and defaults */
   int post_probs = TRUE, no_missing = FALSE, score = FALSE, quiet = FALSE, 
-    gff = FALSE;
-  int dgamma_nrates = -1, cut_rate_idx = -1, refidx = 1;
-  double lambda = -1, alpha = -1, beta = -1;
+    gff = FALSE, rates_cross = FALSE;
+  int nrates = -1, rates_cut_idx = -1, refidx = 1;
+  double lambda = -1, p = -1, q = -1;
   msa_format_type msa_format = SS;
-  FILE *viterbi_f = NULL, *lnl_f = NULL;
+  FILE *viterbi_f = NULL, *lnl_f = NULL, *log_f = NULL;
   List *states = NULL, *pivot_states = NULL;
+  char *seqname = NULL;
   HMM *hmm = NULL;
 
   struct option long_opts[] = {
@@ -229,15 +247,18 @@ int main(int argc, char *argv[]) {
     {"viterbi", 1, 0, 'V'},
     {"no-post-probs", 0, 0, 'n'},
     {"msa-format", 1, 0, 'i'},
-    {"auto-dgamma", 1, 0, 'k'},
+    {"rates-cross", 0, 0, 'X'},
     {"lambda", 1, 0, 'l'},
-    {"cut-rates", 1, 0, 'c'},
+    {"rates-cut", 1, 0, 'c'},
     {"cut-params", 1, 0, 'p'},
+    {"nrates", 1, 0, 'k'},
+    {"log", 1, 0, 'g'},
     {"refidx", 1, 0, 'r'},
     {"suppress-missing", 0, 0, 'x'},
     {"reflect-strand", 0, 0, 'U'},
     {"lnl", 1, 0, 'L'},
-    {"score", 1, 0, 's'},
+    {"seqname", 1, 0, 'N'},
+    {"score", 0, 0, 's'},
     {"quiet", 1, 0, 'q'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
@@ -253,10 +274,10 @@ int main(int argc, char *argv[]) {
   TreeModel **mod;
   PhyloHmm *phmm;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:c:p:r:xL:s:qh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:c:p:r:xL:s:N:g:Xqh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
-      states = get_arg_list_int(optarg);
+      states = get_arg_list(optarg);
       break;
     case 'H':
       if (!quiet) fprintf(stderr, "Reading HMM from %s...", optarg);
@@ -275,23 +296,29 @@ int main(int argc, char *argv[]) {
       msa_format = msa_str_to_format(optarg);
       if (msa_format == -1) die("ERROR: bad argument to --msa-format\n");
       break;
-    case 'k':
-      dgamma_nrates = get_arg_int_bounds(optarg, 2, 100);
+    case 'X':
+      rates_cross = TRUE;
       break;
     case 'l':
       lambda = get_arg_dbl_bounds(optarg, 0, 1);
       break;
     case 'c':
-      cut_rate_idx = get_arg_int_bounds(optarg, 1, 100);
+      rates_cut_idx = get_arg_int_bounds(optarg, 1, 100);
       break;
     case 'p':
       tmpl = get_arg_list_dbl(optarg);
       if (lst_size(tmpl) != 2) die("ERROR: bad argument to --cut-params.\n");
-      alpha = lst_get_dbl(tmpl, 0);
-      beta = lst_get_dbl(tmpl, 1);
-      if (alpha <= 0 || alpha >= 1 || beta <= 0 || beta >= 1)
+      p = lst_get_dbl(tmpl, 0);
+      q = lst_get_dbl(tmpl, 1);
+      if (p <= 0 || p >= 1 || q <= 0 || q >= 1)
         die("ERROR: bad argument to --cut-params.\n");
       lst_free(tmpl);
+      break;
+    case 'k':
+      nrates = get_arg_int_bounds(optarg, 2, 100);
+      break;
+    case 'g':
+      log_f = fopen_fname(optarg, "w+");
       break;
     case 'r':
       refidx = get_arg_int_bounds(optarg, 0, INFTY);
@@ -306,6 +333,9 @@ int main(int argc, char *argv[]) {
     case 'L':
       lnl_f = fopen_fname(optarg, "w+");
       break;
+    case 'N':
+      seqname = optarg;
+      break;
     case 's':
       score = TRUE;
       break;
@@ -319,45 +349,78 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if ((hmm != NULL && dgamma_nrates > 1) ||
-      (hmm != NULL && cut_rate_idx != -1) ||
-      (dgamma_nrates > 1 && cut_rate_idx != -1))
-    die("ERROR: --hmm, --auto-dgamma, and --cut-rates are mutually exclusive.\n");
+  if ((hmm != NULL && rates_cross) ||
+      (hmm != NULL && rates_cut_idx != -1) ||
+      (rates_cross && rates_cut_idx != -1))
+    die("ERROR: --hmm, --rates-cross, and --rates-cut are mutually exclusive.\n");
+  
+  if (hmm == NULL && !rates_cross && rates_cut_idx == -1)
+    die("ERROR: must specify one of --hmm, --rates-cross, and --rates-cut.\n");
 
   if (optind != argc - 2) 
     die("ERROR: missing required arguments.  Try '%s -h'.\n", argv[0]);
 
-  /* read these first (msa may take a while) */
+  /* read tree models first (alignment may take a while) */
   tmpl = get_arg_list(argv[optind+1]);
+
+  if ((rates_cross || rates_cut_idx != -1) && lst_size(tmpl) != 1)
+    die("ERROR: only one tree model allowed with --rates-cross or --rates-cut.\n");
+  else if (hmm != NULL && hmm->nstates != lst_size(tmpl)) 
+    die("ERROR: number of states in HMM must equal number of tree models.\n");
+    
   mod = (TreeModel**)smalloc(sizeof(TreeModel*) * lst_size(tmpl));
   for (i = 0; i < lst_size(tmpl); i++) {
     String *fname = lst_get_ptr(tmpl, i);
     if (!quiet)
-      fprintf(stderr, "Reading tree model from %s ...\n", fname->chars);
+      fprintf(stderr, "Reading tree model from %s...\n", fname->chars);
     mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"));
     mod[i]->use_conditionals = 1; /* FIXME: necessary? */
   }
-  
-  if (!quiet)
-    fprintf(stderr, "Reading alignment from %s ...\n", argv[optind]);
-  msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
 
+  /* check rates-cross and rates-cut options vis-a-vis the tree model */
+  if (rates_cross || rates_cut_idx) {
+    if (mod[0]->nratecats <= 1)
+      die("ERROR: --rates-cross and --rates-cut require tree model allowing for rate variation.\n");
+    if (nrates != -1 && mod[0]->empirical_rates)
+      die("ERROR: can't use --nrates with nonparameteric rate model.\n");
+    if (rates_cut_idx != -1 && rates_cut_idx > mod[0]->nratecats)
+      die("ERROR: --rates-cut arg must be <= NRATECATS from *.mod file.\n");
+    if (nrates == -1) nrates = mod[0]->nratecats;
+  }
+
+  /* read alignment */
+  if (!quiet)
+    fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
+  msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
+  /* use file name root for default seqname */
+
+  if (seqname == NULL) {
+    String *tmp = str_new_charstr(argv[optind]);
+    str_remove_path(tmp);
+    str_root(tmp, '.');
+    seqname = tmp->chars;
+  }
+
+  /* tweak alphabet, if necessary */
   if (msa_format == SS) {
     if (msa->ss->tuple_idx == NULL) 
       die("ERROR: Ordered representation of alignment required.\n");
     msa_remove_N_from_alph(msa);
   }
 
+  /* set up states */
   if (states == NULL) {
-    states = lst_new_int(1);
-    lst_push_int(states, 0);
+    states = lst_new_ptr(1);
+    lst_push_ptr(states, str_new_charstr("0"));
   }
   else {
     for (i = 0; i < lst_size(states); i++) {
-      int state = lst_get_int(states, i);
-      if (state < 1 || state > hmm->nstates) 
-        die("ERROR: selected state out of range.\n");
-      lst_set_int(states, i, state - 1); /* internally use 0-based
+      int state_no;
+      String *state = lst_get_ptr(states, i);
+      if (str_as_int(state, &state_no) != 0 || state_no < 1) 
+        die("ERROR: illegal state '%s'.\n", state->chars);
+      str_clear(state);
+      str_append_int(state, state_no-1); /* internally use 0-based
                                             indexing */
     }
   }
@@ -365,24 +428,36 @@ int main(int argc, char *argv[]) {
   /* set up PhyloHmm */
   phmm = phmm_new(hmm, mod, NULL, pivot_states, NULL, -1);
 
-  if (dgamma_nrates != -1) {
+  if (rates_cross) {
     if (!quiet) 
-      fprintf(stderr, "Creating %d scaled versions of model...\n", 
-              dgamma_nrates);
-    phmm_rates_cross(phmm, dgamma_nrates, lambda, TRUE);
+      fprintf(stderr, "Creating %d scaled versions of tree model...\n", nrates);
+    phmm_rates_cross(phmm, nrates, lambda, TRUE);
   }
 
-  /* FIXME: something similar for cut-rates version */
+  else if (rates_cut_idx != -1) {
+    if (!quiet) 
+      fprintf(stderr, "Partitioning at rate category %d to create 'conserved' and 'nonconserved' states...\n", rates_cut_idx);
+
+    phmm_rates_cut(phmm, nrates, rates_cut_idx, p, q);
+  }
 
   /* compute emissions */
   phmm_compute_emissions(phmm, msa, quiet);
 
   /* fit lambda, if necessary */
-  if (dgamma_nrates > 1 && lambda == -1) {
+  if (rates_cross && lambda == -1) {
     if (!quiet) fprintf(stderr, "Finding MLE for lambda ...");
-    lambda = phmm_fit_lambda(phmm, msa->length);
-    if (!quiet) fprintf(stderr, "lambda = %f\n", lambda);
+    lnl = phmm_fit_lambda(phmm, &lambda, log_f);
+    if (!quiet) fprintf(stderr, " (lambda = %f)\n", lambda);
     phmm_update_cross_prod(phmm, lambda);
+  }
+
+  /* fit p and q, if necessary */
+  else if (rates_cut_idx != -1 && (p == -1 || q == -1)) {
+    if (!quiet) fprintf(stderr, "Finding MLE for 'p' and 'q'...");
+    p = 0.01; q = 0.001;        /* initial values */
+    lnl = phmm_fit_rates_cut(phmm, &p, &q, log_f);
+    if (!quiet) fprintf(stderr, " (p = %f. q = %f)\n", p, q);
   }
     
   /* Viterbi */
@@ -397,15 +472,14 @@ int main(int argc, char *argv[]) {
       collapse_cats(phmm->cm, states);
 
     if (!quiet) fprintf(stderr, "Running Viterbi algorithm...\n");
-    predictions = phmm_predict_viterbi_cats(phmm, states, "myseq", NULL, 
+    predictions = phmm_predict_viterbi_cats(phmm, states, seqname, NULL,
                                             "phastCons_predicted");
-                                /* FIXME: need to propagate chromosome
-                                   name -- add option */
+    /* note that selected state numbers are also cat numbers  */
    
     /* score predictions, if necessary */
     if (score) { 
       if (!quiet) fprintf(stderr, "Scoring predictions...\n");            
-      phmm_score_predictions(phmm, predictions, states, NULL, NULL);
+      phmm_score_predictions(phmm, predictions, states, NULL, NULL, FALSE);
     }
 
     /* convert GFF to coord frame of reference sequence and adjust
@@ -418,8 +492,6 @@ int main(int argc, char *argv[]) {
       gff_print_set(viterbi_f, predictions);
     else                        /* BED format */
       gff_print_bed(viterbi_f, predictions, NULL, NULL); 
-                                /* FIXME: need to group by "exon_id"
-                                   or something similar */
   }
 
   /* posterior probs */
@@ -430,7 +502,8 @@ int main(int argc, char *argv[]) {
 
     if (!quiet) fprintf(stderr, "Computing posterior probabilities...\n");
 
-    postprobs = phmm_postprobs_states(phmm, states, &lnl);
+    postprobs = phmm_postprobs_cats(phmm, states, &lnl);
+    /* note that selected state numbers are also cat numbers  */
 
     /* check for missing data, if necessary */
     if (no_missing) {
@@ -455,7 +528,8 @@ int main(int argc, char *argv[]) {
       lnl = phmm_lnl(phmm); 
     }
     fprintf(lnl_f, "lnL = %.4f\n", lnl); 
-    if (dgamma_nrates > 1) fprintf(lnl_f, "(lambda = %f)\n", lambda);
+    if (rates_cross) fprintf(lnl_f, "(lambda = %f)\n", lambda);
+    else if (rates_cut_idx != -1) fprintf(lnl_f, "(p = %f, q = %f)\n", p, q);
   }
 
   if (!quiet)
