@@ -154,6 +154,17 @@ OPTIONS:\n\
         numbers.  Can give either a filename or an \"inline\" description\n\
         of a simple category map, e.g., --catmap \"NCATS = 3 ; CDS 1-3\".\n\
 \n\
+    --min-informative-types, -M <list>\n\
+        Require a minimum number of \"informative\" bases (i.e.,\n\
+        non-missing-data characters) in the specified states.\n\
+        A number below the threshold defined by\n\
+        --min-informative-bases will result an emission probabilities\n\
+        of zero.\n\
+\n\
+    --min-informative-bases, -m <number>\n\
+        Minimum number of informative bases for --min-informative-types \n\
+        (default is 2).\n\
+\n\
     --rates-cross, -X\n\
         (Alternative to --hmm; specify only one *.mod file with this\n\
         option) Use an HMM with a state for every rate\n\
@@ -327,11 +338,11 @@ int main(int argc, char *argv[]) {
   int post_probs = TRUE, score = FALSE, quiet = FALSE, 
     gff = FALSE, rates_cross = FALSE, estim_lambda = TRUE, 
     estim_transitions = TRUE, two_state = TRUE, indels = FALSE;
-  int nrates = -1, rates_cut_idx = 1, refidx = 1;
+  int nrates = -1, rates_cut_idx = 1, refidx = 1, min_inform_bases = 2;
   double lambda = DEFAULT_LAMBDA, p = DEFAULT_P, q = DEFAULT_Q;
   msa_format_type msa_format = SS;
   FILE *viterbi_f = NULL, *lnl_f = NULL, *log_f = NULL;
-  List *states = NULL, *pivot_states = NULL;
+  List *states = NULL, *pivot_states = NULL, *min_inform_str = NULL;
   char *seqname = NULL, *idpref = NULL;
   HMM *hmm = NULL;
 
@@ -352,6 +363,8 @@ int main(int argc, char *argv[]) {
     {"reflect-strand", 1, 0, 'U'},
     {"catmap", 1, 0, 'c'},
     {"indels", 0, 0, 'I'},
+    {"min-informative-types", 1, 0, 'M'},
+    {"min-informative-bases", 1, 0, 'm'},
     {"lnl", 1, 0, 'L'},
     {"seqname", 1, 0, 'N'},
     {"idpref", 1, 0, 'P'},
@@ -372,7 +385,7 @@ int main(int argc, char *argv[]) {
   PhyloHmm *phmm;
   CategoryMap *cm = NULL;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IXqh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IM:m:Xqh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
       states = get_arg_list(optarg);
@@ -437,6 +450,12 @@ int main(int argc, char *argv[]) {
     case 'I':
       indels = TRUE;
       break;
+    case 'M':
+      min_inform_str = get_arg_list(optarg);
+      break;
+    case 'm':
+      min_inform_bases = get_arg_int_bounds(optarg, 0, INFTY);
+      break;
     case 'c':
       cm = cm_new_string_or_file(optarg);
       break;
@@ -485,6 +504,14 @@ int main(int argc, char *argv[]) {
     mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"));
     mod[i]->use_conditionals = 1; 
   }
+
+  /* set min informative bases, if necessary */
+  if (min_inform_str != NULL) {
+    List *l = cm_get_category_list(cm, min_inform_str, 0);
+    for (i = 0; i < lst_size(l); i++) 
+      mod[lst_get_int(l, i)]->min_informative = min_inform_bases;
+    lst_free(l);
+  }        
 
   /* check rates-cross and cut-at options vis-a-vis the tree model */
   if (rates_cross || two_state) {
