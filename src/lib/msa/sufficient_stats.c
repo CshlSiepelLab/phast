@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.16 2004-08-29 21:16:17 acs Exp $
+/* $Id: sufficient_stats.c,v 1.17 2004-09-10 16:36:46 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -1248,6 +1248,50 @@ void ss_strip_gaps(MSA *msa, int gap_strip_mode) {
           strip = FALSE; break;
         }        
       }
+    }
+    if (strip) {
+      newlen -= msa->ss->counts[i];
+      msa->ss->counts[i] = 0;
+    }
+  }
+  
+  if (msa->ss->tuple_idx != NULL) {
+    for (i = 0, j = 0; i < msa->length; i++)
+      if (msa->ss->counts[msa->ss->tuple_idx[i]] > 0) {
+        msa->ss->tuple_idx[j] = msa->ss->tuple_idx[i];
+        if (msa->categories != NULL)
+          msa->categories[j] = msa->categories[i];
+        j++;
+      }
+    /* above assumes any tuple is to be removed that is present in
+       tuple_idx but has a count of zero */
+
+    assert(newlen == j);
+    msa->length = newlen;
+  }
+
+  ss_remove_zero_counts(msa);
+}
+
+/** Strip columns consisting of missing data in all
+   sequences but the reference sequence.  If msa->categories is
+   non-NULL, it will be adjusted accordingly */
+/* FIXME: what about category counts?  what happens in ss_strip_gaps? */
+void ss_strip_missing(MSA *msa, /**< Input alignment; will be altered */
+                      int refseq /**< Index of reference sequence
+                                    (indexing starts with 1) */
+                      ) { 
+  int i, j;
+  int newlen = msa->length;
+
+  for (i = 0; i < msa->ss->ntuples; i++) {
+    int strip = TRUE;
+    for (j = 0; j < msa->nseqs && strip; j++) {
+      if (j == refseq-1 || 
+          (msa->is_informative != NULL && !msa->is_informative[j]))
+        continue;
+      else if (!msa->is_missing[(int)ss_get_char_tuple(msa, i, j, 0)])
+        strip = FALSE; 
     }
     if (strip) {
       newlen -= msa->ss->counts[i];

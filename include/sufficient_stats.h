@@ -1,7 +1,7 @@
 /* sufficient_stats.h - Representation of multiple alignments in terms of their sufficient statistics */
 
 /*   
-   $Id: sufficient_stats.h,v 1.6 2004-08-29 18:51:12 acs Exp $
+   $Id: sufficient_stats.h,v 1.7 2004-09-10 16:36:46 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -82,6 +82,7 @@ void ss_remove_zero_counts(MSA *msa);
 void ss_unique(MSA *msa);
 void ss_collapse_missing(MSA *msa, int do_gaps);
 void ss_strip_gaps(MSA *msa, int gap_strip_mode);
+void ss_strip_missing(MSA *msa, int refseq);
 
 
 

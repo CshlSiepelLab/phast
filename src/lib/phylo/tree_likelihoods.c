@@ -1,4 +1,4 @@
-/* $Id: tree_likelihoods.c,v 1.8 2004-08-05 07:15:04 acs Exp $
+/* $Id: tree_likelihoods.c,v 1.9 2004-09-10 16:36:46 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -136,17 +136,20 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
     total_prob = 0;
     marg_tot = NULL_LOG_LIKELIHOOD;
 
-    /* check for gaps and min informative bases, if necessary */
+    /* check for gaps and whether column is informative, if necessary */
     if (!mod->allow_gaps)
       for (j = 0; !skip_fels && j < msa->nseqs; j++) 
         if (ss_get_char_tuple(msa, tupleidx, j, 0) == GAP_CHAR) 
           skip_fels = TRUE;
-    if (!skip_fels && mod->min_informative > 0) {
+    if (!skip_fels && mod->inform_reqd) {
       int ninform = 0;
-      for (j = 0; j < msa->nseqs; j++) 
-        if (!msa->is_missing[(int)ss_get_char_tuple(msa, tupleidx, j, 0)])
+      for (j = 0; j < msa->nseqs; j++) {
+        if (msa->is_informative != NULL && !msa->is_informative[j])
+          continue;
+        else if (!msa->is_missing[(int)ss_get_char_tuple(msa, tupleidx, j, 0)])
           ninform++;
-      if (ninform < mod->min_informative) skip_fels = TRUE;
+      }
+      if (ninform < 2) skip_fels = TRUE;
     }
           
     if (!skip_fels) {

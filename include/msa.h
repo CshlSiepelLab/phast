@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.13 2004-08-14 04:02:27 acs Exp $
+/* $Id: msa.h,v 1.14 2004-09-10 16:36:46 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -38,12 +38,14 @@ typedef struct {
   char **names;
   char **seqs;
   int *categories;
-  int *col_types[MSA_MAX_ORDER];
-  int ncol_types[MSA_MAX_ORDER];
   struct msa_ss_struct *ss;
   int ncats;
   int alloc_len;
   int idx_offset;
+  int *is_informative;          /**< If non-NULL, indicates which
+                                   sequences are to be considered
+                                   "informative", e.g., for
+                                   phylogenetic analysis */
 } MSA;
 
 #define NCHARS 256
@@ -171,5 +173,6 @@ void msa_find_noaln(MSA *msa, int refseqidx, int min_block_size, int *noaln);
 int msa_missing_col(MSA *msa, int ref, int pos);
 List *msa_seq_indices(MSA *msa, List *seqnames);
 void msa_mask_macro_indels(MSA *msa, int k);
+void msa_set_informative(MSA *msa, List *not_informative);
 
 #endif

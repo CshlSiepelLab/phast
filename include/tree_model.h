@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.7 2004-08-27 17:13:41 acs Exp $
+/* $Id: tree_model.h,v 1.8 2004-09-10 16:36:46 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -79,8 +79,8 @@ struct tm_struct {
                                    constrained to be zero.  */
   int allow_gaps;
   int allow_but_penalize_gaps;
-  int min_informative;          /* minimum number of informative bases
-                                   for non-zero probability */
+  int inform_reqd;              /* if TRUE, only "informative" sites
+                                   will be given non-zero probability */
   int estimate_backgd;          /* estimate backgd freqs as free
                                    parameters in the optimization */
   blen_estim_type  estimate_branchlens; 

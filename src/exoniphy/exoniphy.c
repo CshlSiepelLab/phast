@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.34 2004-08-16 22:27:09 acs Exp $
+/* $Id: exoniphy.c,v 1.35 2004-09-10 16:36:46 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -171,20 +171,26 @@ OPTIONS:\n\
         default behavior is to treat gaps as missing data, or to address\n\
         them with the indel model (--indels).\n\
 \n\
-    --min-informative-types, -N <list>\n\
-        Require a minimum number of \"informative\" bases (i.e.,\n\
-        non-missing-data characters) at sites of the specified\n\
-        categories.  A number below the threshold defined by\n\
-        --min-informative-bases will result an emission probabilities\n\
-        of zero.  If the default category map is used (see --catmap),\n\
-        then this applies to CDSs, start and stop codons, and the canonical\n\
-        GT and AG positions of splice sites.  Note that alignment gaps\n\
-        *are* considered informative; the way they are handled is defined\n\
-        by --indels and --no-gaps.\n\
+    --require-informative, -N <list>\n\
+        Require \"informative\" columns (i.e., columns with more than\n\
+        two non-missing-data characters, excluding sequences specified\n\
+        by --not-informative) in the given categories (list by name\n\
+        or number).  Non-informative columns will be given emission\n\
+        probabilities of zero.  If the default category map is used\n\
+        (see --catmap), then this option applies automatically to\n\
+        CDSs, start and stop codons, and the canonical GT and AG\n\
+        positions of splice sites.  Note that alignment gaps *are*\n\
+        considered informative; the way they are handled is defined by\n\
+        --indels and --no-gaps.\n\
 \n\
-    --min-informative-bases, -n <number>\n\
-        Minimum number of informative bases for --min-informative-types \n\
-        (default is 2).\n\
+    --not-informative, -n <list>\n\
+        Do not consider the specified sequences (listed by name) when\n\
+        deciding whether a column is informative.  This option can be\n\
+        useful when sequences are present that are very close to the\n\
+        reference sequence and thus do not contribute much in the way\n\
+        of phylogenetic information.  E.g., one might use\n\
+        \"--not-informative chimp\" with a human-referenced multiple\n\
+        alignment including chimp sequence.\n\
 \n\
  (Other)\n\
     --quiet, -q \n\
@@ -208,11 +214,12 @@ int main(int argc, char* argv[]) {
   /* variables for options, with defaults */
   int msa_format = SS;
   int quiet = FALSE, reflect_hmm = FALSE, score = FALSE, indels = FALSE, 
-    no_cns = FALSE, min_inform_bases = 2;
+    no_cns = FALSE;
   double bias = NEGINFTY;
   char *seqname = NULL, *grouptag = "transcript_id", *sens_spec_fname_root = NULL,
     *idpref = NULL;
-  List *model_fname_list = NULL, *no_gaps_str = NULL, *min_inform_str = NULL,
+  List *model_fname_list = NULL, *no_gaps_str = NULL, *inform_reqd = NULL,
+    *not_informative = NULL,
     *backgd_types = get_arg_list(DEFAULT_BACKGD_TYPES), 
     *cds_types = get_arg_list(DEFAULT_CDS_TYPES), 
     *signal_types = get_arg_list(DEFAULT_SIGNAL_TYPES),
@@ -237,8 +244,8 @@ int main(int argc, char* argv[]) {
     {"signal-types", 1, 0, 'L'},
     {"indels", 0, 0, 'I'},
     {"no-gaps", 1, 0, 'W'},
-    {"min-informative-types", 1, 0, 'N'},
-    {"min-informative-bases", 1, 0, 'n'},
+    {"require-informative", 1, 0, 'N'},
+    {"not-informative", 1, 0, 'n'},
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
@@ -305,10 +312,10 @@ int main(int argc, char* argv[]) {
       no_gaps_str = get_arg_list(optarg);
       break;
     case 'N':
-      min_inform_str = get_arg_list(optarg);
+      inform_reqd = get_arg_list(optarg);
       break;
     case 'n':
-      min_inform_bases = get_arg_int_bounds(optarg, 0, INFTY);
+      not_informative = get_arg_list(optarg);
       break;
     case 'I':
       indels = TRUE;
@@ -349,6 +356,8 @@ int main(int argc, char* argv[]) {
   msa_remove_N_from_alph(msa);  /* for backward compatibility */
   if (msa_format == SS && msa->ss->tuple_idx == NULL) 
     die("ERROR: Ordered representation of alignment required.\n");
+  if (not_informative != NULL)
+    msa_set_informative(msa, not_informative);
 
   /* use filename root for default seqname and/or idpref */
   if (seqname == NULL || idpref == NULL) {
@@ -412,8 +421,8 @@ int main(int argc, char* argv[]) {
     cm = cm_read(fopen_fname(tmpstr, "r"));
     if (no_gaps_str == NULL) 
       no_gaps_str = get_arg_list("10,11,20,21,cds5\'ss,cds3\'ss,start_codon,stop_codon");
-    if (min_inform_str == NULL) 
-      min_inform_str = get_arg_list("10,11,20,21,cds5\'ss,cds3\'ss,start_codon,stop_codon,CDS");
+    if (inform_reqd == NULL) 
+      inform_reqd = get_arg_list("10,11,20,21,cds5\'ss,cds3\'ss,start_codon,stop_codon,CDS");
   }
 
   ncats = cm->ncats + 1;
@@ -443,10 +452,10 @@ int main(int argc, char* argv[]) {
   }      
 
   /* set min informative bases, if necessary */
-  if (min_inform_str != NULL) {
-    List *l = cm_get_category_list(cm, min_inform_str, 0);
+  if (inform_reqd != NULL) {
+    List *l = cm_get_category_list(cm, inform_reqd, 0);
     for (i = 0; i < lst_size(l); i++) 
-      mod[lst_get_int(l, i)]->min_informative = min_inform_bases;
+      mod[lst_get_int(l, i)]->inform_reqd = TRUE;
     lst_free(l);
   }      
 

@@ -229,8 +229,8 @@ OPTIONS:\n\
         probability of transitioning from the conserved to the\n\
         non-conserved state, and <q> is the probability of the reverse\n\
         transition (probabilities of self transitions are thus 1-<p>\n\
-        and 1-<q>).  The expected lengths of conserved and nonconserved\n\
-        elements are (1-p)/p and (1-q)/q, respectively.  If --target-\n\
+        and 1-<q> and expected lengths of conserved and nonconserved\n\
+        elements are (1-p)/p and (1-q)/q, respectively).  If --target-\n\
         coverage is used (see below), then <p> may be specified alone.\n\
 \n\
     --target-coverage, -C <coverage>\n\
@@ -242,6 +242,16 @@ OPTIONS:\n\
         this constraint causes the ratio p/q to be fixed at\n\
         (1-coverage)/coverage.  Therefore, any value of <q> specified\n\
         via --transitions will be ignored; only <p> will be used.\n\
+\n\
+    --ignore-missing, -z\n\
+        (For use when estimating transition probabilities) Ignore\n\
+        regions of missing data (i.e., in all sequences but the\n\
+        reference sequence, excluding those specified by\n\
+        --not-informative) when estimating transition probabilities.\n\
+        Can help avoid too-low estimates of <p> and <q> or too-high\n\
+        estimates of <lambda>.  Warning: this option should be used\n\
+        with --no-post-probs and without --viterbi because coordinates\n\
+        in output will be unrecognizable.\n\
 \n\
     --nrates, -k <nrates> | <nrates_conserved,nrates_nonconserved>\n\
         (Optionally use with a discrete-gamma model) Assume the\n\
@@ -288,7 +298,7 @@ OPTIONS:\n\
 \n\
     --max-micro-indel, -Y <length> \n\
         (Optionally use with --indels) Maximum length of an alignment\n\
-        gap for it to be considered a \"micro-indel\" and therefore\n\
+        gap to be considered a \"micro-indel\" and therefore\n\
         addressed by the indel model.  Gaps longer than this threshold\n\
         will be treated as missing data.  Default value is 20.\n\
 \n\
@@ -313,17 +323,24 @@ OPTIONS:\n\
         prediction on both strands.  States can be specified by number\n\
         (indexing starts with 0), or if --catmap, by category name.\n\
 \n\
-    --min-informative-types, -M <list>\n\
-        Require a minimum number of \"informative\" bases (i.e.,\n\
-        non-missing-data characters) for the specified HMM states.\n\
-        (Specify by state number [indexing starts with 0] or, if\n\
-        --catmap, by category name.)  Columns not meeting the minimum\n\
-        number (see --min-informative-bases) will be given emission\n\
-        probabilities of zero.\n\
+    --require-informative, -M <list>\n\
+        Require \"informative\" columns (i.e., columns with\n\
+        more than two non-missing-data characters, excluding sequences\n\
+        specified by --not-informative) in the specified HMM states.\n\
+        States can be specified by number (indexing starts with 0) or,\n\
+        if --catmap is used, by category name.  Non-informative\n\
+        columns will be given emission probabilities of zero.  This\n\
+        option can be used to eliminate false positive predictions in\n\
+        regions of missing data.\n\
 \n\
-    --min-informative-bases, -m <number>\n\
-        Minimum number of informative bases used with --min-informative-types\n\
-        (default is 2).\n\
+    --not-informative, -F <list>\n\
+        Do not consider the specified sequences (listed by name) when\n\
+        deciding whether a column is informative.  This option can be\n\
+        useful when sequences are present that are very close to the\n\
+        reference sequence and thus do not contribute much in the way\n\
+        of phylogenetic information.  E.g., one might use\n\
+        \"--not-informative chimp\" with a human-referenced multiple\n\
+        alignment including chimp sequence.\n\
 \n\
     --coding-potential, -p\n\
         Use parameter settings that cause output to be interpretable\n\
@@ -333,7 +350,7 @@ OPTIONS:\n\
         states for the three codon positions.  This option implies\n\
         --catmap \"NCATS=4; CNS 1; CDS 2-4\" --hmm <default-HMM-file>\n\
         --states CDS --reflect-strand background,CNS\n\
-        --min-informative-types CDS, plus a set of default *.mod files.\n\
+        --require-informative CDS, plus a set of default *.mod files.\n\
         (All of these options can be overridden; --coding potential can\n\
         be used with or without --indels.)\n\
 \n\
@@ -491,16 +508,15 @@ int main(int argc, char *argv[]) {
     gff = FALSE, rates_cross = FALSE, estim_lambda = TRUE, 
     estim_transitions = TRUE, two_state = TRUE, indels = FALSE,
     coding_potential = FALSE, indels_only = FALSE, estim_indels = TRUE,
-    estim_trees = FALSE;
-  int nrates = -1, nrates2 = -1, refidx = 1, min_inform_bases = 2, 
-    max_micro_indel = 20;
+    estim_trees = FALSE, ignore_missing = FALSE;
+  int nrates = -1, nrates2 = -1, refidx = 1, max_micro_indel = 20;
   double lambda = 0.9, p = 0.01, q = 0.01, alpha_0 = 0.05, beta_0 = 0.05, 
     omega_0 = 0.45, alpha_1 = 0.05, beta_1 = 0.05, omega_1 = 0.2, gc = -1,
     target_coverage = -1, conserved_scale = DEFAULT_CONSERVED_SCALE;
   msa_format_type msa_format = SS;
   FILE *viterbi_f = NULL, *lnl_f = NULL, *log_f = NULL;
-  List *states = NULL, *pivot_states = NULL, *min_inform_str = NULL, 
-    *mod_fname_list;
+  List *states = NULL, *pivot_states = NULL, *inform_reqd = NULL, 
+    *mod_fname_list = NULL, *not_informative = NULL;
   char *seqname = NULL, *idpref = NULL, *estim_trees_fname_root = NULL;
   HMM *hmm = NULL;
   Hashtable *alias_hash = NULL;
@@ -518,6 +534,7 @@ int main(int argc, char *argv[]) {
     {"estimate-trees", 1, 0, 'T'},
     {"conserved-scale", 1, 0, 'R'},
     {"gc", 1, 0, 'G'},
+    {"ignore-missing", 0, 0, 'z'},
     {"nrates", 1, 0, 'k'},
     {"log", 1, 0, 'g'},
     {"refidx", 1, 0, 'r'},
@@ -527,8 +544,9 @@ int main(int argc, char *argv[]) {
     {"indels", 0, 0, 'I'},
     {"max-micro-indel", 1, 0, 'Y'},
     {"indel-params", 1, 0, 'D'},
-    {"min-informative-types", 1, 0, 'M'},
-    {"min-informative-bases", 1, 0, 'm'},
+    {"min-informative-types", 1, 0, 'M'}, /* for backward compatibilitye */
+    {"require-informative", 1, 0, 'M'},
+    {"not-informative", 1, 0, 'F'},
     {"lnl", 1, 0, 'L'},
     {"seqname", 1, 0, 'N'},
     {"idpref", 1, 0, 'P'},
@@ -554,7 +572,7 @@ int main(int argc, char *argv[]) {
   char *mods_fname = NULL, *newname;
   indel_mode_type indel_mode;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:G:t:R:T:r:xL:s:N:P:g:U:c:IY:D:JM:m:pA:Xqh", 
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:G:zt:R:T:r:xL:s:N:P:g:U:c:IY:D:JM:F:pA:Xqh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
@@ -607,6 +625,9 @@ int main(int argc, char *argv[]) {
     case 'T':
       estim_trees = TRUE;
       estim_trees_fname_root = optarg;
+      break;
+    case 'z':
+      ignore_missing = TRUE;
       break;
     case 'k':
       tmpl = get_arg_list_int(optarg);
@@ -668,10 +689,10 @@ int main(int argc, char *argv[]) {
       post_probs = FALSE;
       break;
     case 'M':
-      min_inform_str = get_arg_list(optarg);
+      inform_reqd = get_arg_list(optarg);
       break;
-    case 'm':
-      min_inform_bases = get_arg_int_bounds(optarg, 0, INFTY);
+    case 'F':
+      not_informative = get_arg_list(optarg);
       break;
     case 'c':
       cm = cm_new_string_or_file(optarg);
@@ -755,7 +776,7 @@ int main(int argc, char *argv[]) {
     }
     if (states == NULL) states = get_arg_list("CDS");
     if (pivot_states == NULL) pivot_states = get_arg_list("background,CNS");
-    if (min_inform_str == NULL) min_inform_str = get_arg_list("CDS");
+    if (inform_reqd == NULL) inform_reqd = get_arg_list("CDS");
   }
   
   /* read alignment */
@@ -765,6 +786,8 @@ int main(int argc, char *argv[]) {
   msa_remove_N_from_alph(msa);  /* for backward compatibility */
   if (msa_format == SS && msa->ss->tuple_idx == NULL) 
     die("ERROR: Ordered representation of alignment required.\n");
+  if (msa->ss == NULL) ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);
+                                /* SS assumed below */
 
   /* rename if aliases are defined */
   if (alias_hash != NULL) {
@@ -788,6 +811,14 @@ int main(int argc, char *argv[]) {
 
     msa_mask_macro_indels(msa, max_micro_indel);
   }
+
+  /* Set up array indicating which seqs are informative, if necessary */
+  if (not_informative != NULL)
+    msa_set_informative(msa, not_informative);
+
+  /* strip missing columns, if necessary */
+  if (ignore_missing)
+    ss_strip_missing(msa, refidx);
 
   /* read tree models */
   mod_fname_list = get_arg_list(mods_fname);
@@ -888,13 +919,13 @@ int main(int argc, char *argv[]) {
   /* set min informative bases, if necessary.  This has to be done
      *after* the set of models is expanded (two-state or
      rates-cross) */
-  if (min_inform_str != NULL) {
-    List *l = cm_get_category_list(cm, min_inform_str, 0);
+  if (inform_reqd != NULL) {
+    List *l = cm_get_category_list(cm, inform_reqd, 0);
     for (i = 0; i < lst_size(l); i++) {
       int modno = lst_get_int(l, i);
       if (modno < 0 || modno >= phmm->nmods) 
-        die("ERROR: argument to --min-informative-types ");
-      phmm->mods[modno]->min_informative = min_inform_bases;
+        die("ERROR: illegal argument to --require-informative.\n");
+      phmm->mods[modno]->inform_reqd = TRUE;
     }
     lst_free(l);
   }        

@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.31 2004-08-30 19:37:52 acs Exp $
+/* $Id: msa.c,v 1.32 2004-09-10 16:36:46 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -68,12 +68,7 @@ MSA *msa_new(char **seqs, char **names, int nseqs, int length, char *alphabet) {
   msa->ncats = -1;
   msa->alloc_len = msa->length; /* assume alloc equals length */
   msa->idx_offset = 0;
-
-  for (i = 0; i < MSA_MAX_ORDER; i++) { /* FIXME: I think these can be
-                                           removed now */
-    msa->col_types[i] = NULL;
-    msa->ncol_types[i] = 0;
-  }
+  msa->is_informative = NULL;
 
   if (alphabet != NULL) {
     msa->alphabet = (char*)smalloc((strlen(alphabet) + 1) * sizeof(char));
@@ -369,10 +364,8 @@ void msa_free(MSA *msa) {
   free(msa->seqs);
   if (msa->alphabet != NULL) free(msa->alphabet);
   if (msa->categories != NULL) free(msa->categories);
-/*   if (msa->base_freqs != NULL) gsl_vector_free(msa->base_freqs); */
-  for (i = 0; i < MSA_MAX_ORDER; i++)
-    if (msa->col_types[i] != NULL) free(msa->col_types[i]);
   if (msa->ss != NULL) ss_free(msa->ss);
+  if (msa->is_informative != NULL) free(msa->is_informative);
   free(msa);
 }
 
@@ -2002,4 +1995,20 @@ void msa_mask_macro_indels(MSA *msa, int k) {
     msa->ss = NULL;
     ss_from_msas(msa, tuple_size, TRUE, NULL, NULL, NULL, -1);
   }
+}
+
+/** Set up array indicating which sequences are to be considered
+    "informative", e.g., for phylogenetic analysis */
+void msa_set_informative(MSA *msa, /**< Alignment */
+                         List *not_informative 
+                                /** List of names of sequences *not*
+                                    to be considered informative */
+                         ) {
+  int i;
+  List *indices = msa_seq_indices(msa, not_informative);
+  msa->is_informative = smalloc(msa->nseqs * sizeof(int));
+  for (i = 0; i < msa->nseqs; i++) msa->is_informative[i] = TRUE;
+  for (i = 0; i < lst_size(indices); i++)
+    msa->is_informative[lst_get_int(indices, i)] = FALSE;
+  lst_free(indices);
 }
