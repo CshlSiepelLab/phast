@@ -1,64 +1,10 @@
-/* $Id: msa.h,v 1.9 2004-07-26 05:28:53 acs Exp $
+/* $Id: msa.h,v 1.10 2004-07-28 17:24:38 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
 /** \file msa.h
    Multiple sequence alignments.
-   Reading and writing are supported in a few common formats
-   (currently FASTA, PHYLIP, and the format used in the "Zoo"
-   project), and a sort of "grab bag" of auxiliary functionality is
-   provided, including extraction of sub-alignments (by sequence or by
-   column), stripping of columns with gaps (columns having either all
-   gaps or any gaps), reporting of simple statistics on gap content,
-   converting between coordinate frames of the alignment and of
-   individual sequences, and computing simple measures of per-column
-   sequence divergence (entropy and all-pairs identity; can be done
-   directly or with a sliding window). 
    \ingroup msa
-*/
-
-/* To do:
-
-      - Although code is provided to convert between coordinate
-      systems, most functions use the coordinates of the entire
-      alignment.  It might be useful to generalize each routine to use
-      either the full-MSA coordinates or the coordinates of any
-      individual sequence in the alignment.
-
-      - There's some awkwardness throughout with indexing, stemming
-      from the use of indices that start with 0 for storage, and the
-      need to produce output using indices that start with 1.  The
-      conversion between the two conventions should be made more
-      consistent throughout.
-
-      - The code that claims to read PHYLIP format does not actually
-      address all of the idiosyncracies of that format.  For example,
-      it will not allow for the possibility that a sequence name is
-      not supported by whitespace from the sequence, and it will not
-      read "interleaved" sequences.
-
-      - I have a few scripts for converting the output of
-      report_gap_stats into a more directly usable form.  I should
-      clean them up and make them part of this package.
-
-      - Need option to read and write "categories" in PAML format
-
-      - Would a "view" of an alignment be useful?  Would allow storage
-      only once, multiple ways of accessing.  Could be used eventually
-      for fitting models to categories (or sets of categories), for
-      extraction of coding regions
-
-      - Should support MSF format (compatibility with EMBOSS).
-
-      - Properly scale entropy.  Also, better handling of gaps in
-      entropy, PW identity
-
-      - Should really be built on top of new List and String objects,
-      for auto-memory management, easy "appends" (of sequences or
-      columns).  This will require almost a complete rewrite, however.
-
-      - Should automatically recognize alignment format when reading
-      (not hard with new regex code).
 */
 
 #ifndef MSA_H
@@ -196,8 +142,6 @@ void msa_reverse_compl_gff(MSA *msa, GFF_Set *gff, int *aux_data);
 
 void msa_reverse_compl_feats(MSA *msa, GFF_Set *feats, int *aux_data);
 
-int msa_read_category_labels(MSA *msa, FILE *F);
-
 void msa_partition_by_category(MSA *msa, List *submsas, List *cats_to_do, 
                                int tuple_size);
 
@@ -218,10 +162,6 @@ void msa_concatenate(MSA *aggregate_msa, MSA *source_msa);
 void msa_indel_clean(MSA *msa, int indel_border, int min_nbases, 
                      int min_nseqs, int tuple_size, char mdata_char);
 void msa_permute(MSA *msa);
-void msa_scores_as_samples(MSA *msa, FILE *F, double *scores, 
-                           char *chrom, char *name,
-                           double mult_fact, double threshold, int refseq, 
-                           int coord_offset);
 void msa_reorder_rows(MSA *msa, List *target_order);
 char msa_get_char(MSA *msa, int seq, int pos);
 msa_format_type msa_str_to_format(char *str);

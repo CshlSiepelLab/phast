@@ -1,20 +1,10 @@
-/* $Id: msa.c,v 1.21 2004-07-27 20:30:53 acs Exp $
+/* $Id: msa.c,v 1.22 2004-07-28 17:24:38 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
 
 /** \file msa.c
    Multiple sequence alignments.
-   Reading and writing are supported in a few common formats
-   (currently FASTA, PHYLIP, and the format used by Webb Miller et
-   al. at Penn. State, here called MPM), and a sort of grab bag of
-   auxiliary functionality is provided, including extraction of
-   sub-alignments (by sequence or by column), stripping of columns
-   with gaps (columns having either all gaps or any gaps), reporting
-   of simple statistics on gap content, converting between coordinate
-   frames of the alignment and of individual sequences, and computing
-   simple measures of per-column sequence divergence (entropy and
-   all-pairs identity).
    \ingroup msa
 */
 
@@ -31,15 +21,7 @@
       problem when sequence name is not separated from sequence by
       whitespace.
 
-      - should clean up or remove functions relating to entropy and PW
-      identity (e.g, handling of gaps)
-
-      - build on top of List and String objects for auto-memory
-      management and easy "appends"?  Maybe not worth the trouble ...
-
       - should automatically recognize alignment format when reading.
-
-      - null terminators perhaps not used consistently for seqs
 
       - unified handling of suff stats; they've become a special case
       that nearly every function has to consider.  Perhaps should just
@@ -981,38 +963,6 @@ void msa_reverse_compl_feats(MSA *msa,
   }
 }
 
-int msa_read_category_labels(MSA *msa, FILE *F) {
-  int idx, cat, i;
-  String *line;
-  List *l = lst_new_ptr(2);
-  line = str_new(STR_SHORT_LEN);
-  msa->categories = (int*)srealloc(msa->categories, msa->length * sizeof(int));
-                                /* should be okay; msa_new initializes
-                                   to NULL; will avoid memory leak if
-                                   'categories' has already been
-                                   allocated  */
-  while (str_readline(line, F) != EOF) {
-    str_split(line, NULL, l);
-    if (lst_size(l) == 0) continue;
-    else if (lst_size(l) < 2) return 1;
-    if (str_as_int((String*)lst_get_ptr(l, 0), &idx) != 0 || 
-        str_as_int((String*)lst_get_ptr(l, 1), &cat) != 0) 
-      return 1;
-    msa->categories[idx-1] = cat-1; /* PROBLEM: this convention is
-                                       inconsistent with that used in
-                                       msa_label_categories, but
-                                       consistent with that used in
-                                       the hmm code */
-    for (i = 0; i < lst_size(l); i++) str_free((String*)lst_get_ptr(l, i));
-  }
-  str_free(line);
-  lst_free(l);
-
-  /* FIXME: should clean up before returning on error */
-
-  return 0;
-}
-
 /* tuple_size-1 columns of "missing data" characters (Ns) will be
    inserted between columns that were not adjacent in the original
    alignment (only has an effect when tuple_size > 1).  Use cats_to_do
@@ -1367,43 +1317,6 @@ unsigned int msa_ninformative_sites(MSA *msa, int cat) {
     }
   }
   return retval;
-}
-
-/* build an index of columns by "type", where a type is a unique tuple
-   of characters.  Useful in improving the efficiency of certain
-   computations.  'order' describes the order of the column-by-column
-   model; if order = 0, then each column is considered independently;
-   but if order > 0, then a column and its order predecessors are
-   considered simultaneously.  */
-void msa_index_cols(MSA *msa, int order) {
-  char key[msa->nseqs * (order+1) + 1];
-  int i, j;
-  Hashtable *hash;
-
-  assert(order < MSA_MAX_ORDER);
-
-  msa->ncol_types[order] = 0;
-  key[msa->nseqs * (order+1)] = '\0';
-  msa->col_types[order] = (int*)smalloc(msa->length * sizeof(int));
-  hash = hsh_new(msa->length/3);
-  for (i = 0; i < msa->length; i++) {
-    int type, col_offset;
-    for (col_offset = -1 * order; col_offset <= 0; col_offset++) 
-      for (j = 0; j < msa->nseqs; j++) 
-        key[msa->nseqs*(order+col_offset) + j] = (i+col_offset >= 0 ? 
-                                                  msa->seqs[j][i+col_offset] : 
-                                                  GAP_CHAR);
-
-    if ((type = (int)hsh_get(hash, key)) != -1)
-      msa->col_types[order][i] = type;
-    else {
-      msa->col_types[order][i] = msa->ncol_types[order];
-      hsh_put(hash, key, (void*)msa->ncol_types[order]);
-      msa->ncol_types[order]++;
-    }
-  }
-
-  hsh_free(hash);
 }
 
 /* read and return a single sequence from a FASTA file */
@@ -1863,62 +1776,10 @@ void msa_permute(MSA *msa) {
 }
 
 
-/* given a vector of scores, such that scores[i] is associated with
-   column i of an alignment, output a corresponding "sample" file for
-   use in creating a "wiggle" plot in the UCSC browser.  Scores will
-   be multiplied by the specified factor, and positions with scores
-   below the specified threshold (before scaling) will be ignored.  If
-   refseq != 0, the coordinate frame of the specified sequence will be
-   used.  A coordinate offset can also be given (msa->idx_offset
-   will also be considered).  For now, + strand is assumed. */
-#define NSAMPLES_MAX 256
-void msa_scores_as_samples(MSA *msa, FILE *F, double *scores, 
-                           char *chrom, char *name,
-                           double mult_fact, double threshold, int refseq, 
-                           int coord_offset) { 
-  int i, j, k, pos;
-  List *samplePosition = lst_new_int(msa->length);
-  List *sampleHeight = lst_new_int(msa->length);
-
-  int offset = coord_offset;
-  if (offset == 0 && msa->idx_offset > 0) offset = msa->idx_offset;
-
-  assert(msa->seqs != NULL || msa->ss != NULL);
-  for (i = 0, pos = 0; i < msa->length; i++) {
-    if (refseq == 0 || 
-        (msa->seqs != NULL && msa->seqs[refseq-1][i] != GAP_CHAR) ||
-        (ss_get_char_pos(msa, i, refseq-1, 0)) != GAP_CHAR) {
-      if (scores[i] > threshold) {
-        lst_push_int(samplePosition, pos + offset);
-        lst_push_int(sampleHeight, scores[i] * mult_fact);
-      }
-      pos++;
-    }
-  }
-
-  /* now output in contiguous blocks of reasonable size */
-  for (i = 0; i < lst_size(samplePosition); ) {
-    for (j = i + 1; 
-         j < lst_size(samplePosition) && j - i < NSAMPLES_MAX && 
-           lst_get_int(samplePosition, j)==lst_get_int(samplePosition, j-1)+1; 
-         j++);
-    fprintf(F, "%s\t%d\t%d\t%s\t%d\t+\t%d\t", chrom, 
-            lst_get_int(samplePosition, i), lst_get_int(samplePosition, j-1), 
-            name, 1000, j - i);
-    for (k = 0; k < j - i; k++) fprintf(F, "%d,", k);
-    fprintf(F, "\t");
-    for (k = 0; k < j - i; k++) 
-      fprintf(F, "%d,", lst_get_int(sampleHeight, i+k));    
-    fprintf(F, "\n");
-    i = j;
-  }
-  lst_free(samplePosition);
-  lst_free(sampleHeight);
-}
-
 /* reorder rows of MSA so that names match specified target order.
-   All names in the msa must be present in target_order.  Rows of gaps
-   will be added for names that are in target_order but not in msa */
+   All names in the msa must be present in target_order.  Rows of
+   missing data will be added for names that are in target_order but
+   not in msa */
 void msa_reorder_rows(MSA *msa, List *target_order) {
 
   int *new_to_old = smalloc(lst_size(target_order) * sizeof(int));
@@ -1965,7 +1826,7 @@ void msa_reorder_rows(MSA *msa, List *target_order) {
       if (new_to_old[i] >= 0) new_seqs[i] = msa->seqs[new_to_old[i]];
       else {
         new_seqs[i] = smalloc((msa->length + 1) * sizeof(char));
-        for (j = 0; j < msa->length; j++) new_seqs[i][j] = GAP_CHAR;
+        for (j = 0; j < msa->length; j++) new_seqs[i][j] = msa->missing[0];
         new_seqs[i][msa->length] = '\0';
       }
     }
