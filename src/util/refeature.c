@@ -30,6 +30,11 @@ OPTIONS:\n\
         Include only features of the specified types (comma-delimited list);\n\
         filter out everything else.\n\
 \n\
+    --include-groups, -l <file>\n\
+        Include only groups whose names are listed in the specified file.\n\
+        Group names in file must be delimited by white-space (can be on\n\
+        any number of lines).\n\
+\n\
     --sort, -s\n\
         Sort features primarily by start position and secondarily\n\
         by end position (usually has desired effect in case of short\n\
@@ -79,11 +84,12 @@ int main(int argc, char *argv[]) {
   char *groupby = "transcript_id", *exongroup_tag = NULL;
   int unique = 0, sort = 0, simplebed = 0;
   enum {GFF, BED, GENEPRED} output_format = GFF;
-  FILE *discards_f = NULL;
+  FILE *discards_f = NULL, *groups_f = NULL;
 
   struct option long_opts[] = {
     {"output", 1, 0, 'o'},
     {"include-only", 1, 0, 'i'},
+    {"include-groups", 1, 0, 'l'},
     {"groupby", 1, 0, 'g'},
     {"exongroup", 1, 0, 'e'},
     {"unique", 0, 0, 'u'},
@@ -94,7 +100,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "o:i:g:e:d:usbh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "o:i:l:g:e:d:usbh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'o':
       if (!strcmp("bed", optarg)) output_format = BED;
@@ -103,6 +109,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'i':
       include = get_arg_list(optarg);
+      break;
+    case 'l':
+      groups_f = fopen_fname(optarg, "r");
       break;
     case 'g':
       groupby = optarg;
@@ -135,7 +144,7 @@ int main(int argc, char *argv[]) {
 
   gff = gff_read_set(fopen_fname(argv[optind], "r"));
 
-  /* filter */
+  /* filter by type */
   if (include != NULL) gff_filter_by_type(gff, include, FALSE, discards_f);
 
   /* group */
@@ -143,6 +152,17 @@ int main(int argc, char *argv[]) {
 
   /* subgroup */
   if (exongroup_tag != NULL) gff_exon_group(gff, exongroup_tag);
+
+  /* filter by group */
+  if (groups_f != NULL) {
+    String *s = str_new(STR_LONG_LEN);
+    List *groups = lst_new_ptr(10000);
+    str_slurp(s, groups_f);
+    str_split(s, NULL, groups);
+    gff_filter_by_group(gff, groups);
+    lst_free_strings(groups); lst_free(groups);
+    str_free(s);
+  }
 
   /* sort */
   if (sort) gff_sort(gff);

@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.17 2004-07-02 06:06:46 acs Exp $
+/* $Id: gff.c,v 1.18 2004-07-06 19:29:59 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -907,4 +907,40 @@ void gff_add_gene_id(GFF_Set *feats) {
       str_cpy_charstr(f->attribute, tmp);
     }
   }
+}
+
+/** remove all groups whose names are not in the specified list */
+void gff_filter_by_group(GFF_Set *feats, List *groups) {
+  int i, j;
+  char *tag;
+  Hashtable *hash = hsh_new(lst_size(groups));
+  List *keepers = lst_new_ptr(lst_size(feats->features));
+
+  if (feats->groups == NULL) 
+    die("ERROR: gff_filter_by_group requires groups.\n");
+
+  for (i = 0; i < lst_size(groups); i++) 
+    hsh_put(hash, ((String*)lst_get_ptr(groups, i))->chars, (void*)1);
+
+  for (i = 0; i < lst_size(feats->groups); i++) {
+    GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
+    int keep = FALSE;
+    if ((int)hsh_get(hash, g->name->chars) != -1) 
+      keep = TRUE;
+    for (j = 0; j < lst_size(g->features); j++) {
+      if (keep)
+        lst_push_ptr(keepers, lst_get_ptr(g->features, j));
+      else
+        gff_free_feature(lst_get_ptr(g->features, j));
+    }
+  }
+
+  lst_free(feats->features);
+  feats->features = keepers;
+
+  tag = strdup(feats->group_tag->chars);
+  gff_group(feats, tag);        /* old one will have stale pointers */
+  free(tag);
+
+  hsh_free(hash);
 }
