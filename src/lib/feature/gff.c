@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.22 2004-09-22 04:22:29 acs Exp $
+/* $Id: gff.c,v 1.23 2004-09-22 06:08:30 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1002,4 +1002,101 @@ void gff_create_utrs(GFF_Set *feats) {
     }
   }
   lst_free(exons);
+}
+
+/** Creates features for start and stop codons and 5' and 3' splice
+    sites.  Note: splice sites in UTR will only be added if UTR is
+    annotated (see function above) */
+
+void gff_create_signals(GFF_Set *feats) {
+  int i, j;
+
+  if (feats->groups == NULL) 
+    die("ERROR: gff_create_signals requires groups.\n");
+
+  for (i = 0; i < lst_size(feats->groups); i++) {
+    GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
+    int cds_start = INFTY, cds_end = -1, trans_start = INFTY, trans_end = -1;
+    char strand = '\0';
+
+    /* first scan for strand and start/end of cds and transcript */
+    for (j = 0; j < lst_size(g->features); j++) {
+      GFF_Feature *f = lst_get_ptr(g->features, j);
+      if (str_equals_charstr(f->feature, GFF_CDS_TYPE)) {
+        if (f->start < cds_start) cds_start = f->start;
+        if (f->end > cds_end) cds_end = f->end;
+      }
+      if (str_equals_charstr(f->feature, GFF_CDS_TYPE) ||
+          str_equals_charstr(f->feature, GFF_UTR5_TYPE) ||
+          str_equals_charstr(f->feature, GFF_UTR3_TYPE)) {
+        if (f->start < trans_start) trans_start = f->start;
+        if (f->end > trans_end) trans_end = f->end;
+      }
+      if (strand == '\0') strand = f->strand;
+    }    
+
+    /* now add signal features */
+    for (j = 0; j < lst_size(g->features); j++) {
+      GFF_Feature *f = lst_get_ptr(g->features, j);
+      GFF_Feature *f_new;
+      if (str_equals_charstr(f->feature, GFF_CDS_TYPE) &&
+          f->end - f->start + 1 >= 3) {
+                                /* don't create if shorter than 3 b.p. */
+        if (f->start == cds_start) {
+          f_new = gff_new_feature_copy(f);
+          f_new->end = f->start + 2;
+          if (strand == '-') {
+            str_cpy_charstr(f_new->feature, GFF_STOP_TYPE);
+            f->start += 3;
+          }
+          else 
+            str_cpy_charstr(f_new->feature, GFF_START_TYPE);            
+          lst_push_ptr(feats->features, f_new);
+          lst_push_ptr(g->features, f_new);
+        }
+        if (f->end == cds_end) {
+          f_new = gff_new_feature_copy(f);
+          f_new->start = f->end - 2;
+          if (strand == '-') 
+            str_cpy_charstr(f_new->feature, GFF_START_TYPE);
+          else {
+            str_cpy_charstr(f_new->feature, GFF_STOP_TYPE);            
+            f->end -= 3;
+          }
+          lst_push_ptr(feats->features, f_new);
+          lst_push_ptr(g->features, f_new);
+        }
+      }
+
+      if ((str_equals_charstr(f->feature, GFF_CDS_TYPE) && 
+           f->start != cds_start && f->start != cds_start + 3) || 
+          ((str_equals_charstr(f->feature, GFF_UTR5_TYPE) ||
+            str_equals_charstr(f->feature, GFF_UTR3_TYPE)) &&
+           f->start != trans_start && f->start != cds_end + 1)) { 
+        /* add splice site before exon */
+          f_new = gff_new_feature_copy(f);
+          f_new->end = f->start - 1;
+          f_new->start = f_new->end - 1;
+          str_cpy_charstr(f_new->feature, strand == '-' ? GFF_SPLICE5_TYPE : 
+                          GFF_SPLICE3_TYPE);
+          lst_push_ptr(feats->features, f_new);
+          lst_push_ptr(g->features, f_new);
+      }
+
+      if ((str_equals_charstr(f->feature, GFF_CDS_TYPE) && 
+           f->end != cds_end && f->end != cds_end - 3) || 
+          ((str_equals_charstr(f->feature, GFF_UTR5_TYPE) ||
+            str_equals_charstr(f->feature, GFF_UTR3_TYPE)) &&
+           f->end != cds_start - 1 && f->end != trans_end)) { 
+        /* add splice site after exon */
+          f_new = gff_new_feature_copy(f);
+          f_new->start = f->end + 1;
+          f_new->end = f_new->start + 1;
+          str_cpy_charstr(f_new->feature, strand == '-' ? GFF_SPLICE3_TYPE : 
+                          GFF_SPLICE5_TYPE);
+          lst_push_ptr(feats->features, f_new);
+          lst_push_ptr(g->features, f_new);
+      }
+    }    
+  }
 }

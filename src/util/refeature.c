@@ -65,10 +65,18 @@ OPTIONS:\n\
         codons, as required by the GTF2 standard.  Assumes at most one\n\
         start_codon and at most one stop_codon per group.\n\
 \n\
-    --utr, -U\n\
+    --add-utrs, -U\n\
         Create UTR features for portions of exons outside CDS (only\n\
-        useful with GFF output; be sure features are grouped at level\n\
+        useful with GFF output; features must be grouped at level\n\
         of transcript).\n\
+\n\
+    --add-signals, -S\n\
+        Adds features for start and stop codons and 3' and 5' splice\n\
+        sites (only useful with GFF output; features must be grouped\n\
+        at level of transcript).  Start and stop codons will be added\n\
+        as required by the GTF2 standard (--fix-start-stop is not\n\
+        necessary).  Warning: does not correctly handle case of splice\n\
+        site in middle of start or stop codon.\n\
 \n\
     --output, -o gff|bed|genepred\n\
         Output format (default gff).\n\
@@ -93,7 +101,7 @@ int main(int argc, char *argv[]) {
   List *include = NULL;
   char *groupby = "transcript_id", *exongroup_tag = NULL;
   int unique = FALSE, sort = FALSE, simplebed = FALSE, fix_start_stop = FALSE,
-    utr = FALSE;
+    add_utrs = FALSE, add_signals = FALSE;
   enum {GFF, BED, GENEPRED} output_format = GFF;
   FILE *discards_f = NULL, *groups_f = NULL;
 
@@ -103,7 +111,8 @@ int main(int argc, char *argv[]) {
     {"include-groups", 1, 0, 'l'},
     {"groupby", 1, 0, 'g'},
     {"exongroup", 1, 0, 'e'},
-    {"utr", 0, 0, 'U'},
+    {"add-utrs", 0, 0, 'U'},
+    {"add-signals", 0, 0, 'S'},
     {"fix-start-stop", 0, 0, 'f'},
     {"unique", 0, 0, 'u'},
     {"sort", 0, 0, 's'},
@@ -113,7 +122,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "o:i:l:g:e:d:Ufusbh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "o:i:l:g:e:d:USfusbh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'o':
       if (!strcmp("bed", optarg)) output_format = BED;
@@ -133,7 +142,10 @@ int main(int argc, char *argv[]) {
       exongroup_tag = optarg;
       break;
     case 'U':
-      utr = TRUE;
+      add_utrs = TRUE;
+      break;
+    case 'S':
+      add_signals = TRUE;
       break;
     case 'f':
       fix_start_stop = TRUE;
@@ -172,8 +184,9 @@ int main(int argc, char *argv[]) {
   /* group */
   gff_group(gff, groupby);
 
-  /* utr */
-  if (utr) gff_create_utrs(gff);
+  /* utrs & signals */
+  if (add_utrs) gff_create_utrs(gff);
+  if (add_signals) gff_create_signals(gff);
 
   /* subgroup */
   if (exongroup_tag != NULL) gff_exon_group(gff, exongroup_tag);

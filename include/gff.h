@@ -1,4 +1,4 @@
-/* $Id: gff.h,v 1.11 2004-09-22 04:22:29 acs Exp $
+/* $Id: gff.h,v 1.12 2004-09-22 06:08:30 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -108,6 +108,8 @@ typedef struct {
 #define GFF_STOP_TYPE "stop_codon"
 #define GFF_UTR5_TYPE "5'UTR"
 #define GFF_UTR3_TYPE "3'UTR"
+#define GFF_SPLICE5_TYPE "5'splice"
+#define GFF_SPLICE3_TYPE "3'splice"
 
 
 GFF_Set* gff_read_set(FILE *F);
@@ -173,5 +175,7 @@ void gff_add_gene_id(GFF_Set *feats);
 void gff_filter_by_group(GFF_Set *feats, List *groups);
 
 void gff_create_utrs(GFF_Set *feats);
+
+void gff_create_signals(GFF_Set *feats);
 
 #endif
