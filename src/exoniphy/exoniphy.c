@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.12 2004-06-29 23:57:39 acs Exp $
+/* $Id: exoniphy.c,v 1.13 2004-06-30 00:03:39 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -41,8 +41,8 @@ USAGE: exoniphy --hmm <fname> --tree-models <list> \\\n\
 DESCRIPTION: \n\
 \n\
         Prediction of evolutionarily conserved protein-coding exons,\n\
-        using a phylo-HMM, as described by Siepel & Haussler (RECOMB\n\
-        2004)\n\
+        using a phylo-HMM, as described in the RECOMB 2004 paper by\n\
+        Siepel & Haussler.\n\
 \n\
 EXAMPLES:\n\
     (coming soon)    \n\
@@ -51,15 +51,12 @@ OPTIONS:\n\
 \n\
  (Required)\n\
     --hmm, -H <fname>\n\
-        Name of HMM file, defining the probability of transition from\n\
-        each functional category to each other.  Generally a file is\n\
-        used that was produced by this same program, running in\n\
-        training mode.\n\
+        Name of HMM file, defining all state transition probabilities.\n\
 \n\
     --tree-models, -m <fname_list>\n\
         List of tree model (*.mod) files, one for each functional\n\
         category.  Order of models must correspond to order of states\n\
-        in HMM.  \n\
+        in HMM file.  \n\
 \n\
     --catmap, -c <fname>|<string>\n\
         Mapping of feature types to category numbers.  Can either give\n\
@@ -118,8 +115,8 @@ OPTIONS:\n\
  (Feature types)\n\
     --cds-types, -C <list>\n\
         Feature types that represent protein-coding regions (default\n\
-        value: \"%s\").  Used when scoring predictions and filling out\n\
-        'frame' field in GFF output.\n\
+        value: \"%s\").  Used when scoring\n\
+        predictions and filling out 'frame' field in GFF output.\n\
 \n\
     --backgd-types, -B <list>\n\
         Feature types to be considered \"background\" (default value:\n\
