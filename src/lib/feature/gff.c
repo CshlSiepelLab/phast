@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.4 2004-06-14 16:58:06 acs Exp $
+/* $Id: gff.c,v 1.5 2004-06-14 18:44:08 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -595,9 +595,8 @@ void gff_ungroup(GFF_Set *set) {
 void gff_exon_group(GFF_Set *set, char *tag) {
   List *groups;
   int i, j;
-  char tmpstr[STR_SHORT_LEN];
+  char tmpstr[STR_MED_LEN];
   GFF_FeatureGroup *dummy = NULL;
-  GFF_Feature *lastfeat = NULL;
 
   gff_sort(set);
 
@@ -615,8 +614,8 @@ void gff_exon_group(GFF_Set *set, char *tag) {
 
   for (i = 0; i < lst_size(groups); i++) {
     GFF_FeatureGroup *group = lst_get_ptr(groups, i);
-
     int idx = 0;
+    GFF_Feature *lastfeat = NULL;
     for (j = 0; j < lst_size(group->features); j++) {
       GFF_Feature *f = lst_get_ptr(group->features, j);
       if (lastfeat == NULL || f->start > lastfeat->end + 1 || 
@@ -635,7 +634,7 @@ void gff_exon_group(GFF_Set *set, char *tag) {
       
       str_append_charstr(f->attribute, tmpstr);
 
-      if (f->end > lastfeat->end)
+      if (lastfeat == NULL || f->end > lastfeat->end)
         lastfeat = f;
     }
   }
@@ -937,8 +936,7 @@ void gff_remove_overlaps(GFF_Set *gff,
     }
     else {                  /* have to search list */
       int list_idx = lst_bsearch_int(starts, group->start);
-      int prev_end = list_idx >= 0 ? 
-        lst_get_int(ends, list_idx) : -1;
+      int prev_end = list_idx >= 0 ? lst_get_int(ends, list_idx) : -1;
       int next_start = list_idx+1 < lst_size(starts) ?
         lst_get_int(starts, list_idx+1) : group->end+1;         
       if (prev_end >= group->start || next_start <= group->end) {
