@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.15 2004-08-16 21:25:31 acs Exp $
+/* $Id: maf.c,v 1.16 2004-08-16 21:28:59 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -247,6 +247,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
     String *refseq;
     int alph_size = strlen(msa->alphabet), nreftuples = int_pow(alph_size, tuple_size);
     int *fasthash = smalloc(nreftuples * sizeof(int));
+    char reftuple[tuple_size + 1];
 
     for (i = 0; i < nreftuples; i++) fasthash[i] = -1;
 
@@ -268,9 +269,9 @@ MSA *maf_read(FILE *F,          /**< MAF file */
         tuple_str[msa->nseqs*(tuple_size-1 + offset) + i] = msa->missing[0];
     tuple_str[msa->nseqs * tuple_size] = '\0';
 
-    map_idx = 0;
-
     /* look at each site in the reference sequence */
+    map_idx = 0;
+    reftuple[tuple_size] = '\0';
     for (i = 0, msa_idx = 0; i < refseq->length; i++, msa_idx++) {
 
       /* use the coord map but avoid a separate lookup at each position */
@@ -306,8 +307,8 @@ MSA *maf_read(FILE *F,          /**< MAF file */
         /* try shortcut based on fact that most of the time we'll have
            tuple_size characters from the alphabet */
         if (i >= tuple_size - 1) {
-          fasthash_idx = tuple_index(&refseq->chars[i-tuple_size+1], 
-                                     msa->inv_alphabet, alph_size);
+          strncpy(reftuple, &refseq->chars[i-tuple_size+1], tuple_size);
+          fasthash_idx = tuple_index(reftuple, msa->inv_alphabet, alph_size);
           if (fasthash_idx != -1 && fasthash[fasthash_idx] != -1)
             tuple_idx = fasthash[fasthash_idx];
         }
