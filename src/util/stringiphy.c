@@ -139,13 +139,18 @@ int main(int argc, char *argv[]) {
     for (j = i+1; j < lst_size(exons->groups); j++) {
       GFF_FeatureGroup *g2 = lst_get_ptr(exons->groups, j);
       GroupData *d2 = lst_get_ptr(group_data, j);
-      if ((d1->type == INITIAL || d1->type == INTERNAL) && 
-          (d2->type == INTERNAL || d2->type == TERMINAL) &&
-          str_equals(d1->seqname, d2->seqname) &&
-          d1->strand == d2->strand && d1->end_phase == d2->start_phase &&
-          d1->end < d1->start + JOIN_THRESHOLD) {
+
+      if (str_equals(d1->seqname, d2->seqname) &&
+          d1->strand == d2->strand && d2->start < d1->end + JOIN_THRESHOLD &&
+          ((d1->strand == '+' && d1->end_phase == d2->start_phase &&
+            (d1->type == INITIAL || d1->type == INTERNAL) && 
+            (d2->type == INTERNAL || d2->type == TERMINAL)) || 
+           (d1->strand == '-' && d2->end_phase == d1->start_phase &&
+            (d2->type == INITIAL || d2->type == INTERNAL) && 
+            (d1->type == INTERNAL || d1->type == TERMINAL))))
+
         regroup(g2, gene_tag, g1->name->chars);
-      }
+
       else break;
     }
     i = j;
