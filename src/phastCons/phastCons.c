@@ -51,7 +51,7 @@ DESCRIPTION:\n\
     discrete elements can be predicted using the --viterbi option, and\n\
     they can be assigned log-odds scores using the --score option.\n\
     The set of states considered when predicting discrete elements is\n\
-    also controlled by --states (by default, first state only).\n\
+    also controlled by --states.\n\
 \n\
     This program is written in a general enough way that it can be\n\
     useful for other things besides analyzing rates of substitution\n\
@@ -60,7 +60,7 @@ DESCRIPTION:\n\
     and three states for the three codon positions), and specifying\n\
     the coding states via --states, you can obtain posterior\n\
     probabilities that can be interpreted as a measure of \"coding\n\
-    potential\" score.\n\
+    potential.\"\n\
 \n\
 USAGE: %s [OPTIONS] <msa_fname> <mod_fname_list>\n\
 \n\
