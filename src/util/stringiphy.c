@@ -34,25 +34,19 @@ USAGE:        %s [OPTIONS] <exons.gff>\n\
               'refeature --sort --unique')
 \n\
 OPTIONS:\n\
-    --groupby-exon <tag>\n\
-        Tag defining exons in input file.  Default is \"exon_id\".\n\
-\n\
-    --groupby-gene <tag>\n\
-        Tag defining transcripts in output file.  Default is \"transcript_id\".\n\
-\n\
     --help, -h\n\
         Print this help message.\n\n", prog, prog);
   exit(0);
 }
 
-/* redefine group for set of features, by prepending new tag and value
-   to 'attribute' field of all features */
+/* redefine group for set of features, by replacing 'attribute' field
+   of all features with new tag and value */
 void regroup(GFF_FeatureGroup *g, char *gene_tag, char *gene_val) {
   int i;
   char tmpstr[STR_LONG_LEN];
   for (i = 0; i < lst_size(g->features); i++) {
     GFF_Feature *f = lst_get_ptr(g->features, i);
-    sprintf(tmpstr, "%s \"%s\" ; %s", gene_tag, gene_val, f->attribute->chars);
+    sprintf(tmpstr, "%s \"%s\"", gene_tag, gene_val);
     str_cpy_charstr(f->attribute, tmpstr);
   }
 }
@@ -61,7 +55,6 @@ int main(int argc, char *argv[]) {
   GFF_Set *exons;
   char c;
   int i, j, opt_idx;
-  char *exon_tag = "exon_id", *gene_tag = "transcript_id";
   List *group_data;
 
   struct option long_opts[] = {
@@ -83,7 +76,7 @@ int main(int argc, char *argv[]) {
     
   exons = gff_read_set(fopen_fname(argv[optind], "r"));
 
-  gff_group(exons, exon_tag);
+  gff_group(exons, "transcript_id");
   gff_sort(exons);
   group_data = lst_new_ptr(lst_size(exons->groups));
   /* first get end coord, strand, and start/end phase of each feature
@@ -135,7 +128,7 @@ int main(int argc, char *argv[]) {
     GFF_FeatureGroup *g1 = lst_get_ptr(exons->groups, i);
     GroupData *d1 = lst_get_ptr(group_data, i);
     String *groupname = g1->name;
-    regroup(g1, gene_tag, groupname->chars);
+    regroup(g1, "transcript_id", groupname->chars);
 
     for (j = i+1; j < lst_size(exons->groups); j++) {
       GFF_FeatureGroup *g2 = lst_get_ptr(exons->groups, j);
@@ -150,7 +143,7 @@ int main(int argc, char *argv[]) {
             (d2->type == INITIAL || d2->type == INTERNAL) && 
             (d1->type == INTERNAL || d1->type == TERMINAL)))) {
 
-        regroup(g2, gene_tag, groupname->chars);
+        regroup(g2, "transcript_id", groupname->chars);
         g1 = g2;
         d1 = d2;
       }
@@ -160,7 +153,7 @@ int main(int argc, char *argv[]) {
     i = j;
   }
 
-  gff_group(exons, gene_tag);
+  gff_group(exons, "transcript_id");
   gff_add_gene_id(exons);
   gff_print_set(stdout, exons);
   return 0;
