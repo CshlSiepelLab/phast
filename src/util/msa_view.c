@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.21 2004-08-29 21:16:17 acs Exp $
+/* $Id: msa_view.c,v 1.22 2004-08-29 21:32:27 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -137,16 +137,15 @@ OPTIONS:\n\
         (this is the default).\n\
 \n\
     --aggregate, -A <name_list>\n\
-        (Incompatible with -i MAF) Create an aggregate alignment from\n\
-        a set of alignment files, by concatenating individual\n\
-        alignments.  If used with --out-format SS and --unordered-ss (and\n\
-        without --start, --end, or --seqs), the aggregate\n\
-        alignment will never be created explicitly (recommended for\n\
-        large data sets).  The argument <name_list> must be a list of\n\
-        sequence names, including all names in all specified\n\
-        alignments (missing sequences will be replaced by rows of\n\
-        gaps).  The standard <msa_fname> argument should be replaced\n\
-        with a list of file names.\n\
+        (Not compatible with --start or --end) Create an aggregate\n\
+        alignment from a set of alignment files, by concatenating\n\
+        individual alignments.  If used with --out-format SS and\n\
+        --unordered-ss, the aggregate alignment will never be created\n\
+        explicitly (recommended for large data sets).  The argument\n\
+        <name_list> must be a list of sequence names, including all\n\
+        names in all specified alignments (missing sequences will be\n\
+        replaced by rows of missing data).  The standard <msa_fname>\n\
+        argument should be replaced with a list of file names.\n\
 \n\
  (File formats, gap stripping, reordering, etc.)\n\
     --in-format, -i PHYLIP|FASTA|MPM|MAF|SS\n\
@@ -537,12 +536,12 @@ int main(int argc, char* argv[]) {
       fprintf(stderr, "WARNING: --refseq ignored with --aggregate.\n");
 
     if (input_format == MAF && (output_format != SS || ordered_stats)) {
-      fprintf(stderr, "WARNING: assuming --out-format SS --unordered with --in-format MAF and --aggregate.\n");
+      fprintf(stderr, "WARNING: assuming --out-format SS --unordered-ss with --in-format MAF and --aggregate.\n");
       output_format = SS;
       ordered_stats = FALSE;
     }
     else if (input_format == SS && (output_format != SS || ordered_stats))
-      fprintf(stderr, "WARNING: are you sure you don't want to use --out-format SS --unordered?  A lot of memory may be required...\n");
+      fprintf(stderr, "WARNING: are you sure you don't want to use --out-format SS --unordered-ss?  A lot of memory may be required...\n");
 
     if (output_format == SS && !ordered_stats) {
       msa = ss_aggregate_from_files(msa_fname_list, input_format, 
