@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.23 2004-10-04 05:49:03 acs Exp $
+   $Id: phyloFit.c,v 1.24 2005-01-31 18:12:32 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -868,6 +868,16 @@ int main(int argc, char *argv[]) {
   /* set up for categories */
   /* first label sites, if necessary */
   if (gff != NULL && input_format != MAF) {
+    if (msa->idx_offset > 0) {
+      /* if these's an offset, we'll just subtract it from all features */
+      for (i = 0; i < lst_size(gff->features); i++) {
+	GFF_Feature *f = lst_get_ptr(gff->features, i);
+	f->start -= msa->idx_offset;
+	f->end -= msa->idx_offset;
+      }
+      msa->idx_offset = 0;
+    }
+
     /* convert GFF to coordinate frame of alignment */
     msa_map_gff_coords(msa, gff, 1, 0, 0, NULL);
 
