@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.17 2004-08-11 23:10:22 acs Exp $
+/* $Id: msa_view.c,v 1.18 2004-08-16 22:22:01 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -399,7 +399,8 @@ int main(int argc, char* argv[]) {
     {"randomize", 0, 0, 'R'},
     {"fill-Ns", 1, 0, 'N'},
     {"keep-overlapping", 0, 0, 'k'},
-    {"help", 0, 0, 'h'}
+    {"help", 0, 0, 'h'},
+    {0, 0, 0, 0}
   };
 
   while ((c = getopt_long(argc, argv, "m:i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:DVxPzRSkh", long_opts, &opt_idx)) != -1) {
