@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.20 2004-09-29 00:02:51 acs Exp $
+/* $Id: msa_split.c,v 1.21 2004-11-16 23:52:34 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -314,6 +314,9 @@ void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list,
     int new_idx, okay, count, range_beg, range_end;
     idx = lst_get_int(split_indices_list, i) - 1; /* convert to 0-based idx */
 
+    if (idx == 0) continue;     /* don't do this at the beginning of
+                                   an alignment */
+
     /* first see if we're already in a good place */
     /* NOTE: it's best to avoid breaking where there's an alignment
        gap in the reference sequence (can happen when there are Ns in
@@ -345,7 +348,7 @@ void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list,
     range_beg = max(0, idx - radius); 
     range_end = min(msa->length-1, idx + radius);
 
-    /* j currently points to first missing-data col equal to or to the
+    /* j currently points to first non-missing-data col equal to or to the
        left of idx */
     count = 0; new_idx = -1;
     for (; new_idx < 0 && j >= range_beg; j--) {
@@ -357,8 +360,8 @@ void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list,
       else count = 0;
     }
 
-    /* k currently points to first site equal to or to the right of
-       idx s.t. all_gaps_but_ref is false */
+    /* k currently points to first non-missing-data col equal to or to the
+       right of idx */
     count = 0;
     for (; new_idx < 0 && k <= range_end; k++) {
       if (msa_missing_col(msa, 1, k) && msa_get_char(msa, 0, k) != GAP_CHAR) {
