@@ -1,6 +1,6 @@
 /* label - label the columns of alignment(s) by category */
 
-/* $Id: exoniphy.c,v 1.7 2004-06-22 17:12:26 acs Exp $
+/* $Id: exoniphy.c,v 1.8 2004-06-23 06:03:09 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, Adam Siepel, University of California 
 
@@ -1652,7 +1652,7 @@ int main(int argc, char* argv[]) {
             if (!quiet_mode)
               fprintf(stderr, "Writing output to %s ...\n", outfname->chars);
 
-            gff_print_bed(F, gff, NULL, bed_feature_list); /* FIXME: need to group by "exon_id" or something similar */
+            gff_print_bed(F, gff, TRUE); /* FIXME: need to group by "exon_id" or something similar */
             fclose(F);
           }
           gff_free_set(gff);

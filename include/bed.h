@@ -1,4 +1,4 @@
-/* $Id: bed.h,v 1.3 2004-06-14 22:52:16 acs Exp $
+/* $Id: bed.h,v 1.4 2004-06-23 06:03:09 acs Exp $
    Written by Adam Siepel, 2004
    Copyright 2004, Adam Siepel, University of California */
 
@@ -15,6 +15,6 @@
 
 void gff_read_from_bed(GFF_Set *gff, FILE *F);
 
-void gff_print_bed(FILE *OUTF, GFF_Set *gff, char *groupby, List *include);
+void gff_print_bed(FILE *OUTF, GFF_Set *gff, int use_groups);
 
 #endif

@@ -21,7 +21,7 @@ DESCRIPTION:    Read a file representing a set of features, optionally\n\
                 is used for output, but abbreviated versions (e.g., 3-column,\n\
                 4-column, or 6-column) are accepted as input.\n\
 \n\
-                The input format can be recognized automatically, but auto-\n\
+                The input format is recognized automatically, but auto-\n\
                 recognition requires a 'seekable' input stream (e.g., an\n\
                 actual file rather than a pipe from stdin).\n\
 \n\
@@ -117,6 +117,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'b':
       simplebed = 1;
+      output_format = BED;
       break;
     case 'd':
       discards_f = fopen_fname(optarg, "w+");
@@ -152,7 +153,7 @@ int main(int argc, char *argv[]) {
   if (unique) gff_remove_overlaps(gff, discards_f);
 
   if (output_format == BED)
-    gff_print_bed(stdout, gff, simplebed ? NULL : groupby, NULL);
+    gff_print_bed(stdout, gff, !simplebed);
   else if (output_format == genepred)
     gff_print_genepred(stdout, gff);
   else 

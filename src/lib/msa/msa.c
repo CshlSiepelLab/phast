@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.13 2004-06-22 19:11:11 acs Exp $
+/* $Id: msa.c,v 1.14 2004-06-23 06:03:09 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -454,13 +454,13 @@ void project(MSA *msa, int refseq) {
 }
 
 /* Returns a sub-alignment consisting of the specified sequences
-   within the specified range of columns.  Listed sequence can either
-   be included or excluded (they will be included iff "include" == 1).
-   In either case, indices, not names, must be used.  All memory is
-   copied.  To include all sequences, set seqlist to NULL.  The new
-   alignment will represent the interval [start_col, end_col), in a
-   frame such that the first character has index 0.  (that is, the end
-   column will not be included).  */
+   within the specified range of columns.  Listed sequence will be
+   included if "include" == TRUE and excluded otherwise.  In either
+   case, indices, not names, must be used.  All memory is copied.  To
+   include all sequences, set seqlist to NULL.  The new alignment will
+   represent the interval [start_col, end_col), in a frame such that
+   the first character has index 0.  (that is, the end column will not
+   be included).  */
 MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col, 
                        int end_col) {
   List *include_list;
@@ -491,9 +491,9 @@ MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col,
       if (tmparray[i] == 1)
         lst_push_int(include_list, i);
   }
-  else if (seqlist != NULL) 
+  else if (seqlist != NULL)     /* include == TRUE */
     include_list = seqlist; 
-  else {                        /* include everything */
+  else {                        /* seqlist == NULL: include everything */
     include_list = lst_new_int(msa->nseqs);
     for (i = 0; i < msa->nseqs; i++) lst_push_int(include_list, i);
   }

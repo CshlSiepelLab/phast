@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.2 2004-06-22 19:11:11 acs Exp $
+/* $Id: sufficient_stats.c,v 1.3 2004-06-23 06:03:09 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -600,8 +600,6 @@ void msa_read_AXT(MSA *msa, List *axt_fnames) {
   str_free(targ);
   lst_free(fields);
 }
-
-/* FIXME: explicitly inline some of the functions below? */
 
 /* Produce a string representation of an alignment column tuple, given
    the model order; str must be allocated externally to size

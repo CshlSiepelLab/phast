@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.7 2004-06-15 22:33:58 acs Exp $
+/* $Id: msa_view.c,v 1.8 2004-06-23 06:03:09 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -211,25 +211,6 @@ Options:\n\
         sufficient statistics).\n\n");
 }
 
-void parse_seqs(char *seqlist, List *l, int bound) {
-  char str[50];
-  int j = 0, i, newseq;
-  for (i = 0; i <= strlen(seqlist); i++) {
-    if (i == strlen(seqlist) || seqlist[i] == ',') {
-      str[j] = '\0';
-      newseq = atoi(str);
-      if (newseq <= 0 || newseq > bound) {
-        fprintf(stderr, "ERROR: bad sequence index in sequence list (\"%s\").  Indices must be between 1 and %d.\n", str, bound);
-        exit(1);
-      }
-      lst_push_int(l, newseq-1);
-      j = 0;
-    }
-    else if (!isspace(seqlist[i])) 
-      str[j++] = seqlist[i];
-  }
-}
-
 void fill_with_Ns(MSA *msa, List *fill_N_list, msa_coord_map *map) {
   int i, j, nseq, nstart, nend;
   Regex* fill_N_re = str_re_new("([[:digit:]]+):([[:digit:]]+)-([[:digit:]]+)");
@@ -278,8 +259,7 @@ int main(int argc, char* argv[]) {
   MSA *msa = NULL, *sub_msa = NULL;
   msa_format_type input_format = FASTA, output_format = FASTA;
   List *l = NULL;
-  char *infname = NULL, *seqlist = NULL, 
-    *clean_seqname = NULL, *rseq_fname = NULL,
+  char *infname = NULL, *clean_seqname = NULL, *rseq_fname = NULL,
     *reverse_groups_tag = NULL;
   int i, opt_idx, startcol = 1, endcol = -1, include = 1, gap_strip_mode = NO_STRIP,
     pretty_print = 0, refseq = 0, tuple_size = 1, 
@@ -341,7 +321,9 @@ int main(int argc, char* argv[]) {
       endcol = atoi(optarg);
       break;
     case 'l':
-      seqlist = optarg;
+      l = get_arg_list_int(optarg);
+      for (i = 0; i < lst_size(l); i++)
+        lst_set_int(l, i, lst_get_int(l, i) - 1);
       break;
     case 'x':
       include = 0;
@@ -457,7 +439,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (output_format == SS && ordered_stats == 0 && 
-        startcol == 1 && endcol == -1 && seqlist == NULL) {
+        startcol == 1 && endcol == -1 && l == NULL) {
       msa = ss_aggregate_from_files(msa_fname_list, input_format, 
                                     aggregate_list, NULL, tuple_size, 
                                     cats_to_do, cycle_size);
@@ -511,12 +493,6 @@ int main(int argc, char* argv[]) {
     msa_reorder_rows(msa, order_list);
 
   if (rand_perm) msa_permute(msa);
-
-  if (seqlist != NULL) {
-    l = lst_new_int(strlen(seqlist));
-    parse_seqs(seqlist, l, msa->nseqs);
-  }
-  else include = 0;
 
   if (startcol < 1 || endcol > msa->length ||
       (endcol != -1 && endcol < startcol)) { 
@@ -580,7 +556,7 @@ int main(int argc, char* argv[]) {
       msa->categories[i] = (i % cycle_size) + 1;
   }  
 
-  if (startcol > 1 || endcol < msa->length || l != NULL || include == 1)
+  if (startcol > 1 || endcol < msa->length || l != NULL)
     sub_msa = msa_sub_alignment(msa, l, include, startcol - 1, endcol);
   else
     sub_msa = msa;

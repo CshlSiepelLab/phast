@@ -357,7 +357,7 @@ int main(int argc, char *argv[]) {
     msa_map_gff_coords(msa, features, 0, 1, msa->idx_offset, NULL); 
 
     if (bed_output) 
-      gff_print_bed(stdout, features, NULL, NULL);
+      gff_print_bed(stdout, features, FALSE);
     else
       gff_print_set(stdout, features);
   }

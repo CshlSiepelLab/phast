@@ -1,4 +1,4 @@
-/* $Id: bed.c,v 1.6 2004-06-22 21:50:07 acs Exp $
+/* $Id: bed.c,v 1.7 2004-06-23 06:03:09 acs Exp $
    Written by Adam Siepel, 2004
    Copyright 2004, Adam Siepel, University of California */
 
@@ -11,13 +11,16 @@
 #include <assert.h>
 #include <ctype.h>
 #include <misc.h>
+#include <hashtable.h>
 
 /** Fill out a GFF_Set from a BED file. */
 void gff_read_from_bed(GFF_Set *gff, FILE *F) {
   String *line = str_new(STR_MED_LEN);
   List *l = lst_new_ptr(12), *block_sizes = lst_new_ptr(10), 
     *block_starts = lst_new_ptr(10);
-  int i, error = 0, lineno = 0;
+  int i, error = 0, lineno = 0, id = 1;
+  char group[STR_MED_LEN];
+  Hashtable *hash = hsh_new(10000);
 
   /* source and feature type are constant and unknown */
   String *source = str_new_charstr("bed");
@@ -35,7 +38,7 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
     }
     else {
       int start = 0, end = 0, score = 0, score_is_null = 1;
-      String *bed_name = NULL, *chrom = NULL;
+      String *chrom = NULL;
       char strand = '.';
 
       if (lst_size(l) < 3 ||
@@ -46,7 +49,24 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
         chrom = lst_get_ptr(l, 0);
         start++;                /* switch to GFF coord convention */
       }
-      if (lst_size(l) >= 4) bed_name = lst_get_ptr(l, 3);
+
+      if (lst_size(l) >= 4) {
+        String *bed_name = lst_get_ptr(l, 3);
+        int num;
+        /* make sure unique name is assigned */
+        if ((num = (int)hsh_get(hash, bed_name->chars)) > 0) {
+          num++;
+          sprintf(group, "id \"%s.%d\"", bed_name->chars, num);
+          hsh_reset(hash, bed_name->chars, (void*)num);
+        }
+        else {
+          sprintf(group, "id \"%s\"", bed_name->chars);
+          hsh_put(hash, bed_name->chars, (void*)1);
+        }
+      }
+      else
+        sprintf(group, "id \"bed.%d\"", id++);
+        
       if (lst_size(l) >= 5) {
         if ((str_as_int(lst_get_ptr(l, 4), &score) != 0))
           error = 1;
@@ -75,7 +95,7 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
                                            str_dup(feature), bl_start + start, 
                                            bl_start + start + bl_size - 1, score, 
                                            strand, GFF_NULL_FRAME, 
-                                           str_dup(bed_name), 0));
+                                           str_new_charstr(group), 0));
             }
           }          
           lst_free_strings(block_sizes);
@@ -87,8 +107,7 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
                      gff_new_feature(str_dup(chrom), str_dup(source), 
                                      str_dup(feature), start, end, score, 
                                      strand, GFF_NULL_FRAME, 
-                                     bed_name != NULL ? str_dup(bed_name) : 
-                                     str_new(STR_SHORT_LEN), score_is_null));
+                                     str_new_charstr(group), score_is_null));
       }
 
       if (error) {
@@ -105,135 +124,114 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
   lst_free(l);
   lst_free(block_sizes);
   lst_free(block_starts);
+  hsh_free(hash);
 }
 
-/* used in gff_print_bed, below */
-void gff_print_bed_line(FILE *OUTF, List *features, 
-                        int bed_start, int bed_end, char *name) {
-  GFF_Feature *feat;
-  int j;
-  double score;
-
-  assert(lst_size(features) > 0);
-  feat = lst_get_ptr(features, 0);
-
-  /* use sum of non-null scores */
-  score = 0;
-  for (j = 0; j < lst_size(features); j++) {
-    feat = lst_get_ptr(features, j);
-    if (!feat->score_is_null) 
-      score += feat->score;
-  }
-
-  if (name == NULL) name = ".";
-
-  fprintf(OUTF, "%s\t%d\t%d\t%s\t%.0f\t%c\t%d\t%d\t0\t%d\t", 
-          feat->seqname->chars, bed_start - 1, bed_end, 
-          name, score, feat->strand, 
-          bed_start - 1, bed_end, lst_size(features));
-
-  for (j = 0; j < lst_size(features); j++) {
-    feat = lst_get_ptr(features, j);
-    fprintf(OUTF, "%d,", feat->end - feat->start + 1);
-  }    
-
-  fprintf(OUTF, "\t");
-
-  for (j = 0; j < lst_size(features); j++) 
-    fprintf(OUTF, "%d,", ((GFF_Feature*)lst_get_ptr(features, j))->start - 
-            bed_start);
-
-  fprintf(OUTF, "\n");
-}
-
-/** Write a GFF_Set in BED format.  */
+/** Write a GFF_Set in BED format. */
 void gff_print_bed(FILE *OUTF,  /**< Output stream  */
                    GFF_Set *gff, 
-                                /**< Set to write */
-                   char *groupby, 
-                                /**< Group features according to this
-                                   tag.  All members of a group will
-                                   be reported on a single line.  Use
-                                   NULL to supress grouping.  */
-                   List *include
-                                /**< Only write features of the
-                                   specified types (list of String
-                                   objects).  If NULL, all features
-                                   will be written.  */
+                                /**< Set to be printed */
+                   int use_groups
+                                /**< If TRUE, all members of a group
+                                   are described by a single line in
+                                   the BED file (12-column format); if
+                                   FALSE, any groups are ignored and
+                                   each feature gets its own line.
+                                   Features must already be grouped if
+                                   use_groups == TRUE. */
                    ) {
   GFF_Feature *feat;
-  String *chrom;
-  char strand;
-  int i, j, bed_start, bed_end;
-  List *keepers = lst_new_ptr(10);
+  int i, j;
 
-  if (groupby == NULL) {
+  if (lst_size(gff->features) == 0) return; /* now can assume at least one feature */
+
+  if (!use_groups) {
+    Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
+    List *l = lst_new_ptr(2);
+    int ncols = 4;
+
+    /* figure out how many columns to print.  Assume all features
+       are consistent with first one */
+    feat = lst_get_ptr(gff->features, 0);
+    if (feat->strand != '.') ncols = 6;
+    else if (!feat->score_is_null) ncols = 5;
+
+    /* now print one line per feature */
     for (i = 0; i < lst_size(gff->features); i++) {
-      GFF_Feature *feat = lst_get_ptr(gff->features, i);
-      if (include == NULL || str_in_list(feat->feature, include)) {
-        lst_clear(keepers);
-        lst_push_ptr(keepers, feat);
-        gff_print_bed_line(OUTF, keepers, feat->start, feat->end, 
-                           feat->attribute->chars);
+      String *name = NULL;
+      feat = lst_get_ptr(gff->features, i);
+
+      /* try to extract name from attribute field (first value in
+         tag-value pairs) */
+      lst_clear(l);
+      if (feat->attribute->length > 0 && 
+          str_re_match(feat->attribute, tag_val_re, l, 1) >= 0) {
+        name = lst_get_ptr(l, 1);
+        str_remove_quotes(name);
       }
+        
+      /* required four columns */
+      fprintf(OUTF, "%s\t%d\t%d\t%s", feat->seqname->chars, feat->start - 1, 
+              feat->end, name == NULL ? "" : name->chars);
+
+      /* optional additional columns */
+      if (ncols >= 5)
+        fprintf(OUTF, "\t%.0f", feat->score_is_null ? 0 : feat->score);
+      
+      if (ncols == 6)
+        fprintf(OUTF, "\t%c", feat->strand);
+
+      fprintf(OUTF, "\n");
+      lst_free_strings(l);
     }
+
+    str_re_free(tag_val_re);
+    lst_free(l);
   }
 
-  else {
-    gff_group(gff, groupby);
+  else {                        /* using groups */
+    if (gff->groups == NULL)
+      die("ERROR: groups required in gff_print_bed if use_groups == TRUE.\n");
 
     for (i = 0; i < lst_size(gff->groups); i++) {
       GFF_FeatureGroup *group = lst_get_ptr(gff->groups, i);
+      double score = 0;
 
-      assert(lst_size(group->features) > 0);
+      if (lst_size(group->features) == 0) continue;
 
       /* if 'null' group, output individually */
       if (group->name == NULL || group->name->length == 0) {
-        for (j = 0; j < lst_size(group->features); j++) {
-          feat = lst_get_ptr(group->features, j);
-          if (include == NULL || str_in_list(feat->feature, include)) {
-            lst_clear(keepers);
-            lst_push_ptr(keepers, feat);
-            gff_print_bed_line(OUTF, keepers, feat->start, feat->end,
-                               feat->attribute->chars);
-          }
-        }
+        fprintf(stderr, "WARNING: skipping %d ungrouped features.\n",
+                lst_size(group->features));
+        continue;               /* a group may exist of features
+                                   without tags; we'll ignore these */
       }
-      else {                      /* true (non-null) group */
-        /* scan set for shared data */
-        bed_start = -1;
-        bed_end = 0;
-        chrom = NULL;
-        strand = '\0';
-        lst_clear(keepers);
-        for (j = 0; j < lst_size(group->features); j++) {
-          feat = lst_get_ptr(group->features, j);
-          if (include == NULL || str_in_list(feat->feature, include)) {
 
-            /* check that shared information is the same for all features
-               in group */
-            if (chrom == NULL) {    /* first time */
-              chrom = feat->seqname;
-              strand = feat->strand;
-            }
-            else if (!str_equals(chrom, feat->seqname) || 
-                     strand != feat->strand)
-              die("ERROR: features of group '%s' have inconsistent chromosome or strand.\n", group->name->chars);
-
-            /* take beg and end of interval to be min and max of indiv
-               features */
-            if (bed_start == -1 || feat->start < bed_start) 
-              bed_start = feat->start;
-            if (feat->end > bed_end) bed_end = feat->end;
-            lst_push_ptr(keepers, feat);
-          }
-        }
-
-        if (lst_size(keepers) > 0) 
-          gff_print_bed_line(OUTF, keepers, bed_start, bed_end, 
-                             group->name->chars);
+      /* use sum of non-null scores */
+      for (j = 0; j < lst_size(group->features); j++) {
+        feat = lst_get_ptr(group->features, j);
+        if (!feat->score_is_null) score += feat->score;
       }
+
+      feat = lst_get_ptr(group->features, 0);
+      fprintf(OUTF, "%s\t%d\t%d\t%s\t%.0f\t%c\t%d\t%d\t0\t%d\t", 
+              feat->seqname->chars, group->start - 1, group->end, 
+              group->name->chars, score, feat->strand, 
+              group->start - 1, group->end, lst_size(group->features));
+
+      for (j = 0; j < lst_size(group->features); j++) {
+        feat = lst_get_ptr(group->features, j);
+        fprintf(OUTF, "%d,", feat->end - feat->start + 1);
+      }    
+
+      fprintf(OUTF, "\t");
+
+      for (j = 0; j < lst_size(group->features); j++) 
+        fprintf(OUTF, "%d,", 
+                ((GFF_Feature*)lst_get_ptr(group->features, j))->start - 
+                group->start);
+
+      fprintf(OUTF, "\n");
     }
   }
-  lst_free(keepers);
 }

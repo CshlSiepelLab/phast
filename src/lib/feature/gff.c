@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.12 2004-06-22 22:14:07 acs Exp $
+/* $Id: gff.c,v 1.13 2004-06-23 06:03:09 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -346,7 +346,7 @@ void gff_print_feat(FILE *F, GFF_Feature *feat) {
   char score_str[50], frame_str[50];
 
   if (feat->score_is_null) strcpy(score_str, ".");
-  else sprintf(score_str, "%f", feat->score);
+  else sprintf(score_str, "%.3f", feat->score);
 
   if (feat->frame == GFF_NULL_FRAME) strcpy(frame_str, ".");
   else sprintf(frame_str, "%d", feat->frame);
@@ -545,7 +545,7 @@ void gff_group(GFF_Set *set, char *tag) {
   /* since we only use the 'attribute' field for grouping, we'll store
      it unparsed, and parse it only when we need to group */
 
-  sprintf(tmpstr, ".*%s[[:space:]]+(\"[^\"]*\"|[^[:space:]])", tag);
+  sprintf(tmpstr, ".*%s[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)", tag);
   tag_re = str_re_new(tmpstr);
 
   for (i = 0; i < lst_size(set->features); i++) {

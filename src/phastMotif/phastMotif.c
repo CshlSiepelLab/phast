@@ -380,7 +380,7 @@ int main(int argc, char *argv[]) {
     String *fname = str_dup(output_prefix);
     str_append_charstr(fname, "bed");
     gff_print_bed(fopen_fname(fname->chars, "w+"),
-                  bedfeats, NULL, NULL);
+                  bedfeats, FALSE);
     str_free(fname);
   }
 

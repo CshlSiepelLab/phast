@@ -507,7 +507,7 @@ int main(int argc, char *argv[]) {
     if (gff)
       gff_print_set(viterbi_f, predictions);
     else                        /* BED format */
-      gff_print_bed(viterbi_f, predictions, NULL, NULL); 
+      gff_print_bed(viterbi_f, predictions, FALSE); 
   }
 
   /* posterior probs */
