@@ -243,9 +243,11 @@ int main(int argc, char *argv[]) {
       tmpl = get_arg_list(optarg);
       nreps = lst_size(tmpl);
       input_mods = smalloc(nreps * sizeof(void*));
-      for (i = 0; i < lst_size(tmpl); i++)
-        input_mods[i] = 
-          tm_new_from_file(fopen_fname(((String*)lst_get_ptr(tmpl, i))->chars, "r"));
+      for (i = 0; i < lst_size(tmpl); i++) {
+        FILE *F = fopen_fname(((String*)lst_get_ptr(tmpl, i))->chars, "r");
+        input_mods[i] = tm_new_from_file(F);
+        fclose(F);
+      }
       lst_free_strings(tmpl); lst_free(tmpl);
       break;
     case 'A':
