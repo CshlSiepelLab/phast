@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.16 2004-07-02 03:55:49 acs Exp $
+/* $Id: gff.c,v 1.17 2004-07-02 06:06:46 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -902,7 +902,7 @@ void gff_add_gene_id(GFF_Set *feats) {
     GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
     for (j = 0; j < lst_size(g->features); j++) {
       GFF_Feature *f = lst_get_ptr(g->features, j);
-      sprintf(tmp, "group_id \"%s\" ; %s", g->name->chars, f->attribute != NULL ?
+      sprintf(tmp, "gene_id \"%s\" ; %s", g->name->chars, f->attribute != NULL ?
               f->attribute->chars : "");
       str_cpy_charstr(f->attribute, tmp);
     }
