@@ -272,7 +272,7 @@ OPTIONS:\n\
         prefix of generated ids in output file.  Can be used to\n\
         ensure ids are unique.  Default is obtained from input\n\
         file name (single filename root, e.g., \"chr22.35\" if\n\
-        input file is \"chr22.35.ss\").
+        input file is \"chr22.35.ss\").\n\
 \n\
  (Other)\n\
     --msa-format, -i PHYLIP|FASTA|MPM|SS|MAF\n\
