@@ -578,7 +578,8 @@ int main(int argc, char *argv[]) {
       nrates = get_arg_int_bounds(optarg, 2, 100);
       break;
     case 'g':
-      log_f = fopen_fname(optarg, "w+");
+      if (!strcmp(optarg, "-")) log_f = stderr;
+      else log_f = fopen_fname(optarg, "w+");
       break;
     case 'r':
       refidx = get_arg_int_bounds(optarg, 0, INFTY);
