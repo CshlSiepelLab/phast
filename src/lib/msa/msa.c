@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.6 2004-06-18 19:15:24 acs Exp $
+/* $Id: msa.c,v 1.7 2004-06-18 21:18:30 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1272,7 +1272,7 @@ gsl_vector *msa_get_base_freqs(MSA *msa, int start, int end) {
         if (c != GAP_CHAR && c != 'N') {
           int idx = msa->inv_alphabet[(int)c];
           if (idx == -1) {
-            fprintf(stderr, "ERROR: unrecognized character in alignment.\n");
+            fprintf(stderr, "ERROR: unrecognized character in alignment ('%c').\n", c);
             exit(1);
           }
           gsl_vector_set(base_freqs, idx, 
@@ -1291,7 +1291,7 @@ gsl_vector *msa_get_base_freqs(MSA *msa, int start, int end) {
         if (c != GAP_CHAR && c != 'N') {
           int idx = msa->inv_alphabet[(int)c];
           if (idx == -1) {
-            fprintf(stderr, "ERROR: unrecognized character in alignment.\n");
+            fprintf(stderr, "ERROR: unrecognized character in alignment ('%c').\n", c);
             exit(1);
           }
           gsl_vector_set(base_freqs, idx, 
@@ -1339,7 +1339,7 @@ void msa_get_base_freqs_tuples(MSA *msa, gsl_vector *freqs, int k, int cat) {
           else {
             int alph_idx = msa->inv_alphabet[(int)c];
             if (alph_idx == -1) {
-              fprintf(stderr, "ERROR: unrecognized character in alignment.\n");
+              fprintf(stderr, "ERROR: unrecognized character in alignment ('%c').\n", c);
               exit(1);
             }
             tup_idx += alph_idx * int_pow(alph_size, -offset); 
@@ -1372,7 +1372,7 @@ void msa_get_base_freqs_tuples(MSA *msa, gsl_vector *freqs, int k, int cat) {
           else {
             int alph_idx = msa->inv_alphabet[(int)c];
             if (alph_idx == -1) {
-              fprintf(stderr, "ERROR: unrecognized character in alignment.\n");
+              fprintf(stderr, "ERROR: unrecognized character in alignment ('%c').\n", c);
               exit(1);
             }
             tup_idx += alph_idx * int_pow(alph_size, (k-l)-1); 
