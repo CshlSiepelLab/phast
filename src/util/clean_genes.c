@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.14 2004-06-19 02:42:58 acs Exp $
+/* $Id: clean_genes.c,v 1.15 2004-06-19 07:44:45 markd Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -783,7 +783,7 @@ int ref_seq_okay(List *features, MSA *msa, int offset3, int indel_strict,
     seq[len] = '\0';
     if (feat->strand == '-') msa_reverse_compl_seq(seq, len);
 
-    if (str_equals_charstr(feat->feature, START) && strcmp(seq, "ATG") != 0) 
+    if (str_equals_charstr(feat->feature, START) && strcmp(seq, "ATG") != 0)
       return 0;
     else if (str_equals_charstr(feat->feature, STOP) && !is_stop_codon(seq)) 
       return 0;
