@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.3 2004-06-06 04:11:10 acs Exp $
+/* $Id: tree_model.c,v 1.4 2004-06-06 04:12:11 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -714,8 +714,11 @@ void tm_unpack_params(TreeModel *mod, gsl_vector *params, int idx_offset) {
   else 
     i = idx_offset;
 
-  if (mod->estimate_branchlens == TM_SCALE_ONLY)
-    mod->scale = gsl_vector_get(params, i++);
+  if (mod->estimate_branchlens == TM_SCALE_ONLY) {
+    if (mod->empirical_rates && (mod->nratecats > 1 || mod->alpha < 0)) i++;
+                                /* in this case, skip scale */
+    else mod->scale = gsl_vector_get(params, i++);
+  }
   else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
     /* first nnodes-2 elements define branch lengths */
     /* NOTE: order of traversal is not important as long as it is
