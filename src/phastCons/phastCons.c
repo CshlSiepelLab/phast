@@ -1064,6 +1064,7 @@ double fit_rates_cut(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
   phmm->em_data->fix_indel = !estim_indels;
   phmm->em_data->conserved_scale = conserved_scale;
   phmm->em_data->target_coverage = target_coverage;
+  phmm->em_data->H = NULL;      /* will be defined as needed */
 
   if (phmm->indel_mode == PARAMETERIC) {
     phmm->alpha[0] = *alpha_0;
@@ -1269,8 +1270,15 @@ void reestimate_trees(void **models, int nmodels, void *data,
   if (logf != NULL)
     fprintf(logf, "\nRE-ESTIMATION OF TREE MODEL:\n");
 
-  if (opt_bfgs(likelihood_wrapper, params, phmm, &ll, 
-               lower_bounds, NULL, logf, NULL, OPT_MED_PREC, NULL) != 0)
+  /* keep Hessian arround so it can be used from one iteration to the
+     next */
+  if (phmm->em_data->H == NULL) {
+    phmm->em_data->H = gsl_matrix_alloc(params->size, params->size);
+    gsl_matrix_set_identity(phmm->em_data->H);
+  }
+
+  if (opt_bfgs(likelihood_wrapper, params, phmm, &ll, lower_bounds, 
+               NULL, logf, NULL, OPT_MED_PREC, phmm->em_data->H) != 0)
     die("ERROR returned by opt_bfgs.\n");
 
   unpack_params_phmm(phmm, params);
