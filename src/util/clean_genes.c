@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.19 2004-07-29 23:39:04 acs Exp $
+/* $Id: clean_genes.c,v 1.20 2004-08-16 07:45:44 markd Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -212,6 +212,62 @@ char *STATS_DESCRIPTION = "#\n\
 # nce_clean     number with clean gaps that overlap\n\
 # nce_fshftok   number with compensatory frame-shifting gaps as allowed by --fshift\n";
 
+/* description of a problem */
+typedef struct Problem {
+  GFF_Feature *feat;
+  status_type status;
+  int start;
+  int end;
+  cds_gap_type cds_gap;  /* if status if FSHIFT */
+} Problem;
+
+/* create a new problem.  feat can be null for whole gene.
+ * start and end are < 0, then they are filled in from feat   */
+Problem *problem_new(GFF_Feature *feat, status_type status,
+                     int start, int end) {
+  Problem *p = smalloc(sizeof(Problem));
+  p->feat = feat;
+  p->status = status;
+  if ((feat != NULL) && (start < 0) && (end < 0)) {
+    p->start = feat->start;
+    p->end = feat->end;
+  } else {
+    p->start = start;
+    p->end = end;
+  }
+  return p;
+}
+
+/* create a new problem, and add to the list */
+Problem *problem_add(List *problems, GFF_Feature *feat, status_type status,
+                     int start, int end) {
+  Problem *p = problem_new(feat, status, start, end);
+  lst_push_ptr(problems, p);
+  return p;
+}
+
+/* free a problem */
+void problem_free(Problem *p) {
+  if (p != NULL) {
+    free(p);
+  }
+}
+
+/* Reset a problem list to the empty state */
+void problems_clear(List *problems) {
+  int i;
+  for (i = 0; i < lst_size(problems); i++) {
+    problem_free(lst_get_ptr(problems, i));
+  }
+  lst_clear(problems);
+}
+
+/* free list of problem objects */
+void problems_free(List *problems) {
+  problems_clear(problems);
+  lst_free(problems);
+}
+
 inline int is_conserved_start(GFF_Feature *feat, MSA *msa) {
   char tuplestr[4];
   int j;
@@ -301,7 +357,7 @@ inline int is_conserved_3splice(GFF_Feature *feat, MSA *msa, int offset3,
   return 1;
 }
 
-int is_nonsense_clean(GFF_Feature *feat, MSA *msa) {
+int is_nonsense_clean(GFF_Feature *feat, MSA *msa, List *problems) {
   int i, j, len;
   char seq[feat->end - feat->start + 2];
   for (j = 1; j < msa->nseqs; j++) { /* no need to check reference seq */
@@ -315,7 +371,11 @@ int is_nonsense_clean(GFF_Feature *feat, MSA *msa) {
 
     /* now scan for stop codons */
     for (i = (3 - feat->frame) % 3; i <= len - 3; i += 3) 
-      if (is_stop_codon(&seq[i])) return 0;
+      if (is_stop_codon(&seq[i])) {
+        problem_add(problems, feat, NONSENSE, feat->start+i,
+                    feat->start+i+2);
+        return 0;
+      }
   }
 
   return 1;
@@ -329,12 +389,11 @@ int gap_compare(const void *ptr1, const void* ptr2) {
   struct gap *g2 = *(struct gap**)ptr2;
   return g1->start - g2->start;
 }
-
 /* scans a cds for gaps.  Returns CLN_GAPS, NOVRLP_CLN_GAPS, NO_GAPS,
    or FSHIFT_BAD; doesn't try to check for compensatory indels, which
    is more complicated (this is left for the special-purpose function
    below) */
-int scan_for_gaps(GFF_Feature *feat, MSA *msa) {
+int scan_for_gaps(GFF_Feature *feat, MSA *msa, Problem **problem) {
   int msa_start = feat->start - 1;
   int msa_end = feat->end - 1;
   int i, j;
@@ -357,6 +416,8 @@ int scan_for_gaps(GFF_Feature *feat, MSA *msa) {
 
         if ((gap_end - gap_start + 1) % 3 != 0) {
           retval = FSHIFT_BAD;
+          *problem = problem_new(feat, FSHIFT, gap_start, gap_end);
+          (*problem)->cds_gap = FSHIFT_BAD;
           break;
         }
 
@@ -463,14 +524,21 @@ int is_fshift_okay(GFF_Feature *feat, MSA *msa) {
    non-overlapping clean gaps (NOVRLP_CLN_GAPS), "okay" gaps (only
    temporary frame shifts, corrected by compensatory indels;
    FSHIFT_OK), or real frame-shift gaps (FSHIFT_BAD) */
-cds_gap_type get_cds_gap_type(GFF_Feature *feat, MSA *msa) {
-  cds_gap_type retval = scan_for_gaps(feat, msa);
+cds_gap_type get_cds_gap_type(GFF_Feature *feat, MSA *msa, List *problems) {
+  Problem *problem = NULL;
+  cds_gap_type retval = scan_for_gaps(feat, msa, &problem);
 
-  if (retval == FSHIFT_BAD && is_fshift_okay(feat, msa))
+  if (retval == FSHIFT_BAD && is_fshift_okay(feat, msa)) {
     retval = FSHIFT_OK;
                                 /* most of the time the call to
                                    is_fshift_okay won't be
                                    necessary */
+    problem_free(problem);
+    problem = NULL;
+  }
+  if (problem != NULL) {
+    lst_push_ptr(problems, problem);
+  }
   return retval;
 }
 
@@ -517,8 +585,8 @@ inline int is_valid_splice_pair(char *ss5, char *ss3) {
 
 /* given a list of 5' and 3' splice sites extracted from a group,
    check whether they form valid pairs in all species */
-int are_introns_okay(List *intron_splice,  MSA *msa, List *badfeats,
-                     List *failure_types, int offset5, int offset3) {
+int are_introns_okay(List *intron_splice,  MSA *msa, List *problems,
+                     int offset5, int offset3) {
   int i, j, start1, start2;
   char str1[3], str2[3];
   char strand;
@@ -556,10 +624,8 @@ int are_introns_okay(List *intron_splice,  MSA *msa, List *badfeats,
           msa_reverse_compl_seq(str2, 2);
         }
         if (!is_valid_splice_pair(str1, str2)) {
-          lst_push_ptr(badfeats, f1);
-          lst_push_int(failure_types, BAD_INTRON);
-          lst_push_ptr(badfeats, f2);
-          lst_push_int(failure_types, BAD_INTRON);
+          problem_add(problems, f1, BAD_INTRON, -1, -1);
+          problem_add(problems, f2, BAD_INTRON, -1, -1);
           retval = 0;
           break;
         }
@@ -597,7 +663,7 @@ void dump_aln(FILE *F, GFF_Feature *feat, MSA *msa, int show_frame) {
 
 /* write log entry for discarded feature */
 void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status, 
-               cds_gap_type gt, List *badfeats, List *failure_types, MSA *msa,
+               List *problems, MSA *msa,
                msa_coord_map *map) {
 
   int i;
@@ -615,12 +681,11 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
 
   fprintf(logf, "****\nDiscarded '%s'\n", group->name->chars);
 
-  for (i = 0; i < lst_size(failure_types); i++) {
-    status_type ftype = lst_get_int(failure_types, i);
-    GFF_Feature *badfeat = lst_get_ptr(badfeats, i);
+  for (i = 0; i < lst_size(problems); i++) {
+    struct Problem *problem = lst_get_ptr(problems, i);
     char *reason;
 
-    switch (ftype) {
+    switch (problem->status) {
     case BAD_START:
       reason = "Start not conserved";
       break;
@@ -644,9 +709,9 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
       break;
     case FSHIFT:
       {
-        if (gt ==  FSHIFT_OK) 
+        if (problem->cds_gap ==  FSHIFT_OK) 
           reason = "Frame-shift gap [gaps not clean]";
-        else if (gt == CLN_GAPS) 
+        else if (problem->cds_gap == CLN_GAPS) 
           reason = "Frame-shift gap [gaps clean but overlapping/near boundary]";
         else
           reason = "Frame-shift gap";
@@ -662,91 +727,79 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
       assert(0);
     }
 
-    fprintf(logf, "%s (%d-%d):\n", reason, msa_map_msa_to_seq(map, badfeat->start), 
-            msa_map_msa_to_seq(map, badfeat->end));
+    fprintf(logf, "%s (%d-%d):\n", reason,
+            msa_map_msa_to_seq(map, problem->feat->start), 
+            msa_map_msa_to_seq(map, problem->feat->end));
 
-    dump_aln(logf, badfeat, msa, ftype == NONSENSE);
+    dump_aln(logf, problem->feat, msa, problem->status == NONSENSE);
   }
+}
+
+/* convert a status_type to a string */
+char *status_type_str(status_type status) {
+  switch(status) {
+  case BAD_REF:
+    return "bad_ref";
+  case NO_ALN:
+    return "no_alignment";
+  case OKAY:
+    return "okay";
+  case BAD_START:
+    return "bad_start";
+  case BAD_STOP:
+    return "bad_stop";
+  case BAD_5_SPLICE:
+    return "bad_5_splice";
+  case BAD_3_SPLICE:
+    return "bad_3_splice";
+  case BAD_5_SPLICE_UTR:
+    return "bad_5_splice_utr";
+  case BAD_3_SPLICE_UTR:
+    return "bad_3_splice_utr";
+  case NONSENSE:
+    return "nonsense";
+  case FSHIFT:
+    return "frameshift";
+  case BAD_INTRON:
+    return "bad_intron";
+  default:
+    assert(0);
+    return "unknown status";
+  }
+} 
+
+/* write one problem to machine log */
+void write_machine_problem(FILE *mlogf, GFF_FeatureGroup *group, Problem *problem,
+                           msa_coord_map *map) {
+  char *featName;
+  int start, end;
+  if (problem->feat == NULL) {
+    featName = ((GFF_Feature*)lst_get_ptr(group->features, 0))->seqname->chars;
+  } else {
+    featName = problem->feat->seqname->chars;
+  }
+  if (problem->start >= 0) {
+    start = problem->start;
+    end = problem->end;
+  } else {
+    start = group->start;
+    end = group->end;
+  }
+  fprintf(mlogf, "%s\t%s\t%d\t%d\t%s\n",
+          group->name->chars, featName,
+          msa_map_msa_to_seq(map, start), msa_map_msa_to_seq(map, end),
+          status_type_str(problem->status));
 }
 
 /* write machine-readable log entry for discarded feature */
-void write_machine_log(FILE *mlogf, GFF_FeatureGroup *group, status_type status, 
-                       cds_gap_type gt, List *badfeats, List *failure_types, 
+void write_machine_log(FILE *mlogf, GFF_FeatureGroup *group, List *problems,
                        msa_coord_map *map) {
-
   int i;
-  char *reason;
-
-  /* special cases: no info on individual features */
-  if (status == BAD_REF || status == NO_ALN || status == OKAY) {
-    switch(status) {
-    case BAD_REF:
-      reason = "bad_ref";
-      break;
-    case NO_ALN:
-      reason = "no_alignment";
-      break;
-    case OKAY:
-      reason = "okay";
-      break;
-    default:
-      assert(0);
-    }
-
-    fprintf(mlogf, "%s\t%s\t%d\t%d\t%s\n", group->name->chars, 
-            ((GFF_Feature*)lst_get_ptr(group->features, 0))->seqname->chars, 
-            msa_map_msa_to_seq(map, group->start), 
-            msa_map_msa_to_seq(map, group->end), reason);
-
-    return;
-  }
-
-  for (i = 0; i < lst_size(failure_types); i++) {
-    status_type ftype = lst_get_int(failure_types, i);
-    GFF_Feature *badfeat = lst_get_ptr(badfeats, i);
-
-    switch (ftype) {
-    case BAD_START:
-      reason = "bad_start";
-      break;
-    case BAD_STOP:
-      reason = "bad_stop";
-      break;
-    case BAD_5_SPLICE:
-      reason = "bad_5_splice";
-      break;
-    case BAD_3_SPLICE:
-      reason = "bad_3_splice";
-      break;
-    case BAD_5_SPLICE_UTR:
-      reason = "bad_5_splice_utr";
-      break;
-    case BAD_3_SPLICE_UTR:
-      reason = "bad_3_splice_utr";
-      break;
-    case NONSENSE:
-      reason = "nonsense";
-      break;
-    case FSHIFT:
-      reason = "frameshift";
-      break;
-    case BAD_INTRON:
-      reason = "bad_intron";
-      break;
-    case NO_ALN:
-      reason = "no_alignment";
-      break;
-    default: 
-      assert(0);
-    }
-
-    fprintf(mlogf, "%s\t%s\t%d\t%d\t%s\n", group->name->chars, 
-            badfeat->seqname->chars,
-            msa_map_msa_to_seq(map, badfeat->start), 
-            msa_map_msa_to_seq(map, badfeat->end),
-            reason);
+  for (i = 0; i < lst_size(problems); i++) {
+    write_machine_problem(mlogf, group, lst_get_ptr(problems, i), map);
   }
 }
+
 
 /* checks to see if reference sequence looks okay wrt a given
    list of features */
@@ -896,7 +949,7 @@ int main(int argc, char *argv[]) {
   MSA *msa;
   GFF_Set *gff;
   msa_format_type msa_format = SS;
-  List *keepers, *badfeats = lst_new_ptr(10), *failure_types = lst_new_int(10),
+  List *keepers, *problems = lst_new_int(10),
     *ends_adjusted = lst_new_ptr(1), *starts_adjusted = lst_new_ptr(1), 
     *discards, *intron_splice = lst_new_ptr(10);
   char *rseq_fname = NULL;
@@ -1059,8 +1112,7 @@ int main(int argc, char *argv[]) {
     status_type status = OKAY;
     cds_gap_type gt = FSHIFT_BAD;
     int no_alignment;
-    lst_clear(failure_types);
-    lst_clear(badfeats);
+    problems_clear(problems);
 
     /* First, exclude stop codons from cds's, if necessary (simplifies
        the detection of nonsense mutations). */
@@ -1072,6 +1124,8 @@ int main(int argc, char *argv[]) {
     if (!ref_seq_okay(gfeatures, msa, offset3, indel_strict, splice_strict)) {
       status = BAD_REF;
       nfail[BAD_REF]++;
+      /* FIX: really should collect details of why it's bad */
+      problem_add(problems, NULL, BAD_REF, -1, -1);
     }
     else
       /* Everything else counts as a potentially valid group */
@@ -1091,6 +1145,7 @@ int main(int argc, char *argv[]) {
             is_incomplete_alignment(feat, msa)) {
           status = NO_ALN;
           nfail[NO_ALN]++;
+          problem_add(problems, feat, NO_ALN, -1, -1);
           break;
         }
       }
@@ -1113,8 +1168,7 @@ int main(int argc, char *argv[]) {
 
             if (!is_conserved_start(feat, msa)) {
               status = BAD_START;
-              lst_push_int(failure_types, BAD_START);
-              lst_push_ptr(badfeats, feat);
+              problem_add(problems, feat, BAD_START, -1, -1);
             }
           }
 
@@ -1124,8 +1178,7 @@ int main(int argc, char *argv[]) {
 
             if (!is_conserved_stop(feat, msa)) {
               status = BAD_STOP;
-              lst_push_int(failure_types, BAD_STOP);
-              lst_push_ptr(badfeats, feat);
+              problem_add(problems, feat, BAD_STOP, -1, -1);
             }
           }
 
@@ -1136,8 +1189,7 @@ int main(int argc, char *argv[]) {
 
             if (!is_conserved_5splice(feat, msa, offset5, splice_strict)) {
               status = BAD_5_SPLICE;
-              lst_push_int(failure_types, BAD_5_SPLICE);
-              lst_push_ptr(badfeats, feat);
+              problem_add(problems, feat, BAD_5_SPLICE, -1, -1);
             }
             else lst_push_ptr(intron_splice, feat);
           }
@@ -1149,8 +1201,7 @@ int main(int argc, char *argv[]) {
 
             if (!is_conserved_5splice(feat, msa, offset5, splice_strict)) {
               status = BAD_5_SPLICE_UTR;
-              lst_push_int(failure_types, BAD_5_SPLICE_UTR);
-              lst_push_ptr(badfeats, feat);
+              problem_add(problems, feat, BAD_5_SPLICE_UTR, -1, -1);
             }
             else lst_push_ptr(intron_splice, feat);
           }
@@ -1162,8 +1213,7 @@ int main(int argc, char *argv[]) {
 
             if (!is_conserved_3splice(feat, msa, offset3, splice_strict)) {
               status = BAD_3_SPLICE;
-              lst_push_int(failure_types, BAD_3_SPLICE);
-              lst_push_ptr(badfeats, feat);
+              problem_add(problems, feat, BAD_3_SPLICE, -1, -1);
             }
             else lst_push_ptr(intron_splice, feat);
           }
@@ -1174,26 +1224,19 @@ int main(int argc, char *argv[]) {
 
             if (!is_conserved_3splice(feat, msa, offset3, splice_strict)) {
               status = BAD_3_SPLICE_UTR;
-              lst_push_int(failure_types, BAD_3_SPLICE_UTR);
-              lst_push_ptr(badfeats, feat);
+              problem_add(problems, feat, BAD_3_SPLICE_UTR, -1, -1);
             }
             else lst_push_ptr(intron_splice, feat);
           }
 
           else if (str_equals_charstr(feat->feature, GFF_CDS_TYPE)) {
  
-            if ((gt = get_cds_gap_type(feat, msa)) < fshift_mode) {
+            if ((gt = get_cds_gap_type(feat, msa, problems)) < fshift_mode) {
               if (status == OKAY || status == NONSENSE) status = FSHIFT;
-              /* status records most basic type of failure; frame shifts
-                 and nonsense mutations are often secondary */
-              lst_push_int(failure_types, FSHIFT);
-              lst_push_ptr(badfeats, feat);
             }
 
-            if (check_nonsense && !is_nonsense_clean(feat, msa)) {
+            if (check_nonsense && !is_nonsense_clean(feat, msa, problems)) {
               if (status == OKAY) status = NONSENSE;
-              lst_push_int(failure_types, NONSENSE);
-              lst_push_ptr(badfeats, feat);
             }
           }
         } /* end loop through features in group */
@@ -1201,15 +1244,15 @@ int main(int argc, char *argv[]) {
         /* still have to make sure splice sites are paired correctly
            (GT-AG, GC-AG, AT-AC) */
         if (status == OKAY && !splice_strict && lst_size(intron_splice) >= 2 &&
-            !are_introns_okay(intron_splice, msa, badfeats, failure_types, offset5, offset3)) 
+            !are_introns_okay(intron_splice, msa, problems, offset5, offset3)) 
           status = BAD_INTRON;
 
         /* if collecting stats, record counts for failures */
         if (statsf != NULL) {
           if (status != OKAY) {
-            for (j = 0; j < lst_size(failure_types); j++) {
-              status_type ftype = lst_get_int(failure_types, j);
-
+            for (j = 0; j < lst_size(problems); j++) {
+              struct Problem *problem = lst_get_ptr(problems, j);
+              status_type ftype = problem->status;
               if ((ftype == FSHIFT || ftype == NONSENSE) && 
                   status != FSHIFT && status != NONSENSE)
                 continue;       /* don't count secondary frame shifts
@@ -1244,9 +1287,12 @@ int main(int argc, char *argv[]) {
         for (j = 0; j < lst_size(gfeatures); j++)
           lst_push_ptr(keepers, lst_get_ptr(gfeatures, j));
       }
-      if (mlogf != NULL) 
-        write_machine_log(mlogf, group, status, gt, badfeats, 
-                          failure_types, map);
+      if (mlogf != NULL) {
+        /* no problem, need to add a okay status to log */
+        assert(lst_size(problems) == 0);
+        problem_add(problems, NULL, OKAY, -1, -1);
+        write_machine_log(mlogf, group, problems, map);
+      }
     }
     else {
       if (discardf != NULL) {
@@ -1255,9 +1301,9 @@ int main(int argc, char *argv[]) {
           lst_push_ptr(discards, lst_get_ptr(gfeatures, j));
       }
       if (logf != NULL) 
-        write_log(logf, group, status, gt, badfeats, failure_types, msa, map);
+        write_log(logf, group, status, problems, msa, map);
       if (mlogf != NULL)
-        write_machine_log(mlogf, group, status, gt, badfeats, failure_types, map);
+        write_machine_log(mlogf, group, problems, map);
     }
 
   } /* end loop over groups */
