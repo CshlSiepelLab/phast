@@ -35,7 +35,7 @@ CFLAGS += -DPHAST_VERSION=\"$(shell cat ${PHAST}/version)\"
 
 # define if GSL files not in standard locations (such as /usr/include/gsl
 # or /usr/lib)
-GSLPATH = /projects/compbio/usr/acs/gsl-1.4-P3
+#GSLPATH = /projects/compbio/usr/acs/gsl-1.4-P3
 
 # must be defined (see Makefile in lib subdir)
 CLAPACKPATH = /projects/compbio/usr/acs/CLAPACK
