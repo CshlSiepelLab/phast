@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.25 2004-07-29 23:16:57 acs Exp $
+/* $Id: msa.c,v 1.26 2004-08-03 00:03:51 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -708,9 +708,9 @@ int msa_get_seq_idx(MSA *msa, String *name) {
    reference to another.  Arguments from and to may be an index
    between 1 and nseqs, or 0 (for the frame of the entire alignment).
    If argument from is -1, the from index is inferred feature by
-   feature by sequence name. All coordinates out of range will be set to -1. 
-   If cm is non-NULL, features within groups will be forced to be contiguous.
-   WARNING: currently requires features to be ordered */
+   feature by sequence name. All coordinates out of range will be set
+   to -1. If cm is non-NULL, features within groups will be forced to
+   be contiguous. */
 void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq, 
                         int offset, CategoryMap *cm) {
 
@@ -719,7 +719,7 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
   int tseq = to_seq;
   String *prev_name = NULL;
   msa_coord_map *from_map = NULL, *to_map = NULL;
-  GFF_Feature *feat, *last = NULL;
+  GFF_Feature *feat;
   int i, orig_span;
 
   maps = (msa_coord_map**)smalloc((msa->nseqs + 1) * 
@@ -795,11 +795,6 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
 
     /* NOTE: fill precedence stuff now removed -- should take out of
        category_map.c */
-
-    if (last == NULL || last->end <= feat->end) last = feat;
-                                /* note subtlety here, due to
-                                   possibility of overlapping
-                                   features */
   }
 
   for (i = 1; i <= msa->nseqs; i++)
