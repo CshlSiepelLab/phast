@@ -7,7 +7,7 @@
 
 # use environment variable for phast location if available
 ifndef PHAST
-# set to root of phast tree
+# set this variable to point to the root of your local PHAST installation
 PHAST=${HOME}/phast
 endif
 
