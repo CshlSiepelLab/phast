@@ -1,7 +1,7 @@
 /* hmm_train - estimation of HMM transition probabilities from labeled
    training data */
 
-/* $Id: hmm_train.c,v 1.3 2004-07-27 17:59:06 acs Exp $
+/* $Id: hmm_train.c,v 1.4 2004-07-27 18:00:09 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -65,7 +65,7 @@ OPTIONS:\n\
     -i PHYLIP|FASTA|MPM|SS \n\
         (default SS) Alignment format.\n\
 \n\
- (indel options)
+ (indel options)\n\
     -I <indel_cat_list>\n\
         Model indels for specified categories.  To have\n\
         nonzero probability for the states corresponding to a\n\
