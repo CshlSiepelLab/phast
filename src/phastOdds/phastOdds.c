@@ -101,6 +101,7 @@ int main(int argc, char *argv[]) {
   double **backgd_emissions, **feat_emissions, **mem, **dummy_emissions,
     *winscore_pos, *winscore_neg;
   int *no_alignment;
+  List *pruned_names;
 
   while ((c = getopt(argc, argv, "B:b:F:f:g:w:i:M:dvh")) != -1) {
     switch (c) {
@@ -186,10 +187,16 @@ int main(int argc, char *argv[]) {
   if (msa->seqs == NULL && (msa->ss == NULL || msa->ss->tuple_idx == NULL) )
     die("ERROR: ordered sufficient statistics are required.\n");
 
-  for (i = 0; i < backgd_nmods; i++)
-    tm_prune(backgd_mods[i], msa, !verbose);
-  for (i = 0; i < feat_nmods; i++)
-    tm_prune(feat_mods[i], msa, !verbose);
+  pruned_names = lst_new_ptr(msa->nseqs);
+  for (i = 0; i < backgd_nmods; i++) {
+    tm_prune(backgd_mods[i], msa, pruned_names);
+    lst_free_strings(pruned_names);
+  }
+  for (i = 0; i < feat_nmods; i++) {
+    tm_prune(feat_mods[i], msa, pruned_names);
+    lst_free_strings(pruned_names);
+  }
+  lst_free(pruned_names);
 
   /* first have to subtract offset from features, if necessary */
   if (msa->idx_offset != 0 && features != NULL) {

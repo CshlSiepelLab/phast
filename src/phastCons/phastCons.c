@@ -528,20 +528,6 @@ void init_eqfreqs(TreeModel *mod, MSA *msa, double gc) {
   }
 }
 
-/* Extrapolate tree model and prune leaves not represented in
-   alignment.  Returns scale factor */
-double extrapolate_and_prune(TreeModel *mod, TreeNode *extrapolate_tree, 
-                             MSA *msa, List *pruned_names) {
-  int i;
-  TreeNode *t = tr_create_copy(extrapolate_tree);
-  double scale = tr_scale_by_subtree(t, mod->tree);
-  for (i = 0; i < msa->nseqs; i++)
-    lst_push_ptr(pruned_names, str_new_charstr(msa->names[i]));
-  tr_prune(&t, pruned_names, TRUE);
-  tm_reset_tree(mod, t);
-  return scale;
-}
-
 int main(int argc, char *argv[]) {
 
   /* arguments and defaults */
@@ -559,7 +545,7 @@ int main(int argc, char *argv[]) {
   List *states = NULL, *pivot_states = NULL, *inform_reqd = NULL, 
     *mod_fname_list = NULL, *not_informative = NULL;
   char *seqname = NULL, *idpref = NULL, *estim_trees_fname_root = NULL,
-    *extrapolate_tree_fname;
+    *extrapolate_tree_fname = NULL;
   HMM *hmm = NULL;
   Hashtable *alias_hash = NULL;
   TreeNode *extrapolate_tree = NULL;
@@ -617,7 +603,7 @@ int main(int argc, char *argv[]) {
   char *mods_fname = NULL, *newname;
   indel_mode_type indel_mode;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:G:zt:E:R:T:r:xL:s:N:P:g:U:c:IY:D:JM:F:pA:Xqh", 
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:G:zt:E:R:T:r:xL:s:N:P:g:U:c:e:IY:D:JM:F:pA:Xqh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
@@ -900,34 +886,36 @@ int main(int argc, char *argv[]) {
   mod = (TreeModel**)smalloc(sizeof(TreeModel*) * lst_size(mod_fname_list));
   for (i = 0; i < lst_size(mod_fname_list); i++) {
     String *fname = lst_get_ptr(mod_fname_list, i);
+    int old_nnodes = mod[i]->tree->nnodes;
+    List *pruned_names = lst_new_ptr(msa->nseqs);
+
     if (!quiet)
       fprintf(stderr, "Reading tree model from %s...\n", fname->chars);
     mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"));
     mod[i]->use_conditionals = 1;     
 
-    /* extrapolate tree if necessary, prune away extra species if possible */
+    /* extrapolate tree and/or prune away extra species */
     if (extrapolate_tree != NULL) {
-      List *pruned_names = lst_new_ptr(msa->nseqs);
-      int old_nnodes = mod[i]->tree->nnodes;
-      double scale = extrapolate_and_prune(mod[i], extrapolate_tree, 
-                                           msa, pruned_names);
-      if (lst_size(pruned_names) == (old_nnodes + 1) / 2)
-        die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
-      if (!quiet) {
+      double scale = tm_extrapolate_and_prune(mod[i], extrapolate_tree, 
+                                              msa, pruned_names);
+      if (!quiet) 
         fprintf(stderr, "Extrapolating based on %s (scale=%f)...\n", 
                 extrapolate_tree_fname, scale);
-        if (lst_size(pruned_names) > 0) {
-          fprintf(stderr, "WARNING: pruned away leaves of new tree with no match in alignment (");
-          for (j = 0; j < lst_size(pruned_names); j++)
-            fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars, 
-                    j < lst_size(pruned_names) - 1 ? ", " : ").\n");
-        }
-      }
-      lst_free_strings(pruned_names);
-      lst_free(pruned_names);
     }
     else
-      tm_prune(mod[i], msa, !quiet);
+      tm_prune(mod[i], msa, pruned_names);
+
+    if (lst_size(pruned_names) == (old_nnodes + 1) / 2)
+      die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
+    if (!quiet && lst_size(pruned_names) > 0) {
+      fprintf(stderr, "WARNING: pruned away leaves of tree with no match in alignment (");
+      for (j = 0; j < lst_size(pruned_names); j++)
+        fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars, 
+                j < lst_size(pruned_names) - 1 ? ", " : ").\n");
+    }
+
+    lst_free_strings(pruned_names);
+    lst_free(pruned_names);
   }
 
   /* initial checks and setup of tree models with two-state and

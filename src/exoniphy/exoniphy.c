@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.35 2004-09-10 16:36:46 acs Exp $
+/* $Id: exoniphy.c,v 1.36 2004-10-04 05:49:03 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -80,6 +80,21 @@ OPTIONS:\n\
         map, e.g., --catmap \"NCATS = 3 ; CDS 1-3\".  By default, a\n\
         category map is used that is appropriate for the 60-state HMM\n\
         mentioned above.\n\
+\n\
+    --extrapolate, -e <phylog.nh> | default\n\
+        Extrapolate to a larger set of species based on the given\n\
+        phylogeny (Newick-format).  The trees in the given tree models\n\
+        (*.mod files) must be subtrees of the larger phylogeny.  For\n\
+        each tree model M, a copy will be created of the larger\n\
+        phylogeny, then scaled such that the total branch length of\n\
+        the subtree corresponding to M's tree equals the total branch\n\
+        length of M's tree; this new version will then be used in\n\
+        place of M's tree.  (Any species name present in this tree but\n\
+        not in the data will be ignored.)  If the string \"default\"\n\
+        is given instead of a filename, then a phylogeny for 25\n\
+        vertebrate species, estimated from sequence data for Target 1\n\
+        (CFTR) of the NISC Comparative Sequencing Program (Thomas et\n\
+        al., 2003), will be assumed.\n\
 \n\
  (Input and output)\n\
     --msa-format, -i PHYLIP|FASTA|MPM|SS \n\
@@ -204,7 +219,10 @@ REFERENCES:\n\
  \n\
     A. Siepel and D. Haussler.  2004.  Computational identification of\n\
       evolutionarily conserved exons.  Proc. 8th Annual Int'l Conf.\n\
-      on Research in Computational Biology (RECOMB '04), pp. 177-186.\n\n", 
+      on Research in Computational Biology (RECOMB '04), pp. 177-186.\n
+\n\
+    J. Thomas et al.  2003.  Comparative analyses of multi-species\n\
+      sequences from targeted genomic regions.  Nature 424:788-793.\n\n", 
            SCALE_RANGE_MIN, SCALE_RANGE_MAX, NSENS_SPEC_TRIES, 
            DEFAULT_BACKGD_TYPES, DEFAULT_CDS_TYPES, DEFAULT_SIGNAL_TYPES);
 }
@@ -217,7 +235,7 @@ int main(int argc, char* argv[]) {
     no_cns = FALSE;
   double bias = NEGINFTY;
   char *seqname = NULL, *grouptag = "transcript_id", *sens_spec_fname_root = NULL,
-    *idpref = NULL;
+    *idpref = NULL, *extrapolate_tree_fname = NULL;
   List *model_fname_list = NULL, *no_gaps_str = NULL, *inform_reqd = NULL,
     *not_informative = NULL,
     *backgd_types = get_arg_list(DEFAULT_BACKGD_TYPES), 
@@ -225,6 +243,7 @@ int main(int argc, char* argv[]) {
     *signal_types = get_arg_list(DEFAULT_SIGNAL_TYPES),
     *cds_absorb_types = get_arg_list(CDS_ABSORB_TYPES),
     *invisible_types = get_arg_list(INVISIBLE_TYPES);
+  TreeNode *extrapolate_tree = NULL;
 
   struct option long_opts[] = {
     {"hmm", 1, 0, 'H'},
@@ -246,6 +265,7 @@ int main(int argc, char* argv[]) {
     {"no-gaps", 1, 0, 'W'},
     {"require-informative", 1, 0, 'N'},
     {"not-informative", 1, 0, 'n'},
+    {"extrapolate", 1, 0, 'e'},
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
@@ -260,12 +280,12 @@ int main(int argc, char* argv[]) {
   CategoryMap *cm = NULL;
   GFF_Set *predictions;
   char c;
-  int i, ncats, ncats_unspooled, trial, ntrials, opt_idx, gc_cat;
+  int i, j, ncats, ncats_unspooled, trial, ntrials, opt_idx, gc_cat;
   double gc;
   char tmpstr[STR_LONG_LEN];
   String *fname_str = str_new(STR_LONG_LEN), *str;
 
-  while ((c = getopt_long(argc, argv, "i:c:H:m:s:p:g:B:T:L:F:IW:N:n:b:xSYUhq", 
+  while ((c = getopt_long(argc, argv, "i:c:H:m:s:p:g:B:T:L:F:IW:N:n:b:e:xSYUhq", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
@@ -329,6 +349,9 @@ int main(int argc, char* argv[]) {
     case 'g':
       grouptag = optarg;
       break;
+    case 'e':
+      extrapolate_tree_fname = optarg;
+      break;
     case 'q':
       quiet = TRUE;
       break;
@@ -346,6 +369,14 @@ int main(int argc, char* argv[]) {
 
   if (sens_spec_fname_root != NULL && bias != NEGINFTY)
     die("ERROR: can't use --bias and --sens-spec together.\n");
+
+  if (!strcmp(extrapolate_tree_fname, "default")) {
+    extrapolate_tree_fname = smalloc(1000 * sizeof(char));
+    sprintf(extrapolate_tree_fname, 
+            "%s/data/exoniphy/mammals/cftr25_hybrid.nh", PHAST_HOME);
+  }
+  if (extrapolate_tree_fname != NULL)
+    extrapolate_tree = tr_new_from_file(fopen_fname(extrapolate_tree_fname, "r"));
 
   /* read alignment */
   if (!quiet)
@@ -436,11 +467,37 @@ int main(int argc, char* argv[]) {
   mod = (TreeModel**)smalloc(sizeof(TreeModel*) * ncats);
   for (i = 0; i < ncats; i++) {
     String *fname = (String*)lst_get_ptr(model_fname_list, i);
+    List *pruned_names = lst_new_ptr(msa->nseqs);
+    int old_nnodes;
+
     F = fopen_fname(fname->chars, "r");
     mod[i] = tm_new_from_file(F); 
     mod[i]->use_conditionals = 1;
-    tm_prune(mod[i], msa, !quiet);
     fclose(F);
+
+    old_nnodes = mod[i]->tree->nnodes;
+    /* extrapolate tree and/or prune away extra species */
+    if (extrapolate_tree != NULL) {
+      double scale = tm_extrapolate_and_prune(mod[i], extrapolate_tree, 
+                                              msa, pruned_names);
+      if (!quiet) 
+        fprintf(stderr, "Extrapolating based on %s (scale=%f)...\n", 
+                extrapolate_tree_fname, scale);
+    }
+    else
+      tm_prune(mod[i], msa, pruned_names);
+
+    if (lst_size(pruned_names) == (old_nnodes + 1) / 2)
+      die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
+    if (!quiet && lst_size(pruned_names) > 0) {
+      fprintf(stderr, "WARNING: pruned away leaves of tree with no match in alignment (");
+      for (j = 0; j < lst_size(pruned_names); j++)
+        fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars, 
+                j < lst_size(pruned_names) - 1 ? ", " : ").\n");
+    }
+
+    lst_free_strings(pruned_names);
+    lst_free(pruned_names);
   }
 
   /* disallow gaps, if necessary */

@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.22 2004-08-27 17:13:41 acs Exp $
+   $Id: phyloFit.c,v 1.23 2004-10-04 05:49:03 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -971,7 +971,8 @@ int main(int argc, char *argv[]) {
     for (i = 0; i < lst_size(cats_to_do); i++) {
       TreeModel *mod;
       gsl_vector *params = NULL;
-      int cat = lst_get_int(cats_to_do, i);
+      List *pruned_names;
+      int old_nnodes, cat = lst_get_int(cats_to_do, i);
       unsigned int ninf_sites;
 
       if (input_mod == NULL) 
@@ -1002,7 +1003,19 @@ int main(int argc, char *argv[]) {
                                    parameters changes */
       }
 
-      tm_prune(mod, msa, !quiet);
+      old_nnodes = mod->tree->nnodes;
+      pruned_names = lst_new_ptr(msa->nseqs);
+      tm_prune(mod, msa, pruned_names);
+      if (lst_size(pruned_names) == (old_nnodes + 1) / 2)
+        die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
+      if (!quiet && lst_size(pruned_names) > 0) {
+        fprintf(stderr, "WARNING: pruned away leaves of tree with no match in alignment (");
+        for (j = 0; j < lst_size(pruned_names); j++)
+          fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars, 
+                  j < lst_size(pruned_names) - 1 ? ", " : ").\n");
+      }
+      lst_free_strings(pruned_names);
+      lst_free(pruned_names);
 
       if (!quiet) {
         str_clear(tmpstr);

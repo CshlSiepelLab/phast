@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.18 2004-10-03 23:51:39 acs Exp $
+/* $Id: tree_model.c,v 1.19 2004-10-04 05:49:03 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1091,46 +1091,49 @@ void tm_build_seq_idx(TreeModel *mod, MSA *msa) {
 /** Prune away leaves in tree that don't correspond to sequences in a
     given alignment.  Warning: root of tree (value of mod->tree) may
     change. */
-void tm_prune(TreeModel *mod,   /** TreeModel whose tree is to be pruned  */
-              MSA *msa,         /** Alignment; all leaves whose names
+void tm_prune(TreeModel *mod,   /**< TreeModel whose tree is to be pruned  */
+              MSA *msa,         /**< Alignment; all leaves whose names
                                     are not in msa->names will be
                                     pruned away */
-              int warn          /**< if TRUE, a warning will be printed
-                                   to stderr listing the leaves of the
-                                   tree that are pruned away */
+              List *names       /**< Will contain names of deleted
+                                   leaves on return.  Must be
+                                   pre-allocated */
               ) {
   int i, j, old_nnodes = mod->tree->nnodes;
-  List *names = lst_new_ptr(msa->nseqs);
-  for (i = 0; i < msa->nseqs; i++)
-    lst_push_ptr(names, str_new_charstr(msa->names[i]));
 
   assert(mod->tree->nnodes >= 3);
+
+  lst_clear(names);
+  for (i = 0; i < msa->nseqs; i++)
+    lst_push_ptr(names, str_new_charstr(msa->names[i]));
 
   tm_free_rmp(mod);             /* necessary because parameter indices
                                    can change */
   tr_prune(&mod->tree, names, TRUE);
   tm_init_rmp(mod);
 
-  if (lst_size(names) == (old_nnodes + 1) / 2)
-    die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
-
-  else if (lst_size(names) > 0) {
+  if (lst_size(names) > 0) {
     /* free memory for eliminated nodes */
     for (i = mod->tree->nnodes; i < old_nnodes; i++) {
       for (j = 0; j < mod->nratecats; j++)
         if (mod->P[i][j] != NULL) mm_free(mod->P[i][j]);
       free(mod->P[i]);
     }
-
-    if (warn) {
-      fprintf(stderr, "WARNING: pruned away leaves of tree with no match in alignment (");
-      for (i = 0; i < lst_size(names); i++)
-        fprintf(stderr, "%s%s", ((String*)lst_get_ptr(names, i))->chars, 
-                i < lst_size(names) - 1 ? ", " : ").\n");
-    }
   }
-  lst_free_strings(names);
-  lst_free(names);
+}
+
+/** Extrapolate tree model and prune leaves not represented in
+   alignment (see tr_scale_by_subtree).  Returns scale factor */
+double tm_extrapolate_and_prune(TreeModel *mod, TreeNode *extrapolate_tree, 
+                                MSA *msa, List *pruned_names) {
+  int i;
+  TreeNode *t = tr_create_copy(extrapolate_tree);
+  double scale = tr_scale_by_subtree(t, mod->tree);
+  for (i = 0; i < msa->nseqs; i++)
+    lst_push_ptr(pruned_names, str_new_charstr(msa->names[i]));
+  tr_prune(&t, pruned_names, TRUE);
+  tm_reset_tree(mod, t);
+  return scale;
 }
 
 /** Reset TreeModel with new or altered tree. */
