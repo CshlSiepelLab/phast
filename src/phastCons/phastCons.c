@@ -887,13 +887,14 @@ int main(int argc, char *argv[]) {
   mod = (TreeModel**)smalloc(sizeof(TreeModel*) * lst_size(mod_fname_list));
   for (i = 0; i < lst_size(mod_fname_list); i++) {
     String *fname = lst_get_ptr(mod_fname_list, i);
-    int old_nnodes = mod[i]->tree->nnodes;
+    int old_nnodes;
     List *pruned_names = lst_new_ptr(msa->nseqs);
 
     if (!quiet)
       fprintf(stderr, "Reading tree model from %s...\n", fname->chars);
     mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"));
     mod[i]->use_conditionals = 1;     
+    old_nnodes = mod[i]->tree->nnodes;
 
     /* extrapolate tree and/or prune away extra species */
     if (extrapolate_tree != NULL) {
