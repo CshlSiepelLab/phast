@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.15 2004-06-30 06:39:40 acs Exp $
+/* $Id: exoniphy.c,v 1.16 2004-06-30 06:57:07 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -48,10 +48,6 @@ DESCRIPTION: \n\
     --tree-models, and --catmap options, however, it is possible to\n\
     define alternative phylo-HMMs, e.g., for prediction of exon pairs\n\
     or complete gene structures.\n\
-\n\
-\n\
-EXAMPLES:\n\
-    (coming soon)    \n\
 \n\
 OPTIONS:\n\
 \n\
@@ -341,7 +337,7 @@ int main(int argc, char* argv[]) {
     str_slurp(fname_str, fopen_fname(tmpstr, "r"));
     str_split(fname_str, NULL, model_fname_list);
     if (!quiet) 
-      fprintf(stderr, "Reading default tree models from %s/data/exoniphy/mammals...\n", PHAST_HOME);
+      fprintf(stderr, "Reading default tree models from %s/data/exoniphy/mammals/*.mod...\n", PHAST_HOME);
     for (i = 0; i < lst_size(model_fname_list); i++) {
       str = lst_get_ptr(model_fname_list, i);
       sprintf(tmpstr, "%s/data/exoniphy/mammals/%s", PHAST_HOME, str->chars);
