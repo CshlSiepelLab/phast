@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.19 2004-08-16 22:27:09 acs Exp $
+/* $Id: msa_split.c,v 1.20 2004-09-29 00:02:51 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -305,7 +305,7 @@ void write_summary_line(FILE *SUM_F, char *label, char *alphabet,
 /* try to adjust split indices to fall between alignment blocks,
    assuming a reference alignment with respect to the first sequence.
    A block of NSITES_BETWEEN_BLOCKS sites with no gaps in the
-   reference sequence and gaps in all other sequences is assumed to
+   reference sequence and missing data in all other sequences is assumed to
    indicate a region between alignment blocks.  */
 void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list, 
                                      int radius) {  
@@ -315,10 +315,16 @@ void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list,
     idx = lst_get_int(split_indices_list, i) - 1; /* convert to 0-based idx */
 
     /* first see if we're already in a good place */
+    /* NOTE: it's best to avoid breaking where there's an alignment
+       gap in the reference sequence (can happen when there are Ns in
+       other seqs); these places can be a problem in certain cases,
+       e.g., with win-overlap 0, because multiple indices in the full
+       alignment map to the same index in the reference sequence */
     okay = 0;
     j = k = idx;
     for (; j >= 0; j--) { /* look to left */
-      if (!msa_missing_col(msa, 1, j)) break;
+      if (msa_get_char(msa, 0, j) == GAP_CHAR ||
+          !msa_missing_col(msa, 1, j)) break;
       if (idx - j + 1 >= NSITES_BETWEEN_BLOCKS) { okay = 1; break; } 
                                 /* we're done -- we know we're okay */
     }
@@ -326,23 +332,24 @@ void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list,
                                    that we're between blocks but we
                                    haven't yet seen enough sites */
       for (; k < msa->length; k++) {
-        if (!msa_missing_col(msa, 1, k)) break;
+        if (msa_get_char(msa, 0, k) == GAP_CHAR || 
+            !msa_missing_col(msa, 1, k)) break;
         if (k - j >= NSITES_BETWEEN_BLOCKS) { okay = 1; break; }
       }
     }
     if (okay) continue;         /* no change to index necessary */
         
 
-    /* scan left for a sequence of NSITES_BETWEEN_BLOCKS gaps in all
-       seqs but the reference seq */
+    /* scan left for a sequence of NSITES_BETWEEN_BLOCKS missing-data
+       columns */
     range_beg = max(0, idx - radius); 
     range_end = min(msa->length-1, idx + radius);
 
-    /* j currently points to first site equal to or to the left of idx
-       s.t. all_gaps_but_ref is false */
+    /* j currently points to first missing-data col equal to or to the
+       left of idx */
     count = 0; new_idx = -1;
     for (; new_idx < 0 && j >= range_beg; j--) {
-      if (msa_missing_col(msa, 1, j)) {
+      if (msa_missing_col(msa, 1, j) && msa_get_char(msa, 0, j) != GAP_CHAR) {
         count++;
         if (count == NSITES_BETWEEN_BLOCKS) 
           new_idx = j + NSITES_BETWEEN_BLOCKS / 2 ;
@@ -354,7 +361,7 @@ void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list,
        idx s.t. all_gaps_but_ref is false */
     count = 0;
     for (; new_idx < 0 && k <= range_end; k++) {
-      if (msa_missing_col(msa, 1, k)) {
+      if (msa_missing_col(msa, 1, k) && msa_get_char(msa, 0, k) != GAP_CHAR) {
         count++;
         if (count == NSITES_BETWEEN_BLOCKS) 
           new_idx = k - NSITES_BETWEEN_BLOCKS / 2 ;
@@ -726,6 +733,13 @@ int main(int argc, char* argv[]) {
                                 /* keep track of orig. coords also --
                                    report these to user */
       int end, orig_end;
+
+      /* patch for rare bug that occurs when start coincides with gap in
+         reference sequence: orig_start will be off by one in this
+         case because of the way the coord mapping is done */
+      if (map != NULL && 
+          msa_get_char(msa, partition_frame-1, start) == GAP_CHAR) 
+        orig_start++;
       
       if (segment_ends_list == NULL) {
         end = (i == lst_size(split_indices_list)-1 ? msa->length :
@@ -751,7 +765,7 @@ int main(int argc, char* argv[]) {
       if (map != NULL)
         sub_msa->idx_offset = msa->idx_offset + orig_start - 1;
                                 /* in this case, we'll let the offset
-                                   to be wrt the specified reference
+                                   be wrt the specified reference
                                    sequence */        
 
       /* collect summary information; do this *before* stripping gaps */
