@@ -3,7 +3,7 @@
    keys but not of data objects, which are managed as void*s (memory
    management expected to be done externally) */
 
-/* $Id: hashtable.c,v 1.2 2004-06-22 21:50:07 acs Exp $ 
+/* $Id: hashtable.c,v 1.3 2004-11-16 23:51:52 acs Exp $ 
    Written by Adam Siepel, 2002.
    Copyright 2002, Adam Siepel, University of California.
 */
@@ -131,3 +131,13 @@ unsigned int hsh_hash_func(Hashtable *ht, char* key) {
   return h % ht->nbuckets;
 }
 
+List *hsh_keys(Hashtable *ht) {
+  int i, j;
+  List *retval = lst_new_ptr(ht->nbuckets); /* often under-loaded */
+  for (i = 0; i < ht->nbuckets; i++) {
+    if (ht->keys[i] == NULL) continue;
+    for (j = 0; j < lst_size(ht->keys[i]); j++)
+      lst_push_ptr(retval, lst_get_ptr(ht->keys[i], j));
+  }
+  return retval;
+}
