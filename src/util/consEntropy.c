@@ -29,7 +29,7 @@ OPTIONS:\n\
         Can be used iteratively to converge on a desired value of NH.\n\
 \n\
     --help, -h\n\
-        Print this help message.
+        Print this help message.\n\
 \n\
 NOTE:\n\
     The relative entropy is currently computed by brute force, i.e.,\n\
