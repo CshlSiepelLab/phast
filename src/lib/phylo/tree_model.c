@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.14 2004-08-25 18:20:37 acs Exp $
+/* $Id: tree_model.c,v 1.15 2004-08-27 17:13:41 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -929,10 +929,15 @@ gsl_vector *tm_params_init_random(TreeModel *mod) {
 
 
 /* Functions to initialize a parameter vector from an existing tree model */
-gsl_vector *tm_params_init_from_model(TreeModel *mod) {
-  int nparams = tm_get_nparams(mod);
-  gsl_vector *params = gsl_vector_alloc(nparams);
-  int params_idx = 0, nodeidx, j;
+gsl_vector *tm_params_new_init_from_model(TreeModel *mod) {
+  gsl_vector *params = gsl_vector_alloc(tm_get_nparams(mod));
+  tm_params_init_from_model(mod, params, 0);
+  return params;
+}
+
+void tm_params_init_from_model(TreeModel *mod, gsl_vector *params, 
+                               int start_idx) {
+  int params_idx = start_idx, nodeidx, j;
   List *traversal;
   TreeNode *n;
 
@@ -970,8 +975,6 @@ gsl_vector *tm_params_init_from_model(TreeModel *mod) {
 
   /* initialize rate-matrix parameters */
   tm_rate_params_init_from_model(mod, params, params_idx);
-
-  return params;
 }
 
 /* Given a codon model, create and return the induced amino acid model */

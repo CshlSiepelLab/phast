@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.21 2004-08-16 22:27:09 acs Exp $
+   $Id: phyloFit.c,v 1.22 2004-08-27 17:13:41 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -1063,7 +1063,7 @@ int main(int argc, char *argv[]) {
         if (random_init) 
           params = tm_params_init_random(mod);
         else if (input_mod != NULL)
-          params = tm_params_init_from_model(input_mod);
+          params = tm_params_new_init_from_model(input_mod);
         else
           params = tm_params_init(mod, .1, 5, alpha);    
         if (input_mod != NULL && mod->backgd_freqs != NULL) {

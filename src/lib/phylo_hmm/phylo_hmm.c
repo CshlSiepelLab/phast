@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.20 2004-08-25 18:20:37 acs Exp $
+/* $Id: phylo_hmm.c,v 1.21 2004-08-27 17:13:41 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -101,8 +101,6 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
   phmm->state_pos = phmm->state_neg = NULL;
   phmm->gpm = NULL;
   phmm->T = phmm->t = NULL;
-  phmm->fix_functional = phmm->fix_indel = FALSE;
-  phmm->source_mod = NULL;
 
   /* make sure tree models all have trees and all have the same number
      of leaves; keep a pointer to a representative tree for use with
@@ -488,10 +486,10 @@ void phmm_free(PhyloHmm *phmm) {
   if (phmm->gpm != NULL) gp_free_map(phmm->gpm);
   if (phmm->functional_hmm != phmm->hmm) hmm_free(phmm->functional_hmm);
   if (phmm->autocorr_hmm != NULL) hmm_free(phmm->autocorr_hmm);
-  if (phmm->source_mod != NULL) tm_free(phmm->source_mod);
   if (phmm->alpha != NULL) free(phmm->alpha);
   if (phmm->beta != NULL) free(phmm->beta);
   if (phmm->omega != NULL) free(phmm->omega);
+  if (phmm->em_data != NULL) free(phmm->em_data);
   hmm_free(phmm->hmm);
   free(phmm);
 }
@@ -1033,43 +1031,54 @@ void phmm_compute_emissions_copy_em(double **emissions, void **models,
 void phmm_compute_emissions_em(double **emissions, void **models, int nmodels,
                                void *data, int sample, int length) {
   PhyloHmm *phmm = (PhyloHmm*)data;
-  phmm_compute_emissions(phmm, phmm->msa, TRUE);
+  phmm_compute_emissions(phmm, phmm->em_data->msa, TRUE);
   phmm_compute_emissions_copy_em(emissions, models, nmodels, data, 
                                  sample, length);
 }
 
 /* re-estimate phylogenetic models based on expected counts */
 void phmm_estim_mods_em(void **models, int nmodels, void *data, 
-                        double **E, int nobs) {
+                        double **E, int nobs, FILE *logf) {
 
-  /* FIXME: what about when multiple states per model?  Need to collapse sufficient
-     stats.  Could probably be done generally... */
-
-  /* FIXME: have to make sure cat_counts initialized */
+  /* FIXME: what about when multiple states per model?  Need to
+     collapse sufficient stats.  Could probably be done
+     generally... */
 
   int k, obsidx;
   gsl_vector *params;
   PhyloHmm *phmm = (PhyloHmm*)data;
 
+  if (phmm->em_data->msa->ss == NULL) {
+    phmm->em_data->msa->ncats = phmm->nmods - 1;   /* ?? */
+    ss_from_msas(phmm->em_data->msa, phmm->mods[0]->order+1, TRUE, 
+                 NULL, NULL, NULL, -1);
+  }
+  else if (phmm->em_data->msa->ncats != phmm->nmods - 1 ||
+           phmm->em_data->msa->ss->cat_counts == NULL) {
+    phmm->em_data->msa->ncats = phmm->nmods - 1;   /* ?? */
+    ss_realloc(phmm->em_data->msa, phmm->em_data->msa->ss->tuple_size, 
+               phmm->em_data->msa->ss->ntuples, TRUE, TRUE);
+  }
+
   for (k = 0; k < phmm->nmods; k++) {
-    params = tm_params_init_from_model(phmm->mods[k]);
+    params = tm_params_new_init_from_model(phmm->mods[k]);
     for (obsidx = 0; obsidx < nobs; obsidx++) 
-      phmm->msa->ss->cat_counts[k][obsidx] = E[k][obsidx];
-    msa_get_base_freqs_tuples(phmm->msa, phmm->mods[k]->backgd_freqs, 
+      phmm->em_data->msa->ss->cat_counts[k][obsidx] = E[k][obsidx];
+    msa_get_base_freqs_tuples(phmm->em_data->msa, phmm->mods[k]->backgd_freqs, 
                               phmm->mods[k]->order+1, k);
                                 /* need to reestimate background
                                    freqs, using new category counts */
 
     /* FIXME: need to use state_to_cat, etc. in deciding which categories to use */
 
-    tm_fit(phmm->mods[k], phmm->msa, params, k, OPT_HIGH_PREC, NULL);
+    tm_fit(phmm->mods[k], phmm->em_data->msa, params, k, OPT_HIGH_PREC, logf);
     gsl_vector_free(params); 
   }
 }
 
 /* return observation index associated with given position, here a tuple index */
 int phmm_get_obs_idx_em(void *data, int sample, int position) {
-  MSA *msa = ((PhyloHmm*)data)->msa;
+  MSA *msa = ((PhyloHmm*)data)->em_data->msa;
   if (sample == -1 || position == -1) 
     return msa->ss->ntuples;
   return msa->ss->tuple_idx[position];
@@ -1080,9 +1089,14 @@ int phmm_get_obs_idx_em(void *data, int sample, int position) {
    transition params only or transition params and tree models.
    Returns ln likelihood. */
 double phmm_fit_em(PhyloHmm *phmm, 
-                   MSA *msa,     /* NULL means not to estimate tree
+                   MSA *msa,     /** NULL means not to estimate tree
                                     models (emissions must be
                                     precomputed) */
+                   int fix_functional,
+                                /**< Whether to fix transition
+                                   parameters of functional HMM */
+                   int fix_indel,
+                                /**< Whether to fix indel parameters */
                    FILE *logf
                    ) {
   double retval;
@@ -1090,14 +1104,17 @@ double phmm_fit_em(PhyloHmm *phmm,
   if (msa == NULL && phmm->emissions == NULL)
     die("ERROR (phmm_fit_em): emissions must be precomputed if not estimating tree models.\n");
 
-  if (msa != NULL) {            /* estimating tree models */
-    phmm->msa = msa;
+  phmm->em_data = smalloc(sizeof(EmData));
+  phmm->em_data->msa = msa;
+  phmm->em_data->fix_functional = fix_functional;
+  phmm->em_data->fix_indel = fix_indel;
+
+  if (msa != NULL)              /* estimating tree models */
     retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, 
                              &phmm->alloc_len, NULL, 
                              phmm_compute_emissions_em, phmm_estim_mods_em,
                              phmm_estim_trans_em, phmm_get_obs_idx_em, 
                              phmm_log_em, logf);
-  }
 
   else                          /* not estimating tree models */
     retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, 
@@ -1216,9 +1233,10 @@ void phmm_reset(PhyloHmm *phmm) {
   hmm_reset(phmm->hmm);
 }
 
-/* Function to be maximized in estimate_transitions_indel -- portion
-   of expected log likelihood that depends on the indel parameters for
-   a given functional category (defined by phmm->current_dest_cat) */
+/* Function to be maximized when estimating indel params by EM --
+   portion of expected log likelihood that depends on the indel
+   parameters for a given functional category (defined by
+   phmm->current_dest_cat) */
 double indel_max_function(gsl_vector *params, void *data) {
   IndelEstimData *ied = data;
   int pat, j = ied->current_dest_cat;
@@ -1309,80 +1327,20 @@ void phmm_estim_trans_em(HMM *hmm, void *data, double **A) {
 
   PhyloHmm *phmm = data;
   int i, j;
-  double **fcounts = A;         /* will be reset if parameteric model */
-  IndelEstimData ied;
+  IndelEstimData *ied = NULL;
+  double **fcounts;
 
-  if (phmm->fix_functional && phmm->fix_indel) return;
+  if (phmm->em_data->fix_functional && phmm->em_data->fix_indel) return;
 
   if (phmm->indel_mode == PARAMETERIC) {
-    /* initialize marginal counts for functional categories */
-    if (!phmm->fix_functional) {
-      fcounts = smalloc(phmm->functional_hmm->nstates * sizeof(void*));
-      for (i = 0; i < phmm->functional_hmm->nstates; i++) {
-        fcounts[i] = smalloc(phmm->functional_hmm->nstates * sizeof(double));
-        for (j = 0; j < phmm->functional_hmm->nstates; j++) fcounts[i][j] = 0;
-      } 
-    }
-
-    /* initialize indel-related marginal counts */
-    if (!phmm->fix_indel) {     /* this part we'll skip if possible */
-      ied.nfunctional_states = phmm->functional_hmm->nstates;
-      ied.gpm = phmm->gpm;
-      ied.u_alpha = smalloc(ied.nfunctional_states * sizeof(double));
-      ied.u_beta = smalloc(ied.nfunctional_states * sizeof(double));
-      ied.u_omega = smalloc(ied.nfunctional_states * sizeof(double));
-      ied.u_self = smalloc(ied.nfunctional_states * sizeof(void*));
-      for (i = 0; i < ied.nfunctional_states; i++) {
-        ied.u_alpha[i] = ied.u_beta[i] = ied.u_omega[i] = 0;
-        ied.u_self[i] = smalloc(ied.gpm->ngap_patterns * sizeof(double));
-        for (j = 0; j < ied.gpm->ngap_patterns; j++) ied.u_self[i][j] = 0;
-      }
-    }
-
-    /* compute marginal counts */
-    for (i = 0; i < phmm->hmm->nstates; i++) { 
-      int cat_i = phmm->state_to_cat[i];
-      int pat_i = phmm->state_to_pattern[i];
-      pattern_type pat_i_type = gp_pattern_type(phmm->gpm, pat_i);
-
-      assert(cat_i >= 0 && cat_i < phmm->functional_hmm->nstates);
-      assert(pat_i >= 0 && pat_i < phmm->gpm->ngap_patterns);
-
-      for (j = 0; j < phmm->hmm->nstates; j++) {
-        int cat_j = phmm->state_to_cat[j];
-        int pat_j = phmm->state_to_pattern[j];
-        pattern_type pat_j_type = gp_pattern_type(phmm->gpm, pat_j);
-
-        assert(cat_j >= 0 && cat_j < phmm->functional_hmm->nstates);
-        assert(pat_j >= 0 && pat_j < phmm->gpm->ngap_patterns);
-
-        if (!phmm->fix_functional)
-          fcounts[cat_i][cat_j] += A[i][j];
-
-        if (phmm->fix_indel) continue;
-
-        if (pat_i_type == COMPLEX_PATTERN || pat_j_type == COMPLEX_PATTERN) 
-          continue;             /* include these for fcounts but not for
-                                   the indel-related marginals */
-
-        if (pat_i == pat_j) 
-          ied.u_self[cat_j][pat_j] += A[i][j]; /* c_.kjk from notes */
-        else {
-          if (pat_j_type == INSERTION_PATTERN)
-            ied.u_alpha[cat_j] += A[i][j];
-          else if (pat_j_type == DELETION_PATTERN)
-            ied.u_beta[cat_j] += A[i][j];
-
-          if (pat_i_type != NULL_PATTERN)
-            ied.u_omega[cat_j] += A[i][j];
-        }
-      }
-    }
+    ied = phmm_new_ied(phmm, A);
+    fcounts = ied->fcounts;
   }
+  else fcounts = A;
 
   /* estimate transition probs for functional cats in ordinary way but
      using marginal counts */
-  if (!phmm->fix_functional) {
+  if (!phmm->em_data->fix_functional) {
     for (i = 0; i < phmm->functional_hmm->nstates; i++) {
       double rowsum = 0;
       for (j = 0; j < phmm->functional_hmm->nstates; j++)
@@ -1393,45 +1351,128 @@ void phmm_estim_trans_em(HMM *hmm, void *data, double **A) {
     }
   }
 
-  /* if parameteric indel model, estimate indel params using a
-     multi-dimensional optimization routine.  This can be done
-     separately for each functional category  */
-  if (phmm->indel_mode == PARAMETERIC && !phmm->fix_indel) {
-    gsl_vector *params = gsl_vector_alloc(3);
-    gsl_vector *lb = gsl_vector_calloc(3);
-    ied.T = phmm->T;
-
-    for (i = 0; i < phmm->functional_hmm->nstates; i++) {
-      double retval;
-      ied.current_dest_cat = i;
-
-      gsl_vector_set(params, 0, phmm->alpha[i]);
-      gsl_vector_set(params, 1, phmm->beta[i]);
-      gsl_vector_set(params, 2, phmm->omega[i]);
-      opt_bfgs(indel_max_function, params, &ied, &retval, lb, NULL, NULL, 
-               indel_max_gradient, OPT_HIGH_PREC, NULL); 
-      phmm->alpha[i] = gsl_vector_get(params, 0);
-      phmm->beta[i] = gsl_vector_get(params, 1);
-      phmm->omega[i] = gsl_vector_get(params, 2);
-    }
-    gsl_vector_free(params);
-    gsl_vector_free(lb);
-  }
-
   if (phmm->indel_mode == PARAMETERIC) {
-    if (!phmm->fix_functional) {
-      for (i = 0; i < phmm->functional_hmm->nstates; i++) free(fcounts[i]);
-      free(fcounts);
-    }
-    if (!phmm->fix_indel) {
-      for (i = 0; i < phmm->functional_hmm->nstates; i++) free(ied.u_self[i]);
-      free(ied.u_alpha);
-      free(ied.u_beta);
-      free(ied.u_omega);
-      free(ied.u_self);
-    }
+    if (!phmm->em_data->fix_indel) phmm_em_estim_indels(phmm, ied);
+    phmm_free_ied(ied);
   }
 
   phmm_reset(phmm);
 }
 
+IndelEstimData *phmm_new_ied(PhyloHmm *phmm, double **A) {
+  int i, j;
+  IndelEstimData *ied = smalloc(sizeof(IndelEstimData));
+  ied->phmm = phmm;
+
+  /* initialize marginal counts for functional categories */
+  if (!phmm->em_data->fix_functional) {
+    ied->fcounts = smalloc(phmm->functional_hmm->nstates * sizeof(void*));
+    for (i = 0; i < phmm->functional_hmm->nstates; i++) {
+      ied->fcounts[i] = smalloc(phmm->functional_hmm->nstates * 
+                                sizeof(double));
+      for (j = 0; j < phmm->functional_hmm->nstates; j++) 
+        ied->fcounts[i][j] = 0;
+    } 
+  }
+
+  /* initialize indel-related marginal counts */
+  if (!phmm->em_data->fix_indel) {     /* this part we'll skip if possible */
+    ied->nfunctional_states = phmm->functional_hmm->nstates;
+    ied->gpm = phmm->gpm;
+    ied->u_alpha = smalloc(ied->nfunctional_states * sizeof(double));
+    ied->u_beta = smalloc(ied->nfunctional_states * sizeof(double));
+    ied->u_omega = smalloc(ied->nfunctional_states * sizeof(double));
+    ied->u_self = smalloc(ied->nfunctional_states * sizeof(void*));
+    for (i = 0; i < ied->nfunctional_states; i++) {
+      ied->u_alpha[i] = ied->u_beta[i] = ied->u_omega[i] = 0;
+      ied->u_self[i] = smalloc(ied->gpm->ngap_patterns * sizeof(double));
+      for (j = 0; j < ied->gpm->ngap_patterns; j++) ied->u_self[i][j] = 0;
+    }
+  }
+
+  /* compute marginal counts */
+  for (i = 0; i < phmm->hmm->nstates; i++) { 
+    int cat_i = phmm->state_to_cat[i];
+    int pat_i = phmm->state_to_pattern[i];
+    pattern_type pat_i_type = gp_pattern_type(phmm->gpm, pat_i);
+
+    assert(cat_i >= 0 && cat_i < phmm->functional_hmm->nstates);
+    assert(pat_i >= 0 && pat_i < phmm->gpm->ngap_patterns);
+
+    for (j = 0; j < phmm->hmm->nstates; j++) {
+      int cat_j = phmm->state_to_cat[j];
+      int pat_j = phmm->state_to_pattern[j];
+      pattern_type pat_j_type = gp_pattern_type(phmm->gpm, pat_j);
+
+      assert(cat_j >= 0 && cat_j < phmm->functional_hmm->nstates);
+      assert(pat_j >= 0 && pat_j < phmm->gpm->ngap_patterns);
+
+      if (!phmm->em_data->fix_functional)
+        ied->fcounts[cat_i][cat_j] += A[i][j];
+
+      if (phmm->em_data->fix_indel) continue;
+
+      if (pat_i_type == COMPLEX_PATTERN || pat_j_type == COMPLEX_PATTERN) 
+        continue;             /* include these for ied->fcounts but not for
+                                 the indel-related marginals */
+
+      if (pat_i == pat_j) 
+        ied->u_self[cat_j][pat_j] += A[i][j]; /* c_.kjk from notes */
+      else {
+        if (pat_j_type == INSERTION_PATTERN)
+          ied->u_alpha[cat_j] += A[i][j];
+        else if (pat_j_type == DELETION_PATTERN)
+          ied->u_beta[cat_j] += A[i][j];
+
+        if (pat_i_type != NULL_PATTERN)
+          ied->u_omega[cat_j] += A[i][j];
+      }
+    }
+  }
+
+  return ied;
+}
+
+void phmm_free_ied(IndelEstimData *ied) {
+  int i;
+  if (!ied->phmm->em_data->fix_functional) {
+    for (i = 0; i < ied->phmm->functional_hmm->nstates; i++) 
+      free(ied->fcounts[i]);
+    free(ied->fcounts);
+  }
+  if (!ied->phmm->em_data->fix_indel) {
+    for (i = 0; i < ied->phmm->functional_hmm->nstates; i++) 
+      free(ied->u_self[i]);
+    free(ied->u_alpha);
+    free(ied->u_beta);
+    free(ied->u_omega);
+    free(ied->u_self);
+  }
+  free(ied);
+}
+
+/* for E step of EM: estimate indel params using a multi-dimensional
+   optimization routine.  This can be done separately for each
+   functional category  */
+void phmm_em_estim_indels(PhyloHmm *phmm, IndelEstimData *ied) {
+  int i;
+  gsl_vector *params = gsl_vector_alloc(3);
+  gsl_vector *lb = gsl_vector_calloc(3);
+  ied->T = phmm->T;
+
+  for (i = 0; i < phmm->functional_hmm->nstates; i++) {
+    double retval;
+    ied->current_dest_cat = i;
+
+    gsl_vector_set(params, 0, phmm->alpha[i]);
+    gsl_vector_set(params, 1, phmm->beta[i]);
+    gsl_vector_set(params, 2, phmm->omega[i]);
+    opt_bfgs(indel_max_function, params, &ied, &retval, lb, NULL, NULL, 
+             indel_max_gradient, OPT_HIGH_PREC, NULL); 
+    phmm->alpha[i] = gsl_vector_get(params, 0);
+    phmm->beta[i] = gsl_vector_get(params, 1);
+    phmm->omega[i] = gsl_vector_get(params, 2);
+  }
+  gsl_vector_free(params);
+  gsl_vector_free(lb);
+}

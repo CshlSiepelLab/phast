@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.6 2004-08-05 07:15:04 acs Exp $
+/* $Id: tree_model.h,v 1.7 2004-08-27 17:13:41 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -140,7 +140,10 @@ gsl_vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
 
 gsl_vector *tm_params_init_random(TreeModel *mod);
 
-gsl_vector *tm_params_init_from_model(TreeModel *mod);
+gsl_vector *tm_params_new_init_from_model(TreeModel *mod);
+
+void tm_params_init_from_model(TreeModel *mod, gsl_vector *params,
+                                      int start_idx);
 
 int tm_get_nparams(TreeModel *mod);
 

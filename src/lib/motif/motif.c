@@ -169,7 +169,7 @@ List* mtf_find(void *data, int multiseq, int motif_size, int nmotifs,
                                    threshold */
         for (i = 1; i <= m->motif_size; i++) {
           if (multiseq) {
-            gsl_vector *tm_params = tm_params_init_from_model(m->ph_mods[i]);
+            gsl_vector *tm_params = tm_params_new_init_from_model(m->ph_mods[i]);
 /*             gsl_vector_set(upper_bounds, j, 20); */ /* FIXME: have to relax upper bound for rate constant */
 /*             gsl_vector_set(lower_bounds, j, .25); */ /* FIXME: avoid degenerate case */
             for (k = 0; k < tm_params->size; k++)
@@ -317,7 +317,7 @@ void phy_estim_mods(void **models, int nmodels, void *data,
 
   for (k = 1; k < nmodels; k++) {
     TreeModel *tm = (TreeModel*)models[k];
-    params = tm_params_init_from_model(tm);
+    params = tm_params_new_init_from_model(tm);
     for (obsidx = 0; obsidx < nobs; obsidx++) 
       pmsa->pooled_msa->ss->cat_counts[k][obsidx] = E[k][obsidx];
     tm_fit(tm, pmsa->pooled_msa, params, k, OPT_HIGH_PREC, NULL);

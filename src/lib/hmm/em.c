@@ -1,4 +1,4 @@
-/* $Id: em.c,v 1.7 2004-08-25 18:20:37 acs Exp $
+/* $Id: em.c,v 1.8 2004-08-27 17:13:41 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -47,7 +47,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
                        void (*compute_emissions)(double**, void**, int, void*, 
                                                  int, int), 
                        void (*estimate_state_models)(void**, int, void*, 
-                                                     double**, int),
+                                                     double**, int, FILE*),
                        void (*estimate_transitions)(HMM*, void*, double**),
                        int (*get_observation_index)(void*, int, int),
                        void (*log_function)(FILE*, double, HMM*, void*, int),
@@ -181,7 +181,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
     }
 
     /* check convergence */
-    if (total_logl - prev_total_logl <= EM_CONVERGENCE_THRESHOLD)
+    if (abs(total_logl - prev_total_logl) <= EM_CONVERGENCE_THRESHOLD)
       done = TRUE;              /* no param update */
 
     else {
@@ -204,7 +204,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
 
       /* re-estimate state models */
       if (do_state_models)
-        estimate_state_models(models, hmm->nstates, data, E, nobs);
+        estimate_state_models(models, hmm->nstates, data, E, nobs, logf);
     }
   }
 

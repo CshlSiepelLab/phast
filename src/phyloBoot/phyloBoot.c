@@ -375,7 +375,7 @@ int main(int argc, char *argv[]) {
       if (random_init) 
         params = tm_params_init_random(thismod);
       else if (init_mod != NULL)
-        params = tm_params_init_from_model(init_mod);
+        params = tm_params_new_init_from_model(init_mod);
       else
         params = tm_params_init(thismod, .1, 5, 1);    
 
@@ -405,7 +405,7 @@ int main(int argc, char *argv[]) {
       /* in this case, we need to set up a parameter vector from
          the input model */
       thismod = input_mods[i];
-      params = tm_params_init_from_model(thismod);
+      params = tm_params_new_init_from_model(thismod);
       if (nparams > 0 && params->size != nparams)
         die("ERROR: input models have different numbers of parameters.\n");
     }

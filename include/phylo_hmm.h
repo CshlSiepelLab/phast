@@ -9,6 +9,19 @@
 
 typedef enum {MISSING_DATA, PARAMETERIC, NONPARAMETERIC} indel_mode_type;
 
+/* package of data used during EM parameter estimation */
+typedef struct {
+  MSA *msa;                     /**< Data to which model is fit */
+  int fix_functional, fix_indel;
+                                /**< Can be used to force either the
+                                   functional transition probs or the
+                                   indel transition probs to be fixed */
+  double conserved_scale;       /**< Scaling constant for two-state
+                                   rate-variation phylo-HMM */
+  double target_coverage;       /**< Target coverage for two-state
+                                   rate-variation phylo-HMM */
+} EmData;
+
 typedef struct {
   CategoryMap *cm;              /**< category map */
   HMM *hmm;                     /**< final HMM, after reflection and
@@ -54,20 +67,16 @@ typedef struct {
                                    model */
   double **T, **t;              /**< branch-length factors used in
                                    parameteric indel model */
-  int fix_functional, fix_indel;
-                                /**< can be used to force either the
-                                   functional transition probs or the
-                                   indel transition probs to be fixed
-                                   during EM parameter estimation with
-                                   parameteric indel model */
+  EmData *em_data;              /**< Used in parameter estimation by EM  */
 } PhyloHmm;
 
 /* package of data used in estimation of indel parameters */
 typedef struct {
   double *u_alpha, *u_beta, *u_omega;
-  double **u_self, **T;
+  double **u_self, **T, **fcounts;
   int nfunctional_states, current_dest_cat;         
   GapPatternMap *gpm;
+  PhyloHmm *phmm;
 } IndelEstimData;
 
 PhyloHmm *phmm_new(HMM *hmm, TreeModel **tree_models, CategoryMap *cm, 
@@ -93,8 +102,23 @@ void phmm_score_predictions(PhyloHmm *phmm, GFF_Set *preds, List *score_cats,
                             List *helper_cats, List *null_cats,
                             int score_only_score_cats);
 void phmm_add_bias(PhyloHmm *phmm, List *backgd_cat_names, double bias);
-double phmm_fit_em(PhyloHmm *phmm, MSA *msa, FILE *logf);
+void phmm_log_em(FILE *logf, double logl, HMM *hmm, void *data, 
+                 int show_header);
+void phmm_compute_emissions_copy_em(double **emissions, void **models, 
+                                    int nmodels, void *data, int sample, 
+                                    int length);
+void phmm_compute_emissions_em(double **emissions, void **models, int nmodels,
+                               void *data, int sample, int length);
+void phmm_estim_mods_em(void **models, int nmodels, void *data, 
+                        double **E, int nobs, FILE *logf);
+int phmm_get_obs_idx_em(void *data, int sample, int position);
+double phmm_fit_em(PhyloHmm *phmm, MSA *msa, int fix_functional,
+                   int fix_indel, FILE *logf);
 void phmm_reset(PhyloHmm *phmm);
-void phmm_estimate_transitions(HMM *hmm, void *data, double **A);
+void phmm_estim_trans_em(HMM *hmm, void *data, double **A);
+IndelEstimData *phmm_new_ied(PhyloHmm *phmm, double **A);
+void phmm_free_ied(IndelEstimData *ied);
+void phmm_em_estim_indels(PhyloHmm *phmm, IndelEstimData *ied);
+
 
 #endif

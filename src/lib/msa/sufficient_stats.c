@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.12 2004-08-15 03:50:32 acs Exp $
+/* $Id: sufficient_stats.c,v 1.13 2004-08-27 17:13:41 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -257,11 +257,20 @@ void ss_new(MSA *msa, int tuple_size, int max_ntuples, int do_cats,
 void ss_realloc(MSA *msa, int tuple_size, int max_ntuples, int do_cats, 
                 int store_order) {
 
-  int i, j;
+  int i, j, cat_counts_done = FALSE;
   MSA_SS *ss = msa->ss;
   if (store_order && msa->length > ss->alloc_len) {
     ss->alloc_len = max(ss->alloc_len * 2, msa->length);
     ss->tuple_idx = (int*)srealloc(ss->tuple_idx, ss->alloc_len * sizeof(int));
+  }
+  if (do_cats && ss->cat_counts == NULL) {
+    assert(msa->ncats >= 0);
+    ss->cat_counts = smalloc((msa->ncats+1) * sizeof(double*));
+    for (j = 0; j <= msa->ncats; j++) {
+      ss->cat_counts[j] = smalloc(max_ntuples * sizeof(double));
+      for (i = 0; i < max_ntuples; i++) ss->cat_counts[j][i] = 0;
+    }
+    cat_counts_done = TRUE;
   }
   if (max_ntuples > ss->alloc_ntuples) {
     int new_alloc_ntuples = max(max_ntuples, ss->alloc_ntuples*2);
@@ -275,7 +284,7 @@ void ss_realloc(MSA *msa, int tuple_size, int max_ntuples, int do_cats,
                                   sizeof(double));
     for (i = ss->alloc_ntuples; i < new_alloc_ntuples; i++) 
       ss->counts[i] = 0; 
-    if (do_cats) {
+    if (do_cats && !cat_counts_done) {
       for (j = 0; j <= msa->ncats; j++) {
         ss->cat_counts[j] = 
           (double*)srealloc(ss->cat_counts[j], new_alloc_ntuples * 
