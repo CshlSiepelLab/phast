@@ -1,6 +1,6 @@
 /* label - label the columns of alignment(s) by category */
 
-/* $Id: exoniphy.c,v 1.8 2004-06-23 06:03:09 acs Exp $
+/* $Id: exoniphy.c,v 1.9 2004-06-24 03:09:21 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, Adam Siepel, University of California 
 
@@ -520,7 +520,7 @@ int valid_feat(GFF_Feature *pred_feat, MSA *msa) {
       pred_feat->end - pred_feat->start + 1 < 50)
     return 0;  
 
-  if (!str_equals_charstr(pred_feat->feature, "cds") &&
+  if (!str_equals_charstr(pred_feat->feature, "CDS") &&
       !str_equals_charstr(pred_feat->feature, "cds1") &&
       !str_equals_charstr(pred_feat->feature, "cds2"))
     return 1;

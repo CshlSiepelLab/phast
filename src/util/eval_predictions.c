@@ -1,4 +1,4 @@
-/* $Id: eval_predictions.c,v 1.4 2004-06-14 22:52:16 acs Exp $
+/* $Id: eval_predictions.c,v 1.5 2004-06-24 03:09:22 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -10,8 +10,6 @@
 #include <getopt.h>
 #include <math.h>
 #include <misc.h>
-
-#define DEF_FEAT_NAME "cds"
 
 void print_usage() {
   printf("USAGE: eval_predictions -r <real_fname_list> -p <pred_fname_list>\n\
@@ -275,7 +273,7 @@ int main(int argc, char* argv[]) {
 
   if (feat_list == NULL) {
     feat_list = lst_new_ptr(1);
-    lst_push_ptr(feat_list, str_new_charstr(DEF_FEAT_NAME));
+    lst_push_ptr(feat_list, str_new_charstr(GFF_CDS_TYPE));
   }
   
   if (real_fname_list == NULL || pred_fname_list == NULL || 
@@ -323,8 +321,8 @@ int main(int argc, char* argv[]) {
 
     gff_exon_group(gff_real, "exon_id"); /* needed for gff_fix_stops */
     gff_exon_group(gff_pred, "exon_id");
-    gff_fix_stops(gff_real, DEF_FEAT_NAME, "stop");
-    gff_fix_stops(gff_pred, DEF_FEAT_NAME, "stop");
+    gff_fix_stops(gff_real, GFF_CDS_TYPE, GFF_STOP_TYPE);
+    gff_fix_stops(gff_pred, GFF_CDS_TYPE, GFF_STOP_TYPE);
 
     /* sort ungrouped -- only cds exons will be considered, and each
        one will be considered individually */

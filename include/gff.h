@@ -1,4 +1,4 @@
-/* $Id: gff.h,v 1.4 2004-06-22 21:50:06 acs Exp $
+/* $Id: gff.h,v 1.5 2004-06-24 03:09:21 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -98,7 +98,6 @@ typedef struct {
 #define GFF_STOP_TYPE "stop_codon"
 #define GFF_UTR5_TYPE "5'UTR"
 #define GFF_UTR3_TYPE "3'UTR"
-
 
 
 GFF_Set* gff_read_set(FILE *F);

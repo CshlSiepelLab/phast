@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.16 2004-06-23 21:22:15 acs Exp $
+/* $Id: clean_genes.c,v 1.17 2004-06-24 03:09:22 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -11,13 +11,10 @@
 #include <maf.h>
 
 /* types of features examined */
-#define START "start"
-#define STOP "stop"
 #define SPLICE_5 "5'splice"
 #define SPLICE_3 "3'splice"
 #define SPLICE_5_UTR "5'splice_utr"
 #define SPLICE_3_UTR "3'splice_utr"
-#define CDS "cds"
 /* NOTE: SPLICE_5_UTR and SPLICE_3_UTR must have SPLICE_5 and SPLICE_3
    as prefixes (respectively).  This property is used to simplify some
    of the case handling below */ 
@@ -157,7 +154,7 @@ OPTIONS:        \n\
     --help, -h\n\
         Print this help message.\n\
 \n\
-NOTES:  Currently, feature types are defined at compile time as follows.\n\
+NOTES:  Feature types are defined as follows.\n\
 \n\
                coding exon    <-> \"%s\"\n\
                start codon    <-> \"%s\"\n\
@@ -172,7 +169,7 @@ NOTES:  Currently, feature types are defined at compile time as follows.\n\
 \n\
         If evaluation is done at the level of individual exons (see\n\
         --groupby), then splice sites are considered independently\n\
-        rather than in the context of introns.  Thus, the exons flanking\n\
+        rather than in the context of introns.  As a result, the exons flanking\n\
         a GT-AC or AT-AG intron might (misleadingly) be considered \"clean\".\n\
 \n\
         With --fshift and --nonsense, it is possible for entries\n\
@@ -181,7 +178,8 @@ NOTES:  Currently, feature types are defined at compile time as follows.\n\
         own frame.  Use --clean-gaps instead to guarantee that no stop\n\
         codons occur in any sequence in the frame of the reference\n\
         sequence.\n\n", 
-           CDS, START, STOP, SPLICE_5, SPLICE_3, SPLICE_5_UTR, SPLICE_3_UTR);
+           GFF_CDS_TYPE, GFF_START_TYPE, GFF_STOP_TYPE, SPLICE_5, SPLICE_3, 
+           SPLICE_5_UTR, SPLICE_3_UTR);
 }
 
 /* description of stats kept, written to bottom of stats file */
@@ -783,9 +781,9 @@ int ref_seq_okay(List *features, MSA *msa, int offset3, int indel_strict,
     seq[len] = '\0';
     if (feat->strand == '-') msa_reverse_compl_seq(seq, len);
 
-    if (str_equals_charstr(feat->feature, START) && strcmp(seq, "ATG") != 0)
+    if (str_equals_charstr(feat->feature, GFF_START_TYPE) && strcmp(seq, "ATG") != 0)
       return 0;
-    else if (str_equals_charstr(feat->feature, STOP) && !is_stop_codon(seq)) 
+    else if (str_equals_charstr(feat->feature, GFF_STOP_TYPE) && !is_stop_codon(seq)) 
       return 0;
     else if (str_starts_with_charstr(feat->feature, SPLICE_5) && 
              !is_valid_5splice(seq, splice_strict))
@@ -793,7 +791,7 @@ int ref_seq_okay(List *features, MSA *msa, int offset3, int indel_strict,
     else if (str_starts_with_charstr(feat->feature, SPLICE_3) &&
              !is_valid_3splice(seq, splice_strict))
       return 0;
-    else if (str_equals_charstr(feat->feature, CDS)) {
+    else if (str_equals_charstr(feat->feature, GFF_CDS_TYPE)) {
       for (i = (3 - feat->frame) % 3; i <= len - 3; i += 3) 
         if (is_stop_codon(&seq[i])) return 0;
     }
@@ -849,11 +847,11 @@ void exclude_stops(GFF_FeatureGroup *group, List *starts_adjusted,
                                                  expect at most one, but more 
                                                  are possible */
     feat = lst_get_ptr(gfeatures, j);
-    if (str_equals_charstr(feat->feature, STOP)) lst_push_ptr(stops, feat);
+    if (str_equals_charstr(feat->feature, GFF_STOP_TYPE)) lst_push_ptr(stops, feat);
   }
   for (j = 0; j < lst_size(gfeatures); j++) { /* now look at CDSs */
     feat = lst_get_ptr(gfeatures, j);
-    if (str_equals_charstr(feat->feature, CDS)) {
+    if (str_equals_charstr(feat->feature, GFF_CDS_TYPE)) {
       for (k = 0; k < lst_size(stops); k++) { /* check stops */
         GFF_Feature *stop = lst_get_ptr(stops, k);
         if (feat->strand == '+' && stop->strand == '+' && 
@@ -880,7 +878,7 @@ void restore_stops(GFF_FeatureGroup *group, List *starts_adjusted,
     return;
   for (j = 0; j < lst_size(group->features); j++) {
     GFF_Feature *feat = lst_get_ptr(group->features, j);
-    if (str_equals_charstr(feat->feature, CDS)) {
+    if (str_equals_charstr(feat->feature, GFF_CDS_TYPE)) {
       if (lst_find_ptr(ends_adjusted, feat) != -1) feat->end += 3;
       else if (lst_find_ptr(starts_adjusted, feat) != -1) feat->start -= 3;
     }
@@ -1089,7 +1087,7 @@ int main(int argc, char *argv[]) {
          features. */
       for (j = 0, no_alignment = 0; j < lst_size(gfeatures); j++) { 
         feat = lst_get_ptr(gfeatures, j);
-        if (str_equals_charstr(feat->feature, CDS) &&
+        if (str_equals_charstr(feat->feature, GFF_CDS_TYPE) &&
             is_incomplete_alignment(feat, msa)) {
           status = NO_ALN;
           nfail[NO_ALN]++;
@@ -1109,7 +1107,7 @@ int main(int argc, char *argv[]) {
             die("ERROR: feature extends beyond alignment (%d >= %d).\n",
                 feat->end - 1, msa->length);
         
-          if (check_start && str_equals_charstr(feat->feature, START)) {
+          if (check_start && str_equals_charstr(feat->feature, GFF_START_TYPE)) {
 
             nconsid[BAD_START]++;
 
@@ -1120,7 +1118,7 @@ int main(int argc, char *argv[]) {
             }
           }
 
-          else if (check_stop && str_equals_charstr(feat->feature, STOP)) {
+          else if (check_stop && str_equals_charstr(feat->feature, GFF_STOP_TYPE)) {
 
             nconsid[BAD_STOP]++;
 
@@ -1182,7 +1180,7 @@ int main(int argc, char *argv[]) {
             else lst_push_ptr(intron_splice, feat);
           }
 
-          else if (str_equals_charstr(feat->feature, CDS)) {
+          else if (str_equals_charstr(feat->feature, GFF_CDS_TYPE)) {
  
             if ((gt = get_cds_gap_type(feat, msa)) < fshift_mode) {
               if (status == OKAY || status == NONSENSE) status = FSHIFT;

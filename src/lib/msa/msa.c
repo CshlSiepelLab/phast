@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.15 2004-06-24 00:21:08 acs Exp $
+/* $Id: msa.c,v 1.16 2004-06-24 03:09:21 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -896,8 +896,8 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
     if (feat->end - feat->start != orig_span) {
       /* left-anchored */
       if (str_equals_charstr(feat->feature, "5'splice") || 
-          str_equals_charstr(feat->feature, "start") || 
-          str_equals_charstr(feat->feature, "stop") || 
+          str_equals_charstr(feat->feature, "start_codon") || 
+          str_equals_charstr(feat->feature, "stop_codon") || 
           str_equals_charstr(feat->feature, "cds3'ss")) 
         feat->end = feat->start + orig_span;
       /* right-anchored */
