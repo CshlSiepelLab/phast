@@ -1,7 +1,7 @@
 /* String-handling functions, with automatic memory management and
    basic regex support.
    
-   $Id: stringsplus.c,v 1.5 2004-07-02 03:55:49 acs Exp $
+   $Id: stringsplus.c,v 1.6 2004-08-04 05:06:04 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -483,6 +483,20 @@ int str_in_list(String *s, List *l) {
   int i;
   for (i = 0; i < lst_size(l); i++)
     if (str_equals(s, lst_get_ptr(l, i))) return 1;
+  return 0;
+}
+
+/* Returns 1 if list includes specified string, 0 otherwise.  Sets
+   *idx to index of element in list if found */
+int str_in_list_idx(String *s, List *l, int *idx) {
+  int i;
+  *idx = -1;
+  for (i = 0; i < lst_size(l); i++) {
+    if (str_equals(s, lst_get_ptr(l, i))) {
+      *idx = i;
+      return 1;
+    }
+  }
   return 0;
 }
 
