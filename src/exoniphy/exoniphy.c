@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.24 2004-07-02 03:55:49 acs Exp $
+/* $Id: exoniphy.c,v 1.25 2004-07-02 04:58:51 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -185,7 +185,7 @@ REFERENCES:\n\
       evolutionarily conserved exons.  Proc. 8th Annual Int'l Conf.\n\
       on Research in Computational Biology (RECOMB '04), pp. 177-186.\n\n", 
            SCALE_RANGE_MIN, SCALE_RANGE_MAX, NSENS_SPEC_TRIES, 
-           DEFAULT_CDS_TYPES, DEFAULT_BACKGD_TYPES, DEFAULT_SIGNAL_TYPES);
+           DEFAULT_BACKGD_TYPES, DEFAULT_CDS_TYPES, DEFAULT_SIGNAL_TYPES);
 }
 
 int main(int argc, char* argv[]) {
