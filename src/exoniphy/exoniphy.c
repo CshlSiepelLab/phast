@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.28 2004-07-25 16:56:41 acs Exp $
+/* $Id: exoniphy.c,v 1.29 2004-07-25 17:29:15 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -26,7 +26,7 @@
    CDS) and categories to be "invisible" in output. For now, these are
    fixed; all of this should become simpler with generalized HMM
    architecture */
-#define CDS_ABSORB_TYPES "start,cds5'ss,cds3'ss"
+#define CDS_ABSORB_TYPES "start_codon,cds5'ss,cds3'ss"
 #define INVISIBLE_TYPES "prestart,5'splice,3'splice,cds5'ss,cds3'ss"
 
 /* parameters controlling evaluation of Sn/Sp tradeoff (see -Y option) */
