@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.16 2004-07-29 23:39:04 acs Exp $
+/* $Id: msa_view.c,v 1.17 2004-08-11 23:10:22 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -517,6 +517,9 @@ int main(int argc, char* argv[]) {
   }
   else infname = argv[optind];
 
+  if (gff != NULL && cm == NULL) 
+    cm = cm_new_from_features(gff);
+
   if (aggregate_list != NULL) {
     msa_fname_list = get_arg_list(infname);
 
@@ -598,9 +601,6 @@ int main(int argc, char* argv[]) {
 
   /* fill with Ns, if necessary */
   if (fill_N_list != NULL) fill_with_Ns(msa, fill_N_list, map);
-
-  if (gff != NULL && cm == NULL) 
-    cm = cm_new_from_features(gff);
 
   /* read annotations and label columns, if necessary */
   if (gff != NULL && input_format != MAF) {
