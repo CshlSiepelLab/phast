@@ -1,4 +1,4 @@
-/* $Id: markov_matrix.c,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: markov_matrix.c,v 1.2 2004-06-23 21:37:14 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -261,7 +261,16 @@ int mm_sample_vector(gsl_vector *v) {
     if (sum > r) break;
   }
 
-  assert(i < v->size);         /* will catch ill-defined vector */
+  if (i == v->size) {
+    /* this seems to happen occasionally: check for bad prob vector or
+       bad draw */
+    if (abs(1 - sum) > SUM_EPSILON) 
+      die("ERROR: unnormalized probability vector in mm_sample_vector (sum = %f)\n", sum);
+    else if (r > 1)
+      die("ERROR: bad random draw in mm_sample_vector (r = %f)\n", r);
+    else i = v->size-1;         /* prob. just slight rounding error */
+  }
+
   return i;
 }
 
