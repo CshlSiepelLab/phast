@@ -134,7 +134,8 @@ int main(int argc, char *argv[]) {
   for (i = 0; i < lst_size(exons->groups); ) {
     GFF_FeatureGroup *g1 = lst_get_ptr(exons->groups, i);
     GroupData *d1 = lst_get_ptr(group_data, i);
-    regroup(g1, gene_tag, g1->name->chars);
+    String *groupname = g1->name;
+    regroup(g1, gene_tag, groupname->chars);
 
     for (j = i+1; j < lst_size(exons->groups); j++) {
       GFF_FeatureGroup *g2 = lst_get_ptr(exons->groups, j);
@@ -149,7 +150,7 @@ int main(int argc, char *argv[]) {
             (d2->type == INITIAL || d2->type == INTERNAL) && 
             (d1->type == INTERNAL || d1->type == TERMINAL)))) {
 
-        regroup(g2, gene_tag, g1->name->chars);
+        regroup(g2, gene_tag, groupname->chars);
         g1 = g2;
         d1 = d2;
       }
