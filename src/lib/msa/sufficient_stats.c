@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.18 2005-03-18 19:54:02 acs Exp $
+/* $Id: sufficient_stats.c,v 1.19 2005-03-18 19:56:59 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -1346,7 +1346,7 @@ int ss_is_4d(MSA *msa, int tuple) {
 }
 
 /* reduce to smaller tuple size representation */
-int ss_reduce_tuple_size(MSA *msa, int new_tuple_size) {
+void ss_reduce_tuple_size(MSA *msa, int new_tuple_size) {
   int i, j, len, offset;
   if (new_tuple_size >= msa->ss->tuple_size)
     die("ERROR: new tuple size must be smaller than old in ss_reduce_tuple_size.\n");

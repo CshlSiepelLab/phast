@@ -1,7 +1,7 @@
 /* sufficient_stats.h - Representation of multiple alignments in terms of their sufficient statistics */
 
 /*   
-   $Id: sufficient_stats.h,v 1.8 2005-03-18 19:54:02 acs Exp $
+   $Id: sufficient_stats.h,v 1.9 2005-03-18 19:56:59 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -84,7 +84,7 @@ void ss_collapse_missing(MSA *msa, int do_gaps);
 void ss_strip_gaps(MSA *msa, int gap_strip_mode);
 void ss_strip_missing(MSA *msa, int refseq);
 int ss_is_4d(MSA *msa, int tuple);
-int ss_reduce_tuple_size(MSA *msa, int new_tuple_size);
+void ss_reduce_tuple_size(MSA *msa, int new_tuple_size);
 
 
 
