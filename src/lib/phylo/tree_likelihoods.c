@@ -1,4 +1,4 @@
-/* $Id: tree_likelihoods.c,v 1.9 2004-09-10 16:36:46 acs Exp $
+/* $Id: tree_likelihoods.c,v 1.10 2004-10-31 04:26:50 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -39,7 +39,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
   int nstates = mod->rate_matrix->size;
   int alph_size = strlen(mod->rate_matrix->states); 
   int npasses = (mod->order > 0 && mod->use_conditionals == 1 ? 2 : 1); 
-  int pass, col_offset, k, nodeidx, rcat, /* colidx, */ tupleidx;
+  int pass, col_offset, k, nodeidx, rcat, /* colidx, */ tupleidx, defined;
   TreeNode *n;
   double total_prob, marg_tot;
   List *traversal;
@@ -102,12 +102,14 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
   if (mod->msa_seq_idx == NULL)
     tm_build_seq_idx(mod, msa);
 
-  /* set up prob matrices, if necessary */
-  for (i = 0; i < mod->tree->nnodes; i++) /* find a child node */
-    if (((TreeNode*)lst_get_ptr(mod->tree->nodes, i))->parent != NULL) break;  
-  assert(i < mod->tree->nnodes);
-  if (mod->P[i][0] == NULL)
-    tm_set_subst_matrices(mod);
+  /* set up prob matrices, if any are undefined */
+  for (i = 0, defined = TRUE; defined && i < mod->tree->nnodes; i++) {
+    if (((TreeNode*)lst_get_ptr(mod->tree->nodes, i))->parent == NULL) 
+      continue;  		/* skip root */
+    for (j = 0; j < mod->nratecats; j++)
+      if (mod->P[i][j] == NULL) defined = FALSE;
+  }
+  if (!defined) tm_set_subst_matrices(mod);
 
   if (col_scores != NULL) {
     tuple_scores = (double*)smalloc(msa->ss->ntuples * sizeof(double));
