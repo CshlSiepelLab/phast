@@ -2,8 +2,9 @@
 # this file defines variables used by all Makefiles
 ###########################################################################
 
-# currently set up for linux and GCC and Pentium III/IV processors.
-# Adjustments will be needed for other systems.
+# currently set up for linux and GCC and Pentium III/IV processors,
+# with options for Mac OS X.  Adjustments will be needed for other
+# systems.
 
 # set either environment variable PHAST or path below to top-level directory
 ifndef PHAST
@@ -23,6 +24,8 @@ TARGETLIB = ${LIB}/libphast.a
 #CFLAGS = -g -fno-inline -Wall -DGCC
 # for best performance
 CFLAGS = -mcpu=pentiumpro -O3 -DGCC -DGSL_RANGE_CHECK_OFF
+# use this instead for Mac OS X
+#CFLAGS = -O3 -DGCC -DGSL_RANGE_CHECK_OFF -Wno-long-double
 # for profiling
 #CFLAGS = -mcpu=pentiumpro -O3 -DGCC -pg -fprofile-arcs -DGSL_RANGE_CHECK_OFF
 # NOTE: add -g if profiling line-by-line, and -a if monitoring basic blocks
@@ -44,7 +47,7 @@ CLAPACKPATH = /projects/compbio/usr/acs/CLAPACK
 F2CPATH = ${CLAPACKPATH}/F2CLIBS
 
 # architecture-specific suffix used for CLAPACK libraries; acceptable
-# values include LINUX, SUN4SOL2, HPPA, ALPHA, OCTANE, RS6K
+# values include LINUX, SUN4SOL2, HPPA, ALPHA, OCTANE, RS6K, MACOSX
 ARCH = LINUX
 
 CFLAGS += -I${INC} -I${CLAPACKPATH}
