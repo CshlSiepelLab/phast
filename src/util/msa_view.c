@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: msa_view.c,v 1.2 2004-06-05 18:48:51 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -81,7 +81,7 @@ Options:\n\
         a representation of the induced global alignment will be\n\
         constructed (see --refseq).  Use --out-format SS with\n\
         --in-format MAF for best efficiency (explicit alignment is\n\
-        never created).  Also, use --unordered if possible.\n\
+        never created).  Also, use --unordered-ss if possible.\n\
 \n\
     --out-format, -o PHYLIP|FASTA|PSU|SS\n\
         (Default PHYLIP)  Output file format.\n\
@@ -96,7 +96,7 @@ Options:\n\
         terms of tuples of columns of the designated size.  Useful\n\
         with context-dependent phylogenetic models.\n\
 \n\
-    --unordered, -z\n\
+    --unordered-ss, -z\n\
         (For use with --out-format SS).  Suppress the portion of the\n\
         sufficient statistics concerned with the order in which\n\
         columns appear.  Useful for analyses for which order is\n\
@@ -136,7 +136,7 @@ Options:\n\
     --aggregate, -A <name_list>\n\
         (Incompatible with -i MAF) Create an aggregate alignment from\n\
         a set of alignment files, by concatenating individual\n\
-        alignments.  If used with --out-format SS and --unordered (and\n\
+        alignments.  If used with --out-format SS and --unordered-ss (and\n\
         without --start, --end, or --seqs), the aggregate\n\
         alignment will never be created explicitly (recommended for\n\
         large data sets).  The argument <name_list> must be a list of\n\
@@ -301,7 +301,7 @@ int main(int argc, char* argv[]) {
     {"out-format", 1, 0, 'o'},
     {"pretty", 0, 0, 'P'},
     {"tuple-size", 1, 0, 'T'},
-    {"unordered", 0, 0, 'z'},
+    {"unordered-ss", 0, 0, 'z'},
     {"features", 1, 0, 'g'},
     {"catmap", 1, 0, 'c'},
     {"cats-cycle", 1, 0, 'Y'},
