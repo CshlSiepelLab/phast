@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.6 2004-07-25 22:31:36 acs Exp $
+/* $Id: sufficient_stats.c,v 1.7 2004-07-25 22:51:29 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -1245,16 +1245,18 @@ void ss_unique(MSA *msa) {
     character (msa->missing[0]).  Optionally also convert gap
     characters.  Can be useful in reducing number of tuples */
 void ss_collapse_missing(MSA *msa, int do_gaps) {
-  int i, j, len = msa->nseqs * msa->ss->tuple_size;
+  int i, j, len = msa->nseqs * msa->ss->tuple_size, changed = FALSE;
   for (i = 0; i < msa->ss->ntuples; i++) {
     for (j = 0; j < len; j++) {
       char c = msa->ss->col_tuples[i][j];
       if (c != msa->missing[0] && 
           (msa->is_missing[(int)c] || 
-           (do_gaps && c == GAP_CHAR)))
+           (do_gaps && c == GAP_CHAR))) {
         msa->ss->col_tuples[i][j] = msa->missing[0];
+        if (!changed) changed = TRUE;
+      }
     }
   }
 
-  ss_unique(msa);
+  if (changed) ss_unique(msa);
 }

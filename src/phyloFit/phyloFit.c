@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.14 2004-07-24 17:55:46 acs Exp $
+   $Id: phyloFit.c,v 1.15 2004-07-25 22:51:29 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -1083,6 +1083,10 @@ int main(int argc, char *argv[]) {
           ss_from_msas(msa, mod->order+1, 0, 
                        cats_to_do_str != NULL ? cats_to_do : NULL, 
                        NULL, NULL, -1);
+
+        if (i == 0) ss_collapse_missing(msa, TRUE);
+                                /* reduce number of tuples as much as
+                                   possible */
 
         if (use_em)
           tm_fit_em(mod, msa, params, cat, precision, logf);
