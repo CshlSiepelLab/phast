@@ -784,8 +784,12 @@ int main(int argc, char *argv[]) {
      rates-cross) */
   if (min_inform_str != NULL) {
     List *l = cm_get_category_list(cm, min_inform_str, 0);
-    for (i = 0; i < lst_size(l); i++) 
-      phmm->mods[lst_get_int(l, i)]->min_informative = min_inform_bases;
+    for (i = 0; i < lst_size(l); i++) {
+      int modno = lst_get_int(l, i);
+      if (modno < 0 || modno >= phmm->nmods) 
+        die("ERROR: argument to --min-informative-types ");
+      phmm->mods[modno]->min_informative = min_inform_bases;
+    }
     lst_free(l);
   }        
 
