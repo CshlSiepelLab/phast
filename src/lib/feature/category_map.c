@@ -1,4 +1,4 @@
-/* $Id: category_map.c,v 1.8 2004-06-30 17:44:36 acs Exp $
+/* $Id: category_map.c,v 1.9 2004-06-30 19:27:08 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -702,17 +702,26 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm,
            and on the same strand, and map to the same type;
            therefore, the previous one should be extended rather than
            a new one created */
+
+        /* FIXME: frame stuff gets complicated if multiple shared types
+           have frame.  For now, assume frame information is recorded
+           for only one feature in each set of shared types; soon need
+           a simpler way to handle all of this (possibly just elim
+           feature-extend stuff from category map altogether) */
+        assert(feat->frame == GFF_NULL_FRAME || lastframe == GFF_NULL_FRAME);
+
         if (feat->strand == '-' && feat->frame != GFF_NULL_FRAME)
           feat->frame = (feat->frame + 2*(end - beg + 1)) % 3;
                                 /* to subtract x-y in mod-3 space, you
                                    can do (x + 3y - y) % 3 = (x + 2y) % 3; 
                                    it's a form of borrowing */
-        else if (feat->frame == GFF_NULL_FRAME && lastframe != GFF_NULL_FRAME) {
+        else if (lastframe != GFF_NULL_FRAME) {
           /* final feature should have frame if any of the component
              features has frame */
           if (feat->strand == '-') feat->frame = lastframe;
           else feat->frame = (lastframe + 2*(feat->end - feat->start + 1)) % 3;
         }
+          
         if (!str_equals(feat->feature, lst_get_ptr(shared_types, 0)))
           str_cpy(feat->feature, lst_get_ptr(shared_types, 0));
                                 /* set of overlaps possibly shrinking;

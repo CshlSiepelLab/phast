@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.17 2004-06-30 17:01:21 acs Exp $
+/* $Id: exoniphy.c,v 1.18 2004-06-30 19:27:08 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -23,6 +23,8 @@
 #define DEFAULT_SIGNAL_CATS "stop_codon,5'splice,3'splice,prestart"
                                 /* cat names that aren't present will
                                    be ignored */
+
+#define DEFAULT_FRAME_CATS "CDS"
 
 /* parameters controlling evaluation of Sn/Sp tradeoff (see -Y option) */
 #define SCALE_RANGE_MIN -20
@@ -93,8 +95,8 @@ OPTIONS:\n\
         Use specified string as prefix of generated ids in GFF output.\n\
         Can be used to ensure ids are unique.  Default is obtained\n\
         from input file name (single filename root, e.g., \"chr22.35\"\n\
-        if input file is \"chr22.35.ss\").
-
+        if input file is \"chr22.35.ss\").\n\
+\n\
     --grouptag, -g <tag>\n\
         Use specified string as the tag denoting groups in GFF output\n\
         (default is \"exon_id\").\n\
@@ -132,22 +134,25 @@ OPTIONS:\n\
         and %d different sets of predictions are produced.\n\
 \n\
  (Feature types)\n\
-    --cds-types, -C <list>\n\
-        Feature types that represent protein-coding regions (default\n\
-        value: \"%s\").  Used when scoring\n\
-        predictions and filling out 'frame' field in GFF output.\n\
-\n\
     --backgd-types, -B <list>\n\
         Feature types to be considered \"background\" (default value:\n\
         \"%s\").  Affects --reflect-strand, --score, and --bias.\n\
+\n\
+    --cds-types, -C <list>\n\
+        (for use with --score) Feature types that represent protein-coding\n\
+        regions (default value: \"%s\").\n\
 \n\
     --signal-types, -L <list>\n\
         (for use with --score) Types of features to be considered\n\
         \"signals\" during scoring (default value: \n\
         \"%s\").  One score is produced \n\
-        for each CDS feature (as defined by --cds-types) and \n\
-        adjacent signal features; the score is then assigned to\n\
+        for a CDS feature (as defined by --cds-types) and \n\
+        the adjacent signal features; the score is then assigned to\n\
         the CDS feature.\n\
+\n\
+    --frame-types, -F <list>\n\
+        Types of features for which to obtain frame information\n\
+        (default value: \"%s\").\n\
 \n\
  (Indels and G+C content)\n\
     --indels, -I\n\
@@ -184,7 +189,8 @@ REFERENCES:\n\
       evolutionarily conserved exons.  Proc. 8th Annual Int'l Conf.\n\
       on Research in Computational Biology (RECOMB '04), pp. 177-186.\n\n", 
            SCALE_RANGE_MIN, SCALE_RANGE_MAX, NSENS_SPEC_TRIES, 
-           DEFAULT_CDS_CATS, DEFAULT_BACKGD_CATS, DEFAULT_SIGNAL_CATS);
+           DEFAULT_CDS_CATS, DEFAULT_BACKGD_CATS, DEFAULT_SIGNAL_CATS,
+           DEFAULT_FRAME_CATS);
 }
 
 int main(int argc, char* argv[]) {
@@ -199,7 +205,8 @@ int main(int argc, char* argv[]) {
   List *model_fname_list = NULL, *no_gaps_str = NULL, *gc_thresholds = NULL;
   List *backgd_cats = get_arg_list(DEFAULT_BACKGD_CATS), 
     *cds_cats = get_arg_list(DEFAULT_CDS_CATS), 
-    *signal_cats = get_arg_list(DEFAULT_SIGNAL_CATS);
+    *signal_cats = get_arg_list(DEFAULT_SIGNAL_CATS),
+    *frame_cats = get_arg_list(DEFAULT_FRAME_CATS);
 
   struct option long_opts[] = {
     {"hmm", 1, 0, 'H'},
@@ -217,6 +224,7 @@ int main(int argc, char* argv[]) {
     {"cds-types", 1, 0, 'C'},
     {"backgd-types", 1, 0, 'B'},
     {"signal-types", 1, 0, 'L'},
+    {"frame-types", 1, 0, 'F'},
     {"indels", 0, 0, 'I'},
     {"no-gaps", 1, 0, 'W'},
     {"gc-ranges", 1, 0, 'D'},
@@ -238,7 +246,7 @@ int main(int argc, char* argv[]) {
   char tmpstr[STR_LONG_LEN];
   String *fname_str = str_new(STR_LONG_LEN), *str;
 
-  while ((c = getopt_long(argc, argv, "i:c:H:m:s:p:g:B:T:L:IW:b:D:xSYUhq", 
+  while ((c = getopt_long(argc, argv, "i:c:H:m:s:p:g:B:T:L:F:IW:b:D:xSYUhq", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
@@ -271,6 +279,10 @@ int main(int argc, char* argv[]) {
     case 'L':
       lst_free_strings(signal_cats); lst_free(signal_cats); /* free defaults */
       signal_cats = get_arg_list(optarg);
+      break;
+    case 'F':
+      lst_free_strings(frame_cats); lst_free(frame_cats); /* free defaults */
+      frame_cats = get_arg_list(optarg);
       break;
     case 'S':
       score = TRUE;
@@ -462,7 +474,7 @@ int main(int argc, char* argv[]) {
     if (!quiet)
       fprintf(stderr, "Executing Viterbi algorithm...\n");
     predictions = phmm_predict_viterbi(phmm, seqname, grouptag, idpref,
-                                       cds_cats);
+                                       frame_cats);
 
     /* score predictions */
     if (score) {
