@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.6 2004-06-14 22:52:16 acs Exp $
+/* $Id: msa_view.c,v 1.7 2004-06-15 22:33:58 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -64,27 +64,20 @@ Options:\n\
         subtracted (via --seqs and --exclude).  Default is not to\n\
         strip any columns.\n\
 \n\
-    --in-format, -i PHYLIP|FASTA|PSU|SS|LAV|MAF\n\
-        (Default PHYLIP) Input file format.  PHYLIP and FASTA are\n\
-        standard, commonly used alignment formats.  PSU is the \"raw\n\
-        text\" format used by several older tools developed by Webb Miller\n\
-        and colleagues at Penn. State University.  SS is a more or\n\
-        less self-explanatory representation of a multiple alignment\n\
-        in terms of its sufficient statistics for phylogenetic\n\
-        analysis.  LAV is the format used by the BLASTZ program for\n\
-        local pairwise alignments.  If it is selected, the alignment\n\
-        will be treated like a global alignment, with unaligned\n\
-        portions of the target sequence replaced by gaps.  The\n\
-        original sequence text must be accessible via the filenames and\n\
-        path specified in the LAV file.  MAF is a format for (local)\n\
-        multiple alignments developed by Jim Kent.  If it is selected,\n\
-        a representation of the induced global alignment will be\n\
-        constructed (see --refseq).  Use --out-format SS with\n\
+    --in-format, -i PHYLIP|FASTA|MPM|MAF|SS\n\
+        (Default FASTA) Input file format.  FASTA is as usual.  PHYLIP\n\
+        is compatible with the formats used in the PHYLIP and PAML\n\
+        packages.  MPM is the format used by the MultiPipMaker aligner\n\
+        and some other of Webb Miller's older tools.  MAF (\"Multiple\n\
+        Alignment Format\") is used by MULTIZ/TBA and the UCSC Genome\n\
+        Browser.  SS is a simple format describing the sufficient\n\
+        statistics for phylogenetic inference (distinct columns or\n\
+        tuple of columns and their counts).  Use --out-format SS with\n\
         --in-format MAF for best efficiency (explicit alignment is\n\
         never created).  Also, use --unordered-ss if possible.\n\
 \n\
-    --out-format, -o PHYLIP|FASTA|PSU|SS\n\
-        (Default PHYLIP)  Output file format.\n\
+    --out-format, -o PHYLIP|FASTA|MPM|SS\n\
+        (Default FASTA)  Output file format.\n\
 \n\
     --pretty, -P\n\
         Pretty-print alignment (use '.' when character matches\n\
@@ -108,10 +101,11 @@ Options:\n\
         accordingly.  Useful for alignment representations that\n\
         consider site categories (currently only supported with SS).\n\
 \n\
-    --catmap, -c <cmap_fname>\n\
-        (For use with --features) File defining mapping from feature\n\
-        types to category numbers.  See documentation in\n\
-        msa/category_map.c.\n\
+    --catmap, -c <fname>|<string>\n\
+        (optionally use with --features) Mapping of feature types to\n\
+        category numbers.  Can either give a filename or an \"inline\"\n\
+        description of a simple category map, e.g., --catmap \"NCATS =\n\
+        3 ; CDS 1-3\" or --catmap \"NCATS = 1 ; UTR 1\".\n\
 \n\
     --cats-cycle, -Y <cycle_size>\n\
         (alternative to --features and --catmap) Assign site categories in\n\
@@ -184,12 +178,12 @@ Options:\n\
     --reverse-complement, -V\n\
         Reverse complement output alignment.\n\
 \n\
-    --reverse-groups, -? <tag>\n\
+    --reverse-groups, -W <tag>\n\
         (For use with --features) Group features by <tag> (e.g.,\n\
         \"transcript_id\" or \"exon_id\") and reverse complement\n\
         segments of the alignment corresponding to groups on the\n\
         reverse strand.  Groups must be non-overlapping (see refeature\n\
-        --unique).  Useful when extracting sufficient statistics for
+        --unique).  Useful when extracting sufficient statistics for\n\
         strand-specific site categories (e.g., codon positions).\n\
 \n\
     --clean-coding, -L <seqname>\n\
@@ -282,10 +276,10 @@ void fill_with_Ns(MSA *msa, List *fill_N_list, msa_coord_map *map) {
 
 int main(int argc, char* argv[]) {
   MSA *msa = NULL, *sub_msa = NULL;
-  msa_format_type input_format = PHYLIP, output_format = PHYLIP;
+  msa_format_type input_format = FASTA, output_format = FASTA;
   List *l = NULL;
-  char *infname = NULL, *seqlist = NULL, *gff_fname = NULL, 
-    *cat_map_fname = NULL, *clean_seqname = NULL, *rseq_fname = NULL,
+  char *infname = NULL, *seqlist = NULL, 
+    *clean_seqname = NULL, *rseq_fname = NULL,
     *reverse_groups_tag = NULL;
   int i, opt_idx, startcol = 1, endcol = -1, include = 1, gap_strip_mode = NO_STRIP,
     pretty_print = 0, refseq = 0, tuple_size = 1, 
@@ -296,6 +290,8 @@ int main(int argc, char* argv[]) {
   List *cats_to_do = NULL, *aggregate_list = NULL, *msa_fname_list = NULL, 
     *order_list = NULL, *fill_N_list = NULL;
   msa_coord_map *map = NULL;
+  GFF_Set *gff = NULL;
+  CategoryMap *cm = NULL;
 
   struct option long_opts[] = {
     {"start", 1, 0, 's'},
@@ -335,15 +331,8 @@ int main(int argc, char* argv[]) {
       infname = optarg;
       break;
     case 'i':
-      if (!strcmp(optarg, "PSU")) input_format = PSU;
-      else if (!strcmp(optarg, "FASTA")) input_format = FASTA;
-      else if (!strcmp(optarg, "SS")) input_format = SS;
-      else if (!strcmp(optarg, "LAV")) input_format = LAV;
-      else if (!strcmp(optarg, "MAF")) input_format = MAF;
-      else if (strcmp(optarg, "PHYLIP") != 0) { 
-        fprintf(stderr, "Bad input format.  Try 'msa_view -h' for help.\n");
-        exit(1); 
-      }
+      input_format = msa_str_to_format(optarg);
+      if (input_format == -1) die("ERROR: bad input format.  Try 'msa_view -h' for help.\n");
       break;
     case 's':
       startcol = atoi(optarg);
@@ -363,13 +352,8 @@ int main(int argc, char* argv[]) {
       else gap_strip_mode = atoi(optarg);
       break;
     case 'o':
-      if (!strcmp(optarg, "FASTA")) output_format = FASTA;
-      else if (!strcmp(optarg, "PSU")) output_format = PSU;
-      else if (!strcmp(optarg, "SS")) output_format = SS;
-      else if (strcmp(optarg, "PHYLIP") != 0) { 
-        fprintf(stderr, "Bad output format.  Try 'msa_view -h' for help.\n");
-        exit(11); 
-      }
+      output_format = msa_str_to_format(optarg);
+      if (output_format == -1) die("ERROR: bad output format.  Try 'msa_view -h' for help.\n");
       break;
     case 'r':
       refseq = atoi(optarg);
@@ -381,10 +365,10 @@ int main(int argc, char* argv[]) {
       aggregate_list = get_arg_list(optarg);
       break;
     case 'g':
-      gff_fname = optarg;
+      gff = gff_read_set(fopen_fname(optarg, "r"));
       break;
     case 'c':
-      cat_map_fname = optarg;
+      cm = cm_new_string_or_file(optarg);
       break;
     case 'P':
       pretty_print = 1;
@@ -464,11 +448,6 @@ int main(int argc, char* argv[]) {
   }
   else infname = argv[optind];
 
-  if (gff_fname != NULL && cat_map_fname == NULL) {
-    fprintf(stderr, "ERROR: --catmap required with --features.\n");
-    exit(1);
-  }
-
   if (aggregate_list != NULL) {
     msa_fname_list = get_arg_list(infname);
 
@@ -501,14 +480,8 @@ int main(int argc, char* argv[]) {
 
   else if (input_format == MAF) {
     FILE *RSEQF = NULL;
-    GFF_Set *gff = NULL;
-    CategoryMap *cm = NULL;
 
     if (rseq_fname != NULL) RSEQF = fopen_fname(rseq_fname, "r");
-    if (gff_fname != NULL) {
-      gff = gff_read_set(fopen_fname(gff_fname, "r"));
-      cm = cm_read_from_fname(cat_map_fname);
-    }
 
     if (output_format == SS && RSEQF == NULL && ordered_stats == 1 && 
         gff == NULL && startcol == 1 && endcol == -1)
@@ -572,17 +545,11 @@ int main(int argc, char* argv[]) {
   /* fill with Ns, if necessary */
   if (fill_N_list != NULL) fill_with_Ns(msa, fill_N_list, map);
 
+  if (gff != NULL && cm == NULL) 
+    cm = cm_new_from_features(gff);
+
   /* read annotations and label columns, if necessary */
-  if (gff_fname != NULL && input_format != MAF) {
-    GFF_Set *gff = gff_read_set(fopen_fname(gff_fname, "r"));
-    CategoryMap *cm;
-
-    if (cat_map_fname == NULL) {
-      fprintf(stderr, "ERROR: --catmap required with --features.\n");
-      exit(1);
-    }
-    cm = cm_read_from_fname(cat_map_fname);
-
+  if (gff != NULL && input_format != MAF) {
     if (input_format == SS || input_format == MAF || aggregate_list != NULL) {
       if (msa->ss->tuple_idx == NULL) {
         fprintf(stderr, "ERROR: ordered representation of alignment required with --features.\n");
@@ -605,9 +572,6 @@ int main(int argc, char* argv[]) {
 
     /* label categories */
     msa_label_categories(msa, gff, cm);
-
-    gff_free_set(gff);
-    cm_free(cm);
   }
   else if (cycle_size > 0 && clean_seqname == NULL && !cats_done) {
     msa->categories = (int*)smalloc(msa->length * sizeof(int));
@@ -648,7 +612,7 @@ int main(int argc, char* argv[]) {
     }
 
     /* in this case, assign categories *after* cleaning */
-    if (cds_mode && gff_fname == NULL) {
+    if (cds_mode && gff == NULL) {
       sub_msa->categories = (int*)smalloc(sub_msa->length * sizeof(int));
       sub_msa->ncats = 3;
       for (i = 0; i < sub_msa->length; i++)
@@ -680,7 +644,7 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  if (gff_fname == NULL && reverse_compl) {
+  if (gff == NULL && reverse_compl) {
     if (msa->seqs == NULL && msa->ss->tuple_idx == NULL) {
       fprintf(stderr, "ERROR: an ordered representation of the alignment is required to\nreverse complement.\n");
       exit(1);

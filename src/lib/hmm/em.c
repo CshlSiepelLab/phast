@@ -1,4 +1,4 @@
-/* $Id: em.c,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: em.c,v 1.2 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -202,7 +202,7 @@ void estimate_state_models_phyhmm(void **models, int nmodels, void *data,
 /*                               tm->order+1, k); */
                                 /* need to reestimate background
                                    freqs, using new category counts */
-    tm_fit(tm, pmsa->pooled_msa, params, k, -1, OPT_HIGH_PREC, NULL);
+    tm_fit(tm, pmsa->pooled_msa, params, k, OPT_HIGH_PREC, NULL);
                                 /* FIXME: should use analytical gradients */
     gsl_vector_free(params); 
   }

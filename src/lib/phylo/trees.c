@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.2 2004-06-06 03:22:00 acs Exp $ 
+/* $Id: trees.c,v 1.3 2004-06-15 22:33:57 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -75,24 +75,23 @@ TreeNode *parse_nh_from_file(FILE *f) {
   if (s->chars[s->length-1] == ';') 
     s->chars[--s->length] = '\0';
 
-  retval = parse_nh_from_string(s);
+  retval = parse_nh_from_string(s->chars);
   str_free(s);
   return retval;
 }
 
 /** Parse a single New Hampshire-formatted tree from a string */
-TreeNode *parse_nh_from_string(String *s) { 
+TreeNode *parse_nh_from_string(char *treestr) { 
   char diststr[STR_SHORT_LEN];
   TreeNode *root, *node, *newnode;
-  int i, in_distance = 0;
+  int i, in_distance = 0, len = strlen(treestr);
   char c;
   char *currentname = NULL;
-  char *treestr = s->chars;
 
   idcounter = 0;                /* start at 0 for each tree */
   root = new_tree_node(); root->nnodes = 1;
   node = root;
-  for (i = 0; i < strlen(treestr); i++) {
+  for (i = 0; i < len; i++) {
     c = treestr[i];
 
     if (in_distance) {

@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.12 2004-06-14 22:52:16 acs Exp $
+/* $Id: clean_genes.c,v 1.13 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -122,8 +122,8 @@ OPTIONS:        \n\
         \"exon_id\" to indicate exons (see the program \"refeature\"),\n\
         and then invoke clean_genes with \"--groupby exon_id\".\n\
 \n\
-    --msa-format, -i PHYLIP|FASTA|PSU|SS|LAV|MAF\n\
-        (Default PHYLIP) Alignment file format. \n\
+    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS\n\
+        (Default SS) Alignment file format. \n\
 \n\
     --refseq, -r <seqfile.fa>\n\
         (Required with --msa-format MAF)  Complete reference \n\
@@ -898,7 +898,7 @@ int main(int argc, char *argv[]) {
   char c;
   MSA *msa;
   GFF_Set *gff;
-  msa_format_type msa_format = PHYLIP;
+  msa_format_type msa_format = SS;
   List *keepers, *badfeats = lst_new_ptr(10), *failure_types = lst_new_int(10),
     *ends_adjusted = lst_new_ptr(1), *starts_adjusted = lst_new_ptr(1), 
     *discards, *intron_splice = lst_new_ptr(10);
@@ -971,15 +971,8 @@ int main(int argc, char *argv[]) {
       groupby = optarg;
       break;
     case 'i':
-      if (!strcmp(optarg, "PSU")) msa_format = PSU;
-      else if (!strcmp(optarg, "FASTA")) msa_format = FASTA;
-      else if (!strcmp(optarg, "SS")) msa_format = SS;
-      else if (!strcmp(optarg, "LAV")) msa_format = LAV;
-      else if (!strcmp(optarg, "MAF")) msa_format = MAF;
-      else if (strcmp(optarg, "PHYLIP") != 0) { 
-        fprintf(stderr, "Bad alignment format.\n");
-        exit(1); 
-      }
+      msa_format = msa_str_to_format(optarg);
+      if (msa_format == -1) die("Bad alignment format.\n");
       break;
     case 'r':
       rseq_fname = optarg;

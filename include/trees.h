@@ -1,4 +1,4 @@
-/* $Id: trees.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: trees.h,v 1.2 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -53,7 +53,7 @@ struct tree_node {
 };
 
 TreeNode *parse_nh_from_file(FILE *f);
-TreeNode *parse_nh_from_string(String *s);
+TreeNode *parse_nh_from_string(char *s);
 TreeNode *new_tree_node();
 void addchild(TreeNode *parent, TreeNode *child);
 void print_tree(FILE* f, TreeNode *root, int show_branch_lengths);

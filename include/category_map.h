@@ -1,4 +1,4 @@
-/* $Id: category_map.h,v 1.4 2004-06-14 16:40:34 acs Exp $
+/* $Id: category_map.h,v 1.5 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -170,6 +170,10 @@ CategoryMap *cm_new(int new_ncats);
 CategoryMap *cm_create_copy(CategoryMap *src);
 
 CategoryMap* cm_create_trivial(int ncats, char *feature_prefix);
+
+CategoryMap* cm_new_from_features(GFF_Set *feats);
+
+CategoryMap* cm_new_string_or_file(char *optarg);
 
 void cm_realloc(CategoryMap *cm, int ncats);
 

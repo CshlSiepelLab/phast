@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.3 2004-06-11 05:58:51 acs Exp $
+/* $Id: tree_model.h,v 1.4 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -50,9 +50,6 @@ struct tm_struct {
   MSA *msa;                     /* (optional) MSA from which TreeModel
                                    was estimated; for use in tm_fit */
   int category;                 /* (optional) site category in MSA or -1 */
-  int max_samples;              /* (optional) maximum number of
-                                   columns on which to base estimate
-                                   of tree */
   int order;
   double alpha;                 /* for gamma or discrete-gamma rate
                                    variation; set to 0 for constant rate */
@@ -61,10 +58,6 @@ struct tm_struct {
   struct tp_struct *tree_posteriors; 
                                 /* (optional) associated
                                    TreePosteriors object */
-  struct tp_struct *tree_posteriors_marg;
-                                /* (optional) secondary tree
-                                   posteriors object, for use with
-                                   conditional models */
   int use_conditionals;         /* (optional) compute likelihood using
                                    conditional probabilities at each
                                    column; only relevant when order >
@@ -95,7 +88,6 @@ struct tm_struct {
   int empirical_rates;          /* indicates "empirical"
                                    (nonparameteric) model for
                                    rate-variation */
-  int rates_disabled;           /* rate variation temporarily disabled */
 };
 
 typedef struct tm_struct TreeModel;
@@ -105,34 +97,58 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
                   gsl_vector *backgd_freqs, subst_mod_type subst_mod, 
                   char *alphabet, int nratecats, double alpha,
                   List *rate_consts, int root_leaf_id);
+
 void tm_reinit(TreeModel *tm, subst_mod_type subst_mod,
                int new_nratecats, double new_alpha, 
                List *new_rate_consts, List *new_rate_weights);
+
 TreeModel *tm_new_from_file(FILE *F);
+
 void tm_init_rmp(TreeModel *tm);
+
 void tm_free_rmp(TreeModel *tm);
+
 void tm_free(TreeModel *tm);
+
 void tm_print(FILE *F, TreeModel *tm);
+
 void tm_cpy(TreeModel *dest, TreeModel *src);
+
 TreeModel *tm_create_copy(TreeModel *src);
+
 void tm_set_subst_matrices(TreeModel *tm);
+
 void tm_scale(TreeModel *tm, double scale_const, int reset_subst_mats);
+
 int tm_fit(TreeModel *mod, MSA *msa, gsl_vector *params, int cat, 
-           int max_samples, opt_precision_type precision, FILE *logf);
+           opt_precision_type precision, FILE *logf);
+
 void tm_unpack_params(TreeModel *mod, gsl_vector *params, int idx_offset);
+
 double tm_scale_rate_matrix(TreeModel *mod);
+
 void tm_scale_params(TreeModel *mod, gsl_vector *params, double scale_factor);
+
 gsl_vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
                            double alpha);
+
 gsl_vector *tm_params_init_random(TreeModel *mod);
+
 gsl_vector *tm_params_init_from_model(TreeModel *mod);
+
 int tm_get_nparams(TreeModel *mod);
+
 int tm_get_neqfreqparams(TreeModel *mod);
+
 int tm_get_nratevarparams(TreeModel *mod);
+
 int tm_is_reversible(int subst_mod);
+
 int tm_get_nbranchlenparams(TreeModel *mod);
+
 MSA *tm_generate_msa(int ncolumns, MarkovMatrix *classmat, 
                      TreeModel **classmods, int *labels);
+
 TreeModel *tm_induced_aa(TreeModel *codon_mod);
 
 #endif

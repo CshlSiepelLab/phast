@@ -12,200 +12,200 @@
 
 void usage(char *prog) {
   printf("\n\
-PROGRAM:     %s
-
-DESCRIPTION: Identify conserved elements or produce conservation
-             scores (posterior probabilities of conserved states),
-             given a multiple alignment and a phylo-HMM.  The
-             state-transition structure of the phylo-HMM may be
-             specified explicitly (see --hmm) or implicitly (see
-             --rates-cross and --rates-cut).  Phylogenetic models
-             (*.mod files) must be provided in either case (they can
-             be produced with 'phyloFit').  By default, the posterior
-             probability of the selected states in the HMM (see
-             --states) is written to stdout in a simple two-column
-             format (position and probability, tab separated).
-             Prediction of discrete elements using the Viterbi
-             algorithm is available via the --viterbi option.
-             Predicted elements may optionally be assigned log-odds
-             scores based on the model (see --score).
-
-             This program is written in a general enough way that it
-             can be useful for other things besides analyzing rates of
-             substitution and evolutionary conservation.  E.g., by
-             giving it a simple gene-finding phylo-HMM (e.g., with a
-             state for non-coding regions and three states for the
-             three codon positions), and specifying the coding states
-             with --states, you can obtain a \"coding potential\"
-             score, or even a set of crude exon predictions (using
-             --viterbi).  (The program 'exoniphy' is a more
-             full-featured exon predictor.)
-
-USAGE:       %s [OPTIONS] <msa_fname> <mod_fname_list>
-
-             <mod_fname_list> must be a comma- or whitespace-
-             delimited list of *.mod files, as produced by 'phyloFit';
-             <msa_fname> should be the name of the multiple alignment
-             file, which can use any of several possible file formats
-             (see --msa-format).
-
-OPTIONS:
-
-    --states, -S <state_list>
-        States of interest in the phylo-HMM, specified by number
-        (indexing starts with 1).  Default value is 1.
-        This option defines the meaning of the program's output.  For
-        example, --states \"1,2,3\" causes output of the sum of the
-        posterior probabilities for states 1, 2, and 3, and/or of
-        regions in which the Viterbi path coincides with (any of)
-        states 1, 2, or 3 (see --viterbi).
-
-    --hmm, -H <hmm_fname>
-        Name of HMM file, explicitly defining the probabilities of all
-        state transitions.  States in the file must correspond in
-        number and order to phylogenetic models in <mod_fname_list>.
-        Expected file format is as produced by 'hmm_train.'
-
-    --viterbi, -V <fname>
-        Compute the Viterbi (maximum likelihood) path and write
-        start and end coordinates of predicted elements to specified
-        file.  Output is in BED format, unless <fname> has suffix
-        \".gff\", in which case output is in GFF.  The features
-        output will represent maximal segments in which the Viterbi
-        path remains in the selected set of states (see --states).
-
-    --lnl, -L <fname>
-        Compute total log likelihood using the forward algorithm and
-        write it to the specified file.
-
-    --no-post-probs, -n
-        Suppress output of posterior probabilities.  Useful if only
-        Viterbi path or likelihood is of interest (saves computation
-        time and disk space).
-
-    --msa-format, -i PHYLIP|FASTA|PSU|SS|LAV|MAF
-        (Default SS) Alignment file format.
-
-    --rates-cross, -X 
-        (Alternative to --hmm; specify only one *.mod file with this
-        option) Create and use an HMM with a state for every rate
-        category in the given phylogenetic model, and transition
-        probabilities defined by an autocorrelation parameter lambda
-        (as described by Felsenstein and Churchill, 1996).  A rate
-        constant for each state (rate category) will be multiplied by
-        the branch lengths of the phylogenetic model, to create a
-        \"scaled\" version of the model for that state.  If the
-        phylogenetic model was estimated using Yang's discrete gamma
-        method (-k option to phyloFit), then the rate constants will
-        be defined according to the estimated shape parameter 'alpha',
-        as described by Yang (1994).  Otherwise, a nonparameteric
-        model of rate variation must have been used (-K option to
-        phyloFit), and the rate constants will be as defined
-        (explicitly) in the *.mod file.  By default, the parameter
-        lambda will be estimated by maximum likelihood (see --lambda).
-
-    --lambda, -l <lambda>
-        (Optionally use with --rates-cross) Fix lambda at the
-        specified value rather than estimating it by maximum likelihood.
-        Allowable range is 0-1.  With k rate categories, the
-        transition probability between state i and state j will be
-        lambda * I(i == j) + (1-lambda)/k, where I is the indicator
-        function.  Thus, lambda = 0 implies no autocorrelation and
-        lambda = 1 implies perfect autocorrelation.
-
-    --rates-cut, -c <cut_idx>
-        (Alternative to --hmm and --rates-cross; specify only one
-        phylogenetic model) Define a simple HMM with a conserved state
-        (state 1) and a non-conserved state (state 2), such that the
-        conserved state is defined by rate categories 1-<cut_idx> from
-        the specified *.mod file, and the non-conserved state is
-        defined by the remaining rate categories.  The *.mod file must
-        allow for rate variation, via either the discrete gamma 
-        (-k option to phyloFit) or non-parametric (-K option) method.
-        The new phylogenetic model associated with each state will be
-        a mixture model of rates, whose (unnormalized) mixing
-        proportions are given by the *.mod file, either implicitly
-        (discrete gamma case) or explicitly (non-parameteric case).
-        The transition probabilities of the HMM will be estimated by
-        maximum likelihood.
-
-    --cut-params, -p <p>,<q>
-        (Optionally use with --rates-cut) Fix the transition
-        probabilities of the HMM at the specified values, rather than
-        estimating them by maximum likelihood.  Here, <p> is the
-        probability of transitioning from the conserved to the
-        non-conserved state, and <q> is the probability of the reverse
-        transition (probabilities of self transitions are thus 1-<p>
-        and 1-<q>).
-
-    --nrates, -k <nrates>
-        (Optionally use with --rates-cross or --rates-cut and a
-        discrete-gamma model) Assume the specified number of rate
-        categories, instead of the number given in the *.mod file.
-        The shape parameter 'alpha' will be as given in the *.mod file.
-
-    --log, -g <log_fname>
-        (Optionally use with --rates-cross or --rates-cut) Write log
-        of optimization procedure to specified file.
-
-    --refidx, -r <refseq_idx> 
-        Use coordinate frame of specified sequence (the value 0
-        indicates the frame of the entire multiple alignment).
-        Default value is 1 (first sequence assumed reference).
-
-    --suppress-missing, -x 
-        Suppress posterior probabilities where cross-species alignment
-        data does not appear to be available.  The heuristic used is
-        to consider blocks of %d or more sites in which only the
-        reference sequence is present (as determined by --refidx) to
-        be regions of \"missing data\".
-
-    --reflect-strand, -U <pivot_states>
-        (Optionally use with --hmm) Given an HMM describing the
-        forward strand, create a larger HMM that allows for features
-        on both strands by \"reflecting\" the original HMM about the
-        specified \"pivot\" states.  The new HMM will be used for
-        prediction on both strands.  For example, suppose you use -hmm
-        to specify a four-state gene-finding HMM (state 1 noncoding,
-        states 2, 3, and 4 coding).  You can use --reflect-strand 1 to
-        dynamically create a new HMM with two versions of states 2, 3,
-        and 4, one for each strand, and with appropriately defined
-        transition probabilities.  Then you can use --states 2,3,4 to
-        obtain posterior probabilities and/or a Viterbi path
-        describing coding regions on either strand.
-
-    --seqname, -N <name>
-        (Optionally use with --viterbi) Use specified string for
-        'seqname' (GFF) or 'chrom' field in output file.  By default,
-        the filename root of <msa_fname> will be used.
-
-    --score, -s
-        (Optionally use with --viterbi) Assign a log-odds score to
-        each predictions, equal to the log total probability of the
-        region in question under the portion of the model defined by
-        --states minus its log total probability under the remainder
-        of the model.  To compute these scores, the states of the
-        model are partitioned and transition probabilities are
-        re-normalized.
-
-    --quiet, -q 
-        Proceed quietly (without updates to stderr).
-
-    --help, -h
-        Print this help message.
-
-
-REFERENCES:
-
-    J. Felsenstein and G. Churchill.  1996. A hidden Markov model
-      approach to variation among sites in rate of evolution. 
-      Mol. Biol. Evol., 13:93-104. 
-
-    A. Siepel and D. Haussler.  2003.  Combining phylogenetic and
-      hidden Markov models in biosequence analysis.  RECOMB '03.
-
-    Z. Yang. 1994. Maximum likelihood phylogenetic estimation from
-      DNA sequences with variable rates over sites: approximate
+PROGRAM:     %s\n\
+\n\
+DESCRIPTION: Identify conserved elements or produce conservation\n\
+             scores (posterior probabilities of conserved states),\n\
+             given a multiple alignment and a phylo-HMM.  The\n\
+             state-transition structure of the phylo-HMM may be\n\
+             specified explicitly (see --hmm) or implicitly (see\n\
+             --rates-cross and --rates-cut).  Phylogenetic models\n\
+             (*.mod files) must be provided in either case (they can\n\
+             be produced with 'phyloFit').  By default, the posterior\n\
+             probability of the selected states in the HMM (see\n\
+             --states) is written to stdout in a simple two-column\n\
+             format (position and probability, tab separated).\n\
+             Prediction of discrete elements using the Viterbi\n\
+             algorithm is available via the --viterbi option.\n\
+             Predicted elements may optionally be assigned log-odds\n\
+             scores based on the model (see --score).\n\
+\n\
+             This program is written in a general enough way that it\n\
+             can be useful for other things besides analyzing rates of\n\
+             substitution and evolutionary conservation.  E.g., by\n\
+             giving it a simple gene-finding phylo-HMM (e.g., with a\n\
+             state for non-coding regions and three states for the\n\
+             three codon positions), and specifying the coding states\n\
+             with --states, you can obtain a \"coding potential\"\n\
+             score, or even a set of crude exon predictions (using\n\
+             --viterbi).  (The program 'exoniphy' is a more\n\
+             full-featured exon predictor.)\n\
+\n\
+USAGE:       %s [OPTIONS] <msa_fname> <mod_fname_list>\n\
+\n\
+             <mod_fname_list> must be a comma- or whitespace-\n\
+             delimited list of *.mod files, as produced by 'phyloFit';\n\
+             <msa_fname> should be the name of the multiple alignment\n\
+             file, which can use any of several possible file formats\n\
+             (see --msa-format).\n\
+\n\
+OPTIONS:\n\
+\n\
+    --states, -S <state_list>\n\
+        States of interest in the phylo-HMM, specified by number\n\
+        (indexing starts with 1).  Default value is 1.\n\
+        This option defines the meaning of the program's output.  For\n\
+        example, --states \"1,2,3\" causes output of the sum of the\n\
+        posterior probabilities for states 1, 2, and 3, and/or of\n\
+        regions in which the Viterbi path coincides with (any of)\n\
+        states 1, 2, or 3 (see --viterbi).\n\
+\n\
+    --hmm, -H <hmm_fname>\n\
+        Name of HMM file, explicitly defining the probabilities of all\n\
+        state transitions.  States in the file must correspond in\n\
+        number and order to phylogenetic models in <mod_fname_list>.\n\
+        Expected file format is as produced by 'hmm_train.'\n\
+\n\
+    --viterbi, -V <fname>\n\
+        Compute the Viterbi (maximum likelihood) path and write\n\
+        start and end coordinates of predicted elements to specified\n\
+        file.  Output is in BED format, unless <fname> has suffix\n\
+        \".gff\", in which case output is in GFF.  The features\n\
+        output will represent maximal segments in which the Viterbi\n\
+        path remains in the selected set of states (see --states).\n\
+\n\
+    --lnl, -L <fname>\n\
+        Compute total log likelihood using the forward algorithm and\n\
+        write it to the specified file.\n\
+\n\
+    --no-post-probs, -n\n\
+        Suppress output of posterior probabilities.  Useful if only\n\
+        Viterbi path or likelihood is of interest (saves computation\n\
+        time and disk space).\n\
+\n\
+    --msa-format, -i PHYLIP|FASTA|MPM|SS|MAF\n\
+        (Default SS) Alignment file format.\n\
+\n\
+    --rates-cross, -X \n\
+        (Alternative to --hmm; specify only one *.mod file with this\n\
+        option) Create and use an HMM with a state for every rate\n\
+        category in the given phylogenetic model, and transition\n\
+        probabilities defined by an autocorrelation parameter lambda\n\
+        (as described by Felsenstein and Churchill, 1996).  A rate\n\
+        constant for each state (rate category) will be multiplied by\n\
+        the branch lengths of the phylogenetic model, to create a\n\
+        \"scaled\" version of the model for that state.  If the\n\
+        phylogenetic model was estimated using Yang's discrete gamma\n\
+        method (-k option to phyloFit), then the rate constants will\n\
+        be defined according to the estimated shape parameter 'alpha',\n\
+        as described by Yang (1994).  Otherwise, a nonparameteric\n\
+        model of rate variation must have been used (-K option to\n\
+        phyloFit), and the rate constants will be as defined\n\
+        (explicitly) in the *.mod file.  By default, the parameter\n\
+        lambda will be estimated by maximum likelihood (see --lambda).\n\
+\n\
+    --lambda, -l <lambda>\n\
+        (Optionally use with --rates-cross) Fix lambda at the\n\
+        specified value rather than estimating it by maximum likelihood.\n\
+        Allowable range is 0-1.  With k rate categories, the\n\
+        transition probability between state i and state j will be\n\
+        lambda * I(i == j) + (1-lambda)/k, where I is the indicator\n\
+        function.  Thus, lambda = 0 implies no autocorrelation and\n\
+        lambda = 1 implies perfect autocorrelation.\n\
+\n\
+    --rates-cut, -c <cut_idx>\n\
+        (Alternative to --hmm and --rates-cross; specify only one\n\
+        phylogenetic model) Define a simple HMM with a conserved state\n\
+        (state 1) and a non-conserved state (state 2), such that the\n\
+        conserved state is defined by rate categories 1-<cut_idx> from\n\
+        the specified *.mod file, and the non-conserved state is\n\
+        defined by the remaining rate categories.  The *.mod file must\n\
+        allow for rate variation, via either the discrete gamma \n\
+        (-k option to phyloFit) or non-parametric (-K option) method.\n\
+        The new phylogenetic model associated with each state will be\n\
+        a mixture model of rates, whose (unnormalized) mixing\n\
+        proportions are given by the *.mod file, either implicitly\n\
+        (discrete gamma case) or explicitly (non-parameteric case).\n\
+        The transition probabilities of the HMM will be estimated by\n\
+        maximum likelihood.\n\
+\n\
+    --cut-params, -p <p>,<q>\n\
+        (Optionally use with --rates-cut) Fix the transition\n\
+        probabilities of the HMM at the specified values, rather than\n\
+        estimating them by maximum likelihood.  Here, <p> is the\n\
+        probability of transitioning from the conserved to the\n\
+        non-conserved state, and <q> is the probability of the reverse\n\
+        transition (probabilities of self transitions are thus 1-<p>\n\
+        and 1-<q>).\n\
+\n\
+    --nrates, -k <nrates>\n\
+        (Optionally use with --rates-cross or --rates-cut and a\n\
+        discrete-gamma model) Assume the specified number of rate\n\
+        categories, instead of the number given in the *.mod file.\n\
+        The shape parameter 'alpha' will be as given in the *.mod file.\n\
+\n\
+    --log, -g <log_fname>\n\
+        (Optionally use with --rates-cross or --rates-cut) Write log\n\
+        of optimization procedure to specified file.\n\
+\n\
+    --refidx, -r <refseq_idx> \n\
+        Use coordinate frame of specified sequence (the value 0\n\
+        indicates the frame of the entire multiple alignment).\n\
+        Default value is 1 (first sequence assumed reference).\n\
+\n\
+    --suppress-missing, -x \n\
+        Suppress posterior probabilities where cross-species alignment\n\
+        data does not appear to be available.  The heuristic used is\n\
+        to consider blocks of %d or more sites in which only the\n\
+        reference sequence is present (as determined by --refidx) to\n\
+        be regions of \"missing data\".\n\
+\n\
+    --reflect-strand, -U <pivot_states>\n\
+        (Optionally use with --hmm) Given an HMM describing the\n\
+        forward strand, create a larger HMM that allows for features\n\
+        on both strands by \"reflecting\" the original HMM about the\n\
+        specified \"pivot\" states.  The new HMM will be used for\n\
+        prediction on both strands.  For example, suppose you use -hmm\n\
+        to specify a four-state gene-finding HMM (state 1 noncoding,\n\
+        states 2, 3, and 4 coding).  You can use --reflect-strand 1 to\n\
+        dynamically create a new HMM with two versions of states 2, 3,\n\
+        and 4, one for each strand, and with appropriately defined\n\
+        transition probabilities.  Then you can use --states 2,3,4 to\n\
+        obtain posterior probabilities and/or a Viterbi path\n\
+        describing coding regions on either strand.\n\
+\n\
+    --seqname, -N <name>\n\
+        (Optionally use with --viterbi) Use specified string for\n\
+        'seqname' (GFF) or 'chrom' field in output file.  By default,\n\
+        the filename root of <msa_fname> will be used.\n\
+\n\
+    --score, -s\n\
+        (Optionally use with --viterbi) Assign a log-odds score to\n\
+        each predictions, equal to the log total probability of the\n\
+        region in question under the portion of the model defined by\n\
+        --states minus its log total probability under the remainder\n\
+        of the model.  To compute these scores, the states of the\n\
+        model are partitioned and transition probabilities are\n\
+        re-normalized.\n\
+\n\
+    --quiet, -q \n\
+        Proceed quietly (without updates to stderr).\n\
+\n\
+    --help, -h\n\
+        Print this help message.\n\
+\n\
+\n\
+REFERENCES:\n\
+\n\
+    J. Felsenstein and G. Churchill.  1996. A hidden Markov model\n\
+      approach to variation among sites in rate of evolution. \n\
+      Mol. Biol. Evol., 13:93-104. \n\
+\n\
+    A. Siepel and D. Haussler.  2003.  Combining phylogenetic and\n\
+      hidden Markov models in biosequence analysis.  RECOMB '03.\n\
+\n\
+    Z. Yang. 1994. Maximum likelihood phylogenetic estimation from\n\
+      DNA sequences with variable rates over sites: approximate\n\
       methods. J. Mol. Evol., 39:306-314.\n\n", prog, prog, MIN_BLOCK_SIZE);
 
   exit(0);
@@ -392,8 +392,8 @@ int main(int argc, char *argv[]) {
   if (!quiet)
     fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
   msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
-  /* use file name root for default seqname */
 
+  /* use file name root for default seqname */
   if (seqname == NULL) {
     String *tmp = str_new_charstr(argv[optind]);
     str_remove_path(tmp);

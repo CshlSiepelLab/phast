@@ -32,7 +32,7 @@ OPTIONS:\n\
     -t <file> (Required unless -m or -p) Use specified tree topology for\n\
               all phylogenetic models (New Hampshire format).\n\
 \n\
-    -i <fmt>  Input format for alignment.  May be PHYLIP, FASTA, PSU, SS,\n\
+    -i <fmt>  Input format for alignment.  May be FASTA, PHYLIP, MPM, SS,\n\
               or MAF (default FASTA).\n\
 \n\
     -b <file> Read background model from specified file (.mod format).\n\
@@ -320,7 +320,7 @@ int main(int argc, char *argv[]) {
                           pmsa->pooled_msa->alphabet, 1, 0, NULL, -1);
       tm_fit(backgd_mod, pmsa->pooled_msa, 
              tm_params_init(backgd_mod, .1, 5, 0), 
-             -1, -1, OPT_MED_PREC, NULL);
+             -1, OPT_MED_PREC, NULL);
     }
   }
 

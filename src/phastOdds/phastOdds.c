@@ -57,8 +57,8 @@ OPTIONS:\n\
                       scored (GFF or bed).\n\
     -w <size>         (Can be used instead of -g) Compute scores in a\n\
                       sliding window of the specified size.\n\
-    -i <type>         Input format for alignment.  May be PHYLIP, FASTA,\n\
-                      PSU, SS, or MAF (default PHYLIP)\n\
+    -i <type>         Input format for alignment.  May be FASTA, PHYLIP,\n\
+                      MPM, SS, or MAF (default FASTA)\n\
     -M <rseq.fa>      (For use with -i MAF) Reference sequence (FASTA)\n\
     -d                (For use with -g) Generate output in bed format rather\n\
                       than GFF.\n\
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
     winsize = -1, verbose = 0, max_nmods, memblocksize;
   TreeModel **backgd_mods = NULL, **feat_mods = NULL;
   HMM *backgd_hmm = NULL, *feat_hmm = NULL;
-  msa_format_type inform = PHYLIP;
+  msa_format_type inform = FASTA;
   GFF_Set *features = NULL;
   MSA *msa, *msa_compl;
   double **backgd_emissions, **feat_emissions, **mem, **dummy_emissions,

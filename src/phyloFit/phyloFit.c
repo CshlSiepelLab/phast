@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.4 2004-06-14 03:06:21 acs Exp $
+   $Id: phyloFit.c,v 1.5 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -23,6 +23,7 @@
 #include <tree_likelihoods.h>
 #include <numerical_opt.h>
 #include <sufficient_stats.h>
+#include <maf.h>
 
 /* default minimum number of informative sites (see -I) */
 #define DEFAULT_NSITES_THRESHOLD 50
@@ -35,53 +36,206 @@ void print_usage() {
 PROGRAM: phyloFit\n\
 \n\
 DESCRIPTION: \n\
-    Fits one or more tree models to a multiple alignment by maximum \n\
-    likelihood, using the specified tree topology and substitution\n\
-    model.  If functional categories are defined via --features and\n\
-    --catmap (see below), then a separate model will be fitted for each\n\
-    category.  A description of each fitted model will be written to a\n\
-    separate file, with the suffix \".mod\".  Each such file will\n\
-    include a substitution rate matrix, a tree with branch lengths,\n\
-    and estimates of nucleotide equilibrium frequencies.\n\
 \n\
-USAGE: phyloFit -m <msa_fname> -t <tree_fname> [OPTIONS]\n\
+    Fits one or more tree models to a multiple alignment of DNA\n\
+    sequences by maximum likelihood, using the specified tree topology\n\
+    and substitution model.  If categories of sites are defined via\n\
+    --features and --catmap (see below), then a separate model will be\n\
+    estimated for each category.  A description of each model will\n\
+    be written to a separate file, with the suffix \".mod\".  These\n\
+    .mod files minimally include a substitution rate matrix, a tree with\n\
+    branch lengths, and estimates of nucleotide equilibrium\n\
+    frequencies.  They may also include information about parameters\n\
+    for modeling rate variation.\n\
 \n\
-NOTE:\n\
-    Use --EM and --precision MED (at most) for context-dependent models\n\
-    (see below).\n\
+USAGE: phyloFit [OPTIONS] <msa_fname>\n\
+\n\
+    <msa_fname> should be a multiple alignment in FASTA format or\n\
+    one of several alternative formats (see --msa-format).  For\n\
+    backward compatibility, this argument may be preceded by '-m' or\n\
+    '--msa'.  Note that --tree is required in most cases.  By default,\n\
+    all output files will have the prefix \"phyloFit\" (see\n\
+    --out-root).\n\
+\n\
+EXAMPLES:\n\
+\n\
+    (If you're like me, you want some basic examples first, and a list\n\
+    of all options later.)\n\
+\n\
+    1. Compute the distance between two aligned sequences (in FASTA file\n\
+    pair.fa) under the REV model.\n\
+\n\
+        phyloFit pair.fa\n\
+\n\
+    (output is to phyloFit.mod; distance in substitutions per site\n\
+    appears in the TREE line in the output file)\n\
+\n\
+    2. Fit a phylogenetic model to an alignment of human, chimp, mouse,\n\
+    and rat sequences (in that order).  Use the HKY85 substitution\n\
+    model.  Write output to files with prefix \"myfile\".  Create a\n\
+    Newick-formatted tree file (.nh) as well as a .mod file.\n\
+\n\
+        phyloFit --tree \"((1,2),(3,4))\" --subst-mod HKY85 --output-tree\n\
+            --out-root myfile primate-rodent.fa\n\
+\n\
+    3. As above, but use the discrete-gamma model for rate variation,\n\
+    with 4 rate categories.\n\
+\n\
+        phyloFit --tree \"((1,2),(3,4))\" --subst-mod HKY85 --output-tree\n\
+            --out-root myfile --nrates 4 primate-rodent.fa\n\
+\n\
+    4. As above, but use genome-wide data, stored in the compact\n\
+    \"sufficient-statistics\" format (can be produced with \"msa_view\n\
+    -o SS\").\n\
+\n\
+        phyloFit --tree \"((1,2),(3,4))\" --subst-mod HKY85 --output-tree\n\
+            --out-root myfile --nrates 4 --msa-format SS primate-rodent.ss\n\
+\n\
+    5. Fit a context-dependent phylogenetic model (U2S) to an\n\
+    alignment of human, mouse, and rat sequences (in that order).  Use\n\
+    an EM algorithm for parameter optimization and relax the\n\
+    convergence criteria a bit (recommended with context-dependent\n\
+    models).  Write a log file for the optimization procedure.\n\
+    Consider only non-overlapping pairs of sites.\n\
+\n\
+        phyloFit --tree \"(1,(2,3))\" --subst-mod U2S --EM --precision MED\n\
+            --non-overlapping --log u2s.log --out-root hmr-u2s hmr.fa\n\
+\n\
+    6. As above, but allow overlapping pairs of sites, and compute\n\
+    likelihoods by assuming Markov-dependence of columns (see Siepel &\n\
+    Haussler, 2004).  The EM algorithm can no longer be used\n\
+    (optimization will be much slower).\n\
+\n\
+        phyloFit --tree \"(1,(2,3))\" --subst-mod U2S --precision MED\n\
+            --log u2s-markov.log --markov hmr.fa\n\
+\n\
+    7. Compute a likelihood using parameter estimates obtained in (5)\n\
+    and an assumption of Markov dependence.  This provides a lower\n\
+    bound on the likelihood of the Markov-dependent model.\n\
+\n\
+        phyloFit --init-model hmr-u2s.mod --lnl --markov hmr.fa\n\
+\n\
+    8. Given an alignment of several mammalian sequences (mammals.fa), a\n\
+    tree topology (tree.nh), and a set of gene annotations in GFF\n\
+    (genes.gff), fit a separate model to sites in 1st, 2nd, and 3rd\n\
+    codon positions.  Use the REV substitution model.  Assume coding\n\
+    regions have feature type 'CDS'.\n\
+\n\
+        phyloFit --tree tree.nh --features genes.gff --out-root mammals-rev\n\
+            --catmap \"NCATS = 3; CDS 1-3\" --do-cats 1,2,3 mammals.fa\n\
+\n\
+    (output will be to mammals-rev.cds-1.mod, mammals-rev.cds-2.mod, and \n\
+    mammals-rev.cds-3.mod; first one is for non-coding sites, others are for\n\
+    three codon positions)\n\
+\n\
 \n\
 OPTIONS:\n\
+\n\
     --msa, -m <msa_fname>\n\
         (required) Name of file containing multiple sequence alignment,\n\
         in either PHYLIP format or a specified alternative (see\n\
         --msa-format).\n\
 \n\
     --tree, -t <tree_fname>|<tree_string>\n\
-        (required) Name of file *or* literal string defining tree\n\
-        topology.  In either case, tree must be in New Hampshire (NH)\n\
-        format, with the label at each leaf equal to the index of the\n\
-        corresponding sequence in the alignment (indexing begins with\n\
-        1).  Example: --tree \"(1,(2,3))\".  Currently, the topology\n\
-        must be rooted.  When a reversible substitution model is used,\n\
-        the root is ignored during the optimization procedure.\n\
+        (Required if more than three species, or more than two species\n\
+        and a non-reversible substitution model, e.g., UNREST, U2, U3)\n\
+        Name of file *or* literal string defining tree topology.  Tree\n\
+        must be in Newick format, with the label at each leaf equal to\n\
+        the index of the corresponding sequence in the alignment\n\
+        (indexing begins with 1).  Example: --tree \"(1,(2,3))\".\n\
+        Currently, the topology must be rooted.  When a reversible\n\
+        substitution model is used, the root is ignored during the\n\
+        optimization procedure.\n\
 \n\
     --subst-mod, -s JC69|F81|HKY85|REV|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S\n\
         (default REV).  Nucleotide substitution model.  JC69, F81, HKY85\n\
         REV, and UNREST have the usual meanings (see, e.g., Yang, \n\
         Goldman, and Friday, 1994).  The others (all considered \"context-\n\
-        dependent\") are as defined in Siepel and Haussler, 2004.\n\
+        dependent\") are as defined in Siepel and Haussler, 2004.  The\n\
+        options --EM and --precision MED are recommended with context-\n\
+        dependent models (see below).\n\
 \n\
-    --msa-format, -i PHYLIP|FASTA|PSU|SS|LAV\n\
-        (default PHYLIP) Alignment format.  PSU is the \"raw\" text\n\
-        format used by several tools developed by Webb Miller and\n\
-        colleagues at Penn. State University.  SS is a\n\
-        self-explanatory representation of a multiple alignment in\n\
-        terms of its sufficient statistics.  LAV is the format used by\n\
-        BLASTZ to represent local pairwise alignments.  If it is\n\
-        selected, the alignment will be treated like a global\n\
-        alignment, with unaligned portions of the target sequence\n\
-        replaced by gaps.  The original sequences must be accessible\n\
-        via the filenames specified in the LAV file.\n\
+    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS\n\
+        (default FASTA) Alignment format.  FASTA is as usual.  PHYLIP\n\
+        is compatible with the formats used in the PHYLIP and PAML\n\
+        packages.  MPM is the format used by the MultiPipMaker aligner\n\
+        and some other of Webb Miller's older tools.  MAF (\"Multiple\n\
+        Alignment Format\") is used by MULTIZ/TBA and the UCSC Genome\n\
+        Browser.  SS is a simple format describing the sufficient\n\
+        statistics for phylogenetic inference (distinct columns or\n\
+        tuple of columns and their counts).  Note that the program\n\
+        \"msa_view\" can be used for file conversion.\n\
+\n\
+    --out-root, -o <output_fname_root>\n\
+        (default \"phyloFit\").  Use specified string as root filename\n\
+        for all files created.\n\
+\n\
+    --output-tree, -T\n\
+        Output a tree in Newick format for each model, in addition to the\n\
+        one that appears in the model file.\n\
+\n\
+    --min-informative, -I <ninf_sites>\n\
+        Require at least <ninf_sites> \"informative\" sites -- i.e., \n\
+        sites at which at least two non-gap and non-missing-data ('N')\n\
+        characters are present.  Default is %d.\n\
+\n\
+    --quiet, -q\n\
+        Proceed quietly.\n\
+\n\
+    --help, -h\n\
+        Print this help message.\n\
+\n\
+\n\
+ (Options for controlling and monitoring the optimization procedure)\n\
+\n\
+    --lnl, -L\n\
+        (for use with --init-model) Simply evaluate the log likelihood of\n\
+        the specified tree model, without performing any further\n\
+        optimization.  Can be used with --post-probs, --expected-subs, and\n\
+        --expected-total-subs.\n\
+\n\
+    --EM, -E \n\
+        Fit model(s) using EM rather than the BFGS quasi-Newton\n\
+        algorithm (the default).\n\
+\n\
+    --precision, -p HIGH|MED|LOW\n\
+        (default HIGH) Level of precision to use in estimating model\n\
+        parameters.  Affects convergence criteria for iterative\n\
+        algorithms: higher precision means more iterations and longer\n\
+        execution time.\n\
+\n\
+    --log, -l <log_fname>\n\
+        Write log to <log_fname> describing details of the optimization\n\
+        procedure.\n\
+\n\
+    --init-model, -M <mod_fname>\n\
+        Initialize with specified tree model.  By choosing good\n\
+        starting values for parameters, it is possible to reduce\n\
+        execution time dramatically.  If this option is chosen, --tree\n\
+        is not required.  Note: currently only one mod_fname may be\n\
+        specified; it will be used for all categories.\n\
+\n\
+    --init-random, -r\n\
+        Initialize parameters randomly.  Can be used multiple times to test\n\
+        whether the m.l.e. is real.\n\
+\n\
+    --scale-only, -B\n\
+        (for use with --init-model) Estimate only the scale of the tree,\n\
+        rather than individual branch lengths (branch proportions fixed).\n\
+\n\
+    --estimate-freqs, -F\n\
+        Estimate equilibrium frequencies by maximum likelihood, rather\n\
+        than approximating them by the relative frequencies in the data.\n\
+\n\
+    --ancestor, -A <seqname>\n\
+        Treat specified sequence as the root of the tree.  The tree\n\
+        topology must define this sequence to be a child of the root\n\
+        (in practice, the branch from the root to the specified\n\
+        sequence will be retained, but will be constrained to have\n\
+        length zero).\n\
+\n\
+\n\
+ (Options for modeling rate variation)\n\
 \n\
     --nrates, -k <nratecats>\n\
         (default 1).  Number of rate categories to use.  Specifying a\n\
@@ -92,54 +246,57 @@ OPTIONS:\n\
         (for use with --nrates).  Initial value for alpha, the shape\n\
         parameter of the gamma distribution.  Default is 1.\n\
 \n\
-    --features, -g <gff_fname>\n\
-        (must use with --catmap) File in GFF describing features on one\n\
-        or more of the sequences in the alignment.  Features should be\n\
-        non-overlapping (see 'refeature --unique').\n\
+    --rate-constants, -K <rate_consts>\n\
+        Use a non-parameteric mixture model for rates, instead of\n\
+        assuming a gamma distribution.  The argument <rate_consts>\n\
+        must be a comma-delimited list explicitly defining the rate\n\
+        constants to be used.  The \"weight\" (mixing proportion)\n\
+        associated with each rate constant will be estimated by EM\n\
+        (this option implies --EM).  If --alpha is used with\n\
+        this option, then the mixing proportions will be initialized\n\
+        to reflect a gamma distribution with the specified shape\n\
+        parameter.\n\
 \n\
-    --catmap, -c <cat_map_fname>\n\
-        (must use with --features) File defining mapping of sequence\n\
-        features to category numbers.  If this option and the -g option\n\
-        are selected, sites of the alignment will be labeled as specified,\n\
-        and a separate model will be fitted to the sites of each\n\
-        category.\n\
 \n\
-    --log, -l <log_fname>\n\
-        Write log file to <log_fname>, describing details of the\n\
-        optimization procedure.\n\
+ (Options for separate handling of sites in different annotation categories)\n\
 \n\
-    --out-root, -o <output_fname_root>\n\
-        (default is \"ftm\").  Use specified string as root filename\n\
-        for all files created.\n\
+    --features, -g <fname>\n\
+        Annotations file (GFF or BED format) describing features on\n\
+        one or more sequences in the alignment.  Together with a\n\
+        category map (see --catmap), will be taken to define site\n\
+        categories, and a separate model will be estimated for each\n\
+        category.  If no category map is specified, a category will be\n\
+        assumed for each type of feature, and they will be numbered in\n\
+        the order of appearance of the features.  Features are assumed\n\
+        to use the coordinate frame of the first sequence in the\n\
+        alignment and should be non-overlapping (see 'refeature\n\
+        --unique').\n\
 \n\
-    --output-tree, -T\n\
-        Output a tree in NH format for each model, in addition to the\n\
-        one that appears in the model file (each tree will appear in a\n\
-        separate file).\n\
-\n\
-    --EM, -E \n\
-        Fit model(s) using EM rather than with the BFGS quasi-Newton\n\
-        algorithm (the default).\n\
-\n\
-    --precision, -p HIGH|MED|LOW\n\
-        (default HIGH) Level of precision to use in estimating model\n\
-        parameters.  Affects convergence criteria for iterative\n\
-        algorithms: higher precision means more iterations and longer\n\
-        execution time.\n\
+    --catmap, -c <fname>|<string>\n\
+        (optionally use with --features) Mapping of feature types to\n\
+        category numbers.  Can either give a filename or an \"inline\"\n\
+        description of a simple category map, e.g., --catmap \"NCATS =\n\
+        3 ; CDS 1-3\" or --catmap \"NCATS = 1 ; UTR 1\".  Note that\n\
+        category 0 is reserved for \"background\" (everything that is\n\
+        not described by a defined feature type).\n\
 \n\
     --do-cats, -C <cat_list>\n\
-        (optionally use with --features and --catmap) Fit models for\n\
-        only the specified categories (comma-delimited list).  Default\n\
-        is to fit a model for every category.\n\
+        (optionally use with --features) Estimate models for only the\n\
+        specified categories (comma-delimited list categories, by name\n\
+        or numbera).  Default is to fit a model for every category.\n\
 \n\
-    --cats-cycle, -Y <cycle_size>\n\
-        (alternative to --features and --catmap) Assign site categories in\n\
-        cycles of the specified size, e.g., as 1,2,3,...,1,2,3 (for\n\
-        cycle_size == 3).  Useful for coding sequence or, with higher\n\
-        order models, to partition a data set into nonoverlapping\n\
-        tuples of columns (can be used with --do-cats).\n\
+    --reverse-groups, -R <tag>\n\
+        (optionally use with --features) Group features by <tag> (e.g.,\n\
+        \"transcript_id\" or \"exon_id\") and reverse complement\n\
+        segments of the alignment corresponding to groups on the\n\
+        reverse strand.  Groups must be non-overlapping (see refeature\n\
+        --unique).  Useful with categories corresponding to\n\
+        strand-specific phenomena (e.g., codon positions).\n\
 \n\
-    --markov-dependence, -N\n\
+\n\
+ (Options for context-dependent substitution models)\n\
+\n\
+    --markov, -N\n\
         (for use with context-dependent substitutions models and not\n\
         available with --EM.)  Assume Markov dependence of alignment\n\
         columns, and compute the conditional probability of each\n\
@@ -149,121 +306,27 @@ OPTIONS:\n\
         for REV, N=2 for U2S, N=3 for U3S.) The alternative (the\n\
         default) is simply to work with joint probabilities of tuples\n\
         of columns.  (You can ensure that these tuples are\n\
-        nonoverlapping by using --cats-cycle and --do-cats.)  The use\n\
+        non-overlapping with the --non-overlapping option.)  The use\n\
         of joint probabilities during parameter estimation allows the\n\
         use of the --EM option and can be much faster; in addition, it\n\
         appears to produce nearly equivalent estimates.  If desired,\n\
-        parameters can be estimated without --markov-dependence, and\n\
+        parameters can be estimated without --markov, and\n\
         then the likelihood can be evaluated using --lnl and\n\
-        --markov-dependence together.  This gives a lower bound on the\n\
+        --markov together.  This gives a lower bound on the\n\
         likelihood of the Markov-dependent model.\n\
 \n\
-    --gap-strip, -G ALL|ANY|<seqno>\n\
-        Strip columns in alignment containing all gaps, any gaps, or \n\
-        a gap in the specified sequence (<seqno>; indexing starts with\n\
-        one).  Default is not to strip any columns.\n\
-\n\
-    --weight-matrix-cats, -W <wmat_cats>\n\
-        (optionally use with --features and --catmap) Argument should be a\n\
-        comma-delimited list of strings, or the single string \"all\".\n\
-        Fit sites corresponding to designated category names (as they\n\
-        appear in the category map and GFF) as \"weight matrices\" rather\n\
-        than as full tree models (that is, consider equilibrium\n\
-        frequencies only).  Useful for sites corresponding to\n\
-        \"signals\", such as start codons or splice sites, when training\n\
-        a phylo-HMM for gene prediction.  If strings are numbers, they\n\
-        will be assumed to represent category numbers rather than names.\n\
-\n\
-    --no-reverse, -R\n\
-        (for use with --features and --catmap) Allow segments of alignment\n\
-        corresponding to features on reverse strand to remain as they\n\
-        are (by default, they are reverse complemented).  Strandedness\n\
-        is obtained from the GFF file.\n\
-\n\
-    --init-model, -M <mod_fname>\n\
-        Initialize with the specified tree model.  By choosing good\n\
-        starting values for parameters, it is possible to reduce\n\
-        execution time dramatically.  If this option is chosen, -t is\n\
-        not required.  Note: currently only one mod_fname may be\n\
-        specified; it will be used for all categories.\n\
-\n\
-    --init-random, -r\n\
-        Initialize parameters randomly.  Can be used multiple times to test\n\
-        whether the m.l.e. is real.\n\
-\n\
-    --lnl, -L\n\
-        (for use with --init-model) Simply evaluate the log likelihood of\n\
-        the specified tree model, without performing any further\n\
-        optimization.  Can be used with --post-probs, --expected-subs, and\n\
-        --expected-total-subs.\n\
-\n\
-    --scale-only, -B\n\
-        (for use with --init-mod) Estimate only the scale of the tree,\n\
-        rather than individual branch lengths (branch proportions fixed).\n\
-\n\
-    --estimate-freqs, -F\n\
-        Estimate equilibrium frequencies by maximum likelihood, rather\n\
-        than approximating them by the relative frequencies in the data.\n\
-\n\
-    --min-informative, -I <ninf_sites>\n\
-        Require at least <ninf_sites> \"informative\" sites -- i.e., \n\
-        sites at which at least two non-gap characters are present.  Default\n\
-        is %d.\n\
-\n\
-    --quiet, -q\n\
-        Proceed quietly.\n\
-\n\
-    --help, -h\n\
-        Print this help message.\n\
+    --non-overlapping, -V\n\
+        (for use with context-dependent substitution models; not\n\
+        compatible with --markov, --features, or\n\
+        --msa-format SS) Avoid using overlapping tuples of sites\n\
+        in parameter estimation.  If a dinucleotide model is selected,\n\
+        every other tuple will be considered, and if a nucleotide\n\
+        triplet model is selected, every third tuple will be\n\
+        considered.  This option cannot be used with an alignment\n\
+        represented only by unordered sufficient statistics.\n\
 \n\
 \n\
- (Experimental options)\n\
-    --windows, -w <size,shift>\n\
-        Apply a sliding window to the alignment, and fit a separate\n\
-        tree to each window.  Arguments specify size of window and\n\
-        amount by which to shift it on each iteration, both in number\n\
-        of columns.  Separate versions of all output files will be\n\
-        created for each window (file name will include window number).\n\
-\n\
-    --windows-explicit, -v <window_coord_list>\n\
-        Like --windows, except that all start and end coordinates must\n\
-        be explicitly specified.  Each successive pair of numbers is\n\
-        interpreted as defining the start and end of a window.\n\
-\n\
-    --coord-frame, -d <coord_frame>\n\
-        Sequence defining frame of reference for all coordinates.  Default \n\
-        is 1.  Use 0 for the entire multiple alignment.\n\
-\n\
-    --feature-counts, -n <nclasses>\n\
-        (for use with --windows or --windows-explicit and --features.)\n\
-        Count the number of sites in each window corresponding to each\n\
-        class of feature, as designated in the GFF.  The total number\n\
-        of classes must be specified as an argument.  Counts will be\n\
-        included in summary file.  Only informative sites will be\n\
-        counted (sites with at least two non-gap characters).\n\
-\n\
-    --window-map, -y <lav_fname>\n\
-        (for use with --windows or --windows-explicit).  Transform\n\
-        window coordinates using the specified local alignment (LAV\n\
-        format).  Raw coordinates are assumed to refer to the query\n\
-        sequence, and coordinates will be transformed to refer to the\n\
-        target sequence, which should be present in the multiple\n\
-        alignment being analyzed (see --coord-frame).  With --windows,\n\
-        raw coordinates will be generated to span the entire query\n\
-        sequence.\n\
-\n\
-    --max-samples, -S <max_samples>\n\
-        Maximum number of sites to consider when fitting any model.\n\
-        If the number of eligible columns (considering category\n\
-        designations) is greater than this number, max_samples of them\n\
-        will be selected randomly.\n\
-\n\
-    --ancestor, -A <seqname>\n\
-        Treat specified sequence as the root of the tree.  The tree\n\
-        topology must define this sequence to be a child of the root\n\
-        (in practice, the branch from the root to the specified\n\
-        sequence will be retained, but will be constrained to have\n\
-        length zero).\n\
+ (Options for posterior probabilities)\n\
 \n\
     --post-probs, -P\n\
         Output posterior probabilities of all bases at all ancestral \n\
@@ -285,16 +348,23 @@ OPTIONS:\n\
         probability for each type of column in the input.  Output will\n\
         be to a file with suffix \".colprobs\".  Values are log base 2.\n\
 \n\
-    --rate-constants, -K <rate_consts>\n\
-        Use a non-parameteric mixture model for rates, instead of\n\
-        assuming a gamma distribution.  The argument <rate_consts>\n\
-        must be a comma-delimited list explicitly defining the rate\n\
-        constants to be used.  The \"weight\" (mixing proportion)\n\
-        associated with each rate constant will be estimated by EM\n\
-        (this option implies --EM).  If --alpha is used with\n\
-        this option, then the mixing proportions will be initialized\n\
-        to reflect a gamma distribution with the specified shape\n\
-        parameter.\n\
+\n\
+ (Options for estimation in sliding window)\n\
+\n\
+    --windows, -w <size,shift>\n\
+        Apply a sliding window to the alignment, and fit a separate\n\
+        tree to each window.  Arguments specify size of window and\n\
+        amount by which to shift it on each iteration, both in bases\n\
+        of the first sequence in the alignment (assumed to be the\n\
+        reference sequence).  Separate versions of all output files\n\
+        will be created for each window.\n\
+\n\
+    --windows-explicit, -v <window_coord_list>\n\
+        Like --windows, except that all start and end coordinates must\n\
+        be explicitly specified.  Each successive pair of numbers is\n\
+        interpreted as defining the start and end of a window.  Can be\n\
+        used with a two-column file and the '*' operator, e.g.,\n\
+        --windows-explicit '*mycoords'.\n\
 \n\
 \n\
 REFERENCES:\n\
@@ -491,40 +561,61 @@ horizontal axis.\n\n");
   str_free(fname);
 }
 
+void print_window_summary(FILE* WINDOWF, List *window_coords, int win, 
+                          int cat, TreeModel *mod, double *gc, double cpg, 
+                          int ninf_sites, int nseqs, int header_only) {
+  int j;
+  if (header_only) {
+    fprintf(WINDOWF, "%5s %8s %8s %4s", "win", "beg", "end", "cat");
+    fprintf(WINDOWF, " %6s", "GC");
+    fprintf(WINDOWF, " %8s", "CpG");
+    fprintf(WINDOWF, " %7s", "ninf");
+    fprintf(WINDOWF, " %7s\n", "t");
+  }
+  else {
+    fprintf(WINDOWF, "%5d %8d %8d %4d", win/2+1, 
+            lst_get_int(window_coords, win), 
+            lst_get_int(window_coords, win+1), cat);
+    fprintf(WINDOWF, " %6.4f", 
+            gsl_vector_get(mod->backgd_freqs, 
+                           mod->rate_matrix->inv_states[(int)'G']) + 
+            gsl_vector_get(mod->backgd_freqs, 
+                           mod->rate_matrix->inv_states[(int)'C']));
+    for (j = 0; j < nseqs; j++) fprintf(WINDOWF, " %6.4f", gc[j]);
+    fprintf(WINDOWF, " %8.6f", cpg);
+    fprintf(WINDOWF, " %7d", ninf_sites);
+    fprintf(WINDOWF, " %7.4f\n", tr_total_len(mod->tree));
+  }
+}
+
 int main(int argc, char *argv[]) {
-  char *msa_fname = NULL, *gff_fname = NULL,
-    *cat_map_fname = NULL, *output_fname_root = "ftm", 
-    *log_fname = NULL, *coord_aln_fname = NULL, *input_mod_fname = NULL;
-  int output_trees = 0, input_format = PHYLIP, subst_mod = REV, quiet = 0,
-    gap_strip_mode = NO_STRIP, 
-    nratecats = 1, max_samples = -1, reverse_complement = 1, ncats = 0, 
-    use_em = 0, window_size = -1, window_shift = -1, coord_frame = 1,
-    nclasses = -1, use_conditionals = 0, 
-    precision = OPT_HIGH_PREC, cycle_size = -1,
-    likelihood_only = 0, do_bases = 0, do_expected_nsubst = 0, 
-    do_expected_nsubst_tot = 0, nsites_threshold = DEFAULT_NSITES_THRESHOLD,
-    random_init = 0, estimate_backgd = 0, estimate_scale_only = 0,
-    do_column_probs;
+  char *msa_fname = NULL, *output_fname_root = "phyloFit", 
+    *log_fname = NULL, *reverse_group_tag = NULL;
+  int output_trees = FALSE, subst_mod = REV, quiet = FALSE,
+    nratecats = 1, use_em = FALSE, window_size = -1, 
+    window_shift = -1, use_conditionals = FALSE, 
+    precision = OPT_HIGH_PREC, 
+    likelihood_only = FALSE, do_bases = FALSE, do_expected_nsubst = FALSE, 
+    do_expected_nsubst_tot = FALSE, nsites_threshold = DEFAULT_NSITES_THRESHOLD,
+    random_init = FALSE, estimate_backgd = FALSE, estimate_scale_only = FALSE,
+    do_column_probs = FALSE, nonoverlapping = FALSE;
+  msa_format_type input_format = FASTA;
   char c;
   FILE *F, *WINDOWF;
   TreeNode *tree = NULL;
   CategoryMap *cm = NULL;
-  int i, j, win, tbases, opt_idx;
+  int i, j, win, opt_idx;
   String *s, *mod_fname, *out_tree_fname, *root_seqname = NULL;
   MSA *msa, *source_msa;
   FILE *logf = NULL;
   String *tmpstr = str_new(STR_SHORT_LEN);
-  List *cats_to_do = NULL, *weight_matrix_list = NULL,
-    *tmplist = NULL, *window_coords = NULL, *match_list = NULL,
+  List *cats_to_do = NULL, *tmplist = NULL, *window_coords = NULL, 
     *cats_to_do_str = NULL;
-  int *weight_matrix, *nsites, *totbases;
-  double *gc, cpg;
-  double alpha = DEFAULT_ALPHA;
-  LocalPwAlignment *lpwa = NULL;
+  double *gc;
+  double cpg, alpha = DEFAULT_ALPHA;
   GFF_Set *gff = NULL;
   TreeModel *input_mod = NULL;
   int root_leaf_id = -1;
-  Regex *class_re = str_re_new(".*category[[:space:]]+[A-Za-z0-9_]+[[:space:]]+\\[([[:digit:]]+)\\]");
   List *rate_consts = NULL;
 
   struct option long_opts[] = {
@@ -542,11 +633,10 @@ int main(int argc, char *argv[]) {
     {"EM", 0, 0, 'E'},
     {"precision", 1, 0, 'p'},
     {"do-cats", 1, 0, 'C'},
-    {"cats-cycle", 1, 0, 'Y'},
-    {"markov-dependence", 0, 0, 'N'},
+    {"non-overlapping", 0, 0, 'V'},
+    {"markov", 0, 0, 'N'},
     {"gap-strip", 1, 0, 'G'},
-    {"weight-matrix-cats", 1, 0, 'W'},
-    {"no-reverse", 0, 0, 'R'},
+    {"reverse-groups", 1, 0, 'R'},
     {"init-model", 1, 0, 'M'},
     {"init-random", 0, 0, 'r'},
     {"lnl", 0, 0, 'L'},
@@ -557,10 +647,7 @@ int main(int argc, char *argv[]) {
     {"help", 0, 0, 'h'},
     {"windows", 1, 0, 'w'},
     {"windows-explicit", 1, 0, 'v'},
-    {"coord-frame", 1, 0, 'd'},
     {"feature-counts", 1, 0, 'n'},
-    {"window-map", 1, 0, 'y'},
-    {"max-samples", 1, 0, 'S'},
     {"ancestor", 1, 0, 'A'},
     {"post-probs", 1, 0, 'P'},
     {"expected-subs", 1, 0, 'X'},
@@ -569,7 +656,7 @@ int main(int argc, char *argv[]) {
     {"rate-constants", 1, 0, 'K'},
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:Y:G:i:o:k:a:l:S:W:w:v:y:d:n:M:p:A:I:K:EeNDRTqLPXZUBFrh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:VEeNDRTqLPXZUBFrh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -577,7 +664,7 @@ int main(int argc, char *argv[]) {
     case 't':
       if (optarg[0] == '(')     /* in this case, assume topology given
                                    at command line */
-        tree = parse_nh_from_string(str_new_charstr(optarg));
+        tree = parse_nh_from_string(optarg);
       else {
         if (!quiet) fprintf(stderr, "Reading tree from %s ...\n", optarg);
         tree = parse_nh_from_file(fopen_fname(optarg, "r"));
@@ -589,16 +676,20 @@ int main(int argc, char *argv[]) {
         die("ERROR: illegal substitution model.  Type \"phyloFit -h\" for usage.\n");
       break;
     case 'g':
-      gff_fname = optarg;
+      if (!quiet) 
+        fprintf(stderr, "Reading annotations from %s ...\n", optarg);
+      gff = gff_read_set(fopen_fname(optarg, "r"));
       break;
     case 'c':
-      cat_map_fname = optarg;
+      if (!quiet) 
+        fprintf(stderr, "Reading category map from %s ...\n", optarg);
+      cm = cm_new_string_or_file(optarg);
       break;
     case 'C':
       cats_to_do_str = get_arg_list(optarg);
       break;
-    case 'Y':
-      cycle_size = atoi(optarg);
+    case 'V':
+      nonoverlapping = TRUE;
       break;
     case 'o':
       output_fname_root = optarg;
@@ -615,19 +706,11 @@ int main(int argc, char *argv[]) {
       alpha = atof(optarg);
       break;
     case 'R':
-      reverse_complement = 0;
+      reverse_group_tag = optarg;
       break;
-    case 'G':
-      if (!strcmp(optarg, "ALL")) gap_strip_mode = STRIP_ALL_GAPS;
-      else if (!strcmp(optarg, "ANY")) gap_strip_mode = STRIP_ANY_GAPS;
-      else gap_strip_mode = atoi(optarg);
-      break;        
     case 'i':
-      if (!strcmp(optarg, "PSU")) input_format = PSU;
-      else if (!strcmp(optarg, "FASTA")) input_format = FASTA;
-      else if (!strcmp(optarg, "SS")) input_format = SS;
-      else if (!strcmp(optarg, "LAV")) input_format = LAV;
-      else if (strcmp(optarg, "PHYLIP") != 0) 
+      input_format = msa_str_to_format(optarg);
+      if (input_format == -1)
         die("ERROR: unrecognized alignment format.  Type 'phyloFit -h' for usage.\n");
       break;
     case 'l':
@@ -638,14 +721,6 @@ int main(int argc, char *argv[]) {
       break;
     case 'N':
       use_conditionals = 1;
-      break;
-    case 'S':
-      max_samples = atoi(optarg);
-      if (max_samples <= 0) 
-        die("ERROR: maximum number of samples (--max-samples) must be greater than zero.\n");
-      break;
-    case 'W':
-      weight_matrix_list = get_arg_list(optarg);
       break;
     case 'w':
       tmplist = get_arg_list(optarg);
@@ -658,27 +733,10 @@ int main(int argc, char *argv[]) {
       break;
     case 'v':
       tmplist = get_arg_list(optarg);
-      if (lst_size(window_coords) % 2 != 0) 
-        die("ERROR: argument to -v must be a list of even length.\n");
-      window_coords = lst_new_int(lst_size(tmplist));
-      for (i = 0; i < lst_size(tmplist); i++) {
-        int tmp;
-        if (str_as_int(lst_get_ptr(tmplist, i), &tmp) != 0) 
-          die("ERROR: illegal argument to --windows-explicit.\n");
-        lst_push_int(window_coords, tmp);
-        str_free(lst_get_ptr(tmplist, i));
-      }
+      if (lst_size(tmplist) % 2 != 0) 
+        die("ERROR: argument to --windows-explicit must be a list of even length.\n");
+      window_coords = str_list_as_int(tmplist);
       lst_free(tmplist);
-      break;
-    case 'n':
-      nclasses = atoi(optarg);
-      break;
-    case 'd':
-      coord_frame = atoi(optarg);
-      assert(0);                /* not yet implemented! */
-      break;
-    case 'y':
-      coord_aln_fname = optarg;
       break;
     case 'E':
       use_em = 1;
@@ -690,7 +748,9 @@ int main(int argc, char *argv[]) {
       else die("ERROR: --precision must be LOW, MED, or HIGH.\n\n");
       break;
     case 'M':
-      input_mod_fname = optarg;
+      if (!quiet) 
+        fprintf(stderr, "Reading tree model from %s ...\n", optarg);
+      input_mod = tm_new_from_file(fopen_fname(optarg, "r"));
       break;
     case 'r':
       random_init = 1;
@@ -747,37 +807,53 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (msa_fname == NULL || (tree == NULL && input_mod_fname == NULL)) 
-    die("ERROR: must specify --msa and either --tree or --init-model.  Type 'phyloFit -h' for usage.\n");
-
-  if (gff_fname != NULL && cat_map_fname == NULL) 
-    die("ERROR: --features requires --catmap.  Type 'phyloFit -h' for usage.\n");
+  if (msa_fname == NULL) {
+    if (optind >= argc) 
+      die("ERROR: missing alignment filename.  Type 'phyloFit -h' for usage.\n");
+    msa_fname = argv[optind];
+  }
 
   if (use_conditionals && use_em) 
-    die("ERROR: Cannot use --markov-dependence with --EM.  Type 'phyloFit -h' for usage.\n");
+    die("ERROR: Cannot use --markov with --EM.  Type 'phyloFit -h' for usage.\n");
 
-  if (cycle_size != -1 && gff_fname != NULL) 
-    die("ERROR: Cannot use both --cats-cycle and --features.  Type 'phyloFit -h' for usage.\n");
-
-  if (likelihood_only && input_mod_fname == NULL) 
+  if (likelihood_only && input_mod == NULL) 
     die("ERROR: --lnl requires --init-model.  Type 'phyloFit -h' for usage.\n");
 
-  /* read input model */
-  if (input_mod_fname != NULL) {
-    if (!quiet) fprintf(stderr, "Reading tree model from %s ...\n", 
-                        input_mod_fname);
-    input_mod = tm_new_from_file(fopen_fname(input_mod_fname, "r"));
-  }
+  if (nonoverlapping && (use_conditionals || gff != NULL || 
+                         cats_to_do_str || input_format == SS))
+    die("ERROR: cannot use --non-overlapping with --markov, --features,\n--msa-format SS, or --do-cats.\n");
   
+  if (gff != NULL && cm == NULL) cm = cm_new_from_features(gff);
+
+  /* internally, --non-overlapping is accomplished via --do-cats */
+  if (nonoverlapping) {
+    cats_to_do_str = lst_new_ptr(1);
+    lst_push_ptr(cats_to_do_str, str_new_charstr("1"));
+  }
+
   /* read alignment */
   if (!quiet) fprintf(stderr, "Reading alignment from %s ...\n", msa_fname);
-  msa = msa_new_from_file(fopen_fname(msa_fname, "r"), input_format, "ACGT");
-                                /* FIXME: need better strategy for Ns */
+  if (input_format == MAF)
+    msa = maf_read(fopen_fname(msa_fname, "r"), NULL, tm_order(subst_mod) + 1, 
+                   gff, cm, nonoverlapping ? tm_order(subst_mod) + 1 : -1, 
+                   FALSE, reverse_group_tag, NO_STRIP);
+  else 
+    msa = msa_new_from_file(fopen_fname(msa_fname, "r"), input_format, "ACGT");
 
-  /* make sure alignment and tree topology consistent */
+  if (tree == NULL) {
+    if (msa->nseqs == 2)
+      tree = parse_nh_from_string("(1,2)");
+    else if (msa->nseqs == 3 && tm_is_reversible(subst_mod))
+      tree = parse_nh_from_string("(1,(2,3))");
+  }
+
+  if (tree == NULL && input_mod == NULL)
+    die("ERROR: must specify --msa and either --tree or --init-model.  Type 'phyloFit -h' for usage.\n");
+
+  /* make sure alignment and tree topology are consistent */
   if (msa->nseqs * 2 - 1 != 
       (input_mod == NULL ? tree->nnodes : input_mod->tree->nnodes)) 
-    die("ERROR: Tree must have 2n-1 nodes, where n is the number of sequences in the\nalignment.  Even with a reversible model, specify a rooted tree; the two\nbranches adjoining the root will simply be assigned a single parameter.\n");
+    die("ERROR: Tree must have 2n-1 nodes, where n is the number of sequences in the\nalignment.  Even with a reversible model, specify a rooted tree; the root\nwill be ignored in the optimization procedure.\n");
 
   /* allow for specified ancestor */
   if (root_seqname != NULL) {
@@ -796,38 +872,21 @@ int main(int argc, char *argv[]) {
     root_leaf_id = rl->id;
   }
 
-  /* temporary: in case of SS or LAV format, remove 'N' from alphabet
-     if necessary (model fitting code will treat Ns as missing data;
-     we don't want to set up with 'N' as a legitimate character in the
-     alphabet) */
-  if (input_format == SS || input_format == LAV) 
-    msa_remove_N_from_alph(msa);
+  /* for now, remove 'N' from alphabet if necessary (model fitting
+     code will treat Ns as missing data; can't have 'N' as a
+     legitimate character in the alphabet) */
+  msa_remove_N_from_alph(msa);
 
-  /* read coordinate-transforming alignment, if necessary */
-  if (coord_aln_fname != NULL) 
-    lpwa = la_read_lav(fopen_fname(coord_aln_fname, "r"), 0);
-  
-  if (cat_map_fname != NULL) {
-    /* read category map */
-    if (!quiet) fprintf(stderr, "Reading category map from %s ...\n", 
-                        cat_map_fname);
-    cm = cm_read(fopen_fname(cat_map_fname, "r"));
-    ncats = cm->ncats;
-  }
-
-  if (gff_fname != NULL) {      /* GFF specified: label categories */
-    /* read gff */
-    if (!quiet) fprintf(stderr, "Reading annotations from %s ...\n", 
-                        gff_fname);
-    gff = gff_read_set(fopen_fname(gff_fname, "r"));
-
+  /* set up for categories */
+  /* first label sites, if necessary */
+  if (gff != NULL && input_format != MAF) {
     /* convert GFF to coordinate frame of alignment */
-    msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
+    msa_map_gff_coords(msa, gff, 1, 0, 0, NULL);
 
     /* reverse complement segments of MSA corresponding to features on
        reverse strand (if necessary) */
-    if (reverse_complement) {
-      gff_group(gff, "transcript_id");
+    if (reverse_group_tag != NULL) {
+      gff_group(gff, reverse_group_tag);
       msa_reverse_compl_feats(msa, gff, NULL);
     }
 
@@ -835,149 +894,78 @@ int main(int argc, char *argv[]) {
     if (!quiet) fprintf(stderr, "Labeling alignment sites by category ...\n");
     msa_label_categories(msa, gff, cm);
   }
-  else if (msa->ss != NULL && msa->ncats > 0)
-    ncats = msa->ncats;
-                                /* in this case, categories are
-                                   specified indirectly, via
-                                   category-specific counts in an SS
-                                   file */
-  else if (cycle_size != -1) {
-    assert(cycle_size > 0);
-    msa->categories = (int*)smalloc(msa->length * sizeof(int));
+  else if (nonoverlapping && input_format != MAF) {
+                                /* (already taken care of if MAF) */
+    int cycle_size = tm_order(subst_mod) + 1;
+    assert(msa->seqs != NULL && msa->ss == NULL);  /* need explicit seqs */
+    msa->categories = smalloc(msa->length * sizeof(int));
     for (i = 0; i < msa->length; i++) 
       msa->categories[i] = (i % cycle_size) + 1;
-    ncats = msa->ncats = cycle_size;
+    msa->ncats = cycle_size;
   }
+  /* at this point, we have msa->ncats > 0 iff we intend to do
+     category-by-category estimation */
 
-  /* strip gaps, if necessary.  Category labels will be adjusted
-     appropriately */
-  if (gap_strip_mode != NO_STRIP)
-    strip_gaps(msa, gap_strip_mode);
-
-  mod_fname = str_new(STR_MED_LEN);
-  if (output_trees) out_tree_fname = str_new(STR_MED_LEN);
-
-  /* set up list of categories to process */
-  if (cm == NULL && cycle_size == -1 && ncats == 0) {
+  /* now set up list of categories to process.  There are several
+     cases to consider */
+  if (msa->ncats < 0) {         
+    if (cats_to_do_str != NULL)
+      fprintf(stderr, "WARNING: ignoring --do-cats; no category information.\n");
     cats_to_do = lst_new_int(1);
     lst_push_int(cats_to_do, -1);
+                                /* no categories -- pool all sites */
   }
   else if (cats_to_do_str == NULL) {
-    cats_to_do = lst_new_int(ncats+1);
-    for (i = 0; i <= ncats; i++)
-      lst_push_int(cats_to_do, i);
+    cats_to_do = lst_new_int(msa->ncats + 1);
+    for (i = 0; i <= msa->ncats; i++) lst_push_int(cats_to_do, i);
+                                /* have categories but no --do-cats --
+                                   process all categories */
   }
-  else {
-    if (cm == NULL) {           /* e.g., with SS file and cat-specific
-                                   counts */
-      cats_to_do = lst_new_int(lst_size(cats_to_do_str));
-      for (i = 0; i < lst_size(cats_to_do_str); i++) {
-        int tmpint;
-        if (str_as_int(lst_get_ptr(cats_to_do_str, i), &tmpint) != 0) 
-          die("ERROR: categories list must consist of integers.\n");
-        lst_push_int(cats_to_do, tmpint);
-      }
-    }
-    else 
-      cats_to_do = cm_get_category_list(cm, cats_to_do_str, 0);
-  }
-
-  /* identify weight-matrix categories */
-  weight_matrix = (int*)smalloc((ncats+1) * sizeof(int));
-  for (i = 0; i <= ncats; i++) weight_matrix[i] = 0;
-  if (weight_matrix_list != NULL) {
-    if (lst_size(weight_matrix_list) == 1 && 
-        str_equals_nocase_charstr(lst_get_ptr(weight_matrix_list, 0), "all")) 
-      for (i = 0; i <= ncats; i++) weight_matrix[i] = 1;
-    else {
-      List *weight_matrix_cats = 
-        cm_get_category_list(cm, weight_matrix_list, 0);
-      for (i = 0; i < lst_size(weight_matrix_cats); i++)
-        weight_matrix[lst_get_int(weight_matrix_cats, i)] = 1;
-      lst_free(weight_matrix_cats);
-    }
-    lst_free_strings(weight_matrix_list);
-    lst_free(weight_matrix_list);
-  }
+  else if (cm != NULL) 
+    cats_to_do = cm_get_category_list(cm, cats_to_do_str, 0);
+                                /* have --do-cats and category map;
+                                   use cm_get_category_list (allows
+                                   use of names as well as numbers) */
+  else if (cats_to_do_str != NULL)
+    cats_to_do = str_list_as_int(cats_to_do_str);
+                                /* have --do-cats but no category map;
+                                   use literal numbers */
 
   /* set up windows, if necessary */
   if (window_size != -1) {
-    int len;
     if (window_coords != NULL) 
       die("ERROR: cannot use both --windows and --windows-explicit.\n");
-    len = (lpwa != NULL ? lpwa->query_len : msa->length);
-    window_coords = lst_new_int(len/window_shift + 1);
-    for (i = 1; i < len; i += window_shift) {
+    window_coords = lst_new_int(msa->length/window_shift + 1);
+    for (i = 1; i < msa->length; i += window_shift) {
       lst_push_int(window_coords, i);
       lst_push_int(window_coords, 
-                   min(i + window_size - 1, len));
+                   min(i + window_size - 1, msa->length));
     }
   }
-
   if (window_coords != NULL) {
     /* set up summary file */
     String *sumfname = str_new_charstr(output_fname_root);
-    char tmpstr[10];
+    msa_coord_map *map;
 
     str_append_charstr(sumfname, ".win-sum");
     WINDOWF = fopen_fname(sumfname->chars, "w+");
-    str_free(sumfname);
-
-    fprintf(WINDOWF, "%5s %8s %8s %4s", "win", "beg", "end", "cat");
-/*     for (j = 0; j < strlen(msa->alphabet); j++) */
-/*       fprintf(WINDOWF, " %6c", msa->alphabet[j]); */
-
-    fprintf(WINDOWF, " %6s", "GC");
-    for (j = 0; nclasses > 0 && j < msa->nseqs; j++) {
-      sprintf(tmpstr, "GC%d", j+1);
-      fprintf(WINDOWF, " %6s", tmpstr);
+    print_window_summary(WINDOWF, NULL, 0, 0, NULL, NULL, 0, 0, 0, TRUE);
+    
+    /* map to coord frame of alignment */
+    map = msa_build_coord_map(msa, 1);
+    for (i = 0; i < lst_size(window_coords); i += 2) {
+      lst_set_int(window_coords, i, 
+                  msa_map_seq_to_msa(map, lst_get_int(window_coords, i)));
+      lst_set_int(window_coords, i+1, 
+                  msa_map_seq_to_msa(map, lst_get_int(window_coords, i+1)));
     }
-    fprintf(WINDOWF, " %8s", "CpG");
-    fprintf(WINDOWF, " %7s", "ninf");
-    for (j = 0; j < nclasses; j++) { /* note: will only be executed with -n */
-      sprintf(tmpstr, "ninf%d", j+1);
-      fprintf(WINDOWF, " %7s", tmpstr);
-    }
-    fprintf(WINDOWF, " %7s\n", "t");
-
-    /* transform coordinates, if necessary */
-    if (lpwa != NULL) {
-      for (i = 0; i < lst_size(window_coords); i += 2) {
-        int win_beg = la_get_target_coord(lpwa, lst_get_int(window_coords, i), 
-                                          ADJUSTRIGHT);
-        int win_end = la_get_target_coord(lpwa, lst_get_int(window_coords, 
-                                                            i+1), ADJUSTLEFT);
-        if (win_beg == -1 || win_end == -1 || win_beg >= win_end)
-          win_beg = win_end = -1;
-        lst_set_int(window_coords, i, win_beg);
-        lst_set_int(window_coords, i+1, win_end);
-      }
-      /* FIXME: need a way to free lpwa! */
-    }
-
-    if (coord_frame != 0) { 
-      msa_coord_map *map = msa_build_coord_map(msa, coord_frame);
-      for (i = 0; i < lst_size(window_coords); i += 2) {
-        lst_set_int(window_coords, i, 
-                    msa_map_seq_to_msa(map, lst_get_int(window_coords, i)));
-        lst_set_int(window_coords, i+1, 
-                    msa_map_seq_to_msa(map, lst_get_int(window_coords, i+1)));
-      }
-      msa_map_free(map);
-    }
+    msa_map_free(map);
   }
 
+  /* now estimate models (window by window, if necessary) */
+  mod_fname = str_new(STR_MED_LEN);
+  if (output_trees) out_tree_fname = str_new(STR_MED_LEN);
   source_msa = msa;
-
-  if (nclasses > 0) {           /* inits for -n option */
-    match_list = lst_new_ptr(2);
-    nsites = (int*)smalloc(nclasses * sizeof(int));
-    gc = (double*)smalloc(msa->nseqs * sizeof(double));
-    totbases = (int*)smalloc(msa->nseqs * sizeof(int));
-    gff_sort(gff);
-  }
-
-  /* process each window, if necessary */
   for (win = 0; 
        win < (window_coords == NULL ? 1 : lst_size(window_coords)); 
        win += 2) {
@@ -997,67 +985,12 @@ int main(int argc, char *argv[]) {
       TreeModel *mod;
       gsl_vector *params = NULL;
       int cat = lst_get_int(cats_to_do, i);
-      int wm_cat = cat >= 0 ? cat : 0;
       int ninf_sites;
 
-      /* count number of aligned sites in window belonging to each
-         class of feature (if necessary) */
-      if (nclasses > 0) {
-        assert(gff != NULL && cm != NULL && window_coords != NULL);
-        for (j = 0; j < nclasses; j++) nsites[j] = 0;
-        for (j = 0; j < source_msa->nseqs; j++) gc[j] = totbases[j] = 0;
-        cpg = tbases = 0; 
-        for (j = 0; j < lst_size(gff->features); j++) {
-          int class_num, beg, end, k;
-          GFF_Feature *feat = lst_get_ptr(gff->features, j);
-
-          if (cm_get_category(cm, feat->feature) != cat) continue;
-
-          if (feat->end < win_beg) continue;
-          else if (feat->start > win_end) 
-            break;
-
-          /* obtain class number from feature */
-          if (str_re_match(feat->attribute, class_re, match_list, 1) <= 0)
-            continue;
-          str_as_int(lst_get_ptr(match_list, 1), &class_num);
-          str_free(lst_get_ptr(match_list, 0));
-          str_free(lst_get_ptr(match_list, 1));
-
-          /* now count the number of aligned bases */
-          /* at the same time, obtain the GC content of each seq, and 
-             the number of CpGs */
-          beg = max(feat->start, win_beg);
-          end = min(feat->end, win_end);
-          for (k = beg-1; k < end; k++) { /* check index */
-            int ninf = 0, seq;
-            for (seq = 0; seq < source_msa->nseqs; seq++) {
-              if (source_msa->seqs[seq][k] != GAP_CHAR) {
-                ninf++;
-                totbases[seq]++;
-                tbases++;
-              }
-              if (toupper(source_msa->seqs[seq][k]) == 'G' || 
-                  toupper(source_msa->seqs[seq][k]) == 'C')
-                gc[seq]++;              
-              if (toupper(source_msa->seqs[seq][k]) == 'G' && k > 0 && 
-                  toupper(source_msa->seqs[seq][k-1] == 'C'))
-                cpg++;
-            }
-            assert(class_num >= 1 && class_num <= nclasses);
-            if (ninf >= 2)
-              nsites[class_num-1]++;
-          }
-        }
-        for (j = 0; j < source_msa->nseqs; j++) gc[j] /= totbases[j];
-        cpg /= tbases;
-      }
-
-      if (input_mod == NULL) {
-        mod = tm_new(weight_matrix[wm_cat] == 0 ? tr_create_copy(tree) : NULL, 
-                     NULL, NULL, subst_mod, msa->alphabet, nratecats, alpha, 
-                     rate_consts, root_leaf_id);
-      }
+      if (input_mod == NULL) 
+        mod = tm_new(tr_create_copy(tree), NULL, NULL, subst_mod, 
+                     msa->alphabet, nratecats, alpha, rate_consts, 
+                     root_leaf_id);
       else if (likelihood_only)
         mod = input_mod;
       else {
@@ -1102,7 +1035,7 @@ int main(int argc, char *argv[]) {
       }
 
       ninf_sites = msa_ninformative_sites(msa, cat);
-      if (!weight_matrix[wm_cat] && ninf_sites < nsites_threshold) {
+      if (ninf_sites < nsites_threshold) {
         tm_free(mod);
         fprintf(stderr, "Skipping %s; insufficient informative sites ...\n", 
                 tmpstr->chars);
@@ -1138,26 +1071,23 @@ int main(int argc, char *argv[]) {
         }
       }
       else {                    /* fit model */
-        if (weight_matrix[wm_cat] == 0) {
-          if (random_init) 
-            params = tm_params_init_random(mod);
-          else if (input_mod != NULL)
-            params = tm_params_init_from_model(input_mod);
-          else
-            params = tm_params_init(mod, .1, 5, alpha);    
-          if (input_mod != NULL && mod->backgd_freqs != NULL) {
-            /* in some cases, these are needed for initialization, but
-               now they should be re-estimated */
-            gsl_vector_free(mod->backgd_freqs);
-            mod->backgd_freqs = NULL;
-          }
+        if (random_init) 
+          params = tm_params_init_random(mod);
+        else if (input_mod != NULL)
+          params = tm_params_init_from_model(input_mod);
+        else
+          params = tm_params_init(mod, .1, 5, alpha);    
+        if (input_mod != NULL && mod->backgd_freqs != NULL) {
+          /* in some cases, these are needed for initialization, but
+             now they should be re-estimated */
+          gsl_vector_free(mod->backgd_freqs);
+          mod->backgd_freqs = NULL;
         }
 
         if (!quiet) {
           fprintf(stderr, "Fitting tree model to %s using %s%s ...\n",
-                  tmpstr->chars, weight_matrix[wm_cat] ? "weight matrix" : 
-                  tm_get_subst_mod_string(subst_mod),
-                  !weight_matrix[wm_cat] && mod->nratecats > 1 ? " (with rate variation)" : "");
+                  tmpstr->chars, tm_get_subst_mod_string(subst_mod),
+                  mod->nratecats > 1 ? " (with rate variation)" : "");
           if (log_fname != NULL)
             fprintf(stderr, "(writing log to %s)\n", log_fname);
         }
@@ -1169,19 +1099,18 @@ int main(int argc, char *argv[]) {
                        cats_to_do_str != NULL ? cats_to_do : NULL, 
                        NULL, NULL, -1);
 
-        if (use_em && !weight_matrix[wm_cat])
+        if (use_em)
           tm_fit_em(mod, msa, params, cat, precision, logf);
         else
-          tm_fit(mod, msa, params, cat, max_samples, precision, logf);
+          tm_fit(mod, msa, params, cat, precision, logf);
       }
-
 
       str_cpy_charstr(mod_fname, output_fname_root);
       if (window_coords != NULL) {
         str_append_charstr(mod_fname, ".win-");
         str_append_int(mod_fname, win/2 + 1);
       }
-      if (cat != -1) {
+      if (cat != -1 && nonoverlapping == FALSE) {
         str_append_char(mod_fname, '.');
         if (cm != NULL) 
           str_append(mod_fname, cm_get_feature_unique(cm, cat));
@@ -1203,7 +1132,7 @@ int main(int argc, char *argv[]) {
                               cat, quiet);
 
       /* also print tree, if requested */
-      if (!weight_matrix[wm_cat] && output_trees) {
+      if (output_trees) {
         /* first create a copy, with leaves labeled with sequence names */
         TreeNode *trcpy = tr_create_copy(mod->tree);
         for (j = 0; j < lst_size(trcpy->nodes); j++) {
@@ -1230,23 +1159,9 @@ int main(int argc, char *argv[]) {
       }
 
       /* print window summary, if window mode */
-      if (window_coords != NULL) {
-        fprintf(WINDOWF, "%5d %8d %8d %4d", win/2+1, lst_get_int(window_coords, win), lst_get_int(window_coords, win+1), cat);
-/*         for (j = 0; j < mod->backgd_freqs->size; j++) */
-/*           fprintf(WINDOWF, " %6.4f", gsl_vector_get(mod->backgd_freqs, j)); */
-        fprintf(WINDOWF, " %6.4f", 
-                gsl_vector_get(mod->backgd_freqs, 
-                               mod->rate_matrix->inv_states[(int)'G']) + 
-                gsl_vector_get(mod->backgd_freqs, 
-                               mod->rate_matrix->inv_states[(int)'C']));
-        for (j = 0; j < msa->nseqs; j++)
-          fprintf(WINDOWF, " %6.4f", gc[j]);
-        fprintf(WINDOWF, " %8.6f", cpg);
-        fprintf(WINDOWF, " %7d", ninf_sites);
-        for (j = 0; j < nclasses; j++) /* note: will only be executed with -n */
-          fprintf(WINDOWF, " %7d", nsites[j]);
-        fprintf(WINDOWF, " %7.4f\n", tr_total_len(mod->tree));
-      }
+      if (window_coords != NULL) 
+        print_window_summary(WINDOWF, window_coords, win, cat, mod, gc, 
+                             cpg, ninf_sites, msa->nseqs, FALSE);
 
       if (input_mod == NULL) tm_free(mod);
       if (params != NULL) gsl_vector_free(params);
@@ -1255,35 +1170,7 @@ int main(int argc, char *argv[]) {
       msa_free(msa);
   }
 
-  if (gff != NULL) {
-    gff_free_set(gff);
-    cm_free(cm);
-  }
   if (!quiet) fprintf(stderr, "Done.\n");
-
-  str_free(mod_fname);
-  if (output_trees) str_free(out_tree_fname);
-  msa_free(source_msa);
-  if (input_mod != NULL)
-    tm_free(input_mod);
-  else
-    free_tree(tree);
-  if (logf != NULL) fclose(logf);
-  free(weight_matrix);
-  if (window_coords != NULL) {
-    lst_free(window_coords);
-    fclose(WINDOWF);
-  }
-  str_free(tmpstr);
-  if (nclasses > 0) {
-    lst_free(match_list);
-    free(nsites);
-    free(gc);
-    free(totbases);
-  }
-  lst_free(cats_to_do);
-  if (cats_to_do_str != NULL) 
-    lst_free_strings(cats_to_do_str);
 
   return 0;
 }

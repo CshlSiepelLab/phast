@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.3 2004-06-09 17:10:29 acs Exp $
+/* $Id: misc.c,v 1.4 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -245,8 +245,11 @@ gsl_matrix* read_subst_mat(FILE *F, char *alph) {
 FILE* fopen_fname(char *fname, char *mode) {
   FILE *F = NULL;
   if (!strcmp(fname, "-")) {
-    assert(strcmp(mode, "r") == 0);
-    return stdin;
+    if (strcmp(mode, "r") == 0)
+      return stdin;
+    else if (strcmp(mode, "w+") == 0)
+      return stdout;
+    else die("ERROR: bad args to fopen_fname.\n");
   }
   if ((F = fopen(fname, mode)) == NULL) {
     fprintf(stderr, "ERROR: cannot open %s.\n", fname);

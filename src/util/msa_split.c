@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.3 2004-06-14 21:11:10 acs Exp $
+/* $Id: msa_split.c,v 1.4 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -30,8 +30,8 @@ for the partitions.  Optionally splits an associated annotations file.\n\
 \n\
 Options:\n\
 \n\
-    -i PHYLIP|FASTA|PSU|SS|MAF\n\
-        Input alignment file format.  Default is PHYLIP.\n\
+    -i FASTA|PHYLIP|MPM|MAF|SS\n\
+        Input alignment file format.  Default is FASTA.\n\
 \n\
     -M <rseq_fname>\n\
         (for use with -i MAF) Name of file containing reference sequence, \n\
@@ -105,8 +105,8 @@ Options:\n\
         .i.gff, for i between 1 and the total number of partitions.\n\
         Default filename root is \"msa_split\".\n\
 \n\
-    -o PHYLIP|FASTA|PSU|SS\n\
-        Output alignment file format.  Default is PHYLIP.\n\
+    -o FASTA|PHYLIP|MPM|SS\n\
+        Output alignment file format.  Default is FASTA.\n\
 \n\
     -O <name_list>\n\
         Change order of rows in alignment to match sequence names\n\
@@ -378,7 +378,7 @@ void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list,
 int main(int argc, char* argv[]) {
   FILE* F;
   MSA *msa;
-  msa_format_type input_format = PHYLIP, output_format = PHYLIP;
+  msa_format_type input_format = FASTA, output_format = FASTA;
   char *msa_fname = NULL, *gff_fname = NULL, *split_indices_str = NULL, 
     *out_fname_root = "msa_split", *cat_map_fname = NULL, *rseq_fname = NULL;
   GFF_Set *gff = NULL;
@@ -400,14 +400,8 @@ int main(int argc, char* argv[]) {
   while ((c = getopt(argc, argv, "i:M:g:c:p:d:n:sfG:r:o:L:C:T:w:I:O:B:SPzqh")) != -1) {
     switch(c) {
     case 'i':
-      if (!strcmp(optarg, "PSU")) input_format = PSU;
-      else if (!strcmp(optarg, "FASTA")) input_format = FASTA;
-      else if (!strcmp(optarg, "SS")) input_format = SS;
-      else if (!strcmp(optarg, "MAF")) input_format = MAF;
-      else if (strcmp(optarg, "PHYLIP") != 0) { 
-        fprintf(stderr, "ERROR: -i must specify PHYLIP, FASTA, or PSU.  Try msa_split -h for help.\n");
-        exit(1); 
-      }
+      input_format = msa_str_to_format(optarg);
+      if (input_format == -1) die("ERROR: bad input alignment format.\n");
       break;
     case 'M':
       rseq_fname = optarg;
@@ -467,13 +461,8 @@ int main(int argc, char* argv[]) {
       ordered_stats = 0;
       break;
     case 'o':
-      if (!strcmp(optarg, "FASTA")) output_format = FASTA;
-      else if (!strcmp(optarg, "PSU")) output_format = PSU;
-      else if (!strcmp(optarg, "SS")) output_format = SS;
-      else if (strcmp(optarg, "PHYLIP") != 0) { 
-        fprintf(stderr, "ERROR: -o must specify PHYLIP, FASTA, or PSU.  Try msa_split -h for help.\n");
-        exit(1); 
-      }
+      output_format = msa_str_to_format(optarg);
+      if (output_format == -1) die("ERROR: bad output alignment format.\n");
       break;
     case 'O': 
       order_list = get_arg_list(optarg);

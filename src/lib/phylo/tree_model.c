@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.6 2004-06-11 05:58:51 acs Exp $
+/* $Id: tree_model.c,v 1.7 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -127,9 +127,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   /* various attributes used when fitting a model to an alignment */
   tm->msa = NULL;
   tm->lnL = NULL_LOG_LIKELIHOOD;
-  tm->max_samples = -1;
   tm->tree_posteriors = NULL;
-  tm->tree_posteriors_marg = NULL;
   tm->use_conditionals = 0;
   tm->category = -1;
   tm->allow_but_penalize_gaps = 0;
@@ -337,7 +335,7 @@ TreeModel *tm_new_from_file(FILE *f) {
     }
     else if (!strcmp(tag, TREE_TAG)) {
       str_readline(tmpstr, f);
-      tree = parse_nh_from_string(tmpstr);      
+      tree = parse_nh_from_string(tmpstr->chars);      
     }
     else if (strcmp(tag, LNL_TAG) == 0) 
       str_readline(tmpstr, f);  /* discard */
@@ -456,7 +454,6 @@ TreeModel *tm_create_copy(TreeModel *src) {
   retval->msa = src->msa;
   retval->lnL = src->lnL;
   retval->use_conditionals = src->use_conditionals;
-  retval->max_samples = src->max_samples;
   retval->category = src->category;
   retval->allow_gaps = src->allow_gaps;
   retval->allow_but_penalize_gaps = src->allow_but_penalize_gaps;
@@ -629,7 +626,7 @@ MSA *tm_generate_msa(int ncolumns, MarkovMatrix *classmat,
    initial values for the optimization procedure.  Fuction returns 0
    on success, 1 on failure.  */  
 int tm_fit(TreeModel *mod, MSA *msa, gsl_vector *params, int cat, 
-           int max_samples, opt_precision_type precision, FILE *logf) {
+           opt_precision_type precision, FILE *logf) {
   double ll;
   gsl_vector *lower_bounds, *upper_bounds;
   int retval = 0;
@@ -657,7 +654,6 @@ int tm_fit(TreeModel *mod, MSA *msa, gsl_vector *params, int cat,
   mod->msa = msa;               /* package with mod any data needed to
                                    compute likelihoods */
   mod->category = cat;
-  mod->max_samples = max_samples;
 
   /* most params have lower bound of zero and no upper bound */
   lower_bounds = gsl_vector_calloc(params->size);

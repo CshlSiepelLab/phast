@@ -1,4 +1,4 @@
-/* $Id: fit_em.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: fit_em.c,v 1.2 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -87,7 +87,6 @@ int tm_fit_em(TreeModel *mod, MSA *msa, gsl_vector *params, int cat,
   mod->tree_posteriors = tl_new_tree_posteriors(mod, msa, 0, 0, 0, 1, 0, 
                                                 mod->empirical_rates ? 1 : 0);
   mod->category = cat;
-  mod->max_samples = -1;
 
   /* most params have lower bound of zero and no upper bound */
   lower_bounds = gsl_vector_calloc(params->size);

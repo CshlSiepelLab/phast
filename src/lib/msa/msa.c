@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.4 2004-06-14 22:52:16 acs Exp $
+/* $Id: msa.c,v 1.5 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -7,7 +7,7 @@
    Multiple sequence alignments.
    Reading and writing are supported in a few common formats
    (currently FASTA, PHYLIP, and the format used by Webb Miller et
-   al. at Penn. State, here called PSU), and a sort of grab bag of
+   al. at Penn. State, here called MPM), and a sort of grab bag of
    auxiliary functionality is provided, including extraction of
    sub-alignments (by sequence or by column), stripping of columns
    with gaps (columns having either all gaps or any gaps), reporting
@@ -125,9 +125,9 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
   else if (format == LAV)
     return la_to_msa(la_read_lav(F, 1), 0);
 
-  if (format == PHYLIP || format == PSU) {
+  if (format == PHYLIP || format == MPM) {
     if (fscanf(F, "%d %d", &nseqs, &len) <= 0) {
-      fprintf(stderr, "ERROR: PHYLIP or PSU file missing initial length declaration.\n");
+      fprintf(stderr, "ERROR: PHYLIP or MPM file missing initial length declaration.\n");
       exit(1);
     }
   }
@@ -143,7 +143,7 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
     msa->seqs[i] = (char*)smalloc((len + 1) * sizeof(char));
   }
 
-  if (format == PSU) {
+  if (format == MPM) {
     for (i = 0; i < nseqs; i++) {
       do { str_readline(tmpstr, F); str_trim(tmpstr); } 
       while (tmpstr->length == 0);
@@ -247,7 +247,7 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
   int maxlen, i, nseqs, j;
   String *line = str_new(STR_MED_LEN);
   List *l = lst_new_ptr(2);
-  String *new_str;
+  String *new_str = NULL;
   MSA *msa;
 
   if (descrip_re == NULL) 
@@ -263,7 +263,6 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
       continue;
     }
 
-    /* TODO: remove interior whitespace */
     str_double_trim(line);
     if (line->length == 0) continue;
 
@@ -272,10 +271,9 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
       if (line->chars[i] == '.') line->chars[i] = GAP_CHAR;
     }
 
-    if (new_str == NULL) {
-      fprintf(stderr, "ERROR in FASTA file: non-blank line preceding first description ('>') line.\n");
-      return NULL;
-    }
+    if (new_str == NULL) 
+      die("ERROR in FASTA file: non-blank line preceding first description ('>') line.\n");
+
     str_append(new_str, line);
   }
 
@@ -336,9 +334,9 @@ void msa_print(FILE *F, MSA *msa, msa_format_type format, int pretty_print) {
   /* otherwise, require explicit representation of alignment */
   if (msa->seqs == NULL && msa->ss != NULL) ss_to_msa(msa);
 
-  if (format == PHYLIP || format == PSU)
+  if (format == PHYLIP || format == MPM)
     fprintf(F, "  %d %d\n", msa->nseqs, msa->length);
-  if (format == PSU)
+  if (format == MPM)
     for (i = 0; i < msa->nseqs; i++) 
       fprintf(F, "%s\n", msa->names[i]);
   for (i = 0; i < msa->nseqs; i++) {
@@ -354,7 +352,7 @@ void msa_print(FILE *F, MSA *msa, msa_format_type format, int pretty_print) {
 	  fprintf(F, "%c", msa->seqs[i][j+k]);
       if (format == PHYLIP || format == FASTA) fprintf(F, "\n");
     }
-    if (format == PSU) fprintf(F, "\n");
+    if (format == MPM) fprintf(F, "\n");
   }
 }
 
@@ -746,6 +744,10 @@ void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm) {
   for (i = 0; i < lst_size(gff->features); i++) {
     feat = (GFF_Feature*)lst_get_ptr(gff->features, i);
     cat = cm_get_category(cm, feat->feature); 
+
+    if (cat == 0 && !str_equals_charstr(feat->feature, BACKGD_CAT_NAME))
+      continue;                 /* don't label in case of unrecognized
+                                   feature */
 
     if (feat->start == -1 || feat->end == -1 || feat->end >= msa->length) {
       fprintf(stderr, "WARNING: ignoring out-of-range feature (\"%s %s %s ... %s\").\n", 
@@ -2091,7 +2093,7 @@ char msa_get_char(MSA *msa, int seq, int pos) {
 
 /* get format type indicated by string */
 msa_format_type msa_str_to_format(char *str) {
-  if (!strcmp(str, "PSU")) return PSU;
+  if (!strcmp(str, "MPM")) return MPM;
   else if (!strcmp(str, "FASTA")) return FASTA;
   else if (!strcmp(str, "SS")) return SS;
   else if (!strcmp(str, "LAV")) return LAV;

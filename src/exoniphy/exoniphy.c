@@ -1,6 +1,6 @@
 /* label - label the columns of alignment(s) by category */
 
-/* $Id: exoniphy.c,v 1.5 2004-06-14 03:06:21 acs Exp $
+/* $Id: exoniphy.c,v 1.6 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, Adam Siepel, University of California 
 
@@ -87,10 +87,8 @@ OPTIONS:\n\
         (required) List of multiple sequence alignment files.\n\
         Currently, in testing mode, the list must be of length one.\n\
 \n\
-    -i PHYLIP|FASTA|PSU|SS \n\
-        (default PHYLIP) Alignment format.  PSU is the \"raw text\"\n\
-        format used by several tools developed by Webb Miller and\n\
-        colleagues at Penn. State University.\n\
+    -i PHYLIP|FASTA|MPM|SS \n\
+        (default FASTA) Alignment format.\n\
  \n\
     -c <category_map_fname>\n\
         (required) File defining mapping of feature types to category\n\
@@ -638,7 +636,7 @@ int main(int argc, char* argv[]) {
     *missing = NULL;
   HMM *hmm = NULL;
   TreeNode *tree = NULL;
-  int i, j, input_format = PHYLIP,
+  int i, j, input_format = FASTA,
     likelihood_only = 0, msa_idx, quiet_mode = 0, gff_mode = 0, 
     reverse_complement = 0, ncats, nmsas,
     ncats_unspooled, nratecats = 1, autorates = 0, 
@@ -681,13 +679,8 @@ int main(int argc, char* argv[]) {
       hide_missing = 1;
       break;
     case 'i':
-      if (!strcmp(optarg, "PSU")) input_format = PSU;
-      else if (!strcmp(optarg, "FASTA")) input_format = FASTA;
-      else if (!strcmp(optarg, "SS")) input_format = SS;
-      else if (strcmp(optarg, "PHYLIP") != 0) { 
-        fprintf(stderr, "ERROR: alignment format must be PHYLIP, FASTA, or PSU.\n\nType label -h for usage.\n");
-        exit(1); 
-      }
+      input_format = msa_str_to_format(optarg);
+      if (input_format == -1) die("ERROR: bad alignment format.\n");
       break;
     case 'g':
       gff_fname_list = get_arg_list(optarg);

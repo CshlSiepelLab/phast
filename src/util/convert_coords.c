@@ -1,4 +1,4 @@
-/* $Id: convert_coords.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: convert_coords.c,v 1.2 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -12,7 +12,7 @@
 #include <local_alignment.h>
 
 void print_usage() {
-  fprintf(stderr, "USAGE: convert_coords -m <msa_fname> -f <feature_fname> [-s <src_frame>] [-d <dest_frame>] [-p] [-n] [-i PHYLIP|FASTA|PSU]\n\
+  fprintf(stderr, "USAGE: convert_coords -m <msa_fname> -f <feature_fname> [-s <src_frame>] [-d <dest_frame>] [-p] [-n] [-i PHYLIP|FASTA|MPM]\n\
 \n\
 Converts coordinates of features in a GFF file according to a multiple\n\
 alignment.  Will map from the coordinate system of any sequence to any\n\
@@ -38,22 +38,14 @@ Options:\n\
                     subtracted from all coordinates.  Useful when your\n\
                     alignment is a sub-alignment of the alignment (or \n\
                     sequence) for which the coordinates are specified.\n\
-    -i PHYLIP|FASTA|PSU|LAV\n\
-                    (default PHYLIP) Alignment format.  PSU is the\n\
-                    format used by many of the\n\
-                    tools developed at Penn. State University.  LAV is\n\
-                    the format used by BLASTZ to represent local\n\
-                    pairwise alignments.  If it is selected, such an\n\
-                    alignment will be treated like a global alignment,\n\
-                    with unaligned portions of the target sequence\n\
-                    replaced by gaps (but the alignment will never be\n\
-                    explicitly represented).\n\n");  
+    -i FASTA|PHYLIP|MPM|SS\n\
+                    (default FASTA) Alignment format.\n\n");  
 } 
 
 int main(int argc, char* argv[]) {
   FILE* F;
   MSA *msa;
-  msa_format_type format = PHYLIP;
+  msa_format_type format = FASTA;
   int src_ref = -1, dest_ref = 0, offset = 0;
   char *msa_fname = NULL, *feat_fname = NULL;
   GFF_Set *gff;
@@ -74,14 +66,8 @@ int main(int argc, char* argv[]) {
       dest_ref = atoi(optarg);
       break;
     case 'i':
-      if (!strcmp(optarg, "PSU")) format = PSU;
-      else if (!strcmp(optarg, "FASTA")) format = FASTA; 
-      else if (!strcmp(optarg, "LAV")) format = LAV;
-      else if (strcmp(optarg, "PHYLIP") != 0) { 
-        fprintf(stderr, "ERROR: format must be \"PHYLIP,\" \"FASTA,\" or \"PSU.\"\n");
-        print_usage(); 
-        exit(1); 
-      }
+      format = msa_str_to_format(optarg);
+      if (format == -1) die("ERROR: bad alignment format.\n");
       break;
     case 'p':
       offset = atoi(optarg);

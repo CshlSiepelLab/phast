@@ -1,4 +1,4 @@
-/* $Id: category_map.c,v 1.4 2004-06-14 16:40:34 acs Exp $
+/* $Id: category_map.c,v 1.5 2004-06-15 22:33:57 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -12,6 +12,8 @@
 #include "gff.h"
 #include "stacks.h"
 #include <assert.h>
+#include <hashtable.h>
+#include <unistd.h>
 
 static int *prec;
 
@@ -438,7 +440,7 @@ CategoryMap *cm_create_copy(CategoryMap *src) {
   return retval;
 }
 
-/* create a trivial CategoryMap, with feature types equal to category
+/** Create a trivial CategoryMap, with feature types equal to category
    numbers (plus an optional prefix) and ranges all of size one.  */
 CategoryMap* cm_create_trivial(int ncats, char *feature_prefix) {
   int i;
@@ -451,6 +453,72 @@ CategoryMap* cm_create_trivial(int ncats, char *feature_prefix) {
     retval->feat_ext_lst[i] = lst_new_ptr(1);
     lst_push_ptr(retval->feat_ext_lst[i], type);
   }
+  return retval;
+}
+
+/** Create a category map with a category for each feature type in a
+    GFF_Set.  Category numbers are assigned in order of appearance of
+    types */
+CategoryMap* cm_new_from_features(GFF_Set *feats) {
+  int i;
+  CategoryMap *retval;
+  Hashtable *hash;
+  List *types;
+
+  /* first scan features for all types */
+  hash = hsh_new(10);
+  types = lst_new_ptr(10);
+  for (i = 0; i < lst_size(feats->features); i++) {
+    GFF_Feature *f = lst_get_ptr(feats->features, i);
+    if (hsh_get(hash, f->feature->chars) == (void*)-1) {
+      lst_push_ptr(types, f->feature);
+      hsh_put(hash, f->feature->chars, (void*)1);
+    }
+  }
+  hsh_free(hash);
+
+  /* now create a simple category map */
+  retval = cm_new(lst_size(types));
+  for (i = 0; i <= retval->ncats; i++) {
+    String *type = i == 0 ? str_new_charstr(BACKGD_CAT_NAME) : 
+      str_dup(lst_get_ptr(types, i-1));
+    retval->ranges[i] = cm_new_category_range(type, i, i);
+    retval->feat_ext_lst[i] = lst_new_ptr(1);
+    lst_push_ptr(retval->feat_ext_lst[i], type);
+  }
+
+  lst_free(types);
+  return retval;
+}
+
+/** Create a new category map from a string that can
+    either be a filename or a brief "inlined" category map, e.g.,
+    "NCATS = 3 ; CDS 1-3".  Useful for command-line arguments. */
+CategoryMap* cm_new_string_or_file(char *optarg) {
+  int i;
+  char fname[STR_SHORT_LEN];
+  String *str = str_new_charstr(optarg);
+  FILE *F;
+  CategoryMap *retval = NULL;
+
+  str_double_trim(str);
+  if (str_starts_with_charstr(str, "NCATS")) {
+    /* replace semicolons with carriage returns */
+    for (i = 0; i < str->length; i++)
+      if (str->chars[i] == ';') str->chars[i] = '\n';
+
+    /* we'll just dump a little tmp file and read it with cm_read */
+    sprintf(fname, "cm.tmp.%d", getpid());
+    F = fopen_fname(fname, "w+");
+    fprintf(F, str->chars);
+    fclose(F);
+    retval = cm_read(fopen_fname(fname, "r"));
+    unlink(fname);
+  }
+  else 
+    retval = cm_read(fopen_fname(str->chars, "r"));
+
+  str_free(str);
   return retval;
 }
 
