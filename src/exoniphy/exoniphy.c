@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.20 2004-06-30 23:13:17 acs Exp $
+/* $Id: exoniphy.c,v 1.21 2004-06-30 23:27:09 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -321,6 +321,28 @@ int main(int argc, char* argv[]) {
   if (sens_spec_fname_root != NULL && bias != NEGINFTY)
     die("ERROR: can't use --bias and --sens-spec together.\n");
 
+  /* read alignment */
+  if (!quiet)
+    fprintf(stderr, "Reading alignment from %s...\n", 
+            !strcmp(argv[optind], "-") ? "stdin" : argv[optind]);
+  
+  msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
+  msa_remove_N_from_alph(msa);
+  if (msa_format == SS && msa->ss->tuple_idx == NULL) 
+    die("ERROR: Ordered representation of alignment required.\n");
+
+  /* use filename root for default seqname and/or idpref */
+  if (seqname == NULL || idpref == NULL) {
+    String *tmp = str_new_charstr(argv[optind]);
+    if (!str_equals_charstr(tmp, "-")) {
+      str_remove_path(tmp);
+      str_root(tmp, '.');
+      if (idpref == NULL) idpref = strdup(tmp->chars);
+      str_root(tmp, '.');         /* apply one more time for double suffix */
+      if (seqname == NULL) seqname = tmp->chars;    
+    }
+  }
+
   /* set hmm, tree models, and category map to defaults, if not
      already specified */
   if (hmm == NULL) {
@@ -346,7 +368,7 @@ int main(int argc, char* argv[]) {
          gc_cat++);
     gc_cat++;                   /* use 1-based index */
     if (!quiet) 
-      fprintf(stderr, "(G+C content is %.1f%%; using models for G+C category %d)\n",
+      fprintf(stderr, "(G+C content is %.1f%%; using tree models for G+C category %d)\n",
               gc*100, gc_cat);
     model_fname_list = lst_new_ptr(30);
     sprintf(tmpstr, "%s/data/exoniphy/%s-gc%d", PHAST_HOME, 
@@ -370,28 +392,6 @@ int main(int argc, char* argv[]) {
     cm = cm_read(fopen_fname(tmpstr, "r"));
     if (no_gaps_str == NULL) 
       no_gaps_str = get_arg_list("10,11,20,21,cds5\'ss,cds3\'ss,start_codon,stop_codon");
-  }
-
-  /* read alignment */
-  if (!quiet)
-    fprintf(stderr, "Reading alignment from %s...\n", 
-            !strcmp(argv[optind], "-") ? "stdin" : argv[optind]);
-  
-  msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
-  msa_remove_N_from_alph(msa);
-  if (msa_format == SS && msa->ss->tuple_idx == NULL) 
-    die("ERROR: Ordered representation of alignment required.\n");
-
-  /* use filename root for default seqname and/or idpref */
-  if (seqname == NULL || idpref == NULL) {
-    String *tmp = str_new_charstr(argv[optind]);
-    if (!str_equals_charstr(tmp, "-")) {
-      str_remove_path(tmp);
-      str_root(tmp, '.');
-      if (idpref == NULL) idpref = strdup(tmp->chars);
-      str_root(tmp, '.');         /* apply one more time for double suffix */
-      if (seqname == NULL) seqname = tmp->chars;    
-    }
   }
 
   ncats = cm->ncats + 1;
