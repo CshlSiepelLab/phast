@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.14 2004-06-24 03:51:40 acs Exp $
+/* $Id: gff.c,v 1.15 2004-07-01 23:58:25 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -401,13 +401,16 @@ GFF_Set *gff_subset_range(GFF_Set *set, int startcol, int endcol,
   return subset;
 }
 
-/** Discard any feature whose feature type is *not* in the specified
+/** Discard any feature whose feature type is not in the specified
     list. */
 void gff_filter_by_type(GFF_Set *gff, 
                                 /**< GFF_Set to process */
-                        List *include, 
+                        List *types, 
                                 /**< Feature types to include (List of
                                    Strings) */
+                        int exclude,
+                                /**< Exclude rather than include
+                                   specified types */
                         FILE *discards_f
                                 /**< Discarded features will be
                                    written here (if non-NULL) */
@@ -416,9 +419,10 @@ void gff_filter_by_type(GFF_Set *gff,
   int i;
   for (i = 0; i < lst_size(gff->features); i++) {
     GFF_Feature *f = lst_get_ptr(gff->features, i);
-    if (str_in_list(f->feature, include)) /* use linear search -- hash
-                                             probably not worth the
-                                             overhead */
+    int in_list = str_in_list(f->feature, types);
+
+    if ((in_list == TRUE && exclude == FALSE) || 
+        (in_list == FALSE && exclude == TRUE))
       lst_push_ptr(newfeats, f);
     else {
       if (discards_f != NULL) gff_print_feat(discards_f, f);
@@ -836,3 +840,50 @@ void gff_fix_stops(GFF_Set *gff,
   }
 }
 
+/** Adjust coords of features of "primary" types (e.g., CDS) to
+    include any features of "helper" types (e.g., start_codon).
+    Features must be grouped and sorted.  No features are created or
+    discarded; only coordinates are changed. */
+void gff_absorb_helpers(GFF_Set *feats, List *primary_types, 
+                        List *helper_types) {
+  int i, j, k;
+
+  if (feats->groups == NULL) 
+    die("ERROR: gff_absorb_helpers requires groups.\n");
+
+  for (i = 0; i < lst_size(feats->groups); i++) {
+    GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
+    for (j = 0; j < lst_size(g->features); j++) {
+      GFF_Feature *f = lst_get_ptr(g->features, j);
+      if (str_in_list(f->feature, primary_types)) {
+        /* extend to left */
+        for (k = j-1; k >= 0; k--) {
+          GFF_Feature *prev = lst_get_ptr(g->features, k);
+          if (str_in_list(prev->feature, helper_types) && 
+              prev->end == f->start - 1) {
+            f->start = prev->start;
+            if (f->strand == '+' && f->frame != GFF_NULL_FRAME)
+              f->frame = (f->frame + 2*(prev->end - prev->start + 1)) % 3;
+                                /* to subtract x-y in mod-3 space, you
+                                   can do (x + 3y - y) % 3 = (x + 2y)
+                                   % 3; it's a form of borrowing.
+                                   Note that we're assuming a range
+                                   size of 3 */
+          }
+          else break;
+        }
+        /* extend to right */
+        for (k = j+1; k < lst_size(g->features); k++) {
+          GFF_Feature *next = lst_get_ptr(g->features, k);
+          if (str_in_list(next->feature, helper_types) && 
+              next->start == f->end + 1) {
+            f->end = next->end;
+            if (f->strand == '-' && f->frame != GFF_NULL_FRAME)
+              f->frame = (f->frame + 2*(next->end - next->start + 1)) % 3;
+          }
+          else break;
+        }
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-/* $Id: category_map.h,v 1.6 2004-06-30 17:01:21 acs Exp $
+/* $Id: category_map.h,v 1.7 2004-07-01 23:58:25 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -154,12 +154,6 @@ typedef struct {
                                    labelling_precedence.  */
   List **conditioned_on;
   Unspooler *unspooler;
-  List **feat_ext_lst;          /** list of feature types for each
-                                   category range to be used when
-                                   generating types from category
-                                   numbers (see cm_labeling_as_gff);
-                                   allows default feature types to be
-                                   overridden  */
 } CategoryMap;
 
 /** Name of background category */

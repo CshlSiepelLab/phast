@@ -1,4 +1,4 @@
-/* $Id: gff.h,v 1.6 2004-06-24 03:51:40 acs Exp $
+/* $Id: gff.h,v 1.7 2004-07-01 23:58:25 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -140,7 +140,8 @@ GFF_Feature *gff_new_feature_copy(GFF_Feature *orig);
 GFF_Set *gff_subset_range(GFF_Set *set, int startcol, int endcol, 
                           int reset_indices);
 
-void gff_filter_by_type(GFF_Set *gff, List *include, FILE *discards_f);
+void gff_filter_by_type(GFF_Set *gff, List *types, int exclude, 
+                        FILE *discards_f);
 
 int gff_reverse_strand_only(List *features);
 
@@ -163,5 +164,8 @@ GFF_Set* gff_read_from_fname(char *fname);
 void gff_remove_overlaps(GFF_Set *gff, FILE *discards);
 
 void gff_fix_stops(GFF_Set *gff, char* cds_type, char *stop_type);
+
+void gff_absorb_helpers(GFF_Set *feats, List *primary_types, 
+                        List *helper_types);
 
 #endif

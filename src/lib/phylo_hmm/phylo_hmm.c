@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.8 2004-06-30 17:01:21 acs Exp $
+/* $Id: phylo_hmm.c,v 1.9 2004-07-01 23:58:25 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -352,15 +352,10 @@ void phmm_rates_cross(PhyloHmm *phmm,
         str_append_int(newtype, ratecat);
         phmm->cm->ranges[newcat] = cm_new_category_range(newtype, newcat, 
                                                          newcat + range_size - 1);
-        phmm->cm->feat_ext_lst[newcat] = lst_new_ptr(1);
-        lst_push_ptr(phmm->cm->feat_ext_lst[newcat], newtype);
         for (i = 0; i < range_size; i++) {
           phmm->cm->conditioned_on[newcat + i] = NULL;
-          if (i > 0) {
+          if (i > 0) 
             phmm->cm->ranges[newcat + i] = phmm->cm->ranges[newcat];
-            phmm->cm->feat_ext_lst[newcat + i] = phmm->cm->feat_ext_lst[newcat];
-
-          }
         }
         old_cat_to_new[phmm->nratecats * cat + ratecat] = newcat;
         newcat += range_size;
@@ -628,7 +623,7 @@ GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm,
   types = cm_get_features(phmm->cm, catnos);
 
   /* filter out unwanted types */
-  gff_filter_by_type(retval, types, NULL);
+  gff_filter_by_type(retval, types, FALSE, NULL);
 
   /* now merge adjacent features */
   keepers = lst_new_ptr(lst_size(retval->features));
@@ -995,8 +990,6 @@ void phmm_rates_cut(PhyloHmm *phmm,
                   "conserved");
   newtype = str_new_charstr("nonconserved");
   phmm->cm->ranges[1] = cm_new_category_range(newtype, 1, 1);
-  phmm->cm->feat_ext_lst[1] = lst_new_ptr(1);
-  lst_push_ptr(phmm->cm->feat_ext_lst[1], newtype);
   assert(phmm->cm->conditioned_on[0] == NULL);
   
   /* update mappings */

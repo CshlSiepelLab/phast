@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.22 2004-07-01 17:33:06 acs Exp $
+/* $Id: exoniphy.c,v 1.23 2004-07-01 23:58:25 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -16,15 +16,17 @@
 
 /* default background feature types; used when scoring predictions and
    reflecting HMM */
-#define DEFAULT_BACKGD_CATS "background,CNS"
+#define DEFAULT_BACKGD_TYPES "background,CNS"
 
 /* default "cds" and "signal" feature tupes */
-#define DEFAULT_CDS_CATS "CDS,start_codon,cds5'ss,cds3'ss"
-#define DEFAULT_SIGNAL_CATS "stop_codon,5'splice,3'splice,prestart"
-                                /* cat names that aren't present will
-                                   be ignored */
+#define DEFAULT_CDS_TYPES "CDS"
+#define DEFAULT_SIGNAL_TYPES "start_codon,stop_codon,5'splice,3'splice,prestart,cds5'ss,cds3'ss"
 
-#define DEFAULT_FRAME_CATS "CDS"
+/* categories to be "absorbed" into CDS (want coords to be included in
+   CDS) and to be "invisible" in output. For now, these are fixed; all
+   of this should become simpler with generalized HMM architecture */
+#define CDS_ABSORB_TYPES "start,cds5'ss,cds3'ss"
+#define INVISIBLE_TYPES "cds5'ss,cds3'ss"
 
 /* parameters controlling evaluation of Sn/Sp tradeoff (see -Y option) */
 #define SCALE_RANGE_MIN -20
@@ -150,14 +152,10 @@ OPTIONS:\n\
     --signal-types, -L <list>\n\
         (for use with --score) Types of features to be considered\n\
         \"signals\" during scoring (default value: \n\
-        \"%s\").  One score is produced \n\
-        for a CDS feature (as defined by --cds-types) and \n\
-        the adjacent signal features; the score is then assigned to\n\
-        the CDS feature.\n\
-\n\
-    --frame-types, -F <list>\n\
-        Types of features for which to obtain frame information\n\
-        (default value: \"%s\").\n\
+        \"%s\").\n\
+        One score is produced for a CDS feature (as defined by\n\
+        --cds-types) and the adjacent signal features; the score is\n\
+        then assigned to the CDS feature.\n\
 \n\
  (Indels)\n\
     --indels, -I\n\
@@ -186,8 +184,7 @@ REFERENCES:\n\
       evolutionarily conserved exons.  Proc. 8th Annual Int'l Conf.\n\
       on Research in Computational Biology (RECOMB '04), pp. 177-186.\n\n", 
            SCALE_RANGE_MIN, SCALE_RANGE_MAX, NSENS_SPEC_TRIES, 
-           DEFAULT_CDS_CATS, DEFAULT_BACKGD_CATS, DEFAULT_SIGNAL_CATS,
-           DEFAULT_FRAME_CATS);
+           DEFAULT_CDS_TYPES, DEFAULT_BACKGD_TYPES, DEFAULT_SIGNAL_TYPES);
 }
 
 int main(int argc, char* argv[]) {
@@ -200,10 +197,11 @@ int main(int argc, char* argv[]) {
   char *seqname = NULL, *grouptag = "exon_id", *sens_spec_fname_root = NULL,
     *idpref = NULL;
   List *model_fname_list = NULL, *no_gaps_str = NULL, 
-    *backgd_cats = get_arg_list(DEFAULT_BACKGD_CATS), 
-    *cds_cats = get_arg_list(DEFAULT_CDS_CATS), 
-    *signal_cats = get_arg_list(DEFAULT_SIGNAL_CATS),
-    *frame_cats = get_arg_list(DEFAULT_FRAME_CATS);
+    *backgd_types = get_arg_list(DEFAULT_BACKGD_TYPES), 
+    *cds_types = get_arg_list(DEFAULT_CDS_TYPES), 
+    *signal_types = get_arg_list(DEFAULT_SIGNAL_TYPES),
+    *cds_absorb_types = get_arg_list(CDS_ABSORB_TYPES),
+    *invisible_types = get_arg_list(INVISIBLE_TYPES);
 
   struct option long_opts[] = {
     {"hmm", 1, 0, 'H'},
@@ -221,7 +219,6 @@ int main(int argc, char* argv[]) {
     {"cds-types", 1, 0, 'C'},
     {"backgd-types", 1, 0, 'B'},
     {"signal-types", 1, 0, 'L'},
-    {"frame-types", 1, 0, 'F'},
     {"indels", 0, 0, 'I'},
     {"no-gaps", 1, 0, 'W'},
     {"quiet", 0, 0, 'q'},
@@ -265,20 +262,16 @@ int main(int argc, char* argv[]) {
       reflect_hmm = TRUE;
       break;
     case 'B':
-      lst_free_strings(backgd_cats); lst_free(backgd_cats); /* free defaults */
-      backgd_cats = get_arg_list(optarg);
+      lst_free_strings(backgd_types); lst_free(backgd_types);
+      backgd_types = get_arg_list(optarg);
       break;
     case 'T':
-      lst_free_strings(cds_cats); lst_free(cds_cats); /* free defaults */
-      cds_cats = get_arg_list(optarg);
+      lst_free_strings(cds_types); lst_free(cds_types); 
+      cds_types = get_arg_list(optarg);
       break;
     case 'L':
-      lst_free_strings(signal_cats); lst_free(signal_cats); /* free defaults */
-      signal_cats = get_arg_list(optarg);
-      break;
-    case 'F':
-      lst_free_strings(frame_cats); lst_free(frame_cats); /* free defaults */
-      frame_cats = get_arg_list(optarg);
+      lst_free_strings(signal_types); lst_free(signal_types); 
+      signal_types = get_arg_list(optarg);
       break;
     case 'S':
       score = TRUE;
@@ -421,13 +414,13 @@ int main(int argc, char* argv[]) {
     lst_free(l);
   }      
 
-  phmm = phmm_new(hmm, mod, cm, reflect_hmm ? backgd_cats : NULL, 
+  phmm = phmm_new(hmm, mod, cm, reflect_hmm ? backgd_types : NULL, 
                   indels, msa->nseqs);
 
   /* add bias, if necessary */
   if (bias != NEGINFTY) {
     if (!quiet) fprintf(stderr, "Applying coding bias of %f...\n", bias);
-    phmm_add_bias(phmm, backgd_cats, bias);
+    phmm_add_bias(phmm, backgd_types, bias);
   }
 
   /* compute emissions */
@@ -436,7 +429,7 @@ int main(int argc, char* argv[]) {
   /* now produce predictions.  Need to do this in a loop because
      of sens-spec mode */
   if (sens_spec_fname_root != NULL) {    
-    phmm_add_bias(phmm, backgd_cats, SCALE_RANGE_MIN);
+    phmm_add_bias(phmm, backgd_types, SCALE_RANGE_MIN);
     ntrials = NSENS_SPEC_TRIES;
   }
   else ntrials = 1;
@@ -450,14 +443,20 @@ int main(int argc, char* argv[]) {
     if (!quiet)
       fprintf(stderr, "Executing Viterbi algorithm...\n");
     predictions = phmm_predict_viterbi(phmm, seqname, grouptag, idpref,
-                                       frame_cats);
+                                       cds_types);
 
     /* score predictions */
     if (score) {
       if (!quiet) fprintf(stderr, "Scoring predictions...\n");            
-      phmm_score_predictions(phmm, predictions, cds_cats, 
-                             signal_cats, backgd_cats, TRUE);
+      phmm_score_predictions(phmm, predictions, cds_types, 
+                             signal_types, backgd_types, TRUE);
     }
+
+    gff_group(predictions, grouptag);
+    gff_absorb_helpers(predictions, cds_types, cds_absorb_types);
+
+    /* filter out cats that aren't wanted in output */
+    gff_filter_by_type(predictions, invisible_types, TRUE, NULL);
 
     /* convert to coord frame of reference sequence and adjust for
        idx_offset.  FIXME: make clear in help page assuming refidx 1 */
@@ -469,7 +468,7 @@ int main(int argc, char* argv[]) {
       sprintf(tmpstr, "%s.v%d.gff", sens_spec_fname_root, trial+1);
       gff_print_set(fopen_fname(tmpstr, "w+"), predictions);      
       if (trial < ntrials - 1)     /* also set up for next iteration */
-        phmm_add_bias(phmm, backgd_cats, (SCALE_RANGE_MAX - SCALE_RANGE_MIN)/
+        phmm_add_bias(phmm, backgd_types, (SCALE_RANGE_MAX - SCALE_RANGE_MIN)/
                       (NSENS_SPEC_TRIES-1));
     }
     else                        /* just output to stdout */

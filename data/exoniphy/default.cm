@@ -10,7 +10,3 @@ prestart    23-26
 cds5'ss     27-29   
 cds3'ss     30      
 LABELLING_PRECEDENCE=4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,23,24,25,26,27,28,29,30
-FEATURE_EXTEND: CDS(start_codon)
-FEATURE_EXTEND: CDS(stop_codon)
-FEATURE_EXTEND: CDS(cds5'ss)
-FEATURE_EXTEND: CDS(cds3'ss)

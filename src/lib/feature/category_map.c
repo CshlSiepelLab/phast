@@ -1,4 +1,4 @@
-/* $Id: category_map.c,v 1.9 2004-06-30 19:27:08 acs Exp $
+/* $Id: category_map.c,v 1.10 2004-07-01 23:58:25 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -100,15 +100,11 @@ CategoryMap *cm_read(FILE *F) {
 
       if (cm == NULL || (cat = cm_get_category(cm, target)) == 0)
         die("ERROR: FEATURE_EXTEND target must be a previously-defined non-background feature type.\n");
-      if (cm->feat_ext_lst[cat] != NULL) 
-        die("ERROR: only one FEATURE_EXTEND line is allowed per target feature type.\n");
 
       for (i = 0; i < lst_size(sources); i++) {
         if (cm_get_category(cm, lst_get_ptr(sources, i)) == 0) 
           die("ERROR: FEATURE_EXTEND source list must consist of previously-defined non-background feature types.\n");
       }
-
-      cm->feat_ext_lst[cat] = sources;
     }
 
     else {                      /* 'range' line */
@@ -197,17 +193,9 @@ CategoryMap *cm_read(FILE *F) {
   }
 
   /* make sure every category has been specified */
-  for (i = 0; i <= cm->ncats; i++) {
+  for (i = 0; i <= cm->ncats; i++) 
     if (cm->ranges[i] == 0) 
       die("ERROR: category %d has not been specified.\n", i);
-    /* also fill out remaining feat_ext_lsts */
-    if (cm->feat_ext_lst[i] == NULL && i == cm->ranges[i]->start_cat_no) {
-      cm->feat_ext_lst[i] = lst_new_ptr(1);
-      lst_push_ptr(cm->feat_ext_lst[i], cm_get_feature(cm, i));
-    }
-    else if (i != cm->ranges[i]->start_cat_no)
-      cm->feat_ext_lst[i] = cm->feat_ext_lst[cm->ranges[i]->start_cat_no];
-  }
 
   /* build unspooler, if necessary */
   if (has_dependencies)
@@ -381,13 +369,11 @@ CategoryMap *cm_new(int ncats) {
   cm->conditioned_on = smalloc((cm->ncats + 1) * sizeof(List*));
   cm->labelling_precedence = smalloc((cm->ncats + 1) * sizeof(int));
   cm->fill_precedence = smalloc((cm->ncats + 1) * sizeof(int));
-  cm->feat_ext_lst = smalloc((cm->ncats + 1) * sizeof(int));
   for (i = 0; i <= cm->ncats; i++) {
     cm->ranges[i] = NULL;
     cm->conditioned_on[i] = NULL;
     cm->labelling_precedence[i] = -1;
     cm->fill_precedence[i] = -1;
-    cm->feat_ext_lst[i] = NULL;
   }
   cm->unspooler = NULL;
 
@@ -406,12 +392,6 @@ CategoryMap *cm_create_copy(CategoryMap *src) {
     }
     retval->labelling_precedence[i] = src->labelling_precedence[i];
     retval->fill_precedence[i] = src->fill_precedence[i];
-    if (src->feat_ext_lst[i] != NULL) { 
-      retval->feat_ext_lst[i] = lst_new_int(lst_size(src->feat_ext_lst[i]));
-      for (j = 0; j < lst_size(src->feat_ext_lst[i]); j++)
-        lst_push_ptr(retval->feat_ext_lst[i], 
-                     str_dup(lst_get_ptr(src->feat_ext_lst[i], j)));
-    }
   }
   if (has_dependencies) cm_create_unspooler(retval->ncats + 1, 
                                             retval->conditioned_on);
@@ -428,8 +408,6 @@ CategoryMap* cm_create_trivial(int ncats, char *feature_prefix) {
     if (feature_prefix != NULL) str_append_charstr(type, feature_prefix);
     str_append_int(type, i);
     retval->ranges[i] = cm_new_category_range(type, i, i);
-    retval->feat_ext_lst[i] = lst_new_ptr(1);
-    lst_push_ptr(retval->feat_ext_lst[i], type);
   }
   return retval;
 }
@@ -461,8 +439,6 @@ CategoryMap* cm_new_from_features(GFF_Set *feats) {
     String *type = i == 0 ? str_new_charstr(BACKGD_CAT_NAME) : 
       str_dup(lst_get_ptr(types, i-1));
     retval->ranges[i] = cm_new_category_range(type, i, i);
-    retval->feat_ext_lst[i] = lst_new_ptr(1);
-    lst_push_ptr(retval->feat_ext_lst[i], type);
   }
 
   lst_free(types);
@@ -512,14 +488,11 @@ void cm_realloc(CategoryMap *cm, int new_ncats) {
                                       (cm->ncats + 1) * sizeof(int));
   cm->fill_precedence = srealloc(cm->fill_precedence,
                                  (cm->ncats + 1) * sizeof(int));
-  cm->feat_ext_lst = srealloc(cm->feat_ext_lst,
-                               (cm->ncats + 1) * sizeof(int));
   for (i = old_ncats+1; i <= cm->ncats; i++) {
     cm->ranges[i] = NULL;
     cm->conditioned_on[i] = NULL;
     cm->labelling_precedence[i] = -1;
     cm->fill_precedence[i] = -1;
-    cm->feat_ext_lst[i] = NULL;
   }
 }
 
@@ -534,15 +507,12 @@ void cm_free(CategoryMap *cm) {
     }
     if (cm->conditioned_on[i] != NULL)
       lst_free(cm->conditioned_on[i]);
-    if (cm->feat_ext_lst[i] != NULL) 
-      lst_free(cm->feat_ext_lst[i]);
     i += len;
   }
   free(cm->ranges);
   free(cm->conditioned_on);
   free(cm->labelling_precedence);
   free(cm->fill_precedence);
-  free(cm->feat_ext_lst);
 
   if (cm->unspooler != NULL)
     cm_free_unspooler(cm->unspooler);
@@ -639,19 +609,16 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm,
                                    elements (may be NULL).  Can be
                                    used to ensure ids are unique. */
                             ) {
-  int beg, end, i, j, lastcat, lastframe, groupno;
+  int beg, end, i, j, cat, frame, groupno;
   GFF_Set *gff = gff_new_set_init("PHAST", PHAST_VERSION);
-  GFF_Feature *feat = NULL;
+  GFF_Feature *prevfeat = NULL;
   int do_frame[cm->ncats+1];
-  char laststrand;
-  List *shared_types;
+  char strand;
   char groupstr[STR_SHORT_LEN];
   int ignore_0 = str_equals_charstr(cm_get_feature(cm, 0), BACKGD_CAT_NAME);
                                 /* ignore category 0 if background  */
 
   if (length <= 0) return gff;
-
-  shared_types = lst_new_ptr(2);
 
   for (i = 0; i <= cm->ncats; i++) do_frame[i] = 0;
   if (frame_cats != NULL)
@@ -670,91 +637,41 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm,
 
   i = 0;
   while (i < length) {
-    lastcat = cm->ranges[path_to_cat[path[i]]]->start_cat_no;
-    laststrand = reverse_compl[path[i]] ? '-' : '+';
-    lastframe = do_frame[lastcat] ? 
-      path_to_cat[path[i]] - lastcat : GFF_NULL_FRAME;
+    cat = cm->ranges[path_to_cat[path[i]]]->start_cat_no;
+    strand = reverse_compl[path[i]] ? '-' : '+';
+    frame = do_frame[cat] ? path_to_cat[path[i]] - cat : GFF_NULL_FRAME;
 
     /* scan ahead until enter new category range (or reach end of seq) */
     beg = i + 1;                /* begin of feature (GFF coords) */
     for (i++; i < length && 
-           cm->ranges[path_to_cat[path[i]]]->start_cat_no == lastcat; i++);
+           cm->ranges[path_to_cat[path[i]]]->start_cat_no == cat; i++);
     end = i;                    /* end of feature (GFF coords) */
 
     /* if minus strand, adjust frame to reflect end */
-    if (laststrand == '-' && do_frame[lastcat]) 
-      lastframe = path_to_cat[path[i-1]] - lastcat;
+    if (strand == '-' && do_frame[cat]) 
+      frame = path_to_cat[path[i-1]] - cat;
 
     /* if legitimate feature (non-background), then incorp into GFF_Set */
-    if (lastcat != 0 || !ignore_0) {
-      String *type = cm_get_feature(cm, lastcat);
+    if (cat != 0 || !ignore_0)  /* create new feature and add */
+      lst_push_ptr(gff->features, 
+                   gff_new_feature(str_new_charstr(seqname), 
+                                   str_new_charstr(source), 
+                                   str_dup(cm_get_feature(cm, cat)), 
+                                   beg, end, 0, strand, frame, 
+                                   str_new_charstr(groupstr), TRUE));
 
-      /* check to see if new feature should be combined with prev one */
-      if (feat != NULL && beg == feat->end + 1 &&
-          feat->strand == laststrand)
-        str_list_overlap(shared_types, shared_types, 
-                         cm->feat_ext_lst[lastcat]);
-      else
-        lst_clear(shared_types);
-
-      if (lst_size(shared_types) > 0) {
-        /* in this case, the current and prev features are adjacent
-           and on the same strand, and map to the same type;
-           therefore, the previous one should be extended rather than
-           a new one created */
-
-        /* FIXME: frame stuff gets complicated if multiple shared types
-           have frame.  For now, assume frame information is recorded
-           for only one feature in each set of shared types; soon need
-           a simpler way to handle all of this (possibly just elim
-           feature-extend stuff from category map altogether) */
-        assert(feat->frame == GFF_NULL_FRAME || lastframe == GFF_NULL_FRAME);
-
-        if (feat->strand == '-' && feat->frame != GFF_NULL_FRAME)
-          feat->frame = (feat->frame + 2*(end - beg + 1)) % 3;
-                                /* to subtract x-y in mod-3 space, you
-                                   can do (x + 3y - y) % 3 = (x + 2y) % 3; 
-                                   it's a form of borrowing */
-        else if (lastframe != GFF_NULL_FRAME) {
-          /* final feature should have frame if any of the component
-             features has frame */
-          if (feat->strand == '-') feat->frame = lastframe;
-          else feat->frame = (lastframe + 2*(feat->end - feat->start + 1)) % 3;
-        }
-          
-        if (!str_equals(feat->feature, lst_get_ptr(shared_types, 0)))
-          str_cpy(feat->feature, lst_get_ptr(shared_types, 0));
-                                /* set of overlaps possibly shrinking;
-                                   arbitrarily use the first element */
-        feat->end = end;
-      }
-
-      else {
-        /* otherwise, create a new feature */
-        feat = gff_new_feature(str_new_charstr(seqname), str_new_charstr(source), 
-                               str_dup(type), beg, end, 0, laststrand, 
-                               lastframe, str_new_charstr(groupstr), 1);
-        lst_push_ptr(gff->features, feat);
-
-        /* reset shared_types */
-        for (j = 0; j < lst_size(cm->feat_ext_lst[lastcat]); j++)
-          lst_push_ptr(shared_types, 
-                       lst_get_ptr(cm->feat_ext_lst[lastcat], j));
-      }
-    }
-
-    if (lastcat == 0 && beg > 1) {
+    if (cat == 0 && beg > 1) {
       groupno++;                /* increment group number each time a
                                    sequence of 0s is encountered  */
       if (idpref != NULL)
         sprintf(groupstr, "%s \"%s.%d\"", grouptag != NULL ? grouptag : "id", 
                 idpref, groupno);
       else
-        sprintf(groupstr, "%s \"%d\"", grouptag != NULL ? grouptag : "id", groupno);
+        sprintf(groupstr, "%s \"%d\"", grouptag != NULL ? grouptag : "id", 
+                groupno);
     }
   }
 
-  lst_free(shared_types);
   return gff;
 }
 

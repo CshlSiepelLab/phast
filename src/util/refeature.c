@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
   gff = gff_read_set(fopen_fname(argv[optind], "r"));
 
   /* filter */
-  if (include != NULL) gff_filter_by_type(gff, include, discards_f);
+  if (include != NULL) gff_filter_by_type(gff, include, FALSE, discards_f);
 
   /* group */
   gff_group(gff, groupby);
