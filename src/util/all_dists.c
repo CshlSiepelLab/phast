@@ -40,6 +40,7 @@ int main(int argc, char *argv[]) {
   int mod = FALSE;
   char **leaf_name;
   String *trees_arg;
+  FILE *F;
 
   struct option long_opts[] = {
     {"mod", 0, 0, 'm'},
@@ -85,9 +86,10 @@ int main(int argc, char *argv[]) {
   for (t = 0; t < ntrees; t++) {
     String *fname = lst_get_ptr(tree_fnames, t);
     if (mod) {
-      TreeModel *m = tm_new_from_file(fopen_fname(fname->chars, "r"));
+      TreeModel *m = tm_new_from_file(F = fopen_fname(fname->chars, "r"));
       tree[t] = tr_create_copy(m->tree);
       tm_free(m);
+      fclose(F);
     }
     else
       tree[t] = tr_new_from_file(fopen_fname(fname->chars, "r"));
