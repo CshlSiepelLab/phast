@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.13 2004-08-14 04:00:32 acs Exp $
+/* $Id: maf.c,v 1.14 2004-08-16 20:55:15 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -152,13 +152,13 @@ MSA *maf_read(FILE *F,          /**< MAF file */
   if (store_order) {
     msa->length = map != NULL ? map->msa_len : refseqlen;
     max_tuples = min(msa->length,
-                     pow(strlen(msa->alphabet)+2, msa->nseqs * tuple_size));
+                     pow(strlen(msa->alphabet)+strlen(msa->missing)+1, msa->nseqs * tuple_size));
     if (max_tuples > 1000000) max_tuples = 1000000; 
   }
   else {
     msa->length = 0;
     max_tuples = min(50000,
-                     pow(strlen(msa->alphabet)+2, msa->nseqs * tuple_size));
+                     pow(strlen(msa->alphabet)+strlen(msa->missing)+1, msa->nseqs * tuple_size));
   }
 
   tuple_hash = hsh_new(max_tuples); 
@@ -244,9 +244,6 @@ MSA *maf_read(FILE *F,          /**< MAF file */
   if (store_order) {
     char tuple_str[msa->nseqs * tuple_size + 1];
     int offset, tuple_idx, msa_idx, map_idx;
-    int alph_size = strlen(msa->alphabet);
-    int nreftups = int_pow(alph_size+2, tuple_size);
-    int *fasthash = smalloc(nreftups * sizeof(int));
     String *refseq;
 
     if (REFSEQF != NULL)
@@ -258,10 +255,9 @@ MSA *maf_read(FILE *F,          /**< MAF file */
     }
 
     if ((map == NULL && refseq->length != refseqlen) ||
-        (map != NULL && refseq->length != map->seq_len)) {
-      fprintf(stderr, "ERROR: reference sequence length (%d) does not match description in MAF file (%d).\n", refseq->length, map == NULL ? refseqlen : map->seq_len);
-      exit(1);
-    }
+        (map != NULL && refseq->length != map->seq_len)) 
+      die("ERROR: reference sequence length (%d) does not match description in MAF file (%d).\n", 
+          refseq->length, map == NULL ? refseqlen : map->seq_len);
 
     for (offset = -1 * (tuple_size-1); offset <= 0; offset++) 
       for (i = 1; i < msa->nseqs; i++)
@@ -269,8 +265,6 @@ MSA *maf_read(FILE *F,          /**< MAF file */
     tuple_str[msa->nseqs * tuple_size] = '\0';
 
     map_idx = 0;
-    alph_size = strlen(msa->alphabet);
-    for (i = 0; i < nreftups; i++) fasthash[i] = -1;
 
     /* look at each site in the reference sequence */
     for (i = 0, msa_idx = 0; i < refseq->length; i++, msa_idx++) {
@@ -284,8 +278,8 @@ MSA *maf_read(FILE *F,          /**< MAF file */
 
       assert(msa_idx >= 0);
 
-      /* simple hack to handle the case where order is stored but no
-         refseq is available: use the char from the alignment if
+      /* simple hack to handle the case where order is stored but 
+         refseq is not available: use the char from the alignment if
          available or a missing-data char otherwise */
       if (REFSEQF == NULL) 
         refseq->chars[i] = msa->ss->tuple_idx[msa_idx] == -1 ? 
@@ -295,49 +289,25 @@ MSA *maf_read(FILE *F,          /**< MAF file */
       refseq->chars[i] = toupper(refseq->chars[i]);
 
       if (msa->inv_alphabet[(int)refseq->chars[i]] < 0 &&
+          refseq->chars[i] != GAP_CHAR &&
           !msa->is_missing[(int)refseq->chars[i]] &&
           isalpha(refseq->chars[i]))
         refseq->chars[i] = msa->missing[0];
-      /* (assume ambiguity character and treat as missing data) */
+      /* (for now, assume ambiguity character and treat as missing data) */
 
       if (msa->ss->tuple_idx[msa_idx] == -1) { /* nothing known about this
-                                                  position */
-        int key = 0;
+                                                  position; set tuple_idx from refseq */
+        for (offset = -1 * (tuple_size-1); offset <= 0; offset++) 
+          tuple_str[msa->nseqs*(tuple_size-1 + offset)] = 
+            i+offset >= 0 ? refseq->chars[i+offset] : msa->missing[0];
 
-        /* get the tuple_idx for this position; try to avoid full hash
-           lookup, if possible (shortcut will work most of the time) */
-        for (offset = -1 * (tuple_size-1); offset <= 0; offset++) {
-          int charidx;
-          if (i < -offset || refseq->chars[i+offset] == GAP_CHAR)
-            charidx = alph_size;
-          else if (msa->is_missing[(int)refseq->chars[i+offset]]) 
-            charidx = alph_size + 1;
-          else charidx = msa->inv_alphabet[(int)refseq->chars[i+offset]];
-
-          if (charidx < 0) 
-            die("ERROR: unrecognized character at position %d of reference sequence ('%c').\n",
-                i+offset, refseq->chars[i+offset]);
-
-          key += charidx * int_pow(alph_size+2, -offset);
-        }
-
-        if ((tuple_idx = fasthash[key]) == -1) { /* fasthash failed;
-                                                    need full hash
-                                                    lookup */
-
-          for (offset = -1 * (tuple_size-1); offset <= 0; offset++) 
-            tuple_str[msa->nseqs*(tuple_size-1 + offset)] = 
-              i+offset >= 0 ? refseq->chars[i+offset] : GAP_CHAR;
-
-          if ((tuple_idx = (int)hsh_get(tuple_hash, tuple_str)) == -1) {
+        if ((tuple_idx = (int)hsh_get(tuple_hash, tuple_str)) == -1) {
                                 /* tuple isn't in hash yet; have to add */
-            tuple_idx = msa->ss->ntuples++;
-            hsh_put(tuple_hash, tuple_str, (void*)tuple_idx);
-            msa->ss->col_tuples[tuple_idx] = (char*)smalloc(tuple_size * msa->nseqs * 
-                                                            sizeof(char));
-            strncpy(msa->ss->col_tuples[tuple_idx], tuple_str, msa->nseqs * tuple_size);
-          }
-          fasthash[key] = tuple_idx;
+          tuple_idx = msa->ss->ntuples++;
+          hsh_put(tuple_hash, tuple_str, (void*)tuple_idx);
+          msa->ss->col_tuples[tuple_idx] = (char*)smalloc(tuple_size * msa->nseqs * 
+                                                          sizeof(char));
+          strncpy(msa->ss->col_tuples[tuple_idx], tuple_str, msa->nseqs * tuple_size);
         }
 
         msa->ss->counts[tuple_idx]++;
@@ -364,6 +334,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
            anything else I can think of; it seems best just to leave
            things as they are.  */
       }
+
       else if (refseq->chars[i] != ss_get_char_pos(msa, msa_idx, 0, 0) &&
                ss_get_char_pos(msa, msa_idx, 0, 0) != GAP_CHAR) {
         /* here a tuple is available for this position but it does not
@@ -374,15 +345,12 @@ MSA *maf_read(FILE *F,          /**< MAF file */
         if (msa->inv_alphabet[(int)ss_get_char_pos(msa, msa_idx, 0, 0)] == -1 &&
             msa->inv_alphabet[(int)refseq->chars[i]] == -1)
           ;                     /* okay */
-        else {
-          fprintf(stderr, "ERROR: character '%c' at position %d of reference sequence does not match character '%c' given in MAF file.\n", refseq->chars[i], i, ss_get_char_pos(msa, msa_idx, 0, 0));
-          exit(1);
-        }
+        else 
+          die("ERROR: character '%c' at position %d of reference sequence does not match character '%c' given in MAF file.\n", refseq->chars[i], i, ss_get_char_pos(msa, msa_idx, 0, 0));
       }
     }
     
     str_free(refseq);
-    free(fasthash);
   }
 
   mini_msa->names = NULL;       /* will prohibit names from being
