@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.13 2004-08-04 05:06:33 acs Exp $ 
+/* $Id: trees.c,v 1.14 2004-08-04 17:13:17 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1042,28 +1042,30 @@ TreeNode *tr_hybrid(TreeNode *sub, TreeNode *super) {
   if (sub->nnodes < 3)
     die("ERROR: subtree must have at least two leaves in tr_hybrid.\n");
 
-  /* find LCA in supertree corresponding to subtree */
+  /* copy supertree then find LCA corresponding to subtree */
+  retval = tr_create_copy(super);
   for (i = 0; i < sub->nnodes; i++) {
     n = lst_get_ptr(sub->nodes, i);
     if (n->lchild == NULL && n->rchild == NULL)
       lst_push_ptr(names, str_new_charstr(n->name));
   }
-  lca = tr_lca(super, names);
+  lca = tr_lca(retval, names);
   lst_free_strings(names);
   lst_free(names);
 
   sub_copy = tr_create_copy(sub);
 
-  if (lca == super)            /* rule out trivial case -- trees equal */
+  if (lca == super) {           /* rule out trivial case -- trees equal */
+    tr_free(retval);
     return sub_copy;
+  }
 
-  /* create copy of supertree and scale so that overlapping portions
-     have equal total length */
-  retval = tr_create_copy(super);
-  tr_scale(retval, tr_total_len(sub) / tr_total_len_subtree(lca));
+  /* scale supertree so that overlapping portions have equal total length */
+  tr_scale(retval, tr_total_len(sub_copy) / tr_total_len_subtree(lca));
 
   /* now recombine */
   sub_copy->parent = lca->parent;
+  sub_copy->dparent = lca->dparent;
   if (lca == lca->parent->lchild) lca->parent->lchild = sub_copy;
   else lca->parent->rchild = sub_copy;
 
