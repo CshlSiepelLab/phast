@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.14 2004-08-16 20:55:15 acs Exp $
+/* $Id: maf.c,v 1.15 2004-08-16 21:25:31 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -243,8 +243,12 @@ MSA *maf_read(FILE *F,          /**< MAF file */
      alignments, fill in remaining tuples */
   if (store_order) {
     char tuple_str[msa->nseqs * tuple_size + 1];
-    int offset, tuple_idx, msa_idx, map_idx;
+    int offset, tuple_idx, msa_idx, map_idx, fasthash_idx;
     String *refseq;
+    int alph_size = strlen(msa->alphabet), nreftuples = int_pow(alph_size, tuple_size);
+    int *fasthash = smalloc(nreftuples * sizeof(int));
+
+    for (i = 0; i < nreftuples; i++) fasthash[i] = -1;
 
     if (REFSEQF != NULL)
       refseq = msa_read_seq_fasta(REFSEQF);
@@ -297,42 +301,44 @@ MSA *maf_read(FILE *F,          /**< MAF file */
 
       if (msa->ss->tuple_idx[msa_idx] == -1) { /* nothing known about this
                                                   position; set tuple_idx from refseq */
-        for (offset = -1 * (tuple_size-1); offset <= 0; offset++) 
-          tuple_str[msa->nseqs*(tuple_size-1 + offset)] = 
-            i+offset >= 0 ? refseq->chars[i+offset] : msa->missing[0];
+        tuple_idx = -1;
 
-        if ((tuple_idx = (int)hsh_get(tuple_hash, tuple_str)) == -1) {
+        /* try shortcut based on fact that most of the time we'll have
+           tuple_size characters from the alphabet */
+        if (i >= tuple_size - 1) {
+          fasthash_idx = tuple_index(&refseq->chars[i-tuple_size+1], 
+                                     msa->inv_alphabet, alph_size);
+          if (fasthash_idx != -1 && fasthash[fasthash_idx] != -1)
+            tuple_idx = fasthash[fasthash_idx];
+        }
+
+        if (tuple_idx == -1) {  /* need full hash lookup */
+          for (offset = -1 * (tuple_size-1); offset <= 0; offset++) 
+            tuple_str[msa->nseqs*(tuple_size-1 + offset)] = 
+              i+offset >= 0 ? refseq->chars[i+offset] : msa->missing[0];
+
+          if ((tuple_idx = (int)hsh_get(tuple_hash, tuple_str)) == -1) {
                                 /* tuple isn't in hash yet; have to add */
-          tuple_idx = msa->ss->ntuples++;
-          hsh_put(tuple_hash, tuple_str, (void*)tuple_idx);
-          msa->ss->col_tuples[tuple_idx] = (char*)smalloc(tuple_size * msa->nseqs * 
-                                                          sizeof(char));
-          strncpy(msa->ss->col_tuples[tuple_idx], tuple_str, msa->nseqs * tuple_size);
+            tuple_idx = msa->ss->ntuples++;
+            hsh_put(tuple_hash, tuple_str, (void*)tuple_idx);
+            msa->ss->col_tuples[tuple_idx] = smalloc(tuple_size * msa->nseqs * sizeof(char));
+            strncpy(msa->ss->col_tuples[tuple_idx], tuple_str, msa->nseqs * tuple_size);
+            if (fasthash_idx != -1) fasthash[fasthash_idx] = tuple_idx;
+          }
         }
 
         msa->ss->counts[tuple_idx]++;
-
-        /* if using a GFF and storing order, could also do cat_counts
-           for these reference-sequence sites (although they won't be
-           of much use); would need to set up a categories vector,
-           then do something like the following.  Notice that this is
-           independent of the projection issue discussed above. */
-/*         if (msa->ss->cat_counts != NULL)  */
-/*           msa->ss->cat_counts[msa->categories[i]][tuple_idx]++; */
-
         msa->ss->tuple_idx[msa_idx] = tuple_idx;
 
-        /* NOTE: there's a very slight bug above with
-           context-dependent models, which will cause some context
-           to be lost for sites in the reference sequence
-           immediately *following* an alignment block (non-reference
-           sequence context will be lost, as will gaps in the
-           reference sequence).  However, these sites are essentially
-           useless for most analyses anyway (they contain no
-           information about substitutions), and the error will have
-           no effect on coordinate mapping, format conversion, or
-           anything else I can think of; it seems best just to leave
-           things as they are.  */
+        /* NOTE: some context will be lost for sites in the reference
+           sequence immediately *following* an alignment block
+           (non-reference sequence context will be lost, as will gaps
+           in the reference sequence).  However, these sites are no
+           important in most analyses (they contain no information
+           about substitutions), and the error will have no effect on
+           coordinate mapping, format conversion, or anything else I
+           can think of; it seems best just to leave things as they
+           are.  */
       }
 
       else if (refseq->chars[i] != ss_get_char_pos(msa, msa_idx, 0, 0) &&
@@ -351,6 +357,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
     }
     
     str_free(refseq);
+    free(fasthash);
   }
 
   mini_msa->names = NULL;       /* will prohibit names from being
