@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.21 2004-08-16 19:40:27 acs Exp $
+/* $Id: clean_genes.c,v 1.22 2004-08-16 19:45:59 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -1081,6 +1081,7 @@ int main(int argc, char *argv[]) {
       ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1);
   }
   assert(msa->ss->tuple_idx);
+  msa_remove_N_from_alph(msa);  /* for backward compatibility (old SS files) */
 
   gff_group(gff, groupby);
 
