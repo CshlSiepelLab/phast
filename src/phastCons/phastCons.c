@@ -9,7 +9,7 @@
 
 /* default value of lambda, used with --rates-cross */
 #define DEFAULT_LAMBDA 0.9
-/* default values of p and q, used with --rates-cut */
+/* default values of p and q, used with two-state model */
 #define DEFAULT_P 0.01
 #define DEFAULT_Q 0.01
 
@@ -45,9 +45,9 @@ DESCRIPTION:\n\
     given in the same order as the states in the HMM file.\n\
 \n\
     By default, the program computes the posterior probability at each\n\
-    site of the *first* state in the HMM.  In the cases of the default\n\
-    two-state HMM and the Felsenstein-Churchill HMM, this is the most\n\
-    conserved state, and these probabilities can be interpreted as\n\
+    site of the *first* state (index 0) in the HMM.  In the cases of the\n\
+    default two-state HMM and the Felsenstein-Churchill HMM, this is the\n\
+    most conserved state, and these probabilities can be interpreted as\n\
     conservation scores.  They are written to stdout in a simple\n\
     tab-separated two-column format (position and probability).  The\n\
     set of states whose total (marginal) posterior probability is\n\
@@ -64,7 +64,7 @@ DESCRIPTION:\n\
     and three states for the three codon positions), and specifying\n\
     the coding states via --states, you can obtain posterior\n\
     probabilities that can be interpreted as a measure of \"coding\n\
-    potential.\"\n\
+    potential (see --coding-potential).\"\n\
 \n\
 EXAMPLES:\n\
 \n\
@@ -112,58 +112,44 @@ EXAMPLES:\n\
     the two most conserved states.\n\
 \n\
         phastCons mydata.ss rev-dg.mod --rates-cross --nrates 10 \\\n\
-            --states 1,2 > cons.dat\n\
+            --states 0,1 > cons.dat\n\
 \n\
     5. As in (4), but fix lambda at 0.9 rather than estimating it from\n\
     the data.\n\
 \n\
         phastCons mydata.ss rev-dg.mod --rates-cross --nrates 10 \\\n\
-            --states 1,2 --lambda 0.9 > cons.dat\n\
+            --states 0,1 --lambda 0.9 > cons.dat\n\
 \n\
     6. Compute a coding potential score, using a simple gene-finding\n\
     HMM and phylogenetic models for the three codon positions and\n\
     non-coding sites.  Allow for genes on either strand.\n\
 \n\
         phastCons mydata.ss noncoding.mod,codon1.mod,codon2.mod,codon3.mod \\\n\
-            --hmm simple-4state.hmm --reflect-strand 1 --states 2,3,4 \\\n\
+            --hmm simple-4state.hmm --reflect-strand 0 --states 1,2,3 \\\n\
             > coding-potential.dat\n\
+\n\
+    7. Compute a coding potential score using a default phylo-HMM,\n\
+    a simplified version of the one used in exoniphy.  Allows for\n\
+    conserved non-coding sequences and makes use of the different\n\
+    patterns of indels seen in coding and non-coding regions.\n\
+    Currently assumes a human/mouse/rat alignment.\n\
+\n\
+        phastCons --coding-potential human-mouse-rat.ss > cp.dat\n\
 \n\
 \n\
 OPTIONS:\n\
 \n\
  (HMM structure and transition probabilities)\n\
     --hmm, -H <hmm_fname>\n\
-        Name of HMM file, explicitly defining the probabilities of all\n\
+        Name of HMM file explicitly defining the probabilities of all\n\
         state transitions.  States in the file must correspond in\n\
         number and order to phylogenetic models in <mod_fname_list>.\n\
         Expected file format is as produced by 'hmm_train.'\n\
-\n\
-    --reflect-strand, -U <pivot_states>\n\
-        (Optionally use with --hmm) Given an HMM describing the\n\
-        forward strand, create a larger HMM that allows for features\n\
-        on both strands by \"reflecting\" the original HMM about the\n\
-        specified \"pivot\" states.  The new HMM will be used for\n\
-        prediction on both strands.\n\
-\n\
-    --indels, -I\n\
-        (Optionally use with --hmm) Expand HMM state space to model\n\
-        indels as described in Siepel & Haussler (2004).\n\
 \n\
     --catmap, -c <fname>|<string>\n\
         (Optionally use with --hmm)  Mapping of feature types to category\n\
         numbers.  Can give either a filename or an \"inline\" description\n\
         of a simple category map, e.g., --catmap \"NCATS = 3 ; CDS 1-3\".\n\
-\n\
-    --min-informative-types, -M <list>\n\
-        Require a minimum number of \"informative\" bases (i.e.,\n\
-        non-missing-data characters) in the specified states.\n\
-        A number below the threshold defined by\n\
-        --min-informative-bases will result an emission probabilities\n\
-        of zero.\n\
-\n\
-    --min-informative-bases, -m <number>\n\
-        Minimum number of informative bases for --min-informative-types \n\
-        (default is 2).\n\
 \n\
     --rates-cross, -X\n\
         (Alternative to --hmm; specify only one *.mod file with this\n\
@@ -196,7 +182,7 @@ OPTIONS:\n\
 \n\
     --cut-at, -c <cut_idx>\n\
         (For use with default two-state HMM) Use rate categories\n\
-        1-<cut_idx> for the conserved state (state 1) and the\n\
+        1-<cut_idx> for the conserved state (state 0) and the\n\
         remaining rate categories for the non-conserved state (default\n\
         value is 1).  The given phylogenetic model must allow for rate\n\
         variation, via either the discrete gamma (-k option to\n\
@@ -226,14 +212,50 @@ OPTIONS:\n\
         given in the *.mod file.  The shape parameter 'alpha' will be\n\
         as given in the *.mod file.\n\
 \n\
+ (Indels, forward/reverse strands, missing data, and coding potential)\n\
+    --indels, -I\n\
+        (Optionally use with --hmm) Expand HMM state space to model\n\
+        indels as described in Siepel & Haussler (2004).\n\
+\n\
+    --reflect-strand, -U <pivot_states>\n\
+        (Optionally use with --hmm) Given an HMM describing the\n\
+        forward strand, create a larger HMM that allows for features\n\
+        on both strands by \"reflecting\" the original HMM about the\n\
+        specified \"pivot\" states.  The new HMM will be used for\n\
+        prediction on both strands.  States can be specified by number\n\
+        (indexing starts with 0), or if --catmap, by category name.\n\
+\n\
+    --min-informative-types, -M <list>\n\
+        Require a minimum number of \"informative\" bases (i.e.,\n\
+        non-missing-data characters) for the specified HMM states.\n\
+        (Specify by state number [indexing starts with 0] or, if\n\
+        --catmap, by category name.)  Columns not meeting the minimum\n\
+        number (see --min-informative-bases) will be given emission\n\
+        probabilities of zero.\n\
+\n\
+    --min-informative-bases, -m <number>\n\
+        Minimum number of informative bases used with --min-informative-types\n\
+        (default is 2).\n\
+\n\
+    --coding-potential, -?\n\
+        Use parameter settings that cause output to be interpretable\n\
+        as a coding potential score.  By default, a simplified version\n\
+        of the exoniphy's phylo-HMM is used, with a noncoding\n\
+        (background) state, a conserved non-coding (CNS) state, and\n\
+        states for the three codon positions.  This option implies\n\
+        --catmap \"NCATS=4; CNS 1; CDS 2-4\" --hmm <default-HMM-file>\n\
+        --states CDS --indels --reflect-strand background,CNS\n\
+        --min-informative-types CDS, plus a set of default *.mod files.\n\
+        (All of these options can be overridden.)\n\
+\n\
  (Output)\n\
     --states, -S <state_list>\n\
         States of interest in the phylo-HMM, specified by number\n\
-        (indexing starts with 1).  Default value is 1.\n\
-        Choosing --states \"1,2,3\" will cause output of the sum of the\n\
-        posterior probabilities for states 1, 2, and 3, and/or of\n\
-        regions in which the Viterbi path coincides with (any of)\n\
-        states 1, 2, or 3 (see --viterbi).\n\
+        (indexing starts with 0), or if --catmap, by category name.\n\
+        Default value is 1.  Choosing --states \"0,1,2\" will cause\n\
+        output of the sum of the posterior probabilities for states 0,\n\
+        1, and 2, and/or of regions in which the Viterbi path\n\
+        coincides with (any of) states 0, 1, or 2 (see --viterbi).\n\
 \n\
     --viterbi, -V <fname>\n\
         Compute the Viterbi (maximum likelihood) path and write\n\
@@ -258,8 +280,7 @@ OPTIONS:\n\
 \n\
     --no-post-probs, -n\n\
         Suppress output of posterior probabilities.  Useful if only\n\
-        Viterbi path or likelihood is of interest (saves computation\n\
-        time and disk space).\n\
+        Viterbi path or likelihood is of interest.\n\
 \n\
     --log, -g <log_fname>\n\
         (Optionally use when estimating transition probabilities)\n\
@@ -337,7 +358,8 @@ int main(int argc, char *argv[]) {
   /* arguments and defaults */
   int post_probs = TRUE, score = FALSE, quiet = FALSE, 
     gff = FALSE, rates_cross = FALSE, estim_lambda = TRUE, 
-    estim_transitions = TRUE, two_state = TRUE, indels = FALSE;
+    estim_transitions = TRUE, two_state = TRUE, indels = FALSE,
+    coding_potential = FALSE;
   int nrates = -1, rates_cut_idx = 1, refidx = 1, min_inform_bases = 2;
   double lambda = DEFAULT_LAMBDA, p = DEFAULT_P, q = DEFAULT_Q;
   msa_format_type msa_format = SS;
@@ -369,6 +391,7 @@ int main(int argc, char *argv[]) {
     {"seqname", 1, 0, 'N'},
     {"idpref", 1, 0, 'P'},
     {"score", 0, 0, 's'},
+    {"coding-potential", 0, 0, 'p'},
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
@@ -376,7 +399,7 @@ int main(int argc, char *argv[]) {
 
   /* other vars */
   char c;
-  int opt_idx, i, state_no;
+  int opt_idx, i;
   List *tmpl = NULL;
   MSA *msa = NULL;
   double lnl = INFTY;
@@ -384,8 +407,9 @@ int main(int argc, char *argv[]) {
   TreeModel **mod;
   PhyloHmm *phmm;
   CategoryMap *cm = NULL;
+  char *mods_fname = NULL;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IM:m:Xqh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IM:m:pXqh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
       states = get_arg_list(optarg);
@@ -470,6 +494,9 @@ int main(int argc, char *argv[]) {
     case 's':
       score = TRUE;
       break;
+    case 'p':
+      coding_potential = TRUE;
+      break;
     case 'q':
       quiet = TRUE;
       break;
@@ -486,11 +513,40 @@ int main(int argc, char *argv[]) {
   if (indels == TRUE && hmm == NULL)
     die("ERROR: --indels is only valid with --hmm.\n");
 
-  if (optind != argc - 2) 
-    die("ERROR: missing required arguments.  Try '%s -h'.\n", argv[0]);
+  if ((!coding_potential && optind != argc - 2) ||
+      (coding_potential && optind != argc - 2 && optind != argc - 1))
+    die("ERROR: extra or missing arguments.  Try '%s -h'.\n", argv[0]);
 
+  mods_fname = (optind == argc - 2 ? argv[argc - 1] : NULL);
+  /* if there are two args, mods are the second one; otherwise will
+     use default mods for coding potential (see below) */
+  
+  /* set defaults for coding-potential mode */
+  if (coding_potential) {
+    char tmp[5000];
+    if (cm == NULL) cm = cm_new_string_or_file("NCATS=4; CNS 1; CDS 2-4");
+    if (hmm == NULL) {
+      sprintf(tmp, "%s/data/phastCons/simple-coding.hmm", PHAST_HOME);
+      hmm = hmm_new_from_file(fopen_fname(tmp, "r"));
+    }
+    if (mods_fname == NULL) {
+      sprintf(tmp, "\
+%s/data/exoniphy/mammals/r3.ncns.mod,\
+%s/data/exoniphy/mammals/r3.cns.mod,\
+%s/data/exoniphy/mammals/r3.cds-1.mod,\
+%s/data/exoniphy/mammals/r3.cds-2.mod,\
+%s/data/exoniphy/mammals/r3.cds-3.mod", 
+              PHAST_HOME, PHAST_HOME, PHAST_HOME, PHAST_HOME, PHAST_HOME);
+      mods_fname = tmp;
+    }
+    if (states == NULL) states = get_arg_list("CDS");
+    if (pivot_states == NULL) pivot_states = get_arg_list("background,CNS");
+    if (min_inform_str == NULL) min_inform_str = get_arg_list("CDS");
+    indels = TRUE;
+  }
+  
   /* read tree models first (alignment may take a while) */
-  tmpl = get_arg_list(argv[optind+1]);
+  tmpl = get_arg_list(mods_fname);
 
   if ((rates_cross || two_state) && lst_size(tmpl) != 1)
     die("ERROR: only one tree model allowed with --rates-cross or --cut-at.\n");
@@ -550,27 +606,6 @@ int main(int argc, char *argv[]) {
   if (states == NULL) {
     states = lst_new_ptr(1);
     lst_push_ptr(states, str_new_charstr("0"));
-  }
-  else {
-    for (i = 0; i < lst_size(states); i++) {
-      String *state = lst_get_ptr(states, i);
-      if (str_as_int(state, &state_no) != 0 || state_no < 1) 
-        die("ERROR: illegal state '%s'.\n", state->chars);
-      str_clear(state);
-      str_append_int(state, state_no-1); /* internally use 0-based
-                                            indexing */
-    }
-  }
-
-  /* also need to map pivot-states to 0-based indices */
-  if (pivot_states != NULL) {
-    for (i = 0; i < lst_size(pivot_states); i++) {
-      String *state = lst_get_ptr(pivot_states, i);
-      if (str_as_int(state, &state_no) != 0 || state_no < 1) 
-        die("ERROR: illegal pivot state '%s'.\n", state->chars);
-      str_clear(state);
-      str_append_int(state, state_no-1);
-    }
   }
 
   /* set up PhyloHmm */
@@ -649,7 +684,6 @@ int main(int argc, char *argv[]) {
     if (!quiet) fprintf(stderr, "Computing posterior probabilities...\n");
 
     postprobs = phmm_postprobs_cats(phmm, states, &lnl);
-    /* note that selected state numbers are also cat numbers  */
 
     /* print to stdout */
     for (j = 0, k = 0; j < msa->length; j++) {
