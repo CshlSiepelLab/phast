@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.11 2004-07-29 23:17:34 acs Exp $
+/* $Id: maf.c,v 1.12 2004-07-29 23:21:00 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -315,8 +315,8 @@ MSA *maf_read(FILE *F,          /**< MAF file */
           else charidx = msa->inv_alphabet[(int)refseq->chars[i+offset]];
 
           if (charidx < 0) 
-            die("ERROR: unrecognized character in reference sequence ('%c').\n",
-                refseq->chars[i+offset]);
+            die("ERROR: unrecognized character at position %d of reference sequence ('%c').\n",
+                i+offset, refseq->chars[i+offset]);
 
           key += charidx * int_pow(alph_size+2, -offset);
         }
