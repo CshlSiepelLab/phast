@@ -951,7 +951,14 @@ int main(int argc, char *argv[]) {
     }
     fprintf(lnl_f, "lnL = %.4f\n", lnl); 
     if (rates_cross) fprintf(lnl_f, "(lambda = %f)\n", lambda);
-    else if (two_state) fprintf(lnl_f, "(p = %f, q = %f)\n", p, q);
+    else if (two_state) {
+      fprintf(lnl_f, "(");
+      if (estim_transitions)
+        fprintf(lnl_f, "p = %f. q = %f%s", p, q, estim_indels ? ", " : "");
+      if (estim_indels)
+        fprintf(lnl_f, "alpha_0 = %f, beta_0 = %f, omega_0 = %f, alpha_1 = %f, beta_1 = %f, omega_1 = %f", alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1);
+      fprintf(lnl_f, ")\n");
+    }
   }
 
   if (!quiet)
