@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.22 2004-08-28 00:14:32 acs Exp $
+/* $Id: phylo_hmm.c,v 1.23 2004-08-28 03:32:24 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -1470,7 +1470,7 @@ void phmm_em_estim_indels(PhyloHmm *phmm, IndelEstimData *ied) {
     gsl_vector_set(params, 0, phmm->alpha[i]);
     gsl_vector_set(params, 1, phmm->beta[i]);
     gsl_vector_set(params, 2, phmm->omega[i]);
-    opt_bfgs(indel_max_function, params, &ied, &retval, lb, NULL, NULL, 
+    opt_bfgs(indel_max_function, params, ied, &retval, lb, NULL, NULL, 
              indel_max_gradient, OPT_HIGH_PREC, NULL); 
     phmm->alpha[i] = gsl_vector_get(params, 0);
     phmm->beta[i] = gsl_vector_get(params, 1);
