@@ -248,7 +248,7 @@ OPTIONS:\n\
         --min-informative-types CDS, plus a set of default *.mod files.\n\
         (All of these options can be overridden.)\n\
 
-    --indels-only, -?\n\
+    --indels-only, -J\n\
         Like --indels but force the use of a single-state HMM.  This\n\
         option allows the effect of the indel model in isolation to be\n\
         observed.  Implies --no-post-probs.  Use with --lnl.\n\
@@ -397,6 +397,8 @@ void setup_rates_cut(HMM **hmm, TreeModel ***mods, CategoryMap **cm, int nrates,
   for (i = 0; i < cut_idx; i++) freq1 += tmp_weights[i];
   gsl_vector_set((*hmm)->begin_transitions, 0, freq1);
   gsl_vector_set((*hmm)->begin_transitions, 1, 1 - freq1);
+
+  hmm_reset(*hmm);
 
   /* create 2nd tree model, then update rate categories in both */
   (*mods) = srealloc(*mods, 2 * sizeof(void*));
