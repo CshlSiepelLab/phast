@@ -1,7 +1,7 @@
 /* hmm_train - estimation of HMM transition probabilities from labeled
    training data */
 
-/* $Id: hmm_train.c,v 1.2 2004-07-27 17:51:18 acs Exp $
+/* $Id: hmm_train.c,v 1.3 2004-07-27 17:59:06 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -65,11 +65,6 @@ OPTIONS:\n\
     -i PHYLIP|FASTA|MPM|SS \n\
         (default SS) Alignment format.\n\
 \n\
-    -R\n\
-        Reverse complement segments of alignment corresponding to\n\
-        groups of related features on the reverse strand, before\n\
-        estimating transition probabilities.  \n\
-\n\
  (indel options)
     -I <indel_cat_list>\n\
         Model indels for specified categories.  To have\n\
@@ -105,8 +100,7 @@ int main(int argc, char* argv[]) {
   HMM *hmm = NULL;
   TreeNode *tree = NULL;
   int i, input_format = SS, msa_idx, quiet_mode = FALSE, 
-    reverse_complement = FALSE, ncats, nmsas, ncats_unspooled, 
-    indel_nseqs = -1;
+    ncats, nmsas, ncats_unspooled, indel_nseqs = -1;
   String *msa_fname, *gff_fname;
   List *gff_fname_list = NULL, *msa_fname_list = NULL, 
     *msa_length_list = NULL, *model_indels_str = NULL;
@@ -117,7 +111,7 @@ int main(int argc, char* argv[]) {
   GapPatternMap *gpm = NULL;
   GFF_Set *gff;
 
-  while ((c = getopt(argc, argv, "i:g:c:m:M:RI:n:t:P:G:qh")) != -1) {
+  while ((c = getopt(argc, argv, "i:g:c:m:M:I:n:t:P:G:qh")) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
@@ -135,9 +129,6 @@ int main(int argc, char* argv[]) {
       break;
     case 'M':
       msa_length_list = str_list_as_int(get_arg_list(optarg));
-      break;
-    case 'R':
-      reverse_complement = TRUE;
       break;
     case 'I':
       model_indels_str = get_arg_list(optarg);
@@ -236,15 +227,6 @@ int main(int argc, char* argv[]) {
        can free them now, to avoid running out of memory */
     if (msa->ss != NULL) { ss_free(msa->ss); msa->ss = NULL; }
       
-    if (reverse_complement) {
-      if (!quiet_mode)
-        fprintf(stderr, "Reverse complementing features on negative strand ...\n");
-      /* we don't need to reverse complement the whole alignment --
-         just the gff and possibly the gap pattern array (pass a
-         NULL msa) */        
-      msa_reverse_compl_feats(NULL, gff, msa_gap_patterns);
-    }
-
     if (!quiet_mode)
       fprintf(stderr, "Labeling sites by category ...\n");       
     msa_label_categories(msa, gff, cm);
