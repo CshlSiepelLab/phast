@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.13 2004-08-12 03:36:49 acs Exp $
+/* $Id: phylo_hmm.c,v 1.14 2004-08-14 04:01:10 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -18,7 +18,7 @@
 /* initial values for alpha, beta, omega; possibly should be passed in instead */
 #define ALPHA_INIT 0.05
 #define BETA_INIT 0.05
-#define OMEGA_INIT 0.3
+#define OMEGA_INIT 0.15
 #define COMPLEX_EPSILON 1e-5
 
 /** Create a new PhyloHmm object. Optionally expands original HMM to
