@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.3 2004-06-14 15:27:04 acs Exp $
+/* $Id: gff.c,v 1.4 2004-06-14 16:58:06 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -925,7 +925,7 @@ void gff_remove_overlaps(GFF_Set *gff,
   ends = lst_new_int(lst_size(gff->groups));
   keepers = lst_new_ptr(lst_size(gff->groups));
 
-  for (i = 0; i < lst_size(gff->features); i++) {
+  for (i = 0; i < lst_size(gff->groups); i++) {
     GFF_FeatureGroup *group = lst_get_ptr(gff->groups, i);
     
     /* check for overlap */

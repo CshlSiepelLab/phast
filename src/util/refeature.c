@@ -34,7 +34,7 @@ OPTIONS:\n\
         Include only features of the specified types (comma-delimited list).\n\
 \n\
     --groupby, -g <tag>\n\
-        Group features according to specified tag (e.g., \"transcript_id\")\n\
+        Group features according to specified tag (default \"transcript_id\")\n\
 \n\
     --exongroup, -e <tag>\n\
         Sub-group features into contiguous sets, and define\n\
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
   int opt_idx;
   GFF_Set *gff;
   List *include = NULL;
-  char *groupby = NULL, *exongroup_tag = NULL;
+  char *groupby = "transcript_id", *exongroup_tag = NULL;
   int unique = 0, sort = 0, simplebed = 0;
   enum {GFF, BED} output_format = GFF;
   FILE *discards_f = NULL;
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
     {"unique", 0, 0, 'u'},
     {"sort", 0, 0, 's'},
     {"simplebed", 0, 0, 'b'},
-    {"discards", 0, 0, 'd'},
+    {"discards", 1, 0, 'd'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
   if (include != NULL) gff_filter_by_type(gff, include, discards_f);
 
   /* group */
-  if (groupby != NULL) gff_group(gff, groupby);
+  gff_group(gff, groupby);
 
   /* subgroup */
   if (exongroup_tag != NULL) gff_exon_group(gff, exongroup_tag);
