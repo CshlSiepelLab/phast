@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.10 2004-07-25 16:56:41 acs Exp $
+/* $Id: tree_model.c,v 1.11 2004-08-02 22:46:59 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -36,25 +36,6 @@
 #define NRATECATS_TAG "NRATECATS:"
 #define RATE_CONSTS_TAG "RATE_CONSTS:"
 #define RATE_WEIGHTS_TAG "RATE_WEIGHTS:"
-
-/* (acs, 3/03 [edited 5/04]) This package is getting so that it needs 
-   rewriting.  Some things to do:
-   - order, reversibility, and strand symmetry should be considered
-   attributes of a substitution model.  The number of rate matrix
-   parameters follows from these things.  Simple models such as JC,
-   K2P, and HKY may still be treated as special cases.  When adding a
-   new model, should be able simply to add this kind of info in
-   tree_model.h (also, mapping between name and ordinal value of
-   subst_mod).
-   - matrix initialization should be rethought (e.g., handling of eq
-   freqs).  The mapping from param indices to matrix coords should
-   probably be set up at this stage.
-   - need a sensible, consistent strategy for matrix scaling 
-   - a single, simple (and much more efficient) function should be
-   used to set up a matrix from a parameter vector, using the mapping
-   from indices to matrix coords, and (if necessary), information on
-   reversibility, strand symmetry, etc.
-*/
 
 /* internal functions */
 double tm_likelihood_wrapper(gsl_vector *params, void *data);
