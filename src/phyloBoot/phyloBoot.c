@@ -320,7 +320,7 @@ int main(int argc, char *argv[]) {
                   msa->names[2]);
           tree = tr_new_from_string(tmpchstr);
         }
-        else 
+        else if (do_estimates)
           die("ERROR: must specify tree topology.\n");
       }
       else if (msa->nseqs * 2 - 1 != tree->nnodes)
@@ -360,6 +360,7 @@ int main(int argc, char *argv[]) {
                                    defined by orig alignment */
         for (j = 0; j < msa->ss->ntuples; j++) msa->ss->counts[j] = tmpcounts[j];
                                 /* (have to convert from int to double) */
+        msa->length = nsites;
       }
 
       if (dump_msas_root != NULL) {
