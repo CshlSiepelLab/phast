@@ -461,7 +461,8 @@ void setup_rates_cut(HMM **hmm, TreeModel ***mods, CategoryMap **cm, int nrates,
 /** Estimate the parameters 'p' and 'q' that define the two-state
     "rates-cut" model using an EM algorithm.  Also estimate indel
     parameters, if necessary.  Returns ln likelihood. */
-double fit_rates_cut(PhyloHmm *phmm, double *p, double *q, 
+double fit_rates_cut(PhyloHmm *phmm, int estim_func, int estim_indels,
+                     double *p, double *q, 
                      double *alpha_0, double *beta_0, double *omega_0, 
                      double *alpha_1, double *beta_1, double *omega_1, 
                      FILE *logf) {
@@ -484,6 +485,9 @@ double fit_rates_cut(PhyloHmm *phmm, double *p, double *q,
   }
 
   phmm_reset(phmm); 
+
+  if (!estim_func) phmm->fix_functional = TRUE;
+  if (!estim_indels) phmm->fix_indel = TRUE;
 
   retval = phmm_fit_em(phmm, NULL, logf);
 
@@ -858,7 +862,8 @@ int main(int argc, char *argv[]) {
       if (estim_indels) fprintf(stderr, "alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1");
       fprintf(stderr, ")...\n");
     }
-    lnl = fit_rates_cut(phmm, &p, &q, &alpha_0, &beta_0, &omega_0, 
+    lnl = fit_rates_cut(phmm, estim_transitions, estim_indels, &p, &q, 
+                        &alpha_0, &beta_0, &omega_0, 
                         &alpha_1, &beta_1, &omega_1, log_f);
     if (!quiet) {      
       fprintf(stderr, "(");

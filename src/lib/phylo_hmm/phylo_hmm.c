@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.14 2004-08-14 04:01:10 acs Exp $
+/* $Id: phylo_hmm.c,v 1.15 2004-08-14 18:23:11 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -101,6 +101,7 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
   phmm->state_pos = phmm->state_neg = NULL;
   phmm->gpm = NULL;
   phmm->T = phmm->t = NULL;
+  phmm->fix_functional = phmm->fix_indel = FALSE;
 
   /* make sure tree models all have trees and all have the same number
      of leaves; keep a pointer to a representative tree for use with
@@ -1246,25 +1247,31 @@ void phmm_estimate_transitions(HMM *hmm, void *data, double **A) {
   double **fcounts = A;         /* will be reset if parameteric model */
   IndelEstimData ied;
 
+  assert(!phmm->fix_functional || !phmm->fix_indel);
+
   if (phmm->indel_mode == PARAMETERIC) {
     /* initialize marginal counts for functional categories */
-    fcounts = smalloc(phmm->functional_hmm->nstates * sizeof(void*));
-    for (i = 0; i < phmm->functional_hmm->nstates; i++) {
-      fcounts[i] = smalloc(phmm->functional_hmm->nstates * sizeof(double));
-      for (j = 0; j < phmm->functional_hmm->nstates; j++) fcounts[i][j] = 0;
+    if (!phmm->fix_functional) {
+      fcounts = smalloc(phmm->functional_hmm->nstates * sizeof(void*));
+      for (i = 0; i < phmm->functional_hmm->nstates; i++) {
+        fcounts[i] = smalloc(phmm->functional_hmm->nstates * sizeof(double));
+        for (j = 0; j < phmm->functional_hmm->nstates; j++) fcounts[i][j] = 0;
+      } 
     }
 
     /* initialize indel-related marginal counts */
-    ied.nfunctional_states = phmm->functional_hmm->nstates;
-    ied.gpm = phmm->gpm;
-    ied.u_alpha = smalloc(ied.nfunctional_states * sizeof(double));
-    ied.u_beta = smalloc(ied.nfunctional_states * sizeof(double));
-    ied.u_omega = smalloc(ied.nfunctional_states * sizeof(double));
-    ied.u_self = smalloc(ied.nfunctional_states * sizeof(void*));
-    for (i = 0; i < ied.nfunctional_states; i++) {
-      ied.u_alpha[i] = ied.u_beta[i] = ied.u_omega[i] = 0;
-      ied.u_self[i] = smalloc(ied.gpm->ngap_patterns * sizeof(double));
-      for (j = 0; j < ied.gpm->ngap_patterns; j++) ied.u_self[i][j] = 0;
+    if (!phmm->fix_indel) {     /* this part we'll skip if possible */
+      ied.nfunctional_states = phmm->functional_hmm->nstates;
+      ied.gpm = phmm->gpm;
+      ied.u_alpha = smalloc(ied.nfunctional_states * sizeof(double));
+      ied.u_beta = smalloc(ied.nfunctional_states * sizeof(double));
+      ied.u_omega = smalloc(ied.nfunctional_states * sizeof(double));
+      ied.u_self = smalloc(ied.nfunctional_states * sizeof(void*));
+      for (i = 0; i < ied.nfunctional_states; i++) {
+        ied.u_alpha[i] = ied.u_beta[i] = ied.u_omega[i] = 0;
+        ied.u_self[i] = smalloc(ied.gpm->ngap_patterns * sizeof(double));
+        for (j = 0; j < ied.gpm->ngap_patterns; j++) ied.u_self[i][j] = 0;
+      }
     }
 
     /* compute marginal counts */
@@ -1284,7 +1291,10 @@ void phmm_estimate_transitions(HMM *hmm, void *data, double **A) {
         assert(cat_j >= 0 && cat_j < phmm->functional_hmm->nstates);
         assert(pat_j >= 0 && pat_j < phmm->gpm->ngap_patterns);
 
-        fcounts[cat_i][cat_j] += A[i][j];
+        if (!phmm->fix_functional)
+          fcounts[cat_i][cat_j] += A[i][j];
+
+        if (phmm->fix_indel) continue;
 
         if (pat_i_type == COMPLEX_PATTERN || pat_j_type == COMPLEX_PATTERN) 
           continue;             /* include these for fcounts but not for
@@ -1307,19 +1317,21 @@ void phmm_estimate_transitions(HMM *hmm, void *data, double **A) {
 
   /* estimate transition probs for functional cats in ordinary way but
      using marginal counts */
-  for (i = 0; i < phmm->functional_hmm->nstates; i++) {
-    double rowsum = 0;
-    for (j = 0; j < phmm->functional_hmm->nstates; j++)
-      rowsum += fcounts[i][j];
-    for (j = 0; j < phmm->functional_hmm->nstates; j++)
-      mm_set(phmm->functional_hmm->transition_matrix, i, j, 
-             fcounts[i][j] / rowsum);
+  if (!phmm->fix_functional) {
+    for (i = 0; i < phmm->functional_hmm->nstates; i++) {
+      double rowsum = 0;
+      for (j = 0; j < phmm->functional_hmm->nstates; j++)
+        rowsum += fcounts[i][j];
+      for (j = 0; j < phmm->functional_hmm->nstates; j++)
+        mm_set(phmm->functional_hmm->transition_matrix, i, j, 
+               fcounts[i][j] / rowsum);
+    }
   }
 
   /* if parameteric indel model, estimate indel params using a
      multi-dimensional optimization routine.  This can be done
      separately for each functional category  */
-  if (phmm->indel_mode == PARAMETERIC) {
+  if (phmm->indel_mode == PARAMETERIC && !phmm->fix_indel) {
     gsl_vector *params = gsl_vector_alloc(3);
     gsl_vector *lb = gsl_vector_calloc(3);
     ied.T = phmm->T;
@@ -1337,18 +1349,22 @@ void phmm_estimate_transitions(HMM *hmm, void *data, double **A) {
       phmm->beta[i] = gsl_vector_get(params, 1);
       phmm->omega[i] = gsl_vector_get(params, 2);
     }
-
     gsl_vector_free(params);
     gsl_vector_free(lb);
-    for (i = 0; i < phmm->functional_hmm->nstates; i++) {
-      free(fcounts[i]);
-      free(ied.u_self[i]);
+  }
+
+  if (phmm->indel_mode == PARAMETERIC) {
+    if (!phmm->fix_functional) {
+      for (i = 0; i < phmm->functional_hmm->nstates; i++) free(fcounts[i]);
+      free(fcounts);
     }
-    free(ied.u_alpha);
-    free(ied.u_beta);
-    free(ied.u_omega);
-    free(ied.u_self);
-    free(fcounts);
+    if (!phmm->fix_indel) {
+      for (i = 0; i < phmm->functional_hmm->nstates; i++) free(ied.u_self[i]);
+      free(ied.u_alpha);
+      free(ied.u_beta);
+      free(ied.u_omega);
+      free(ied.u_self);
+    }
   }
 
   phmm_reset(phmm);

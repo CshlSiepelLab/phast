@@ -54,6 +54,12 @@ typedef struct {
                                    model */
   double **T, **t;              /**< branch-length factors used in
                                    parameteric indel model */
+  int fix_functional, fix_indel;
+                                /**< can be used to force either the
+                                   functional transition probs or the
+                                   indel transition probs to be fixed
+                                   during EM parameter estimation with
+                                   parameteric indel model */
 } PhyloHmm;
 
 /* package of data used in estimation of indel parameters */
