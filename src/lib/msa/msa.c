@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.8 2004-06-18 22:12:57 acs Exp $
+/* $Id: msa.c,v 1.9 2004-06-18 23:01:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -831,10 +831,6 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
                                   sizeof(msa_coord_map*));
 
   for (i = 0; i <= msa->nseqs; i++) maps[i] = NULL;
-
-  /* set up "to" map */
-/*   if (to_seq != 0) */
-/*     to_map = maps[to_seq] = msa_build_coord_map(msa, to_seq); */
 
   for (i = 0; i < lst_size(gff->features); i++) {
     feat = (GFF_Feature*)lst_get_ptr(gff->features, i);

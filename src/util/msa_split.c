@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.8 2004-06-18 22:12:57 acs Exp $
+/* $Id: msa_split.c,v 1.9 2004-06-18 23:01:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -41,15 +41,6 @@ Options:\n\
         Name of GFF file.  Frame of reference of feature indices is\n\
         determined feature-by-feature according to 'seqname'\n\
         attribute.\n\
-\n\
-    -c <feature_frame>  \n\
-        Index of frame of reference for feature coordinates, as\n\
-        defined in the GFF file.  Use an integer 1-N (if N seqs) or 0\n\
-        to indicate the coordinate system of the alignment as a whole.\n\
-        Default behavior is to match features with alignment sequences\n\
-        by name (feature by feature).  This option is only for use\n\
-        with -g.  Features in output files will be in the same frame\n\
-        of reference as corresponding features in the input file.\n\
 \n\
     -p <partition_indices>\n\
         List of explicit indices at which to split alignment\n\
@@ -166,10 +157,8 @@ void write_sub_msa(MSA *submsa, char *fname, msa_format_type output_format,
     if (submsa->ss == NULL)
       ss_from_msas(submsa, tuple_size, ordered_stats, NULL, NULL, NULL, -1);
     else {
-      if (submsa->ss->tuple_size != tuple_size) {
-        fprintf(stderr, "ERROR: tuple size in SS file does not match desired tuple size for output.\nConversion not supported.\n");
-        exit(1);
-      }
+      if (submsa->ss->tuple_size != tuple_size) 
+        die("ERROR: tuple size in SS file does not match desired tuple size for output.\nConversion not supported.\n");
       if (submsa->ss->tuple_idx != NULL && ordered_stats == 0) {
         free(submsa->ss->tuple_idx);
         submsa->ss->tuple_idx = NULL;
@@ -330,10 +319,10 @@ int main(int argc, char* argv[]) {
   FILE* F;
   MSA *msa;
   msa_format_type input_format = FASTA, output_format = FASTA;
-  char *msa_fname = NULL, *gff_fname = NULL, *split_indices_str = NULL, 
+  char *msa_fname = NULL, *split_indices_str = NULL, 
     *out_fname_root = "msa_split", *rseq_fname = NULL, *group_tag = NULL;
   GFF_Set *gff = NULL, *coord_feats = NULL;
-  int npartitions = -1, feature_frame = -1, strand_sensitive = 0, 
+  int npartitions = -1, strand_sensitive = 0, 
     faithful = 0, partition_frame = 1, quiet_mode = 0, gap_strip_mode = NO_STRIP,
     output_summary = 0, tuple_size = 1, win_size = -1, 
     win_overlap = -1, ordered_stats = 1, min_ninf_sites = -1, 
@@ -350,7 +339,7 @@ int main(int argc, char* argv[]) {
   CategoryMap *cm = NULL;
   char subfname[STR_MED_LEN];
 
-  while ((c = getopt(argc, argv, "i:M:g:c:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:F:l:Szqh")) != -1) {
+  while ((c = getopt(argc, argv, "i:M:g:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:F:l:Szqh")) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
@@ -360,10 +349,7 @@ int main(int argc, char* argv[]) {
       rseq_fname = optarg;
       break;
     case 'g':
-      gff_fname = optarg;
-      break;
-    case 'c':
-      feature_frame = atoi(optarg);
+      gff = gff_read_set(fopen_fname(optarg, "r"));
       break;
     case 'p':
       split_indices_str = optarg;
@@ -382,10 +368,8 @@ int main(int argc, char* argv[]) {
         List *l = get_arg_list(optarg);
         if (lst_size(l) != 2 || 
             str_as_int(lst_get_ptr(l, 0), &win_size) != 0 ||
-            str_as_int(lst_get_ptr(l, 1), &win_overlap) != 0) {
-          fprintf(stderr, "ERROR: illegal arguments to -w.  Try \"msa_split -h\" for help.\n");
-          exit(1);
-        }
+            str_as_int(lst_get_ptr(l, 1), &win_overlap) != 0) 
+          die("ERROR: illegal arguments to -w.  Try \"msa_split -h\" for help.\n");
         str_free(lst_get_ptr(l, 0)); str_free(lst_get_ptr(l, 1));
         lst_free(l);
       }
@@ -431,10 +415,8 @@ int main(int argc, char* argv[]) {
         cats_to_do = lst_new_int(lst_size(l));
         for (i = 0; i < lst_size(l); i++) {
           int cat;
-          if (str_as_int(lst_get_ptr(l, i), &cat) != 0 || cat < 0) {
-            fprintf(stderr, "ERROR: illegal value in argument to -C.  Try msa_split -h for help.\n");
-            exit(1);
-          }
+          if (str_as_int(lst_get_ptr(l, i), &cat) != 0 || cat < 0) 
+            die("ERROR: illegal value in argument to -C.  Try msa_split -h for help.\n");
           lst_push_int(cats_to_do, cat);
           str_free((String*)lst_get_ptr(l, i));
         }
@@ -461,23 +443,18 @@ int main(int argc, char* argv[]) {
       exit(0);
       break;
     case '?':
-      fprintf(stderr, "ERROR: unrecognized option.  Try \"msa_split -h\" for help.\n");
-      exit(1);
+      die("ERROR: unrecognized option.  Try \"msa_split -h\" for help.\n");
     }
   }
 
-  if (optind >= argc) {
-    fprintf(stderr, "Missing alignment filename.  Try \"msa_split -h\" for help.\n");
-    exit(1);
-  }
-  else msa_fname = argv[optind];
+  if (optind >= argc) 
+    die("Missing alignment filename.  Try \"msa_split -h\" for help.\n");
 
-  if ((strand_sensitive || faithful || feature_frame != -1 || 
-       group_tag != NULL || cm != NULL) && 
-      gff_fname == NULL) {
-    fprintf(stderr, "ERROR: -P, -L, -s, -f, and -c require -g.  Try \"msa_split -h\" for help.\n");
-    exit(1);
-  }
+  msa_fname = argv[optind];
+
+  if ((strand_sensitive || faithful || group_tag != NULL || cm != NULL) && 
+      gff == NULL) 
+    die("ERROR: -P, -L, -s, and -f require -g.  Try \"msa_split -h\" for help.\n");
 
   if ((split_indices_str == NULL && npartitions == -1 && cm == NULL && win_size == -1 && coord_feats == NULL) ||
       (split_indices_str != NULL && (npartitions != -1 || cm != NULL || win_size != -1 || coord_feats != NULL)) ||
@@ -488,24 +465,8 @@ int main(int argc, char* argv[]) {
                                win_size != -1 || cm != NULL)))
     die("ERROR: must specify exactly one of -p, -n, -L, -F, and -w.\nTry \"msa_split -h\" for help.\n");
 
-  if (npartitions != -1 && npartitions <= 0) {
-    fprintf(stderr, "ERROR: number of partitions must be greater than 0.\nTry \"msa_split -h\" for help.\n");
-    exit(1);
-  }
-
-  if (gff_fname != NULL) {
-    if (!quiet_mode)
-      fprintf(stderr, "Reading features from %s ...\n", gff_fname);
-    if ((F = fopen(gff_fname, "r")) == NULL) {
-      fprintf(stderr, "ERROR: cannot open %s.\n", gff_fname);
-      exit(1);
-    }
-    if ((gff = gff_read_set(F)) == NULL) { 
-      fprintf(stderr, "ERROR: error reading %s.\n", gff_fname);
-      exit(1);
-    }
-    fclose(F);
-  }
+  if (npartitions != -1 && npartitions <= 0) 
+    die("ERROR: number of partitions must be greater than 0.\nTry \"msa_split -h\" for help.\n");
 
   if (!quiet_mode)
     fprintf(stderr, "Reading alignment from %s ...\n", 
@@ -526,17 +487,13 @@ int main(int argc, char* argv[]) {
   if (order_list != NULL)
     msa_reorder_rows(msa, order_list);
 
-  if (input_format == SS && msa->ss->tuple_idx == NULL) {
-    fprintf(stderr, "ERROR: ordered representation of alignment required.\n");
-    exit(1);
-  }
+  if (input_format == SS && msa->ss->tuple_idx == NULL) 
+    die("ERROR: ordered representation of alignment required.\n");
 
   split_indices_list = lst_new_int(10);
 
-  if (partition_frame < 0 || partition_frame >= msa->nseqs) {
-    fprintf(stderr, "ERROR: illegal argument to -d.  Try \"msa_split -h\" for help.\n");
-    exit(1);
-  }
+  if (partition_frame < 0 || partition_frame >= msa->nseqs) 
+    die("ERROR: illegal argument to -d.  Try \"msa_split -h\" for help.\n");
 
   if (partition_frame != 0) 
     map = msa_build_coord_map(msa, partition_frame);
@@ -554,10 +511,9 @@ int main(int argc, char* argv[]) {
     for (i = 0; i < lst_size(l); i++) {
       int idx;
       String *idxstr = (String*)lst_get_ptr(l, i);
-      if (str_as_int(idxstr, &idx) != 0 || idx <= 0) {
-        fprintf(stderr, "ERROR: illegal value in argument to -p.  Try \"msa_split -h\" for help.\n");
-        exit(1);
-      }
+      if (str_as_int(idxstr, &idx) != 0 || idx <= 0) 
+        die("ERROR: illegal value in argument to -p.  Try \"msa_split -h\" for help.\n");
+
       if (map != NULL)          /* convert to frame of entire alignment */
         idx = msa_map_seq_to_msa(map, idx);
       lst_push_int(split_indices_list, idx);
@@ -597,11 +553,9 @@ int main(int argc, char* argv[]) {
 
   /* map coords in GFF to frame of ref of alignment */
   if (gff != NULL) {
-    if (feature_frame != 0) {
-      if (!quiet_mode)
-        fprintf(stderr, "Mapping GFF coordinates to frame of alignment  ...\n");
-      msa_map_gff_coords(msa, gff, feature_frame, 0, 0, NULL);
-    }
+    if (!quiet_mode)
+      fprintf(stderr, "Mapping GFF coordinates to frame of alignment  ...\n");
+    msa_map_gff_coords(msa, gff, 1, 0, 0, NULL);
 
     if (group_tag != NULL) {
       GFF_FeatureGroup *prevg = NULL;
@@ -638,11 +592,9 @@ int main(int argc, char* argv[]) {
     if (adjust_radius >= 0 || cm != NULL) 
       die("ERROR: Cannot use -B or -L with -F.\n");
 
-    if (feature_frame != 0) {
-      if (!quiet_mode)
-        fprintf(stderr, "Mapping feature coordinates to frame of alignment  ...\n");
-      msa_map_gff_coords(msa, coord_feats, feature_frame, 0, 0, NULL);
-    }
+    if (!quiet_mode)
+      fprintf(stderr, "Mapping feature coordinates to frame of alignment  ...\n");
+    msa_map_gff_coords(msa, coord_feats, 1, 0, 0, NULL);
 
     segment_ends_list = lst_new_int(lst_size(coord_feats->features));
 
@@ -735,17 +687,15 @@ int main(int argc, char* argv[]) {
       }
       
       if (gff != NULL) {
-        if (gap_strip_mode != NO_STRIP) {
-          fprintf(stderr, "ERROR: generation of GFF files for partitions not supported in gap-stripping mode.\n");
-          exit(1);
-        }
+        if (gap_strip_mode != NO_STRIP) 
+          die("ERROR: generation of GFF files for partitions not supported in gap-stripping mode.\n");
 
         /* create fname for gff subset */
         sub_gff = gff_subset_range(gff, start, end, !faithful);
 
         /* map coords back to original frame(s) of ref */
         msa_map_gff_coords(faithful ? msa : sub_msa, sub_gff, 0, 
-                           feature_frame, 0, NULL);
+                           1, 0, NULL);
 
         /* write gff file for subset */
         str_cpy_charstr(outfname, out_fname_root);
@@ -753,11 +703,7 @@ int main(int argc, char* argv[]) {
         str_append_int(outfname, i+1);
         str_append_charstr(outfname, ".gff");
 
-        if ((F = fopen(outfname->chars, "w+")) == NULL) {
-          fprintf(stderr, "ERROR: unable to open %s for writing.\n", 
-                  outfname->chars);
-          exit(1);
-        }
+        F = fopen_fname(outfname->chars, "w+");
         if (!quiet_mode)
           fprintf(stderr, "Writing GFF subset %d to %s...\n", i+1, 
                   outfname->chars);
