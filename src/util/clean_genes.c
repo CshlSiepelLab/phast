@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.3 2004-06-05 03:13:25 acs Exp $
+/* $Id: clean_genes.c,v 1.4 2004-06-05 06:28:55 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -543,7 +543,7 @@ int are_introns_okay(List *intron_splice,  MSA *msa, GFF_Feature **bad_feat,
     if (str_starts_with_charstr(f1->feature, SPLICE_5) &&
         str_starts_with_charstr(f2->feature, SPLICE_3)) {
       start1 = f1->start - 1 + (strand == '-' ? offset5 : 0);
-      start2 = f1->start - 1 + (strand == '+' ? offset3 : 0);
+      start2 = f2->start - 1 + (strand == '+' ? offset3 : 0);
       for (j = 0; j < msa->nseqs; j++) {
         str1[0] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start1], j, 0);
         str1[1] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start1+1], j, 0);
