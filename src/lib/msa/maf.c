@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.5 2004-06-22 19:11:11 acs Exp $
+/* $Id: maf.c,v 1.6 2004-06-23 19:50:00 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -18,7 +18,7 @@
    representation will be extracted directly from the MAF.  Blocks
    corresponding to overlapping segments of the reference sequence are
    permitted, but all except the first one will be discarded.  */
-MSA *maf_read(FILE *F,          /**< MAF-formatted file */
+MSA *maf_read(FILE *F,          /**< MAF file */
               FILE *REFSEQF,    /**< optional reference sequence.  If
                                    non-NULL, the indicated file will
                                    be used to define bases in regions
@@ -49,9 +49,10 @@ MSA *maf_read(FILE *F,          /**< MAF-formatted file */
                                    collected for non-overlapping
                                    tuples.  Use -1 to ignore. */
               int store_order,  /**< Whether to store order in which
-                                   tuples occur.  Requires more memory
-                                   and larger files, and is not
-                                   necessary in many cases. */
+                                   tuples occur.  Storing order
+                                   requires more memory and larger
+                                   files, and is not necessary in many
+                                   cases. */
               char *reverse_groups, 
                                 /**< Tag defining groups in gff;
                                    indicates groups on negative strand
@@ -151,8 +152,7 @@ MSA *maf_read(FILE *F,          /**< MAF-formatted file */
                      pow(strlen(msa->alphabet)+2, msa->nseqs * tuple_size));
   }
 
-  tuple_hash = hsh_new(max_tuples); /* hmmm ... expected val much less
-                                       in some cases */
+  tuple_hash = hsh_new(max_tuples); 
   ss_new(msa, tuple_size, max_tuples, gff != NULL || cycle_size > 0 ? 1 : 0, 
          store_order); 
 
@@ -340,7 +340,7 @@ MSA *maf_read(FILE *F,          /**< MAF-formatted file */
 
         /* NOTE: there's a very slight bug above with
            context-dependent models, which will cause some context
-           will be lost for sites in the reference sequence
+           to be lost for sites in the reference sequence
            immediately *following* an alignment block (non-reference
            sequence context will be lost, as will gaps in the
            reference sequence).  However, these sites are essentially
@@ -642,7 +642,7 @@ void maf_peek(FILE *F, char ***names, Hashtable *name_hash,
         skip = 0;
         if (tmp != *refseqlen || 
             ((String*)lst_get_ptr(l, 4))->chars[0] != '+') {
-          fprintf(stderr, "WARNING: Unexpected reference sequence, ignoring block with first sequence line,\n\t%s", line->chars);
+          fprintf(stderr, "WARNING: Reference sequence length or strand does not match previous blocks, ignoring block starting with:\n\t%s", line->chars);
           lst_push_int(redundant_blocks, block_no);
           skip = 1;
         }
