@@ -7,6 +7,7 @@
 #include <numerical_opt.h>
 #include <tree_model.h>
 #include <fit_em.h>
+#include <time.h>
 
 void usage(char *prog) {
   printf("\n\
@@ -354,10 +355,13 @@ int main(int argc, char *argv[]) {
       if (parameteric) 
         msa = tm_generate_msa(nsites, hmm->transition_matrix, &model, NULL);
       else {
+	srand(time(NULL));
         mn_draw(nsites, p, msa->ss->ntuples, tmpcounts);
                                 /* here we simply redraw numbers of
                                    tuples from multinomial distribution
                                    defined by orig alignment */
+	                        /* WARNING: current implementation is
+				   inefficient for large nsites*ntuples */
         for (j = 0; j < msa->ss->ntuples; j++) msa->ss->counts[j] = tmpcounts[j];
                                 /* (have to convert from int to double) */
         msa->length = nsites;

@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.7 2004-08-30 18:56:37 acs Exp $
+/* $Id: misc.c,v 1.8 2005-03-23 19:38:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -464,8 +464,10 @@ void unif_draw(int n, double min, double max, double *draws, int antithetics) {
   }
 }
 
-/** Make 'n' draws from a binomial distribution with parameters 'N' and 'p'.
-   Store numbers of successes in 'draws'.   Be sure to call srand externally. */
+/** Make 'n' draws from a binomial distribution with parameters 'N'
+   and 'p'.  Store numbers of successes in 'draws'.  Be sure to call
+   srand externally.  WARNING: computational complexity is O(n*N) --
+   see Numerical Recipes for a better way (rejection sampling) */
 void bn_draw(int n, int N, double p, int *draws) {
   int i, j;
   double *unif_draws;
@@ -488,8 +490,10 @@ void bn_draw(int n, int N, double p, int *draws) {
 /** Make 'n' draws from a multinomial distribution defined by
    probability vector 'p' with dimension 'd'.  Record the counts for
    each category in 'counts'.  Sum of elements in 'counts' will equal
-   'n'.  Probability vector is assumed to be normalized.  Computational
-   complexity is O(n * d).   Be sure to call srand externally. */
+   'n'.  Probability vector is assumed to be normalized.  WARNING:
+   computational complexity is O(n * d) -- need a better
+   implementation of bn_draw to handle large n efficiently.  Be sure
+   to call srand externally. */
 void mn_draw(int n, double *p, int d, int *counts) {
   int i, nremaining = n;
   double cum_p = 0;
