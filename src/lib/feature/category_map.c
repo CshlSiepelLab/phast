@@ -1,4 +1,4 @@
-/* $Id: category_map.c,v 1.13 2004-08-14 04:23:33 acs Exp $
+/* $Id: category_map.c,v 1.14 2004-08-14 16:44:56 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -288,7 +288,12 @@ int cm_get_category(CategoryMap *cm, String *type) {
 /** Return a list of category numbers corresponding to a given list of
    category names and or numbers.  */
 List *cm_get_category_list(CategoryMap *cm, 
-                                /**< CategoryMap object */
+                                /**< CategoryMap object.  May be NULL
+                                   if categories are specified by
+                                   number rather than by name.  (In
+                                   that case, this function will
+                                   reduce to conversion of strings to
+                                   integers.) */
                            List *names, 
                                 /**< List of categories.  May be
                                    specified by name or number (useful
