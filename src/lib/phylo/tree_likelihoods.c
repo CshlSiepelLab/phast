@@ -1,4 +1,4 @@
-/* $Id: tree_likelihoods.c,v 1.3 2004-07-24 17:55:46 acs Exp $
+/* $Id: tree_likelihoods.c,v 1.4 2004-07-25 16:56:41 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -122,7 +122,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
       post->rcat_expected_nsites[rcat] = 0;
 
   for (tupleidx = 0; tupleidx < msa->ss->ntuples; tupleidx++) {
-    int skip_fels = 0;
+    int skip_fels = FALSE;
 
     if ((cat >= 0 && msa->ss->cat_counts[cat][tupleidx] == 0) || 
         (cat < 0 && msa->ss->counts[tupleidx] == 0))
@@ -131,11 +131,19 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
     total_prob = 0;
     marg_tot = NULL_LOG_LIKELIHOOD;
 
+    /* check for gaps and min informative bases, if necessary */
     if (!mod->allow_gaps)
+      for (j = 0; !skip_fels && j < msa->nseqs; j++) 
+        if (ss_get_char_tuple(msa, tupleidx, j, 0) == GAP_CHAR) 
+          skip_fels = TRUE;
+    if (!skip_fels && mod->min_informative > 0) {
+      int ninform = 0;
       for (j = 0; j < msa->nseqs; j++) 
-        if (ss_get_char_tuple(msa, tupleidx, j, 0) == GAP_CHAR)
-          skip_fels = 1;
-
+        if (msa->inv_alphabet[(int)ss_get_char_tuple(msa, tupleidx, j, 0)] >= 0)
+          ninform++;
+      if (ninform < mod->min_informative) skip_fels = TRUE;
+    }
+          
     if (!skip_fels) {
       for (pass = 0; pass < npasses; pass++) {
         double **pL = (pass == 0 ? inside_joint : inside_marginal);
@@ -149,9 +157,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
           traversal = tr_postorder(mod->tree);      
           for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
             int partial_match[mod->order+1][alph_size];
-
-            n = lst_get_ptr(traversal, nodeidx);
-      
+            n = lst_get_ptr(traversal, nodeidx);      
             if (n->lchild == NULL) { 
               /* leaf: base case of recursion */
               int thisseq;

@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.27 2004-07-24 17:55:46 acs Exp $
+/* $Id: exoniphy.c,v 1.28 2004-07-25 16:56:41 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -171,6 +171,19 @@ OPTIONS:\n\
         default behavior is to treat gaps as missing data, or to address\n\
         them with the indel model (--indels).\n\
 \n\
+    --min-informative-types, -N <list>\n\
+        Require a minimum number of \"informative\" bases (i.e.,\n\
+        non-gap and non-missing-data bases) at sites of the specified\n\
+        categories.  A number below the threshold defined by\n\
+        --min-informative-bases will result an emission probabilities\n\
+        of zero.  If the default category map is used (see --catmap),\n\
+        then this applies to start and stop codons and the canonical\n\
+        GT and AG positions of splice sites.\n\
+\n\
+    --min-informative-bases, -n <number>\n\
+        Minimum number of informative bases for --min-informative-types \n\
+        (default is 2).\n\
+\n\
  (Other)\n\
     --quiet, -q \n\
         Proceed quietly (without messages to stderr).\n\
@@ -193,11 +206,11 @@ int main(int argc, char* argv[]) {
   /* variables for options, with defaults */
   int msa_format = SS;
   int quiet = FALSE, reflect_hmm = FALSE, score = FALSE, indels = FALSE, 
-    no_cns = FALSE;
+    no_cns = FALSE, min_inform_bases = 2;
   double bias = NEGINFTY;
   char *seqname = NULL, *grouptag = "transcript_id", *sens_spec_fname_root = NULL,
     *idpref = NULL;
-  List *model_fname_list = NULL, *no_gaps_str = NULL, 
+  List *model_fname_list = NULL, *no_gaps_str = NULL, *min_inform_str = NULL,
     *backgd_types = get_arg_list(DEFAULT_BACKGD_TYPES), 
     *cds_types = get_arg_list(DEFAULT_CDS_TYPES), 
     *signal_types = get_arg_list(DEFAULT_SIGNAL_TYPES),
@@ -222,6 +235,8 @@ int main(int argc, char* argv[]) {
     {"signal-types", 1, 0, 'L'},
     {"indels", 0, 0, 'I'},
     {"no-gaps", 1, 0, 'W'},
+    {"min-informative-types", 1, 0, 'N'},
+    {"min-informative-bases", 1, 0, 'n'},
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
   };
@@ -240,7 +255,7 @@ int main(int argc, char* argv[]) {
   char tmpstr[STR_LONG_LEN];
   String *fname_str = str_new(STR_LONG_LEN), *str;
 
-  while ((c = getopt_long(argc, argv, "i:c:H:m:s:p:g:B:T:L:F:IW:b:xSYUhq", 
+  while ((c = getopt_long(argc, argv, "i:c:H:m:s:p:g:B:T:L:F:IW:N:n:b:xSYUhq", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
@@ -285,6 +300,12 @@ int main(int argc, char* argv[]) {
       break;
     case 'W':
       no_gaps_str = get_arg_list(optarg);
+      break;
+    case 'N':
+      min_inform_str = get_arg_list(optarg);
+      break;
+    case 'n':
+      min_inform_bases = get_arg_int_bounds(optarg, 0, INFTY);
       break;
     case 'I':
       indels = TRUE;
@@ -388,6 +409,8 @@ int main(int argc, char* argv[]) {
     cm = cm_read(fopen_fname(tmpstr, "r"));
     if (no_gaps_str == NULL) 
       no_gaps_str = get_arg_list("10,11,20,21,cds5\'ss,cds3\'ss,start_codon,stop_codon");
+    if (min_inform_str == NULL) 
+      min_inform_str = get_arg_list("10,11,20,21,cds5\'ss,cds3\'ss,start_codon,stop_codon");
   }
 
   ncats = cm->ncats + 1;
@@ -412,6 +435,14 @@ int main(int argc, char* argv[]) {
     List *l = cm_get_category_list(cm, no_gaps_str, 0);
     for (i = 0; i < lst_size(l); i++) 
       mod[lst_get_int(l, i)]->allow_gaps = FALSE;
+    lst_free(l);
+  }      
+
+  /* set min informative bases, if necessary */
+  if (min_inform_str != NULL) {
+    List *l = cm_get_category_list(cm, min_inform_str, 0);
+    for (i = 0; i < lst_size(l); i++) 
+      mod[lst_get_int(l, i)]->min_informative = min_inform_bases;
     lst_free(l);
   }      
 

@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.9 2004-06-22 17:12:26 acs Exp $
+/* $Id: tree_model.c,v 1.10 2004-07-25 16:56:41 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -132,6 +132,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   tm->category = -1;
   tm->allow_but_penalize_gaps = 0;
   tm->allow_gaps = 1;
+  tm->min_informative = 0;
   tm->estimate_backgd = 0;
   tm->estimate_branchlens = TM_BRANCHLENS_ALL;
   tm->scale = 1;
@@ -457,6 +458,7 @@ TreeModel *tm_create_copy(TreeModel *src) {
   retval->category = src->category;
   retval->allow_gaps = src->allow_gaps;
   retval->allow_but_penalize_gaps = src->allow_but_penalize_gaps;
+  retval->min_informative = src->min_informative;
   retval->estimate_backgd = src->estimate_backgd;
   retval->estimate_branchlens = src->estimate_branchlens;
   retval->scale = src->scale;
