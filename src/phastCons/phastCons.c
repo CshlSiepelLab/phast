@@ -91,8 +91,8 @@ DESCRIPTION:\n\
     site of the *first* state (index 0) in the HMM.  In the cases of the\n\
     default two-state HMM and the Felsenstein-Churchill HMM, this is the\n\
     most conserved state, and these probabilities can be interpreted as\n\
-    conservation scores.  They are written to stdout in a simple\n\
-    tab-delimited two-column format (position and probability).  The\n\
+    conservation scores.  They are written to stdout in fixed-step\n\
+    WIG format (http://genome.ucsc.edu/encode/submission.html#WIG).  The\n\
     set of states whose total (marginal) posterior probability is\n\
     reported can be changed using the --states option.  In addition,\n\
     discrete elements can be predicted using the --viterbi option, and\n\
