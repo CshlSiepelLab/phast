@@ -1,6 +1,6 @@
 /* label - label the columns of alignment(s) by category */
 
-/* $Id: exoniphy.c,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: exoniphy.c,v 1.2 2004-06-04 21:56:33 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, Adam Siepel, University of California 
 
@@ -18,6 +18,7 @@
 #include <string.h>
 #include <tree_likelihoods.h>
 #include <gff.h>
+#include <bed.h>
 #include <category_map.h>
 #include <dgamma.h>
 #include <numerical_opt.h>

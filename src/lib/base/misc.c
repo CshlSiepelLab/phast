@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: misc.c,v 1.2 2004-06-04 21:56:33 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -285,8 +285,14 @@ List *get_arg_list(char *arg) {
     fclose(F);
     str_free(fname_str);
   }
-  else 
-    str_split(argstr, ",", l);
+  else {
+    /* if contains commas, assume comma delimited, otherwise assume
+       whitespace delimited */
+    char *delim = NULL; int i;
+    for (i = 0; i < argstr->length && argstr->chars[i] != ','; i++);
+    if (i < argstr->length) delim = ",";      
+    str_split(argstr, delim, l);
+  }
 
   str_free(argstr);
   return l;

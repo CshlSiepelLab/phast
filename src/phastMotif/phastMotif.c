@@ -8,6 +8,7 @@
 #include <motif.h>
 #include <ctype.h>
 #include <sufficient_stats.h>
+#include <bed.h>
 
 #define DEFAULT_SIZE 10
 #define DEFAULT_NUMBER 3

@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <misc.h>
 #include <gff.h>
+#include <bed.h>
 #include <hashtable.h>
 
 /* to do: support reading and writing of genepred format (should be

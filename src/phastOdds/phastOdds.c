@@ -7,6 +7,7 @@
 #include <msa.h>
 #include <sufficient_stats.h>
 #include <gff.h>
+#include <bed.h>
 #include <tree_likelihoods.h>
 
 #define MIN_BLOCK_SIZE 30

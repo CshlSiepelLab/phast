@@ -1,7 +1,7 @@
 /* String-handling functions, with automatic memory management and
    basic regex support.
    
-   $Id: stringsplus.c,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+   $Id: stringsplus.c,v 1.2 2004-06-04 21:56:33 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -489,7 +489,7 @@ List *str_list_as_int(List *str_list) {
   return retval;
 }
 
-/* converts a list of strings to a list of integers; aborts on error */
+/* converts a list of strings to a list of doubles; aborts on error */
 List *str_list_as_dbl(List *str_list) {
   List *retval = lst_new_dbl(lst_size(str_list));
   int i;

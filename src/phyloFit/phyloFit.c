@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+   $Id: phyloFit.c,v 1.2 2004-06-04 21:56:33 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 
@@ -29,7 +29,9 @@
 #include "sufficient_stats.h"
 
 #define DEFAULT_NSITES_THRESHOLD 50
-#define DEFAULT_ALPHA 1         /* default starting alpha for dgamma */
+
+/* default starting alpha for dgamma */
+#define DEFAULT_ALPHA 1
 
 void print_usage() {
   printf("\n\
@@ -58,14 +60,13 @@ OPTIONS:\n\
         --msa-format).\n\
 \n\
     --tree, -t <tree_fname>|<tree_string>\n\
-        (required) Name of file defining tree topology *or* literal\n\
-        string defining tree topology.  In either case, tree must be\n\
-        in New Hampshire (NH) format, with the label at each leaf\n\
-        equal to the index of the corresponding sequence in the\n\
-        alignment (indexing begins with 1).  Example: --tree\n\
-        \"(1,(2,3))\".  Currently, the topology must be rooted.  When\n\
-        a reversible substitution model is used, the root is ignored\n\
-        during the optimization procedure.\n\
+        (required) Name of file *or* literal string defining tree\n\
+        topology.  In either case, tree must be in New Hampshire (NH)\n\
+        format, with the label at each leaf equal to the index of the\n\
+        corresponding sequence in the alignment (indexing begins with\n\
+        1).  Example: --tree \"(1,(2,3))\".  Currently, the topology\n\
+        must be rooted.  When a reversible substitution model is used,\n\
+        the root is ignored during the optimization procedure.\n\
 \n\
     --subst-mod, -s JC69|F81|HKY85|REV|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S\n\
         (default REV).  Nucleotide substitution model.  JC69, F81, HKY85\n\
@@ -88,7 +89,7 @@ OPTIONS:\n\
     --nrates, -k <nratecats>\n\
         (default 1).  Number of rate categories to use.  Specifying a\n\
         value of greater than one causes the discrete gamma model for\n\
-        rate variation to be used (Yang, 1994).  See also --rate-grid.\n\
+        rate variation to be used (Yang, 1994).\n\
 \n\
     --alpha, -a <alpha>\n\
         (for use with --nrates).  Initial value for alpha, the shape\n\
@@ -152,7 +153,7 @@ OPTIONS:\n\
         of columns.  (You can ensure that these tuples are\n\
         nonoverlapping by using --cats-cycle and --do-cats.)  The use\n\
         of joint probabilities during parameter estimation allows the\n\
-        use of EM (see --EM) and can be much faster; in addition, it\n\
+        use of the --EM option and can be much faster; in addition, it\n\
         appears to produce nearly equivalent estimates.  If desired,\n\
         parameters can be estimated without --markov-dependence, and\n\
         then the likelihood can be evaluated using --lnl and\n\
@@ -286,13 +287,16 @@ OPTIONS:\n\
         probability for each type of column in the input.  Output will\n\
         be to a file with suffix \".colprobs\".  Values are log base 2.\n\
 \n\
-    --rate-grid, -K <maxval>\n\
-        (for use with --nrates) Use a non-parameteric mixture model for\n\
-        rates, instead of assuming a gamma distribution.  A \"grid\"\n\
-        of <nratecats> rate constants (see --nrates) between 0 and <maxval>\n\
-        will be set up, and the \"weight\" (mixing proportion)\n\
-        associated with each one will be estimated by EM.  This option\n\
-        implies --EM.\n\
+    --rate-constants, -K <rate_consts>\n\
+        Use a non-parameteric mixture model for rates, instead of\n\
+        assuming a gamma distribution.  The argument <rate_consts>\n\
+        must be a comma-delimited list explicitly defining the rate\n\
+        constants to be used.  The \"weight\" (mixing proportion)\n\
+        associated with each rate constant will be estimated by EM\n\
+        (this option implies --EM).  If --alpha is used with\n\
+        this option, then the mixing proportions will be initialized\n\
+        to reflect a gamma distribution with the specified shape\n\
+        parameter.\n\
 \n\
 \n\
 REFERENCES:\n\
@@ -448,7 +452,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
     fprintf(EXPTOTSUBF, "\n\
 A separate matrix of expected numbers of substitutions is shown for each\n\
 branch of the tree.  Nodes of the tree are visited in a postorder traversal,\n\
-and each node is taken to be representative of the branch between it and\n\
+and each node is taken to be representative of the branch between itself and\n\
 its parent.  Starting bases or tuples of bases appear on the vertical axis\n\
 of each matrix, and destination bases or tuples of bases appear on the\n\
 horizontal axis.\n\n");
@@ -517,13 +521,13 @@ int main(int argc, char *argv[]) {
     *cats_to_do_str = NULL;
   int *weight_matrix, *nsites, *totbases;
   double *gc, cpg;
-  double alpha = DEFAULT_ALPHA, rate_grid_maxval = -1;
+  double alpha = DEFAULT_ALPHA;
   LocalPwAlignment *lpwa = NULL;
   GFF_Set *gff = NULL;
   TreeModel *input_mod = NULL;
   int root_leaf_id = -1;
   Regex *class_re = str_re_new(".*category[[:space:]]+[A-Za-z0-9_]+[[:space:]]+\\[([[:digit:]]+)\\]");
-  gsl_vector *rate_consts = NULL;
+  List *rate_consts = NULL;
 
   struct option long_opts[] = {
     {"msa", 1, 0, 'm'},
@@ -553,6 +557,18 @@ int main(int argc, char *argv[]) {
     {"min-informative", 1, 0, 'I'},
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
+    {"windows", 1, 0, 'w'},
+    {"windows-explicit", 1, 0, 'v'},
+    {"coord-frame", 1, 0, 'd'},
+    {"feature-counts", 1, 0, 'n'},
+    {"window-map", 1, 0, 'y'},
+    {"max-samples", 1, 0, 'S'},
+    {"ancestor", 1, 0, 'A'},
+    {"post-probs", 1, 0, 'P'},
+    {"expected-subs", 1, 0, 'X'},
+    {"expected-total-subs", 1, 0, 'Z'},
+    {"column-probs", 1, 0, 'U'},
+    {"rate-constants", 1, 0, 'K'},
   };
 
   while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:Y:G:i:o:k:a:l:S:W:w:v:y:d:n:M:p:A:I:K:EeNDRTqLPXZUBFrh", long_opts, &opt_idx)) != -1) {
@@ -571,11 +587,8 @@ int main(int argc, char *argv[]) {
       break;
     case 's':
       subst_mod = tm_get_subst_mod_type(s = str_new_charstr(optarg));
-      if (subst_mod == UNDEF_MOD) {
-        fprintf(stderr, "ERROR: illegal substitution model.  Type \"phyloFit -h\" for usage.\n");
-        exit(1);
-      }
-      free(s);
+      if (subst_mod == UNDEF_MOD) 
+        die("ERROR: illegal substitution model.  Type \"phyloFit -h\" for usage.\n");
       break;
     case 'g':
       gff_fname = optarg;
@@ -597,10 +610,8 @@ int main(int argc, char *argv[]) {
       break;
     case 'k':
       nratecats = atoi(optarg);
-      if (nratecats <= 0) {
-        fprintf(stderr, "ERROR: number of rate categories must be >= 1.\n");
-        exit(1);
-      }
+      if (nratecats <= 0) 
+        die("ERROR: number of rate categories must be >= 1.\n");
       break;
     case 'a':
       alpha = atof(optarg);
@@ -618,30 +629,22 @@ int main(int argc, char *argv[]) {
       else if (!strcmp(optarg, "FASTA")) input_format = FASTA;
       else if (!strcmp(optarg, "SS")) input_format = SS;
       else if (!strcmp(optarg, "LAV")) input_format = LAV;
-      else if (strcmp(optarg, "PHYLIP") != 0) { 
-        fprintf(stderr, "ERROR: unrecognized alignment format.\n\n");
-        print_usage(); 
-        exit(1); 
-      }
+      else if (strcmp(optarg, "PHYLIP") != 0) 
+        die("ERROR: unrecognized alignment format.  Type 'phyloFit -h' for usage.\n");
       break;
     case 'l':
       log_fname = optarg;
       if (!strcmp(log_fname, "-"))
         logf = stderr;
-      else if ((logf = fopen(log_fname, "w+")) == NULL) {
-        fprintf(stderr, "ERROR: cannot open %s for writing.\n", log_fname);
-        exit(1);
-      }
+      logf = fopen_fname(log_fname, "w+");
       break;
     case 'N':
       use_conditionals = 1;
       break;
     case 'S':
       max_samples = atoi(optarg);
-      if (max_samples <= 0) {
-        fprintf(stderr, "ERROR: maximum number of samples (--max-samples) must be greater than zero.\n");
-        exit(1);
-      }
+      if (max_samples <= 0) 
+        die("ERROR: maximum number of samples (--max-samples) must be greater than zero.\n");
       break;
     case 'W':
       weight_matrix_list = get_arg_list(optarg);
@@ -650,27 +653,20 @@ int main(int argc, char *argv[]) {
       tmplist = get_arg_list(optarg);
       if (lst_size(tmplist) != 2 ||
           str_as_int(lst_get_ptr(tmplist, 0), &window_size) != 0 ||
-          str_as_int(lst_get_ptr(tmplist, 1), &window_shift) != 0) {
-        fprintf(stderr, "ERROR: illegal arguments to --windows.\n");
-        exit(1);
-      }
-      str_free(lst_get_ptr(tmplist, 0));
-      str_free(lst_get_ptr(tmplist, 1));
+          str_as_int(lst_get_ptr(tmplist, 1), &window_shift) != 0) 
+        die("ERROR: illegal arguments to --windows.\n");
+      lst_free_strings(tmplist);
       lst_free(tmplist);
       break;
     case 'v':
       tmplist = get_arg_list(optarg);
-      if (lst_size(window_coords) % 2 != 0) {
-        fprintf(stderr, "ERROR: argument to -v must be a list of even length.\n");
-        exit(1);
-      }
+      if (lst_size(window_coords) % 2 != 0) 
+        die("ERROR: argument to -v must be a list of even length.\n");
       window_coords = lst_new_int(lst_size(tmplist));
       for (i = 0; i < lst_size(tmplist); i++) {
         int tmp;
-        if (str_as_int(lst_get_ptr(tmplist, i), &tmp) != 0) {
-          fprintf(stderr, "ERROR: illegal argument to -v.\n");
-          exit(1);
-        }
+        if (str_as_int(lst_get_ptr(tmplist, i), &tmp) != 0) 
+          die("ERROR: illegal argument to --windows-explicit.\n");
         lst_push_int(window_coords, tmp);
         str_free(lst_get_ptr(tmplist, i));
       }
@@ -693,11 +689,7 @@ int main(int argc, char *argv[]) {
       if (!strcmp(optarg, "LOW")) precision = OPT_LOW_PREC;
       else if (!strcmp(optarg, "MED")) precision = OPT_MED_PREC;
       else if (!strcmp(optarg, "HIGH")) precision = OPT_HIGH_PREC;
-      else {
-        fprintf(stderr, "ERROR: --precision must be LOW, MED, or HIGH.\n\n");
-        print_usage(); 
-        exit(1); 
-      }      
+      else die("ERROR: --precision must be LOW, MED, or HIGH.\n\n");
       break;
     case 'M':
       input_mod_fname = optarg;
@@ -740,23 +732,28 @@ int main(int argc, char *argv[]) {
       estimate_backgd = 1;
       break;
     case 'K':
-      rate_grid_maxval = atof(optarg);
-      if (rate_grid_maxval <= 0) die("ERROR: argument to --rate-grid must be positive.\n");
+      tmplist = get_arg_list(optarg);
+      rate_consts = str_list_as_dbl(tmplist);
+      lst_qsort_dbl(rate_consts, ASCENDING);
+      if (lst_size(rate_consts) < 2 || lst_get_dbl(rate_consts, 0) <= 0) 
+        die("ERROR: must be >= 2 rate constants and all must be positive.\n");
+      nratecats = lst_size(rate_consts);
       use_em = 1;
+      lst_free_strings(tmplist); lst_free(tmplist);
       break;
     case 'h':
       print_usage();
       exit(0);
     case '?':
-      die("ERROR: illegal argument.  Type \"phyloFit -h\" for usage.\n");
+      die("ERROR: illegal argument.  Type 'phyloFit -h' for usage.\n");
     }
   }
 
   if (msa_fname == NULL || (tree == NULL && input_mod_fname == NULL)) 
-    die("ERROR: must specify --msa and either --tree or --init-model.  Type \"phyloFit -h\" for usage.\n");
+    die("ERROR: must specify --msa and either --tree or --init-model.  Type 'phyloFit -h' for usage.\n");
 
   if (gff_fname != NULL && cat_map_fname == NULL) 
-      die("ERROR: --features requires --catmap.  Type 'phyloFit -h' for usage.\n");
+    die("ERROR: --features requires --catmap.  Type 'phyloFit -h' for usage.\n");
 
   if (use_conditionals && use_em) 
     die("ERROR: Cannot use --markov-dependence with --EM.  Type 'phyloFit -h' for usage.\n");
@@ -765,15 +762,8 @@ int main(int argc, char *argv[]) {
     die("ERROR: Cannot use both --cats-cycle and --features.  Type 'phyloFit -h' for usage.\n");
 
   if (likelihood_only && input_mod_fname == NULL) 
-    die("ERROR: --lnl requires --init-model.\n");
+    die("ERROR: --lnl requires --init-model.  Type 'phyloFit -h' for usage.\n");
 
-  /* set up empirical rates */
-  if (rate_grid_maxval != -1) {
-    rate_consts = gsl_vector_calloc(nratecats);
-    for (i = 0; i < nratecats; i++)
-      gsl_vector_set(rate_consts, i, i * rate_grid_maxval/(nratecats - 1));
-  }
-  
   /* read input model */
   if (input_mod_fname != NULL) {
     if (!quiet) fprintf(stderr, "Reading tree model from %s ...\n", 
@@ -788,28 +778,22 @@ int main(int argc, char *argv[]) {
 
   /* make sure alignment and tree topology consistent */
   if (msa->nseqs * 2 - 1 != 
-      (input_mod == NULL ? tree->nnodes : input_mod->tree->nnodes)) {
-    fprintf(stderr, "ERROR: Tree must have 2n-1 nodes, where n is the number of sequences in the\nalignment.  Even with a reversible model, specify a rooted tree; the two\nbranches adjoining the root will simply be assigned a single parameter.\n");
-    exit(1);
-  }
+      (input_mod == NULL ? tree->nnodes : input_mod->tree->nnodes)) 
+    die("ERROR: Tree must have 2n-1 nodes, where n is the number of sequences in the\nalignment.  Even with a reversible model, specify a rooted tree; the two\nbranches adjoining the root will simply be assigned a single parameter.\n");
 
   /* allow for specified ancestor */
   if (root_seqname != NULL) {
     char tmpstr[5];
     int idx;
     TreeNode *rl = NULL;
-    if (tree == NULL || tm_is_reversible(subst_mod)) {
-      fprintf(stderr, "ERROR: --ancestor requires --tree and a non-reversible model.\n");
-      exit(1);
-    }
+    if (tree == NULL || tm_is_reversible(subst_mod)) 
+      die("ERROR: --ancestor requires --tree and a non-reversible model.\n");
     idx = msa_get_seq_idx(msa, root_seqname);
     sprintf(tmpstr, "%d", idx);
     rl = tr_get_node(tree, tmpstr);
     
-    if (rl == NULL || rl->parent != tree) {
-      fprintf(stderr, "ERROR: Sequence specified by --ancestor must be a child of the root.\n");
-      exit(1);
-    }
+    if (rl == NULL || rl->parent != tree) 
+      die("ERROR: Sequence specified by --ancestor must be a child of the root.\n");
     
     root_leaf_id = rl->id;
   }
@@ -889,10 +873,8 @@ int main(int argc, char *argv[]) {
       cats_to_do = lst_new_int(lst_size(cats_to_do_str));
       for (i = 0; i < lst_size(cats_to_do_str); i++) {
         int tmpint;
-        if (str_as_int(lst_get_ptr(cats_to_do_str, i), &tmpint) != 0) {
-          fprintf(stderr, "ERROR: categories list must consist of integers.\n");
-          exit(1);
-        }
+        if (str_as_int(lst_get_ptr(cats_to_do_str, i), &tmpint) != 0) 
+          die("ERROR: categories list must consist of integers.\n");
         lst_push_int(cats_to_do, tmpint);
       }
     }
@@ -921,10 +903,8 @@ int main(int argc, char *argv[]) {
   /* set up windows, if necessary */
   if (window_size != -1) {
     int len;
-    if (window_coords != NULL) {
-      fprintf(stderr, "ERROR: cannot use both --windows and --windows-explicit.\n");
-      exit(1);
-    }        
+    if (window_coords != NULL) 
+      die("ERROR: cannot use both --windows and --windows-explicit.\n");
     len = (lpwa != NULL ? lpwa->query_len : msa->length);
     window_coords = lst_new_int(len/window_shift + 1);
     for (i = 1; i < len; i += window_shift) {
@@ -940,10 +920,7 @@ int main(int argc, char *argv[]) {
     char tmpstr[10];
 
     str_append_charstr(sumfname, ".win-sum");
-    if ((WINDOWF = fopen(sumfname->chars, "w+")) == NULL) {
-      fprintf(stderr, "ERROR: Cannot write to %s.\n", sumfname->chars);
-      exit(1);
-    }
+    WINDOWF = fopen_fname(sumfname->chars, "w+");
     str_free(sumfname);
 
     fprintf(WINDOWF, "%5s %8s %8s %4s", "win", "beg", "end", "cat");
@@ -1078,7 +1055,7 @@ int main(int argc, char *argv[]) {
 
       if (input_mod == NULL) {
         mod = tm_new(weight_matrix[wm_cat] == 0 ? tr_create_copy(tree) : NULL, 
-                     NULL, NULL, subst_mod, msa->alphabet, nratecats, 0, 
+                     NULL, NULL, subst_mod, msa->alphabet, nratecats, alpha, 
                      rate_consts, root_leaf_id);
       }
       else if (likelihood_only)
@@ -1180,7 +1157,7 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "Fitting tree model to %s using %s%s ...\n",
                   tmpstr->chars, weight_matrix[wm_cat] ? "weight matrix" : 
                   tm_get_subst_mod_string(subst_mod),
-                  !weight_matrix[wm_cat] && mod->nratecats > 1 ? " (with dgamma)" : "");
+                  !weight_matrix[wm_cat] && mod->nratecats > 1 ? " (with rate variation)" : "");
           if (log_fname != NULL)
             fprintf(stderr, "(writing log to %s)\n", log_fname);
         }
@@ -1215,13 +1192,9 @@ int main(int argc, char *argv[]) {
 
       if (!quiet) fprintf(stderr, "Writing model to %s ...\n", 
                           mod_fname->chars);
-      if ((F = fopen(mod_fname->chars, "w+")) == NULL) 
-        fprintf(stderr, "ERROR: can't open %s for writing.\n", 
-                mod_fname->chars);
-      else {
-        tm_print(F, mod);
-        fclose(F);
-      }
+      F = fopen_fname(mod_fname->chars, "w+");
+      tm_print(F, mod);
+      fclose(F);
 
       /* output posterior probabilities, if necessary */
       if (do_bases || do_expected_nsubst || do_expected_nsubst_tot) 
@@ -1250,13 +1223,9 @@ int main(int argc, char *argv[]) {
         str_append_charstr(out_tree_fname, ".nh");
         if (!quiet) fprintf(stderr, "Writing tree to %s ...\n", 
                             out_tree_fname->chars);
-        if ((F = fopen(out_tree_fname->chars, "w+")) == NULL) 
-          fprintf(stderr, "ERROR: can't open %s for writing.\n", 
-                  out_tree_fname->chars);
-        else {
-          print_tree(F, trcpy, 1);
-          fclose(F);
-        }
+        F = fopen_fname(out_tree_fname->chars, "w+");
+        print_tree(F, trcpy, 1);
+        fclose(F);
         free_tree(trcpy);
       }
 

@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: tree_model.c,v 1.2 2004-06-04 21:56:33 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -18,6 +18,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <gsl/gsl_complex_math.h>
+#include <gsl/gsl_randist.h>
 #include <dgamma.h>
 #include <math.h>
 
@@ -63,7 +64,7 @@ double tm_likelihood_wrapper(gsl_vector *params, void *data);
 TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix, 
                   gsl_vector *backgd_freqs, subst_mod_type subst_mod, 
                   char *alphabet, int nratecats, double alpha, 
-                  gsl_vector *rate_consts, int root_leaf_id) {
+                  List *rate_consts, int root_leaf_id) {
   TreeModel *tm = (TreeModel*)smalloc(sizeof(TreeModel));
   int i, j;
 
@@ -102,13 +103,16 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
     tm->freqK = smalloc(nratecats * sizeof(double));
 
     if (rate_consts != NULL) {  /* empirical rate model */
+      double interval_size, initalpha = alpha > 0 ? alpha : 1;
       tm->empirical_rates = 1;
-      if (nratecats != rate_consts->size) 
+      if (nratecats != lst_size(rate_consts) )
         die("ERROR: number of explicitly defined rate constants must equal number of rate categories.\n");
       for (i = 0; i < nratecats; i++) {
-        tm->rK[i] = gsl_vector_get(rate_consts, i);
-        tm->freqK[i] = exp(-tm->rK[i]); /* init to approx exponential
-                                           distrib with mean 1 */
+        tm->rK[i] = lst_get_dbl(rate_consts, i);
+        interval_size = tm->rK[i] - (i > 0 ? tm->rK[i-1] : 0);
+        tm->freqK[i] = gsl_ran_gamma_pdf(tm->rK[i], initalpha, 1/initalpha) *
+          interval_size; 
+        /* init to approx gamma with shape param alpha */
       }
       normalize_probs(tm->freqK, tm->nratecats);
     }
@@ -143,7 +147,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
    number of rate categories, alpha, set of rate consts, etc.  */ 
 void tm_reinit(TreeModel *tm, subst_mod_type new_subst_mod, 
                int new_nratecats, double new_alpha, 
-               gsl_vector *new_rate_consts) {
+               List *new_rate_consts) {
   int i, j;
   int old_nratecats = tm->nratecats;
   assert(new_nratecats >= 1);
@@ -159,10 +163,10 @@ void tm_reinit(TreeModel *tm, subst_mod_type new_subst_mod,
   tm->freqK = srealloc(tm->freqK, new_nratecats * sizeof(double));
 
   if (new_rate_consts != NULL) {  /* empirical rate model */
-    if (new_nratecats != new_rate_consts->size) 
+    if (new_nratecats != lst_size(new_rate_consts))
       die("ERROR: number of explicitly defined rate constants must equal number of rate categories.\n");
     for (i = 0; i < new_nratecats; i++) {
-      tm->rK[i] = gsl_vector_get(new_rate_consts, i);
+      tm->rK[i] = lst_get_dbl(new_rate_consts, i);
       tm->freqK[i] = exp(-tm->rK[i]); /* init to approx exponential
                                          distrib with mean 1 */
     }
@@ -240,7 +244,7 @@ void tm_free_rmp(TreeModel *tm) {
 TreeModel *tm_new_from_file(FILE *f) {
   char tag[STR_MED_LEN], alphabet[MAX_ALPH_SIZE]; 
   String *tmpstr = str_new(STR_LONG_LEN);
-  gsl_vector *backgd = NULL, *rate_consts = NULL, *rate_weights = NULL;
+  gsl_vector *backgd = NULL, *rate_weights = NULL;
   gsl_matrix *rmat = NULL;
   MarkovMatrix *M = NULL;
   TreeNode *tree = NULL;
@@ -249,6 +253,7 @@ TreeModel *tm_new_from_file(FILE *f) {
   TreeModel *retval;
   subst_mod_type subst_mod = UNDEF_MOD;
   int i, j;
+  List *rate_consts = NULL;
 
   while (fscanf(f, "%s", tag) != EOF) {
     if (!strcmp(tag, ALPHABET_TAG)) {
@@ -310,10 +315,16 @@ TreeModel *tm_new_from_file(FILE *f) {
     else if (strcmp(tag, LNL_TAG) == 0) 
       str_readline(tmpstr, f);  /* discard */
     else if (!strcmp(tag, RATE_CONSTS_TAG)) {
+      gsl_vector *tmpvect;
       if (nratecats < 0) 
         die("ERROR: NRATECATS must precede RATE_CONSTS in tree model file.\n");
-      rate_consts = gsl_vector_alloc(nratecats);
-      gsl_vector_fscanf(f, rate_consts);
+      /* easiest to use gsl_vector_fscanf and convert */
+      tmpvect = gsl_vector_alloc(nratecats); 
+      gsl_vector_fscanf(f, tmpvect);
+      rate_consts = lst_new_dbl(nratecats);
+      for (i = 0; i < nratecats; i++) 
+        lst_push_dbl(rate_consts, gsl_vector_get(tmpvect, i));
+      gsl_vector_free(tmpvect);                     
     }
     else if (!strcmp(tag, RATE_WEIGHTS_TAG)) {
       gsl_vector *rate_weights;
@@ -353,7 +364,7 @@ TreeModel *tm_new_from_file(FILE *f) {
   }
 
   str_free(tmpstr);
-  if (rate_consts != NULL) gsl_vector_free(rate_consts);
+  if (rate_consts != NULL) lst_free(rate_consts);
   if (rate_weights != NULL) gsl_vector_free(rate_weights);
 
   return retval;
@@ -847,7 +858,7 @@ gsl_vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
   if (mod->nratecats > 1) {
     if (mod->empirical_rates)
       for (i = 0; i < mod->nratecats; i++) 
-        gsl_vector_set(params, params_idx++, 1.0/mod->nratecats);
+        gsl_vector_set(params, params_idx++, mod->freqK[i]);
     else
       gsl_vector_set(params, params_idx++, alpha);
   }

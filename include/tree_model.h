@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
+/* $Id: tree_model.h,v 1.2 2004-06-04 21:56:33 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -104,10 +104,10 @@ typedef struct tm_struct TreeModel;
 TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix, 
                   gsl_vector *backgd_freqs, subst_mod_type subst_mod, 
                   char *alphabet, int nratecats, double alpha,
-                  gsl_vector *empirical_rates, int root_leaf_id);
+                  List *rate_consts, int root_leaf_id);
 void tm_reinit(TreeModel *tm, subst_mod_type subst_mod,
                int new_nratecats, double new_alpha, 
-               gsl_vector *new_rate_consts);
+               List *new_rate_consts);
 TreeModel *tm_new_from_file(FILE *F);
 void tm_init_rmp(TreeModel *tm);
 void tm_free_rmp(TreeModel *tm);
