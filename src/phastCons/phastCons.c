@@ -524,6 +524,7 @@ int main(int argc, char *argv[]) {
   /* set defaults for coding-potential mode */
   if (coding_potential) {
     char tmp[5000];
+    two_state = FALSE;
     if (cm == NULL) cm = cm_new_string_or_file("NCATS=4; CNS 1; CDS 2-4");
     if (hmm == NULL) {
       sprintf(tmp, "%s/data/phastCons/simple-coding.hmm", PHAST_HOME);
