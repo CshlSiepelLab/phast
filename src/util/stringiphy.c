@@ -151,8 +151,9 @@ int main(int argc, char *argv[]) {
     i = j;
   }
 
+  gff_group(exons, gene_tag);
+  gff_add_gene_id(exons);
   gff_print_set(stdout, exons);
-  
   return 0;
 }
 
