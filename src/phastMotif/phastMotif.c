@@ -30,7 +30,7 @@ USAGE:        %s [-t <treefile>] [OPTIONS] <msa_list>\n\
 \n\
 OPTIONS:\n\
     -t <file> (Required unless -m or -p) Use specified tree topology for\n\
-              all phylogenetic models (New Hampshire format).\n\
+              all phylogenetic models (Newick format).\n\
 \n\
     -i <fmt>  Input format for alignment.  May be FASTA, PHYLIP, MPM, SS,\n\
               or MAF (default FASTA).\n\
