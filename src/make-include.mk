@@ -5,9 +5,8 @@
 # currently set up for linux and GCC and Pentium III/IV processors.
 # Adjustments will be needed for other systems.
 
-# use environment variable for phast location if available
+# set either environment variable PHAST or path below to top-level directory
 ifndef PHAST
-# set this variable to point to the root of your local PHAST installation
 PHAST=${HOME}/phast
 endif
 
@@ -28,7 +27,7 @@ CFLAGS = -mcpu=pentiumpro -O3 -DGCC -DGSL_RANGE_CHECK_OFF
 #CFLAGS = -mcpu=pentiumpro -O3 -DGCC -pg -fprofile-arcs -DGSL_RANGE_CHECK_OFF
 # NOTE: add -g if profiling line-by-line, and -a if monitoring basic blocks
 
-CFLAGS += -DPHAST_VERSION=\"$(shell cat ${PHAST}/version)\"
+CFLAGS += -DPHAST_VERSION=\"$(shell cat ${PHAST}/version)\" -DPHAST_HOME=\"${PHAST}\"
 
 # static linking ends up being simplest in our environment; comment
 # this line out to link dynamically
