@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.22 2004-08-16 19:45:59 acs Exp $
+/* $Id: clean_genes.c,v 1.23 2004-08-16 21:49:03 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -303,6 +303,7 @@ inline int is_conserved_stop(GFF_Feature *feat, MSA *msa) {
     tuplestr[2] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start+2], j, 0);
     if (msa->is_missing[(int)tuplestr[0]] && msa->is_missing[(int)tuplestr[1]]
         && msa->is_missing[(int)tuplestr[2]])
+      continue;
     if (feat->strand == '-') msa_reverse_compl_seq(tuplestr, 3);
     if (!is_stop_codon(tuplestr)) return 0;
   }
