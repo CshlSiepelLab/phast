@@ -1,6 +1,6 @@
 /* label - label the columns of alignment(s) by category */
 
-/* $Id: exoniphy.c,v 1.3 2004-06-09 17:10:29 acs Exp $
+/* $Id: exoniphy.c,v 1.4 2004-06-11 06:15:39 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, Adam Siepel, University of California 
 
@@ -394,8 +394,8 @@ double fit_lambda(PhyloHMM_Puzzler *puz, double **emission_scores,
   ad.msa_len = msa_len;
 
   ax = .80; bx = .97;           /* FIXME -- parameterize */
-  mnbrak(&ax, &bx, &cx, &fa, &fb, &fc, log_likelihood_wrapper, &ad);
-  final_score = opt_brent(ax, bx, cx, log_likelihood_wrapper, 5e-3, &lambda, &ad);
+  mnbrak(&ax, &bx, &cx, &fa, &fb, &fc, log_likelihood_wrapper, &ad, NULL);
+  final_score = opt_brent(ax, bx, cx, log_likelihood_wrapper, 5e-3, &lambda, &ad, NULL);
 /*   fprintf(stderr, "Returned from opt_brent; freeing forward_scores ...\n"); */
 
   for (i = 0; i < puz->hmm->nstates; i++) free(ad.forward_scores[i]);
