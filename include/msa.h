@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.4 2004-06-18 22:12:57 acs Exp $
+/* $Id: msa.h,v 1.5 2004-06-23 23:51:28 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -83,7 +83,7 @@ struct msa_ss_struct;           /* using an incomplete type in lieu of
 /** Multiple sequence alignment object */
 typedef struct {
   int nseqs;                    /**< Number of sequences */
-  int length;                   /**< Number of columns */
+  unsigned int length;          /**< Number of columns */
   char *alphabet;               /**< Alphabet (see #DEFAULT_ALPHABET) */
   int inv_alphabet[NCHARS];
   char **names;
