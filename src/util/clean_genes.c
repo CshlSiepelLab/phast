@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.17 2004-06-24 03:09:22 acs Exp $
+/* $Id: clean_genes.c,v 1.18 2004-07-27 20:38:38 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -647,7 +647,7 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
         if (gt ==  FSHIFT_OK) 
           reason = "Frame-shift gap [gaps not clean]";
         else if (gt == CLN_GAPS) 
-          reason = "Frame-shift gap [gaps clean but overlapping]";
+          reason = "Frame-shift gap [gaps clean but overlapping/near boundary]";
         else
           reason = "Frame-shift gap";
       }
