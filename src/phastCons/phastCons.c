@@ -825,6 +825,7 @@ int main(int argc, char *argv[]) {
       str_root(tmp, '.');         /* apply one more time for double suffix */
       if (seqname == NULL) seqname = tmp->chars;    
     }
+    else if (seqname == NULL) seqname = "refseq";
   }
 
   /* set up states */
