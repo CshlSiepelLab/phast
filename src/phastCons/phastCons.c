@@ -152,6 +152,11 @@ OPTIONS:\n\
         (Optionally use with --hmm) Expand HMM state space to model\n\
         indels as described in Siepel & Haussler (2004).\n\
 \n\
+    --catmap, -c <fname>|<string>\n\
+        (Optionally use with --hmm)  Mapping of feature types to category\n\
+        numbers.  Can give either a filename or an \"inline\" description\n\
+        of a simple category map, e.g., --catmap \"NCATS = 3 ; CDS 1-3\".\n\
+\n\
     --rates-cross, -X\n\
         (Alternative to --hmm; specify only one *.mod file with this\n\
         option) Use an HMM with a state for every rate\n\
@@ -348,13 +353,14 @@ int main(int argc, char *argv[]) {
     {"msa-format", 1, 0, 'i'},
     {"rates-cross", 0, 0, 'X'},
     {"lambda", 1, 0, 'l'},
-    {"cut-at", 1, 0, 'c'},
+    {"cut-at", 1, 0, 'C'},
     {"transitions", 1, 0, 't'},
     {"nrates", 1, 0, 'k'},
     {"log", 1, 0, 'g'},
     {"refidx", 1, 0, 'r'},
     {"suppress-missing", 0, 0, 'x'},
-    {"reflect-strand", 0, 0, 'U'},
+    {"reflect-strand", 1, 0, 'U'},
+    {"catmap", 1, 0, 'c'},
     {"indels", 0, 0, 'I'},
     {"lnl", 1, 0, 'L'},
     {"seqname", 1, 0, 'N'},
@@ -374,14 +380,15 @@ int main(int argc, char *argv[]) {
   String *tmpstr;
   TreeModel **mod;
   PhyloHmm *phmm;
+  CategoryMap *cm = NULL;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:c:t:r:xL:s:N:P:g:U:IXqh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IXqh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
       states = get_arg_list(optarg);
       break;
     case 'H':
-      if (!quiet) fprintf(stderr, "Reading HMM from %s...", optarg);
+      if (!quiet) fprintf(stderr, "Reading HMM from %s...\n", optarg);
       hmm = hmm_new_from_file(fopen_fname(optarg, "r"));
       two_state = FALSE;
       break;
@@ -407,7 +414,7 @@ int main(int argc, char *argv[]) {
       else optarg = &optarg[1];
       lambda = get_arg_dbl_bounds(optarg, 0, 1);
       break;
-    case 'c':
+    case 'C':
       rates_cut_idx = get_arg_int_bounds(optarg, 1, 100);
       break;
     case 't':
@@ -439,6 +446,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'I':
       indels = TRUE;
+      break;
+    case 'c':
+      cm = cm_new_string_or_file(optarg);
       break;
     case 'L':
       lnl_f = fopen_fname(optarg, "w+");
@@ -476,9 +486,6 @@ int main(int argc, char *argv[]) {
 
   if ((rates_cross || two_state) && lst_size(tmpl) != 1)
     die("ERROR: only one tree model allowed with --rates-cross or --cut-at.\n");
-  else if (hmm != NULL && hmm->nstates != lst_size(tmpl)) 
-    die("ERROR: number of states in HMM must equal number of tree models.\n");
-  
     
   mod = (TreeModel**)smalloc(sizeof(TreeModel*) * lst_size(tmpl));
   for (i = 0; i < lst_size(tmpl); i++) {
@@ -499,6 +506,9 @@ int main(int argc, char *argv[]) {
     if (rates_cut_idx > nrates)
       die("ERROR: --cut-at arg must be <= nrates.\n");
   }
+
+  if (cm == NULL)
+    cm = cm_create_trivial(lst_size(tmpl)-1, NULL);
 
   /* read alignment */
   if (!quiet)
@@ -538,7 +548,7 @@ int main(int argc, char *argv[]) {
   }
 
   /* set up PhyloHmm */
-  phmm = phmm_new(hmm, mod, NULL, pivot_states, indels, msa->nseqs);
+  phmm = phmm_new(hmm, mod, cm, pivot_states, indels, msa->nseqs);
 
   if (rates_cross) {
     if (!quiet) 
