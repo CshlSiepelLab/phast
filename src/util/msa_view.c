@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.12 2004-06-25 07:58:37 acs Exp $
+/* $Id: msa_view.c,v 1.13 2004-07-25 22:31:36 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -174,6 +174,13 @@ OPTIONS:\n\
         specified sequence (<s>).  Indexing starts at one and refers\n\
         to the list *after* any sequences have been added or\n\
         subtracted (via --seqs and --exclude or --order).\n\
+\n\
+    --collapse-missing, -p\n\
+        (For use with -o SS) Convert all missing-data characters and\n\
+        gaps to \"*\" characters.  Can be used to make sufficient\n\
+        statistics more compact, which can improve the performance of\n\
+        phyloFit (all missing data and gap characters are typically\n\
+        treated the same by phyloFit anyway).\n\
 \n\
     --order, -O <name_list>\n\
         Change order of rows in alignment to match sequence names\n\
@@ -353,7 +360,7 @@ int main(int argc, char* argv[]) {
     pretty_print = FALSE, refseq = 0, tuple_size = 1, 
     ordered_stats = TRUE, cds_mode = FALSE, indel_clean_nseqs = -1, cats_done = FALSE,
     rand_perm = FALSE, reverse_compl = FALSE, stats_only = FALSE, win_size = -1, 
-    cycle_size = -1, maf_keep_overlapping = FALSE;
+    cycle_size = -1, maf_keep_overlapping = FALSE, collapse_missing = FALSE;
   char c;
   List *cats_to_do = NULL, *aggregate_list = NULL, *msa_fname_list = NULL, 
     *order_list = NULL, *fill_N_list = NULL;
@@ -368,6 +375,7 @@ int main(int argc, char* argv[]) {
     {"seqs", 1, 0, 'l'},
     {"exclude", 0, 0, 'x'},
     {"gap-strip", 1, 0, 'G'},
+    {"collapse-missing", 0, 0, 'p'},
     {"in-format", 1, 0, 'i'},
     {"out-format", 1, 0, 'o'},
     {"pretty", 0, 0, 'P'},
@@ -413,12 +421,15 @@ int main(int argc, char* argv[]) {
       seqlist_str = get_arg_list(optarg);
       break;
     case 'x':
-      include = 0;
+      include = FALSE;
       break;
     case 'G':
       if (!strcmp(optarg, "ALL")) gap_strip_mode = STRIP_ALL_GAPS;
       else if (!strcmp(optarg, "ANY")) gap_strip_mode = STRIP_ANY_GAPS;
       else gap_strip_mode = atoi(optarg);
+      break;
+    case 'p':
+      collapse_missing = TRUE;
       break;
     case 'o':
       output_format = msa_str_to_format(optarg);
@@ -440,7 +451,7 @@ int main(int argc, char* argv[]) {
       cm = cm_new_string_or_file(optarg);
       break;
     case 'P':
-      pretty_print = 1;
+      pretty_print = TRUE;
       break;
     case 'Y':
       cycle_size = atoi(optarg);
@@ -451,7 +462,7 @@ int main(int argc, char* argv[]) {
       lst_push_int(cats_to_do, 3);
       break;
     case 'z':
-      ordered_stats = 0;
+      ordered_stats = FALSE;
       break;
     case 'L':
       clean_seqname = optarg;
@@ -463,22 +474,22 @@ int main(int argc, char* argv[]) {
       indel_clean_nseqs = atoi(optarg);
       break;
     case 'R':
-      rand_perm = 1;
+      rand_perm = TRUE;
       break;
     case 'M':
       rseq_fname = optarg;
       break;
     case 'V':
-      reverse_compl = 1;
+      reverse_compl = TRUE;
       break;
     case 'W':
       reverse_groups_tag = optarg;
       break;
     case 'S':
-      stats_only = 1;
+      stats_only = TRUE;
       break;
     case 'w':
-      stats_only = 1;
+      stats_only = TRUE;
       win_size = atoi(optarg);
       break;
     case 'N':
@@ -685,6 +696,8 @@ int main(int argc, char* argv[]) {
         sub_msa->ss->tuple_idx = NULL;
       }
     }
+
+    if (collapse_missing) ss_collapse_missing(sub_msa, TRUE);
   }
 
   if (gff == NULL && reverse_compl) {

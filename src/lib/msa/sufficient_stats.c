@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.5 2004-07-02 03:55:49 acs Exp $
+/* $Id: sufficient_stats.c,v 1.6 2004-07-25 22:31:36 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -944,19 +944,28 @@ MSA* ss_alt_msa(MSA *orig_msa, int new_tuple_size, int store_order,
 }
 
 /* Extract a sub-alignment from an alignment, in terms of ordered
-   sufficient statistics (refer to msa_sub_alignment in msa.c) */
+   sufficient statistics (refer to msa_sub_alignment in msa.c).  The
+   new alignment will represent the interval [start_col, end_col). */
 MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list, 
                       int start_col, int end_col) {
   MSA *retval;
   int do_cats = (msa->ncats >= 0 && msa->categories != NULL);
-  int i, offset, seqidx, tupidx, sub_ntuples, sub_tupidx;
+  int i, offset, seqidx, tupidx, sub_ntuples, sub_tupidx, cat;
   int *full_to_sub;
+  int unordered_seqs = (msa->ss->tuple_idx == NULL && 
+                        start_col == 0 && end_col == msa->length);
+                                /* special case: taking subset of seqs only
+                                   with unordered sufficient stats */
   MSA_SS *ss;
 
-  if (msa->ss == NULL || msa->ss->tuple_idx == NULL) {
-    fprintf(stderr, "ERROR: ss_sub_alignment requires ordered sufficient statistics.\n");
-    exit(1);
-  }
+  if (msa->ss == NULL)
+    die("ERROR: sufficient stats required in ss_sub_alignment.\n");
+
+  if (!unordered_seqs && msa->ss->tuple_idx == NULL) 
+    die("ERROR: ordered sufficient statistics required in ss_sub_alignment.\n");
+
+  if (retval->ncats >= 0 && !do_cats)
+    fprintf(stderr, "WARNING: ss_sub_alignment can't handle site categories with categories vector.  Ignoring category-specific counts.\n");
 
   retval = msa_new(NULL, new_names, lst_size(include_list), 
                    end_col - start_col, msa->alphabet);
@@ -968,19 +977,30 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
   /* mapping of original tuple numbers to tuple numbers in the
      sub-alignment */
   full_to_sub = smalloc(msa->ss->ntuples * sizeof(int));
-  for (tupidx = 0; tupidx < msa->ss->ntuples; tupidx++) 
-    full_to_sub[tupidx] = -1; /* indicates absent from subalignment */
-  sub_ntuples = 0;
-  for (i = 0; i < retval->length; i++) {
-    assert(msa->ss->tuple_idx[i+start_col] >= 0 && 
-           msa->ss->tuple_idx[i+start_col] < msa->ss->ntuples);
-    if (full_to_sub[msa->ss->tuple_idx[i+start_col]] == -1) {
-      full_to_sub[msa->ss->tuple_idx[i+start_col]] = 0; /* placeholder */
-      sub_ntuples++;
+  if (unordered_seqs) {         /* in this case, we know we still have
+                                   all tuples.  (Some may be
+                                   redundant, but that will be handled
+                                   below.) */
+    for (tupidx = 0; tupidx < msa->ss->ntuples; tupidx++) 
+      full_to_sub[tupidx] = 0; /* placeholder */
+    sub_ntuples = msa->ss->ntuples;
+  }
+  else {
+    for (tupidx = 0; tupidx < msa->ss->ntuples; tupidx++) 
+      full_to_sub[tupidx] = -1; /* indicates absent from subalignment */
+    sub_ntuples = 0;
+    for (i = 0; i < retval->length; i++) {
+      assert(msa->ss->tuple_idx[i+start_col] >= 0 && 
+             msa->ss->tuple_idx[i+start_col] < msa->ss->ntuples);
+      if (full_to_sub[msa->ss->tuple_idx[i+start_col]] == -1) {
+        full_to_sub[msa->ss->tuple_idx[i+start_col]] = 0; /* placeholder */
+        sub_ntuples++;
+      }
     }
   }
 
-  ss_new(retval, msa->ss->tuple_size, sub_ntuples, do_cats, 1);
+  ss_new(retval, msa->ss->tuple_size, sub_ntuples, do_cats, 
+         msa->ss->tuple_idx != NULL);
   ss = retval->ss;
   ss->ntuples = sub_ntuples;
 
@@ -989,7 +1009,7 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
     if (full_to_sub[tupidx] == -1) continue;
 
     ss->col_tuples[sub_tupidx] = smalloc(retval->nseqs * ss->tuple_size * 
-                                        sizeof(char));
+                                         sizeof(char));
     for (offset = -(ss->tuple_size-1); offset <= 0; offset++) {
       for (i = 0; i < lst_size(include_list); i++) {
         seqidx = lst_get_int(include_list, i);
@@ -1002,23 +1022,33 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
 
   assert(sub_tupidx == sub_ntuples);
 
-  /* FIXME: bug above when using subset of seqs -- tuples may no
-     longer be unique; for most applications won't matter, but could
-     potentially be a problem.  Need hash table to do properly. */
-  if (lst_size(include_list) != msa->nseqs) 
-    fprintf(stderr, "WARNING: tuples may not be unique in sub_alignment (see ss_sub_alignment).\n");
-
   /* copy ordering info for specified columns and recompute counts.
      Also take care of category labels and category-specific counts */
-  for (i = 0; i < retval->length; i++) {
-    ss->tuple_idx[i] = full_to_sub[msa->ss->tuple_idx[i+start_col]];
-    assert(ss->tuple_idx[i] >= 0);
-    ss->counts[ss->tuple_idx[i]]++;
-    if (msa->ncats >= 0 && msa->categories != NULL) {
-      retval->categories[i] = msa->categories[i+start_col];
-      ss->cat_counts[retval->categories[i]][ss->tuple_idx[i]]++;
+
+  if (unordered_seqs) {         /* in this case, just copy counts
+                                   directly tuple by tuple */
+    for (i = 0; i < msa->ss->ntuples; i++) {
+      ss->counts[full_to_sub[i]] = msa->ss->counts[i];
+      if (do_cats) {
+        for (cat = 0; cat <= msa->ncats; cat++)
+          ss->cat_counts[cat][full_to_sub[i]] = msa->ss->cat_counts[cat][i];
+      }
     }
-  }  
+  }
+  else {                        /* go site by site */
+    for (i = 0; i < retval->length; i++) {
+      ss->tuple_idx[i] = full_to_sub[msa->ss->tuple_idx[i+start_col]];
+      assert(ss->tuple_idx[i] >= 0);
+      ss->counts[ss->tuple_idx[i]]++;
+      if (do_cats) {
+        retval->categories[i] = msa->categories[i+start_col];
+        ss->cat_counts[retval->categories[i]][ss->tuple_idx[i]]++;
+      }
+    }  
+  }
+
+  if (lst_size(include_list) != msa->nseqs) 
+    ss_unique(retval);
 
   free(full_to_sub);
   return retval;
@@ -1157,4 +1187,74 @@ void ss_reorder_rows(MSA *msa, int *new_to_old, int new_nseqs) {
       }
     }
   }
+}
+
+/** Ensure all tuples are unique.  Combine counts and remap as
+    necessary. */
+void ss_unique(MSA *msa) {
+  char key[msa->nseqs * msa->ss->tuple_size + 1];
+  Hashtable *hash = hsh_new(msa->ss->ntuples);
+  int i, idx, cat, new_ntuples = 0;
+  int old_to_new[msa->ss->ntuples];
+  key[msa->nseqs * msa->ss->tuple_size] = '\0';
+
+  for (i = 0; i < msa->ss->ntuples; i++) {
+    strncpy(key, msa->ss->col_tuples[i], msa->nseqs * msa->ss->tuple_size);
+    /* check if this tuple has already been seen; if not, idx == -1; if
+       so, idx is the *new* index of the earlier version */
+    if ((idx = (int)hsh_get(hash, key)) == -1) {
+      /* not seen before: new index will be new_ntuples */
+      if (new_ntuples != i) {
+        msa->ss->col_tuples[new_ntuples] = msa->ss->col_tuples[i];
+                                /* note new_ntuples <= i, so
+                                   tuple with idx new_tuples has
+                                   already been visited (data was
+                                   transferred or memory was freed) */
+        msa->ss->counts[new_ntuples] = msa->ss->counts[i];
+        if (msa->ss->cat_counts != NULL) 
+          for (cat = 0; cat <= msa->ncats; cat++)
+            msa->ss->cat_counts[cat][new_ntuples] = msa->ss->cat_counts[cat][i];
+      }
+      hsh_put(hash, key, (void*)new_ntuples);
+      old_to_new[i] = new_ntuples;
+      new_ntuples++;
+    }
+    else {
+      /* seen before: combine counts, free tuple */
+      msa->ss->counts[idx] += msa->ss->counts[i];
+      if (msa->ss->cat_counts != NULL) 
+        for (cat = 0; cat <= msa->ncats; cat++)
+          msa->ss->cat_counts[cat][idx] += msa->ss->cat_counts[cat][i];
+      free(msa->ss->col_tuples[i]);
+      msa->ss->col_tuples[i] = NULL;
+      old_to_new[i] = idx;
+    }
+  }
+
+  if (msa->ss->tuple_idx != NULL)
+    for (i = 0; i < msa->length; i++)
+      msa->ss->tuple_idx[i] = old_to_new[msa->ss->tuple_idx[i]];
+
+  msa->ss->ntuples = new_ntuples;
+  ss_compact(msa->ss);
+
+  hsh_free(hash);
+}
+
+/** Convert all missing data characters to the default missing data
+    character (msa->missing[0]).  Optionally also convert gap
+    characters.  Can be useful in reducing number of tuples */
+void ss_collapse_missing(MSA *msa, int do_gaps) {
+  int i, j, len = msa->nseqs * msa->ss->tuple_size;
+  for (i = 0; i < msa->ss->ntuples; i++) {
+    for (j = 0; j < len; j++) {
+      char c = msa->ss->col_tuples[i][j];
+      if (c != msa->missing[0] && 
+          (msa->is_missing[(int)c] || 
+           (do_gaps && c == GAP_CHAR)))
+        msa->ss->col_tuples[i][j] = msa->missing[0];
+    }
+  }
+
+  ss_unique(msa);
 }
