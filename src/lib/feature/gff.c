@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.2 2004-06-14 03:06:21 acs Exp $
+/* $Id: gff.c,v 1.3 2004-06-14 15:27:04 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -397,7 +397,7 @@ void gff_filter_by_type(GFF_Set *gff,
                                              overhead */
       lst_push_ptr(newfeats, f);
     else {
-      gff_print_feat(discards_f, f);
+      if (discards_f != NULL) gff_print_feat(discards_f, f);
       gff_free_feature(f);
     }
   }
