@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.11 2004-08-05 07:15:04 acs Exp $
+/* $Id: sufficient_stats.c,v 1.12 2004-08-15 03:50:32 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -100,7 +100,8 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
       upper_bound = source_msa->ss->ntuples;
     else if (source_msa != NULL) upper_bound = source_msa->length;
     else upper_bound = min(msa->length, MAX_NTUPLE_ALLOC);
-    max_tuples = min(pow(strlen(msa->alphabet)+2, msa->nseqs * tuple_size),
+    max_tuples = min(pow(strlen(msa->alphabet)+ strlen(msa->missing) + 1, 
+                         msa->nseqs * tuple_size),
                      upper_bound);
     ss_new(msa, tuple_size, max_tuples, do_cats, store_order);
     if (source_msa != NULL) msa->length = source_msa->length;
@@ -115,7 +116,8 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
       upper_bound = msa->ss->ntuples + source_msa->ss->ntuples;
     else
       upper_bound = msa->ss->ntuples + source_msa->length;
-    max_tuples = min(pow(strlen(msa->alphabet)+2, msa->nseqs * tuple_size),
+    max_tuples = min(pow(strlen(msa->alphabet) + strlen(msa->missing) + 1, 
+                         msa->nseqs * tuple_size),
                      upper_bound);
     ss_realloc(msa, tuple_size, max_tuples, do_cats, store_order);
   }
