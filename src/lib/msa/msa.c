@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.7 2004-06-18 21:18:30 acs Exp $
+/* $Id: msa.c,v 1.8 2004-06-18 22:12:57 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -2110,6 +2110,40 @@ msa_format_type msa_str_to_format(char *str) {
   else if (!strcmp(str, "MAF")) return MAF;
   else if (!strcmp(str, "LAV")) return LAV;
   return -1;
+}
+
+/** Return format type indicated by filename suffix */
+msa_format_type msa_format_for_suffix(char *fname) {
+  msa_format_type retval = -1;
+  String *s = str_new_charstr(fname);
+  str_suffix(s, '.');
+  if (str_equals_charstr(s, "mpm")) retval = MPM;
+  else if (str_equals_charstr(s, "fa")) retval = FASTA;
+  else if (str_equals_charstr(s, "ss")) retval = SS;
+  else if (str_equals_charstr(s, "lav")) retval = LAV;
+  else if (str_equals_charstr(s, "ph")) retval = PHYLIP;
+  else if (str_equals_charstr(s, "maf")) retval = MAF;
+  else if (str_equals_charstr(s, "lav")) retval = LAV;
+  str_free(s);
+  return retval;
+}
+
+/** Return appropriate filename suffix for format type */
+char *msa_suffix_for_format(msa_format_type t) {
+  switch (t) {
+  case FASTA:
+    return "fa";
+  case PHYLIP:
+    return "ph";
+  case MPM:
+    return "mpm";
+  case SS:
+    return "ss";
+  case MAF:
+    return "maf";
+  default:
+    return "msa";
+  }
 }
 
 /* remove N from alphabet; sometimes useful when fitting tree models */

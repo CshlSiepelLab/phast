@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.3 2004-06-15 22:33:57 acs Exp $
+/* $Id: msa.h,v 1.4 2004-06-18 22:12:57 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -228,6 +228,8 @@ void msa_scores_as_samples(MSA *msa, FILE *F, double *scores,
 void msa_reorder_rows(MSA *msa, List *target_order);
 char msa_get_char(MSA *msa, int seq, int pos);
 msa_format_type msa_str_to_format(char *str);
+msa_format_type msa_format_for_suffix(char *fname);
+char *msa_suffix_for_format(msa_format_type t);
 void msa_remove_N_from_alph(MSA *msa);
 int msa_all_gaps_but_ref(MSA *msa, int pos, int ref);
 void msa_find_noaln(MSA *msa, int refseqidx, int min_block_size, int *noaln);

@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.7 2004-06-18 19:38:10 acs Exp $
+/* $Id: msa_split.c,v 1.8 2004-06-18 22:12:57 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -79,7 +79,7 @@ Options:\n\
         and GFF file.  For use with -g.\n\
 \n\
     -F <fname>\n\
-        Extract the section of the alignment corresponding to every\n\
+        Extract section of the alignment corresponding to every\n\
         feature in <fname> (GFF or BED format).\n\
 \n\
     -C <cat_list>\n\
@@ -89,8 +89,8 @@ Options:\n\
     -s\n\
         Strand-sensitive mode.  Reverse complement all segments having\n\
         at least one feature on the reverse strand and none on the\n\
-        positive strand.  For use with -g and -P.  Can be used with -L to\n\
-        ensure all sites in a category are represented in the same\n\
+        positive strand.  For use with -g and -P.  Can also be used with\n\
+         -L to ensure all sites in a category are represented in the same\n\
         strand orientation.\n\
 \n\
     -f\n\
@@ -103,7 +103,7 @@ Options:\n\
         gaps, or gaps in the specified sequence (<seqno>; indexing\n\
         begins with one).  Default is not to strip any columns.\n\
 \n\
- -l <seq_list>\n\
+    -l <seq_list>\n\
         Include only specified sequences in output.  Indicate by \n\
         sequence number, number starts with 1.\n\
 \n\
@@ -157,23 +157,9 @@ Options:\n\
         Print this help message.\n\n", NSITES_BETWEEN_BLOCKS);
 }
 
-void write_sub_msa(MSA *submsa, char *fname_root, int idx,
-                   msa_format_type output_format, int tuple_size, 
-                   int ordered_stats) {
-  String *outfname = str_new(STR_MED_LEN);
-  FILE *F;
-
-  str_cpy_charstr(outfname, fname_root);
-  if (idx >= 0) {
-    str_append_charstr(outfname, ".");
-    str_append_int(outfname, idx);
-  }
-  str_append_charstr(outfname, output_format == SS ? ".ss" : ".msa");
-  if ((F = fopen(outfname->chars, "w+")) == NULL) {
-    fprintf(stderr, "ERROR: unable to open %s for writing.\n", 
-            outfname->chars);
-    exit(1);
-  }
+void write_sub_msa(MSA *submsa, char *fname, msa_format_type output_format, 
+                   int tuple_size, int ordered_stats) {
+  FILE *F = fopen_fname(fname, "w+");
 
   /* create sufficient stats, if necessary */
   if (output_format == SS) {
@@ -194,8 +180,6 @@ void write_sub_msa(MSA *submsa, char *fname_root, int idx,
   /* write sub_msa */
   msa_print(F, submsa, output_format, 0);
   fclose(F);
-
-  str_free(outfname);
 }
 
 /* print header for summary file */
@@ -364,6 +348,7 @@ int main(int argc, char* argv[]) {
   gsl_vector *freqs, *freqs_strip;
   msa_coord_map *map = NULL;
   CategoryMap *cm = NULL;
+  char subfname[STR_MED_LEN];
 
   while ((c = getopt(argc, argv, "i:M:g:c:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:F:l:Szqh")) != -1) {
     switch(c) {
@@ -689,8 +674,11 @@ int main(int argc, char* argv[]) {
       MSA *sub_msa;
       GFF_Set *sub_gff;
       int start = lst_get_int(split_indices_list, i);
-      int end;
-
+      int orig_start = map == NULL ? start : msa_map_msa_to_seq(map, start);
+                                /* keep track of orig. coords also --
+                                   report these to user */
+      int end, orig_end;
+      
       if (segment_ends_list == NULL) {
         end = (i == lst_size(split_indices_list)-1 ? msa->length :
                lst_get_int(split_indices_list, i+1) - 1);
@@ -704,16 +692,16 @@ int main(int argc, char* argv[]) {
         end = lst_get_int(segment_ends_list, i);
 
       if (end == -1 || end > msa->length) end = msa->length;
+      orig_end = map == NULL ? end : msa_map_msa_to_seq(map, end);
 
       if (!quiet_mode)
         fprintf(stderr, "Creating partition %d (column %d to column %d) ...\n",
-                i+1, start, end);
+                i+1, orig_start, orig_end);
       
       sub_msa = msa_sub_alignment(msa, seqlist, 1, start - 1, end);
 
       if (map != NULL)
-        sub_msa->idx_offset = msa->idx_offset + 
-          msa_map_msa_to_seq(map, start) - 1;
+        sub_msa->idx_offset = msa->idx_offset + orig_start - 1;
                                 /* in this case, we'll let the offset
                                    to be wrt the specified reference
                                    sequence */        
@@ -778,21 +766,18 @@ int main(int argc, char* argv[]) {
         gff_free_set(sub_gff);
       }
 
+      sprintf(subfname, "%s.%d-%d.%s", out_fname_root, orig_start, 
+              orig_end, msa_suffix_for_format(output_format));
+
       if (!quiet_mode)
-        fprintf(stderr, "Writing partition %d to %s.%d.%s ...\n",
-                i+1, out_fname_root, i+1, output_format == SS ? "ss" : "msa");
-      write_sub_msa(sub_msa, out_fname_root, i+1, output_format,
-                    tuple_size, ordered_stats);
+        fprintf(stderr, "Writing partition %d to %s ...\n", i+1, subfname);
+      write_sub_msa(sub_msa, subfname, output_format, tuple_size, ordered_stats);
 
       /* if necessary, write line to summary file */
-      if (SUM_F != NULL) {
-        char tmpstr[STR_MED_LEN];
-        sprintf(tmpstr, "%s.%d.msa", out_fname_root, i+1);
-
-        write_summary_line(SUM_F, tmpstr, sub_msa->alphabet, freqs, 
+      if (SUM_F != NULL) 
+        write_summary_line(SUM_F, subfname, sub_msa->alphabet, freqs, 
                            freqs_strip, length, length_strip, nallgaps, 
                            nallgaps_strip, nanygaps, nanygaps_strip);
-      }
 
       msa_free(sub_msa);
     }
@@ -807,7 +792,6 @@ int main(int argc, char* argv[]) {
     for (i = 0; i < lst_size(submsas); i++) {
       MSA *sub = (MSA*)lst_get_ptr(submsas, i);
       int cat = (cats_to_do == NULL ? i : lst_get_int(cats_to_do, i));
-      if (lst_size(submsas) == 1) cat = -1;
 
       /* collect summary information; do this *before* stripping gaps */
       if (SUM_F != NULL) {
@@ -831,31 +815,20 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      if (!quiet_mode) {
-        if (cat >= 0)
-          fprintf(stderr, "Writing partition %d to %s.%d.msa ...\n",
-                  cat, out_fname_root, cat);
-        else
-          fprintf(stderr, "Writing partition to %s.msa ...\n",
-                  out_fname_root);
-      }
+      sprintf(subfname, "%s.%d.%s", out_fname_root, cat, 
+              msa_suffix_for_format(output_format));
 
-      write_sub_msa(sub, out_fname_root, cat, output_format,
-                    tuple_size, ordered_stats);
+      if (!quiet_mode) 
+        fprintf(stderr, "Writing partition (category) %d to %s ...\n", 
+                cat, subfname);
+
+      write_sub_msa(sub, subfname, output_format, tuple_size, ordered_stats);
 
       /* if necessary, write line to summary file */
-      if (SUM_F != NULL) {
-        char tmpstr[STR_MED_LEN];
-        if (cat >= 0)
-          sprintf(tmpstr, "%s.%d.msa", out_fname_root, cat);
-        else
-          sprintf(tmpstr, "%s.msa", out_fname_root);
-
-        write_summary_line(SUM_F, tmpstr, sub->alphabet, freqs, freqs_strip, 
+      if (SUM_F != NULL) 
+        write_summary_line(SUM_F, subfname, sub->alphabet, freqs, freqs_strip, 
                            length, length_strip, nallgaps, nallgaps_strip, 
                            nanygaps, nanygaps_strip);
-      }
-      
 
       msa_free(sub);
     }
