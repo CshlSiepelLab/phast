@@ -20,7 +20,7 @@ typedef struct {
 /* threshold for joining exons, in base pairs (don't join exons if
    farther apart than JOIN_THRESHOLD bases, even if strand, phase,
    etc. are okay) */
-#define JOIN_THRESHOLD 10000
+#define JOIN_THRESHOLD 20000
 
 void usage(char *prog) {
   printf("\n\
