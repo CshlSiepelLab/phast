@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.6 2004-06-17 23:54:45 acs Exp $
+   $Id: phyloFit.c,v 1.7 2004-06-18 00:07:48 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -46,7 +46,9 @@ DESCRIPTION: \n\
     .mod files minimally include a substitution rate matrix, a tree with\n\
     branch lengths, and estimates of nucleotide equilibrium\n\
     frequencies.  They may also include information about parameters\n\
-    for modeling rate variation.\n\
+    for modeling rate variation.  In addition to the .mod file, a\n\
+    description of each each estimated tree will be written to a file with\n\
+    the suffix \".nh\" (Newick, a.k.a. New Hampshire, format).\n\
 \n\
 USAGE: phyloFit [OPTIONS] <msa_fname>\n\
 \n\
@@ -71,43 +73,44 @@ EXAMPLES:\n\
     appears in the TREE line in the output file)\n\
 \n\
     2. Fit a phylogenetic model to an alignment of human, chimp, mouse,\n\
-    and rat sequences (in that order).  Use the HKY85 substitution\n\
-    model.  Write output to files with prefix \"myfile\".  Create a\n\
-    Newick-formatted tree file (.nh) as well as a .mod file.\n\
+    and rat sequences.  Use the HKY85 substitution model.  Write output\n\
+    to files with prefix \"myfile\".  Create a Newick-formatted tree file\n\
+    (.nh file) as well as a .mod file.\n\
 \n\
-        phyloFit --tree \"((1,2),(3,4))\" --subst-mod HKY85 --output-tree\n\
+        phyloFit --tree \"((human,chimp),(mouse,rat))\" --subst-mod HKY85\n\
             --out-root myfile primate-rodent.fa\n\
 \n\
     3. As above, but use the discrete-gamma model for rate variation,\n\
     with 4 rate categories.\n\
 \n\
-        phyloFit --tree \"((1,2),(3,4))\" --subst-mod HKY85 --output-tree\n\
+        phyloFit --tree \"((human,chimp),(mouse,rat))\" --subst-mod HKY85\n\
             --out-root myfile --nrates 4 primate-rodent.fa\n\
 \n\
     4. As above, but use genome-wide data, stored in the compact\n\
     \"sufficient-statistics\" format (can be produced with \"msa_view\n\
     -o SS\").\n\
 \n\
-        phyloFit --tree \"((1,2),(3,4))\" --subst-mod HKY85 --output-tree\n\
-            --out-root myfile --nrates 4 --msa-format SS primate-rodent.ss\n\
+        phyloFit --tree \"((human,chimp),(mouse,rat))\" --subst-mod HKY85\n\
+            --out-root myfile --nrates 4 --msa-format SS \n\
+            primate-rodent.ss\n\
 \n\
     5. Fit a context-dependent phylogenetic model (U2S) to an\n\
-    alignment of human, mouse, and rat sequences (in that order).  Use\n\
+    alignment of human, mouse, and rat sequences.  Use\n\
     an EM algorithm for parameter optimization and relax the\n\
     convergence criteria a bit (recommended with context-dependent\n\
     models).  Write a log file for the optimization procedure.\n\
     Consider only non-overlapping pairs of sites.\n\
 \n\
-        phyloFit --tree \"(1,(2,3))\" --subst-mod U2S --EM --precision MED\n\
-            --non-overlapping --log u2s.log --out-root hmr-u2s hmr.fa\n\
+        phyloFit --tree \"(human,(mouse,rat))\" --subst-mod U2S --EM\n\
+            --precision MED --non-overlapping --log u2s.log --out-root hmr-u2s hmr.fa\n\
 \n\
     6. As above, but allow overlapping pairs of sites, and compute\n\
     likelihoods by assuming Markov-dependence of columns (see Siepel &\n\
     Haussler, 2004).  The EM algorithm can no longer be used\n\
     (optimization will be much slower).\n\
 \n\
-        phyloFit --tree \"(1,(2,3))\" --subst-mod U2S --precision MED\n\
-            --log u2s-markov.log --markov hmr.fa\n\
+        phyloFit --tree \"(human,(mouse,rat))\" --subst-mod U2S\n\
+            --precision MED --log u2s-markov.log --markov hmr.fa\n\
 \n\
     7. Compute a likelihood using parameter estimates obtained in (5)\n\
     and an assumption of Markov dependence.  This provides a lower\n\
@@ -131,21 +134,16 @@ EXAMPLES:\n\
 \n\
 OPTIONS:\n\
 \n\
-    --msa, -m <msa_fname>\n\
-        (required) Name of file containing multiple sequence alignment,\n\
-        in either PHYLIP format or a specified alternative (see\n\
-        --msa-format).\n\
-\n\
     --tree, -t <tree_fname>|<tree_string>\n\
         (Required if more than three species, or more than two species\n\
         and a non-reversible substitution model, e.g., UNREST, U2, U3)\n\
-        Name of file *or* literal string defining tree topology.  Tree\n\
+        Name of file or literal string defining tree topology.  Tree\n\
         must be in Newick format, with the label at each leaf equal to\n\
-        the index of the corresponding sequence in the alignment\n\
-        (indexing begins with 1).  Example: --tree \"(1,(2,3))\".\n\
-        Currently, the topology must be rooted.  When a reversible\n\
-        substitution model is used, the root is ignored during the\n\
-        optimization procedure.\n\
+        the index or name of the corresponding sequence in the alignment\n\
+        (indexing begins with 1).  Examples: --tree \"(1,(2,3))\", \n\
+        --tree \"(human,(mouse,rat))\".  Currently, the topology must be\n\
+        rooted.  When a reversible substitution model is used, the root\n\
+        is ignored during the optimization procedure.\n\
 \n\
     --subst-mod, -s JC69|F81|HKY85|REV|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S\n\
         (default REV).  Nucleotide substitution model.  JC69, F81, HKY85\n\
@@ -169,10 +167,6 @@ OPTIONS:\n\
     --out-root, -o <output_fname_root>\n\
         (default \"phyloFit\").  Use specified string as root filename\n\
         for all files created.\n\
-\n\
-    --output-tree, -T\n\
-        Output a tree in Newick format for each model, in addition to the\n\
-        one that appears in the model file.\n\
 \n\
     --min-informative, -I <ninf_sites>\n\
         Require at least <ninf_sites> \"informative\" sites -- i.e., \n\
@@ -591,7 +585,7 @@ void print_window_summary(FILE* WINDOWF, List *window_coords, int win,
 int main(int argc, char *argv[]) {
   char *msa_fname = NULL, *output_fname_root = "phyloFit", 
     *log_fname = NULL, *reverse_group_tag = NULL;
-  int output_trees = FALSE, subst_mod = REV, quiet = FALSE,
+  int output_trees = TRUE, subst_mod = REV, quiet = FALSE,
     nratecats = 1, use_em = FALSE, window_size = -1, 
     window_shift = -1, use_conditionals = FALSE, 
     precision = OPT_HIGH_PREC, 
@@ -694,7 +688,9 @@ int main(int argc, char *argv[]) {
     case 'o':
       output_fname_root = optarg;
       break;
-    case 'T':
+    case 'T':                   /* this is now done by default, but
+                                   we'll leave the option in for
+                                   backward compatibility */
       output_trees = 1;
       break;
     case 'k':
