@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.24 2005-03-18 19:54:02 acs Exp $
+/* $Id: msa_view.c,v 1.25 2005-03-18 20:05:39 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -284,8 +284,8 @@ OPTIONS:\n\
         strand-specific site categories (e.g., codon positions).\n\
 \n\
     --4d, -4\n\
-        (For use with --features and --catmap; assumes coding regions have\n\
-        feature type 'CDS')  Extract sufficient statistics for fourfold\n\
+        (For use with --features; assumes coding regions have feature\n\
+        type 'CDS')  Extract sufficient statistics for fourfold\n\
         degenerate synonymous sites.  Implies --out-format SS\n\
         --unordered-stats --tuple-size 3 --reverse-groups transcript_id.\n\
 \n\
@@ -500,6 +500,7 @@ int main(int argc, char* argv[]) {
       output_format = SS;
       ordered_stats = FALSE;
       reverse_groups_tag = "transcript_id";
+      cm = cm_new_string_or_file("NCATS=3; CDS 1-3");
       break;
     case 'z':
       ordered_stats = FALSE;
