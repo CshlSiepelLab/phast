@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.19 2004-08-25 18:20:37 acs Exp $
+/* $Id: msa_view.c,v 1.20 2004-08-29 18:51:13 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -62,7 +62,7 @@ EXAMPLES:\n\
 \n\
     4. Concatenate alignments. \n\
 \n\
-        msa_view --aggregate human,mouse,rat myf1.fa myf2.fa myf3.fa \n\
+        msa_view --aggregate human,mouse,rat myf1.fa,myf2.fa,myf3.fa \n\
             > concat.fa\n\
 \n\
     (source alignments may have different subsets of sequences and may\n\
@@ -532,7 +532,7 @@ int main(int argc, char* argv[]) {
     if (output_format == SS && ordered_stats == 0 && 
         startcol == 1 && endcol == -1 && seqlist_str == NULL) {
       msa = ss_aggregate_from_files(msa_fname_list, input_format, 
-                                    aggregate_list, NULL, tuple_size, 
+                                    aggregate_list, tuple_size, 
                                     cats_to_do, cycle_size);
                                 /* avoid creating aggregate alignment
                                    explicitly, if possible */

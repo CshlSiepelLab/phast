@@ -1,8 +1,9 @@
-/* $Id: sufficient_stats.c,v 1.13 2004-08-27 17:13:41 acs Exp $
+/* $Id: sufficient_stats.c,v 1.14 2004-08-29 18:51:13 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
 #include "sufficient_stats.h"
+#include "maf.h"
 #include "assert.h"
 #include "queues.h"
 
@@ -369,23 +370,21 @@ void ss_free_pooled_msa(PooledMSA *pmsa) {
    of the names in 'seqnames'.  This function differs from the one
    above in that no direct representation is retained of the source
    MSAs.  Also, no information about tuple order is retained.  If
-   'alphabet' is NULL, the default will be used.  If cycle_size >= 1,
-   site categories will be labeled
+   cycle_size > 0, site categories will be labeled
    1,2,...,<cycle_size>,...,1,2,...,<cycle_size>. */
 /* TODO: support collection of ordered sufficient stats -- possible
    now using idx_offset arg of ss_from_msas.  See maf_read in maf.c
    and warning message in msa_view.c. */
 MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
-                             List *seqnames, char *alphabet, 
-                             int tuple_size, List *cats_to_do, 
+                             List *seqnames, int tuple_size, List *cats_to_do, 
                              int cycle_size) {
 
   MSA *retval;
-  Hashtable *tuple_hash = hsh_new(100000); /* wild guess on size. */
+  Hashtable *tuple_hash = hsh_new(100000);
   int nseqs = lst_size(seqnames);
   Hashtable *name_hash = hsh_new(nseqs);
   MSA *source_msa = NULL;
-  int i, j, k;
+  int i, j, k, idx;
   FILE *F;
   char **tmpseqs = smalloc(nseqs * sizeof(char*));
   char **names = (char**)smalloc(nseqs * sizeof(char*));
@@ -397,7 +396,7 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
     strcpy(names[i], s->chars);
   }
 
-  retval = msa_new(NULL, names, nseqs, 0, alphabet);
+  retval = msa_new(NULL, names, nseqs, 0, NULL);
   retval->ncats = cycle_size > 0 ? cycle_size : 0;
 
   /* build a hash with the index corresponding to each name */
@@ -408,19 +407,21 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
     String *fname = lst_get_ptr(fnames, i);
     fprintf(stderr, "Reading alignment from %s ...\n", fname->chars);
 
-    if ((F = fopen(fname->chars, "r")) == NULL || 
-        (source_msa = msa_new_from_file(F, format, alphabet)) == NULL) {
-      fprintf(stderr, "ERROR: cannot read MSA from %s.\n", fname->chars);
-      exit(1);
-    }
+    F = fopen_fname(fname->chars, "r");
+    if (format == MAF)
+      source_msa = maf_read(F, NULL, tuple_size, NULL, NULL, cycle_size, 
+                            FALSE, NULL, NO_STRIP, TRUE); 
+                                /* note: assuming unordered, allowing
+                                   overlapping blocks */
+    else 
+      source_msa = msa_new_from_file(F, format, NULL);
+    fclose(F);
 
     if (source_msa->seqs == NULL && 
-        source_msa->ss->tuple_size != tuple_size) {
-      fprintf(stderr, "ERROR: tuple size of input file '%s' (%d) does not match desired tuple size (%d).\n", fname->chars, source_msa->ss->tuple_size, tuple_size);
-      exit(1);
-    }
+        source_msa->ss->tuple_size != tuple_size) 
+      die("ERROR: tuple size of input file '%s' (%d) does not match desired tuple size (%d).\n", fname->chars, source_msa->ss->tuple_size, tuple_size);
 
-    if (cycle_size > 0) {
+    if (cycle_size > 0 && format != MAF) { /* already done if MAF */
       source_msa->categories = (int*)smalloc(source_msa->length * sizeof(int));
       source_msa->ncats = cycle_size;
       for (j = 0; j < source_msa->length; j++)
@@ -429,39 +430,29 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
 
     if (source_msa->ncats != retval->ncats) { /* only an issue with SS */
       if (i == 0) retval->ncats = source_msa->ncats;
-      else {
-        fprintf(stderr, "ERROR: input alignments have different numbers of categories.\n");
-        exit(1);
-      }
+      else die("ERROR: input alignments have different numbers of categories.\n");
     }
 
-    /* reorder the seqs and names; add seqs of gaps as necessary */
+    /* reorder the seqs and names; add seqs of missing data as necessary */
     if (source_msa->seqs == NULL) {
       /* in this case, the source_msa is represented only in terms of
          its suff stats. */
       /* Eventually, should permute and pad the tuples, as is done
          below with complete seqs.  For now, just require that they
          are the same ... */
-      if (source_msa->nseqs != retval->nseqs) {
-        fprintf(stderr, "ERROR: currently, sequences of source alignments must match sequences of\naggregate in number and order.\n");
-        exit(1);
-      }
+      if (source_msa->nseqs != retval->nseqs) 
+        die("ERROR: currently, sequences of source alignments must match sequences of\naggregate in number and order.\n");
       for (j = 0; j < nseqs; j++) {
-        if (strcmp(source_msa->names[j], retval->names[j])) { 
-          fprintf(stderr, "ERROR: currently, sequences of source alignments must match sequences of\naggregate in number and order.\n");
-          exit(1);
-        }       
+        if (strcmp(source_msa->names[j], retval->names[j])) 
+          die("ERROR: currently, sequences of source alignments must match sequences of\naggregate in number and order.\n");
       }
     }
     else {                      /* full sequence repres. of source_msa */
       for (j = 0; j < nseqs; j++) tmpseqs[j] = NULL;
       for (j = 0; j < source_msa->nseqs; j++) {
-        int idx = (int)hsh_get(name_hash, source_msa->names[j]);
-        if (idx == -1) {
-          fprintf(stderr, "ERROR: no match for sequence name '%s' in file '%s'\n",
-                  source_msa->names[j], fname->chars);
-          exit(1);
-        }
+        if ((idx = (int)hsh_get(name_hash, source_msa->names[j])) == -1)
+          die("ERROR: no match for sequence name '%s' in file '%s'\n",
+              source_msa->names[j], fname->chars);
         tmpseqs[idx] = source_msa->seqs[j];
       }
       if (source_msa->nseqs < nseqs) {
@@ -478,7 +469,7 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
           source_msa->seqs[j] = (char*)smalloc((source_msa->length+1) * 
                                               sizeof(char));
           for (k = 0; k < source_msa->length; k++) 
-            source_msa->seqs[j][k] = GAP_CHAR;
+            source_msa->seqs[j][k] = retval->missing[0];
           source_msa->seqs[j][source_msa->length] = '\0';
         }        
         else 
@@ -492,7 +483,6 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
                  tuple_hash, -1);
 
     msa_free(source_msa);
-    fclose(F);
   }
 
   hsh_free(name_hash);

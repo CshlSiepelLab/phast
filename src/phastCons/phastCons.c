@@ -1257,7 +1257,7 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
   if (!phmm->em_data->fix_functional) {
     double a, b, c, p, q, q1, q2, z, tmp;
     /* if you take the first derivative wrt q of the expression inside
-       the argmax and set it to zero, you get a quadradic eqn which
+       the argmax and set it to zero, you get a quadratic eqn which
        can be solved using the quadratic formula */
     z = (1-phmm->em_data->target_coverage)/phmm->em_data->target_coverage;
     a = z * (C[0][0] + C[0][1] + C[1][0] + C[1][1]);

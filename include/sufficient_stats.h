@@ -1,7 +1,7 @@
 /* sufficient_stats.h - Representation of multiple alignments in terms of their sufficient statistics */
 
 /*   
-   $Id: sufficient_stats.h,v 1.5 2004-07-26 15:02:42 acs Exp $
+   $Id: sufficient_stats.h,v 1.6 2004-08-29 18:51:12 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -59,7 +59,7 @@ PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size,
                                int ncats, List *cats_to_do);
 void ss_free_pooled_msa(PooledMSA *pmsa);
 MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
-                             List *seqnames, char *alphabet, int tuple_size, 
+                             List *seqnames, int tuple_size, 
                              List *cats_to_do, int cds_mode);
 void ss_to_msa(MSA *msa);
 void msa_read_AXT(MSA *msa, List *axt_fnames);
