@@ -528,6 +528,31 @@ void init_eqfreqs(TreeModel *mod, MSA *msa, double gc) {
   }
 }
 
+/* Extrapolate tree model and prune leaves not represented in
+   alignment.  Returns scale factor */
+double extrapolate_mod(TreeModel *mod, TreeNode *extrapolate_tree, 
+                     MSA *msa, int quiet) {
+  int i, old_nnodes = mod->tree->nnodes;
+  TreeNode *t = tr_create_copy(extrapolate_tree);
+  List *names = lst_new_ptr(msa->nseqs);
+  double scale = tr_scale_by_subtree(t, mod->tree);
+  for (i = 0; i < msa->nseqs; i++)
+    lst_push_ptr(names, str_new_charstr(msa->names[i]));
+  tr_prune(&t, names, TRUE);
+  if (lst_size(names) == (old_nnodes + 1) / 2)
+    die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
+  else if (lst_size(names) > 0 && !quiet) {
+    fprintf(stderr, "WARNING: pruned away leaves of new tree with no match in alignment (");
+    for (i = 0; i < lst_size(names); i++)
+      fprintf(stderr, "%s%s", ((String*)lst_get_ptr(names, i))->chars, 
+              i < lst_size(names) - 1 ? ", " : ").\n");
+  }
+  lst_free_strings(names);
+  lst_free(names);
+  tm_reset_tree(mod, t);
+  return scale;
+}
+
 int main(int argc, char *argv[]) {
 
   /* arguments and defaults */
@@ -891,17 +916,16 @@ int main(int argc, char *argv[]) {
     mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"));
     mod[i]->use_conditionals = 1;     
 
+    /* extrapolate tree if necessary, prune away extra species if possible */
     if (extrapolate_tree != NULL) {
-      TreeNode *t = tr_create_copy(extrapolate_tree);
-      double scale = tr_scale_by_subtree(t, mod[i]->tree);
+      double scale = 
+        extrapolate_mod(mod[i], extrapolate_tree, msa, quiet); /* (prunes also) */
       if (!quiet) 
         fprintf(stderr, "Extrapolating based on %s (scale=%f)...\n", 
                 extrapolate_tree_fname, scale);
-      tr_free(mod[i]->tree);
-      mod[i]->tree = t;
     }
-
-    tm_prune(mod[i], msa, !quiet); /* prune away extra species, if possible */
+    else
+      tm_prune(mod[i], msa, !quiet);
   }
 
   /* initial checks and setup of tree models with two-state and
