@@ -1,4 +1,4 @@
-/* $Id: hmm_view.c,v 1.3 2004-07-29 23:39:04 acs Exp $
+/* $Id: hmm_view.c,v 1.4 2004-08-14 20:22:42 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
     for (i = 0; i <= cm->ncats; i++) show_cat[i] = 1;
 
   if (indel_cats != NULL)
-    gpm = gp_create_gapcats(cm, indel_cats, nseqs);  
+    gpm = gp_create_gapcats(cm, indel_cats, nseqs, FALSE);  
 
   if (hmm->nstates != (cm->unspooler == NULL ? cm->ncats + 1 : 
                        cm->unspooler->nstates_unspooled) * nratecats) {

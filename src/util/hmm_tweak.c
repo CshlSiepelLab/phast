@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
 
   if (indel_cats != NULL) {
     if (nseqs <= 0) die("ERROR: must use -n with -i.\n");
-    gpm = gp_create_gapcats(cm, indel_cats, nseqs);  
+    gpm = gp_create_gapcats(cm, indel_cats, nseqs, FALSE);  
 
     fpat = smalloc(gpm->ngap_patterns * sizeof(int));
     if (from_patterns != NULL) {

@@ -1,4 +1,4 @@
-/* $Id: gap_patterns.c,v 1.4 2004-08-11 20:54:46 acs Exp $
+/* $Id: gap_patterns.c,v 1.5 2004-08-14 20:22:41 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -10,13 +10,12 @@
 #include <category_map.h>
 #include <sufficient_stats.h>
 
-/* expands the set of categories in the specified cat map such that
-   each designated "indel category" (to be given by feature name) is
-   replaced by ngap_patterns categories, where ngap_patterns is a
-   function of the number of sequences to be considered (nseqs).  In
-   addition, for category ranges of size greater than one, categories
-   corresponding to non-empty gap patterns are "conditioned on"
-   categories corresponding to gapless sites, and the cat maps's
+/** Expands the set of categories in the specified cat map such that
+   each designated "indel category" is replaced by ngap_patterns
+   categories, where ngap_patterns is a function of the tree topology.
+   In addition, for category ranges of size greater than one,
+   categories corresponding to non-empty gap patterns are "conditioned
+   on" categories corresponding to gapless sites, and the catmap's
    unspooler is redefined accordingly (allows for "cyclic" gaps, as in
    coding regions).  The end result will be that each category in the
    original *unspooled* space will be replaced by ngap_patterns *
@@ -24,8 +23,20 @@
    an object that defines the key mappings between the original
    (spooled) categories and the new "gapped categories", defined as
    category x gap pattern pairs.  */
-GapPatternMap *gp_create_gapcats(CategoryMap *cm, List *indel_cats, 
-                                 TreeNode *topology) {
+GapPatternMap *gp_create_gapcats(CategoryMap *cm, 
+                                 /**< Original category map (will be altered) */
+                                 List *indel_cats, 
+                                 /**< Categories for which to model
+                                    indels, by name */
+                                 TreeNode *topology, 
+                                 /**< Tree topology to be modeled */
+                                 int rooted
+                                 /**< If TRUE, consider the tree
+                                    rooted (topology->nnodes - 1
+                                    branches); if FALSE, consider it
+                                    unrooted (topology->nnodes - 2
+                                    branches)  */
+                                 ) {
   int i, j, k, cat, gapcat, range_size;
   List *indel_cat_nos, *traversal;
   int new_dependencies = 0;
@@ -34,14 +45,12 @@ GapPatternMap *gp_create_gapcats(CategoryMap *cm, List *indel_cats,
   gpm->ncats = cm->ncats + 1;
   gpm->topology = topology;
   gpm->pattern = NULL;
-  gpm->nbranches = topology->nnodes - 2; /* unrooted */
+  gpm->nbranches = rooted ? topology->nnodes - 1 : topology->nnodes - 2; 
   gpm->ngap_patterns = 2 * gpm->nbranches + 2;
                                 /* phylogenetic gap patterns: two per
-                                   branch in the unrooted tree plus
-                                   one corresponding to no gaps plus
-                                   one for "complex" gap patterns; see
-                                   function gp_set_phylo_patterns
-                                   below */
+                                   branch in the tree plus one
+                                   corresponding to no gaps plus one
+                                   for "complex" gap patterns */
 
   /* this is a simple way to scan for the total number of categories
      implied by the given list of names, which we need to determine
@@ -159,7 +168,7 @@ GapPatternMap *gp_create_gapcats(CategoryMap *cm, List *indel_cats,
   traversal = tr_inorder(topology);
   for (i = 0, j = 1; i < lst_size(traversal); i++) {
     TreeNode *n = lst_get_ptr(traversal, i);
-    if (n != topology && n != topology->rchild) {
+    if (n != topology && (rooted || n != topology->rchild)) {
       gpm->node_to_branch[n->id] = j;
       gpm->pattern_to_node[j] = n->id;
       gpm->pattern_to_node[j+gpm->nbranches] = n->id;
@@ -203,6 +212,8 @@ void gp_free_map(GapPatternMap *gpm) {
    from deletions on the other.  The array 'patterns' is expected to
    be allocated to at least size msa->length.  It is assumed that no
    column of the alignment consists only of gap characters */
+/* FIXME: this function is superceded by gp_tuple_matches_pattern,
+   which allows for rooted trees and missing data in gap patterns.  */
 void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa) {
 
   int i, tup;

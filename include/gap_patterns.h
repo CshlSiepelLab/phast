@@ -32,7 +32,7 @@ typedef enum {NULL_PATTERN, DELETION_PATTERN,
 #define GP_BASE 'b'
 
 GapPatternMap *gp_create_gapcats(CategoryMap *cm, List *indel_cats, 
-                                 TreeNode *topology);
+                                 TreeNode *topology, int rooted);
 void gp_free_map(GapPatternMap *gpm);
 void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa);
 pattern_type gp_pattern_type(GapPatternMap *gpm, int pattern);

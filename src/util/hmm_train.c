@@ -1,7 +1,7 @@
 /* hmm_train - estimation of HMM transition probabilities from labeled
    training data */
 
-/* $Id: hmm_train.c,v 1.8 2004-08-10 22:12:18 acs Exp $
+/* $Id: hmm_train.c,v 1.9 2004-08-14 20:22:42 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -182,7 +182,7 @@ int main(int argc, char* argv[]) {
 
   if (model_indels_str != NULL) {
     assert(tree != NULL);       /* FIXME: indel_ncats broken */
-    gpm = gp_create_gapcats(cm, model_indels_str, tree); 
+    gpm = gp_create_gapcats(cm, model_indels_str, tree, FALSE); 
     ncats = cm->ncats + 1;    /* numbers will change */ 
     ncats_unspooled = cm->unspooler == NULL ? ncats : 
       cm->unspooler->nstates_unspooled;

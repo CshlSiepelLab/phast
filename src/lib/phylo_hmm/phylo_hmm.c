@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.15 2004-08-14 18:23:11 acs Exp $
+/* $Id: phylo_hmm.c,v 1.16 2004-08-14 20:22:41 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -152,7 +152,8 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
       if (allow_gaps) lst_push_ptr(indel_types, cm_get_feature(phmm->cm, cat));
       cat = phmm->cm->ranges[cat]->end_cat_no + 1;
     }
-    phmm->gpm = gp_create_gapcats(phmm->cm, indel_types, topology);
+    phmm->gpm = gp_create_gapcats(phmm->cm, indel_types, topology, 
+                                  indel_mode == PARAMETERIC);
     lst_free(indel_types);
   }
 
@@ -1069,11 +1070,6 @@ void set_branch_len_factors(PhyloHmm *phmm) {
                                 /* n is the node below the branch
                                    associated with gap pattern j */
       phmm->t[i][j] = n->dparent;
-      if (n == phmm->mods[i]->tree->lchild)
-        phmm->t[i][j] += phmm->mods[i]->tree->rchild->dparent;
-                                /* in case of branch to root, need to
-                                   consider branches on both sides of root */
-
       phmm->T[i][j] = phmm->T[i][0] - phmm->t[i][j];
     }
   }
