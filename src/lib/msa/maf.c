@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.12 2004-07-29 23:21:00 acs Exp $
+/* $Id: maf.c,v 1.13 2004-08-14 04:00:32 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -405,7 +405,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
    coord and length of reference sequence if non-NULL
    pointers are provided.  Uses provided hash to map sequence names to
    sequence indices (prefix of name wrt '.' character); sequences not
-   present in a block will be represented by gap characters. */
+   present in a block will be represented by missing-data characters. */
 int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
                    int *start_idx, int *length) {
 
