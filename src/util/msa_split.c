@@ -1,8 +1,6 @@
-/* $Id: msa_split.c,v 1.16 2004-07-28 21:08:13 acs Exp $
+/* $Id: msa_split.c,v 1.17 2004-07-29 23:16:29 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
-
-/* to do: possibly combine this program with 'msa_view' */
 
 #include <stdlib.h>
 #include <stdio.h>
