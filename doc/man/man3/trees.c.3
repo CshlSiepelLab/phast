@@ -1,0 +1,29 @@
+.TH "trees.c" 3 "15 Jun 2004" "PHAST" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+trees.c \- Functions for manipulating phylogenetic trees. 
+.SH SYNOPSIS
+.br
+.PP
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "TreeNode * \fBparse_nh_from_file\fP (FILE *f)"
+.br
+.RI "\fIParse a single tree from a file in 'New Hampshire' format.\fP"
+.ti -1c
+.RI "TreeNode * \fBparse_nh_from_string\fP (char *treestr)"
+.br
+.RI "\fIParse a single New Hampshire-formatted tree from a string.\fP"
+.in -1c
+.SH "DETAILED DESCRIPTION"
+.PP 
+Functions for manipulating phylogenetic trees.
+.PP
+ Includes functions for reading, writing, traversing, and printing. Trees are represented as rooted binary trees with non-negative real branch lengths.
+.PP
+.SH "AUTHOR"
+.PP 
+Generated automatically by Doxygen for PHAST from the source code.

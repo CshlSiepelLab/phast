@@ -1,0 +1,51 @@
+.TH "GFF_Set" 3 "15 Jun 2004" "PHAST" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+GFF_Set \- GFF_Set: a set of \fBGFF_Feature\fP objects, generally as appear together in a file. 
+.SH SYNOPSIS
+.br
+.PP
+.SS "Public Attributes"
+
+.in +1c
+.ti -1c
+.RI "\fBList\fP * \fBfeatures\fP"
+.br
+.RI "\fIlist of \fBGFF_Feature\fP objects.\fP"
+.ti -1c
+.RI "String * \fBgff_version\fP"
+.br
+.RI "\fIversion of GFF in use; generally 2.\fP"
+.ti -1c
+.RI "String * \fBsource\fP"
+.br
+.RI "\fIprogram used to generate file.\fP"
+.ti -1c
+.RI "String * \fBsource_version\fP"
+.br
+.RI "\fIversion of program used to generate file.\fP"
+.ti -1c
+.RI "String * \fBdate\fP"
+.br
+.RI "\fIdate of generation.\fP"
+.ti -1c
+.RI "\fBList\fP * \fBgroups\fP"
+.br
+.RI "\fIused when grouping features by attribute.\fP"
+.ti -1c
+.RI "String * \fBgroup_tag\fP"
+.br
+.RI "\fItag defining groups.\fP"
+.in -1c
+.SH "DETAILED DESCRIPTION"
+.PP 
+GFF_Set: a set of \fBGFF_Feature\fP objects, generally as appear together in a file.
+.PP
+Simply consists of a list of \fBGFF_Feature\fP objects and some optional meta-data extracted from file comments (see http://www.sanger.ac.uk/Software/formats/GFF/GFF_Spec.shtml). NOTE: 'type' meta-data is currently ignored 
+.PP
+
+
+.SH "AUTHOR"
+.PP 
+Generated automatically by Doxygen for PHAST from the source code.

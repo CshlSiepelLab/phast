@@ -1,0 +1,139 @@
+.TH "msa.h" 3 "15 Jun 2004" "PHAST" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+msa.h \- Multiple sequence alignments. 
+.SH SYNOPSIS
+.br
+.PP
+.SS "Compounds"
+
+.in +1c
+.ti -1c
+.RI "struct \fBMSA\fP"
+.br
+.RI "\fIMultiple sequence alignment object.\fP"
+.ti -1c
+.RI "struct \fBmsa_coord_map\fP"
+.br
+.RI "\fICoordinate map, defined by a sequence/alignment pair.\fP"
+.in -1c
+.SS "Defines"
+
+.in +1c
+.ti -1c
+.RI "#define \fBDEFAULT_ALPHABET\fP   'ACGTN'"
+.br
+.RI "\fIDefault alphabet, assumed throughout PHAST.\fP"
+.ti -1c
+.RI "#define \fBGAP_CHAR\fP   '-'"
+.br
+.RI "\fIGap character, assumed throughout PHAST.\fP"
+.ti -1c
+.RI "#define \fBMDATA_CHAR\fP   'N'"
+.br
+.RI "\fIMissing data character, assumed throughout PHAST.\fP"
+.in -1c
+.SS "Enumerations"
+
+.in +1c
+.ti -1c
+.RI "enum \fBmsa_format_type\fP { \fBPHYLIP\fP, \fBMPM\fP, \fBFASTA\fP, \fBSS\fP, \fBLAV\fP, \fBMAF\fP }"
+.br
+.RI "\fIFormat types.\fP"
+.in -1c
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBMSA\fP * \fBmsa_new\fP (char **seqs, char **names, int nseqs, int length, char *alphabet)"
+.br
+.RI "\fICreates a new \fBMSA\fP object.\fP"
+.ti -1c
+.RI "\fBMSA\fP * \fBmsa_new_from_file\fP (FILE *F, \fBmsa_format_type\fP format, char *alphabet)"
+.br
+.RI "\fICreates a new alignment from the contents of the specified file, which is assumed to use the specified format.\fP"
+.ti -1c
+.RI "\fBMSA\fP * \fBmsa_create_copy\fP (\fBMSA\fP *msa, int suff_stats_only)"
+.br
+.RI "\fIcreate a copy of an \fBMSA\fP.\fP"
+.ti -1c
+.RI "void \fBmsa_print\fP (FILE *F, \fBMSA\fP *msa, \fBmsa_format_type\fP format, int pretty_print)"
+.br
+.RI "\fIPrints \fBMSA\fP to file, using specified format.\fP"
+.ti -1c
+.RI "void \fBstrip_gaps\fP (\fBMSA\fP *msa, int gap_strip_mode)"
+.br
+.RI "\fIIf gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all columns with ALL or ANY gaps, respectively.\fP"
+.ti -1c
+.RI "void \fBmsa_reverse_compl_feats\fP (\fBMSA\fP *msa, \fBGFF_Set\fP *feats, int *aux_data)"
+.br
+.RI "\fIReverse complement segments of an \fBMSA\fP corresponding to groups of features on the reverse strand.\fP"
+.in -1c
+.SH "DETAILED DESCRIPTION"
+.PP 
+Multiple sequence alignments.
+.PP
+ Reading and writing are supported in a few common formats (currently FASTA, PHYLIP, and the format used in the 'Zoo' project), and a sort of 'grab bag' of auxiliary functionality is provided, including extraction of sub-alignments (by sequence or by column), stripping of columns with gaps (columns having either all gaps or any gaps), reporting of simple statistics on gap content, converting between coordinate frames of the alignment and of individual sequences, and computing simple measures of per-column sequence divergence (entropy and all-pairs identity; can be done directly or with a sliding window).
+.PP
+.SH "ENUMERATION TYPE DOCUMENTATION"
+.PP 
+.SS "enum msa_format_type"
+.PP
+Format types.
+.PP
+\fBEnumeration values:\fP
+.in +1c
+.TP
+\fB\fI\fIPHYLIP\fP \fP\fP
+PHYLIP format.
+.TP
+\fB\fI\fIMPM\fP \fP\fP
+Format used by MultiPipMaker and some of Webb Miller's older tools.
+.TP
+\fB\fI\fIFASTA\fP \fP\fP
+Standard FASTA format.
+.TP
+\fB\fI\fISS\fP \fP\fP
+'Sufficient statistics' format, in which each unique alignment column (or tuple of columns) is represented only once, and a count is maintained of how many times it occurs.
+.TP
+\fB\fI\fILAV\fP \fP\fP
+lav format, used by BLASTZ.
+.TP
+\fB\fI\fIMAF\fP \fP\fP
+Multiple Alignment Format (MAF) used by MULTIZ and TBA.
+.SH "FUNCTION DOCUMENTATION"
+.PP 
+.SS "\fBMSA\fP* msa_create_copy (\fBMSA\fP * msa, int suff_stats_only)"
+.PP
+create a copy of an \fBMSA\fP.
+.PP
+If suff_stats_only == 1, then sequences aren't copied 
+.SS "\fBMSA\fP* msa_new (char ** seqs, char ** names, int nseqs, int length, char * alphabet)"
+.PP
+Creates a new \fBMSA\fP object.
+.PP
+Two-dimensional character arrays must be passed in for sequences and names (no new memory is allocated for them). The alphabet, however, will be copied into newly allocated memory. If the 'alphabet' argument is null, the default alphabet will be used. 
+.SS "\fBMSA\fP* msa_new_from_file (FILE * F, \fBmsa_format_type\fP format, char * alphabet)"
+.PP
+Creates a new alignment from the contents of the specified file, which is assumed to use the specified format.
+.PP
+If 'alphabet' is NULL, default alphabet for DNA will be used. This routine will abort if the sequence contains a character not in the alphabet. 
+.SS "void msa_print (FILE * F, \fBMSA\fP * msa, \fBmsa_format_type\fP format, int pretty_print)"
+.PP
+Prints \fBMSA\fP to file, using specified format.
+.PP
+The 'pretty_print' option causes periods ('.') to be printed in place of characters that are identical to corresponding characters in the first sequence. 
+.SS "void msa_reverse_compl_feats (\fBMSA\fP * msa, \fBGFF_Set\fP * feats, int * aux_data)"
+.PP
+Reverse complement segments of an \fBMSA\fP corresponding to groups of features on the reverse strand.
+.PP
+Adjusts the coordinates in the \fBGFF_Set\fP accordingly. This function can be used to ensure that sites in strand-specific categories (e.g., 1st codon position, intron) are oriented consistently. It can be useful in phylogenetic analysis and in training the transition probabilities of a phylo-HMM. Features are assumed already to have been grouped as desired, and groups are assumed to be nonoverlapping (see gff_group and gff_remove_overlaps). Strandedness is tested using gff_reverse_strand_only. The \fBGFF_Set\fP is assumed to use the coordinate frame of the alignment. 
+.SS "void strip_gaps (\fBMSA\fP * msa, int gap_strip_mode)"
+.PP
+If gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all columns with ALL or ANY gaps, respectively.
+.PP
+Otherwise, assumes a projection* is desired onto the sequence whose index is gap_strip_mode (indexing starts with 1). Changes are made to original alignment. Gaps are expected to be represented by GAP_CHAR. If msa->categories is non-NULL, will be adjusted accordingly. 
+.SH "AUTHOR"
+.PP 
+Generated automatically by Doxygen for PHAST from the source code.

@@ -1,0 +1,80 @@
+.TH "maf.c" 3 "15 Jun 2004" "PHAST" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+maf.c \- Reading of alignments from MAF ('Multiple Alignment Format') files, as produced by MULTIZ and TBA. 
+.SH SYNOPSIS
+.br
+.PP
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBMSA\fP * \fBmaf_read\fP (FILE *F, FILE *REFSEQF, int tuple_size, \fBGFF_Set\fP *gff, \fBCategoryMap\fP *cm, int cycle_size, int store_order, char *reverse_groups, int gap_strip_mode)"
+.br
+.RI "\fIRead an alignment from a MAF file.\fP"
+.ti -1c
+.RI "int \fBmaf_read_block\fP (FILE *F, \fBMSA\fP *mini_msa, Hashtable *name_hash, int *start_idx, int *length)"
+.br
+.RI "\fIRead a block from an MAF file and store it as a 'mini-msa' using the provided object.\fP"
+.ti -1c
+.RI "\fBMSA\fP * \fBmaf_read_next_msa\fP (FILE *F)"
+.br
+.RI "\fIReads a block from an MAF file and returns it as a new \fBMSA\fP object.\fP"
+.in -1c
+.SH "DETAILED DESCRIPTION"
+.PP 
+Reading of alignments from MAF ('Multiple Alignment Format') files, as produced by MULTIZ and TBA.
+.PP
+ See \fBmaf.h\fP for details.
+.PP
+.SH "FUNCTION DOCUMENTATION"
+.PP 
+.SS "\fBMSA\fP* maf_read (FILE * F, FILE * REFSEQF, int tuple_size, \fBGFF_Set\fP * gff, \fBCategoryMap\fP * cm, int cycle_size, int store_order, char * reverse_groups, int gap_strip_mode)"
+.PP
+Read an alignment from a MAF file.
+.PP
+The alignment won't be constructed explicitly; instead, a sufficient-statistics representation will be extracted directly from the MAF. Blocks corresponding to overlapping segments of the reference sequence are permitted, but all except the first one will be discarded. 
+.PP
+Parameters: \fP
+.in +1c
+.TP
+\fB\fIF\fP\fP
+MAF-formatted file 
+.TP
+\fB\fIREFSEQF\fP\fP
+optional reference sequence. If non-NULL, the indicated file will be used to define bases in regions of no alignment (not represented in the MAF). File format is expected to be FASTA. Ignored if store_order == FALSE. If NULL and store_order == TRUE, then bases in reference seq not present in MAF are represented as Ns 
+.TP
+\fB\fItuple_size\fP\fP
+tuple size for sufficient statistics 
+.TP
+\fB\fIgff\fP\fP
+optional \fBGFF_Set\fP. If non-NULL, category-specific counts will be collected (cm must be non-NULL also). The gff is assumed to use the indexing system of the reference sequence (sequence 1). Currently, a non-NULL gff implies gap_strip_mode == 1 (projection onto reference sequence). 
+.TP
+\fB\fIcm\fP\fP
+Used for category-specific counts, ignored otherwise 
+.TP
+\fB\fIcycle_size\fP\fP
+Label site categories 12...<cycle_size>...12...<cycle_size> instead of using gff and cm. Useful when stats are to be collected for non-overlapping tuples. Use -1 to ignore. 
+.TP
+\fB\fIstore_order\fP\fP
+Whether to store order in which tuples occur. Requires more memory and larger files, and is not necessary in many cases. 
+.TP
+\fB\fIreverse_groups\fP\fP
+Tag defining groups in gff; indicates groups on negative strand should be reverse complemented. Ignored if NULL. Useful when collecting counts for strand-specific categories. Can't be used if store_order == TRUE 
+.TP
+\fB\fIgap_strip_mode\fP\fP
+Gap stripping mode. Currently, if store_order == 1, may only have value NO_STRIP or 1 (indicating projection onto sequence 1, the reference sequence). This is simply to avoid some complexity in coordinate mapping. 
+.SS "int maf_read_block (FILE * F, \fBMSA\fP * mini_msa, Hashtable * name_hash, int * start_idx, int * length)"
+.PP
+Read a block from an MAF file and store it as a 'mini-msa' using the provided object.
+.PP
+Allocates memory for sequences if they are NULL (as with first block). Reads to next 'a' line or EOF. Returns EOF when no more alignments are available. Sets start coord and length of reference sequence if non-NULL pointers are provided. Uses provided hash to map sequence names to sequence indices (prefix of name wrt '.' character); sequences not present in a block will be represented by gap characters. 
+.SS "\fBMSA\fP* maf_read_next_msa (FILE * F)"
+.PP
+Reads a block from an MAF file and returns it as a new \fBMSA\fP object.
+.PP
+Reads to next 'a' line or EOF. Returns NULL when no more alignments are available. This is a slightly less efficient but simpler and more flexible version of maf_read_block. 
+.SH "AUTHOR"
+.PP 
+Generated automatically by Doxygen for PHAST from the source code.

@@ -1,0 +1,49 @@
+.TH "bed.c" 3 "15 Jun 2004" "PHAST" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+bed.c \- Reading and writing of BED files. 
+.SH SYNOPSIS
+.br
+.PP
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "void \fBgff_read_from_bed\fP (\fBGFF_Set\fP *gff, FILE *F)"
+.br
+.RI "\fIFill out a \fBGFF_Set\fP from a BED file.\fP"
+.ti -1c
+.RI "void \fBgff_print_bed\fP (FILE *OUTF, \fBGFF_Set\fP *gff, char *groupby, \fBList\fP *include)"
+.br
+.RI "\fIWrite a \fBGFF_Set\fP in BED format.\fP"
+.in -1c
+.SH "DETAILED DESCRIPTION"
+.PP 
+Reading and writing of BED files.
+.PP
+ See http://genome.ucsc.edu/goldenPath/help/customTrack.html
+.PP
+.SH "FUNCTION DOCUMENTATION"
+.PP 
+.SS "void gff_print_bed (FILE * OUTF, \fBGFF_Set\fP * gff, char * groupby, \fBList\fP * include)"
+.PP
+Write a \fBGFF_Set\fP in BED format.
+.PP
+Parameters: \fP
+.in +1c
+.TP
+\fB\fIOUTF\fP\fP
+output stream 
+.TP
+\fB\fIgff\fP\fP
+Set to write 
+.TP
+\fB\fIgroupby\fP\fP
+Group features according to this tag. All members of a group will be reported on a single line. Use NULL to supress grouping. 
+.TP
+\fB\fIinclude\fP\fP
+Only write features of the specified types (list of String objects). If NULL, all features will be written. 
+.SH "AUTHOR"
+.PP 
+Generated automatically by Doxygen for PHAST from the source code.
