@@ -1,9 +1,12 @@
-/* $Id: bed.h,v 1.2 2004-06-14 03:06:21 acs Exp $
+/* $Id: bed.h,v 1.3 2004-06-14 22:52:16 acs Exp $
    Written by Adam Siepel, 2004
    Copyright 2004, Adam Siepel, University of California */
 
-/* Functions for reading and writing BED files, for use with the UCSC
-   genome browser. */
+/** \file bed.h
+   Reading and writing of BED files.  See
+   http://genome.ucsc.edu/goldenPath/help/customTrack.html 
+   \ingroup feature
+*/ 
 
 #ifndef BED_H
 #define BED_H

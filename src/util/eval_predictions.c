@@ -1,4 +1,4 @@
-/* $Id: eval_predictions.c,v 1.3 2004-06-14 03:06:21 acs Exp $
+/* $Id: eval_predictions.c,v 1.4 2004-06-14 22:52:16 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -321,11 +321,17 @@ int main(int argc, char* argv[]) {
 
     seqlen = lst_get_int(seq_len_list, nfile);
 
+    gff_exon_group(gff_real, "exon_id"); /* needed for gff_fix_stops */
+    gff_exon_group(gff_pred, "exon_id");
+    gff_fix_stops(gff_real, DEF_FEAT_NAME, "stop");
+    gff_fix_stops(gff_pred, DEF_FEAT_NAME, "stop");
+
+    /* sort ungrouped -- only cds exons will be considered, and each
+       one will be considered individually */
+    gff_ungroup(gff_real); 
+    gff_ungroup(gff_pred);
     gff_sort(gff_real);
     gff_sort(gff_pred);
-
-    gff_fix_stops(gff_real, str_new_charstr(DEF_FEAT_NAME), str_new_charstr("stop"));
-    gff_fix_stops(gff_pred, str_new_charstr(DEF_FEAT_NAME), str_new_charstr("stop"));
 
     nexons_real = nexons_pred = nwe = nme = ncr = npca = npcp = nola = 
       nolp = tp = fp = nreal_pos = npred_pos = 0;

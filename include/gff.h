@@ -1,4 +1,4 @@
-/* $Id: gff.h,v 1.2 2004-06-14 03:06:21 acs Exp $
+/* $Id: gff.h,v 1.3 2004-06-14 22:52:16 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -136,17 +136,10 @@ void gff_exon_group(GFF_Set *set, char *tag);
 
 void gff_ungroup(GFF_Set *set);
 
-void gff_partition_by_group(GFF_Set *gff, List *subset_list);
-
-void gff_partition_by_feature(GFF_Set *gff, List *partitions, List *features,
-                              List *helpers);
-
 GFF_Set* gff_read_from_fname(char *fname);
-
-/* void gff_remove_overlaps_by_group(GFF_Set *gff); */
 
 void gff_remove_overlaps(GFF_Set *gff, FILE *discards);
 
-void gff_fix_stops(GFF_Set *gff, String* cds_feat_type, String *stop_feat_type);
+void gff_fix_stops(GFF_Set *gff, char* cds_type, char *stop_type);
 
 #endif

@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.3 2004-06-14 03:06:21 acs Exp $
+/* $Id: msa.c,v 1.4 2004-06-14 22:52:16 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1011,78 +1011,6 @@ void msa_reverse_compl_segment(MSA *msa, int start, int end) {
   assert(msa->ss == NULL);      /* suff stats not yet supported */
   for (i = 0; i < msa->nseqs; i++) 
     msa_reverse_compl_seq_segment(msa->seqs[i], start, end);
-}
-
-/* Reverse complement all segments of an MSA corresponding to "groups"
-   in a GFF that appear to be completely on the reverse strand.  Also
-   adjust the GFF accordingly.  The GFF is partitioned into "groups"
-   using gff_partition_by_group, groups are tested using
-   gff_reverse_strand_only, and the GFF is adapted using
-   gff_reverse_compl (see docs for these functions).  If msa == NULL,
-   then only the GFF will be altered.  If aux_data is non-NULL, it is
-   assumed to be an array of sufficient length, and will be kept in
-   sync with the GFF.  NOTE: the GFF is assumed to be in the
-   coordinate frame of the alignment.  Also, this function currently
-   ignores site categories.  */
-void msa_reverse_compl_gff(MSA *msa, GFF_Set *gff, int *aux_data) {
-  int i, j, changed = 0;
-  List *sub_gffs;
-
-  if (lst_size(gff->features) == 0) return;
-  if (msa!= NULL) assert(msa->ss == NULL);      
-                                /* not yet equipped to handle suff stats */
-
-  sub_gffs = lst_new_ptr(max(lst_size(gff->features)/10, 1));
-
-  gff_sort(gff);
-  gff_partition_by_group(gff, sub_gffs);
-  /* WARNING: errors will result if features in different groups are
-     actually overlapping (gff_sort only guarantees ordering by start
-     index) */
-
-  for (i = 0; i < lst_size(sub_gffs); i++) {
-    GFF_Set *sub = lst_get_ptr(sub_gffs, i);
-    if (gff_reverse_strand_only(sub->features)) {
-/*       gff_sort(sub); */
-      if (lst_size(sub->features) > 0) {
-        int start = 
-          ((GFF_Feature*)lst_get_ptr(sub->features, 0))->start;
-        int end = ((GFF_Feature*)lst_get_ptr(sub->features, 0))->end;
-        for (j = 1; j < lst_size(sub->features); j++)
-          if (((GFF_Feature*)lst_get_ptr(sub->features, j))->end > end)
-            end = ((GFF_Feature*)lst_get_ptr(sub->features, j))->end;
-        gff_reverse_compl(sub->features, start, end);
-
-        if (msa != NULL)
-          msa_reverse_compl_segment(msa, start, end);
-
-        if (aux_data != NULL) 
-          msa_reverse_data_segment(aux_data, start, end);
-
-        changed = 1;
-      }
-    }
-  }
-
-  if (changed) {                /* reassemble the set from the altered
-                                   subsets; easier to do all then to
-                                   try to figure out which is which */
-    for (i = 0; i < lst_size(gff->features); i++) 
-      gff_free_feature((GFF_Feature*)lst_get_ptr(gff->features, i));
-    lst_clear(gff->features);
-    for (i = 0; i < lst_size(sub_gffs); i++) {
-      GFF_Set *sub = lst_get_ptr(sub_gffs, i);
-      for (j = 0; j < lst_size(sub->features); j++)
-        lst_push_ptr(gff->features, lst_get_ptr(sub->features, j));
-      lst_clear(sub->features); /* so that the features aren't freed
-                                   when the set is freed */
-    }    
-  }
-
-  for (i = 0; i < lst_size(sub_gffs); i++)
-    gff_free_set((GFF_Set*)lst_get_ptr(sub_gffs, i));
-
-  lst_free(sub_gffs);
 }
 
 /** Reverse complement segments of an MSA corresponding to groups of

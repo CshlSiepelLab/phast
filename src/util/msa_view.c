@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.5 2004-06-14 21:11:10 acs Exp $
+/* $Id: msa_view.c,v 1.6 2004-06-14 22:52:16 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -506,7 +506,7 @@ int main(int argc, char* argv[]) {
 
     if (rseq_fname != NULL) RSEQF = fopen_fname(rseq_fname, "r");
     if (gff_fname != NULL) {
-      gff = gff_read_from_fname(gff_fname);
+      gff = gff_read_set(fopen_fname(gff_fname, "r"));
       cm = cm_read_from_fname(cat_map_fname);
     }
 
@@ -574,7 +574,7 @@ int main(int argc, char* argv[]) {
 
   /* read annotations and label columns, if necessary */
   if (gff_fname != NULL && input_format != MAF) {
-    GFF_Set *gff = gff_read_from_fname(gff_fname);
+    GFF_Set *gff = gff_read_set(fopen_fname(gff_fname, "r"));
     CategoryMap *cm;
 
     if (cat_map_fname == NULL) {

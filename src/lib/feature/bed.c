@@ -1,9 +1,9 @@
-/* $Id: bed.c,v 1.3 2004-06-14 03:06:21 acs Exp $
+/* $Id: bed.c,v 1.4 2004-06-14 22:52:16 acs Exp $
    Written by Adam Siepel, 2004
    Copyright 2004, Adam Siepel, University of California */
 
 /** \file bed.c
-    Reading and writing of BED files, for use with the UCSC genome browser.
+    Reading and writing of BED files.  See http://genome.ucsc.edu/goldenPath/help/customTrack.html
     \ingroup feature
 */
 
@@ -147,12 +147,21 @@ void gff_print_bed_line(FILE *OUTF, List *features,
   fprintf(OUTF, "\n");
 }
 
-/** Write a GFF_Set in bed format.  Features are grouped according to
-    'groupby' tag, and all members of a group appear as a single line
-    in the output file.  Use groupby == NULL to suppress grouping.  If
-    'include' is non-NULL, then only features of specified types will
-    be reported (should be list of String objects).  */
-void gff_print_bed(FILE *OUTF, GFF_Set *gff, char *groupby, List *include) {
+/** Write a GFF_Set in BED format.  */
+void gff_print_bed(FILE *OUTF,  /**< output stream  */
+                   GFF_Set *gff, 
+                                /**< Set to write */
+                   char *groupby, 
+                                /**< Group features according to this
+                                   tag.  All members of a group will
+                                   be reported on a single line.  Use
+                                   NULL to supress grouping.  */
+                   List *include
+                                /**< Only write features of the
+                                   specified types (list of String
+                                   objects).  If NULL, all features
+                                   will be written.  */
+                   ) {
   GFF_Feature *feat;
   String *chrom;
   char strand;
