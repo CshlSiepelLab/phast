@@ -1,4 +1,4 @@
-/* $Id: lists.c,v 1.4 2004-06-19 20:35:14 acs Exp $
+/* $Id: lists.c,v 1.5 2004-06-23 19:51:28 acs Exp $
    Written by Adam Siepel, Spring 2001 and Summer 2002
    Copyright 2001, 2002, Adam Siepel, University of California */
 
@@ -234,6 +234,18 @@ void lst_free_strings(List *l) {
   int i;
   for (i = 0; i < lst_size(l); i++) 
     if (lst_get_ptr(l, i) != NULL) str_free(lst_get_ptr(l, i));
+}
+
+/* reverse the order of a list */
+void lst_reverse(List *l) {
+  void *tmp = smalloc(l->elementsz);
+  int i, j;
+  for (i = 0, j = lst_size(l) - 1; i < j; i++, j--) {
+    memcpy(tmp, lst_get(l, j), l->elementsz);
+    lst_set(l, j, lst_get(l, i));
+    lst_set(l, i, tmp);
+  }
+  free(tmp);
 }
 
 /* some simple statistical functions for lists of doubles */

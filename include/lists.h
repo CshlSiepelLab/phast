@@ -1,4 +1,4 @@
-/* $Id: lists.h,v 1.2 2004-06-19 20:35:14 acs Exp $
+/* $Id: lists.h,v 1.3 2004-06-23 19:51:28 acs Exp $
    Written by Adam Siepel, Spring 2001 and Summer 2002
    Copyright 2001, 2002, Adam Siepel, University of California 
 */
@@ -252,6 +252,8 @@ List* lst_new_dbl(int nelements); /* Starting number of elements */
 List* lst_new_ptr(int nelements); /* Starting number of elements */
 
 void lst_free_strings(List *l);
+
+void lst_reverse(List *l);
 
 double lst_dbl_mean(List *l);
 double lst_dbl_stdev(List *l);

@@ -1,4 +1,4 @@
-/* $Id: genepred.c,v 1.4 2004-06-22 22:14:06 acs Exp $
+/* $Id: genepred.c,v 1.5 2004-06-23 19:51:28 acs Exp $
    Written by Adam Siepel, 2004
    Copyright 2004, Adam Siepel, University of California */
 
@@ -19,14 +19,15 @@
 void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
   String *line = str_new(STR_LONG_LEN);
   List *l = lst_new_ptr(12), *tmpl1 = lst_new_ptr(10), 
-    *tmpl2 = lst_new_ptr(10);
-  int i, lineno = 0, frame = 0;
+    *tmpl2 = lst_new_ptr(10), *framefeats = lst_new_ptr(50);
+  int i, lineno = 0;
   Hashtable *hash = hsh_new(10000);
 
   while (str_readline(line, F) != EOF) {
     int txStart = 0, txEnd = 0, cdsStart = 0, cdsEnd = 0, 
       exonCount = 0, num = 0;
     String *name, *chrom, *tmpstr;
+    GFF_Feature *f;
     char group[STR_MED_LEN];
     char strand;
 
@@ -85,6 +86,7 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
     if (exonCount != lst_size(tmpl1) || lst_size (tmpl1) != lst_size(tmpl2))
       die("ERROR (line %d): exonStarts or exonEnds don't match exonCount in genepred file.\n", lineno);
 
+    lst_clear(framefeats);
     for (i = 0; i < exonCount; i++) {
       int eStart = 0, eEnd = 0;
 
@@ -105,17 +107,30 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
 
       if ((eStart >= cdsStart && eStart <= cdsEnd) || /* left end in cds */
           (eEnd >= cdsStart && eEnd <= cdsEnd) || /* right end in cds */
-          (cdsStart >= eStart && cdsEnd <= eEnd)) /* cds completely within exon */
-        lst_push_ptr(gff->features, 
-                     gff_new_feature(str_dup(chrom), 
-                                     str_new_charstr(GENEPRED_SOURCE), 
-                                     str_new_charstr(GFF_CDS_TYPE), 
-                                     max(cdsStart, eStart), min(cdsEnd, eEnd), 
-                                     0, strand, frame,
-                                     str_new_charstr(group), TRUE));
+          (cdsStart >= eStart && cdsEnd <= eEnd)) { /* cds completely within exon */
+        f = gff_new_feature(str_dup(chrom), 
+                            str_new_charstr(GENEPRED_SOURCE), 
+                            str_new_charstr(GFF_CDS_TYPE), 
+                            max(cdsStart, eStart), min(cdsEnd, eEnd), 
+                            0, strand, GFF_NULL_FRAME,
+                            str_new_charstr(group), TRUE);
+        lst_push_ptr(gff->features, f);
+        lst_push_ptr(framefeats, f);
+      }
     }
 
-    /* FIXME: frame! */
+    /* set frame */
+    if (lst_size(framefeats) > 0) {
+      int frame = 0;            
+      if (strand == '-') lst_reverse(framefeats);
+                                /* framefeats should now be sorted
+                                   5'->3' */
+      for (i = 0; i < lst_size(framefeats); i++) {
+        f = lst_get_ptr(framefeats, i);
+        f->frame = frame;
+        frame = ((frame + f->end - f->start + 1) % 3);
+      }
+    }
 
     lst_free_strings(tmpl1);
     lst_free_strings(tmpl2);
@@ -126,6 +141,7 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
   lst_free(l);
   lst_free(tmpl1);
   lst_free(tmpl2);
+  lst_free(framefeats);
   hsh_free(hash);
 }
 
