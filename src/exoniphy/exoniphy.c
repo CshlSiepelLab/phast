@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.14 2004-06-30 00:05:08 acs Exp $
+/* $Id: exoniphy.c,v 1.15 2004-06-30 06:39:40 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -24,8 +24,6 @@
                                 /* cat names that aren't present will
                                    be ignored */
 
-#define DEFAULT_CATMAP "PHASTHOME/data/exoniphy/default.cm"
-
 /* parameters controlling evaluation of Sn/Sp tradeoff (see -Y option) */
 #define SCALE_RANGE_MIN -20
 #define SCALE_RANGE_MAX 10
@@ -33,42 +31,54 @@
 
 void print_usage() {
     printf("\n\
-PROGRAM: exoniphy\n\
+PROGRAM:    exoniphy\n\
 \n\
-USAGE: exoniphy --hmm <fname> --tree-models <list> \\\n\
-            --catmap <fname>|<string> > predictions.gff\n\
+USAGE:      exoniphy <msa_fname> > predictions.gff\n\
+\n\
+    Required argument <msa_fname> must be a multiple alignment\n\
+    file, in one of several possible formats (see --msa-format).\n\
 \n\
 DESCRIPTION: \n\
 \n\
-        Prediction of evolutionarily conserved protein-coding exons,\n\
-        using a phylo-HMM, as described in the RECOMB 2004 paper by\n\
-        Siepel & Haussler.\n\
+    Prediction of evolutionarily conserved protein-coding exons using\n\
+    a phylogenetic hidden Markov model (phylo-HMM).  By default, a\n\
+    model definition and model parameters are used that are\n\
+    appropriate for exon prediction in human DNA, based on\n\
+    human/mouse/rat alignments and a 60-state HMM.  Using the --hmm,\n\
+    --tree-models, and --catmap options, however, it is possible to\n\
+    define alternative phylo-HMMs, e.g., for prediction of exon pairs\n\
+    or complete gene structures.\n\
+\n\
 \n\
 EXAMPLES:\n\
     (coming soon)    \n\
 \n\
 OPTIONS:\n\
 \n\
- (Required)\n\
+ (Model definition and model parameters)\n\
     --hmm, -H <fname>\n\
-        Name of HMM file, defining all state transition probabilities.\n\
+        Name of HMM file defining states and transition probabilities.\n\
+        By default, the 60-state HMM described in Siepel & Haussler\n\
+        (2004) is used, with transition probabilities appropriate for\n\
+        mammalian genomes (estimated as described in that paper).\n\
 \n\
     --tree-models, -m <fname_list>\n\
-        List of tree model (*.mod) files, one for each functional\n\
-        category.  Order of models must correspond to order of states\n\
-        in HMM file.  \n\
+        List of tree model (*.mod) files, one for each state in the\n\
+        HMM.  Order of models must correspond to order of states in\n\
+        HMM file.  By default, a set of models appropriate for human,\n\
+        mouse, and rat are used, estimated as described in Siepel &\n\
+        Haussler (2004).\n\
 \n\
     --catmap, -c <fname>|<string>\n\
-        Mapping of feature types to category numbers.  Can either give\n\
+        Mapping of feature types to category numbers.  Can give either\n\
         a filename or an \"inline\" description of a simple category\n\
-        map, e.g., --catmap \"NCATS = 3 ; CDS 1-3\" or --catmap\n\
-        \"NCATS = 1 ; UTR 1\".  Note that category 0 is reserved for\n\
-        \"background\" (everything that is not described by a defined\n\
-        feature type).\n\
+        map, e.g., --catmap \"NCATS = 3 ; CDS 1-3\".  By default, a\n\
+        category map is used that is appropriate for the 60-state HMM\n\
+        mentioned above (see --hmm).\n\
 \n\
  (Input and output)\n\
     --msa-format, -i PHYLIP|FASTA|MPM|SS \n\
-        (default FASTA) Alignment format.\n\
+        (default SS) File format of input alignment.\n\
  \n\
     --seqname, -s <name>\n\
         Use specified string as the \"seqname\" field in GFF output\n\
@@ -86,13 +96,19 @@ OPTIONS:\n\
         altered using --cds-types and --signal-types and the\n\
         background model can be altered using --backgd-types (see below).\n\
 \n\
- (Altering the HMM)\n\
+ (Altering the states and transition probabilities of the HMM)\n\
+    --no-cns, -x \n\
+        Eliminate the state/category for conserved noncoding sequence\n\
+        from the default HMM and category map.  Ignored if non-default\n\
+        HMM and category map are selected.\n\
+\n\
     --reflect-strand, -U \n\
         Given an HMM describing the forward strand, create a larger\n\
         HMM that allows for features on both strands by \"reflecting\"\n\
         the HMM about all states associated with background categories\n\
         (see --backgd-cats).  The new HMM will be used for predictions\n\
-        on both strands.\n\
+        on both strands.  If the default HMM is used, then this option\n\
+        will be used automatically.\n\
 \n\
     --bias, -b <val>\n\
         Set \"coding bias\" equal to the specified value (default 0).\n\
@@ -135,9 +151,13 @@ OPTIONS:\n\
         Use the indel model described in Siepel & Haussler (2004).\n\
 \n\
     --no-gaps, -W <list>\n\
-        Prohibit gaps in the specified categories (gaps result in\n\
-        emission probabilities of zero).  By default, gaps are treated\n\
-        as missing data.\n\
+        Prohibit gaps in sites of the specified categories (gaps result in\n\
+        emission probabilities of zero).  If the default category map\n\
+        is used (see --catmap), then gaps are prohibited in start and\n\
+        stop codons and at the canonical GT and AG positions of splice\n\
+        sites (with or without --indels).  In all other cases, the\n\
+        default behavior is to treat gaps as missing data, or to address\n\
+        them with the indel model implied by --indels.\n\
 \n\
     --gc-ranges, -D <range-cutoffs>\n\
         (Changes interpretation of --models) Use different sets of\n\
@@ -157,17 +177,19 @@ OPTIONS:\n\
 \n\
 REFERENCES:\n\
  \n\
-    A. Siepel and D. Haussler.  Computational identification of \n\
-      evolutionarily conserved exons.  RECOMB 2004.\n\n", SCALE_RANGE_MIN, 
-           SCALE_RANGE_MAX, NSENS_SPEC_TRIES, DEFAULT_CDS_CATS, 
-           DEFAULT_BACKGD_CATS, DEFAULT_SIGNAL_CATS);
+    A. Siepel and D. Haussler.  2004.  Computational identification of\n\
+      evolutionarily conserved exons.  Proc. 8th Annual Int'l Conf.\n\
+      on Research in Computational Biology (RECOMB '04), pp. 177-186.\n\n", 
+           SCALE_RANGE_MIN, SCALE_RANGE_MAX, NSENS_SPEC_TRIES, 
+           DEFAULT_CDS_CATS, DEFAULT_BACKGD_CATS, DEFAULT_SIGNAL_CATS);
 }
 
 int main(int argc, char* argv[]) {
 
   /* variables for options, with defaults */
-  int msa_format = FASTA;
-  int quiet = FALSE, reflect_hmm = FALSE, score = FALSE, indels = FALSE;
+  int msa_format = SS;
+  int quiet = FALSE, reflect_hmm = FALSE, score = FALSE, indels = FALSE, 
+    no_cns = FALSE;
   double bias = NEGINFTY;
   char *seqname = NULL, *grouptag = "exon_id", *sens_spec_fname_root = NULL;
   List *model_fname_list = NULL, *no_gaps_str = NULL, *gc_thresholds = NULL;
@@ -183,6 +205,7 @@ int main(int argc, char* argv[]) {
     {"seqname", 1, 0, 's'},
     {"grouptag", 1, 0, 'g'},
     {"score", 0, 0, 'S'},
+    {"no-cns", 0, 0, 'x'},
     {"reflect-strand", 0, 0, 'U'},
     {"bias", 1, 0, 'b'},
     {"sens-spec", 1, 0, 'Y'},
@@ -207,9 +230,10 @@ int main(int argc, char* argv[]) {
   char c;
   int i, ncats, ncats_unspooled, trial, ntrials, opt_idx;
   double gc;
-  char tmpstr[STR_SHORT_LEN];
+  char tmpstr[STR_LONG_LEN];
+  String *fname_str = str_new(STR_LONG_LEN), *str;
 
-  while ((c = getopt_long(argc, argv, "i:c:H:m:s:g:B:T:L:IW:b:D:SYUhq", 
+  while ((c = getopt_long(argc, argv, "i:c:H:m:s:g:B:T:L:IW:b:D:xSYUhq", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
@@ -224,6 +248,9 @@ int main(int argc, char* argv[]) {
       break;
     case 'H':
       hmm = hmm_new_from_file(fopen_fname(optarg, "r"));
+      break;
+    case 'x':
+      no_cns = TRUE;
       break;
     case 'U':
       reflect_hmm = TRUE;
@@ -285,21 +312,51 @@ int main(int argc, char* argv[]) {
   if (optind != argc - 1) 
     die("ERROR: alignment filename is required argument.  Try 'exoniphy -h' for help.\n");
 
-  if (model_fname_list == NULL) 
-    die("ERROR: --tree-models is a required argument.  Try 'exoniphy -h' for help.\n");
-
-  if (hmm == NULL)
-    die("ERROR: --hmm is a required argument.  Try 'exoniphy -h for help.\n");
-
-  if (cm == NULL)
-    die("ERROR: --catmap is a required argument.  Try 'exoniphy -h for help.\n");
-
   if (gc_thresholds != NULL && 
       lst_size(model_fname_list) != lst_size(gc_thresholds) + 1)
     die("ERROR: with --gc-ranges, number of args to --tree-models must be exactly\none more than number of args to --gc-ranges.  Try 'exoniphy -h' for help.\n");
 
   if (sens_spec_fname_root != NULL && bias != NEGINFTY)
     die("ERROR: can't use --bias and --sens-spec together.\n");
+
+  /* set hmm, tree models, and category map to defaults, if not
+     already specified */
+  if (hmm == NULL) {
+    char *default_hmm = "default.hmm";
+    if (indels) {
+      if (no_cns) default_hmm = "default-indels-no-cns.hmm";
+      else default_hmm = "default-indels.hmm";
+    }
+    else if (no_cns) default_hmm = "default-no-cns.hmm";
+    sprintf(tmpstr, "%s/data/exoniphy/mammals/%s", PHAST_HOME, default_hmm);
+    if (!quiet) fprintf(stderr, "Reading default HMM from %s...\n", tmpstr);
+    hmm = hmm_new_from_file(fopen_fname(tmpstr, "r"));
+    reflect_hmm = TRUE;
+  }
+
+  if (model_fname_list == NULL) {
+    model_fname_list = lst_new_ptr(10);
+    sprintf(tmpstr, "%s/data/exoniphy/%s", PHAST_HOME, no_cns ? "models-no-cns" : 
+            "models");
+    str_slurp(fname_str, fopen_fname(tmpstr, "r"));
+    str_split(fname_str, NULL, model_fname_list);
+    if (!quiet) 
+      fprintf(stderr, "Reading default tree models from %s/data/exoniphy/mammals...\n", PHAST_HOME);
+    for (i = 0; i < lst_size(model_fname_list); i++) {
+      str = lst_get_ptr(model_fname_list, i);
+      sprintf(tmpstr, "%s/data/exoniphy/mammals/%s", PHAST_HOME, str->chars);
+      str_cpy_charstr(str, tmpstr);
+    }
+  }
+
+  if (cm == NULL) {
+    sprintf(tmpstr, "%s/data/exoniphy/%s", PHAST_HOME, 
+            no_cns ? "default-no-cns.cm" : "default.cm");
+    if (!quiet) fprintf(stderr, "Reading default category map from %s...\n", tmpstr);
+    cm = cm_read(fopen_fname(tmpstr, "r"));
+    if (no_gaps_str == NULL) 
+      no_gaps_str = get_arg_list("10,11,20,21,cds5\'ss,cds3\'ss,start_codon,stop_codon");
+  }
 
   /* read alignment */
   if (!quiet)
@@ -318,10 +375,6 @@ int main(int argc, char* argv[]) {
     str_root(tmp, '.');
     seqname = tmp->chars;
   }
-
-  /* get default cat map if not specified */
-/*   if (cm == NULL) */
-/*     cm = cm_read(fopen_fname(DEFAULT_CATMAP, "r")); */
 
   ncats = cm->ncats + 1;
   ncats_unspooled = cm->unspooler != NULL ? cm->unspooler->nstates_unspooled : 
