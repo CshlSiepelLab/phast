@@ -20,6 +20,13 @@ void usage(char *prog) {
   printf("\n\
 PROGRAM: %s\n\
 \n\
+USAGE: %s [OPTIONS] <msa_fname> <mod_fname_list>\n\
+\n\
+    <msa_fname> must be the name of a multiple alignment file,\n\
+    which can use any of several possible file formats (see\n\
+    --msa-format); <mod_fname_list> must be a comma-delimited list of\n\
+    *.mod files, as produced by 'phyloFit.'\n\
+\n\
 DESCRIPTION:\n\
 \n\
     Identify conserved elements or produce conservation scores, given\n\
@@ -61,13 +68,6 @@ DESCRIPTION:\n\
     the coding states via --states, you can obtain posterior\n\
     probabilities that can be interpreted as a measure of \"coding\n\
     potential.\"\n\
-\n\
-USAGE: %s [OPTIONS] <msa_fname> <mod_fname_list>\n\
-\n\
-    <mod_fname_list> must be a comma-delimited list of *.mod files, as\n\
-    produced by 'phyloFit'; <msa_fname> should be the name of the\n\
-    multiple alignment file, which can use any of several possible\n\
-    file formats (see --msa-format).\n\
 \n\
 EXAMPLES:\n\
 \n\
