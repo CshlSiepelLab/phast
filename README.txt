@@ -40,7 +40,7 @@ CONTENTS
 
 PHAST consists of a fairly large library of reusable subroutines and
 a small collection of executable programs that use the library.
-The library is composed of five packages, as follows:
+The library is composed of six packages, as follows:
 
     PACKAGE             CONTENTS
     ------------------------------------------------------------------------
@@ -89,8 +89,8 @@ also depends on the "F2C" (Fortran to C) package, which is used by CLAPACK,
 and on an implementation of the "BLAS" (Basic Linear Algebra Subroutines).
 By default it uses the versions of these that come with CLAPACK.
 Currently, linear algebra computations appear not to be a performance
-bottleneck, so it's probably not worthwhile to switch to a highly optimized
-BLAS implementation.
+bottleneck, so it's probably not worth going to much trouble to switch to a
+highly optimized BLAS implementation.
 
 The software also requires GNU Make, some standard UNIX tools such as "ar" and
 "ln", and the GNU Regex package.  All of these should be available on most
