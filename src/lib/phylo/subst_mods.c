@@ -1,4 +1,4 @@
-/* $Id: subst_mods.c,v 1.3 2004-07-26 15:02:42 acs Exp $
+/* $Id: subst_mods.c,v 1.4 2004-07-26 18:07:16 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -156,7 +156,9 @@ int tm_get_nratematparams(TreeModel *mod) {
             - mod->rate_matrix->size) / 2; 
     /* allows use with alternative alphabets, e.g., {ACGT-} */
   case UNREST:
-    return 12;
+    return (mod->rate_matrix->size * mod->rate_matrix->size 
+            - mod->rate_matrix->size);     
+    /* allows use with alternative alphabets, e.g., {ACGT-} */
   case R2:
     return 48; 
   case U2:
@@ -361,13 +363,15 @@ void tm_rate_params_init_from_model(TreeModel *mod, gsl_vector *params,
 
 void tm_set_probs_JC69(TreeModel *mod, MarkovMatrix *P, double t) {
   int i, j;
-  double scale = 4.0/3;
+  double scale = mod->rate_matrix->size * 1.0/(mod->rate_matrix->size - 1);
   for (i = 0; i < mod->rate_matrix->size; i++) {
     for (j = 0; j < mod->rate_matrix->size; j++) {
       if (i == j)
-        mm_set(P, i, j, 0.25 + 0.75 * exp(-t * scale));
+        mm_set(P, i, j, 1.0/mod->rate_matrix->size + 
+               (1 - 1.0/mod->rate_matrix->size) * exp(-t * scale));
       else
-        mm_set(P, i, j, 0.25 - 0.25 * exp(-t * scale));
+        mm_set(P, i, j, 1.0/mod->rate_matrix->size - 
+               1.0/mod->rate_matrix->size * exp(-t * scale));
     }
   }
 }
@@ -398,7 +402,7 @@ void tm_set_JC69_matrix(TreeModel *mod) {
   for (i = 0; i < mod->rate_matrix->size; i++) {
     for (j = 0; j < mod->rate_matrix->size; j++) {
       if (j == i) continue;
-      mm_set(mod->rate_matrix, i, j, (float)1/3);
+      mm_set(mod->rate_matrix, i, j, 1.0/mod->rate_matrix->size);
     }
     mm_set(mod->rate_matrix, i, i, -1);
   }
@@ -1122,7 +1126,11 @@ void tm_init_mat_REV(TreeModel *mod, gsl_vector *params, int parm_idx,
       if (is_transition(mod->rate_matrix->states[i], 
                         mod->rate_matrix->states[j])) 
         val *= kappa;
-      gsl_vector_set(params, parm_idx++, val);
+      gsl_vector_set(params, parm_idx++, val + .05 * rand()/(RAND_MAX + 1.0));
+                                /* add a little noise to initial
+                                   values to avoid making matrix
+                                   undiagonalizable (becomes important
+                                   with gap-as-fifth-char) */
     }
   }    
 }

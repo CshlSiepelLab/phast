@@ -1,4 +1,4 @@
-/* $Id: tree_likelihoods.c,v 1.6 2004-07-26 15:02:42 acs Exp $
+/* $Id: tree_likelihoods.c,v 1.7 2004-07-26 18:07:16 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -98,11 +98,12 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
     ss_from_msas(msa, mod->order+1, col_scores == NULL ? 0 : 1, 
                  NULL, NULL, NULL, -1);
 
-
   /* set up prob matrices, if necessary */
-  if (mod->P[0][0] == NULL)
+  for (i = 0; i < mod->tree->nnodes; i++) /* find a child node */
+    if (((TreeNode*)lst_get_ptr(mod->tree->nodes, i))->parent != NULL) break;  
+  assert(i < mod->tree->nnodes);
+  if (mod->P[i][0] == NULL)
     tm_set_subst_matrices(mod);
-
 
   if (col_scores != NULL) {
     tuple_scores = (double*)smalloc(msa->ss->ntuples * sizeof(double));

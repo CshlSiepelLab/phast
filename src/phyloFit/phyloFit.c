@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.16 2004-07-26 15:02:42 acs Exp $
+   $Id: phyloFit.c,v 1.17 2004-07-26 18:07:16 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -174,7 +174,8 @@ OPTIONS:\n\
         or '*') characters are present.  Default is %d.\n\
 \n\
     --gaps-as-bases, -G\n\
-        Treat alignment gaps like ordinary bases.\n\
+        Treat alignment gap characters ('-') like ordinary bases.  By\n\
+        default, they are treated as missing data.\n\
 \n\
     --quiet, -q\n\
         Proceed quietly.\n\
@@ -817,6 +818,11 @@ int main(int argc, char *argv[]) {
   if (nonoverlapping && (use_conditionals || gff != NULL || 
                          cats_to_do_str || input_format == SS))
     die("ERROR: cannot use --non-overlapping with --markov, --features,\n--msa-format SS, or --do-cats.\n");
+
+  if (gaps_as_bases && subst_mod != JC69 && subst_mod != F81 && 
+      subst_mod != REV && subst_mod != UNREST)
+    die("ERROR: --gaps-as-bases currently only supported with JC69, F81, REV, and UNREST.\n");
+                                /* with HKY, yields undiagonalizable matrix */
   
   if (gff != NULL && cm == NULL) cm = cm_new_from_features(gff);
 
@@ -840,6 +846,7 @@ int main(int argc, char *argv[]) {
       tree = tr_new_from_string("(1,2)");
     else if (msa->nseqs == 3 && tm_is_reversible(subst_mod))
       tree = tr_new_from_string("(1,(2,3))");
+    else die("ERROR: --tree required.\n");
   }
   else 
     tr_number_leaves(tree, msa->names, msa->nseqs);

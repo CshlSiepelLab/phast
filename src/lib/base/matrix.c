@@ -1,6 +1,6 @@
 /* matrix - basic matrix and vector functions, mostly implemented as wrappers for CLAPACK and CBLAS routines */
 
-/* $Id: matrix.c,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $ 
+/* $Id: matrix.c,v 1.2 2004-07-26 18:07:16 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -17,6 +17,12 @@
 #include <misc.h>
 
 #define EQ_THRESHOLD 1e-10
+
+/* used below */
+int complex_almost_equal(gsl_complex z1, gsl_complex z2) {
+  gsl_complex diff = gsl_complex_sub(z1, z2);
+  return (gsl_complex_abs(diff) < EQ_THRESHOLD);
+}
 
 int mat_diagonalize(gsl_matrix *M, gsl_vector_complex *eval, 
                     gsl_matrix_complex *revect, 
@@ -54,7 +60,7 @@ int mat_diagonalize(gsl_matrix *M, gsl_vector_complex *eval,
 
     /* if there are repeated eigenvalues, diagonalization may fail */
     for (k = 0; !check && k < j; k++) 
-      if (GSL_COMPLEX_EQ(gsl_vector_complex_get(eval, k), z)) 
+      if (complex_almost_equal(gsl_vector_complex_get(eval, k), z)) 
         check = 1;
 
     if (wi[j] == 0)             /* real eigenvalue */
@@ -124,9 +130,10 @@ int mat_diagonalize(gsl_matrix *M, gsl_vector_complex *eval,
         gsl_complex z; GSL_SET_REAL(&z, 0); GSL_SET_IMAG(&z, 0);
         for (k = 0; k < n; k++) 
           z = gsl_complex_add(z, gsl_complex_mul(gsl_matrix_complex_get(revect, i, k), gsl_complex_mul(gsl_vector_complex_get(eval, k), gsl_matrix_complex_get(levect, k, j))));
+
         if (fabs(GSL_IMAG(z)) > EQ_THRESHOLD ||
             fabs(GSL_REAL(z) - gsl_matrix_get(M, i, j)) > EQ_THRESHOLD) {
-          fprintf(stderr, "ERROR: diagonalization failed.\n");
+          fprintf(stderr, "ERROR: diagonalization failed (got %f + %fi, expected %f).\n", GSL_REAL(z), GSL_IMAG(z), gsl_matrix_get(M, i, j));
           assert(0);
         }
       }
