@@ -13,7 +13,7 @@ all: ${EXEC}
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
 ${EXEC}: ${OBJS} ${PHAST}/lib/libphast.a
-	${CC} ${LIBPATH} -o $@ ${OBJS} ${LIBS} 
+	${CC} ${LFLAGS} ${LIBPATH} -o $@ ${OBJS} ${LIBS} 
 
 clean: 
 	rm -f *.o ${EXEC} 
