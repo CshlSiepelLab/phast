@@ -62,7 +62,7 @@ OPTIONS:\n\
         used with --dump-samples to create data sets that can be\n\
         processed separately, e.g., in parallel on a compute cluster.\n\
 \n\
-    --read-mods, -R <fname_list>
+    --read-mods, -R <fname_list>\n\
         Read estimated models from list of filenames instead of\n\
         generating alignments and estimating parameters. Can be used\n\
         to run the statistics for replicates processed separately (see\n\
@@ -249,9 +249,9 @@ int main(int argc, char *argv[]) {
     case 't':
       if (optarg[0] == '(')     /* in this case, assume topology given
                                    at command line */
-        tree = parse_nh_from_string(optarg);
+        tree = tr_new_from_string(optarg);
       else 
-        tree = parse_nh_from_file(fopen_fname(optarg, "r"));
+        tree = tr_new_from_file(fopen_fname(optarg, "r"));
       break;
     case 's':
       subst_mod = tm_get_subst_mod_type(optarg);
@@ -300,9 +300,9 @@ int main(int argc, char *argv[]) {
     if (!parameteric) {
       if (tree == NULL) {
         if (msa->nseqs == 2)
-          tree = parse_nh_from_string("(1,2)");
+          tree = tr_new_from_string("(1,2)");
         else if (msa->nseqs == 3 && tm_is_reversible(subst_mod))
-          tree = parse_nh_from_string("(1,(2,3))");
+          tree = tr_new_from_string("(1,(2,3))");
         else 
           die("ERROR: must specify tree topology.\n");
       }
