@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.4 2004-06-06 04:12:11 acs Exp $
+/* $Id: tree_model.c,v 1.5 2004-06-06 04:26:15 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -163,12 +163,15 @@ void tm_reinit(TreeModel *tm, subst_mod_type new_subst_mod,
   tm->freqK = srealloc(tm->freqK, new_nratecats * sizeof(double));
 
   if (new_rate_consts != NULL) {  /* empirical rate model */
+    double interval_size, initalpha = (new_alpha > 0 ? new_alpha : 1);
     if (new_nratecats != lst_size(new_rate_consts))
       die("ERROR: number of explicitly defined rate constants must equal number of rate categories.\n");
     for (i = 0; i < new_nratecats; i++) {
       tm->rK[i] = lst_get_dbl(new_rate_consts, i);
-      tm->freqK[i] = exp(-tm->rK[i]); /* init to approx exponential
-                                         distrib with mean 1 */
+      interval_size = tm->rK[i] - (i > 0 ? tm->rK[i-1] : 0);
+      tm->freqK[i] = gsl_ran_gamma_pdf(tm->rK[i], initalpha, 1/initalpha) * 
+        interval_size; 
+      /* init to approx gamma with shape param alpha. */
     }
     normalize_probs(tm->freqK, tm->nratecats);
   }
