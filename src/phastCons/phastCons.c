@@ -725,8 +725,15 @@ int main(int argc, char *argv[]) {
     die("ERROR: Ordered representation of alignment required.\n");
 
   /* mask out macro-indels, if necessary */
-  if (indels) 
+  if (indels) {
+    /* this little hack allows gaps in refseq to be restored before
+       output (needed for proper coord conversion) */
+    if (msa->seqs == NULL) { ss_to_msa(msa); ss_free(msa->ss); msa->ss = NULL; }
+    for (i = 0; i < msa->length; i++) 
+      if (msa->is_missing[(int)msa->seqs[0][i]]) msa->seqs[0][i] = msa->missing[1];
+
     msa_mask_macro_indels(msa, max_micro_indel);
+  }
 
   /* prune away extra species, if possible */
   for (i = 0; i < lst_size(mod_fname_list); i++)
@@ -805,6 +812,14 @@ int main(int argc, char *argv[]) {
     if (!quiet) fprintf(stderr, "Estimating parameters for indel model...");
     lnl = phmm_fit_em(phmm, msa, log_f);
     if (!quiet) fprintf(stderr, "...\n");
+  }
+
+  /* before output, have to restore gaps in reference sequence, for
+     proper coord conversion */
+  if (indels) {
+    ss_free(msa->ss); msa->ss = NULL; /* msa->seqs must already exist */
+    for (i = 0; i < msa->length; i++) 
+      if (msa->seqs[0][i] == msa->missing[0]) msa->seqs[0][i] = GAP_CHAR;
   }
     
   /* Viterbi */
