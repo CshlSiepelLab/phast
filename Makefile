@@ -10,5 +10,5 @@ package:
 	cd ${TMPDIR} ; cvs checkout phast 
 	find ${TMPDIR}/phast -name "CVS" | xargs rm -rf
 	VERSION=`cat ${TMPDIR}/phast/version | sed 's/\./_/g'` ;\
-	cd ${TMPDIR} ; tar cfz ${CWD}/phast.$$VERSION.tgz phast
+	cd ${TMPDIR} ; tar cfz ${CWD}/phast.$$VERSION.tgz --exclude test phast
 	rm -rf ${TMPDIR}
