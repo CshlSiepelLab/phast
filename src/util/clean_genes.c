@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.18 2004-07-27 20:38:38 acs Exp $
+/* $Id: clean_genes.c,v 1.19 2004-07-29 23:39:04 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -975,10 +975,10 @@ int main(int argc, char *argv[]) {
       rseq_fname = optarg;
       break;
     case 'o':
-      offset5 = atoi(optarg);
+      offset5 = get_arg_int(optarg);
       break;
     case 'p':
-      offset3 = atoi(optarg);
+      offset3 = get_arg_int(optarg);
       break;
     case 'L':
       logf = fopen_fname(optarg, "w+");

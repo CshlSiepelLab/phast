@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.17 2004-07-29 23:16:29 acs Exp $
+/* $Id: msa_split.c,v 1.18 2004-07-29 23:39:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -452,10 +452,10 @@ int main(int argc, char* argv[]) {
       group_tag = optarg;
       break;
     case 'd':
-      partition_frame = atoi(optarg);
+      partition_frame = get_arg_int(optarg);
       break;
     case 'n':
-      npartitions = atoi(optarg);
+      npartitions = get_arg_int(optarg);
       break;
     case 'w':
       {
@@ -477,7 +477,7 @@ int main(int argc, char* argv[]) {
     case 'G':
       if (!strcmp(optarg, "ALL")) gap_strip_mode = STRIP_ALL_GAPS;
       else if (!strcmp(optarg, "ANY")) gap_strip_mode = STRIP_ANY_GAPS;
-      else gap_strip_mode = atoi(optarg);
+      else gap_strip_mode = get_arg_int(optarg);
       break;
     case 'l':
       seqlist_str = get_arg_list(optarg);
@@ -489,7 +489,7 @@ int main(int argc, char* argv[]) {
       out_fname_root = optarg;
       break;
     case 'T':
-      tuple_size = atoi(optarg);
+      tuple_size = get_arg_int(optarg);
       break;
     case 'z':
       ordered_stats = 0;
@@ -511,10 +511,10 @@ int main(int argc, char* argv[]) {
       output_summary = 1;
       break;
     case 'I':
-      min_ninf_sites = atoi(optarg);
+      min_ninf_sites = get_arg_int(optarg);
       break;
     case 'B':
-      adjust_radius = atoi(optarg);
+      adjust_radius = get_arg_int(optarg);
       break;
     case 'q':
       quiet_mode = 1;

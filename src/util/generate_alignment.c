@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
     exit(1);
   }
 
-  ncols = atoi(argv[1]);
+  ncols = get_arg_int(argv[1]);
 
   /* read class transition matrix */
   F = fopen(argv[2], "r");

@@ -1,4 +1,4 @@
-/* $Id: eval_predictions.c,v 1.9 2004-07-25 20:53:47 acs Exp $
+/* $Id: eval_predictions.c,v 1.10 2004-07-29 23:39:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -255,7 +255,7 @@ int main(int argc, char* argv[]) {
       break;
     case 'n':
       nnc = tot_nnc = 0;
-      nc_threshold = atoi(optarg);
+      nc_threshold = get_arg_int(optarg);
       break;
     case 'h':
       print_usage();

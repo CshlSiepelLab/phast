@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
       indel_cats = get_arg_list(optarg);
       break;
     case 'n':
-      nseqs = atoi(optarg);
+      nseqs = get_arg_int(optarg);
       break;
     case 'F':
       from_patterns = str_list_as_int(get_arg_list(optarg));

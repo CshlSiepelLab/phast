@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.17 2004-07-26 18:07:16 acs Exp $
+   $Id: phyloFit.c,v 1.18 2004-07-29 23:39:04 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -692,12 +692,10 @@ int main(int argc, char *argv[]) {
       output_trees = 1;
       break;
     case 'k':
-      nratecats = atoi(optarg);
-      if (nratecats <= 0) 
-        die("ERROR: number of rate categories must be >= 1.\n");
+      nratecats = get_arg_int_bounds(optarg, 0, INFTY);
       break;
     case 'a':
-      alpha = atof(optarg);
+      alpha = get_arg_dbl(optarg);
       break;
     case 'R':
       reverse_group_tag = optarg;
@@ -773,7 +771,7 @@ int main(int argc, char *argv[]) {
       root_seqname = str_new_charstr(optarg);
       break;
     case 'I':
-      nsites_threshold = atoi(optarg);
+      nsites_threshold = get_arg_int(optarg);
       break;
     case 'G':
       gaps_as_bases = TRUE;

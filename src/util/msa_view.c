@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.15 2004-07-27 20:39:41 acs Exp $
+/* $Id: msa_view.c,v 1.16 2004-07-29 23:39:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -412,10 +412,10 @@ int main(int argc, char* argv[]) {
       if (input_format == -1) die("ERROR: bad input format.  Try 'msa_view -h' for help.\n");
       break;
     case 's':
-      startcol = atoi(optarg);
+      startcol = get_arg_int(optarg);
       break;
     case 'e':
-      endcol = atoi(optarg);
+      endcol = get_arg_int(optarg);
       break;
     case 'l':
       seqlist_str = get_arg_list(optarg);
@@ -426,7 +426,7 @@ int main(int argc, char* argv[]) {
     case 'G':
       if (!strcmp(optarg, "ALL")) gap_strip_mode = STRIP_ALL_GAPS;
       else if (!strcmp(optarg, "ANY")) gap_strip_mode = STRIP_ANY_GAPS;
-      else gap_strip_mode = atoi(optarg);
+      else gap_strip_mode = get_arg_int(optarg);
       break;
     case 'p':
       collapse_missing = TRUE;
@@ -436,10 +436,10 @@ int main(int argc, char* argv[]) {
       if (output_format == -1) die("ERROR: bad output format.  Try 'msa_view -h' for help.\n");
       break;
     case 'r':
-      refseq = atoi(optarg);
+      refseq = get_arg_int(optarg);
       break;
     case 'T':
-      tuple_size = atoi(optarg);
+      tuple_size = get_arg_int(optarg);
       break;
     case 'A':
       aggregate_list = get_arg_list(optarg);
@@ -454,7 +454,7 @@ int main(int argc, char* argv[]) {
       pretty_print = TRUE;
       break;
     case 'Y':
-      cycle_size = atoi(optarg);
+      cycle_size = get_arg_int(optarg);
       break;
     case 'D':
       cycle_size = tuple_size = 3;
@@ -471,7 +471,7 @@ int main(int argc, char* argv[]) {
       order_list = get_arg_list(optarg);
       break;
     case 'I':
-      indel_clean_nseqs = atoi(optarg);
+      indel_clean_nseqs = get_arg_int(optarg);
       break;
     case 'R':
       rand_perm = TRUE;
@@ -490,7 +490,7 @@ int main(int argc, char* argv[]) {
       break;
     case 'w':
       stats_only = TRUE;
-      win_size = atoi(optarg);
+      win_size = get_arg_int(optarg);
       break;
     case 'N':
       if (fill_N_list == NULL) fill_N_list = lst_new_ptr(10);

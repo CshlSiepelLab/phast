@@ -1,4 +1,4 @@
-/* $Id: convert_coords.c,v 1.2 2004-06-15 22:33:57 acs Exp $
+/* $Id: convert_coords.c,v 1.3 2004-07-29 23:39:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -60,20 +60,20 @@ int main(int argc, char* argv[]) {
       feat_fname = optarg;
       break;
     case 's':
-      src_ref = atoi(optarg);
+      src_ref = get_arg_int(optarg);
       break;
     case 'd':
-      dest_ref = atoi(optarg);
+      dest_ref = get_arg_int(optarg);
       break;
     case 'i':
       format = msa_str_to_format(optarg);
       if (format == -1) die("ERROR: bad alignment format.\n");
       break;
     case 'p':
-      offset = atoi(optarg);
+      offset = get_arg_int(optarg);
       break;
     case 'n':
-      offset = -1 * atoi(optarg);
+      offset = -1 * get_arg_int(optarg);
       break;
     case '?':
       print_usage();

@@ -1,4 +1,4 @@
-/* $Id: hmm_view.c,v 1.2 2004-07-27 22:22:12 acs Exp $
+/* $Id: hmm_view.c,v 1.3 2004-07-29 23:39:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -47,13 +47,13 @@ int main(int argc, char *argv[]) {
   while ((c = getopt(argc, argv, "k:i:n:C:xh")) != -1) {
     switch(c) {
     case 'k':
-      nratecats = atoi(optarg);
+      nratecats = get_arg_int(optarg);
       break;
     case 'i':
       indel_cats = get_arg_list(optarg);
       break;
     case 'n':
-      nseqs = atoi(optarg);
+      nseqs = get_arg_int(optarg);
       break;
     case 'C':
       cats_to_show = get_arg_list(optarg);

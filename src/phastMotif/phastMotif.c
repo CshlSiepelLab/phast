@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
       separate_backgd = 1;
       break;
     case 'k':
-      size = atoi(optarg);
+      size = get_arg_int(optarg);
       break;
     case 'm':
       meme_mode = 1;
@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
       profile_mode = 1;
       break;
     case 'n':
-      nrestarts = atoi(optarg);
+      nrestarts = get_arg_int(optarg);
       break;
     case 'I':
       init_list = get_arg_list(optarg);
@@ -187,16 +187,16 @@ int main(int argc, char *argv[]) {
       lst_free(tmpl);
       break;
     case 'c':
-      npseudocounts = atoi(optarg);
+      npseudocounts = get_arg_int(optarg);
       break;
     case 'w':
-      nbest = atoi(optarg);
+      nbest = get_arg_int(optarg);
       break;
     case 'S':
       sample_parms = 1;
       break;
     case 'B':
-      nmotifs = atoi(optarg);
+      nmotifs = get_arg_int(optarg);
       break;
     case 'o': 
       str_free(output_prefix);

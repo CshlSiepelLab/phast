@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
       features = gff_read_set(fopen_fname(optarg, "r"));
       break;
     case 'w':
-      winsize = atoi(optarg);
+      winsize = get_arg_int(optarg);
       if (winsize <= 0) die("ERROR: window size must be positive.\n");
       break;
     case 'i':
