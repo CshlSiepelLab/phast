@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.8 2004-06-23 06:03:09 acs Exp $
+/* $Id: msa_view.c,v 1.9 2004-06-23 19:51:01 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -24,18 +24,94 @@
 
 void print_usage() {
     printf("\n\
-USAGE: msa_view [OPTIONS] <msa_fname>\n\
+USAGE: msa_view [OPTIONS] <infile>\n\
 \n\
-Provides various kinds of \"views\" of one or more multiple\n\
-alignments.  Can extract a sub-alignment from an alignment (by row or\n\
-by column) or combine several alignments into one.  Also can randomize\n\
-columns, perform various kinds of gap stripping and alignment\n\
-\"cleaning\", and extract the sufficient statistics for phylogenetic\n\
-analysis.  Capable of reading and writing in a few common formats.  Can \n\
-be used for file conversion (by default, output is the entire input \n\
-alignment).\n\
+DESCRIPTION:\n\
 \n\
-Options:\n\
+    Provides various kinds of \"views\" of one or more multiple\n\
+    alignments.  Can extract a sub-alignment from an alignment (by row\n\
+    or by column) or combine several alignments into one.  Also can\n\
+    extract the sufficient statistics for phylogenetic analysis from\n\
+    an alignment, optionally accounting for site categories that are\n\
+    defined by an auxiliary annotations file.  Supports various other\n\
+    functions, including gap stripping, column randomization, and\n\
+    reordering of sequences.  Capable of reading and writing in a few\n\
+    common formats.  Can be used for file conversion (by default,\n\
+    output is the entire input alignment).\n\
+\n\
+EXAMPLES:\n\
+\n\
+    (See below for more details on options)\n\
+\n\
+    1. Convert alignment formats (default input and output is FASTA)\n\
+\n\
+        msa_view myfile.fa --out-format PHYLIP > myfile.ph\n\
+        msa_view myfile2.raw --in-format MPM > myfile2.fa\n\
+\n\
+    2. Obtain a sub-alignment by position, using the coordinate frame\n\
+    of the first sequence in the alignment.\n\
+\n\
+        msa_view myfile.fa --start 1234 --end 5678 --refidx 1 > mysub.fa\n\
+\n\
+    3. Obtain a sub-alignment by sequence.\n\
+\n\
+        msa_view myfile.fa --seqs 1,4,5 > seqs145.fa\n\
+        msa_view myfile.fa --seqs 1,4,5 --exclude > seqs236.fa\n\
+\n\
+    4. Concatenate alignments. \n\
+\n\
+        msa_view --aggregate human,mouse,rat myf1.fa myf2.fa myf3.fa \n\
+            > concat.fa\n\
+\n\
+    (source alignments may have different subsets of sequences and may\n\
+    use different sequence orders; here, human,mouse,rat defines full\n\
+    set and order in output alignment)\n\
+\n\
+    5. Extract sufficient statistics from a FASTA file.\n\
+\n\
+        msa_view myfile.fa --out-format SS > myfile.ss\n\
+\n\
+    6. Extract sufficient statistics from a MAF file for a complete\n\
+    human chromosome.  (Can be used by phyloFit.)\n\
+\n\
+        msa_view chr1.maf --in-format MAF --out-format SS > chr1.ss\n\
+\n\
+    7. As in (6), but include information about regions of the\n\
+    reference sequence not present in the MAF file, and include a\n\
+    representation of the order in which alignment columns occur\n\
+    (needed by programs such as phastCons or exoniphy).  \n\
+\n\
+        msa_view chr1.maf --in-format MAF --refseq chr1.fa\n\
+            --out-format SS > chr1.ordered.ss\n\
+\n\
+    8. As in (6), but collect statistics for pairs of adjacent sites\n\
+    (can be used by phyloFit to estimate a dinucleotide model).\n\
+\n\
+        msa_view chr1.maf --in-format MAF --out-format SS \n\
+            --tuple-size 2 > chr1.pairs.ss\n\
+\n\
+    9. Pool sufficient statistics from several human chromosomes.\n\
+\n\
+        msa_view --in-format SS --aggregate human,mouse,rat \n\
+            --out-format SS chr1.ss chr2.ss chr3.ss > chr123.ss\n\
+\n\
+    10. Extract separate sufficient statistics for the three codon\n\
+    positions, as defined by annotations in a GFF file.\n\
+\n\
+        msa_view chr1.maf --in-format MAF --features chr22.gff \n\
+            --catmap \"NCATS = 3; CDS 1-3\" --out-format SS \n\
+            > chr22.pos.ss\n\
+\n\
+    11. As in (10), but re-orient genes on - strand so that stats\n\
+    reflect + strand.  Assume genes are defined by tag \"transcript_id\".\n\
+\n\
+        msa_view chr1.maf --in-format MAF --features chr22.gff \n\
+            --catmap \"NCATS = 3; CDS 1-3\" --reverse-groups transcript_id\n\
+            --out-format SS > chr22.pos.ss\n\
+\n\
+OPTIONS:\n\
+\n\
+ (Obtaining sub-alignments and combining alignments)\n\
     --start, -s <start_col>\n\
         Starting column of sub-alignment (indexing starts with 1).\n\
         Default is 1.\n\
@@ -43,11 +119,6 @@ Options:\n\
     --end, -e <end_col>\n\
         Ending column of sub-alignment.  Default is length of\n\
         alignment.\n\
-\n\
-    --refidx, -r <ref_seq>\n\
-        Index of reference sequence for coordinates.  Use 0 to\n\
-        indicate the coordinate system of the alignment as a whole\n\
-        (this is the default).\n\
 \n\
     --seqs, -l <seq_list>\n\
         Comma-separated list of indices of sequences to include\n\
@@ -57,13 +128,24 @@ Options:\n\
     --exclude, -x\n\
         Exclude rather than include specified sequences.\n\
 \n\
-    --gap-strip, -G ALL|ANY|<s>\n\
-        Strip columns containing all gaps, any gaps, or a gap in the\n\
-        specified sequence (<s>).  Indexing starts at one and refers\n\
-        to the list *after* any sequences have been added or\n\
-        subtracted (via --seqs and --exclude).  Default is not to\n\
-        strip any columns.\n\
+    --refidx, -r <ref_seq>\n\
+        Index of reference sequence for coordinates.  Use 0 to\n\
+        indicate the coordinate system of the alignment as a whole\n\
+        (this is the default).\n\
 \n\
+    --aggregate, -A <name_list>\n\
+        (Incompatible with -i MAF) Create an aggregate alignment from\n\
+        a set of alignment files, by concatenating individual\n\
+        alignments.  If used with --out-format SS and --unordered-ss (and\n\
+        without --start, --end, or --seqs), the aggregate\n\
+        alignment will never be created explicitly (recommended for\n\
+        large data sets).  The argument <name_list> must be a list of\n\
+        sequence names, including all names in all specified\n\
+        alignments (missing sequences will be replaced by rows of\n\
+        gaps).  The standard <msa_fname> argument should be replaced\n\
+        with a list of file names.\n\
+\n\
+ (File formats, gap stripping, reordering, etc.)\n\
     --in-format, -i PHYLIP|FASTA|MPM|MAF|SS\n\
         (Default FASTA) Input file format.  FASTA is as usual.  PHYLIP\n\
         is compatible with the formats used in the PHYLIP and PAML\n\
@@ -84,6 +166,45 @@ Options:\n\
         corresponding character in first sequence).  Ignored if\n\
         --out-format SS is selected.\n\
 \n\
+    --gap-strip, -G ALL|ANY|<s>\n\
+        Strip columns containing all gaps, any gaps, or a gap in the\n\
+        specified sequence (<s>).  Indexing starts at one and refers\n\
+        to the list *after* any sequences have been added or\n\
+        subtracted (via --seqs and --exclude or --order).\n\
+\n\
+    --order, -O <name_list>\n\
+        Change order of rows in alignment to match sequence names\n\
+        specified in name_list.  If a name appears in name_list but\n\
+        not in the alignment, a row of gaps will be inserted.  This\n\
+        option is applied to the alignment *before* --seqs,\n\
+        --refidx, and --gap-strip are applied.\n\
+\n\
+    --reverse-complement, -V\n\
+        Reverse complement output alignment.\n\
+\n\
+    --randomize, -R\n\
+        Randomly permute the columns of the source alignment (done\n\
+        *before* taking sub-alignment).  Requires an ordered\n\
+        representation of the alignment (careful using with\n\
+        --in-format SS|MAF -- will create full alignment from\n\
+        sufficient statistics).\n\
+\n\
+    --fill-Ns, -N <s:b-e>\n\
+        Fill sequence no. <s> with Ns, from <b> to <e>. Applied before\n\
+        --start, --end, --seqs, --gap-strip, but after --order.\n\
+        Coordinate frame depends on --refidx.  Can be used\n\
+        multiple times.\n\
+\n\
+    --summary-only -S\n\
+        Report only summary statistics, rather than complete\n\
+        alignment.  Statistics are for alignment that would otherwise\n\
+        be output (i.e., after other options have been applied).\n\
+\n\
+    --window-summary, -w <win_size>\n\
+        Like -S, but output summary statistics for non-overlapping\n\
+        windows of the specified size.\n\
+\n\
+ (Sufficient statistics)\n\
     --tuple-size, -T <tup_size>\n\
         (For use with --out-format SS).  Represent an alignment in\n\
         terms of tuples of columns of the designated size.  Useful\n\
@@ -95,11 +216,27 @@ Options:\n\
         columns appear.  Useful for analyses for which order is\n\
         unimportant.\n\
 \n\
+ (MAF input)\n\
+    --refseq, -M <fname>\n\
+        Read the complete text of the reference sequence from\n\
+        <fname> (FASTA format) and combine it with the contents of\n\
+        the MAF file to produce a complete, ordered representation of\n\
+        the alignment (unaligned regions will be represented by gaps).\n\
+        Best used with --out-format SS.  The reference sequence of the\n\
+        MAF file is assumed to be the one that appears first in each\n\
+        block.\n\
+\n\
+    --allow-overlapping\n\
+        Allow blocks in MAF with overlapping coordinates in the\n\
+        reference sequence (by default, only the first one is kept).\n\
+        Cannot be used with --refseq, --features, or --cats-cycle.\n\
+\n\
+ (Site categories: all options require --out-format SS)\n\
     --features, -g <gff_fname>\n\
         (Requires --catmap) Read sequence annotations from the\n\
         specified file (GFF) and label the columns of the alignment\n\
-        accordingly.  Useful for alignment representations that\n\
-        consider site categories (currently only supported with SS).\n\
+        accordingly.  Note: UCSC BED and genepred formats are now\n\
+        recognized as well.\n\
 \n\
     --catmap, -c <fname>|<string>\n\
         (optionally use with --features) Mapping of feature types to\n\
@@ -115,68 +252,16 @@ Options:\n\
         (use with --do-cats).\n\
 \n\
     --do-cats, -C <cat_list>\n\
-        (For use with --features/--catmap or --cats-cycle, and\n\
-        --out-format SS.)  Obtain sufficient statistics only for the\n\
-        specified categories (comma-delimited list).  This option\n\
-        currently has no effect with --in-format MAF (stats for all\n\
-        categories are automatically collected as file is read).\n\
+        (For use with --features/--catmap or --cats-cycle)  Obtain\n\
+        sufficient statistics only for the specified categories\n\
+        (comma-delimited list).  Currently has no effect with\n\
+        --in-format MAF (stats for all categories are automatically\n\
+        collected as file is read).\n\
 \n\
     --codons, -D\n\
-        (For use with --features/--catmap or --cats-cycle, and\n\
-        --out-format SS.) Implies --tuple-size 3 --cats-cycle 3\n\
-        --do-cats 3.  Extract sufficient statistics for in-frame\n\
-        codons.\n\
-\n\
-    --aggregate, -A <name_list>\n\
-        (Incompatible with -i MAF) Create an aggregate alignment from\n\
-        a set of alignment files, by concatenating individual\n\
-        alignments.  If used with --out-format SS and --unordered-ss (and\n\
-        without --start, --end, or --seqs), the aggregate\n\
-        alignment will never be created explicitly (recommended for\n\
-        large data sets).  The argument <name_list> must be a list of\n\
-        sequence names, including all names in all specified\n\
-        alignments (missing sequences will be replaced by rows of\n\
-        gaps).  The standard <msa_fname> argument should be replaced\n\
-        with a list of file names.\n\
-\n\
-    --refseq, -M <rseq_fname>\n\
-        (for use with --in-format MAF) Read the complete text of the\n\
-        reference sequence for the MAF alignment from <seq_fname>\n\
-        (FASTA format assumed) and combine it with the contents of the\n\
-        MAF file to produce a complete, ordered representation of the\n\
-        alignment (unaligned regions represented by gaps).  Best used\n\
-        with --out-format SS.  The reference sequence is taken to be\n\
-        the one that appears first in each block of the MAF file.\n\
-\n\
-    --order, -O <name_list>\n\
-        Change order of rows in alignment to match sequence names\n\
-        specified in name_list.  If a name appears in name_list but\n\
-        not in the alignment, a row of gaps will be inserted.  This\n\
-        option is applied to the alignment *before* --seqs,\n\
-        --refidx, and --gap-strip are applied.\n\
-\n\
-    --summary-only -S\n\
-        Report only summary statistics, rather than complete\n\
-        alignment.  Statistics are for alignment that would otherwise\n\
-        be output (i.e., after other options have been applied).\n\
-\n\
-    --window-summary, -w <win_size>\n\
-        Like -S, but output summary statistics for nonoverlapping\n\
-        windows of the specified size.\n\
-\n\
-    --fill-Ns, -N <s:b-e>\n\
-        Fill sequence no. <s> with Ns, from <b> to <e>. Applied before\n\
-        --start, --end, --seqs, --gap-strip, but after --order.\n\
-        Coordinate frame depends on --refidx.  Option can be used\n\
-        multiple times.\n\
-\n\
-    --help, -h\n\
-        Print this help message.\n\
-\n\
-\n\
- (Experimental)\n\
-    --reverse-complement, -V\n\
-        Reverse complement output alignment.\n\
+        (For use with --features/--catmap or --cats-cycle.) Implies\n\
+        --tuple-size 3 --cats-cycle 3 --do-cats 3.  Extract sufficient\n\
+        statistics for in-frame codons.\n\
 \n\
     --reverse-groups, -W <tag>\n\
         (For use with --features) Group features by <tag> (e.g.,\n\
@@ -186,16 +271,16 @@ Options:\n\
         --unique).  Useful when extracting sufficient statistics for\n\
         strand-specific site categories (e.g., codon positions).\n\
 \n\
+ (Alignment cleaning)\n\
     --clean-coding, -L <seqname>\n\
-        (Supercedes --gap-strip) Clean an alignment of coding\n\
-        sequences with respect to a named reference sequence.  Removes\n\
-        sites with gaps and blocks of gapless sites smaller than 10\n\
-        codons in length, ensures everything is in-frame wrt reference\n\
-        sequence, prohibits in-frame stop codons.  Reference sequence\n\
-        must begin with a start codon and end with a stop codon.\n\
+        Clean an alignment of coding sequences with respect to a named\n\
+        reference sequence.  Removes sites with gaps and blocks of\n\
+        gapless sites smaller than 10 codons in length, ensures\n\
+        everything is in-frame wrt reference sequence, prohibits\n\
+        in-frame stop codons.  Reference sequence must begin with a\n\
+        start codon and end with a stop codon.\n\
 \n\
     --clean-indels, -I <nseqs>\n\
-        (Supercedes --gap-strip, not compatible with --clean-coding.)\n\
         Clean an alignment with special attention to indels.  Sites\n\
         with fewer than <nseqs> bases are removed; bases adjacent to\n\
         indels, and short gapless subsequences, are replaced with Ns.\n\
@@ -203,12 +288,9 @@ Options:\n\
         will be retained between columns not adjacent in the original\n\
         alignment.  Frame is not considered.\n\
 \n\
-    --randomize, -R\n\
-        Randomly permute the columns of the source alignment (done\n\
-        *before* taking sub-alignment).  Requires an ordered\n\
-        representation of the alignment (careful using with\n\
-        --in-format SS|MAF -- will create full alignment from\n\
-        sufficient statistics).\n\n");
+ (Other)\n\
+    --help, -h\n\
+        Print this help message.\n\n");
 }
 
 void fill_with_Ns(MSA *msa, List *fill_N_list, msa_coord_map *map) {
@@ -483,10 +565,7 @@ int main(int argc, char* argv[]) {
 
   else {
     msa = msa_new_from_file(fopen_fname(infname, "r"), input_format, NULL);
-    if (msa == NULL) { 
-      fprintf(stderr, "ERROR reading %s.\n", infname);
-      exit(1);
-    }
+    if (msa == NULL) die ("ERROR reading %s.\n", infname);
   }
 
   if (order_list != NULL)
