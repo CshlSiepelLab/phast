@@ -17,9 +17,7 @@ PROGRAM:        %s\n\
 DESCRIPTION:    Read a file representing a set of features, optionally\n\
                 alter the set in one or more of several possible ways, then\n\
                 output it in the desired format.  Input and output formats\n\
-                may be GFF, BED, or genepred.  The full, 12-column BED format\n\
-                is used for output, but abbreviated versions (e.g., 3-column,\n\
-                4-column, or 6-column) are accepted as input.\n\
+                may be GFF, BED, or genepred.\n\
 \n\
                 The input format is recognized automatically, but auto-\n\
                 recognition requires a 'seekable' input stream (e.g., an\n\
