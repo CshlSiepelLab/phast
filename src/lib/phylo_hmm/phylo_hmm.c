@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.16 2004-08-14 20:22:41 acs Exp $
+/* $Id: phylo_hmm.c,v 1.17 2004-08-14 20:46:49 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -115,29 +115,8 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
       die("ERROR: tree models for phylo-HMM have different numbers of nodes.\n");
   }
 
-  /* now initialize mappings */
-  max_nstates = phmm->reflected ? phmm->functional_hmm->nstates * 2 : 
-    phmm->functional_hmm->nstates;
-  if (indel_mode == PARAMETERIC) 
-    max_nstates *= 2 * (topology->nnodes - 2) + 2; /* gap patterns */
-  phmm->state_to_mod = smalloc(max_nstates * sizeof(int));
-  phmm->state_to_cat = smalloc(max_nstates * sizeof(int));
-  phmm->state_to_pattern = smalloc(max_nstates * sizeof(int));
-  phmm->reverse_compl = smalloc(max_nstates * sizeof(int));
-  phmm->cat_to_states = smalloc((phmm->cm->ncats+1) * sizeof(List*));
-  for (cat = 0; cat <= phmm->cm->ncats; cat++) 
-    phmm->cat_to_states[cat] = lst_new_int(5);
-
-  /* we need separate initialization logic for the cases with and
-     without indel cats.  This is related to the fact that we're using
-     the "unspooling" mechanism of the category map to help define the
-     indel model.  When there are no indel cats, the HMM states
-     correspond to ordinary ("unspooled") categories, but when there
-     are indel cats, they correspond to (unspooled) *gap* categories.
-     Without indel cats, there is a direct correspondence between
-     "spooled" categories and models; with indel cats, multiple
-     spooled gap categories map to the same model */
-
+  /* expand category map for indel model, if necessary.  Also obtain
+     mappings between cats and gapcats */
   if (indel_mode != MISSING_DATA) {
     /* start by enlarging catmap to allows for gap cats, and creating
        mappings between cats and gapcats */
@@ -157,14 +136,37 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
     lst_free(indel_types);
   }
 
-  /* now the number of unspooled categories should equal the number of
-     states in the HMM */
   nunspooled_cats = phmm->cm->unspooler == NULL ? phmm->cm->ncats + 1 : 
     phmm->cm->unspooler->nstates_unspooled;
-  if (phmm->hmm == NULL)        /* parameteric indel model */
+
+  if (phmm->hmm == NULL)        /* parameteric indel model -- create hmm */
     phmm->hmm = hmm_new_nstates(nunspooled_cats, TRUE, FALSE);
-  else if (phmm->hmm->nstates != nunspooled_cats)
+
+  /* now the number of unspooled categories should equal the number of
+     states in the HMM */
+  if (phmm->hmm->nstates != nunspooled_cats)
     die("ERROR: number of states in HMM must equal number of site categories (unspooled).\n");
+
+  /* initialize mappings */
+  max_nstates = phmm->reflected ? phmm->hmm->nstates * 2 : 
+    phmm->hmm->nstates;
+  phmm->state_to_mod = smalloc(max_nstates * sizeof(int));
+  phmm->state_to_cat = smalloc(max_nstates * sizeof(int));
+  phmm->state_to_pattern = smalloc(max_nstates * sizeof(int));
+  phmm->reverse_compl = smalloc(max_nstates * sizeof(int));
+  phmm->cat_to_states = smalloc((phmm->cm->ncats+1) * sizeof(List*));
+  for (cat = 0; cat <= phmm->cm->ncats; cat++) 
+    phmm->cat_to_states[cat] = lst_new_int(5);
+
+  /* we need separate initialization logic for the cases with and
+     without indel cats.  This is related to the fact that we're using
+     the "unspooling" mechanism of the category map to help define the
+     indel model.  When there are no indel cats, the HMM states
+     correspond to ordinary ("unspooled") categories, but when there
+     are indel cats, they correspond to (unspooled) *gap* categories.
+     Without indel cats, there is a direct correspondence between
+     "spooled" categories and models; with indel cats, multiple
+     spooled gap categories map to the same model */
 
   for (s = 0; s < max_nstates; s++) {
     phmm->reverse_compl[s] = 0;
@@ -194,9 +196,11 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
                                    and phmm_rate_cats yet */
   }
 
+  /* reflect if necessary */
   if (pivot_cats != NULL) 
     phmm_reflect_hmm(phmm, pivot_cats);
 
+  /* initialize alpha, beta, and omega if parameteric indel model */
   if (indel_mode == PARAMETERIC) {
     phmm->alpha = smalloc(phmm->functional_hmm->nstates * sizeof(double));
     phmm->beta = smalloc(phmm->functional_hmm->nstates * sizeof(double));
