@@ -86,17 +86,17 @@ phyloFit:
 
 phastCons:
 	@echo "*** Testing phastCons ***"
-	# FIXME: should get a test case with missing data and with more rate variation
-	phyloFit -s HKY85 -k 4 hmrc.ss --tree "(human, (mouse,rat), cow)" -i SS --quiet
-	phastCons hmrc.ss phyloFit.mod --nrates 10 --transitions .08,.008 --quiet > cons.dat
+	phastCons hpmrc.ss hpmrc-rev-dg-global.mod --nrates 20 --transitions .08,.008 --quiet --viterbi elements.bed > cons.dat
 	@if [[ -n `diff --brief cons.dat cons_correct.dat` ]] ; then echo "ERROR" ; exit 1 ; fi  
-	phyloFit -s HKY85 -k 4 hmrc.ss --tree "(human, mouse, cow)" -i SS --quiet
-	phastCons hmrc.ss phyloFit.mod --nrates 10 --transitions .08,.008 --quiet > cons-hmr.dat
-	@if [[ -n `diff --brief cons-hmr.dat cons-hmr_correct.dat` ]] ; then echo "ERROR" ; exit 1 ; fi  
+	@if [[ -n `diff --brief elements.bed elements_correct.bed` ]] ; then echo "ERROR" ; exit 1 ; fi  
+	tree_doctor hpmrc-rev-dg-global.mod --prune galGal2 > hpmr.mod
+	phastCons hpmrc.ss hpmr.mod --nrates 20 --transitions .08,.008 --quiet --viterbi elements-4way.bed > cons-4way.dat
+	@if [[ -n `diff --brief cons-4way.dat cons-4way_correct.dat` ]] ; then echo "ERROR" ; exit 1 ; fi  
+	@if [[ -n `diff --brief elements-4way.bed elements-4way_correct.bed` ]] ; then echo "ERROR" ; exit 1 ; fi  
 	@echo -e "Passed all tests.\n"
-	@rm -f phyloFit.mod cons.dat cons-hmr.dat
+	@rm -f cons.dat cons-4way.dat elements.bed elements-4way.bed hpmr.mod
 
-# still need to test esimation of MLE for transition probs, coding potential, felsenstein/churchill model, prediction of conserved elements
+# still need to test estimation of MLE for transition probs, coding potential, felsenstein/churchill model
 
 # msa_split
 
