@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.20 2004-08-16 07:45:44 markd Exp $
+/* $Id: clean_genes.c,v 1.21 2004-08-16 19:40:27 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -277,7 +277,9 @@ inline int is_conserved_start(GFF_Feature *feat, MSA *msa) {
     tuplestr[0] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start], j, 0);
     tuplestr[1] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start+1], j, 0);
     tuplestr[2] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start+2], j, 0);
-    if (strcmp(tuplestr, "NNN") == 0) continue;
+    if (msa->is_missing[(int)tuplestr[0]] && msa->is_missing[(int)tuplestr[1]]
+        && msa->is_missing[(int)tuplestr[2]])
+      continue;
     if (feat->strand == '-') msa_reverse_compl_seq(tuplestr, 3);
     if (strcmp(tuplestr, "ATG") != 0) return 0;
   }
@@ -299,7 +301,8 @@ inline int is_conserved_stop(GFF_Feature *feat, MSA *msa) {
     tuplestr[0] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start], j, 0);
     tuplestr[1] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start+1], j, 0);
     tuplestr[2] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start+2], j, 0);
-    if (strcmp(tuplestr, "NNN") == 0) continue;
+    if (msa->is_missing[(int)tuplestr[0]] && msa->is_missing[(int)tuplestr[1]]
+        && msa->is_missing[(int)tuplestr[2]])
     if (feat->strand == '-') msa_reverse_compl_seq(tuplestr, 3);
     if (!is_stop_codon(tuplestr)) return 0;
   }
@@ -325,7 +328,8 @@ inline int is_conserved_5splice(GFF_Feature *feat, MSA *msa, int offset5,
   for (j = 0; j < msa->nseqs; j++) {
     tuplestr[0] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start], j, 0);
     tuplestr[1] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start+1], j, 0);
-    if (strcmp(tuplestr, "NN") == 0) continue;
+    if (msa->is_missing[(int)tuplestr[0]] && msa->is_missing[(int)tuplestr[1]])
+      continue;
     if (feat->strand == '-') msa_reverse_compl_seq(tuplestr, 2);
     if (!is_valid_5splice(tuplestr, splice_strict)) return 0;
   }
@@ -350,7 +354,8 @@ inline int is_conserved_3splice(GFF_Feature *feat, MSA *msa, int offset3,
   for (j = 0; j < msa->nseqs; j++) {
     tuplestr[0] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start], j, 0);
     tuplestr[1] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start+1], j, 0);
-    if (strcmp(tuplestr, "NN") == 0) continue;
+    if (msa->is_missing[(int)tuplestr[0]] && msa->is_missing[(int)tuplestr[1]])
+      continue;
     if (feat->strand == '-') msa_reverse_compl_seq(tuplestr, 2);
     if (!is_valid_3splice(tuplestr, splice_strict)) return 0;
   }
@@ -551,7 +556,7 @@ inline int is_incomplete_alignment(GFF_Feature *feat, MSA *msa) {
   for (i = 1; i < msa->nseqs; i++) { /* no need to check reference seq */
     int row_all_gaps = 1;
     for (j = feat->start - 1; row_all_gaps && j < feat->end; j++)
-      if (ss_get_char_tuple(msa, msa->ss->tuple_idx[j], i, 0) != GAP_CHAR)
+      if (msa->inv_alphabet[(int)ss_get_char_tuple(msa, msa->ss->tuple_idx[j], i, 0)] >= 0)
         row_all_gaps = 0;
     if (row_all_gaps) return 1;
   }
