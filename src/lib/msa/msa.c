@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.34 2005-01-31 18:31:36 acs Exp $
+/* $Id: msa.c,v 1.35 2005-01-31 18:35:56 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -710,7 +710,7 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
   String *prev_name = NULL;
   msa_coord_map *from_map = NULL, *to_map = NULL;
   GFF_Feature *feat;
-  int i, orig_span;
+  int i, orig_span, tmp1, tmp2;
 
   maps = (msa_coord_map**)smalloc((msa->nseqs + 1) * 
                                   sizeof(msa_coord_map*));
@@ -757,8 +757,15 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
     orig_span = feat->end - feat->start;
 
     /* from_map, to_map will be NULL iff fseq, to_seq are 0 */
-    feat->start = msa_map_seq_to_seq(from_map, to_map, feat->start) + offset;
-    feat->end = msa_map_seq_to_seq(from_map, to_map, feat->end) + offset;
+    tmp1 = msa_map_seq_to_seq(from_map, to_map, feat->start) + offset;
+    tmp2 = msa_map_seq_to_seq(from_map, to_map, feat->end) + offset;
+
+    if (tmp1 == -1 || tmp2 == -1) 
+      fprintf(stderr, "WARNING: coordinate mapping failed for (%d,%d)\n",
+	      feat->start, feat->end);
+
+    feat->start = tmp1;
+    feat->end = tmp2;
 
     /* TEMPORARY: Prevent overall size of "signal" (non-cyclic)
        features from changing.  This needs to be redone in a general
