@@ -1,4 +1,4 @@
-/* $Id: category_map.c,v 1.12 2004-08-10 22:03:30 acs Exp $
+/* $Id: category_map.c,v 1.13 2004-08-14 04:23:33 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -304,7 +304,7 @@ List *cm_get_category_list(CategoryMap *cm,
   for (i = 0; i < lst_size(names); i++) {
     String *n = lst_get_ptr(names, i);
     if (str_as_int(n, &cat) == 0) {
-      if (cat < 0 || cat > cm->ncats) 
+      if (cat < 0 || (cm != NULL && cat > cm->ncats)) 
         die("ERROR: category number %d is out of bounds.\n", cat);
       lst_push_int(retval, cat);
     }
