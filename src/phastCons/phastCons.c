@@ -391,7 +391,6 @@ int main(int argc, char *argv[]) {
       states = get_arg_list(optarg);
       break;
     case 'H':
-      if (!quiet) fprintf(stderr, "Reading HMM from %s...\n", optarg);
       hmm = hmm_new_from_file(fopen_fname(optarg, "r"));
       two_state = FALSE;
       break;
@@ -655,7 +654,7 @@ int main(int argc, char *argv[]) {
     /* print to stdout */
     for (j = 0, k = 0; j < msa->length; j++) {
       if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
-        if (!msa_missing_col(msa, 1, j))
+        if (!msa_missing_col(msa, refidx, j))
           printf("%d\t%.4f\n", k + msa->idx_offset + 1, postprobs[j]);
         k++;
       }
