@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.30 2004-08-29 22:27:32 acs Exp $
+/* $Id: msa.c,v 1.31 2004-08-30 19:37:52 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1085,7 +1085,7 @@ void msa_print_stats(MSA *msa, FILE *F, char *label, int header, int start,
         gc += gsl_vector_get(freqs, i);
     }
     fprintf(F, "%10.4f ", gc);
-    fprintf(F, "%10d ", start >= 0 && end >= 0 ? end - start : msa->length);
+    fprintf(F, "%10u ", start >= 0 && end >= 0 ? end - start : msa->length);
     fprintf(F, "%10d ", nallgaps);
     fprintf(F, "%10d\n", nanygaps);
   }
