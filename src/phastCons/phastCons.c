@@ -15,13 +15,13 @@
 void setup_rates_cut(HMM **hmm, CategoryMap **cm, double p, double q);
 
 double fit_rates_cut(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
-                     int estim_tree, double *p, double *q, 
+                     int estim_trees, double *p, double *q, 
                      double *alpha_0, double *beta_0, double *omega_0, 
                      double *alpha_1, double *beta_1, double *omega_1, 
                      double conserved_scale, double target_coverage, FILE *logf);
 
-void reestimate_tree(void **models, int nmodels, void *data, 
-                     double **E, int nobs, FILE *logf);
+void reestimate_trees(void **models, int nmodels, void *data, 
+                      double **E, int nobs, FILE *logf);
 
 void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A);
 
@@ -223,11 +223,11 @@ OPTIONS:\n\
         two-state HMM, two values can be specified, for the numbers of\n\
         rates for the conserved and the nonconserved states, resp.\n\
 \n\
-    --estimate-tree, -T <fname_root>\n\
+    --estimate-trees, -T <fname_root>\n\
         (Optionally use with default two-state HMM) Re-estimate tree\n\
         model parameters, in the context of the two-state HMM, and\n\
         write new models to files with given file-name root.  By\n\
-        default, the tree model is kept fixed.\n\
+        default, the tree models are kept fixed.\n\
 \n\
     --conserved-scale, -R <scale_factor>\n\
         (Optionally use with default two-state HMM) Set the *scale*\n\
@@ -235,7 +235,7 @@ OPTIONS:\n\
         state to be <scale_factor> times that of the model for the\n\
         non-conserved state.  The parameter <scale_factor> must be\n\
         between 0 and 1; default is 0.5.  If used with\n\
-        --estimate-tree, the specified value will be used for\n\
+        --estimate-trees, the specified value will be used for\n\
         initialization only (the scale factor will be estimated).\n\
         This option is ignored if two tree models are given.\n\
 \n\
@@ -421,7 +421,7 @@ int main(int argc, char *argv[]) {
     gff = FALSE, rates_cross = FALSE, estim_lambda = TRUE, 
     estim_transitions = TRUE, two_state = TRUE, indels = FALSE,
     coding_potential = FALSE, indels_only = FALSE, estim_indels = TRUE,
-    estim_tree = FALSE;
+    estim_trees = FALSE;
   int nrates = -1, nrates2 = -1, refidx = 1, min_inform_bases = 2, 
     max_micro_indel = 20;
   double lambda = 0.9, p = 0.01, q = 0.01, alpha_0 = 0.05, beta_0 = 0.05, 
@@ -431,7 +431,7 @@ int main(int argc, char *argv[]) {
   FILE *viterbi_f = NULL, *lnl_f = NULL, *log_f = NULL;
   List *states = NULL, *pivot_states = NULL, *min_inform_str = NULL, 
     *mod_fname_list;
-  char *seqname = NULL, *idpref = NULL, *estim_tree_fname_root = NULL;
+  char *seqname = NULL, *idpref = NULL, *estim_trees_fname_root = NULL;
   HMM *hmm = NULL;
   Hashtable *alias_hash = NULL;
 
@@ -445,7 +445,7 @@ int main(int argc, char *argv[]) {
     {"lambda", 1, 0, 'l'},
     {"target-coverage", 1, 0, 'C'},
     {"transitions", 1, 0, 't'},
-    {"estimate-tree", 1, 0, 'T'},
+    {"estimate-trees", 1, 0, 'T'},
     {"conserved-scale", 1, 0, 'R'},
     {"nrates", 1, 0, 'k'},
     {"log", 1, 0, 'g'},
@@ -531,8 +531,8 @@ int main(int argc, char *argv[]) {
       lst_free(tmpl);
       break;
     case 'T':
-      estim_tree = TRUE;
-      estim_tree_fname_root = optarg;
+      estim_trees = TRUE;
+      estim_trees_fname_root = optarg;
       break;
     case 'k':
       tmpl = get_arg_list_int(optarg);
@@ -636,8 +636,8 @@ int main(int argc, char *argv[]) {
   if (indels_only && (hmm != NULL || rates_cross))
     die("ERROR: --indels-only cannot be used with --hmm or --rates-cross.\n");
 
-  if ((estim_tree || target_coverage != -1) && !two_state)
-    die("ERROR: --estimate-tree, and --target-coverage can only be used with default two-state HMM.\n");
+  if ((estim_trees || target_coverage != -1) && !two_state)
+    die("ERROR: --estimate-trees, and --target-coverage can only be used with default two-state HMM.\n");
 
   if (cm != NULL && hmm == NULL) 
     die("ERROR: --catmap can only be used with --hmm.\n");
@@ -711,7 +711,7 @@ int main(int argc, char *argv[]) {
       mod[1] = tm_create_copy(mod[0]);
       tm_scale(mod[0], conserved_scale, TRUE);
     }
-    if (lst_size(mod_fname_list) == 2 && estim_tree)
+    if (lst_size(mod_fname_list) == 2 && estim_trees)
       die("ERROR: If re-estimating tree models, pass in only one model for initialization.\n");
     if (mod[0]->empirical_rates || mod[1]->empirical_rates)
       die("ERROR: nonparameteric rate variation not allowed with default two-state HMM.\n");
@@ -835,19 +835,19 @@ int main(int argc, char *argv[]) {
   }
 
   /* estimate p and q and indel params, if necessary */
-  else if (two_state && (estim_transitions || estim_indels || estim_tree)) {
+  else if (two_state && (estim_transitions || estim_indels || estim_trees)) {
     if (!quiet) {
       fprintf(stderr, "Finding MLE for (");
       if (estim_transitions) 
-        fprintf(stderr, "p, q%s", estim_indels || estim_tree ? ", " : "");
+        fprintf(stderr, "p, q%s", estim_indels || estim_trees ? ", " : "");
       if (estim_indels) 
         fprintf(stderr, "alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1%s",
-                estim_tree ? ", " : "");
-      if (estim_tree)
+                estim_trees ? ", " : "");
+      if (estim_trees)
         fprintf(stderr, "[tree models]");
       fprintf(stderr, ")...\n");
     }
-    lnl = fit_rates_cut(phmm, msa, estim_transitions, estim_indels, estim_tree,
+    lnl = fit_rates_cut(phmm, msa, estim_transitions, estim_indels, estim_trees,
                         &p, &q, &alpha_0, &beta_0, &omega_0, 
                         &alpha_1, &beta_1, &omega_1, conserved_scale,
                         target_coverage, log_f);
@@ -860,10 +860,10 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, ")\n");
     }
 
-    if (estim_tree) {
+    if (estim_trees) {
       char cons_fname[STR_MED_LEN], noncons_fname[STR_MED_LEN];
-      sprintf(cons_fname, "%s.cons.mod", estim_tree_fname_root);
-      sprintf(noncons_fname, "%s.noncons.mod", estim_tree_fname_root);
+      sprintf(cons_fname, "%s.cons.mod", estim_trees_fname_root);
+      sprintf(noncons_fname, "%s.noncons.mod", estim_trees_fname_root);
       if (!quiet)
         fprintf(stderr, "Writing re-estimated tree models to %s and %s...\n", 
                 cons_fname, noncons_fname);
@@ -997,7 +997,7 @@ void setup_rates_cut(HMM **hmm, CategoryMap **cm, double p, double q) {
    the tree models themselves may be estimated.  Returns ln
    likelihood. */
 double fit_rates_cut(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
-                     int estim_tree, double *p, double *q, 
+                     int estim_trees, double *p, double *q, 
                      double *alpha_0, double *beta_0, double *omega_0, 
                      double *alpha_1, double *beta_1, double *omega_1, 
                      double conserved_scale, double target_coverage, FILE *logf) {
@@ -1028,7 +1028,7 @@ double fit_rates_cut(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
 
   phmm_reset(phmm); 
 
-  if (estim_tree) {
+  if (estim_trees) {
     msa->ncats = phmm->nmods - 1;   /* ?? */
     if (msa->ss == NULL) 
       ss_from_msas(msa, phmm->mods[0]->order+1, TRUE, NULL, NULL, NULL, -1);
@@ -1051,7 +1051,7 @@ double fit_rates_cut(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
     }
 
     retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, NULL, 
-                             phmm_compute_emissions_em, reestimate_tree,
+                             phmm_compute_emissions_em, reestimate_trees,
                              target_coverage > 0 ? 
                              phmm_estim_trans_em_coverage : phmm_estim_trans_em, 
                              phmm_get_obs_idx_em, 
@@ -1170,7 +1170,7 @@ void unpack_params_phmm(PhyloHmm *phmm, gsl_vector *params) {
   tm_set_subst_matrices(phmm->mods[1]);
 }
  
-/* Wrapper for computation of likelihood, for use by reestimate_tree (below) */
+/* Wrapper for computation of likelihood, for use by reestimate_trees (below) */
 double likelihood_wrapper(gsl_vector *params, void *data) {
   PhyloHmm *phmm = (PhyloHmm*)data;
   double retval0, retval1;
@@ -1186,8 +1186,8 @@ double likelihood_wrapper(gsl_vector *params, void *data) {
 }
 
 /* Re-estimate phylogenetic model based on expected counts (M step of EM) */
-void reestimate_tree(void **models, int nmodels, void *data, 
-                     double **E, int nobs, FILE *logf) {
+void reestimate_trees(void **models, int nmodels, void *data, 
+                      double **E, int nobs, FILE *logf) {
 
   PhyloHmm *phmm = (PhyloHmm*)data;
   int k, obsidx;
