@@ -1,4 +1,4 @@
-/* $Id: gff.h,v 1.3 2004-06-14 22:52:16 acs Exp $
+/* $Id: gff.h,v 1.4 2004-06-22 21:50:06 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -91,6 +91,15 @@ typedef struct {
 /* use when frame is null */
 #define GFF_NULL_FRAME -1       
 
+/* default feature types */
+#define GFF_CDS_TYPE "CDS"
+#define GFF_EXON_TYPE "exon"
+#define GFF_START_TYPE "start_codon"
+#define GFF_STOP_TYPE "stop_codon"
+#define GFF_UTR5_TYPE "5'UTR"
+#define GFF_UTR3_TYPE "3'UTR"
+
+
 
 GFF_Set* gff_read_set(FILE *F);
 
@@ -127,6 +136,10 @@ void gff_filter_by_type(GFF_Set *gff, List *include, FILE *discards_f);
 int gff_reverse_strand_only(List *features);
 
 void gff_reverse_compl(List *features, int start_range, int end_range);
+
+int gff_feature_comparator(const void* ptr1, const void* ptr2);
+
+int gff_group_comparator(const void* ptr1, const void* ptr2);
 
 void gff_sort(GFF_Set *set);
 

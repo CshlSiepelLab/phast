@@ -4,13 +4,11 @@
 #include <misc.h>
 #include <gff.h>
 #include <bed.h>
+#include <genepred.h>
 #include <hashtable.h>
 
-/* to do: support reading and writing of genepred format (should be
-   easy -- very similar to bed 12); add an option to insert features
-   for splice sites or start/stop coords at exon boundaries
-   ('addsignals'); make 'unique' option give priority to highest
-   scoring group (or longest, if no score is available) */
+/* to do: add an option to insert features for splice sites or
+   start/stop coords at exon boundaries ('addsignals'); */
 
 void usage(char *prog) {
   printf("\n\
@@ -19,15 +17,18 @@ PROGRAM:        %s\n\
 DESCRIPTION:    Read a file representing a set of features, optionally\n\
                 alter the set in one or more of several possible ways, then\n\
                 output it in the desired format.  Input and output formats\n\
-                may be GFF, BED, or genepred.  Input format is automatically\n\
-                recognized.  The full, 12-column BED format is used for\n\
-                output, but abbreviated versions (e.g., 3-column, 4-column,\n\
-                or 6-column) are accepted as input.\n\
+                may be GFF, BED, or genepred.  The full, 12-column BED format\n\
+                is used for output, but abbreviated versions (e.g., 3-column,\n\
+                4-column, or 6-column) are accepted as input.\n\
+\n\
+                The input format can be recognized automatically, but auto-\n\
+                recognition requires a 'seekable' input stream (e.g., an\n\
+                actual file rather than a pipe from stdin).\n\
 \n\
 USAGE:          %s [OPTIONS] <infile>\n\
 \n\
 OPTIONS:\n\
-    --include, -i <types>\n\
+    --include-only, -i <types>\n\
         Include only features of the specified types (comma-delimited list);\n\
         filter out everything else.\n\
 \n\
@@ -84,7 +85,7 @@ int main(int argc, char *argv[]) {
 
   struct option long_opts[] = {
     {"output", 1, 0, 'o'},
-    {"include", 1, 0, 'i'},
+    {"include-only", 1, 0, 'i'},
     {"groupby", 1, 0, 'g'},
     {"exongroup", 1, 0, 'e'},
     {"unique", 0, 0, 'u'},
@@ -99,6 +100,7 @@ int main(int argc, char *argv[]) {
     switch (c) {
     case 'o':
       if (!strcmp("BED", optarg)) output_format = BED;
+      else if (!strcmp("genepred", optarg)) output_format = genepred;
       else if (strcmp("GFF", optarg)) die("ERROR: bad output format.\n");
       break;
     case 'i':
@@ -131,7 +133,7 @@ int main(int argc, char *argv[]) {
 
   if (optind != argc - 1) 
     die("Input filename required.  Try '%s -h'.\n", argv[0]);
-    
+
   gff = gff_read_set(fopen_fname(argv[optind], "r"));
 
   /* filter */
@@ -152,7 +154,7 @@ int main(int argc, char *argv[]) {
   if (output_format == BED)
     gff_print_bed(stdout, gff, simplebed ? NULL : groupby, NULL);
   else if (output_format == genepred)
-    die("Sorry, no genepred output yet. :(\n");
+    gff_print_genepred(stdout, gff);
   else 
     gff_print_set(stdout, gff);
   

@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.9 2004-06-22 19:11:11 acs Exp $
+/* $Id: gff.c,v 1.10 2004-06-22 21:50:07 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -476,7 +476,7 @@ void gff_reverse_compl(List *features,
 }
 
 /* used by gff_sort (see below) */
-int gff_feature_start_comparator(const void* ptr1, const void* ptr2) {
+int gff_feature_comparator(const void* ptr1, const void* ptr2) {
   GFF_Feature *feat1 = *((GFF_Feature**)ptr1);
   GFF_Feature *feat2 = *((GFF_Feature**)ptr2);
   if (feat1->start != feat2->start) 
@@ -508,11 +508,11 @@ int gff_group_comparator(const void* ptr1, const void* ptr2) {
 void gff_sort(GFF_Set *set) {
   int i, j;
   if (set->groups == NULL)
-    lst_qsort(set->features, gff_feature_start_comparator);
+    lst_qsort(set->features, gff_feature_comparator);
   else {
     for (i = 0; i < lst_size(set->groups); i++)
       lst_qsort(((GFF_FeatureGroup*)lst_get_ptr(set->groups, i))->features, 
-                gff_feature_start_comparator);
+                gff_feature_comparator);
     lst_qsort(set->groups, gff_group_comparator);
     /* now reorder features according to groups */
     lst_clear(set->features);

@@ -1,6 +1,6 @@
 /* hashtable - Fast, simple array-based hash table, optimized for 'put' and 'get' ('delete' somewhat inefficient). */
 
-/* $Id: hashtable.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $ 
+/* $Id: hashtable.h,v 1.2 2004-06-22 21:50:06 acs Exp $ 
    Written by Adam Siepel, 2002.
    Copyright 2002, Adam Siepel, University of California.
 */
@@ -36,6 +36,8 @@ void* hsh_get(Hashtable* ht, char *key);
 /* Delete entry with specified key.  
    Returns 1 if item found and deleted, 0 if item not found */
 int hsh_delete(Hashtable* ht, char *key);
+
+int hsh_reset(Hashtable *ht, char* key, void* val);
 
 /* Free all resources; does *not* free memory associated with values */
 void hsh_free(Hashtable *ht);

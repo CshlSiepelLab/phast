@@ -1,4 +1,4 @@
-/* $Id: bed.c,v 1.5 2004-06-18 21:00:20 acs Exp $
+/* $Id: bed.c,v 1.6 2004-06-22 21:50:07 acs Exp $
    Written by Adam Siepel, 2004
    Copyright 2004, Adam Siepel, University of California */
 
@@ -147,7 +147,7 @@ void gff_print_bed_line(FILE *OUTF, List *features,
 }
 
 /** Write a GFF_Set in BED format.  */
-void gff_print_bed(FILE *OUTF,  /**< output stream  */
+void gff_print_bed(FILE *OUTF,  /**< Output stream  */
                    GFF_Set *gff, 
                                 /**< Set to write */
                    char *groupby, 

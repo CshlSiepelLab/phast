@@ -3,7 +3,7 @@
    keys but not of data objects, which are managed as void*s (memory
    management expected to be done externally) */
 
-/* $Id: hashtable.c,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $ 
+/* $Id: hashtable.c,v 1.2 2004-06-22 21:50:07 acs Exp $ 
    Written by Adam Siepel, 2002.
    Copyright 2002, Adam Siepel, University of California.
 */
@@ -75,6 +75,19 @@ int hsh_delete(Hashtable* ht, char *key) {
   lst_delete_idx(ht->keys[bucket], idx);
   lst_delete_idx(ht->vals[bucket], idx);
   return 1;
+}
+
+/* reset value for given key; returns 0 on success, 1 if item isn't found */
+int hsh_reset(Hashtable *ht, char* key, void* val) {
+  unsigned int bucket;
+  int idx;
+  bucket = hsh_hash_func(ht, key);
+  if (ht->keys[bucket] == NULL || 
+      (idx = lst_find_compare(ht->keys[bucket], key, equal)) == -1) 
+    return 1;
+  
+  lst_set_ptr(ht->vals[bucket], idx, val);
+  return 0;
 }
 
 void hsh_free(Hashtable *ht) {
