@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.9 2004-07-26 15:02:42 acs Exp $
+/* $Id: sufficient_stats.c,v 1.10 2004-07-27 20:30:23 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -966,7 +966,7 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
   if (!unordered_seqs && msa->ss->tuple_idx == NULL) 
     die("ERROR: ordered sufficient statistics required in ss_sub_alignment.\n");
 
-  if (retval->ncats >= 0 && !do_cats)
+  if (msa->ncats >= 0 && !do_cats)
     fprintf(stderr, "WARNING: ss_sub_alignment can't handle site categories with categories vector.  Ignoring category-specific counts.\n");
 
   retval = msa_new(NULL, new_names, lst_size(include_list), 
