@@ -178,6 +178,7 @@ EXAMPLES:\n\
 \n\
 \n\
 OPTIONS:\n\
+\n\
  (HMM structure and transition probabilities)\n\
     --hmm, -H <hmm_fname>\n\
         Name of HMM file explicitly defining the probabilities of all\n\
