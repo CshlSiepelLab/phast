@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.30 2004-07-25 19:34:23 acs Exp $
+/* $Id: exoniphy.c,v 1.31 2004-07-27 20:42:13 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -178,7 +178,7 @@ OPTIONS:\n\
         --min-informative-bases will result an emission probabilities\n\
         of zero.  If the default category map is used (see --catmap),\n\
         then this applies to CDSs, start and stop codons, and the canonical\n\
-        GT and AG positions of splice sites.  Note that alignment gaps
+        GT and AG positions of splice sites.  Note that alignment gaps\n\
         *are* considered informative; the way they are handled is defined\n\
         by --indels and --no-gaps.\n\
 \n\
