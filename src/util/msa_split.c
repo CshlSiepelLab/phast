@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.5 2004-06-17 16:28:51 acs Exp $
+/* $Id: msa_split.c,v 1.6 2004-06-18 19:15:24 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -65,7 +65,7 @@ Options:\n\
 \n\
     -d <partition_frame>\n\
         Index of frame of reference for split indices.  Default is\n\
-        0 (entire MSA).  For use with -p or -w.\n\
+        1 (1st sequence assumed reference).  For use with -p or -w.\n\
 \n\
     -n <npartitions>\n\
         Split the alignment equally into specified number of partitions.\n\
@@ -77,6 +77,10 @@ Options:\n\
     -L <cat_map_fname>\n\
         Split according to category labels, as defined by category map\n\
         and GFF file.  For use with -g.\n\
+\n\
+    -F <fname>
+        Extract the section of the alignment corresponding to every\n\
+        feature in <fname> (GFF or BED format).\n\
 \n\
     -C <cat_list>\n\
         (For use with -g and -L) Output sub-alignments for only the\n\
@@ -98,6 +102,10 @@ Options:\n\
         Strip columns in output alignments containing all gaps, any\n\
         gaps, or gaps in the specified sequence (<seqno>; indexing\n\
         begins with one).  Default is not to strip any columns.\n\
+\n\
+\n\ -l <seq_list>\n\
+        Include only specified sequences in output.  Indicate by \n\
+        sequence number, number starts with 1.\n\
 \n\
     -r <output_fname_root>\n\
         Root of filename for output files.  Suffixes will be .i.msa and\n\
@@ -147,19 +155,6 @@ Options:\n\
 \n\
     -h\n\
         Print this help message.\n\n", NSITES_BETWEEN_BLOCKS);
-
-
-    /* defunct option */
-/*     -D <old_cm_fname>,<new_cm_fname>\n\ */
-/*         Distinguish between upstream and downstream \"other\"\n\ */
-/*         (non-annotated) regions in each partition.  Adds a new\n\ */
-/*         category to the category map, called \"other2\", and adds a\n\ */
-/*         feature of this type at the end of each partition (extends\n\ */
-/*         from last feature to end of partition).  Useful for training\n\ */
-/*         single-gene HMMs.  Revises the category map in <old_cm_fname>\n\ */
-/*         and writes the new version to <new_cm_fname>.  For use with -g\n\ */
-/*         and -p or -P.\n\ */
-
 }
 
 void write_sub_msa(MSA *submsa, char *fname_root, int idx, 
@@ -347,46 +342,20 @@ void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list,
   }  
 }
 
-/* returns List of Strings derived from an argument that may either be
-   a literal comma-separated list or a reference to a file (using the
-   "*" convention).  Note: List and all Strings are newly allocated
-   (should be freed externally) */
-/* List *get_arg_list(char *arg) { */
-/*   String *argstr = str_new_charstr(arg); */
-/*   List *l = lst_new_ptr(10); */
-/*   if (str_starts_with_charstr(argstr, "*")) { */
-/*     FILE *F; */
-/*     String *fname_str; */
-/*     if ((F = fopen(&argstr->chars[1], "r")) == NULL) { */
-/*       fprintf(stderr, "ERROR: Cannot open file %s.\n", &argstr->chars[1]); */
-/*       exit(1); */
-/*     } */
-/*     fname_str = str_new(STR_MED_LEN); */
-/*     str_slurp(fname_str, F); */
-/*     str_split(fname_str, NULL, l); */
-/*     fclose(F); */
-/*     str_free(fname_str); */
-/*   } */
-/*   else  */
-/*     str_split(argstr, ",", l); */
-
-/*   str_free(argstr); */
-/*   return l; */
-/* } */
-
 int main(int argc, char* argv[]) {
   FILE* F;
   MSA *msa;
   msa_format_type input_format = FASTA, output_format = FASTA;
   char *msa_fname = NULL, *gff_fname = NULL, *split_indices_str = NULL, 
     *out_fname_root = "msa_split", *rseq_fname = NULL, *group_tag = NULL;
-  GFF_Set *gff = NULL;
+  GFF_Set *gff = NULL, *coord_feats = NULL;
   int npartitions = -1, feature_frame = -1, strand_sensitive = 0, 
-    faithful = 0, partition_frame = 0, quiet_mode = 0, gap_strip_mode = NO_STRIP,
+    faithful = 0, partition_frame = 1, quiet_mode = 0, gap_strip_mode = NO_STRIP,
     output_summary = 0, tuple_size = 1, win_size = -1, 
     win_overlap = -1, ordered_stats = 1, min_ninf_sites = -1, 
     adjust_radius = -1;
-  List *split_indices_list, *cats_to_do = NULL, *order_list = NULL;  
+  List *split_indices_list, *cats_to_do = NULL, *order_list = NULL, 
+    *segment_ends_list = NULL, *seqlist = NULL;  
   String *outfname, *sum_fname = NULL;
   FILE *SUM_F = NULL;
   char c;
@@ -396,7 +365,7 @@ int main(int argc, char* argv[]) {
   msa_coord_map *map = NULL;
   CategoryMap *cm = NULL;
 
-  while ((c = getopt(argc, argv, "i:M:g:c:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:Szqh")) != -1) {
+  while ((c = getopt(argc, argv, "i:M:g:c:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:F:Szqh")) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
@@ -450,6 +419,10 @@ int main(int argc, char* argv[]) {
       else if (!strcmp(optarg, "ANY")) gap_strip_mode = STRIP_ANY_GAPS;
       else gap_strip_mode = atoi(optarg);
       break;
+    case 'l':
+      seqlist = get_arg_list_int(optarg);
+      for (i = 0; i < lst_size(seqlist); i++) 
+        lst_set_int(seqlist, i, lst_get_int(seqlist, i) - 1);
     case 'r':
       out_fname_root = optarg;
       break;
@@ -481,6 +454,9 @@ int main(int argc, char* argv[]) {
         }
         lst_free(l);
       }
+      break;
+    case 'F':
+      coord_feats = gff_read_set(fopen_fname(optarg, "r"));
       break;
     case 'S':
       output_summary = 1;
@@ -517,14 +493,14 @@ int main(int argc, char* argv[]) {
     exit(1);
   }
 
-  if ((split_indices_str == NULL && npartitions == -1 && cm == NULL && win_size == -1) ||
-      (split_indices_str != NULL && (npartitions != -1 || cm != NULL || win_size != -1)) ||
-      (npartitions != -1 && (split_indices_str != NULL || cm != NULL || win_size != -1)) ||
+  if ((split_indices_str == NULL && npartitions == -1 && cm == NULL && win_size == -1 && coord_feats == NULL) ||
+      (split_indices_str != NULL && (npartitions != -1 || cm != NULL || win_size != -1 || coord_feats != NULL)) ||
+      (npartitions != -1 && (split_indices_str != NULL || cm != NULL || win_size != -1 || coord_feats != NULL)) ||
       (cm != NULL && (split_indices_str != NULL || npartitions != -1 || 
-                                 win_size != -1))) {
-    fprintf(stderr, "ERROR: must specify exactly one of -p, -n, -L, and -w.\nTry \"msa_split -h\" for help.\n");
-    exit(1);
-  }
+                                 win_size != -1 || coord_feats != NULL)) ||
+      (coord_feats != NULL && (split_indices_str != NULL || npartitions != -1 || 
+                               win_size != -1 || cm != NULL)))
+    die("ERROR: must specify exactly one of -p, -n, -L, -F, and -w.\nTry \"msa_split -h\" for help.\n");
 
   if (npartitions != -1 && npartitions <= 0) {
     fprintf(stderr, "ERROR: number of partitions must be greater than 0.\nTry \"msa_split -h\" for help.\n");
@@ -671,6 +647,26 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  if (coord_feats != NULL) {
+    /* make sure no adjust_radius or category map */
+    if (adjust_radius >= 0 || cm != NULL) 
+      die("ERROR: Cannot use -B or -L with -F.\n");
+
+    if (feature_frame != 0) {
+      if (!quiet_mode)
+        fprintf(stderr, "Mapping feature coordinates to frame of alignment  ...\n");
+      msa_map_gff_coords(msa, coord_feats, feature_frame, 0, 0, NULL);
+    }
+
+    segment_ends_list = lst_new_int(lst_size(coord_feats->features));
+
+    for (i = 0; i < lst_size(coord_feats->features); i++) {
+      GFF_Feature *f = lst_get_ptr(coord_feats->features, i);
+      lst_push_int(split_indices_list, f->start);
+      lst_push_int(segment_ends_list, f->end);
+    }
+  }
+
   if (adjust_radius >= 0)       /* try to adjust split indices to fall
                                    between alignment blocks */
     adjust_split_indices_for_blocks(msa, split_indices_list, adjust_radius);
@@ -679,11 +675,7 @@ int main(int argc, char* argv[]) {
   if (output_summary) {
     sum_fname = str_new_charstr(out_fname_root);
     str_append_charstr(sum_fname, ".sum");
-    if ((SUM_F = fopen(sum_fname->chars, "w+")) == NULL) {
-      fprintf(stderr, "ERROR: cannot open %s for writing.\n", 
-              sum_fname->chars);
-      exit(1);
-    }
+    fopen_fname(sum_fname->chars, "w+");
 
     /* print header */
     write_summary_header(SUM_F, msa->alphabet, gap_strip_mode);
@@ -698,22 +690,25 @@ int main(int argc, char* argv[]) {
       int start = lst_get_int(split_indices_list, i);
       int end;
 
-      end = (i == lst_size(split_indices_list)-1 ? msa->length :
-             lst_get_int(split_indices_list, i+1) - 1);
-
-      if (win_size != -1 && end != msa->length) {
-        end = (map == NULL ? 
-               end + win_overlap :
-               msa_map_seq_to_msa(map, msa_map_msa_to_seq(map, end) + 
-                                  win_overlap));
-        if (end == -1 || end >= msa->length) end = msa->length;
+      if (segment_ends_list == NULL) {
+        end = (i == lst_size(split_indices_list)-1 ? msa->length :
+               lst_get_int(split_indices_list, i+1) - 1);
+        if (win_size != -1 && end != msa->length) 
+          end = (map == NULL ? 
+                 end + win_overlap :
+                 msa_map_seq_to_msa(map, msa_map_msa_to_seq(map, end) + 
+                                    win_overlap));
       }
+      else 
+        end = lst_get_int(segment_ends_list, i);
+
+      if (end == -1 || end > msa->length) end = msa->length;
 
       if (!quiet_mode)
         fprintf(stderr, "Creating partition %d (column %d to column %d) ...\n",
                 i+1, start, end);
       
-      sub_msa = msa_sub_alignment(msa, NULL, 0, start - 1, end);
+      sub_msa = msa_sub_alignment(msa, seqlist, 1, start - 1, end);
 
       if (map != NULL)
         sub_msa->idx_offset = msa->idx_offset + 
@@ -823,15 +818,6 @@ int main(int argc, char* argv[]) {
         nanygaps_strip = -1; 
       }
 
-      if (!quiet_mode) {
-        if (cat >= 0)
-          fprintf(stderr, "Writing partition %d to %s.%d.msa ...\n",
-                  cat, out_fname_root, cat);
-        else
-          fprintf(stderr, "Writing partition to %s.msa ...\n",
-                  out_fname_root);
-      }
-
       if (gap_strip_mode != NO_STRIP) {
         strip_gaps(sub, gap_strip_mode);
 
@@ -842,6 +828,15 @@ int main(int argc, char* argv[]) {
           nallgaps_strip = msa_num_gapped_cols(sub, STRIP_ALL_GAPS, -1, -1);
           nanygaps_strip = msa_num_gapped_cols(sub, STRIP_ANY_GAPS, -1, -1);      
         }
+      }
+
+      if (!quiet_mode) {
+        if (cat >= 0)
+          fprintf(stderr, "Writing partition %d to %s.%d.msa ...\n",
+                  cat, out_fname_root, cat);
+        else
+          fprintf(stderr, "Writing partition to %s.msa ...\n",
+                  out_fname_root);
       }
 
       write_sub_msa(sub, out_fname_root, cat, output_format,

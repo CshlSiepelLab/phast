@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.5 2004-06-15 22:33:57 acs Exp $
+/* $Id: msa.c,v 1.6 2004-06-18 19:15:24 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -448,10 +448,10 @@ void project(MSA *msa, int refseq) {
    within the specified range of columns.  Listed sequence can either
    be included or excluded (they will be included iff "include" == 1).
    In either case, indices, not names, must be used.  All memory is
-   copied.  To include all sequences, set include to 0 and seqlist to
-   NULL.  The new alignment will represent the interval [start_col,
-   end_col), in a frame such that the first character has index 0.
-   (that is, the end column will not be included).   */
+   copied.  To include all sequences, set seqlist to NULL.  The new
+   alignment will represent the interval [start_col, end_col), in a
+   frame such that the first character has index 0.  (that is, the end
+   column will not be included).  */
 MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col, 
                        int end_col) {
   List *include_list;
@@ -463,11 +463,16 @@ MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col,
   char **new_seqs;
   int new_len = end_col - start_col;
 
-  assert(new_len > 0 && !(include && seqlist == NULL));
+  assert(new_len > 0);
   assert(msa->seqs != NULL || msa->ss != NULL);
 
+  if (seqlist != NULL)
+    for (i = 0; i < lst_size(seqlist); i++)
+      if (lst_get_int(seqlist, i) < 0 || lst_get_int(seqlist, i) >= msa->nseqs)
+        die("ERROR: sequence index out of range in msa_sub_alignment.\n");
+
   /* if in "exclude" mode, find complement of indicated set */
-  if (!include) {
+  if (!include && seqlist != NULL) {
     int tmparray[msa->nseqs];
     include_list = lst_new_int(msa->nseqs);
     for (i = 0; i < msa->nseqs; i++) tmparray[i] = 1;
@@ -477,8 +482,12 @@ MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col,
       if (tmparray[i] == 1)
         lst_push_int(include_list, i);
   }
-  else 
-    include_list = seqlist;
+  else if (seqlist != NULL) 
+    include_list = seqlist; 
+  else {                        /* include everything */
+    include_list = lst_new_int(msa->nseqs);
+    for (i = 0; i < msa->nseqs; i++) lst_push_int(include_list, i);
+  }
 
   new_nseqs = lst_size(include_list);
   new_names = (char**)smalloc(new_nseqs * sizeof(char*));
@@ -511,7 +520,7 @@ MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col,
     new_msa = ss_sub_alignment(msa, new_names, include_list, start_col, 
                                end_col);
 
-  if (!include)
+  if (include_list != seqlist)
     lst_free(include_list);
 
   new_msa->idx_offset = msa->idx_offset + start_col;
