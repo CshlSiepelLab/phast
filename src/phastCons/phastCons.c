@@ -606,7 +606,7 @@ int main(int argc, char *argv[]) {
 
   /* other vars */
   char c;
-  int opt_idx, i;
+  int opt_idx, i, j;
   List *tmpl = NULL;
   MSA *msa = NULL;
   double lnl = INFTY;
@@ -918,9 +918,9 @@ int main(int argc, char *argv[]) {
                 extrapolate_tree_fname, scale);
         if (lst_size(pruned_names) > 0) {
           fprintf(stderr, "WARNING: pruned away leaves of new tree with no match in alignment (");
-          for (i = 0; i < lst_size(pruned_names); i++)
-            fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, i))->chars, 
-                    i < lst_size(pruned_names) - 1 ? ", " : ").\n");
+          for (j = 0; j < lst_size(pruned_names); j++)
+            fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars, 
+                    j < lst_size(pruned_names) - 1 ? ", " : ").\n");
         }
       }
       lst_free_strings(pruned_names);
