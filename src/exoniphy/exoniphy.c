@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.18 2004-06-30 19:27:08 acs Exp $
+/* $Id: exoniphy.c,v 1.19 2004-06-30 19:28:40 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -380,7 +380,7 @@ int main(int argc, char* argv[]) {
 
   /* read alignment */
   if (!quiet)
-    fprintf(stderr, "Reading alignment from %s ...\n", 
+    fprintf(stderr, "Reading alignment from %s...\n", 
             !strcmp(argv[optind], "-") ? "stdin" : argv[optind]);
   
   msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
