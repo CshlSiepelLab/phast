@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.6 2004-06-18 15:14:20 acs Exp $ 
+/* $Id: trees.c,v 1.7 2004-06-22 07:29:47 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -61,7 +61,10 @@ TreeNode *parse_nh_from_file(FILE *f) {
 
   str_slurp(s, f);
 
-  str_trim(s);
+  str_double_trim(s);
+  if (s->chars[0] != '(')
+    die("ERROR: Can't parse tree file (Newick).\n");
+
   if (s->chars[s->length-1] == ';') 
     s->chars[--s->length] = '\0';
 
@@ -72,7 +75,7 @@ TreeNode *parse_nh_from_file(FILE *f) {
 
 /** Parse a single New Hampshire-formatted tree from a string */
 TreeNode *parse_nh_from_string(char *treestr) { 
-  char diststr[STR_SHORT_LEN];
+  char diststr[STR_MED_LEN];
   TreeNode *root, *node, *newnode;
   int i, in_distance = 0, len = strlen(treestr);
   char c;
@@ -85,7 +88,7 @@ TreeNode *parse_nh_from_string(char *treestr) {
     c = treestr[i];
 
     if (in_distance) {
-      if (isdigit(c) || c == '.' || c == '-' || isspace(c)) {
+      if (isdigit(c) || c == '.' || c == '-') {
         strncat(diststr, &c, 1);
         continue;
       }
