@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.10 2004-07-26 05:28:53 acs Exp $
+/* $Id: maf.c,v 1.11 2004-07-29 23:17:34 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -294,6 +294,12 @@ MSA *maf_read(FILE *F,          /**< MAF file */
 
       refseq->chars[i] = toupper(refseq->chars[i]);
 
+      if (msa->inv_alphabet[(int)refseq->chars[i]] < 0 &&
+          !msa->is_missing[(int)refseq->chars[i]] &&
+          isalpha(refseq->chars[i]))
+        refseq->chars[i] = msa->missing[0];
+      /* (assume ambiguity character and treat as missing data) */
+
       if (msa->ss->tuple_idx[msa_idx] == -1) { /* nothing known about this
                                                   position */
         int key = 0;
@@ -307,7 +313,10 @@ MSA *maf_read(FILE *F,          /**< MAF file */
           else if (msa->is_missing[(int)refseq->chars[i+offset]]) 
             charidx = alph_size + 1;
           else charidx = msa->inv_alphabet[(int)refseq->chars[i+offset]];
-          assert(charidx >= 0);
+
+          if (charidx < 0) 
+            die("ERROR: unrecognized character in reference sequence ('%c').\n",
+                refseq->chars[i+offset]);
 
           key += charidx * int_pow(alph_size+2, -offset);
         }
