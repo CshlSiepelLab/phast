@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.13 2004-06-30 00:03:39 acs Exp $
+/* $Id: exoniphy.c,v 1.14 2004-06-30 00:05:08 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -143,9 +143,9 @@ OPTIONS:\n\
         (Changes interpretation of --models) Use different sets of\n\
         tree models, depending on the G+C content of the input\n\
         alignment.  The list <range-cutoffs> must consist of x ordered\n\
-        values in (0,1), defining x+1 G+C classes.  The argument to -d\n\
-        must then consist of the names of x+1 files, each of which\n\
-        contains a list of tree-model filenames.\n\
+        values in (0,1), defining x+1 G+C classes.  The argument to\n\
+        --models must then consist of the names of x+1 files, each of\n\
+        which contains a list of tree-model filenames.\n\
 \n\
  (Other)\n\
     --quiet, -q \n\
