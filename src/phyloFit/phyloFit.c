@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.7 2004-06-18 00:07:48 acs Exp $
+   $Id: phyloFit.c,v 1.8 2004-06-18 00:21:11 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -74,8 +74,7 @@ EXAMPLES:\n\
 \n\
     2. Fit a phylogenetic model to an alignment of human, chimp, mouse,\n\
     and rat sequences.  Use the HKY85 substitution model.  Write output\n\
-    to files with prefix \"myfile\".  Create a Newick-formatted tree file\n\
-    (.nh file) as well as a .mod file.\n\
+    to files with prefix \"myfile\".\n\
 \n\
         phyloFit --tree \"((human,chimp),(mouse,rat))\" --subst-mod HKY85\n\
             --out-root myfile primate-rodent.fa\n\
