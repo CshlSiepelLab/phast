@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.19 2004-06-30 19:28:40 acs Exp $
+/* $Id: exoniphy.c,v 1.20 2004-06-30 23:13:17 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -30,6 +30,9 @@
 #define SCALE_RANGE_MIN -20
 #define SCALE_RANGE_MAX 10
 #define NSENS_SPEC_TRIES 10
+
+/* thresholds defining G+C ranges (-1 indicates end) */
+double GC_THRESHOLDS[] = {0.40, 0.45, 0.50, 0.55, -1};
 
 void print_usage() {
     printf("\n\
@@ -136,7 +139,8 @@ OPTIONS:\n\
  (Feature types)\n\
     --backgd-types, -B <list>\n\
         Feature types to be considered \"background\" (default value:\n\
-        \"%s\").  Affects --reflect-strand, --score, and --bias.\n\
+        \"%s\").  Affects --reflect-strand,\n\
+        --score, and --bias.\n\
 \n\
     --cds-types, -C <list>\n\
         (for use with --score) Feature types that represent protein-coding\n\
@@ -154,7 +158,7 @@ OPTIONS:\n\
         Types of features for which to obtain frame information\n\
         (default value: \"%s\").\n\
 \n\
- (Indels and G+C content)\n\
+ (Indels)\n\
     --indels, -I\n\
         Use the indel model described in Siepel & Haussler (2004).\n\
 \n\
@@ -165,15 +169,7 @@ OPTIONS:\n\
         stop codons and at the canonical GT and AG positions of splice\n\
         sites (with or without --indels).  In all other cases, the\n\
         default behavior is to treat gaps as missing data, or to address\n\
-        them with the indel model implied by --indels.\n\
-\n\
-    --gc-ranges, -D <range-cutoffs>\n\
-        (Changes interpretation of --models) Use different sets of\n\
-        tree models, depending on the G+C content of the input\n\
-        alignment.  The list <range-cutoffs> must consist of x ordered\n\
-        values in (0,1), defining x+1 G+C classes.  The argument to\n\
-        --models must then consist of the names of x+1 files, each of\n\
-        which contains a list of tree-model filenames.\n\
+        them with the indel model (--indels).\n\
 \n\
  (Other)\n\
     --quiet, -q \n\
@@ -202,8 +198,8 @@ int main(int argc, char* argv[]) {
   double bias = NEGINFTY;
   char *seqname = NULL, *grouptag = "exon_id", *sens_spec_fname_root = NULL,
     *idpref = NULL;
-  List *model_fname_list = NULL, *no_gaps_str = NULL, *gc_thresholds = NULL;
-  List *backgd_cats = get_arg_list(DEFAULT_BACKGD_CATS), 
+  List *model_fname_list = NULL, *no_gaps_str = NULL, 
+    *backgd_cats = get_arg_list(DEFAULT_BACKGD_CATS), 
     *cds_cats = get_arg_list(DEFAULT_CDS_CATS), 
     *signal_cats = get_arg_list(DEFAULT_SIGNAL_CATS),
     *frame_cats = get_arg_list(DEFAULT_FRAME_CATS);
@@ -227,7 +223,6 @@ int main(int argc, char* argv[]) {
     {"frame-types", 1, 0, 'F'},
     {"indels", 0, 0, 'I'},
     {"no-gaps", 1, 0, 'W'},
-    {"gc-ranges", 1, 0, 'D'},
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
   };
@@ -241,12 +236,12 @@ int main(int argc, char* argv[]) {
   CategoryMap *cm = NULL;
   GFF_Set *predictions;
   char c;
-  int i, ncats, ncats_unspooled, trial, ntrials, opt_idx;
+  int i, ncats, ncats_unspooled, trial, ntrials, opt_idx, gc_cat;
   double gc;
   char tmpstr[STR_LONG_LEN];
   String *fname_str = str_new(STR_LONG_LEN), *str;
 
-  while ((c = getopt_long(argc, argv, "i:c:H:m:s:p:g:B:T:L:F:IW:b:D:xSYUhq", 
+  while ((c = getopt_long(argc, argv, "i:c:H:m:s:p:g:B:T:L:F:IW:b:xSYUhq", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
@@ -299,15 +294,6 @@ int main(int argc, char* argv[]) {
     case 'I':
       indels = TRUE;
       break;
-    case 'D':
-      gc_thresholds = str_list_as_dbl(get_arg_list(optarg));
-      for (i = 0; i < lst_size(gc_thresholds); i++)
-        if (lst_get_dbl(gc_thresholds, i) <= 0 || 
-            lst_get_dbl(gc_thresholds, i) >= 1 ||
-            (i > 0 && lst_get_dbl(gc_thresholds, i-1) >=
-             lst_get_dbl(gc_thresholds, i)))
-          die("ERROR: Bad args to --gc-ranges.\n");
-      break; 
     case 's':
       seqname = optarg;
       break;
@@ -332,10 +318,6 @@ int main(int argc, char* argv[]) {
   if (optind != argc - 1) 
     die("ERROR: alignment filename is required argument.  Try 'exoniphy -h' for help.\n");
 
-  if (gc_thresholds != NULL && 
-      lst_size(model_fname_list) != lst_size(gc_thresholds) + 1)
-    die("ERROR: with --gc-ranges, number of args to --tree-models must be exactly\none more than number of args to --gc-ranges.  Try 'exoniphy -h' for help.\n");
-
   if (sens_spec_fname_root != NULL && bias != NEGINFTY)
     die("ERROR: can't use --bias and --sens-spec together.\n");
 
@@ -355,9 +337,20 @@ int main(int argc, char* argv[]) {
   }
 
   if (model_fname_list == NULL) {
-    model_fname_list = lst_new_ptr(10);
-    sprintf(tmpstr, "%s/data/exoniphy/%s", PHAST_HOME, no_cns ? "models-no-cns" : 
-            "models");
+    /* Figure out which set of models to use based on G+C content */
+    gsl_vector *f = msa_get_base_freqs(msa, -1, -1); 
+    gc = gsl_vector_get(f, msa->inv_alphabet[(int)'G']) +
+      gsl_vector_get(f, msa->inv_alphabet[(int)'C']);    
+    for (gc_cat = 0; 
+         GC_THRESHOLDS[gc_cat] != -1 && gc >= GC_THRESHOLDS[gc_cat]; 
+         gc_cat++);
+    gc_cat++;                   /* use 1-based index */
+    if (!quiet) 
+      fprintf(stderr, "(G+C content is %.1f%%; using models for G+C category %d)\n",
+              gc*100, gc_cat);
+    model_fname_list = lst_new_ptr(30);
+    sprintf(tmpstr, "%s/data/exoniphy/%s-gc%d", PHAST_HOME, 
+            no_cns ? "models-no-cns" : "models", gc_cat);
     str_slurp(fname_str, fopen_fname(tmpstr, "r"));
     str_split(fname_str, NULL, model_fname_list);
     if (!quiet) 
@@ -367,6 +360,7 @@ int main(int argc, char* argv[]) {
       sprintf(tmpstr, "%s/data/exoniphy/mammals/%s", PHAST_HOME, str->chars);
       str_cpy_charstr(str, tmpstr);
     }
+    gsl_vector_free(f);
   }
 
   if (cm == NULL) {
@@ -403,29 +397,6 @@ int main(int argc, char* argv[]) {
   ncats = cm->ncats + 1;
   ncats_unspooled = cm->unspooler != NULL ? cm->unspooler->nstates_unspooled : 
     ncats;
-
-  /* if --gc-ranges, figure out which set of tree models to use */
-  if (gc_thresholds != NULL) {
-    String *gc_models_fname = NULL;
-    gsl_vector *f = msa_get_base_freqs(msa, -1, -1); 
-    gc = gsl_vector_get(f, msa->inv_alphabet[(int)'G']) +
-      gsl_vector_get(f, msa->inv_alphabet[(int)'C']);
-    for (i = 0; gc_models_fname == NULL && i < lst_size(gc_thresholds); i++)
-      if (gc < lst_get_dbl(gc_thresholds, i))
-        gc_models_fname = lst_get_ptr(model_fname_list, i);
-    if (gc_models_fname == NULL) 
-      gc_models_fname = lst_get_ptr(model_fname_list, lst_size(gc_thresholds));     
-    if (!quiet) 
-      fprintf(stderr, "G+C content is %.1f%%; using models for partition %d (%s) ...\n", gc*100, i, gc_models_fname->chars);
-    
-    /* this trick makes it as if the correct set of models had been
-       specified directly */
-    sprintf(tmpstr, "*%s", gc_models_fname->chars);
-    lst_free_strings(model_fname_list); lst_clear(model_fname_list);
-    model_fname_list = get_arg_list(tmpstr);
-    
-    gsl_vector_free(f);
-  }
 
   /* read tree models */
   if (lst_size(model_fname_list) != ncats) 
