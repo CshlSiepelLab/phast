@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.14 2004-08-29 18:51:13 acs Exp $
+/* $Id: sufficient_stats.c,v 1.15 2004-08-29 19:54:43 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -56,7 +56,7 @@
 
 void ss_from_msas(MSA *msa, int tuple_size, int store_order, 
                   List *cats_to_do, MSA *source_msa, 
-                  Hashtable *existing_hash,/*  int ss_for_source, */
+                  Hashtable *existing_hash,
                   int idx_offset) {
   int i, j, do_cats, idx, upper_bound;
   long int max_tuples;
@@ -66,25 +66,24 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
   char key[msa->nseqs * tuple_size + 1];
   MSA *smsa;
   int effective_offset = (idx_offset < 0 ? 0 : idx_offset); 
-  if (source_msa == NULL) assert(msa->seqs != NULL && msa->length > 0 &&
-                                 msa->ss == NULL);
+  if (source_msa == NULL && 
+      (msa->seqs == NULL || msa->length <= 0 || msa->ss != NULL))
+    die("ERROR: with no separate source alignment, ss_from_msas expects sequences of positive length and no SS object.\n");
   if (idx_offset >= 0) assert(store_order && source_msa != NULL);
                                 /* this is a little clumsy but it
                                    allows idx_offset both to signal
                                    the mode of usage and to specify
                                    the amount of the offset */
-  if (store_order && source_msa != NULL && source_msa->seqs == NULL) 
-    assert(source_msa->ss->tuple_idx != NULL);
-                                /* if storing order based on SS for
-                                   source msa, must *have* order
-                                   info  */
-/*   if (ss_for_source) assert(source_msa != NULL); */
+  if (store_order && source_msa != NULL && source_msa->seqs == NULL &&
+      source_msa->ss->tuple_idx == NULL)
+    die("ERROR: (ss_from_msas) must have ordered representation in source alignment for ordered destination alignment.\n");
+
   if (source_msa != NULL) {
-    assert(msa->nseqs == source_msa->nseqs);
-    assert(msa->ncats < 0 || source_msa->ncats < 0 ||
-           msa->ncats == source_msa->ncats);
-/*     for (i = 0; i < msa->nseqs; i++) */
-/*       assert(!strcmp(msa->names[i], source_msa->names[i])); */
+    if (msa->nseqs != source_msa->nseqs)
+      die("ERROR: (ss_from_msas) numbers of sequences must be equal in source and destination alignments.\n");
+    if (msa->ncats >= 0 && source_msa->ncats >= 0 && 
+        msa->ncats != source_msa->ncats)
+      die("ERROR: (ss_from_msas) numbers of categories must be equal in source and destination alignments.\n");
   }
 
   do_cats = (msa->ncats >= 0);
@@ -125,11 +124,6 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
 
   main_ss = msa->ss;
   tuple_hash = existing_hash != NULL ? existing_hash : hsh_new(max_tuples/3);
-
-/*   if (ss_for_source && source_msa->ss == NULL)  */ /* build suff stats for
-                                                   source msa */
-/*     ss_from_msas(source_msa, tuple_size, store_order, cats_to_do,  */
-/*                  NULL, NULL, 0, -1); */
 
   if (source_msa != NULL && source_msa->ss != NULL)
     source_ss = source_msa->ss;
