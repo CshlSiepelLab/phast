@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.12 2004-08-04 00:34:28 acs Exp $ 
+/* $Id: trees.c,v 1.13 2004-08-04 05:06:33 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -27,7 +27,6 @@ static int idcounter = 0;
    result.  For example, if two nodes u and v are such that v->id >
    u->id, then the first ancestor a of v s.t. a->id < u->id is the LCA
    of u and v */
-
 
 /* coords for postscript printing */
 /* top-left x */
@@ -803,6 +802,25 @@ double tr_total_len(TreeNode *t) {
   return retval;
 }
 
+/** Compute and return sum of lengths of edges in subtree below
+    given node */
+double tr_total_len_subtree(TreeNode *sub_root) {
+  TreeNode *n;
+  Stack *stack = stk_new_ptr(sub_root->nnodes);
+  double retval = 0;
+  stk_push_ptr(stack, sub_root->lchild);
+  stk_push_ptr(stack, sub_root->rchild);
+  while ((n = stk_pop_ptr(stack)) != NULL) {
+    if (n->lchild != NULL) {
+      stk_push_ptr(stack, n->rchild);
+      stk_push_ptr(stack, n->lchild);
+    }
+    retval += n->dparent;
+  }
+  stk_free(stack);
+  return retval;
+}
+
 /** Return node having specified name or NULL if none found.  */
 TreeNode *tr_get_node(TreeNode *t, char *name) {
   int i;
@@ -964,4 +982,100 @@ void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
   }
 
   free(is_leaf);
+}
+
+/** Return the LCA of the given species.  Assumes ids are numbered in
+    preorder (a node's parent always has a smaller id than it does and
+    left descendants have smaller ids than right descendants). */
+TreeNode *tr_lca(TreeNode *tree, List *names) {
+  int i, min = tree->nnodes, max = -1, idx;
+  String *tmpstr = str_new(STR_MED_LEN);
+  TreeNode *n;
+  int *found = smalloc(lst_size(names) * sizeof(int));
+
+  for (i = 0; i < lst_size(names); i++) found[i] = FALSE;
+
+  for (i = 0; i < tree->nnodes; i++) {
+    n = lst_get_ptr(tree->nodes, i);
+    if (n->lchild == NULL && n->rchild == NULL && n->name[0] != '\0') {
+      str_cpy_charstr(tmpstr, n->name);
+      if (str_in_list_idx(tmpstr, names, &idx)) {
+        found[idx] = TRUE;
+        if (n->id < min) min = n->id;
+        if (n->id > max) max = n->id;
+      }
+    }
+  }
+
+  for (i = 0; i < lst_size(names); i++)
+    if (!found[i])
+      die("ERROR: species name not found in tr_lca ('%s')\n",
+          ((String*)lst_get_ptr(names, i))->chars);
+
+  /* now the LCA must be the first ancestor of the node with the max
+     id that has an id smaller than the min id */
+  for (n = lst_get_ptr(tree->nodes, max); n->id > min; n = n->parent);
+
+  str_free(tmpstr);
+  free(found);
+  return n;
+}
+
+/** Given two trees, one of which is a subtree of the other, create a
+    hybrid tree composed of the smaller tree and a scaled version of
+    the larger tree.  First, a copy of the larger tree will be created
+    and scaled such that the total branch length in the subtree in
+    question is equal to the total branch length of the smaller tree.
+    Then, (a copy of) the smaller tree will be used in place of the
+    overlapping subtree in the larger tree.  This function can be used
+    to extrapolate from a small phylogeny for which accurate branch
+    length estimation is possible (e.g., including eutherian mammals)
+    to a larger phylogeny for which approximate branch length
+    proportions are available, but absolute branch length estimates
+    are not (e.g., including more distant vertebrates). */
+TreeNode *tr_hybrid(TreeNode *sub, TreeNode *super) {
+  TreeNode *retval, *n, *lca, *sub_copy;
+  int i;
+  double lfrac, sum;
+  List *names = lst_new_ptr((sub->nnodes - 1) / 2);
+
+  if (sub->nnodes < 3)
+    die("ERROR: subtree must have at least two leaves in tr_hybrid.\n");
+
+  /* find LCA in supertree corresponding to subtree */
+  for (i = 0; i < sub->nnodes; i++) {
+    n = lst_get_ptr(sub->nodes, i);
+    if (n->lchild == NULL && n->rchild == NULL)
+      lst_push_ptr(names, str_new_charstr(n->name));
+  }
+  lca = tr_lca(super, names);
+  lst_free_strings(names);
+  lst_free(names);
+
+  sub_copy = tr_create_copy(sub);
+
+  if (lca == super)            /* rule out trivial case -- trees equal */
+    return sub_copy;
+
+  /* create copy of supertree and scale so that overlapping portions
+     have equal total length */
+  retval = tr_create_copy(super);
+  tr_scale(retval, tr_total_len(sub) / tr_total_len_subtree(lca));
+
+  /* now recombine */
+  sub_copy->parent = lca->parent;
+  if (lca == lca->parent->lchild) lca->parent->lchild = sub_copy;
+  else lca->parent->rchild = sub_copy;
+
+  /* also ensure that the subtree is rooted with proportions equal to
+     those of the original supertree (usually hard to get root right
+     in subtree) */
+  lfrac = lca->lchild->dparent / (lca->lchild->dparent + lca->rchild->dparent);
+  sum = sub_copy->lchild->dparent + sub_copy->rchild->dparent;
+  sub_copy->lchild->dparent = lfrac * sum;
+  sub_copy->rchild->dparent = sum - sub_copy->lchild->dparent;
+
+  tr_free(lca);                 /* this works recursively */
+
+  return retval;
 }

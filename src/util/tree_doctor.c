@@ -21,7 +21,8 @@ OPTIONS:\n\
         Remove all leaves whose names are included in the given list\n\
         (comma-separated), then remove nodes and combine branches\n\
         to restore as a complete binary tree (i.e., with each\n\
-        node having zero children or two children).\n\
+        node having zero children or two children).  This option is\n\
+        applied *before* all other options.\n\
 \n\
     --prune-all-but, -P <list>\n\
         Like --prune, but remove all leaves *except* the ones specified.\n\
@@ -31,18 +32,18 @@ OPTIONS:\n\
         (<file.mod>) must have a subset of the species (leaves) in the\n\
         secondary model (<file2.mod>), and the primary tree must be a\n\
         subtree of the secondary tree (in terms of topology only).\n\
-        If a full tree model is given, only the tree will be considered. \n\
-        The merged tree model will have the rate matrix, equilibrium\n\
-        frequencies, and rate distribution of the primary model, but a\n\
-        merged tree that includes all species from both models.  The\n\
-        trees will be merged by first scaling the secondary tree such\n\
-        that the subtree corresponding to the primary tree has equal\n\
-        overall length to the primary tree, then combining the primary\n\
-        tree with the non-overlapping portion of the secondary tree.\n\
-        The names of matching species (leaves) must be exactly equal.\n\
-        The basic idea is to extrapolate from a small species set to a\n\
-        larger one, using the branch-length proportions of a given\n\
-        tree.\n\
+        If a full tree model is given for the secondary tree, only the\n\
+        tree will be considered.  The merged tree model will have the\n\
+        rate matrix, equilibrium frequencies, and rate distribution of\n\
+        the primary model, but a merged tree that includes all species\n\
+        from both models.  The trees will be merged by first scaling\n\
+        the secondary tree such that the subtree corresponding to the\n\
+        primary tree has equal overall length to the primary tree,\n\
+        then combining the primary tree with the non-overlapping\n\
+        portion of the secondary tree.  The names of matching species\n\
+        (leaves) must be exactly equal.  The basic idea is to\n\
+        extrapolate from a small species set to a larger one, using\n\
+        the branch-length proportions of a given tree.\n\
 \n\
     --rename, -r <mapping>\n\
         Rename leaves according to the given mapping.  The format of\n\
@@ -52,8 +53,7 @@ OPTIONS:\n\
         etc.)\n\
 \n\
     --scale, -s <factor>\n\
-        Scale all branches by the specified factor.  This option is\n\
-        applied *after* --merge.\n\
+        Scale all branches by the specified factor.\n\
 \n\
     --tree-only, -t\n\
         Output tree only in Newick format rather than complete tree model.\n\
@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
   double scale_factor = 1;
   List *prune_names = NULL;
   int prune_all_but = FALSE, tree_only = FALSE;
-  TreeModel *mod = NULL;
+  TreeModel *mod = NULL, *merge_mod = FALSE;
 
   /* other variables */
   String *suffix;
@@ -133,9 +133,8 @@ int main(int argc, char *argv[]) {
       if (str_equals_charstr(suffix, "nh"))
         merge_tree = tr_new_from_file(fopen_fname(optarg, "r"));
       else {
-        TreeModel *tmp = tm_new_from_file(fopen_fname(optarg, "r"));
-        merge_tree = tmp->tree;
-        tm_free(tmp);
+        merge_mod = tm_new_from_file(fopen_fname(optarg, "r"));
+        merge_tree = merge_mod->tree;
       }
       break;
     case 'r':
@@ -170,6 +169,11 @@ int main(int argc, char *argv[]) {
     if (mod != NULL) mod->tree = tree; /* root may have changed */
   }
 
+  if (merge_tree != NULL) {
+    tree = tr_hybrid(tree, merge_tree);
+    if (mod != NULL) mod->tree = tree;
+  }
+  
   if (scale_factor != 1)
     tr_scale(tree, scale_factor);
 
