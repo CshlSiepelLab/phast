@@ -14,57 +14,77 @@
 /* used in identifying regions of missing data in a reference-sequence
    alignment */
 
-/* to do: 
-        - relax assumption that first seq is reference? 
-        - -B, -b, -F, -f maybe shouldn't be options
-*/
-
 void usage(char *prog) {
   printf("\n\
-PROGRAM:      %s\n\
+PROGRAM: %s\n\
 \n\
-DESCRIPTION:  Assign log-odds scores based on two phylo-HMMs, one\n\
-              for features of interest (e.g., coding exons, conserved\n\
-              regions) and one for background.  Default is to compute\n\
-              a score for each feature in an input set, and to output\n\
-              the same set of features, with newly computed scores\n\
-              (output format is GFF by default; see -d).  The -w\n\
-              option allows scores instead to be computed in a sliding\n\
-              window of designated size.  In this case, the output is\n\
-              a simple three-column text file, with the index of the\n\
-              center of each window followed by the score for that\n\
-              window on the positive strand, then the score for that\n\
-              window on the negative strand.  Currently, a reference\n\
-              sequence alignment is assumed in either case, with the\n\
-              reference sequence appearing first; feature coordinates\n\
-              are assumed to be defined with respect to the reference\n\
-              sequence.\n\
+DESCRIPTION:\n
+\n
+    Assign log-odds scores based on two phylo-HMMs, one for features\n
+    of interest (e.g., coding exons, conserved regions) and one for\n
+    background.  Can compute a score for each feature in an input set,\n
+    and output the same set of features, with newly computed scores\n
+    (output format is GFF by default; see -d).  Alternatively, can\n
+    compute scores in a sliding window of designated size, and output\n
+    a three-column file, with the index of the center of each window\n
+    followed by the score for that window on the positive strand, then\n
+    the score for that window on the negative strand.  Currently, a\n
+    reference sequence alignment is assumed in either case, with the\n
+    reference sequence appearing first; feature coordinates are\n
+    assumed to be defined with respect to the reference sequence.\n
 \n\
-USAGE:        phastOdds -B <backgd.hmm> -b <backgd_mods> \\\n\
-                        -F <feat.hmm> -f <feat_mods> \\\n\
-                        ( -g <feats.gff> | -w <size> ) \\\n\
-                        [OPTIONS] <alignment_fname> \n\
+    Note that this program can be used with ordinary phylogenetic\n
+    models (rather than phylo-HMMs) by specifying a single model for\n
+    background and a single model for the features of interest and\n
+    omitting the HMM options (-B and -F).\n
+\n
+USAGE: phastOdds -b <backgd_mods> [-B <backgd.hmm>] \\\n\
+                 -f <feat_mods> [-F <feat.hmm>] \\\n\
+                 ( -g <feats.gff> | -w <size> ) \\\n\
+                 [OPTIONS] <alignment_fname> \n\
 \n\
-              (alignment may be in any of the file formats listed below;\n\
-               features may be formatted as GFF or BED)\n\
+    (alignment may be in any of the file formats listed below;\n\
+    features may be formatted as GFF, BED, or genepred)\n\
 \n\
 OPTIONS:\n\
-    -B <backgd.hmm>   (Required) HMM file for background model\n\
-    -b <backgd_mods>  (Required) Corresponding list of tree model files\n\
-    -F <feat.hmm>     (Required) HMM file for feature model\n\
-    -f <feat_mods>    (Required) Corresponding list of tree model files\n\
-    -g <feats.gff>    (Required unless -w) File defining features to be\n\
-                      scored (GFF or bed).\n\
-    -w <size>         (Can be used instead of -g) Compute scores in a\n\
-                      sliding window of the specified size.\n\
-    -i <type>         Input format for alignment.  May be FASTA, PHYLIP,\n\
-                      MPM, SS, or MAF (default FASTA)\n\
-    -M <rseq.fa>      (For use with -i MAF) Reference sequence (FASTA)\n\
-    -d                (For use with -g) Generate output in bed format rather\n\
-                      than GFF.\n\
-    -v                Verbose mode.  Print messages to stderr describing\n\
-                      what the program is doing.\n\
-    -h                Print this help message.\n\n", prog);
+    -b <backgd_mods>\n
+        (Required) List of tree model (*.mod) files for background.\n\
+\n
+    -B <backgd.hmm>\n
+        HMM for background.  If there is only one backgound tree\n\
+        model, a trivial (single-state) HMM will be assumed.\n\
+\n
+    -f <feat_mods>\n
+        (Required) List of tree model (*.mod) files for features.\n\
+\n
+    -F <feat.hmm>\n
+        HMM for features.  If there is only one tree model for\n\
+        features, a trivial (single-state) HMM will be assumed.\n\
+\n
+    -g <feats.gff>\n
+        (Required unless -w) File defining features to be scored\n\
+        (GFF or bed).\n\
+\n
+    -w <size>\n
+        (Can be used instead of -g) Compute scores in a sliding window\n\
+        of the specified size.\n\
+\n
+    -i <type>\n
+        Input format for alignment.  May be FASTA, PHYLIP, MPM, SS, or\n\
+        MAF (default FASTA)\n\
+\n
+    -M <rseq.fa>\n
+        (For use with -i MAF) Reference sequence (FASTA)\n\
+\n
+    -d\n
+        (For use with -g) Generate output in bed format rather than GFF.\n\
+\n
+    -v\n
+        Verbose mode.  Print messages to stderr describing what the\n\
+        program is doing.\n\
+\n
+    -h\n
+        Print this help message.\n\n", prog);
   exit(0);
 }
 
@@ -133,9 +153,18 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (backgd_hmm == NULL || backgd_mods == NULL || feat_hmm == NULL ||
-      feat_mods == NULL) 
-    die("ERROR: must specify -B, -b, -F, and -f.  Try '%s -h'.\n", argv[0]);
+  if (backgd_mods == NULL || feat_mods == NULL) 
+    die("ERROR: -b and -f required.  Try '%s -h'.\n", argv[0]);
+
+  if (backgd_nmods == 1 && backgd_hmm == NULL) 
+    backgd_hmm = hmm_create_trivial();
+  else if (backgd_hmm == NULL)
+    die("ERROR: -B required.  Try '%s -h'.\n", argv[0]);
+
+  if (feat_nmods == 1 && feat_hmm == NULL) 
+    feat_hmm = hmm_create_trivial();
+  else if (feat_hmm == NULL)
+    die("ERROR: -F required.  Try '%s -h'.\n", argv[0]);
 
   if ((winsize == -1 && features == NULL) || 
       (winsize != -1 && features != NULL))
