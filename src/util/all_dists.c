@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
   int i, j, t, opt_idx, ntrees, nleaves = -1;
   TreeNode *n, *node_i, *node_j, *lca, *nametree = NULL;
   TreeNode **tree;
-  List *leaves, ***distance, *tree_fnames;
+  List *leaves, ***distance, *tree_fnames, *tot_dist;
   int mod = FALSE;
   char **leaf_name;
   String *trees_arg;
@@ -111,6 +111,7 @@ int main(int argc, char *argv[]) {
     if (n->lchild == NULL && n->rchild == NULL)
       leaf_name[j++] = n->name;
   }
+  tot_dist = lst_new_dbl(ntrees);
 
   /* now compute distances */
   for (t = 0; t < ntrees; t++) {
@@ -142,6 +143,7 @@ int main(int argc, char *argv[]) {
         lst_push_dbl(distance[i][j], dist);
       }
     }
+    lst_push_dbl(tot_dist, tr_total_len(tree[t]));
   }
 
 
@@ -153,17 +155,21 @@ int main(int argc, char *argv[]) {
                 lst_get_dbl(distance[i][j], 0));
       }
     }
+    printf ("%s\t%s\t%f\n", "(total)", "-", lst_get_dbl(tot_dist, 0));
   }
   else {
+    double mean, stdev;
+    double quantiles[] = {0, 0.025, 0.05, 0.5, 0.95, 0.975, 1};
+    double quantile_vals[7]; 
+
     printf("%-15s %-15s %9s %9s %9s %9s %9s %9s %9s %9s %9s\n", "leaf1", 
            "leaf2", "mean", "stdev", "median", "min", "max", "95%_min", 
            "95%_max", "90%_min", "90%_max");
+
     for (i = 0; i < nleaves; i++) {
       for (j = i+1; j < nleaves; j++) {
-        double mean = lst_dbl_mean(distance[i][j]);
-        double stdev = lst_dbl_stdev(distance[i][j]);
-        double quantiles[] = {0, 0.025, 0.05, 0.5, 0.95, 0.975, 1};
-        double quantile_vals[7]; 
+        mean = lst_dbl_mean(distance[i][j]);
+        stdev = lst_dbl_stdev(distance[i][j]);
         lst_qsort_dbl(distance[i][j], ASCENDING);
         lst_dbl_quantiles(distance[i][j], quantiles, 7, quantile_vals);
 
@@ -173,6 +179,17 @@ int main(int argc, char *argv[]) {
                quantile_vals[4]);
       }
     }
+
+    /* also do total branch len */
+    mean = lst_dbl_mean(tot_dist);
+    stdev = lst_dbl_stdev(tot_dist);
+    lst_qsort_dbl(tot_dist, ASCENDING);
+    lst_dbl_quantiles(tot_dist, quantiles, 7, quantile_vals);
+    
+    printf("%-15s %-15s %9.5f %9.5f %9.5f %9.5f %9.5f %9.5f %9.5f %9.5f %9.5f\n", 
+	   "(total)", "-", mean, stdev, quantile_vals[3], quantile_vals[0], 
+	   quantile_vals[6], quantile_vals[1], quantile_vals[5], quantile_vals[2], 
+	   quantile_vals[4]);
   }
 
   return 0;
