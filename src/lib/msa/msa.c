@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.11 2004-06-21 19:52:57 acs Exp $
+/* $Id: msa.c,v 1.12 2004-06-21 20:24:22 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -173,11 +173,14 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
         if (isspace(line[k])) continue;
         base = toupper(line[k]);
         if (base == '.') base = GAP_CHAR;
-        if (base != GAP_CHAR && base != 'N' && /* FIXME: more general
-                                                  handling of Ns? */
+        if (base != GAP_CHAR && base != 'N' && 
             msa->inv_alphabet[(int)base] == -1) {
-          fprintf(stderr, "ERROR: bad character in multiple sequence alignment: '%c'.\n", base); 
-          exit(1);
+          if (isalpha(base)) base = 'N'; /* for now, use 'N' in place
+                                            of unrecognized character
+                                            (usually IUPAC code) */
+          else 
+            die("ERROR: bad character in multiple sequence alignment: '%c'.\n", 
+                base); 
         }
         msa->seqs[i][j++] = base;
       }
