@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.4 2004-06-17 23:54:45 acs Exp $ 
+/* $Id: trees.c,v 1.5 2004-06-18 00:12:26 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -810,6 +810,7 @@ void tr_number_leaves(TreeNode *t, char **names, int nnames) {
             break;
           }
         }
+        if (j == nnames) die("ERROR: no match for name '%s' given in tree topology.\n", n->name);
       }
     }
   }
