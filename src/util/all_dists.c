@@ -36,9 +36,10 @@ int main(int argc, char *argv[]) {
   int i, j, t, opt_idx, ntrees, nleaves = -1;
   TreeNode *n, *node_i, *node_j, *lca, *nametree = NULL;
   TreeNode **tree;
-  List *leaves, ***distance;
+  List *leaves, ***distance, *tree_fnames;
   int mod = FALSE;
   char **leaf_name;
+  String *trees_arg;
 
   struct option long_opts[] = {
     {"mod", 0, 0, 'm'},
@@ -65,22 +66,31 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  ntrees = argc - optind;
-
-  if (ntrees < 1) 
+  if (optind > argc - 1) 
     die("Input filename required.  Try '%s -h'.\n", argv[0]);
 
+  /* build a comma-delimited list and pass to get_arg_list; allows
+     possibility of reading from file via '*' operator */
+  trees_arg = str_new(1000);
+  for (i = optind; i < argc; i++) {
+    str_append_charstr(trees_arg, argv[i]);
+    if (i < argc - 1) str_append_char(trees_arg, ',');
+  }
+  tree_fnames = get_arg_list(trees_arg->chars);
+
+  ntrees = lst_size(tree_fnames);
   tree = smalloc(ntrees * sizeof(void*));
 
   /* read trees */
   for (t = 0; t < ntrees; t++) {
+    String *fname = lst_get_ptr(tree_fnames, t);
     if (mod) {
-      TreeModel *m = tm_new_from_file(fopen_fname(argv[optind+t], "r"));
+      TreeModel *m = tm_new_from_file(fopen_fname(fname->chars, "r"));
       tree[t] = tr_create_copy(m->tree);
       tm_free(m);
     }
     else
-      tree[t] = tr_new_from_file(fopen_fname(argv[optind+t], "r"));
+      tree[t] = tr_new_from_file(fopen_fname(fname->chars, "r"));
   }
 
   /* initialization */
