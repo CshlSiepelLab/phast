@@ -1317,7 +1317,9 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
     tmp = sqrt(tmp);
     q1 = (-b + tmp) / (2*a);
     q2 = (-b - tmp) / (2*a);
-    if (q1 < 0 || z * q1 > 1) q = q2;
+    /* only one root can be valid */
+    if (fabs(q1) < 1e-10 || fabs(z * q1 - 1) < 1e-10)                                 
+      q = q2;                   /* (allow for rounding errors) */
     else q = q1;
 
     /* double check that derivative is really zero */
