@@ -910,6 +910,13 @@ int main(int argc, char *argv[]) {
     if (!quiet) fprintf(stderr, "...\n");
   }
 
+  /* still have to set indel params even if not estimating */
+  else if (indel_mode == PARAMETERIC) {
+    phmm->alpha[0] = alpha_0; phmm->beta[0] = beta_0; phmm->omega[0] = omega_0;
+    phmm->alpha[1] = alpha_1; phmm->beta[1] = beta_1; phmm->omega[1] = omega_1;
+    phmm_reset(phmm);
+  }
+
   /* before output, have to restore gaps in reference sequence, for
      proper coord conversion */
   if (indels && (post_probs || viterbi_f != NULL)) {
