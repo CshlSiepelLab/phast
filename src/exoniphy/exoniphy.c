@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.21 2004-06-30 23:27:09 acs Exp $
+/* $Id: exoniphy.c,v 1.22 2004-07-01 17:33:06 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -119,10 +119,11 @@ OPTIONS:\n\
         will be used automatically.\n\
 \n\
     --bias, -b <val>\n\
-        Set \"coding bias\" equal to the specified value (default 0).\n\
-        The coding bias is added to the log probabilities of\n\
-        transitions from background states to non-background states\n\
-        (see --backgd-cats), then all transition probabilities are\n\
+        Set \"coding bias\" equal to the specified value (default\n\
+        -3.33 if default HMM is used, 0 otherwise).  The coding bias\n\
+        is added to the log probabilities of transitions from\n\
+        background states to non-background states (see\n\
+        --backgd-cats), then all transition probabilities are\n\
         renormalized.  If the coding bias is positive, then more\n\
         predictions will tend to be made and sensitivity will tend to\n\
         improve, at some cost to specificity; if it is negative, then\n\
@@ -356,6 +357,7 @@ int main(int argc, char* argv[]) {
     if (!quiet) fprintf(stderr, "Reading default HMM from %s...\n", tmpstr);
     hmm = hmm_new_from_file(fopen_fname(tmpstr, "r"));
     reflect_hmm = TRUE;
+    if (bias == NEGINFTY) bias = -3.33;
   }
 
   if (model_fname_list == NULL) {
@@ -423,7 +425,10 @@ int main(int argc, char* argv[]) {
                   indels, msa->nseqs);
 
   /* add bias, if necessary */
-  if (bias != NEGINFTY) phmm_add_bias(phmm, backgd_cats, bias);
+  if (bias != NEGINFTY) {
+    if (!quiet) fprintf(stderr, "Applying coding bias of %f...\n", bias);
+    phmm_add_bias(phmm, backgd_cats, bias);
+  }
 
   /* compute emissions */
   phmm_compute_emissions(phmm, msa, quiet);
