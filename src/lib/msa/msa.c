@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.10 2004-06-21 19:50:58 acs Exp $
+/* $Id: msa.c,v 1.11 2004-06-21 19:52:57 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -302,13 +302,14 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
     msa->seqs[i] = (char*)smalloc((maxlen + 1) * sizeof(char));
 
     /* scan chars and adjust if necessary */
-    for (j = 0; j < s->length; j++) {
+    for (j = 0; j < maxlen; j++) {
       msa->seqs[i][j] = toupper(s->chars[j]);
       if (msa->seqs[i][j] == '.') msa->seqs[i][j] = GAP_CHAR;
       if (isalpha(msa->seqs[i][j]) && msa->inv_alphabet[(int)msa->seqs[i][j]] == -1)
         msa->seqs[i][j] = 'N';
                                 /* for now, just assume 'N' if unrecognized letter */
     }
+    msa->seqs[i][maxlen] = '\0';
 
     str_free(s);
   }  
