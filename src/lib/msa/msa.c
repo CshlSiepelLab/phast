@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.29 2004-08-14 04:32:02 acs Exp $
+/* $Id: msa.c,v 1.30 2004-08-29 22:27:32 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1064,14 +1064,13 @@ void msa_print_stats(MSA *msa, FILE *F, char *label, int header, int start,
                      int end) {
   if (header == 1) {
     int i;
-    fprintf(F, "%-20s", "descrip.");
+    fprintf(F, "%-20s ", "descrip.");
     for (i = 0; i < strlen(msa->alphabet); i++) 
-        fprintf(F, "%10c", msa->alphabet[i]);
-    fprintf(F, "%10s", "G+C");
-    fprintf(F, "%10s", "length");
-    fprintf(F, "%10s", "all_gaps");
-    fprintf(F, "%10s", "some_gaps");
-    fprintf(F, "\n");    
+        fprintf(F, "%10c ", msa->alphabet[i]);
+    fprintf(F, "%10s ", "G+C");
+    fprintf(F, "%10s ", "length");
+    fprintf(F, "%10s ", "all_gaps");
+    fprintf(F, "%10s\n", "some_gaps");
   }
   else {
     gsl_vector *freqs = msa_get_base_freqs(msa, start, end);
@@ -1079,17 +1078,16 @@ void msa_print_stats(MSA *msa, FILE *F, char *label, int header, int start,
     int nanygaps = msa_num_gapped_cols(msa, STRIP_ANY_GAPS, start, end);
     int i;
     double gc = 0;
-    fprintf(F, "%-20s", label);
+    fprintf(F, "%-20s ", label);
     for (i = 0; i < strlen(msa->alphabet); i++) {
-      fprintf(F, "%10.4f", gsl_vector_get(freqs, i));
+      fprintf(F, "%10.4f ", gsl_vector_get(freqs, i));
       if (msa->alphabet[i] == 'G' || msa->alphabet[i] == 'C')
         gc += gsl_vector_get(freqs, i);
     }
-    fprintf(F, "%10.4f", gc);
-    fprintf(F, "%10d", start >= 0 && end >= 0 ? end - start : msa->length);
-    fprintf(F, "%10d", nallgaps);
-    fprintf(F, "%10d", nanygaps);
-    fprintf(F, "\n");
+    fprintf(F, "%10.4f ", gc);
+    fprintf(F, "%10d ", start >= 0 && end >= 0 ? end - start : msa->length);
+    fprintf(F, "%10d ", nallgaps);
+    fprintf(F, "%10d\n", nanygaps);
   }
 }
 
