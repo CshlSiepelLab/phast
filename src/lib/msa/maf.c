@@ -1,61 +1,82 @@
-/* $Id: maf.c,v 1.3 2004-06-14 03:06:21 acs Exp $
+/* $Id: maf.c,v 1.4 2004-06-14 21:11:10 acs Exp $
    Written by Adam Siepel, 2003
-   Copyright 2003, Adam Siepel, University of California 
+   Copyright 2003, Adam Siepel, University of California */
 
-   Functions for manipulating files in the "Multiple Alignment Format"
-   (MAF) designed by Jim Kent and Webb Miller to represent
-   genomic-scale multiple alignments, of the type produced by MULTIZ.
-   The functions here are primarily concerned with extracting the
-   sufficient statistics for an alignment from an MAF file (see
-   sufficient_stats.c); they avoid representing the alignment
-   explicitly, and as a result are suitable for large MAF files,
-   spanning whole mammalian chromosomes.  A "reference sequence"
-   alignment, as used by MULTIZ, is currently assumed, with the
-   reference sequence appearing first in each alignment block, and
-   always in the positive (rather than reverse complemented)
-   orientation.  Blocks corresponding to overlapping segments of the
-   reference sequence are permitted to occur, but all except the first
-   will be discarded.  */
+/** \file maf.c
+    Reading of alignments from MAF ("Multiple Alignment Format")
+    files, as produced by MULTIZ and TBA.  See maf.h for details.
+    \ingroup msa
+*/
 
 #include <sufficient_stats.h>
 #include <msa.h>
 #include <maf.h>
 #include <ctype.h>
 
-/* Construct and return a multiple alignment from the specified MAF
-   file, and optionally, an auxiliary file containing the complete
-   reference sequence (assumed to be in FASTA format).  The alignment
-   will consist of sufficient statistics only.  If store_order == 1,
-   then *ordered* sufficient statistics will be created; otherwise the
-   stats will be unordered, and will not reflect unaligned segments of
-   the reference sequence.  If store_order == 1, then positions in the
-   reference sequence for which no alignments are available will
-   either be defined according to the specified file (if REFSEQF !=
-   NULL) or will be represented as Ns (if REFSEQ == NULL).  (REFSEQF
-   is ignored if store_order == 0.)  The alphabet of the target
-   alignment may be specified (the default is used if alphabet ==
-   NULL), as may the size of the tuples to use for sufficient stats.
-   The parameter 'gap_strip_mode' allows gap-stripping to be performed
-   on-the-fly, as blocks are read.  The only kind of gap-stripping
-   allowed when storing order, however, is a projection on the
-   reference sequence (i.e., gap_strip_mode == NO_STRIP or
-   gap_strip_mode == 1), because of the complexity of coordinate
-   mapping.  If category-specific counts are desired, a GFF file and
-   category map may be specified; the GFF is assumed to use the
-   indexing system of the reference sequence.  If in addition
-   rev_compl == 1, then segments of the alignment corresponding to
-   groups of features on the negative strand will be reverse
-   complemented before the sufficient stats are extracted.  (WARNING:
-   the GFF will be sorted as a side effect.)  */
-/* ADDENDUM: for now, if a GFF is defined, then all blocks are projected
+/** Read an alignment from a MAF file.  The alignment won't be
+   constructed explicitly; instead, a sufficient-statistics
+   representation will be extracted directly from the MAF.  Blocks
+   corresponding to overlapping segments of the reference sequence are
+   permitted, but all except the first one will be discarded.  */
+MSA *maf_read(FILE *F,          /**< MAF-formatted file */
+              FILE *REFSEQF,    /**< optional reference sequence.  If
+                                   non-NULL, the indicated file will
+                                   be used to define bases in regions
+                                   of no alignment (not represented in
+                                   the MAF).  File format is expected
+                                   to be FASTA.  Ignored if
+                                   store_order == FALSE.  If NULL and
+                                   store_order == TRUE, then bases in
+                                   reference seq not present in MAF
+                                   are represented as Ns  */
+              int tuple_size,   /**< tuple size for sufficient
+                                   statistics */
+              GFF_Set *gff,     /**< optional GFF_Set.  If non-NULL,
+                                   category-specific counts will be
+                                   collected (cm must be non-NULL
+                                   also).  The gff is assumed to use
+                                   the indexing system of the
+                                   reference sequence (sequence 1).
+                                   Currently, a non-NULL gff implies
+                                   gap_strip_mode == 1 (projection
+                                   onto reference sequence).  */
+              CategoryMap *cm,  /**< Used for category-specific
+                                   counts, ignored otherwise */
+              int cycle_size,   /**< Label site categories
+                                   12...<cycle_size>...12...<cycle_size>
+                                   instead of using gff and cm.
+                                   Useful when stats are to be
+                                   collected for non-overlapping
+                                   tuples.  Use -1 to ignore. */
+              int store_order,  /**< Whether to store order in which
+                                   tuples occur.  Requires more memory
+                                   and larger files, and is not
+                                   necessary in many cases. */
+              char *reverse_groups, 
+                                /**< Tag defining groups in gff;
+                                   indicates groups on negative strand
+                                   should be reverse complemented.
+                                   Ignored if NULL.  Useful when
+                                   collecting counts for
+                                   strand-specific categories.  Can't
+                                   be used if store_order == TRUE */
+              int gap_strip_mode 
+                                /**< Gap stripping mode.  Currently,
+                                   if store_order == 1, may only have
+                                   value NO_STRIP or 1 (indicating
+                                   projection onto sequence 1, the
+                                   reference sequence).  This is
+                                   simply to avoid some complexity in
+                                   coordinate mapping. */
+              ) {
+
+/* NOTE: for now, if a GFF is defined, then all blocks are projected
    onto the reference seq (gff != NULL -> gap_strip_mode == 1).  This
    simplifies things somewhat, and it's rare that you want
    category-specific counts without projecting (because gaps in the
    reference sequence make it difficult to assign sites to categories
    rationally).  */
-MSA *maf_read(FILE *F, FILE *REFSEQF, char *alphabet, int tuple_size, 
-              GFF_Set *gff, CategoryMap *cm, int cycle_size, int store_order, 
-              int rev_compl, int gap_strip_mode) {
+
   int i, start_idx, length, max_tuples, block_no, rbl_idx, refseqlen = -1;
   Hashtable *tuple_hash;
   Hashtable *name_hash = hsh_new(25);
@@ -76,7 +97,7 @@ MSA *maf_read(FILE *F, FILE *REFSEQF, char *alphabet, int tuple_size,
     die("ERROR: gff and cycle_size mutually exclusive in maf_read.\n");
 
   if (store_order) {
-    if (rev_compl) 
+    if (reverse_groups != NULL) 
       die("ERROR: Can't reverse complement if storing order in maf_read.\n");
     if (gap_strip_mode != NO_STRIP && gap_strip_mode != 1)
       die("ERROR: Gap strip mode must be either NO_STRIP or 1 if storing order in maf_read.\n");
@@ -91,7 +112,7 @@ MSA *maf_read(FILE *F, FILE *REFSEQF, char *alphabet, int tuple_size,
   /* scan MAF file for total number of sequences and their names, and
      initialize msa accordingly.  Simultaneously build coordinate map,
      if necessary */
-  msa = msa_new(NULL, NULL, -1, 0, alphabet);
+  msa = msa_new(NULL, NULL, -1, 0, NULL);
   maf_peek(F, &msa->names, name_hash, &msa->nseqs, map, redundant_blocks, 
            &refseqlen);
   /* NOTE: it seems as if this could be avoided when store_order == 0,
@@ -100,7 +121,7 @@ MSA *maf_read(FILE *F, FILE *REFSEQF, char *alphabet, int tuple_size,
      encountered tuples would have to be redefined  */
 
   /* init MSA object to be used for individual blocks */
-  mini_msa = msa_new(NULL, msa->names, msa->nseqs, -1, alphabet);
+  mini_msa = msa_new(NULL, msa->names, msa->nseqs, -1, NULL);
                                 /* note that names are shared */
 
   if (cm != NULL) msa->ncats = mini_msa->ncats = cm->ncats;
@@ -159,7 +180,7 @@ MSA *maf_read(FILE *F, FILE *REFSEQF, char *alphabet, int tuple_size,
       /* extract subset of features in GFF corresponding to block */
       lst_clear(mini_gff->features);
       maf_block_sub_gff(mini_gff, gff, start_idx + 1, start_idx + length - 1, 
-                        &gff_idx, cm, rev_compl, tuple_size); 
+                        &gff_idx, cm, reverse_groups != NULL, tuple_size); 
                                 /* coords in GFF are 1-based */
 
       /* if we're not using a global coordinate map, we need to map the
@@ -168,15 +189,9 @@ MSA *maf_read(FILE *F, FILE *REFSEQF, char *alphabet, int tuple_size,
 /*       if (map == NULL && lst_size(mini_gff->features) > 0)  */
 /*         msa_map_gff_coords(mini_msa, mini_gff, 1, 0, 0, cm); */
 
-      if (rev_compl && lst_size(mini_gff->features) > 0) {
-        if (gff->groups != NULL)
-          gff_group(mini_gff, gff->group_tag->chars);
-        else 
-          gff_exon_group(mini_gff, "id");
-        /* group same way as parent gff, if grouped; otherwise, group
-           contiguous features */
-
-        msa_reverse_compl_feats(mini_msa, mini_gff, NULL);
+      if (reverse_groups != NULL && lst_size(mini_gff->features) > 0) {
+          gff_group(mini_gff, reverse_groups);
+          msa_reverse_compl_feats(mini_msa, mini_gff, NULL);
       }
 
       /* now label categories of mini_msa accordingly */
@@ -370,7 +385,7 @@ MSA *maf_read(FILE *F, FILE *REFSEQF, char *alphabet, int tuple_size,
   return msa;
 }
 
-/* Reads a block from an MAF file and stores it as a "mini-msa" using
+/** Read a block from an MAF file and store it as a "mini-msa" using
    the provided object.  Allocates memory for sequences if they are
    NULL (as with first block).  Reads to next "a" line or EOF.
    Returns EOF when no more alignments are available.  Sets start
@@ -484,10 +499,10 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
   return 0;
 }
 
-/* Reads a block from an MAF file and returns it as a new MSA object.
-   Reads to next "a" line or EOF.  Returns NULL when no more alignments
-   are available.  This is a simpler and somewhat more flexible
-   version of the function above.  */
+/** Reads a block from an MAF file and returns it as a new MSA object.
+    Reads to next "a" line or EOF.  Returns NULL when no more
+    alignments are available.  This is a slightly less efficient but
+    simpler and more flexible version of maf_read_block.  */
 MSA *maf_read_next_msa(FILE *F) {
 
   int seqidx = 0, i, firstcall = 0;

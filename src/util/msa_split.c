@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.2 2004-06-14 03:06:21 acs Exp $
+/* $Id: msa_split.c,v 1.3 2004-06-14 21:11:10 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -570,7 +570,7 @@ int main(int argc, char* argv[]) {
     assert(gff == NULL);        /* use with GFF not yet supported */
     msa = maf_read(fopen_fname(msa_fname, "r"), 
                    rseq_fname == NULL ? NULL : fopen_fname(rseq_fname, "r"), 
-                   NULL, tuple_size, NULL, NULL, -1, 1, 0, NO_STRIP); 
+                   tuple_size, NULL, NULL, -1, TRUE, NULL, NO_STRIP); 
   }
   else 
     msa = msa_new_from_file(fopen_fname(msa_fname, "r"),

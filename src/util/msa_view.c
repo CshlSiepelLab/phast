@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.4 2004-06-14 03:06:21 acs Exp $
+/* $Id: msa_view.c,v 1.5 2004-06-14 21:11:10 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -182,10 +182,15 @@ Options:\n\
 \n\
  (Experimental)\n\
     --reverse-complement, -V\n\
-        If used with --features, reverse complements segments of the\n\
-        alignment corresponding to \"groups\" in the GFF that appear\n\
-        on the reverse strand.  If used without --features, reverse\n\
-        complements the entire sub-alignment.\n\
+        Reverse complement output alignment.\n\
+\n\
+    --reverse-groups, -? <tag>\n\
+        (For use with --features) Group features by <tag> (e.g.,\n\
+        \"transcript_id\" or \"exon_id\") and reverse complement\n\
+        segments of the alignment corresponding to groups on the\n\
+        reverse strand.  Groups must be non-overlapping (see refeature\n\
+        --unique).  Useful when extracting sufficient statistics for
+        strand-specific site categories (e.g., codon positions).\n\
 \n\
     --clean-coding, -L <seqname>\n\
         (Supercedes --gap-strip) Clean an alignment of coding\n\
@@ -208,7 +213,8 @@ Options:\n\
         Randomly permute the columns of the source alignment (done\n\
         *before* taking sub-alignment).  Requires an ordered\n\
         representation of the alignment (careful using with\n\
-        --in-format SS|MAF).\n\n");
+        --in-format SS|MAF -- will create full alignment from\n\
+        sufficient statistics).\n\n");
 }
 
 void parse_seqs(char *seqlist, List *l, int bound) {
@@ -279,7 +285,8 @@ int main(int argc, char* argv[]) {
   msa_format_type input_format = PHYLIP, output_format = PHYLIP;
   List *l = NULL;
   char *infname = NULL, *seqlist = NULL, *gff_fname = NULL, 
-    *cat_map_fname = NULL, *clean_seqname = NULL, *rseq_fname = NULL;
+    *cat_map_fname = NULL, *clean_seqname = NULL, *rseq_fname = NULL,
+    *reverse_groups_tag = NULL;
   int i, opt_idx, startcol = 1, endcol = -1, include = 1, gap_strip_mode = NO_STRIP,
     pretty_print = 0, refseq = 0, tuple_size = 1, 
     ordered_stats = 1, cds_mode =- 0, indel_clean_nseqs = -1, cats_done = 0,
@@ -312,6 +319,12 @@ int main(int argc, char* argv[]) {
     {"order", 1, 0, 'O'},
     {"summary-only", 0, 0, 'S'},
     {"window-summary", 1, 0, 'w'},
+    {"fill-Ns", 1, 0, 'N'},
+    {"reverse-complement", 0, 0, 'V'},
+    {"reverse-groups", 1, 0, 'W'},
+    {"clean-coding", 1, 0, 'L'},
+    {"clean-indels", 1, 0, 'I'},
+    {"randomize", 0, 0, 'R'},
     {"fill-Ns", 1, 0, 'N'},
     {"help", 0, 0, 'h'}
   };
@@ -404,6 +417,9 @@ int main(int argc, char* argv[]) {
       break;
     case 'V':
       reverse_compl = 1;
+      break;
+    case 'W':
+      reverse_groups_tag = optarg;
       break;
     case 'S':
       stats_only = 1;
@@ -502,10 +518,10 @@ int main(int argc, char* argv[]) {
                                    stats, and it's a common mistake to
                                    forget -z */
 
-    msa = maf_read(fopen_fname(infname, "r"), RSEQF, NULL, tuple_size, 
+    msa = maf_read(fopen_fname(infname, "r"), RSEQF, tuple_size, 
                    gff, cm, cycle_size, 
-                   output_format != SS || ordered_stats == 1, 
-                   reverse_compl, gap_strip_mode);
+                   output_format != SS || ordered_stats, 
+                   reverse_groups_tag, gap_strip_mode);
                                 /* store order unless output is SS and
                                    no ordered stats */
   }
@@ -577,13 +593,13 @@ int main(int argc, char* argv[]) {
     /* convert GFF to coordinate frame of alignment */
     msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
 
-    if (reverse_compl) {
+    if (reverse_groups_tag != NULL) { /* reverse complement by group */
       if (input_format == SS) {
         fprintf(stderr, "ERROR: need an explicit representation of the alignment to reverse complement.\n");
         exit(1);
       }
 
-      gff_exon_group(gff, "id"); /* FIXME: allow group tag to be passed in */
+      gff_exon_group(gff, reverse_groups_tag);
       msa_reverse_compl_feats(msa, gff, NULL);
     }
 

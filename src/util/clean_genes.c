@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.10 2004-06-14 03:06:21 acs Exp $
+/* $Id: clean_genes.c,v 1.11 2004-06-14 21:11:10 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -1024,7 +1024,7 @@ int main(int argc, char *argv[]) {
   if (msa_format == MAF) {
     msa = maf_read(fopen_fname(argv[optind+1], "r"), 
                    rseq_fname == NULL ? NULL : fopen_fname(rseq_fname, "r"), 
-                   NULL, 1, NULL, NULL, -1, 1, 0, NO_STRIP); 
+                   1, NULL, NULL, -1, TRUE, NULL, NO_STRIP); 
   }
   else {
     msa = msa_new_from_file(fopen_fname(argv[optind+1], "r"),
