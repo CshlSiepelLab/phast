@@ -1,4 +1,4 @@
-/* $Id: eval_predictions.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: eval_predictions.c,v 1.2 2004-06-06 03:22:00 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -46,7 +46,7 @@ Options:\n\
         (required) List of names of files defining real genes (GFF). \n\
 \n\
     -p <pred_fname_list> \n\
-        (required) List of names of file defining predicted genes\n\
+        (required) List of names of files defining predicted genes\n\
         (GFF).  Must correspond in order to <real_fname_list>.\n\
 \n\
     -l <seq_len_list>\n\
@@ -79,33 +79,6 @@ NOTE: This program does not allow for overlapping exons in either the real or \n
 predicted sets.  Features that overlap previous features are removed in a\n\
 preprocessing step.\n\n");  
 } 
-
-/* returns List of Strings derived from an argument that may either be
-   a literal comma-separated list or a reference to a file (using the
-   "*" convention).  Note: List and all Strings are newly allocated
-   (should be freed externally) */
-/* List *get_arg_list(char *arg) { */
-/*   String *argstr = str_new_charstr(arg); */
-/*   List *l = lst_new_ptr(10); */
-/*   if (str_starts_with_charstr(argstr, "*")) { */
-/*     FILE *F; */
-/*     String *fname_str; */
-/*     if ((F = fopen(&argstr->chars[1], "r")) == NULL) { */
-/*       fprintf(stderr, "ERROR: Cannot open file %s.\n", &argstr->chars[1]); */
-/*       exit(1); */
-/*     } */
-/*     fname_str = str_new(STR_MED_LEN); */
-/*     str_slurp(fname_str, F); */
-/*     str_split(fname_str, NULL, l); */
-/*     fclose(F); */
-/*     str_free(fname_str); */
-/*   } */
-/*   else  */
-/*     str_split(argstr, ",", l); */
-
-/*   str_free(argstr); */
-/*   return l; */
-/* } */
 
 int is_exon(GFF_Feature *feat, List *l) {
   int i;

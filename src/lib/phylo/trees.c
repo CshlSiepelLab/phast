@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $ 
+/* $Id: trees.c,v 1.2 2004-06-06 03:22:00 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -6,7 +6,7 @@
   Functions for manipulating phylogenetic trees.  Includes functions
   for reading, writing, traversing, and printing.  Trees are
   represented as rooted binary trees with non-negative real branch
-  lengths.  formula: \f$a^2 + b^2 = c^2\f$  
+  lengths.  
   \ingroup base
 */
 

@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.7 2004-06-05 07:30:20 acs Exp $
+/* $Id: clean_genes.c,v 1.8 2004-06-06 03:22:00 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -203,10 +203,10 @@ char *STATS_DESCRIPTION = "#\n\
 # (out of)      (number tested)\n\
 # nbad_3utr     number failing 3' splice site test (designated UTR)\n\
 # (out of)      (number tested)\n\
-# nbad_intron   number splice sites incorrectly paired at intron\n\
-# nnons         number failing nonsense mutation test (not counting ones that fail above tests)\n\
-# nfshifts      number failing frameshift test (not counting ones that fail above tests)\n\
-# *** ALIGNMENT GAP STATS ***\n\
+# nbad_intron   number of pairs of splice sites failing consistency test (not GT-AG, GC-AG, AT-AC)\n\
+# nnons         number of cds's failing nonsense mutation test (not counting ones that fail above tests)\n\
+# nfshifts      number of cds's failing frameshift test (not counting ones that fail above tests)\n\
+# *** ALIGNMENT GAP STATS (for use at individual exon level) ***\n\
 # ncons_exons   number of conserved exons (same as nkept if --conserved)\n\
 # nce_ngaps     number with no alignment gaps\n\
 # nce_nov_cln   number with only nonoverlapping \"clean\" gaps (multiple of three lengths)\n\
