@@ -86,11 +86,11 @@ phyloFit:
 
 phastCons:
 	@echo "*** Testing phastCons ***"
-	phastCons hpmrc.ss hpmrc-rev-dg-global.mod --nrates 20 --transitions .08,.008 --quiet --viterbi elements.bed > cons.dat
+	phastCons hpmrc.ss hpmrc-rev-dg-global.mod --nrates 20 --transitions .08,.008 --quiet --viterbi elements.bed --seqname chr22 > cons.dat
 	@if [[ -n `diff --brief cons.dat cons_correct.dat` ]] ; then echo "ERROR" ; exit 1 ; fi  
 	@if [[ -n `diff --brief elements.bed elements_correct.bed` ]] ; then echo "ERROR" ; exit 1 ; fi  
 	tree_doctor hpmrc-rev-dg-global.mod --prune galGal2 > hpmr.mod
-	phastCons hpmrc.ss hpmr.mod --nrates 20 --transitions .08,.008 --quiet --viterbi elements-4way.bed > cons-4way.dat
+	phastCons hpmrc.ss hpmr.mod --nrates 20 --transitions .08,.008 --quiet --viterbi elements-4way.bed --seqname chr22 > cons-4way.dat
 	@if [[ -n `diff --brief cons-4way.dat cons-4way_correct.dat` ]] ; then echo "ERROR" ; exit 1 ; fi  
 	@if [[ -n `diff --brief elements-4way.bed elements-4way_correct.bed` ]] ; then echo "ERROR" ; exit 1 ; fi  
 	@echo -e "Passed all tests.\n"
@@ -110,6 +110,7 @@ phastCons:
 # show output of phastCons test cases as tracks (run on hgwdev)
 show-cons:
 	wigAsciiToBinary -chrom=chr22 -wibFile=chr22_phastConsTest cons_correct.dat
-	hgLoadWiggle hg16 phastConsTest -pathPrefix=/gbdb/hg17/multiz7way/wib chr22_phastConsTest.wig
+	hgLoadWiggle hg16 phastConsTest chr22_phastConsTest.wig
+	cp chr22_phastConsTest.wib /gbdb/hg16/wib
 	hgLoadBed hg16 phastConsElementsTest elements_correct.bed
 
