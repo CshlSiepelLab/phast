@@ -1,11 +1,10 @@
-/* $Id: trees.h,v 1.5 2004-06-22 18:14:29 acs Exp $
+/* $Id: trees.h,v 1.6 2004-08-04 00:34:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
 #ifndef TREES_H
 #define TREES_H
 
-#define DEFAULT_WORDLEN 25
 #define MAX_TREESTR_LEN 10000
 #define MAX_LINE_LEN 10000
 
@@ -22,7 +21,7 @@ struct tree_node {
   TreeNode *parent;
   TreeNode *lchild, *rchild;
   double dparent;
-  char name [DEFAULT_WORDLEN];
+  char name [STR_MED_LEN];
   void *data;                   /* allows generic data to be 
                                    associated with tree node */ 
   int id;
@@ -78,5 +77,7 @@ void tr_print_ps(FILE *F, TreeNode *tree, int show_branch_lens,
 double tr_total_len(TreeNode *t);
 TreeNode *tr_get_node(TreeNode *t, char *name);
 void tr_number_leaves(TreeNode *t, char **names, int nnames);
+void tr_scale(TreeNode *t, double scale_const);
+void tr_prune(TreeNode **t, List *names, int all_but);
 
 #endif 

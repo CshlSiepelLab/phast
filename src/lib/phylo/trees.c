@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.11 2004-06-22 19:11:11 acs Exp $ 
+/* $Id: trees.c,v 1.12 2004-08-04 00:34:28 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -842,4 +842,126 @@ void tr_number_leaves(TreeNode *t,
       }
     }
   }
+}
+
+/** Scale all branch lengths by constant factor. */
+void tr_scale(TreeNode *t, double scale_const) {
+  int i;
+  for (i = 0; i < t->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(t->nodes, i);
+    if (n->parent != NULL) 
+      n->dparent *= scale_const;
+  }
+}
+
+/** Prune away all leaves whose names are in (or not in) the specified
+    list.  Nodes will be removed and branches combined (branch lengths
+    added) to restore as a proper binary tree.  */
+void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
+                                   because root can change) */
+              List *names,      /**< List of names  */
+              int all_but       /**< if FALSE, prune leaves *in*
+                                   'names'; if TRUE, prune leaves *not
+                                   in* 'names'  */
+              ) {
+
+  TreeNode *n;
+  int i, new_nnodes = (*t)->nnodes;
+  int *is_leaf;
+  List *traversal;
+
+  /* first identify original leaves; will need to distinguish them
+     from leaves that are created by pruning */
+  is_leaf = smalloc((*t)->nnodes * sizeof(int));
+  for (i = 0; i < (*t)->nnodes; i++) {
+    n = lst_get_ptr((*t)->nodes, i);
+    is_leaf[i] = (n->lchild == NULL && n->rchild == NULL);
+  }
+
+  /* get rid of nodes, preorder, and inorder lists (do now because
+     root may change) */
+  if ((*t)->nodes != NULL) { lst_free((*t)->nodes); (*t)->nodes = NULL; }
+  if ((*t)->preorder != NULL) { lst_free((*t)->preorder); (*t)->preorder = NULL; }
+  if ((*t)->inorder != NULL) { lst_free((*t)->inorder); (*t)->inorder = NULL; }
+
+  /* remove nodes and combine branches in postorder traversal */
+  traversal = tr_postorder(*t);
+  for (i = 0; i < lst_size(traversal); i++) {
+    TreeNode *n = lst_get_ptr(traversal, i);
+    if (n->lchild == NULL && n->rchild == NULL){ /* missing both children */
+      String *s;
+      int prune;
+      
+      if (!is_leaf[n->id])      /* if not originally a leaf, must be pruned */
+        prune = TRUE;
+      else {
+        s = str_new_charstr(n->name);
+        prune = str_in_list(s, names);
+        if (all_but) prune = !prune;
+      }
+
+      if (prune) {
+        if (n->parent == NULL) 
+          *t = NULL;            /* entire tree has been pruned away! */
+        else {
+          if (n == n->parent->lchild) n->parent->lchild = NULL;
+          else n->parent->rchild = NULL;
+        }
+        free(n);
+        new_nnodes--;
+      }
+    }
+    else if (n->lchild == NULL) { /* missing left child only */
+      if (n->parent == NULL) {
+        assert(n == *t);        /* n must be root */
+        n->rchild->parent = NULL; /* redefine root */
+        *t = n->rchild;
+        (*t)->dparent = 0;
+      }
+      else {                    /* mid-level node; remove and combine
+                                   branch lengths */
+        n->rchild->parent = n->parent;
+        n->rchild->dparent += n->dparent;
+        if (n == n->parent->lchild) n->parent->lchild = n->rchild;
+        else n->parent->rchild = n->rchild;
+      }
+      free(n);
+      new_nnodes--;
+    }
+    else if (n->rchild == NULL) { /* missing right child only */
+      if (n->parent == NULL) {
+        assert(n == *t);        /* n must be root */
+        n->lchild->parent = NULL; /* redefine root */
+        *t = n->lchild;         
+        (*t)->dparent = 0;
+      }
+      else {                    /* mid-level node; remove and combine
+                                   branch lengths */
+        n->lchild->parent = n->parent;
+        n->lchild->dparent += n->dparent;
+        if (n == n->parent->lchild) n->parent->lchild = n->lchild;
+        else n->parent->rchild = n->lchild;
+      }
+      free(n);
+      new_nnodes--;
+    }
+  }
+
+  /* finally, free postorder list */
+  lst_free(traversal); 
+  if (*t != NULL && (*t)->postorder != NULL) (*t)->postorder = NULL;
+
+  /* reset ids, nodes, nnodes, heights */
+  if (*t != NULL) {
+    (*t)->nnodes = new_nnodes;
+    traversal = tr_preorder(*t);
+    for (i = 0; i < lst_size(traversal); i++) {
+      n = lst_get_ptr(traversal, i);
+      n->id = i;
+      if (n != *t) n->nnodes = -1;
+    }
+    tr_set_nnodes(*t);
+  }
+
+  free(is_leaf);
 }
