@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.11 2004-08-02 22:46:59 acs Exp $
+/* $Id: tree_model.c,v 1.12 2004-08-04 00:34:12 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -500,21 +500,8 @@ void tm_set_subst_matrices(TreeModel *tm) {
 /* scale evolutionary rate by const factor (affects branch lengths
    only) */
 void tm_scale(TreeModel *tm, double scale_const, int reset_subst_mats) {
-  TreeNode *n;
-  Stack *s;
-
   if (tm->tree == NULL) return;
-
-  s = stk_new_ptr(tm->tree->nnodes);
-  stk_push_ptr(s, tm->tree);
-  while ((n = stk_pop_ptr(s)) != NULL) {
-    n->dparent *= scale_const;
-    if (n->lchild != NULL) 
-      stk_push_ptr(s, n->lchild);
-    if (n->rchild != NULL) 
-      stk_push_ptr(s, n->rchild);
-  }
-  stk_free(s);
+  tr_scale(tm->tree, scale_const);
   if (reset_subst_mats) tm_set_subst_matrices(tm);
 }
 
