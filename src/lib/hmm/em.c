@@ -1,4 +1,4 @@
-/* $Id: em.c,v 1.4 2004-08-10 22:03:30 acs Exp $
+/* $Id: em.c,v 1.5 2004-08-14 04:24:26 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -93,9 +93,9 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
 
   if (logf != NULL) {
     if (log_function != NULL)
-      log_function(logf, NEGINFTY, hmm, data, TRUE);
+      log_function(logf, 0, hmm, data, TRUE);
     else 
-      default_log_function(logf, NEGINFTY, hmm, NULL, TRUE);
+      default_log_function(logf, 0, hmm, NULL, TRUE);
   }
 
   while (!done) {
