@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.12 2004-06-25 07:58:37 acs Exp $
+/* $Id: msa_split.c,v 1.13 2004-06-26 03:50:42 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -219,7 +219,7 @@ OPTIONS:\n\
     --quiet, -q\n\
         Proceed quietly.\n\
 \n\
-    ---help, -h\n\
+    --help, -h\n\
         Print this help message.\n\n", NSITES_BETWEEN_BLOCKS);
 }
 
