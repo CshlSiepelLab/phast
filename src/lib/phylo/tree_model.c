@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.16 2004-09-10 16:36:46 acs Exp $
+/* $Id: tree_model.c,v 1.17 2004-09-21 22:58:20 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -257,7 +257,7 @@ TreeModel *tm_new_from_file(FILE *f) {
   gsl_matrix *rmat = NULL;
   MarkovMatrix *M = NULL;
   TreeNode *tree = NULL;
-  int size = 0, order = 0, nratecats = -1;
+  int size = 0, order = 0, nratecats = -1, empty = TRUE;
   double alpha = 0;
   TreeModel *retval;
   subst_mod_type subst_mod = UNDEF_MOD;
@@ -265,6 +265,7 @@ TreeModel *tm_new_from_file(FILE *f) {
   List *rate_consts = NULL;
 
   while (fscanf(f, "%s", tag) != EOF) {
+    empty = FALSE;
     if (!strcmp(tag, ALPHABET_TAG)) {
       str_readline(tmpstr, f);
 
@@ -343,16 +344,21 @@ TreeModel *tm_new_from_file(FILE *f) {
       gsl_vector_fscanf(f, rate_weights);
     }
     else {
-      fprintf(stderr, "Error: unrecognized tag in model file (\"%s\").\n", 
+      fprintf(stderr, "ERROR: unrecognized tag in model file (\"%s\").\n", 
 	      tag);
       exit(1);
     }
   }
 
+  if (empty) die("ERROR: empty tree model file.\n");
+
   if (rmat != NULL) 
     M = mm_new_from_matrix(rmat, alphabet, CONTINUOUS);
-  else 
+  else {
+    if (size == 0) 
+      die ("ERROR: ALPHABET line must precede RATE_MAT in tree model file.");
     M = mm_new(size, alphabet, CONTINUOUS);
+  }
 
   if (nratecats < 0) nratecats = 1;
 
