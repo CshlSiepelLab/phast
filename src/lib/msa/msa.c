@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.17 2004-06-25 07:58:37 acs Exp $
+/* $Id: msa.c,v 1.18 2004-07-24 17:55:46 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -101,10 +101,16 @@ MSA *msa_new(char **seqs, char **names, int nseqs, int length, char *alphabet) {
     msa->alphabet = (char*)smalloc((strlen(DEFAULT_ALPHABET)+1) * sizeof(char));
     strcpy(msa->alphabet, DEFAULT_ALPHABET);
   }
-    
-  for (i = 0; i < NCHARS; i++) msa->inv_alphabet[i] = -1;
+  msa->missing = DEFAULT_MDATA_CHARS;
+
+  for (i = 0; i < NCHARS; i++) { 
+    msa->inv_alphabet[i] = -1;
+    msa->is_missing[i] = 0;
+  }
   for (i = 0; msa->alphabet[i] != '\0'; i++)
     msa->inv_alphabet[(int)msa->alphabet[i]] = i;
+  for (i = 0; msa->missing[i] != '\0'; i++)
+    msa->is_missing[(int)msa->missing[i]] = 1;
 
   return msa;
 }
@@ -172,12 +178,13 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
         char base;
         if (isspace(line[k])) continue;
         base = toupper(line[k]);
-        if (base == '.') base = GAP_CHAR;
-        if (base != GAP_CHAR && base != 'N' && 
-            msa->inv_alphabet[(int)base] == -1) {
-          if (isalpha(base)) base = 'N'; /* for now, use 'N' in place
-                                            of unrecognized character
-                                            (usually IUPAC code) */
+        if (base == '.') base = msa->missing[0];
+        else if (base != GAP_CHAR && !msa->is_missing[(int)base] &&
+                 msa->inv_alphabet[(int)base] == -1) {
+          if (isalpha(base)) base = 'N'; 
+                                /* for now, use 'N' in place of
+                                   unrecognized alphabetical character
+                                   (usually IUPAC code) */
           else 
             die("ERROR: bad character in multiple sequence alignment: '%c'.\n", 
                 base); 
@@ -310,10 +317,11 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
     /* scan chars and adjust if necessary */
     for (j = 0; j < maxlen; j++) {
       msa->seqs[i][j] = toupper(s->chars[j]);
-      if (msa->seqs[i][j] == '.') msa->seqs[i][j] = GAP_CHAR;
+      if (msa->seqs[i][j] == '.') msa->seqs[i][j] = msa->missing[0];
       if (isalpha(msa->seqs[i][j]) && msa->inv_alphabet[(int)msa->seqs[i][j]] == -1)
         msa->seqs[i][j] = 'N';
-                                /* for now, just assume 'N' if unrecognized letter */
+                                /* for now, just assume 'N' if
+                                   unrecognized letter */
     }
     msa->seqs[i][maxlen] = '\0';
 
@@ -411,12 +419,12 @@ void strip_gaps(MSA *msa, int gap_strip_mode) {
     for (j = 0; j < msa->nseqs; j++) {
       if (gap_strip_mode == STRIP_ANY_GAPS && 
           (msa->seqs[j][i] == GAP_CHAR || 
-           msa->seqs[j][i] == MDATA_CHAR)) {
+           msa->is_missing[(int)msa->seqs[j][i]])) {
         strip = 1; break;
       }
       else if (gap_strip_mode == STRIP_ALL_GAPS && 
                msa->seqs[j][i] != GAP_CHAR && 
-               msa->seqs[j][i] != MDATA_CHAR) {
+               !msa->is_missing[(int)msa->seqs[j][i]]) {
         strip = 0; break;
       }
     }
@@ -672,76 +680,6 @@ void msa_map_free(msa_coord_map *map) {
   lst_free(map->msa_list);
   lst_free(map->seq_list);
   free(map);
-}
-
-/* Computes the entropy per column of the multiple alignment.
-   "entropy" must be allocated to be of length at least equal to the
-   number of columns in the alignment.  NOTE: currently gaps are
-   treated like ordinary characters.
-*/
-void msa_compute_entropy_per_column(MSA *msa, double *entropy) {
-  int nchars = strlen(msa->alphabet) + 1; /* +1 for GAP_CHAR */
-  int *counts = (int*)smalloc(nchars * sizeof(int));
-  int i, j;
-  for (i = 0; i < msa->length; i++) {
-    for (j = 0; j < nchars; j++) counts[j] = 0;
-    for (j = 0; j < msa->nseqs; j++) {
-      int idx = msa->seqs[j][i] == GAP_CHAR ? nchars-1 : 
-        msa->inv_alphabet[(int)msa->seqs[j][i]];
-      counts[idx]++;
-    }
-    for (j = 0; j < nchars; j++) 
-      entropy[i] += (counts[j] == 0 ? 0 :
-                     -1 * counts[j] * log2(counts[j]*1.0/msa->nseqs));
-  }
-  free(counts);
-}
-
-/* Computes the average identity per column of the multiple alignment
-   (details in writeup).  "ave_pw_id" must be allocated to be of
-   length at least equal to the number of columns in the alignment. 
-   NOTE: currently gaps are treated like ordinary characters. */
-void msa_compute_pwid_per_column(MSA *msa, double *ave_pw_id) {
-  int nchars = strlen(msa->alphabet) + 1; /* +1 for GAP_CHAR */
-  int *counts = (int*)smalloc(nchars * sizeof(int));
-  int i, j, nsame, totpairs;
-  for (i = 0; i < msa->length; i++) {
-    for (j = 0; j < nchars; j++) counts[j] = 0;
-    for (j = 0; j < msa->nseqs; j++) {
-      int idx = msa->seqs[j][i] == GAP_CHAR ? nchars-1 : 
-        msa->inv_alphabet[(int)msa->seqs[j][i]];
-      counts[idx]++;
-    }
-    nsame = 0;
-    for (j = 0; j < nchars; j++) 
-      nsame += counts[j] * (counts[j] - 1) / 2;
-    totpairs = msa->nseqs * (msa->nseqs - 1) / 2;
-    ave_pw_id[i] = nsame * 1.0 / totpairs;
-  }
-  free(counts);
-}
-
-/* "Smooth" any per-column score by applying a sliding window of the
-   specified size.  Values are associated with the center of each
-   window.  The window_size/2 values at each edge will be set to zero.
-   "smoothed_scores" must be of length at least equal to the number of
-   columns in the alignment. */
-void msa_apply_sliding_window(int window_size, double *col_scores, int len,
-                              double *smoothed_scores) { 
-  double window_sum = 0;
-  int i, j;
-  assert(window_size < len);
-  for (i = 0; i < window_size; i++) 
-    window_sum += col_scores[i];
-
-  j = window_size / 2;
-  for (i = 0; i < j; i++) smoothed_scores[i] = 0;
-  smoothed_scores[j++] = window_sum/window_size;
-  for (i = window_size; i < len; i++) {
-    window_sum += col_scores[i] - col_scores[i - window_size];
-    smoothed_scores[j++] = window_sum/window_size;
-  }
-  for (i = j; i < len; i++) smoothed_scores[i] = 0;
 }
 
 /* what to do with overlapping categories? for now, just rely on external code to order them appropriately ... */ 
@@ -1168,7 +1106,8 @@ void msa_partition_by_category(MSA *msa, List *submsas, List *cats_to_do,
     if (j > 0 && cat != msa->categories[j-1] && idx[cat] > 0) {
       /* add columns of missing data, if necessary */
       for (col = 0; col < tuple_size-1; col++) {
-        for (i = 0; i < msa->nseqs; i++) seqs[cat][i][idx[cat]] = 'N';
+        for (i = 0; i < msa->nseqs; i++) 
+          seqs[cat][i][idx[cat]] = msa->missing[0];
         idx[cat]++;
       }
     }
@@ -1220,11 +1159,8 @@ void msa_print_stats(MSA *msa, FILE *F, char *label, int header, int start,
   if (header == 1) {
     int i;
     fprintf(F, "%-20s", "descrip.");
-    for (i = 0; i < strlen(msa->alphabet); i++) {
-      if (msa->alphabet[i] != GAP_CHAR) {
+    for (i = 0; i < strlen(msa->alphabet); i++) 
         fprintf(F, "%10c", msa->alphabet[i]);
-      }    
-    }
     fprintf(F, "%10s", "G+C");
     fprintf(F, "%10s", "length");
     fprintf(F, "%10s", "all_gaps");
@@ -1239,9 +1175,7 @@ void msa_print_stats(MSA *msa, FILE *F, char *label, int header, int start,
     double gc = 0;
     fprintf(F, "%-20s", label);
     for (i = 0; i < strlen(msa->alphabet); i++) {
-      if (msa->alphabet[i] != GAP_CHAR) {
-        fprintf(F, "%10.4f", gsl_vector_get(freqs, i));
-      }    
+      fprintf(F, "%10.4f", gsl_vector_get(freqs, i));
       if (msa->alphabet[i] == 'G' || msa->alphabet[i] == 'C')
         gc += gsl_vector_get(freqs, i);
     }
@@ -1273,12 +1207,10 @@ gsl_vector *msa_get_base_freqs(MSA *msa, int start, int end) {
     for (i = 0; i < msa->ss->ntuples; i++) {
       for (j = 0; j < msa->nseqs; j++) {
         char c = ss_get_char_tuple(msa, i, j, 0);
-        if (c != GAP_CHAR && c != 'N') {
+        if (c != GAP_CHAR && !msa->is_missing[(int)c]) {
           int idx = msa->inv_alphabet[(int)c];
-          if (idx == -1) {
-            fprintf(stderr, "ERROR: unrecognized character in alignment ('%c').\n", c);
-            exit(1);
-          }
+          if (idx == -1) 
+            die("ERROR: unrecognized character in alignment ('%c').\n", c);
           gsl_vector_set(base_freqs, idx, 
                          gsl_vector_get(base_freqs, idx) + 
                          msa->ss->counts[i]); 
@@ -1292,7 +1224,7 @@ gsl_vector *msa_get_base_freqs(MSA *msa, int start, int end) {
     for (i = s; i < e; i++) {
       for (j = 0; j < msa->nseqs; j++) {
         char c = msa_get_char(msa, j, i);
-        if (c != GAP_CHAR && c != 'N') {
+        if (c != GAP_CHAR && !msa->is_missing[(int)c]) {
           int idx = msa->inv_alphabet[(int)c];
           if (idx == -1) {
             fprintf(stderr, "ERROR: unrecognized character in alignment ('%c').\n", c);
@@ -1338,14 +1270,12 @@ void msa_get_base_freqs_tuples(MSA *msa, gsl_vector *freqs, int k, int cat) {
         tup_idx = 0;
         for (offset = -1*(k-1); !ignore && offset <= 0; offset++) {
           char c = ss_get_char_tuple(msa, i, j, offset);
-          if (c == GAP_CHAR || c == 'N') /* should generalize */
+          if (c == GAP_CHAR || msa->is_missing[(int)c])
             ignore = 1;
           else {
             int alph_idx = msa->inv_alphabet[(int)c];
-            if (alph_idx == -1) {
-              fprintf(stderr, "ERROR: unrecognized character in alignment ('%c').\n", c);
-              exit(1);
-            }
+            if (alph_idx == -1) 
+              die("ERROR: unrecognized character in alignment ('%c').\n", c);
             tup_idx += alph_idx * int_pow(alph_size, -offset); 
           }
         }
@@ -1371,7 +1301,7 @@ void msa_get_base_freqs_tuples(MSA *msa, gsl_vector *freqs, int k, int cat) {
         tup_idx = 0;
         for (l = 0; !ignore && l < k; l++) {
           char c = msa->seqs[j][i+l];
-          if (c == GAP_CHAR || c == 'N') /* should generalize */
+          if (c == GAP_CHAR || msa->is_missing[(int)c])
             ignore = 1;
           else {
             int alph_idx = msa->inv_alphabet[(int)c];
@@ -1443,8 +1373,9 @@ int msa_num_gapped_cols(MSA *msa, int gap_strip_mode, int start, int end) {
 }
 
 /* return number of columns of specified category that are
-   "informative" in the sense that they contain at least two
-   non-gaps (or non 'N's).  If cat == -1, all columns will be considered */
+   "informative" in the sense that they contain at least two non-gaps
+   (or non-missing chars).  If cat == -1, all columns will be
+   considered */
 unsigned int msa_ninformative_sites(MSA *msa, int cat) {
   unsigned int retval = 0;
   int i, j;
@@ -1453,7 +1384,7 @@ unsigned int msa_ninformative_sites(MSA *msa, int cat) {
       int ninf = 0;
       for (j = 0; j < msa->nseqs; j++) {
         if (ss_get_char_tuple(msa, i, j, 0) != GAP_CHAR && 
-            ss_get_char_tuple(msa, i, j, 0) != 'N') {
+            !msa->is_missing[(int)ss_get_char_tuple(msa, i, j, 0)]) {
           ninf++;
           if (ninf >= 2) {
             retval += (cat >= 0 ? msa->ss->cat_counts[cat][i] :
@@ -1469,7 +1400,8 @@ unsigned int msa_ninformative_sites(MSA *msa, int cat) {
       int ninf = 0;
       if (cat >= 0 && msa->categories[i] != cat) continue;
       for (j = 0; j < msa->nseqs; j++) {
-        if (msa->seqs[j][i] != GAP_CHAR && msa->seqs[j][i] != 'N') ninf++;
+        if (msa->seqs[j][i] != GAP_CHAR && 
+            !msa->is_missing[(int)msa->seqs[j][i]]) ninf++;
         if (ninf >= 2) {
           retval++;
           break;
@@ -1747,8 +1679,7 @@ void msa_indel_clean(MSA *msa,  /* MSA to clean */
                                         columns of missing data will
                                         be maintained between
                                         nonadjacent columns */
-                     char mdata_char) { /* Missing data character
-                                           (usually 'N' for DNA) */
+                     char mdata_char) { /* Missing data character to use */
   int i, j, k, first_base, nempty, nbases;
   int empty_col[msa->length];
 

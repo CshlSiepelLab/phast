@@ -949,27 +949,28 @@ void mtf_sample_ntuples(SeqSet *s, List *tuples, int tuple_size, int number) {
 void mtf_init_from_consensus(String *consensus, gsl_vector **mods, 
                              int *inv_alph, int npseudocounts, 
                              int probabilistic, int target_size) {
-  int i, j, sum, offset, size, Nfactor;
+  int i, j, sum, offset, size/* , Nfactor */;
 
   size = mods[0]->size;         /* mods[0] assumed backgd, not altered */
 
-  Nfactor = (inv_alph[(int)'N'] >= 0 ? 1 : 0);
+/*   Nfactor = (inv_alph[(int)'N'] >= 0 ? 1 : 0); */
 
   for (i = 0; i < (target_size - consensus->length) / 2; i++) {
     for (j = 0; j < size; j++) {
-      if (j == inv_alph[(int)'N']) gsl_vector_set(mods[i+1], j, 0);
-      else gsl_vector_set(mods[i+1], j, 1.0/(size-Nfactor));
+/*       if (j == inv_alph[(int)'N']) gsl_vector_set(mods[i+1], j, 0); */
+/*       else */ 
+      gsl_vector_set(mods[i+1], j, 1.0/(size/* -Nfactor */));
     }
   }
   offset = i;
 
-  sum = size - Nfactor - 1 + npseudocounts;
+  sum = size /* - Nfactor */ - 1 + npseudocounts;
   for (i = 0; i < consensus->length; i++) {
     for (j = 0; j < size; j++) {
       if (j == inv_alph[(int)consensus->chars[i]])
         gsl_vector_set(mods[i+offset+1], j, 1.0 * npseudocounts / sum);
-      else if (j == inv_alph[(int)'N'])
-        gsl_vector_set(mods[i+offset+1], j, 0);
+/*       else if (j == inv_alph[(int)'N']) */
+/*         gsl_vector_set(mods[i+offset+1], j, 0); */
       else
         gsl_vector_set(mods[i+offset+1], j, 1.0/sum);
     }
@@ -977,8 +978,9 @@ void mtf_init_from_consensus(String *consensus, gsl_vector **mods,
 
   for (; i+offset < target_size; i++) {
     for (j = 0; j < size; j++) {
-      if (j == inv_alph[(int)'N']) gsl_vector_set(mods[i+offset+1], j, 0);
-      else gsl_vector_set(mods[i+offset+1], j, 1.0/(size-Nfactor));
+/*       if (j == inv_alph[(int)'N']) gsl_vector_set(mods[i+offset+1], j, 0); */
+/*       else  */
+      gsl_vector_set(mods[i+offset+1], j, 1.0/(size/* -Nfactor */));
     }
   }
 }

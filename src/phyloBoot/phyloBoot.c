@@ -315,7 +315,7 @@ int main(int argc, char *argv[]) {
                             necessary */
       }
 
-      msa_remove_N_from_alph(msa);
+      msa_remove_N_from_alph(msa); /* for backward compatibility */
 
       if (nsites == -1) nsites = msa->length;
 

@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.13 2004-06-26 03:50:42 acs Exp $
+/* $Id: msa_split.c,v 1.14 2004-07-24 17:55:46 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -201,10 +201,9 @@ OPTIONS:\n\
         of columns to consider in downstream analysis (e.g., with\n\
         context-dependent phylogenetic models; see 'phyloFit').  With\n\
         --by-category, insert tuple_size-1 columns of missing data\n\
-        ('N' characters) between sites that were not adjacent in the\n\
-        original alignment, to avoid creating artificial context.\n\
-        With --out-format SS, express sufficient statistics in terms\n\
-        of tuples of specified size.\n\
+        between sites that were not adjacent in the original alignment,\n\
+        to avoid creating artificial context.  With --out-format SS,\n\
+        express sufficient statistics in terms of tuples of specified size.\n\
 \n\
     --unordered-ss, -z  \n\
         (For use with --out-format SS)  Suppress the portion of the\n\

@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.8 2004-06-24 00:21:08 acs Exp $
+/* $Id: maf.c,v 1.9 2004-07-24 17:55:46 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -265,7 +265,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
 
     for (offset = -1 * (tuple_size-1); offset <= 0; offset++) 
       for (i = 1; i < msa->nseqs; i++)
-        tuple_str[msa->nseqs*(tuple_size-1 + offset) + i] = GAP_CHAR;
+        tuple_str[msa->nseqs*(tuple_size-1 + offset) + i] = msa->missing[0];
     tuple_str[msa->nseqs * tuple_size] = '\0';
 
     map_idx = 0;
@@ -286,9 +286,10 @@ MSA *maf_read(FILE *F,          /**< MAF file */
 
       /* simple hack to handle the case where order is stored but no
          refseq is available: use the char from the alignment if
-         available or an N otherwise */
+         available or a missing-data char otherwise */
       if (REFSEQF == NULL) 
-        refseq->chars[i] = msa->ss->tuple_idx[msa_idx] == -1 ? 'N' :
+        refseq->chars[i] = msa->ss->tuple_idx[msa_idx] == -1 ? 
+          msa->missing[0] :
           ss_get_char_pos(msa, msa_idx, 0, 0);
 
       refseq->chars[i] = toupper(refseq->chars[i]);
@@ -303,7 +304,8 @@ MSA *maf_read(FILE *F,          /**< MAF file */
           int charidx;
           if (i < -offset || refseq->chars[i+offset] == GAP_CHAR)
             charidx = alph_size;
-          else if (refseq->chars[i+offset] == 'N') charidx = alph_size + 1;
+          else if (msa->is_missing[(int)refseq->chars[i+offset]]) 
+            charidx = alph_size + 1;
           else charidx = msa->inv_alphabet[(int)refseq->chars[i+offset]];
           assert(charidx >= 0);
 
@@ -360,8 +362,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
 
         /* (make an exception if both chars are not in the alphabet,
            to allow for differences in ambiguity characters) */
-        if ((ss_get_char_pos(msa, msa_idx, 0, 0) == 'N' ||
-             msa->inv_alphabet[(int)ss_get_char_pos(msa, msa_idx, 0, 0)] == -1) &&
+        if (msa->inv_alphabet[(int)ss_get_char_pos(msa, msa_idx, 0, 0)] == -1 &&
             msa->inv_alphabet[(int)refseq->chars[i]] == -1)
           ;                     /* okay */
         else {
@@ -467,8 +468,9 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
     for (i = 0; i < this_seq->length; i++) {
       mini_msa->seqs[seqidx][i] = toupper(this_seq->chars[i]);
       if (mini_msa->seqs[seqidx][i] == '.') 
-        mini_msa->seqs[seqidx][i] = GAP_CHAR;
-      if (mini_msa->seqs[seqidx][i] != GAP_CHAR &&
+        mini_msa->seqs[seqidx][i] = mini_msa->missing[0];
+      if (mini_msa->seqs[seqidx][i] != GAP_CHAR && 
+          !mini_msa->is_missing[(int)mini_msa->seqs[seqidx][i]] &&
           mini_msa->inv_alphabet[(int)mini_msa->seqs[seqidx][i]] == -1) {
         fprintf(stderr, "ERROR: unrecognized character in sequence in MAF block ('%c')\n",
                 mini_msa->seqs[seqidx][i]);
@@ -490,11 +492,11 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
                                    blocks were found */
 
 
-  /* pad unmarked seqs with gap characters */
+  /* pad unmarked seqs with missing-data characters */
   for (i = 0; i < mini_msa->nseqs; i++) {
     if (!mark[i]) {
       for (j = 0; j < mini_msa->length; j++) 
-        mini_msa->seqs[i][j] = GAP_CHAR;
+        mini_msa->seqs[i][j] = mini_msa->missing[0];
       mini_msa->seqs[i][mini_msa->length] = '\0';
     }
   }
@@ -550,8 +552,9 @@ MSA *maf_read_next_msa(FILE *F) {
     for (i = 0; i < this_seq->length; i++) {
       msa->seqs[seqidx][i] = toupper(this_seq->chars[i]);
       if (msa->seqs[seqidx][i] == '.')
-        msa->seqs[seqidx][i] = GAP_CHAR;
-      if (msa->seqs[seqidx][i] != GAP_CHAR &&
+        msa->seqs[seqidx][i] = msa->missing[0];
+      if (msa->seqs[seqidx][i] != GAP_CHAR && 
+          !msa->is_missing[(int)msa->seqs[seqidx][i]] &&
           msa->inv_alphabet[(int)msa->seqs[seqidx][i]] == -1) {
         fprintf(stderr, "ERROR: unrecognized character in sequence in MAF block ('%c')\n",
                 msa->seqs[seqidx][i]);

@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.7 2004-06-25 07:58:37 acs Exp $
+/* $Id: msa.h,v 1.8 2004-07-24 17:55:46 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -86,6 +86,9 @@ typedef struct {
   unsigned int length;          /**< Number of columns */
   char *alphabet;               /**< Alphabet (see #DEFAULT_ALPHABET) */
   int inv_alphabet[NCHARS];
+  char *missing;                /**< Recognized missing data characters */
+  int is_missing[NCHARS];       /**< Fast lookup of whether character
+                                   is missing data char */
   char **names;
   char **seqs;
   int *categories;
@@ -102,11 +105,11 @@ typedef struct {
 #define MAX_LINE_LEN 10000
 #define OUTPUT_LINE_LEN 70
 /** Default alphabet, assumed throughout PHAST */
-#define DEFAULT_ALPHABET "ACGTN"
+#define DEFAULT_ALPHABET "ACGT"
 /** Gap character, assumed throughout PHAST */
 #define GAP_CHAR '-'
-/** Missing data character, assumed throughout PHAST */
-#define MDATA_CHAR 'N'
+/** Default missing data character */
+#define DEFAULT_MDATA_CHARS "*N"
 
 /** Format types */
 typedef enum {PHYLIP,           /**< PHYLIP format  */
@@ -163,11 +166,6 @@ void msa_coord_map_print(FILE *F, msa_coord_map *map);
 int msa_map_seq_to_msa(msa_coord_map *map, int seq_pos);
 int msa_map_msa_to_seq(msa_coord_map *map, int pos);
 void msa_map_free(msa_coord_map *map);
-void msa_compute_entropy_per_column(MSA *msa, double *entropy);
-void msa_compute_pwid_per_column(MSA *msa, double *ave_pw_id);
-void msa_apply_sliding_window(int window_size, double *col_scores, int len,
-                              double *smoothed_scores);
-
 void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm);
 int msa_get_seq_idx(MSA *msa, String *name);
 void msa_map_gff_coords(MSA *msa, GFF_Set *set, int from_seq, int to_seq, 

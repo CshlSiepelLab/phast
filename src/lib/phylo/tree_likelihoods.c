@@ -1,4 +1,4 @@
-/* $Id: tree_likelihoods.c,v 1.2 2004-06-15 22:33:57 acs Exp $
+/* $Id: tree_likelihoods.c,v 1.3 2004-07-24 17:55:46 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -18,6 +18,9 @@
 
 /* FIXME: inside and outside computations should be in log space --
    probably only an issue when the number of leaves is large */
+
+int tuple_index_missing_data(char *tuple, int *inv_alph, int *is_missing,
+                             int alph_size);
 
 
 
@@ -483,13 +486,16 @@ void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,
 
         if (!mod->allow_gaps && 
             msa->inv_alphabet[(int)tuple[mod->order]] < 0 &&
-            tuple[mod->order] != 'N') {
+            !msa->is_missing[(int)tuple[mod->order]]) {
             
           col_val = NEGINFTY; /* we want to apply the strict penalty
                                  iff there is an unrecognized
                                  character in *this* (the rightmost)
-                                 col; N is a special case -- don't
+                                 col; missing data is a special case -- don't
                                  penalize even if not in alphabet */
+
+                                /* FIXME: seems too complicated --
+                                   just check for gap? */
           break; 
         }
         else if (mod->allow_but_penalize_gaps &&
@@ -499,14 +505,14 @@ void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,
           prob = 1;
           for (i = 0; i < alph_size; i++) {
             tuple[mod->order] = msa->alphabet[i];
-            tmp_prob = gsl_vector_get(margfreqs, tuple_index_missing_data(tuple, msa->inv_alphabet, alph_size));
+            tmp_prob = gsl_vector_get(margfreqs, tuple_index_missing_data(tuple, msa->inv_alphabet, msa->is_missing, alph_size));
             if (tmp_prob < prob) prob = tmp_prob;
           }
           if (prob == 0) prob = 0.01;
         }
         else {
           thisstate = tuple_index_missing_data(tuple, msa->inv_alphabet, 
-                                               alph_size);
+                                               msa->is_missing, alph_size);
           prob = gsl_vector_get(margfreqs, thisstate);
         }
 
@@ -516,7 +522,7 @@ void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,
 
         if (mod->use_conditionals && mod->order > 0) {
           tuple[mod->order] = GAP_CHAR;
-          col_val -= log2(gsl_vector_get(margfreqs, tuple_index_missing_data(tuple, msa->inv_alphabet, alph_size)));
+          col_val -= log2(gsl_vector_get(margfreqs, tuple_index_missing_data(tuple, msa->inv_alphabet, msa->is_missing, alph_size)));
         }
       }
     }
@@ -769,13 +775,15 @@ gsl_vector *get_marginal_eq_freqs (char *alphabet, int tuple_size,
 /* given a tuple consisting of actual characters and/or missing data,
    return the corresponding state number in the "meta-tuple" space.
    Returns -1 for unallowed tuples */
-int tuple_index_missing_data(char *tuple, int *inv_alph, int alph_size) {
+int tuple_index_missing_data(char *tuple, int *inv_alph, int *is_missing,
+                             int alph_size) {
   int retval = 0, i;
   int tuple_size = strlen(tuple);
   for (i = 0; i < tuple_size; i++) {
     int charidx = inv_alph[(int)tuple[tuple_size-i-1]];
     if (charidx < 0) {
-      if (tuple[tuple_size-i-1] == GAP_CHAR || tuple[tuple_size-i-1] == 'N')
+      if (tuple[tuple_size-i-1] == GAP_CHAR || 
+          is_missing[(int)tuple[tuple_size-i-1]])
         charidx = alph_size;
       else return -1;
     }

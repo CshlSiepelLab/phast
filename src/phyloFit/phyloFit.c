@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.13 2004-06-24 00:21:08 acs Exp $
+   $Id: phyloFit.c,v 1.14 2004-07-24 17:55:46 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -170,8 +170,8 @@ OPTIONS:\n\
 \n\
     --min-informative, -I <ninf_sites>\n\
         Require at least <ninf_sites> \"informative\" sites -- i.e., \n\
-        sites at which at least two non-gap and non-missing-data ('N')\n\
-        characters are present.  Default is %d.\n\
+        sites at which at least two non-gap and non-missing-data ('N'\n\
+        or '*') characters are present.  Default is %d.\n\
 \n\
     --quiet, -q\n\
         Proceed quietly.\n\
@@ -859,11 +859,8 @@ int main(int argc, char *argv[]) {
     
     root_leaf_id = rl->id;
   }
-
-  /* for now, remove 'N' from alphabet if necessary (model fitting
-     code will treat Ns as missing data; can't have 'N' as a
-     legitimate character in the alphabet) */
-  msa_remove_N_from_alph(msa);
+  
+  msa_remove_N_from_alph(msa);  /* for backward compatibility */
 
   /* set up for categories */
   /* first label sites, if necessary */
