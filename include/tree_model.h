@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.8 2004-09-10 16:36:46 acs Exp $
+/* $Id: tree_model.h,v 1.9 2004-10-03 23:51:38 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -163,5 +163,7 @@ TreeModel *tm_induced_aa(TreeModel *codon_mod);
 void tm_build_seq_idx(TreeModel *mod, MSA *msa);
 
 void tm_prune(TreeModel *mod, MSA *msa, int warn);
+
+void tm_reset_tree(TreeModel *mod, TreeNode *newtree);
 
 #endif

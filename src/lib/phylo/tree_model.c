@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.17 2004-09-21 22:58:20 acs Exp $
+/* $Id: tree_model.c,v 1.18 2004-10-03 23:51:39 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1131,4 +1131,32 @@ void tm_prune(TreeModel *mod,   /** TreeModel whose tree is to be pruned  */
   }
   lst_free_strings(names);
   lst_free(names);
+}
+
+/** Reset TreeModel with new or altered tree. */
+void tm_reset_tree(TreeModel *mod,   /** TreeModel */
+                   TreeNode *newtree /** New tree */
+                   ) {
+  /* merge this with tm_reinit? */
+  int i, j;
+
+  /* free P matrices */
+  for (i = 0; i < mod->tree->nnodes; i++) {
+    for (j = 0; j < mod->nratecats; j++)
+      if (mod->P[i][j] != NULL) mm_free(mod->P[i][j]);
+    free(mod->P[i]);
+  }
+
+  tm_free_rmp(mod);             /* necessary because parameter indices
+                                   can change */
+  tr_free(mod->tree);
+  mod->tree = newtree;
+  tm_init_rmp(mod);
+
+  /* realloc P matrices */
+  mod->P = srealloc(mod->P, mod->tree->nnodes * sizeof(void**));
+  for (i = 0; i < mod->tree->nnodes; i++) {
+    mod->P[i] = smalloc(mod->nratecats * sizeof(MarkovMatrix*));
+    for (j = 0; j < mod->nratecats; j++) mod->P[i][j] = NULL;
+  }
 }
