@@ -1,5 +1,4 @@
 TMPDIR = /tmp/phast
-#export CVSROOT = /projects/compbio/cvsroot
 CWD = ${PWD}
 
 all:
