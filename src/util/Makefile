@@ -10,7 +10,7 @@ all: ${EXECS}
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
 ${EXECS}: ${BIN}/%: %.o ${PHAST}/lib/libphast.a
-	${CC} ${LIBPATH} -o $@ $< ${LIBS} 
+	${CC} ${LIBPATH} ${LFLAGS} -o $@ $< ${LIBS} 
 
 clean: 
 	rm -f *.o ${EXECS} 
