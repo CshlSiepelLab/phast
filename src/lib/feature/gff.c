@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.20 2004-08-07 18:54:09 acs Exp $
+/* $Id: gff.c,v 1.21 2004-08-07 19:05:53 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -827,15 +827,18 @@ void gff_fix_start_stop(GFF_Set *gff) {
       for (j = 0; j < lst_size(g->features); j++) {
         f = lst_get_ptr(g->features, j);
         if (str_equals_charstr(f->feature, GFF_CDS_TYPE)) {
-          if (f->strand == '+' && f->start == start->end + 1) 
-            f->start = start->start;
-          else if (f->strand == '-' && f->end == start->start - 1)
-            f->end = start->end;
-
-          if (f->strand == '+' && f->end == stop->end) 
-            f->end = stop->start - 1; 
-          else if (f->strand == '-' && f->start == stop->start)
-            f->start = stop->end + 1; 
+          if (start != NULL) {
+            if (f->strand == '+' && f->start == start->end + 1) 
+              f->start = start->start;
+            else if (f->strand == '-' && f->end == start->start - 1)
+              f->end = start->end;
+          }
+          if (stop != NULL) {
+            if (f->strand == '+' && f->end == stop->end) 
+              f->end = stop->start - 1; 
+            else if (f->strand == '-' && f->start == stop->start)
+              f->start = stop->end + 1; 
+          }
         }
       }
     }

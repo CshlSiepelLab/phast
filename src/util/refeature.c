@@ -181,9 +181,8 @@ int main(int argc, char *argv[]) {
 
   /* make unique */
   if (unique) gff_remove_overlaps(gff, discards_f);
-
-  if (fix_start_stop)
-    gff_fix_start_stop(gff);
+  
+  if (fix_start_stop) gff_fix_start_stop(gff);
 
   if (output_format == BED)
     gff_print_bed(stdout, gff, !simplebed);
