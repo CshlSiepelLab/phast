@@ -237,16 +237,21 @@ OPTIONS:\n\
         Minimum number of informative bases used with --min-informative-types\n\
         (default is 2).\n\
 \n\
-    --coding-potential, -?\n\
+    --coding-potential, -p\n\
         Use parameter settings that cause output to be interpretable\n\
         as a coding potential score.  By default, a simplified version\n\
-        of the exoniphy's phylo-HMM is used, with a noncoding\n\
+        of exoniphy's phylo-HMM is used, with a noncoding\n\
         (background) state, a conserved non-coding (CNS) state, and\n\
         states for the three codon positions.  This option implies\n\
         --catmap \"NCATS=4; CNS 1; CDS 2-4\" --hmm <default-HMM-file>\n\
         --states CDS --indels --reflect-strand background,CNS\n\
         --min-informative-types CDS, plus a set of default *.mod files.\n\
         (All of these options can be overridden.)\n\
+
+    --indels-only, -?\n\
+        Like --indels but force the use of a single-state HMM.  This\n\
+        option allows the effect of the indel model in isolation to be\n\
+        observed.  Implies --no-post-probs.  Use with --lnl.\n\
 \n\
  (Output)\n\
     --states, -S <state_list>\n\
@@ -353,13 +358,123 @@ void collapse_cats(CategoryMap *cm, List *cats_to_merge) {
   }
 }
 
+void setup_rates_cut(HMM **hmm, TreeModel ***mods, CategoryMap **cm, int nrates, 
+                     int cut_idx, double p, double q) {
+
+  double freq1 = 0;
+  int i;
+  int dgamma = !(*mods)[0]->empirical_rates; /* whether using discrete
+                                                gamma model */
+
+  List *rconsts, *rweights;
+  double tmp_rates[nrates], tmp_weights[nrates];
+
+  if (nrates <= 1) die("ERROR: must have nrates > 1.\n");
+  if (cut_idx < 1 || cut_idx > nrates) 
+    die("ERROR: must have 1 <= cut_idx <= nrates.\n");
+
+  *hmm = hmm_new_nstates(2, TRUE, FALSE);
+
+  if (dgamma) 
+    /* if using dgamma, need to compute rate consts and weights -- may
+       not have been computed yet */
+    DiscreteGamma(tmp_weights, tmp_rates, (*mods)[0]->alpha, 
+                  (*mods)[0]->alpha, nrates, 0); 
+  else {
+    for (i = 0; i < nrates; i++) {
+      tmp_weights[i] = (*mods)[0]->freqK[i];
+      tmp_rates[i] = (*mods)[0]->rK[i];
+    }
+  }
+
+  /* set HMM transitions according to p and q */
+  mm_set((*hmm)->transition_matrix, 0, 0, 1-p);
+  mm_set((*hmm)->transition_matrix, 0, 1, p);
+  mm_set((*hmm)->transition_matrix, 1, 0, q);
+  mm_set((*hmm)->transition_matrix, 1, 1, 1-q);
+
+  /* set HMM begin transitions according to weights */
+  for (i = 0; i < cut_idx; i++) freq1 += tmp_weights[i];
+  gsl_vector_set((*hmm)->begin_transitions, 0, freq1);
+  gsl_vector_set((*hmm)->begin_transitions, 1, 1 - freq1);
+
+  /* create 2nd tree model, then update rate categories in both */
+  (*mods) = srealloc(*mods, 2 * sizeof(void*));
+  (*mods)[1] = tm_create_copy((*mods)[0]);
+
+  rconsts = lst_new_dbl(nrates);
+  rweights = lst_new_dbl(nrates);
+  for (i = 0; i < cut_idx; i++) {
+    lst_push_dbl(rweights, tmp_weights[i]);
+    lst_push_dbl(rconsts, tmp_rates[i]);
+  }
+
+  if (cut_idx == 1) {
+    tm_reinit((*mods)[0], (*mods)[0]->subst_mod, 1, 0, NULL, NULL);
+    tm_scale((*mods)[0], lst_get_dbl(rconsts, 0), TRUE);
+                                /* in this case, have to by-pass rate
+                                   variation machinery and just scale
+                                   tree; tree model code won't do
+                                   rate variation with single rate
+                                   category */
+  }
+  else
+    tm_reinit((*mods)[0], (*mods)[0]->subst_mod, cut_idx, 
+              (*mods)[0]->alpha, rconsts, rweights);
+                                /* note that dgamma model will be
+                                   redefined as empirical rates mod */
+
+  lst_clear(rconsts); lst_clear(rweights);
+  for (i = cut_idx; i < nrates; i++) {
+    lst_push_dbl(rweights, tmp_weights[i]);
+    lst_push_dbl(rconsts, tmp_rates[i]);
+  }
+
+  if (cut_idx == nrates-1) {    /* unlikely but possible */
+    tm_reinit((*mods)[1], (*mods)[1]->subst_mod, 1, 0, NULL, NULL);
+    tm_scale((*mods)[1], lst_get_dbl(rconsts, nrates-1), TRUE);
+  }
+  else
+    tm_reinit((*mods)[1], (*mods)[1]->subst_mod, nrates - cut_idx, 
+              (*mods)[1]->subst_mod, rconsts, rweights);
+  lst_free(rconsts); lst_free(rweights);
+
+  /* define two-category category map */
+  *cm = cm_create_trivial(1, "cons_");
+}
+
+/** Estimate the parameters 'p' and 'q' that define the two-state
+    "rates-cut" model using an EM algorithm.  Returns ln likelihood. */
+double fit_rates_cut(PhyloHmm *phmm, 
+                          double *p, 
+                          double *q, 
+                          FILE *logf
+                          ) {
+  double retval;
+
+  mm_set(phmm->functional_hmm->transition_matrix, 0, 0, 1-*p);
+  mm_set(phmm->functional_hmm->transition_matrix, 0, 1, *p);
+  mm_set(phmm->functional_hmm->transition_matrix, 1, 0, *q);
+  mm_set(phmm->functional_hmm->transition_matrix, 1, 1, 1-*q);
+                                /* note that phmm->functional_hmm ==
+                                   phmm->hmm if no indel model */
+  phmm_reset(phmm); 
+
+  retval = phmm_fit_em(phmm, NULL, logf);
+
+  *p = mm_get(phmm->functional_hmm->transition_matrix, 0, 1);
+  *q = mm_get(phmm->functional_hmm->transition_matrix, 1, 0);
+
+  return retval;
+}
+ 
 int main(int argc, char *argv[]) {
 
   /* arguments and defaults */
   int post_probs = TRUE, score = FALSE, quiet = FALSE, 
     gff = FALSE, rates_cross = FALSE, estim_lambda = TRUE, 
     estim_transitions = TRUE, two_state = TRUE, indels = FALSE,
-    coding_potential = FALSE;
+    coding_potential = FALSE, indels_only = FALSE;
   int nrates = -1, rates_cut_idx = 1, refidx = 1, min_inform_bases = 2;
   double lambda = DEFAULT_LAMBDA, p = DEFAULT_P, q = DEFAULT_Q;
   msa_format_type msa_format = SS;
@@ -368,7 +483,7 @@ int main(int argc, char *argv[]) {
     *mod_fname_list;
   char *seqname = NULL, *idpref = NULL;
   HMM *hmm = NULL;
-
+  
   struct option long_opts[] = {
     {"states", 1, 0, 'S'},
     {"hmm", 1, 0, 'H'},
@@ -393,6 +508,7 @@ int main(int argc, char *argv[]) {
     {"idpref", 1, 0, 'P'},
     {"score", 0, 0, 's'},
     {"coding-potential", 0, 0, 'p'},
+    {"indels-only", 0, 0, 'J'},
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
@@ -409,8 +525,9 @@ int main(int argc, char *argv[]) {
   PhyloHmm *phmm;
   CategoryMap *cm = NULL;
   char *mods_fname = NULL;
+  indel_mode_type indel_mode;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IM:m:pXqh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IJM:m:pXqh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
       states = get_arg_list(optarg);
@@ -474,6 +591,12 @@ int main(int argc, char *argv[]) {
     case 'I':
       indels = TRUE;
       break;
+    case 'J':
+      indels_only = TRUE;
+      two_state = FALSE;
+      indels = TRUE;
+      post_probs = FALSE;
+      break;
     case 'M':
       min_inform_str = get_arg_list(optarg);
       break;
@@ -510,9 +633,15 @@ int main(int argc, char *argv[]) {
 
   if ((hmm != NULL && rates_cross))
     die("ERROR: --hmm and --rates-cross are mutually exclusive.\n");
+
+  if (indels_only && (hmm != NULL || rates_cross))
+    die("ERROR: --indels-only cannot be used with --hmm or --rates-cross.\n");
+
+  if (cm != NULL && hmm == NULL) 
+    die("ERROR: --catmap can only be used with --hmm.\n");
   
-  if (indels == TRUE && hmm == NULL)
-    die("ERROR: --indels is only valid with --hmm.\n");
+  if (indels == TRUE && rates_cross)
+    die("ERROR: --indels cannot be used with --rates-cross.\n");
 
   if ((!coding_potential && optind != argc - 2) ||
       (coding_potential && optind != argc - 2 && optind != argc - 1))
@@ -550,8 +679,8 @@ int main(int argc, char *argv[]) {
   /* read tree models first (alignment may take a while) */
   mod_fname_list = get_arg_list(mods_fname);
 
-  if ((rates_cross || two_state) && lst_size(mod_fname_list) != 1)
-    die("ERROR: only one tree model allowed with --rates-cross or --cut-at.\n");
+  if ((rates_cross || two_state || indels_only) && lst_size(mod_fname_list) != 1)
+    die("ERROR: only one tree model allowed unless --hmm.\n");
     
   mod = (TreeModel**)smalloc(sizeof(TreeModel*) * lst_size(mod_fname_list));
   for (i = 0; i < lst_size(mod_fname_list); i++) {
@@ -580,9 +709,6 @@ int main(int argc, char *argv[]) {
     if (rates_cut_idx > nrates)
       die("ERROR: --cut-at arg must be <= nrates.\n");
   }
-
-  if (cm == NULL)
-    cm = cm_create_trivial(lst_size(mod_fname_list)-1, NULL);
 
   /* read alignment */
   if (!quiet)
@@ -613,20 +739,26 @@ int main(int argc, char *argv[]) {
     lst_push_ptr(states, str_new_charstr("0"));
   }
 
+  if (two_state) {
+    if (!quiet) 
+      fprintf(stderr, "Partitioning at rate category %d to create 'conserved' and 'nonconserved' states...\n", rates_cut_idx);
+    setup_rates_cut(&hmm, &mod, &cm, nrates, rates_cut_idx, p, q);
+  }
+  else if (cm == NULL)
+    cm = cm_create_trivial(lst_size(mod_fname_list)-1, NULL);
+
   /* set up PhyloHmm */
-  phmm = phmm_new(hmm, mod, cm, pivot_states, indels, msa->nseqs);
+  if (!indels) indel_mode = MISSING_DATA;
+  else if (hmm == NULL || hmm->nstates == cm->ncats + 1)
+    indel_mode = PARAMETERIC;
+  else indel_mode = NONPARAMETERIC;
+
+  phmm = phmm_new(hmm, mod, cm, pivot_states, indel_mode);
 
   if (rates_cross) {
     if (!quiet) 
       fprintf(stderr, "Creating %d scaled versions of tree model...\n", nrates);
     phmm_rates_cross(phmm, nrates, lambda, TRUE);
-  }
-
-  else if (two_state) {
-    if (!quiet) 
-      fprintf(stderr, "Partitioning at rate category %d to create 'conserved' and 'nonconserved' states...\n", rates_cut_idx);
-
-    phmm_rates_cut(phmm, nrates, rates_cut_idx, p, q);
   }
 
   /* compute emissions */
@@ -643,8 +775,15 @@ int main(int argc, char *argv[]) {
   /* estimate p and q, if necessary */
   else if (two_state && estim_transitions) {
     if (!quiet) fprintf(stderr, "Finding MLE for 'p' and 'q'...");
-    lnl = phmm_fit_rates_cut(phmm, &p, &q, log_f);
+    lnl = fit_rates_cut(phmm, &p, &q, log_f);
     if (!quiet) fprintf(stderr, " (p = %f. q = %f)\n", p, q);
+  }
+
+  /* estimate indel parameters only, if necessary */
+  else if (indels_only) {
+    if (!quiet) fprintf(stderr, "Estimating parameters for indel model...");
+    lnl = phmm_fit_em(phmm, msa, log_f);
+    if (!quiet) fprintf(stderr, "...\n");
   }
     
   /* Viterbi */

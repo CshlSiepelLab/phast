@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.10 2004-08-05 07:15:04 acs Exp $
+/* $Id: phylo_hmm.c,v 1.11 2004-08-10 22:03:30 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -15,13 +15,28 @@
 #include <tree_likelihoods.h>
 #include <em.h>
 
+/* initial values for alpha, beta, omega; possibly should be passed in instead */
+#define ALPHA_INIT 0.05
+#define BETA_INIT 0.05
+#define OMEGA_INIT 0.1
+#define COMPLEX_EPSILON 1e-5
+
 /** Create a new PhyloHmm object. Optionally expands original HMM to
-    allow for features on both the positive and negative strands.
-    Also optionally expands original HMM for indel modeling. */
-PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
-                                   orig. isn't touched.  If NULL, a
-                                   trivial, single-state HMM will be
-                                   created.  */
+    allow for features on both the positive and negative strands. */
+PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
+                                   MISSING_DATA or indel_mode ==
+                                   PARAMETERIC, then an HMM for
+                                   functional cateogories (with
+                                   nstates == cm->ncats + 1) should be
+                                   passed in; otherwise (indel_mode ==
+                                   NONPARAMETERIC), an hmm for the
+                                   full gapped (but not 'reflected')
+                                   phylo-HMM should be passed in.
+                                   NULL may also be given, in which
+                                   case a trivial, single-state HMM
+                                   will be created.  Any HMM that is
+                                   passed in will be left unchanged (a
+                                   copy will be created) */
                    TreeModel **tree_models, 
                                 /**< Array of TreeModel objects.
                                    Number of elements is assumed to
@@ -33,28 +48,32 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
                                    trivial map is created, with a
                                    separate category for every HMM
                                    state.  Must be non-NULL if
-                                   indel_cats != NULL. */
+                                   indel_mode != MISSING_DATA. */
                    List *pivot_cats,  
                                 /**< Categories (by name or number)
                                    about which to "reflect" the HMM.
                                    Allows for prediction on both
                                    strands (see hmm_reverse_compl).
                                    Pass NULL for no reflection */
-                   int indels, 
-                                /**< Whether to use indel model. */
-                   int nseqs    /**< Number of sequences to be used.
-                                   Required for indel modeling, ignored
-                                   if indels == FALSE. */
+                   indel_mode_type indel_mode 
+                                /**< How to model indels.  Allowable
+                                     values are MISSING_DATA,
+                                     PARAMETERIC, and
+                                     NONPARAMETERIC. */
                    ) { 
-  int max_nstates, s, cat, j;
+  int max_nstates, s, cat, j, nunspooled_cats;
 
   PhyloHmm *phmm = smalloc(sizeof(PhyloHmm));
-  GapPatternMap *gpm = NULL;
+  TreeNode *topology = NULL;
 
-  if (hmm != NULL)
-    phmm->hmm = hmm_create_copy(hmm);
-  else 
-    phmm->hmm = hmm_create_trivial();
+  if (hmm == NULL) 
+    hmm = hmm_create_trivial();
+
+  phmm->functional_hmm = hmm;
+  if (indel_mode == PARAMETERIC) phmm->hmm = NULL; /* will be created below */
+  else phmm->hmm = hmm;         /* hmm == functional_hmm unless
+                                   parameteric indel model (or rates
+                                   cross) */
 
   hmm = NULL;                   /* be sure this doesn't get used by
                                    mistake */
@@ -62,7 +81,7 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
   if (cm != NULL)
     phmm->cm = cm_create_copy(cm);
   else {
-    if (indels) 
+    if (indel_mode != MISSING_DATA) 
       die("ERROR: must pass non-NULL category map if using indel model");
                                 /* would get a little tricky without a cm */
     phmm->cm = cm_create_trivial(phmm->hmm->nstates-1, "model_");
@@ -73,14 +92,15 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
   phmm->mods = tree_models;
   phmm->nmods = phmm->cm->ncats + 1;
   phmm->nratecats = 1;
-  phmm->functional_hmm = phmm->autocorr_hmm = NULL;
+  phmm->indel_mode = indel_mode;
+  phmm->autocorr_hmm = NULL;
   phmm->reflected = pivot_cats != NULL;
   phmm->emissions = NULL;
   phmm->forward = NULL;
   phmm->alloc_len = -1;
   phmm->state_pos = phmm->state_neg = NULL;
-  phmm->do_indels = indels;
-  phmm->topology = NULL;
+  phmm->gpm = NULL;
+  phmm->T = phmm->t = NULL;
 
   /* make sure tree models all have trees and all have the same number
      of leaves; keep a pointer to a representative tree for use with
@@ -88,14 +108,17 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
   for (s = 0; s < phmm->nmods; s++) {
     if (phmm->mods[s]->tree == NULL) 
       die("ERROR: tree model #%d for phylo-HMM has no tree.\n", s+1);
-    else if (phmm->topology == NULL)
-      phmm->topology = phmm->mods[s]->tree;
-    else if (phmm->mods[s]->tree->nnodes != phmm->topology->nnodes) 
+    else if (topology == NULL)
+      topology = phmm->mods[s]->tree;
+    else if (phmm->mods[s]->tree->nnodes != topology->nnodes) 
       die("ERROR: tree models for phylo-HMM have different numbers of nodes.\n");
   }
 
   /* now initialize mappings */
-  max_nstates = phmm->reflected ? phmm->hmm->nstates * 2 : phmm->hmm->nstates;
+  max_nstates = phmm->reflected ? phmm->functional_hmm->nstates * 2 : 
+    phmm->functional_hmm->nstates;
+  if (indel_mode == PARAMETERIC) 
+    max_nstates *= 2 * (topology->nnodes - 2) + 2; /* gap patterns */
   phmm->state_to_mod = smalloc(max_nstates * sizeof(int));
   phmm->state_to_cat = smalloc(max_nstates * sizeof(int));
   phmm->state_to_pattern = smalloc(max_nstates * sizeof(int));
@@ -114,7 +137,7 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
      "spooled" categories and models; with indel cats, multiple
      spooled gap categories map to the same model */
 
-  if (indels) {
+  if (indel_mode != MISSING_DATA) {
     /* start by enlarging catmap to allows for gap cats, and creating
        mappings between cats and gapcats */
     /* need to pass gp_create_gapcats the feature types in question --
@@ -128,15 +151,17 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
       if (allow_gaps) lst_push_ptr(indel_types, cm_get_feature(phmm->cm, cat));
       cat = phmm->cm->ranges[cat]->end_cat_no + 1;
     }
-    gpm = gp_create_gapcats(phmm->cm, indel_types, nseqs);
+    phmm->gpm = gp_create_gapcats(phmm->cm, indel_types, topology);
     lst_free(indel_types);
   }
 
   /* now the number of unspooled categories should equal the number of
      states in the HMM */
-  if (phmm->hmm->nstates != 
-      (phmm->cm->unspooler == NULL ? phmm->cm->ncats + 1 : 
-       phmm->cm->unspooler->nstates_unspooled)) 
+  nunspooled_cats = phmm->cm->unspooler == NULL ? phmm->cm->ncats + 1 : 
+    phmm->cm->unspooler->nstates_unspooled;
+  if (phmm->hmm == NULL)        /* parameteric indel model */
+    phmm->hmm = hmm_new_nstates(nunspooled_cats, TRUE, FALSE);
+  else if (phmm->hmm->nstates != nunspooled_cats)
     die("ERROR: number of states in HMM must equal number of site categories (unspooled).\n");
 
   for (s = 0; s < max_nstates; s++) {
@@ -150,13 +175,14 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
 
     /* in both cases below, 'cat' is the spooled ordinary (non-gap)
        category corresponding to state s */
-    if (!indels) 
+    if (indel_mode == MISSING_DATA) 
       cat = (phmm->cm->unspooler == NULL ? s : 
              phmm->cm->unspooler->unspooled_to_spooled[s]);
     else {
-      int sp_gapcat = phmm->cm->unspooler->unspooled_to_spooled[s];
-      cat = gpm->gapcat_to_cat[sp_gapcat];
-      phmm->state_to_pattern[s] = gpm->gapcat_to_pattern[sp_gapcat];
+      int sp_gapcat = (phmm->cm->unspooler == NULL ? s : 
+                       phmm->cm->unspooler->unspooled_to_spooled[s]);
+      cat = phmm->gpm->gapcat_to_cat[sp_gapcat];
+      phmm->state_to_pattern[s] = phmm->gpm->gapcat_to_pattern[sp_gapcat];
     }
 
     phmm->state_to_cat[s] = phmm->state_to_mod[s] = cat;
@@ -169,7 +195,17 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  A copy is created,
   if (pivot_cats != NULL) 
     phmm_reflect_hmm(phmm, pivot_cats);
 
-  if (gpm != NULL) gp_free_map(gpm);
+  if (indel_mode == PARAMETERIC) {
+    phmm->alpha = smalloc(phmm->functional_hmm->nstates * sizeof(double));
+    phmm->beta = smalloc(phmm->functional_hmm->nstates * sizeof(double));
+    phmm->omega = smalloc(phmm->functional_hmm->nstates * sizeof(double));
+    for (j = 0; j < phmm->functional_hmm->nstates; j++) {
+      phmm->alpha[j] = ALPHA_INIT;
+      phmm->beta[j] = BETA_INIT;
+      phmm->omega[j] = OMEGA_INIT;
+    }
+    phmm_reset(phmm);
+  }
 
   return phmm;
 }
@@ -269,6 +305,9 @@ void phmm_rates_cross(PhyloHmm *phmm,
 
   if (nratecats <= 1) 
     die("ERROR: phmm_rate_cats requires nratecats > 1.\n");
+
+  if (phmm->indel_mode != MISSING_DATA)
+    die("ERROR: phmm_rates_cross cannot be used with indel model (parameteric or nonparameteric).\n");
 
   phmm->nratecats = nratecats;
 
@@ -386,10 +425,9 @@ void phmm_rates_cross(PhyloHmm *phmm,
   }
 
   /* replace HMM with cross product of (functional) HMM and autocorr HMM */
-  phmm->functional_hmm = phmm->hmm;
   phmm->autocorr_hmm = hmm_new_nstates(phmm->nratecats, 1, 0);
   phmm_create_autocorr_hmm(phmm->autocorr_hmm, lambda);
-  phmm->hmm = hmm_new_nstates(phmm->nratecats * phmm->functional_hmm->nstates, 1, 0);
+  phmm->hmm = hmm_new_nstates(phmm->nratecats * phmm->functional_hmm->nstates, 1, 0); 
   hmm_cross_product(phmm->hmm, phmm->functional_hmm, phmm->autocorr_hmm);
 
   /* free memory */
@@ -431,11 +469,22 @@ void phmm_free(PhyloHmm *phmm) {
   free(phmm->state_to_cat);
   free(phmm->state_to_pattern);
   free(phmm->reverse_compl);
-  hmm_free(phmm->hmm);
   cm_free(phmm->cm);
-  if (phmm->functional_hmm != NULL) hmm_free(phmm->functional_hmm);
+  if (phmm->T != NULL) {
+    for (i = 0; i < phmm->functional_hmm->nstates; i++) {
+      free(phmm->T[i]);
+      free(phmm->t[i]);
+    }
+    free(phmm->T);
+    free(phmm->t);
+  }
+  if (phmm->gpm != NULL) gp_free_map(phmm->gpm);
+  if (phmm->functional_hmm != phmm->hmm) hmm_free(phmm->functional_hmm);
   if (phmm->autocorr_hmm != NULL) hmm_free(phmm->autocorr_hmm);
-
+  if (phmm->alpha != NULL) free(phmm->alpha);
+  if (phmm->beta != NULL) free(phmm->beta);
+  if (phmm->omega != NULL) free(phmm->omega);
+  hmm_free(phmm->hmm);
   free(phmm);
 }
 
@@ -447,7 +496,8 @@ void phmm_compute_emissions(PhyloHmm *phmm,
                             MSA *msa,
                                 /**< Source alignment */
                             int quiet
-                                /**< Whether to report progress to stderr */
+                                /**< Determins whether progress is
+                                   reported to stderr */
                             ) {
 
   int i, mod, j;
@@ -489,7 +539,7 @@ void phmm_compute_emissions(PhyloHmm *phmm,
   for (i = 0; i < phmm->hmm->nstates; i++) {
     if (!quiet) {
       fprintf(stderr, "Computing emission probs (state %d, cat %d, mod %d",
-              i+1, phmm->state_to_cat[i]+1, phmm->state_to_mod[i]+1);
+              i, phmm->state_to_cat[i], phmm->state_to_mod[i]);
       if (phmm->state_to_pattern[i] != -1) 
         fprintf(stderr, ", pattern %d", phmm->state_to_pattern[i]);
       if (phmm->reflected) 
@@ -514,13 +564,13 @@ void phmm_compute_emissions(PhyloHmm *phmm,
   }
 
   /* finally, adjust for indel model, if necessary */
-  if (phmm->do_indels) {
+  if (phmm->indel_mode != MISSING_DATA) {
     int *msa_gap_patterns = smalloc(msa->length * sizeof(int));
 
     if (!quiet)
       fprintf(stderr, "Obtaining gap patterns...\n");
 
-    gp_set_phylo_patterns(msa_gap_patterns, msa, phmm->topology);
+    gp_set_phylo_patterns(phmm->gpm, msa_gap_patterns, msa);
 
     if (!quiet)
       fprintf(stderr, "Adjusting emission probs according to gap patterns...\n");
@@ -887,200 +937,16 @@ void phmm_score_predictions(PhyloHmm *phmm,
   free(is_scored);
 }
 
-/* assumes 1-state HMM, 1-cat category map, and single tree model.
-   Currently not compatible with 'reflected' HMMs or indel model.
-   Assumes category map is to be updated */
-void phmm_rates_cut(PhyloHmm *phmm, 
-                    int nrates, /* may be different from value in tree
-                                   model if dgamma */
-                    int cut_idx, 
-                    double p, 
-                    double q) {
-  double freq1 = 0;
-  int i;
-  int dgamma = !phmm->mods[0]->empirical_rates; /* whether using
-                                                   discrete gamma
-                                                   model */
-
-  String *newtype;
-  List *rconsts, *rweights;
-  double tmp_rates[nrates], tmp_weights[nrates];
-
-  assert(phmm->hmm != NULL && phmm->hmm->nstates == 1 && phmm->nmods == 1);
-  assert(phmm->cm->ncats == 0);
-  assert(nrates > 1);
-  assert(cut_idx >= 1 && cut_idx <= nrates);
-
-  hmm_free(phmm->hmm);
-  phmm->hmm = hmm_new_nstates(2, TRUE, FALSE);
-
-  if (dgamma) 
-    /* if using dgamma, need to compute rate consts and weights -- may
-       not have been computed yet */
-    DiscreteGamma(tmp_weights, tmp_rates, phmm->mods[0]->alpha, 
-                  phmm->mods[0]->alpha, nrates, 0); 
-  else {
-    for (i = 0; i < nrates; i++) {
-      tmp_weights[i] = phmm->mods[0]->freqK[i];
-      tmp_rates[i] = phmm->mods[0]->rK[i];
-    }
-  }
-
-  /* set HMM transitions according to p and q */
-  mm_set(phmm->hmm->transition_matrix, 0, 0, 1-p);
-  mm_set(phmm->hmm->transition_matrix, 0, 1, p);
-  mm_set(phmm->hmm->transition_matrix, 1, 0, q);
-  mm_set(phmm->hmm->transition_matrix, 1, 1, 1-q);
-
-  /* set HMM begin transitions according to weights */
-  for (i = 0; i < cut_idx; i++) freq1 += tmp_weights[i];
-  gsl_vector_set(phmm->hmm->begin_transitions, 0, freq1);
-  gsl_vector_set(phmm->hmm->begin_transitions, 1, 1 - freq1);
-
-  hmm_reset(phmm->hmm);
-
-  /* create 2nd tree model, then update rate categories in both */
-  phmm->mods = srealloc(phmm->mods, 2 * sizeof(void*));
-  phmm->nmods = 2;
-  phmm->mods[1] = tm_create_copy(phmm->mods[0]);
-
-  rconsts = lst_new_dbl(nrates);
-  rweights = lst_new_dbl(nrates);
-  for (i = 0; i < cut_idx; i++) {
-    lst_push_dbl(rweights, tmp_weights[i]);
-    lst_push_dbl(rconsts, tmp_rates[i]);
-  }
-
-  if (cut_idx == 1) {
-    tm_reinit(phmm->mods[0], phmm->mods[0]->subst_mod, 1, 0, NULL, NULL);
-    tm_scale(phmm->mods[0], lst_get_dbl(rconsts, 0), TRUE);
-                                /* in this case, have to by-pass rate
-                                   variation machinery and just scale
-                                   tree; tree model code won't do
-                                   rate variation with single rate
-                                   category */
-  }
-  else
-    tm_reinit(phmm->mods[0], phmm->mods[0]->subst_mod, cut_idx, 
-              phmm->mods[0]->alpha, rconsts, rweights);
-                                /* note that dgamma model will be
-                                   redefined as empirical rates mod */
-
-  lst_clear(rconsts); lst_clear(rweights);
-  for (i = cut_idx; i < nrates; i++) {
-    lst_push_dbl(rweights, tmp_weights[i]);
-    lst_push_dbl(rconsts, tmp_rates[i]);
-  }
-
-  if (cut_idx == nrates-1) {    /* unlikely but possible */
-    tm_reinit(phmm->mods[1], phmm->mods[1]->subst_mod, 1, 0, NULL, NULL);
-    tm_scale(phmm->mods[1], lst_get_dbl(rconsts, nrates-1), TRUE);
-  }
-  else
-    tm_reinit(phmm->mods[1], phmm->mods[1]->subst_mod, nrates - cut_idx, 
-              phmm->mods[1]->subst_mod, rconsts, rweights);
-  lst_free(rconsts); lst_free(rweights);
-
-  /* expand category map */
-  cm_realloc(phmm->cm, 1);
-  str_cpy_charstr(lst_get_ptr(phmm->cm->ranges[0]->feature_types, 0), 
-                  "conserved");
-  newtype = str_new_charstr("nonconserved");
-  phmm->cm->ranges[1] = cm_new_category_range(newtype, 1, 1);
-  assert(phmm->cm->conditioned_on[0] == NULL);
-  
-  /* update mappings */
-  phmm->state_to_mod = srealloc(phmm->state_to_mod, 2 * sizeof(int));
-  phmm->state_to_cat = srealloc(phmm->state_to_cat, 2 * sizeof(int));
-  phmm->state_to_pattern = srealloc(phmm->state_to_pattern, 2 * sizeof(int));
-  phmm->reverse_compl = srealloc(phmm->reverse_compl, 2 * sizeof(int));
-  phmm->state_to_mod[1] = 1; 
-  phmm->state_to_cat[1] = 1;
-  phmm->state_to_pattern[1] = -1;
-  phmm->reverse_compl[1] = 0;
-}
-
-/* function used by phmm_fit_rates_cut */
+/* function used by phmm_fit_em */
 void compute_emissions(double **emissions, void **models, int nmodels,
                        void *data, int sample, int length) {
-  /* just copy emissions; they're already computed */
+  /* just copy emissions; they're already computed.  FIXME: have to
+     change if allow reestim of state models */
   PhyloHmm *phmm = (PhyloHmm*)data;
   int i, j;
   for (i = 0; i < phmm->hmm->nstates; i++)
     for (j = 0; j < phmm->alloc_len; j++)
       emissions[i][j] = phmm->emissions[i][j];
-}
-
-/** Estimate the parameters 'p' and 'q' that define the two-state
-    "rates-cut" model using an EM algorithm.  Returns ln likelihood. */
-double phmm_fit_rates_cut(PhyloHmm *phmm, 
-                          double *p, 
-                          double *q, 
-                          FILE *logf
-                          ) {
-  double retval;
-
-  if (phmm->emissions == NULL)
-    die("ERROR: emissions required for phmm_fit_rates_cut.\n");
-
-  mm_set(phmm->hmm->transition_matrix, 0, 0, 1-*p);
-  mm_set(phmm->hmm->transition_matrix, 0, 1, *p);
-  mm_set(phmm->hmm->transition_matrix, 1, 0, *q);
-  mm_set(phmm->hmm->transition_matrix, 1, 1, 1-*q);
-  hmm_reset(phmm->hmm);
-
-  retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, 
-                           NULL, compute_emissions, NULL, NULL, logf);
-
-  *p = mm_get(phmm->hmm->transition_matrix, 0, 1);
-  *q = mm_get(phmm->hmm->transition_matrix, 1, 0);
-
-  return log(2) * retval;
-}
- 
-/* wrapper function used by fit_rates_cut_bfgs */
-double fit_rates_cut_lnl(gsl_vector *params, void *data) {
-  PhyloHmm *phmm = data;
-  double p = exp(gsl_vector_get(params, 0)), 
-    q = exp(gsl_vector_get(params, 1));
-  mm_set(phmm->hmm->transition_matrix, 0, 0, 1-p);
-  mm_set(phmm->hmm->transition_matrix, 0, 1, p);
-  mm_set(phmm->hmm->transition_matrix, 1, 0, q);
-  mm_set(phmm->hmm->transition_matrix, 1, 1, 1-q);
-  hmm_reset(phmm->hmm);
-  return log(2) * -hmm_forward(phmm->hmm, phmm->emissions, 
-                               phmm->alloc_len, phmm->forward);
-}
-
-/* returns ln likelihood */
-double phmm_fit_rates_cut_bfgs(PhyloHmm *phmm, double *p, double *q, 
-                               FILE *logf) {
-  int i;
-  double neglnl = INFTY;
-  gsl_vector *params = gsl_vector_alloc(2),  *lbounds = NULL, 
-    *ubounds = gsl_vector_calloc(2);
-
-  /* initialize to given values */
-  gsl_vector_set(params, 0, log(*p)); /* use log parameterization */
-  gsl_vector_set(params, 1, log(*q));
-
-  /* allocate memory for forward alg */
-  if (phmm->forward == NULL) {  /* otherwise assume already alloc */
-    phmm->forward = smalloc(phmm->hmm->nstates * sizeof(double*));
-    for (i = 0; i < phmm->hmm->nstates; i++)
-      phmm->forward[i] = smalloc(phmm->alloc_len * sizeof(double));
-  }
-
-  opt_bfgs(fit_rates_cut_lnl, params, phmm, &neglnl, lbounds, ubounds, 
-           logf, NULL, OPT_HIGH_PREC, NULL);
-
-  *p = exp(gsl_vector_get(params, 0));
-  *q = exp(gsl_vector_get(params, 1));
-
-  gsl_vector_free(params);
-  gsl_vector_free(ubounds);
-
-  return -neglnl;
 }
 
 /** Add specified "bias" to log transition probabilities from
@@ -1112,3 +978,378 @@ void phmm_add_bias(PhyloHmm *phmm, List *backgd_cat_names, double bias) {
   
   hmm_renormalize(phmm->hmm);
 }
+
+/* special-purpose logging function for phmm_fit_em */
+void fit_em_log_func(FILE *logf, double logl, HMM *hmm, void *data, 
+                     int show_header) {
+  PhyloHmm *phmm = data;
+  int i, j;
+
+  if (show_header) {
+    fprintf(logf, "\nlogl\t");
+    for (i = 0; i < phmm->functional_hmm->nstates; i++) {
+      for (j = 0; j < phmm->functional_hmm->nstates; j++) {
+        if (i == j) continue;
+        fprintf(logf, "(%d,%d)\t", i, j);
+      }
+    }
+    if (phmm->indel_mode == PARAMETERIC) 
+      for (i = 0; i < phmm->functional_hmm->nstates; i++) 
+        fprintf(logf, "alpha[%d]\tbeta[%d]\tomega[%d]\t", i, i, i);
+    fprintf(logf, "\n");
+  }
+
+  fprintf(logf, "%f\t", logl);
+  for (i = 0; i < phmm->functional_hmm->nstates; i++) {
+    for (j = 0; j < phmm->functional_hmm->nstates; j++) {
+      if (i == j) continue;
+      fprintf(logf, "%f\t", mm_get(phmm->functional_hmm->transition_matrix, i, j));
+    }
+  }
+  if (phmm->indel_mode == PARAMETERIC) 
+    for (i = 0; i < phmm->functional_hmm->nstates; i++) 
+      fprintf(logf, "%f\t%f\t%f\t", phmm->alpha[i], phmm->beta[i], phmm->omega[i]);
+  fprintf(logf, "\n");
+  fflush(logf);
+}
+
+/** General routine to estimate the parameters of a phylo-HMM by EM.
+   Can be used with or without the indel model, and for estimation of
+   transition params only or transition and emission params.  Returns ln likelihood. */
+double phmm_fit_em(PhyloHmm *phmm, 
+                   MSA *msa,     /* may be NULL if not re-estimating
+                                   state models */
+                   FILE *logf
+                   ) {
+  double retval;
+
+  if (phmm->emissions == NULL)
+    phmm_compute_emissions(phmm, msa, TRUE);
+
+  retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, 
+                           NULL, compute_emissions, NULL, 
+                           phmm_estimate_transitions, NULL, fit_em_log_func, 
+                           logf);
+
+  /* FIXME: allow tree models to be re-estimated also (alternative
+     compute_emissions function and estimate_state_models function) */
+
+  /* FIXME: need a way of passing MSA to subroutine for case in which
+     models are re-estim */
+
+  return log(2) * retval;
+}
+
+/* Set up phmm->T and phmm->t, the arrays of branch lengths and branch
+   length sums that are used in the parameteric indel model */
+void set_branch_len_factors(PhyloHmm *phmm) {
+  int i, j;
+
+  if (phmm->T == NULL) {
+    phmm->T = smalloc(phmm->functional_hmm->nstates * sizeof(void*));
+    phmm->t = smalloc(phmm->functional_hmm->nstates * sizeof(void*));
+    for (i = 0; i < phmm->functional_hmm->nstates; i++) {
+      phmm->T[i] = smalloc(phmm->gpm->ngap_patterns * sizeof(double));
+      phmm->t[i] = smalloc(phmm->gpm->ngap_patterns * sizeof(double));
+    }
+  }
+
+  for (i = 0; i < phmm->functional_hmm->nstates; i++) {
+    phmm->T[i][0] = tr_total_len(phmm->mods[i]->tree);
+    phmm->T[i][phmm->gpm->ngap_patterns - 1] = -1;
+    phmm->t[i][0] = -1;
+    phmm->t[i][phmm->gpm->ngap_patterns - 1] = -1;
+
+    for (j = 1; j <= 2*phmm->gpm->nbranches; j++) { /* exclude null and
+                                                       complex patterns */
+      TreeNode *n = lst_get_ptr(phmm->mods[i]->tree->nodes, 
+                                phmm->gpm->pattern_to_node[j]);
+                                /* n is the node below the branch
+                                   associated with gap pattern j */
+      phmm->t[i][j] = n->dparent;
+      if (n == phmm->mods[i]->tree->lchild)
+        phmm->t[i][j] += phmm->mods[i]->tree->rchild->dparent;
+                                /* in case of branch to root, need to
+                                   consider branches on both sides of root */
+
+      phmm->T[i][j] = phmm->T[i][0] - phmm->t[i][j];
+    }
+  }
+}
+
+/* Reset HMM of phylo-HMM, allowing for possible changes in indel
+   parameters */ 
+void phmm_reset(PhyloHmm *phmm) {
+  int i, j, cat_i, pat_i, cat_j, pat_j;
+  pattern_type pat_i_type, pat_j_type;
+  double val;
+
+  if (phmm->indel_mode == PARAMETERIC) {
+
+    set_branch_len_factors(phmm);
+
+    for (i = 0; i < phmm->hmm->nstates; i++) {
+      cat_i = phmm->state_to_cat[i];
+      pat_i = phmm->state_to_pattern[i];
+      pat_i_type = gp_pattern_type(phmm->gpm, pat_i);
+
+      for (j = 0; j < phmm->hmm->nstates; j++) {
+        cat_j = phmm->state_to_cat[j];
+        pat_j = phmm->state_to_pattern[j];
+        pat_j_type = gp_pattern_type(phmm->gpm, pat_j);
+
+        val = mm_get(phmm->functional_hmm->transition_matrix, cat_i, cat_j);
+
+        if (pat_i_type == COMPLEX_PATTERN && pat_j_type == COMPLEX_PATTERN)
+          val *= (1 - (phmm->gpm->ngap_patterns - 1) * COMPLEX_EPSILON);
+
+        else if (pat_i_type == COMPLEX_PATTERN || pat_j_type == COMPLEX_PATTERN) 
+          val *= COMPLEX_EPSILON;
+
+        else if (pat_i == pat_j) {
+          if (pat_i == 0)
+            val *= (1 - COMPLEX_EPSILON - phmm->T[cat_j][0] * 
+                    (phmm->alpha[cat_j] + phmm->beta[cat_j]));
+          else if (pat_i_type == INSERTION_PATTERN)
+            val *= (1 - COMPLEX_EPSILON 
+                    - phmm->omega[cat_j] * phmm->alpha[cat_j] * 
+                    phmm->T[cat_j][pat_j] 
+                    - phmm->omega[cat_j] * phmm->beta[cat_j] * 
+                    phmm->T[cat_j][0] 
+                    - phmm->omega[cat_j]);
+          else if (pat_i_type == DELETION_PATTERN)
+            val *= (1 - COMPLEX_EPSILON 
+                    - phmm->omega[cat_j] * phmm->alpha[cat_j] * 
+                    phmm->T[cat_j][0] 
+                    - phmm->omega[cat_j] * phmm->beta[cat_j] * 
+                    phmm->T[cat_j][pat_j] 
+                    - phmm->omega[cat_j]);
+        }
+
+        else {                  /* pat_i != pat_j, neither complex */
+          if (pat_i_type != NULL_PATTERN) 
+            val *= phmm->omega[cat_j];
+
+          if (pat_j_type == INSERTION_PATTERN) 
+            val *= phmm->alpha[cat_j] * phmm->t[cat_j][pat_j];
+
+          else if (pat_j_type == DELETION_PATTERN) 
+            val *= phmm->beta[cat_j] * phmm->t[cat_j][pat_j];
+        }
+
+        mm_set(phmm->hmm->transition_matrix, i, j, val);
+      }
+
+      gsl_vector_set(phmm->hmm->begin_transitions, i, 1.0/phmm->hmm->nstates);
+                                /* for now, just assume uniform
+                                   distrib. for begin transitions */
+    }
+  }
+
+  hmm_reset(phmm->hmm);
+}
+
+/* Function to be maximized in estimate_transitions_indel -- portion
+   of expected log likelihood that depends on the indel parameters for
+   a given functional category (defined by phmm->current_dest_cat) */
+double indel_max_function(gsl_vector *params, void *data) {
+  IndelEstimData *ied = data;
+  int pat, j = ied->current_dest_cat;
+  double alpha_j = gsl_vector_get(params, 0), beta_j = gsl_vector_get(params, 1),
+    omega_j = gsl_vector_get(params, 2);
+  double retval = ied->u_alpha[j] * log(alpha_j) + 
+    ied->u_beta[j] * log(beta_j) + ied->u_omega[j] * log(omega_j) +
+    ied->u_self[j][0] * log(1 - COMPLEX_EPSILON -
+                            (alpha_j + beta_j) * ied->T[j][0]);
+
+  for (pat = 1; pat < ied->gpm->ngap_patterns - 1; pat++) {
+    pattern_type type = gp_pattern_type(ied->gpm, pat);
+    if (type == INSERTION_PATTERN)
+      retval += ied->u_self[j][pat] * 
+        log(1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][pat] 
+            - omega_j * beta_j * ied->T[j][0] - omega_j);
+    else {
+      assert(type == DELETION_PATTERN);
+      retval += ied->u_self[j][pat] * 
+        log(1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][0] 
+            - omega_j * beta_j * ied->T[j][pat] - omega_j);
+    }
+  }
+  return -retval;               /* negate for minimization */
+}
+
+/* Gradient of indel_max_function */
+void indel_max_gradient(gsl_vector *grad, gsl_vector *params,void *data, 
+                          gsl_vector *lb, gsl_vector *ub) {
+  IndelEstimData *ied = data;
+  int pat, j = ied->current_dest_cat;
+  double alpha_j = gsl_vector_get(params, 0), beta_j = gsl_vector_get(params, 1),
+    omega_j = gsl_vector_get(params, 2);
+  double grad_alpha_j = ied->u_alpha[j] / alpha_j 
+    - ied->u_self[j][0] * ied->T[j][0] / 
+    (1 - COMPLEX_EPSILON - ied->T[j][0] * (alpha_j + beta_j));
+  double grad_beta_j = ied->u_beta[j] / beta_j 
+    - ied->u_self[j][0] * ied->T[j][0] / 
+    (1 - COMPLEX_EPSILON - ied->T[j][0] * (alpha_j + beta_j));
+  double grad_omega_j = ied->u_omega[j] / omega_j;
+
+  for (pat = 1; pat < ied->gpm->ngap_patterns - 1; pat++) {
+    pattern_type type = gp_pattern_type(ied->gpm, pat);
+    if (type == INSERTION_PATTERN) {
+      grad_alpha_j -= 
+        (ied->u_self[j][pat] * omega_j * ied->T[j][pat] /
+         (1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][pat]
+          - omega_j * beta_j * ied->T[j][0] - omega_j));
+      grad_beta_j -= 
+        (ied->u_self[j][pat] * omega_j * ied->T[j][0] /
+         (1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][pat]
+          - omega_j * beta_j * ied->T[j][0] - omega_j));
+      grad_omega_j -= 
+        (ied->u_self[j][pat] * 
+         (alpha_j * ied->T[j][pat] + beta_j * ied->T[j][0] + 1) /
+         (1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][pat]
+          - omega_j * beta_j * ied->T[j][0] - omega_j));
+    }
+    else {
+      assert(type == DELETION_PATTERN);
+      grad_alpha_j -= 
+        (ied->u_self[j][pat] * omega_j * ied->T[j][0] /
+         (1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][0]
+          - omega_j * beta_j * ied->T[j][pat] - omega_j));
+      grad_beta_j -= 
+        (ied->u_self[j][pat] * omega_j * ied->T[j][pat] /
+         (1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][0]
+          - omega_j * beta_j * ied->T[j][pat] - omega_j));
+      grad_omega_j -= 
+        (ied->u_self[j][pat] * 
+         (alpha_j * ied->T[j][0] + beta_j * ied->T[j][pat] + 1) /
+         (1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][0]
+          - omega_j * beta_j * ied->T[j][pat] - omega_j));
+    }
+  }
+  
+  gsl_vector_set(grad, 0, -grad_alpha_j); /* negate each one because function is negated */
+  gsl_vector_set(grad, 1, -grad_beta_j);
+  gsl_vector_set(grad, 2, -grad_omega_j);
+}
+
+/* Maximize all params for state transition (M step of EM).  This
+   function is passed to hmm_train_by_em in phmm_fit_em;  */
+void phmm_estimate_transitions(HMM *hmm, void *data, double **A) {
+
+  /* NOTE: if re-estimating state models, be sure to call
+     set_branch_len_factors; it's not called here */
+
+  PhyloHmm *phmm = data;
+  int i, j;
+  double **fcounts = A;         /* will be reset if parameteric model */
+  IndelEstimData ied;
+
+  if (phmm->indel_mode == PARAMETERIC) {
+    /* initialize marginal counts for functional categories */
+    fcounts = smalloc(phmm->functional_hmm->nstates * sizeof(void*));
+    for (i = 0; i < phmm->functional_hmm->nstates; i++) {
+      fcounts[i] = smalloc(phmm->functional_hmm->nstates * sizeof(double));
+      for (j = 0; j < phmm->functional_hmm->nstates; j++) fcounts[i][j] = 0;
+    }
+
+    /* initialize indel-related marginal counts */
+    ied.nfunctional_states = phmm->functional_hmm->nstates;
+    ied.gpm = phmm->gpm;
+    ied.u_alpha = smalloc(ied.nfunctional_states * sizeof(double));
+    ied.u_beta = smalloc(ied.nfunctional_states * sizeof(double));
+    ied.u_omega = smalloc(ied.nfunctional_states * sizeof(double));
+    ied.u_self = smalloc(ied.nfunctional_states * sizeof(void*));
+    for (i = 0; i < ied.nfunctional_states; i++) {
+      ied.u_alpha[i] = ied.u_beta[i] = ied.u_omega[i] = 0;
+      ied.u_self[i] = smalloc(ied.gpm->ngap_patterns * sizeof(double));
+      for (j = 0; j < ied.gpm->ngap_patterns; j++) ied.u_self[i][j] = 0;
+    }
+
+    /* compute marginal counts */
+    for (i = 0; i < phmm->hmm->nstates; i++) { 
+      int cat_i = phmm->state_to_cat[i];
+      int pat_i = phmm->state_to_pattern[i];
+      pattern_type pat_i_type = gp_pattern_type(phmm->gpm, pat_i);
+
+      assert(cat_i >= 0 && cat_i < phmm->functional_hmm->nstates);
+      assert(pat_i >= 0 && pat_i < phmm->gpm->ngap_patterns);
+
+      for (j = 0; j < phmm->hmm->nstates; j++) {
+        int cat_j = phmm->state_to_cat[j];
+        int pat_j = phmm->state_to_pattern[j];
+        pattern_type pat_j_type = gp_pattern_type(phmm->gpm, pat_j);
+
+        assert(cat_j >= 0 && cat_j < phmm->functional_hmm->nstates);
+        assert(pat_j >= 0 && pat_j < phmm->gpm->ngap_patterns);
+
+        fcounts[cat_i][cat_j] += A[i][j];
+
+        if (pat_i_type == COMPLEX_PATTERN || pat_j_type == COMPLEX_PATTERN) 
+          continue;             /* include these for fcounts but not for
+                                   the indel-related marginals */
+
+        if (pat_i == pat_j) 
+          ied.u_self[cat_j][pat_j] += A[i][j]; /* c_.kjk from notes */
+        else {
+          if (pat_j_type == INSERTION_PATTERN)
+            ied.u_alpha[cat_j] += A[i][j];
+          else if (pat_j_type == DELETION_PATTERN)
+            ied.u_beta[cat_j] += A[i][j];
+
+          if (pat_i_type != NULL_PATTERN)
+            ied.u_omega[cat_j] += A[i][j];
+        }
+      }
+    }
+  }
+
+  /* estimate transition probs for functional cats in ordinary way but
+     using marginal counts */
+  for (i = 0; i < phmm->functional_hmm->nstates; i++) {
+    double rowsum = 0;
+    for (j = 0; j < phmm->functional_hmm->nstates; j++)
+      rowsum += fcounts[i][j];
+    for (j = 0; j < phmm->functional_hmm->nstates; j++)
+      mm_set(phmm->functional_hmm->transition_matrix, i, j, 
+             fcounts[i][j] / rowsum);
+  }
+
+  /* if parameteric indel model, estimate indel params using a
+     multi-dimensional optimization routine.  This can be done
+     separately for each functional category  */
+  if (phmm->indel_mode == PARAMETERIC) {
+    gsl_vector *params = gsl_vector_alloc(3);
+    gsl_vector *lb = gsl_vector_calloc(3);
+    ied.T = phmm->T;
+
+    for (i = 0; i < phmm->functional_hmm->nstates; i++) {
+      double retval;
+      ied.current_dest_cat = i;
+
+      gsl_vector_set(params, 0, phmm->alpha[i]);
+      gsl_vector_set(params, 1, phmm->beta[i]);
+      gsl_vector_set(params, 2, phmm->omega[i]);
+      opt_bfgs(indel_max_function, params, &ied, &retval, lb, NULL, NULL, 
+               indel_max_gradient, OPT_HIGH_PREC, NULL); 
+      phmm->alpha[i] = gsl_vector_get(params, 0);
+      phmm->beta[i] = gsl_vector_get(params, 1);
+      phmm->omega[i] = gsl_vector_get(params, 2);
+    }
+
+    gsl_vector_free(params);
+    gsl_vector_free(lb);
+    for (i = 0; i < phmm->functional_hmm->nstates; i++) {
+      free(fcounts[i]);
+      free(ied.u_self[i]);
+    }
+    free(ied.u_alpha);
+    free(ied.u_beta);
+    free(ied.u_omega);
+    free(ied.u_self);
+    free(fcounts);
+  }
+
+  phmm_reset(phmm);
+}
+

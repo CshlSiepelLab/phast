@@ -5,6 +5,9 @@
 #include <hmm.h>
 #include <tree_model.h>
 #include <lists.h>
+#include <gap_patterns.h>
+
+typedef enum {MISSING_DATA, PARAMETERIC, NONPARAMETERIC} indel_mode_type;
 
 typedef struct {
   CategoryMap *cm;              /**< category map */
@@ -18,6 +21,8 @@ typedef struct {
                                    allowance for rate categories  */
   int nmods;                    /**< number of tree models (length of
                                    array mods) */
+  GapPatternMap* gpm;           /**< gap pattern mapping data; NULL if
+                                   no indel modeling */
   int *state_to_mod;            /**< mapping of HMM state number to tree
                                    model number */
   int *state_to_cat;            /**< mapping of HMM state number to (spooled)
@@ -39,15 +44,28 @@ typedef struct {
   int alloc_len;                /**< length for which emissions and/or
                                    forward are (or are to be) allocated */
   int *state_pos, *state_neg;   /**< contain tracking data for emissions */
-  int do_indels;                /**< whether indel model is in use */
+  indel_mode_type indel_mode;   /**< Indel mode in use */
   TreeNode *topology;           /**< representative tree from tree
                                    models, used to define topology
                                    with indel model (in this case, all
                                    topologies must be the same) */
+  double *alpha, *beta, *omega; /**< category-specific indel
+                                   parameters for parameteric indel
+                                   model */
+  double **T, **t;              /**< branch-length factors used in
+                                   parameteric indel model */
 } PhyloHmm;
 
+/* package of data used in estimation of indel parameters */
+typedef struct {
+  double *u_alpha, *u_beta, *u_omega;
+  double **u_self, **T;
+  int nfunctional_states, current_dest_cat;         
+  GapPatternMap *gpm;
+} IndelEstimData;
+
 PhyloHmm *phmm_new(HMM *hmm, TreeModel **tree_models, CategoryMap *cm, 
-                   List *pivot_cats, int indels, int nseqs);
+                   List *pivot_cats, indel_mode_type indel_mode);
 void phmm_reflect_hmm(PhyloHmm *phmm, List *pivot_cats);
 void phmm_create_autocorr_hmm(HMM *hmm, double lambda);
 void phmm_rates_cross(PhyloHmm *phmm, int nratecats, double lambda, 
@@ -68,9 +86,9 @@ double* phmm_postprobs_cats(PhyloHmm *phmm, List *cats, double *lnl);
 void phmm_score_predictions(PhyloHmm *phmm, GFF_Set *preds, List *score_cats, 
                             List *helper_cats, List *null_cats,
                             int score_only_score_cats);
-void phmm_rates_cut(PhyloHmm *phmm, int nrates, int cut_idx, double p, double q);
-double phmm_fit_rates_cut(PhyloHmm *phmm, double *p, double *q, FILE *logf);
-double phmm_fit_rates_cut_bfgs(PhyloHmm *phmm, double *p, double *q, FILE *logf);
 void phmm_add_bias(PhyloHmm *phmm, List *backgd_cat_names, double bias);
+double phmm_fit_em(PhyloHmm *phmm, MSA *msa, FILE *logf);
+void phmm_reset(PhyloHmm *phmm);
+void phmm_estimate_transitions(HMM *hmm, void *data, double **A);
 
 #endif

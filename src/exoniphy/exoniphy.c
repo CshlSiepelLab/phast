@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.32 2004-08-05 07:15:04 acs Exp $
+/* $Id: exoniphy.c,v 1.33 2004-08-10 22:03:30 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -450,7 +450,8 @@ int main(int argc, char* argv[]) {
   }      
 
   phmm = phmm_new(hmm, mod, cm, reflect_hmm ? backgd_types : NULL, 
-                  indels, msa->nseqs);
+                  indels ? NONPARAMETERIC : MISSING_DATA);
+                                /* FIXME: allow nonparameteric also */
 
   /* add bias, if necessary */
   if (bias != NEGINFTY) {

@@ -1,4 +1,4 @@
-/* $Id: gap_patterns.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
+/* $Id: gap_patterns.c,v 1.2 2004-08-10 22:03:30 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -24,14 +24,17 @@
    an object that defines the key mappings between the original
    (spooled) categories and the new "gapped categories", defined as
    category x gap pattern pairs.  */
-GapPatternMap *gp_create_gapcats(CategoryMap *cm, List *indel_cats, int nseqs) {
+GapPatternMap *gp_create_gapcats(CategoryMap *cm, List *indel_cats, 
+                                 TreeNode *topology) {
   int i, j, k, cat, gapcat, range_size;
-  List *indel_cat_nos;
+  List *indel_cat_nos, *traversal;
   int new_dependencies = 0;
 
   GapPatternMap *gpm = smalloc(sizeof(GapPatternMap));
   gpm->ncats = cm->ncats + 1;
-  gpm->ngap_patterns = 2 * (2 * nseqs - 3) + 2;
+  gpm->topology = topology;
+  gpm->nbranches = topology->nnodes - 2; /* unrooted */
+  gpm->ngap_patterns = 2 * gpm->nbranches + 2;
                                 /* phylogenetic gap patterns: two per
                                    branch in the unrooted tree plus
                                    one corresponding to no gaps plus
@@ -146,6 +149,23 @@ GapPatternMap *gp_create_gapcats(CategoryMap *cm, List *indel_cats, int nseqs) {
     cm->unspooler = cm_create_unspooler(cm->ncats + 1, cm->conditioned_on);
   }
 
+  /* build mappings between from nodes to branch indices (based on
+     in-order traversal) and from gap patterns to nodes (branches) */
+  gpm->node_to_branch = smalloc(topology->nnodes * sizeof(int));
+  for (i = 0; i < topology->nnodes; i++) gpm->node_to_branch[i] = -1;
+  gpm->pattern_to_node = smalloc(gpm->ngap_patterns * sizeof(int));
+  for (i = 0; i < gpm->ngap_patterns; i++) gpm->pattern_to_node[i] = -1;
+  traversal = tr_inorder(topology);
+  for (i = 0, j = 1; i < lst_size(traversal); i++) {
+    TreeNode *n = lst_get_ptr(traversal, i);
+    if (n != topology && n != topology->rchild) {
+      gpm->node_to_branch[n->id] = j;
+      gpm->pattern_to_node[j] = n->id;
+      gpm->pattern_to_node[j+gpm->nbranches] = n->id;
+      j++;
+    }
+  }
+
   lst_free(indel_cat_nos);
   return gpm;
 }
@@ -158,58 +178,48 @@ void gp_free_map(GapPatternMap *gpm) {
     if (gpm->cat_x_pattern_to_gapcat[i] != NULL)
       free(gpm->cat_x_pattern_to_gapcat[i]);
   free(gpm->cat_x_pattern_to_gapcat);
+  free(gpm->node_to_branch);
+  free(gpm->pattern_to_node);
   free(gpm);
 }
 
-/* given a multiple alignment and a tree, fill an array with indices
-   describing a "phylogenetic gap pattern" at each position.  The
-   value for each column will be an integer i such that i == 0 if
-   there are no gaps, 1 <= i <= 2N-3 (where N is the number of leaves
-   in the tree) if gaps occur that can be explained by a deletion on
-   branch i, 2N-2 <= i <= 4N-6 if gaps occur that can be explained by
-   an insertion on branch i, and i == 4N-5 if gaps occur that require
-   more than one indel event to explain (so-called "complex" gap
-   patterns).  The branches of the tree are numbered from 1 to 2N-3 in
-   an in-order traversal.  The branch between the root and its right
-   child is ignored, because insertions on one branch below the root
-   cannot be distinguished from deletions on the other.  The array
-   'patterns' is expected to be allocated to at least size
-   msa->length.  It is assumed that no column of the alignment
-   consists only of gap characters */
-void gp_set_phylo_patterns(int *patterns, MSA *msa, TreeNode *tree) {
+/* given a multiple alignment and a gap pattern map, fill an array
+   with indices describing a "phylogenetic gap pattern" at each
+   position.  The value for each column will be an integer i such that
+   i == 0 if there are no gaps, 1 <= i <= 2N-3 (where N is the number
+   of leaves in the tree) if gaps occur that can be explained by a
+   deletion on branch i, 2N-2 <= i <= 4N-6 if gaps occur that can be
+   explained by an insertion on branch i, and i == 4N-5 if gaps occur
+   that require more than one indel event to explain (so-called
+   "complex" gap patterns).  The branches of the tree are numbered
+   from 1 to 2N-3 in an in-order traversal (see gp_create_gapcats).
+   The branch between the root and its right child is ignored, because
+   insertions on one branch below the root cannot be distinguished
+   from deletions on the other.  The array 'patterns' is expected to
+   be allocated to at least size msa->length.  It is assumed that no
+   column of the alignment consists only of gap characters */
+void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa) {
 
-  int i, idx, tup;
+  int i, tup;
   List *traversal;
-  int *gap_code, *node_to_branch, *leaf_to_seq, *tuple_patterns;
+  int *gap_code, *leaf_to_seq, *tuple_patterns;
   TreeNode *n;
   String *namestr = str_new(STR_SHORT_LEN);
-  int nbranches = tree->nnodes - 2; /* unrooted */
-  int complex = nbranches*2 + 1;
+  int complex = gpm->nbranches*2 + 1;
+  TreeNode *tree = gpm->topology;
 
   /* require ordered sufficient statistics representation */
   if (msa->ss == NULL)
     ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1);
   assert(msa->ss->tuple_idx != NULL);
 
-  /* set up mappings of node ids to branch numbers (nodes correspond
-     to branches above them), and node ids to sequence indices */
-  node_to_branch = smalloc(tree->nnodes * sizeof(int));
+  /* set up mappings of node ids to sequence indices */
   leaf_to_seq = smalloc(tree->nnodes * sizeof(int));
-  for (i = 0; i < tree->nnodes; i++) node_to_branch[i] = -1;
-  traversal = tr_inorder(tree);
-  for (i = 0, idx = 1; i < lst_size(traversal); i++) {
-    n = lst_get_ptr(traversal, i);
-    if (n != tree && n != tree->rchild) 
-      node_to_branch[n->id] = idx++;
-    if (n->lchild == NULL) {
-      str_cpy_charstr(namestr, n->name);
-      if (str_as_int(namestr, &leaf_to_seq[n->id]) != 0 || 
-          leaf_to_seq[n->id] < 1 || leaf_to_seq[n->id] > (tree->nnodes+1)/2) {
-        fprintf(stderr, "ERROR: cannot map tree leaf '%s' to sequence index.\n", n->name);
-        exit(1);
-      }
-      leaf_to_seq[n->id]--;     /* 0-based indexing */
-    }
+  for (i = 0; i < lst_size(tree->nodes); i++) {
+    n = lst_get_ptr(tree->nodes, i);
+    if (n->lchild == NULL) 
+      leaf_to_seq[n->id] = msa_get_seq_idx(msa, n->name);
+    else leaf_to_seq[n->id] = -1;
   }
 
   gap_code = smalloc(tree->nnodes * sizeof(int));
@@ -229,9 +239,11 @@ void gp_set_phylo_patterns(int *patterns, MSA *msa, TreeNode *tree) {
     tuple_patterns[tup] = 0;
     for (i = 0; i < lst_size(traversal); i++) {
       n = lst_get_ptr(traversal, i);
-      if (n->lchild == NULL)
+      if (n->lchild == NULL) {
+        assert(leaf_to_seq[n->id] >= 0);
         gap_code[n->id] = 
           (ss_get_char_tuple(msa, tup, leaf_to_seq[n->id], 0) == GAP_CHAR);
+      }
       else {                    /* ancestral node */
         if (gap_code[n->lchild->id] == gap_code[n->rchild->id]) {
           if (gap_code[n->lchild->id] == 2) {
@@ -311,23 +323,23 @@ void gp_set_phylo_patterns(int *patterns, MSA *msa, TreeNode *tree) {
       if (gap_code[indel_node->id] == 0) {
         /* deletion between indel_node and its left child */
         if (gap_code[indel_node->lchild->id] == 1)
-          tuple_patterns[tup] = node_to_branch[indel_node->lchild->id];
+          tuple_patterns[tup] = gpm->node_to_branch[indel_node->lchild->id];
         /* deletion between indel_node and its right child */
         else {
           assert(gap_code[indel_node->rchild->id] == 1);
-          tuple_patterns[tup] = node_to_branch[indel_node->rchild->id];
+          tuple_patterns[tup] = gpm->node_to_branch[indel_node->rchild->id];
         }
       }
       else {                    /* gap_code[indel_node->id] == 1 */
         /* insertion between indel_node and its left child */
         if (gap_code[indel_node->lchild->id] == 0)
-          tuple_patterns[tup] = node_to_branch[indel_node->lchild->id] +
-            nbranches;
+          tuple_patterns[tup] = gpm->node_to_branch[indel_node->lchild->id] +
+            gpm->nbranches;
         /* insertion between indel_node and its right child */
         else {
           assert(gap_code[indel_node->rchild->id] == 0);
-          tuple_patterns[tup] = node_to_branch[indel_node->rchild->id] +
-            nbranches;
+          tuple_patterns[tup] = gpm->node_to_branch[indel_node->rchild->id] +
+            gpm->nbranches;
         }
       }
     }
@@ -337,9 +349,19 @@ void gp_set_phylo_patterns(int *patterns, MSA *msa, TreeNode *tree) {
   for (i = 0; i < msa->length; i++)
     patterns[i] = tuple_patterns[msa->ss->tuple_idx[i]];
 
-  free(node_to_branch);
   free(leaf_to_seq);
   free(gap_code);
   free(tuple_patterns);
   str_free(namestr);
+}
+
+/** Return pattern type associated with gap pattern number (null,
+    insertion, deletion, or complex) */
+pattern_type gp_pattern_type(GapPatternMap *gpm, int pattern) {
+  if (pattern == 0) return NULL_PATTERN;
+  else if (pattern >= 1 && pattern <= gpm->nbranches) 
+    return DELETION_PATTERN;
+  else if (pattern > gpm->nbranches && pattern <= 2*gpm->nbranches) 
+    return INSERTION_PATTERN;
+  else return COMPLEX_PATTERN;
 }

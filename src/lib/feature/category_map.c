@@ -1,4 +1,4 @@
-/* $Id: category_map.c,v 1.11 2004-07-02 03:55:49 acs Exp $
+/* $Id: category_map.c,v 1.12 2004-08-10 22:03:30 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -312,9 +312,8 @@ List *cm_get_category_list(CategoryMap *cm,
       if (cm == NULL) 
         die("ERROR: if categories are specified by name, a category map is required.\n");
       cat = cm_get_category(cm, n);
-      if (cat == 0 && !str_equals_charstr(n, BACKGD_CAT_NAME)) 
-        if (!ignore_missing) 
-          die("ERROR: illegal category name (\"%s\")\n", n->chars);
+      if (cat == 0 && !ignore_missing && !str_equals(n, cm_get_feature(cm, 0))) 
+        die("ERROR: illegal category name (\"%s\")\n", n->chars);
       for (j = cm->ranges[cat]->start_cat_no; 
            j <= cm->ranges[cat]->end_cat_no; j++)
         lst_push_int(retval, j);

@@ -1,4 +1,4 @@
-/* $Id: em.c,v 1.3 2004-06-16 06:21:17 acs Exp $
+/* $Id: em.c,v 1.4 2004-08-10 22:03:30 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -9,6 +9,30 @@
 #include <assert.h>
 #include <sufficient_stats.h>
 #include <fit_em.h>
+
+/* generic log function: show log likelihood and all HMM transitions
+   probs */
+void default_log_function(FILE *logf, double total_logl, HMM *hmm, 
+                          void *data, int show_header) {
+  int i, j;
+
+  if (show_header) {
+    fprintf(logf, "\nlogl\t");
+    for (i = 0; i < hmm->nstates; i++) {
+      for (j = 0; j < hmm->nstates; j++) {
+        fprintf(logf, "(%d,%d)\t", i, j);
+      }
+    }
+    fprintf(logf, "\n");
+  }
+
+  fprintf(logf, "%f\t", total_logl);
+  for (i = 0; i < hmm->nstates; i++)
+    for (j = 0; j < hmm->nstates; j++)
+      fprintf(logf, "%f\t", mm_get(hmm->transition_matrix, i, j));
+  fprintf(logf, "\n");
+  fflush(logf);
+}
 
 /* hmm and models must be initialized appropriately */
 /* must be one model for every state in the HMM */
@@ -23,10 +47,12 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
                                                  int, int), 
                        void (*estimate_state_models)(void**, int, void*, 
                                                      double**, int),
+                       void (*estimate_transitions)(HMM*, void*, double**),
                        int (*get_observation_index)(void*, int, int),
+                       void (*log_function)(FILE*, double, HMM*, void*, int),
                        FILE *logf) { 
 
-  int i, k, l, s, obsidx, nobs, maxlen = 0;
+  int i, k, l, s, obsidx, nobs, maxlen = 0, done;
   double **emissions, **forward_scores, **backward_scores, **E = NULL, **A;
   double *totalE = NULL, *totalA;
   double total_logl, prev_total_logl, val;
@@ -63,7 +89,16 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
   val_list = lst_new_dbl(hmm->nstates);
 
   prev_total_logl = NEGINFTY;
-  while (1) {
+  done = FALSE;
+
+  if (logf != NULL) {
+    if (log_function != NULL)
+      log_function(logf, NEGINFTY, hmm, data, TRUE);
+    else 
+      default_log_function(logf, NEGINFTY, hmm, NULL, TRUE);
+  }
+
+  while (!done) {
     total_logl = 0;
 
     /* initialize 'A' and 'E' counts (see below) */
@@ -138,38 +173,36 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
     }
 
     /* check convergence */
-    if (logf != NULL) {
-      fprintf(logf, "%f\t", total_logl);
-      for (k = 0; k < hmm->nstates; k++)
-        for (l = 0; l < hmm->nstates; l++)
-          fprintf(logf, "%f\t", mm_get(hmm->transition_matrix, k, l));
-      fprintf(logf, "\n");
-      fflush(logf);
-    }
-
     if (total_logl - prev_total_logl <= EM_CONVERGENCE_THRESHOLD)
-      break;            
+      done = TRUE;
 
-    prev_total_logl = total_logl;
+    else {
+      prev_total_logl = total_logl;
 
-    /* normalize As */
-    for (k = 0; k < hmm->nstates; k++) {
-      for (l = 0; l < hmm->nstates; l++)
-        A[k][l] /= totalA[k];
+      /* update transitions; use special function if given, otherwise
+         assume fully general parameterization  */
+      if (estimate_transitions != NULL)
+        estimate_transitions(hmm, data, A);
+      else 
+        for (k = 0; k < hmm->nstates; k++)
+          for (l = 0; l < hmm->nstates; l++) 
+            mm_set(hmm->transition_matrix, k, l, A[k][l] / totalA[k]);
+      /* FIXME: begin and end */
+      hmm_reset(hmm);
+
+      /* FIXME: need to use pseudocounts here */  
+
+      /* re-estimate state models */
+      if (do_state_models)
+        estimate_state_models(models, hmm->nstates, data, E, nobs);
     }
 
-    /* update transitions */
-    for (k = 0; k < hmm->nstates; k++)
-      for (l = 0; l < hmm->nstates; l++) 
-        mm_set(hmm->transition_matrix, k, l, A[k][l]);
-                                /* FIXME: begin and end */
-    hmm_reset(hmm);
-
-    /* FIXME: need to use pseudocounts here */  
-
-    /* re-estimate state models */
-    if (do_state_models)
-      estimate_state_models(models, hmm->nstates, data, E, nobs);
+    if (logf != NULL) {
+      if (log_function != NULL)
+        log_function(logf, total_logl, hmm, data, FALSE);
+      else 
+        default_log_function(logf, total_logl, hmm, NULL, FALSE);
+    }
   }
 
   for (i = 0; i < hmm->nstates; i++) {
@@ -227,7 +260,6 @@ void estimate_state_models_phyhmm(void **models, int nmodels, void *data,
                                 /* need to reestimate background
                                    freqs, using new category counts */
     tm_fit(tm, pmsa->pooled_msa, params, k, OPT_HIGH_PREC, NULL);
-                                /* FIXME: should use analytical gradients */
     gsl_vector_free(params); 
   }
 }
