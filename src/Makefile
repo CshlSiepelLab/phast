@@ -1,4 +1,4 @@
-SUB = lib exoniphy phastCons phastOdds phastMotif phyloFit util 
+SUB = lib exoniphy phastCons phastOdds phastMotif phyloFit phyloBoot util 
 
 CDIR = ${PWD}
 INSTALLDIR = /cluster/bin/phast
