@@ -1,7 +1,7 @@
 /* hmm_train - estimation of HMM transition probabilities from labeled
    training data */
 
-/* $Id: hmm_train.c,v 1.6 2004-07-27 20:31:22 acs Exp $
+/* $Id: hmm_train.c,v 1.7 2004-07-27 21:02:11 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -223,7 +223,7 @@ int main(int argc, char* argv[]) {
     if (msa_length_list == NULL) {
       if (!quiet_mode)
         fprintf(stderr, "Mapping annotations to alignment ...\n");
-      msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
+      msa_map_gff_coords(msa, gff, 1, 0, 0, NULL); /* assume seq 1 is ref */
     }
 
     if (model_indels_str != NULL) {
