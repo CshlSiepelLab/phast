@@ -1,4 +1,4 @@
-/* $Id: trees.h,v 1.4 2004-06-22 17:12:26 acs Exp $
+/* $Id: trees.h,v 1.5 2004-06-22 18:14:29 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -57,21 +57,19 @@ TreeNode *tr_new_from_string(char *s);
 TreeNode *tr_new_node();
 void tr_add_child(TreeNode *parent, TreeNode *child);
 void tr_print(FILE* f, TreeNode *root, int show_branch_lengths);
-void print_tree_recur(FILE* f, TreeNode *n, int show_branch_lengths);
-void print_tree_debug(FILE *f, TreeNode *n);
+void tr_print_recur(FILE* f, TreeNode *n, int show_branch_lengths);
 void tr_free(TreeNode *n);
 void tr_set_nnodes(TreeNode *tree);
 void tr_reset_id();
 void tr_cpy(TreeNode *dest, TreeNode *src);
 TreeNode *tr_create_copy(TreeNode *src);
 void tr_node_cpy(TreeNode *dest, TreeNode *src);
-void print_tree_alph(FILE* f, TreeNode *root, int show_branch_lengths);
-void print_tree_ordered_recur(FILE* f, TreeNode *n, int *left_right,
-                              int show_branch_lengths);
+void tr_print_ordered(FILE* f, TreeNode *root, int show_branch_lengths);
+void tr_print_ordered_recur(FILE* f, TreeNode *n, int *left_right,
+                            int show_branch_lengths);
 List *tr_preorder(TreeNode *tr);
 List *tr_inorder(TreeNode *tr);
 List *tr_postorder(TreeNode *tr);
-void print_node_debug(FILE *f, TreeNode *n);
 void tr_layout_xy(TreeNode *tree, int x0, int y0, int x1, int y1, 
                   int *x, int *y, int use_branch_lens, int horizontal);
 void tr_print_ps(FILE *F, TreeNode *tree, int show_branch_lens,

@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.8 2004-06-22 17:12:26 acs Exp $ 
+/* $Id: trees.c,v 1.9 2004-06-22 18:14:29 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -12,8 +12,6 @@
 
 /* TODO: 
    - better error checking in parsing function
-   - make printing routines nonrecursive
-   - use tr_inorder, tr_preorder, tr_postorder where possible 
    - possibly new scheme for labels at leaves; need general way to go 
      between leaf labels and leaf numbers (perhaps wrt a list of names) 
 */
@@ -29,13 +27,13 @@
 #include "stringsplus.h"
 
 
-/* NOTE: when parsed from NH, node ids correspond to a preorder
-   traversal of the tree.  A number of useful properties result.  For
-   example, if two nodes u and v are labeled such that v has the larger
-   id, then the first ancestor of v that has an id smaller than that
-   of u is the LCA of u and v */
-
 static int idcounter = 0;
+/* NOTE: when tree is parsed from Newick file, node ids are assigned
+   sequentially in a preorder traversal.  Some useful properties
+   result.  For example, if two nodes u and v are such that v->id >
+   u->id, then the first ancestor a of v s.t. a->id < u->id is the LCA
+   of u and v */
+
 
 /* coords for postscript printing */
 /* top-left x */
@@ -51,7 +49,7 @@ static int idcounter = 0;
 #define BR_Y 700                
                                 
 
-/** Parse a single tree from a file in "New Hampshire" format */
+/** Parse a tree from a file in Newick (New Hampshire) format */
 TreeNode *tr_new_from_file(FILE *f) { 
   String *s = str_new(STR_VERY_LONG_LEN);
   TreeNode *retval;
@@ -60,7 +58,8 @@ TreeNode *tr_new_from_file(FILE *f) {
 
   str_double_trim(s);
   if (s->chars[0] != '(')
-    die("ERROR: Can't parse tree file (Newick).\n");
+    die("ERROR: This doesn't look like a tree (Newick format): \"%s\".\n", 
+        s->chars);
 
   if (s->chars[s->length-1] == ';') 
     s->chars[--s->length] = '\0';
@@ -70,27 +69,31 @@ TreeNode *tr_new_from_file(FILE *f) {
   return retval;
 }
 
-/** Parse a single New Hampshire-formatted tree from a string */
+/** Parse a single Newick-formatted tree from a string */
 TreeNode *tr_new_from_string(char *treestr) { 
-  char diststr[STR_MED_LEN];
   TreeNode *root, *node, *newnode;
-  int i, in_distance = 0, len = strlen(treestr);
+  int i, in_distance = 0, len = strlen(treestr), nopen_parens = 0,
+    nclose_parens = 0;
   char c;
   char *currentname = NULL;
+  String *diststr = str_new(STR_SHORT_LEN);
 
-  idcounter = 0;                /* start at 0 for each tree */
+  tr_reset_id();
   root = tr_new_node(); root->nnodes = 1;
   node = root;
   for (i = 0; i < len; i++) {
     c = treestr[i];
 
     if (in_distance) {
-      if (isdigit(c) || c == '.' || c == '-') {
-        strncat(diststr, &c, 1);
+      if (c != '(' && c != ',' && c != ')' && c != ':') {
+        str_append_char(diststr, c);
         continue;
       }
-      else 
-        node->dparent = atof(diststr);
+      else {
+        if (str_as_dbl(diststr, &node->dparent) != 0)
+          die("ERROR: Can't parse distance in tree (\"%s\").\n", 
+              diststr->chars);
+      }
       in_distance = 0;
     }
 
@@ -99,8 +102,11 @@ TreeNode *tr_new_from_string(char *treestr) {
       node = newnode;
       currentname = newnode->name;
       root->nnodes++;
+      nopen_parens++;
     }
     else if (c == ',') {
+      if (node->parent->lchild != NULL && node->parent->rchild != NULL)
+        die("ERROR (tree parser): invalid rooted binary tree (too many children)\n");
       tr_add_child(node->parent, newnode = tr_new_node());
       node = newnode;
       currentname = node->name;
@@ -109,18 +115,23 @@ TreeNode *tr_new_from_string(char *treestr) {
     else if (c == ')') {
       node = node->parent;
       currentname = NULL;
+      nclose_parens++;
     }
     else if (c == ':') {
-      diststr[0] = '\0';
+      str_clear(diststr);
       in_distance = 1;
     }
     else if (currentname != NULL) {
-      if (!isspace(c) || strlen(currentname) > 0) /* avoid leading spaces */
+      if (!isspace(c) || currentname[0] != '\0') /* avoid leading spaces */
         strncat(currentname, &c, 1);
     }
   }
 
+  if (nopen_parens != nclose_parens)
+    die("ERROR: mismatching parens in tree.\n");
+
   tr_set_nnodes(root);
+  str_free(diststr);
   return root;
 }
 
@@ -209,23 +220,24 @@ void tr_add_child(TreeNode *parent, TreeNode *child) {
   child->parent = parent;
 }
 
-/* Print tree in New Hampshire format */
+/** Print tree in New Hampshire format. */
 void tr_print(FILE* f, TreeNode *root, int show_branch_lengths) {
-  print_tree_recur(f, root, show_branch_lengths);
+  /* It's simplest to do this recursively. */
+  tr_print_recur(f, root, show_branch_lengths);
   fprintf(f, ";\n");
 }
 
 /* Recursive subroutine used by print_tree */
-void print_tree_recur(FILE* f, TreeNode *n, int show_branch_lengths) {
+void tr_print_recur(FILE* f, TreeNode *n, int show_branch_lengths) {
 
   assert((n->lchild == NULL && n->rchild == NULL) || 
 	 (n->lchild != NULL && n->rchild != NULL));
 
   if (n->lchild != NULL) {
     fprintf(f, "(");
-    print_tree_recur(f, n->lchild, show_branch_lengths);
+    tr_print_recur(f, n->lchild, show_branch_lengths);
     fprintf(f, ",");
-    print_tree_recur(f, n->rchild, show_branch_lengths);
+    tr_print_recur(f, n->rchild, show_branch_lengths);
     fprintf(f, ")");
   }
   else {
@@ -236,28 +248,7 @@ void print_tree_recur(FILE* f, TreeNode *n, int show_branch_lengths) {
     fprintf(f, ":%f", n->dparent);
 }
 
-/* For debugging purposes */
-void print_tree_debug(FILE *f, TreeNode *n) {
-  assert((n->lchild == NULL && n->rchild == NULL) || 
-	 (n->lchild != NULL && n->rchild != NULL));
-  print_node_debug(f, n);
-  if (n->lchild != NULL) {
-    print_tree_debug(f, n->lchild);
-    print_tree_debug(f, n->rchild);
-  }  
-}
-
-void print_node_debug(FILE *f, TreeNode *n) {
-  fprintf(f, "\nNODE %d\n", n->id);
-  if (strlen(n->name) > 0)
-    fprintf(f, "\tNAME = %s\n", n->name);
-  fprintf(f, "\tNNODES = %d\n", n->nnodes);
-  fprintf(f, "\tHEIGHT = %d\n", n->height);
-  fprintf(f, "\tParent = %d\n", n->parent == NULL ? -1 : n->parent->id);
-  if (n->lchild != NULL) 
-    fprintf(f, "\tChildren = (%d, %d)\n", n->lchild->id, n->rchild->id);
-}
-
+/** Free memory for tree */
 void tr_free(TreeNode *tree) {
   Stack *stack;
   TreeNode *n;
@@ -279,6 +270,7 @@ void tr_reset_id() {
   idcounter = 0;
 }
 
+/** Copy tree */
 void tr_cpy(TreeNode *dest, TreeNode *src) {
   Stack *stack, *nodes, *cpystack;
   TreeNode *n, *ncpy, *lcpy, *rcpy;
@@ -327,6 +319,7 @@ void tr_cpy(TreeNode *dest, TreeNode *src) {
   stk_free(nodes);
 }
 
+/** Create a new tree that's a copy of another one */
 TreeNode *tr_create_copy(TreeNode *src) {
   Stack *stack, *cpystack;
   TreeNode *n, *ncpy, *lcpy, *rcpy, *dest;
@@ -371,24 +364,20 @@ TreeNode *tr_create_copy(TreeNode *src) {
 /* Copy contents of tree node (ignore pointers) */
 void tr_node_cpy(TreeNode *dest, TreeNode *src) {
   dest->parent = dest->lchild = dest->rchild = NULL;
-/*   dest->data = NULL; */ /* src->data; */       /* WARNING: only copying pointer! */
   dest->id = src->id;
   strcpy(dest->name, src->name); 
   dest->dparent = src->dparent;
-/*   dest->nnodes = -1; */
-/*   dest->height = src->height; */
-
   /* don't copy data, nnodes, height, preorder, inorder, postorder */
 }
 
 
-/* Print tree in New Hampshire format.  This version imposes an
- * ordering on the leaves (useful when comparing trees that have been
- * rearranged).  At every internal node, we store the name of the leaf
- * beneath it that comes first alphanumerically.  When recursively
- * printing the tree, at each internal node, we call its children in
- * the order of these names.  */
-void print_tree_alph(FILE* f, TreeNode *root, int show_branch_lengths) {
+/** Print tree in Newick format.  This version imposes an
+   ordering on the leaves (useful when comparing trees that have been
+   rearranged).  At every internal node, we store the name of the leaf
+   beneath it that comes first alphanumerically.  When recursively
+   printing the tree, at each internal node, we call its children in
+   the order of these names.  */
+void tr_print_ordered(FILE* f, TreeNode *root, int show_branch_lengths) {
   int *left_right, *mark;
   char **names;
   TreeNode *n;
@@ -437,7 +426,7 @@ void print_tree_alph(FILE* f, TreeNode *root, int show_branch_lengths) {
     }
   }
 
-  print_tree_ordered_recur(f, root, left_right, show_branch_lengths);
+  tr_print_ordered_recur(f, root, left_right, show_branch_lengths);
   fprintf(f, ";\n");
   
   stk_free(stack);
@@ -446,10 +435,9 @@ void print_tree_alph(FILE* f, TreeNode *root, int show_branch_lengths) {
   free(names);
 }
 
-/* Recursive subroutine for printing trees that allows an arbitrary
- * left/right ordering of the children at every internal node. */
-void print_tree_ordered_recur(FILE* f, TreeNode *n, int *left_right,
-                              int show_branch_lengths) {
+/* Recursive subroutine for tr_print_ordered */
+void tr_print_ordered_recur(FILE* f, TreeNode *n, int *left_right,
+                            int show_branch_lengths) {
 
   assert((n->lchild == NULL && n->rchild == NULL) || 
 	 (n->lchild != NULL && n->rchild != NULL));
@@ -457,14 +445,14 @@ void print_tree_ordered_recur(FILE* f, TreeNode *n, int *left_right,
   if (n->lchild != NULL) {
     fprintf(f, "(");
     if (left_right[n->id]) {
-      print_tree_ordered_recur(f, n->lchild, left_right, show_branch_lengths);
+      tr_print_ordered_recur(f, n->lchild, left_right, show_branch_lengths);
       fprintf(f, ",");
-      print_tree_ordered_recur(f, n->rchild, left_right, show_branch_lengths);
+      tr_print_ordered_recur(f, n->rchild, left_right, show_branch_lengths);
     }
     else {
-      print_tree_ordered_recur(f, n->rchild, left_right, show_branch_lengths);
+      tr_print_ordered_recur(f, n->rchild, left_right, show_branch_lengths);
       fprintf(f, ",");
-      print_tree_ordered_recur(f, n->lchild, left_right, show_branch_lengths);
+      tr_print_ordered_recur(f, n->lchild, left_right, show_branch_lengths);
     }
     fprintf(f, ")");
   }
@@ -476,11 +464,9 @@ void print_tree_ordered_recur(FILE* f, TreeNode *n, int *left_right,
     fprintf(f, ":%f", n->dparent);
 }
 
-/* below routines provide lists that represent preorder, inorder, and
-   postorder traversals of the specified tree.  Doing things this way
-   simplifies calling code considerably, and also can substantially
-   increase efficiency (avoid lots of alloc and srealloc of stacks;
-   avoid two-pass problem with inorder and postorder) */
+/** Obtain a list representing a preorder traversal of the tree.
+    Allows for simplified loops (no stacks!) and improved
+    efficiency */
 List *tr_preorder(TreeNode *tr) {
   if (tr->preorder == NULL) {   /* produce on demand */
     Stack *stack;
@@ -504,6 +490,9 @@ List *tr_preorder(TreeNode *tr) {
   return tr->preorder;
 }
 
+/** Obtain a list representing an in-order traversal of the tree.
+    Allows for simplified loops (no stacks!) and improved
+    efficiency */
 List *tr_inorder(TreeNode *tr) {
   if (tr->inorder == NULL) {    /* produce on demand */
     int i;
@@ -536,6 +525,9 @@ List *tr_inorder(TreeNode *tr) {
   return tr->inorder;
 }
 
+/** Obtain a list representing a postorder traversal of the tree.
+    Allows for simplified loops (no stacks!) and improved
+    efficiency */
 List *tr_postorder(TreeNode *tr) {
   if (tr->postorder == NULL) {  /* produce on demand */
     int i;
@@ -568,18 +560,31 @@ List *tr_postorder(TreeNode *tr) {
   return tr->postorder;
 }
 
-/* Provide x-y coordinates for every node in a tree, given a bounding
-   box defined by (x0,y0) [upper left] and (x1,y1) [lower right].  (It
-   is assumed that x0 < x1 and y0 > y1).  The arrays x and y must be
-   pre-allocated to dimension tree->nnodes.  After the routine is
-   called, the coordinates for the node with id = i will be given by
-   (x[i],y[i]).  If use_branch_lens == 1, the tree will be be laid out
-   such that edges are proportional to the 'dparent' attributes of the
-   TreeNodes.  If horizontal = 1, the tree will be laid out with the
-   root on the left and the leaves on the right; otherwise, the root
-   will be at top and the leaves at bottom.  */
-void tr_layout_xy(TreeNode *tree, int x0, int y0, int x1, int y1, 
-                  int *x, int *y, int use_branch_lens, int horizontal) {
+/** Provide x-y coordinates for layout. */
+void tr_layout_xy(TreeNode *tree, 
+                  int x0,       /**< Upper left x bound */
+                  int y0,       /**< Upper left y bound  */
+                  int x1,       /**< Lower right x bound */
+                  int y1,       /**< Lower right y bound  */
+                  int *x,       /**< On return, will contain
+                                   x-coordinates for nodes, in order
+                                   of tree->nodes.  Must be
+                                   preallocated. */
+                  int *y,       /**< On return, will contain
+                                   y-coordinates for nodes, in order
+                                   of tree->nodes.  Must be
+                                   preallocated. */
+                  int use_branch_lens, 
+                                /**< If TRUE, tree will be laid out
+                                   such that edges are proportional to
+                                   branch lengths (dparent
+                                   attributes) */
+                  int horizontal
+                                /**< If TRUE, tree will be laid out
+                                   with root on left and leaves on
+                                   right; otherwise, root will be at
+                                   top and leaves at bottom */
+                  ) {
 
   int delt_x, delt_y, i; 
   List *traversal; 
@@ -641,18 +646,28 @@ void tr_layout_xy(TreeNode *tree, int x0, int y0, int x1, int y1,
   }
 } 
 
-/* Print a simple postscript rendering of a tree.  Node coordinates
-   are defined by tr_layout_xy (above).  Parameters specify whether to
-   show branch lengths, whether to draw the tree horizontally or
-   vertically, whether to scale proportionally to branch lengths, and
-   whether to draw "square" (right-angled) branches or diagonal ones.
-   To do: support scaling of entire tree in x or y dimension
-   ... perhaps should do some of this automatically, to avoid really
-   tall & skinny trees ... also may want to accept BoundingBox params
-   as input */
-void tr_print_ps(FILE *F, TreeNode *tree, int show_branch_lens,
-                 int square_branches, int use_branch_lens, 
-                 int horizontal_layout) {
+/** Print a (very basic!) postscript rendering of a tree. */
+void tr_print_ps(FILE *F,       /**< Destination file */
+                 TreeNode *tree, 
+                                /**< Tree root */
+                 int show_branch_lens,
+                                /**< Whether to print branch lengths
+                                   by edges */
+                 int square_branches,
+                                /**< If TRUE, branches will be
+                                   right-angled, otherwise will be
+                                   diagonal */
+                 int use_branch_lens, 
+                                /**< If TRUE, tree will be laid out
+                                   such that edges are proportional to
+                                   branch lengths (dparent
+                                   attributes) */
+                 int horizontal_layout
+                                /**< If TRUE, tree will be laid out
+                                   with root on left and leaves on
+                                   right; otherwise, root will be at
+                                   top and leaves at bottom */
+                 ) {
   int i, xoffset, yoffset;
   int *x, *y;
   List *traversal;
@@ -772,7 +787,7 @@ basefont setfont\n");
   free(y);
 }
 
-/* return sum of lengths at all edges */
+/** Compute and return sum of lengths at all edges */
 double tr_total_len(TreeNode *t) {
   double retval = 0;
   int i;
@@ -784,7 +799,7 @@ double tr_total_len(TreeNode *t) {
   return retval;
 }
 
-/* return node having specified name or NULL if none found.  */
+/** Return node having specified name or NULL if none found.  */
 TreeNode *tr_get_node(TreeNode *t, char *name) {
   int i;
   for (i = 0; i < t->nnodes; i++) {
@@ -795,7 +810,16 @@ TreeNode *tr_get_node(TreeNode *t, char *name) {
   return NULL;
 }
 
-void tr_number_leaves(TreeNode *t, char **names, int nnames) {
+/** Replace leaf names by indices in given array of names */
+void tr_number_leaves(TreeNode *t, 
+                                /**< Root of tree */
+                      char **names, 
+                                /**< Array of names matching names of
+                                   leaves */
+                      int nnames
+                                /**< Number of leaves (equal to number
+                                   of elements in 'names')  */
+                      ) {
   int i, j;
   char *endptr;
   for (i = 0; i < t->nnodes; i++) {
