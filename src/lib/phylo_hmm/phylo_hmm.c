@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.12 2004-08-11 20:47:05 acs Exp $
+/* $Id: phylo_hmm.c,v 1.13 2004-08-12 03:36:49 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -18,7 +18,7 @@
 /* initial values for alpha, beta, omega; possibly should be passed in instead */
 #define ALPHA_INIT 0.05
 #define BETA_INIT 0.05
-#define OMEGA_INIT 0.1
+#define OMEGA_INIT 0.3
 #define COMPLEX_EPSILON 1e-5
 
 /** Create a new PhyloHmm object. Optionally expands original HMM to
@@ -987,7 +987,7 @@ void fit_em_log_func(FILE *logf, double logl, HMM *hmm, void *data,
   int i, j;
 
   if (show_header) {
-    fprintf(logf, "\nlogl\t");
+    fprintf(logf, "\nlnl\t");
     for (i = 0; i < phmm->functional_hmm->nstates; i++) {
       for (j = 0; j < phmm->functional_hmm->nstates; j++) {
         if (i == j) continue;
@@ -1000,7 +1000,7 @@ void fit_em_log_func(FILE *logf, double logl, HMM *hmm, void *data,
     fprintf(logf, "\n");
   }
 
-  fprintf(logf, "%f\t", logl);
+  fprintf(logf, "%f\t", logl * log(2));
   for (i = 0; i < phmm->functional_hmm->nstates; i++) {
     for (j = 0; j < phmm->functional_hmm->nstates; j++) {
       if (i == j) continue;
