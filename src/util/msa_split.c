@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.18 2004-07-29 23:39:04 acs Exp $
+/* $Id: msa_split.c,v 1.19 2004-08-16 22:27:09 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -427,7 +427,8 @@ int main(int argc, char* argv[]) {
     {"unordered-ss", 0, 0, 'z'},
     {"summary", 0, 0, 'S'},
     {"quiet", 0, 0, 'q'},
-    {"help", 0, 0, 'h'}
+    {"help", 0, 0, 'h'},
+    {0, 0, 0, 0}
   };
 
   while ((c = getopt_long(argc, argv, "i:M:g:c:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:F:l:xSzqh", long_opts, &opt_idx)) != -1) {

@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.33 2004-08-10 22:03:30 acs Exp $
+/* $Id: exoniphy.c,v 1.34 2004-08-16 22:27:09 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -241,6 +241,7 @@ int main(int argc, char* argv[]) {
     {"min-informative-bases", 1, 0, 'n'},
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
+    {0, 0, 0, 0}
   };
 
   /* other variables */

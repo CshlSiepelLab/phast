@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.20 2004-08-14 04:01:59 acs Exp $
+   $Id: phyloFit.c,v 1.21 2004-08-16 22:27:09 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -649,6 +649,7 @@ int main(int argc, char *argv[]) {
     {"expected-total-subs", 1, 0, 'Z'},
     {"column-probs", 1, 0, 'U'},
     {"rate-constants", 1, 0, 'K'},
+    {0, 0, 0, 0}
   };
 
   while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:GVEeNDRTqLPXZUBFrh", long_opts, &opt_idx)) != -1) {
