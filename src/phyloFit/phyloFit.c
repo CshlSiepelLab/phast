@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.12 2004-06-23 21:22:15 acs Exp $
+   $Id: phyloFit.c,v 1.13 2004-06-24 00:21:08 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -590,9 +590,10 @@ int main(int argc, char *argv[]) {
     window_shift = -1, use_conditionals = FALSE, 
     precision = OPT_HIGH_PREC, 
     likelihood_only = FALSE, do_bases = FALSE, do_expected_nsubst = FALSE, 
-    do_expected_nsubst_tot = FALSE, nsites_threshold = DEFAULT_NSITES_THRESHOLD,
+    do_expected_nsubst_tot = FALSE, 
     random_init = FALSE, estimate_backgd = FALSE, estimate_scale_only = FALSE,
     do_column_probs = FALSE, nonoverlapping = FALSE;
+  unsigned int nsites_threshold = DEFAULT_NSITES_THRESHOLD;
   msa_format_type input_format = FASTA;
   char c;
   FILE *F, *WINDOWF;
@@ -972,7 +973,7 @@ int main(int argc, char *argv[]) {
       TreeModel *mod;
       gsl_vector *params = NULL;
       int cat = lst_get_int(cats_to_do, i);
-      int ninf_sites;
+      unsigned int ninf_sites;
 
       if (input_mod == NULL) 
         mod = tm_new(tr_create_copy(tree), NULL, NULL, subst_mod, 

@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.14 2004-06-23 06:03:09 acs Exp $
+/* $Id: msa.c,v 1.15 2004-06-24 00:21:08 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1446,8 +1446,8 @@ int msa_num_gapped_cols(MSA *msa, int gap_strip_mode, int start, int end) {
 /* return number of columns of specified category that are
    "informative" in the sense that they contain at least two
    non-gaps (or non 'N's).  If cat == -1, all columns will be considered */
-int msa_ninformative_sites(MSA *msa, int cat) {
-  int retval = 0;
+unsigned int msa_ninformative_sites(MSA *msa, int cat) {
+  unsigned int retval = 0;
   int i, j;
   if (msa->ss != NULL) {
     for (i = 0; i < msa->ss->ntuples; i++) {

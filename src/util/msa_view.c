@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.10 2004-06-23 21:22:15 acs Exp $
+/* $Id: msa_view.c,v 1.11 2004-06-24 00:21:08 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -535,14 +535,6 @@ int main(int argc, char* argv[]) {
                                 /* avoid creating aggregate alignment
                                    explicitly, if possible */
       cats_done = 1;            /* in this case, cats are taken care of */
-
-      /* temporary hack ... need a better way of handling data sets
-         with numbers of sites that cause integer overflow (can happen
-         with whole-genome human/chimp alignments) */
-      if (msa->length < -1) {
-        fprintf(stderr, "WARNING: looks like overflow with alignment length.\n");
-        msa->length = -1;
-      }
     }
     else 
       msa = msa_concat_from_files(msa_fname_list, input_format, 
@@ -580,12 +572,11 @@ int main(int argc, char* argv[]) {
 
   if (rand_perm) msa_permute(msa);
 
-  if (startcol < 1 || endcol > msa->length ||
-      (endcol != -1 && endcol < startcol)) { 
-    fprintf(stderr, "ERROR: start and end columns must obey \n\
-    1 <= start <= end <= [msa_length]\n");
-    exit(1); 
-  }
+  if (startcol < 1 || (endcol != -1 && endcol > msa->length) || 
+      (endcol != -1 && endcol < startcol)) 
+                                /* careful: msa->length is unsigned */
+    die("ERROR: must have 1 <= start <= end <= [msa_length]\n");
+
 
   if (refseq < 0 || refseq > msa->nseqs) { 
     fprintf(stderr, "ERROR: reference sequence out of range.\n");

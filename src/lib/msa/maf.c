@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.7 2004-06-23 21:22:15 acs Exp $
+/* $Id: maf.c,v 1.8 2004-06-24 00:21:08 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -502,7 +502,7 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
   return 0;
 }
 
-/** Reads a block from an MAF file and returns it as a new MSA object.
+/** Reads a block from a MAF file and returns it as a new MSA object.
     Reads to next "a" line or EOF.  Returns NULL when no more
     alignments are available.  This is a slightly less efficient but
     simpler and more flexible version of maf_read_block.  */

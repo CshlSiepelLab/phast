@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.5 2004-06-23 23:51:28 acs Exp $
+/* $Id: msa.h,v 1.6 2004-06-24 00:21:08 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -210,7 +210,7 @@ void msa_print_stats(MSA *msa, FILE *F, char *label, int header, int start,
 gsl_vector *msa_get_base_freqs(MSA *msa, int start, int end);
 void msa_get_base_freqs_tuples(MSA *msa, gsl_vector *freqs, int k, int cat);
 int msa_num_gapped_cols(MSA *msa, int gap_strip_mode, int start, int end);
-int msa_ninformative_sites(MSA *msa, int cat);
+unsigned int msa_ninformative_sites(MSA *msa, int cat);
 void msa_index_cols(MSA *msa, int order);
 String *msa_read_seq_fasta(FILE *F);
 int msa_coding_clean(MSA *msa, int refseq, int min_ncodons, 
