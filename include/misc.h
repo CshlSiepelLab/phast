@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.4 2004-08-17 17:13:33 acs Exp $
+/* $Id: misc.h,v 1.5 2004-08-30 18:56:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -94,6 +94,7 @@ gsl_matrix* read_subst_mat(FILE *F, char *alph);
 FILE* fopen_fname(char *fname, char *mode);
 void die(char *warnfmt, ...);
 List *get_arg_list(char *arg);
+List *remaining_arg_list(char *argv[], int argc, int optind);
 List *get_arg_list_int(char *arg);
 List *get_arg_list_dbl(char *arg);
 int get_arg_int(char *arg);

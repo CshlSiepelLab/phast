@@ -7,7 +7,7 @@ PACKAGES=base msa feature hmm phylo phylo_hmm motif
 all: liblinks phastlib
 
 # CLAPACK uses non-standard library names, which confuses the
-# compiler.  We'll just create symbolic links in ${BASE}/lib that have
+# compiler.  We'll just create symbolic links in ${PHAST}/lib that have
 # proper names
 liblinks: ${PHAST}/lib/liblapack.a ${PHAST}/lib/libtmg.a \
 	${PHAST}/lib/libblaswr.a 

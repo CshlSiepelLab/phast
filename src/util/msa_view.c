@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.22 2004-08-29 21:32:27 acs Exp $
+/* $Id: msa_view.c,v 1.23 2004-08-30 18:56:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -513,7 +513,10 @@ int main(int argc, char* argv[]) {
 
   if (optind >= argc) 
     die("Missing alignment filename.  Try 'msa_view -h' for help.\n");
-  infname = argv[optind];
+  else if (optind == argc - 1)
+    infname = argv[optind];
+  else                          /* aggregate case */
+    msa_fname_list = remaining_arg_list(argv, argc, optind);
 
   if (gff != NULL && cm == NULL) 
     cm = cm_new_from_features(gff);
@@ -524,7 +527,8 @@ int main(int argc, char* argv[]) {
   }
 
   if (aggregate_list != NULL) {
-    msa_fname_list = get_arg_list(infname);
+    if (msa_fname_list == NULL)
+      msa_fname_list = get_arg_list(infname); /* in case comma-delimited list */
 
     if (gff != NULL) 
       die("ERROR: --features not supported with --aggregate.\n");

@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.6 2004-08-17 17:13:33 acs Exp $
+/* $Id: misc.c,v 1.7 2004-08-30 18:56:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -298,6 +298,18 @@ List *get_arg_list(char *arg) {
   }
 
   str_free(argstr);
+  return l;
+}
+
+/** Returns remaining command-line arguments as a List of Strings.  */
+List *remaining_arg_list(char *argv[], /**< As passed to main  */
+                         int argc, /**< As passed to main  */
+                         int optind /**< Index of first unprocessed argument */
+                ) {
+  List *l = lst_new_ptr(argc - optind);
+  int i;
+  for (i = optind; i < argc; i++) 
+    lst_push_ptr(l, str_new_charstr(argv[i]));
   return l;
 }
 
