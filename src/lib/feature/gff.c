@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.6 2004-06-14 22:52:16 acs Exp $
+/* $Id: gff.c,v 1.7 2004-06-21 19:50:33 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -17,6 +17,7 @@
 #include <misc.h>
 #include <ctype.h>
 #include <bed.h>
+#include <genepred.h>
 
 /** Read a set of features from a file and return a newly allocated
    GFF_Set object.  Function reads until end-of-file is encountered or
@@ -89,16 +90,28 @@ GFF_Set* gff_read_set(FILE *F) {
 
     str_split(line, "\t", l);
 
-    /* if first record, check to see if the file's a BED; if there are
-       between 3 and 8 or 12 columns, and if the 2nd and 3rd columns are
-       integers, then we'll try reading it as a BED. */
-    if (lst_size(set->features) == 0 && 
-        ((lst_size(l) >= 3 && lst_size(l) <= 8) || lst_size(l) == 12) && 
-        str_as_int(lst_get_ptr(l, 1), &start) == 0 && 
-        str_as_int(lst_get_ptr(l, 2), &end) == 0) {
-      rewind(F);
-      gff_read_from_bed(set, F);
-      break;
+    /* if first record, check to see if the file's a BED or a
+       genepred.  If there are 3-8 or 12 columns, and if the 2nd and
+       3rd columns are integers, then we'll try reading it as a BED.
+       If 10 columns and cols 4-7 are integers, we'll try reading it
+       as a genepred */
+    if (lst_size(set->features) == 0) {
+      if (((lst_size(l) >= 3 && lst_size(l) <= 8) || lst_size(l) == 12) && 
+          str_as_int(lst_get_ptr(l, 1), &start) == 0 && 
+          str_as_int(lst_get_ptr(l, 2), &end) == 0) {
+        rewind(F);
+        gff_read_from_bed(set, F);
+        break;
+      }
+      else if (lst_size(l) == 10 && 
+          str_as_int(lst_get_ptr(l, 3), &start) == 0 && 
+          str_as_int(lst_get_ptr(l, 4), &end) == 0 &&
+          str_as_int(lst_get_ptr(l, 5), &start) == 0 &&
+          str_as_int(lst_get_ptr(l, 6), &end) == 0) {
+        rewind(F);
+        gff_read_from_genepred(set, F, TRUE);
+        break;
+      }
     }
 
     /* set defaults for optional fields */

@@ -46,8 +46,9 @@ OPTIONS:\n\
 \n\
     --unique, -u\n\
         Ensures that output contains no overlapping groups or\n\
-        subgroups (if -e).  If groups overlap, the first one encountered\n\
-        is retained and subsequent ones are discarded.\n\
+        subgroups (if -e).  If groups overlap, the one with the highest\n\
+        score (if available) or longest length (if no score) is kept and\n\
+        others are discarded.\n\
 \n\
     --sort, -s\n\
         Sort features primarily by start position and secondarily\n\
