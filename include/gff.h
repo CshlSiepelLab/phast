@@ -1,4 +1,4 @@
-/* $Id: gff.h,v 1.5 2004-06-24 03:09:21 acs Exp $
+/* $Id: gff.h,v 1.6 2004-06-24 03:51:40 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -38,8 +38,18 @@ typedef struct {
                                    below) */
   char strand;                  /**< one of '+', '-', and '.' */
   int frame;                    /**< reading frame.  Should be 0-2 or
-                                   GFF_NULL_FRAME (represented as '.' 
-                                   in files) */
+                                   GFF_NULL_FRAME (represented as '.'
+                                   in files).  NOTE: internal storage
+                                   is not the same as the GFF standard
+                                   (conversion is performed at input
+                                   and output time).  Internal storage
+                                   is offset from start of codon mod
+                                   3, i.e., the positions of a codon
+                                   are assigned frames 0, 1, 2.  The
+                                   GFF standard is no. positions to
+                                   start of next codon, i.e.,
+                                   positions are assigned frames 0, 2,
+                                   1 */
   String *attribute;            /**< string describing auxiliary data in
                                    tag-value format.  See
                                    http://www.sanger.ac.uk/Software/formats/GFF/GFF_Spec.shtml. */

@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.13 2004-06-23 06:03:09 acs Exp $
+/* $Id: gff.c,v 1.14 2004-06-24 03:51:40 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -169,6 +169,8 @@ GFF_Set* gff_read_set(FILE *F) {
         if (str_as_int(tmp, &frame) != 0 || frame < 0 || frame > 2) 
           die("ERROR at line %d: illegal 'frame' ('%s').\n", 
               lineno, tmp->chars);
+        frame = (3 - frame) % 3; /* convert to internal
+                                    representation */
       }
     }
 
@@ -349,7 +351,10 @@ void gff_print_feat(FILE *F, GFF_Feature *feat) {
   else sprintf(score_str, "%.3f", feat->score);
 
   if (feat->frame == GFF_NULL_FRAME) strcpy(frame_str, ".");
-  else sprintf(frame_str, "%d", feat->frame);
+  else sprintf(frame_str, "%d", (3 - feat->frame) % 3);
+                                /* NOTE: have to convert from internal
+                                   representation to GFF
+                                   representation */
 
   fprintf(F, "%s\t%s\t%s\t%d\t%d\t%s\t%c\t%s\t%s\n", 
           feat->seqname->chars, feat->source->chars, feat->feature->chars, 
