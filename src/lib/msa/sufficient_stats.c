@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.3 2004-06-23 06:03:09 acs Exp $
+/* $Id: sufficient_stats.c,v 1.4 2004-06-23 23:46:43 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -377,8 +377,7 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
                              int cycle_size) {
 
   MSA *retval;
-  Hashtable *tuple_hash = hsh_new(100000); /* wild guess on size.  Big
-                                              enough?  Preview files? */
+  Hashtable *tuple_hash = hsh_new(100000); /* wild guess on size. */
   int nseqs = lst_size(seqnames);
   Hashtable *name_hash = hsh_new(nseqs);
   MSA *source_msa = NULL;
@@ -688,9 +687,12 @@ void ss_write(MSA *msa, FILE *F, int show_order) {
     if (i < msa->nseqs-1) str_append_charstr(namestr, ",");
   }
                     
-  fprintf(F, "NSEQS = %d\nLENGTH = %d\nTUPLE_SIZE = %d\nNTUPLES = %d\nNAMES = %s\nALPHABET = %s\n", 
+  fprintf(F, "NSEQS = %d\nLENGTH = %u\nTUPLE_SIZE = %d\nNTUPLES = %d\nNAMES = %s\nALPHABET = %s\n", 
           msa->nseqs, msa->length, ss->tuple_size, ss->ntuples, 
           namestr->chars, msa->alphabet);
+                                /* NOTE: it's important to print
+                                   LENGTH as unsigned; can overflow
+                                   with whole mammalian genomes */
   if (msa->idx_offset != 0) fprintf(F, "IDX_OFFSET = %d\n", msa->idx_offset);
   fprintf(F, "NCATS = %d\n\n", msa->ncats);
   str_free(namestr);  
