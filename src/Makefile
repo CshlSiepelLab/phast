@@ -4,6 +4,7 @@ CDIR = ${PWD}
 INSTALLDIR = /cluster/bin/phast
 
 all: 
+	mkdir -p ../bin ../lib
 	for dir in $(SUB) ; do cd ${CDIR}/$$dir && ${MAKE} ; done
 
 install:

@@ -21,9 +21,9 @@ BIN = ${PHAST}/bin
 TARGETLIB = ${LIB}/libphast.a
 
 # for debugging
-CFLAGS = -g -fno-inline -Wall -DGCC
+#CFLAGS = -g -fno-inline -Wall -DGCC
 # for best performance
-#CFLAGS = -mcpu=pentiumpro -O3 -DGCC -DGSL_RANGE_CHECK_OFF
+CFLAGS = -mcpu=pentiumpro -O3 -DGCC -DGSL_RANGE_CHECK_OFF
 # for profiling
 #CFLAGS = -mcpu=pentiumpro -O3 -DGCC -pg -fprofile-arcs -DGSL_RANGE_CHECK_OFF
 # NOTE: add -g if profiling line-by-line, and -a if monitoring basic blocks
