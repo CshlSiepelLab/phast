@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.2 2004-06-05 02:27:53 acs Exp $
+/* $Id: clean_genes.c,v 1.3 2004-06-05 03:13:25 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -23,9 +23,9 @@
    of the case handling below */ 
 
 /* possible values for status of each group of features */
-typedef enum {OKAY, BAD_START, BAD_STOP, BAD_5_SPLICE, BAD_3_SPLICE, 
-              BAD_5_SPLICE_UTR, BAD_3_SPLICE_UTR, NONSENSE_MUTATION, 
-              FSHIFT, BAD_INTRON, NO_ALN, NTYPES} 
+typedef enum {OKAY, BAD_REF, NO_ALN, BAD_START, BAD_STOP, BAD_5_SPLICE, 
+              BAD_3_SPLICE, BAD_5_SPLICE_UTR, BAD_3_SPLICE_UTR, 
+              NONSENSE, FSHIFT, BAD_INTRON, NTYPES} 
 status_type;                    /* NTYPES marks the total number */
 
 /* possible gap types for cds exon -- frame-shift gaps (FSHIFT_BAD),
@@ -597,6 +597,17 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
 
   int i;
 
+  /* special cases: we don't have info on individual features */
+  if (status == BAD_REF) {
+    fprintf(logf, "****\nSkipped '%s' -- features not consistent with reference sequence.\n", group->name->chars);
+    return;
+  }
+  else if (status == NO_ALN) {
+    fprintf(logf, "****\nSkipped '%s' -- lack of alignment across species.\n", 
+            group->name->chars);
+    return;
+  }
+
   fprintf(logf, "****\nDiscarded '%s'\n", group->name->chars);
 
   for (i = 0; i < lst_size(failure_types); i++) {
@@ -623,7 +634,7 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
     case BAD_3_SPLICE_UTR:
       reason = "3' splice not canonical or not conserved (UTR)";
       break;
-    case NONSENSE_MUTATION:
+    case NONSENSE:
       reason = "Nonsense mutation";
       break;
     case FSHIFT:
@@ -649,7 +660,22 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
     fprintf(logf, "%s (%d-%d):\n", reason, msa_map_msa_to_seq(map, badfeat->start), 
             msa_map_msa_to_seq(map, badfeat->end));
 
-    dump_aln(logf, badfeat, msa, ftype == NONSENSE_MUTATION);
+    dump_aln(logf, badfeat, msa, ftype == NONSENSE);
+  }
+}
+
+/* get range of group; used for machine log */
+void get_range(GFF_FeatureGroup *group, int *start, int *end,
+               String **seqname) {
+  int i;
+  *start = INFTY; *end = -1; *seqname = NULL;
+  for (i = 0; i < lst_size(group->features); i++) {
+    GFF_Feature *f = lst_get_ptr(group->features, i);
+    if (f->start < *start) *start = f->start;
+    if (f->end > *end) *end = f->end;
+    if (*seqname == NULL) *seqname = f->seqname;
+    else if (!str_equals(*seqname, f->seqname)) 
+      die("ERROR: Members of group '%s' have inconsistent sequence names (chromosomes).\n");
   }
 }
 
@@ -659,11 +685,38 @@ void write_machine_log(FILE *mlogf, GFF_FeatureGroup *group, status_type status,
                        msa_coord_map *map) {
 
   int i;
+  char *reason;
+
+  /* special cases: no info on individual features */
+  if (status == BAD_REF || status == NO_ALN || status == OKAY) {
+    int s, e;
+    String *seqname;
+    get_range(group, &s, &e, &seqname);
+
+    switch(status) {
+    case BAD_REF:
+      reason = "bad_ref";
+      break;
+    case NO_ALN:
+      reason = "no_alignment";
+      break;
+    case OKAY:
+      reason = "okay";
+      break;
+    default:
+      assert(0);
+    }
+
+    fprintf(mlogf, "%s\t%s\t%d\t%d\t%s\n", group->name->chars, 
+            seqname->chars, msa_map_msa_to_seq(map, s), 
+            msa_map_msa_to_seq(map, e), reason);
+
+    return;
+  }
 
   for (i = 0; i < lst_size(failure_types); i++) {
     status_type ftype = lst_get_int(failure_types, i);
     GFF_Feature *badfeat = lst_get_ptr(badfeats, i);
-    char *reason;
 
     switch (ftype) {
     case BAD_START:
@@ -684,7 +737,7 @@ void write_machine_log(FILE *mlogf, GFF_FeatureGroup *group, status_type status,
     case BAD_3_SPLICE_UTR:
       reason = "bad_3_splice_utr";
       break;
-    case NONSENSE_MUTATION:
+    case NONSENSE:
       reason = "nonsense";
       break;
     case FSHIFT:
@@ -845,27 +898,12 @@ void restore_stops(GFF_FeatureGroup *group, List *starts_adjusted,
   }
 }
 
-/* get range of group */
-inline void get_range(GFF_FeatureGroup *group, int *start, int *end,
-                      String **seqname) {
-  int i;
-  *start = INFTY; *end = -1; *seqname = NULL;
-  for (i = 0; i < lst_size(group->features); i++) {
-    GFF_Feature *f = lst_get_ptr(group->features, i);
-    if (f->start < *start) *start = f->start;
-    if (f->end > *end) *end = f->end;
-    if (*seqname == NULL) *seqname = f->seqname;
-    else if (!str_equals(*seqname, f->seqname)) 
-      die("ERROR: Members of group '%s' have inconsistent sequence names (chromosomes).\n");
-  }
-}
-
 int main(int argc, char *argv[]) {
 
   int check_start = 0, check_stop = 0, check_splice = 0, check_nonsense = 0,
     offset5 = 0, offset3 = 0, opt_idx, i, j, indel_strict = 0, no_output = 0,
     check_alignment = 0, splice_strict = 0;
-  int ncons_tested, nkept, nconserved_exons, nbad_ref, s, e;
+  int ncons_tested, nkept, nconserved_exons;
   int nce_gap_type[NGAP_TYPES], nconsid[NTYPES], nfail[NTYPES];
   char c;
   MSA *msa;
@@ -877,7 +915,7 @@ int main(int argc, char *argv[]) {
   char *rseq_fname = NULL;
   FILE *logf = NULL, *mlogf = NULL, *statsf = NULL, *discardf = NULL;
   cds_gap_type fshift_mode = FSHIFT_BAD;
-  String *groupby = str_new_charstr("transcript_id"), *seqname;
+  String *groupby = str_new_charstr("transcript_id");
   msa_coord_map *map;
 
   struct option long_opts[] = {
@@ -1029,7 +1067,7 @@ int main(int argc, char *argv[]) {
   keepers = lst_new_ptr(lst_size(gff->features));
   if (discardf != NULL) discards = lst_new_ptr(lst_size(gff->features));
 
-  ncons_tested = nkept = nconserved_exons = nbad_ref = 0;
+  ncons_tested = nkept = nconserved_exons = 0;
   for (i = 0; i < NTYPES; i++) nconsid[i] = 0;
   for (i = 0; i < NTYPES; i++) nfail[i] = 0;
   for (i = 0; i < NGAP_TYPES; i++) nce_gap_type[i] = 0;  
@@ -1041,6 +1079,8 @@ int main(int argc, char *argv[]) {
     status_type status = OKAY;
     cds_gap_type gt = FSHIFT_BAD;
     int no_alignment;
+    lst_clear(failure_types);
+    lst_clear(badfeats);
 
     /* First, exclude stop codons from cds's, if necessary (simplifies
        the detection of nonsense mutations). */
@@ -1050,196 +1090,172 @@ int main(int argc, char *argv[]) {
        doesn't have valid splice sites or start/stop codons, or has a
        premature stop codon */
     if (!ref_seq_okay(gfeatures, msa, offset3, indel_strict, splice_strict)) {
-      if (logf != NULL)
-        fprintf(logf, "****\nSkipped '%s' -- features not consistent with reference sequence.\n", group->name->chars);
-      if (mlogf != NULL) {
-        get_range(group, &s, &e, &seqname);
-        fprintf(mlogf, "%s\t%s\t%d\t%d\tbad_ref\n", group->name->chars, 
-                seqname->chars, msa_map_msa_to_seq(map, s), 
-                msa_map_msa_to_seq(map, e));
-      }
-      nbad_ref++;
-      if (discardf != NULL) {
-        restore_stops(group, starts_adjusted, ends_adjusted);
-        for (j = 0; j < lst_size(gfeatures); j++) 
-          lst_push_ptr(discards, lst_get_ptr(gfeatures, j));
-      }
-      continue;
+      status = BAD_REF;
+      nfail[BAD_REF]++;
     }
+    else
+      /* Everything else counts as a potentially valid group */
+      ncons_tested++;
 
-    /* Everything else counts as a potentially valid group */
-    ncons_tested++;
-
-    if (check_alignment) {      /* only bother with below if
+    if (status == OKAY && check_alignment) {      
+                                /* only bother with below if
                                    interested in cross-species
                                    conservation */
 
-      /* check first to make sure there's alignment across species in
+      /* Check first to make sure there's alignment across species in
          the cds; if not, there's no need to look at individual
          features. */
-      for (j = 0, no_alignment = 0; 
-           j < lst_size(gfeatures) && !no_alignment; 
-           j++) { 
+      for (j = 0, no_alignment = 0; j < lst_size(gfeatures); j++) { 
         feat = lst_get_ptr(gfeatures, j);
         if (str_equals_charstr(feat->feature, CDS) &&
-            is_incomplete_alignment(feat, msa)) 
-          no_alignment = 1;
-      }
-      if (no_alignment) {
-        if (logf != NULL) 
-          fprintf(logf, "****\nSkipped '%s' -- lack of alignment across species.\n", 
-                  group->name->chars);
-        if (mlogf != NULL) {
-          get_range(group, &s, &e, &seqname);
-          fprintf(mlogf, "%s\t%s\t%d\t%d\tno_alignment\n", group->name->chars, 
-                  seqname->chars, msa_map_msa_to_seq(map, s), 
-                  msa_map_msa_to_seq(map, e));
+            is_incomplete_alignment(feat, msa)) {
+          status = NO_ALN;
+          nfail[NO_ALN]++;
+          break;
         }
-        nfail[NO_ALN]++;
-        if (discardf != NULL) {
-          restore_stops(group, starts_adjusted, ends_adjusted);
-          for (j = 0; j < lst_size(gfeatures); j++) 
-            lst_push_ptr(discards, lst_get_ptr(gfeatures, j));
-        }
-        continue;
       }
 
-      /* Now check feature by feature */
-      lst_clear(failure_types);
-      lst_clear(badfeats);
-      lst_clear(intron_splice);
-      for (j = 0; j < lst_size(gfeatures); j++) {
-        feat = lst_get_ptr(gfeatures, j);
+      if (status == OKAY) {     /* we have alignment and agreement
+                                   with the ref seq; now check feature
+                                   by feature  */
 
-        if (feat->end - 1 >= msa->length) 
-          die("ERROR: feature extends beyond alignment (%d >= %d).\n",
-              feat->end - 1, msa->length);
+        lst_clear(intron_splice);
+        for (j = 0; j < lst_size(gfeatures); j++) {
+          feat = lst_get_ptr(gfeatures, j);
+
+          if (feat->end - 1 >= msa->length) 
+            die("ERROR: feature extends beyond alignment (%d >= %d).\n",
+                feat->end - 1, msa->length);
         
-        if (check_start && str_equals_charstr(feat->feature, START)) {
+          if (check_start && str_equals_charstr(feat->feature, START)) {
 
-          nconsid[BAD_START]++;
+            nconsid[BAD_START]++;
 
-          if (!is_conserved_start(feat, msa)) {
-            status = BAD_START;
-            lst_push_int(failure_types, BAD_START);
-            lst_push_ptr(badfeats, feat);
+            if (!is_conserved_start(feat, msa)) {
+              status = BAD_START;
+              lst_push_int(failure_types, BAD_START);
+              lst_push_ptr(badfeats, feat);
+            }
           }
-        }
 
-        else if (check_stop && str_equals_charstr(feat->feature, STOP)) {
+          else if (check_stop && str_equals_charstr(feat->feature, STOP)) {
 
-          nconsid[BAD_STOP]++;
+            nconsid[BAD_STOP]++;
 
-          if (!is_conserved_stop(feat, msa)) {
-            status = BAD_STOP;
-            lst_push_int(failure_types, BAD_STOP);
-            lst_push_ptr(badfeats, feat);
+            if (!is_conserved_stop(feat, msa)) {
+              status = BAD_STOP;
+              lst_push_int(failure_types, BAD_STOP);
+              lst_push_ptr(badfeats, feat);
+            }
           }
-        }
 
-        else if (check_splice && 
-                 str_equals_charstr(feat->feature, SPLICE_5)) {
+          else if (check_splice && 
+                   str_equals_charstr(feat->feature, SPLICE_5)) {
 
-          nconsid[BAD_5_SPLICE]++;
+            nconsid[BAD_5_SPLICE]++;
 
-          if (!is_conserved_5splice(feat, msa, offset5, splice_strict)) {
-            status = BAD_5_SPLICE;
-            lst_push_int(failure_types, BAD_5_SPLICE);
-            lst_push_ptr(badfeats, feat);
+            if (!is_conserved_5splice(feat, msa, offset5, splice_strict)) {
+              status = BAD_5_SPLICE;
+              lst_push_int(failure_types, BAD_5_SPLICE);
+              lst_push_ptr(badfeats, feat);
+            }
+            else lst_push_ptr(intron_splice, feat);
           }
-          else lst_push_ptr(intron_splice, feat);
-        }
 
-        else if (check_splice && 
-                 str_equals_charstr(feat->feature, SPLICE_5_UTR)) {
+          else if (check_splice && 
+                   str_equals_charstr(feat->feature, SPLICE_5_UTR)) {
 
-          nconsid[BAD_5_SPLICE_UTR]++;
+            nconsid[BAD_5_SPLICE_UTR]++;
 
-          if (!is_conserved_5splice(feat, msa, offset5, splice_strict)) {
-            status = BAD_5_SPLICE_UTR;
-            lst_push_int(failure_types, BAD_5_SPLICE_UTR);
-            lst_push_ptr(badfeats, feat);
+            if (!is_conserved_5splice(feat, msa, offset5, splice_strict)) {
+              status = BAD_5_SPLICE_UTR;
+              lst_push_int(failure_types, BAD_5_SPLICE_UTR);
+              lst_push_ptr(badfeats, feat);
+            }
+            else lst_push_ptr(intron_splice, feat);
           }
-          else lst_push_ptr(intron_splice, feat);
-        }
 
-        else if (check_splice && str_equals_charstr(feat->feature, SPLICE_3)) {
+          else if (check_splice && str_equals_charstr(feat->feature, SPLICE_3)) {
 
 
-          nconsid[BAD_3_SPLICE]++;
+            nconsid[BAD_3_SPLICE]++;
 
-          if (!is_conserved_3splice(feat, msa, offset3, splice_strict)) {
-            status = BAD_3_SPLICE;
-            lst_push_int(failure_types, BAD_3_SPLICE);
-            lst_push_ptr(badfeats, feat);
+            if (!is_conserved_3splice(feat, msa, offset3, splice_strict)) {
+              status = BAD_3_SPLICE;
+              lst_push_int(failure_types, BAD_3_SPLICE);
+              lst_push_ptr(badfeats, feat);
+            }
+            else lst_push_ptr(intron_splice, feat);
           }
-          else lst_push_ptr(intron_splice, feat);
-        }
 
-        else if (check_splice && str_equals_charstr(feat->feature, SPLICE_3)) {
+          else if (check_splice && str_equals_charstr(feat->feature, SPLICE_3)) {
 
-          nconsid[BAD_3_SPLICE_UTR]++;
+            nconsid[BAD_3_SPLICE_UTR]++;
 
-          if (!is_conserved_3splice(feat, msa, offset3, splice_strict)) {
-            status = BAD_3_SPLICE_UTR;
-            lst_push_int(failure_types, BAD_3_SPLICE_UTR);
-            lst_push_ptr(badfeats, feat);
+            if (!is_conserved_3splice(feat, msa, offset3, splice_strict)) {
+              status = BAD_3_SPLICE_UTR;
+              lst_push_int(failure_types, BAD_3_SPLICE_UTR);
+              lst_push_ptr(badfeats, feat);
+            }
+            else lst_push_ptr(intron_splice, feat);
           }
-          else lst_push_ptr(intron_splice, feat);
-        }
 
-        else if (str_equals_charstr(feat->feature, CDS)) {
+          else if (str_equals_charstr(feat->feature, CDS)) {
  
-          if ((gt = get_cds_gap_type(feat, msa)) < fshift_mode) {
-            if (status == OKAY || status == NONSENSE_MUTATION) status = FSHIFT;
-            /* status records most basic type of failure; frame shifts
-               and nonsense mutations are often secondary */
-            lst_push_int(failure_types, FSHIFT);
-            lst_push_ptr(badfeats, feat);
+            if ((gt = get_cds_gap_type(feat, msa)) < fshift_mode) {
+              if (status == OKAY || status == NONSENSE) status = FSHIFT;
+              /* status records most basic type of failure; frame shifts
+                 and nonsense mutations are often secondary */
+              lst_push_int(failure_types, FSHIFT);
+              lst_push_ptr(badfeats, feat);
+            }
+
+            if (check_nonsense && !is_nonsense_clean(feat, msa)) {
+              if (status == OKAY) status = NONSENSE;
+              lst_push_int(failure_types, NONSENSE);
+              lst_push_ptr(badfeats, feat);
+            }
           }
+        } /* end loop through features in group */
 
-          if (check_nonsense && !is_nonsense_clean(feat, msa)) {
-            if (status == OKAY) status = NONSENSE_MUTATION;
-            lst_push_int(failure_types, NONSENSE_MUTATION);
-            lst_push_ptr(badfeats, feat);
-          }
-        }
-      } /* end loop through features in group */
-
-      /* still have to make sure splice sites are paired correctly
-         (GT-AG, GC-AG, AT-AC) */
-      if (status == OKAY && !splice_strict && lst_size(intron_splice) >= 2 &&
-          !are_introns_okay(intron_splice, msa, &feat, offset5, offset3)) {
-        status = BAD_INTRON;
-        lst_push_int(failure_types, BAD_INTRON);
-        lst_push_ptr(badfeats, feat);
-      }
-
-      /* if collecting stats, record counts for failures */
-      if (statsf != NULL) {
-        if (status != OKAY) {
-          for (j = 0; j < lst_size(failure_types); j++) {
-            status_type ftype = lst_get_int(failure_types, j);
-
-            if ((ftype == FSHIFT || ftype == NONSENSE_MUTATION) && 
-                status != FSHIFT && status != NONSENSE_MUTATION)
-              continue;           /* don't count secondary frame shifts
-                                     and nonsense mutations */ 
-
-            nfail[ftype]++;
-          }
+        /* still have to make sure splice sites are paired correctly
+           (GT-AG, GC-AG, AT-AC) */
+        if (status == OKAY && !splice_strict && lst_size(intron_splice) >= 2 &&
+            !are_introns_okay(intron_splice, msa, &feat, offset5, offset3)) {
+          status = BAD_INTRON;
+          lst_push_int(failure_types, BAD_INTRON);
+          lst_push_ptr(badfeats, feat);
         }
 
-        /* also keep track of the total number of "conserved exons", and
-           the number having each kind of gap */
-        if ((status == OKAY || (status == FSHIFT && gt >= FSHIFT_OK))) {
-          nconserved_exons++;
-          nce_gap_type[gt]++;     /* number of conserved exons having
-                                     given type of gaps */
-        }
-      }
+        /* if collecting stats, record counts for failures */
+        if (statsf != NULL) {
+          if (status != OKAY) {
+            for (j = 0; j < lst_size(failure_types); j++) {
+              status_type ftype = lst_get_int(failure_types, j);
 
-    } /* end if (check_alignment) */
+              if ((ftype == FSHIFT || ftype == NONSENSE) && 
+                  status != FSHIFT && status != NONSENSE)
+                continue;           /* don't count secondary frame shifts
+                                       and nonsense mutations */ 
+
+              nfail[ftype]++;
+            }
+          }
+
+          /* also keep track of the total number of "conserved exons", and
+             the number having each kind of gap */
+          if ((status == OKAY || (status == FSHIFT && gt >= FSHIFT_OK))) {
+            nconserved_exons++;
+            nce_gap_type[gt]++;     /* number of conserved exons having
+                                       given type of gaps */
+          }
+        }
+      } /* end if (status == OKAY) [checks for conserved features] */
+    } /* end if (status == OKAY && check_alignment) [all cross-species
+         checks] */
+
+    /* now we have looked at the whole group; we just need to do some
+       final accounting and logging */
 
     if (status == OKAY) {
       nkept++;
@@ -1248,13 +1264,9 @@ int main(int argc, char *argv[]) {
         for (j = 0; j < lst_size(gfeatures); j++)
           lst_push_ptr(keepers, lst_get_ptr(gfeatures, j));
       }
-      if (mlogf != NULL) {
-        get_range(group, &s, &e, &seqname);
-        fprintf(mlogf, "%s\t%s\t%d\t%d\tokay\n", group->name->chars, 
-                seqname->chars, msa_map_msa_to_seq(map, s), 
-                msa_map_msa_to_seq(map, e));
-      }
-
+      if (mlogf != NULL) 
+        write_machine_log(mlogf, group, status, gt, badfeats, 
+                          failure_types, map);
     }
     else {
       if (discardf != NULL) {
@@ -1301,13 +1313,13 @@ int main(int argc, char *argv[]) {
             "nbad_intron", "nnons", "nfshifts", "ncons_exons", 
             "nce_ngaps", "nce_nov_cln", "nce_clean", "nce_fshftok");
     fprintf(statsf, "%12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d\n", 
-            nbad_ref+ncons_tested, nbad_ref, ncons_tested, nkept, nfail[NO_ALN], 
-            nfail[BAD_START], nconsid[BAD_START], nfail[BAD_STOP], 
-            nconsid[BAD_STOP], nfail[BAD_5_SPLICE], nconsid[BAD_5_SPLICE],
-            nfail[BAD_3_SPLICE], nconsid[BAD_3_SPLICE],
+            nfail[BAD_REF]+ncons_tested, nfail[BAD_REF], ncons_tested, nkept, 
+            nfail[NO_ALN], nfail[BAD_START], nconsid[BAD_START], 
+            nfail[BAD_STOP], nconsid[BAD_STOP], nfail[BAD_5_SPLICE], 
+            nconsid[BAD_5_SPLICE], nfail[BAD_3_SPLICE], nconsid[BAD_3_SPLICE],
             nfail[BAD_5_SPLICE_UTR], nconsid[BAD_5_SPLICE_UTR],
             nfail[BAD_3_SPLICE_UTR], nconsid[BAD_3_SPLICE_UTR], 
-            nfail[BAD_INTRON], nfail[NONSENSE_MUTATION], nfail[FSHIFT], 
+            nfail[BAD_INTRON], nfail[NONSENSE], nfail[FSHIFT], 
             nconserved_exons, nce_gap_type[NGAPS], 
             nce_gap_type[NOVRLP_CLN_GAPS], nce_gap_type[CLN_GAPS], 
             nce_gap_type[FSHIFT_OK]);
