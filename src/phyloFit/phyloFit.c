@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.8 2004-06-18 00:21:11 acs Exp $
+   $Id: phyloFit.c,v 1.9 2004-06-18 00:21:33 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -101,7 +101,8 @@ EXAMPLES:\n\
     Consider only non-overlapping pairs of sites.\n\
 \n\
         phyloFit --tree \"(human,(mouse,rat))\" --subst-mod U2S --EM\n\
-            --precision MED --non-overlapping --log u2s.log --out-root hmr-u2s hmr.fa\n\
+            --precision MED --non-overlapping --log u2s.log --out-root\n\
+            hmr-u2s hmr.fa\n\
 \n\
     6. As above, but allow overlapping pairs of sites, and compute\n\
     likelihoods by assuming Markov-dependence of columns (see Siepel &\n\
