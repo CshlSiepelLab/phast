@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.28 2004-08-14 04:02:27 acs Exp $
+/* $Id: msa.c,v 1.29 2004-08-14 04:32:02 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1987,14 +1987,14 @@ void msa_mask_macro_indels(MSA *msa, int k) {
       else if (prev_is_gap) {   /* gap close */
         if (len > k)
           for (j = i - len; j < i; j++) 
-            msa->seqs[seq][j] = msa->is_missing[0];
+            msa->seqs[seq][j] = msa->missing[0];
         len = 0;
         prev_is_gap = FALSE;
       }
     }
     if (prev_is_gap && len > k) /* long gap at end */ 
       for (j = i - len; j < i; j++) 
-        msa->seqs[seq][j] = msa->is_missing[0];
+        msa->seqs[seq][j] = msa->missing[0];
   }
 
   if (msa->ss != NULL) {        /* have to rebuild; beware of stale
