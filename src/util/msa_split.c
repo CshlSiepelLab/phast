@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.4 2004-06-15 22:33:57 acs Exp $
+/* $Id: msa_split.c,v 1.5 2004-06-17 16:28:51 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -40,8 +40,7 @@ Options:\n\
     -g <gff_fname>\n\
         Name of GFF file.  Frame of reference of feature indices is\n\
         determined feature-by-feature according to 'seqname'\n\
-        attribute.  WARNING: features that span partition indices will\n\
-        be discarded.\n\
+        attribute.\n\
 \n\
     -c <feature_frame>  \n\
         Index of frame of reference for feature coordinates, as\n\
@@ -58,13 +57,11 @@ Options:\n\
         then sub-alignments will be output for columns 1-9, 10-19, and\n\
         20-<msa_len>.  Default is the empty list (single partition).\n\
 \n\
-    -P\n\
-        Split by \"groups\" in GFF file (the last column, or\n\
-        \"attribute\" column, is taken to indicate group).  Every time\n\
-        two consecutive features belong to different groups (no exact\n\
-        string match), split midway between the end of the first and\n\
-        the start of the second.  The order of the features is\n\
-        important (no sorting occurs).  For use with -g.\n\
+    -P <tag>\n\
+        (For use with -g)  Split by groups in GFF file, as defined\n\
+        by the specified tag.  Splits midway between every pair of\n\
+        consecutive groups.  Features will be sorted by group.\n\
+        There should be no overlapping features (see 'refeature --unique').\n\
 \n\
     -d <partition_frame>\n\
         Index of frame of reference for split indices.  Default is\n\
@@ -88,7 +85,9 @@ Options:\n\
     -s\n\
         Strand-sensitive mode.  Reverse complement all segments having\n\
         at least one feature on the reverse strand and none on the\n\
-        positive strand.  For use with -g.\n\
+        positive strand.  For use with -g and -P.  Can be used with -L to\n\
+        ensure all sites in a category are represented in the same\n\
+        strand orientation.\n\
 \n\
     -f\n\
         Retain the coordinates of the original GFF file, rather than\n\
@@ -380,11 +379,11 @@ int main(int argc, char* argv[]) {
   MSA *msa;
   msa_format_type input_format = FASTA, output_format = FASTA;
   char *msa_fname = NULL, *gff_fname = NULL, *split_indices_str = NULL, 
-    *out_fname_root = "msa_split", *cat_map_fname = NULL, *rseq_fname = NULL;
+    *out_fname_root = "msa_split", *rseq_fname = NULL, *group_tag = NULL;
   GFF_Set *gff = NULL;
   int npartitions = -1, feature_frame = -1, strand_sensitive = 0, 
     faithful = 0, partition_frame = 0, quiet_mode = 0, gap_strip_mode = NO_STRIP,
-    group_mode = 0, output_summary = 0, tuple_size = 1, win_size = -1, 
+    output_summary = 0, tuple_size = 1, win_size = -1, 
     win_overlap = -1, ordered_stats = 1, min_ninf_sites = -1, 
     adjust_radius = -1;
   List *split_indices_list, *cats_to_do = NULL, *order_list = NULL;  
@@ -395,9 +394,9 @@ int main(int argc, char* argv[]) {
     length_strip, i;
   gsl_vector *freqs, *freqs_strip;
   msa_coord_map *map = NULL;
-  
+  CategoryMap *cm = NULL;
 
-  while ((c = getopt(argc, argv, "i:M:g:c:p:d:n:sfG:r:o:L:C:T:w:I:O:B:SPzqh")) != -1) {
+  while ((c = getopt(argc, argv, "i:M:g:c:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:Szqh")) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
@@ -416,7 +415,7 @@ int main(int argc, char* argv[]) {
       split_indices_str = optarg;
       break;
     case 'P':
-      group_mode = 1;
+      group_tag = optarg;
       break;
     case 'd':
       partition_frame = atoi(optarg);
@@ -438,7 +437,7 @@ int main(int argc, char* argv[]) {
       }
       break;
     case 'L':
-      cat_map_fname = optarg;
+      cm = cm_new_string_or_file(optarg);
       break;
     case 's':
       strand_sensitive = 1;
@@ -512,23 +511,18 @@ int main(int argc, char* argv[]) {
   else msa_fname = argv[optind];
 
   if ((strand_sensitive || faithful || feature_frame != -1 || 
-       group_mode == 1 || cat_map_fname != NULL) && 
+       group_tag != NULL || cm != NULL) && 
       gff_fname == NULL) {
     fprintf(stderr, "ERROR: -P, -L, -s, -f, and -c require -g.  Try \"msa_split -h\" for help.\n");
     exit(1);
   }
 
-  if ((split_indices_str == NULL && npartitions == -1 
-       && group_mode == 0 && cat_map_fname == NULL && win_size == -1) ||
-      (split_indices_str != NULL && (npartitions != -1 || group_mode != 0 || 
-                                     cat_map_fname != NULL || win_size != -1)) ||
-      (npartitions != -1 && (split_indices_str != NULL || group_mode != 0 || 
-                             cat_map_fname != NULL || win_size != -1)) ||
-      (group_mode != 0 && (split_indices_str != NULL || npartitions != -1 || 
-                           cat_map_fname != NULL || win_size != -1)) ||
-      (cat_map_fname != NULL && (split_indices_str != NULL || npartitions != -1 || 
-                                 group_mode != 0 || win_size != -1))) {
-    fprintf(stderr, "ERROR: must specify exactly one of -p, -P, -n, -L, and -w.\nTry \"msa_split -h\" for help.\n");
+  if ((split_indices_str == NULL && npartitions == -1 && cm == NULL && win_size == -1) ||
+      (split_indices_str != NULL && (npartitions != -1 || cm != NULL || win_size != -1)) ||
+      (npartitions != -1 && (split_indices_str != NULL || cm != NULL || win_size != -1)) ||
+      (cm != NULL && (split_indices_str != NULL || npartitions != -1 || 
+                                 win_size != -1))) {
+    fprintf(stderr, "ERROR: must specify exactly one of -p, -n, -L, and -w.\nTry \"msa_split -h\" for help.\n");
     exit(1);
   }
 
@@ -573,31 +567,6 @@ int main(int argc, char* argv[]) {
   if (input_format == SS && msa->ss->tuple_idx == NULL) {
     fprintf(stderr, "ERROR: ordered representation of alignment required.\n");
     exit(1);
-  }
-
-  if (cat_map_fname != NULL) {
-    CategoryMap *cm;
-
-    if (!quiet_mode)
-      fprintf(stderr, "Reading category map from %s ...\n", cat_map_fname);
-
-    cm_read(fopen_fname(cat_map_fname, "r"));
-
-    /* convert GFF to frame of ref of entire alignment */
-    msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
-
-    if (!quiet_mode)
-      fprintf(stderr, "Reverse complementing groups on reverse strand ...\n");
-
-    /* FIXME: should this really be done by default? */
-    gff_group(gff, "transcript_id"); /* FIXME: parameterize */
-    msa_reverse_compl_feats(msa, gff, NULL);
-
-    if (!quiet_mode)
-      fprintf(stderr, "Labeling columns of alignment by category ...\n");
-    msa_label_categories(msa, gff, cm);
-
-    cm_free(cm);
   }
 
   split_indices_list = lst_new_int(10);
@@ -665,21 +634,40 @@ int main(int argc, char* argv[]) {
   }
 
   /* map coords in GFF to frame of ref of alignment */
-  if (gff != NULL && cat_map_fname == NULL) {
-    if (!quiet_mode)
-      fprintf(stderr, "Mapping GFF coordinates to frame of alignment  ...\n");
-    msa_map_gff_coords(msa, gff, feature_frame, 0, 0, NULL);
-  }
+  if (gff != NULL) {
+    if (feature_frame != 0) {
+      if (!quiet_mode)
+        fprintf(stderr, "Mapping GFF coordinates to frame of alignment  ...\n");
+      msa_map_gff_coords(msa, gff, feature_frame, 0, 0, NULL);
+    }
 
-  if (group_mode == 1) {
-    GFF_Feature *prevfeat = NULL;
-    for (i = 0; i < lst_size(gff->features); i++) {
-      GFF_Feature *thisfeat = (GFF_Feature*)lst_get_ptr(gff->features, i);
-      if (prevfeat != NULL && 
-          !str_equals(thisfeat->attribute, prevfeat->attribute))
-        lst_push_int(split_indices_list, prevfeat->end + 
-                     (thisfeat->start - prevfeat->end)/2);
-      prevfeat = thisfeat;
+    if (group_tag != NULL) {
+      GFF_FeatureGroup *prevg = NULL;
+      gff_group(gff, group_tag);
+      gff_sort(gff);
+
+      if (strand_sensitive) {
+        if (!quiet_mode)
+          fprintf(stderr, "Reverse complementing groups on reverse strand ...\n");
+        msa_reverse_compl_feats(msa, gff, NULL);
+      }
+
+      for (i = 0; i < lst_size(gff->groups); i++) {
+        GFF_FeatureGroup *g = lst_get_ptr(gff->groups, i);
+        if (prevg != NULL) {
+          if (prevg->end >= g->start)
+            die("ERROR: feature groups overlap.\n");
+          lst_push_int(split_indices_list, prevg->end + 
+                       (g->start - prevg->end)/2);
+        }
+        prevg = g;
+      }
+    }
+
+    if (cm != NULL) {
+      if (!quiet_mode)
+        fprintf(stderr, "Labeling columns of alignment by category ...\n");
+      msa_label_categories(msa, gff, cm);
     }
   }
 
@@ -701,7 +689,7 @@ int main(int argc, char* argv[]) {
     write_summary_header(SUM_F, msa->alphabet, gap_strip_mode);
   }
 
-  if (cat_map_fname == NULL) {  /* not using features; splitting
+  if (cm == NULL) {             /* not using features; splitting
                                    by position (split_indices_list) */
     outfname = str_new(STR_MED_LEN);
     for (i = 0; i < lst_size(split_indices_list); i++) {
@@ -771,14 +759,6 @@ int main(int argc, char* argv[]) {
         /* create fname for gff subset */
         sub_gff = gff_subset_range(gff, start, end, !faithful);
 
-        /* reverse complement, if necessary */
-        if (strand_sensitive && gff_reverse_strand_only(sub_gff->features)) {
-          msa_reverse_compl(sub_msa);
-          gff_reverse_compl(sub_gff->features, 
-                            faithful ? start : 1, 
-                            faithful ? end : end - start + 1);
-        }
-
         /* map coords back to original frame(s) of ref */
         msa_map_gff_coords(faithful ? msa : sub_msa, sub_gff, 0, 
                            feature_frame, 0, NULL);
@@ -822,7 +802,7 @@ int main(int argc, char* argv[]) {
     }
     str_free(outfname);
   }
-  else {                        /* cat_map_fname != NULL (splitting by
+  else {                        /* cm != NULL (splitting by
                                    category) */
     List *submsas = lst_new_ptr(10);
     if (!quiet_mode)
