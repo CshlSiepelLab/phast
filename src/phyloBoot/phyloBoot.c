@@ -417,6 +417,7 @@ int main(int argc, char *argv[]) {
       params = tm_params_new_init_from_model(thismod);
       if (nparams > 0 && params->size != nparams)
         die("ERROR: input models have different numbers of parameters.\n");
+      if (repmod == NULL) repmod = thismod; /* keep around one representative model */
     }
 
     /* collect parameter estimates */
