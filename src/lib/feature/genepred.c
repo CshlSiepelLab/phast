@@ -1,4 +1,4 @@
-/* $Id: genepred.c,v 1.3 2004-06-22 22:04:38 acs Exp $
+/* $Id: genepred.c,v 1.4 2004-06-22 22:14:06 acs Exp $
    Written by Adam Siepel, 2004
    Copyright 2004, Adam Siepel, University of California */
 
@@ -16,7 +16,7 @@
 #define GENEPRED_SOURCE "genepred"
 
 /** Fill out a GFF_Set from a genepred file. */
-void gff_read_from_genepred(GFF_Set *gff, FILE *F, int do_utr) {
+void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
   String *line = str_new(STR_LONG_LEN);
   List *l = lst_new_ptr(12), *tmpl1 = lst_new_ptr(10), 
     *tmpl2 = lst_new_ptr(10);
@@ -113,29 +113,6 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F, int do_utr) {
                                      max(cdsStart, eStart), min(cdsEnd, eEnd), 
                                      0, strand, frame,
                                      str_new_charstr(group), TRUE));
-
-      if (do_utr && eStart < cdsStart)
-        lst_push_ptr(gff->features, 
-                     gff_new_feature(str_dup(chrom), 
-                                     str_new_charstr(GENEPRED_SOURCE), 
-                                     strand == '+' ? 
-                                     str_new_charstr(GFF_UTR5_TYPE) : 
-                                     str_new_charstr(GFF_UTR3_TYPE), 
-                                     eStart, min(cdsStart-1, eEnd), 
-                                     0, strand, GFF_NULL_FRAME,
-                                     str_new_charstr(group), TRUE));
-
-      if (do_utr && eEnd > cdsEnd)
-        lst_push_ptr(gff->features, 
-                     gff_new_feature(str_dup(chrom), 
-                                     str_new_charstr(GENEPRED_SOURCE), 
-                                     strand == '+' ? 
-                                     str_new_charstr(GFF_UTR3_TYPE) :
-                                     str_new_charstr(GFF_UTR5_TYPE), 
-                                     max(cdsEnd+1, eStart), eEnd,
-                                     0, strand, GFF_NULL_FRAME,
-                                     str_new_charstr(group), TRUE));
-
     }
 
     /* FIXME: frame! */

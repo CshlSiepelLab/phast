@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.11 2004-06-22 22:04:38 acs Exp $
+/* $Id: gff.c,v 1.12 2004-06-22 22:14:07 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -118,7 +118,7 @@ GFF_Set* gff_read_set(FILE *F) {
         if (!seekable) 
           die("ERROR: Looks like genepred format but can't rewind (non-seekable stream).\n");
         fsetpos(F, &pos);
-        gff_read_from_genepred(set, F, TRUE);
+        gff_read_from_genepred(set, F);
         break;
       }
     }
