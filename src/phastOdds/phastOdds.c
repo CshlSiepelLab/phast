@@ -18,26 +18,26 @@ void usage(char *prog) {
   printf("\n\
 PROGRAM: %s\n\
 \n\
-DESCRIPTION:\n
-\n
-    Assign log-odds scores based on two phylo-HMMs, one for features\n
-    of interest (e.g., coding exons, conserved regions) and one for\n
-    background.  Can compute a score for each feature in an input set,\n
-    and output the same set of features, with newly computed scores\n
-    (output format is GFF by default; see -d).  Alternatively, can\n
-    compute scores in a sliding window of designated size, and output\n
-    a three-column file, with the index of the center of each window\n
-    followed by the score for that window on the positive strand, then\n
-    the score for that window on the negative strand.  Currently, a\n
-    reference sequence alignment is assumed in either case, with the\n
-    reference sequence appearing first; feature coordinates are\n
-    assumed to be defined with respect to the reference sequence.\n
+DESCRIPTION:\n\
 \n\
-    Note that this program can be used with ordinary phylogenetic\n
-    models (rather than phylo-HMMs) by specifying a single model for\n
-    background and a single model for the features of interest and\n
-    omitting the HMM options (-B and -F).\n
-\n
+    Assign log-odds scores based on two phylo-HMMs, one for features\n\
+    of interest (e.g., coding exons, conserved regions) and one for\n\
+    background.  Can compute a score for each feature in an input set,\n\
+    and output the same set of features, with newly computed scores\n\
+    (output format is GFF by default; see -d).  Alternatively, can\n\
+    compute scores in a sliding window of designated size, and output\n\
+    a three-column file, with the index of the center of each window\n\
+    followed by the score for that window on the positive strand, then\n\
+    the score for that window on the negative strand.  Currently, a\n\
+    reference sequence alignment is assumed in either case, with the\n\
+    reference sequence appearing first; feature coordinates are\n\
+    assumed to be defined with respect to the reference sequence.\n\
+\n\
+    Note that this program can be used with ordinary phylogenetic\n\
+    models (rather than phylo-HMMs) by specifying a single model for\n\
+    background and a single model for the features of interest and\n\
+    omitting the HMM options (-B and -F).\n\
+\n\
 USAGE: phastOdds -b <backgd_mods> [-B <backgd.hmm>] \\\n\
                  -f <feat_mods> [-F <feat.hmm>] \\\n\
                  ( -g <feats.gff> | -w <size> ) \\\n\
@@ -47,43 +47,43 @@ USAGE: phastOdds -b <backgd_mods> [-B <backgd.hmm>] \\\n\
     features may be formatted as GFF, BED, or genepred)\n\
 \n\
 OPTIONS:\n\
-    -b <backgd_mods>\n
+    -b <backgd_mods>\n\
         (Required) List of tree model (*.mod) files for background.\n\
-\n
-    -B <backgd.hmm>\n
+\n\
+    -B <backgd.hmm>\n\
         HMM for background.  If there is only one backgound tree\n\
         model, a trivial (single-state) HMM will be assumed.\n\
-\n
-    -f <feat_mods>\n
+\n\
+    -f <feat_mods>\n\
         (Required) List of tree model (*.mod) files for features.\n\
-\n
-    -F <feat.hmm>\n
+\n\
+    -F <feat.hmm>\n\
         HMM for features.  If there is only one tree model for\n\
         features, a trivial (single-state) HMM will be assumed.\n\
-\n
-    -g <feats.gff>\n
+\n\
+    -g <feats.gff>\n\
         (Required unless -w) File defining features to be scored\n\
         (GFF or bed).\n\
-\n
-    -w <size>\n
+\n\
+    -w <size>\n\
         (Can be used instead of -g) Compute scores in a sliding window\n\
         of the specified size.\n\
-\n
-    -i <type>\n
+\n\
+    -i <type>\n\
         Input format for alignment.  May be FASTA, PHYLIP, MPM, SS, or\n\
         MAF (default FASTA)\n\
-\n
-    -M <rseq.fa>\n
+\n\
+    -M <rseq.fa>\n\
         (For use with -i MAF) Reference sequence (FASTA)\n\
-\n
-    -d\n
+\n\
+    -d\n\
         (For use with -g) Generate output in bed format rather than GFF.\n\
-\n
-    -v\n
+\n\
+    -v\n\
         Verbose mode.  Print messages to stderr describing what the\n\
         program is doing.\n\
-\n
-    -h\n
+\n\
+    -h\n\
         Print this help message.\n\n", prog);
   exit(0);
 }
