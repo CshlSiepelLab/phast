@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.24 2005-01-31 18:12:32 acs Exp $
+   $Id: phyloFit.c,v 1.25 2005-03-08 17:25:42 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -644,7 +644,7 @@ int main(int argc, char *argv[]) {
     {"windows", 1, 0, 'w'},
     {"windows-explicit", 1, 0, 'v'},
     {"ancestor", 1, 0, 'A'},
-    {"post-probs", 1, 0, 'P'},
+    {"post-probs", 0, 0, 'P'},
     {"expected-subs", 1, 0, 'X'},
     {"expected-total-subs", 1, 0, 'Z'},
     {"column-probs", 1, 0, 'U'},
