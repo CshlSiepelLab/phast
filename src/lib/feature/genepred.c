@@ -1,4 +1,4 @@
-/* $Id: genepred.c,v 1.5 2004-06-23 19:51:28 acs Exp $
+/* $Id: genepred.c,v 1.6 2004-07-06 20:30:07 acs Exp $
    Written by Adam Siepel, 2004
    Copyright 2004, Adam Siepel, University of California */
 
@@ -154,20 +154,22 @@ void gff_print_genepred(FILE *OUTF,
                                 /**< Set to write */
                         ) {
   int i, j;
-  String *exonStarts = str_new(STR_LONG_LEN);
-  String *exonEnds = str_new(STR_LONG_LEN);
+  String *exonStarts = str_new(STR_LONG_LEN), *exonEnds = str_new(STR_LONG_LEN),
+    *cdsStarts = str_new(STR_LONG_LEN), *cdsEnds = str_new(STR_LONG_LEN);
 
   if (feats->groups == NULL)
     die("ERROR: features must be grouped to print as genepred.\n");
 
   for (i = 0; i < lst_size(feats->groups); i++) {
-    int cdsStart = -1, cdsEnd = -1, nexons = 0;
+    int cdsStart = -1, cdsEnd = -1, nexons = 0, ncds_exons = 0;
     char strand = '\0';
     String *seqname = NULL;
     GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
 
     str_clear(exonStarts);
     str_clear(exonEnds);
+    str_clear(cdsStarts);
+    str_clear(cdsEnds);
 
     lst_qsort(g->features, gff_feature_comparator);
 
@@ -189,6 +191,18 @@ void gff_print_genepred(FILE *OUTF,
       else if (str_equals_charstr(f->feature, GFF_CDS_TYPE)) {
         if (cdsStart == -1) cdsStart = f->start-1;
         if (f->end > cdsEnd) cdsEnd = f->end;
+
+        str_append_int(cdsStarts, f->start-1);
+        str_append_char(cdsStarts, ',');
+        str_append_int(cdsEnds, f->end);
+        str_append_char(cdsEnds, ',');
+        if (nexons == 0 && ncds_exons == 0) {
+          strand = f->strand;
+          seqname = f->seqname;
+        }
+        else if (strand != f->strand || !str_equals(seqname, f->seqname))
+          die("ERROR (gff_print_genepred): inconsistent strand or seqname in GFF group \"%s\".\n", g->name->chars);
+        ncds_exons++;
       }
     }
 
@@ -196,8 +210,16 @@ void gff_print_genepred(FILE *OUTF,
       fprintf(OUTF, "%s\t%s\t%c\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n", 
               g->name->chars, seqname->chars, strand, g->start-1, g->end, 
               cdsStart, cdsEnd, nexons, exonStarts->chars, exonEnds->chars);
+
+    else if (ncds_exons > 0)    /* this is in case only CDS is specified */
+      fprintf(OUTF, "%s\t%s\t%c\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n", 
+              g->name->chars, seqname->chars, strand, g->start-1, g->end, 
+              cdsStart, cdsEnd, ncds_exons, cdsStarts->chars, cdsEnds->chars);
+
   }
 
   str_free(exonStarts);
   str_free(exonEnds);
+  str_free(cdsStarts);
+  str_free(cdsEnds);
 }
