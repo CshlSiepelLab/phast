@@ -63,34 +63,6 @@ OPTIONS:\n\
   exit(0);
 }
 
-/* parse string defining mapping from old names to new and store as
-   hash */
-Hashtable *make_name_hash(char *mapstr) {
-  Hashtable *retval = hsh_new(20);
-  Regex *map_re = str_re_new("^[[:space:]]*([A-Za-z0-9_]+)[[:space:]]*->[[:space:]]*([A-Za-z0-9_]+)[[:space:]]*");
-  List *mappings = lst_new_ptr(20), *names = lst_new_ptr(3);
-  String *s = str_new_charstr(mapstr);
-  int i;
-
-  str_split(s, ";", mappings);
-  for (i = 0; i < lst_size(mappings); i++) {
-    String *oldname, *newname;
-    if (str_re_match(lst_get_ptr(mappings, i), map_re, names, 2) < 0)
-      die("ERROR: cannot parse mapping ('%s')\n", lst_get_ptr(mappings, i));
-    oldname = lst_get_ptr(names, 1);
-    newname = lst_get_ptr(names, 2);
-    hsh_put(retval, oldname->chars, strdup(newname->chars));
-    lst_free_strings(names);
-  }
-  lst_free_strings(mappings);
-  lst_free(mappings);
-  lst_free(names);
-  str_free(s);
-  str_re_free(map_re);
-
-  return retval;
-}
-
 int main(int argc, char *argv[]) {
   /* variables for options, with defaults */
   TreeNode *tree = NULL, *merge_tree = NULL;

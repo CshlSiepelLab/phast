@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.5 2004-06-19 20:35:14 acs Exp $
+/* $Id: misc.c,v 1.6 2004-08-17 17:13:33 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -495,6 +495,36 @@ void mn_draw(int n, double *p, int d, int *counts) {
   /* last category is constrained by prev */
   counts[d-1] = nremaining;
 }
+
+/** Parse string defining mapping from old names to new and store as
+   hash (e.g., "hg17->human; mm5->mouse; rn3->rat").  Can use "="
+   character as well as "->" to indicate mapping.  */
+Hashtable *make_name_hash(char *mapstr) {
+  Hashtable *retval = hsh_new(20);
+  Regex *map_re = str_re_new("^[[:space:]]*([A-Za-z0-9_]+)[[:space:]]*(->|=)[[:space:]]*([A-Za-z0-9_]+)[[:space:]]*");
+  List *mappings = lst_new_ptr(20), *names = lst_new_ptr(3);
+  String *s = str_new_charstr(mapstr);
+  int i;
+
+  str_split(s, ";", mappings);
+  for (i = 0; i < lst_size(mappings); i++) {
+    String *oldname, *newname;
+    if (str_re_match(lst_get_ptr(mappings, i), map_re, names, 3) < 0)
+      die("ERROR: cannot parse mapping ('%s')\n", lst_get_ptr(mappings, i));
+    oldname = lst_get_ptr(names, 1);
+    newname = lst_get_ptr(names, 3);
+    hsh_put(retval, oldname->chars, strdup(newname->chars));
+    lst_free_strings(names);
+  }
+  lst_free_strings(mappings);
+  lst_free(mappings);
+  lst_free(names);
+  str_free(s);
+  str_re_free(map_re);
+
+  return retval;
+}
+
 
 /***************************************************************************/
 /* for debugging: these functions can be called dynamically in gdb to

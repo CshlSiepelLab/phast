@@ -257,9 +257,10 @@ OPTIONS:\n\
         (background) state, a conserved non-coding (CNS) state, and\n\
         states for the three codon positions.  This option implies\n\
         --catmap \"NCATS=4; CNS 1; CDS 2-4\" --hmm <default-HMM-file>\n\
-        --states CDS --indels --reflect-strand background,CNS\n\
+        --states CDS --reflect-strand background,CNS\n\
         --min-informative-types CDS, plus a set of default *.mod files.\n\
-        (All of these options can be overridden.)\n\
+        (All of these options can be overridden; --coding potential can\n\
+        be used with or without --indels.)\n\
 \n\
     --indels-only, -J\n\
         Like --indels but force the use of a single-state HMM.  This\n\
@@ -326,6 +327,15 @@ OPTIONS:\n\
  (Other)\n\
     --msa-format, -i PHYLIP|FASTA|MPM|SS|MAF\n\
         (Default SS) Alignment file format.\n\
+\n\
+    --alias, -A <alias_def>\n\
+        Alias names in input alignment according to given definition,\n\
+        e.g., \"hg17=human; mm5=mouse; rn3=rat\".  Useful with default\n\
+        *.mod files, e.g., with --coding-potential.  (Default models\n\
+        use generic common names such as \"human\", \"mouse\", and\n\
+        \"rat\".  This option allows a mapping to be established\n\
+        between the leaves of trees in these files and the sequences\n\
+        of an alignment that uses an alternative naming convention.)\n\
 \n\
     --quiet, -q\n\
         Proceed quietly (without updates to stderr).\n\
@@ -523,7 +533,8 @@ int main(int argc, char *argv[]) {
     *mod_fname_list;
   char *seqname = NULL, *idpref = NULL;
   HMM *hmm = NULL;
-  
+  Hashtable *alias_hash = NULL;
+
   struct option long_opts[] = {
     {"states", 1, 0, 'S'},
     {"hmm", 1, 0, 'H'},
@@ -551,6 +562,7 @@ int main(int argc, char *argv[]) {
     {"score", 0, 0, 's'},
     {"coding-potential", 0, 0, 'p'},
     {"indels-only", 0, 0, 'J'},
+    {"alias", 1, 0, 'A'},
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
@@ -566,10 +578,10 @@ int main(int argc, char *argv[]) {
   TreeModel **mod;
   PhyloHmm *phmm;
   CategoryMap *cm = NULL;
-  char *mods_fname = NULL;
+  char *mods_fname = NULL, *newname;
   indel_mode_type indel_mode;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IY:D:JM:m:pXqh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:t:r:xL:s:N:P:g:U:c:IY:D:JM:m:pA:Xqh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
       states = get_arg_list(optarg);
@@ -683,6 +695,9 @@ int main(int argc, char *argv[]) {
     case 'p':
       coding_potential = TRUE;
       break;
+    case 'A':
+      alias_hash = make_name_hash(optarg);
+      break;
     case 'q':
       quiet = TRUE;
       break;
@@ -719,7 +734,9 @@ int main(int argc, char *argv[]) {
     two_state = FALSE;
     if (cm == NULL) cm = cm_new_string_or_file("NCATS=4; CNS 1; CDS 2-4");
     if (hmm == NULL) {
-      sprintf(tmp, "%s/data/phastCons/simple-coding.hmm", PHAST_HOME);
+      sprintf(tmp, "%s/data/phastCons/%s", PHAST_HOME,
+              indels ? "simple-coding-indels.hmm" : "simple-coding.hmm");
+      if (!quiet) fprintf(stderr, "Reading HMM from %s...\n", tmp);
       hmm = hmm_new_from_file(fopen_fname(tmp, "r"));
     }
     if (mods_fname == NULL) {
@@ -735,7 +752,6 @@ int main(int argc, char *argv[]) {
     if (states == NULL) states = get_arg_list("CDS");
     if (pivot_states == NULL) pivot_states = get_arg_list("background,CNS");
     if (min_inform_str == NULL) min_inform_str = get_arg_list("CDS");
-    indels = TRUE;
   }
   
   /* read tree models first (alignment may take a while) */
@@ -771,6 +787,16 @@ int main(int argc, char *argv[]) {
   msa_remove_N_from_alph(msa);  /* for backward compatibility */
   if (msa_format == SS && msa->ss->tuple_idx == NULL) 
     die("ERROR: Ordered representation of alignment required.\n");
+
+  /* rename if aliases are defined */
+  if (alias_hash != NULL) {
+    for (i = 0; i < msa->nseqs; i++) {
+      if ((newname = hsh_get(alias_hash, msa->names[i])) != (char*)-1) {
+        free(msa->names[i]);
+        msa->names[i] = strdup(newname);
+      }
+    }
+  }
 
   /* mask out macro-indels, if necessary */
   if (indels) {

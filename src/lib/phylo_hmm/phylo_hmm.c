@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.18 2004-08-15 03:21:06 acs Exp $
+/* $Id: phylo_hmm.c,v 1.19 2004-08-17 17:13:33 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -529,9 +529,11 @@ void phmm_compute_emissions(PhyloHmm *phmm,
     }
 
     /* get rid of the sequences! they'll be wrong! */
-    for (i = 0; i < msa_compl->nseqs; i++) free(msa_compl->seqs[i]);
-    free(msa_compl->seqs);
-    msa_compl->seqs = NULL;
+    if (msa_compl->seqs != NULL) {
+      for (i = 0; i < msa_compl->nseqs; i++) free(msa_compl->seqs[i]);
+      free(msa_compl->seqs);
+      msa_compl->seqs = NULL;
+    }
   }
 
   /* set up mapping from model/strand to first associated state

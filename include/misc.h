@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.3 2004-06-19 20:35:14 acs Exp $
+/* $Id: misc.h,v 1.4 2004-08-17 17:13:33 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <gsl/gsl_matrix.h>
 #include <lists.h>
+#include <hashtable.h>
 #include <ctype.h>
 
 #define TRUE 1
@@ -107,5 +108,6 @@ int is_transition(char b1, char b2);
 void unif_draw(int n, double min, double max, double *draws, int antithetics);
 void bn_draw(int n, int N, double p, int *draws);
 void mn_draw(int n, double *p, int d, int *counts);
+Hashtable *make_name_hash(char *mapstr);
 
 #endif
