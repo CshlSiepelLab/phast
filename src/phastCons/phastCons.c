@@ -148,6 +148,10 @@ OPTIONS:\n\
         specified \"pivot\" states.  The new HMM will be used for\n\
         prediction on both strands.\n\
 \n\
+    --indels, -I\n\
+        (Optionally use with --hmm) Expand HMM state space to model\n\
+        indels as described in Siepel & Haussler (2004).\n\
+\n\
     --rates-cross, -X\n\
         (Alternative to --hmm; specify only one *.mod file with this\n\
         option) Use an HMM with a state for every rate\n\
@@ -294,6 +298,10 @@ REFERENCES:\n\
     A. Siepel and D. Haussler.  2003.  Combining phylogenetic and\n\
       hidden Markov models in biosequence analysis.  RECOMB '03.\n\
 \n\
+    A. Siepel and D. Haussler.  2004.  Computational identification of\n\
+      evolutionarily conserved exons.  Proc. 8th Annual Int'l Conf.\n\
+      on Research in Computational Biology (RECOMB '04), pp. 177-186.\n\
+\n\
     Z. Yang. 1994. Maximum likelihood phylogenetic estimation from\n\
       DNA sequences with variable rates over sites: approximate\n\
       methods. J. Mol. Evol., 39:306-314.\n\n", prog, prog, MIN_BLOCK_SIZE);
@@ -323,7 +331,7 @@ int main(int argc, char *argv[]) {
   /* arguments and defaults */
   int post_probs = TRUE, no_missing = FALSE, score = FALSE, quiet = FALSE, 
     gff = FALSE, rates_cross = FALSE, estim_lambda = TRUE, 
-    estim_transitions = TRUE, two_state = TRUE;
+    estim_transitions = TRUE, two_state = TRUE, indels = FALSE;
   int nrates = -1, rates_cut_idx = 1, refidx = 1;
   double lambda = DEFAULT_LAMBDA, p = DEFAULT_P, q = DEFAULT_Q;
   msa_format_type msa_format = SS;
@@ -347,6 +355,7 @@ int main(int argc, char *argv[]) {
     {"refidx", 1, 0, 'r'},
     {"suppress-missing", 0, 0, 'x'},
     {"reflect-strand", 0, 0, 'U'},
+    {"indels", 0, 0, 'I'},
     {"lnl", 1, 0, 'L'},
     {"seqname", 1, 0, 'N'},
     {"idpref", 1, 0, 'P'},
@@ -366,7 +375,7 @@ int main(int argc, char *argv[]) {
   TreeModel **mod;
   PhyloHmm *phmm;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:c:t:r:xL:s:N:P:g:Xqh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:c:t:r:xL:s:N:P:g:U:IXqh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
       states = get_arg_list(optarg);
@@ -428,6 +437,9 @@ int main(int argc, char *argv[]) {
       pivot_states = get_arg_list(optarg); /* we want strings not ints
                                              for phmm_new */
       break;
+    case 'I':
+      indels = TRUE;
+      break;
     case 'L':
       lnl_f = fopen_fname(optarg, "w+");
       break;
@@ -453,6 +465,9 @@ int main(int argc, char *argv[]) {
   if ((hmm != NULL && rates_cross))
     die("ERROR: --hmm and --rates-cross are mutually exclusive.\n");
   
+  if (indels == TRUE && hmm == NULL)
+    die("ERROR: --indels is only valid with --hmm.\n");
+
   if (optind != argc - 2) 
     die("ERROR: missing required arguments.  Try '%s -h'.\n", argv[0]);
 
@@ -463,6 +478,7 @@ int main(int argc, char *argv[]) {
     die("ERROR: only one tree model allowed with --rates-cross or --cut-at.\n");
   else if (hmm != NULL && hmm->nstates != lst_size(tmpl)) 
     die("ERROR: number of states in HMM must equal number of tree models.\n");
+  
     
   mod = (TreeModel**)smalloc(sizeof(TreeModel*) * lst_size(tmpl));
   for (i = 0; i < lst_size(tmpl); i++) {
@@ -522,7 +538,7 @@ int main(int argc, char *argv[]) {
   }
 
   /* set up PhyloHmm */
-  phmm = phmm_new(hmm, mod, NULL, pivot_states, FALSE, -1);
+  phmm = phmm_new(hmm, mod, NULL, pivot_states, indels, msa->nseqs);
 
   if (rates_cross) {
     if (!quiet) 
