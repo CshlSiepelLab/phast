@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.17 2004-08-14 20:46:49 acs Exp $
+/* $Id: phylo_hmm.c,v 1.18 2004-08-15 03:21:06 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -1142,9 +1142,12 @@ void phmm_reset(PhyloHmm *phmm) {
         mm_set(phmm->hmm->transition_matrix, i, j, val);
       }
 
-      gsl_vector_set(phmm->hmm->begin_transitions, i, 1.0/phmm->hmm->nstates);
-                                /* for now, just assume uniform
-                                   distrib. for begin transitions */
+      gsl_vector_set(phmm->hmm->begin_transitions, i, 
+                     gsl_vector_get(phmm->functional_hmm->begin_transitions, 
+                                    cat_i) * 
+                     1.0/phmm->gpm->ngap_patterns);
+                                /* assume uniform distrib. for gap
+                                   patterns */
     }
   }
 
