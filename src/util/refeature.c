@@ -57,12 +57,12 @@ OPTIONS:\n\
         same major group will be included in the same minor group\n\
         (e.g., exons of the same transcript).\n\
 \n\
-    --output, -o GFF|BED|genepred\n\
-        Output format (default GFF).\n\
+    --output, -o gff|bed|genepred\n\
+        Output format (default gff).\n\
 \n\
     --simplebed, -b\n\
-        (for use with --output BED) Create a separate line for each\n\
-        feature in BED output (by default, all features of a group are\n\
+        (for use with --output bed) Create a separate line for each\n\
+        feature in bed output (by default, all features of a group are\n\
         described by a single line).\n\
 \n\
     --discards, -d <fname>\n\
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
   List *include = NULL;
   char *groupby = "transcript_id", *exongroup_tag = NULL;
   int unique = 0, sort = 0, simplebed = 0;
-  enum {GFF, BED, genepred} output_format = GFF;
+  enum {GFF, BED, GENEPRED} output_format = GFF;
   FILE *discards_f = NULL;
 
   struct option long_opts[] = {
@@ -99,9 +99,9 @@ int main(int argc, char *argv[]) {
   while ((c = getopt_long(argc, argv, "o:i:g:e:d:usbh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'o':
-      if (!strcmp("BED", optarg)) output_format = BED;
-      else if (!strcmp("genepred", optarg)) output_format = genepred;
-      else if (strcmp("GFF", optarg)) die("ERROR: bad output format.\n");
+      if (!strcmp("bed", optarg)) output_format = BED;
+      else if (!strcmp("genepred", optarg)) output_format = GENEPRED;
+      else if (strcmp("gff", optarg)) die("ERROR: bad output format.\n");
       break;
     case 'i':
       include = get_arg_list(optarg);
@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
 
   if (output_format == BED)
     gff_print_bed(stdout, gff, !simplebed);
-  else if (output_format == genepred)
+  else if (output_format == GENEPRED)
     gff_print_genepred(stdout, gff);
   else 
     gff_print_set(stdout, gff);
