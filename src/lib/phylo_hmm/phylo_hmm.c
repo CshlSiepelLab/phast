@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.23 2004-08-28 03:32:24 acs Exp $
+/* $Id: phylo_hmm.c,v 1.24 2004-08-31 04:52:54 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -489,7 +489,11 @@ void phmm_free(PhyloHmm *phmm) {
   if (phmm->alpha != NULL) free(phmm->alpha);
   if (phmm->beta != NULL) free(phmm->beta);
   if (phmm->omega != NULL) free(phmm->omega);
-  if (phmm->em_data != NULL) free(phmm->em_data);
+  if (phmm->em_data != NULL) {
+    if (phmm->em_data->H != NULL) 
+      gsl_matrix_free(phmm->em_data->H);
+    free(phmm->em_data);
+  }
   hmm_free(phmm->hmm);
   free(phmm);
 }
@@ -1111,6 +1115,7 @@ double phmm_fit_em(PhyloHmm *phmm,
   phmm->em_data->msa = msa;
   phmm->em_data->fix_functional = fix_functional;
   phmm->em_data->fix_indel = fix_indel;
+  phmm->em_data->H = NULL;
 
   if (msa != NULL)              /* estimating tree models */
     retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, 
