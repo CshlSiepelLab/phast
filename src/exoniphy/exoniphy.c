@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.37 2004-10-10 22:29:59 acs Exp $
+/* $Id: exoniphy.c,v 1.38 2004-10-10 22:33:06 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -218,8 +218,8 @@ OPTIONS:\n\
 REFERENCES:\n\
  \n\
     A. Siepel and D. Haussler.  2004.  Computational identification of\n\
-      evolutionarily conserved exons.  Proc. 8th Annual Int'l Conf.\n\
-      on Research in Computational Biology (RECOMB '04), pp. 177-186.\n\
+      evolutionarily conserved exons.  Proc. 8th Annual Int\'l Conf.\n\
+      on Research in Computational Biology (RECOMB \'04), pp. 177-186.\n\
 \n\
     J. Thomas et al.  2003.  Comparative analyses of multi-species\n\
       sequences from targeted genomic regions.  Nature 424:788-793.\n\n", 
@@ -370,7 +370,8 @@ int main(int argc, char* argv[]) {
   if (sens_spec_fname_root != NULL && bias != NEGINFTY)
     die("ERROR: can't use --bias and --sens-spec together.\n");
 
-  if (!strcmp(extrapolate_tree_fname, "default")) {
+  if (extrapolate_tree_fname != NULL &&
+      !strcmp(extrapolate_tree_fname, "default")) {
     extrapolate_tree_fname = smalloc(1000 * sizeof(char));
     sprintf(extrapolate_tree_fname, 
             "%s/data/exoniphy/mammals/cftr25_hybrid.nh", PHAST_HOME);
