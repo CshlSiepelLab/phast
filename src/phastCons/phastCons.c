@@ -886,7 +886,8 @@ int main(int argc, char *argv[]) {
     if (!quiet) {
       fprintf(stderr, "Finding MLE for (");
       if (estim_transitions) fprintf(stderr, "p, q%s", estim_indels ? ", " : "");
-      if (estim_indels) fprintf(stderr, "alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1");
+      if (indels && estim_indels) 
+        fprintf(stderr, "alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1");
       fprintf(stderr, ")...\n");
     }
     lnl = fit_rates_cut(phmm, estim_transitions, estim_indels, &p, &q, 
@@ -982,7 +983,7 @@ int main(int argc, char *argv[]) {
       fprintf(lnl_f, "(");
       if (estim_transitions)
         fprintf(lnl_f, "p = %f, q = %f%s", p, q, estim_indels ? ", " : "");
-      if (estim_indels)
+      if (indels && estim_indels)
         fprintf(lnl_f, "alpha_0 = %f, beta_0 = %f, omega_0 = %f, alpha_1 = %f, beta_1 = %f, omega_1 = %f", alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1);
       fprintf(lnl_f, ")\n");
     }
