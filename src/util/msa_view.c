@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.14 2004-07-26 05:28:55 acs Exp $
+/* $Id: msa_view.c,v 1.15 2004-07-27 20:39:41 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -620,7 +620,7 @@ int main(int argc, char* argv[]) {
         exit(1);
       }
 
-      gff_exon_group(gff, reverse_groups_tag);
+      gff_group(gff, reverse_groups_tag);
       msa_reverse_compl_feats(msa, gff, NULL);
     }
 
