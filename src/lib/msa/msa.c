@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.37 2005-03-17 00:35:39 acs Exp $
+/* $Id: msa.c,v 1.38 2005-05-13 00:55:58 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -2017,4 +2017,20 @@ void msa_set_informative(MSA *msa, /**< Alignment */
   for (i = 0; i < lst_size(indices); i++)
     msa->is_informative[lst_get_int(indices, i)] = FALSE;
   lst_free(indices);
+}
+
+/* reset alphabet of MSA */
+void msa_reset_alphabet(MSA *msa, char *newalph) {
+  int i, nchars = strlen(newalph);
+  free(msa->alphabet);  
+  msa->alphabet = smalloc((nchars + 1) * sizeof(char));
+  strcpy(msa->alphabet, newalph); 
+  for (i = 0; i < nchars; i++) { 
+    msa->inv_alphabet[i] = -1;
+    msa->is_missing[i] = 0;
+  }
+  for (i = 0; msa->alphabet[i] != '\0'; i++)
+    msa->inv_alphabet[(int)msa->alphabet[i]] = i;
+  for (i = 0; msa->missing[i] != '\0'; i++)
+    msa->is_missing[(int)msa->missing[i]] = 1;
 }
