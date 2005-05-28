@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.20 2005-05-28 21:03:21 acs Exp $
+/* $Id: sufficient_stats.c,v 1.21 2005-05-28 21:31:06 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -1207,20 +1207,28 @@ void ss_unique(MSA *msa) {
     character (msa->missing[0]).  Optionally also convert gap
     characters.  Can be useful in reducing number of tuples */
 void ss_collapse_missing(MSA *msa, int do_gaps) {
-  int i, j, len = msa->nseqs * msa->ss->tuple_size, changed = FALSE;
+  int i, j, len = msa->nseqs * msa->ss->tuple_size;
+  int changed_missing = FALSE, changed_gaps = FALSE, exists_missing = FALSE;
   for (i = 0; i < msa->ss->ntuples; i++) {
     for (j = 0; j < len; j++) {
       char c = msa->ss->col_tuples[i][j];
-      if (c != msa->missing[0] && 
-          (msa->is_missing[(int)c] || 
-           (do_gaps && c == GAP_CHAR))) {
+      if (!exists_missing && c == msa->missing[0]) exists_missing = TRUE;
+      else if (c != msa->missing[0] && msa->is_missing[(int)c]) {
         msa->ss->col_tuples[i][j] = msa->missing[0];
-        if (!changed) changed = TRUE;
+        if (!changed_missing) changed_missing = TRUE;
+      }
+      else if (do_gaps && c == GAP_CHAR) {
+        msa->ss->col_tuples[i][j] = msa->missing[0];
+	if (!changed_gaps) changed_gaps = TRUE;
       }
     }
   }
 
-  if (changed) ss_unique(msa);
+  if (changed_missing || (exists_missing && changed_gaps))
+      ss_unique(msa);
+      /* avoid expensive call to ss_unique if there were no missing
+	 data characters and all we did was relabel gaps as missing
+	 data */
 }
 
 /** Like msa_strip_gaps, but in terms of suffient statistics.  If
