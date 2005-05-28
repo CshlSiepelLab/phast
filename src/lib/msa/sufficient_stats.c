@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.19 2005-03-18 19:56:59 acs Exp $
+/* $Id: sufficient_stats.c,v 1.20 2005-05-28 21:03:21 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -1140,7 +1140,7 @@ void ss_reorder_rows(MSA *msa, int *new_to_old, int new_nseqs) {
     counts of zero are assumed not to appear in tuple_idx.  */
 void ss_remove_zero_counts(MSA *msa) {
   int i, cat, new_ntuples = 0;
-  int old_to_new[msa->ss->ntuples];
+  int *old_to_new = smalloc(msa->ss->ntuples * sizeof(int));
 
   for (i = 0; i < msa->ss->ntuples; i++) {
     if (msa->ss->counts[i] > 0) {
@@ -1166,6 +1166,7 @@ void ss_remove_zero_counts(MSA *msa) {
 
   msa->ss->ntuples = new_ntuples;
   ss_compact(msa->ss);  
+  free(old_to_new);
 }
 
 /** Ensure all tuples are unique.  Combine counts and remap indices as
