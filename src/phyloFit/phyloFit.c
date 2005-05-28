@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.27 2005-05-28 21:11:08 acs Exp $
+   $Id: phyloFit.c,v 1.28 2005-05-28 21:12:27 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -1100,7 +1100,7 @@ int main(int argc, char *argv[]) {
 
         if (msa->ss == NULL) {	/* get sufficient stats if necessary */
 	  if (!quiet)
-	    fprintf(stderr, "Extracting sufficient statistics...\n");
+	    fprintf(stderr, "Extracting sufficient statistics ...\n");
           ss_from_msas(msa, mod->order+1, 0, 
                        cats_to_do_str != NULL ? cats_to_do : NULL, 
                        NULL, NULL, -1);
@@ -1115,7 +1115,7 @@ int main(int argc, char *argv[]) {
 	}
 
         if (i == 0) {
-	  if (!quiet) fprintf(stderr, "Compacting sufficient statistics...\n");
+	  if (!quiet) fprintf(stderr, "Compacting sufficient statistics ...\n");
 	  ss_collapse_missing(msa, !gaps_as_bases);
                                 /* reduce number of tuples as much as
                                    possible */
