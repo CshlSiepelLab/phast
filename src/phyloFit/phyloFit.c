@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.26 2005-05-13 00:55:58 acs Exp $
+   $Id: phyloFit.c,v 1.27 2005-05-28 21:11:08 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -1098,6 +1098,29 @@ int main(int argc, char *argv[]) {
           mod->backgd_freqs = NULL;
         }
 
+        if (msa->ss == NULL) {	/* get sufficient stats if necessary */
+	  if (!quiet)
+	    fprintf(stderr, "Extracting sufficient statistics...\n");
+          ss_from_msas(msa, mod->order+1, 0, 
+                       cats_to_do_str != NULL ? cats_to_do : NULL, 
+                       NULL, NULL, -1);
+          /* (sufficient stats obtained only for categories of interest) */
+	  
+	  if (msa->length > 1000000) { /* throw out original data if
+					  very large */
+	    for (j = 0; j < msa->nseqs; j++) free(msa->seqs[j]);
+	    free(msa->seqs);
+	    msa->seqs = NULL;
+	  }
+	}
+
+        if (i == 0) {
+	  if (!quiet) fprintf(stderr, "Compacting sufficient statistics...\n");
+	  ss_collapse_missing(msa, !gaps_as_bases);
+                                /* reduce number of tuples as much as
+                                   possible */
+	}
+
         if (!quiet) {
           fprintf(stderr, "Fitting tree model to %s using %s%s ...\n",
                   tmpstr->chars, tm_get_subst_mod_string(subst_mod),
@@ -1105,17 +1128,6 @@ int main(int argc, char *argv[]) {
           if (log_fname != NULL)
             fprintf(stderr, "(writing log to %s)\n", log_fname);
         }
-
-        if (msa->ss == NULL) 
-          /* ensures that sufficient stats are obtained only for
-             categories of interest */
-          ss_from_msas(msa, mod->order+1, 0, 
-                       cats_to_do_str != NULL ? cats_to_do : NULL, 
-                       NULL, NULL, -1);
-
-        if (i == 0) ss_collapse_missing(msa, !gaps_as_bases);
-                                /* reduce number of tuples as much as
-                                   possible */
 
         if (use_em)
           tm_fit_em(mod, msa, params, cat, precision, logf);
