@@ -22,7 +22,7 @@ ${EXEC} : ${OBJS} ${PHAST}/lib/libphast.a
 	${CC} ${LFLAGS} ${LIBPATH} -o $@ ${OBJS} ${LIBS} 
 
 %.help : %.help_src
-	../help.sed $< > $@
+	../help-munge.sh $< > $@
 
 clean: 
 	rm -f *.o ${EXEC} ${HELP}
