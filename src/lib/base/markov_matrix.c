@@ -1,4 +1,4 @@
-/* $Id: markov_matrix.c,v 1.2 2004-06-23 21:37:14 acs Exp $
+/* $Id: markov_matrix.c,v 1.3 2005-05-29 22:49:10 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -103,7 +103,7 @@ int mm_validate(MarkovMatrix *M) {
 
   /* ensure square */
   if (M->matrix->size1 != M->matrix->size2) {
-    fprintf(stderr, "Warning validating Markov matrix: matrix is not square (%d x %d).  Will proceed using smaller dimension.\n", M->matrix->size1, M->matrix->size2);    
+    fprintf(stderr, "Warning validating Markov matrix: matrix is not square (%d x %d).  Will proceed using smaller dimension.\n", (int)M->matrix->size1, (int)M->matrix->size2);    
   }
   M->size = M->matrix->size1 <= M->matrix->size2 ? M->matrix->size1 : 
     M->matrix->size2;
