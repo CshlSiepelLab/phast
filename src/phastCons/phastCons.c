@@ -440,7 +440,8 @@ int main(int argc, char *argv[]) {
       die("ERROR: nonparameteric rate variation not allowed with default two-state HMM.\n");
 
     /* set equilibrium frequencies if estimating tree models */
-    if (estim_trees) init_eqfreqs(mod[0], msa, gc);
+    if (estim_trees || (gc != -1 && estim_rho)) 
+      init_eqfreqs(mod[0], msa, gc);
 
     if (lst_size(mod_fname_list) == 1) { /* create 2nd tree model &
                                             rescale first */

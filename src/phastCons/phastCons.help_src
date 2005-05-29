@@ -277,6 +277,8 @@ OPTIONS:
         for fragments of genome-wide alignments, then combined into a
         single set of estimates which are to be applied globally.
         The argument <val> should be between 0 and 1.
+	NOTE: this option can also be used when estimating the scale
+	parameter rho (see --rho). 
 
     --extrapolate, -e <phylog.nh> | default
         Extrapolate to a larger set of species based on the given
