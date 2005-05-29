@@ -16,9 +16,9 @@ typedef struct {
                                 /**< Can be used to force either the
                                    functional transition probs or the
                                    indel transition probs to be fixed */
-  double conserved_scale;       /**< Scaling constant for two-state
+  double rho;			/**< Scaling constant for two-state
                                    rate-variation phylo-HMM */
-  double target_coverage;       /**< Target coverage for two-state
+  double gamma;			/**< Target coverage for two-state
                                    rate-variation phylo-HMM */
   gsl_matrix *H;                /** inverse Hessian for BFGS  */
 } EmData;
@@ -63,7 +63,7 @@ typedef struct {
                                    models, used to define topology
                                    with indel model (in this case, all
                                    topologies must be the same) */
-  double *alpha, *beta, *omega; /**< category-specific indel
+  double *alpha, *beta, *tau; /**< category-specific indel
                                    parameters for parameteric indel
                                    model */
   double **T, **t;              /**< branch-length factors used in
@@ -73,7 +73,7 @@ typedef struct {
 
 /* package of data used in estimation of indel parameters */
 typedef struct {
-  double *u_alpha, *u_beta, *u_omega;
+  double *u_alpha, *u_beta, *u_tau;
   double **u_self, **T, **fcounts;
   int nfunctional_states, current_dest_cat;         
   GapPatternMap *gpm;

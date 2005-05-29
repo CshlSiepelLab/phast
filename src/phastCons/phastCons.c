@@ -8,538 +8,44 @@
 #include <bed.h>
 #include <dgamma.h>
 #include <tree_likelihoods.h>
+#include "phastCons.help"
 
-#define DEFAULT_CONSERVED_SCALE 0.3
+#define DEFAULT_RHO 0.3
 
 /* functions implemented below and used internally */
-void setup_rates_cut(HMM **hmm, CategoryMap **cm, double p, double q);
+void setup_two_state(HMM **hmm, CategoryMap **cm, double mu, double nu);
 
-double fit_rates_cut(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
-                     int estim_trees, double *p, double *q, 
-                     double *alpha_0, double *beta_0, double *omega_0, 
-                     double *alpha_1, double *beta_1, double *omega_1, 
-                     double conserved_scale, double target_coverage, FILE *logf);
+double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
+                     int estim_trees, int estim_rho, double *mu, double *nu, 
+                     double *alpha_0, double *beta_0, double *tau_0, 
+                     double *alpha_1, double *beta_1, double *tau_1, 
+                     double *rho, double gamma, FILE *logf);
 
 void reestimate_trees(void **models, int nmodels, void *data, 
                       double **E, int nobs, FILE *logf);
 
+void reestimate_rho(void **models, int nmodels, void *data, 
+		    double **E, int nobs, FILE *logf);
+
 void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A);
 
-void usage(char *prog) {
-  printf("\n\
-PROGRAM: %s\n\
-\n\
-USAGE: %s [OPTIONS] <msa_fname> <mod_fname_list>\n\
-    The alignment file, <msa_fname>, can be in any of several file\n\
-    formats (see --msa-format); SS format is assumed by default (see\n\
-    msa_view).  The list of *.mod files, <mod_fname_list>, should be\n\
-    comma delimited.  (Files should be as output by phyloFit.)\n\
-\n\
-DESCRIPTION:\n\
-    Identify conserved elements or produce conservation scores, given\n\
-    a multiple alignment and a phylo-HMM.  By default, a phylo-HMM\n\
-    consisting of two states is assumed: a \"conserved\" state and a\n\
-    \"non-conserved\" state.  Separate phylogenetic models can be\n\
-    specified for these two states, e.g.,\n\
-\n\
-        phastCons myfile.ss conserved.mod,non-conserved.mod\n\
-\n\
-    or a single model can be given for the non-conserved state, e.g.,\n\
-\n\
-        phastCons myfile.ss --conserved-scale 0.5 non-conserved.mod\n\
-\n\
-    in which case the model for the conserved state will be obtained\n\
-    by multiplying all branch lengths by the specified factor (must be\n\
-    between 0 and 1; if not specified, the default value of 0.3 will\n\
-    be used).\n\
-\n\
-    By default, the phylogenetic models will be left unaltered, but if\n\
-    the --estimate-trees option is used, e.g.,\n\
-\n\
-        phastCons myfile.ss init.mod --estimate-trees newtree\n\
-\n\
-    then the phylogenetic models for the two states will be estimated\n\
-    from the data and the given model (there must be only one in this\n\
-    case) will be used for initialization only.  (The estimated models\n\
-    for the two states will differ only by a scale factor, which will\n\
-    be estimated from the data.)\n\
-\n\
-    The transition probabilities for the HMM will be estimated from\n\
-    the data using an EM algorithm.  This behavior can be overridden\n\
-    using the --transitions option (see below).  Also, the transition\n\
-    probabilities can be constrained such that the portion of sites\n\
-    predicted to be conserved will be approximately equal to some\n\
-    target value.  For example, to estimate parameters consistent with\n\
-    identifying the 5%% most conserved sites in a genome, use\n\
-    --target-coverage 0.05.  (You must also consider the coverage of\n\
-    your alignments, however.  For example, if only 40%% of the genome\n\
-    of interest is aligned to other genomes and you want to identify\n\
-    the 5%% most conserved sites, use a target coverage of 0.05/0.4 =\n\
-    0.125.)\n\
-\n\
-    It's also possible to use a a k-state phylo-HMM of the kind\n\
-    described by Felsenstein and Churchill (1996) (see --rates-cross),\n\
-    or to define the state-transition structure of the HMM explicitly\n\
-    (see --hmm).  In the Felsenstein-Churchill case, a single\n\
-    phylogenetic model (*.mod file) must be given, and this model must\n\
-    allow for variation in evolutionary rate (it can be produced using\n\
-    the -k/-K options to phyloFit).  In the --hmm case, a model file\n\
-    must be given for each state in the HMM.  These files must be\n\
-    given in the same order as the states in the HMM file.\n\
-\n\
-    By default, the program computes the posterior probability at each\n\
-    site of the *first* state (index 0) in the HMM.  In the cases of the\n\
-    default two-state HMM and the Felsenstein-Churchill HMM, this is the\n\
-    most conserved state, and these probabilities can be interpreted as\n\
-    conservation scores.  They are written to stdout in fixed-step\n\
-    WIG format (http://genome.ucsc.edu/encode/submission.html#WIG).  The\n\
-    set of states whose total (marginal) posterior probability is\n\
-    reported can be changed using the --states option.  In addition,\n\
-    discrete elements can be predicted using the --viterbi option, and\n\
-    they can be assigned log-odds scores using the --score option.\n\
-    The set of states considered when predicting discrete elements is\n\
-    also defined by --states.\n\
-\n\
-    This program is written in a general enough way that it can be\n\
-    useful for other things besides analyzing rates of substitution\n\
-    and evolutionary conservation.  E.g., by giving it a simple\n\
-    gene-finding phylo-HMM (e.g., with a state for non-coding regions\n\
-    and three states for the three codon positions), and specifying\n\
-    the coding states via --states, you can obtain posterior\n\
-    probabilities that can be interpreted as a measure of \"coding\n\
-    potential.\" (The --coding-potential option sets appropriate\n\
-    defaults for such an application).\n\
-\n\
-EXAMPLES:\n\
-    1. Fit a phylogenetic model to a data set, then produce\n\
-    conservation scores via a two-state phylo-HMM.  Use an input file\n\
-    in SS format.\n\
-\n\
-        phyloFit --tree mytree.nh mydata.ss --msa-format SS \\\n\
-            --out-root init\n\
-        phastCons mydata.ss init.mod --target-coverage 0.10 \\\n\
-            --estimate-trees newtree > cons.dat\n\
-\n\
-    2. As in (1), but also predict discrete conserved elements and\n\
-    score them using log-odds scoring.  This time, use the tree models\n\
-    that were estimated above.  Write predictions in BED format to\n\
-    elements.bed.\n\
-\n\
-        phastCons mydata.ss newtree.cons.mod,newtree.noncons.mod \\\n\
-             --target-coverage 0.10 --viterbi elements.bed \\\n\
-             --score > cons.dat\n\
-\n\
-    (if output file were \"elements.gff,\" then output would be in GFF\n\
-    instead)\n\
-\n\
-    3. As above, but bypass finding the maximum likelihood estimate of\n\
-    the state transition probabilities, and instead just use the value\n\
-    given (much faster).\n\
-\n\
-        phastCons mydata.ss newtree.cons.mod,newtree.noncons.mod \\\n\
-            --transitions 0.01 --target-coverage 0.10 \\\n\
-            --viterbi elements.bed --score > cons.dat\n\
-\n\
-    (Notice that two transition parameters are required without\n\
-    --target-coverage and only one with --target-coverage; see details\n\
-    below)\n\
-\n\
-    4. Similar to above, but this time use a k-state HMM with transition\n\
-    probabilities defined by an autocorrelation parameter lambda, as\n\
-    described by Felsenstein and Churchill (1996).  Use k = 10 states\n\
-    and estimate the parameter lambda from the data.  Report posterior\n\
-    probabilities not just of the single most conserved state, but of\n\
-    the two most conserved states.\n\
-\n\
-        phastCons mydata.ss rev-dg.mod --rates-cross --nrates 10 \\\n\
-            --states 0,1 > cons.dat\n\
-\n\
-    5. As in (4), but fix lambda at 0.9 rather than estimating it from\n\
-    the data.\n\
-\n\
-        phastCons mydata.ss rev-dg.mod --rates-cross --nrates 10 \\\n\
-            --states 0,1 --lambda 0.9 > cons.dat\n\
-\n\
-    6. Compute a coding potential score, using a simple gene-finding\n\
-    HMM and phylogenetic models for the three codon positions and\n\
-    non-coding sites.  Allow for genes on either strand.\n\
-\n\
-        phastCons mydata.ss noncoding.mod,codon1.mod,codon2.mod,codon3.mod \\\n\
-            --hmm simple-4state.hmm --reflect-strand 0 --states 1,2,3 \\\n\
-            > coding-potential.dat\n\
-\n\
-    7. Compute a coding potential score using a default phylo-HMM,\n\
-    a simplified version of the one used in exoniphy.  Allows for\n\
-    conserved non-coding sequences and makes use of the different\n\
-    patterns of indels seen in coding and non-coding regions.\n\
-    Currently assumes a human/mouse/rat alignment.\n\
-\n\
-        phastCons --coding-potential human-mouse-rat.ss > cp.dat\n\
-\n\
-\n\
-OPTIONS:\n\
-\n\
- (HMM structure and transition probabilities)\n\
-    --hmm, -H <hmm_fname>\n\
-        Name of HMM file explicitly defining the probabilities of all\n\
-        state transitions.  States in the file must correspond in\n\
-        number and order to phylogenetic models in <mod_fname_list>.\n\
-        Expected file format is as produced by 'hmm_train.'\n\
-\n\
-    --catmap, -c <fname>|<string>\n\
-        (Optionally use with --hmm)  Mapping of feature types to category\n\
-        numbers.  Can give either a filename or an \"inline\" description\n\
-        of a simple category map, e.g., --catmap \"NCATS = 3 ; CDS 1-3\".\n\
-\n\
-    --rates-cross, -X\n\
-        (Alternative to --hmm; specify only one *.mod file with this\n\
-        option) Use an HMM with a state for every rate\n\
-        category in the given phylogenetic model, and transition\n\
-        probabilities defined by an autocorrelation parameter lambda\n\
-        (as described by Felsenstein and Churchill, 1996).  A rate\n\
-        constant for each state (rate category) will be multiplied by\n\
-        the branch lengths of the phylogenetic model, to create a\n\
-        \"scaled\" version of the model for that state.  If the\n\
-        phylogenetic model was estimated using Yang's discrete gamma\n\
-        method (-k option to phyloFit), then the rate constants will\n\
-        be defined according to the estimated shape parameter 'alpha',\n\
-        as described by Yang (1994).  Otherwise, a nonparameteric\n\
-        model of rate variation must have been used (-K option to\n\
-        phyloFit), and the rate constants will be as defined\n\
-        (explicitly) in the *.mod file.  By default, the parameter\n\
-        lambda will be estimated by maximum likelihood (see --lambda).\n\
-\n\
-    --lambda, -l [~]<lambda>\n\
-        (Optionally use with --rates-cross) Fix lambda at the\n\
-        specified value rather than estimating it by maximum\n\
-        likelihood.  Alternatively, if first character is '~',\n\
-        estimate but initialize at specified value.  Allowable range\n\
-        is 0-1.  With k rate categories, the transition probability\n\
-        between state i and state j will be lambda * I(i == j) +\n\
-        (1-lambda)/k, where I is the indicator function.  Thus, lambda\n\
-        = 0 implies no autocorrelation and lambda = 1 implies perfect\n\
-        autocorrelation.\n\
-\n\
-    --transitions, -t [~]<p>,<q> | [~]<p>\n\
-        (Optionally use with default two-state HMM) Fix the transition\n\
-        probabilities of the two-state HMM as specified, rather than\n\
-        estimating them by maximum likelihood.  Alternatively, if\n\
-        first character of argument is '~', estimate parameters, but\n\
-        initialize with specified values.  The argument <p> is the\n\
-        probability of transitioning from the conserved to the\n\
-        non-conserved state, and <q> is the probability of the reverse\n\
-        transition (probabilities of self transitions are thus 1-<p>\n\
-        and 1-<q> and expected lengths of conserved and nonconserved\n\
-        elements are (1-p)/p and (1-q)/q, respectively).  If --target-\n\
-        coverage is used (see below), then <p> may be specified alone.\n\
-\n\
-    --target-coverage, -C <coverage>\n\
-        (Optionally use with default two-state HMM) Constrain\n\
-        transition parameters such that the expected portion of\n\
-        conserved sites is <coverage> (a number between 0 and 1).\n\
-        This is a *prior* rather than *posterior* expectation and\n\
-        assumes stationarity of the state-transition process.  Adding\n\
-        this constraint causes the ratio p/q to be fixed at\n\
-        (1-coverage)/coverage.  Therefore, any value of <q> specified\n\
-        via --transitions will be ignored; only <p> will be used.\n\
-\n\
-    --expected-lengths, -E [~]<len1>,<len2> | [~]<len1>\n\
-        (Alternative to --transitions)  Set transition probabilities\n\
-        such that the expected lengths of conserved and non-conserved\n\
-        regions are <len1> and <len2>, respectively.  Using this\n\
-        option is equivalent to using --transitions with arguments of\n\
-        1/(1+<len1>) and 1/(1+<len2>).  As with --transitions, the\n\
-        second argument is optional (and will be ignored) if\n\
-        --target-coverage is used.\n\
-\n\
-    --ignore-missing, -z\n\
-        (For use when estimating transition probabilities) Ignore\n\
-        regions of missing data (i.e., in all sequences but the\n\
-        reference sequence, excluding those specified by\n\
-        --not-informative) when estimating transition probabilities.\n\
-        Can help avoid too-low estimates of <p> and <q> or too-high\n\
-        estimates of <lambda>.  Warning: this option should be used\n\
-        with --no-post-probs and without --viterbi because coordinates\n\
-        in output will be unrecognizable.\n\
-\n\
-    --nrates, -k <nrates> | <nrates_conserved,nrates_nonconserved>\n\
-        (Optionally use with a discrete-gamma model) Assume the\n\
-        specified number of rate categories, instead of the number\n\
-        given in the *.mod file.  The shape parameter 'alpha' will be\n\
-        as given in the *.mod file.  In the case of the default\n\
-        two-state HMM, two values can be specified, for the numbers of\n\
-        rates for the conserved and the nonconserved states, resp.\n\
-\n\
- (Tree models)\n\
-    --estimate-trees, -T <fname_root>\n\
-        (Optionally use with default two-state HMM) Re-estimate tree\n\
-        model parameters, in the context of the two-state HMM, and\n\
-        write new models to files with given file-name root (filenames\n\
-        will be given suffixes \".cons.mod\" and \".noncons.mod\").  \n\
-\n\
-    --conserved-scale, -R <scale_factor>\n\
-        (Optionally use with default two-state HMM) Set the *scale*\n\
-        (overall evolutionary rate) of the model for the conserved\n\
-        state to be <scale_factor> times that of the model for the\n\
-        non-conserved state.  The parameter <scale_factor> must be\n\
-        between 0 and 1; default is 0.3.  If used with\n\
-        --estimate-trees, the specified value will be used for\n\
-        initialization only (the scale factor will be estimated).\n\
-        This option is ignored if two tree models are given.\n\
-\n\
-    --gc, -G <val>\n\
-        (Optionally use with --estimate-trees) Assume equilibrium base\n\
-        frequencies consistent with the given average G+C content when\n\
-        estimating tree models.  (The frequencies of G and C will be\n\
-        set to <val>/2 and the frequencies of A and T will be set to\n\
-        (1-<val>)/2.)  This option overrides the default behavior of\n\
-        estimating the equilibrium frequencies to be equal to the\n\
-        relative frequencies observed in the data.  It can be useful\n\
-        when model parameters are to be estimated separately, e.g.,\n\
-        for fragments of genome-wide alignments, then combined into a\n\
-        single set of estimates which are to be applied globally.\n\
-        The argument <val> should be between 0 and 1.\n\
-\n\
-    --extrapolate, -e <phylog.nh> | default\n\
-        Extrapolate to a larger set of species based on the given\n\
-        phylogeny (Newick-format).  The trees in the given tree models\n\
-        (*.mod files) must be subtrees of the larger phylogeny.  For\n\
-        each tree model M, a copy will be created of the larger\n\
-        phylogeny, then scaled such that the total branch length of\n\
-        the subtree corresponding to M's tree equals the total branch\n\
-        length of M's tree; this new version will then be used in\n\
-        place of M's tree.  (Any species name present in this tree but\n\
-        not in the data will be ignored.)  If the string \"default\"\n\
-        is given instead of a filename, then a phylogeny for 25\n\
-        vertebrate species, estimated from sequence data for Target 1\n\
-        (CFTR) of the NISC Comparative Sequencing Program (Thomas et\n\
-        al., 2003), will be assumed.\n\
-\n\
- (Indels, forward/reverse strands, missing data, and coding potential)\n\
-    --indels, -I\n\
-        (Optionally use with --hmm) Expand HMM state space to model\n\
-        indels as described in Siepel & Haussler (2004).\n\
-\n\
-    --max-micro-indel, -Y <length> \n\
-        (Optionally use with --indels) Maximum length of an alignment\n\
-        gap to be considered a \"micro-indel\" and therefore\n\
-        addressed by the indel model.  Gaps longer than this threshold\n\
-        will be treated as missing data.  Default value is 20.\n\
-\n\
-    --indel-params, -D [~]<alpha_0,beta_0,omega_0,alpha_1,beta_1,omega_1>\n\
-        (Optionally use with --indels and default two-state HMM) Fix\n\
-        the indel parameters at (alpha_0, beta_0, omega_0) for the\n\
-        conserved state and at (alpha_1, beta_1, omega_1) for the\n\
-        non-conserved state, rather than estimating them by maximum\n\
-        likelihood.  Alternatively, if first character of argument is\n\
-        '~', estimate parameters, but initialize with specified\n\
-        values.  Alpha_j is the rate of insertion events per\n\
-        substitution per site in state j (typically ~0.05), beta_j is\n\
-        the rate of deletion events per substitution per site in state\n\
-        j (typically ~0.05), and omega_j is approximately the inverse\n\
-        of the expected indel length in state j (typically 0.2-0.5).\n\
-\n\
-    --reflect-strand, -U <pivot_states>\n\
-        (Optionally use with --hmm) Given an HMM describing the\n\
-        forward strand, create a larger HMM that allows for features\n\
-        on both strands by \"reflecting\" the original HMM about the\n\
-        specified \"pivot\" states.  The new HMM will be used for\n\
-        prediction on both strands.  States can be specified by number\n\
-        (indexing starts with 0), or if --catmap, by category name.\n\
-\n\
-    --require-informative, -M <list>\n\
-        Require \"informative\" columns (i.e., columns with\n\
-        more than two non-missing-data characters, excluding sequences\n\
-        specified by --not-informative) in the specified HMM states.\n\
-        States can be specified by number (indexing starts with 0) or,\n\
-        if --catmap is used, by category name.  Non-informative\n\
-        columns will be given emission probabilities of zero.  This\n\
-        option can be used to eliminate false positive predictions in\n\
-        regions of missing data.\n\
-\n\
-    --not-informative, -F <list>\n\
-        Do not consider the specified sequences (listed by name) when\n\
-        deciding whether a column is informative.  This option can be\n\
-        useful when sequences are present that are very close to the\n\
-        reference sequence and thus do not contribute much in the way\n\
-        of phylogenetic information.  E.g., one might use\n\
-        \"--not-informative chimp\" with a human-referenced multiple\n\
-        alignment including chimp sequence.\n\
-\n\
-    --coding-potential, -p\n\
-        Use parameter settings that cause output to be interpretable\n\
-        as a coding potential score.  By default, a simplified version\n\
-        of exoniphy's phylo-HMM is used, with a noncoding\n\
-        (background) state, a conserved non-coding (CNS) state, and\n\
-        states for the three codon positions.  This option implies\n\
-        --catmap \"NCATS=4; CNS 1; CDS 2-4\" --hmm <default-HMM-file>\n\
-        --states CDS --reflect-strand background,CNS\n\
-        --require-informative CDS, plus a set of default *.mod files.\n\
-        (All of these options can be overridden; --coding potential can\n\
-        be used with or without --indels.)\n\
-\n\
-    --indels-only, -J\n\
-        Like --indels but force the use of a single-state HMM.  This\n\
-        option allows the effect of the indel model in isolation to be\n\
-        observed.  Implies --no-post-probs.  Use with --lnl.\n\
-\n\
- (Output)\n\
-    --states, -S <state_list>\n\
-        States of interest in the phylo-HMM, specified by number\n\
-        (indexing starts with 0), or if --catmap, by category name.\n\
-        Default value is 1.  Choosing --states \"0,1,2\" will cause\n\
-        output of the sum of the posterior probabilities for states 0,\n\
-        1, and 2, and/or of regions in which the Viterbi path\n\
-        coincides with (any of) states 0, 1, or 2 (see --viterbi).\n\
-\n\
-    --viterbi, -V <fname>\n\
-        Compute the Viterbi (maximum likelihood) path and write\n\
-        start and end coordinates of predicted elements to specified\n\
-        file.  Output is in BED format, unless <fname> has suffix\n\
-        \".gff\", in which case output is in GFF.  The features\n\
-        output will represent maximal segments in which the Viterbi\n\
-        path remains in the selected set of states (see --states).\n\
-\n\
-    --score, -s\n\
-        (Optionally use with --viterbi) Assign a log-odds score to\n\
-        each predictions, equal to the log total probability of the\n\
-        region in question under the portion of the model defined by\n\
-        --states minus its log total probability under the remainder\n\
-        of the model.  To compute these scores, the states of the\n\
-        model are partitioned and transition probabilities are\n\
-        re-normalized.\n\
-\n\
-    --lnl, -L <fname>\n\
-        Compute total log likelihood using the forward algorithm and\n\
-        write it to the specified file.\n\
-\n\
-    --no-post-probs, -n\n\
-        Suppress output of posterior probabilities.  Useful if only\n\
-        Viterbi path or likelihood is of interest.\n\
-\n\
-    --log, -g <log_fname>\n\
-        (Optionally use when estimating transition probabilities)\n\
-        Write log of optimization procedure to specified file.\n\
-\n\
-    --refidx, -r <refseq_idx>\n\
-        Use coordinate frame of specified sequence (the value 0\n\
-        indicates the frame of the entire multiple alignment) in\n\
-        output.  Default value is 1 (first sequence assumed\n\
-        reference).\n\
-\n\
-    --seqname, -N <name>\n\
-        (Optionally use with --viterbi) Use specified string for\n\
-        'seqname' (GFF) or 'chrom' field in output file.  Default\n\
-        is obtained from input file name (double filename\n\
-        root, e.g., \"chr22\" if input file is \"chr22.35.ss\").\n\
-\n\
-    --idpref, -P <name>\n\
-        (Optionally use with --viterbi) Use specified string as\n\
-        prefix of generated ids in output file.  Can be used to\n\
-        ensure ids are unique.  Default is obtained from input\n\
-        file name (single filename root, e.g., \"chr22.35\" if\n\
-        input file is \"chr22.35.ss\").\n\
-\n\
- (Other)\n\
-    --msa-format, -i PHYLIP|FASTA|MPM|SS|MAF\n\
-        (Default SS) Alignment file format.\n\
-\n\
-    --alias, -A <alias_def>\n\
-        Alias names in input alignment according to given definition,\n\
-        e.g., \"hg17=human; mm5=mouse; rn3=rat\".  Useful with default\n\
-        *.mod files, e.g., with --coding-potential.  (Default models\n\
-        use generic common names such as \"human\", \"mouse\", and\n\
-        \"rat\".  This option allows a mapping to be established\n\
-        between the leaves of trees in these files and the sequences\n\
-        of an alignment that uses an alternative naming convention.)\n\
-\n\
-    --quiet, -q\n\
-        Proceed quietly (without updates to stderr).\n\
-\n\
-    --help, -h\n\
-        Print this help message.\n\
-\n\
-\n\
-REFERENCES:\n\
-\n\
-    J. Felsenstein and G. Churchill.  1996. A hidden Markov model\n\
-      approach to variation among sites in rate of evolution.\n\
-      Mol. Biol. Evol., 13:93-104.\n\
-\n\
-    A. Siepel and D. Haussler.  2003.  Combining phylogenetic and\n\
-      hidden Markov models in biosequence analysis.  RECOMB '03.\n\
-\n\
-    A. Siepel and D. Haussler.  2004.  Computational identification of\n\
-      evolutionarily conserved exons.  Proc. 8th Annual Int'l Conf.\n\
-      on Research in Computational Biology (RECOMB '04), pp. 177-186.\n\
-\n\
-    J. Thomas et al.  2003.  Comparative analyses of multi-species\n\
-      sequences from targeted genomic regions.  Nature 424:788-793.\n\
-\n\
-    Z. Yang. 1994. Maximum likelihood phylogenetic estimation from\n\
-      DNA sequences with variable rates over sites: approximate\n\
-      methods. J. Mol. Evol., 39:306-314.\n\n", prog, prog);
+void collapse_cats(CategoryMap *cm, List *cats_to_merge);
 
-  exit(0);
-}
+void init_eqfreqs(TreeModel *mod, MSA *msa, double gc);
 
-/* attempts to merge cats by incorporating together into ranges */
-void collapse_cats(CategoryMap *cm, List *cats_to_merge) {
-  /* assumes all ranges are of size one initially */
-  int i, beg, end = -INFTY;
-  lst_qsort_int(cats_to_merge, ASCENDING);
-  for (i = 0; i < lst_size(cats_to_merge); i++) {
-    int cat = lst_get_int(cats_to_merge, i);
-    if (cat == end + 1) {
-      cm_free_category_range(cm->ranges[cat]);
-      cm->ranges[cat] = cm->ranges[beg];
-      end = cat;
-      cm->ranges[beg]->end_cat_no = end;
-    }
-    else beg = end = cat;
-  }
-}
-
-/* initialize equilibrium freqs for tree model; either make consistent
-   with given G+C content or estimate from alignment */
-void init_eqfreqs(TreeModel *mod, MSA *msa, double gc) {
-  if (gc != -1) {               /* gc specified */
-    if (strlen(mod->rate_matrix->states) != 4 || 
-        mod->rate_matrix->inv_states[(int)'A'] < 0 ||
-        mod->rate_matrix->inv_states[(int)'C'] < 0 ||
-        mod->rate_matrix->inv_states[(int)'G'] < 0 ||
-        mod->rate_matrix->inv_states[(int)'T'] < 0)
-      die("ERROR: Four-character DNA alphabet required with --gc.\n");
-    assert(gc > 0 && gc < 1);
-    gsl_vector_set(mod->backgd_freqs, 
-                   mod->rate_matrix->inv_states[(int)'G'], gc/2);
-    gsl_vector_set(mod->backgd_freqs, 
-                   mod->rate_matrix->inv_states[(int)'C'], gc/2);
-    gsl_vector_set(mod->backgd_freqs, 
-                   mod->rate_matrix->inv_states[(int)'A'], (1-gc)/2);
-    gsl_vector_set(mod->backgd_freqs, 
-                   mod->rate_matrix->inv_states[(int)'T'], (1-gc)/2);
-  }
-  else {                        /* estimate from alignment */
-    if (mod->subst_mod == JC69 || mod->subst_mod == K80)
-      gsl_vector_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
-    else
-      msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order+1, -1);
-  }
-}
 
 int main(int argc, char *argv[]) {
 
   /* arguments and defaults */
   int post_probs = TRUE, score = FALSE, quiet = FALSE, 
-    gff = FALSE, rates_cross = FALSE, estim_lambda = TRUE, 
+    gff = FALSE, FC = FALSE, estim_lambda = TRUE, 
     estim_transitions = TRUE, two_state = TRUE, indels = FALSE,
     coding_potential = FALSE, indels_only = FALSE, estim_indels = TRUE,
-    estim_trees = FALSE, ignore_missing = FALSE;
+    estim_trees = FALSE, ignore_missing = FALSE, estim_rho = FALSE;
   int nrates = -1, nrates2 = -1, refidx = 1, max_micro_indel = 20;
-  double lambda = 0.9, p = 0.01, q = 0.01, alpha_0 = 0.05, beta_0 = 0.05, 
-    omega_0 = 0.45, alpha_1 = 0.05, beta_1 = 0.05, omega_1 = 0.2, gc = -1,
-    target_coverage = -1, conserved_scale = DEFAULT_CONSERVED_SCALE;
+  double lambda = 0.9, mu = 0.01, nu = 0.01, alpha_0 = 0.05, beta_0 = 0.05, 
+    tau_0 = 0.45, alpha_1 = 0.05, beta_1 = 0.05, tau_1 = 0.2, gc = -1,
+    gamma = -1, rho = DEFAULT_RHO;
   msa_format_type msa_format = SS;
   FILE *viterbi_f = NULL, *lnl_f = NULL, *log_f = NULL;
   List *states = NULL, *pivot_states = NULL, *inform_reqd = NULL, 
@@ -554,15 +60,16 @@ int main(int argc, char *argv[]) {
     {"states", 1, 0, 'S'},
     {"hmm", 1, 0, 'H'},
     {"viterbi", 1, 0, 'V'},
+    {"most-conserved", 1, 0, 'V'}, /* same as --viterbi */
     {"no-post-probs", 0, 0, 'n'},
     {"msa-format", 1, 0, 'i'},
-    {"rates-cross", 0, 0, 'X'},
+    {"FC", 0, 0, 'X'},
     {"lambda", 1, 0, 'l'},
     {"target-coverage", 1, 0, 'C'},
     {"transitions", 1, 0, 't'},
     {"expected-lengths", 1, 0, 'E'},
     {"estimate-trees", 1, 0, 'T'},
-    {"conserved-scale", 1, 0, 'R'},
+    {"rho", 1, 0, 'R'},
     {"gc", 1, 0, 'G'},
     {"ignore-missing", 0, 0, 'z'},
     {"nrates", 1, 0, 'k'},
@@ -575,7 +82,7 @@ int main(int argc, char *argv[]) {
     {"indels", 0, 0, 'I'},
     {"max-micro-indel", 1, 0, 'Y'},
     {"indel-params", 1, 0, 'D'},
-    {"min-informative-types", 1, 0, 'M'}, /* for backward compatibilitye */
+    {"min-informative-types", 1, 0, 'M'}, /* for backward compatibility */
     {"require-informative", 1, 0, 'M'},
     {"not-informative", 1, 0, 'F'},
     {"lnl", 1, 0, 'L'},
@@ -603,7 +110,8 @@ int main(int argc, char *argv[]) {
   char *mods_fname = NULL, *newname;
   indel_mode_type indel_mode;
 
-  while ((c = getopt_long(argc, argv, "S:H:V:ni:k:l:C:G:zt:E:R:T:r:xL:s:N:P:g:U:c:e:IY:D:JM:F:pA:Xqh", 
+  while ((c = getopt_long(argc, argv, 
+			  "S:H:V:ni:k:l:C:G:zt:E:R:T:r:xL:s:N:P:g:U:c:e:IY:D:JM:F:pA:Xqh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
@@ -627,7 +135,7 @@ int main(int argc, char *argv[]) {
       if (msa_format == -1) die("ERROR: bad argument to --msa-format\n");
       break;
     case 'X':
-      rates_cross = TRUE;
+      FC = TRUE;
       two_state = FALSE;
       break;
     case 'l':
@@ -636,7 +144,7 @@ int main(int argc, char *argv[]) {
       lambda = get_arg_dbl_bounds(optarg, 0, 1);
       break;
     case 'C':
-      target_coverage = get_arg_dbl_bounds(optarg, 0, 1);
+      gamma = get_arg_dbl_bounds(optarg, 0, 1);
       break;
     case 'G':
       gc = get_arg_dbl_bounds(optarg, 0, 1);
@@ -647,9 +155,9 @@ int main(int argc, char *argv[]) {
       tmpl = get_arg_list_dbl(optarg);
       if (lst_size(tmpl) > 2) 
         die("ERROR: bad argument to --transitions.\n");
-      p = lst_get_dbl(tmpl, 0);
-      if (lst_size(tmpl) == 2) q = lst_get_dbl(tmpl, 1);
-      if (p <= 0 || p >= 1 || q <= 0 || q >= 1)
+      mu = lst_get_dbl(tmpl, 0);
+      if (lst_size(tmpl) == 2) nu = lst_get_dbl(tmpl, 1);
+      if (mu <= 0 || mu >= 1 || nu <= 0 || nu >= 1)
         die("ERROR: bad argument to --transitions.\n");
       lst_free(tmpl);
       break;
@@ -659,9 +167,9 @@ int main(int argc, char *argv[]) {
       tmpl = get_arg_list_dbl(optarg);
       if (lst_size(tmpl) > 2) 
         die("ERROR: bad argument to --expected-lengths.\n");
-      p = 1.0/(1.0+lst_get_dbl(tmpl, 0));
-      if (lst_size(tmpl) == 2) q = 1.0/(1.0+lst_get_dbl(tmpl, 1));
-      if (p <= 0 || p >= 1 || q <= 0 || q >= 1)
+      mu = 1.0/lst_get_dbl(tmpl, 0);
+      if (lst_size(tmpl) == 2) nu = 1.0/lst_get_dbl(tmpl, 1);
+      if (mu <= 0 || mu >= 1 || nu <= 0 || nu >= 1)
         die("ERROR: bad argument to --expected-lengths.\n");
       lst_free(tmpl);
       break;
@@ -687,7 +195,8 @@ int main(int argc, char *argv[]) {
       lst_free(tmpl);
       break;
     case 'R':
-      conserved_scale = get_arg_dbl_bounds(optarg, 0, 1);
+      if (optarg[0] == '~') { estim_rho = TRUE; optarg = &optarg[1]; }
+      rho = get_arg_dbl_bounds(optarg, 0, 1);
       break;
     case 'g':
       if (!strcmp(optarg, "-")) log_f = stderr;
@@ -719,12 +228,12 @@ int main(int argc, char *argv[]) {
       if (lst_size(tmpl) != 6) die("ERROR: bad argument to --indel-params.\n");
       alpha_0 = lst_get_dbl(tmpl, 0);
       beta_0 = lst_get_dbl(tmpl, 1);
-      omega_0 = lst_get_dbl(tmpl, 2);
+      tau_0 = lst_get_dbl(tmpl, 2);
       alpha_1 = lst_get_dbl(tmpl, 3);
       beta_1 = lst_get_dbl(tmpl, 4);
-      omega_1 = lst_get_dbl(tmpl, 5);
-      if (alpha_0 < 0 || beta_0 < 0 || omega_0 < 0 || 
-          alpha_1 < 0 || beta_1 < 0 || omega_1 < 0)
+      tau_1 = lst_get_dbl(tmpl, 5);
+      if (alpha_0 < 0 || beta_0 < 0 || tau_0 < 0 || 
+          alpha_1 < 0 || beta_1 < 0 || tau_1 < 0)
         die("ERROR: bad argument to --indel-params.\n");
       lst_free(tmpl);
       break;
@@ -765,26 +274,28 @@ int main(int argc, char *argv[]) {
       quiet = TRUE;
       break;
     case 'h':
-      usage(argv[0]);
+      printf(HELP);
+      exit(0);
     case '?':
       die("Bad argument.  Try '%s -h'.\n", argv[0]);
     }
   }
 
-  if ((hmm != NULL && rates_cross))
-    die("ERROR: --hmm and --rates-cross are mutually exclusive.\n");
+  /* enforce usage rules */
+  if ((hmm != NULL && FC))
+    die("ERROR: --hmm and --FC are mutually exclusive.\n");
 
-  if (indels_only && (hmm != NULL || rates_cross))
-    die("ERROR: --indels-only cannot be used with --hmm or --rates-cross.\n");
+  if (indels_only && (hmm != NULL || FC))
+    die("ERROR: --indels-only cannot be used with --hmm or --FC.\n");
 
-  if ((estim_trees || target_coverage != -1) && !two_state)
-    die("ERROR: --estimate-trees, and --target-coverage can only be used with default two-state HMM.\n");
+  if ((estim_trees || gamma != -1 || estim_rho) && !two_state)
+    die("ERROR: --estimate-trees, --target-coverage, and --rho can only be used with default two-state HMM.\n");
 
   if (cm != NULL && hmm == NULL) 
     die("ERROR: --catmap can only be used with --hmm.\n");
   
-  if (indels == TRUE && rates_cross)
-    die("ERROR: --indels cannot be used with --rates-cross.\n");
+  if (indels == TRUE && FC)
+    die("ERROR: --indels cannot be used with --FC.\n");
 
   if (nrates != -1 && hmm != NULL)
     die("ERROR: --nrates currently can't be used with --hmm.\n");
@@ -878,8 +389,8 @@ int main(int argc, char *argv[]) {
   /* read tree models */
   mod_fname_list = get_arg_list(mods_fname);
 
-  if ((rates_cross || indels_only) && lst_size(mod_fname_list) != 1)
-    die("ERROR: only one tree model allowed with --rates-cross and --indels-only.\n");
+  if ((FC || indels_only) && lst_size(mod_fname_list) != 1)
+    die("ERROR: only one tree model allowed with --FC and --indels-only.\n");
 
   if (two_state && lst_size(mod_fname_list) > 2)
     die("ERROR: must specify either one or two tree models with default two-state model.\n");
@@ -920,8 +431,7 @@ int main(int argc, char *argv[]) {
     lst_free(pruned_names);
   }
 
-  /* initial checks and setup of tree models with two-state and
-     rates-cross options */
+  /* initial checks and setup of tree models for two-state and FC */
   if (two_state) {
     if (lst_size(mod_fname_list) == 2 && estim_trees)
       die("ERROR: If re-estimating tree models, pass in only one model for initialization.\n");
@@ -936,14 +446,14 @@ int main(int argc, char *argv[]) {
                                             rescale first */
       mod = srealloc(mod, 2 * sizeof(void*));
       mod[1] = tm_create_copy(mod[0]);
-      tm_scale(mod[0], conserved_scale, TRUE);
+      if (!estim_rho) tm_scale(mod[0], rho, TRUE);
     }
     if (nrates != -1 && nrates != mod[0]->nratecats) 
       tm_reinit(mod[0], mod[0]->subst_mod, nrates, mod[0]->alpha, NULL, NULL);
     if (nrates2 != -1 && nrates2 != mod[1]->nratecats) 
       tm_reinit(mod[1], mod[1]->subst_mod, nrates2, mod[1]->alpha, NULL, NULL);
   }
-  else if (rates_cross) {
+  else if (FC) {
     if (mod[0]->nratecats <= 1)
       die("ERROR: a tree model allowing for rate variation is required.\n");
     if (nrates != -1 && mod[0]->empirical_rates)
@@ -973,12 +483,12 @@ int main(int argc, char *argv[]) {
   if (two_state) {
     if (!quiet) 
       fprintf(stderr, "Creating 'conserved' and 'nonconserved' states in HMM...\n");
-    if (target_coverage != -1) {
-      q = target_coverage/(1-target_coverage) * p;
-      if (q >= 1) 
-        die("ERROR: p=%f and coverage=%f imply q >= 1.\n", p, target_coverage);
+    if (gamma != -1) {
+      nu = gamma/(1-gamma) * mu;
+      if (nu >= 1) 
+        die("ERROR: mu=%f and gamma=%f imply nu >= 1.\n", mu, gamma);
     }
-    setup_rates_cut(&hmm, &cm, p, q);
+    setup_two_state(&hmm, &cm, mu, nu);
   }
   else if (cm == NULL)
     cm = cm_create_trivial(lst_size(mod_fname_list)-1, NULL);
@@ -991,15 +501,14 @@ int main(int argc, char *argv[]) {
 
   phmm = phmm_new(hmm, mod, cm, pivot_states, indel_mode);
 
-  if (rates_cross) {
+  if (FC) {
     if (!quiet) 
       fprintf(stderr, "Creating %d scaled versions of tree model...\n", nrates);
     phmm_rates_cross(phmm, nrates, lambda, TRUE);
   }
 
   /* set min informative bases, if necessary.  This has to be done
-     *after* the set of models is expanded (two-state or
-     rates-cross) */
+     *after* the set of models is expanded (two-state or FC) */
   if (inform_reqd != NULL) {
     List *l = cm_get_category_list(cm, inform_reqd, 0);
     for (i = 0; i < lst_size(l); i++) {
@@ -1015,41 +524,52 @@ int main(int argc, char *argv[]) {
   phmm_compute_emissions(phmm, msa, quiet);
 
   /* estimate lambda, if necessary */
-  if (rates_cross && estim_lambda) {
-    if (!quiet) fprintf(stderr, "Finding MLE for lambda ...");
+  if (FC && estim_lambda) {
+    if (!quiet) fprintf(stderr, "Finding MLE for lambda...");
     lnl = phmm_fit_lambda(phmm, &lambda, log_f);
     if (!quiet) fprintf(stderr, " (lambda = %f)\n", lambda);
     phmm_update_cross_prod(phmm, lambda);
   }
 
-  /* estimate p and q and indel params, if necessary */
-  else if (two_state && (estim_transitions || estim_indels || estim_trees)) {
+  /* estimate mu and nu and indel params, if necessary */
+  else if (two_state && 
+	   (estim_transitions || estim_indels || estim_trees || estim_rho)) {
+    char cons_fname[STR_MED_LEN], noncons_fname[STR_MED_LEN];
     if (!quiet) {
       fprintf(stderr, "Finding MLE for (");
       if (estim_transitions) 
-        fprintf(stderr, "p, q%s", estim_indels || estim_trees ? ", " : "");
+        fprintf(stderr, "mu, nu%s", estim_indels || estim_trees || estim_rho 
+		? ", " : "");
       if (estim_indels) 
-        fprintf(stderr, "alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1%s",
-                estim_trees ? ", " : "");
+        fprintf(stderr, "alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1%s",
+                estim_trees || estim_rho ? ", " : "");
       if (estim_trees)
         fprintf(stderr, "[tree models]");
+      else if (estim_rho) 
+        fprintf(stderr, "rho");
       fprintf(stderr, ")...\n");
     }
-    lnl = fit_rates_cut(phmm, msa, estim_transitions, estim_indels, estim_trees,
-                        &p, &q, &alpha_0, &beta_0, &omega_0, 
-                        &alpha_1, &beta_1, &omega_1, conserved_scale,
-                        target_coverage, log_f);
-    if (!quiet && (estim_transitions || estim_indels)) {      
+    lnl = fit_two_state(phmm, msa, estim_transitions, estim_indels, 
+			estim_trees, estim_rho,
+                        &mu, &nu, &alpha_0, &beta_0, &tau_0, 
+                        &alpha_1, &beta_1, &tau_1, &rho,
+                        gamma, log_f);
+    if (!quiet && (estim_transitions || estim_indels || estim_rho)) {      
       fprintf(stderr, "(");
       if (estim_transitions)
-        fprintf(stderr, "p = %f. q = %f%s", p, q, estim_indels ? ", " : "");
+        fprintf(stderr, "mu = %f. nu = %f%s", mu, nu, 
+		estim_indels || estim_rho ? ", " : "");
       if (estim_indels)
-        fprintf(stderr, "alpha_0 = %f, beta_0 = %f, omega_0 = %f, alpha_1 = %f, beta_1 = %f, omega_1 = %f", alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1);
+        fprintf(stderr, 
+		"alpha_0 = %f, beta_0 = %f, tau_0 = %f, alpha_1 = %f, beta_1 = %f, tau_1 = %f%s", 
+		alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1, 
+		estim_rho ? ", " : "");
+      if (estim_rho) 
+	fprintf(stderr, "rho = %f", rho);
       fprintf(stderr, ")\n");
     }
 
     if (estim_trees) {
-      char cons_fname[STR_MED_LEN], noncons_fname[STR_MED_LEN];
       sprintf(cons_fname, "%s.cons.mod", estim_trees_fname_root);
       sprintf(noncons_fname, "%s.noncons.mod", estim_trees_fname_root);
       if (!quiet)
@@ -1057,6 +577,11 @@ int main(int argc, char *argv[]) {
                 cons_fname, noncons_fname);
       tm_print(fopen_fname(cons_fname, "w+"), phmm->mods[0]);
       tm_print(fopen_fname(noncons_fname, "w+"), phmm->mods[1]);
+    }
+    else if (estim_rho) {
+      if (!quiet)
+        fprintf(stderr, "Writing re-estimated conserved model to phastCons.cons.mod...\n");
+      tm_print(fopen_fname("phastCons.cons.mod", "w+"), phmm->mods[0]);
     }
   }
 
@@ -1069,8 +594,8 @@ int main(int argc, char *argv[]) {
 
   /* still have to set indel params if not estimating */
   else if (indel_mode == PARAMETERIC) {
-    phmm->alpha[0] = alpha_0; phmm->beta[0] = beta_0; phmm->omega[0] = omega_0;
-    phmm->alpha[1] = alpha_1; phmm->beta[1] = beta_1; phmm->omega[1] = omega_1;
+    phmm->alpha[0] = alpha_0; phmm->beta[0] = beta_0; phmm->tau[0] = tau_0;
+    phmm->alpha[1] = alpha_1; phmm->beta[1] = beta_1; phmm->tau[1] = tau_1;
     phmm_reset(phmm);
   }
 
@@ -1144,17 +669,17 @@ int main(int argc, char *argv[]) {
   /* likelihood */
   if (lnl_f != NULL) {
     if (lnl > 0) {              /* may have already been computed */
-      if (!quiet) fprintf(stderr, "Computing total log likelihood ...\n");
+      if (!quiet) fprintf(stderr, "Computing total log likelihood...\n");
       lnl = phmm_lnl(phmm); 
     }
     fprintf(lnl_f, "lnL = %.4f\n", lnl); 
-    if (rates_cross) fprintf(lnl_f, "(lambda = %f)\n", lambda);
+    if (FC) fprintf(lnl_f, "(lambda = %f)\n", lambda);
     else if (two_state && (estim_transitions || estim_indels)) {
       fprintf(lnl_f, "(");
       if (estim_transitions)
-        fprintf(lnl_f, "p = %f, q = %f%s", p, q, estim_indels ? ", " : "");
+        fprintf(lnl_f, "mu = %f, nu = %f%s", mu, nu, estim_indels ? ", " : "");
       if (estim_indels)
-        fprintf(lnl_f, "alpha_0 = %f, beta_0 = %f, omega_0 = %f, alpha_1 = %f, beta_1 = %f, omega_1 = %f", alpha_0, beta_0, omega_0, alpha_1, beta_1, omega_1);
+        fprintf(lnl_f, "alpha_0 = %f, beta_0 = %f, tau_0 = %f, alpha_1 = %f, beta_1 = %f, tau_1 = %f", alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1);
       fprintf(lnl_f, ")\n");
     }
   }
@@ -1166,19 +691,19 @@ int main(int argc, char *argv[]) {
 }
 
 /* Set up HMM and category map for two-state case */
-void setup_rates_cut(HMM **hmm, CategoryMap **cm, double p, double q) {
+void setup_two_state(HMM **hmm, CategoryMap **cm, double mu, double nu) {
 
   *hmm = hmm_new_nstates(2, TRUE, FALSE);
 
-  /* set HMM transitions according to p and q */
-  mm_set((*hmm)->transition_matrix, 0, 0, 1-p);
-  mm_set((*hmm)->transition_matrix, 0, 1, p);
-  mm_set((*hmm)->transition_matrix, 1, 0, q);
-  mm_set((*hmm)->transition_matrix, 1, 1, 1-q);
+  /* set HMM transitions according to mu and nu */
+  mm_set((*hmm)->transition_matrix, 0, 0, 1-mu);
+  mm_set((*hmm)->transition_matrix, 0, 1, mu);
+  mm_set((*hmm)->transition_matrix, 1, 0, nu);
+  mm_set((*hmm)->transition_matrix, 1, 1, 1-nu);
 
   /* just use stationary distribution for begin transitions */
-  gsl_vector_set((*hmm)->begin_transitions, 0, q/(p+q));
-  gsl_vector_set((*hmm)->begin_transitions, 1, p/(p+q));
+  gsl_vector_set((*hmm)->begin_transitions, 0, nu/(mu+nu));
+  gsl_vector_set((*hmm)->begin_transitions, 1, mu/(mu+nu));
 
   hmm_reset(*hmm);
 
@@ -1187,20 +712,20 @@ void setup_rates_cut(HMM **hmm, CategoryMap **cm, double p, double q) {
 }
 
 /* Estimate parameters for the two-state model using an EM algorithm.
-   Any or all of the parameters 'p' and 'q', the indel parameters, and
+   Any or all of the parameters 'mu' and 'nu', the indel parameters, and
    the tree models themselves may be estimated.  Returns ln
    likelihood. */
-double fit_rates_cut(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
-                     int estim_trees, double *p, double *q, 
-                     double *alpha_0, double *beta_0, double *omega_0, 
-                     double *alpha_1, double *beta_1, double *omega_1, 
-                     double conserved_scale, double target_coverage, FILE *logf) {
+double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
+                     int estim_trees, int estim_rho, double *mu, double *nu, 
+                     double *alpha_0, double *beta_0, double *tau_0, 
+                     double *alpha_1, double *beta_1, double *tau_1, 
+                     double *rho, double gamma, FILE *logf) {
   double retval;
 
-  mm_set(phmm->functional_hmm->transition_matrix, 0, 0, 1-*p);
-  mm_set(phmm->functional_hmm->transition_matrix, 0, 1, *p);
-  mm_set(phmm->functional_hmm->transition_matrix, 1, 0, *q);
-  mm_set(phmm->functional_hmm->transition_matrix, 1, 1, 1-*q);
+  mm_set(phmm->functional_hmm->transition_matrix, 0, 0, 1-*mu);
+  mm_set(phmm->functional_hmm->transition_matrix, 0, 1, *mu);
+  mm_set(phmm->functional_hmm->transition_matrix, 1, 0, *nu);
+  mm_set(phmm->functional_hmm->transition_matrix, 1, 1, 1-*nu);
                                 /* note that phmm->functional_hmm ==
                                    phmm->hmm if no indel model */
 
@@ -1208,28 +733,30 @@ double fit_rates_cut(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
   phmm->em_data->msa = msa;
   phmm->em_data->fix_functional = !estim_func;
   phmm->em_data->fix_indel = !estim_indels;
-  phmm->em_data->conserved_scale = conserved_scale;
-  phmm->em_data->target_coverage = target_coverage;
+  phmm->em_data->rho = *rho;
+  phmm->em_data->gamma = gamma;
   phmm->em_data->H = NULL;      /* will be defined as needed */
 
   if (phmm->indel_mode == PARAMETERIC) {
     phmm->alpha[0] = *alpha_0;
     phmm->beta[0] = *beta_0;
-    phmm->omega[0] = *omega_0;
+    phmm->tau[0] = *tau_0;
     phmm->alpha[1] = *alpha_1;
     phmm->beta[1] = *beta_1;
-    phmm->omega[1] = *omega_1;
+    phmm->tau[1] = *tau_1;
   }
 
   phmm_reset(phmm); 
 
-  if (estim_trees) {
+  if (estim_trees || estim_rho) {
     msa->ncats = phmm->nmods - 1;   /* ?? */
     if (msa->ss == NULL) 
       ss_from_msas(msa, phmm->mods[0]->order+1, TRUE, NULL, NULL, NULL, -1);
     else if (msa->ss->cat_counts == NULL)
       ss_realloc(msa, msa->ss->tuple_size, msa->ss->ntuples, TRUE, TRUE);
+  }
 
+  if (estim_trees) {
     /* force re-initialization of tree models with rate variation;
        this is a hack that helps keep the parameterization simple */
     if (phmm->mods[0]->nratecats == 1) {
@@ -1247,7 +774,7 @@ double fit_rates_cut(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
 
     retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, NULL, 
                              phmm_compute_emissions_em, reestimate_trees,
-                             target_coverage > 0 ? 
+                             gamma > 0 ? 
                              phmm_estim_trans_em_coverage : phmm_estim_trans_em, 
                              phmm_get_obs_idx_em, 
                              phmm_log_em, logf);
@@ -1265,26 +792,46 @@ double fit_rates_cut(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
     phmm->mods[0]->lnL = phmm->mods[1]->lnL = retval;
   }
 
+  else if (estim_rho) {
+    phmm->mods[0]->estimate_branchlens = TM_SCALE_ONLY;
+    phmm->mods[0]->scale = phmm->em_data->rho;
+    tm_set_subst_matrices(phmm->mods[0]);
+
+    retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, NULL, 
+                             phmm_compute_emissions_em, reestimate_rho,
+                             gamma > 0 ? 
+                             phmm_estim_trans_em_coverage : phmm_estim_trans_em, 
+                             phmm_get_obs_idx_em, 
+                             phmm_log_em, logf) * log(2);
+
+    /* do final rescaling of conserved tree */
+    tm_scale(phmm->mods[0], phmm->em_data->rho, FALSE);  
+    phmm->mods[0]->scale = 1;
+
+    phmm->mods[0]->lnL = phmm->mods[1]->lnL = retval;
+  }
+
   else {                        /* not estimating tree models */
     retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, 
                              &phmm->alloc_len, NULL, 
                              phmm_compute_emissions_copy_em, NULL,
-                             target_coverage > 0 ? 
+                             gamma > 0 ? 
                              phmm_estim_trans_em_coverage : phmm_estim_trans_em, 
                              NULL, phmm_log_em, logf);
     retval *= log(2);
   }
 
-  *p = mm_get(phmm->functional_hmm->transition_matrix, 0, 1);
-  *q = mm_get(phmm->functional_hmm->transition_matrix, 1, 0);
+  *mu = mm_get(phmm->functional_hmm->transition_matrix, 0, 1);
+  *nu = mm_get(phmm->functional_hmm->transition_matrix, 1, 0);
+  *rho = phmm->em_data->rho;
 
   if (phmm->indel_mode == PARAMETERIC) {
     *alpha_0 = phmm->alpha[0];
     *beta_0 = phmm->beta[0];
-    *omega_0 = phmm->omega[0];
+    *tau_0 = phmm->tau[0];
     *alpha_1 = phmm->alpha[1];
     *beta_1 = phmm->beta[1];
-    *omega_1 = phmm->omega[1];
+    *tau_1 = phmm->tau[1];
   }
 
   return retval;
@@ -1300,11 +847,11 @@ void unpack_params_mod(TreeModel *mod, gsl_vector *params) {
 
   /* check parameter values */
   for (i = 0; i < params->size; i++) {
-    double p = gsl_vector_get(params, i);
-    if (p < 0 && abs(p) < TM_IMAG_EPS) /* consider close enough to 0 */
-      gsl_vector_set(params, i, p=0);
-    if (p < 0) die("ERROR: parameter %d has become negative (%f).\n", i, p);
-    if (!finite(p)) die("ERROR: parameter %d is no longer finite (%f).\n", i, p);
+    double mu = gsl_vector_get(params, i);
+    if (mu < 0 && abs(mu) < TM_IMAG_EPS) /* consider close enough to 0 */
+      gsl_vector_set(params, i, mu=0);
+    if (mu < 0) die("ERROR: parameter %d has become negative (%f).\n", i, mu);
+    if (!finite(mu)) die("ERROR: parameter %d is no longer finite (%f).\n", i, mu);
   }
   i = 0;
 
@@ -1349,7 +896,7 @@ void unpack_params_mod(TreeModel *mod, gsl_vector *params) {
 void unpack_params_phmm(PhyloHmm *phmm, gsl_vector *params) {
   unpack_params_mod(phmm->mods[0], params);
   unpack_params_mod(phmm->mods[1], params);
-  phmm->em_data->conserved_scale = gsl_vector_get(params, params->size - 1);
+  phmm->em_data->rho = gsl_vector_get(params, params->size - 1);
   tm_scale(phmm->mods[0], gsl_vector_get(params, params->size-1), FALSE);
   
   if (phmm->mods[0]->nratecats > 1) 
@@ -1401,17 +948,17 @@ void reestimate_trees(void **models, int nmodels, void *data,
   params = gsl_vector_alloc(tm_get_nparams(phmm->mods[1]) + 2);
   tm_params_init_from_model(phmm->mods[1], params, 0); /* unscaled branch lens */
 
-  /* special initialization of rate-variation parameters and conserved_scale */
+  /* special initialization of rate-variation parameters and rho */
   gsl_vector_set(params, tm_get_nbranchlenparams(phmm->mods[0]), 
                  phmm->mods[0]->nratecats > 1 ? phmm->mods[0]->alpha : 0);
   gsl_vector_set(params, params->size - 2,  
                  phmm->mods[1]->nratecats > 1 ? phmm->mods[1]->alpha : 0);
-  gsl_vector_set(params, params->size - 1, phmm->em_data->conserved_scale);
+  gsl_vector_set(params, params->size - 1, phmm->em_data->rho);
 
   lower_bounds = gsl_vector_calloc(params->size);
   upper_bounds = gsl_vector_alloc(params->size);
   gsl_vector_set_all(upper_bounds, INFTY);
-  gsl_vector_set(upper_bounds, params->size - 1, 1); /* 0 < conserved_scale < 1 */
+  gsl_vector_set(upper_bounds, params->size - 1, 1); /* 0 < rho < 1 */
 
   if (logf != NULL)
     fprintf(logf, "\nRE-ESTIMATION OF TREE MODEL:\n");
@@ -1427,6 +974,9 @@ void reestimate_trees(void **models, int nmodels, void *data,
                NULL, logf, NULL, OPT_MED_PREC, phmm->em_data->H) != 0)
     die("ERROR returned by opt_bfgs.\n");
 
+  if (logf != NULL) 
+    fprintf(logf, "END RE-ESTIMATION OF TREE MODEL\n\n");
+
   unpack_params_phmm(phmm, params);
 
   if (phmm->indel_mode == PARAMETERIC)
@@ -1435,6 +985,45 @@ void reestimate_trees(void **models, int nmodels, void *data,
   gsl_vector_free(params); 
   gsl_vector_free(lower_bounds);
   gsl_vector_free(upper_bounds);
+}
+
+/* Wrapper for computation of likelihood, for use by reestimate_rho (below) */
+double likelihood_wrapper_rho(double rho, void *data) {
+  PhyloHmm *phmm = (PhyloHmm*)data;
+  phmm->mods[0]->scale = rho;
+  tm_set_subst_matrices(phmm->mods[0]);
+  return -tl_compute_log_likelihood(phmm->mods[0], phmm->em_data->msa, 
+				    NULL, 0, NULL);
+}
+
+/* Similar to reestimate_trees, but re-estimate only scale parameter
+   rho; only the first model (for the conserved state) needs to be
+   considered */
+void reestimate_rho(void **models, int nmodels, void *data, 
+		    double **E, int nobs, FILE *logf) {
+
+  PhyloHmm *phmm = (PhyloHmm*)data;
+  int obsidx;
+  double ll, ax, bx, cx, fa, fb, fc;
+
+  for (obsidx = 0; obsidx < nobs; obsidx++) 
+    phmm->em_data->msa->ss->cat_counts[0][obsidx] = E[0][obsidx];
+
+  if (logf != NULL)
+    fprintf(logf, "\nRE-ESTIMATION OF RHO (BRENT'S METHOD):\n");
+
+  bx = phmm->em_data->rho;
+  ax = max(0.1, phmm->em_data->rho - .05);
+  mnbrak(&ax, &bx, &cx, &fa, &fb, &fc, likelihood_wrapper_rho, phmm, logf);
+  ll = opt_brent(ax, bx, cx, likelihood_wrapper_rho, 5e-3, 
+		 &phmm->em_data->rho, phmm, logf);
+
+  if (logf != NULL) 
+    fprintf(logf, "END RE-ESTIMATION OF RHO\n\n");
+
+  assert(phmm->indel_mode != PARAMETERIC);
+  /* FIXME: to make work with parameteric indel model, will have to
+     propagate scale parameter through phmm_set_branch_len_factors */
 }
 
 /* Maximize HMM transition parameters subject to constrain implied by
@@ -1457,11 +1046,11 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
   /* estimate transition probs for functional cats subject to
      constraint on coverage */
   if (!phmm->em_data->fix_functional) {
-    double a, b, c, p, q, q1, q2, z, tmp;
-    /* if you take the first derivative wrt q of the expression inside
+    double a, b, c, mu, nu, nu1, nu2, z, tmp;
+    /* if you take the first derivative wrt nu of the expression inside
        the argmax and set it to zero, you get a quadratic eqn which
        can be solved using the quadratic formula */
-    z = (1-phmm->em_data->target_coverage)/phmm->em_data->target_coverage;
+    z = (1-phmm->em_data->gamma)/phmm->em_data->gamma;
     a = z * (C[0][0] + C[0][1] + C[1][0] + C[1][1]);
     b = -C[0][1] - C[1][0] - C[1][1] - z * (C[0][0] + C[0][1] + C[1][0]);
     c = C[0][1] + C[1][0];
@@ -1469,27 +1058,27 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
     tmp = b*b - 4*a*c;
     assert (tmp >= 0);
     tmp = sqrt(tmp);
-    q1 = (-b + tmp) / (2*a);
-    q2 = (-b - tmp) / (2*a);
+    nu1 = (-b + tmp) / (2*a);
+    nu2 = (-b - tmp) / (2*a);
     /* only one root can be valid */
-    if (q1 < 1e-10 || z * q1 > 1 - 1e-10)                                 
-      q = q2;                   /* (allow for rounding errors) */
-    else q = q1;
+    if (nu1 < 1e-10 || z * nu1 > 1 - 1e-10)                                 
+      nu = nu2;                   /* (allow for rounding errors) */
+    else nu = nu1;
 
     /* double check that derivative is really zero */
-    assert(fabs(-z*C[0][0]/(1-z*q) + (C[0][1] + C[1][0])/q - C[1][1]/(1-q)) < 1e-6);
+    assert(fabs(-z*C[0][0]/(1-z*nu) + (C[0][1] + C[1][0])/nu - C[1][1]/(1-nu)) < 1e-6);
 
-    p = z * q;
-    assert(q >= 0 && q <= 1 && p >= 0 && p <= 1);
+    mu = z * nu;
+    assert(nu >= 0 && nu <= 1 && mu >= 0 && mu <= 1);
 
-    mm_set(phmm->functional_hmm->transition_matrix, 0, 0, 1-p);
-    mm_set(phmm->functional_hmm->transition_matrix, 0, 1, p);
-    mm_set(phmm->functional_hmm->transition_matrix, 1, 0, q);
-    mm_set(phmm->functional_hmm->transition_matrix, 1, 1, 1-q);
+    mm_set(phmm->functional_hmm->transition_matrix, 0, 0, 1-mu);
+    mm_set(phmm->functional_hmm->transition_matrix, 0, 1, mu);
+    mm_set(phmm->functional_hmm->transition_matrix, 1, 0, nu);
+    mm_set(phmm->functional_hmm->transition_matrix, 1, 1, 1-nu);
 
     /* use stationary distribution for begin transitions */
-    gsl_vector_set(phmm->functional_hmm->begin_transitions, 0, q/(p+q));
-    gsl_vector_set(phmm->functional_hmm->begin_transitions, 1, p/(p+q));
+    gsl_vector_set(phmm->functional_hmm->begin_transitions, 0, nu/(mu+nu));
+    gsl_vector_set(phmm->functional_hmm->begin_transitions, 1, mu/(mu+nu));
   }
 
   if (phmm->indel_mode == PARAMETERIC) {
@@ -1498,4 +1087,49 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
   }
 
   phmm_reset(phmm);
+}
+
+/* attempts to merge cats by incorporating together into ranges */
+void collapse_cats(CategoryMap *cm, List *cats_to_merge) {
+  /* assumes all ranges are of size one initially */
+  int i, beg, end = -INFTY;
+  lst_qsort_int(cats_to_merge, ASCENDING);
+  for (i = 0; i < lst_size(cats_to_merge); i++) {
+    int cat = lst_get_int(cats_to_merge, i);
+    if (cat == end + 1) {
+      cm_free_category_range(cm->ranges[cat]);
+      cm->ranges[cat] = cm->ranges[beg];
+      end = cat;
+      cm->ranges[beg]->end_cat_no = end;
+    }
+    else beg = end = cat;
+  }
+}
+
+/* initialize equilibrium freqs for tree model; either make consistent
+   with given G+C content or estimate from alignment */
+void init_eqfreqs(TreeModel *mod, MSA *msa, double gc) {
+  if (gc != -1) {               /* gc specified */
+    if (strlen(mod->rate_matrix->states) != 4 || 
+        mod->rate_matrix->inv_states[(int)'A'] < 0 ||
+        mod->rate_matrix->inv_states[(int)'C'] < 0 ||
+        mod->rate_matrix->inv_states[(int)'G'] < 0 ||
+        mod->rate_matrix->inv_states[(int)'T'] < 0)
+      die("ERROR: Four-character DNA alphabet required with --gc.\n");
+    assert(gc > 0 && gc < 1);
+    gsl_vector_set(mod->backgd_freqs, 
+                   mod->rate_matrix->inv_states[(int)'G'], gc/2);
+    gsl_vector_set(mod->backgd_freqs, 
+                   mod->rate_matrix->inv_states[(int)'C'], gc/2);
+    gsl_vector_set(mod->backgd_freqs, 
+                   mod->rate_matrix->inv_states[(int)'A'], (1-gc)/2);
+    gsl_vector_set(mod->backgd_freqs, 
+                   mod->rate_matrix->inv_states[(int)'T'], (1-gc)/2);
+  }
+  else {                        /* estimate from alignment */
+    if (mod->subst_mod == JC69 || mod->subst_mod == K80)
+      gsl_vector_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
+    else
+      msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order+1, -1);
+  }
 }

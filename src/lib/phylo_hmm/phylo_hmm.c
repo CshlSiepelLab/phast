@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.24 2004-08-31 04:52:54 acs Exp $
+/* $Id: phylo_hmm.c,v 1.25 2005-05-29 22:52:20 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -15,10 +15,10 @@
 #include <tree_likelihoods.h>
 #include <em.h>
 
-/* initial values for alpha, beta, omega; possibly should be passed in instead */
+/* initial values for alpha, beta, tau; possibly should be passed in instead */
 #define ALPHA_INIT 0.05
 #define BETA_INIT 0.05
-#define OMEGA_INIT 0.15
+#define TAU_INIT 0.15
 #define COMPLEX_EPSILON 1e-5
 
 /** Create a new PhyloHmm object. Optionally expands original HMM to
@@ -199,15 +199,15 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
   if (pivot_cats != NULL) 
     phmm_reflect_hmm(phmm, pivot_cats);
 
-  /* initialize alpha, beta, and omega if parameteric indel model */
+  /* initialize alpha, beta, and tau if parameteric indel model */
   if (indel_mode == PARAMETERIC) {
     phmm->alpha = smalloc(phmm->functional_hmm->nstates * sizeof(double));
     phmm->beta = smalloc(phmm->functional_hmm->nstates * sizeof(double));
-    phmm->omega = smalloc(phmm->functional_hmm->nstates * sizeof(double));
+    phmm->tau = smalloc(phmm->functional_hmm->nstates * sizeof(double));
     for (j = 0; j < phmm->functional_hmm->nstates; j++) {
       phmm->alpha[j] = ALPHA_INIT;
       phmm->beta[j] = BETA_INIT;
-      phmm->omega[j] = OMEGA_INIT;
+      phmm->tau[j] = TAU_INIT;
     }
     phmm_reset(phmm);
   }
@@ -488,7 +488,7 @@ void phmm_free(PhyloHmm *phmm) {
   if (phmm->autocorr_hmm != NULL) hmm_free(phmm->autocorr_hmm);
   if (phmm->alpha != NULL) free(phmm->alpha);
   if (phmm->beta != NULL) free(phmm->beta);
-  if (phmm->omega != NULL) free(phmm->omega);
+  if (phmm->tau != NULL) free(phmm->tau);
   if (phmm->em_data != NULL) {
     if (phmm->em_data->H != NULL) 
       gsl_matrix_free(phmm->em_data->H);
@@ -996,7 +996,7 @@ void phmm_log_em(FILE *logf, double logl, HMM *hmm, void *data,
     }
     if (phmm->indel_mode == PARAMETERIC) 
       for (i = 0; i < phmm->functional_hmm->nstates; i++) 
-        fprintf(logf, "alpha[%d]\tbeta[%d]\tomega[%d]\t", i, i, i);
+        fprintf(logf, "alpha[%d]\tbeta[%d]\ttau[%d]\t", i, i, i);
     fprintf(logf, "\n");
   }
 
@@ -1009,7 +1009,7 @@ void phmm_log_em(FILE *logf, double logl, HMM *hmm, void *data,
   }
   if (phmm->indel_mode == PARAMETERIC) 
     for (i = 0; i < phmm->functional_hmm->nstates; i++) 
-      fprintf(logf, "%f\t%f\t%f\t", phmm->alpha[i], phmm->beta[i], phmm->omega[i]);
+      fprintf(logf, "%f\t%f\t%f\t", phmm->alpha[i], phmm->beta[i], phmm->tau[i]);
   fprintf(logf, "\n");
   fflush(logf);
 }
@@ -1201,23 +1201,23 @@ void phmm_reset(PhyloHmm *phmm) {
                     (phmm->alpha[cat_j] + phmm->beta[cat_j]));
           else if (pat_i_type == INSERTION_PATTERN)
             val *= (1 - COMPLEX_EPSILON 
-                    - phmm->omega[cat_j] * phmm->alpha[cat_j] * 
+                    - phmm->tau[cat_j] * phmm->alpha[cat_j] * 
                     phmm->T[cat_j][pat_j] 
-                    - phmm->omega[cat_j] * phmm->beta[cat_j] * 
+                    - phmm->tau[cat_j] * phmm->beta[cat_j] * 
                     phmm->T[cat_j][0] 
-                    - phmm->omega[cat_j]);
+                    - phmm->tau[cat_j]);
           else if (pat_i_type == DELETION_PATTERN)
             val *= (1 - COMPLEX_EPSILON 
-                    - phmm->omega[cat_j] * phmm->alpha[cat_j] * 
+                    - phmm->tau[cat_j] * phmm->alpha[cat_j] * 
                     phmm->T[cat_j][0] 
-                    - phmm->omega[cat_j] * phmm->beta[cat_j] * 
+                    - phmm->tau[cat_j] * phmm->beta[cat_j] * 
                     phmm->T[cat_j][pat_j] 
-                    - phmm->omega[cat_j]);
+                    - phmm->tau[cat_j]);
         }
 
         else {                  /* pat_i != pat_j, neither complex */
           if (pat_i_type != NULL_PATTERN) 
-            val *= phmm->omega[cat_j];
+            val *= phmm->tau[cat_j];
 
           if (pat_j_type == INSERTION_PATTERN) 
             val *= phmm->alpha[cat_j] * phmm->t[cat_j][pat_j];
@@ -1249,9 +1249,9 @@ double indel_max_function(gsl_vector *params, void *data) {
   IndelEstimData *ied = data;
   int pat, j = ied->current_dest_cat;
   double alpha_j = gsl_vector_get(params, 0), beta_j = gsl_vector_get(params, 1),
-    omega_j = gsl_vector_get(params, 2);
+    tau_j = gsl_vector_get(params, 2);
   double retval = ied->u_alpha[j] * log(alpha_j) + 
-    ied->u_beta[j] * log(beta_j) + ied->u_omega[j] * log(omega_j) +
+    ied->u_beta[j] * log(beta_j) + ied->u_tau[j] * log(tau_j) +
     ied->u_self[j][0] * log(1 - COMPLEX_EPSILON -
                             (alpha_j + beta_j) * ied->T[j][0]);
 
@@ -1259,13 +1259,13 @@ double indel_max_function(gsl_vector *params, void *data) {
     pattern_type type = gp_pattern_type(ied->gpm, pat);
     if (type == INSERTION_PATTERN)
       retval += ied->u_self[j][pat] * 
-        log(1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][pat] 
-            - omega_j * beta_j * ied->T[j][0] - omega_j);
+        log(1 - COMPLEX_EPSILON - tau_j * alpha_j * ied->T[j][pat] 
+            - tau_j * beta_j * ied->T[j][0] - tau_j);
     else {
       assert(type == DELETION_PATTERN);
       retval += ied->u_self[j][pat] * 
-        log(1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][0] 
-            - omega_j * beta_j * ied->T[j][pat] - omega_j);
+        log(1 - COMPLEX_EPSILON - tau_j * alpha_j * ied->T[j][0] 
+            - tau_j * beta_j * ied->T[j][pat] - tau_j);
     }
   }
   return -retval;               /* negate for minimization */
@@ -1277,53 +1277,53 @@ void indel_max_gradient(gsl_vector *grad, gsl_vector *params,void *data,
   IndelEstimData *ied = data;
   int pat, j = ied->current_dest_cat;
   double alpha_j = gsl_vector_get(params, 0), beta_j = gsl_vector_get(params, 1),
-    omega_j = gsl_vector_get(params, 2);
+    tau_j = gsl_vector_get(params, 2);
   double grad_alpha_j = ied->u_alpha[j] / alpha_j 
     - ied->u_self[j][0] * ied->T[j][0] / 
     (1 - COMPLEX_EPSILON - ied->T[j][0] * (alpha_j + beta_j));
   double grad_beta_j = ied->u_beta[j] / beta_j 
     - ied->u_self[j][0] * ied->T[j][0] / 
     (1 - COMPLEX_EPSILON - ied->T[j][0] * (alpha_j + beta_j));
-  double grad_omega_j = ied->u_omega[j] / omega_j;
+  double grad_tau_j = ied->u_tau[j] / tau_j;
 
   for (pat = 1; pat < ied->gpm->ngap_patterns - 1; pat++) {
     pattern_type type = gp_pattern_type(ied->gpm, pat);
     if (type == INSERTION_PATTERN) {
       grad_alpha_j -= 
-        (ied->u_self[j][pat] * omega_j * ied->T[j][pat] /
-         (1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][pat]
-          - omega_j * beta_j * ied->T[j][0] - omega_j));
+        (ied->u_self[j][pat] * tau_j * ied->T[j][pat] /
+         (1 - COMPLEX_EPSILON - tau_j * alpha_j * ied->T[j][pat]
+          - tau_j * beta_j * ied->T[j][0] - tau_j));
       grad_beta_j -= 
-        (ied->u_self[j][pat] * omega_j * ied->T[j][0] /
-         (1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][pat]
-          - omega_j * beta_j * ied->T[j][0] - omega_j));
-      grad_omega_j -= 
+        (ied->u_self[j][pat] * tau_j * ied->T[j][0] /
+         (1 - COMPLEX_EPSILON - tau_j * alpha_j * ied->T[j][pat]
+          - tau_j * beta_j * ied->T[j][0] - tau_j));
+      grad_tau_j -= 
         (ied->u_self[j][pat] * 
          (alpha_j * ied->T[j][pat] + beta_j * ied->T[j][0] + 1) /
-         (1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][pat]
-          - omega_j * beta_j * ied->T[j][0] - omega_j));
+         (1 - COMPLEX_EPSILON - tau_j * alpha_j * ied->T[j][pat]
+          - tau_j * beta_j * ied->T[j][0] - tau_j));
     }
     else {
       assert(type == DELETION_PATTERN);
       grad_alpha_j -= 
-        (ied->u_self[j][pat] * omega_j * ied->T[j][0] /
-         (1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][0]
-          - omega_j * beta_j * ied->T[j][pat] - omega_j));
+        (ied->u_self[j][pat] * tau_j * ied->T[j][0] /
+         (1 - COMPLEX_EPSILON - tau_j * alpha_j * ied->T[j][0]
+          - tau_j * beta_j * ied->T[j][pat] - tau_j));
       grad_beta_j -= 
-        (ied->u_self[j][pat] * omega_j * ied->T[j][pat] /
-         (1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][0]
-          - omega_j * beta_j * ied->T[j][pat] - omega_j));
-      grad_omega_j -= 
+        (ied->u_self[j][pat] * tau_j * ied->T[j][pat] /
+         (1 - COMPLEX_EPSILON - tau_j * alpha_j * ied->T[j][0]
+          - tau_j * beta_j * ied->T[j][pat] - tau_j));
+      grad_tau_j -= 
         (ied->u_self[j][pat] * 
          (alpha_j * ied->T[j][0] + beta_j * ied->T[j][pat] + 1) /
-         (1 - COMPLEX_EPSILON - omega_j * alpha_j * ied->T[j][0]
-          - omega_j * beta_j * ied->T[j][pat] - omega_j));
+         (1 - COMPLEX_EPSILON - tau_j * alpha_j * ied->T[j][0]
+          - tau_j * beta_j * ied->T[j][pat] - tau_j));
     }
   }
   
   gsl_vector_set(grad, 0, -grad_alpha_j); /* negate each one because function is negated */
   gsl_vector_set(grad, 1, -grad_beta_j);
-  gsl_vector_set(grad, 2, -grad_omega_j);
+  gsl_vector_set(grad, 2, -grad_tau_j);
 }
 
 /* Maximize all params for state transition (M step of EM).  This
@@ -1389,10 +1389,10 @@ IndelEstimData *phmm_new_ied(PhyloHmm *phmm, double **A) {
     ied->gpm = phmm->gpm;
     ied->u_alpha = smalloc(ied->nfunctional_states * sizeof(double));
     ied->u_beta = smalloc(ied->nfunctional_states * sizeof(double));
-    ied->u_omega = smalloc(ied->nfunctional_states * sizeof(double));
+    ied->u_tau = smalloc(ied->nfunctional_states * sizeof(double));
     ied->u_self = smalloc(ied->nfunctional_states * sizeof(void*));
     for (i = 0; i < ied->nfunctional_states; i++) {
-      ied->u_alpha[i] = ied->u_beta[i] = ied->u_omega[i] = 0;
+      ied->u_alpha[i] = ied->u_beta[i] = ied->u_tau[i] = 0;
       ied->u_self[i] = smalloc(ied->gpm->ngap_patterns * sizeof(double));
       for (j = 0; j < ied->gpm->ngap_patterns; j++) ied->u_self[i][j] = 0;
     }
@@ -1433,7 +1433,7 @@ IndelEstimData *phmm_new_ied(PhyloHmm *phmm, double **A) {
           ied->u_beta[cat_j] += A[i][j];
 
         if (pat_i_type != NULL_PATTERN)
-          ied->u_omega[cat_j] += A[i][j];
+          ied->u_tau[cat_j] += A[i][j];
       }
     }
   }
@@ -1453,7 +1453,7 @@ void phmm_free_ied(IndelEstimData *ied) {
       free(ied->u_self[i]);
     free(ied->u_alpha);
     free(ied->u_beta);
-    free(ied->u_omega);
+    free(ied->u_tau);
     free(ied->u_self);
   }
   free(ied);
@@ -1474,12 +1474,12 @@ void phmm_em_estim_indels(PhyloHmm *phmm, IndelEstimData *ied) {
 
     gsl_vector_set(params, 0, phmm->alpha[i]);
     gsl_vector_set(params, 1, phmm->beta[i]);
-    gsl_vector_set(params, 2, phmm->omega[i]);
+    gsl_vector_set(params, 2, phmm->tau[i]);
     opt_bfgs(indel_max_function, params, ied, &retval, lb, NULL, NULL, 
              indel_max_gradient, OPT_HIGH_PREC, NULL); 
     phmm->alpha[i] = gsl_vector_get(params, 0);
     phmm->beta[i] = gsl_vector_get(params, 1);
-    phmm->omega[i] = gsl_vector_get(params, 2);
+    phmm->tau[i] = gsl_vector_get(params, 2);
   }
   gsl_vector_free(params);
   gsl_vector_free(lb);
