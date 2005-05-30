@@ -25,8 +25,10 @@ TARGETLIB = ${LIB}/libphast.a
 # for best performance
 CFLAGS = -mcpu=pentiumpro -O3 -DGCC -DGSL_RANGE_CHECK_OFF
 # use this instead for Mac OS X
-#CFLAGS = -O3 -DGCC -DGSL_RANGE_CHECK_OFF -Wno-long-double
-# for profiling
+#CFLAGS = -mcpu=powerpc -O3 -DGCC -DGSL_RANGE_CHECK_OFF -Wno-long-double
+# possible x86-64 options (kolossus at UC Santa Cruz)
+#CFLAGS = -mcpu=opteron -O3 -DGCC -DGSL_RANGE_CHECK_OFF
+# for profiling (e.g.)
 #CFLAGS = -mcpu=pentiumpro -O3 -DGCC -pg -fprofile-arcs -DGSL_RANGE_CHECK_OFF
 # NOTE: add -g if profiling line-by-line, and -a if monitoring basic blocks
 
