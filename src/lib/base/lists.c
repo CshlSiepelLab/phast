@@ -1,4 +1,4 @@
-/* $Id: lists.c,v 1.5 2004-06-23 19:51:28 acs Exp $
+/* $Id: lists.c,v 1.6 2005-05-30 23:07:48 acs Exp $
    Written by Adam Siepel, Spring 2001 and Summer 2002
    Copyright 2001, 2002, Adam Siepel, University of California */
 
@@ -382,10 +382,12 @@ void lst_qsort_dbl(List *l, order_t ord)
             lst_dbl_compare_desc); }
 
 List* lst_new_int(int nelements) 
-{ return lst_new(nelements, sizeof(int)); }
+{ return lst_new(nelements, max(sizeof(int), sizeof(void*))); }
+/* have to be sure size isn't smaller than size of void*; can be an
+   issue with 64-bit architectures */
 
 List* lst_new_dbl(int nelements) 
-{ return lst_new(nelements, sizeof(double)); }
+{ return lst_new(nelements, max(sizeof(double), sizeof(void*))); }
 
 List* lst_new_ptr(int nelements) 
 { return lst_new(nelements, sizeof(void*)); }
