@@ -1,4 +1,4 @@
-/* $Id: em.c,v 1.8 2004-08-27 17:13:41 acs Exp $
+/* $Id: em.c,v 1.9 2005-05-31 06:38:07 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -39,9 +39,18 @@ void default_log_function(FILE *logf, double total_logl, HMM *hmm,
 /* must be one model for every state in the HMM */
 /* the ith training sample in data must be of length 'sample_lens[i]' */
 /* returns log likelihood of optimized model */
-/* pass NULL for estimate_state_models and get_observation_index to
-   estimate transition probs only (compute_emissions will only be
-   called once) */
+/* if sample size is one, emissions may be precomputed */
+/* if estimate_state_models != NULL will be used to re-estimate on
+   each iteration; otherwise will estimate transition probs only
+   (compute_emissions and get_observation_index will be ignored) */
+/* if estimate_transitions != NULL, it will be used for estimating
+   transition probs (M step); otherwise a fully general
+   parameterization will be assumed */
+/* if emissions_alloc is non-NULL, it will be used for emission probs
+   (must be large enough for longest sample) */
+/* compute_emissions simply won't be called if NULL; this may make
+   sense if estimate_state_models == NULL, nsamples == 1, and
+   emissions are precomputed & passed in as emissions_alloc */
 double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples, 
                        int *sample_lens, gsl_matrix *pseudocounts, 
                        void (*compute_emissions)(double**, void**, int, void*, 
@@ -51,37 +60,50 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
                        void (*estimate_transitions)(HMM*, void*, double**),
                        int (*get_observation_index)(void*, int, int),
                        void (*log_function)(FILE*, double, HMM*, void*, int),
-                       FILE *logf) { 
+		       double **emissions_alloc, FILE *logf) { 
 
   int i, k, l, s, obsidx, nobs, maxlen = 0, done, it;
   double **emissions, **forward_scores, **backward_scores, **E = NULL, **A;
   double *totalE = NULL, *totalA;
   double total_logl, prev_total_logl, val;
   List *val_list;
-  int do_state_models = (estimate_state_models != NULL &&
-                         get_observation_index != NULL);
+
   struct timeval start_time, end_time;
 
+  if (estimate_state_models != NULL && 
+      (get_observation_index == NULL || compute_emissions == NULL))
+    die("ERROR: (hmm_train_by_em) If estimating state models, must pass in non-NULL functions get_observation_index and compute_emissions.\n");
+
+  if (compute_emissions == NULL &&
+      (estimate_state_models != NULL || nsamples > 1 || emissions_alloc == NULL))
+    die("ERROR: (hmm_train_by_em) compute_emissions function required.\n");
+      
   if (logf != NULL)
     gettimeofday(&start_time, NULL);
 
   for (s = 0; s < nsamples; s++)
     if (sample_lens[s] > maxlen) maxlen = sample_lens[s];
 
-  emissions = (double**)smalloc(hmm->nstates * sizeof(double*));
   forward_scores = (double**)smalloc(hmm->nstates * sizeof(double*));
   backward_scores = (double**)smalloc(hmm->nstates * sizeof(double*));
+
+  if (emissions_alloc != NULL)
+    emissions = emissions_alloc;
+  else 
+    emissions = (double**)smalloc(hmm->nstates * sizeof(double*));
+
   for (i = 0; i < hmm->nstates; i++){
-    emissions[i] = (double*)smalloc(maxlen * sizeof(double));
     forward_scores[i] = (double*)smalloc(maxlen * sizeof(double));
     backward_scores[i] = (double*)smalloc(maxlen * sizeof(double));
+    if (emissions_alloc == NULL) 
+      emissions[i] = (double*)smalloc(maxlen * sizeof(double));
   }
   A = (double**)smalloc(hmm->nstates * sizeof(double*));
   totalA = (double*)smalloc(hmm->nstates * sizeof(double));
   for (k = 0; k < hmm->nstates; k++) 
     A[k] = (double*)smalloc(hmm->nstates * sizeof(double));
 
-  if (do_state_models) {
+  if (estimate_state_models) {
     nobs = get_observation_index(data, -1, -1); /* this is a bit
                                                    clumsy, but will do
                                                    for now */
@@ -104,7 +126,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
       for (l = 0; l < hmm->nstates; l++) A[k][l] = 0;
       totalA[k] = 0;
     }
-    if (do_state_models) {
+    if (estimate_state_models != NULL) {
       for (k = 0; k < hmm->nstates; k++) {
         for (obsidx = 0; obsidx < nobs; obsidx++) E[k][obsidx] = 0;
         totalE[k] = 0;
@@ -113,11 +135,13 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
 
     for (s = 0; s < nsamples; s++) {
       double logp_fw, logp_bw;
-
-      if (do_state_models || s == 0)  /* only do once if not estimating
-                                         state models (E == NULL) */
-        compute_emissions(emissions, models, hmm->nstates, data, 
-                          s, sample_lens[s]);
+      
+      if (compute_emissions == NULL || 
+	  (estimate_state_models == NULL && nsamples == 1 && it > 1))
+	;			/* no need to compute emissions */
+      else
+	compute_emissions(emissions, models, hmm->nstates, data, 
+			  s, sample_lens[s]);
 
       logp_fw = hmm_forward(hmm, emissions, sample_lens[s], 
                             forward_scores);
@@ -135,7 +159,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
 
         /* to avoid rounding errors, estimate total log prob
            separately for each column */
-        if (do_state_models) {
+        if (estimate_state_models != NULL) {
           lst_clear(val_list);
           for (l = 0; l < hmm->nstates; l++) 
             lst_push_dbl(val_list, (forward_scores[l][i] + 
@@ -203,7 +227,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
       /* FIXME: need to use pseudocounts here */  
 
       /* re-estimate state models */
-      if (do_state_models)
+      if (estimate_state_models  != NULL)
         estimate_state_models(models, hmm->nstates, data, E, nobs, logf);
     }
   }
@@ -216,18 +240,18 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
   }
 
   for (i = 0; i < hmm->nstates; i++) {
-    free(emissions[i]);
     free(forward_scores[i]);
     free(backward_scores[i]);
+    if (emissions_alloc == NULL) free(emissions[i]);
     free(A[i]);
-    if (do_state_models) free(E[i]);
+    if (estimate_state_models != NULL) free(E[i]);
   }
-  free(emissions);
   free(forward_scores);
   free(backward_scores);
+  if (emissions_alloc == NULL) free(emissions);
   free(A);
   free(totalA);
-  if (do_state_models) {
+  if (estimate_state_models != NULL) {
     free(E);
     free(totalE);
   }

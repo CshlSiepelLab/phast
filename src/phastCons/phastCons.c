@@ -712,6 +712,18 @@ void setup_two_state(HMM **hmm, CategoryMap **cm, double mu, double nu) {
   *cm = cm_create_trivial(1, "cons_");
 }
 
+/* Version of compute_emissions for use when estimating rho only (see
+   fit_two_state, below); makes use of fact that emissions for
+   nonconserved state need not be recomputed */
+void compute_emissions_estim_rho(double **emissions, void **models, 
+				 int nmodels, void *data, int sample, 
+				 int length) {
+  PhyloHmm *phmm = (PhyloHmm*)data;
+  tl_compute_log_likelihood(phmm->mods[0], phmm->em_data->msa, 
+			    phmm->emissions[0], -1, NULL);
+}
+
+
 /* Estimate parameters for the two-state model using an EM algorithm.
    Any or all of the parameters 'mu' and 'nu', the indel parameters, and
    the tree models themselves may be estimated.  Returns ln
@@ -778,8 +790,7 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
                              gamma > 0 ? 
                              phmm_estim_trans_em_coverage : phmm_estim_trans_em, 
                              phmm_get_obs_idx_em, 
-                             phmm_log_em, logf);
-    retval *= log(2);
+                             phmm_log_em, phmm->emissions, logf) * log(2);
 
     /* have to do final rescaling of tree models to get units of subst/site */
     if (phmm->mods[0]->subst_mod != JC69 && phmm->mods[0]->subst_mod != F81) {   
@@ -799,11 +810,11 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
     tm_set_subst_matrices(phmm->mods[0]);
 
     retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, NULL, 
-                             phmm_compute_emissions_em, reestimate_rho,
+                             compute_emissions_estim_rho, reestimate_rho,
                              gamma > 0 ? 
                              phmm_estim_trans_em_coverage : phmm_estim_trans_em, 
                              phmm_get_obs_idx_em, 
-                             phmm_log_em, logf) * log(2);
+                             phmm_log_em, phmm->emissions, logf) * log(2);
 
     /* do final rescaling of conserved tree */
     tm_scale(phmm->mods[0], phmm->em_data->rho, FALSE);  
@@ -814,12 +825,10 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
 
   else {                        /* not estimating tree models */
     retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, 
-                             &phmm->alloc_len, NULL, 
-                             phmm_compute_emissions_copy_em, NULL,
+                             &phmm->alloc_len, NULL, NULL, NULL,
                              gamma > 0 ? 
                              phmm_estim_trans_em_coverage : phmm_estim_trans_em, 
-                             NULL, phmm_log_em, logf);
-    retval *= log(2);
+                             NULL, phmm_log_em, phmm->emissions, logf) * log(2);
   }
 
   *mu = mm_get(phmm->functional_hmm->transition_matrix, 0, 1);

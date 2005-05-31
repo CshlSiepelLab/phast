@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.25 2005-05-29 22:52:20 acs Exp $
+/* $Id: phylo_hmm.c,v 1.26 2005-05-31 06:38:07 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -512,9 +512,14 @@ void phmm_compute_emissions(PhyloHmm *phmm,
 
   int i, mod, j;
   MSA *msa_compl = NULL;
+  int new_alloc = (phmm->emissions == NULL); 
+  /* allocate new memory if emissions is NULL; otherwise reuse */ 
 
-  phmm->emissions = smalloc(phmm->hmm->nstates * sizeof(double*));  
-  phmm->alloc_len = msa->length;
+  if (new_alloc) {
+    phmm->emissions = smalloc(phmm->hmm->nstates * sizeof(double*));  
+    phmm->alloc_len = msa->length;
+  }
+  assert(phmm->alloc_len >= msa->length);
 
   /* if HMM is reflected, we need the reverse complement of the
      alignment as well */
@@ -543,8 +548,10 @@ void phmm_compute_emissions(PhyloHmm *phmm,
   /* set up mapping from model/strand to first associated state
      (allows phmm->emissions to be computed only once for each
      model/strand pair) */
-  phmm->state_pos = smalloc(phmm->nmods * sizeof(int));
-  phmm->state_neg = smalloc(phmm->nmods * sizeof(int));
+  if (new_alloc) {
+    phmm->state_pos = smalloc(phmm->nmods * sizeof(int));
+    phmm->state_neg = smalloc(phmm->nmods * sizeof(int));
+  }
   for (i = 0; i < phmm->nmods; i++) 
     phmm->state_pos[i] = phmm->state_neg[i] = -1;
 
@@ -566,7 +573,9 @@ void phmm_compute_emissions(PhyloHmm *phmm,
     else if (phmm->reverse_compl[i] && phmm->state_neg[mod] != -1)
       phmm->emissions[i] = phmm->emissions[phmm->state_neg[mod]];
     else {
-      phmm->emissions[i] = smalloc(msa->length * sizeof(double));
+      if (new_alloc)
+	phmm->emissions[i] = smalloc(msa->length * sizeof(double));
+
       tl_compute_log_likelihood(phmm->mods[mod], 
                                 phmm->reverse_compl[i] ? msa_compl : msa,
                                 phmm->emissions[i], -1, NULL);
@@ -574,6 +583,7 @@ void phmm_compute_emissions(PhyloHmm *phmm,
       else phmm->state_neg[mod] = i;            
     }
   }
+  if (msa_compl != NULL) msa_free(msa_compl);
 
   /* finally, adjust for indel model, if necessary */
   if (phmm->indel_mode != MISSING_DATA) {
@@ -1019,25 +1029,11 @@ void phmm_log_em(FILE *logf, double logl, HMM *hmm, void *data,
    hmm_train_by_em.  Currently, a single training alignment is assumed
    (i.e., no PooledMSA)  */
 
-/* fill out matrix of emissions by copying from phmm->emissions;
-   useful when state models are not being re-estimated */
-void phmm_compute_emissions_copy_em(double **emissions, void **models, 
-                                    int nmodels, void *data, int sample, 
-                                    int length) {
-  PhyloHmm *phmm = (PhyloHmm*)data;
-  int i, j;
-  for (i = 0; i < phmm->hmm->nstates; i++)
-    for (j = 0; j < phmm->alloc_len; j++)
-      emissions[i][j] = phmm->emissions[i][j];
-}
-
-/* resets phmm->emissions and copies to matrix of emissions */
+/* wrapper for phmm_cmopute_emissions for use in EM */
 void phmm_compute_emissions_em(double **emissions, void **models, int nmodels,
                                void *data, int sample, int length) {
   PhyloHmm *phmm = (PhyloHmm*)data;
   phmm_compute_emissions(phmm, phmm->em_data->msa, TRUE);
-  phmm_compute_emissions_copy_em(emissions, models, nmodels, data, 
-                                 sample, length);
 }
 
 /* re-estimate phylogenetic models based on expected counts */
@@ -1122,14 +1118,13 @@ double phmm_fit_em(PhyloHmm *phmm,
                              &phmm->alloc_len, NULL, 
                              phmm_compute_emissions_em, phmm_estim_mods_em,
                              phmm_estim_trans_em, phmm_get_obs_idx_em, 
-                             phmm_log_em, logf);
+                             phmm_log_em, phmm->emissions, logf);
 
   else                          /* not estimating tree models */
     retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, 
-                             &phmm->alloc_len, NULL, 
-                             phmm_compute_emissions_copy_em, NULL,
+                             &phmm->alloc_len, NULL, NULL, NULL,
                              phmm_estim_trans_em, NULL,
-                             phmm_log_em, logf);
+                             phmm_log_em, phmm->emissions, logf);
 
   return log(2) * retval;
 }

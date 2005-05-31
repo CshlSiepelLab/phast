@@ -1,4 +1,4 @@
-/* $Id: em.h,v 1.4 2004-08-27 17:13:41 acs Exp $
+/* $Id: em.h,v 1.5 2005-05-31 06:38:07 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -19,6 +19,6 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
                        void (*estimate_transitions)(HMM*, void*, double**),
                        int (*get_observation_index)(void*, int, int),
                        void (*log_function)(FILE*, double, HMM*, void*, int),
-                       FILE *logf);
+                       double **emissions_alloc, FILE *logf);
 
 #endif
