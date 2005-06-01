@@ -398,7 +398,7 @@ int main(int argc, char *argv[]) {
   mod = (TreeModel**)smalloc(sizeof(TreeModel*) * lst_size(mod_fname_list));
   for (i = 0; i < lst_size(mod_fname_list); i++) {
     String *fname = lst_get_ptr(mod_fname_list, i);
-    int old_nnodes;
+    int old_nnodes, found;
     List *pruned_names = lst_new_ptr(msa->nseqs);
 
     if (!quiet)
@@ -425,6 +425,17 @@ int main(int argc, char *argv[]) {
       for (j = 0; j < lst_size(pruned_names); j++)
         fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars, 
                 j < lst_size(pruned_names) - 1 ? ", " : ").\n");
+    }
+
+    /* also make sure match for reference sequence in tree */
+    if (refidx > 0) {
+      for (j = 0, found = FALSE; !found && j < mod[i]->tree->nnodes; j++) {
+	TreeNode *n = lst_get_ptr(mod[i]->tree->nodes, j);
+	if (n->lchild == NULL && n->rchild == NULL && 
+	    n->name != NULL && !strcmp(n->name, msa->names[refidx-1]))
+	  found = TRUE;
+      }
+      if (!found) die("ERROR: no match for reference sequence in tree.\n");
     }
 
     lst_free_strings(pruned_names);
