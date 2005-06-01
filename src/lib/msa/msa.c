@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.38 2005-05-13 00:55:58 acs Exp $
+/* $Id: msa.c,v 1.39 2005-06-01 03:47:38 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1643,7 +1643,7 @@ MSA *msa_concat_from_files(List *fnames, msa_format_type format,
     }
 
     if (source_msa->seqs == NULL && source_msa->ss != NULL) {
-      fprintf(stderr, "WARNING: msa_concat_from_files requires an explicit alignment; trying to\nreconstruct one from sufficient statistics (might be a bad idea) ...\n");
+      fprintf(stderr, "WARNING: msa_concat_from_files requires an explicit alignment; trying to\nreconstruct one from sufficient statistics (might be a bad idea)...\n");
       ss_to_msa(source_msa);
     }
 
@@ -1653,11 +1653,9 @@ MSA *msa_concat_from_files(List *fnames, msa_format_type format,
     for (j = 0; j < nseqs; j++) tmpseqs[j] = NULL;
     for (j = 0; j < source_msa->nseqs; j++) {
       int idx = (int)hsh_get(name_hash, source_msa->names[j]);
-      if (idx == -1) {
-        fprintf(stderr, "ERROR: no match for sequence name '%s' in file '%s'\n",
-                source_msa->names[j], fname->chars);
-        exit(1);
-      }
+      if (idx == -1) 
+        die("ERROR: no match for sequence name '%s' in list.\n",
+	    source_msa->names[j]);
       tmpseqs[idx] = source_msa->seqs[j];
     }
     if (source_msa->nseqs < nseqs) {

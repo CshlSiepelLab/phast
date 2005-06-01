@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.25 2005-03-18 20:05:39 acs Exp $
+/* $Id: msa_view.c,v 1.26 2005-06-01 03:47:38 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -554,10 +554,12 @@ int main(int argc, char* argv[]) {
 
   if (optind >= argc) 
     die("Missing alignment filename.  Try 'msa_view -h' for help.\n");
-  else if (optind == argc - 1)
-    infname = argv[optind];
-  else                          /* aggregate case */
+  else if (aggregate_list != NULL)
     msa_fname_list = remaining_arg_list(argv, argc, optind);
+  else if (optind == argc - 1) 
+    infname = argv[optind];
+  else 
+    die("ERROR: Too many arguments.  Try 'msa_view -h' for help.\n");
 
   if (gff != NULL && cm == NULL) 
     cm = cm_new_from_features(gff);
@@ -589,7 +591,7 @@ int main(int argc, char* argv[]) {
       ordered_stats = FALSE;
     }
     else if (input_format == SS && (output_format != SS || ordered_stats))
-      fprintf(stderr, "WARNING: are you sure you don't want to use --out-format SS --unordered-ss?  A lot of memory may be required...\n");
+      fprintf(stderr, "WARNING: are you sure you don't want to use --out-format SS --unordered-ss?\nA lot of memory may be required...\n");
 
     if (output_format == SS && !ordered_stats) {
       msa = ss_aggregate_from_files(msa_fname_list, input_format, 
