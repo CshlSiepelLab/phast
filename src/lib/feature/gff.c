@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.26 2005-06-08 16:58:09 acs Exp $
+/* $Id: gff.c,v 1.27 2005-06-08 17:15:49 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1136,9 +1136,10 @@ void gff_create_signals(GFF_Set *feats) {
   }
 }
 
-/** Merges overlapping features of same type.  When features are
-    merged, scores are summed, but attributes are ignored.  Will not
-    merge if 'frame' is non-null.  */
+/** Merges overlapping features of same type.  Assumes features are
+    sorted.  When two features are merged, scores are summed, but
+    attributes are ignored.  Will not merge if 'frame' is
+    non-null.  */
 void gff_flatten(GFF_Set *feats) {
   List *keepers;
   GFF_Feature *last;
@@ -1163,7 +1164,7 @@ void gff_flatten(GFF_Set *feats) {
       changed = TRUE;
     }
     else {
-      lst_push(keepers, this);
+      lst_push_ptr(keepers, this);
       last = this;
     }
   }
