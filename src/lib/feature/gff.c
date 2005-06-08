@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.24 2004-11-18 00:30:07 acs Exp $
+/* $Id: gff.c,v 1.25 2005-06-08 16:54:59 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1134,4 +1134,44 @@ void gff_create_signals(GFF_Set *feats) {
       }
     }    
   }
+}
+
+/** Merges overlapping features of same type.  When features are
+    merged, scores are summed, but attributes are ignored.  Will not
+    merge if 'frame' is non-null.  */
+void gff_flatten(GFF_Set *feats) {
+  List *keepers;
+  GFF_Feature *last;
+  int i, changed = FALSE;
+
+  if (lst_size(feats->features) <= 1) return;
+
+  keepers = lst_new_ptr(lst_size(feats->features));
+  last = lst_get_ptr(feats->features, 0);
+  lst_push_ptr(keepers, last);
+
+  for (i = 1; i < lst_size(feats->features); i++) {
+    GFF_Feature *this = lst_get_ptr(feats->features, i);
+    if (last->end >= this->start && last->strand == this->strand && 
+	str_equals(last->feature, this->feature) && 
+	last->frame == GFF_NULL_FRAME && this->frame == GFF_NULL_FRAME) {
+      last->end = this->start;
+      if (!last->score_is_null && !this->score_is_null) 
+	last->score += this->score;
+      /* (ignore attribute) */
+      gff_free_feature(this);
+      changed = TRUE;
+    }
+    else 
+      lst_push(keepers, this);
+
+    last = this;
+  }
+  if (changed) {
+    lst_free(feats->features);
+    feats->features = keepers;
+    if (feats->groups != NULL) gff_ungroup(feats);
+  }
+  else 
+    lst_free(keepers);
 }

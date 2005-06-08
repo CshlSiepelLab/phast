@@ -1,4 +1,4 @@
-/* $Id: gff.h,v 1.13 2004-11-18 00:30:07 acs Exp $
+/* $Id: gff.h,v 1.14 2005-06-08 16:54:59 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -180,5 +180,7 @@ void gff_create_utrs(GFF_Set *feats);
 void gff_create_introns(GFF_Set *feats);
 
 void gff_create_signals(GFF_Set *feats);
+
+void gff_flatten(GFF_Set *feats);
 
 #endif

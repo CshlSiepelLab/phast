@@ -646,6 +646,11 @@ int main(int argc, char *argv[]) {
     if (refidx != 0 || msa->idx_offset != 0)
       msa_map_gff_coords(msa, predictions, 0, refidx, msa->idx_offset, NULL);
 
+    if (refidx != 0) 
+      gff_flatten(predictions);	
+    /* necessary because coord conversion might create overlapping
+       features (can happen in deletions in reference sequence) */
+
     /* now output predictions */
     if (gff)
       gff_print_set(viterbi_f, predictions);
