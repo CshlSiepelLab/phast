@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.28 2005-06-08 17:19:20 acs Exp $
+/* $Id: gff.c,v 1.29 2005-06-08 17:24:45 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1156,7 +1156,7 @@ void gff_flatten(GFF_Set *feats) {
     if (last->end >= this->start - 1 && last->strand == this->strand && 
 	str_equals(last->feature, this->feature) && 
 	last->frame == GFF_NULL_FRAME && this->frame == GFF_NULL_FRAME) {
-      last->end = this->start;
+      last->end = this->end;
       if (!last->score_is_null && !this->score_is_null) 
 	last->score += this->score;
       /* (ignore attribute) */
