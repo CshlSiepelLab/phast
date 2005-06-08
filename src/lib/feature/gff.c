@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.25 2005-06-08 16:54:59 acs Exp $
+/* $Id: gff.c,v 1.26 2005-06-08 16:58:09 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1162,10 +1162,10 @@ void gff_flatten(GFF_Set *feats) {
       gff_free_feature(this);
       changed = TRUE;
     }
-    else 
+    else {
       lst_push(keepers, this);
-
-    last = this;
+      last = this;
+    }
   }
   if (changed) {
     lst_free(feats->features);
