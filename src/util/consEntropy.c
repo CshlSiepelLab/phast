@@ -5,42 +5,11 @@
 #include <tree_model.h>
 #include <msa.h>
 #include <tree_likelihoods.h>
+#include "consEntropy.help"
 
 void usage(char *prog) {
   printf("\n\
-PROGRAM: %s\n\
-\n\
-DESCRIPTION:\n\
-    For use with phastCons.  Given phylogenetic models for conserved\n\
-    and non-conserved states, the target coverage, and the (prior)\n\
-    expected length of a conserved element, compute the relative\n\
-    entropy (H) of the phylogenetic models, the expected minimum number\n\
-    of conserved sites required to predict conserved element (L_min), and\n\
-    the expected maximum number of nonconserved sites tolerated within a\n\
-    conserved element (L_max).  Also will make a recommendation for a\n\
-    new prior expected length based on a constant value of L_min*H (see --NH).\n\
-\n\
-USAGE: %s [OPTIONS] <target-coverage> <expected-length> \\\n\
-            [ <cons.mod> <noncons.mod> ]\n\
-\n\
-OPTIONS:\n\
-    --H, -H <value>\n\
-        Instead of computing the relative entropy from two .mod files,\n\
-        just use the specified value.  The .mod files aren't required\n\
-        in this case.\n\
-\n\
-    --LminH, -L <value> [or --NH/-N, for backward compatibility]\n\
-        Report the expected length that would produce the specified\n\
-        value of L_min*H, assuming H remains constant (it generally won't).\n\
-        Can be used iteratively to converge on a desired value of L_min*H.\n\
-\n\
-    --help, -h\n\
-        Print this help message.\n\
-\n\
-NOTE:\n\
-    The relative entropy is currently computed by brute force, i.e.,\n\
-    by enumerating all possible labelings of the leaves of the tree.\n\
-    This approach won't be feasible with large trees.\n\n", prog, prog);
+", prog, prog);
   exit(0);
 }
 
@@ -98,7 +67,8 @@ int main(int argc, char *argv[]) {
       LminH = get_arg_dbl_bounds(optarg, 0, INFTY);
       break;
     case 'h':
-      usage(argv[0]);
+      printf(HELP);
+      exit(0);
     case '?':
       die("Bad argument.  Try '%s -h'.\n", argv[0]);
     }
@@ -174,7 +144,7 @@ int main(int argc, char *argv[]) {
   printf("Relative entropy: H=%f bits/site\n", H);
   printf("Expected min. length: L_min=%f sites\n", L_min);
   printf("Expected max. length: L_max=%f sites\n", L_max);
-  printf("Total entropy: L_min*H=%f bits\n", L_min*H);
+  printf("Phylogenetic information threshold: PIT=L_min*H=%f bits\n", L_min*H);
   if (LminH > -1)
     printf("Recommended expected length: omega=%f sites (for L_min*H=%f)\n", new_exp_len, LminH);
   return 0;

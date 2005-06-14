@@ -41,11 +41,12 @@ int main(int argc, char *argv[]) {
     gff = FALSE, FC = FALSE, estim_lambda = TRUE, 
     estim_transitions = TRUE, two_state = TRUE, indels = FALSE,
     coding_potential = FALSE, indels_only = FALSE, estim_indels = TRUE,
-    estim_trees = FALSE, ignore_missing = FALSE, estim_rho = FALSE;
+    estim_trees = FALSE, ignore_missing = FALSE, estim_rho = FALSE,
+    set_transitions = FALSE;
   int nrates = -1, nrates2 = -1, refidx = 1, max_micro_indel = 20;
   double lambda = 0.9, mu = 0.01, nu = 0.01, alpha_0 = 0.05, beta_0 = 0.05, 
     tau_0 = 0.45, alpha_1 = 0.05, beta_1 = 0.05, tau_1 = 0.2, gc = -1,
-    gamma = -1, rho = DEFAULT_RHO;
+    gamma = -1, rho = DEFAULT_RHO, omega = -1;
   msa_format_type msa_format = SS;
   FILE *viterbi_f = NULL, *lnl_f = NULL, *log_f = NULL;
   List *states = NULL, *pivot_states = NULL, *inform_reqd = NULL, 
@@ -67,8 +68,10 @@ int main(int argc, char *argv[]) {
     {"lambda", 1, 0, 'l'},
     {"target-coverage", 1, 0, 'C'},
     {"transitions", 1, 0, 't'},
-    {"expected-lengths", 1, 0, 'E'},
+    {"expected-length", 1, 0, 'E'},
+    {"expected-lengths", 1, 0, 'E'}, /* for backward compatibility */
     {"estimate-trees", 1, 0, 'T'},
+    {"estimate-rho", 1, 0, 'O'},
     {"rho", 1, 0, 'R'},
     {"gc", 1, 0, 'G'},
     {"ignore-missing", 0, 0, 'z'},
@@ -111,7 +114,7 @@ int main(int argc, char *argv[]) {
   indel_mode_type indel_mode;
 
   while ((c = getopt_long(argc, argv, 
-			  "S:H:V:ni:k:l:C:G:zt:E:R:T:r:xL:s:N:P:g:U:c:e:IY:D:JM:F:pA:Xqh", 
+			  "S:H:V:ni:k:l:C:G:zt:E:R:T:O:r:xL:s:N:P:g:U:c:e:IY:D:JM:F:pA:Xqh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
@@ -150,13 +153,14 @@ int main(int argc, char *argv[]) {
       gc = get_arg_dbl_bounds(optarg, 0, 1);
       break;
     case 't':
+      set_transitions = TRUE;
       if (optarg[0] != '~') estim_transitions = FALSE;
       else optarg = &optarg[1];
       tmpl = get_arg_list_dbl(optarg);
-      if (lst_size(tmpl) > 2) 
+      if (lst_size(tmpl) != 2) 
         die("ERROR: bad argument to --transitions.\n");
       mu = lst_get_dbl(tmpl, 0);
-      if (lst_size(tmpl) == 2) nu = lst_get_dbl(tmpl, 1);
+      nu = lst_get_dbl(tmpl, 1);
       if (mu <= 0 || mu >= 1 || nu <= 0 || nu >= 1)
         die("ERROR: bad argument to --transitions.\n");
       lst_free(tmpl);
@@ -164,17 +168,15 @@ int main(int argc, char *argv[]) {
     case 'E':
       if (optarg[0] != '~') estim_transitions = FALSE;
       else optarg = &optarg[1];
-      tmpl = get_arg_list_dbl(optarg);
-      if (lst_size(tmpl) > 2) 
-        die("ERROR: bad argument to --expected-lengths.\n");
-      mu = 1.0/lst_get_dbl(tmpl, 0);
-      if (lst_size(tmpl) == 2) nu = 1.0/lst_get_dbl(tmpl, 1);
-      if (mu <= 0 || mu >= 1 || nu <= 0 || nu >= 1)
-        die("ERROR: bad argument to --expected-lengths.\n");
-      lst_free(tmpl);
+      omega = get_arg_dbl_bounds(optarg, 1, INFTY);
+      mu = 1/omega;
       break;
     case 'T':
       estim_trees = TRUE;
+      estim_trees_fname_root = optarg;
+      break;
+    case 'O':
+      estim_rho = TRUE;
       estim_trees_fname_root = optarg;
       break;
     case 'z':
@@ -195,7 +197,6 @@ int main(int argc, char *argv[]) {
       lst_free(tmpl);
       break;
     case 'R':
-      if (optarg[0] == '~') { estim_rho = TRUE; optarg = &optarg[1]; }
       rho = get_arg_dbl_bounds(optarg, 0, 1);
       break;
     case 'g':
@@ -288,8 +289,15 @@ int main(int argc, char *argv[]) {
   if (indels_only && (hmm != NULL || FC))
     die("ERROR: --indels-only cannot be used with --hmm or --FC.\n");
 
-  if ((estim_trees || gamma != -1 || estim_rho) && !two_state)
-    die("ERROR: --estimate-trees, --target-coverage, and --rho can only be used with default two-state HMM.\n");
+  if ((estim_trees || gamma != -1 || estim_rho || 
+       omega != -1 || set_transitions) && !two_state)
+    die("ERROR: --estimate-trees, --target-coverage, --expected-length, --transitions,\nand --estimate-rho can only be used with default two-state HMM.\n");
+
+  if (set_transitions && (gamma != -1 || omega != -1))
+    die("ERROR: --transitions and --target-coverage/--expected-length cannot be used together.\n");
+
+  if (omega != -1 && gamma == -1) 
+    die("ERROR: --expected-length requires --target-coverage.\n");
 
   if (cm != NULL && hmm == NULL) 
     die("ERROR: --catmap can only be used with --hmm.\n");
@@ -299,7 +307,7 @@ int main(int argc, char *argv[]) {
 
   if (nrates != -1 && hmm != NULL)
     die("ERROR: --nrates currently can't be used with --hmm.\n");
-  
+
   if ((!coding_potential && optind != argc - 2) ||
       (coding_potential && optind != argc - 2 && optind != argc - 1))
     die("ERROR: extra or missing arguments.  Try '%s -h'.\n", argv[0]);
@@ -444,7 +452,7 @@ int main(int argc, char *argv[]) {
 
   /* initial checks and setup of tree models for two-state and FC */
   if (two_state) {
-    if (lst_size(mod_fname_list) == 2 && estim_trees)
+    if (lst_size(mod_fname_list) == 2 && (estim_trees || estim_rho))
       die("ERROR: If re-estimating tree models, pass in only one model for initialization.\n");
     if (mod[0]->empirical_rates || 
         (lst_size(mod_fname_list) == 2 && mod[1]->empirical_rates))
@@ -519,7 +527,7 @@ int main(int argc, char *argv[]) {
     phmm_rates_cross(phmm, nrates, lambda, TRUE);
   }
 
-  /* set min informative bases, if necessary.  This has to be done
+  /* set inform_reqd, if necessary.  This has to be done
      *after* the set of models is expanded (two-state or FC) */
   if (inform_reqd != NULL) {
     List *l = cm_get_category_list(cm, inform_reqd, 0);
@@ -577,11 +585,11 @@ int main(int argc, char *argv[]) {
 		alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1, 
 		estim_rho ? ", " : "");
       if (estim_rho) 
-	fprintf(stderr, "rho = %f", rho);
+        fprintf(stderr, "rho = %f", rho);
       fprintf(stderr, ")\n");
     }
 
-    if (estim_trees) {
+    if (estim_trees || estim_rho) {
       sprintf(cons_fname, "%s.cons.mod", estim_trees_fname_root);
       sprintf(noncons_fname, "%s.noncons.mod", estim_trees_fname_root);
       if (!quiet)
@@ -589,11 +597,6 @@ int main(int argc, char *argv[]) {
                 cons_fname, noncons_fname);
       tm_print(fopen_fname(cons_fname, "w+"), phmm->mods[0]);
       tm_print(fopen_fname(noncons_fname, "w+"), phmm->mods[1]);
-    }
-    else if (estim_rho) {
-      if (!quiet)
-        fprintf(stderr, "Writing re-estimated conserved model to phastCons.cons.mod...\n");
-      tm_print(fopen_fname("phastCons.cons.mod", "w+"), phmm->mods[0]);
     }
   }
 
