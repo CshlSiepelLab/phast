@@ -7,12 +7,6 @@
 #include <tree_likelihoods.h>
 #include "consEntropy.help"
 
-void usage(char *prog) {
-  printf("\n\
-", prog, prog);
-  exit(0);
-}
-
 /* solve for new expected length given L_min*H using Newton's method */
 double solve_newton(double expected_len, double target_coverage, double H, double LminH) {
   double L_min, odds, mu1, mu2, func, deriv;
