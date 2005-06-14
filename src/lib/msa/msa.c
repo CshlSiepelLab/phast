@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.39 2005-06-01 03:47:38 acs Exp $
+/* $Id: msa.c,v 1.40 2005-06-14 03:52:49 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1731,8 +1731,8 @@ void msa_concatenate(MSA *aggregate_msa, MSA *source_msa) {
 
 /* Randomly permute the columns of a multiple alignment.  */
 void msa_permute(MSA *msa) {
-  int rand_perm[msa->length];
   int i, j;
+  int *rand_perm = smalloc(msa->length * sizeof(int));
   char **tmpseq = smalloc(msa->nseqs * sizeof(char*));
 
   for (i = 0; i < msa->nseqs; i++) 
@@ -1756,6 +1756,7 @@ void msa_permute(MSA *msa) {
 
   for (i = 0; i < msa->nseqs; i++) free(tmpseq[i]);
   free(tmpseq);
+  free(rand_perm);
 }
 
 
