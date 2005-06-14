@@ -350,7 +350,6 @@ int main(int argc, char *argv[]) {
     }
     if (states == NULL) states = get_arg_list("CDS");
     if (pivot_states == NULL) pivot_states = get_arg_list("background,CNS");
-    if (inform_reqd == NULL) inform_reqd = get_arg_list("CDS");
   }
   
   /* read alignment */
@@ -500,6 +499,13 @@ int main(int argc, char *argv[]) {
     lst_push_ptr(states, str_new_charstr("0"));
   }
 
+  /* set require-informative to states if null; set to null if "none" */ 
+  if (inform_reqd == NULL)
+    inform_reqd = states;
+  else if (lst_size(inform_reqd) == 1 && 
+	   str_equals_charstr(lst_get_ptr(inform_reqd, 0), "none")) 
+    inform_reqd = NULL;
+
   if (two_state) {
     if (!quiet) 
       fprintf(stderr, "Creating 'conserved' and 'nonconserved' states in HMM...\n");
@@ -625,13 +631,6 @@ int main(int argc, char *argv[]) {
   /* Viterbi */
   if (viterbi_f != NULL) {
     GFF_Set *predictions;
-
-    if (lst_size(states) > 1) 
-      /* if possible, we want to merge categories of specified states,
-         so that the "union" of states is automatically considered by
-         phmm_viterbi_features.  Reduces potential for generation of
-         huge numbers of features (could be as many as one per site) */
-      collapse_cats(phmm->cm, states);
 
     if (!quiet) fprintf(stderr, "Running Viterbi algorithm...\n");
     predictions = phmm_predict_viterbi_cats(phmm, states, seqname, NULL,
@@ -1116,23 +1115,6 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
   }
 
   phmm_reset(phmm);
-}
-
-/* attempts to merge cats by incorporating together into ranges */
-void collapse_cats(CategoryMap *cm, List *cats_to_merge) {
-  /* assumes all ranges are of size one initially */
-  int i, beg, end = -INFTY;
-  lst_qsort_int(cats_to_merge, ASCENDING);
-  for (i = 0; i < lst_size(cats_to_merge); i++) {
-    int cat = lst_get_int(cats_to_merge, i);
-    if (cat == end + 1) {
-      cm_free_category_range(cm->ranges[cat]);
-      cm->ranges[cat] = cm->ranges[beg];
-      end = cat;
-      cm->ranges[beg]->end_cat_no = end;
-    }
-    else beg = end = cat;
-  }
 }
 
 /* initialize equilibrium freqs for tree model; either make consistent
