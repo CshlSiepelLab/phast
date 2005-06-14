@@ -1,11 +1,11 @@
 PROGRAM: phastCons
 
-USAGE: phastCons [OPTIONS] <msa_fname> <mod_fname_list>
+USAGE: phastCons [OPTIONS] alignment m1.mod,m2.mod,... > scores.wig
 
-    The alignment file, <msa_fname>, can be in any of several file
-    formats (see --msa-format); SS format is assumed by default (see
-    msa_view).  The list of *.mod files, <mod_fname_list>, should be
-    comma delimited.  (Files should be as output by phyloFit.)
+    The alignment file can be in any of several file formats (see
+    --msa-format); SS format is assumed by default.  The phylogenetic
+    models must be in the .mod format produced by the phyloFit
+    program.
 
 DESCRIPTION:
 
@@ -15,153 +15,257 @@ DESCRIPTION:
     "non-conserved" state.  Separate phylogenetic models can be
     specified for these two states, e.g.,
 
-        phastCons myfile.ss conserved.mod,non-conserved.mod
+        phastCons myfile.ss cons.mod,noncons.mod > scores.wig
 
     or a single model can be given for the non-conserved state, e.g.,
 
-        phastCons myfile.ss --conserved-scale 0.5 non-conserved.mod
+        phastCons myfile.ss --rho 0.5 noncons.mod > scores.wig
 
     in which case the model for the conserved state will be obtained
-    by multiplying all branch lengths by the specified factor (must be
-    between 0 and 1; if not specified, the default value of 0.3 will
-    be used).
+    by multiplying all branch lengths by the scaling parameter rho (0
+    < rho < 1).  If the --rho option is not used, rho will be set to
+    its default value of 0.3.
 
     By default, the phylogenetic models will be left unaltered, but if
     the --estimate-trees option is used, e.g.,
 
-        phastCons myfile.ss init.mod --estimate-trees newtree
+        phastCons myfile.ss init.mod --estimate-trees newtree > scores.wig
 
     then the phylogenetic models for the two states will be estimated
-    from the data and the given model (there must be only one in this
-    case) will be used for initialization only.  (The estimated models
-    for the two states will differ only by a scale factor, which will
-    be estimated from the data.)
+    from the data, and the given tree model (there must be only one in
+    this case) will be used for initialization only.  It is also
+    possible to estimate only the scale factor --rho, using the
+    --estimate-rho option.
 
-    The transition probabilities for the HMM will be estimated from
-    the data using an EM algorithm.  This behavior can be overridden
-    using the --transitions option (see below).  Also, the transition
-    probabilities can be constrained such that the portion of sites
-    predicted to be conserved will be approximately equal to some
-    target value.  For example, to estimate parameters consistent with
-    identifying the 5% most conserved sites in a genome, use
-    --target-coverage 0.05.  (You must also consider the coverage of
-    your alignments, however.  For example, if only 40% of the genome
-    of interest is aligned to other genomes and you want to identify
-    the 5% most conserved sites, use a target coverage of 0.05/0.4 =
-    0.125.)
+    The transition probabilities for the HMM can either be specified
+    at the command line or estimated from the data using an EM
+    algorithm.  To specify them at the command line, use either the
+    --transitions option or the --target-coverage and
+    --expected-length options.  The recommended method is to use
+    --target-coverage and --expected-length, e.g.,
 
-    It's also possible to use a a k-state phylo-HMM of the kind
-    described by Felsenstein and Churchill (1996) (see --FC),
-    or to define the state-transition structure of the HMM explicitly
-    (see --hmm).  In the Felsenstein-Churchill case, a single
-    phylogenetic model (*.mod file) must be given, and this model must
-    allow for variation in evolutionary rate (it can be produced using
-    the -k/-K options to phyloFit).  In the --hmm case, a model file
-    must be given for each state in the HMM.  These files must be
-    given in the same order as the states in the HMM file.
+	phastCons --target-coverage 0.25 --expected-length 12 \
+	    myfile.ss cons.mod,noncons.mod > scores.wig
 
-    By default, the program computes the posterior probability at each
-    site of the *first* state (index 0) in the HMM.  In the cases of
-    the default two-state HMM and the Felsenstein-Churchill HMM, this
-    is the most conserved state, and these probabilities can be
-    interpreted as conservation scores.  They are written to stdout in
-    fixed-step WIG format
-    (http://genome.ucsc.edu/encode/submission.html#WIG).  The set of
-    states whose total (marginal) posterior probability is reported
-    can be changed using the --states option.  In addition, discrete
-    elements can be predicted using the --viterbi option, and
-    they can be assigned log-odds scores using the --score option.
-    The set of states considered when predicting discrete elements is
-    also defined by --states.
+    The program produces two main types of output.  The primary
+    output, sent to stdout in fixed-step WIG format
+    (http://genome.ucsc.edu/encode/submission.html#WIG), is a set of
+    base-by-base conservation scores.  The score at each base is equal
+    to the posterior probability that that base was "generated" by the
+    conserved state of the phylo-HMM.  The scores are reported in the
+    coordinate frame of a designated reference sequence (see
+    --refidx), which is by default the first sequence in the
+    alignment.  They can be suppressed with the --no-post-probs
+    option.  The secondary type of output, activated with the
+    --most-conserved (aka --viterbi) option, is a set of discrete
+    conserved elements.  These elements are output in either BED or GFF
+    format, also in the coordinate system of the reference sequence
+    (see --most-conserved).  They can be assigned log-odds scores
+    using the --score option.
 
-    This program is written in a general enough way that it can be
-    useful for other things besides analyzing rates of substitution
-    and evolutionary conservation.  E.g., by giving it a simple
-    gene-finding phylo-HMM (e.g., with a state for non-coding regions
-    and three states for the three codon positions), and specifying
-    the coding states via --states, you can obtain posterior
-    probabilities that can be interpreted as a measure of "coding
-    potential." (The --coding-potential option sets appropriate
-    defaults for such an application).
+    Other uses are also supported, but will not be described in detail
+    here.  For example, it is possible to produce conservation scores
+    and conserved elements using a k-state phylo-HMM of the kind
+    described by Felsenstein and Churchill (1996) (see --FC), and it
+    is possible to produce a "coding potential" score instead of a
+    conservation score (see --coding-potential).  It is also possible
+    to give the program a custom HMM and to specify any subset of its
+    states to use for prediction (see --hmm and --states).
+
+    See the phastCons HOWTO for additional details.
 
 EXAMPLES:
 
-    1. Fit a phylogenetic model to a data set, then produce
-    conservation scores via a two-state phylo-HMM.  Use an input file
-    in SS format.
+    1. Given phylogenetic models for conserved and nonconserved regions
+       and HMM transition parameters, compute a set of conservation scores.
 
-        phyloFit --tree mytree.nh mydata.ss --msa-format SS \
-            --out-root init
-        phastCons mydata.ss init.mod --target-coverage 0.10 \
-            --estimate-trees newtree > cons.wig
+	phastCons --transitions 0.01,0.01 mydata.ss cons.mod,noncons.mod \
+	    > scores.wig
 
-    2. As in (1), but also predict discrete conserved elements and
-    score them using log-odds scoring.  This time, use the tree models
-    that were estimated above.  Write predictions in BED format to
-    elements.bed.
+    2. Similar to (1), but define the conserved model as a scaled
+       version of the nonconserved model, with rho=0.4 as the scaling
+       parameter.  Also predict conserved elements as well as
+       conservation scores, and assign log-odds scores to predictions.
 
-        phastCons mydata.ss newtree.cons.mod,newtree.noncons.mod \
-             --target-coverage 0.10 --most-conserved elements.bed \
-             --score > cons.wig
+	phastCons --transitions 0.01,0.01 --most-conserved mostcons.bed \
+	    --score --rho 0.4 mydata.ss noncons.mod > scores.wig
 
-    (if output file were "elements.gff," then output would be in GFF
-    instead)
+       (if output file were "mostcons.gff," then output would be in
+       GFF instead of BED format)
 
-    3. As above, but bypass finding the maximum likelihood estimate of
-    the state transition probabilities, and instead just use values
-    specified via --target-coverage and --expected-length (much faster).
+    3. This time, estimate the parameter rho from the data.  Suppress
+       both the scores and the conserved elements.  Specify the
+       transition probabilities using --target-coverage and
+       --expected-length instead of --transitions.
 
-        phastCons mydata.ss newtree.cons.mod,newtree.noncons.mod \
-            --target-coverage 0.10 --expected-length 100 \
-            --most-conserved elements.bed --score > cons.wig
+	phastCons --target-coverage 0.25 --expected-length 12 \
+	    --estimate-rho newtree --no-post-probs mydata.ss noncons.mod
+       
+    4. This time estimate all free parameters of the tree models.
 
-    4. Similar to above, but this time use a k-state HMM with transition
-    probabilities defined by an autocorrelation parameter lambda, as
-    described by Felsenstein and Churchill (1996).  Use k = 10 states
-    and estimate the parameter lambda from the data.  Report posterior
-    probabilities not just of the single most conserved state, but of
-    the two most conserved states.
+	phastCons --target-coverage 0.25 --expected-length 12 \
+	    --estimate-trees newtree --no-post-probs mydata.ss noncons.mod
 
-        phastCons mydata.ss rev-dg.mod --FC --nrates 10 \
-            --states 0,1 > cons.wig
+    5. Estimate the state-transition parameters but not the tree
+       models.  Output the conservation scores but not the conserved
+       elements.
 
-    5. As in (4), but fix lambda at 0.9 rather than estimating it from
-    the data.
+	phastCons mydata.ss cons.mod,noncons.mod > scores.wig
 
-        phastCons mydata.ss rev-dg.mod --FC --nrates 10 \
-            --states 0,1 --lambda 0.9 > cons.wig
+    6. Estimate just the expected-length parameter and also estimate rho.
 
-    6. Compute a coding potential score, using a simple gene-finding
-    HMM and phylogenetic models for the three codon positions and
-    non-coding sites.  Allow for genes on either strand.
-
-        phastCons mydata.ss noncoding.mod,codon1.mod,codon2.mod,codon3.mod \
-            --hmm simple-4state.hmm --reflect-strand 0 --states 1,2,3 \
-            > coding-potential.wig
-
-    7. Compute a coding potential score using a default phylo-HMM,
-    a simplified version of the one used in exoniphy.  Allows for
-    conserved non-coding sequences and makes use of the different
-    patterns of indels seen in coding and non-coding regions.
-    Currently assumes a human/mouse/rat alignment.
-
-        phastCons --coding-potential human-mouse-rat.ss > cp.wig
-
+	phastCons --target-coverage 0.25 --estimate-rho newtree \
+	    mydata.ss noncons.mod > scores.wig
 
 OPTIONS:
 
- (HMM structure and transition probabilities)
-    --hmm, -H <hmm_fname>
-        Name of HMM file explicitly defining the probabilities of all
-        state transitions.  States in the file must correspond in
-        number and order to phylogenetic models in <mod_fname_list>.
-        Expected file format is as produced by 'hmm_train.'
+ (Tree models)
+    --rho, -R <rho>
+        Set the *scale* (overall evolutionary rate) of the model for
+        the conserved state to be <rho> times that of the model for
+        the non-conserved state (0 < <rho> < 1; default 0.3).  If used
+        with --estimate-trees or --estimate-rho, the specified value
+        will be used for initialization only (rho will be
+        estimated).  This option is ignored if two tree models are
+        given.
 
-    --catmap, -c <fname>|<string>
-        (Optionally use with --hmm)  Mapping of feature types to category
-        numbers.  Can give either a filename or an "inline" description
-        of a simple category map, e.g., --catmap "NCATS = 3 ; CDS 1-3".
+    --estimate-trees, -T <fname_root>
+        Estimate free parameters of tree models and write new models
+        to <fname_root>.cons.mod and <fname_root>.noncons.mod.
 
+    --estimate-rho, -O <fname_root>
+        Like --estimate-trees, but estimate only the parameter rho.
+
+    --gc, -G <val>
+        (Optionally use with --estimate-trees or --estimate-rho)
+        Assume a background nucleotide distribution consistent with
+        the given average G+C content (0 < <val> < 1) when estimating
+        tree models.  (The frequencies of G and C will be set to
+        <val>/2 and the frequencies of A and T will be set to
+        (1-<val>)/2.)  This option overrides the default behavior of
+        estimating the background distribution from the data (if
+        --estimate-trees) or obtaining them from the input model (if
+        --estimate-rho).
+
+    --nrates, -k <nrates> | <nrates_conserved,nrates_nonconserved>
+        (Optionally use with a discrete-gamma model) Assume the
+        specified number of rate categories, instead of the number
+        given in the *.mod file.  The shape parameter 'alpha' will be
+        as given in the *.mod file.  In the case of the default
+        two-state HMM, two values can be specified, for the numbers of
+        rates for the conserved and the nonconserved states, resp.
+
+ (State-transition parameters)
+    --transitions, -t [~]<mu>,<nu> 
+        Fix the transition probabilities of the two-state HMM as
+        specified, rather than estimating them by maximum likelihood.
+        Alternatively, if first character of argument is '~', estimate
+        parameters, but initialize to specified values.  The argument
+        <mu> is the probability of transitioning from the conserved to
+        the non-conserved state, and <nu> is the probability of the
+        reverse transition.  The probabilities of self transitions are
+        thus 1-<mu> and 1-<nu> and the expected lengths of conserved
+        and nonconserved elements are 1/<mu> and 1/<nu>, respectively.
+
+    --target-coverage, -C <gamma>
+        (Alternative to --transitions) Constrain transition parameters
+        such that the expected fraction of sites in conserved elements
+        is <gamma> (0 < <gamma> < 1).  This is a *prior* rather than
+        *posterior* expectation and assumes stationarity of the
+        state-transition process.  Adding this constraint causes the
+        ratio mu/nu to be fixed at (1-<gamma>)/<gamma>.  If used with
+        --expected-length, the transition probabilities will be
+        completely fixed; otherwise the expected-length parameter
+        <omega> will be estimated by maximum likelihood.
+
+    --expected-length, -E [~]<omega>  {--expected-lengths also allowed,
+                                       for backward compatibility}
+        (For use with --target-coverage, alternative to --transitions)
+        Set transition probabilities such that the expected length of
+        a conserved element is <omega>.  Specifically, the parameter
+        mu is set to 1/<omega>.  If preceded by '~', <omega> will be
+        estimated, but will be initialized to the specified value.
+
+ (Input/output)
+    --msa-format, -i PHYLIP|FASTA|MPM|SS|MAF
+        (Default SS) Alignment file format.  Note that the msa_view
+        program can also be used to convert between formats.
+
+    --viterbi [alternatively --most-conserved], -V <fname>
+    	Predict discrete elements using the Viterbi algorithm and
+    	write to specified file.  Output is in BED format, unless
+    	<fname> has suffix ".gff", in which case output is in GFF.
+
+    --score, -s
+        (Optionally use with --viterbi) Assign a log-odds score to
+        each prediction.
+
+    --lnl, -L <fname>
+        Compute total log likelihood using the forward algorithm and
+        write to specified file.
+
+    --no-post-probs, -n
+        Suppress output of posterior probabilities.  Useful if only
+        discrete elements or likelihood is of interest.
+
+    --log, -g <log_fname>
+        (Optionally use when estimating free parameters) Write log of
+        optimization procedure to specified file.
+
+    --refidx, -r <refseq_idx>
+        Use coordinate frame of specified sequence in output.  Default
+        value is 1, first sequence in alignment; 0 indicates
+        coordinate frame of entire multiple alignment.
+
+    --seqname, -N <name>
+        (Optionally use with --viterbi) Use specified string
+        for 'seqname' (GFF) or 'chrom' field in output file.  Default
+        is obtained from input file name (double filename root, e.g.,
+        "chr22" if input file is "chr22.35.ss").
+
+    --idpref, -P <name>
+        (Optionally use with --viterbi) Use specified string as
+        prefix of generated ids in output file.  Can be used to ensure
+        ids are unique.  Default is obtained from input file name
+        (single filename root, e.g., "chr22.35" if input file is
+        "chr22.35.ss").
+
+    --quiet, -q
+        Proceed quietly (without updates to stderr).
+
+    --help, -h
+        Print this help message.
+
+ (Indels) [experimental]
+    --indels, -I
+        Expand HMM state space to model indels as described in Siepel
+        & Haussler (2004).
+
+    --max-micro-indel, -Y <length> 
+        (Optionally use with --indels) Maximum length of an alignment
+        gap to be considered a "micro-indel" and therefore
+        addressed by the indel model.  Gaps longer than this threshold
+        will be treated as missing data.  Default value is 20.
+
+    --indel-params, -D [~]<alpha_0,beta_0,tau_0,alpha_1,beta_1,tau_1>
+        (Optionally use with --indels and default two-state HMM) Fix
+        the indel parameters at (alpha_0, beta_0, tau_0) for the
+        conserved state and at (alpha_1, beta_1, tau_1) for the
+        non-conserved state, rather than estimating them by maximum
+        likelihood.  Alternatively, if first character of argument is
+        '~', estimate parameters, but initialize with specified
+        values.  Alpha_j is the rate of insertion events per
+        substitution per site in state j (typically ~0.05), beta_j is
+        the rate of deletion events per substitution per site in state
+        j (typically ~0.05), and tau_j is approximately the inverse
+        of the expected indel length in state j (typically 0.2-0.5).
+
+    --indels-only, -J
+        Like --indels but force the use of a single-state HMM.  This
+        option allows the effect of the indel model in isolation to be
+        observed.  Implies --no-post-probs.  Use with --lnl.
+
+ (Felsenstein/Churchill model) [rarely used]
     --FC, -X
         (Alternative to --hmm; specify only one *.mod file with this
         option) Use an HMM with a state for every rate
@@ -191,91 +295,17 @@ OPTIONS:
         = 0 implies no autocorrelation and lambda = 1 implies perfect
         autocorrelation.
 
-    --transitions, -t [~]<mu>,<nu> 
-        (Optionally use with default two-state HMM) Fix the transition
-        probabilities of the two-state HMM as specified, rather than
-        estimating them by maximum likelihood.  Alternatively, if first
-        character of argument is '~', estimate parameters, but initialize
-        with specified values.  The argument <mu> is the probability of
-        transitioning from the conserved to the non-conserved state, and
-        <nu> is the probability of the reverse transition.  The
-        probabilities of self transitions are thus 1-<mu> and 1-<nu> and
-        the expected lengths of conserved and nonconserved elements are
-        1/<mu> and 1/<nu>, respectively.
-
-    --target-coverage, -C <gamma>
-        (For use with default two-state HMM; alternative to
-        --transitions) Constrain transition parameters such that the
-        expected portion of conserved sites is <gamma> (a number between 0
-        and 1).  This is a *prior* rather than *posterior* expectation and
-        assumes stationarity of the state-transition process.  Adding this
-        constraint causes the ratio mu/nu to be fixed at
-        (1-<gamma>)/<gamma>.  If used with --expected-length, the
-        transition probabilities will be completely fixed; otherwise the
-        expected-length parameter <omega> will be estimated by maximum
-        likelihood.
-
-    --expected-length, -E [~]<omega>  {--expected-lengths also allowed,
-                                       for backward compatibility}
-        (For use with --target-coverage, alternative to --transitions) Set
-        transition probabilities such that the expected length of a
-        conserved element is <omega>.  Specifically, the parameter mu is
-        set to 1/<omega>.  If preceded by '~', <omega> will be estimated,
-        but will be initialized to the specified value.
-
-    --ignore-missing, -z
-        (For use when estimating transition probabilities) Ignore
-        regions of missing data (i.e., in all sequences but the
-        reference sequence, excluding those specified by
-        --not-informative) when estimating transition probabilities.
-        Can help avoid too-low estimates of <mu> and <nu> or too-high
-        estimates of <lambda>.  Warning: this option should not be used
-        with --viterbi because coordinates in output will be
-        unrecognizable. 
-
-    --nrates, -k <nrates> | <nrates_conserved,nrates_nonconserved>
-        (Optionally use with a discrete-gamma model) Assume the
-        specified number of rate categories, instead of the number
-        given in the *.mod file.  The shape parameter 'alpha' will be
-        as given in the *.mod file.  In the case of the default
-        two-state HMM, two values can be specified, for the numbers of
-        rates for the conserved and the nonconserved states, resp.
-
- (Tree models)
-    --rho, -R <rho>
-        (Optionally use with default two-state HMM) Set the *scale*
-        (overall evolutionary rate) of the model for the conserved state to
-        be <rho> times that of the model for the non-conserved state.  The
-        parameter <rho> must be between 0 and 1; default is 0.3.  If used
-        with --estimate-trees or --estimate-rho, the specified value will
-        be used for initialization only (rho will be estimated).  This
-        option is ignored if two tree models are given.
-
-    --estimate-trees, -T <fname_root>
-        (Optionally use with default two-state HMM) Re-estimate tree
-        model parameters, in the context of the two-state HMM, and
-        write new models to files with given file-name root (filenames
-        will be given suffixes ".cons.mod" and ".noncons.mod").  
-
-    --estimate-rho, -? <fname_root>
-        (Optionally use with default two-state HMM) Like --estimate-trees,
-        but estimate only the scale parameter rho.
-
-    --gc, -G <val>
-        (Optionally use with --estimate-trees or --estimate-rho) Assume
-        equilibrium base frequencies consistent with the given average G+C
-        content when estimating tree models.  (The frequencies of G and C
-        will be set to <val>/2 and the frequencies of A and T will be set
-        to (1-<val>)/2.)  This option overrides the default behavior of
-        estimating the equilibrium frequencies to be equal to the relative
-        frequencies observed in the data.  It can be useful when model
-        parameters are to be estimated separately, e.g., for fragments of
-        genome-wide alignments, then combined into a single set of
-        estimates which are to be applied globally.  The argument <val>
-        should be between 0 and 1.  Note that in the absence of --gc, the
-        background distribution will be estimated from the data
-        (--estimate-trees case) or obtained from the input model
-        (--estimate-rho case).
+ (Coding potential) [experimental]
+    --coding-potential, -p
+        Use parameter settings that cause output to be interpretable
+        as a coding potential score.  By default, a simplified version
+        of exoniphy's phylo-HMM is used, with a noncoding (background)
+        state, a conserved non-coding (CNS) state, and states for the
+        three codon positions.  This option implies --catmap "NCATS=4;
+        CNS 1; CDS 2-4" --hmm <default-HMM-file> --states CDS
+        --reflect-strand background,CNS and a set of default *.mod
+        files (all of which can be overridden).  This option can be
+        used with or without --indels.
 
     --extrapolate, -e <phylog.nh> | default
         Extrapolate to a larger set of species based on the given
@@ -292,136 +322,6 @@ OPTIONS:
         (CFTR) of the NISC Comparative Sequencing Program (Thomas et
         al., 2003), will be assumed.
 
- (Indels, forward/reverse strands, missing data, and coding potential)
-    --indels, -I
-        (Optionally use with --hmm) Expand HMM state space to model
-        indels as described in Siepel & Haussler (2004).
-
-    --max-micro-indel, -Y <length> 
-        (Optionally use with --indels) Maximum length of an alignment
-        gap to be considered a "micro-indel" and therefore
-        addressed by the indel model.  Gaps longer than this threshold
-        will be treated as missing data.  Default value is 20.
-
-    --indel-params, -D [~]<alpha_0,beta_0,tau_0,alpha_1,beta_1,tau_1>
-        (Optionally use with --indels and default two-state HMM) Fix
-        the indel parameters at (alpha_0, beta_0, tau_0) for the
-        conserved state and at (alpha_1, beta_1, tau_1) for the
-        non-conserved state, rather than estimating them by maximum
-        likelihood.  Alternatively, if first character of argument is
-        '~', estimate parameters, but initialize with specified
-        values.  Alpha_j is the rate of insertion events per
-        substitution per site in state j (typically ~0.05), beta_j is
-        the rate of deletion events per substitution per site in state
-        j (typically ~0.05), and tau_j is approximately the inverse
-        of the expected indel length in state j (typically 0.2-0.5).
-
-    --reflect-strand, -U <pivot_states>
-        (Optionally use with --hmm) Given an HMM describing the
-        forward strand, create a larger HMM that allows for features
-        on both strands by "reflecting" the original HMM about the
-        specified "pivot" states.  The new HMM will be used for
-        prediction on both strands.  States can be specified by number
-        (indexing starts with 0), or if --catmap, by category name.
-
-    --require-informative, -M <list>
-        Require "informative" columns (i.e., columns with
-        more than two non-missing-data characters, excluding sequences
-        specified by --not-informative) in the specified HMM states.
-        States can be specified by number (indexing starts with 0) or,
-        if --catmap is used, by category name.  Non-informative
-        columns will be given emission probabilities of zero.  This
-        option can be used to eliminate false positive predictions in
-        regions of missing data.
-
-    --not-informative, -F <list>
-        Do not consider the specified sequences (listed by name) when
-        deciding whether a column is informative.  This option can be
-        useful when sequences are present that are very close to the
-        reference sequence and thus do not contribute much in the way
-        of phylogenetic information.  E.g., one might use
-        "--not-informative chimp" with a human-referenced multiple
-        alignment including chimp sequence.
-
-    --coding-potential, -p
-        Use parameter settings that cause output to be interpretable
-        as a coding potential score.  By default, a simplified version
-        of exoniphy's phylo-HMM is used, with a noncoding
-        (background) state, a conserved non-coding (CNS) state, and
-        states for the three codon positions.  This option implies
-        --catmap "NCATS=4; CNS 1; CDS 2-4" --hmm <default-HMM-file>
-        --states CDS --reflect-strand background,CNS
-        --require-informative CDS, plus a set of default *.mod files.
-        (All of these options can be overridden; --coding potential can
-        be used with or without --indels.)
-
-    --indels-only, -J
-        Like --indels but force the use of a single-state HMM.  This
-        option allows the effect of the indel model in isolation to be
-        observed.  Implies --no-post-probs.  Use with --lnl.
-
- (Output)
-    --states, -S <state_list>
-        States of interest in the phylo-HMM, specified by number
-        (indexing starts with 0), or if --catmap, by category name.
-        Default value is 1.  Choosing --states "0,1,2" will cause
-        output of the sum of the posterior probabilities for states 0,
-        1, and 2, and/or of regions in which the Viterbi path
-        coincides with (any of) states 0, 1, or 2 (see --viterbi).
-
-    --viterbi [alternatively --most-conserved], -V <fname>
-    	Predict discrete elements and write start and end coordinates to
-    	specified file.  Output is in BED format, unless <fname> has suffix
-    	".gff", in which case output is in GFF.  This is accomplished using
-    	the Viterbi algorithm.  The features output will represent maximal
-    	segments in which the Viterbi path remains in the selected set of
-    	states (see --states).  With the default two-state HMM, these will
-    	correspond to conserved elements.
-
-    --score, -s
-        (Optionally use with --viterbi) Assign a log-odds score to
-        each predictions, equal to the log total probability of the
-        region in question under the portion of the model defined by
-        --states minus its log total probability under the remainder
-        of the model.  To compute these scores, the states of the
-        model are partitioned and transition probabilities are
-        re-normalized.
-
-    --lnl, -L <fname>
-        Compute total log likelihood using the forward algorithm and
-        write it to the specified file.
-
-    --no-post-probs, -n
-        Suppress output of posterior probabilities.  Useful if only
-        most-conserved elements or likelihood is of interest.
-
-    --log, -g <log_fname>
-        (Optionally use when estimating transition probabilities)
-        Write log of optimization procedure to specified file.
-
-    --refidx, -r <refseq_idx>
-        Use coordinate frame of specified sequence (the value 0
-        indicates the frame of the entire multiple alignment) in
-        output.  Default value is 1 (first sequence assumed
-        reference).
-
-    --seqname, -N <name>
-        (Optionally use with --viterbi) Use specified string
-        for 'seqname' (GFF) or 'chrom' field in output file.  Default
-        is obtained from input file name (double filename root, e.g.,
-        "chr22" if input file is "chr22.35.ss").
-
-    --idpref, -P <name>
-        (Optionally use with --viterbi) Use specified string as
-        prefix of generated ids in output file.  Can be used to ensure
-        ids are unique.  Default is obtained from input file name
-        (single filename root, e.g., "chr22.35" if input file is
-        "chr22.35.ss").
-
- (Other)
-    --msa-format, -i PHYLIP|FASTA|MPM|SS|MAF
-        (Default SS) Alignment file format.
-
     --alias, -A <alias_def>
         Alias names in input alignment according to given definition,
         e.g., "hg17=human; mm5=mouse; rn3=rat".  Useful with default
@@ -431,12 +331,67 @@ OPTIONS:
         between the leaves of trees in these files and the sequences
         of an alignment that uses an alternative naming convention.)
 
-    --quiet, -q
-        Proceed quietly (without updates to stderr).
+ (Custom HMMs) [rarely used]
+    --hmm, -H <hmm_fname>
+        Name of HMM file explicitly defining the probabilities of all
+        state transitions.  States in the file must correspond in
+        number and order to phylogenetic models in <mod_fname_list>.
+        Expected file format is as produced by 'hmm_train.'
 
-    --help, -h
-        Print this help message.
+    --catmap, -c <fname>|<string>
+        (Optionally use with --hmm)  Mapping of feature types to category
+        numbers.  Can give either a filename or an "inline" description
+        of a simple category map, e.g., --catmap "NCATS = 3 ; CDS 1-3".
 
+    --states, -S <state_list>
+        States of interest in the phylo-HMM, specified by number
+        (indexing starts with 0), or if --catmap, by category name.
+        Default value is 1.  Choosing --states "0,1,2" will cause
+        output of the sum of the posterior probabilities for states 0,
+        1, and 2, and/or of regions in which the Viterbi path
+        coincides with (any of) states 0, 1, or 2 (see --viterbi).
+
+    --reflect-strand, -U <pivot_states>
+        (Optionally use with --hmm) Given an HMM describing the
+        forward strand, create a larger HMM that allows for features
+        on both strands by "reflecting" the original HMM about the
+        specified "pivot" states.  The new HMM will be used for
+        prediction on both strands.  States can be specified by number
+        (indexing starts with 0), or if --catmap, by category name.
+
+ (Missing data) [rarely used]
+    --require-informative, -M <states>
+        Require "informative" columns (i.e., columns with more than
+        two non-missing-data characters, excluding sequences specified
+        by --not-informative) in specified HMM states, to help
+        eliminate false positive predictions.  States can be specified
+        by number (indexing starts with 0) or, if --catmap is used, by
+        category name.  Non-informative columns will be given emission
+        probabilities of zero.  By default, this option is active,
+        with <states> equal to the set of states of interest for
+        prediction (as specified by --states).  Use "none" to disable
+        completely.  
+ 
+    --not-informative, -F <list>
+        Do not consider the specified sequences (listed by name) when
+        deciding whether a column is informative.  This option may be
+        useful when sequences are present that are very close to the
+        reference sequence and thus do not contribute much in the way
+        of phylogenetic information.  E.g., one might use
+        "--not-informative chimp" with a human-referenced multiple
+        alignment including chimp sequence, to avoid false-positive
+        predictions based only on human/chimp alignments (can be a
+        problem, e.g., with --coding-potential).
+
+    --ignore-missing, -z
+        (For use when estimating transition probabilities) Ignore
+        regions of missing data in all sequences but the reference
+        sequence (excluding sequences specified by --not-informative)
+        when estimating transition probabilities.  Can help avoid
+        too-low estimates of <mu> and <nu> or too-high estimates of
+        <lambda>.  Warning: this option should not be used with
+        --viterbi because coordinates in output will be
+        unrecognizable.
 
 REFERENCES:
 
