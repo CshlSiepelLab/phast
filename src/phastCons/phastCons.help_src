@@ -44,8 +44,8 @@ DESCRIPTION:
     --expected-length options.  The recommended method is to use
     --target-coverage and --expected-length, e.g.,
 
-	phastCons --target-coverage 0.25 --expected-length 12 \
-	    myfile.ss cons.mod,noncons.mod > scores.wig
+        phastCons --target-coverage 0.25 --expected-length 12 \
+            myfile.ss cons.mod,noncons.mod > scores.wig
 
     The program produces two main types of output.  The primary
     output, sent to stdout in fixed-step WIG format
@@ -79,16 +79,16 @@ EXAMPLES:
     1. Given phylogenetic models for conserved and nonconserved regions
        and HMM transition parameters, compute a set of conservation scores.
 
-	phastCons --transitions 0.01,0.01 mydata.ss cons.mod,noncons.mod \
-	    > scores.wig
+        phastCons --transitions 0.01,0.01 mydata.ss cons.mod,noncons.mod \
+            > scores.wig
 
     2. Similar to (1), but define the conserved model as a scaled
        version of the nonconserved model, with rho=0.4 as the scaling
        parameter.  Also predict conserved elements as well as
        conservation scores, and assign log-odds scores to predictions.
 
-	phastCons --transitions 0.01,0.01 --most-conserved mostcons.bed \
-	    --score --rho 0.4 mydata.ss noncons.mod > scores.wig
+        phastCons --transitions 0.01,0.01 --most-conserved mostcons.bed \
+            --score --rho 0.4 mydata.ss noncons.mod > scores.wig
 
        (if output file were "mostcons.gff," then output would be in
        GFF instead of BED format)
@@ -98,24 +98,24 @@ EXAMPLES:
        transition probabilities using --target-coverage and
        --expected-length instead of --transitions.
 
-	phastCons --target-coverage 0.25 --expected-length 12 \
-	    --estimate-rho newtree --no-post-probs mydata.ss noncons.mod
+        phastCons --target-coverage 0.25 --expected-length 12 \
+            --estimate-rho newtree --no-post-probs mydata.ss noncons.mod
        
     4. This time estimate all free parameters of the tree models.
 
-	phastCons --target-coverage 0.25 --expected-length 12 \
-	    --estimate-trees newtree --no-post-probs mydata.ss noncons.mod
+        phastCons --target-coverage 0.25 --expected-length 12 \
+            --estimate-trees newtree --no-post-probs mydata.ss noncons.mod
 
     5. Estimate the state-transition parameters but not the tree
        models.  Output the conservation scores but not the conserved
        elements.
 
-	phastCons mydata.ss cons.mod,noncons.mod > scores.wig
+        phastCons mydata.ss cons.mod,noncons.mod > scores.wig
 
     6. Estimate just the expected-length parameter and also estimate rho.
 
-	phastCons --target-coverage 0.25 --estimate-rho newtree \
-	    mydata.ss noncons.mod > scores.wig
+        phastCons --target-coverage 0.25 --estimate-rho newtree \
+            mydata.ss noncons.mod > scores.wig
 
 OPTIONS:
 
@@ -192,9 +192,9 @@ OPTIONS:
         program can also be used to convert between formats.
 
     --viterbi [alternatively --most-conserved], -V <fname>
-    	Predict discrete elements using the Viterbi algorithm and
-    	write to specified file.  Output is in BED format, unless
-    	<fname> has suffix ".gff", in which case output is in GFF.
+        Predict discrete elements using the Viterbi algorithm and
+        write to specified file.  Output is in BED format, unless
+        <fname> has suffix ".gff", in which case output is in GFF.
 
     --score, -s
         (Optionally use with --viterbi) Assign a log-odds score to
