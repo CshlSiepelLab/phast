@@ -371,7 +371,7 @@ Option 1 requires the use of --estimate-trees, which is similar to
 
 <pre>
     phastCons --target-coverage 0.25 --expected-length 12 \
-            --estimate-trees mytrees --msa-format MAF alignment.maf \
+        --estimate-trees mytrees --msa-format MAF alignment.maf \
         init.mod > scores.wig
 </pre>
 
@@ -384,7 +384,7 @@ or similar (as above), or simply using the entire data set, e.g.,
 
 <pre>
     phyloFit --tree "(human,(mouse,rat))" --msa-format MAF \
-            --out-root init alignment.maf
+        --out-root init alignment.maf
 </pre>
 
 With option 2 or option 1, it may make sense to run phastCons twice, once
@@ -393,7 +393,7 @@ example,
 
 <pre>
     phastCons --target-coverage 0.25 --expected-length 12 \
-            --estimate-trees mytrees --msa-format MAF alignment.maf \
+        --estimate-trees mytrees --msa-format MAF alignment.maf \
         init.mod --no-post-probs
     phastCons --target-coverage 0.25 --expected-length 12 \
         --msa-format MAF alignment.maf --most-conserved most-cons.bed \
@@ -804,7 +804,7 @@ Let's discuss the steps one by one.
         for file in chr*.maf ; do
             root=`basename file .maf`
             msa_split $file --in-format MAF --refseq $root.fa \
-                    --windows 1000000,0 --out-root CHUNKS/$root --out-format SS \
+                --windows 1000000,0 --out-root CHUNKS/$root --out-format SS \
                 --min-informative 1000 --between-blocks 5000 
         done
 </pre>
@@ -899,9 +899,9 @@ Let's discuss the steps one by one.
         rm -f ELEMENTS/* SCORES/*
         for file in chr*.*.ss ; do 
             root=`basename $file .ss` 
-        phastCons --target-coverage 0.125 --expected-length 20 \
-            --most-conserved ELEMENTS/$root.bed --score \
-                    $file ave.cons.mod,ave.noncons.mod > SCORES/$root.wig
+            phastCons --target-coverage 0.125 --expected-length 20 \
+                --most-conserved ELEMENTS/$root.bed --score \
+                $file ave.cons.mod,ave.noncons.mod > SCORES/$root.wig
         done
 </pre>
 
@@ -969,7 +969,7 @@ the parameters, use a command such as
     for file in `cat random-sample.txt` ; do 
         root=`basename $file .ss` 
         phastCons --target-coverage 0.125 --expected-length 20 \
-                --gc 0.4 --estimate-trees TREES/$root \
+            --gc 0.4 --estimate-trees TREES/$root \
             $file init.mod --no-post-probs
     done
 </pre>
@@ -981,9 +981,9 @@ following for the call to phastCons in step 4.
 
 <pre>
     phastCons --target-coverage 0.125 --expected-length 20 \
-            --most-conserved ELEMENTS/$root.bed --score \
-            $file TREES/$root.cons.mod,TREES/$root.noncons.mod \
-            > SCORES/$root.wig
+        --most-conserved ELEMENTS/$root.bed --score \
+        $file TREES/$root.cons.mod,TREES/$root.noncons.mod \
+        > SCORES/$root.wig
 </pre>
 
 (Actually, in this case, steps 3 and 4 could be combined if desired.)
