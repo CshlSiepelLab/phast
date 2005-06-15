@@ -1,0 +1,1212 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title>PhastCons HOWTO</title>
+</head>
+
+<body>
+<center>
+<h1>PhastCons HOWTO</h1>
+
+Adam Siepel (<a href=mailto:acs@soe.ucsc.edu>acs@soe.ucsc.edu</a>)<br>
+Last Modified: June 14, 2005
+</center>
+
+
+<h2>ABSTRACT</h2>
+
+This document is intended to provide a reasonably detailed,
+"nuts-and-bolts" level introduction to the phastCons program.  It
+should be regarded as a supplement to the <a href="#paper">phastCons
+paper</a>, which focuses on scientific results and more theoretical
+modeling issues, and to the <a
+href="http://www.cse.ucsc.edu/~acs/conservation/phastCons-help.txt">phastCons help
+page</a>, which provides basic information about using the program but
+does not address several important side issues.  The questions of how
+to set the program's tuning parameters and how to estimate any
+remaining free parameters are discussed here, as are practical methods
+for applying the program to very large data sets.  Some lesser-known
+features of the program are also briefly discussed, e.g., having to do
+with modeling rate variation or indels, and with producing
+coding-potential rather than conservation scores. <p>
+
+PhastCons is part of the PHAST (PHylogenetic Analysis with Space/Time
+models) package, which is available by request from <a href="mailto:acs@soe.ucsc.edu">acs@soe.ucsc.edu</a>.
+The latest version of the phastCons help page can be obtained by
+running the program with the --help option.<p>
+
+
+<h2>CONTENTS</h2>
+<ol>
+  <li> <a href="#intro" >Introduction</a> </li>
+  <li> <a href="#getstarted" >Getting Started</a> </li>
+  <li> <a href="#params" >State-Transition Parameters</a> </li>
+  <li> <a href="#largedata" >Working with Large Data Sets</a> </li>
+  <li> <a href="#advanced" >Advanced Topics [NOT YET WRITTEN]</a> </li>
+  <li> <a href="#refs" >References</a> </li>
+  <li> <a href="#feedback" >Feedback</a> </li>
+  <li> <a href="#credits" >Credits</a> </li>
+</ol>
+
+
+<a name=intro>
+<h2>1. INTRODUCTION</h2>
+</a>
+
+PhastCons is a program for identifying evolutionarily conserved
+elements in a multiple alignment, given a phylogenetic tree.  It is
+based on a statistical model of sequence evolution called a
+phylogenetic hidden Markov model (phylo-HMM).  If you are familiar
+with the popular VISTA program (Mayor et al, 2000), which plots the
+percent identity between two aligned sequences along their length, you
+might think of phastCons as a kind of next-generation VISTA.  The
+differences between phastCons and VISTA include that phastCons
+considers <em>n</em> species rather than two, it considers the
+phylogeny by which these species are related, and instead of measuring
+similarity/divergence simply in terms of percent identity, it uses
+statistical models of nucleotide substitution that allow for multiple
+substitutions per site and for unequal rates of substitution between
+different pairs of bases (e.g., a higher frequency of transitions than
+transversions).  PhastCons is the analytical engine behind the
+increasingly popular conservation tracks in the UCSC Genome
+Browser.<p>
+
+PhastCons and the rest of the PHAST package are written in ANSI C.
+The PHAST package has been compiled and installed under various UNIX
+and linux platforms and under Mac OS X.  It should be relatively easy
+to port the software to other platforms.  
+
+
+<a name=getstarted>
+<h2>2. GETTING STARTED</h2>
+</a>
+
+In this section, I'll discuss a few basic ways of using the program
+and some of its most commonly used options.
+
+
+<h3>2.1 Overview of Usage</h3>
+
+PhastCons essentially does three things: it produces base-by-base
+conservation scores (as displayed in the conservation tracks in the
+UCSC browser), it produces predictions of discrete conserved elements
+(as displayed in the "most conserved" tracks in the browser), and it
+estimates free parameters.  (We'll assume in this section that the
+base-by-base scores are conservation scores and the discrete elements
+are conserved elements, despite that they may have alternative
+interpretations; see Section 5.)  <p>
+
+As input, PhastCons takes a multiple alignment, a phylogenetic model
+for conserved regions, and a phylogenetic model for nonconserved
+regions.  The model for conserved regions is optional.  If it is not
+given, then this model is defined indirectly by "scaling" the model
+for nonconserved regions by a factor called rho (see the --rho option
+to phastCons).  The basic idea of the program is to scan along the
+alignment for regions that are better "explained" by the conserved
+model than by the nonconserved model; such regions will be output as
+conserved elements, and the probability that each base is in such a
+region will be output as the conservation score for that base.<p>
+
+The program also needs a specification of the state-transition
+probabilities for the HMM.  These probabilities determine how freely
+the model can switch between states, and as a result, they define
+important features such as the expected length of conserved elements,
+the expected coverage by conserved elements, and the "smoothness" of
+the conservation plot (see the <a href="#paper">phastCons paper</a>
+for details).  The transition probabilities can be set directly with
+the --transitions option or with the --expected-lengths and
+--target-coverage options (see Section 3).  Alternatively, they may be
+left undefined, and will automatically be estimated by maximum
+likelihood.  Probably the trickiest part of getting good results with
+phastCons is figuring out how to set these parameters.  Let's gloss
+over this potentially complicated issue for now and focus on the
+basics of using the program.  For the moment, assume the transition
+probabilities are set by the tuning parameters, say, by using
+--target-coverage 0.25 and --expected-lengths 12.  We'll return to
+this issue in Section 3.<p>
+
+The program can be run with a command of the form:
+
+<pre>
+    phastCons [OPTIONS] alignment [cons.mod,]noncons.mod > scores.wig
+</pre>
+
+where alignment is a multiple alignment in an appropriate format (see
+--msa-format), cons.mod and noncons.mod are phylogenetic models for
+conserved and nonconserved regions, respectively, in PHAST's .mod format,
+and scores.wig is a file of conservation scores in the fixed-step WIG
+format used by the UCSC Genome Browser
+(<a href="http://genome.ucsc.edu/encode/submission.html#WIG">http://genome.ucsc.edu/encode/submission.html#WIG</a>).<p>
+
+For example, 
+
+<pre>
+    phastCons --target-coverage 0.25 --expected-length 12 \
+        --msa-format MAF alignment.maf cons.mod,noncons.mod \
+        > scores.wig
+</pre>
+
+or
+
+<pre>
+    phastCons --target-coverage 0.25 --expected-length 12 \
+        --rho 0.4 --msa-format MAF alignment.maf noncons.mod \
+        > scores.wig
+</pre>
+
+where in the second case the conserved model is defined as a scaled
+version of the nonconserved model, with scaling factor rho = 0.4.  Here an
+alignment in the Multiple Alignment Format (MAF) used in the UCSC Genome
+Browser is assumed.<p>
+
+A set of discrete conserved elements can be predicted by adding the
+--most-conserved option, e.g.,
+
+<pre>
+    phastCons --target-coverage 0.25 --expected-length 12 --rho 0.4 \
+        --most-conserved most-cons.bed --msa-format MAF alignment.maf \
+        noncons.mod > scores.wig
+</pre>
+    
+which will cause the coordinates of predicted elements to be written
+to the file "most-cons.bed" in BED format (see <a
+href="http://genome.ucsc.edu/goldenPath/help/customTrack.html#BED">http://genome.ucsc.edu/goldenPath/help/customTrack.html#BED</a>).
+Alternatively, these elements can be written in GFF (see <a
+href="http://www.sanger.ac.uk/Software/formats/GFF/GFF_Spec.shtml">http://www.sanger.ac.uk/Software/formats/GFF/GFF_Spec.shtml</a>),
+by giving the output filename a suffix of ".gff".<p>
+
+If you don't care about the conservation scores, you can avoid
+computing them with the --no-post-probs option. (This can save some
+time.)  If phastCons is run with --no-post-probs and without
+--most-conserved, then it will neither predict a set of discrete
+elements nor produce the conservation scores.  However, it will still
+estimate free parameters, if directed to do so (see below).<p>
+
+In summary, the default behavior of the program is to estimate any
+unspecified free parameters, then to compute conservation scores and
+output them to stdout.  However, it can be made to perform any
+combination of its three main tasks -- predicting elements, computing
+scores, and estimating parameters -- by running it with or without
+--most-conserved, with or without --no-post-probs, and with or without
+a specification of the values of its free parameters.
+
+
+<h3>2.2 Obtaining Phylogenetic Models</h3>
+
+There are three ways main ways to obtain the phylogenetic models (.mod
+files) used by phastCons:
+
+<ol>
+    <li> Let phastCons itself estimate the models directly from the
+       data, using an "unsupervised" learning algorithm (the EM
+       algorithm described in the <a href="#paper">phastCons paper</a>).
+
+    <li> Separately estimate the nonconserved model from labeled
+       training data, e.g., fourfold degenerate (4d) sites or
+       ancestral repeats (ARs), and let phastCons estimate the scaling
+       parameter rho.
+
+    <li> Separately estimate both the conserved and nonconserved models
+       from labeled training data and don't do any estimation with
+       phastCons. 
+</ol>
+
+In general, option 1 is recommended, but there are times when it may
+not be ideal.  When option 1 is used, the nonconserved model is
+essentially estimated from sites outside of predicted conserved
+elements.  If a data set contains very distant species, which align
+mostly in conserved regions (e.g., coding exons), then the estimates
+of the nonconserved branch lengths to these species will tend to be
+underestimated, because any "nonconserved" bases that do align are
+probably actually at least partially conserved.  It may make sense in
+such a case to estimate a nonconserved model from 4d sites in coding
+regions (where alignments can reliably be obtained), and to estimate
+the conserved model either from labeled training data (option 3) or by
+letting phastCons estimate the parameter rho (option 2).<p>
+
+It is worth noting that in experiments we've done with vertebrate data
+(including human, mouse, rat, chicken, and Fugu sequences), estimating
+the nonconserved model from 4d sites rather than letting phastCons
+estimate them did not make too much of a difference in the predicted
+conserved elements, even though it did result in quite different
+branch-length estimates (see <a
+href="http://www.cse.ucsc.edu/~acs/supplement.pdf">Supplementary
+Material</a> to phastCons paper).  The EM algorithm (option 1) seems
+to be able to learn a separation between conserved and nonconserved
+regions even if the model it learns for nonconserved regions is not an
+entirely accurate representation of the neutral substitution process.
+On the other hand, when the number of species is large (say, greater
+than a dozen), option 1 can be quite computationally intensive, and
+options 2 or 3 may be preferable purely for practical reasons (see the
+ENCODE example, below).  As a rule of thumb, I recommend option 1
+unless you have (a) more than 12 species or (b) many distant species
+with low alignment coverage and you are concerned about distortions in
+branch lengths.  I recommend option 2 in these cases.<p>
+
+For options 2 or 3, you can estimate your models using the program
+phyloFit, also in the PHAST package.  Start with an alignment and an
+annotation file indicating the sites of interest in your alignment.
+For example, suppose you have an alignment of human, mouse, and rat
+sequences in a file called data.fa (FASTA format), and suppose you
+have a file called AR.bed (BED format) defining the locations of
+ancestral repeats (ARs) in the coordinate system of the first sequence
+(human).  For example,
+
+<pre>
+human   RepeatMasker    AR      14451829        14451925        .       .       .       type "L1MC4a.LINE.L1"
+human   RepeatMasker    AR      14452228        14452443        .       .       .       type "L1MC4a.LINE.L1.2"
+human   RepeatMasker    AR      14458153        14458278        .       .       .       type "L2.LINE.L2"
+human   RepeatMasker    AR      14458258        14458386        .       .       .       type "L2.LINE.L2.2"
+human   RepeatMasker    AR      14458781        14459349        .       .       .       type "L2.LINE.L2.3"
+human   RepeatMasker    AR      14460129        14460311        .       .       .       type "L1ME.LINE.L1"
+human   RepeatMasker    AR      14460948        14461016        .       .       .       type "L2.LINE.L2.4"
+human   RepeatMasker    AR      14463023        14463356        .       .       .       type "MER89-int.LTR.ERV1"
+...
+</pre>
+
+You can estimate a phylogenetic model for these sites with a command
+such as:
+
+<pre>
+        phyloFit --tree "(human,(mouse,rat))" --features AR.bed \
+            --do-cats AR --out-root nonconserved data.fa
+</pre>
+
+Here the model will be written to a file called nonconserved.AR.mod.  See the phyloFit help page (run 'phyloFit --help') for 
+additional details.<p>
+
+With 4d sites, the program msa_view may be helpful.  Suppose instead
+of annotations of ARs, you have a file called genes.gff (in GFF)
+describing coding regions in the human sequence, e.g.,
+
+<pre>
+human    UCSC        CDS     4562    4692    .       -       0       transcript_id "NM_198943" ; gene_id "NM_198943"
+human    UCSC        CDS     7469    7605    .       -       0       transcript_id "NM_198943" ; gene_id "NM_198943"
+human    UCSC        CDS     7778    7924    .       -       0       transcript_id "NM_198943" ; gene_id "NM_198943"
+human    UCSC        CDS     8131    8242    .       -       1       transcript_id "NM_198943" ; gene_id "NM_198943"
+human    UCSC        CDS     14601   14749   .       -       0       transcript_id "NM_198943" ; gene_id "NM_198943"
+...
+</pre>
+
+You can extract 4d sites from this alignment with a command like
+    
+<pre>
+    msa_view data.fa --4d --features genes.gff > 4d-codons.ss 
+</pre>
+
+This will create a representation in the "sufficient statistics" (SS)
+format used by several PHAST tools of whole codons containing 4d
+sites.  You can extract just the 4d sites (in the 3rd codon positions)
+with a command like
+    
+<pre>
+    msa_view 4d-codons.ss --in-format SS --out-format SS \
+         --tuple-size 1 > 4d-sites.ss
+</pre>
+
+You can now estimate a phylogenetic model with a command like
+
+<pre>
+    phyloFit --tree "(human,(mouse,rat))" --msa-format SS \
+        --out-root nonconserved-4d 4d-sites.ss
+</pre>
+
+If you have several alignments and several (corresponding) GFF files,
+e.g., for separate human chromosomes, you can extract 4d sites from
+each one using msa_view, then combine all the 4d sites using msa_view
+--aggregate, then estimate a phylogenetic model from the pooled data:
+
+<pre>
+    for set in set1 set2 set3 ; do 
+        msa_view $set.maf --in-format MAF --4d --features $set.gff \
+            > $set.codons.ss 
+        msa_view $set.codons.ss --in-format SS --out-format SS \
+            --tuple-size 1 > $set.sites.ss
+    done
+    msa_view --aggregate human,mouse,rat *.sites.ss > all-4d.sites.ss
+    phyloFit --tree "(human,(mouse,rat))" --msa-format SS \
+        --out-root nonconserved-all-4d all-4d.sites.ss
+</pre>
+
+(Here we have assumed the input alignments are in MAF format.)<p>
+
+Similar methods could be used to estimate a model for conserved
+regions, say, from 1st codon positions.  This gets slightly
+more complicated, e.g.:
+
+<pre>
+    msa_view data.maf --in-format MAF --features genes.gff \
+        --catmap "NCATS = 3; CDS 1-3" --out-format SS --unordered-ss \
+        --reverse-groups transcript_id > codons.ss
+    phyloFit --tree "(human,(mouse,rat))" --msa-format SS --do-cats 1 \
+        --out-root conserved-codon1 codons.ss
+</pre>
+
+See the msa_view and phyloFit help pages for details.<p>
+
+It should now be clear how option 3 would be accomplished: estimate
+conserved and nonconserved models using appropriate annotations files
+and phyloFit, then run phastCons as shown in Section 2.1.  Option 2 is
+similar, but requires the use of the --estimate-rho option, e.g.,
+
+<pre>
+    phastCons --target-coverage 0.25 --expected-length 12 \
+        --rho 0.4 --estimate-rho mytrees --msa-format MAF \
+        alignment.maf nonconserved-4d.mod > scores.wig
+</pre>
+
+where nonconserved-4d.mod is a nonconserved model estimated from 4d sites.
+The parameter rho will be initialized to 0.4, then iteratively improved
+using an EM algorithm.  (Note that a careful choice of initialization can
+improve running time substantially.)  After rho has been estimated, the new
+conserved and nonconserved models will be written to mytrees.cons.mod and
+mytrees.noncons.mod, respectively, and program will carry on as before.
+(Here the new nonconserved model will be identical to nonconserved-4d.mod,
+but in some cases, e.g., if --gc is used, it will not be.)  In this case,
+phastCons will output conservation scores but not discrete conserved
+elements, but it could be made to produce both types of output, or neither
+type of output (if only the estimate of rho were of interest).<p>
+
+Option 1 requires the use of --estimate-trees, which is similar to
+--estimate-rho:
+
+<pre>
+    phastCons --target-coverage 0.25 --expected-length 12 \
+            --estimate-trees mytrees --msa-format MAF alignment.maf \
+        init.mod > scores.wig
+</pre>
+
+In this case, phastCons will estimate all free parameters of the
+phylogenetic models by maximum likelihood, and will output the new models
+to mytrees.cons.mod and mytrees.noncons.mod.  The given tree model,
+init.mod, will simply be used for initialization of the nonconserved
+model.  It can be obtained with phyloFit, either using 4d sites, ARs,
+or similar (as above), or simply using the entire data set, e.g.,
+
+<pre>
+    phyloFit --tree "(human,(mouse,rat))" --msa-format MAF \
+            --out-root init alignment.maf
+</pre>
+
+With option 2 or option 1, it may make sense to run phastCons twice, once
+for "training" (parameter estimation) and once for prediction.  For
+example,
+
+<pre>
+    phastCons --target-coverage 0.25 --expected-length 12 \
+            --estimate-trees mytrees --msa-format MAF alignment.maf \
+        init.mod --no-post-probs
+    phastCons --target-coverage 0.25 --expected-length 12 \
+        --msa-format MAF alignment.maf --most-conserved most-cons.bed \
+        mytrees.cons.mod,mytrees.noncons.mod > scores.wig
+</pre>
+
+The training step is typically much slower, and in some cases, it may
+be done with a subset of the data, for example, a random sample of
+100-200 fragments from genome-wide alignments.  Also, with large data
+sets, it may make sense to train separately on small fragments
+(possibly in parallel, on a compute cluster), then to combine the
+parameter estimates, then to do prediction with the combined estimates
+(see Section 4).<p>
+
+Note that options 1, 2, and 3 can all be used with or without
+--target-coverage and --expected-length (see Section 3).
+
+
+<a name=params>
+<h2>3. STATE-TRANSITION PARAMETERS</h2>
+</a>
+
+<h3>3.1 Basics</h3>
+
+The probabilities of transitioning between the states in the HMM are
+defined by two state-transition parameters, called mu and nu.  The
+parameter mu is the probability of entering the nonconserved state
+from the conserved state, and nu is the probability of entering the
+conserved state from the nonconserved state; thus 1-mu and 1-nu are
+the probabilities of remaining in the conserved and nonconserved
+states, respectively.  It turns out to be useful in some cases to
+reparameterize the state-transition probabilities in terms of a
+parameter gamma, which is the expected coverage by conserved elements
+(i.e., the expected fraction of bases that would be conserved if the
+model were used to generate the data), and a parameter omega, which is
+the expected length of a conserved element (again, if the model were
+used to generate the data).  There is a one-to-one mapping between mu
+and nu on the one hand and gamma and omega on the other; that is, if
+you have mu and nu, you can easily compute gamma and omega, and vice
+versa.  The details of how this works are given in the <a
+href="#paper">phastCons paper</a> and are not important here.<p>
+
+Here is what <em>is</em> important to understand in order to use the program:
+
+<ul>
+    <li> The probabilities of transitioning between the two states of
+      the HMM are controlled by two parameters: either mu and nu, or
+      if you prefer, gamma and omega.  The values of these parameters
+      will influence the coverage by conserved elements, the lengths
+      of conserved elements, and the smoothness of the conservation
+      scores.
+    
+    <li> The program allows these parameters to be treated in two ways:
+      as tuning parameters to be set by the user to achieve desired
+      results, or as free parameters to be estimated from the data by
+      maximum likelihood.
+
+    <li> To treat them as tuning parameters, use either the --transitions
+      option (to specify mu and nu), or the --target-coverage and
+      --expected-length options (to specify gamma and omega,
+      respectively).
+
+    <li> To estimate the parameters from the data, simply avoid using the
+      --transitions, --target-coverage, and --expected-length options.
+      The parameters will automatically be estimated if not specified.
+      Alternatively, you can use the --transitions option but precede
+      its arguments with a "~" character (e.g., --transitions
+      ~0.01,0.01); this will cause the parameters to be estimated but
+      initialized to the specified values in the iterative estimation
+      algorithm.
+
+    <li>A hybrid solution is also possible: if you specify
+      --target-coverage only, the program will estimate only the
+      expected-length parameter from the data.  In this case, a "~"
+      prefix can be used to specify a starting value for
+      --expected-length.
+</ul>
+
+
+<h3>3.2 Tuning Parameters</h3>
+
+While full maximum-likelihood estimation may seem at first glance to
+be the ideal way to approach the state-transition parameters, it does
+not work very well in practice -- especially with genomes having
+relatively low fractions of conserved bases (such as vertebrate
+genomes).  The maximum likelihood estimate (mle) of the "expected
+length" parameter omega tends to be very large, leading to a small
+number of very long predicted conserved elements and "over-smoothed"
+conservation scores.  Why this occurs is beyond the scope of this
+HOWTO; interested readers should consult the <a
+href="http://www.cse.ucsc.edu/~acs/supplement.pdf">Supplementary
+Material</a> to the phastCons paper, where mle's are discussed in some
+detail.  Suffice it to say that real genomic sequences can only be
+described very approximately by a two-state hidden Markov model, and
+because of limitations of this approximation, the likelihood is often
+maximized in a biologically uninteresting region of the parameter
+space.  For this reason, I recommend treating the state-transition
+parameters as tuning parameters.<p>
+
+The question then becomes what criteria should be used for adjusting
+the tuning parameters.  There are two natural features to focus on.
+The first, called "coverage," is the fraction of bases in a data set
+that fall within predicted conserved elements.  You might have a
+reason to aim for a particular level of coverage; for example, with
+mammalian data, a target of 5% might be selected, since this is
+considered a reasonable ballpark estimate of the fraction of sites
+under purifying selection in mammalian genomes.  If you don't have a
+target in mind for the overall level of coverage, you can aim for a
+particular level of coverage of known functional elements such as
+protein-coding exons.  (This was the method we used in the phastCons
+paper to calibrate the model in similar ways for vertebrate, insect,
+worm, and yeast data sets; we chose a target of 65% coverage of coding
+exons by conserved elements.)  The target-coverage parameter (gamma)
+is a "knob" you can turn to reach a particular level of actual
+coverage.  As you increase this parameter, more bases will be
+predicted to be in conserved elements, and as you decrease it fewer
+bases will be predicted to be in conserved elements.  (Gamma can be
+thought of in a Bayesian sense as a prior, which has the effect of
+imposing a bias on the actual coverage.)<p>
+
+The second feature is called "smoothing."  Smoothing describes the
+degree to which the conservation scores tend to be similar from one
+base to the next.  A high degree of smoothing occurs when the
+probabilities mu and nu are small -- i.e., when changing states is
+unlikely -- and a lower degree of smoothing occurs when mu and nu are
+larger.  Higher smoothing means the predicted conserved elements tend
+to be longer on average, and are more likely to include short
+sequences of nonconserved bases.  Lower smoothing implies shorter,
+more fragmented conserved elements, containing fewer nonconserved
+sites.  Increasing the expected length parameter (omega) tends to
+increase the level of smoothing and the average length of predicted
+conserved elements.<p>
+
+What is the right level of smoothing?  This is perhaps a more
+difficult question than what is the right level of coverage.  In many
+cases, it may be best just to set the smoothing so that the
+conservation plot "looks right."  By plotting the scores next to a
+multiple alignment, as in the UCSC browser, it is usually not too hard
+to see if the plot is dramatically "over-smoothed" (in the extreme, it
+resembles a square wave function, with alternating regions of scores
+near 0 and scores near 1) or "under-smoothed" (in the extreme, the
+scores at adjacent sites appear essentially uncorrelated).  It may
+also be useful to look at the shortest predicted conserved elements
+and see whether they are believable -- are they long enough and
+conserved enough to reasonably be called "conserved elements"?  If
+not, perhaps the degree of smoothing should be increased.  Similarly,
+one might look at sequences of nonconserved sites within conserved
+elements.  If they are quite long and poorly conserved, yet the
+elements are not being broken, then perhaps the smoothing should be
+reduced.  One might also look at the breaks between conserved elements
+(if they are too short, the smoothing should be increased) and
+sequences of conserved sites that have not been predicted as conserved
+elements (if they are too long, the smoothing should be decreased).<p>
+
+An alternative, perhaps more principled, way of setting the level of
+smoothing is to use the "phylogenetic information threshold" (PIT)
+method described in the <a href="#paper">phastCons paper</a>.  The
+paper should be consulted for details, but the PIT is essentially a
+threshold for the amount of "information" (in an information theoretic
+sense) that is required to predict a conserved element, on average.
+It is an alternative measure of the degree of smoothing (a higher PIT
+means more smoothing), which can be meaningfully compared across
+different data sets and phylogenies.  For example, to achieve a given
+PIT -- say, 10 bits -- a larger expected length might be needed for a
+two-species data set, for which there is less information about
+conservation at each site, than for a ten-species data set.  (The PIT
+actually considers the shape of the phylogeny and its branch lengths,
+not just the number of species.)  A program in PHAST called
+consEntropy can be used to compute the PIT for a given set of
+parameters.  The inputs to the program are the target-coverage and
+expected-length parameters and the conserved and nonconserved
+phylogenetic models (see the consEntropy help page and examples
+below).  One can simply run consEntropy after adjusting the tuning
+parameters and re-estimating any free parameters, and compare the
+reported PIT to the target value; if necessary, the parameters can be
+adjusted and the procedure can be repeated (see below).  There are
+cases in which the PIT method will not be appropriate.  For example,
+when an alignment contains a lot of missing data, the PIT will be
+misleading, because there is actually less information per site than
+the phylogenetic models would imply.  Also, consEntropy will not work
+with large trees, because, as currently implemented, its running time
+is exponential in the number of species.<p>
+
+Coverage and smoothing are to some degree separate, with coverage
+being primarily influenced by the --target-coverage option and
+smoothing being primarily influenced by the --expected-length option,
+but they are also interrelated.  The final set of predictions depends
+on all parameters and on the data in a complicated way, and will be
+affected, sometimes unpredictably, by a change to any parameter.  For
+example, changing the --expected-length option while holding
+--target-coverage fixed generally will alter coverage somewhat as well
+as smoothing.  For this reason, the --target-coverage and
+--expected-length parameters should be tuned simultaneously, until
+constraints on both coverage and smoothing are satisfied.
+
+
+<h3>3.3 An Example</h3>
+
+Suppose we have an alignment of human, mouse, and rat sequences (with
+human as the reference sequence) and we wish to estimate the conserved
+and nonconserved models from the data using phastCons (option 3,
+above).  We want to adjust the tuning parameters such that 65% of
+bases in coding exons are covered by conserved elements and the PIT is
+10 bits.  We already have a starting model called init.mod.<p>
+
+We begin with a guess at the values of the tuning parameters.  In this
+case, a starting target-coverage of 0.05 seems appropriate, since our
+prior belief is that about 5% of bases are conserved, but we have to
+consider the fact that only about 40% of the human bases align to
+mouse or rat, and phastCons will not predict conserved elements in
+regions of no alignment.  Therefore, we start instead with a target
+coverage of 0.05/0.4 = 0.125, the fraction of aligned bases we expect
+to be conserved.  We'll guess at a value of 20bp for the expected
+length.  The average length of conserved elements is likely to be
+considerably longer -- probably closer to 100bp -- but we want to
+influence the model toward the detection of shorter conserved
+elements, e.g., possible transcription factor binding sites.  One way
+of thinking about it is that we want the conservation score at each
+base to reflect an average "window" of about 20bp centered at that
+site.  Remember, these are just rough starting values; we're going to
+adjust them as we go.<p>
+
+A starting estimate of the tree models can be obtained with a command
+such as:
+
+<pre>
+    phastCons --target-coverage 0.125 --expected-length 20 \
+        --estimate-trees v1 --most-conserved most-cons.bed \
+        --log optim.log --no-post-probs --msa-format MAF \
+        alignment.maf init.mod 
+</pre>
+
+(The progress of the program can be charted by monitoring the log
+file, optim.log.)  Now we need to see how close we are to our coverage
+and smoothing targets.  We'll need a program to compute the
+intersection of a set of coding regions and the predicted conserved
+elements.  Jim Kent's featureBits is ideal for this, but other tools
+could be used as well.  Suppose we have a bed file CDS.bed,
+containing the coordinates of coding exons in the region of
+interest.  A featureBits command such as 
+
+<pre>
+    featureBits -enrichment hg17 CDS.bed most-cons.bed
+</pre>
+
+will measure the coverage of the regions in CDS.bed by the regions in
+most-cons.bed.  In this case, featureBits reports
+
+<pre>
+    CDS.bed 0.159%, most-cons.bed 0.233%, both 0.102%, cover 64.25%, enrich 275.73x
+</pre>
+
+indicating coverage of 64.25%, only slightly below our target.
+
+To test smoothness, we run consEntropy:
+
+<pre>
+    consEntropy 0.125 20 v1.cons.mod v1.noncons.mod
+</pre>
+
+and obtain the following output
+
+<pre>
+    Transition parameters: gamma=0.125000, omega=20.000000, mu=0.050000, nu=0.007143
+    Relative entropy: H=0.295299 bits/site
+    Expected min. length: L_min=49.071119 sites
+    Expected max. length: L_max=24.350034 sites
+    Phylogenetic information threshold: PIT=L_min*H=14.490669 bits
+</pre>
+
+Thus, the PIT is about 14.5 bits, somewhat higher than desired.  <p>
+
+Now we rerun the program with new values for the tuning parameters.
+We might try reducing the expected length to 15 and leaving the
+target-coverage the same, because we don't know how the new expected
+length will affect the coverage.
+
+<pre>
+    phastCons --target-coverage 0.125 --expected-length 12 \
+        --estimate-trees v2 --most-conserved most-cons.bed \
+        --log optim.log --no-post-probs --msa-format MAF \
+        alignment.maf v1.noncons.mod 
+</pre>
+
+An important point here is that the free parameters (in this case the
+tree models) are being re-estimated with the new value of the tuning
+parameters.  One might be tempted just to redo the prediction step,
+with the previously estimated tree models, but I don't recommend this
+shortcut: you'd be mixing tree models trained under one set of
+assumptions with a prediction method based on another set of
+assumptions.  Note also that the previous estimate of the nonconserved
+model has been used for initialization; this can sometimes lead to
+faster convergence.<p>
+
+This time we measure a coverage of 58.7% and a PIT of 14.3 bits.
+Apparently, the reduced smoothing (i.e., lower expected length) has
+resulted in a greater separation between the conserved and
+nonconserved models: there are fewer nonconserved sites mixed in with
+the conserved ones, making the conserved model more conserved, and
+there are fewer conserved sites mixed in with the nonconserved ones,
+making the nonconserved model less conserved.  As a result, the
+phylogenetic information per base has increased, and despite the
+reduced smoothing, the PIT has stayed roughly the same.  In addition,
+the coverage has decreased a bit, possibly because fewer nonconserved
+sites flanked by conserved sites are being pulled into conserved
+elements.  It seems as though we've lost ground, but we just need to
+be persistent.  Let's try reducing the expected length a bit more and
+cranking up the target coverage to compensate for it:
+
+<pre>
+    phastCons --target-coverage 0.2 --expected-length 8 \
+        --estimate-trees v3 --most-conserved most-cons.bed \
+        --log optim.log --no-post-probs --msa-format MAF \
+        alignment.maf v2.noncons.mod 
+</pre>
+
+This time we obtain a coverage of 59.2% and a PIT of 12.6 bits --
+closer, but still not quite there.  At any rate, you see how it works:
+we simply iterate this procedure until we're close enough to our
+target values.  Usually this doesn't take more than six or seven
+iterations.<p>
+
+Tuning the program is a bit of an art: the parameters are all
+interrelated, and it takes a little time to get a feeling for what
+effect each change will have.  As you get better at it, you'll need
+fewer iterations to reach convergence.
+
+
+<a name=largedata>
+<h2>4. WORKING WITH LARGE DATA SETS</h2>
+</a>
+
+The examples above have all assumed that phastCons is to be run on a
+small to moderate-sized data set, consisting of at most, say, a dozen
+sequences and a few million sites (alignment columns).  Additional
+care needs to be taken with larger data sets.  The main problem is
+parameter estimation.  If all parameters are fixed, the running time
+of the program is proportional to the product of the number of
+species, n, and the number of sites in an alignment, L, with a
+reasonably small proportionality constant.  This O(nL) algorithm is
+practical for use use with quite large data sets, given sufficient
+RAM.  The EM algorithm for parameter estimation, however, must perform
+a similar O(nL)-time computation many times and between iterations
+must also execute a potentially expensive numerical maximization
+routine.  Straightforward parameter estimation (as discussed above)
+will not be practical with extremely large data sets.<p>
+
+The techniques I recommend are, basically, (1) to "divide and conquer" and
+make as much use as possible of parallel processing, and 
+(2) to make the estimation problem as easy as possible.  In this
+section, I will discuss two different examples of large data sets, one
+consisting of a moderate number of species and a large number of
+sites, and the other consisting of a large number of species and a
+moderate number of sites.  A "divide and conquer" strategy is the key
+to addressing the first problem and making the estimation problem
+easier is the key to addressing the second problem.  Note that the two
+strategies I will describe are essentially orthogonal, and could be
+used in combination with a data set having many sequences *and* many
+sites.
+
+
+<h3>4.1 Many Sites, Not Too Many Sequences</h3>
+
+First let's consider the case of a set of alignments with a modest
+number of species and a large number of sites.  Assume these are
+whole-genome alignments, referenced to the human genome.  Physically,
+they are represented by a MAF file for each human chromosome.  This is
+essentially the situation we face for the conservation tracks in the
+UCSC Genome Browser: given a set of genome-wide MAFs, obtain
+corresponding base-by-base conservation scores and predicted conserved
+elements.<p>
+
+Here's the recommended "divide and conquer" approach for this case:
+
+<ol>
+    <li> Split the alignments into small fragments (each spanning about 1Mb
+       of the human genome) 
+    <li> Estimate parameters for each fragment, separately and in
+       parallel.
+    <li> Combine the separately estimated parameters by averaging.
+    <li> Predict conserved elements and conservation scores globally
+       using the combined estimates
+    <li> Adjust tuning parameters and return to step 2, if necessary.
+       Repeat until coverage and smoothing targets are met.
+</ol>
+
+Note that the strategy of separately estimating the parameters locally
+and then averaging them genome wide is an approximation -- it's not
+guaranteed to result in true maximum likelihood estimates of free
+parameters.  In practice, however, the estimates seem to be quite
+close to true mle's, and the method is much more logistically
+straightforward than trying to do true maximum likelihood estimation
+at the whole-genome level.  For this approach to be reasonable, it's
+important that the fragments contain similar amounts of data (so that
+an unweighted average is reasonable) and that they are as large as
+possible (so that sampling error is minimized).<p>
+
+Let's discuss the steps one by one.
+
+<ol>
+    <li> Split the alignments into small fragments<p>
+
+    This can be accomplished by running a program called msa_split
+    on each MAF.  Use a command like the following:
+
+<pre>
+        mkdir -p CHUNKS            # put fragments here
+        for file in chr*.maf ; do
+            root=`basename file .maf`
+            msa_split $file --in-format MAF --refseq $root.fa \
+                    --windows 1000000,0 --out-root CHUNKS/$root --out-format SS \
+                --min-informative 1000 --between-blocks 5000 
+        done
+</pre>
+  
+    This will cause each MAF file ($root.maf) and the corresponding
+    reference sequence ($root.fa), to be read in, assembled in memory into
+    a kind of pseudo-global alignment (with local alignments tiled beneath
+    the human sequence), and then split into non-overlapping chunks of
+    about 1,000,000 sites each; these chunks will be written in SS format
+    to files with a prefix of $root in the CHUNKS directory.  The
+    --min-informative option causes fragments with fewer than 1000
+    "informative" sites (i.e., with at least two aligned bases) to be
+    discarded, and the --between-blocks option tells the program to try to
+    split between alignment blocks if possible, e.g., in recent transposon
+    insertions in the human genome.  (It will adjust the split point by at
+    most 5000 sites.)  The file $root.fa must be in FASTA format and must
+    use the same coordinate system as the multiple alignment, as will be
+    true if the FASTA files and MAFs from the same version (assembly) of
+    the UCSC Genome Browser are used.  See the msa_split help page for
+    additional details.<p>
+
+    If desired, this step can be done in parallel, with one process
+    per MAF file.  Beware of the fact that each process will be quite
+    I/O intensive.<p>
+
+    <li> Estimate parameters for each fragment. <p>
+
+    In this step, we will estimate free parameters using phastCons for
+    each alignment fragment.  Because the number of species is
+    relatively small, we can get away with full estimation of the
+    conserved and nonconserved models (option 3 from Section 2.2).
+    Suppose we already have a starting model, init.mod.  We might use
+    a command like:
+
+<pre>
+        mkdir -p TREES     # put estimated tree models here
+        rm -f TREES/*      # in case old versions left over
+        for file in chr*.*.ss ; do 
+            root=`basename $file .ss` 
+            phastCons --target-coverage 0.125 --expected-length 20 \
+                --gc 0.4 --estimate-trees TREES/$root \
+                $file init.mod --no-post-probs
+        done
+</pre>
+
+    Here, the --gc option is used to ensure that the same G+C content
+    is assumed for all fragments, since the same G+C content will be
+    assumed during prediction.  Note that the --log and --quiet
+    options may be useful here as well.<p>
+
+    If you have a compute cluster at your disposal, you will probably
+    want to execute these individual processes in parallel.<p>
+
+    <li> Combine the separately estimated parameters by averaging
+
+    A program in PHAST called phyloBoot, which is primarily designed
+    for bootstrapping, supports averaging of model parameters.  It can
+    be used to obtain average conserved and nonconserved models as
+    follows:
+
+<pre>
+        ls TREES/*.cons.mod > cons.txt
+        phyloBoot --read-mods '*cons.txt' --output-average ave.cons.mod 
+        ls TREES/*.noncons.mod > noncons.txt
+        phyloBoot --read-mods '*noncons.txt' --output-average ave.noncons.mod 
+</pre>
+
+    PhyloBoot will output a summary of the means, standard deviations,
+    medians, etc. of each parameter.  You may want to scan this
+    summary to convince yourself that the standard deviations are not
+    too large and that no outliers have severely skewed the means.
+    The means and medians should be roughly equal and the standard
+    deviations should be fairly small compared to the means.  (Some
+    larger standard deviations for branches near the root of the tree
+    are normal.)  There are sometimes a few zeroes in the 'min' column,
+    especially for short branches; this is okay, but beware of very
+    large values in the 'max' column, which could result from a
+    failure to converge properly, and might skew the mean.  If you see
+    any bad outliers, you should re-estimate with different starting
+    parameters or track down and discard the responsible .mod files.
+    I've never had to do this; the estimates generally are well
+    behaved.<p>
+
+    <li> Predict conserved elements and conservation scores globally
+       using the combined estimates.<p>
+
+    This is simply a matter of running phastCons on each fragment,
+    using the averaged tree models.
+
+<pre>
+        mkdir -p ELEMENTS SCORES
+        rm -f ELEMENTS/* SCORES/*
+        for file in chr*.*.ss ; do 
+            root=`basename $file .ss` 
+        phastCons --target-coverage 0.125 --expected-length 20 \
+            --most-conserved ELEMENTS/$root.bed --score \
+                    $file ave.cons.mod,ave.noncons.mod > SCORES/$root.wig
+        done
+</pre>
+
+    Note that the same --target-coverage and --expected-length
+    arguments are used as in step 2, that this time we have asked the
+    program to predict both discrete elements and base-by-base
+    conservation scores, and that the tree models from step 3 have
+    been used.  The --score option tells phastCons to compute log odds
+    scores for predicted elements.  The --gc option is no longer
+    necessary (ave.cons.mod and ave.noncons.mod contain the background
+    distribution), but the --seqname and --idpref options could be
+    useful in this step.  (The default names and ids are obtained from
+    the filenames, and in this case should be okay).<p>
+
+    The *.bed and *.wig files can now be combined across the whole
+    genome or across each chromosomes, if desired, e.g.,
+
+<pre>
+            cat ELEMENTS/*.bed | sort -k1,1 -k2,2n > most-conserved.bed
+</pre>
+
+    <li> Adjust tuning parameters and return to step 2, if necessary.
+       Repeat until coverage and smoothing targets are met.<p>
+
+    Suppose our targets are 65% coverage of coding exons and a PIT of
+    10 bits.  At UCSC, we would test the first constraint using the
+    featureBits program, e.g.,
+
+<pre>
+        featureBits -enrichment hg17 knownGene:cds most-conserved.bed
+</pre>
+
+    The second constraint could be tested with consEntropy, e.g.,
+
+<pre>
+        consEntropy .125 20 ave.cons.mod ave.noncons.mod
+</pre>
+
+    As in Section 3, we adjust the tuning parameters as needed,
+    only now we repeat steps 2, 3, and 4 after each adjustment, until
+    convergence. 
+</ol>
+
+<h4>4.1.1 Random Samples and Local Parameter Estimates</h4>
+
+With a large data set, e.g., genome-wide vertebrate alignments, little
+is gained by performing step 2 on the whole data set.  The quality of
+the estimates will be affected little, and compute time may be reduced
+substantially, by estimating the free parameters from a random sample
+of, say, 100 to 200 alignment fragments. This can be accomplished as
+follows.  The first time you execute step 2, define a random sample of
+fragments using a command such as
+
+<pre>
+    ls chr*.*.ss | chooseLines -k 100 - > random-sample.txt
+</pre>
+
+where chooseLines is a utility in PHAST that will randomly select k
+lines from a given input file or stream.  Now each time you estimate
+the parameters, use a command such as
+
+<pre>
+    mkdir -p TREES     # put estimated tree models here
+    rm -f TREES/*
+    for file in `cat random-sample.txt` ; do 
+        root=`basename $file .ss` 
+        phastCons --target-coverage 0.125 --expected-length 20 \
+                --gc 0.4 --estimate-trees TREES/$root \
+            $file init.mod --no-post-probs
+    done
+</pre>
+
+Another thing to note is that one could make predictions based on
+locally estimated parameters rather than global averages, if desired,
+by skipping the averaging step (step 3), and substituting the
+following for the call to phastCons in step 4.
+
+<pre>
+    phastCons --target-coverage 0.125 --expected-length 20 \
+            --most-conserved ELEMENTS/$root.bed --score \
+            $file TREES/$root.cons.mod,TREES/$root.noncons.mod \
+            > SCORES/$root.wig
+</pre>
+
+(Actually, in this case, steps 3 and 4 could be combined if desired.)
+In some ways this might be preferable to the approach described above
+-- e.g., predicted elements and conservation scores would reflect
+local deviations from the average G+C content or neutral substitution
+rate.  However, it also potentially makes the program's output for
+different regions of the genome more difficult to compare.  For this
+reason, I prefer the use of global averages.  This issue is discussed
+in the <a
+href="http://www.cse.ucsc.edu/~acs/supplement.pdf">Supplementary
+Material</a> to the phastCons paper.
+
+
+<h3>4.2 Many Sequences, Not Too Many Sites</h3>
+
+Now let's consider the case of a set of alignments containing a fairly
+large number of sequences but a modest number of sites.  The example I have
+in mind here is the ENCODE data set (http://www.genome.gov/10005107,
+http://genome.ucsc.edu/ENCODE/), which consists of 44 separate alignments
+(for the 44 ENCODE regions) with between 18 and 23 sequences of 500kb to
+1.9Mb in length (the number of columns in the alignments is somewhat
+larger, because of gaps).  PhastCons can actually compute conserved
+elements and conservation scores for any one of these alignments quite
+rapidly, and even if the data is pooled for the purposes of parameter
+estimation, it can handle the aggregate alignment (with approximately 35
+million sites) without too much trouble, on a machine with sufficient RAM.
+The main problem here is the number of free parameters.  If phastCons were
+run with the --estimate-trees option, 43 branch length parameters would
+have to be estimated, in addition to the scaling parameter rho and a few
+parameters describing the substitution process.  The EM algorithm will
+converge very slowly with such a large number of free parameters.<p>
+
+In this case, I recommend making the estimation problem easier.  The
+best way to do that here is probably to estimate the nonconserved model
+from fourfold degenerate sites, as described in
+Section 2.2, and then to let phastCons estimate only the parameter rho
+(option 2 from section 2.2).  We'll work with an aggregate alignment
+constructed from the original alignments for the purposes of
+parameter estimation.  Suppose we start with a set of FASTA-formatted
+files named for ENCODE regions, ENm001.fa, ..., ENr334.fa.  We can
+concatenate these into a single file using msa_view with a command
+like:
+
+<pre>
+    msa_view --aggregate <species-list> EN*.fa > all-encode.fa
+</pre>
+
+where <species-list> is a comma-separated list of all sequence names
+in the alignments, e.g., "human,chimp,baboon,macaque,..."  It will
+also save some time during re-estimation to convert this file to an
+ordered SS file:
+
+<pre>
+    msa_view all-encode.fa --out-format SS > all-encode.ss
+</pre>
+
+Note that this aggregate alignment contains some adjacent pairs of
+columns that are not really adjacent, i.e., in the 43 places where two
+ENCODE regions have arbitrary been joined together.  The number of
+such columns is very small compared to the overall size of the data
+set, however, and its impact on the parameter estimates should be
+negligible.<p>
+
+For parameter estimation, we can use a command like:
+
+<pre>
+    phastCons --target-coverage 0.05 --expected-length 20 \
+        --gc 0.4 --most-conserved all-encode.bed --no-post-probs \
+        --estimate-rho newtree all-encode.ss nonconserved-4d.mod 
+</pre>
+
+where nonconserved-4d.mod is the previously estimated model for 4d
+sites and the --gc option has been used to force the background
+distribution to be closer to the genome-wide average than the G+C-rich
+distribution estimated from 4d sites.  Let's suppose in this case we
+are aiming for a total coverage by conserved elements of 5% of all
+bases in the reference (human) sequence.  (Our initial guess for
+--target-coverage is 0.05 because in this case, essentially the entire
+human sequence is covered by alignments with other species.) We can
+easily measure the coverage of all-encode.bed with a command such as:
+
+<pre>
+    awk '{total += $3 - $2} END {print total/29909540}'
+</pre>
+
+where 29,909,540 is the total number of bases in the data set in the
+coordinate system of the human sequence.  (Note that phastCons will
+automatically report the conserved elements in this coordinate system.)<p>
+
+ConsEntropy cannot be used in this case to test the smoothness
+constraint, because of the large number of sequences.  Instead, I
+recommend plotting the conservation scores and judging the smoothness
+by eye, as discussed in Section 3.2.<p>
+
+When the coverage and smoothness constraints have been met,
+predictions for the individual targets can be obtained with commands
+such as:
+
+<pre>
+    for reg in EN*.fa ; do
+        root=`basename reg .fa`
+        phastCons --target-coverage <tc> --expected-length <el> \
+            --most-conserved $root.bed all-encode.ss \
+            newtree.cons.mod newtree.noncons.mod > $root.wig
+    done
+</pre>
+
+where <tc> and <el> are the final estimates of target-coverage and
+expected-lengths, respectively.  These commands can be executed in
+parallel, if desired.
+
+<a name=advanced>
+<h2>5. ADVANCED TOPICS</h2>
+</a>
+
+UNDER CONSTRUCTION<p>
+
+This section will cover the use of the Felsenstein/Churchill model,
+the indel models, the discrete gamma model for rate variation, the
+coding-potential feature, and other obscure and experimental features.
+
+    <h3>Examples</h3>
+<ul>
+  <li>
+    Obtain conservation scores using a k-state HMM with transition
+    probabilities defined by an autocorrelation parameter lambda, as
+    described by Felsenstein and Churchill (1996).  Use k = 10 states
+    and estimate the parameter lambda from the data.  Report posterior
+    probabilities not just of the single most conserved state, but of
+    the two most conserved states.
+
+<pre>
+        phastCons mydata.ss rev-dg.mod --FC --nrates 10 \
+            --states 0,1 > cons.wig
+</pre>
+
+    <li>
+  As above, but fix lambda at 0.9 rather than estimating it from
+    the data.
+
+<pre>
+        phastCons mydata.ss rev-dg.mod --FC --nrates 10 \
+            --states 0,1 --lambda 0.9 > cons.wig
+</pre>
+
+  <li>
+    Compute a coding potential score, using a simple gene-finding
+    HMM and phylogenetic models for the three codon positions and
+    non-coding sites.  Allow for genes on either strand.
+
+<pre>
+        phastCons mydata.ss noncoding.mod,codon1.mod,codon2.mod,codon3.mod \
+            --hmm simple-4state.hmm --reflect-strand 0 --states 1,2,3 \
+            > coding-potential.wig
+</pre>
+
+  <li>
+    Compute a coding potential score using a default phylo-HMM,
+    a simplified version of the one used in exoniphy.  Allows for
+    conserved non-coding sequences and makes use of the different
+    patterns of indels seen in coding and non-coding regions.
+    Currently assumes a human/mouse/rat alignment.
+
+<pre>
+        phastCons --coding-potential human-mouse-rat.ss > cp.wig
+</pre>
+
+</ul>
+
+<a name=refs>
+<h2>6. REFERENCES</h2>
+</a>
+
+    J. Felsenstein and G. Churchill, 1996. A hidden Markov model
+      approach to variation among sites in rate of evolution.
+      <a
+      href="http://mbe.oxfordjournals.org/cgi/content/abstract/13/1/93"<em>Mol
+      Biol Evol</em>, 13:93-104</a>.<p> 
+
+    E. H. Margulies, M. Blanchette, NISC Comparative Sequencing
+      Program, D. Haussler, and E. D. Green, 2003. Identification and
+      characterization of multi-species conserved sequences. <a
+      href="http://www.genome.org/cgi/content/abstract/13/12/2507"><em>Genome
+      Res</em>, 13:2507-2518</a>.<p>
+
+    C. Mayor, M. Brudno, J. R. Schwartz, et al., 2000. VISTA:
+      visualizing global DNA sequence alignments of arbitrary
+      length. <a
+      href="http://bioinformatics.oxfordjournals.org/cgi/content/abstract/16/11/1046"><em>Bioinformatics</em>,
+      16:1046-1047</a>.<p>
+
+<a name="paper">
+    A. Siepel, G. Bejerano, J. S. Pedersen, et al.  Evolutionarily
+      conserved elements in vertebrate, insect, worm, and yeast
+      genomes.  <em>Genome Res</em> (in press)<p>
+</a>
+
+    A. Siepel and D. Haussler, 2005.  Phylogenetic hidden Markov
+      models.  In R. Nielsen, ed., <em>Statistical Methods in Molecular
+      Evolution</em>, pp. 325-351.  Springer, New York.<p>
+
+    Z. Yang, 1995. A space-time process model for the evolution of
+      DNA sequences. <a
+      href="http://www.genetics.org/cgi/content/abstract/139/2/993"><em>Genetics</em>,
+      139:993-1005</a>.   
+
+<a name=feedback>
+<h2>7. FEEDBACK</h2>
+</a>
+
+If this document doesn't include information you were looking for or
+if you found parts of it (or all of it!) confusing please send me
+feedback (<a href=mailto:acs@soe.ucsc.edu>acs@soe.ucsc.edu</a>) so I
+can improve it.  You can even let me know if you found it helpful :)
+
+<a name=credits>
+<h2>8. CREDITS</h2>
+</a>
+
+Thanks to several patient users for their feedback on early versions
+of the software and documentation, especially Kate Rosenbloom, Hiram
+Clawson, Angie Hinrichs, Elliott Margulies, Daryl Thomas, David King,
+and James Taylor.
+
+</body> </html>
