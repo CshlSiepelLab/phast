@@ -113,7 +113,7 @@ important features such as the expected length of conserved elements,
 the expected coverage by conserved elements, and the "smoothness" of
 the conservation plot (see the <a href="#paper">phastCons paper</a>
 for details).  The transition probabilities can be set directly with
-the --transitions option or with the --expected-lengths and
+the --transitions option or with the --expected-length and
 --target-coverage options (see Section 3).  Alternatively, they may be
 left undefined, and will automatically be estimated by maximum
 likelihood.  Probably the trickiest part of getting good results with
@@ -121,7 +121,7 @@ phastCons is figuring out how to set these parameters.  Let's gloss
 over this potentially complicated issue for now and focus on the
 basics of using the program.  For the moment, assume the transition
 probabilities are set by the tuning parameters, say, by using
---target-coverage 0.25 and --expected-lengths 12.  We'll return to
+--target-coverage 0.25 and --expected-length 12.  We'll return to
 this issue in Section 3.<p>
 
 The program can be run with a command of the form:
@@ -1093,7 +1093,7 @@ such as:
 </pre>
 
 where <tc> and <el> are the final estimates of target-coverage and
-expected-lengths, respectively.  These commands can be executed in
+expected-length, respectively.  These commands can be executed in
 parallel, if desired.
 
 <a name=advanced>
