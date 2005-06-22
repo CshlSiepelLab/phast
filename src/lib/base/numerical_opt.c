@@ -1,4 +1,4 @@
-/* $Id: numerical_opt.c,v 1.3 2005-06-22 07:11:19 acs Exp $
+/* $Id: numerical_opt.c,v 1.4 2005-06-22 07:23:21 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -10,7 +10,7 @@
 #include <misc.h>
 #include <assert.h>
 #include <sys/time.h>
-#include <vector.h>>
+#include <vector.h>
 
 /* Numerical optimization of multidimensional functions by the
    "variable metric" or "quasi-Newton" Broyden-Fletcher-Goldfarb-
