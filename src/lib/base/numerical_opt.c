@@ -1,4 +1,4 @@
-/* $Id: numerical_opt.c,v 1.2 2004-06-11 05:58:51 acs Exp $
+/* $Id: numerical_opt.c,v 1.3 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -10,6 +10,7 @@
 #include <misc.h>
 #include <assert.h>
 #include <sys/time.h>
+#include <vector.h>>
 
 /* Numerical optimization of multidimensional functions by the
    "variable metric" or "quasi-Newton" Broyden-Fletcher-Goldfarb-
@@ -86,41 +87,41 @@ FILE *debugf = NULL;
    "upper_bounds" is non-NULL, each parameter will be tested against
    the specified bounds, and the selected derivative method will be
    overridden as necessary, to avoid stepping "out of bounds". */
-void opt_gradient(gsl_vector *grad, double (*f)(gsl_vector*, void*), 
-                  gsl_vector *params, void* data, opt_deriv_method method,
-                  double reference_val, gsl_vector *lower_bounds, 
-                  gsl_vector *upper_bounds) {
+void opt_gradient(Vector *grad, double (*f)(Vector*, void*), 
+                  Vector *params, void* data, opt_deriv_method method,
+                  double reference_val, Vector *lower_bounds, 
+                  Vector *upper_bounds) {
   int i;
   double val1, val2;
 
   for (i = 0; i < params->size; i++) {
-    double origparm = gsl_vector_get(params, i);
+    double origparm = vec_get(params, i);
     double delta = 2 * DERIV_EPSILON;
 
     if (method == OPT_DERIV_FORWARD ||
         (lower_bounds != NULL && 
-         origparm - gsl_vector_get(lower_bounds, i) < DERIV_EPSILON)) {
+         origparm - vec_get(lower_bounds, i) < DERIV_EPSILON)) {
       delta = DERIV_EPSILON;
       val1 = reference_val;
     }
     else {
-      gsl_vector_set(params, i, origparm - DERIV_EPSILON);
+      vec_set(params, i, origparm - DERIV_EPSILON);
       val1 = f(params, data);
     }
 
     if (method == OPT_DERIV_BACKWARD || 
         (upper_bounds != NULL && 
-         gsl_vector_get(upper_bounds, i) - origparm < DERIV_EPSILON)) {
+         vec_get(upper_bounds, i) - origparm < DERIV_EPSILON)) {
       delta = DERIV_EPSILON;
       val2 = reference_val;
     }
     else {
-      gsl_vector_set(params, i, origparm + DERIV_EPSILON);
+      vec_set(params, i, origparm + DERIV_EPSILON);
       val2 = f(params, data);
     }
 
-    gsl_vector_set(grad, i, (val2 - val1) / delta);
-    gsl_vector_set(params, i, origparm);
+    vec_set(grad, i, (val2 - val1) / delta);
+    vec_set(params, i, origparm);
   }
 }
 
@@ -136,9 +137,9 @@ void opt_gradient(gsl_vector *grad, double (*f)(gsl_vector*, void*),
    value is equal to the number of params that have been determined to
    be at a bound (if only_add == 1, then only newly identified ones
    will be counted).  This is a support function for opt_bfgs.  */
-inline int test_bounds(gsl_vector *params, gsl_vector *grad, 
-                       gsl_vector *lower_bounds, gsl_vector *upper_bounds,
-                       gsl_vector *at_bounds, int only_add) {
+inline int test_bounds(Vector *params, Vector *grad, 
+                       Vector *lower_bounds, Vector *upper_bounds,
+                       Vector *at_bounds, int only_add) {
   int i;
   int retval = 0;
   assert((grad == NULL || params->size == grad->size) && 
@@ -153,32 +154,32 @@ inline int test_bounds(gsl_vector *params, gsl_vector *grad,
   for (i = 0; i < params->size; i++) {
     double p;
 
-    if (only_add == 1 && gsl_vector_get(at_bounds, i) != OPT_NO_BOUND)
+    if (only_add == 1 && vec_get(at_bounds, i) != OPT_NO_BOUND)
       continue;
 
-    p = gsl_vector_get(params, i);
+    p = vec_get(params, i);
     if (lower_bounds != NULL && 
-        p - gsl_vector_get(lower_bounds, i) < BOUNDARY_EPS && 
-        (grad == NULL || gsl_vector_get(grad, i) > 0)) {
-/*         (grad == NULL || gsl_vector_get(grad, i) < 0)) { */
-      gsl_vector_set(at_bounds, i, OPT_LOWER_BOUND);
+        p - vec_get(lower_bounds, i) < BOUNDARY_EPS && 
+        (grad == NULL || vec_get(grad, i) > 0)) {
+/*         (grad == NULL || vec_get(grad, i) < 0)) { */
+      vec_set(at_bounds, i, OPT_LOWER_BOUND);
       retval++;
 #ifdef DEBUG
       fprintf(debugf, "\nParameter %d detected at boundary.\n", i);
 #endif
     }
     else if (upper_bounds != NULL && 
-             gsl_vector_get(upper_bounds, i) - p < BOUNDARY_EPS && 
-             (grad == NULL || gsl_vector_get(grad, i) < 0)) {
-/*              (grad == NULL || gsl_vector_get(grad, i) > 0)) { */
-      gsl_vector_set(at_bounds, i, OPT_UPPER_BOUND);
+             vec_get(upper_bounds, i) - p < BOUNDARY_EPS && 
+             (grad == NULL || vec_get(grad, i) < 0)) {
+/*              (grad == NULL || vec_get(grad, i) > 0)) { */
+      vec_set(at_bounds, i, OPT_UPPER_BOUND);
       retval++;
 #ifdef DEBUG
       fprintf(debugf, "Parameter %d at boundary.\n", i);
 #endif
     }
     else
-      gsl_vector_set(at_bounds, i, OPT_NO_BOUND);
+      vec_set(at_bounds, i, OPT_NO_BOUND);
   }
   return retval;
 }
@@ -186,14 +187,14 @@ inline int test_bounds(gsl_vector *params, gsl_vector *grad,
 /* Simulate a projection of the specified matrix to a
    lower-dimensional space by zeroing all rows and columns
    corresponding to parameters at a boundary.  For use in opt_bfgs. */
-inline void project_matrix(gsl_matrix *M, gsl_vector *at_bounds) {
+inline void project_matrix(Matrix *M, Vector *at_bounds) {
   int i, j;
-  assert(M->size1 == at_bounds->size && M->size2 == at_bounds->size);
+  assert(M->nrows == at_bounds->size && M->ncols == at_bounds->size);
   for (i = 0; i < at_bounds->size; i++) {
-    if (gsl_vector_get(at_bounds, i) != OPT_NO_BOUND) {
-      for (j = 0; j < M->size1; j++) {
-        gsl_matrix_set(M, j, i, 0);
-        gsl_matrix_set(M, i, j, 0);
+    if (vec_get(at_bounds, i) != OPT_NO_BOUND) {
+      for (j = 0; j < M->nrows; j++) {
+        mat_set(M, j, i, 0);
+        mat_set(M, i, j, 0);
       }
     }
   }
@@ -202,20 +203,20 @@ inline void project_matrix(gsl_matrix *M, gsl_vector *at_bounds) {
 /* Simulate a projection of the specified vector to a
    lower-dimensional space by zeroing all elements corresponding to
    parameters at a boundary.  For use in opt_bfgs. */
-inline void project_vector(gsl_vector *v, gsl_vector *at_bounds) {
+inline void project_vector(Vector *v, Vector *at_bounds) {
   int i;
   assert(v->size == at_bounds->size);
   for (i = 0; i < at_bounds->size; i++) 
-    if (gsl_vector_get(at_bounds, i) != OPT_NO_BOUND) 
-      gsl_vector_set(v, i, 0);
+    if (vec_get(at_bounds, i) != OPT_NO_BOUND) 
+      vec_set(v, i, 0);
 }
 
 /* Scale a line vector, if necessary, such that it will cause no
    parameter to be updated beyond a boundary; return the index of the
    limiting parameter, or -1. */
-inline int scale_for_bounds(gsl_vector *linev, gsl_vector *params, 
-                            gsl_vector *lower_bounds, 
-                            gsl_vector *upper_bounds) {
+inline int scale_for_bounds(Vector *linev, Vector *params, 
+                            Vector *lower_bounds, 
+                            Vector *upper_bounds) {
   int i;
   double minscale = 1;
   int retval = -1;
@@ -224,67 +225,67 @@ inline int scale_for_bounds(gsl_vector *linev, gsl_vector *params,
   for (i = 0; i < params->size; i++) {
     double scale1 = 1, scale2 = 1;
     if (lower_bounds != NULL && 
-        gsl_vector_get(params, i) + gsl_vector_get(linev, i) <
-        gsl_vector_get(lower_bounds, i) && gsl_vector_get(linev, i) != 0)
-      scale1 = (gsl_vector_get(params, i) - gsl_vector_get(lower_bounds, i) - EPS) /
-        -gsl_vector_get(linev, i);
+        vec_get(params, i) + vec_get(linev, i) <
+        vec_get(lower_bounds, i) && vec_get(linev, i) != 0)
+      scale1 = (vec_get(params, i) - vec_get(lower_bounds, i) - EPS) /
+        -vec_get(linev, i);
     if (upper_bounds != NULL && 
-        gsl_vector_get(params, i) + gsl_vector_get(linev, i) >
-        gsl_vector_get(upper_bounds, i) && gsl_vector_get(linev, i) != 0) 
-      scale2 = (gsl_vector_get(upper_bounds, i) - gsl_vector_get(params, i) - EPS) /
-        gsl_vector_get(linev, i);
+        vec_get(params, i) + vec_get(linev, i) >
+        vec_get(upper_bounds, i) && vec_get(linev, i) != 0) 
+      scale2 = (vec_get(upper_bounds, i) - vec_get(params, i) - EPS) /
+        vec_get(linev, i);
 
     if (scale1 < minscale) { minscale = scale1; retval = i; }    
     if (scale2 < minscale) { minscale = scale2; retval = i; }
   }
   if (minscale < 1)
-    gsl_vector_scale(linev, minscale);
+    vec_scale(linev, minscale);
 
   return retval;
 }
 
 #ifdef DEBUG
 /* for debugging: check that H is positive definite and print to log file  */
-inline void check_H(gsl_matrix *H, gsl_vector *at_bounds){
+inline void check_H(Matrix *H, Vector *at_bounds){
   int nfree = 0, pos_def, i, j, k, l;
-  gsl_matrix *H_proj;
-  gsl_vector *evals;
+  Matrix *H_proj;
+  Vector *evals;
 
   /* first print H */
   fprintf(debugf, "\nUpdated inverse Hessian:\n");
-  gsl_matrix_pretty_print(debugf, H);
+  mat_print(debugf, H);
 
   /* verify H has correct dimensionality */
-  for (i = 0; i < H->size1; i++) {
-    if (gsl_vector_get(at_bounds, i) == OPT_NO_BOUND) nfree++;
-    for (j = i; j < H->size2; j++) 
-      assert((gsl_vector_get(at_bounds, i) == OPT_NO_BOUND &&
-              gsl_vector_get(at_bounds, j) == OPT_NO_BOUND) ||
-             (gsl_matrix_get(H, i, j) == 0 && gsl_matrix_get(H, j, i) == 0));
+  for (i = 0; i < H->nrows; i++) {
+    if (vec_get(at_bounds, i) == OPT_NO_BOUND) nfree++;
+    for (j = i; j < H->ncols; j++) 
+      assert((vec_get(at_bounds, i) == OPT_NO_BOUND &&
+              vec_get(at_bounds, j) == OPT_NO_BOUND) ||
+             (mat_get(H, i, j) == 0 && mat_get(H, j, i) == 0));
   }
       
   /* create a "proper" projection of H */
-  H_proj = gsl_matrix_alloc(nfree, nfree);
+  H_proj = mat_new(nfree, nfree);
   k = 0;
-  for (i = 0; i < H->size1; i++) {
-    if (gsl_vector_get(at_bounds, i) != OPT_NO_BOUND) continue;
+  for (i = 0; i < H->nrows; i++) {
+    if (vec_get(at_bounds, i) != OPT_NO_BOUND) continue;
     l = 0;
-    for (j = 0; j < H->size2; j++) {
-      if (gsl_vector_get(at_bounds, j) != OPT_NO_BOUND) continue;
-      gsl_matrix_set(H_proj, k, l, gsl_matrix_get(H, i, j));
+    for (j = 0; j < H->ncols; j++) {
+      if (vec_get(at_bounds, j) != OPT_NO_BOUND) continue;
+      mat_set(H_proj, k, l, mat_get(H, i, j));
       l++;
     }
     k++;
   }
 
   /* check to see if positive definite */
-  evals = gsl_vector_alloc(H_proj->size1);
+  evals = vec_new(H_proj->nrows);
   mat_eigenvals(H_proj, evals); 
   pos_def = 1;
   fprintf(debugf, "\nEigenvalues: ");
   for (i = 0; i < evals->size; i++) {
-    fprintf(debugf, "%f ", gsl_vector_get(evals, i));
-    if (gsl_vector_get(evals, i) <= 0)
+    fprintf(debugf, "%f ", vec_get(evals, i));
+    if (vec_get(evals, i) <= 0)
       pos_def = 0;
   }
   if (pos_def)
@@ -292,8 +293,8 @@ inline void check_H(gsl_matrix *H, gsl_vector *at_bounds){
   else
     fprintf(debugf, "\nH is *not* positive definite\n\n");
 
-  gsl_matrix_free(H_proj);
-  gsl_vector_free(evals);
+  mat_free(H_proj);
+  vec_free(evals);
 }
 #endif
 
@@ -323,39 +324,39 @@ inline void check_H(gsl_matrix *H, gsl_vector *at_bounds){
 
 /* NOTE: added optional gradient function, to be used instead of
    opt_gradient if non-NULL */
-int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params, 
-             void *data, double *retval, gsl_vector *lower_bounds, 
-             gsl_vector *upper_bounds, FILE *logf,
-             void (*compute_grad)(gsl_vector *grad, gsl_vector *params,
-                                  void *data, gsl_vector *lb, gsl_vector *ub),
-             opt_precision_type precision, gsl_matrix *inv_Hessian) {
+int opt_bfgs(double (*f)(Vector*, void*), Vector *params, 
+             void *data, double *retval, Vector *lower_bounds, 
+             Vector *upper_bounds, FILE *logf,
+             void (*compute_grad)(Vector *grad, Vector *params,
+                                  void *data, Vector *lb, Vector *ub),
+             opt_precision_type precision, Matrix *inv_Hessian) {
   
   int check, i, its, n = params->size, success = 0, nevals = 0, 
     params_at_bounds = 0, new_at_bounds, changed_dimension = 0,
     trunc, already_failed = 0, minsf;
   double den, fac, fae, fval, stpmax, temp, test, lambda, fval_old;
-  gsl_vector *dg, *g, *hdg, *params_new, *xi, *at_bounds;
-  gsl_matrix *H, *first_frac, *sec_frac, *bfgs_term;
+  Vector *dg, *g, *hdg, *params_new, *xi, *at_bounds;
+  Matrix *H, *first_frac, *sec_frac, *bfgs_term;
   opt_deriv_method deriv_method = OPT_DERIV_FORWARD;
   struct timeval start_time, end_time;
 
   if (logf != NULL)
     gettimeofday(&start_time, NULL);
 
-  g = gsl_vector_alloc(n);      /* gradient */
-  xi = gsl_vector_alloc(n);     /* current direction along which to minimize */
-  H = inv_Hessian != NULL ? inv_Hessian : gsl_matrix_alloc(n, n);   
+  g = vec_new(n);      /* gradient */
+  xi = vec_new(n);     /* current direction along which to minimize */
+  H = inv_Hessian != NULL ? inv_Hessian : mat_new(n, n);   
                                 /* inverse Hessian */
-  dg = gsl_vector_alloc(n);     /* difference between old and new gradients */
-  hdg = gsl_vector_alloc(n);    /* H * dg */
-  params_new = gsl_vector_alloc(n); /* updated params vector */
-  at_bounds = gsl_vector_alloc(n); /* record of whether each param is
+  dg = vec_new(n);     /* difference between old and new gradients */
+  hdg = vec_new(n);    /* H * dg */
+  params_new = vec_new(n); /* updated params vector */
+  at_bounds = vec_new(n); /* record of whether each param is
                                       at a boundary */
   /* remainder are auxiliary matrices used in update of inverse
      Hessian */  
-  first_frac = gsl_matrix_alloc(n, n);
-  sec_frac = gsl_matrix_alloc(n, n);
-  bfgs_term = gsl_matrix_alloc(n, n);
+  first_frac = mat_new(n, n);
+  sec_frac = mat_new(n, n);
+  bfgs_term = mat_new(n, n);
 
 #ifdef DEBUG
   debugf = fopen("opt.debug", "w+");
@@ -391,9 +392,9 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
   }
 
   /* initialize inv Hessian and direction */
-  if (inv_Hessian == NULL) gsl_matrix_set_identity(H);
-  gsl_vector_memcpy(xi, g);
-  gsl_vector_scale(xi, -1);
+  if (inv_Hessian == NULL) mat_set_identity(H);
+  vec_copy(xi, g);
+  vec_scale(xi, -1);
 
   /* if there are parameters at boundaries, reduce the dimensionality
      of xi accordingly */
@@ -402,30 +403,30 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
     changed_dimension = 1;
   }
 /*   for (i = 0; i < at_bounds->size; i++)  */
-/*     gsl_vector_set(at_bounds, i, OPT_NO_BOUND); */
+/*     vec_set(at_bounds, i, OPT_NO_BOUND); */
 
-  stpmax = STEP_SCALE * max(vect_norm(params), n);
+  stpmax = STEP_SCALE * max(vec_norm(params), n);
 
   for (its = 0; its < ITMAX; its++) { /* main loop */
 
     /* see if any parameters are (newly) at a boundary, and update
        total number at boundary */
     /* FIXME: should this be here? */
-    gsl_vector_scale(xi, -1);   /* temporary hack */
+    vec_scale(xi, -1);   /* temporary hack */
     if ((new_at_bounds = test_bounds(params, xi, lower_bounds, upper_bounds, 
                                      at_bounds, 1)) > 0) {
       params_at_bounds += new_at_bounds;
       project_vector(xi, at_bounds); 
       changed_dimension = 1;
     }
-    gsl_vector_scale(xi, -1);
+    vec_scale(xi, -1);
 
 #ifdef DEBUG
     fprintf(debugf, "BFGS, iteration %d\nParameters at a boundary (prior to linesearch): ", its) ;
     if (params_at_bounds == 0) fprintf(debugf, "None\n\n");
     else {
       for (i = 0; i < at_bounds->size; i++)
-        if (gsl_vector_get(at_bounds, i) != OPT_NO_BOUND)
+        if (vec_get(at_bounds, i) != OPT_NO_BOUND)
           fprintf(debugf, "%d ", i);
       fprintf(debugf, "\n\n");
     }
@@ -445,17 +446,17 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
     fval = *retval;
 
     /* update line direction and current version of params */
-    gsl_vector_memcpy(xi, params_new);
-    gsl_vector_sub(xi, params);
+    vec_copy(xi, params_new);
+    vec_minus_eq(xi, params);
     minsf = opt_min_sigfig(params, params_new);  /* first grab min
                                                     stable sig figs */
-    gsl_vector_memcpy(params, params_new);
+    vec_copy(params, params_new);
 
 #ifdef DEBUG
     /* verify xi has correct dimensionality */
     for (i = 0; i < params->size; i++)
-      assert(gsl_vector_get(at_bounds, i) == OPT_NO_BOUND ||
-             gsl_vector_get(xi, i) == 0);
+      assert(vec_get(at_bounds, i) == OPT_NO_BOUND ||
+             vec_get(xi, i) == 0);
 #endif
 
     /* test for convergence. "test" will be set to max_i
@@ -467,8 +468,8 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
        parameter vectors */
     test = 0;                   
     for (i = 0; i < n; i++) {
-      temp = fabs(gsl_vector_get(xi, i))/
-        max(fabs(gsl_vector_get(params, i)), 1.0);
+      temp = fabs(vec_get(xi, i))/
+        max(fabs(vec_get(params, i)), 1.0);
       if (temp > test) test = temp;
     }
     if (test < TOLX(precision)) {
@@ -509,7 +510,7 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
                                 /* we also need to be able to switch
                                    back, in case we have a lucky
                                    step early in the search */
-    gsl_vector_memcpy(dg, g);
+    vec_copy(dg, g);
     if (compute_grad != NULL) {
       compute_grad(g, params, data, lower_bounds, upper_bounds);
       nevals++;
@@ -534,8 +535,8 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
     test = 0;                 
     den = max(*retval, 1.0);
     for (i = 0; i < n; i++) {
-      temp = fabs(gsl_vector_get(g, i)) * 
-        max(fabs(gsl_vector_get(params, i)), 1.0) / den;
+      temp = fabs(vec_get(g, i)) * 
+        max(fabs(vec_get(params, i)), 1.0) / den;
       if (temp > test) test = temp;
     }
     if (test < GTOL) {
@@ -544,8 +545,8 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
     }
 
     /* compute difference of gradients */
-    gsl_vector_scale(dg, -1);
-    gsl_vector_add(dg, g);    
+    vec_scale(dg, -1);
+    vec_plus_eq(dg, g);    
 
     /* see if any parameters are (newly) at a boundary, and update
        total number at boundary */
@@ -565,19 +566,19 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
                                    the parameter space) */
       int max_idx;              /* corresponding index */
       for (i = 0; i < at_bounds->size; i++) {
-        if (gsl_vector_get(at_bounds, i) == OPT_LOWER_BOUND && 
-            -1 * gsl_vector_get(g, i) > max_grad) {
-          /*             gsl_vector_get(xi, i) > max_grad) { */
+        if (vec_get(at_bounds, i) == OPT_LOWER_BOUND && 
+            -1 * vec_get(g, i) > max_grad) {
+          /*             vec_get(xi, i) > max_grad) { */
           max_idx = i; 
-          max_grad = -1 * gsl_vector_get(g, i);
-          /*           max_grad = gsl_vector_get(xi, i); */
+          max_grad = -1 * vec_get(g, i);
+          /*           max_grad = vec_get(xi, i); */
         }
-        else if (gsl_vector_get(at_bounds, i) == OPT_UPPER_BOUND && 
-                 gsl_vector_get(g, i) > max_grad) {
-          /*                  -1 * gsl_vector_get(xi, i) > max_grad) { */
+        else if (vec_get(at_bounds, i) == OPT_UPPER_BOUND && 
+                 vec_get(g, i) > max_grad) {
+          /*                  -1 * vec_get(xi, i) > max_grad) { */
           max_idx = i; 
-          max_grad = gsl_vector_get(g, i);
-          /*           max_grad = -1 * gsl_vector_get(xi, i); */
+          max_grad = vec_get(g, i);
+          /*           max_grad = -1 * vec_get(xi, i); */
         }            
       }
       /* enlarge in the dimension of max_grad, if its value is
@@ -586,8 +587,8 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
 #ifdef DEBUG
         fprintf(debugf, "\nParameter %d now free; will be included in update.\n", max_idx);
 #endif
-        gsl_matrix_set(H, max_idx, max_idx, 1);
-        gsl_vector_set(at_bounds, max_idx, OPT_NO_BOUND); 
+        mat_set(H, max_idx, max_idx, 1);
+        vec_set(at_bounds, max_idx, OPT_NO_BOUND); 
         params_at_bounds--;
         changed_dimension = 1;
       }
@@ -617,19 +618,19 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
        all of the following computations will take place in the
        lower-dimensional space, by virtue of H, dg, and xi having been
        "projected". */
-    mat_vect_mult(hdg, H, dg); 
+    mat_vec_mult(hdg, H, dg); 
 
 #ifdef DEBUG
     fprintf(debugf, "H:\n");
-    gsl_matrix_pretty_print(debugf, H);
+    mat_print(debugf, H);
     fprintf(debugf, "g:\n");
-    gsl_vector_fprintf(debugf, g, "%f");
+    vec_fprintf(debugf, g, "%f");
     fprintf(debugf, "xi:\n");
-    gsl_vector_fprintf(debugf, xi, "%f");
+    vec_fprintf(debugf, xi, "%f");
     fprintf(debugf, "dg:\n");
-    gsl_vector_fprintf(debugf, dg, "%f");
+    vec_fprintf(debugf, dg, "%f");
     fprintf(debugf, "hdg:\n");
-    gsl_vector_fprintf(debugf, hdg, "%f");
+    vec_fprintf(debugf, hdg, "%f");
 #endif 
 
     /* update the inv Hessian, using equation 10.7.8 (Numerical
@@ -639,40 +640,40 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
        dg holds the difference in the gradients, and hdg is the vector
        given by H*dg (where H is the inverse Hessian) */
 
-    fac = vect_dot_prod(dg, xi); /* denom of first fraction */
-    fae = vect_dot_prod(dg, hdg); /* denom of second fraction */
+    fac = vec_inner_prod(dg, xi); /* denom of first fraction */
+    fae = vec_inner_prod(dg, hdg); /* denom of second fraction */
 
 #ifdef DEBUG
     fprintf(debugf, "fac = %f, fae = %f\n", fac, fae);
 #endif 
     
-    if (fac > sqrt(EPS * vect_dot_prod(dg, dg) * vect_dot_prod(xi, xi))) { 
+    if (fac > sqrt(EPS * vec_inner_prod(dg, dg) * vec_inner_prod(xi, xi))) { 
       /* skip update if fac not "sufficiently
          positive" */
-      gsl_vector *u, *u2;
+      Vector *u, *u2;
 
       /* first compute first and second fractional terms in 10.7.8 */
-      vect_cross_prod(first_frac, xi, xi); 
-      gsl_matrix_scale(first_frac, 1/fac);
-      vect_cross_prod(sec_frac, hdg, hdg);
-      gsl_matrix_scale(sec_frac, -1/fae);
+      vec_outer_prod(first_frac, xi, xi); 
+      mat_scale(first_frac, 1/fac);
+      vec_outer_prod(sec_frac, hdg, hdg);
+      mat_scale(sec_frac, -1/fae);
       
       /* now compute the extra term for BFGS (eqs 10.7.9 and 10.7.10) */
       u = xi;                   /* rename for clarity; note that it is
                                    okay now to destroy xi (will soon
                                    recompute) */
-      gsl_vector_scale(u, 1/fac); 
+      vec_scale(u, 1/fac); 
       u2 = hdg;                 /* similarly, use hdg for second term
                                    in u */
-      gsl_vector_scale(u2, 1/fae);
-      gsl_vector_sub(u, u2);
-      vect_cross_prod(bfgs_term, u, u);
-      gsl_matrix_scale(bfgs_term, fae);
+      vec_scale(u2, 1/fae);
+      vec_minus_eq(u, u2);
+      vec_outer_prod(bfgs_term, u, u);
+      mat_scale(bfgs_term, fae);
 
       /* now compute the updated matrix */
-      gsl_matrix_add(H, first_frac);
-      gsl_matrix_add(H, sec_frac);
-      gsl_matrix_add(H, bfgs_term);
+      mat_plus_eq(H, first_frac);
+      mat_plus_eq(H, sec_frac);
+      mat_plus_eq(H, bfgs_term);
 
 #ifdef DEBUG
 /*       check_H(H, at_bounds); */
@@ -680,19 +681,19 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
     }
     else {
       if (logf != NULL) fprintf(logf, "WARNING: resetting H!\n");
-      gsl_matrix_set_identity(H);
+      mat_set_identity(H);
       project_matrix(H, at_bounds);
     }
 
 
     /* finally, update the direction vector */
-    mat_vect_mult(xi, H, g);
-    gsl_vector_scale(xi, -1);
+    mat_vec_mult(xi, H, g);
+    vec_scale(xi, -1);
 
 
     /* make sure direction of xi is okay; if not, reset H to identity;
        on second failure of this type, assume convergence */
-    if (vect_dot_prod(g, xi) >= 0) {
+    if (vec_inner_prod(g, xi) >= 0) {
       if (already_failed) {
         success = 1; 
         break;
@@ -700,10 +701,10 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
       else {
         if (logf != NULL) fprintf(logf, "WARNING: resetting H! (%s time)\n", 
                 already_failed ? "2nd" : "1st");
-        gsl_matrix_set_identity(H);
+        mat_set_identity(H);
         project_matrix(H, at_bounds);
-        mat_vect_mult(xi, H, g);
-        gsl_vector_scale(xi, -1);
+        mat_vec_mult(xi, H, g);
+        vec_scale(xi, -1);
         already_failed = 1;
       }
     }
@@ -717,16 +718,16 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
             (end_time.tv_usec - start_time.tv_usec)/1.0e6);
   }
 
-  gsl_vector_free(dg);
-  gsl_vector_free(g);
-  gsl_vector_free(hdg);
-  gsl_vector_free(params_new);
-  gsl_vector_free(xi);
-  gsl_vector_free(at_bounds);
-  if (inv_Hessian == NULL) gsl_matrix_free(H);
-  gsl_matrix_free(first_frac);
-  gsl_matrix_free(sec_frac);
-  gsl_matrix_free(bfgs_term);
+  vec_free(dg);
+  vec_free(g);
+  vec_free(hdg);
+  vec_free(params_new);
+  vec_free(xi);
+  vec_free(at_bounds);
+  if (inv_Hessian == NULL) mat_free(H);
+  mat_free(first_frac);
+  mat_free(sec_frac);
+  mat_free(bfgs_term);
 
   if (success == 0) {
     fprintf(stderr, 
@@ -768,9 +769,9 @@ int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params,
    should be examined.  The parameter "nevals" will incremented each
    time the function is evaluated.  Function returns the value of
    the final scaling factor for "p" (lambda). */
-void opt_lnsrch(gsl_vector *xold, double fold, gsl_vector *g, gsl_vector *p, 
-                gsl_vector *x, double *f, double stpmax, 
-                int *check_convergence, double (*func)(gsl_vector*, void*), 
+void opt_lnsrch(Vector *xold, double fold, Vector *g, Vector *p, 
+                Vector *x, double *f, double stpmax, 
+                int *check_convergence, double (*func)(Vector*, void*), 
                 void *data, int *nevals, double *final_lambda) {
 
   int i, n = xold->size;
@@ -779,14 +780,14 @@ void opt_lnsrch(gsl_vector *xold, double fold, gsl_vector *g, gsl_vector *p,
   *check_convergence = 0;
 
   /* scale step if necessary */
-  sum = vect_norm(p);
+  sum = vec_norm(p);
   if (sum > stpmax)  
-    gsl_vector_scale(p, stpmax/sum);
+    vec_scale(p, stpmax/sum);
 
-  slope = vect_dot_prod(g, p);
+  slope = vec_inner_prod(g, p);
   if (slope >= 0.0) {
     fprintf(stderr, "ERROR: positive slope in opt_lnsrch.  Roundoff error?\n");
-    gsl_vector_memcpy(x, xold);
+    vec_copy(x, xold);
     *check_convergence = 1;
     *final_lambda = lambda;
     return;
@@ -794,8 +795,8 @@ void opt_lnsrch(gsl_vector *xold, double fold, gsl_vector *g, gsl_vector *p,
 
   test = 0.0;                   /* compute lambda_min */
   for (i = 0; i < n; i++) {
-    temp = fabs(gsl_vector_get(p, i)) / 
-      max(fabs(gsl_vector_get(xold, i)), 1.0);
+    temp = fabs(vec_get(p, i)) / 
+      max(fabs(vec_get(xold, i)), 1.0);
     if (temp > test) test = temp;
   }
   lamda_min = TOLX(OPT_HIGH_PREC)/test;
@@ -804,9 +805,9 @@ void opt_lnsrch(gsl_vector *xold, double fold, gsl_vector *g, gsl_vector *p,
   for (;;) {                    /* main loop */
 
     /* compute candidate "point" (parameter values), along direction p */
-    gsl_vector_memcpy(x, p);
-    gsl_vector_scale(x, lambda);
-    gsl_vector_add(x, xold);
+    vec_copy(x, p);
+    vec_scale(x, lambda);
+    vec_plus_eq(x, xold);
 
     /* function call */
     *f = func(x, data);
@@ -816,7 +817,7 @@ void opt_lnsrch(gsl_vector *xold, double fold, gsl_vector *g, gsl_vector *p,
                                    the calling program should verify
                                    convergence (mostly important for
                                    zero-finding; see Press et al.) */
-      gsl_vector_memcpy(x, xold);
+      vec_copy(x, xold);
       *check_convergence = 1;
       *final_lambda = lambda;
       return;
@@ -858,8 +859,8 @@ void opt_lnsrch(gsl_vector *xold, double fold, gsl_vector *g, gsl_vector *p,
    function is output, along with the values of all parameters, and
    the components of the gradient.  If "header_only == 1", an
    appropriate header is printed. */
-void opt_log(FILE *logf, int header_only, double val, gsl_vector *params, 
-             gsl_vector *grad, int trunc, double lambda) {
+void opt_log(FILE *logf, int header_only, double val, Vector *params, 
+             Vector *grad, int trunc, double lambda) {
   int i;
   char tmp[30];
   if (header_only) {
@@ -877,9 +878,9 @@ void opt_log(FILE *logf, int header_only, double val, gsl_vector *params,
   else {
     fprintf(logf, "%15.6f ", val);
     for (i = 0; i < params->size; i++) 
-      fprintf(logf, "%15.6f ", gsl_vector_get(params, i));
+      fprintf(logf, "%15.6f ", vec_get(params, i));
     for (i = 0; i < params->size; i++) 
-      fprintf(logf, "%15.6f ", gsl_vector_get(grad, i));
+      fprintf(logf, "%15.6f ", vec_get(grad, i));
     fprintf(logf, "%15d %15f\n", trunc, lambda);
   }
   fflush(logf);
@@ -1076,12 +1077,12 @@ void mnbrak(double *ax, double *bx, double *cx, double *fa, double *fb,
 
 /* given two vectors of consecutive parameter estimates, return the
    minimum number of shared significant figures */
-int opt_min_sigfig(gsl_vector *p1, gsl_vector *p2) {
+int opt_min_sigfig(Vector *p1, Vector *p2) {
   int i, sf, min = 99999;
   assert(p1->size == p2->size);
   for (i = 0; i < p1->size; i++) {
-    double val1 = gsl_vector_get(p1, i);
-    double val2 = gsl_vector_get(p2, i);
+    double val1 = vec_get(p1, i);
+    double val2 = vec_get(p2, i);
     double tmp = pow(10, floor(log10(val1)));
     val1 /= tmp; val2 /= tmp;
     for (sf = 0; sf < MAXSIGFIGS; sf++) {

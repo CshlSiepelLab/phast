@@ -1,4 +1,4 @@
-/* $Id: display_rate_matrix.c,v 1.2 2004-08-02 22:47:13 acs Exp $
+/* $Id: display_rate_matrix.c,v 1.3 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -76,15 +76,15 @@ void get_state_tuple(TreeModel *mod, char *tuple, int state) {
 /* Read substitution scores from specified file and return as a kind
    of pseudo substitution matrix.  All nonspecified elements in matrix
    will be equal to NEGINFTY, which is to be interpretted as "NA" */
-gsl_matrix* read_subst_scores(TreeModel *mod, FILE *F) {
-  gsl_matrix *retval = gsl_matrix_alloc(mod->rate_matrix->size,
+Matrix* read_subst_scores(TreeModel *mod, FILE *F) {
+  Matrix *retval = mat_new(mod->rate_matrix->size,
                                         mod->rate_matrix->size);
   String *line = str_new(STR_MED_LEN), *tuple1, *tuple2;
   List *l = lst_new_ptr(3);
   int alph_size = strlen(mod->rate_matrix->states);
   int *inv_alph = mod->rate_matrix->inv_states;
   double val;
-  gsl_matrix_set_all(retval, NEGINFTY);
+  mat_set_all(retval, NEGINFTY);
   while (str_readline(line, F) != EOF) {
     str_double_trim(line);
     if (str_starts_with_charstr(line, "#") || line->length == 0) 
@@ -100,7 +100,7 @@ gsl_matrix* read_subst_scores(TreeModel *mod, FILE *F) {
       fprintf(stderr, "ERROR: bad value in subst. score file.\n");
       exit(1);
     }
-    gsl_matrix_set(retval, tuple_index(tuple1->chars, inv_alph, alph_size),
+    mat_set(retval, tuple_index(tuple1->chars, inv_alph, alph_size),
                    tuple_index(tuple2->chars, inv_alph, alph_size), val);
     str_free(tuple1); str_free(tuple2); str_free(lst_get_ptr(l, 2));
   }
@@ -115,10 +115,10 @@ gsl_matrix* read_subst_scores(TreeModel *mod, FILE *F) {
    distribution (alphabetical order of 3-letter codes), which is also
    the order of AA_ALPHABET (therefore AA_ALPHABET may not be
    changed!).  Equilibrium frequencies are ignored.  */ 
-gsl_matrix *read_paml_matrix(FILE *F, char *alph) {
+Matrix *read_paml_matrix(FILE *F, char *alph) {
   char *paml_alph = "ARNDCQEGHILKMFPSTWYV$";
   int size = strlen(paml_alph);
-  gsl_matrix *retval = gsl_matrix_calloc(size, size);
+  Matrix *retval = mat_new(size, size);
   List *fields = lst_new_ptr(100);
   String *line = str_new(STR_MED_LEN);
   int i, j;
@@ -146,8 +146,8 @@ gsl_matrix *read_paml_matrix(FILE *F, char *alph) {
       str_free(lst_get_ptr(fields, j));
 
       assert(j < size);
-      gsl_matrix_set(retval, i, j, val);
-      gsl_matrix_set(retval, j, i, val);
+      mat_set(retval, i, j, val);
+      mat_set(retval, j, i, val);
     }
     i++;
   }
@@ -162,12 +162,12 @@ gsl_matrix *read_paml_matrix(FILE *F, char *alph) {
   return retval;
 }
 
-gsl_matrix* unproject_rates(TreeModel *mod_tuples, TreeModel *mod_single) {
+Matrix* unproject_rates(TreeModel *mod_tuples, TreeModel *mod_single) {
   int dim = mod_tuples->rate_matrix->size;
   int alph_size = strlen(mod_tuples->rate_matrix->states);
   char tuple_i[mod_tuples->order+1], tuple_j[mod_tuples->order+1];
   int position, i, j;
-  gsl_matrix *retval = gsl_matrix_calloc(dim, dim);
+  Matrix *retval = mat_new(dim, dim);
   for (i = 0; i < dim; i++) {
     get_tuple_str(tuple_i, i, mod_tuples->order+1, 
                   mod_tuples->rate_matrix->states);
@@ -179,7 +179,7 @@ gsl_matrix* unproject_rates(TreeModel *mod_tuples, TreeModel *mod_single) {
       get_tuple_str(tuple_j, j, mod_tuples->order+1, 
                     mod_tuples->rate_matrix->states);
       position = mod_tuples->order - floor(log(abs(i - j))/log(alph_size));
-      gsl_matrix_set(retval, i, j, 
+      mat_set(retval, i, j, 
                      mm_get(mod_single->rate_matrix, 
                             mod_single->rate_matrix->inv_states[(int)tuple_i[position]],
                             mod_single->rate_matrix->inv_states[(int)tuple_j[position]]));
@@ -213,7 +213,7 @@ void do_context_dependent_ti_tv(TreeModel *mod) {
           i = last + mid_src*alph_size + first*alph_size*alph_size;
           j = last + mid_targ*alph_size + first*alph_size*alph_size;
           expected_rate = mm_get(mod->rate_matrix, i, j) * 
-            gsl_vector_get(mod->backgd_freqs, i);
+            vec_get(mod->backgd_freqs, i);
 
 /*           get_tuple_str(tuple_i, i, mod->order+1,  */
 /*                         mod->rate_matrix->states); */
@@ -371,7 +371,7 @@ int main(int argc, char* argv[]) {
   char tuple[5], tuple2[5]; /* , aa_alph[50]; */
   char *subst_mat_fname = NULL, *subst_score_fname = NULL, 
     *subst_mat_fname_paml = NULL, *order1_mod_fname = NULL;
-  gsl_matrix *subst_mat = NULL;
+  Matrix *subst_mat = NULL;
   List *matrix_list = lst_new_ptr(20), *traversal = NULL;
 
   while ((c = getopt(argc, argv, "t:fedlLiM:N:A:B:aszSCh")) != -1) {
@@ -475,7 +475,7 @@ int main(int argc, char* argv[]) {
       for (j = 0; j < model->rate_matrix->size; j++)
         if (i != j && codon_to_aa[i] == codon_to_aa[j])
           rho_s += mm_get(model->rate_matrix, i, j) * 
-            gsl_vector_get(model->backgd_freqs, i);
+            vec_get(model->backgd_freqs, i);
 
     free(codon_to_aa);
 
@@ -577,7 +577,7 @@ int main(int argc, char* argv[]) {
       /* get total eq freq of tuples containing CpG dinucs */
       for (k = 0; k < model->order; k++) {
         if (tuple[k] == 'C' && tuple[k+1] == 'G') {
-          cpg_eqfreq += gsl_vector_get(model->backgd_freqs, i);
+          cpg_eqfreq += vec_get(model->backgd_freqs, i);
 /*           printf("***CPG***"); */
           break;
         }
@@ -597,7 +597,7 @@ int main(int argc, char* argv[]) {
         }
         if (i == j && suppress_diag && !list_mode) printf("%-7s", "-");
         else printf("%8.6f ", exch_mode == 0 ? mm_get(M, i, j) : 
-                    safediv(mm_get(M, i, j), gsl_vector_get(model->backgd_freqs,j)));
+                    safediv(mm_get(M, i, j), vec_get(model->backgd_freqs,j)));
         if (latex_mode) {
           printf("$");
           if (j < endcol-1) printf("& ");
@@ -629,27 +629,27 @@ int main(int argc, char* argv[]) {
 /*             printf("%5s ", is_cpg ? "CPG" : "-"); */
             if (ti) {
               total_ti += mm_get(M, i, j) * 
-                gsl_vector_get(model->backgd_freqs, i);
+                vec_get(model->backgd_freqs, i);
               if (is_cpg) 
                 cpg_ti += mm_get(M, i, j) * 
-                  gsl_vector_get(model->backgd_freqs, i);
+                  vec_get(model->backgd_freqs, i);
               else non_cpg_ti += mm_get(M, i, j) * 
-                     gsl_vector_get(model->backgd_freqs, i);
+                     vec_get(model->backgd_freqs, i);
             }
             else {
               total_tv += mm_get(M, i, j) * 
-                gsl_vector_get(model->backgd_freqs, i);
+                vec_get(model->backgd_freqs, i);
               if (is_cpg)
                 cpg_tv += mm_get(M, i, j) * 
-                  gsl_vector_get(model->backgd_freqs, i);
+                  vec_get(model->backgd_freqs, i);
               else non_cpg_tv += mm_get(M, i, j) * 
-                     gsl_vector_get(model->backgd_freqs, i);
+                     vec_get(model->backgd_freqs, i);
             }
           }
           if (subst_mat != NULL) {
-            if (gsl_matrix_get(subst_mat, i, j) == NEGINFTY) 
+            if (mat_get(subst_mat, i, j) == NEGINFTY) 
               printf("%8s", "-"); 
-            else printf("%8.4f", gsl_matrix_get(subst_mat, i, j)); 
+            else printf("%8.4f", mat_get(subst_mat, i, j)); 
           }
           printf("\n");
         }
@@ -666,9 +666,9 @@ int main(int argc, char* argv[]) {
         printf("%-5s ", "pi");
       for (i = startcol; i < endcol; i++) {
         if (latex_mode) 
-          printf("$%8.4f$ ", gsl_vector_get(model->backgd_freqs, i));      
+          printf("$%8.4f$ ", vec_get(model->backgd_freqs, i));      
         else 
-          printf("%8.4f ", gsl_vector_get(model->backgd_freqs, i));      
+          printf("%8.4f ", vec_get(model->backgd_freqs, i));      
         if (latex_mode && i < endcol-1) printf("& ");
       }
       if (latex_mode) printf("\\\\\n");

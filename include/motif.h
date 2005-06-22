@@ -2,7 +2,7 @@
 #define MOTIF_H
 
 #include "msa.h"
-#include "gsl/gsl_vector.h"
+#include "vector.h"
 #include "tree_model.h"
 
 #define MTF_EPSILON 0.001
@@ -15,7 +15,7 @@ typedef struct {
   int multiseq;                 /* whether or not multi-sequence */
   char *alphabet;               /* alphabet for the motif */
   int alph_size;                /* size of alphabet */
-  gsl_vector **freqs;           /* array of position-specific base
+  Vector **freqs;           /* array of position-specific base
                                    frequencies */
   TreeModel **ph_mods;          /* array of position-specific
                                    phylogenetic models (NULL if
@@ -45,7 +45,7 @@ typedef struct {
                                    set->nseqs) */
 } SeqSet;
 
-Motif* mtf_new(int motif_size, int multiseq, gsl_vector **freqs, 
+Motif* mtf_new(int motif_size, int multiseq, Vector **freqs, 
                void *training_data, TreeModel *backgd_phmod, 
                double scale_factor);
 void mtf_free(Motif *m);
@@ -53,7 +53,7 @@ List* mtf_find(void *data, int multiseq, int motif_size, int nmotifs,
                TreeNode *tree, void *backgd, double *has_motif, double prior, 
                int nrestarts, List *init_list, int sample_parms, 
                int npseudocounts);
-double mtf_compute_conditional(gsl_vector *params, void *data);
+double mtf_compute_conditional(Vector *params, void *data);
 double mtf_em(void *models, void *data, int nsamples, 
               int *sample_lens, int width, double motif_prior,
               void (*compute_emissions)(double**, void**, int, void*, 
@@ -62,12 +62,12 @@ double mtf_em(void *models, void *data, int nsamples,
                                             double**, int),
               int (*get_observation_index)(void*, int, int),
               double *postprob, int *bestposition);
-void mtf_estim_backgd_mn(SeqSet *s, gsl_vector *model);
-void mtf_draw_multinomial(gsl_vector *v, double *alpha);
+void mtf_estim_backgd_mn(SeqSet *s, Vector *model);
+void mtf_draw_multinomial(Vector *v, double *alpha);
 void mtf_get_common_ntuples(SeqSet *s, List *tuples, int tuple_size, 
                             int number);
 void mtf_sample_ntuples(SeqSet *s, List *tuples, int tuple_size, int number);
-void mtf_init_from_consensus(String *consensus, gsl_vector **mods, 
+void mtf_init_from_consensus(String *consensus, Vector **mods, 
                              int *inv_alph, int npseudocounts, 
                              int probabilistic, int target_size);
 void mtf_winnow_starts(void *data, List *origseqs, int ntochoose, 

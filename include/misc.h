@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.5 2004-08-30 18:56:37 acs Exp $
+/* $Id: misc.h,v 1.6 2005-06-22 07:11:20 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -7,8 +7,7 @@
 
 #include <math.h>
 #include <stdio.h>
-#include <gsl/gsl_matrix.h>
-#include <lists.h>
+#include <matrix.h>
 #include <hashtable.h>
 #include <ctype.h>
 
@@ -90,7 +89,7 @@ char* get_codon_mapping(char *alphabet);
 int tuple_index(char *tuple, int *inv_alph, int alph_size);
 void get_tuple_str(char *tuple_str, int tuple_idx, int tuple_size, 
                    char *alphabet);
-gsl_matrix* read_subst_mat(FILE *F, char *alph);
+Matrix* read_subst_mat(FILE *F, char *alph);
 FILE* fopen_fname(char *fname, char *mode);
 void die(char *warnfmt, ...);
 List *get_arg_list(char *arg);
@@ -110,5 +109,8 @@ void unif_draw(int n, double min, double max, double *draws, int antithetics);
 void bn_draw(int n, int N, double p, int *draws);
 void mn_draw(int n, double *p, int d, int *counts);
 Hashtable *make_name_hash(char *mapstr);
+double gamma_pdf(double x, double a, double b);
+double gamma_draw(double a, double b);
+void dirichlet_draw(int k, double *alpha, double *theta);
 
 #endif

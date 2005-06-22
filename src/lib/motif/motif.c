@@ -3,8 +3,6 @@
 #include "motif.h"
 #include "em.h"
 #include "msa.h"
-#include "gsl/gsl_rng.h"
-#include "gsl/gsl_randist.h"
 #include "time.h"
 #include "assert.h" 
 #include "sufficient_stats.h"
@@ -35,9 +33,9 @@ void phy_estim_mods(void **models, int nmodels, void *data, double **E,
 int phy_get_obs_idx(void *data, int sample, int position);
 
 /* function passed to opt_bfgs in discriminative training (see below) */
-double mtf_compute_conditional(gsl_vector *params, void *data);
-void mtf_compute_conditional_grad(gsl_vector *grad, gsl_vector *params, 
-                                  void *data, gsl_vector *lb, gsl_vector *ub);
+double mtf_compute_conditional(Vector *params, void *data);
+void mtf_compute_conditional_grad(Vector *grad, Vector *params, 
+                                  void *data, Vector *lb, Vector *ub);
 
 /* comparison function for sorting motifs in descending order by log
    likelihood (see below) */
@@ -55,7 +53,7 @@ int score_compare(const void* ptr1, const void* ptr2) {
    it must be a SeqSet object.  Return value is a list of Motif
    objects.  The best 'nmotif' motifs of size 'motif_size' are
    selected.  The 'backgd' argument indicates a background model,
-   either a TreeModel (if multiseq == 1) or a gsl_vector (if multiseq
+   either a TreeModel (if multiseq == 1) or a Vector (if multiseq
    == 0).  If 'has_motif' is non-NULL, then motifs are learned by
    discriminative training, with 'has_motif' interpreted as an array
    of values indicating whether each training example should be
@@ -78,8 +76,8 @@ List* mtf_find(void *data, int multiseq, int motif_size, int nmotifs,
   char *cons_str = smalloc((motif_size + 1) * sizeof(char));
   SeqSet *seqset = !multiseq ? data : NULL;
   PooledMSA *pmsa = multiseq ? data : NULL;
-  gsl_vector **freqs = smalloc((motif_size + 1) * sizeof(void*));
-  gsl_vector *params = NULL, *lower_bounds = NULL, *upper_bounds = NULL;
+  Vector **freqs = smalloc((motif_size + 1) * sizeof(void*));
+  Vector *params = NULL, *lower_bounds = NULL, *upper_bounds = NULL;
   int *inv_alphabet = multiseq ? pmsa->pooled_msa->inv_alphabet :
     seqset->set->inv_alphabet;
   Hashtable *hash;
@@ -89,13 +87,13 @@ List* mtf_find(void *data, int multiseq, int motif_size, int nmotifs,
     strlen(seqset->set->alphabet);
   alpha = smalloc(alph_size * sizeof(double));
   for (i = 0; i < alph_size; i++) alpha[i] = 1;      
-  for (i = 0; i <= motif_size; i++) freqs[i] = gsl_vector_alloc(alph_size);
+  for (i = 0; i <= motif_size; i++) freqs[i] = vec_new(alph_size);
           
   if (has_motif == NULL) {      /* non-discriminative case only */
     if (multiseq) 
-      gsl_vector_memcpy(freqs[0], ((TreeModel*)backgd)->backgd_freqs);
+      vec_copy(freqs[0], ((TreeModel*)backgd)->backgd_freqs);
     else 
-      gsl_vector_memcpy(freqs[0], backgd);
+      vec_copy(freqs[0], backgd);
   }
 
   for (cons = 0; 
@@ -151,34 +149,34 @@ List* mtf_find(void *data, int multiseq, int motif_size, int nmotifs,
     
           nparams = params_per_model * m->motif_size + 1;
                                 /* one more for motif threshold */
-          params = gsl_vector_calloc(nparams);
-          lower_bounds = gsl_vector_calloc(nparams); 
-          gsl_vector_set_all(lower_bounds, 0.00001);
-          upper_bounds = gsl_vector_calloc(nparams);
-          gsl_vector_set_all(upper_bounds, 1);
-          gsl_vector_set(lower_bounds, 0, NEGINFTY); /* threshold */
-          gsl_vector_set(upper_bounds, 0, INFTY);
+          params = vec_new(nparams);
+          lower_bounds = vec_new(nparams); 
+          vec_set_all(lower_bounds, 0.00001);
+          upper_bounds = vec_new(nparams);
+          vec_set_all(upper_bounds, 1);
+          vec_set(lower_bounds, 0, NEGINFTY); /* threshold */
+          vec_set(upper_bounds, 0, INFTY);
           /* no upper bounds */
         }
 
         /* initialize params */
         j = 0;
-        gsl_vector_set(params, j++, 2 * motif_size);
+        vec_set(params, j++, 2 * motif_size);
                                 /* approx 2 nats per model seems to be
                                    a reasonable initialization for the
                                    threshold */
         for (i = 1; i <= m->motif_size; i++) {
           if (multiseq) {
-            gsl_vector *tm_params = tm_params_new_init_from_model(m->ph_mods[i]);
-/*             gsl_vector_set(upper_bounds, j, 20); */ /* FIXME: have to relax upper bound for rate constant */
-/*             gsl_vector_set(lower_bounds, j, .25); */ /* FIXME: avoid degenerate case */
+            Vector *tm_params = tm_params_new_init_from_model(m->ph_mods[i]);
+/*             vec_set(upper_bounds, j, 20); */ /* FIXME: have to relax upper bound for rate constant */
+/*             vec_set(lower_bounds, j, .25); */ /* FIXME: avoid degenerate case */
             for (k = 0; k < tm_params->size; k++)
-              gsl_vector_set(params, j++, gsl_vector_get(tm_params, k));
-            gsl_vector_free(tm_params);
+              vec_set(params, j++, vec_get(tm_params, k));
+            vec_free(tm_params);
           }
           else 
             for (k = 0; k < m->alph_size; k++)
-              gsl_vector_set(params, j++, gsl_vector_get(m->freqs[i], k));
+              vec_set(params, j++, vec_get(m->freqs[i], k));
         }
         assert(j == nparams);
           
@@ -224,12 +222,12 @@ List* mtf_find(void *data, int multiseq, int motif_size, int nmotifs,
   lst_free(motifs);
   motifs = tmpl;
 
-  for (i = 0; i <= motif_size; i++) gsl_vector_free(freqs[i]);
+  for (i = 0; i <= motif_size; i++) vec_free(freqs[i]);
   free(freqs);
 
-  if (params != NULL) gsl_vector_free(params);
-  if (lower_bounds != NULL) gsl_vector_free(lower_bounds);
-  if (upper_bounds != NULL) gsl_vector_free(upper_bounds);
+  if (params != NULL) vec_free(params);
+  if (lower_bounds != NULL) vec_free(lower_bounds);
+  if (upper_bounds != NULL) vec_free(upper_bounds);
   free(cons_str);
   free(alpha);
 
@@ -243,24 +241,24 @@ void mn_compute_emissions(double **emissions, void **models, int nmodels,
                           void *data, int sample, int length) {
   int i, j;
   MSA *set = ((SeqSet*)data)->set;
-  gsl_vector *logmod = gsl_vector_alloc(((gsl_vector*)models[0])->size);
+  Vector *logmod = vec_new(((Vector*)models[0])->size);
   for (i = 0; i < nmodels; i++) {
-    gsl_vector *thismod = (gsl_vector*)models[i];
+    Vector *thismod = (Vector*)models[i];
     if (emissions[i] == NULL) continue;
                                 /* can force certain models to be
                                    ignored by setting to NULL */
-    assert(thismod->size == ((gsl_vector*)models[0])->size);
+    assert(thismod->size == ((Vector*)models[0])->size);
     for (j = 0; j < thismod->size; j++) {
-      double val = gsl_vector_get(thismod, j);
-      gsl_vector_set(logmod, j, val == 0 ? NEGINFTY : log(val));
+      double val = vec_get(thismod, j);
+      vec_set(logmod, j, val == 0 ? NEGINFTY : log(val));
     }
     for (j = 0; j < length; j++) {
       emissions[i][j] = 
-        gsl_vector_get(logmod, 
+        vec_get(logmod, 
                        set->inv_alphabet[(int)set->seqs[sample][j]]);
     }
   }    
-  gsl_vector_free(logmod);
+  vec_free(logmod);
 }
 
 /* multinomial: M step for models.  Based on expected counts, update
@@ -273,10 +271,10 @@ void mn_estim_mods(void **models, int nmodels, void *data,
     double sum = 0;
     for (j = 0; j < nobs; j++) { 
       double val = max(E[i][j], MTF_EPSILON); /* don't let it go zero */
-      gsl_vector_set(models[i], j, val);                                
+      vec_set(models[i], j, val);                                
       sum += val;
     }
-    gsl_vector_scale(models[i], 1/sum);
+    vec_scale(models[i], 1/sum);
   }
 }
 
@@ -312,7 +310,7 @@ void phy_compute_emissions(double **emissions, void **models, int nmodels,
 void phy_estim_mods(void **models, int nmodels, void *data, 
                     double **E, int nobs) {
   int k, obsidx;
-  gsl_vector *params;
+  Vector *params;
   PooledMSA *pmsa = (PooledMSA*)data;
 
   for (k = 1; k < nmodels; k++) {
@@ -322,7 +320,7 @@ void phy_estim_mods(void **models, int nmodels, void *data,
       pmsa->pooled_msa->ss->cat_counts[k][obsidx] = E[k][obsidx];
     tm_fit(tm, pmsa->pooled_msa, params, k, OPT_HIGH_PREC, NULL);
 /*     fprintf(stderr, "%d: %f, %f\n", k, tm->scale, tr_total_len(tm->tree)); */
-    gsl_vector_free(params); 
+    vec_free(params); 
   }
 }
 
@@ -352,7 +350,7 @@ int phy_get_obs_idx(void *data, int sample, int position) {
 
 /* this is the function that is optimized in discriminative training;
    see Segal et al., RECOMB '02 */
-double mtf_compute_conditional(gsl_vector *params, void *data) {
+double mtf_compute_conditional(Vector *params, void *data) {
   Motif *m = (Motif*)data;
   PooledMSA *pmsa = m->multiseq ? m->training_data : NULL;
   SeqSet *ss = m->multiseq ? NULL : m->training_data;
@@ -376,7 +374,7 @@ double mtf_compute_conditional(gsl_vector *params, void *data) {
 
   /* unpack params */
   j = 0;
-  threshold = gsl_vector_get(params, j++); 
+  threshold = vec_get(params, j++); 
   /* (threshold can be interpreted as log prior odds for a motif instance) */
 
   for (i = 1; i <= m->motif_size; i++) {
@@ -386,10 +384,10 @@ double mtf_compute_conditional(gsl_vector *params, void *data) {
     }
     else {
       double sum = 0;
-      for (k = 0; k < m->alph_size; k++) sum += gsl_vector_get(params, j+k);
+      for (k = 0; k < m->alph_size; k++) sum += vec_get(params, j+k);
       for (k = 0; k < m->alph_size; k++)
-        gsl_vector_set(m->freqs[i], k, gsl_vector_get(params, j++)/sum);
-/*         gsl_vector_set(m->freqs[i], k, gsl_vector_get(params, j++)); */
+        vec_set(m->freqs[i], k, vec_get(params, j++)/sum);
+/*         vec_set(m->freqs[i], k, vec_get(params, j++)); */
     }
   }
   
@@ -453,13 +451,13 @@ double mtf_compute_conditional(gsl_vector *params, void *data) {
 
 /* functions used by mtf_compute_conditional_grad (see below) */
 void mtf_compute_inner_derivs_phy(double **derivs, Motif *m, 
-                                  gsl_vector *params);
+                                  Vector *params);
 void mtf_compute_inner_derivs_mn(double **derivs, Motif *m, 
-                                 gsl_vector *params);
+                                 Vector *params);
 
 /* compute gradients for mtf_compute_conditional */
-void mtf_compute_conditional_grad(gsl_vector *grad, gsl_vector *params, 
-                                  void *data, gsl_vector *lb, gsl_vector *ub) {
+void mtf_compute_conditional_grad(Vector *grad, Vector *params, 
+                                  void *data, Vector *lb, Vector *ub) {
   Motif *m = (Motif*)data;
   PooledMSA *pmsa = m->multiseq ? m->training_data : NULL;
   SeqSet *ss = m->multiseq ? NULL : m->training_data;
@@ -506,7 +504,7 @@ void mtf_compute_conditional_grad(gsl_vector *grad, gsl_vector *params,
      between parameters and models).  The threshold parameter (index
      0) is a special case; it's not associated with any motif model
      and is ignored here.  */
-  threshold = gsl_vector_get(params, 0);
+  threshold = vec_get(params, 0);
   Dp = smalloc(params->size * sizeof(void*));
   for (i = 1; i < params->size; i++) Dp[i] = smalloc(nobs * sizeof(double));
   if (m->multiseq) mtf_compute_inner_derivs_phy(Dp, m, params);
@@ -514,7 +512,7 @@ void mtf_compute_conditional_grad(gsl_vector *grad, gsl_vector *params,
 
   /* now compute the gradient, sample by sample and parameter by
      parameter */
-  gsl_vector_set_zero(grad);
+  vec_zero(grad);
   for (s = 0; s < nsamples; s++) {
     double l, c, factor;
 
@@ -556,7 +554,7 @@ void mtf_compute_conditional_grad(gsl_vector *grad, gsl_vector *params,
 
     /* first take care of the threshold parameter (index 0).  In this
        case, the partial derivative is just the factor computed above */
-    gsl_vector_set(grad, 0, gsl_vector_get(grad, 0) + factor);
+    vec_set(grad, 0, vec_get(grad, 0) + factor);
 
     /* now compute the partial derivatives for the other parameters:
        each one is essentially a sum over all starting positions of
@@ -571,11 +569,11 @@ void mtf_compute_conditional_grad(gsl_vector *grad, gsl_vector *params,
           deriv += exp(motif_lprob[j] - l) * Dp[i][pos_to_type[j+model-1]];
       deriv *= factor;
 
-      gsl_vector_set(grad, i, gsl_vector_get(grad, i) + deriv);
+      vec_set(grad, i, vec_get(grad, i) + deriv);
     }
   }
 
-  gsl_vector_scale(grad, -1);   /* because function is negated */
+  vec_scale(grad, -1);   /* because function is negated */
 
   free(param_to_model);
   free(pos_to_type);
@@ -593,7 +591,7 @@ void mtf_compute_conditional_grad(gsl_vector *grad, gsl_vector *params,
    of the jth type of observation given the model associated with the
    ith parameter */
 void mtf_compute_inner_derivs_phy(double **derivs, Motif *m, 
-                                  gsl_vector *params) {
+                                  Vector *params) {
   int i, j, k, mod, base_param_idx;
   PooledMSA *pmsa = m->training_data;
   MSA *dummy_msa;
@@ -620,8 +618,8 @@ void mtf_compute_inner_derivs_phy(double **derivs, Motif *m,
     for (k = 0; k < nparams_this_model; k++) {
       double origparm;
       i = base_param_idx + k;   /* index of parameter of interest */
-      origparm = gsl_vector_get(params, i);
-      gsl_vector_set(params, i, origparm + DERIV_EPSILON);
+      origparm = vec_get(params, i);
+      vec_set(params, i, origparm + DERIV_EPSILON);
       tm_unpack_params(m->ph_mods[mod], params, base_param_idx);
       tl_compute_log_likelihood(m->ph_mods[mod], dummy_msa, col_ll_tweak, 
                                 -1, NULL);
@@ -630,7 +628,7 @@ void mtf_compute_inner_derivs_phy(double **derivs, Motif *m,
         derivs[i][j] = conv_factor * (col_ll_tweak[j] - col_ll[j]) / 
           DERIV_EPSILON;
       
-      gsl_vector_set(params, i, origparm);
+      vec_set(params, i, origparm);
     }
     base_param_idx += nparams_this_model; /* base param for next model */
   }
@@ -646,16 +644,16 @@ void mtf_compute_inner_derivs_phy(double **derivs, Motif *m,
    of the jth type of observation given the model associated with the
    ith parameter */
 void mtf_compute_inner_derivs_mn(double **derivs, Motif *m, 
-                                 gsl_vector *params) {
+                                 Vector *params) {
   int i, j, model;
   for (model = 1; model <= m->motif_size; model++) {
     double sum = 0;
     int base_idx = (model-1) * m->alph_size + 1;
     for (i = 0; i < m->alph_size; i++) 
-      sum += gsl_vector_get(params, base_idx + i);
+      sum += vec_get(params, base_idx + i);
 
     for (i = 0; i < m->alph_size; i++) {
-      double thisparam = gsl_vector_get(params, base_idx + i);
+      double thisparam = vec_get(params, base_idx + i);
       for (j = 0; j < m->alph_size; j++) {
         if (i == j)
           derivs[base_idx+i][j] = (thisparam == 0 ?
@@ -669,18 +667,18 @@ void mtf_compute_inner_derivs_mn(double **derivs, Motif *m,
 }
 
 /* estimate a (multinomial) background model from a set of sequences */
-void mtf_estim_backgd_mn(SeqSet *s, gsl_vector *model) {
+void mtf_estim_backgd_mn(SeqSet *s, Vector *model) {
   double count = 0;
   int i, j;
   for (i = 0; i < s->set->nseqs; i++) {
     for (j = 0; j < s->lens[i]; j++) {
       int idx = s->set->inv_alphabet[(int)s->set->seqs[i][j]];
       if (idx < 0) continue;
-      gsl_vector_set(model, idx, gsl_vector_get(model, idx) + 1);
+      vec_set(model, idx, vec_get(model, idx) + 1);
       count++;
     }
   }
-  gsl_vector_scale(model, 1.0/count);
+  vec_scale(model, 1.0/count);
 }
 
 /* find a single motif by EM, given a pre-initialized set of models.
@@ -855,16 +853,11 @@ double mtf_em(void *models, void *data, int nsamples,
 
 /* draw the parameters of a multinomial distribution from a Dirichlet
    distrib. */
-void mtf_draw_multinomial(gsl_vector *v, double *alpha) {
+void mtf_draw_multinomial(Vector *v, double *alpha) {
   double theta[v->size];
   int i;
-  static gsl_rng *r = NULL;
-  if (r == NULL) {
-    r = gsl_rng_alloc(gsl_rng_default);
-    gsl_rng_set(r, time(NULL));
-  }
-  gsl_ran_dirichlet(r, v->size, alpha, theta);
-  for (i = 0; i < v->size; i++) gsl_vector_set(v, i, theta[i]);
+  dirichlet_draw(v->size, alpha, theta);
+  for (i = 0; i < v->size; i++) vec_set(v, i, theta[i]);
 }
 
 /* scan a set of DNA sequences for the most prevalent n-tuples of bases */
@@ -946,7 +939,7 @@ void mtf_sample_ntuples(SeqSet *s, List *tuples, int tuple_size, int number) {
    from Dirichlet distribution).  If target size is larger than
    consensus size, flanking models will be added with uniform
    distributions (or draws from uniform Dirichlet) */
-void mtf_init_from_consensus(String *consensus, gsl_vector **mods, 
+void mtf_init_from_consensus(String *consensus, Vector **mods, 
                              int *inv_alph, int npseudocounts, 
                              int probabilistic, int target_size) {
   int i, j, sum, offset, size/* , Nfactor */;
@@ -957,9 +950,9 @@ void mtf_init_from_consensus(String *consensus, gsl_vector **mods,
 
   for (i = 0; i < (target_size - consensus->length) / 2; i++) {
     for (j = 0; j < size; j++) {
-/*       if (j == inv_alph[(int)'N']) gsl_vector_set(mods[i+1], j, 0); */
+/*       if (j == inv_alph[(int)'N']) vec_set(mods[i+1], j, 0); */
 /*       else */ 
-      gsl_vector_set(mods[i+1], j, 1.0/(size/* -Nfactor */));
+      vec_set(mods[i+1], j, 1.0/(size/* -Nfactor */));
     }
   }
   offset = i;
@@ -968,19 +961,19 @@ void mtf_init_from_consensus(String *consensus, gsl_vector **mods,
   for (i = 0; i < consensus->length; i++) {
     for (j = 0; j < size; j++) {
       if (j == inv_alph[(int)consensus->chars[i]])
-        gsl_vector_set(mods[i+offset+1], j, 1.0 * npseudocounts / sum);
+        vec_set(mods[i+offset+1], j, 1.0 * npseudocounts / sum);
 /*       else if (j == inv_alph[(int)'N']) */
-/*         gsl_vector_set(mods[i+offset+1], j, 0); */
+/*         vec_set(mods[i+offset+1], j, 0); */
       else
-        gsl_vector_set(mods[i+offset+1], j, 1.0/sum);
+        vec_set(mods[i+offset+1], j, 1.0/sum);
     }
   }
 
   for (; i+offset < target_size; i++) {
     for (j = 0; j < size; j++) {
-/*       if (j == inv_alph[(int)'N']) gsl_vector_set(mods[i+offset+1], j, 0); */
+/*       if (j == inv_alph[(int)'N']) vec_set(mods[i+offset+1], j, 0); */
 /*       else  */
-      gsl_vector_set(mods[i+offset+1], j, 1.0/(size/* -Nfactor */));
+      vec_set(mods[i+offset+1], j, 1.0/(size/* -Nfactor */));
     }
   }
 }
@@ -995,7 +988,7 @@ void mtf_winnow_starts(void *data, List *origseqs, int ntochoose,
 
   SeqSet *ss = !multiseq ? data : NULL;
   PooledMSA *pmsa = multiseq ? data : NULL;
-  gsl_vector **freqs = smalloc((motif_size + 1) * sizeof(void*));
+  Vector **freqs = smalloc((motif_size + 1) * sizeof(void*));
   int alph_size = multiseq ? strlen(pmsa->pooled_msa->alphabet) : 
     strlen(ss->set->alphabet);
   int *inv_alphabet = multiseq ? pmsa->pooled_msa->inv_alphabet :
@@ -1009,13 +1002,13 @@ void mtf_winnow_starts(void *data, List *origseqs, int ntochoose,
   double **emissions;
   double threshold;
 
-  for (i = 0; i <= motif_size; i++) freqs[i] = gsl_vector_alloc(alph_size);
+  for (i = 0; i <= motif_size; i++) freqs[i] = vec_new(alph_size);
           
   if (has_motif == NULL) {      /* non-discriminative case only */
     if (multiseq) 
-      gsl_vector_memcpy(freqs[0], ((TreeModel*)backgd)->backgd_freqs);
+      vec_copy(freqs[0], ((TreeModel*)backgd)->backgd_freqs);
     else 
-      gsl_vector_memcpy(freqs[0], backgd);
+      vec_copy(freqs[0], backgd);
   }
 
   maxlen = 0;
@@ -1094,7 +1087,7 @@ void mtf_winnow_starts(void *data, List *origseqs, int ntochoose,
   lst_free(tmplst);
   for (j = 0; j <= motif_size; j++) {
     if (emissions[j] != NULL) free(emissions[j]);
-    gsl_vector_free(freqs[j]);
+    vec_free(freqs[j]);
   }
   free(emissions);
   free(freqs);
@@ -1170,24 +1163,24 @@ SeqSet *mtf_get_seqset(List *msas, int refseq, int min_allowable_size) {
 
 /* this hack avoids problems with non-invertible matrices arising from
    simple initialization strategies; it's used in mtf_new, below */
-/* void fuzz(gsl_vector *v) { */
+/* void fuzz(Vector *v) { */
 /*   double sum = 0; */
 /*   int i; */
 /*   srand(time(NULL)); */
 /*   for (i = 0; i < v->size; i++) { */
 /*     add a small amount of noise to each value */ 
-/*     double val = gsl_vector_get(v, i); */
+/*     double val = vec_get(v, i); */
 /*     val += (rand() / (1000.0 * RAND_MAX));  */
-/*     gsl_vector_set(v, i, val); */
+/*     vec_set(v, i, val); */
 /*     sum += val; */
 /*   } */
-/*   gsl_vector_scale(v, 1.0/sum); */
+/*   vec_scale(v, 1.0/sum); */
 /* } */
 
 /* create a new Motif object.  The last two parameters are used only
    if multiseq == 1.  New copies are created of 'freqs' and (if
    appropriate) backgd_phmod. */
-Motif* mtf_new(int motif_size, int multiseq, gsl_vector **freqs, 
+Motif* mtf_new(int motif_size, int multiseq, Vector **freqs, 
                void *training_data, TreeModel *backgd_phmod, 
                double scale_factor) {
   int i, n;
@@ -1213,7 +1206,7 @@ Motif* mtf_new(int motif_size, int multiseq, gsl_vector **freqs,
         m->ph_mods[i]->estimate_backgd = 1;
         m->ph_mods[i]->allow_gaps = 0;
         tm_init_rmp(m->ph_mods[i]);
-        gsl_vector_memcpy(m->ph_mods[i]->backgd_freqs, freqs[i]);
+        vec_copy(m->ph_mods[i]->backgd_freqs, freqs[i]);
         m->freqs[i] = m->ph_mods[i]->backgd_freqs;
                                 /* in this case, point to the same
                                    object (otherwise problem keeping
@@ -1225,8 +1218,8 @@ Motif* mtf_new(int motif_size, int multiseq, gsl_vector **freqs,
   }
   else {
     for (i = 0; i <= motif_size; i++) {
-      m->freqs[i] = gsl_vector_alloc(freqs[i]->size);
-      gsl_vector_memcpy(m->freqs[i], freqs[i]);
+      m->freqs[i] = vec_new(freqs[i]->size);
+      vec_copy(m->freqs[i], freqs[i]);
     }
 
     m->alphabet = ((SeqSet*)training_data)->set->alphabet;
@@ -1254,7 +1247,7 @@ void mtf_free(Motif *m) {
   }
   else 
     for (i = 0; i <= m->motif_size; i++) 
-      gsl_vector_free(m->freqs[i]);
+      vec_free(m->freqs[i]);
   if (m->coord_maps != NULL) {
     int nobs = lst_size(((PooledMSA*)m->training_data)->source_msas);
     for (i  = 0; i < nobs; i++)
@@ -1276,7 +1269,7 @@ void mtf_get_consensus(Motif *m, char *consensus) {
     double pur_freq = 0, pyr_freq = 0;
     consensus[i-1] = 'N';
     for (j = 0; j < m->alph_size; j++) {
-      double f = gsl_vector_get(m->freqs[i], j);
+      double f = vec_get(m->freqs[i], j);
       if (f > 0.5) {
         consensus[i-1] = m->alphabet[j];
         break;
@@ -1338,7 +1331,7 @@ void mtf_print(FILE *F, Motif *m) {
   for (i = 1; i <= m->motif_size; i++) {
     fprintf(F, "%6d", i);
     for (j = 0; j < m->alph_size; j++) 
-      fprintf(F, " %6.4f", gsl_vector_get(m->freqs[i], j));
+      fprintf(F, " %6.4f", vec_get(m->freqs[i], j));
     if (m->multiseq && m->ph_mods[i] != NULL && m->ph_mods[0] != NULL) 
       fprintf(F, " %6.4f", 
               tr_total_len(m->ph_mods[i]->tree) * m->ph_mods[i]->scale / 
@@ -1479,7 +1472,7 @@ void mtf_print_html(FILE *F, Motif *m) {
   for (i = 1; i <= m->motif_size; i++) {
     fprintf(F, "<tr><td align=\"center\">%d</td>", i);
     for (j = 0; j < m->alph_size; j++) 
-      fprintf(F, "<td align=\"center\">%.4f</td>", gsl_vector_get(m->freqs[i], j));
+      fprintf(F, "<td align=\"center\">%.4f</td>", vec_get(m->freqs[i], j));
     if (m->multiseq && m->ph_mods[i] != NULL && m->ph_mods[0] != NULL) 
       fprintf(F, "<td align=\"center\">%.4f</td>", 
               tr_total_len(m->ph_mods[i]->tree) * m->ph_mods[i]->scale / 
@@ -1812,11 +1805,11 @@ void mtf_add_features(Motif *m, GFF_Set *gff) {
                                 /* prob of entering motif */
 /*   for (i = 1; i < size; i++) mm_set(hmm->transition_matrix, i, i+1, 1); */
                                 /* probs of 1 through motif states */
-/*   gsl_vector_set(hmm->begin_transitions, 0, 1); */
+/*   vec_set(hmm->begin_transitions, 0, 1); */
                                 /* prob 1 of starting in backgd */
 /*   mm_set(hmm->transition_matrix, 0, 0, 1-prior-MTF_EPSILON); */
                                 /* prob of staying in backgd */
-/*   gsl_vector_set(hmm->end_transitions, 0, MTF_EPSILON); */
+/*   vec_set(hmm->end_transitions, 0, MTF_EPSILON); */
                                 /* ensures that you end in backgd */
 
 /*   if (single_motif == 0)  */
@@ -1837,7 +1830,7 @@ void mtf_add_features(Motif *m, GFF_Set *gff) {
                                    2nd backgd state).  WARNING:
                                    problem if transitions are
                                    normalized ... */
-/*     gsl_vector_set(hmm->end_transitions, size+1, MTF_EPSILON); */
+/*     vec_set(hmm->end_transitions, size+1, MTF_EPSILON); */
                                 /* allows you to end in 2nd backgd also */
 /*   } */
 
@@ -1869,7 +1862,7 @@ void mtf_add_features(Motif *m, GFF_Set *gff) {
 /*   double alpha[strlen(((MSA*)lst_get_ptr(msas, 0))->alphabet)]; */
 /*   List *tmpl = NULL; */
 /*   PooledMSA *pmsa; */
-/*   gsl_vector **mult = smalloc((motif_size+1) * sizeof(void*)); */
+/*   Vector **mult = smalloc((motif_size+1) * sizeof(void*)); */
 
 /*   *bestlogl = NEGINFTY; */
 
@@ -1892,7 +1885,7 @@ void mtf_add_features(Motif *m, GFF_Set *gff) {
 /*   mult[0] = NULL; */
 /*   for (i = 1; i <= motif_size; i++) { */
 /*     tmpmodels[i] = models[i] = NULL; */
-/*     mult[i] = gsl_vector_alloc(alph_size); */
+/*     mult[i] = vec_new(alph_size); */
 /*   } */
 /*   for (i = 0; i < alph_size; i++) alpha[i] = 1;       */
 /*   for (i = 0; i < lst_size(msas); i++) */
@@ -1942,7 +1935,7 @@ void mtf_add_features(Motif *m, GFF_Set *gff) {
 /*         tmpmodels[i]->estimate_scale_only = 1; */
 /*         tmpmodels[i]->estimate_backgd = 1; */
 /*         tm_init_rmp(tmpmodels[i]); */
-/*         gsl_vector_memcpy(tmpmodels[i]->backgd_freqs, mult[i]); */
+/*         vec_copy(tmpmodels[i]->backgd_freqs, mult[i]); */
 /*         tm_scale(tmpmodels[i], 0.5, 0); */
 /*       } */
 
@@ -1971,7 +1964,7 @@ void mtf_add_features(Motif *m, GFF_Set *gff) {
 
 /*   for (i = 1; i <= motif_size; i++) { */
 /*     tm_free(tmpmodels[i]); */
-/*     gsl_vector_free(mult[i]); */
+/*     vec_free(mult[i]); */
 /*   } */
 /*   free(tmpmodels); */
 /*   free(mult); */

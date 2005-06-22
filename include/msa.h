@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.15 2005-05-13 00:55:59 acs Exp $
+/* $Id: msa.h,v 1.16 2005-06-22 07:11:20 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -11,9 +11,10 @@
 #define MSA_H
 
 #include <stdio.h>
-#include "gff.h"
-#include "category_map.h"
-#include "markov_matrix.h"
+#include <gff.h>
+#include <category_map.h>
+#include <markov_matrix.h>
+#include <vector.h>
 
 /* maximum "order" allowed when indexing columns (see
    msa_index_cols) */
@@ -149,8 +150,8 @@ void msa_partition_by_category(MSA *msa, List *submsas, List *cats_to_do,
 
 void msa_print_stats(MSA *msa, FILE *F, char *label, int header, int start,
                      int end);
-gsl_vector *msa_get_base_freqs(MSA *msa, int start, int end);
-void msa_get_base_freqs_tuples(MSA *msa, gsl_vector *freqs, int k, int cat);
+Vector *msa_get_base_freqs(MSA *msa, int start, int end);
+void msa_get_base_freqs_tuples(MSA *msa, Vector *freqs, int k, int cat);
 int msa_num_gapped_cols(MSA *msa, int gap_strip_mode, int start, int end);
 unsigned int msa_ninformative_sites(MSA *msa, int cat);
 void msa_index_cols(MSA *msa, int order);

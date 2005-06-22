@@ -20,7 +20,7 @@ typedef struct {
                                    rate-variation phylo-HMM */
   double gamma;			/**< Target coverage for two-state
                                    rate-variation phylo-HMM */
-  gsl_matrix *H;                /** inverse Hessian for BFGS  */
+  Matrix *H;                /** inverse Hessian for BFGS  */
 } EmData;
 
 typedef struct {

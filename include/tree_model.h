@@ -1,11 +1,11 @@
-/* $Id: tree_model.h,v 1.10 2004-10-04 05:49:03 acs Exp $
+/* $Id: tree_model.h,v 1.11 2005-06-22 07:11:20 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
 #ifndef TREE_MODEL_H
 #define TREE_MODEL_H
 
-#include <gsl/gsl_vector.h>
+#include <vector.h>
 #include <markov_matrix.h> 
 #include <trees.h> 
 #include <stringsplus.h> 
@@ -44,7 +44,7 @@ struct tp_struct;
 
 struct tm_struct {
   TreeNode *tree;
-  gsl_vector *backgd_freqs;
+  Vector *backgd_freqs;
   MarkovMatrix *rate_matrix;
   subst_mod_type subst_mod;
   int *msa_seq_idx;             /**< (optional) Mapping from leaf
@@ -100,7 +100,7 @@ typedef struct tm_struct TreeModel;
 
 
 TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix, 
-                  gsl_vector *backgd_freqs, subst_mod_type subst_mod, 
+                  Vector *backgd_freqs, subst_mod_type subst_mod, 
                   char *alphabet, int nratecats, double alpha,
                   List *rate_consts, int root_leaf_id);
 
@@ -126,23 +126,23 @@ void tm_set_subst_matrices(TreeModel *tm);
 
 void tm_scale(TreeModel *tm, double scale_const, int reset_subst_mats);
 
-int tm_fit(TreeModel *mod, MSA *msa, gsl_vector *params, int cat, 
+int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat, 
            opt_precision_type precision, FILE *logf);
 
-void tm_unpack_params(TreeModel *mod, gsl_vector *params, int idx_offset);
+void tm_unpack_params(TreeModel *mod, Vector *params, int idx_offset);
 
 double tm_scale_rate_matrix(TreeModel *mod);
 
-void tm_scale_params(TreeModel *mod, gsl_vector *params, double scale_factor);
+void tm_scale_params(TreeModel *mod, Vector *params, double scale_factor);
 
-gsl_vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
+Vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
                            double alpha);
 
-gsl_vector *tm_params_init_random(TreeModel *mod);
+Vector *tm_params_init_random(TreeModel *mod);
 
-gsl_vector *tm_params_new_init_from_model(TreeModel *mod);
+Vector *tm_params_new_init_from_model(TreeModel *mod);
 
-void tm_params_init_from_model(TreeModel *mod, gsl_vector *params,
+void tm_params_init_from_model(TreeModel *mod, Vector *params,
                                       int start_idx);
 
 int tm_get_nparams(TreeModel *mod);

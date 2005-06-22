@@ -1,4 +1,4 @@
-/* $Id: lists.h,v 1.3 2004-06-23 19:51:28 acs Exp $
+/* $Id: lists.h,v 1.4 2005-06-22 07:11:20 acs Exp $
    Written by Adam Siepel, Spring 2001 and Summer 2002
    Copyright 2001, 2002, Adam Siepel, University of California 
 */
@@ -29,11 +29,11 @@
 #ifndef LISTS_H
 #define LISTS_H
 
+#include <stdlib.h> 
 #include <string.h>
-#include <stdlib.h>
 
 /** Basic List object */
-typedef struct {
+struct lst_struct {
   void** array;                 /**< storage array for list elements */
   int lidx;                     /**< leftmost index of active list
                                    (inclusive) */
@@ -45,7 +45,8 @@ typedef struct {
   int step;                     /**< number of array elements occupied
                                    by each list element (multiple are
                                    possible)  */ 
-} List;
+};
+typedef struct lst_struct List;
 
 /** List sorting */
 typedef enum {

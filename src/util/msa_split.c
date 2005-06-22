@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.22 2004-12-13 21:51:54 acs Exp $
+/* $Id: msa_split.c,v 1.23 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -269,7 +269,7 @@ void write_summary_header(FILE* F, char *alphabet, int gap_strip_mode) {
 
 /* print line to summary file; allow for pre- and post-gap-strip statistics */
 void write_summary_line(FILE *SUM_F, char *label, char *alphabet, 
-                        gsl_vector *freqs, gsl_vector *freqs_strip, int length, 
+                        Vector *freqs, Vector *freqs_strip, int length, 
                         int length_strip, int nallgaps, int nallgaps_strip, 
                         int nanygaps, int nanygaps_strip) {
   int j;
@@ -277,9 +277,9 @@ void write_summary_line(FILE *SUM_F, char *label, char *alphabet,
   fprintf(SUM_F, "%-20s", label);
   for (j = 0; j < strlen(alphabet); j++) {
     if (alphabet[j] != GAP_CHAR) {
-      fprintf(SUM_F, "%10.4f", gsl_vector_get(freqs, j));
+      fprintf(SUM_F, "%10.4f", vec_get(freqs, j));
       if (freqs_strip != NULL)
-        fprintf(SUM_F, " (%6.4f)", gsl_vector_get(freqs_strip, j));
+        fprintf(SUM_F, " (%6.4f)", vec_get(freqs_strip, j));
     }    
   }
   fprintf(SUM_F, "%10d", length);
@@ -407,7 +407,7 @@ int main(int argc, char* argv[]) {
   char c;
   int nallgaps, nallgaps_strip, nanygaps, nanygaps_strip, length, 
     length_strip, i;
-  gsl_vector *freqs, *freqs_strip;
+  Vector *freqs, *freqs_strip;
   msa_coord_map *map = NULL;
   CategoryMap *cm = NULL;
   char subfname[STR_MED_LEN];

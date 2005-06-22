@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.26 2005-05-31 06:38:07 acs Exp $
+/* $Id: phylo_hmm.c,v 1.27 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -275,8 +275,8 @@ void phmm_create_autocorr_hmm(HMM *hmm, double lambda) {
              (1-lambda)/hmm->nstates + (i == j ? lambda : 0));
 
   /* set eqfreqs and begin transitions (uniform) */
-  gsl_vector_set_all(hmm->eq_freqs, (double)1/hmm->nstates);
-  gsl_vector_set_all(hmm->begin_transitions, (double)1/hmm->nstates);
+  vec_set_all(hmm->eq_freqs, (double)1/hmm->nstates);
+  vec_set_all(hmm->begin_transitions, (double)1/hmm->nstates);
 
   hmm_reset(hmm);
 }
@@ -491,7 +491,7 @@ void phmm_free(PhyloHmm *phmm) {
   if (phmm->tau != NULL) free(phmm->tau);
   if (phmm->em_data != NULL) {
     if (phmm->em_data->H != NULL) 
-      gsl_matrix_free(phmm->em_data->H);
+      mat_free(phmm->em_data->H);
     free(phmm->em_data);
   }
   hmm_free(phmm->hmm);
@@ -1045,7 +1045,7 @@ void phmm_estim_mods_em(void **models, int nmodels, void *data,
      generally... */
 
   int k, obsidx;
-  gsl_vector *params;
+  Vector *params;
   PhyloHmm *phmm = (PhyloHmm*)data;
 
   if (phmm->em_data->msa->ss == NULL) {
@@ -1072,7 +1072,7 @@ void phmm_estim_mods_em(void **models, int nmodels, void *data,
     /* FIXME: need to use state_to_cat, etc. in deciding which categories to use */
 
     tm_fit(phmm->mods[k], phmm->em_data->msa, params, k, OPT_HIGH_PREC, logf);
-    gsl_vector_free(params); 
+    vec_free(params); 
   }
 
   if (phmm->indel_mode == PARAMETERIC)
@@ -1224,8 +1224,8 @@ void phmm_reset(PhyloHmm *phmm) {
         mm_set(phmm->hmm->transition_matrix, i, j, val);
       }
 
-      gsl_vector_set(phmm->hmm->begin_transitions, i, 
-                     gsl_vector_get(phmm->functional_hmm->begin_transitions, 
+      vec_set(phmm->hmm->begin_transitions, i, 
+                     vec_get(phmm->functional_hmm->begin_transitions, 
                                     cat_i) * 
                      1.0/phmm->gpm->ngap_patterns);
                                 /* assume uniform distrib. for gap
@@ -1240,11 +1240,11 @@ void phmm_reset(PhyloHmm *phmm) {
    portion of expected log likelihood that depends on the indel
    parameters for a given functional category (defined by
    phmm->current_dest_cat) */
-double indel_max_function(gsl_vector *params, void *data) {
+double indel_max_function(Vector *params, void *data) {
   IndelEstimData *ied = data;
   int pat, j = ied->current_dest_cat;
-  double alpha_j = gsl_vector_get(params, 0), beta_j = gsl_vector_get(params, 1),
-    tau_j = gsl_vector_get(params, 2);
+  double alpha_j = vec_get(params, 0), beta_j = vec_get(params, 1),
+    tau_j = vec_get(params, 2);
   double retval = ied->u_alpha[j] * log(alpha_j) + 
     ied->u_beta[j] * log(beta_j) + ied->u_tau[j] * log(tau_j) +
     ied->u_self[j][0] * log(1 - COMPLEX_EPSILON -
@@ -1267,12 +1267,12 @@ double indel_max_function(gsl_vector *params, void *data) {
 }
 
 /* Gradient of indel_max_function */
-void indel_max_gradient(gsl_vector *grad, gsl_vector *params,void *data, 
-                          gsl_vector *lb, gsl_vector *ub) {
+void indel_max_gradient(Vector *grad, Vector *params,void *data, 
+                          Vector *lb, Vector *ub) {
   IndelEstimData *ied = data;
   int pat, j = ied->current_dest_cat;
-  double alpha_j = gsl_vector_get(params, 0), beta_j = gsl_vector_get(params, 1),
-    tau_j = gsl_vector_get(params, 2);
+  double alpha_j = vec_get(params, 0), beta_j = vec_get(params, 1),
+    tau_j = vec_get(params, 2);
   double grad_alpha_j = ied->u_alpha[j] / alpha_j 
     - ied->u_self[j][0] * ied->T[j][0] / 
     (1 - COMPLEX_EPSILON - ied->T[j][0] * (alpha_j + beta_j));
@@ -1316,9 +1316,9 @@ void indel_max_gradient(gsl_vector *grad, gsl_vector *params,void *data,
     }
   }
   
-  gsl_vector_set(grad, 0, -grad_alpha_j); /* negate each one because function is negated */
-  gsl_vector_set(grad, 1, -grad_beta_j);
-  gsl_vector_set(grad, 2, -grad_tau_j);
+  vec_set(grad, 0, -grad_alpha_j); /* negate each one because function is negated */
+  vec_set(grad, 1, -grad_beta_j);
+  vec_set(grad, 2, -grad_tau_j);
 }
 
 /* Maximize all params for state transition (M step of EM).  This
@@ -1459,23 +1459,23 @@ void phmm_free_ied(IndelEstimData *ied) {
    functional category  */
 void phmm_em_estim_indels(PhyloHmm *phmm, IndelEstimData *ied) {
   int i;
-  gsl_vector *params = gsl_vector_alloc(3);
-  gsl_vector *lb = gsl_vector_calloc(3);
+  Vector *params = vec_new(3);
+  Vector *lb = vec_new(3);
   ied->T = phmm->T;
 
   for (i = 0; i < phmm->functional_hmm->nstates; i++) {
     double retval;
     ied->current_dest_cat = i;
 
-    gsl_vector_set(params, 0, phmm->alpha[i]);
-    gsl_vector_set(params, 1, phmm->beta[i]);
-    gsl_vector_set(params, 2, phmm->tau[i]);
+    vec_set(params, 0, phmm->alpha[i]);
+    vec_set(params, 1, phmm->beta[i]);
+    vec_set(params, 2, phmm->tau[i]);
     opt_bfgs(indel_max_function, params, ied, &retval, lb, NULL, NULL, 
              indel_max_gradient, OPT_HIGH_PREC, NULL); 
-    phmm->alpha[i] = gsl_vector_get(params, 0);
-    phmm->beta[i] = gsl_vector_get(params, 1);
-    phmm->tau[i] = gsl_vector_get(params, 2);
+    phmm->alpha[i] = vec_get(params, 0);
+    phmm->beta[i] = vec_get(params, 1);
+    phmm->tau[i] = vec_get(params, 2);
   }
-  gsl_vector_free(params);
-  gsl_vector_free(lb);
+  vec_free(params);
+  vec_free(lb);
 }

@@ -1,4 +1,4 @@
-/* $Id: hmm_view.c,v 1.4 2004-08-14 20:22:42 acs Exp $
+/* $Id: hmm_view.c,v 1.5 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -125,7 +125,7 @@ digraph hmm {\n\
 
     if (!show_cat[basecat]) continue;
 
-    t = gsl_vector_get(hmm->begin_transitions, i);
+    t = vec_get(hmm->begin_transitions, i);
     sink = cm_get_feature(cm, gapped_cat);
     if (t != 0) {
       if (nratecats > 1)

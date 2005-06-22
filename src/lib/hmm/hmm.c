@@ -1,4 +1,4 @@
-/* $Id: hmm.c,v 1.4 2004-07-22 22:57:50 acs Exp $
+/* $Id: hmm.c,v 1.5 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -29,8 +29,8 @@
    and forward/backward algorithms will ignore the end state).  NULL
    may also be specified for the begin_transitions; in this case, they
    will be assumed to be uniform.   */
-HMM* hmm_new(MarkovMatrix *mm, gsl_vector *eq_freqs,
-             gsl_vector *begin_transitions, gsl_vector *end_transitions) {
+HMM* hmm_new(MarkovMatrix *mm, Vector *eq_freqs,
+             Vector *begin_transitions, Vector *end_transitions) {
   HMM *hmm = (HMM*)smalloc(sizeof(HMM));
   int i;
 
@@ -47,9 +47,9 @@ HMM* hmm_new(MarkovMatrix *mm, gsl_vector *eq_freqs,
 
   /* if begin_transitions are NULL, make them uniform */
   if (begin_transitions == NULL) {
-    hmm->begin_transitions = gsl_vector_alloc(mm->size);
+    hmm->begin_transitions = vec_new(mm->size);
     for (i = 0; i < mm->size; i++) 
-      gsl_vector_set(hmm->begin_transitions, i, 1.0/mm->size);
+      vec_set(hmm->begin_transitions, i, 1.0/mm->size);
   }
 
   hmm_reset(hmm);
@@ -65,33 +65,33 @@ HMM* hmm_new(MarkovMatrix *mm, gsl_vector *eq_freqs,
    hmm_new) */
 HMM *hmm_new_nstates(int nstates, int begin, int end) {
   return hmm_new(mm_new(nstates, NULL, DISCRETE), 
-                 gsl_vector_calloc(nstates),
-                 begin ? gsl_vector_calloc(nstates) : NULL,
-                 end ? gsl_vector_calloc(nstates) : NULL);
+                 vec_new(nstates),
+                 begin ? vec_new(nstates) : NULL,
+                 end ? vec_new(nstates) : NULL);
 }
 
 /* Create a copy of an HMM */
 HMM *hmm_create_copy(HMM *src) {
   MarkovMatrix *transition_matrix = NULL;
-  gsl_vector *eq_freqs = NULL, *begin_transitions = NULL, 
+  Vector *eq_freqs = NULL, *begin_transitions = NULL, 
     *end_transitions = NULL;
 
   if (src->transition_matrix != NULL) 
     transition_matrix = mm_create_copy(src->transition_matrix);
 
   if (src->eq_freqs != NULL) {
-    eq_freqs = gsl_vector_calloc(src->nstates);
-    gsl_vector_memcpy(eq_freqs, src->eq_freqs);
+    eq_freqs = vec_new(src->nstates);
+    vec_copy(eq_freqs, src->eq_freqs);
   }
 
   if (src->begin_transitions != NULL) {
-    begin_transitions = gsl_vector_calloc(src->nstates);
-    gsl_vector_memcpy(begin_transitions, src->begin_transitions);
+    begin_transitions = vec_new(src->nstates);
+    vec_copy(begin_transitions, src->begin_transitions);
   }
 
   if (src->end_transitions != NULL) {
-    end_transitions = gsl_vector_calloc(src->nstates);
-    gsl_vector_memcpy(end_transitions, src->end_transitions);
+    end_transitions = vec_new(src->nstates);
+    vec_copy(end_transitions, src->end_transitions);
   }
 
   return hmm_new(transition_matrix, eq_freqs, begin_transitions, 
@@ -105,17 +105,17 @@ void hmm_free(HMM *hmm) {
   if (hmm->transition_matrix != NULL)
     mm_free(hmm->transition_matrix);
   if (hmm->transition_score_matrix != NULL) 
-    gsl_matrix_free(hmm->transition_score_matrix);
+    mat_free(hmm->transition_score_matrix);
   if (hmm->eq_freqs != NULL)
-    gsl_vector_free(hmm->eq_freqs);
+    vec_free(hmm->eq_freqs);
   if (hmm->begin_transitions != NULL)
-    gsl_vector_free(hmm->begin_transitions);
+    vec_free(hmm->begin_transitions);
   if (hmm->begin_transition_scores != NULL)
-    gsl_vector_free(hmm->begin_transition_scores);
+    vec_free(hmm->begin_transition_scores);
   if (hmm->end_transitions != NULL)
-    gsl_vector_free(hmm->end_transitions);
+    vec_free(hmm->end_transitions);
   if (hmm->end_transition_scores != NULL)
-    gsl_vector_free(hmm->end_transition_scores);
+    vec_free(hmm->end_transition_scores);
 
   for (i = 0; i < hmm->nstates; i++) {
     lst_free(hmm->predecessors[i]);
@@ -139,7 +139,7 @@ void hmm_free(HMM *hmm) {
 HMM* hmm_new_from_file(FILE *F) {
   char tag[100];
   MarkovMatrix *mm;
-  gsl_vector *beg = NULL, *end = NULL, *eqfreqs = NULL;
+  Vector *beg = NULL, *end = NULL, *eqfreqs = NULL;
 
   while (fscanf(F, "%s ", tag) != EOF) {
     if (!strcmp(tag, TRANSITION_MATRIX_TAG)) 
@@ -147,20 +147,20 @@ HMM* hmm_new_from_file(FILE *F) {
     else if (!strcmp(tag, EQ_FREQS_TAG)) {
       if (mm == NULL)
         die("ERROR: transition matrix must come first in HMM file.\n");
-      eqfreqs = gsl_vector_alloc(mm->size);
-      gsl_vector_fscanf(F, eqfreqs);
+      eqfreqs = vec_new(mm->size);
+      vec_read(eqfreqs, F);
     }
     else if (!strcmp(tag, BEGIN_TRANSITIONS_TAG)) {
       if (mm == NULL)
         die("ERROR: transition matrix must come first in HMM file.\n");
-      beg = gsl_vector_alloc(mm->size);
-      gsl_vector_fscanf(F, beg);
+      beg = vec_new(mm->size);
+      vec_read(beg, F);
     }
     else if (!strcmp(tag, END_TRANSITIONS_TAG)) {
       if (mm == NULL)
         die("ERROR: transition matrix must come first in HMM file.\n");
-      end = gsl_vector_alloc(mm->size);
-      gsl_vector_fscanf(F, end);
+      end = vec_new(mm->size);
+      vec_read(end, F);
     }
   }
 
@@ -173,15 +173,15 @@ void hmm_print(FILE *F, HMM *hmm) {
   mm_pretty_print(F, hmm->transition_matrix);
   if (hmm->eq_freqs != NULL) {
     fprintf(F, "%s\n", EQ_FREQS_TAG);
-    gsl_vector_fprintf(F, hmm->eq_freqs, "%e");
+    vec_fprintf(hmm->eq_freqs, F, "%e");
   }
   if (hmm->begin_transitions != NULL) {
     fprintf(F, "%s\n", BEGIN_TRANSITIONS_TAG);
-    gsl_vector_fprintf(F, hmm->begin_transitions, "%e");
+    vec_fprintf(hmm->begin_transitions, F, "%e");
   }
   if (hmm->end_transitions != NULL) {
     fprintf(F, "%s\n", END_TRANSITIONS_TAG);
-    gsl_vector_fprintf(F, hmm->end_transitions, "%e");
+    vec_fprintf(hmm->end_transitions, F, "%e");
   }
 }
 
@@ -200,16 +200,16 @@ double hmm_get_transition_score(HMM *hmm, int from_state, int to_state) {
 				/* create "begin" score vector; use
 				   logs */
       hmm->begin_transition_scores =
-        gsl_vector_alloc(hmm->begin_transitions->size);
+        vec_new(hmm->begin_transitions->size);
       for (i = 0; i < hmm->begin_transitions->size; i++) {
-        prob = gsl_vector_get(hmm->begin_transitions, i);
+        prob = vec_get(hmm->begin_transitions, i);
         if (prob == 0)
-          gsl_vector_set(hmm->begin_transition_scores, i, NEGINFTY);
+          vec_set(hmm->begin_transition_scores, i, NEGINFTY);
         else
-          gsl_vector_set(hmm->begin_transition_scores, i, log2(prob));
+          vec_set(hmm->begin_transition_scores, i, log2(prob));
       }
     }
-    return gsl_vector_get(hmm->begin_transition_scores, to_state);
+    return vec_get(hmm->begin_transition_scores, to_state);
   }
   else if (to_state == END_STATE) {
     if (hmm->end_transitions == NULL)
@@ -218,36 +218,36 @@ double hmm_get_transition_score(HMM *hmm, int from_state, int to_state) {
       /* create "end" score vector; use
          logs */
       hmm->end_transition_scores =
-        gsl_vector_alloc(hmm->end_transitions->size);
+        vec_new(hmm->end_transitions->size);
       for (i = 0; i < hmm->end_transitions->size; i++) {
-        prob = gsl_vector_get(hmm->end_transitions, i);
+        prob = vec_get(hmm->end_transitions, i);
         if (prob == 0)
-          gsl_vector_set(hmm->end_transition_scores, i, NEGINFTY);
+          vec_set(hmm->end_transition_scores, i, NEGINFTY);
         else
-          gsl_vector_set(hmm->end_transition_scores, i, log2(prob));
+          vec_set(hmm->end_transition_scores, i, log2(prob));
       }
     }
-    return gsl_vector_get(hmm->end_transition_scores, from_state);
+    return vec_get(hmm->end_transition_scores, from_state);
   }
 
   /* anything else must be a normal transition */
   if (hmm->transition_score_matrix == NULL) {
 				/* create transition score matrix; use
 				   logs */
-    gsl_matrix *m = gsl_matrix_alloc(hmm->nstates, hmm->nstates);
+    Matrix *m = mat_new(hmm->nstates, hmm->nstates);
     for (i = 0; i < hmm->nstates; i++) {
       for (j = 0; j < hmm->nstates; j++) {
         prob = mm_get(hmm->transition_matrix, i, j);
         if (prob == 0) 
-          gsl_matrix_set(m, i, j, NEGINFTY);
+          mat_set(m, i, j, NEGINFTY);
         else
-          gsl_matrix_set(m, i, j, log2(prob));
+          mat_set(m, i, j, log2(prob));
       }
     }
     hmm->transition_score_matrix = m;
   }
 
-  return (gsl_matrix_get(hmm->transition_score_matrix, from_state, to_state));
+  return (mat_get(hmm->transition_score_matrix, from_state, to_state));
 }
 
 /* Finds most probable path, according to the Viterbi algorithm.
@@ -527,15 +527,15 @@ double hmm_max_or_sum(HMM *hmm, double **full_scores, double **emission_scores,
    a specified matrix of pseudocounts.  If beg_counts is NULL, uniform
    beg transitions will be used.  Either pseudocounts parameter may be
    NULL.  TODO: allow end counts to be specified  */
-void hmm_train_from_counts(HMM *hmm, gsl_matrix *trans_counts, 
-                           gsl_matrix *trans_pseudocounts, 
-                           gsl_vector *state_counts,
-                           gsl_vector *state_pseudocounts,
-                           gsl_vector *beg_counts, 
-                           gsl_vector *beg_pseudocounts) {
+void hmm_train_from_counts(HMM *hmm, Matrix *trans_counts, 
+                           Matrix *trans_pseudocounts, 
+                           Vector *state_counts,
+                           Vector *state_pseudocounts,
+                           Vector *beg_counts, 
+                           Vector *beg_pseudocounts) {
 
-  gsl_matrix *countmat;
-  gsl_vector *statecount, *begcount;
+  Matrix *countmat;
+  Vector *statecount, *begcount;
   MarkovMatrix *mm;
   int i;
   double sum;
@@ -544,24 +544,24 @@ void hmm_train_from_counts(HMM *hmm, gsl_matrix *trans_counts,
   if (trans_pseudocounts == NULL) 
     countmat = trans_counts;
   else {
-    countmat = gsl_matrix_alloc(hmm->nstates, hmm->nstates);
-    gsl_matrix_memcpy(countmat, trans_counts);
-    gsl_matrix_add(countmat, trans_pseudocounts);
+    countmat = mat_new(hmm->nstates, hmm->nstates);
+    mat_copy(countmat, trans_counts);
+    mat_plus_eq(countmat, trans_pseudocounts);
   }
   if (state_pseudocounts == NULL)
     statecount = state_counts;
   else {
-    statecount = gsl_vector_alloc(hmm->nstates);
-    gsl_vector_memcpy(statecount, state_counts);
-    gsl_vector_add(statecount, state_pseudocounts);
+    statecount = vec_new(hmm->nstates);
+    vec_copy(statecount, state_counts);
+    vec_plus_eq(statecount, state_pseudocounts);
   }     
   assert(beg_pseudocounts == NULL || beg_counts != NULL);
   if (beg_pseudocounts == NULL)
     begcount = beg_counts;      /* could be NULL */
   else {
-    begcount = gsl_vector_alloc(hmm->nstates);
-    gsl_vector_memcpy(begcount, beg_counts);
-    gsl_vector_add(begcount, beg_pseudocounts);
+    begcount = vec_new(hmm->nstates);
+    vec_copy(begcount, beg_counts);
+    vec_plus_eq(begcount, beg_pseudocounts);
   }
 
   /* create a markov matrix */
@@ -573,107 +573,107 @@ void hmm_train_from_counts(HMM *hmm, gsl_matrix *trans_counts,
     hmm->transition_matrix = NULL; 
   }
   if (hmm->transition_score_matrix) {
-    gsl_matrix_free(hmm->transition_score_matrix);
+    mat_free(hmm->transition_score_matrix);
     hmm->transition_score_matrix = NULL; 
   }
   if (hmm->eq_freqs) {
-    gsl_vector_free(hmm->eq_freqs);
+    vec_free(hmm->eq_freqs);
     hmm->eq_freqs = NULL; 
   }
   if (hmm->begin_transition_scores) {
-    gsl_vector_free(hmm->begin_transition_scores);
+    vec_free(hmm->begin_transition_scores);
     hmm->begin_transition_scores = NULL; 
   }
   if (hmm->end_transitions) {
-    gsl_vector_free(hmm->end_transitions);
+    vec_free(hmm->end_transitions);
     hmm->end_transitions = NULL; 
   }
   if (hmm->end_transition_scores) {
-    gsl_vector_free(hmm->end_transition_scores);
+    vec_free(hmm->end_transition_scores);
     hmm->end_transition_scores = NULL; 
   }
 
   /* set eq freqs */
-  hmm->eq_freqs = gsl_vector_alloc(hmm->nstates);
+  hmm->eq_freqs = vec_new(hmm->nstates);
   sum = 0;
   for (i = 0; i < hmm->nstates; i++)
-    sum += gsl_vector_get(statecount, i);
+    sum += vec_get(statecount, i);
   assert(sum > 0);
-  gsl_vector_memcpy(hmm->eq_freqs, statecount);
-  gsl_vector_scale(hmm->eq_freqs, 1/sum);
+  vec_copy(hmm->eq_freqs, statecount);
+  vec_scale(hmm->eq_freqs, 1/sum);
 
   /* set begin transitions */
   if (hmm->begin_transitions == NULL)
-    hmm->begin_transitions = gsl_vector_alloc(hmm->nstates);
+    hmm->begin_transitions = vec_new(hmm->nstates);
   if (begcount == NULL)         /* use uniform probs */
     for (i = 0; i < hmm->nstates; i++) 
-      gsl_vector_set(hmm->begin_transitions, i, (double)1/hmm->nstates);
+      vec_set(hmm->begin_transitions, i, (double)1/hmm->nstates);
   else {                        /* use counts */
     sum = 0;
-    for (i = 0; i < hmm->nstates; i++) sum += gsl_vector_get(begcount, i);
+    for (i = 0; i < hmm->nstates; i++) sum += vec_get(begcount, i);
     for (i = 0; i < hmm->nstates; i++) 
-      gsl_vector_set(hmm->begin_transitions, i, 
-                     safediv(gsl_vector_get(begcount, i), sum));
+      vec_set(hmm->begin_transitions, i, 
+                     safediv(vec_get(begcount, i), sum));
   }
 
   hmm->transition_matrix = mm;
 
-  if (trans_pseudocounts != NULL) gsl_matrix_free(countmat);
-  if (state_pseudocounts != NULL) gsl_vector_free(statecount);
-  if (beg_pseudocounts != NULL) gsl_vector_free(begcount);
+  if (trans_pseudocounts != NULL) mat_free(countmat);
+  if (state_pseudocounts != NULL) vec_free(statecount);
+  if (beg_pseudocounts != NULL) vec_free(begcount);
 }
 
 /* retrain HMM according to observed path and, optionally, specified
    matrix of pseudocounts.  Path indices are expected to range between 1
    and hmm->nstates.  Each path is expected to be terminated by -1. */
 void hmm_train_from_paths(HMM *hmm, int **path, int npaths,
-                          gsl_matrix *trans_pseudocounts, 
-                          gsl_vector *state_pseudocounts,
-                          int use_begin, gsl_vector *beg_pseudocounts) {
-  gsl_matrix *trans_counts = gsl_matrix_calloc(hmm->nstates, hmm->nstates);
-  gsl_vector *state_counts = gsl_vector_calloc(hmm->nstates);
-  gsl_vector *begcounts = use_begin ? gsl_vector_calloc(hmm->nstates) : NULL;
+                          Matrix *trans_pseudocounts, 
+                          Vector *state_pseudocounts,
+                          int use_begin, Vector *beg_pseudocounts) {
+  Matrix *trans_counts = mat_new(hmm->nstates, hmm->nstates);
+  Vector *state_counts = vec_new(hmm->nstates);
+  Vector *begcounts = use_begin ? vec_new(hmm->nstates) : NULL;
   int i, j;
   for (i = 0; i < npaths; i++) {
     for (j = 0; path[i][j] != -1; j++) {
       assert(path[i][j] >= 0 && path[i][j] < hmm->nstates);
-      gsl_vector_set(state_counts, path[i][j], 
-                     gsl_vector_get(state_counts, path[i][j]) + 1);
+      vec_set(state_counts, path[i][j], 
+                     vec_get(state_counts, path[i][j]) + 1);
       if (j > 0)
-        gsl_matrix_set(trans_counts, path[i][j-1], path[i][j], 
-                       gsl_matrix_get(trans_counts, path[i][j-1], 
+        mat_set(trans_counts, path[i][j-1], path[i][j], 
+                       mat_get(trans_counts, path[i][j-1], 
                                       path[i][j]) + 1);
     }
     if (use_begin && path[i][0] != -1) 
-      gsl_vector_set(begcounts, path[i][0], 
-                     gsl_vector_get(begcounts, path[i][0]) + 1);
+      vec_set(begcounts, path[i][0], 
+                     vec_get(begcounts, path[i][0]) + 1);
   }
   hmm_train_from_counts(hmm, trans_counts, trans_pseudocounts, state_counts, 
                         state_pseudocounts, begcounts, beg_pseudocounts);
-  gsl_matrix_free(trans_counts);
-  gsl_vector_free(state_counts);
-  if (use_begin) gsl_vector_free(begcounts);
+  mat_free(trans_counts);
+  vec_free(state_counts);
+  if (use_begin) vec_free(begcounts);
 }
 
 /* update counts according to new path */
-void hmm_train_update_counts(gsl_matrix *trans_counts, gsl_vector *state_counts, 
-                             gsl_vector *beg_counts, int *path, int len, 
+void hmm_train_update_counts(Matrix *trans_counts, Vector *state_counts, 
+                             Vector *beg_counts, int *path, int len, 
                              int nstates) {
   int j;
   for (j = 0; j < len; j++) {
     assert(path[j] >= 0 && path[j] < nstates);
-    gsl_vector_set(state_counts, path[j], 
-                   gsl_vector_get(state_counts, path[j]) + 1);
+    vec_set(state_counts, path[j], 
+                   vec_get(state_counts, path[j]) + 1);
     if (j > 0)
-      gsl_matrix_set(trans_counts, path[j-1], path[j], 
-                     gsl_matrix_get(trans_counts, path[j-1], path[j]) + 1);
+      mat_set(trans_counts, path[j-1], path[j], 
+                     mat_get(trans_counts, path[j-1], path[j]) + 1);
   }
   if (beg_counts != NULL && len > 0)
-    gsl_vector_set(beg_counts, path[0], 
-                   gsl_vector_get(beg_counts, path[0]) + 1);
+    vec_set(beg_counts, path[0], 
+                   vec_get(beg_counts, path[0]) + 1);
   /* temporary */
   for (j = 0; j < state_counts->size; j++) 
-    assert(gsl_vector_get(state_counts, j) >= 0);
+    assert(vec_get(state_counts, j) >= 0);
 }
 
 /* for debugging */
@@ -740,11 +740,11 @@ void hmm_dump_matrices(HMM *hmm, double **emission_scores, int seqlen,
    general HMM-based models to collapse to simpler models  */
 HMM *hmm_create_trivial() {
   MarkovMatrix *triv_mm = mm_new(1, "1", DISCRETE);
-  gsl_vector *triv_begin_trans = gsl_vector_alloc(1);
-  gsl_vector *triv_eqfreq = gsl_vector_alloc(1);
+  Vector *triv_begin_trans = vec_new(1);
+  Vector *triv_eqfreq = vec_new(1);
   mm_set(triv_mm, 0, 0, 1);
-  gsl_vector_set(triv_begin_trans, 0, 1);
-  gsl_vector_set(triv_eqfreq, 0, 1);
+  vec_set(triv_begin_trans, 0, 1);
+  vec_set(triv_eqfreq, 0, 1);
   return hmm_new(triv_mm, triv_eqfreq, triv_begin_trans, NULL);  
 }
 
@@ -765,24 +765,24 @@ void hmm_cross_product(HMM *dest, HMM *src1, HMM *src2) {
   if (src1->eq_freqs != NULL && src2->eq_freqs != NULL) {
     for (i = 0; i < src1->nstates; i++) 
       for (j = 0; j < src2->nstates; j++) 
-        gsl_vector_set(dest->eq_freqs, i*src2->nstates + j, 
-                       gsl_vector_get(src1->eq_freqs, i) * 
-                       gsl_vector_get(src2->eq_freqs, j));
+        vec_set(dest->eq_freqs, i*src2->nstates + j, 
+                       vec_get(src1->eq_freqs, i) * 
+                       vec_get(src2->eq_freqs, j));
   }
   else dest->eq_freqs = NULL;
 
   for (i = 0; i < src1->nstates; i++) 
     for (j = 0; j < src2->nstates; j++) 
-      gsl_vector_set(dest->begin_transitions, i*src2->nstates + j, 
-                     gsl_vector_get(src1->begin_transitions, i) * 
-                     gsl_vector_get(src2->begin_transitions, j));
+      vec_set(dest->begin_transitions, i*src2->nstates + j, 
+                     vec_get(src1->begin_transitions, i) * 
+                     vec_get(src2->begin_transitions, j));
 
   if (src1->end_transitions != NULL && src2->end_transitions != NULL) {
     for (i = 0; i < src1->nstates; i++) 
       for (j = 0; j < src2->nstates; j++) 
-        gsl_vector_set(dest->end_transitions, i*src2->nstates + j, 
-                       gsl_vector_get(src1->end_transitions, i) * 
-                       gsl_vector_get(src2->end_transitions, j));
+        vec_set(dest->end_transitions, i*src2->nstates + j, 
+                       vec_get(src1->end_transitions, i) * 
+                       vec_get(src2->end_transitions, j));
   }
   else dest->end_transitions = NULL;
 
@@ -817,7 +817,7 @@ double hmm_score_subset(HMM *hmm, double **emission_scores, List *states,
   int do_state[hmm->nstates];
   int i, j;
   double retval;
-  gsl_vector *orig_begin;
+  Vector *orig_begin;
   MarkovMatrix *orig_trans;
 
   forward_scores = smalloc(hmm->nstates * sizeof(double*));
@@ -836,9 +836,9 @@ double hmm_score_subset(HMM *hmm, double **emission_scores, List *states,
      make it into the states in question.  We'll simply use a uniform
      distribution over the allowable states */
   orig_begin = hmm->begin_transitions;
-  hmm->begin_transitions = gsl_vector_alloc(hmm->nstates);
+  hmm->begin_transitions = vec_new(hmm->nstates);
   for (i = 0; i < hmm->nstates; i++) 
-    gsl_vector_set(hmm->begin_transitions, i, 
+    vec_set(hmm->begin_transitions, i, 
                    do_state[i] ? 1.0/lst_size(states) : 0);
 
   /* also need to adjust the transition probs and renormalize them */
@@ -858,7 +858,7 @@ double hmm_score_subset(HMM *hmm, double **emission_scores, List *states,
   
   retval = hmm_forward(hmm, dummy_emissions, len, forward_scores);
 
-  gsl_vector_free(hmm->begin_transitions);
+  vec_free(hmm->begin_transitions);
   hmm->begin_transitions = orig_begin;
   mm_free(hmm->transition_matrix);
   hmm->transition_matrix = orig_trans;
@@ -931,12 +931,12 @@ void hmm_reset(HMM *hmm) {
     lst_clear(hmm->end_predecessors);
   for (i = 0; i < hmm->nstates; i++) {
     if (hmm->begin_transitions != NULL &&
-        gsl_vector_get(hmm->begin_transitions, i) > 0) {
+        vec_get(hmm->begin_transitions, i) > 0) {
       lst_push_int(hmm->begin_successors, i);
       lst_push_int(hmm->predecessors[i], BEGIN_STATE);
     }
     if (hmm->end_transitions == NULL ||
-        gsl_vector_get(hmm->end_transitions, i) > 0) {
+        vec_get(hmm->end_transitions, i) > 0) {
       lst_push_int(hmm->end_predecessors, i);
       lst_push_int(hmm->successors[i], END_STATE);
     }
@@ -948,15 +948,15 @@ void hmm_reset(HMM *hmm) {
   /* below is inefficient on repeated calls, but shouldn't be used
      heavily */
   if (hmm->transition_score_matrix != NULL) {
-    gsl_matrix_free(hmm->transition_score_matrix);
+    mat_free(hmm->transition_score_matrix);
     hmm->transition_score_matrix = NULL;
   }
   if (hmm->begin_transition_scores != NULL) {
-    gsl_vector_free(hmm->begin_transition_scores);
+    vec_free(hmm->begin_transition_scores);
     hmm->begin_transition_scores = NULL;
   }
   if (hmm->end_transition_scores != NULL) {
-    gsl_vector_free(hmm->end_transition_scores);
+    vec_free(hmm->end_transition_scores);
     hmm->end_transition_scores = NULL;
   }
 }
@@ -1025,12 +1025,12 @@ HMM *hmm_reverse_compl(HMM *hmm, List *pivot_states, int *mapping) {
      principle */
   for (i = hmm->nstates; i < nstates; i++) {
     for (j = hmm->nstates; j < nstates; j++) {
-      if (gsl_vector_get(hmm->eq_freqs, -mapping[i]) == 0)
+      if (vec_get(hmm->eq_freqs, -mapping[i]) == 0)
         prob = 0;               /* avoid div by zero */
       else
         prob = mm_get(hmm->transition_matrix, -mapping[j], -mapping[i]) *
-          gsl_vector_get(hmm->eq_freqs, -mapping[j]) / 
-          gsl_vector_get(hmm->eq_freqs, -mapping[i]);
+          vec_get(hmm->eq_freqs, -mapping[j]) / 
+          vec_get(hmm->eq_freqs, -mapping[i]);
       mm_set(retval->transition_matrix, i, j, prob);
     }
   }
@@ -1041,21 +1041,21 @@ HMM *hmm_reverse_compl(HMM *hmm, List *pivot_states, int *mapping) {
     i = lst_get_int(effective_pivot_states, lidx); /* pivot state */
     for (j = hmm->nstates; j < nstates; j++) { /* reverse state */
       /* from pivot state to reverse state */
-      if (gsl_vector_get(hmm->eq_freqs, i) == 0)
+      if (vec_get(hmm->eq_freqs, i) == 0)
         prob = 0;
       else 
         prob = mm_get(hmm->transition_matrix, -mapping[j], i) *
-          gsl_vector_get(hmm->eq_freqs, -mapping[j]) / 
-          (2 * gsl_vector_get(hmm->eq_freqs, i)); /* don't forget to halve */
+          vec_get(hmm->eq_freqs, -mapping[j]) / 
+          (2 * vec_get(hmm->eq_freqs, i)); /* don't forget to halve */
       mm_set(retval->transition_matrix, i, j, prob);
 
       /* from reverse state to pivot state */
-      if (gsl_vector_get(hmm->eq_freqs, -mapping[j]) == 0)
+      if (vec_get(hmm->eq_freqs, -mapping[j]) == 0)
         prob = 0;
       else
         prob = mm_get(hmm->transition_matrix, i, -mapping[j]) *
-          gsl_vector_get(hmm->eq_freqs, i) / 
-          gsl_vector_get(hmm->eq_freqs, -mapping[j]);
+          vec_get(hmm->eq_freqs, i) / 
+          vec_get(hmm->eq_freqs, -mapping[j]);
       mm_set(retval->transition_matrix, j, i, prob);
     }    
   }
@@ -1064,23 +1064,23 @@ HMM *hmm_reverse_compl(HMM *hmm, List *pivot_states, int *mapping) {
 
   /* set new eq freqs */
   for (i = 0; i < nstates; i++) {
-    prob = gsl_vector_get(hmm->eq_freqs, abs(mapping[i]));
-    gsl_vector_set(retval->eq_freqs, i, 
+    prob = vec_get(hmm->eq_freqs, abs(mapping[i]));
+    vec_set(retval->eq_freqs, i, 
                    is_pivot[i] ? prob : prob/2);
   }
 
   /* set begin and end vectors */
   if (hmm->begin_transitions != NULL) {
     for (i = 0; i < nstates; i++) {
-      prob = gsl_vector_get(hmm->begin_transitions, abs(mapping[i]));
-      gsl_vector_set(retval->begin_transitions, i, 
+      prob = vec_get(hmm->begin_transitions, abs(mapping[i]));
+      vec_set(retval->begin_transitions, i, 
                      is_pivot[i] ? prob : prob/2);
     }
   }
   if (hmm->end_transitions != NULL) {
     for (i = 0; i < nstates; i++) {
-      prob = gsl_vector_get(hmm->end_transitions, abs(mapping[i]));
-      gsl_vector_set(retval->end_transitions, i, prob); 
+      prob = vec_get(hmm->end_transitions, abs(mapping[i]));
+      vec_set(retval->end_transitions, i, prob); 
                                 /* NOTE: conditional prob */
     }
   }

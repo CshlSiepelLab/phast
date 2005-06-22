@@ -1,13 +1,14 @@
-/* $Id: numerical_opt.h,v 1.2 2004-06-11 05:58:51 acs Exp $
+/* $Id: numerical_opt.h,v 1.3 2005-06-22 07:11:20 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
 #ifndef NEWRAPH_H
 #define NEWRAPH_H
 
-#include "gsl/gsl_matrix.h"
-#include "math.h"
-#include "assert.h"
+#include <matrix.h>
+#include <vector.h>
+#include <math.h>
+#include <assert.h>
 
 typedef enum {
   OPT_DERIV_BACKWARD,
@@ -29,25 +30,25 @@ typedef enum {
   OPT_CRUDE_PREC
 } opt_precision_type; 
 
-void opt_gradient(gsl_vector *grad, double (*f)(gsl_vector*, void*), 
-                  gsl_vector *params, void* data, opt_deriv_method method,
-                  double reference_val, gsl_vector *lower_bounds, 
-                  gsl_vector *upper_bounds);
+void opt_gradient(Vector *grad, double (*f)(Vector*, void*), 
+                  Vector *params, void* data, opt_deriv_method method,
+                  double reference_val, Vector *lower_bounds, 
+                  Vector *upper_bounds);
 
-int opt_bfgs(double (*f)(gsl_vector*, void*), gsl_vector *params, 
-             void *data, double *retval, gsl_vector *lower_bounds, 
-             gsl_vector *upper_bounds, FILE *logf,
-             void (*compute_grad)(gsl_vector *grad, gsl_vector *params,
-                                  void *data, gsl_vector *lb, gsl_vector *ub),
-             opt_precision_type precision, gsl_matrix *inv_Hessian);
+int opt_bfgs(double (*f)(Vector*, void*), Vector *params, 
+             void *data, double *retval, Vector *lower_bounds, 
+             Vector *upper_bounds, FILE *logf,
+             void (*compute_grad)(Vector *grad, Vector *params,
+                                  void *data, Vector *lb, Vector *ub),
+             opt_precision_type precision, Matrix *inv_Hessian);
 
-void opt_lnsrch(gsl_vector *xold, double fold, gsl_vector *g, gsl_vector *p, 
-                gsl_vector *x, double *f, double stpmax, 
-                int *check_convergence, double (*func)(gsl_vector*, void*), 
+void opt_lnsrch(Vector *xold, double fold, Vector *g, Vector *p, 
+                Vector *x, double *f, double stpmax, 
+                int *check_convergence, double (*func)(Vector*, void*), 
                 void *data, int *nevals, double *lambda);
 
-void opt_log(FILE *F, int header_only, double val, gsl_vector *params, 
-             gsl_vector *derivs, int trunc, double lambda);
+void opt_log(FILE *F, int header_only, double val, Vector *params, 
+             Vector *derivs, int trunc, double lambda);
 
 
 double opt_brent(double ax, double bx, double cx, 
@@ -57,7 +58,7 @@ double opt_brent(double ax, double bx, double cx,
 void mnbrak(double *ax, double *bx, double *cx, double *fa, double *fb, double *fc,
             double (*func)(double, void*), void *data, FILE *logf);
 
-int opt_min_sigfig(gsl_vector *p1, gsl_vector *p2);
+int opt_min_sigfig(Vector *p1, Vector *p2);
 
 /***************************************************************************/
 /* inline functions -- also defined in numerical_opt.c                     */
@@ -69,12 +70,12 @@ int opt_min_sigfig(gsl_vector *p1, gsl_vector *p2);
 /* given two vectors of consecutive parameter estimates, return the
    minimum number of shared significant figures */
 extern inline
-int opt_min_sigfig(gsl_vector *p1, gsl_vector *p2) {
+int opt_min_sigfig(Vector *p1, Vector *p2) {
   int i, sf, min = 99999;
   assert(p1->size == p2->size);
   for (i = 0; i < p1->size; i++) {
-    double val1 = gsl_vector_get(p1, i);
-    double val2 = gsl_vector_get(p2, i);
+    double val1 = vec_get(p1, i);
+    double val2 = vec_get(p2, i);
     double tmp = pow(10, floor(log10(val1)));
     val1 /= tmp; val2 /= tmp;
     for (sf = 0; sf < MAXSIGFIGS; sf++) {

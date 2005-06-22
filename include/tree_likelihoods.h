@@ -1,4 +1,4 @@
-/* $Id: tree_likelihoods.h,v 1.2 2004-07-24 17:55:46 acs Exp $
+/* $Id: tree_likelihoods.h,v 1.3 2005-06-22 07:11:20 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -88,8 +88,8 @@ TreePosteriors *tl_new_tree_posteriors(TreeModel *mod, MSA *msa, int do_bases,
 void tl_free_tree_posteriors(TreeModel *mod, MSA *msa, TreePosteriors *tp);
 double tl_compute_partial_ll_suff_stats(TreeModel *mod, TreePosteriors *post);
 double tl_compute_ll_suff_stats(TreeModel *mod, MSA *msa, TreePosteriors *post);
-gsl_vector *get_marginal_eq_freqs (char *alphabet, int tuple_size, 
-                                   gsl_vector *eq_freqs);
+Vector *get_marginal_eq_freqs (char *alphabet, int tuple_size, 
+                                   Vector *eq_freqs);
 
 
 #endif

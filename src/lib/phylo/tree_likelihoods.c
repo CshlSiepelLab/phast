@@ -1,4 +1,4 @@
-/* $Id: tree_likelihoods.c,v 1.10 2004-10-31 04:26:50 acs Exp $
+/* $Id: tree_likelihoods.c,v 1.11 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -254,7 +254,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
               n = lst_get_ptr(traversal, nodeidx);
               if (n->parent == NULL) { /* base case */ 
                 for (i = 0; i < nstates; i++) 
-                  pLbar[i][n->id] = gsl_vector_get(mod->backgd_freqs, i);
+                  pLbar[i][n->id] = vec_get(mod->backgd_freqs, i);
               }
               else {            /* recursive case */
                 TreeNode *sibling = (n == n->parent->lchild ? 
@@ -333,14 +333,14 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
           if (pass == 0) {
             rcat_prob[rcat] = 0;
             for (i = 0; i < nstates; i++) {
-              rcat_prob[rcat] += gsl_vector_get(mod->backgd_freqs, i) * 
+              rcat_prob[rcat] += vec_get(mod->backgd_freqs, i) * 
                 inside_joint[i][mod->tree->id] * mod->freqK[rcat];
             }
             total_prob += rcat_prob[rcat];
           }
           else { 
             for (i = 0; i < nstates; i++) 
-              marg_tot += gsl_vector_get(mod->backgd_freqs, i) * 
+              marg_tot += vec_get(mod->backgd_freqs, i) * 
                 inside_marginal[i][mod->tree->id] * mod->freqK[rcat]; 
           }
         } /* for rcat */
@@ -435,7 +435,7 @@ void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,
   int i, seq, idx, alph_size = strlen(msa->alphabet);
   double retval = 0;
   char tuple[mod->order + 2];
-  gsl_vector *margfreqs = 
+  Vector *margfreqs = 
     get_marginal_eq_freqs(mod->rate_matrix->states, mod->order+1,
                           mod->backgd_freqs);
   int col_by_col = (col_scores != NULL || msa->ss == NULL);
@@ -518,7 +518,7 @@ void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,
           prob = 1;
           for (i = 0; i < alph_size; i++) {
             tuple[mod->order] = msa->alphabet[i];
-            tmp_prob = gsl_vector_get(margfreqs, tuple_index_missing_data(tuple, msa->inv_alphabet, msa->is_missing, alph_size));
+            tmp_prob = vec_get(margfreqs, tuple_index_missing_data(tuple, msa->inv_alphabet, msa->is_missing, alph_size));
             if (tmp_prob < prob) prob = tmp_prob;
           }
           if (prob == 0) prob = 0.01;
@@ -526,7 +526,7 @@ void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,
         else {
           thisstate = tuple_index_missing_data(tuple, msa->inv_alphabet, 
                                                msa->is_missing, alph_size);
-          prob = gsl_vector_get(margfreqs, thisstate);
+          prob = vec_get(margfreqs, thisstate);
         }
 
         if (prob == 0) { col_val = NEGINFTY; break; }
@@ -535,7 +535,7 @@ void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,
 
         if (mod->use_conditionals && mod->order > 0) {
           tuple[mod->order] = msa->missing[0];
-          col_val -= log2(gsl_vector_get(margfreqs, tuple_index_missing_data(tuple, msa->inv_alphabet, msa->is_missing, alph_size)));
+          col_val -= log2(vec_get(margfreqs, tuple_index_missing_data(tuple, msa->inv_alphabet, msa->is_missing, alph_size)));
         }
       }
     }
@@ -548,7 +548,7 @@ void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,
   if (retval < NEGINFTY) retval = NEGINFTY; 
   /* must be true if any of the columns
      considered had prob NEGINFTY */
-  gsl_vector_free(margfreqs);
+  vec_free(margfreqs);
 }
 
 
@@ -745,12 +745,12 @@ double tl_compute_partial_ll_suff_stats(TreeModel *mod, TreePosteriors *post) {
    given an equilibrium frequency equal to the sum of the frequencies
    of all "matching" ordinary tuples.  Missing data characters are
    assumed to be gap characters or Ns. */
-gsl_vector *get_marginal_eq_freqs (char *alphabet, int tuple_size, 
-                                   gsl_vector *eq_freqs) {
+Vector *get_marginal_eq_freqs (char *alphabet, int tuple_size, 
+                                   Vector *eq_freqs) {
   int alph_size = strlen(alphabet);
   int ntuples = int_pow(alph_size, tuple_size);
   int i;
-  gsl_vector *retval = gsl_vector_calloc(int_pow(alph_size+1, tuple_size));
+  Vector *retval = vec_new(int_pow(alph_size+1, tuple_size));
 
   /* loop through the ordinary (non-meta) tuples */
   for (i = 0; i < ntuples; i++) {
@@ -777,9 +777,9 @@ gsl_vector *get_marginal_eq_freqs (char *alphabet, int tuple_size,
           newtuple += digits[j] * base;
         base *= (alph_size + 1);
       }
-      gsl_vector_set(retval, newtuple, 
-                     gsl_vector_get(retval, newtuple) + 
-                     gsl_vector_get(eq_freqs, i));
+      vec_set(retval, newtuple, 
+                     vec_get(retval, newtuple) + 
+                     vec_get(eq_freqs, i));
     }
   }
   return retval;

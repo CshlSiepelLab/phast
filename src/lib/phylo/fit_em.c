@@ -1,4 +1,4 @@
-/* $Id: fit_em.c,v 1.3 2004-06-19 20:35:14 acs Exp $
+/* $Id: fit_em.c,v 1.4 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -18,7 +18,7 @@
 #include <matrix.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <gsl/gsl_complex_math.h>
+#include <complex.h>
 #include <math.h>
 #include <dgamma.h>
 
@@ -26,29 +26,29 @@
                                 /* used for numerical est. of derivatives */
 
 /* internal functions */
-double tm_partial_ll_wrapper(gsl_vector *params, void *data);
-double tm_partial_ll_wrapper_fast(gsl_vector *params, void *data);
-void tm_log_em(FILE *logf, int header_only, double val, gsl_vector *params);
-void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data, 
-                            gsl_vector *lb, gsl_vector *ub);
-void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data, 
-                           gsl_vector *lb, gsl_vector *ub);
+double tm_partial_ll_wrapper(Vector *params, void *data);
+double tm_partial_ll_wrapper_fast(Vector *params, void *data);
+void tm_log_em(FILE *logf, int header_only, double val, Vector *params);
+void compute_grad_em_approx(Vector *grad, Vector *params, void *data, 
+                            Vector *lb, Vector *ub);
+void compute_grad_em_exact(Vector *grad, Vector *params, void *data, 
+                           Vector *lb, Vector *ub);
 void get_neighbors(int *neighbors, int state, int order, int alph_size);
 
 /* fit a tree model using EM */
-int tm_fit_em(TreeModel *mod, MSA *msa, gsl_vector *params, int cat, 
+int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat, 
               opt_precision_type precision, FILE *logf) {
   double ll, improvement;
-  gsl_vector *lower_bounds, *upper_bounds;
+  Vector *lower_bounds, *upper_bounds;
   int retval = 0, it, i, home_stretch = 0, nratecats;
   double lastll = NEGINFTY, alpha, rK0, freqK0, branchlen_scale;
   struct timeval start_time, end_time, post_prob_start, post_prob_end;
   TreeModel *proj_mod = NULL;
   char tmp_mod_fname[STR_SHORT_LEN];
   FILE *F;
-  void (*grad_func)(gsl_vector*, gsl_vector*, void*, gsl_vector*, 
-                    gsl_vector*);
-  gsl_matrix *H = gsl_matrix_alloc(params->size, params->size);
+  void (*grad_func)(Vector*, Vector*, void*, Vector*, 
+                    Vector*);
+  Matrix *H = mat_new(params->size, params->size);
   opt_precision_type bfgs_prec = OPT_LOW_PREC;
                                 /* will be adjusted as necessary */
 
@@ -59,9 +59,9 @@ int tm_fit_em(TreeModel *mod, MSA *msa, gsl_vector *params, int cat,
   }
 
   if (mod->backgd_freqs == NULL) { 
-    mod->backgd_freqs = gsl_vector_alloc(mod->rate_matrix->size);
+    mod->backgd_freqs = vec_new(mod->rate_matrix->size);
     if (mod->subst_mod == JC69 || mod->subst_mod == K80)
-      gsl_vector_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
+      vec_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
     else
       msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order + 1, cat);
   }
@@ -89,14 +89,14 @@ int tm_fit_em(TreeModel *mod, MSA *msa, gsl_vector *params, int cat,
   mod->category = cat;
 
   /* most params have lower bound of zero and no upper bound */
-  lower_bounds = gsl_vector_calloc(params->size);
+  lower_bounds = vec_new(params->size);
   upper_bounds = NULL;
 
   /* however, in this case we don't want the eq freqs to go to zero */
   if (mod->estimate_backgd) {
     int offset = tm_get_nbranchlenparams(mod);
     for (i = 0; i < mod->backgd_freqs->size; i++)
-      gsl_vector_set(lower_bounds, i + offset, 0.001);
+      vec_set(lower_bounds, i + offset, 0.001);
   }
 
   /* in the case of rate variation, start by ignoring then reinstate
@@ -122,7 +122,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, gsl_vector *params, int cat,
                                    scale or backgd freqs, also require
                                    diagonalization  */
 
-  gsl_matrix_set_identity(H);
+  mat_set_identity(H);
 
   for (it = 1; ; it++) {
     double tmp;
@@ -203,7 +203,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, gsl_vector *params, int cat,
       for (i = 0; i < mod->nratecats; i++) 
         sum += mod->tree_posteriors->rcat_expected_nsites[i];
       for (i = 0; i < mod->nratecats; i++) 
-        gsl_vector_set(params, offset + i, 
+        vec_set(params, offset + i, 
                        mod->tree_posteriors->rcat_expected_nsites[i] / sum);
       /* NOTE: currently, the rate weights are part of the parameter
          vector optimized by BFGS, but are given partial derivatives
@@ -259,14 +259,14 @@ int tm_fit_em(TreeModel *mod, MSA *msa, gsl_vector *params, int cat,
             (end_time.tv_usec - start_time.tv_usec)/1.0e6);
   }
 
-  gsl_vector_free(lower_bounds);
+  vec_free(lower_bounds);
   tl_free_tree_posteriors(mod, msa, mod->tree_posteriors);
   mod->tree_posteriors = NULL;
 
   return retval;
 }
 
-double tm_partial_ll_wrapper(gsl_vector *params, void *data) {
+double tm_partial_ll_wrapper(Vector *params, void *data) {
   TreeModel *mod = (TreeModel*)data;
   TreePosteriors *post = mod->tree_posteriors;
   tm_unpack_params(mod, params, -1);
@@ -277,7 +277,7 @@ double tm_partial_ll_wrapper(gsl_vector *params, void *data) {
    optimization procedure on a given iteration.  The value of the
    function is output, along with the values of all parameters.  If
    "header_only == 1", an appropriate header is printed. */
-void tm_log_em(FILE *logf, int header_only, double val, gsl_vector *params) {
+void tm_log_em(FILE *logf, int header_only, double val, Vector *params) {
   int i;
   char tmp[30];
   if (header_only) {
@@ -291,7 +291,7 @@ void tm_log_em(FILE *logf, int header_only, double val, gsl_vector *params) {
   else {
     fprintf(logf, "%15.6f ", val);
     for (i = 0; i < params->size; i++) 
-      fprintf(logf, "%15.6f ", gsl_vector_get(params, i));
+      fprintf(logf, "%15.6f ", vec_get(params, i));
     fprintf(logf, "\n");
   }
   fflush(logf);
@@ -324,8 +324,8 @@ void get_neighbors(int *neighbors, int state, int order, int alph_size) {
    wrt the parameters, including the eigenvalues and eigenvectors, and
    the exponentiated matrices associated with each edge (okay if
    tm_unpack_params called since last parameter update) */
-void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data, 
-                          gsl_vector *lb, gsl_vector *ub) {
+void compute_grad_em_approx(Vector *grad, Vector *params, void *data, 
+                          Vector *lb, Vector *ub) {
 
   TreeModel *mod = (TreeModel*)data;
   MarkovMatrix *P, *Q = mod->rate_matrix;
@@ -348,10 +348,10 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
     **dq = NULL, **dqq = NULL, **qdq = NULL, **dqq2 = NULL, **qdqq = NULL, 
     **q2dq = NULL, **dqq3 = NULL, **qdqq2 = NULL, **q2dqq = NULL, 
     **q3dq = NULL;
-  static gsl_complex *diag = NULL;
+  static Complex *diag = NULL;
 
   if (diag == NULL) 
-    diag = (gsl_complex*)smalloc(nstates * sizeof(gsl_complex));
+    diag = (Complex*)smalloc(nstates * sizeof(Complex));
 
   /* init memory (first time only) */
   if (q == NULL) {
@@ -417,7 +417,7 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
         q3[i][j] += q[i][neighbors[i][k]] * q2[neighbors[i][k]][j];
   }
 
-  gsl_vector_set_zero(grad);
+  vec_zero(grad);
 
   /* compute partial derivs for branch length params */
   traversal = tr_preorder(mod->tree); /* branch-length parameters
@@ -464,7 +464,7 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
       /* main diagonal of matrix of eigenvalues * exponentials of
          eigenvalues for branch length t*/
       for (i = 0; i < nstates; i++)
-        diag[i] = gsl_complex_mul_real(gsl_complex_mul(gsl_complex_exp(gsl_complex_mul_real(gsl_vector_complex_get(Q->evals, i), t)), gsl_vector_complex_get(Q->evals, i)), mod->rK[rcat] * unrooted_factor);
+        diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals, i), t)), zvec_get(Q->evals, i)), mod->rK[rcat] * unrooted_factor);
 
       /* save time by only using complex numbers in the inner loop if
          necessary (each complex mult equivalent to four real mults and
@@ -477,9 +477,8 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
             double dp_dt_div_p;
 
             for (i = 0; i < nstates; i++) 
-              dp_dt += GSL_REAL(gsl_matrix_complex_get(Q->evec_matrix, k, i)) * 
-                GSL_REAL(diag[i]) * 
-                GSL_REAL(gsl_matrix_complex_get(Q->evec_matrix_inv, i, l));
+              dp_dt += (zmat_get(Q->evec_matrix, k, i)).x * (diag[i]).x * 
+                (zmat_get(Q->evec_matrix_inv, i, l)).x;
 
             /* have to handle case of p == 0 carefully -- want contrib
                to derivative to be zero if dp_dt == 0 or
@@ -492,7 +491,7 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
             }
             else dp_dt_div_p = dp_dt / p;
           
-            gsl_vector_set(grad, grad_idx, gsl_vector_get(grad, grad_idx) +
+            vec_set(grad, grad_idx, vec_get(grad, grad_idx) +
                            dp_dt_div_p * 
                            mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]); 
 
@@ -505,23 +504,22 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
           for (l = 0; l < nstates; l++) {
             double p = mm_get(P, k, l);
             double partial_p_div_p;
-            gsl_complex partial_p; 
-            GSL_SET_REAL(&partial_p, 0); GSL_SET_IMAG(&partial_p, 0);
+            Complex partial_p = z_set(0, 0);
 
             for (i = 0; i < nstates; i++) 
-              partial_p = gsl_complex_add(partial_p, gsl_complex_mul(gsl_complex_mul(gsl_matrix_complex_get(Q->evec_matrix, k, i), diag[i]), gsl_matrix_complex_get(Q->evec_matrix_inv, i, l)));
+              partial_p = z_add(partial_p, z_mul(z_mul(zmat_get(Q->evec_matrix, k, i), diag[i]), zmat_get(Q->evec_matrix_inv, i, l)));
           
-            assert(fabs(GSL_IMAG(partial_p)) <= TM_IMAG_EPS);
+            assert(fabs(partial_p.y) <= TM_IMAG_EPS);
 
             /* see comments for real case (above) */
             if (p == 0) {
-              if (GSL_REAL(partial_p) == 0) partial_p_div_p = 0;
-              else if (GSL_REAL(partial_p) < 0) partial_p_div_p = NEGINFTY;
+              if (partial_p.x == 0) partial_p_div_p = 0;
+              else if (partial_p.x < 0) partial_p_div_p = NEGINFTY;
               else partial_p_div_p = INFTY;
             }
-            else partial_p_div_p = GSL_REAL(partial_p) / p;
+            else partial_p_div_p = partial_p.x / p;
 
-            gsl_vector_set(grad, grad_idx, gsl_vector_get(grad, grad_idx) +
+            vec_set(grad, grad_idx, vec_get(grad, grad_idx) +
                            partial_p_div_p * 
                            mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]);
           }
@@ -546,7 +544,7 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
         P = mod->P[n->id][rcat];
 
         for (i = 0; i < nstates; i++)
-          diag[i] = gsl_complex_mul_real(gsl_complex_mul(gsl_complex_exp(gsl_complex_mul_real(gsl_vector_complex_get(Q->evals, i), t)), gsl_vector_complex_get(Q->evals, i)), n->dparent * dr_da);
+          diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals, i), t)), zvec_get(Q->evals, i)), n->dparent * dr_da);
 
         /* only use complex numbers if necessary (as above) */
         if (tm_is_reversible(mod->subst_mod)) {
@@ -558,9 +556,8 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
 
               for (i = 0; i < nstates; i++) 
                 dp_da += 
-                  GSL_REAL(gsl_matrix_complex_get(Q->evec_matrix, k, i)) * 
-                  GSL_REAL(diag[i]) * 
-                  GSL_REAL(gsl_matrix_complex_get(Q->evec_matrix_inv, i, l));
+                  (zmat_get(Q->evec_matrix, k, i)).x * diag[i].x * 
+                  (zmat_get(Q->evec_matrix_inv, i, l)).x;
  
               if (p == 0) {
                 if (dp_da == 0) dp_da_div_p = 0;
@@ -569,8 +566,8 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
               }
               else dp_da_div_p = dp_da / p;
 
-              gsl_vector_set(grad, params_idx, 
-                             gsl_vector_get(grad, params_idx) +
+              vec_set(grad, params_idx, 
+                             vec_get(grad, params_idx) +
                              dp_da_div_p * 
                              mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]); 
             }
@@ -581,24 +578,23 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
           for (k = 0; k < nstates; k++) {
             for (l = 0; l < nstates; l++) {
               double p = mm_get(P, k, l);
-              gsl_complex dp_da; 
               double dp_da_div_p;
-              GSL_SET_REAL(&dp_da, 0); GSL_SET_IMAG(&dp_da, 0);
+              Complex dp_da = z_set(0, 0);
               for (i = 0; i < nstates; i++) 
-                dp_da = gsl_complex_add(dp_da, gsl_complex_mul(gsl_complex_mul(gsl_matrix_complex_get(Q->evec_matrix, k, i), diag[i]), gsl_matrix_complex_get(Q->evec_matrix_inv, i, l)));
+                dp_da = z_add(dp_da, z_mul(z_mul(zmat_get(Q->evec_matrix, k, i), diag[i]), zmat_get(Q->evec_matrix_inv, i, l)));
 
-              assert(fabs(GSL_IMAG(dp_da)) <= TM_IMAG_EPS);
+              assert(fabs(dp_da.y) <= TM_IMAG_EPS);
 
               if (p == 0) {
-                if (GSL_REAL(dp_da) == 0) dp_da_div_p = 0;
-                else if (GSL_REAL(dp_da) < 0) dp_da_div_p = NEGINFTY;
+                if (dp_da.x == 0) dp_da_div_p = 0;
+                else if (dp_da.x < 0) dp_da_div_p = NEGINFTY;
                 else dp_da_div_p = INFTY;
               }
-              else dp_da_div_p = GSL_REAL(dp_da) / p;
+              else dp_da_div_p = dp_da.x / p;
 
-              gsl_vector_set(grad, params_idx, gsl_vector_get(grad, params_idx) +
-                             dp_da_div_p * 
-                             mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]); 
+              vec_set(grad, params_idx, vec_get(grad, params_idx) +
+		      dp_da_div_p * 
+		      mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]); 
             }
           }
         }
@@ -612,11 +608,11 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
                                    incorporated into the post
                                    probs) */
     int nrc = mod->nratecats > 1 ? mod->nratecats : -mod->alpha;
-    for (; nrc >= 1; nrc--) gsl_vector_set(grad, params_idx++, 0);
+    for (; nrc >= 1; nrc--) vec_set(grad, params_idx++, 0);
   }
   else if (mod->alpha < 0)      /* dgamma temporarily disabled -- grad
                                    for alpha is zero */
-    gsl_vector_set(grad, params_idx++, 0);
+    vec_set(grad, params_idx++, 0);
 
 
   /* compute partial derivs for rate matrix params */
@@ -650,7 +646,7 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
       assert(dq[l][m] == 0);    /* row/col pairs should be unique */
 
       dq[l][m] = tm_is_reversible(mod->subst_mod) ? 
-        gsl_vector_get(mod->backgd_freqs, m) : 1;
+        vec_get(mod->backgd_freqs, m) : 1;
                                 /* FIXME: may need to generalize */
       
       if (dq[l][m] == 0) continue; 
@@ -789,7 +785,7 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
             }
             else partial_p_div_p = partial_p / p;
 
-            gsl_vector_set(grad, params_idx, gsl_vector_get(grad, params_idx) + 
+            vec_set(grad, params_idx, vec_get(grad, params_idx) + 
                            partial_p_div_p * 
                            mod->tree_posteriors->expected_nsubst_tot[rcat][i][j][node]);
           }
@@ -797,7 +793,7 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
       }
     }
   }
-  gsl_vector_scale(grad, -1);
+  vec_scale(grad, -1);
   lst_free(erows); lst_free(ecols); lst_free(distinct_rows); 
   lst_free(distinct_cols);
 }
@@ -805,8 +801,8 @@ void compute_grad_em_approx(gsl_vector *grad, gsl_vector *params, void *data,
 /* Like above, but using the approach outlined by Schadt and Lange for
    computing the partial derivatives wrt rate matrix parameters.
    Slower, but gives exact results */
-void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data, 
-                           gsl_vector *lb, gsl_vector *ub) {
+void compute_grad_em_exact(Vector *grad, Vector *params, void *data, 
+                           Vector *lb, Vector *ub) {
 
   TreeModel *mod = (TreeModel*)data;
 /*   int alph_size = strlen(mod->rate_matrix->states); */
@@ -821,30 +817,30 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
   double freqK[mod->nratecats], rK_tweak[mod->nratecats];
 
   static double **dq = NULL;
-  static gsl_complex **f = NULL, **tmpmat = NULL, **sinv_dq_s = NULL;
-  static gsl_complex *diag = NULL;
+  static Complex **f = NULL, **tmpmat = NULL, **sinv_dq_s = NULL;
+  static Complex *diag = NULL;
 
   if (diag == NULL) 
-    diag = (gsl_complex*)smalloc(nstates * sizeof(gsl_complex));
+    diag = (Complex*)smalloc(nstates * sizeof(Complex));
 
   Q = mod->rate_matrix;
 
   /* init memory (first time only) */
   if (dq == NULL) {
     dq = (double**)smalloc(nstates * sizeof(double*));
-    f = (gsl_complex**)smalloc(nstates * sizeof(gsl_complex*));
-    tmpmat = (gsl_complex**)smalloc(nstates * sizeof(gsl_complex*));
-    sinv_dq_s = (gsl_complex**)smalloc(nstates * sizeof(gsl_complex*));
+    f = (Complex**)smalloc(nstates * sizeof(Complex*));
+    tmpmat = (Complex**)smalloc(nstates * sizeof(Complex*));
+    sinv_dq_s = (Complex**)smalloc(nstates * sizeof(Complex*));
 
     for (i = 0; i < nstates; i++) {
       dq[i] = (double*)smalloc(nstates * sizeof(double));
-      f[i] = (gsl_complex*)smalloc(nstates * sizeof(gsl_complex));
-      tmpmat[i] = (gsl_complex*)smalloc(nstates * sizeof(gsl_complex));
-      sinv_dq_s[i] = (gsl_complex*)smalloc(nstates * sizeof(gsl_complex));
+      f[i] = (Complex*)smalloc(nstates * sizeof(Complex));
+      tmpmat[i] = (Complex*)smalloc(nstates * sizeof(Complex));
+      sinv_dq_s[i] = (Complex*)smalloc(nstates * sizeof(Complex));
     }
   }
   
-  gsl_vector_set_zero(grad);
+  vec_zero(grad);
 
   /* compute partial derivs for branch length params */
   traversal = tr_preorder(mod->tree); /* branch-length parameters
@@ -883,7 +879,7 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
       /* main diagonal of matrix of eigenvalues * exponentials of
          eigenvalues for branch length t*/
       for (i = 0; i < nstates; i++)
-        diag[i] = gsl_complex_mul_real(gsl_complex_mul(gsl_complex_exp(gsl_complex_mul_real(gsl_vector_complex_get(Q->evals, i), t)), gsl_vector_complex_get(Q->evals, i)), mod->rK[rcat] * unrooted_factor);
+        diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals, i), t)), zvec_get(Q->evals, i)), mod->rK[rcat] * unrooted_factor);
 
       /* save time by only using complex numbers in the inner loop if
          necessary (each complex mult equivalent to four real mults and
@@ -896,9 +892,8 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
             double dp_dt_div_p;
 
             for (i = 0; i < nstates; i++) 
-              dp_dt += GSL_REAL(gsl_matrix_complex_get(Q->evec_matrix, k, i)) * 
-                GSL_REAL(diag[i]) * 
-                GSL_REAL(gsl_matrix_complex_get(Q->evec_matrix_inv, i, l));
+              dp_dt += (zmat_get(Q->evec_matrix, k, i)).x * diag[i].x * 
+                (zmat_get(Q->evec_matrix_inv, i, l)).x;
 
             /* have to handle case of p == 0 carefully -- want contrib
                to derivative to be zero if dp_dt == 0 or
@@ -911,7 +906,7 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
             }
             else dp_dt_div_p = dp_dt / p;
           
-            gsl_vector_set(grad, grad_idx, gsl_vector_get(grad, grad_idx) +
+            vec_set(grad, grad_idx, vec_get(grad, grad_idx) +
                            dp_dt_div_p *
                            mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]);
 
@@ -924,22 +919,21 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
           for (l = 0; l < nstates; l++) {
             double p = mm_get(P, k, l);
             double dp_dt_div_p;
-            gsl_complex dp_dt; 
-            GSL_SET_REAL(&dp_dt, 0); GSL_SET_IMAG(&dp_dt, 0);
+            Complex dp_dt = z_set(0, 0);
 
             for (i = 0; i < nstates; i++) 
-              dp_dt = gsl_complex_add(dp_dt, gsl_complex_mul(gsl_complex_mul(gsl_matrix_complex_get(Q->evec_matrix, k, i), diag[i]), gsl_matrix_complex_get(Q->evec_matrix_inv, i, l)));
+              dp_dt = z_add(dp_dt, z_mul(z_mul(zmat_get(Q->evec_matrix, k, i), diag[i]), zmat_get(Q->evec_matrix_inv, i, l)));
 
             /* see comments for real case (above) */
             if (p == 0) {
-              if (GSL_REAL(dp_dt) == 0) dp_dt_div_p = 0;
-              else if (GSL_REAL(dp_dt) < 0) dp_dt_div_p = NEGINFTY;
+              if (dp_dt.x == 0) dp_dt_div_p = 0;
+              else if (dp_dt.x < 0) dp_dt_div_p = NEGINFTY;
               else dp_dt_div_p = INFTY;
             }
-            else dp_dt_div_p = GSL_REAL(dp_dt) / p;
+            else dp_dt_div_p = dp_dt.x / p;
 
-            assert(fabs(GSL_IMAG(dp_dt)) <= TM_IMAG_EPS);
-            gsl_vector_set(grad, grad_idx, gsl_vector_get(grad, grad_idx) +
+            assert(fabs(dp_dt.y) <= TM_IMAG_EPS);
+            vec_set(grad, grad_idx, vec_get(grad, grad_idx) +
                            dp_dt_div_p *
                            mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]);
           }
@@ -964,7 +958,7 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
         P = mod->P[n->id][rcat];
 
         for (i = 0; i < nstates; i++)
-          diag[i] = gsl_complex_mul_real(gsl_complex_mul(gsl_complex_exp(gsl_complex_mul_real(gsl_vector_complex_get(Q->evals, i), t)), gsl_vector_complex_get(Q->evals, i)), n->dparent * dr_da);
+          diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals, i), t)), zvec_get(Q->evals, i)), n->dparent * dr_da);
 
         /* only use complex numbers if necessary (as above) */
         if (tm_is_reversible(mod->subst_mod)) {
@@ -976,9 +970,8 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
 
               for (i = 0; i < nstates; i++) 
                 dp_da += 
-                  GSL_REAL(gsl_matrix_complex_get(Q->evec_matrix, k, i)) * 
-                  GSL_REAL(diag[i]) * 
-                  GSL_REAL(gsl_matrix_complex_get(Q->evec_matrix_inv, i, l));
+                  (zmat_get(Q->evec_matrix, k, i)).x * diag[i].x *
+                  (zmat_get(Q->evec_matrix_inv, i, l)).x;
  
               if (p == 0) {
                 if (dp_da == 0) dp_da_div_p = 0;
@@ -987,8 +980,8 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
               }
               else dp_da_div_p = dp_da / p;
 
-              gsl_vector_set(grad, params_idx, 
-                             gsl_vector_get(grad, params_idx) +
+              vec_set(grad, params_idx, 
+                             vec_get(grad, params_idx) +
                              dp_da_div_p * 
                              mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]); 
             }
@@ -999,22 +992,21 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
           for (k = 0; k < nstates; k++) {
             for (l = 0; l < nstates; l++) {
               double p = mm_get(P, k, l);
-              gsl_complex dp_da; 
               double dp_da_div_p;
-              GSL_SET_REAL(&dp_da, 0); GSL_SET_IMAG(&dp_da, 0);
+              Complex dp_da = z_set(0, 0);
               for (i = 0; i < nstates; i++) 
-                dp_da = gsl_complex_add(dp_da, gsl_complex_mul(gsl_complex_mul(gsl_matrix_complex_get(Q->evec_matrix, k, i), diag[i]), gsl_matrix_complex_get(Q->evec_matrix_inv, i, l)));
+                dp_da = z_add(dp_da, z_mul(z_mul(zmat_get(Q->evec_matrix, k, i), diag[i]), zmat_get(Q->evec_matrix_inv, i, l)));
 
-              assert(fabs(GSL_IMAG(dp_da)) <= TM_IMAG_EPS);
+              assert(fabs(dp_da.y) <= TM_IMAG_EPS);
 
               if (p == 0) {
-                if (GSL_REAL(dp_da) == 0) dp_da_div_p = 0;
-                else if (GSL_REAL(dp_da) < 0) dp_da_div_p = NEGINFTY;
+                if (dp_da.x == 0) dp_da_div_p = 0;
+                else if (dp_da.x < 0) dp_da_div_p = NEGINFTY;
                 else dp_da_div_p = INFTY;
               }
-              else dp_da_div_p = GSL_REAL(dp_da) / p;
+              else dp_da_div_p = dp_da.x / p;
 
-              gsl_vector_set(grad, params_idx, gsl_vector_get(grad, params_idx) +
+              vec_set(grad, params_idx, vec_get(grad, params_idx) +
                              dp_da_div_p * 
                              mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]); 
             }
@@ -1030,11 +1022,11 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
                                    incorporated into the post
                                    probs) */
     int nrc = mod->nratecats > 1 ? mod->nratecats : -mod->alpha;
-    for (; nrc >= 1; nrc--) gsl_vector_set(grad, params_idx++, 0);
+    for (; nrc >= 1; nrc--) vec_set(grad, params_idx++, 0);
   }
   else if (mod->alpha < 0)      /* dgamma temporarily disabled -- grad
                                    for alpha is zero */
-    gsl_vector_set(grad, params_idx++, 0);
+    vec_set(grad, params_idx++, 0);
 
   /* compute partial derivs for rate matrix params */
 
@@ -1047,8 +1039,8 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
     for (i = 0; i < nstates; i++) {
       for (j = 0; j < nstates; j++) {
         dq[i][j] = 0;
-        GSL_SET_REAL(&tmpmat[i][j], 0); GSL_SET_IMAG(&tmpmat[i][j], 0);
-        GSL_SET_REAL(&sinv_dq_s[i][j], 0); GSL_SET_IMAG(&sinv_dq_s[i][j], 0);
+	tmpmat[i][j] = z_set(0, 0);
+	sinv_dq_s[i][j] = z_set(0, 0);
       }
     }
 
@@ -1066,7 +1058,7 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
       assert(dq[l][m] == 0);    /* row/col pairs should be unique */
 
       dq[l][m] = tm_is_reversible(mod->subst_mod) ? 
-        gsl_vector_get(mod->backgd_freqs, m) : 1;
+        vec_get(mod->backgd_freqs, m) : 1;
                                 /* FIXME: may need to generalize */
       
       if (dq[l][m] == 0) continue; 
@@ -1090,7 +1082,7 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
       i = lst_get_int(erows, lidx);
       k = lst_get_int(ecols, lidx);
       for (j = 0; j < nstates; j++)
-        tmpmat[i][j] = gsl_complex_add(tmpmat[i][j], gsl_complex_mul_real(gsl_matrix_complex_get(Q->evec_matrix, k, j), dq[i][k]));
+        tmpmat[i][j] = z_add(tmpmat[i][j], z_mul_real(zmat_get(Q->evec_matrix, k, j), dq[i][k]));
     }
 
     for (lidx = 0; lidx < lst_size(distinct_rows); lidx++) {
@@ -1098,7 +1090,7 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
       for (i = 0; i < nstates; i++) {
         for (j = 0; j < nstates; j++) {
           sinv_dq_s[i][j] =
-            gsl_complex_add(sinv_dq_s[i][j], gsl_complex_mul(gsl_matrix_complex_get(Q->evec_matrix_inv, i, k), tmpmat[k][j]));
+            z_add(sinv_dq_s[i][j], z_mul(zmat_get(Q->evec_matrix_inv, i, k), tmpmat[k][j]));
         }
       }
     }
@@ -1119,28 +1111,23 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
           /* build the matrix F */
           for (i = 0; i < nstates; i++) {
             for (j = 0; j < nstates; j++) {
-              if (GSL_REAL(gsl_vector_complex_get(Q->evals, i)) ==
-                  GSL_REAL(gsl_vector_complex_get(Q->evals, j)))
-                GSL_SET_REAL(&f[i][j], exp(GSL_REAL(gsl_vector_complex_get(Q->evals, i)) * t) * t);
+              if ((zvec_get(Q->evals, i)).x ==
+                  (zvec_get(Q->evals, j)).x)
+		f[i][j].x = exp((zvec_get(Q->evals, i)).x * t) * t;
               else
-                GSL_SET_REAL(&f[i][j], 
-                             (exp(GSL_REAL(gsl_vector_complex_get(Q->evals, i)) * t) 
-                              - exp(GSL_REAL(gsl_vector_complex_get(Q->evals, j)) * t)) /
-                             (GSL_REAL(gsl_vector_complex_get(Q->evals, i)) - 
-                              GSL_REAL(gsl_vector_complex_get(Q->evals, j))));
-          
+                f[i][j].x = (exp((zvec_get(Q->evals, i)).x * t) 
+			     - exp((zvec_get(Q->evals, j)).x * t)) /
+		  ((zvec_get(Q->evals, i)).x - (zvec_get(Q->evals, j)).x);
             }
           }
 
           /* compute (F o S^-1 dQ S) S^-1 */
           for (i = 0; i < nstates; i++) {
             for (j = 0; j < nstates; j++) {
-              GSL_SET_REAL(&tmpmat[i][j], 0);
+              tmpmat[i][j].x = 0;
               for (k = 0; k < nstates; k++) 
-                GSL_SET_REAL(&tmpmat[i][j], 
-                             GSL_REAL(tmpmat[i][j]) + GSL_REAL(f[i][k]) *
-                             GSL_REAL(sinv_dq_s[i][k]) *
-                             GSL_REAL(gsl_matrix_complex_get(Q->evec_matrix_inv, k, j)));
+                tmpmat[i][j].x += f[i][k].x * sinv_dq_s[i][k].x *
+		  (zmat_get(Q->evec_matrix_inv, k, j)).x;
             }
           }
 
@@ -1153,8 +1140,8 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
               double partial_p_div_p;
 
               for (k = 0; k < nstates; k++) 
-                partial_p += GSL_REAL(gsl_matrix_complex_get(Q->evec_matrix, i, k)) * 
-                  GSL_REAL(tmpmat[k][j]);
+                partial_p += (zmat_get(Q->evec_matrix, i, k)).x * 
+                  tmpmat[k][j].x;
 
               /* handle case of p == 0 carefully, as described above */
               if (p == 0) {
@@ -1164,7 +1151,7 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
               }
               else partial_p_div_p = partial_p / p;
 
-              gsl_vector_set(grad, params_idx, gsl_vector_get(grad, params_idx) + 
+              vec_set(grad, params_idx, vec_get(grad, params_idx) + 
                              partial_p_div_p *
                              mod->tree_posteriors->expected_nsubst_tot[rcat][i][j][node]);
             }
@@ -1174,11 +1161,11 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
           /* build the matrix F */
           for (i = 0; i < nstates; i++) {
             for (j = 0; j < nstates; j++) {
-              if (GSL_COMPLEX_EQ(gsl_vector_complex_get(Q->evals, i),
-                                 gsl_vector_complex_get(Q->evals, j)))
-                f[i][j] = gsl_complex_mul_real(gsl_complex_exp(gsl_complex_mul_real(gsl_vector_complex_get(Q->evals, i), t)), t);
+              if (z_eq(zvec_get(Q->evals, i),
+		       zvec_get(Q->evals, j)))
+                f[i][j] = z_mul_real(z_exp(z_mul_real(zvec_get(Q->evals, i), t)), t);
               else
-                f[i][j] = gsl_complex_div(gsl_complex_sub(gsl_complex_exp(gsl_complex_mul_real(gsl_vector_complex_get(Q->evals, i), t)), gsl_complex_exp(gsl_complex_mul_real(gsl_vector_complex_get(Q->evals, j), t))), gsl_complex_sub(gsl_vector_complex_get(Q->evals, i), gsl_vector_complex_get(Q->evals, j)));
+                f[i][j] = z_div(z_sub(z_exp(z_mul_real(zvec_get(Q->evals, i), t)), z_exp(z_mul_real(zvec_get(Q->evals, j), t))), z_sub(zvec_get(Q->evals, i), zvec_get(Q->evals, j)));
           
             }
           }
@@ -1186,10 +1173,9 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
           /* compute (F o S^-1 dQ S) S^-1 */
           for (i = 0; i < nstates; i++) {
             for (j = 0; j < nstates; j++) {
-              GSL_SET_REAL(&tmpmat[i][j], 0);
-              GSL_SET_IMAG(&tmpmat[i][j], 0);
+	      tmpmat[i][j] = z_set(0, 0);
               for (k = 0; k < nstates; k++) 
-                tmpmat[i][j] = gsl_complex_add(tmpmat[i][j], gsl_complex_mul(f[i][k], gsl_complex_mul(sinv_dq_s[i][k], gsl_matrix_complex_get(Q->evec_matrix_inv, k, j))));
+                tmpmat[i][j] = z_add(tmpmat[i][j], z_mul(f[i][k], z_mul(sinv_dq_s[i][k], zmat_get(Q->evec_matrix_inv, k, j))));
             }
           }
 
@@ -1197,25 +1183,24 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
              gradient elements */
           for (i = 0; i < nstates; i++) {
             for (j = 0; j < nstates; j++) {
-              gsl_complex partial_p; 
               double p = mm_get(P, i, j);
               double partial_p_div_p;
-              GSL_SET_REAL(&partial_p, 0); GSL_SET_IMAG(&partial_p, 0);
+              Complex partial_p = z_set(0, 0);
 
               for (k = 0; k < nstates; k++) 
-                partial_p = gsl_complex_add(partial_p, gsl_complex_mul(gsl_matrix_complex_get(Q->evec_matrix, i, k), tmpmat[k][j]));
+                partial_p = z_add(partial_p, z_mul(zmat_get(Q->evec_matrix, i, k), tmpmat[k][j]));
 
-              assert(fabs(GSL_IMAG(partial_p)) <= TM_IMAG_EPS);
+              assert(fabs(partial_p.y) <= TM_IMAG_EPS);
 
               /* handle case of p == 0 carefully, as described above */
               if (p == 0) {
-                if (GSL_REAL(partial_p) == 0) partial_p_div_p = 0;
-                else if (GSL_REAL(partial_p) < 0) partial_p_div_p = NEGINFTY;
+                if (partial_p.x == 0) partial_p_div_p = 0;
+                else if (partial_p.x < 0) partial_p_div_p = NEGINFTY;
                 else partial_p_div_p = INFTY;
               }
-              else partial_p_div_p = GSL_REAL(partial_p) / p;
+              else partial_p_div_p = partial_p.x / p;
 
-              gsl_vector_set(grad, params_idx, gsl_vector_get(grad, params_idx) + 
+              vec_set(grad, params_idx, vec_get(grad, params_idx) + 
                              partial_p_div_p * 
                              mod->tree_posteriors->expected_nsubst_tot[rcat][i][j][node]);
             }
@@ -1224,7 +1209,7 @@ void compute_grad_em_exact(gsl_vector *grad, gsl_vector *params, void *data,
       }
     }
   }
-  gsl_vector_scale(grad, -1);
+  vec_scale(grad, -1);
   lst_free(erows); lst_free(ecols); lst_free(distinct_rows); 
 }
 

@@ -1,7 +1,7 @@
 /* hmm_train - estimation of HMM transition probabilities from labeled
    training data */
 
-/* $Id: hmm_train.c,v 1.9 2004-08-14 20:22:42 acs Exp $
+/* $Id: hmm_train.c,v 1.10 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -111,8 +111,8 @@ int main(int argc, char* argv[]) {
   String *msa_fname, *gff_fname;
   List *gff_fname_list = NULL, *msa_fname_list = NULL, 
     *msa_length_list = NULL, *model_indels_str = NULL;
-  gsl_matrix *traincounts = NULL;
-  gsl_vector *begcounts = NULL, *statecounts = NULL;
+  Matrix *traincounts = NULL;
+  Vector *begcounts = NULL, *statecounts = NULL;
   CategoryMap *cm = NULL;
   char c;
   GapPatternMap *gpm = NULL;
@@ -189,9 +189,9 @@ int main(int argc, char* argv[]) {
   }
 
   /* allocate memory for storage of "training paths" */
-  traincounts = gsl_matrix_calloc(ncats_unspooled, ncats_unspooled);
-  statecounts = gsl_vector_calloc(ncats_unspooled);
-  begcounts = gsl_vector_calloc(ncats_unspooled);
+  traincounts = mat_new(ncats_unspooled, ncats_unspooled);
+  statecounts = vec_new(ncats_unspooled);
+  begcounts = vec_new(ncats_unspooled);
     
   /* create skeleton of new HMM. */
   hmm = hmm_new_nstates(ncats_unspooled, 0, 0);
@@ -335,18 +335,18 @@ int main(int argc, char* argv[]) {
                              spooled, ungapped category */ 
     for (i = 0; i < gpm->ncats; i++) tprob[i] = nst[i] = 0;
     for (i = 0; i < hmm->nstates; i++) {
-      if (gsl_vector_get(hmm->begin_transitions, i) > 0) 
+      if (vec_get(hmm->begin_transitions, i) > 0) 
         /* have to go from unspooled space to spooled space, then to
            ungapped space (HMM states correspond to unspooled,
            gapped categories).  Note that states with nonzero begin
            probs shouldn't be conditioned on other states. */
         tprob[gpm->gapcat_to_cat[cm_unspooled_to_spooled_cat(cm, i)]] += 
-          gsl_vector_get(hmm->begin_transitions, i);
+          vec_get(hmm->begin_transitions, i);
       nst[gpm->gapcat_to_cat[cm_unspooled_to_spooled_cat(cm, i)]]++;
     }
     for (i = 0; i < hmm->nstates; i++) 
       if (tprob[gpm->gapcat_to_cat[cm_unspooled_to_spooled_cat(cm, i)]] > 0)
-        gsl_vector_set(hmm->begin_transitions, i, 
+        vec_set(hmm->begin_transitions, i, 
                        tprob[gpm->gapcat_to_cat[cm_unspooled_to_spooled_cat(cm, i)]] / 
                        nst[gpm->gapcat_to_cat[cm_unspooled_to_spooled_cat(cm, i)]]);
     /* (uniform prior) */

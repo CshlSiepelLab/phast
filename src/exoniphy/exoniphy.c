@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.38 2004-10-10 22:33:06 acs Exp $
+/* $Id: exoniphy.c,v 1.39 2005-06-22 07:11:20 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -421,9 +421,9 @@ int main(int argc, char* argv[]) {
 
   if (model_fname_list == NULL) {
     /* Figure out which set of models to use based on G+C content */
-    gsl_vector *f = msa_get_base_freqs(msa, -1, -1); 
-    gc = gsl_vector_get(f, msa->inv_alphabet[(int)'G']) +
-      gsl_vector_get(f, msa->inv_alphabet[(int)'C']);    
+    Vector *f = msa_get_base_freqs(msa, -1, -1); 
+    gc = vec_get(f, msa->inv_alphabet[(int)'G']) +
+      vec_get(f, msa->inv_alphabet[(int)'C']);    
     for (gc_cat = 0; 
          GC_THRESHOLDS[gc_cat] != -1 && gc >= GC_THRESHOLDS[gc_cat]; 
          gc_cat++);
@@ -443,7 +443,7 @@ int main(int argc, char* argv[]) {
       sprintf(tmpstr, "%s/data/exoniphy/mammals/%s", PHAST_HOME, str->chars);
       str_cpy_charstr(str, tmpstr);
     }
-    gsl_vector_free(f);
+    vec_free(f);
   }
 
   if (cm == NULL) {

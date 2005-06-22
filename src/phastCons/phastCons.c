@@ -721,8 +721,8 @@ void setup_two_state(HMM **hmm, CategoryMap **cm, double mu, double nu) {
   mm_set((*hmm)->transition_matrix, 1, 1, 1-nu);
 
   /* just use stationary distribution for begin transitions */
-  gsl_vector_set((*hmm)->begin_transitions, 0, nu/(mu+nu));
-  gsl_vector_set((*hmm)->begin_transitions, 1, mu/(mu+nu));
+  vec_set((*hmm)->begin_transitions, 0, nu/(mu+nu));
+  vec_set((*hmm)->begin_transitions, 1, mu/(mu+nu));
 
   hmm_reset(*hmm);
 
@@ -866,7 +866,7 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
 }
 
 /* Special-purpose unpack function, adapted from tm_unpack_params */
-void unpack_params_mod(TreeModel *mod, gsl_vector *params) {
+void unpack_params_mod(TreeModel *mod, Vector *params) {
   TreeNode *n;
   int assigned = 0, nodeidx, i;
   List *traversal;
@@ -875,16 +875,16 @@ void unpack_params_mod(TreeModel *mod, gsl_vector *params) {
 
   /* check parameter values */
   for (i = 0; i < params->size; i++) {
-    double mu = gsl_vector_get(params, i);
+    double mu = vec_get(params, i);
     if (mu < 0 && abs(mu) < TM_IMAG_EPS) /* consider close enough to 0 */
-      gsl_vector_set(params, i, mu=0);
+      vec_set(params, i, mu=0);
     if (mu < 0) die("ERROR: parameter %d has become negative (%f).\n", i, mu);
     if (!finite(mu)) die("ERROR: parameter %d is no longer finite (%f).\n", i, mu);
   }
   i = 0;
 
   if (mod->estimate_branchlens == TM_SCALE_ONLY) 
-    mod->scale = gsl_vector_get(params, i++);
+    mod->scale = vec_get(params, i++);
   else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
     traversal = tr_preorder(mod->tree);
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
@@ -893,7 +893,7 @@ void unpack_params_mod(TreeModel *mod, gsl_vector *params) {
       if (n->parent != NULL) {
         if ((n == mod->tree->lchild || n == mod->tree->rchild) && 
             tm_is_reversible(mod->subst_mod)) {
-          n->dparent = gsl_vector_get(params, 0)/2;
+          n->dparent = vec_get(params, 0)/2;
           if (!assigned) {
             i++;     /* only increment the first time */
             assigned = 1;
@@ -902,14 +902,14 @@ void unpack_params_mod(TreeModel *mod, gsl_vector *params) {
         else if (n->id == mod->root_leaf_id) 
           n->dparent = 0;
         else 
-          n->dparent = gsl_vector_get(params, i++);
+          n->dparent = vec_get(params, i++);
       }
     }
   }
 
   /* next parameters are for rate variation */
   if (mod->nratecats > 1) 
-    mod->alpha = gsl_vector_get(params, i++);
+    mod->alpha = vec_get(params, i++);
   else i++;                     /* there's always a placeholder
                                    here */
 
@@ -921,18 +921,18 @@ void unpack_params_mod(TreeModel *mod, gsl_vector *params) {
 }
 
 /* Unpack all params for two-state HMM.  Used during M step of EM */
-void unpack_params_phmm(PhyloHmm *phmm, gsl_vector *params) {
+void unpack_params_phmm(PhyloHmm *phmm, Vector *params) {
   unpack_params_mod(phmm->mods[0], params);
   unpack_params_mod(phmm->mods[1], params);
-  phmm->em_data->rho = gsl_vector_get(params, params->size - 1);
-  tm_scale(phmm->mods[0], gsl_vector_get(params, params->size-1), FALSE);
+  phmm->em_data->rho = vec_get(params, params->size - 1);
+  tm_scale(phmm->mods[0], vec_get(params, params->size-1), FALSE);
   
   if (phmm->mods[0]->nratecats > 1) 
     DiscreteGamma(phmm->mods[0]->freqK, phmm->mods[0]->rK, phmm->mods[0]->alpha, 
                   phmm->mods[0]->alpha, phmm->mods[0]->nratecats, 0); 
                                 /* mods[0]->alpha will already be set */
   if (phmm->mods[1]->nratecats > 1) {
-    phmm->mods[1]->alpha = gsl_vector_get(params, params->size - 2);
+    phmm->mods[1]->alpha = vec_get(params, params->size - 2);
     DiscreteGamma(phmm->mods[1]->freqK, phmm->mods[1]->rK, phmm->mods[1]->alpha, 
                   phmm->mods[1]->alpha, phmm->mods[1]->nratecats, 0); 
   }
@@ -941,7 +941,7 @@ void unpack_params_phmm(PhyloHmm *phmm, gsl_vector *params) {
 }
  
 /* Wrapper for computation of likelihood, for use by reestimate_trees (below) */
-double likelihood_wrapper(gsl_vector *params, void *data) {
+double likelihood_wrapper(Vector *params, void *data) {
   PhyloHmm *phmm = (PhyloHmm*)data;
   double retval0, retval1;
 
@@ -961,7 +961,7 @@ void reestimate_trees(void **models, int nmodels, void *data,
 
   PhyloHmm *phmm = (PhyloHmm*)data;
   int k, obsidx;
-  gsl_vector *params, *lower_bounds, *upper_bounds;
+  Vector *params, *lower_bounds, *upper_bounds;
   double ll;
 
   /* FIXME: what about when multiple states per model?  Need to
@@ -973,20 +973,20 @@ void reestimate_trees(void **models, int nmodels, void *data,
     for (obsidx = 0; obsidx < nobs; obsidx++) 
       phmm->em_data->msa->ss->cat_counts[k][obsidx] = E[k][obsidx];
 
-  params = gsl_vector_alloc(tm_get_nparams(phmm->mods[1]) + 2);
+  params = vec_new(tm_get_nparams(phmm->mods[1]) + 2);
   tm_params_init_from_model(phmm->mods[1], params, 0); /* unscaled branch lens */
 
   /* special initialization of rate-variation parameters and rho */
-  gsl_vector_set(params, tm_get_nbranchlenparams(phmm->mods[0]), 
+  vec_set(params, tm_get_nbranchlenparams(phmm->mods[0]), 
                  phmm->mods[0]->nratecats > 1 ? phmm->mods[0]->alpha : 0);
-  gsl_vector_set(params, params->size - 2,  
+  vec_set(params, params->size - 2,  
                  phmm->mods[1]->nratecats > 1 ? phmm->mods[1]->alpha : 0);
-  gsl_vector_set(params, params->size - 1, phmm->em_data->rho);
+  vec_set(params, params->size - 1, phmm->em_data->rho);
 
-  lower_bounds = gsl_vector_calloc(params->size);
-  upper_bounds = gsl_vector_alloc(params->size);
-  gsl_vector_set_all(upper_bounds, INFTY);
-  gsl_vector_set(upper_bounds, params->size - 1, 1); /* 0 < rho < 1 */
+  lower_bounds = vec_new(params->size);
+  upper_bounds = vec_new(params->size);
+  vec_set_all(upper_bounds, INFTY);
+  vec_set(upper_bounds, params->size - 1, 1); /* 0 < rho < 1 */
 
   if (logf != NULL)
     fprintf(logf, "\nRE-ESTIMATION OF TREE MODEL:\n");
@@ -994,8 +994,8 @@ void reestimate_trees(void **models, int nmodels, void *data,
   /* keep Hessian arround so it can be used from one iteration to the
      next */
   if (phmm->em_data->H == NULL) {
-    phmm->em_data->H = gsl_matrix_alloc(params->size, params->size);
-    gsl_matrix_set_identity(phmm->em_data->H);
+    phmm->em_data->H = mat_new(params->size, params->size);
+    mat_set_identity(phmm->em_data->H);
   }
 
   if (opt_bfgs(likelihood_wrapper, params, phmm, &ll, lower_bounds, 
@@ -1010,9 +1010,9 @@ void reestimate_trees(void **models, int nmodels, void *data,
   if (phmm->indel_mode == PARAMETERIC)
     phmm_set_branch_len_factors(phmm);
 
-  gsl_vector_free(params); 
-  gsl_vector_free(lower_bounds);
-  gsl_vector_free(upper_bounds);
+  vec_free(params); 
+  vec_free(lower_bounds);
+  vec_free(upper_bounds);
 }
 
 /* Wrapper for computation of likelihood, for use by reestimate_rho (below) */
@@ -1105,8 +1105,8 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
     mm_set(phmm->functional_hmm->transition_matrix, 1, 1, 1-nu);
 
     /* use stationary distribution for begin transitions */
-    gsl_vector_set(phmm->functional_hmm->begin_transitions, 0, nu/(mu+nu));
-    gsl_vector_set(phmm->functional_hmm->begin_transitions, 1, mu/(mu+nu));
+    vec_set(phmm->functional_hmm->begin_transitions, 0, nu/(mu+nu));
+    vec_set(phmm->functional_hmm->begin_transitions, 1, mu/(mu+nu));
   }
 
   if (phmm->indel_mode == PARAMETERIC) {
@@ -1128,18 +1128,18 @@ void init_eqfreqs(TreeModel *mod, MSA *msa, double gc) {
         mod->rate_matrix->inv_states[(int)'T'] < 0)
       die("ERROR: Four-character DNA alphabet required with --gc.\n");
     assert(gc > 0 && gc < 1);
-    gsl_vector_set(mod->backgd_freqs, 
+    vec_set(mod->backgd_freqs, 
                    mod->rate_matrix->inv_states[(int)'G'], gc/2);
-    gsl_vector_set(mod->backgd_freqs, 
+    vec_set(mod->backgd_freqs, 
                    mod->rate_matrix->inv_states[(int)'C'], gc/2);
-    gsl_vector_set(mod->backgd_freqs, 
+    vec_set(mod->backgd_freqs, 
                    mod->rate_matrix->inv_states[(int)'A'], (1-gc)/2);
-    gsl_vector_set(mod->backgd_freqs, 
+    vec_set(mod->backgd_freqs, 
                    mod->rate_matrix->inv_states[(int)'T'], (1-gc)/2);
   }
   else {                        /* estimate from alignment */
     if (mod->subst_mod == JC69 || mod->subst_mod == K80)
-      gsl_vector_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
+      vec_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
     else
       msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order+1, -1);
   }

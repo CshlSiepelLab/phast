@@ -130,7 +130,7 @@ int main(int argc, char *argv[]) {
   SeqSet *seqset = NULL;
   PooledMSA *pmsa = NULL;
   msa_format_type msa_format = FASTA;
-  gsl_vector *backgd_mnmod = NULL;
+  Vector *backgd_mnmod = NULL;
   Hashtable *hash;
   String *output_prefix = str_new_charstr("phastm.");
   double *has_motif = NULL;
@@ -312,7 +312,7 @@ int main(int argc, char *argv[]) {
                                    backgd isn't really part of the
                                    estimation procedure */
     if (meme_mode) {
-      backgd_mnmod = gsl_vector_alloc(strlen(seqset->set->alphabet));
+      backgd_mnmod = vec_new(strlen(seqset->set->alphabet));
       mtf_estim_backgd_mn(seqset, backgd_mnmod);
     }
     else {

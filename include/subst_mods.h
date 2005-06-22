@@ -1,4 +1,4 @@
-/* $Id: subst_mods.h,v 1.2 2004-06-19 20:35:14 acs Exp $
+/* $Id: subst_mods.h,v 1.3 2005-06-22 07:11:20 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -6,7 +6,7 @@
 #define SUBST_MODS_H
 
 #include <markov_matrix.h>
-#include <gsl/gsl_vector.h>
+#include <vector.h>
 #include <stringsplus.h>
 
 typedef enum {
@@ -37,10 +37,10 @@ subst_mod_type tm_get_subst_mod_type(char *str);
 char *tm_get_subst_mod_string(subst_mod_type type);
 int tm_get_nratematparams(struct tm_struct *mod);
 int tm_order(int subst_mod);
-void tm_set_rate_matrix(struct tm_struct *mod, gsl_vector *params, int i);
-void tm_rate_params_init(struct tm_struct *mod, gsl_vector *params, 
+void tm_set_rate_matrix(struct tm_struct *mod, Vector *params, int i);
+void tm_rate_params_init(struct tm_struct *mod, Vector *params, 
                          int params_idx, double kappa);
-void tm_rate_params_init_from_model(struct tm_struct *mod, gsl_vector *params, 
+void tm_rate_params_init_from_model(struct tm_struct *mod, Vector *params, 
                                     int params_idx);
 
 #endif

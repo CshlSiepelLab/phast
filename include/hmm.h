@@ -1,4 +1,4 @@
-/* $Id: hmm.h,v 1.2 2004-06-09 17:10:29 acs Exp $
+/* $Id: hmm.h,v 1.3 2005-06-22 07:11:20 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -11,7 +11,7 @@
 #ifndef HMM_H
 #define HMM_H
 
-#include <gsl/gsl_matrix.h>
+#include <matrix.h>
 #include <markov_matrix.h>
 #include <misc.h>
 #include <lists.h>
@@ -34,9 +34,9 @@ typedef enum {VITERBI, FORWARD, BACKWARD} hmm_mode;
 typedef struct {
   int nstates;
   MarkovMatrix *transition_matrix;
-  gsl_matrix *transition_score_matrix; /* entries are logs of entries
+  Matrix *transition_score_matrix; /* entries are logs of entries
                                         * in transition matrix */
-  gsl_vector *begin_transitions, *end_transitions, 
+  Vector *begin_transitions, *end_transitions, 
     *begin_transition_scores, *end_transition_scores, *eq_freqs;
   List **predecessors, **successors;
   List *begin_successors, *end_predecessors;
@@ -44,9 +44,9 @@ typedef struct {
 
 
 
-HMM* hmm_new(MarkovMatrix *mm, gsl_vector *eq_freqs,
-             gsl_vector *begin_transitions, 
-             gsl_vector *end_transitions);
+HMM* hmm_new(MarkovMatrix *mm, Vector *eq_freqs,
+             Vector *begin_transitions, 
+             Vector *end_transitions);
 HMM *hmm_new_nstates(int nstates, int begin, int end);
 HMM *hmm_create_copy(HMM *src);
 void hmm_free(HMM *hmm);
@@ -70,18 +70,18 @@ double hmm_max_or_sum(HMM *hmm, double **full_scores, double **emission_scores,
 void hmm_dump_matrices(HMM *hmm, double **emission_scores, int seqlen,
                        double **full_scores, int **backptr);
 
-void hmm_train_from_counts(HMM *hmm, gsl_matrix *trans_counts, 
-                           gsl_matrix *trans_pseudocounts,
-                           gsl_vector *state_counts,
-                           gsl_vector *state_pseudocounts,
-                           gsl_vector *beg_counts, 
-                           gsl_vector *beg_pseudocounts);
+void hmm_train_from_counts(HMM *hmm, Matrix *trans_counts, 
+                           Matrix *trans_pseudocounts,
+                           Vector *state_counts,
+                           Vector *state_pseudocounts,
+                           Vector *beg_counts, 
+                           Vector *beg_pseudocounts);
 void hmm_train_from_paths(HMM *hmm, int **path, int npaths,
-                          gsl_matrix *trans_pseudocounts, 
-                          gsl_vector *state_pseudocounts,int use_begin,
-                          gsl_vector *beg_pseudocounts);
-void hmm_train_update_counts(gsl_matrix *trans_counts, gsl_vector *state_counts, 
-                             gsl_vector *beg_counts,
+                          Matrix *trans_pseudocounts, 
+                          Vector *state_pseudocounts,int use_begin,
+                          Vector *beg_pseudocounts);
+void hmm_train_update_counts(Matrix *trans_counts, Vector *state_counts, 
+                             Vector *beg_counts,
                              int *path, int len, int nstates);
 HMM *hmm_create_trivial();
 double hmm_path_likelihood(HMM *hmm, double **emission_scores, int seqlen, 

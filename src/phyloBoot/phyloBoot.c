@@ -347,7 +347,7 @@ int main(int argc, char *argv[]) {
   } /* if input_mods == NULL */
 
   for (i = 0; i < nreps; i++) {
-    gsl_vector *params;
+    Vector *params;
     TreeModel *thismod;
 
     /* generate alignment */
@@ -396,7 +396,7 @@ int main(int argc, char *argv[]) {
         params = tm_params_init(thismod, .1, 5, 1);    
 
       if (init_mod != NULL && thismod->backgd_freqs != NULL) {
-        gsl_vector_free(thismod->backgd_freqs);
+        vec_free(thismod->backgd_freqs);
         thismod->backgd_freqs = NULL; /* force re-estimation */
       }
 
@@ -444,19 +444,19 @@ int main(int argc, char *argv[]) {
 
       /* record estimates for this replicate */
       for (j = 0; j < nparams; j++)
-        lst_push_dbl(estimates[j], gsl_vector_get(params, j));
+        lst_push_dbl(estimates[j], vec_get(params, j));
     }
 
     if (input_mods == NULL && do_estimates) {
       if (repmod == NULL) repmod = thismod; /* keep around one representative model */
       else tm_free(thismod);
     }
-    if (do_estimates) gsl_vector_free(params);
+    if (do_estimates) vec_free(params);
   }
 
   /* finally, compute and print stats */
   if (do_estimates) {
-    gsl_vector *ave_params = gsl_vector_alloc(nparams); 
+    Vector *ave_params = vec_new(nparams); 
     printf("%-7s %-25s %9s %9s %9s %9s %9s %9s %9s %9s %9s\n", "param", 
            "description", "mean", "stdev", "median", "min", "max", "95%_min", 
            "95%_max", "90%_min", "90%_max");
@@ -472,7 +472,7 @@ int main(int argc, char *argv[]) {
              j, descriptions[j], mean, stdev, quantile_vals[3], quantile_vals[0], 
              quantile_vals[6], quantile_vals[1], quantile_vals[5], quantile_vals[2], 
              quantile_vals[4]);
-      gsl_vector_set(ave_params, j, mean);
+      vec_set(ave_params, j, mean);
     }
 
     if (ave_model != NULL) {
@@ -480,7 +480,7 @@ int main(int argc, char *argv[]) {
       if (!quiet) fprintf(stderr, "Writing average model to %s...\n", ave_model);
       tm_print(fopen_fname(ave_model, "w+"), repmod);
     }
-    gsl_vector_free(ave_params);
+    vec_free(ave_params);
   }
 
   if (!quiet) fprintf(stderr, "Done.\n");

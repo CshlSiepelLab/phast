@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.8 2005-03-23 19:38:19 acs Exp $
+/* $Id: misc.c,v 1.9 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -163,8 +163,8 @@ void get_tuple_str(char *tuple_str, int tuple_idx, int tuple_size,
 /* WARNING: only minor testing perfomed.  Check carefully if use
    without predefined alphabet or with alphabets that do not match in
    order */
-gsl_matrix* read_subst_mat(FILE *F, char *alph) {
-  gsl_matrix *retval = NULL;
+Matrix* read_subst_mat(FILE *F, char *alph) {
+  Matrix *retval = NULL;
   int i = 0, j, size = 0, file_size = 0, row_idx;
   List *fields = lst_new_ptr(100);
   String *line = str_new(STR_MED_LEN), *rowstr;
@@ -192,7 +192,7 @@ gsl_matrix* read_subst_mat(FILE *F, char *alph) {
       if (!predefined_alph) strcpy(alph, line->chars);
       file_size = strlen(file_alph); 
       size = strlen(alph);
-      retval = gsl_matrix_calloc(size, size);
+      retval = mat_new(size, size);
     }
     else {
       str_split(line, NULL, fields);
@@ -222,7 +222,7 @@ gsl_matrix* read_subst_mat(FILE *F, char *alph) {
                     ((String*)lst_get_ptr(fields, j+1))->chars);
             exit(1);
           }
-          gsl_matrix_set(retval, row_idx, col_idx, val);
+          mat_set(retval, row_idx, col_idx, val);
         }
         str_free(lst_get_ptr(fields, j+1));
       }
@@ -541,6 +541,89 @@ Hashtable *make_name_hash(char *mapstr) {
   return retval;
 }
 
+/** Evaluate pdf of gamma distribution with parameters a and b */
+double gamma_pdf(double x, double a, double b) {
+  return 1/(gamma(a) * pow(b, a)) * pow(x, a-1) * exp(-x/b);
+}
+
+/* make a draw from an exponential distribution with parameter
+   (expected value) 'b' */
+double exp_draw(double b) {
+  return -log(1.0 * rand() / RAND_MAX) * b;
+}
+
+/* make a draw from a gamma distribution with parameters 'a' and
+   'b'. Be sure to call srand externally.  If a == 1, exp_draw is
+   called.  If a > 1, Best's (1978) rejection algorithm is used, and
+   if a < 1, rejection sampling from the Weibull distribution is
+   performed, both as described in "Non-Uniform Random Variate
+   Generation" by Luc Devroye, available online at
+   http://cgm.cs.mcgill.ca/~luc/rnbookindex.html */
+double gamma_draw(double a, double b) {
+  double retval = -1;
+
+  assert(a > 0);
+
+  if (a == 1) return exp_draw(b);
+
+  else if (a > 1) {
+    while (retval == -1) {
+      double U, V, W, X, Y, Z;
+      double d = a - 1, c = 3 * a - 0.75;
+
+      U = 1.0*rand()/RAND_MAX;	/* uniform on [0, 1]; used for draw */
+      V = 1.0*rand()/RAND_MAX;	/* also uniform on [0, 1]; used for
+				   rejection/acceptance */
+      W = U * (1 - U);
+      Y = sqrt(c / W) * (U - 0.5); 
+      X = d + Y;
+      /* Y is a scaled version of a random variate from a t distribution
+	 with 2 dof; X is a random deviate from a shifted distribution
+	 whose ratio with a gamma(a, 1) can be bounded by a constant */
+
+      if (X < 0) continue;	/* truncate because of nonnegativity
+				   of gamma */
+    
+      Z = 64 * W * W * W * V * V;
+      if (log(Z) <= 2 * (d * log(X / d) - Y))
+	retval = X;
+      /* there's some algebra behind this, but underneath it's just
+	 the standard rejection sampling idea of accepting with
+	 probability p(x)/(M*q(x)), where p(x) is the density of the
+	 desired distrib, q(x) is the density of the distrib from which
+	 you have sampled, and M is a constant such that p(x) / q(x) <=
+	 M for all x */
+    }
+  }
+
+  else {			/* use Weibull */
+    double c = 1/a, d = pow(a, a/(1-a)) * (1-a);
+    while (retval == -1) {
+      double E, Z, X;
+      E = exp_draw(1);
+      Z = exp_draw(1);
+      X = pow(Z, c);		/* X is Weibull(a) */
+      if (Z + E >= d + X)	/* note: wrong in book, correct
+				   formula in errata */
+	retval = X;
+    }
+  }
+
+  /* so far we only have a draw from gamma(a, 1); multiply by b to
+     obtain a draw from gamma(a, b) */
+  return retval * b;
+}
+
+/* make a draw from a k-dimensional Dirichlet distribution, with
+   parameters given by alpha[0], ..., alpha[k-1].  This is
+   accomplished by sampling from gamma distributions with parameters
+   alpha[0], ..., alpha[k-1] and renormalizing */
+void dirichlet_draw(int k, double *alpha, double *theta) {
+  int i;
+  for (i = 0; i < k; i++) 
+    theta[i] = gamma_draw(alpha[i], 1);
+  normalize_probs(theta, k);
+}
 
 /***************************************************************************/
 /* for debugging: these functions can be called dynamically in gdb to

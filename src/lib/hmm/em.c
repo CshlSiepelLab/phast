@@ -1,4 +1,4 @@
-/* $Id: em.c,v 1.9 2005-05-31 06:38:07 acs Exp $
+/* $Id: em.c,v 1.10 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -52,7 +52,7 @@ void default_log_function(FILE *logf, double total_logl, HMM *hmm,
    sense if estimate_state_models == NULL, nsamples == 1, and
    emissions are precomputed & passed in as emissions_alloc */
 double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples, 
-                       int *sample_lens, gsl_matrix *pseudocounts, 
+                       int *sample_lens, Matrix *pseudocounts, 
                        void (*compute_emissions)(double**, void**, int, void*, 
                                                  int, int), 
                        void (*estimate_state_models)(void**, int, void*, 

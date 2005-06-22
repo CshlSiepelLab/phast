@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.19 2004-10-04 05:49:03 acs Exp $
+/* $Id: tree_model.c,v 1.20 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -17,8 +17,6 @@
 #include <matrix.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <gsl/gsl_complex_math.h>
-#include <gsl/gsl_randist.h>
 #include <dgamma.h>
 #include <math.h>
 
@@ -38,12 +36,12 @@
 #define RATE_WEIGHTS_TAG "RATE_WEIGHTS:"
 
 /* internal functions */
-double tm_likelihood_wrapper(gsl_vector *params, void *data);
+double tm_likelihood_wrapper(Vector *params, void *data);
 
 /* tree == NULL implies weight matrix (most other params ignored in
    this case) */
 TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix, 
-                  gsl_vector *backgd_freqs, subst_mod_type subst_mod, 
+                  Vector *backgd_freqs, subst_mod_type subst_mod, 
                   char *alphabet, int nratecats, double alpha, 
                   List *rate_consts, int root_leaf_id) {
   TreeModel *tm = (TreeModel*)smalloc(sizeof(TreeModel));
@@ -91,7 +89,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
       for (i = 0; i < nratecats; i++) {
         tm->rK[i] = lst_get_dbl(rate_consts, i);
         interval_size = tm->rK[i] - (i > 0 ? tm->rK[i-1] : 0);
-        tm->freqK[i] = gsl_ran_gamma_pdf(tm->rK[i], initalpha, 1/initalpha) * 
+        tm->freqK[i] = gamma_pdf(tm->rK[i], initalpha, 1/initalpha) * 
           interval_size; 
         /* init to approx gamma with shape param alpha. */
       }
@@ -173,7 +171,7 @@ void tm_reinit(TreeModel *tm,   /**< TreeModel object to reinitialize  */
         tm->freqK[i] = lst_get_dbl(new_rate_weights, i);
       else {
         interval_size = tm->rK[i] - (i > 0 ? tm->rK[i-1] : 0);
-        tm->freqK[i] = gsl_ran_gamma_pdf(tm->rK[i], initalpha, 1/initalpha) * 
+        tm->freqK[i] = gamma_pdf(tm->rK[i], initalpha, 1/initalpha) * 
           interval_size; 
         /* init to approx gamma with shape param alpha. */
       }
@@ -208,7 +206,7 @@ void tm_free(TreeModel *tm) {
     tr_free(tm->tree);
   }
   if (tm->rate_matrix != NULL) mm_free(tm->rate_matrix);
-  if (tm->backgd_freqs != NULL) gsl_vector_free(tm->backgd_freqs);
+  if (tm->backgd_freqs != NULL) vec_free(tm->backgd_freqs);
   free(tm);
 }
 
@@ -253,8 +251,8 @@ void tm_free_rmp(TreeModel *tm) {
 TreeModel *tm_new_from_file(FILE *f) {
   char tag[STR_MED_LEN], alphabet[MAX_ALPH_SIZE]; 
   String *tmpstr = str_new(STR_LONG_LEN);
-  gsl_vector *backgd = NULL, *rate_weights = NULL;
-  gsl_matrix *rmat = NULL;
+  Vector *backgd = NULL, *rate_weights = NULL;
+  Matrix *rmat = NULL;
   MarkovMatrix *M = NULL;
   TreeNode *tree = NULL;
   int size = 0, order = 0, nratecats = -1, empty = TRUE;
@@ -307,16 +305,14 @@ TreeModel *tm_new_from_file(FILE *f) {
         fprintf(stderr, "ERROR: ALPHABET line must precede BACKGROUND and RATE_MATRIX in tree model file.\n");
         exit(1);
       }
-      backgd = gsl_vector_alloc(size);
-      gsl_vector_fscanf(f, backgd);
+      backgd = vec_new_from_file(f, size);
     }
     else if (!strcmp(tag, RATE_MATRIX_TAG)) {
       if (size == 0) {
         fprintf(stderr, "ERROR: ALPHABET line must precede BACKGROUND and RATE_MAT in tree model file.\n");
         exit(1);
       }
-      rmat = gsl_matrix_alloc(size, size);
-      gsl_matrix_fscanf(f, rmat);
+      rmat = mat_new_from_file(f, size, size);
     }
     else if (!strcmp(tag, TREE_TAG)) {
       str_readline(tmpstr, f);
@@ -325,23 +321,21 @@ TreeModel *tm_new_from_file(FILE *f) {
     else if (strcmp(tag, LNL_TAG) == 0) 
       str_readline(tmpstr, f);  /* discard */
     else if (!strcmp(tag, RATE_CONSTS_TAG)) {
-      gsl_vector *tmpvect;
+      Vector *tmpvect;
       if (nratecats < 0) 
         die("ERROR: NRATECATS must precede RATE_CONSTS in tree model file.\n");
-      /* easiest to use gsl_vector_fscanf and convert */
-      tmpvect = gsl_vector_alloc(nratecats); 
-      gsl_vector_fscanf(f, tmpvect);
+      /* easiest to use vec_read and convert */
+      tmpvect = vec_new_from_file(f, nratecats);
       rate_consts = lst_new_dbl(nratecats);
       for (i = 0; i < nratecats; i++) 
-        lst_push_dbl(rate_consts, gsl_vector_get(tmpvect, i));
-      gsl_vector_free(tmpvect);                     
+        lst_push_dbl(rate_consts, vec_get(tmpvect, i));
+      vec_free(tmpvect);                     
     }
     else if (!strcmp(tag, RATE_WEIGHTS_TAG)) {
-      gsl_vector *rate_weights;
+      Vector *rate_weights;
       if (nratecats < 0) 
         die("ERROR: NRATECATS must precede RATE_WEIGHTS in tree model file.\n");
-      rate_weights = gsl_vector_alloc(nratecats);
-      gsl_vector_fscanf(f, rate_weights);
+      rate_weights = vec_new_from_file(f, nratecats);
     }
     else {
       fprintf(stderr, "ERROR: unrecognized tag in model file (\"%s\").\n", 
@@ -374,13 +368,13 @@ TreeModel *tm_new_from_file(FILE *f) {
     if (!retval->empirical_rates) 
       die("ERROR: RATE_CONSTS required if RATE_WEIGHTS.\n");
     for (i = 0; i < nratecats; i++) 
-      retval->freqK[i] = gsl_vector_get(rate_weights, i);
+      retval->freqK[i] = vec_get(rate_weights, i);
     normalize_probs(retval->freqK, retval->nratecats);
   }
 
   str_free(tmpstr);
   if (rate_consts != NULL) lst_free(rate_consts);
-  if (rate_weights != NULL) gsl_vector_free(rate_weights);
+  if (rate_weights != NULL) vec_free(rate_weights);
 
   return retval;
 }
@@ -416,12 +410,12 @@ void tm_print(FILE *F, TreeModel *tm) {
 
   fprintf(F, "%s ", BACKGROUND_TAG);
   for (i = 0; i < tm->backgd_freqs->size; i++) 
-    fprintf(F, "%f ", gsl_vector_get(tm->backgd_freqs, i));
+    fprintf(F, "%f ", vec_get(tm->backgd_freqs, i));
   fprintf(F, "\n");
 
   if (tm->rate_matrix != NULL) {
     fprintf(F, "%s\n", RATE_MATRIX_TAG);
-    gsl_matrix_pretty_print(F, tm->rate_matrix->matrix);
+    mat_print(tm->rate_matrix->matrix, F);
   }
 
   if (tm->tree != NULL) {
@@ -432,10 +426,10 @@ void tm_print(FILE *F, TreeModel *tm) {
 
 TreeModel *tm_create_copy(TreeModel *src) {
   TreeModel *retval;
-  gsl_vector *freqs = gsl_vector_alloc(src->backgd_freqs->size);
+  Vector *freqs = vec_new(src->backgd_freqs->size);
   int i;
 
-  gsl_vector_memcpy(freqs, src->backgd_freqs);
+  vec_copy(freqs, src->backgd_freqs);
   retval = tm_new(src->tree != NULL ? tr_create_copy(src->tree) : NULL, 
                   mm_create_copy(src->rate_matrix), freqs, 
                   src->subst_mod, NULL, 
@@ -478,8 +472,8 @@ void tm_set_subst_matrices(TreeModel *tm) {
      freqs, in this case (see below) */
   if (tm->subst_mod == F81) {   
     for (i = 0, tmp = 0; i < tm->rate_matrix->size; i++)
-      tmp += gsl_vector_get(tm->backgd_freqs, i) *
-        gsl_vector_get(tm->backgd_freqs, i);
+      tmp += vec_get(tm->backgd_freqs, i) *
+        vec_get(tm->backgd_freqs, i);
     scaling_const = 1.0/(1 - tmp);
   }
 
@@ -615,10 +609,10 @@ MSA *tm_generate_msa(int ncolumns,
    background frequencies.  The vector 'params' should define the
    initial values for the optimization procedure.  Fuction returns 0
    on success, 1 on failure.  */  
-int tm_fit(TreeModel *mod, MSA *msa, gsl_vector *params, int cat, 
+int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat, 
            opt_precision_type precision, FILE *logf) {
   double ll;
-  gsl_vector *lower_bounds, *upper_bounds;
+  Vector *lower_bounds, *upper_bounds;
   int retval = 0;
 
   if (msa->ss == NULL) {
@@ -627,10 +621,10 @@ int tm_fit(TreeModel *mod, MSA *msa, gsl_vector *params, int cat,
   }
 
   if (mod->backgd_freqs == NULL) { 
-    mod->backgd_freqs = gsl_vector_calloc(int_pow(strlen(msa->alphabet), 
+    mod->backgd_freqs = vec_new(int_pow(strlen(msa->alphabet), 
                                                   mod->order+1));
     if (mod->subst_mod == JC69 || mod->subst_mod == K80)
-      gsl_vector_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
+      vec_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
     else
       msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order + 1, cat);
   }
@@ -646,14 +640,14 @@ int tm_fit(TreeModel *mod, MSA *msa, gsl_vector *params, int cat,
   mod->category = cat;
 
   /* most params have lower bound of zero and no upper bound */
-  lower_bounds = gsl_vector_calloc(params->size);
+  lower_bounds = vec_new(params->size);
   upper_bounds = NULL;
 
   /* however, in this case we don't want the eq freqs to go to zero */
   if (mod->estimate_backgd) {
     int i, offset = tm_get_nbranchlenparams(mod);
     for (i = 0; i < mod->backgd_freqs->size; i++)
-      gsl_vector_set(lower_bounds, i + offset, 0.001);
+      vec_set(lower_bounds, i + offset, 0.001);
   }
 
   retval = opt_bfgs(tm_likelihood_wrapper, params, (void*)mod, &ll, 
@@ -681,7 +675,7 @@ int tm_fit(TreeModel *mod, MSA *msa, gsl_vector *params, int cat,
     mod->scale = 1;
   }
 
-  gsl_vector_free(lower_bounds);
+  vec_free(lower_bounds);
 
   if (retval != 0) 
     fprintf(stderr, "WARNING: BFGS algorithm reached its maximum number of iterations.\n");
@@ -691,7 +685,7 @@ int tm_fit(TreeModel *mod, MSA *msa, gsl_vector *params, int cat,
 
 
 /* Wrapper for computation of likelihood, for use by nr_optimize */
-double tm_likelihood_wrapper(gsl_vector *params, void *data) {
+double tm_likelihood_wrapper(Vector *params, void *data) {
   TreeModel *mod = (TreeModel*)data;
   tm_unpack_params(mod, params, -1);
   return -1 * tl_compute_log_likelihood(mod, mod->msa, NULL, mod->category,
@@ -703,7 +697,7 @@ double tm_likelihood_wrapper(gsl_vector *params, void *data) {
    can be specified for cases in which vectors of parameters are
    nested within larger vectors of parameters (set to -1 if not
    needed) */
-void tm_unpack_params(TreeModel *mod, gsl_vector *params, int idx_offset) {
+void tm_unpack_params(TreeModel *mod, Vector *params, int idx_offset) {
   TreeNode *n;
   int nparams = tm_get_nparams(mod);
   int assigned = 0, nodeidx, i, j;
@@ -716,9 +710,9 @@ void tm_unpack_params(TreeModel *mod, gsl_vector *params, int idx_offset) {
        finite.  As of yet, all models use nonnegative parameters only,
        so also make sure all params are nonnegative. */
     for (i = 0; i < params->size; i++) {
-      double p = gsl_vector_get(params, i);
+      double p = vec_get(params, i);
       if (p < 0 && abs(p) < TM_IMAG_EPS) /* consider close enough to 0 */
-        gsl_vector_set(params, i, p=0);
+        vec_set(params, i, p=0);
       if (p < 0) die("ERROR: parameter %d has become negative (%f).\n", i, p);
       if (!finite(p)) die("ERROR: parameter %d is no longer finite (%f).\n", 
                           i, p);
@@ -731,7 +725,7 @@ void tm_unpack_params(TreeModel *mod, gsl_vector *params, int idx_offset) {
   if (mod->estimate_branchlens == TM_SCALE_ONLY) {
     if (mod->empirical_rates && (mod->nratecats > 1 || mod->alpha < 0)) i++;
                                 /* in this case, skip scale */
-    else mod->scale = gsl_vector_get(params, i++);
+    else mod->scale = vec_get(params, i++);
   }
   else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
     /* first nnodes-2 elements define branch lengths */
@@ -747,7 +741,7 @@ void tm_unpack_params(TreeModel *mod, gsl_vector *params, int idx_offset) {
            to simulate an unrooted tree */
         if ((n == mod->tree->lchild || n == mod->tree->rchild) && 
             tm_is_reversible(mod->subst_mod)) {
-          n->dparent = gsl_vector_get(params, 0)/2;
+          n->dparent = vec_get(params, 0)/2;
           if (!assigned) {
             i++;     /* only increment the first time */
             assigned = 1;
@@ -756,7 +750,7 @@ void tm_unpack_params(TreeModel *mod, gsl_vector *params, int idx_offset) {
         else if (n->id == mod->root_leaf_id) 
           n->dparent = 0;
         else 
-          n->dparent = gsl_vector_get(params, i++);
+          n->dparent = vec_get(params, i++);
       }
     }
   }
@@ -765,20 +759,20 @@ void tm_unpack_params(TreeModel *mod, gsl_vector *params, int idx_offset) {
   if (mod->estimate_backgd) {
     double sum = 0;
     for (j = 0; j < mod->backgd_freqs->size; j++) 
-      sum += gsl_vector_get(params, i+j);
+      sum += vec_get(params, i+j);
     for (j = 0; j < mod->backgd_freqs->size; j++)
-      gsl_vector_set(mod->backgd_freqs, j, gsl_vector_get(params, i++)/sum);
+      vec_set(mod->backgd_freqs, j, vec_get(params, i++)/sum);
   }
 
   /* next parameters are for rate variation */
   if (mod->nratecats > 1) {
     if (mod->empirical_rates) {
       for (j = 0; j < mod->nratecats; j++)
-        mod->freqK[j] = gsl_vector_get(params, i++);
+        mod->freqK[j] = vec_get(params, i++);
                                 /* assume normalized */
     }
     else {                      /* discrete gamma model */
-      mod->alpha = gsl_vector_get(params, i++);
+      mod->alpha = vec_get(params, i++);
       DiscreteGamma(mod->freqK, mod->rK, mod->alpha, mod->alpha, 
                     mod->nratecats, 0); 
     }
@@ -819,7 +813,7 @@ double tm_scale_rate_matrix(TreeModel *mod) {
     for (j = 0; j < mod->rate_matrix->size; j++) {
       if (j != i) rowsum += mm_get(mod->rate_matrix, i, j);
     }
-    scale += (gsl_vector_get(mod->backgd_freqs, i) * rowsum);
+    scale += (vec_get(mod->backgd_freqs, i) * rowsum);
   }
 
   mm_scale(mod->rate_matrix, (mod->order + 1)/scale);
@@ -829,7 +823,7 @@ double tm_scale_rate_matrix(TreeModel *mod) {
 /* scale a parameter vector according to a specified rate matrix scale
    factor.  Branch length params are multiplied by the specified factor
    and rate matrix params by its inverse */
-void tm_scale_params(TreeModel *mod, gsl_vector *params, double scale_factor) {
+void tm_scale_params(TreeModel *mod, Vector *params, double scale_factor) {
   int i;
   int nbl = tm_get_nbranchlenparams(mod);
   int nrm = tm_get_nratematparams(mod);
@@ -837,9 +831,9 @@ void tm_scale_params(TreeModel *mod, gsl_vector *params, double scale_factor) {
                                        number of params between the
                                        branchlen and ratemat params */
   for (i = 0; i < nbl; i++)
-    gsl_vector_set(params, i, gsl_vector_get(params, i) * scale_factor);
+    vec_set(params, i, vec_get(params, i) * scale_factor);
   for (i = np - nrm; i < np; i++) 
-    gsl_vector_set(params, i, gsl_vector_get(params, i) / scale_factor);
+    vec_set(params, i, vec_get(params, i) / scale_factor);
 }
 
 /* initializes all branch lengths to designated constant; initializes
@@ -847,17 +841,17 @@ void tm_scale_params(TreeModel *mod, gsl_vector *params, double scale_factor) {
    REV and UNREST initialized as if HKY.  Initializes alpha as
    specified, if dgamma.  In the case of empirical rates, uniform
    weights are used for initialization. */
-gsl_vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
+Vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
                            double alpha) {
   int nparams = tm_get_nparams(mod);
-  gsl_vector *params = gsl_vector_alloc(nparams);
+  Vector *params = vec_new(nparams);
   int i, nbranches, params_idx;
 
   /* initialize branch-length parameters */
   nbranches = tm_get_nbranchlenparams(mod);
   
   for (i = 0; i < nbranches; i++)
-    gsl_vector_set(params, i, branchlen);
+    vec_set(params, i, branchlen);
 
   params_idx = nbranches;
 
@@ -865,19 +859,19 @@ gsl_vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
     if (mod->backgd_freqs == NULL) {
       double alph_size = strlen(mod->rate_matrix->states);
       for (i = 0; i < alph_size; i++)
-        gsl_vector_set(params, params_idx++, 1.0/alph_size);
+        vec_set(params, params_idx++, 1.0/alph_size);
     }
     else
       for (i = 0; i < mod->backgd_freqs->size; i++)
-        gsl_vector_set(params, params_idx++, gsl_vector_get(mod->backgd_freqs, i));
+        vec_set(params, params_idx++, vec_get(mod->backgd_freqs, i));
   }
 
   if (mod->nratecats > 1) {
     if (mod->empirical_rates)
       for (i = 0; i < mod->nratecats; i++) 
-        gsl_vector_set(params, params_idx++, mod->freqK[i]);
+        vec_set(params, params_idx++, mod->freqK[i]);
     else
-      gsl_vector_set(params, params_idx++, alpha);
+      vec_set(params, params_idx++, alpha);
   }
 
   /* initialize rate-matrix parameters */
@@ -888,9 +882,9 @@ gsl_vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
 
 /* initializes branch lengths and rate matrix parameters
    randomly; can be used multiple times to ensure the MLE is real */
-gsl_vector *tm_params_init_random(TreeModel *mod) {
+Vector *tm_params_init_random(TreeModel *mod) {
   int i, params_idx = 0;
-  gsl_vector *params = gsl_vector_alloc(tm_get_nparams(mod));
+  Vector *params = vec_new(tm_get_nparams(mod));
   int nbranches = tm_get_nbranchlenparams(mod);
   int nratematparams = tm_get_nratematparams(mod);
 
@@ -900,7 +894,7 @@ gsl_vector *tm_params_init_random(TreeModel *mod) {
   srandom(time(NULL));
   
   for (i = 0; i < nbranches; i++)
-    gsl_vector_set(params, params_idx++, 
+    vec_set(params, params_idx++, 
                    0.01 + random() * (0.5 - 0.01) / RAND_MAX);
                                 /* we'll use the interval from 0.01 to 0.5 */
 
@@ -908,25 +902,25 @@ gsl_vector *tm_params_init_random(TreeModel *mod) {
     if (mod->empirical_rates) { /* empirical rate model (category weights) */
       double val, sum = 0;
       for (i = 0; i < mod->nratecats; i++) {
-        gsl_vector_set(params, params_idx + i, 
+        vec_set(params, params_idx + i, 
                        val = 0.1 + random() * (1 - 0.5) / RAND_MAX);
                                 /* we'll use the interval from 0.1 to 1 */
         sum += val;
       }
       for (i = 0; i < mod->nratecats; i++) /* normalize */
-        gsl_vector_set(params, params_idx + i, 
-                       gsl_vector_get(params, params_idx + i) / sum);
+        vec_set(params, params_idx + i, 
+                       vec_get(params, params_idx + i) / sum);
       params_idx += mod->nratecats;
     }
 
     else                        /* discrete gamma (alpha) */                       
-      gsl_vector_set(params, params_idx++, 
+      vec_set(params, params_idx++, 
                      0.5 + random() * (10 - 0.5) / RAND_MAX);
                                 /* we'll use the interval from 0.5 to 10 */
   }
 
   for (i = 0; i < nratematparams; i++) 
-    gsl_vector_set(params, params_idx++, 
+    vec_set(params, params_idx++, 
                    0.1 + random() * (5 - 0.1) / RAND_MAX);
                                 /* we'll use the interval from 0.1 to 5 */
 
@@ -935,20 +929,20 @@ gsl_vector *tm_params_init_random(TreeModel *mod) {
 
 
 /* Functions to initialize a parameter vector from an existing tree model */
-gsl_vector *tm_params_new_init_from_model(TreeModel *mod) {
-  gsl_vector *params = gsl_vector_alloc(tm_get_nparams(mod));
+Vector *tm_params_new_init_from_model(TreeModel *mod) {
+  Vector *params = vec_new(tm_get_nparams(mod));
   tm_params_init_from_model(mod, params, 0);
   return params;
 }
 
-void tm_params_init_from_model(TreeModel *mod, gsl_vector *params, 
+void tm_params_init_from_model(TreeModel *mod, Vector *params, 
                                int start_idx) {
   int params_idx = start_idx, nodeidx, j;
   List *traversal;
   TreeNode *n;
 
   if (mod->estimate_branchlens == TM_SCALE_ONLY) 
-    gsl_vector_set(params, params_idx++, mod->scale); 
+    vec_set(params, params_idx++, mod->scale); 
   else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
     traversal = tr_preorder(mod->tree);
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
@@ -958,25 +952,25 @@ void tm_params_init_from_model(TreeModel *mod, gsl_vector *params,
       /* Note: if the model is reversible, then the first parameter is
          the sum of the lengths of the two branches from the root */
       if (n == mod->tree->lchild && tm_is_reversible(mod->subst_mod))
-        gsl_vector_set(params, params_idx++, n->dparent*2);
+        vec_set(params, params_idx++, n->dparent*2);
       else if (n != mod->tree->rchild || !tm_is_reversible(mod->subst_mod))
-        gsl_vector_set(params, params_idx++, n->dparent);
+        vec_set(params, params_idx++, n->dparent);
     }
   }
 
   /* if estimating backgd, next params are backgd freqs */
   if (mod->estimate_backgd) 
     for (j = 0; j < mod->backgd_freqs->size; j++) 
-      gsl_vector_set(params, params_idx++, 
-                     gsl_vector_get(mod->backgd_freqs, j));
+      vec_set(params, params_idx++, 
+                     vec_get(mod->backgd_freqs, j));
 
   /* next parameters are for rate variation */
   if (mod->nratecats > 1 || mod->alpha < 0) {
     if (mod->empirical_rates) 
       for (j = 0; j < mod->nratecats; j++)
-        gsl_vector_set(params, params_idx++, mod->freqK[j]);
+        vec_set(params, params_idx++, mod->freqK[j]);
     else                        /* discrete gamma model */
-      gsl_vector_set(params, params_idx++, mod->alpha);
+      vec_set(params, params_idx++, mod->alpha);
   }
 
   /* initialize rate-matrix parameters */
@@ -987,7 +981,7 @@ void tm_params_init_from_model(TreeModel *mod, gsl_vector *params,
 TreeModel *tm_induced_aa(TreeModel *codon_mod) {
   TreeModel *retval;
   char *codon_to_aa = get_codon_mapping(codon_mod->rate_matrix->states);
-  gsl_vector *aa_freqs = gsl_vector_calloc(strlen(AA_ALPHABET));
+  Vector *aa_freqs = vec_new(strlen(AA_ALPHABET));
   MarkovMatrix *aa_mat = mm_new(strlen(AA_ALPHABET), AA_ALPHABET, CONTINUOUS);
   int i, j;
   int nstates = codon_mod->rate_matrix->size;
@@ -999,15 +993,15 @@ TreeModel *tm_induced_aa(TreeModel *codon_mod) {
     int aa_state_i = aa_mat->inv_states[(int)codon_to_aa[i]]; 
                                 /* state number corresponding to amino
                                    acid which corresponds to codon i */
-    gsl_vector_set(aa_freqs, aa_state_i, gsl_vector_get(aa_freqs, aa_state_i) + 
-                   gsl_vector_get(codon_mod->backgd_freqs, i));
+    vec_set(aa_freqs, aa_state_i, vec_get(aa_freqs, aa_state_i) + 
+                   vec_get(codon_mod->backgd_freqs, i));
   }
 
   /* compute induced matrix */
   for (i = 0; i < nstates; i++) {
     int aa_state_i = aa_mat->inv_states[(int)codon_to_aa[i]]; 
-    double cond_freq = safediv(gsl_vector_get(codon_mod->backgd_freqs, i),
-                               gsl_vector_get(aa_freqs, aa_state_i)); 
+    double cond_freq = safediv(vec_get(codon_mod->backgd_freqs, i),
+                               vec_get(aa_freqs, aa_state_i)); 
                                 /* freq of codon i given its aa */
     for (j = 0; j < nstates; j++) {
       int aa_state_j = aa_mat->inv_states[(int)codon_to_aa[j]]; 

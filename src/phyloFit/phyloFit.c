@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.28 2005-05-28 21:12:27 acs Exp $
+   $Id: phyloFit.c,v 1.29 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -572,9 +572,9 @@ void print_window_summary(FILE* WINDOWF, List *window_coords, int win,
             lst_get_int(window_coords, win), 
             lst_get_int(window_coords, win+1), cat);
     fprintf(WINDOWF, " %6.4f", 
-            gsl_vector_get(mod->backgd_freqs, 
+            vec_get(mod->backgd_freqs, 
                            mod->rate_matrix->inv_states[(int)'G']) + 
-            gsl_vector_get(mod->backgd_freqs, 
+            vec_get(mod->backgd_freqs, 
                            mod->rate_matrix->inv_states[(int)'C']));
     for (j = 0; j < nseqs; j++) fprintf(WINDOWF, " %6.4f", gc[j]);
     fprintf(WINDOWF, " %8.6f", cpg);
@@ -982,7 +982,7 @@ int main(int argc, char *argv[]) {
     /* process each category */
     for (i = 0; i < lst_size(cats_to_do); i++) {
       TreeModel *mod;
-      gsl_vector *params = NULL;
+      Vector *params = NULL;
       List *pruned_names;
       int old_nnodes, cat = lst_get_int(cats_to_do, i);
       unsigned int ninf_sites;
@@ -1094,7 +1094,7 @@ int main(int argc, char *argv[]) {
         if (input_mod != NULL && mod->backgd_freqs != NULL) {
           /* in some cases, these are needed for initialization, but
              now they should be re-estimated */
-          gsl_vector_free(mod->backgd_freqs);
+          vec_free(mod->backgd_freqs);
           mod->backgd_freqs = NULL;
         }
 
@@ -1167,7 +1167,7 @@ int main(int argc, char *argv[]) {
                              cpg, ninf_sites, msa->nseqs, FALSE);
 
       if (input_mod == NULL) tm_free(mod);
-      if (params != NULL) gsl_vector_free(params);
+      if (params != NULL) vec_free(params);
     }
     if (window_coords != NULL) 
       msa_free(msa);

@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.40 2005-06-14 03:52:49 acs Exp $
+/* $Id: msa.c,v 1.41 2005-06-22 07:11:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -214,8 +214,8 @@ MSA *msa_create_copy(MSA *msa, int suff_stats_only) {
     memcpy(retval->categories, msa->categories, msa->length * sizeof(int));
   }
 /*   if (msa->base_freqs != NULL) { */
-/*     retval->base_freqs = gsl_vector_alloc(msa->base_freqs->size); */
-/*     gsl_vector_memcpy(retval->base_freqs, msa->base_freqs); */
+/*     retval->base_freqs = vec_new(msa->base_freqs->size); */
+/*     vec_copy(retval->base_freqs, msa->base_freqs); */
 /*     retval->base_freqs_cat = msa->base_freqs_cat; */
 /*   } */
 
@@ -1065,16 +1065,16 @@ void msa_print_stats(MSA *msa, FILE *F, char *label, int header, int start,
     fprintf(F, "%10s\n", "some_gaps");
   }
   else {
-    gsl_vector *freqs = msa_get_base_freqs(msa, start, end);
+    Vector *freqs = msa_get_base_freqs(msa, start, end);
     int nallgaps = msa_num_gapped_cols(msa, STRIP_ALL_GAPS, start, end);
     int nanygaps = msa_num_gapped_cols(msa, STRIP_ANY_GAPS, start, end);
     int i;
     double gc = 0;
     fprintf(F, "%-20s ", label);
     for (i = 0; i < strlen(msa->alphabet); i++) {
-      fprintf(F, "%10.4f ", gsl_vector_get(freqs, i));
+      fprintf(F, "%10.4f ", vec_get(freqs, i));
       if (msa->alphabet[i] == 'G' || msa->alphabet[i] == 'C')
-        gc += gsl_vector_get(freqs, i);
+        gc += vec_get(freqs, i);
     }
     fprintf(F, "%10.4f ", gc);
     fprintf(F, "%10u ", start >= 0 && end >= 0 ? end - start : msa->length);
@@ -1087,11 +1087,11 @@ void msa_print_stats(MSA *msa, FILE *F, char *label, int header, int start,
    consisting of frequencies listed in the order of the alphabet. If
    start and end are *not* -1, freqs are based on the indicated interval
    (half-open, 0-based) */
-gsl_vector *msa_get_base_freqs(MSA *msa, int start, int end) {
+Vector *msa_get_base_freqs(MSA *msa, int start, int end) {
   int i, j, size = strlen(msa->alphabet);
   double sum = 0;
   int s = start > 0 ? start : 0, e = end > 0 ? end : msa->length;
-  gsl_vector *base_freqs = gsl_vector_calloc(size);
+  Vector *base_freqs = vec_new(size);
 
   if (msa->ss != NULL && (start != -1 || end != -1)) 
     assert(msa->ss->tuple_idx != NULL);
@@ -1107,8 +1107,8 @@ gsl_vector *msa_get_base_freqs(MSA *msa, int start, int end) {
           int idx = msa->inv_alphabet[(int)c];
           if (idx == -1) 
             die("ERROR: unrecognized character in alignment ('%c').\n", c);
-          gsl_vector_set(base_freqs, idx, 
-                         gsl_vector_get(base_freqs, idx) + 
+          vec_set(base_freqs, idx, 
+                         vec_get(base_freqs, idx) + 
                          msa->ss->counts[i]); 
           sum += msa->ss->counts[i];
         }
@@ -1126,16 +1126,16 @@ gsl_vector *msa_get_base_freqs(MSA *msa, int start, int end) {
             fprintf(stderr, "ERROR: unrecognized character in alignment ('%c').\n", c);
             exit(1);
           }
-          gsl_vector_set(base_freqs, idx, 
-                         gsl_vector_get(base_freqs, idx) + 1); 
+          vec_set(base_freqs, idx, 
+                         vec_get(base_freqs, idx) + 1); 
           sum++;
         }
       }
     }
   }
 
-  if (sum == 0) gsl_vector_set_zero(base_freqs);
-  else gsl_vector_scale(base_freqs, 1.0/sum);
+  if (sum == 0) vec_zero(base_freqs);
+  else vec_scale(base_freqs, 1.0/sum);
   return base_freqs;
 }
 
@@ -1148,12 +1148,12 @@ gsl_vector *msa_get_base_freqs(MSA *msa, int start, int end) {
    models that consider the *predecessors* of each base).  This
    function supports use of the sufficient statistics representation
    of an alignment, but requires that the tuple size equal k */
-void msa_get_base_freqs_tuples(MSA *msa, gsl_vector *freqs, int k, int cat) {
+void msa_get_base_freqs_tuples(MSA *msa, Vector *freqs, int k, int cat) {
   double sum = 0;               /* better to use double than int (or
                                    long int) because of overflow */
   int i, j, ignore, tup_idx, l, alph_idx;
   int alph_size = strlen(msa->alphabet);
-  gsl_vector_set_zero(freqs);
+  vec_zero(freqs);
 
   /* use sufficient stats, if available */
   if (msa->ss != NULL) {
@@ -1174,8 +1174,8 @@ void msa_get_base_freqs_tuples(MSA *msa, gsl_vector *freqs, int k, int cat) {
         if (!ignore) {
           int thiscount = (cat >= 0 ? msa->ss->cat_counts[cat][i] :
                            msa->ss->counts[i]);
-          gsl_vector_set(freqs, tup_idx, 
-                         gsl_vector_get(freqs, tup_idx) + 
+          vec_set(freqs, tup_idx, 
+                         vec_get(freqs, tup_idx) + 
                          thiscount); 
         }
       }
@@ -1199,15 +1199,15 @@ void msa_get_base_freqs_tuples(MSA *msa, gsl_vector *freqs, int k, int cat) {
             tup_idx += alph_idx * int_pow(alph_size, (k-l)-1); 
         }
         if (!ignore) {
-          gsl_vector_set(freqs, tup_idx, 
-                         gsl_vector_get(freqs, tup_idx) + 1); 
+          vec_set(freqs, tup_idx, 
+                         vec_get(freqs, tup_idx) + 1); 
         }
       }
     }
   }
 
-  for (i = 0; i < freqs->size; i++) sum += gsl_vector_get(freqs, i);
-  gsl_vector_scale(freqs, 1.0/sum);
+  for (i = 0; i < freqs->size; i++) sum += vec_get(freqs, i);
+  vec_scale(freqs, 1.0/sum);
 }
 
 /* return number of gapped columns.  If mode == STRIP_ANY_GAPS, a
