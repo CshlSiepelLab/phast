@@ -2,7 +2,7 @@ Here are some tips for getting PHAST to work on the Mac (OS X).
 
 1. Editing make-include.mk
 
-   As for any platform, edit the PHAST, GSLPATH, and CLAPACKPATH
+   As for any platform, edit the PHAST and CLAPACKPATH
    variables as appropriate
 
    Comment out the default CFLAGS line and uncomment the one marked
@@ -27,20 +27,6 @@ Here are some tips for getting PHAST to work on the Mac (OS X).
     Follow the quick-start instructions in README.install: type make
     f2clib, then make blaslib, then make
 
-3. Installing GSL
-
-    Download gsl-1.x (whichever version is latest) from
-    http://www.gnu.org/software/gsl, unpack in a temporary directory
-    with 'tar xvfz gsl-1.x.tar.gz', and cd to gsl-1.x.
-
-    Type ./configure --disable-shared CFLAGS=-Wno-long-double
-    If you want the software to be installed in a location other than
-    /usr/local, also add --prefix=<path>, where <path> is the root
-    directory of the target installation
-
-    Type make then make install.  You may also want to run make check
-    (see the INSTALL file).
-
-4. Compiling PHAST
+3. Compiling PHAST
 
     cd to the src directory in your phast installation and type make

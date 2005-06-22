@@ -75,29 +75,26 @@ xf phast.tar".  A directory called "phast" will be created, containing this
 README, as well as directories for source code (src), header files
 (include), and documentation (doc).
 
-PHAST currently depends on two auxiliary software packages that are not
-available by default on most systems: the GNU Scientific Library (GSL) and
-the CLAPACK linear algebra package.  You must download and install these
-packages if you do not already have them (they are available at
-http://www.gnu.org/software/gsl/ and http://www.netlib.org/clapack/,
-respectively).  Edit the file "make-include.mk" in the "src" directory, so
-that the variables "GSLPATH" and "CLAPACKPATH" are defined appropriately
-(see the examples in the file).  You'll also need to either set a PHAST
-environment variable to point to the root directory of your installation or
-edit the variable of the same name in make-include.mk.  Note that PHAST
-also depends on the "F2C" (Fortran to C) package, which is used by CLAPACK,
-and on an implementation of the "BLAS" (Basic Linear Algebra Subroutines).
-By default it uses the versions of these that come with CLAPACK.
+PHAST currently depends on the CLAPACK linear algebra package, which
+is available at http://www.netlib.org/clapack/.  Edit the file
+"make-include.mk" in the "src" directory, so that the variable
+"CLAPACKPATH" is defined appropriately (see the examples in the file).
+You'll also need to either set a PHAST environment variable to point
+to the root directory of your installation or edit the variable of the
+same name in make-include.mk.  Note that PHAST also depends on the
+"F2C" (Fortran to C) package, which is used by CLAPACK, and on an
+implementation of the "BLAS" (Basic Linear Algebra Subroutines).  By
+default it uses the versions of these that come with CLAPACK.
 Currently, linear algebra computations appear not to be a performance
-bottleneck, so it's probably not worth going to much trouble to switch to a
-highly optimized BLAS implementation.
+bottleneck, so it's probably not worth going to much trouble to switch
+to a highly optimized BLAS implementation.
 
 The software also requires GNU Make, some standard UNIX tools such as "ar" and
 "ln", and the GNU Regex package.  All of these should be available on most
 UNIX systems, on Mac OS X, and via the Cygwin toolkit (or similar) for Windows.
 
-Once the GSL and CLAPACK packages have been installed and "make-include.mk"
-has been editted, you can simply "cd" to the "src" directory and type
+Once the CLAPACK package has been installed and "make-include.mk" has
+been editted, you can simply "cd" to the "src" directory and type
 "make".  The library and executables should compile cleanly.  If not,
 please report problems to acs@soe.ucsc.edu.
 
