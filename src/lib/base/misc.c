@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.9 2005-06-22 07:11:19 acs Exp $
+/* $Id: misc.c,v 1.10 2005-06-24 17:45:17 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -10,6 +10,7 @@
 #include <stringsplus.h>
 #include <assert.h>
 #include <stdarg.h>
+#include <hashtable.h>
 
 #define NCODONS 64
 
@@ -19,7 +20,7 @@ int int_pow(int x, int y) {
   return retval;
 }
 
-/* fill an array with 1s or zeroes, indicating a random choice of K
+/* fill an array with 1s or zeroes, indicating a random choice of k
    elements from a list of N.  The array 'selections' must already be
    allocated to be of length N, and should be initialized.
    Initialization may be all zeroes, if all elements are "eligible"
@@ -515,7 +516,7 @@ void mn_draw(int n, double *p, int d, int *counts) {
 /** Parse string defining mapping from old names to new and store as
    hash (e.g., "hg17->human; mm5->mouse; rn3->rat").  Can use "="
    character as well as "->" to indicate mapping.  */
-Hashtable *make_name_hash(char *mapstr) {
+struct hash_table *make_name_hash(char *mapstr) {
   Hashtable *retval = hsh_new(20);
   Regex *map_re = str_re_new("^[[:space:]]*([A-Za-z0-9_]+)[[:space:]]*(->|=)[[:space:]]*([A-Za-z0-9_]+)[[:space:]]*");
   List *mappings = lst_new_ptr(20), *names = lst_new_ptr(3);

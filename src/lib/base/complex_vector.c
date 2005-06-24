@@ -1,4 +1,4 @@
-/* $Id: complex_vector.c,v 1.1 2005-06-22 07:11:19 acs Exp $
+/* $Id: complex_vector.c,v 1.2 2005-06-24 17:45:17 acs Exp $
    Written by Adam Siepel, Summer 2005
    Copyright 2005, Adam Siepel, University of California
 */
@@ -11,7 +11,6 @@
 #include <misc.h>
 #include <complex_vector.h> 
 #include <assert.h>
-
 
 
 Zvector *zvec_new(int size) {

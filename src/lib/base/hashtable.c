@@ -3,13 +3,10 @@
    keys but not of data objects, which are managed as void*s (memory
    management expected to be done externally) */
 
-/* $Id: hashtable.c,v 1.3 2004-11-16 23:51:52 acs Exp $ 
+/* $Id: hashtable.c,v 1.4 2005-06-24 17:45:17 acs Exp $ 
    Written by Adam Siepel, 2002.
    Copyright 2002, Adam Siepel, University of California.
 */
-
-#define MULTIPLIER 31		/* recommended by Kernighan and Pike */
-#define LOADING_FACTOR 5
 
 #include <stdlib.h>
 #include <assert.h>
@@ -19,6 +16,9 @@
 #include <math.h>
 #include <misc.h>
 
+/* Create new hashtable with initial capacity as specified (in number
+   of items).  
+   Returns new hashtable with initial capacity as specified. */
 Hashtable* hsh_new(int est_capacity) {
   Hashtable* ht;
   int i;
@@ -32,6 +32,7 @@ Hashtable* hsh_new(int est_capacity) {
   return ht;
 }
 
+/* Insert object with specified key and value. */
 void hsh_put(Hashtable *ht, char* key, void* val) {
   unsigned int bucket = hsh_hash_func(ht, key);
   char *keycpy;
@@ -44,7 +45,6 @@ void hsh_put(Hashtable *ht, char* key, void* val) {
 
   lst_push_ptr(ht->keys[bucket], keycpy);
   lst_push_ptr(ht->vals[bucket], val);
-
 }
 
 /* Equality function to pass to list_find_equivalent; simply tests for
@@ -53,6 +53,11 @@ int equal(void *key1ptr, void *key2) {
   return !strcmp(*((char**)key1ptr), (char*)key2);
 }
 
+/* Retrieve object associated with specified key.
+   Returns pointer to object or -1 if not found. 
+
+   Warning: Convention of returning -1 when object is not found is
+   inappropriate when objects are integers (needs to be fixed).*/
 void* hsh_get(Hashtable* ht, char *key) {
   unsigned int bucket;
   int idx;
@@ -64,6 +69,8 @@ void* hsh_get(Hashtable* ht, char *key) {
   return lst_get_ptr(ht->vals[bucket], idx);
 }
 
+/* Delete entry with specified key.  
+   Returns 1 if item found and deleted, 0 if item not found */
 int hsh_delete(Hashtable* ht, char *key) {
   unsigned int bucket;
   int idx;
@@ -90,6 +97,7 @@ int hsh_reset(Hashtable *ht, char* key, void* val) {
   return 0;
 }
 
+/* Free all resources; does *not* free memory associated with values */
 void hsh_free(Hashtable *ht) {
   int i, j;
   for (i = 0; i < ht->nbuckets; i++) {
@@ -105,6 +113,7 @@ void hsh_free(Hashtable *ht) {
   free(ht);
 }
 
+/* Free all resources; *does* free memory associated with values */
 void hsh_free_with_vals(Hashtable *ht) {
   int i, j;
   for (i = 0; i < ht->nbuckets; i++) {
