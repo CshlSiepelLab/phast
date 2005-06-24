@@ -1,4 +1,4 @@
-/* $Id: vector.h,v 1.1 2005-06-22 07:11:20 acs Exp $
+/* $Id: vector.h,v 1.2 2005-06-24 17:41:52 acs Exp $
    Written by Adam Siepel, Summer 2005
    Copyright 2005, Adam Siepel, University of California
 */
@@ -45,5 +45,22 @@ void vec_scale(Vector *v, double scale_factor);
 double vec_inner_prod(Vector *v1, Vector *v2); 
 void vec_outer_prod(struct matrix_struct *mat, Vector *v1, Vector *v2); 
 double vec_norm(Vector *v);
+
+/***************************************************************************
+ * inline functions; also defined in vector.c 
+ ***************************************************************************/
+
+/* we'll only inline the functions likely to be used heavily in inner
+   loops */  
+
+extern inline
+double vec_get(Vector *v, int i) {
+  return v->data[i];
+}
+
+extern inline
+void vec_set(Vector *v, int i, double val) {
+  v->data[i] = val;
+}
 
 #endif

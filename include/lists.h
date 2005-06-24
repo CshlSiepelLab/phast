@@ -1,4 +1,4 @@
-/* $Id: lists.h,v 1.4 2005-06-22 07:11:20 acs Exp $
+/* $Id: lists.h,v 1.5 2005-06-24 17:41:52 acs Exp $
    Written by Adam Siepel, Spring 2001 and Summer 2002
    Copyright 2001, 2002, Adam Siepel, University of California 
 */
@@ -263,7 +263,7 @@ void lst_dbl_quantiles(List *l, double *quantiles, int nquantiles,
 
 
 /***************************************************************************/
-/* Inline functions; note: these are redefined in stacks.c for             */
+/* Inline functions; note: these are redefined in lists.c for              */
 /* situations in which inlining is not available                           */
 /***************************************************************************/
 

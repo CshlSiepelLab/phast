@@ -1,4 +1,4 @@
-/* $Id: complex_vector.h,v 1.1 2005-06-22 07:11:20 acs Exp $
+/* $Id: complex_vector.h,v 1.2 2005-06-24 17:41:52 acs Exp $
    Written by Adam Siepel, Summer 2005
    Copyright 2005, Adam Siepel, University of California
 */
@@ -35,5 +35,22 @@ void zvec_zero(Zvector *v);
 void zvec_plus_eq(Zvector *thisv, Zvector *addv);
 void zvec_minus_eq(Zvector *thisv, Zvector *subv);
 void zvec_scale(Zvector *v, double scale_factor);
+
+/***************************************************************************
+ * inline functions; also defined in complex_vector.c 
+ ***************************************************************************/
+
+/* we'll only inline the functions likely to be used heavily in inner
+   loops */  
+
+extern inline
+Complex zvec_get(Zvector *v, int i) { /* check */
+  return v->data[i];
+}
+
+extern inline
+void zvec_set(Zvector *v, int i, Complex val) {
+  v->data[i] = val;
+}
 
 #endif

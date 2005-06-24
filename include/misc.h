@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.6 2005-06-22 07:11:20 acs Exp $
+/* $Id: misc.h,v 1.7 2005-06-24 17:41:52 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -8,8 +8,9 @@
 #include <math.h>
 #include <stdio.h>
 #include <matrix.h>
-#include <hashtable.h>
 #include <ctype.h>
+#include <lists.h>
+struct hash_table;
 
 #define TRUE 1
 #define FALSE 0
@@ -108,7 +109,7 @@ int is_transition(char b1, char b2);
 void unif_draw(int n, double min, double max, double *draws, int antithetics);
 void bn_draw(int n, int N, double p, int *draws);
 void mn_draw(int n, double *p, int d, int *counts);
-Hashtable *make_name_hash(char *mapstr);
+struct hash_table *make_name_hash(char *mapstr);
 double gamma_pdf(double x, double a, double b);
 double gamma_draw(double a, double b);
 void dirichlet_draw(int k, double *alpha, double *theta);
