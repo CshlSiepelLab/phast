@@ -1,4 +1,4 @@
-.TH "lists.h" 3 "22 Jun 2004" "PHAST" \" -*- nroff -*-
+.TH "lists.h" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -10,7 +10,7 @@ lists.h \- Simple array-based lists and supporting functions.
 
 .in +1c
 .ti -1c
-.RI "struct \fBList\fP"
+.RI "struct \fBlst_struct\fP"
 .br
 .RI "\fIBasic List object.\fP"
 .in -1c
@@ -20,13 +20,13 @@ lists.h \- Simple array-based lists and supporting functions.
 .ti -1c
 .RI "enum \fBorder_t\fP { \fBASCENDING\fP, \fBDESCENDING\fP }"
 .br
-.RI "\fI\fBList\fP sorting.\fP"
+.RI "\fIList sorting.\fP"
 .in -1c
 .SS "Functions"
 
 .in +1c
 .ti -1c
-.RI "void \fBlst_qsort_int\fP (\fBList\fP *l, \fBorder_t\fP ord)"
+.RI "void \fBlst_qsort_int\fP (List *l, \fBorder_t\fP ord)"
 .br
 .RI "\fISort list of integers using qsort.\fP"
 .in -1c
@@ -41,16 +41,16 @@ Supports storage of objects of arbitrary size. Convenience functions are availab
 .PP 
 .SS "enum order_t"
 .PP
-\fBList\fP sorting.
+List sorting.
 .PP
-\fBEnumeration values:\fP
+\fBEnumeration values: \fP
 .in +1c
 .TP
 \fB\fI\fIASCENDING\fP \fP\fP
-sort in ascending order.
+sort in ascending order
 .TP
 \fB\fI\fIDESCENDING\fP \fP\fP
-sort in descending order.
+sort in descending order
 .SH "AUTHOR"
 .PP 
 Generated automatically by Doxygen for PHAST from the source code.

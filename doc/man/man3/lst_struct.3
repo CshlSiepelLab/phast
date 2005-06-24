@@ -1,0 +1,45 @@
+.TH "lst_struct" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+lst_struct \- Basic List object. 
+.SH SYNOPSIS
+.br
+.PP
+.SS "Public Attributes"
+
+.in +1c
+.ti -1c
+.RI "void ** \fBarray\fP"
+.br
+.RI "\fIstorage array for list elements\fP"
+.ti -1c
+.RI "int \fBlidx\fP"
+.br
+.RI "\fIleftmost index of active list (inclusive)\fP"
+.ti -1c
+.RI "int \fBridx\fP"
+.br
+.RI "\fIrighmost index of active list (exclusive)\fP"
+.ti -1c
+.RI "int \fBCAPACITY\fP"
+.br
+.RI "\fIcurrent storage capacity (number of elements)\fP"
+.ti -1c
+.RI "int \fBelementsz\fP"
+.br
+.RI "\fInumber of bytes for each list element\fP"
+.ti -1c
+.RI "int \fBstep\fP"
+.br
+.RI "\fInumber of array elements occupied by each list element (multiple are possible)\fP"
+.in -1c
+.SH "DETAILED DESCRIPTION"
+.PP 
+Basic List object.
+.PP
+
+
+.SH "AUTHOR"
+.PP 
+Generated automatically by Doxygen for PHAST from the source code.

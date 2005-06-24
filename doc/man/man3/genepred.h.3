@@ -1,4 +1,4 @@
-.TH "genepred.h" 3 "22 Jun 2004" "PHAST" \" -*- nroff -*-
+.TH "genepred.h" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -10,15 +10,35 @@ genepred.h \- Reading and writing of genepred files, used for UCSC Genome Browse
 
 .in +1c
 .ti -1c
-.RI "void \fBgff_read_from_genepred\fP (\fBGFF_Set\fP *gff, FILE *F, int do_utr)"
+.RI "void \fBgff_read_from_genepred\fP (\fBGFF_Set\fP *gff, FILE *F)"
 .br
 .RI "\fIFill out a \fBGFF_Set\fP from a genepred file.\fP"
+.ti -1c
+.RI "void \fBgff_print_genepred\fP (FILE *OUTF, \fBGFF_Set\fP *feats)"
+.br
+.RI "\fIWrite a \fBGFF_Set\fP in genepred format.\fP"
 .in -1c
 .SH "DETAILED DESCRIPTION"
 .PP 
 Reading and writing of genepred files, used for UCSC Genome Browser.
 .PP
 .PP
+.SH "FUNCTION DOCUMENTATION"
+.PP 
+.SS "void gff_print_genepred (FILE * OUTF, \fBGFF_Set\fP * feats)"
+.PP
+Write a \fBGFF_Set\fP in genepred format.
+.PP
+Features must already be grouped as desired. Features will be sorted within groups as a side effect. 
+.PP
+\fBParameters: \fP
+.in +1c
+.TP
+\fB\fIOUTF\fP\fP
+Output stream 
+.TP
+\fB\fIfeats\fP\fP
+Set to write 
 .SH "AUTHOR"
 .PP 
 Generated automatically by Doxygen for PHAST from the source code.

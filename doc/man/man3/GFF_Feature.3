@@ -1,4 +1,4 @@
-.TH "GFF_Feature" 3 "22 Jun 2004" "PHAST" \" -*- nroff -*-
+.TH "GFF_Feature" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -12,39 +12,39 @@ GFF_Feature \- GFF_Feature structure.
 .ti -1c
 .RI "String * \fBseqname\fP"
 .br
-.RI "\fIname of sequence (a single GFF file may describe multiple sequences).\fP"
+.RI "\fIname of sequence (a single GFF file may describe multiple sequences)\fP"
 .ti -1c
 .RI "String * \fBsource\fP"
 .br
-.RI "\fIsource of feature -- usually program or database.\fP"
+.RI "\fIsource of feature -- usually program or database\fP"
 .ti -1c
 .RI "String * \fBfeature\fP"
 .br
-.RI "\fIfeature type; so far appears only semi-standardized.\fP"
+.RI "\fIfeature type; so far appears only semi-standardized\fP"
 .ti -1c
 .RI "int \fBend\fP"
 .br
-.RI "\fIstart and end positions.\fP"
+.RI "\fIstart and end positions\fP"
 .ti -1c
 .RI "double \fBscore\fP"
 .br
-.RI "\fIarbitrary floating-point score.\fP"
+.RI "\fIarbitrary floating-point score\fP"
 .ti -1c
 .RI "char \fBstrand\fP"
 .br
-.RI "\fIone of '+', '-', and '.'.\fP"
+.RI "\fIone of '+', '-', and '.'\fP"
 .ti -1c
 .RI "int \fBframe\fP"
 .br
-.RI "\fIreading frame.\fP"
+.RI "\fIreading frame\fP"
 .ti -1c
 .RI "String * \fBattribute\fP"
 .br
-.RI "\fIstring describing auxiliary data in tag-value format.\fP"
+.RI "\fIstring describing auxiliary data in tag-value format\fP"
 .ti -1c
 .RI "int \fBscore_is_null\fP"
 .br
-.RI "\fIwhether score is null (if null, represented as '.' in files).\fP"
+.RI "\fIwhether score is null (if null, represented as '.' in files)\fP"
 .in -1c
 .SH "DETAILED DESCRIPTION"
 .PP 
@@ -56,32 +56,32 @@ Simply mirrors file-format spec (see http://www.sanger.ac.uk/Software/formats/GF
 .PP 
 .SS "String* GFF_Feature::attribute"
 .PP
-string describing auxiliary data in tag-value format.
+string describing auxiliary data in tag-value format
 .PP
 See http://www.sanger.ac.uk/Software/formats/GFF/GFF_Spec.shtml. 
 .SS "int GFF_Feature::end"
 .PP
-start and end positions.
+start and end positions
 .PP
 Convention is to start numbering with 1, and to make the range inclusive. 
 .SS "String* GFF_Feature::feature"
 .PP
-feature type; so far appears only semi-standardized.
+feature type; so far appears only semi-standardized
 .PP
 One suggestion is to use the EMBL/DDBJ/GenBank feature table as a standard 
 .SS "int GFF_Feature::frame"
 .PP
-reading frame.
+reading frame
 .PP
-Should be 0-2 or GFF_NULL_FRAME (represented as '.'  in files) 
+Should be 0-2 or GFF_NULL_FRAME (represented as '.' in files). NOTE: internal storage is not the same as the GFF standard (conversion is performed at input and output time). Internal storage is offset from start of codon mod 3, i.e., the positions of a codon are assigned frames 0, 1, 2. The GFF standard is no. positions to start of next codon, i.e., positions are assigned frames 0, 2, 1 
 .SS "double GFF_Feature::score"
 .PP
-arbitrary floating-point score.
+arbitrary floating-point score
 .PP
 If null, set score_is_null (see below) 
 .SS "int GFF_Feature::score_is_null"
 .PP
-whether score is null (if null, represented as '.' in files).
+whether score is null (if null, represented as '.' in files)
 .PP
 This extra field necessary because all real numbers are potentially legitimate scores 
 

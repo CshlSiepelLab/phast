@@ -1,4 +1,4 @@
-.TH "bed.h" 3 "22 Jun 2004" "PHAST" \" -*- nroff -*-
+.TH "bed.h" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -14,7 +14,7 @@ bed.h \- Reading and writing of BED files.
 .br
 .RI "\fIFill out a \fBGFF_Set\fP from a BED file.\fP"
 .ti -1c
-.RI "void \fBgff_print_bed\fP (FILE *OUTF, \fBGFF_Set\fP *gff, char *groupby, \fBList\fP *include)"
+.RI "void \fBgff_print_bed\fP (FILE *OUTF, \fBGFF_Set\fP *gff, int use_groups)"
 .br
 .RI "\fIWrite a \fBGFF_Set\fP in BED format.\fP"
 .in -1c
@@ -24,6 +24,23 @@ Reading and writing of BED files.
 .PP
  See http://genome.ucsc.edu/goldenPath/help/customTrack.html
 .PP
+.SH "FUNCTION DOCUMENTATION"
+.PP 
+.SS "void gff_print_bed (FILE * OUTF, \fBGFF_Set\fP * gff, int use_groups)"
+.PP
+Write a \fBGFF_Set\fP in BED format.
+.PP
+\fBParameters: \fP
+.in +1c
+.TP
+\fB\fIOUTF\fP\fP
+Output stream 
+.TP
+\fB\fIgff\fP\fP
+Set to be printed 
+.TP
+\fB\fIuse_groups\fP\fP
+If TRUE, all members of a group are described by a single line in the BED file (12-column format); if FALSE, any groups are ignored and each feature gets its own line. Features must already be grouped if use_groups == TRUE. 
 .SH "AUTHOR"
 .PP 
 Generated automatically by Doxygen for PHAST from the source code.

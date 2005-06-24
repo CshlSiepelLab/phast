@@ -1,4 +1,4 @@
-.TH "msa.c" 3 "22 Jun 2004" "PHAST" \" -*- nroff -*-
+.TH "msa.c" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -26,9 +26,13 @@ msa.c \- Multiple sequence alignments.
 .br
 .RI "\fIPrints \fBMSA\fP to file, using specified format.\fP"
 .ti -1c
-.RI "void \fBstrip_gaps\fP (\fBMSA\fP *msa, int gap_strip_mode)"
+.RI "void \fBmsa_strip_gaps\fP (\fBMSA\fP *msa, int gap_strip_mode)"
 .br
 .RI "\fIIf gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all columns with ALL or ANY gaps, respectively.\fP"
+.ti -1c
+.RI "int \fBmsa_get_seq_idx\fP (\fBMSA\fP *msa, char *name)"
+.br
+.RI "\fIReturn sequence index of given sequence name or -1 if not found.\fP"
 .ti -1c
 .RI "void \fBmsa_reverse_compl_feats\fP (\fBMSA\fP *msa, \fBGFF_Set\fP *feats, int *aux_data)"
 .br
@@ -41,12 +45,27 @@ msa.c \- Multiple sequence alignments.
 .RI "char * \fBmsa_suffix_for_format\fP (\fBmsa_format_type\fP t)"
 .br
 .RI "\fIReturn appropriate filename suffix for format type.\fP"
+.ti -1c
+.RI "int \fBmsa_missing_col\fP (\fBMSA\fP *msa, int ref, int pos)"
+.br
+.RI "\fIReturns TRUE if alignment has missing data in all seqs but the reference seq at specified column; otherwise returns FALSE.\fP"
+.ti -1c
+.RI "List * \fBmsa_seq_indices\fP (\fBMSA\fP *msa, List *seqnames)"
+.br
+.RI "\fIGiven a list of sequence names and/or 1-based indices, return a list of corresponding 0-based indices.\fP"
+.ti -1c
+.RI "void \fBmsa_mask_macro_indels\fP (\fBMSA\fP *msa, int k)"
+.br
+.RI "\fIMask out all alignment gaps of length greater than k by changing gap characters to missing data characters.\fP"
+.ti -1c
+.RI "void \fBmsa_set_informative\fP (\fBMSA\fP *msa, List *not_informative)"
+.br
+.RI "\fISet up array indicating which sequences are to be considered 'informative', e.g., for phylogenetic analysis.\fP"
 .in -1c
 .SH "DETAILED DESCRIPTION"
 .PP 
 Multiple sequence alignments.
 .PP
- Reading and writing are supported in a few common formats (currently FASTA, PHYLIP, and the format used by Webb Miller et al. at Penn. State, here called MPM), and a sort of grab bag of auxiliary functionality is provided, including extraction of sub-alignments (by sequence or by column), stripping of columns with gaps (columns having either all gaps or any gaps), reporting of simple statistics on gap content, converting between coordinate frames of the alignment and of individual sequences, and computing simple measures of per-column sequence divergence (entropy and all-pairs identity).
 .PP
 .SH "FUNCTION DOCUMENTATION"
 .PP 
@@ -55,6 +74,11 @@ Multiple sequence alignments.
 create a copy of an \fBMSA\fP.
 .PP
 If suff_stats_only == 1, then sequences aren't copied 
+.SS "void msa_mask_macro_indels (\fBMSA\fP * msa, int k)"
+.PP
+Mask out all alignment gaps of length greater than k by changing gap characters to missing data characters.
+.PP
+Useful when modeling micro-indels. Warning: if \fBMSA\fP is stored only in terms of sufficient statistics, an explicit alignment will be created 
 .SS "\fBMSA\fP* msa_new (char ** seqs, char ** names, int nseqs, int length, char * alphabet)"
 .PP
 Creates a new \fBMSA\fP object.
@@ -76,7 +100,7 @@ Reverse complement segments of an \fBMSA\fP corresponding to groups of features 
 .PP
 Adjusts the coordinates in the \fBGFF_Set\fP accordingly. This function can be used to ensure that sites in strand-specific categories (e.g., 1st codon position, intron) are oriented consistently. It can be useful in phylogenetic analysis and in training the transition probabilities of a phylo-HMM. Features are assumed already to have been grouped as desired, and groups are assumed to be nonoverlapping (see gff_group and gff_remove_overlaps). Strandedness is tested using gff_reverse_strand_only. The \fBGFF_Set\fP is assumed to use the coordinate frame of the alignment. 
 .PP
-Parameters: \fP
+\fBParameters: \fP
 .in +1c
 .TP
 \fB\fImsa\fP\fP
@@ -87,7 +111,24 @@ Set of features
 .TP
 \fB\fIaux_data\fP\fP
 Auxiliary array of site-specific integers (e.g., gap patterns) to be kept in sync with the alignment and/or \fBGFF_Set\fP 
-.SS "void strip_gaps (\fBMSA\fP * msa, int gap_strip_mode)"
+.SS "List* msa_seq_indices (\fBMSA\fP * msa, List * seqnames)"
+.PP
+Given a list of sequence names and/or 1-based indices, return a list of corresponding 0-based indices.
+.PP
+Abort if a name has no match. Useful in converting command-line arguments 
+.SS "void msa_set_informative (\fBMSA\fP * msa, List * not_informative)"
+.PP
+Set up array indicating which sequences are to be considered 'informative', e.g., for phylogenetic analysis.
+.PP
+\fBParameters: \fP
+.in +1c
+.TP
+\fB\fImsa\fP\fP
+Alignment 
+.TP
+\fB\fInot_informative\fP\fP
+List of names of sequences *not* to be considered informative 
+.SS "void msa_strip_gaps (\fBMSA\fP * msa, int gap_strip_mode)"
 .PP
 If gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all columns with ALL or ANY gaps, respectively.
 .PP

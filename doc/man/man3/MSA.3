@@ -1,4 +1,4 @@
-.TH "MSA" 3 "22 Jun 2004" "PHAST" \" -*- nroff -*-
+.TH "MSA" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -14,13 +14,25 @@ MSA \- Multiple sequence alignment object.
 .br
 .RI "\fINumber of sequences.\fP"
 .ti -1c
-.RI "int \fBlength\fP"
+.RI "unsigned int \fBlength\fP"
 .br
 .RI "\fINumber of columns.\fP"
 .ti -1c
 .RI "char * \fBalphabet\fP"
 .br
 .RI "\fIAlphabet (see \fBDEFAULT_ALPHABET\fP).\fP"
+.ti -1c
+.RI "char * \fBmissing\fP"
+.br
+.RI "\fIRecognized missing data characters.\fP"
+.ti -1c
+.RI "int \fBis_missing\fP [NCHARS]"
+.br
+.RI "\fIFast lookup of whether character is missing data char.\fP"
+.ti -1c
+.RI "int * \fBis_informative\fP"
+.br
+.RI "\fIIf non-NULL, indicates which sequences are to be considered 'informative', e.g., for phylogenetic analysis.\fP"
 .in -1c
 .SH "DETAILED DESCRIPTION"
 .PP 

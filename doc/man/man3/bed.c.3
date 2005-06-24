@@ -1,4 +1,4 @@
-.TH "bed.c" 3 "22 Jun 2004" "PHAST" \" -*- nroff -*-
+.TH "bed.c" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -14,7 +14,7 @@ bed.c \- Reading and writing of BED files.
 .br
 .RI "\fIFill out a \fBGFF_Set\fP from a BED file.\fP"
 .ti -1c
-.RI "void \fBgff_print_bed\fP (FILE *OUTF, \fBGFF_Set\fP *gff, char *groupby, \fBList\fP *include)"
+.RI "void \fBgff_print_bed\fP (FILE *OUTF, \fBGFF_Set\fP *gff, int use_groups)"
 .br
 .RI "\fIWrite a \fBGFF_Set\fP in BED format.\fP"
 .in -1c
@@ -26,24 +26,21 @@ Reading and writing of BED files.
 .PP
 .SH "FUNCTION DOCUMENTATION"
 .PP 
-.SS "void gff_print_bed (FILE * OUTF, \fBGFF_Set\fP * gff, char * groupby, \fBList\fP * include)"
+.SS "void gff_print_bed (FILE * OUTF, \fBGFF_Set\fP * gff, int use_groups)"
 .PP
 Write a \fBGFF_Set\fP in BED format.
 .PP
-Parameters: \fP
+\fBParameters: \fP
 .in +1c
 .TP
 \fB\fIOUTF\fP\fP
-output stream 
+Output stream 
 .TP
 \fB\fIgff\fP\fP
-Set to write 
+Set to be printed 
 .TP
-\fB\fIgroupby\fP\fP
-Group features according to this tag. All members of a group will be reported on a single line. Use NULL to supress grouping. 
-.TP
-\fB\fIinclude\fP\fP
-Only write features of the specified types (list of String objects). If NULL, all features will be written. 
+\fB\fIuse_groups\fP\fP
+If TRUE, all members of a group are described by a single line in the BED file (12-column format); if FALSE, any groups are ignored and each feature gets its own line. Features must already be grouped if use_groups == TRUE. 
 .SH "AUTHOR"
 .PP 
 Generated automatically by Doxygen for PHAST from the source code.

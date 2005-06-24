@@ -1,4 +1,4 @@
-.TH "category_map.c" 3 "22 Jun 2004" "PHAST" \" -*- nroff -*-
+.TH "category_map.c" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -22,7 +22,7 @@ category_map.c \- Mapping between feature types and site categories.
 .br
 .RI "\fIReturn the 'base' category for a given feature type (first category in range).\fP"
 .ti -1c
-.RI "\fBList\fP * \fBcm_get_category_list\fP (\fBCategoryMap\fP *cm, \fBList\fP *names, int ignore_missing)"
+.RI "List * \fBcm_get_category_list\fP (\fBCategoryMap\fP *cm, List *names, int ignore_missing)"
 .br
 .RI "\fIReturn a list of category numbers corresponding to a given list of category names and or numbers.\fP"
 .ti -1c
@@ -58,6 +58,10 @@ category_map.c \- Mapping between feature types and site categories.
 .br
 .RI "\fIAdd new feature to \fBCategoryMap\fP.\fP"
 .ti -1c
+.RI "\fBGFF_Set\fP * \fBcm_labeling_as_gff\fP (\fBCategoryMap\fP *cm, int *path, int length, int *path_to_cat, int *reverse_compl, char *seqname, char *source, List *frame_cats, char *grouptag, char *idpref)"
+.br
+.RI "\fICreate a \fBGFF_Set\fP from a sequence of category/state numbers, using a specified category map and mapping from raw state numbers to category numbers.\fP"
+.ti -1c
 .RI "void \fBcm_spooled_to_unspooled\fP (\fBCategoryMap\fP *cm, int *path, int pathlen)"
 .br
 .RI "\fImaps a sequence (array) of category numbers from the spooled space to the unspooled space, using the current unspooler.\fP"
@@ -80,18 +84,18 @@ Assumes a feature of the specified type does not already exist.
 Return the 'base' category for a given feature type (first category in range).
 .PP
 Returns 0 (background) if no match. 
-.SS "\fBList\fP* cm_get_category_list (\fBCategoryMap\fP * cm, \fBList\fP * names, int ignore_missing)"
+.SS "List* cm_get_category_list (\fBCategoryMap\fP * cm, List * names, int ignore_missing)"
 .PP
 Return a list of category numbers corresponding to a given list of category names and or numbers.
 .PP
-Parameters: \fP
+\fBParameters: \fP
 .in +1c
 .TP
 \fB\fIcm\fP\fP
-\fBCategoryMap\fP object 
+\fBCategoryMap\fP object. May be NULL if categories are specified by number rather than by name. (In that case, this function will reduce to conversion of strings to integers.) 
 .TP
 \fB\fInames\fP\fP
-\fBList\fP of categories. May be specified by name or number (useful when accepting input from users) 
+List of categories. May be specified by name or number (useful when accepting input from users) 
 .TP
 \fB\fIignore_missing\fP\fP
 Whether to ignore unrecognized types. If FALSE, then function will abort when it encounters an unrecognized type. 
@@ -105,6 +109,42 @@ Note: return value is passed by reference -- do not alter.
 Obtain a unique name based on the (primary) feature type associated with the specified category number.
 .PP
 Returns a pointer to a newly allocated String. 
+.SS "\fBGFF_Set\fP* cm_labeling_as_gff (\fBCategoryMap\fP * cm, int * path, int length, int * path_to_cat, int * reverse_compl, char * seqname, char * source, List * frame_cats, char * grouptag, char * idpref)"
+.PP
+Create a \fBGFF_Set\fP from a sequence of category/state numbers, using a specified category map and mapping from raw state numbers to category numbers.
+.PP
+\fBParameters: \fP
+.in +1c
+.TP
+\fB\fIcm\fP\fP
+\fBCategoryMap\fP to use in mapping 
+.TP
+\fB\fIpath\fP\fP
+Raw sequence of state/category numbers 
+.TP
+\fB\fIlength\fP\fP
+Length of sequence 
+.TP
+\fB\fIpath_to_cat\fP\fP
+Mapping from raw numbers to category numbers 
+.TP
+\fB\fIreverse_compl\fP\fP
+Array of boolean values indicating whether each raw-sequence value corresponds to the reverse strand 
+.TP
+\fB\fIseqname\fP\fP
+char string to use as 'seqname' in generated \fBGFF_Set\fP 
+.TP
+\fB\fIsource\fP\fP
+char string to use as 'source' in generated \fBGFF_Set\fP 
+.TP
+\fB\fIframe_cats\fP\fP
+Categories for which to obtain frame information (by name) 
+.TP
+\fB\fIgrouptag\fP\fP
+Tag to use to define groups in \fBGFF_Set\fP (e.g., 'transcript_id') 
+.TP
+\fB\fIidpref\fP\fP
+Prefix for ids of predicted elements (may be NULL). Can be used to ensure ids are unique. 
 .SS "\fBCategoryMap\fP* cm_new_from_features (\fBGFF_Set\fP * feats)"
 .PP
 Create a category map with a category for each feature type in a \fBGFF_Set\fP.

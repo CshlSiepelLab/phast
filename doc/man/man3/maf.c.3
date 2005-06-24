@@ -1,4 +1,4 @@
-.TH "maf.c" 3 "22 Jun 2004" "PHAST" \" -*- nroff -*-
+.TH "maf.c" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -10,7 +10,7 @@ maf.c \- Reading of alignments from MAF ('Multiple Alignment Format') files, as 
 
 .in +1c
 .ti -1c
-.RI "\fBMSA\fP * \fBmaf_read\fP (FILE *F, FILE *REFSEQF, int tuple_size, \fBGFF_Set\fP *gff, \fBCategoryMap\fP *cm, int cycle_size, int store_order, char *reverse_groups, int gap_strip_mode)"
+.RI "\fBMSA\fP * \fBmaf_read\fP (FILE *F, FILE *REFSEQF, int tuple_size, \fBGFF_Set\fP *gff, \fBCategoryMap\fP *cm, int cycle_size, int store_order, char *reverse_groups, int gap_strip_mode, int keep_overlapping)"
 .br
 .RI "\fIRead an alignment from a MAF file.\fP"
 .ti -1c
@@ -20,7 +20,7 @@ maf.c \- Reading of alignments from MAF ('Multiple Alignment Format') files, as 
 .ti -1c
 .RI "\fBMSA\fP * \fBmaf_read_next_msa\fP (FILE *F)"
 .br
-.RI "\fIReads a block from an MAF file and returns it as a new \fBMSA\fP object.\fP"
+.RI "\fIReads a block from a MAF file and returns it as a new \fBMSA\fP object.\fP"
 .in -1c
 .SH "DETAILED DESCRIPTION"
 .PP 
@@ -30,17 +30,17 @@ Reading of alignments from MAF ('Multiple Alignment Format') files, as produced 
 .PP
 .SH "FUNCTION DOCUMENTATION"
 .PP 
-.SS "\fBMSA\fP* maf_read (FILE * F, FILE * REFSEQF, int tuple_size, \fBGFF_Set\fP * gff, \fBCategoryMap\fP * cm, int cycle_size, int store_order, char * reverse_groups, int gap_strip_mode)"
+.SS "\fBMSA\fP* maf_read (FILE * F, FILE * REFSEQF, int tuple_size, \fBGFF_Set\fP * gff, \fBCategoryMap\fP * cm, int cycle_size, int store_order, char * reverse_groups, int gap_strip_mode, int keep_overlapping)"
 .PP
 Read an alignment from a MAF file.
 .PP
 The alignment won't be constructed explicitly; instead, a sufficient-statistics representation will be extracted directly from the MAF. Blocks corresponding to overlapping segments of the reference sequence are permitted, but all except the first one will be discarded. 
 .PP
-Parameters: \fP
+\fBParameters: \fP
 .in +1c
 .TP
 \fB\fIF\fP\fP
-MAF-formatted file 
+MAF file 
 .TP
 \fB\fIREFSEQF\fP\fP
 optional reference sequence. If non-NULL, the indicated file will be used to define bases in regions of no alignment (not represented in the MAF). File format is expected to be FASTA. Ignored if store_order == FALSE. If NULL and store_order == TRUE, then bases in reference seq not present in MAF are represented as Ns 
@@ -58,21 +58,24 @@ Used for category-specific counts, ignored otherwise
 Label site categories 12...<cycle_size>...12...<cycle_size> instead of using gff and cm. Useful when stats are to be collected for non-overlapping tuples. Use -1 to ignore. 
 .TP
 \fB\fIstore_order\fP\fP
-Whether to store order in which tuples occur. Requires more memory and larger files, and is not necessary in many cases. 
+Whether to store order in which tuples occur. Storing order requires more memory and larger files, and is not necessary in many cases. 
 .TP
 \fB\fIreverse_groups\fP\fP
 Tag defining groups in gff; indicates groups on negative strand should be reverse complemented. Ignored if NULL. Useful when collecting counts for strand-specific categories. Can't be used if store_order == TRUE 
 .TP
 \fB\fIgap_strip_mode\fP\fP
 Gap stripping mode. Currently, if store_order == 1, may only have value NO_STRIP or 1 (indicating projection onto sequence 1, the reference sequence). This is simply to avoid some complexity in coordinate mapping. 
+.TP
+\fB\fIkeep_overlapping\fP\fP
+If TRUE, keep overlapping blocks, otherwise keep only first instance. Must be FALSE if store_order == TRUE or gff != NULL or  cycle_size != -1 
 .SS "int maf_read_block (FILE * F, \fBMSA\fP * mini_msa, Hashtable * name_hash, int * start_idx, int * length)"
 .PP
 Read a block from an MAF file and store it as a 'mini-msa' using the provided object.
 .PP
-Allocates memory for sequences if they are NULL (as with first block). Reads to next 'a' line or EOF. Returns EOF when no more alignments are available. Sets start coord and length of reference sequence if non-NULL pointers are provided. Uses provided hash to map sequence names to sequence indices (prefix of name wrt '.' character); sequences not present in a block will be represented by gap characters. 
+Allocates memory for sequences if they are NULL (as with first block). Reads to next 'a' line or EOF. Returns EOF when no more alignments are available. Sets start coord and length of reference sequence if non-NULL pointers are provided. Uses provided hash to map sequence names to sequence indices (prefix of name wrt '.' character); sequences not present in a block will be represented by missing-data characters. 
 .SS "\fBMSA\fP* maf_read_next_msa (FILE * F)"
 .PP
-Reads a block from an MAF file and returns it as a new \fBMSA\fP object.
+Reads a block from a MAF file and returns it as a new \fBMSA\fP object.
 .PP
 Reads to next 'a' line or EOF. Returns NULL when no more alignments are available. This is a slightly less efficient but simpler and more flexible version of maf_read_block. 
 .SH "AUTHOR"

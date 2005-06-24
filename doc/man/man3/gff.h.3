@@ -1,4 +1,4 @@
-.TH "gff.h" 3 "22 Jun 2004" "PHAST" \" -*- nroff -*-
+.TH "gff.h" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -70,15 +70,15 @@ gff.h \- Reading and writing of sequence features in General Feature Format (GFF
 .br
 .RI "\fICreate a new \fBGFF_Set\fP representing the features in a particular coordinate range.\fP"
 .ti -1c
-.RI "void \fBgff_filter_by_type\fP (\fBGFF_Set\fP *gff, \fBList\fP *include, FILE *discards_f)"
+.RI "void \fBgff_filter_by_type\fP (\fBGFF_Set\fP *gff, List *types, int exclude, FILE *discards_f)"
 .br
-.RI "\fIDiscard any feature whose feature type is *not* in the specified list.\fP"
+.RI "\fIDiscard any feature whose feature type is not in the specified list.\fP"
 .ti -1c
-.RI "int \fBgff_reverse_strand_only\fP (\fBList\fP *features)"
+.RI "int \fBgff_reverse_strand_only\fP (List *features)"
 .br
 .RI "\fITest whether a set of \fBGFF_Feature\fP objects refers to the reverse strand.\fP"
 .ti -1c
-.RI "void \fBgff_reverse_compl\fP (\fBList\fP *features, int start_range, int end_range)"
+.RI "void \fBgff_reverse_compl\fP (List *features, int start_range, int end_range)"
 .br
 .RI "\fIAdjust coordinates and strand of \fBGFF_Feature\fP objects to reflect reverse complementation of given interval of sequence.\fP"
 .ti -1c
@@ -102,9 +102,37 @@ gff.h \- Reading and writing of sequence features in General Feature Format (GFF
 .br
 .RI "\fIIdentify overlapping groups and remove all but the first one encountered.\fP"
 .ti -1c
-.RI "void \fBgff_fix_stops\fP (\fBGFF_Set\fP *gff, char *cds_type, char *stop_type)"
+.RI "void \fBgff_fix_start_stop\fP (\fBGFF_Set\fP *gff)"
 .br
-.RI "\fIAdjust coords of terminal cds exons such that stop codons are included.\fP"
+.RI "\fIAdjust coords of CDS features such that start codons are included and stop codons are excluded, as required in GTF2.\fP"
+.ti -1c
+.RI "void \fBgff_absorb_helpers\fP (\fBGFF_Set\fP *feats, List *primary_types, List *helper_types)"
+.br
+.RI "\fIAdjust coords of features of 'primary' types (e.g., CDS) to include any features of 'helper' types (e.g., start_codon).\fP"
+.ti -1c
+.RI "void \fBgff_add_gene_id\fP (\fBGFF_Set\fP *feats)"
+.br
+.RI "\fIAdd a gene_id tag, along with whatever other tags are in use.\fP"
+.ti -1c
+.RI "void \fBgff_filter_by_group\fP (\fBGFF_Set\fP *feats, List *groups)"
+.br
+.RI "\fIremove all groups whose names are not in the specified list\fP"
+.ti -1c
+.RI "void \fBgff_create_utrs\fP (\fBGFF_Set\fP *feats)"
+.br
+.RI "\fICreates 5'UTR and 3'UTR features for cases in which exon features extend beyond cds features of the same group.\fP"
+.ti -1c
+.RI "void \fBgff_create_introns\fP (\fBGFF_Set\fP *feats)"
+.br
+.RI "\fICreates intron features between exons of the same group.\fP"
+.ti -1c
+.RI "void \fBgff_create_signals\fP (\fBGFF_Set\fP *feats)"
+.br
+.RI "\fICreates features for start and stop codons and 5' and 3' splice sites.\fP"
+.ti -1c
+.RI "void \fBgff_flatten\fP (\fBGFF_Set\fP *feats)"
+.br
+.RI "\fIMerges overlapping or adjacent features of same type.\fP"
 .in -1c
 .SH "DETAILED DESCRIPTION"
 .PP 
@@ -114,16 +142,63 @@ Reading and writing of sequence features in General Feature Format (GFF).
 .PP
 .SH "FUNCTION DOCUMENTATION"
 .PP 
+.SS "void gff_absorb_helpers (\fBGFF_Set\fP * feats, List * primary_types, List * helper_types)"
+.PP
+Adjust coords of features of 'primary' types (e.g., CDS) to include any features of 'helper' types (e.g., start_codon).
+.PP
+Features must be grouped and sorted. No features are created or discarded; only coordinates are changed. 
+.SS "void gff_add_gene_id (\fBGFF_Set\fP * feats)"
+.PP
+Add a gene_id tag, along with whatever other tags are in use.
+.PP
+Required in output by some programs 
+.SS "void gff_create_signals (\fBGFF_Set\fP * feats)"
+.PP
+Creates features for start and stop codons and 5' and 3' splice sites.
+.PP
+Note: splice sites in UTR will only be added if UTR is annotated (see function above) 
 .SS "void gff_exon_group (\fBGFF_Set\fP * set, char * tag)"
 .PP
 Group contiguous features, e.g., an exon and adjacent splice sites.
 .PP
 If features have already been grouped (e.g., by transcript id), then subgroups are created by adding new tags. New tag values will be composed of the tag value for the 'outer' group (e.g., the transcript_id) and a unique suffix indicating the 'inner' group. In all cases, feature are sorted as a side effect, in a way that reflects the initial grouping, not the grouping into exons. 
-.SS "void gff_fix_stops (\fBGFF_Set\fP * gff, char * cds_type, char * stop_type)"
 .PP
-Adjust coords of terminal cds exons such that stop codons are included.
+\fBParameters: \fP
+.in +1c
+.TP
+\fB\fIset\fP\fP
+Set to process 
+.TP
+\fB\fItag\fP\fP
+Tag to use for new groups (e.g., 'exon_id') 
+.SS "void gff_filter_by_type (\fBGFF_Set\fP * gff, List * types, int exclude, FILE * discards_f)"
 .PP
-Assumes GFF is grouped such that at most one stop codon occurs per group and it corresponds to at most one cds. 
+Discard any feature whose feature type is not in the specified list.
+.PP
+\fBParameters: \fP
+.in +1c
+.TP
+\fB\fIgff\fP\fP
+\fBGFF_Set\fP to process 
+.TP
+\fB\fItypes\fP\fP
+Feature types to include (List of Strings) 
+.TP
+\fB\fIexclude\fP\fP
+Exclude rather than include specified types 
+.TP
+\fB\fIdiscards_f\fP\fP
+Discarded features will be written here (if non-NULL) 
+.SS "void gff_fix_start_stop (\fBGFF_Set\fP * gff)"
+.PP
+Adjust coords of CDS features such that start codons are included and stop codons are excluded, as required in GTF2.
+.PP
+Assumes GFF is grouped such that at most one start codon and at most one stop codon occur per group. 
+.SS "void gff_flatten (\fBGFF_Set\fP * feats)"
+.PP
+Merges overlapping or adjacent features of same type.
+.PP
+Assumes features are sorted. When two features are merged, scores are summed, but attributes are ignored. Will not merge if 'frame' is non-null. 
 .SS "void gff_group (\fBGFF_Set\fP * set, char * tag)"
 .PP
 Group features by value of specified tag.
@@ -159,12 +234,33 @@ Function reads until end-of-file is encountered or error occurs (aborts on error
 Identify overlapping groups and remove all but the first one encountered.
 .PP
 Features must already be grouped. 
-.SS "void gff_reverse_compl (\fBList\fP * features, int start_range, int end_range)"
+.PP
+\fBParameters: \fP
+.in +1c
+.TP
+\fB\fIgff\fP\fP
+Set to process 
+.TP
+\fB\fIdiscards_f\fP\fP
+If non-NULL, discarded features will be written here 
+.SS "void gff_reverse_compl (List * features, int start_range, int end_range)"
 .PP
 Adjust coordinates and strand of \fBGFF_Feature\fP objects to reflect reverse complementation of given interval of sequence.
 .PP
 Also reverses order of appearance of features. The features, the start_range, and the end_range are all assumed to use the same coordinate frame. 
-.SS "int gff_reverse_strand_only (\fBList\fP * features)"
+.PP
+\fBParameters: \fP
+.in +1c
+.TP
+\fB\fIfeatures\fP\fP
+List of \fBGFF_Feature\fP objects 
+.TP
+\fB\fIstart_range\fP\fP
+First coordinate of interval  (inclusive, 1-based indexing, as in features) 
+.TP
+\fB\fIend_range\fP\fP
+Last coordinate of interval (inclusive, 1-based indexing, as in features) 
+.SS "int gff_reverse_strand_only (List * features)"
 .PP
 Test whether a set of \fBGFF_Feature\fP objects refers to the reverse strand.
 .PP
