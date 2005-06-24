@@ -22,7 +22,7 @@ TARGETLIB = ${LIB}/libphast.a
 
 # for debugging
 #CFLAGS = -g -fno-inline -Wall -DGCC -Wno-long-double
-# for best performance
+# for best performance (pentiumpro)
 CFLAGS = -mcpu=pentiumpro -O3 -DGCC
 # use this instead for Mac OS X
 #CFLAGS = -mcpu=powerpc -O3 -DGCC -Wno-long-double
@@ -43,15 +43,16 @@ LFLAGS = -static
 # diagonalization will not be usable.   
 #SKIP_CLAPACK = T
 
-# must be defined unless SKIP_CLAPACK (see Makefile in lib subdir)
+# root directory for CLAPACK; necessary unless SKIP_CLAPACK is defined
 CLAPACKPATH = /projects/compbio/usr/acs/CLAPACK
 
-# define if no SKIP_CLAPACK and F2C files not in standard locations
+# location of F2C libraries used by CLAPACK; you shouldn't need to
+# edit this unless you're using a different version of F2C
 F2CPATH = ${CLAPACKPATH}/F2CLIBS
 
-# architecture-specific suffix used for CLAPACK libraries; acceptable
-# values include LINUX, SUN4SOL2, HPPA, ALPHA, OCTANE, RS6K, MACOSX
-ARCH=LINUX
+# platform-specific suffix used for CLAPACK libraries; use the same
+# value used in the "make.inc" file when compiling CLAPACK
+PLAT = _x86
 
 CFLAGS += -I${INC}
 LIBPATH = -L${LIB} 
@@ -68,9 +69,7 @@ CFLAGS += -DSKIP_CLAPACK
 LIBS = -lphast -lm
 endif
 
-# NOTE: currently assuming version of BLAS that comes with CLAPACK;
-# might want to allow alternatives.
-
-# this flag tells certain routines to dump internal, debugging output.  
+# this flag tells certain routines to dump internal, debugging output.
+# Don't uncomment unless you know what you're doing.
 #CFLAGS += -DDEBUG
 
