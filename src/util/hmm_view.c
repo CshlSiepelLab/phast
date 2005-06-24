@@ -1,4 +1,4 @@
-/* $Id: hmm_view.c,v 1.5 2005-06-22 07:11:19 acs Exp $
+/* $Id: hmm_view.c,v 1.6 2005-06-24 17:40:40 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -24,8 +24,8 @@ OPTIONS:\n\
     -k <nrcats>   Assume a separate version of each state for each of \n\
                   <nrcats> rate categories. \n\
     -i <icats>    Assume use of indel model for specified category names.\n\
-    -n <nseqs>    (Required with -i) Number of sequences to assume with\n\
-                  indel model.\n\
+    -t <tree>     (Required with -i) Tree topology to assume for indel\n\
+                  model (.nh file).\n\
     -C <cats>     Show only the states corresponding to the specified\n\
                   category names.\n\
     -R <piv>      Reflect the HMM about the specified 'pivot' categories.\n\
@@ -38,13 +38,14 @@ int main(int argc, char *argv[]) {
   CategoryMap *cm;
   List *indel_cats = NULL, *cats_to_show = NULL, *pivots = NULL;
   GapPatternMap *gpm = NULL;
-  int i, j, nratecats = 1, nseqs = -1, gapped_cat, basecat, suppress_unconnected = 0;
+  int i, j, nratecats = 1, gapped_cat, basecat, suppress_unconnected = 0;
   int *new_to_old, *show_cat;
+  TreeNode *tree = NULL;
   double t;
   char c;
   String *source, *sink;
 
-  while ((c = getopt(argc, argv, "k:i:n:C:xh")) != -1) {
+  while ((c = getopt(argc, argv, "k:i:t:C:xh")) != -1) {
     switch(c) {
     case 'k':
       nratecats = get_arg_int(optarg);
@@ -52,8 +53,8 @@ int main(int argc, char *argv[]) {
     case 'i':
       indel_cats = get_arg_list(optarg);
       break;
-    case 'n':
-      nseqs = get_arg_int(optarg);
+    case 't':
+      tree = tr_new_from_file(fopen_fname(optarg, "r"));
       break;
     case 'C':
       cats_to_show = get_arg_list(optarg);
@@ -73,15 +74,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (optind != argc - 2) {
-    fprintf(stderr, "Bad arguments.  Try 'hmm_view -h' for help.\n");
-    exit(1);
-  }
+  if (optind != argc - 2) 
+    die("Bad arguments.  Try 'hmm_view -h' for help.\n");
 
-  if (indel_cats != NULL && nseqs < 0) {
-    fprintf(stderr, "Must specify -n with -i.  Try 'hmm_view -h' for help.\n");
-    exit(1);
-  }
+  if (indel_cats != NULL && tree == NULL) 
+    die("Must specify -t with -i.  Try 'hmm_view -h' for help.\n");
 
   hmm = hmm_new_from_file(fopen_fname(argv[optind], "r"));
   cm = cm_new_string_or_file(argv[optind+1]);
@@ -98,7 +95,7 @@ int main(int argc, char *argv[]) {
     for (i = 0; i <= cm->ncats; i++) show_cat[i] = 1;
 
   if (indel_cats != NULL)
-    gpm = gp_create_gapcats(cm, indel_cats, nseqs, FALSE);  
+    gpm = gp_create_gapcats(cm, indel_cats, tree, FALSE);  
 
   if (hmm->nstates != (cm->unspooler == NULL ? cm->ncats + 1 : 
                        cm->unspooler->nstates_unspooled) * nratecats) {

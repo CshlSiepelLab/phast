@@ -28,7 +28,7 @@ OPTIONS:\n\
     -e <val>   Set transition probabilities equal to the specified value.\n\
     -i <icats> Assume a phylo-HMM indel model for states corresponding to \n\
                the specified category names.\n\
-    -n <nseqs> (Required with -i)  Assume <nseqs> sequences.\n\
+    -u <tree>  (Required with -i) Assume given tree topology (.nh file).\n\
     -F <gps>   (For use with -i) Operate on transitions from states corresp.\n\
                to the specified gap-pattern numbers (ANDed with -f).\n\
     -T <gps>   (For use with -i) Operate on transitions to states corresp.\n\
@@ -70,9 +70,10 @@ trans_type gp_transition(int fgap_pat, int tgap_pat) {
 
 int main(int argc, char *argv[]) {
   double mult_fact = 1, add_const = 0, new_val = -1;
-  int i, j, nseqs = -1, within_range = 0, equalize = 0, equalize_gp = 0;
+  int i, j, within_range = 0, equalize = 0, equalize_gp = 0;
   List *from_cats = NULL, *to_cats = NULL, *indel_cats = NULL, 
     *from_patterns = NULL, *to_patterns = NULL;
+  TreeNode *tree = NULL;
   HMM *hmm;
   CategoryMap *cm;
   int *tcat, *fcat, *tpat, *fpat, *isolated;
@@ -83,7 +84,7 @@ int main(int argc, char *argv[]) {
   double gp_sum[5] = {0, 0, 0, 0, 0};
   int gp_count[5] = {0, 0, 0, 0, 0};
 
-  while ((c = getopt(argc, argv, "m:a:e:f:t:i:n:F:T:zyRh")) != -1) {
+  while ((c = getopt(argc, argv, "m:a:e:f:t:i:u:F:T:zyRh")) != -1) {
     switch (c) {
     case 'm':
       mult_fact = get_arg_dbl(optarg);
@@ -103,8 +104,8 @@ int main(int argc, char *argv[]) {
     case 'i':
       indel_cats = get_arg_list(optarg);
       break;
-    case 'n':
-      nseqs = get_arg_int(optarg);
+    case 'u':
+      tree = tr_new_from_file(fopen_fname(optarg, "r"));
       break;
     case 'F':
       from_patterns = str_list_as_int(get_arg_list(optarg));
@@ -159,8 +160,8 @@ int main(int argc, char *argv[]) {
     for (i = 0; i <= cm->ncats; i++) tcat[i] = 1;
 
   if (indel_cats != NULL) {
-    if (nseqs <= 0) die("ERROR: must use -n with -i.\n");
-    gpm = gp_create_gapcats(cm, indel_cats, nseqs, FALSE);  
+    if (tree == NULL) die("ERROR: must use -u with -i.\n");
+    gpm = gp_create_gapcats(cm, indel_cats, tree, FALSE);  
 
     fpat = smalloc(gpm->ngap_patterns * sizeof(int));
     if (from_patterns != NULL) {
