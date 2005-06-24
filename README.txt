@@ -2,11 +2,9 @@
             PHAST: PHYLOGENETIC ANALYSIS WITH SPACE/TIME MODELS
 ---------------------------------------------------------------------------
 
-INTRODUCTION
-
-This README describes a new software package for the analysis of multiple,
-aligned biological sequences using combined phylogenetic and hidden Markov
-models.  
+This README describes a software package for the analysis of multiple,
+aligned biological sequences using combined phylogenetic and hidden
+Markov models.
 
 The theory underlying PHAST is described in:
 
@@ -21,23 +19,24 @@ The theory underlying PHAST is described in:
       evolutionarily conserved exons.  RECOMB, 2004.
 
     A. Siepel and D. Haussler.  Phylogenetic hidden Markov models.  In
-      R. Nielsen, Statistical Methods in Molecular Evolution.  In press.
+      R. Nielsen, Statistical Methods in Molecular Evolution,
+      Springer, NY, 2005.
 
 
-DEVELOPMENT AND AVAILABILITY
+		     DEVELOPMENT AND AVAILABILITY
 
 PHAST was developed at the University of California, Santa Cruz, by
 Adam Siepel, working under the direction of David Haussler (Computer
 Science Department and Center for Biomolecular Science and
 Engineering).  The package is written in ANSI C, and has been compiled
 and run on the Linux, SunOS, and Mac OS X operating systems; it should
-be easy to port it to other UNIX-based systems.  Note that a couple of
-auxiliary software packages are required (see below).
+be easy to port it to other UNIX-based systems.  Note that it
+currently depends on the CLAPACK linear algebra package (see below).
 
 The software is freely available for research purposes.
 
 
-CONTENTS
+			       CONTENTS
 
 PHAST consists of a fairly large library of reusable subroutines and
 a small collection of executable programs that use the library.
@@ -67,39 +66,75 @@ The library is composed of six packages, as follows:
 
 
 
-INSTALLATION
+		      INSTALLATION INSTRUCTIONS
 
-Download and unpack the compressed archive file "phast.v*.tgz", using commands
-such as "tar xfz phast.tgz" (with GNU tar) or "gunzip phast.tgz" and "tar
-xf phast.tar".  A directory called "phast" will be created, containing this
-README, as well as directories for source code (src), header files
-(include), and documentation (doc).
+1. Download and unpack the compressed archive file "phast.v*.tgz",
+   using commands such as "tar xfz phast.tgz" (with GNU tar) or
+   "gunzip phast.tgz" and "tar xf phast.tar".  A directory called
+   "phast" will be created, containing this README and directories for
+   source code (src), header files (include), and documentation (doc).
 
-PHAST currently depends on the CLAPACK linear algebra package, which
-is available at http://www.netlib.org/clapack/.  Edit the file
-"make-include.mk" in the "src" directory, so that the variable
-"CLAPACKPATH" is defined appropriately (see the examples in the file).
-You'll also need to either set a PHAST environment variable to point
-to the root directory of your installation or edit the variable of the
-same name in make-include.mk.  Note that PHAST also depends on the
-"F2C" (Fortran to C) package, which is used by CLAPACK, and on an
-implementation of the "BLAS" (Basic Linear Algebra Subroutines).  By
-default it uses the versions of these that come with CLAPACK.
-Currently, linear algebra computations appear not to be a performance
-bottleneck, so it's probably not worth going to much trouble to switch
-to a highly optimized BLAS implementation.
+2. Install the CLAPACK linear algebra package, which is used by PHAST
+   for certain matrix manipulations (viz. diagonalization).
 
-The software also requires GNU Make, some standard UNIX tools such as "ar" and
-"ln", and the GNU Regex package.  All of these should be available on most
-UNIX systems, on Mac OS X, and via the Cygwin toolkit (or similar) for Windows.
+    a. Download clapack.tgz from http://www.netlib.org/clapack, unpack
+       in your directory of choice (e.g., "tar xfz clapack.tgz"), and cd
+       to the CLAPACK directory
 
-Once the CLAPACK package has been installed and "make-include.mk" has
-been editted, you can simply "cd" to the "src" directory and type
-"make".  The library and executables should compile cleanly.  If not,
-please report problems to acs@soe.ucsc.edu.
+    b. Edit the following variables in make.inc.
 
-The libraries and executables will be placed in directories called "lib"
-and "bin", respectively, at the top level of the "phast" tree. 
+          PLAT: Set equal to an appropriate string (any will do) for
+            your platform, e.g., "PLAT = x86" or "PLAT = MACOSX"
 
-See the file MACINSTALL.txt in this directory for some tips on installing PHAST
-under Mac OS X.
+          CFLAGS: Set appropriate compiler options, e.g.,
+	    "CFLAGS = -mcpu=pentiumpro -O3" for x86 or "CFLAGS =
+	    -mcpu=powerpc -O3 -Wno-long-double" for Mac OS X.
+
+          LOADOPTS: "LOADOPTS = $(CFLAGS)" will do.
+    
+    c. Follow the quick-start instructions in README.install.  You
+       should just be able to type "make f2clib", then "make blaslib",
+       then "make".
+
+3. Edit the file "make-include.mk" in phast/src.  Specifically:
+
+    a. Set the PHAST variable equal to the root directory of your
+       installation (the "phast" directory)
+
+    b. Set CFLAGS appropriately.  You may just be able to uncomment
+       one of the lines in the file.
+
+    c. Set the CLAPACKPATH variable equal to the root directory of
+       your CLAPACK installation.
+
+    d. Set the ARCH variable to the string you used for PLAT with
+       CLAPACK (e.g., "x86" or "MACOSX").  
+
+    e. With MAC OS X, also comment out the "LFLAGS = -static" option.
+
+4. Type "cd src" and "make".  The package should compile cleanly.  If
+   you encounter problems compiling, please report them to me
+   (acs@soe.ucsc.edu); I'll do my best to help you work around them
+   and to avoid similar problems in the future.
+
+
+				NOTES
+
+    - PHAST also depends on the "F2C" (Fortran to C) package and on an
+      implementation of "BLAS" (Basic Linear Algebra Subroutines),
+      both of which are used by CLAPACK.  By default it uses the
+      versions of these that come with CLAPACK.  These seem to be
+      perfectly adequate for normal usage.
+
+    - The software requires GNU Make, some standard UNIX tools (e.g.,
+      sed, ar, and ln), and a getopt implementation that supports long
+      options (e.g., GNU getopt or BSD getopt).  These should be
+      available on most UNIX systems, on Mac OS X, and via the Cygwin
+      toolkit for Windows.
+
+    - It's possible to compile the software without CLAPACK by
+      uncommenting the SKIP_CLAPACK line in make-include.mk.  In this
+      case, some programs will be usable, but programs that require
+      matrix diagonalization will abort at the critical point of
+      calling a CLAPACK routine.
+
