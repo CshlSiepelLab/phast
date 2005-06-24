@@ -84,7 +84,7 @@ The library is composed of six packages, as follows:
     b. Edit the following variables in make.inc.
 
           PLAT: Set equal to an appropriate string (any will do) for
-            your platform, e.g., "PLAT = x86" or "PLAT = MACOSX"
+            your platform, e.g., "PLAT = _x86" or "PLAT = _MACOSX"
 
           CFLAGS: Set appropriate compiler options, e.g.,
 	    "CFLAGS = -mcpu=pentiumpro -O3" for x86 or "CFLAGS =
@@ -108,14 +108,14 @@ The library is composed of six packages, as follows:
        your CLAPACK installation.
 
     d. Set the ARCH variable to the string you used for PLAT with
-       CLAPACK (e.g., "x86" or "MACOSX").  
+       CLAPACK (e.g., "_x86" or "_MACOSX").  
 
     e. With MAC OS X, also comment out the "LFLAGS = -static" option.
 
 4. Type "cd src" and "make".  The package should compile cleanly.  If
-   you encounter problems compiling, please report them to me
-   (acs@soe.ucsc.edu); I'll do my best to help you work around them
-   and to avoid similar problems in the future.
+   you encounter problems compiling, please report them to
+   acs@soe.ucsc.edu.  I'll do my best to help you work around them and
+   to avoid similar problems in the future.
 
 
 				NOTES
@@ -123,8 +123,8 @@ The library is composed of six packages, as follows:
     - PHAST also depends on the "F2C" (Fortran to C) package and on an
       implementation of "BLAS" (Basic Linear Algebra Subroutines),
       both of which are used by CLAPACK.  By default it uses the
-      versions of these that come with CLAPACK.  These seem to be
-      perfectly adequate for normal usage.
+      versions of these that come with CLAPACK.  The default BLAS
+      implementation seems to be fine for normal usage.
 
     - The software requires GNU Make, some standard UNIX tools (e.g.,
       sed, ar, and ln), and a getopt implementation that supports long
