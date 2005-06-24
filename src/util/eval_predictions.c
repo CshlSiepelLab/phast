@@ -1,4 +1,4 @@
-/* $Id: eval_predictions.c,v 1.10 2004-07-29 23:39:04 acs Exp $
+/* $Id: eval_predictions.c,v 1.11 2005-06-24 21:33:44 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -473,7 +473,7 @@ int main(int argc, char* argv[]) {
     tot_nexons_pred += nexons_pred;
     if (nnc != -1) tot_nnc += nnc;
 
-    if (dump && SUMF != NULL)
+    if (dump_exons && SUMF != NULL)
       fprintf(SUMF, "# Total number of bases in real exons: %d\n", nreal_pos);
 
     gff_free_set(gff_real);
