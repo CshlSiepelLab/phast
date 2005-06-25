@@ -83,7 +83,7 @@ The library is composed of six packages, as follows:
 
     b. Edit the following variables in make.inc.
 
-          PLAT: Set equal to an appropriate string (any will do) for
+          PLAT: Set equal to an appropriate suffix (any will do) for
             your platform, e.g., "PLAT = _x86" or "PLAT = _MACOSX"
 
           CFLAGS: Set appropriate compiler options, e.g.,
