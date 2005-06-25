@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.41 2005-06-22 07:11:19 acs Exp $
+/* $Id: msa.c,v 1.42 2005-06-25 06:53:21 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -590,7 +590,8 @@ int msa_map_msa_to_seq(msa_coord_map *map, int msa_pos) {
     seq_pos;
   if (msa_pos < 1 || msa_pos > map->msa_len) return -1;
   idx = lst_bsearch_int(map->msa_list, msa_pos);
-  assert(idx >= 0 && idx < lst_size(map->msa_list));
+  if (idx < 0) return -1;
+  assert(idx < lst_size(map->msa_list));
   prec_match_msa_pos = lst_get_int(map->msa_list, idx);
   prec_match_seq_pos = lst_get_int(map->seq_list, idx);
   next_match_seq_pos = (idx < lst_size(map->seq_list) - 1 ? 
@@ -698,9 +699,10 @@ int msa_get_seq_idx(MSA *msa, char *name) {
    reference to another.  Arguments from and to may be an index
    between 1 and nseqs, or 0 (for the frame of the entire alignment).
    If argument from is -1, the from index is inferred feature by
-   feature by sequence name. All coordinates out of range will be set
-   to -1. If cm is non-NULL, features within groups will be forced to
-   be contiguous. */
+   feature by sequence name. Features whose start and end coords are
+   out of range will be dropped; if only the start or the end is out
+   of range, they will be truncated. If cm is non-NULL, features
+   within groups will be forced to be contiguous. */
 void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq, 
                         int offset, CategoryMap *cm) {
 
@@ -710,7 +712,8 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
   String *prev_name = NULL;
   msa_coord_map *from_map = NULL, *to_map = NULL;
   GFF_Feature *feat;
-  int i, orig_span;
+  int i, s, e, orig_span;
+  List *keepers = lst_new_ptr(lst_size(gff->features));
 
   maps = (msa_coord_map**)smalloc((msa->nseqs + 1) * 
                                   sizeof(msa_coord_map*));
@@ -757,8 +760,22 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
     orig_span = feat->end - feat->start;
 
     /* from_map, to_map will be NULL iff fseq, to_seq are 0 */
-    feat->start = msa_map_seq_to_seq(from_map, to_map, feat->start) + offset;
-    feat->end = msa_map_seq_to_seq(from_map, to_map, feat->end) + offset;
+    s = msa_map_seq_to_seq(from_map, to_map, feat->start);
+    e = msa_map_seq_to_seq(from_map, to_map, feat->end);
+
+    if (s < 0 && e < 0) {
+      gff_free_feature(feat);
+      continue;
+    }
+
+    feat->start = (s < 0 ? 1 : s) + offset;
+
+    if (e < 0)
+      feat->end = (to_map != NULL ? to_map->seq_len : msa->length) + offset;
+    else
+      feat->end = e + offset;
+
+    lst_push_ptr(keepers, feat);
 
     /* TEMPORARY: Prevent overall size of "signal" (non-cyclic)
        features from changing.  This needs to be redone in a general
@@ -782,6 +799,10 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
     /* NOTE: fill precedence stuff now removed -- should take out of
        category_map.c */
   }
+
+  lst_free(gff->features);
+  gff->features = keepers;
+  if (gff->groups != NULL) gff_ungroup(gff);
 
   for (i = 1; i <= msa->nseqs; i++)
     if (maps[i] != NULL) msa_map_free(maps[i]);
