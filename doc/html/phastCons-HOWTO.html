@@ -1029,10 +1029,10 @@ concatenate these into a single file using msa_view with a command
 like:
 
 <pre>
-    msa_view --aggregate <species-list> EN*.fa > all-encode.fa
+    msa_view --aggregate {species-list} EN*.fa > all-encode.fa
 </pre>
 
-where <species-list> is a comma-separated list of all sequence names
+where {species-list} is a comma-separated list of all sequence names
 in the alignments, e.g., "human,chimp,baboon,macaque,..."  It will
 also save some time during re-estimation to convert this file to an
 ordered SS file:
@@ -1067,7 +1067,7 @@ human sequence is covered by alignments with other species.) We can
 easily measure the coverage of all-encode.bed with a command such as:
 
 <pre>
-    awk '{total += $3 - $2} END {print total/29909540}'
+    awk '{total += $3 - $2} END {print total/29909540}' all-encode.bed
 </pre>
 
 where 29,909,540 is the total number of bases in the data set in the
