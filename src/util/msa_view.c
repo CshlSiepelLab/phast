@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.26 2005-06-01 03:47:38 acs Exp $
+/* $Id: msa_view.c,v 1.27 2005-06-29 20:57:22 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -181,6 +181,13 @@ OPTIONS:\n\
         phyloFit (all missing data and gap characters are typically\n\
         treated the same by phyloFit anyway).\n\
 \n\
+    --mark-missing, -K <maxlen> \n\
+        Convert all gaps of length greater than <maxlen> to \"*\"\n\
+        characters.  Useful heuristic for distinguishing between\n\
+        microindels and regions of missing data (e.g., due to\n\
+        large-scale indels, incomplete assemblies, or highly diverged\n\
+        sequences).\n\
+\n\
     --order, -O <name_list>\n\
         Change order of rows in alignment to match sequence names\n\
         specified in name_list.  If a name appears in name_list but\n\
@@ -238,7 +245,7 @@ OPTIONS:\n\
     --keep-overlapping, -k\n\
         Keep blocks in MAF that have overlapping coordinates in the\n\
         reference (1st) sequence (by default, only the first one is\n\
-        kept.  Useful in extracting unordered stats from a jumbled\n\
+        kept).  Useful in extracting unordered stats from a jumbled\n\
         collection of MAF blocks (e.g., output of Jim Kent's mafFrags\n\
          program).  Cannot be used with --refseq, --features, or\n\
         --cats-cycle.\n\
@@ -391,7 +398,7 @@ int main(int argc, char* argv[]) {
     ordered_stats = TRUE, indel_clean_nseqs = -1, cats_done = FALSE,
     rand_perm = FALSE, reverse_compl = FALSE, stats_only = FALSE, win_size = -1, 
     cycle_size = -1, maf_keep_overlapping = FALSE, collapse_missing = FALSE,
-    fourD = FALSE;
+    fourD = FALSE, mark_missing_maxsize = -1;
   char c;
   List *cats_to_do = NULL, *aggregate_list = NULL, *msa_fname_list = NULL, 
     *order_list = NULL, *fill_N_list = NULL;
@@ -407,6 +414,7 @@ int main(int argc, char* argv[]) {
     {"exclude", 0, 0, 'x'},
     {"gap-strip", 1, 0, 'G'},
     {"collapse-missing", 0, 0, 'p'},
+    {"mark-missing", 1, 0, 'K'},
     {"in-format", 1, 0, 'i'},
     {"out-format", 1, 0, 'o'},
     {"pretty", 0, 0, 'P'},
@@ -463,6 +471,9 @@ int main(int argc, char* argv[]) {
       break;
     case 'p':
       collapse_missing = TRUE;
+      break;
+    case 'K':
+      mark_missing_maxsize = get_arg_int(optarg);
       break;
     case 'o':
       output_format = msa_str_to_format(optarg);
@@ -746,6 +757,9 @@ int main(int argc, char* argv[]) {
   }
   else if (gap_strip_mode != NO_STRIP && input_format != MAF)
     msa_strip_gaps(sub_msa, gap_strip_mode);
+
+  if (mark_missing_maxsize >= 0)
+    msa_mask_macro_indels(sub_msa, mark_missing_maxsize);
 
   /* create sufficient stats, if necessary */
   if (output_format == SS) {
