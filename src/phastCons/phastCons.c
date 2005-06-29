@@ -382,7 +382,7 @@ int main(int argc, char *argv[]) {
       if (msa->is_missing[(int)msa->seqs[0][i]]) msa->seqs[0][i] = msa->missing[1];
                                 /* msa->missing[0] is used in msa_mask_macro_indels */
 
-    msa_mask_macro_indels(msa, max_micro_indel);
+    msa_mask_macro_indels(msa, max_micro_indel, 0);
   }
 
   /* Set up array indicating which seqs are informative, if necessary */

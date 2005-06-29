@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.27 2005-06-29 20:57:22 acs Exp $
+/* $Id: msa_view.c,v 1.28 2005-06-29 23:29:35 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -183,10 +183,12 @@ OPTIONS:\n\
 \n\
     --mark-missing, -K <maxlen> \n\
         Convert all gaps of length greater than <maxlen> to \"*\"\n\
-        characters.  Useful heuristic for distinguishing between\n\
+        characters.  If --refidx is specified (with a positive index),\n\
+        gaps in the designated reference sequence will not be altered.\n\
+        This is a useful heuristic for distinguishing between\n\
         microindels and regions of missing data (e.g., due to\n\
-        large-scale indels, incomplete assemblies, or highly diverged\n\
-        sequences).\n\
+        large-scale indels, incomplete assemblies, or highly\n\
+        diverged sequences).\n\
 \n\
     --order, -O <name_list>\n\
         Change order of rows in alignment to match sequence names\n\
@@ -759,7 +761,7 @@ int main(int argc, char* argv[]) {
     msa_strip_gaps(sub_msa, gap_strip_mode);
 
   if (mark_missing_maxsize >= 0)
-    msa_mask_macro_indels(sub_msa, mark_missing_maxsize);
+    msa_mask_macro_indels(sub_msa, mark_missing_maxsize, refseq);
 
   /* create sufficient stats, if necessary */
   if (output_format == SS) {

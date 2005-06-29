@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.42 2005-06-25 06:53:21 acs Exp $
+/* $Id: msa.c,v 1.43 2005-06-29 23:29:35 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1983,10 +1983,12 @@ List *msa_seq_indices(MSA *msa, List *seqnames) {
 }
 
 /** Mask out all alignment gaps of length greater than k by changing
-    gap characters to missing data characters.  Useful when modeling
-    micro-indels.  Warning: if MSA is stored only in terms of
-    sufficient statistics, an explicit alignment will be created */
-void msa_mask_macro_indels(MSA *msa, int k) {
+    gap characters to missing data characters.  If refseq is > 0, the
+    designated sequence will not be altered.  This function is useful
+    when modeling micro-indels.  Warning: if MSA is stored only in
+    terms of sufficient statistics, an explicit alignment will be
+    created */
+void msa_mask_macro_indels(MSA *msa, int k, int refseq) {
   int seq;
   
   if (msa->seqs == NULL && (msa->ss == NULL || msa->ss->tuple_idx == NULL))
@@ -1996,6 +1998,7 @@ void msa_mask_macro_indels(MSA *msa, int k) {
 
   for (seq = 0; seq < msa->nseqs; seq++) {
     int i, j, len = 0, prev_is_gap = FALSE;
+    if (seq == refseq - 1) continue;
     for (i = 0; i < msa->length; i++) {
       if (msa->seqs[seq][i] == GAP_CHAR) { /* gap open or extension */
         len++; 
