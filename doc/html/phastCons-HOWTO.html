@@ -247,7 +247,7 @@ phyloFit, also in the PHAST package.  Start with an alignment and an
 annotation file indicating the sites of interest in your alignment.
 For example, suppose you have an alignment of human, mouse, and rat
 sequences in a file called data.fa (FASTA format), and suppose you
-have a file called AR.bed (BED format) defining the locations of
+have a file called AR.gff (GFF format) defining the locations of
 ancestral repeats (ARs) in the coordinate system of the first sequence
 (human).  For example,
 
@@ -267,7 +267,7 @@ You can estimate a phylogenetic model for these sites with a command
 such as:
 
 <pre>
-        phyloFit --tree "(human,(mouse,rat))" --features AR.bed \
+        phyloFit --tree "(human,(mouse,rat))" --features AR.gff \
             --do-cats AR --out-root nonconserved data.fa
 </pre>
 
@@ -275,7 +275,7 @@ Here the model will be written to a file called nonconserved.AR.mod.  See the ph
 additional details.<p>
 
 With 4d sites, the program msa_view may be helpful.  Suppose instead
-of annotations of ARs, you have a file called genes.gff (in GFF)
+of annotations of ARs, you have a file called genes.gff 
 describing coding regions in the human sequence, e.g.,
 
 <pre>
