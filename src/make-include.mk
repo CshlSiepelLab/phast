@@ -27,7 +27,7 @@ TARGETLIB = ${LIB}/libphast.a
 # an appropriate alternative
 
 # for debugging
-#CFLAGS = -g -fno-inline -Wall -Wno-long-double
+#CFLAGS = -g -fno-inline -Wall 
 # for best performance (pentiumpro)
 CFLAGS = -mcpu=pentiumpro -O3 
 # use this instead for Mac OS X
