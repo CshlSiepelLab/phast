@@ -1,9 +1,9 @@
-/* $Id: complex_matrix.h,v 1.2 2005-06-24 17:41:52 acs Exp $
+/* $Id: complex_matrix.h,v 1.3 2005-07-17 22:12:28 acs Exp $
    Written by Adam Siepel, Summer 2005
    Copyright 2005, Adam Siepel, University of California
 */
 
-/** \file complex.h
+/** \file complex_matrix.h
     Matrices of complex numbers
     \ingroup base
 */
