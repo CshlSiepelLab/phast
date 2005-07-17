@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.10 2005-06-24 17:45:17 acs Exp $
+/* $Id: misc.c,v 1.11 2005-07-17 22:20:12 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -624,6 +624,39 @@ void dirichlet_draw(int k, double *alpha, double *theta) {
   for (i = 0; i < k; i++) 
     theta[i] = gamma_draw(alpha[i], 1);
   normalize_probs(theta, k);
+}
+
+/* return n! */
+int permutations(int n) {
+  int i, retval = 1;
+  for (i = 2; i <= n; i++) retval *= i;
+  return retval;
+}
+
+/* return n-choose-k */
+int combinations(int n, int k) {
+  int i, retval = 1;
+  for (i = 0; i < k; i++) retval *= (n - i);
+  return retval / permutations(k);
+}
+
+/* compute relative entropy in bits of q with respect to p, both
+   probability vectors of dimension d */
+double rel_entropy(double *p, double *q, int d) {
+  int i;
+  double H = 0;
+  for (i = 0; i < d; i++) {
+    if (p[i] == 0) continue;
+    if (q[i] == 0) return INFTY;    
+    H += p[i] * (log2(p[i]) - log2(q[i]));
+  }
+  return H;
+}
+
+/* symmetric version of relative entropy */
+double sym_rel_entropy(double *p, double *q, int d) {
+  double re1 = rel_entropy(p, q, d), re2 = rel_entropy(q, p, d);
+  return min(re1, re2);
 }
 
 /***************************************************************************/

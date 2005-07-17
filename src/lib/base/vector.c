@@ -1,4 +1,4 @@
-/* $Id: vector.c,v 1.1 2005-06-22 07:11:19 acs Exp $
+/* $Id: vector.c,v 1.2 2005-07-17 22:20:12 acs Exp $
    Written by Adam Siepel, Summer 2005
    Copyright 2005, Adam Siepel, University of California
 */
@@ -12,6 +12,7 @@
 #include <vector.h>
 #include <misc.h>
 #include <assert.h>
+#include <lists.h>
 
 Vector *vec_new(int size) {
   Vector *v = smalloc(sizeof(Vector));
@@ -156,5 +157,30 @@ double vec_norm(Vector *v) {
   for (i = 0; i < v->size; i++) 
     ss += v->data[i] * v->data[i];
   return sqrt(ss);
+}
+
+/* Compute pointwise average of vectors.  If counts is NULL, each
+   source vector is assumed to have a count of 1 */
+void vec_ave(Vector *dest_v, List *source_vs, List *counts) {
+  int i, j;
+  double n = 0;
+
+  assert(lst_size(source_vs) >= 1);
+
+  if (counts != NULL) {
+    assert(lst_size(source_vs) == lst_size(counts));
+    for (i = 0; i < lst_size(counts); i++) n += lst_get_int(counts, i);
+  }
+  else n = lst_size(source_vs);
+
+  vec_set_all(dest_v, 0);
+  
+  for (i = 0; i < lst_size(source_vs); i++) {
+    int count = (counts == NULL ? 1 : lst_get_int(counts, i));
+    for (j = 0; j < dest_v->size; j++) 
+      dest_v->data[j] += vec_get(lst_get_ptr(source_vs, i), j) * count;
+  }
+
+  vec_scale(dest_v, 1/n);
 }
 

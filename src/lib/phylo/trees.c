@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.17 2004-10-03 22:47:47 acs Exp $ 
+/* $Id: trees.c,v 1.18 2005-07-17 22:20:12 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -26,7 +26,7 @@ static int idcounter = 0;
    sequentially in a preorder traversal.  Some useful properties
    result.  For example, if two nodes u and v are such that v->id >
    u->id, then the first ancestor a of v s.t. a->id < u->id is the LCA
-   of u and v */
+   of u and v (see tr_lca) */
 
 /* coords for postscript printing */
 /* top-left x */
@@ -65,10 +65,9 @@ TreeNode *tr_new_from_file(FILE *f) {
 /** Parse a Newick-formatted tree from a character string */
 TreeNode *tr_new_from_string(char *treestr) { 
   TreeNode *root, *node, *newnode;
-  int i, in_distance = 0, len = strlen(treestr), nopen_parens = 0,
+  int i, in_distance = FALSE, len = strlen(treestr), nopen_parens = 0,
     nclose_parens = 0, already_allowed = FALSE;
   char c;
-  char *currentname = NULL;
   String *diststr = str_new(STR_SHORT_LEN);
 
   tr_reset_id();
@@ -87,13 +86,12 @@ TreeNode *tr_new_from_string(char *treestr) {
           die("ERROR: Can't parse distance in tree (\"%s\").\n", 
               diststr->chars);
       }
-      in_distance = 0;
+      in_distance = FALSE;
     }
 
     if (c == '(') {
       tr_add_child(node, newnode = tr_new_node());
       node = newnode;
-      currentname = newnode->name;
       root->nnodes++;
       nopen_parens++;
     }
@@ -114,21 +112,19 @@ TreeNode *tr_new_from_string(char *treestr) {
 
       tr_add_child(node->parent, newnode = tr_new_node());
       node = newnode;
-      currentname = node->name;
       root->nnodes++;
     }
     else if (c == ')') {
       node = node->parent;
-      currentname = NULL;
       nclose_parens++;
     }
     else if (c == ':') {
       str_clear(diststr);
-      in_distance = 1;
+      in_distance = TRUE;
     }
-    else if (currentname != NULL) {
-      if (!isspace(c) || currentname[0] != '\0') /* avoid leading spaces */
-        strncat(currentname, &c, 1);
+    else {			/* has to be part of name */
+      if (!isspace(c) || node->name[0] != '\0')	/* avoid leading spaces */
+        strncat(node->name, &c, 1);
     }
   }
 
@@ -244,6 +240,7 @@ void tr_print_recur(FILE* f, TreeNode *n, int show_branch_lengths) {
     fprintf(f, ",");
     tr_print_recur(f, n->rchild, show_branch_lengths);
     fprintf(f, ")");
+    fprintf(f, "%s", n->name);
   }
   else {
     fprintf(f, "%s", n->name);
@@ -1133,6 +1130,36 @@ void tr_partition_leaves(TreeNode *tree, TreeNode *sub, List *inside,
   free(mark);
 }
 
+/** Similar to above, but partition all nodes */
+void tr_partition_nodes(TreeNode *tree, TreeNode *sub, List *inside, 
+			List *outside) {
+  int i;
+  TreeNode *n;
+  int *mark = smalloc(tree->nnodes * sizeof(int));
+  Stack *stack = stk_new_ptr(sub->nnodes);
+
+  for (i = 0; i < tree->nnodes; i++) mark[i] = FALSE;
+
+  lst_clear(inside);
+  lst_clear(outside);
+  stk_push_ptr(stack, sub);
+  while ((n = stk_pop_ptr(stack)) != NULL) {
+    lst_push_ptr(inside, n);
+    mark[n->id] = TRUE;
+    if (n->lchild != NULL) {
+      stk_push_ptr(stack, n->rchild);
+      stk_push_ptr(stack, n->lchild);
+    }
+  }
+  for (i = 0; i < tree->nnodes; i++) {
+    n = lst_get_ptr(tree->nodes, i);
+    if (!mark[n->id])
+      lst_push_ptr(outside, n);
+  }
+  stk_free(stack);
+  free(mark);
+}
+
 /** Return a list of the leaf names in a given tree */
 List *tr_leaf_names(TreeNode *tree) {
   List *retval = lst_new_ptr((tree->nnodes + 1) / 2);
@@ -1143,4 +1170,51 @@ List *tr_leaf_names(TreeNode *tree) {
       lst_push_ptr(retval, str_new_charstr(n->name));
   }
   return retval;
+}
+
+/* Ensure all ancestral nodes have names.  If a node is unnamed, give
+   it a name that is a concatenation of the name of a leaf from its
+   left subtree and the name of a leaf from its right subtree.
+   Leftmost decendants are selected, for lack of any better
+   criterion.  */
+void tr_name_ancestors(TreeNode *tree) {
+  int i;
+  List *traversal = tr_postorder(tree);
+  char **repname = smalloc(tree->nnodes * sizeof(void*));
+  for (i = 0; i < lst_size(traversal); i++) {
+    TreeNode *n = lst_get_ptr(traversal, i);
+    
+    if ((n->lchild == NULL && n->rchild != NULL) ||
+	(n->lchild != NULL && n->rchild == NULL))
+      die("ERROR: malformed tree.\n");
+
+    if (n->lchild == NULL) {
+      if (n->name[0] == '\0') die("ERROR: unnamed leaf.\n");
+      repname[n->id] = n->name;
+    }  
+    else {
+      if (n->name[0] == '\0') {
+	strcat(n->name, repname[n->lchild->id]);
+	strcat(n->name, "-");
+	strcat(n->name, repname[n->rchild->id]);
+      }
+      repname[n->id] = repname[n->lchild->id];
+    }
+  }
+  free(repname);
+}
+
+/** Print verbose description of each node */
+void tr_print_nodes(FILE *F, TreeNode *tree) {
+  int i;
+  List *l = tr_preorder(tree);
+  for (i = 0; i < lst_size(l); i++) {
+    TreeNode *n = lst_get_ptr(l, i);
+    fprintf(F, "Node %d:\n", n->id);
+    fprintf(F, "\tparent = %d\n", n->parent == NULL ? -1 : n->parent->id);
+    fprintf(F, "\tlchild = %d\n", n->lchild == NULL ? -1 : n->lchild->id);
+    fprintf(F, "\trchild = %d\n", n->rchild == NULL ? -1 : n->rchild->id);
+    fprintf(F, "\tname = '%s'\n", n->name);
+    fprintf(F, "\tdparent = %f\n\n", n->dparent);
+  }
 }

@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.11 2005-06-22 07:11:20 acs Exp $
+/* $Id: tree_model.h,v 1.12 2005-07-17 22:20:12 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -74,7 +74,7 @@ struct tm_struct {
                                    interpretted as the root.  Must be
                                    a child of the actual root of the
                                    tree.  Ordinarily will have a null
-                                   value (-1), but if non-negati, the
+                                   value (-1), but if non-negative, the
                                    distance to its parent will be
                                    constrained to be zero.  */
   int allow_gaps;
@@ -123,6 +123,8 @@ void tm_cpy(TreeModel *dest, TreeModel *src);
 TreeModel *tm_create_copy(TreeModel *src);
 
 void tm_set_subst_matrices(TreeModel *tm);
+
+void tm_set_subst_matrix(TreeModel *tm, MarkovMatrix *P, double t);
 
 void tm_scale(TreeModel *tm, double scale_const, int reset_subst_mats);
 

@@ -1,6 +1,6 @@
 /* stringsplus - String-handling functions, with automatic memory management and basic regex support. */
    
-/* $Id: stringsplus.h,v 1.4 2004-08-04 05:06:04 acs Exp $
+/* $Id: stringsplus.h,v 1.5 2005-07-17 22:20:12 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 
@@ -287,6 +287,7 @@ void str_root(String *str, char delim);
 void str_suffix(String *str, char delim);
 void str_remove_path(String *str);
 int str_in_list(String *s, List *l);
+int str_in_list_charstr(char *s, List *l);
 int str_list_overlap(List *dest, List *src1, List *src2);
 List *str_list_as_int(List *str_list);
 List *str_list_as_dbl(List *str_list);

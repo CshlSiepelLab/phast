@@ -1,7 +1,7 @@
 /* String-handling functions, with automatic memory management and
    basic regex support.
    
-   $Id: stringsplus.c,v 1.6 2004-08-04 05:06:04 acs Exp $
+   $Id: stringsplus.c,v 1.7 2005-07-17 22:20:12 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -497,6 +497,14 @@ int str_in_list_idx(String *s, List *l, int *idx) {
       return 1;
     }
   }
+  return 0;
+}
+
+/* Returns 1 if list includes specified string, 0 otherwise */
+int str_in_list_charstr(char *s, List *l) {
+  int i;
+  for (i = 0; i < lst_size(l); i++)
+    if (str_equals_charstr(lst_get_ptr(l, i), s)) return 1;
   return 0;
 }
 

@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.7 2005-06-24 17:41:52 acs Exp $
+/* $Id: misc.h,v 1.8 2005-07-17 22:20:12 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -83,6 +83,42 @@ double log_sum_e(List *l) {
   return maxval + log(expsum);        
 }
 
+/* return n! */
+extern inline
+int permutations(int n) {
+  int i, retval = 1;
+  for (i = 2; i <= n; i++) retval *= i;
+  return retval;
+}
+
+/* return n-choose-k */
+extern inline 
+int combinations(int n, int k) {
+  int i, retval = 1;
+  for (i = 0; i < k; i++) retval *= (n - i);
+  return retval / permutations(k);
+}
+
+/* compute relative entropy in bits of q with respect to p, both
+   probability vectors of dimension d */
+extern inline
+double rel_entropy(double *p, double *q, int d) {
+  int i;
+  double H = 0;
+  for (i = 0; i < d; i++) {
+    if (p[i] == 0) continue;
+    if (q[i] == 0) return INFTY;    
+    H += p[i] * (log2(p[i]) - log2(q[i]));
+  }
+  return H;
+}
+
+/* symmetric version of relative entropy */
+extern inline
+double sym_rel_entropy(double *p, double *q, int d) {
+  double re1 = rel_entropy(p, q, d), re2 = rel_entropy(q, p, d);
+  return min(re1, re2);
+}
 
 void choose(int *selections, int N, int k);
 void permute(int *permutation, int N);
@@ -113,5 +149,6 @@ struct hash_table *make_name_hash(char *mapstr);
 double gamma_pdf(double x, double a, double b);
 double gamma_draw(double a, double b);
 void dirichlet_draw(int k, double *alpha, double *theta);
+double rel_entropy(double *p, double *q, int d);
 
 #endif

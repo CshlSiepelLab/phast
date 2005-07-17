@@ -27,6 +27,30 @@ OPTIONS:\n\
     --prune-all-but, -P <list>\n\
         Like --prune, but remove all leaves *except* the ones specified.\n\
 \n\
+    --rename, -r <mapping>\n\
+        Rename leaves according to the given mapping.  The format of\n\
+        <mapping> must be: \"oldname1 -> newname1 ; oldname2 ->\n\
+        newname2 ; ...\".  This option is applied *after* all other\n\
+        options (i.e., old names will be used for --prune, --merge,\n\
+        etc.)\n\
+\n\
+    --scale, -s <factor>\n\
+        Scale all branches by the specified factor.\n\
+\n\
+    --name-ancestors, -a\n\
+	Ensure names are assigned to all ancestral nodes.  If a node\n\
+	is unnamed, create a name by concatenating the names of a leaf\n\
+	from its left subtree and a leaf from its right subtree.\n\
+\n\
+    --tree-only, -t\n\
+        Output tree only in Newick format rather than complete tree model.\n\
+\n\
+    --dissect, -d\n\
+	In place of ordinary output, print a description of the id,\n\
+	label (name), parent, children, and distance to parent for\n\
+	each node of the tree.  Sometimes useful for debugging.  Can be\n\
+	used with other options.\n\
+\n\
     --merge, -m <file2.mod> | <file2.nh>\n\
         Merge with another tree model or tree.  The primary model\n\
         (<file.mod>) must have a subset of the species (leaves) in the\n\
@@ -44,16 +68,6 @@ OPTIONS:\n\
         length to the primary tree, then combining the primary tree\n\
         with the non-overlapping portion of the secondary tree.  The\n\
         names of matching species (leaves) must be exactly equal.\n\
-\n\
-    --rename, -r <mapping>\n\
-        Rename leaves according to the given mapping.  The format of\n\
-        <mapping> must be: \"oldname1 -> newname1 ; oldname2 ->\n\
-        newname2 ; ...\".  This option is applied *after* all other\n\
-        options (i.e., old names will be used for --prune, --merge,\n\
-        etc.)\n\
-\n\
-    --scale, -s <factor>\n\
-        Scale all branches by the specified factor.\n\
 \n\
     --extrapolate, -e <phylog.nh> | default\n\
         Extrapolate to a larger set of species based on the given\n\
@@ -73,9 +87,6 @@ OPTIONS:\n\
         larger tree and the smaller tree doesn't have to be a proper\n\
         subset of the larger tree.\n\
 \n\
-    --tree-only, -t\n\
-        Output tree only in Newick format rather than complete tree model.\n\
-\n\
     --help, -h\n\
         Print this help message.\n\n", prog, prog);
   exit(0);
@@ -87,8 +98,9 @@ int main(int argc, char *argv[]) {
   Hashtable *rename_hash = NULL;
   double scale_factor = 1;
   List *prune_names = NULL;
-  int prune_all_but = FALSE, tree_only = FALSE;
-  TreeModel *mod = NULL, *merge_mod = FALSE;
+  int prune_all_but = FALSE, tree_only = FALSE, dissect = FALSE,
+    name_ancestors = FALSE;
+  TreeModel *mod = NULL, *merge_mod = NULL;
 
   /* other variables */
   String *suffix;
@@ -103,11 +115,13 @@ int main(int argc, char *argv[]) {
     {"merge", 1, 0, 'm'},
     {"rename", 1, 0, 'r'},
     {"tree-only", 0, 0, 't'},
+    {"dissect", 0, 0, 'd'},
+    {"name-ancestors", 0, 0, 'a'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "s:p:P:m:r:th", 
+  while ((c = getopt_long(argc, argv, "s:p:P:m:r:adth", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 's':
@@ -143,6 +157,12 @@ int main(int argc, char *argv[]) {
       break;
     case 't':
       tree_only = TRUE;
+      break;
+    case 'd':
+      dissect = TRUE;
+      break;
+    case 'a':
+      name_ancestors = TRUE;
       break;
     case 'h':
       usage(argv[0]);
@@ -187,6 +207,9 @@ int main(int argc, char *argv[]) {
   if (scale_factor != 1)
     tr_scale(tree, scale_factor);
 
+  if (name_ancestors)
+    tr_name_ancestors(tree);
+
   if (rename_hash != NULL) {
     char *newname;
     for (i = 0; i < tree->nnodes; i++) {
@@ -198,7 +221,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (tree_only)
+  if (dissect) 
+    tr_print_nodes(stdout, tree);
+  else if (tree_only)
     tr_print(stdout, tree, TRUE);
   else
     tm_print(stdout, mod);

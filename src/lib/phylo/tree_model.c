@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.20 2005-06-22 07:11:19 acs Exp $
+/* $Id: tree_model.c,v 1.21 2005-07-17 22:20:12 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -316,6 +316,9 @@ TreeModel *tm_new_from_file(FILE *f) {
     }
     else if (!strcmp(tag, TREE_TAG)) {
       str_readline(tmpstr, f);
+      str_double_trim(tmpstr);
+      if (tmpstr->chars[tmpstr->length-1] == ';') 
+	tmpstr->chars[--tmpstr->length] = '\0';
       tree = tr_new_from_string(tmpstr->chars);      
     }
     else if (strcmp(tag, LNL_TAG) == 0) 
@@ -497,6 +500,29 @@ void tm_set_subst_matrices(TreeModel *tm) {
                n->dparent * tm->scale * tm->rK[j]);
     }
   }
+}
+
+/* version of above that can be used with specified branch length and
+   prob matrix */
+void tm_set_subst_matrix(TreeModel *tm, MarkovMatrix *P, double t) {
+  int i;
+  double scaling_const = -1, tmp;
+
+  /* need to compute a matrix scaling constant from the equilibrium
+     freqs, in this case (see below) */
+  if (tm->subst_mod == F81) {   
+    for (i = 0, tmp = 0; i < tm->rate_matrix->size; i++)
+      tmp += vec_get(tm->backgd_freqs, i) * vec_get(tm->backgd_freqs, i);
+    scaling_const = 1.0/(1 - tmp);
+  }
+
+  /* for simple models, full matrix exponentiation is not necessary */
+  if (tm->subst_mod == JC69)
+    tm_set_probs_JC69(tm, P, t);
+  else if (tm->subst_mod == F81)
+    tm_set_probs_F81(tm, P, scaling_const, t);
+  else 
+    mm_exp(P, tm->rate_matrix, t);
 }
 
 /* scale evolutionary rate by const factor (affects branch lengths
