@@ -984,6 +984,7 @@ void reestimate_trees(void **models, int nmodels, void *data,
   vec_set(params, params->size - 1, phmm->em_data->rho);
 
   lower_bounds = vec_new(params->size);
+  vec_zero(lower_bounds);
   upper_bounds = vec_new(params->size);
   vec_set_all(upper_bounds, INFTY);
   vec_set(upper_bounds, params->size - 1, 1); /* 0 < rho < 1 */
