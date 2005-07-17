@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.11 2005-07-17 22:20:12 acs Exp $
+/* $Id: misc.c,v 1.12 2005-07-17 23:15:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -194,6 +194,7 @@ Matrix* read_subst_mat(FILE *F, char *alph) {
       file_size = strlen(file_alph); 
       size = strlen(alph);
       retval = mat_new(size, size);
+      mat_zero(retval);
     }
     else {
       str_split(line, NULL, fields);

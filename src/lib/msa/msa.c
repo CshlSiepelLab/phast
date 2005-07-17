@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.43 2005-06-29 23:29:35 acs Exp $
+/* $Id: msa.c,v 1.44 2005-07-17 23:15:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1113,6 +1113,7 @@ Vector *msa_get_base_freqs(MSA *msa, int start, int end) {
   double sum = 0;
   int s = start > 0 ? start : 0, e = end > 0 ? end : msa->length;
   Vector *base_freqs = vec_new(size);
+  vec_zero(base_freqs);
 
   if (msa->ss != NULL && (start != -1 || end != -1)) 
     assert(msa->ss->tuple_idx != NULL);

@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.27 2005-06-22 07:11:19 acs Exp $
+/* $Id: phylo_hmm.c,v 1.28 2005-07-17 23:15:19 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -1461,6 +1461,7 @@ void phmm_em_estim_indels(PhyloHmm *phmm, IndelEstimData *ied) {
   int i;
   Vector *params = vec_new(3);
   Vector *lb = vec_new(3);
+  vec_zero(lb);
   ied->T = phmm->T;
 
   for (i = 0; i < phmm->functional_hmm->nstates; i++) {

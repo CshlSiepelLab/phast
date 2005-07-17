@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.21 2005-07-17 22:20:12 acs Exp $
+/* $Id: tree_model.c,v 1.22 2005-07-17 23:15:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -648,7 +648,7 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
 
   if (mod->backgd_freqs == NULL) { 
     mod->backgd_freqs = vec_new(int_pow(strlen(msa->alphabet), 
-                                                  mod->order+1));
+					mod->order+1));
     if (mod->subst_mod == JC69 || mod->subst_mod == K80)
       vec_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
     else
@@ -667,6 +667,7 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
 
   /* most params have lower bound of zero and no upper bound */
   lower_bounds = vec_new(params->size);
+  vec_zero(params);
   upper_bounds = NULL;
 
   /* however, in this case we don't want the eq freqs to go to zero */
@@ -1013,6 +1014,7 @@ TreeModel *tm_induced_aa(TreeModel *codon_mod) {
   int nstates = codon_mod->rate_matrix->size;
 
   assert(codon_mod->order == 2);
+  vec_zero(aa_freqs);
 
   /* compute induced equilibrium freqs */
   for (i = 0; i < nstates; i++) {

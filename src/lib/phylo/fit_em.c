@@ -1,4 +1,4 @@
-/* $Id: fit_em.c,v 1.4 2005-06-22 07:11:19 acs Exp $
+/* $Id: fit_em.c,v 1.5 2005-07-17 23:15:19 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -90,6 +90,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
 
   /* most params have lower bound of zero and no upper bound */
   lower_bounds = vec_new(params->size);
+  vec_zero(lower_bounds);
   upper_bounds = NULL;
 
   /* however, in this case we don't want the eq freqs to go to zero */

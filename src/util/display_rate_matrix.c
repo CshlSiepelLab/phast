@@ -1,4 +1,4 @@
-/* $Id: display_rate_matrix.c,v 1.3 2005-06-22 07:11:19 acs Exp $
+/* $Id: display_rate_matrix.c,v 1.4 2005-07-17 23:15:19 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -123,6 +123,7 @@ Matrix *read_paml_matrix(FILE *F, char *alph) {
   String *line = str_new(STR_MED_LEN);
   int i, j;
   assert(strcmp(alph, paml_alph) == 0);
+  mat_zero(retval);
 
   for (i = 1; i < size-1 && str_readline(line, F) != EOF; ) {
     /* NOTE: size of matrix allows for stop, but stop not included in
@@ -168,6 +169,7 @@ Matrix* unproject_rates(TreeModel *mod_tuples, TreeModel *mod_single) {
   char tuple_i[mod_tuples->order+1], tuple_j[mod_tuples->order+1];
   int position, i, j;
   Matrix *retval = mat_new(dim, dim);
+  mat_zero(retval);
   for (i = 0; i < dim; i++) {
     get_tuple_str(tuple_i, i, mod_tuples->order+1, 
                   mod_tuples->rate_matrix->states);

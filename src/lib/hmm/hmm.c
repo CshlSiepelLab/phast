@@ -1,4 +1,4 @@
-/* $Id: hmm.c,v 1.5 2005-06-22 07:11:19 acs Exp $
+/* $Id: hmm.c,v 1.6 2005-07-17 23:15:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -64,10 +64,17 @@ HMM* hmm_new(MarkovMatrix *mm, Vector *eq_freqs,
    initialized to zero; otherwise this vector will be NULL (see
    hmm_new) */
 HMM *hmm_new_nstates(int nstates, int begin, int end) {
-  return hmm_new(mm_new(nstates, NULL, DISCRETE), 
-                 vec_new(nstates),
-                 begin ? vec_new(nstates) : NULL,
-                 end ? vec_new(nstates) : NULL);
+  Vector *eqfreqs = vec_new(nstates), *begv = NULL, *endv = NULL;
+  vec_zero(eqfreqs);
+  if (begin) {
+    begv = vec_new(nstates);
+    vec_zero(begv);
+  }
+  if (end) {
+    endv = vec_new(nstates);
+    vec_zero(endv);
+  }
+  return hmm_new(mm_new(nstates, NULL, DISCRETE), eqfreqs, begv, endv);
 }
 
 /* Create a copy of an HMM */
@@ -634,6 +641,9 @@ void hmm_train_from_paths(HMM *hmm, int **path, int npaths,
   Vector *state_counts = vec_new(hmm->nstates);
   Vector *begcounts = use_begin ? vec_new(hmm->nstates) : NULL;
   int i, j;
+  mat_zero(trans_counts);
+  vec_zero(state_counts);
+  if (begcounts != NULL) vec_zero(begcounts);
   for (i = 0; i < npaths; i++) {
     for (j = 0; path[i][j] != -1; j++) {
       assert(path[i][j] >= 0 && path[i][j] < hmm->nstates);

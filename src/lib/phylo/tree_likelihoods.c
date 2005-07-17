@@ -1,4 +1,4 @@
-/* $Id: tree_likelihoods.c,v 1.11 2005-06-22 07:11:19 acs Exp $
+/* $Id: tree_likelihoods.c,v 1.12 2005-07-17 23:15:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -746,11 +746,12 @@ double tl_compute_partial_ll_suff_stats(TreeModel *mod, TreePosteriors *post) {
    of all "matching" ordinary tuples.  Missing data characters are
    assumed to be gap characters or Ns. */
 Vector *get_marginal_eq_freqs (char *alphabet, int tuple_size, 
-                                   Vector *eq_freqs) {
+			       Vector *eq_freqs) {
   int alph_size = strlen(alphabet);
   int ntuples = int_pow(alph_size, tuple_size);
   int i;
   Vector *retval = vec_new(int_pow(alph_size+1, tuple_size));
+  vec_zero(retval);
 
   /* loop through the ordinary (non-meta) tuples */
   for (i = 0; i < ntuples; i++) {

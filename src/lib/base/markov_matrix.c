@@ -1,4 +1,4 @@
-/* $Id: markov_matrix.c,v 1.4 2005-06-22 07:11:19 acs Exp $
+/* $Id: markov_matrix.c,v 1.5 2005-07-17 23:15:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -25,6 +25,7 @@ MarkovMatrix* mm_new(int size, char *states, mm_type type) {
   M->evec_matrix = M->evec_matrix_inv = NULL;
   M->evals = NULL;
   M->matrix = mat_new(size, size);
+  mat_zero(M->matrix);
   M->size = size;
   alph_size = states == NULL ? size : strlen(states);
   M->states = (char*)smalloc((alph_size+1) * sizeof(char));
@@ -64,6 +65,7 @@ MarkovMatrix* mm_new_from_counts(Matrix *counts, char *states) {
   double rowsum;
   MarkovMatrix *M = mm_new(counts->nrows, states, DISCRETE);
   M->matrix = mat_new(counts->nrows, counts->ncols);
+  mat_zero(M->matrix);
   for (i = 0; i < counts->nrows; i++) {
     for (j = 0, rowsum = 0; j < counts->ncols; j++) 
       rowsum += mat_get(counts, i, j);

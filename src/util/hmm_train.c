@@ -1,7 +1,7 @@
 /* hmm_train - estimation of HMM transition probabilities from labeled
    training data */
 
-/* $Id: hmm_train.c,v 1.10 2005-06-22 07:11:19 acs Exp $
+/* $Id: hmm_train.c,v 1.11 2005-07-17 23:15:19 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -192,6 +192,10 @@ int main(int argc, char* argv[]) {
   traincounts = mat_new(ncats_unspooled, ncats_unspooled);
   statecounts = vec_new(ncats_unspooled);
   begcounts = vec_new(ncats_unspooled);
+  mat_zero(traincounts);
+  vec_zero(statecounts);
+  vec_zero(begcounts);
+
     
   /* create skeleton of new HMM. */
   hmm = hmm_new_nstates(ncats_unspooled, 0, 0);
