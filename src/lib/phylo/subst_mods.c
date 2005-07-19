@@ -1,4 +1,4 @@
-/* $Id: subst_mods.c,v 1.5 2005-06-22 07:11:19 acs Exp $
+/* $Id: subst_mods.c,v 1.6 2005-07-19 18:52:04 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -1126,7 +1126,7 @@ void tm_init_mat_REV(TreeModel *mod, Vector *params, int parm_idx,
       if (is_transition(mod->rate_matrix->states[i], 
                         mod->rate_matrix->states[j])) 
         val *= kappa;
-      vec_set(params, parm_idx++, val + .05 * rand()/(RAND_MAX + 1.0));
+      vec_set(params, parm_idx++, val + .05 * random()/(RAND_MAX + 1.0));
                                 /* add a little noise to initial
                                    values to avoid making matrix
                                    undiagonalizable (becomes important
@@ -1146,7 +1146,7 @@ void tm_init_mat_UNREST(TreeModel *mod, Vector *params, int parm_idx,
       if (is_transition(mod->rate_matrix->states[i], 
                            mod->rate_matrix->states[j])) 
         val *= kappa;
-      vec_set(params, parm_idx++, val + .05 * rand()/(RAND_MAX + 1.0));
+      vec_set(params, parm_idx++, val + .05 * random()/(RAND_MAX + 1.0));
                                 /* add a little noise to initial
                                    values to avoid making matrix
                                    undiagonalizable :) */
@@ -1255,7 +1255,7 @@ void tm_init_mat_U2(TreeModel *mod, Vector *params,
           is_transition(mod->rate_matrix->states[b2_i], 
                            mod->rate_matrix->states[b2_j])) 
         val *= kappa;
-      vec_set(params, parm_idx++, val + .05 * rand()/(RAND_MAX + 1.0));
+      vec_set(params, parm_idx++, val + .05 * random()/(RAND_MAX + 1.0));
                                 /* add a little noise to initial
                                    values to avoid making matrix
                                    undiagonalizable :) */
@@ -1316,7 +1316,7 @@ void tm_init_mat_U2S(TreeModel *mod, Vector *params,
                            mod->rate_matrix->states[b2_j])) 
         val *= kappa;
 
-      vec_set(params, parm_idx++, val + .05 * rand()/(RAND_MAX + 1.0));
+      vec_set(params, parm_idx++, val + .05 * random()/(RAND_MAX + 1.0));
                                 /* add a little noise to initial
                                    values to avoid making matrix
                                    undiagonalizable :) */
@@ -1450,7 +1450,7 @@ void tm_init_mat_U3(TreeModel *mod, Vector *params,
           is_transition(mod->rate_matrix->states[b3_i], 
                            mod->rate_matrix->states[b3_j])) 
         val *= kappa;
-      vec_set(params, parm_idx++, val + .001 * rand()/(RAND_MAX + 1.0));
+      vec_set(params, parm_idx++, val + .001 * random()/(RAND_MAX + 1.0));
                                 /* add a little noise to initial
                                    values to avoid making matrix
                                    undiagonalizable :) */
@@ -1523,7 +1523,7 @@ void tm_init_mat_U3S(TreeModel *mod, Vector *params,
           is_transition(mod->rate_matrix->states[b3_i], 
                            mod->rate_matrix->states[b3_j])) 
         val *= kappa;
-      vec_set(params, parm_idx++, val + .001 * rand()/(RAND_MAX + 1.0));
+      vec_set(params, parm_idx++, val + .001 * random()/(RAND_MAX + 1.0));
                                 /* add a little noise to initial
                                    values to avoid making matrix
                                    undiagonalizable :) */

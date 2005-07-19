@@ -1,4 +1,4 @@
-/* $Id: markov_matrix.c,v 1.5 2005-07-17 23:15:19 acs Exp $
+/* $Id: markov_matrix.c,v 1.6 2005-07-19 18:51:26 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -252,7 +252,7 @@ int mm_sample_vector(Vector *v) {
   int i;
   double sum;
 
-  r = rand()*1.0/RAND_MAX;
+  r = random()*1.0/RAND_MAX;
 
   sum = 0;
   for (i = 0; i < v->size; i++) {

@@ -926,7 +926,7 @@ void mtf_sample_ntuples(SeqSet *s, List *tuples, int tuple_size, int number) {
   n = ceil(1.0 * number/s->set->nseqs);
   for (i = 0; i < s->set->nseqs && lst_size(tuples) < number; i++) {
     for (j = 0; j < n && lst_size(tuples) < number; j++) {
-      int start = rint(1.0 * (s->lens[i] - tuple_size) * rand() / RAND_MAX);
+      int start = rint(1.0 * (s->lens[i] - tuple_size) * random() / RAND_MAX);
       strncpy(tuple, &s->set->seqs[i][start], tuple_size);
       lst_push_ptr(tuples, str_new_charstr(tuple));
     }
