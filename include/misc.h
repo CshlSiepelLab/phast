@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.8 2005-07-17 22:20:12 acs Exp $
+/* $Id: misc.h,v 1.9 2005-07-19 18:53:08 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -145,10 +145,12 @@ int is_transition(char b1, char b2);
 void unif_draw(int n, double min, double max, double *draws, int antithetics);
 void bn_draw(int n, int N, double p, int *draws);
 void mn_draw(int n, double *p, int d, int *counts);
+int draw_index(double *p, int size);
 struct hash_table *make_name_hash(char *mapstr);
 double gamma_pdf(double x, double a, double b);
 double gamma_draw(double a, double b);
 void dirichlet_draw(int k, double *alpha, double *theta);
 double rel_entropy(double *p, double *q, int d);
+int next_comb(int n, int k, int *index);
 
 #endif
