@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.22 2005-07-17 23:15:19 acs Exp $
+/* $Id: tree_model.c,v 1.23 2005-07-19 18:52:38 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -667,7 +667,7 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
 
   /* most params have lower bound of zero and no upper bound */
   lower_bounds = vec_new(params->size);
-  vec_zero(params);
+  vec_zero(lower_bounds);
   upper_bounds = NULL;
 
   /* however, in this case we don't want the eq freqs to go to zero */
