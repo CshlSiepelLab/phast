@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.13 2005-07-19 18:51:10 acs Exp $
+/* $Id: misc.c,v 1.14 2005-07-19 23:00:33 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -675,7 +675,8 @@ int next_comb(int n, int k, int *index) {
 
   /* scan backwards for first "digit" that can safely be advanced */
   for (i = k - 1; i >= 0; i--)
-    if ((i == k - 1 && index[i] < n - 1) || index[i] < index[i+1] - 1) 
+    if ((i == k - 1 && index[i] < n - 1) || 
+	(i < k - 1 && index[i] < index[i+1] - 1))
       break;
   
   if (i < 0) return FALSE;	/* have enumerated all possibilities */
