@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.12 2005-07-17 23:15:19 acs Exp $
+/* $Id: misc.c,v 1.13 2005-07-19 18:51:10 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -39,9 +39,9 @@ void choose(int *selections, int N, int k) {
     }
   }
 
-  srand(time(NULL));
+  srandom(time(NULL));
   for (i = 0; i < k && lst_size(eligible) > 0; i++) {
-    int randidx = rint(1.0 * (lst_size(eligible)-1) * rand() / RAND_MAX);
+    int randidx = rint(1.0 * (lst_size(eligible)-1) * random() / RAND_MAX);
     int item = lst_get_int(eligible, randidx);
     selections[item] = 1;
     
@@ -62,9 +62,9 @@ void permute(int *permutation, int N) {
   List *eligible = lst_new_int(N);
   for (i = 0; i < N; i++) lst_push_int(eligible, i);
 
-  srand(time(NULL));
+  srandom(time(NULL));
   for (i = 0; i < N; i++) {
-    randidx = rint(1.0 * (lst_size(eligible)-1) * rand() / RAND_MAX);
+    randidx = rint(1.0 * (lst_size(eligible)-1) * random() / RAND_MAX);
     permutation[i] = lst_get_int(eligible, randidx);
     
     /* replace selected element with last one in list, then shorten list */
@@ -453,12 +453,12 @@ double normalize_probs(double *p, int size) {
 
 /** Make 'n' draws from a uniform distribution on the interval [min,
    max], optionally with antithetics.  Store in 'draws'.  Designed for use with
-   real (floating-point) numbers.  Be sure to call srand externally. */ 
+   real (floating-point) numbers.  Be sure to call srandom externally. */ 
 void unif_draw(int n, double min, double max, double *draws, int antithetics) {
   int i;
   double range = max - min;
   for (i = 0; i < n; i++) {
-    draws[i] = min + range * rand()/RAND_MAX;
+    draws[i] = min + range * random()/RAND_MAX;
     if (antithetics) {
       draws[i+1] = min + (max - draws[i]);
       i++;
@@ -468,7 +468,7 @@ void unif_draw(int n, double min, double max, double *draws, int antithetics) {
 
 /** Make 'n' draws from a binomial distribution with parameters 'N'
    and 'p'.  Store numbers of successes in 'draws'.  Be sure to call
-   srand externally.  WARNING: computational complexity is O(n*N) --
+   srandom externally.  WARNING: computational complexity is O(n*N) --
    see Numerical Recipes for a better way (rejection sampling) */
 void bn_draw(int n, int N, double p, int *draws) {
   int i, j;
@@ -495,7 +495,7 @@ void bn_draw(int n, int N, double p, int *draws) {
    'n'.  Probability vector is assumed to be normalized.  WARNING:
    computational complexity is O(n * d) -- need a better
    implementation of bn_draw to handle large n efficiently.  Be sure
-   to call srand externally. */
+   to call srandom externally. */
 void mn_draw(int n, double *p, int d, int *counts) {
   int i, nremaining = n;
   double cum_p = 0;
@@ -512,6 +512,18 @@ void mn_draw(int n, double *p, int d, int *counts) {
   }
   /* last category is constrained by prev */
   counts[d-1] = nremaining;
+}
+
+/** Given a probability vector, draw an index.  Call srandom externally */
+int draw_index(double *p, int size) {
+  int i;
+  double sum = 0, r = 1.0 * random()/RAND_MAX;
+  for (i = 0; i < size; i++) {
+    sum += p[i];
+    if (r < sum) break;
+  }
+  if (i == size) i = size-1;	/* to be safe */
+  return i;
 }
 
 /** Parse string defining mapping from old names to new and store as
@@ -551,11 +563,11 @@ double gamma_pdf(double x, double a, double b) {
 /* make a draw from an exponential distribution with parameter
    (expected value) 'b' */
 double exp_draw(double b) {
-  return -log(1.0 * rand() / RAND_MAX) * b;
+  return -log(1.0 * random() / RAND_MAX) * b;
 }
 
 /* make a draw from a gamma distribution with parameters 'a' and
-   'b'. Be sure to call srand externally.  If a == 1, exp_draw is
+   'b'. Be sure to call srandom externally.  If a == 1, exp_draw is
    called.  If a > 1, Best's (1978) rejection algorithm is used, and
    if a < 1, rejection sampling from the Weibull distribution is
    performed, both as described in "Non-Uniform Random Variate
@@ -573,8 +585,8 @@ double gamma_draw(double a, double b) {
       double U, V, W, X, Y, Z;
       double d = a - 1, c = 3 * a - 0.75;
 
-      U = 1.0*rand()/RAND_MAX;	/* uniform on [0, 1]; used for draw */
-      V = 1.0*rand()/RAND_MAX;	/* also uniform on [0, 1]; used for
+      U = 1.0*random()/RAND_MAX;	/* uniform on [0, 1]; used for draw */
+      V = 1.0*random()/RAND_MAX;	/* also uniform on [0, 1]; used for
 				   rejection/acceptance */
       W = U * (1 - U);
       Y = sqrt(c / W) * (U - 0.5); 
@@ -639,6 +651,42 @@ int combinations(int n, int k) {
   int i, retval = 1;
   for (i = 0; i < k; i++) retval *= (n - i);
   return retval / permutations(k);
+}
+
+/* Call repeatedly to enumerate combinations.  On successful exit, the
+   array index (preallocate to size k) will contain indices in [0,
+   n-1] representing the next element in the series of all possible
+   combinations of n elements.  On the first call, set indices[0] = -1
+   and the array will be initialized appropriately.  Returns TRUE on success,
+   FALSE when no more choices possible */
+int next_comb(int n, int k, int *index) {
+  int i;
+
+  assert(n > 0 && k > 0 && k <= n);
+
+  if (index[0] == -1) {
+    for (i = 0; i < k; i++) index[i] = i;
+    return TRUE;
+  }
+
+  /* basic idea is to advance least significant "digit" that can
+     safely be advanced, ensuring that index[i] < index[i+1] for all i
+     in [0, k-1] */
+
+  /* scan backwards for first "digit" that can safely be advanced */
+  for (i = k - 1; i >= 0; i--)
+    if ((i == k - 1 && index[i] < n - 1) || index[i] < index[i+1] - 1) 
+      break;
+  
+  if (i < 0) return FALSE;	/* have enumerated all possibilities */
+
+  /* advance digit, then "sweep" forward, resetting subsequent digits
+     to lowest allowable value */
+  index[i]++;
+  for (i++; i < k; i++)
+    index[i] = index[i-1] + 1;
+
+  return TRUE;
 }
 
 /* compute relative entropy in bits of q with respect to p, both
