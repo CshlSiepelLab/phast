@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.9 2005-07-19 18:53:08 acs Exp $
+/* $Id: misc.h,v 1.10 2005-07-25 22:20:54 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -152,5 +152,7 @@ double gamma_draw(double a, double b);
 void dirichlet_draw(int k, double *alpha, double *theta);
 double rel_entropy(double *p, double *q, int d);
 int next_comb(int n, int k, int *index);
+double incomplete_gamma(double a, double x, char type);
+double cum_poisson(double lambda, int k);
 
 #endif

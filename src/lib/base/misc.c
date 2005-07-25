@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.14 2005-07-19 23:00:33 acs Exp $
+/* $Id: misc.c,v 1.15 2005-07-25 22:21:00 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -557,7 +557,7 @@ struct hash_table *make_name_hash(char *mapstr) {
 
 /** Evaluate pdf of gamma distribution with parameters a and b */
 double gamma_pdf(double x, double a, double b) {
-  return 1/(gamma(a) * pow(b, a)) * pow(x, a-1) * exp(-x/b);
+  return 1/(tgamma(a) * pow(b, a)) * pow(x, a-1) * exp(-x/b);
 }
 
 /* make a draw from an exponential distribution with parameter
@@ -637,6 +637,76 @@ void dirichlet_draw(int k, double *alpha, double *theta) {
   for (i = 0; i < k; i++) 
     theta[i] = gamma_draw(alpha[i], 1);
   normalize_probs(theta, k);
+}
+
+/* incomplete gamma function; see Numerical Recipes in C */
+double incomplete_gamma(double a, 
+			double x, 
+			char type /* 'p' means first half of integral,
+				     'q' means second half; see p. 171 */
+			) {
+  double gln;
+  int n;
+  double retval = -1;
+
+  assert (x >= 0 && a > 0 && (type == 'p' || type == 'q'));
+
+  gln = lgamma(a);
+
+  if (x < a + 1) {		/* use series representation */
+    double ap, del, sum;
+
+    ap = a;
+    del = sum = 1/a;
+    for (n = 1; n <= 100; n++) {
+      ap += 1.0;
+      del *= x/ap;
+      sum += del;
+      if (fabs(del) < fabs(sum) * 3.0e-7) {
+	retval = sum * exp(-x + a * log(x) - gln);
+	break;
+      }
+    }
+  }
+  else {			/* use continued fraction representation */
+    double gold = 0.0, g, fac = 1.0, b1 = 1.0;
+    double b0 = 0, anf, ana, an, a1, a0 = 1.0;
+
+    a1 = x;
+    for (n = 1; n <= 100; n++) {
+      an = n;
+      ana = an - a;
+      a0 = (a1 + a0 * ana) * fac;
+      b0 = (b1 + b0 * ana) * fac;
+      anf = an * fac;
+      a1 = x * a0 + anf * a1;
+      b1 = x * b0 + anf * b1;
+      if (a1) {
+	fac = 1/a1;
+	g = b1 * fac;
+	if (fabs((g - gold) / g) < 3.0e-7) {
+	  retval = 1 - exp(-x + a * log(x) - gln) * g;
+	  break;
+	}
+      }
+      gold = g;
+    }
+  }
+
+  if (retval == -1)		/* failed to converge */
+    die("ERROR: 'a' too large in incomplete_gamma.\n");
+
+  if (type == 'q') 
+    retval = 1 - retval;
+
+  return retval;
+}
+
+/* return P(x <= k | lambda), for a variable x that obeys a Poisson
+   distribution with parameter lambda */
+double cum_poisson(double lambda, int k) {
+  assert(lambda >= 0 && k >= 0);
+  return incomplete_gamma(k+1, lambda, 'q');
 }
 
 /* return n! */
