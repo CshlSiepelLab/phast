@@ -224,7 +224,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'n':
       if (input_mods != NULL) die("ERROR: Can't use --nreps with --read-mods.\n");
-      nreps = get_arg_int_bounds(optarg, 10, INFTY);
+      nreps = get_arg_int_bounds(optarg, 1, INFTY);
       break;
     case 'i':
       input_format = msa_str_to_format(optarg);
