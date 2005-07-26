@@ -1,4 +1,4 @@
-/* $Id: markov_matrix.c,v 1.6 2005-07-19 18:51:26 acs Exp $
+/* $Id: markov_matrix.c,v 1.7 2005-07-26 18:30:17 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -242,7 +242,9 @@ int mm_sample_state(MarkovMatrix *M, int state) {
   /* this is a bit inefficient, but we'll keep it for now, because it
    * simplifies the code */
   Vector *v = mat_get_row(M->matrix, state);
-  return (mm_sample_vector(v));
+  int retval = mm_sample_vector(v);
+  vec_free(v);
+  return retval;
 }
 
 /* given a probability vector, make a draw, and return the
