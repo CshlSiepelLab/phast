@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.17 2005-07-26 05:18:50 acs Exp $
+/* $Id: misc.c,v 1.18 2005-07-26 07:02:21 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -658,7 +658,7 @@ double incomplete_gamma(double a,
 
     ap = a;
     del = sum = 1/a;
-    for (n = 1; n <= 100; n++) {
+    for (n = 1; n <= 200; n++) {
       ap += 1.0;
       del *= x/ap;
       sum += del;
@@ -673,7 +673,7 @@ double incomplete_gamma(double a,
     double b0 = 0, anf, ana, an, a1, a0 = 1.0;
 
     a1 = x;
-    for (n = 1; n <= 100; n++) {
+    for (n = 1; n <= 200; n++) {
       an = n;
       ana = an - a;
       a0 = (a1 + a0 * ana) * fac;
@@ -694,9 +694,9 @@ double incomplete_gamma(double a,
   }
 
   if (retval == -1)		/* failed to converge */
-    die("ERROR: 'a' too large in incomplete_gamma.\n");
+    fprintf(stderr, "WARNING: 'a' too large in incomplete_gamma.\n");
 
-  if (type == 'q') 
+  else if (type == 'q') 
     retval = 1 - retval;
 
   return retval;
