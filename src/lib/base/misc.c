@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.16 2005-07-26 05:16:22 acs Exp $
+/* $Id: misc.c,v 1.17 2005-07-26 05:18:50 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -11,7 +11,6 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <hashtable.h>
-#include <math.h>
 
 #define NCODONS 64
 
