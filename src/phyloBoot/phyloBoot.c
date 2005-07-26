@@ -355,7 +355,7 @@ int main(int argc, char *argv[]) {
       if (parameteric) 
         msa = tm_generate_msa(nsites, hmm->transition_matrix, &model, NULL);
       else {
-	srand(time(NULL));
+	srandom(time(NULL));
         mn_draw(nsites, p, msa->ss->ntuples, tmpcounts);
                                 /* here we simply redraw numbers of
                                    tuples from multinomial distribution

@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.23 2005-07-19 18:52:38 acs Exp $
+/* $Id: tree_model.c,v 1.24 2005-07-26 18:30:03 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -596,7 +596,7 @@ MSA *tm_generate_msa(int ncolumns,
 
   /* generate sequences, column by column */
   class = 0;
-  srand(time(NULL));
+  srandom(time(NULL));
   newchar = (char*)smalloc(ntreenodes * sizeof(char));
   for (col = 0; col < ncolumns; col++) {
     List *traversal = tr_preorder(classmods[class]->tree);
