@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.30 2005-07-25 22:21:55 acs Exp $
+   $Id: phyloFit.c,v 1.31 2005-08-03 16:32:13 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -411,6 +411,8 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 
   /* compute desired stats */
   assert(mod->tree_posteriors == NULL); 
+  if (!quiet) 
+    fprintf(stderr, "Computing posterior probabilities and/or related stats ...\n");
   mod->tree_posteriors = tl_new_tree_posteriors(mod, msa, do_bases, 0, 
                                                 do_expected_nsubst, 
                                                 do_expected_nsubst_tot, 0, 0);
@@ -478,7 +480,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
               fname->chars);
     EXPSUBF = fopen_fname(fname->chars, "w+");
 
-    fprintf(EXPSUBF, "%-3s %10s ", "#", "tuple");
+    fprintf(EXPSUBF, "%-3s %10s %7s ", "#", "tuple", "count");
     for (node = 0; node < mod->tree->nnodes; node++) {
       n = lst_get_ptr(tr_postorder(mod->tree), node);
       if (n == mod->tree) continue;
@@ -492,7 +494,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
           msa->ss->counts[tup] == 0) continue;
 
       tuple_to_string_pretty(coltupstr, msa, tup);
-      fprintf(EXPSUBF, "%-3d %10s ", tup, coltupstr);
+      fprintf(EXPSUBF, "%-3d %10s %.0f ", tup, coltupstr, msa->ss->counts[tup]);
       for (node = 0; node < mod->tree->nnodes; node++) {
         n = lst_get_ptr(tr_postorder(mod->tree), node);
         if (n == mod->tree) continue;
