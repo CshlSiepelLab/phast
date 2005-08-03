@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.18 2005-07-26 07:02:21 acs Exp $
+/* $Id: misc.c,v 1.19 2005-08-03 16:32:40 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -700,6 +700,13 @@ double incomplete_gamma(double a,
     retval = 1 - retval;
 
   return retval;
+}
+
+/* return P(x = k | lambda), for a variable x that obeys a Poisson
+   distribution with parameter lambda */
+double d_poisson(double lambda, int k) {
+  assert(lambda >= 0 && k >= 0);
+  return exp(-lambda + k * log(lambda) - lgamma(k+1));
 }
 
 /* return P(x <= k | lambda), for a variable x that obeys a Poisson
