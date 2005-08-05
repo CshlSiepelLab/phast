@@ -1,4 +1,4 @@
-/* $Id: trees.h,v 1.11 2005-07-17 22:20:12 acs Exp $
+/* $Id: trees.h,v 1.12 2005-08-05 16:38:58 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -89,5 +89,6 @@ void tr_partition_nodes(TreeNode *tree, TreeNode *sub, List *inside,
 List *tr_leaf_names(TreeNode *tree);
 void tr_name_ancestors(TreeNode *tree);
 void tr_print_nodes(FILE *F, TreeNode *tree);
+void tr_reroot(TreeNode *tree, TreeNode *newroot);
 
 #endif 

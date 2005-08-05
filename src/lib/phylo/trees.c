@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.18 2005-07-17 22:20:12 acs Exp $ 
+/* $Id: trees.c,v 1.19 2005-08-05 16:38:58 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1218,3 +1218,111 @@ void tr_print_nodes(FILE *F, TreeNode *tree) {
     fprintf(F, "\tdparent = %f\n\n", n->dparent);
   }
 }
+
+/** Reroot tree at specified internal node.  Warning: ids will not be
+    altered, so they will no longer be consistent with a preorder
+    traversal of the tree  */
+void tr_reroot(TreeNode *tree, TreeNode *newroot) {
+  TreeNode *n, *p, *gp, *root_lchild, *root_rchild;
+  double d, d2;
+  double root_d;
+  int i;
+
+  if (tree == newroot) return;
+  if (newroot->lchild == NULL || newroot->rchild == NULL)
+    die("ERROR: can only reroot at internal node.\n");
+
+  /* save left and right children of old root */
+  assert(tree->lchild != NULL && tree->rchild != NULL);
+  root_lchild = tree->lchild;
+  root_rchild = tree->rchild;
+  root_d = root_lchild->dparent + root_rchild->dparent;
+
+  /* move old root to position beneath new root, connected by 0-length
+     branch */
+  tree->lchild = newroot->lchild;
+  tree->rchild = newroot->rchild;
+  tree->parent = newroot;
+  newroot->rchild = tree;
+  newroot->lchild = NULL;
+  /* branch lengths are okay */
+
+  /* swap pointers above new root */
+  n = newroot;
+  p = n->parent;
+  d = n->dparent;               /* d is length of branch between n and p */
+  while (p != tree) {
+    /* save grandparent */
+    gp = p->parent;
+    d2 = p->dparent;            /* d2 is length of branch between p and gp */
+
+    /* swap edge between n and parent */
+    p->parent = n;    
+    p->dparent = d;
+    if (n->lchild == NULL) 
+      n->lchild = p;
+    else
+      n->rchild = p;
+
+    /* set extra pointer to NULL */
+    if (p->lchild == n)
+      p->lchild = NULL;
+    else
+      p->rchild = NULL;
+
+    /* repeat */
+    n = p;
+    p = gp;    
+    d = d2;
+  }
+
+  /* now n points to either root_rchild or root_lchild */
+  assert(n == root_rchild || n == root_lchild);
+  if (n == root_lchild) {
+    if (n->lchild == NULL) 
+      n->lchild = root_rchild;
+    else
+      n->rchild = root_rchild;
+
+    root_rchild->parent = n;
+    root_rchild->dparent = root_d;
+  }
+  else {                      /* n == root_rchild */
+    if (n->lchild == NULL) 
+      n->lchild = root_lchild;
+    else
+      n->rchild = root_lchild;
+
+    root_lchild->parent = n;
+    root_lchild->dparent = root_d;
+  }
+
+  newroot->parent = NULL;
+  newroot->dparent = 0;
+
+  /* reset nnodes and height */
+  for (i = 0; i < lst_size(tree->nodes); i++) {
+    n = lst_get_ptr(tree->nodes, i);
+    n->nnodes = (n == newroot ? lst_size(tree->nodes) : -1);
+    n->height = 0;
+  }
+  lst_free(tree->nodes);
+
+  tr_set_nnodes(newroot);
+
+  if (tree->preorder != NULL) {
+    lst_free(tree->preorder);
+    tree->preorder = NULL;
+  }
+
+  if (tree->postorder != NULL) {
+    lst_free(tree->postorder);
+    tree->postorder = NULL;
+  }
+
+  if (tree->inorder != NULL) {
+    lst_free(tree->inorder);
+    tree->inorder = NULL;
+  }
+}
+

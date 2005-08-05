@@ -38,18 +38,21 @@ OPTIONS:\n\
         Scale all branches by the specified factor.\n\
 \n\
     --name-ancestors, -a\n\
-	Ensure names are assigned to all ancestral nodes.  If a node\n\
-	is unnamed, create a name by concatenating the names of a leaf\n\
-	from its left subtree and a leaf from its right subtree.\n\
+        Ensure names are assigned to all ancestral nodes.  If a node\n\
+        is unnamed, create a name by concatenating the names of a leaf\n\
+        from its left subtree and a leaf from its right subtree.\n\
 \n\
     --tree-only, -t\n\
         Output tree only in Newick format rather than complete tree model.\n\
 \n\
     --dissect, -d\n\
-	In place of ordinary output, print a description of the id,\n\
-	label (name), parent, children, and distance to parent for\n\
-	each node of the tree.  Sometimes useful for debugging.  Can be\n\
-	used with other options.\n\
+        In place of ordinary output, print a description of the id,\n\
+        label (name), parent, children, and distance to parent for\n\
+        each node of the tree.  Sometimes useful for debugging.  Can be\n\
+        used with other options.\n\
+\n\
+    --reroot -R <node_name>\n\
+        Reroot tree at internal node with specified name.\n\
 \n\
     --merge, -m <file2.mod> | <file2.nh>\n\
         Merge with another tree model or tree.  The primary model\n\
@@ -101,6 +104,7 @@ int main(int argc, char *argv[]) {
   int prune_all_but = FALSE, tree_only = FALSE, dissect = FALSE,
     name_ancestors = FALSE;
   TreeModel *mod = NULL, *merge_mod = NULL;
+  char *reroot_name = NULL;
 
   /* other variables */
   String *suffix;
@@ -117,11 +121,12 @@ int main(int argc, char *argv[]) {
     {"tree-only", 0, 0, 't'},
     {"dissect", 0, 0, 'd'},
     {"name-ancestors", 0, 0, 'a'},
+    {"reroot", 1, 0, 'R'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "s:p:P:m:r:adth", 
+  while ((c = getopt_long(argc, argv, "s:p:P:m:r:R:adth", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 's':
@@ -160,6 +165,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'd':
       dissect = TRUE;
+      break;
+    case 'R':
+      reroot_name = optarg;
       break;
     case 'a':
       name_ancestors = TRUE;
@@ -219,6 +227,13 @@ int main(int argc, char *argv[]) {
         strcpy(n->name, newname);
       }
     }
+  }
+
+  if (reroot_name != NULL) {
+    TreeNode *n = tr_get_node(tree, reroot_name);
+    if (n == NULL) die("ERROR: no node named '%s'.\n", reroot_name);
+    tr_reroot(tree, n);
+    tree = n;
   }
 
   if (dissect) 
