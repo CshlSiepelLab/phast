@@ -1,4 +1,4 @@
-/* $Id: matrix.h,v 1.3 2005-06-24 17:41:52 acs Exp $ 
+/* $Id: matrix.h,v 1.4 2005-08-09 20:07:31 acs Exp $ 
    Written by Adam Siepel, 2002-2005
    Copyright 2002-2005, Adam Siepel, University of California 
 */
@@ -44,6 +44,7 @@ void mat_mult(Matrix *prod, Matrix *m1, Matrix *m2);
 void mat_vec_mult(Vector *prod, Matrix *m, Vector *v);
 void mat_plus_eq(Matrix *thism, Matrix *addm);
 void mat_minus_eq(Matrix *thism, Matrix *subm);
+void mat_resize(Matrix *m, int nrows, int ncols);
 int mat_invert(Matrix *M_inv, Matrix *M);
 
 /***************************************************************************

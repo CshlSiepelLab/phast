@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.19 2005-08-05 16:38:58 acs Exp $ 
+/* $Id: trees.c,v 1.20 2005-08-09 20:07:31 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1245,6 +1245,7 @@ void tr_reroot(TreeNode *tree, TreeNode *newroot) {
   tree->parent = newroot;
   newroot->rchild = tree;
   newroot->lchild = NULL;
+  tree->name[0] = '\0';		/* name may no longer make sense */
   /* branch lengths are okay */
 
   /* swap pointers above new root */

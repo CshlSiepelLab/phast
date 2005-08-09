@@ -1,4 +1,4 @@
-/* $Id: matrix.c,v 1.3 2005-06-22 07:11:19 acs Exp $ 
+/* $Id: matrix.c,v 1.4 2005-08-09 20:07:31 acs Exp $ 
    Written by Adam Siepel, 2002-2005
    Copyright 2002-2005, Adam Siepel, University of California 
 */
@@ -189,6 +189,16 @@ void mat_minus_eq(Matrix *thism, Matrix *subm) {
   for (i = 0; i < thism->nrows; i++)
     for (j = 0; j < thism->ncols; j++)  
       thism->data[i][j] -= subm->data[i][j];
+}
+
+void mat_resize(Matrix *m, int nrows, int ncols) {
+  int i;
+  for (i = nrows; i < m->nrows; i++) free(m->data[i]);
+  m->data = srealloc(m->data, nrows * sizeof(void*));
+  for (i = 0; i < nrows; i++)
+    m->data[i] = srealloc(m->data[i], ncols * sizeof(double));      
+  m->nrows = nrows;
+  m->ncols = ncols;
 }
 
 /* Invert square, real, nonsymmetric matrix.  Uses LU decomposition

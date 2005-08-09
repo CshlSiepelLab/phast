@@ -233,6 +233,7 @@ int main(int argc, char *argv[]) {
     TreeNode *n = tr_get_node(tree, reroot_name);
     if (n == NULL) die("ERROR: no node named '%s'.\n", reroot_name);
     tr_reroot(tree, n);
+    mod->tree = n;
     tree = n;
   }
 

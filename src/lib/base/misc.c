@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.19 2005-08-03 16:32:40 acs Exp $
+/* $Id: misc.c,v 1.20 2005-08-09 20:07:31 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -716,18 +716,141 @@ double cum_poisson(double lambda, int k) {
   return incomplete_gamma(k+1, lambda, 'q');
 }
 
+/* return P(x <= a | mu, sigma) for a variable a that obeys a normal
+   distribution with mean mu and s.d. sigma */
+double cum_norm(double mu, double sigma, double a) {
+  if (mu != 0 || sigma != 1)
+    a = (a - mu) / sigma;
+  if (a >= 0) 
+    return 0.5 * (1 + erf(a / sqrt(2)));
+  else 
+    return cum_norm_c(0, 1, -a);
+}
+
+/* return P(x >= a | mu, sigma) for a variable a that obeys a normal
+   distribution with mean mu and s.d. sigma.  Use this function
+   instead of 1-cum_norm when a is large (better precision) */
+double cum_norm_c(double mu, double sigma, double a) {
+  if (mu != 0 || sigma != 1)
+    a = (a - mu) / sigma;
+  if (a >= 0) 
+    return 0.5 * erfc(a / sqrt(2));
+  else 
+    return cum_norm(0, 1, -a);
+}
+
+/* return inverse of standard normal, i.e., inv_cum_norm(p) = a such
+   that cum_norm(1, 0, a) = p.  The function is approximated using an
+   algorithm by Peter Acklam given at
+   http://home.online.no/~pjacklam/notes/invnorm/.  */
+double inv_cum_norm(double p) {
+  double p_low, p_high, q, r, x, e, u;
+
+  static double a[] = {
+    0,
+    -3.969683028665376e+01,
+    2.209460984245205e+02,
+    -2.759285104469687e+02,
+    1.383577518672690e+02,
+    -3.066479806614716e+01,
+    2.506628277459239e+00};
+
+  static double b[] = {
+    0,
+    -5.447609879822406e+01,
+    1.615858368580409e+02,
+    -1.556989798598866e+02,
+    6.680131188771972e+01,
+    -1.328068155288572e+01};
+
+  static double c[] = {
+    0,
+    -7.784894002430293e-03,
+    -3.223964580411365e-01,
+    -2.400758277161838e+00,
+    -2.549732539343734e+00,
+    4.374664141464968e+00,
+    2.938163982698783e+00};
+
+    static double d[] = {
+      0,
+      7.784695709041462e-03,
+      3.224671290700398e-01,
+      2.445134137142996e+00,
+      3.754408661907416e+00};
+
+  assert (p > 0 && p < 1);
+
+  p_low = 0.02425;
+  p_high = 1 - p_low;
+
+  /* rational approximation for lower region */
+  if (p < p_low) {
+    q = sqrt(-2*log(p));
+    x = (((((c[1]*q+c[2])*q+c[3])*q+c[4])*q+c[5])*q+c[6]) /
+      ((((d[1]*q+d[2])*q+d[3])*q+d[4])*q+1);
+  }
+
+  /* rational approximation for central region */
+  else if (p >= p_low && p <= p_high) {
+    q = p - 0.5;
+    r = q*q;
+    x = (((((a[1]*r+a[2])*r+a[3])*r+a[4])*r+a[5])*r+a[6])*q /
+      (((((b[1]*r+b[2])*r+b[3])*r+b[4])*r+b[5])*r+1);
+  }
+
+  /* rational approximation for upper region */
+  else {			/* p_high < p < 1 */
+    q = sqrt(-2*log(1-p));
+    x = -(((((c[1]*q+c[2])*q+c[3])*q+c[4])*q+c[5])*q+c[6]) /
+      ((((d[1]*q+d[2])*q+d[3])*q+d[4])*q+1);
+  }
+
+  /* refinement to full machine precision using Halley's rational
+     method */
+  e = cum_norm(0, 1, x) - p;
+  u = e * sqrt(2*M_PI) * exp(x*x/2);
+  x = x - u/(1 + x*u/2);
+
+  return x;
+}
+
+/* compute min and max of (central) confidence interval of specified
+   size (between 0 and 1) assuming a normal distribution with mean mu
+   and s.d. sigma */
+void norm_confidence_interval(double mu, double sigma, double interval_size, 
+			      double *min_x, double *max_x) {
+  double a;
+  assert(interval_size > 0 && interval_size < 1);
+  a = inv_cum_norm((1 - interval_size) / 2) * sigma; /* a will be negative */
+  *min_x = mu + a;
+  *max_x = mu - a;
+}
+
 /* return n! */
 int permutations(int n) {
-  int i, retval = 1;
-  for (i = 2; i <= n; i++) retval *= i;
-  return retval;
+  if (n <= 2) return n;
+  return gamma(n+1);
 }
 
 /* return n-choose-k */
 int combinations(int n, int k) {
-  int i, retval = 1;
-  for (i = 0; i < k; i++) retval *= (n - i);
-  return retval / permutations(k);
+  assert(n >= 0 && k >= 0 && k <= n);
+  if (k > n/2) k = n-k;
+  /* handle some easy special cases to avoid expensive call below */
+  switch (k) {
+  case 0:
+    return 1;
+  case 1:
+    return n;
+  case 2:
+    return n * (n-1) / 2;
+  case 3:
+    return n * (n-1) * (n-2) / 6;
+  default:
+    /* use logs to avoid overflow */
+    return rint(exp(lgamma(n+1) - lgamma(k+1) - lgamma(n-k+1)));
+  }
 }
 
 /* Call repeatedly to enumerate combinations.  On successful exit, the
