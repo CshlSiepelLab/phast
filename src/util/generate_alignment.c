@@ -3,6 +3,7 @@
 #include "tree_model.h"
 #include "markov_matrix.h"
 #include "msa.h"
+#include "time.h"
 
 #define MSA_FNAME "alignment.ph"
 #define GFF_FNAME "alignment.gff"
@@ -50,6 +51,7 @@ int main(int argc, char* argv[]) {
 
   /* generate and print alignment */
   labels = (int*)malloc(ncols * sizeof(int));
+  srandom(time(NULL));
   msa = tm_generate_msa(ncols, classmat, classmods, labels);
   F = fopen(MSA_FNAME, "w+");
   msa_print(F, msa, PHYLIP, 0);
