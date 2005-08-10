@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.24 2005-07-26 18:30:03 acs Exp $
+/* $Id: tree_model.c,v 1.25 2005-08-10 23:18:31 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -535,7 +535,8 @@ void tm_scale(TreeModel *tm, double scale_const, int reset_subst_mats) {
 
 /* Generates an alignment according to set of Tree Models and a
    Markov matrix defing how to transition among them.  TreeModels must
-   appear in same order as the states of the Markov matrix . */
+   appear in same order as the states of the Markov matrix. 
+   NOTE: call srandom externally. */
 MSA *tm_generate_msa(int ncolumns, 
                      MarkovMatrix *classmat, 
                      TreeModel **classmods, 
@@ -596,7 +597,6 @@ MSA *tm_generate_msa(int ncolumns,
 
   /* generate sequences, column by column */
   class = 0;
-  srandom(time(NULL));
   newchar = (char*)smalloc(ntreenodes * sizeof(char));
   for (col = 0; col < ncolumns; col++) {
     List *traversal = tr_preorder(classmods[class]->tree);
