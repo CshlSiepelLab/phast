@@ -294,6 +294,8 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  srandom(time(NULL));
+
   if (input_mods == NULL) {     /* only do if models aren't given */
     if (optind != argc - 1) 
       die("Input filename required.  Try '%s -h'.\n", argv[0]);
@@ -355,7 +357,6 @@ int main(int argc, char *argv[]) {
       if (parameteric) 
         msa = tm_generate_msa(nsites, hmm->transition_matrix, &model, NULL);
       else {
-	srandom(time(NULL));
         mn_draw(nsites, p, msa->ss->ntuples, tmpcounts);
                                 /* here we simply redraw numbers of
                                    tuples from multinomial distribution
