@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.1 2005-08-11 03:54:46 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.2 2005-08-11 16:57:24 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -562,3 +562,91 @@ void sub_posterior_joint_stats_alignment(JumpProcess *jp, MSA *msa,
   }
 }
 
+/* compute p-values and related stats for a given alignment and model
+   and each of a set of features.  Returns an array of p_value_stats
+   objects, one for each feature (dimension
+   lst_size(feat->features)) */   
+p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, GFF_Set *feats, 
+				double ci /* confidence interval; if
+					     -1, posterior mean will
+					     be used */
+				) {
+
+  Vector *p;
+  int maxlen = -1, len, idx, i;
+  GFF_Feature *f;
+  Vector **priors;
+  double *prior_mean, *prior_var, *post_mean, *post_var;
+  int *prior_min, *prior_max;
+  double this_min, this_max;
+  p_value_stats *stats = smalloc(lst_size(feats->features) * 
+				 sizeof(p_value_stats));
+
+  /* find max length of feature */
+  for (idx = 0; idx < lst_size(feats->features); idx++) {
+    f = lst_get_ptr(feats->features, idx);
+    len = f->end - f->start + 1;
+    if (len > maxlen) maxlen = len;
+  }
+
+  /* precompute convolution of prior for i = 1, ..., maxlen */
+  p = sub_prior_distrib_site(jp);
+  priors = pv_convolve_save(p, maxlen);
+  vec_free(p);
+
+  /* also compute summary stats for each one */
+  prior_mean = smalloc(maxlen * sizeof(double));
+  prior_var = smalloc(maxlen * sizeof(double));
+  prior_min = smalloc(maxlen * sizeof(int));
+  prior_max = smalloc(maxlen * sizeof(int));
+  for (idx = 1; idx <= maxlen; idx++) {
+    pv_stats(priors[idx], &prior_mean[idx], &prior_var[idx]);
+    pv_confidence_interval(priors[idx], 0.95, &prior_min[idx], &prior_max[idx]);
+  }
+
+  /* now compute mean and variance of posterior for all column tuples */
+  post_mean = smalloc(msa->ss->ntuples * sizeof(double));
+  post_var = smalloc(msa->ss->ntuples * sizeof(double));
+  for (idx = 0; idx < msa->ss->ntuples; idx++) {
+    p = sub_posterior_distrib_site(jp, msa, idx); 
+    pv_stats(p, &post_mean[idx], &post_var[idx]);
+    vec_free(p);
+  }
+
+  /* now obtain stats for each feature */
+  for (idx = 0; idx < lst_size(feats->features); idx++) {
+    f = lst_get_ptr(feats->features, idx);
+    len = f->end - f->start + 1;
+
+    stats[idx].prior_mean = prior_mean[len];
+    stats[idx].prior_var = prior_var[len];
+    stats[idx].prior_min = prior_min[len];
+    stats[idx].prior_max = prior_max[len];
+
+    stats[idx].post_mean = stats[idx].post_var = 0;
+    for (i = f->start - 1; i < f->end; i++) {
+      stats[idx].post_mean += post_mean[msa->ss->tuple_idx[i]];
+      stats[idx].post_var += post_var[msa->ss->tuple_idx[i]];
+    }
+    
+    if (ci != -1)
+      norm_confidence_interval(stats[idx].post_mean, sqrt(stats[idx].post_var), 
+			       ci, &this_min, &this_max);
+    else 
+      this_min = this_max = stats[idx].post_mean;
+
+    stats[idx].post_min = floor(this_min);
+    stats[idx].post_max = ceil(this_max);
+
+    stats[idx].p_cons = pv_p_value(priors[len], stats[idx].post_max, LOWER);
+    stats[idx].p_anti_cons = pv_p_value(priors[len], stats[idx].post_min, UPPER);    
+  }
+
+  free(prior_mean);
+  free(prior_var);
+  free(prior_min);
+  free(post_mean);
+  free(post_var);
+
+  return stats;
+}

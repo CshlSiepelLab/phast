@@ -1,4 +1,4 @@
-/* $Id: prob_vector.c,v 1.1 2005-08-11 03:54:46 acs Exp $ 
+/* $Id: prob_vector.c,v 1.2 2005-08-11 16:57:24 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -150,6 +150,62 @@ Vector *pv_convolve(Vector *p, int n) {
 
   pv_normalize(q_i);
   return q_i;
+}
+
+/* convolve distribution n times and keep all intermediate
+   distributions.  Return value is an array v such that v[i] (1 <= i <=
+   n) is the ith convolution of p (v[0] will be NULL) */
+Vector **pv_convolve_save(Vector *p, int n) {
+  int i, j, x;
+  double mean, var;
+  int max_x = p->size * n, newsize;
+  Vector **q = smalloc((n+1) * sizeof(void*));
+
+  if (n == 1) {
+    q[0] = vec_create_copy(p);
+    return q;
+  }
+
+  if (n > 50) {
+    /* use central limit theorem to limit size of vector to keep track
+       of; convolution should be approx normal with mean n * mean
+       of p and variance n * variance of p.  We'll go to 6
+       standard deviations beyond the mean, which should ensure any
+       omitted value has prob on the order of 1e-10 or less.  Note
+       that the CLT is better near the mean than on the tails, but
+       this seems okay for purposes of bounding. */
+    pv_stats(p, &mean, &var);
+    max_x = ceil(n * mean + 6 * sqrt(n * var));
+  }
+
+  /* compute convolution recursively */
+  q[0] = NULL;			/* placeholder */
+  q[1] = vec_new(max_x);
+  vec_zero(q[1]);
+  for (x = 0; x < p->size; x++)
+    q[1]->data[x] = p->data[x];
+
+  for (i = 2; i <= n; i++) {
+    q[i] = vec_new(max_x);
+    vec_zero(q[i]);
+    for (x = 0; x < q[i]->size; x++) {
+      for (j = max(0, x - p->size + 1); j <= x; j++) 
+        q[i]->data[x] += q[i-1]->data[j] * p->data[x - j];
+    }
+  }
+
+  /* trim very small values off tail before returning */
+  newsize = -1;
+  for (x = q[n]->size - 1; newsize == -1 && x >= 0; x--) 
+    if (q[n]->data[x] > PV_EPS) 
+      newsize = x+1;
+
+  for (i = 1; i <= n; i++) {
+    q[i]->size = newsize;
+    pv_normalize(q[i]);
+  }
+
+  return q;
 }
 
 /* take convolution of a set of probability vectors.  If counts is

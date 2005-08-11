@@ -14,6 +14,7 @@ int* pv_quantiles(Vector *p);
 double pv_p_value(Vector *distrib, double x_0, p_val_type side);
 void pv_normalize(Vector *p);
 Vector *pv_convolve(Vector *p, int n);
+Vector **pv_convolve_save(Vector *p, int n);
 Vector *pv_convolve_many(Vector **p, int *counts, int n);
 Vector *pv_poisson(double lambda);
 

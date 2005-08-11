@@ -14,6 +14,11 @@ typedef struct {
   Matrix ***B;
 } JumpProcess;
 
+typedef struct {
+  double prior_mean, prior_var, post_mean, post_var, p_cons, p_anti_cons;
+  int prior_min, prior_max, post_min, post_max;
+} p_value_stats;
+
 
 JumpProcess *sub_define_jump_process(TreeModel *mod, int njumps_max);
 void sub_free_jump_process(JumpProcess *jp);
@@ -31,5 +36,7 @@ Matrix *sub_posterior_joint_distrib_alignment(JumpProcess *jp, MSA *msa);
 void sub_posterior_joint_stats_alignment(JumpProcess *jp, MSA *msa, 
                                          double *mean_tot, double *var_tot,
                                          double *mean_left, double *var_left,
-                                         double *mean_right, double *var_right);
+                                         double *mean_right, double *var_right);p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, GFF_Set *feats, 
+														double ci);
+
 #endif

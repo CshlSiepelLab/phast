@@ -5,6 +5,7 @@
 #include <msa.h>
 #include <maf.h>
 #include <tree_model.h>
+#include <sufficient_stats.h>
 #include <subst_distrib.h>
 #include <prob_vector.h>
 #include <prob_matrix.h>
@@ -26,6 +27,7 @@ void print_p_joint(char *node_name, char *mod_fname, char *msa_fname,
                    double post_mean, double post_var, 
                    double post_mean_sup, double post_var_sup, 
                    double post_mean_sub, double post_var_sub);
+void print_p_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci);
 
 int main(int argc, char *argv[]) {
   /* variables for options with defaults */
@@ -113,31 +115,45 @@ int main(int argc, char *argv[]) {
                      NO_STRIP, FALSE); 
     else 
       msa = msa_new_from_file(msa_f, msa_format, NULL);
+
+    if (msa->ss == NULL)
+      ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);
+
+    if (feats != NULL && msa->ss->tuple_idx == NULL)
+      die("ERROR: ordered alignment required.\n");
   }
 
   if (nsites == -1) nsites = msa->length;
 
+  if (feats != NULL) 
+    msa_map_gff_coords(msa, feats, 1, 0, 0, NULL);
+
   if (subtree_name == NULL) {
     double post_mean, post_var;
 
-    /* compute distributions and stats*/
-    if (!post_only) 
-      prior_distrib = sub_prior_distrib_alignment(jp, nsites);
+    if (feats == NULL) {
+      /* compute distributions and stats*/
+      if (!post_only) 
+	prior_distrib = sub_prior_distrib_alignment(jp, nsites);
 
-    if (post_only)	 /* don't need explicit distrib for p-value */
-      post_distrib = sub_posterior_distrib_alignment(jp, msa);
-    else if (!prior_only)
-      sub_posterior_stats_alignment(jp, msa, &post_mean, &post_var);
+      if (post_only)	 /* don't need explicit distrib for p-value */
+	post_distrib = sub_posterior_distrib_alignment(jp, msa);
+      else if (!prior_only)
+	sub_posterior_stats_alignment(jp, msa, &post_mean, &post_var);
 
-    if (quantiles)
-      print_quantiles(prior_only ? prior_distrib : post_distrib);
-    else if (prior_only)
-      print_prior_only(nsites, argv[optind], prior_distrib);
-    else if (post_only)
-      print_post_only(argv[optind], argv[optind+1], post_distrib, ci);
+      /* print output */
+      if (quantiles)
+	print_quantiles(prior_only ? prior_distrib : post_distrib);
+      else if (prior_only)
+	print_prior_only(nsites, argv[optind], prior_distrib);
+      else if (post_only)
+	print_post_only(argv[optind], argv[optind+1], post_distrib, ci);
+      else
+	print_p(argv[optind], argv[optind+1], prior_distrib, 
+		post_mean, post_var, ci);
+    }
     else
-      print_p(argv[optind], argv[optind+1], prior_distrib, 
-              post_mean, post_var, ci);
+      print_p_feats(jp, msa, feats, ci);
   }
   else {			/* supertree/subtree mode */
     double post_mean, post_var, post_mean_sup, post_var_sup, 
@@ -146,6 +162,7 @@ int main(int argc, char *argv[]) {
     if (!tm_is_reversible(mod->subst_mod))
       die("ERROR: reversible model required with --subtree.\n");
 
+    /* reroot tree */
     subtree_root = tr_get_node(mod->tree, subtree_name);
     if (subtree_root == NULL) 
       die("ERROR: no node named '%s'.\n", subtree_name);
@@ -153,6 +170,7 @@ int main(int argc, char *argv[]) {
     tr_reroot(mod->tree, subtree_root);
     mod->tree = subtree_root;
 
+    /* compute distributions and stats */
     if (!post_only)
       prior_joint_distrib = sub_prior_joint_distrib_alignment(jp, nsites);
 
@@ -163,6 +181,7 @@ int main(int argc, char *argv[]) {
                                           &post_mean_sup, &post_var_sup, 
                                           &post_mean_sub, &post_var_sub);
 
+    /* print output */
     if (prior_only) 
       print_prior_only_joint(subtree_root->name, nsites, argv[optind],
                              prior_joint_distrib);
@@ -222,11 +241,11 @@ void print_p(char *mod_fname, char *msa_fname, Vector *prior_distrib,
   int prior_min, prior_max;
 
   pv_stats(prior_distrib, &prior_mean, &prior_var);
-  pv_confidence_interval(prior_distrib, ci, &prior_min, &prior_max);
+  pv_confidence_interval(prior_distrib, 0.95, &prior_min, &prior_max);
 
-  /* for posterior, avoid computing convolution and assume normality
-     based on central limit theorem */
   if (ci != -1)
+    /* avoid computing convolution; assume normality based on central
+       limit theorem */
     norm_confidence_interval(post_mean, sqrt(post_var), ci, &post_min, &post_max);
   else 
     post_min = post_max = post_mean;
@@ -239,10 +258,12 @@ void print_p(char *mod_fname, char *msa_fname, Vector *prior_distrib,
          pv_p_value(prior_distrib, post_max, LOWER));
   printf("p-value of anti-conservation: %e\n\n",
          pv_p_value(prior_distrib, post_min, UPPER));
-  printf("null distrib: mean = %f, var = %f, %.1f%% c.i. = [%d, %d]\n", 
-         prior_mean, prior_var, ci*100, prior_min, prior_max);
-  printf("posterior distrib: mean = %f, var = %f, %.1f%% c.i. = [%.0f, %.0f]\n\n",
-         post_mean, post_var, ci*100, post_min, post_max);
+  printf("null distrib: mean = %f, var = %f, 95%% c.i. = [%d, %d]\n", 
+         prior_mean, prior_var, prior_min, prior_max);
+  printf("posterior distrib: mean = %f, var = %f", post_mean, post_var);
+  if (ci != -1)
+    printf(", %.1f%% c.i. = [%.0f, %.0f]", ci*100, post_min, post_max);
+  printf("\n\n");
 }
 
 void print_prior_only_joint(char *node_name, int nsites, char *mod_fname, 
@@ -387,8 +408,8 @@ void print_p_joint(char *node_name, char *mod_fname, char *msa_fname,
   prior_marg_sub = pm_marg_y(prior_joint);
   pv_stats(prior_marg_sup, &prior_mean_sup, &prior_var_sup);
   pv_stats(prior_marg_sub, &prior_mean_sub, &prior_var_sub);
-  pv_confidence_interval(prior_marg_sup, ci, &prior_min_sup, &prior_max_sup);
-  pv_confidence_interval(prior_marg_sub, ci, &prior_min_sub, &prior_max_sub);
+  pv_confidence_interval(prior_marg_sup, 0.95, &prior_min_sup, &prior_max_sup);
+  pv_confidence_interval(prior_marg_sub, 0.95, &prior_min_sub, &prior_max_sub);
   vec_free(prior_marg_sup);
   vec_free(prior_marg_sub);
 
@@ -401,12 +422,51 @@ void print_p_joint(char *node_name, char *mod_fname, char *msa_fname,
   printf("p-value of conservation in supertree: %e\n", cons_p_sup);
   printf("p-value of anti-conservation in supertree: %e\n\n", anti_cons_p_sup);
 
-  printf("null distrib in subtree: mean = %f, var = %f, %.1f%% c.i. = [%d, %d]\n", 
-         prior_mean_sub, prior_var_sub, ci*100, prior_min_sub, prior_max_sub);
-  printf("posterior distrib in subtree: mean = %f, var = %f, %.1f%% c.i. = [%.0f, %.0f]\n\n",
-         post_mean_sub, post_var_sub, ci*100, post_min_sub, post_max_sub);
-  printf("null distrib in supertree: mean = %f, var = %f, %.1f%% c.i. = [%d, %d]\n", 
-         prior_mean_sup, prior_var_sup, ci*100, prior_min_sup, prior_max_sup);
-  printf("posterior distrib in supertree: mean = %f, var = %f, %.1f%% c.i. = [%.0f, %.0f]\n\n",
-         post_mean_sup, post_var_sup, ci*100, post_min_sup, post_max_sup);
+  printf("null distrib in subtree: mean = %f, var = %f, 95%% c.i. = [%d, %d]\n", 
+         prior_mean_sub, prior_var_sub, prior_min_sub, prior_max_sub);
+  printf("posterior distrib in subtree: mean = %f, var = %f", 
+	 post_mean_sub, post_var_sub);
+  if (ci != -1)
+    printf(", %.1f%% c.i. = [%.0f, %.0f]", ci*100, post_min_sub, post_max_sub);
+  printf("\n\nnull distrib in supertree: mean = %f, var = %f, 95%% c.i. = [%d, %d]\n", 
+         prior_mean_sup, prior_var_sup, prior_min_sup, prior_max_sup);
+  printf("posterior distrib in supertree: mean = %f, var = %f",
+	 post_mean_sup, post_var_sup);
+  if (ci != -1)
+    printf(", %.1f%% c.i. = [%.0f, %.0f]", ci*100, post_min_sup, post_max_sup);
+  printf("\n\n");
+}
+
+void print_p_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
+  int i;
+  Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
+  p_value_stats *stats = sub_p_value_many(jp, msa, feats, ci);
+  List *l = lst_new_ptr(2);
+
+  printf("#chr\tstart\tend name\tp_cons\tp_anti_cons\tprior_mean\tprior_var\tprior_min\tprior_max\tpost_mean\tpost_var\tpost_min\tpost_max\n");
+  for (i = 0; i < lst_size(feats->features); i++) {
+    GFF_Feature *f = lst_get_ptr(feats->features, i);
+    String *name = NULL;
+
+    /* try to extract feature name from attribute field */
+    lst_clear(l);
+    if (f->attribute->length > 0 && 
+	str_re_match(f->attribute, tag_val_re, l, 1) >= 0) {
+      name = lst_get_ptr(l, 1);
+      str_remove_quotes(name);
+    }
+
+    printf("%s\t%d\t%d\t%s\t%e\t%e\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\n", 
+	   f->seqname->chars, f->start-1, f->end, 
+	   name == NULL ? "." : name->chars,
+	   stats[i].p_cons, stats[i].p_anti_cons, 
+	   stats[i].prior_mean, stats[i].prior_var, 
+	   stats[i].prior_min, stats[i].prior_max, 
+	   stats[i].post_mean, stats[i].post_var, 
+	   stats[i].post_min, stats[i].post_max);
+
+    lst_free_strings(l);
+  }
+  lst_free(l);
+  str_re_free(tag_val_re);
 }

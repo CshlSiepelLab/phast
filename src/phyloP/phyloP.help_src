@@ -59,9 +59,11 @@ OPTIONS:
         partition.  Assumes a reversible substitution model.
 
     --features, -f <file>
-        Read features from <file> (GFF or BED format) and output a table of
-        p-values and related statistics with one row per feature.  Not for
-        use with --null or --posterior.
+        Read features from <file> (GFF or BED format) and output a
+        table of p-values and related statistics with one row per
+        feature.  The features are assumed to use the coordinate frame
+        of the first sequence in the alignment.  Not for use with
+        --null or --posterior.
 
     --quantiles, -q
         (For use with --null or --posterior) Report quantiles of
