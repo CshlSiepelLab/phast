@@ -1,0 +1,71 @@
+PROGRAM: phyloP
+
+USAGE: phyloP [OPTIONS] tree.mod [alignment] > out
+
+DESCRIPTION:
+
+    Compute conservation or anti-conservation (acceleration) p-values,
+    based on an alignment and a model of neutral evolution.  Will also
+    compute p-values of conservation/anti-conservation in a subtree and in
+    its complementary supertree given the whole tree (see --subtree).
+
+    The default behavior is to compute a null distribution for the total
+    number of substitutions from the tree model, then an estimate of the
+    number of substitutions that have actually occurred, then the p-value
+    of this estimate wrt the null distribution.  The default is to use the
+    posterior expected number of substitutions as an estimate of the actual
+    number.  Simulations suggest that this is already a conservative
+    estimate, because it is biased toward the mean of the null distribution
+    by the prior, but it is possible to be even more conservative if
+    desired (see --confidence-interval).
+
+EXAMPLES:
+
+OPTIONS:
+
+    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
+        Alignment format (default FASTA).  
+
+    --null, -n <nsites>
+        Compute just the null (prior) distribution of the number of
+        substitutions, as defined by the tree model and the given
+        number of sites, and output as a table.  The 'alignment'
+        argument will be ignored.  If used with --subtree, the joint
+        distribution over the number of substitutions in the specified
+        supertree and subtree will be output instead.
+
+    --posterior, -p
+        Compute just the posterior distribution of the number of
+        substitutions, given the alignment and the model, and output
+        as a table.  If used with --subtree, the joint distribution
+        over the number of substitutions in the specified supertree
+        and subtree will be output instead.
+
+    --confidence-interval, -c <val>
+        Allow for uncertainty in the estimate of the actual number of
+        substitutions by using a (central) confidence interval about the
+        mean of the specified size (0 < val < 1).  To be conservative, the
+        maximum of this interval is used when computing a p-value of
+        conservation, and the minimum is used when computing a p-value of
+        anti-conservation.  The variance of the posterior is computed
+        exactly, but the confidence interval is based on the assumption
+        that the combined distribution will be approximately normal (true
+        for large numbers of sites by central limit theorem).
+
+    --subtree, -s <node-name>
+        Partition the tree into the subtree beneath the node whose
+        name is given and the complementary supertree, and consider
+        the joint distribution of the number of substitutions in each
+        partition.  Assumes a reversible substitution model.
+
+    --features, -f <file>
+        Read features from <file> (GFF or BED format) and output a table of
+        p-values and related statistics with one row per feature.  Not for
+        use with --null or --posterior.
+
+    --quantiles, -q
+        (For use with --null or --posterior) Report quantiles of
+        distribution rather than whole distribution.
+
+    --help, -h
+        Produce this help message.
