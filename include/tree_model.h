@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.12 2005-07-17 22:20:12 acs Exp $
+/* $Id: tree_model.h,v 1.13 2005-08-12 19:30:48 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -157,7 +157,7 @@ int tm_is_reversible(int subst_mod);
 
 int tm_get_nbranchlenparams(TreeModel *mod);
 
-MSA *tm_generate_msa(int ncolumns, MarkovMatrix *classmat, 
+MSA *tm_generate_msa(int ncolumns, HMM *hmm, 
                      TreeModel **classmods, int *labels);
 
 TreeModel *tm_induced_aa(TreeModel *codon_mod);

@@ -185,7 +185,6 @@ int main(int argc, char *argv[]) {
   char c;
   int i, j, opt_idx, nparams = -1;
   String *tmpstr;
-  HMM *hmm = NULL;
   List **estimates;
   double *p = NULL;
   int *tmpcounts;
@@ -342,8 +341,6 @@ int main(int argc, char *argv[]) {
       tmpcounts = smalloc(msa->ss->ntuples * sizeof(int));
     }
     else {                        /* parameteric */
-      /* create trivial HMM, for use in tm_generate_msa */
-      hmm = hmm_create_trivial();
       if (nsites == -1) nsites = default_nsites;
     }
   } /* if input_mods == NULL */
@@ -355,7 +352,7 @@ int main(int argc, char *argv[]) {
     /* generate alignment */
     if (input_mods == NULL) {   /* skip if models given */
       if (parameteric) 
-        msa = tm_generate_msa(nsites, hmm->transition_matrix, &model, NULL);
+        msa = tm_generate_msa(nsites, NULL, &model, NULL);
       else {
         mn_draw(nsites, p, msa->ss->ntuples, tmpcounts);
                                 /* here we simply redraw numbers of

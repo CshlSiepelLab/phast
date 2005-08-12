@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.25 2005-08-10 23:18:31 acs Exp $
+/* $Id: tree_model.c,v 1.26 2005-08-12 19:30:48 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -538,11 +538,12 @@ void tm_scale(TreeModel *tm, double scale_const, int reset_subst_mats) {
    appear in same order as the states of the Markov matrix. 
    NOTE: call srandom externally. */
 MSA *tm_generate_msa(int ncolumns, 
-                     MarkovMatrix *classmat, 
+                     HMM *hmm,  /* if NULL, single tree model assumed */
                      TreeModel **classmods, 
                      int *labels /* if non-NULL, will be used to
                                     record state (model) responsible
-                                    for generating each site */
+                                    for generating each site; pass
+                                    NULL if hmm is NULL */
                      ) {
 
   int i, class, nseqs, col, ntreenodes, idx;
@@ -551,8 +552,7 @@ MSA *tm_generate_msa(int ncolumns,
   char *newchar;
   char **names, **seqs;
 
-  int nclasses = classmat->size;
-  assert(nclasses > 0);
+  int nclasses = hmm == NULL ? 1 : hmm->nstates;
 
   /* obtain number of sequences from tree models; ensure all have same
      number */
@@ -560,7 +560,7 @@ MSA *tm_generate_msa(int ncolumns,
 
   stack = stk_new_ptr(ntreenodes);
   nseqs = -1;
-  for (i = 0; i < classmat->size; i++) {
+  for (i = 0; i < nclasses; i++) {
     /* count leaves in tree */
     int num = (classmods[i]->tree->nnodes + 1) / 2;
 
@@ -596,7 +596,10 @@ MSA *tm_generate_msa(int ncolumns,
   }
 
   /* generate sequences, column by column */
-  class = 0;
+  if (hmm != NULL && hmm->begin_transitions != NULL)
+    class = draw_index(hmm->begin_transitions->data, hmm->nstates);
+  else
+    class = 0;
   newchar = (char*)smalloc(ntreenodes * sizeof(char));
   for (col = 0; col < ncolumns; col++) {
     List *traversal = tr_preorder(classmods[class]->tree);
@@ -622,7 +625,8 @@ MSA *tm_generate_msa(int ncolumns,
       }
     }
     if (labels != NULL) labels[col] = class;
-    class = mm_sample_state(classmat, class);
+    if (hmm != NULL)
+      class = mm_sample_state(hmm->transition_matrix, class);
   }
 
   return msa;
