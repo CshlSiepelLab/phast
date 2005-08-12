@@ -362,21 +362,13 @@ void print_p_joint(char *node_name, char *mod_fname, char *msa_fname,
                    double post_mean_sub, double post_var_sub) {
 
   double post_min_tot, post_max_tot, post_min_sup, post_max_sup, 
-    post_min_sub, post_max_sub, cons_p_sup, anti_cons_p_sup, 
-    cons_p_sub, anti_cons_p_sub, prior_mean_sup, prior_var_sup, 
-    prior_mean_sub, prior_var_sub;
+    post_min_sub, post_max_sub, cond_cons_p_sub, cond_anti_cons_p_sub, 
+    prior_mean_sup, prior_var_sup, prior_mean_sub, prior_var_sub, 
+    cons_p_sup, anti_cons_p_sup, cons_p_sub, anti_cons_p_sub;
   int prior_min_sup, prior_max_sup, prior_min_sub, prior_max_sub;
   Vector *prior_marg_sup, *prior_marg_sub, *cond;
 
-  /* To be conservative, base the conservation p value on the largest
-     reasonable estimate of the number of subst. in the subtree and
-     the smallest reasonable estimate of the number of subst. in the
-     whole tree, and base the anti-conservation p-value on the
-     smallest reasonable estimate of the number of subst. in the
-     supertree and the largest reasonable estimate of the number of
-     subst. in the whole tree */
-
-  if (ci == -1) {
+  if (ci != -1) {
     norm_confidence_interval(post_mean, sqrt(post_var), ci, &post_min_tot, 
                              &post_max_tot);
     norm_confidence_interval(post_mean_sup, sqrt(post_var_sup), ci, 
@@ -394,39 +386,49 @@ void print_p_joint(char *node_name, char *mod_fname, char *msa_fname,
   post_min_sup = floor(post_min_sup); post_max_sup = ceil(post_max_sup);
   post_min_sub = floor(post_min_sub); post_max_sub = ceil(post_max_sub);
 
-  cond = pm_x_given_tot(prior_joint, post_min_tot);
-  cons_p_sup = pv_p_value(cond, post_max_sup, LOWER);
-  vec_free(cond);
-
-  cond = pm_x_given_tot(prior_joint, post_max_tot);
-  anti_cons_p_sup = pv_p_value(cond, post_min_sup, UPPER);
-  vec_free(cond);
+  /* Conditional p-values of conservation.  To be conservative, base
+     these on the largest reasonable estimate of the number of
+     subst. in the subtree and the smallest reasonable estimate of the
+     number of subst. in the whole tree*/
 
   cond = pm_y_given_tot(prior_joint, post_min_tot);
-  cons_p_sub = pv_p_value(cond, post_max_sub, LOWER);
+  cond_cons_p_sub = pv_p_value(cond, post_max_sub, LOWER);
   vec_free(cond);
 
   cond = pm_y_given_tot(prior_joint, post_max_tot);
-  anti_cons_p_sub = pv_p_value(cond, post_min_sub, UPPER);
+  cond_anti_cons_p_sub = pv_p_value(cond, post_min_sub, UPPER);
   vec_free(cond);
 
+  /* marginals of prior and stats */
   prior_marg_sup = pm_marg_x(prior_joint);
   prior_marg_sub = pm_marg_y(prior_joint);
   pv_stats(prior_marg_sup, &prior_mean_sup, &prior_var_sup);
   pv_stats(prior_marg_sub, &prior_mean_sub, &prior_var_sub);
   pv_confidence_interval(prior_marg_sup, 0.95, &prior_min_sup, &prior_max_sup);
   pv_confidence_interval(prior_marg_sub, 0.95, &prior_min_sub, &prior_max_sub);
+
+  /* marginal p-values */
+  cons_p_sup = pv_p_value(prior_marg_sup, post_max_sup, LOWER);
+  anti_cons_p_sup = pv_p_value(prior_marg_sup, post_min_sup, UPPER);
+  cons_p_sub = pv_p_value(prior_marg_sub, post_max_sub, LOWER);
+  anti_cons_p_sub = pv_p_value(prior_marg_sub, post_min_sub, UPPER);
+
   vec_free(prior_marg_sup);
   vec_free(prior_marg_sub);
 
 
   printf("\n*****\nP-values for number of substitutions observed in '%s' given '%s',\n", 
          msa_fname, mod_fname);
-  printf ("considering subtree beneath node '%s', supertree above node '%s'\n*****\n\n", node_name, node_name);
+  printf ("considering subtree/supertree beneath/above node '%s'\n*****\n\n", node_name);
+
   printf("p-value of conservation in subtree: %e\n", cons_p_sub);
   printf("p-value of anti-conservation in subtree: %e\n\n", anti_cons_p_sub);
+
   printf("p-value of conservation in supertree: %e\n", cons_p_sup);
   printf("p-value of anti-conservation in supertree: %e\n\n", anti_cons_p_sup);
+
+  printf("p-value of conservation in subtree given total: %e\n", cond_cons_p_sub);
+  printf("p-value of anti-conservation in subtree given total: %e\n\n", cond_anti_cons_p_sub);
 
   printf("null distrib in subtree: mean = %f, var = %f, 95%% c.i. = [%d, %d]\n", 
          prior_mean_sub, prior_var_sub, prior_min_sub, prior_max_sub);
@@ -483,7 +485,7 @@ void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
   p_value_joint_stats *stats = sub_p_value_joint_many(jp, msa, feats, ci);
   List *l = lst_new_ptr(2);
 
-  printf("#chr\tstart\tend\tname\tp_cons\tp_anti_cons\tprior_mean\tprior_var\tprior_min\tprior_max\tpost_mean\tpost_var\tpost_min\tpost_max\n");
+  printf("#chr\tstart\tend\tname\tp_cons_sup\tp_anti_cons_sup\tp_cons_sub\tp_anti_cons_sub\tcond_p_cons_sub\tcond_p_anti_cons_sub\tprior_mean_sup\tprior_var_sup\tprior_min_sup\tprior_max_sup\tprior_mean_sub\tprior_var_sub\tprior_min_sub\tprior_max_sub\tpost_mean_sup\tpost_var_sup\tpost_min_sup\tpost_max_sup\tpost_mean_sub\tpost_var_sub\tpost_min_sub\tpost_max_sub\n");
   for (i = 0; i < lst_size(feats->features); i++) {
     GFF_Feature *f = lst_get_ptr(feats->features, i);
     String *name = NULL;
@@ -496,11 +498,12 @@ void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
       str_remove_quotes(name);
     }
 
-    printf("%s\t%d\t%d\t%s\t%e\t%e\t%e\t%e\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\n", 
+    printf("%s\t%d\t%d\t%s\t%e\t%e\t%e\t%e\t%e\t%e\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\n", 
            f->seqname->chars, f->start-1, f->end, 
            name == NULL ? "." : name->chars,
            stats[i].p_cons_sup, stats[i].p_anti_cons_sup, 
            stats[i].p_cons_sub, stats[i].p_anti_cons_sub, 
+           stats[i].cond_p_cons_sub, stats[i].cond_p_anti_cons_sub, 
            stats[i].prior_mean_sup, stats[i].prior_var_sup, 
            stats[i].prior_min_sup, stats[i].prior_max_sup, 
            stats[i].prior_mean_sub, stats[i].prior_var_sub, 

@@ -23,7 +23,7 @@ typedef struct {
   double prior_mean_sup, prior_mean_sub, prior_var_sup, prior_var_sub, 
     post_mean_sup, post_mean_sub, post_mean_tot, post_var_sup, 
     post_var_sub, post_var_tot, p_cons_sub, p_cons_sup, p_anti_cons_sup, 
-    p_anti_cons_sub;
+    p_anti_cons_sub, cond_p_cons_sub, cond_p_anti_cons_sub;
   int prior_min_sup, prior_min_sub, prior_max_sup, prior_max_sub, 
     post_min_sup, post_min_sub, post_min_tot, post_max_sup, post_max_sub,
     post_max_tot;

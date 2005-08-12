@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.3 2005-08-12 19:36:28 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.4 2005-08-12 22:47:43 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -788,21 +788,24 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, GFF_Set *feats,
     stats[idx].post_min_tot = floor(this_min_tot);
     stats[idx].post_max_tot = ceil(this_max_tot);
 
-    cond = pm_x_given_tot(priors[len], stats[idx].post_min_tot);
-    stats[idx].p_cons_sup = pv_p_value(cond, stats[idx].post_max_sup, LOWER);
-    vec_free(cond);
-
-    cond = pm_x_given_tot(priors[len], stats[idx].post_max_tot);
-    stats[idx].p_anti_cons_sup = pv_p_value(cond, stats[idx].post_min_sup, UPPER);
-    vec_free(cond);
-
+    /* conditional p-values */
     cond = pm_y_given_tot(priors[len], stats[idx].post_min_tot);
-    stats[idx].p_cons_sub = pv_p_value(cond, stats[idx].post_max_sub, LOWER);
+    stats[idx].cond_p_cons_sub = pv_p_value(cond, stats[idx].post_max_sub, LOWER);
     vec_free(cond);
 
     cond = pm_y_given_tot(priors[len], stats[idx].post_max_tot);
-    stats[idx].p_anti_cons_sub = pv_p_value(cond, stats[idx].post_min_sub, UPPER);
+    stats[idx].cond_p_anti_cons_sub = pv_p_value(cond, stats[idx].post_min_sub, UPPER);
     vec_free(cond);
+
+    /* marginal p-values */
+    stats[idx].p_cons_sup = pv_p_value(prior_marg_sup[len], 
+                                       stats[idx].post_max_sup, LOWER);
+    stats[idx].p_anti_cons_sup = pv_p_value(prior_marg_sup[len], 
+                                            stats[idx].post_min_sup, UPPER);
+    stats[idx].p_cons_sub = pv_p_value(prior_marg_sub[len], 
+                                       stats[idx].post_max_sub, LOWER);
+    stats[idx].p_anti_cons_sub = pv_p_value(prior_marg_sub[len], 
+                                            stats[idx].post_min_sub, UPPER);
   }
 
   for (idx = 1; i <= maxlen; idx++) {

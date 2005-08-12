@@ -1,4 +1,4 @@
-/* $Id: prob_matrix.c,v 1.2 2005-08-12 19:36:28 acs Exp $ 
+/* $Id: prob_matrix.c,v 1.3 2005-08-12 22:47:43 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -62,8 +62,10 @@ Vector *pm_marg_tot(Matrix *p) {
 Vector *pm_x_given_tot(Matrix *p, int tot) {
   int x;
   Vector *cond = vec_new(p->nrows);
-  for (x = max(0, tot - p->ncols + 1); x < p->nrows; x++) 
+  for (x = max(0, tot - p->ncols + 1); x < p->nrows; x++) {
+    if (x > tot) break;
     cond->data[x] = p->data[x][tot-x];
+  }
   pv_normalize(cond);
   return cond;
 }
@@ -72,8 +74,10 @@ Vector *pm_x_given_tot(Matrix *p, int tot) {
 Vector *pm_y_given_tot(Matrix *p, int tot) {
   int y;
   Vector *cond = vec_new(p->ncols);
-  for (y = max(0, tot - p->nrows + 1); y < p->ncols; y++) 
+  for (y = max(0, tot - p->nrows + 1); y < p->ncols; y++) {
+    if (y > tot) break;
     cond->data[y] = p->data[tot-y][y];
+  }
   pv_normalize(cond);
   return cond;
 }
@@ -191,6 +195,7 @@ Matrix **pm_convolve_save(Matrix *p, int n) {
       q[1]->data[x][y] = p->data[x][y];
 
   for (i = 2; i <= n; i++) {
+    q[i] = mat_new(max_nrows, max_ncols);
     mat_zero(q[i]);
     for (x = 0; x < q[i]->nrows; x++) 
       for (y = 0; y < q[i]->ncols; y++) 
