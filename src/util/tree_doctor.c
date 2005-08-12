@@ -54,6 +54,10 @@ OPTIONS:\n\
     --reroot -R <node_name>\n\
         Reroot tree at internal node with specified name.\n\
 \n\
+    --subtree, -S <node_name>\n\
+        (for use with --scale)  Alter only the branches in the subtree \n\
+        beneath the specified node.\n\
+\n\
     --merge, -m <file2.mod> | <file2.nh>\n\
         Merge with another tree model or tree.  The primary model\n\
         (<file.mod>) must have a subset of the species (leaves) in the\n\
@@ -104,12 +108,13 @@ int main(int argc, char *argv[]) {
   int prune_all_but = FALSE, tree_only = FALSE, dissect = FALSE,
     name_ancestors = FALSE;
   TreeModel *mod = NULL, *merge_mod = NULL;
-  char *reroot_name = NULL;
-
+  char *reroot_name = NULL, *subtree_name = FALSE;
+  
   /* other variables */
   String *suffix;
   char c;
   int i, opt_idx;
+  TreeNode *n;
 
   struct option long_opts[] = {
     {"scale", 1, 0, 's'},
@@ -122,11 +127,12 @@ int main(int argc, char *argv[]) {
     {"dissect", 0, 0, 'd'},
     {"name-ancestors", 0, 0, 'a'},
     {"reroot", 1, 0, 'R'},
+    {"subtree", 1, 0, 'S'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "s:p:P:m:r:R:adth", 
+  while ((c = getopt_long(argc, argv, "s:p:P:m:r:R:S:adth", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 's':
@@ -172,6 +178,9 @@ int main(int argc, char *argv[]) {
     case 'a':
       name_ancestors = TRUE;
       break;
+    case 'S':
+      subtree_name = optarg;
+      break;
     case 'h':
       usage(argv[0]);
     case '?':
@@ -212,8 +221,15 @@ int main(int argc, char *argv[]) {
     if (mod != NULL) mod->tree = tree;
   }
 
-  if (scale_factor != 1)
-    tr_scale(tree, scale_factor);
+  if (scale_factor != 1) {
+    if (subtree_name == NULL)
+      tr_scale(tree, scale_factor);
+    else {
+      n = tr_get_node(tree, subtree_name);
+      if (n == NULL) die("ERROR: no node named '%s'.\n", subtree_name);
+      tr_scale_subtree(tree, n, scale_factor);
+    }
+  }
 
   if (name_ancestors)
     tr_name_ancestors(tree);
@@ -221,7 +237,7 @@ int main(int argc, char *argv[]) {
   if (rename_hash != NULL) {
     char *newname;
     for (i = 0; i < tree->nnodes; i++) {
-      TreeNode *n = lst_get_ptr(tree->nodes, i);
+      n = lst_get_ptr(tree->nodes, i);
       if (n->name != NULL && n->name[0] != '\0' && 
           (newname = hsh_get(rename_hash, n->name)) != (char*)-1) {
         strcpy(n->name, newname);
@@ -230,7 +246,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (reroot_name != NULL) {
-    TreeNode *n = tr_get_node(tree, reroot_name);
+    n = tr_get_node(tree, reroot_name);
     if (n == NULL) die("ERROR: no node named '%s'.\n", reroot_name);
     tr_reroot(tree, n);
     mod->tree = n;
