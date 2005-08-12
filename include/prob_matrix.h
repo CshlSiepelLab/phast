@@ -14,6 +14,7 @@ Vector *pm_x_given_tot(Matrix *p, int tot);
 Vector *pm_y_given_tot(Matrix *p, int tot);
 void pm_normalize(Matrix *p);
 Matrix *pm_convolve(Matrix *p, int n);
+Matrix **pm_convolve_save(Matrix *p, int n);
 Matrix *pm_convolve_many(Matrix **p, int *counts, int n);
 
 #endif

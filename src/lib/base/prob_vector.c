@@ -1,4 +1,4 @@
-/* $Id: prob_vector.c,v 1.2 2005-08-11 16:57:24 acs Exp $ 
+/* $Id: prob_vector.c,v 1.3 2005-08-12 19:36:28 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -153,16 +153,18 @@ Vector *pv_convolve(Vector *p, int n) {
 }
 
 /* convolve distribution n times and keep all intermediate
-   distributions.  Return value is an array v such that v[i] (1 <= i <=
-   n) is the ith convolution of p (v[0] will be NULL) */
+   distributions.  Return value is an array q such that q[i] (1 <= i <=
+   n) is the ith convolution of p (q[0] will be NULL) */
 Vector **pv_convolve_save(Vector *p, int n) {
   int i, j, x;
   double mean, var;
   int max_x = p->size * n, newsize;
   Vector **q = smalloc((n+1) * sizeof(void*));
 
+  q[0] = NULL;			/* placeholder */
+
   if (n == 1) {
-    q[0] = vec_create_copy(p);
+    q[1] = vec_create_copy(p);
     return q;
   }
 
@@ -179,7 +181,6 @@ Vector **pv_convolve_save(Vector *p, int n) {
   }
 
   /* compute convolution recursively */
-  q[0] = NULL;			/* placeholder */
   q[1] = vec_new(max_x);
   vec_zero(q[1]);
   for (x = 0; x < p->size; x++)
@@ -188,20 +189,18 @@ Vector **pv_convolve_save(Vector *p, int n) {
   for (i = 2; i <= n; i++) {
     q[i] = vec_new(max_x);
     vec_zero(q[i]);
-    for (x = 0; x < q[i]->size; x++) {
+    for (x = 0; x < q[i]->size; x++) 
       for (j = max(0, x - p->size + 1); j <= x; j++) 
         q[i]->data[x] += q[i-1]->data[j] * p->data[x - j];
-    }
   }
 
   /* trim very small values off tail before returning */
-  newsize = -1;
-  for (x = q[n]->size - 1; newsize == -1 && x >= 0; x--) 
-    if (q[n]->data[x] > PV_EPS) 
-      newsize = x+1;
-
   for (i = 1; i <= n; i++) {
-    q[i]->size = newsize;
+    newsize = -1;
+    for (x = q[i]->size - 1; newsize == -1 && x >= 0; x--) 
+      if (q[i]->data[x] > PV_EPS) 
+        newsize = x+1;
+    q[i]->size = newsize;       /* maybe should realloc? */
     pv_normalize(q[i]);
   }
 

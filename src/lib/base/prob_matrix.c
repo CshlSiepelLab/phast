@@ -1,4 +1,4 @@
-/* $Id: prob_matrix.c,v 1.1 2005-08-11 03:54:46 acs Exp $ 
+/* $Id: prob_matrix.c,v 1.2 2005-08-12 19:36:28 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -149,6 +149,72 @@ Matrix *pm_convolve(Matrix *p, int n) {
 
   pm_normalize(q_i);
   return q_i;
+}
+
+/* convolve distribution n times and keep all intermediate
+   distributions.  Return value is an array q such that q[i] (1 <= i
+   <= n) is the ith convolution of p (q[0] will be NULL) */
+Matrix **pm_convolve_save(Matrix *p, int n) {
+  int i, j, k, x, y;
+  double mean, var;
+  int max_nrows = p->nrows * n, max_ncols = p->ncols * n;
+  Matrix **q = smalloc((n+1) * sizeof(void*));
+
+  assert(n > 0);
+
+  q[0] = NULL;			/* placeholder */
+
+  if (n == 1) {
+    q[1] = mat_create_copy(p);
+    return q;
+  }
+
+  if (n > 50) {
+    /* use central limit theorem to limit size of matrix to
+       keep track of.  Here work with marginal distributions */
+    Vector *marg_x = pm_marg_x(p);
+    Vector *marg_y = pm_marg_y(p);
+    pv_stats(marg_x, &mean, &var);
+    max_nrows = ceil(n * mean + 6 * sqrt(n * var));
+    pv_stats(marg_y, &mean, &var);
+    max_ncols = ceil(n * mean + 6 * sqrt(n * var));
+    vec_free(marg_x);
+    vec_free(marg_y);
+  }
+
+
+  /* compute convolution recursively */
+  q[1] = mat_new(max_nrows, max_ncols);
+  mat_zero(q[1]);
+  for (x = 0; x < p->nrows; x++)
+    for (y = 0; y < p->ncols; y++)
+      q[1]->data[x][y] = p->data[x][y];
+
+  for (i = 2; i <= n; i++) {
+    mat_zero(q[i]);
+    for (x = 0; x < q[i]->nrows; x++) 
+      for (y = 0; y < q[i]->ncols; y++) 
+        for (j = max(0, x - p->nrows + 1); j <= x; j++) 
+          for (k = max(0, y - p->ncols + 1); k <= y; k++) 
+            q[i]->data[x][y] += q[i-1]->data[j][k] * p->data[x - j][y - k];
+  }
+
+  /* trim dimension before returning */
+  for (i = 1; i <= n; i++) {
+    max_nrows = max_ncols = -1;
+    for (x = q[i]->nrows - 1; max_nrows == -1 && x >= 0; x--) 
+      for (y = 0; max_nrows == -1 && y < q[i]->ncols; y++) 
+        if (q[i]->data[x][y] > PM_EPS) 
+          max_nrows = x+1;      
+    for (y = q[i]->ncols - 1; max_ncols == -1 && y >= 0; y--) 
+      for (x = 0; max_ncols == -1 && x < q[i]->nrows; x++) 
+        if (q[i]->data[x][y] > PM_EPS) 
+          max_ncols = y+1;
+    mat_resize(q[i], max_nrows, max_ncols);
+    pm_normalize(q[i]);
+  }
+
+  return q;
 }
 
 /* take convolution of a set of probability matrices.  If counts is
