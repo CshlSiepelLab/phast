@@ -1,4 +1,4 @@
-/* $Id: trees.h,v 1.12 2005-08-05 16:38:58 acs Exp $
+/* $Id: trees.h,v 1.13 2005-08-12 19:35:21 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -78,6 +78,7 @@ double tr_total_len(TreeNode *t);
 double tr_total_len_subtree(TreeNode *sub_root);
 TreeNode *tr_get_node(TreeNode *t, char *name);
 void tr_scale(TreeNode *t, double scale_const);
+void tr_scale_subtree(TreeNode *t, TreeNode *sub, double scale_const);
 void tr_prune(TreeNode **t, List *names, int all_but);
 TreeNode *tr_lca(TreeNode *tree, List *names);
 TreeNode *tr_hybrid(TreeNode *sub, TreeNode *super);

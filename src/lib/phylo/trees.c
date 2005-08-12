@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.20 2005-08-09 20:07:31 acs Exp $ 
+/* $Id: trees.c,v 1.21 2005-08-12 19:35:21 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -841,6 +841,19 @@ void tr_scale(TreeNode *t, double scale_const) {
   }
 }
 
+/** Scale all branch lengths by constant factor in subtree beneath
+    given node. */
+void tr_scale_subtree(TreeNode *t, TreeNode *sub, double scale_const) {
+  int i;
+  List *inside = lst_new_ptr(t->nnodes), *outside = lst_new_ptr(t->nnodes);
+  tr_partition_nodes(t, sub, inside, outside);
+  for (i = 0; i < lst_size(inside); i++) {
+    TreeNode *n = lst_get_ptr(inside, i);
+    if (n != sub) n->dparent *= scale_const;
+  }
+  lst_free(inside); lst_free(outside);
+}
+
 /** Prune away all leaves whose names are in (or not in) the specified
     list.  Nodes will be removed and branches combined (branch lengths
     added) to restore as a proper binary tree.  */
@@ -1132,7 +1145,7 @@ void tr_partition_leaves(TreeNode *tree, TreeNode *sub, List *inside,
 
 /** Similar to above, but partition all nodes */
 void tr_partition_nodes(TreeNode *tree, TreeNode *sub, List *inside, 
-			List *outside) {
+                        List *outside) {
   int i;
   TreeNode *n;
   int *mark = smalloc(tree->nnodes * sizeof(int));
