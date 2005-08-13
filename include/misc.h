@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.12 2005-08-09 20:07:31 acs Exp $
+/* $Id: misc.h,v 1.13 2005-08-13 22:19:06 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -159,6 +159,7 @@ double cum_norm(double mu, double sigma, double a);
 double cum_norm_c(double mu, double sigma, double a);
 double inv_cum_norm(double p);
 void norm_confidence_interval(double mu, double sigma, double interval_size, 
-			      double *min_x, double *max_x);
+                              double *min_x, double *max_x);
+void print_seq_fasta(FILE *F, char *seq, char *name, int len);
 
 #endif

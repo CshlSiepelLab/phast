@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.20 2005-08-09 20:07:31 acs Exp $
+/* $Id: misc.c,v 1.21 2005-08-13 22:19:05 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -908,6 +908,18 @@ double sym_rel_entropy(double *p, double *q, int d) {
   double re1 = rel_entropy(p, q, d), re2 = rel_entropy(q, p, d);
   return min(re1, re2);
 }
+
+/* print a single sequence in FASTA format */
+void print_seq_fasta(FILE *F, char *seq, char *name, int len) {
+  int j, k;
+  fprintf(F, "> %s\n", name);
+  for (j = 0; j < len; j += 70) {
+    for (k = 0; k < 70 && j + k < len; k++) 
+      fprintf(F, "%c", seq[j+k]);
+    fprintf(F, "\n");
+  }
+}
+
 
 /***************************************************************************/
 /* for debugging: these functions can be called dynamically in gdb to
