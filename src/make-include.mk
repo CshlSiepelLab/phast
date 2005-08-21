@@ -31,7 +31,7 @@ TARGETLIB = ${LIB}/libphast.a
 # for best performance (pentiumpro)
 CFLAGS = -mcpu=pentiumpro -O3 
 # use this instead for Mac OS X
-#CFLAGS = -mcpu=powerpc -O3 -Wno-long-double
+#CFLAGS = -mcpu=powerpc -O3
 # possible x86-64 options (kolossus at UC Santa Cruz)
 #CFLAGS = -mcpu=opteron -O3
 # possible profiling options
