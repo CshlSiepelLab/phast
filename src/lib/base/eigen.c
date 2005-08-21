@@ -1,4 +1,4 @@
-/* $Id: eigen.c,v 1.1 2005-06-22 07:11:19 acs Exp $
+/* $Id: eigen.c,v 1.2 2005-08-21 21:11:29 acs Exp $
    Written by Adam Siepel, Summer 2005
    Copyright 2005, Adam Siepel, University of California
 */
@@ -131,8 +131,8 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
         for (k = 0; k < n; k++) 
           z = z_add(z, z_mul(zmat_get(revect, i, k), z_mul(zvec_get(eval, k), zmat_get(levect, k, j))));
 
-        if (fabs(z.x) > EQ_THRESHOLD ||
-            fabs(z.y - mat_get(M, i, j)) > EQ_THRESHOLD) {
+        if (fabs(z.y) > EQ_THRESHOLD ||
+            fabs(z.x - mat_get(M, i, j)) > EQ_THRESHOLD) {
           fprintf(stderr, "ERROR: diagonalization failed (got %f + %fi, expected %f).\n", 
 		  z.x, z.y, mat_get(M, i, j));
 	  assert(0);
