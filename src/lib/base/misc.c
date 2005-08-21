@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.21 2005-08-13 22:19:05 acs Exp $
+/* $Id: misc.c,v 1.22 2005-08-21 17:43:35 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -438,6 +438,12 @@ int is_transition(char b1, char b2) {
           (b1 == 'G' && b2 == 'A') || 
           (b1 == 'T' && b2 == 'C') || 
           (b1 == 'C' && b2 == 'T'));
+}
+
+/* return 1 if a change from b1 to b2 involves an insertion/deletion,
+   0 otherwise */
+int is_indel(char b1, char b2) {
+  return (b1 == '-' || b2 == '-');
 }
 
 /** Normalize a probability vector.  Assumes all values are

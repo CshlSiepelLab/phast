@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.31 2005-08-03 16:32:13 acs Exp $
+   $Id: phyloFit.c,v 1.32 2005-08-21 17:43:34 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -142,13 +142,14 @@ OPTIONS:\n\
         rooted.  When a reversible substitution model is used, the root\n\
         is ignored during the optimization procedure.\n\
 \n\
-    --subst-mod, -s JC69|F81|HKY85|REV|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S\n\
+    --subst-mod, -s JC69|F81|HKY85|HKY85+Gap|REV|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S\n\
         (default REV).  Nucleotide substitution model.  JC69, F81, HKY85\n\
         REV, and UNREST have the usual meanings (see, e.g., Yang, \n\
-        Goldman, and Friday, 1994).  The others (all considered \"context-\n\
-        dependent\") are as defined in Siepel and Haussler, 2004.  The\n\
-        options --EM and --precision MED are recommended with context-\n\
-        dependent models (see below).\n\
+        Goldman, and Friday, 1994).  HKY85+Gap is an adaptation of HKY that\n\
+        treats gaps as a fifth character (courtesy of James Taylor).  The\n\
+        others, all considered \"context-dependent\", are as defined in\n\
+        Siepel and Haussler, 2004.  The options --EM and --precision MED\n\
+        are recommended with context-dependent models (see below).\n\
 \n\
     --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS\n\
         (default FASTA) Alignment format.  FASTA is as usual.  PHYLIP\n\
@@ -819,8 +820,8 @@ int main(int argc, char *argv[]) {
     die("ERROR: cannot use --non-overlapping with --markov, --features,\n--msa-format SS, or --do-cats.\n");
 
   if (gaps_as_bases && subst_mod != JC69 && subst_mod != F81 && 
-      subst_mod != REV && subst_mod != UNREST)
-    die("ERROR: --gaps-as-bases currently only supported with JC69, F81, REV, and UNREST.\n");
+      subst_mod != HKY85G && subst_mod != REV && subst_mod != UNREST)
+    die("ERROR: --gaps-as-bases currently only supported with JC69, F81, HKY85+Gap, REV, and UNREST.\n");
                                 /* with HKY, yields undiagonalizable matrix */
   
   if (gff != NULL && cm == NULL) cm = cm_new_from_features(gff);

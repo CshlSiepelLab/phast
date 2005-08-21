@@ -1,4 +1,4 @@
-/* $Id: subst_mods.h,v 1.3 2005-06-22 07:11:20 acs Exp $
+/* $Id: subst_mods.h,v 1.4 2005-08-21 17:43:35 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -14,6 +14,7 @@ typedef enum {
   K80,
   F81,
   HKY85,
+  HKY85G,
   REV,
   UNREST,
   HKY2,

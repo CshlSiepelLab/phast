@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.13 2005-08-13 22:19:06 acs Exp $
+/* $Id: misc.h,v 1.14 2005-08-21 17:43:35 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -142,6 +142,7 @@ void *srealloc(void *ptr, size_t size);
 double log_sum(List *l);
 double normalize_probs(double *p, int size);
 int is_transition(char b1, char b2);
+int is_indel(char b1, char b2);
 void unif_draw(int n, double min, double max, double *draws, int antithetics);
 void bn_draw(int n, int N, double p, int *draws);
 void mn_draw(int n, double *p, int d, int *counts);

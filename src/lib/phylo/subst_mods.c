@@ -1,4 +1,4 @@
-/* $Id: subst_mods.c,v 1.6 2005-07-19 18:52:04 acs Exp $
+/* $Id: subst_mods.c,v 1.7 2005-08-21 17:43:34 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -17,6 +17,7 @@
 void tm_set_JC69_matrix(TreeModel *mod);
 void tm_set_K80_matrix(TreeModel *mod, double kappa);
 void tm_set_HKY_matrix(TreeModel *mod, double kappa, int kappa_idx);
+void tm_set_HKYG_matrix(TreeModel *mod, Vector *params, int start_idx);
 void tm_set_REV_matrix(TreeModel *mod, Vector *params, int start_idx);
 void tm_set_UNREST_matrix(TreeModel *mod, Vector *params, int start_idx);
 void tm_set_R2_matrix(TreeModel *mod, Vector *params, int start_idx);
@@ -82,6 +83,8 @@ subst_mod_type tm_get_subst_mod_type(char *str) {
     retval = F81;
   else if (str_equals_nocase_charstr(subst_mod_str, "HKY85"))
     retval = HKY85;
+  else if (str_equals_nocase_charstr(subst_mod_str, "HKY85+Gap"))
+    retval = HKY85G;
   else if (str_equals_nocase_charstr(subst_mod_str, "REV"))
     retval = REV;
   else if (str_equals_nocase_charstr(subst_mod_str, "UNREST"))
@@ -117,6 +120,8 @@ char *tm_get_subst_mod_string(subst_mod_type type) {
     return "F81";
   case HKY85:
     return "HKY85";
+  case HKY85G:
+    return "HKY85+Gap";
   case REV:
     return "REV";
   case UNREST:
@@ -151,6 +156,8 @@ int tm_get_nratematparams(TreeModel *mod) {
   case K80:
   case HKY85:
     return 1;
+  case HKY85G:
+    return 2;
   case REV:
     return (mod->rate_matrix->size * mod->rate_matrix->size 
             - mod->rate_matrix->size) / 2; 
@@ -217,6 +224,9 @@ void tm_set_rate_matrix(TreeModel *mod, Vector *params, int i) {
   case HKY85:
     tm_set_HKY_matrix(mod, vec_get(params, i), i);
     break;
+  case HKY85G:
+    tm_set_HKYG_matrix(mod, params, i);
+    break;
   case REV:
     tm_set_REV_matrix(mod, params, i);
     break;
@@ -268,6 +278,12 @@ void tm_rate_params_init(TreeModel *mod, Vector *params,
   case HKY85:
     vec_set(params, params_idx, kappa);
     break;      
+  case HKY85G:
+    vec_set(params, params_idx, kappa);
+    /* sigma often ends up near kappa, so this provides a reasonable
+       initial guess. */
+    vec_set(params, params_idx+1, kappa);
+    break;    
   case REV:
     tm_init_mat_REV(mod, params, params_idx, kappa);
     break;      
@@ -326,6 +342,18 @@ void tm_rate_params_init_from_model(TreeModel *mod, Vector *params,
 
     vec_set(params, params_idx, kappa);
     break;      
+  case HKY85G:
+    /* infer kappa from rate matrix */
+    kappa = 
+      mm_get(mod->rate_matrix, 
+             mod->rate_matrix->inv_states['G'], 
+             mod->rate_matrix->inv_states['A']) /
+      mm_get(mod->rate_matrix, 
+             mod->rate_matrix->inv_states['C'], 
+             mod->rate_matrix->inv_states['A']);
+    vec_set(params, params_idx, kappa);
+    vec_set(params, params_idx+1, kappa);
+    break;    
   case REV:
     tm_init_mat_from_model_REV(mod, params, params_idx);
     break;      
@@ -446,6 +474,42 @@ void tm_set_HKY_matrix(TreeModel *mod, double kappa, int kappa_idx) {
         }
       }
 
+      mm_set(mod->rate_matrix, i, j, val);
+      rowsum += val;
+    }
+    mm_set(mod->rate_matrix, i, i, -1 * rowsum);
+  }
+}
+
+void tm_set_HKYG_matrix(TreeModel *mod, Vector *params, int start_idx ) {
+  int i, j;
+  int setup_mapping = lst_size(mod->rate_matrix_param_row[start_idx]) == 0;
+  int kappa_idx = start_idx;
+  int sigma_idx = start_idx + 1;
+  double kappa = vec_get(params, kappa_idx);
+  double sigma = vec_get(params, sigma_idx);
+  for (i = 0; i < mod->rate_matrix->size; i++) {
+    double rowsum = 0;
+    for (j = 0; j < mod->rate_matrix->size; j++) {
+      double val;
+      if (j == i) continue;
+      val = vec_get(mod->backgd_freqs, j); 
+      if (is_transition(mod->rate_matrix->states[i], 
+                        mod->rate_matrix->states[j])) {
+        val *= kappa;
+        if (setup_mapping) {
+          lst_push_int(mod->rate_matrix_param_row[kappa_idx], i);
+          lst_push_int(mod->rate_matrix_param_col[kappa_idx], j);
+        }
+      }
+      if (is_indel(mod->rate_matrix->states[i], 
+                   mod->rate_matrix->states[j])) {
+        val *= sigma;
+        if (setup_mapping) {
+          lst_push_int(mod->rate_matrix_param_row[sigma_idx], i);
+          lst_push_int(mod->rate_matrix_param_col[sigma_idx], j);
+        }
+      }
       mm_set(mod->rate_matrix, i, j, val);
       rowsum += val;
     }
