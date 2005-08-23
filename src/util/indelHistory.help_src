@@ -1,0 +1,29 @@
+PROGRAM: indelHistory
+
+USAGE: indelHistory [OPTIONS] alignment.fa tree.nh > out.ih
+
+DESCRIPTION:
+
+    Obtain an "indel history" for an alignment and write it to a file
+    describing insertions and deletions in all species using a compact
+    format.  The specified alignment may either contain sequences
+    corresponding only to leaves of the specified tree, in which case an
+    indel history will be inferred using a simple parsimony algorithm, or
+    it may contain sequences for all nodes in the tree, in which case the
+    indel history will simply be extracted from the file.
+
+OPTIONS:
+    --msa-format, -i FASTA|MAF|SS|....
+        Read alignment in specified file format.
+
+    --output-alignment, -A
+        Instead of a summary of indels only, output an alignment in FASTA
+        format of sequences for all ancestral and leaf nodes.
+
+    --read-history, -H <fname>
+        Read an indel history directly from the specified file.  Useful for
+        debugging.  The alignment and tree arguments are not required and
+        will be ignored if specified.
+
+    --help, -h
+        Display this help message.
