@@ -5,6 +5,7 @@
 #include <msa.h>
 #include <category_map.h>
 #include <tree_model.h>
+#include <time.h>
 #include "base_evolve.help"
 
 int main(int argc, char *argv[]) {
