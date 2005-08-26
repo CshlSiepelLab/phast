@@ -164,6 +164,7 @@ int main(int argc, char *argv[]) {
       die("ERROR: reversible model required with --subtree.\n");
 
     /* reroot tree */
+    tr_name_ancestors(mod->tree);
     subtree_root = tr_get_node(mod->tree, subtree_name);
     if (subtree_root == NULL) 
       die("ERROR: no node named '%s'.\n", subtree_name);
