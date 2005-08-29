@@ -1,4 +1,4 @@
-/* $Id: indel_mod.c,v 1.2 2005-08-29 19:10:43 acs Exp $
+/* $Id: indel_mod.c,v 1.3 2005-08-29 20:13:33 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -339,14 +339,26 @@ void im_estimate(IndelModel *im, IndelHistory *ih, FILE *logf) {
   Vector *params = vec_new(3), *lb = vec_new(3), *ub = vec_new(3);
   struct likelihood_data *d = smalloc(sizeof(struct likelihood_data));
   double neglogl;
+  int i;
+
+  /* ensure trees are compatible */
+  if (im->tree->nnodes != ih->tree->nnodes)
+    die("ERROR: trees for indel model and indel history don't match.\n");
+  for (i = 0; i < im->tree->nnodes; i++) {
+    TreeNode *n1 = lst_get_ptr(im->tree->nodes, i);
+    TreeNode *n2 = lst_get_ptr(ih->tree->nodes, i);
+    if (n1->name[0] != '\0' && n2->name[0] != '\0' && 
+        strcmp(n1->name, n2->name) != 0)
+      die("ERROR: trees for indel model and indel history don't match.\n");
+  }
 
   d->im = im;
   d->ss = im_suff_stats(ih);
   vec_set(params, 0, im->alpha);
   vec_set(params, 1, im->beta);
   vec_set(params, 2, im->tau);
-  vec_set_all(lb, 1e-3);
-  vec_set_all(ub, 1-1e-3);
+  vec_set_all(lb, 1e-6);
+  vec_set_all(ub, 0.5);
 
   opt_bfgs(im_likelihood_wrapper, params, d, &neglogl, lb, ub, logf,  
            im_likelihood_gradient, OPT_HIGH_PREC, NULL);  
