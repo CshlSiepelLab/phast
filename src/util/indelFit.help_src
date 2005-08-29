@@ -1,17 +1,17 @@
 PROGRAM: indelFit
 
-USAGE: indelFit [OPTIONS] indel-history.ih tree.mod > out
+USAGE: indelFit [OPTIONS] indel-history.ih tree.nh > out
 
 DESCRIPTION: 
 
     Estimate the parameters of a simple indel model, given an indel history
-    and a tree model.  By default, writes estimates of three parameters to
+    and a tree.  By default, writes estimates of three parameters to
     stdout: an insertion rate alpha, a deletion rate beta, and a parameter
     tau roughly equal to the inverse of the expected indel length (modulo
     adjustments required to make probabilities sum to one).
 
-    An indel history can be obtained with indelHistory and a tree model
-    with phyloFit.
+    An indel history can be obtained with indelHistory and a tree with
+    phyloFit.
 
 OPTIONS:
     --alpha, -a <val>

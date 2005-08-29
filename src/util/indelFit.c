@@ -10,7 +10,7 @@
 int main(int argc, char *argv[]) {
   char c;
   int opt_idx;
-  TreeModel *mod;
+  TreeNode *tree;
   IndelHistory *ih;
   IndelModel *im;
   double lnl = INFTY;
@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "a:b:h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "a:b:o:Lcl:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'a':
       alpha = get_arg_dbl_bounds(optarg, 0, 1);
@@ -65,9 +65,9 @@ int main(int argc, char *argv[]) {
     die("WARNING: --log ignored.\n");
 
   ih = ih_new_from_file(fopen_fname(argv[optind], "r"));
-  mod = tm_new_from_file(fopen_fname(argv[optind+1], "r"));
+  tree = tr_new_from_file(fopen_fname(argv[optind+1], "r"));
 
-  im = im_new(alpha, beta, tau, mod->tree);
+  im = im_new(alpha, beta, tau, tree);
 
   if (lnl_only) {
     IndelSuffStats *ss = im_suff_stats(ih);
