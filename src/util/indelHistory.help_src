@@ -22,8 +22,10 @@ OPTIONS:
 
     --read-history, -H <fname>
         Read an indel history directly from the specified file.  Useful for
-        debugging.  The alignment and tree arguments are not required and
-        will be ignored if specified.
+        debugging.  The alignment and tree arguments are not required;
+        however in an alignment is given with --read-history and
+        --output-alignment, then actual bases can be output for leaf
+        species.
 
     --ia-names, -I
         Assume ancestral sequences in alignment.fa are named according to

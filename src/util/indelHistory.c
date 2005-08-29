@@ -1,4 +1,4 @@
-/* $Id: indelHistory.c,v 1.2 2005-08-29 18:59:34 acs Exp $
+/* $Id: indelHistory.c,v 1.3 2005-08-29 23:18:46 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -17,7 +17,7 @@ void convert_ia_names(MSA *msa, TreeNode *tree);
 
 int main(int argc, char *argv[]) {
   TreeNode *tree;
-  MSA *msa, *out_msa;
+  MSA *msa = NULL, *out_msa;
   IndelHistory *ih;
   char *read_hist_fname = NULL;
   char c;
