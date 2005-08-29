@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "a:b:o:Lcl:h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "a:b:t:Lcl:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'a':
       alpha = get_arg_dbl_bounds(optarg, 0, 1);
@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
     case 'b':
       beta = get_arg_dbl_bounds(optarg, 0, 1);
       break;
-    case 'o':
+    case 't':
       tau = get_arg_dbl_bounds(optarg, 0, 1);
       break;
     case 'L':
