@@ -1,4 +1,4 @@
-/* $Id: indel_mod.c,v 1.1 2005-08-29 17:37:22 acs Exp $
+/* $Id: indel_mod.c,v 1.2 2005-08-29 19:10:43 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -345,8 +345,8 @@ void im_estimate(IndelModel *im, IndelHistory *ih, FILE *logf) {
   vec_set(params, 0, im->alpha);
   vec_set(params, 1, im->beta);
   vec_set(params, 2, im->tau);
-  vec_zero(lb);
-  vec_set_all(ub, 1);
+  vec_set_all(lb, 1e-3);
+  vec_set_all(ub, 1-1e-3);
 
   opt_bfgs(im_likelihood_wrapper, params, d, &neglogl, lb, ub, logf,  
            im_likelihood_gradient, OPT_HIGH_PREC, NULL);  
