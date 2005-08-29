@@ -1,0 +1,37 @@
+PROGRAM: indelFit
+
+USAGE: indelFit [OPTIONS] indel-history.ih tree.mod > out
+
+DESCRIPTION: 
+
+    Estimate the parameters of a simple indel model, given an indel history
+    and a tree model.  By default, writes estimates of three parameters to
+    stdout: an insertion rate alpha, a deletion rate beta, and a parameter
+    tau roughly equal to the inverse of the expected indel length (modulo
+    adjustments required to make probabilities sum to one).
+
+    An indel history can be obtained with indelHistory and a tree model
+    with phyloFit.
+
+OPTIONS:
+    --alpha, -a <val>
+        Starting value of alpha, the insertion rate.  Default is 0.05.
+
+    --beta, -b <val>
+        Starting value of beta, the deletion rate.  Default is 0.05.
+
+    --tau, -t <val>
+        Starting value of tau, the length parameter.  Default is 0.2.
+
+    --lnl, -L
+        Compute log likelihood of model only, without optimizing parameters.
+        The options above can be used to set the parameters as desired.
+
+    --columns, -c
+        Output log likelihood of each column.
+
+    --log, -l <file>
+        Write log of optimization to specified file.
+
+    --help, -h
+        Display this help message and exit.

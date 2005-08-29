@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.22 2005-08-21 17:43:35 acs Exp $
+/* $Id: misc.c,v 1.23 2005-08-29 17:37:22 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -413,7 +413,7 @@ double log_sum(List *l) {
   return maxval + log2(expsum);        
 }
 
-/* same as above, but base e */
+/* Same as above, but base e */
 double log_sum_e(List *l) {
   double maxval, expsum;
   int k;

@@ -1,4 +1,4 @@
-/* $Id: indel_history.c,v 1.1 2005-08-23 17:22:11 acs Exp $
+/* $Id: indel_history.c,v 1.2 2005-08-29 17:37:22 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -155,7 +155,7 @@ CompactIndelHistory *ih_compact(IndelHistory *ih) {
   for (j = 0; j < ih->ncols; ) {
     if (ins[j] > 0) {
       for (k = 0; 
-           j + k < ih->ncols && ins[j+k] > 0;
+           j + k < ih->ncols && ins[j+k] == ins[j];
            k++);
       indel = smalloc(sizeof(Indel));
       indel->type = INS;

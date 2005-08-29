@@ -53,10 +53,17 @@ OPTIONS:
         for large numbers of sites by central limit theorem).
 
     --subtree, -s <node-name>
-        Partition the tree into the subtree beneath the node whose
-        name is given and the complementary supertree, and consider
-        the joint distribution of the number of substitutions in each
-        partition.  Assumes a reversible substitution model.
+        Partition the tree into the subtree beneath the node whose name is
+        given and the complementary supertree, and consider the joint
+        distribution of the number of substitutions in each partition.  The
+        branch above the specified node is included with the subtree.
+        Thus, given the tree "((human,chimp)primate,(mouse,rat)rodent)",
+        the option "--subtree primate" will create one partition consisting of
+        human, chimp, and the branch leading to them, and another partition
+        consisting of the rest of the tree; "--subtree human" will create
+        one partition consisting only of human and the branch leading to it
+        and another partition consisting of the rest of the tree.  This
+        option assumes a reversible substitution model.
 
     --features, -f <file>
         Read features from <file> (GFF or BED format) and output a

@@ -1,11 +1,16 @@
-/* $Id: indel_history.h,v 1.1 2005-08-23 17:24:18 acs Exp $
+/* $Id: indel_history.h,v 1.2 2005-08-29 17:37:22 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
 #ifndef IND_HIST
 #define IND_HIST
 
-typedef enum {INS, DEL, BASE} indel_char;
+#include <stdio.h>
+#include <trees.h>
+#include <msa.h>
+
+#define NINDEL_CHARS 3
+typedef enum {INS, DEL, BASE} indel_char; /* note: order is used in places */
 
 typedef struct {
   indel_char type;

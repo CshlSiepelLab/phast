@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.21 2005-08-12 19:35:21 acs Exp $ 
+/* $Id: trees.c,v 1.22 2005-08-29 17:37:22 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1232,37 +1232,59 @@ void tr_print_nodes(FILE *F, TreeNode *tree) {
   }
 }
 
-/** Reroot tree at specified internal node.  Warning: ids will not be
-    altered, so they will no longer be consistent with a preorder
-    traversal of the tree  */
-void tr_reroot(TreeNode *tree, TreeNode *newroot) {
-  TreeNode *n, *p, *gp, *root_lchild, *root_rchild;
+/** Reroot tree.  Subtree originally beneath selected node will become
+    right subtree of root, and remainder of tree will be left
+    subtree. If include_branch == FALSE, the selected node will become
+    the new root, and a zero-length branch to its right will connect
+    it to its original subtree.  If instead include_branch == TRUE,
+    then the branch above the selected node will also be included in the
+    right subtree.  In this case, the selected node will become the
+    right child of the new root and the branch in question will become
+    the right branch beneath the new root.  The left branch beneath
+    the new root will have length zero and will connect to the former
+    parent of the selected node.  Warning: ids will not be altered, so
+    they will no longer be consistent with a preorder traversal of the
+    tree  */
+void tr_reroot(TreeNode *tree, TreeNode *selected_node, int include_branch) {
+  TreeNode *n, *p, *gp, *root_lchild, *root_rchild, *newroot;
   double d, d2;
   double root_d;
   int i;
 
-  if (tree == newroot) return;
-  if (newroot->lchild == NULL || newroot->rchild == NULL)
-    die("ERROR: can only reroot at internal node.\n");
+  assert(tree->nnodes >= 3);
+
+  if (tree == selected_node) {
+    if (include_branch) 
+      die("ERROR: strange call to tr_reroot -- rerooting at existing root with include_branch == TRUE.\n");
+    else {
+      tree->lchild->dparent += tree->rchild->dparent;
+      tree->rchild->dparent = 0; 
+      /* (make effect on branch lengths same as in true rerooting) */
+      return;
+    }
+  }
+
+  if (!include_branch &&
+      (selected_node->lchild == NULL || selected_node->rchild == NULL))
+    die("ERROR: cannot reroot at leaf unless including branch above it.\n");
 
   /* save left and right children of old root */
-  assert(tree->lchild != NULL && tree->rchild != NULL);
   root_lchild = tree->lchild;
   root_rchild = tree->rchild;
   root_d = root_lchild->dparent + root_rchild->dparent;
 
-  /* move old root to position beneath new root, connected by 0-length
+  /* move old root to position beneath selected node, connected by 0-length
      branch */
-  tree->lchild = newroot->lchild;
-  tree->rchild = newroot->rchild;
-  tree->parent = newroot;
-  newroot->rchild = tree;
-  newroot->lchild = NULL;
+  tree->lchild = selected_node->lchild;
+  tree->rchild = selected_node->rchild;
+  tree->parent = selected_node;
+  selected_node->rchild = tree;
+  selected_node->lchild = NULL;
   tree->name[0] = '\0';		/* name may no longer make sense */
   /* branch lengths are okay */
 
   /* swap pointers above new root */
-  n = newroot;
+  n = selected_node;
   p = n->parent;
   d = n->dparent;               /* d is length of branch between n and p */
   while (p != tree) {
@@ -1310,6 +1332,27 @@ void tr_reroot(TreeNode *tree, TreeNode *newroot) {
     root_lchild->parent = n;
     root_lchild->dparent = root_d;
   }
+  /* now selected node is the root */
+
+  /* if include_branch == TRUE, tweak the tree slightly (swap
+     selected_node and its right child [separated by 0-length branch],
+     adjust branch lengths beneath root) */
+  if (include_branch) {
+    TreeNode *root_lchild = selected_node->lchild;
+    newroot = selected_node->rchild;
+
+    selected_node->parent = newroot;
+    selected_node->lchild = newroot->lchild;
+    selected_node->rchild = newroot->rchild;
+
+    newroot->rchild = selected_node;
+    newroot->lchild = root_lchild;
+
+    selected_node->dparent = root_lchild->dparent;
+    root_lchild->dparent = 0;    
+  }
+  else                          /* otherwise new root is just selected node */
+    newroot = selected_node;
 
   newroot->parent = NULL;
   newroot->dparent = 0;

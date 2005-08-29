@@ -51,12 +51,16 @@ OPTIONS:\n\
         each node of the tree.  Sometimes useful for debugging.  Can be\n\
         used with other options.\n\
 \n\
-    --reroot -R <node_name>\n\
+    --reroot, -R <node_name>\n\
         Reroot tree at internal node with specified name.\n\
 \n\
     --subtree, -S <node_name>\n\
         (for use with --scale)  Alter only the branches in the subtree \n\
         beneath the specified node.\n\
+\n\
+    --with-branch, -B <node_name>\n\
+        (For use with --reroot or --subtree) include branch above specified\n\
+        node with subtree beneath it.\n\
 \n\
     --merge, -m <file2.mod> | <file2.nh>\n\
         Merge with another tree model or tree.  The primary model\n\
@@ -106,7 +110,7 @@ int main(int argc, char *argv[]) {
   double scale_factor = 1;
   List *prune_names = NULL;
   int prune_all_but = FALSE, tree_only = FALSE, dissect = FALSE,
-    name_ancestors = FALSE;
+    name_ancestors = FALSE, with_branch = FALSE;
   TreeModel *mod = NULL, *merge_mod = NULL;
   char *reroot_name = NULL, *subtree_name = FALSE;
   
@@ -127,12 +131,13 @@ int main(int argc, char *argv[]) {
     {"dissect", 0, 0, 'd'},
     {"name-ancestors", 0, 0, 'a'},
     {"reroot", 1, 0, 'R'},
+    {"with-branch", 0, 0, 'B'},
     {"subtree", 1, 0, 'S'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "s:p:P:m:r:R:S:adth", 
+  while ((c = getopt_long(argc, argv, "s:p:P:m:r:R:B:S:adth", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 's':
@@ -174,6 +179,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'R':
       reroot_name = optarg;
+      break;
+    case 'B':
+      with_branch = TRUE;
       break;
     case 'a':
       name_ancestors = TRUE;
@@ -228,6 +236,7 @@ int main(int argc, char *argv[]) {
       n = tr_get_node(tree, subtree_name);
       if (n == NULL) die("ERROR: no node named '%s'.\n", subtree_name);
       tr_scale_subtree(tree, n, scale_factor);
+      if (with_branch) n->dparent *= scale_factor;
     }
   }
 
@@ -248,9 +257,9 @@ int main(int argc, char *argv[]) {
   if (reroot_name != NULL) {
     n = tr_get_node(tree, reroot_name);
     if (n == NULL) die("ERROR: no node named '%s'.\n", reroot_name);
-    tr_reroot(tree, n);
-    mod->tree = n;
-    tree = n;
+    tr_reroot(tree, n, with_branch);
+    if (mod != NULL) mod->tree = with_branch ? n->parent : n;
+    tree = with_branch ? n->parent : n;
   }
 
   if (dissect) 

@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.29 2005-06-08 17:24:45 acs Exp $
+/* $Id: gff.c,v 1.30 2005-08-29 17:37:22 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1175,4 +1175,22 @@ void gff_flatten(GFF_Set *feats) {
   }
   else 
     lst_free(keepers);
+}
+
+/* partition features of a GFF by feature type.  On return, 'types'
+   will be a list of feature types and subsets will be a corresponding
+   list of lists of features */
+void gff_partition_by_type(GFF_Set *feats, List *types, List *subsets) {
+  int i, idx;
+  lst_clear(types);
+  lst_clear(subsets);
+  for (i = 0; i < lst_size(feats->features); i++) {
+    GFF_Feature *f = lst_get_ptr(feats->features, i);
+    if (!str_in_list_idx(f->feature, types, &idx)) {
+      lst_push_ptr(types, f->feature);
+      lst_push_ptr(subsets, lst_new_ptr(max(1, lst_size(feats->features) / 10)));
+      idx = lst_size(types) - 1;
+    }
+    lst_push_ptr(lst_get_ptr(subsets, idx), f);
+  }
 }

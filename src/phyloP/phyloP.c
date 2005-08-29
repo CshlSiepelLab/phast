@@ -159,6 +159,7 @@ int main(int argc, char *argv[]) {
   else {			/* supertree/subtree mode */
     double post_mean, post_var, post_mean_sup, post_var_sup, 
       post_mean_sub, post_var_sub;
+    TreeNode *tmp;
 
     if (!tm_is_reversible(mod->subst_mod))
       die("ERROR: reversible model required with --subtree.\n");
@@ -169,8 +170,17 @@ int main(int argc, char *argv[]) {
     if (subtree_root == NULL) 
       die("ERROR: no node named '%s'.\n", subtree_name);
 
-    tr_reroot(mod->tree, subtree_root);
-    mod->tree = subtree_root;
+    tr_reroot(mod->tree, subtree_root, TRUE);
+    mod->tree = subtree_root->parent; /* take parent because including
+                                         branch */
+
+    /* swap left and right children.  This is necessary because
+       routines for computing joint distrib assume branch to right has
+       length zero, but because branch is included, tr_reroot will put
+       zero length branch on left */
+    tmp = mod->tree->lchild;
+    mod->tree->lchild = mod->tree->rchild;
+    mod->tree->rchild = tmp;
 
     if (feats == NULL) {
       /* compute distributions and stats */
@@ -181,8 +191,8 @@ int main(int argc, char *argv[]) {
         post_joint_distrib = sub_posterior_joint_distrib_alignment(jp, msa);
       else if (!prior_only)
         sub_posterior_joint_stats_alignment(jp, msa, &post_mean, &post_var,
-                                            &post_mean_sup, &post_var_sup, 
-                                            &post_mean_sub, &post_var_sub);
+                                            &post_mean_sub, &post_var_sub, 
+                                            &post_mean_sup, &post_var_sup);
 
       /* print output */
       if (prior_only) 
@@ -277,15 +287,15 @@ void print_prior_only_joint(char *node_name, int nsites, char *mod_fname,
                             Matrix *prior_distrib) {
   int i, j, min_sup, max_sup, min_sub, max_sub;
   double mean_sup, var_sup, mean_sub, var_sub;
-  Vector *marg_sup = vec_new(prior_distrib->nrows),
-    *marg_sub = vec_new(prior_distrib->ncols);
+  Vector *marg_sub = vec_new(prior_distrib->nrows),
+    *marg_sup = vec_new(prior_distrib->ncols);
 
   /* get marginal distributions for stats */
   vec_zero(marg_sup); vec_zero(marg_sub);
   for (i = 0; i < prior_distrib->nrows; i++) {
     for (j = 0; j < prior_distrib->ncols; j++) {
-      marg_sup->data[i] += prior_distrib->data[i][j];
-      marg_sub->data[j] += prior_distrib->data[i][j];
+      marg_sub->data[i] += prior_distrib->data[i][j];
+      marg_sup->data[j] += prior_distrib->data[i][j];
     }
   }
 
@@ -295,19 +305,19 @@ void print_prior_only_joint(char *node_name, int nsites, char *mod_fname,
   pv_confidence_interval(marg_sup, 0.95, &min_sup, &max_sup);
   pv_confidence_interval(marg_sub, 0.95, &min_sub, &max_sub);
 
-  printf("#Let n1 be no. substitutions in supertree above '%s' over %d site(s) given '%s'.\n", 
+  printf("#Let n1 be no. substitutions in supertree above '%s' (excluding leading branch) over %d site(s) given '%s'.\n", 
          node_name, nsites, mod_fname);
-  printf("#Let n2 be no. substitutions in subtree beneath '%s' over %d site(s) given '%s'.\n", 
+  printf("#Let n2 be no. substitutions in subtree beneath '%s' (including leading branch) over %d site(s) given '%s'.\n", 
          node_name, nsites, mod_fname);
   printf("#E[n1] = %.3f; Var[n1] = %.3f; 95%% c.i. = [%d, %d]\n", 
          mean_sup, var_sup, min_sup, max_sup);
   printf("#E[n2] = %.3f; Var[n2] = %.3f; 95%% c.i. = [%d, %d]\n", 
          mean_sub, var_sub, min_sub, max_sub);
   printf("\n#element at row n1 and col n2 in table below is p(n1, n2)\n");
-  for (i = 0; i < prior_distrib->nrows; i++) 
-    for (j = 0; j < prior_distrib->ncols; j++) 
-      printf("%f%c", prior_distrib->data[i][j], 
-             j == prior_distrib->ncols - 1 ? '\n' : '\t');
+  for (i = 0; i < prior_distrib->ncols; i++) 
+    for (j = 0; j < prior_distrib->nrows; j++) 
+      printf("%f%c", prior_distrib->data[j][i], 
+             j == prior_distrib->nrows - 1 ? '\n' : '\t');
 
   vec_free(marg_sup);
   vec_free(marg_sub);
@@ -318,8 +328,8 @@ void print_post_only_joint(char *node_name, char *mod_fname,
                            double ci) {
   int i, j, min_sup, max_sup, min_sub, max_sub;
   double mean_sup, var_sup, mean_sub, var_sub;
-  Vector *marg_sup = vec_new(post_distrib->nrows),
-    *marg_sub = vec_new(post_distrib->ncols);
+  Vector *marg_sup = vec_new(post_distrib->ncols),
+    *marg_sub = vec_new(post_distrib->nrows);
 
   if (ci == -1) ci= 0.95;       /* for purposes of stats */
 
@@ -327,8 +337,8 @@ void print_post_only_joint(char *node_name, char *mod_fname,
   vec_zero(marg_sup); vec_zero(marg_sub);
   for (i = 0; i < post_distrib->nrows; i++) {
     for (j = 0; j < post_distrib->ncols; j++) {
-      marg_sup->data[i] += post_distrib->data[i][j];
-      marg_sub->data[j] += post_distrib->data[i][j];
+      marg_sub->data[i] += post_distrib->data[i][j];
+      marg_sup->data[j] += post_distrib->data[i][j];
     }
   }
 
@@ -338,19 +348,19 @@ void print_post_only_joint(char *node_name, char *mod_fname,
   pv_confidence_interval(marg_sup, ci, &min_sup, &max_sup);
   pv_confidence_interval(marg_sub, ci, &min_sub, &max_sub);
 
-  printf("#Let n1 be no. substitutions in supertree above '%s' given '%s' and '%s'.\n", 
+  printf("#Let n1 be no. substitutions in supertree above '%s' (excluding leading branch) given '%s' and '%s'.\n", 
          node_name, mod_fname, msa_fname);
-  printf("#Let n2 be no. substitutions in subtree beneath '%s' given '%s' and '%s'.\n", 
+  printf("#Let n2 be no. substitutions in subtree beneath '%s' (including leading branch) given '%s' and '%s'.\n", 
          node_name, mod_fname, msa_fname);
   printf("#E[n1] = %.3f; Var[n1] = %.3f; %.1f%% c.i. = [%d, %d]\n", 
          mean_sup, var_sup, ci*100, min_sup, max_sup);
   printf("#E[n2] = %.3f; Var[n2] = %.3f; %.1f%% c.i. = [%d, %d]\n", 
          mean_sub, var_sub, ci*100, min_sub, max_sub);
   printf("\n#element at row n1 and col n2 in table below is p(n1, n2)\n");
-  for (i = 0; i < post_distrib->nrows; i++) 
-    for (j = 0; j < post_distrib->ncols; j++) 
-      printf("%f%c", post_distrib->data[i][j], 
-             j == post_distrib->ncols - 1 ? '\n' : '\t');
+  for (i = 0; i < post_distrib->ncols; i++) 
+    for (j = 0; j < post_distrib->nrows; j++) 
+      printf("%f%c", post_distrib->data[j][i], 
+             j == post_distrib->nrows - 1 ? '\n' : '\t');
 
   vec_free(marg_sup);
   vec_free(marg_sub);
@@ -392,17 +402,17 @@ void print_p_joint(char *node_name, char *mod_fname, char *msa_fname,
      subst. in the subtree and the smallest reasonable estimate of the
      number of subst. in the whole tree*/
 
-  cond = pm_y_given_tot(prior_joint, post_min_tot);
+  cond = pm_x_given_tot(prior_joint, post_min_tot);
   cond_cons_p_sub = pv_p_value(cond, post_max_sub, LOWER);
   vec_free(cond);
 
-  cond = pm_y_given_tot(prior_joint, post_max_tot);
+  cond = pm_x_given_tot(prior_joint, post_max_tot);
   cond_anti_cons_p_sub = pv_p_value(cond, post_min_sub, UPPER);
   vec_free(cond);
 
   /* marginals of prior and stats */
-  prior_marg_sup = pm_marg_x(prior_joint);
-  prior_marg_sub = pm_marg_y(prior_joint);
+  prior_marg_sup = pm_marg_y(prior_joint);
+  prior_marg_sub = pm_marg_x(prior_joint);
   pv_stats(prior_marg_sup, &prior_mean_sup, &prior_var_sup);
   pv_stats(prior_marg_sub, &prior_mean_sub, &prior_var_sub);
   pv_confidence_interval(prior_marg_sup, 0.95, &prior_min_sup, &prior_max_sup);
@@ -449,7 +459,7 @@ void print_p_joint(char *node_name, char *mod_fname, char *msa_fname,
 void print_p_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
   int i;
   Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
-  p_value_stats *stats = sub_p_value_many(jp, msa, feats, ci);
+  p_value_stats *stats = sub_p_value_many(jp, msa, feats->features, ci);
   List *l = lst_new_ptr(2);
 
   printf("#chr\tstart\tend\tname\tp_cons\tp_anti_cons\tprior_mean\tprior_var\tprior_min\tprior_max\tpost_mean\tpost_var\tpost_min\tpost_max\n");
@@ -483,7 +493,7 @@ void print_p_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
 void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
   int i;
   Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
-  p_value_joint_stats *stats = sub_p_value_joint_many(jp, msa, feats, ci);
+  p_value_joint_stats *stats = sub_p_value_joint_many(jp, msa, feats->features, ci);
   List *l = lst_new_ptr(2);
 
   printf("#chr\tstart\tend\tname\tp_cons_sup\tp_anti_cons_sup\tp_cons_sub\tp_anti_cons_sub\tcond_p_cons_sub\tcond_p_anti_cons_sub\tprior_mean_sup\tprior_var_sup\tprior_min_sup\tprior_max_sup\tprior_mean_sub\tprior_var_sub\tprior_min_sub\tprior_max_sub\tpost_mean_sup\tpost_var_sup\tpost_min_sup\tpost_max_sup\tpost_mean_sub\tpost_var_sub\tpost_min_sub\tpost_max_sub\n");
@@ -502,17 +512,17 @@ void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
     printf("%s\t%d\t%d\t%s\t%e\t%e\t%e\t%e\t%e\t%e\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\n", 
            f->seqname->chars, f->start-1, f->end, 
            name == NULL ? "." : name->chars,
-           stats[i].p_cons_sup, stats[i].p_anti_cons_sup, 
-           stats[i].p_cons_sub, stats[i].p_anti_cons_sub, 
-           stats[i].cond_p_cons_sub, stats[i].cond_p_anti_cons_sub, 
-           stats[i].prior_mean_sup, stats[i].prior_var_sup, 
-           stats[i].prior_min_sup, stats[i].prior_max_sup, 
-           stats[i].prior_mean_sub, stats[i].prior_var_sub, 
-           stats[i].prior_min_sub, stats[i].prior_max_sub, 
-           stats[i].post_mean_sup, stats[i].post_var_sup, 
-           stats[i].post_min_sup, stats[i].post_max_sup,
-           stats[i].post_mean_sub, stats[i].post_var_sub, 
-           stats[i].post_min_sub, stats[i].post_max_sub);
+           stats[i].p_cons_right, stats[i].p_anti_cons_right, 
+           stats[i].p_cons_left, stats[i].p_anti_cons_left, 
+           stats[i].cond_p_cons_left, stats[i].cond_p_anti_cons_left, 
+           stats[i].prior_mean_right, stats[i].prior_var_right, 
+           stats[i].prior_min_right, stats[i].prior_max_right, 
+           stats[i].prior_mean_left, stats[i].prior_var_left, 
+           stats[i].prior_min_left, stats[i].prior_max_left, 
+           stats[i].post_mean_right, stats[i].post_var_right, 
+           stats[i].post_min_right, stats[i].post_max_right,
+           stats[i].post_mean_left, stats[i].post_var_left, 
+           stats[i].post_min_left, stats[i].post_max_left);
 
     lst_free_strings(l);
   }

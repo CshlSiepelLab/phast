@@ -1,4 +1,4 @@
-/* $Id: prob_matrix.c,v 1.3 2005-08-12 22:47:43 acs Exp $ 
+/* $Id: prob_matrix.c,v 1.4 2005-08-29 17:37:22 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -110,9 +110,9 @@ Matrix *pm_convolve(Matrix *p, int n) {
     Vector *marg_x = pm_marg_x(p);
     Vector *marg_y = pm_marg_y(p);
     pv_stats(marg_x, &mean, &var);
-    max_nrows = ceil(n * mean + 6 * sqrt(n * var));
+    max_nrows = ceil(n * mean + 6 * sqrt(n * var)) + 1;
     pv_stats(marg_y, &mean, &var);
-    max_ncols = ceil(n * mean + 6 * sqrt(n * var));
+    max_ncols = ceil(n * mean + 6 * sqrt(n * var)) + 1;
     vec_free(marg_x);
     vec_free(marg_y);
   }
@@ -179,9 +179,9 @@ Matrix **pm_convolve_save(Matrix *p, int n) {
     Vector *marg_x = pm_marg_x(p);
     Vector *marg_y = pm_marg_y(p);
     pv_stats(marg_x, &mean, &var);
-    max_nrows = ceil(n * mean + 6 * sqrt(n * var));
+    max_nrows = ceil(n * mean + 6 * sqrt(n * var)) + 1;
     pv_stats(marg_y, &mean, &var);
-    max_ncols = ceil(n * mean + 6 * sqrt(n * var));
+    max_ncols = ceil(n * mean + 6 * sqrt(n * var)) + 1;
     vec_free(marg_x);
     vec_free(marg_y);
   }
@@ -255,8 +255,8 @@ Matrix *pm_convolve_many(Matrix **p, int *counts, int n) {
   if (n > 50) {
     /* as above, use central limit theorem to limit size of matrix to
        keep track of */
-    max_nrows = ceil(tot_mean_x + 6 * sqrt(tot_var_x));
-    max_ncols = ceil(tot_mean_y + 6 * sqrt(tot_var_y));
+    max_nrows = ceil(tot_mean_x + 6 * sqrt(tot_var_x)) + 1;
+    max_ncols = ceil(tot_mean_y + 6 * sqrt(tot_var_y)) + 1;
   }
 
   q_i = mat_new(max_nrows, max_ncols);

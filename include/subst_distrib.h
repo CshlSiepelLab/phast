@@ -20,12 +20,13 @@ typedef struct {
 } p_value_stats;
 
 typedef struct {
-  double prior_mean_sup, prior_mean_sub, prior_var_sup, prior_var_sub, 
-    post_mean_sup, post_mean_sub, post_mean_tot, post_var_sup, 
-    post_var_sub, post_var_tot, p_cons_sub, p_cons_sup, p_anti_cons_sup, 
-    p_anti_cons_sub, cond_p_cons_sub, cond_p_anti_cons_sub;
-  int prior_min_sup, prior_min_sub, prior_max_sup, prior_max_sub, 
-    post_min_sup, post_min_sub, post_min_tot, post_max_sup, post_max_sub,
+  double prior_mean_left, prior_mean_right, prior_var_left, prior_var_right, 
+    post_mean_left, post_mean_right, post_mean_tot, post_var_left, 
+    post_var_right, post_var_tot, p_cons_right, p_cons_left, p_anti_cons_left, 
+    p_anti_cons_right, cond_p_cons_left, cond_p_anti_cons_left,
+    cond_p_cons_right, cond_p_anti_cons_right;
+  int prior_min_left, prior_min_right, prior_max_left, prior_max_right, 
+    post_min_left, post_min_right, post_min_tot, post_max_left, post_max_right,
     post_max_tot;
 } p_value_joint_stats;
 
@@ -46,8 +47,8 @@ void sub_posterior_joint_stats_alignment(JumpProcess *jp, MSA *msa,
                                          double *mean_tot, double *var_tot,
                                          double *mean_left, double *var_left,
                                          double *mean_right, double *var_right);
-p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, GFF_Set *feats, 
+p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats, 
                                 double ci);
 p_value_joint_stats* sub_p_value_joint_many(JumpProcess *jp, MSA *msa, 
-                                            GFF_Set *feats, double ci);
+                                            List *feats, double ci);
 #endif
