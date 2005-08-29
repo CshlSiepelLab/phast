@@ -14,7 +14,7 @@ DESCRIPTION:
 
 OPTIONS:
     --msa-format, -i FASTA|MAF|SS|....
-        Read alignment in specified file format.
+        Read alignment in specified file format (default FASTA).
 
     --output-alignment, -A
         Instead of a summary of indels only, output an alignment in FASTA
@@ -24,6 +24,12 @@ OPTIONS:
         Read an indel history directly from the specified file.  Useful for
         debugging.  The alignment and tree arguments are not required and
         will be ignored if specified.
+
+    --ia-names, -I
+        Assume ancestral sequences in alignment.fa are named according to
+        the convention used by Mathieu Blanchette's inferAncestors program,
+        e.g., "RAT+MOUSE+RABBIT+" for the last common ancestor of "rat",
+        "mouse", and "rabbit".
 
     --help, -h
         Display this help message.

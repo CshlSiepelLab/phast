@@ -1,4 +1,4 @@
-/* $Id: indelHistory.c,v 1.1 2005-08-23 17:22:11 acs Exp $
+/* $Id: indelHistory.c,v 1.2 2005-08-29 18:59:34 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -8,9 +8,12 @@
 #include <misc.h>
 #include <msa.h>
 #include <trees.h>
+#include <hashtable.h>
 #include <sufficient_stats.h>
 #include <indel_history.h>
 #include "indelHistory.help"
+
+void convert_ia_names(MSA *msa, TreeNode *tree);
 
 int main(int argc, char *argv[]) {
   TreeNode *tree;
@@ -21,17 +24,18 @@ int main(int argc, char *argv[]) {
   int opt_idx;
 
   msa_format_type msa_format = FASTA;
-  int output_alignment = FALSE;
-
+  int output_alignment = FALSE, ia_names = FALSE;
+  
   struct option long_opts[] = {
     {"msa-format", 1, 0, 'i'},
     {"output-alignment", 0, 0, 'A'},
     {"read-history", 1, 0, 'H'},
+    {"ia-names", 0, 0, 'I'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "i:H:Ah", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "i:H:AIh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'i':
       msa_format = msa_str_to_format(optarg);
@@ -43,6 +47,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'H':
       read_hist_fname = optarg;
+      break;
+    case 'I':
+      ia_names = TRUE;
       break;
     case 'h':
       printf(HELP);
@@ -74,6 +81,11 @@ int main(int argc, char *argv[]) {
 
     if (msa->nseqs > (tree->nnodes + 1) / 2) { /* assume ancestral seqs
                                                   specified in this case */
+      if (ia_names) {
+        fprintf(stderr, "Converting sequence names...\n");
+        convert_ia_names(msa, tree);
+      }
+
       fprintf(stderr, "Extracting indel history from alignment...\n");
       ih = ih_extract_from_alignment(msa, tree);
     }
@@ -100,4 +112,42 @@ int main(int argc, char *argv[]) {
 
   fprintf(stderr, "Done.\n");
   return 0;
+}
+
+void convert_ia_names(MSA *msa, TreeNode *tree) {
+  int i;
+  char *newname;
+  String **ia_names = smalloc(tree->nnodes * sizeof(void*));
+  Hashtable *name_map = hsh_new(tree->nnodes);
+  List *postorder = tr_postorder(tree);
+
+  /* create a mapping from Mathieu's names to ours */
+  for (i = 0; i < lst_size(postorder); i++) {
+    TreeNode *n = lst_get_ptr(postorder, i);
+    if (n->lchild == NULL) {
+      ia_names[n->id] = str_new_charstr(n->name);
+      str_toupper(ia_names[n->id]);
+      str_append_char(ia_names[n->id], '+');
+    }
+    else {
+      ia_names[n->id] = str_dup(ia_names[n->lchild->id]);
+      str_append(ia_names[n->id], ia_names[n->rchild->id]);
+    }
+    hsh_put(name_map, ia_names[n->id]->chars, n->name);
+  }
+
+  /* now rename */
+  for (i = 0; i < msa->nseqs; i++) {
+    if ((newname = hsh_get(name_map, msa->names[i])) != (char*)-1) {
+      free(msa->names[i]);
+      msa->names[i] = strdup(newname);
+    }
+    else 
+      die("ERROR: can't convert name '%s'\n", msa->names[i]);
+  }
+
+  for (i = 0; i < tree->nnodes; i++)
+    str_free(ia_names[i]);
+  free(ia_names);
+  hsh_free(name_map);
 }
