@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.5 2005-08-29 17:37:22 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.6 2005-08-29 22:43:40 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -602,10 +602,10 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
   vec_free(p);
 
   /* also compute summary stats for each one */
-  prior_mean = smalloc(maxlen * sizeof(double));
-  prior_var = smalloc(maxlen * sizeof(double));
-  prior_min = smalloc(maxlen * sizeof(int));
-  prior_max = smalloc(maxlen * sizeof(int));
+  prior_mean = smalloc((maxlen+1) * sizeof(double));
+  prior_var = smalloc((maxlen+1) * sizeof(double));
+  prior_min = smalloc((maxlen+1) * sizeof(int));
+  prior_max = smalloc((maxlen+1) * sizeof(int));
   for (idx = 1; idx <= maxlen; idx++) {
     pv_stats(priors[idx], &prior_mean[idx], &prior_var[idx]);
     pv_confidence_interval(priors[idx], 0.95, &prior_min[idx], &prior_max[idx]);
@@ -711,16 +711,16 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
   mat_free(p);
 
   /* also precompute arrays of marginals and summary stats */
-  prior_marg_left = smalloc(maxlen * sizeof(void*));
-  prior_marg_right = smalloc(maxlen * sizeof(void*));
-  prior_mean_left = smalloc(maxlen * sizeof(double));
-  prior_mean_right = smalloc(maxlen * sizeof(double));
-  prior_var_left = smalloc(maxlen * sizeof(double));
-  prior_var_right = smalloc(maxlen * sizeof(double));
-  prior_min_left = smalloc(maxlen * sizeof(int));
-  prior_min_right = smalloc(maxlen * sizeof(int));
-  prior_max_left = smalloc(maxlen * sizeof(int));
-  prior_max_right = smalloc(maxlen * sizeof(int));
+  prior_marg_left = smalloc((maxlen+1) * sizeof(void*));
+  prior_marg_right = smalloc((maxlen+1) * sizeof(void*));
+  prior_mean_left = smalloc((maxlen+1) * sizeof(double));
+  prior_mean_right = smalloc((maxlen+1) * sizeof(double));
+  prior_var_left = smalloc((maxlen+1) * sizeof(double));
+  prior_var_right = smalloc((maxlen+1) * sizeof(double));
+  prior_min_left = smalloc((maxlen+1) * sizeof(int));
+  prior_min_right = smalloc((maxlen+1) * sizeof(int));
+  prior_max_left = smalloc((maxlen+1) * sizeof(int));
+  prior_max_right = smalloc((maxlen+1) * sizeof(int));
   for (idx = 1; idx <= maxlen; idx++) {
     prior_marg_left[idx] = pm_marg_x(priors[idx]);
     prior_marg_right[idx] = pm_marg_y(priors[idx]);
