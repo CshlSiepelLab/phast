@@ -1,7 +1,7 @@
 /* String-handling functions, with automatic memory management and
    basic regex support.
    
-   $Id: stringsplus.c,v 1.7 2005-07-17 22:20:12 acs Exp $
+   $Id: stringsplus.c,v 1.8 2005-08-29 18:58:22 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -552,4 +552,16 @@ List *str_list_as_dbl(List *str_list) {
     lst_push_dbl(retval, tmp);
   }
   return retval;
+}
+
+void str_toupper(String *s) {
+  int i;
+  for (i = 0; i < s->length; i++)
+    s->chars[i] = toupper(s->chars[i]);
+}
+
+void str_tolower(String *s) {
+  int i;
+  for (i = 0; i < s->length; i++)
+    s->chars[i] = tolower(s->chars[i]);
 }

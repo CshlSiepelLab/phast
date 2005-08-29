@@ -1,6 +1,6 @@
 /* stringsplus - String-handling functions, with automatic memory management and basic regex support. */
    
-/* $Id: stringsplus.h,v 1.5 2005-07-17 22:20:12 acs Exp $
+/* $Id: stringsplus.h,v 1.6 2005-08-29 18:58:16 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 
@@ -292,5 +292,7 @@ int str_list_overlap(List *dest, List *src1, List *src2);
 List *str_list_as_int(List *str_list);
 List *str_list_as_dbl(List *str_list);
 int str_in_list_idx(String *s, List *l, int *idx);
+void str_toupper(String *s);
+void str_tolower(String *s);
 
 #endif
