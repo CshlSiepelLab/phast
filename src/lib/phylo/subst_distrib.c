@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.7 2005-08-30 20:25:36 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.8 2005-08-30 20:40:55 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -56,7 +56,7 @@ Matrix **get_substs_and_bases_given_jumps(JumpProcess *jp, int jmax,
 /* define jump process based on substitution model */
 JumpProcess *sub_define_jump_process(TreeModel *mod, int njumps_max) {
   JumpProcess *jp = smalloc(sizeof(JumpProcess));
-  int i, j, size = mod->rate_matrix->size;
+  int i, j, n, size = mod->rate_matrix->size;
   jp->njumps_max = njumps_max;
   jp->R = mat_new(size, size);
   jp->lambda = 0;
@@ -86,6 +86,17 @@ JumpProcess *sub_define_jump_process(TreeModel *mod, int njumps_max) {
   /* jp->B[i][k]->data[n][j] is p(k, n | j, i), the prob. of n subst. and
      final base k given j jumps and starting base i */
 
+  /* also precompute jp->M, a marginalized version of jp->A.
+     jp->M->data[n][j] is p(n | j), the probability of n subst given j
+     jumps */
+  jp->M = mat_new(njumps_max, njumps_max);
+  mat_zero(jp->M);
+  for (n = 0; n < njumps_max; n++) 
+    for (j = 0; j < njumps_max; j++) 
+      for (i = 0; i < size; i++) 
+        jp->M->data[n][j] += jp->A[i]->data[n][j];
+  /* i.e., p(n | j) += p(i, n | j) */
+
   return jp;
 }
 
@@ -101,39 +112,26 @@ void sub_free_jump_process(JumpProcess *jp) {
   }
   free(jp->B);
   mat_free(jp->R);
+  mat_free(jp->M);
   free(jp);
 }
 
 /* compute and return a probability vector giving p(n | t), the probability
    of n substitutions given a branch of length t */
 Vector *sub_distrib_branch(JumpProcess *jp, double t) {
-  int n, j, i;
+  int n, j;
   Vector *pois = pv_poisson(jp->lambda * t);  
-  Matrix *M = mat_new(pois->size, pois->size);
   Vector *distrib = vec_new(pois->size);
 
   assert(jp->njumps_max > pois->size);
 
-  /* M defines the distribution of substitutions given jumps:
-     M->data[n][j] = p(n | j).  Recall that jp->A[i]->data[n][j] =
-     M->p(i, n | j) */
-
-  /* simply marginalize jp->A[i] over i to get M */
-  mat_zero(M);
-  for (n = 0; n < pois->size; n++) 
-    for (j = 0; j < pois->size; j++) 
-      for (i = 0; i < jp->R->nrows; i++) 
-        M->data[n][j] += jp->A[i]->data[n][j];
-  /* i.e., p(n | j) += p(i, n | j) */
-
-  /* now combine with Poisson to get desired distribution */
+  /* combine jp->M with Poisson to get desired distribution */
   vec_zero(distrib);
   for (n = 0; n < pois->size; n++) 
     for (j = 0; j < pois->size; j++) 
-      distrib->data[n] += M->data[n][j] * pois->data[j];
+      distrib->data[n] += jp->M->data[n][j] * pois->data[j];
 
   vec_free(pois);
-  mat_free(M);
 
   pv_normalize(distrib);
   return distrib;

@@ -12,6 +12,7 @@ typedef struct {
   TreeModel *mod;
   Matrix **A;
   Matrix ***B;
+  Matrix *M;
 } JumpProcess;
 
 typedef struct {
