@@ -13,6 +13,7 @@ typedef struct {
   Matrix **A;
   Matrix ***B;
   Matrix *M;
+  Matrix ***branch_distrib;
 } JumpProcess;
 
 typedef struct {

@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.8 2005-08-30 20:40:55 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.9 2005-08-30 21:30:55 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -97,6 +97,17 @@ JumpProcess *sub_define_jump_process(TreeModel *mod, int njumps_max) {
         jp->M->data[n][j] += jp->A[i]->data[n][j];
   /* i.e., p(n | j) += p(i, n | j) */
 
+  /* finally, precompute conditional distributions for each branch */
+  jp->branch_distrib = smalloc(mod->tree->nnodes * sizeof(void*));
+  for (i = 0; i < mod->tree->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(mod->tree->nodes, i);
+    if (n == mod->tree) 
+      jp->branch_distrib[n->id] = NULL;
+    else
+      jp->branch_distrib[n->id] = 
+        sub_distrib_branch_conditional(jp, n->dparent);
+  }
+
   return jp;
 }
 
@@ -111,6 +122,12 @@ void sub_free_jump_process(JumpProcess *jp) {
     free(jp->B[j]);
   }
   free(jp->B);
+  for (i = 0; i < jp->mod->tree->nnodes; i++) {
+    if (jp->branch_distrib[i] != NULL)
+      for (j = 0; j < jp->R->nrows; j++)
+        mat_free(jp->branch_distrib[i][j]);
+  }
+  free(jp->branch_distrib);
   mat_free(jp->R);
   mat_free(jp->M);
   free(jp);
@@ -222,8 +239,8 @@ Vector *sub_posterior_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
     
     else {            /* internal node -- recursive case */
 
-      Matrix **d_left = sub_distrib_branch_conditional(jp, node->lchild->dparent);
-      Matrix **d_right = sub_distrib_branch_conditional(jp, node->rchild->dparent);
+      Matrix **d_left = jp->branch_distrib[node->lchild->id];
+      Matrix **d_right = jp->branch_distrib[node->rchild->id];
 
       maxsubst[node->id] = max(maxsubst[node->lchild->id] + d_left[0]->ncols - 1, 
                                maxsubst[node->rchild->id] + d_right[0]->ncols - 1);
@@ -255,13 +272,6 @@ Vector *sub_posterior_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
           }
         }
       }
-
-      for (a = 0; a < size; a++) {
-        mat_free(d_left[a]);
-        mat_free(d_right[a]);
-      }
-      free(d_left);
-      free(d_right);
     }
   }
 
@@ -389,8 +399,8 @@ Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
     
     else {            /* internal node -- recursive case */
 
-      d_left = sub_distrib_branch_conditional(jp, node->lchild->dparent);
-      d_right = sub_distrib_branch_conditional(jp, node->rchild->dparent);
+      d_left = jp->branch_distrib[node->lchild->id];
+      d_right = jp->branch_distrib[node->rchild->id];
 
       maxsubst[node->id] = max(maxsubst[node->lchild->id] + d_left[0]->ncols - 1, 
                                maxsubst[node->rchild->id] + d_right[0]->ncols - 1);
@@ -426,19 +436,12 @@ Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
           }
         }
       }
-
-      for (a = 0; a < size; a++) {
-        mat_free(d_left[a]);
-        mat_free(d_right[a]);
-      }
-      free(d_left);
-      free(d_right);
     }
   }
 
   retval = mat_new(n1_max, n2_max);
   mat_zero(retval);
-  d_left = sub_distrib_branch_conditional(jp, jp->mod->tree->lchild->dparent);
+  d_left = jp->branch_distrib[jp->mod->tree->lchild->id];
   sum = 0;
   for (n1 = 0; n1 < n1_max; n1++) {
     for (n2 = 0; n2 < n2_max; n2++) {
@@ -473,10 +476,6 @@ Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
         done = TRUE;
       }
   mat_resize(retval, n1_max, n2_max);
-
-  for (a = 0; a < size; a++) 
-    mat_free(d_left[a]);
-  free(d_left);
 
   for (lidx = 0; lidx < jp->mod->tree->nnodes; lidx++)
     mat_free(L[lidx]);
