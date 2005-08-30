@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.45 2005-08-30 05:20:38 acs Exp $
+/* $Id: msa.c,v 1.46 2005-08-30 05:22:29 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -2077,7 +2077,7 @@ void msa_missing_to_gaps(MSA *msa, int refseq) {
         char c = ss_get_char_tuple(msa, i, j, 0);
         if (msa->is_missing[(int)c]) {
           if (j == refseq - 1 && c == 'N') {
-            int char_idx = 4 * random()/RAND_MAX;
+            int char_idx = 4.0 * random()/RAND_MAX;
             set_col_char_in_string(msa, msa->ss->col_tuples[i], j, 
                                    msa->ss->tuple_size, 0, 
                                    msa->alphabet[char_idx]);
@@ -2094,7 +2094,7 @@ void msa_missing_to_gaps(MSA *msa, int refseq) {
       for (j = 0; j < msa->length; j++) {
         if (msa->is_missing[(int)msa->seqs[i][j]]) {
           if (i == refseq - 1 && msa->seqs[i][j] == 'N') {
-            int char_idx = 4 * random()/RAND_MAX;
+            int char_idx = 4.0 * random()/RAND_MAX;
             msa->seqs[i][j] = msa->alphabet[char_idx];
           }
           else
