@@ -1,4 +1,4 @@
-/* $Id: indelHistory.c,v 1.3 2005-08-29 23:18:46 acs Exp $
+/* $Id: indelHistory.c,v 1.4 2005-08-30 17:12:21 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
       die("Two arguments required.  Try 'indelHistory -h'.\n");
 
     fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
-    msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
+    msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, "ACGTNB^.-");
 
     if (msa->seqs == NULL && (msa->ss == NULL || msa->ss->tuple_idx == NULL))
       die("ERROR: ordered representation of alignment required.\n");
