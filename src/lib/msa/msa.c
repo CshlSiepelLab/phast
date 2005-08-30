@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.44 2005-07-17 23:15:19 acs Exp $
+/* $Id: msa.c,v 1.45 2005-08-30 05:20:38 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -2057,4 +2057,50 @@ void msa_reset_alphabet(MSA *msa, char *newalph) {
     msa->inv_alphabet[(int)msa->alphabet[i]] = i;
   for (i = 0; msa->missing[i] != '\0'; i++)
     msa->is_missing[(int)msa->missing[i]] = 1;
+}
+
+/* convert all missing data characters to gaps, except for Ns in the
+   reference sequence (if refseq > 0).  These will be replaced by
+   randomly chosen bases (only use if Ns in reference sequence are rare) */
+void msa_missing_to_gaps(MSA *msa, int refseq) {
+  int i, j;
+
+  assert(msa->seqs != NULL || msa->ss != NULL);
+  if (msa->seqs != NULL && msa->ss != NULL) {
+    ss_free(msa->ss);
+    msa->ss = NULL;
+  }
+
+  if (msa->ss != NULL) {
+    for (i = 0; i < msa->ss->ntuples; i++) {
+      for (j = 0; j < msa->nseqs; j++) {
+        char c = ss_get_char_tuple(msa, i, j, 0);
+        if (msa->is_missing[(int)c]) {
+          if (j == refseq - 1 && c == 'N') {
+            int char_idx = 4 * random()/RAND_MAX;
+            set_col_char_in_string(msa, msa->ss->col_tuples[i], j, 
+                                   msa->ss->tuple_size, 0, 
+                                   msa->alphabet[char_idx]);
+          }
+          else
+            set_col_char_in_string(msa, msa->ss->col_tuples[i], j, 
+                                   msa->ss->tuple_size, 0, GAP_CHAR);
+        }
+      }
+    }
+  }
+  else {                        /* full seqs */
+    for (i = 0; i < msa->nseqs; i++) {
+      for (j = 0; j < msa->length; j++) {
+        if (msa->is_missing[(int)msa->seqs[i][j]]) {
+          if (i == refseq - 1 && msa->seqs[i][j] == 'N') {
+            int char_idx = 4 * random()/RAND_MAX;
+            msa->seqs[i][j] = msa->alphabet[char_idx];
+          }
+          else
+            msa->seqs[i][j] = GAP_CHAR;
+        }
+      }
+    }
+  }
 }

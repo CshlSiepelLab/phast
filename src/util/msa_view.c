@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.28 2005-06-29 23:29:35 acs Exp $
+/* $Id: msa_view.c,v 1.29 2005-08-30 05:20:38 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -189,6 +189,16 @@ OPTIONS:\n\
         microindels and regions of missing data (e.g., due to\n\
         large-scale indels, incomplete assemblies, or highly\n\
         diverged sequences).\n\
+\n\
+    --missing-as-indels, -m \n\
+        Convert all missing data characters (Ns and *s) to gap\n\
+        characters, except for Ns in a reference sequence specified by\n\
+        --refidx, which will be replaced by randomly selected\n\
+        nucleotides.  (This allows the coordinate frame for the\n\
+        reference sequence to be maintained; this option is only\n\
+        recommended if such Ns are rare.)  If --refidx is not\n\
+        used, all Ns will be replaced by gaps.  You may want to use\n\
+        --gap-strip ALL with this option.\n\
 \n\
     --order, -O <name_list>\n\
         Change order of rows in alignment to match sequence names\n\
@@ -400,7 +410,7 @@ int main(int argc, char* argv[]) {
     ordered_stats = TRUE, indel_clean_nseqs = -1, cats_done = FALSE,
     rand_perm = FALSE, reverse_compl = FALSE, stats_only = FALSE, win_size = -1, 
     cycle_size = -1, maf_keep_overlapping = FALSE, collapse_missing = FALSE,
-    fourD = FALSE, mark_missing_maxsize = -1;
+    fourD = FALSE, mark_missing_maxsize = -1, missing_as_indels = FALSE;
   char c;
   List *cats_to_do = NULL, *aggregate_list = NULL, *msa_fname_list = NULL, 
     *order_list = NULL, *fill_N_list = NULL;
@@ -441,15 +451,13 @@ int main(int argc, char* argv[]) {
     {"randomize", 0, 0, 'R'},
     {"fill-Ns", 1, 0, 'N'},
     {"keep-overlapping", 0, 0, 'k'},
+    {"missing-as-indels", 0, 0, 'm'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:DVxPzRSk4h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:DVxPzRSk4mh", long_opts, &opt_idx)) != -1) {
     switch(c) {
-    case 'm':
-      infname = optarg;
-      break;
     case 'i':
       input_format = msa_str_to_format(optarg);
       if (input_format == -1) die("ERROR: bad input format.  Try 'msa_view -h' for help.\n");
@@ -558,6 +566,9 @@ int main(int argc, char* argv[]) {
       break;
     case 'k':
       maf_keep_overlapping = TRUE;
+      break;
+    case 'm':
+      missing_as_indels = TRUE;
       break;
     case '?':
       fprintf(stderr, "Bad argument.  Try 'msa_view -h' for help.\n");
@@ -757,7 +768,11 @@ int main(int argc, char* argv[]) {
     msa_indel_clean(sub_msa, INDEL_BORDER, MIN_NBASES, indel_clean_nseqs,
                     tuple_size, 'N');
   }
-  else if (gap_strip_mode != NO_STRIP && input_format != MAF)
+
+  if (missing_as_indels) 
+    msa_missing_to_gaps(sub_msa, refseq);
+
+  if (gap_strip_mode != NO_STRIP)
     msa_strip_gaps(sub_msa, gap_strip_mode);
 
   if (mark_missing_maxsize >= 0)

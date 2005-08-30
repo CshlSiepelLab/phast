@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.17 2005-06-29 23:29:35 acs Exp $
+/* $Id: msa.h,v 1.18 2005-08-30 05:20:38 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -176,5 +176,6 @@ List *msa_seq_indices(MSA *msa, List *seqnames);
 void msa_mask_macro_indels(MSA *msa, int k, int refseq);
 void msa_set_informative(MSA *msa, List *not_informative);
 void msa_reset_alphabet(MSA *msa, char *newalph);
+void msa_missing_to_gaps(MSA *msa, int refseq);
 
 #endif
