@@ -1,4 +1,4 @@
-/* $Id: indel_history.c,v 1.2 2005-08-29 17:37:22 acs Exp $
+/* $Id: indel_history.c,v 1.3 2005-08-30 17:16:56 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -210,7 +210,8 @@ void ih_print_compact(CompactIndelHistory *cih, FILE *outf, char *msa_name, char
 
 /* convert to an alignment, including sequences for ancestral nodes as
    well as leaf nodes, and with '^' characters in place of '-' for
-   insertions.  Useful for debugging */
+   insertions and '.' characters in place of '-' for deletions.
+   Useful for debugging */
 MSA *ih_as_alignment(IndelHistory *ih, MSA *msa) {
   int i, j, s;
   char **seqs = smalloc(ih->tree->nnodes * sizeof(char*));
@@ -231,7 +232,7 @@ MSA *ih_as_alignment(IndelHistory *ih, MSA *msa) {
         if (ih->indel_strings[i][j] == BASE) 
           seqs[i][j] = msa == NULL ? 'N' : msa_get_char(msa, s, j);
         else
-          seqs[i][j] = ih->indel_strings[i][j] == INS ? '^' : '-';
+          seqs[i][j] = ih->indel_strings[i][j] == INS ? '^' : '.';
       }
     }
     else {                      /* ancestor */
@@ -239,7 +240,7 @@ MSA *ih_as_alignment(IndelHistory *ih, MSA *msa) {
         if (ih->indel_strings[i][j] == BASE) 
           seqs[i][j] = 'N';
         else
-          seqs[i][j] = ih->indel_strings[i][j] == INS ? '^' : '-';
+          seqs[i][j] = ih->indel_strings[i][j] == INS ? '^' : '.';
       }
     }
 
@@ -340,7 +341,7 @@ IndelHistory *ih_extract_from_alignment(MSA *msa, TreeNode *tree) {
 
     for (j = 0; j < msa->length; j++) {
       char c = msa_get_char(msa, i, j);
-      if (c == GAP_CHAR || c == '^')
+      if (c == GAP_CHAR || c == '^' || c == '.')
         ih->indel_strings[n->id][j] = INS;
     }
 
