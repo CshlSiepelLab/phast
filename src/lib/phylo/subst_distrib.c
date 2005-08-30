@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.6 2005-08-29 22:43:40 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.7 2005-08-30 20:25:36 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -133,6 +133,7 @@ Vector *sub_distrib_branch(JumpProcess *jp, double t) {
       distrib->data[n] += M->data[n][j] * pois->data[j];
 
   vec_free(pois);
+  mat_free(M);
 
   pv_normalize(distrib);
   return distrib;
@@ -483,6 +484,8 @@ Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
     mat_free(L[lidx]);
   free(L);
 
+  free(maxsubst);
+
   pm_normalize(retval);
   return retval;
 }
@@ -830,13 +833,13 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
 
     /* marginal p-values */
     stats[idx].p_cons_left = pv_p_value(prior_marg_left[len], 
-                                       stats[idx].post_max_left, LOWER);
+                                        stats[idx].post_max_left, LOWER);
     stats[idx].p_anti_cons_left = pv_p_value(prior_marg_left[len], 
-                                            stats[idx].post_min_left, UPPER);
+                                             stats[idx].post_min_left, UPPER);
     stats[idx].p_cons_right = pv_p_value(prior_marg_right[len], 
-                                       stats[idx].post_max_right, LOWER);
+                                         stats[idx].post_max_right, LOWER);
     stats[idx].p_anti_cons_right = pv_p_value(prior_marg_right[len], 
-                                            stats[idx].post_min_right, UPPER);
+                                              stats[idx].post_min_right, UPPER);
   }
 
   for (idx = 1; i <= maxlen; idx++) {
