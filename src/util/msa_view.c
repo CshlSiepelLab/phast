@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.29 2005-08-30 05:20:38 acs Exp $
+/* $Id: msa_view.c,v 1.30 2005-08-30 16:32:26 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -162,6 +162,14 @@ OPTIONS:\n\
 \n\
     --out-format, -o PHYLIP|FASTA|MPM|SS\n\
         (Default FASTA)  Output file format.\n\
+\n\
+    --alphabet, -a <alphabet_string>\n\
+        Use the specified alphabet (default \"ACGT\").  In addition,\n\
+        '-' characters are assumed to represent alignment gaps, and\n\
+        '*' and 'N' characters are allowed for missing data.\n\
+        Alphabetical letters not in the alphabet will be converted to\n\
+        'N's upon input.  This option is ignored with SS input (alphabet\n\
+        specified within SS files.)\n\
 \n\
     --pretty, -P\n\
         Pretty-print alignment (use '.' when character matches\n\
@@ -404,7 +412,7 @@ int main(int argc, char* argv[]) {
   msa_format_type input_format = FASTA, output_format = FASTA;
   List *seqlist_str = NULL, *l = NULL;
   char *infname = NULL, *clean_seqname = NULL, *rseq_fname = NULL,
-    *reverse_groups_tag = NULL;
+    *reverse_groups_tag = NULL, *alphabet = NULL;
   int i, opt_idx, startcol = 1, endcol = -1, include = 1, gap_strip_mode = NO_STRIP,
     pretty_print = FALSE, refseq = 0, tuple_size = 1, 
     ordered_stats = TRUE, indel_clean_nseqs = -1, cats_done = FALSE,
@@ -429,6 +437,7 @@ int main(int argc, char* argv[]) {
     {"mark-missing", 1, 0, 'K'},
     {"in-format", 1, 0, 'i'},
     {"out-format", 1, 0, 'o'},
+    {"alphabet", 1, 0, 'a'},
     {"pretty", 0, 0, 'P'},
     {"tuple-size", 1, 0, 'T'},
     {"unordered-ss", 0, 0, 'z'},
@@ -488,6 +497,9 @@ int main(int argc, char* argv[]) {
     case 'o':
       output_format = msa_str_to_format(optarg);
       if (output_format == -1) die("ERROR: bad output format.  Try 'msa_view -h' for help.\n");
+      break;
+    case 'a':
+      alphabet = optarg;
       break;
     case 'r':
       refseq = get_arg_int(optarg);
@@ -627,7 +639,7 @@ int main(int argc, char* argv[]) {
     }
     else 
       msa = msa_concat_from_files(msa_fname_list, input_format, 
-                                  aggregate_list, NULL);
+                                  aggregate_list, alphabet);
   }
 
   else if (input_format == MAF) {
@@ -652,7 +664,7 @@ int main(int argc, char* argv[]) {
   }
 
   else {
-    msa = msa_new_from_file(fopen_fname(infname, "r"), input_format, NULL);
+    msa = msa_new_from_file(fopen_fname(infname, "r"), input_format, alphabet);
     if (msa == NULL) die ("ERROR reading %s.\n", infname);
   }
 

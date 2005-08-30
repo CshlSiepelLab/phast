@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.46 2005-08-30 05:22:29 acs Exp $
+/* $Id: msa.c,v 1.47 2005-08-30 16:32:26 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -155,13 +155,14 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
         char base;
         if (isspace(line[k])) continue;
         base = toupper(line[k]);
-        if (base == '.') base = msa->missing[0];
+        if (base == '.' && msa->inv_alphabet[(int)'.'] == -1) 
+          base = msa->missing[0]; /* interpret '.' as missing data;
+                                     maybe no longer necessary */
         else if (base != GAP_CHAR && !msa->is_missing[(int)base] &&
                  msa->inv_alphabet[(int)base] == -1) {
           if (isalpha(base)) base = 'N'; 
-                                /* for now, use 'N' in place of
-                                   unrecognized alphabetical character
-                                   (usually IUPAC code) */
+                                /* use 'N' in place of unrecognized
+                                   alphabetical character */
           else 
             die("ERROR: bad character in multiple sequence alignment: '%c'.\n", 
                 base); 
@@ -294,11 +295,12 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
     /* scan chars and adjust if necessary */
     for (j = 0; j < maxlen; j++) {
       msa->seqs[i][j] = toupper(s->chars[j]);
-      if (msa->seqs[i][j] == '.') msa->seqs[i][j] = msa->missing[0];
+      if (msa->seqs[i][j] == '.' && msa->inv_alphabet[(int)'.'] == -1) 
+        msa->seqs[i][j] = msa->missing[0]; /* interpret '.' as missing
+                                              data; maybe no longer
+                                              necessary */
       if (isalpha(msa->seqs[i][j]) && msa->inv_alphabet[(int)msa->seqs[i][j]] == -1)
-        msa->seqs[i][j] = 'N';
-                                /* for now, just assume 'N' if
-                                   unrecognized letter */
+        msa->seqs[i][j] = 'N'; /* assume 'N' if unrecognized letter */
     }
     msa->seqs[i][maxlen] = '\0';
 

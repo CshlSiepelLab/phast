@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.17 2004-10-03 20:26:04 acs Exp $
+/* $Id: maf.c,v 1.18 2005-08-30 16:32:26 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -452,14 +452,16 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
 
     for (i = 0; i < this_seq->length; i++) {
       mini_msa->seqs[seqidx][i] = toupper(this_seq->chars[i]);
-      if (mini_msa->seqs[seqidx][i] == '.') 
+      if (mini_msa->seqs[seqidx][i] == '.' && mini_msa->inv_alphabet[(int)'.'] == -1) 
         mini_msa->seqs[seqidx][i] = mini_msa->missing[0];
       if (mini_msa->seqs[seqidx][i] != GAP_CHAR && 
           !mini_msa->is_missing[(int)mini_msa->seqs[seqidx][i]] &&
           mini_msa->inv_alphabet[(int)mini_msa->seqs[seqidx][i]] == -1) {
-        fprintf(stderr, "ERROR: unrecognized character in sequence in MAF block ('%c')\n",
-                mini_msa->seqs[seqidx][i]);
-        exit(1);
+        if (isalpha(mini_msa->seqs[seqidx][i]))
+          mini_msa->seqs[seqidx][i] = 'N';
+        else 
+          die("ERROR: unrecognized character in sequence in MAF block ('%c')\n",
+              mini_msa->seqs[seqidx][i]);
       }
     }
     mini_msa->seqs[seqidx][this_seq->length] = '\0';
