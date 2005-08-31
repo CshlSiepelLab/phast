@@ -1,4 +1,4 @@
-/* $Id: prob_matrix.c,v 1.5 2005-08-31 05:59:56 acs Exp $ 
+/* $Id: prob_matrix.c,v 1.6 2005-08-31 07:02:23 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -227,9 +227,6 @@ Matrix **pm_convolve_save(Matrix *p, int n) {
 Matrix *pm_convolve_many(Matrix **p, int *counts, int n) {
   int i, j, k, l, x, y, max_nrows, max_ncols, count, tot_count = 0;
   Matrix *q_i, *q_i_1;
-  double tot_mean_x = 0, tot_var_x = 0, tot_mean_y = 0, tot_var_y = 0,
-    mean, var;
-  Vector *marg_x, *marg_y;
 
   max_nrows = max_ncols = 0; 
   for (i = 0; i < n; i++) {
@@ -237,24 +234,29 @@ Matrix *pm_convolve_many(Matrix **p, int *counts, int n) {
     tot_count += count;
     max_nrows += p[i]->nrows;
     max_ncols += p[i]->ncols;
-    marg_x = pm_marg_x(p[i]);
-    marg_y = pm_marg_y(p[i]);
-    pv_stats(marg_x, &mean, &var);
-    tot_mean_x += mean * count;
-    tot_var_x += var * count;
-    pv_stats(marg_y, &mean, &var);
-    tot_mean_y += mean * count;
-    tot_var_y += var * count;
-    vec_free(marg_x); vec_free(marg_y);
   }
 
   if (n == 1 && (counts == NULL || counts[0] == 1))
     /* no convolution necessary */
     return mat_create_copy(p[0]);
 
-  if (n > 50) {
+  if (tot_count > 50) {
     /* as above, use central limit theorem to limit size of matrix to
        keep track of */
+    double tot_mean_x = 0, tot_var_x = 0, tot_mean_y = 0, tot_var_y = 0,
+      mean, var;
+    for (i = 0; i < n; i++) {
+      Vector *marg_x = pm_marg_x(p[i]);
+      Vector *marg_y = pm_marg_y(p[i]);
+      pv_stats(marg_x, &mean, &var);
+      tot_mean_x += mean * count;
+      tot_var_x += var * count;
+      pv_stats(marg_y, &mean, &var);
+      tot_mean_y += mean * count;
+      tot_var_y += var * count;
+      vec_free(marg_x); vec_free(marg_y);
+    }
+
     max_nrows = ceil(tot_mean_x + 6 * sqrt(tot_var_x)) + 1;
     max_ncols = ceil(tot_mean_y + 6 * sqrt(tot_var_y)) + 1;
   }
