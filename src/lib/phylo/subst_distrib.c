@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.12 2005-08-31 06:15:53 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.13 2005-08-31 06:34:04 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -902,7 +902,7 @@ sub_p_value_joint_many_alt(JumpProcess *jp, MSA *msa, List *feats,
   /* compute "powers" of prior distribution, to allow fast computation
      of convolution of prior for any feature length */
   logmaxlen = floor(log2(maxlen));
-  pow_p = smalloc(logmaxlen * sizeof(void*));
+  pow_p = smalloc((logmaxlen+1) * sizeof(void*));
   pow_p[0] = sub_joint_distrib_site(jp, NULL, -1);
   for (i = 1; i <= logmaxlen; i++) 
     pow_p[i] = pm_convolve(pow_p[i-1], 2);
@@ -1030,7 +1030,7 @@ sub_p_value_joint_many_alt(JumpProcess *jp, MSA *msa, List *feats,
     vec_free(prior_marg_right);
   }
 
-  for (idx = 0; idx < logmaxlen; idx++)
+  for (idx = 0; idx <= logmaxlen; idx++)
     mat_free(pow_p[idx]);
   free(pow_p);
   free(pows);
