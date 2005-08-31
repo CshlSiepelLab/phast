@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.11 2005-08-31 05:59:56 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.12 2005-08-31 06:15:53 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -771,7 +771,7 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
 
     stats[idx].post_mean_left = stats[idx].post_mean_right = 
       stats[idx].post_var_left = stats[idx].post_var_right = 
-      stats[idx].post_var_tot = stats[idx].post_var_tot = 0;
+      stats[idx].post_mean_tot = stats[idx].post_var_tot = 0;
     for (i = f->start - 1; i < f->end; i++) {
       stats[idx].post_mean_left += post_mean_left[msa->ss->tuple_idx[i]];
       stats[idx].post_mean_right += post_mean_right[msa->ss->tuple_idx[i]];
@@ -958,7 +958,7 @@ sub_p_value_joint_many_alt(JumpProcess *jp, MSA *msa, List *feats,
 
     stats[idx].post_mean_left = stats[idx].post_mean_right = 
       stats[idx].post_var_left = stats[idx].post_var_right = 
-      stats[idx].post_var_tot = stats[idx].post_var_tot = 0;
+      stats[idx].post_mean_tot = stats[idx].post_var_tot = 0;
     for (i = f->start - 1; i < f->end; i++) {
       stats[idx].post_mean_left += post_mean_left[msa->ss->tuple_idx[i]];
       stats[idx].post_mean_right += post_mean_right[msa->ss->tuple_idx[i]];
