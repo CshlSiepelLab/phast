@@ -9,12 +9,14 @@ typedef struct {
   int njumps_max;
   double lambda;
   Matrix *R;
-  TreeModel *mod;
+  TreeModel *mod;               
   Matrix **A;
   Matrix ***B;
   Matrix *M;
   Matrix ***branch_distrib;
 } JumpProcess;
+/* note: a jump process is defined wrt a whole tree model, not just a
+   rate matrix */
 
 typedef struct {
   double prior_mean, prior_var, post_mean, post_var, p_cons, p_anti_cons;
@@ -32,7 +34,7 @@ typedef struct {
     post_max_tot;
 } p_value_joint_stats;
 
-JumpProcess *sub_define_jump_process(TreeModel *mod, int njumps_max);
+JumpProcess *sub_define_jump_process(TreeModel *mod);
 void sub_free_jump_process(JumpProcess *jp);
 Vector *sub_distrib_branch(JumpProcess *jp, double t);
 Matrix **sub_distrib_branch_conditional(JumpProcess *jp, double t);

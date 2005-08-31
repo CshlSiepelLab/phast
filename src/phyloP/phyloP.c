@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
     die("ERROR: --features cannot be used with --null or --posterior.\n");
 
   mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
-  jp = sub_define_jump_process(mod, max(20, 10 * tr_total_len(mod->tree)));
+  jp = sub_define_jump_process(mod);
 
   if (!prior_only) {
     msa_f = fopen_fname(argv[optind+1], "r");

@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.9 2005-08-30 21:30:55 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.10 2005-08-31 03:41:55 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -54,10 +54,10 @@ Matrix **get_substs_and_bases_given_jumps(JumpProcess *jp, int jmax,
 }
 
 /* define jump process based on substitution model */
-JumpProcess *sub_define_jump_process(TreeModel *mod, int njumps_max) {
+JumpProcess *sub_define_jump_process(TreeModel *mod) {
   JumpProcess *jp = smalloc(sizeof(JumpProcess));
   int i, j, n, size = mod->rate_matrix->size;
-  jp->njumps_max = njumps_max;
+  jp->njumps_max = max(20, 10 * tr_total_len(mod->tree));
   jp->R = mat_new(size, size);
   jp->lambda = 0;
   jp->mod = mod;
@@ -76,23 +76,23 @@ JumpProcess *sub_define_jump_process(TreeModel *mod, int njumps_max) {
     }
   }
 
-  jp->A = get_substs_and_bases_given_jumps(jp, njumps_max, -1);
+  jp->A = get_substs_and_bases_given_jumps(jp, jp->njumps_max, -1);
   /* A[i]->data[n][j] = p(i, n | j) */
 
   jp->B = smalloc(size * sizeof(void*));
 
   for (i = 0; i < size; i++)
-    jp->B[i] = get_substs_and_bases_given_jumps(jp, njumps_max, i);
+    jp->B[i] = get_substs_and_bases_given_jumps(jp, jp->njumps_max, i);
   /* jp->B[i][k]->data[n][j] is p(k, n | j, i), the prob. of n subst. and
      final base k given j jumps and starting base i */
 
   /* also precompute jp->M, a marginalized version of jp->A.
      jp->M->data[n][j] is p(n | j), the probability of n subst given j
      jumps */
-  jp->M = mat_new(njumps_max, njumps_max);
+  jp->M = mat_new(jp->njumps_max, jp->njumps_max);
   mat_zero(jp->M);
-  for (n = 0; n < njumps_max; n++) 
-    for (j = 0; j < njumps_max; j++) 
+  for (n = 0; n < jp->njumps_max; n++) 
+    for (j = 0; j < jp->njumps_max; j++) 
       for (i = 0; i < size; i++) 
         jp->M->data[n][j] += jp->A[i]->data[n][j];
   /* i.e., p(n | j) += p(i, n | j) */
