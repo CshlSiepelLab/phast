@@ -1,4 +1,4 @@
-/* $Id: prob_matrix.c,v 1.4 2005-08-29 17:37:22 acs Exp $ 
+/* $Id: prob_matrix.c,v 1.5 2005-08-31 05:59:56 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -300,3 +300,41 @@ Matrix *pm_convolve_many(Matrix **p, int *counts, int n) {
   pm_normalize(q_i);
   return q_i;
 }
+
+/* convolve distribution n times, using a faster algorithm than the
+   ones above; time is proportional to log(n) rather than n */
+Matrix *pm_convolve_fast(Matrix *p, int n) {
+  int i, j;
+  int logn = floor(log2(n));
+  Matrix *pow_p[64], *pows[64];
+  Matrix *retval;
+
+  if (n == 1)
+    return mat_create_copy(p);
+
+  /* Let p^i be the ith convolution of p (i.e., p o p o ... o p, i
+     times, where 'o' is the convolution operator).  We use the fact
+     that p^i o p^j = p^(i+j) to compose p^n from p^1, p^2, p^4, p^8,
+     ... in log2(k) steps */
+
+  /* compute "powers" of p */
+  pow_p[0] = p;
+  for (i = 1; i <= logn; i++) 
+    pow_p[i] = pm_convolve(pow_p[i-1], 2);
+
+  /* now combine powers to get desired convolution */
+  j = 0;
+  for (i = 0; i <= logn; i++) {
+    unsigned bit_i = (n >> i) & 1;
+    if (bit_i)
+      pows[j++] = pow_p[i];
+  }
+  
+  retval = pm_convolve_many(pows, NULL, j);
+
+  for (i = 1; i <= logn; i++) 
+    mat_free(pow_p[i]);
+
+  return retval;
+}
+

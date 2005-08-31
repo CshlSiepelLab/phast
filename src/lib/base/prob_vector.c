@@ -1,4 +1,4 @@
-/* $Id: prob_vector.c,v 1.3 2005-08-12 19:36:28 acs Exp $ 
+/* $Id: prob_vector.c,v 1.4 2005-08-31 05:59:56 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -237,41 +237,41 @@ Vector *pv_convolve_many(Vector **p, int *counts, int n) {
        this seems okay here.  We're also implicitly assuming some
        regularity conditions (see
        http://en.wikipedia.org/wiki/Central_limit_theorem).  */
- max_x = ceil(tot_mean + 6 * sqrt(tot_var));
+    max_x = ceil(tot_mean + 6 * sqrt(tot_var));
     
- q_i = vec_new(max_x);
- q_i_1 = vec_new(max_x);
+  q_i = vec_new(max_x);
+  q_i_1 = vec_new(max_x);
 
- /* compute convolution recursively */
- vec_zero(q_i_1);
- for (x = 0; x < p[0]->size; x++)
-   q_i_1->data[x] = p[0]->data[x];
+  /* compute convolution recursively */
+  vec_zero(q_i_1);
+  for (x = 0; x < p[0]->size; x++)
+    q_i_1->data[x] = p[0]->data[x];
 
- for (i = 0; i < n; i++) {
-   count = (counts == NULL ? 1 : counts[i]);
-   if (i == 0) count--; /* initialization takes care of first one */
-   for (k = 0; k < count; k++) {
-     vec_zero(q_i);
-     for (x = 0; x < q_i->size; x++) {
-       for (j = max(0, x - p[i]->size + 1); j <= x; j++) 
-         q_i->data[x] += q_i_1->data[j] * p[i]->data[x - j];
-     }
-     vec_copy(q_i_1, q_i);
-   }
- }
+  for (i = 0; i < n; i++) {
+    count = (counts == NULL ? 1 : counts[i]);
+    if (i == 0) count--; /* initialization takes care of first one */
+    for (k = 0; k < count; k++) {
+      vec_zero(q_i);
+      for (x = 0; x < q_i->size; x++) {
+        for (j = max(0, x - p[i]->size + 1); j <= x; j++) 
+          q_i->data[x] += q_i_1->data[j] * p[i]->data[x - j];
+      }
+      vec_copy(q_i_1, q_i);
+    }
+  }
 
- vec_free(q_i_1);
+  vec_free(q_i_1);
 
- /* trim very small values off tail before returning */
- for (x = q_i->size - 1; x >= 0; x--) {
-   if (q_i->data[x] > PV_EPS) {
-     q_i->size = x+1;
-     break;
-   }
- }
+  /* trim very small values off tail before returning */
+  for (x = q_i->size - 1; x >= 0; x--) {
+    if (q_i->data[x] > PV_EPS) {
+      q_i->size = x+1;
+      break;
+    }
+  }
 
- pv_normalize(q_i);
- return q_i;
+  pv_normalize(q_i);
+  return q_i;
 }
 
 /* compute and return a probability vector giving Pois(x | lambda) up to
@@ -289,5 +289,42 @@ Vector *pv_poisson(double lambda) {
     }
   }
   return pois;
+}
+
+/* convolve distribution n times, using a faster algorithm than the
+   ones above; time is proportional to log(n) rather than n */
+Vector *pv_convolve_fast(Vector *p, int n) {
+  int i, j;
+  int logn = floor(log2(n));
+  Vector *pow_p[64], *pows[64];
+  Vector *retval;
+
+  if (n == 1)
+    return vec_create_copy(p);
+
+  /* Let p^i be the ith convolution of p (i.e., p o p o ... o p, i
+     times, where 'o' is the convolution operator).  We use the fact
+     that p^i o p^j = p^(i+j) to compose p^n from p^1, p^2, p^4, p^8,
+     ... in log2(k) steps */
+
+  /* compute "powers" of p */
+  pow_p[0] = p;
+  for (i = 1; i <= logn; i++) 
+    pow_p[i] = pv_convolve(pow_p[i-1], 2);
+
+  /* now combine powers to get desired convolution */
+  j = 0;
+  for (i = 0; i <= logn; i++) {
+    unsigned bit_i = (n >> i) & 1;
+    if (bit_i)
+      pows[j++] = pow_p[i];
+  }
+  
+  retval = pv_convolve_many(pows, NULL, j);
+
+  for (i = 1; i <= logn; i++) 
+    vec_free(pow_p[i]);
+
+  return retval;
 }
 

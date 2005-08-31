@@ -17,5 +17,6 @@ Vector *pv_convolve(Vector *p, int n);
 Vector **pv_convolve_save(Vector *p, int n);
 Vector *pv_convolve_many(Vector **p, int *counts, int n);
 Vector *pv_poisson(double lambda);
+Vector *pv_convolve_fast(Vector *p, int n);
 
 #endif
