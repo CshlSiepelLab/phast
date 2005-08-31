@@ -42,10 +42,10 @@ LIBPATH = -L${LIB}
 # this line out to link dynamically (comment out for Mac)
 LFLAGS += -static
 
-# comment these lines out for profiling (add -g for line-by-line
+# uncomment these lines for profiling (add -g for line-by-line
 # profiling and -a for monitoring of basic blocks)
-CFLAGS += -pg
-LFLAGS += -pg
+#CFLAGS += -pg
+#LFLAGS += -pg
 
 # Uncomment this line to compile without CLAPACK.  If SKIP_CLAPACK is
 # defined, PHAST will compile, but programs that require matrix
