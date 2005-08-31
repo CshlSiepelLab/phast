@@ -34,16 +34,18 @@ CFLAGS = -mcpu=pentiumpro -O3
 #CFLAGS = -mcpu=powerpc -O3
 # possible x86-64 options (kolossus at UC Santa Cruz)
 #CFLAGS = -mcpu=opteron -O3
-# possible profiling options
-#CFLAGS = -mcpu=pentiumpro -O3 -pg -fprofile-arcs
-# NOTE: add -g if profiling line-by-line, and -a if monitoring basic blocks
 
 CFLAGS += -I${INC} -DPHAST_VERSION=\"$(shell cat ${PHAST}/version)\" -DPHAST_HOME=\"${PHAST}\"
 LIBPATH = -L${LIB} 
 
 # static linking ends up being simplest in our environment; comment
 # this line out to link dynamically (comment out for Mac)
-LFLAGS = -static
+LFLAGS += -static
+
+# comment these lines out for profiling (add -g for line-by-line
+# profiling and -a for monitoring of basic blocks)
+CFLAGS += -pg
+LFLAGS += -pg
 
 # Uncomment this line to compile without CLAPACK.  If SKIP_CLAPACK is
 # defined, PHAST will compile, but programs that require matrix
