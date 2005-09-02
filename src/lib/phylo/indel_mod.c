@@ -1,4 +1,4 @@
-/* $Id: indel_mod.c,v 1.3 2005-08-29 20:13:33 acs Exp $
+/* $Id: indel_mod.c,v 1.4 2005-09-02 23:58:53 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -208,7 +208,8 @@ double im_likelihood(IndelModel *im, IndelSuffStats *iss) {
 }
 
 BranchIndelSuffStats *im_suff_stats_branch(IndelHistory *ih, int child_id) {
-  int i;
+  int i, j;
+  char c;
   col_type this_type, last_type = SKIP;
   int parent_id = ((TreeNode*)lst_get_ptr(ih->tree->nodes, child_id))->parent->id;
   BranchIndelSuffStats *ss = smalloc(sizeof(BranchIndelSuffStats));
@@ -222,8 +223,24 @@ BranchIndelSuffStats *im_suff_stats_branch(IndelHistory *ih, int child_id) {
   ss->beg_counts->data[last_type]++;
   for (; i < ih->ncols; i++) {
     this_type = get_col_type(ih, child_id, parent_id, i);
-    assert(this_type != ERROR);
-    if (this_type == SKIP) continue;
+
+    if (this_type == ERROR) {
+      fprintf(stderr, "ERROR at column %d of indel history:\n", i);
+      for (j = 0; j < ih->tree->nnodes; j++) {
+        if (ih->indel_strings[j][i] == BASE)
+          c = 'b';
+        else (ih->indel_strings[j][i] == INS)
+          c = '^';
+        else
+          c = '.';
+        fprintf(stderr, "%25s %c\n", 
+                ((TreeNode*)lst_get_ptr(ih->tree->nodes, j))->name, c);
+      }
+      assert(0);
+    }
+
+    else if (this_type == SKIP) continue;
+
     ss->trans_counts->data[last_type][this_type]++;
     last_type = this_type;
   }
