@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.13 2005-08-31 06:34:04 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.14 2005-09-02 23:59:35 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -875,12 +875,13 @@ sub_p_value_joint_many_alt(JumpProcess *jp, MSA *msa, List *feats,
                        ) {
 
   Matrix *p, *prior;
-  int maxlen = -1, len, idx, i, j, logmaxlen, loglen;
+  int maxlen = -1, len, idx, i, j, logmaxlen, loglen, max_nrows, max_ncols;
   GFF_Feature *f;
   double *post_mean_left, *post_mean_right, *post_mean_tot, *post_var_left,
     *post_var_right, *post_var_tot;
   double this_min_left, this_min_right, this_max_left, this_max_right, 
-    this_min_tot, this_max_tot;
+    this_min_tot, this_max_tot, prior_site_mean_left, prior_site_var_left,
+    prior_site_mean_right, prior_site_var_right;
   p_value_joint_stats *stats = smalloc(lst_size(feats) * 
                                        sizeof(p_value_joint_stats));
   Vector *prior_marg_left, *prior_marg_right, *marg, *cond;
@@ -906,7 +907,16 @@ sub_p_value_joint_many_alt(JumpProcess *jp, MSA *msa, List *feats,
   pow_p[0] = sub_joint_distrib_site(jp, NULL, -1);
   for (i = 1; i <= logmaxlen; i++) 
     pow_p[i] = pm_convolve(pow_p[i-1], 2);
-  pows = smalloc(logmaxlen * sizeof(void*)); /* for use below */
+  pows = smalloc((logmaxlen+1) * sizeof(void*)); /* for use below */
+
+  /* also get marginal means and variances for pow_p[0]; useful below
+     for bounding the size of the final convolution */
+  marg = pm_marg_x(pow_p[0]);
+  pv_stats(marg, &prior_site_mean_left, &prior_site_var_left);
+  vec_free(marg);
+  marg = pm_marg_y(pow_p[0]);
+  pv_stats(marg, &prior_site_mean_right, &prior_site_var_right);
+  vec_free(marg);
 
   /* compute mean and variance of (marginals of) posterior for all
      column tuples */
@@ -943,7 +953,20 @@ sub_p_value_joint_many_alt(JumpProcess *jp, MSA *msa, List *feats,
       unsigned bit_i = (len >> i) & 1;
       if (bit_i) pows[j++] = pow_p[i];
     }
-    prior = pm_convolve_many(pows, NULL, j);
+
+    if (len > 25) {
+      /* use central limit theorem to limit size of matrix to keep track of */
+      max_nrows = ceil(len * prior_site_mean_left + 
+                       6 * sqrt(len * prior_site_var_left));
+      max_ncols = ceil(len * prior_site_mean_right + 
+                       6 * sqrt(len * prior_site_var_right));
+    }
+    else {
+      max_nrows = pow_p[0]->nrows * len;
+      max_ncols = pow_p[0]->ncols * len;
+    }
+
+    prior = pm_convolve_many_fast(pows, j, max_nrows, max_ncols);
 
     prior_marg_left = pm_marg_x(prior);
     prior_marg_right = pm_marg_y(prior);
