@@ -1,4 +1,4 @@
-/* $Id: prob_matrix.c,v 1.6 2005-08-31 07:02:23 acs Exp $ 
+/* $Id: prob_matrix.c,v 1.7 2005-09-02 23:55:28 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -174,18 +174,17 @@ Matrix **pm_convolve_save(Matrix *p, int n) {
   }
 
   if (n > 50) {
-    /* use central limit theorem to limit size of matrix to
-       keep track of.  Here work with marginal distributions */
+    /* use central limit theorem to limit size of matrix to keep track
+       of.  Here work with marginal distributions. */
     Vector *marg_x = pm_marg_x(p);
     Vector *marg_y = pm_marg_y(p);
     pv_stats(marg_x, &mean, &var);
-    max_nrows = ceil(n * mean + 6 * sqrt(n * var)) + 1;
+    max_nrows = max(1, ceil(n * mean + 6 * sqrt(n * var)));
     pv_stats(marg_y, &mean, &var);
-    max_ncols = ceil(n * mean + 6 * sqrt(n * var)) + 1;
+    max_ncols = max(1, ceil(n * mean + 6 * sqrt(n * var)));
     vec_free(marg_x);
     vec_free(marg_y);
   }
-
 
   /* compute convolution recursively */
   q[1] = mat_new(max_nrows, max_ncols);
@@ -225,7 +224,8 @@ Matrix **pm_convolve_save(Matrix *p, int n) {
 /* take convolution of a set of probability matrices.  If counts is
    NULL, then each distrib is assumed to have multiplicity 1 */
 Matrix *pm_convolve_many(Matrix **p, int *counts, int n) {
-  int i, j, k, l, x, y, max_nrows, max_ncols, count, tot_count = 0;
+  int i, j, k, l, x, y, max_nrows, max_ncols, count, tot_count = 0,
+    this_max_nrows, this_max_ncols;
   Matrix *q_i, *q_i_1;
 
   max_nrows = max_ncols = 0; 
@@ -270,13 +270,17 @@ Matrix *pm_convolve_many(Matrix **p, int *counts, int n) {
     for (y = 0; y < p[0]->ncols; y++)
       q_i_1->data[x][y] = p[0]->data[x][y];
  
+  this_max_nrows = p[0]->nrows;
+  this_max_ncols = p[0]->ncols;
   for (i = 0; i < n; i++) {
     count = (counts == NULL ? 1 : counts[i]);
     if (i == 0) count--; /* initialization takes care of first one */
     for (l = 0; l < count; l++) {
+      this_max_nrows = min(max_nrows, this_max_nrows + p[i]->nrows);
+      this_max_ncols = min(max_ncols, this_max_ncols + p[i]->ncols);
       mat_zero(q_i);
-      for (x = 0; x < q_i->nrows; x++) {
-        for (y = 0; y < q_i->ncols; y++) 
+      for (x = 0; x < this_max_nrows; x++) {
+        for (y = 0; y < this_max_ncols; y++) 
           for (j = max(0, x - p[i]->nrows + 1); j <= x; j++) 
             for (k = max(0, y - p[i]->ncols + 1); k <= y; k++) 
               q_i->data[x][y] += q_i_1->data[j][k] * p[i]->data[x - j][y - k];
@@ -300,6 +304,46 @@ Matrix *pm_convolve_many(Matrix **p, int *counts, int n) {
   mat_resize(q_i, max_nrows, max_ncols);
 
   pm_normalize(q_i);
+  return q_i;
+}
+
+/* take convolution of a set of probability matrices, avoiding some
+   overhead of function above; does not take counts, does not
+   normalize, does not trim dimension, allows max size to be
+   specified */
+Matrix *pm_convolve_many_fast(Matrix **p, int n, int max_nrows, int max_ncols) {
+  int i, j, k, x, y, this_max_nrows, this_max_ncols;
+  Matrix *q_i, *q_i_1;
+
+  if (n == 1)
+    /* no convolution necessary */
+    return mat_create_copy(p[0]);
+
+  q_i = mat_new(max_nrows, max_ncols);
+  q_i_1 = mat_new(max_nrows, max_ncols);
+
+  /* compute convolution recursively */
+  mat_zero(q_i_1);
+  for (x = 0; x < p[0]->nrows; x++)
+    for (y = 0; y < p[0]->ncols; y++)
+      q_i_1->data[x][y] = p[0]->data[x][y];
+ 
+  this_max_nrows = p[0]->nrows;
+  this_max_ncols = p[0]->ncols;
+  for (i = 1; i < n; i++) {
+    this_max_nrows = min(max_nrows, this_max_nrows + p[i]->nrows);
+    this_max_ncols = min(max_ncols, this_max_ncols + p[i]->ncols);
+    mat_zero(q_i);
+    for (x = 0; x < this_max_nrows; x++) {
+      for (y = 0; y < this_max_ncols; y++) 
+        for (j = max(0, x - p[i]->nrows + 1); j <= x; j++) 
+          for (k = max(0, y - p[i]->ncols + 1); k <= y; k++) 
+            q_i->data[x][y] += q_i_1->data[j][k] * p[i]->data[x - j][y - k];
+    }
+    mat_copy(q_i_1, q_i);
+  }
+
+  mat_free(q_i_1);
   return q_i;
 }
 

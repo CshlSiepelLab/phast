@@ -16,6 +16,7 @@ void pm_normalize(Matrix *p);
 Matrix *pm_convolve(Matrix *p, int n);
 Matrix **pm_convolve_save(Matrix *p, int n);
 Matrix *pm_convolve_many(Matrix **p, int *counts, int n);
+Matrix *pm_convolve_many_fast(Matrix **p, int n, int max_nrows, int max_ncols);
 Matrix *pm_convolve_fast(Matrix *p, int n);
 
 #endif
