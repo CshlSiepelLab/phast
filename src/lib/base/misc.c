@@ -1,11 +1,10 @@
-/* $Id: misc.c,v 1.23 2005-08-29 17:37:22 acs Exp $
+/* $Id: misc.c,v 1.24 2005-09-03 22:13:34 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
 #include <stdlib.h>
 #include <misc.h>
 #include <lists.h>
-#include <time.h>
 #include <stacks.h>
 #include <stringsplus.h>
 #include <assert.h>
@@ -825,12 +824,25 @@ double inv_cum_norm(double p) {
    size (between 0 and 1) assuming a normal distribution with mean mu
    and s.d. sigma */
 void norm_confidence_interval(double mu, double sigma, double interval_size, 
-			      double *min_x, double *max_x) {
+                              double *min_x, double *max_x) {
   double a;
   assert(interval_size > 0 && interval_size < 1);
   a = inv_cum_norm((1 - interval_size) / 2) * sigma; /* a will be negative */
   *min_x = mu + a;
   *max_x = mu - a;
+}
+
+/* density function for bivariate normal, p(x, y | mu_x, mu_y,
+   sigma_x, sigma_y, rho), where mu_x and mu_y are the marginal means,
+   sigma_x and sigma_y are the marginal standard deviations, and rho
+   is the correlation coefficient */
+double bvn_p(double x, double y, double mu_x, double mu_y, double sigma_x,
+             double sigma_y, double rho) {
+  double rho2 = rho*rho;
+  x = (x - mu_x) / sigma_x;
+  y = (y - mu_y) / sigma_y;
+  return (1/(2*M_PI * sigma_x * sigma_y * sqrt(1-rho2)) *
+          exp(-0.5 * 1/(1-rho2) * (x*x - 2*rho*x*y + y*y)));
 }
 
 /* return n! */
@@ -926,6 +938,13 @@ void print_seq_fasta(FILE *F, char *seq, char *name, int len) {
   }
 }
 
+/* return elapsed time in seconds since start_time */
+double get_elapsed_time(struct timeval *start_time) {
+  struct timeval now;
+  gettimeofday(&now, NULL);
+  return now.tv_sec - start_time->tv_sec + 
+    (now.tv_usec - start_time->tv_usec)/1.0e6;
+}
 
 /***************************************************************************/
 /* for debugging: these functions can be called dynamically in gdb to

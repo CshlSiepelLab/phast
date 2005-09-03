@@ -1,4 +1,4 @@
-/* $Id: prob_matrix.c,v 1.7 2005-09-02 23:55:28 acs Exp $ 
+/* $Id: prob_matrix.c,v 1.8 2005-09-03 22:13:34 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -19,8 +19,8 @@ void pm_mean(Matrix *p, double *mean_x, double *mean_y) {
   *mean_x = *mean_y = 0;
   for (x = 0; x < p->nrows; x++) {
     for (y = 0; y < p->ncols; y++) {
-      *mean_x *= x * p->data[x][y];
-      *mean_y *= y * p->data[x][y];
+      *mean_x += x * p->data[x][y];
+      *mean_y += y * p->data[x][y];
     }
   }
 }
@@ -61,7 +61,8 @@ Vector *pm_marg_tot(Matrix *p) {
 /* return conditional probability distribution of x given x+y */
 Vector *pm_x_given_tot(Matrix *p, int tot) {
   int x;
-  Vector *cond = vec_new(p->nrows);
+  Vector *cond = vec_new(min(p->nrows, tot+1));
+  vec_zero(cond);
   for (x = max(0, tot - p->ncols + 1); x < p->nrows; x++) {
     if (x > tot) break;
     cond->data[x] = p->data[x][tot-x];
@@ -73,7 +74,8 @@ Vector *pm_x_given_tot(Matrix *p, int tot) {
 /* return conditional probability distribution of y given x+y */
 Vector *pm_y_given_tot(Matrix *p, int tot) {
   int y;
-  Vector *cond = vec_new(p->ncols);
+  Vector *cond = vec_new(min(p->ncols, tot+1));
+  vec_zero(cond);
   for (y = max(0, tot - p->nrows + 1); y < p->ncols; y++) {
     if (y > tot) break;
     cond->data[y] = p->data[tot-y][y];
@@ -384,3 +386,77 @@ Matrix *pm_convolve_fast(Matrix *p, int n) {
   return retval;
 }
 
+/* compute means, variances, and covariance */
+void pm_stats(Matrix *p, double *mean_x, double *mean_y, double *var_x, 
+              double *var_y, double *covar) {
+  int x, y;
+  *mean_x = *mean_y = *var_x = *var_y = *covar = 0;
+  for (x = 0; x < p->nrows; x++) {
+    for (y = 0; y < p->ncols; y++) {
+      *mean_x += x * p->data[x][y];
+      *mean_y += y * p->data[x][y];
+      *var_x += x * x * p->data[x][y]; 
+      *var_y += y * y * p->data[x][y]; 
+      *covar += x * y * p->data[x][y];
+    }
+  }
+  *var_x -= (*mean_x * *mean_x);
+  *var_y -= (*mean_y * *mean_y);
+  *covar -= (*mean_x * *mean_y);
+}
+
+/* version of pm_x_given_tot that assumes bivariate normal with given
+   means, standard deviations, and correlation coefficient.  Only the
+   region of the bivariate normal with x,y >= 0 is considered.  For
+   use in central limit theorem approximations. */
+Vector *pm_x_given_tot_bvn(int tot, double mu_x, double mu_y, 
+                           double sigma_x, double sigma_y, double rho) {
+  int x;
+  Vector *cond = vec_new(tot+1); 
+  for (x = 0; x <= tot; x++) 
+    cond->data[x] = bvn_p(x, tot-x, mu_x, mu_y, sigma_x, sigma_y, rho);
+  pv_normalize(cond);
+  return cond;  
+}
+
+/* version of pm_y_given_tot that assumes bivariate normal with given
+   means, standard deviations, and correlation coefficient.  Only the
+   region of the bivariate normal with x,y >= 0 is considered.  For
+   use in central limit theorem approximations. */
+Vector *pm_y_given_tot_bvn(int tot, double mu_x, double mu_y, 
+                           double sigma_x, double sigma_y, double rho) {
+  int y;
+  Vector *cond = vec_new(tot+1); 
+  for (y = 0; y <= tot; y++) 
+    cond->data[y] = bvn_p(tot-y, y, mu_x, mu_y, sigma_x, sigma_y, rho);
+  pv_normalize(cond);
+  return cond;  
+}
+
+/* version of pm_x_given_tot that assumes independence of x and y, and
+   computes the desired conditional distribution from their
+   marginals */
+Vector *pm_x_given_tot_indep(int tot, Vector *marg_x, Vector *marg_y) {
+  int x;
+  Vector *cond = vec_new(min(marg_x->size, tot+1));
+  for (x = 0; x < marg_x->size; x++) {
+    if (x > tot) break;
+    cond->data[x] = marg_x->data[x] * marg_y->data[tot-x];
+  }
+  pv_normalize(cond);
+  return cond;  
+}
+
+/* version of pm_y_given_tot that assumes independence of x and y, and
+   computes the desired conditional distribution from their
+   marginals */
+Vector *pm_y_given_tot_indep(int tot, Vector *marg_x, Vector *marg_y) {
+  int y;
+  Vector *cond = vec_new(min(marg_y->size, tot+1));
+  for (y = 0; y < marg_y->size; y++) {
+    if (y > tot) break;
+    cond->data[y] = marg_x->data[tot-y] * marg_y->data[y];
+  }
+  pv_normalize(cond);
+  return cond;  
+}

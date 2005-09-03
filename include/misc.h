@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.14 2005-08-21 17:43:35 acs Exp $
+/* $Id: misc.h,v 1.15 2005-09-03 22:13:34 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -10,6 +10,9 @@
 #include <matrix.h>
 #include <ctype.h>
 #include <lists.h>
+#include <time.h>
+#include <sys/time.h>
+
 struct hash_table;
 
 #define TRUE 1
@@ -159,8 +162,11 @@ double cum_poisson(double lambda, int k);
 double cum_norm(double mu, double sigma, double a);
 double cum_norm_c(double mu, double sigma, double a);
 double inv_cum_norm(double p);
+double bvn_p(double x, double y, double mu_x, double mu_y, double sigma_x,
+             double sigma_y, double rho);
 void norm_confidence_interval(double mu, double sigma, double interval_size, 
                               double *min_x, double *max_x);
 void print_seq_fasta(FILE *F, char *seq, char *name, int len);
+double get_elapsed_time(struct timeval *start_time);
 
 #endif
