@@ -1,4 +1,4 @@
-/* $Id: indel_mod.c,v 1.4 2005-09-02 23:58:53 acs Exp $
+/* $Id: indel_mod.c,v 1.5 2005-09-03 00:03:11 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -229,7 +229,7 @@ BranchIndelSuffStats *im_suff_stats_branch(IndelHistory *ih, int child_id) {
       for (j = 0; j < ih->tree->nnodes; j++) {
         if (ih->indel_strings[j][i] == BASE)
           c = 'b';
-        else (ih->indel_strings[j][i] == INS)
+        else if (ih->indel_strings[j][i] == INS)
           c = '^';
         else
           c = '.';
