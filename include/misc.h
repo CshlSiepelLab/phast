@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.15 2005-09-03 22:13:34 acs Exp $
+/* $Id: misc.h,v 1.16 2005-09-04 05:26:05 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -48,6 +48,16 @@ int int_pow(int x, int y) {
   int retval = 1, i;
   for (i = 0; i < y; i++) retval *= x;
   return retval;
+}
+
+/* fast computation of floor(log2(x)), where x is a positive integer */
+extern inline
+int log2_int(unsigned x) {
+  int i;
+  for (i = 0; ; i++) {
+    x >>= 1;
+    if (x == 0) return i;
+  }
 }
 
 extern inline

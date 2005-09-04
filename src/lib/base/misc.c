@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.24 2005-09-03 22:13:34 acs Exp $
+/* $Id: misc.c,v 1.25 2005-09-04 05:26:04 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -944,6 +944,16 @@ double get_elapsed_time(struct timeval *start_time) {
   gettimeofday(&now, NULL);
   return now.tv_sec - start_time->tv_sec + 
     (now.tv_usec - start_time->tv_usec)/1.0e6;
+}
+
+/* fast computation of floor(log2(x)), where x is a positive integer */
+int log2_int(unsigned x) {
+  int i;
+  assert(x > 0);
+  for (i = 0; ; i++) {
+    x >>= 1;
+    if (x == 0) return i;
+  }
 }
 
 /***************************************************************************/
