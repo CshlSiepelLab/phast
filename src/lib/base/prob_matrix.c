@@ -1,4 +1,4 @@
-/* $Id: prob_matrix.c,v 1.8 2005-09-03 22:13:34 acs Exp $ 
+/* $Id: prob_matrix.c,v 1.9 2005-09-04 03:40:24 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -268,8 +268,10 @@ Matrix *pm_convolve_many(Matrix **p, int *counts, int n) {
 
   /* compute convolution recursively */
   mat_zero(q_i_1);
-  for (x = 0; x < p[0]->nrows; x++)
-    for (y = 0; y < p[0]->ncols; y++)
+  this_max_nrows = min(p[0]->nrows, max_nrows);
+  this_max_ncols = min(p[0]->ncols, max_ncols);
+  for (x = 0; x < this_max_nrows; x++)
+    for (y = 0; y < this_max_ncols; y++)
       q_i_1->data[x][y] = p[0]->data[x][y];
  
   this_max_nrows = p[0]->nrows;
@@ -326,8 +328,10 @@ Matrix *pm_convolve_many_fast(Matrix **p, int n, int max_nrows, int max_ncols) {
 
   /* compute convolution recursively */
   mat_zero(q_i_1);
-  for (x = 0; x < p[0]->nrows; x++)
-    for (y = 0; y < p[0]->ncols; y++)
+  this_max_nrows = min(p[0]->nrows, max_nrows);
+  this_max_ncols = min(p[0]->ncols, max_ncols);
+  for (x = 0; x < this_max_nrows; x++)
+    for (y = 0; y < this_max_ncols; y++)
       q_i_1->data[x][y] = p[0]->data[x][y];
  
   this_max_nrows = p[0]->nrows;
@@ -439,7 +443,8 @@ Vector *pm_y_given_tot_bvn(int tot, double mu_x, double mu_y,
 Vector *pm_x_given_tot_indep(int tot, Vector *marg_x, Vector *marg_y) {
   int x;
   Vector *cond = vec_new(min(marg_x->size, tot+1));
-  for (x = 0; x < marg_x->size; x++) {
+  vec_zero(cond);
+  for (x = max(0, tot - marg_y->size + 1); x < marg_x->size; x++) {
     if (x > tot) break;
     cond->data[x] = marg_x->data[x] * marg_y->data[tot-x];
   }
@@ -453,7 +458,8 @@ Vector *pm_x_given_tot_indep(int tot, Vector *marg_x, Vector *marg_y) {
 Vector *pm_y_given_tot_indep(int tot, Vector *marg_x, Vector *marg_y) {
   int y;
   Vector *cond = vec_new(min(marg_y->size, tot+1));
-  for (y = 0; y < marg_y->size; y++) {
+  vec_zero(cond);
+  for (y = max(0, tot - marg_x->size + 1); y < marg_y->size; y++) {
     if (y > tot) break;
     cond->data[y] = marg_x->data[tot-y] * marg_y->data[y];
   }
