@@ -1,4 +1,4 @@
-/* $Id: indel_history.c,v 1.3 2005-08-30 17:16:56 acs Exp $
+/* $Id: indel_history.c,v 1.4 2005-09-04 21:27:30 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -247,7 +247,7 @@ MSA *ih_as_alignment(IndelHistory *ih, MSA *msa) {
     seqs[i][ih->ncols] = '\0';
   }
 
-  return msa_new(seqs, names, ih->tree->nnodes, ih->ncols, "ACGTN-^");
+  return msa_new(seqs, names, ih->tree->nnodes, ih->ncols, "ACGTN-^.");
 }
 
 CompactIndelHistory *ih_read_compact(FILE *inf) {
@@ -601,3 +601,43 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
   return ih;
 }
 
+/* convert names in an alignment from the convention used by
+   inferAncestors to the convention used in PHAST, based on a given
+   tree */
+void ih_convert_ia_names(MSA *msa, TreeNode *tree) {
+  int i;
+  char *newname;
+  String **ia_names = smalloc(tree->nnodes * sizeof(void*));
+  Hashtable *name_map = hsh_new(tree->nnodes);
+  List *postorder = tr_postorder(tree);
+
+  /* create a mapping from Mathieu's names to ours */
+  for (i = 0; i < lst_size(postorder); i++) {
+    TreeNode *n = lst_get_ptr(postorder, i);
+    if (n->lchild == NULL) {
+      ia_names[n->id] = str_new_charstr(n->name);
+      str_toupper(ia_names[n->id]);
+      str_append_char(ia_names[n->id], '+');
+    }
+    else {
+      ia_names[n->id] = str_dup(ia_names[n->lchild->id]);
+      str_append(ia_names[n->id], ia_names[n->rchild->id]);
+    }
+    hsh_put(name_map, ia_names[n->id]->chars, n->name);
+  }
+
+  /* now rename */
+  for (i = 0; i < msa->nseqs; i++) {
+    if ((newname = hsh_get(name_map, msa->names[i])) != (char*)-1) {
+      free(msa->names[i]);
+      msa->names[i] = strdup(newname);
+    }
+    else 
+      die("ERROR: can't convert name '%s'\n", msa->names[i]);
+  }
+
+  for (i = 0; i < tree->nnodes; i++)
+    str_free(ia_names[i]);
+  free(ia_names);
+  hsh_free(name_map);
+}
