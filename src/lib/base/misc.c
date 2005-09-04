@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.25 2005-09-04 05:26:04 acs Exp $
+/* $Id: misc.c,v 1.26 2005-09-04 05:49:12 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -17,6 +17,11 @@ int int_pow(int x, int y) {
   int retval = 1, i;
   for (i = 0; i < y; i++) retval *= x;
   return retval;
+}
+
+double log2(double x) {
+  if (x <= 0) return NEGINFTY;
+  return log(x) / M_LN2;
 }
 
 /* fill an array with 1s or zeroes, indicating a random choice of k

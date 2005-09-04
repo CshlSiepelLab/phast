@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.16 2005-09-04 05:26:05 acs Exp $
+/* $Id: misc.h,v 1.17 2005-09-04 05:49:11 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -26,7 +26,6 @@ struct hash_table;
 #define SUM_LOG_THRESHOLD -10   /* see log_sum */
 
 #define exp2(x) (pow(2,x))
-#define log2(x) ((x) <= 0 ? NEGINFTY : log(x) / log(2))
 #define logit(x) ( 1 / (1 + exp(-(x))) )
 
 /* CAREFUL: multiple eval! */
@@ -58,6 +57,12 @@ int log2_int(unsigned x) {
     x >>= 1;
     if (x == 0) return i;
   }
+}
+
+extern inline
+double log2(double x) {
+  if (x <= 0) return NEGINFTY;
+  return log(x) / log(2);
 }
 
 extern inline
