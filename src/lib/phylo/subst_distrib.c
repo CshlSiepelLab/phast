@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.16 2005-09-04 03:52:49 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.17 2005-09-04 05:52:22 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -677,7 +677,7 @@ p_value_stats *sub_p_value_many_alt(JumpProcess *jp, MSA *msa, List *feats,
                                 ) {
 
   Vector *p, *prior;
-  int maxlen = -1, len, idx, i, j, logmaxlen, loglen;
+  int maxlen = -1, len, idx, i, j, logmaxlen, loglen, checksum;
   GFF_Feature *f;
   double *post_mean, *post_var;
   double this_min, this_max;
@@ -700,7 +700,7 @@ p_value_stats *sub_p_value_many_alt(JumpProcess *jp, MSA *msa, List *feats,
 
   /* compute "powers" of prior distribution, to allow fast computation
      of convolution of prior for any feature length */
-  logmaxlen = floor(log2(maxlen));
+  logmaxlen = log2_int(maxlen);
   pow_p = smalloc((logmaxlen+1) * sizeof(void*));
   pow_p[0] = sub_prior_distrib_site(jp);
   for (i = 1; i <= logmaxlen; i++) 
@@ -721,14 +721,18 @@ p_value_stats *sub_p_value_many_alt(JumpProcess *jp, MSA *msa, List *feats,
   for (idx = 0; idx < lst_size(feats); idx++) {
     f = lst_get_ptr(feats, idx);
     len = f->end - f->start + 1;
-    loglen = floor(log2(len));
+    loglen = log2_int(len);
 
     /* compute convolution of prior from powers */
-    j = 0;
+    j = checksum = 0;
     for (i = 0; i <= loglen; i++) {
       unsigned bit_i = (len >> i) & 1;
-      if (bit_i) pows[j++] = pow_p[i];
+      if (bit_i) {
+        pows[j++] = pow_p[i];
+        checksum += int_pow(2, i);
+      }
     }
+    assert(checksum == len);
     prior = pv_convolve_many(pows, NULL, j);
 
     pv_stats(prior, &stats[idx].prior_mean, &stats[idx].prior_var);
@@ -1006,7 +1010,7 @@ sub_p_value_joint_many_alt(JumpProcess *jp, MSA *msa, List *feats,
 
   Matrix *p, *prior, *prior_site;
   int maxlen = -1, len, idx, i, j, logmaxlen, loglen, max_nrows, max_ncols,
-    max_conv_len;
+    max_conv_len, checksum;
   GFF_Feature *f;
   double *post_mean_left, *post_mean_right, *post_mean_tot, *post_var_left,
     *post_var_right, *post_var_tot;
@@ -1052,7 +1056,7 @@ sub_p_value_joint_many_alt(JumpProcess *jp, MSA *msa, List *feats,
 
   /* compute "powers" of prior distribution, to allow fast computation
      of convolution of prior */
-  logmaxlen = floor(log2(maxlen));
+  logmaxlen = log2_int(maxlen);
   pow_p = smalloc((logmaxlen+1) * sizeof(void*));
   pow_p[0] = prior_site;
   for (i = 1; i <= logmaxlen; i++) {
@@ -1091,15 +1095,19 @@ sub_p_value_joint_many_alt(JumpProcess *jp, MSA *msa, List *feats,
   for (idx = 0; idx < lst_size(feats); idx++) {
     f = lst_get_ptr(feats, idx);
     len = f->end - f->start + 1;
-    loglen = floor(log2(len));
+    loglen = log2_int(len);
 
     if (len <= max_conv_len) {
       /* compute convolution of prior from powers */
-      j = 0;
+      j = checksum = 0;
       for (i = 0; i <= loglen; i++) {
         unsigned bit_i = (len >> i) & 1;
-        if (bit_i) pows[j++] = pow_p[i];
+        if (bit_i) {
+          pows[j++] = pow_p[i];
+          checksum += int_pow(2, i);
+        }
       }
+      assert(checksum == len);
 
       if (len > 25) {
         /* use central limit theorem to limit size of matrix to keep
