@@ -55,5 +55,6 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
                                 double ci);
 p_value_joint_stats* sub_p_value_joint_many(JumpProcess *jp, MSA *msa, 
                                             List *feats, double ci,
+                                            int max_convolve_size,
                                             FILE *timing_f);
 #endif

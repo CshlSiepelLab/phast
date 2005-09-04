@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.18 2005-09-04 06:13:04 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.19 2005-09-04 06:53:31 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -10,11 +10,6 @@
 #include <sufficient_stats.h>
 #include <prob_vector.h>
 #include <prob_matrix.h>
-
-/* used by sub_p_value_joint_many_alt: maximum size of matrix for
-   which to do explicit convolution; computational complexity is
-   proportional to square of this number */
-#define MAX_CONVOLVE_SIZE 22500
 
 /* (used below) compute and return a set of matrices giving p(b, n |
    j), the probability of n substitutions and a final base b given j
@@ -677,11 +672,12 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
 
 /* (used by sub_p_value_joint_many) compute maximum length of element
    for which to do explicit convolution, based on given means and
-   standard devs for subtrees, and based on MAX_CONVOLVE_SIZE */
-int max_convolve_len(double mean_l, double sd_l, double mean_r, double sd_r) {
+   standard devs for subtrees, and based on max_convolve_size */
+int max_convolve_len(int max_convolve_size, double mean_l, double sd_l, 
+                     double mean_r, double sd_r) {
   double maxsize;
 
-  int l = sqrt(MAX_CONVOLVE_SIZE / 
+  int l = sqrt(max_convolve_size / 
                ((mean_l + 6 * sd_l) * (mean_r + 6 * sd_r)));
   /* (lower bound on max, obtained by replacing sqrt(l) with l) */
 
@@ -692,7 +688,7 @@ int max_convolve_len(double mean_l, double sd_l, double mean_r, double sd_r) {
     maxsize = (l * mean_l + 6 * sd_l * sqrt(l)) *
       (l * mean_r + 6 * sd_r * sqrt(l));
     /* bound on size of matrix for given length, using CLT approx  */
-  } while (maxsize < MAX_CONVOLVE_SIZE);
+  } while (maxsize < max_convolve_size);
 
   return l-1;
 }
@@ -707,6 +703,11 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
                        double ci, /* confidence interval; if
                                      -1, posterior mean will
                                      be used */
+                       int max_convolve_size, 
+                                /* maximum matrix size (rows*cols) for
+                                   exact computation of prior
+                                   convolution; beyond this size, an
+                                   approximation is used  */
                        FILE *timing_f /* log file for timing info */
                        ) {
 
@@ -751,7 +752,8 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
   /* compute maximum length for explicit computation of joint prior
      via convolution */
   max_conv_len = 
-    max_convolve_len(prior_site_mean_left, sqrt(prior_site_var_left), 
+    max_convolve_len(max_convolve_size,
+                     prior_site_mean_left, sqrt(prior_site_var_left), 
                      prior_site_mean_right, sqrt(prior_site_var_right));
   if (maxlen > max_conv_len)
     maxlen = max_conv_len;

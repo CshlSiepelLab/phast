@@ -11,6 +11,13 @@
 #include <prob_matrix.h>
 #include "phyloP.help"
 
+/* maximum size of matrix for which to do explicit convolution of
+   joint prior; beyond this size an approximation is used.
+   Computational complexity is proportional to square of this number.
+   This only comes into play when --features and --subtree are used
+   together */
+#define MAX_CONVOLVE_SIZE 22500
+
 void print_prior_only(int nsites, char *mod_fname, Vector *prior_distrib);
 void print_post_only(char *mod_fname, char *msa_fname, Vector *post_distrib,
                      double ci);
@@ -494,10 +501,12 @@ void print_p_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
 void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
   int i;
   Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
-  p_value_joint_stats *stats = sub_p_value_joint_many(jp, msa, feats->features, ci, NULL);
+  p_value_joint_stats *stats = 
+    sub_p_value_joint_many(jp, msa, feats->features, 
+                           ci, MAX_CONVOLVE_SIZE, NULL);
   List *l = lst_new_ptr(2);
 
-  printf("#chr\tstart\tend\tname\tp_cons_sup\tp_anti_cons_sup\tp_cons_sub\tp_anti_cons_sub\tcond_p_cons_sub\tcond_p_anti_cons_sub\tprior_mean_sup\tprior_var_sup\tprior_min_sup\tprior_max_sup\tprior_mean_sub\tprior_var_sub\tprior_min_sub\tprior_max_sub\tpost_mean_sup\tpost_var_sup\tpost_min_sup\tpost_max_sup\tpost_mean_sub\tpost_var_sub\tpost_min_sub\tpost_max_sub\n");
+  printf("#chr\tstart\tend\tname\tp_cons_sup\tp_anti_cons_sup\tp_cons_sub\tp_anti_cons_sub\tcond_p_cons_sub\tcond_p_anti_cons_sub\tcond_approx\tprior_mean_sup\tprior_var_sup\tprior_min_sup\tprior_max_sup\tprior_mean_sub\tprior_var_sub\tprior_min_sub\tprior_max_sub\tpost_mean_sup\tpost_var_sup\tpost_min_sup\tpost_max_sup\tpost_mean_sub\tpost_var_sub\tpost_min_sub\tpost_max_sub\n");
   for (i = 0; i < lst_size(feats->features); i++) {
     GFF_Feature *f = lst_get_ptr(feats->features, i);
     String *name = NULL;
@@ -510,12 +519,13 @@ void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
       str_remove_quotes(name);
     }
 
-    printf("%s\t%d\t%d\t%s\t%e\t%e\t%e\t%e\t%e\t%e\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\n", 
+    printf("%s\t%d\t%d\t%s\t%e\t%e\t%e\t%e\t%e\t%e\t%s\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\n", 
            f->seqname->chars, f->start-1, f->end, 
            name == NULL ? "." : name->chars,
            stats[i].p_cons_right, stats[i].p_anti_cons_right, 
            stats[i].p_cons_left, stats[i].p_anti_cons_left, 
            stats[i].cond_p_cons_left, stats[i].cond_p_anti_cons_left, 
+           stats[i].cond_p_approx ? "approx" : "exact",
            stats[i].prior_mean_right, stats[i].prior_var_right, 
            stats[i].prior_min_right, stats[i].prior_max_right, 
            stats[i].prior_mean_left, stats[i].prior_var_left, 
