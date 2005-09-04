@@ -1,4 +1,4 @@
-/* $Id: indel_history.h,v 1.2 2005-08-29 17:37:22 acs Exp $
+/* $Id: indel_history.h,v 1.3 2005-09-04 21:27:56 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -44,5 +44,6 @@ CompactIndelHistory *ih_read_compact(FILE *inf);
 IndelHistory *ih_new_from_file(FILE* inf);
 IndelHistory *ih_extract_from_alignment(MSA *msa, TreeNode *tree);
 IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree);
+void ih_convert_ia_names(MSA *msa, TreeNode *tree);
 
 #endif
