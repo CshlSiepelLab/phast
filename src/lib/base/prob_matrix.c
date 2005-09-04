@@ -1,4 +1,4 @@
-/* $Id: prob_matrix.c,v 1.10 2005-09-04 05:26:51 acs Exp $ 
+/* $Id: prob_matrix.c,v 1.11 2005-09-04 05:51:49 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -357,7 +357,7 @@ Matrix *pm_convolve_many_fast(Matrix **p, int n, int max_nrows, int max_ncols) {
    ones above; time is proportional to log(n) rather than n */
 Matrix *pm_convolve_fast(Matrix *p, int n) {
   int i, j, checksum;
-  int logn = floor(log2(n));
+  int logn = log2_int(n);
   Matrix *pow_p[64], *pows[64];
   Matrix *retval;
 

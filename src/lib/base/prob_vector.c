@@ -1,4 +1,4 @@
-/* $Id: prob_vector.c,v 1.5 2005-09-04 05:28:15 acs Exp $ 
+/* $Id: prob_vector.c,v 1.6 2005-09-04 05:51:50 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -302,7 +302,7 @@ Vector *pv_poisson(double lambda) {
    ones above; time is proportional to log(n) rather than n */
 Vector *pv_convolve_fast(Vector *p, int n) {
   int i, j, checksum;
-  int logn = floor(log2(n));
+  int logn = log2_int(n);
   Vector *pow_p[64], *pows[64];
   Vector *retval;
 
