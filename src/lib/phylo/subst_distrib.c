@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.19 2005-09-04 06:53:31 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.20 2005-09-04 07:13:43 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -496,7 +496,7 @@ Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
    substitutions in the right subtree */
 Matrix *sub_prior_joint_distrib_alignment(JumpProcess *jp, int nsites) {
   Matrix *p = sub_joint_distrib_site(jp, NULL, -1);
-  Matrix *retval = pm_convolve(p, nsites);
+  Matrix *retval = pm_convolve_fast(p, nsites);
   mat_free(p);
   return retval;
 }
