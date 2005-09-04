@@ -494,7 +494,7 @@ void print_p_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
 void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
   int i;
   Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
-  p_value_joint_stats *stats = sub_p_value_joint_many(jp, msa, feats->features, ci);
+  p_value_joint_stats *stats = sub_p_value_joint_many(jp, msa, feats->features, ci, NULL);
   List *l = lst_new_ptr(2);
 
   printf("#chr\tstart\tend\tname\tp_cons_sup\tp_anti_cons_sup\tp_cons_sub\tp_anti_cons_sub\tcond_p_cons_sub\tcond_p_anti_cons_sub\tprior_mean_sup\tprior_var_sup\tprior_min_sup\tprior_max_sup\tprior_mean_sub\tprior_var_sub\tprior_min_sub\tprior_max_sub\tpost_mean_sup\tpost_var_sup\tpost_min_sup\tpost_max_sup\tpost_mean_sub\tpost_var_sub\tpost_min_sub\tpost_max_sub\n");
