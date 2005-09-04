@@ -1,4 +1,4 @@
-/* $Id: indelHistory.c,v 1.4 2005-08-30 17:12:21 acs Exp $
+/* $Id: indelHistory.c,v 1.5 2005-09-04 21:28:22 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -12,8 +12,6 @@
 #include <sufficient_stats.h>
 #include <indel_history.h>
 #include "indelHistory.help"
-
-void convert_ia_names(MSA *msa, TreeNode *tree);
 
 int main(int argc, char *argv[]) {
   TreeNode *tree;
@@ -83,7 +81,7 @@ int main(int argc, char *argv[]) {
                                                   specified in this case */
       if (ia_names) {
         fprintf(stderr, "Converting sequence names...\n");
-        convert_ia_names(msa, tree);
+        ih_convert_ia_names(msa, tree);
       }
 
       fprintf(stderr, "Extracting indel history from alignment...\n");
@@ -114,40 +112,3 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-void convert_ia_names(MSA *msa, TreeNode *tree) {
-  int i;
-  char *newname;
-  String **ia_names = smalloc(tree->nnodes * sizeof(void*));
-  Hashtable *name_map = hsh_new(tree->nnodes);
-  List *postorder = tr_postorder(tree);
-
-  /* create a mapping from Mathieu's names to ours */
-  for (i = 0; i < lst_size(postorder); i++) {
-    TreeNode *n = lst_get_ptr(postorder, i);
-    if (n->lchild == NULL) {
-      ia_names[n->id] = str_new_charstr(n->name);
-      str_toupper(ia_names[n->id]);
-      str_append_char(ia_names[n->id], '+');
-    }
-    else {
-      ia_names[n->id] = str_dup(ia_names[n->lchild->id]);
-      str_append(ia_names[n->id], ia_names[n->rchild->id]);
-    }
-    hsh_put(name_map, ia_names[n->id]->chars, n->name);
-  }
-
-  /* now rename */
-  for (i = 0; i < msa->nseqs; i++) {
-    if ((newname = hsh_get(name_map, msa->names[i])) != (char*)-1) {
-      free(msa->names[i]);
-      msa->names[i] = strdup(newname);
-    }
-    else 
-      die("ERROR: can't convert name '%s'\n", msa->names[i]);
-  }
-
-  for (i = 0; i < tree->nnodes; i++)
-    str_free(ia_names[i]);
-  free(ia_names);
-  hsh_free(name_map);
-}
