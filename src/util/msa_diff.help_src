@@ -1,0 +1,27 @@
+PROGRAM: msa_diff
+
+USAGE: msa_diff [OPTIONS] alignment1.fa alignment2.fa > diffs.out
+
+DESCRIPTION: Compare two multiple alignments and report differences.
+
+OPTIONS:
+    --format1, -i FASTA|SS|PHYLIP|MPM|MAF
+        Format of first alignment (default FASTA).
+
+    --format2, -j FASTA|SS|PHYLIP|MPM|MAF
+        Format of second alignment (default FASTA).
+
+    --alphabet, -a <alphabet_string>
+        Use given string for alphabet.  Can be used to accommodate
+        nonstandard characters (e.g., 'b' for any base or '^' for insertion
+        gaps, '.' for deletion gaps).  
+
+    --ignore-base-id, -b
+        Ignore identity of bases; consider all alphabetical characters
+        equivalent (e.g., A, C, G, T, N, X, b).
+
+    --ignore-gap-type, -g
+        Ignore type of gap; consider '-', '^', and '.' all equivalent.
+
+    --help, -h
+        Display this help message and exit.
