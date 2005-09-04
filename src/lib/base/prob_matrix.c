@@ -1,4 +1,4 @@
-/* $Id: prob_matrix.c,v 1.11 2005-09-04 05:51:49 acs Exp $ 
+/* $Id: prob_matrix.c,v 1.12 2005-09-04 06:52:38 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -360,9 +360,24 @@ Matrix *pm_convolve_fast(Matrix *p, int n) {
   int logn = log2_int(n);
   Matrix *pow_p[64], *pows[64];
   Matrix *retval;
+  double mean, var;
+  int max_nrows = p->nrows * n, max_ncols = p->ncols * n;
 
   if (n == 1)
     return mat_create_copy(p);
+
+  if (n > 50) {
+    /* use central limit theorem to limit size of matrix to
+       keep track of.  Here work with marginal distributions */
+    Vector *marg_x = pm_marg_x(p);
+    Vector *marg_y = pm_marg_y(p);
+    pv_stats(marg_x, &mean, &var);
+    max_nrows = ceil(n * mean + 6 * sqrt(n * var)) + 1;
+    pv_stats(marg_y, &mean, &var);
+    max_ncols = ceil(n * mean + 6 * sqrt(n * var)) + 1;
+    vec_free(marg_x);
+    vec_free(marg_y);
+  }
 
   /* Let p^i be the ith convolution of p (i.e., p o p o ... o p, i
      times, where 'o' is the convolution operator).  We use the fact
@@ -385,7 +400,7 @@ Matrix *pm_convolve_fast(Matrix *p, int n) {
   }
   assert(n == checksum);
 
-  retval = pm_convolve_many(pows, NULL, j);
+  retval = pm_convolve_many_fast(pows, j, max_nrows, max_ncols);
 
   for (i = 1; i <= logn; i++) 
     mat_free(pow_p[i]);
