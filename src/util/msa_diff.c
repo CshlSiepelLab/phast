@@ -126,12 +126,12 @@ int main(int argc, char *argv[]) {
       diffstart = col;
     }
     else if (same == TRUE && lastsame == FALSE)
-      printf("%d - %d\n", diffstart, col);
+      printf("%d - %d\n", diffstart, col-1);
 
     lastsame = same;
   }
   if (lastsame == FALSE)
-    printf("%d - %d\n", diffstart, len-1);  
+    printf("%d - %d\n", diffstart, col-1);  
 
   if (ndiffs == 0) printf("none\n");
 
