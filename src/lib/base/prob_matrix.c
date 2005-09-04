@@ -1,4 +1,4 @@
-/* $Id: prob_matrix.c,v 1.9 2005-09-04 03:40:24 acs Exp $ 
+/* $Id: prob_matrix.c,v 1.10 2005-09-04 05:26:51 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -279,9 +279,9 @@ Matrix *pm_convolve_many(Matrix **p, int *counts, int n) {
   for (i = 0; i < n; i++) {
     count = (counts == NULL ? 1 : counts[i]);
     if (i == 0) count--; /* initialization takes care of first one */
+    this_max_nrows = min(max_nrows, this_max_nrows + p[i]->nrows);
+    this_max_ncols = min(max_ncols, this_max_ncols + p[i]->ncols);
     for (l = 0; l < count; l++) {
-      this_max_nrows = min(max_nrows, this_max_nrows + p[i]->nrows);
-      this_max_ncols = min(max_ncols, this_max_ncols + p[i]->ncols);
       mat_zero(q_i);
       for (x = 0; x < this_max_nrows; x++) {
         for (y = 0; y < this_max_ncols; y++) 
@@ -356,7 +356,7 @@ Matrix *pm_convolve_many_fast(Matrix **p, int n, int max_nrows, int max_ncols) {
 /* convolve distribution n times, using a faster algorithm than the
    ones above; time is proportional to log(n) rather than n */
 Matrix *pm_convolve_fast(Matrix *p, int n) {
-  int i, j;
+  int i, j, checksum;
   int logn = floor(log2(n));
   Matrix *pow_p[64], *pows[64];
   Matrix *retval;
@@ -375,13 +375,16 @@ Matrix *pm_convolve_fast(Matrix *p, int n) {
     pow_p[i] = pm_convolve(pow_p[i-1], 2);
 
   /* now combine powers to get desired convolution */
-  j = 0;
+  j = checksum = 0;
   for (i = 0; i <= logn; i++) {
     unsigned bit_i = (n >> i) & 1;
-    if (bit_i)
+    if (bit_i) {
       pows[j++] = pow_p[i];
+      checksum += int_pow(2, i);
+    }
   }
-  
+  assert(n == checksum);
+
   retval = pm_convolve_many(pows, NULL, j);
 
   for (i = 1; i <= logn; i++) 
