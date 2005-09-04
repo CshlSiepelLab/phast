@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.15 2005-09-03 22:13:34 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.16 2005-09-04 03:52:49 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -10,6 +10,11 @@
 #include <sufficient_stats.h>
 #include <prob_vector.h>
 #include <prob_matrix.h>
+
+/* used by sub_p_value_joint_many_alt: maximum size of matrix for
+   which to do explicit convolution; computational complexity is
+   proportional to square of this number */
+#define MAX_CONVOLVE_SIZE 22500
 
 /* (used below) compute and return a set of matrices giving p(b, n |
    j), the probability of n substitutions and a final base b given j
@@ -664,7 +669,7 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
   return stats;
 }
 
-/* alternative to above, faster with large max lengths*/   
+/* alternative to above, faster with large max lengths */   
 p_value_stats *sub_p_value_many_alt(JumpProcess *jp, MSA *msa, List *feats, 
                                 double ci /* confidence interval; if
                                              -1, posterior mean will
@@ -928,6 +933,8 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
                                                    UPPER);
     vec_free(cond);
 
+    stats[idx].cond_p_approx = FALSE;
+
     /* marginal p-values */
     stats[idx].p_cons_left = pv_p_value(prior_marg_left[len], 
                                         stats[idx].post_max_left, LOWER);
@@ -965,11 +972,6 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
 
   return stats;
 }
-
-/* used by sub_p_value_joint_many_alt: maximum size of matrix for
-   which to do explicit convolution; computational complexity is
-   proportional to square of this number */
-#define MAX_CONVOLVE_SIZE 22500
 
 /* compute maximum length of element for which to do explicit
    convolution, based on given means and standard devs for subtrees,
@@ -1176,16 +1178,12 @@ sub_p_value_joint_many_alt(JumpProcess *jp, MSA *msa, List *feats,
     sd_l = sqrt(stats[idx].prior_var_left);
     sd_r = sqrt(stats[idx].prior_var_right);
     cond = prior != NULL ? pm_x_given_tot(prior, stats[idx].post_min_tot) :
-/*       pm_x_given_tot_bvn(stats[idx].post_min_tot, stats[idx].prior_mean_left,  */
-/*                          stats[idx].prior_mean_right, sd_l, sd_r, rho); */
       pm_x_given_tot_indep(stats[idx].post_min_tot, prior_marg_left, prior_marg_right);
     stats[idx].cond_p_cons_left = pv_p_value(cond, stats[idx].post_max_left, 
                                              LOWER);
     vec_free(cond);
 
     cond = prior != NULL ? pm_x_given_tot(prior, stats[idx].post_max_tot) :
-/*       pm_x_given_tot_bvn(stats[idx].post_max_tot, stats[idx].prior_mean_left,  */
-/*                          stats[idx].prior_mean_right, sd_l, sd_r, rho); */
       pm_x_given_tot_indep(stats[idx].post_max_tot, prior_marg_left, prior_marg_right);
     stats[idx].cond_p_anti_cons_left = pv_p_value(cond, 
                                                   stats[idx].post_min_left, 
@@ -1193,21 +1191,19 @@ sub_p_value_joint_many_alt(JumpProcess *jp, MSA *msa, List *feats,
     vec_free(cond);
 
     cond = prior != NULL ? pm_y_given_tot(prior, stats[idx].post_min_tot) :
-/*       pm_y_given_tot_bvn(stats[idx].post_min_tot, stats[idx].prior_mean_left,  */
-/*                          stats[idx].prior_mean_right, sd_l, sd_r, rho); */
       pm_y_given_tot_indep(stats[idx].post_min_tot, prior_marg_left, prior_marg_right);
     stats[idx].cond_p_cons_right = pv_p_value(cond, stats[idx].post_max_right, 
                                               LOWER);
     vec_free(cond);
 
     cond = prior != NULL ? pm_y_given_tot(prior, stats[idx].post_max_tot) :
-/*       pm_y_given_tot_bvn(stats[idx].post_max_tot, stats[idx].prior_mean_left,  */
-/*                          stats[idx].prior_mean_right, sd_l, sd_r, rho); */
       pm_y_given_tot_indep(stats[idx].post_max_tot, prior_marg_left, prior_marg_right);
     stats[idx].cond_p_anti_cons_right = pv_p_value(cond, 
                                                    stats[idx].post_min_right, 
                                                    UPPER);
     vec_free(cond);
+
+    stats[idx].cond_p_approx = (prior == NULL ? TRUE : FALSE);
 
     /* marginal p-values */
     stats[idx].p_cons_left = pv_p_value(prior_marg_left, 

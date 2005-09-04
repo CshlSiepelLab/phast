@@ -31,7 +31,7 @@ typedef struct {
     cond_p_cons_right, cond_p_anti_cons_right;
   int prior_min_left, prior_min_right, prior_max_left, prior_max_right, 
     post_min_left, post_min_right, post_min_tot, post_max_left, post_max_right,
-    post_max_tot;
+    post_max_tot, cond_p_approx;
 } p_value_joint_stats;
 
 JumpProcess *sub_define_jump_process(TreeModel *mod);
