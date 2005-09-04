@@ -1,4 +1,4 @@
-/* $Id: prob_vector.c,v 1.4 2005-08-31 05:59:56 acs Exp $ 
+/* $Id: prob_vector.c,v 1.5 2005-09-04 05:28:15 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -210,24 +210,21 @@ Vector **pv_convolve_save(Vector *p, int n) {
 /* take convolution of a set of probability vectors.  If counts is
    NULL, then each distrib is assumed to have multiplicity 1 */
 Vector *pv_convolve_many(Vector **p, int *counts, int n) {
-  int i, j, k, x, max_x = 0, tot_count = 0, count;
+  int i, j, k, x, max_x = 0, tot_count = 0, count, thismax;
   Vector *q_i, *q_i_1;
-  double mean, var, tot_mean = 0, tot_var = 0;
+  double mean, var;
 
   for (i = 0; i < n; i++) {
     count = (counts == NULL ? 1 : counts[i]);
     tot_count += count;
     max_x += p[i]->size;
-    pv_stats(p[i], &mean, &var);
-    tot_mean += mean * count;
-    tot_var += var * count;
   }
 
   if (n == 1 && (counts == NULL || counts[0] == 1)) 
     /* no convolution necessary */
     return vec_create_copy(p[0]);
 
-  if (tot_count > 50) 
+  if (tot_count > 50) {
     /* use (Lyapunov's or Lindeberg's) central limit theorem to reduce
        size of vector to keep track of; convolution should be approx
        normal with mean tot_mean and variance tot_var.  We'll go to 6
@@ -237,22 +234,32 @@ Vector *pv_convolve_many(Vector **p, int *counts, int n) {
        this seems okay here.  We're also implicitly assuming some
        regularity conditions (see
        http://en.wikipedia.org/wiki/Central_limit_theorem).  */
+    double tot_mean = 0, tot_var = 0;
+    for (i = 0; i < n; i++) {
+      pv_stats(p[i], &mean, &var);
+      count = (counts == NULL ? 1 : counts[i]);
+      tot_mean += mean * count;
+      tot_var += var * count;
+    }
     max_x = ceil(tot_mean + 6 * sqrt(tot_var));
-    
+  }
+
   q_i = vec_new(max_x);
   q_i_1 = vec_new(max_x);
 
   /* compute convolution recursively */
   vec_zero(q_i_1);
-  for (x = 0; x < p[0]->size; x++)
+  thismax = min(p[0]->size, max_x);
+  for (x = 0; x < thismax; x++)
     q_i_1->data[x] = p[0]->data[x];
 
   for (i = 0; i < n; i++) {
     count = (counts == NULL ? 1 : counts[i]);
     if (i == 0) count--; /* initialization takes care of first one */
+    thismax = min(max_x, thismax + p[i]->size);
     for (k = 0; k < count; k++) {
       vec_zero(q_i);
-      for (x = 0; x < q_i->size; x++) {
+      for (x = 0; x < thismax; x++) {
         for (j = max(0, x - p[i]->size + 1); j <= x; j++) 
           q_i->data[x] += q_i_1->data[j] * p[i]->data[x - j];
       }
@@ -294,7 +301,7 @@ Vector *pv_poisson(double lambda) {
 /* convolve distribution n times, using a faster algorithm than the
    ones above; time is proportional to log(n) rather than n */
 Vector *pv_convolve_fast(Vector *p, int n) {
-  int i, j;
+  int i, j, checksum;
   int logn = floor(log2(n));
   Vector *pow_p[64], *pows[64];
   Vector *retval;
@@ -313,12 +320,15 @@ Vector *pv_convolve_fast(Vector *p, int n) {
     pow_p[i] = pv_convolve(pow_p[i-1], 2);
 
   /* now combine powers to get desired convolution */
-  j = 0;
+  j = checksum = 0;
   for (i = 0; i <= logn; i++) {
     unsigned bit_i = (n >> i) & 1;
-    if (bit_i)
+    if (bit_i) {
       pows[j++] = pow_p[i];
+      checksum += int_pow(2, i);
+    }
   }
+  assert(checksum == n);
   
   retval = pv_convolve_many(pows, NULL, j);
 
