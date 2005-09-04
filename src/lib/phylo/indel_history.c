@@ -1,4 +1,4 @@
-/* $Id: indel_history.c,v 1.4 2005-09-04 21:27:30 acs Exp $
+/* $Id: indel_history.c,v 1.5 2005-09-04 22:04:39 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -322,7 +322,7 @@ IndelHistory *ih_new_from_file(FILE* inf) {
   return ih;
 } 
 
-/* extract an indel history from an augmented alignment, which has
+/* extract an indel history from an augmented alignment, including
    sequences for ancestral nodes as well as leaves */
 IndelHistory *ih_extract_from_alignment(MSA *msa, TreeNode *tree) {
   int i, j;
@@ -363,6 +363,12 @@ IndelHistory *ih_extract_from_alignment(MSA *msa, TreeNode *tree) {
       if (ih->indel_strings[n->id][j] == INS && 
           ih->indel_strings[n->parent->id][j] != INS)
         ih->indel_strings[n->id][j] = DEL;
+
+      /* also check for violation of rule that bases cannot derive
+         from deletions */
+      else if (ih->indel_strings[n->id][j] == BASE && 
+               ih->indel_strings[n->parent->id][j] == DEL)
+        die("ERROR: illegal history in column %d; deletions cannot re-emerge as aligned bases.\n", j);
     }
   }
 
