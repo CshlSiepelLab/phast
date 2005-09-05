@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.48 2005-09-05 23:03:54 acs Exp $
+/* $Id: msa.c,v 1.49 2005-09-05 23:19:34 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -166,8 +166,7 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
       for (k = 0; line[k] != '\0'; k++) {
         char base;
         if (isspace(line[k])) continue;
-        if (do_toupper)
-          base = toupper(line[k]);
+        base = do_toupper ? toupper(line[k]) : line[k];
         if (base == '.' && msa->inv_alphabet[(int)'.'] == -1) 
           base = msa->missing[0]; /* interpret '.' as missing data;
                                      maybe no longer necessary */
@@ -309,8 +308,7 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
 
     /* scan chars and adjust if necessary */
     for (j = 0; j < maxlen; j++) {
-      if (do_toupper)
-        msa->seqs[i][j] = toupper(s->chars[j]);
+      msa->seqs[i][j] = do_toupper ? toupper(s->chars[j]) : s->chars[j];
       if (msa->seqs[i][j] == '.' && msa->inv_alphabet[(int)'.'] == -1) 
         msa->seqs[i][j] = msa->missing[0]; /* interpret '.' as missing
                                               data; maybe no longer

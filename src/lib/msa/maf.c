@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.20 2005-09-05 23:10:43 acs Exp $
+/* $Id: maf.c,v 1.21 2005-09-05 23:19:34 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -458,8 +458,8 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
     assert(str_equals_charstr(this_name, mini_msa->names[seqidx]));
 
     for (i = 0; i < this_seq->length; i++) {
-      if (do_toupper)
-        mini_msa->seqs[seqidx][i] = toupper(this_seq->chars[i]);
+      mini_msa->seqs[seqidx][i] = do_toupper ? toupper(this_seq->chars[i]) : 
+        this_seq->chars[i];
       if (mini_msa->seqs[seqidx][i] == '.' && mini_msa->inv_alphabet[(int)'.'] == -1) 
         mini_msa->seqs[seqidx][i] = mini_msa->missing[0];
       if (mini_msa->seqs[seqidx][i] != GAP_CHAR && 
