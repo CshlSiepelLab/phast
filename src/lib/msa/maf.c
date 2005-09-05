@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.21 2005-09-05 23:19:34 acs Exp $
+/* $Id: maf.c,v 1.22 2005-09-05 23:24:38 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -359,6 +359,10 @@ MSA *maf_read(FILE *F,          /**< MAF file */
         if (msa->inv_alphabet[(int)ss_get_char_pos(msa, msa_idx, 0, 0)] == -1 &&
             msa->inv_alphabet[(int)refseq->chars[i]] == -1)
           ;                     /* okay */
+        /* (also make an exception if one is softmasked and the other isn't) */
+        if (!do_toupper && toupper(refseq->chars[i]) == 
+            toupper(ss_get_char_pos(msa, msa_idx, 0, 0)))
+          ;
         else 
           die("ERROR: character '%c' at position %d of reference sequence does not match character '%c' given in MAF file.\n", refseq->chars[i], i, ss_get_char_pos(msa, msa_idx, 0, 0));
       }
