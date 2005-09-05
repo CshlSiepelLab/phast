@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.31 2005-09-05 23:03:53 acs Exp $
+/* $Id: msa_view.c,v 1.32 2005-09-05 23:37:16 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -170,6 +170,9 @@ OPTIONS:\n\
         Alphabetical letters not in the alphabet will be converted to\n\
         'N's upon input.  This option is ignored with SS input (alphabet\n\
         specified within SS files.)\n\
+\n\
+    --soft-masked, -f\n\
+        Implies --alphabet 'ACGTNacgtn', useful for soft-masked sequences.\n\
 \n\
     --pretty, -P\n\
         Pretty-print alignment (use '.' when character matches\n\
@@ -438,6 +441,7 @@ int main(int argc, char* argv[]) {
     {"in-format", 1, 0, 'i'},
     {"out-format", 1, 0, 'o'},
     {"alphabet", 1, 0, 'a'},
+    {"soft-masked", 0, 0, 'f'},
     {"pretty", 0, 0, 'P'},
     {"tuple-size", 1, 0, 'T'},
     {"unordered-ss", 0, 0, 'z'},
@@ -465,7 +469,7 @@ int main(int argc, char* argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:DVxPzRSk4mh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:fDVxPzRSk4mh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
@@ -500,6 +504,9 @@ int main(int argc, char* argv[]) {
       break;
     case 'a':
       alphabet = optarg;
+      break;
+    case 'f':
+      alphabet = "ACGTNacgtn";
       break;
     case 'r':
       refseq = get_arg_int(optarg);
