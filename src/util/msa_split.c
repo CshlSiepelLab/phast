@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.23 2005-06-22 07:11:19 acs Exp $
+/* $Id: msa_split.c,v 1.24 2005-09-05 23:03:53 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -586,7 +586,7 @@ int main(int argc, char* argv[]) {
 
     msa = maf_read(fopen_fname(msa_fname, "r"), 
                    rseq_fname == NULL ? NULL : fopen_fname(rseq_fname, "r"), 
-                   tuple_size, gff, cm, -1, TRUE, NULL, NO_STRIP, FALSE); 
+                   tuple_size, NULL, gff, cm, -1, TRUE, NULL, NO_STRIP, FALSE); 
     /* NOTE: no support yet for reverse complementing groups on
        reverse strand in MAF case */
   }

@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
   if (!prior_only) {
     msa_f = fopen_fname(argv[optind+1], "r");
     if (msa_format == MAF) 
-      msa = maf_read(msa_f, NULL, 1, NULL, NULL, -1, 
+      msa = maf_read(msa_f, NULL, 1, NULL, NULL, NULL, -1, 
                      feats == NULL ? FALSE : TRUE, /* --features requires order */
                      NULL, NO_STRIP, FALSE); 
     else 

@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.18 2005-08-30 16:32:26 acs Exp $
+/* $Id: maf.c,v 1.19 2005-09-05 23:03:54 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -31,6 +31,8 @@ MSA *maf_read(FILE *F,          /**< MAF file */
                                    are represented as Ns  */
               int tuple_size,   /**< tuple size for sufficient
                                    statistics */
+              char *alphabet,   /**< alphabet for alignment; if NULL,
+                                   DEFAULT_ALPHABET is assumed */
               GFF_Set *gff,     /**< optional GFF_Set.  If non-NULL,
                                    category-specific counts will be
                                    collected (cm must be non-NULL
@@ -122,7 +124,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
   /* scan MAF file for total number of sequences and their names, and
      initialize msa accordingly.  Simultaneously build coordinate map,
      if necessary */
-  msa = msa_new(NULL, NULL, -1, 0, NULL);
+  msa = msa_new(NULL, NULL, -1, 0, alphabet);
   maf_peek(F, &msa->names, name_hash, &msa->nseqs, map, redundant_blocks, 
            keep_overlapping, &refseqlen);
   /* NOTE: it seems as if this could be avoided when store_order == 0,
@@ -131,7 +133,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
      encountered tuples would have to be redefined  */
 
   /* init MSA object to be used for individual blocks */
-  mini_msa = msa_new(NULL, msa->names, msa->nseqs, -1, NULL);
+  mini_msa = msa_new(NULL, msa->names, msa->nseqs, -1, alphabet);
                                 /* note that names are shared */
 
   if (cm != NULL) msa->ncats = mini_msa->ncats = cm->ncats;
@@ -490,81 +492,6 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
 
   return 0;
 }
-
-/** Reads a block from a MAF file and returns it as a new MSA object.
-    Reads to next "a" line or EOF.  Returns NULL when no more
-    alignments are available.  This is a slightly less efficient but
-    simpler and more flexible version of maf_read_block.  */
-MSA *maf_read_next_msa(FILE *F) {
-
-  int seqidx = 0, i, firstcall = 0;
-  String *this_seq, *this_name, *linebuffer = str_new(STR_VERY_LONG_LEN);
-  List *l = lst_new_ptr(7);
-
-  MSA *msa = msa_new(NULL, NULL, 0, -1, NULL);
-  while (str_readline(linebuffer, F) != EOF) {
-    if (str_starts_with_charstr(linebuffer, "#")) {
-      firstcall = 1;            /* probably but not guaranteed */
-      continue;
-    }
-    else if (str_starts_with_charstr(linebuffer, "a")) {
-      if (firstcall) { firstcall = 0; continue; }
-      break;
-    }
-    str_trim(linebuffer);
-    if (linebuffer->length == 0) continue;
-
-    /* if we get here, linebuffer should contain a sequence line */
-    str_split(linebuffer, NULL, l);    
-    if (lst_size(l) != 7 || !str_equals_charstr(lst_get_ptr(l, 0), "s")) {
-      fprintf(stderr, "ERROR: bad sequence line in MAF file --\n\t\"%s\"\n", linebuffer->chars);
-      exit(1);
-    }
-    this_name = lst_get_ptr(l, 1);
-    this_seq = lst_get_ptr(l, 6);
-
-    /* ensure lengths of all seqs are consistent */
-    if (msa->length == -1) msa->length = this_seq->length;
-    else if (this_seq->length != msa->length) {
-      fprintf(stderr, "ERROR: sequence lengths do not match in MAF block -- \n\tsee line \"%s\"\n", linebuffer->chars);
-      exit(1);
-    }
-
-    /* add new sequence and name */
-    msa->nseqs++;
-    msa->names = srealloc(msa->names, msa->nseqs * sizeof(char*));
-    msa->seqs = srealloc(msa->seqs, msa->nseqs * sizeof(char*));
-    msa->names[seqidx] = strdup(this_name->chars);
-    msa->seqs[seqidx] = smalloc((msa->length+1) * sizeof(char));
-    for (i = 0; i < this_seq->length; i++) {
-      msa->seqs[seqidx][i] = toupper(this_seq->chars[i]);
-      if (msa->seqs[seqidx][i] == '.')
-        msa->seqs[seqidx][i] = msa->missing[0];
-      if (msa->seqs[seqidx][i] != GAP_CHAR && 
-          !msa->is_missing[(int)msa->seqs[seqidx][i]] &&
-          msa->inv_alphabet[(int)msa->seqs[seqidx][i]] == -1) {
-        fprintf(stderr, "ERROR: unrecognized character in sequence in MAF block ('%c')\n",
-                msa->seqs[seqidx][i]);
-        exit(1);
-      }
-    }
-    msa->seqs[seqidx][this_seq->length] = '\0';
-    seqidx++;
-
-    for (i = 0; i < lst_size(l); i++) str_free(lst_get_ptr(l, i));
-  }
-
-  lst_free(l);
-  str_free(linebuffer);
-
-  if (msa->length == -1) {
-    msa_free(msa);
-    return NULL; 
-  }
-
-  return msa;
-}
-
 
 /* these are used in the function below */
 struct gap_pair {

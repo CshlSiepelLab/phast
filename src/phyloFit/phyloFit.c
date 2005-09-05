@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.32 2005-08-21 17:43:34 acs Exp $
+   $Id: phyloFit.c,v 1.33 2005-09-05 23:03:54 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -836,7 +836,8 @@ int main(int argc, char *argv[]) {
   if (!quiet) fprintf(stderr, "Reading alignment from %s ...\n", msa_fname);
   if (input_format == MAF) {
     msa = maf_read(fopen_fname(msa_fname, "r"), NULL, tm_order(subst_mod) + 1, 
-                   gff, cm, nonoverlapping ? tm_order(subst_mod) + 1 : -1, 
+                   NULL, gff, cm, 
+                   nonoverlapping ? tm_order(subst_mod) + 1 : -1, 
                    FALSE, reverse_group_tag, NO_STRIP, FALSE);
     if (gaps_as_bases) msa_reset_alphabet(msa, alph);
   }

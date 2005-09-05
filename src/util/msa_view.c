@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.30 2005-08-30 16:32:26 acs Exp $
+/* $Id: msa_view.c,v 1.31 2005-09-05 23:03:53 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -656,7 +656,7 @@ int main(int argc, char* argv[]) {
                                    forget -z */
 
     msa = maf_read(fopen_fname(infname, "r"), RSEQF, tuple_size, 
-                   gff, cm, cycle_size, 
+                   alphabet, gff, cm, cycle_size, 
                    output_format != SS || ordered_stats, 
                    reverse_groups_tag, gap_strip_mode, maf_keep_overlapping);
                                 /* store order unless output is SS and

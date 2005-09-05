@@ -61,14 +61,14 @@ int main(int argc, char *argv[]) {
     die("Two filenames required.  Try 'msa_diff -h'.\n");
 
   if (format1 == MAF) 
-    msa1 = maf_read(fopen_fname(argv[optind], "r"), NULL, 1, NULL, NULL, 
-                                -1, TRUE, NULL, NO_STRIP, FALSE);
+    msa1 = maf_read(fopen_fname(argv[optind], "r"), NULL, 1, alphabet,
+                    NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
   else
     msa1 = msa_new_from_file(fopen_fname(argv[optind], "r"), 
                              format1, alphabet);
   if (format2 == MAF)
-    msa2 = maf_read(fopen_fname(argv[optind+1], "r"), NULL, 1, NULL, NULL, 
-                                -1, TRUE, NULL, NO_STRIP, FALSE);
+    msa2 = maf_read(fopen_fname(argv[optind+1], "r"), NULL, 1, alphabet,
+                    NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
   else 
     msa2 = msa_new_from_file(fopen_fname(argv[optind+1], "r"), 
                              format2, alphabet);

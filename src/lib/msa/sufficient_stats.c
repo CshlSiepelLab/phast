@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.21 2005-05-28 21:31:06 acs Exp $
+/* $Id: sufficient_stats.c,v 1.22 2005-09-05 23:03:54 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -396,7 +396,7 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
 
     F = fopen_fname(fname->chars, "r");
     if (format == MAF)
-      source_msa = maf_read(F, NULL, tuple_size, NULL, NULL, cycle_size, 
+      source_msa = maf_read(F, NULL, tuple_size, NULL, NULL, NULL, cycle_size, 
                             FALSE, NULL, NO_STRIP, FALSE); 
                                 /* note: assuming unordered, not allowing
                                    overlapping blocks */

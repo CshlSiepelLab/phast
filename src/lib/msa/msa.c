@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.47 2005-08-30 16:32:26 acs Exp $
+/* $Id: msa.c,v 1.48 2005-09-05 23:03:54 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -92,12 +92,23 @@ MSA *msa_new(char **seqs, char **names, int nseqs, int length, char *alphabet) {
   return msa;
 }
 
+/* return TRUE if alphabet has lowercase letters, FALSE otherwise;
+   used below in deciding whether to change all letters to uppercase
+   automatically (not done if lowercase letters in alphabet) */
+int msa_alph_has_lowercase(MSA *msa) {
+  int i;
+  for (i = 0; msa->alphabet[i] != '\0'; i++)
+    if (msa->alphabet[i] >= 'a' && msa->alphabet[i] <= 'z')
+      return TRUE;
+  return FALSE;
+}
+
 /** Creates a new alignment from the contents of the specified file,
    which is assumed to use the specified format.  If "alphabet" is
    NULL, default alphabet for DNA will be used.  This routine will
    abort if the sequence contains a character not in the alphabet. */
 MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
-  int i, j, k, nseqs, len;
+  int i, j, k, nseqs, len, do_toupper;
   MSA *msa;
   String *tmpstr = str_new(STR_MED_LEN);
 
@@ -109,10 +120,8 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
     return ss_read(F, alphabet);
 
   if (format == PHYLIP || format == MPM) {
-    if (fscanf(F, "%d %d", &nseqs, &len) <= 0) {
-      fprintf(stderr, "ERROR: PHYLIP or MPM file missing initial length declaration.\n");
-      exit(1);
-    }
+    if (fscanf(F, "%d %d", &nseqs, &len) <= 0) 
+      die("ERROR: PHYLIP or MPM file missing initial length declaration.\n");
   }
 
   /* we'll initialize the MSA first, so that we can use its
@@ -120,6 +129,9 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
   msa = msa_new(NULL, NULL, nseqs, len, alphabet);
   msa->names = (char**)smalloc(nseqs * sizeof(char*));
   msa->seqs = (char**)smalloc(nseqs * sizeof(char*));
+
+  /* upcase chars unless there are lowercase characters in the alphabet */
+  do_toupper = !msa_alph_has_lowercase(msa);    
 
   for (i = 0; i < nseqs; i++) {
     msa->names[i] = (char*)smalloc(STR_MED_LEN * sizeof(char));
@@ -154,7 +166,8 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
       for (k = 0; line[k] != '\0'; k++) {
         char base;
         if (isspace(line[k])) continue;
-        base = toupper(line[k]);
+        if (do_toupper)
+          base = toupper(line[k]);
         if (base == '.' && msa->inv_alphabet[(int)'.'] == -1) 
           base = msa->missing[0]; /* interpret '.' as missing data;
                                      maybe no longer necessary */
@@ -172,10 +185,8 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
     }
     /* should reach end of line and j=len simultaneously; otherwise
      * sequence is not advertised length */
-    if (line[k] != '\0') {
-      fprintf(stderr, "ERROR: sequence of improper length in multiple sequence alignment.\n"); 
-      exit(1);
-    }
+    if (line[k] != '\0') 
+      die("ERROR: bad sequence length in multiple alignment.\n"); 
 
     msa->seqs[i][j] = '\0';
   }
@@ -232,7 +243,7 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
   List *names = lst_new_ptr(10);
   List *seqs = lst_new_ptr(10);
   static Regex *descrip_re = NULL;
-  int maxlen, i, nseqs, j;
+  int maxlen, i, nseqs, j, do_toupper;
   String *line = str_new(STR_MED_LEN);
   List *l = lst_new_ptr(2);
   String *new_str = NULL;
@@ -282,6 +293,10 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
   msa = msa_new(NULL, NULL, nseqs, maxlen, alphabet);
   msa->names = (char**)smalloc(nseqs * sizeof(char*));
   msa->seqs = (char**)smalloc(nseqs * sizeof(char*));
+
+  /* upcase chars unless there are lowercase characters in the alphabet */
+  do_toupper = !msa_alph_has_lowercase(msa);    
+
   for (i = 0; i < nseqs; i++) {
     String *n, *s;
     n = (String*)lst_get_ptr(names, i);
@@ -294,7 +309,8 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
 
     /* scan chars and adjust if necessary */
     for (j = 0; j < maxlen; j++) {
-      msa->seqs[i][j] = toupper(s->chars[j]);
+      if (do_toupper)
+        msa->seqs[i][j] = toupper(s->chars[j]);
       if (msa->seqs[i][j] == '.' && msa->inv_alphabet[(int)'.'] == -1) 
         msa->seqs[i][j] = msa->missing[0]; /* interpret '.' as missing
                                               data; maybe no longer
@@ -2106,3 +2122,4 @@ void msa_missing_to_gaps(MSA *msa, int refseq) {
     }
   }
 }
+
