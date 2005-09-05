@@ -1,4 +1,4 @@
-/* $Id: maf.h,v 1.4 2005-09-05 23:03:54 acs Exp $
+/* $Id: maf.h,v 1.5 2005-09-05 23:10:43 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -30,7 +30,7 @@ MSA *maf_read(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
               char *reverse_groups, int gap_strip_mode, int keep_overlapping);
 
 int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
-                 int *start_idx, int *length);
+                   int *start_idx, int *length, int do_toupper);
 
 void maf_peek(FILE *F, char ***names, Hashtable *name_hash, 
               int *nseqs, msa_coord_map *map, List *redundant_blocks,

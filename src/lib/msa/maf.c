@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.19 2005-09-05 23:03:54 acs Exp $
+/* $Id: maf.c,v 1.20 2005-09-05 23:10:43 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -86,7 +86,8 @@ MSA *maf_read(FILE *F,          /**< MAF file */
    reference sequence make it difficult to assign sites to categories
    rationally).  */
 
-  int i, start_idx, length, max_tuples, block_no, rbl_idx, refseqlen = -1;
+  int i, start_idx, length, max_tuples, block_no, rbl_idx, 
+    refseqlen = -1, do_toupper;
   Hashtable *tuple_hash;
   Hashtable *name_hash = hsh_new(25);
   MSA *msa, *mini_msa;
@@ -132,6 +133,9 @@ MSA *maf_read(FILE *F,          /**< MAF file */
      new seq was encountered midway in the file, all previously
      encountered tuples would have to be redefined  */
 
+  /* upcase chars unless there are lowercase characters in the alphabet */
+  do_toupper = !msa_alph_has_lowercase(msa);    
+
   /* init MSA object to be used for individual blocks */
   mini_msa = msa_new(NULL, msa->names, msa->nseqs, -1, alphabet);
                                 /* note that names are shared */
@@ -174,7 +178,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
   block_no = 0;
   rbl_idx = 0;
   while (maf_read_block(F, mini_msa, name_hash, &start_idx, 
-                        &length) != EOF) {
+                        &length, do_toupper) != EOF) {
     int idx_offset;
 
     /* ignore if block is marked as redundant */
@@ -293,7 +297,8 @@ MSA *maf_read(FILE *F,          /**< MAF file */
           msa->missing[0] :
           ss_get_char_pos(msa, msa_idx, 0, 0);
 
-      refseq->chars[i] = toupper(refseq->chars[i]);
+      if (do_toupper)
+        refseq->chars[i] = toupper(refseq->chars[i]);
 
       if (msa->inv_alphabet[(int)refseq->chars[i]] < 0 &&
           refseq->chars[i] != GAP_CHAR &&
@@ -385,7 +390,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
    sequence indices (prefix of name wrt '.' character); sequences not
    present in a block will be represented by missing-data characters. */
 int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
-                   int *start_idx, int *length) {
+                   int *start_idx, int *length, int do_toupper) {
 
   int seqidx, more_blocks = 0, i, j;
   String *this_seq, *linebuffer = str_new(STR_VERY_LONG_LEN);
@@ -453,7 +458,8 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
     assert(str_equals_charstr(this_name, mini_msa->names[seqidx]));
 
     for (i = 0; i < this_seq->length; i++) {
-      mini_msa->seqs[seqidx][i] = toupper(this_seq->chars[i]);
+      if (do_toupper)
+        mini_msa->seqs[seqidx][i] = toupper(this_seq->chars[i]);
       if (mini_msa->seqs[seqidx][i] == '.' && mini_msa->inv_alphabet[(int)'.'] == -1) 
         mini_msa->seqs[seqidx][i] = mini_msa->missing[0];
       if (mini_msa->seqs[seqidx][i] != GAP_CHAR && 
