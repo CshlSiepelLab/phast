@@ -15,13 +15,13 @@ DESCRIPTION:
 
 OPTIONS:
     --alpha, -a <val>
-        Starting value of alpha, the insertion rate.  Default is 0.05.
+        Starting value of alpha, the insertion rate.  Default is 0.02.
 
     --beta, -b <val>
-        Starting value of beta, the deletion rate.  Default is 0.05.
+        Starting value of beta, the deletion rate.  Default is 0.04.
 
     --tau, -t <val>
-        Starting value of tau, the length parameter.  Default is 0.2.
+        Starting value of tau, the length parameter.  Default is 0.05.
 
     --lnl, -L
         Compute log likelihood of model only, without optimizing parameters.
@@ -29,6 +29,15 @@ OPTIONS:
 
     --columns, -c
         Output log likelihood of each column.
+
+    --features, -f <file.gff>
+        Estimate separate parameters for each type of feature in the given
+        file, as well as for background sites.
+
+    --reference, -r <name>
+        (For use with --features) Name of species (node of tree) defining
+        coordinate frame of features.  By default, the coordinate frame of
+        the entire alignment is assumed.
 
     --log, -l <file>
         Write log of optimization to specified file.

@@ -1,4 +1,4 @@
-/* $Id: indel_mod.c,v 1.5 2005-09-03 00:03:11 acs Exp $
+/* $Id: indel_mod.c,v 1.6 2005-09-06 07:05:01 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -352,25 +352,14 @@ void im_likelihood_gradient(Vector *grad, Vector *params, void *data,
 
 /* estimate alpha, beta, and tau from an indel history by
    maximum likelihood */
-void im_estimate(IndelModel *im, IndelHistory *ih, FILE *logf) {
+void im_estimate(IndelModel *im, IndelHistory *ih, IndelSuffStats *ss, 
+                 FILE *logf) {
   Vector *params = vec_new(3), *lb = vec_new(3), *ub = vec_new(3);
   struct likelihood_data *d = smalloc(sizeof(struct likelihood_data));
   double neglogl;
-  int i;
-
-  /* ensure trees are compatible */
-  if (im->tree->nnodes != ih->tree->nnodes)
-    die("ERROR: trees for indel model and indel history don't match.\n");
-  for (i = 0; i < im->tree->nnodes; i++) {
-    TreeNode *n1 = lst_get_ptr(im->tree->nodes, i);
-    TreeNode *n2 = lst_get_ptr(ih->tree->nodes, i);
-    if (n1->name[0] != '\0' && n2->name[0] != '\0' && 
-        strcmp(n1->name, n2->name) != 0)
-      die("ERROR: trees for indel model and indel history don't match.\n");
-  }
 
   d->im = im;
-  d->ss = im_suff_stats(ih);
+  d->ss = ss;
   vec_set(params, 0, im->alpha);
   vec_set(params, 1, im->beta);
   vec_set(params, 2, im->tau);
@@ -388,5 +377,79 @@ void im_estimate(IndelModel *im, IndelHistory *ih, FILE *logf) {
   vec_free(lb);
   im_free_suff_stats(d->ss);
   free(d);
+}
+
+/* collect sufficient stats for a branch, considering only sites in
+   the specified category */
+BranchIndelSuffStats *im_suff_stats_branch_cat(IndelHistory *ih, int child_id,
+                                               int *categories, int do_cat) {
+  int i, j;
+  char c;
+  col_type this_type, last_type;
+  int parent_id = ((TreeNode*)lst_get_ptr(ih->tree->nodes, child_id))->parent->id;
+  BranchIndelSuffStats *ss = smalloc(sizeof(BranchIndelSuffStats));
+  ss->trans_counts = mat_new(NINDEL_STATES, NINDEL_STATES);
+  ss->beg_counts = vec_new(NINDEL_STATES);
+  mat_zero(ss->trans_counts);
+  vec_zero(ss->beg_counts);
+
+  /* scan to first non-SKIP in category of interest */
+  for (i = 0; i < ih->ncols; i++) {
+    if (categories[i] != do_cat) continue;
+    if ((this_type = get_col_type(ih, child_id, parent_id, i)) != SKIP)
+      break;
+  }
+  if (i == ih->ncols) return ss;
+
+  ss->beg_counts->data[this_type]++;
+  last_type = this_type;
+  for (; i < ih->ncols; i++) {
+    this_type = get_col_type(ih, child_id, parent_id, i);
+
+    if (this_type == ERROR) {
+      fprintf(stderr, "ERROR at column %d of indel history:\n", i);
+      for (j = 0; j < ih->tree->nnodes; j++) {
+        if (ih->indel_strings[j][i] == BASE)
+          c = 'b';
+        else if (ih->indel_strings[j][i] == INS)
+          c = '^';
+        else
+          c = '.';
+        fprintf(stderr, "%25s %c\n", 
+                ((TreeNode*)lst_get_ptr(ih->tree->nodes, j))->name, c);
+      }
+      assert(0);
+    }
+    else if (this_type == SKIP) continue;
+
+    if (categories[i] == do_cat) 
+      ss->trans_counts->data[last_type][this_type]++;
+
+    last_type = this_type;      /* need to set last_type even if not
+                                   in category; will use if next site
+                                   is in category  */
+  }
+
+  return ss;  
+}
+
+/* collect sufficient stats, considering only sites in a particular
+   category */
+IndelSuffStats *im_suff_stats_cat(IndelHistory *ih, int *categories, 
+                                  int do_cat) {
+  int i;
+  IndelSuffStats *iss = smalloc(sizeof(IndelSuffStats));
+  iss->tree = ih->tree;
+  iss->branch_counts = smalloc(ih->tree->nnodes * sizeof(void*));
+  for (i = 0; i < ih->tree->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(ih->tree->nodes, i);
+    if (n == ih->tree) {
+      iss->branch_counts[i] = NULL;
+      continue;
+    }
+    iss->branch_counts[i] = im_suff_stats_branch_cat(ih, n->id, 
+                                                     categories, do_cat);
+  }
+  return iss;
 }
 

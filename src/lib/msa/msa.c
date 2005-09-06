@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.50 2005-09-06 00:58:09 acs Exp $
+/* $Id: msa.c,v 1.51 2005-09-06 07:05:01 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -365,8 +365,8 @@ void msa_free(MSA *msa) {
     if (msa->seqs != NULL && msa->seqs[i] != NULL) 
       free(msa->seqs[i]);
   }
-  free(msa->names);
-  free(msa->seqs);
+  if (msa->names != NULL) free(msa->names);
+  if (msa->seqs != NULL) free(msa->seqs);
   if (msa->alphabet != NULL) free(msa->alphabet);
   if (msa->categories != NULL) free(msa->categories);
   if (msa->ss != NULL) ss_free(msa->ss);

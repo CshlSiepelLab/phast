@@ -1,4 +1,4 @@
-/* $Id: indel_mod.h,v 1.1 2005-08-29 17:37:22 acs Exp $
+/* $Id: indel_mod.h,v 1.2 2005-09-06 07:05:01 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -59,6 +59,11 @@ BranchIndelSuffStats *im_suff_stats_branch(IndelHistory *ih, int child_id);
 IndelSuffStats *im_suff_stats(IndelHistory *ih);
 void im_free_suff_stats(IndelSuffStats *iss);
 double im_simulate_history(IndelModel *tim, int ncols);
-void im_estimate(IndelModel *im, IndelHistory *ih, FILE *logf);
+void im_estimate(IndelModel *im, IndelHistory *ih, IndelSuffStats *ss, 
+                 FILE *logf);
+BranchIndelSuffStats *im_suff_stats_branch_cat(IndelHistory *ih, int child_id,
+                                               int *categories, int do_cat);
+IndelSuffStats *im_suff_stats_cat(IndelHistory *ih, int *categories, 
+                                  int do_cat);
 
 #endif
