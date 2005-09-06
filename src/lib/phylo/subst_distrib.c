@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.20 2005-09-04 07:13:43 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.21 2005-09-06 01:25:44 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -230,7 +230,8 @@ Vector *sub_posterior_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
         for (a = 0; a < size; a++)
           L[node->id]->data[a][0] = 1;
       else {
-        assert(msa->inv_alphabet[(int)c] >= 0);
+        if (msa->inv_alphabet[(int)c] < 0)
+          die("ERROR: bad character in alignment ('%c')\n", c);
         L[node->id]->data[msa->inv_alphabet[(int)c]][0] = 1;
       }
 
