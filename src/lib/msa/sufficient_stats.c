@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.22 2005-09-05 23:03:54 acs Exp $
+/* $Id: sufficient_stats.c,v 1.23 2005-09-06 03:34:15 acs Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -666,10 +666,10 @@ MSA* ss_read(FILE *F, char *alphabet) {
   tuple_size_re = str_re_new("TUPLE_SIZE[[:space:]]*=[[:space:]]*([0-9]+)");
   ntuples_re = str_re_new("NTUPLES[[:space:]]*=[[:space:]]*([0-9]+)");
   names_re = str_re_new("NAMES[[:space:]]*=[[:space:]]*(.*)");
-  alph_re = str_re_new("ALPHABET[[:space:]]*=[[:space:]]*([A-Z ]+)");
+  alph_re = str_re_new("ALPHABET[[:space:]]*=[[:space:]]*([-.^A-Za-z ]+)");
   ncats_re = str_re_new("NCATS[[:space:]]*=[[:space:]]*([-0-9]+)");
   offset_re = str_re_new("IDX_OFFSET[[:space:]]*=[[:space:]]*([-0-9]+)");
-  tuple_re = str_re_new("^([0-9]+)[[:space:]]+([-A-Z ]+)[[:space:]]+([0-9.[:space:]]+)");
+  tuple_re = str_re_new("^([0-9]+)[[:space:]]+([-.^A-Za-z ]+)[[:space:]]+([0-9.[:space:]]+)");
   order_re = str_re_new("TUPLE_IDX_ORDER:");
   line = str_new(STR_MED_LEN);
   matches = lst_new_ptr(3);
