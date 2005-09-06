@@ -1,4 +1,4 @@
-/* $Id: indel_mod.c,v 1.6 2005-09-06 07:05:01 acs Exp $
+/* $Id: indel_mod.c,v 1.7 2005-09-06 16:51:26 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -20,8 +20,8 @@ BranchIndelModel *im_new_branch(double alpha, double beta, double tau,
   return bim;
 }
 
-IndelModel *im_new(double alpha, double beta, double tau, 
-                   TreeNode *tree) {
+IndelModel *im_new_all(double alpha, double beta, double tau, 
+                       TreeNode *tree) {
   int i;
   IndelModel *im = smalloc(sizeof(IndelModel));
   im->training_lnl = 0;
@@ -30,6 +30,21 @@ IndelModel *im_new(double alpha, double beta, double tau,
     TreeNode *n = lst_get_ptr(tree->nodes, i);
     if (n == tree) { im->branch_mods[i] = NULL; continue; }
     im->branch_mods[i] = im_new_branch(alpha, beta, tau, n->dparent);
+  }
+  im_set_all(im, alpha, beta, tau, tree);
+  return im;
+}
+
+IndelModel *im_new(double *alpha, double *beta, double *tau, 
+                   TreeNode *tree) {
+  int i;
+  IndelModel *im = smalloc(sizeof(IndelModel));
+  im->training_lnl = 0;
+  im->branch_mods = smalloc(tree->nnodes * sizeof(void*));
+  for (i = 0; i < tree->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(tree->nodes, i);
+    if (n == tree) { im->branch_mods[i] = NULL; continue; }
+    im->branch_mods[i] = im_new_branch(alpha[i], beta[i], tau[i], n->dparent);
   }
   im_set(im, alpha, beta, tau, tree);
   return im;
@@ -87,14 +102,14 @@ void im_set_branch(BranchIndelModel *bim, double alpha,
     for (j = 0; j < NINDEL_STATES; j++) {
       double prob = mm_get(bim->probs, i, j);
       if (prob < 0 || prob > 1) 
-        die("ERROR: invalid indel probability.  Alpha, beta, and/or gamma are probably too\nlarge given branch lengths.\n");
+        die("ERROR: invalid indel probability.  Alpha, beta, and/or tau are probably too\nlarge given branch lengths.\n");
       mat_set(bim->log_probs, i, j, log2(prob));
     }
     vec_set(bim->beg_log_probs, i, log2(vec_get(bim->beg_probs, i)));
   }
 }
 
-void im_set(IndelModel *im, double alpha, double beta, double tau, 
+void im_set_all(IndelModel *im, double alpha, double beta, double tau, 
             TreeNode *tree) {
   int i;
   im->alpha = alpha;
@@ -106,6 +121,19 @@ void im_set(IndelModel *im, double alpha, double beta, double tau,
     TreeNode *n = lst_get_ptr(tree->nodes, i);
     if (n != tree)
       im_set_branch(im->branch_mods[i], alpha, beta, tau, n->dparent);
+  }
+}
+
+void im_set(IndelModel *im, double *alpha, double *beta, double *tau,
+            TreeNode *tree) {
+  int i;
+  im->alpha = im->beta = im->tau = -1;
+  im->tree = tree;
+
+  for (i = 0; i < tree->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(tree->nodes, i);
+    if (n != tree)
+      im_set_branch(im->branch_mods[i], alpha[i], beta[i], tau[i], n->dparent);
   }
 }
 
@@ -289,8 +317,8 @@ struct likelihood_data {
 /* wrapper for likelihood function, for use in numerical maximization */
 double im_likelihood_wrapper(Vector *params, void *data) {
   struct likelihood_data *d = data;
-  im_set(d->im, vec_get(params, 0), vec_get(params, 1), vec_get(params, 2), 
-         d->im->tree);
+  im_set_all(d->im, vec_get(params, 0), vec_get(params, 1), vec_get(params, 2), 
+             d->im->tree);
   return -im_likelihood(d->im, d->ss);
 }
 
@@ -369,8 +397,8 @@ void im_estimate(IndelModel *im, IndelHistory *ih, IndelSuffStats *ss,
   opt_bfgs(im_likelihood_wrapper, params, d, &neglogl, lb, ub, logf,  
            im_likelihood_gradient, OPT_HIGH_PREC, NULL);  
 
-  im_set(im, vec_get(params, 0), vec_get(params, 1), 
-         vec_get(params, 2), im->tree);
+  im_set_all(im, vec_get(params, 0), vec_get(params, 1), 
+             vec_get(params, 2), im->tree);
   im->training_lnl = -neglogl * log(2);
   
   vec_free(params);

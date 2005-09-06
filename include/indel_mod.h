@@ -1,4 +1,4 @@
-/* $Id: indel_mod.h,v 1.2 2005-09-06 07:05:01 acs Exp $
+/* $Id: indel_mod.h,v 1.3 2005-09-06 16:51:26 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -44,12 +44,16 @@ typedef struct {
 
 BranchIndelModel *im_new_branch(double alpha, double beta, double tau,
                                 double t);
-IndelModel *im_new(double alpha, double beta, double tau,  TreeNode *tree);
+IndelModel *im_new_all(double alpha, double beta, double tau,  TreeNode *tree);
+IndelModel *im_new(double *alpha, double *beta, double *tau, 
+                   TreeNode *tree);
 void im_free_branch(BranchIndelModel *bim);
 void im_free(IndelModel *im);
 void im_set_branch(BranchIndelModel *bim, double alpha, double beta, 
                    double tau, double t);
-void im_set(IndelModel *im, double alpha, double beta, double tau, 
+void im_set_all(IndelModel *im, double alpha, double beta, double tau, 
+                TreeNode *tree);
+void im_set(IndelModel *im, double *alpha, double *beta, double *tau, 
             TreeNode *tree);
 double im_branch_column_logl(IndelHistory *ih, BranchIndelModel *bim, 
                              int child_id, double *col_logl);
