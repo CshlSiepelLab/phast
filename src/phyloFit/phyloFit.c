@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.33 2005-09-05 23:03:54 acs Exp $
+   $Id: phyloFit.c,v 1.34 2005-09-06 00:58:08 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -869,6 +869,7 @@ int main(int argc, char *argv[]) {
     root_leaf_id = rl->id;
   }
   
+  if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
   msa_remove_N_from_alph(msa);  /* for backward compatibility */
 
   /* set up for categories */

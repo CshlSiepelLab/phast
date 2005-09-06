@@ -328,6 +328,7 @@ int main(int argc, char *argv[]) {
       else if (msa->nseqs * 2 - 1 != tree->nnodes)
         die("ERROR: Tree must have 2n-1 nodes, where n is the number of sequences in the\nalignment.  Even with a reversible model, specify a rooted tree; the root\nwill be ignored in the optimization procedure.\n");
 
+      if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
       msa_remove_N_from_alph(msa); /* for backward compatibility */
 
       if (nsites == -1) nsites = msa->length;

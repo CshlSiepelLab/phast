@@ -261,6 +261,7 @@ int main(int argc, char *argv[]) {
       continue;
     }
 
+    if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
     msa_remove_N_from_alph(msa); /* Ns can be a problem */
     lst_push_ptr(msas, msa);
     if (has_motif != NULL) {

@@ -182,6 +182,8 @@ int main(int argc, char *argv[]) {
 
   if (verbose) fprintf(stderr, "Reading alignment ...\n");
   msa = msa_new_from_file(fopen_fname(argv[optind], "r"), inform, NULL);
+  if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
+  msa_remove_N_from_alph(msa);
 
   /* need ordered representation of alignment */
   if (msa->seqs == NULL && (msa->ss == NULL || msa->ss->tuple_idx == NULL) )

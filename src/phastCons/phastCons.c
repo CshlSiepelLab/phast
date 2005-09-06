@@ -356,6 +356,7 @@ int main(int argc, char *argv[]) {
   if (!quiet)
     fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
   msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
+  if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
   msa_remove_N_from_alph(msa);  /* for backward compatibility */
   if (msa_format == SS && msa->ss->tuple_idx == NULL) 
     die("ERROR: Ordered representation of alignment required.\n");

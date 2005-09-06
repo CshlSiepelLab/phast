@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.39 2005-06-22 07:11:20 acs Exp $
+/* $Id: exoniphy.c,v 1.40 2005-09-06 00:58:09 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -385,7 +385,9 @@ int main(int argc, char* argv[]) {
             !strcmp(argv[optind], "-") ? "stdin" : argv[optind]);
   
   msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
-  msa_remove_N_from_alph(msa);  /* for backward compatibility */
+  if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
+  msa_remove_N_from_alph(msa);
+
   if (msa_format == SS && msa->ss->tuple_idx == NULL) 
     die("ERROR: Ordered representation of alignment required.\n");
   if (not_informative != NULL)

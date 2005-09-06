@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.49 2005-09-05 23:19:34 acs Exp $
+/* $Id: msa.c,v 1.50 2005-09-06 00:58:09 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -90,17 +90,6 @@ MSA *msa_new(char **seqs, char **names, int nseqs, int length, char *alphabet) {
     msa->is_missing[(int)msa->missing[i]] = 1;
 
   return msa;
-}
-
-/* return TRUE if alphabet has lowercase letters, FALSE otherwise;
-   used below in deciding whether to change all letters to uppercase
-   automatically (not done if lowercase letters in alphabet) */
-int msa_alph_has_lowercase(MSA *msa) {
-  int i;
-  for (i = 0; msa->alphabet[i] != '\0'; i++)
-    if (msa->alphabet[i] >= 'a' && msa->alphabet[i] <= 'z')
-      return TRUE;
-  return FALSE;
 }
 
 /** Creates a new alignment from the contents of the specified file,
@@ -1925,9 +1914,9 @@ void msa_remove_N_from_alph(MSA *msa) {
   for (i = 0, j = 0; i < strlen(msa->alphabet); i++) 
     if (msa->alphabet[i] != 'N') {
       msa->alphabet[j++] = msa->alphabet[i];
-      msa->inv_alphabet[(int)'N'] = -1;
     }
   msa->alphabet[j] = '\0';
+  msa->inv_alphabet[(int)'N'] = -1;
 }
 
 /* for use with a reference-sequence alignment: find sites in the
@@ -2079,33 +2068,31 @@ void msa_reset_alphabet(MSA *msa, char *newalph) {
    reference sequence (if refseq > 0).  These will be replaced by
    randomly chosen bases (only use if Ns in reference sequence are rare) */
 void msa_missing_to_gaps(MSA *msa, int refseq) {
-  int i, j;
+  int i, j, k;
 
   assert(msa->seqs != NULL || msa->ss != NULL);
-  if (msa->seqs != NULL && msa->ss != NULL) {
-    ss_free(msa->ss);
-    msa->ss = NULL;
-  }
 
   if (msa->ss != NULL) {
     for (i = 0; i < msa->ss->ntuples; i++) {
       for (j = 0; j < msa->nseqs; j++) {
-        char c = ss_get_char_tuple(msa, i, j, 0);
-        if (msa->is_missing[(int)c]) {
-          if (j == refseq - 1 && c == 'N') {
-            int char_idx = 4.0 * random()/RAND_MAX;
-            set_col_char_in_string(msa, msa->ss->col_tuples[i], j, 
-                                   msa->ss->tuple_size, 0, 
-                                   msa->alphabet[char_idx]);
+        for (k = 0; k < msa->ss->tuple_size; k++) {
+          char c = ss_get_char_tuple(msa, i, j, -k);
+          if (msa->is_missing[(int)c]) {
+            if (j == refseq - 1 && c == 'N') {
+              int char_idx = 4.0 * random()/RAND_MAX;
+              set_col_char_in_string(msa, msa->ss->col_tuples[i], j, 
+                                     msa->ss->tuple_size, -k, 
+                                     msa->alphabet[char_idx]);
+            }
+            else
+              set_col_char_in_string(msa, msa->ss->col_tuples[i], j, 
+                                     msa->ss->tuple_size, -k, GAP_CHAR);
           }
-          else
-            set_col_char_in_string(msa, msa->ss->col_tuples[i], j, 
-                                   msa->ss->tuple_size, 0, GAP_CHAR);
         }
       }
     }
   }
-  else {                        /* full seqs */
+  if (msa->seqs != NULL) {
     for (i = 0; i < msa->nseqs; i++) {
       for (j = 0; j < msa->length; j++) {
         if (msa->is_missing[(int)msa->seqs[i][j]]) {
@@ -2121,3 +2108,51 @@ void msa_missing_to_gaps(MSA *msa, int refseq) {
   }
 }
 
+/* return TRUE if alphabet has lowercase letters, FALSE otherwise */
+int msa_alph_has_lowercase(MSA *msa) {
+  int i;
+  for (i = 0; msa->alphabet[i] != '\0'; i++)
+    if (msa->alphabet[i] >= 'a' && msa->alphabet[i] <= 'z')
+      return TRUE;
+  return FALSE;
+}
+
+/* replace all lowercase characters with uppercase characters, adjust
+   alphabet accordingly */
+void msa_toupper(MSA *msa) {
+  int i, j, k;
+
+  assert(msa->seqs != NULL || msa->ss != NULL);
+
+  for (i = 0, j = 0; msa->alphabet[i] != '\0'; i++) {
+    if (msa->alphabet[i] >= 'a' && msa->alphabet[i] <= 'z') {
+      char newc = toupper(msa->alphabet[i]);
+      msa->inv_alphabet[(int)msa->alphabet[i]] = -1; /* remove lower case */
+      if (msa->inv_alphabet[(int)newc] < 0) {
+        /* replace with new upper case version */
+        msa->alphabet[j] = newc; 
+        msa->inv_alphabet[(int)newc] = j;
+        j++;
+      }
+      /* otherwise don't add; upper case version already in alphabet */
+    }
+    else                        /* not lower case; keep in alphabet */
+      msa->alphabet[j++] = msa->alphabet[i];
+  }
+  msa->alphabet[j] = '\0';    
+
+  /* now replace all lowercase chars in alignment */
+  if (msa->ss != NULL) {
+    for (i = 0; i < msa->ss->ntuples; i++) 
+      for (j = 0; j < msa->nseqs; j++) 
+        for (k = 0; k < msa->ss->tuple_size; k++) 
+          set_col_char_in_string(msa, msa->ss->col_tuples[i], j, 
+                                 msa->ss->tuple_size, -k, 
+                                 toupper(ss_get_char_tuple(msa, i, j, -k)));
+  }
+  if (msa->seqs != NULL) {                        
+    for (i = 0; i < msa->nseqs; i++) 
+      for (j = 0; j < msa->length; j++) 
+        msa->seqs[i][j] = toupper(msa->seqs[i][j]);
+  }
+}

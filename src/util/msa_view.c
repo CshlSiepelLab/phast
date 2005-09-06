@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.32 2005-09-05 23:37:16 acs Exp $
+/* $Id: msa_view.c,v 1.33 2005-09-06 00:58:08 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -173,6 +173,9 @@ OPTIONS:\n\
 \n\
     --soft-masked, -f\n\
         Implies --alphabet 'ACGTNacgtn', useful for soft-masked sequences.\n\
+\n\
+    --unmask, -u\n\
+        Remove soft-masking; convert to uppercase.\n\
 \n\
     --pretty, -P\n\
         Pretty-print alignment (use '.' when character matches\n\
@@ -421,7 +424,8 @@ int main(int argc, char* argv[]) {
     ordered_stats = TRUE, indel_clean_nseqs = -1, cats_done = FALSE,
     rand_perm = FALSE, reverse_compl = FALSE, stats_only = FALSE, win_size = -1, 
     cycle_size = -1, maf_keep_overlapping = FALSE, collapse_missing = FALSE,
-    fourD = FALSE, mark_missing_maxsize = -1, missing_as_indels = FALSE;
+    fourD = FALSE, mark_missing_maxsize = -1, missing_as_indels = FALSE,
+    unmask = FALSE;
   char c;
   List *cats_to_do = NULL, *aggregate_list = NULL, *msa_fname_list = NULL, 
     *order_list = NULL, *fill_N_list = NULL;
@@ -442,6 +446,7 @@ int main(int argc, char* argv[]) {
     {"out-format", 1, 0, 'o'},
     {"alphabet", 1, 0, 'a'},
     {"soft-masked", 0, 0, 'f'},
+    {"unmask", 0, 0, 'u'},
     {"pretty", 0, 0, 'P'},
     {"tuple-size", 1, 0, 'T'},
     {"unordered-ss", 0, 0, 'z'},
@@ -469,7 +474,7 @@ int main(int argc, char* argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:fDVxPzRSk4mh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:fuDVxPzRSk4mh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
@@ -507,6 +512,9 @@ int main(int argc, char* argv[]) {
       break;
     case 'f':
       alphabet = "ACGTNacgtn";
+      break;
+    case 'u':
+      unmask = TRUE;
       break;
     case 'r':
       refseq = get_arg_int(optarg);
@@ -674,6 +682,9 @@ int main(int argc, char* argv[]) {
     msa = msa_new_from_file(fopen_fname(infname, "r"), input_format, alphabet);
     if (msa == NULL) die ("ERROR reading %s.\n", infname);
   }
+
+  if (unmask)
+    msa_toupper(msa);
 
   if (order_list != NULL)
     msa_reorder_rows(msa, order_list);

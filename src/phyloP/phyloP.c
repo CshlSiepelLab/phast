@@ -128,6 +128,9 @@ int main(int argc, char *argv[]) {
     if (msa->ss == NULL)
       ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);
 
+    if (msa_alph_has_lowercase(msa)) msa_toupper(msa);     
+    msa_remove_N_from_alph(msa);
+
     if (feats != NULL && msa->ss->tuple_idx == NULL)
       die("ERROR: ordered alignment required.\n");
   }
