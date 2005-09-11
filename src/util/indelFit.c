@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
   }
 
   for (cat = 0; cat < ncats; cat++) {
-    im = im_new(alpha, beta, tau, tree);
+    im = im_new_all(alpha, beta, tau, tree);
     ss = ncats == 1 ? im_suff_stats(ih) : im_suff_stats_cat(ih, cats, cat);
 
     if (lnl_only) 
