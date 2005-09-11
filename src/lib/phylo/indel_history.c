@@ -1,4 +1,4 @@
-/* $Id: indel_history.c,v 1.6 2005-09-11 18:24:48 acs Exp $
+/* $Id: indel_history.c,v 1.7 2005-09-11 18:30:28 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -607,9 +607,8 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
   for (i = 0; i < tree->nnodes; i++) {
     for (j = 0; j < msa->length; j++) {
       if (tup_hist[msa->ss->tuple_idx[j]][i] != BASE) {
-        assert(leaf_to_seq[i] < 0 || 
-               ss_get_char_tuple(msa, msa->ss->tuple_idx[j], 
-                                 leaf_to_seq[i], 0) == GAP_CHAR);
+        c = ss_get_char_tuple(msa, msa->ss->tuple_idx[j], leaf_to_seq[i], 0);
+        assert(leaf_to_seq[i] < 0 || c == GAP_CHAR || msa->is_missing[(int)c]);
         ih->indel_strings[i][j] = tup_hist[msa->ss->tuple_idx[j]][i];
       }
     }
