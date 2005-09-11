@@ -1,4 +1,4 @@
-/* $Id: indel_history.c,v 1.7 2005-09-11 18:30:28 acs Exp $
+/* $Id: indel_history.c,v 1.8 2005-09-11 21:05:08 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -433,22 +433,20 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
     tup_hist[tup] = smalloc(tree->nnodes * sizeof(char));
     for (i = 0; i < tree->nnodes; i++) tup_hist[tup][i] = BASE;
 
-    /* find min and max ids of seqs that actually have bases (non-gaps) */
+    /* find min and max ids of seqs that actually have bases (non-gaps
+       and non-missing-data) */
     for (s = 0; s < msa->nseqs; s++) {
       c = ss_get_char_tuple(msa, tup, s, 0);
       if (c == GAP_CHAR) {
         ngaps++;
         continue;
       }
-      if (msa->is_missing[(int)c]) nmissing++;
+      if (msa->is_missing[(int)c]) {
+        nmissing++;
+        continue;
+      }
       if (seq_to_leaf[s] < min) min = seq_to_leaf[s];
       if (seq_to_leaf[s] > max) max = seq_to_leaf[s];
-
-      /* NOTE: missing data being handled like bases here; in some
-         cases, a base may be inferred at an ancestral node, when the
-         only evidence for it is missing data in the leaves.  There
-         are ambiguous cases; we'll err on the side of predicting
-         bases rather than indels */
     }
 
     /* several special cases allow short cutting */
@@ -475,22 +473,15 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
       continue;
     }
 
-    else if (ngaps == msa->nseqs) {
-      /* all must be deletions */
-      for (i = 0; i < tree->nnodes; i++) tup_hist[tup][i] = DEL;
-      continue;
-    }
-
     else if (nmissing + ngaps == msa->nseqs) {
-      /* all missing data and gaps; this is a funny case; we'll use
-         deletion characters everywhere */
+      /* all must be deletions */
       for (i = 0; i < tree->nnodes; i++) tup_hist[tup][i] = DEL;
       continue;
     }
 
     assert(min >= 0 && max >= min);
 
-    /* the LCA of all leaves with non-gaps must be the first ancestor of
+    /* the LCA of all leaves with bases must be the first ancestor of
        the node with the max id that has an id smaller than the min
        id.  This is based on the assumption that node ids are assigned
        sequentially in a preorder traversal of the tree, which will be
@@ -581,14 +572,7 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
     /* now resolve any ambiguities, by giving each ambiguous node the same
        label as its parent; traversing ambig_cases in reverse order
        ensures that parents are visited before children  */
-
-    /* first make sure root of subtree has a base */
-    if (label[lca->id] == MISSING || label[lca->id] == AMBIG)
-      label[lca->id] = OBS_BASE;
-    /* in this case there is all missing data and gaps beneath the LCA;
-       hard to know what is right, but let's force a base and err on
-       the side of bases rather than gaps */
-
+    assert(label[lca->id] == OBS_BASE);
     for (i = lst_size(ambig_cases) - 1; i >= 0; i--) {
       n = lst_get_ptr(ambig_cases, i);
       if (n == lca) continue;
