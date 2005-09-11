@@ -1,6 +1,6 @@
 PROGRAM: base_evolve
 
-USAGE: base_evolve [file.hmm] tree1.mod,[tree2.mod,tree3.mod,...] > alignment
+USAGE: base_evolve [file.hmm] tree1.mod [tree2.mod tree3.mod ...] > alignment
 
 DESCRIPTION: 
 
