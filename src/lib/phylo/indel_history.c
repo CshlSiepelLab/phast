@@ -1,4 +1,4 @@
-/* $Id: indel_history.c,v 1.5 2005-09-04 22:04:39 acs Exp $
+/* $Id: indel_history.c,v 1.6 2005-09-11 18:24:48 acs Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -341,7 +341,7 @@ IndelHistory *ih_extract_from_alignment(MSA *msa, TreeNode *tree) {
 
     for (j = 0; j < msa->length; j++) {
       char c = msa_get_char(msa, i, j);
-      if (c == GAP_CHAR || c == '^' || c == '.')
+      if (c == GAP_CHAR || c == '^' || c == '.') 
         ih->indel_strings[n->id][j] = INS;
     }
 
@@ -370,6 +370,16 @@ IndelHistory *ih_extract_from_alignment(MSA *msa, TreeNode *tree) {
                ih->indel_strings[n->parent->id][j] == DEL)
         die("ERROR: illegal history in column %d; deletions cannot re-emerge as aligned bases.\n", j);
     }
+  }
+
+  /* special case: columns of all indels are handled as deletions */
+  for (j = 0; j < msa->length; j++) {
+    int has_bases = FALSE;
+    for (i = 0; !has_bases && i < tree->nnodes; i++) 
+      if (ih->indel_strings[i][j] == BASE) has_bases = TRUE;
+    if (!has_bases)
+      for (i = 0; !has_bases && i < tree->nnodes; i++) 
+        ih->indel_strings[i][j] = DEL;
   }
 
   free(done);
@@ -416,7 +426,8 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
   /* obtain an indel history for each column tuple */
   postorder = tr_postorder(tree);
   for (tup = 0; tup < msa->ss->ntuples; tup++) {
-    int min = tree->nnodes, max = -1, ngaps = 0, skip_root = FALSE;
+    int min = tree->nnodes, max = -1, ngaps = 0, nmissing = 0,
+      skip_root = FALSE;
 
     /* initialize tuple history to all bases */
     tup_hist[tup] = smalloc(tree->nnodes * sizeof(char));
@@ -424,10 +435,12 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
 
     /* find min and max ids of seqs that actually have bases (non-gaps) */
     for (s = 0; s < msa->nseqs; s++) {
-      if (ss_get_char_tuple(msa, tup, s, 0) == GAP_CHAR) {
+      c = ss_get_char_tuple(msa, tup, s, 0);
+      if (c == GAP_CHAR) {
         ngaps++;
         continue;
       }
+      if (msa->is_missing[(int)c]) nmissing++;
       if (seq_to_leaf[s] < min) min = seq_to_leaf[s];
       if (seq_to_leaf[s] > max) max = seq_to_leaf[s];
 
@@ -464,6 +477,13 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
 
     else if (ngaps == msa->nseqs) {
       /* all must be deletions */
+      for (i = 0; i < tree->nnodes; i++) tup_hist[tup][i] = DEL;
+      continue;
+    }
+
+    else if (nmissing + ngaps == msa->nseqs) {
+      /* all missing data and gaps; this is a funny case; we'll use
+         deletion characters everywhere */
       for (i = 0; i < tree->nnodes; i++) tup_hist[tup][i] = DEL;
       continue;
     }
