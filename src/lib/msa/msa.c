@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.51 2005-09-06 07:05:01 acs Exp $
+/* $Id: msa.c,v 1.52 2005-09-12 03:08:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1961,7 +1961,7 @@ int msa_missing_col(MSA *msa, int ref, int pos) {
 }
 
 /** Given a list of sequence names and/or 1-based indices, return a
-    list of corresponding 0-based indices.  Abort if a name has no
+    list of corresponding 0-based indices.  Warn if a name has no
     match.  Useful in converting command-line arguments */
 List *msa_seq_indices(MSA *msa, List *seqnames) {
   int i, j;
@@ -1982,7 +1982,7 @@ List *msa_seq_indices(MSA *msa, List *seqnames) {
         }
       }
       if (j == msa->nseqs) 
-        die("ERROR: No match for name \"%s\" in alignment.\n", name->chars);
+        fprintf(stderr, "WARNING: No match for name \"%s\" in alignment.\n", name->chars);
     }
   }
   return retval;
