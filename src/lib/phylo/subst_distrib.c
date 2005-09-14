@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.22 2005-09-14 18:31:41 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.23 2005-09-14 18:38:32 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -57,7 +57,8 @@ Matrix **get_substs_and_bases_given_jumps(JumpProcess *jp, int jmax,
 JumpProcess *sub_define_jump_process(TreeModel *mod) {
   JumpProcess *jp = smalloc(sizeof(JumpProcess));
   int i, j, n, size = mod->rate_matrix->size;
-  jp->njumps_max = max(20, 15 * tr_total_len(mod->tree));
+  double totlen = tr_total_len(mod->tree);
+  jp->njumps_max = max(20, 15 * totlen);
   jp->R = mat_new(size, size);
   jp->lambda = 0;
   jp->mod = mod;
