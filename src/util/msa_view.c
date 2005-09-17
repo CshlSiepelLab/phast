@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.33 2005-09-06 00:58:08 acs Exp $
+/* $Id: msa_view.c,v 1.34 2005-09-17 00:05:36 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -611,6 +611,9 @@ int main(int argc, char* argv[]) {
     infname = argv[optind];
   else 
     die("ERROR: Too many arguments.  Try 'msa_view -h' for help.\n");
+
+  if (gff != NULL && lst_size(gff->features) == 0)
+    die("ERROR: empty features file.\n");
 
   if (gff != NULL && cm == NULL) 
     cm = cm_new_from_features(gff);
