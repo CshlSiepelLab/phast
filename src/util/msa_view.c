@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.34 2005-09-17 00:05:36 acs Exp $
+/* $Id: msa_view.c,v 1.35 2005-09-17 00:32:35 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -733,6 +733,13 @@ int main(int argc, char* argv[]) {
     }
 
     /* convert GFF to coordinate frame of alignment */
+    if (msa->idx_offset != 0) {
+      for (i = 0; i < lst_size(gff->features); i++) {
+        GFF_Feature *f = lst_get_ptr(gff->features, i);
+        f->start -= msa->idx_offset;
+        f->end -= msa->idx_offset;
+      }
+    }
     msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
 
     if (reverse_groups_tag != NULL) { /* reverse complement by group */
