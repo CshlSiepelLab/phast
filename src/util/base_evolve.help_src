@@ -15,15 +15,15 @@ EXAMPLES:
 
     base_evolve --nsites 500 simple-gene.hmm tree1.mod tree2.mod \
         tree3.mod --features simulated2.gff --catmap simple-gene.cm \
-	> simulated2.fa
+        > simulated2.fa
 
 OPTIONS:
 
     --nsites, -n <nsites>
-	Generate an alignment with <nsites> columns.  Default is 1000.
+        Generate an alignment with <nsites> columns.  Default is 1000.
 
     --msa-format, -o FASTA|PHYLIP|MPM|SS
-	Output alignment in specified format.  Default is FASTA.
+        Output alignment in specified format.  Default is FASTA.
 
     --features, -f <out.gff>
         (for use with a phylo-HMM)  Output an annotations file in GFF
@@ -33,5 +33,11 @@ OPTIONS:
         (for use with --features)  Use specified category map to
         define feature names.
 
+    --embed, -e <alt.mod>,<length>
+        Embed an artificial element of the given length in the alignment,
+        drawing columns from <alt.mod>.  A single element is embedded in
+        the exact middle of the generated alignment.  Useful for testing
+        sensitivity of methods for functional element detection.
+
     --help, -h
-	Display this help message and exit.
+        Display this help message and exit.

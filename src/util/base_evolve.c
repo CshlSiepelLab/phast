@@ -10,11 +10,12 @@
 
 int main(int argc, char *argv[]) {
   /* variables for options with default */
-  int nsites = 1000;
+  int nsites = 1000, embed_len = -1;
   CategoryMap *cm = NULL;
   char *features_fname = NULL;
   msa_format_type msa_format = FASTA;
-
+  TreeModel *embed_mod = NULL;
+  
   /* other variables */
   FILE *F;
   TreeModel **mods;
@@ -23,18 +24,20 @@ int main(int argc, char *argv[]) {
   int *labels = NULL, *path_to_cat, *reverse_compl;
   GFF_Set *feats;
   char c;
-  int opt_idx, i;
+  int opt_idx, i, j;
+  List *l;
 
   struct option long_opts[] = {
     {"nsites", 1, 0, 'n'},
     {"msa-format", 1, 0, 'o'},
     {"features", 1, 0, 'f'},
     {"catmap", 1, 0, 'c'},
+    {"embed", 1, 0, 'e'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "n:o:f:c:h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "n:o:f:c:e:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'n':
       nsites = get_arg_int_bounds(optarg, 1, INFTY);
@@ -49,6 +52,11 @@ int main(int argc, char *argv[]) {
       break;
     case 'c':
       cm = cm_new_string_or_file(optarg);
+      break;
+    case 'e':
+      l = get_arg_list(optarg);
+      embed_mod = tm_new_from_file(fopen_fname(((String*)lst_get_ptr(l, 0))->chars, "r"));
+      embed_len = get_arg_dbl_bounds(((String*)lst_get_ptr(l, 1))->chars, 1, INFTY);
       break;
     case 'h':
       printf(HELP);
@@ -106,6 +114,15 @@ int main(int argc, char *argv[]) {
     F = fopen_fname(features_fname, "w+");
     gff_print_set(F, feats);
     fclose(F);
+  }
+
+  /* add embedded element, if necessary */
+  if (embed_mod != NULL) {
+    MSA *embed_msa = tm_generate_msa(embed_len, NULL, &embed_mod, NULL);
+    int startidx = (msa->length - embed_len)/2 + 1; 
+    for (i = 0; i < embed_msa->length; i++)
+      for (j = 0; j < msa->nseqs; j++)
+        msa->seqs[j][startidx+i] = embed_msa->seqs[j][i];
   }
 
   /* print alignment */
