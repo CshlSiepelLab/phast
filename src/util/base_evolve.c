@@ -26,6 +26,7 @@ int main(int argc, char *argv[]) {
   char c;
   int opt_idx, i, j;
   List *l;
+  struct timeval now;
 
   struct option long_opts[] = {
     {"nsites", 1, 0, 'n'},
@@ -91,7 +92,10 @@ int main(int argc, char *argv[]) {
   /* generate alignment and labels */
   if (features_fname != NULL)
     labels = smalloc(nsites * sizeof(int));
-  srandom(time(NULL));
+  gettimeofday(&now, NULL);
+  srandom(now.tv_usec);         /* use microseconds to avoid using
+                                   same seed in rapidly repeated
+                                   calls */
   msa = tm_generate_msa(nsites, hmm, mods, labels);
 
   /* generate features, if necessary */
