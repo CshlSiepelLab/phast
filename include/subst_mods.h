@@ -1,4 +1,4 @@
-/* $Id: subst_mods.h,v 1.4 2005-08-21 17:43:35 acs Exp $
+/* $Id: subst_mods.h,v 1.5 2005-09-19 19:24:31 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -43,5 +43,7 @@ void tm_rate_params_init(struct tm_struct *mod, Vector *params,
                          int params_idx, double kappa);
 void tm_rate_params_init_from_model(struct tm_struct *mod, Vector *params, 
                                     int params_idx);
+void tm_set_HKY_matrix(struct tm_struct *mod, double kappa, int kappa_idx);
+
 
 #endif
