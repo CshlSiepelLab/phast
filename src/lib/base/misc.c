@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.27 2005-09-04 06:12:10 acs Exp $
+/* $Id: misc.c,v 1.28 2005-09-28 03:42:42 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -745,7 +745,7 @@ double cum_norm_c(double mu, double sigma, double a) {
 }
 
 /* return inverse of standard normal, i.e., inv_cum_norm(p) = a such
-   that cum_norm(1, 0, a) = p.  The function is approximated using an
+   that cum_norm(0, 1, a) = p.  The function is approximated using an
    algorithm by Peter Acklam given at
    http://home.online.no/~pjacklam/notes/invnorm/.  */
 double inv_cum_norm(double p) {
