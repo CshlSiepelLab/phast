@@ -14,6 +14,7 @@ typedef struct {
   Matrix ***B;
   Matrix *M;
   Matrix ***branch_distrib;
+  double epsilon;
 } JumpProcess;
 /* note: a jump process is defined wrt a whole tree model, not just a
    rate matrix */
@@ -34,7 +35,7 @@ typedef struct {
     post_max_tot, cond_p_approx;
 } p_value_joint_stats;
 
-JumpProcess *sub_define_jump_process(TreeModel *mod);
+JumpProcess *sub_define_jump_process(TreeModel *mod, double epsilon);
 void sub_free_jump_process(JumpProcess *jp);
 Vector *sub_distrib_branch(JumpProcess *jp, double t);
 Matrix **sub_distrib_branch_conditional(JumpProcess *jp, double t);

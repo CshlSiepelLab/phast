@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
   /* variables for options with defaults */
   msa_format_type msa_format = FASTA;
   int nsites = -1, prior_only = FALSE, post_only = FALSE, quantiles = FALSE;
-  double ci = -1;
+  double ci = -1, epsilon = 1e-10;
   char *subtree_name = NULL;
   GFF_Set *feats = NULL;
 
@@ -63,12 +63,13 @@ int main(int argc, char *argv[]) {
     {"confidence-interval", 1, 0, 'c'},
     {"subtree", 1, 0, 's'},
     {"features", 1, 0, 'f'},
+    {"epsilon", 1, 0, 'e'},
     {"quantiles", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "i:n:pc:s:f:qh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "i:n:pc:s:f:e:qh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'i':
       msa_format = msa_str_to_format(optarg);
@@ -90,6 +91,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'f':
       feats = gff_read_set(fopen_fname(optarg, "r"));
+      break;
+    case 'e':
+      epsilon = get_arg_dbl_bounds(optarg, 0, 0.1);
       break;
     case 'q':
       quantiles = TRUE;
@@ -114,7 +118,7 @@ int main(int argc, char *argv[]) {
     die("ERROR: --features cannot be used with --null or --posterior.\n");
 
   mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
-  jp = sub_define_jump_process(mod);
+  jp = sub_define_jump_process(mod, epsilon);
 
   if (!prior_only) {
     msa_f = fopen_fname(argv[optind+1], "r");

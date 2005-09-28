@@ -13,11 +13,11 @@ Vector *pm_marg_tot(Matrix *p);
 Vector *pm_x_given_tot(Matrix *p, int tot);
 Vector *pm_y_given_tot(Matrix *p, int tot);
 void pm_normalize(Matrix *p);
-Matrix *pm_convolve(Matrix *p, int n);
-Matrix **pm_convolve_save(Matrix *p, int n);
-Matrix *pm_convolve_many(Matrix **p, int *counts, int n);
+Matrix *pm_convolve(Matrix *p, int n, double epsilon);
+Matrix **pm_convolve_save(Matrix *p, int n, double epsilon);
+Matrix *pm_convolve_many(Matrix **p, int *counts, int n, double epsilon);
 Matrix *pm_convolve_many_fast(Matrix **p, int n, int max_nrows, int max_ncols);
-Matrix *pm_convolve_fast(Matrix *p, int n);
+Matrix *pm_convolve_fast(Matrix *p, int n, double epsilon);
 void pm_stats(Matrix *p, double *mean_x, double *mean_y, double *var_x, 
               double *var_y, double *covar);
 Vector *pm_x_given_tot_bvn(int tot, double mu_x, double mu_y, 

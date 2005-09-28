@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.18 2005-09-04 06:12:11 acs Exp $
+/* $Id: misc.h,v 1.19 2005-09-28 04:59:36 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -169,6 +169,7 @@ int next_comb(int n, int k, int *index);
 double incomplete_gamma(double a, double x, char type);
 double d_poisson(double lambda, int k);
 double cum_poisson(double lambda, int k);
+double cum_poisson_c(double lambda, int k);
 double cum_norm(double mu, double sigma, double a);
 double cum_norm_c(double mu, double sigma, double a);
 double inv_cum_norm(double p);

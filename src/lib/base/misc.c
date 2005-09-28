@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.28 2005-09-28 03:42:42 acs Exp $
+/* $Id: misc.c,v 1.29 2005-09-28 04:59:36 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -719,6 +719,13 @@ double d_poisson(double lambda, int k) {
 double cum_poisson(double lambda, int k) {
   assert(lambda >= 0 && k >= 0);
   return incomplete_gamma(k+1, lambda, 'q');
+}
+
+/* return P(x > k | lambda), for a variable x that obeys a Poisson
+   distribution with parameter lambda */
+double cum_poisson_c(double lambda, int k) {
+  assert(lambda >= 0 && k >= 0);
+  return incomplete_gamma(k+1, lambda, 'p');
 }
 
 /* return P(x <= a | mu, sigma) for a variable a that obeys a normal

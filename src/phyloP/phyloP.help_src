@@ -72,6 +72,14 @@ OPTIONS:
         of the first sequence in the alignment.  Not for use with
         --null or --posterior.
 
+    --epsilon, -e <val>
+        (Default 1e-10) Threshold used in truncating tails of
+        distributions; tail probabilities less than this value are
+        discarded.  To get accurate p-values smaller than 1e-10, this
+        option will need to be used, at some cost in speed.  Note that
+        truncation affects only *right* tails, not left tails, so it should
+        be an issue only with p-values of acceleration.
+
     --quantiles, -q
         (For use with --null or --posterior) Report quantiles of
         distribution rather than whole distribution.

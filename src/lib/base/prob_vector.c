@@ -1,4 +1,4 @@
-/* $Id: prob_vector.c,v 1.6 2005-09-04 05:51:50 acs Exp $ 
+/* $Id: prob_vector.c,v 1.7 2005-09-28 04:59:36 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -7,7 +7,7 @@
    non-negative integers.  General idea is element x of vector v (x >=
    0) represents p(x).  With long-tailed distributions (e.g.,
    Poisson), vectors are truncated at size x_max such that p(y) <
-   PV_EPS for y >= x_max. */
+   epsilon for y >= x_max, where epsilon is an input parameter. */
 
 #include <prob_vector.h>
 #include <misc.h>
@@ -100,10 +100,10 @@ void pv_normalize(Vector *p) {
 }
 
 /* convolve distribution n times */
-Vector *pv_convolve(Vector *p, int n) {
+Vector *pv_convolve(Vector *p, int n, double epsilon) {
   int i, j, x;
   Vector *q_i, *q_i_1;
-  double mean, var;
+  double mean, var, max_nsd;
   int max_x = p->size * n;
 
   if (n == 1)
@@ -111,14 +111,13 @@ Vector *pv_convolve(Vector *p, int n) {
 
   if (n > 50) {
     /* use central limit theorem to limit size of vector to keep track
-       of; convolution should be approx normal with mean n * mean
-       of p and variance n * variance of p.  We'll go to 6
-       standard deviations beyond the mean, which should ensure any
-       omitted value has prob on the order of 1e-10 or less.  Note
-       that the CLT is better near the mean than on the tails, but
-       this seems okay for purposes of bounding. */
+       of; convolution should be approx normal with mean n * mean of p
+       and variance n * variance of p.  Note that the CLT is better
+       near the mean than on the tails, but this seems okay for
+       purposes of bounding. */
     pv_stats(p, &mean, &var);
-    max_x = ceil(n * mean + 6 * sqrt(n * var));
+    max_nsd = -inv_cum_norm(epsilon) + 1; 
+    max_x = ceil(n * mean + max_nsd * sqrt(n * var));
   }
 
   q_i = vec_new(max_x);
@@ -142,7 +141,7 @@ Vector *pv_convolve(Vector *p, int n) {
 
   /* trim very small values off tail before returning */
   for (x = q_i->size - 1; x >= 0; x--) {
-    if (q_i->data[x] > PV_EPS) {
+    if (q_i->data[x] > epsilon) {
       q_i->size = x+1;
       break;
     }
@@ -155,9 +154,9 @@ Vector *pv_convolve(Vector *p, int n) {
 /* convolve distribution n times and keep all intermediate
    distributions.  Return value is an array q such that q[i] (1 <= i <=
    n) is the ith convolution of p (q[0] will be NULL) */
-Vector **pv_convolve_save(Vector *p, int n) {
+Vector **pv_convolve_save(Vector *p, int n, double epsilon) {
   int i, j, x;
-  double mean, var;
+  double mean, var, max_nsd;
   int max_x = p->size * n, newsize;
   Vector **q = smalloc((n+1) * sizeof(void*));
 
@@ -177,7 +176,8 @@ Vector **pv_convolve_save(Vector *p, int n) {
        that the CLT is better near the mean than on the tails, but
        this seems okay for purposes of bounding. */
     pv_stats(p, &mean, &var);
-    max_x = ceil(n * mean + 6 * sqrt(n * var));
+    max_nsd = -inv_cum_norm(epsilon) + 1; 
+    max_x = ceil(n * mean + max_nsd * sqrt(n * var));
   }
 
   /* compute convolution recursively */
@@ -198,7 +198,7 @@ Vector **pv_convolve_save(Vector *p, int n) {
   for (i = 1; i <= n; i++) {
     newsize = -1;
     for (x = q[i]->size - 1; newsize == -1 && x >= 0; x--) 
-      if (q[i]->data[x] > PV_EPS) 
+      if (q[i]->data[x] > epsilon) 
         newsize = x+1;
     q[i]->size = newsize;       /* maybe should realloc? */
     pv_normalize(q[i]);
@@ -209,10 +209,10 @@ Vector **pv_convolve_save(Vector *p, int n) {
 
 /* take convolution of a set of probability vectors.  If counts is
    NULL, then each distrib is assumed to have multiplicity 1 */
-Vector *pv_convolve_many(Vector **p, int *counts, int n) {
+Vector *pv_convolve_many(Vector **p, int *counts, int n, double epsilon) {
   int i, j, k, x, max_x = 0, tot_count = 0, count, thismax;
   Vector *q_i, *q_i_1;
-  double mean, var;
+  double mean, var, max_nsd;
 
   for (i = 0; i < n; i++) {
     count = (counts == NULL ? 1 : counts[i]);
@@ -227,13 +227,10 @@ Vector *pv_convolve_many(Vector **p, int *counts, int n) {
   if (tot_count > 50) {
     /* use (Lyapunov's or Lindeberg's) central limit theorem to reduce
        size of vector to keep track of; convolution should be approx
-       normal with mean tot_mean and variance tot_var.  We'll go to 6
-       standard deviations beyond the mean, which should ensure any
-       omitted value has prob on the order of 1e-10 or less.  Note
-       that the CLT is better near the mean than on the tails, but
-       this seems okay here.  We're also implicitly assuming some
-       regularity conditions (see
-       http://en.wikipedia.org/wiki/Central_limit_theorem).  */
+       normal with mean tot_mean and variance tot_var.  Note that the
+       CLT is better near the mean than on the tails, but this seems
+       okay here.  We're also implicitly assuming some regularity
+       conditions (see http://en.wikipedia.org/wiki/Central_limit_theorem). */
     double tot_mean = 0, tot_var = 0;
     for (i = 0; i < n; i++) {
       pv_stats(p[i], &mean, &var);
@@ -241,7 +238,8 @@ Vector *pv_convolve_many(Vector **p, int *counts, int n) {
       tot_mean += mean * count;
       tot_var += var * count;
     }
-    max_x = ceil(tot_mean + 6 * sqrt(tot_var));
+    max_nsd = -inv_cum_norm(epsilon) + 1; 
+    max_x = ceil(tot_mean + max_nsd * sqrt(tot_var));
   }
 
   q_i = vec_new(max_x);
@@ -271,7 +269,7 @@ Vector *pv_convolve_many(Vector **p, int *counts, int n) {
 
   /* trim very small values off tail before returning */
   for (x = q_i->size - 1; x >= 0; x--) {
-    if (q_i->data[x] > PV_EPS) {
+    if (q_i->data[x] > epsilon) {
       q_i->size = x+1;
       break;
     }
@@ -282,15 +280,15 @@ Vector *pv_convolve_many(Vector **p, int *counts, int n) {
 }
 
 /* compute and return a probability vector giving Pois(x | lambda) up to
-   point where < PV_EPS */
-Vector *pv_poisson(double lambda) {
+   point where < epsilon */
+Vector *pv_poisson(double lambda, double epsilon) {
   int j;
   Vector *pois = vec_new(max(10 * lambda, 50));
   vec_zero(pois);
   pois->data[0] = exp(-lambda);
   for (j = 1; j < pois->size; j++) {
     pois->data[j] = pois->data[j-1] * lambda / j;
-    if (pois->data[j] < PV_EPS) {
+    if (pois->data[j] < epsilon) {
       pois->size = j+1;
       break;
     }
@@ -300,7 +298,7 @@ Vector *pv_poisson(double lambda) {
 
 /* convolve distribution n times, using a faster algorithm than the
    ones above; time is proportional to log(n) rather than n */
-Vector *pv_convolve_fast(Vector *p, int n) {
+Vector *pv_convolve_fast(Vector *p, int n, double epsilon) {
   int i, j, checksum;
   int logn = log2_int(n);
   Vector *pow_p[64], *pows[64];
@@ -317,7 +315,7 @@ Vector *pv_convolve_fast(Vector *p, int n) {
   /* compute "powers" of p */
   pow_p[0] = p;
   for (i = 1; i <= logn; i++) 
-    pow_p[i] = pv_convolve(pow_p[i-1], 2);
+    pow_p[i] = pv_convolve(pow_p[i-1], 2, epsilon);
 
   /* now combine powers to get desired convolution */
   j = checksum = 0;
@@ -330,7 +328,7 @@ Vector *pv_convolve_fast(Vector *p, int n) {
   }
   assert(checksum == n);
   
-  retval = pv_convolve_many(pows, NULL, j);
+  retval = pv_convolve_many(pows, NULL, j, epsilon);
 
   for (i = 1; i <= logn; i++) 
     vec_free(pow_p[i]);

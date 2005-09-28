@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.23 2005-09-14 18:38:32 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.24 2005-09-28 04:59:36 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -53,21 +53,35 @@ Matrix **get_substs_and_bases_given_jumps(JumpProcess *jp, int jmax,
   return A;
 }
 
+/* (used below) find min j such that Pois(x > j | lambda * t_max) < epsilon */
+int get_njumps_max(double lambda, double t_max, double epsilon) {
+  int j;
+  double mean = lambda * t_max;
+  for (j = mean; ; j++)
+    if (cum_poisson_c(mean, j) < epsilon) break;
+  return max(10, j);
+}
+
 /* define jump process based on substitution model */
-JumpProcess *sub_define_jump_process(TreeModel *mod) {
+JumpProcess *sub_define_jump_process(TreeModel *mod, 
+                                     double epsilon 
+                                     /* approximate precision (e.g., 1e-10) */
+                                     ) {
   JumpProcess *jp = smalloc(sizeof(JumpProcess));
   int i, j, n, size = mod->rate_matrix->size;
-  double totlen = tr_total_len(mod->tree);
-  jp->njumps_max = max(20, 15 * totlen);
   jp->R = mat_new(size, size);
   jp->lambda = 0;
   jp->mod = mod;
+  jp->epsilon = epsilon;
 
   /* set lambda to max_a -q_aa */
   for (j = 0; j < size; j++) {
     double val = -mm_get(mod->rate_matrix, j, j);
     if (val > jp->lambda) jp->lambda = val;
   }
+
+  jp->njumps_max = get_njumps_max(jp->lambda, tr_total_len(mod->tree), 
+                                  jp->epsilon);
 
   /* now define jump matrix R */
   for (i = 0; i < size; i++) {
@@ -138,7 +152,7 @@ void sub_free_jump_process(JumpProcess *jp) {
    of n substitutions given a branch of length t */
 Vector *sub_distrib_branch(JumpProcess *jp, double t) {
   int n, j;
-  Vector *pois = pv_poisson(jp->lambda * t);  
+  Vector *pois = pv_poisson(jp->lambda * t, jp->epsilon);  
   Vector *distrib = vec_new(pois->size);
 
   assert(jp->njumps_max > pois->size);
@@ -161,7 +175,7 @@ Vector *sub_distrib_branch(JumpProcess *jp, double t) {
    will be such that D[a]->data[b][n] = p(b, n | a, t) */
 Matrix **sub_distrib_branch_conditional(JumpProcess *jp, double t) {
   int i, j, n, k;
-  Vector *pois = pv_poisson(jp->lambda * t);  
+  Vector *pois = pv_poisson(jp->lambda * t, jp->epsilon);  
   int size = jp->mod->rate_matrix->size;
   Matrix **D = smalloc(size * sizeof(void*));
 
@@ -287,7 +301,7 @@ Vector *sub_posterior_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
   normalize_probs(retval->data, retval->size);
 
   /* trim off very small values */
-  for (n = maxsubst[jp->mod->tree->id]; n >= 0 && retval->data[n] < 1e-10; n--);
+  for (n = maxsubst[jp->mod->tree->id]; n >= 0 && retval->data[n] < jp->epsilon; n--);
   retval->size = n+1;
 
   for (lidx = 0; lidx < jp->mod->tree->nnodes; lidx++)
@@ -304,7 +318,7 @@ Vector *sub_posterior_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
    model and number of sites */
 Vector *sub_prior_distrib_alignment(JumpProcess *jp, int nsites) {
   Vector *p = sub_prior_distrib_site(jp);
-  Vector *retval = pv_convolve(p, nsites);
+  Vector *retval = pv_convolve(p, nsites, jp->epsilon);
   vec_free(p);
   return retval;
 }
@@ -323,7 +337,7 @@ Vector *sub_posterior_distrib_alignment(JumpProcess *jp, MSA *msa) {
     counts[tup] = msa->ss->counts[tup]; /* have to convert to int */
   }
 
-  retval = pv_convolve_many(tup_p, counts, msa->ss->ntuples);
+  retval = pv_convolve_many(tup_p, counts, msa->ss->ntuples, jp->epsilon);
 
   for (tup = 0; tup < msa->ss->ntuples; tup++) 
     vec_free(tup_p[tup]);
@@ -466,14 +480,14 @@ Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
   done = FALSE;
   for (n1 = n1_max-1; !done && n1 >= 0; n1--) 
     for (n2 = 0; !done && n2 < n2_max; n2++) 
-      if (retval->data[n1][n2] >= 1e-10) {
+      if (retval->data[n1][n2] >= jp->epsilon) {
         n1_max = n1+1;
         done = TRUE;
       }
   done = FALSE;
   for (n2 = n2_max-1; !done && n2 >= 0; n2--) 
     for (n1 = 0; !done && n1 < n1_max; n1++) 
-      if (retval->data[n1][n2] >= 1e-10) {
+      if (retval->data[n1][n2] >= jp->epsilon) {
         n2_max = n2+1;
         done = TRUE;
       }
@@ -498,7 +512,7 @@ Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
    substitutions in the right subtree */
 Matrix *sub_prior_joint_distrib_alignment(JumpProcess *jp, int nsites) {
   Matrix *p = sub_joint_distrib_site(jp, NULL, -1);
-  Matrix *retval = pm_convolve_fast(p, nsites);
+  Matrix *retval = pm_convolve_fast(p, nsites, jp->epsilon);
   mat_free(p);
   return retval;
 }
@@ -521,7 +535,7 @@ Matrix *sub_posterior_joint_distrib_alignment(JumpProcess *jp, MSA *msa) {
     counts[tup] = msa->ss->counts[tup]; /* have to convert to int */
   }
 
-  retval = pm_convolve_many(tup_p, counts, msa->ss->ntuples);
+  retval = pm_convolve_many(tup_p, counts, msa->ss->ntuples, jp->epsilon);
 
   for (tup = 0; tup < msa->ss->ntuples; tup++) 
     mat_free(tup_p[tup]);
@@ -603,7 +617,7 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
   pow_p = smalloc((logmaxlen+1) * sizeof(void*));
   pow_p[0] = sub_prior_distrib_site(jp);
   for (i = 1; i <= logmaxlen; i++) 
-    pow_p[i] = pv_convolve(pow_p[i-1], 2);
+    pow_p[i] = pv_convolve(pow_p[i-1], 2, jp->epsilon);
   pows = smalloc((logmaxlen+1) * sizeof(void*)); /* for use below */
 
   /* compute mean and variance of posterior for all column tuples */
@@ -632,7 +646,7 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
       }
     }
     assert(checksum == len);
-    prior = pv_convolve_many(pows, NULL, j);
+    prior = pv_convolve_many(pows, NULL, j, jp->epsilon);
 
     pv_stats(prior, &stats[idx].prior_mean, &stats[idx].prior_var);
     pv_confidence_interval(prior, 0.95, &stats[idx].prior_min, 
@@ -675,20 +689,21 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
 /* (used by sub_p_value_joint_many) compute maximum length of element
    for which to do explicit convolution, based on given means and
    standard devs for subtrees, and based on max_convolve_size */
-int max_convolve_len(int max_convolve_size, double mean_l, double sd_l, 
+int max_convolve_len(int max_convolve_size, double max_nsd,
+                     double mean_l, double sd_l, 
                      double mean_r, double sd_r) {
   double maxsize;
 
   int l = sqrt(max_convolve_size / 
-               ((mean_l + 6 * sd_l) * (mean_r + 6 * sd_r)));
+               ((mean_l + max_nsd * sd_l) * (mean_r + max_nsd * sd_r)));
   /* (lower bound on max, obtained by replacing sqrt(l) with l) */
 
   /* can solve exactly for max, but you have to work with a messy
      polynomial; easier just to solve by trial and error */
   do {
     l++;
-    maxsize = (l * mean_l + 6 * sd_l * sqrt(l)) *
-      (l * mean_r + 6 * sd_r * sqrt(l));
+    maxsize = (l * mean_l + max_nsd * sd_l * sqrt(l)) *
+      (l * mean_r + max_nsd * sd_r * sqrt(l));
     /* bound on size of matrix for given length, using CLT approx  */
   } while (maxsize < max_convolve_size);
 
@@ -729,6 +744,8 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
   char *used = smalloc(msa->ss->ntuples * sizeof(char));
   Matrix **pow_p, **pows;
   struct timeval marker_time;
+  double max_nsd = -inv_cum_norm(jp->epsilon) + 1; /* for use in CLT
+                                                     approximations */
 
   /* find max length of feature.  Simultaneously, figure out which
      column tuples actually used (saves time below)  */
@@ -754,7 +771,7 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
   /* compute maximum length for explicit computation of joint prior
      via convolution */
   max_conv_len = 
-    max_convolve_len(max_convolve_size,
+    max_convolve_len(max_convolve_size, max_nsd,
                      prior_site_mean_left, sqrt(prior_site_var_left), 
                      prior_site_mean_right, sqrt(prior_site_var_right));
   if (maxlen > max_conv_len)
@@ -767,7 +784,7 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
   pow_p[0] = prior_site;
   for (i = 1; i <= logmaxlen; i++) {
     if (timing_f != NULL) gettimeofday(&marker_time, NULL);
-    pow_p[i] = pm_convolve(pow_p[i-1], 2);
+    pow_p[i] = pm_convolve(pow_p[i-1], 2, jp->epsilon);
     if (timing_f != NULL) 
       fprintf(timing_f, "pow_p[%d] (%d x %d): %f sec\n", i, 
               pow_p[i]->nrows, pow_p[i]->ncols, get_elapsed_time(&marker_time));
@@ -819,9 +836,9 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
         /* use central limit theorem to limit size of matrix to keep
            track of */
         max_nrows = ceil(len * prior_site_mean_left + 
-                         6 * sqrt(len * prior_site_var_left));
+                         max_nsd * sqrt(len * prior_site_var_left));
         max_ncols = ceil(len * prior_site_mean_right + 
-                         6 * sqrt(len * prior_site_var_right));
+                         max_nsd * sqrt(len * prior_site_var_right));
       }
       else {
         max_nrows = pow_p[0]->nrows * len;
@@ -839,8 +856,8 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
     }
     else {
       prior = NULL;             /* won't be used explicitly */
-      prior_marg_left = pv_convolve(prior_site_marg_left, len);
-      prior_marg_right = pv_convolve(prior_site_marg_right, len);
+      prior_marg_left = pv_convolve(prior_site_marg_left, len, jp->epsilon);
+      prior_marg_right = pv_convolve(prior_site_marg_right, len, jp->epsilon);
       if (timing_f != NULL)
         fprintf(timing_f, "len = %d (%d x %d): [skipping joint convolution]\n",
                 len, max_nrows, max_ncols);

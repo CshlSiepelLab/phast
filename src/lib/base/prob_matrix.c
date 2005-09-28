@@ -1,4 +1,4 @@
-/* $Id: prob_matrix.c,v 1.12 2005-09-04 06:52:38 acs Exp $ 
+/* $Id: prob_matrix.c,v 1.13 2005-09-28 04:59:36 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -7,7 +7,8 @@
    defined for non-negative integers.  General idea is element (x,y)
    of matrix M (x,y >= 0) represents p(x,y).  With long-tailed
    distributions, matrix dimensions are truncated at size x_max, y_max
-   such that p(x,y) < PM_EPS for x >= x_max, y >= x_max. */
+   such that p(x,y) < epsilon for x >= x_max, y >= x_max, where
+   epsilon is an input parameter. */
 
 #include <prob_matrix.h>
 #include <prob_vector.h>
@@ -95,10 +96,10 @@ void pm_normalize(Matrix *p) {
 }
 
 /* convolve distribution n times */
-Matrix *pm_convolve(Matrix *p, int n) {
+Matrix *pm_convolve(Matrix *p, int n, double epsilon) {
   int i, j, k, x, y;
   Matrix *q_i, *q_i_1;
-  double mean, var;
+  double mean, var, max_nsd;
   int max_nrows = p->nrows * n, max_ncols = p->ncols * n;
 
   assert(n > 0);
@@ -112,9 +113,10 @@ Matrix *pm_convolve(Matrix *p, int n) {
     Vector *marg_x = pm_marg_x(p);
     Vector *marg_y = pm_marg_y(p);
     pv_stats(marg_x, &mean, &var);
-    max_nrows = ceil(n * mean + 6 * sqrt(n * var)) + 1;
+    max_nsd = -inv_cum_norm(epsilon) + 1; 
+    max_nrows = ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
     pv_stats(marg_y, &mean, &var);
-    max_ncols = ceil(n * mean + 6 * sqrt(n * var)) + 1;
+    max_ncols = ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
     vec_free(marg_x);
     vec_free(marg_y);
   }
@@ -145,11 +147,11 @@ Matrix *pm_convolve(Matrix *p, int n) {
   max_nrows = max_ncols = -1;
   for (x = q_i->nrows - 1; max_nrows == -1 && x >= 0; x--) 
     for (y = 0; max_nrows == -1 && y < q_i->ncols; y++) 
-      if (q_i->data[x][y] > PM_EPS) 
+      if (q_i->data[x][y] > epsilon) 
         max_nrows = x+1;      
   for (y = q_i->ncols - 1; max_ncols == -1 && y >= 0; y--) 
     for (x = 0; max_ncols == -1 && x < q_i->nrows; x++) 
-      if (q_i->data[x][y] > PM_EPS) 
+      if (q_i->data[x][y] > epsilon) 
         max_ncols = y+1;
   mat_resize(q_i, max_nrows, max_ncols);
 
@@ -160,9 +162,9 @@ Matrix *pm_convolve(Matrix *p, int n) {
 /* convolve distribution n times and keep all intermediate
    distributions.  Return value is an array q such that q[i] (1 <= i
    <= n) is the ith convolution of p (q[0] will be NULL) */
-Matrix **pm_convolve_save(Matrix *p, int n) {
+Matrix **pm_convolve_save(Matrix *p, int n, double epsilon) {
   int i, j, k, x, y;
-  double mean, var;
+  double mean, var, max_nsd;
   int max_nrows = p->nrows * n, max_ncols = p->ncols * n;
   Matrix **q = smalloc((n+1) * sizeof(void*));
 
@@ -181,9 +183,10 @@ Matrix **pm_convolve_save(Matrix *p, int n) {
     Vector *marg_x = pm_marg_x(p);
     Vector *marg_y = pm_marg_y(p);
     pv_stats(marg_x, &mean, &var);
-    max_nrows = max(1, ceil(n * mean + 6 * sqrt(n * var)));
+    max_nsd = -inv_cum_norm(epsilon) + 1; 
+    max_nrows = max(1, ceil(n * mean + max_nsd * sqrt(n * var)));
     pv_stats(marg_y, &mean, &var);
-    max_ncols = max(1, ceil(n * mean + 6 * sqrt(n * var)));
+    max_ncols = max(1, ceil(n * mean + max_nsd * sqrt(n * var)));
     vec_free(marg_x);
     vec_free(marg_y);
   }
@@ -210,11 +213,11 @@ Matrix **pm_convolve_save(Matrix *p, int n) {
     max_nrows = max_ncols = -1;
     for (x = q[i]->nrows - 1; max_nrows == -1 && x >= 0; x--) 
       for (y = 0; max_nrows == -1 && y < q[i]->ncols; y++) 
-        if (q[i]->data[x][y] > PM_EPS) 
+        if (q[i]->data[x][y] > epsilon) 
           max_nrows = x+1;      
     for (y = q[i]->ncols - 1; max_ncols == -1 && y >= 0; y--) 
       for (x = 0; max_ncols == -1 && x < q[i]->nrows; x++) 
-        if (q[i]->data[x][y] > PM_EPS) 
+        if (q[i]->data[x][y] > epsilon) 
           max_ncols = y+1;
     mat_resize(q[i], max_nrows, max_ncols);
     pm_normalize(q[i]);
@@ -225,10 +228,11 @@ Matrix **pm_convolve_save(Matrix *p, int n) {
 
 /* take convolution of a set of probability matrices.  If counts is
    NULL, then each distrib is assumed to have multiplicity 1 */
-Matrix *pm_convolve_many(Matrix **p, int *counts, int n) {
+Matrix *pm_convolve_many(Matrix **p, int *counts, int n, double epsilon) {
   int i, j, k, l, x, y, max_nrows, max_ncols, count, tot_count = 0,
     this_max_nrows, this_max_ncols;
   Matrix *q_i, *q_i_1;
+  double max_nsd;
 
   max_nrows = max_ncols = 0; 
   for (i = 0; i < n; i++) {
@@ -259,8 +263,9 @@ Matrix *pm_convolve_many(Matrix **p, int *counts, int n) {
       vec_free(marg_x); vec_free(marg_y);
     }
 
-    max_nrows = ceil(tot_mean_x + 6 * sqrt(tot_var_x)) + 1;
-    max_ncols = ceil(tot_mean_y + 6 * sqrt(tot_var_y)) + 1;
+    max_nsd = -inv_cum_norm(epsilon) + 1; 
+    max_nrows = ceil(tot_mean_x + max_nsd * sqrt(tot_var_x)) + 1;
+    max_ncols = ceil(tot_mean_y + max_nsd * sqrt(tot_var_y)) + 1;
   }
 
   q_i = mat_new(max_nrows, max_ncols);
@@ -299,11 +304,11 @@ Matrix *pm_convolve_many(Matrix **p, int *counts, int n) {
   max_nrows = max_ncols = -1;
   for (x = q_i->nrows - 1; max_nrows == -1 && x >= 0; x--) 
     for (y = 0; max_nrows == -1 && y < q_i->ncols; y++) 
-      if (q_i->data[x][y] > 1e-10) 
+      if (q_i->data[x][y] > epsilon) 
         max_nrows = x+1;      
   for (y = q_i->ncols - 1; max_ncols == -1 && y >= 0; y--) 
     for (x = 0; max_ncols == -1 && x < q_i->nrows; x++) 
-      if (q_i->data[x][y] > 1e-10) 
+      if (q_i->data[x][y] > epsilon) 
         max_ncols = y+1;
   mat_resize(q_i, max_nrows, max_ncols);
 
@@ -355,12 +360,12 @@ Matrix *pm_convolve_many_fast(Matrix **p, int n, int max_nrows, int max_ncols) {
 
 /* convolve distribution n times, using a faster algorithm than the
    ones above; time is proportional to log(n) rather than n */
-Matrix *pm_convolve_fast(Matrix *p, int n) {
+Matrix *pm_convolve_fast(Matrix *p, int n, double epsilon) {
   int i, j, checksum;
   int logn = log2_int(n);
   Matrix *pow_p[64], *pows[64];
   Matrix *retval;
-  double mean, var;
+  double mean, var, max_nsd;
   int max_nrows = p->nrows * n, max_ncols = p->ncols * n;
 
   if (n == 1)
@@ -372,9 +377,10 @@ Matrix *pm_convolve_fast(Matrix *p, int n) {
     Vector *marg_x = pm_marg_x(p);
     Vector *marg_y = pm_marg_y(p);
     pv_stats(marg_x, &mean, &var);
-    max_nrows = ceil(n * mean + 6 * sqrt(n * var)) + 1;
+    max_nsd = -inv_cum_norm(epsilon) + 1; 
+    max_nrows = ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
     pv_stats(marg_y, &mean, &var);
-    max_ncols = ceil(n * mean + 6 * sqrt(n * var)) + 1;
+    max_ncols = ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
     vec_free(marg_x);
     vec_free(marg_y);
   }
@@ -387,7 +393,7 @@ Matrix *pm_convolve_fast(Matrix *p, int n) {
   /* compute "powers" of p */
   pow_p[0] = p;
   for (i = 1; i <= logn; i++) 
-    pow_p[i] = pm_convolve(pow_p[i-1], 2);
+    pow_p[i] = pm_convolve(pow_p[i-1], 2, epsilon);
 
   /* now combine powers to get desired convolution */
   j = checksum = 0;
