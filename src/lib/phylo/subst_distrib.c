@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.24 2005-09-28 04:59:36 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.25 2005-09-28 21:54:03 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -53,12 +53,14 @@ Matrix **get_substs_and_bases_given_jumps(JumpProcess *jp, int jmax,
   return A;
 }
 
-/* (used below) find min j such that Pois(x > j | lambda * t_max) < epsilon */
+/* (used below) find min j such that j >= lambda * t_max and 
+   Pois(j | lambda * t_max) < epsilon */
 int get_njumps_max(double lambda, double t_max, double epsilon) {
   int j;
-  double mean = lambda * t_max;
+  double mean = ceil(lambda * t_max);
   for (j = mean; ; j++)
-    if (cum_poisson_c(mean, j) < epsilon) break;
+    if (d_poisson(mean, j) < epsilon) break;
+  j++;
   return max(10, j);
 }
 
