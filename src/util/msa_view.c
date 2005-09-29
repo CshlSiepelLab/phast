@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.35 2005-09-17 00:32:35 acs Exp $
+/* $Id: msa_view.c,v 1.36 2005-09-29 02:35:51 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -62,7 +62,7 @@ EXAMPLES:\n\
 \n\
     4. Concatenate alignments. \n\
 \n\
-        msa_view --aggregate human,mouse,rat myf1.fa,myf2.fa,myf3.fa \n\
+        msa_view --aggregate human,mouse,rat myf1.fa myf2.fa myf3.fa \n\
             > concat.fa\n\
 \n\
     (source alignments may have different subsets of sequences and may\n\
@@ -95,7 +95,7 @@ EXAMPLES:\n\
     9. Pool sufficient statistics from several human chromosomes.\n\
 \n\
         msa_view --in-format SS --aggregate human,mouse,rat \n\
-            --out-format SS chr1.ss,chr2.ss,chr3.ss > chr123.ss\n\
+            --out-format SS chr1.ss chr2.ss chr3.ss > chr123.ss\n\
 \n\
     10. Extract separate sufficient statistics for the three codon\n\
     positions, as defined by annotations in a GFF file.\n\
@@ -145,7 +145,8 @@ OPTIONS:\n\
         <name_list> must be a list of sequence names, including all\n\
         names in all specified alignments (missing sequences will be\n\
         replaced by rows of missing data).  The standard <msa_fname>\n\
-        argument should be replaced with a list of file names.\n\
+        argument should be replaced with a list of (whitespace-\n\
+        separated) file names.\n\
 \n\
  (File formats, gap stripping, reordering, etc.)\n\
     --in-format, -i PHYLIP|FASTA|MPM|MAF|SS\n\
