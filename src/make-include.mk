@@ -54,12 +54,12 @@ LFLAGS += -static
 
 # The next section is concerned with the LAPACK linear algebra
 # package, which is used by PHAST for matrix diagonalization and
-# matrix inversion.  You have three options: (1) If you are running
-# Mac OS version 10.3 (Panther) or later, you can use the LAPACK
-# libraries that are pre-installed as part of the vecLib
-# framework; (2) you can separately install the CLAPACK package and
-# use its libraries (see README.txt for details); or (3) you can
-# bypass LAPACK altogether, in which case certain programs (including
+# matrix inversion.  You have two options: (1) If you are running Mac
+# OS version 10.3 (Panther) or later, you can use the LAPACK libraries
+# that are pre-installed as part of the vecLib framework; or (2) you
+# can separately install the CLAPACK package and use its libraries
+# (see README.txt for details).  You can also bypass LAPACK
+# altogether, but in this case several key programs (including
 # phastCons, exoniphy, and phyloFit) will not be usable.
 
 # vecLib on Mac OS X; uncomment to use
