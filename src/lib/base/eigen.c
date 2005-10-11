@@ -1,4 +1,4 @@
-/* $Id: eigen.c,v 1.2 2005-08-21 21:11:29 acs Exp $
+/* $Id: eigen.c,v 1.3 2005-10-11 21:35:25 acs Exp $
    Written by Adam Siepel, Summer 2005
    Copyright 2005, Adam Siepel, University of California
 */
@@ -12,10 +12,15 @@
 #include <assert.h>
 #include <math.h>
 
-#ifndef SKIP_CLAPACK 
+#ifdef VECLIB
+#include <vecLib/clapack.h>
+#define doublereal __CLPK_doublereal
+#else
+#ifndef SKIP_LAPACK 
 #include <f2c.h>  
 #include <clapack.h> 
 #endif 
+#endif
 
 /* Diagonalize a square, real, nonsymmetric matrix.  Computes vector
    of eigenvalues and matrices of right and left eigenvectors,
@@ -35,8 +40,8 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
                                    n x n  */
 		    ) { 
 
-#ifdef SKIP_CLAPACK
-  fprintf(stderr, "ERROR: CLAPACK required for matrix diagonalization.\n");
+#ifdef SKIP_LAPACK
+  fprintf(stderr, "ERROR: LAPACK required for matrix diagonalization.\n");
   assert(0);
 #else
   char jobvl = 'V', jobvr = 'V';
@@ -154,8 +159,8 @@ int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
 				/* computed vector of eigenvalues
 				   (preallocate n-dim) */
 		  ) {
-#ifdef SKIP_CLAPACK
-  fprintf(stderr, "ERROR: CLAPACK required for eigenvalue computation.\n");
+#ifdef SKIP_LAPACK
+  fprintf(stderr, "ERROR: LAPACK required for eigenvalue computation.\n");
   assert(0);
 #else
   char jobvl = 'N';

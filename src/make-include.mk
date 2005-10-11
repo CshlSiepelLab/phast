@@ -47,32 +47,56 @@ LFLAGS += -static
 #CFLAGS += -pg
 #LFLAGS += -pg
 
-# Uncomment this line to compile without CLAPACK.  If SKIP_CLAPACK is
-# defined, PHAST will compile, but programs that require matrix
-# diagonalization will not be usable.   
-#SKIP_CLAPACK = T
-
-# root directory for CLAPACK; necessary unless SKIP_CLAPACK is defined
-CLAPACKPATH = /projects/compbio/usr/acs/CLAPACK
-
-# location of F2C libraries used by CLAPACK; most people won't need to
-# edit this
-F2CPATH = ${CLAPACKPATH}/F2CLIBS
-
-# platform-specific suffix used for CLAPACK libraries; use the same
-# value used in the "make.inc" file when compiling CLAPACK
-PLAT = _x86
-
-ifndef SKIP_CLAPACK
-CFLAGS += -I${CLAPACKPATH} -I${F2CPATH}
-LIBPATH += -L${F2CPATH} 
-LIBS = -lphast -llapack -ltmg -lblaswr -lc -lF77 -lI77 -lm
-else
-CFLAGS += -DSKIP_CLAPACK
-LIBS = -lphast -lm
-endif
-
 # this flag tells certain routines to dump internal, debugging output.
 # Don't uncomment unless you know what you're doing.
 #CFLAGS += -DDEBUG
+
+
+# The next section is concerned with the LAPACK linear algebra
+# package, which is used by PHAST for matrix diagonalization and
+# matrix inversion.  You have three options: (1) If you are running
+# Mac OS version 10.3 (Panther) or later, you can use the LAPACK
+# libraries that are pre-installed as part of the vecLib
+# framework; (2) you can separately install the CLAPACK package and
+# use its libraries (see README.txt for details); or (3) you can
+# bypass LAPACK altogether, in which case certain programs (including
+# phastCons, exoniphy, and phyloFit) will not be usable.
+
+# vecLib on Mac OS X; uncomment to use
+#VECLIB = T
+
+# separately installed CLAPACK; uncomment CLAPACKPATH definition and
+# set appropriately to use
+CLAPACKPATH = /projects/compbio/usr/acs/CLAPACK
+# platform-specific suffix used for CLAPACK libraries; use the same
+# value as in CLAPACK's "make.inc" file 
+PLAT = _x86
+# F2C libraries used by CLAPACK; most users won't need to edit
+F2CPATH = ${CLAPACKPATH}/F2CLIBS
+
+
+# if neither VECLIB nor CLAPACKPATH is defined, then LAPACK will be
+# bypassed altogether
+
+
+# Most users shouldn't edit the lines below
+
+# vecLib
+ifdef VECLIB
+CFLAGS += -DVECLIB
+LIBS = -lphast -framework vecLib -lc -lm
+
+# CLAPACK
+else
+ifdef CLAPACKPATH
+CFLAGS += -I${CLAPACKPATH} -I${F2CPATH}
+LIBPATH += -L${F2CPATH} 
+LIBS = -lphast -llapack -ltmg -lblaswr -lc -lF77 -lI77 -lm
+
+# bypass
+else
+CFLAGS += -DSKIP_LAPACK
+LIBS = -lphast -lc -lm
+endif
+endif
 

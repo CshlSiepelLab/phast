@@ -4,7 +4,7 @@ CDIR = ${PWD}
 
 PACKAGES=base msa feature hmm phylo phylo_hmm motif
 
-ifndef SKIP_CLAPACK		# only do below if using CLAPACK
+ifdef CLAPACKPATH		# only do below if using CLAPACK
 
 all: liblinks phastlib
 
@@ -26,7 +26,7 @@ ${PHAST}/lib/libblaswr.a: ${CLAPACKPATH}/blas${PLAT}.a
 	mkdir -p ${PHAST}/lib
 	${LN} -s $< $@
 
-else				# SKIP_CLAPACK case: links not necessary
+else				# no CLAPACK: links not necessary
 
 all: phastlib
 

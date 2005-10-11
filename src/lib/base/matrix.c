@@ -1,4 +1,4 @@
-/* $Id: matrix.c,v 1.4 2005-08-09 20:07:31 acs Exp $ 
+/* $Id: matrix.c,v 1.5 2005-10-11 21:35:25 acs Exp $ 
    Written by Adam Siepel, 2002-2005
    Copyright 2002-2005, Adam Siepel, University of California 
 */
@@ -13,9 +13,14 @@
 #include <assert.h>
 #include <matrix.h>
 
-#ifndef SKIP_CLAPACK
+#ifdef VECLIB
+#include <vecLib/clapack.h>
+#define doublereal __CLPK_doublereal
+#else
+#ifndef SKIP_LAPACK
 #include <f2c.h>
 #include <clapack.h>
+#endif
 #endif
 
 #include <math.h>
@@ -205,8 +210,8 @@ void mat_resize(Matrix *m, int nrows, int ncols) {
    (LAPACK routines dgetrf and dgetri).  Returns 0 on success, 1 on
    failure. */
 int mat_invert(Matrix *M_inv, Matrix *M) {
-#ifdef SKIP_CLAPACK
-  die("ERROR: CLAPACK required for matrix inversion.\n");
+#ifdef SKIP_LAPACK
+  die("ERROR: LAPACK required for matrix inversion.\n");
 #else
   int i, j;
   long int info, n = M->nrows;
