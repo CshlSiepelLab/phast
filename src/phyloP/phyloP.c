@@ -143,6 +143,7 @@ int main(int argc, char *argv[]) {
 
   if (feats != NULL) 
     msa_map_gff_coords(msa, feats, 1, 0, 0, NULL);
+  /* NOTE: msa offset not currently handled */
 
   if (subtree_name == NULL) {
     double post_mean, post_var;
@@ -477,6 +478,8 @@ void print_p_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
   p_value_stats *stats = sub_p_value_many(jp, msa, feats->features, ci);
   List *l = lst_new_ptr(2);
 
+  msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+
   printf("#chr\tstart\tend\tname\tp_cons\tp_anti_cons\tprior_mean\tprior_var\tprior_min\tprior_max\tpost_mean\tpost_var\tpost_min\tpost_max\n");
   for (i = 0; i < lst_size(feats->features); i++) {
     GFF_Feature *f = lst_get_ptr(feats->features, i);
@@ -512,6 +515,8 @@ void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
     sub_p_value_joint_many(jp, msa, feats->features, 
                            ci, MAX_CONVOLVE_SIZE, NULL);
   List *l = lst_new_ptr(2);
+
+  msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
 
   printf("#chr\tstart\tend\tname\tp_cons_sup\tp_anti_cons_sup\tp_cons_sub\tp_anti_cons_sub\tcond_p_cons_sub\tcond_p_anti_cons_sub\tcond_approx\tprior_mean_sup\tprior_var_sup\tprior_min_sup\tprior_max_sup\tprior_mean_sub\tprior_var_sub\tprior_min_sub\tprior_max_sub\tpost_mean_sup\tpost_var_sup\tpost_min_sup\tpost_max_sup\tpost_mean_sub\tpost_var_sub\tpost_min_sub\tpost_max_sub\n");
   for (i = 0; i < lst_size(feats->features); i++) {
