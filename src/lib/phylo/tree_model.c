@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.26 2005-08-12 19:30:48 acs Exp $
+/* $Id: tree_model.c,v 1.27 2005-10-11 21:28:29 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1137,6 +1137,9 @@ void tm_prune(TreeModel *mod,   /**< TreeModel whose tree is to be pruned  */
                                    can change */
   tr_prune(&mod->tree, names, TRUE);
   tm_init_rmp(mod);
+
+  if (mod->tree == NULL)
+    return;                     /* whole tree pruned away; special case */
 
   if (lst_size(names) > 0) {
     /* free memory for eliminated nodes */
