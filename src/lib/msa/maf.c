@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.22 2005-09-05 23:24:38 acs Exp $
+/* $Id: maf.c,v 1.23 2005-10-12 21:19:54 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -294,7 +294,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
          available or a missing-data char otherwise */
       if (REFSEQF == NULL) 
         refseq->chars[i] = msa->ss->tuple_idx[msa_idx] == -1 ? 
-          msa->missing[0] :
+          msa->missing[1] :
           ss_get_char_pos(msa, msa_idx, 0, 0);
 
       if (do_toupper)
@@ -304,7 +304,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
           refseq->chars[i] != GAP_CHAR &&
           !msa->is_missing[(int)refseq->chars[i]] &&
           isalpha(refseq->chars[i]))
-        refseq->chars[i] = msa->missing[0];
+        refseq->chars[i] = msa->missing[1];
       /* (for now, assume ambiguity character and treat as missing data) */
 
       if (msa->ss->tuple_idx[msa_idx] == -1) { /* nothing known about this
@@ -323,7 +323,7 @@ MSA *maf_read(FILE *F,          /**< MAF file */
         if (tuple_idx == -1) {  /* need full hash lookup */
           for (offset = -1 * (tuple_size-1); offset <= 0; offset++) 
             tuple_str[msa->nseqs*(tuple_size-1 + offset)] = 
-              i+offset >= 0 ? refseq->chars[i+offset] : msa->missing[0];
+              i+offset >= 0 ? refseq->chars[i+offset] : msa->missing[1];
 
           if ((tuple_idx = (int)hsh_get(tuple_hash, tuple_str)) == -1) {
                                 /* tuple isn't in hash yet; have to add */
@@ -359,8 +359,12 @@ MSA *maf_read(FILE *F,          /**< MAF file */
         if (msa->inv_alphabet[(int)ss_get_char_pos(msa, msa_idx, 0, 0)] == -1 &&
             msa->inv_alphabet[(int)refseq->chars[i]] == -1)
           ;                     /* okay */
+        /* (also make an exception if in the alphabet but missing) */
+        else if (msa->is_missing[(int)ss_get_char_pos(msa, msa_idx, 0, 0)] &&
+            msa->is_missing[(int)refseq->chars[i]])
+          ;                     /* okay */
         /* (also make an exception if one is softmasked and the other isn't) */
-        if (!do_toupper && toupper(refseq->chars[i]) == 
+        else if (!do_toupper && toupper(refseq->chars[i]) == 
             toupper(ss_get_char_pos(msa, msa_idx, 0, 0)))
           ;
         else 
