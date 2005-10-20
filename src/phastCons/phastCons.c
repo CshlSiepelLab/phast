@@ -8,6 +8,7 @@
 #include <bed.h>
 #include <dgamma.h>
 #include <tree_likelihoods.h>
+#include <maf.h>
 #include "phastCons.help"
 
 #define DEFAULT_RHO 0.3
@@ -355,7 +356,11 @@ int main(int argc, char *argv[]) {
   /* read alignment */
   if (!quiet)
     fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
-  msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
+  if (msa_format == MAF)
+    msa = maf_read(fopen_fname(argv[optind], "r"), NULL, 1, NULL, NULL, 
+                   NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
+  else
+    msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
   if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
   msa_remove_N_from_alph(msa);  /* for backward compatibility */
   if (msa_format == SS && msa->ss->tuple_idx == NULL) 
