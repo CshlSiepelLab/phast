@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.25 2005-09-28 21:54:03 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.26 2005-10-22 06:11:24 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -157,7 +157,7 @@ Vector *sub_distrib_branch(JumpProcess *jp, double t) {
   Vector *pois = pv_poisson(jp->lambda * t, jp->epsilon);  
   Vector *distrib = vec_new(pois->size);
 
-  assert(jp->njumps_max > pois->size);
+  assert(jp->njumps_max >= pois->size);
 
   /* combine jp->M with Poisson to get desired distribution */
   vec_zero(distrib);
@@ -181,7 +181,7 @@ Matrix **sub_distrib_branch_conditional(JumpProcess *jp, double t) {
   int size = jp->mod->rate_matrix->size;
   Matrix **D = smalloc(size * sizeof(void*));
 
-  assert(jp->njumps_max > pois->size);
+  assert(jp->njumps_max >= pois->size);
 
   for (i = 0; i < size; i++) {
     D[i] = mat_new(size, pois->size);
@@ -241,7 +241,12 @@ Vector *sub_posterior_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
        and the data beneath node, given that node has label a */
 
     if (node->lchild == NULL) {    /* leaf -- base case */
-      char c = ss_get_char_tuple(msa, tuple_idx, 
+      char c;
+
+      if (jp->mod->msa_seq_idx[node->id] < 0)
+        die("ERROR: no match for leaf '%s' in alignment.\n", node->name);
+
+      c = ss_get_char_tuple(msa, tuple_idx, 
                                  jp->mod->msa_seq_idx[node->id], 0);
       if (msa->is_missing[(int)c] || c == GAP_CHAR)
         for (a = 0; a < size; a++)
@@ -402,8 +407,11 @@ Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
 
     if (node->lchild == NULL) {    /* leaf -- base case */
       char c;
-      if (msa != NULL)
+      if (msa != NULL) {
+        if (jp->mod->msa_seq_idx[node->id] < 0)
+          die("ERROR: no match for leaf '%s' in alignment.\n", node->name);
         c = ss_get_char_tuple(msa, tuple_idx, jp->mod->msa_seq_idx[node->id], 0);
+      }
       if (msa == NULL || msa->is_missing[(int)c] || c == GAP_CHAR)
         for (a = 0; a < size; a++)
           L[node->id]->data[a][0] = 1;
