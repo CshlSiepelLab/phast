@@ -5,94 +5,23 @@
 #include <tree_model.h>
 #include <hmm.h>
 #include <msa.h>
+#include <maf.h>
 #include <sufficient_stats.h>
 #include <gff.h>
 #include <bed.h>
 #include <tree_likelihoods.h>
+#include "phastOdds.help"
 
 #define MIN_BLOCK_SIZE 30
 /* used in identifying regions of missing data in a reference-sequence
    alignment */
 
-void usage(char *prog) {
-  printf("\n\
-PROGRAM: %s\n\
-\n\
-DESCRIPTION:\n\
-\n\
-    Assign log-odds scores based on two phylo-HMMs, one for features\n\
-    of interest (e.g., coding exons, conserved regions) and one for\n\
-    background.  Can compute a score for each feature in an input set,\n\
-    and output the same set of features, with newly computed scores\n\
-    (output format is GFF by default; see -d).  Alternatively, can\n\
-    compute scores in a sliding window of designated size, and output\n\
-    a three-column file, with the index of the center of each window\n\
-    followed by the score for that window on the positive strand, then\n\
-    the score for that window on the negative strand.  Currently, a\n\
-    reference sequence alignment is assumed in either case, with the\n\
-    reference sequence appearing first; feature coordinates are\n\
-    assumed to be defined with respect to the reference sequence.\n\
-\n\
-    Note that this program can be used with ordinary phylogenetic\n\
-    models (rather than phylo-HMMs) by specifying a single model for\n\
-    background and a single model for the features of interest and\n\
-    omitting the HMM options (-B and -F).\n\
-\n\
-USAGE: phastOdds -b <backgd_mods> [-B <backgd.hmm>] \\\n\
-                 -f <feat_mods> [-F <feat.hmm>] \\\n\
-                 ( -g <feats.gff> | -w <size> ) \\\n\
-                 [OPTIONS] <alignment_fname> \n\
-\n\
-    (alignment may be in any of the file formats listed below;\n\
-    features may be formatted as GFF, BED, or genepred)\n\
-\n\
-OPTIONS:\n\
-    -b <backgd_mods>\n\
-        (Required) List of tree model (*.mod) files for background.\n\
-\n\
-    -B <backgd.hmm>\n\
-        HMM for background.  If there is only one backgound tree\n\
-        model, a trivial (single-state) HMM will be assumed.\n\
-\n\
-    -f <feat_mods>\n\
-        (Required) List of tree model (*.mod) files for features.\n\
-\n\
-    -F <feat.hmm>\n\
-        HMM for features.  If there is only one tree model for\n\
-        features, a trivial (single-state) HMM will be assumed.\n\
-\n\
-    -g <feats.gff>\n\
-        (Required unless -w) File defining features to be scored\n\
-        (GFF or bed).\n\
-\n\
-    -w <size>\n\
-        (Can be used instead of -g) Compute scores in a sliding window\n\
-        of the specified size.\n\
-\n\
-    -i <type>\n\
-        Input format for alignment.  May be FASTA, PHYLIP, MPM, SS, or\n\
-        MAF (default FASTA)\n\
-\n\
-    -M <rseq.fa>\n\
-        (For use with -i MAF) Reference sequence (FASTA)\n\
-\n\
-    -d\n\
-        (For use with -g) Generate output in bed format rather than GFF.\n\
-\n\
-    -v\n\
-        Verbose mode.  Print messages to stderr describing what the\n\
-        program is doing.\n\
-\n\
-    -h\n\
-        Print this help message.\n\n", prog);
-  exit(0);
-}
-
 int main(int argc, char *argv[]) {
   char c;
   List *l;
   int i, j, strand, bed_output = 0, backgd_nmods = -1, feat_nmods = -1, 
-    winsize = -1, verbose = 0, max_nmods, memblocksize;
+    winsize = -1, verbose = 0, max_nmods, memblocksize, old_nleaves,
+    refidx = 1;
   TreeModel **backgd_mods = NULL, **feat_mods = NULL;
   HMM *backgd_hmm = NULL, *feat_hmm = NULL;
   msa_format_type inform = FASTA;
@@ -103,7 +32,23 @@ int main(int argc, char *argv[]) {
   int *no_alignment;
   List *pruned_names;
 
-  while ((c = getopt(argc, argv, "B:b:F:f:g:w:i:M:dvh")) != -1) {
+  int opt_idx;
+  struct option long_opts[] = {
+    {"background-mods", 1, 0, 'b'},
+    {"background-hmm", 1, 0, 'B'},
+    {"feature-mods", 1, 0, 'f'},
+    {"feature-hmm", 1, 0, 'F'},
+    {"features", 1, 0, 'g'},
+    {"window", 1, 0, 'w'},
+    {"msa-format", 1, 0, 'i'},
+    {"refidx", 1, 0, 'r'},
+    {"output-bed", 0, 0, 'd'},
+    {"verbose", 0, 0, 'v'},
+    {"help", 0, 0, 'h'},
+    {0, 0, 0, 0}
+  };
+
+  while ((c = getopt_long(argc, argv, "B:b:F:f:r:g:w:i:dvh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'B':
       backgd_hmm = hmm_new_from_file(fopen_fname(optarg, "r"));
@@ -138,14 +83,15 @@ int main(int argc, char *argv[]) {
       inform = msa_str_to_format(optarg);
       if (inform == -1) die("Bad argument to -i.\n");
       break;
-    case 'M':
-      die("-M not yet implemented.\n");
+    case 'r':
+      refidx = get_arg_int_bounds(optarg, 0, INFTY);
       break;
     case 'd':
       bed_output = 1;
       break;
     case 'h':
-      usage(argv[0]);
+      printf(HELP);
+      exit(0);
     case 'v':
       verbose = 1;
       break;
@@ -184,7 +130,11 @@ int main(int argc, char *argv[]) {
     die("ERROR: too few arguments.  Try '%s -h'.\n", argv[0]);
 
   if (verbose) fprintf(stderr, "Reading alignment ...\n");
-  msa = msa_new_from_file(fopen_fname(argv[optind], "r"), inform, NULL);
+  if (inform == MAF)
+    msa = maf_read(fopen_fname(argv[optind], "r"), NULL, 1, NULL, NULL, 
+                   NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
+  else
+    msa = msa_new_from_file(fopen_fname(argv[optind], "r"), inform, NULL);
   if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
   msa_remove_N_from_alph(msa);
 
@@ -194,11 +144,29 @@ int main(int argc, char *argv[]) {
 
   pruned_names = lst_new_ptr(msa->nseqs);
   for (i = 0; i < backgd_nmods; i++) {
+    old_nleaves = (backgd_mods[i]->tree->nnodes + 1) / 2;
     tm_prune(backgd_mods[i], msa, pruned_names);
+    if (lst_size(pruned_names) >= old_nleaves)
+      die("ERROR: no match for leaves of tree in alignment (background model #%d)\n", i+1);
+    else if (lst_size(pruned_names) > 0) {
+      fprintf(stderr, "WARNING: pruned away leaves in background model (#%d) with no match in alignment (", i+1);
+      for (j = 0; j < lst_size(pruned_names); j++)
+        fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars, 
+                j < lst_size(pruned_names) - 1 ? ", " : ").\n");
+    }
     lst_free_strings(pruned_names);
   }
   for (i = 0; i < feat_nmods; i++) {
+    old_nleaves = (feat_mods[i]->tree->nnodes + 1) / 2;
     tm_prune(feat_mods[i], msa, pruned_names);
+    if (lst_size(pruned_names) >= old_nleaves)
+      die("ERROR: no match for leaves of tree in alignment (features model #%d)\n", i+1);
+    else if (lst_size(pruned_names) > 0) {
+      fprintf(stderr, "WARNING: pruned away leaves in features model (#%d) with no match in alignment (", i+1);
+      for (j = 0; j < lst_size(pruned_names); j++)
+        fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars, 
+                j < lst_size(pruned_names) - 1 ? ", " : ").\n");
+    }
     lst_free_strings(pruned_names);
   }
   lst_free(pruned_names);
@@ -213,9 +181,9 @@ int main(int argc, char *argv[]) {
   }
 
   /* convert to coord frame of alignment */
-  if (features != NULL) {
+  if (features != NULL && refidx != 0) {
     if (verbose) fprintf(stderr, "Mapping coordinates ...\n");
-    msa_map_gff_coords(msa, features, 1, 0, 0, NULL); 
+    msa_map_gff_coords(msa, features, refidx, 0, 0, NULL); 
     if (lst_size(features->features) == 0)
       die("ERROR: no features within coordinate range of alignment.\n");
   }
@@ -402,7 +370,15 @@ int main(int argc, char *argv[]) {
   }
   else {                        /* features output */
     /* return to coord frame of reference seq (also, replace offset) */
-    msa_map_gff_coords(msa, features, 0, 1, msa->idx_offset, NULL); 
+    if (refidx != 0)
+      msa_map_gff_coords(msa, features, 0, refidx, msa->idx_offset, NULL); 
+    else if (msa->idx_offset != 0) {
+      for (i = 0; i < lst_size(features->features); i++) {
+        GFF_Feature *f = lst_get_ptr(features->features, i);
+        f->start += msa->idx_offset;
+        f->end += msa->idx_offset;
+      }
+    }
 
     if (bed_output) 
       gff_print_bed(stdout, features, FALSE);
