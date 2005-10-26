@@ -177,6 +177,9 @@ int main(int argc, char *argv[]) {
   if (feat_hmm->nstates != feat_nmods) 
     die("ERROR: number of states must equal number of tree models for features.\n");
 
+  if (features != NULL && lst_size(features->features) == 0)
+    die("ERROR: empty features file.\n");
+
   if (optind != argc - 1) 
     die("ERROR: too few arguments.  Try '%s -h'.\n", argv[0]);
 
@@ -213,6 +216,8 @@ int main(int argc, char *argv[]) {
   if (features != NULL) {
     if (verbose) fprintf(stderr, "Mapping coordinates ...\n");
     msa_map_gff_coords(msa, features, 1, 0, 0, NULL); 
+    if (lst_size(features->features) == 0)
+      die("ERROR: no features within coordinate range of alignment.\n");
   }
 
   /* Make a reverse complemented copy of the alignment.  The two
