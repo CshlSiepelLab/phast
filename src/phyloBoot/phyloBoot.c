@@ -308,7 +308,7 @@ int main(int argc, char *argv[]) {
           msa_print(F, msa, dump_format, FALSE);
           if (!parametric) {   /* need to get rid of seqs because msa
                                    object reused */
-            for (i = 0; i < msa->nseqs; i++) free(msa->seqs[i]);
+            for (j = 0; j < msa->nseqs; j++) free(msa->seqs[j]);
             free(msa->seqs);
             msa->seqs = NULL;
           }
