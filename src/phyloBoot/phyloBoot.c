@@ -322,6 +322,15 @@ int main(int argc, char *argv[]) {
         msa = maf_read(INF, NULL, 1, NULL, NULL, NULL, -1, FALSE, NULL, NO_STRIP, FALSE);
       else
         msa = msa_new_from_file(INF, input_format, NULL);
+
+      /* represent as SS and get rid of seqs (important below) */
+      if (msa->ss == NULL) {
+        ss_from_msas(msa, tm_order(subst_mod) + 1, FALSE, NULL, NULL, NULL, -1);
+        for (i = 0; i < msa->nseqs; i++)
+          free(msa->seqs[i]);
+        free(msa->seqs);
+        msa->seqs = NULL;
+      }
     }
 
     /* general set up -- different for parameteric and non-parameteric cases */
@@ -384,20 +393,19 @@ int main(int argc, char *argv[]) {
         if (!quiet) fprintf(stderr, "Dumping alignment to %s...\n", fname);
         F = fopen_fname(fname, "w+");
 
-        if (dump_format == SS) {
-          if (msa->ss == NULL) 
+        if (dump_format == SS) { /* output ss */
+          if (msa->ss == NULL)   /* (only happens in parameteric case) */
             ss_from_msas(msa, tm_order(subst_mod) + 1, FALSE, NULL, NULL, NULL, -1);
           ss_write(msa, F, FALSE);
         }
-        else {
-          int tmpseqs = FALSE;
-          if (msa->seqs == NULL) {
-            tmpseqs = TRUE;
+        else {                  /* output actual seqs */
+          if (!parameteric) {   /* only have SS; need to create seqs */
             ss_to_msa(msa);            
             msa_permute(msa);
           }
           msa_print(F, msa, dump_format, FALSE);
-          if (tmpseqs) {
+          if (!parameteric) {   /* need to get rid of seqs because msa
+                                   object reused */
             for (i = 0; i < msa->nseqs; i++) free(msa->seqs[i]);
             free(msa->seqs);
             msa->seqs = NULL;
@@ -481,6 +489,7 @@ int main(int argc, char *argv[]) {
       else tm_free(thismod);
     }
     if (do_estimates) vec_free(params);
+    if (parameteric) msa_free(msa);
   }
 
   /* finally, compute and print stats */
