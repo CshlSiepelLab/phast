@@ -351,8 +351,8 @@ int main(int argc, char *argv[]) {
       if (msa->ss == NULL)
         ss_from_msas(msa, tm_order(subst_mod) + 1, FALSE, NULL, NULL, NULL, -1);
       p = smalloc(msa->ss->ntuples * sizeof(double));
-      for (i = 0; i < msa->ss->ntuples; i++) p[i] = msa->ss->counts[i];
-      normalize_probs(p, msa->ss->ntuples);
+      for (i = 0; i < msa->ss->ntuples; i++) 
+        p[i] = 1.0 * msa->ss->counts[i] / msa->length;
       tmpcounts = smalloc(msa->ss->ntuples * sizeof(int));
     }
     else {                        /* parameteric */
@@ -373,8 +373,6 @@ int main(int argc, char *argv[]) {
                                 /* here we simply redraw numbers of
                                    tuples from multinomial distribution
                                    defined by orig alignment */
-                                /* WARNING: current implementation is
-                                   inefficient for large nsites*ntuples */
         for (j = 0; j < msa->ss->ntuples; j++) msa->ss->counts[j] = tmpcounts[j];
                                 /* (have to convert from int to double) */
         msa->length = nsites;

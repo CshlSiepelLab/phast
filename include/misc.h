@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.19 2005-09-28 04:59:36 acs Exp $
+/* $Id: misc.h,v 1.20 2005-10-27 16:30:44 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -157,7 +157,8 @@ double normalize_probs(double *p, int size);
 int is_transition(char b1, char b2);
 int is_indel(char b1, char b2);
 void unif_draw(int n, double min, double max, double *draws, int antithetics);
-void bn_draw(int n, int N, double p, int *draws);
+int bn_draw(int N, double p);
+int bn_draw_fast(int n, double pp);
 void mn_draw(int n, double *p, int d, int *counts);
 int draw_index(double *p, int size);
 struct hash_table *make_name_hash(char *mapstr);

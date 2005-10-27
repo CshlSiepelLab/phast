@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.29 2005-09-28 04:59:36 acs Exp $
+/* $Id: misc.c,v 1.30 2005-10-27 16:30:44 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -64,6 +64,7 @@ void permute(int *permutation, int N) {
   srandom(time(NULL));
   for (i = 0; i < N; i++) {
     randidx = rint(1.0 * (lst_size(eligible)-1) * random() / RAND_MAX);
+    assert(randidx >= 0 && randidx < lst_size(eligible));
     permutation[i] = lst_get_int(eligible, randidx);
     
     /* replace selected element with last one in list, then shorten list */
@@ -471,52 +472,138 @@ void unif_draw(int n, double min, double max, double *draws, int antithetics) {
   }
 }
 
-/** Make 'n' draws from a binomial distribution with parameters 'N'
-   and 'p'.  Store numbers of successes in 'draws'.  Be sure to call
-   srandom externally.  WARNING: computational complexity is O(n*N) --
-   see Numerical Recipes for a better way (rejection sampling) */
-void bn_draw(int n, int N, double p, int *draws) {
-  int i, j;
+/** Make a draw from a binomial distribution with parameters 'N' and
+   'p'.  Be sure to call srandom externally.  WARNING: computational
+   complexity is O(N) -- see Numerical Recipes for a better way
+   (rejection sampling) */
+int bn_draw(int N, double p) {
+  int j, retval = 0;
   double *unif_draws;
-  assert(n >= 1 && N >= 1);
+  assert(N >= 1);
   unif_draws = smalloc(N * sizeof(double));
-  for (i = 0; i < n; i++) {
-    unif_draw(N, 0, 1, unif_draws, FALSE);
+  unif_draw(N, 0, 1, unif_draws, FALSE);
                                 /* antithetics can have undesirable
                                    effect; e.g., if p = 0.5, it will
-                                   always be true that draws[i] =
+                                   always be true that retval =
                                    N/2 */
-    draws[i] = 0;
-    for (j = 0; j < N; j++) if (unif_draws[j] < p) draws[i]++;
+  for (j = 0; j < N; j++) if (unif_draws[j] < p) retval++;
                                 /* number of uniform draws less than p
                                    is binomial */
-  }
   free(unif_draws);
+  return retval;
+}
+
+/* Make a draw from a binomial distribution with parameters 'n' and
+   'pp'.  This version is adapted slightly from Numerical Recipes in C
+   (pp 223-224) and uses rejection sampling unless n < 25 or n * p <
+   1/25; it takes constant expected time.  Be sure to call srandom
+   externally.  */
+int bn_draw_fast(int n, double pp) {
+  int j;
+  static int nold = -1;
+  double am, em, g, angle, p, bn1, sq, t, y;
+  static double pold = -1, pc, plog, pclog, en, oldg;
+
+  if (n < 25) bn_draw(n, pp);
+
+  p = (pp <= 0.5 ? pp : 1.0 - pp); /* can assume p less than 0.5, and
+                                      adjust return value as
+                                      necessary */
+
+  am = n * p;
+
+  if (am < 1.0) {               /* if fewer than one event out of 25
+                                   is expected, distribution is quite
+                                   accurately Poisson; use direct
+                                   Poisson method */
+    g = exp(-am);
+    t = 1.0;
+    for (j = 0; j <= n; j++) {
+      t *= random()/RAND_MAX;
+      if (t < g) break;
+    }
+    bn1 = min(j, n);
+  }
+  else {                        /* use rejection method */
+    if (n != nold) {            /* compute first time only */
+      en = n;
+      oldg = lgamma(en + 1);
+      nold = n;
+    }
+    if (p != pold) {            /* compute first time only */
+      pc = 1 - p;
+      plog = log(p);
+      pclog = log(pc);
+      pold = p;
+    }
+    sq = sqrt(2 * am * pc);     /* rejection method with Lorentzian
+                                   comparison function */
+    do {
+      do {
+        angle = M_PI * random()/RAND_MAX;
+        y = tan(angle);
+        em = sq * y + am;
+      } while(em < 0 || em >= en + 1); /* reject */
+      em = floor(em);
+      t = 1.2*sq*(1+y*y)* 
+        exp(oldg - lgamma(em+1) - lgamma(en-em+1) + 
+            em*plog + (en-em)*pclog);
+    } while (random()/RAND_MAX > t);
+    bn1 = em;
+  }
+
+  if (p != pp) bn1 = n - bn1;   /* undo symmetry transformation */
+  return bn1;
+}
+
+/* structure and comparison function used in mn_draw */
+struct mndata {
+  int idx;
+  double p;
+  double count;
+};
+
+int mn_compare(const void* ptr1, const void* ptr2) {
+  const struct mndata *d1 = ptr1, *d2 = ptr2;
+  if (d1->p == d2->p) return 0;
+  else if (d1->p < d2->p) return 1;
+  else return -1;
 }
 
 /** Make 'n' draws from a multinomial distribution defined by
    probability vector 'p' with dimension 'd'.  Record the counts for
    each category in 'counts'.  Sum of elements in 'counts' will equal
-   'n'.  Probability vector is assumed to be normalized.  WARNING:
-   computational complexity is O(n * d) -- need a better
-   implementation of bn_draw to handle large n efficiently.  Be sure
+   'n'.  Probability vector is assumed to be normalized.  Be sure
    to call srandom externally. */
 void mn_draw(int n, double *p, int d, int *counts) {
   int i, nremaining = n;
-  double cum_p = 0;
+  double rem_p = 1;
+
+  /* sort in descending order by probability */
+  struct mndata *data = smalloc(d * sizeof(struct mndata));
+  for (i = 0; i < d; i++) {
+    data[i].idx = i;
+    data[i].p = p[i];
+    data[i].count = 0;
+  }
+  qsort(data, d, sizeof(struct mndata), mn_compare);
 
   /* recursively make draws from binomial */
   for (i = 0; i < d-1; i++) {
-    if (p[i] == 0 || nremaining == 0) {
-      counts[i] = 0; /* save time and avoid possible div by 0 */
-      continue;
-    }
-    bn_draw(1, nremaining, p[i] / (1-cum_p), &counts[i]);
-    nremaining -= counts[i];
-    cum_p += p[i];
+    if (data[i].p == 0 || nremaining == 0) 
+      break;
+    data[i].count = bn_draw_fast(nremaining, data[i].p / rem_p);
+    nremaining -= data[i].count;
+    rem_p -= data[i].p;
   }
   /* last category is constrained by prev */
-  counts[d-1] = nremaining;
+  data[d-1].count = nremaining;
+
+  /* now populate counts */
+  for (i = 0; i < d; i++)
+    counts[data[i].idx] = data[i].count;
+
+  free(data);
 }
 
 /** Given a probability vector, draw an index.  Call srandom externally */
