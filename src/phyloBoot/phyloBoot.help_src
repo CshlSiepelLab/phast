@@ -1,0 +1,131 @@
+PROGRAM: phyloBoot
+
+USAGE: phyloBoot [OPTIONS] <model_fname>|<msa_fname>
+
+DESCRIPTION:
+
+    Generate simulated alignment data by parametric or nonparametric
+    bootstrapping, and/or estimate errors in phylogenetic model parameters.
+    When estimating errors in parameters, the tree topology is not inferred
+    -- estimated errors are conditional on the given topology.
+
+    If a model is given in the form of a .mod file (<model_fname>), then
+    parametric bootstrapping is performed -- i.e., synthetic data sets are
+    drawn from the distribution defined by the model.  Otherwise, the input
+    file is assumed to be a multiple alignment, and non-parametric
+    bootstrapping is performed -- i.e., sites are drawn (with replacement)
+    from the empirical distribution defined by the given alignment.  
+
+    The default behavior is to produce simulated alignments, estimate model
+    parameters for each one, and then write a table to stdout with a row
+    for each parameter and columns for the mean, standard deviation
+    (approximate standard error), median, minimum, and maximum of estimated
+    values, plus the boundaries of 95% and 90% confidence intervals.  
+    
+    The --alignments-only option, however, allows the parameter estimation
+    step to be bypassed entirely, and the program to be used simply to
+    generate simulated data sets.
+
+    See usage for phyloFit for additional details on tree-building
+    options.
+
+EXAMPLES:
+    
+    (See below for more details on options)
+
+    1. Estimation of parameter errors by parametric bootstrapping.
+
+        phyloBoot --nreps 500 --nsites 10000 mymodel.mod > par_errors
+
+    2. Estimation of parameter errors by nonparametric bootstrapping.
+
+        phyloBoot --nreps 500 --nsites 10000 \
+            --tree "((human,chimp),(mouse,rat))" myalignment.fa > \
+            nonpar_errors
+
+    3. Parametric generation of simulated data.
+    
+        phyloBoot mymodel.mod --alignments-only pardata \
+            --nreps 500 --nsites 10000 
+
+    4. Nonparametric generation of simulated data.
+    
+        phyloBoot myalignment.fa --alignments-only nonpardata \
+            --nreps 500 --nsites 10000 
+
+OPTIONS:
+
+ (bootstrapping options)
+
+    --nsites, -L <number>
+        Number of sites in sampled alignments.  If an alignment is
+        given (non-parametric case), default is number of sites in
+        alignment, otherwise default is 1000.
+
+    --nreps, -n <number>
+        Number of replicates.  Default is 100.
+
+    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
+        (non-parametric case only)  Alignment format.  Default is FASTA.
+
+    --alignments-only, -a <fname_root>
+        Generate alignments and write them to files with given filename
+        root, but do not estimate parameters.  
+
+    --dump-mods, -d <fname_root>
+        Dump .mod files for individual estimated models (one for each
+        replicate).
+
+    --dump-samples, -m <fname_root>
+        Dump simulated alignments to files with given filename root.
+        Similar to --alignments-only but does not disable parameter
+        estimation.
+
+    --dump-format, -o FASTA|PHYLIP|MPM|SS.
+        (For use with --alignments-only or --dump-samples) File format to
+        use when dumping raw alignments.  Default FASTA.
+
+    --read-mods, -R <fname_list>
+        Read estimated models from list of filenames instead of generating
+        alignments and estimating parameters. Can be used to compute
+        statistics for replicates that have been processed separately (see
+        --alignments-only).  When this option is used, the primary argument
+        to the program (<model_fname>|<msa_fname>) will be ignored.
+
+    --output-average, -A <fname>
+        Output a tree model representing the average of all input
+        models to the specified file.
+
+    --quiet, -q
+        Proceed quietly.
+
+    --help, -h
+        Print this help message.
+
+ (tree-building options)
+
+    --tree, -t <tree_fname>|<tree_string>
+        (Required if non-parametric and more than two species) Name
+        of file or literal string defining tree topology.
+
+    --subst-mod, -s JC69|F81|HKY85|REV|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S
+        (default REV).  Nucleotide substitution model.
+
+    --nrates, -k <nratecats>
+        (default 1).  Number of rate categories to use.  Specifying a
+        value of greater than one causes the discrete gamma model for
+        rate variation to be used.
+
+    --EM, -E
+        Use EM rather than the BFGS quasi-Newton algorithm for parameter
+        estimation.
+
+    --precision, -p HIGH|MED|LOW
+        (default HIGH) Level of precision to use in estimating model
+        parameters.
+
+    --init-model, -M <mod_fname>
+        Initialize optimization procedure with specified tree model.
+
+    --init-random, -r
+        Initialize parameters randomly.
