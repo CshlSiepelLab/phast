@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.53 2005-10-30 04:55:59 acs Exp $
+/* $Id: msa.c,v 1.54 2005-10-30 05:24:59 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1683,6 +1683,10 @@ MSA *msa_concat_from_files(List *fnames, msa_format_type format,
         die("ERROR: no match for sequence name '%s' in list.\n",
             source_msa->names[j]);
       tmpseqs[idx] = source_msa->seqs[j];
+      source_msa->names[j] = srealloc(source_msa->names[j], 
+                                      STR_SHORT_LEN * sizeof(char));
+                                /* can't guarantee alloc any larger
+                                   than current string */
     }
     if (source_msa->nseqs < nseqs) {
       source_msa->names = (char**)srealloc(source_msa->names, 
