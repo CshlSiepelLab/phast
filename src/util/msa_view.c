@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.36 2005-09-29 02:35:51 acs Exp $
+/* $Id: msa_view.c,v 1.37 2005-10-30 05:26:26 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -641,12 +641,12 @@ int main(int argc, char* argv[]) {
       fprintf(stderr, "WARNING: --refseq ignored with --aggregate.\n");
 
     if (input_format == MAF && (output_format != SS || ordered_stats)) {
-      fprintf(stderr, "WARNING: assuming --out-format SS --unordered-ss with --in-format MAF and --aggregate.\n");
+      fprintf(stderr, "WARNING: assuming --unordered-ss with --in-format MAF and --aggregate.\n");
       output_format = SS;
       ordered_stats = FALSE;
     }
     else if (input_format == SS && (output_format != SS || ordered_stats))
-      fprintf(stderr, "WARNING: are you sure you don't want to use --out-format SS --unordered-ss?\nA lot of memory may be required...\n");
+      fprintf(stderr, "WARNING: use --unordered-ss unless you're sure you need order\n");
 
     if (output_format == SS && !ordered_stats) {
       msa = ss_aggregate_from_files(msa_fname_list, input_format, 
@@ -710,10 +710,8 @@ int main(int argc, char* argv[]) {
   }
   if (refseq != 0) {
     if ((input_format == SS || aggregate_list != NULL) && 
-        msa->ss->tuple_idx == NULL) {
-      fprintf(stderr, "ERROR: an ordered representation of the alignment columns is required.\n");
-      exit(1);
-    }
+        (msa->ss == NULL || msa->ss->tuple_idx == NULL))
+      die("ERROR: an ordered representation of the alignment columns is required.\n");
     map = msa_build_coord_map(msa, refseq);
     startcol = msa_map_seq_to_msa(map, startcol);
     if (endcol != -1) endcol = msa_map_seq_to_msa(map, endcol);
