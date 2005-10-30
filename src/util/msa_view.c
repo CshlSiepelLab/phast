@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.37 2005-10-30 05:26:26 acs Exp $
+/* $Id: msa_view.c,v 1.38 2005-10-30 05:30:47 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -708,7 +708,7 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "ERROR: reference sequence out of range.\n");
     exit(1); 
   }
-  if (refseq != 0) {
+  if (refseq != 0 && (startcol != 1 || endcol != -1)) {
     if ((input_format == SS || aggregate_list != NULL) && 
         (msa->ss == NULL || msa->ss->tuple_idx == NULL))
       die("ERROR: an ordered representation of the alignment columns is required.\n");
