@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.52 2005-09-12 03:08:37 acs Exp $
+/* $Id: msa.c,v 1.53 2005-10-30 04:55:59 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -1652,7 +1652,7 @@ MSA *msa_concat_from_files(List *fnames, msa_format_type format,
   for (i = 0; i < nseqs; i++) {
     String *s = lst_get_ptr(seqnames, i);
     names[i] = (char*)smalloc(STR_SHORT_LEN * sizeof(char));
-    strcpy(names[i], s->chars);
+    strncpy(names[i], s->chars, STR_SHORT_LEN);
   }
 
   retval = msa_new(NULL, names, nseqs, 0, alphabet);
@@ -1664,13 +1664,12 @@ MSA *msa_concat_from_files(List *fnames, msa_format_type format,
   for (i = 0; i < lst_size(fnames); i++) {
     String *fname = lst_get_ptr(fnames, i);
     if ((F = fopen(fname->chars, "r")) == NULL || 
-        (source_msa = msa_new_from_file(F, format, alphabet)) == NULL) {
-      fprintf(stderr, "ERROR: cannot read MSA from %s.\n", fname->chars);
-      exit(1);
-    }
+        (source_msa = msa_new_from_file(F, format, alphabet)) == NULL) 
+      die("ERROR: cannot read MSA from %s.\n", fname->chars);
 
-    if (source_msa->seqs == NULL && source_msa->ss != NULL) {
-      fprintf(stderr, "WARNING: msa_concat_from_files requires an explicit alignment; trying to\nreconstruct one from sufficient statistics (might be a bad idea)...\n");
+    if (source_msa->seqs == NULL) {
+      if (source_msa->ss == NULL || source_msa->ss->tuple_idx == NULL) 
+        die("ERROR: msa_concat_from_files requires an ordered alignment.\n");
       ss_to_msa(source_msa);
     }
 
@@ -1682,14 +1681,14 @@ MSA *msa_concat_from_files(List *fnames, msa_format_type format,
       int idx = (int)hsh_get(name_hash, source_msa->names[j]);
       if (idx == -1) 
         die("ERROR: no match for sequence name '%s' in list.\n",
-	    source_msa->names[j]);
+            source_msa->names[j]);
       tmpseqs[idx] = source_msa->seqs[j];
     }
     if (source_msa->nseqs < nseqs) {
       source_msa->names = (char**)srealloc(source_msa->names, 
-                                          nseqs * sizeof(char*));
+                                           nseqs * sizeof(char*));
       source_msa->seqs = (char**)srealloc(source_msa->seqs, 
-                                         nseqs * sizeof(char*));
+                                          nseqs * sizeof(char*));
       for (j = source_msa->nseqs; j < nseqs; j++)
         source_msa->names[j] = (char*)smalloc(STR_SHORT_LEN * sizeof(char));
       source_msa->nseqs = nseqs;
@@ -1697,14 +1696,14 @@ MSA *msa_concat_from_files(List *fnames, msa_format_type format,
     for (j = 0; j < nseqs; j++) {
       if (tmpseqs[j] == NULL) {
         source_msa->seqs[j] = (char*)smalloc((source_msa->length+1) * 
-                                            sizeof(char));
+                                             sizeof(char));
         for (k = 0; k < source_msa->length; k++) 
           source_msa->seqs[j][k] = GAP_CHAR;
         source_msa->seqs[j][source_msa->length] = '\0';
       }        
       else 
         source_msa->seqs[j] = tmpseqs[j];
-      strcpy(source_msa->names[j], names[j]);
+      strncpy(source_msa->names[j], names[j], STR_SHORT_LEN);
     }
 
     /* now concatenate the source MSA to the aggregate */
