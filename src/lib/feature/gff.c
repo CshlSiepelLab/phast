@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.30 2005-08-29 17:37:22 acs Exp $
+/* $Id: gff.c,v 1.31 2005-11-11 17:09:57 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -81,9 +81,9 @@ GFF_Set* gff_read_set(FILE *F) {
       }
       else unrecognized = 1;
 
-      if (unrecognized)
-        fprintf(stderr, "WARNING: unrecognized meta-data: '%s'\n", 
-                line->chars);
+/*       if (unrecognized) */
+/*         fprintf(stderr, "WARNING: unrecognized meta-data: '%s'\n",  */
+/*                 line->chars); */
       lst_free_strings(substrs);
 
       continue;
