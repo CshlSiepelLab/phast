@@ -53,8 +53,9 @@ int main(int argc, char *argv[]) {
   Vector *prior_distrib, *post_distrib;
   Matrix *prior_joint_distrib, *post_joint_distrib;
   JumpProcess *jp;
+  List *pruned_names;
   char c;
-  int opt_idx;
+  int j, old_nleaves, opt_idx;
 
   struct option long_opts[] = {
     {"msa-format", 1, 0, 'i'},
@@ -118,7 +119,6 @@ int main(int argc, char *argv[]) {
     die("ERROR: --features cannot be used with --null or --posterior.\n");
 
   mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
-  jp = sub_define_jump_process(mod, epsilon);
 
   if (!prior_only) {
     msa_f = fopen_fname(argv[optind+1], "r");
@@ -137,7 +137,22 @@ int main(int argc, char *argv[]) {
 
     if (feats != NULL && msa->ss->tuple_idx == NULL)
       die("ERROR: ordered alignment required.\n");
+
+    /* prune tree, if necessary */
+    pruned_names = lst_new_ptr(msa->nseqs);
+    old_nleaves = (mod->tree->nnodes + 1) / 2;
+    tm_prune(mod, msa, pruned_names);
+    if (lst_size(pruned_names) >= old_nleaves)
+      die("ERROR: no match for leaves of tree in alignment.\n");
+    else if (lst_size(pruned_names) > 0) {
+      fprintf(stderr, "WARNING: pruned away leaves with no match in alignment (");
+      for (j = 0; j < lst_size(pruned_names); j++)
+        fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars, 
+                j < lst_size(pruned_names) - 1 ? ", " : ").\n");
+    }
   }
+
+  jp = sub_define_jump_process(mod, epsilon);
 
   if (nsites == -1) nsites = msa->length;
 
@@ -145,7 +160,7 @@ int main(int argc, char *argv[]) {
     msa_map_gff_coords(msa, feats, 1, 0, 0, NULL);
   /* NOTE: msa offset not currently handled */
 
-  if (subtree_name == NULL) {
+  if (subtree_name == NULL) {   /* full-tree mode */
     double post_mean, post_var;
 
     if (feats == NULL) {
