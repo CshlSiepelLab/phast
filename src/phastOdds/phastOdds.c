@@ -328,7 +328,7 @@ int main(int argc, char *argv[]) {
 
         if ((strand == 1 && f->strand == '-') || 
             (strand == 2 && f->strand != '-') ||
-            f->start <= 0 || f->end <= 0)
+            f->start <= 0 || f->end <= 0 || f->end - f->start < 0)
           continue;
         
         /* effective coords */
