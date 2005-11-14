@@ -95,7 +95,9 @@ OPTIONS:
         (Can be used instead of -g or -y) Output base-by-base scores, in
         the coordinate frame of the reference sequence (or of the sequence
         specified by --refidx).  Output is in fixed-step WIG format
-        (http://genome.ucsc.edu/goldenPath/help/wiggle.html).
+        (http://genome.ucsc.edu/goldenPath/help/wiggle.html).  This option
+        can only be used with individual phylogenetic models, not with sets
+        of models and a (nontrivial) HMM.
 
     --msa-format, -i <type>
         Input format for alignment.  May be FASTA, PHYLIP, MPM, SS, or

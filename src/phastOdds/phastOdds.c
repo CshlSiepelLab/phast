@@ -132,6 +132,9 @@ int main(int argc, char *argv[]) {
   if (features != NULL && lst_size(features->features) == 0)
     die("ERROR: empty features file.\n");
 
+  if (base_by_base && (backgd_nmods > 1 || feat_nmods > 1))
+    die("ERROR: only single phylogenetic models (not HMMs) are supported with --base-by-base.\n");
+
   if (optind != argc - 1) 
     die("ERROR: too few arguments.  Try '%s -h'.\n", argv[0]);
 
