@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
   List *l;
   int i, j, strand, bed_output = 0, backgd_nmods = -1, feat_nmods = -1, 
     winsize = -1, verbose = 0, max_nmods, memblocksize, old_nleaves,
-    refidx = 1;
+    refidx = 1, base_by_base = FALSE;
   TreeModel **backgd_mods = NULL, **feat_mods = NULL;
   HMM *backgd_hmm = NULL, *feat_hmm = NULL;
   msa_format_type inform = FASTA;
@@ -40,6 +40,7 @@ int main(int argc, char *argv[]) {
     {"feature-hmm", 1, 0, 'F'},
     {"features", 1, 0, 'g'},
     {"window", 1, 0, 'w'},
+    {"base-by-base", 0, 0, 'y'},
     {"msa-format", 1, 0, 'i'},
     {"refidx", 1, 0, 'r'},
     {"output-bed", 0, 0, 'd'},
@@ -48,7 +49,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "B:b:F:f:r:g:w:i:dvh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "B:b:F:f:r:g:w:i:ydvh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'B':
       backgd_hmm = hmm_new_from_file(fopen_fname(optarg, "r"));
@@ -78,6 +79,9 @@ int main(int argc, char *argv[]) {
     case 'w':
       winsize = get_arg_int(optarg);
       if (winsize <= 0) die("ERROR: window size must be positive.\n");
+      break;
+    case 'y':
+      base_by_base = TRUE;
       break;
     case 'i':
       inform = msa_str_to_format(optarg);
@@ -113,9 +117,11 @@ int main(int argc, char *argv[]) {
   else if (feat_hmm == NULL)
     die("ERROR: -F required.  Try '%s -h'.\n", argv[0]);
 
-  if ((winsize == -1 && features == NULL) || 
-      (winsize != -1 && features != NULL))
-    die("ERROR: must specify -g or -w but not both.  Try '%s -h'.\n", argv[0]);
+  if ((winsize == -1 && features == NULL && !base_by_base) || 
+      (winsize != -1 && features != NULL) || 
+      (winsize != -1 && base_by_base) || 
+      (features != NULL && base_by_base))
+    die("ERROR: must specify exactly one of -g, -w, and -y.  Try '%s -h'.\n", argv[0]);
 
   if (backgd_hmm->nstates != backgd_nmods) 
     die("ERROR: number of states must equal number of tree models for background.\n");
@@ -221,17 +227,24 @@ int main(int argc, char *argv[]) {
         memblocksize = f->end - f->start + 1;
     }
   }
-  else memblocksize = winsize;
-  for (i = 0; i < max_nmods; i++)
-    mem[i] = smalloc(memblocksize * sizeof(double));
+  else memblocksize = winsize;  /* -1 if base-by-base mode */
+
+  if (memblocksize > 0)
+    for (i = 0; i < max_nmods; i++)
+      mem[i] = smalloc(memblocksize * sizeof(double));
 
   if (winsize != -1) {
     winscore_pos = smalloc(msa->length * sizeof(double));
     winscore_neg = smalloc(msa->length * sizeof(double));
-    for (i = 0; i < msa->length; i++) 
-      winscore_pos[i] = winscore_neg[i] = NEGINFTY; 
     no_alignment = smalloc(msa->length * sizeof(int));
-    msa_find_noaln(msa, 1, MIN_BLOCK_SIZE, no_alignment);
+
+    for (i = 0; i < msa->length; i++) {
+      winscore_pos[i] = winscore_neg[i] = NEGINFTY; 
+      if (refidx == 0)
+        no_alignment[i] = FALSE;
+      else
+        no_alignment[i] = msa_missing_col(msa, refidx, i);
+    }
   }
 
   /* the rest will be repeated for each strand */
@@ -246,7 +259,7 @@ int main(int argc, char *argv[]) {
        computed where needed */
     thismsa->categories = smalloc(thismsa->length * sizeof(int));
     thismsa->ncats = 1;
-    if (features == NULL) {
+    if (winsize != -1) {
       if (strand == 1)
         for (i = 0; i < thismsa->length; i++) 
           thismsa->categories[i] = no_alignment[i] ? 0 : 1;
@@ -254,7 +267,7 @@ int main(int argc, char *argv[]) {
         for (i = 0; i < thismsa->length; i++) 
           thismsa->categories[i] = no_alignment[thismsa->length - i - 1] ? 0 : 1;
     }
-    else {
+    else if (features != NULL) {
       for (i = 0; i < thismsa->length; i++) thismsa->categories[i] = 0;
       for (i = 0; i < lst_size(features->features); i++) {
         GFF_Feature *f = lst_get_ptr(features->features, i);
@@ -273,6 +286,9 @@ int main(int argc, char *argv[]) {
                j < thismsa->length - f->start + 1; j++)
             thismsa->categories[j] = 1;
       }
+    }
+    else {                      /* base-by-base scores */
+      for (i = 0; i < thismsa->length; i++) thismsa->categories[i] = 1;
     }
     if (thismsa->ss != NULL) ss_update_categories(thismsa);
 
@@ -320,7 +336,7 @@ int main(int argc, char *argv[]) {
         if (winscore[centeridx] < NEGINFTY) winscore[centeridx] = NEGINFTY;
       }
     }
-    else {                      /* features case */
+    else if (features != NULL) { /* features case */
       if (verbose) fprintf(stderr, "Computing scores ...\n");
       for (i = 0; i < lst_size(features->features); i++) {
         GFF_Feature *f = lst_get_ptr(features->features, i);
@@ -362,13 +378,13 @@ int main(int argc, char *argv[]) {
   
   if (winsize != -1) {          /* windows output */
     for (i = 0, j = 0; i < msa->length; i++) {
-      if (no_alignment[i] == 0)
+      if (no_alignment[i] == FALSE)
         printf("%d\t%.3f\t%.3f\n", j + msa->idx_offset + 1, winscore_pos[i], 
                winscore_neg[i]);
       if (ss_get_char_pos(msa, i, 0, 0) != GAP_CHAR) j++;
     }
   }
-  else {                        /* features output */
+  else if (features != NULL) {  /* features output */
     /* return to coord frame of reference seq (also, replace offset) */
     if (refidx != 0)
       msa_map_gff_coords(msa, features, 0, refidx, msa->idx_offset, NULL); 
@@ -384,6 +400,19 @@ int main(int argc, char *argv[]) {
       gff_print_bed(stdout, features, FALSE);
     else
       gff_print_set(stdout, features);
+  }
+  else {                        /* base-by-base scores */
+    /* in this case, we can just output the difference between the
+       emissions */
+    printf("fixedStep chrom=%s start=%d step=1\n", 
+           refidx > 0 ? msa->names[refidx-1] : "alignment",
+           msa->idx_offset + 1);
+    for (i = 0, j = 0; i < msa->length; i++) {
+      if (refidx == 0 || msa_get_char(msa, refidx-1, i) != GAP_CHAR) {
+        printf("%.3f\n", feat_emissions[0][i] - backgd_emissions[0][i]);
+        j++;
+      }
+    }
   }
 
   if (verbose) fprintf(stderr, "\nDone.\n");

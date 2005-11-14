@@ -6,13 +6,15 @@ DESCRIPTION:
     one for features of interest (e.g., coding exons, conserved regions)
     and one for background.  Will either (1) compute a score for each
     feature in an input set, and output the same set of features with
-    scores; or (2) compute scores in a sliding window of designated size,
-    and output a three-column file, with the index of the center of each
-    window followed by the score for that window on the positive strand,
-    then the score for that window on the negative strand.  The default is
-    to assume a reference sequence alignment, with the reference sequence
-    appearing first; feature coordinates are assumed to be defined with
-    respect to the reference sequence (see --refidx).
+    scores; or (2) output a separate score for each position in fixed-step
+    WIG format (http://genome.ucsc.edu/goldenPath/help/wiggle.html); or (3)
+    compute scores in a sliding window of designated size, and output a
+    three-column file, with the index of the center of each window followed
+    by the score for that window on the positive strand, then the score for
+    that window on the negative strand.  The default is to assume a
+    reference sequence alignment, with the reference sequence appearing
+    first; feature coordinates are assumed to be defined with respect to
+    the reference sequence (see --refidx).
 
 USAGE: phastOdds [OPTIONS] \
             --background-mods <bmods> [--background-hmm <bhmm>] \
@@ -82,12 +84,18 @@ OPTIONS:
         features, a trivial (single-state) HMM will be assumed.
 
     --features, -g <feats.gff>
-        (Required unless -w) File defining features to be scored
+        (Required unless -w or -y) File defining features to be scored
         (GFF, BED, or genepred).
 
     --window, -w <size>
-        (Can be used instead of -g) Compute scores in a sliding window
-        of the specified size.
+        (Can be used instead of -g or -y) Compute scores in a sliding
+        window of the specified size.
+
+    --base-by-base, -y 
+        (Can be used instead of -g or -y) Output base-by-base scores, in
+        the coordinate frame of the reference sequence (or of the sequence
+        specified by --refidx).  Output is in fixed-step WIG format
+        (http://genome.ucsc.edu/goldenPath/help/wiggle.html).
 
     --msa-format, -i <type>
         Input format for alignment.  May be FASTA, PHYLIP, MPM, SS, or
