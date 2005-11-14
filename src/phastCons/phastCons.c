@@ -680,12 +680,12 @@ int main(int argc, char *argv[]) {
     for (j = 0, k = 0; j < msa->length; j++) {
       if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
         if (!msa_missing_col(msa, refidx, j)) {
-	  if (k > last + 1) 
-	    printf("fixedStep chrom=%s start=%d step=1\n", seqname, 
-		   k + msa->idx_offset + 1);
+          if (k > last + 1) 
+            printf("fixedStep chrom=%s start=%d step=1\n", seqname, 
+                   k + msa->idx_offset + 1);
           printf("%.3f\n", postprobs[j]);
-	  last = k;
-	}
+          last = k;
+        }
         k++;
       }
     }
