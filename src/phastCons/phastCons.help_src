@@ -49,7 +49,7 @@ DESCRIPTION:
 
     The program produces two main types of output.  The primary
     output, sent to stdout in fixed-step WIG format
-    (http://genome.ucsc.edu/encode/submission.html#WIG), is a set of
+    (http://genome.ucsc.edu/goldenPath/help/wiggle.html), is a set of
     base-by-base conservation scores.  The score at each base is equal
     to the posterior probability that that base was "generated" by the
     conserved state of the phylo-HMM.  The scores are reported in the
