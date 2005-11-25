@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.27 2005-11-25 18:23:59 acs Exp $
+/* $Id: clean_genes.c,v 1.28 2005-11-25 18:52:23 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -842,7 +842,8 @@ int ref_seq_okay(List *features, MSA *msa, int offset3, int indel_strict,
 
     if (str_equals_charstr(feat->feature, GFF_START_TYPE) && strcmp(seq, "ATG") != 0)
       return 0;
-    else if (str_equals_charstr(feat->feature, GFF_STOP_TYPE) && !is_stop_codon(seq)) 
+    else if (str_equals_charstr(feat->feature, GFF_STOP_TYPE) && 
+             (feat->frame != 0 || !is_stop_codon(seq)))
       return 0;
     else if (str_starts_with_charstr(feat->feature, SPLICE_5) && 
              !is_valid_5splice(seq, splice_strict))
