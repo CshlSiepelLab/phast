@@ -1,4 +1,4 @@
-/* $Id: hmm.c,v 1.6 2005-07-17 23:15:19 acs Exp $
+/* $Id: hmm.c,v 1.7 2005-11-25 05:17:30 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -180,15 +180,15 @@ void hmm_print(FILE *F, HMM *hmm) {
   mm_pretty_print(F, hmm->transition_matrix);
   if (hmm->eq_freqs != NULL) {
     fprintf(F, "%s\n", EQ_FREQS_TAG);
-    vec_fprintf(hmm->eq_freqs, F, "%e");
+    vec_fprintf(hmm->eq_freqs, F, "%e ");
   }
   if (hmm->begin_transitions != NULL) {
     fprintf(F, "%s\n", BEGIN_TRANSITIONS_TAG);
-    vec_fprintf(hmm->begin_transitions, F, "%e");
+    vec_fprintf(hmm->begin_transitions, F, "%e ");
   }
   if (hmm->end_transitions != NULL) {
     fprintf(F, "%s\n", END_TRANSITIONS_TAG);
-    vec_fprintf(hmm->end_transitions, F, "%e");
+    vec_fprintf(hmm->end_transitions, F, "%e ");
   }
 }
 

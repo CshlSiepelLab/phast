@@ -1,7 +1,7 @@
 /* hmm_train - estimation of HMM transition probabilities from labeled
    training data */
 
-/* $Id: hmm_train.c,v 1.11 2005-07-17 23:15:19 acs Exp $
+/* $Id: hmm_train.c,v 1.12 2005-11-25 05:17:30 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -165,6 +165,8 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  if (msa_fname_list == NULL)
+    die("ERROR: -m required.  Type 'hmm_train -h' for usage.\n");
   if (gff_fname_list == NULL) 
     die("ERROR: -g required in training mode.  Type 'hmm_train -h' for usage.\n");
   if (msa_length_list != NULL && msa_fname_list != NULL) 
