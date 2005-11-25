@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.25 2005-11-25 06:09:17 acs Exp $
+/* $Id: clean_genes.c,v 1.26 2005-11-25 06:25:36 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -45,7 +45,7 @@ typedef enum {NO_ADJUST, ADJUST_END, ADJUST_START} adjust_type;
 
 /* "signal" feature types, used for 'indel-strict' mode (special-case
    stuff related to exoniphy training) */
-#define SIGNALS "start,stop,5'splice,3'splice,cds5'ss,cds3'ss,prestart"
+#define SIGNALS "start_codon,stop_codon,5'splice,3'splice,cds5'ss,cds3'ss,prestart"
 
 void print_usage() {
     printf("\n\
