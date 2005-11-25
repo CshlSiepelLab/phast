@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.26 2005-11-25 06:25:36 acs Exp $
+/* $Id: clean_genes.c,v 1.27 2005-11-25 18:23:59 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -888,6 +888,12 @@ int ref_seq_okay(List *features, MSA *msa, int offset3, int indel_strict,
         lastfeat_helper = feat;
       }
       else lastfeat_helper = NULL;
+    
+      /* also exclude CDS exons of length less than 6 in indel_strict
+         case -- these cause problems in exoniphy training because
+         start_codon is adjacent to cds5ss */
+      if (str_equals_charstr(feat->feature, GFF_CDS_TYPE) && len <= 6)
+        return 0;
     }
   }
   return 1;
