@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.54 2005-10-30 05:24:59 acs Exp $
+/* $Id: msa.c,v 1.55 2005-11-25 17:26:24 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -788,16 +788,23 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
        categories, and a definition of an "anchor" site for non-cyclic
        ones (acs, 1/04) */
     if (feat->end - feat->start != orig_span) {
+      int lanchor = FALSE, ranchor = FALSE;
+
       /* left-anchored */
       if (str_equals_charstr(feat->feature, "5'splice") || 
           str_equals_charstr(feat->feature, "start_codon") || 
           str_equals_charstr(feat->feature, "stop_codon") || 
           str_equals_charstr(feat->feature, "cds3'ss")) 
-        feat->end = feat->start + orig_span;
+        lanchor = TRUE;
       /* right-anchored */
       else if (str_equals_charstr(feat->feature, "3'splice") || 
                str_equals_charstr(feat->feature, "cds5'ss") ||
                str_equals_charstr(feat->feature, "prestart"))
+        ranchor = TRUE;
+
+      if ((lanchor && feat->strand == '+') || (ranchor && feat->strand == '-'))
+        feat->end = feat->start + orig_span;
+      else if ((ranchor && feat->strand == '+') || (lanchor && feat->strand == '-'))
         feat->start = feat->end - orig_span;
     }
 
