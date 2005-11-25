@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.33 2005-11-25 18:39:05 acs Exp $
+/* $Id: gff.c,v 1.34 2005-11-25 18:49:11 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1083,7 +1083,7 @@ void gff_create_signals(GFF_Set *feats) {
           if (strand == '-') {
             str_cpy_charstr(f_new->feature, GFF_STOP_TYPE);
             f->start += 3;
-            f_new->frame = 0;
+            f_new->frame = (f->frame + f->end - f->start + 1) % 3;
           }
           else 
             str_cpy_charstr(f_new->feature, GFF_START_TYPE);            
@@ -1098,7 +1098,7 @@ void gff_create_signals(GFF_Set *feats) {
           else {
             str_cpy_charstr(f_new->feature, GFF_STOP_TYPE);            
             f->end -= 3;
-            f_new->frame = 0;
+            f_new->frame = (f->frame + f->end - f->start + 1) % 3;
           }
           lst_push_ptr(feats->features, f_new);
           lst_push_ptr(g->features, f_new);
