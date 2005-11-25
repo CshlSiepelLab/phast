@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.24 2005-09-05 23:03:54 acs Exp $
+/* $Id: clean_genes.c,v 1.25 2005-11-25 06:09:17 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -848,7 +848,7 @@ int ref_seq_okay(List *features, MSA *msa, int offset3, int indel_strict,
              !is_valid_5splice(seq, splice_strict))
       return 0;
     else if (str_starts_with_charstr(feat->feature, SPLICE_3) &&
-             !is_valid_3splice(seq, splice_strict))
+             !is_valid_3splice(&seq[offset3], splice_strict))
       return 0;
     else if (str_equals_charstr(feat->feature, GFF_CDS_TYPE)) {
       for (i = (3 - feat->frame) % 3; i <= len - 3; i += 3) 
