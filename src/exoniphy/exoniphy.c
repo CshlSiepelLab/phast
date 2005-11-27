@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.41 2005-11-27 01:35:15 acs Exp $
+/* $Id: exoniphy.c,v 1.42 2005-11-27 04:59:54 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -234,6 +234,7 @@ int main(int argc, char* argv[]) {
       str_root(tmp, '.');         /* apply one more time for double suffix */
       if (seqname == NULL) seqname = tmp->chars;    
     }
+    else if (seqname == NULL) seqname = "refseq";
   }
 
   /* set hmm, tree models, and category map to defaults, if not
