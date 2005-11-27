@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.40 2005-09-06 00:58:09 acs Exp $
+/* $Id: exoniphy.c,v 1.41 2005-11-27 01:35:15 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -13,6 +13,8 @@
 #include <category_map.h>
 #include <sufficient_stats.h>
 #include <stringsplus.h>
+#include <maf.h>
+#include "exoniphy.help"
 
 /* default background feature types; used when scoring predictions and
    reflecting HMM */
@@ -37,196 +39,6 @@
 /* thresholds defining G+C ranges (-1 indicates end) */
 double GC_THRESHOLDS[] = {0.40, 0.45, 0.50, 0.55, -1};
 
-void print_usage() {
-    printf("\n\
-PROGRAM:    exoniphy\n\
-\n\
-USAGE:      exoniphy <msa_fname> > predictions.gff\n\
-\n\
-    Required argument <msa_fname> must be a multiple alignment\n\
-    file, in one of several possible formats (see --msa-format).\n\
-\n\
-DESCRIPTION: \n\
-\n\
-    Prediction of evolutionarily conserved protein-coding exons using\n\
-    a phylogenetic hidden Markov model (phylo-HMM).  By default, a\n\
-    model definition and model parameters are used that are\n\
-    appropriate for exon prediction in human DNA, based on\n\
-    human/mouse/rat alignments and a 60-state HMM.  Using the --hmm,\n\
-    --tree-models, and --catmap options, however, it is possible to\n\
-    define alternative phylo-HMMs, e.g., for different sets of species\n\
-    and different phylogenies, or for prediction of exon pairs or\n\
-    complete gene structures.\n\
-\n\
-OPTIONS:\n\
-\n\
- (Model definition and model parameters)\n\
-    --hmm, -H <fname>\n\
-        Name of HMM file defining states and transition probabilities.\n\
-        By default, the 60-state HMM described in Siepel & Haussler\n\
-        (2004) is used, with transition probabilities appropriate for\n\
-        mammalian genomes (estimated as described in that paper).\n\
-\n\
-    --tree-models, -m <fname_list>\n\
-        List of tree model (*.mod) files, one for each state in the\n\
-        HMM.  Order of models must correspond to order of states in\n\
-        HMM file.  By default, a set of models appropriate for human,\n\
-        mouse, and rat are used (estimated as described in Siepel &\n\
-        Haussler, 2004).\n\
-\n\
-    --catmap, -c <fname>|<string>\n\
-        Mapping of feature types to category numbers.  Can give either\n\
-        a filename or an \"inline\" description of a simple category\n\
-        map, e.g., --catmap \"NCATS = 3 ; CDS 1-3\".  By default, a\n\
-        category map is used that is appropriate for the 60-state HMM\n\
-        mentioned above.\n\
-\n\
-    --extrapolate, -e <phylog.nh> | default\n\
-        Extrapolate to a larger set of species based on the given\n\
-        phylogeny (Newick-format).  The trees in the given tree models\n\
-        (*.mod files) must be subtrees of the larger phylogeny.  For\n\
-        each tree model M, a copy will be created of the larger\n\
-        phylogeny, then scaled such that the total branch length of\n\
-        the subtree corresponding to M's tree equals the total branch\n\
-        length of M's tree; this new version will then be used in\n\
-        place of M's tree.  (Any species name present in this tree but\n\
-        not in the data will be ignored.)  If the string \"default\"\n\
-        is given instead of a filename, then a phylogeny for 25\n\
-        vertebrate species, estimated from sequence data for Target 1\n\
-        (CFTR) of the NISC Comparative Sequencing Program (Thomas et\n\
-        al., 2003), will be assumed.\n\
-\n\
- (Input and output)\n\
-    --msa-format, -i PHYLIP|FASTA|MPM|SS \n\
-        (default SS) File format of input alignment.\n\
- \n\
-    --score, -S\n\
-        Report log-odds scores for predictions, equal to their log\n\
-        total probability under an exon model minus their log total\n\
-        probability under a background model.  The exon model can be\n\
-        altered using --cds-types and --signal-types and the\n\
-        background model can be altered using --backgd-types (see below).\n\
-\n\
-    --seqname, -s <name>\n\
-        Use specified string as \"seqname\" field in GFF output.\n\
-        Default is obtained from input file name (double filename\n\
-        root, e.g., \"chr22\" if input file is \"chr22.35.ss\").\n\
-\n\
-    --idpref, -p <name>\n\
-        Use specified string as prefix of generated ids in GFF output.\n\
-        Can be used to ensure ids are unique.  Default is obtained\n\
-        from input file name (single filename root, e.g., \"chr22.35\"\n\
-        if input file is \"chr22.35.ss\").\n\
-\n\
-    --grouptag, -g <tag>\n\
-        Use specified string as the tag denoting groups in GFF output\n\
-        (default is \"transcript_id\").\n\
-\n\
- (Altering the states and transition probabilities of the HMM)\n\
-    --no-cns, -x \n\
-        Eliminate the state/category for conserved noncoding sequence\n\
-        from the default HMM and category map.  Ignored if non-default\n\
-        HMM and category map are selected.\n\
-\n\
-    --reflect-strand, -U \n\
-        Given an HMM describing the forward strand, create a larger\n\
-        HMM that allows for features on both strands by \"reflecting\"\n\
-        the HMM about all states associated with background categories\n\
-        (see --backgd-cats).  The new HMM will be used for predictions\n\
-        on both strands.  If the default HMM is used, then this option\n\
-        will be used automatically.\n\
-\n\
-    --bias, -b <val>\n\
-        Set \"coding bias\" equal to the specified value (default\n\
-        -3.33 if default HMM is used, 0 otherwise).  The coding bias\n\
-        is added to the log probabilities of transitions from\n\
-        background states to non-background states (see\n\
-        --backgd-cats), then all transition probabilities are\n\
-        renormalized.  If the coding bias is positive, then more\n\
-        predictions will tend to be made and sensitivity will tend to\n\
-        improve, at some cost to specificity; if it is negative, then\n\
-        fewer predictions will tend to be made, and specificity will\n\
-        tend to improve, at some cost to sensitivity.\n\
-\n\
-    --sens-spec, -Y <fname-root>\n\
-        Make predictions for a range of different coding\n\
-        biases (see --bias), and write results to files with given\n\
-        filename root.  This allows the sensitivity/specificity\n\
-        tradeoff to be examined.  The range is fixed at %d to %d, \n\
-        and %d different sets of predictions are produced.\n\
-\n\
- (Feature types)\n\
-    --backgd-types, -B <list>\n\
-        Feature types to be considered \"background\" (default value:\n\
-        \"%s\").  Affects --reflect-strand,\n\
-        --score, and --bias.\n\
-\n\
-    --cds-types, -C <list>\n\
-        (for use with --score) Feature types that represent protein-coding\n\
-        regions (default value: \"%s\").\n\
-\n\
-    --signal-types, -L <list>\n\
-        (for use with --score) Types of features to be considered\n\
-        \"signals\" during scoring (default value: \n\
-        \"%s\").\n\
-        One score is produced for a CDS feature (as defined by\n\
-        --cds-types) and the adjacent signal features; the score is\n\
-        then assigned to the CDS feature.\n\
-\n\
- (Indels)\n\
-    --indels, -I\n\
-        Use the indel model described in Siepel & Haussler (2004).\n\
-\n\
-    --no-gaps, -W <list>\n\
-        Prohibit gaps in sites of the specified categories (gaps result in\n\
-        emission probabilities of zero).  If the default category map\n\
-        is used (see --catmap), then gaps are prohibited in start and\n\
-        stop codons and at the canonical GT and AG positions of splice\n\
-        sites (with or without --indels).  In all other cases, the\n\
-        default behavior is to treat gaps as missing data, or to address\n\
-        them with the indel model (--indels).\n\
-\n\
-    --require-informative, -N <list>\n\
-        Require \"informative\" columns (i.e., columns with more than\n\
-        two non-missing-data characters, excluding sequences specified\n\
-        by --not-informative) in the given categories (list by name\n\
-        or number).  Non-informative columns will be given emission\n\
-        probabilities of zero.  If the default category map is used\n\
-        (see --catmap), then this option applies automatically to\n\
-        CDSs, start and stop codons, and the canonical GT and AG\n\
-        positions of splice sites.  Note that alignment gaps *are*\n\
-        considered informative; the way they are handled is defined by\n\
-        --indels and --no-gaps.\n\
-\n\
-    --not-informative, -n <list>\n\
-        Do not consider the specified sequences (listed by name) when\n\
-        deciding whether a column is informative.  This option can be\n\
-        useful when sequences are present that are very close to the\n\
-        reference sequence and thus do not contribute much in the way\n\
-        of phylogenetic information.  E.g., one might use\n\
-        \"--not-informative chimp\" with a human-referenced multiple\n\
-        alignment including chimp sequence.\n\
-\n\
- (Other)\n\
-    --quiet, -q \n\
-        Proceed quietly (without messages to stderr).\n\
-\n\
-    --help -h\n\
-        Print this help message.\n\
-\n\
-\n\
-REFERENCES:\n\
- \n\
-    A. Siepel and D. Haussler.  2004.  Computational identification of\n\
-      evolutionarily conserved exons.  Proc. 8th Annual Int\'l Conf.\n\
-      on Research in Computational Biology (RECOMB \'04), pp. 177-186.\n\
-\n\
-    J. Thomas et al.  2003.  Comparative analyses of multi-species\n\
-      sequences from targeted genomic regions.  Nature 424:788-793.\n\n", 
-           SCALE_RANGE_MIN, SCALE_RANGE_MAX, NSENS_SPEC_TRIES, 
-           DEFAULT_BACKGD_TYPES, DEFAULT_CDS_TYPES, DEFAULT_SIGNAL_TYPES);
-}
-
 int main(int argc, char* argv[]) {
 
   /* variables for options, with defaults */
@@ -235,7 +47,7 @@ int main(int argc, char* argv[]) {
     no_cns = FALSE;
   double bias = NEGINFTY;
   char *seqname = NULL, *grouptag = "transcript_id", *sens_spec_fname_root = NULL,
-    *idpref = NULL, *extrapolate_tree_fname = NULL;
+    *idpref = NULL, *extrapolate_tree_fname = NULL, *newname;
   List *model_fname_list = NULL, *no_gaps_str = NULL, *inform_reqd = NULL,
     *not_informative = NULL,
     *backgd_types = get_arg_list(DEFAULT_BACKGD_TYPES), 
@@ -244,6 +56,7 @@ int main(int argc, char* argv[]) {
     *cds_absorb_types = get_arg_list(CDS_ABSORB_TYPES),
     *invisible_types = get_arg_list(INVISIBLE_TYPES);
   TreeNode *extrapolate_tree = NULL;
+  Hashtable *alias_hash = NULL;
 
   struct option long_opts[] = {
     {"hmm", 1, 0, 'H'},
@@ -266,6 +79,7 @@ int main(int argc, char* argv[]) {
     {"require-informative", 1, 0, 'N'},
     {"not-informative", 1, 0, 'n'},
     {"extrapolate", 1, 0, 'e'},
+    {"alias", 1, 0, 'A'},
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
@@ -285,7 +99,7 @@ int main(int argc, char* argv[]) {
   char tmpstr[STR_LONG_LEN];
   String *fname_str = str_new(STR_LONG_LEN), *str;
 
-  while ((c = getopt_long(argc, argv, "i:c:H:m:s:p:g:B:T:L:F:IW:N:n:b:e:xSYUhq", 
+  while ((c = getopt_long(argc, argv, "i:c:H:m:s:p:g:B:T:L:F:IW:N:n:b:e:A:xSYUhq", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
@@ -352,11 +166,14 @@ int main(int argc, char* argv[]) {
     case 'e':
       extrapolate_tree_fname = optarg;
       break;
+    case 'A':
+      alias_hash = make_name_hash(optarg);
+      break;
     case 'q':
       quiet = TRUE;
       break;
     case 'h':
-      print_usage();
+      printf(HELP);
       exit(0);
     case '?':
       fprintf(stderr, "ERROR: unrecognized option.  Try 'exoniphy -h' for help.\n");
@@ -384,7 +201,11 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "Reading alignment from %s...\n", 
             !strcmp(argv[optind], "-") ? "stdin" : argv[optind]);
   
-  msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
+  if (msa_format == MAF)
+    msa = maf_read(fopen_fname(argv[optind], "r"), NULL, 1, NULL, NULL, 
+                   NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
+  else
+    msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
   if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
   msa_remove_N_from_alph(msa);
 
@@ -392,6 +213,16 @@ int main(int argc, char* argv[]) {
     die("ERROR: Ordered representation of alignment required.\n");
   if (not_informative != NULL)
     msa_set_informative(msa, not_informative);
+
+  /* rename if aliases are defined */
+  if (alias_hash != NULL) {
+    for (i = 0; i < msa->nseqs; i++) {
+      if ((newname = hsh_get(alias_hash, msa->names[i])) != (char*)-1) {
+        free(msa->names[i]);
+        msa->names[i] = strdup(newname);
+      }
+    }
+  }
 
   /* use filename root for default seqname and/or idpref */
   if (seqname == NULL || idpref == NULL) {
