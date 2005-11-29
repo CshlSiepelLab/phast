@@ -1,4 +1,4 @@
-/* $Id: eval_predictions.c,v 1.11 2005-06-24 21:33:44 acs Exp $
+/* $Id: eval_predictions.c,v 1.12 2005-11-29 18:00:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -281,6 +281,10 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "ERROR: Must specify lists of equal length for real and predicted filenames.\n\n.");
     exit(1);
   }
+
+  if (lst_size(seq_len_list) == 1 && lst_size(real_fname_list) > 1)
+    for (i = 1; i < lst_size(real_fname_list); i++)
+      lst_push_int(seq_len_list, lst_get_int(seq_len_list, 0));
   
   /* print header */
   printf("%-25s %-25s %7s %7s %7s %7s %7s %7s %7s %7s %7s %7s %7s %7s %7s %7s", "Real_fname", "Pred_fname", "Sn", "Sp", "AC", "CC", "ESn", "ESp", "CRa", "PCa", "OLa", "ME", "CRp", "PCp", "OLp", "WE");
