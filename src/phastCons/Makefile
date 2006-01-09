@@ -11,7 +11,7 @@ HELP = $(addsuffix .help,$(basename $(wildcard *.help_src)))
 %.o : %.c
 # (cancels built-in rule; otherwise gets used instead if *.help missing)
 .SECONDARY : ${HELP}
-# (prevents *.help from being deleted as a intermediate file)
+# (prevents *.help from being deleted as an intermediate file)
 
 all: ${EXEC}
 

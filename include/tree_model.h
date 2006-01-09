@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.13 2005-08-12 19:30:48 acs Exp $
+/* $Id: tree_model.h,v 1.14 2006-01-09 21:53:58 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -34,11 +34,23 @@
 
 #define TM_EM_CONV(P) ( (P) == OPT_HIGH_PREC ? TM_EM_CONV_HIGH : ( (P) == OPT_MED_PREC ? TM_EM_CONV_MED : ( (P) == OPT_CRUDE_PREC ? TM_EM_CONV_CRUDE : TM_EM_CONV_LOW) ))
 
+/* type of branch length estimation */
 typedef enum { 
   TM_BRANCHLENS_ALL, 
   TM_SCALE_ONLY, 
   TM_BRANCHLENS_NONE 
 } blen_estim_type;
+
+/* used in bounded estimation of subtree scale */
+typedef enum {
+  NB,                           /* no bound */
+  LB,                           /* lower bound -- subtree scale at
+                                   least as large as scale of whole
+                                   tree */
+  UB                            /* upper bound -- subtree scale at
+                                   most as large as scale of whole
+                                   tree */
+} scale_bound_type; 
 
 struct tp_struct;
 
@@ -83,7 +95,7 @@ struct tm_struct {
                                    will be given non-zero probability */
   int estimate_backgd;          /* estimate backgd freqs as free
                                    parameters in the optimization */
-  blen_estim_type  estimate_branchlens; 
+  blen_estim_type estimate_branchlens; 
                                 /* if value is TM_BRANCHLENS_ALL, then
                                    estimate all branch lengths; if
                                    value is TM_SCALE_ONLY, then
@@ -91,9 +103,17 @@ struct tm_struct {
                                    if value is TM_BRANCHLENS_NONE, do
                                    not estimate branch lengths */
   double scale;                 /* current scale factor */
+  double scale_sub;             /* scale factor for subtree, when
+                                   estimating separate scale factors
+                                   for subtree and supertree */
+  scale_bound_type scale_sub_bound;
+                                /* bound on scale of subtree */
+  TreeNode *subtree_root;       /* node defining subtree */
   int empirical_rates;          /* indicates "empirical"
                                    (nonparameteric) model for
                                    rate-variation */
+  int estimate_ratemat;         /* indicates whether rate-matrix
+                                   parameters should be estimated */
 };
 
 typedef struct tm_struct TreeModel;

@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.34 2005-09-06 00:58:08 acs Exp $
+   $Id: phyloFit.c,v 1.35 2006-01-09 21:53:57 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -24,359 +24,13 @@
 #include <numerical_opt.h>
 #include <sufficient_stats.h>
 #include <maf.h>
+#include "phyloFit.help"
 
 /* default minimum number of informative sites (see -I) */
 #define DEFAULT_NSITES_THRESHOLD 50
 
 /* default starting alpha for dgamma */
 #define DEFAULT_ALPHA 1
-
-void print_usage() {
-  printf("\n\
-PROGRAM: phyloFit\n\
-\n\
-DESCRIPTION: \n\
-\n\
-    Fits one or more tree models to a multiple alignment of DNA\n\
-    sequences by maximum likelihood, using the specified tree topology\n\
-    and substitution model.  If categories of sites are defined via\n\
-    --features and --catmap (see below), then a separate model will be\n\
-    estimated for each category.  A description of each model will\n\
-    be written to a separate file, with the suffix \".mod\".  These\n\
-    .mod files minimally include a substitution rate matrix, a tree with\n\
-    branch lengths, and estimates of nucleotide equilibrium\n\
-    frequencies.  They may also include information about parameters\n\
-    for modeling rate variation.\n\
-\n\
-USAGE: phyloFit [OPTIONS] <msa_fname>\n\
-\n\
-    <msa_fname> should be a multiple alignment in FASTA format or\n\
-    one of several alternative formats (see --msa-format).  For\n\
-    backward compatibility, this argument may be preceded by '-m' or\n\
-    '--msa'.  Note that --tree is required in most cases.  By default,\n\
-    all output files will have the prefix \"phyloFit\" (see\n\
-    --out-root).\n\
-\n\
-EXAMPLES:\n\
-\n\
-    (If you're like me, you want some basic examples first, and a list\n\
-    of all options later.)\n\
-\n\
-    1. Compute the distance between two aligned sequences (in FASTA file\n\
-    pair.fa) under the REV model.\n\
-\n\
-        phyloFit pair.fa\n\
-\n\
-    (output is to phyloFit.mod; distance in substitutions per site\n\
-    appears in the TREE line in the output file)\n\
-\n\
-    2. Fit a phylogenetic model to an alignment of human, chimp, mouse,\n\
-    and rat sequences.  Use the HKY85 substitution model.  Write output\n\
-    to files with prefix \"myfile\".\n\
-\n\
-        phyloFit --tree \"((human,chimp),(mouse,rat))\" --subst-mod HKY85\n\
-            --out-root myfile primate-rodent.fa\n\
-\n\
-    3. As above, but use the discrete-gamma model for rate variation,\n\
-    with 4 rate categories.\n\
-\n\
-        phyloFit --tree \"((human,chimp),(mouse,rat))\" --subst-mod HKY85\n\
-            --out-root myfile --nrates 4 primate-rodent.fa\n\
-\n\
-    4. As above, but use genome-wide data, stored in the compact\n\
-    \"sufficient-statistics\" format (can be produced with \"msa_view\n\
-    -o SS\").\n\
-\n\
-        phyloFit --tree \"((human,chimp),(mouse,rat))\" --subst-mod HKY85\n\
-            --out-root myfile --nrates 4 --msa-format SS \n\
-            primate-rodent.ss\n\
-\n\
-    5. Fit a context-dependent phylogenetic model (U2S) to an\n\
-    alignment of human, mouse, and rat sequences.  Use\n\
-    an EM algorithm for parameter optimization and relax the\n\
-    convergence criteria a bit (recommended with context-dependent\n\
-    models).  Write a log file for the optimization procedure.\n\
-    Consider only non-overlapping pairs of sites.\n\
-\n\
-        phyloFit --tree \"(human,(mouse,rat))\" --subst-mod U2S --EM\n\
-            --precision MED --non-overlapping --log u2s.log --out-root\n\
-            hmr-u2s hmr.fa\n\
-\n\
-    6. As above, but allow overlapping pairs of sites, and compute\n\
-    likelihoods by assuming Markov-dependence of columns (see Siepel &\n\
-    Haussler, 2004).  The EM algorithm can no longer be used\n\
-    (optimization will be much slower).\n\
-\n\
-        phyloFit --tree \"(human,(mouse,rat))\" --subst-mod U2S\n\
-            --precision MED --log u2s-markov.log --markov hmr.fa\n\
-\n\
-    7. Compute a likelihood using parameter estimates obtained in (5)\n\
-    and an assumption of Markov dependence.  This provides a lower\n\
-    bound on the likelihood of the Markov-dependent model.\n\
-\n\
-        phyloFit --init-model hmr-u2s.mod --lnl --markov hmr.fa\n\
-\n\
-    8. Given an alignment of several mammalian sequences (mammals.fa), a\n\
-    tree topology (tree.nh), and a set of gene annotations in GFF\n\
-    (genes.gff), fit separate models to sites in 1st, 2nd, and 3rd\n\
-    codon positions.  Use the REV substitution model.  Assume coding\n\
-    regions have feature type 'CDS'.\n\
-\n\
-        phyloFit --tree tree.nh --features genes.gff --out-root mammals-rev\n\
-            --catmap \"NCATS = 3; CDS 1-3\" --do-cats 1,2,3 mammals.fa\n\
-\n\
-    (output will be to mammals-rev.cds-1.mod, mammals-rev.cds-2.mod, and \n\
-    mammals-rev.cds-3.mod)\n\
-\n\
-\n\
-OPTIONS:\n\
-\n\
-    --tree, -t <tree_fname>|<tree_string>\n\
-        (Required if more than three species, or more than two species\n\
-        and a non-reversible substitution model, e.g., UNREST, U2, U3)\n\
-        Name of file or literal string defining tree topology.  Tree\n\
-        must be in Newick format, with the label at each leaf equal to\n\
-        the index or name of the corresponding sequence in the alignment\n\
-        (indexing begins with 1).  Examples: --tree \"(1,(2,3))\", \n\
-        --tree \"(human,(mouse,rat))\".  Currently, the topology must be\n\
-        rooted.  When a reversible substitution model is used, the root\n\
-        is ignored during the optimization procedure.\n\
-\n\
-    --subst-mod, -s JC69|F81|HKY85|HKY85+Gap|REV|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S\n\
-        (default REV).  Nucleotide substitution model.  JC69, F81, HKY85\n\
-        REV, and UNREST have the usual meanings (see, e.g., Yang, \n\
-        Goldman, and Friday, 1994).  HKY85+Gap is an adaptation of HKY that\n\
-        treats gaps as a fifth character (courtesy of James Taylor).  The\n\
-        others, all considered \"context-dependent\", are as defined in\n\
-        Siepel and Haussler, 2004.  The options --EM and --precision MED\n\
-        are recommended with context-dependent models (see below).\n\
-\n\
-    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS\n\
-        (default FASTA) Alignment format.  FASTA is as usual.  PHYLIP\n\
-        is compatible with the formats used in the PHYLIP and PAML\n\
-        packages.  MPM is the format used by the MultiPipMaker aligner\n\
-        and some other of Webb Miller's older tools.  MAF (\"Multiple\n\
-        Alignment Format\") is used by MULTIZ/TBA and the UCSC Genome\n\
-        Browser.  SS is a simple format describing the sufficient\n\
-        statistics for phylogenetic inference (distinct columns or\n\
-        tuple of columns and their counts).  Note that the program\n\
-        \"msa_view\" can be used for file conversion.\n\
-\n\
-    --out-root, -o <output_fname_root>\n\
-        (default \"phyloFit\").  Use specified string as root filename\n\
-        for all files created.\n\
-\n\
-    --min-informative, -I <ninf_sites>\n\
-        Require at least <ninf_sites> \"informative\" sites -- i.e., \n\
-        sites at which at least two non-gap and non-missing-data ('N'\n\
-        or '*') characters are present.  Default is %d.\n\
-\n\
-    --gaps-as-bases, -G\n\
-        Treat alignment gap characters ('-') like ordinary bases.  By\n\
-        default, they are treated as missing data.\n\
-\n\
-    --quiet, -q\n\
-        Proceed quietly.\n\
-\n\
-    --help, -h\n\
-        Print this help message.\n\
-\n\
-\n\
- (Options for controlling and monitoring the optimization procedure)\n\
-\n\
-    --lnl, -L\n\
-        (for use with --init-model) Simply evaluate the log likelihood of\n\
-        the specified tree model, without performing any further\n\
-        optimization.  Can be used with --post-probs, --expected-subs, and\n\
-        --expected-total-subs.\n\
-\n\
-    --EM, -E \n\
-        Fit model(s) using EM rather than the BFGS quasi-Newton\n\
-        algorithm (the default).\n\
-\n\
-    --precision, -p HIGH|MED|LOW\n\
-        (default HIGH) Level of precision to use in estimating model\n\
-        parameters.  Affects convergence criteria for iterative\n\
-        algorithms: higher precision means more iterations and longer\n\
-        execution time.\n\
-\n\
-    --log, -l <log_fname>\n\
-        Write log to <log_fname> describing details of the optimization\n\
-        procedure.\n\
-\n\
-    --init-model, -M <mod_fname>\n\
-        Initialize with specified tree model.  By choosing good\n\
-        starting values for parameters, it is possible to reduce\n\
-        execution time dramatically.  If this option is chosen, --tree\n\
-        is not allowed.  Note: currently only one mod_fname may be\n\
-        specified; it will be used for all categories.\n\
-\n\
-    --init-random, -r\n\
-        Initialize parameters randomly.  Can be used multiple times to test\n\
-        whether the m.l.e. is real.\n\
-\n\
-    --scale-only, -B\n\
-        (for use with --init-model) Estimate only the scale of the tree,\n\
-        rather than individual branch lengths (branch proportions fixed).\n\
-\n\
-    --estimate-freqs, -F\n\
-        Estimate equilibrium frequencies by maximum likelihood, rather\n\
-        than approximating them by the relative frequencies in the data.\n\
-\n\
-    --ancestor, -A <seqname>\n\
-        Treat specified sequence as the root of the tree.  The tree\n\
-        topology must define this sequence to be a child of the root\n\
-        (in practice, the branch from the root to the specified\n\
-        sequence will be retained, but will be constrained to have\n\
-        length zero).\n\
-\n\
-\n\
- (Options for modeling rate variation)\n\
-\n\
-    --nrates, -k <nratecats>\n\
-        (default 1).  Number of rate categories to use.  Specifying a\n\
-        value of greater than one causes the discrete gamma model for\n\
-        rate variation to be used (Yang, 1994).\n\
-\n\
-    --alpha, -a <alpha>\n\
-        (for use with --nrates).  Initial value for alpha, the shape\n\
-        parameter of the gamma distribution.  Default is 1.\n\
-\n\
-    --rate-constants, -K <rate_consts>\n\
-        Use a non-parameteric mixture model for rates, instead of\n\
-        assuming a gamma distribution.  The argument <rate_consts>\n\
-        must be a comma-delimited list explicitly defining the rate\n\
-        constants to be used.  The \"weight\" (mixing proportion)\n\
-        associated with each rate constant will be estimated by EM\n\
-        (this option implies --EM).  If --alpha is used with\n\
-        this option, then the mixing proportions will be initialized\n\
-        to reflect a gamma distribution with the specified shape\n\
-        parameter.\n\
-\n\
-\n\
- (Options for separate handling of sites in different annotation categories)\n\
-\n\
-    --features, -g <fname>\n\
-        Annotations file (GFF or BED format) describing features on\n\
-        one or more sequences in the alignment.  Together with a\n\
-        category map (see --catmap), will be taken to define site\n\
-        categories, and a separate model will be estimated for each\n\
-        category.  If no category map is specified, a category will be\n\
-        assumed for each type of feature, and they will be numbered in\n\
-        the order of appearance of the features.  Features are assumed\n\
-        to use the coordinate frame of the first sequence in the\n\
-        alignment and should be non-overlapping (see 'refeature\n\
-        --unique').\n\
-\n\
-    --catmap, -c <fname>|<string>\n\
-        (optionally use with --features) Mapping of feature types to\n\
-        category numbers.  Can either give a filename or an \"inline\"\n\
-        description of a simple category map, e.g., --catmap \"NCATS =\n\
-        3 ; CDS 1-3\" or --catmap \"NCATS = 1 ; UTR 1\".  Note that\n\
-        category 0 is reserved for \"background\" (everything that is\n\
-        not described by a defined feature type).\n\
-\n\
-    --do-cats, -C <cat_list>\n\
-        (optionally use with --features) Estimate models for only the\n\
-        specified categories (comma-delimited list categories, by name\n\
-        or numbera).  Default is to fit a model for every category.\n\
-\n\
-    --reverse-groups, -R <tag>\n\
-        (optionally use with --features) Group features by <tag> (e.g.,\n\
-        \"transcript_id\" or \"exon_id\") and reverse complement\n\
-        segments of the alignment corresponding to groups on the\n\
-        reverse strand.  Groups must be non-overlapping (see refeature\n\
-        --unique).  Useful with categories corresponding to\n\
-        strand-specific phenomena (e.g., codon positions).\n\
-\n\
-\n\
- (Options for context-dependent substitution models)\n\
-\n\
-    --markov, -N\n\
-        (for use with context-dependent substitutions models and not\n\
-        available with --EM.)  Assume Markov dependence of alignment\n\
-        columns, and compute the conditional probability of each\n\
-        column given its N-1 predecessors using the two-pass algorithm\n\
-        described by Siepel and Haussler (2004).  (Here, N is the\n\
-        \"order\" of the model, as defined by --subst-mod; e.g., N=1\n\
-        for REV, N=2 for U2S, N=3 for U3S.) The alternative (the\n\
-        default) is simply to work with joint probabilities of tuples\n\
-        of columns.  (You can ensure that these tuples are\n\
-        non-overlapping with the --non-overlapping option.)  The use\n\
-        of joint probabilities during parameter estimation allows the\n\
-        use of the --EM option and can be much faster; in addition, it\n\
-        appears to produce nearly equivalent estimates.  If desired,\n\
-        parameters can be estimated without --markov, and\n\
-        then the likelihood can be evaluated using --lnl and\n\
-        --markov together.  This gives a lower bound on the\n\
-        likelihood of the Markov-dependent model.\n\
-\n\
-    --non-overlapping, -V\n\
-        (for use with context-dependent substitution models; not\n\
-        compatible with --markov, --features, or\n\
-        --msa-format SS) Avoid using overlapping tuples of sites\n\
-        in parameter estimation.  If a dinucleotide model is selected,\n\
-        every other tuple will be considered, and if a nucleotide\n\
-        triplet model is selected, every third tuple will be\n\
-        considered.  This option cannot be used with an alignment\n\
-        represented only by unordered sufficient statistics.\n\
-\n\
-\n\
- (Options for posterior probabilities)\n\
-\n\
-    --post-probs, -P\n\
-        Output posterior probabilities of all bases at all ancestral \n\
-        nodes.  Output will be to auxiliary file(s) with suffix \n\
-        \".postprobs\".\n\
-\n\
-    --expected-subs, -X\n\
-        Output posterior expected number of substitutions on each branch at\n\
-        each site, summed across all types of substitutions. \n\
-        Output will be to auxiliary file(s) with suffix \".expsub\".\n\
-\n\
-    --expected-total-subs, -Z\n\
-        Output posterior expected number of substitutions of each type \n\
-        on each branch, summed across all sites.  Output will be to \n\
-        auxiliary file(s) with suffix \".exptotsub\".\n\
-\n\
-    --column-probs, -U\n\
-        (for use with -init-model; implies --lnl)  Output a separate log\n\
-        probability for each type of column in the input.  Output will\n\
-        be to a file with suffix \".colprobs\".  Values are log base 2.\n\
-\n\
-\n\
- (Options for estimation in sliding window)\n\
-\n\
-    --windows, -w <size,shift>\n\
-        Apply a sliding window to the alignment, and fit a separate\n\
-        tree to each window.  Arguments specify size of window and\n\
-        amount by which to shift it on each iteration, both in bases\n\
-        of the first sequence in the alignment (assumed to be the\n\
-        reference sequence).  Separate versions of all output files\n\
-        will be created for each window.\n\
-\n\
-    --windows-explicit, -v <window_coord_list>\n\
-        Like --windows, except that all start and end coordinates must\n\
-        be explicitly specified.  Each successive pair of numbers is\n\
-        interpreted as defining the start and end of a window.  Can be\n\
-        used with a two-column file and the '*' operator, e.g.,\n\
-        --windows-explicit '*mycoords'.\n\
-\n\
-\n\
-REFERENCES:\n\
-\n\
-    A. Siepel and D. Haussler.  2004.  Phylogenetic estimation of\n\
-      context-dependent substitution rates by maximum likelihood.\n\
-      Mol. Biol. Evol., 21:468-488.\n\
-\n\
-    Z. Yang, N. Goldman, and A. Friday.  1994. Comparison of models for\n\
-      nucleotide substution used in maximum likelihood phylogenetic\n\
-      estimation. Mol. Biol. Evol., 11:316-324.\n\
-\n\
-    Z. Yang. 1994. Maximum likelihood phylogenetic estimation from\n\
-      DNA sequences with variable rates over sites: approximate\n\
-      methods. J. Mol. Evol., 39:306-314.\n\n", DEFAULT_NSITES_THRESHOLD);
-}
 
 void set_output_fname(String *fname, char *root, int cat, char *suffix) {
   str_cpy_charstr(fname, root);
@@ -394,7 +48,7 @@ void set_output_fname(String *fname, char *root, int cat, char *suffix) {
    substitutions of each type on each edge across all sites
    (do_expected_nsubst_tot).  A separate file is output for each
    selected option, with an appropriate filename suffix (".postprob",
-   ".expsub", and ".exptotsub", respectively).  */
+   ".expsub", and ".exptotsub", respectively).    */
 void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root, 
                            int do_bases, int do_expected_nsubst, 
                            int do_expected_nsubst_tot, int cat, int quiet) {
@@ -407,7 +61,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
   tuplestr[mod->order+1] = '\0';
   coltupstr[msa->nseqs] = '\0';
 
-  /* FIXME: rate variation!  need rate post probs! */
+  /* FIXME: rate variation!     need rate post probs! */
   assert(mod->nratecats == 1);
 
   /* compute desired stats */
@@ -442,7 +96,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
     }
     fprintf(POSTPROBF, "\n%-6s ", "#");
     for (state = 0; state < msa->nseqs-5; state++) fprintf(POSTPROBF, " ");
-    fprintf(POSTPROBF, "tuple    ");
+    fprintf(POSTPROBF, "tuple     ");
     for (node = 0; node < mod->tree->nnodes; node++) {
       n = lst_get_ptr(mod->tree->nodes, node);
       if (n->lchild == NULL || n->rchild == NULL) continue;
@@ -461,14 +115,14 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
           msa->ss->counts[tup] == 0) continue;
 
       tuple_to_string_pretty(coltupstr, msa, tup);
-      fprintf(POSTPROBF, "%-6d %5s    ", tup, coltupstr);
+      fprintf(POSTPROBF, "%-6d %5s      ", tup, coltupstr);
       for (node = 0; node < mod->tree->nnodes; node++) {
         n = lst_get_ptr(mod->tree->nodes, node);
         if (n->lchild == NULL || n->rchild == NULL) continue;
         for (state = 0; state < mod->rate_matrix->size; state++) 
           fprintf(POSTPROBF, "%6.4f ", 
                   mod->tree_posteriors->base_probs[0][state][node][tup]);
-      }              
+      }                 
       fprintf(POSTPROBF, "\n");
     }
     fclose(POSTPROBF);
@@ -487,7 +141,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
       if (n == mod->tree) continue;
       fprintf(EXPSUBF, " node_%-2d", n->id);
     }
-    fprintf(EXPSUBF, "  total\n");
+    fprintf(EXPSUBF, "    total\n");
     for (tup = 0; tup < msa->ss->ntuples; tup++) {
       double total = 0;
 
@@ -502,7 +156,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
         fprintf(EXPSUBF, "%7.4f ", 
                 mod->tree_posteriors->expected_nsubst[0][n->id][tup]);
         total += mod->tree_posteriors->expected_nsubst[0][n->id][tup];
-      }              
+      }                 
       fprintf(EXPSUBF, "%7.4f\n", total);
     }
     fclose(EXPSUBF);
@@ -517,9 +171,9 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 
     fprintf(EXPTOTSUBF, "\n\
 A separate matrix of expected numbers of substitutions is shown for each\n\
-branch of the tree.  Nodes of the tree are visited in a postorder traversal,\n\
+branch of the tree.     Nodes of the tree are visited in a postorder traversal,\n\
 and each node is taken to be representative of the branch between itself and\n\
-its parent.  Starting bases or tuples of bases appear on the vertical axis\n\
+its parent.     Starting bases or tuples of bases appear on the vertical axis\n\
 of each matrix, and destination bases or tuples of bases appear on the\n\
 horizontal axis.\n\n");
 
@@ -589,13 +243,14 @@ void print_window_summary(FILE* WINDOWF, List *window_coords, int win,
 int main(int argc, char *argv[]) {
   char *msa_fname = NULL, *output_fname_root = "phyloFit", 
     *log_fname = NULL, *reverse_group_tag = NULL, *alph = "ACGT", 
-    *root_seqname = NULL;
+    *root_seqname = NULL, *subtree_name = NULL;
   int subst_mod = REV, quiet = FALSE, nratecats = 1, use_em = FALSE, 
     window_size = -1, window_shift = -1, use_conditionals = FALSE, 
     precision = OPT_HIGH_PREC, likelihood_only = FALSE, do_bases = FALSE, 
     do_expected_nsubst = FALSE, do_expected_nsubst_tot = FALSE, 
     random_init = FALSE, estimate_backgd = FALSE, estimate_scale_only = FALSE,
-    do_column_probs = FALSE, nonoverlapping = FALSE, gaps_as_bases = FALSE;
+    do_column_probs = FALSE, nonoverlapping = FALSE, gaps_as_bases = FALSE,
+    no_freqs = FALSE, no_rates = FALSE;
   unsigned int nsites_threshold = DEFAULT_NSITES_THRESHOLD;
   msa_format_type input_format = FASTA;
   char c;
@@ -639,9 +294,12 @@ int main(int argc, char *argv[]) {
     {"init-random", 0, 0, 'r'},
     {"lnl", 0, 0, 'L'},
     {"scale-only", 0, 0, 'B'},
+    {"scale-subtree", 1, 0, 'S'},
     {"estimate-freqs", 0, 0, 'F'},
+    {"no-freqs", 0, 0, 'f'},
+    {"no-rates", 0, 0, 'n'},
     {"min-informative", 1, 0, 'I'},
-    {"gaps-as-bases", 0, 0, 'G'},    
+    {"gaps-as-bases", 0, 0, 'G'},     
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {"windows", 1, 0, 'w'},
@@ -655,13 +313,13 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:GVEeNDRTqLPXZUBFrh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:GVEeNDRTqLPXZUBFfnrh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
       break;
     case 't':
-      if (optarg[0] == '(')     /* in this case, assume topology given
+      if (optarg[0] == '(')        /* in this case, assume topology given
                                    at command line */
         tree = tr_new_from_string(optarg);
       else 
@@ -670,7 +328,7 @@ int main(int argc, char *argv[]) {
     case 's':
       subst_mod = tm_get_subst_mod_type(optarg);
       if (subst_mod == UNDEF_MOD) 
-        die("ERROR: illegal substitution model.  Type \"phyloFit -h\" for usage.\n");
+        die("ERROR: illegal substitution model.     Type \"phyloFit -h\" for usage.\n");
       break;
     case 'g':
       gff = gff_read_set(fopen_fname(optarg, "r"));
@@ -688,7 +346,7 @@ int main(int argc, char *argv[]) {
       output_fname_root = optarg;
       break;
     case 'T': 
-      fprintf(stderr, "WARNING: --output-tree (-T) is deprecated; leaf names now appear in .mod\nfile.  (If necessary, use 'tree_doctor --tree-only' to extract tree.)\n");
+      fprintf(stderr, "WARNING: --output-tree (-T) is deprecated; leaf names now appear in .mod\nfile.    (If necessary, use 'tree_doctor --tree-only' to extract tree.)\n");
       break;
     case 'k':
       nratecats = get_arg_int_bounds(optarg, 0, INFTY);
@@ -702,7 +360,7 @@ int main(int argc, char *argv[]) {
     case 'i':
       input_format = msa_str_to_format(optarg);
       if (input_format == -1)
-        die("ERROR: unrecognized alignment format.  Type 'phyloFit -h' for usage.\n");
+        die("ERROR: unrecognized alignment format.    Type 'phyloFit -h' for usage.\n");
       break;
     case 'l':
       log_fname = optarg;
@@ -730,7 +388,7 @@ int main(int argc, char *argv[]) {
       lst_free(tmplist);
       break;
     case 'E':
-      use_em = 1;
+      use_em = TRUE;
       break;
     case 'p':
       if (!strcmp(optarg, "LOW")) precision = OPT_LOW_PREC;
@@ -742,29 +400,29 @@ int main(int argc, char *argv[]) {
       input_mod = tm_new_from_file(fopen_fname(optarg, "r"));
       break;
     case 'r':
-      random_init = 1;
+      random_init = TRUE;
       break;
     case 'L':
-      likelihood_only = 1;
+      likelihood_only = TRUE;
       break;
     case 'q':
-      quiet = 1;
+      quiet = TRUE;
       break;
     case 'P':
-      do_bases = 1;
+      do_bases = TRUE;
       break;
     case 'X':
-      do_expected_nsubst = 1;
+      do_expected_nsubst = TRUE;
       break;
     case 'Z':
-      do_expected_nsubst_tot = 1;
+      do_expected_nsubst_tot = TRUE;
       break;
     case 'U':
-      likelihood_only = 1;      /* force -L */
-      nsites_threshold = 0;     /* also force this; typical use is
+      likelihood_only = TRUE;        /* force -L */
+      nsites_threshold = 0;        /* also force this; typical use is
                                    with small number of tuples, no
                                    tuple_idx */
-      do_column_probs = 1;
+      do_column_probs = TRUE;
       break;
     case 'A':
       root_seqname = optarg;
@@ -777,10 +435,19 @@ int main(int argc, char *argv[]) {
       alph = "ACGT-";
       break;
     case 'B':
-      estimate_scale_only = 1;
+      estimate_scale_only = TRUE;
       break;
+    case 'S':
+      subtree_name = optarg;
+      break;       
     case 'F':
-      estimate_backgd = 1;
+      estimate_backgd = TRUE;
+      break;
+    case 'f':
+      no_freqs = TRUE;
+      break;
+    case 'n':
+      no_rates = TRUE;
       break;
     case 'K':
       tmplist = get_arg_list(optarg);
@@ -793,10 +460,10 @@ int main(int argc, char *argv[]) {
       lst_free_strings(tmplist); lst_free(tmplist);
       break;
     case 'h':
-      print_usage();
+      printf("%s", HELP);
       exit(0);
     case '?':
-      die("ERROR: illegal argument.  Type 'phyloFit -h' for usage.\n");
+      die("ERROR: illegal argument.     Type 'phyloFit -h' for usage.\n");
     }
   }
 
@@ -807,7 +474,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (use_conditionals && use_em) 
-    die("ERROR: Cannot use --markov with --EM.  Type 'phyloFit -h' for usage.\n");
+    die("ERROR: Cannot use --markov with --EM.    Type 'phyloFit -h' for usage.\n");
 
   if (likelihood_only && input_mod == NULL) 
     die("ERROR: --lnl requires --init-model.  Type 'phyloFit -h' for usage.\n");
@@ -823,6 +490,12 @@ int main(int argc, char *argv[]) {
       subst_mod != HKY85G && subst_mod != REV && subst_mod != UNREST)
     die("ERROR: --gaps-as-bases currently only supported with JC69, F81, HKY85+Gap, REV, and UNREST.\n");
                                 /* with HKY, yields undiagonalizable matrix */
+
+  if ((no_freqs || no_rates) && input_mod == NULL)
+    die("ERROR: --init-model required with --no-freqs and/or --no-rates.\n");
+
+  if (no_freqs && estimate_backgd)
+    die("ERROR: can't use both --no-freqs and --estimate-freqs.\n");
   
   if (gff != NULL && cm == NULL) cm = cm_new_from_features(gff);
 
@@ -863,14 +536,14 @@ int main(int argc, char *argv[]) {
     TreeNode *rl;
     if (tree == NULL || tm_is_reversible(subst_mod)) 
       die("ERROR: --ancestor requires --tree and a non-reversible model.\n");
-    rl = tr_get_node(tree, root_seqname);    
+    rl = tr_get_node(tree, root_seqname);     
     if (rl == NULL || rl->parent != tree) 
       die("ERROR: Sequence specified by --ancestor must be a child of the root.\n");
     root_leaf_id = rl->id;
   }
   
   if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
-  msa_remove_N_from_alph(msa);  /* for backward compatibility */
+  msa_remove_N_from_alph(msa);    /* for backward compatibility */
 
   /* set up for categories */
   /* first label sites, if necessary */
@@ -878,9 +551,9 @@ int main(int argc, char *argv[]) {
     if (msa->idx_offset > 0) {
       /* if these's an offset, we'll just subtract it from all features */
       for (i = 0; i < lst_size(gff->features); i++) {
-	GFF_Feature *f = lst_get_ptr(gff->features, i);
-	f->start -= msa->idx_offset;
-	f->end -= msa->idx_offset;
+        GFF_Feature *f = lst_get_ptr(gff->features, i);
+        f->start -= msa->idx_offset;
+        f->end -= msa->idx_offset;
       }
       msa->idx_offset = 0;
     }
@@ -894,7 +567,7 @@ int main(int argc, char *argv[]) {
       gff_group(gff, reverse_group_tag);
       msa_reverse_compl_feats(msa, gff, NULL);
     }
-
+    
     /* label categories */
     if (!quiet) fprintf(stderr, "Labeling alignment sites by category ...\n");
     msa_label_categories(msa, gff, cm);
@@ -911,9 +584,9 @@ int main(int argc, char *argv[]) {
   /* at this point, we have msa->ncats > 0 iff we intend to do
      category-by-category estimation */
 
-  /* now set up list of categories to process.  There are several
+  /* now set up list of categories to process.    There are several
      cases to consider */
-  if (msa->ncats < 0) {         
+  if (msa->ncats < 0) {            
     if (cats_to_do_str != NULL)
       fprintf(stderr, "WARNING: ignoring --do-cats; no category information.\n");
     cats_to_do = lst_new_int(1);
@@ -1012,12 +685,34 @@ int main(int argc, char *argv[]) {
 
       mod->use_conditionals = use_conditionals;
 
-      if (estimate_scale_only || estimate_backgd) {
+      if (estimate_scale_only || estimate_backgd || no_rates) {
         tm_free_rmp(mod);
-        if (estimate_scale_only) mod->estimate_branchlens = TM_SCALE_ONLY;
+
+        if (estimate_scale_only) {
+          mod->estimate_branchlens = TM_SCALE_ONLY;
+
+          if (subtree_name != NULL) { /* estimation of subtree scale */
+            String *s1 = str_new_charstr(subtree_name), 
+              *s2 = str_new_charstr(subtree_name);
+            str_root(s1, ':'); str_suffix(s2, ':'); /* parse string */
+            mod->subtree_root = tr_get_node(mod->tree, s1->chars);
+            if (mod->subtree_root == NULL)
+              die("ERROR: no node named '%s'.\n", s1->chars);
+            if (s2->length > 0) {
+              if (str_equals_charstr(s2, "loss")) mod->scale_sub_bound = LB;
+              else if (str_equals_charstr(s2, "gain")) mod->scale_sub_bound = UB;
+              else die("ERROR: unrecognized suffix '%s'\n", s2->chars);
+            }
+            str_free(s1); str_free(s2);
+          }
+        }
+        
+        if (no_rates)
+          mod->estimate_ratemat = FALSE;
+
         mod->estimate_backgd = estimate_backgd;
-        tm_init_rmp(mod);       /* necessary because number of
-                                   parameters changes */
+        tm_init_rmp(mod);        /* necessary because number of
+                                    parameters changes */
       }
 
       old_nnodes = mod->tree->nnodes;
@@ -1095,36 +790,37 @@ int main(int argc, char *argv[]) {
         else if (input_mod != NULL)
           params = tm_params_new_init_from_model(input_mod);
         else
-          params = tm_params_init(mod, .1, 5, alpha);    
-        if (input_mod != NULL && mod->backgd_freqs != NULL) {
-          /* in some cases, these are needed for initialization, but
-             now they should be re-estimated */
+          params = tm_params_init(mod, .1, 5, alpha);     
+        if (input_mod != NULL && mod->backgd_freqs != NULL && !no_freqs) {
+          /* in some cases, the eq freqs are needed for
+             initialization, but now they should be re-estimated --
+             UNLESS user specifies --no-freqs */
           vec_free(mod->backgd_freqs);
           mod->backgd_freqs = NULL;
         }
 
-        if (msa->ss == NULL) {	/* get sufficient stats if necessary */
-	  if (!quiet)
-	    fprintf(stderr, "Extracting sufficient statistics ...\n");
+        if (msa->ss == NULL) {    /* get sufficient stats if necessary */
+          if (!quiet)
+            fprintf(stderr, "Extracting sufficient statistics ...\n");
           ss_from_msas(msa, mod->order+1, 0, 
                        cats_to_do_str != NULL ? cats_to_do : NULL, 
                        NULL, NULL, -1);
           /* (sufficient stats obtained only for categories of interest) */
-	  
-	  if (msa->length > 1000000) { /* throw out original data if
-					  very large */
-	    for (j = 0; j < msa->nseqs; j++) free(msa->seqs[j]);
-	    free(msa->seqs);
-	    msa->seqs = NULL;
-	  }
-	}
+      
+          if (msa->length > 1000000) { /* throw out original data if
+                                          very large */
+            for (j = 0; j < msa->nseqs; j++) free(msa->seqs[j]);
+            free(msa->seqs);
+            msa->seqs = NULL;
+          }
+        }
 
         if (i == 0) {
-	  if (!quiet) fprintf(stderr, "Compacting sufficient statistics ...\n");
-	  ss_collapse_missing(msa, !gaps_as_bases);
+          if (!quiet) fprintf(stderr, "Compacting sufficient statistics ...\n");
+          ss_collapse_missing(msa, !gaps_as_bases);
                                 /* reduce number of tuples as much as
                                    possible */
-	}
+        }
 
         if (!quiet) {
           fprintf(stderr, "Fitting tree model to %s using %s%s ...\n",
@@ -1177,8 +873,8 @@ int main(int argc, char *argv[]) {
     if (window_coords != NULL) 
       msa_free(msa);
   }
-
+  
   if (!quiet) fprintf(stderr, "Done.\n");
-
+  
   return 0;
 }

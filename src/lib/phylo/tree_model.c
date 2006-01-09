@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.27 2005-10-11 21:28:29 acs Exp $
+/* $Id: tree_model.c,v 1.28 2006-01-09 21:53:57 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -116,6 +116,10 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   tm->estimate_backgd = 0;
   tm->estimate_branchlens = TM_BRANCHLENS_ALL;
   tm->scale = 1;
+  tm->subtree_root = NULL;
+  tm->scale_sub = 1;
+  tm->scale_sub_bound = NB;
+  tm->estimate_ratemat = TRUE;
 
   tm_init_rmp(tm);
 
@@ -465,11 +469,16 @@ TreeModel *tm_create_copy(TreeModel *src) {
 void tm_set_subst_matrices(TreeModel *tm) {
   int i, j;
   double scaling_const = -1, tmp;
+  int *in_subtree = NULL;
 
   if (tm->estimate_branchlens != TM_SCALE_ONLY && tm->scale != 1) 
     tm->scale = 1;
                                 /* be sure scale factor has an effect
                                    only if estimating scale */
+
+  /* if estimating scale factor for subtree, identify branches in subtree */
+  if (tm->estimate_branchlens == TM_SCALE_ONLY && tm->subtree_root != NULL) 
+    in_subtree = tr_in_subtree(tm->tree, tm->subtree_root);
 
   /* need to compute a matrix scaling constant from the equilibrium
      freqs, in this case (see below) */
@@ -481,8 +490,13 @@ void tm_set_subst_matrices(TreeModel *tm) {
   }
 
   for (i = 0; i < tm->tree->nnodes; i++) {
+    double branch_scale = tm->scale;
     TreeNode *n = lst_get_ptr(tm->tree->nodes, i);
+
     if (n->parent == NULL) continue;
+
+    if (in_subtree != NULL && in_subtree[i]) branch_scale *= tm->scale_sub;
+
     for (j = 0; j < tm->nratecats; j++) {
       if (tm->P[i][j] == NULL)
         tm->P[i][j] = mm_new(tm->rate_matrix->size, tm->rate_matrix->states, 
@@ -491,15 +505,17 @@ void tm_set_subst_matrices(TreeModel *tm) {
       /* for simple models, full matrix exponentiation is not necessary */
       if (tm->subst_mod == JC69)
         tm_set_probs_JC69(tm, tm->P[i][j], 
-                          n->dparent * tm->scale * tm->rK[j]);
+                          n->dparent * branch_scale * tm->rK[j]);
       else if (tm->subst_mod == F81)
         tm_set_probs_F81(tm, tm->P[i][j], scaling_const, 
-                         n->dparent * tm->scale * tm->rK[j]);
+                         n->dparent * branch_scale * tm->rK[j]);
       else 
         mm_exp(tm->P[i][j], tm->rate_matrix, 
-               n->dparent * tm->scale * tm->rK[j]);
+               n->dparent * branch_scale * tm->rK[j]);
     }
   }
+
+  if (in_subtree != NULL) free(in_subtree);
 }
 
 /* version of above that can be used with specified branch length and
@@ -681,6 +697,17 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
       vec_set(lower_bounds, i + offset, 0.001);
   }
 
+  /* Also, in this case, we need to bound the scale of the subtree */
+  if (mod->estimate_branchlens == TM_SCALE_ONLY && mod->subtree_root != NULL 
+      && mod->scale_sub_bound != NB) {
+    if (mod->scale_sub_bound == LB) vec_set(lower_bounds, 1, 1);
+    if (mod->scale_sub_bound == UB) {
+      upper_bounds = vec_new(params->size);
+      vec_set_all(upper_bounds, INFTY);
+      vec_set(upper_bounds, 1, 1);
+    }
+  }
+
   retval = opt_bfgs(tm_likelihood_wrapper, params, (void*)mod, &ll, 
                     lower_bounds, upper_bounds, logf, NULL, precision, NULL);
 
@@ -704,9 +731,14 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
                                    estimating scale only */
     tm_scale(mod, mod->scale, 0);
     mod->scale = 1;
+    if (mod->subtree_root != NULL) {  /* estimating subtree scale */
+      tr_scale_subtree(mod->tree, mod->subtree_root, mod->scale_sub);
+      mod->scale_sub = 1;
+    }
   }
 
   vec_free(lower_bounds);
+  if (upper_bounds != NULL) vec_free(upper_bounds);
 
   if (retval != 0) 
     fprintf(stderr, "WARNING: BFGS algorithm reached its maximum number of iterations.\n");
@@ -756,7 +788,11 @@ void tm_unpack_params(TreeModel *mod, Vector *params, int idx_offset) {
   if (mod->estimate_branchlens == TM_SCALE_ONLY) {
     if (mod->empirical_rates && (mod->nratecats > 1 || mod->alpha < 0)) i++;
                                 /* in this case, skip scale */
-    else mod->scale = vec_get(params, i++);
+    else {
+      mod->scale = vec_get(params, i++);
+      if (mod->subtree_root) /* estimating subtree scale */
+        mod->scale_sub = vec_get(params, i++);
+    }
   }
   else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
     /* first nnodes-2 elements define branch lengths */
@@ -816,12 +852,14 @@ void tm_unpack_params(TreeModel *mod, Vector *params, int idx_offset) {
 
   /* (remaining parameters define the subst matrix) */ 
 
-  /* redefine substitution matrix */
-  tm_set_rate_matrix(mod, params, i);
+  if (mod->estimate_ratemat) {
+    /* redefine substitution matrix */
+    tm_set_rate_matrix(mod, params, i);
 
-  /* diagonalize, if necessary */
-  if (mod->subst_mod != JC69 && mod->subst_mod != F81)
-    mm_diagonalize(mod->rate_matrix);
+    /* diagonalize, if necessary */
+    if (mod->subst_mod != JC69 && mod->subst_mod != F81)
+      mm_diagonalize(mod->rate_matrix);
+  }
 
   /* set exponentiated version at each edge */
   tm_set_subst_matrices(mod); 
@@ -873,7 +911,7 @@ void tm_scale_params(TreeModel *mod, Vector *params, double scale_factor) {
    specified, if dgamma.  In the case of empirical rates, uniform
    weights are used for initialization. */
 Vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
-                           double alpha) {
+                       double alpha) {
   int nparams = tm_get_nparams(mod);
   Vector *params = vec_new(nparams);
   int i, nbranches, params_idx;
@@ -972,8 +1010,11 @@ void tm_params_init_from_model(TreeModel *mod, Vector *params,
   List *traversal;
   TreeNode *n;
 
-  if (mod->estimate_branchlens == TM_SCALE_ONLY) 
+  if (mod->estimate_branchlens == TM_SCALE_ONLY) {
     vec_set(params, params_idx++, mod->scale); 
+    if (mod->subtree_root != NULL) /* estimating subtree scale */
+      vec_set(params, params_idx++, mod->scale_sub);
+  }
   else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
     traversal = tr_preorder(mod->tree);
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
@@ -1005,7 +1046,8 @@ void tm_params_init_from_model(TreeModel *mod, Vector *params,
   }
 
   /* initialize rate-matrix parameters */
-  tm_rate_params_init_from_model(mod, params, params_idx);
+  if (mod->estimate_ratemat)
+    tm_rate_params_init_from_model(mod, params, params_idx);
 }
 
 /* Given a codon model, create and return the induced amino acid model */
@@ -1091,7 +1133,10 @@ int tm_get_nratevarparams(TreeModel *mod) {
 int tm_get_nbranchlenparams(TreeModel *mod) {
   int retval;
   if (mod->estimate_branchlens == TM_BRANCHLENS_NONE) return 0;
-  else if (mod->estimate_branchlens == TM_SCALE_ONLY) return 1;
+  else if (mod->estimate_branchlens == TM_SCALE_ONLY) {
+    if (mod->subtree_root == NULL) return 1;
+    else return 2;
+  }
   retval = tm_is_reversible(mod->subst_mod) ? mod->tree->nnodes - 2 :
     mod->tree->nnodes - 1;
   if (mod->root_leaf_id != -1) retval--;

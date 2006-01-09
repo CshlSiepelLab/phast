@@ -20,42 +20,48 @@
 
 void print_prior_only(int nsites, char *mod_fname, Vector *prior_distrib);
 void print_post_only(char *mod_fname, char *msa_fname, Vector *post_distrib,
-                     double ci);
+                     double ci, double scale);
 void print_p(char *mod_fname, char *msa_fname, Vector *prior_distrib,
-             double post_mean, double post_var, double ci);
+             double post_mean, double post_var, double ci, double scale);
 void print_prior_only_joint(char *node_name, int nsites, char *mod_fname, 
                             Matrix *prior_distrib);
 void print_post_only_joint(char *node_name, char *mod_fname, 
                            char *msa_fname, Matrix *post_distrib, 
-                           double ci);
+                           double ci, double scale, double sub_scale);
 void print_p_joint(char *node_name, char *mod_fname, char *msa_fname, 
                    double ci, Matrix *prior_joint, 
                    double post_mean, double post_var, 
                    double post_mean_sup, double post_var_sup, 
-                   double post_mean_sub, double post_var_sub);
+                   double post_mean_sub, double post_var_sub,
+                   double scale, double sub_scale);
 void print_p_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci);
 void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci);
 void print_quantiles(Vector *distrib);
+TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa, 
+                          char *subtree_name, double *scale,
+                          double *sub_scale);
+void reroot(TreeModel *mod, char *subtree_name);
 
 int main(int argc, char *argv[]) {
   /* variables for options with defaults */
   msa_format_type msa_format = FASTA;
-  int nsites = -1, prior_only = FALSE, post_only = FALSE, quantiles = FALSE;
+  int nsites = -1, prior_only = FALSE, post_only = FALSE, quantiles = FALSE,
+    fit_model = FALSE;
   double ci = -1, epsilon = 1e-10;
   char *subtree_name = NULL;
   GFF_Set *feats = NULL;
 
   /* other variables */
   FILE *msa_f = NULL;
-  TreeModel *mod;
+  TreeModel *mod, *mod_fitted;
   MSA *msa;
-  TreeNode *subtree_root = NULL;
   Vector *prior_distrib, *post_distrib;
   Matrix *prior_joint_distrib, *post_joint_distrib;
-  JumpProcess *jp;
+  JumpProcess *jp, *jp_post;
   List *pruned_names;
   char c;
   int j, old_nleaves, opt_idx;
+  double scale = -1, sub_scale = -1;
 
   struct option long_opts[] = {
     {"msa-format", 1, 0, 'i'},
@@ -64,13 +70,14 @@ int main(int argc, char *argv[]) {
     {"confidence-interval", 1, 0, 'c'},
     {"subtree", 1, 0, 's'},
     {"features", 1, 0, 'f'},
+    {"fit-model", 0, 0, 'F'},
     {"epsilon", 1, 0, 'e'},
     {"quantiles", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "i:n:pc:s:f:e:qh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "i:n:pc:s:f:Fe:qh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'i':
       msa_format = msa_str_to_format(optarg);
@@ -92,6 +99,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'f':
       feats = gff_read_set(fopen_fname(optarg, "r"));
+      break;
+    case 'F':
+      fit_model = TRUE;
       break;
     case 'e':
       epsilon = get_arg_dbl_bounds(optarg, 0, 0.1);
@@ -115,8 +125,8 @@ int main(int argc, char *argv[]) {
     die("ERROR: --quantiles can only be used with --null or --posterior.\n");
   if (quantiles && subtree_name != NULL)
     die("ERROR: --quantiles cannot be used with --subtree.\n");
-  if (feats != NULL && (prior_only || post_only))
-    die("ERROR: --features cannot be used with --null or --posterior.\n");
+  if (feats != NULL && (prior_only || post_only || fit_model))
+    die("ERROR: --features cannot be used with --null, --posterior, or --fit-model.\n");
 
   mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
 
@@ -152,14 +162,33 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  /* fit model to data, if necessary */
+  if (fit_model) 
+    mod_fitted = fit_tree_model(mod, msa, subtree_name, &scale, &sub_scale);
+
+  /* set up for subtree mode */
+  if (subtree_name != NULL) {
+    if (!tm_is_reversible(mod->subst_mod))
+      die("ERROR: reversible model required with --subtree.\n");
+    tr_name_ancestors(mod->tree);
+    reroot(mod, subtree_name);
+    if (fit_model) reroot(mod_fitted, subtree_name);
+    /* note: rerooting has to be done before creating jump process */
+  }
+
+  /* jump process for prior */
   jp = sub_define_jump_process(mod, epsilon);
 
+  /* jump process for posterior -- use fitted model if necessary */
+  jp_post = fit_model ? sub_define_jump_process(mod_fitted, epsilon) : jp;
+    
   if (nsites == -1) nsites = msa->length;
 
   if (feats != NULL) 
     msa_map_gff_coords(msa, feats, 1, 0, 0, NULL);
   /* NOTE: msa offset not currently handled */
 
+  /* now actually compute and print output */
   if (subtree_name == NULL) {   /* full-tree mode */
     double post_mean, post_var;
 
@@ -168,10 +197,10 @@ int main(int argc, char *argv[]) {
       if (!post_only) 
         prior_distrib = sub_prior_distrib_alignment(jp, nsites);
 
-      if (post_only)	 /* don't need explicit distrib for p-value */
-        post_distrib = sub_posterior_distrib_alignment(jp, msa);
-      else if (!prior_only)
-        sub_posterior_stats_alignment(jp, msa, &post_mean, &post_var);
+      if (post_only)
+        post_distrib = sub_posterior_distrib_alignment(jp_post, msa);
+      else if (!prior_only) /* don't need explicit distrib for p-value */
+        sub_posterior_stats_alignment(jp_post, msa, &post_mean, &post_var);
 
       /* print output */
       if (quantiles)
@@ -179,10 +208,10 @@ int main(int argc, char *argv[]) {
       else if (prior_only)
         print_prior_only(nsites, argv[optind], prior_distrib);
       else if (post_only)
-        print_post_only(argv[optind], argv[optind+1], post_distrib, ci);
+        print_post_only(argv[optind], argv[optind+1], post_distrib, ci, scale);
       else
         print_p(argv[optind], argv[optind+1], prior_distrib, 
-                post_mean, post_var, ci);
+                post_mean, post_var, ci, scale);
     }
     else                        /* --features case */
       print_p_feats(jp, msa, feats, ci);
@@ -192,51 +221,31 @@ int main(int argc, char *argv[]) {
       post_mean_sub, post_var_sub;
     TreeNode *tmp;
 
-    if (!tm_is_reversible(mod->subst_mod))
-      die("ERROR: reversible model required with --subtree.\n");
-
-    /* reroot tree */
-    tr_name_ancestors(mod->tree);
-    subtree_root = tr_get_node(mod->tree, subtree_name);
-    if (subtree_root == NULL) 
-      die("ERROR: no node named '%s'.\n", subtree_name);
-
-    tr_reroot(mod->tree, subtree_root, TRUE);
-    mod->tree = subtree_root->parent; /* take parent because including
-                                         branch */
-
-    /* swap left and right children.  This is necessary because
-       routines for computing joint distrib assume branch to right has
-       length zero, but because branch is included, tr_reroot will put
-       zero length branch on left */
-    tmp = mod->tree->lchild;
-    mod->tree->lchild = mod->tree->rchild;
-    mod->tree->rchild = tmp;
-
     if (feats == NULL) {
       /* compute distributions and stats */
       if (!post_only)
         prior_joint_distrib = sub_prior_joint_distrib_alignment(jp, nsites);
 
       if (post_only)
-        post_joint_distrib = sub_posterior_joint_distrib_alignment(jp, msa);
+        post_joint_distrib = sub_posterior_joint_distrib_alignment(jp_post, msa);
       else if (!prior_only)
-        sub_posterior_joint_stats_alignment(jp, msa, &post_mean, &post_var,
+        sub_posterior_joint_stats_alignment(jp_post, msa, &post_mean, &post_var,
                                             &post_mean_sub, &post_var_sub, 
                                             &post_mean_sup, &post_var_sup);
 
       /* print output */
       if (prior_only) 
-        print_prior_only_joint(subtree_root->name, nsites, argv[optind],
+        print_prior_only_joint(subtree_name, nsites, argv[optind],
                                prior_joint_distrib);
       else if (post_only) 
-        print_post_only_joint(subtree_root->name, argv[optind], 
-                              argv[optind+1], post_joint_distrib, ci);
+        print_post_only_joint(subtree_name, argv[optind], 
+                              argv[optind+1], post_joint_distrib, ci,
+                              scale, sub_scale);
       else 
-        print_p_joint(subtree_root->name, argv[optind], argv[optind+1],
+        print_p_joint(subtree_name, argv[optind], argv[optind+1],
                       ci, prior_joint_distrib, post_mean, post_var, 
                       post_mean_sup, post_var_sup, post_mean_sub, 
-                      post_var_sub);
+                      post_var_sub, scale, sub_scale);
     }
     else                        /* --features case */
       print_p_joint_feats(jp, msa, feats, ci);
@@ -268,7 +277,7 @@ void print_prior_only(int nsites, char *mod_fname, Vector *prior_distrib) {
 }
 
 void print_post_only(char *mod_fname, char *msa_fname, Vector *post_distrib,
-                     double ci) {
+                     double ci, double scale) {
   int i, post_min, post_max;
   double post_mean, post_var;
   if (ci == -1) ci = 0.95;      /* for purposes of stats */
@@ -278,13 +287,15 @@ void print_post_only(char *mod_fname, char *msa_fname, Vector *post_distrib,
          mod_fname, msa_fname);
   printf("#E[n] = %.3f; Var[n] = %.3f; %.1f%% c.i. = [%d, %d]\n", 
          post_mean, post_var, ci*100, post_min, post_max);
+  if (scale != -1)
+    printf("#estimated scale factor: %f\n", scale);
   printf("#n p(n)\n");
   for (i = 0; i < post_distrib->size; i++)
     printf("%d\t%f\n", i, post_distrib->data[i]);
 }
 
 void print_p(char *mod_fname, char *msa_fname, Vector *prior_distrib,
-             double post_mean, double post_var, double ci) {
+             double post_mean, double post_var, double ci, double scale) {
   double prior_mean, prior_var, post_min, post_max;
   int prior_min, prior_max;
 
@@ -312,6 +323,8 @@ void print_p(char *mod_fname, char *msa_fname, Vector *prior_distrib,
   if (ci != -1)
     printf(", %.1f%% c.i. = [%.0f, %.0f]", ci*100, post_min, post_max);
   printf("\n\n");
+  if (scale != -1)
+    printf("estimated scale factor: %f\n\n", scale);
 }
 
 void print_prior_only_joint(char *node_name, int nsites, char *mod_fname, 
@@ -356,7 +369,7 @@ void print_prior_only_joint(char *node_name, int nsites, char *mod_fname,
 
 void print_post_only_joint(char *node_name, char *mod_fname, 
                            char *msa_fname, Matrix *post_distrib, 
-                           double ci) {
+                           double ci, double scale, double sub_scale) {
   int i, j, min_sup, max_sup, min_sub, max_sub;
   double mean_sup, var_sup, mean_sub, var_sub;
   Vector *marg_sup = vec_new(post_distrib->ncols),
@@ -387,6 +400,8 @@ void print_post_only_joint(char *node_name, char *mod_fname,
          mean_sup, var_sup, ci*100, min_sup, max_sup);
   printf("#E[n2] = %.3f; Var[n2] = %.3f; %.1f%% c.i. = [%d, %d]\n", 
          mean_sub, var_sub, ci*100, min_sub, max_sub);
+  if (scale != -1)
+    printf("#estimated scale factors: %f [tree], %f [subtree]\n", scale, sub_scale);
   printf("\n#element at row n1 and col n2 in table below is p(n1, n2)\n");
   for (i = 0; i < post_distrib->ncols; i++) 
     for (j = 0; j < post_distrib->nrows; j++) 
@@ -401,7 +416,8 @@ void print_p_joint(char *node_name, char *mod_fname, char *msa_fname,
                    double ci, Matrix *prior_joint, 
                    double post_mean, double post_var, 
                    double post_mean_sup, double post_var_sup, 
-                   double post_mean_sub, double post_var_sub) {
+                   double post_mean_sub, double post_var_sub,
+                   double scale, double sub_scale) {
 
   double post_min_tot, post_max_tot, post_min_sup, post_max_sup, 
     post_min_sub, post_max_sub, cond_cons_p_sub, cond_anti_cons_p_sub, 
@@ -485,6 +501,9 @@ void print_p_joint(char *node_name, char *mod_fname, char *msa_fname,
   if (ci != -1)
     printf(", %.1f%% c.i. = [%.0f, %.0f]", ci*100, post_min_sup, post_max_sup);
   printf("\n\n");
+  if (scale != -1)
+    printf("estimated scale factors: %f [tree], %f [subtree]\n\n", scale,
+           sub_scale);
 }
 
 void print_p_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
@@ -566,4 +585,79 @@ void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
   }
   lst_free(l);
   str_re_free(tag_val_re);
+}
+
+/* estimate scale parameters for model from data */
+TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa, 
+                          char *subtree_name, double *scale, 
+                          double *sub_scale) {
+  Vector *params;
+  TreeModel *retval = tm_create_copy(source_mod);
+  double oldscale, oldsubscale;
+
+  tm_free_rmp(retval);
+  retval->estimate_branchlens = TM_SCALE_ONLY;
+
+  if (subtree_name != NULL) {
+    retval->subtree_root = tr_get_node(retval->tree, subtree_name);
+    if (retval->subtree_root == NULL) 
+      die("ERROR: no node named '%s'.\n", subtree_name);
+  }
+
+  retval->estimate_ratemat = FALSE;
+  tm_init_rmp(source_mod);           /* (no. params changes) */
+  params = tm_params_new_init_from_model(retval);
+
+  tm_fit(retval, msa, params, -1, OPT_HIGH_PREC, NULL);
+
+  oldscale = vec_get(params, 0);
+
+  if (subtree_name == NULL) {
+    /* correction for variance in estimates.  Based on simulation
+       experiments, the observed standard deviation in estimated scale
+       factors is about 4/3 that expected from true variation in the
+       number of substitutions, across various element lengths.  If we
+       assume Gaussian estimation error with mean zero, and we assume
+       Gaussian numbers of substitutions (approximately true by CLT),
+       then we can correct by scaling the difference from the mean by
+       3/4.  If no correction is made, you see an excess of very small
+       and very large p-values due to a thickening of the tails in the
+       distribution of estimated numbers of substitutions  */
+    *scale = (oldscale - 1) * 0.75 + 1; 
+    tm_scale(retval, *scale/oldscale, 0);  /* (tree has already been
+                                              scaled by oldscale) */    
+  }
+  else {
+    /* no correction in subtree case: simulation experiments indicate
+       that the method is conservative enough to compensate for any
+       estimation error */
+    *scale = oldscale;
+    *sub_scale = vec_get(params, 1) * oldscale; 
+                                /* actual scale of sub is product of
+                                   overall scale and of
+                                   subtree-specific parameter  */
+  }
+
+  vec_free(params);
+  return retval;
+}
+
+void reroot(TreeModel *mod, char *subtree_name) {
+    TreeNode *subtree_root = tr_get_node(mod->tree, subtree_name);
+    TreeNode *tmp;
+
+    if (subtree_root == NULL) 
+      die("ERROR: no node named '%s'.\n", subtree_name);  
+
+    tr_reroot(mod->tree, subtree_root, TRUE);
+    mod->tree = subtree_root->parent; /* take parent because including
+                                         branch */
+
+    /* swap left and right children.  This is necessary because
+       routines for computing joint distrib assume branch to right has
+       length zero, but because branch is included, tr_reroot will put
+       zero length branch on left */
+    tmp = mod->tree->lchild;
+    mod->tree->lchild = mod->tree->rchild;
+    mod->tree->rchild = tmp;
 }

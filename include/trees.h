@@ -1,4 +1,4 @@
-/* $Id: trees.h,v 1.14 2005-08-29 17:37:22 acs Exp $
+/* $Id: trees.h,v 1.15 2006-01-09 21:53:58 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -91,5 +91,6 @@ List *tr_leaf_names(TreeNode *tree);
 void tr_name_ancestors(TreeNode *tree);
 void tr_print_nodes(FILE *F, TreeNode *tree);
 void tr_reroot(TreeNode *tree, TreeNode *newroot, int include_branch);
+int* tr_in_subtree(TreeNode *t, TreeNode *sub);
 
 #endif 

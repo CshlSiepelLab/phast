@@ -72,6 +72,13 @@ OPTIONS:
         of the first sequence in the alignment.  Not for use with
         --null or --posterior.
 
+    --fit-model, -F
+        Fit model to data before computing posterior distribution, by
+        estimating a scale factor for the whole tree or (if --subtree)
+        separate scale factors for the specified subtree and supertree.
+        Makes p-values less conservative.  This option has no effect with
+        --null and currently cannot be used with --features.
+
     --epsilon, -e <val>
         (Default 1e-10) Threshold used in truncating tails of
         distributions; tail probabilities less than this value are

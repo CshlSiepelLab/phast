@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.22 2005-08-29 17:37:22 acs Exp $ 
+/* $Id: trees.c,v 1.23 2006-01-09 21:53:57 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -845,13 +845,13 @@ void tr_scale(TreeNode *t, double scale_const) {
     given node. */
 void tr_scale_subtree(TreeNode *t, TreeNode *sub, double scale_const) {
   int i;
-  List *inside = lst_new_ptr(t->nnodes), *outside = lst_new_ptr(t->nnodes);
-  tr_partition_nodes(t, sub, inside, outside);
+  List *inside = lst_new_ptr(t->nnodes);
+  tr_partition_nodes(t, sub, inside, NULL);
   for (i = 0; i < lst_size(inside); i++) {
     TreeNode *n = lst_get_ptr(inside, i);
     if (n != sub) n->dparent *= scale_const;
   }
-  lst_free(inside); lst_free(outside);
+  lst_free(inside);
 }
 
 /** Prune away all leaves whose names are in (or not in) the specified
@@ -1143,7 +1143,8 @@ void tr_partition_leaves(TreeNode *tree, TreeNode *sub, List *inside,
   free(mark);
 }
 
-/** Similar to above, but partition all nodes */
+/** Similar to above, but partition all nodes; if either 'inside' or
+    'outside' is NULL, it will be ignored */
 void tr_partition_nodes(TreeNode *tree, TreeNode *sub, List *inside, 
                         List *outside) {
   int i;
@@ -1153,21 +1154,23 @@ void tr_partition_nodes(TreeNode *tree, TreeNode *sub, List *inside,
 
   for (i = 0; i < tree->nnodes; i++) mark[i] = FALSE;
 
-  lst_clear(inside);
-  lst_clear(outside);
+  if (inside != NULL) lst_clear(inside);
+  if (outside != NULL) lst_clear(outside);
   stk_push_ptr(stack, sub);
   while ((n = stk_pop_ptr(stack)) != NULL) {
-    lst_push_ptr(inside, n);
+    if (inside != NULL) lst_push_ptr(inside, n);
     mark[n->id] = TRUE;
     if (n->lchild != NULL) {
       stk_push_ptr(stack, n->rchild);
       stk_push_ptr(stack, n->lchild);
     }
   }
-  for (i = 0; i < tree->nnodes; i++) {
-    n = lst_get_ptr(tree->nodes, i);
-    if (!mark[n->id])
-      lst_push_ptr(outside, n);
+  if (outside != NULL) {
+    for (i = 0; i < tree->nnodes; i++) {
+      n = lst_get_ptr(tree->nodes, i);
+      if (!mark[n->id])
+        lst_push_ptr(outside, n);
+    }
   }
   stk_free(stack);
   free(mark);
@@ -1383,3 +1386,18 @@ void tr_reroot(TreeNode *tree, TreeNode *selected_node, int include_branch) {
   }
 }
 
+/** Return an array indicating whether each node is in the designated
+    subtree */
+int* tr_in_subtree(TreeNode *t, TreeNode *sub) {
+  int *in_subtree = smalloc(t->nnodes * sizeof(int));
+  List *inside = lst_new_ptr(t->nnodes);
+  int i;
+  for (i = 0; i < t->nnodes; i++) in_subtree[i] = FALSE;
+  tr_partition_nodes(t, sub, inside, NULL);
+  for (i = 0; i < lst_size(inside); i++) {
+    TreeNode *n = lst_get_ptr(inside, i);
+    in_subtree[n->id] = TRUE;
+  }
+  lst_free(inside);
+  return in_subtree;
+}

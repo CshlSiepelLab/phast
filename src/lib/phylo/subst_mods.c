@@ -1,4 +1,4 @@
-/* $Id: subst_mods.c,v 1.7 2005-08-21 17:43:34 acs Exp $
+/* $Id: subst_mods.c,v 1.8 2006-01-09 21:53:58 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -149,6 +149,9 @@ char *tm_get_subst_mod_string(subst_mod_type type) {
 
 /* number of rate matrix params (not counting eq. freqs) */
 int tm_get_nratematparams(TreeModel *mod) {
+
+  if (mod->estimate_ratemat == FALSE) return 0;
+
   switch (mod->subst_mod) {
   case JC69:
   case F81:
