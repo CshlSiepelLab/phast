@@ -200,16 +200,18 @@ int main(int argc, char *argv[]) {
   /* Make a reverse complemented copy of the alignment.  The two
      strands will be processed separately, to avoid problems with
      overlapping features, etc. */
-  if (verbose) fprintf(stderr, "Creating reverse complemented alignment ...\n");
-  msa_compl = msa_create_copy(msa, 0);
-  /* temporary workaround: make sure reverse complement not based on
-     sufficient stats */
-  if (msa_compl->seqs == NULL) ss_to_msa(msa_compl);
-  if (msa_compl->ss != NULL) {
-    ss_free(msa_compl->ss);
-    msa_compl->ss = NULL;
+  if (!base_by_base) {          /* skip in base by base case */
+    if (verbose) fprintf(stderr, "Creating reverse complemented alignment ...\n");
+    msa_compl = msa_create_copy(msa, 0);
+    /* temporary workaround: make sure reverse complement not based on
+       sufficient stats */
+    if (msa_compl->seqs == NULL) ss_to_msa(msa_compl);
+    if (msa_compl->ss != NULL) {
+      ss_free(msa_compl->ss);
+      msa_compl->ss = NULL;
+    }
+    msa_reverse_compl(msa_compl);
   }
-  msa_reverse_compl(msa_compl);
 
   /* allocate memory for computing scores */
   backgd_emissions = smalloc(backgd_nmods * sizeof(void*));
@@ -254,6 +256,9 @@ int main(int argc, char *argv[]) {
   for (strand = 1; strand <= 2; strand++) {
     MSA *thismsa = strand == 1 ? msa : msa_compl;
     double *winscore = strand == 1 ? winscore_pos : winscore_neg;
+
+    if (base_by_base && strand == 2) break; /* don't do second pass in
+                                               base_by_base case */
 
     if (verbose) fprintf(stderr, "Processing %c strand ...\n",
                          strand == 1 ? '+' : '-');
