@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (optind < argc - 1)
+  if (optind >= argc)
     die("ERROR: base_evolve requires one or more arguments.  Try base_evolve -h.\n");
 
   if (optind == argc - 1)       /* single tree model */
