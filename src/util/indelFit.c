@@ -149,7 +149,7 @@ int *get_cats(IndelHistory *ih, GFF_Set *feats, CategoryMap *cm,
   MSA *dummy_msa;
 
   if (reference != NULL) {
-    node = tr_get_node(ih->tree, "hg16");
+    node = tr_get_node(ih->tree, reference);
     if (node == NULL)
       die("ERROR: node '%s' not found in tree.\n", reference);
 
