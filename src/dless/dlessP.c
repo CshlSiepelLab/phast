@@ -207,18 +207,37 @@ void do_p_values(BDPhyloHmm *bdphmm, GFF_Set *predictions,
       sub_free_jump_process(jp);
     }
     else {                    /* birth or death state */
+      event_type = state < nnodes ? DEATH : BIRTH;
+
       /* first reroot tree, using copy */
       orig_tree = mod->tree;
       mod->tree = tr_create_copy(orig_tree);
+
       subtree_root = lst_get_ptr(mod->tree->nodes, 
                                  bdphmm->state_to_branch[state]);
+
+      /* check for special case of a subtree just below the root and a
+         supertree consisting of a single leaf node.  This case is
+         meaningless if the tree is unrooted and the branch in
+         question is considered part of the subtree, as here -- the
+         supertree has zero total branch length and a trivial
+         distribution of numbers of substitutions.  */ 
+      if ((mod->tree->lchild == subtree_root && 
+           mod->tree->rchild->lchild == NULL) ||
+          (mod->tree->rchild == subtree_root && 
+           mod->tree->lchild->lchild == NULL)) {
+        fprintf(stderr, "WARNING: ignoring type '%s'; supertree consists of a single leaf node.\n", ((String*)lst_get_ptr(types, i))->chars);
+        lst_free(feats_this_type);
+        continue;
+      }
+
       tr_reroot(mod->tree, subtree_root, TRUE); /* include branch above node */
       mod->tree = subtree_root->parent;
 
       /* swap left and right children.  This is necessary because
-         routines for computing joint distrib assume branch to right has
-         length zero, but because branch is included, tr_reroot will put
-         zero length branch on left */
+         routines for computing joint distrib assume branch to right
+         has length zero, but because branch is included, tr_reroot
+         will put zero length branch on left */
       tmp = mod->tree->lchild;
       mod->tree->lchild = mod->tree->rchild;
       mod->tree->rchild = tmp;
@@ -227,7 +246,6 @@ void do_p_values(BDPhyloHmm *bdphmm, GFF_Set *predictions,
       jp = sub_define_jump_process(mod, 1e-10);
       stats_bd = sub_p_value_joint_many(jp, msa, feats_this_type, -1, 
                                         MAX_CONVOLVE_SIZE, timing_f);
-      event_type = state < nnodes ? DEATH : BIRTH;
 
       tr_free(mod->tree);
       sub_free_jump_process(jp);
@@ -236,7 +254,7 @@ void do_p_values(BDPhyloHmm *bdphmm, GFF_Set *predictions,
 
     for (j = 0; j < lst_size(feats_this_type); j++) {
       GFF_Feature *f = lst_get_ptr(feats_this_type, j);
-
+        
       /* grab id from attribute */
       assert(str_re_match(f->attribute, id_re, l, 1) >= 0);
       str_cpy(id, lst_get_ptr(l, 1));
@@ -251,8 +269,8 @@ void do_p_values(BDPhyloHmm *bdphmm, GFF_Set *predictions,
       f->end += msa->idx_offset;
 
       write_stats(stdout, f, 
-                 event_type == CONS ? (void*)(&stats_cons[j]) : (void*)(&stats_bd[j]), 
-                 event_type, subtree_root->name, id);
+                  event_type == CONS ? (void*)(&stats_cons[j]) : (void*)(&stats_bd[j]), 
+                  event_type, subtree_root->name, id);
 
       if (htmldir != NULL)
         write_html(htmldir, f, 
