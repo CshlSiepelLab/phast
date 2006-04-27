@@ -29,9 +29,9 @@ TARGETLIB = ${LIB}/libphast.a
 # for debugging
 #CFLAGS = -g -fno-inline -Wall 
 # for best performance (pentiumpro)
-CFLAGS = -mcpu=pentiumpro -O3 
+#CFLAGS = -mcpu=pentiumpro -O3 
 # use this instead for Mac OS X
-#CFLAGS = -mcpu=powerpc -O3
+CFLAGS = -mcpu=powerpc -O3
 # possible x86-64 options (kolossus at UC Santa Cruz)
 #CFLAGS = -mcpu=opteron -O3
 
@@ -40,7 +40,7 @@ LIBPATH = -L${LIB}
 
 # static linking ends up being simplest in our environment; comment
 # this line out to link dynamically (comment out for Mac)
-LFLAGS += -static
+#LFLAGS += -static
 
 # uncomment these lines for profiling (add -g for line-by-line
 # profiling and -a for monitoring of basic blocks)
@@ -63,11 +63,11 @@ LFLAGS += -static
 # phastCons, exoniphy, and phyloFit) will not be usable.
 
 # vecLib on Mac OS X; uncomment to use
-#VECLIB = T
+VECLIB = T
 
 # separately installed CLAPACK; uncomment CLAPACKPATH definition and
 # set appropriately to use
-CLAPACKPATH = /projects/compbio/usr/acs/CLAPACK
+#CLAPACKPATH = /projects/compbio/usr/acs/CLAPACK
 # platform-specific suffix used for CLAPACK libraries; use the same
 # value as in CLAPACK's "make.inc" file 
 PLAT = _x86
