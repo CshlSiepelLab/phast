@@ -219,7 +219,6 @@ int main(int argc, char *argv[]) {
   else {			/* supertree/subtree mode */
     double post_mean, post_var, post_mean_sup, post_var_sup, 
       post_mean_sub, post_var_sub;
-    TreeNode *tmp;
 
     if (feats == NULL) {
       /* compute distributions and stats */
@@ -593,7 +592,7 @@ TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa,
                           double *sub_scale) {
   Vector *params;
   TreeModel *retval = tm_create_copy(source_mod);
-  double oldscale, oldsubscale;
+  double oldscale;
 
   tm_free_rmp(retval);
   retval->estimate_branchlens = TM_SCALE_ONLY;
