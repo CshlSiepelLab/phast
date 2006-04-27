@@ -601,6 +601,11 @@ TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa,
     retval->subtree_root = tr_get_node(retval->tree, subtree_name);
     if (retval->subtree_root == NULL) 
       die("ERROR: no node named '%s'.\n", subtree_name);
+    /* also make sure the supertree has nonzero branch length in the
+       unrooted tree */
+    if ((retval->tree->lchild == retval->subtree_root && retval->tree->rchild->lchild == NULL) || 
+        (retval->tree->rchild == retval->subtree_root && retval->tree->lchild->lchild == NULL))
+      die("ERROR: supertree contains no branches (in unrooted tree).\n");
   }
 
   retval->estimate_ratemat = FALSE;
@@ -647,6 +652,13 @@ void reroot(TreeModel *mod, char *subtree_name) {
 
     if (subtree_root == NULL) 
       die("ERROR: no node named '%s'.\n", subtree_name);  
+
+    /* also make sure the supertree has nonzero branch length in the
+       unrooted tree */
+    if ((mod->tree->lchild == subtree_root && mod->tree->rchild->lchild == NULL) || 
+        (mod->tree->rchild == subtree_root && mod->tree->lchild->lchild == NULL))
+      die("ERROR: supertree contains no branches (in unrooted tree).\n");
+
 
     tr_reroot(mod->tree, subtree_root, TRUE);
     mod->tree = subtree_root->parent; /* take parent because including
