@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.29 2006-05-27 15:18:01 acs Exp $
+/* $Id: clean_genes.c,v 1.30 2006-05-27 15:19:26 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -796,8 +796,8 @@ void write_machine_problem(FILE *mlogf, GFF_FeatureGroup *group, Problem *proble
           msa_map_msa_to_seq(map, start), 
 	  msa_map_msa_to_seq(map, end),
           status_type_str(problem->status),
-	  msa_map_msa_to_seq(group->start)-1, 
-	  msa_map_msa_to_seq(group->end));
+	  msa_map_msa_to_seq(map, group->start)-1, 
+	  msa_map_msa_to_seq(map, group->end));
 	  
 }
 
