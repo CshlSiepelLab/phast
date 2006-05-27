@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.28 2005-11-25 18:52:23 acs Exp $
+/* $Id: clean_genes.c,v 1.29 2006-05-27 15:18:01 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -791,10 +791,14 @@ void write_machine_problem(FILE *mlogf, GFF_FeatureGroup *group, Problem *proble
     start = group->start;
     end = group->end;
   }
-  fprintf(mlogf, "%s\t%s\t%d\t%d\t%s\n",
+  fprintf(mlogf, "%s\t%s\t%d\t%d\t%s\t%d\t%d\n",
           group->name->chars, featName,
-          msa_map_msa_to_seq(map, start), msa_map_msa_to_seq(map, end),
-          status_type_str(problem->status));
+          msa_map_msa_to_seq(map, start), 
+	  msa_map_msa_to_seq(map, end),
+          status_type_str(problem->status),
+	  msa_map_msa_to_seq(group->start)-1, 
+	  msa_map_msa_to_seq(group->end));
+	  
 }
 
 /* write machine-readable log entry for discarded feature */
