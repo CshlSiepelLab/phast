@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.30 2006-05-27 15:19:26 acs Exp $
+/* $Id: clean_genes.c,v 1.31 2006-05-27 18:56:14 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -793,7 +793,7 @@ void write_machine_problem(FILE *mlogf, GFF_FeatureGroup *group, Problem *proble
   }
   fprintf(mlogf, "%s\t%s\t%d\t%d\t%s\t%d\t%d\n",
           group->name->chars, featName,
-          msa_map_msa_to_seq(map, start), 
+          msa_map_msa_to_seq(map, start)-1, 
 	  msa_map_msa_to_seq(map, end),
           status_type_str(problem->status),
 	  msa_map_msa_to_seq(map, group->start)-1, 
@@ -1095,8 +1095,6 @@ int main(int argc, char *argv[]) {
   assert(msa->ss->tuple_idx);
   msa_remove_N_from_alph(msa);  /* for backward compatibility (old SS files) */
 
-  gff_group(gff, groupby);
-
   if (msa->idx_offset != 0) {   /* avoids offset problem */
     for (i = 0; i < lst_size(gff->features); i++) {
       GFF_Feature *f = lst_get_ptr(gff->features, i);
@@ -1114,6 +1112,10 @@ int main(int argc, char *argv[]) {
     f->start = msa_map_seq_to_msa(map, f->start);
     f->end = msa_map_seq_to_msa(map, f->end);
   }
+
+  gff_group(gff, groupby);	/* do this after coord conversion, or
+				   group coords and feature coords
+				   will be out of sync */
 
   keepers = lst_new_ptr(lst_size(gff->features));
   if (discardf != NULL) discards = lst_new_ptr(lst_size(gff->features));
