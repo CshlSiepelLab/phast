@@ -1,107 +1,161 @@
-/* $Id: pasteCds.c,v 1.1 2006-05-28 15:54:13 acs Exp $:
-   Amit Indap indapa@gmail.com
-   Bustamante Lab C Source File
-   Copyright 2006, Cornell University
-
-
-   Description: This program pastes together CDS portions of clean_genes
-   output. It takes 3 arguments: a ss file containing the MSA, a gff file
-   which contains the output of a clean_genes process and the basename for
-   the files which output is written to.
-
-   Output is written in phylip format. Each "transcript_id" i.e. NM_ Refseq
-   accession is written to its own *.phy format. 
-
-   This program was written with help of  Adam Siepel and makes extensive use
-   of his PHAST library. 
-
-   Usage: pasteCds [OPTIONS] <ss> <gff> <outroot>
-
-   History:
-   $Log: not supported by cvs2svn $
-
-
-*/
-
+/* $Id: pasteCds.c,v 1.2 2006-05-28 22:14:38 acs Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
 #include <misc.h>
 #include <msa.h>
+#include <maf.h>
 #include <gff.h>
 #include <sufficient_stats.h>
+#include "pasteCds.help"
 
-void usage(char *prog) {
-  printf("\n\
-PROGRAM:      pasteCds\n\
-DESCRIPTION:  \n\
-USAGE:        pasteCds [OPTIONS] <ss> <gff> <outroot>\n\
-OPTIONS:\n\
-    --help, -h\n\
-        Print this help message.\n\n");
-  exit(0);
+/* for use with mask-frame-shifts; if gaps are farther apart than
+   DIST we won't consider compensatory frame shifts */
+#define DIST 30
+
+inline int is_stop_codon(char *str) {
+ return (strncmp(str, "TAA", 3) == 0 || strncmp(str, "TAG", 3) == 0 ||
+         strncmp(str, "TGA", 3) == 0);
+}
+
+int has_stops(MSA *msa) {
+  int i, j;
+  for (i = 0; i < msa->nseqs; i++)
+    for (j = 0; j <= (msa->length - 3); j += 3)
+      if (is_stop_codon(&msa->seqs[i][j]))
+        return TRUE;
+  return FALSE;
+}
+
+void do_mask_frame_shifts(MSA *msa) {
+
+  int i, j, k, l;
+
+  /* sequence by sequence, identify gappy regions that have at least
+     one non-multiple-of-three-length gap and are flanked by gapless
+     regions */
+
+  for (i = 0; i < msa->nseqs; i++) {
+    int count = -1;
+    int start[256], end[256], has_fshift[256];
+    for (j = 0; j < msa->length; j++) {
+      if (msa->seqs[i][j] == GAP_CHAR) {
+        for (k = j+1; k < msa->length && msa->seqs[i][k] == GAP_CHAR; k++);
+
+        if (count < 0 || j > end[count] + DIST) { /* start new interval */
+          count++;
+          assert(count < 256);
+          start[count] = j;
+          has_fshift[count] = FALSE;
+        }
+
+        /* do this for new or old interval */
+        end[count] = k;
+        if ((k - j) % 3 != 0) has_fshift[count] = TRUE;
+      }
+    }
+
+    for (l = 0; l <= count; l++) {
+      if (has_fshift[l]) {
+        for (j = start[count]; j < end[count]; j++)
+          msa->seqs[i][j] = 'N';
+      }
+    }
+  }
+
+  /* FIXME: pad to give them multiple of three lengths if necessary */
 }
 
 int main(int argc, char *argv[]) {
-  FILE *SSF, *GFFF, *OUTF;
+  FILE *MSAF, *GFFF, *OUTF;
   MSA *msa;
   GFF_Set *gff;
   char c;
   int opt_idx;
-  char *outroot = NULL;
   int i, j;
   char outname[50];
-   List *l = lst_new_ptr(1);
-  /*  List *l = lst_new_ptr(2);*/
+  List *l = lst_new_ptr(1);
+
+  /* options and defaults */
+  char *outroot = NULL;
+  int check_orfs = FALSE, mask_frame_shifts = FALSE;
+  msa_format_type out_format = FASTA, in_format = SS;
 
   struct option long_opts[] = {
-    {"a_long", 1, 0, 'a'},
-    {"b_long", 1, 0, 'b'},
+    {"in-format", 1, 0, 'i'},
+    {"out-format", 1, 0, 'o'},
+    {"check-orfs", 0, 0, 'c'},
+    {"mask-frame-shifts", 0, 0, 'm'},
+    {"out-root", 1, 0, 'r'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "a:b:h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "o:i:r:cmh", long_opts, &opt_idx)) != -1) {
     switch (c) {
-    case 'a':
+    case 'i':
+      in_format = msa_str_to_format(optarg);
+      if (in_format == -1)
+        die("ERROR: bad input format.  Try 'pasteCds -h'.\n");
       break;
-    case 'b':
+    case 'o':
+      out_format = msa_str_to_format(optarg);
+      if (out_format == -1)
+        die("ERROR: bad output format.  Try 'pasteCds -h'.\n");
+      break;
+    case 'c':
+      check_orfs = TRUE;
+      break;
+    case 'm':
+      mask_frame_shifts = TRUE;
+      break;
+    case 'r':
+      outroot = optarg;
       break;
     case 'h':
-      usage(argv[0]);
+      printf(HELP);
+      exit(0);
     case '?':
       die("Bad argument.  Try '%s -h'.\n", argv[0]);
     }
   }
 
-  if (optind != argc - 3) 
-    die("Three arguments required.  Try '%s -h'.\n", argv[0]);
+  if (optind != argc - 2) 
+    die("ERROR: two arguments expected.  Try '%s -h'.\n", argv[0]);
     
-  SSF = fopen_fname(argv[optind], "r");
+  MSAF = fopen_fname(argv[optind], "r");
   GFFF = fopen_fname(argv[optind+1], "r");
-  outroot = argv[optind+2];
 
   fprintf(stderr, "Reading alignment...\n");
-  msa = msa_new_from_file(SSF, SS, NULL);
+  if (in_format == MAF) 
+    msa = maf_read(MSAF, NULL, 1, NULL, NULL, NULL, -1, TRUE, NULL, 
+                   NO_STRIP, FALSE);
+  else 
+    msa = msa_new_from_file(MSAF, in_format, NULL);
 
   fprintf(stderr, "Reading GFF...\n");
   gff = gff_read_set(GFFF);
+
+  /* make sure stops outside of CDS */
+  gff_group(gff, "transcript_id");
+  gff_create_signals(gff);
+  gff_fix_start_stop(gff);
+  gff_ungroup(gff);             /* will redo after coord mapping, filtering */
 
   fprintf(stderr, "Mapping coordinates...\n");
   msa_map_gff_coords(msa, gff, 1, 0, 0, NULL);
 
   lst_push_ptr(l, str_new_charstr("CDS"));
-  /*lst_push_ptr(l, str_new_charstr("stop_codon"));*/
   gff_filter_by_type(gff, l, FALSE, NULL);
   gff_group(gff, "transcript_id");
 
-  /* iterate throught the gff groups */ 
+  /* iterate through the gff groups */ 
   for (i = 0; i < lst_size(gff->groups); i++) {
     MSA *gene_msa = NULL;
     GFF_FeatureGroup *group = lst_get_ptr(gff->groups, i);
     char strand = '.';
-    fprintf(stderr, "Processing group '%s'...\n", group->name->chars);
+    fprintf(stderr, "Processing gene '%s'...\n", group->name->chars);
     for (j = 0; j < lst_size(group->features); j++) {
       GFF_Feature *f = lst_get_ptr(group->features, j); 
       MSA *subaln = msa_sub_alignment(msa, NULL, FALSE, f->start-1, f->end);
@@ -123,11 +177,36 @@ int main(int argc, char *argv[]) {
     if (strand == '-')
       msa_reverse_compl(gene_msa);
 
-    sprintf(outname, "%s.%s.ph", outroot, group->name->chars);
+    /* this is a hack to address the problem of stop codons that span
+       splice sites, which are not dealt with properly by
+       gff_fix_start_stop */
+    if (gene_msa->length > 3 && 
+        is_stop_codon(&gene_msa->seqs[0][gene_msa->length-3]))
+          gene_msa->length -= 3;
+
+    if (mask_frame_shifts)
+      do_mask_frame_shifts(gene_msa);
+
+    if (check_orfs && has_stops(gene_msa)) {
+      fprintf(stderr, "WARNING: gene '%s' has stop codons; skipping.\n", 
+              group->name->chars);
+      msa_free(gene_msa); 
+      continue; 
+    }
+    
+    if (outroot != NULL)
+      sprintf(outname, "%s.%s.%s", outroot, group->name->chars,
+              msa_suffix_for_format(out_format));
+    else 
+      sprintf(outname, "%s.%s", group->name->chars,
+              msa_suffix_for_format(out_format));
+
     OUTF = fopen_fname(outname, "w+");
-    msa_print(OUTF, gene_msa, PHYLIP, FALSE);
+    msa_print(OUTF, gene_msa, out_format, FALSE);
     msa_free(gene_msa);
   }
 
+  fprintf(stderr, "Done.\n");
   return 0;
 }
+
