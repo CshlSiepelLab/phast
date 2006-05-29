@@ -1,4 +1,4 @@
-/* $Id: pasteCds.c,v 1.7 2006-05-29 18:52:29 acs Exp $ */
+/* $Id: pasteCds.c,v 1.8 2006-05-29 19:13:01 acs Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -238,7 +238,7 @@ void do_mask_frame_shifts(MSA *msa, int *err) {
              true that the shift can be repaired by deleting columns
              with gaps in the reference sequence. */
           int ngaps_ref = 0;
-          for (j = start[l]; j < end[j]; j++)
+          for (j = start[l]; j < end[l]; j++)
             if (msa->seqs[0][j] == GAP_CHAR) ngaps_ref++;
 
           if (ngaps[l] % 3 == ngaps_ref % 3) { /* do repair */
