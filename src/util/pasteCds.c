@@ -1,4 +1,4 @@
-/* $Id: pasteCds.c,v 1.8 2006-05-29 19:13:01 acs Exp $ */
+/* $Id: pasteCds.c,v 1.9 2006-05-29 19:19:27 acs Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -243,7 +243,7 @@ void do_mask_frame_shifts(MSA *msa, int *err) {
 
           if (ngaps[l] % 3 == ngaps_ref % 3) { /* do repair */
             do_delete_cols = TRUE;             /* schedule cols for deletion */
-            for (j = start[l]; j < end[j]; j++) 
+            for (j = start[l]; j < end[l]; j++) 
               if (msa->seqs[i][0] == GAP_CHAR) delete_cols[j] = TRUE;
           }
           else {
