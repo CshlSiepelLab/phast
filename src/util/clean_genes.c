@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.31 2006-05-27 18:56:14 acs Exp $
+/* $Id: clean_genes.c,v 1.32 2006-05-29 18:50:05 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -41,7 +41,12 @@ typedef enum {NO_ADJUST, ADJUST_END, ADJUST_START} adjust_type;
    when checking for frame-shift indels -- approximately the same as
    the maximum number of bases that can separate compensatory
    indels (see function 'is_fshift_okay') */
-#define MIN_BLOCK_SIZE 30
+#define MIN_GAPLESS_BLOCK_SIZE 15
+
+/* in is_fshift_okay, maximum size of a "gappy region" of an alignment
+   that is tolerated, even if there's no net frame shift.  Used to
+   catch cases where frame has been conserved by random chance */
+#define MAX_GAPPY_BLOCK_SIZE 45
 
 /* "signal" feature types, used for 'indel-strict' mode (special-case
    stuff related to exoniphy training) */
@@ -469,15 +474,17 @@ int scan_for_gaps(GFF_Feature *feat, MSA *msa, Problem **problem) {
 /* look for frame-shift gaps using a slightly more sophisticated
    algorithm, which allows for compensatory indels.  The strategy here
    is to identify maximal gapless blocks of greater than
-   MIN_BLOCK_SIZE sites, then to make sure that in the gappy portions
+   MIN_GAPLESS_BLOCK_SIZE sites, then to make sure that in the gappy portions
    between them, each sequence has a total number of gaps that equals
    the total number for the reference sequence, modulo 3.  Returns 1 if
    all gaps look okay (no net frame shift) and 0 otherwise. */
 int is_fshift_okay(GFF_Feature *feat, MSA *msa) {
   int *ngaps = smalloc(msa->nseqs * sizeof(int));
-  int i, j, blk_beg, blk_end;
+  int i, j, blk_beg, blk_end, start_gappy_reg;
 
   for (j = 0; j < msa->nseqs; j++) ngaps[j] = 0;
+  start_gappy_reg = 0;
+
   for (i = feat->start - 1; i < feat->end; ) {
     /* find next gapless column, simultaneously keeping track of the
        number of gaps encountered in each sequence */
@@ -504,14 +511,16 @@ int is_fshift_okay(GFF_Feature *feat, MSA *msa) {
     }
     blk_end = i;                /* exclusive */
 
-    if (blk_end - blk_beg >= MIN_BLOCK_SIZE ||
+    if (blk_end - blk_beg >= MIN_GAPLESS_BLOCK_SIZE ||
         blk_beg == feat->end || /* gaps at end of aln */
         blk_end == feat->end) { /* short block at end of aln */
       /* check total number of gaps since last retained block or
          beginning of alignment; must be same as reference sequence,
          mod 3 */
       for (j = 0; j < msa->nseqs && ngaps[j] % 3 == ngaps[0] % 3; j++);
-      if (j != msa->nseqs) {   /* reject alignment */
+      /* reject alignment if mod 3 test fails OR if the total length
+         of the gappy region exceeds MAX_GAPPY_BLOCK_SIZE */
+      if (j != msa->nseqs || blk_beg - start_gappy_reg > MAX_GAPPY_BLOCK_SIZE) {
         free(ngaps);
         return 0;
       }
@@ -519,6 +528,7 @@ int is_fshift_okay(GFF_Feature *feat, MSA *msa) {
       /* reset ngaps (note: done only if block exceeds size
          threshold) */
       for (j = 0; j < msa->nseqs; j++) ngaps[j] = 0;
+      start_gappy_reg = blk_end;
     }
   }
   free(ngaps);
