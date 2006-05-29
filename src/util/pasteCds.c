@@ -1,4 +1,4 @@
-/* $Id: pasteCds.c,v 1.9 2006-05-29 19:19:27 acs Exp $ */
+/* $Id: pasteCds.c,v 1.10 2006-05-29 21:18:52 acs Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -196,9 +196,7 @@ int has_stops(MSA *msa) {
 /* mask frame-shifted regions */
 void do_mask_frame_shifts(MSA *msa, int *err) {
 
-  int i, j, k, l, do_delete_cols = FALSE;
-  int *delete_cols = smalloc(sizeof(int) * msa->length);
-  for (j = 0; j < msa->length; j++) delete_cols[j] = FALSE;    
+  int i, j, k, l;
   *err = FALSE;
 
   /* sequence by sequence, identify regions that have at least one
@@ -233,34 +231,15 @@ void do_mask_frame_shifts(MSA *msa, int *err) {
 
         if (ngaps[l] % 3 != 0) { /* problem: whole alignment shifted
                                     out of frame */
-
-          /* if the gene has passed clean_genes, then it should be
-             true that the shift can be repaired by deleting columns
-             with gaps in the reference sequence. */
-          int ngaps_ref = 0;
-          for (j = start[l]; j < end[l]; j++)
-            if (msa->seqs[0][j] == GAP_CHAR) ngaps_ref++;
-
-          if (ngaps[l] % 3 == ngaps_ref % 3) { /* do repair */
-            do_delete_cols = TRUE;             /* schedule cols for deletion */
-            for (j = start[l]; j < end[l]; j++) 
-              if (msa->seqs[i][0] == GAP_CHAR) delete_cols[j] = TRUE;
-          }
-          else {
-            *err = TRUE;          /* can't easily repair */
-            return;
-          }
+          *err = TRUE;          /* could delete cols to bring back
+                                   in frame, but for now let's just punt */
+          return;
         }
         for (j = start[l]; j < end[l]; j++)
           msa->seqs[i][j] = 'N';
       }
     }
   }
-
-  if (do_delete_cols)           /* delete cols if necessary */
-    msa_delete_cols(msa, delete_cols);
-
-  free(delete_cols);
 }
 
 int create_problems_dir() {
