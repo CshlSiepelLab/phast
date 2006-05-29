@@ -1,4 +1,4 @@
-/* $Id: pasteCds.c,v 1.2 2006-05-28 22:14:38 acs Exp $ */
+/* $Id: pasteCds.c,v 1.3 2006-05-29 02:11:48 acs Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -10,15 +10,17 @@
 #include <sufficient_stats.h>
 #include "pasteCds.help"
 
-/* for use with mask-frame-shifts; if gaps are farther apart than
+/* for use with --mask-frame-shifts; if gaps are farther apart than
    DIST we won't consider compensatory frame shifts */
 #define DIST 30
 
+/* for use in has_stops below */
 inline int is_stop_codon(char *str) {
  return (strncmp(str, "TAA", 3) == 0 || strncmp(str, "TAG", 3) == 0 ||
          strncmp(str, "TGA", 3) == 0);
 }
 
+/* check alignment for in-frame stops */
 int has_stops(MSA *msa) {
   int i, j;
   for (i = 0; i < msa->nseqs; i++)
@@ -28,17 +30,19 @@ int has_stops(MSA *msa) {
   return FALSE;
 }
 
-void do_mask_frame_shifts(MSA *msa) {
+/* mask frame-shifted regions */
+void do_mask_frame_shifts(MSA *msa, int *err) {
 
   int i, j, k, l;
+  *err = FALSE;
 
-  /* sequence by sequence, identify gappy regions that have at least
-     one non-multiple-of-three-length gap and are flanked by gapless
-     regions */
+  /* sequence by sequence, identify regions that have at least one
+     non-multiple-of-three-length gap and are flanked by gapless
+     regions, then mask them with 'N's */
 
   for (i = 0; i < msa->nseqs; i++) {
     int count = -1;
-    int start[256], end[256], has_fshift[256];
+    int start[256], end[256], ngaps[256], has_fshift[256];
     for (j = 0; j < msa->length; j++) {
       if (msa->seqs[i][j] == GAP_CHAR) {
         for (k = j+1; k < msa->length && msa->seqs[i][k] == GAP_CHAR; k++);
@@ -47,24 +51,32 @@ void do_mask_frame_shifts(MSA *msa) {
           count++;
           assert(count < 256);
           start[count] = j;
+          ngaps[count] = 0;
           has_fshift[count] = FALSE;
         }
 
-        /* do this for new or old interval */
+        /* update current interval */
         end[count] = k;
+        ngaps[count] += k - j;
         if ((k - j) % 3 != 0) has_fshift[count] = TRUE;
+        j = k;
       }
     }
 
     for (l = 0; l <= count; l++) {
       if (has_fshift[l]) {
+        if (ngaps[count] % 3 != 0) {
+          *err = TRUE;          /* whole alignment will be shifted out
+                                   of frame; could repair by inserting
+                                   or deleting columns but for now
+                                   just punt */
+          return;
+        }
         for (j = start[count]; j < end[count]; j++)
           msa->seqs[i][j] = 'N';
       }
     }
   }
-
-  /* FIXME: pad to give them multiple of three lengths if necessary */
 }
 
 int main(int argc, char *argv[]) {
@@ -184,8 +196,16 @@ int main(int argc, char *argv[]) {
         is_stop_codon(&gene_msa->seqs[0][gene_msa->length-3]))
           gene_msa->length -= 3;
 
-    if (mask_frame_shifts)
-      do_mask_frame_shifts(gene_msa);
+    if (mask_frame_shifts) {
+      int err;
+      do_mask_frame_shifts(gene_msa, &err);
+      if (err) {
+        fprintf(stderr, "WARNING: gene '%s' has frame-shift that can't be repaired by masking; skipping.\n", 
+                group->name->chars);
+        msa_free(gene_msa); 
+        continue; 
+      }
+    }
 
     if (check_orfs && has_stops(gene_msa)) {
       fprintf(stderr, "WARNING: gene '%s' has stop codons; skipping.\n", 
