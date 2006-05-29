@@ -1,7 +1,10 @@
-/* $Id: pasteCds.c,v 1.3 2006-05-29 02:11:48 acs Exp $ */
+/* $Id: pasteCds.c,v 1.4 2006-05-29 02:33:25 acs Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <errno.h>
 #include <getopt.h>
 #include <misc.h>
 #include <msa.h>
@@ -79,6 +82,21 @@ void do_mask_frame_shifts(MSA *msa, int *err) {
   }
 }
 
+int create_problems_dir() {
+  struct stat st;
+  if (stat("problems", &st) != 0) {
+    if (errno == ENOENT) {	/* missing; create dir */
+      if (mkdir("problems", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH) != 0)
+        return 1;
+    }
+    else return 1;              /* some other problem */
+  }
+  else if (!S_ISDIR(st.st_mode)) /* exists but is not a directory */
+    return 1;
+
+  return 0;
+}
+
 int main(int argc, char *argv[]) {
   FILE *MSAF, *GFFF, *OUTF;
   MSA *msa;
@@ -88,6 +106,7 @@ int main(int argc, char *argv[]) {
   int i, j;
   char outname[50];
   List *l = lst_new_ptr(1);
+  int err = FALSE, first_err = TRUE;
 
   /* options and defaults */
   char *outroot = NULL;
@@ -196,33 +215,38 @@ int main(int argc, char *argv[]) {
         is_stop_codon(&gene_msa->seqs[0][gene_msa->length-3]))
           gene_msa->length -= 3;
 
+    err = FALSE;
+
     if (mask_frame_shifts) {
-      int err;
       do_mask_frame_shifts(gene_msa, &err);
-      if (err) {
-        fprintf(stderr, "WARNING: gene '%s' has frame-shift that can't be repaired by masking; skipping.\n", 
+      if (err) 
+        fprintf(stderr, "WARNING: gene '%s' has frame-shift that can't be repaired by masking; writing to 'problems'.\n", 
                 group->name->chars);
-        msa_free(gene_msa); 
-        continue; 
-      }
     }
 
     if (check_orfs && has_stops(gene_msa)) {
-      fprintf(stderr, "WARNING: gene '%s' has stop codons; skipping.\n", 
+      fprintf(stderr, "WARNING: gene '%s' has stop codons; writing to 'problems'.\n", 
               group->name->chars);
-      msa_free(gene_msa); 
-      continue; 
+      err = TRUE;
+    }
+
+    if (err && first_err) {
+      if (create_problems_dir() != 0)
+        die("ERROR: cannot create 'problems' directory\n");
+      first_err = FALSE;
     }
     
     if (outroot != NULL)
-      sprintf(outname, "%s.%s.%s", outroot, group->name->chars,
+      sprintf(outname, "%s%s.%s.%s", err ? "problems/" : "",
+              outroot, group->name->chars,
               msa_suffix_for_format(out_format));
     else 
-      sprintf(outname, "%s.%s", group->name->chars,
-              msa_suffix_for_format(out_format));
+      sprintf(outname, "%s%s.%s", err ? "problems/" : "",
+              group->name->chars, msa_suffix_for_format(out_format));
 
     OUTF = fopen_fname(outname, "w+");
     msa_print(OUTF, gene_msa, out_format, FALSE);
+    fclose(OUTF);
     msa_free(gene_msa);
   }
 
