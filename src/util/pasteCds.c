@@ -1,4 +1,4 @@
-/* $Id: pasteCds.c,v 1.4 2006-05-29 02:33:25 acs Exp $ */
+/* $Id: pasteCds.c,v 1.5 2006-05-29 02:53:57 acs Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -68,14 +68,14 @@ void do_mask_frame_shifts(MSA *msa, int *err) {
 
     for (l = 0; l <= count; l++) {
       if (has_fshift[l]) {
-        if (ngaps[count] % 3 != 0) {
+        if (ngaps[l] % 3 != 0) {
           *err = TRUE;          /* whole alignment will be shifted out
                                    of frame; could repair by inserting
                                    or deleting columns but for now
                                    just punt */
           return;
         }
-        for (j = start[count]; j < end[count]; j++)
+        for (j = start[l]; j < end[l]; j++)
           msa->seqs[i][j] = 'N';
       }
     }
