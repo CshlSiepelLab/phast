@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.55 2005-11-25 17:26:24 acs Exp $
+/* $Id: msa.c,v 1.56 2006-05-29 18:47:18 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -2165,4 +2165,33 @@ void msa_toupper(MSA *msa) {
       for (j = 0; j < msa->length; j++) 
         msa->seqs[i][j] = toupper(msa->seqs[i][j]);
   }
+}
+
+/* delete specified columns from an alignment.  Columns are specified
+   by an array of FALSEs and TRUEs of size msa->length (TRUE means
+   delete) */
+void msa_delete_cols(MSA *msa, int *delete_cols) {
+  /* code below is adapted from msa_strip_gaps */
+  int i, j, k;
+
+  if (msa->seqs == NULL)
+    die("ERROR: msa_delete_cols requires explicit sequences.\n");
+
+  if (msa->ss != NULL) { /* delete ss to avoid confusion */
+    ss_free(msa->ss);
+    msa->ss = NULL;
+  }
+
+  k = 0;
+  for (i = 0; i < msa->length; i++) {
+    if (k == i && !delete_cols[i]) k++;
+    else if (!delete_cols[i]) {
+      for (j = 0; j < msa->nseqs; j++) 
+        msa->seqs[j][k] = msa->seqs[j][i];
+      if (msa->categories != NULL)
+        msa->categories[k] = msa->categories[i];
+      k++;
+    }
+  }
+  msa->length = k;
 }

@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.19 2005-09-06 00:58:09 acs Exp $
+/* $Id: msa.h,v 1.20 2006-05-29 18:47:18 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -179,5 +179,6 @@ void msa_reset_alphabet(MSA *msa, char *newalph);
 void msa_missing_to_gaps(MSA *msa, int refseq);
 int msa_alph_has_lowercase(MSA *msa);
 void msa_toupper(MSA *msa);
+void msa_delete_cols(MSA *msa, int *delete_cols);
 
 #endif
