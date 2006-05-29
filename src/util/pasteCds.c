@@ -1,4 +1,4 @@
-/* $Id: pasteCds.c,v 1.5 2006-05-29 02:53:57 acs Exp $ */
+/* $Id: pasteCds.c,v 1.6 2006-05-29 18:50:43 acs Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -17,85 +17,14 @@
    DIST we won't consider compensatory frame shifts */
 #define DIST 30
 
-/* for use in has_stops below */
 inline int is_stop_codon(char *str) {
  return (strncmp(str, "TAA", 3) == 0 || strncmp(str, "TAG", 3) == 0 ||
          strncmp(str, "TGA", 3) == 0);
 }
 
-/* check alignment for in-frame stops */
-int has_stops(MSA *msa) {
-  int i, j;
-  for (i = 0; i < msa->nseqs; i++)
-    for (j = 0; j <= (msa->length - 3); j += 3)
-      if (is_stop_codon(&msa->seqs[i][j]))
-        return TRUE;
-  return FALSE;
-}
-
-/* mask frame-shifted regions */
-void do_mask_frame_shifts(MSA *msa, int *err) {
-
-  int i, j, k, l;
-  *err = FALSE;
-
-  /* sequence by sequence, identify regions that have at least one
-     non-multiple-of-three-length gap and are flanked by gapless
-     regions, then mask them with 'N's */
-
-  for (i = 0; i < msa->nseqs; i++) {
-    int count = -1;
-    int start[256], end[256], ngaps[256], has_fshift[256];
-    for (j = 0; j < msa->length; j++) {
-      if (msa->seqs[i][j] == GAP_CHAR) {
-        for (k = j+1; k < msa->length && msa->seqs[i][k] == GAP_CHAR; k++);
-
-        if (count < 0 || j > end[count] + DIST) { /* start new interval */
-          count++;
-          assert(count < 256);
-          start[count] = j;
-          ngaps[count] = 0;
-          has_fshift[count] = FALSE;
-        }
-
-        /* update current interval */
-        end[count] = k;
-        ngaps[count] += k - j;
-        if ((k - j) % 3 != 0) has_fshift[count] = TRUE;
-        j = k;
-      }
-    }
-
-    for (l = 0; l <= count; l++) {
-      if (has_fshift[l]) {
-        if (ngaps[l] % 3 != 0) {
-          *err = TRUE;          /* whole alignment will be shifted out
-                                   of frame; could repair by inserting
-                                   or deleting columns but for now
-                                   just punt */
-          return;
-        }
-        for (j = start[l]; j < end[l]; j++)
-          msa->seqs[i][j] = 'N';
-      }
-    }
-  }
-}
-
-int create_problems_dir() {
-  struct stat st;
-  if (stat("problems", &st) != 0) {
-    if (errno == ENOENT) {	/* missing; create dir */
-      if (mkdir("problems", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH) != 0)
-        return 1;
-    }
-    else return 1;              /* some other problem */
-  }
-  else if (!S_ISDIR(st.st_mode)) /* exists but is not a directory */
-    return 1;
-
-  return 0;
-}
+int has_stops(MSA *msa);
+void do_mask_frame_shifts(MSA *msa, int *err);
+int create_problems_dir();
 
 int main(int argc, char *argv[]) {
   FILE *MSAF, *GFFF, *OUTF;
@@ -251,6 +180,101 @@ int main(int argc, char *argv[]) {
   }
 
   fprintf(stderr, "Done.\n");
+  return 0;
+}
+
+/* check alignment for in-frame stops */
+int has_stops(MSA *msa) {
+  int i, j;
+  for (i = 0; i < msa->nseqs; i++)
+    for (j = 0; j <= (msa->length - 3); j += 3)
+      if (is_stop_codon(&msa->seqs[i][j]))
+        return TRUE;
+  return FALSE;
+}
+
+/* mask frame-shifted regions */
+void do_mask_frame_shifts(MSA *msa, int *err) {
+
+  int i, j, k, l, do_delete_cols = FALSE;
+  int *delete_cols = smalloc(sizeof(int) * msa->length);
+  for (j = 0; j < msa->length; j++) delete_cols[j] = FALSE;    
+  *err = FALSE;
+
+  /* sequence by sequence, identify regions that have at least one
+     non-multiple-of-three-length gap and are flanked by gapless
+     regions, then mask them with 'N's */
+
+  for (i = 0; i < msa->nseqs; i++) {
+    int count = -1;
+    int start[256], end[256], ngaps[256], has_fshift[256];
+    for (j = 0; j < msa->length; j++) {
+      if (msa->seqs[i][j] == GAP_CHAR) {
+        for (k = j+1; k < msa->length && msa->seqs[i][k] == GAP_CHAR; k++);
+
+        if (count < 0 || j > end[count] + DIST) { /* start new interval */
+          count++;
+          assert(count < 256);
+          start[count] = j;
+          ngaps[count] = 0;
+          has_fshift[count] = FALSE;
+        }
+
+        /* update current interval */
+        end[count] = k;
+        ngaps[count] += k - j;
+        if ((k - j) % 3 != 0) has_fshift[count] = TRUE;
+        j = k;
+      }
+    }
+
+    for (l = 0; l <= count; l++) {
+      if (has_fshift[l]) {
+
+        if (ngaps[l] % 3 != 0) { /* problem: whole alignment shifted
+                                    out of frame */
+
+          /* if the gene has passed clean_genes, then it should be
+             true that the shift can be repaired by deleting columns
+             with gaps in the reference sequence. */
+          int ngaps_ref = 0;
+          for (j = start[l]; j < end[j]; j++)
+            if (msa->seqs[0][j] == GAP_CHAR) ngaps_ref++;
+
+          if (ngaps[l] % 3 == ngaps_ref % 3) { /* do repair */
+            do_delete_cols = TRUE;             /* schedule cols for deletion */
+            for (j = start[l]; j < end[j]; j++) 
+              if (msa->seqs[i][0] == GAP_CHAR) delete_cols[j] = TRUE;
+          }
+          else {
+            *err = TRUE;          /* can't easily repair */
+            return;
+          }
+        }
+        for (j = start[l]; j < end[l]; j++)
+          msa->seqs[i][j] = 'N';
+      }
+    }
+  }
+
+  if (do_delete_cols)           /* delete cols if necessary */
+    msa_delete_cols(msa, delete_cols);
+
+  free(delete_cols);
+}
+
+int create_problems_dir() {
+  struct stat st;
+  if (stat("problems", &st) != 0) {
+    if (errno == ENOENT) {	/* missing; create dir */
+      if (mkdir("problems", S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH) != 0)
+        return 1;
+    }
+    else return 1;              /* some other problem */
+  }
+  else if (!S_ISDIR(st.st_mode)) /* exists but is not a directory */
+    return 1;
+
   return 0;
 }
 
