@@ -1,4 +1,4 @@
-/* $Id: pasteCds.c,v 1.6 2006-05-29 18:50:43 acs Exp $ */
+/* $Id: pasteCds.c,v 1.7 2006-05-29 18:52:29 acs Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -15,7 +15,7 @@
 
 /* for use with --mask-frame-shifts; if gaps are farther apart than
    DIST we won't consider compensatory frame shifts */
-#define DIST 30
+#define DIST 15
 
 inline int is_stop_codon(char *str) {
  return (strncmp(str, "TAA", 3) == 0 || strncmp(str, "TAG", 3) == 0 ||
