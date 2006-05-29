@@ -1,0 +1,45 @@
+PROGRAM:      pasteCds
+
+USAGE:        pasteCds [OPTIONS] alignment.ss features.gff
+
+DESCRIPTION:  Given a large alignment (e.g., for a whole chromosome) and a
+              corresponding set of genes, generate an alignment for the CDS
+              of each gene by extracting and pasting together the alignment
+              segments for individual CDS exons.  The gene-by-gene
+              alignments are written to separate files with names equal to
+              the gene names in the GFF.  
+
+              NOTE: a genepred file may be used in place of a GFF file
+              (format is auto-recognized).
+
+EXAMPLE:      pasteCds chr22.ss chr22.refseq.gff     
+              (Generates files named NM_003490.fa, NM_000395.fa,
+              NM_006941.fa, ...)
+
+OPTIONS:
+    --in-format, -i FASTA|PHYLIP|MPM|SS|MAF
+        Input format.  Default is SS.
+
+    --out-format, -o FASTA|PHYLIP|MPM|SS
+        Output format.  Default is FASTA.
+
+    --check-orfs, -c
+        Ensure that no stop codons occur in output alignments.  If a stop
+        codon is found, a warning is printed and no file is created for
+        that gene.  This option should not be necessary if the GFF has been
+        processed with clean_genes, but it is useful for debugging.
+
+    --mask-frame-shifts, -m
+        Frame-shifting indels may be present in the alignment if
+        compensatory indels occur nearby (e.g., if using clean_genes
+        --fshift).  This option causes the frame-shifted region to be
+        masked with Ns, to reduce the effect of possible alignment errors
+        on downstream analyses.
+
+    --out-root, -r <fname_root>
+        Use specified filename root for all output files (gene names are
+        added as suffixes).
+
+    --help, -h
+        Print this help message.
+
