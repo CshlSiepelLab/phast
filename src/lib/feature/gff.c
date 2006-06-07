@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.34 2005-11-25 18:49:11 acs Exp $
+/* $Id: gff.c,v 1.35 2006-06-07 17:21:32 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -570,6 +570,8 @@ void gff_group(GFF_Set *set, char *tag) {
                                             or null attrs */
         str_re_match(f->attribute, tag_re, l, 1) >= 0) {
       val = lst_get_ptr(l, 1);
+      if (str_ends_with_charstr(val, ";"))
+        val->chars[--val->length] = '\0';
       str_remove_quotes(val);
     }
 
