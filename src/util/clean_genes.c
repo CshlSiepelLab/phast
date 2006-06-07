@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.33 2006-06-07 00:54:01 acs Exp $
+/* $Id: clean_genes.c,v 1.34 2006-06-07 15:38:12 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -867,7 +867,8 @@ int ref_seq_okay(List *features, MSA *msa, int offset3, int indel_strict,
       return 0;
     else if (str_equals_charstr(feat->feature, GFF_CDS_TYPE)) {
       for (i = (3 - feat->frame) % 3; i <= len - 3; i += 3) 
-        if (is_stop_codon(&seq[i])) return 0;
+        if (is_stop_codon(&seq[i])) 
+          return 0;
     }
 
     if (indel_strict) {
@@ -1156,6 +1157,14 @@ int main(int argc, char *argv[]) {
     cds_gap_type gt = FSHIFT_BAD;
     int no_alignment;
     problems_clear(problems);
+
+    /* make sure have frame info for CDSs */
+    for (j = 0; j < lst_size(gfeatures); j++) {
+      feat = lst_get_ptr(gfeatures, j);
+      if (str_equals_charstr(feat->feature, GFF_CDS_TYPE) && 
+          feat->frame == GFF_NULL_FRAME)
+        die("ERROR: Missing frame info for CDS.\n");
+    }
 
     /* First, exclude stop codons from cds's, if necessary (simplifies
        the detection of nonsense mutations). */
