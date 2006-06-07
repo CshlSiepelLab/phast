@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.32 2006-05-29 18:50:05 acs Exp $
+/* $Id: clean_genes.c,v 1.33 2006-06-07 00:54:01 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -1119,13 +1119,26 @@ int main(int argc, char *argv[]) {
   /* convert all features */
   for (i = 0; i < lst_size(gff->features); i++) {
     GFF_Feature *f = lst_get_ptr(gff->features, i);
-    f->start = msa_map_seq_to_msa(map, f->start);
-    f->end = msa_map_seq_to_msa(map, f->end);
+    int newstart, newend;
+ 
+    if (f->start < 0 || f->end < f->start)
+      die("ERROR: bad feature in GFF (start=%d, end=%d).\n",
+          f->start, f->end);
+
+    newstart = msa_map_seq_to_msa(map, f->start);
+    newend = msa_map_seq_to_msa(map, f->end);
+
+    if (newstart < 0 || newend < newstart)
+      die("ERROR: unable to map coordinates for feature (start=%d, end=%d).\n",
+          f->start, f->end);
+
+    f->start = newstart;
+    f->end = newend;
   }
 
   gff_group(gff, groupby);	/* do this after coord conversion, or
-				   group coords and feature coords
-				   will be out of sync */
+                               group coords and feature coords
+                               will be out of sync */
 
   keepers = lst_new_ptr(lst_size(gff->features));
   if (discardf != NULL) discards = lst_new_ptr(lst_size(gff->features));
