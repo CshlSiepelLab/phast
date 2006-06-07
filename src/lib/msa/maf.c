@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.23 2005-10-12 21:19:54 acs Exp $
+/* $Id: maf.c,v 1.24 2006-06-07 17:54:10 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -409,7 +409,10 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
   mini_msa->length = -1;
   for (i = 0; i < mini_msa->nseqs; i++) mark[i] = 0;
   while (str_readline(linebuffer, F) != EOF) {
-    if (str_starts_with_charstr(linebuffer, "#")) continue;
+    if (str_starts_with_charstr(linebuffer, "#") ||
+        str_starts_with_charstr(linebuffer, "i ") ||
+        str_starts_with_charstr(linebuffer, "e ")) 
+      continue;                 /* ignore i and e lines for now */
     else if (str_starts_with_charstr(linebuffer, "a")) {
       if (mini_msa->length == -1) continue;   /* assume first block (?) */
       more_blocks = 1;          /* want to distinguish a new block
