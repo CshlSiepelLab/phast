@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.36 2006-06-11 15:46:14 acs Exp $
+/* $Id: clean_genes.c,v 1.37 2006-06-11 16:56:04 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -1369,14 +1369,14 @@ int main(int argc, char *argv[]) {
 
   /* dump counts to stats file */
   if (statsf != NULL) {
-    fprintf(statsf, "#%11s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s\n", 
+    fprintf(statsf, "#%11s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s %12s\n", 
             "total", "nbad_ref", "nconsid", "nkept", "nno_aln", 
             "nbad_starts", "(out of)", "nbad_stops", "(out of)", 
             "nbad_5spl", "(out of)", "nbad_3spl", "(out of)", 
             "nbad_5utr", "(out of)", "nbad_3utr", "(out of)", 
-            "nbad_intron", "nnons", "nfshifts", "ncons_exons", 
+            "nbad_intron", "nnons", "nfshifts", "nNs", "ncons_exons", 
             "nce_ngaps", "nce_nov_cln", "nce_clean", "nce_fshftok");
-    fprintf(statsf, "%12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d\n", 
+    fprintf(statsf, "%12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d %12d\n", 
             nfail[BAD_REF]+ncons_tested, nfail[BAD_REF], ncons_tested, nkept, 
             nfail[NO_ALN], nfail[BAD_START], nconsid[BAD_START], 
             nfail[BAD_STOP], nconsid[BAD_STOP], nfail[BAD_5_SPLICE], 
@@ -1384,7 +1384,7 @@ int main(int argc, char *argv[]) {
             nfail[BAD_5_SPLICE_UTR], nconsid[BAD_5_SPLICE_UTR],
             nfail[BAD_3_SPLICE_UTR], nconsid[BAD_3_SPLICE_UTR], 
             nfail[BAD_INTRON], nfail[NONSENSE], nfail[FSHIFT], 
-            nconserved_exons, nce_gap_type[NGAPS], 
+            nfail[TOO_MANY_Ns], nconserved_exons, nce_gap_type[NGAPS], 
             nce_gap_type[NOVRLP_CLN_GAPS], nce_gap_type[CLN_GAPS], 
             nce_gap_type[FSHIFT_OK]);
     fprintf(statsf, STATS_DESCRIPTION);
