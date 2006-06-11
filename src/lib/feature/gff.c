@@ -1,4 +1,4 @@
-/* $Id: gff.c,v 1.35 2006-06-07 17:21:32 acs Exp $
+/* $Id: gff.c,v 1.36 2006-06-11 03:23:24 acs Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -836,9 +836,13 @@ void gff_fix_start_stop(GFF_Set *gff) {
               f->end = start->end;
           }
           if (stop != NULL) {
-            if (f->strand == '+' && f->end == stop->end) 
+            if (f->strand == '+' && f->end == stop->end && 
+                stop->start - 1 >= f->start) /* don't move if will
+                                                make end < start */
               f->end = stop->start - 1; 
-            else if (f->strand == '-' && f->start == stop->start)
+            else if (f->strand == '-' && f->start == stop->start &&
+                     stop->end + 1 <= f->end) /* don't move if will
+                                                 make start > end */
               f->start = stop->end + 1; 
           }
         }
