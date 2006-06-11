@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.34 2006-06-07 15:38:12 acs Exp $
+/* $Id: clean_genes.c,v 1.35 2006-06-11 15:29:59 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -9,6 +9,7 @@
 #include <sufficient_stats.h>
 #include <getopt.h>
 #include <maf.h>
+#include "clean_genes.help"
 
 /* types of features examined */
 #define SPLICE_5 "5'splice"
@@ -20,9 +21,13 @@
    of the case handling below */ 
 
 /* possible values for status of each group of features */
-typedef enum {OKAY, BAD_REF, NO_ALN, BAD_START, BAD_STOP, BAD_5_SPLICE, 
-              BAD_3_SPLICE, BAD_5_SPLICE_UTR, BAD_3_SPLICE_UTR, 
-              NONSENSE, FSHIFT, BAD_INTRON, NTYPES} 
+/* NOTE: these are now more important as individual problem types than
+   as a global status for a whole gene */
+typedef enum {OKAY, BAD_REF, BAD_REF_START, BAD_REF_STOP, BAD_REF_5_SPLICE,
+              BAD_REF_3_SPLICE, BAD_REF_ORF, BAD_REF_INDEL_STRICT_FAIL,
+              NO_ALN, BAD_START, BAD_STOP, BAD_5_SPLICE, BAD_3_SPLICE, 
+              BAD_5_SPLICE_UTR, BAD_3_SPLICE_UTR, NONSENSE, FSHIFT, 
+              BAD_INTRON, TOO_MANY_Ns, WARN_FSHIFT, WARN_Ns, NTYPES} 
 status_type;                    /* NTYPES marks the total number */
 
 /* possible gap types for cds exon -- frame-shift gaps (FSHIFT_BAD),
@@ -51,141 +56,6 @@ typedef enum {NO_ADJUST, ADJUST_END, ADJUST_START} adjust_type;
 /* "signal" feature types, used for 'indel-strict' mode (special-case
    stuff related to exoniphy training) */
 #define SIGNALS "start_codon,stop_codon,5'splice,3'splice,cds5'ss,cds3'ss,prestart"
-
-void print_usage() {
-    printf("\n\
-PROGRAM:        clean_genes\n\
-\n\
-DESCRIPTION:    Given a GFF describing a set of genes and a corresponding \n\
-                multiple alignment, output a new GFF with only those\n\
-                genes that meet certain \"cleanliness\" criteria. The\n\
-                coordinates in the GFF are assumed to correspond to\n\
-                the reference sequence in the alignment, which is\n\
-                assumed to be the first one listed.  Default behavior\n\
-                is simply to require that all annotated start/stop codons and\n\
-                splice sites are valid in the reference sequence (GT-AG, \n\
-                GC-AG, and AT-AC splice sites are allowed).  This can\n\
-                be used with an \"alignment\" consisting of a single\n\
-                sequence to filter out incorrect annotations.  Options\n\
-                are available to impose additional criteria as well,\n\
-                mostly having to do with conservation across species\n\
-                (see the '--conserved' option in particular).\n\
-\n\
-USAGE:          clean_genes [options] <gff_fname> <msa_fname>\n\
-\n\
-OPTIONS:        \n\
-\n\
-    --start, -s\n\
-        Require conserved start codons (all species)\n\
-\n\
-    --stop, -t\n\
-        Require conserved stop codons (all species)\n\
-\n\
-    --splice, -l    \n\
-        Require conserved splice sites (all species).  By default,\n\
-        only GT-AG, GC-AG, and AT-AC splice sites are allowed (see also\n\
-        --splice-strict)\n\
-\n\
-    --fshift, -h     \n\
-        Require that no frame-shift gap is present in any species.  Frame \n\
-        shifts are evaluated with respect to the reference sequence.  Gaps \n\
-        that have non-multiple-of-three lengths are allowed if  \n\
-        compensatory gaps occur nearby (see source code for details).\n\
-\n\
-    --nonsense, -n  \n\
-        Require that no premature stop codon is present in any species.\n\
-\n\
-    --conserved, -c\n\
-        Implies --start, --stop, --splice, --fshift, and --nonsense.\n\
-        Recommended option for cross-species analysis.\n\
-\n\
-    --clean-gaps, -e\n\
-        Require all cds gaps to be multiples of three in length.  Can be \n\
-        used with --conserved.\n\
-\n\
-    --indel-strict, -I\n\
-        Implies --clean_gaps, usually used with --conserved.  Prohibits\n\
-        overlapping cds gaps in different sequences, gaps near cds \n\
-        boundaries, and gaps in the reference sequence within and between\n\
-        flanking features (splice sites, etc.; see code for details).\n\
-        Designed for use in training a phylo-HMM with an indel model.\n\
-\n\
-    --splice-strict, -C\n\
-        Implies --splice.  Allow only GT-AG canonical splice sites.  Useful\n\
-        when training a gene finder with a simple model for splice sites.\n\
-\n\
-    --groupby, -g <tag>\n\
-        Group features according to specified tag (default\n\
-        \"transcript_id\").  If any feature within a group fails, the\n\
-        entire group will be discarded.  By choosing to group features\n\
-        according to different criteria, you can make the program\n\
-        \"clean\" the data set at different levels.  For example, to\n\
-        clean at the level of individual exons, add a tag like\n\
-        \"exon_id\" to indicate exons (see the program \"refeature\"),\n\
-        and then invoke clean_genes with \"--groupby exon_id\".\n\
-\n\
-    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS\n\
-        (Default SS) Alignment file format. \n\
-\n\
-    --refseq, -r <seqfile.fa>\n\
-        (Required with --msa-format MAF)  Complete reference \n\
-        sequence for alignment (FASTA format).\n\
-\n\
-    --offset5, -o <n>\n\
-        (Default 0)  Offset of canonical \"GT\" with respect to boundary \n\
-        on *intron side* of annotated 5' splice sites.  Useful with\n\
-        annotations that describe a window around the canonical splice site.\n\
-\n\
-    --offset3, -p <n>\n\
-        (Default 0)  Offset of canonical \"AG\" with respect to boundary \n\
-        on intron side of annotated 3' splice sites.\n\
-\n\
-    --log, -L <fname>\n\
-        Write human-readable log to specified file.\n\
-\n\
-    --machine-log, -M <fname>\n\
-        Like --log, but produces more concise, machine-readable log.\n\
-\n\
-    --stats, -S <fname>\n\
-        Write statistics on retained and discarded features to specified file.\n\
-\n\
-    --discards, -d <fname>\n\
-        Write discarded features to specified file.\n\
-\n\
-    --no-output, -x\n\
-        Suppress output of \"cleaned\" features to stdout.  Useful if only\n\
-        log file and/or stats are of interest.\n\
-\n\
-    --help, -h\n\
-        Print this help message.\n\
-\n\
-NOTES:  Feature types are defined as follows.\n\
-\n\
-               coding exon    <-> \"%s\"\n\
-               start codon    <-> \"%s\"\n\
-               stop codon     <-> \"%s\"\n\
-               5' splice site <-> \"%s\"\n\
-               3' splice site <-> \"%s\"\n\
-\n\
-        In addition, splice sites in UTR can be separately designated as\n\
-        \"%s\" and \"%s\".  Errors in these sites will be\n\
-        given a different code in the log files, which can be useful for\n\
-        tracking purposes.\n\
-\n\
-        If evaluation is done at the level of individual exons (see\n\
-        --groupby), then splice sites are considered independently\n\
-        rather than in the context of introns.  As a result, the exons flanking\n\
-        a GT-AC or AT-AG intron might (misleadingly) be considered \"clean\".\n\
-\n\
-        With --fshift and --nonsense, it is possible for entries\n\
-        to pass through that have stop codons in the frame of the\n\
-        *reference* sequence, although they do not have any in their\n\
-        own frame.  Use --clean-gaps instead to guarantee that no stop\n\
-        codons occur in any sequence in the frame of the reference\n\
-        sequence.\n\n", 
-           GFF_CDS_TYPE, GFF_START_TYPE, GFF_STOP_TYPE, SPLICE_5, SPLICE_3, 
-           SPLICE_5_UTR, SPLICE_3_UTR);
-}
 
 /* description of stats kept, written to bottom of stats file */
 char *STATS_DESCRIPTION = "#\n\
@@ -549,29 +419,41 @@ cds_gap_type get_cds_gap_type(GFF_Feature *feat, MSA *msa, List *problems) {
                                 /* most of the time the call to
                                    is_fshift_okay won't be
                                    necessary */
-    problem_free(problem);
-    problem = NULL;
+    problem->status = WARN_FSHIFT;
+    problem->cds_gap = FSHIFT_OK;
   }
   if (problem != NULL) {
     lst_push_ptr(problems, problem);
+    /* FIXME: It's possible that the single problem identified in
+       scan_for_gaps is actually okay, but there's a frameshift
+       without compensation downstream.  In this case, the status will
+       be correct but the problem will point to the wrong place */
   }
   return retval;
 }
 
-/* returns 1 if any row of the alignment consists completely of gaps in
-   the region of the specified feature, and returns 0 otherwise.
-   For use in testing whether a cds is present in the alignment for all
-   species */
+/* returns TRUE if the alignment is incomplete (i.e., contains '*'
+   characters) or if any row consists completely of gaps in the region
+   of the specified feature, and returns FALSE otherwise. */
 inline int is_incomplete_alignment(GFF_Feature *feat, MSA *msa) {
   int i, j;
-  for (i = 1; i < msa->nseqs; i++) { /* no need to check reference seq */
-    int row_all_gaps = 1;
-    for (j = feat->start - 1; row_all_gaps && j < feat->end; j++)
-      if (msa->inv_alphabet[(int)ss_get_char_tuple(msa, msa->ss->tuple_idx[j], i, 0)] >= 0)
-        row_all_gaps = 0;
-    if (row_all_gaps) return 1;
+  for (i = 1; i < msa->nseqs; i++) { /* don't check reference seq */
+    int row_all_gaps = TRUE;
+    for (j = feat->start - 1; row_all_gaps && j < feat->end; j++) {
+      char c = ss_get_char_tuple(msa, msa->ss->tuple_idx[j], i, 0); 
+      if (msa->is_missing[(int)c] && c != 'N') /* N is special case; ignore */
+        return TRUE;
+      if (c != GAP_CHAR)
+        row_all_gaps = FALSE;
+    }
+    if (row_all_gaps) return TRUE;
+    /* NOTE: the test for a row of all gaps is not really necessary
+       any longer (generally '*'s will appear rather than gaps in such
+       a case) but it doesn't really hurt to leave it in and it may be
+       useful in cases where information about missing alignments has
+       been lost */
   }
-  return 0;
+  return FALSE;
 }
 
 /* comparators used below in is_intron_okay */
@@ -652,6 +534,20 @@ int are_introns_okay(List *intron_splice,  MSA *msa, List *problems,
   return retval;
 }
 
+/* add counts of all (non-gap) CDS bases and all Ns to running total
+   for a CDS feature */
+void get_N_counts(int *countNs, int *countCDSs, GFF_Feature *feat, MSA *msa) {
+  int i, j;
+  for (i = 0; i < msa->nseqs; i++) {
+    for (j = feat->start-1; j < feat->end; j++) {
+      char c = ss_get_char_tuple(msa, msa->ss->tuple_idx[j], i, 0);
+      if (c != GAP_CHAR)
+        countCDSs[i]++;
+      if (c == 'N')
+        countNs[i]++;
+    }
+  }
+}
 
 /* dump sub-alignment corresponding to feature */
 void dump_aln(FILE *F, GFF_Feature *feat, MSA *msa, int show_frame) {
@@ -679,29 +575,46 @@ void dump_aln(FILE *F, GFF_Feature *feat, MSA *msa, int show_frame) {
 
 /* write log entry for discarded feature */
 void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status, 
-               List *problems, MSA *msa,
-               msa_coord_map *map) {
+               List *problems, MSA *msa, msa_coord_map *map) {
 
   int i;
 
-  /* special cases: we don't have info on individual features */
-  if (status == BAD_REF) {
-    fprintf(logf, "****\nSkipped '%s' -- features not consistent with reference sequence.\n", group->name->chars);
-    return;
-  }
-  else if (status == NO_ALN) {
+  /* special case */
+  if (status == NO_ALN) {
     fprintf(logf, "****\nSkipped '%s' -- lack of alignment across species.\n", 
             group->name->chars);
     return;
   }
 
-  fprintf(logf, "****\nDiscarded '%s'\n", group->name->chars);
+  if (status != OKAY) 
+    fprintf(logf, "****\nDiscarded '%s'\n", group->name->chars);
+  else
+    fprintf(logf, "****\nWarnings for '%s'\n", group->name->chars);
 
   for (i = 0; i < lst_size(problems); i++) {
     struct Problem *problem = lst_get_ptr(problems, i);
     char *reason;
+    int print_alignment = TRUE;
 
     switch (problem->status) {
+    case BAD_REF_START:
+      reason = "Bad start codon in reference sequence";
+      break;
+    case BAD_REF_STOP:
+      reason = "Bad stop codon in reference sequence";
+      break;
+    case BAD_REF_5_SPLICE:
+      reason = "Bad 5' splice in reference sequence";
+      break;
+    case BAD_REF_3_SPLICE:
+      reason = "Bad 3' splice in reference sequence";
+      break;
+    case BAD_REF_ORF:
+      reason = "Premature stop codon in reference sequence";
+      break;
+    case BAD_REF_INDEL_STRICT_FAIL:
+      reason = "Indel-strict failure in reference sequence";
+      break;
     case BAD_START:
       reason = "Start not conserved";
       break;
@@ -739,6 +652,16 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
     case NO_ALN:
       reason = "Incomplete alignment for cds";
       break;
+    case TOO_MANY_Ns:
+      reason = "Too many Ns";
+      print_alignment = FALSE;
+      break;
+    case WARN_FSHIFT:
+      reason = "Frame shift gap (with compensatory gap)";
+      break;
+    case WARN_Ns:
+      reason = "CDS contains Ns";
+      break;
     default: 
       assert(0);
     }
@@ -747,15 +670,26 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
             msa_map_msa_to_seq(map, problem->feat->start), 
             msa_map_msa_to_seq(map, problem->feat->end));
 
-    dump_aln(logf, problem->feat, msa, problem->status == NONSENSE);
+    if (print_alignment)
+      dump_aln(logf, problem->feat, msa, problem->status == NONSENSE);
   }
 }
 
 /* convert a status_type to a string */
 char *status_type_str(status_type status) {
   switch(status) {
-  case BAD_REF:
-    return "bad_ref";
+  case BAD_REF_START:
+    return "bad_ref_start";
+  case BAD_REF_STOP:
+    return "bad_ref_stop";
+  case BAD_REF_5_SPLICE:
+    return "bad_ref_5_splice";
+  case BAD_REF_3_SPLICE:
+    return "bad_ref_3_splice";
+  case BAD_REF_ORF:
+    return "bad_ref_orf";
+  case BAD_REF_INDEL_STRICT_FAIL:
+    return "bad_ref_indel_strict";
   case NO_ALN:
     return "no_alignment";
   case OKAY:
@@ -778,6 +712,12 @@ char *status_type_str(status_type status) {
     return "frameshift";
   case BAD_INTRON:
     return "bad_intron";
+  case TOO_MANY_Ns:
+    return "too_many_Ns";
+  case WARN_FSHIFT:
+    return "warning_fshift";
+  case WARN_Ns:
+    return "warning_Ns";
   default:
     assert(0);
     return "unknown status";
@@ -804,11 +744,10 @@ void write_machine_problem(FILE *mlogf, GFF_FeatureGroup *group, Problem *proble
   fprintf(mlogf, "%s\t%s\t%d\t%d\t%s\t%d\t%d\n",
           group->name->chars, featName,
           msa_map_msa_to_seq(map, start)-1, 
-	  msa_map_msa_to_seq(map, end),
+          msa_map_msa_to_seq(map, end),
           status_type_str(problem->status),
-	  msa_map_msa_to_seq(map, group->start)-1, 
-	  msa_map_msa_to_seq(map, group->end));
-	  
+          msa_map_msa_to_seq(map, group->start)-1, 
+          msa_map_msa_to_seq(map, group->end));
 }
 
 /* write machine-readable log entry for discarded feature */
@@ -823,12 +762,12 @@ void write_machine_log(FILE *mlogf, GFF_FeatureGroup *group, List *problems,
 
 /* checks to see if reference sequence looks okay wrt a given
    list of features */
-int ref_seq_okay(List *features, MSA *msa, int offset3, int indel_strict,
-                 int splice_strict) {
+int ref_seq_okay(List *features, MSA *msa, int offset3, 
+                 int indel_strict, int splice_strict, List *problems) {
   static List *signals = NULL;
   static char *seq = NULL;
   static int seqalloc = 0;
-  int idx;
+  int idx, retval = TRUE;
   GFF_Feature *feat, *lastfeat_helper = NULL;
 
   if (indel_strict && signals == NULL) {
@@ -854,24 +793,37 @@ int ref_seq_okay(List *features, MSA *msa, int offset3, int indel_strict,
     seq[len] = '\0';
     if (feat->strand == '-') msa_reverse_compl_seq(seq, len);
 
-    if (str_equals_charstr(feat->feature, GFF_START_TYPE) && strcmp(seq, "ATG") != 0)
-      return 0;
+    if (str_equals_charstr(feat->feature, GFF_START_TYPE) && strcmp(seq, "ATG") != 0) {
+      problem_add(problems, feat, BAD_REF_START, -1, -1);
+      retval = FALSE;
+    }
     else if (str_equals_charstr(feat->feature, GFF_STOP_TYPE) && 
-             (feat->frame != 0 || !is_stop_codon(seq)))
-      return 0;
+             (feat->frame != 0 || !is_stop_codon(seq))) {
+      problem_add(problems, feat, BAD_REF_STOP, -1, -1);
+      retval = FALSE;
+    }
     else if (str_starts_with_charstr(feat->feature, SPLICE_5) && 
-             !is_valid_5splice(seq, splice_strict))
-      return 0;
+             !is_valid_5splice(seq, splice_strict)) {
+      problem_add(problems, feat, BAD_REF_5_SPLICE, -1, -1);
+      retval = FALSE;
+    }
     else if (str_starts_with_charstr(feat->feature, SPLICE_3) &&
-             !is_valid_3splice(&seq[offset3], splice_strict))
-      return 0;
+             !is_valid_3splice(&seq[offset3], splice_strict)) {
+      problem_add(problems, feat, BAD_REF_3_SPLICE, -1, -1);
+      retval = FALSE;
+    }
     else if (str_equals_charstr(feat->feature, GFF_CDS_TYPE)) {
-      for (i = (3 - feat->frame) % 3; i <= len - 3; i += 3) 
-        if (is_stop_codon(&seq[i])) 
-          return 0;
+      for (i = (3 - feat->frame) % 3; i <= len - 3; i += 3) {
+        if (is_stop_codon(&seq[i])) {
+          problem_add(problems, feat, BAD_REF_ORF, -1, -1);
+          retval = FALSE;
+          break;
+        }
+      }
     }
 
     if (indel_strict) {
+      int strict_okay = TRUE;
       if (str_in_list(feat->feature, signals)) {
         /* reject any signal feature with gaps in the ref seq, unless they
            appear in a non-critical part of a splice site or in a
@@ -880,15 +832,15 @@ int ref_seq_okay(List *features, MSA *msa, int offset3, int indel_strict,
           if (str_starts_with_charstr(feat->feature, SPLICE_5)) {
             if (ss_get_char_pos(msa, feat->start-1, 0, 0) == GAP_CHAR ||
                 ss_get_char_pos(msa, feat->start, 0, 0) == GAP_CHAR)
-              return 0;
+              strict_okay = FALSE;
           }
           else if (str_starts_with_charstr(feat->feature, SPLICE_3)) {
             if (ss_get_char_pos(msa, feat->end-1, 0, 0) == GAP_CHAR ||
                 ss_get_char_pos(msa, feat->end-2, 0, 0) == GAP_CHAR)
-              return 0;
+              strict_okay = FALSE;
           }
           else if (!str_equals_charstr(feat->feature, "prestart"))
-            return 0;
+            strict_okay = FALSE;
         }
         /* in addition, if two signals occur consec. with gaps and
            only gaps between them, assume a violation of
@@ -899,7 +851,8 @@ int ref_seq_okay(List *features, MSA *msa, int offset3, int indel_strict,
                                 /* note indexing: -1+1 for end and -1
                                    for start  */
             if (ss_get_char_pos(msa, j, 0, 0) != GAP_CHAR) allgaps = 0;
-          if (allgaps) return 0;
+          if (allgaps) 
+            strict_okay = FALSE;
         }
         lastfeat_helper = feat;
       }
@@ -909,10 +862,15 @@ int ref_seq_okay(List *features, MSA *msa, int offset3, int indel_strict,
          case -- these cause problems in exoniphy training because
          start_codon is adjacent to cds5ss */
       if (str_equals_charstr(feat->feature, GFF_CDS_TYPE) && len <= 6)
-        return 0;
+        strict_okay = FALSE;
+
+      if (!strict_okay) {
+        problem_add(problems, feat, BAD_REF_INDEL_STRICT_FAIL, -1, -1);
+        retval = FALSE;
+      }
     }
   }
-  return 1;
+  return retval;
 }
 
 /* Exclude stop codons from all CDS in a group, as necessary.  Record
@@ -973,11 +931,12 @@ int main(int argc, char *argv[]) {
     check_alignment = 0, splice_strict = 0;
   int ncons_tested, nkept, nconserved_exons;
   int nce_gap_type[NGAP_TYPES], nconsid[NTYPES], nfail[NTYPES];
+  double Nfrac = 0.05;
   char c;
   MSA *msa;
   GFF_Set *gff;
   msa_format_type msa_format = SS;
-  List *keepers, *problems = lst_new_int(10),
+  List *keepers, *problems = lst_new_ptr(10), 
     *ends_adjusted = lst_new_ptr(1), *starts_adjusted = lst_new_ptr(1), 
     *discards, *intron_splice = lst_new_ptr(10);
   char *rseq_fname = NULL;
@@ -985,6 +944,7 @@ int main(int argc, char *argv[]) {
   cds_gap_type fshift_mode = FSHIFT_BAD;
   char *groupby = "transcript_id";
   msa_coord_map *map;
+  int *countNs, *countCDSs;
 
   struct option long_opts[] = {
     {"start", 0, 0, 's'},
@@ -993,6 +953,7 @@ int main(int argc, char *argv[]) {
     {"nonsense", 0, 0, 'n'},
     {"fshift", 0, 0, 'f'},
     {"conserved", 0, 0, 'c'},
+    {"N-limit", 1, 0, 'N'},
     {"clean-gaps", 0, 0, 'e'},
     {"indel-strict", 0, 0, 'I'},
     {"splice-strict", 0, 0, 'C'},
@@ -1010,7 +971,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "i:r:L:M:S:g:d:stlnfceICxh", 
+  while ((c = getopt_long(argc, argv, "N:i:r:L:M:S:g:d:stlnfceICxh", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 's':
@@ -1032,6 +993,9 @@ int main(int argc, char *argv[]) {
     case 'c':
       check_alignment = check_start = check_stop = check_splice = check_nonsense = 1;
       if (fshift_mode < FSHIFT_OK) fshift_mode = FSHIFT_OK;
+      break;
+    case 'N':
+      Nfrac = get_arg_dbl_bounds(optarg, 0, 1);
       break;
     case 'e':
       check_alignment = 1;
@@ -1077,11 +1041,10 @@ int main(int argc, char *argv[]) {
       no_output = 1;
       break;
     case 'h':
-      print_usage();
+      printf (HELP);
       exit(0);
     case '?':
       fprintf(stderr, "ERROR: Bad argument.  Try the --help option.\n");
-      print_usage();
       exit(1);
     }
   }
@@ -1149,6 +1112,9 @@ int main(int argc, char *argv[]) {
   for (i = 0; i < NTYPES; i++) nfail[i] = 0;
   for (i = 0; i < NGAP_TYPES; i++) nce_gap_type[i] = 0;  
 
+  countNs = smalloc(msa->nseqs * sizeof(int));
+  countCDSs = smalloc(msa->nseqs * sizeof(int));
+
   for (i = 0; i < lst_size(gff->groups); i++) {
     GFF_FeatureGroup *group = lst_get_ptr(gff->groups, i);
     List *gfeatures = group->features;
@@ -1173,11 +1139,10 @@ int main(int argc, char *argv[]) {
     /* In all cases, discard any group for which the reference sequence
        doesn't have valid splice sites or start/stop codons, or has a
        premature stop codon */
-    if (!ref_seq_okay(gfeatures, msa, offset3, indel_strict, splice_strict)) {
+    if (!ref_seq_okay(gfeatures, msa, offset3, indel_strict, splice_strict,
+                      problems)) {
       status = BAD_REF;
       nfail[BAD_REF]++;
-      /* FIX: really should collect details of why it's bad */
-      problem_add(problems, NULL, BAD_REF, -1, -1);
     }
     else
       /* Everything else counts as a potentially valid group */
@@ -1207,6 +1172,8 @@ int main(int argc, char *argv[]) {
                                    by feature  */
 
         lst_clear(intron_splice);
+        for (j = 0; j < msa->nseqs; j++) countNs[j] = countCDSs[j] = 0;
+
         for (j = 0; j < lst_size(gfeatures); j++) {
           feat = lst_get_ptr(gfeatures, j);
 
@@ -1290,6 +1257,9 @@ int main(int argc, char *argv[]) {
             if (check_nonsense && !is_nonsense_clean(feat, msa, problems)) {
               if (status == OKAY) status = NONSENSE;
             }
+
+            if (Nfrac < 1) 
+              get_N_counts(countNs, countCDSs, feat, msa);
           }
         } /* end loop through features in group */
 
@@ -1298,6 +1268,21 @@ int main(int argc, char *argv[]) {
         if (status == OKAY && !splice_strict && lst_size(intron_splice) >= 2 &&
             !are_introns_okay(intron_splice, msa, problems, offset5, offset3)) 
           status = BAD_INTRON;
+
+        /* also check fraction of Ns */
+        if (Nfrac < 1) {
+          enum {OKAY, FAIL, WARN} Nstatus = OKAY;
+          for (j = 0; j < msa->nseqs; j++) {
+            if (countNs[j] / countCDSs[j] > Nfrac) Nstatus = FAIL;
+            if (Nstatus == OKAY && countNs[j] > 0) Nstatus = WARN;
+          }
+          if (Nstatus == FAIL) {
+            problem_add(problems, NULL, TOO_MANY_Ns, -1, -1);
+            if (status == OKAY) status = TOO_MANY_Ns;
+          }
+          else if (Nstatus == WARN) 
+            problem_add(problems, NULL, WARN_Ns, -1, -1);
+        }
 
         /* if collecting stats, record counts for failures */
         if (statsf != NULL) {
@@ -1339,11 +1324,13 @@ int main(int argc, char *argv[]) {
         for (j = 0; j < lst_size(gfeatures); j++)
           lst_push_ptr(keepers, lst_get_ptr(gfeatures, j));
       }
+      if (logf != NULL && lst_size(problems) > 0) /* warnings only */
+        write_log(logf, group, status, problems, msa, map);
       if (mlogf != NULL) {
-        /* no problem, need to add a okay status to log */
-        assert(lst_size(problems) == 0);
+        /* no problem, need to add an okay status to log */
         problem_add(problems, NULL, OKAY, -1, -1);
-        write_machine_log(mlogf, group, problems, map);
+        write_machine_log(mlogf, group, problems, map); /* may include
+                                                           warnings */
       }
     }
     else {
@@ -1357,7 +1344,6 @@ int main(int argc, char *argv[]) {
       if (mlogf != NULL)
         write_machine_log(mlogf, group, problems, map);
     }
-
   } /* end loop over groups */
 
   /* write main output and discards */

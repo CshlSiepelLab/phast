@@ -1,0 +1,134 @@
+PROGRAM:        clean_genes
+
+DESCRIPTION:    Given a GFF describing a set of genes and a corresponding 
+                multiple alignment, output a new GFF with only those
+                genes that meet certain "cleanliness" criteria. The
+                coordinates in the GFF are assumed to correspond to
+                the reference sequence in the alignment, which is
+                assumed to be the first one listed.  Default behavior
+                is simply to require that all annotated start/stop codons and
+                splice sites are valid in the reference sequence (GT-AG, 
+                GC-AG, and AT-AC splice sites are allowed).  This can
+                be used with an "alignment" consisting of a single
+                sequence to filter out incorrect annotations.  Options
+                are available to impose additional criteria as well,
+                mostly having to do with conservation across species
+                (see the '--conserved' option in particular).
+
+USAGE:          clean_genes [options] <gff_fname> <msa_fname>
+
+OPTIONS:        
+
+    --start, -s
+        Require conserved start codons (all species)
+
+    --stop, -t
+        Require conserved stop codons (all species)
+
+    --splice, -l    
+        Require conserved splice sites (all species).  By default,
+        only GT-AG, GC-AG, and AT-AC splice sites are allowed (see also
+        --splice-strict)
+
+    --fshift, -h     
+        Require that no frame-shift gap is present in any species.  Frame 
+        shifts are evaluated with respect to the reference sequence.  Gaps 
+        that have non-multiple-of-three lengths are allowed if  
+        compensatory gaps occur nearby (see source code for details).
+
+    --nonsense, -n  
+        Require that no premature stop codon is present in any species.
+
+    --conserved, -c
+        Implies --start, --stop, --splice, --fshift, and --nonsense.
+        Recommended option for cross-species analysis.
+
+    --N-limit, -N <f>
+        Maximum fraction of bases aligned to CDSs that are Ns in any
+        species (<f> must be between 0 and 1).  Default is 0.05.  Set to 1
+        to allow any number of Ns.
+
+    --clean-gaps, -e
+        Require all cds gaps to be multiples of three in length.  Can be 
+        used with --conserved.
+
+    --indel-strict, -I
+        Implies --clean_gaps, usually used with --conserved.  Prohibits
+        overlapping cds gaps in different sequences, gaps near cds 
+        boundaries, and gaps in the reference sequence within and between
+        flanking features (splice sites, etc.; see code for details).
+        Designed for use in training a phylo-HMM with an indel model.
+
+    --splice-strict, -C
+        Implies --splice.  Allow only GT-AG canonical splice sites.  Useful
+        when training a gene finder with a simple model for splice sites.
+
+    --groupby, -g <tag>
+        Group features according to specified tag (default
+        "transcript_id").  If any feature within a group fails, the
+        entire group will be discarded.  By choosing to group features
+        according to different criteria, you can make the program
+        "clean" the data set at different levels.  For example, to
+        clean at the level of individual exons, add a tag like
+        "exon_id" to indicate exons (see the program "refeature"),
+        and then invoke clean_genes with "--groupby exon_id".
+
+    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
+        (Default SS) Alignment file format. 
+
+    --refseq, -r <seqfile.fa>
+        (Required with --msa-format MAF)  Complete reference 
+        sequence for alignment (FASTA format).
+
+    --offset5, -o <n>
+        (Default 0)  Offset of canonical "GT" with respect to boundary 
+        on *intron side* of annotated 5' splice sites.  Useful with
+        annotations that describe a window around the canonical splice site.
+
+    --offset3, -p <n>
+        (Default 0)  Offset of canonical "AG" with respect to boundary 
+        on intron side of annotated 3' splice sites.
+
+    --log, -L <fname>
+        Write human-readable log to specified file.
+
+    --machine-log, -M <fname>
+        Like --log, but produces more concise, machine-readable log.
+
+    --stats, -S <fname>
+        Write statistics on retained and discarded features to specified file.
+
+    --discards, -d <fname>
+        Write discarded features to specified file.
+
+    --no-output, -x
+        Suppress output of "cleaned" features to stdout.  Useful if only
+        log file and/or stats are of interest.
+
+    --help, -h
+        Print this help message.
+
+NOTES:  Feature types are defined as follows.
+
+               coding exon    <-> "CDS"
+               start codon    <-> "start_codon"
+               stop codon     <-> "stop_codon"
+               5' splice site <-> "5'splice"
+               3' splice site <-> "3'splice"
+
+        In addition, splice sites in UTR can be separately designated as
+        "5'splice_utr" and "3'splice_utr".  Errors in these sites will be
+        given a different code in the log files, which can be useful for
+        tracking purposes.
+
+        If evaluation is done at the level of individual exons (see
+        --groupby), then splice sites are considered independently
+        rather than in the context of introns.  As a result, the exons flanking
+        a GT-AC or AT-AG intron might (misleadingly) be considered "clean".
+
+        With --fshift and --nonsense, it is possible for entries
+        to pass through that have stop codons in the frame of the
+        *reference* sequence, although they do not have any in their
+        own frame.  Use --clean-gaps instead to guarantee that no stop
+        codons occur in any sequence in the frame of the reference
+        sequence.
