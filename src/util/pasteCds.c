@@ -1,4 +1,4 @@
-/* $Id: pasteCds.c,v 1.11 2006-06-11 03:33:05 acs Exp $ */
+/* $Id: pasteCds.c,v 1.12 2006-06-11 03:51:16 acs Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
       ss_free(subaln->ss);
       subaln->ss = NULL;
      
-      if (j == 0)               /* initialize gene_msa */
+      if (gene_msa == NULL)     /* initialize gene_msa */
         gene_msa = subaln;
       else {
         msa_concatenate(gene_msa, subaln);
@@ -162,6 +162,12 @@ int main(int argc, char *argv[]) {
 
     if (check_orfs && has_stops(gene_msa)) {
       fprintf(stderr, "WARNING: gene '%s' has stop codons; writing to 'problems'.\n", 
+              group->name->chars);
+      err = TRUE;
+    }
+
+    if (gene_msa->length % 3 != 0) {
+      fprintf(stderr, "WARNING: gene '%s' has non-multiple-of-three length; writing to 'problems'.\n",
               group->name->chars);
       err = TRUE;
     }
