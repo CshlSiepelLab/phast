@@ -1,4 +1,4 @@
-/* $Id: pasteCds.c,v 1.10 2006-05-29 21:18:52 acs Exp $ */
+/* $Id: pasteCds.c,v 1.11 2006-06-11 03:33:05 acs Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -118,7 +118,12 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Processing gene '%s'...\n", group->name->chars);
     for (j = 0; j < lst_size(group->features); j++) {
       GFF_Feature *f = lst_get_ptr(group->features, j); 
-      MSA *subaln = msa_sub_alignment(msa, NULL, FALSE, f->start-1, f->end);
+      MSA *subaln;
+
+      if (f->end < f->start) continue;
+      /* can happen when stop codons cross codon boundaries */
+
+      subaln = msa_sub_alignment(msa, NULL, FALSE, f->start-1, f->end);
       ss_to_msa(subaln);
       ss_free(subaln->ss);
       subaln->ss = NULL;
@@ -133,6 +138,8 @@ int main(int argc, char *argv[]) {
       else if (strand != f->strand) 
         die("ERROR: features in group don't have same strand.\n");
     }
+    
+    if (gene_msa == NULL) continue;
 
     if (strand == '-')
       msa_reverse_compl(gene_msa);
