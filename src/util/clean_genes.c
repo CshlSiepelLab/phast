@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.35 2006-06-11 15:29:59 acs Exp $
+/* $Id: clean_genes.c,v 1.36 2006-06-11 15:46:14 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -1273,7 +1273,7 @@ int main(int argc, char *argv[]) {
         if (Nfrac < 1) {
           enum {OKAY, FAIL, WARN} Nstatus = OKAY;
           for (j = 0; j < msa->nseqs; j++) {
-            if (countNs[j] / countCDSs[j] > Nfrac) Nstatus = FAIL;
+            if ((double)countNs[j] / countCDSs[j] > Nfrac) Nstatus = FAIL;
             if (Nstatus == OKAY && countNs[j] > 0) Nstatus = WARN;
           }
           if (Nstatus == FAIL) {
