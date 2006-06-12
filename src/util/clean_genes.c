@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.37 2006-06-11 16:56:04 acs Exp $
+/* $Id: clean_genes.c,v 1.38 2006-06-12 01:12:39 acs Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -80,6 +80,7 @@ char *STATS_DESCRIPTION = "#\n\
 # nbad_intron   number of pairs of splice sites failing consistency test (not GT-AG, GC-AG, AT-AC)\n\
 # nnons         number of cds's failing nonsense mutation test (not counting ones that fail above tests)\n\
 # nfshifts      number of cds's failing frameshift test (not counting ones that fail above tests)\n\
+# nNs           number of cds's exceeding limit on number of Ns\n\
 # *** ALIGNMENT GAP STATS (for use at individual exon level) ***\n\
 # ncons_exons   number of conserved exons (same as nkept if --conserved)\n\
 # nce_ngaps     number with no alignment gaps\n\
@@ -435,7 +436,7 @@ cds_gap_type get_cds_gap_type(GFF_Feature *feat, MSA *msa, List *problems) {
 /* returns TRUE if the alignment is incomplete (i.e., contains '*'
    characters) or if any row consists completely of gaps in the region
    of the specified feature, and returns FALSE otherwise. */
-inline int is_incomplete_alignment(GFF_Feature *feat, MSA *msa) {
+int is_incomplete_alignment(GFF_Feature *feat, MSA *msa) {
   int i, j;
   for (i = 1; i < msa->nseqs; i++) { /* don't check reference seq */
     int row_all_gaps = TRUE;
@@ -725,8 +726,8 @@ char *status_type_str(status_type status) {
 } 
 
 /* write one problem to machine log */
-void write_machine_problem(FILE *mlogf, GFF_FeatureGroup *group, Problem *problem,
-                           msa_coord_map *map) {
+void write_machine_problem(FILE *mlogf, GFF_FeatureGroup *group, 
+                           Problem *problem, msa_coord_map *map) {
   char *featName;
   int start, end;
   if (problem->feat == NULL) {
