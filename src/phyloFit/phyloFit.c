@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.35 2006-01-09 21:53:57 acs Exp $
+   $Id: phyloFit.c,v 1.36 2006-06-21 19:12:19 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
   FILE *logf = NULL;
   String *tmpstr = str_new(STR_SHORT_LEN);
   List *cats_to_do = NULL, *tmplist = NULL, *window_coords = NULL, 
-    *cats_to_do_str = NULL;
+    *cats_to_do_str = NULL, *ignore_branches = NULL;
   double *gc;
   double cpg, alpha = DEFAULT_ALPHA;
   GFF_Set *gff = NULL;
@@ -310,10 +310,11 @@ int main(int argc, char *argv[]) {
     {"expected-total-subs", 0, 0, 'Z'},
     {"column-probs", 0, 0, 'U'},
     {"rate-constants", 1, 0, 'K'},
+    {"ignore-branches", 1, 0, 'b'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:GVEeNDRTqLPXZUBFfnrh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:GVEeNDRTqLPXZUBFfnrh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -458,6 +459,9 @@ int main(int argc, char *argv[]) {
       nratecats = lst_size(rate_consts);
       use_em = 1;
       lst_free_strings(tmplist); lst_free(tmplist);
+      break;
+    case 'b':
+      ignore_branches = get_arg_list(optarg);
       break;
     case 'h':
       printf("%s", HELP);
@@ -714,6 +718,9 @@ int main(int argc, char *argv[]) {
         tm_init_rmp(mod);        /* necessary because number of
                                     parameters changes */
       }
+
+      if (ignore_branches != NULL) 
+        tm_set_ignore_branches(mod, ignore_branches);
 
       old_nnodes = mod->tree->nnodes;
       pruned_names = lst_new_ptr(msa->nseqs);

@@ -140,6 +140,15 @@ OPTIONS:
         Treat alignment gap characters ('-') like ordinary bases.  By
         default, they are treated as missing data.
 
+    --ignore-branches, -b <branches>
+        Ignore specified branches in likelihood computations and parameter
+        estimation, and treat the induced subtrees as independent.  Can be
+        useful for likelihood ratio tests.  The argument <branches> should
+        be a comma-separated list of nodes in the tree, indicating the
+        branches above these nodes, e.g., human-chimp,cow-dog.  (See
+        tree_doctor --name-ancestors regarding names for ancestral nodes.)
+        This option does not currently work with --EM.
+
     --quiet, -q
         Proceed quietly.
 

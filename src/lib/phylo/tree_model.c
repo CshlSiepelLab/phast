@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.28 2006-01-09 21:53:57 acs Exp $
+/* $Id: tree_model.c,v 1.29 2006-06-21 19:12:19 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -120,6 +120,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   tm->scale_sub = 1;
   tm->scale_sub_bound = NB;
   tm->estimate_ratemat = TRUE;
+  tm->ignore_branch = NULL;
 
   tm_init_rmp(tm);
 
@@ -211,6 +212,7 @@ void tm_free(TreeModel *tm) {
   }
   if (tm->rate_matrix != NULL) mm_free(tm->rate_matrix);
   if (tm->backgd_freqs != NULL) vec_free(tm->backgd_freqs);
+  if (tm->ignore_branch != NULL) free(tm->ignore_branch);
   free(tm);
 }
 
@@ -502,14 +504,19 @@ void tm_set_subst_matrices(TreeModel *tm) {
         tm->P[i][j] = mm_new(tm->rate_matrix->size, tm->rate_matrix->states, 
                              DISCRETE);
 
+      if (tm->ignore_branch != NULL && tm->ignore_branch[i])  
+                                /* treat as if infinitely long */
+        tm_set_probs_independent(tm, tm->P[i][j]);
+
       /* for simple models, full matrix exponentiation is not necessary */
-      if (tm->subst_mod == JC69)
+      else if (tm->subst_mod == JC69)
         tm_set_probs_JC69(tm, tm->P[i][j], 
                           n->dparent * branch_scale * tm->rK[j]);
       else if (tm->subst_mod == F81)
         tm_set_probs_F81(tm, tm->P[i][j], scaling_const, 
                          n->dparent * branch_scale * tm->rK[j]);
-      else 
+
+      else                      /* full matrix exponentiation */
         mm_exp(tm->P[i][j], tm->rate_matrix, 
                n->dparent * branch_scale * tm->rK[j]);
     }
@@ -1235,5 +1242,24 @@ void tm_reset_tree(TreeModel *mod,   /** TreeModel */
   for (i = 0; i < mod->tree->nnodes; i++) {
     mod->P[i] = smalloc(mod->nratecats * sizeof(MarkovMatrix*));
     for (j = 0; j < mod->nratecats; j++) mod->P[i][j] = NULL;
+  }
+}
+
+/* Set branches to be ignored in likelihood calculation and parameter
+   estimation.  Argument 'ignore_branches' should be a list of Strings
+   indicating nodes in the tree and the branches leading to those
+   nodes. */
+void tm_set_ignore_branches(TreeModel *mod, List *ignore_branches) {
+  int j;
+  assert(mod->ignore_branch == NULL);
+  mod->ignore_branch = smalloc(mod->tree->nnodes * sizeof(int));
+  for (j = 0; j < mod->tree->nnodes; j++) 
+    mod->ignore_branch[j] = FALSE;
+  for (j = 0; j < lst_size(ignore_branches); j++) {
+    String *s = lst_get_ptr(ignore_branches, j);
+    TreeNode *n  = tr_get_node(mod->tree, s->chars);
+    if (n == NULL)
+      die("ERROR: no node named '%s'.\n", s->chars);
+    mod->ignore_branch[n->id] = TRUE;
   }
 }

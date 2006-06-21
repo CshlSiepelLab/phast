@@ -1,4 +1,4 @@
-/* $Id: subst_mods.c,v 1.8 2006-01-09 21:53:58 acs Exp $
+/* $Id: subst_mods.c,v 1.9 2006-06-21 19:12:19 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -420,6 +420,15 @@ void tm_set_probs_F81(TreeModel *mod, MarkovMatrix *P, double scale, double t) {
 
     }
   }
+}
+
+/* set matrix such that element (i,j) has value pi_j, as for an
+   infinitely long branch */
+void tm_set_probs_independent(TreeModel *mod, MarkovMatrix *P) {
+  int i, j;
+  for (i = 0; i < mod->rate_matrix->size; i++) 
+    for (j = 0; j < mod->rate_matrix->size; j++) 
+      mm_set(P, i, j, vec_get(mod->backgd_freqs, j));
 }
 
 
