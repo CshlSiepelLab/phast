@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.14 2006-01-09 21:53:58 acs Exp $
+/* $Id: tree_model.h,v 1.15 2006-06-21 19:18:34 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -109,6 +109,11 @@ struct tm_struct {
   scale_bound_type scale_sub_bound;
                                 /* bound on scale of subtree */
   TreeNode *subtree_root;       /* node defining subtree */
+  int *ignore_branch;           /* if ignore_branch is non-NULL and
+                                   ignore_branch[i] == TRUE, then
+                                   branch i will be ignored (treated
+                                   as infinitely long) in likelihood
+                                   calculations */
   int empirical_rates;          /* indicates "empirical"
                                    (nonparameteric) model for
                                    rate-variation */
@@ -190,5 +195,7 @@ double tm_extrapolate_and_prune(TreeModel *mod, TreeNode *extrapolate_tree,
                                 MSA *msa, List *pruned_names);
 
 void tm_reset_tree(TreeModel *mod, TreeNode *newtree);
+
+void tm_set_ignore_branches(TreeModel *mod, List *ignore_branches);
 
 #endif

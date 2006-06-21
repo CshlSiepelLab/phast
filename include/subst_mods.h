@@ -1,4 +1,4 @@
-/* $Id: subst_mods.h,v 1.5 2005-09-19 19:24:31 acs Exp $
+/* $Id: subst_mods.h,v 1.6 2006-06-21 19:18:34 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -34,6 +34,7 @@ struct tm_struct;               /* use incomplete type because of
 
 void tm_set_probs_JC69(struct tm_struct *mod, MarkovMatrix *P, double t);
 void tm_set_probs_F81(struct tm_struct *mod, MarkovMatrix *P, double scale, double t);
+void tm_set_probs_independent(struct tm_struct *mod, MarkovMatrix *P);
 subst_mod_type tm_get_subst_mod_type(char *str);
 char *tm_get_subst_mod_string(subst_mod_type type);
 int tm_get_nratematparams(struct tm_struct *mod);
