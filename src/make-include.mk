@@ -28,12 +28,13 @@ TARGETLIB = ${LIB}/libphast.a
 
 # for debugging
 #CFLAGS = -g -fno-inline -Wall 
-# for best performance (pentiumpro)
-CFLAGS = -mcpu=pentiumpro -O3 
+# for best performance
+CFLAGS = -O3 
 # use this instead for Mac OS X
 #CFLAGS = -mcpu=powerpc -O3
-# possible x86-64 options (kolossus at UC Santa Cruz)
+# other possible options
 #CFLAGS = -mcpu=opteron -O3
+#CFLAGS = -mcpu=pentiumpro -O3 
 
 CFLAGS += -I${INC} -DPHAST_VERSION=\"$(shell cat ${PHAST}/version)\" -DPHAST_HOME=\"${PHAST}\"
 LIBPATH = -L${LIB} 
@@ -70,7 +71,7 @@ LFLAGS += -static
 CLAPACKPATH = /projects/compbio/usr/acs/CLAPACK
 # platform-specific suffix used for CLAPACK libraries; use the same
 # value as in CLAPACK's "make.inc" file 
-PLAT = _x86
+PLAT = _X86-64
 # F2C libraries used by CLAPACK; most users won't need to edit
 F2CPATH = ${CLAPACKPATH}/F2CLIBS
 
