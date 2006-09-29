@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.38 2006-06-12 01:12:39 acs Exp $
+/* $Id: clean_genes.c,v 1.39 2006-09-29 03:49:21 bbrejova Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -254,8 +254,12 @@ int is_nonsense_clean(GFF_Feature *feat, MSA *msa, List *problems) {
     /* now scan for stop codons */
     for (i = (3 - feat->frame) % 3; i <= len - 3; i += 3) 
       if (is_stop_codon(&seq[i])) {
-        problem_add(problems, feat, NONSENSE, feat->start+i,
-                    feat->start+i+2);
+	int problem_start;
+	if(feat->strand == '+') problem_start = feat->start+i;
+	else problem_start = feat->end-i-2;
+
+        problem_add(problems, feat, NONSENSE, problem_start,
+                    problem_start+2);
         return 0;
       }
   }
