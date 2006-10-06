@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.24 2006-06-07 17:54:10 acs Exp $
+/* $Id: maf.c,v 1.25 2006-10-06 14:10:06 bbrejova Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -429,7 +429,7 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
       exit(1);
     }
     str_cpy(this_name, lst_get_ptr(l, 1));
-    str_root(this_name, '.');
+    str_shortest_root(this_name, '.');
     this_seq = lst_get_ptr(l, 6);
 
     /* if this is the reference sequence, also grab start_idx and
@@ -556,7 +556,7 @@ void maf_peek(FILE *F, char ***names, Hashtable *name_hash,
       for (; i < line->length && !isspace(line->chars[i]); i++)
         str_append_char(fullname, line->chars[i]);
       str_cpy(name, fullname);
-      str_root(name, '.');
+      str_shortest_root(name, '.');
       assert(name->length > 0); /* must be a non-empty name */
       if ((int)hsh_get(name_hash, name->chars) == -1) {
         hsh_put(name_hash, name->chars, (void*)count);
