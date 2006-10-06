@@ -1,7 +1,7 @@
 /* String-handling functions, with automatic memory management and
    basic regex support.
    
-   $Id: stringsplus.c,v 1.8 2005-08-29 18:58:22 acs Exp $
+   $Id: stringsplus.c,v 1.9 2006-10-06 14:08:15 bbrejova Exp $
    Written by Adam Siepel, Summer 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -448,6 +448,17 @@ void str_root(String *str, char delim) {
   str->length = i;
   str->chars[str->length] = '\0';
 }
+
+/* As str_root but finds the first occurence of delimiter.
+   Useful for spliting species name and chromosome in MAF files. */
+void str_shortest_root(String *str, char delim) {
+  int i;
+  for (i = 0; i < str->length && str->chars[i] != delim; i++);
+  if (i == str->length) return;
+  str->length = i;
+  str->chars[str->length] = '\0';
+}
+
 
 /* Reduces to portion of String after final instance of specified
    delimiter .  Useful for filenames.  If no delimiter is present,
