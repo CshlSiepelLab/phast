@@ -10,47 +10,47 @@ phylo_hmm.c \- Code for phylo-HMMs.
 
 .in +1c
 .ti -1c
-.RI "PhyloHmm * \fBphmm_new\fP (HMM *hmm, TreeModel **tree_models, \fBCategoryMap\fP *cm, \fBList\fP *pivot_cats, indel_mode_type indel_mode)"
+.RI "\fBPhyloHmm\fP * \fBphmm_new\fP (HMM *hmm, TreeModel **tree_models, \fBCategoryMap\fP *cm, \fBList\fP *pivot_cats, indel_mode_type indel_mode)"
 .br
-.RI "\fICreate a new PhyloHmm object. \fP"
+.RI "\fICreate a new \fBPhyloHmm\fP object. \fP"
 .ti -1c
-.RI "void \fBphmm_rates_cross\fP (PhyloHmm *phmm, int nratecats, double lambda, int expand_cats)"
+.RI "void \fBphmm_rates_cross\fP (\fBPhyloHmm\fP *phmm, int nratecats, double lambda, int expand_cats)"
 .br
 .RI "\fIScale tree models and replace HMM by its cross-product with an autocorr HMM defined by 'lambda'. \fP"
 .ti -1c
-.RI "void \fBphmm_compute_emissions\fP (PhyloHmm *phmm, \fBMSA\fP *msa, int quiet)"
+.RI "void \fBphmm_compute_emissions\fP (\fBPhyloHmm\fP *phmm, \fBMSA\fP *msa, int quiet)"
 .br
-.RI "\fICompute emissions for given PhyloHmm and \fBMSA\fP. \fP"
+.RI "\fICompute emissions for given \fBPhyloHmm\fP and \fBMSA\fP. \fP"
 .ti -1c
-.RI "\fBGFF_Set\fP * \fBphmm_predict_viterbi\fP (PhyloHmm *phmm, char *seqname, char *grouptag, char *idpref, \fBList\fP *frame)"
+.RI "\fBGFF_Set\fP * \fBphmm_predict_viterbi\fP (\fBPhyloHmm\fP *phmm, char *seqname, char *grouptag, char *idpref, \fBList\fP *frame)"
 .br
 .RI "\fIRun the Viterbi algorithm and return a set of predictions. \fP"
 .ti -1c
-.RI "\fBGFF_Set\fP * \fBphmm_predict_viterbi_cats\fP (PhyloHmm *phmm, \fBList\fP *cats, char *seqname, char *grouptag, char *idpref, \fBList\fP *frame, char *new_type)"
+.RI "\fBGFF_Set\fP * \fBphmm_predict_viterbi_cats\fP (\fBPhyloHmm\fP *phmm, \fBList\fP *cats, char *seqname, char *grouptag, char *idpref, \fBList\fP *frame, char *new_type)"
 .br
 .RI "\fIRun the Viterbi algorithm and return a set of features indicating regions in which the Viterbi path remains in states corresponding to any of the specified categories. \fP"
 .ti -1c
-.RI "double \fBphmm_lnl\fP (PhyloHmm *phmm)"
+.RI "double \fBphmm_lnl\fP (\fBPhyloHmm\fP *phmm)"
 .br
 .RI "\fICompute and return log likelihood. \fP"
 .ti -1c
-.RI "double \fBphmm_postprobs\fP (PhyloHmm *phmm, double **post_probs)"
+.RI "double \fBphmm_postprobs\fP (\fBPhyloHmm\fP *phmm, double **post_probs)"
 .br
-.RI "\fIComputes posterior probabilities for a PhyloHmm. \fP"
+.RI "\fIComputes posterior probabilities for a \fBPhyloHmm\fP. \fP"
 .ti -1c
-.RI "double * \fBphmm_postprobs_cats\fP (PhyloHmm *phmm, \fBList\fP *cats, double *lnl)"
+.RI "double * \fBphmm_postprobs_cats\fP (\fBPhyloHmm\fP *phmm, \fBList\fP *cats, double *lnl)"
 .br
 .RI "\fIComputes and returns an array of length phmm->alloc_len representing the marginal posterior prob at every site, summed over states corresponding to categories in the specified list. \fP"
 .ti -1c
-.RI "void \fBphmm_score_predictions\fP (PhyloHmm *phmm, \fBGFF_Set\fP *preds, \fBList\fP *score_cats, \fBList\fP *helper_cats, \fBList\fP *null_cats, int score_only_score_cats)"
+.RI "void \fBphmm_score_predictions\fP (\fBPhyloHmm\fP *phmm, \fBGFF_Set\fP *preds, \fBList\fP *score_cats, \fBList\fP *helper_cats, \fBList\fP *null_cats, int score_only_score_cats)"
 .br
 .RI "\fIScore a set of predicted features using log odds scoring. \fP"
 .ti -1c
-.RI "void \fBphmm_add_bias\fP (PhyloHmm *phmm, \fBList\fP *backgd_cat_names, double bias)"
+.RI "void \fBphmm_add_bias\fP (\fBPhyloHmm\fP *phmm, \fBList\fP *backgd_cat_names, double bias)"
 .br
 .RI "\fIAdd specified 'bias' to log transition probabilities from designated background categories to non-background categories, then renormalize. \fP"
 .ti -1c
-.RI "double \fBphmm_fit_em\fP (PhyloHmm *phmm, \fBMSA\fP *msa, int fix_functional, int fix_indel, FILE *logf)"
+.RI "double \fBphmm_fit_em\fP (\fBPhyloHmm\fP *phmm, \fBMSA\fP *msa, int fix_functional, int fix_indel, FILE *logf)"
 .br
 .RI "\fIGeneral routine to estimate the parameters of a phylo-HMM by EM. \fP"
 .in -1c
@@ -61,14 +61,14 @@ Code for phylo-HMMs.
 Allows for automatic expansion of the state space to accommodate features on the reverse strand, and for the indel model described in Siepel & Haussler, RECOMB '04. Also allows for cross-product constructions involving functional states and rate categories (Siepel & Haussler, RECOMB '03).
 .SH "Function Documentation"
 .PP 
-.SS "void phmm_add_bias (PhyloHmm * phmm, \fBList\fP * backgd_cat_names, double bias)"
+.SS "void phmm_add_bias (\fBPhyloHmm\fP * phmm, \fBList\fP * backgd_cat_names, double bias)"
 .PP
 Add specified 'bias' to log transition probabilities from designated background categories to non-background categories, then renormalize. 
 .PP
 Provides a simple 'knob' for controlling the sensitivity/specificity tradeoff. Bias may be negative (increases specificity) or positive (increases sensitivity). 
-.SS "void phmm_compute_emissions (PhyloHmm * phmm, \fBMSA\fP * msa, int quiet)"
+.SS "void phmm_compute_emissions (\fBPhyloHmm\fP * phmm, \fBMSA\fP * msa, int quiet)"
 .PP
-Compute emissions for given PhyloHmm and \fBMSA\fP. 
+Compute emissions for given \fBPhyloHmm\fP and \fBMSA\fP. 
 .PP
 Preprocessor for phmm_viterbi_features, phmm_posterior_probs, and phmm_lnl (often only needs to be run once). 
 .PP
@@ -76,14 +76,14 @@ Preprocessor for phmm_viterbi_features, phmm_posterior_probs, and phmm_lnl (ofte
 .in +1c
 .TP
 \fB\fIphmm\fP\fP
-Initialized PhyloHmm 
+Initialized \fBPhyloHmm\fP 
 .TP
 \fB\fImsa\fP\fP
 Source alignment 
 .TP
 \fB\fIquiet\fP\fP
 Determins whether progress is reported to stderr 
-.SS "double phmm_fit_em (PhyloHmm * phmm, \fBMSA\fP * msa, int fix_functional, int fix_indel, FILE * logf)"
+.SS "double phmm_fit_em (\fBPhyloHmm\fP * phmm, \fBMSA\fP * msa, int fix_functional, int fix_indel, FILE * logf)"
 .PP
 General routine to estimate the parameters of a phylo-HMM by EM. 
 .PP
@@ -97,14 +97,14 @@ NULL means not to estimate tree models (emissions must be precomputed) Whether t
 .TP
 \fB\fIfix_indel\fP\fP
 Whether to fix indel parameters 
-.SS "double phmm_lnl (PhyloHmm * phmm)"
+.SS "double phmm_lnl (\fBPhyloHmm\fP * phmm)"
 .PP
 Compute and return log likelihood. 
 .PP
 Uses forward algorithm. Emissions must have already been computed (see phmm_compute_emissions) 
-.SS "PhyloHmm* phmm_new (HMM * hmm, TreeModel ** tree_models, \fBCategoryMap\fP * cm, \fBList\fP * pivot_cats, indel_mode_type indel_mode)"
+.SS "\fBPhyloHmm\fP* phmm_new (HMM * hmm, TreeModel ** tree_models, \fBCategoryMap\fP * cm, \fBList\fP * pivot_cats, indel_mode_type indel_mode)"
 .PP
-Create a new PhyloHmm object. 
+Create a new \fBPhyloHmm\fP object. 
 .PP
 Optionally expands original HMM to allow for features on both the positive and negative strands. 
 .PP
@@ -125,12 +125,12 @@ Categories (by name or number) about which to 'reflect' the HMM. Allows for pred
 .TP
 \fB\fIindel_mode\fP\fP
 How to model indels. Allowable values are MISSING_DATA, PARAMETERIC, and NONPARAMETERIC. 
-.SS "double phmm_postprobs (PhyloHmm * phmm, double ** post_probs)"
+.SS "double phmm_postprobs (\fBPhyloHmm\fP * phmm, double ** post_probs)"
 .PP
-Computes posterior probabilities for a PhyloHmm. 
+Computes posterior probabilities for a \fBPhyloHmm\fP. 
 .PP
 Emissions must have already been computed (see phmm_compute_emissions). Returns log likelihood. 
-.SS "double* phmm_postprobs_cats (PhyloHmm * phmm, \fBList\fP * cats, double * lnl)"
+.SS "double* phmm_postprobs_cats (\fBPhyloHmm\fP * phmm, \fBList\fP * cats, double * lnl)"
 .PP
 Computes and returns an array of length phmm->alloc_len representing the marginal posterior prob at every site, summed over states corresponding to categories in the specified list. 
 .PP
@@ -140,14 +140,14 @@ Emissions must have already been computed (see phmm_compute_emissions). Computes
 .in +1c
 .TP
 \fB\fIphmm\fP\fP
-PhyloHmm object 
+\fBPhyloHmm\fP object 
 .TP
 \fB\fIcats\fP\fP
 Categories of interest, by name or number 
 .TP
 \fB\fIlnl\fP\fP
 if non-NULL, will point to log likelihood on return 
-.SS "\fBGFF_Set\fP* phmm_predict_viterbi (PhyloHmm * phmm, char * seqname, char * grouptag, char * idpref, \fBList\fP * frame)"
+.SS "\fBGFF_Set\fP* phmm_predict_viterbi (\fBPhyloHmm\fP * phmm, char * seqname, char * grouptag, char * idpref, \fBList\fP * frame)"
 .PP
 Run the Viterbi algorithm and return a set of predictions. 
 .PP
@@ -157,7 +157,7 @@ Emissions must have already been computed (see phmm_compute_emissions)
 .in +1c
 .TP
 \fB\fIphmm\fP\fP
-PhyloHmm object 
+\fBPhyloHmm\fP object 
 .TP
 \fB\fIseqname\fP\fP
 seqname for feature set (e.g., 'chr1') 
@@ -170,7 +170,7 @@ prefix for assigned ids (e.g., 'chr1.15') (may be NULL)
 .TP
 \fB\fIframe\fP\fP
 names of features for which to obtain frame (NULL to ignore) 
-.SS "\fBGFF_Set\fP* phmm_predict_viterbi_cats (PhyloHmm * phmm, \fBList\fP * cats, char * seqname, char * grouptag, char * idpref, \fBList\fP * frame, char * new_type)"
+.SS "\fBGFF_Set\fP* phmm_predict_viterbi_cats (\fBPhyloHmm\fP * phmm, \fBList\fP * cats, char * seqname, char * grouptag, char * idpref, \fBList\fP * frame, char * new_type)"
 .PP
 Run the Viterbi algorithm and return a set of features indicating regions in which the Viterbi path remains in states corresponding to any of the specified categories. 
 .PP
@@ -180,7 +180,7 @@ Emissions must have already been computed (see phmm_compute_emissions)
 .in +1c
 .TP
 \fB\fIphmm\fP\fP
-PhyloHmm object 
+\fBPhyloHmm\fP object 
 .TP
 \fB\fIcats\fP\fP
 categories of interest, by name or number 
@@ -199,7 +199,7 @@ features for which to obtain frame (NULL to ignore)
 .TP
 \fB\fInew_type\fP\fP
 replace type of each retained feature with this string if non-NULL (old types may no longer make sense, because of merging) 
-.SS "void phmm_rates_cross (PhyloHmm * phmm, int nratecats, double lambda, int expand_cats)"
+.SS "void phmm_rates_cross (\fBPhyloHmm\fP * phmm, int nratecats, double lambda, int expand_cats)"
 .PP
 Scale tree models and replace HMM by its cross-product with an autocorr HMM defined by 'lambda'. 
 .PP
@@ -209,7 +209,7 @@ Update all mappings appropriately. Weight-matrix tree models are not scaled.
 .in +1c
 .TP
 \fB\fIphmm\fP\fP
-PhyloHmm to be altered 
+\fBPhyloHmm\fP to be altered 
 .TP
 \fB\fInratecats\fP\fP
 Number of rate categories. 
@@ -219,7 +219,7 @@ Autocorrelation parameter
 .TP
 \fB\fIexpand_cats\fP\fP
 whether to expand the category map to reflect the rate categories (useful, e.g., in prediction of rate categories). Currently not allowed with the indel model, or with any category map having 'conditioned_on' dependencies 
-.SS "void phmm_score_predictions (PhyloHmm * phmm, \fBGFF_Set\fP * preds, \fBList\fP * score_cats, \fBList\fP * helper_cats, \fBList\fP * null_cats, int score_only_score_cats)"
+.SS "void phmm_score_predictions (\fBPhyloHmm\fP * phmm, \fBGFF_Set\fP * preds, \fBList\fP * score_cats, \fBList\fP * helper_cats, \fBList\fP * null_cats, int score_only_score_cats)"
 .PP
 Score a set of predicted features using log odds scoring. 
 .PP
@@ -227,7 +227,7 @@ Score a set of predicted features using log odds scoring.
 .in +1c
 .TP
 \fB\fIphmm\fP\fP
-PhyloHmm object 
+\fBPhyloHmm\fP object 
 .TP
 \fB\fIpreds\fP\fP
 Predictions to score 
