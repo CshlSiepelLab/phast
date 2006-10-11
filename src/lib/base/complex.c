@@ -1,9 +1,9 @@
-/* $Id: complex.c,v 1.1 2005-06-22 07:11:20 acs Exp $
+/* $Id: complex.c,v 1.2 2006-10-11 23:24:47 bbrejova Exp $
    Written by Adam Siepel, Summer 2005
    Copyright 2005, Adam Siepel, University of California
 */
 
-/** \file complex_matrix.c
+/** \file complex.c
     Complex numbers
     \ingroup base
 */
