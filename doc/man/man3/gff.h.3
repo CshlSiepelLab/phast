@@ -1,4 +1,4 @@
-.TH "gff.h" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
+gff.h File Reference.TH "gff.h" 3 "11 Oct 2006" "Version v0.9b" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -6,17 +6,17 @@ gff.h \- Reading and writing of sequence features in General Feature Format (GFF
 .SH SYNOPSIS
 .br
 .PP
-.SS "Compounds"
+.SS "Classes"
 
 .in +1c
 .ti -1c
 .RI "struct \fBGFF_Feature\fP"
 .br
-.RI "\fIGFF_Feature structure.\fP"
+.RI "\fIGFF_Feature structure. \fP"
 .ti -1c
 .RI "struct \fBGFF_Set\fP"
 .br
-.RI "\fIGFF_Set: a set of \fBGFF_Feature\fP objects, generally as appear together in a file.\fP"
+.RI "\fIGFF_Set: a set of \fBGFF_Feature\fP objects, generally as appear together in a file. \fP"
 .in -1c
 .SS "Functions"
 
@@ -24,142 +24,141 @@ gff.h \- Reading and writing of sequence features in General Feature Format (GFF
 .ti -1c
 .RI "\fBGFF_Set\fP * \fBgff_read_set\fP (FILE *F)"
 .br
-.RI "\fIRead a set of features from a file and return a newly allocated \fBGFF_Set\fP object.\fP"
+.RI "\fIRead a set of features from a file and return a newly allocated \fBGFF_Set\fP object. \fP"
 .ti -1c
 .RI "\fBGFF_Feature\fP * \fBgff_new_feature\fP (String *seqname, String *source, String *feature, int start, int end, double score, char strand, int frame, String *attribute, int score_is_null)"
 .br
-.RI "\fICreate new \fBGFF_Feature\fP object with specified attributes.\fP"
+.RI "\fICreate new \fBGFF_Feature\fP object with specified attributes. \fP"
 .ti -1c
 .RI "\fBGFF_Feature\fP * \fBgff_new_feature_genomic_pos\fP (String *position, String *source, String *feature, double score, int frame, String *attribute, int score_is_null)"
 .br
-.RI "\fICreate a new \fBGFF_Feature\fP from a genomic position string of the type used in the UCSC genome browser, e.g., chr10:102553847-102554897.\fP"
+.RI "\fICreate a new \fBGFF_Feature\fP from a genomic position string of the type used in the UCSC genome browser, e.g., chr10:102553847-102554897. \fP"
 .ti -1c
 .RI "\fBGFF_Set\fP * \fBgff_new_set\fP ()"
 .br
-.RI "\fICreate new \fBGFF_Set\fP object.\fP"
+.RI "\fICreate new \fBGFF_Set\fP object. \fP"
 .ti -1c
 .RI "\fBGFF_Set\fP * \fBgff_new_from_template\fP (\fBGFF_Set\fP *gff)"
 .br
-.RI "\fICreate new \fBGFF_Set\fP object, initializing with same version, source, etc. as a template \fBGFF_Set\fP object.\fP"
+.RI "\fICreate new \fBGFF_Set\fP object, initializing with same version, source, etc. as a template \fBGFF_Set\fP object. \fP"
 .ti -1c
 .RI "\fBGFF_Set\fP * \fBgff_new_set_init\fP (char *source, char *source_version)"
 .br
-.RI "\fICreate new \fBGFF_Set\fP object, using typical defaults and other parameters as specified.\fP"
+.RI "\fICreate new \fBGFF_Set\fP object, using typical defaults and other parameters as specified. \fP"
 .ti -1c
 .RI "void \fBgff_free_set\fP (\fBGFF_Set\fP *set)"
 .br
-.RI "\fIFree resources associated with \fBGFF_Set\fP object (including all features and the set object itself).\fP"
+.RI "\fIFree resources associated with \fBGFF_Set\fP object (including all features and the set object itself). \fP"
 .ti -1c
 .RI "void \fBgff_free_feature\fP (\fBGFF_Feature\fP *feat)"
 .br
-.RI "\fIFree resources associated with \fBGFF_Feature\fP object.\fP"
+.RI "\fIFree resources associated with \fBGFF_Feature\fP object. \fP"
 .ti -1c
 .RI "void \fBgff_print_set\fP (FILE *F, \fBGFF_Set\fP *set)"
 .br
-.RI "\fIOutput a \fBGFF_Set\fP to the specified stream in GFF.\fP"
+.RI "\fIOutput a \fBGFF_Set\fP to the specified stream in GFF. \fP"
 .ti -1c
 .RI "void \fBgff_print_feat\fP (FILE *F, \fBGFF_Feature\fP *feat)"
 .br
-.RI "\fIPrint an individual \fBGFF_Feature\fP object as a GFF line.\fP"
+.RI "\fIPrint an individual \fBGFF_Feature\fP object as a GFF line. \fP"
 .ti -1c
 .RI "\fBGFF_Feature\fP * \fBgff_new_feature_copy\fP (\fBGFF_Feature\fP *orig)"
 .br
-.RI "\fICreate an exact copy of a \fBGFF_Feature\fP object.\fP"
+.RI "\fICreate an exact copy of a \fBGFF_Feature\fP object. \fP"
 .ti -1c
 .RI "\fBGFF_Set\fP * \fBgff_subset_range\fP (\fBGFF_Set\fP *set, int startcol, int endcol, int reset_indices)"
 .br
-.RI "\fICreate a new \fBGFF_Set\fP representing the features in a particular coordinate range.\fP"
+.RI "\fICreate a new \fBGFF_Set\fP representing the features in a particular coordinate range. \fP"
 .ti -1c
-.RI "void \fBgff_filter_by_type\fP (\fBGFF_Set\fP *gff, List *types, int exclude, FILE *discards_f)"
+.RI "void \fBgff_filter_by_type\fP (\fBGFF_Set\fP *gff, \fBList\fP *types, int exclude, FILE *discards_f)"
 .br
-.RI "\fIDiscard any feature whose feature type is not in the specified list.\fP"
+.RI "\fIDiscard any feature whose feature type is not in the specified list. \fP"
 .ti -1c
-.RI "int \fBgff_reverse_strand_only\fP (List *features)"
+.RI "int \fBgff_reverse_strand_only\fP (\fBList\fP *features)"
 .br
-.RI "\fITest whether a set of \fBGFF_Feature\fP objects refers to the reverse strand.\fP"
+.RI "\fITest whether a set of \fBGFF_Feature\fP objects refers to the reverse strand. \fP"
 .ti -1c
-.RI "void \fBgff_reverse_compl\fP (List *features, int start_range, int end_range)"
+.RI "void \fBgff_reverse_compl\fP (\fBList\fP *features, int start_range, int end_range)"
 .br
-.RI "\fIAdjust coordinates and strand of \fBGFF_Feature\fP objects to reflect reverse complementation of given interval of sequence.\fP"
+.RI "\fIAdjust coordinates and strand of \fBGFF_Feature\fP objects to reflect reverse complementation of given interval of sequence. \fP"
 .ti -1c
 .RI "void \fBgff_sort\fP (\fBGFF_Set\fP *set)"
 .br
-.RI "\fISort features primarily by start position, and secondarily by end position (ascending order).\fP"
+.RI "\fISort features primarily by start position, and secondarily by end position (ascending order). \fP"
 .ti -1c
 .RI "void \fBgff_group\fP (\fBGFF_Set\fP *set, char *tag)"
 .br
-.RI "\fIGroup features by value of specified tag.\fP"
+.RI "\fIGroup features by value of specified tag. \fP"
 .ti -1c
 .RI "void \fBgff_exon_group\fP (\fBGFF_Set\fP *set, char *tag)"
 .br
-.RI "\fIGroup contiguous features, e.g., an exon and adjacent splice sites.\fP"
+.RI "\fIGroup contiguous features, e.g., an exon and adjacent splice sites. \fP"
 .ti -1c
 .RI "void \fBgff_ungroup\fP (\fBGFF_Set\fP *set)"
 .br
-.RI "\fIRemove grouping of features.\fP"
+.RI "\fIRemove grouping of features. \fP"
 .ti -1c
 .RI "void \fBgff_remove_overlaps\fP (\fBGFF_Set\fP *gff, FILE *discards)"
 .br
-.RI "\fIIdentify overlapping groups and remove all but the first one encountered.\fP"
+.RI "\fIIdentify overlapping groups and remove all but the first one encountered. \fP"
 .ti -1c
 .RI "void \fBgff_fix_start_stop\fP (\fBGFF_Set\fP *gff)"
 .br
-.RI "\fIAdjust coords of CDS features such that start codons are included and stop codons are excluded, as required in GTF2.\fP"
+.RI "\fIAdjust coords of CDS features such that start codons are included and stop codons are excluded, as required in GTF2. \fP"
 .ti -1c
-.RI "void \fBgff_absorb_helpers\fP (\fBGFF_Set\fP *feats, List *primary_types, List *helper_types)"
+.RI "void \fBgff_absorb_helpers\fP (\fBGFF_Set\fP *feats, \fBList\fP *primary_types, \fBList\fP *helper_types)"
 .br
-.RI "\fIAdjust coords of features of 'primary' types (e.g., CDS) to include any features of 'helper' types (e.g., start_codon).\fP"
+.RI "\fIAdjust coords of features of 'primary' types (e.g., CDS) to include any features of 'helper' types (e.g., start_codon). \fP"
 .ti -1c
 .RI "void \fBgff_add_gene_id\fP (\fBGFF_Set\fP *feats)"
 .br
-.RI "\fIAdd a gene_id tag, along with whatever other tags are in use.\fP"
+.RI "\fIAdd a gene_id tag, along with whatever other tags are in use. \fP"
 .ti -1c
-.RI "void \fBgff_filter_by_group\fP (\fBGFF_Set\fP *feats, List *groups)"
+.RI "void \fBgff_filter_by_group\fP (\fBGFF_Set\fP *feats, \fBList\fP *groups)"
 .br
-.RI "\fIremove all groups whose names are not in the specified list\fP"
+.RI "\fIremove all groups whose names are not in the specified list \fP"
 .ti -1c
 .RI "void \fBgff_create_utrs\fP (\fBGFF_Set\fP *feats)"
 .br
-.RI "\fICreates 5'UTR and 3'UTR features for cases in which exon features extend beyond cds features of the same group.\fP"
+.RI "\fICreates 5'UTR and 3'UTR features for cases in which exon features extend beyond cds features of the same group. \fP"
 .ti -1c
 .RI "void \fBgff_create_introns\fP (\fBGFF_Set\fP *feats)"
 .br
-.RI "\fICreates intron features between exons of the same group.\fP"
+.RI "\fICreates intron features between exons of the same group. \fP"
 .ti -1c
 .RI "void \fBgff_create_signals\fP (\fBGFF_Set\fP *feats)"
 .br
-.RI "\fICreates features for start and stop codons and 5' and 3' splice sites.\fP"
+.RI "\fICreates features for start and stop codons and 5' and 3' splice sites. \fP"
 .ti -1c
 .RI "void \fBgff_flatten\fP (\fBGFF_Set\fP *feats)"
 .br
-.RI "\fIMerges overlapping or adjacent features of same type.\fP"
+.RI "\fIMerges overlapping or adjacent features of same type. \fP"
 .in -1c
-.SH "DETAILED DESCRIPTION"
+.SH "Detailed Description"
 .PP 
-Reading and writing of sequence features in General Feature Format (GFF).
-.PP
- Obeys file specification at http://www.sanger.ac.uk/Software/formats/GFF/GFF_Spec.shtml.
-.PP
-.SH "FUNCTION DOCUMENTATION"
+Reading and writing of sequence features in General Feature Format (GFF). 
+
+Obeys file specification at http://www.sanger.ac.uk/Software/formats/GFF/GFF_Spec.shtml.
+.SH "Function Documentation"
 .PP 
-.SS "void gff_absorb_helpers (\fBGFF_Set\fP * feats, List * primary_types, List * helper_types)"
+.SS "void gff_absorb_helpers (\fBGFF_Set\fP * feats, \fBList\fP * primary_types, \fBList\fP * helper_types)"
 .PP
-Adjust coords of features of 'primary' types (e.g., CDS) to include any features of 'helper' types (e.g., start_codon).
+Adjust coords of features of 'primary' types (e.g., CDS) to include any features of 'helper' types (e.g., start_codon). 
 .PP
 Features must be grouped and sorted. No features are created or discarded; only coordinates are changed. 
 .SS "void gff_add_gene_id (\fBGFF_Set\fP * feats)"
 .PP
-Add a gene_id tag, along with whatever other tags are in use.
+Add a gene_id tag, along with whatever other tags are in use. 
 .PP
 Required in output by some programs 
 .SS "void gff_create_signals (\fBGFF_Set\fP * feats)"
 .PP
-Creates features for start and stop codons and 5' and 3' splice sites.
+Creates features for start and stop codons and 5' and 3' splice sites. 
 .PP
 Note: splice sites in UTR will only be added if UTR is annotated (see function above) 
 .SS "void gff_exon_group (\fBGFF_Set\fP * set, char * tag)"
 .PP
-Group contiguous features, e.g., an exon and adjacent splice sites.
+Group contiguous features, e.g., an exon and adjacent splice sites. 
 .PP
 If features have already been grouped (e.g., by transcript id), then subgroups are created by adding new tags. New tag values will be composed of the tag value for the 'outer' group (e.g., the transcript_id) and a unique suffix indicating the 'inner' group. In all cases, feature are sorted as a side effect, in a way that reflects the initial grouping, not the grouping into exons. 
 .PP
@@ -171,9 +170,9 @@ Set to process
 .TP
 \fB\fItag\fP\fP
 Tag to use for new groups (e.g., 'exon_id') 
-.SS "void gff_filter_by_type (\fBGFF_Set\fP * gff, List * types, int exclude, FILE * discards_f)"
+.SS "void gff_filter_by_type (\fBGFF_Set\fP * gff, \fBList\fP * types, int exclude, FILE * discards_f)"
 .PP
-Discard any feature whose feature type is not in the specified list.
+Discard any feature whose feature type is not in the specified list. 
 .PP
 \fBParameters: \fP
 .in +1c
@@ -191,47 +190,47 @@ Exclude rather than include specified types
 Discarded features will be written here (if non-NULL) 
 .SS "void gff_fix_start_stop (\fBGFF_Set\fP * gff)"
 .PP
-Adjust coords of CDS features such that start codons are included and stop codons are excluded, as required in GTF2.
+Adjust coords of CDS features such that start codons are included and stop codons are excluded, as required in GTF2. 
 .PP
 Assumes GFF is grouped such that at most one start codon and at most one stop codon occur per group. 
 .SS "void gff_flatten (\fBGFF_Set\fP * feats)"
 .PP
-Merges overlapping or adjacent features of same type.
+Merges overlapping or adjacent features of same type. 
 .PP
 Assumes features are sorted. When two features are merged, scores are summed, but attributes are ignored. Will not merge if 'frame' is non-null. 
 .SS "void gff_group (\fBGFF_Set\fP * set, char * tag)"
 .PP
-Group features by value of specified tag.
+Group features by value of specified tag. 
 .PP
 All features with undefined values will be placed in a single group. 
 .SS "\fBGFF_Feature\fP* gff_new_feature (String * seqname, String * source, String * feature, int start, int end, double score, char strand, int frame, String * attribute, int score_is_null)"
 .PP
-Create new \fBGFF_Feature\fP object with specified attributes.
+Create new \fBGFF_Feature\fP object with specified attributes. 
 .PP
 Strings are copied by reference. Returns newly allocated \fBGFF_Feature\fP object. 
 .SS "\fBGFF_Feature\fP* gff_new_feature_genomic_pos (String * position, String * source, String * feature, double score, int frame, String * attribute, int score_is_null)"
 .PP
-Create a new \fBGFF_Feature\fP from a genomic position string of the type used in the UCSC genome browser, e.g., chr10:102553847-102554897.
+Create a new \fBGFF_Feature\fP from a genomic position string of the type used in the UCSC genome browser, e.g., chr10:102553847-102554897. 
 .PP
 A trailing '+' or '-' will be interpreted as the strand; otherwise the null strand is used. NULL is returned if the string can't be parsed. 
 .SS "\fBGFF_Set\fP* gff_new_set ()"
 .PP
-Create new \fBGFF_Set\fP object.
+Create new \fBGFF_Set\fP object. 
 .PP
 All attributes will be left as empty strings. 
 .SS "\fBGFF_Set\fP* gff_new_set_init (char * source, char * source_version)"
 .PP
-Create new \fBGFF_Set\fP object, using typical defaults and other parameters as specified.
+Create new \fBGFF_Set\fP object, using typical defaults and other parameters as specified. 
 .PP
 Sets gff version to '2' and date to current date, and sets source and source version as specified. 
 .SS "\fBGFF_Set\fP* gff_read_set (FILE * F)"
 .PP
-Read a set of features from a file and return a newly allocated \fBGFF_Set\fP object.
+Read a set of features from a file and return a newly allocated \fBGFF_Set\fP object. 
 .PP
 Function reads until end-of-file is encountered or error occurs (aborts on error). Comments and blank lines are ignored and special 'meta-data' comments are parsed (see http://www.sanger.ac.uk/Software/formats/GFF/GFF_Spec.shtml). Only the first five columns of feature lines are considered required ('name', 'source', 'feature', 'start', and 'end'); subsequent fields are optional ('score', 'strand', 'frame', and 'attribute'). Default value for score, strand, and frame is null ('.') and for attribute is the empty string (''). Columns must be separated by tabs. 
 .SS "void gff_remove_overlaps (\fBGFF_Set\fP * gff, FILE * discards_f)"
 .PP
-Identify overlapping groups and remove all but the first one encountered.
+Identify overlapping groups and remove all but the first one encountered. 
 .PP
 Features must already be grouped. 
 .PP
@@ -243,9 +242,9 @@ Set to process
 .TP
 \fB\fIdiscards_f\fP\fP
 If non-NULL, discarded features will be written here 
-.SS "void gff_reverse_compl (List * features, int start_range, int end_range)"
+.SS "void gff_reverse_compl (\fBList\fP * features, int start_range, int end_range)"
 .PP
-Adjust coordinates and strand of \fBGFF_Feature\fP objects to reflect reverse complementation of given interval of sequence.
+Adjust coordinates and strand of \fBGFF_Feature\fP objects to reflect reverse complementation of given interval of sequence. 
 .PP
 Also reverses order of appearance of features. The features, the start_range, and the end_range are all assumed to use the same coordinate frame. 
 .PP
@@ -256,25 +255,25 @@ Also reverses order of appearance of features. The features, the start_range, an
 List of \fBGFF_Feature\fP objects 
 .TP
 \fB\fIstart_range\fP\fP
-First coordinate of interval  (inclusive, 1-based indexing, as in features) 
+First coordinate of interval (inclusive, 1-based indexing, as in features) 
 .TP
 \fB\fIend_range\fP\fP
 Last coordinate of interval (inclusive, 1-based indexing, as in features) 
-.SS "int gff_reverse_strand_only (List * features)"
+.SS "int gff_reverse_strand_only (\fBList\fP * features)"
 .PP
-Test whether a set of \fBGFF_Feature\fP objects refers to the reverse strand.
+Test whether a set of \fBGFF_Feature\fP objects refers to the reverse strand. 
 .PP
 Returns 1 if no features have strand equal to '+' and at least one has strand equal to '-'; otherwise returns 0. 
 .SS "void gff_sort (\fBGFF_Set\fP * set)"
 .PP
-Sort features primarily by start position, and secondarily by end position (ascending order).
+Sort features primarily by start position, and secondarily by end position (ascending order). 
 .PP
 If features are grouped (see gff_group), then they will be sorted within groups, and groups will be sorted by start position of first feature 
 .SS "\fBGFF_Set\fP* gff_subset_range (\fBGFF_Set\fP * set, int startcol, int endcol, int reset_indices)"
 .PP
-Create a new \fBGFF_Set\fP representing the features in a particular coordinate range.
+Create a new \fBGFF_Set\fP representing the features in a particular coordinate range. 
 .PP
 Keeps features such that feat->start >= startcol and feat->end <= endcol. 
-.SH "AUTHOR"
+.SH "Author"
 .PP 
 Generated automatically by Doxygen for PHAST from the source code.

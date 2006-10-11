@@ -1,4 +1,4 @@
-.TH "trees.c" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
+trees.c File Reference.TH "trees.c" 3 "11 Oct 2006" "Version v0.9b" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -12,109 +12,128 @@ trees.c \- Functions for manipulating phylogenetic trees.
 .ti -1c
 .RI "TreeNode * \fBtr_new_from_file\fP (FILE *f)"
 .br
-.RI "\fIParse a tree from a file in Newick (New Hampshire) format.\fP"
+.RI "\fIParse a tree from a file in Newick (New Hampshire) format. \fP"
 .ti -1c
 .RI "TreeNode * \fBtr_new_from_string\fP (char *treestr)"
 .br
-.RI "\fIParse a Newick-formatted tree from a character string.\fP"
+.RI "\fIParse a Newick-formatted tree from a character string. \fP"
 .ti -1c
 .RI "void \fBtr_print\fP (FILE *f, TreeNode *root, int show_branch_lengths)"
 .br
-.RI "\fIPrint tree in New Hampshire format.\fP"
+.RI "\fIPrint tree in New Hampshire format. \fP"
 .ti -1c
 .RI "void \fBtr_free\fP (TreeNode *tree)"
 .br
-.RI "\fIFree memory for tree.\fP"
+.RI "\fIFree memory for tree. \fP"
 .ti -1c
 .RI "void \fBtr_cpy\fP (TreeNode *dest, TreeNode *src)"
 .br
-.RI "\fICopy tree.\fP"
+.RI "\fICopy tree. \fP"
 .ti -1c
 .RI "TreeNode * \fBtr_create_copy\fP (TreeNode *src)"
 .br
-.RI "\fICreate a new tree that's a copy of another one.\fP"
+.RI "\fICreate a new tree that's a copy of another one. \fP"
 .ti -1c
 .RI "void \fBtr_print_ordered\fP (FILE *f, TreeNode *root, int show_branch_lengths)"
 .br
-.RI "\fIPrint tree in Newick format.\fP"
+.RI "\fIPrint tree in Newick format. \fP"
 .ti -1c
-.RI "List * \fBtr_preorder\fP (TreeNode *tr)"
+.RI "\fBList\fP * \fBtr_preorder\fP (TreeNode *tr)"
 .br
-.RI "\fIObtain a list representing a preorder traversal of the tree.\fP"
+.RI "\fIObtain a list representing a preorder traversal of the tree. \fP"
 .ti -1c
-.RI "List * \fBtr_inorder\fP (TreeNode *tr)"
+.RI "\fBList\fP * \fBtr_inorder\fP (TreeNode *tr)"
 .br
-.RI "\fIObtain a list representing an in-order traversal of the tree.\fP"
+.RI "\fIObtain a list representing an in-order traversal of the tree. \fP"
 .ti -1c
-.RI "List * \fBtr_postorder\fP (TreeNode *tr)"
+.RI "\fBList\fP * \fBtr_postorder\fP (TreeNode *tr)"
 .br
-.RI "\fIObtain a list representing a postorder traversal of the tree.\fP"
+.RI "\fIObtain a list representing a postorder traversal of the tree. \fP"
 .ti -1c
 .RI "void \fBtr_layout_xy\fP (TreeNode *tree, int x0, int y0, int x1, int y1, int *x, int *y, int use_branch_lens, int horizontal)"
 .br
-.RI "\fIProvide x-y coordinates for layout.\fP"
+.RI "\fIProvide x-y coordinates for layout. \fP"
 .ti -1c
 .RI "void \fBtr_print_ps\fP (FILE *F, TreeNode *tree, int show_branch_lens, int square_branches, int use_branch_lens, int horizontal_layout)"
 .br
-.RI "\fIPrint a (very basic!) postscript rendering of a tree.\fP"
+.RI "\fIPrint a (very basic!) postscript rendering of a tree. \fP"
 .ti -1c
 .RI "double \fBtr_total_len\fP (TreeNode *t)"
 .br
-.RI "\fICompute and return sum of lengths at all edges.\fP"
+.RI "\fICompute and return sum of lengths at all edges. \fP"
 .ti -1c
 .RI "double \fBtr_total_len_subtree\fP (TreeNode *sub_root)"
 .br
-.RI "\fICompute and return sum of lengths of edges in subtree below given node.\fP"
+.RI "\fICompute and return sum of lengths of edges in subtree below given node. \fP"
 .ti -1c
 .RI "TreeNode * \fBtr_get_node\fP (TreeNode *t, char *name)"
 .br
-.RI "\fIReturn node having specified name or NULL if none found.\fP"
+.RI "\fIReturn node having specified name or NULL if none found. \fP"
 .ti -1c
 .RI "void \fBtr_scale\fP (TreeNode *t, double scale_const)"
 .br
-.RI "\fIScale all branch lengths by constant factor.\fP"
+.RI "\fIScale all branch lengths by constant factor. \fP"
 .ti -1c
-.RI "void \fBtr_prune\fP (TreeNode **t, List *names, int all_but)"
+.RI "void \fBtr_scale_subtree\fP (TreeNode *t, TreeNode *sub, double scale_const)"
 .br
-.RI "\fIPrune away all leaves whose names are in (or not in) the specified list.\fP"
+.RI "\fIScale all branch lengths by constant factor in subtree beneath given node. \fP"
 .ti -1c
-.RI "TreeNode * \fBtr_lca\fP (TreeNode *tree, List *names)"
+.RI "void \fBtr_prune\fP (TreeNode **t, \fBList\fP *names, int all_but)"
 .br
-.RI "\fIReturn the LCA of the given species.\fP"
+.RI "\fIPrune away all leaves whose names are in (or not in) the specified list. \fP"
+.ti -1c
+.RI "TreeNode * \fBtr_lca\fP (TreeNode *tree, \fBList\fP *names)"
+.br
+.RI "\fIReturn the LCA of the given species. \fP"
 .ti -1c
 .RI "TreeNode * \fBtr_hybrid\fP (TreeNode *sub, TreeNode *super)"
 .br
-.RI "\fIGiven two trees, one of which is a (proper) subtree of the other, create a hybrid tree composed of the smaller tree and a scaled version of the larger tree.\fP"
+.RI "\fIGiven two trees, one of which is a (proper) subtree of the other, create a hybrid tree composed of the smaller tree and a scaled version of the larger tree. \fP"
 .ti -1c
-.RI "void \fBtr_partition_leaves\fP (TreeNode *tree, TreeNode *sub, List *inside, List *outside)"
+.RI "void \fBtr_partition_leaves\fP (TreeNode *tree, TreeNode *sub, \fBList\fP *inside, \fBList\fP *outside)"
 .br
-.RI "\fIPartition leaves of tree at (branch above) given node.\fP"
+.RI "\fIPartition leaves of tree at (branch above) given node. \fP"
 .ti -1c
-.RI "List * \fBtr_leaf_names\fP (TreeNode *tree)"
+.RI "void \fBtr_partition_nodes\fP (TreeNode *tree, TreeNode *sub, \fBList\fP *inside, \fBList\fP *outside)"
 .br
-.RI "\fIReturn a list of the leaf names in a given tree.\fP"
+.RI "\fISimilar to above, but partition all nodes; if either 'inside' or 'outside' is NULL, it will be ignored. \fP"
+.ti -1c
+.RI "\fBList\fP * \fBtr_leaf_names\fP (TreeNode *tree)"
+.br
+.RI "\fIReturn a list of the leaf names in a given tree. \fP"
+.ti -1c
+.RI "void \fBtr_print_nodes\fP (FILE *F, TreeNode *tree)"
+.br
+.RI "\fIPrint verbose description of each node. \fP"
+.ti -1c
+.RI "void \fBtr_reroot\fP (TreeNode *tree, TreeNode *selected_node, int include_branch)"
+.br
+.RI "\fIReroot tree. \fP"
+.ti -1c
+.RI "int * \fBtr_in_subtree\fP (TreeNode *t, TreeNode *sub)"
+.br
+.RI "\fIReturn an array indicating whether each node is in the designated subtree. \fP"
 .in -1c
-.SH "DETAILED DESCRIPTION"
+.SH "Detailed Description"
 .PP 
-Functions for manipulating phylogenetic trees.
-.PP
- Includes functions for reading, writing, traversing, and printing. Trees are represented as rooted binary trees with non-negative real branch lengths.
-.PP
-.SH "FUNCTION DOCUMENTATION"
+Functions for manipulating phylogenetic trees. 
+
+Includes functions for reading, writing, traversing, and printing. Trees are represented as rooted binary trees with non-negative real branch lengths.
+.SH "Function Documentation"
 .PP 
 .SS "TreeNode* tr_hybrid (TreeNode * sub, TreeNode * super)"
 .PP
-Given two trees, one of which is a (proper) subtree of the other, create a hybrid tree composed of the smaller tree and a scaled version of the larger tree.
+Given two trees, one of which is a (proper) subtree of the other, create a hybrid tree composed of the smaller tree and a scaled version of the larger tree. 
 .PP
 First, a copy of the larger tree will be created and scaled such that the total branch length in the subtree in question is equal to the total branch length of the smaller tree. Then, (a copy of) the smaller tree will be used in place of the overlapping subtree in the larger tree. This function can be used to extrapolate from a small phylogeny for which accurate branch length estimation is possible (e.g., of eutherian mammals) to a larger phylogeny for which approximate branch length proportions are available, but absolute branch length estimates are not (e.g., of more distant vertebrates). 
-.SS "List* tr_inorder (TreeNode * tr)"
+.SS "\fBList\fP* tr_inorder (TreeNode * tr)"
 .PP
-Obtain a list representing an in-order traversal of the tree.
+Obtain a list representing an in-order traversal of the tree. 
 .PP
 Allows for simplified loops (no stacks!) and improved efficiency 
 .SS "void tr_layout_xy (TreeNode * tree, int x0, int y0, int x1, int y1, int * x, int * y, int use_branch_lens, int horizontal)"
 .PP
-Provide x-y coordinates for layout.
+Provide x-y coordinates for layout. 
 .PP
 \fBParameters: \fP
 .in +1c
@@ -142,34 +161,34 @@ If TRUE, tree will be laid out such that edges are proportional to branch length
 .TP
 \fB\fIhorizontal\fP\fP
 If TRUE, tree will be laid out with root on left and leaves on right; otherwise, root will be at top and leaves at bottom 
-.SS "TreeNode* tr_lca (TreeNode * tree, List * names)"
+.SS "TreeNode* tr_lca (TreeNode * tree, \fBList\fP * names)"
 .PP
-Return the LCA of the given species.
+Return the LCA of the given species. 
 .PP
 Assumes ids are numbered in preorder (a node's parent always has a smaller id than it does and left descendants have smaller ids than right descendants). 
-.SS "void tr_partition_leaves (TreeNode * tree, TreeNode * sub, List * inside, List * outside)"
+.SS "void tr_partition_leaves (TreeNode * tree, TreeNode * sub, \fBList\fP * inside, \fBList\fP * outside)"
 .PP
-Partition leaves of tree at (branch above) given node.
+Partition leaves of tree at (branch above) given node. 
 .PP
 All descendant leaves of 'sub' will be added to 'inside' list and all non-descendants will be added to 'outside' list. Lists must be pre-allocated. 
-.SS "List* tr_postorder (TreeNode * tr)"
+.SS "\fBList\fP* tr_postorder (TreeNode * tr)"
 .PP
-Obtain a list representing a postorder traversal of the tree.
+Obtain a list representing a postorder traversal of the tree. 
 .PP
 Allows for simplified loops (no stacks!) and improved efficiency 
-.SS "List* tr_preorder (TreeNode * tr)"
+.SS "\fBList\fP* tr_preorder (TreeNode * tr)"
 .PP
-Obtain a list representing a preorder traversal of the tree.
+Obtain a list representing a preorder traversal of the tree. 
 .PP
 Allows for simplified loops (no stacks!) and improved efficiency 
 .SS "void tr_print_ordered (FILE * f, TreeNode * root, int show_branch_lengths)"
 .PP
-Print tree in Newick format.
+Print tree in Newick format. 
 .PP
 This version imposes an ordering on the leaves (useful when comparing trees that have been rearranged). At every internal node, we store the name of the leaf beneath it that comes first alphanumerically. When recursively printing the tree, at each internal node, we call its children in the order of these names. 
 .SS "void tr_print_ps (FILE * F, TreeNode * tree, int show_branch_lens, int square_branches, int use_branch_lens, int horizontal_layout)"
 .PP
-Print a (very basic!) postscript rendering of a tree.
+Print a (very basic!) postscript rendering of a tree. 
 .PP
 \fBParameters: \fP
 .in +1c
@@ -191,9 +210,9 @@ If TRUE, tree will be laid out such that edges are proportional to branch length
 .TP
 \fB\fIhorizontal_layout\fP\fP
 If TRUE, tree will be laid out with root on left and leaves on right; otherwise, root will be at top and leaves at bottom 
-.SS "void tr_prune (TreeNode ** t, List * names, int all_but)"
+.SS "void tr_prune (TreeNode ** t, \fBList\fP * names, int all_but)"
 .PP
-Prune away all leaves whose names are in (or not in) the specified list.
+Prune away all leaves whose names are in (or not in) the specified list. 
 .PP
 Nodes will be removed and branches combined (branch lengths added) to restore as a proper binary tree. 
 .PP
@@ -208,6 +227,11 @@ List of names. On return, will contain list of names of leaves that were pruned 
 .TP
 \fB\fIall_but\fP\fP
 if FALSE, prune leaves *in* 'names'; if TRUE, prune leaves *not in* 'names' 
-.SH "AUTHOR"
+.SS "void tr_reroot (TreeNode * tree, TreeNode * selected_node, int include_branch)"
+.PP
+Reroot tree. 
+.PP
+Subtree originally beneath selected node will become right subtree of root, and remainder of tree will be left subtree. If include_branch == FALSE, the selected node will become the new root, and a zero-length branch to its right will connect it to its original subtree. If instead include_branch == TRUE, then the branch above the selected node will also be included in the right subtree. In this case, the selected node will become the right child of the new root and the branch in question will become the right branch beneath the new root. The left branch beneath the new root will have length zero and will connect to the former parent of the selected node. Warning: ids will not be altered, so they will no longer be consistent with a preorder traversal of the tree 
+.SH "Author"
 .PP 
 Generated automatically by Doxygen for PHAST from the source code.

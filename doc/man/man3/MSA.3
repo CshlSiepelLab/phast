@@ -1,8 +1,10 @@
-.TH "MSA" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
+.TH "MSA" 3 "11 Oct 2006" "Version v0.9b" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
-MSA \- Multiple sequence alignment object. 
+MSA \- Multiple sequence alignment object.  
+
+.PP
 .SH SYNOPSIS
 .br
 .PP
@@ -12,34 +14,34 @@ MSA \- Multiple sequence alignment object.
 .ti -1c
 .RI "int \fBnseqs\fP"
 .br
-.RI "\fINumber of sequences.\fP"
+.RI "\fINumber of sequences. \fP"
 .ti -1c
 .RI "unsigned int \fBlength\fP"
 .br
-.RI "\fINumber of columns.\fP"
+.RI "\fINumber of columns. \fP"
 .ti -1c
 .RI "char * \fBalphabet\fP"
 .br
-.RI "\fIAlphabet (see \fBDEFAULT_ALPHABET\fP).\fP"
+.RI "\fIAlphabet (see \fBDEFAULT_ALPHABET\fP). \fP"
 .ti -1c
 .RI "char * \fBmissing\fP"
 .br
-.RI "\fIRecognized missing data characters.\fP"
+.RI "\fIRecognized missing data characters. \fP"
 .ti -1c
 .RI "int \fBis_missing\fP [NCHARS]"
 .br
-.RI "\fIFast lookup of whether character is missing data char.\fP"
+.RI "\fIFast lookup of whether character is missing data char. \fP"
 .ti -1c
 .RI "int * \fBis_informative\fP"
 .br
-.RI "\fIIf non-NULL, indicates which sequences are to be considered 'informative', e.g., for phylogenetic analysis.\fP"
+.RI "\fIIf non-NULL, indicates which sequences are to be considered 'informative', e.g., for phylogenetic analysis. \fP"
 .in -1c
-.SH "DETAILED DESCRIPTION"
+.SH "Detailed Description"
 .PP 
-Multiple sequence alignment object.
+Multiple sequence alignment object. 
 .PP
 
 
-.SH "AUTHOR"
+.SH "Author"
 .PP 
 Generated automatically by Doxygen for PHAST from the source code.

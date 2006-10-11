@@ -1,4 +1,4 @@
-.TH "msa.h" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
+msa.h File Reference.TH "msa.h" 3 "11 Oct 2006" "Version v0.9b" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -6,17 +6,17 @@ msa.h \- Multiple sequence alignments.
 .SH SYNOPSIS
 .br
 .PP
-.SS "Compounds"
+.SS "Classes"
 
 .in +1c
 .ti -1c
 .RI "struct \fBMSA\fP"
 .br
-.RI "\fIMultiple sequence alignment object.\fP"
+.RI "\fIMultiple sequence alignment object. \fP"
 .ti -1c
 .RI "struct \fBmsa_coord_map\fP"
 .br
-.RI "\fICoordinate map, defined by a sequence/alignment pair.\fP"
+.RI "\fICoordinate map, defined by a sequence/alignment pair. \fP"
 .in -1c
 .SS "Defines"
 
@@ -24,15 +24,15 @@ msa.h \- Multiple sequence alignments.
 .ti -1c
 .RI "#define \fBDEFAULT_ALPHABET\fP   'ACGT'"
 .br
-.RI "\fIDefault alphabet, assumed throughout PHAST.\fP"
+.RI "\fIDefault alphabet, assumed throughout PHAST. \fP"
 .ti -1c
 .RI "#define \fBGAP_CHAR\fP   '-'"
 .br
-.RI "\fIGap character, assumed throughout PHAST.\fP"
+.RI "\fIGap character, assumed throughout PHAST. \fP"
 .ti -1c
 .RI "#define \fBDEFAULT_MDATA_CHARS\fP   '*N'"
 .br
-.RI "\fIDefault missing data character.\fP"
+.RI "\fIDefault missing data character. \fP"
 .in -1c
 .SS "Enumerations"
 
@@ -40,7 +40,7 @@ msa.h \- Multiple sequence alignments.
 .ti -1c
 .RI "enum \fBmsa_format_type\fP { \fBPHYLIP\fP, \fBMPM\fP, \fBFASTA\fP, \fBSS\fP, \fBLAV\fP, \fBMAF\fP }"
 .br
-.RI "\fIFormat types.\fP"
+.RI "\fIFormat types. \fP"
 .in -1c
 .SS "Functions"
 
@@ -48,117 +48,117 @@ msa.h \- Multiple sequence alignments.
 .ti -1c
 .RI "\fBMSA\fP * \fBmsa_new\fP (char **seqs, char **names, int nseqs, int length, char *alphabet)"
 .br
-.RI "\fICreates a new \fBMSA\fP object.\fP"
+.RI "\fICreates a new \fBMSA\fP object. \fP"
 .ti -1c
 .RI "\fBMSA\fP * \fBmsa_new_from_file\fP (FILE *F, \fBmsa_format_type\fP format, char *alphabet)"
 .br
-.RI "\fICreates a new alignment from the contents of the specified file, which is assumed to use the specified format.\fP"
+.RI "\fICreates a new alignment from the contents of the specified file, which is assumed to use the specified format. \fP"
 .ti -1c
 .RI "\fBMSA\fP * \fBmsa_create_copy\fP (\fBMSA\fP *msa, int suff_stats_only)"
 .br
-.RI "\fIcreate a copy of an \fBMSA\fP.\fP"
+.RI "\fIcreate a copy of an \fBMSA\fP. \fP"
 .ti -1c
 .RI "void \fBmsa_print\fP (FILE *F, \fBMSA\fP *msa, \fBmsa_format_type\fP format, int pretty_print)"
 .br
-.RI "\fIPrints \fBMSA\fP to file, using specified format.\fP"
+.RI "\fIPrints \fBMSA\fP to file, using specified format. \fP"
 .ti -1c
 .RI "void \fBmsa_strip_gaps\fP (\fBMSA\fP *msa, int gap_strip_mode)"
 .br
-.RI "\fIIf gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all columns with ALL or ANY gaps, respectively.\fP"
+.RI "\fIIf gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all columns with ALL or ANY gaps, respectively. \fP"
 .ti -1c
 .RI "int \fBmsa_get_seq_idx\fP (\fBMSA\fP *msa, char *name)"
 .br
-.RI "\fIReturn sequence index of given sequence name or -1 if not found.\fP"
+.RI "\fIReturn sequence index of given sequence name or -1 if not found. \fP"
 .ti -1c
 .RI "void \fBmsa_reverse_compl_feats\fP (\fBMSA\fP *msa, \fBGFF_Set\fP *feats, int *aux_data)"
 .br
-.RI "\fIReverse complement segments of an \fBMSA\fP corresponding to groups of features on the reverse strand.\fP"
+.RI "\fIReverse complement segments of an \fBMSA\fP corresponding to groups of features on the reverse strand. \fP"
 .ti -1c
 .RI "\fBmsa_format_type\fP \fBmsa_format_for_suffix\fP (char *fname)"
 .br
-.RI "\fIReturn format type indicated by filename suffix.\fP"
+.RI "\fIReturn format type indicated by filename suffix. \fP"
 .ti -1c
 .RI "char * \fBmsa_suffix_for_format\fP (\fBmsa_format_type\fP t)"
 .br
-.RI "\fIReturn appropriate filename suffix for format type.\fP"
+.RI "\fIReturn appropriate filename suffix for format type. \fP"
 .ti -1c
 .RI "int \fBmsa_missing_col\fP (\fBMSA\fP *msa, int ref, int pos)"
 .br
-.RI "\fIReturns TRUE if alignment has missing data in all seqs but the reference seq at specified column; otherwise returns FALSE.\fP"
+.RI "\fIReturns TRUE if alignment has missing data in all seqs but the reference seq at specified column; otherwise returns FALSE. \fP"
 .ti -1c
-.RI "List * \fBmsa_seq_indices\fP (\fBMSA\fP *msa, List *seqnames)"
+.RI "\fBList\fP * \fBmsa_seq_indices\fP (\fBMSA\fP *msa, \fBList\fP *seqnames)"
 .br
-.RI "\fIGiven a list of sequence names and/or 1-based indices, return a list of corresponding 0-based indices.\fP"
+.RI "\fIGiven a list of sequence names and/or 1-based indices, return a list of corresponding 0-based indices. \fP"
 .ti -1c
-.RI "void \fBmsa_mask_macro_indels\fP (\fBMSA\fP *msa, int k)"
+.RI "void \fBmsa_mask_macro_indels\fP (\fBMSA\fP *msa, int k, int refseq)"
 .br
-.RI "\fIMask out all alignment gaps of length greater than k by changing gap characters to missing data characters.\fP"
+.RI "\fIMask out all alignment gaps of length greater than k by changing gap characters to missing data characters. \fP"
 .ti -1c
-.RI "void \fBmsa_set_informative\fP (\fBMSA\fP *msa, List *not_informative)"
+.RI "void \fBmsa_set_informative\fP (\fBMSA\fP *msa, \fBList\fP *not_informative)"
 .br
-.RI "\fISet up array indicating which sequences are to be considered 'informative', e.g., for phylogenetic analysis.\fP"
+.RI "\fISet up array indicating which sequences are to be considered 'informative', e.g., for phylogenetic analysis. \fP"
 .in -1c
-.SH "DETAILED DESCRIPTION"
+.SH "Detailed Description"
 .PP 
-Multiple sequence alignments.
-.PP
-.PP
-.SH "ENUMERATION TYPE DOCUMENTATION"
+Multiple sequence alignments. 
+
+
+.SH "Enumeration Type Documentation"
 .PP 
-.SS "enum msa_format_type"
+.SS "enum \fBmsa_format_type\fP"
 .PP
-Format types.
+Format types. 
 .PP
 \fBEnumeration values: \fP
 .in +1c
 .TP
-\fB\fI\fIPHYLIP\fP \fP\fP
-PHYLIP format.
+\fB\fIPHYLIP \fP\fP
+PHYLIP format. 
 .TP
-\fB\fI\fIMPM\fP \fP\fP
-Format used by MultiPipMaker and some of Webb Miller's older tools.
+\fB\fIMPM \fP\fP
+Format used by MultiPipMaker and some of Webb Miller's older tools. 
 .TP
-\fB\fI\fIFASTA\fP \fP\fP
-Standard FASTA format.
+\fB\fIFASTA \fP\fP
+Standard FASTA format. 
 .TP
-\fB\fI\fISS\fP \fP\fP
-'Sufficient statistics' format, in which each unique alignment column (or tuple of columns) is represented only once, and a count is maintained of how many times it occurs
+\fB\fISS \fP\fP
+'Sufficient statistics' format, in which each unique alignment column (or tuple of columns) is represented only once, and a count is maintained of how many times it occurs 
 .TP
-\fB\fI\fILAV\fP \fP\fP
-lav format, used by BLASTZ
+\fB\fILAV \fP\fP
+lav format, used by BLASTZ 
 .TP
-\fB\fI\fIMAF\fP \fP\fP
-Multiple Alignment Format (MAF) used by MULTIZ and TBA.
-.SH "FUNCTION DOCUMENTATION"
+\fB\fIMAF \fP\fP
+Multiple Alignment Format (MAF) used by MULTIZ and TBA. 
+.SH "Function Documentation"
 .PP 
 .SS "\fBMSA\fP* msa_create_copy (\fBMSA\fP * msa, int suff_stats_only)"
 .PP
-create a copy of an \fBMSA\fP.
+create a copy of an \fBMSA\fP. 
 .PP
 If suff_stats_only == 1, then sequences aren't copied 
-.SS "void msa_mask_macro_indels (\fBMSA\fP * msa, int k)"
+.SS "void msa_mask_macro_indels (\fBMSA\fP * msa, int k, int refseq)"
 .PP
-Mask out all alignment gaps of length greater than k by changing gap characters to missing data characters.
+Mask out all alignment gaps of length greater than k by changing gap characters to missing data characters. 
 .PP
-Useful when modeling micro-indels. Warning: if \fBMSA\fP is stored only in terms of sufficient statistics, an explicit alignment will be created 
+If refseq is > 0, the designated sequence will not be altered. This function is useful when modeling micro-indels. Warning: if \fBMSA\fP is stored only in terms of sufficient statistics, an explicit alignment will be created 
 .SS "\fBMSA\fP* msa_new (char ** seqs, char ** names, int nseqs, int length, char * alphabet)"
 .PP
-Creates a new \fBMSA\fP object.
+Creates a new \fBMSA\fP object. 
 .PP
 Two-dimensional character arrays must be passed in for sequences and names (no new memory is allocated for them). The alphabet, however, will be copied into newly allocated memory. If the 'alphabet' argument is null, the default alphabet will be used. 
 .SS "\fBMSA\fP* msa_new_from_file (FILE * F, \fBmsa_format_type\fP format, char * alphabet)"
 .PP
-Creates a new alignment from the contents of the specified file, which is assumed to use the specified format.
+Creates a new alignment from the contents of the specified file, which is assumed to use the specified format. 
 .PP
 If 'alphabet' is NULL, default alphabet for DNA will be used. This routine will abort if the sequence contains a character not in the alphabet. 
 .SS "void msa_print (FILE * F, \fBMSA\fP * msa, \fBmsa_format_type\fP format, int pretty_print)"
 .PP
-Prints \fBMSA\fP to file, using specified format.
+Prints \fBMSA\fP to file, using specified format. 
 .PP
 The 'pretty_print' option causes periods ('.') to be printed in place of characters that are identical to corresponding characters in the first sequence. 
 .SS "void msa_reverse_compl_feats (\fBMSA\fP * msa, \fBGFF_Set\fP * feats, int * aux_data)"
 .PP
-Reverse complement segments of an \fBMSA\fP corresponding to groups of features on the reverse strand.
+Reverse complement segments of an \fBMSA\fP corresponding to groups of features on the reverse strand. 
 .PP
 Adjusts the coordinates in the \fBGFF_Set\fP accordingly. This function can be used to ensure that sites in strand-specific categories (e.g., 1st codon position, intron) are oriented consistently. It can be useful in phylogenetic analysis and in training the transition probabilities of a phylo-HMM. Features are assumed already to have been grouped as desired, and groups are assumed to be nonoverlapping (see gff_group and gff_remove_overlaps). Strandedness is tested using gff_reverse_strand_only. The \fBGFF_Set\fP is assumed to use the coordinate frame of the alignment. 
 .PP
@@ -173,14 +173,14 @@ Set of features
 .TP
 \fB\fIaux_data\fP\fP
 Auxiliary array of site-specific integers (e.g., gap patterns) to be kept in sync with the alignment and/or \fBGFF_Set\fP 
-.SS "List* msa_seq_indices (\fBMSA\fP * msa, List * seqnames)"
+.SS "\fBList\fP* msa_seq_indices (\fBMSA\fP * msa, \fBList\fP * seqnames)"
 .PP
-Given a list of sequence names and/or 1-based indices, return a list of corresponding 0-based indices.
+Given a list of sequence names and/or 1-based indices, return a list of corresponding 0-based indices. 
 .PP
-Abort if a name has no match. Useful in converting command-line arguments 
-.SS "void msa_set_informative (\fBMSA\fP * msa, List * not_informative)"
+Warn if a name has no match. Useful in converting command-line arguments 
+.SS "void msa_set_informative (\fBMSA\fP * msa, \fBList\fP * not_informative)"
 .PP
-Set up array indicating which sequences are to be considered 'informative', e.g., for phylogenetic analysis.
+Set up array indicating which sequences are to be considered 'informative', e.g., for phylogenetic analysis. 
 .PP
 \fBParameters: \fP
 .in +1c
@@ -192,9 +192,9 @@ Alignment
 List of names of sequences *not* to be considered informative 
 .SS "void msa_strip_gaps (\fBMSA\fP * msa, int gap_strip_mode)"
 .PP
-If gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all columns with ALL or ANY gaps, respectively.
+If gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all columns with ALL or ANY gaps, respectively. 
 .PP
 Otherwise, assumes a projection* is desired onto the sequence whose index is gap_strip_mode (indexing starts with 1). Changes are made to original alignment. Gaps are expected to be represented by GAP_CHAR. If msa->categories is non-NULL, will be adjusted accordingly. 
-.SH "AUTHOR"
+.SH "Author"
 .PP 
 Generated automatically by Doxygen for PHAST from the source code.

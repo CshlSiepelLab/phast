@@ -1,4 +1,4 @@
-.TH "category_map.c" 3 "24 Jun 2005" "PHAST" \" -*- nroff -*-
+category_map.c File Reference.TH "category_map.c" 3 "11 Oct 2006" "Version v0.9b" "PHAST" \" -*- nroff -*-
 .ad l
 .nh
 .SH NAME
@@ -12,81 +12,80 @@ category_map.c \- Mapping between feature types and site categories.
 .ti -1c
 .RI "\fBCategoryMap\fP * \fBcm_read\fP (FILE *F)"
 .br
-.RI "\fIRead a \fBCategoryMap\fP from a file.\fP"
+.RI "\fIRead a \fBCategoryMap\fP from a file. \fP"
 .ti -1c
 .RI "void \fBcm_print\fP (\fBCategoryMap\fP *cm, FILE *F)"
 .br
-.RI "\fIPrint a \fBCategoryMap\fP to a file.\fP"
+.RI "\fIPrint a \fBCategoryMap\fP to a file. \fP"
 .ti -1c
 .RI "int \fBcm_get_category\fP (\fBCategoryMap\fP *cm, String *type)"
 .br
-.RI "\fIReturn the 'base' category for a given feature type (first category in range).\fP"
+.RI "\fIReturn the 'base' category for a given feature type (first category in range). \fP"
 .ti -1c
-.RI "List * \fBcm_get_category_list\fP (\fBCategoryMap\fP *cm, List *names, int ignore_missing)"
+.RI "\fBList\fP * \fBcm_get_category_list\fP (\fBCategoryMap\fP *cm, \fBList\fP *names, int ignore_missing)"
 .br
-.RI "\fIReturn a list of category numbers corresponding to a given list of category names and or numbers.\fP"
+.RI "\fIReturn a list of category numbers corresponding to a given list of category names and or numbers. \fP"
 .ti -1c
 .RI "String * \fBcm_get_feature\fP (\fBCategoryMap\fP *cm, int cat)"
 .br
-.RI "\fIRetrieve the (primary) feature type associated with the specified category number.\fP"
+.RI "\fIRetrieve the (primary) feature type associated with the specified category number. \fP"
 .ti -1c
 .RI "String * \fBcm_get_feature_unique\fP (\fBCategoryMap\fP *cm, int cat)"
 .br
-.RI "\fIObtain a unique name based on the (primary) feature type associated with the specified category number.\fP"
+.RI "\fIObtain a unique name based on the (primary) feature type associated with the specified category number. \fP"
 .ti -1c
 .RI "\fBCategoryMap\fP * \fBcm_create_trivial\fP (int ncats, char *feature_prefix)"
 .br
-.RI "\fICreate a trivial \fBCategoryMap\fP, with feature types equal to category numbers (plus an optional prefix) and ranges all of size one.\fP"
+.RI "\fICreate a trivial \fBCategoryMap\fP, with feature types equal to category numbers (plus an optional prefix) and ranges all of size one. \fP"
 .ti -1c
 .RI "\fBCategoryMap\fP * \fBcm_new_from_features\fP (\fBGFF_Set\fP *feats)"
 .br
-.RI "\fICreate a category map with a category for each feature type in a \fBGFF_Set\fP.\fP"
+.RI "\fICreate a category map with a category for each feature type in a \fBGFF_Set\fP. \fP"
 .ti -1c
 .RI "\fBCategoryMap\fP * \fBcm_new_string_or_file\fP (char *optarg)"
 .br
-.RI "\fICreate a new category map from a string that can either be a filename or a brief 'inlined' category map, e.g., 'NCATS = 3 ; CDS 1-3'.\fP"
+.RI "\fICreate a new category map from a string that can either be a filename or a brief 'inlined' category map, e.g., 'NCATS = 3 ; CDS 1-3'. \fP"
 .ti -1c
 .RI "void \fBcm_realloc\fP (\fBCategoryMap\fP *cm, int new_ncats)"
 .br
-.RI "\fIReallocate a category map to allow for the specified size.\fP"
+.RI "\fIReallocate a category map to allow for the specified size. \fP"
 .ti -1c
 .RI "void \fBcm_free\fP (\fBCategoryMap\fP *cm)"
 .br
-.RI "\fIFree memory associated with category map.\fP"
+.RI "\fIFree memory associated with category map. \fP"
 .ti -1c
 .RI "void \fBcm_add_feature_type\fP (\fBCategoryMap\fP *cm, String *type, int cycle_size)"
 .br
-.RI "\fIAdd new feature to \fBCategoryMap\fP.\fP"
+.RI "\fIAdd new feature to \fBCategoryMap\fP. \fP"
 .ti -1c
-.RI "\fBGFF_Set\fP * \fBcm_labeling_as_gff\fP (\fBCategoryMap\fP *cm, int *path, int length, int *path_to_cat, int *reverse_compl, char *seqname, char *source, List *frame_cats, char *grouptag, char *idpref)"
+.RI "\fBGFF_Set\fP * \fBcm_labeling_as_gff\fP (\fBCategoryMap\fP *cm, int *path, int length, int *path_to_cat, int *reverse_compl, char *seqname, char *source, \fBList\fP *frame_cats, char *grouptag, char *idpref)"
 .br
-.RI "\fICreate a \fBGFF_Set\fP from a sequence of category/state numbers, using a specified category map and mapping from raw state numbers to category numbers.\fP"
+.RI "\fICreate a \fBGFF_Set\fP from a sequence of category/state numbers, using a specified category map and mapping from raw state numbers to category numbers. \fP"
 .ti -1c
 .RI "void \fBcm_spooled_to_unspooled\fP (\fBCategoryMap\fP *cm, int *path, int pathlen)"
 .br
-.RI "\fImaps a sequence (array) of category numbers from the spooled space to the unspooled space, using the current unspooler.\fP"
+.RI "\fImaps a sequence (array) of category numbers from the spooled space to the unspooled space, using the current unspooler. \fP"
 .in -1c
-.SH "DETAILED DESCRIPTION"
+.SH "Detailed Description"
 .PP 
-Mapping between feature types and site categories.
-.PP
- See \fBcategory_map.h\fP for details.
-.PP
-.SH "FUNCTION DOCUMENTATION"
+Mapping between feature types and site categories. 
+
+See \fBcategory_map.h\fP for details.
+.SH "Function Documentation"
 .PP 
 .SS "void cm_add_feature_type (\fBCategoryMap\fP * cm, String * type, int cycle_size)"
 .PP
-Add new feature to \fBCategoryMap\fP.
+Add new feature to \fBCategoryMap\fP. 
 .PP
 Assumes a feature of the specified type does not already exist. 
 .SS "int cm_get_category (\fBCategoryMap\fP * cm, String * type)"
 .PP
-Return the 'base' category for a given feature type (first category in range).
+Return the 'base' category for a given feature type (first category in range). 
 .PP
 Returns 0 (background) if no match. 
-.SS "List* cm_get_category_list (\fBCategoryMap\fP * cm, List * names, int ignore_missing)"
+.SS "\fBList\fP* cm_get_category_list (\fBCategoryMap\fP * cm, \fBList\fP * names, int ignore_missing)"
 .PP
-Return a list of category numbers corresponding to a given list of category names and or numbers.
+Return a list of category numbers corresponding to a given list of category names and or numbers. 
 .PP
 \fBParameters: \fP
 .in +1c
@@ -101,17 +100,17 @@ List of categories. May be specified by name or number (useful when accepting in
 Whether to ignore unrecognized types. If FALSE, then function will abort when it encounters an unrecognized type. 
 .SS "String* cm_get_feature (\fBCategoryMap\fP * cm, int cat)"
 .PP
-Retrieve the (primary) feature type associated with the specified category number.
+Retrieve the (primary) feature type associated with the specified category number. 
 .PP
 Note: return value is passed by reference -- do not alter. 
 .SS "String* cm_get_feature_unique (\fBCategoryMap\fP * cm, int cat)"
 .PP
-Obtain a unique name based on the (primary) feature type associated with the specified category number.
+Obtain a unique name based on the (primary) feature type associated with the specified category number. 
 .PP
 Returns a pointer to a newly allocated String. 
-.SS "\fBGFF_Set\fP* cm_labeling_as_gff (\fBCategoryMap\fP * cm, int * path, int length, int * path_to_cat, int * reverse_compl, char * seqname, char * source, List * frame_cats, char * grouptag, char * idpref)"
+.SS "\fBGFF_Set\fP* cm_labeling_as_gff (\fBCategoryMap\fP * cm, int * path, int length, int * path_to_cat, int * reverse_compl, char * seqname, char * source, \fBList\fP * frame_cats, char * grouptag, char * idpref)"
 .PP
-Create a \fBGFF_Set\fP from a sequence of category/state numbers, using a specified category map and mapping from raw state numbers to category numbers.
+Create a \fBGFF_Set\fP from a sequence of category/state numbers, using a specified category map and mapping from raw state numbers to category numbers. 
 .PP
 \fBParameters: \fP
 .in +1c
@@ -147,19 +146,19 @@ Tag to use to define groups in \fBGFF_Set\fP (e.g., 'transcript_id')
 Prefix for ids of predicted elements (may be NULL). Can be used to ensure ids are unique. 
 .SS "\fBCategoryMap\fP* cm_new_from_features (\fBGFF_Set\fP * feats)"
 .PP
-Create a category map with a category for each feature type in a \fBGFF_Set\fP.
+Create a category map with a category for each feature type in a \fBGFF_Set\fP. 
 .PP
 Category numbers are assigned in order of appearance of types 
 .SS "\fBCategoryMap\fP* cm_new_string_or_file (char * optarg)"
 .PP
-Create a new category map from a string that can either be a filename or a brief 'inlined' category map, e.g., 'NCATS = 3 ; CDS 1-3'.
+Create a new category map from a string that can either be a filename or a brief 'inlined' category map, e.g., 'NCATS = 3 ; CDS 1-3'. 
 .PP
 Useful for command-line arguments. 
 .SS "void cm_spooled_to_unspooled (\fBCategoryMap\fP * cm, int * path, int pathlen)"
 .PP
-maps a sequence (array) of category numbers from the spooled space to the unspooled space, using the current unspooler.
+maps a sequence (array) of category numbers from the spooled space to the unspooled space, using the current unspooler. 
 .PP
 Original sequence is overwritten 
-.SH "AUTHOR"
+.SH "Author"
 .PP 
 Generated automatically by Doxygen for PHAST from the source code.
