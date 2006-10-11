@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.30 2005-10-27 16:30:44 acs Exp $
+/* $Id: misc.c,v 1.31 2006-10-11 01:45:29 bbrejova Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -504,7 +504,7 @@ int bn_draw_fast(int n, double pp) {
   double am, em, g, angle, p, bn1, sq, t, y;
   static double pold = -1, pc, plog, pclog, en, oldg;
 
-  if (n < 25) bn_draw(n, pp);
+  if (n < 25) return bn_draw(n, pp);
 
   p = (pp <= 0.5 ? pp : 1.0 - pp); /* can assume p less than 0.5, and
                                       adjust return value as
