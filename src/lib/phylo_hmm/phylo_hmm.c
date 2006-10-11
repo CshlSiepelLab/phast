@@ -1,8 +1,9 @@
-/* $Id: phylo_hmm.c,v 1.28 2005-07-17 23:15:19 acs Exp $
+/* $Id: phylo_hmm.c,v 1.29 2006-10-11 22:54:09 bbrejova Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
-/* Code for phylo-HMMs.  Allows for automatic expansion of the state
+/** \file phylo_hmm.c
+   Code for phylo-HMMs.  Allows for automatic expansion of the state
    space to accommodate features on the reverse strand, and for the
    indel model described in Siepel & Haussler, RECOMB '04.  Also
    allows for cross-product constructions involving functional states
