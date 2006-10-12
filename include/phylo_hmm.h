@@ -7,6 +7,13 @@
 #include <lists.h>
 #include <gap_patterns.h>
 
+/** \file phylo_hmm.h
+   Code for phylo-HMMs.  Allows for automatic expansion of the state
+   space to accommodate features on the reverse strand, and for the
+     indel model described in Siepel & Haussler, RECOMB '04.  Also
+   allows for cross-product constructions involving functional states
+   and rate categories (Siepel & Haussler, RECOMB '03).  */
+
 typedef enum {MISSING_DATA, PARAMETERIC, NONPARAMETERIC} indel_mode_type;
 
 /* package of data used during EM parameter estimation */
@@ -23,6 +30,7 @@ typedef struct {
   Matrix *H;                /** inverse Hessian for BFGS  */
 } EmData;
 
+/** Phylo HMM object */
 typedef struct {
   CategoryMap *cm;              /**< category map */
   HMM *hmm;                     /**< final HMM, after reflection and
