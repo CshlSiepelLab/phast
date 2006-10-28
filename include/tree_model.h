@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.15 2006-06-21 19:18:34 acs Exp $
+/* $Id: tree_model.h,v 1.16 2006-10-28 15:44:54 bbrejova Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -54,6 +54,8 @@ typedef enum {
 
 struct tp_struct;
 
+
+/** Tree model object */
 struct tm_struct {
   TreeNode *tree;
   Vector *backgd_freqs;
