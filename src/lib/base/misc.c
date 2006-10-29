@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.31 2006-10-11 01:45:29 bbrejova Exp $
+/* $Id: misc.c,v 1.32 2006-10-29 21:22:30 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -655,7 +655,7 @@ double gamma_pdf(double x, double a, double b) {
 /* make a draw from an exponential distribution with parameter
    (expected value) 'b' */
 double exp_draw(double b) {
-  return -log(1.0 * random() / RAND_MAX) * b;
+  return -log(1.0 * random() / RAND_MAX) * b; /* inversion method */
 }
 
 /* make a draw from a gamma distribution with parameters 'a' and
@@ -679,26 +679,26 @@ double gamma_draw(double a, double b) {
 
       U = 1.0*random()/RAND_MAX;	/* uniform on [0, 1]; used for draw */
       V = 1.0*random()/RAND_MAX;	/* also uniform on [0, 1]; used for
-				   rejection/acceptance */
+                                       rejection/acceptance */
       W = U * (1 - U);
       Y = sqrt(c / W) * (U - 0.5); 
       X = d + Y;
       /* Y is a scaled version of a random variate from a t distribution
-	 with 2 dof; X is a random deviate from a shifted distribution
-	 whose ratio with a gamma(a, 1) can be bounded by a constant */
+         with 2 dof; X is a random deviate from a shifted distribution
+         whose ratio with a gamma(a, 1) can be bounded by a constant */
 
       if (X < 0) continue;	/* truncate because of nonnegativity
-				   of gamma */
+                               of gamma */
     
       Z = 64 * W * W * W * V * V;
       if (log(Z) <= 2 * (d * log(X / d) - Y))
 	retval = X;
       /* there's some algebra behind this, but underneath it's just
-	 the standard rejection sampling idea of accepting with
-	 probability p(x)/(M*q(x)), where p(x) is the density of the
-	 desired distrib, q(x) is the density of the distrib from which
-	 you have sampled, and M is a constant such that p(x) / q(x) <=
-	 M for all x */
+         the standard rejection sampling idea of accepting with
+         probability p(x)/(M*q(x)), where p(x) is the density of the
+         desired distrib, q(x) is the density of the distrib from which
+         you have sampled, and M is a constant such that p(x) / q(x) <=
+         M for all x */
     }
   }
 
@@ -710,7 +710,7 @@ double gamma_draw(double a, double b) {
       Z = exp_draw(1);
       X = pow(Z, c);		/* X is Weibull(a) */
       if (Z + E >= d + X)	/* note: wrong in book, correct
-				   formula in errata */
+                               formula in errata */
 	retval = X;
     }
   }
@@ -718,6 +718,13 @@ double gamma_draw(double a, double b) {
   /* so far we only have a draw from gamma(a, 1); multiply by b to
      obtain a draw from gamma(a, b) */
   return retval * b;
+}
+
+/* make a draw from a beta distribution with parameters 'a' and 'b'.  */
+double beta_draw(double a, double b) {
+  double x = gamma_draw(a, 1);
+  double y = gamma_draw(b, 1);
+  return x / (x + y);
 }
 
 /* make a draw from a k-dimensional Dirichlet distribution, with
