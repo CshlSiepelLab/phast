@@ -3,12 +3,12 @@ include ../../make-include.mk
 # assume every *.c file goes in the library
 OBJS =  $(addsuffix .o,$(basename $(wildcard *.c)))
 
-all: ${TARGETLIB} 
+all: ${TARGETLIB}(${OBJS})
 
 %.o: %.c ../../make-include.mk
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
-${TARGETLIB} : ${OBJS} 
+${TARGETLIB}(${OBJS}) : ${OBJS} 
 	${AR} rs ${TARGETLIB} $?
 
 clean:
