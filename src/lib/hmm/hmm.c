@@ -1,4 +1,4 @@
-/* $Id: hmm.c,v 1.7 2005-11-25 05:17:30 acs Exp $
+/* $Id: hmm.c,v 1.8 2006-10-30 21:01:49 bbrejova Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -271,7 +271,7 @@ void hmm_viterbi(HMM *hmm, double **emission_scores, int seqlen, int *path) {
 
   /* set up necessary arrays */
   full_scores = (double**)smalloc(hmm->nstates * sizeof(double*));
-  backptr = (int**)smalloc(hmm->nstates * sizeof(int));
+  backptr = (int**)smalloc(hmm->nstates * sizeof(int*));
   len = seqlen;
   for (i = 0; i < hmm->nstates; i++) {
     full_scores[i] = (double*)smalloc(len * sizeof(double));
