@@ -55,6 +55,10 @@ OPTIONS:
         (CFTR) of the NISC Comparative Sequencing Program (Thomas et
         al., 2003), will be assumed.
 
+   --data-path, -D <path>
+        Path to the directory with phast data. Exoniphy default models should 
+        be in <path>/exoniphy/. Default is set at compile time. 
+
  (Input and output)
     --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS 
         (default SS) File format of input alignment.

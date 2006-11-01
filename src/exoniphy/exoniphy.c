@@ -1,4 +1,4 @@
-/* $Id: exoniphy.c,v 1.42 2005-11-27 04:59:54 acs Exp $
+/* $Id: exoniphy.c,v 1.43 2006-11-01 23:16:14 bbrejova Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -63,6 +63,7 @@ int main(int argc, char* argv[]) {
     {"tree-models", 1, 0, 'm'},
     {"catmap", 1, 0, 'c'},
     {"msa-format", 1, 0, 'i'},
+    {"data-path", 1, 0, 'D'}, 
     {"score", 0, 0, 'S'},
     {"seqname", 1, 0, 's'},
     {"idpref", 1, 0, 'p'},
@@ -93,18 +94,22 @@ int main(int argc, char* argv[]) {
   HMM *hmm = NULL;
   CategoryMap *cm = NULL;
   GFF_Set *predictions;
+  String *data_path;
   char c;
   int i, j, ncats, ncats_unspooled, trial, ntrials, opt_idx, gc_cat;
   double gc;
   char tmpstr[STR_LONG_LEN];
   String *fname_str = str_new(STR_LONG_LEN), *str;
 
-  while ((c = getopt_long(argc, argv, "i:c:H:m:s:p:g:B:T:L:F:IW:N:n:b:e:A:xSYUhq", 
+  while ((c = getopt_long(argc, argv, "i:D:c:H:m:s:p:g:B:T:L:F:IW:N:n:b:e:A:xSYUhq", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
       msa_format = msa_str_to_format(optarg);
       if (msa_format == -1) die("ERROR: bad alignment format.\n");
+      break;
+    case 'D':
+      data_path = str_new_charstr(optarg);
       break;
     case 'c':
       cm = cm_new_string_or_file(optarg);
@@ -184,6 +189,12 @@ int main(int argc, char* argv[]) {
   if (optind != argc - 1) 
     die("ERROR: alignment filename is required argument.  Try 'exoniphy -h' for help.\n");
 
+  if(data_path == NULL) {
+    data_path = str_new(strlen(PHAST_HOME)+strlen("/data")+1);
+    str_append_charstr(data_path, PHAST_HOME);
+    str_append_charstr(data_path, "/data");
+  }
+
   if (sens_spec_fname_root != NULL && bias != NEGINFTY)
     die("ERROR: can't use --bias and --sens-spec together.\n");
 
@@ -191,7 +202,7 @@ int main(int argc, char* argv[]) {
       !strcmp(extrapolate_tree_fname, "default")) {
     extrapolate_tree_fname = smalloc(1000 * sizeof(char));
     sprintf(extrapolate_tree_fname, 
-            "%s/data/exoniphy/mammals/cftr25_hybrid.nh", PHAST_HOME);
+            "%s/exoniphy/mammals/cftr25_hybrid.nh", data_path->chars);
   }
   if (extrapolate_tree_fname != NULL)
     extrapolate_tree = tr_new_from_file(fopen_fname(extrapolate_tree_fname, "r"));
@@ -246,7 +257,7 @@ int main(int argc, char* argv[]) {
       else default_hmm = "default-indels.hmm";
     }
     else if (no_cns) default_hmm = "default-no-cns.hmm";
-    sprintf(tmpstr, "%s/data/exoniphy/mammals/%s", PHAST_HOME, default_hmm);
+    sprintf(tmpstr, "%s/exoniphy/mammals/%s", data_path->chars, default_hmm);
     if (!quiet) fprintf(stderr, "Reading default HMM from %s...\n", tmpstr);
     hmm = hmm_new_from_file(fopen_fname(tmpstr, "r"));
     reflect_hmm = TRUE;
@@ -266,22 +277,22 @@ int main(int argc, char* argv[]) {
       fprintf(stderr, "(G+C content is %.1f%%; using tree models for G+C category %d)\n",
               gc*100, gc_cat);
     model_fname_list = lst_new_ptr(30);
-    sprintf(tmpstr, "%s/data/exoniphy/%s-gc%d", PHAST_HOME, 
+    sprintf(tmpstr, "%s/exoniphy/%s-gc%d", data_path->chars, 
             no_cns ? "models-no-cns" : "models", gc_cat);
     str_slurp(fname_str, fopen_fname(tmpstr, "r"));
     str_split(fname_str, NULL, model_fname_list);
     if (!quiet) 
-      fprintf(stderr, "Reading default tree models from %s/data/exoniphy/mammals/*.mod...\n", PHAST_HOME);
+      fprintf(stderr, "Reading default tree models from %s/exoniphy/mammals/*.mod...\n", data_path->chars);
     for (i = 0; i < lst_size(model_fname_list); i++) {
       str = lst_get_ptr(model_fname_list, i);
-      sprintf(tmpstr, "%s/data/exoniphy/mammals/%s", PHAST_HOME, str->chars);
+      sprintf(tmpstr, "%s/exoniphy/mammals/%s", data_path->chars, str->chars);
       str_cpy_charstr(str, tmpstr);
     }
     vec_free(f);
   }
 
   if (cm == NULL) {
-    sprintf(tmpstr, "%s/data/exoniphy/%s", PHAST_HOME, 
+    sprintf(tmpstr, "%s/exoniphy/%s", data_path->chars, 
             no_cns ? "default-no-cns.cm" : "default.cm");
     if (!quiet) fprintf(stderr, "Reading default category map from %s...\n", tmpstr);
     cm = cm_read(fopen_fname(tmpstr, "r"));
