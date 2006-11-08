@@ -1,4 +1,4 @@
-/* $Id: msa_split.c,v 1.24 2005-09-05 23:03:53 acs Exp $
+/* $Id: msa_split.c,v 1.25 2006-11-08 13:31:47 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -750,7 +750,7 @@ int main(int argc, char* argv[]) {
          reference sequence: orig_start will be off by one in this
          case because of the way the coord mapping is done */
       if (map != NULL && 
-          msa_get_char(msa, partition_frame-1, start) == GAP_CHAR) 
+          msa_get_char(msa, partition_frame-1, start - 1) == GAP_CHAR) 
         orig_start++;
       
       if (segment_ends_list == NULL) {
