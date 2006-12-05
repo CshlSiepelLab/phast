@@ -1,4 +1,4 @@
-/* $Id: em.c,v 1.10 2005-06-22 07:11:19 acs Exp $
+/* $Id: em.c,v 1.11 2006-12-05 04:15:31 tom Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -205,7 +205,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
     }
 
     /* check convergence */
-    if (abs(total_logl - prev_total_logl) <= EM_CONVERGENCE_THRESHOLD)
+    if (fabs(total_logl - prev_total_logl) <= EM_CONVERGENCE_THRESHOLD)
       done = TRUE;              /* no param update */
 
     else {
