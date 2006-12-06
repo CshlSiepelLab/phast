@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.39 2006-09-29 03:49:21 bbrejova Exp $
+/* $Id: clean_genes.c,v 1.40 2006-12-06 21:50:26 bbrejova Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -1255,7 +1255,8 @@ int main(int argc, char *argv[]) {
 
           else if (str_equals_charstr(feat->feature, GFF_CDS_TYPE)) {
  
-            if ((gt = get_cds_gap_type(feat, msa, problems)) < fshift_mode) {
+            if (fshift_mode > FSHIFT_BAD 
+		&& (gt = get_cds_gap_type(feat, msa, problems)) < fshift_mode) {
               if (status == OKAY || status == NONSENSE) status = FSHIFT;
             }
 
