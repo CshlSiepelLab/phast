@@ -106,5 +106,9 @@ OPTIONS:
         (For use with --null or --posterior) Report quantiles of
         distribution rather than whole distribution.
 
+    --chrom, -N <name>
+        (Optionally use with --wig or --base-by-base) Chromosome name for
+        wig output.  Default is root of multiple alignment filename.
+
     --help, -h
         Produce this help message.

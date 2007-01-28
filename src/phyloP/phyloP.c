@@ -41,10 +41,10 @@ TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa,
                           char *subtree_name, double *scale,
                           double *sub_scale);
 void reroot(TreeModel *mod, char *subtree_name);
-void print_wig_scores(MSA *msa, double *tuple_pvals, char *seqname);
+void print_wig_scores(MSA *msa, double *tuple_pvals, char *chrom);
 void print_base_by_base(MSA *msa, double *tuple_pvals, double prior_mean, 
                         double prior_var, double *tuple_post_means,
-                        double *tuple_post_vars, char *seqname);
+                        double *tuple_post_vars, char *chrom);
 
 int main(int argc, char *argv[]) {
   /* variables for options with defaults */
@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
   int nsites = -1, prior_only = FALSE, post_only = FALSE, quantiles = FALSE,
     fit_model = FALSE, base_by_base = FALSE, output_wig = FALSE;
   double ci = -1, epsilon = 1e-10;
-  char *subtree_name = NULL, *seqname = NULL;
+  char *subtree_name = NULL, *chrom = NULL;
   GFF_Set *feats = NULL;
 
   /* other variables */
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
     {"quantiles", 0, 0, 'q'},
     {"wig-scores", 0, 0, 'w'},
     {"base-by-base", 0, 0, 'b'},
-    {"seqname", 1, 0, 'N'},
+    {"chrom", 1, 0, 'N'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
       base_by_base = TRUE;
       break;
     case 'N':
-      seqname = optarg;
+      chrom = optarg;
       break;
     case 'h':
       printf(HELP);
@@ -160,14 +160,14 @@ int main(int argc, char *argv[]) {
     else 
       msa = msa_new_from_file(msa_f, msa_format, NULL);
 
-    /* if base_by_base and undefined seqname, use filename root as seqname */
-    if (base_by_base && seqname == NULL) {
+    /* if base_by_base and undefined chrom, use filename root as chrom */
+    if (base_by_base && chrom == NULL) {
       String *tmpstr = str_new_charstr(argv[optind+1]);
-      if (str_equals_charstr(tmpstr, "-")) seqname = "refseq";
+      if (str_equals_charstr(tmpstr, "-")) chrom = "NA";
       else {
         str_remove_path(tmpstr);
         str_shortest_root(tmpstr, '.');
-        seqname = tmpstr->chars;    
+        chrom = tmpstr->chars;    
       }
     }
 
@@ -235,10 +235,10 @@ int main(int argc, char *argv[]) {
                                       tuple_post_means, tuple_post_vars);
 
       if (output_wig)
-        print_wig_scores(msa, tuple_pvals, seqname);
+        print_wig_scores(msa, tuple_pvals, chrom);
       else
         print_base_by_base(msa, tuple_pvals, prior_mean, prior_var,
-                           tuple_post_means, tuple_post_vars, seqname);
+                           tuple_post_means, tuple_post_vars, chrom);
     }
     else if (feats == NULL) {
       /* compute distributions and stats*/
@@ -721,14 +721,14 @@ void reroot(TreeModel *mod, char *subtree_name) {
     mod->tree->rchild = tmp;
 }
 
-void print_wig_scores(MSA *msa, double *tuple_pvals, char *seqname) {
+void print_wig_scores(MSA *msa, double *tuple_pvals, char *chrom) {
   int last, j, k;
   last = -INFTY;
   for (j = 0, k = 0; j < msa->length; j++) {
     if (msa_get_char(msa, 0, j) != GAP_CHAR) {
       if (!msa_missing_col(msa, 1, j)) {
         if (k > last + 1) 
-          printf("fixedStep chrom=%s start=%d step=1\n", seqname, 
+          printf("fixedStep chrom=%s start=%d step=1\n", chrom, 
                  k + msa->idx_offset + 1);
         printf("%.3f\n", -log10(tuple_pvals[msa->ss->tuple_idx[j]]));
         last = k;
@@ -740,7 +740,7 @@ void print_wig_scores(MSA *msa, double *tuple_pvals, char *seqname) {
 
 void print_base_by_base(MSA *msa, double *tuple_pvals, double prior_mean, 
                         double prior_var, double *tuple_post_means,
-                        double *tuple_post_vars, char *seqname) {
+                        double *tuple_post_vars, char *chrom) {
   int last, j, k, tup;
   last = -INFTY;
   printf("# neutral mean = %.3f var = %.3f\n", prior_mean, prior_var);
@@ -748,7 +748,7 @@ void print_base_by_base(MSA *msa, double *tuple_pvals, double prior_mean,
     if (msa_get_char(msa, 0, j) != GAP_CHAR) {
       if (!msa_missing_col(msa, 1, j)) {
         if (k > last + 1) 
-          printf("fixedStep chrom=%s start=%d step=1\n", seqname, 
+          printf("fixedStep chrom=%s start=%d step=1\n", chrom, 
                  k + msa->idx_offset + 1);
         tup = msa->ss->tuple_idx[j];
         printf("%.5f\t%.3f\t%.3f\n", tuple_pvals[tup],
