@@ -84,12 +84,12 @@ OPTIONS:
         --null and currently cannot be used with --features.
 
     --epsilon, -e <val>
-        (Default 1e-10) Threshold used in truncating tails of
-        distributions; tail probabilities less than this value are
-        discarded.  To get accurate p-values smaller than 1e-10, this
-        option will need to be used, at some cost in speed.  Note that
-        truncation affects only *right* tails, not left tails, so it should
-        be an issue only with p-values of acceleration.
+        (Default 1e-10 or 1e-6 if --wig or --base-by-base) Threshold used
+        in truncating tails of distributions; tail probabilities less than
+        this value are discarded.  To get accurate p-values smaller than
+        1e-10, this option will need to be used, at some cost in speed.
+        Note that truncation affects only *right* tails, not left tails, so
+        it should be an issue only with p-values of acceleration.
 
     --confidence-interval, -c <val>
         Allow for uncertainty in the estimate of the actual number of

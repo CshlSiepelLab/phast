@@ -18,6 +18,11 @@
    together */
 #define MAX_CONVOLVE_SIZE 22500
 
+/* default values for epsilon; can tolerate larger value with --wig or
+   --base-by-base */
+#define DEFAULT_EPSILON 1e-10
+#define DEFAULT_EPSILON_BASE_BY_BASE 1e-6
+
 void print_prior_only(int nsites, char *mod_fname, Vector *prior_distrib);
 void print_post_only(char *mod_fname, char *msa_fname, Vector *post_distrib,
                      double ci, double scale);
@@ -50,8 +55,9 @@ int main(int argc, char *argv[]) {
   /* variables for options with defaults */
   msa_format_type msa_format = FASTA;
   int nsites = -1, prior_only = FALSE, post_only = FALSE, quantiles = FALSE,
-    fit_model = FALSE, base_by_base = FALSE, output_wig = FALSE;
-  double ci = -1, epsilon = 1e-10;
+    fit_model = FALSE, base_by_base = FALSE, output_wig = FALSE, 
+    default_epsilon = TRUE;
+  double ci = -1, epsilon = DEFAULT_EPSILON;
   char *subtree_name = NULL, *chrom = NULL;
   GFF_Set *feats = NULL;
 
@@ -114,6 +120,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'e':
       epsilon = get_arg_dbl_bounds(optarg, 0, 0.1);
+      default_epsilon = FALSE;
       break;
     case 'q':
       quantiles = TRUE;
@@ -207,6 +214,10 @@ int main(int argc, char *argv[]) {
     if (fit_model) reroot(mod_fitted, subtree_name);
     /* note: rerooting has to be done before creating jump process */
   }
+
+  /* if base-by-base, use larger default epsilon */
+  if (base_by_base && default_epsilon)
+    epsilon = DEFAULT_EPSILON_BASE_BY_BASE;
 
   /* jump process for prior */
   jp = sub_define_jump_process(mod, epsilon);
