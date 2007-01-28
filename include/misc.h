@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.21 2006-10-29 21:22:51 acs Exp $
+/* $Id: misc.h,v 1.22 2007-01-28 20:22:00 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -27,6 +27,7 @@ struct hash_table;
 
 #define exp2(x) (pow(2,x))
 #define log2(x) ((x) <= 0 ? NEGINFTY : log(x) / M_LN2)
+#define log10(x) ((x) <= 0 ? NEGINFTY : log(x) / M_LN10)
 #define logit(x) ( 1 / (1 + exp(-(x))) )
 
 /* CAREFUL: multiple eval! */

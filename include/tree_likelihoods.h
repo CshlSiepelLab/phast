@@ -1,4 +1,4 @@
-/* $Id: tree_likelihoods.h,v 1.3 2005-06-22 07:11:20 acs Exp $
+/* $Id: tree_likelihoods.h,v 1.4 2007-01-28 20:22:00 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -21,7 +21,7 @@
    column tuple). */
 struct tp_struct {
   double ****base_probs;        /* posterior probability of each base
-                                   given a node, a site, a column
+                                   given a node, a column
                                    tuple, and a rate category.  First
                                    index is rate category, second is
                                    base, third is node, fourth is

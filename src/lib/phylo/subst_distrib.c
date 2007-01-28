@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.26 2005-10-22 06:11:24 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.27 2007-01-28 20:22:00 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -352,6 +352,44 @@ Vector *sub_posterior_distrib_alignment(JumpProcess *jp, MSA *msa) {
   free(counts);
   
   return retval;
+}
+
+/* compute individual site p-values, one per tuple.  If post_mean, and
+   post_var are non-NULL, also return tuple-by-tuple mean and variance
+   of posterior.  If prior_mean and prior_var are non-NULL, return
+   mean and variance of the prior, which will be the same for all
+   sites.  Returned array, post_mean, and post_var should have
+   dimension msa->ss->ntuples; prior_mean and prior_var should be
+   pointers to individual doubles */
+double *sub_pval_per_site(JumpProcess *jp, MSA *msa, 
+                          double *prior_mean, double *prior_var,
+                          double *post_mean, double *post_var
+) { 
+  int tup;
+  double var;
+  double *pvals = smalloc(msa->ss->ntuples * sizeof(double));
+  Vector *prior = sub_prior_distrib_site(jp);
+  double *x0; /* array of posterior means; used for p-value computation */
+
+  if (post_mean != NULL)
+    x0 = post_mean;             /* just reuse post_mean in this case */
+  else 
+    x0 = smalloc(msa->ss->ntuples * sizeof(double));
+
+  if (prior_mean != NULL && prior_var != NULL) 
+    pv_stats(prior, prior_mean, prior_var);
+
+  for (tup = 0; tup < msa->ss->ntuples; tup++) {
+    Vector *post = sub_posterior_distrib_site(jp, msa, tup); 
+    pv_stats(post, &x0[tup], &var);
+    if (post_var != NULL) post_var[tup] = var;
+    vec_free(post);
+  }  
+  pv_p_values(prior, x0, msa->ss->ntuples, pvals, LOWER);
+
+  if (post_mean == NULL) free(x0);
+  vec_free(prior);
+  return pvals;
 }
 
 /* compute mean and variance of number of substitutions, given tree

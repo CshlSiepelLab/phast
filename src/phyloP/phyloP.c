@@ -41,14 +41,18 @@ TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa,
                           char *subtree_name, double *scale,
                           double *sub_scale);
 void reroot(TreeModel *mod, char *subtree_name);
+void print_wig_scores(MSA *msa, double *tuple_pvals, char *seqname);
+void print_base_by_base(MSA *msa, double *tuple_pvals, double prior_mean, 
+                        double prior_var, double *tuple_post_means,
+                        double *tuple_post_vars, char *seqname);
 
 int main(int argc, char *argv[]) {
   /* variables for options with defaults */
   msa_format_type msa_format = FASTA;
   int nsites = -1, prior_only = FALSE, post_only = FALSE, quantiles = FALSE,
-    fit_model = FALSE;
+    fit_model = FALSE, base_by_base = FALSE, output_wig = FALSE;
   double ci = -1, epsilon = 1e-10;
-  char *subtree_name = NULL;
+  char *subtree_name = NULL, *seqname = NULL;
   GFF_Set *feats = NULL;
 
   /* other variables */
@@ -62,6 +66,8 @@ int main(int argc, char *argv[]) {
   char c;
   int j, old_nleaves, opt_idx;
   double scale = -1, sub_scale = -1;
+  double prior_mean, prior_var;
+  double *tuple_pvals = NULL, *tuple_post_means = NULL, *tuple_post_vars = NULL;
 
   struct option long_opts[] = {
     {"msa-format", 1, 0, 'i'},
@@ -73,11 +79,14 @@ int main(int argc, char *argv[]) {
     {"fit-model", 0, 0, 'F'},
     {"epsilon", 1, 0, 'e'},
     {"quantiles", 0, 0, 'q'},
+    {"wig-scores", 0, 0, 'w'},
+    {"base-by-base", 0, 0, 'b'},
+    {"seqname", 1, 0, 'N'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "i:n:pc:s:f:Fe:qh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "i:n:pc:s:f:Fe:qwbN:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'i':
       msa_format = msa_str_to_format(optarg);
@@ -109,6 +118,16 @@ int main(int argc, char *argv[]) {
     case 'q':
       quantiles = TRUE;
       break;
+    case 'w':
+      base_by_base = TRUE;
+      output_wig = TRUE;
+      break;
+    case 'b':
+      base_by_base = TRUE;
+      break;
+    case 'N':
+      seqname = optarg;
+      break;
     case 'h':
       printf(HELP);
       exit(0);
@@ -127,6 +146,8 @@ int main(int argc, char *argv[]) {
     die("ERROR: --quantiles cannot be used with --subtree.\n");
   if (feats != NULL && (prior_only || post_only || fit_model))
     die("ERROR: --features cannot be used with --null, --posterior, or --fit-model.\n");
+  if (base_by_base && (prior_only || post_only || subtree_name != NULL || fit_model || ci != -1 || feats != NULL))
+    die("ERROR: --wig and --base-by-base cannot be used with --null, --posterior, --features, --subtree, --fit-model, --quantiles, or --confidence-interval.\n");
 
   mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
 
@@ -138,6 +159,17 @@ int main(int argc, char *argv[]) {
                      NULL, NO_STRIP, FALSE); 
     else 
       msa = msa_new_from_file(msa_f, msa_format, NULL);
+
+    /* if base_by_base and undefined seqname, use filename root as seqname */
+    if (base_by_base && seqname == NULL) {
+      String *tmpstr = str_new_charstr(argv[optind+1]);
+      if (str_equals_charstr(tmpstr, "-")) seqname = "refseq";
+      else {
+        str_remove_path(tmpstr);
+        str_shortest_root(tmpstr, '.');
+        seqname = tmpstr->chars;    
+      }
+    }
 
     if (msa->ss == NULL)
       ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);
@@ -192,7 +224,23 @@ int main(int argc, char *argv[]) {
   if (subtree_name == NULL) {   /* full-tree mode */
     double post_mean, post_var;
 
-    if (feats == NULL) {
+    if (base_by_base) {
+      /* compute p-vals and (optionally) posterior means/variances per
+         tuple, then print to stdout in wig or wig-like format */  
+      if (!output_wig) {
+        tuple_post_means = smalloc(msa->ss->ntuples * sizeof(double));
+        tuple_post_vars = smalloc(msa->ss->ntuples * sizeof(double));
+      }
+      tuple_pvals = sub_pval_per_site(jp, msa, &prior_mean, &prior_var, 
+                                      tuple_post_means, tuple_post_vars);
+
+      if (output_wig)
+        print_wig_scores(msa, tuple_pvals, seqname);
+      else
+        print_base_by_base(msa, tuple_pvals, prior_mean, prior_var,
+                           tuple_post_means, tuple_post_vars, seqname);
+    }
+    else if (feats == NULL) {
       /* compute distributions and stats*/
       if (!post_only) 
         prior_distrib = sub_prior_distrib_alignment(jp, nsites);
@@ -671,4 +719,43 @@ void reroot(TreeModel *mod, char *subtree_name) {
     tmp = mod->tree->lchild;
     mod->tree->lchild = mod->tree->rchild;
     mod->tree->rchild = tmp;
+}
+
+void print_wig_scores(MSA *msa, double *tuple_pvals, char *seqname) {
+  int last, j, k;
+  last = -INFTY;
+  for (j = 0, k = 0; j < msa->length; j++) {
+    if (msa_get_char(msa, 0, j) != GAP_CHAR) {
+      if (!msa_missing_col(msa, 1, j)) {
+        if (k > last + 1) 
+          printf("fixedStep chrom=%s start=%d step=1\n", seqname, 
+                 k + msa->idx_offset + 1);
+        printf("%.3f\n", -log10(tuple_pvals[msa->ss->tuple_idx[j]]));
+        last = k;
+      }
+      k++;
+    }
+  }
+}
+
+void print_base_by_base(MSA *msa, double *tuple_pvals, double prior_mean, 
+                        double prior_var, double *tuple_post_means,
+                        double *tuple_post_vars, char *seqname) {
+  int last, j, k, tup;
+  last = -INFTY;
+  printf("# neutral mean = %.3f var = %.3f\n", prior_mean, prior_var);
+  for (j = 0, k = 0; j < msa->length; j++) {
+    if (msa_get_char(msa, 0, j) != GAP_CHAR) {
+      if (!msa_missing_col(msa, 1, j)) {
+        if (k > last + 1) 
+          printf("fixedStep chrom=%s start=%d step=1\n", seqname, 
+                 k + msa->idx_offset + 1);
+        tup = msa->ss->tuple_idx[j];
+        printf("%.5f\t%.3f\t%.3f\n", tuple_pvals[tup],
+               tuple_post_means[tup], tuple_post_vars[tup]);
+        last = k;
+      }
+      k++;
+    }
+  }
 }

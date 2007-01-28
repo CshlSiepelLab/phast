@@ -1,4 +1,4 @@
-/* $Id: prob_vector.c,v 1.7 2005-09-28 04:59:36 acs Exp $ 
+/* $Id: prob_vector.c,v 1.8 2007-01-28 20:22:00 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -89,6 +89,20 @@ double pv_p_value(Vector *distrib, double x_0, p_val_type side) {
       retval += distrib->data[x];
 
   return retval;
+}
+
+/* compute one-sided p-values for array of values.  Like pv_p_value, but
+   saves time by computing CDF and using for all pvals */
+void pv_p_values(Vector *distrib, double *x_0, int n, double *pvals,
+                 p_val_type side) {
+  Vector *cdf = pv_cdf(distrib, side); /* CDF for approp tail */
+  int i;
+
+  /* look up tail probabilities from CDF */
+  for (i = 0; i < n; i++) 
+    pvals[i] = cdf->data[(int)(side == LOWER ? floor(x_0[i]) : ceil(x_0[i]))];
+
+  vec_free(cdf);
 }
 
 /* normalize distribution */
@@ -334,5 +348,24 @@ Vector *pv_convolve_fast(Vector *p, int n, double epsilon) {
     vec_free(pow_p[i]);
 
   return retval;
+}
+
+/* compute CDF based on probability vector.  If side == UPPER,
+   computes cumulative probabilities for right tail rather than
+   left */
+Vector *pv_cdf(Vector *pdf, p_val_type side) {
+  Vector *cdf = vec_new(pdf->size);
+  int x;
+  if (side == LOWER) {
+    cdf->data[0] = pdf->data[0];
+    for (x = 1; x < pdf->size; x++) 
+      cdf->data[x] = cdf->data[x-1] + pdf->data[x];
+  }
+  else {
+    cdf->data[pdf->size-1] = pdf->data[pdf->size-1];
+    for (x = pdf->size-2; x >= 0; x--) 
+      cdf->data[x] = cdf->data[x+1] + pdf->data[x];
+  }
+  return cdf;
 }
 

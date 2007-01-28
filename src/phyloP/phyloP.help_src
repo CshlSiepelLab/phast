@@ -19,6 +19,10 @@ DESCRIPTION:
     by the prior, but it is possible to be even more conservative if
     desired (see --confidence-interval).
 
+    This progam can be used to analyze whole alignments, pre-specified
+    intervals (see --features), and individual sites (see --wig and
+    --base-by-base).
+
 EXAMPLES:
 
 OPTIONS:
@@ -41,16 +45,23 @@ OPTIONS:
         over the number of substitutions in the specified supertree
         and subtree will be output instead.
 
-    --confidence-interval, -c <val>
-        Allow for uncertainty in the estimate of the actual number of
-        substitutions by using a (central) confidence interval about the
-        mean of the specified size (0 < val < 1).  To be conservative, the
-        maximum of this interval is used when computing a p-value of
-        conservation, and the minimum is used when computing a p-value of
-        anti-conservation.  The variance of the posterior is computed
-        exactly, but the confidence interval is based on the assumption
-        that the combined distribution will be approximately normal (true
-        for large numbers of sites by central limit theorem).
+    --features, -f <file>
+        Read features from <file> (GFF or BED format) and output a
+        table of p-values and related statistics with one row per
+        feature.  The features are assumed to use the coordinate frame
+        of the first sequence in the alignment.  Not for use with
+        --null or --posterior.
+
+    --wig-scores, -w
+        Compute separate p-values per site, and then compute site-specific
+        conservation scores as -log(p).  Output base-by-base scores
+        in fixed-step wig format, using the coordinate system of the
+        reference sequence (first sequence in alignment).
+
+    --base-by-base, -b
+        Like --wig-scores, but for each site output the mean and variance
+        of the posterior distribution and a p-value.  Alternative
+        conservation scores can be derived from these statistics.
 
     --subtree, -s <node-name>
         Partition the tree into the subtree beneath the node whose name is
@@ -64,13 +75,6 @@ OPTIONS:
         one partition consisting only of human and the branch leading to it
         and another partition consisting of the rest of the tree.  This
         option assumes a reversible substitution model.
-
-    --features, -f <file>
-        Read features from <file> (GFF or BED format) and output a
-        table of p-values and related statistics with one row per
-        feature.  The features are assumed to use the coordinate frame
-        of the first sequence in the alignment.  Not for use with
-        --null or --posterior.
 
     --fit-model, -F
         Fit model to data before computing posterior distribution, by
@@ -86,6 +90,17 @@ OPTIONS:
         option will need to be used, at some cost in speed.  Note that
         truncation affects only *right* tails, not left tails, so it should
         be an issue only with p-values of acceleration.
+
+    --confidence-interval, -c <val>
+        Allow for uncertainty in the estimate of the actual number of
+        substitutions by using a (central) confidence interval about the
+        mean of the specified size (0 < val < 1).  To be conservative, the
+        maximum of this interval is used when computing a p-value of
+        conservation, and the minimum is used when computing a p-value of
+        anti-conservation.  The variance of the posterior is computed
+        exactly, but the confidence interval is based on the assumption
+        that the combined distribution will be approximately normal (true
+        for large numbers of sites by central limit theorem).
 
     --quantiles, -q
         (For use with --null or --posterior) Report quantiles of
