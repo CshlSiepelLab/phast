@@ -30,7 +30,7 @@ OPTIONS:
         only GT-AG, GC-AG, and AT-AC splice sites are allowed (see also
         --splice-strict)
 
-    --fshift, -h     
+    --fshift, -f 
         Require that no frame-shift gap is present in any species.  Frame 
         shifts are evaluated with respect to the reference sequence.  Gaps 
         that have non-multiple-of-three lengths are allowed if  
