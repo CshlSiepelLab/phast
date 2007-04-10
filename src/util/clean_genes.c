@@ -1,4 +1,4 @@
-/* $Id: clean_genes.c,v 1.40 2006-12-06 21:50:26 bbrejova Exp $
+/* $Id: clean_genes.c,v 1.41 2007-04-10 17:32:57 bbrejova Exp $
    Written by Adam Siepel, 2003-2004
    Copyright 2003-2004, Adam Siepel, University of California */
 
@@ -144,20 +144,39 @@ void problems_free(List *problems) {
   lst_free(problems);
 }
 
+inline int is_signal(char *str, int n_sig, char **signals, int *is_missing) {
+  /* determine if str equals one of the strings in signals,
+   * possibly with replacing some chars with missing values*/
+  int i, j;
+  int ok;
+
+  for (i = 0; i < n_sig; i++) {
+    ok = 1;
+    for (j = 0; j < strlen(signals[i]); j++) {
+      if (! is_missing[(int)str[j]] && str[j] != signals[i][j]) { 
+	ok = 0;
+	break;
+      }
+    }
+    if (ok) return 1;
+  }
+  return 0;
+}
+
+
 inline int is_conserved_start(GFF_Feature *feat, MSA *msa) {
   char tuplestr[4];
   int j;
   int start = feat->start - 1;  /* base 0 indexing */
   tuplestr[3] = '\0';
+  char * start_signal[1] = { "ATG" };
+
   for (j = 0; j < msa->nseqs; j++) {
     tuplestr[0] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start], j, 0);
     tuplestr[1] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start+1], j, 0);
     tuplestr[2] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start+2], j, 0);
-    if (msa->is_missing[(int)tuplestr[0]] && msa->is_missing[(int)tuplestr[1]]
-        && msa->is_missing[(int)tuplestr[2]])
-      continue;
-    if (feat->strand == '-') msa_reverse_compl_seq(tuplestr, 3);
-    if (strcmp(tuplestr, "ATG") != 0) return 0;
+    if (feat->strand == '-') msa_reverse_compl_seq(tuplestr, 3);    
+    if(! is_signal(tuplestr, 1, start_signal, msa->is_missing)) return 0;
   }
   return 1;
 }
@@ -168,20 +187,19 @@ inline int is_stop_codon(char *str) {
  /* strncmp allows testing of codons in the middle of larger strings */
 }
 
+
 inline int is_conserved_stop(GFF_Feature *feat, MSA *msa) {
   char tuplestr[4];
   int j;
   int start = feat->start - 1;
   tuplestr[3] = '\0';
+  char * stop_signals[3] = { "TAA", "TAG", "TGA" };
   for (j = 0; j < msa->nseqs; j++) {
     tuplestr[0] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start], j, 0);
     tuplestr[1] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start+1], j, 0);
     tuplestr[2] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start+2], j, 0);
-    if (msa->is_missing[(int)tuplestr[0]] && msa->is_missing[(int)tuplestr[1]]
-        && msa->is_missing[(int)tuplestr[2]])
-      continue;
     if (feat->strand == '-') msa_reverse_compl_seq(tuplestr, 3);
-    if (!is_stop_codon(tuplestr)) return 0;
+    if (!is_signal(tuplestr, 3, stop_signals, msa->is_missing)) return 0;
   }
   return 1;
 }
@@ -202,13 +220,14 @@ inline int is_conserved_5splice(GFF_Feature *feat, MSA *msa, int offset5,
   int j, start = feat->start - 1;  /* base 0 indexing */
   if (feat->strand == '-') start += offset5;
   tuplestr[2] = '\0';
+  char * splice_signals[3] = {"GT", "GC", "AT"};
+
   for (j = 0; j < msa->nseqs; j++) {
     tuplestr[0] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start], j, 0);
     tuplestr[1] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start+1], j, 0);
-    if (msa->is_missing[(int)tuplestr[0]] && msa->is_missing[(int)tuplestr[1]])
-      continue;
     if (feat->strand == '-') msa_reverse_compl_seq(tuplestr, 2);
-    if (!is_valid_5splice(tuplestr, splice_strict)) return 0;
+    if (!is_signal(tuplestr, (splice_strict?1:3), splice_signals, msa->is_missing)) 
+      return 0;
   }
   return 1;
 }
@@ -228,13 +247,13 @@ inline int is_conserved_3splice(GFF_Feature *feat, MSA *msa, int offset3,
   int j, start = feat->start - 1;  /* base 0 indexing */
   if (feat->strand == '+') start += offset3;
   tuplestr[2] = '\0';
+  char * splice_signals[2] = {"AG", "AC"};
   for (j = 0; j < msa->nseqs; j++) {
     tuplestr[0] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start], j, 0);
     tuplestr[1] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start+1], j, 0);
-    if (msa->is_missing[(int)tuplestr[0]] && msa->is_missing[(int)tuplestr[1]])
-      continue;
     if (feat->strand == '-') msa_reverse_compl_seq(tuplestr, 2);
-    if (!is_valid_3splice(tuplestr, splice_strict)) return 0;
+    if (!is_signal(tuplestr, (splice_strict?1:2), splice_signals, msa->is_missing)) 
+      return 0;
   }
   return 1;
 }
@@ -477,23 +496,16 @@ int feature_comparator_descending(const void* ptr1, const void* ptr2) {
   return (feat2->end - feat1->end);
 }
 
-/* returns 1 if a 5' and a 3' splice site form a valid pair */
-inline int is_valid_splice_pair(char *ss5, char *ss3) {
-  if ((strcmp(ss5, "GT") == 0 && strcmp(ss3, "AG") == 0) ||
-      (strcmp(ss5, "GC") == 0 && strcmp(ss3, "AG") == 0) ||
-      (strcmp(ss5, "AT") == 0 && strcmp(ss3, "AC") == 0)) 
-    return 1;
-  return 0;
-}
 
 /* given a list of 5' and 3' splice sites extracted from a group,
    check whether they form valid pairs in all species */
 int are_introns_okay(List *intron_splice,  MSA *msa, List *problems,
                      int offset5, int offset3) {
   int i, j, start1, start2;
-  char str1[3], str2[3];
+  char str1[3], str2[3], str12[5];
   char strand;
   int retval = 1;
+  char * splice_pairs[3] = {"GTAG", "GCAG", "ATAC"};
 
   str1[2] = '\0'; str2[2] = '\0';
 
@@ -521,12 +533,12 @@ int are_introns_okay(List *intron_splice,  MSA *msa, List *problems,
         str1[1] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start1+1], j, 0);
         str2[0] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start2], j, 0);
         str2[1] = ss_get_char_tuple(msa, msa->ss->tuple_idx[start2+1], j, 0);
-        if (strcmp(str1, "NN") == 0 || strcmp(str2, "NN") == 0) continue;
         if (strand == '-') {
           msa_reverse_compl_seq(str1, 2);
           msa_reverse_compl_seq(str2, 2);
         }
-        if (!is_valid_splice_pair(str1, str2)) {
+	strcpy(str12, str1); strcat(str12, str2);
+        if (!is_signal(str12, 3, splice_pairs, msa->is_missing)) {
           problem_add(problems, f1, BAD_INTRON, -1, -1);
           problem_add(problems, f2, BAD_INTRON, -1, -1);
           retval = 0;
