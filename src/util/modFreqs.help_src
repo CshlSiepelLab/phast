@@ -1,0 +1,12 @@
+PROGRAM: modFreqs
+
+DESCRIPTION: Change background frequencies of reversible tree model in such
+a way that reversibility is maintained.
+
+USAGE: modFreqs tree.mod <Afreq> <Cfreq> <Gfreq> <Tfreq> > new.mod
+        OR
+       modFreqs tree.mod <G+Cfreq> > new.mod
+
+OPTIONS:
+    --help, -h
+        Print this help message.
