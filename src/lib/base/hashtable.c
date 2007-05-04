@@ -3,7 +3,7 @@
    keys but not of data objects, which are managed as void*s (memory
    management expected to be done externally) */
 
-/* $Id: hashtable.c,v 1.4 2005-06-24 17:45:17 acs Exp $ 
+/* $Id: hashtable.c,v 1.5 2007-05-04 19:39:26 acs Exp $ 
    Written by Adam Siepel, 2002.
    Copyright 2002, Adam Siepel, University of California.
 */
@@ -24,7 +24,7 @@ Hashtable* hsh_new(int est_capacity) {
   int i;
   ht = (Hashtable*)smalloc(sizeof(Hashtable));
   ht->nbuckets = ceil(est_capacity*1.0/LOADING_FACTOR);
-  assert(ht->nbuckets > 0);
+  if (ht->nbuckets < 10) ht->nbuckets = 10;
   ht->keys = (List**)calloc(ht->nbuckets, sizeof(List*));
   ht->vals = (List**)calloc(ht->nbuckets, sizeof(List*));
   for (i = 0; i < ht->nbuckets; i++) 
