@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
   List *l;
   int i, j, strand, bed_output = 0, backgd_nmods = -1, feat_nmods = -1, 
     winsize = -1, verbose = 0, max_nmods, memblocksize, old_nleaves,
-    refidx = 1, base_by_base = FALSE;
+    refidx = 1, base_by_base = FALSE, windowWig = FALSE;
   TreeModel **backgd_mods = NULL, **feat_mods = NULL;
   HMM *backgd_hmm = NULL, *feat_hmm = NULL;
   msa_format_type inform = FASTA;
@@ -40,6 +40,7 @@ int main(int argc, char *argv[]) {
     {"feature-hmm", 1, 0, 'F'},
     {"features", 1, 0, 'g'},
     {"window", 1, 0, 'w'},
+    {"window-wig", 1, 0, 'W'},
     {"base-by-base", 0, 0, 'y'},
     {"msa-format", 1, 0, 'i'},
     {"refidx", 1, 0, 'r'},
@@ -49,7 +50,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "B:b:F:f:r:g:w:i:ydvh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "B:b:F:f:r:g:w:W:i:ydvh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'B':
       backgd_hmm = hmm_new_from_file(fopen_fname(optarg, "r"));
@@ -80,6 +81,11 @@ int main(int argc, char *argv[]) {
       winsize = get_arg_int(optarg);
       if (winsize <= 0) die("ERROR: window size must be positive.\n");
       break;
+    case 'W':
+      winsize = get_arg_int(optarg);
+      if (winsize <= 0) die("ERROR: window size must be positive.\n");
+      windowWig = TRUE;
+      break;      
     case 'y':
       base_by_base = TRUE;
       break;
@@ -384,7 +390,7 @@ int main(int argc, char *argv[]) {
 
   if (verbose) fprintf(stderr, "Generating output ...\n");
   
-  if (winsize != -1) {          /* windows output */
+  if (winsize != -1 && windowWig == FALSE) { /* standard windows output */
     for (i = 0, j = 0; i < msa->length; i++) {
       if (no_alignment[i] == FALSE)
         printf("%d\t%.3f\t%.3f\n", j + msa->idx_offset + 1, winscore_pos[i], 
@@ -409,15 +415,18 @@ int main(int argc, char *argv[]) {
     else
       gff_print_set(stdout, features);
   }
-  else {                        /* base-by-base scores */
-    /* in this case, we can just output the difference between the
+  else {           /* base-by-base scores OR windows with window-wig */
+    /* for base-by-base scores, we can just output the difference between the
        emissions */
     printf("fixedStep chrom=%s start=%d step=1\n", 
            refidx > 0 ? msa->names[refidx-1] : "alignment",
            msa->idx_offset + 1);
     for (i = 0, j = 0; i < msa->length; i++) {
       if (refidx == 0 || msa_get_char(msa, refidx-1, i) != GAP_CHAR) {
-        printf("%.3f\n", feat_emissions[0][i] - backgd_emissions[0][i]);
+        if (windowWig == TRUE)  /* special case: use window score instead */
+          printf("%.3f\n", winscore_pos[i]);
+        else
+          printf("%.3f\n", feat_emissions[0][i] - backgd_emissions[0][i]);
         j++;
       }
     }

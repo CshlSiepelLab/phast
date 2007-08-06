@@ -99,6 +99,11 @@ OPTIONS:
         can only be used with individual phylogenetic models, not with sets
         of models and a (nontrivial) HMM.
 
+    --window-wig, -W <size>
+        (Can be used instead of -g or -y) Like --window but outputs scores
+        in fixed-step WIG format, as with --base-by-base.  Scores for the
+        positive strand only are output.
+
     --msa-format, -i <type>
         Input format for alignment.  May be FASTA, PHYLIP, MPM, SS, or
         MAF (default FASTA)
