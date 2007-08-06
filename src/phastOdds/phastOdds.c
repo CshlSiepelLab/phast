@@ -398,6 +398,21 @@ int main(int argc, char *argv[]) {
       if (ss_get_char_pos(msa, i, 0, 0) != GAP_CHAR) j++;
     }
   }
+  else if (windowWig == TRUE) { /* windows with wig output */
+    int last = NEGINFTY;
+    for (i = 0, j = 0; i < msa->length; i++) {
+      if (refidx == 0 || msa_get_char(msa, refidx-1, i) != GAP_CHAR) {
+        if (no_alignment[i] == FALSE && winscore_pos[i] > NEGINFTY) {
+          if (j > last + 1) 
+            printf("fixedStep chrom=%s start=%d step=1\n", 
+                   refidx > 0 ? msa->names[refidx-1] : "alignment",
+                   j + msa->idx_offset + 1);
+          printf("%.3f\n", winscore_pos[i]);
+        }
+        j++;
+      }
+    }
+  }
   else if (features != NULL) {  /* features output */
     /* return to coord frame of reference seq (also, replace offset) */
     if (refidx != 0)
@@ -415,18 +430,14 @@ int main(int argc, char *argv[]) {
     else
       gff_print_set(stdout, features);
   }
-  else {           /* base-by-base scores OR windows with window-wig */
-    /* for base-by-base scores, we can just output the difference between the
-       emissions */
+  else {           /* base-by-base scores */
+    /* in this case, we can just output the difference between the emissions */
     printf("fixedStep chrom=%s start=%d step=1\n", 
            refidx > 0 ? msa->names[refidx-1] : "alignment",
            msa->idx_offset + 1);
     for (i = 0, j = 0; i < msa->length; i++) {
       if (refidx == 0 || msa_get_char(msa, refidx-1, i) != GAP_CHAR) {
-        if (windowWig == TRUE)  /* special case: use window score instead */
-          printf("%.3f\n", winscore_pos[i]);
-        else
-          printf("%.3f\n", feat_emissions[0][i] - backgd_emissions[0][i]);
+        printf("%.3f\n", feat_emissions[0][i] - backgd_emissions[0][i]);
         j++;
       }
     }
