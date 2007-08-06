@@ -408,6 +408,7 @@ int main(int argc, char *argv[]) {
                    refidx > 0 ? msa->names[refidx-1] : "alignment",
                    j + msa->idx_offset + 1);
           printf("%.3f\n", winscore_pos[i]);
+          last = j;
         }
         j++;
       }
