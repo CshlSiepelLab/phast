@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.22 2007-01-28 20:22:00 acs Exp $
+/* $Id: misc.h,v 1.23 2007-11-27 21:12:14 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -163,6 +163,7 @@ int bn_draw_fast(int n, double pp);
 void mn_draw(int n, double *p, int d, int *counts);
 int draw_index(double *p, int size);
 struct hash_table *make_name_hash(char *mapstr);
+double exp_draw(double b);
 double gamma_pdf(double x, double a, double b);
 double gamma_draw(double a, double b);
 double beta_draw(double a, double b);

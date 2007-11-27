@@ -1,4 +1,4 @@
-/* $Id: subst_mods.h,v 1.6 2006-06-21 19:18:34 acs Exp $
+/* $Id: subst_mods.h,v 1.7 2007-11-27 21:12:13 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -26,6 +26,7 @@ typedef enum {
   R3S,
   U3,
   U3S,
+  BGC,
   UNDEF_MOD
 } subst_mod_type;
 

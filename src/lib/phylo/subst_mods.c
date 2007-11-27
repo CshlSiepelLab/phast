@@ -1,4 +1,4 @@
-/* $Id: subst_mods.c,v 1.9 2006-06-21 19:12:19 acs Exp $
+/* $Id: subst_mods.c,v 1.10 2007-11-27 21:12:13 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -29,6 +29,7 @@ void tm_set_R3_matrix(TreeModel *mod, Vector *params, int start_idx);
 void tm_set_R3S_matrix(TreeModel *mod, Vector *params, int start_idx);
 void tm_set_U3_matrix(TreeModel *mod, Vector *params, int start_idx);
 void tm_set_U3S_matrix(TreeModel *mod, Vector *params, int start_idx);
+void tm_set_BGC_matrix(TreeModel *mod, double kappa, int kappa_idx, double alpha);
 void tm_init_mat_REV(TreeModel *mod, Vector *params, int nbranches, 
                      double kappa);
 void tm_init_mat_UNREST(TreeModel *mod, Vector *params, int nbranches, 
@@ -105,6 +106,8 @@ subst_mod_type tm_get_subst_mod_type(char *str) {
     retval = U3;
   else if (str_equals_nocase_charstr(subst_mod_str, "U3S"))
     retval = U3S;
+  else if (str_equals_nocase_charstr(subst_mod_str, "BGC"))
+    retval = BGC;
   str_free(subst_mod_str);
   return retval;
 }
@@ -142,6 +145,8 @@ char *tm_get_subst_mod_string(subst_mod_type type) {
     return "U3";
   case U3S:
     return "U3S";
+  case BGC:
+    return "BGC";
   default:
     return "(unknown model)";
   }
@@ -189,6 +194,8 @@ int tm_get_nratematparams(TreeModel *mod) {
     return 576;
   case U3S:
     return 288;
+  case BGC:
+    return 2;
   default:
     assert(0);
   }
@@ -197,7 +204,7 @@ int tm_get_nratematparams(TreeModel *mod) {
 
 int tm_is_reversible(int subst_mod) {
   return !(subst_mod == UNREST || subst_mod == U2 || subst_mod == U2S || 
-           subst_mod == U3 || subst_mod == U3S);
+           subst_mod == U3 || subst_mod == U3S || subst_mod == BGC);
 }
 
 int tm_order(int subst_mod) {
@@ -260,6 +267,9 @@ void tm_set_rate_matrix(TreeModel *mod, Vector *params, int i) {
   case U3S:
     tm_set_U3S_matrix(mod, params, i);
     break;
+  case BGC:
+    tm_set_BGC_matrix(mod, vec_get(params, i), i, vec_get(params, i+1));
+    break;
   default:
     assert(0);
   }
@@ -286,6 +296,10 @@ void tm_rate_params_init(TreeModel *mod, Vector *params,
     /* sigma often ends up near kappa, so this provides a reasonable
        initial guess. */
     vec_set(params, params_idx+1, kappa);
+    break;    
+  case BGC:
+    vec_set(params, params_idx, kappa);
+    vec_set(params, params_idx+1, 1);
     break;    
   case REV:
     tm_init_mat_REV(mod, params, params_idx, kappa);
@@ -356,6 +370,18 @@ void tm_rate_params_init_from_model(TreeModel *mod, Vector *params,
              mod->rate_matrix->inv_states['A']);
     vec_set(params, params_idx, kappa);
     vec_set(params, params_idx+1, kappa);
+    break;    
+  case BGC:
+    /* infer kappa from rate matrix */
+    kappa = 
+      mm_get(mod->rate_matrix, 
+             mod->rate_matrix->inv_states['G'], 
+             mod->rate_matrix->inv_states['A']) /
+      mm_get(mod->rate_matrix, 
+             mod->rate_matrix->inv_states['C'], 
+             mod->rate_matrix->inv_states['A']);
+    vec_set(params, params_idx, kappa);
+    vec_set(params, params_idx+1, 1); /* just use a 1 for gamma */
     break;    
   case REV:
     tm_init_mat_from_model_REV(mod, params, params_idx);
@@ -522,6 +548,43 @@ void tm_set_HKYG_matrix(TreeModel *mod, Vector *params, int start_idx ) {
           lst_push_int(mod->rate_matrix_param_col[sigma_idx], j);
         }
       }
+      mm_set(mod->rate_matrix, i, j, val);
+      rowsum += val;
+    }
+    mm_set(mod->rate_matrix, i, i, -1 * rowsum);
+  }
+}
+
+void tm_set_BGC_matrix(TreeModel *mod, double kappa, int kappa_idx, double alpha) {
+  int i, j;
+  int setup_mapping = 
+    (kappa_idx >= 0 && lst_size(mod->rate_matrix_param_row[kappa_idx]) == 0);
+  for (i = 0; i < mod->rate_matrix->size; i++) {
+    double rowsum = 0;
+    for (j = 0; j < mod->rate_matrix->size; j++) {
+      double val;
+      if (j == i) continue;
+      val = vec_get(mod->backgd_freqs, j); 
+      if (is_transition(mod->rate_matrix->states[i], 
+                           mod->rate_matrix->states[j])) {
+        val *= kappa;
+
+        if (setup_mapping) {
+          lst_push_int(mod->rate_matrix_param_row[kappa_idx], i);
+          lst_push_int(mod->rate_matrix_param_col[kappa_idx], j);
+        }
+      }
+
+      if ((mod->rate_matrix->states[j] == 'G' || mod->rate_matrix->states[j] == 'C') &&
+          (mod->rate_matrix->states[i] != 'G' && mod->rate_matrix->states[i] != 'C')) {
+        val *= alpha;
+
+        if (setup_mapping) {
+          lst_push_int(mod->rate_matrix_param_row[kappa_idx+1], i);
+          lst_push_int(mod->rate_matrix_param_col[kappa_idx+1], j);
+        } /* Check: is this right? */
+      }
+
       mm_set(mod->rate_matrix, i, j, val);
       rowsum += val;
     }
