@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.23 2007-11-27 21:12:14 acs Exp $
+/* $Id: misc.h,v 1.24 2007-12-03 03:33:05 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -166,6 +166,7 @@ struct hash_table *make_name_hash(char *mapstr);
 double exp_draw(double b);
 double gamma_pdf(double x, double a, double b);
 double gamma_draw(double a, double b);
+double d_beta(double x, double a, double b);
 double beta_draw(double a, double b);
 void dirichlet_draw(int k, double *alpha, double *theta);
 double rel_entropy(double *p, double *q, int d);

@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.32 2006-10-29 21:22:30 acs Exp $
+/* $Id: misc.c,v 1.33 2007-12-03 03:33:38 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -718,6 +718,14 @@ double gamma_draw(double a, double b) {
   /* so far we only have a draw from gamma(a, 1); multiply by b to
      obtain a draw from gamma(a, b) */
   return retval * b;
+}
+
+/* evaluate density of Beta distribution */
+double d_beta(double x, double a, double b) {
+  double lb;
+  assert(x >= 0 && x <= 1 && a >= 0 && b >= 0);
+  lb = lgamma(a+b) - lgamma(a) - lgamma(b) + (a-1) * log(x) + (b-1) * log(1-x);
+  return (exp(lb));
 }
 
 /* make a draw from a beta distribution with parameters 'a' and 'b'.  */
