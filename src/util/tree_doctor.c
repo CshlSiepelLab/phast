@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
     {"dissect", 0, 0, 'd'},
     {"name-ancestors", 0, 0, 'a'},
     {"reroot", 1, 0, 'R'},
-    {"with-branch", 0, 0, 'B'},
+    {"with-branch", 1, 0, 'B'},
     {"subtree", 1, 0, 'S'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
