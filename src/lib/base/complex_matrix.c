@@ -1,4 +1,4 @@
-/* $Id: complex_matrix.c,v 1.1 2005-06-22 07:11:20 acs Exp $
+/* $Id: complex_matrix.c,v 1.2 2008-02-14 22:46:34 acs Exp $
    Written by Adam Siepel, Summer 2005
    Copyright 2005, Adam Siepel, University of California
 */
@@ -175,4 +175,39 @@ void zmat_minus_eq(Zmatrix *thism, Zmatrix *subm) {
   for (i = 0; i < thism->nrows; i++)
     for (j = 0; j < thism->ncols; j++)  
       thism->data[i][j] = z_sub(thism->data[i][j], subm->data[i][j]);
+}
+
+/* Compute A = B * C * D where A, B, C, D are square matrices of the
+   same dimension, and C is diagonal.  Allow B, C, D to be complex
+   valued but assume their product is real valued (as when B,C,D
+   represent diagonalization of A).  C is described by a vector
+   representing its diagonal elements.  A temp matrix can optionally
+   be passed in to improve efficiency.  */
+void zmat_mult_real_diag(Matrix *A, Zmatrix *B, Zvector *C, Zmatrix *D,
+                         Zmatrix *scratch) {
+  int i, j;
+  int size = C->size;
+  Zmatrix *tmp;
+
+  assert(A->nrows == A->ncols && A->nrows == B->nrows &&
+         B->nrows == B->ncols && B->nrows == C->size && 
+         C->size == D->nrows && D->nrows == D->ncols);
+
+  if (scratch == NULL) 
+    tmp= zmat_new(size, size);
+  else {
+    assert(scratch->nrows == size && scratch->ncols == size);
+    tmp = scratch;
+  }
+
+  /* first compute tmp = C*D */
+  for (i = 0; i < size; i++) 
+    for (j = 0; j < size; j++) 
+      zmat_set(tmp, i, j, z_mul(zvec_get(C, i), zmat_get(D, i, j))); 
+
+  /* now compute A = B*tmp */
+  zmat_mult_real(A, B, tmp);
+
+  if (scratch == NULL)
+    zmat_free(tmp);
 }

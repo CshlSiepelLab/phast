@@ -1,4 +1,4 @@
-/* $Id: complex_matrix.h,v 1.3 2005-07-17 22:12:28 acs Exp $
+/* $Id: complex_matrix.h,v 1.4 2008-02-14 22:46:34 acs Exp $
    Written by Adam Siepel, Summer 2005
    Copyright 2005, Adam Siepel, University of California
 */
@@ -42,6 +42,8 @@ void zmat_vec_mult(Zvector *prod, Zmatrix *m, Zvector *v);
 void zmat_mult_real(Matrix *prod, Zmatrix *m1, Zmatrix *m2);
 void zmat_plus_eq(Zmatrix *thism, Zmatrix *addm);
 void zmat_minus_eq(Zmatrix *thism, Zmatrix *subm);
+void zmat_mult_real_diag(Matrix *A, Zmatrix *B, Zvector *C, Zmatrix *D,
+                         Zmatrix *scratch);
 
 /***************************************************************************
  * inline functions; also defined in complex_matrix.c 
