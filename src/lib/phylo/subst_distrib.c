@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.28 2008-02-18 05:01:46 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.29 2008-02-18 16:06:34 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -10,6 +10,7 @@
 #include <sufficient_stats.h>
 #include <prob_vector.h>
 #include <prob_matrix.h>
+#include <fit_column.h>
 
 /* (used below) compute and return a set of matrices giving p(b, n |
    j), the probability of n substitutions and a final base b given j
@@ -148,6 +149,30 @@ void sub_free_jump_process(JumpProcess *jp) {
   mat_free(jp->R);
   mat_free(jp->M);
   free(jp);
+}
+
+/* recompute conditional distributions for branches (necessary if
+   branch lengths change).  This version allows for scale factors */
+void sub_recompute_conditionals(JumpProcess *jp) {
+  int i, j;
+  for (i = 0; i < jp->mod->tree->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(jp->mod->tree->nodes, i);
+    if (n != jp->mod->tree) {
+
+      double t = n->dparent * jp->mod->scale;
+      if (jp->mod->subtree_root != NULL && jp->mod->in_subtree != NULL &&
+          jp->mod->in_subtree[i])
+        t *= jp->mod->scale_sub;
+
+      /* free old version */
+      for (j = 0; j < jp->R->nrows; j++)
+        mat_free(jp->branch_distrib[n->id][j]);
+
+      /* replace with new version */
+      jp->branch_distrib[n->id] = 
+        sub_distrib_branch_conditional(jp, t);
+    }
+  }
 }
 
 /* compute and return a probability vector giving p(n | t), the probability
@@ -361,15 +386,17 @@ Vector *sub_posterior_distrib_alignment(JumpProcess *jp, MSA *msa) {
    sites.  Returned array, post_mean, and post_var should have
    dimension msa->ss->ntuples; prior_mean and prior_var should be
    pointers to individual doubles */
-double *sub_pval_per_site(JumpProcess *jp, MSA *msa, 
-                          double *prior_mean, double *prior_var,
+double *sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type mode,
+                          int fit_model, double *prior_mean, double *prior_var,
                           double *post_mean, double *post_var
 ) { 
   int tup;
-  double var;
+  double var, lnl;
   double *pvals = smalloc(msa->ss->ntuples * sizeof(double));
   Vector *prior = sub_prior_distrib_site(jp);
+  Vector *post;
   double *x0; /* array of posterior means; used for p-value computation */
+  ColFitData *d;
 
   if (post_mean != NULL)
     x0 = post_mean;             /* just reuse post_mean in this case */
@@ -379,16 +406,34 @@ double *sub_pval_per_site(JumpProcess *jp, MSA *msa,
   if (prior_mean != NULL && prior_var != NULL) 
     pv_stats(prior, prior_mean, prior_var);
 
+  if (fit_model) 
+    d = col_init_fit_data(jp->mod, msa, ALL, mode, FALSE);
+  
   for (tup = 0; tup < msa->ss->ntuples; tup++) {
-    Vector *post = sub_posterior_distrib_site(jp, msa, tup); 
+    if (fit_model) {            /* estimate scale factor for col */
+      vec_set(d->params, 0, d->init_scale);
+      d->tupleidx = tup;
+      if (opt_bfgs(col_likelihood_wrapper, d->params, d, &lnl, d->lb, 
+                   d->ub, NULL, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
+        die("ERROR in estimation of scale for tuple %d.\n", tup);
+      jp->mod->scale = d->params->data[0];
+      sub_recompute_conditionals(jp);
+    }
+    post = sub_posterior_distrib_site(jp, msa, tup); 
     pv_stats(post, &x0[tup], &var);
     if (post_var != NULL) post_var[tup] = var;
     vec_free(post);
   }  
-  pv_p_values(prior, x0, msa->ss->ntuples, pvals, LOWER);
+  pv_p_values(prior, x0, msa->ss->ntuples, pvals, mode == CONS ? LOWER : UPPER);
 
   if (post_mean == NULL) free(x0);
   vec_free(prior);
+  if (fit_model) {
+    col_free_fit_data(d);
+    jp->mod->scale = 1;
+    sub_recompute_conditionals(jp); /* in case needed again */
+  }
+
   return pvals;
 }
 

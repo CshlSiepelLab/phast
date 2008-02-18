@@ -34,10 +34,11 @@ int main(int argc, char *argv[]) {
   char *subtree_name = NULL, *chrom = NULL;
   GFF_Set *feats = NULL;
   method_type method = SPH;
-  
+  mode_type mode = CONS;
+
   /* other variables */
   FILE *msa_f = NULL;
-  TreeModel *mod, *mod_fitted;
+  TreeModel *mod, *mod_fitted = NULL;
   MSA *msa;
   Vector *prior_distrib, *post_distrib;
   Matrix *prior_joint_distrib, *post_joint_distrib;
@@ -54,6 +55,7 @@ int main(int argc, char *argv[]) {
 
   struct option long_opts[] = {
     {"method", 1, 0, 'm'},
+    {"mode", 1, 0, 'o'},
     {"msa-format", 1, 0, 'i'},
     {"null", 1, 0, 'n'},
     {"posterior", 0, 0, 'p'},
@@ -83,6 +85,15 @@ int main(int argc, char *argv[]) {
       else if (!strcmp(optarg, "GERP"))
         method = GERP;
       else die("ERROR: bad argument to --method (-m).\n");
+      break;
+    case 'o':
+      if (!strcmp(optarg, "CONS"))
+        mode = CONS;
+      else if (!strcmp(optarg, "ACCEL"))
+        mode = ACCEL;
+      else if (!strcmp(optarg, "NONNEUT"))
+        mode = NONNEUT;
+      else die("ERROR: bad argument to --mode (-o).\n");
       break;
     case 'i':
       msa_format = msa_str_to_format(optarg);
@@ -156,8 +167,6 @@ int main(int argc, char *argv[]) {
     die("ERROR: --wig and --base-by-base cannot be used with --null, --posterior, --features, --quantiles, or --confidence-interval.\n");
 
   /* temporary */
-  if (base_by_base && subtree_name != NULL)
-    die("ERROR: --subtree not yet supported with --wig or --base-by-base.\n");
   if (feats != NULL && method != SPH)
     die("ERROR: --features currently supported only with --method SPH.\n");
   if (!base_by_base && method != SPH)
@@ -238,7 +247,8 @@ int main(int argc, char *argv[]) {
     jp = sub_define_jump_process(mod, epsilon);
 
     /* jump process for posterior -- use fitted model if necessary */
-    jp_post = fit_model ? sub_define_jump_process(mod_fitted, epsilon) : jp;
+    jp_post = mod_fitted != NULL ? 
+      sub_define_jump_process(mod_fitted, epsilon) : jp;
     
     if (nsites == -1) nsites = msa->length;
 
@@ -253,7 +263,8 @@ int main(int argc, char *argv[]) {
           tuple_post_means = smalloc(msa->ss->ntuples * sizeof(double));
           tuple_post_vars = smalloc(msa->ss->ntuples * sizeof(double));
         }
-        tuple_pvals = sub_pval_per_site(jp, msa, &prior_mean, &prior_var, 
+        tuple_pvals = sub_pval_per_site(jp, msa, mode, fit_model, 
+                                        &prior_mean, &prior_var, 
                                         tuple_post_means, tuple_post_vars);
 
         if (output_wig)
@@ -340,7 +351,7 @@ int main(int argc, char *argv[]) {
       }
 
       if (subtree_name == NULL) { /* no subtree case */
-        col_lrts(mod, msa, FREE, tuple_pvals, tuple_scales, tuple_llrs);
+        col_lrts(mod, msa, mode, tuple_pvals, tuple_scales, tuple_llrs);
         if (output_wig)
           print_wig_scores(msa, tuple_pvals, chrom);
         else 
@@ -353,8 +364,8 @@ int main(int argc, char *argv[]) {
           tuple_null_scales = smalloc(msa->ss->ntuples * sizeof(double));
         }
 
-        col_lrts_sub(mod, msa, tuple_pvals, tuple_null_scales, tuple_scales, 
-                     tuple_sub_scales, tuple_llrs);
+        col_lrts_sub(mod, msa, mode, tuple_pvals, tuple_null_scales, 
+                     tuple_scales, tuple_sub_scales, tuple_llrs);
 
         if (output_wig)
           print_wig_scores(msa, tuple_pvals, chrom);

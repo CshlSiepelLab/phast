@@ -40,7 +40,7 @@ OPTIONS:
     --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
         Alignment format (default FASTA).  
 
-    --method, m SPH|LRT|SCORE|GERP
+    --method, -m SPH|LRT|SCORE|GERP
         Method used to compute p-values or conservation/acceleration scores
         (Default SPH).  The likelihood ratio test (LRT) and score test
         (SCORE) compare an alternative model having a free scale parameter
@@ -57,8 +57,8 @@ OPTIONS:
 
     --wig-scores, -w
         Compute separate p-values per site, and then compute site-specific
-        conservation scores as -log(p).  Output base-by-base scores
-        in fixed-step wig format, using the coordinate system of the
+        conservation (acceleration) scores as -log(p).  Output base-by-base
+        scores in fixed-step wig format, using the coordinate system of the
         reference sequence (first sequence in alignment).  In GERP mode,
         outputs rejected substitutions per site instead of -log p-values.
 
@@ -69,6 +69,15 @@ OPTIONS:
         includes the estimated scale factor(s) and test statistics, and
         with GERP it includes the posterior estimate of the number of
         substitutions for the species considered.
+
+    --mode, -o CONS|ACCEL|NONNEUT
+        (For use with --wig-scores, --base-by-base, and --metadata) Whether
+        to compute one-sided p-values so that small p (large -log p)
+        indicates unexpected conservation (CONS; the default) or
+        acceleration (ACCEL); or two-sided p-values such that small p
+        indicates an unexpected departure from neutrality (NONNEUT).
+        NONNEUT is only available in LRT and SCORE modes.  This option is
+        not relevant in GERP mode.
 
     --features, -f <file>
         Read features from <file> (GFF or BED format) and output a
@@ -110,9 +119,9 @@ OPTIONS:
         supertree and subtree will be output instead.
 
     --metadata, -d
-        Like --null, but summarizes null distribution in a compact, machine
-        readable form.  For use with visualization features in UCSC
-        Genome Browser.
+        Like --null, but summarizes null distribution for (nsites = 1) and
+        associated -log p-values in a compact, machine readable form.  For
+        use in supporting visualization in UCSC Genome Browser.
 
     --posterior, -p
         Compute just the posterior distribution of the number of
@@ -126,7 +135,8 @@ OPTIONS:
         estimating a scale factor for the whole tree or (if --subtree)
         separate scale factors for the specified subtree and supertree.
         Makes p-values less conservative.  This option has no effect with
-        --null and currently cannot be used with --features.
+        --null and currently cannot be used with --features.  However, it
+        can be used with --wig-scores and --base-by-base.
 
     --epsilon, -e <val>
         (Default 1e-10 or 1e-6 if --wig or --base-by-base) Threshold used

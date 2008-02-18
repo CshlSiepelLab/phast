@@ -1,4 +1,4 @@
-/* $Id: phyloP.h,v 1.1 2008-02-18 05:01:46 acs Exp $
+/* $Id: phyloP.h,v 1.2 2008-02-18 16:06:34 acs Exp $
    Written by Adam Siepel, 2006-2008 */
 
 /* Functions that output data computed by phyloP */
@@ -7,6 +7,7 @@
 #define PHYLOP_H
 
 void print_prior_only(int nsites, char *mod_fname, Vector *prior_distrib);
+void print_prior_metadata(char *mod_fname, Vector *prior_distrib);
 void print_post_only(char *mod_fname, char *msa_fname, Vector *post_distrib,
                      double ci, double scale);
 void print_p(char *mod_fname, char *msa_fname, Vector *prior_distrib,

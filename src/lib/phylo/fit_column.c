@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.1 2008-02-18 05:01:46 acs Exp $
+/* $Id: fit_column.c,v 1.2 2008-02-18 16:06:34 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -231,7 +231,7 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
         MarkovMatrix *lsubst_mat = d->mod->P[n->lchild->id][rcat];
         MarkovMatrix *rsubst_mat = d->mod->P[n->rchild->id][rcat];
         for (i = 0; i < nstates; i++) {
-          double totl = 0, totr = 0, A = 0, B = 0, C = 0, D = 0, E = 0, F = 0;
+          double totl = 0, totr = 0, A = 0, B = 0, E = 0, F = 0;
           for (j = 0; j < nstates; j++) {
             totl += L[j][n->lchild->id] * mm_get(lsubst_mat, i, j);
 
@@ -311,7 +311,211 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
    it will not be computed (saves some time).  */
 double col_scale_derivs_subtree(ColFitData *d, Vector *gradient, 
                                 Matrix *hessian, double ***scratch) {
-  return -1;
+  int i, j, k, nodeidx, rcat;
+  int nstates = d->mod->rate_matrix->size;
+  TreeNode *n;
+  double total_prob = 0;
+  List *traversal = tr_postorder(d->mod->tree);  
+  double **L;                   /* partial likelihoods */
+  double **LL;                  /* 1st deriv of partial likelihoods wrt
+                                   1st scale param */ 
+  double **LLL;                 /* 2nd deriv of partial likelihoods
+                                   wrt 1st scale param */
+  double **MM;                  /* 1st deriv of partial likelihoods
+                                   wrt 2nd scale param */
+  double **MMM;                 /* 2nd deriv of partial likelihoods
+                                   wrt 2nd scale param */
+  double **NNN;                 /* 2nd cross deriv (off diagonal in
+                                   Hessian) of partial likelihoods */
+
+  double *pd = gradient->data;  /* 1st partial derivatives */
+  double **pd2 = (hessian == NULL ? NULL : hessian->data);
+                                /* 2nd partial derivatives; because of
+                                   symmetry, only pd2[0][0],
+                                   pd2[1][1], and pd2[1][0] need to be
+                                   considered during computation */
+
+  assert(d->msa->ss->tuple_size == 1);
+  assert(d->mod->order == 0);
+  assert(d->mod->allow_gaps == TRUE);
+
+  pd[0] = pd[1] = 0;
+  if (pd2 != NULL) 
+    pd2[0][0] = pd2[1][1] = pd2[0][1] = pd2[1][0] = 0;
+
+  /* allocate memory or use scratch if available */
+  if (scratch == NULL) {
+    L = smalloc(nstates * sizeof(double*));
+    LL = smalloc(nstates * sizeof(double*));
+    MM = smalloc(nstates * sizeof(double*));
+    if (pd2 != NULL) {
+      LLL = smalloc(nstates * sizeof(double*));
+      MMM = smalloc(nstates * sizeof(double*));
+      NNN = smalloc(nstates * sizeof(double*));
+    }
+    for (j = 0; j < nstates; j++) {
+      L[j] = smalloc((d->mod->tree->nnodes+1) * sizeof(double)); 
+      LL[j] = smalloc((d->mod->tree->nnodes+1) * sizeof(double)); 
+      MM[j] = smalloc((d->mod->tree->nnodes+1) * sizeof(double)); 
+      if (pd2 != NULL) {
+        LLL[j] = smalloc((d->mod->tree->nnodes+1) * sizeof(double)); 
+        MMM[j] = smalloc((d->mod->tree->nnodes+1) * sizeof(double)); 
+        NNN[j] = smalloc((d->mod->tree->nnodes+1) * sizeof(double)); 
+      }
+    }
+  }
+  else {
+    L = scratch[0];
+    LL = scratch[1];
+    LLL = scratch[2];
+    MM = scratch[3];
+    MMM = scratch[4];
+    NNN = scratch[5];
+  }
+
+  col_scale_derivs_subst(d);
+
+  for (rcat = 0; rcat < d->mod->nratecats; rcat++) {
+    for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
+      n = lst_get_ptr(traversal, nodeidx);      
+      if (n->lchild == NULL) { 
+        /* leaf: base case of recursion */
+        int state = d->mod->rate_matrix->
+          inv_states[(int)ss_get_char_tuple(d->msa, d->tupleidx, 
+                                            d->mod->msa_seq_idx[n->id], 0)];
+        for (i = 0; i < nstates; i++) {
+          if (state < 0 || i == state) 
+            L[i][n->id] = 1;
+          else
+            L[i][n->id] = 0; 
+
+          LL[i][n->id] = MM[i][n->id] = 0;
+          if (pd2 != NULL) 
+            LLL[i][n->id] = MMM[i][n->id] = NNN[i][n->id] = 0;
+        }
+      }
+      else {                    
+        /* general recursive case */
+        MarkovMatrix *lsubst_mat = d->mod->P[n->lchild->id][rcat];
+        MarkovMatrix *rsubst_mat = d->mod->P[n->rchild->id][rcat];
+        for (i = 0; i < nstates; i++) {
+          double totl = 0, totr = 0, A = 0, B = 0, C = 0, D = 0, E = 0, 
+            F = 0, G = 0, H = 0, I = 0, J = 0;
+          for (j = 0; j < nstates; j++) {
+            totl += L[j][n->lchild->id] * mm_get(lsubst_mat, i, j);
+
+            A += (L[j][n->lchild->id] * d->PP[n->lchild->id][rcat]->data[i][j]) +
+              (LL[j][n->lchild->id] * mm_get(lsubst_mat, i, j));
+
+            C += (L[j][n->lchild->id] * d->QQ[n->lchild->id][rcat]->data[i][j]) +
+              (MM[j][n->lchild->id] * mm_get(lsubst_mat, i, j));
+          }
+          
+          for (k = 0; k < nstates; k++) {
+            totr += L[k][n->rchild->id] * mm_get(rsubst_mat, i, k);
+
+            B += (L[k][n->rchild->id] * d->PP[n->rchild->id][rcat]->data[i][k]) +
+              (LL[k][n->rchild->id] * mm_get(rsubst_mat, i, k));
+
+            D += (L[k][n->rchild->id] * d->QQ[n->rchild->id][rcat]->data[i][k]) +
+              (MM[k][n->rchild->id] * mm_get(rsubst_mat, i, k));
+
+          }
+
+          L[i][n->id] = totl * totr;
+          LL[i][n->id] = totr*A + totl*B;
+          MM[i][n->id] = totr*C + totl*D;
+
+          if (pd2 != NULL) {
+            for (j = 0; j < nstates; j++) {
+              E += L[j][n->lchild->id] * d->PPP[n->lchild->id][rcat]->data[i][j] +
+                2 * LL[j][n->lchild->id] * d->PP[n->lchild->id][rcat]->data[i][j] + 
+                LLL[j][n->lchild->id] * mm_get(lsubst_mat, i, j); 
+              G += L[j][n->lchild->id] * d->QQQ[n->lchild->id][rcat]->data[i][j] +
+                2 * MM[j][n->lchild->id] * d->QQ[n->lchild->id][rcat]->data[i][j] +
+                MMM[j][n->lchild->id] * mm_get(lsubst_mat, i, j);
+              I += L[j][n->lchild->id] * d->RRR[n->lchild->id][rcat]->data[i][j] +
+                MM[j][n->lchild->id] * d->PP[n->lchild->id][rcat]->data[i][j] +
+                LL[j][n->lchild->id] * d->QQ[n->lchild->id][rcat]->data[i][j] +
+                NNN[j][n->lchild->id] * mm_get(lsubst_mat, i, j);
+            }
+
+            for (k = 0; k < nstates; k++) {
+              F += L[k][n->rchild->id] * d->PPP[n->rchild->id][rcat]->data[i][k] +
+                2 * LL[k][n->rchild->id] * d->PP[n->rchild->id][rcat]->data[i][k] + 
+                LLL[k][n->rchild->id] * mm_get(rsubst_mat, i, k);
+              H += L[k][n->rchild->id] * d->QQQ[n->rchild->id][rcat]->data[i][k] +
+                2 * MM[k][n->rchild->id] * d->QQ[n->rchild->id][rcat]->data[i][k] + 
+                MMM[k][n->rchild->id] * mm_get(rsubst_mat, i, k);
+              J += L[k][n->rchild->id] * d->RRR[n->rchild->id][rcat]->data[i][k] +
+                MM[k][n->rchild->id] * d->PP[n->rchild->id][rcat]->data[i][k] + 
+                LL[k][n->rchild->id] * d->QQ[n->rchild->id][rcat]->data[i][k] + 
+                NNN[k][n->rchild->id] * mm_get(rsubst_mat, i, k);
+            }
+
+            LLL[i][n->id] = totr*E + 2*A*B + totl*F;
+            MMM[i][n->id] = totr*G + 2*C*D + totl*H;
+            NNN[i][n->id] = totr*I + A*D + B*C + totl*J;
+          }
+        }
+      }
+    }
+
+    /* termination (for each rate cat) */
+    for (i = 0; i < nstates; i++) {
+      total_prob += L[i][d->mod->tree->id] * vec_get(d->mod->backgd_freqs, i) * 
+        d->mod->freqK[rcat];
+
+      pd[0] += LL[i][d->mod->tree->id] * vec_get(d->mod->backgd_freqs, i) * 
+        d->mod->freqK[rcat];
+      pd[1] += MM[i][d->mod->tree->id] * vec_get(d->mod->backgd_freqs, i) * 
+        d->mod->freqK[rcat];
+
+      if (pd2 != NULL) {
+        pd2[0][0] += LLL[i][d->mod->tree->id] * vec_get(d->mod->backgd_freqs, i) * 
+          d->mod->freqK[rcat];
+        pd2[1][1] += MMM[i][d->mod->tree->id] * vec_get(d->mod->backgd_freqs, i) * 
+          d->mod->freqK[rcat];
+        pd2[1][0] += NNN[i][d->mod->tree->id] * vec_get(d->mod->backgd_freqs, i) * 
+          d->mod->freqK[rcat];
+      }
+    }
+  }
+
+  /* convert to log space */
+  if (pd2 != NULL) {
+    /* deriv of log and quotient rule */
+    pd2[0][0] =  (total_prob*pd2[0][0] - pd[0]*pd[0]) / (total_prob*total_prob);
+    pd2[1][1] =  (total_prob*pd2[1][1] - pd[1]*pd[1]) / (total_prob*total_prob);
+    pd2[1][0] =  (total_prob*pd2[1][0] - pd[1]*pd[0]) / (total_prob*total_prob);
+    pd2[0][1] =  pd2[1][0];
+  }
+  pd[0] = pd[0] / total_prob; /* deriv of log */
+  pd[1] = pd[1] / total_prob; 
+  total_prob = log(total_prob);
+
+  if (scratch == NULL) {
+    for (j = 0; j < nstates; j++) {
+      free(L[j]);
+      free(LL[j]);
+      free(MM[j]);
+      if (pd2 != NULL) {
+        free(LLL[j]);
+        free(MMM[j]);
+        free(NNN[j]);
+      }
+    }
+    free(L);
+    free(LL);
+    free(MM);
+    if (pd2 != NULL) {
+      free(LLL);
+      free(MMM);
+      free(NNN);
+    }
+  }
+
+  return(total_prob);
 }
 
 double col_likelihood_wrapper(Vector *params, void *data) {
@@ -331,17 +535,15 @@ double col_likelihood_wrapper(Vector *params, void *data) {
 void col_grad_wrapper(Vector *grad, Vector *params, void *data, 
                       Vector *lb, Vector *ub) {
   ColFitData *d = (ColFitData*)data;
+  double deriv;
 
-  d->mod->scale = vec_get(params, 0); /* necessary?  if so, prob also have to recompute subst matrices */
-
-  if (d->stype == SUBTREE) {
-    d->mod->scale_sub = vec_get(params, 1); /* necessary? */
-    col_scale_derivs_subtree(d, grad, NULL, d->fels_scratch);
+  if (d->stype == ALL) {
+    col_scale_derivs(d, &deriv, NULL, d->fels_scratch);
+    vec_set(grad, 0, -deriv);   /* because working with neg lnl */
   }
   else {
-    double deriv = 0;
-    col_scale_derivs(d, &deriv, NULL, d->fels_scratch);
-    vec_set(grad, 0, -deriv); /* because working with neg log likelihood */
+    col_scale_derivs_subtree(d, grad, NULL, d->fels_scratch);
+    vec_scale(grad, -1);
   }
 }
 
@@ -353,16 +555,16 @@ void col_grad_wrapper(Vector *grad, Vector *params, void *data,
    based using the chi-sq distribution and stores them in tuple_pvals.
    Will optionally store the individual scale factors in tuple_scales
    and raw log likelihood ratios in tuple_llrs if these variables are
-   non-NULL.  Must define bounds as CONS (for 0 <= scale <= 1), ACCEL
-   (for 1 <= scale), or FREE (0 <= scale) */ 
-void col_lrts(TreeModel *mod, MSA *msa, bound_type bounds, double *tuple_pvals, 
+   non-NULL.  Must define mode as CONS (for 0 <= scale <= 1), ACCEL
+   (for 1 <= scale), or NONNEUT (0 <= scale) */ 
+void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals, 
               double *tuple_scales, double *tuple_llrs) {
   int i;
   ColFitData *d;
   double null_lnl, alt_lnl;
 
   /* init ColFitData */
-  d = col_init_fit_data(mod, msa, ALL, bounds, FALSE);
+  d = col_init_fit_data(mod, msa, ALL, mode, FALSE);
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
@@ -375,13 +577,13 @@ void col_lrts(TreeModel *mod, MSA *msa, bound_type bounds, double *tuple_pvals,
     vec_set(d->params, 0, d->init_scale);
     d->tupleidx = i;
     if (opt_bfgs(col_likelihood_wrapper, d->params, d, &alt_lnl, d->lb, 
-                 d->ub, NULL /* stderr*/, col_grad_wrapper /*NULL*/, OPT_HIGH_PREC, NULL) != 0)
+                 d->ub, NULL, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
       die("ERROR in estimation of scale for tuple %d.\n", i);
 
     alt_lnl *= -1;
 
     /* compute p-vals via chi-sq */
-    if (bounds == FREE) 
+    if (mode == NONNEUT) 
       tuple_pvals[i] = chisq_cdf(2*(alt_lnl-null_lnl), 1, FALSE);
     else
       tuple_pvals[i] = half_chisq_cdf(2*(alt_lnl-null_lnl), 1, FALSE);
@@ -396,9 +598,62 @@ void col_lrts(TreeModel *mod, MSA *msa, bound_type bounds, double *tuple_pvals,
   col_free_fit_data(d);
 }
 
-void col_lrts_sub(TreeModel *mod, MSA *msa, double *tuple_pvals, 
-                  double *tuple_null_scales, double *tuple_scales, 
-                  double *tuple_sub_scales, double *tuple_llrs) {
+void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode, 
+                  double *tuple_pvals, double *tuple_null_scales, 
+                  double *tuple_scales, double *tuple_sub_scales, 
+                  double *tuple_llrs) {
+  int i;
+  ColFitData *d, *d2;
+  double null_lnl, alt_lnl;
+  TreeModel *mod2;
+
+  mod2 = tm_create_copy(mod);   /* need separate copy of tree model
+                                   with different internal scaling
+                                   data for supertree/subtree case */
+
+  /* init ColFitData -- one for null model, one for alt */
+  d = col_init_fit_data(mod, msa, ALL, NONNEUT, FALSE);
+  d2 = col_init_fit_data(mod2, msa, SUBTREE, mode, FALSE);
+
+  /* iterate through column tuples */
+  for (i = 0; i < msa->ss->ntuples; i++) {
+    /* compute log likelihoods under null and alt hypotheses */
+    d->tupleidx = i;
+    vec_set(d->params, 0, d->init_scale);
+    if (opt_bfgs(col_likelihood_wrapper, d->params, d, &null_lnl, d->lb, 
+                 d->ub, NULL, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
+      die("ERROR in estimation of scale for tuple %d.\n", i);
+    null_lnl *= -1;
+
+    vec_set(d2->params, 0, d2->init_scale);
+    vec_set(d2->params, 1, d2->init_scale_sub);
+    if (opt_bfgs(col_likelihood_wrapper, d2->params, d2, &alt_lnl, d2->lb, 
+                 d2->ub, NULL, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
+      die("ERROR in estimation of supertree/subtree scale for tuple %d.\n", i);
+    alt_lnl *= -1;
+
+    /* compute p-vals via chi-sq */
+    if (mode == NONNEUT) 
+      tuple_pvals[i] = chisq_cdf(2*(alt_lnl-null_lnl), 1, FALSE);
+    else
+      tuple_pvals[i] = half_chisq_cdf(2*(alt_lnl-null_lnl), 1, FALSE);
+    /* assumes 50:50 mix of chisq and point mass at zero, due to
+       bounding of param */
+
+    /* store scales and log likelihood ratios if necessary */
+    if (tuple_null_scales != NULL) 
+      tuple_null_scales[i] = vec_get(d->params, 0);
+    if (tuple_scales != NULL) 
+      tuple_scales[i] = vec_get(d->params, 0);
+    if (tuple_sub_scales != NULL) 
+      tuple_sub_scales[i] = vec_get(d->params, 1);
+    if (tuple_llrs != NULL) 
+      tuple_llrs[i] = alt_lnl - null_lnl;
+  }
+  
+  col_free_fit_data(d);
+  col_free_fit_data(d2);
+  tm_free(mod2);
 }
 
 void col_score_tests(TreeModel *mod, MSA *msa, double *tuple_pvals, 
@@ -411,7 +666,7 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, double *tuple_pvals,
 }
 
 ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
-                              bound_type bounds, int second_derivs) {
+                              mode_type mode, int second_derivs) {
   ColFitData *d = smalloc(sizeof(ColFitData));
   int size = mod->rate_matrix->size, nrcats = mod->nratecats, 
     nnodes = mod->tree->nnodes;
@@ -420,7 +675,7 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
   d->mod = mod;
   d->msa = msa;
   d->stype = stype;
-  d->bounds = bounds;
+  d->mode = mode;
   d->second_derivs = second_derivs;
   d->tupleidx = -1;         /* will be set as needed */
 
@@ -440,12 +695,12 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
   d->init_scale = d->init_scale_sub = 1;
 
   if (stype == ALL) {
-    if (bounds == CONS) {
+    if (mode == CONS) {
       vec_set(d->ub, 0, 1);
       d->init_scale = 0.9;      /* don't start on boundary but avoid
                                    strong initialization bias */
     }
-    else if (bounds == ACCEL) {
+    else if (mode == ACCEL) {
       vec_set(d->lb, 0, 1);
       d->init_scale = 1.1;      /* don't start on boundary but avoid
                                    strong initialization bias */
@@ -455,12 +710,12 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
     vec_set(d->lb, 1, 0);
     vec_set(d->ub, 1, INFTY);
 
-    if (bounds == CONS) {
+    if (mode == CONS) {
       vec_set(d->ub, 1, 1);
       d->init_scale_sub = 0.9;  /* don't start on boundary but avoid
                                    strong initialization bias */
     }
-    else if (bounds == ACCEL) {
+    else if (mode == ACCEL) {
       vec_set(d->lb, 1, 1);
       d->init_scale_sub = 1.1;  /* don't start on boundary but avoid
                                    strong initialization bias */
@@ -491,8 +746,9 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
   }
 
   d->expdiag = zvec_new(size); 
-  d->fels_scratch = smalloc(3 * sizeof(void*));
-  for (i = 0; i < 3; i++) {
+  d->nfels_scratch = stype == SUBTREE ? 6 : 3;
+  d->fels_scratch = smalloc(d->nfels_scratch * sizeof(void*));
+  for (i = 0; i < d->nfels_scratch; i++) {
     d->fels_scratch[i] = smalloc(size * sizeof(void*));
     for (j = 0; j < size; j++) 
       d->fels_scratch[i][j] = smalloc((nnodes+1) * sizeof(double)); 
@@ -531,7 +787,7 @@ void col_free_fit_data(ColFitData *d) {
   free(d->RRR);
 
   zvec_free(d->expdiag); 
-  for (i = 0; i < 3; i++) {
+  for (i = 0; i < d->nfels_scratch; i++) {
     for (j = 0; j < d->mod->rate_matrix->size; j++) 
       free(d->fels_scratch[i][j]);
     free(d->fels_scratch[i]);

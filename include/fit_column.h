@@ -1,4 +1,4 @@
-/* $Id: fit_column.h,v 1.1 2008-02-18 05:01:46 acs Exp $
+/* $Id: fit_column.h,v 1.2 2008-02-18 16:06:34 acs Exp $
    Written by Adam Siepel, 2008 */
 
 #ifndef FIT_COL_H
@@ -12,7 +12,7 @@
 #include <complex_matrix.h>
 
 typedef enum {ALL, SUBTREE} scale_type;
-typedef enum {CONS, ACCEL, FREE} bound_type;
+typedef enum {CONS, ACCEL, NONNEUT} mode_type;
 
 /* metadata for fitting scale factors to individual alignment columns */
 typedef struct {
@@ -21,7 +21,7 @@ typedef struct {
   int tupleidx;
   scale_type stype;             /* whether doing all-branches or
                                    supertree/subtree estimation  */
-  bound_type bounds;            /* type of parameter bounding  */
+  mode_type mode;            /* type of parameter bounding  */
   int second_derivs;            /* whether or not second derivatives
                                    need to be computed */
   Vector *params;
@@ -38,6 +38,7 @@ typedef struct {
 
   double ***fels_scratch;       /* scratch memory for Felsenstein's
                                    alg (likelihoods and derivatives) */
+  int nfels_scratch;            /* number of scratch arrays (depends on mode) */
   Zmatrix *mat_scratch;         /* scratch memory for derivative computation */
   Zvector *vec_scratch1, *vec_scratch2;
 } ColFitData;
@@ -56,12 +57,13 @@ double col_likelihood_wrapper(Vector *params, void *data);
 void col_grad_wrapper(Vector *grad, Vector *params, void *data, 
                       Vector *lb, Vector *ub);
 
-void col_lrts(TreeModel *mod, MSA *msa, bound_type bounds, double *tuple_pvals, 
+void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals, 
               double *tuple_scales, double *tuple_llrs);
 
-void col_lrts_sub(TreeModel *mod, MSA *msa, double *tuple_pvals, 
-                  double *tuple_null_scales, double *tuple_scales, 
-                  double *tuple_sub_scales, double *tuple_llrs);
+void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode, 
+                  double *tuple_pvals, double *tuple_null_scales, 
+                  double *tuple_scales, double *tuple_sub_scales, 
+                  double *tuple_llrs);
 
 void col_score_tests(TreeModel *mod, MSA *msa, double *tuple_pvals, 
                      double *tuple_derivs, double *tuple_teststats);
@@ -71,7 +73,7 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, double *tuple_pvals,
                          double *tuple_sub_derivs, double *tuple_teststats);
 
 ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
-                              bound_type bounds, int second_derivs);
+                              mode_type mode, int second_derivs);
 
 void col_free_fit_data(ColFitData *d);
 
