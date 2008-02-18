@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.3 2008-02-18 22:03:36 acs Exp $
+/* $Id: fit_column.c,v 1.4 2008-02-18 23:07:07 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -561,7 +561,7 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
               double *tuple_scales, double *tuple_llrs) {
   int i;
   ColFitData *d;
-  double null_lnl, alt_lnl;
+  double null_lnl, alt_lnl, delta_lnl;
 
   /* init ColFitData */
   d = col_init_fit_data(mod, msa, ALL, mode, FALSE);
@@ -582,17 +582,21 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
 
     alt_lnl *= -1;
 
+    delta_lnl = alt_lnl - null_lnl;
+    assert(delta_lnl > -1e-3);
+    if (delta_lnl < 0) delta_lnl = 0;
+
     /* compute p-vals via chi-sq */
     if (mode == NNEUT) 
-      tuple_pvals[i] = chisq_cdf(2*(alt_lnl-null_lnl), 1, FALSE);
+      tuple_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
     else
-      tuple_pvals[i] = half_chisq_cdf(2*(alt_lnl-null_lnl), 1, FALSE);
+      tuple_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
     /* assumes 50:50 mix of chisq and point mass at zero, due to
        bounding of param */
 
     /* store scales and log likelihood ratios if necessary */
     if (tuple_scales != NULL) tuple_scales[i] = vec_get(d->params, 0);
-    if (tuple_llrs != NULL) tuple_llrs[i] = alt_lnl - null_lnl;
+    if (tuple_llrs != NULL) tuple_llrs[i] = delta_lnl;
   }
   
   col_free_fit_data(d);
@@ -604,16 +608,18 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
                   double *tuple_llrs) {
   int i;
   ColFitData *d, *d2;
-  double null_lnl, alt_lnl;
-  TreeModel *mod2;
+  double null_lnl, alt_lnl, delta_lnl;
+  TreeModel *modcpy;
 
-  mod2 = tm_create_copy(mod);   /* need separate copy of tree model
+  modcpy = tm_create_copy(mod);   /* need separate copy of tree model
                                    with different internal scaling
                                    data for supertree/subtree case */
 
   /* init ColFitData -- one for null model, one for alt */
-  d = col_init_fit_data(mod, msa, ALL, NNEUT, FALSE);
-  d2 = col_init_fit_data(mod2, msa, SUBTREE, mode, FALSE);
+  d = col_init_fit_data(modcpy, msa, ALL, NNEUT, FALSE);
+  d2 = col_init_fit_data(mod, msa, SUBTREE, mode, FALSE); 
+                                /* mod has the subtree info, modcpy
+                                   does not */
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
@@ -625,18 +631,23 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
       die("ERROR in estimation of scale for tuple %d.\n", i);
     null_lnl *= -1;
 
+    d2->tupleidx = i;
     vec_set(d2->params, 0, d2->init_scale);
     vec_set(d2->params, 1, d2->init_scale_sub);
     if (opt_bfgs(col_likelihood_wrapper, d2->params, d2, &alt_lnl, d2->lb, 
-                 d2->ub, NULL, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
+                 d2->ub, NULL, NULL /*col_grad_wrapper*/, OPT_HIGH_PREC, NULL) != 0)
       die("ERROR in estimation of supertree/subtree scale for tuple %d.\n", i);
     alt_lnl *= -1;
 
+    delta_lnl = alt_lnl - null_lnl;
+    assert(delta_lnl > -0.1);
+    if (delta_lnl < 0) delta_lnl = 0;
+
     /* compute p-vals via chi-sq */
     if (mode == NNEUT) 
-      tuple_pvals[i] = chisq_cdf(2*(alt_lnl-null_lnl), 1, FALSE);
+      tuple_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
     else
-      tuple_pvals[i] = half_chisq_cdf(2*(alt_lnl-null_lnl), 1, FALSE);
+      tuple_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
     /* assumes 50:50 mix of chisq and point mass at zero, due to
        bounding of param */
 
@@ -644,16 +655,19 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
     if (tuple_null_scales != NULL) 
       tuple_null_scales[i] = vec_get(d->params, 0);
     if (tuple_scales != NULL) 
-      tuple_scales[i] = vec_get(d->params, 0);
+      tuple_scales[i] = vec_get(d2->params, 0);
     if (tuple_sub_scales != NULL) 
-      tuple_sub_scales[i] = vec_get(d->params, 1);
+      tuple_sub_scales[i] = vec_get(d2->params, 1);
     if (tuple_llrs != NULL) 
-      tuple_llrs[i] = alt_lnl - null_lnl;
+      tuple_llrs[i] = delta_lnl;
   }
   
   col_free_fit_data(d);
   col_free_fit_data(d2);
-  tm_free(mod2);
+  modcpy->estimate_branchlens = TM_BRANCHLENS_ALL; 
+                                /* have to revert for tm_free to work
+                                   correctly */
+  tm_free(modcpy);
 }
 
 void col_score_tests(TreeModel *mod, MSA *msa, double *tuple_pvals, 

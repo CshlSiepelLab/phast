@@ -219,11 +219,19 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  /* set subtree if necessary */
+  if (subtree_name != NULL && method != SPH) {
+    /* (SPH is a special case -- requires rerooting) */
+    mod->subtree_root = tr_get_node(mod->tree, subtree_name);
+    if (mod->subtree_root == NULL)
+      die("ERROR: no node named '%s'.\n", subtree_name);
+  }
+
   if (feats != NULL) 
     msa_map_gff_coords(msa, feats, 1, 0, 0, NULL);
   /* NOTE: msa offset not currently handled */
 
-  /* SPH mode */
+  /* SPH method */
   if (method == SPH) {
     /* fit model to whole data set if necessary */
     if (fit_model && (!base_by_base && feats == NULL)) 
@@ -305,7 +313,7 @@ int main(int argc, char *argv[]) {
       else                        /* --features case */
         print_p_feats(jp, msa, feats, ci);
     }
-    else {			/* supertree/subtree mode */
+    else {			/* SPH and supertree/subtree */
       double post_mean, post_var, post_mean_sup, post_var_sup, 
         post_mean_sub, post_var_sub;
 
@@ -338,9 +346,9 @@ int main(int argc, char *argv[]) {
       else                        /* --features case */
         print_p_joint_feats(jp, msa, feats, ci);
     }
-  } /* end SPH mode */
+  } /* end SPH */
 
-  /* LRT mode */
+  /* LRT method */
   else if (method == LRT) {
     if (base_by_base) {         /* currently only option */
 
@@ -370,14 +378,14 @@ int main(int argc, char *argv[]) {
         if (output_wig)
           print_wig_scores(msa, tuple_pvals, chrom);
         else 
-          print_base_by_base("#scale subscale lnlratio pval", chrom, msa, 
-                             3, tuple_null_scales, tuple_scales, 
+          print_base_by_base("#null_scale alt_scale alt_subscale lnlratio pval", 
+                             chrom, msa, 5, tuple_null_scales, tuple_scales, 
                              tuple_sub_scales, tuple_llrs, tuple_pvals);
       }
     }
-  } /* end LRT mode */
+  } /* end LRT method */
 
-  /* SCORE mode */
+  /* SCORE method */
   else if (method == SCORE) {
     if (base_by_base) {         /* currently only option */
 
@@ -411,12 +419,12 @@ int main(int argc, char *argv[]) {
                              tuple_pvals);
       }
     }
-  } /* end SCORE mode */
+  } /* end SCORE */
 
-  /* GERP mode */
+  /* GERP method */
   else if (method == GERP) {
     die("ERROR: GERP not yet implemented\n");
-  } /* end GERP mode */
+  } /* end GERP */
     
   return 0;
 }

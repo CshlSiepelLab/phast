@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.30 2008-02-18 05:01:46 acs Exp $
+/* $Id: tree_model.c,v 1.31 2008-02-18 23:07:07 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -122,7 +122,6 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   tm->in_subtree = NULL;
   tm->estimate_ratemat = TRUE;
   tm->ignore_branch = NULL;
-
   tm_init_rmp(tm);
 
   return tm;
