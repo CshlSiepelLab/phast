@@ -1,4 +1,4 @@
-/* $Id: fit_column.h,v 1.2 2008-02-18 16:06:34 acs Exp $
+/* $Id: fit_column.h,v 1.3 2008-02-18 22:03:36 acs Exp $
    Written by Adam Siepel, 2008 */
 
 #ifndef FIT_COL_H
@@ -12,7 +12,7 @@
 #include <complex_matrix.h>
 
 typedef enum {ALL, SUBTREE} scale_type;
-typedef enum {CONS, ACCEL, NONNEUT} mode_type;
+typedef enum {CON, ACC, NNEUT} mode_type;
 
 /* metadata for fitting scale factors to individual alignment columns */
 typedef struct {
@@ -21,7 +21,7 @@ typedef struct {
   int tupleidx;
   scale_type stype;             /* whether doing all-branches or
                                    supertree/subtree estimation  */
-  mode_type mode;            /* type of parameter bounding  */
+  mode_type mode;               /* type of parameter bounding  */
   int second_derivs;            /* whether or not second derivatives
                                    need to be computed */
   Vector *params;

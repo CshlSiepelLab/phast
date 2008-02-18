@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
   char *subtree_name = NULL, *chrom = NULL;
   GFF_Set *feats = NULL;
   method_type method = SPH;
-  mode_type mode = CONS;
+  mode_type mode = CON;
 
   /* other variables */
   FILE *msa_f = NULL;
@@ -87,12 +87,12 @@ int main(int argc, char *argv[]) {
       else die("ERROR: bad argument to --method (-m).\n");
       break;
     case 'o':
-      if (!strcmp(optarg, "CONS"))
-        mode = CONS;
-      else if (!strcmp(optarg, "ACCEL"))
-        mode = ACCEL;
-      else if (!strcmp(optarg, "NONNEUT"))
-        mode = NONNEUT;
+      if (!strcmp(optarg, "CON"))
+        mode = CON;
+      else if (!strcmp(optarg, "ACC"))
+        mode = ACC;
+      else if (!strcmp(optarg, "NNEUT"))
+        mode = NNEUT;
       else die("ERROR: bad argument to --mode (-o).\n");
       break;
     case 'i':

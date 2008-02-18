@@ -70,13 +70,13 @@ OPTIONS:
         with GERP it includes the posterior estimate of the number of
         substitutions for the species considered.
 
-    --mode, -o CONS|ACCEL|NONNEUT
+    --mode, -o CON|ACC|NNEUT
         (For use with --wig-scores, --base-by-base, and --metadata) Whether
         to compute one-sided p-values so that small p (large -log p)
-        indicates unexpected conservation (CONS; the default) or
-        acceleration (ACCEL); or two-sided p-values such that small p
-        indicates an unexpected departure from neutrality (NONNEUT).
-        NONNEUT is only available in LRT and SCORE modes.  This option is
+        indicates unexpected conservation (CON; the default) or
+        acceleration (ACC); or two-sided p-values such that small p
+        indicates an unexpected departure from neutrality (NNEUT).
+        NNEUT is only available in LRT and SCORE modes.  This option is
         not relevant in GERP mode.
 
     --features, -f <file>

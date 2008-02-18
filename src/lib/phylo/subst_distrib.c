@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.29 2008-02-18 16:06:34 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.30 2008-02-18 22:03:36 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -424,7 +424,7 @@ double *sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type mode,
     if (post_var != NULL) post_var[tup] = var;
     vec_free(post);
   }  
-  pv_p_values(prior, x0, msa->ss->ntuples, pvals, mode == CONS ? LOWER : UPPER);
+  pv_p_values(prior, x0, msa->ss->ntuples, pvals, mode == CON ? LOWER : UPPER);
 
   if (post_mean == NULL) free(x0);
   vec_free(prior);

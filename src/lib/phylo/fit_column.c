@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.2 2008-02-18 16:06:34 acs Exp $
+/* $Id: fit_column.c,v 1.3 2008-02-18 22:03:36 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -555,8 +555,8 @@ void col_grad_wrapper(Vector *grad, Vector *params, void *data,
    based using the chi-sq distribution and stores them in tuple_pvals.
    Will optionally store the individual scale factors in tuple_scales
    and raw log likelihood ratios in tuple_llrs if these variables are
-   non-NULL.  Must define mode as CONS (for 0 <= scale <= 1), ACCEL
-   (for 1 <= scale), or NONNEUT (0 <= scale) */ 
+   non-NULL.  Must define mode as CON (for 0 <= scale <= 1), ACC
+   (for 1 <= scale), or NNEUT (0 <= scale) */ 
 void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals, 
               double *tuple_scales, double *tuple_llrs) {
   int i;
@@ -583,7 +583,7 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
     alt_lnl *= -1;
 
     /* compute p-vals via chi-sq */
-    if (mode == NONNEUT) 
+    if (mode == NNEUT) 
       tuple_pvals[i] = chisq_cdf(2*(alt_lnl-null_lnl), 1, FALSE);
     else
       tuple_pvals[i] = half_chisq_cdf(2*(alt_lnl-null_lnl), 1, FALSE);
@@ -612,7 +612,7 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
                                    data for supertree/subtree case */
 
   /* init ColFitData -- one for null model, one for alt */
-  d = col_init_fit_data(mod, msa, ALL, NONNEUT, FALSE);
+  d = col_init_fit_data(mod, msa, ALL, NNEUT, FALSE);
   d2 = col_init_fit_data(mod2, msa, SUBTREE, mode, FALSE);
 
   /* iterate through column tuples */
@@ -633,7 +633,7 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
     alt_lnl *= -1;
 
     /* compute p-vals via chi-sq */
-    if (mode == NONNEUT) 
+    if (mode == NNEUT) 
       tuple_pvals[i] = chisq_cdf(2*(alt_lnl-null_lnl), 1, FALSE);
     else
       tuple_pvals[i] = half_chisq_cdf(2*(alt_lnl-null_lnl), 1, FALSE);
@@ -695,12 +695,12 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
   d->init_scale = d->init_scale_sub = 1;
 
   if (stype == ALL) {
-    if (mode == CONS) {
+    if (mode == CON) {
       vec_set(d->ub, 0, 1);
       d->init_scale = 0.9;      /* don't start on boundary but avoid
                                    strong initialization bias */
     }
-    else if (mode == ACCEL) {
+    else if (mode == ACC) {
       vec_set(d->lb, 0, 1);
       d->init_scale = 1.1;      /* don't start on boundary but avoid
                                    strong initialization bias */
@@ -710,12 +710,12 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
     vec_set(d->lb, 1, 0);
     vec_set(d->ub, 1, INFTY);
 
-    if (mode == CONS) {
+    if (mode == CON) {
       vec_set(d->ub, 1, 1);
       d->init_scale_sub = 0.9;  /* don't start on boundary but avoid
                                    strong initialization bias */
     }
-    else if (mode == ACCEL) {
+    else if (mode == ACC) {
       vec_set(d->lb, 1, 1);
       d->init_scale_sub = 1.1;  /* don't start on boundary but avoid
                                    strong initialization bias */
