@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.27 2007-01-28 20:22:00 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.28 2008-02-18 05:01:46 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -1017,4 +1017,33 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
   free(used);
 
   return stats;
+}
+
+/* reroot tree at specified subtree root; use before computing joint
+   distributions  */
+void sub_reroot(TreeModel *mod, char *subtree_name) {
+    TreeNode *subtree_root = tr_get_node(mod->tree, subtree_name);
+    TreeNode *tmp;
+
+    if (subtree_root == NULL) 
+      die("ERROR: no node named '%s'.\n", subtree_name);  
+
+    /* also make sure the supertree has nonzero branch length in the
+       unrooted tree */
+    if ((mod->tree->lchild == subtree_root && mod->tree->rchild->lchild == NULL) || 
+        (mod->tree->rchild == subtree_root && mod->tree->lchild->lchild == NULL))
+      die("ERROR: supertree contains no branches (in unrooted tree).\n");
+
+
+    tr_reroot(mod->tree, subtree_root, TRUE);
+    mod->tree = subtree_root->parent; /* take parent because including
+                                         branch */
+
+    /* swap left and right children.  This is necessary because
+       routines for computing joint distrib assume branch to right has
+       length zero, but because branch is included, tr_reroot will put
+       zero length branch on left */
+    tmp = mod->tree->lchild;
+    mod->tree->lchild = mod->tree->rchild;
+    mod->tree->rchild = tmp;
 }

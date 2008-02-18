@@ -1,4 +1,4 @@
-/* $Id: complex_vector.h,v 1.2 2005-06-24 17:41:52 acs Exp $
+/* $Id: complex_vector.h,v 1.3 2008-02-18 05:01:46 acs Exp $
    Written by Adam Siepel, Summer 2005
    Copyright 2005, Adam Siepel, University of California
 */
@@ -35,6 +35,7 @@ void zvec_zero(Zvector *v);
 void zvec_plus_eq(Zvector *thisv, Zvector *addv);
 void zvec_minus_eq(Zvector *thisv, Zvector *subv);
 void zvec_scale(Zvector *v, double scale_factor);
+void zvec_had_prod(Zvector *dest, Zvector *src1, Zvector *src2);
 
 /***************************************************************************
  * inline functions; also defined in complex_vector.c 
@@ -52,5 +53,6 @@ extern inline
 void zvec_set(Zvector *v, int i, Complex val) {
   v->data[i] = val;
 }
+
 
 #endif

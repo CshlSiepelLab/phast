@@ -61,4 +61,5 @@ p_value_joint_stats* sub_p_value_joint_many(JumpProcess *jp, MSA *msa,
                                             List *feats, double ci,
                                             int max_convolve_size,
                                             FILE *timing_f);
+void sub_reroot(TreeModel *mod, char *subtree_name);
 #endif

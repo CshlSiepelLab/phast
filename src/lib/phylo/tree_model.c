@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.29 2006-06-21 19:12:19 acs Exp $
+/* $Id: tree_model.c,v 1.30 2008-02-18 05:01:46 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -119,6 +119,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   tm->subtree_root = NULL;
   tm->scale_sub = 1;
   tm->scale_sub_bound = NB;
+  tm->in_subtree = NULL;
   tm->estimate_ratemat = TRUE;
   tm->ignore_branch = NULL;
 
@@ -213,6 +214,7 @@ void tm_free(TreeModel *tm) {
   if (tm->rate_matrix != NULL) mm_free(tm->rate_matrix);
   if (tm->backgd_freqs != NULL) vec_free(tm->backgd_freqs);
   if (tm->ignore_branch != NULL) free(tm->ignore_branch);
+  if (tm->in_subtree != NULL) free(tm->in_subtree);
   free(tm);
 }
 
@@ -471,7 +473,6 @@ TreeModel *tm_create_copy(TreeModel *src) {
 void tm_set_subst_matrices(TreeModel *tm) {
   int i, j;
   double scaling_const = -1, tmp;
-  int *in_subtree = NULL;
 
   if (tm->estimate_branchlens != TM_SCALE_ONLY && tm->scale != 1) 
     tm->scale = 1;
@@ -479,8 +480,9 @@ void tm_set_subst_matrices(TreeModel *tm) {
                                    only if estimating scale */
 
   /* if estimating scale factor for subtree, identify branches in subtree */
-  if (tm->estimate_branchlens == TM_SCALE_ONLY && tm->subtree_root != NULL) 
-    in_subtree = tr_in_subtree(tm->tree, tm->subtree_root);
+  if (tm->estimate_branchlens == TM_SCALE_ONLY && tm->subtree_root != NULL &&
+      tm->in_subtree == NULL) 
+    tm->in_subtree = tr_in_subtree(tm->tree, tm->subtree_root);
 
   /* need to compute a matrix scaling constant from the equilibrium
      freqs, in this case (see below) */
@@ -497,7 +499,9 @@ void tm_set_subst_matrices(TreeModel *tm) {
 
     if (n->parent == NULL) continue;
 
-    if (in_subtree != NULL && in_subtree[i]) branch_scale *= tm->scale_sub;
+    if (tm->estimate_branchlens == TM_SCALE_ONLY && tm->subtree_root != NULL
+        && tm->in_subtree[i]) 
+      branch_scale *= tm->scale_sub;
 
     for (j = 0; j < tm->nratecats; j++) {
       if (tm->P[i][j] == NULL)
@@ -521,8 +525,6 @@ void tm_set_subst_matrices(TreeModel *tm) {
                n->dparent * branch_scale * tm->rK[j]);
     }
   }
-
-  if (in_subtree != NULL) free(in_subtree);
 }
 
 /* version of above that can be used with specified branch length and

@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.16 2006-10-28 15:44:54 bbrejova Exp $
+/* $Id: tree_model.h,v 1.17 2008-02-18 05:01:46 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -108,6 +108,8 @@ struct tm_struct {
   double scale_sub;             /* scale factor for subtree, when
                                    estimating separate scale factors
                                    for subtree and supertree */
+  int *in_subtree;              /* array indicating whether each
+                                   branch is in designated subtree */
   scale_bound_type scale_sub_bound;
                                 /* bound on scale of subtree */
   TreeNode *subtree_root;       /* node defining subtree */

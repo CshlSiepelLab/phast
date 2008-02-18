@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.33 2007-12-03 03:33:38 acs Exp $
+/* $Id: misc.c,v 1.34 2008-02-18 05:01:46 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -649,7 +649,39 @@ struct hash_table *make_name_hash(char *mapstr) {
 
 /** Evaluate pdf of gamma distribution with parameters a and b */
 double gamma_pdf(double x, double a, double b) {
+  assert(x >= 0);
   return 1/(tgamma(a) * pow(b, a)) * pow(x, a-1) * exp(-x/b);
+}
+
+/** Evaluate cdf of gamma distribution with parameters a and b.  If
+    lower_tail == TRUE returns P(X<=x), else returns P(X>=x) */
+double gamma_cdf(double x, double a, double b, int lower_tail) {
+  assert(x >= 0);
+  return incomplete_gamma(a, x/b, lower_tail ? 'p' : 'q');
+}
+
+/* Evaluate pdf of chi-square distribution with dof degrees of freedom */
+double chisq_pdf(double x, double dof) {
+  assert(x >= 0);
+  return gamma_pdf(x, dof/2, 2);
+}
+
+/* Evaluate cdf of chi-square distribution with dof degrees of
+    freedom.  If lower_tail == TRUE returns P(X<=x), else returns
+    P(X>=x) */
+double chisq_cdf(double x, double dof, int lower_tail) {
+  assert(x >= 0);
+  return gamma_cdf(x, dof/2, 2, lower_tail);
+}
+
+/* Evaluate cdf of a 50:50 mixture of a chisq distribution with dof
+   degrees of freedom and a point mass at 0.  If lower_tail == TRUE
+   returns P(X<=x), else returns P(X>=x).  This function is useful in
+   likelihood ratio tests of bounded parameters. */
+double half_chisq_cdf(double x, double dof, int lower_tail) {
+  double retval = 0.5 * chisq_cdf(x, dof, lower_tail);
+  if (lower_tail || x == 0) retval += 0.5;
+  return(retval);
 }
 
 /* make a draw from an exponential distribution with parameter

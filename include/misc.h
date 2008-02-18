@@ -1,4 +1,4 @@
-/* $Id: misc.h,v 1.24 2007-12-03 03:33:05 acs Exp $
+/* $Id: misc.h,v 1.25 2008-02-18 05:01:46 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -165,7 +165,11 @@ int draw_index(double *p, int size);
 struct hash_table *make_name_hash(char *mapstr);
 double exp_draw(double b);
 double gamma_pdf(double x, double a, double b);
+double gamma_cdf(double x, double a, double b, int lower_tail);
 double gamma_draw(double a, double b);
+double chisq_pdf(double x, double dof);
+double chisq_cdf(double x, double dof, int lower_tail);
+double half_chisq_cdf(double x, double dof, int lower_tail);
 double d_beta(double x, double a, double b);
 double beta_draw(double a, double b);
 void dirichlet_draw(int k, double *alpha, double *theta);

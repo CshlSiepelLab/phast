@@ -1,4 +1,4 @@
-/* $Id: complex_vector.c,v 1.2 2005-06-24 17:45:17 acs Exp $
+/* $Id: complex_vector.c,v 1.3 2008-02-18 05:01:46 acs Exp $
    Written by Adam Siepel, Summer 2005
    Copyright 2005, Adam Siepel, University of California
 */
@@ -97,3 +97,10 @@ void zvec_scale(Zvector *v, double scale_factor) {
     v->data[i] = z_mul_real(v->data[i], scale_factor);
 }
 
+/* compute Hadamard (pointwise) product of two vectors */
+void zvec_had_prod(Zvector *dest, Zvector *src1, Zvector *src2) {
+  int i;
+  assert(dest->size == src1->size && src1->size == src2->size);
+  for (i = 0; i < dest->size; i++)
+    dest->data[i] = z_mul(src1->data[i], src2->data[i]);
+}
