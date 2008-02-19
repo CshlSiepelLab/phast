@@ -375,7 +375,7 @@ void print_wig_scores(MSA *msa, double *tuple_pvals, char *chrom) {
         if (k > last + 1) 
           printf("fixedStep chrom=%s start=%d step=1\n", chrom, 
                  k + msa->idx_offset + 1);
-        printf("%.3f\n", -log10(tuple_pvals[msa->ss->tuple_idx[j]]));
+        printf("%.3f\n", fabs(-log10(tuple_pvals[msa->ss->tuple_idx[j]])));
         last = k;
       }
       k++;

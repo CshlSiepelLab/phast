@@ -1,4 +1,4 @@
-/* $Id: numerical_opt.c,v 1.4 2005-06-22 07:23:21 acs Exp $
+/* $Id: numerical_opt.c,v 1.5 2008-02-19 03:20:16 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -438,7 +438,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
 
     /* minimize along xi */
     opt_lnsrch(params, fval, g, xi, params_new, retval, stpmax, &check, 
-               f, data, &nevals, &lambda); 
+               f, data, &nevals, &lambda, logf); 
     /* function is evaluated in opt_lnsrch, value is returned in
        retval.  We'll ignore the value of "check" here (see Press, et
        al.) */
@@ -772,7 +772,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
 void opt_lnsrch(Vector *xold, double fold, Vector *g, Vector *p, 
                 Vector *x, double *f, double stpmax, 
                 int *check_convergence, double (*func)(Vector*, void*), 
-                void *data, int *nevals, double *final_lambda) {
+                void *data, int *nevals, double *final_lambda, FILE *logf) {
 
   int i, n = xold->size;
   double a, lambda, lambda2, lamda_min, b, disc, f2, rhs1, rhs2, slope, sum,
@@ -786,7 +786,8 @@ void opt_lnsrch(Vector *xold, double fold, Vector *g, Vector *p,
 
   slope = vec_inner_prod(g, p);
   if (slope >= 0.0) {
-    fprintf(stderr, "ERROR: positive slope in opt_lnsrch.  Roundoff error?\n");
+    if (logf != NULL)
+      fprintf(logf, "WARNING: positive slope in opt_lnsrch.  Roundoff error?\n");
     vec_copy(x, xold);
     *check_convergence = 1;
     *final_lambda = lambda;

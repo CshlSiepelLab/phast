@@ -1,6 +1,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.36 2006-06-21 19:12:19 acs Exp $
+   $Id: phyloFit.c,v 1.37 2008-02-19 03:20:15 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California 
 */
@@ -367,7 +367,8 @@ int main(int argc, char *argv[]) {
       log_fname = optarg;
       if (!strcmp(log_fname, "-"))
         logf = stderr;
-      logf = fopen_fname(log_fname, "w+");
+      else
+        logf = fopen_fname(log_fname, "w+");
       break;
     case 'N':
       use_conditionals = 1;

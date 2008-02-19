@@ -10,7 +10,7 @@ DESCRIPTION:
     supertree given the whole tree (see --subtree).  P-values can be
     produced for entire input alignments (the default), pre-specified
     intervals within an alignment (see --features), or individual sites
-    (see --wig and --base-by-base).
+    (see --wig-scores and --base-by-base).
 
     The default behavior is to compute a null distribution for the total
     number of substitutions from the tree model, an estimate of the number
@@ -160,6 +160,13 @@ OPTIONS:
     --quantiles, -q
         (For use with --null or --posterior) Report quantiles of
         distribution rather than whole distribution.
+
+
+  (Options for LRT and SCORE mode only)
+
+    --log, -l <fname>
+        Write log to <fname> describing details of parameter optimization.
+        Useful for debugging.  (Warning: may produce large file.)
 
 
 REFERENCES:

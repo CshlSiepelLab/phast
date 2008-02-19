@@ -1,4 +1,4 @@
-/* $Id: numerical_opt.h,v 1.3 2005-06-22 07:11:20 acs Exp $
+/* $Id: numerical_opt.h,v 1.4 2008-02-19 03:20:16 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -45,7 +45,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
 void opt_lnsrch(Vector *xold, double fold, Vector *g, Vector *p, 
                 Vector *x, double *f, double stpmax, 
                 int *check_convergence, double (*func)(Vector*, void*), 
-                void *data, int *nevals, double *lambda);
+                void *data, int *nevals, double *lambda, FILE *logf);
 
 void opt_log(FILE *F, int header_only, double val, Vector *params, 
              Vector *derivs, int trunc, double lambda);

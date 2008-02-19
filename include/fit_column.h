@@ -1,4 +1,4 @@
-/* $Id: fit_column.h,v 1.3 2008-02-18 22:03:36 acs Exp $
+/* $Id: fit_column.h,v 1.4 2008-02-19 03:20:16 acs Exp $
    Written by Adam Siepel, 2008 */
 
 #ifndef FIT_COL_H
@@ -58,12 +58,12 @@ void col_grad_wrapper(Vector *grad, Vector *params, void *data,
                       Vector *lb, Vector *ub);
 
 void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals, 
-              double *tuple_scales, double *tuple_llrs);
+              double *tuple_scales, double *tuple_llrs, FILE *logf);
 
 void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode, 
                   double *tuple_pvals, double *tuple_null_scales, 
                   double *tuple_scales, double *tuple_sub_scales, 
-                  double *tuple_llrs);
+                  double *tuple_llrs, FILE *logf);
 
 void col_score_tests(TreeModel *mod, MSA *msa, double *tuple_pvals, 
                      double *tuple_derivs, double *tuple_teststats);

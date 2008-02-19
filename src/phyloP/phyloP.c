@@ -35,6 +35,7 @@ int main(int argc, char *argv[]) {
   GFF_Set *feats = NULL;
   method_type method = SPH;
   mode_type mode = CON;
+  FILE *logf = NULL;
 
   /* other variables */
   FILE *msa_f = NULL;
@@ -69,11 +70,13 @@ int main(int argc, char *argv[]) {
     {"base-by-base", 0, 0, 'b'},
     {"chrom", 1, 0, 'N'},
     {"metadata", 0, 0, 'd'},
+    {"log", 1, 0, 'l'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:i:n:pc:s:f:Fe:qwbdN:h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:o:i:n:pc:s:f:Fe:l:qwbdN:h", 
+                          long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'm':
       if (!strcmp(optarg, "SPH"))
@@ -140,6 +143,12 @@ int main(int argc, char *argv[]) {
       prior_metadata = TRUE;
       prior_only = TRUE;
       nsites = 1;
+      break;
+    case 'l':
+      if (!strcmp(optarg, "-"))
+        logf = stderr;
+      else
+        logf = fopen_fname(optarg, "w+");
       break;
     case 'h':
       printf(HELP);
@@ -359,7 +368,7 @@ int main(int argc, char *argv[]) {
       }
 
       if (subtree_name == NULL) { /* no subtree case */
-        col_lrts(mod, msa, mode, tuple_pvals, tuple_scales, tuple_llrs);
+        col_lrts(mod, msa, mode, tuple_pvals, tuple_scales, tuple_llrs, logf);
         if (output_wig)
           print_wig_scores(msa, tuple_pvals, chrom);
         else 
@@ -373,7 +382,7 @@ int main(int argc, char *argv[]) {
         }
 
         col_lrts_sub(mod, msa, mode, tuple_pvals, tuple_null_scales, 
-                     tuple_scales, tuple_sub_scales, tuple_llrs);
+                     tuple_scales, tuple_sub_scales, tuple_llrs, logf);
 
         if (output_wig)
           print_wig_scores(msa, tuple_pvals, chrom);

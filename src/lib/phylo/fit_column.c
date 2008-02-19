@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.4 2008-02-18 23:07:07 acs Exp $
+/* $Id: fit_column.c,v 1.5 2008-02-19 03:20:16 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -129,7 +129,10 @@ void col_scale_derivs_subst(ColFitData *d) {
                             d->mat_scratch);
       }
 
-      if (d->stype == SUBTREE) {
+      if (d->stype == SUBTREE && d->mod->in_subtree[nid]) {
+        /* if not in subtree, leave all of these equal to 0 (as
+           initialized) */
+
         /* QQ */
         zvec_copy(d->vec_scratch1, Q->evals);
         zvec_scale(d->vec_scratch1, t * l1);
@@ -558,7 +561,7 @@ void col_grad_wrapper(Vector *grad, Vector *params, void *data,
    non-NULL.  Must define mode as CON (for 0 <= scale <= 1), ACC
    (for 1 <= scale), or NNEUT (0 <= scale) */ 
 void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals, 
-              double *tuple_scales, double *tuple_llrs) {
+              double *tuple_scales, double *tuple_llrs, FILE *logf) {
   int i;
   ColFitData *d;
   double null_lnl, alt_lnl, delta_lnl;
@@ -577,13 +580,13 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
     vec_set(d->params, 0, d->init_scale);
     d->tupleidx = i;
     if (opt_bfgs(col_likelihood_wrapper, d->params, d, &alt_lnl, d->lb, 
-                 d->ub, NULL, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
+                 d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
       die("ERROR in estimation of scale for tuple %d.\n", i);
 
     alt_lnl *= -1;
 
     delta_lnl = alt_lnl - null_lnl;
-    assert(delta_lnl > -1e-3);
+    assert(delta_lnl > -0.01);
     if (delta_lnl < 0) delta_lnl = 0;
 
     /* compute p-vals via chi-sq */
@@ -605,7 +608,7 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
 void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode, 
                   double *tuple_pvals, double *tuple_null_scales, 
                   double *tuple_scales, double *tuple_sub_scales, 
-                  double *tuple_llrs) {
+                  double *tuple_llrs, FILE *logf) {
   int i;
   ColFitData *d, *d2;
   double null_lnl, alt_lnl, delta_lnl;
@@ -627,7 +630,7 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
     d->tupleidx = i;
     vec_set(d->params, 0, d->init_scale);
     if (opt_bfgs(col_likelihood_wrapper, d->params, d, &null_lnl, d->lb, 
-                 d->ub, NULL, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
+                 d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
       die("ERROR in estimation of scale for tuple %d.\n", i);
     null_lnl *= -1;
 
@@ -635,13 +638,14 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
     vec_set(d2->params, 0, d2->init_scale);
     vec_set(d2->params, 1, d2->init_scale_sub);
     if (opt_bfgs(col_likelihood_wrapper, d2->params, d2, &alt_lnl, d2->lb, 
-                 d2->ub, NULL, NULL /*col_grad_wrapper*/, OPT_HIGH_PREC, NULL) != 0)
+                 d2->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
       die("ERROR in estimation of supertree/subtree scale for tuple %d.\n", i);
     alt_lnl *= -1;
 
     delta_lnl = alt_lnl - null_lnl;
     assert(delta_lnl > -0.1);
-    if (delta_lnl < 0) delta_lnl = 0;
+    if (delta_lnl < 0 || delta_lnl < 0.001) delta_lnl = 0;
+    /* within tolerance of optimization */
 
     /* compute p-vals via chi-sq */
     if (mode == NNEUT) 
@@ -721,8 +725,11 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
     }
   }
   else {                        /* stype == SUBTREE */
-    vec_set(d->lb, 1, 0);
+    vec_set(d->lb, 1, 0);   
     vec_set(d->ub, 1, INFTY);
+    vec_set(d->lb, 0, 1e-6);    /* can't let this param go quite to
+                                   zero, because other param becomes
+                                   undefined */
 
     if (mode == CON) {
       vec_set(d->ub, 1, 1);
@@ -756,6 +763,12 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
       d->QQ[nid][rcat] = mat_new(size, size); 
       d->QQQ[nid][rcat] = mat_new(size, size); 
       d->RRR[nid][rcat] = mat_new(size, size); 
+
+      mat_zero(d->PP[nid][rcat]);
+      mat_zero(d->PPP[nid][rcat]);
+      mat_zero(d->QQ[nid][rcat]);
+      mat_zero(d->QQQ[nid][rcat]);
+      mat_zero(d->RRR[nid][rcat]);
     }
   }
 
