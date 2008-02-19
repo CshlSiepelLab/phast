@@ -1,4 +1,4 @@
-/* $Id: fit_column.h,v 1.4 2008-02-19 03:20:16 acs Exp $
+/* $Id: fit_column.h,v 1.5 2008-02-19 04:26:07 acs Exp $
    Written by Adam Siepel, 2008 */
 
 #ifndef FIT_COL_H
@@ -70,7 +70,8 @@ void col_score_tests(TreeModel *mod, MSA *msa, double *tuple_pvals,
 
 void col_score_tests_sub(TreeModel *mod, MSA *msa, double *tuple_pvals, 
                          double *tuple_null_scales, double *tuple_derivs,
-                         double *tuple_sub_derivs, double *tuple_teststats);
+                         double *tuple_sub_derivs, double *tuple_teststats,
+                         FILE *logf);
 
 ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
                               mode_type mode, int second_derivs);

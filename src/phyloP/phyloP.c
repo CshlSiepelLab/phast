@@ -399,9 +399,10 @@ int main(int argc, char *argv[]) {
     if (base_by_base) {         /* currently only option */
 
       tuple_pvals = smalloc(msa->ss->ntuples * sizeof(double));
-      if (!output_wig) 
+      if (!output_wig) {
         tuple_derivs = smalloc(msa->ss->ntuples * sizeof(double));
-
+        tuple_teststats = smalloc(msa->ss->ntuples * sizeof(double));
+      }
       if (subtree_name == NULL) { /* no subtree case */
         col_score_tests(mod, msa, tuple_pvals, tuple_derivs, tuple_teststats);
         if (output_wig)
@@ -417,13 +418,14 @@ int main(int argc, char *argv[]) {
         }
 
         col_score_tests_sub(mod, msa, tuple_pvals, tuple_null_scales, 
-                            tuple_derivs, tuple_sub_derivs, tuple_teststats);
+                            tuple_derivs, tuple_sub_derivs, tuple_teststats,
+                            logf);
 
         if (output_wig)
           print_wig_scores(msa, tuple_pvals, chrom);
         else 
           print_base_by_base("#scale deriv subderiv teststat pval", chrom, 
-                             msa, 3, tuple_null_scales, tuple_derivs, 
+                             msa, 5, tuple_null_scales, tuple_derivs, 
                              tuple_sub_derivs, tuple_teststats, 
                              tuple_pvals);
       }

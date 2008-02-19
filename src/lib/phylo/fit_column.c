@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.5 2008-02-19 03:20:16 acs Exp $
+/* $Id: fit_column.c,v 1.6 2008-02-19 04:26:07 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -615,8 +615,8 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
   TreeModel *modcpy;
 
   modcpy = tm_create_copy(mod);   /* need separate copy of tree model
-                                   with different internal scaling
-                                   data for supertree/subtree case */
+                                     with different internal scaling
+                                     data for supertree/subtree case */
 
   /* init ColFitData -- one for null model, one for alt */
   d = col_init_fit_data(modcpy, msa, ALL, NNEUT, FALSE);
@@ -676,11 +676,98 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
 
 void col_score_tests(TreeModel *mod, MSA *msa, double *tuple_pvals, 
                      double *tuple_derivs, double *tuple_teststats) {
+  int i;
+  ColFitData *d;
+  double first_deriv, second_deriv, teststat;
+
+  /* init ColFitData */
+  d = col_init_fit_data(mod, msa, ALL, NNEUT, FALSE);
+  /* FIXME: is a one-sided test possible? */
+
+  /* iterate through column tuples */
+  for (i = 0; i < msa->ss->ntuples; i++) {
+    d->tupleidx = i;
+    col_scale_derivs(d, &first_deriv, &second_deriv, d->fels_scratch);
+
+    teststat = -first_deriv*first_deriv / second_deriv;
+    if (teststat < 0) teststat = 0;
+
+    tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
+
+    /* store scales and log likelihood ratios if necessary */
+    if (tuple_derivs != NULL) tuple_derivs[i] = first_deriv;
+    if (tuple_teststats != NULL) tuple_teststats[i] = teststat;
+  }
+
+  col_free_fit_data(d);
 }
 
 void col_score_tests_sub(TreeModel *mod, MSA *msa, double *tuple_pvals, 
                          double *tuple_null_scales, double *tuple_derivs,
-                         double *tuple_sub_derivs, double *tuple_teststats) {
+                         double *tuple_sub_derivs, double *tuple_teststats,
+                         FILE *logf) {
+  int i;
+  ColFitData *d, *d2;
+  Vector *grad = vec_new(2);
+  Matrix *hessian = mat_new(2, 2);
+  double det, A, B, C, D, E, F, lnl, teststat;
+  TreeModel *modcpy = tm_create_copy(mod); /* need separate copy of tree model
+                                              with different internal scaling
+                                              data for supertree/subtree case */
+
+  /* init ColFitData -- one for null model, one for alt */
+  d = col_init_fit_data(modcpy, msa, ALL, NNEUT, FALSE);
+  d2 = col_init_fit_data(mod, msa, SUBTREE, NNEUT, TRUE); 
+                                /* mod has the subtree info, modcpy
+                                   does not */
+
+  /* FIXME: is a one-sided test possible? */
+
+  /* iterate through column tuples */
+  for (i = 0; i < msa->ss->ntuples; i++) {
+    d->tupleidx = i;
+    vec_set(d->params, 0, d->init_scale);
+    if (opt_bfgs(col_likelihood_wrapper, d->params, d, &lnl, d->lb, 
+                 d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
+      die("ERROR in estimation of scale for tuple %d.\n", i);
+
+    d2->tupleidx = i;
+    d2->mod->scale = d->params->data[0];
+    tm_set_subst_matrices(d2->mod);
+    col_scale_derivs_subtree(d2, grad, hessian, d2->fels_scratch);
+
+    det = hessian->data[0][0] * hessian->data[1][1]
+      - hessian->data[0][1] * hessian->data[1][0];
+    assert(det != 0);
+    A = hessian->data[1][1] / det; /* cell 0,0 of inverse Fisher matrix */
+    B = -hessian->data[0][1] / det; /* cell 0,1 */
+    C = -hessian->data[1][0] / det; /* cell 1,0 */
+    D = hessian->data[0][0] / det;  /* cell 1,1 */
+    E = grad->data[0];
+    F = grad->data[1];
+
+    teststat = E*E*A + E*F*C + E*B*F + F*F*D;
+    /* grad' * inv_fish * grad */
+
+    if (teststat < 0) teststat = 0;
+
+    tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
+
+    /* store scales and log likelihood ratios if necessary */
+    if (tuple_null_scales != NULL) tuple_null_scales[i] = d->params->data[0];
+    if (tuple_derivs != NULL) tuple_derivs[i] = E;
+    if (tuple_sub_derivs != NULL) tuple_sub_derivs[i] = F;
+    if (tuple_teststats != NULL) tuple_teststats[i] = teststat;
+  }
+
+  col_free_fit_data(d);
+  col_free_fit_data(d2);
+  vec_free(grad);
+  mat_free(hessian);
+  modcpy->estimate_branchlens = TM_BRANCHLENS_ALL; 
+                                /* have to revert for tm_free to work
+                                   correctly */
+  tm_free(modcpy);
 }
 
 ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
