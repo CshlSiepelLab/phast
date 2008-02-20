@@ -62,6 +62,14 @@ OPTIONS:
         reference sequence (first sequence in alignment).  In GERP mode,
         outputs rejected substitutions per site instead of -log p-values.
 
+    --wig-stats, -T
+        Like --wig-scores, but instead of -log p-values outputs the test
+        statistics on which they are based.  Useful in supporting
+        contextual zooming in UCSC genome browser.  Reported values at each
+        site represent the posterior expected number of substitutions
+        (SPH), the log likelihood ratio (LRT), or the test statistic for
+        the score test (SCORE).
+
     --base-by-base, -b
         Like --wig-scores, but outputs multiple values per site, in a
         method-dependent way.  With 'SPH', output includes mean and

@@ -1,4 +1,4 @@
-/* $Id: phyloP.h,v 1.2 2008-02-18 16:06:34 acs Exp $
+/* $Id: phyloP.h,v 1.3 2008-02-20 16:36:15 acs Exp $
    Written by Adam Siepel, 2006-2008 */
 
 /* Functions that output data computed by phyloP */
@@ -27,7 +27,7 @@ void print_p_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci);
 void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci);
 void print_quantiles(Vector *distrib);
 
-void print_wig_scores(MSA *msa, double *tuple_pvals, char *chrom);
+void print_wig(MSA *msa, double *tuple_pvals, char *chrom, int log_trans);
 void print_base_by_base(char *header, char *chrom, MSA *msa, int ncols, ...);
 
 #endif

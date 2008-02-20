@@ -366,8 +366,9 @@ void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
   str_re_free(tag_val_re);
 }
 
-void print_wig_scores(MSA *msa, double *tuple_pvals, char *chrom) {
+void print_wig(MSA *msa, double *vals, char *chrom, int log_trans) {
   int last, j, k;
+  double val;
   last = -INFTY;
   for (j = 0, k = 0; j < msa->length; j++) {
     if (msa_get_char(msa, 0, j) != GAP_CHAR) {
@@ -375,7 +376,9 @@ void print_wig_scores(MSA *msa, double *tuple_pvals, char *chrom) {
         if (k > last + 1) 
           printf("fixedStep chrom=%s start=%d step=1\n", chrom, 
                  k + msa->idx_offset + 1);
-        printf("%.3f\n", fabs(-log10(tuple_pvals[msa->ss->tuple_idx[j]])));
+        val = vals[msa->ss->tuple_idx[j]];
+        if (log_trans) val = fabs(-log10(val));
+        printf("%.3f\n", val);
         last = k;
       }
       k++;

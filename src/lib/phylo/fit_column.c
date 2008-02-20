@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.6 2008-02-19 04:26:07 acs Exp $
+/* $Id: fit_column.c,v 1.7 2008-02-20 16:36:15 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -590,12 +590,14 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
     if (delta_lnl < 0) delta_lnl = 0;
 
     /* compute p-vals via chi-sq */
-    if (mode == NNEUT) 
-      tuple_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
-    else
-      tuple_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
+    if (tuple_pvals != NULL) {
+      if (mode == NNEUT) 
+        tuple_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
+      else
+        tuple_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
     /* assumes 50:50 mix of chisq and point mass at zero, due to
        bounding of param */
+    }
 
     /* store scales and log likelihood ratios if necessary */
     if (tuple_scales != NULL) tuple_scales[i] = vec_get(d->params, 0);
@@ -648,12 +650,14 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
     /* within tolerance of optimization */
 
     /* compute p-vals via chi-sq */
-    if (mode == NNEUT) 
-      tuple_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
-    else
-      tuple_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
-    /* assumes 50:50 mix of chisq and point mass at zero, due to
-       bounding of param */
+    if (tuple_pvals != NULL) {
+      if (mode == NNEUT) 
+        tuple_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
+      else
+        tuple_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
+      /* assumes 50:50 mix of chisq and point mass at zero, due to
+         bounding of param */
+    }
 
     /* store scales and log likelihood ratios if necessary */
     if (tuple_null_scales != NULL) 
@@ -692,7 +696,8 @@ void col_score_tests(TreeModel *mod, MSA *msa, double *tuple_pvals,
     teststat = -first_deriv*first_deriv / second_deriv;
     if (teststat < 0) teststat = 0;
 
-    tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
+    if (tuple_pvals != NULL)
+      tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
 
     /* store scales and log likelihood ratios if necessary */
     if (tuple_derivs != NULL) tuple_derivs[i] = first_deriv;
@@ -751,7 +756,8 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, double *tuple_pvals,
 
     if (teststat < 0) teststat = 0;
 
-    tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
+    if (tuple_pvals != NULL)
+      tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
 
     /* store scales and log likelihood ratios if necessary */
     if (tuple_null_scales != NULL) tuple_null_scales[i] = d->params->data[0];
