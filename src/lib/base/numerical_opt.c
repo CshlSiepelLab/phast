@@ -1,4 +1,4 @@
-/* $Id: numerical_opt.c,v 1.5 2008-02-19 03:20:16 acs Exp $
+/* $Id: numerical_opt.c,v 1.6 2008-03-18 03:35:30 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -20,7 +20,7 @@
 #define DERIV_EPSILON 1e-6      /* for numerical computation of
                                    derivatives */
 
-#define EPS 1.11e-16            /* approx machine precision */
+#define EPS 1e-15               /* approx machine precision */
 
 #define TOLX_HIGH (4*EPS)       /* convergence criterion for param */
 #define TOLX_MED 1.0e-8         /* vals (high, medium, and low */
@@ -226,7 +226,7 @@ inline int scale_for_bounds(Vector *linev, Vector *params,
     double scale1 = 1, scale2 = 1;
     if (lower_bounds != NULL && 
         vec_get(params, i) + vec_get(linev, i) <
-        vec_get(lower_bounds, i) && vec_get(linev, i) != 0)
+        vec_get(lower_bounds, i) && vec_get(linev, i) != 0) 
       scale1 = (vec_get(params, i) - vec_get(lower_bounds, i) - EPS) /
         -vec_get(linev, i);
     if (upper_bounds != NULL && 
