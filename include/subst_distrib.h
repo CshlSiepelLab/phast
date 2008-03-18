@@ -47,7 +47,8 @@ Vector *sub_prior_distrib_alignment(JumpProcess *jp, int nsites);
 Vector *sub_posterior_distrib_alignment(JumpProcess *jp, MSA *msa);
 void sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type side,
                        int fit_model, double *prior_mean, double *prior_var, 
-                       double *pvals, double *post_mean, double *post_var);
+                       double *pvals, double *post_mean, double *post_var,
+                       FILE *logf);
 void sub_posterior_stats_alignment(JumpProcess *jp, MSA *msa, 
                                    double *mean, double *variance);
 Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx);

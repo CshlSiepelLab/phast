@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.31 2008-02-20 16:36:15 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.32 2008-03-18 20:14:09 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -388,7 +388,8 @@ Vector *sub_posterior_distrib_alignment(JumpProcess *jp, MSA *msa) {
    pointers to individual doubles */
 void sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type mode,
                        int fit_model, double *prior_mean, double *prior_var, 
-                       double *pvals, double *post_mean, double *post_var) { 
+                       double *pvals, double *post_mean, double *post_var,
+                       FILE *logf) { 
   int tup;
   double var, lnl;
   Vector *prior = sub_prior_distrib_site(jp);
@@ -405,15 +406,16 @@ void sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type mode,
     pv_stats(prior, prior_mean, prior_var);
 
   if (fit_model) 
-    d = col_init_fit_data(jp->mod, msa, ALL, mode, FALSE);
+    d = col_init_fit_data(jp->mod, msa, ALL, NNEUT, FALSE);
   
   for (tup = 0; tup < msa->ss->ntuples; tup++) {
     if (fit_model) {            /* estimate scale factor for col */
       vec_set(d->params, 0, d->init_scale);
       d->tupleidx = tup;
       if (opt_bfgs(col_likelihood_wrapper, d->params, d, &lnl, d->lb, 
-                   d->ub, NULL, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
-        die("ERROR in estimation of scale for tuple %d.\n", tup);
+                   d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
+        ;                       /* do nothing; warning will be
+                                   produced if problem */
       jp->mod->scale = d->params->data[0];
       sub_recompute_conditionals(jp);
     }

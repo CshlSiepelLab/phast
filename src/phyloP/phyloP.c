@@ -188,6 +188,8 @@ int main(int argc, char *argv[]) {
     die("ERROR: non-SPH methods currently require --wig or --base-by-base.\n");
   if (feats != NULL && fit_model)
     die("ERROR: --fit-model not yet supported with --features.\n");
+  if (mode == NNEUT && method == SPH)
+    die("ERROR: --mode NNEUT not yet supported with --method SPH.\n");
 
   mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
 
@@ -289,7 +291,8 @@ int main(int argc, char *argv[]) {
         if (!output_wig) 
           tuple_post_vars = smalloc(msa->ss->ntuples * sizeof(double));
         sub_pval_per_site(jp, msa, mode, fit_model, &prior_mean, &prior_var, 
-                          tuple_pvals, tuple_post_means, tuple_post_vars);
+                          tuple_pvals, tuple_post_means, tuple_post_vars,
+                          logf);
 
         if (output_wig) {
           if (wig_stats)
