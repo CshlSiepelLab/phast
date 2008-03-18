@@ -1,4 +1,4 @@
-/* $Id: numerical_opt.c,v 1.6 2008-03-18 03:35:30 acs Exp $
+/* $Id: numerical_opt.c,v 1.7 2008-03-18 14:30:37 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -253,7 +253,7 @@ inline void check_H(Matrix *H, Vector *at_bounds){
 
   /* first print H */
   fprintf(debugf, "\nUpdated inverse Hessian:\n");
-  mat_print(debugf, H);
+  mat_print(H, debugf);
 
   /* verify H has correct dimensionality */
   for (i = 0; i < H->nrows; i++) {
@@ -730,8 +730,8 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
   mat_free(bfgs_term);
 
   if (success == 0) {
-    fprintf(stderr, 
-            "ERROR: exceeded maximum number of iterations in opt_bfgs.\n");
+    fprintf(logf, 
+            "WARNING: exceeded maximum number of iterations in opt_bfgs.\n");
     return 1;
   }
   
