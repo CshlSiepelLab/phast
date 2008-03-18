@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.7 2008-02-20 16:36:15 acs Exp $
+/* $Id: fit_column.c,v 1.8 2008-03-18 14:30:57 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -580,8 +580,11 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
     vec_set(d->params, 0, d->init_scale);
     d->tupleidx = i;
     if (opt_bfgs(col_likelihood_wrapper, d->params, d, &alt_lnl, d->lb, 
-                 d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
-      die("ERROR in estimation of scale for tuple %d.\n", i);
+                 d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0) 
+      ;                         /* do nothing; nonzero exit typically
+                                   occurs when max iterations is
+                                   reached; a warning is printed to
+                                   the log */
 
     alt_lnl *= -1;
 
