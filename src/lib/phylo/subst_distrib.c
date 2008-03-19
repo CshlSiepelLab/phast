@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.32 2008-03-18 20:14:09 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.33 2008-03-19 03:14:48 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -67,8 +67,10 @@ int get_njumps_max(double lambda, double t_max, double epsilon) {
 
 /* define jump process based on substitution model */
 JumpProcess *sub_define_jump_process(TreeModel *mod, 
-                                     double epsilon 
+                                     double epsilon, 
                                      /* approximate precision (e.g., 1e-10) */
+                                     double maxbranch
+                                     /* maximum branch length to consider */
                                      ) {
   JumpProcess *jp = smalloc(sizeof(JumpProcess));
   int i, j, n, size = mod->rate_matrix->size;
@@ -83,8 +85,7 @@ JumpProcess *sub_define_jump_process(TreeModel *mod,
     if (val > jp->lambda) jp->lambda = val;
   }
 
-  jp->njumps_max = get_njumps_max(jp->lambda, tr_total_len(mod->tree), 
-                                  jp->epsilon);
+  jp->njumps_max = get_njumps_max(jp->lambda, maxbranch, jp->epsilon);
 
   /* now define jump matrix R */
   for (i = 0; i < size; i++) {
@@ -205,8 +206,12 @@ Matrix **sub_distrib_branch_conditional(JumpProcess *jp, double t) {
   Vector *pois = pv_poisson(jp->lambda * t, jp->epsilon);  
   int size = jp->mod->rate_matrix->size;
   Matrix **D = smalloc(size * sizeof(void*));
+  int maxjumps = pois->size;
 
-  assert(jp->njumps_max >= pois->size);
+  if (maxjumps > jp->njumps_max)
+    maxjumps = jp->njumps_max;  /* this can happen when scale factors
+                                   are being executed; just use the
+                                   max available */
 
   for (i = 0; i < size; i++) {
     D[i] = mat_new(size, pois->size);
@@ -219,8 +224,8 @@ Matrix **sub_distrib_branch_conditional(JumpProcess *jp, double t) {
 
   /* now combine with Poisson to get desired distribution */
   for (k = 0; k < size; k++)
-    for (n = 0; n < pois->size; n++) 
-      for (j = 0; j < pois->size; j++) 
+    for (n = 0; n < maxjumps; n++) 
+      for (j = 0; j < maxjumps; j++) 
         for (i = 0; i < size; i++)
           D[k]->data[i][n] += jp->B[k][i]->data[n][j] * pois->data[j];
   /* i.e., p(i, n | k, t) += p(i, n | j, k, t) * p(j | t) */

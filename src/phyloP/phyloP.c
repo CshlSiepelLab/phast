@@ -269,11 +269,17 @@ int main(int argc, char *argv[]) {
       epsilon = DEFAULT_EPSILON_BASE_BY_BASE;
 
     /* jump process for prior */
-    jp = sub_define_jump_process(mod, epsilon);
+    jp = sub_define_jump_process(mod, epsilon, tr_total_len(mod->tree));
 
     /* jump process for posterior -- use fitted model if necessary */
-    jp_post = mod_fitted != NULL ? 
-      sub_define_jump_process(mod_fitted, epsilon) : jp;
+    if (mod_fitted != NULL)
+      jp_post = sub_define_jump_process(mod_fitted, epsilon, 
+                                        tr_max_branchlen(mod->tree));
+    else if (fit_model && base_by_base) 
+      jp_post = sub_define_jump_process(mod, epsilon, 
+                                        10 * tr_max_branchlen(mod->tree));
+    else
+      jp_post = jp;
     
     if (nsites == -1) nsites = msa->length;
 

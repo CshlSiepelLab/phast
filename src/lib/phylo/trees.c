@@ -1,4 +1,4 @@
-/* $Id: trees.c,v 1.23 2006-01-09 21:53:57 acs Exp $ 
+/* $Id: trees.c,v 1.24 2008-03-19 03:14:48 acs Exp $ 
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -818,6 +818,19 @@ double tr_total_len_subtree(TreeNode *sub_root) {
   }
   stk_free(stack);
   return retval;
+}
+
+/** Compute and return maximum branch length in tree */
+double tr_max_branchlen(TreeNode *t) {
+  double retval = 0;
+  int i;
+  for (i = 0; i < t->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(t->nodes, i);
+    if (n->parent == NULL) continue;
+    if (n->dparent > retval)
+      retval = n->dparent;
+  }
+  return retval;  
 }
 
 /** Return node having specified name or NULL if none found.  */

@@ -201,7 +201,7 @@ void do_p_values(BDPhyloHmm *bdphmm, GFF_Set *predictions,
     state = cm_get_category(bdphmm->phmm->cm, lst_get_ptr(types, i));
 
     if (state == nnodes) {    /* fully conserved state */
-      jp = sub_define_jump_process(mod, 1e-10);
+      jp = sub_define_jump_process(mod, 1e-10, tr_total_len(mod->tree));
       stats_cons = sub_p_value_many(jp, msa, feats_this_type, -1);
       event_type = CONS;
       sub_free_jump_process(jp);
@@ -243,7 +243,7 @@ void do_p_values(BDPhyloHmm *bdphmm, GFF_Set *predictions,
       mod->tree->rchild = tmp;
 
       /* now get stats */
-      jp = sub_define_jump_process(mod, 1e-10);
+      jp = sub_define_jump_process(mod, 1e-10, tr_total_len(mod->tree));
       stats_bd = sub_p_value_joint_many(jp, msa, feats_this_type, -1, 
                                         MAX_CONVOLVE_SIZE, timing_f);
 

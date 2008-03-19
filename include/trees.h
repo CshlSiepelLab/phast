@@ -1,4 +1,4 @@
-/* $Id: trees.h,v 1.15 2006-01-09 21:53:58 acs Exp $
+/* $Id: trees.h,v 1.16 2008-03-19 03:14:48 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -76,6 +76,7 @@ void tr_print_ps(FILE *F, TreeNode *tree, int show_branch_lens,
                  int horizontal_layout);
 double tr_total_len(TreeNode *t);
 double tr_total_len_subtree(TreeNode *sub_root);
+double tr_max_branchlen(TreeNode *sub_root);
 TreeNode *tr_get_node(TreeNode *t, char *name);
 void tr_scale(TreeNode *t, double scale_const);
 void tr_scale_subtree(TreeNode *t, TreeNode *sub, double scale_const);
