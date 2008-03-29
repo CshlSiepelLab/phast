@@ -1,4 +1,4 @@
-/* $Id: msa_view.c,v 1.39 2006-11-12 23:59:39 acs Exp $
+/* $Id: msa_view.c,v 1.40 2008-03-29 21:28:56 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -468,7 +468,6 @@ int main(int argc, char* argv[]) {
     {"clean-coding", 1, 0, 'L'},
     {"clean-indels", 1, 0, 'I'},
     {"randomize", 0, 0, 'R'},
-    {"fill-Ns", 1, 0, 'N'},
     {"keep-overlapping", 0, 0, 'k'},
     {"missing-as-indels", 0, 0, 'm'},
     {"help", 0, 0, 'h'},
