@@ -52,7 +52,8 @@ int main(int argc, char *argv[]) {
   double *tuple_pvals = NULL, *tuple_post_means = NULL, *tuple_post_vars = NULL,
     *tuple_llrs = NULL, *tuple_scales = NULL, *tuple_sub_scales = NULL, 
     *tuple_null_scales = NULL, *tuple_derivs = NULL, *tuple_sub_derivs = NULL,
-    *tuple_teststats = NULL;
+    *tuple_teststats = NULL, *tuple_nneut = NULL, *tuple_ndiff = NULL,
+    *tuple_nspec = NULL, *tuple_nrejected = NULL;
 
   struct option long_opts[] = {
     {"method", 1, 0, 'm'},
@@ -180,14 +181,14 @@ int main(int argc, char *argv[]) {
     die("ERROR: --features cannot be used with --null, --posterior, or --fit-model.\n");
   if (base_by_base && (prior_only || post_only || ci != -1 || feats != NULL))
     die("ERROR: --wig and --base-by-base cannot be used with --null, --posterior, --features, --quantiles, or --confidence-interval.\n");
+  if (method == GERP && (subtree_name != NULL || mode != CON))
+    die("ERROR: --subtree and --mode not supported with --method GERP.\n");
 
   /* temporary */
   if (feats != NULL && method != SPH)
     die("ERROR: --features currently supported only with --method SPH.\n");
   if (!base_by_base && method != SPH)
     die("ERROR: non-SPH methods currently require --wig or --base-by-base.\n");
-  if (feats != NULL && fit_model)
-    die("ERROR: --fit-model not yet supported with --features.\n");
   if (mode == NNEUT && method == SPH)
     die("ERROR: --mode NNEUT not yet supported with --method SPH.\n");
 
@@ -310,7 +311,7 @@ int main(int argc, char *argv[]) {
           char str[1000];
           sprintf(str, "#neutral mean = %.3f var = %.3f\n#post_mean post_var pval", 
                   prior_mean, prior_var);
-          print_base_by_base(str, chrom, msa, 3, tuple_post_means, 
+          print_base_by_base(str, chrom, msa, 3, NULL, tuple_post_means, 
                              tuple_post_vars, tuple_pvals);
         }
       }
@@ -396,7 +397,7 @@ int main(int argc, char *argv[]) {
             print_wig(msa, tuple_pvals, chrom, TRUE);
         }
         else 
-          print_base_by_base("#scale lnlratio pval", chrom, msa, 3,
+          print_base_by_base("#scale lnlratio pval", chrom, msa, 3, NULL,
                              tuple_scales, tuple_llrs, tuple_pvals);
       }
       else {                    /* subtree case */
@@ -416,7 +417,7 @@ int main(int argc, char *argv[]) {
         }
         else 
           print_base_by_base("#null_scale alt_scale alt_subscale lnlratio pval", 
-                             chrom, msa, 5, tuple_null_scales, tuple_scales, 
+                             chrom, msa, 5, NULL, tuple_null_scales, tuple_scales,  
                              tuple_sub_scales, tuple_llrs, tuple_pvals);
       }
     }
@@ -434,7 +435,8 @@ int main(int argc, char *argv[]) {
         tuple_derivs = smalloc(msa->ss->ntuples * sizeof(double));
 
       if (subtree_name == NULL) { /* no subtree case */
-        col_score_tests(mod, msa, tuple_pvals, tuple_derivs, tuple_teststats);
+        col_score_tests(mod, msa, mode, tuple_pvals, tuple_derivs, 
+                        tuple_teststats);
         if (output_wig) {
           if (wig_stats)
             print_wig(msa, tuple_teststats, chrom, FALSE);
@@ -442,7 +444,7 @@ int main(int argc, char *argv[]) {
             print_wig(msa, tuple_pvals, chrom, TRUE);
         }
         else 
-          print_base_by_base("#deriv teststat pval", chrom, msa, 3,
+          print_base_by_base("#deriv teststat pval", chrom, msa, 3, NULL,
                              tuple_derivs, tuple_teststats, tuple_pvals);
       }
       else {                    /* subtree case */
@@ -451,7 +453,7 @@ int main(int argc, char *argv[]) {
           tuple_sub_derivs = smalloc(msa->ss->ntuples * sizeof(double));
         }
 
-        col_score_tests_sub(mod, msa, tuple_pvals, tuple_null_scales, 
+        col_score_tests_sub(mod, msa, mode, tuple_pvals, tuple_null_scales, 
                             tuple_derivs, tuple_sub_derivs, tuple_teststats,
                             logf);
 
@@ -463,7 +465,7 @@ int main(int argc, char *argv[]) {
         }
         else 
           print_base_by_base("#scale deriv subderiv teststat pval", chrom, 
-                             msa, 5, tuple_null_scales, tuple_derivs, 
+                             msa, 5, NULL, tuple_null_scales, tuple_derivs, 
                              tuple_sub_derivs, tuple_teststats, 
                              tuple_pvals);
       }
@@ -471,8 +473,25 @@ int main(int argc, char *argv[]) {
   } /* end SCORE */
 
   /* GERP method */
-  else if (method == GERP) {
-    die("ERROR: GERP not yet implemented\n");
+  else if (method == GERP) { 
+    if (base_by_base) {         /* currently only option */
+      tuple_nrejected = smalloc(msa->ss->ntuples * sizeof(double));
+      if (!output_wig) {
+        tuple_nneut = smalloc(msa->ss->ntuples * sizeof(double));
+        tuple_ndiff = smalloc(msa->ss->ntuples * sizeof(double));
+        tuple_nspec = smalloc(msa->ss->ntuples * sizeof(double));
+      }
+      col_gerp(mod, msa, tuple_nneut, tuple_ndiff, tuple_nrejected,
+               tuple_nspec);
+      if (output_wig) 
+        print_wig(msa, tuple_nrejected, chrom, FALSE);
+      else {
+        char *formatstr[4] = {"%.3f", "%.3f", "%.3f", "%.0f"};
+        print_base_by_base("#nneut ndiff nrej nspec", chrom, msa, 4, 
+                           formatstr, tuple_nneut, tuple_ndiff, 
+                           tuple_nrejected, tuple_nspec);
+      }
+    }
   } /* end GERP */
     
   return 0;

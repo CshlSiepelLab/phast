@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.8 2008-03-18 14:30:57 acs Exp $
+/* $Id: fit_column.c,v 1.9 2008-03-30 22:23:46 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -8,6 +8,10 @@
 
 #include <fit_column.h>
 #include <sufficient_stats.h>
+#include <tree_likelihoods.h>
+
+#define DERIV_EPSILON 1e-6      /* for numerical computation of
+                                   derivatives */
 
 /* Compute and return the likelihood of a tree model with respect to a
    single column tuple in an alignment.  This is a pared-down version
@@ -151,7 +155,7 @@ void col_scale_derivs_subst(ColFitData *d) {
           zvec_copy(d->vec_scratch1, Q->evals);
           zvec_scale(d->vec_scratch1, t);
           zvec_had_prod(d->vec_scratch2, Q->evals, Q->evals);
-          zvec_scale(d->vec_scratch2, t * l1 * l2);
+          zvec_scale(d->vec_scratch2, t * t * l1 * l2);
           zvec_plus_eq(d->vec_scratch2, d->vec_scratch1);
           zvec_had_prod(d->vec_scratch1, d->vec_scratch2, d->expdiag);      
           zmat_mult_real_diag(d->RRR[nid][rcat], S, d->vec_scratch1, Sinv, 
@@ -286,8 +290,12 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
 
   /* convert to log space */
   if (second_deriv != NULL)
-    *second_deriv = (total_prob * (*second_deriv) - ((*first_deriv) * (*first_deriv)))
-      / (total_prob * total_prob); /* deriv of log followed by quotient rule */
+    *second_deriv = (*second_deriv)/total_prob - 
+      ((*first_deriv)/total_prob) * ((*first_deriv)/total_prob); 
+                                /* deriv of log followed by quotient
+                                   rule; rearrange terms to avoid
+                                   underflow */
+
   *first_deriv = *first_deriv / total_prob; /* deriv of log */
   total_prob = log(total_prob);
 
@@ -306,11 +314,11 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
 }
 
 /* Compute the first and (optionally) second derivatives with respect
-   to the scale parameter for the single-column log likelihood
+   to the scale parameters for the single-column log likelihood
    function (col_compute_log_likelihood).  This version assumes scale
    parameters for the whole tree and for the subtree.  Return value is
    log likelihood, which is computed as a by-product.  Derivs will be
-   stored in *first_deriv and *second_deriv.  If second_deriv == NULL,
+   stored in *gradient and *hessian.  If hessian == NULL,
    it will not be computed (saves some time).  */
 double col_scale_derivs_subtree(ColFitData *d, Vector *gradient, 
                                 Matrix *hessian, double ***scratch) {
@@ -483,14 +491,14 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
           d->mod->freqK[rcat];
       }
     }
-  }
+ }
 
   /* convert to log space */
   if (pd2 != NULL) {
     /* deriv of log and quotient rule */
-    pd2[0][0] =  (total_prob*pd2[0][0] - pd[0]*pd[0]) / (total_prob*total_prob);
-    pd2[1][1] =  (total_prob*pd2[1][1] - pd[1]*pd[1]) / (total_prob*total_prob);
-    pd2[1][0] =  (total_prob*pd2[1][0] - pd[1]*pd[0]) / (total_prob*total_prob);
+    pd2[0][0] =  pd2[0][0]/total_prob - (pd[0]/total_prob)*(pd[0]/total_prob);
+    pd2[1][1] =  pd2[1][1]/total_prob - (pd[1]/total_prob)*(pd[1]/total_prob);
+    pd2[1][0] =  pd2[1][0]/total_prob - (pd[1]/total_prob)*(pd[0]/total_prob);
     pd2[0][1] =  pd2[1][0];
   }
   pd[0] = pd[0] / total_prob; /* deriv of log */
@@ -681,26 +689,48 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
   tm_free(modcpy);
 }
 
-void col_score_tests(TreeModel *mod, MSA *msa, double *tuple_pvals, 
-                     double *tuple_derivs, double *tuple_teststats) {
+void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode, 
+                     double *tuple_pvals, double *tuple_derivs, 
+                     double *tuple_teststats) {
   int i;
   ColFitData *d;
   double first_deriv, second_deriv, teststat;
+/*   double tmp1, tmp2; */
 
   /* init ColFitData */
   d = col_init_fit_data(mod, msa, ALL, NNEUT, FALSE);
-  /* FIXME: is a one-sided test possible? */
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
     d->tupleidx = i;
+
     col_scale_derivs(d, &first_deriv, &second_deriv, d->fels_scratch);
 
-    teststat = -first_deriv*first_deriv / second_deriv;
-    if (teststat < 0) teststat = 0;
+    /* for debugging; values are close but don't agree as closely as
+       it seems they should, but several hours of searching found no
+       bug.....? */
+/*     col_scale_derivs_num(d, &tmp1, &tmp2); */
+/*     fprintf(stderr, "Analytical: %f, %f; Numerical: %f, %f\n", */
+/*             first_deriv, second_deriv, tmp1, tmp2); */
 
-    if (tuple_pvals != NULL)
-      tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
+    teststat = -first_deriv*first_deriv / second_deriv;
+    if (teststat < 0) {
+      fprintf(stderr, "WARNING: positive second derivative in col_score_tests (tuple %d)\n", i);
+      teststat = 0; /* allow for numerical error */
+    }
+
+    if ((mode == ACC && first_deriv < 0) ||
+        (mode == CON && first_deriv > 0))
+      teststat = 0;             /* derivative points toward boundary;
+                                   truncate at 0 */
+
+    if (tuple_pvals != NULL) {
+      if (mode == NNEUT)
+        tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
+      else
+        tuple_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
+      /* assumes 50:50 mix of chisq and point mass at zero */
+    }
 
     /* store scales and log likelihood ratios if necessary */
     if (tuple_derivs != NULL) tuple_derivs[i] = first_deriv;
@@ -710,10 +740,10 @@ void col_score_tests(TreeModel *mod, MSA *msa, double *tuple_pvals,
   col_free_fit_data(d);
 }
 
-void col_score_tests_sub(TreeModel *mod, MSA *msa, double *tuple_pvals, 
-                         double *tuple_null_scales, double *tuple_derivs,
-                         double *tuple_sub_derivs, double *tuple_teststats,
-                         FILE *logf) {
+void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
+                         double *tuple_pvals, double *tuple_null_scales, 
+                         double *tuple_derivs, double *tuple_sub_derivs, 
+                         double *tuple_teststats, FILE *logf) {
   int i;
   ColFitData *d, *d2;
   Vector *grad = vec_new(2);
@@ -729,8 +759,6 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, double *tuple_pvals,
                                 /* mod has the subtree info, modcpy
                                    does not */
 
-  /* FIXME: is a one-sided test possible? */
-
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
     d->tupleidx = i;
@@ -741,26 +769,42 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, double *tuple_pvals,
 
     d2->tupleidx = i;
     d2->mod->scale = d->params->data[0];
+    d2->mod->scale_sub = 1;
     tm_set_subst_matrices(d2->mod);
     col_scale_derivs_subtree(d2, grad, hessian, d2->fels_scratch);
 
-    det = hessian->data[0][0] * hessian->data[1][1]
-      - hessian->data[0][1] * hessian->data[1][0];
-    assert(det != 0);
-    A = hessian->data[1][1] / det; /* cell 0,0 of inverse Fisher matrix */
-    B = -hessian->data[0][1] / det; /* cell 0,1 */
-    C = -hessian->data[1][0] / det; /* cell 1,0 */
-    D = hessian->data[0][0] / det;  /* cell 1,1 */
-    E = grad->data[0];
-    F = grad->data[1];
+    mat_scale(hessian, -1);      /* now Fisher matrix */
 
-    teststat = E*E*A + E*F*C + E*B*F + F*F*D;
+    det = hessian->data[0][0] * hessian->data[1][1] 
+      - hessian->data[0][1] * hessian->data[1][0]; 
+    assert(det != 0); 
+    A = hessian->data[1][1] / det; /* cell 0,0 of inverse Fisher matrix */ 
+    B = -hessian->data[0][1] / det; /* cell 0,1 */ 
+    C = -hessian->data[1][0] / det; /* cell 1,0 */ 
+    D = hessian->data[0][0] / det;  /* cell 1,1 */ 
+    E = grad->data[0]; 
+    F = grad->data[1]; 
+
+    teststat = E*E*A + E*F*C + E*B*F + F*F*D; 
     /* grad' * inv_fish * grad */
 
-    if (teststat < 0) teststat = 0;
+    if (teststat < 0) {
+      fprintf(stderr, "WARNING: teststat < 0 (%f)\n", teststat);
+      teststat = 0; 
+    }
 
-    if (tuple_pvals != NULL)
-      tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
+    if ((mode == ACC && grad->data[1] < 0) ||
+        (mode == CON && grad->data[1] > 0))
+      teststat = 0;             /* derivative points toward boundary;
+                                   truncate at 0 */
+
+    if (tuple_pvals != NULL) {
+      if (mode == NNEUT)
+        tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
+      else
+        tuple_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
+      /* assumes 50:50 mix of chisq and point mass at zero */
+    }
 
     /* store scales and log likelihood ratios if necessary */
     if (tuple_null_scales != NULL) tuple_null_scales[i] = d->params->data[0];
@@ -771,8 +815,8 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, double *tuple_pvals,
 
   col_free_fit_data(d);
   col_free_fit_data(d2);
-  vec_free(grad);
-  mat_free(hessian);
+  vec_free(grad); 
+  mat_free(hessian); 
   modcpy->estimate_branchlens = TM_BRANCHLENS_ALL; 
                                 /* have to revert for tm_free to work
                                    correctly */
@@ -796,6 +840,10 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
   d->mod->estimate_branchlens = TM_SCALE_ONLY;
   if (stype == SUBTREE) 
     assert(mod->subtree_root != NULL);
+  else {
+    assert(mod->subtree_root == NULL);
+    mod->scale_sub = 1;
+  }
   if (mod->msa_seq_idx == NULL)
     tm_build_seq_idx(mod, msa);
   tm_set_subst_matrices(mod);
@@ -921,4 +969,150 @@ void col_free_fit_data(ColFitData *d) {
   zvec_free(d->vec_scratch2);
 
   free(d);
+}
+
+/* Perform a GERP-like computation for each tuple.  Compute expected
+   number of subst. under neutrality (tuple_nneut), posterior expected
+   numbers of differences along branches (tuple_ndiff), expected
+   number of rejected substitutions (tuple_nrejected), and number of
+   species with data (tuple_nspecies).  If any arrays are NULL, values
+   will not be retained.  Gaps and missing data are handled by working
+   with induced subtree.  */
+void col_gerp(TreeModel *mod, MSA *msa, double *tuple_nneut, 
+              double *tuple_ndiff, double *tuple_nrejected, 
+              double *tuple_nspec) { 
+  int i, j, nspec = 0;
+  double nneut, ndiff;
+  int *has_data = smalloc(mod->tree->nnodes * sizeof(int));
+  TreePosteriors *post = tl_new_tree_posteriors(mod, msa, FALSE, FALSE, 
+                                                TRUE, FALSE, FALSE, FALSE);
+  tl_compute_log_likelihood(mod, msa, NULL, -1, post);
+  for (i = 0; i < msa->ss->ntuples;i++) {
+    nneut = ndiff = 0;
+    col_find_missing_branches(mod, msa, i, has_data, &nspec);
+    for (j = 1; j < mod->tree->nnodes; j++) { /* node 0 is root */
+      if (has_data[j]) {
+        TreeNode *n = lst_get_ptr(mod->tree->nodes, j);
+        nneut += n->dparent;
+        ndiff += post->expected_nsubst[0][j][i];
+      }
+    }
+
+    if (tuple_nspec != NULL) tuple_nspec[i] = (double)nspec;
+    if (tuple_nneut != NULL) tuple_nneut[i] = nneut;
+    if (tuple_ndiff != NULL) tuple_ndiff[i] = ndiff;
+    if (tuple_nrejected != NULL) tuple_nrejected[i] = nneut - ndiff;
+  }
+  tl_free_tree_posteriors(mod, msa, post);
+  free(has_data);
+}
+
+/* Identify branches wrt which a given column tuple is uninformative,
+   in the sense that all leaves beneath these branches having missing
+   data.  Will set preallocated) array has_data[i] = I(branch above
+   node i is informative).  Will also set *nspec equal to number of
+   leaves that have data. */
+void col_find_missing_branches(TreeModel *mod, MSA *msa, int tupleidx, 
+                               int *has_data, int *nspec) {
+  int i;
+  List *traversal = tr_postorder(mod->tree);
+  *nspec = 0;
+  for (i = 0; i < lst_size(traversal); i++) {
+    TreeNode *n = lst_get_ptr(traversal, i);
+    assert((n->lchild == NULL && n->rchild == NULL) || 
+           (n->lchild != NULL && n->rchild != NULL));
+    if (n->parent == NULL)      /* root */
+      has_data[n->id] = FALSE;
+    else if (n->lchild == NULL) {    /* leaf */
+      if (mod->rate_matrix->
+          inv_states[(int)ss_get_char_tuple(msa, tupleidx, 
+                                            mod->msa_seq_idx[n->id], 0)] >= 0) {
+        has_data[n->id] = TRUE;
+        (*nspec)++;        
+      }
+      else 
+        has_data[n->id] = FALSE;   
+    }
+    else {                      /* non-root ancestral node */
+      if (has_data[n->lchild->id] || has_data[n->rchild->id])
+        has_data[n->id] = TRUE;
+      else 
+        has_data[n->id] = FALSE;
+    }
+  }
+}
+
+/* numerically compute first and second derivatives of single-column
+   log likelihood function.  For debugging */
+void col_scale_derivs_num(ColFitData *d, double *first_deriv, 
+                          double *second_deriv) {
+  double lnl1, lnl2, lnl3;
+  double orig_scale = d->mod->scale;
+  d->mod->scale += (2*DERIV_EPSILON);
+  tm_set_subst_matrices(d->mod);
+  lnl1 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx, 
+                                    d->fels_scratch[0]);
+  d->mod->scale = orig_scale + DERIV_EPSILON;
+  tm_set_subst_matrices(d->mod);
+  lnl2 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx, 
+                                    d->fels_scratch[0]);
+  d->mod->scale = orig_scale;
+  tm_set_subst_matrices(d->mod);
+  lnl3 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx, 
+                                    d->fels_scratch[0]);
+  *first_deriv = (lnl2 - lnl3) / DERIV_EPSILON;
+  *second_deriv = (lnl1 - 2*lnl2 + lnl3) / (DERIV_EPSILON * DERIV_EPSILON);
+}
+
+/* numerically compute first and second derivatives of single-column
+   log likelihood function.  For debugging */
+void col_scale_derivs_subtree_num(ColFitData *d, Vector *gradient, 
+                                  Matrix *hessian) {
+  double lnl00, lnl11, lnl0, lnl1, lnl01, lnl;
+  double orig_scale = d->mod->scale, orig_scale_sub = d->mod->scale_sub;
+
+  d->mod->scale += (2*DERIV_EPSILON);
+  tm_set_subst_matrices(d->mod);
+  lnl00 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx, 
+                                    d->fels_scratch[0]);
+
+  d->mod->scale = orig_scale + DERIV_EPSILON;
+  tm_set_subst_matrices(d->mod);
+  lnl0 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx, 
+                                    d->fels_scratch[0]);
+
+  d->mod->scale = orig_scale + DERIV_EPSILON;
+  d->mod->scale_sub = orig_scale_sub + DERIV_EPSILON;
+  tm_set_subst_matrices(d->mod);
+  lnl01 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx, 
+                                    d->fels_scratch[0]);
+
+  d->mod->scale = orig_scale;
+  d->mod->scale_sub = orig_scale_sub + DERIV_EPSILON;
+  tm_set_subst_matrices(d->mod);
+  lnl1 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx, 
+                                    d->fels_scratch[0]);
+
+  d->mod->scale = orig_scale;
+  d->mod->scale_sub = orig_scale_sub + (2*DERIV_EPSILON);
+  tm_set_subst_matrices(d->mod);
+  lnl11 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx, 
+                                    d->fels_scratch[0]);
+
+  d->mod->scale = orig_scale;
+  d->mod->scale_sub = orig_scale_sub;
+  tm_set_subst_matrices(d->mod);
+  lnl = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx, 
+                                    d->fels_scratch[0]);
+
+  gradient->data[0] = (lnl0 - lnl) / DERIV_EPSILON;
+  gradient->data[1] = (lnl1 - lnl) / DERIV_EPSILON;
+
+  hessian->data[0][0] = (lnl00 - 2*lnl0 + lnl) / 
+    (DERIV_EPSILON * DERIV_EPSILON);
+  hessian->data[1][1] = (lnl11 - 2*lnl1 + lnl) / 
+    (DERIV_EPSILON * DERIV_EPSILON);
+  hessian->data[0][1] = hessian->data[1][0] = 
+    (lnl01 - lnl0 - lnl1 + lnl) / 
+    (DERIV_EPSILON * DERIV_EPSILON);
 }

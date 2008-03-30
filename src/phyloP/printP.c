@@ -387,7 +387,8 @@ void print_wig(MSA *msa, double *vals, char *chrom, int log_trans) {
 }
 
 /* print arbitrary columns of tuple-specific data in wig-like format */
-void print_base_by_base(char *header, char *chrom, MSA *msa, int ncols, ...) {
+void print_base_by_base(char *header, char *chrom, MSA *msa, int ncols, 
+                        char **formatstr, ...) {
   int last, j, k, tup, col;
   va_list ap;
   double *data[ncols];
@@ -407,8 +408,10 @@ void print_base_by_base(char *header, char *chrom, MSA *msa, int ncols, ...) {
           printf("fixedStep chrom=%s start=%d step=1\n", chrom, 
                  k + msa->idx_offset + 1);
         tup = msa->ss->tuple_idx[j];
-        for (col = 0; col < ncols; col++) 
-          printf("%.5f%c", data[col][tup], col < ncols-1 ? '\t' : '\n');
+        for (col = 0; col < ncols; col++) {
+          printf((formatstr == NULL ? "%.5f" : formatstr[col]), data[col][tup]);
+          printf(col < ncols-1 ? "\t" : "\n");
+        }
         last = k;
       }
       k++;

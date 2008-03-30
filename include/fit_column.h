@@ -1,4 +1,4 @@
-/* $Id: fit_column.h,v 1.5 2008-02-19 04:26:07 acs Exp $
+/* $Id: fit_column.h,v 1.6 2008-03-30 22:23:46 acs Exp $
    Written by Adam Siepel, 2008 */
 
 #ifndef FIT_COL_H
@@ -65,17 +65,31 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
                   double *tuple_scales, double *tuple_sub_scales, 
                   double *tuple_llrs, FILE *logf);
 
-void col_score_tests(TreeModel *mod, MSA *msa, double *tuple_pvals, 
-                     double *tuple_derivs, double *tuple_teststats);
+void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode, 
+                     double *tuple_pvals, double *tuple_derivs, 
+                     double *tuple_teststats);
 
-void col_score_tests_sub(TreeModel *mod, MSA *msa, double *tuple_pvals, 
-                         double *tuple_null_scales, double *tuple_derivs,
-                         double *tuple_sub_derivs, double *tuple_teststats,
-                         FILE *logf);
+void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
+                         double *tuple_pvals, double *tuple_null_scales, 
+                         double *tuple_derivs, double *tuple_sub_derivs, 
+                         double *tuple_teststats, FILE *logf);
 
 ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
                               mode_type mode, int second_derivs);
 
 void col_free_fit_data(ColFitData *d);
+
+void col_gerp(TreeModel *mod, MSA *msa, double *tuple_nneut, 
+              double *tuple_ndiff, double *tuple_nrejected, 
+              double *tuple_nspecies);
+
+void col_find_missing_branches(TreeModel *mod, MSA *msa, int tupleidx, 
+                               int *has_data, int *nspec);
+
+void col_scale_derivs_num(ColFitData *d, double *first_deriv, 
+                          double *second_deriv);
+
+void col_scale_derivs_subtree_num(ColFitData *d, Vector *gradient, 
+                                  Matrix *hessian);
 
 #endif
