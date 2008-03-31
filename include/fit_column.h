@@ -1,4 +1,4 @@
-/* $Id: fit_column.h,v 1.6 2008-03-30 22:23:46 acs Exp $
+/* $Id: fit_column.h,v 1.7 2008-03-31 00:25:49 acs Exp $
    Written by Adam Siepel, 2008 */
 
 #ifndef FIT_COL_H
@@ -80,8 +80,12 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
 void col_free_fit_data(ColFitData *d);
 
 void col_gerp(TreeModel *mod, MSA *msa, double *tuple_nneut, 
-              double *tuple_ndiff, double *tuple_nrejected, 
-              double *tuple_nspecies);
+              double *tuple_nobs, double *tuple_nrejected, 
+              double *tuple_nspecies, FILE *logf);
+
+void col_gerp_alt(TreeModel *mod, MSA *msa, double *tuple_nneut, 
+                  double *tuple_ndiff, double *tuple_nrejected, 
+                  double *tuple_nspec);
 
 void col_find_missing_branches(TreeModel *mod, MSA *msa, int tupleidx, 
                                int *has_data, int *nspec);

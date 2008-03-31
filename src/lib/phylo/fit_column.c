@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.9 2008-03-30 22:23:46 acs Exp $
+/* $Id: fit_column.c,v 1.10 2008-03-31 00:25:49 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -971,16 +971,68 @@ void col_free_fit_data(ColFitData *d) {
   free(d);
 }
 
-/* Perform a GERP-like computation for each tuple.  Compute expected
-   number of subst. under neutrality (tuple_nneut), posterior expected
-   numbers of differences along branches (tuple_ndiff), expected
-   number of rejected substitutions (tuple_nrejected), and number of
-   species with data (tuple_nspecies).  If any arrays are NULL, values
-   will not be retained.  Gaps and missing data are handled by working
-   with induced subtree.  */
+/* Perform a GERP-like computation for each tuple.  Computes expected
+   number of subst. under neutrality (tuple_nneut), expected number
+   after rescaling by ML (tuple_nobs), expected number of rejected
+   substitutions (tuple_nrejected), and number of species with data
+   (tuple_nspecies).  If any arrays are NULL, values will not be
+   retained.  Gaps and missing data are handled by working with
+   induced subtree.  */
 void col_gerp(TreeModel *mod, MSA *msa, double *tuple_nneut, 
-              double *tuple_ndiff, double *tuple_nrejected, 
-              double *tuple_nspec) { 
+              double *tuple_nobs, double *tuple_nrejected, 
+              double *tuple_nspec, FILE *logf) { 
+  int i, j, nspec = 0;
+  double nneut, scale, lnl;
+  int *has_data = smalloc(mod->tree->nnodes * sizeof(int));
+  ColFitData *d;
+
+  /* init ColFitData */
+  d = col_init_fit_data(mod, msa, ALL, NNEUT, FALSE);
+
+  /* iterate through column tuples */
+  for (i = 0; i < msa->ss->ntuples;i++) {
+    col_find_missing_branches(mod, msa, i, has_data, &nspec);
+
+    if (nspec < 3) 
+      nneut = scale = 0;
+    else {
+      vec_set(d->params, 0, d->init_scale);
+      d->tupleidx = i;
+      if (opt_bfgs(col_likelihood_wrapper, d->params, d, &lnl, d->lb, 
+                   d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0) 
+        ;                         /* do nothing; nonzero exit typically
+                                     occurs when max iterations is
+                                     reached; a warning is printed to
+                                     the log */
+      
+      scale = d->params->data[0];
+      for (j = 1, nneut = 0; j < mod->tree->nnodes; j++)  /* node 0 is root */
+        if (has_data[j]) 
+          nneut += ((TreeNode*)lst_get_ptr(mod->tree->nodes, j))->dparent;
+    }
+
+    if (tuple_nspec != NULL) tuple_nspec[i] = (double)nspec;
+    if (tuple_nneut != NULL) tuple_nneut[i] = nneut;
+    if (tuple_nobs != NULL) tuple_nobs[i] = scale * nneut;
+    if (tuple_nrejected != NULL) tuple_nrejected[i] = nneut * (1 - scale);
+  }
+  col_free_fit_data(d);
+  free(has_data);
+}
+
+/* Perform an alternative GERP-like computation for each tuple, based
+   on the posterior expected number of substitutions (actually
+   differences) rather than an MLE of the scaled tree at each site.
+   Computes expected number of subst. under neutrality (tuple_nneut),
+   posterior expected numbers of differences along branches
+   (tuple_ndiff), expected number of rejected substitutions
+   (tuple_nrejected), and number of species with data
+   (tuple_nspecies).  If any arrays are NULL, values will not be
+   retained.  Gaps and missing data are handled by working with
+   induced subtree.  */
+void col_gerp_alt(TreeModel *mod, MSA *msa, double *tuple_nneut, 
+                  double *tuple_ndiff, double *tuple_nrejected, 
+                  double *tuple_nspec) { 
   int i, j, nspec = 0;
   double nneut, ndiff;
   int *has_data = smalloc(mod->tree->nnodes * sizeof(int));

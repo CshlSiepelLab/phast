@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
   double *tuple_pvals = NULL, *tuple_post_means = NULL, *tuple_post_vars = NULL,
     *tuple_llrs = NULL, *tuple_scales = NULL, *tuple_sub_scales = NULL, 
     *tuple_null_scales = NULL, *tuple_derivs = NULL, *tuple_sub_derivs = NULL,
-    *tuple_teststats = NULL, *tuple_nneut = NULL, *tuple_ndiff = NULL,
+    *tuple_teststats = NULL, *tuple_nneut = NULL, *tuple_nobs = NULL,
     *tuple_nspec = NULL, *tuple_nrejected = NULL;
 
   struct option long_opts[] = {
@@ -478,17 +478,17 @@ int main(int argc, char *argv[]) {
       tuple_nrejected = smalloc(msa->ss->ntuples * sizeof(double));
       if (!output_wig) {
         tuple_nneut = smalloc(msa->ss->ntuples * sizeof(double));
-        tuple_ndiff = smalloc(msa->ss->ntuples * sizeof(double));
+        tuple_nobs = smalloc(msa->ss->ntuples * sizeof(double));
         tuple_nspec = smalloc(msa->ss->ntuples * sizeof(double));
       }
-      col_gerp(mod, msa, tuple_nneut, tuple_ndiff, tuple_nrejected,
-               tuple_nspec);
+      col_gerp(mod, msa, tuple_nneut, tuple_nobs, tuple_nrejected,
+               tuple_nspec, logf);
       if (output_wig) 
         print_wig(msa, tuple_nrejected, chrom, FALSE);
       else {
         char *formatstr[4] = {"%.3f", "%.3f", "%.3f", "%.0f"};
-        print_base_by_base("#nneut ndiff nrej nspec", chrom, msa, 4, 
-                           formatstr, tuple_nneut, tuple_ndiff, 
+        print_base_by_base("#nneut nobs nrej nspec", chrom, msa, 4, 
+                           formatstr, tuple_nneut, tuple_nobs, 
                            tuple_nrejected, tuple_nspec);
       }
     }
