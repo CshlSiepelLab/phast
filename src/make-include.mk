@@ -52,6 +52,10 @@ LFLAGS += -static
 # Don't uncomment unless you know what you're doing.
 #CFLAGS += -DDEBUG
 
+# uncomment this line to build the RPHAST shared library, which allows
+# access to PHAST from the R programming environment.  Requires an
+# up-to-date installation of R.
+#RPHAST = T
 
 # The next section is concerned with the LAPACK linear algebra
 # package, which is used by PHAST for matrix diagonalization and
