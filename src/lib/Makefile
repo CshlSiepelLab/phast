@@ -4,6 +4,11 @@ CDIR = ${PWD}
 
 PACKAGES=base msa feature hmm phylo phylo_hmm motif
 
+ifdef RPHAST
+PACKAGES += rphast
+endif
+
+
 ifdef CLAPACKPATH		# only do below if using CLAPACK
 
 all: liblinks phastlib
