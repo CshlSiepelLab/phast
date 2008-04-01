@@ -387,8 +387,8 @@ void print_wig(MSA *msa, double *vals, char *chrom, int log_trans) {
 }
 
 /* print arbitrary columns of tuple-specific data in wig-like format */
-void print_base_by_base(char *header, char *chrom, MSA *msa, int ncols, 
-                        char **formatstr, ...) {
+void print_base_by_base(char *header, char *chrom, MSA *msa, 
+                        char **formatstr, int ncols, ...) {
   int last, j, k, tup, col;
   va_list ap;
   double *data[ncols];

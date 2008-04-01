@@ -311,7 +311,7 @@ int main(int argc, char *argv[]) {
           char str[1000];
           sprintf(str, "#neutral mean = %.3f var = %.3f\n#post_mean post_var pval", 
                   prior_mean, prior_var);
-          print_base_by_base(str, chrom, msa, 3, NULL, tuple_post_means, 
+          print_base_by_base(str, chrom, msa, NULL, 3, tuple_post_means, 
                              tuple_post_vars, tuple_pvals);
         }
       }
@@ -397,7 +397,7 @@ int main(int argc, char *argv[]) {
             print_wig(msa, tuple_pvals, chrom, TRUE);
         }
         else 
-          print_base_by_base("#scale lnlratio pval", chrom, msa, 3, NULL,
+          print_base_by_base("#scale lnlratio pval", chrom, msa, NULL, 3,
                              tuple_scales, tuple_llrs, tuple_pvals);
       }
       else {                    /* subtree case */
@@ -417,7 +417,7 @@ int main(int argc, char *argv[]) {
         }
         else 
           print_base_by_base("#null_scale alt_scale alt_subscale lnlratio pval", 
-                             chrom, msa, 5, NULL, tuple_null_scales, tuple_scales,  
+                             chrom, msa, NULL, 5, tuple_null_scales, tuple_scales,  
                              tuple_sub_scales, tuple_llrs, tuple_pvals);
       }
     }
@@ -444,7 +444,7 @@ int main(int argc, char *argv[]) {
             print_wig(msa, tuple_pvals, chrom, TRUE);
         }
         else 
-          print_base_by_base("#deriv teststat pval", chrom, msa, 3, NULL,
+          print_base_by_base("#deriv teststat pval", chrom, msa, NULL, 3,
                              tuple_derivs, tuple_teststats, tuple_pvals);
       }
       else {                    /* subtree case */
@@ -465,7 +465,7 @@ int main(int argc, char *argv[]) {
         }
         else 
           print_base_by_base("#scale deriv subderiv teststat pval", chrom, 
-                             msa, 5, NULL, tuple_null_scales, tuple_derivs, 
+                             msa, NULL, 5, tuple_null_scales, tuple_derivs, 
                              tuple_sub_derivs, tuple_teststats, 
                              tuple_pvals);
       }
@@ -487,8 +487,8 @@ int main(int argc, char *argv[]) {
         print_wig(msa, tuple_nrejected, chrom, FALSE);
       else {
         char *formatstr[4] = {"%.3f", "%.3f", "%.3f", "%.0f"};
-        print_base_by_base("#nneut nobs nrej nspec", chrom, msa, 4, 
-                           formatstr, tuple_nneut, tuple_nobs, 
+        print_base_by_base("#nneut nobs nrej nspec", chrom, msa, formatstr, 
+                           4, tuple_nneut, tuple_nobs, 
                            tuple_nrejected, tuple_nspec);
       }
     }
