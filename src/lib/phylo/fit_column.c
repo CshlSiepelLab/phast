@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.10 2008-03-31 00:25:49 acs Exp $
+/* $Id: fit_column.c,v 1.11 2008-04-02 14:51:58 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -773,19 +773,22 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
     tm_set_subst_matrices(d2->mod);
     col_scale_derivs_subtree(d2, grad, hessian, d2->fels_scratch);
 
-    mat_scale(hessian, -1);      /* now Fisher matrix */
+    mat_scale(hessian, -1);      /* now (observed) Fisher matrix */
 
-    det = hessian->data[0][0] * hessian->data[1][1] 
-      - hessian->data[0][1] * hessian->data[1][0]; 
-    assert(det != 0); 
-    A = hessian->data[1][1] / det; /* cell 0,0 of inverse Fisher matrix */ 
-    B = -hessian->data[0][1] / det; /* cell 0,1 */ 
-    C = -hessian->data[1][0] / det; /* cell 1,0 */ 
-    D = hessian->data[0][0] / det;  /* cell 1,1 */ 
-    E = grad->data[0]; 
-    F = grad->data[1]; 
+    teststat = grad->data[1]*grad->data[1] / 
+      (hessian->data[1][1] - hessian->data[0][1]*hessian->data[1][0]/hessian->data[0][0]);
 
-    teststat = E*E*A + E*F*C + E*B*F + F*F*D; 
+/*     det = hessian->data[0][0] * hessian->data[1][1]  */
+/*       - hessian->data[0][1] * hessian->data[1][0];  */
+/*     assert(det != 0);  */
+/*     A = hessian->data[1][1] / det; /\* cell 0,0 of inverse Fisher matrix *\/  */
+/*     B = -hessian->data[0][1] / det; /\* cell 0,1 *\/  */
+/*     C = -hessian->data[1][0] / det; /\* cell 1,0 *\/  */
+/*     D = hessian->data[0][0] / det;  /\* cell 1,1 *\/  */
+/*     E = grad->data[0];  */
+/*     F = grad->data[1];  */
+
+/*     teststat = E*E*A + E*F*C + E*B*F + F*F*D;  */
     /* grad' * inv_fish * grad */
 
     if (teststat < 0) {
@@ -808,8 +811,8 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
 
     /* store scales and log likelihood ratios if necessary */
     if (tuple_null_scales != NULL) tuple_null_scales[i] = d->params->data[0];
-    if (tuple_derivs != NULL) tuple_derivs[i] = E;
-    if (tuple_sub_derivs != NULL) tuple_sub_derivs[i] = F;
+    if (tuple_derivs != NULL) tuple_derivs[i] = grad->data[0];
+    if (tuple_sub_derivs != NULL) tuple_sub_derivs[i] = grad->data[1];
     if (tuple_teststats != NULL) tuple_teststats[i] = teststat;
   }
 
