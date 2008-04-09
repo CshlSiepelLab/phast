@@ -1,4 +1,4 @@
-/* $Id: prob_vector.c,v 1.8 2007-01-28 20:22:00 acs Exp $ 
+/* $Id: prob_vector.c,v 1.9 2008-04-09 01:50:39 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -109,7 +109,10 @@ void pv_p_values(Vector *distrib, double *x_0, int n, double *pvals,
 void pv_normalize(Vector *p) {
   int x;
   double sum = 0;
-  for (x = 0; x < p->size; x++) sum += p->data[x];
+  for (x = 0; x < p->size; x++) {
+    assert(p->data[x] >= 0);
+    sum += p->data[x];
+  }
   vec_scale(p, 1/sum);
 }
 
