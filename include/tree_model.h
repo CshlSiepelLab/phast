@@ -1,4 +1,4 @@
-/* $Id: tree_model.h,v 1.17 2008-02-18 05:01:46 acs Exp $
+/* $Id: tree_model.h,v 1.18 2008-04-09 01:52:50 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -54,6 +54,12 @@ typedef enum {
 
 struct tp_struct;
 
+/* defines alternative substitution model for a particular branch */
+typedef struct {
+  subst_mod_type subst_mod;  
+  Vector *backgd_freqs;
+  MarkovMatrix *rate_matrix;
+} AltSubstMod;
 
 /** Tree model object */
 struct tm_struct {
@@ -123,10 +129,14 @@ struct tm_struct {
                                    rate-variation */
   int estimate_ratemat;         /* indicates whether rate-matrix
                                    parameters should be estimated */
+  AltSubstMod **alt_subst_mods; /* optional alternative substitution
+                                   models per branch of three; can be
+                                   used for nonhomogeneous models.
+                                   Typically set to NULL and
+                                   ignored.  */
 };
 
 typedef struct tm_struct TreeModel;
-
 
 TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix, 
                   Vector *backgd_freqs, subst_mod_type subst_mod, 
@@ -152,8 +162,6 @@ void tm_cpy(TreeModel *dest, TreeModel *src);
 TreeModel *tm_create_copy(TreeModel *src);
 
 void tm_set_subst_matrices(TreeModel *tm);
-
-void tm_set_subst_matrix(TreeModel *tm, MarkovMatrix *P, double t);
 
 void tm_scale(TreeModel *tm, double scale_const, int reset_subst_mats);
 
@@ -201,5 +209,11 @@ double tm_extrapolate_and_prune(TreeModel *mod, TreeNode *extrapolate_tree,
 void tm_reset_tree(TreeModel *mod, TreeNode *newtree);
 
 void tm_set_ignore_branches(TreeModel *mod, List *ignore_branches);
+
+AltSubstMod* tm_new_alt_subst_mod(subst_mod_type subst_mod,
+                                  Vector *backgd_freqs, 
+                                  MarkovMatrix *rate_matrix);
+
+void tm_free_alt_subst_mod(AltSubstMod *am); 
 
 #endif

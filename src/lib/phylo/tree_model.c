@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.31 2008-02-18 23:07:07 acs Exp $
+/* $Id: tree_model.c,v 1.32 2008-04-09 01:52:17 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -122,6 +122,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   tm->in_subtree = NULL;
   tm->estimate_ratemat = TRUE;
   tm->ignore_branch = NULL;
+  tm->alt_subst_mods = NULL;
   tm_init_rmp(tm);
 
   return tm;
@@ -203,6 +204,8 @@ void tm_free(TreeModel *tm) {
       for (j = 0; j < tm->nratecats; j++)
         if (tm->P[i][j] != NULL) mm_free(tm->P[i][j]);
       free(tm->P[i]);
+      if (tm->alt_subst_mods != NULL && tm->alt_subst_mods[i] != NULL) 
+        tm_free_alt_subst_mod(tm->alt_subst_mods[i]);
     }
     if (tm->msa_seq_idx != NULL) free(tm->msa_seq_idx);
     free(tm->P);
@@ -214,6 +217,7 @@ void tm_free(TreeModel *tm) {
   if (tm->backgd_freqs != NULL) vec_free(tm->backgd_freqs);
   if (tm->ignore_branch != NULL) free(tm->ignore_branch);
   if (tm->in_subtree != NULL) free(tm->in_subtree);
+  if (tm->alt_subst_mods != NULL) free(tm->alt_subst_mods);
   free(tm);
 }
 
@@ -472,7 +476,10 @@ TreeModel *tm_create_copy(TreeModel *src) {
 void tm_set_subst_matrices(TreeModel *tm) {
   int i, j;
   double scaling_const = -1, tmp;
-
+  Vector *backgd_freqs = tm->backgd_freqs;
+  subst_mod_type subst_mod = tm->subst_mod;
+  MarkovMatrix *rate_matrix = tm->rate_matrix;
+  
   if (tm->estimate_branchlens != TM_SCALE_ONLY && tm->scale != 1) 
     tm->scale = 1;
                                 /* be sure scale factor has an effect
@@ -485,7 +492,7 @@ void tm_set_subst_matrices(TreeModel *tm) {
 
   /* need to compute a matrix scaling constant from the equilibrium
      freqs, in this case (see below) */
-  if (tm->subst_mod == F81) {   
+  if (subst_mod == F81) {   
     for (i = 0, tmp = 0; i < tm->rate_matrix->size; i++)
       tmp += vec_get(tm->backgd_freqs, i) *
         vec_get(tm->backgd_freqs, i);
@@ -498,55 +505,50 @@ void tm_set_subst_matrices(TreeModel *tm) {
 
     if (n->parent == NULL) continue;
 
+    /* special case where subst models differ by branch */
+    if (tm->alt_subst_mods != NULL) {
+      if (tm->alt_subst_mods[n->id] != NULL) {
+        backgd_freqs = tm->alt_subst_mods[n->id]->backgd_freqs;
+        subst_mod = tm->alt_subst_mods[n->id]->subst_mod;
+        rate_matrix = tm->alt_subst_mods[n->id]->rate_matrix;
+      }
+      else {
+        backgd_freqs = tm->backgd_freqs;
+        subst_mod = tm->subst_mod;
+        rate_matrix = tm->rate_matrix;
+      }
+      if (subst_mod == F81) {   /* need branch-specific scale */
+        for (j = 0, tmp = 0; j < rate_matrix->size; j++)
+          tmp += vec_get(backgd_freqs, j) * vec_get(backgd_freqs, j);
+        scaling_const = 1.0/(1 - tmp);
+      }
+    }
+
     if (tm->estimate_branchlens == TM_SCALE_ONLY && tm->subtree_root != NULL
         && tm->in_subtree[i]) 
       branch_scale *= tm->scale_sub;
 
     for (j = 0; j < tm->nratecats; j++) {
       if (tm->P[i][j] == NULL)
-        tm->P[i][j] = mm_new(tm->rate_matrix->size, tm->rate_matrix->states, 
-                             DISCRETE);
+        tm->P[i][j] = mm_new(rate_matrix->size, rate_matrix->states, DISCRETE);
 
       if (tm->ignore_branch != NULL && tm->ignore_branch[i])  
                                 /* treat as if infinitely long */
         tm_set_probs_independent(tm, tm->P[i][j]);
 
       /* for simple models, full matrix exponentiation is not necessary */
-      else if (tm->subst_mod == JC69)
+      else if (subst_mod == JC69)
         tm_set_probs_JC69(tm, tm->P[i][j], 
                           n->dparent * branch_scale * tm->rK[j]);
-      else if (tm->subst_mod == F81)
-        tm_set_probs_F81(tm, tm->P[i][j], scaling_const, 
+      else if (subst_mod == F81)
+        tm_set_probs_F81(backgd_freqs, tm->P[i][j], scaling_const, 
                          n->dparent * branch_scale * tm->rK[j]);
 
       else                      /* full matrix exponentiation */
-        mm_exp(tm->P[i][j], tm->rate_matrix, 
+        mm_exp(tm->P[i][j], rate_matrix, 
                n->dparent * branch_scale * tm->rK[j]);
     }
   }
-}
-
-/* version of above that can be used with specified branch length and
-   prob matrix */
-void tm_set_subst_matrix(TreeModel *tm, MarkovMatrix *P, double t) {
-  int i;
-  double scaling_const = -1, tmp;
-
-  /* need to compute a matrix scaling constant from the equilibrium
-     freqs, in this case (see below) */
-  if (tm->subst_mod == F81) {   
-    for (i = 0, tmp = 0; i < tm->rate_matrix->size; i++)
-      tmp += vec_get(tm->backgd_freqs, i) * vec_get(tm->backgd_freqs, i);
-    scaling_const = 1.0/(1 - tmp);
-  }
-
-  /* for simple models, full matrix exponentiation is not necessary */
-  if (tm->subst_mod == JC69)
-    tm_set_probs_JC69(tm, P, t);
-  else if (tm->subst_mod == F81)
-    tm_set_probs_F81(tm, P, scaling_const, t);
-  else 
-    mm_exp(P, tm->rate_matrix, t);
 }
 
 /* scale evolutionary rate by const factor (affects branch lengths
@@ -1263,4 +1265,20 @@ void tm_set_ignore_branches(TreeModel *mod, List *ignore_branches) {
       die("ERROR: no node named '%s'.\n", s->chars);
     mod->ignore_branch[n->id] = TRUE;
   }
+}
+
+AltSubstMod *tm_new_alt_subst_mod(subst_mod_type subst_mod,
+                                  Vector *backgd_freqs, 
+                                  MarkovMatrix *rate_matrix) {
+  AltSubstMod *am = smalloc(sizeof(AltSubstMod));
+  am->subst_mod = subst_mod;
+  am->backgd_freqs = backgd_freqs;
+  am->rate_matrix = rate_matrix;
+  return am;
+}
+
+void tm_free_alt_subst_mod(AltSubstMod *am) {
+  vec_free(am->backgd_freqs);
+  mm_free(am->rate_matrix);
+  free(am);
 }

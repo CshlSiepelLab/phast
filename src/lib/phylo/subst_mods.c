@@ -1,4 +1,4 @@
-/* $Id: subst_mods.c,v 1.10 2007-11-27 21:12:13 acs Exp $
+/* $Id: subst_mods.c,v 1.11 2008-04-09 01:52:17 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -433,15 +433,16 @@ void tm_set_probs_JC69(TreeModel *mod, MarkovMatrix *P, double t) {
   }
 }
 
-void tm_set_probs_F81(TreeModel *mod, MarkovMatrix *P, double scale, double t) {
+void tm_set_probs_F81(Vector *backgd_freqs, MarkovMatrix *P, double scale, 
+                      double t) {
   int i, j;
-  for (i = 0; i < mod->rate_matrix->size; i++) {
-    for (j = 0; j < mod->rate_matrix->size; j++) {
+  for (i = 0; i < backgd_freqs->size; i++) {
+    for (j = 0; j < backgd_freqs->size; j++) {
       if (i == j)
         mm_set(P, i, j, exp(-t * scale) + 
-               vec_get(mod->backgd_freqs, j) * (1 - exp(-t * scale)));
+               vec_get(backgd_freqs, j) * (1 - exp(-t * scale)));
       else
-        mm_set(P, i, j, vec_get(mod->backgd_freqs, j) * 
+        mm_set(P, i, j, vec_get(backgd_freqs, j) * 
                (1 - exp(-t * scale)));
 
     }

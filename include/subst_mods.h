@@ -1,4 +1,4 @@
-/* $Id: subst_mods.h,v 1.7 2007-11-27 21:12:13 acs Exp $
+/* $Id: subst_mods.h,v 1.8 2008-04-09 01:52:50 acs Exp $
    Written by Adam Siepel, 2002-2004
    Copyright 2002-2004, Adam Siepel, University of California */
 
@@ -34,7 +34,7 @@ struct tm_struct;               /* use incomplete type because of
                                    reciprocal dependencies with tree_model.h */
 
 void tm_set_probs_JC69(struct tm_struct *mod, MarkovMatrix *P, double t);
-void tm_set_probs_F81(struct tm_struct *mod, MarkovMatrix *P, double scale, double t);
+void tm_set_probs_F81(Vector *backgd_freqs, MarkovMatrix *P, double scale, double t);
 void tm_set_probs_independent(struct tm_struct *mod, MarkovMatrix *P);
 subst_mod_type tm_get_subst_mod_type(char *str);
 char *tm_get_subst_mod_string(subst_mod_type type);
