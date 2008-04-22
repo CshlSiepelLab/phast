@@ -1,10 +1,10 @@
 /*****************************************************
 rph_phyloBoot.c
-The RPHAST handles to function from phyloBoot, a part
+The RPHAST handles to phyloBoot, a part
 of the phast package.
 
 Alexandra Denby
-4/12/08
+Last updated: 4/22/08
 *****************************************************/
 #include <stdlib.h>
 #include <stdio.h>
@@ -18,9 +18,14 @@ Alexandra Denby
 #include <fit_em.h>
 #include <time.h>
 
+/*********DELETE ME LATER*********/
+int rphast_errno;
+char* rphast_errmsg;
+
+/******************functions defined herein******************/
 
 
-void rph_tm_generate_msa(int* modAddress, int* numSites, int* msaAddress, int* numberSpecies, int* length, char** alphabet, char** species, int* error){
+void rph_tm_generate_msa(int* modAddress, int* numSites, int* msaAddress, int* numberSpecies, int* length, char** alphabet, char** species, int* error, char** errstr){
   MSA* msa;
   int nsites=numSites[0];
   TreeModel* model;
@@ -34,9 +39,8 @@ void rph_tm_generate_msa(int* modAddress, int* numSites, int* msaAddress, int* n
   *numberSpecies=msa->nseqs;
   *length=msa->length;
   *alphabet=msa->alphabet;
-  for(i=0; i<*numberSpecies; i++){
-    species[i]=msa->names[i];
-  }
 
+  *error=rphast_errno;
+  *errstr=rphast_errmsg;
 
 }

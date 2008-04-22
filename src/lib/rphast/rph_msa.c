@@ -1,7 +1,11 @@
-/* $Id: rph_msa.c,v 1.1 2008-04-01 15:19:32 acs Exp $
-   Written by Adam Siepel, 2002
-   Copyright 2002, Adam Siepel, University of California */
+/*****************************************************
+rph_msa.c
+The RPHAST handles to functions dealing with multiple
+sequence alignment functions from the phast package.
 
+Alexandra Denby
+Last updated: 4/22/08
+*****************************************************/
 #include <stdlib.h>
 #include <stdio.h>
 #include <msa.h>
@@ -13,123 +17,83 @@
 #include <local_alignment.h>
 #include <maf.h>
 
-/* minimum number of codons required for -L */
-#define MIN_NCODONS 10
+/*********DELETE ME LATER*********/
+int rphast_errno;
+char* rphast_errmsg;
 
-/* number of bases considered to border each indel and minimum number
-   of gapless bases required for -I */
-#define INDEL_BORDER 3
-#define MIN_NBASES 15
+/******************functions defined herein******************/
+void rph_msa_read(char** fname, char** format, int* address, int* numberSpecies, int* length, char** alphabet, int* error, char** errstr);
+void readSpecies(int* address, int* numberSpecies, char** species, int* error, char** errstr);
+void rph_msa_print(char** fname, char** format, int* address, int* error, char** errstr);
+void rph_msa_free(int* address, int* error, char** errstr);
 
-/* new functions */
-void init();
-void readCommandLineArgs(int* argc, char** argv);
-void readAlignment();
-void print_usage();
-void freeAlignment();
-void writeAlignment();
-void printSequence();
-
-/* global variables, used for keeping around during access from R */
-  MSA *msa, *sub_msa;
-  msa_format_type input_format, output_format;
-  List *seqlist_str, *l;
-  char *infname, *clean_seqname, *rseq_fname,
-    *reverse_groups_tag, *alphabet;
-  int opt_idx, startcol, endcol, include, gap_strip_mode,
-    pretty_print, refseq, tuple_size, ordered_stats, 
-    indel_clean_nseqs, cats_done, rand_perm, reverse_compl, 
-    stats_only, win_size, cycle_size, maf_keep_overlapping, 
-    collapse_missing, fourD, mark_missing_maxsize, 
-    missing_as_indels, unmask;
-  List *cats_to_do, *aggregate_list, *msa_fname_list, 
-    *order_list, *fill_N_list;
-  msa_coord_map *map;
-  GFF_Set *gff;
-  CategoryMap *cm;
-
-/* initialize our globals */
-void init(){
-  msa = NULL;
-  sub_msa = NULL;
-  input_format = FASTA;
-  output_format = FASTA;
-  seqlist_str = NULL;
-  l = NULL;
-  infname = NULL;
-  clean_seqname = NULL; 
-  rseq_fname = NULL;
-  reverse_groups_tag = NULL; 
-  alphabet = NULL;
-  startcol = 1; 
-  endcol = -1; 
-  include = 1; 
-  gap_strip_mode = NO_STRIP;
-  pretty_print = FALSE;  
-  refseq = 0; 
-  tuple_size = 1; 
-  ordered_stats = TRUE; 
-  indel_clean_nseqs = -1; 
-  cats_done = FALSE;
-  rand_perm = FALSE; 
-  reverse_compl = FALSE; 
-  stats_only = FALSE; 
-  win_size = -1; 
-  cycle_size = -1; 
-  maf_keep_overlapping = FALSE; 
-  collapse_missing = FALSE;
-  fourD = FALSE; 
-  mark_missing_maxsize = -1; 
-  missing_as_indels = FALSE;
-  unmask = FALSE;
-  cats_to_do = NULL; 
-  aggregate_list = NULL;
-  msa_fname_list = NULL; 
-  order_list = NULL; 
-  fill_N_list = NULL;
-  map = NULL;
-  gff = NULL;
-  cm = NULL;
-
-}
-
-void readAlignment(char** filename, char** format, int* error, int* address, int* numberSpecies, int* length, char** alphabet, char** species){
-  MSA* align;
-  int i;
+/*******************************************************
+rph_msa_read
+reads an alignment from a file.
+*******************************************************/
+void rph_msa_read(char** fname, char** format, int* address, int* numberSpecies, int* length, char** alphabet, int* error, char** errstr){
+  MSA* msa;
+  FILE* file;
+  msa_format_type input_format;
 
   input_format = msa_str_to_format(format[0]);
-  align = msa_new_from_file(fopen_fname(filename[0], "r"), input_format, NULL);
-  if (align == NULL) {
-    *error=-1;
-    return;
+  
+  if (input_format == MAF) {
+    msa = maf_read(file=fopen_fname(fname[0], "r"), NULL, 1, 
+                   NULL, NULL, NULL, -1, 1, NULL, NO_STRIP, FALSE);
   }
-  *address=(unsigned int)align;
-  *numberSpecies=align->nseqs;
-  *length=align->length;
-  *alphabet=align->alphabet;
+  else{
+    msa = msa_new_from_file(fopen_fname(fname[0], "r"), input_format, NULL);
+  }
+  *address=(unsigned int)msa;
+  *numberSpecies=msa->nseqs;
+  *length=msa->length;
+  *alphabet=msa->alphabet;
+  fclose(file);
+
+  *error=rphast_errno;
+  *errstr=rphast_errmsg;
+}
+
+void readSpecies(int* address, int* numberSpecies, char** species, int* error, char** errstr){
+  MSA* msa=(MSA*)address[0];
+  int i;
+
   for(i=0; i<*numberSpecies; i++){
-    species[i]=align->names[i];
+    species[i]=msa->names[i];
   }
+
+  *error=rphast_errno;
+  *errstr=rphast_errmsg;
+
+
 }
 
-void extractSS(int *address, int *storeOrder) {
-  MSA *msa = (MSA*)(*address);
-  ss_from_msas(msa, 1, *storeOrder, NULL, NULL, NULL, -1);
-}
+/*******************************************************
+rph_msa_print
+writes an alignment to a file.
+*******************************************************/
+void rph_msa_print(char** fname, char** format, int* address, int* error, char** errstr){
+  FILE* outfile=fopen_fname(fname[0],"w");
+  msa_format_type output_format;
 
-void writeAlignment(char** filename, char** format, int* error, int* address){
-  FILE* outfile=fopen_fname(filename[0],"w");
-  if (outfile==NULL){
-    *error=-1;
-    return;
-  }
   output_format=msa_str_to_format(format[0]);
   msa_print(outfile, (MSA*)address[0], output_format, FALSE);
   fclose(outfile);
+
+  *error=rphast_errno;
+  *errstr=rphast_errmsg;
+
 }
 
-void freeAlignment(int* address){ 
+/*******************************************************
+rph_msa_free
+frees a multiple sequence alignment.
+*******************************************************/
+void rph_msa_free(int* address, int* error, char** errstr){ 
   msa_free((MSA*)address[0]);
+
+  *error=rphast_errno;
+  *errstr=rphast_errmsg;
+
 }
-
-
