@@ -1,4 +1,4 @@
-/* $Id: display_rate_matrix.c,v 1.4 2005-07-17 23:15:19 acs Exp $
+/* $Id: display_rate_matrix.c,v 1.5 2008-04-23 01:29:20 bbrejova Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -19,7 +19,7 @@ OPTIONS:\n\
     -t <t>: Output P(t) = exp(Qt) instead of Q.  Requires t >= 0.  \n\
             Use \"-t A\" to output a matrix for each branch of the tree.\n\
     -f:     Show equilibrium frequencies as an additional table row.  \n\
-            Incompatible with -l.\n\
+            In list node they are shown with first tuple being -.\n\
     -e:     Show \"exchangeabilities\" instead of raw matrix elements \n\
             (that is, divide each element by the equilibrium frequency \n\
             of its column).  Not available with -t.\n\
@@ -34,6 +34,8 @@ OPTIONS:\n\
             default, except with -t).  Implied by -a.\n\
     -S:     (For use with -l)  Assume a symmetric matrix and report half \n\
             as many lines.  Useful with -e.\n\
+    -E:     (for use with -l) Print rates and probabilities \n\
+            in scientific notation (format %e instead of %f).\n\
     -a:     (Requires a model of order 3).  Replace a matrix of codon\n\
             substitution rates with the induced matrix of amino acid\n\
             substitution rates, according to the universal genetic\n\
@@ -362,12 +364,14 @@ int main(int argc, char* argv[]) {
   TreeModel *model;
   int i, j, k, alph_size, nstates, do_eqfreqs = 0, exch_mode = 0, 
     list_mode = 0, latex_mode = 0, suppress_diag = 0, ti_tv = 0, 
+    scientific_mode = 0,
     induced_aa = 0, do_stop_codons = 0, do_zeroes = 0, symmetric = 0, 
     context_ti_tv = 0, all_branches = 0;
   int startcol, endcol, ncols, branch_no = 0, matrix_idx = 0;
 /*   int aa_inv[256]; */
   double t = -1, total_ti = 0, total_tv = 0, rho_s = 0, cpg_ti = 0, 
     cpg_tv = 0, non_cpg_ti = 0, non_cpg_tv = 0, cpg_eqfreq = 0;
+  char *rate_format_string = "%8.6f";
   MarkovMatrix *M;
   char c;
   char tuple[5], tuple2[5]; /* , aa_alph[50]; */
@@ -376,8 +380,8 @@ int main(int argc, char* argv[]) {
   Matrix *subst_mat = NULL;
   List *matrix_list = lst_new_ptr(20), *traversal = NULL;
 
-  while ((c = getopt(argc, argv, "t:fedlLiM:N:A:B:aszSCh")) != -1) {
-    switch(c) {
+  while ((c = getopt(argc, argv, "t:fedlLiM:N:A:B:aszSECh")) != -1) {
+   switch(c) {
     case 't':
       if (optarg[0] == 'A') all_branches = 1;
       else t = get_arg_dbl_bounds(optarg, 0, INFTY);
@@ -427,6 +431,10 @@ int main(int argc, char* argv[]) {
     case 'S':
       symmetric = 1;
       break;
+    case 'E':
+      scientific_mode = 1;
+      rate_format_string = "%13.6e";
+      break;
     case 'C':
       context_ti_tv = 1;
       break;
@@ -440,9 +448,8 @@ int main(int argc, char* argv[]) {
   }
 
   if ((t >= 0 && exch_mode) || (latex_mode && list_mode) || 
-      (do_eqfreqs && list_mode) || 
       ((ti_tv || subst_mat_fname != NULL || subst_score_fname != NULL || 
-        subst_mat_fname_paml != NULL) && !list_mode) || 
+        subst_mat_fname_paml != NULL || scientific_mode) && !list_mode) || 
       (subst_mat_fname != NULL && subst_score_fname != NULL) || 
       (subst_score_fname != NULL && subst_mat_fname_paml != NULL) || 
       (subst_mat_fname != NULL && subst_mat_fname_paml != NULL) || 
@@ -592,14 +599,21 @@ int main(int argc, char* argv[]) {
         if (latex_mode) printf("$");
         if (list_mode) {
           if (symmetric && j <= i) continue;
-          else if (t < 0 && (i == j || (!do_zeroes && mm_get(M, i, j) == 0))) 
+          else if ((t < 0 && ! all_branches) 
+		   && (i == j || (!do_zeroes && mm_get(M, i, j) == 0))) 
             continue;
           get_state_tuple(model, tuple2, j);
           printf("%-5s %-5s ", tuple, tuple2);
         }
         if (i == j && suppress_diag && !list_mode) printf("%-7s", "-");
-        else printf("%8.6f ", exch_mode == 0 ? mm_get(M, i, j) : 
-                    safediv(mm_get(M, i, j), vec_get(model->backgd_freqs,j)));
+        else { 
+	  /* get rate or probability */
+	  double val = exch_mode == 0 ? mm_get(M, i, j) : 
+	    safediv(mm_get(M, i, j), vec_get(model->backgd_freqs,j));
+	  /* print value in format %8.6f or %13.6e */
+	  printf(rate_format_string, val); 
+	  printf(" ");
+	}
         if (latex_mode) {
           printf("$");
           if (j < endcol-1) printf("& ");
@@ -661,7 +675,7 @@ int main(int argc, char* argv[]) {
     }
     
     /* equilibrium freqs (table case only) */
-    if (do_eqfreqs) {
+    if (do_eqfreqs && ! list_mode) {
       if (latex_mode) 
         printf("\\hline\n$\\boldsymbol{\\mathbf{\\pi}}$&");
       else 
@@ -680,6 +694,16 @@ int main(int argc, char* argv[]) {
     if (latex_mode) printf("\\hline\n\\end{tabular}\n\n");
   }
 
+  /* equilibrium freqs (list case only) */
+  if (do_eqfreqs &&  list_mode) {
+    for (i = 0; i < nstates; i++) {
+      get_state_tuple(model, tuple, i);
+      printf("%-5s %-5s ", "-", tuple); //!!
+      printf(rate_format_string, vec_get(model->backgd_freqs, i)); 
+      printf("\n");
+    }
+  }
+  
   if (ti_tv && list_mode) {
     printf("\n#Total ti/tv = %.4f\n", total_ti/total_tv);
     printf("#CpG ti ratio = %.4f, CpG tv ratio = %.4f\n", 
