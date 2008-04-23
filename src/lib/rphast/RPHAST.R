@@ -4,7 +4,7 @@
 # 4/12/08
 
 phast.init <- function(){
-   dyn.load("/home/alex/ResearchProject/phast/lib/librphast.so")
+   dyn.load("/home/ajd45/phast/lib/librphast.so")
 }
 
 #creates a new alignment object
@@ -18,7 +18,7 @@ msa.new <- function(){
 #read an alignment file, return the alignment object associated with it
 #set maxseq>100 if >100 species in file
 msa.read <- function(fname, format="FASTA", maxseq=100){
-   return=.C("rph_msa_read",fname=as.character(fname), format=as.character(format), address=as.integer(0), numberSpecies=as.integer(0),length=as.integer(0),alphabet=as.character(""),error=as.integer(0), errstr=as.character("")),PACKAGE="librphast")
+   return=.C("rph_msa_read",fname=as.character(fname), format=as.character(format), address=as.integer(0), numberSpecies=as.integer(0),length=as.integer(0),alphabet=as.character(""),error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
 
    if (return$error!=0){
       print(return$errstr)
