@@ -11,11 +11,7 @@ all: ${LIB}/librphast.so
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
 ${LIB}/librphast.so: ${OBJS}
-#	R CMD SHLIB ${OBJS} ${TARGETLIB} -o $@
-	R CMD SHLIB ${ALLOBJS} -o $@
-
-# FIXME: sometimes doesn't work to link to libphast.a.  Seems to be
-# version dependent (either R or gcc, not sure which)
+	R CMD SHLIB -fPIC ${LIBPATH} ${LIBS} ${ALLOBJS} -o $@
 
 clean:
 	rm -f *.o ${LIB}/librphast.so
