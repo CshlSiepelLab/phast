@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.34 2008-02-18 05:01:46 acs Exp $
+/* $Id: misc.c,v 1.35 2008-04-24 22:03:35 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -253,10 +253,8 @@ FILE* fopen_fname(char *fname, char *mode) {
       return stdout;
     else die("ERROR: bad args to fopen_fname.\n");
   }
-  if ((F = fopen(fname, mode)) == NULL) {
-    fprintf(stderr, "ERROR: cannot open %s.\n", fname);
-    exit(1);
-  }
+  if ((F = fopen(fname, mode)) == NULL) 
+    die("ERROR: cannot open %s.\n", fname);
   return F;
 }
 
