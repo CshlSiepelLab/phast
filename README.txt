@@ -92,6 +92,9 @@ The library is composed of six packages, as follows:
             "CFLAGS = -mcpu=pentiumpro -O3" for x86 or "CFLAGS =
             -mcpu=powerpc -O3" for Mac OS X.
 
+          (IMPORTANT: for RPHAST, must include "-fPIC" among CFLAGS options
+          when compiling CLAPACK)
+
           NOOPT: Leave undefined: "NOOPT = " 
 
           LOADOPTS: "LOADOPTS = $(CFLAGS)" will do.

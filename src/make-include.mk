@@ -52,6 +52,10 @@ LIBPATH = -L${LIB}
 # up-to-date installation of R.
 #RPHAST = T
 
+ifdef RPHAST
+CFLAGS += -fPIC
+endif
+
 # The next section is concerned with the LAPACK linear algebra
 # package, which is used by PHAST for matrix diagonalization and
 # matrix inversion.  You have two options: (1) If you are running Mac
