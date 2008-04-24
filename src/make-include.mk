@@ -39,14 +39,9 @@ CFLAGS = -O3
 CFLAGS += -I${INC} -DPHAST_VERSION=\"$(shell cat ${PHAST}/version)\" -DPHAST_HOME=\"${PHAST}\"
 LIBPATH = -L${LIB} 
 
-# static linking ends up being simplest in our environment; comment
-# this line out to link dynamically (comment out for Mac)
-LFLAGS += -static
-
 # uncomment these lines for profiling (add -g for line-by-line
 # profiling and -a for monitoring of basic blocks)
 #CFLAGS += -pg
-#LFLAGS += -pg
 
 # this flag tells certain routines to dump internal, debugging output.
 # Don't uncomment unless you know what you're doing.
@@ -96,7 +91,9 @@ else
 ifdef CLAPACKPATH
 CFLAGS += -I${CLAPACKPATH} -I${F2CPATH}
 LIBPATH += -L${F2CPATH} 
-LIBS = -lphast -llapack -ltmg -lblaswr -lc -lF77 -lI77 -lm
+LIBS = -lphast -llapack -ltmg -lblaswr -lc -lf2c -lm
+# IMPORTANT: for versions of CLAPACK older than 3.1.1, substitute 
+# "-lF77 -lI77" for "-lf2c" above
 
 # bypass
 else
