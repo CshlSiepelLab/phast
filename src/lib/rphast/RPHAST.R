@@ -5,6 +5,8 @@
 
 phast.init <- function(){
    dyn.load("/home/ajd45/phast/lib/librphast.so")
+   .C("init",PACKAGE="librphast")
+   return()
 }
 
 #creates a new alignment object
@@ -18,7 +20,7 @@ msa.new <- function(){
 #read an alignment file, return the alignment object associated with it
 #set maxseq>100 if >100 species in file
 msa.read <- function(fname, format="FASTA", maxseq=100){
-   return=.C("rph_msa_read",fname=as.character(fname), format=as.character(format), address=as.integer(0), numberSpecies=as.integer(0),length=as.integer(0),alphabet=as.character(""),error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+   return=.C("rph_msa_read",fname=as.character(fname), format=as.character(format), address=as.numeric(0), numberSpecies=as.integer(0),length=as.integer(0),alphabet=as.character(""),error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
 
    if (return$error!=0){
       print(return$errstr)
@@ -37,7 +39,7 @@ msa.read <- function(fname, format="FASTA", maxseq=100){
 }
 
 readspecies <- function(msa){
-   return=.C("readSpecies", address=as.integer(attr(msa, "address")), numberSpecies=as.integer(attr(msa, "numberSpecies")), species=as.character(rep("",attr(msa, "numberSpecies"))), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+   return=.C("readSpecies", address=as.numeric(attr(msa, "address")), numberSpecies=as.integer(attr(msa, "numberSpecies")), species=as.character(rep("",attr(msa, "numberSpecies"))), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
    if (return$error!=0){
       print(return$errstr)
       return()
@@ -57,7 +59,7 @@ msa.write <- function(fname, msa, format=attr(msa,"format")){
 	cat("Error: alignment was freed from memory\nPlease reload\n")
 	return()
    }
-   return=.C("rph_msa_print",fname=as.character(fname), format=as.character(format), address=as.integer(attr(msa,"address")), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+   return=.C("rph_msa_print",fname=as.character(fname), format=as.character(format), address=as.numeric(attr(msa,"address")), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
    if (return$error!=0){
       print(return$errstr)
       return()
@@ -79,7 +81,7 @@ msa.free <- function(msa){
 	return()
    }
 
-   .C("rph_msa_free",address=as.integer(attr(msa,"address")), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+   return=.C("rph_msa_free",address=as.numeric(attr(msa,"address")), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
 
    if (return$error!=0){
       print(return$errstr)
@@ -127,7 +129,7 @@ tm.new <- function(){
 
 #reads a tree model from a file
 tm.read <- function(fname){
-   return=.C("rph_tm_read",fname=as.character(fname), treeAddress=as.integer(0), modAddress=as.integer(0), error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")
+   return=.C("rph_tm_read",fname=as.character(fname), treeAddress=as.numeric(0), modAddress=as.numeric(0), error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")
 
    if (return$error!=0){
       print(return$errstr)
@@ -146,7 +148,7 @@ tm.scale <- function(treemod, scale){
       cat("Error: align must be of class \"tm\"\n")
       return()
    }
-   return=.C("rph_tr_scale",modAddress=as.integer(attr(treemod, "address")), treeAddress=as.integer(0), scale=as.numeric(scale), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+   return=.C("rph_tr_scale",modAddress=as.numeric(attr(treemod, "address")), treeAddress=as.numeric(0), scale=as.numeric(scale), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
    
    if (return$error!=0){
       print(return$errstr)
@@ -165,7 +167,7 @@ tm.write <- function(fname, treemod){
       cat("Error: align must be of class \"msa\"\n")
       return()
    }
-   return=.C("rph_tm_print",fname=as.character(fname), address=as.integer(attr(treemod, "address")), error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")
+   return=.C("rph_tm_print",fname=as.character(fname), address=as.numeric(attr(treemod, "address")), error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")
 
    if (return$error!=0){
       print(return$errstr)
@@ -181,7 +183,7 @@ tm.free <- function(tm){
 	cat("Error: object must be of class \"tm\"\n")
 	return()
    }
-   .C("rph_tm_free",address=as.integer(attr(tm,"address")), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+   return=.C("rph_tm_free",address=as.numeric(attr(tm,"address")), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
 
    if (return$error!=0){
       print(return$errstr)
@@ -209,7 +211,7 @@ tm.generateMSA<-function(treemod, nsites, maxsp=100){
       cat("Error: align must be of class \"tm\"\n")
       return()
    }
-   return=.C("rph_tm_generate_msa",modAddress=as.integer(attr(treemod, "address")), numSites=as.integer(nsites), msaAddress=as.integer(0), numberSpecies=as.integer(0), length=as.integer(0), alphabet="", species=rep("",maxsp), error=as.integer(0), PACKAGE="librphast")
+   return=.C("rph_tm_generate_msa",modAddress=as.numeric(attr(treemod, "address")), numSites=as.integer(nsites), msaAddress=as.numeric(0), numberSpecies=as.integer(0), length=as.integer(0), alphabet="", species=rep("",maxsp), error=as.integer(0), PACKAGE="librphast")
    
    msa=msa.new()
    attr(msa,"address")=return$msaAddress

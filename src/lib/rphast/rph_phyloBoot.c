@@ -17,25 +17,22 @@ Last updated: 4/22/08
 #include <tree_model.h>
 #include <fit_em.h>
 #include <time.h>
-
-/*********DELETE ME LATER*********/
-int rphast_errno;
-char* rphast_errmsg;
+#include <rph_util.h>
 
 /******************functions defined herein******************/
 
 
-void rph_tm_generate_msa(int* modAddress, int* numSites, int* msaAddress, int* numberSpecies, int* length, char** alphabet, char** species, int* error, char** errstr){
+void rph_tm_generate_msa(double* modAddress, int* numSites, double* msaAddress, int* numberSpecies, int* length, char** alphabet, char** species, int* error, char** errstr){
   MSA* msa;
-  int nsites=numSites[0];
+  int nsites=*numSites;
   TreeModel* model;
   int i;
 
-  model=(TreeModel*)modAddress[0];
+  model=(TreeModel*)ad2ptr(*modAddress);
 
   msa = tm_generate_msa(nsites, NULL, &model, NULL);
 
-  *msaAddress=(unsigned int)msa;
+  *msaAddress=ptr2ad(msa);
   *numberSpecies=msa->nseqs;
   *length=msa->length;
   *alphabet=msa->alphabet;
