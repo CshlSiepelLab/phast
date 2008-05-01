@@ -10,8 +10,8 @@ all: ${LIB}/librphast.so
 %.o: %.c ../../make-include.mk 
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
-${LIB}/librphast.so: ${OBJS}
-	R CMD SHLIB -fPIC ${LIBPATH} ${LIBS} ${ALLOBJS} -o $@
+${LIB}/librphast.so: ${OBJS} ${ALLOBJS}
+	R CMD SHLIB -fPIC ${LIBPATH} ${LIBS} ../*/*.o -o $@
 
 clean:
 	rm -f *.o ${LIB}/librphast.so

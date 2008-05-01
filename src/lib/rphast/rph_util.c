@@ -9,6 +9,7 @@ Last updated 4/26/08
 #include <rph_util.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 int rphast_errno;
 char rphast_errmsg[1000];
