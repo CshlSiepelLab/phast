@@ -111,7 +111,7 @@ void phyloP_SPH(double* msaAddress, double* tmAddress, int* fm, double* eps, int
   double *tuple_pvals = NULL;
   double *tuple_post_means = NULL, *tuple_post_vars = NULL;
   double prior_mean, prior_var;
-  FILE* logf = stdout;
+  FILE* logf = NULL;
   mode_type mode;
 
   msa=(MSA*)ad2ptr(*msaAddress);
@@ -162,7 +162,7 @@ void phyloP_LRT(double* msaAddress, double* tmAddress, int* stats, int* modeNum,
   double *tuple_pvals = NULL;
   double *tuple_llrs = NULL, *tuple_scales = NULL;
   mode_type mode;
-  FILE* logf = stdout;
+  FILE* logf = NULL;
 
   mode=getMode(*modeNum);
   
@@ -197,7 +197,6 @@ void phyloP_SCORE(double* msaAddress, double* tmAddress, int* stats, int* modeNu
   double *tuple_pvals = NULL;
   double *tuple_teststats = NULL, *tuple_derivs = NULL;
   mode_type mode;
-  FILE* logf = stdout;
 
   mode=getMode(*modeNum);
   
@@ -230,7 +229,7 @@ void phyloP_GERP(double* msaAddress, double* tmAddress, int* stats, int* modeNum
   double *tuple_nrejected = NULL;
   double *tuple_nneut = NULL, *tuple_nobs = NULL, *tuple_nspec=NULL;
   mode_type mode;
-  FILE* logf = stdout;
+  FILE* logf = NULL;
 
   mode=getMode(*modeNum);
   
