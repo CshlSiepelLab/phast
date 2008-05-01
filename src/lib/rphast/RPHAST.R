@@ -18,8 +18,7 @@ msa.new <- function(){
 
 
 #read an alignment file, return the alignment object associated with it
-#set maxseq>100 if >100 species in file
-msa.read <- function(fname, format="FASTA", maxseq=100){
+msa.read <- function(fname, format="FASTA"){
    return=.C("rph_msa_read",fname=as.character(fname), format=as.character(format), address=as.numeric(0), numberSpecies=as.integer(0),length=as.integer(0),alphabet=as.character(""),error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
 
    if (return$error!=0){
@@ -93,7 +92,7 @@ msa.free <- function(msa){
 }
 
 #print function, alignments
-print.alignment<- function(align){
+print.msa<- function(align){
    if(attr(align,"loaded")==0){
 	cat("Alignment unloaded\n")
 	return()
@@ -103,7 +102,7 @@ print.alignment<- function(align){
 }
 
 #summary function, alignments
-summary.alignment<- function(align){
+summary.msa<- function(align){
    if(attr(align,"loaded")==0){
 	cat("Error: alignment was freed from memory\nPlease reload\n")
 	return()
@@ -145,7 +144,7 @@ tm.read <- function(fname){
 #scales a tree model's tree based on a specified constant
 tm.scale <- function(treemod, scale){
    if (class(treemod)!="tm"){
-      cat("Error: align must be of class \"tm\"\n")
+      cat("Error: treemod must be of class \"tm\"\n")
       return()
    }
    return=.C("rph_tr_scale",modAddress=as.numeric(attr(treemod, "address")), treeAddress=as.numeric(0), scale=as.numeric(scale), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
@@ -164,7 +163,7 @@ tm.scale <- function(treemod, scale){
 #Writes a tree model to a file
 tm.write <- function(fname, treemod){
    if (class(treemod)!="tm"){
-      cat("Error: align must be of class \"msa\"\n")
+      cat("Error: treemod must be of class \"msa\"\n")
       return()
    }
    return=.C("rph_tm_print",fname=as.character(fname), address=as.numeric(attr(treemod, "address")), error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")
@@ -203,15 +202,15 @@ summary.tm <- function(tm){
 }
 
 
-###########MORE FUNCTIONS#################
+###########FROM PHYLOBOOT#################
 
 #Again, used max species
-tm.generateMSA<-function(treemod, nsites, maxsp=100){
+tm.generateMSA<-function(treemod, nsites){
    if (class(treemod)!="tm"){
-      cat("Error: align must be of class \"tm\"\n")
+      cat("Error: treemod must be of class \"tm\"\n")
       return()
    }
-   return=.C("rph_tm_generate_msa",modAddress=as.numeric(attr(treemod, "address")), numSites=as.integer(nsites), msaAddress=as.numeric(0), numberSpecies=as.integer(0), length=as.integer(0), alphabet="", species=rep("",maxsp), error=as.integer(0), PACKAGE="librphast")
+   return=.C("rph_tm_generate_msa",modAddress=as.numeric(attr(treemod, "address")), numSites=as.integer(nsites), msaAddress=as.numeric(0), numberSpecies=as.integer(0), length=as.integer(0), alphabet="", error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")
    
    msa=msa.new()
    attr(msa,"address")=return$msaAddress
@@ -222,4 +221,198 @@ tm.generateMSA<-function(treemod, nsites, maxsp=100){
    attr(msa,"species")=readspecies(msa)
    attr(msa,"loaded")=1
    return(msa)
+}
+
+################################PHYLOP###############################
+bScore.new <- function(){
+  a=list()
+  class(a)="bScore"
+  return(a)
+}
+
+
+
+phylop.baseScores <- function(msa, treemod, method="SPH", mode="CON", fitModel=FALSE, epsilon=0, stats=FALSE){
+ 
+   if(class(msa)!="msa"){
+	cat("Error: align must be of class \"msa\"\n")
+        return()
+   }
+
+   if (class(treemod)!="tm"){
+      cat("Error: treemod must be of class \"tm\"\n")
+      return()
+   }
+
+   if (mode=="CON"){
+	modeInt=1
+   }else if (mode=="NNEUT"){
+	modeInt=2
+   }else if (mode=="ACC"){
+	modeInt=3
+   }else{
+	cat("ERROR: unrecognized mode\n")
+	cat("Please use one of: CON, NNEUT, ACC\n")
+	return()
+   }
+
+   return=.C("preprocessMSA",msaAddress=as.numeric(attr(msa,"address")), error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")
+   if (return$error!=0){
+      print(return$errstr)
+      return()
+   }
+
+   if (method != "SPH" && (epsilon !=0 || fitModel)){
+	cat("WARNING: fitModel/epsilon only supported in method SPH\n")
+	cat("         discarding these values\n")
+   }
+
+   if (method=="SPH"){
+	if (epsilon==0){
+		epsilon=1e-6
+		cat("Using default epsilon value 1e-6\n")	  
+	}
+	return=.C("phyloP_SPH",msaAddress=as.numeric(attr(msa,"address")), tmAddress=as.numeric(attr(treemod, "address")), fm=as.integer(fitModel), eps=as.numeric(epsilon), stats=as.integer(stats), modeNum=as.integer(modeInt), pVals=as.numeric(rep(0,attr(msa,"length"))), postMeans=as.numeric(rep(0,attr(msa,"length"))), postVars=as.numeric(rep(0,attr(msa,"length"))), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+	
+   	if (return$error!=0){
+      		print(return$errstr)
+      		return()
+   	}
+	
+
+	bScore=bScore.new()
+	attr(bScore,"msa")=msa
+	attr(bScore,"tm")=treemod
+	attr(bScore,"method")="SPH"
+	attr(bScore,"stats")=stats
+	attr(bScore,"pvals")=return$pVals
+	if (stats){
+	    attr(bScore,"postMeans")=return$postMeans
+	    attr(bScore,"postVars")=return$postVars
+      	}
+	return(bScore)
+   }	
+
+   if (method=="LRT"){
+	return=.C("phyloP_LRT",msaAddress=as.numeric(attr(msa,"address")), tmAddress=as.numeric(attr(treemod, "address")), stats=as.integer(stats), modeNum=as.integer(modeInt), pVals=as.numeric(rep(0,attr(msa,"length"))), llrs=as.numeric(rep(0,attr(msa,"length"))), scales=as.numeric(rep(0,attr(msa,"length"))), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+
+   	if (return$error!=0){
+      		print(return$errstr)
+      		return()
+   	}
+	
+	bScore=bScore.new()
+	attr(bScore,"msa")=msa
+	attr(bScore,"tm")=treemod
+	attr(bScore,"method")="LRT"
+	attr(bScore,"stats")=stats
+	attr(bScore,"pvals")=return$pVals
+	if (stats){
+	    attr(bScore,"llrs")=return$llrs
+	    attr(bScore,"scales")=return$scales
+      	}
+	return(bScore)
+   }
+   if (method=="SCORE"){
+	return=.C("phyloP_SCORE",msaAddress=as.numeric(attr(msa,"address")), tmAddress=as.numeric(attr(treemod, "address")), stats=as.integer(stats), modeNum=as.integer(modeInt), pVals=as.numeric(rep(0,attr(msa,"length"))), teststats=as.numeric(rep(0,attr(msa,"length"))), derivs=as.numeric(rep(0,attr(msa,"length"))), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+
+   	if (return$error!=0){
+      		print(return$errstr)
+      		return()
+   	}
+	
+	bScore=bScore.new()
+	attr(bScore,"msa")=msa
+	attr(bScore,"tm")=treemod
+	attr(bScore,"method")="SCORE"
+	attr(bScore,"stats")=stats
+	attr(bScore,"pvals")=return$pVals
+	if (stats){
+	    attr(bScore,"teststats")=return$teststats
+	    attr(bScore,"derivs")=return$derivs
+      	}
+	return(bScore)
+  }
+
+  if (method == "GERP"){
+	return=.C("phyloP_GERP",msaAddress=as.numeric(attr(msa,"address")), tmAddress=as.numeric(attr(treemod, "address")), stats=as.integer(stats), modeNum=as.integer(modeInt), nrejected=as.numeric(rep(0,attr(msa,"length"))), nneut=as.numeric(rep(0,attr(msa,"length"))), nobs=as.numeric(rep(0,attr(msa,"length"))), nspec=as.numeric(rep(0,attr(msa,"length"))), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+
+   	if (return$error!=0){
+      		print(return$errstr)
+      		return()
+   	}
+	
+	bScore=bScore.new()
+	attr(bScore,"msa")=msa
+	attr(bScore,"tm")=treemod
+	attr(bScore,"method")="GERT"
+	attr(bScore,"stats")=stats
+	attr(bScore,"nrejected")=return$nrejected
+	if (stats){
+	    attr(bScore,"nneut")=return$nneut
+	    attr(bScore,"nobs")=return$nobs
+	    attr(bScore,"nspec")=return$nspec
+      	}
+	return(bScore)
+
+
+  }
+
+  cat("ERROR: unsupported method\n")
+  cat("Use one of {LRT, SPH, SCORE, GERP}\n")
+  return()
+
+}
+
+print.bScore<- function(bScore){
+   cat("Base score object\n")
+}
+
+summary.bScore <- function(bScore){
+   print(bScore)
+
+   cat("Method used: ",attr(bScore,"method"),"\n")
+   cat("Stats calculated: ",attr(bScore,"stats"),"\n")
+}
+
+bScore.values <- function(bScore){
+   if (class(bScore)!="bScore"){
+	cat("ERROR: bScore must by of class \"bScore\"\n")
+	return()
+   }
+   l=list()
+   if (attr(bScore,"method")=="SPH"){
+	l$pvals=attr(bScore,"pvals")
+        if (attr(bScore,"stats")){
+		l$postMeans=attr(bScore,"postMeans")
+		l$postVars=attr(bScore,"postVars")
+        }
+        return(l)
+   }
+   if (attr(bScore,"method")=="LRT"){
+	l$pvals=attr(bScore,"pvals")
+        if (attr(bScore,"stats")){
+		l$llrs=attr(bScore,"llrs")
+		l$scales=attr(bScore,"scales")
+        }
+        return(l)
+
+   }
+   if (attr(bScore,"method")=="SCORE"){
+	l$pvals=attr(bScore,"pvals")
+        if (attr(bScore,"stats")){
+		l$teststats=attr(bScore,"teststats")
+		l$derivs=attr(bScore,"derivs")
+        }
+        return(l)
+   }
+   if (attr(bScore,"method")=="GERP"){
+	l$nrejected=attr(bScore,"nrejected")
+        if (attr(bScore,"stats")){
+		l$nobs=attr(bScore,"nobs")
+		l$nneut=attr(bScore,"nneut")
+		l$nspec=attr(bscore,"nspec")
+        }
+        return(l)
+   }
 }

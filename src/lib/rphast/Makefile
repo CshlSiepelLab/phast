@@ -11,7 +11,7 @@ all: ${LIB}/librphast.so
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
 ${LIB}/librphast.so: ${OBJS}
-	R CMD SHLIB -fPIC ${LIBPATH} ${LIBS} ${ALLOBJS}  -o $@
+	R CMD SHLIB -fPIC ${LIBPATH} ${LIBS} ${ALLOBJS} -o $@
 
 clean:
 	rm -f *.o ${LIB}/librphast.so

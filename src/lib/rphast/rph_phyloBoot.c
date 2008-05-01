@@ -22,7 +22,7 @@ Last updated: 4/22/08
 /******************functions defined herein******************/
 
 
-void rph_tm_generate_msa(double* modAddress, int* numSites, double* msaAddress, int* numberSpecies, int* length, char** alphabet, char** species, int* error, char** errstr){
+void rph_tm_generate_msa(double* modAddress, int* numSites, double* msaAddress, int* numberSpecies, int* length, char** alphabet, int* error, char** errstr){
   MSA* msa;
   int nsites=*numSites;
   TreeModel* model;
@@ -41,3 +41,4 @@ void rph_tm_generate_msa(double* modAddress, int* numSites, double* msaAddress, 
   *errstr=rphast_errmsg;
 
 }
+

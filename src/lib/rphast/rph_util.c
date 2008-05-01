@@ -10,12 +10,12 @@ Last updated 4/26/08
 #include <stdio.h>
 #include <stdlib.h>
 
-int rphast_errno=0;
+int rphast_errno;
 char rphast_errmsg[1000];
 
 void init(){
-  /*rphast_errno=0;
-    rphast_errmsg=(char*)malloc(sizeof(char));*/
+  rphast_errno=0;
+  strcpy(rphast_errmsg,"");
 }
 
 void* ad2ptr(double address){
