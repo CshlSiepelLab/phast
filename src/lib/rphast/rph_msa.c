@@ -19,7 +19,7 @@ Last updated: 4/22/08
 #include <rph_util.h>
 
 /******************functions defined herein******************/
-void rph_msa_read(char** fname, char** format, double* address, int* numberSpecies, int* length, char** alphabet, int* error, char** errstr);
+void rph_msa_read(char** fname, char** format, double* address, double* gffAddress, int* numberSpecies, int* length, char** alphabet, int* error, char** errstr);
 void readSpecies(double* address, int* numberSpecies, char** species, int* error, char** errstr);
 void rph_msa_print(char** fname, char** format, double* address, int* error, char** errstr);
 void rph_msa_free(double* address, int* error, char** errstr);
@@ -29,19 +29,31 @@ void rph_msa_free(double* address, int* error, char** errstr);
 rph_msa_read
 reads an alignment from a file.
 *******************************************************/
-void rph_msa_read(char** fname, char** format, double* address, int* numberSpecies, int* length, char** alphabet, int* error, char** errstr){
+void rph_msa_read(char** fname, char** format, double* address, double* gffAddress, int* numberSpecies, int* length, char** alphabet, int* error, char** errstr){
   MSA* msa;
-  FILE* file;
+  CategoryMap *cm;
+  GFF_Set *gff;
+  FILE* file=fopen_fname(*fname, "r");
   msa_format_type input_format;
 
-  input_format = msa_str_to_format(format[0]);
+  input_format = msa_str_to_format(*format);
   file=fopen_fname(*fname,"r");
-  if (input_format == MAF) {
-    msa = maf_read(file, NULL, 1, 
-                   NULL, NULL, NULL, -1, 1, NULL, NO_STRIP, FALSE);
+  
+  if (*gffAddress==0){
+    gff=NULL;
+    cm=NULL;
   }
   else{
-    msa = msa_new_from_file(fopen_fname(fname[0], "r"), input_format, NULL);
+    gff=(GFF_Set*)ad2ptr(*gffAddress);
+    cm=cm_new_from_features(gff);
+  }
+
+
+  if(input_format==MAF){
+    msa=maf_read(file, NULL,1,NULL, gff, cm, -1, FALSE, NULL, NO_STRIP, FALSE);
+  }
+  else{
+    msa = msa_new_from_file(file, input_format, NULL);
   }
 
   *address=ptr2ad(msa);
@@ -54,6 +66,8 @@ void rph_msa_read(char** fname, char** format, double* address, int* numberSpeci
   *errstr=rphast_errmsg;
   
 }
+
+
 
 void readSpecies(double* address, int* numberSpecies, char** species, int* error, char** errstr){
   MSA* msa=(MSA*)ad2ptr(*address);
@@ -68,6 +82,8 @@ void readSpecies(double* address, int* numberSpecies, char** species, int* error
 
 
 }
+
+
 
 /*******************************************************
 rph_msa_print

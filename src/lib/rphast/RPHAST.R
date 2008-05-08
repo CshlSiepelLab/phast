@@ -202,15 +202,146 @@ summary.tm <- function(tm){
 }
 
 
+#Does not yet support parameters scale/subtree
+tm.fit <- function(msa, substmod="REV", tree="", treemod=0, precision="HIGH", use_em=FALSE){
+   
+   if(treemod!=0 && class(treemod)!="tm"){
+	cat("Error: treemod must be of class \"tm\"\n")
+	return()
+   }
+
+   if(class(msa)!="msa"){
+	cat("Error: msa must be of class \"msa\"\n")
+	return()
+   }
+
+   if(treemod==0 && tree==""){
+	cat("Error: must enter either an initial model or a tree to build from\n");
+	cat("Please use parameter tree or treemod\n");
+	return();
+   }
+   
+   if(precision=="HIGH"){
+	prec=3
+   }
+   else if (precision=="MED"){
+	prec=2
+   }
+   else if (precision=="LOW"){
+	prec=1
+   }
+
+   return=.C("preprocessMSA",msaAddress=as.numeric(attr(msa,"address")), error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")
+   if (return$error!=0){
+      print(return$errstr)
+      return()
+   }
+
+   return=.C("rph_tm_fit",modAddress=as.numeric(attr(treemod, "address")), msaAddress=as.numeric(attr(msa,"address")), substModel=as.character(substmod), treestr=as.character(tree), prec=as.integer(prec), em=as.integer(use_em), fittedAddress=as.numeric(0),error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")   
+
+   if (return$error!=0){
+      print(return$errstr)
+      return()
+   }
+
+   tm=tm.new()
+   attr(tm, "address")=return$fittedAddress
+   return(tm)
+}
+
+
+
+###################GFF####################
+gff.new <- function(){
+  a=list()
+  class(a)="gff"
+  return(a)
+}
+
+gff.read <- function(fname){
+
+   return=.C("rph_gff_read", fname=as.character(fname), gffAddress=as.numeric(0), error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")
+
+   if (return$error!=0){
+      print(return$errstr)
+      return()
+   }
+
+   gff=gff.new()
+   attr(gff, "address")=return$gffAddress
+   
+   return(gff)
+}
+
+gff.writeSet <- function(gff, fname){
+
+   if(class(gff)!="gff"){
+	print("Error: gff must be of class \"gff\"\n")
+	return()
+   }
+
+   return=.C("rph_gff_print_set",address=as.numeric(attr(gff, "address")), fname=as.character(fname), error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")
+
+   if (return$error!=0){
+      print(return$errstr)
+      return()
+   }
+   
+}
+
+gff.writeFeatures <- function(gff, fname){
+   if(class(gff)!="gff"){
+	print("Error: gff must be of class \"gff\"\n")
+	return()
+   }
+
+   return=.C("rph_gff_print_features",address=as.numeric(attr(gff, "address")), fname=as.character(fname), error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")
+
+   if (return$error!=0){
+      print(return$errstr)
+      return()
+   }
+
+}
+
+gff.free <- function(gff){
+
+  if(class(gff)!="gff"){
+	print("Error: gff must be of class \"gff\"\n")
+	return()
+   }
+
+  return=.C("rph_gff_free", address=as.numeric(attr(gff,"address")), error=as.integer(0), errstr=as.character(""))
+
+   if (return$error!=0){
+      print(return$errstr)
+      return()
+   }
+
+}
+
+print.gff <- function(gff){
+   cat("GFF Object\n")
+}
+
+summary.gff <- function(gff){
+   print(gff)
+}
+
+
 ###########FROM PHYLOBOOT#################
 
-#Again, used max species
 tm.generateMSA<-function(treemod, nsites){
    if (class(treemod)!="tm"){
       cat("Error: treemod must be of class \"tm\"\n")
       return()
    }
    return=.C("rph_tm_generate_msa",modAddress=as.numeric(attr(treemod, "address")), numSites=as.integer(nsites), msaAddress=as.numeric(0), numberSpecies=as.integer(0), length=as.integer(0), alphabet="", error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")
+
+   if (return$error!=0){
+      print(return$errstr)
+      return()
+   }
    
    msa=msa.new()
    attr(msa,"address")=return$msaAddress

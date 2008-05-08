@@ -21,6 +21,7 @@ void rph_tr_scale(double* modAddress, double* treeAddress, double* scale, int* e
 void rph_tm_print(char** fname, double* address, int* error, char** errstr);
 void rph_tm_free(double* modAddress, int* error, char** errstr);
 
+
 /*******************************************************
 rph_tm_read
 reads a tree model from a file.
@@ -100,3 +101,69 @@ void rph_tm_free(double* modAddress, int* error, char** errstr){
 
 }
 
+void rph_tm_fit(double* modAddress, double* msaAddress, char** substModel, char**treestr, int* prec, int* em, double* fittedAddress, int* error, char** errstr){
+
+  TreeModel *init_mod, *mod;
+  TreeNode* tree;
+  MSA* msa;
+  Vector* params;
+  int precision;
+  int use_em=*em;
+  FILE* logf=NULL;
+  subst_mod_type subst_mod;
+
+  if (*prec==1){
+    precision=OPT_LOW_PREC;
+  }
+  else if (*prec==2){
+    precision=OPT_MED_PREC;
+  }
+  else{
+    precision=OPT_HIGH_PREC;
+  }
+
+  msa=(MSA*)ad2ptr(*msaAddress);
+
+  //from R, we either pass an initial model, or a string to create an 
+  //initial model from
+  if(*modAddress==0){
+    tree = tr_new_from_string(*treestr);
+  }
+  else{
+    init_mod=(TreeModel*)ad2ptr(*modAddress);
+  }
+
+  subst_mod = tm_get_subst_mod_type(*substModel);
+  if (subst_mod==UNDEF_MOD){
+    *error=1;
+    strcpy(*errstr, "ERROR: Undefined Model Type\n");
+    return;
+  }
+
+  if (init_mod == NULL){
+    mod = tm_new(tr_create_copy(tree), NULL, NULL, subst_mod, 
+		     msa->alphabet, 1, 1, NULL, -1);
+    params = tm_params_init(mod, .1, 5, 1);  
+  }  
+  else {
+    mod = tm_create_copy(init_mod);  
+    tm_reinit(mod, subst_mod, 1, mod->alpha, NULL, NULL);
+    params = tm_params_new_init_from_model(init_mod);
+  }
+
+  if (init_mod != NULL && mod->backgd_freqs != NULL) {
+    vec_free(mod->backgd_freqs);
+    mod->backgd_freqs = NULL; /* force re-estimation */
+  }
+
+  if (use_em)
+    tm_fit_em(mod, msa, params, -1, precision, logf);
+  else
+    tm_fit(mod, msa, params, -1, precision, logf);
+
+  *fittedAddress=ptr2ad(mod);
+
+  *error=rphast_errno;
+  *errstr=rphast_errmsg;
+
+}
