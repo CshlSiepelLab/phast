@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.32 2008-04-09 01:52:17 acs Exp $
+/* $Id: tree_model.c,v 1.33 2008-05-10 16:56:40 ajd45 Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -21,7 +21,7 @@
 #include <math.h>
 
 #define ALPHABET_TAG "ALPHABET:"
-#define BACKGROUND_TAG "BACKGROUND:"
+B#define BACKGROUND_TAG "BACKGROUND:"
 #define ORDER_TAG "ORDER:"
 #define SUBST_MOD_TAG "SUBST_MOD:"
 #define RATE_MATRIX_TAG "RATE_MAT:"
@@ -469,6 +469,10 @@ TreeModel *tm_create_copy(TreeModel *src) {
   }
 
   /* NOTE: ignoring params, tree_posteriors, etc. */
+
+  /* ALEX'S FIX: can't do that! */
+  retval->rate_matrix_param_row=NULL;
+  retval->rate_matrix_param_col=NULL;
 
   return retval;
 }
