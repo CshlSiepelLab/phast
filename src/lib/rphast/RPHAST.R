@@ -1,32 +1,60 @@
 #Alexandra Denby
 #RPHAST.R
-#First test case for RPHAST
-# 4/12/08
+#Alpha version
+#5/10/08
 
 phast.init <- function(){
-   dyn.load("/home/ajd45/phast/lib/librphast.so")
+#   dyn.load("/home/ajd45/phast/lib/librphast.so")
    .C("init",PACKAGE="librphast")
    return()
 }
 
 #creates a new alignment object
-msa.new <- function(){
+msa.makeobj <- function(){
   a=list()
   class(a)="msa"
   return(a)
 }
 
+#spec is a character vector containing species names
+msa.new <- function(nseqs, spec=rep("",nseqs),seqs=rep("",nseqs)){
 
-#read an alignment file, return the alignment object associated with it
-msa.read <- function(fname, format="FASTA"){
-   return=.C("rph_msa_read",fname=as.character(fname), format=as.character(format), address=as.numeric(0), numberSpecies=as.integer(0),length=as.integer(0),alphabet=as.character(""),error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+   return=.C("rph_msa_new",nseqs=as.integer(nseqs),spec=as.character(spec), seqs=as.character(seqs), address=as.numeric(0), numberSpecies=as.integer(0), length=as.integer(0), alphabet=as.character(""), error=as.integer(0), errstr=as.character(""), PACKAGE="librphast")
 
    if (return$error!=0){
       print(return$errstr)
       return()
    }
 
-   msa=msa.new()
+   msa=msa.makeobj()
+   attr(msa,"address")=return$address
+   attr(msa,"format")="FASTA"
+   attr(msa,"numberSpecies")=return$numberSpecies
+   attr(msa,"species")=readspecies(msa)
+   attr(msa,"length")=return$length
+   attr(msa,"alphabet")=return$alphabet
+   attr(msa,"loaded")=1
+   return(msa)
+
+}
+
+#read an alignment file, return the alignment object associated with it
+msa.read <- function(fname, format="FASTA", ss=FALSE, gff=0, do4d=FALSE){
+
+   if(class(gff)=="gff"){
+	gffad=attr(gff,"address")
+   }else{
+	gffad=0
+   }
+
+   return=.C("rph_msa_read",fname=as.character(fname), format=as.character(format), address=as.numeric(0), gffAddress=as.numeric(gffad), fourD=as.integer(do4d), SS=as.integer(ss), numberSpecies=as.integer(0),length=as.integer(0),alphabet=as.character(""),error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+
+   if (return$error!=0){
+      print(return$errstr)
+      return()
+   }
+
+   msa=msa.makeobj()
    attr(msa,"address")=return$address
    attr(msa,"format")=format
    attr(msa,"numberSpecies")=return$numberSpecies
@@ -113,7 +141,31 @@ summary.msa<- function(align){
    cat("\n")
 }
 
+msa.append <- function(base, new){
 
+   if(class(base)!="msa"){
+	cat("Error: base must be of class \"msa\"\n")
+        return()
+   }
+   if(class(new)!="msa"){
+	cat("Error: base must be of class \"msa\"\n")
+        return()
+   }
+   if(attr(base,"address")==attr(new,"address")){
+	cat("Error: msa.append does not support duplication\n")
+	return()
+   }
+
+   return=.C("rph_msa_concatenate",baseAddress=as.numeric(attr(base,"address")), newAddress=as.numeric(attr(new,"address")),error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+
+   if (return$error!=0){
+      print(return$errstr)
+      return()
+   }
+
+   attr(base,"length")=attr(base,"length")+attr(new,"length")
+   return(base)
+}
 
 
 ####################TREE MODELS######################
@@ -249,6 +301,42 @@ tm.fit <- function(msa, substmod="REV", tree="", treemod=0, precision="HIGH", us
    return(tm)
 }
 
+tm.computeLogLikelihood <- function(treemod, msa, colScores=FALSE){
+
+   if(class(treemod)!="tm"){
+	cat("Error: treemod must be of class \"tm\"\n")
+	return()
+   }
+
+   if(class(msa)!="msa"){
+	cat("Error: msa must be of class \"msa\"\n")
+	return()
+   }
+
+   if(colScores){
+	cs=rep(0,attr(msa,"length"))
+   }else{
+	cs=-1
+   }	
+
+   return=.C("rph_tl_compute_log_likelihood", modAddress=as.numeric(attr(treemod, "address")), msaAddress=as.numeric(attr(msa, "address")), columnScores=as.numeric(cs), likelihood=as.numeric(0), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
+
+   if (return$error!=0){
+      print(return$errstr)
+      return()
+   }
+
+   if (colScores){
+        l=list()
+	l$colScores=return$columnScores
+	l$likelihood=return$likelihood
+	return(l)
+   }else{
+	return(return$likelihood)
+   }
+
+}
+
 
 
 ###################GFF####################
@@ -343,7 +431,7 @@ tm.generateMSA<-function(treemod, nsites){
       return()
    }
    
-   msa=msa.new()
+   msa=msa.makeobj()
    attr(msa,"address")=return$msaAddress
    attr(msa,"format")="FASTA"
    attr(msa,"numberSpecies")=return$numberSpecies
@@ -355,14 +443,6 @@ tm.generateMSA<-function(treemod, nsites){
 }
 
 ################################PHYLOP###############################
-bScore.new <- function(){
-  a=list()
-  class(a)="bScore"
-  return(a)
-}
-
-
-
 phylop.baseScores <- function(msa, treemod, method="SPH", mode="CON", fitModel=FALSE, epsilon=0, stats=FALSE){
  
    if(class(msa)!="msa"){
@@ -410,18 +490,18 @@ phylop.baseScores <- function(msa, treemod, method="SPH", mode="CON", fitModel=F
       		return()
    	}
 	
-
-	bScore=bScore.new()
-	attr(bScore,"msa")=msa
-	attr(bScore,"tm")=treemod
-	attr(bScore,"method")="SPH"
-	attr(bScore,"stats")=stats
-	attr(bScore,"pvals")=return$pVals
+	l=list()
+	l$msa=msa
+	l$treemod=treemod
+	l$method="SPH"
+	l$stats=stats
+	l$pvals=return$pVals
 	if (stats){
-	    attr(bScore,"postMeans")=return$postMeans
-	    attr(bScore,"postVars")=return$postVars
-      	}
-	return(bScore)
+		l$postMeans=return$postMeans
+		l$postVars=return$postVars
+	}
+	class(l)="bScore"
+	return(l)
    }	
 
    if (method=="LRT"){
@@ -431,18 +511,19 @@ phylop.baseScores <- function(msa, treemod, method="SPH", mode="CON", fitModel=F
       		print(return$errstr)
       		return()
    	}
-	
-	bScore=bScore.new()
-	attr(bScore,"msa")=msa
-	attr(bScore,"tm")=treemod
-	attr(bScore,"method")="LRT"
-	attr(bScore,"stats")=stats
-	attr(bScore,"pvals")=return$pVals
+
+	l=list()
+	class(l)="bScore"
+	l$msa=msa
+	l$tm=treemod
+	l$method="LRT"
+	l$stats=stats
+	l$pvals=return$pVals
 	if (stats){
-	    attr(bScore,"llrs")=return$llrs
-	    attr(bScore,"scales")=return$scales
-      	}
-	return(bScore)
+	   l$llrs=return$llrs
+	   l$sscales=l$scales
+	}
+	return(l)
    }
    if (method=="SCORE"){
 	return=.C("phyloP_SCORE",msaAddress=as.numeric(attr(msa,"address")), tmAddress=as.numeric(attr(treemod, "address")), stats=as.integer(stats), modeNum=as.integer(modeInt), pVals=as.numeric(rep(0,attr(msa,"length"))), teststats=as.numeric(rep(0,attr(msa,"length"))), derivs=as.numeric(rep(0,attr(msa,"length"))), error=as.integer(0), errstr=as.character(""),PACKAGE="librphast")
@@ -452,17 +533,17 @@ phylop.baseScores <- function(msa, treemod, method="SPH", mode="CON", fitModel=F
       		return()
    	}
 	
-	bScore=bScore.new()
-	attr(bScore,"msa")=msa
-	attr(bScore,"tm")=treemod
-	attr(bScore,"method")="SCORE"
-	attr(bScore,"stats")=stats
-	attr(bScore,"pvals")=return$pVals
+	l=list()
+	l$msa=msa
+	l$tm=treemod
+	lmethod="SCORE"
+	l$stats=stats
+	l$pvals=return$pVals
 	if (stats){
-	    attr(bScore,"teststats")=return$teststats
-	    attr(bScore,"derivs")=return$derivs
-      	}
-	return(bScore)
+	   l$teststats=return$teststats
+	   l$derivs=return$derivs
+	}
+	return(l)
   }
 
   if (method == "GERP"){
@@ -473,20 +554,18 @@ phylop.baseScores <- function(msa, treemod, method="SPH", mode="CON", fitModel=F
       		return()
    	}
 	
-	bScore=bScore.new()
-	attr(bScore,"msa")=msa
-	attr(bScore,"tm")=treemod
-	attr(bScore,"method")="GERT"
-	attr(bScore,"stats")=stats
-	attr(bScore,"nrejected")=return$nrejected
+	l=list()
+	l$msa=msa
+	l$tm=treemod
+	l$method="GERT"
+	l$stats=stats
+	l$nrejected=return$nrejected
 	if (stats){
-	    attr(bScore,"nneut")=return$nneut
-	    attr(bScore,"nobs")=return$nobs
-	    attr(bScore,"nspec")=return$nspec
+	    l$nneut=return$nneut
+	    l$nobs=return$nobs
+	    l$nspec=return$nspec
       	}
-	return(bScore)
-
-
+	return(l)
   }
 
   cat("ERROR: unsupported method\n")
@@ -497,53 +576,35 @@ phylop.baseScores <- function(msa, treemod, method="SPH", mode="CON", fitModel=F
 
 print.bScore<- function(bScore){
    cat("Base score object\n")
+   cat("Method used: ", bScore$method, "\n")
 }
 
 summary.bScore <- function(bScore){
    print(bScore)
+   if (bScore$method=="SPH"){
+	if (bScore$stats){
+	   cat("Contains: pvals, postMeans, postVars\n")
+	}
+	cat("Contains: pvals\n")
+   }
+   if (bScore$method=="LRT"){
+	if (bScore$stats){
+	   cat("Contains: pvals, llrs, scales\n")
+	}
+	cat("Contains: pvals\n")
+   }
+   if (bScore$method=="SCORE"){
+	if (bScore$stats){
+	   cat("Contains: pvals, teststats, derivs\n")
+	}
+	cat("Contains: pvals\n")
+   }
+   if (bScore$method=="GERT"){
+	if (bScore$stats){
+	   cat("Contains: nrejected, nobs, nneut, nspec\n")
+	}
+	cat("Contains: nrejected\n")
+   }
 
-   cat("Method used: ",attr(bScore,"method"),"\n")
-   cat("Stats calculated: ",attr(bScore,"stats"),"\n")
 }
 
-bScore.values <- function(bScore){
-   if (class(bScore)!="bScore"){
-	cat("ERROR: bScore must by of class \"bScore\"\n")
-	return()
-   }
-   l=list()
-   if (attr(bScore,"method")=="SPH"){
-	l$pvals=attr(bScore,"pvals")
-        if (attr(bScore,"stats")){
-		l$postMeans=attr(bScore,"postMeans")
-		l$postVars=attr(bScore,"postVars")
-        }
-        return(l)
-   }
-   if (attr(bScore,"method")=="LRT"){
-	l$pvals=attr(bScore,"pvals")
-        if (attr(bScore,"stats")){
-		l$llrs=attr(bScore,"llrs")
-		l$scales=attr(bScore,"scales")
-        }
-        return(l)
-
-   }
-   if (attr(bScore,"method")=="SCORE"){
-	l$pvals=attr(bScore,"pvals")
-        if (attr(bScore,"stats")){
-		l$teststats=attr(bScore,"teststats")
-		l$derivs=attr(bScore,"derivs")
-        }
-        return(l)
-   }
-   if (attr(bScore,"method")=="GERP"){
-	l$nrejected=attr(bScore,"nrejected")
-        if (attr(bScore,"stats")){
-		l$nobs=attr(bScore,"nobs")
-		l$nneut=attr(bScore,"nneut")
-		l$nspec=attr(bscore,"nspec")
-        }
-        return(l)
-   }
-}

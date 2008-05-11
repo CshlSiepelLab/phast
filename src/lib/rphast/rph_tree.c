@@ -20,7 +20,8 @@ void rph_tm_read(char** fname, double* treeAddress, double* modAddress, int* err
 void rph_tr_scale(double* modAddress, double* treeAddress, double* scale, int* error, char** errstr);
 void rph_tm_print(char** fname, double* address, int* error, char** errstr);
 void rph_tm_free(double* modAddress, int* error, char** errstr);
-
+void rph_tm_fit(double* modAddress, double* msaAddress, char** substModel, char**treestr, int* prec, int* em, double* fittedAddress, int* error, char** errstr);
+void rph_tl_compute_log_likelihood(double* modAddress, double* msaAddress, double* colScores, double* likelihood, int* error, char** errstr);
 
 /*******************************************************
 rph_tm_read
@@ -162,6 +163,25 @@ void rph_tm_fit(double* modAddress, double* msaAddress, char** substModel, char*
     tm_fit(mod, msa, params, -1, precision, logf);
 
   *fittedAddress=ptr2ad(mod);
+
+  *error=rphast_errno;
+  *errstr=rphast_errmsg;
+
+}
+
+
+void rph_tl_compute_log_likelihood(double* modAddress, double* msaAddress, double* columnScores, double* likelihood, int* error, char** errstr){
+
+  TreeModel* mod;
+  MSA* msa;
+
+  mod=(TreeModel*)ad2ptr(*modAddress);
+  msa=(MSA*)ad2ptr(*msaAddress);
+  if(*columnScores=-1){
+    columnScores=NULL;
+  }
+
+  *likelihood=tl_compute_log_likelihood(mod, msa, columnScores, -1, NULL);
 
   *error=rphast_errno;
   *errstr=rphast_errmsg;
