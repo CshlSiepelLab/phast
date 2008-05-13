@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.33 2008-05-10 16:56:40 ajd45 Exp $
+/* $Id: tree_model.c,v 1.34 2008-05-13 02:09:36 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -21,7 +21,7 @@
 #include <math.h>
 
 #define ALPHABET_TAG "ALPHABET:"
-B#define BACKGROUND_TAG "BACKGROUND:"
+#define BACKGROUND_TAG "BACKGROUND:"
 #define ORDER_TAG "ORDER:"
 #define SUBST_MOD_TAG "SUBST_MOD:"
 #define RATE_MATRIX_TAG "RATE_MAT:"
