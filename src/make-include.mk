@@ -93,7 +93,7 @@ LIBS = -lphast -framework vecLib -lc -lm
 # CLAPACK
 else
 ifdef CLAPACKPATH
-CFLAGS += -I${CLAPACKPATH} -I${F2CPATH}
+CFLAGS += -I${CLAPACKPATH}/INCLUDE -I${F2CPATH}
 LIBPATH += -L${F2CPATH} 
 LIBS = -lphast -llapack -ltmg -lblaswr -lc -lf2c -lm
 # IMPORTANT: for versions of CLAPACK older than 3.1.1, substitute 
