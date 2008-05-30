@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.34 2008-05-13 02:09:36 acs Exp $
+/* $Id: tree_model.c,v 1.35 2008-05-30 12:02:51 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -469,10 +469,6 @@ TreeModel *tm_create_copy(TreeModel *src) {
   }
 
   /* NOTE: ignoring params, tree_posteriors, etc. */
-
-  /* ALEX'S FIX: can't do that! */
-  retval->rate_matrix_param_row=NULL;
-  retval->rate_matrix_param_col=NULL;
 
   return retval;
 }
