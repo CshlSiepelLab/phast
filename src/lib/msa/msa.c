@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.56 2006-05-29 18:47:18 acs Exp $
+/* $Id: msa.c,v 1.57 2008-05-30 03:07:40 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -652,7 +652,7 @@ void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm) {
       continue;                 /* don't label in case of unrecognized
                                    feature */
 
-    if (feat->start == -1 || feat->end == -1 || feat->end >= msa->length) {
+    if (feat->start == -1 || feat->end == -1 || feat->end > msa->length) {
       fprintf(stderr, "WARNING: ignoring out-of-range feature\n");
       gff_print_feat(stderr, feat);
       continue;

@@ -1,4 +1,4 @@
-/* $Id: maf.c,v 1.25 2006-10-06 14:10:06 bbrejova Exp $
+/* $Id: maf.c,v 1.26 2008-05-30 03:07:40 acs Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -188,13 +188,17 @@ MSA *maf_read(FILE *F,          /**< MAF file */
       continue;
     }
 
+    /* also ignore if block size is less than tuple size */
+    if (length < tuple_size) 
+      continue; 
+
     if (gap_strip_mode != NO_STRIP) 
       msa_strip_gaps(mini_msa, gap_strip_mode);
 
     if (gff != NULL) {
       /* extract subset of features in GFF corresponding to block */
       lst_clear(mini_gff->features);
-      maf_block_sub_gff(mini_gff, gff, start_idx + 1, start_idx + length - 1, 
+      maf_block_sub_gff(mini_gff, gff, start_idx + 1, start_idx + length, 
                         &gff_idx, cm, reverse_groups != NULL, tuple_size); 
                                 /* coords in GFF are 1-based */
 
@@ -699,7 +703,7 @@ void maf_peek(FILE *F, char ***names, Hashtable *name_hash,
 void maf_block_sub_gff(GFF_Set *sub_gff, GFF_Set *gff, int start_idx, 
                        int end_idx, int *gff_idx, CategoryMap *cm,
                        int reverse_compl, int tuple_size) {
-  static int last_nonoverlap = -1;
+  int first_extend = -1;
   GFF_Feature *feat;
   for (; *gff_idx < lst_size(gff->features) && 
          ((GFF_Feature *)lst_get_ptr(gff->features, *gff_idx))->end < 
@@ -746,7 +750,7 @@ void maf_block_sub_gff(GFF_Set *sub_gff, GFF_Set *gff, int start_idx,
       featcpy->end = effective_end;
     }
 
-    if (feat->end < end_idx) last_nonoverlap = *gff_idx;
+    if (first_extend == -1 && feat->end > end_idx) first_extend = *gff_idx;
 
     /* shift coords and add feature */
     featcpy->start -= (start_idx - 1);
@@ -755,8 +759,8 @@ void maf_block_sub_gff(GFF_Set *sub_gff, GFF_Set *gff, int start_idx,
     lst_push_ptr(sub_gff->features, featcpy);
   }
 
-  if (last_nonoverlap != -1) *gff_idx = last_nonoverlap;
-                                /* this allows features that overlap a
+  if (first_extend != -1) *gff_idx = first_extend;
+                                /* this allows features that extend beyond a
                                    block to be considered for the next
                                    block */
 }
