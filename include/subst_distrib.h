@@ -50,6 +50,14 @@ void sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type side,
                        int fit_model, double *prior_mean, double *prior_var, 
                        double *pvals, double *post_mean, double *post_var,
                        FILE *logf);
+void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode, 
+                               int fit_model, 
+                               double *prior_mean_sub, double *prior_var_sub, 
+                               double *prior_mean_sup, double *prior_var_sup, 
+                               double *pvals, 
+                               double *post_mean_sub, double *post_var_sub, 
+                               double *post_mean_sup, double *post_var_sup, 
+                               FILE *logf);
 void sub_posterior_stats_alignment(JumpProcess *jp, MSA *msa, 
                                    double *mean, double *variance);
 Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx);

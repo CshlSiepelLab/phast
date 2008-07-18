@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.33 2008-03-19 03:14:48 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.34 2008-07-18 18:31:50 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -438,6 +438,97 @@ void sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type mode,
   if (fit_model) {
     col_free_fit_data(d);
     jp->mod->scale = 1;
+    sub_recompute_conditionals(jp); /* in case needed again */
+  }
+}
+
+/* compute individual site p-values, one per tuple.  Similar to above
+   function but for use in supertree/subtree mode.  */
+void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode, 
+                               int fit_model, 
+                               double *prior_mean_sub, double *prior_var_sub, 
+                               double *prior_mean_sup, double *prior_var_sup, 
+                               double *pvals, 
+                               double *post_mean_sub, double *post_var_sub, 
+                               double *post_mean_sup, double *post_var_sup, 
+                               FILE *logf) { 
+  int tup, alloc = FALSE;
+  double lnl;
+  Matrix *prior = sub_joint_distrib_site(jp, NULL, -1);
+  Matrix *post;
+  Vector *marg_sub, *marg_sup;
+  double *msub, *vsub, *msup, *vsup;
+  ColFitData *d;
+
+  if (post_mean_sub != NULL && post_var_sub != NULL &&
+      post_mean_sup != NULL && post_var_sup != NULL) {
+    msub = post_mean_sub;
+    vsub = post_var_sub;
+    msup = post_mean_sup;
+    vsup = post_var_sup;
+  }
+  else {
+    alloc = TRUE;
+    msub = smalloc(msa->ss->ntuples * sizeof(double));
+    vsub = smalloc(msa->ss->ntuples * sizeof(double));
+    msup = smalloc(msa->ss->ntuples * sizeof(double));
+    vsup = smalloc(msa->ss->ntuples * sizeof(double));
+  }
+
+  if (prior_mean_sub != NULL && prior_var_sub != NULL &&
+      prior_mean_sup != NULL && prior_var_sup != NULL) {
+    marg_sub = pm_marg_x(prior);
+    pv_stats(marg_sub, prior_mean_sub, prior_var_sub);
+    marg_sup = pm_marg_y(prior);
+    pv_stats(marg_sup, prior_mean_sup, prior_var_sup);
+    vec_free(marg_sub);
+    vec_free(marg_sup);
+  }
+
+  if (fit_model) 
+    d = col_init_fit_data(jp->mod, msa, SUBTREE, NNEUT, FALSE);
+
+  for (tup = 0; tup < msa->ss->ntuples; tup++) {
+    if (fit_model) {            /* estimate scale factors (supertree
+                                   and subtree) for col */
+      vec_set(d->params, 0, d->init_scale);
+      vec_set(d->params, 1, d->init_scale_sub);
+      d->tupleidx = tup;
+      if (opt_bfgs(col_likelihood_wrapper, d->params, d, &lnl, d->lb, 
+                   d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
+        ;                       /* do nothing; warning will be
+                                   produced if problem */
+      jp->mod->scale = d->params->data[0];
+      sub_recompute_conditionals(jp);
+    }
+
+    post = sub_joint_distrib_site(jp, msa, tup); 
+    marg_sub = pm_marg_x(post);
+    pv_stats(marg_sub, &msub[tup], &vsub[tup]);
+    marg_sup = pm_marg_y(post);
+    pv_stats(marg_sup, &msup[tup], &vsup[tup]);
+    vec_free(marg_sub);
+    vec_free(marg_sup);
+
+    if (pvals != NULL) {
+      Vector *cond = pm_x_given_tot(prior, msub[tup] + msup[tup]); 
+      pvals[tup] = pv_p_value(cond, msub[tup], mode == CON ? LOWER : UPPER);
+      vec_free(cond);
+    }
+  }  
+
+  if (alloc) {
+    free(msub);
+    free(vsub);
+    free(msup);
+    free(vsup);
+  }
+  mat_free(prior);
+  mat_free(post);
+
+  if (fit_model) {
+    col_free_fit_data(d);
+    jp->mod->scale = jp->mod->scale_sub = 1;
     sub_recompute_conditionals(jp); /* in case needed again */
   }
 }

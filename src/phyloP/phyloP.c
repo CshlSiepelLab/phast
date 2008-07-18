@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
   msa_format_type msa_format = FASTA;
   int nsites = -1, prior_only = FALSE, post_only = FALSE, quantiles = FALSE,
     fit_model = FALSE, base_by_base = FALSE, output_wig = FALSE, 
-    default_epsilon = TRUE, prior_metadata = FALSE, wig_stats = FALSE;
+    default_epsilon = TRUE, prior_metadata = FALSE;
   double ci = -1, epsilon = DEFAULT_EPSILON;
   char *subtree_name = NULL, *chrom = NULL;
   GFF_Set *feats = NULL;
@@ -68,7 +68,6 @@ int main(int argc, char *argv[]) {
     {"epsilon", 1, 0, 'e'},
     {"quantiles", 0, 0, 'q'},
     {"wig-scores", 0, 0, 'w'},
-    {"wig-stats", 0, 0, 'T'},
     {"base-by-base", 0, 0, 'b'},
     {"chrom", 1, 0, 'N'},
     {"metadata", 0, 0, 'd'},
@@ -134,11 +133,6 @@ int main(int argc, char *argv[]) {
     case 'w':
       base_by_base = TRUE;
       output_wig = TRUE;
-      break;
-    case 'T':
-      base_by_base = TRUE;
-      output_wig = TRUE;
-      wig_stats = TRUE;
       break;
     case 'b':
       base_by_base = TRUE;
@@ -261,8 +255,10 @@ int main(int argc, char *argv[]) {
         die("ERROR: reversible model required with --subtree.\n");
       tr_name_ancestors(mod->tree);
       sub_reroot(mod, subtree_name);
-      if (fit_model) sub_reroot(mod_fitted, subtree_name);
+      if (mod_fitted != NULL) sub_reroot(mod_fitted, subtree_name);
       /* note: rerooting has to be done before creating jump process */
+      if (fit_model && base_by_base) 
+        mod->subtree_root = mod->tree->lchild; /* for rescaling */
     }
 
     /* if base-by-base, use larger default epsilon */
@@ -291,22 +287,17 @@ int main(int argc, char *argv[]) {
       if (base_by_base) {
         /* compute p-vals and (optionally) posterior means/variances per
            tuple, then print to stdout in wig or wig-like format */  
-        if (!wig_stats)
-          tuple_pvals = smalloc(msa->ss->ntuples * sizeof(double));
-        if (!output_wig || wig_stats)
+        tuple_pvals = smalloc(msa->ss->ntuples * sizeof(double));
+        if (!output_wig) {
           tuple_post_means = smalloc(msa->ss->ntuples * sizeof(double));
-        if (!output_wig) 
           tuple_post_vars = smalloc(msa->ss->ntuples * sizeof(double));
+        }
         sub_pval_per_site(jp, msa, mode, fit_model, &prior_mean, &prior_var, 
                           tuple_pvals, tuple_post_means, tuple_post_vars,
                           logf);
 
-        if (output_wig) {
-          if (wig_stats)
-            print_wig(msa, tuple_post_means, chrom, FALSE);
-          else
+        if (output_wig) 
             print_wig(msa, tuple_pvals, chrom, TRUE);
-        }
         else {
           char str[1000];
           sprintf(str, "#neutral mean = %.3f var = %.3f\n#post_mean post_var pval", 
@@ -344,10 +335,44 @@ int main(int argc, char *argv[]) {
         print_p_feats(jp, msa, feats, ci);
     }
     else {			/* SPH and supertree/subtree */
-      double post_mean, post_var, post_mean_sup, post_var_sup, 
-        post_mean_sub, post_var_sub;
+      if (base_by_base) {
+        /* compute p-vals and (optionally) posterior means/variances per
+           tuple, then print to stdout in wig or wig-like format */  
+        double *tuple_post_means_sub = NULL, *tuple_post_vars_sub = NULL, 
+          *tuple_post_means_sup = NULL, *tuple_post_vars_sup = NULL;
+        double prior_mean_sub, prior_var_sub, prior_mean_sup, prior_var_sup;
+        tuple_pvals = smalloc(msa->ss->ntuples * sizeof(double));
+        if (!output_wig) {
+          tuple_post_means_sub = smalloc(msa->ss->ntuples * sizeof(double)); 
+          tuple_post_means_sup = smalloc(msa->ss->ntuples * sizeof(double)); 
+          tuple_post_vars_sub = smalloc(msa->ss->ntuples * sizeof(double)); 
+          tuple_post_vars_sup = smalloc(msa->ss->ntuples * sizeof(double)); 
+        }
+        sub_pval_per_site_subtree(jp, msa, mode, fit_model, 
+                                  &prior_mean_sub, &prior_var_sub,
+                                  &prior_mean_sup, &prior_var_sup,  
+                                  tuple_pvals, 
+                                  tuple_post_means_sub, tuple_post_vars_sub, 
+                                  tuple_post_means_sup, tuple_post_vars_sup, 
+                                  logf);
 
-      if (feats == NULL) {
+        if (output_wig) 
+          print_wig(msa, tuple_pvals, chrom, TRUE);
+        else {
+          char str[1000];
+          sprintf(str, "#neutral mean_sub = %.3f var_sub = %.3f mean_sup = %.3f  var_sup = %.3f\n#post_mean_sub post_var_sub post_mean_sup post_var_sup pval", 
+                  prior_mean_sub, prior_var_sub, prior_mean_sup, prior_var_sup);
+          print_base_by_base(str, chrom, msa, NULL, 5, 
+                             tuple_post_means_sub, tuple_post_vars_sub,
+                             tuple_post_means_sup, tuple_post_vars_sup, 
+                             tuple_pvals);
+        }
+      }
+
+      else if (feats == NULL) {
+        double post_mean, post_var, post_mean_sup, post_var_sup, 
+          post_mean_sub, post_var_sub;
+
         /* compute distributions and stats */
         if (!post_only)
           prior_joint_distrib = sub_prior_joint_distrib_alignment(jp, nsites);
@@ -381,21 +406,15 @@ int main(int argc, char *argv[]) {
   /* LRT method */
   else if (method == LRT) {
     if (base_by_base) {         /* currently only option */
-      if (!wig_stats)
-        tuple_pvals = smalloc(msa->ss->ntuples * sizeof(double));
-      if (!output_wig || wig_stats)
+      tuple_pvals = smalloc(msa->ss->ntuples * sizeof(double));
+      if (!output_wig) {
         tuple_llrs = smalloc(msa->ss->ntuples * sizeof(double));
-      if (!output_wig) 
         tuple_scales = smalloc(msa->ss->ntuples * sizeof(double));
-
+      }
       if (subtree_name == NULL) { /* no subtree case */
         col_lrts(mod, msa, mode, tuple_pvals, tuple_scales, tuple_llrs, logf);
-        if (output_wig) {
-          if (wig_stats)
-            print_wig(msa, tuple_llrs, chrom, FALSE);
-          else
-            print_wig(msa, tuple_pvals, chrom, TRUE);
-        }
+        if (output_wig) 
+          print_wig(msa, tuple_pvals, chrom, TRUE);
         else 
           print_base_by_base("#scale lnlratio pval", chrom, msa, NULL, 3,
                              tuple_scales, tuple_llrs, tuple_pvals);
@@ -409,12 +428,8 @@ int main(int argc, char *argv[]) {
         col_lrts_sub(mod, msa, mode, tuple_pvals, tuple_null_scales, 
                      tuple_scales, tuple_sub_scales, tuple_llrs, logf);
 
-        if (output_wig) {
-          if (wig_stats)
-            print_wig(msa, tuple_llrs, chrom, FALSE);
-          else
-            print_wig(msa, tuple_pvals, chrom, TRUE);
-        }
+        if (output_wig) 
+          print_wig(msa, tuple_pvals, chrom, TRUE);
         else 
           print_base_by_base("#null_scale alt_scale alt_subscale lnlratio pval", 
                              chrom, msa, NULL, 5, tuple_null_scales, tuple_scales,  
@@ -427,22 +442,17 @@ int main(int argc, char *argv[]) {
   else if (method == SCORE) {
     if (base_by_base) {         /* currently only option */
 
-      if (!wig_stats)
-        tuple_pvals = smalloc(msa->ss->ntuples * sizeof(double));
-      if (!output_wig || wig_stats) 
+      tuple_pvals = smalloc(msa->ss->ntuples * sizeof(double));
+      if (!output_wig) {
         tuple_teststats = smalloc(msa->ss->ntuples * sizeof(double));
-      if (!output_wig)
         tuple_derivs = smalloc(msa->ss->ntuples * sizeof(double));
+      }
 
       if (subtree_name == NULL) { /* no subtree case */
         col_score_tests(mod, msa, mode, tuple_pvals, tuple_derivs, 
                         tuple_teststats);
-        if (output_wig) {
-          if (wig_stats)
-            print_wig(msa, tuple_teststats, chrom, FALSE);
-          else
-            print_wig(msa, tuple_pvals, chrom, TRUE);
-        }
+        if (output_wig) 
+          print_wig(msa, tuple_pvals, chrom, TRUE);
         else 
           print_base_by_base("#deriv teststat pval", chrom, msa, NULL, 3,
                              tuple_derivs, tuple_teststats, tuple_pvals);
@@ -457,12 +467,8 @@ int main(int argc, char *argv[]) {
                             tuple_derivs, tuple_sub_derivs, tuple_teststats,
                             logf);
 
-        if (output_wig) {
-          if (wig_stats)
-            print_wig(msa, tuple_teststats, chrom, FALSE);
-          else
-            print_wig(msa, tuple_pvals, chrom, TRUE);
-        }
+        if (output_wig) 
+          print_wig(msa, tuple_pvals, chrom, TRUE);
         else 
           print_base_by_base("#scale deriv subderiv teststat pval", chrom, 
                              msa, NULL, 5, tuple_null_scales, tuple_derivs, 
