@@ -77,7 +77,12 @@ The library is composed of six packages, as follows:
 2. If necessary, install the CLAPACK linear algebra package, which is used
    by PHAST for certain matrix manipulations (diagonalization and
    inversion).  Note that this step is NOT NECESSARY if using Mac OS
-   version X.3 (Panther) or later (see comments in make-include.mk).  
+   version X.3 (Panther) or later (see comments in src/make-include.mk).  
+
+   IMPORTANT NOTE: The organization of the CLAPACK package changed slightly
+   in version 3.1.1 (released Feb 2008).  This version of PHAST assumes the
+   new organization.  See instructions in src/make-include.mk if using an
+   older version.
 
     a. Download clapack.tgz from http://www.netlib.org/clapack, unpack
        in your directory of choice (e.g., "tar xfz clapack.tgz"), and cd
@@ -132,7 +137,7 @@ The library is composed of six packages, as follows:
 
 4. Type "cd src" and "make".  The package should compile cleanly.  If
    you encounter problems compiling, please report them to
-   acs@soe.ucsc.edu.  I'll do my best to help you work around them and
+   acs4@cornell.edu.  I'll do my best to help you work around them and
    to avoid similar problems in the future.
 
 
@@ -151,7 +156,7 @@ The library is composed of six packages, as follows:
       toolkit for Windows.
 
     - It's possible to compile the software without LAPACK by commenting
-      out both the VECLIB and CLAPACKPATH lines in make-include.mk.  In
+      out both the VECLIB and CLAPACKPATH lines in src/make-include.mk.  In
       this case, some programs will be usable, but programs that require
       matrix diagonalization will abort at the critical point of calling a
       LAPACK routine.
