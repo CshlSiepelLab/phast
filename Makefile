@@ -9,6 +9,7 @@ package:
 	mkdir -p ${TMPDIR}
 	cd ${TMPDIR} ; cvs checkout phast 
 	find ${TMPDIR}/phast -name "CVS" | xargs rm -rf
+	rm -r ${TMPDIR}/phast/doc
 	VERSION=`cat ${TMPDIR}/phast/version | sed 's/\./_/g'` ;\
 	cd ${TMPDIR} ; tar cfz ${CWD}/phast.$$VERSION.tgz --exclude test phast
 	rm -rf ${TMPDIR}
