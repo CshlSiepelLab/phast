@@ -83,7 +83,8 @@ F2CPATH = ${CLAPACKPATH}/F2CLIBS
 # bypassed altogether
 
 
-# Most users shouldn't edit the lines below
+# Most users shouldn't edit the lines below (but see note about older
+# versions of CLAPACK)
 
 # vecLib
 ifdef VECLIB
@@ -94,10 +95,12 @@ LIBS = -lphast -framework vecLib -lc -lm
 else
 ifdef CLAPACKPATH
 CFLAGS += -I${CLAPACKPATH}/INCLUDE -I${F2CPATH}
-LIBPATH += -L${F2CPATH} 
 LIBS = -lphast -llapack -ltmg -lblaswr -lc -lf2c -lm
-# IMPORTANT: for versions of CLAPACK older than 3.1.1, substitute 
-# "-lF77 -lI77" for "-lf2c" above
+# IMPORTANT: use the following two lines instead for versions of CLAPACK
+# older than 3.1.1
+#CFLAGS += -I${CLAPACKPATH} -I${F2CPATH}
+#LIBS = -lphast -llapack -ltmg -lblaswr -lc -lF77 -lI77 -lm
+LIBPATH += -L${F2CPATH} 
 
 # bypass
 else
