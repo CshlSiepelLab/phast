@@ -1,4 +1,4 @@
-/* $Id: prob_matrix.c,v 1.13 2005-09-28 04:59:36 acs Exp $ 
+/* $Id: prob_matrix.c,v 1.14 2008-07-27 02:07:19 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -64,6 +64,10 @@ Vector *pm_x_given_tot(Matrix *p, int tot) {
   int x;
   Vector *cond = vec_new(min(p->nrows, tot+1));
   vec_zero(cond);
+
+  assert(tot <= p->nrows + p->ncols - 2);
+  /* joint distribution has to allow for a total this large */
+
   for (x = max(0, tot - p->ncols + 1); x < p->nrows; x++) {
     if (x > tot) break;
     cond->data[x] = p->data[x][tot-x];
@@ -77,6 +81,10 @@ Vector *pm_y_given_tot(Matrix *p, int tot) {
   int y;
   Vector *cond = vec_new(min(p->ncols, tot+1));
   vec_zero(cond);
+
+  assert(tot <= p->nrows + p->ncols - 2);
+  /* joint distribution has to allow for a total this large */
+
   for (y = max(0, tot - p->nrows + 1); y < p->ncols; y++) {
     if (y > tot) break;
     cond->data[y] = p->data[tot-y][y];
