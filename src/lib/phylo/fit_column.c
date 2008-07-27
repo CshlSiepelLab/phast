@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.11 2008-04-02 14:51:58 acs Exp $
+/* $Id: fit_column.c,v 1.12 2008-07-27 02:07:50 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -644,7 +644,10 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
     vec_set(d->params, 0, d->init_scale);
     if (opt_bfgs(col_likelihood_wrapper, d->params, d, &null_lnl, d->lb, 
                  d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
-      die("ERROR in estimation of scale for tuple %d.\n", i);
+      ;                         /* do nothing; nonzero exit typically
+                                   occurs when max iterations is
+                                   reached; a warning is printed to
+                                   the log */
     null_lnl *= -1;
 
     d2->tupleidx = i;
@@ -652,7 +655,10 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
     vec_set(d2->params, 1, d2->init_scale_sub);
     if (opt_bfgs(col_likelihood_wrapper, d2->params, d2, &alt_lnl, d2->lb, 
                  d2->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
-      die("ERROR in estimation of supertree/subtree scale for tuple %d.\n", i);
+      ;                         /* do nothing; nonzero exit typically
+                                   occurs when max iterations is
+                                   reached; a warning is printed to
+                                   the log */
     alt_lnl *= -1;
 
     delta_lnl = alt_lnl - null_lnl;
