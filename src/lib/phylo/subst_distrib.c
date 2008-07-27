@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.34 2008-07-18 18:31:50 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.35 2008-07-27 02:08:16 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -433,6 +433,13 @@ void sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type mode,
     pv_p_values(prior, x0, msa->ss->ntuples, pvals, 
                 mode == CON ? LOWER : UPPER);
 
+  /* in ACC mode, reset pvals of zero to epsilon -- because off scale
+     of finte representation of distrib */
+  if (mode == ACC) 
+    for (tup = 0; tup < msa->ss->ntuples; tup++) 
+      if (pvals[tup] == 0) 
+        pvals[tup] = jp->epsilon;
+
   if (post_mean == NULL) free(x0);
   vec_free(prior);
   if (fit_model) {
@@ -499,6 +506,7 @@ void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode,
         ;                       /* do nothing; warning will be
                                    produced if problem */
       jp->mod->scale = d->params->data[0];
+      jp->mod->scale_sub = d->params->data[1];
       sub_recompute_conditionals(jp);
     }
 
@@ -511,9 +519,19 @@ void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode,
     vec_free(marg_sup);
 
     if (pvals != NULL) {
-      Vector *cond = pm_x_given_tot(prior, msub[tup] + msup[tup]); 
-      pvals[tup] = pv_p_value(cond, msub[tup], mode == CON ? LOWER : UPPER);
-      vec_free(cond);
+      Vector *cond;
+      if (msub[tup] + msup[tup] > prior->nrows + prior->ncols - 2) 
+        pvals[tup] = 1;
+      /* off scale of finite representation of joint distrib; happens rarely */
+      else {
+        cond = pm_x_given_tot(prior, msub[tup] + msup[tup]); 
+        if (mode == ACC && ceil(msub[tup]) >= cond->size)
+          pvals[tup] = jp->epsilon; /* off scale of the finite
+                                       representation of conditional */
+        else
+          pvals[tup] = pv_p_value(cond, msub[tup], mode == CON ? LOWER : UPPER);
+        vec_free(cond);
+      }
     }
   }  
 
