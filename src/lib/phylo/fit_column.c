@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.12 2008-07-27 02:07:50 acs Exp $
+/* $Id: fit_column.c,v 1.13 2008-07-31 00:20:17 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -9,9 +9,13 @@
 #include <fit_column.h>
 #include <sufficient_stats.h>
 #include <tree_likelihoods.h>
+#include <time.h>
 
-#define DERIV_EPSILON 1e-6      /* for numerical computation of
-                                   derivatives */
+#define DERIV_EPSILON 1e-6      
+/* for numerical computation of derivatives */
+
+#define NSAMPLES_FIM 50
+/* number of samples to use in estimating FIM */ 
 
 /* Compute and return the likelihood of a tree model with respect to a
    single column tuple in an alignment.  This is a pared-down version
@@ -651,7 +655,9 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
     null_lnl *= -1;
 
     d2->tupleidx = i;
-    vec_set(d2->params, 0, d2->init_scale);
+/*     vec_set(d2->params, 0, d2->init_scale); */
+    vec_set(d2->params, 0, d->params->data[0]); /* init to previous estimate
+                                                   to save time */
     vec_set(d2->params, 1, d2->init_scale_sub);
     if (opt_bfgs(col_likelihood_wrapper, d2->params, d2, &alt_lnl, d2->lb, 
                  d2->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
@@ -700,17 +706,22 @@ void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode,
                      double *tuple_teststats) {
   int i;
   ColFitData *d;
-  double first_deriv, second_deriv, teststat;
-/*   double tmp1, tmp2; */
+  double first_deriv, teststat, fim;
 
   /* init ColFitData */
   d = col_init_fit_data(mod, msa, ALL, NNEUT, FALSE);
+
+  /* precompute FIM */
+  fim = col_estimate_fim(mod);
+
+  if (fim < 0) 
+    die("ERROR: negative fisher matrix in col_score_tests\n", i);
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
     d->tupleidx = i;
 
-    col_scale_derivs(d, &first_deriv, &second_deriv, d->fels_scratch);
+    col_scale_derivs(d, &first_deriv, NULL, d->fels_scratch);
 
     /* for debugging; values are close but don't agree as closely as
        it seems they should, but several hours of searching found no
@@ -719,11 +730,7 @@ void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode,
 /*     fprintf(stderr, "Analytical: %f, %f; Numerical: %f, %f\n", */
 /*             first_deriv, second_deriv, tmp1, tmp2); */
 
-    teststat = -first_deriv*first_deriv / second_deriv;
-    if (teststat < 0) {
-      fprintf(stderr, "WARNING: positive second derivative in col_score_tests (tuple %d)\n", i);
-      teststat = 0; /* allow for numerical error */
-    }
+    teststat = first_deriv*first_deriv / fim;
 
     if ((mode == ACC && first_deriv < 0) ||
         (mode == CON && first_deriv > 0))
@@ -753,17 +760,21 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
   int i;
   ColFitData *d, *d2;
   Vector *grad = vec_new(2);
-  Matrix *hessian = mat_new(2, 2);
-  double det, A, B, C, D, E, F, lnl, teststat;
+  Matrix *fim = mat_new(2, 2);
+  double lnl, teststat;
+  FimGrid *grid;
   TreeModel *modcpy = tm_create_copy(mod); /* need separate copy of tree model
                                               with different internal scaling
                                               data for supertree/subtree case */
 
   /* init ColFitData -- one for null model, one for alt */
   d = col_init_fit_data(modcpy, msa, ALL, NNEUT, FALSE);
-  d2 = col_init_fit_data(mod, msa, SUBTREE, NNEUT, TRUE); 
+  d2 = col_init_fit_data(mod, msa, SUBTREE, NNEUT, FALSE); 
                                 /* mod has the subtree info, modcpy
                                    does not */
+
+  /* precompute Fisher information matrices for a grid of scale values */
+  grid = col_fim_grid_sub(mod); 
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
@@ -772,17 +783,22 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
     if (opt_bfgs(col_likelihood_wrapper, d->params, d, &lnl, d->lb, 
                  d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
       die("ERROR in estimation of scale for tuple %d.\n", i);
-
+    
     d2->tupleidx = i;
     d2->mod->scale = d->params->data[0];
     d2->mod->scale_sub = 1;
     tm_set_subst_matrices(d2->mod);
-    col_scale_derivs_subtree(d2, grad, hessian, d2->fels_scratch);
+    col_scale_derivs_subtree(d2, grad, NULL, d2->fels_scratch);
 
-    mat_scale(hessian, -1);      /* now (observed) Fisher matrix */
+    fim = col_get_fim_sub(grid, d2->mod->scale); 
+    
+/*     fim = col_estimate_fim_sub(d2->mod); */
 
     teststat = grad->data[1]*grad->data[1] / 
-      (hessian->data[1][1] - hessian->data[0][1]*hessian->data[1][0]/hessian->data[0][0]);
+      (fim->data[1][1] - fim->data[0][1]*fim->data[1][0]/fim->data[0][0]);
+
+/*     fprintf(stderr, "%f\n", fim->data[0][0]*fim->data[1][1] - fim->data[0][1]*fim->data[1][0]); */
+
 
 /*     det = hessian->data[0][0] * hessian->data[1][1]  */
 /*       - hessian->data[0][1] * hessian->data[1][0];  */
@@ -820,16 +836,18 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
     if (tuple_derivs != NULL) tuple_derivs[i] = grad->data[0];
     if (tuple_sub_derivs != NULL) tuple_sub_derivs[i] = grad->data[1];
     if (tuple_teststats != NULL) tuple_teststats[i] = teststat;
+
+    mat_free(fim);
   }
 
   col_free_fit_data(d);
   col_free_fit_data(d2);
   vec_free(grad); 
-  mat_free(hessian); 
   modcpy->estimate_branchlens = TM_BRANCHLENS_ALL; 
                                 /* have to revert for tm_free to work
                                    correctly */
   tm_free(modcpy);
+  col_free_fim_grid(grid); 
 }
 
 ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
@@ -1176,4 +1194,133 @@ void col_scale_derivs_subtree_num(ColFitData *d, Vector *gradient,
   hessian->data[0][1] = hessian->data[1][0] = 
     (lnl01 - lnl0 - lnl1 + lnl) / 
     (DERIV_EPSILON * DERIV_EPSILON);
+}
+
+/* estimate 2x2 Fisher Information Matrix (expected value of the
+   negative Hessian) for the subtree case, based on a particular value
+   of the scale parameter (set in calling code).  Estimation is done
+   by sampling.  Designed for repeated calls. */
+Matrix *col_estimate_fim_sub(TreeModel *mod) {
+  Vector *grad = vec_new(2);
+  Matrix *hessian = mat_new(2, 2), *fim = mat_new(2, 2);
+  MSA *msa = tm_generate_msa(NSAMPLES_FIM, NULL, &mod, NULL);
+  ColFitData *d = col_init_fit_data(mod, msa, SUBTREE, NNEUT, TRUE);   
+  int i;
+
+  ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);  
+  mat_zero(fim);
+  for (i = 0; i < msa->ss->ntuples; i++) {
+    d->tupleidx = i;
+    col_scale_derivs_subtree(d, grad, hessian, d->fels_scratch);
+    mat_scale(hessian, -1 * msa->ss->counts[i]);      
+                                /* now (observed) Fisher matrix
+                                   weighted by count */
+    mat_plus_eq(fim, hessian);   /* add to running total */
+  }
+  mat_scale(fim, 1.0/NSAMPLES_FIM);   /* convert total to sample mean */
+
+  msa_free(msa);
+  col_free_fit_data(d);
+  vec_free(grad);
+  mat_free(hessian);
+  return (fim);
+}
+
+/* precompute estimates of FIM for a grid of possible scale params
+   (subtree case) */
+FimGrid *col_fim_grid_sub(TreeModel *mod) {
+  int i;
+  FimGrid *g = smalloc(sizeof(FimGrid));
+  struct timeval now;
+
+  g->ngrid1 = 1.0/GRIDSIZE1;
+  g->ngrid2 = (1.0 * GRIDMAXLOG / GRIDSIZE2) + 1;
+  g->ngrid = g->ngrid1 + g->ngrid2;  
+  g->scales = smalloc(g->ngrid * sizeof(double));
+
+  mod->scale_sub = 1;
+  
+  for (i = 0; i < g->ngrid1; i++)
+    g->scales[i] = i * GRIDSIZE1;
+
+  for (i = 0; i < g->ngrid2; i++)
+    g->scales[g->ngrid1 + i] = exp(i * GRIDSIZE2);
+
+  /* set seed for sampling */
+  gettimeofday(&now, NULL);
+  srandom(now.tv_usec);
+
+  g->fim = smalloc(g->ngrid * sizeof(void*));
+  for (i = 0; i < g->ngrid; i++) {
+    mod->scale = g->scales[i];
+    tm_set_subst_matrices(mod);
+    g->fim[i] = col_estimate_fim_sub(mod);
+  }
+
+  return g;
+}
+
+/* free FimGrid object */
+void col_free_fim_grid(FimGrid *g) {
+  int i;
+  for (i = 0; i < g->ngrid; i++)
+    mat_free(g->fim[i]);
+  free(g->fim);
+  free(g->scales);
+}
+
+/* estimate scale Fisher Information Matrix for the non-subtree case.
+   This version does not depend on any free parameters, so no grid is
+   required.  Estimation is done by sampling, as above */
+double col_estimate_fim(TreeModel *mod) {
+  double deriv1, deriv2, retval = 0;
+  MSA *msa = tm_generate_msa(NSAMPLES_FIM, NULL, &mod, NULL);
+  ColFitData *d = col_init_fit_data(mod, msa, ALL, NNEUT, FALSE);   
+  int i;
+
+  ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);
+
+  for (i = 0; i < msa->ss->ntuples; i++) {
+    d->tupleidx = i;
+    col_scale_derivs(d, &deriv1, &deriv2, d->fels_scratch);
+    retval += (-deriv2 * msa->ss->counts[i]); /* add (observed) Fisher matrix
+                                            weighted by count */ 
+  }
+  retval /= NSAMPLES_FIM;   /* convert total to sample mean */
+
+  msa_free(msa);
+  col_free_fit_data(d);
+  return (retval);
+}
+
+/* retrieve estimated FIM for given scale function; uses linear
+   interpolation from precomputed grid */
+Matrix *col_get_fim_sub(FimGrid *g, double scale) {
+  int idx;
+  double frac;
+  Matrix *retval = mat_new(2,2);
+  assert(scale >= 0);
+
+  if (scale < 1) 
+    idx = floor(scale / GRIDSIZE1);
+  else
+    idx = g->ngrid1 + floor(log(scale) / GRIDSIZE2);
+
+  if (idx >= g->ngrid - 1)
+    retval = mat_create_copy(g->fim[g->ngrid - 1]); 
+                                /* just use last one in this case */
+
+  else {
+    assert(g->scales[idx] <= scale && g->scales[idx+1] > scale);
+
+    frac = (scale - g->scales[idx]) / (g->scales[idx+1] - g->scales[idx]);
+
+    if (frac < 0.1) 
+      retval = mat_create_copy(g->fim[idx]);
+    else if (frac > 0.9) 
+      retval = mat_create_copy(g->fim[idx+1]);    
+    else  /* interpolate */ 
+      mat_linear_comb(retval, g->fim[idx], frac, g->fim[idx+1], 1-frac); 
+  }
+  return retval;  
 }

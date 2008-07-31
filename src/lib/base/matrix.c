@@ -1,4 +1,4 @@
-/* $Id: matrix.c,v 1.5 2005-10-11 21:35:25 acs Exp $ 
+/* $Id: matrix.c,v 1.6 2008-07-31 00:20:17 acs Exp $ 
    Written by Adam Siepel, 2002-2005
    Copyright 2002-2005, Adam Siepel, University of California 
 */
@@ -194,6 +194,16 @@ void mat_minus_eq(Matrix *thism, Matrix *subm) {
   for (i = 0; i < thism->nrows; i++)
     for (j = 0; j < thism->ncols; j++)  
       thism->data[i][j] -= subm->data[i][j];
+}
+
+void mat_linear_comb(Matrix *dest, Matrix *src1, double coef1, 
+                     Matrix *src2, double coef2) {
+  int i, j;
+  assert(dest->nrows == src1->nrows && dest->ncols == src1->ncols &&
+         dest->nrows == src2->nrows && dest->ncols == src2->ncols);
+  for (i = 0; i < dest->nrows; i++)
+    for (j = 0; j < dest->ncols; j++)  
+      dest->data[i][j] = coef1*src1->data[i][j] + coef2*src2->data[i][j];
 }
 
 void mat_resize(Matrix *m, int nrows, int ncols) {

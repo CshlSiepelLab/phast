@@ -1,4 +1,4 @@
-/* $Id: fit_column.h,v 1.7 2008-03-31 00:25:49 acs Exp $
+/* $Id: fit_column.h,v 1.8 2008-07-31 00:20:18 acs Exp $
    Written by Adam Siepel, 2008 */
 
 #ifndef FIT_COL_H
@@ -42,6 +42,20 @@ typedef struct {
   Zmatrix *mat_scratch;         /* scratch memory for derivative computation */
   Zvector *vec_scratch1, *vec_scratch2;
 } ColFitData;
+
+/* data for grid of precomputed Fisher Information Matrices */
+#define GRIDSIZE1 0.02
+#define GRIDSIZE2 0.05
+#define GRIDMAXLOG 3
+typedef struct {
+  double *scales;               /* scale factors in grid */
+  int ngrid1;                   /* number of grid points between 0 and
+                                   1 (linear) */
+  int ngrid2;                   /* number of grid points above 1 (log
+                                   linear) */
+  int ngrid;                    /* total number of grid points */
+  Matrix **fim;                 /* precomputed FIMs */
+} FimGrid;
 
 double col_compute_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
                                   double **scratch);
@@ -95,5 +109,15 @@ void col_scale_derivs_num(ColFitData *d, double *first_deriv,
 
 void col_scale_derivs_subtree_num(ColFitData *d, Vector *gradient, 
                                   Matrix *hessian);
+
+Matrix *col_estimate_fim_sub(TreeModel *mod);
+
+FimGrid *col_fim_grid_sub(TreeModel *mod);
+
+void col_free_fim_grid(FimGrid *g);
+
+double col_estimate_fim(TreeModel *mod);
+
+Matrix *col_get_fim_sub(FimGrid *g, double scale);
 
 #endif
