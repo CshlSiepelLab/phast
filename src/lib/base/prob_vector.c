@@ -1,4 +1,4 @@
-/* $Id: prob_vector.c,v 1.9 2008-04-09 01:50:39 acs Exp $ 
+/* $Id: prob_vector.c,v 1.10 2008-08-04 16:56:14 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -77,32 +77,49 @@ int* pv_quantiles(Vector *p) {
 }
 
 /* return one-sided p-value: p(x <= x_0) if side == LOWER, p(x >= x_0)
-   if side == UPPER. */
+   if side == UPPER.  If side == TWOTAIL, heuristically returns 2 *
+   min(p(x <= x_0, p(x >= x_0)) (for drawbacks of this approach and
+   discussion see Dunne et al., The Statistician, 1996) */  
 double pv_p_value(Vector *distrib, double x_0, p_val_type side) {
-  double retval = 0;
+  double lretval = 0, hretval = 0;
   int x;
-  if (side == LOWER)
+  if (side != UPPER)
     for (x = 0; x < distrib->size && x <= x_0; x++) 
-      retval += distrib->data[x];
-  else
+      lretval += distrib->data[x];
+  if (side != LOWER)
     for (x = distrib->size-1; x >= 0 && x >= x_0; x--) 
-      retval += distrib->data[x];
+      hretval += distrib->data[x];
 
-  return retval;
+  if (side == LOWER) return lretval;
+  else if (side == UPPER) return hretval;
+  return 2 * min(lretval, hretval);
 }
 
 /* compute one-sided p-values for array of values.  Like pv_p_value, but
    saves time by computing CDF and using for all pvals */
 void pv_p_values(Vector *distrib, double *x_0, int n, double *pvals,
                  p_val_type side) {
-  Vector *cdf = pv_cdf(distrib, side); /* CDF for approp tail */
+  Vector *lcdf = NULL, *hcdf = NULL;
   int i;
 
+  if (side != UPPER)
+    lcdf = pv_cdf(distrib, LOWER); /* CDF for lower tail */
+  if (side != LOWER)
+    hcdf = pv_cdf(distrib, UPPER); /* CDF for upper tail */
+  
   /* look up tail probabilities from CDF */
-  for (i = 0; i < n; i++) 
-    pvals[i] = cdf->data[(int)(side == LOWER ? floor(x_0[i]) : ceil(x_0[i]))];
+  for (i = 0; i < n; i++) {
+    if (side == LOWER)
+      pvals[i] = lcdf->data[(int)floor(x_0[i])];
+    else if (side == UPPER)
+      pvals[i] = hcdf->data[(int)ceil(x_0[i])];
+    else                        /* side == TWOTAIL */
+      pvals[i] = 2*min(lcdf->data[(int)floor(x_0[i])], 
+                       hcdf->data[(int)ceil(x_0[i])]);
+  }
 
-  vec_free(cdf);
+  if (lcdf != NULL) vec_free(lcdf);
+  if (hcdf != NULL) vec_free(hcdf);
 }
 
 /* normalize distribution */

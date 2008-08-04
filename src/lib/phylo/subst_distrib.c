@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.36 2008-08-04 16:02:35 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.37 2008-08-04 16:56:14 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -429,16 +429,20 @@ void sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type mode,
     if (post_var != NULL) post_var[tup] = var;
     vec_free(post);
   }  
-  if (pvals != NULL)
-    pv_p_values(prior, x0, msa->ss->ntuples, pvals, 
-                mode == CON ? LOWER : UPPER);
+  if (pvals != NULL) {
+    if (mode == CON)
+      pv_p_values(prior, x0, msa->ss->ntuples, pvals, LOWER);
+    else if (mode == ACC) {
+      pv_p_values(prior, x0, msa->ss->ntuples, pvals, UPPER);
 
-  /* in ACC mode, reset pvals of zero to epsilon -- because off scale
-     of finte representation of distrib */
-  if (mode == ACC) 
-    for (tup = 0; tup < msa->ss->ntuples; tup++) 
-      if (pvals[tup] == 0) 
-        pvals[tup] = jp->epsilon;
+      /* reset pvals of zero to epsilon -- because off scale of finite
+       representation of distrib */
+      for (tup = 0; tup < msa->ss->ntuples; tup++) 
+        if (pvals[tup] == 0) pvals[tup] = jp->epsilon;
+    }
+    else
+      pv_p_values(prior, x0, msa->ss->ntuples, pvals, TWOTAIL);
+  }
 
   if (post_mean == NULL) free(x0);
   vec_free(prior);
@@ -525,16 +529,20 @@ void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode,
       /* off scale of finite representation of joint distrib.  This
          can happen either because either msub or msup is unusually
          large.  We simply fall back on the marginal in this case.
-         This will generally produce a reasonable result, although
-         not in the rare event where msub and msup are both large */
+         This will generally produce a reasonable result, although not
+         in the rare event where msub and msup are both very large */
       else 
         cond = pm_x_given_tot(prior, msub[tup] + msup[tup]); 
 
       if (mode == ACC && ceil(msub[tup]) >= cond->size)
         pvals[tup] = jp->epsilon; /* off scale of the finite
                                      representation of conditional */
-      else
-        pvals[tup] = pv_p_value(cond, msub[tup], mode == CON ? LOWER : UPPER);
+      else if (mode == CON)
+        pvals[tup] = pv_p_value(cond, msub[tup], LOWER);
+      else if (mode == ACC)
+        pvals[tup] = pv_p_value(cond, msub[tup], UPPER);
+      else                      /* NNEUT */
+        pvals[tup] = pv_p_value(cond, msub[tup], TWOTAIL);
 
       vec_free(cond);
     }
