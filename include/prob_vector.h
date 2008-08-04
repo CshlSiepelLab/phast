@@ -3,7 +3,7 @@
 
 #include <vector.h>
 
-typedef enum {LOWER, UPPER} p_val_type;
+typedef enum {LOWER, UPPER, TWOTAIL} p_val_type;
 
 void pv_stats(Vector *p, double *mean, double *var);
 void pv_confidence_interval(Vector *p, double size, int *interval_min, 
