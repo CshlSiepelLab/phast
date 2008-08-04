@@ -1,4 +1,4 @@
-/* $Id: matrix.c,v 1.6 2008-07-31 00:20:17 acs Exp $ 
+/* $Id: matrix.c,v 1.7 2008-08-04 21:03:27 acs Exp $ 
    Written by Adam Siepel, 2002-2005
    Copyright 2002-2005, Adam Siepel, University of California 
 */
@@ -111,6 +111,15 @@ Matrix *mat_create_copy(Matrix *src) {
   Matrix *dest = mat_new(src->nrows, src->ncols);
   mat_copy(dest, src);
   return dest;
+}
+
+Matrix *mat_transpose(Matrix *src) {
+  int i, j;
+  Matrix *retval = mat_new(src->ncols, src->nrows);
+  for (i = 0; i < src->nrows; i++)
+    for (j = 0; j < src->ncols; j++)
+      retval->data[j][i] = src->data[i][j];
+  return retval;
 }
 
 void mat_scale(Matrix *m, double scale_factor) {

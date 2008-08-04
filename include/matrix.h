@@ -1,4 +1,4 @@
-/* $Id: matrix.h,v 1.5 2008-07-31 00:20:18 acs Exp $ 
+/* $Id: matrix.h,v 1.6 2008-08-04 21:03:27 acs Exp $ 
    Written by Adam Siepel, 2002-2005
    Copyright 2002-2005, Adam Siepel, University of California 
 */
@@ -36,6 +36,7 @@ void mat_zero(Matrix *m);
 void mat_set_all(Matrix *m, double val);
 void mat_copy(Matrix *dest, Matrix *src);
 Matrix *mat_create_copy(Matrix *src);
+Matrix *mat_transpose(Matrix *src);
 void mat_scale(Matrix *m, double scale_factor);
 void mat_print(Matrix *m, FILE *F);
 void mat_read(Matrix *m, FILE *F);
