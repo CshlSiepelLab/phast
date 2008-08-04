@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.13 2008-07-31 00:20:17 acs Exp $
+/* $Id: fit_column.c,v 1.14 2008-08-04 18:00:13 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -1005,7 +1005,7 @@ void col_free_fit_data(ColFitData *d) {
    (tuple_nspecies).  If any arrays are NULL, values will not be
    retained.  Gaps and missing data are handled by working with
    induced subtree.  */
-void col_gerp(TreeModel *mod, MSA *msa, double *tuple_nneut, 
+void col_gerp(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_nneut, 
               double *tuple_nobs, double *tuple_nrejected, 
               double *tuple_nspec, FILE *logf) { 
   int i, j, nspec = 0;
@@ -1041,7 +1041,11 @@ void col_gerp(TreeModel *mod, MSA *msa, double *tuple_nneut,
     if (tuple_nspec != NULL) tuple_nspec[i] = (double)nspec;
     if (tuple_nneut != NULL) tuple_nneut[i] = nneut;
     if (tuple_nobs != NULL) tuple_nobs[i] = scale * nneut;
-    if (tuple_nrejected != NULL) tuple_nrejected[i] = nneut * (1 - scale);
+    if (tuple_nrejected != NULL) {
+      tuple_nrejected[i] = nneut * (1 - scale);
+      if (mode == ACC) tuple_nrejected[i] *= -1;
+      else if (mode == NNEUT) tuple_nrejected[i] = fabs(tuple_nrejected[i]);
+    }
   }
   col_free_fit_data(d);
   free(has_data);

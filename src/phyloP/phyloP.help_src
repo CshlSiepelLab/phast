@@ -67,8 +67,9 @@ OPTIONS:
         method-dependent way.  With 'SPH', output includes mean and
         variance of posterior distribution, with LRT and SCORE it
         includes the estimated scale factor(s) and test statistics, and
-        with GERP it includes the posterior estimate of the number of
-        substitutions for the species considered.
+        with GERP it includes the estimated numbers of neutral,
+        observed, and rejected substitutions, along with the number of
+        species available at each site.
 
     --mode, -o CON|ACC|NNEUT
         (For use with --wig-scores, --base-by-base, and --metadata) Whether
@@ -76,8 +77,9 @@ OPTIONS:
         indicates unexpected conservation (CON; the default) or
         acceleration (ACC); or two-sided p-values such that small p
         indicates an unexpected departure from neutrality (NNEUT).
-        NNEUT is only available in LRT and SCORE modes.  This option is
-        not relevant in GERP mode.
+        In GERP mode, ACC causes the negative number of rejected
+        substitutions to be reported, and NNEUT causes the absolute value
+        of this number to be reported.
 
     --features, -f <file>
         Read features from <file> (GFF or BED format) and output a

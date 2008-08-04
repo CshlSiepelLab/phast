@@ -1,4 +1,4 @@
-/* $Id: fit_column.h,v 1.8 2008-07-31 00:20:18 acs Exp $
+/* $Id: fit_column.h,v 1.9 2008-08-04 18:00:13 acs Exp $
    Written by Adam Siepel, 2008 */
 
 #ifndef FIT_COL_H
@@ -93,7 +93,7 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
 
 void col_free_fit_data(ColFitData *d);
 
-void col_gerp(TreeModel *mod, MSA *msa, double *tuple_nneut, 
+void col_gerp(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_nneut, 
               double *tuple_nobs, double *tuple_nrejected, 
               double *tuple_nspecies, FILE *logf);
 

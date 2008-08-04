@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.37 2008-08-04 16:56:14 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.38 2008-08-04 18:00:13 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -527,10 +527,11 @@ void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode,
       if (msub[tup] + msup[tup] > prior->nrows + prior->ncols - 2) 
         cond = pm_marg_x(prior);
       /* off scale of finite representation of joint distrib.  This
-         can happen either because either msub or msup is unusually
-         large.  We simply fall back on the marginal in this case.
-         This will generally produce a reasonable result, although not
-         in the rare event where msub and msup are both very large */
+         can happen because either msub or msup is unusually large.
+         We simply fall back on the marginal in this case.  This
+         usually produces a reasonable result, although it could be
+         misleading in the rare case in which msub and msup are both
+         very large */
       else 
         cond = pm_x_given_tot(prior, msub[tup] + msup[tup]); 
 

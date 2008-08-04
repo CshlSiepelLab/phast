@@ -175,8 +175,8 @@ int main(int argc, char *argv[]) {
     die("ERROR: --features cannot be used with --null, --posterior, or --fit-model.\n");
   if (base_by_base && (prior_only || post_only || ci != -1 || feats != NULL))
     die("ERROR: --wig and --base-by-base cannot be used with --null, --posterior, --features, --quantiles, or --confidence-interval.\n");
-  if (method == GERP && (subtree_name != NULL || mode != CON))
-    die("ERROR: --subtree and --mode not supported with --method GERP.\n");
+  if (method == GERP && subtree_name != NULL)
+    die("ERROR: --subtree not supported with --method GERP.\n");
 
   /* temporary */
   if (feats != NULL && method != SPH)
@@ -487,7 +487,7 @@ int main(int argc, char *argv[]) {
         tuple_nobs = smalloc(msa->ss->ntuples * sizeof(double));
         tuple_nspec = smalloc(msa->ss->ntuples * sizeof(double));
       }
-      col_gerp(mod, msa, tuple_nneut, tuple_nobs, tuple_nrejected,
+      col_gerp(mod, msa, mode, tuple_nneut, tuple_nobs, tuple_nrejected,
                tuple_nspec, logf);
       if (output_wig) 
         print_wig(msa, tuple_nrejected, chrom, FALSE);
