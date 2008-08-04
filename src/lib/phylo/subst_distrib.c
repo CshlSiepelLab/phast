@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.35 2008-07-27 02:08:16 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.36 2008-08-04 16:02:35 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -521,17 +521,22 @@ void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode,
     if (pvals != NULL) {
       Vector *cond;
       if (msub[tup] + msup[tup] > prior->nrows + prior->ncols - 2) 
-        pvals[tup] = 1;
-      /* off scale of finite representation of joint distrib; happens rarely */
-      else {
+        cond = pm_marg_x(prior);
+      /* off scale of finite representation of joint distrib.  This
+         can happen either because either msub or msup is unusually
+         large.  We simply fall back on the marginal in this case.
+         This will generally produce a reasonable result, although
+         not in the rare event where msub and msup are both large */
+      else 
         cond = pm_x_given_tot(prior, msub[tup] + msup[tup]); 
-        if (mode == ACC && ceil(msub[tup]) >= cond->size)
-          pvals[tup] = jp->epsilon; /* off scale of the finite
-                                       representation of conditional */
-        else
-          pvals[tup] = pv_p_value(cond, msub[tup], mode == CON ? LOWER : UPPER);
-        vec_free(cond);
-      }
+
+      if (mode == ACC && ceil(msub[tup]) >= cond->size)
+        pvals[tup] = jp->epsilon; /* off scale of the finite
+                                     representation of conditional */
+      else
+        pvals[tup] = pv_p_value(cond, msub[tup], mode == CON ? LOWER : UPPER);
+
+      vec_free(cond);
     }
   }  
 
