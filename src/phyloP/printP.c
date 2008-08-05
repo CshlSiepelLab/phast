@@ -363,7 +363,14 @@ void print_wig(MSA *msa, double *vals, char *chrom, int log_trans) {
           printf("fixedStep chrom=%s start=%d step=1\n", chrom, 
                  k + msa->idx_offset + 1);
         val = vals[msa->ss->tuple_idx[j]];
-        if (log_trans) val = fabs(-log10(val));
+        if (log_trans) {
+          int sign = 1;
+          if (val < 0) {
+            val = -val;
+            sign = -1;          /* propagate negative sign through */
+          }
+          val = fabs(-log10(val)) * sign; /* fabs prevents -0 for val == 1 */
+        }
         printf("%.3f\n", val);
         last = k;
       }

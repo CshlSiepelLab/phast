@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.38 2008-08-04 18:00:13 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.39 2008-08-05 22:03:10 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -430,18 +430,29 @@ void sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type mode,
     vec_free(post);
   }  
   if (pvals != NULL) {
-    if (mode == CON)
-      pv_p_values(prior, x0, msa->ss->ntuples, pvals, LOWER);
-    else if (mode == ACC) {
-      pv_p_values(prior, x0, msa->ss->ntuples, pvals, UPPER);
-
-      /* reset pvals of zero to epsilon -- because off scale of finite
-       representation of distrib */
-      for (tup = 0; tup < msa->ss->ntuples; tup++) 
-        if (pvals[tup] == 0) pvals[tup] = jp->epsilon;
-    }
-    else
+    if (mode == NNEUT) 
       pv_p_values(prior, x0, msa->ss->ntuples, pvals, TWOTAIL);
+    else {
+      double *pvalscon = pvals, *pvalsacc = pvals;
+      if (mode == CONACC)
+        pvalsacc = smalloc(msa->ss->ntuples * sizeof(double));
+      if (mode == CON || mode == CONACC)
+        pv_p_values(prior, x0, msa->ss->ntuples, pvalscon, LOWER);
+      if (mode == ACC || mode == CONACC) {
+        pv_p_values(prior, x0, msa->ss->ntuples, pvalsacc, UPPER);
+        /* reset pvals of zero to epsilon -- because off scale of finite
+           representation of distrib */
+        for (tup = 0; tup < msa->ss->ntuples; tup++) 
+          if (pvals[tup] == 0) pvals[tup] = jp->epsilon;
+      }
+      if (mode == CONACC) {     /* in this case, merge the two sets of
+                                   pvals, marking ACC cases with
+                                   negative signs */
+        for (tup = 0; tup < msa->ss->ntuples; tup++)
+          if (pvalsacc[tup] < pvalscon[tup]) pvalscon[tup] = -pvalsacc[tup];
+        free(pvalsacc);
+      }
+    }
   }
 
   if (post_mean == NULL) free(x0);
@@ -535,16 +546,24 @@ void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode,
       else 
         cond = pm_x_given_tot(prior, msub[tup] + msup[tup]); 
 
-      if (mode == ACC && ceil(msub[tup]) >= cond->size)
-        pvals[tup] = jp->epsilon; /* off scale of the finite
-                                     representation of conditional */
-      else if (mode == CON)
-        pvals[tup] = pv_p_value(cond, msub[tup], LOWER);
-      else if (mode == ACC)
-        pvals[tup] = pv_p_value(cond, msub[tup], UPPER);
-      else                      /* NNEUT */
+      if (mode == NNEUT)    
         pvals[tup] = pv_p_value(cond, msub[tup], TWOTAIL);
+      else {
+        double pcons = INFTY, pacc = INFTY;
+        if (mode == ACC || mode == CONACC) {
+          if (ceil(msub[tup]) >= cond->size)
+            pacc = jp->epsilon; /* off scale of the finite
+                                   representation of conditional */
+          else 
+            pacc = pv_p_value(cond, msub[tup], UPPER);
+        }
+        if (mode == CON || mode == CONACC)
+          pcons = pv_p_value(cond, msub[tup], LOWER);
 
+        pvals[tup] = min(pcons, pacc);
+        if (mode == CONACC && pacc < pcons)
+          pvals[tup] *= -1;
+      }
       vec_free(cond);
     }
   }  
