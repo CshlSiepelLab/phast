@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.14 2008-08-04 18:00:13 acs Exp $
+/* $Id: fit_column.c,v 1.15 2008-08-05 14:07:09 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -608,14 +608,18 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
     if (tuple_pvals != NULL) {
       if (mode == NNEUT) 
         tuple_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
-      else
+      else {
         tuple_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
-    /* assumes 50:50 mix of chisq and point mass at zero, due to
-       bounding of param */
+        /* assumes 50:50 mix of chisq and point mass at zero, due to
+           bounding of param */
+
+        if (mode == CONACC && d->params->data[0] > 1)
+          tuple_pvals[i] *= -1; /* mark as acceleration */
+      }
     }
 
     /* store scales and log likelihood ratios if necessary */
-    if (tuple_scales != NULL) tuple_scales[i] = vec_get(d->params, 0);
+    if (tuple_scales != NULL) tuple_scales[i] = d->params->data[0];
     if (tuple_llrs != NULL) tuple_llrs[i] = delta_lnl;
   }
   
@@ -655,7 +659,6 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
     null_lnl *= -1;
 
     d2->tupleidx = i;
-/*     vec_set(d2->params, 0, d2->init_scale); */
     vec_set(d2->params, 0, d->params->data[0]); /* init to previous estimate
                                                    to save time */
     vec_set(d2->params, 1, d2->init_scale_sub);
@@ -676,19 +679,23 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
     if (tuple_pvals != NULL) {
       if (mode == NNEUT) 
         tuple_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
-      else
+      else {
         tuple_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
-      /* assumes 50:50 mix of chisq and point mass at zero, due to
-         bounding of param */
+        /* assumes 50:50 mix of chisq and point mass at zero, due to
+           bounding of param */
+
+        if (mode == CONACC && d2->params->data[1] > 1)
+          tuple_pvals[i] *= -1;    /* mark as acceleration */        
+      }
     }
 
     /* store scales and log likelihood ratios if necessary */
     if (tuple_null_scales != NULL) 
-      tuple_null_scales[i] = vec_get(d->params, 0);
+      tuple_null_scales[i] = d->params->data[0];
     if (tuple_scales != NULL) 
-      tuple_scales[i] = vec_get(d2->params, 0);
+      tuple_scales[i] = d2->params->data[0];
     if (tuple_sub_scales != NULL) 
-      tuple_sub_scales[i] = vec_get(d2->params, 1);
+      tuple_sub_scales[i] = d2->params->data[1];
     if (tuple_llrs != NULL) 
       tuple_llrs[i] = delta_lnl;
   }
@@ -723,13 +730,6 @@ void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode,
 
     col_scale_derivs(d, &first_deriv, NULL, d->fels_scratch);
 
-    /* for debugging; values are close but don't agree as closely as
-       it seems they should, but several hours of searching found no
-       bug.....? */
-/*     col_scale_derivs_num(d, &tmp1, &tmp2); */
-/*     fprintf(stderr, "Analytical: %f, %f; Numerical: %f, %f\n", */
-/*             first_deriv, second_deriv, tmp1, tmp2); */
-
     teststat = first_deriv*first_deriv / fim;
 
     if ((mode == ACC && first_deriv < 0) ||
@@ -740,9 +740,13 @@ void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode,
     if (tuple_pvals != NULL) {
       if (mode == NNEUT)
         tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
-      else
+      else {
         tuple_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
-      /* assumes 50:50 mix of chisq and point mass at zero */
+        /* assumes 50:50 mix of chisq and point mass at zero */
+        
+        if (mode == CONACC && first_deriv > 0)
+          tuple_pvals[i] *= -1; /* mark as acceleration */
+      }
     }
 
     /* store scales and log likelihood ratios if necessary */
@@ -792,26 +796,8 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
 
     fim = col_get_fim_sub(grid, d2->mod->scale); 
     
-/*     fim = col_estimate_fim_sub(d2->mod); */
-
     teststat = grad->data[1]*grad->data[1] / 
       (fim->data[1][1] - fim->data[0][1]*fim->data[1][0]/fim->data[0][0]);
-
-/*     fprintf(stderr, "%f\n", fim->data[0][0]*fim->data[1][1] - fim->data[0][1]*fim->data[1][0]); */
-
-
-/*     det = hessian->data[0][0] * hessian->data[1][1]  */
-/*       - hessian->data[0][1] * hessian->data[1][0];  */
-/*     assert(det != 0);  */
-/*     A = hessian->data[1][1] / det; /\* cell 0,0 of inverse Fisher matrix *\/  */
-/*     B = -hessian->data[0][1] / det; /\* cell 0,1 *\/  */
-/*     C = -hessian->data[1][0] / det; /\* cell 1,0 *\/  */
-/*     D = hessian->data[0][0] / det;  /\* cell 1,1 *\/  */
-/*     E = grad->data[0];  */
-/*     F = grad->data[1];  */
-
-/*     teststat = E*E*A + E*F*C + E*B*F + F*F*D;  */
-    /* grad' * inv_fish * grad */
 
     if (teststat < 0) {
       fprintf(stderr, "WARNING: teststat < 0 (%f)\n", teststat);
@@ -826,9 +812,13 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
     if (tuple_pvals != NULL) {
       if (mode == NNEUT)
         tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
-      else
+      else {
         tuple_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
-      /* assumes 50:50 mix of chisq and point mass at zero */
+        /* assumes 50:50 mix of chisq and point mass at zero */
+
+        if (mode == CONACC && grad->data[1] > 0)
+          tuple_pvals[i] *= -1; /* mark as acceleration */
+      }
     }
 
     /* store scales and log likelihood ratios if necessary */

@@ -71,15 +71,16 @@ OPTIONS:
         observed, and rejected substitutions, along with the number of
         species available at each site.
 
-    --mode, -o CON|ACC|NNEUT
-        (For use with --wig-scores, --base-by-base, and --metadata) Whether
-        to compute one-sided p-values so that small p (large -log p)
-        indicates unexpected conservation (CON; the default) or
-        acceleration (ACC); or two-sided p-values such that small p
-        indicates an unexpected departure from neutrality (NNEUT).
-        In GERP mode, ACC causes the negative number of rejected
-        substitutions to be reported, and NNEUT causes the absolute value
-        of this number to be reported.
+    --mode, -o CON|ACC|NNEUT|CONACC
+        (For use with --wig-scores and --base-by-base) Whether to compute
+        one-sided p-values so that small p (large -log p) indicates
+        unexpected conservation (CON; the default) or acceleration (ACC);
+        or two-sided p-values such that small p indicates an unexpected
+        departure from neutrality (NNEUT).  The fourth option (CONACC) uses
+        positive values (p-values or scores) to indicate conservation and
+        negative values to indicate acceleration.  In GERP mode, CON and
+        CONACC both report the number of rejected substitutions R (which
+        may be negative), while ACC reports -R, and NNEUT reports abs(R).
 
     --features, -f <file>
         Read features from <file> (GFF or BED format) and output a
@@ -119,11 +120,6 @@ OPTIONS:
         argument will be ignored.  If used with --subtree, the joint
         distribution over the number of substitutions in the specified
         supertree and subtree will be output instead.
-
-    --metadata, -d
-        Like --null, but summarizes null distribution for (nsites = 1) and
-        associated -log p-values in a compact, machine readable form.  For
-        use in supporting visualization in UCSC Genome Browser.
 
     --posterior, -p
         Compute just the posterior distribution of the number of

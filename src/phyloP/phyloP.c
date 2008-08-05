@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
   msa_format_type msa_format = FASTA;
   int nsites = -1, prior_only = FALSE, post_only = FALSE, quantiles = FALSE,
     fit_model = FALSE, base_by_base = FALSE, output_wig = FALSE, 
-    default_epsilon = TRUE, prior_metadata = FALSE;
+    default_epsilon = TRUE;
   double ci = -1, epsilon = DEFAULT_EPSILON;
   char *subtree_name = NULL, *chrom = NULL;
   GFF_Set *feats = NULL;
@@ -70,13 +70,12 @@ int main(int argc, char *argv[]) {
     {"wig-scores", 0, 0, 'w'},
     {"base-by-base", 0, 0, 'b'},
     {"chrom", 1, 0, 'N'},
-    {"metadata", 0, 0, 'd'},
     {"log", 1, 0, 'l'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:o:i:n:pc:s:f:Fe:l:qwbdN:h", 
+  while ((c = getopt_long(argc, argv, "m:o:i:n:pc:s:f:Fe:l:qwbN:h", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'm':
@@ -97,6 +96,8 @@ int main(int argc, char *argv[]) {
         mode = ACC;
       else if (!strcmp(optarg, "NNEUT"))
         mode = NNEUT;
+      else if (!strcmp(optarg, "CONACC"))
+        mode = CONACC;
       else die("ERROR: bad argument to --mode (-o).\n");
       break;
     case 'i':
@@ -139,11 +140,6 @@ int main(int argc, char *argv[]) {
       break;
     case 'N':
       chrom = optarg;
-      break;
-    case 'd':
-      prior_metadata = TRUE;
-      prior_only = TRUE;
-      nsites = 1;
       break;
     case 'l':
       if (!strcmp(optarg, "-"))
@@ -319,12 +315,8 @@ int main(int argc, char *argv[]) {
         /* print output */
         if (quantiles)
           print_quantiles(prior_only ? prior_distrib : post_distrib);
-        else if (prior_only) {
-          if (prior_metadata)
-            print_prior_metadata(argv[optind], prior_distrib);
-          else
-            print_prior_only(nsites, argv[optind], prior_distrib);
-        }
+        else if (prior_only) 
+          print_prior_only(nsites, argv[optind], prior_distrib);
         else if (post_only)
           print_post_only(argv[optind], argv[optind+1], post_distrib, ci, scale);
         else

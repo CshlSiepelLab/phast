@@ -41,20 +41,6 @@ void print_prior_only(int nsites, char *mod_fname, Vector *prior_distrib) {
     printf("%d\t%f\n", i, prior_distrib->data[i]);
 }
 
-void print_prior_metadata(char *mod_fname, Vector *prior_distrib) {
-  int i;
-  double prior_mean, prior_var;
-  Vector *cdf = pv_cdf(prior_distrib, UPPER);
-  pv_stats(prior_distrib, &prior_mean, &prior_var);
-  printf("#metadata for null model '%s'\n", mod_fname);
-  printf("mean = %.3f\ns.d. = %.3f\nmax = %d\n-logP =", 
-         prior_mean, prior_var, prior_distrib->size);
-  for (i = 0; i < cdf->size; i++)
-    printf("% .3f", fabs(-log10(cdf->data[i])));  
-  printf("\n");
-  vec_free(cdf);
-}
-
 void print_post_only(char *mod_fname, char *msa_fname, Vector *post_distrib,
                      double ci, double scale) {
   int i, post_min, post_max;

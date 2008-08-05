@@ -1,4 +1,4 @@
-/* $Id: fit_column.h,v 1.9 2008-08-04 18:00:13 acs Exp $
+/* $Id: fit_column.h,v 1.10 2008-08-05 14:07:09 acs Exp $
    Written by Adam Siepel, 2008 */
 
 #ifndef FIT_COL_H
@@ -12,7 +12,7 @@
 #include <complex_matrix.h>
 
 typedef enum {ALL, SUBTREE} scale_type;
-typedef enum {CON, ACC, NNEUT} mode_type;
+typedef enum {CON, ACC, NNEUT, CONACC} mode_type;
 
 /* metadata for fitting scale factors to individual alignment columns */
 typedef struct {
