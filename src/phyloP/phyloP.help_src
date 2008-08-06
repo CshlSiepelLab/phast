@@ -104,8 +104,9 @@ OPTIONS:
         reversible substitution model is assumed.
 
     --chrom, -N <name>
-        (Optionally use with --wig or --base-by-base) Chromosome name for
-        wig output.  Default is root of multiple alignment filename.
+        (Optionally use with --wig-scores or --base-by-base) Chromosome
+        name for wig output.  Default is root of multiple alignment
+        filename.
 
     --help, -h
         Produce this help message.
@@ -137,12 +138,12 @@ OPTIONS:
         can be used with --wig-scores and --base-by-base.
 
     --epsilon, -e <val>
-        (Default 1e-10 or 1e-6 if --wig or --base-by-base) Threshold used
-        in truncating tails of distributions; tail probabilities less than
-        this value are discarded.  To get accurate p-values smaller than
-        1e-10, this option will need to be used, at some cost in speed.
-        Note that truncation affects only *right* tails, not left tails, so
-        it should be an issue only with p-values of acceleration.
+        (Default 1e-10 or 1e-6 if --wig-scores or --base-by-base) Threshold
+        used in truncating tails of distributions; tail probabilities less
+        than this value are discarded.  To get accurate p-values smaller
+        than 1e-10, this option will need to be used, at some cost in
+        speed.  Note that truncation affects only *right* tails, not left
+        tails, so it should be an issue only with p-values of acceleration.
 
     --confidence-interval, -c <val>
         Allow for uncertainty in the estimate of the actual number of

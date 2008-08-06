@@ -13,7 +13,7 @@
 #include "fit_column.h"
 #include "phyloP.help"
 
-/* default values for epsilon; can tolerate larger value with --wig or
+/* default values for epsilon; can tolerate larger value with --wig-scores or
    --base-by-base */
 #define DEFAULT_EPSILON 1e-10
 #define DEFAULT_EPSILON_BASE_BY_BASE 1e-6
@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
   if (feats != NULL && (prior_only || post_only || fit_model))
     die("ERROR: --features cannot be used with --null, --posterior, or --fit-model.\n");
   if (base_by_base && (prior_only || post_only || ci != -1 || feats != NULL))
-    die("ERROR: --wig and --base-by-base cannot be used with --null, --posterior, --features, --quantiles, or --confidence-interval.\n");
+    die("ERROR: --wig-scores and --base-by-base cannot be used with --null, --posterior, --features, --quantiles, or --confidence-interval.\n");
   if (method == GERP && subtree_name != NULL)
     die("ERROR: --subtree not supported with --method GERP.\n");
 
@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
   if (feats != NULL && method != SPH)
     die("ERROR: --features currently supported only with --method SPH.\n");
   if (!base_by_base && method != SPH)
-    die("ERROR: non-SPH methods currently require --wig or --base-by-base.\n");
+    die("ERROR: non-SPH methods currently require --wig-scores or --base-by-base.\n");
   if (mode == NNEUT && method == SPH)
     die("ERROR: --mode NNEUT not yet supported with --method SPH.\n");
 
