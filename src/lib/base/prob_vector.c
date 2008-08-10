@@ -1,4 +1,4 @@
-/* $Id: prob_vector.c,v 1.10 2008-08-04 16:56:14 acs Exp $ 
+/* $Id: prob_vector.c,v 1.11 2008-08-10 15:01:16 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -92,7 +92,7 @@ double pv_p_value(Vector *distrib, double x_0, p_val_type side) {
 
   if (side == LOWER) return lretval;
   else if (side == UPPER) return hretval;
-  return 2 * min(lretval, hretval);
+  return 2 * (min(lretval, hretval));
 }
 
 /* compute one-sided p-values for array of values.  Like pv_p_value, but
@@ -114,8 +114,8 @@ void pv_p_values(Vector *distrib, double *x_0, int n, double *pvals,
     else if (side == UPPER)
       pvals[i] = hcdf->data[(int)ceil(x_0[i])];
     else                        /* side == TWOTAIL */
-      pvals[i] = 2*min(lcdf->data[(int)floor(x_0[i])], 
-                       hcdf->data[(int)ceil(x_0[i])]);
+      pvals[i] = 2*(min(lcdf->data[(int)floor(x_0[i])], 
+                        hcdf->data[(int)ceil(x_0[i])]));
   }
 
   if (lcdf != NULL) vec_free(lcdf);

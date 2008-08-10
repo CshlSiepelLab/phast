@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.39 2008-08-05 22:03:10 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.40 2008-08-10 15:01:16 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -430,8 +430,13 @@ void sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type mode,
     vec_free(post);
   }  
   if (pvals != NULL) {
-    if (mode == NNEUT) 
+    if (mode == NNEUT) {
       pv_p_values(prior, x0, msa->ss->ntuples, pvals, TWOTAIL);
+      /* reset pvals of zero to 2*epsilon -- because off scale of finite
+         representation of distrib */
+      for (tup = 0; tup < msa->ss->ntuples; tup++) 
+        if (pvals[tup] == 0) pvals[tup] = 2*jp->epsilon;
+    }
     else {
       double *pvalscon = pvals, *pvalsacc = pvals;
       if (mode == CONACC)
@@ -443,7 +448,7 @@ void sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type mode,
         /* reset pvals of zero to epsilon -- because off scale of finite
            representation of distrib */
         for (tup = 0; tup < msa->ss->ntuples; tup++) 
-          if (pvals[tup] == 0) pvals[tup] = jp->epsilon;
+          if (pvalsacc[tup] == 0) pvalsacc[tup] = jp->epsilon;
       }
       if (mode == CONACC) {     /* in this case, merge the two sets of
                                    pvals, marking ACC cases with
@@ -546,8 +551,13 @@ void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode,
       else 
         cond = pm_x_given_tot(prior, msub[tup] + msup[tup]); 
 
-      if (mode == NNEUT)    
-        pvals[tup] = pv_p_value(cond, msub[tup], TWOTAIL);
+      if (mode == NNEUT) {
+        if (ceil(msub[tup]) >= cond->size)
+          pvals[tup] = 2*jp->epsilon; /* off scale of the finite
+                                         representation of conditional */
+        else 
+          pvals[tup] = pv_p_value(cond, msub[tup], TWOTAIL);
+      }
       else {
         double pcons = INFTY, pacc = INFTY;
         if (mode == ACC || mode == CONACC) {

@@ -179,8 +179,6 @@ int main(int argc, char *argv[]) {
     die("ERROR: --features currently supported only with --method SPH.\n");
   if (!base_by_base && method != SPH)
     die("ERROR: non-SPH methods currently require --wig-scores or --base-by-base.\n");
-  if (mode == NNEUT && method == SPH)
-    die("ERROR: --mode NNEUT not yet supported with --method SPH.\n");
 
   mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
 
