@@ -1,4 +1,4 @@
-/* $Id: phyloP.h,v 1.7 2008-08-15 16:57:12 acs Exp $
+/* $Id: phyloP.h,v 1.8 2008-08-15 21:47:48 acs Exp $
    Written by Adam Siepel, 2006-2008 */
 
 /* Functions that output data computed by phyloP */
@@ -22,14 +22,16 @@ void print_p_joint(char *node_name, char *mod_fname, char *msa_fname,
                    double post_mean_sup, double post_var_sup, 
                    double post_mean_sub, double post_var_sub,
                    double scale, double sub_scale);
-void print_p_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci);
-void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci);
+void print_feats_sph(p_value_stats *stats, GFF_Set *gff, 
+                     mode_type mode, double epsilon, int output_gff);
+void print_feats_sph_subtree(p_value_joint_stats *stats, GFF_Set *gff, 
+                             mode_type mode, double epsilon, int output_gff);
 void print_quantiles(Vector *distrib);
-
 void print_wig(MSA *msa, double *tuple_pvals, char *chrom, int log_trans);
 void print_base_by_base(char *header, char *chrom, MSA *msa, 
                         char **formatstr, int ncols, ...);
 void print_feats_generic(char *header, GFF_Set *gff, char **formatstr, 
                          int ncols, ...);
+void print_gff_scores(GFF_Set *gff, double *pvals, int log_trans);
 
 #endif

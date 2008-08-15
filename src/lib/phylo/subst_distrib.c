@@ -1,4 +1,4 @@
-/* $Id: subst_distrib.c,v 1.40 2008-08-10 15:01:16 acs Exp $ 
+/* $Id: subst_distrib.c,v 1.41 2008-08-15 21:47:48 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -839,11 +839,12 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
                                              be used */
                                 ) {
 
-  Vector *p, *prior;
-  int maxlen = -1, len, idx, i, j, logmaxlen, loglen, checksum;
+  Vector *p, *prior = NULL;
+  int maxlen = -1, len, idx, i, j, logmaxlen, loglen, checksum, lastlen = -1, 
+    prior_min, prior_max;
   GFF_Feature *f;
   double *post_mean, *post_var;
-  double this_min, this_max;
+  double this_min, this_max, prior_mean, prior_var;
   p_value_stats *stats = smalloc(lst_size(feats) * 
                                  sizeof(p_value_stats));
   char *used = smalloc(msa->ss->ntuples * sizeof(char));
@@ -886,22 +887,31 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
     len = f->end - f->start + 1;
     loglen = log2_int(len);
 
-    /* compute convolution of prior from powers */
-    j = checksum = 0;
-    for (i = 0; i <= loglen; i++) {
-      unsigned bit_i = (len >> i) & 1;
-      if (bit_i) {
-        pows[j++] = pow_p[i];
-        checksum += int_pow(2, i);
+    if (len != lastlen) { /* don't recompute if length doesn't change;
+                             saves time in some cases */
+      if (prior != NULL) vec_free(prior);
+
+      /* compute convolution of prior from powers */
+      j = checksum = 0;
+      for (i = 0; i <= loglen; i++) {
+        unsigned bit_i = (len >> i) & 1;
+        if (bit_i) {
+          pows[j++] = pow_p[i];
+          checksum += int_pow(2, i);
+        }
       }
+      assert(checksum == len);
+      prior = pv_convolve_many(pows, NULL, j, jp->epsilon);
+
+      pv_stats(prior, &prior_mean, &prior_var);
+      pv_confidence_interval(prior, 0.95, &prior_min, &prior_max);
+
     }
-    assert(checksum == len);
-    prior = pv_convolve_many(pows, NULL, j, jp->epsilon);
 
-    pv_stats(prior, &stats[idx].prior_mean, &stats[idx].prior_var);
-    pv_confidence_interval(prior, 0.95, &stats[idx].prior_min, 
-                           &stats[idx].prior_max);
-
+    stats[idx].prior_mean = prior_mean;
+    stats[idx].prior_var = prior_var;
+    stats[idx].prior_min = prior_min;
+    stats[idx].prior_max = prior_max;
 
     stats[idx].post_mean = stats[idx].post_var = 0;
     for (i = f->start - 1; i < f->end; i++) {
@@ -921,8 +931,9 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
     stats[idx].p_cons = pv_p_value(prior, stats[idx].post_max, LOWER);
     stats[idx].p_anti_cons = pv_p_value(prior, stats[idx].post_min, UPPER);    
 
-    vec_free(prior);
+    lastlen = len;
   }
+  vec_free(prior);
 
   for (idx = 0; idx <= logmaxlen; idx++)
     vec_free(pow_p[idx]);
@@ -978,24 +989,26 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
                        FILE *timing_f /* log file for timing info */
                        ) {
 
-  Matrix *p, *prior, *prior_site;
+  Matrix *p, *prior = NULL, *prior_site;
   int maxlen = -1, len, idx, i, j, logmaxlen, loglen, max_nrows, max_ncols,
-    max_conv_len, checksum;
+    max_conv_len, checksum, lastlen = -1;
   GFF_Feature *f;
   double *post_mean_left, *post_mean_right, *post_mean_tot, *post_var_left,
     *post_var_right, *post_var_tot;
   double this_min_left, this_min_right, this_max_left, this_max_right, 
     this_min_tot, this_max_tot, prior_site_mean_left, prior_site_var_left,
     prior_site_mean_right, prior_site_var_right, sd_l, sd_r, rho;
+  double  prior_mean_left, prior_var_left, prior_mean_right, prior_var_right;
+  int prior_min_left, prior_max_left, prior_min_right, prior_max_right;
   p_value_joint_stats *stats = smalloc(lst_size(feats) * 
                                        sizeof(p_value_joint_stats));
   Vector *prior_site_marg_left, *prior_site_marg_right,
-    *prior_marg_left, *prior_marg_right, *marg, *cond;
+    *prior_marg_left = NULL, *prior_marg_right = NULL, *marg, *cond;
   char *used = smalloc(msa->ss->ntuples * sizeof(char));
   Matrix **pow_p, **pows;
   struct timeval marker_time;
   double max_nsd = -inv_cum_norm(jp->epsilon) + 1; /* for use in CLT
-                                                     approximations */
+                                                      approximations */
 
   /* find max length of feature.  Simultaneously, figure out which
      column tuples actually used (saves time below)  */
@@ -1070,57 +1083,82 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
     len = f->end - f->start + 1;
     loglen = log2_int(len);
 
-    if (len <= max_conv_len) {
-      /* compute convolution of prior from powers */
-      j = checksum = 0;
-      for (i = 0; i <= loglen; i++) {
-        unsigned bit_i = (len >> i) & 1;
-        if (bit_i) {
-          pows[j++] = pow_p[i];
-          checksum += int_pow(2, i);
-        }
-      }
-      assert(checksum == len);
-
-      if (len > 25) {
-        /* use central limit theorem to limit size of matrix to keep
-           track of */
-        max_nrows = ceil(len * prior_site_mean_left + 
-                         max_nsd * sqrt(len * prior_site_var_left));
-        max_ncols = ceil(len * prior_site_mean_right + 
-                         max_nsd * sqrt(len * prior_site_var_right));
-      }
-      else {
-        max_nrows = pow_p[0]->nrows * len;
-        max_ncols = pow_p[0]->ncols * len;
-      }
-
-      if (timing_f != NULL) gettimeofday(&marker_time, NULL);
-      prior = pm_convolve_many_fast(pows, j, max_nrows, max_ncols);
+    if (len == lastlen) {
       if (timing_f != NULL)
-        fprintf(timing_f, "len = %d (%d x %d): %f sec\n", len, max_nrows, 
-                max_ncols, get_elapsed_time(&marker_time));
-
-      prior_marg_left = pm_marg_x(prior);
-      prior_marg_right = pm_marg_y(prior);
-    }
-    else {
-      prior = NULL;             /* won't be used explicitly */
-      prior_marg_left = pv_convolve(prior_site_marg_left, len, jp->epsilon);
-      prior_marg_right = pv_convolve(prior_site_marg_right, len, jp->epsilon);
-      if (timing_f != NULL)
-        fprintf(timing_f, "len = %d (%d x %d): [skipping joint convolution]\n",
+        fprintf(timing_f, "len = %d (%d x %d): [using cached convolution]\n",
                 len, max_nrows, max_ncols);
     }
 
-    pv_stats(prior_marg_left, &stats[idx].prior_mean_left, 
-             &stats[idx].prior_var_left);
-    pv_confidence_interval(prior_marg_left, 0.95, &stats[idx].prior_min_left,
-                           &stats[idx].prior_max_left);
-    pv_stats(prior_marg_right, &stats[idx].prior_mean_right, 
-             &stats[idx].prior_var_right);
-    pv_confidence_interval(prior_marg_right, 0.95, &stats[idx].prior_min_right,
-                           &stats[idx].prior_max_right);
+    else {                /* don't recompute if length doesn't change;
+                             saves time in some cases */
+
+      if (prior_marg_left != NULL) { 
+        if (prior != NULL) mat_free(prior);
+        vec_free(prior_marg_left);
+        vec_free(prior_marg_right);
+      }
+
+      if (len <= max_conv_len) {
+
+        /* compute convolution of prior from powers */
+        j = checksum = 0;
+        for (i = 0; i <= loglen; i++) {
+          unsigned bit_i = (len >> i) & 1;
+          if (bit_i) {
+            pows[j++] = pow_p[i];
+            checksum += int_pow(2, i);
+          }
+        }
+        assert(checksum == len);
+
+        if (len > 25) {
+          /* use central limit theorem to limit size of matrix to keep
+             track of */
+          max_nrows = ceil(len * prior_site_mean_left + 
+                           max_nsd * sqrt(len * prior_site_var_left));
+          max_ncols = ceil(len * prior_site_mean_right + 
+                           max_nsd * sqrt(len * prior_site_var_right));
+        }
+        else {
+          max_nrows = pow_p[0]->nrows * len;
+          max_ncols = pow_p[0]->ncols * len;
+        }
+        
+        if (timing_f != NULL) gettimeofday(&marker_time, NULL);
+        prior = pm_convolve_many_fast(pows, j, max_nrows, max_ncols);
+        if (timing_f != NULL)
+          fprintf(timing_f, "len = %d (%d x %d): %f sec\n", len, max_nrows, 
+                  max_ncols, get_elapsed_time(&marker_time));
+
+        prior_marg_left = pm_marg_x(prior);
+        prior_marg_right = pm_marg_y(prior);
+      }
+      else {
+        prior = NULL;             /* won't be used explicitly */
+        prior_marg_left = pv_convolve(prior_site_marg_left, len, jp->epsilon);
+        prior_marg_right = pv_convolve(prior_site_marg_right, len, jp->epsilon);
+        if (timing_f != NULL)
+          fprintf(timing_f, "len = %d (%d x %d): [skipping joint convolution]\n",
+                  len, max_nrows, max_ncols);
+      }
+
+      pv_stats(prior_marg_left, &prior_mean_left, &prior_var_left);
+      pv_confidence_interval(prior_marg_left, 0.95, &prior_min_left,
+                             &prior_max_left);
+      pv_stats(prior_marg_right, &prior_mean_right, &prior_var_right);
+      pv_confidence_interval(prior_marg_right, 0.95, &prior_min_right,
+                             &prior_max_right);
+      
+    }
+
+    stats[idx].prior_mean_left = prior_mean_left;
+    stats[idx].prior_var_left = prior_var_left;
+    stats[idx].prior_mean_right = prior_mean_right;
+    stats[idx].prior_var_right = prior_var_right;
+    stats[idx].prior_min_left = prior_min_left;
+    stats[idx].prior_max_left = prior_max_left;
+    stats[idx].prior_min_right = prior_min_right;
+    stats[idx].prior_max_right = prior_max_right;
 
     stats[idx].post_mean_left = stats[idx].post_mean_right = 
       stats[idx].post_var_left = stats[idx].post_var_right = 
@@ -1199,10 +1237,11 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
     stats[idx].p_anti_cons_right = pv_p_value(prior_marg_right, 
                                               stats[idx].post_min_right, UPPER);
 
-    if (prior != NULL) mat_free(prior);
-    vec_free(prior_marg_left);
-    vec_free(prior_marg_right);
+    lastlen = len;
   }
+  if (prior != NULL) mat_free(prior);
+  vec_free(prior_marg_left);
+  vec_free(prior_marg_right);
 
   for (idx = 0; idx <= logmaxlen; idx++)
     mat_free(pow_p[idx]);       /* this will also free prior_site */

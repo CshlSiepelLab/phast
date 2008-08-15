@@ -87,7 +87,11 @@ OPTIONS:
         table of p-values and related statistics with one row per
         feature.  The features are assumed to use the coordinate frame
         of the first sequence in the alignment.  Not for use with
-        --null or --posterior.
+        --null or --posterior.  See also --gff-scores.
+
+    --gff-scores, -g
+        (For use with features)  Instead of a table, output a GFF and
+        assign each feature a score equal to its -log p-value.
 
     --subtree, -s <node-name>
         (Not available in GERP mode) Partition the tree into the subtree

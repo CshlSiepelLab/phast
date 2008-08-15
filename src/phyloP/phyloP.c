@@ -21,6 +21,13 @@
 
 typedef enum{SPH, LRT, SCORE, GERP} method_type;
 
+/* maximum size of matrix for which to do explicit convolution of
+   joint prior; beyond this size an approximation is used.
+   Computational complexity is proportional to square of this number.
+   This only comes into play when --features and --subtree are used
+   together */
+#define MAX_CONVOLVE_SIZE 22500
+
 TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa, 
                           char *subtree_name, double *scale,
                           double *sub_scale);
@@ -30,7 +37,7 @@ int main(int argc, char *argv[]) {
   msa_format_type msa_format = FASTA;
   int nsites = -1, prior_only = FALSE, post_only = FALSE, quantiles = FALSE,
     fit_model = FALSE, base_by_base = FALSE, output_wig = FALSE, 
-    default_epsilon = TRUE;
+    default_epsilon = TRUE, output_gff = FALSE;
   double ci = -1, epsilon = DEFAULT_EPSILON;
   char *subtree_name = NULL, *chrom = NULL;
   GFF_Set *feats = NULL;
@@ -72,11 +79,12 @@ int main(int argc, char *argv[]) {
     {"base-by-base", 0, 0, 'b'},
     {"chrom", 1, 0, 'N'},
     {"log", 1, 0, 'l'},
+    {"gff-scores", 0, 0, 'g'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:o:i:n:pc:s:f:Fe:l:qwbN:h", 
+  while ((c = getopt_long(argc, argv, "m:o:i:n:pc:s:f:Fe:l:qwgbN:h", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'm':
@@ -105,6 +113,9 @@ int main(int argc, char *argv[]) {
       msa_format = msa_str_to_format(optarg);
       if (msa_format == -1)
         die("ERROR: unrecognized alignment format.\n");
+      break;
+    case 'g':
+      output_gff = TRUE;
       break;
     case 'n':
       nsites = get_arg_int_bounds(optarg, 1, INFTY);
@@ -271,8 +282,6 @@ int main(int argc, char *argv[]) {
 
     /* now actually compute and print output */
     if (subtree_name == NULL) {   /* full-tree mode */
-      double post_mean, post_var;
-
       if (base_by_base) {
         /* compute p-vals and (optionally) posterior means/variances per
            tuple, then print to stdout in wig or wig-like format */  
@@ -295,6 +304,8 @@ int main(int argc, char *argv[]) {
         }
       }
       else if (feats == NULL) {
+        double post_mean, post_var;
+
         /* compute distributions and stats*/
         if (!post_only) 
           prior_distrib = sub_prior_distrib_alignment(jp, nsites);
@@ -315,8 +326,11 @@ int main(int argc, char *argv[]) {
           print_p(argv[optind], argv[optind+1], prior_distrib, 
                   post_mean, post_var, ci, scale);
       }
-      else                        /* --features case */
-        print_p_feats(jp, msa, feats, ci);
+      else {                        /* --features case */
+        p_value_stats *stats = sub_p_value_many(jp, msa, feats->features, ci);
+        msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+        print_feats_sph(stats, feats, mode, epsilon, output_gff);
+      }
     }
     else {			/* SPH and supertree/subtree */
       if (base_by_base) {
@@ -379,8 +393,13 @@ int main(int argc, char *argv[]) {
                         post_mean_sup, post_var_sup, post_mean_sub, 
                         post_var_sub, scale, sub_scale);
       }
-      else                        /* --features case */
-        print_p_joint_feats(jp, msa, feats, ci);
+      else {                      /* --features case */
+        p_value_joint_stats *jstats = 
+          sub_p_value_joint_many(jp, msa, feats->features, 
+                                 ci, MAX_CONVOLVE_SIZE, NULL);
+        msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+        print_feats_sph_subtree(jstats, feats, mode, epsilon, output_gff);
+      }
     }
   } /* end SPH */
 
@@ -419,23 +438,33 @@ int main(int argc, char *argv[]) {
     }
     else if (feats != NULL) {   /* feature-by-feature evaluation */
       pvals = smalloc(lst_size(feats->features) * sizeof(double));
-      scales = smalloc(lst_size(feats->features) * sizeof(double));
-      llrs = smalloc(lst_size(feats->features) * sizeof(double));
+      if (!output_gff) {
+        scales = smalloc(lst_size(feats->features) * sizeof(double));
+        llrs = smalloc(lst_size(feats->features) * sizeof(double));
+      }
       if (subtree_name == NULL) {  /* no subtree case */
         ff_lrts(mod, msa, feats, mode, pvals, scales, llrs, logf);
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
-        print_feats_generic("scale\tlnlratio\tpval", feats, NULL, 3,
-                            scales, llrs, pvals);
+        if (output_gff) 
+          print_gff_scores(feats, pvals, TRUE);
+        else
+          print_feats_generic("scale\tlnlratio\tpval", feats, NULL, 3,
+                              scales, llrs, pvals);
       }
       else {                    /* subtree case */
-        null_scales = smalloc(lst_size(feats->features) * sizeof(double));
-        sub_scales = smalloc(lst_size(feats->features) * sizeof(double));
+        if (!output_gff) {
+          null_scales = smalloc(lst_size(feats->features) * sizeof(double));
+          sub_scales = smalloc(lst_size(feats->features) * sizeof(double));
+        }
         ff_lrts_sub(mod, msa, feats, mode, pvals, null_scales, scales, 
                     sub_scales, llrs, logf);
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
-        print_feats_generic("null_scale\talt_scale\talt_subscale\tlnlratio\tpval",
-                            feats, NULL, 5, null_scales, scales, sub_scales,
-                            llrs, pvals);
+        if (output_gff) 
+          print_gff_scores(feats, pvals, TRUE);
+        else
+          print_feats_generic("null_scale\talt_scale\talt_subscale\tlnlratio\tpval",
+                              feats, NULL, 5, null_scales, scales, sub_scales,
+                              llrs, pvals);
       }
     }
   } /* end LRT method */
@@ -478,23 +507,33 @@ int main(int argc, char *argv[]) {
     }
     else if (feats != NULL) {   /* feature by feature evaluation */
       pvals = smalloc(lst_size(feats->features) * sizeof(double));
-      teststats = smalloc(lst_size(feats->features) * sizeof(double));
-      derivs = smalloc(lst_size(feats->features) * sizeof(double));
+      if (!output_gff) {
+        teststats = smalloc(lst_size(feats->features) * sizeof(double));
+        derivs = smalloc(lst_size(feats->features) * sizeof(double));
+      }
       if (subtree_name == NULL) { /* no subtree case */
         ff_score_tests(mod, msa, feats, mode, pvals, derivs, teststats);
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
-        print_feats_generic("deriv\tteststat\tpval", feats, NULL, 3,
-                            derivs, teststats, pvals);
+        if (output_gff) 
+          print_gff_scores(feats, pvals, TRUE);
+        else
+          print_feats_generic("deriv\tteststat\tpval", feats, NULL, 3,
+                              derivs, teststats, pvals);
       }
       else {                     /* subtree case */
-        null_scales = smalloc(lst_size(feats->features) * sizeof(double));
-        sub_derivs = smalloc(lst_size(feats->features) * sizeof(double));
+        if (!output_gff) {
+          null_scales = smalloc(lst_size(feats->features) * sizeof(double));
+          sub_derivs = smalloc(lst_size(feats->features) * sizeof(double));
+        }
         ff_score_tests_sub(mod, msa, feats, mode, pvals, null_scales, derivs, 
                            sub_derivs, teststats, logf);
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
-        print_feats_generic("scale\tderiv\tsubderiv\tteststat\tpval",
-                            feats, NULL, 5, null_scales, derivs, sub_derivs,
-                            teststats, pvals);
+        if (output_gff) 
+          print_gff_scores(feats, pvals, TRUE);
+        else
+          print_feats_generic("scale\tderiv\tsubderiv\tteststat\tpval",
+                              feats, NULL, 5, null_scales, derivs, sub_derivs,
+                              teststats, pvals);
       }
     }
   } /* end SCORE */
@@ -519,13 +558,18 @@ int main(int argc, char *argv[]) {
     }
     else if (feats != NULL) {   /* feature by feature evaluation */
       nrejected = smalloc(lst_size(feats->features) * sizeof(double));
-      nneut = smalloc(lst_size(feats->features) * sizeof(double));
-      nobs = smalloc(lst_size(feats->features) * sizeof(double));
-      nspec = smalloc(lst_size(feats->features) * sizeof(double));
+      if (!output_gff) {
+        nneut = smalloc(lst_size(feats->features) * sizeof(double));
+        nobs = smalloc(lst_size(feats->features) * sizeof(double));
+        nspec = smalloc(lst_size(feats->features) * sizeof(double));
+      }
       ff_gerp(mod, msa, feats, mode, nneut, nobs, nrejected, nspec, logf);
       msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
-      print_feats_generic("nneut\tnobs\tnrej\tnspec", feats, formatstr, 4,
-                          nneut, nobs, nrejected, nspec);
+      if (output_gff) 
+        print_gff_scores(feats, nrejected, FALSE);
+      else 
+        print_feats_generic("nneut\tnobs\tnrej\tnspec", feats, formatstr, 4,
+                            nneut, nobs, nrejected, nspec);
     }
   } /* end GERP */
     

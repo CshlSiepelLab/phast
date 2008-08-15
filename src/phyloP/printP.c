@@ -10,14 +10,7 @@
 #include <subst_distrib.h>
 #include <prob_vector.h>
 #include <prob_matrix.h>
-
-/* maximum size of matrix for which to do explicit convolution of
-   joint prior; beyond this size an approximation is used.
-   Computational complexity is proportional to square of this number.
-   This only comes into play when --features and --subtree are used
-   together */
-#define MAX_CONVOLVE_SIZE 22500
-
+#include <phyloP.h>
 
 void print_quantiles(Vector *distrib) {
   int *quantiles = pv_quantiles(distrib);
@@ -271,85 +264,145 @@ void print_p_joint(char *node_name, char *mod_fname, char *msa_fname,
            sub_scale);
 }
 
-void print_p_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
+/* Features output for SPH without subtree */
+void print_feats_sph(p_value_stats *stats, GFF_Set *feats, 
+                     mode_type mode, double epsilon, int output_gff) {
   int i;
-  Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
-  p_value_stats *stats = sub_p_value_many(jp, msa, feats->features, ci);
-  List *l = lst_new_ptr(2);
+  double *pvals = smalloc(lst_size(feats->features) * sizeof(double)),
+    *post_means = NULL, *post_vars = NULL, *prior_means = NULL, 
+    *prior_vars = NULL;
 
-  msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
-
-  printf("#chr\tstart\tend\tname\tp_cons\tp_anti_cons\tprior_mean\tprior_var\tprior_min\tprior_max\tpost_mean\tpost_var\tpost_min\tpost_max\n");
+  if (!output_gff) {
+    post_means = smalloc(lst_size(feats->features) * sizeof(double));
+    post_vars = smalloc(lst_size(feats->features) * sizeof(double));
+    prior_means = smalloc(lst_size(feats->features) * sizeof(double));
+    prior_vars = smalloc(lst_size(feats->features) * sizeof(double));
+  }
   for (i = 0; i < lst_size(feats->features); i++) {
-    GFF_Feature *f = lst_get_ptr(feats->features, i);
-    String *name = NULL;
-
-    /* try to extract feature name from attribute field */
-    lst_clear(l);
-    if (f->attribute->length > 0 && 
-        str_re_match(f->attribute, tag_val_re, l, 1) >= 0) {
-      name = lst_get_ptr(l, 1);
-      str_remove_quotes(name);
+    if (!output_gff) {
+      post_means[i] = stats[i].post_mean;
+      post_vars[i] = stats[i].post_var;
+      prior_means[i] = stats[i].prior_mean;
+      prior_vars[i] = stats[i].prior_var;
     }
 
-    printf("%s\t%d\t%d\t%s\t%e\t%e\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\n", 
-           f->seqname->chars, f->start-1, f->end, 
-           name == NULL ? "." : name->chars,
-           stats[i].p_cons, stats[i].p_anti_cons, 
-           stats[i].prior_mean, stats[i].prior_var, 
-           stats[i].prior_min, stats[i].prior_max, 
-           stats[i].post_mean, stats[i].post_var, 
-           stats[i].post_min, stats[i].post_max);
+    if (mode == CON)
+      pvals[i] = stats[i].p_cons;
+    else if (mode == ACC)
+      pvals[i] = stats[i].p_anti_cons;
+    else if (mode == NNEUT)
+      pvals[i] = 2 * (min(stats[i].p_cons, stats[i].p_anti_cons));
+    else {
+      assert(mode == CONACC);
+      if (stats[i].p_cons < stats[i].p_anti_cons)
+        pvals[i] = stats[i].p_cons;
+      else 
+        pvals[i] = -stats[i].p_anti_cons;
+    }
 
-    lst_free_strings(l);
+    if (pvals[i] == 0) {
+      if (mode == ACC)
+        pvals[i] = epsilon;
+      else if (mode == CONACC)
+        pvals[i] = -epsilon;
+      else if (mode == NNEUT)
+        pvals[i] = 2*epsilon;
+      /* in these cases, reset pvals of zero to epsilon (or
+         2*epsilon), because off scale of finite representation of
+         distrib */
+    }
   }
-  lst_free(l);
-  str_re_free(tag_val_re);
+  if (output_gff) 
+    print_gff_scores(feats, pvals, TRUE);
+  else 
+    print_feats_generic("prior_mean\tprior_var\tpost_mean\tpost_var\tpval",
+                        feats, NULL, 5, prior_means, prior_vars, post_means, 
+                        post_vars, pvals);
+  if (!output_gff) {
+    free(post_means);
+    free(post_vars);
+    free(prior_means);
+    free(prior_vars);
+  }
+  free(pvals);
 }
 
-void print_p_joint_feats(JumpProcess *jp, MSA *msa, GFF_Set *feats, double ci) {
+/* Features output for SPH with subtree */
+void print_feats_sph_subtree(p_value_joint_stats *stats, GFF_Set *feats, 
+                             mode_type mode, double epsilon, int output_gff) {
   int i;
-  Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
-  p_value_joint_stats *stats = 
-    sub_p_value_joint_many(jp, msa, feats->features, 
-                           ci, MAX_CONVOLVE_SIZE, NULL);
-  List *l = lst_new_ptr(2);
+  double *pvals = smalloc(lst_size(feats->features) * sizeof(double)),
+    *post_means_sub = NULL, *post_vars_sub = NULL, 
+    *post_means_sup = NULL, *post_vars_sup = NULL, 
+    *prior_means_sub = NULL, *prior_vars_sub = NULL,
+    *prior_means_sup = NULL, *prior_vars_sup = NULL;
 
-  msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
-
-  printf("#chr\tstart\tend\tname\tp_cons_sup\tp_anti_cons_sup\tp_cons_sub\tp_anti_cons_sub\tcond_p_cons_sub\tcond_p_anti_cons_sub\tcond_approx\tprior_mean_sup\tprior_var_sup\tprior_min_sup\tprior_max_sup\tprior_mean_sub\tprior_var_sub\tprior_min_sub\tprior_max_sub\tpost_mean_sup\tpost_var_sup\tpost_min_sup\tpost_max_sup\tpost_mean_sub\tpost_var_sub\tpost_min_sub\tpost_max_sub\n");
+  if (!output_gff) {
+    post_means_sub = smalloc(lst_size(feats->features) * sizeof(double));
+    post_vars_sub = smalloc(lst_size(feats->features) * sizeof(double));
+    post_means_sup = smalloc(lst_size(feats->features) * sizeof(double));
+    post_vars_sup = smalloc(lst_size(feats->features) * sizeof(double));
+    prior_means_sub = smalloc(lst_size(feats->features) * sizeof(double));
+    prior_vars_sub = smalloc(lst_size(feats->features) * sizeof(double));
+    prior_means_sup = smalloc(lst_size(feats->features) * sizeof(double));
+    prior_vars_sup = smalloc(lst_size(feats->features) * sizeof(double));
+  }
   for (i = 0; i < lst_size(feats->features); i++) {
-    GFF_Feature *f = lst_get_ptr(feats->features, i);
-    String *name = NULL;
-
-    /* try to extract feature name from attribute field */
-    lst_clear(l);
-    if (f->attribute->length > 0 && 
-        str_re_match(f->attribute, tag_val_re, l, 1) >= 0) {
-      name = lst_get_ptr(l, 1);
-      str_remove_quotes(name);
+    if (!output_gff) {
+      post_means_sub[i] = stats[i].post_mean_left;
+      post_vars_sub[i] = stats[i].post_var_left;
+      post_means_sup[i] = stats[i].post_mean_right;
+      post_vars_sup[i] = stats[i].post_var_right;
+      prior_means_sub[i] = stats[i].prior_mean_left;
+      prior_vars_sub[i] = stats[i].prior_var_left;
+      prior_means_sup[i] = stats[i].prior_mean_right;
+      prior_vars_sup[i] = stats[i].prior_var_right;
     }
 
-    printf("%s\t%d\t%d\t%s\t%e\t%e\t%e\t%e\t%e\t%e\t%s\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\t%.3f\t%.3f\t%d\t%d\n", 
-           f->seqname->chars, f->start-1, f->end, 
-           name == NULL ? "." : name->chars,
-           stats[i].p_cons_right, stats[i].p_anti_cons_right, 
-           stats[i].p_cons_left, stats[i].p_anti_cons_left, 
-           stats[i].cond_p_cons_left, stats[i].cond_p_anti_cons_left, 
-           stats[i].cond_p_approx ? "approx" : "exact",
-           stats[i].prior_mean_right, stats[i].prior_var_right, 
-           stats[i].prior_min_right, stats[i].prior_max_right, 
-           stats[i].prior_mean_left, stats[i].prior_var_left, 
-           stats[i].prior_min_left, stats[i].prior_max_left, 
-           stats[i].post_mean_right, stats[i].post_var_right, 
-           stats[i].post_min_right, stats[i].post_max_right,
-           stats[i].post_mean_left, stats[i].post_var_left, 
-           stats[i].post_min_left, stats[i].post_max_left);
+    if (mode == CON)
+      pvals[i] = stats[i].p_cons_left;
+    else if (mode == ACC)
+      pvals[i] = stats[i].p_anti_cons_left;
+    else if (mode == NNEUT)
+      pvals[i] = 2 * (min(stats[i].p_cons_left, stats[i].p_anti_cons_left));
+    else {
+      assert(mode == CONACC);
+      if (stats[i].p_cons_left < stats[i].p_anti_cons_left)
+        pvals[i] = stats[i].p_cons_left;
+      else 
+        pvals[i] = -stats[i].p_anti_cons_left;
+    }
 
-    lst_free_strings(l);
+    if (pvals[i] == 0) {
+      if (mode == ACC)
+        pvals[i] = epsilon;
+      else if (mode == CONACC)
+        pvals[i] = -epsilon;
+      else if (mode == NNEUT)
+        pvals[i] = 2*epsilon;
+      /* in these cases, reset pvals of zero to epsilon (or
+         2*epsilon), because off scale of finite representation of
+         distrib */
+    }
   }
-  lst_free(l);
-  str_re_free(tag_val_re);
+  if (output_gff) 
+    print_gff_scores(feats, pvals, TRUE);
+  else 
+    print_feats_generic("prior_mean_sub\tprior_var_sub\tprior_mean_sup\tprior_var_sup\tpost_mean_sub\tpost_var_sub\tpost_mean_sup\tpost_var_sup\t\tpval",
+                        feats, NULL, 9, prior_means_sub, prior_vars_sub, 
+                        prior_means_sup, prior_vars_sup, post_means_sub, 
+                        post_vars_sub, post_means_sup, post_vars_sup, pvals);
+  if (!output_gff) {
+    free(post_means_sub);
+    free(post_vars_sub);
+    free(post_means_sup);
+    free(post_vars_sup);
+    free(prior_means_sub);
+    free(prior_vars_sub);
+    free(prior_means_sup);
+    free(prior_vars_sup);
+  }
+  free(pvals);
 }
 
 void print_wig(MSA *msa, double *vals, char *chrom, int log_trans) {
@@ -379,7 +432,7 @@ void print_wig(MSA *msa, double *vals, char *chrom, int log_trans) {
   }
 }
 
-/* print arbitrary columns of tuple-specific data in wig-like format */
+/* Print arbitrary columns of tuple-specific data in wig-like format */
 void print_base_by_base(char *header, char *chrom, MSA *msa, 
                         char **formatstr, int ncols, ...) {
   int last, j, k, tup, col;
@@ -413,6 +466,7 @@ void print_base_by_base(char *header, char *chrom, MSA *msa,
   va_end(ap);
 }
 
+/* Print a list of features and artibrary associated statistics */
 void print_feats_generic(char *header, GFF_Set *gff, char **formatstr, 
                          int ncols, ...) {
   int i, col;
@@ -456,4 +510,26 @@ void print_feats_generic(char *header, GFF_Set *gff, char **formatstr,
   va_end(ap);
   lst_free(l);
   str_re_free(tag_val_re);
+}
+
+/* Print GFF to stdout with feature scores defined by vals.  If
+   log_trans == TRUE, take log transform (propagating negative
+   signs) */
+void print_gff_scores(GFF_Set *gff, double *vals, int log_trans) {
+  int i;
+  for (i = 0; i < lst_size(gff->features); i++) {
+    GFF_Feature *f = lst_get_ptr(gff->features, i);
+    f->score = vals[i];
+    f->score_is_null = FALSE;
+    if (log_trans) {
+      int sign = 1;
+      if (f->score < 0) {
+        f->score = -f->score;
+        sign = -1;          /* propagate negative sign through */
+      }
+      f->score = fabs(-log10(f->score)) * sign; /* fabs prevents -0
+                                                   for val == 1 */
+    }
+  }
+  gff_print_set(stdout, gff);
 }

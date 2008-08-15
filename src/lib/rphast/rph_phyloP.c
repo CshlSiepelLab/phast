@@ -243,7 +243,7 @@ void phyloP_GERP(double* msaAddress, double* tmAddress, int* stats, int* modeNum
     tuple_nspec = smalloc(msa->ss->ntuples * sizeof(double));
   }
 
-  col_gerp(mod, msa, tuple_nneut, tuple_nobs, tuple_nrejected,              
+  col_gerp(mod, msa, mode, tuple_nneut, tuple_nobs, tuple_nrejected,              
 	   tuple_nspec, logf);
 
 
