@@ -1,4 +1,4 @@
-/* $Id: phyloP.h,v 1.6 2008-08-05 14:07:09 acs Exp $
+/* $Id: phyloP.h,v 1.7 2008-08-15 16:57:12 acs Exp $
    Written by Adam Siepel, 2006-2008 */
 
 /* Functions that output data computed by phyloP */
@@ -29,5 +29,7 @@ void print_quantiles(Vector *distrib);
 void print_wig(MSA *msa, double *tuple_pvals, char *chrom, int log_trans);
 void print_base_by_base(char *header, char *chrom, MSA *msa, 
                         char **formatstr, int ncols, ...);
+void print_feats_generic(char *header, GFF_Set *gff, char **formatstr, 
+                         int ncols, ...);
 
 #endif

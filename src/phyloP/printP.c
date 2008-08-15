@@ -412,3 +412,48 @@ void print_base_by_base(char *header, char *chrom, MSA *msa,
   }
   va_end(ap);
 }
+
+void print_feats_generic(char *header, GFF_Set *gff, char **formatstr, 
+                         int ncols, ...) {
+  int i, col;
+  String *name;
+  va_list ap;
+  double *data[ncols];
+  Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
+  List *l = lst_new_ptr(2);
+
+  printf("#chr\tstart\tend\tname");
+  if (header != NULL) 
+    printf("\t%s\n", header);
+  else 
+    printf("\n");
+
+  va_start(ap, ncols);
+  for (col = 0; col < ncols; col++)
+    data[col] = va_arg(ap, double*);
+
+  for (i = 0; i < lst_size(gff->features); i++) {
+    GFF_Feature *f = lst_get_ptr(gff->features, i);
+
+    /* try to extract feature name from attribute field */
+    lst_clear(l);
+    if (f->attribute->length > 0 && 
+        str_re_match(f->attribute, tag_val_re, l, 1) >= 0) {
+      name = lst_get_ptr(l, 1);
+      str_remove_quotes(name);
+    }
+
+    printf("%s\t%d\t%d\t%s\t", f->seqname->chars, f->start-1, f->end, 
+           name == NULL ? "." : name->chars);
+
+    for (col = 0; col < ncols; col++) {
+      printf((formatstr == NULL ? "%.5f" : formatstr[col]), data[col][i]);
+      printf(col < ncols-1 ? "\t" : "\n");
+    }
+
+    lst_free_strings(l);
+  }
+  va_end(ap);
+  lst_free(l);
+  str_re_free(tag_val_re);
+}

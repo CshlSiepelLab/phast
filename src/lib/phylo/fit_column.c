@@ -1,10 +1,10 @@
-/* $Id: fit_column.c,v 1.15 2008-08-05 14:07:09 acs Exp $
+/* $Id: fit_column.c,v 1.16 2008-08-15 16:57:12 acs Exp $
    Written by Adam Siepel, 2008
 */
 
-/* Functions to compute likelihoods for individual alignment columns
-   and estimate column-by-column scale factors by maximum likelhood.
-   For use with single-base LRTs, score tests, phyloP, etc. */
+/* Functions to compute likelihoods for individual alignment columns,
+   estimate column-by-column scale factors by maximum likelihood,
+   perform single-base LRTs, score tests, phyloP, etc. */
 
 #include <fit_column.h>
 #include <sufficient_stats.h>
@@ -17,13 +17,14 @@
 #define NSAMPLES_FIM 50
 /* number of samples to use in estimating FIM */ 
 
-/* Compute and return the likelihood of a tree model with respect to a
-   single column tuple in an alignment.  This is a pared-down version
-   of tl_compute_log_likelihood for use in estimation of base-by-base
-   scale factors.  It assumes a 0th order model, leaf-to-sequence
-   mapping already available, prob matrices computed, sufficient stats
-   already available.  Note that this function uses natural log rather
-   than log2.  This function does allow for rate variation. */
+/* Compute and return the log likelihood of a tree model with respect
+   to a single column tuple in an alignment.  This is a pared-down
+   version of tl_compute_log_likelihood for use in estimation of
+   base-by-base scale factors.  It assumes a 0th order model,
+   leaf-to-sequence mapping already available, prob matrices computed,
+   sufficient stats already available.  Note that this function uses
+   natural log rather than log2.  This function does allow for rate
+   variation. */
 double col_compute_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
                                   double **scratch) {
 
@@ -533,6 +534,7 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
   return(total_prob);
 }
 
+/* Wrapper for likelihood function for use in parameter estimation */
 double col_likelihood_wrapper(Vector *params, void *data) {
   ColFitData *d = (ColFitData*)data;
 
@@ -547,6 +549,7 @@ double col_likelihood_wrapper(Vector *params, void *data) {
                                          d->fels_scratch[0]);
 }
 
+/* Wrapper for gradient function for use in parameter estimation */
 void col_grad_wrapper(Vector *grad, Vector *params, void *data, 
                       Vector *lb, Vector *ub) {
   ColFitData *d = (ColFitData*)data;
@@ -571,7 +574,7 @@ void col_grad_wrapper(Vector *grad, Vector *params, void *data,
    Will optionally store the individual scale factors in tuple_scales
    and raw log likelihood ratios in tuple_llrs if these variables are
    non-NULL.  Must define mode as CON (for 0 <= scale <= 1), ACC
-   (for 1 <= scale), or NNEUT (0 <= scale) */ 
+   (for 1 <= scale), NNEUT (0 <= scale), or CONACC (0 <= scale) */ 
 void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals, 
               double *tuple_scales, double *tuple_llrs, FILE *logf) {
   int i;
@@ -626,6 +629,7 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
   col_free_fit_data(d);
 }
 
+/* Subtree version of LRT */
 void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode, 
                   double *tuple_pvals, double *tuple_null_scales, 
                   double *tuple_scales, double *tuple_sub_scales, 
@@ -672,7 +676,7 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
 
     delta_lnl = alt_lnl - null_lnl;
     assert(delta_lnl > -0.1);
-    if (delta_lnl < 0 || delta_lnl < 0.001) delta_lnl = 0;
+    if (delta_lnl < 0.001) delta_lnl = 0;
     /* within tolerance of optimization */
 
     /* compute p-vals via chi-sq */
@@ -708,6 +712,7 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
   tm_free(modcpy);
 }
 
+/* Score test */
 void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode, 
                      double *tuple_pvals, double *tuple_derivs, 
                      double *tuple_teststats) {
@@ -722,7 +727,7 @@ void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode,
   fim = col_estimate_fim(mod);
 
   if (fim < 0) 
-    die("ERROR: negative fisher matrix in col_score_tests\n", i);
+    die("ERROR: negative fisher information in col_score_tests\n", i);
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
@@ -757,6 +762,7 @@ void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode,
   col_free_fit_data(d);
 }
 
+/* Subtree version of score test */
 void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
                          double *tuple_pvals, double *tuple_null_scales, 
                          double *tuple_derivs, double *tuple_sub_derivs, 
@@ -786,7 +792,10 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
     vec_set(d->params, 0, d->init_scale);
     if (opt_bfgs(col_likelihood_wrapper, d->params, d, &lnl, d->lb, 
                  d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
-      die("ERROR in estimation of scale for tuple %d.\n", i);
+      ;                         /* do nothing; nonzero exit typically
+                                   occurs when max iterations is
+                                   reached; a warning is printed to
+                                   the log */
     
     d2->tupleidx = i;
     d2->mod->scale = d->params->data[0];
@@ -840,6 +849,8 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
   col_free_fim_grid(grid); 
 }
 
+/* Create object with metadata and scratch memory for fitting scale
+   factors */
 ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
                               mode_type mode, int second_derivs) {
   ColFitData *d = smalloc(sizeof(ColFitData));
@@ -947,6 +958,7 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
   return d;
 }
 
+/* Free metadata and memory for fitting scale factors */
 void col_free_fit_data(ColFitData *d) {
   int nid, rcat, i, j;
 
@@ -1082,7 +1094,7 @@ void col_gerp_alt(TreeModel *mod, MSA *msa, double *tuple_nneut,
 
 /* Identify branches wrt which a given column tuple is uninformative,
    in the sense that all leaves beneath these branches having missing
-   data.  Will set preallocated) array has_data[i] = I(branch above
+   data.  Will set (preallocated) array has_data[i] = I(branch above
    node i is informative).  Will also set *nspec equal to number of
    leaves that have data. */
 void col_find_missing_branches(TreeModel *mod, MSA *msa, int tupleidx, 
@@ -1115,7 +1127,7 @@ void col_find_missing_branches(TreeModel *mod, MSA *msa, int tupleidx,
   }
 }
 
-/* numerically compute first and second derivatives of single-column
+/* Numerically compute first and second derivatives of single-column
    log likelihood function.  For debugging */
 void col_scale_derivs_num(ColFitData *d, double *first_deriv, 
                           double *second_deriv) {
@@ -1137,7 +1149,7 @@ void col_scale_derivs_num(ColFitData *d, double *first_deriv,
   *second_deriv = (lnl1 - 2*lnl2 + lnl3) / (DERIV_EPSILON * DERIV_EPSILON);
 }
 
-/* numerically compute first and second derivatives of single-column
+/* Numerically compute first and second derivatives of single-column
    log likelihood function.  For debugging */
 void col_scale_derivs_subtree_num(ColFitData *d, Vector *gradient, 
                                   Matrix *hessian) {
@@ -1190,7 +1202,7 @@ void col_scale_derivs_subtree_num(ColFitData *d, Vector *gradient,
     (DERIV_EPSILON * DERIV_EPSILON);
 }
 
-/* estimate 2x2 Fisher Information Matrix (expected value of the
+/* Estimate 2x2 Fisher Information Matrix (expected value of the
    negative Hessian) for the subtree case, based on a particular value
    of the scale parameter (set in calling code).  Estimation is done
    by sampling.  Designed for repeated calls. */
@@ -1220,7 +1232,7 @@ Matrix *col_estimate_fim_sub(TreeModel *mod) {
   return (fim);
 }
 
-/* precompute estimates of FIM for a grid of possible scale params
+/* Precompute estimates of FIM for a grid of possible scale params
    (subtree case) */
 FimGrid *col_fim_grid_sub(TreeModel *mod) {
   int i;
@@ -1263,7 +1275,7 @@ void col_free_fim_grid(FimGrid *g) {
   free(g->scales);
 }
 
-/* estimate scale Fisher Information Matrix for the non-subtree case.
+/* Estimate scale Fisher Information Matrix for the non-subtree case.
    This version does not depend on any free parameters, so no grid is
    required.  Estimation is done by sampling, as above */
 double col_estimate_fim(TreeModel *mod) {
@@ -1278,7 +1290,7 @@ double col_estimate_fim(TreeModel *mod) {
     d->tupleidx = i;
     col_scale_derivs(d, &deriv1, &deriv2, d->fels_scratch);
     retval += (-deriv2 * msa->ss->counts[i]); /* add (observed) Fisher matrix
-                                            weighted by count */ 
+                                                 weighted by count */ 
   }
   retval /= NSAMPLES_FIM;   /* convert total to sample mean */
 
@@ -1287,7 +1299,7 @@ double col_estimate_fim(TreeModel *mod) {
   return (retval);
 }
 
-/* retrieve estimated FIM for given scale function; uses linear
+/* Retrieve estimated FIM for given scale function; uses linear
    interpolation from precomputed grid */
 Matrix *col_get_fim_sub(FimGrid *g, double scale) {
   int idx;

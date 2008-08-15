@@ -11,6 +11,7 @@
 #include <prob_matrix.h>
 #include "phyloP.h"
 #include "fit_column.h"
+#include "fit_feature.h"
 #include "phyloP.help"
 
 /* default values for epsilon; can tolerate larger value with --wig-scores or
@@ -49,11 +50,11 @@ int main(int argc, char *argv[]) {
   int j, old_nleaves, opt_idx;
   double scale = -1, sub_scale = -1;
   double prior_mean, prior_var;
-  double *tuple_pvals = NULL, *tuple_post_means = NULL, *tuple_post_vars = NULL,
-    *tuple_llrs = NULL, *tuple_scales = NULL, *tuple_sub_scales = NULL, 
-    *tuple_null_scales = NULL, *tuple_derivs = NULL, *tuple_sub_derivs = NULL,
-    *tuple_teststats = NULL, *tuple_nneut = NULL, *tuple_nobs = NULL,
-    *tuple_nspec = NULL, *tuple_nrejected = NULL;
+  double *pvals = NULL, *post_means = NULL, *post_vars = NULL,
+    *llrs = NULL, *scales = NULL, *sub_scales = NULL, 
+    *null_scales = NULL, *derivs = NULL, *sub_derivs = NULL,
+    *teststats = NULL, *nneut = NULL, *nobs = NULL,
+    *nspec = NULL, *nrejected = NULL;
 
   struct option long_opts[] = {
     {"method", 1, 0, 'm'},
@@ -174,12 +175,6 @@ int main(int argc, char *argv[]) {
   if (method == GERP && subtree_name != NULL)
     die("ERROR: --subtree not supported with --method GERP.\n");
 
-  /* temporary */
-  if (feats != NULL && method != SPH)
-    die("ERROR: --features currently supported only with --method SPH.\n");
-  if (!base_by_base && method != SPH)
-    die("ERROR: non-SPH methods currently require --wig-scores or --base-by-base.\n");
-
   mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
 
   if (!prior_only) {
@@ -281,23 +276,22 @@ int main(int argc, char *argv[]) {
       if (base_by_base) {
         /* compute p-vals and (optionally) posterior means/variances per
            tuple, then print to stdout in wig or wig-like format */  
-        tuple_pvals = smalloc(msa->ss->ntuples * sizeof(double));
+        pvals = smalloc(msa->ss->ntuples * sizeof(double));
         if (!output_wig) {
-          tuple_post_means = smalloc(msa->ss->ntuples * sizeof(double));
-          tuple_post_vars = smalloc(msa->ss->ntuples * sizeof(double));
+          post_means = smalloc(msa->ss->ntuples * sizeof(double));
+          post_vars = smalloc(msa->ss->ntuples * sizeof(double));
         }
         sub_pval_per_site(jp, msa, mode, fit_model, &prior_mean, &prior_var, 
-                          tuple_pvals, tuple_post_means, tuple_post_vars,
-                          logf);
+                          pvals, post_means, post_vars, logf);
 
         if (output_wig) 
-            print_wig(msa, tuple_pvals, chrom, TRUE);
+            print_wig(msa, pvals, chrom, TRUE);
         else {
           char str[1000];
           sprintf(str, "#neutral mean = %.3f var = %.3f\n#post_mean post_var pval", 
                   prior_mean, prior_var);
-          print_base_by_base(str, chrom, msa, NULL, 3, tuple_post_means, 
-                             tuple_post_vars, tuple_pvals);
+          print_base_by_base(str, chrom, msa, NULL, 3, post_means, post_vars, 
+                             pvals);
         }
       }
       else if (feats == NULL) {
@@ -328,34 +322,31 @@ int main(int argc, char *argv[]) {
       if (base_by_base) {
         /* compute p-vals and (optionally) posterior means/variances per
            tuple, then print to stdout in wig or wig-like format */  
-        double *tuple_post_means_sub = NULL, *tuple_post_vars_sub = NULL, 
-          *tuple_post_means_sup = NULL, *tuple_post_vars_sup = NULL;
+        double *post_means_sub = NULL, *post_vars_sub = NULL, 
+          *post_means_sup = NULL, *post_vars_sup = NULL;
         double prior_mean_sub, prior_var_sub, prior_mean_sup, prior_var_sup;
-        tuple_pvals = smalloc(msa->ss->ntuples * sizeof(double));
+        pvals = smalloc(msa->ss->ntuples * sizeof(double));
         if (!output_wig) {
-          tuple_post_means_sub = smalloc(msa->ss->ntuples * sizeof(double)); 
-          tuple_post_means_sup = smalloc(msa->ss->ntuples * sizeof(double)); 
-          tuple_post_vars_sub = smalloc(msa->ss->ntuples * sizeof(double)); 
-          tuple_post_vars_sup = smalloc(msa->ss->ntuples * sizeof(double)); 
+          post_means_sub = smalloc(msa->ss->ntuples * sizeof(double)); 
+          post_means_sup = smalloc(msa->ss->ntuples * sizeof(double)); 
+          post_vars_sub = smalloc(msa->ss->ntuples * sizeof(double)); 
+          post_vars_sup = smalloc(msa->ss->ntuples * sizeof(double)); 
         }
-        sub_pval_per_site_subtree(jp, msa, mode, fit_model, 
-                                  &prior_mean_sub, &prior_var_sub,
-                                  &prior_mean_sup, &prior_var_sup,  
-                                  tuple_pvals, 
-                                  tuple_post_means_sub, tuple_post_vars_sub, 
-                                  tuple_post_means_sup, tuple_post_vars_sup, 
+        sub_pval_per_site_subtree(jp, msa, mode, fit_model, &prior_mean_sub, 
+                                  &prior_var_sub, &prior_mean_sup, 
+                                  &prior_var_sup, pvals, post_means_sub, 
+                                  post_vars_sub, post_means_sup, post_vars_sup, 
                                   logf);
 
         if (output_wig) 
-          print_wig(msa, tuple_pvals, chrom, TRUE);
+          print_wig(msa, pvals, chrom, TRUE);
         else {
           char str[1000];
           sprintf(str, "#neutral mean_sub = %.3f var_sub = %.3f mean_sup = %.3f  var_sup = %.3f\n#post_mean_sub post_var_sub post_mean_sup post_var_sup pval", 
                   prior_mean_sub, prior_var_sub, prior_mean_sup, prior_var_sup);
-          print_base_by_base(str, chrom, msa, NULL, 5, 
-                             tuple_post_means_sub, tuple_post_vars_sub,
-                             tuple_post_means_sup, tuple_post_vars_sup, 
-                             tuple_pvals);
+          print_base_by_base(str, chrom, msa, NULL, 5, post_means_sub, 
+                             post_vars_sub, post_means_sup, post_vars_sup, 
+                             pvals);
         }
       }
 
@@ -395,98 +386,146 @@ int main(int argc, char *argv[]) {
 
   /* LRT method */
   else if (method == LRT) {
-    if (base_by_base) {         /* currently only option */
-      tuple_pvals = smalloc(msa->ss->ntuples * sizeof(double));
+    if (base_by_base) { 
+      pvals = smalloc(msa->ss->ntuples * sizeof(double));
       if (!output_wig) {
-        tuple_llrs = smalloc(msa->ss->ntuples * sizeof(double));
-        tuple_scales = smalloc(msa->ss->ntuples * sizeof(double));
+        llrs = smalloc(msa->ss->ntuples * sizeof(double));
+        scales = smalloc(msa->ss->ntuples * sizeof(double));
       }
       if (subtree_name == NULL) { /* no subtree case */
-        col_lrts(mod, msa, mode, tuple_pvals, tuple_scales, tuple_llrs, logf);
+        col_lrts(mod, msa, mode, pvals, scales, llrs, logf);
         if (output_wig) 
-          print_wig(msa, tuple_pvals, chrom, TRUE);
+          print_wig(msa, pvals, chrom, TRUE);
         else 
           print_base_by_base("#scale lnlratio pval", chrom, msa, NULL, 3,
-                             tuple_scales, tuple_llrs, tuple_pvals);
+                             scales, llrs, pvals);
       }
       else {                    /* subtree case */
         if (!output_wig) {
-          tuple_sub_scales = smalloc(msa->ss->ntuples * sizeof(double));
-          tuple_null_scales = smalloc(msa->ss->ntuples * sizeof(double));
+          sub_scales = smalloc(msa->ss->ntuples * sizeof(double));
+          null_scales = smalloc(msa->ss->ntuples * sizeof(double));
         }
 
-        col_lrts_sub(mod, msa, mode, tuple_pvals, tuple_null_scales, 
-                     tuple_scales, tuple_sub_scales, tuple_llrs, logf);
+        col_lrts_sub(mod, msa, mode, pvals, null_scales, scales, sub_scales, 
+                     llrs, logf);
 
         if (output_wig) 
-          print_wig(msa, tuple_pvals, chrom, TRUE);
+          print_wig(msa, pvals, chrom, TRUE);
         else 
           print_base_by_base("#null_scale alt_scale alt_subscale lnlratio pval", 
-                             chrom, msa, NULL, 5, tuple_null_scales, tuple_scales,  
-                             tuple_sub_scales, tuple_llrs, tuple_pvals);
+                             chrom, msa, NULL, 5, null_scales, scales, 
+                             sub_scales, llrs, pvals);
+      }
+    }
+    else if (feats != NULL) {   /* feature-by-feature evaluation */
+      pvals = smalloc(lst_size(feats->features) * sizeof(double));
+      scales = smalloc(lst_size(feats->features) * sizeof(double));
+      llrs = smalloc(lst_size(feats->features) * sizeof(double));
+      if (subtree_name == NULL) {  /* no subtree case */
+        ff_lrts(mod, msa, feats, mode, pvals, scales, llrs, logf);
+        msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+        print_feats_generic("scale\tlnlratio\tpval", feats, NULL, 3,
+                            scales, llrs, pvals);
+      }
+      else {                    /* subtree case */
+        null_scales = smalloc(lst_size(feats->features) * sizeof(double));
+        sub_scales = smalloc(lst_size(feats->features) * sizeof(double));
+        ff_lrts_sub(mod, msa, feats, mode, pvals, null_scales, scales, 
+                    sub_scales, llrs, logf);
+        msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+        print_feats_generic("null_scale\talt_scale\talt_subscale\tlnlratio\tpval",
+                            feats, NULL, 5, null_scales, scales, sub_scales,
+                            llrs, pvals);
       }
     }
   } /* end LRT method */
 
   /* SCORE method */
   else if (method == SCORE) {
-    if (base_by_base) {         /* currently only option */
+    if (base_by_base) {
 
-      tuple_pvals = smalloc(msa->ss->ntuples * sizeof(double));
+      pvals = smalloc(msa->ss->ntuples * sizeof(double));
       if (!output_wig) {
-        tuple_teststats = smalloc(msa->ss->ntuples * sizeof(double));
-        tuple_derivs = smalloc(msa->ss->ntuples * sizeof(double));
+        teststats = smalloc(msa->ss->ntuples * sizeof(double));
+        derivs = smalloc(msa->ss->ntuples * sizeof(double));
       }
 
       if (subtree_name == NULL) { /* no subtree case */
-        col_score_tests(mod, msa, mode, tuple_pvals, tuple_derivs, 
-                        tuple_teststats);
+        col_score_tests(mod, msa, mode, pvals, derivs, 
+                        teststats);
         if (output_wig) 
-          print_wig(msa, tuple_pvals, chrom, TRUE);
+          print_wig(msa, pvals, chrom, TRUE);
         else 
           print_base_by_base("#deriv teststat pval", chrom, msa, NULL, 3,
-                             tuple_derivs, tuple_teststats, tuple_pvals);
+                             derivs, teststats, pvals);
       }
       else {                    /* subtree case */
         if (!output_wig) {
-          tuple_null_scales = smalloc(msa->ss->ntuples * sizeof(double));
-          tuple_sub_derivs = smalloc(msa->ss->ntuples * sizeof(double));
+          null_scales = smalloc(msa->ss->ntuples * sizeof(double));
+          sub_derivs = smalloc(msa->ss->ntuples * sizeof(double));
         }
 
-        col_score_tests_sub(mod, msa, mode, tuple_pvals, tuple_null_scales, 
-                            tuple_derivs, tuple_sub_derivs, tuple_teststats,
-                            logf);
+        col_score_tests_sub(mod, msa, mode, pvals, null_scales, derivs, 
+                            sub_derivs, teststats, logf);
 
         if (output_wig) 
-          print_wig(msa, tuple_pvals, chrom, TRUE);
+          print_wig(msa, pvals, chrom, TRUE);
         else 
           print_base_by_base("#scale deriv subderiv teststat pval", chrom, 
-                             msa, NULL, 5, tuple_null_scales, tuple_derivs, 
-                             tuple_sub_derivs, tuple_teststats, 
-                             tuple_pvals);
+                             msa, NULL, 5, null_scales, derivs, sub_derivs, 
+                             teststats, pvals);
+      }
+    }
+    else if (feats != NULL) {   /* feature by feature evaluation */
+      pvals = smalloc(lst_size(feats->features) * sizeof(double));
+      teststats = smalloc(lst_size(feats->features) * sizeof(double));
+      derivs = smalloc(lst_size(feats->features) * sizeof(double));
+      if (subtree_name == NULL) { /* no subtree case */
+        ff_score_tests(mod, msa, feats, mode, pvals, derivs, teststats);
+        msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+        print_feats_generic("deriv\tteststat\tpval", feats, NULL, 3,
+                            derivs, teststats, pvals);
+      }
+      else {                     /* subtree case */
+        null_scales = smalloc(lst_size(feats->features) * sizeof(double));
+        sub_derivs = smalloc(lst_size(feats->features) * sizeof(double));
+        ff_score_tests_sub(mod, msa, feats, mode, pvals, null_scales, derivs, 
+                           sub_derivs, teststats, logf);
+        msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+        print_feats_generic("scale\tderiv\tsubderiv\tteststat\tpval",
+                            feats, NULL, 5, null_scales, derivs, sub_derivs,
+                            teststats, pvals);
       }
     }
   } /* end SCORE */
 
   /* GERP method */
   else if (method == GERP) { 
-    if (base_by_base) {         /* currently only option */
-      tuple_nrejected = smalloc(msa->ss->ntuples * sizeof(double));
+    char *formatstr[4] = {"%.3f", "%.3f", "%.3f", "%.0f"};
+    if (base_by_base) {
+      nrejected = smalloc(msa->ss->ntuples * sizeof(double));
       if (!output_wig) {
-        tuple_nneut = smalloc(msa->ss->ntuples * sizeof(double));
-        tuple_nobs = smalloc(msa->ss->ntuples * sizeof(double));
-        tuple_nspec = smalloc(msa->ss->ntuples * sizeof(double));
+        nneut = smalloc(msa->ss->ntuples * sizeof(double));
+        nobs = smalloc(msa->ss->ntuples * sizeof(double));
+        nspec = smalloc(msa->ss->ntuples * sizeof(double));
       }
-      col_gerp(mod, msa, mode, tuple_nneut, tuple_nobs, tuple_nrejected,
-               tuple_nspec, logf);
+      col_gerp(mod, msa, mode, nneut, nobs, nrejected, nspec, logf);
       if (output_wig) 
-        print_wig(msa, tuple_nrejected, chrom, FALSE);
+        print_wig(msa, nrejected, chrom, FALSE);
       else {
-        char *formatstr[4] = {"%.3f", "%.3f", "%.3f", "%.0f"};
         print_base_by_base("#nneut nobs nrej nspec", chrom, msa, formatstr, 
-                           4, tuple_nneut, tuple_nobs, 
-                           tuple_nrejected, tuple_nspec);
+                           4, nneut, nobs, nrejected, nspec);
       }
+    }
+    else if (feats != NULL) {   /* feature by feature evaluation */
+      nrejected = smalloc(lst_size(feats->features) * sizeof(double));
+      nneut = smalloc(lst_size(feats->features) * sizeof(double));
+      nobs = smalloc(lst_size(feats->features) * sizeof(double));
+      nspec = smalloc(lst_size(feats->features) * sizeof(double));
+      ff_gerp(mod, msa, feats, mode, nneut, nobs, nrejected, nspec, logf);
+      msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+      print_feats_generic("nneut\tnobs\tnrej\tnspec", feats, formatstr, 4,
+                          nneut, nobs, nrejected, nspec);
     }
   } /* end GERP */
     
