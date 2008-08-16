@@ -131,8 +131,8 @@ OPTIONS:
         P-values are computed by comparing test statistics with asymptotic
         chi-square null distributions.  The GERP-like method (GERP)
         estimates the number of "rejected substitutions" per base by
-        comparing posterior expected numbers of changes along branches with
-        expected numbers of substitutions under the neutral model.
+        comparing the (per-site) maximum likelihood expected number of
+        substitutions with the expected number under the neutral model.
         Currently LRT, SCORE, and GERP can be used only with
         --base-by-base, --wig-scores, or --features.
 
