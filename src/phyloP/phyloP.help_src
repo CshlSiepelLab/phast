@@ -29,22 +29,25 @@ DESCRIPTION:
     These alternative methods are currently supported only with
     --base-by-base, --wig-scores, or --features.
 
-    Simulation experiments suggest that the LRT and SCORE methods have
-    somewhat better power than the SPH method, especially when the expected
-    number of substitutions is small (e.g., with short branch lengths
-    and/or short intervals/individual sites).  They are also considerably
-    faster.  These two methods are generally similar to one another in
-    power, but SCORE is by far the fastest method.  On the other hand,
-    SCORE appears to have slightly less power than LRT at low false
-    positive rates, i.e., for cases of extreme selection.  The LRT method
-    is recommended for general purpose use, but SCORE is a good alternative
-    if speed is an issue.
+    The main advantage of the SPH method is that it can provide a complete
+    and exact description of distributions over numbers of substitutions.
+    However, simulation experiments suggest that the LRT and SCORE methods
+    have somewhat better power than SPH for identifying selection,
+    especially when the expected number of substitutions is small (e.g.,
+    with short branch lengths and/or short intervals/individual sites).
+    These two methods are also faster.  They are generally similar to one
+    another in power, but in many cases SCORE is considerably faster than
+    LRT.  On the other hand, SCORE appears to have slightly less power than
+    LRT at low false positive rates, i.e., for cases of extreme selection.
+    Thus, when using --base-by-base, --wig-scores, or --features, LRT is
+    recommended for most purposes, but SCORE is a good alternative if speed
+    is an issue.
 
-    With the SPH method, the default is to use the posterior expected
-    number of substitutions as an estimate of the actual number.  This is a
-    conservative estimate, because it is biased toward the mean of the null
-    distribution by the prior.  These p-values can be made less
-    conservative with --fit-model and more conservative with
+    When computing p-values with the SPH method, the default is to use the
+    posterior expected number of substitutions as an estimate of the actual
+    number.  This is a conservative estimate, because it is biased toward
+    the mean of the null distribution by the prior.  These p-values can be
+    made less conservative with --fit-model and more conservative with
     --confidence-interval (see below).
 
 EXAMPLES:
