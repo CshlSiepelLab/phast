@@ -1,4 +1,4 @@
-/* $Id: fit_column.c,v 1.16 2008-08-15 16:57:12 acs Exp $
+/* $Id: fit_column.c,v 1.17 2008-08-16 15:21:42 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -1205,7 +1205,7 @@ void col_scale_derivs_subtree_num(ColFitData *d, Vector *gradient,
 /* Estimate 2x2 Fisher Information Matrix (expected value of the
    negative Hessian) for the subtree case, based on a particular value
    of the scale parameter (set in calling code).  Estimation is done
-   by sampling.  Designed for repeated calls. */
+   by sampling. */
 Matrix *col_estimate_fim_sub(TreeModel *mod) {
   Vector *grad = vec_new(2);
   Matrix *hessian = mat_new(2, 2), *fim = mat_new(2, 2);

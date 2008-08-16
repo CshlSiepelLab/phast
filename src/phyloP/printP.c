@@ -73,7 +73,7 @@ void print_p(char *mod_fname, char *msa_fname, Vector *prior_distrib,
          msa_fname, mod_fname);
   printf("p-value of conservation: %e\n", 
          pv_p_value(prior_distrib, post_max, LOWER));
-  printf("p-value of anti-conservation: %e\n\n",
+  printf("p-value of acceleration: %e\n\n",
          pv_p_value(prior_distrib, post_min, UPPER));
   printf("null distrib: mean = %f, var = %f, 95%% c.i. = [%d, %d]\n", 
          prior_mean, prior_var, prior_min, prior_max);
@@ -238,13 +238,13 @@ void print_p_joint(char *node_name, char *mod_fname, char *msa_fname,
   printf ("considering subtree/supertree beneath/above node '%s'\n*****\n\n", node_name);
 
   printf("p-value of conservation in subtree: %e\n", cons_p_sub);
-  printf("p-value of anti-conservation in subtree: %e\n\n", anti_cons_p_sub);
+  printf("p-value of acceleration in subtree: %e\n\n", anti_cons_p_sub);
 
   printf("p-value of conservation in supertree: %e\n", cons_p_sup);
-  printf("p-value of anti-conservation in supertree: %e\n\n", anti_cons_p_sup);
+  printf("p-value of acceleration in supertree: %e\n\n", anti_cons_p_sup);
 
   printf("p-value of conservation in subtree given total: %e\n", cond_cons_p_sub);
-  printf("p-value of anti-conservation in subtree given total: %e\n\n", cond_anti_cons_p_sub);
+  printf("p-value of acceleration in subtree given total: %e\n\n", cond_anti_cons_p_sub);
 
   printf("null distrib in subtree: mean = %f, var = %f, 95%% c.i. = [%d, %d]\n", 
          prior_mean_sub, prior_var_sub, prior_min_sub, prior_max_sub);

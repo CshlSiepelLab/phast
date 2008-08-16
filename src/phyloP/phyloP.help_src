@@ -2,6 +2,11 @@ PROGRAM: phyloP
 
 USAGE: phyloP [OPTIONS] tree.mod [alignment] > out
 
+    The phylogenetic model must be in the .mod format produced by the
+    phyloFit program.  The alignment file can be in any of several file
+    formats (see --msa-format).  No alignment is required with the --null
+    option. 
+
 DESCRIPTION:
 
     Compute conservation or acceleration p-values based on an alignment and
@@ -21,19 +26,95 @@ DESCRIPTION:
     conservation/acceleration scores using a likelihood ratio test
     (--method LRT), a score-based test (--method SCORE), or a procedure
     similar to that used by GERP (Cooper et al., 2005) (--method GERP).
-    See also the program phastOdds for yet another approach to conservation
-    scoring.
+    These alternative methods are currently supported only with
+    --base-by-base, --wig-scores, or --features.
+
+    Simulation experiments suggest that the LRT and SCORE methods have
+    somewhat better power than the SPH method, especially when the expected
+    number of substitutions is small (e.g., with short branch lengths
+    and/or short intervals/individual sites).  They are also considerably
+    faster.  These two methods are generally similar to one another in
+    power, but SCORE is by far the fastest method.  On the other hand,
+    SCORE appears to have slightly less power than LRT at low false
+    positive rates, i.e., for cases of extreme selection.  The LRT method
+    is recommended for general purpose use, but SCORE is a good alternative
+    if speed is an issue.
 
     With the SPH method, the default is to use the posterior expected
-    number of substitutions as an estimate of the actual number.
-    Simulations suggest that this is already a conservative estimate,
-    because it is biased toward the mean of the null distribution by the
-    prior.  These p-values can be made less conservative with --fit-model
-    and more conservative with --confidence-interval (see below).
+    number of substitutions as an estimate of the actual number.  This is a
+    conservative estimate, because it is biased toward the mean of the null
+    distribution by the prior.  These p-values can be made less
+    conservative with --fit-model and more conservative with
+    --confidence-interval (see below).
 
 EXAMPLES:
 
-    (To come)
+    1. Using the SPH method, compute and report p-values of conservation
+    and acceleration for a given alignment with respect to a neutral model
+    of evolution.  Estimated numbers of substitutions are also reported.
+
+        phyloP neutral.mod alignment.fa > report.txt
+
+    The file neutral.mod could be produced by running phyloFit on data from
+    ancestral repeats or fourfold degenerate sites with an appropriate tree
+    topology and substitution model.
+
+    2. Compute and report p-values of conservation and acceleration for a
+    particular subtree of interest (using SPH).
+
+        phyloP --subtree human-mouse_lemur neutral.mod alignment.fa > report.txt
+
+    Here human-mouse_lemur denote the most recent common ancestor of human
+    and mouse_lemur, which is the node that defines the primate clade in
+    this phylogeny.  The tree_doctor program with the --name-ancestors
+    option can be used to assign names to ancestral nodes of the tree.
+
+    3. Describe the complete null distribution over the number of
+    substitutions for a 10bp alignment given the specified neutral model
+    (using SPH).
+
+        phyloP --null 10 neutral.mod > null.txt
+
+    A two-column table is produced with numbers of substitutions and their
+    probabilities, up to an appropriate upper limit.
+
+    4. Describe the complete posterior distribution over the number of
+    substitutions in a given alignment (using SPH).
+
+        phyloP --posterior neutral.mod alignment.fa > posterior.txt
+
+    5. Compute conservation scores (-log p-values) for each site in an
+    alignment and output them in the fixed-step wig format (see
+    http://genome.ucsc.edu/goldenPath/help/wiggle.html).  Use the
+    likelihood ratio test (LRT) method.
+
+        phyloP --wig-scores --method LRT neutral.mod alignment.fa > scores.wig
+
+    The --mode option can be used instead to produce acceleration scores
+    (ACC), scores of nonneutrality (NNEUT), or scores that summarize
+    conservation and acceleration (CONACC).  The --base-by-base option can
+    be used to output additional statistics of interest (estimated scale
+    factors, log likelihood ratios, etc.).  As discussed above, several
+    arguments to --method are possible.
+    
+    6. Similarly, compute scores describing lineage-specific conservation
+    in primates.
+
+        phyloP --wig-scores --method LRT --subtree human-mouse_lemur \
+            neutral.mod alignment.fa > scores.wig
+
+    7. Compute conservation p-values and associated statistics for each
+    element in a BED file.  This time use a score test and allow for
+    acceleration as well as conservation, flagging elements under
+    acceleration by making their p-values negative (CONACC mode).
+
+        phyloP --features elements.bed --method SCORE --mode CONACC \
+            neutral.mod alignment.fa > element-scores.txt
+
+    This option can also be used with --subtree.  The --gff-scores option
+    can be used to output the original features in GFF format with scores
+    equal to -log p.  Note that the input file can be in GFF instead of BED
+    format.
 
 OPTIONS:
 
@@ -45,15 +126,15 @@ OPTIONS:
         (Default SPH).  The likelihood ratio test (LRT) and score test
         (SCORE) compare an alternative model having a free scale parameter
         with the given neutral model, or, if --subtree is used, an
-        alternative model having free scale parameters for the supertree and
-        subtree with a null model having a single free scale parameter.
-        One-sided p-values are computed by comparing test statistics with
-        asymptotic chi-square null distributions.  The GERP-like method
-        (GERP) estimates the number of "rejected substitutions" per base by
+        alternative model having free scale parameters for the supertree
+        and subtree with a null model having a single free scale parameter.
+        P-values are computed by comparing test statistics with asymptotic
+        chi-square null distributions.  The GERP-like method (GERP)
+        estimates the number of "rejected substitutions" per base by
         comparing posterior expected numbers of changes along branches with
         expected numbers of substitutions under the neutral model.
         Currently LRT, SCORE, and GERP can be used only with
-        --base-by-base or --wig-scores.
+        --base-by-base, --wig-scores, or --features.
 
     --wig-scores, -w
         Compute separate p-values per site, and then compute site-specific
@@ -72,15 +153,16 @@ OPTIONS:
         species available at each site.
 
     --mode, -o CON|ACC|NNEUT|CONACC
-        (For use with --wig-scores and --base-by-base) Whether to compute
-        one-sided p-values so that small p (large -log p) indicates
-        unexpected conservation (CON; the default) or acceleration (ACC);
-        or two-sided p-values such that small p indicates an unexpected
-        departure from neutrality (NNEUT).  The fourth option (CONACC) uses
-        positive values (p-values or scores) to indicate conservation and
-        negative values to indicate acceleration.  In GERP mode, CON and
-        CONACC both report the number of rejected substitutions R (which
-        may be negative), while ACC reports -R, and NNEUT reports abs(R).
+        (For use with --wig-scores, --base-by-base, or --features) Whether
+        to compute one-sided p-values so that small p (large -log p)
+        indicates unexpected conservation (CON; the default) or
+        acceleration (ACC); or two-sided p-values such that small p
+        indicates an unexpected departure from neutrality (NNEUT).  The
+        fourth option (CONACC) uses positive values (p-values or scores) to
+        indicate conservation and negative values to indicate acceleration.
+        In GERP mode, CON and CONACC both report the number of rejected
+        substitutions R (which may be negative), while ACC reports -R, and
+        NNEUT reports abs(R).
 
     --features, -f <file>
         Read features from <file> (GFF or BED format) and output a
@@ -112,6 +194,10 @@ OPTIONS:
         name for wig output.  Default is root of multiple alignment
         filename.
 
+    --log, -l <fname>
+        Write log to <fname> describing details of parameter optimization.
+        Useful for debugging.  (Warning: may produce large file.)
+
     --help, -h
         Produce this help message.
 
@@ -138,8 +224,8 @@ OPTIONS:
         estimating a scale factor for the whole tree or (if --subtree)
         separate scale factors for the specified subtree and supertree.
         Makes p-values less conservative.  This option has no effect with
-        --null and currently cannot be used with --features.  However, it
-        can be used with --wig-scores and --base-by-base.
+        --null and currently cannot be used with --features.  It can be
+        used with --wig-scores and --base-by-base.
 
     --epsilon, -e <val>
         (Default 1e-10 or 1e-6 if --wig-scores or --base-by-base) Threshold
@@ -155,7 +241,7 @@ OPTIONS:
         mean of the specified size (0 < val < 1).  To be conservative, the
         maximum of this interval is used when computing a p-value of
         conservation, and the minimum is used when computing a p-value of
-        anti-conservation.  The variance of the posterior is computed
+        acceleration.  The variance of the posterior is computed
         exactly, but the confidence interval is based on the assumption
         that the combined distribution will be approximately normal (true
         for large numbers of sites by central limit theorem).
@@ -163,13 +249,6 @@ OPTIONS:
     --quantiles, -q
         (For use with --null or --posterior) Report quantiles of
         distribution rather than whole distribution.
-
-
-  (Options for LRT and SCORE mode only)
-
-    --log, -l <fname>
-        Write log to <fname> describing details of parameter optimization.
-        Useful for debugging.  (Warning: may produce large file.)
 
 
 REFERENCES:
