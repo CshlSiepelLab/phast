@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.35 2008-05-30 12:02:51 acs Exp $
+/* $Id: tree_model.c,v 1.36 2008-08-16 21:16:05 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -743,6 +743,8 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
     mod->scale = 1;
     if (mod->subtree_root != NULL) {  /* estimating subtree scale */
       tr_scale_subtree(mod->tree, mod->subtree_root, mod->scale_sub);
+      mod->subtree_root->dparent *= mod->scale_sub; /* also need to scale 
+                                                       leading branch */
       mod->scale_sub = 1;
     }
   }
