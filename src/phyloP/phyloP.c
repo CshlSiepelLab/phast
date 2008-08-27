@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
   msa_format_type msa_format = FASTA;
   int nsites = -1, prior_only = FALSE, post_only = FALSE, quantiles = FALSE,
     fit_model = FALSE, base_by_base = FALSE, output_wig = FALSE, 
-    default_epsilon = TRUE, output_gff = FALSE;
+    default_epsilon = TRUE, output_gff = FALSE, refidx = 1;
   double ci = -1, epsilon = DEFAULT_EPSILON;
   char *subtree_name = NULL, *chrom = NULL;
   GFF_Set *feats = NULL;
@@ -77,6 +77,7 @@ int main(int argc, char *argv[]) {
     {"quantiles", 0, 0, 'q'},
     {"wig-scores", 0, 0, 'w'},
     {"base-by-base", 0, 0, 'b'},
+    {"refidx", 1, 0, 'r'},
     {"chrom", 1, 0, 'N'},
     {"log", 1, 0, 'l'},
     {"gff-scores", 0, 0, 'g'},
@@ -84,7 +85,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:o:i:n:pc:s:f:Fe:l:qwgbN:h", 
+  while ((c = getopt_long(argc, argv, "m:o:i:n:pc:s:f:Fe:l:r:qwgbN:h", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'm':
@@ -152,6 +153,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'N':
       chrom = optarg;
+      break;
+    case 'r':
+      refidx = get_arg_int_bounds(optarg, 0, INFTY);
       break;
     case 'l':
       if (!strcmp(optarg, "-"))
@@ -294,13 +298,13 @@ int main(int argc, char *argv[]) {
                           pvals, post_means, post_vars, logf);
 
         if (output_wig) 
-            print_wig(msa, pvals, chrom, TRUE);
+          print_wig(msa, pvals, chrom, refidx, TRUE);
         else {
           char str[1000];
           sprintf(str, "#neutral mean = %.3f var = %.3f\n#post_mean post_var pval", 
                   prior_mean, prior_var);
-          print_base_by_base(str, chrom, msa, NULL, 3, post_means, post_vars, 
-                             pvals);
+          print_base_by_base(str, chrom, msa, NULL, refidx, 3, post_means, 
+                             post_vars, pvals);
         }
       }
       else if (feats == NULL) {
@@ -353,12 +357,12 @@ int main(int argc, char *argv[]) {
                                   logf);
 
         if (output_wig) 
-          print_wig(msa, pvals, chrom, TRUE);
+          print_wig(msa, pvals, chrom, refidx, TRUE);
         else {
           char str[1000];
           sprintf(str, "#neutral mean_sub = %.3f var_sub = %.3f mean_sup = %.3f  var_sup = %.3f\n#post_mean_sub post_var_sub post_mean_sup post_var_sup pval", 
                   prior_mean_sub, prior_var_sub, prior_mean_sup, prior_var_sup);
-          print_base_by_base(str, chrom, msa, NULL, 5, post_means_sub, 
+          print_base_by_base(str, chrom, msa, NULL, refidx, 5, post_means_sub, 
                              post_vars_sub, post_means_sup, post_vars_sup, 
                              pvals);
         }
@@ -414,10 +418,10 @@ int main(int argc, char *argv[]) {
       if (subtree_name == NULL) { /* no subtree case */
         col_lrts(mod, msa, mode, pvals, scales, llrs, logf);
         if (output_wig) 
-          print_wig(msa, pvals, chrom, TRUE);
+          print_wig(msa, pvals, chrom, refidx, TRUE);
         else 
-          print_base_by_base("#scale lnlratio pval", chrom, msa, NULL, 3,
-                             scales, llrs, pvals);
+          print_base_by_base("#scale lnlratio pval", chrom, msa, NULL, refidx, 
+                             3, scales, llrs, pvals);
       }
       else {                    /* subtree case */
         if (!output_wig) {
@@ -429,10 +433,10 @@ int main(int argc, char *argv[]) {
                      llrs, logf);
 
         if (output_wig) 
-          print_wig(msa, pvals, chrom, TRUE);
+          print_wig(msa, pvals, chrom, refidx, TRUE);
         else 
           print_base_by_base("#null_scale alt_scale alt_subscale lnlratio pval", 
-                             chrom, msa, NULL, 5, null_scales, scales, 
+                             chrom, msa, NULL, refidx, 5, null_scales, scales, 
                              sub_scales, llrs, pvals);
       }
     }
@@ -483,10 +487,10 @@ int main(int argc, char *argv[]) {
         col_score_tests(mod, msa, mode, pvals, derivs, 
                         teststats);
         if (output_wig) 
-          print_wig(msa, pvals, chrom, TRUE);
+          print_wig(msa, pvals, chrom, refidx, TRUE);
         else 
-          print_base_by_base("#deriv teststat pval", chrom, msa, NULL, 3,
-                             derivs, teststats, pvals);
+          print_base_by_base("#deriv teststat pval", chrom, msa, NULL, refidx, 
+                             3, derivs, teststats, pvals);
       }
       else {                    /* subtree case */
         if (!output_wig) {
@@ -498,11 +502,11 @@ int main(int argc, char *argv[]) {
                             sub_derivs, teststats, logf);
 
         if (output_wig) 
-          print_wig(msa, pvals, chrom, TRUE);
+          print_wig(msa, pvals, chrom, refidx, TRUE);
         else 
           print_base_by_base("#scale deriv subderiv teststat pval", chrom, 
-                             msa, NULL, 5, null_scales, derivs, sub_derivs, 
-                             teststats, pvals);
+                             msa, NULL, refidx, 5, null_scales, derivs, 
+                             sub_derivs, teststats, pvals);
       }
     }
     else if (feats != NULL) {   /* feature by feature evaluation */
@@ -550,10 +554,10 @@ int main(int argc, char *argv[]) {
       }
       col_gerp(mod, msa, mode, nneut, nobs, nrejected, nspec, logf);
       if (output_wig) 
-        print_wig(msa, nrejected, chrom, FALSE);
+        print_wig(msa, nrejected, chrom, refidx, FALSE);
       else {
         print_base_by_base("#nneut nobs nrej nspec", chrom, msa, formatstr, 
-                           4, nneut, nobs, nrejected, nspec);
+                           refidx, 4, nneut, nobs, nrejected, nspec);
       }
     }
     else if (feats != NULL) {   /* feature by feature evaluation */

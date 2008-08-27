@@ -143,8 +143,8 @@ OPTIONS:
         Compute separate p-values per site, and then compute site-specific
         conservation (acceleration) scores as -log(p).  Output base-by-base
         scores in fixed-step wig format, using the coordinate system of the
-        reference sequence (first sequence in alignment).  In GERP mode,
-        outputs rejected substitutions per site instead of -log p-values.
+        reference sequence (see --refidx).  In GERP mode, outputs rejected
+        substitutions per site instead of -log p-values.
 
     --base-by-base, -b
         Like --wig-scores, but outputs multiple values per site, in a
@@ -154,6 +154,12 @@ OPTIONS:
         with GERP it includes the estimated numbers of neutral,
         observed, and rejected substitutions, along with the number of
         species available at each site.
+
+    --refidx, -r <refseq_idx>
+        (for use with --wig-scores or --base-by-base) Use coordinate frame
+        of specified sequence in output.  Default value is 1, first
+        sequence in alignment; 0 indicates coordinate frame of entire
+        multiple alignment.
 
     --mode, -o CON|ACC|NNEUT|CONACC
         (For use with --wig-scores, --base-by-base, or --features) Whether

@@ -405,13 +405,15 @@ void print_feats_sph_subtree(p_value_joint_stats *stats, GFF_Set *feats,
   free(pvals);
 }
 
-void print_wig(MSA *msa, double *vals, char *chrom, int log_trans) {
+void print_wig(MSA *msa, double *vals, char *chrom, int refidx, 
+               int log_trans) {
   int last, j, k;
   double val;
   last = -INFTY;
+  assert(refidx >= 0 && refidx <= msa->nseqs);
   for (j = 0, k = 0; j < msa->length; j++) {
-    if (msa_get_char(msa, 0, j) != GAP_CHAR) {
-      if (!msa_missing_col(msa, 1, j)) {
+    if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
+      if (refidx == 0 || !msa_missing_col(msa, refidx, j)) {
         if (k > last + 1) 
           printf("fixedStep chrom=%s start=%d step=1\n", chrom, 
                  k + msa->idx_offset + 1);
@@ -434,10 +436,11 @@ void print_wig(MSA *msa, double *vals, char *chrom, int log_trans) {
 
 /* Print arbitrary columns of tuple-specific data in wig-like format */
 void print_base_by_base(char *header, char *chrom, MSA *msa, 
-                        char **formatstr, int ncols, ...) {
+                        char **formatstr, int refidx, int ncols, ...) {
   int last, j, k, tup, col;
   va_list ap;
   double *data[ncols];
+  assert(refidx >= 0 && refidx <= msa->nseqs);
 
   last = -INFTY;
   if (header != NULL)
@@ -448,8 +451,8 @@ void print_base_by_base(char *header, char *chrom, MSA *msa,
     data[col] = va_arg(ap, double*);
 
   for (j = 0, k = 0; j < msa->length; j++) {
-    if (msa_get_char(msa, 0, j) != GAP_CHAR) {
-      if (!msa_missing_col(msa, 1, j)) {
+    if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
+      if (refidx == 0 || !msa_missing_col(msa, refidx, j)) {
         if (k > last + 1) 
           printf("fixedStep chrom=%s start=%d step=1\n", chrom, 
                  k + msa->idx_offset + 1);
