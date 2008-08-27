@@ -1,4 +1,4 @@
-/* $Id: phyloP.h,v 1.8 2008-08-15 21:47:48 acs Exp $
+/* $Id: phyloP.h,v 1.9 2008-08-27 22:33:53 acs Exp $
    Written by Adam Siepel, 2006-2008 */
 
 /* Functions that output data computed by phyloP */
@@ -27,9 +27,10 @@ void print_feats_sph(p_value_stats *stats, GFF_Set *gff,
 void print_feats_sph_subtree(p_value_joint_stats *stats, GFF_Set *gff, 
                              mode_type mode, double epsilon, int output_gff);
 void print_quantiles(Vector *distrib);
-void print_wig(MSA *msa, double *tuple_pvals, char *chrom, int log_trans);
+void print_wig(MSA *msa, double *tuple_pvals, char *chrom, int refidx,
+               int log_trans);
 void print_base_by_base(char *header, char *chrom, MSA *msa, 
-                        char **formatstr, int ncols, ...);
+                        char **formatstr, int refidx, int ncols, ...);
 void print_feats_generic(char *header, GFF_Set *gff, char **formatstr, 
                          int ncols, ...);
 void print_gff_scores(GFF_Set *gff, double *pvals, int log_trans);
