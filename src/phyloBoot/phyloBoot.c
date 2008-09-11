@@ -262,8 +262,8 @@ int main(int argc, char *argv[]) {
       if (msa->ss == NULL)
         ss_from_msas(msa, tm_order(subst_mod) + 1, FALSE, NULL, NULL, NULL, -1);
       p = smalloc(msa->ss->ntuples * sizeof(double));
-      for (i = 0; i < msa->ss->ntuples; i++) 
-        p[i] = 1.0 * msa->ss->counts[i] / msa->length;
+      for (i = 0; i < msa->ss->ntuples; i++) p[i] = msa->ss->counts[i];
+      normalize_probs(p, msa->ss->ntuples);
       tmpcounts = smalloc(msa->ss->ntuples * sizeof(int));
     }
     else {                        /* parametric */
@@ -280,6 +280,10 @@ int main(int argc, char *argv[]) {
       if (parametric) 
         msa = tm_generate_msa(nsites, NULL, &model, NULL);
       else {
+
+        double sum=0;
+        for (j = 0; j < msa->ss->ntuples; j++) sum+=p[j];
+
         mn_draw(nsites, p, msa->ss->ntuples, tmpcounts);
                                 /* here we simply redraw numbers of
                                    tuples from multinomial distribution
