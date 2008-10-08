@@ -83,5 +83,13 @@ OPTIONS:
         (for use with --indel-model) Use the specified indel history (see
         indelHistory).
 
+    --score-list
+        Print a complete list of log-odds scores for all motif states. This
+        is useful for generating a null distribution of motif scores based
+        on a neutral dataset. Only emission probabilities are used for these
+        score and nothing will be estimated. Indel model and missing data
+        are not considered, and scores will not reflect adjustments for
+        either case.
+
     --help, -h
         Show this help message and exit.

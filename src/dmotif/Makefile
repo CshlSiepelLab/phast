@@ -1,8 +1,10 @@
 include ../make-include.mk
 
+#CFLAGS += -g -fno-inline -Wall
+
 #EXEC = $(addprefix ${BIN}/,$(notdir ${PWD}))
-PROGS = dmotif
-MODULES = dmotif_phmm pssm
+PROGS = dmotif dmotifP dmsample dmsimulate dmcompare
+MODULES = dmotif_phmm pssm dmotif_indel_mod
 EXEC = $(addprefix ${BIN}/,${PROGS})
 
 # assume all *.c files are source

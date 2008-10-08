@@ -10,7 +10,7 @@
 #include <tree_likelihoods.h>
 #include <phylo_hmm.h>
 #include <indel_history.h>
-#include <indel_mod.h>
+#include <dmotif_indel_mod.h>
 #include <subst_distrib.h>
 #include <dmotif_phmm.h>
 #include <pssm.h>
@@ -47,6 +47,7 @@ int main(int argc, char *argv[]) {
     {"idpref", 1, 0, 'P'},
     {"indel-model", 1, 0, 'I'},
     {"indel-history", 1, 0, 'H'},
+    {"score-list", 0, 0, 'l'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -57,14 +58,16 @@ int main(int argc, char *argv[]) {
   TreeModel *source_mod;
   double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU, 
     phi = DEFAULT_PHI, zeta = DEFAULT_ZETA, gamma = -1, omega = -1, 
-    alpha_c = -1, beta_c = -1, tau_c = -1,
-    alpha_n = -1, beta_n = -1, tau_n = -1;
+    alpha_c = -1, beta_c = -1, tau_c = -1, epsilon_c = -1,
+    alpha_n = -1, beta_n = -1, tau_n = -1, epsilon_n = -1;
   int set_transitions = FALSE, refidx = 1, estim_phi = TRUE, 
-    estim_gamma = TRUE, estim_omega = TRUE, estim_zeta = TRUE;
+    estim_gamma = TRUE, estim_omega = TRUE, estim_zeta = TRUE,
+    score_list = FALSE;
   char *seqname = NULL, *idpref = NULL;
   IndelHistory *ih = NULL;
   
-  while ((c = getopt_long(argc, argv, "R:t:p:z:E:C:r:M:i:N:P:I:H:h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "R:t:p:z:E:C:r:M:i:N:P:I:H:l:h", 
+			  long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
       rho = get_arg_dbl_bounds(optarg, 0, 1);
@@ -143,6 +146,9 @@ int main(int argc, char *argv[]) {
     case 'H':
       fprintf(stderr, "Reading indel history from %s...\n", optarg);
       ih = ih_new_from_file(fopen_fname(optarg, "r"));
+      break;
+    case 'l':
+      score_list = TRUE;
       break;
     case 'h':
       printf(HELP);
@@ -241,11 +247,17 @@ int main(int argc, char *argv[]) {
   }
 
   dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, alpha_c, beta_c, 
-              tau_c, alpha_n, beta_n, tau_n, estim_gamma, estim_omega, 
-              estim_phi, estim_zeta);
+              tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n, estim_gamma,
+	      estim_omega, estim_phi, estim_zeta);
 
   /* compute emissions */
-  phmm_compute_emissions(dm->phmm, msa, FALSE);
+  phmm_compute_emissions(dm->phmm, msa, TRUE);
+
+  /* If in score-list mode, just compute/print window scores and stop */
+  if (score_list) {
+    dm_print_motif_scores(dm);
+    return 0;
+  }
 
   /* add emissions for indel model, if necessary */
   if (alpha_c > 0) {
@@ -278,7 +290,7 @@ int main(int argc, char *argv[]) {
 
   /* obtain predictions */
   fprintf(stderr, "Running Viterbi algorithm...\n");
-  predictions = phmm_predict_viterbi(dm->phmm, seqname, NULL, idpref, NULL);
+  predictions = dm_phmm_predict_viterbi(dm, seqname, NULL, idpref, NULL);
   lst_push_ptr(ignore_types, str_new_charstr("nonconserved"));
   gff_filter_by_type(predictions, ignore_types, TRUE, NULL);
 
