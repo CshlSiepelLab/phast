@@ -1,4 +1,4 @@
-/* $Id: msa.h,v 1.20 2006-05-29 18:47:18 acs Exp $
+/* $Id: msa.h,v 1.21 2008-10-08 18:30:54 agd27 Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -25,7 +25,6 @@ struct msa_ss_struct;           /* using an incomplete type in lieu of
                                    avoids problems caused by
                                    reciprocal dependencies in header
                                    files */
-
 
 /** Multiple sequence alignment object */
 typedef struct {
@@ -96,6 +95,7 @@ typedef struct {
   int seq_len;                  /**< length of sequence */
   int msa_len;                  /**< length of alignment */
 } msa_coord_map;
+
 
 MSA *msa_new(char **seqs, char **names, int nseqs, int length, 
              char *alphabet);

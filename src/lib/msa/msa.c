@@ -1,4 +1,4 @@
-/* $Id: msa.c,v 1.57 2008-05-30 03:07:40 acs Exp $
+/* $Id: msa.c,v 1.58 2008-10-08 18:30:54 agd27 Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California 
 */
@@ -10,7 +10,7 @@
 
 /*
    To do:
-
+	msas->ih = NULL;
       - more general coordinate mapping?  Most functions use MSA
       coords, but some can convert using coordinate maps.
 
@@ -44,10 +44,16 @@
 #include <hashtable.h>
 #include <sufficient_stats.h>
 #include <local_alignment.h>
+#include <indel_history.h>
 
 /* whether to retain stop codons when cleaning an alignment of coding
    sequences; see msa_coding_clean */
 #define KEEP_STOP_CODONS 0
+
+#define ALPHABET_TAG "ALPHABET:"
+#define NBLOCKS_TAG "BLOCKS:"
+#define FORMAT_TAG "FORMAT:"
+#define MSAFILE_TAG "MSAFILE:"
 
 /** Creates a new MSA object.  Two-dimensional character arrays must be
    passed in for sequences and names (no new memory is allocated for

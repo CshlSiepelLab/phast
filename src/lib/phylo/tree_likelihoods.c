@@ -1,4 +1,4 @@
-/* $Id: tree_likelihoods.c,v 1.12 2005-07-17 23:15:19 acs Exp $
+/* $Id: tree_likelihoods.c,v 1.13 2008-10-08 18:30:54 agd27 Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -109,8 +109,10 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
     for (j = 0; j < mod->nratecats; j++)
       if (mod->P[i][j] == NULL) defined = FALSE;
   }
-  if (!defined) tm_set_subst_matrices(mod);
-
+/*   printf("mod %d\n", mod); */
+  if (!defined) {
+    tm_set_subst_matrices(mod);
+  }
   if (col_scores != NULL) {
     tuple_scores = (double*)smalloc(msa->ss->ntuples * sizeof(double));
     for (tupleidx = 0; tupleidx < msa->ss->ntuples; tupleidx++)

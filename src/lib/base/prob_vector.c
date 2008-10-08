@@ -1,4 +1,11 @@
-/* $Id: prob_vector.c,v 1.11 2008-08-10 15:01:16 acs Exp $ 
+<<<<<<< prob_vector.c
+/* $Id: prob_vector.c,v 1.12 2008-10-08 18:30:54 agd27 Exp $ 
+=======
+/* $Id: prob_vector.c,v 1.12 2008-10-08 18:30:54 agd27 Exp $ 
+>>>>>>> 1.10
+=======
+/* $Id: prob_vector.c,v 1.12 2008-10-08 18:30:54 agd27 Exp $ 
+>>>>>>> 1.11
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
@@ -389,3 +396,16 @@ Vector *pv_cdf(Vector *pdf, p_val_type side) {
   return cdf;
 }
 
+/** Given a probability vector, draw an index.  Call srandom externally */
+int pv_draw_idx(Vector *pv) {
+  int i;
+  double sum, r;
+  sum = 0;
+  r = 1.0 * random()/RAND_MAX;
+  for (i = 0; i < pv->size; i++) {
+    sum += pv->data[i];
+    if (r < sum) break;
+  }
+  if (i == pv->size) i = pv->size-1;    /* to be safe */
+  return i;
+}

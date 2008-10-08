@@ -3,7 +3,7 @@
    keys but not of data objects, which are managed as void*s (memory
    management expected to be done externally) */
 
-/* $Id: hashtable.c,v 1.5 2007-05-04 19:39:26 acs Exp $ 
+/* $Id: hashtable.c,v 1.6 2008-10-08 18:30:54 agd27 Exp $ 
    Written by Adam Siepel, 2002.
    Copyright 2002, Adam Siepel, University of California.
 */
@@ -65,7 +65,6 @@ void* hsh_get(Hashtable* ht, char *key) {
   if (ht->keys[bucket] == NULL || 
       (idx = lst_find_compare(ht->keys[bucket], key, equal)) == -1) 
     return (void*)-1;
-  
   return lst_get_ptr(ht->vals[bucket], idx);
 }
 

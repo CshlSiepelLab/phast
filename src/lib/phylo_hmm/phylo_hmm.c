@@ -1,4 +1,4 @@
-/* $Id: phylo_hmm.c,v 1.29 2006-10-11 22:54:09 bbrejova Exp $
+/* $Id: phylo_hmm.c,v 1.30 2008-10-08 18:30:54 agd27 Exp $
    Written by Adam Siepel, 2003
    Copyright 2003, Adam Siepel, University of California */
 
@@ -517,7 +517,8 @@ void phmm_compute_emissions(PhyloHmm *phmm,
   /* allocate new memory if emissions is NULL; otherwise reuse */ 
 
   if (new_alloc) {
-    phmm->emissions = smalloc(phmm->hmm->nstates * sizeof(double*));  
+    if (phmm->emissions == NULL)
+      phmm->emissions = smalloc(phmm->hmm->nstates * sizeof(double*));  
     phmm->alloc_len = msa->length;
   }
   assert(phmm->alloc_len >= msa->length);
@@ -1481,3 +1482,4 @@ void phmm_em_estim_indels(PhyloHmm *phmm, IndelEstimData *ied) {
   vec_free(params);
   vec_free(lb);
 }
+

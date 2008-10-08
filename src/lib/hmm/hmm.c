@@ -1,4 +1,4 @@
-/* $Id: hmm.c,v 1.8 2006-10-30 21:01:49 bbrejova Exp $
+/* $Id: hmm.c,v 1.9 2008-10-08 18:30:54 agd27 Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -8,6 +8,8 @@
 #include <string.h>
 #include "queues.h"
 #include "stacks.h"
+#include <vector.h>
+#include <prob_vector.h>
 
 /* Library of functions for manipulation of hidden Markov models.
    Includes simple reading and writing routines, as well as
@@ -1106,4 +1108,64 @@ HMM *hmm_reverse_compl(HMM *hmm, List *pivot_states, int *mapping) {
 void hmm_renormalize(HMM *hmm) {
   mm_renormalize(hmm->transition_matrix);
   hmm_reset(hmm);
+}
+
+/* Sample a state path through a sequence using the stochastic traceback
+   algorithm. */
+void hmm_stochastic_traceback(HMM *hmm, double **forward_scores, int seqlen,
+			      int *path) {
+  int i, j, k, pass, maxidx, state;
+  double max, score, z;
+  List *predecessors;
+  
+  /* Initialization */
+  state = END_STATE;
+  
+  /* Recursion */
+  for (i = seqlen; i >= 0; i--) {
+    path[i] = state;
+    max = -INFTY;
+    z = 1;
+    predecessors = (state == END_STATE ? hmm->end_predecessors :
+			  hmm->predecessors[state]);
+    Vector *pv = vec_new(lst_size(predecessors));
+    vec_zero(pv);
+    /* To avoid underflows, normalization nust be done in log space before
+       exponentiation of the probabililites. This requires three passes for
+       each site. */
+    for (pass = 0; pass < 3; pass++) { /* First pass just finds the max */
+      for (j = 0; j < lst_size(predecessors); j++) {
+	k = lst_get_int(predecessors, j);
+	if (k == BEGIN_STATE)
+	  continue;
+	if (pass == 0) {
+	  score = (forward_scores[k][i-1]
+		   + hmm_get_transition_score(hmm, k, state));
+	  if (score > max) {
+	    max = score;
+	    maxidx = j;
+	  }
+	} else if (pass == 1) { /* Second pass computes the summation portion
+				   of the normalization factor */
+	  if (j == maxidx)
+	    continue;
+	  z += exp2((forward_scores[k][i-1]
+		    + hmm_get_transition_score(hmm, k, state)) - max);
+	} else { /* Third pass finishes computation of the normalization factor
+		    and performs the stochastic traceback recurrence */
+	  if (j == 0) {
+	    z = max + log2(z); /* Take log of summation (initilaized to 1, so
+				  no need to add 1) and add l(max) to get
+				  normalization factor. */
+	  }
+	  /* The core recurrence, with normalization in log space */
+	  pv->data[j] = exp2(forward_scores[k][i-1]
+		       + hmm_get_transition_score(hmm, k, state) - z);
+	}
+      }
+    }
+    /* Draw an index from the distribution and convert to a state */
+    state = lst_get_int(predecessors, pv_draw_idx(pv));
+    vec_free(pv); /* Cannot reuse this, as size may not be constant */
+  }
 }

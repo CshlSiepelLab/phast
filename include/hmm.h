@@ -1,4 +1,4 @@
-/* $Id: hmm.h,v 1.3 2005-06-22 07:11:20 acs Exp $
+/* $Id: hmm.h,v 1.4 2008-10-08 18:30:54 agd27 Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -15,6 +15,8 @@
 #include <markov_matrix.h>
 #include <misc.h>
 #include <lists.h>
+#include <vector.h>
+#include <prob_vector.h>
 
 #define MAXSTATES 1000
 #define BEGIN_STATE -99
@@ -35,7 +37,7 @@ typedef struct {
   int nstates;
   MarkovMatrix *transition_matrix;
   Matrix *transition_score_matrix; /* entries are logs of entries
-                                        * in transition matrix */
+				    * in transition matrix */
   Vector *begin_transitions, *end_transitions, 
     *begin_transition_scores, *end_transition_scores, *eq_freqs;
   List **predecessors, **successors;
@@ -95,5 +97,7 @@ void hmm_cross_product(HMM *dest, HMM *src1, HMM *src2);
 void hmm_reset(HMM *hmm);
 HMM *hmm_reverse_compl(HMM *hmm, List *pivot_states, int *mapping);
 void hmm_renormalize(HMM *hmm);
+void hmm_stochastic_traceback(HMM *hmm, double **forward_scores, 
+			      int seqlen, int *path);
 
 #endif
