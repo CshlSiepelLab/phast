@@ -1,4 +1,4 @@
-/* $Id: numerical_opt.c,v 1.8 2008-03-19 03:14:48 acs Exp $
+/* $Id: numerical_opt.c,v 1.9 2008-10-26 03:04:38 acs Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -227,19 +227,26 @@ inline int scale_for_bounds(Vector *linev, Vector *params,
     if (lower_bounds != NULL && 
         vec_get(params, i) + vec_get(linev, i) <
         vec_get(lower_bounds, i) && vec_get(linev, i) != 0) 
-      scale1 = (vec_get(params, i) - vec_get(lower_bounds, i) - EPS) /
-        -vec_get(linev, i);
+       scale1 = (vec_get(params, i) - vec_get(lower_bounds, i)) / 
+         -vec_get(linev, i) - EPS; 
     if (upper_bounds != NULL && 
         vec_get(params, i) + vec_get(linev, i) >
         vec_get(upper_bounds, i) && vec_get(linev, i) != 0) 
-      scale2 = (vec_get(upper_bounds, i) - vec_get(params, i) - EPS) /
-        vec_get(linev, i);
+      scale2 = (vec_get(upper_bounds, i) - vec_get(params, i)) /
+        vec_get(linev, i) - EPS;
 
     if (scale1 < minscale) { minscale = scale1; retval = i; }    
     if (scale2 < minscale) { minscale = scale2; retval = i; }
   }
   if (minscale < 1)
     vec_scale(linev, minscale);
+
+  if (lower_bounds != NULL)
+    for (i = 0; i < params->size; i++) 
+      assert(vec_get(params, i) + vec_get(linev, i) >= vec_get(lower_bounds, i));
+  if (upper_bounds != NULL)
+    for (i = 0; i < params->size; i++) 
+      assert(vec_get(params, i) + vec_get(linev, i) <= vec_get(upper_bounds, i));
 
   return retval;
 }
