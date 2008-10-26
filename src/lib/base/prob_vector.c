@@ -1,11 +1,4 @@
-<<<<<<< prob_vector.c
-/* $Id: prob_vector.c,v 1.12 2008-10-08 18:30:54 agd27 Exp $ 
-=======
-/* $Id: prob_vector.c,v 1.12 2008-10-08 18:30:54 agd27 Exp $ 
->>>>>>> 1.10
-=======
-/* $Id: prob_vector.c,v 1.12 2008-10-08 18:30:54 agd27 Exp $ 
->>>>>>> 1.11
+/* $Id: prob_vector.c,v 1.13 2008-10-26 03:24:24 acs Exp $ 
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California 
 */
