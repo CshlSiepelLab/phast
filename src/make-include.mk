@@ -8,7 +8,7 @@
 
 # set below to point to top-level directory of PHAST installation
 ifndef PHAST
-PHAST=/home/agd27/phast
+PHAST=${HOME}/phast
 endif
 # (if you prefer, you can set the environment variable PHAST instead)
 
@@ -27,9 +27,9 @@ TARGETLIB = ${LIB}/libphast.a
 # an appropriate alternative
 
 # for debugging
-CFLAGS = -g -fno-inline -Wall
+#CFLAGS = -g -fno-inline -Wall
 # for best performance
-#CFLAGS = -O3 
+CFLAGS = -O3 
 # use this instead for Mac OS X
 #CFLAGS = -mcpu=powerpc -O3
 # other possible options
@@ -71,10 +71,10 @@ endif
 
 # separately installed CLAPACK; uncomment CLAPACKPATH definition and
 # set appropriately to use
-CLAPACKPATH = /usr/local/src/CLAPACK-3.1.1
+CLAPACKPATH = /usr/local/software/CLAPACK
 # platform-specific suffix used for CLAPACK libraries; use the same
 # value as in CLAPACK's "make.inc" file 
-PLAT = _LINUX
+PLAT = _x86
 # F2C libraries used by CLAPACK; most users won't need to edit
 F2CPATH = ${CLAPACKPATH}/F2CLIBS
 
