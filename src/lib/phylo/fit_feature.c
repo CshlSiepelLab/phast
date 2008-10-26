@@ -1,4 +1,4 @@
-/* $Id: fit_feature.c,v 1.1 2008-08-15 16:57:12 acs Exp $
+/* $Id: fit_feature.c,v 1.2 2008-10-26 00:52:32 acs Exp $
    Written by Adam Siepel, 2008
 */
 
@@ -297,6 +297,16 @@ void ff_score_tests(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
       else {
         feat_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
         /* assumes 50:50 mix of chisq and point mass at zero */
+
+        if (feat_pvals[i] == 0)
+          feat_pvals[i] = 1e-20;
+        /* this is a hack to address the problem that the chisq p-vals
+           evaluate to 0 when the test statistic is very large (>70),
+           despite that a better implementation of the incomplete
+           gamma function (as in R) would allow them to be computed.
+           This causes problems when reporting -log p-vals.  At the
+           limits of resolution, the p-values are in the ballpark of
+           10^-20, so we'll simply reset values of zero to this value. */ 
         
         if (mode == CONACC && first_deriv > 0)
           feat_pvals[i] *= -1; /* mark as acceleration */
@@ -377,6 +387,16 @@ void ff_score_tests_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
       else {
         feat_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
         /* assumes 50:50 mix of chisq and point mass at zero */
+
+        if (feat_pvals[i] == 0)
+          feat_pvals[i] = 1e-20;
+        /* this is a hack to address the problem that the chisq p-vals
+           evaluate to 0 when the test statistic is very large (>70),
+           despite that a better implementation of the incomplete
+           gamma function (as in R) would allow them to be computed.
+           This causes problems when reporting -log p-vals.  At the
+           limits of resolution, the p-values are in the ballpark of
+           10^-20, so we'll simply reset values of zero to this value. */ 
 
         if (mode == CONACC && grad->data[1] > 0)
           feat_pvals[i] *= -1; /* mark as acceleration */
