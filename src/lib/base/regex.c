@@ -3510,7 +3510,6 @@ re_match_2 (bufp, string1, size1, string2, size2, pos, regs, stop)
 			    : string2 - size1);
 
           DEBUG_PRINT2 ("Returning %d from re_match_2.\n", mcnt);
-
           return mcnt;
         }
 

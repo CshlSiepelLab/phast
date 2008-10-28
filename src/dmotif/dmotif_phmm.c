@@ -1,6 +1,5 @@
  
 /* dmotif phylo-HMM */
-
 #include <dmotif_phmm.h>
 #include <lists.h>
 #include <sufficient_stats.h>
@@ -405,22 +404,21 @@ void dm_score_predictions(DMotifPhyloHmm *dm, GFF_Set *predictions) {
   str_append_charstr(cbname, "conserved-background");
   cbstate = cm_get_category(dm->phmm->cm, cbname);
   str_free(cbname);
-  str_append_charstr(f->attribute, "; ");
   for (i = 0; i < lst_size(predictions->features); i++) {
     f = lst_get_ptr(predictions->features, i);
+    str_append_charstr(f->attribute, "; ");
     dm_score_feat(dm, f, cbstate);
   }
 }
 
 /* Compute a log-odds score for a GFF feature */
 void dm_score_feat(DMotifPhyloHmm *dm, GFF_Feature *f, int cbstate) {
-  int j, bbstate, fstate, len;
+  int j, bbstate, fstate;
   double s0, s1, s2;  
 
   s0 = s1 = s2 = 0; /* reset all scores, to be safe */  
   f->score = 0;
   f->score_is_null = FALSE;
-  len = f->end - f->start + 1;
   fstate = cm_get_category(dm->phmm->cm, f->feature);
   bbstate = (fstate - (dm->state_to_motifpos[fstate] + 1));
   for (j = f->start-1; j < f->end; j++) {
@@ -750,6 +748,7 @@ GFF_Set *dm_labeling_as_gff(CategoryMap *cm,
     sprintf(groupstr, "%s \"%d\"", grouptag != NULL ? grouptag : "id", groupno);
   
   i = 0;
+  cat = -1;
   while (i < length) {
     lastcat = cat;
     cat = cm->ranges[path_to_cat[path[i]]]->start_cat_no;
@@ -790,6 +789,7 @@ GFF_Set *dm_labeling_as_gff(CategoryMap *cm,
 				   beg, end, 0, strand, frame, 
 				   str_new_charstr(groupstr), TRUE));
     
+/*     fprintf(stderr, "cat %d, beg %d, lastcat %d\n", cat, beg, lastcat); */
     if ((cat == 0 && beg > 1) || cat != lastcat) {
       groupno++;                /* increment group number each time a
 				   new category or a 0 is encountered  */
@@ -818,7 +818,7 @@ void dms_sample_paths(DMotifPhyloHmm *dm, Multi_MSA *blocks,
   GFF_Set *query_gff, *tmp_gff;
   GFF_Feature *f;
 
-  /* Allocate space for the forward scores and path */
+  /* Allocate space for the forward scores and paths */
   forward_scores = smalloc(blocks->nblocks * sizeof(double*));
   path = smalloc(blocks->nblocks * sizeof(int*));
   for (i = 0; i < blocks->nblocks; i++) {
@@ -865,7 +865,7 @@ void dms_sample_paths(DMotifPhyloHmm *dm, Multi_MSA *blocks,
       dm->phmm->emissions = emissions[j];
       msa = blocks->blocks[j]; 
       llh += hmm_forward(dm->phmm->hmm, emissions[j], msa->length,
-			 forward_scores[j]);	
+			 forward_scores[j]);
       hmm_stochastic_traceback(dm->phmm->hmm, forward_scores[j], msa->length,
 			       path[j]);
     }
@@ -892,9 +892,13 @@ void dms_sample_paths(DMotifPhyloHmm *dm, Multi_MSA *blocks,
       }
       
       for (j = 0; j < blocks->nblocks; j++) {
+	msa = blocks->blocks[j];
 	s1 = -1;
 	for (k = 0; k < msa->length; k++) {
 	  s2 = path[j][k];
+	  
+/* 	  fprintf(stderr, "i %d, j %d, len %d, k %d, s2 %d\n", i, j,  */
+/* 		  msa->length, k, s2); */
 	  
 	  p1 = (s1 == -1 ? -1 : dm->state_to_motifpos[s1]);
 	  e1 = (s1 == -1 ? NEUT : dm->state_to_event[s1]);
@@ -967,30 +971,31 @@ void dms_sample_paths(DMotifPhyloHmm *dm, Multi_MSA *blocks,
       /* If using a reference set, compare known and predicted features and 
 	 keep track of the matches, mismatches, etc. in the stats structure */
       if (reference != NULL) {
-	query_gff = gff_new_set();
-	
+	fpr = spc = ppv = 0;
+	query_gff = gff_new_set();	
 	for (j = 0; j < 4; j++) /* Reset counters in stats array */
 	  stats[j] = 0;
 	for (j = 0; j < blocks->nblocks; j++) {
 	  tmp_gff = gff_new_set();	
-	  dm_labeling_as_gff(dm->phmm->cm, path[j], msa->length,
-			     dm->m->width,
-			     dm->phmm->state_to_cat,
-			     dm->state_to_motifpos,
-			     dm->phmm->reverse_compl,
-			     ((String*)lst_get(blocks->seqnames, j))->chars,
-			     "DMSAMPLE", NULL, NULL, NULL);
+	  tmp_gff = dm_labeling_as_gff(dm->phmm->cm, path[j], msa->length,
+				       dm->m->width,
+				       dm->phmm->state_to_cat,
+				       dm->state_to_motifpos,
+				       dm->phmm->reverse_compl,
+				       ((String*)lst_get(blocks->seqnames, j))->chars,
+				       "DMSAMPLE", NULL, NULL, NULL);
 	  for (k = 0; k < lst_size(tmp_gff->features); k++) {
 	    f = lst_get_ptr(tmp_gff->features, k);
 	    lst_push_ptr(query_gff->features, gff_new_feature_copy(f));
 	  }
 	  gff_free_set(tmp_gff);
 	}
-	dms_compare_gffs(reference, query_gff, stats, 1);
-	fpr = (double)(stats[2] + stats[3])
+	dms_compare_gffs(reference, query_gff, stats, 0, NULL, NULL, NULL, 
+			 NULL);
+	fpr = (double)(stats[1] + stats[3])
 	  / (double)(nwins - lst_size(reference->features));
 	spc = (double)(nwins - lst_size(query_gff->features))
-	  / (double)((nwins - lst_size(query_gff->features)) + stats[3] + stats[2]);
+	  / (double)((nwins - lst_size(query_gff->features)) + stats[3] + stats[1]);
 	if (stats[0])
 	  ppv = (double)(stats[0]) / (double)(lst_size(query_gff->features));
 	else
@@ -999,9 +1004,9 @@ void dms_sample_paths(DMotifPhyloHmm *dm, Multi_MSA *blocks,
 	fprintf(log, "True Positive Features: %d of %d (Sensitivity = %f)\n", 
 		stats[0], lst_size(reference->features),
 		((double)stats[0] / (double)lst_size(reference->features)));
-	fprintf(log, "False Positive Features: %d (includes misidentified) (FPR = %f)\n", 
-		(stats[3] + stats[2]), fpr);
-	fprintf(log, "Misidentified Features: %d\n", stats[2]);
+	fprintf(log, "False Positive Features: \n\t%d total (FPR = %f)\n\t%d misidentified\n\t%d in locations with no annotated feature\n",
+		(stats[3] + stats[1]), fpr, stats[1], stats[3]);
+	fprintf(log, "False Negative Features: %d\n", stats[2]);
 	fprintf(log, "Specificity: %f\n", spc);
 	fprintf(log, "PPV: %f\n", ppv);
       }
@@ -1022,6 +1027,7 @@ void dms_sample_paths(DMotifPhyloHmm *dm, Multi_MSA *blocks,
 
       fprintf(log, "mu = %f, nu = %f, phi = %f, zeta = %f\n\n", dm->mu, 
 	      dm->nu, dm->phi, dm->zeta);
+      gff_free_set(query_gff);
     }
   }
   
@@ -1095,16 +1101,14 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, double ***emissions,
 				   Multi_MSA *blocks, char *key, int *counts, 
 				   int nsamples, int sample_interval,
 				   int cbstate) {
-  int i, *state_to_cat, cat, seqnum, start, end, *reverse_compl, best,
+  int i, cat, seqnum, start, end, best,
     mtf_total, b_total, d_total, c_total, n_total;
-  char *strand, delim[2], post[STR_SHORT_LEN], *seqname;
+  char *strand, delim[2], post[STR_LONG_LEN], *seqname;
   CategoryMap *cm = dm->phmm->cm;
   String *attributes, *key_string;
   List *split = lst_new(2, sizeof(String));
   GFF_Feature *f;
 
-  state_to_cat = dm->phmm->state_to_cat;
-  reverse_compl = dm->phmm->reverse_compl;
   key_string = str_new_charstr(key);
   attributes = str_new(STR_MED_LEN);
 
@@ -1114,8 +1118,12 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, double ***emissions,
   str_as_int(lst_get_ptr(split, 0), &seqnum);
   str_as_int(lst_get_ptr(split, 1), &start);
   start++; /* Correct 0-based coordinate to 1-based */
-  end = (start + dm->m->width - 1);
+  end = ((start + dm->m->width - 1) < blocks->blocks[seqnum]->length) ?
+    (start + dm->m->width - 1) : (blocks->blocks[seqnum]->length - 1);
   seqname = ((char*)((String*)lst_get(blocks->seqnames, seqnum))->chars);
+
+/*   fprintf(stderr, "key %s, seqnum %d, start %d, end %d, seqname %s\n", key, */
+/* 	  seqnum, start, end, seqname); */
   
   sprintf(post, "ID \"%s.%d\"; ", seqname, start);
   str_append_charstr(attributes, post);
@@ -1144,6 +1152,8 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, double ***emissions,
     }
   }
 
+/*   fprintf(stderr, "nsamples %d, mtf_total %d, c_total %d, b_total %d, d_total %d, n_total %d\n", nsamples, mtf_total, c_total, b_total, d_total, n_total); */
+
   /* Compute marginal posteriors for total motifs and motifs of each flavor */
   sprintf(post, "MP %s %f; MP %s %f; MP %s %f; MP %s %f; MP %s %f; ",
 	  "MOTIF", ((double)mtf_total / (double)(nsamples / sample_interval)),
@@ -1157,8 +1167,8 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, double ***emissions,
      motif given that there is a motif in this position. */
   for (i = 0; i < dm->phmm->hmm->nstates; i++) {
     if (counts[i] > 0) {
-      cat = cm->ranges[state_to_cat[i]]->start_cat_no;
-      strand = reverse_compl[i] ? "-" : "+";
+      cat = cm->ranges[dm->phmm->state_to_cat[i]]->start_cat_no;
+      strand = dm->phmm->reverse_compl[i] ? "-" : "+";
       sprintf(post, "PP %s %f; ", ((String*)cm_get_feature(cm, cat))->chars,
 	      ((double)counts[i] / (double)mtf_total));
       str_append_charstr(attributes, post);
@@ -1170,14 +1180,16 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, double ***emissions,
   
 /*   fprintf(stderr, "seqname: %s, attributes: %s\n", seqname, attributes->chars); */
 
-  cat = cm->ranges[state_to_cat[best]]->start_cat_no;
-  strand = reverse_compl[best] ? "-" : "+";  
+  cat = cm->ranges[dm->phmm->state_to_cat[best]]->start_cat_no;
+  strand = dm->phmm->reverse_compl[best] ? "-" : "+";  
 
   f = gff_new_feature(str_new_charstr(seqname),
 		      str_new_charstr("DMSAMPLE"),
 		      str_dup(cm_get_feature(cm, cat)),
 		      start, end, 0, *strand, GFF_NULL_FRAME,
 		      attributes, TRUE);
+/*   fprintf(stderr, "%d %p %p \n", seqnum, emissions, */
+/* 	  dm->phmm->emissions); */
   dm->phmm->emissions = emissions[seqnum];
   dm_score_feat(dm, f, cbstate);
 
@@ -1192,35 +1204,137 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, double ***emissions,
    numbers of matches, mismatches, features unique to target list and features
    unique to query list. */
 void dms_compare_gffs(GFF_Set *target_gff, GFF_Set *query_gff, int *stats,
-		      int offset) {
+		      int offset, GFF_Set *matches, GFF_Set *mismatches,
+		      GFF_Set *unique_to_query, GFF_Set *unique_to_target) {
   /* offset can be used to adjust coordinates of the query to match the 
      coordinate base of the target set */
-  int i, j, matches;
+  int i, j, k, nmatches, *tmatch_idx, *qmatch_idx;
   GFF_Feature *ft, *fq;
+  tmatch_idx = smalloc(lst_size(target_gff->features) * sizeof(int));
+  qmatch_idx = smalloc(lst_size(query_gff->features) * sizeof(int));
 
-  matches = 0;
+  if (matches != NULL && (mismatches == NULL || unique_to_query == NULL ||
+			  unique_to_target == NULL))
+    die("ERROR in dms_compare_gffs: Not enough GFF_Sets for format!\n");
+
+  nmatches = 0;
   for (i = 0; i < lst_size(query_gff->features); i++) {
-    ft = lst_get_ptr(query_gff->features, i);
+    fq = lst_get_ptr(query_gff->features, i);
     for (j = 0; j < lst_size(target_gff->features); j++) {
-      fq = lst_get_ptr(target_gff->features, j);
+      ft = lst_get_ptr(target_gff->features, j);
       if (str_compare(fq->seqname, ft->seqname) != 0) /* Different sequences */
 	continue;
       if ((fq->start + offset) == ft->start) { 
 	/* Motif found in same position */
-	matches++;
+	tmatch_idx[nmatches] = j;
+	qmatch_idx[nmatches] = i;
+	nmatches++;
 	if (str_compare(fq->feature, ft->feature) == 0) { /* feature types
 							     match */
 	  stats[0]++;
+	  if (matches != NULL)
+	    lst_push_ptr(matches->features, gff_new_feature_copy(fq));
 	} else { /* Correct position, wrong flavor of motif */
 	  stats[1]++;
+	  if (matches != NULL) {
+	    lst_push_ptr(mismatches->features, gff_new_feature_copy(fq));
+	    lst_push_ptr(mismatches->features, gff_new_feature_copy(ft));
+	  }
 	}
       }
     }
   }
   /* Number features unique to target */
-  stats[2] = (lst_size(target_gff->features) - matches);
+  stats[2] = (lst_size(target_gff->features) - nmatches);
   /* Number features unique to query */
-  stats[3] = (lst_size(query_gff->features) - matches);
+  stats[3] = (lst_size(query_gff->features) - nmatches);
+
+  if (matches != NULL) { /* Build gff's for feats unique to target and query */
+    /* unique_to_query set */
+    j = lst_size(query_gff->features)-1;
+    for (i = (nmatches-1); i >= -1; i--) {
+      if (i == -1) {
+	for (k = j; k >= 0; k--) {
+	  fq = lst_get_ptr(query_gff->features, k);
+	  lst_push_ptr(unique_to_query->features, gff_new_feature_copy(fq));
+	}
+      } else {
+	for (k = j; k > qmatch_idx[i]; k--) {
+	  fq = lst_get_ptr(query_gff->features, k);
+	  lst_push_ptr(unique_to_query->features, gff_new_feature_copy(fq)); 
+	}
+      }
+      j = (qmatch_idx[i] - 1);
+    }
+    /* unique_to_target set */
+    j = lst_size(target_gff->features)-1;
+    for (i = (nmatches-1); i >= -1; i--) {
+      if (i == -1) {
+	for (k = j; k >= 0; k--) {
+	  fq = lst_get_ptr(target_gff->features, k);
+	  lst_push_ptr(unique_to_target->features, gff_new_feature_copy(fq));
+	}
+      } else {
+	for (k = j; k > tmatch_idx[i]; k--) {
+	  fq = lst_get_ptr(target_gff->features, k);
+	  lst_push_ptr(unique_to_target->features, gff_new_feature_copy(fq));
+	}
+      }
+      j = (tmatch_idx[i] - 1);
+    }
+  }
+}
+
+
+/* Merge two GFF_Sets for motif features into a GFF containing all features
+   from both sets. Sums posterior probabilities for positionally-matched
+   features, but does not do any averaging or readjustment of scores. I.e.,
+   the posteriors in the output may not be valid posteriors! Feature type is
+   ignored when combining features. */
+void dms_combine_gffs(GFF_Set *target_gff, GFF_Set *query_gff) {
+    int i, j, k, nmatches, *tmatch_idx, *qmatch_idx;
+  GFF_Feature *ft, *fq;
+  tmatch_idx = smalloc(lst_size(target_gff->features) * sizeof(int));
+  qmatch_idx = smalloc(lst_size(query_gff->features) * sizeof(int));
+
+  nmatches = 0;
+  for (i = 0; i < lst_size(query_gff->features); i++) {
+    fq = lst_get_ptr(query_gff->features, i);
+    for (j = 0; j < lst_size(target_gff->features); j++) {
+      ft = lst_get_ptr(target_gff->features, j);
+      if (str_compare(fq->seqname, ft->seqname) != 0) /* Different sequences */
+	continue;
+      if (fq->start == ft->start) { 
+	/* Motif found in same position */
+	tmatch_idx[nmatches] = j;
+	qmatch_idx[nmatches] = i;
+	nmatches++;
+
+	/* Go through attributes fields, summing the posteriors for matching
+	   features and simply appending unique types */
+
+      }
+    }
+  }
+
+  /* Now fold in all the features unique to the query set. */
+  j = lst_size(query_gff->features)-1;
+  for (i = (nmatches-1); i >= -1; i--) {
+    if (i == -1) {
+      for (k = j; k >= 0; k--) {
+	fq = lst_get_ptr(query_gff->features, k);
+	lst_push_ptr(target_gff->features, gff_new_feature_copy(fq));
+      }
+    } else {
+      for (k = j; k > qmatch_idx[i]; k--) {
+	fq = lst_get_ptr(query_gff->features, k);
+	lst_push_ptr(target_gff->features, gff_new_feature_copy(fq)); 
+      }
+    }
+    j = (qmatch_idx[i] - 1);
+  }
+  free(tmatch_idx);
+  free(qmatch_idx);
 }
 
 /* Combine two paths into a single composite path containing features from
@@ -1312,4 +1426,84 @@ int** dm_gff_to_paths(DMotifPhyloHmm *dm, GFF_Set *gff, Multi_MSA *blocks,
      set of paths for output. */
 
   return(paths);
+}
+
+/* Create a hashtable from a stored representation on disk */
+Hashtable* dms_read_hash(FILE *hash_f, int nstates, int* nsamples) {
+  int i, nelements, *counts;
+  Hashtable *retval;
+  Regex *ne_re = str_re_new("#[[:space:]]*NELEMENTS[[:space:]]*([0-9]+)");
+  Regex *ns_re = str_re_new("#[[:space:]]*NSAMPLES[[:space:]]*([0-9]+)");
+  String *line = str_new(STR_LONG_LEN);
+  List *matches = lst_new_ptr(nstates+1);
+  
+  i = 0;
+  while (str_readline(line, hash_f) != EOF) {
+    lst_clear(matches);
+    str_trim(line);
+    if (line->length == 0) continue;
+    
+    if (str_re_match(line, ne_re, matches, 1) >= 0) {
+      str_as_int(lst_get_int(matches, 1), &nelements);
+      retval = hsh_new(nelements);
+    } else if (str_re_match(line, ns_re, matches, 1) >= 0) {
+      str_as_int(lst_get_ptr(matches, 1), nsamples);
+    } else {
+      str_split(line, NULL, matches);
+      counts = smalloc(nstates * sizeof(int));
+      for (i = 0; i < nstates; i++)
+	str_as_int((String*)lst_get_ptr(matches, i), &counts[i]);
+      hsh_put(retval, ((String*)lst_get_ptr(matches, 0))->chars, counts);
+    }
+  }
+  str_re_free(ne_re);
+  lst_free(matches);
+  str_free(line);
+  return(retval);
+}
+
+/* Write the contents of a hashtable to a file */
+void dms_write_hash(Hashtable *path_counts, FILE *hash_f, int nstates, 
+		    int nsamples) {
+  int i, j, *counts;
+  char *key;
+  List *keys;
+  
+  keys = hsh_keys(path_counts);
+  fprintf(hash_f, "# NELEMENTS %d\n", lst_size(keys));
+  fprintf(hash_f, "# NSAMPLES %d\n", nsamples);
+  for (i = 0; i < lst_size(keys); i++) {
+    key = lst_get_ptr(keys, i);
+    counts = hsh_get(path_counts, key);
+    fprintf(hash_f, "%s\t", key);
+    for (j = 0; j < nstates-1; j++)
+      fprintf(hash_f, "%d\t", counts[j]);
+    fprintf(hash_f, "%d\n", counts[nstates-1]);
+  }
+  lst_free(keys);
+}
+
+/* Fold features of two hashtables into a single unified hashtable */
+void dms_combine_hashes(Hashtable *target, Hashtable *query, int nstates) {
+  int i, j, *counts_t, *counts_q;
+  List *keys;
+  char *key;
+  
+  keys = hsh_keys(query);
+  for (i = 0; i < lst_size(keys); i++) {
+    key = lst_get_ptr(keys, i);
+    if (hsh_get(target, key) != -1) {
+      counts_t = hsh_get(target, key);
+      counts_q = hsh_get(query, key);
+      for (j = 0; j < nstates; j++) {
+/* 	fprintf(stderr, "i %d, key %s, j %d, tc %d, qc %d, ", i, key, j,  */
+/* 		counts_t[j], counts_q[j]); */
+	counts_t[j] += counts_q[j];
+/* 	fprintf(stderr, "tc_new %d\n", counts_t[j]); */
+      }
+    } else {
+/*       fprintf(stderr, "i %d, key %s\n", i, key); */
+      hsh_put(target, key, hsh_get(query, key));
+    }
+  }
 }

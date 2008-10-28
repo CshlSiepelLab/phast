@@ -1,0 +1,92 @@
+PROGRAM: dmsimulate (DMotif Sequence Simulator)
+
+USAGE: dmsimulate [OPTIONS] neutral.mod motif.pfm msa-fname > features.gff
+
+DESCRIPTION: 
+
+Simulates a multiple sequence alignment based on a DMotif Phylo-HMM and a set
+of parameter values. Prints MSA to the supplied file name and motif features
+to stdout. Default parameter values and output sequence length given in the
+options section will be used unless otherwise specified.
+
+EXAMPLES:
+
+OPTIONS:
+
+    --msa-length, -L <seqence length>
+	Length (in bp) of output sequences. (default 1,000,000)
+
+    --rho, -R <rho>
+        (default 0.3)
+
+    --phi, -p <phi>
+        (default 0.5)
+
+    --zeta, -z <zeta>
+        (default 0.001)
+
+    --target-coverage, -C <gamma>
+        (Alternative to transitions, use with --expected-length) Set
+        the transition parameters such that the expected fraction of
+        sites in conserved elements is <gamma> (betwen 0 and 1).  This
+        is a *prior* rather than *posterior* expectation and assumes
+        stationarity of the state-transition process.  This option
+        causes the ratio mu/nu to be fixed at (1-gamma)/gamma, and
+        together with --expected-length, completely defines the
+        transition probabilities.
+
+    --expected-length, -E <omega>
+        (Alternative to --transitions, use with --target-coverage) Set
+        transition probabilities such that the (prior) expected length
+        of a conserved element is <omega>.  The parameter mu is set to
+        1/omega.
+
+    --transitions, -t <mu>,<nu> 
+        Set the transition probabilities of the two-state HMM using
+        the specified values of <mu> and <nu> (both between 0 and 1).
+
+    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
+        Alignment format (default FASTA).  Note that the program
+        msa_view can be used for conversion.
+
+    --refseq, -M <fname>
+        (for use with --msa-format MAF) Read the complete text of the
+        reference sequence from <fname> (FASTA format) and combine it
+        with the contents of the MAF file to produce a complete,
+        ordered representation of the alignment.  The reference
+        sequence of the MAF file is assumed to be the one that appears
+        first in each block.
+
+    --refidx, -r <refseq_idx>
+        Use coordinate frame of specified sequence in output.  Default
+        value is 1, first sequence in alignment; 0 indicates
+        coordinate frame of entire multiple alignment.
+
+    --seqname, -N <name>
+        Use specified string for 'seqname' (GFF) or 'chrom' field in
+        output file.  Default is obtained from input file name (double
+        filename root, e.g., "chr22" if input file is "chr22.35.ss").
+
+    --idpref, -P <name>
+        Use specified string as prefix of generated ids in output
+        file.  Can be used to ensure ids are unique.  Default is
+        obtained from input file name (single filename root, e.g.,
+        "chr22.35" if input file is "chr22.35.ss").
+
+    --indel-model, -I alpha,beta,tau,epsilon[,alpha2,beta2,tau2,epsilon2]
+
+	CURRENTLY NOT SUPPORTED!!!
+
+        Use a simple model of insertions and deletions that assumes a known
+        indel history and at most one indel per branch of the tree at any
+        given position.  The parameters alpha and beta are rates of
+        insertion and deletion, respectively, per expected substitution per
+        site, and the parameter tau is approximately the inverse of the
+        expected indel length (see indelFit).  If two sets are parameters
+        are given the first will be used for nonconserved regions and the
+        second for conserved regions.  If --indel-history is not used, a
+        history will be inferred on the fly using a simple parsimony
+        algorithm.
+
+    --help, -h
+        Show this help message and exit.

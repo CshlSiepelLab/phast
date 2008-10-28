@@ -1,4 +1,4 @@
-/* $Id: hmm.c,v 1.9 2008-10-08 18:30:54 agd27 Exp $
+/* $Id: hmm.c,v 1.10 2008-10-28 22:29:56 agd27 Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -1117,18 +1117,22 @@ void hmm_stochastic_traceback(HMM *hmm, double **forward_scores, int seqlen,
   int i, j, k, pass, maxidx, state;
   double max, score, z;
   List *predecessors;
+  Vector *pv;
   
   /* Initialization */
   state = END_STATE;
   
   /* Recursion */
-  for (i = seqlen; i >= 0; i--) {
-    path[i] = state;
+  for (i = seqlen; i > 0; i--) {
+/*     if (i < seqlen) */
+/*       path[i] = state; */
+/*     if (i == 0) */
+/*       continue; */
     max = -INFTY;
     z = 1;
     predecessors = (state == END_STATE ? hmm->end_predecessors :
 			  hmm->predecessors[state]);
-    Vector *pv = vec_new(lst_size(predecessors));
+    pv = vec_new(lst_size(predecessors));
     vec_zero(pv);
     /* To avoid underflows, normalization nust be done in log space before
        exponentiation of the probabililites. This requires three passes for
@@ -1167,5 +1171,6 @@ void hmm_stochastic_traceback(HMM *hmm, double **forward_scores, int seqlen,
     /* Draw an index from the distribution and convert to a state */
     state = lst_get_int(predecessors, pv_draw_idx(pv));
     vec_free(pv); /* Cannot reuse this, as size may not be constant */
+    path[i-1] = state;
   }
 }

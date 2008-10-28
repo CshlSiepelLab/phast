@@ -1,4 +1,4 @@
-/* $Id: indelHistory.c,v 1.5 2005-09-04 21:28:22 acs Exp $
+/* $Id: indelHistory.c,v 1.6 2008-10-28 22:29:56 agd27 Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -7,19 +7,20 @@
 #include <getopt.h>
 #include <misc.h>
 #include <msa.h>
-#include <trees.h>
+#include <tree_model.h>
 #include <hashtable.h>
 #include <sufficient_stats.h>
 #include <indel_history.h>
 #include "indelHistory.help"
 
 int main(int argc, char *argv[]) {
-  TreeNode *tree;
+  List *pruned_names = lst_new_ptr(5);
+  TreeModel *source_mod;
   MSA *msa = NULL, *out_msa;
   IndelHistory *ih;
   char *read_hist_fname = NULL;
   char c;
-  int opt_idx;
+  int opt_idx, old_nnodes, i;
 
   msa_format_type msa_format = FASTA;
   int output_alignment = FALSE, ia_names = FALSE;
@@ -73,19 +74,34 @@ int main(int argc, char *argv[]) {
       die("ERROR: ordered representation of alignment required.\n");
 
     fprintf(stderr, "Reading tree from %s...\n", argv[optind+1]);
-    tree = tr_new_from_file(fopen_fname(argv[optind+1], "r"));
+    source_mod = tm_new_from_file(fopen_fname(argv[optind+1], "r"));
+    
+    /* prune tree, if necessary */
+    old_nnodes = source_mod->tree->nnodes;
+    tm_prune(source_mod, msa, pruned_names);
+    
+    if (lst_size(pruned_names) == (old_nnodes + 1) / 2)
+      die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
+    if (lst_size(pruned_names) > 0) {
+      fprintf(stderr, "WARNING: pruned away leaves of tree with no match in alignment (");
+      for (i = 0; i < lst_size(pruned_names); i++)
+	fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, i))->chars,
+		i < lst_size(pruned_names) - 1 ? ", " : ").\n");
+    }
+    lst_free(pruned_names);
+    
+    tr_name_ancestors(source_mod->tree);
 
-    tr_name_ancestors(tree);
-
-    if (msa->nseqs > (tree->nnodes + 1) / 2) { /* assume ancestral seqs
-                                                  specified in this case */
+    if (msa->nseqs > (source_mod->tree->nnodes + 1) / 2) { /* assume ancestral 
+							      seqs specified 
+							      in this case */
       if (ia_names) {
         fprintf(stderr, "Converting sequence names...\n");
-        ih_convert_ia_names(msa, tree);
+        ih_convert_ia_names(msa, source_mod->tree);
       }
 
       fprintf(stderr, "Extracting indel history from alignment...\n");
-      ih = ih_extract_from_alignment(msa, tree);
+      ih = ih_extract_from_alignment(msa, source_mod->tree);
     }
    
     else {                        /* infer by parsimony */
@@ -95,7 +111,7 @@ int main(int argc, char *argv[]) {
       }
       
       fprintf(stderr, "Inferring indel history by parsimony...\n");
-      ih = ih_reconstruct(msa, tree);
+      ih = ih_reconstruct(msa, source_mod->tree);
     }
   }
 

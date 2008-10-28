@@ -282,7 +282,6 @@ int main(int argc, char *argv[]) {
       str_remove_path(tmp);
       str_root(tmp, '.');
       if (idpref == NULL) idpref = strdup(tmp->chars);
-      str_root(tmp, '.');         /* apply one more time for double suffix */
       if (seqname == NULL) seqname = tmp->chars;    
     }
     else if (seqname == NULL) seqname = "refseq";

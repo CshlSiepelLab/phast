@@ -69,9 +69,11 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, double ***emissions,
 				   int nsamples, int sample_interval, 
 				   int cbstate);
 void dms_compare_gffs(GFF_Set *reference, GFF_Set *query, int *stats, 
-		      int offset /*< Can be used to adjust the coordinate base
-				   of the query set to match the target set
-				   (e.g., from 0-based to 1-based) */
+		      int offset, /*< Can be used to adjust the coordinate base
+				    of the query set to match the target set
+				    (e.g., from 0-based to 1-based) */
+		      GFF_Set *matches, GFF_Set *mismatches,
+		      GFF_Set *unique_to_query, GFF_Set *unique_to_target
 		      );
 int* dms_composite_path(DMotifPhyloHmm *dm, int *path1, int *path2, 
 			int seqlen, int offset, int force_priors);
@@ -79,6 +81,11 @@ int* dm_gff_to_path(DMotifPhyloHmm *dm, GFF_Set *gff, int seqlen,
 		    int offset);
 int** dm_gff_to_paths(DMotifPhyloHmm *dm, GFF_Set *gff, Multi_MSA *blocks,
 		      int offset);
+void dms_combine_gffs(GFF_Set *target_gff, GFF_Set *query_gff);
+Hashtable* dms_read_hash(FILE *hash_f, int nstates, int* nsamples);
+void dms_write_hash(Hashtable *path_counts, FILE *hash_f, int nstates, 
+		    int nsamples);
+void dms_combine_hashes(Hashtable *target, Hashtable *query, int nstates);
 
 
 #endif

@@ -1,0 +1,119 @@
+PROGRAM: dmsample (Detection of Lineage Specific Motifs by Gibbs Sampling)
+
+USAGE: dmsample [OPTIONS] alignments.lst neutral.mod motif.pfm priors.pseudo \\
+	> out.gff
+
+alignments.lst describes the multiple alignment files and provides a list of
+file names to be read and an optional column of corresponding indel histories.
+See example.lst for formatting example.
+
+priors.txt is a tab-delimited text file containing pseudocounts to be added to
+transition counts for estimating each transition parameter. These must be
+integers. See example.pseudo for formatting example.
+
+DESCRIPTION: 
+
+Predict regulatory motif turnover using a Gibbs sampling framework.
+
+EXAMPLES:
+
+OPTIONS:
+
+    --rho, -R <rho>
+        (default 0.3)
+
+    --burn-in-samples -b <N>
+	Number of samples for model burn-in. Defaults to 5,000.
+
+    --samples -s <N>
+	Number of sampling iterations. Defaults to 100,000.
+
+    --refseq, -M <fname>
+        (for use with --msa-format MAF) Read the complete text of the
+        reference sequence from <fname> (FASTA format) and combine it
+        with the contents of the MAF file to produce a complete,
+        ordered representation of the alignment.  The reference
+        sequence of the MAF file is assumed to be the one that appears
+        first in each block.
+
+    --refidx, -r <refseq_idx>
+        Use coordinate frame of specified sequence in output.  Default
+        value is 1, first sequence in alignment; 0 indicates
+        coordinate frame of entire multiple alignment.
+
+    --seqname, -N <name>
+        Use specified string for 'seqname' (GFF) or 'chrom' field in
+        output file.  Default is obtained from input file name (double
+        filename root, e.g., "chr22" if input file is "chr22.35.ss").
+
+    --idpref, -P <name>
+        Use specified string as prefix of generated ids in output
+        file.  Can be used to ensure ids are unique.  Default is
+        obtained from input file name (single filename root, e.g.,
+        "chr22.35" if input file is "chr22.35.ss").
+
+    --indel-model, -I alpha,beta,tau,epsilon[,alpha2,beta2,tau2,epsilon2]
+        Use a simple model of insertions and deletions that assumes a known
+        indel history and at most one indel per branch of the tree at any
+        given position.  The parameters alpha and beta are rates of
+        insertion and deletion, respectively, per expected substitution per
+        site, and the parameter tau is approximately the inverse of the
+        expected indel length (see indelFit). Epsilon is the rate parameter for
+	indels within motifs, and is expected to be very low. If two sets are 
+	parameters are given the first will be used for nonconserved regions 
+	and the second for conserved regions.
+
+    --log, -l <logfile>
+	Keep a log of sampling output (transition counts, param estimates and
+	total log likelihood of sequences).
+
+    --reference-gff, -g <reference gff file>
+	Load a reference gff file of known positive motif occurrences in the
+	input sequences. This option does nothing on its own, but can be used
+	in conjunction with --log and/or --ref-as-prior in order to change
+	the behavior of dmsample. When used in conjunction with --log, counts
+	of known motifs found (and not found) will be output to the log file 
+	along with the usual log contents. Motifs that are not in the reference
+	set will be reported as false positives in the log, but this is only 
+	meaningful when all motif locations are known (e.g., with data from 
+	dmsimulate). See below for behavior with --ref-as-prior. Note that
+	sequence names in reference gff must match sequence names of input
+	alignments or features will not be matched!
+
+    --ref-as-prior, -u
+	WARNING: NOT CURRENTLY FUNCTIONAL!!!
+
+	Use motifs in the reference set as prior knowledge. At every iteration,
+	the lists of known and predicted features will be compared and the
+	transition counts will be adjusted to ensure all known motifs are used
+	in parameter estimation and included in the sampling output. Because
+	two motifs cannot overlap in a single path, if a motif is predicted in 
+	an identical or overlapping position in the current sample, the sampled
+	feature will be given priority to ensure complete exploration of the
+	posterior distribution. Requires --reference-gff!
+	
+    --force_priors, -p
+	WARNING: NOT CURRENTLY FUNCTIONAL!!!
+
+	When comparing predicted and reference paths, give priority to the
+	reference path when choosing the position and mode of selection for
+	features in identical or overlapping positions. Requires
+	--reference-gff and implies --ref-as-prior. WARNING: This option may
+	cause incomplete exploration of the posterior space. As a result, the
+	reported posterior probabilities may be inaccurate.
+
+    --dump-hash <filename>
+	Run sampling for the period specified and write the hash of raw counts
+	to a file before terminating the run. Results will not be postprocessed
+	and no GFF output will be output. This is mainly useful for debugging
+	and running parallel chains on large datasets, resulting in a several
+	separate hashes which can be flattened using dmsProcessParallel to 
+	produce the final output
+
+    --precomputed-hash <filename>
+	Read sampling data directly from a file (most likely produced by a
+	previous dmsample run with the --dump-hash option) and produce the
+	output data from the stored data. No additional sampling will be done.
+
+    --help, -h
+        Show this help message and exit.

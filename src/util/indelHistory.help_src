@@ -1,6 +1,6 @@
 PROGRAM: indelHistory
 
-USAGE: indelHistory [OPTIONS] alignment.fa tree.nh > out.ih
+USAGE: indelHistory [OPTIONS] alignment.fa tree.mod > out.ih
 
 DESCRIPTION:
 
