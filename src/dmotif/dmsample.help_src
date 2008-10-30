@@ -28,14 +28,6 @@ OPTIONS:
     --samples -s <N>
 	Number of sampling iterations. Defaults to 100,000.
 
-    --refseq, -M <fname>
-        (for use with --msa-format MAF) Read the complete text of the
-        reference sequence from <fname> (FASTA format) and combine it
-        with the contents of the MAF file to produce a complete,
-        ordered representation of the alignment.  The reference
-        sequence of the MAF file is assumed to be the one that appears
-        first in each block.
-
     --refidx, -r <refseq_idx>
         Use coordinate frame of specified sequence in output.  Default
         value is 1, first sequence in alignment; 0 indicates

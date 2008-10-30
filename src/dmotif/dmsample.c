@@ -46,7 +46,6 @@ int main(int argc, char *argv[]) {
   String *cbname;
 
   struct option long_opts[] = {
-    {"refseq", 1, 0, 'M'},
     {"refidx", 1, 0, 'r'},
     {"rho", 1, 0, 'R'},
     {"burn-in-samples", 1, 0, 'b'},
@@ -66,7 +65,7 @@ int main(int argc, char *argv[]) {
   };
 
   /* arguments and defaults for options */
-  FILE *refseq_f = NULL, *msa_f = NULL, *motif_f = NULL, *prior_f = NULL,
+  FILE *msa_f = NULL, *source_mod_f, *motif_f = NULL, *prior_f = NULL,
     *log = NULL, *ref_gff_f = NULL, *hash_f = NULL;
   TreeModel *source_mod;
   double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU, 
@@ -79,7 +78,7 @@ int main(int argc, char *argv[]) {
   char *seqname = NULL, *idpref = NULL;
   IndelHistory *ih = NULL;
   
-  while ((c = getopt_long(argc, argv, "R:b:s:r:M:N:P:I:l:v:g:u:p:D:d:h",
+  while ((c = getopt_long(argc, argv, "R:b:s:r:N:P:I:l:v:g:u:p:D:d:h",
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
@@ -93,9 +92,6 @@ int main(int argc, char *argv[]) {
       break;
     case 'r':
       refidx = get_arg_int_bounds(optarg, 0, INFTY);
-      break;
-    case 'M':
-      refseq_f = fopen_fname(optarg, "r");
       break;
     case 'N':
       seqname = optarg;
@@ -177,11 +173,20 @@ int main(int argc, char *argv[]) {
       ref_as_prior = TRUE;
   }
 
+  /* Handle arguments */
+  msa_f = fopen_fname(argv[optind], "r");
+  source_mod_f = fopen_fname(argv[optind+1], "r");
+  motif_f = fopen_fname(argv[optind+2], "r");
+  prior_f = fopen_fname(argv[optind+3], "r");
+
+  /* Do some cleanup */
+  if (ref_gff_f != NULL) fclose(ref_gff_f);
+  
+
   fprintf(stderr, "Reading tree model from %s...\n", argv[optind+1]);
-  source_mod = tm_new_from_file(fopen_fname(argv[optind+1], "r"));
+  source_mod = tm_new_from_file(source_mod_f);
 
   fprintf(stderr, "Reading motif model from %s...\n", argv[optind+2]);
-  motif_f = fopen_fname(argv[optind+2], "r");
   motif = mot_read(motif_f);
 
   if (source_mod->nratecats > 1)
@@ -200,7 +205,6 @@ int main(int argc, char *argv[]) {
 
   /* read alignments */
   fprintf(stderr, "Reading alignments from %s...\n", argv[optind]);
-  msa_f = fopen_fname(argv[optind], "r");
   blocks = msa_multimsa_new(msa_f, do_ih);
 
   fprintf(stderr, "Processing data in alignments...\n");
@@ -226,9 +230,14 @@ int main(int argc, char *argv[]) {
     priors[i] = smalloc(2 * sizeof(int));
     priors[i][0] = priors[i][1] = 0;
   }
-  prior_f = fopen_fname(argv[optind + 3], "r");
-
   dms_read_priors(priors, prior_f);
+
+  /* Do some cleanup of file handles we no longer need */
+  if (ref_gff_f != NULL) fclose(ref_gff_f);
+  fclose(msa_f);
+  fclose(source_mod_f);
+  fclose(motif_f);
+  fclose(prior_f);
   
   /* prune tree, if necessary */
   old_nnodes = source_mod->tree->nnodes;
