@@ -179,10 +179,6 @@ int main(int argc, char *argv[]) {
   motif_f = fopen_fname(argv[optind+2], "r");
   prior_f = fopen_fname(argv[optind+3], "r");
 
-  /* Do some cleanup */
-  if (ref_gff_f != NULL) fclose(ref_gff_f);
-  
-
   fprintf(stderr, "Reading tree model from %s...\n", argv[optind+1]);
   source_mod = tm_new_from_file(source_mod_f);
 
@@ -233,7 +229,8 @@ int main(int argc, char *argv[]) {
   dms_read_priors(priors, prior_f);
 
   /* Do some cleanup of file handles we no longer need */
-  if (ref_gff_f != NULL) fclose(ref_gff_f);
+  if (ref_gff_f != NULL)
+    fclose(ref_gff_f);
   fclose(msa_f);
   fclose(source_mod_f);
   fclose(motif_f);
