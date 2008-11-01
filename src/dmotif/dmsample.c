@@ -179,11 +179,9 @@ int main(int argc, char *argv[]) {
   motif_f = fopen_fname(argv[optind+2], "r");
   prior_f = fopen_fname(argv[optind+3], "r");
 
+  /* Read in the tree model and do some sanity checks */
   fprintf(stderr, "Reading tree model from %s...\n", argv[optind+1]);
   source_mod = tm_new_from_file(source_mod_f);
-
-  fprintf(stderr, "Reading motif model from %s...\n", argv[optind+2]);
-  motif = mot_read(motif_f);
 
   if (source_mod->nratecats > 1)
     die("ERROR: rate variation not currently supported.\n");
@@ -193,6 +191,10 @@ int main(int argc, char *argv[]) {
 
   if (!tm_is_reversible(source_mod->subst_mod))
     fprintf(stderr, "WARNING: p-value computation assumes reversibility and your model is non-reversible.\n");
+
+  /* Read in the motif model */
+  fprintf(stderr, "Reading motif model from %s...\n", argv[optind+2]);
+  motif = mot_read(motif_f);
 
   /* Instead of reading in a sequence at a time, all sequences must be read in
      and stored in memory -- a path must be sampled for all alignments during
@@ -205,11 +207,12 @@ int main(int argc, char *argv[]) {
 
   fprintf(stderr, "Processing data in alignments...\n");
   for (i = 0; i < blocks->nblocks; i++) {
+    msa = blocks->blocks[i];
     if (msa_alph_has_lowercase(blocks->blocks[i]))
-      msa_toupper(blocks->blocks[i]);
-    msa_remove_N_from_alph(blocks->blocks[i]);
+      msa_toupper(msa);
+    msa_remove_N_from_alph(msa);
 
-    if (blocks->blocks[i]->ss == NULL) {
+    if (msa->ss == NULL) {
       fprintf(stderr, "\tExtracting sufficient statistics for %s (%d of %d)...\n",
 	      (((String*)lst_get(blocks->seqnames, i))->chars),
 	      (i+1), blocks->nblocks);
