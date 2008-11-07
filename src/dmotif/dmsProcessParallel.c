@@ -30,17 +30,18 @@
 
 int main(int argc, char *argv[]) {
   char c, *key;
-  int opt_idx, i, j, old_nnodes, *counts, cbstate, nsamples, nsamples_this;
-  Multi_MSA *blocks;
+  int opt_idx, i, j, old_nnodes, *counts, cbstate, nsamples, nsamples_this,
+    max_seqlen;
+  DMotifPmsaStruct *dmpmsa;
+  PooledMSA *blocks;
   MSA *msa;
   List *pruned_names = lst_new_ptr(5), *tmpl;
   DMotifPhyloHmm *dm;
   GFF_Set *predictions;
   GFF_Feature *f;
   int found = FALSE;
-  List *keys;
+  List *keys, *seqnames;
   PSSM *motif;
-  double ***emissions;
   Hashtable *path_counts, *tmp;
   String *cbname;
   FILE *hash_f;
@@ -137,32 +138,15 @@ int main(int argc, char *argv[]) {
   /*     fprintf(stderr, "%s\n", ((String*)lst_get_ptr(hash_files, i))->chars); */
   str_free(hash_f_string);
 
-  /* Instead of reading in a sequence at a time, all sequences must be read in
-     and stored in memory -- a path must be sampled for all alignments during
-     each sampling iteration. Emissions only need to be computed once for all
-     alignments, however, since we are not sampling rho. */
-
-  /* read alignments */
+  /* read alignments -- we really only need sequence lengths! */
   fprintf(stderr, "Reading alignments from %s...\n", argv[optind+1]);
   msa_f = fopen_fname(argv[optind+1], "r");
-  blocks = msa_multimsa_new(msa_f, do_ih);
+  dmpmsa = dms_read_alignments(msa_f, do_ih);
+  blocks = dmpmsa->pmsa;
+  seqnames = dmpmsa->seqnames;
+  max_seqlen = dmpmsa->max_seqlen;
 
-  fprintf(stderr, "Processing data in alignments...\n");
-  for (i = 0; i < blocks->nblocks; i++) {
-    if (msa_alph_has_lowercase(blocks->blocks[i]))
-      msa_toupper(blocks->blocks[i]);
-    msa_remove_N_from_alph(blocks->blocks[i]);
-
-    if (blocks->blocks[i]->ss == NULL) {
-      fprintf(stderr, "\tExtracting sufficient statistics for %s (%d of %d)...\n",
-	      (((String*)lst_get(blocks->seqnames, i))->chars),
-	      (i+1), blocks->nblocks);
-      ss_from_msas(blocks->blocks[i], 1, TRUE, NULL, NULL, NULL, -1);
-    }
-    else if (msa->ss->tuple_idx == NULL)
-      die("ERROR: ordered representation of alignment required unless --suff-stats.\n");
-  }
-
+  /* Read phylogenetic model file */
   fprintf(stderr, "Reading tree model from %s...\n", argv[optind+2]);
   source_mod = tm_new_from_file(fopen_fname(argv[optind+2], "r"));
 
@@ -181,7 +165,7 @@ int main(int argc, char *argv[]) {
 
   /* prune tree, if necessary */
   old_nnodes = source_mod->tree->nnodes;
-  tm_prune(source_mod, blocks->blocks[0], pruned_names);
+  tm_prune(source_mod, lst_get_ptr(blocks->source_msas, 0), pruned_names);
 
   if (lst_size(pruned_names) == (old_nnodes + 1) / 2)
     die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
@@ -200,7 +184,8 @@ int main(int argc, char *argv[]) {
   if (refidx > 0) {
     for (i = 0, found = FALSE; !found && i < source_mod->tree->nnodes; i++) {
       TreeNode *n = lst_get_ptr(source_mod->tree->nodes, i);
-      if (!strcmp(n->name, blocks->blocks[0]->names[refidx-1]))
+      if (!strcmp(n->name, 
+		  ((MSA*)lst_get_ptr(blocks->source_msas, 0))->names[refidx-1]))
         found = TRUE;
     }
     if (!found) die("ERROR: no match for reference sequence in tree.\n");
@@ -209,49 +194,8 @@ int main(int argc, char *argv[]) {
   dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, alpha_c, beta_c,
               tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n,
 	      FALSE, FALSE, FALSE, FALSE);
-  
-  /* Cycle through msa's to compute emissions, adjust for missing data and
-     adjust for indels */
-  fprintf(stderr, "Computing emission probabilities...\n");
 
-  emissions = smalloc(blocks->nblocks * sizeof(double*));
-  /*  Needed for the emissions computation */
-  dm->phmm->state_pos = smalloc(dm->phmm->nmods * sizeof(int));
-  dm->phmm->state_neg = smalloc(dm->phmm->nmods * sizeof(int));
-
-  for (i = 0; i < blocks->nblocks; i++) {
-
-    fprintf(stderr, "\t%s (%d of %d)...\n",
-	    (((String*)lst_get(blocks->seqnames, i))->chars),
-	    (i+1), blocks->nblocks);
-
-    msa = blocks->blocks[i];
-
-    /* Allocate the emissions array slice */
-    emissions[i] = smalloc(dm->phmm->hmm->nstates * sizeof(double*));
-    for (j = 0; j < dm->phmm->hmm->nstates; j++)
-      emissions[i][j] = smalloc(msa->length * sizeof(double));
-    
-    /* Have to hack the phmm so the internal emissions pointer references the
-       current slice of the 3-dimensional emissions structure we need. */
-    dm->phmm->emissions = emissions[i];
-
-    fprintf(stderr, "\t\tComputing emissions.\n");
-    phmm_compute_emissions(dm->phmm, msa, TRUE);
-    
-    /* add emissions for indel model, if necessary */
-    if (do_ih) {
-      fprintf(stderr, "\t\tAdjusting for indels.\n");
-      ih = blocks->ih[i];
-      dm_add_indel_emissions(dm, ih);
-    }
-
-    /* postprocess for missing data (requires special handling) */
-    fprintf(stderr, "\t\tAdjusting for missing data.\n");
-    dm_handle_missing_data(dm, msa);
-
-    fprintf(stderr, "\t\tDone.\n");
-  }
+  /* Not using emissions, so no need to compute */
 
   /* Read hashes from each file, flattening into the merged hash as we go */
   path_counts = hsh_new(lst_size(hash_files));
@@ -264,6 +208,7 @@ int main(int argc, char *argv[]) {
     nsamples += nsamples_this;
 /*     fprintf(stderr, "nsamples_this = %d, nsamples = %d\n", nsamples_this, nsamples); */
     dms_combine_hashes(path_counts, tmp, dm->phmm->hmm->nstates);
+    fclose(hash_f);
     hsh_free(tmp);
   }
 
@@ -276,36 +221,20 @@ int main(int argc, char *argv[]) {
   /* Generate a GFF from the features hash */
   fprintf(stderr, "Formatting output as GFF...\n");
   predictions = gff_new_set();
-  cbname = str_new(STR_SHORT_LEN);
-  str_append_charstr(cbname, "conserved-background");
-  cbstate = cm_get_category(dm->phmm->cm, cbname);
-  str_free(cbname);
   keys = hsh_keys(path_counts);
   for (i = 0; i < lst_size(keys); i++) {
     /* go through entries, build data for gff feture from each */
     key = lst_get_ptr(keys, i);
 /*     fprintf(stderr, "i %d lst_size %d key %s\n", i, lst_size(keys), key); */
     counts = hsh_get(path_counts, key);
-    f = dms_motif_as_gff_feat(dm, emissions, blocks, key, counts, nsamples,
-			      sample_interval, cbstate);
+    f = dms_motif_as_gff_feat(dm, blocks, seqnames, key, counts, nsamples,
+			      sample_interval);
     lst_push_ptr(predictions->features, f);
   }
 
   /* Free up some memory */
   lst_free(keys);  
-  for (i = 0; i < blocks->nblocks; i++) {
-/*     for (j = 0; j < dm->phmm->hmm->nstates; j++) */
-/*       free(emissions[j]); */
-    free(emissions[i]);
-  }
-  free(emissions);
-  dm->phmm->emissions = NULL;
-  
-  /* convert GFF to coord frame of reference sequence and adjust
-     coords by idx_offset, if necessary  */
-  if (refidx != 0 || msa->idx_offset != 0)
-    msa_map_gff_coords(msa, predictions, 0, refidx, msa->idx_offset, NULL);
-  
+    
   /* now output predictions */
   fprintf(stderr, "Writing GFF to stdout...\n");
   gff_print_set(stdout, predictions);

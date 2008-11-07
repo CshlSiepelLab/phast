@@ -15,6 +15,7 @@
 #include <category_map.h>
 #include <hashtable.h>
 #include <multi_msa.h>
+#include <sufficient_stats.h>
 
 /* typedef enum dmevent_t; /\* Defined in dmotif_indel_mod.h -- declare as an */
 /* 			   incomplete type here to avoid errors with  */
@@ -34,6 +35,16 @@ typedef struct {
   int estim_gamma, estim_omega, estim_phi, estim_zeta;
   int k;
 } DMotifPhyloHmm;
+
+/* Convenience structure for reading in PooledMSA, indel histories and seqnames
+   for a list of msa's. Used by dmsample. */
+typedef struct {
+  PooledMSA *pmsa;
+  IndelHistory **ih;
+  List *seqnames;
+  int max_seqlen;
+} DMotifPmsaStruct;
+
 
 DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu, 
                        double nu, double phi, double zeta, double alpha_c, 
@@ -58,16 +69,16 @@ GFF_Set *dm_labeling_as_gff(CategoryMap *cm, int *path, int length, int w,
 			    int *reverse_compl, char *seqname, char *source, 
 			    List *frame_cats, char *grouproot, char *idpref);
 void dm_print_motif_scores(DMotifPhyloHmm *dm);
-void dms_sample_paths(DMotifPhyloHmm *dm, Multi_MSA *blocks, 
-		     double ***emissions, int bsamples, int nsamples,
-		     int sample_interval, Hashtable *path_counts,
-		     int **priors, FILE *log, GFF_Set *reference,
-		     int ref_as_prior, int force_priors);
+void dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks, 
+		      double **tuple_scores, IndelHistory **ih,
+		      List *seqnames, int max_seqlen, int bsamples, 
+		      int nsamples, int sample_interval, 
+		      Hashtable *path_counts, int **priors, FILE *log, 
+		      GFF_Set *reference, int ref_as_prior, int force_priors);
 void dms_read_priors(int **priors, FILE *prior_f);
-GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, double ***emissions,
-				   Multi_MSA *blocks, char *key, int *counts, 
-				   int nsamples, int sample_interval, 
-				   int cbstate);
+GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks, 
+				   List *seqnames, char *key, int *counts, 
+				   int nsamples, int sample_interval);
 void dms_compare_gffs(GFF_Set *reference, GFF_Set *query, int *stats, 
 		      int offset, /*< Can be used to adjust the coordinate base
 				    of the query set to match the target set
@@ -86,6 +97,21 @@ Hashtable* dms_read_hash(FILE *hash_f, int nstates, int* nsamples);
 void dms_write_hash(Hashtable *path_counts, FILE *hash_f, int nstates, 
 		    int nsamples);
 void dms_combine_hashes(Hashtable *target, Hashtable *query, int nstates);
+void dms_compute_emissions(PhyloHmm *phmm, MSA *pmsa, int quiet);
+void dms_lookup_emissions(DMotifPhyloHmm *dm, double **tuple_scores, 
+			  PooledMSA *blocks, int seqnum, int seqlen, 
+			  IndelHistory *ih);
+void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans, 
+			   int **priors, int seqlen, int *ref_path,
+			   int force_priors);
+void dms_count_motifs(DMotifPhyloHmm *dm, int *path, int seqlen,
+		      Hashtable *path_counts, int seqnum);
+void dms_path_log(DMotifPhyloHmm *dm, int *path, int seqlen, char *seqname,
+		  GFF_Set *motifs);
+void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample, 
+		   double llh, GFF_Set *query_gff, GFF_Set *reference, 
+		   int nwins);
+DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih);
 
 
 #endif

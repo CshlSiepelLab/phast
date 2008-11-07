@@ -805,30 +805,25 @@ GFF_Set *dm_labeling_as_gff(CategoryMap *cm,
   return gff;
 }
 
-void dms_sample_paths(DMotifPhyloHmm *dm, Multi_MSA *blocks,
-		      double ***emissions, int bsamples, int nsamples,
-		      int sample_interval, Hashtable *path_counts, 
-		      int **priors, FILE *log, GFF_Set *reference, 
-		      int ref_as_prior, int force_priors) {
-  int i, j, k, l, **path, **trans, s1, s2, p1, p2, e1, e2, *counts,
-    **ref_paths, *tmp_path, *stats, nwins;
-  double ***forward_scores, llh, fpr, spc, ppv;
-  char hsh_key[STR_SHORT_LEN], param[STR_SHORT_LEN];
+void dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks, 
+		      double **tuple_scores, IndelHistory **ih,
+		      List *seqnames, int max_seqlen, int bsamples, 
+		      int nsamples, int sample_interval, 
+		      Hashtable *path_counts, int **priors, FILE *log, 
+		      GFF_Set *reference, int ref_as_prior, int force_priors) {
+  int i, j, *path, **trans, **ref_paths = NULL, nwins;
+  double **forward_scores, llh;
   MSA *msa;
-  GFF_Set *query_gff, *tmp_gff;
-  GFF_Feature *f;
+  GFF_Set *query_gff = NULL;
 
-  /* Allocate space for the forward scores and paths */
-  forward_scores = smalloc(blocks->nblocks * sizeof(double*));
-  path = smalloc(blocks->nblocks * sizeof(int*));
-  for (i = 0; i < blocks->nblocks; i++) {
-    forward_scores[i] = smalloc(dm->phmm->hmm->nstates * sizeof(double*));
-    msa = blocks->blocks[i];
-    path[i] = smalloc(msa->length * sizeof(int));
-    for (j = 0; j < dm->phmm->hmm->nstates; j++)
-      forward_scores[i][j] = smalloc(msa->length * sizeof(double));
+  /* Allocate space for the forward scores and path. Set to the 
+     length of the longest sequence -- will reuse for each sequnce. */
+  forward_scores = smalloc(dm->phmm->hmm->nstates * sizeof(double*));
+  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+    forward_scores[i] = smalloc(max_seqlen * sizeof(double*));
   }
-
+  path = smalloc(max_seqlen * sizeof(int));
+  
   /* Allocate space for the transition counts and set to prior values */
   trans = smalloc(4 * sizeof(int*));
   for (i = 0; i < 4; i++) {
@@ -840,19 +835,25 @@ void dms_sample_paths(DMotifPhyloHmm *dm, Multi_MSA *blocks,
   /* If comparing to a reference GFF for logging purposes, allocate the
      stats array and compute the number of motif windows in the dataset. */
   if (reference != NULL && log != NULL) {
-    stats = smalloc(4 * sizeof(int*));
-    for (i = 0; i < blocks->nblocks; i++)
-      nwins += (blocks->blocks[i]->length - (dm->m->width -1));      
+    for (i = 0; i < lst_size(blocks->source_msas); i++)
+      nwins += (blocks->lens[i] - (dm->m->width -1));      
   }
   /* If using the reference set as prior information, reconstruct a set of
-     state paths from the GFF_Set. */
-  if (reference != NULL && ref_as_prior == TRUE) {
-    ref_paths = dm_gff_to_paths(dm, reference, blocks, -1);
-  }
-
+     state paths from the GFF_Set. NOT FULLY IMPLEMEMNTED!! */
+/*   if (reference != NULL && ref_as_prior == TRUE) { */
+/*     ref_paths = dm_gff_to_paths(dm, reference, blocks, -1); */
+/*   } */
+  
   for (i = 0; i < (bsamples + nsamples); i++) {
     fprintf(stderr, "*");
-
+    /* Clean things up for logging motif stats for individual samples, if 
+       needed */
+    if (log != NULL && reference != NULL) {
+      if (query_gff != NULL)
+	gff_free_set(query_gff);
+      query_gff = gff_new_set();
+    }
+    
     /* Draw a set of params */
     dm->mu = beta_draw(trans[0][0], trans[0][1]);
     dm->nu = beta_draw(trans[1][0], trans[1][1]);
@@ -861,186 +862,54 @@ void dms_sample_paths(DMotifPhyloHmm *dm, Multi_MSA *blocks,
     dm_set_transitions(dm);
 
     llh = 0;
-    for (j = 0; j < blocks->nblocks; j++) {
-      dm->phmm->emissions = emissions[j];
-      msa = blocks->blocks[j]; 
-      llh += hmm_forward(dm->phmm->hmm, emissions[j], msa->length,
-			 forward_scores[j]);
-      hmm_stochastic_traceback(dm->phmm->hmm, forward_scores[j], msa->length,
-			       path[j]);
-    }
- 
-    if (i % sample_interval) {
-      continue;
-    } else {
-      /* If using reference set as priors, build a composite path containing
-	 all known and predicted features and use this as the path */
-      if (ref_as_prior == TRUE) {
-	for (j = 0; j < blocks->nblocks; j++) {
-	  tmp_path = dms_composite_path(dm, ref_paths[j], path[j], 
-					msa->length, 0, force_priors);
-	  for (k = 0; k < msa->length; k++)
-	    path[j][k] = tmp_path[k];
-	  free(tmp_path);
-	}
-      }
-      
-      /* Reset transition counts */
-      for (j = 0; j < 4; j++) {
-	trans[j][0] = priors[j][0];
-	trans[j][1] = priors[j][1];
-      }
-      
-      for (j = 0; j < blocks->nblocks; j++) {
-	msa = blocks->blocks[j];
-	s1 = -1;
-	for (k = 0; k < msa->length; k++) {
-	  s2 = path[j][k];
-	  
-/* 	  fprintf(stderr, "i %d, j %d, len %d, k %d, s2 %d\n", i, j,  */
-/* 		  msa->length, k, s2); */
-	  
-	  p1 = (s1 == -1 ? -1 : dm->state_to_motifpos[s1]);
-	  e1 = (s1 == -1 ? NEUT : dm->state_to_event[s1]);
-	  p2 = dm->state_to_motifpos[s2];
-	  e2 = dm->state_to_event[s2];
-	  
-	  /* Track different types of transitions for param estimation */
-	  if (p1 == -1) { /* Transitions from bg states */
-	    if (e1 == NEUT) { 
-	      if (e2 != NEUT) { /* Affects nu */
-		trans[1][0]++;
-		if (e2 == BIRTH || e2 == DEATH) { /* Affects phi */
-		  trans[2][0]++;
-		} else {
-		  trans[2][1]++;
-		}
-	      } else {
-		trans[1][1]++;
-	      }
-	    } else { /* Source state is under selection */
-	      if (e2 == NEUT) { /* Affects mu */
-		trans[0][0]++;
-	      } else {
-		trans[0][1]++;
-	      }
-	    }
-	    
-	    if (p2 == 0) { /* Into a motif -- affects zeta */
-	      trans[3][0]++;
-	    } else { /* into another background category */
-	      trans[3][1]++;
-	    }
-	    
-	  } else if (p1 == (dm->m->width - 1)
-		     && e1 != NEUT) { /* Transitions from motif end */
-	    if (e2 == NEUT) { /* Affects mu */
-	      trans[0][0]++;
-	    } else {
-	      trans[0][1]++;
-	    }
-	  }
+    for (j = 0; j < lst_size(blocks->source_msas); j++) {
+      /* Zero out the emissions, forward and path structs to be safe */
 
-	  /* Track entries into motifs for path sampling (after burn-in)*/
-	  if (i >= bsamples) { 
-	    if (p2 == 0) {
-	      sprintf(hsh_key, "%d_%d", j, k);
-	      counts = hsh_get(path_counts, hsh_key);
-	      if (counts == -1) { /* First motif at this position */
-		counts = smalloc(dm->phmm->hmm->nstates * sizeof(int));
-		for (l = 0; l < dm->phmm->hmm->nstates; l++)
-		  counts[l] = 0;
-		counts[s2] = 1;
-		hsh_put(path_counts, hsh_key, counts);
-	      } else {
-		counts[s2]++;
-	      }
-	    }
-	    /* 	    fprintf(stderr, "key %s state %d count %i\n", hsh_key, s2, */
-	    /* 		    ((int*)hsh_get(path_counts, hsh_key))[s2]); */
-	  }
-	  s1 = s2;
-	}	
+      /* Fill in emissions table for this sequence */
+/*       fprintf(stderr, "j %d, blocks->lens[j] %d, ih[j] %p\n", j, */
+/* 	      blocks->lens[j], ih[j]); */
+/*       fprintf(stderr, "seqname %p\n", lst_get_ptr(seqnames, j)); */
+      dms_lookup_emissions(dm, tuple_scores, blocks, j, blocks->lens[j], 
+			   (ih == NULL ? NULL : ih[j]));
+
+      /* Run the forward algorithm */
+      llh += hmm_forward(dm->phmm->hmm, dm->phmm->emissions, blocks->lens[j],
+			 forward_scores);
+      
+      /* Run stochastic traceback to get the path */
+      hmm_stochastic_traceback(dm->phmm->hmm, forward_scores, blocks->lens[j], 
+			       path);
+
+      /* Determine if need to take a sample this iteration, else continue */
+      if (i % sample_interval) {
+	continue;
+      } else {
+	dms_count_transitions(dm, path, trans, priors, blocks->lens[j],
+			      ref_paths == NULL ? NULL : ref_paths[j],
+			      force_priors);
+	if (i >= bsamples) /* Past burn-in -- sample motifs */
+	  dms_count_motifs(dm, path, blocks->lens[j], path_counts, j);
+	if (log != NULL && reference != NULL) /* Prepare GFF for this sequence 
+						 and fold into query_gff for
+						 comparison to reference at
+						 end of sample */
+	  dms_path_log(dm, path, blocks->lens[j], lst_get_ptr(seqnames, j), 
+		       query_gff);
       }
     }
     
-    /* Write stats to log file, if specified */
-    if (log != NULL) {
-      fprintf(log, "Sample = %d, total log likelihood = %f\n", i, llh);
-      
-      /* If using a reference set, compare known and predicted features and 
-	 keep track of the matches, mismatches, etc. in the stats structure */
-      if (reference != NULL) {
-	fpr = spc = ppv = 0;
-	query_gff = gff_new_set();	
-	for (j = 0; j < 4; j++) /* Reset counters in stats array */
-	  stats[j] = 0;
-	for (j = 0; j < blocks->nblocks; j++) {
-	  tmp_gff = gff_new_set();	
-	  tmp_gff = dm_labeling_as_gff(dm->phmm->cm, path[j], msa->length,
-				       dm->m->width,
-				       dm->phmm->state_to_cat,
-				       dm->state_to_motifpos,
-				       dm->phmm->reverse_compl,
-				       ((String*)lst_get(blocks->seqnames, j))->chars,
-				       "DMSAMPLE", NULL, NULL, NULL);
-	  for (k = 0; k < lst_size(tmp_gff->features); k++) {
-	    f = lst_get_ptr(tmp_gff->features, k);
-	    lst_push_ptr(query_gff->features, gff_new_feature_copy(f));
-	  }
-	  gff_free_set(tmp_gff);
-	}
-	dms_compare_gffs(reference, query_gff, stats, 0, NULL, NULL, NULL, 
-			 NULL);
-	fpr = (double)(stats[1] + stats[3])
-	  / (double)(nwins - lst_size(reference->features));
-	spc = (double)(nwins - lst_size(query_gff->features))
-	  / (double)((nwins - lst_size(query_gff->features)) + stats[3] + stats[1]);
-	if (stats[0])
-	  ppv = (double)(stats[0]) / (double)(lst_size(query_gff->features));
-	else
-	  ppv = 0;
-
-	fprintf(log, "True Positive Features: %d of %d (Sensitivity = %f)\n", 
-		stats[0], lst_size(reference->features),
-		((double)stats[0] / (double)lst_size(reference->features)));
-	fprintf(log, "False Positive Features: \n\t%d total (FPR = %f)\n\t%d misidentified\n\t%d in locations with no annotated feature\n",
-		(stats[3] + stats[1]), fpr, stats[1], stats[3]);
-	fprintf(log, "False Negative Features: %d\n", stats[2]);
-	fprintf(log, "Specificity: %f\n", spc);
-	fprintf(log, "PPV: %f\n", ppv);
-      }
-      
-      for (j = 0; j < 4; j++) {
-	if (j == 0)
-	  sprintf(param, "mu");
-	else if (j == 1)
-	  sprintf(param, "nu");
-	else if (j == 2)
-	  sprintf(param, "phi");
-	else /* (j == 3) */
-	  sprintf(param, "zeta");
-	
-	fprintf(log, "%s transitions: alpha = %d, beta = %d\n", param, 
-		trans[j][0], trans[j][1]);
-      }
-
-      fprintf(log, "mu = %f, nu = %f, phi = %f, zeta = %f\n\n", dm->mu, 
-	      dm->nu, dm->phi, dm->zeta);
-      gff_free_set(query_gff);
-    }
+    if (log != NULL) /* Write stats for this sample to the log file */
+      dms_write_log(log, dm, trans, i, llh, query_gff, reference, nwins);
   }
   
   fprintf(stderr, "\nDone.\n");
-  
-  for (i = 0; i < blocks->nblocks; i++) {
-    for (j = 0; j < dm->phmm->hmm->nstates; j++)
-      free(forward_scores[i][j]);
+  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
     free(forward_scores[i]);
-    free(path[i]);
   }
   free(forward_scores);
-  free(path); 
+  free(path);
+  if (query_gff != NULL)
+    gff_free_set(query_gff);
 }
 
 void dms_read_priors(int **priors, FILE *prior_f) {
@@ -1097,12 +966,12 @@ void dms_read_priors(int **priors, FILE *prior_f) {
   lst_free(counts);
 }
 
-GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, double ***emissions,
-				   Multi_MSA *blocks, char *key, int *counts, 
-				   int nsamples, int sample_interval,
-				   int cbstate) {
+GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
+				   List *seqnames, char *key, int *counts, 
+				   int nsamples, int sample_interval) {
   int i, cat, seqnum, start, end, best,
     mtf_total, b_total, d_total, c_total, n_total;
+  double bestscore;
   char *strand, delim[2], post[STR_LONG_LEN], *seqname;
   CategoryMap *cm = dm->phmm->cm;
   String *attributes, *key_string;
@@ -1118,12 +987,12 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, double ***emissions,
   str_as_int(lst_get_ptr(split, 0), &seqnum);
   str_as_int(lst_get_ptr(split, 1), &start);
   start++; /* Correct 0-based coordinate to 1-based */
-  end = ((start + dm->m->width - 1) < blocks->blocks[seqnum]->length) ?
-    (start + dm->m->width - 1) : (blocks->blocks[seqnum]->length - 1);
-  seqname = ((char*)((String*)lst_get(blocks->seqnames, seqnum))->chars);
+  end = ((start + dm->m->width - 1) < blocks->lens[seqnum]) ?
+    (start + dm->m->width - 1) : (blocks->lens[seqnum] - 1);
+  seqname = ((char*)((String*)lst_get_ptr(seqnames, seqnum))->chars);
 
-/*   fprintf(stderr, "key %s, seqnum %d, start %d, end %d, seqname %s\n", key, */
-/* 	  seqnum, start, end, seqname); */
+/*   fprintf(stderr, "key %s, seqnum %d, start %d, end %d, &seqname %p, seqname %s\n",  */
+/* 	  key, seqnum, start, end, lst_get_ptr(seqnames, seqnum), seqname); */
   
   sprintf(post, "ID \"%s.%d\"; ", seqname, start);
   str_append_charstr(attributes, post);
@@ -1185,13 +1054,13 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, double ***emissions,
 
   f = gff_new_feature(str_new_charstr(seqname),
 		      str_new_charstr("DMSAMPLE"),
-		      str_dup(cm_get_feature(cm, cat)),
-		      start, end, 0, *strand, GFF_NULL_FRAME,
+		      str_dup(cm_get_feature(cm, cat)), start, end, 
+		      ((double)mtf_total / (double)(nsamples / sample_interval)), 
+		      *strand, GFF_NULL_FRAME,
 		      attributes, TRUE);
 /*   fprintf(stderr, "%d %p %p \n", seqnum, emissions, */
 /* 	  dm->phmm->emissions); */
-  dm->phmm->emissions = emissions[seqnum];
-  dm_score_feat(dm, f, cbstate);
+/*   dm->phmm->emissions = emissions[seqnum]; */
 
 /*   gff_print_feat(stderr, f); */
 
@@ -1506,4 +1375,387 @@ void dms_combine_hashes(Hashtable *target, Hashtable *query, int nstates) {
       hsh_put(target, key, hsh_get(query, key));
     }
   }
+}
+
+/* Compute emission probabilities for a set of distinct tuples represented in
+   a multisequence dataset -- this may be unneccesary with the current setup
+   of dmsample!! -- can probably just use the phmm version! */
+void dms_compute_emissions(PhyloHmm *phmm, MSA *msa, int quiet) {
+  int i, mod, j;
+
+  for (i = 0; i < phmm->nmods; i++)
+    phmm->state_pos[i] = phmm->state_neg[i] = -1;
+  
+  for (i = 0; i < phmm->hmm->nstates; i++) {
+
+    /* reuse already computed values if possible */
+    mod = phmm->state_to_mod[i];
+    if (!phmm->reverse_compl[i] && phmm->state_pos[mod] != -1)
+      phmm->emissions[i] = phmm->emissions[phmm->state_pos[mod]]; /* saves memo\
+								     ry */
+    else if (phmm->reverse_compl[i] && phmm->state_neg[mod] != -1)
+      phmm->emissions[i] = phmm->emissions[phmm->state_neg[mod]];
+    else {
+
+      tl_compute_log_likelihood(phmm->mods[mod], msa,
+				phmm->emissions[i], -1, NULL);
+      if (!phmm->reverse_compl[i]) phmm->state_pos[mod] = i;
+      else phmm->state_neg[mod] = i;
+    }
+  }
+
+  /* finally, adjust for indel model, if necessary */
+  if (phmm->indel_mode != MISSING_DATA) {
+    int *matches = smalloc(msa->ss->ntuples * sizeof(int));
+    /* msa->ss should exist
+       (tl_compute_log_likelihood) */
+
+    if (!quiet)
+      fprintf(stderr, "Adjusting emission probs according to gap patterns...\n");
+    for (i = phmm->hmm->nstates - 1; i >= 0; i--) {
+      /* by going backwards, we ensure that
+	 the "base" state (with gap pattern
+	 == 0) is visited last */
+      if (phmm->state_to_pattern[i] >= 0) {
+	double *orig_emissions = phmm->emissions[i];
+	
+	if (phmm->state_to_pattern[i] > 0)
+	  phmm->emissions[i] = smalloc(msa->length * sizeof(double));
+	/* otherwise, use the array already
+	   allocated */
+	
+	gp_tuple_matches_pattern(phmm->gpm, msa, phmm->state_to_pattern[i],
+				 matches);
+        for (j = 0; j < msa->length; j++)
+	  phmm->emissions[i][j] =
+	    (matches[msa->ss->tuple_idx[j]] ? orig_emissions[j] : NEGINFTY);
+      }
+    }
+    free(matches);
+
+  }
+  
+}
+
+/* Fill in an emissions matrix for a single sequence based on a precomputed
+   table of values for each tuple. */
+void dms_lookup_emissions(DMotifPhyloHmm *dm, double **tuple_scores, 
+			  PooledMSA *blocks, int seqnum, int seqlen, 
+			  IndelHistory *ih) {
+  int i, j, tuple_idx, tuple;
+  double **emissions = dm->phmm->emissions;
+  MSA *smsa = lst_get_ptr(blocks->source_msas, seqnum);
+  
+  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+    for (j = 0; j < seqlen; j++) {
+      tuple = smsa->ss->tuple_idx[j];
+      tuple_idx = blocks->tuple_idx_map[seqnum][tuple];
+/*       fprintf(stderr, "seqnum %d, seqlen %d, i %d, j %d, tuple %d, tuple_idx %d\n",  */
+/* 	      seqnum, seqlen, i, j, tuple, tuple_idx); */
+      emissions[i][j] = tuple_scores[i][tuple_idx];      
+    }
+  }
+  /* Adjust for indels, if needed */
+  if (ih != NULL)
+    dm_add_indel_emissions(dm, ih);
+}
+
+/* Count transitions between states for parameter draws */
+void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans, 
+			   int **priors, int seqlen, int *ref_path,
+			   int force_priors) {
+  int i, s1, s2, p1, p2, e1, e2, *tmp_path;
+
+  /* If using reference set as priors, build a composite path containing
+     all known and predicted features and use this as the path */
+  if (ref_path != NULL) {
+    tmp_path = dms_composite_path(dm, ref_path, path, 
+				  seqlen, 0, force_priors);
+    for (i = 0; i < seqlen; i++)
+      path[i] = tmp_path[i];
+    free(tmp_path);
+  }
+  
+  /* Reset transition counts */
+  for (i = 0; i < 4; i++) {
+    trans[i][0] = priors[i][0];
+    trans[i][1] = priors[i][1];
+  }
+  
+  s1 = -1;
+  for (i = 0; i < seqlen; i++) {
+    s2 = path[i];
+    
+    /* 	  fprintf(stderr, "i %d, len %d, s2 %d\n", i, seqlen, s2); */
+    
+    p1 = (s1 == -1 ? -1 : dm->state_to_motifpos[s1]);
+    e1 = (s1 == -1 ? NEUT : dm->state_to_event[s1]);
+    p2 = dm->state_to_motifpos[s2];
+    e2 = dm->state_to_event[s2];
+    
+    /* Track different types of transitions for param estimation */
+    if (p1 == -1) { /* Transitions from bg states */
+      if (e1 == NEUT) { 
+	if (e2 != NEUT) { /* Affects nu */
+	  trans[1][0]++;
+	  if (e2 == BIRTH || e2 == DEATH) { /* Affects phi */
+	    trans[2][0]++;
+	  } else {
+	    trans[2][1]++;
+	  }
+	} else {
+	  trans[1][1]++;
+	}
+      } else { /* Source state is under selection */
+	if (e2 == NEUT) { /* Affects mu */
+	  trans[0][0]++;
+	} else {
+	  trans[0][1]++;
+	}
+      }
+      
+      if (p2 == 0) { /* Into a motif -- affects zeta */
+	trans[3][0]++;
+      } else { /* into another background category */
+	trans[3][1]++;
+      }
+      
+    } else if (p1 == (dm->m->width - 1)
+	       && e1 != NEUT) { /* Transitions from motif end */
+      if (e2 == NEUT) { /* Affects mu */
+	trans[0][0]++;
+      } else {
+	trans[0][1]++;
+      }
+    }
+    s1 = s2;
+  }
+}
+
+
+void dms_count_motifs(DMotifPhyloHmm *dm, int *path, int seqlen, 
+		      Hashtable *path_counts, int seqnum) {
+  int i, j, s, p, *counts;
+  char hsh_key[STR_SHORT_LEN];
+  
+  for (i = 0; i < seqlen; i++) {
+    s = path[i];
+    p = dm->state_to_motifpos[s];
+    
+    if (p == 0) {
+      sprintf(hsh_key, "%d_%d", seqnum, i);
+      counts = hsh_get(path_counts, hsh_key);
+      if (counts == -1) { /* First motif at this position */
+	counts = smalloc(dm->phmm->hmm->nstates * sizeof(int));
+	for (j = 0; j < dm->phmm->hmm->nstates; j++)
+	  counts[j] = 0;
+	counts[s] = 1;
+	hsh_put(path_counts, hsh_key, counts);
+      } else {
+	counts[s]++;
+      }
+    }
+    /* 	    fprintf(stderr, "key %s state %d count %i\n", hsh_key, s, */
+    /* 		    ((int*)hsh_get(path_counts, hsh_key))[s]); */
+  }
+  
+  
+}
+
+void dms_path_log(DMotifPhyloHmm *dm, int *path, int seqlen, char *seqname,
+		  GFF_Set *motifs) {
+  int i;
+  GFF_Set *tmp_gff;
+  GFF_Feature *f;
+
+  tmp_gff = gff_new_set();	
+  tmp_gff = dm_labeling_as_gff(dm->phmm->cm, path, seqlen,
+			       dm->m->width,
+			       dm->phmm->state_to_cat,
+			       dm->state_to_motifpos,
+			       dm->phmm->reverse_compl, seqname, "DMSAMPLE", 
+			       NULL, NULL, NULL);
+  for (i = 0; i < lst_size(tmp_gff->features); i++) {
+    f = lst_get_ptr(tmp_gff->features, i);
+    lst_push_ptr(motifs->features, gff_new_feature_copy(f));
+  }
+  gff_free_set(tmp_gff);  
+}
+
+void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample, 
+		   double llh, GFF_Set *query_gff, GFF_Set *reference, 
+		   int nwins) {
+ 
+  int i, *stats;
+  double fpr, spc, ppv;
+  char param[STR_SHORT_LEN];
+ 
+  fprintf(log, "Sample = %d, total log likelihood = %f\n", sample, llh);
+  
+  /* If using a reference set, compare known and predicted features and 
+     keep track of the matches, mismatches, etc. in the stats structure */
+  if (reference != NULL) {
+    fpr = spc = ppv = 0;
+    stats = smalloc(4 * sizeof(int*));
+    for (i = 0; i < 4; i++)
+      stats[i] = 0;
+    
+    dms_compare_gffs(reference, query_gff, stats, 0, NULL, NULL, NULL, 
+		     NULL);
+    fpr = (double)(stats[1] + stats[3])
+       / (double)(nwins - lst_size(reference->features));
+    spc = (double)(nwins - lst_size(query_gff->features))
+      / (double)((nwins - lst_size(query_gff->features)) + stats[3] + stats[1]);
+    if (stats[0])
+      ppv = (double)(stats[0]) / (double)(lst_size(query_gff->features));
+    else
+      ppv = 0;
+    
+    fprintf(log, "True Positive Features: %d of %d (Sensitivity = %f)\n", 
+	    stats[0], lst_size(reference->features),
+	    ((double)stats[0] / (double)lst_size(reference->features)));
+    fprintf(log, "False Positive Features: \n\t%d total (FPR = %f)\n\t%d misidentified\n\t%d in locations with no annotated feature\n",
+	    (stats[3] + stats[1]), fpr, stats[1], stats[3]);
+    fprintf(log, "False Negative Features: %d\n", stats[2]);
+    fprintf(log, "Specificity: %f\n", spc);
+    fprintf(log, "PPV: %f\n", ppv);
+  }
+  
+  for (i = 0; i < 4; i++) {
+    if (i == 0)
+      sprintf(param, "mu");
+    else if (i == 1)
+      sprintf(param, "nu");
+    else if (i == 2)
+      sprintf(param, "phi");
+    else /* (i == 3) */
+      sprintf(param, "zeta");
+    
+    fprintf(log, "%s transitions: alpha = %d, beta = %d\n", param, 
+	    trans[i][0], trans[i][1]);
+  }
+  
+  fprintf(log, "mu = %f, nu = %f, phi = %f, zeta = %f\n\n", dm->mu, 
+	  dm->nu, dm->phi, dm->zeta);
+}
+
+DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih) {
+  
+  Regex *blocks_re = str_re_new("#[[:space:]]*BLOCKS[[:space:]]*=[[:space:]]*([0-9]+)");
+  Regex *alph_re = str_re_new("#[[:space:]]*ALPHABET[[:space:]]*=[[:space:]]*([A-Z]+)");
+  Regex *format_re = str_re_new("#[[:space:]]*FORMAT[[:space:]]*=[[:space:]]*([A-Z]+)");
+  
+  int i, nblocks, ncats, tuple_size;
+  char *msa_fname, *ih_fname = NULL;
+  FILE *msa_f, *ih_f;
+  msa_format_type format;
+  List *msas = NULL, *matches = lst_new_ptr(4);
+  MSA *msa;
+  String *line = str_new(STR_MED_LEN), *alphabet = NULL, 
+    *fname = str_new(STR_MED_LEN);
+  DMotifPmsaStruct *dmpmsa;
+
+  dmpmsa = smalloc(sizeof(DMotifPmsaStruct));
+  
+  nblocks = i = dmpmsa->max_seqlen = 0;
+
+  while (str_readline(line, F) != EOF) {
+    str_trim(line);
+    if (line->length == 0) continue; /* ignore blank lines */
+    
+    if (msas == NULL) {
+      if (str_re_match(line, blocks_re, matches, 1) >= 0) { 
+	str_as_int(lst_get_ptr(matches, 1), &nblocks);
+	i++;
+      } else if (str_re_match(line, alph_re, matches, 1) >= 0) {
+	alphabet = str_dup(lst_get_ptr(matches, 1));
+	i++;
+      } else if (str_re_match(line, format_re, matches, 1) >= 0) {
+	format = msa_str_to_format(((String*)lst_get_ptr(matches, 1))->chars);
+	i++;
+      } else {
+	die("Bad header in alignment list file\n");
+      }
+      
+      if (nblocks != 0 && alphabet != NULL && i == 3) {
+	msas = lst_new(nblocks, sizeof(MSA));
+	dmpmsa->seqnames = lst_new(nblocks, sizeof(String));
+	if (do_ih) { /* Allocate space for indel histories, if
+			called for -- this will need to be filled
+			in explicitly later */
+	  dmpmsa->ih = smalloc(nblocks * sizeof(IndelHistory));
+	}
+	i = 0;
+      }
+    } else {
+      if (i >= nblocks)
+	die("Too many alignment files for format\n");
+      
+      if (str_split(line, NULL, matches) > 1) {
+	msa_fname = ((String*)lst_get_ptr(matches, 0))->chars;
+	ih_fname = ((String*)lst_get_ptr(matches, 1))->chars;
+      } else {
+	msa_fname = line->chars;
+      }
+      
+      fprintf(stderr, "\t%s (%d of %d)\n", msa_fname, (i+1), nblocks);
+      msa_f = fopen_fname(msa_fname, "r");
+      msa = msa_new_from_file(msa_f, format, (char*)alphabet->chars);
+      str_cpy_charstr(fname, msa_fname);
+      str_remove_path(fname);
+      str_root(fname, '.');
+      fclose(msa_f);
+
+      lst_push_ptr(dmpmsa->seqnames, str_dup(fname));
+      lst_push_ptr(msas, msa);
+      if (msa->length > dmpmsa->max_seqlen)
+	dmpmsa->max_seqlen = msa->length;
+
+      /* Need to process the input alignments individually to be sure all have
+	 SS structures in place */
+      if (msa_alph_has_lowercase(msa))
+	msa_toupper(msa);
+      msa_remove_N_from_alph(msa);
+      
+      if (msa->ss == NULL) {
+	fprintf(stderr, "\t\tExtracting sufficient statistics...\n");
+	ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);
+      }
+      else if (msa->ss->tuple_idx == NULL)
+	die("ERROR: ordered representation of alignment required.\n");
+
+      if (i == 0) {
+	ncats = msa->ncats;
+	tuple_size = msa->ss->tuple_size;
+      }
+      
+      if (do_ih) {
+	if (ih_fname == NULL)
+	  die("ERROR: --indel-model requires an indel history for all alignment files! Try 'dmsample -h'\n");
+	fprintf(stderr, "\tReading indel history for %s from %s\n", msa_fname, 
+		ih_fname);
+	ih_f = fopen_fname(ih_fname, "r");
+	dmpmsa->ih[i] = ih_new_from_file(ih_f);
+	fclose(ih_f);
+      }
+      i++;
+    }
+  }
+  if (i < (nblocks - 1))
+    die("Not enough files in alignments list\n");
+
+  /* Create the PooledMSA structure from the list of MSA's */
+  fprintf(stderr, "\tBuilding pooled SS...\n");
+/*   fprintf(stderr, "blocks %p, ", blocks); */
+  dmpmsa->pmsa = ss_pooled_from_msas(msas, tuple_size, ncats, NULL);
+/*   fprintf(stderr, "blocks_alloc %p, blocks->source_msas %p, n %d\n", blocks, */
+/* 	  blocks->source_msas, lst_size(blocks->source_msas)); */
+/*   fprintf(stderr, "msas[i] %p, blocks->source_msas[0] %p\n", */
+/* 	  lst_get_ptr(msas, 0), lst_get_ptr(blocks->source_msas, 0)); */
+
+  lst_free(matches);
+  str_free(alphabet);
+  str_free(line);
+  str_free(fname);
+  return dmpmsa;
 }

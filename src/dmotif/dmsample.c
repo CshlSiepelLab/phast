@@ -31,17 +31,18 @@
 
 int main(int argc, char *argv[]) {
   char c, *key;
-  int opt_idx, i, j, old_nnodes, **priors, *counts, cbstate;
-  Multi_MSA *blocks;
+  int opt_idx, i, j, old_nnodes, **priors, *counts, cbstate, max_seqlen;
+  int found = FALSE;
+  double **tuple_scores, **emissions;
+  PooledMSA *blocks = NULL;
   MSA *msa;
-  List *pruned_names = lst_new_ptr(5), *tmpl;
+  List *pruned_names = lst_new_ptr(5), *tmpl, *keys, *seqnames;
+  IndelHistory **ih = NULL;
+  DMotifPmsaStruct *dmpmsa;
   DMotifPhyloHmm *dm;
   GFF_Set *predictions, *reference = NULL;
   GFF_Feature *f;
-  int found = FALSE;
-  List *keys;
   PSSM *motif;
-  double ***emissions;
   Hashtable *path_counts;
   String *cbname;
 
@@ -76,7 +77,6 @@ int main(int argc, char *argv[]) {
     sample_interval = DEFAULT_SAMPLE_INTERVAL, do_ih = 0, 
     ref_as_prior = FALSE, force_priors = FALSE, precomputed_hash = FALSE;
   char *seqname = NULL, *idpref = NULL;
-  IndelHistory *ih = NULL;
   
   while ((c = getopt_long(argc, argv, "R:b:s:r:N:P:I:l:v:g:u:p:D:d:h",
 			  long_opts, &opt_idx)) != -1) {
@@ -203,24 +203,15 @@ int main(int argc, char *argv[]) {
 
   /* read alignments */
   fprintf(stderr, "Reading alignments from %s...\n", argv[optind]);
-  blocks = msa_multimsa_new(msa_f, do_ih);
+  dmpmsa = dms_read_alignments(msa_f, do_ih);
 
-  fprintf(stderr, "Processing data in alignments...\n");
-  for (i = 0; i < blocks->nblocks; i++) {
-    msa = blocks->blocks[i];
-    if (msa_alph_has_lowercase(blocks->blocks[i]))
-      msa_toupper(msa);
-    msa_remove_N_from_alph(msa);
+  blocks = dmpmsa->pmsa;
+  seqnames = dmpmsa->seqnames;
+  if (do_ih)
+    ih = dmpmsa->ih;
+  max_seqlen = dmpmsa->max_seqlen;
 
-    if (msa->ss == NULL) {
-      fprintf(stderr, "\tExtracting sufficient statistics for %s (%d of %d)...\n",
-	      (((String*)lst_get(blocks->seqnames, i))->chars),
-	      (i+1), blocks->nblocks);
-      ss_from_msas(blocks->blocks[i], 1, TRUE, NULL, NULL, NULL, -1);
-    }
-    else if (msa->ss->tuple_idx == NULL)
-      die("ERROR: ordered representation of alignment required unless --suff-stats.\n");
-  }
+/*   fprintf(stderr, "ntuples %d\n", blocks->pooled_msa->ss->ntuples); */
 
   /* Read in priors for parameter estimation */
   fprintf(stderr, "Reading transition parameter priors from %s...\n", argv[optind + 3]);
@@ -231,7 +222,7 @@ int main(int argc, char *argv[]) {
   }
   dms_read_priors(priors, prior_f);
 
-  /* Do some cleanup of file handles we no longer need */
+  /* Do some cleanup of files we no longer need */
   if (ref_gff_f != NULL)
     fclose(ref_gff_f);
   fclose(msa_f);
@@ -241,7 +232,7 @@ int main(int argc, char *argv[]) {
   
   /* prune tree, if necessary */
   old_nnodes = source_mod->tree->nnodes;
-  tm_prune(source_mod, blocks->blocks[0], pruned_names);
+  tm_prune(source_mod, lst_get_ptr(blocks->source_msas, 0), pruned_names);
 
   if (lst_size(pruned_names) == (old_nnodes + 1) / 2)
     die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
@@ -260,7 +251,7 @@ int main(int argc, char *argv[]) {
   if (refidx > 0) {
     for (i = 0, found = FALSE; !found && i < source_mod->tree->nnodes; i++) {
       TreeNode *n = lst_get_ptr(source_mod->tree->nodes, i);
-      if (!strcmp(n->name, blocks->blocks[0]->names[refidx-1]))
+      if (!strcmp(n->name, ((MSA*)lst_get_ptr(blocks->source_msas, 0))->names[refidx-1]))
         found = TRUE;
     }
     if (!found) die("ERROR: no match for reference sequence in tree.\n");
@@ -270,56 +261,63 @@ int main(int argc, char *argv[]) {
               tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n,
 	      FALSE, FALSE, FALSE, FALSE);
   
-  /* Cycle through msa's to compute emissions, adjust for missing data and
-     adjust for indels */
+  /* Prepare the emissions by tuple and state. Later, emissions for each seq
+     will be reconsitituted on the fly for the forward and stochastic
+     traceback algorithms. This requires a dummy MSA of all tuples, in order,
+     for emissions computation, an nstates * ntuples matrix for the tuple-wise
+     emission scores and a nstates * max_seqlen matrix for the sequence-wise
+     emission scores. */
   fprintf(stderr, "Computing emission probabilities...\n");
 
-  emissions = smalloc(blocks->nblocks * sizeof(double*));
+  /* Contains the non-redundant col_tuples matrix */
+  msa = blocks->pooled_msa;
+  /* Some hacks to please tl_compute_log_likelihood -- avoids having to create
+     a dummy msa to compute the emissions. */
+  msa->length = msa->ss->ntuples;
+  msa->ss->tuple_idx = smalloc(msa->ss->ntuples * sizeof(int));
+  for (i = 0; i < msa->ss->ntuples; i++)
+    msa->ss->tuple_idx[i] = i; /* One to one mapping of column to tuple */
+
+  /* tuple-wise emissions matrix */
+  tuple_scores = smalloc(dm->phmm->hmm->nstates * sizeof(double*));
+  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+    tuple_scores[i] = smalloc(blocks->pooled_msa->ss->ntuples 
+			      * sizeof(double));
+  }
+  /* Assign dm->phmm->emissions as the tuple-wise table for computation
+     purposes */
+  dm->phmm->emissions = tuple_scores; 
+  dm->phmm->alloc_len = msa->ss->ntuples;
+
   /*  Needed for the emissions computation */
   dm->phmm->state_pos = smalloc(dm->phmm->nmods * sizeof(int));
   dm->phmm->state_neg = smalloc(dm->phmm->nmods * sizeof(int));
 
-  for (i = 0; i < blocks->nblocks; i++) {
+  /* Compute the tuple-wise emissions matrix */
+  phmm_compute_emissions(dm->phmm, msa, TRUE);
+  /* Adjust for missing data */
+  fprintf(stderr, "Adjusting emissions for missing data...\n");
+  dm_handle_missing_data(dm, msa);
 
-    fprintf(stderr, "\t%s (%d of %d)...\n",
-	    (((String*)lst_get(blocks->seqnames, i))->chars),
-	    (i+1), blocks->nblocks);
-
-    msa = blocks->blocks[i];
-
-    /* Allocate the emissions array slice */
-    emissions[i] = smalloc(dm->phmm->hmm->nstates * sizeof(double*));
-    for (j = 0; j < dm->phmm->hmm->nstates; j++)
-      emissions[i][j] = smalloc(msa->length * sizeof(double));
-    
-    /* Have to hack the phmm so the internal emissions pointer references the
-       current slice of the 3-dimensional emissions structure we need. */
-    dm->phmm->emissions = emissions[i];
-
-    fprintf(stderr, "\t\tComputing emissions.\n");
-    phmm_compute_emissions(dm->phmm, msa, TRUE);
-    
-    /* add emissions for indel model, if necessary */
-    if (do_ih) {
-      fprintf(stderr, "\t\tAdjusting for indels.\n");
-      ih = blocks->ih[i];
-      dm_add_indel_emissions(dm, ih);
-    }
-
-    /* postprocess for missing data (requires special handling) */
-    fprintf(stderr, "\t\tAdjusting for missing data.\n");
-    dm_handle_missing_data(dm, msa);
-
-    fprintf(stderr, "\t\tDone.\n");
+  /* sequence-wise emissions matrix */
+  emissions = smalloc(dm->phmm->hmm->nstates * sizeof(double*));
+  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+    emissions[i] = smalloc(max_seqlen * sizeof(double));
   }
+  /* Reassign the emissions matrix associated with the phmm to the sequence-
+     wise matrix. */
+  dm->phmm->emissions = emissions;
+  dm->phmm->alloc_len = max_seqlen;
   
   /** Call the sampler **/
   if (!precomputed_hash) {
     fprintf(stderr, "Sampling state paths...\n");
-    path_counts = hsh_new(max(blocks->nblocks, 10000));
-    dms_sample_paths(dm, blocks, emissions, bsamples, nsamples, 
-		     sample_interval, path_counts, priors, log, reference, 
-		     ref_as_prior, force_priors);
+    path_counts = hsh_new(max((10 * lst_size(blocks->source_msas)), 10000));
+
+    dms_sample_paths(dm, blocks, tuple_scores, ih, seqnames, max_seqlen,
+		     bsamples, nsamples, sample_interval, path_counts, priors,
+		     log, reference, ref_as_prior, force_priors);
+
   } else {
     fprintf(stderr, "Reading sampling data from disk...\n");
 /*     fprintf(stderr, "nsamples_init %d\t", nsamples); */
@@ -352,14 +350,14 @@ int main(int argc, char *argv[]) {
     key = lst_get_ptr(keys, i);
 /*     fprintf(stderr, "i %d lst_size %d key %s\n", i, lst_size(keys), key); */
     counts = hsh_get(path_counts, key);
-    f = dms_motif_as_gff_feat(dm, emissions, blocks, key, counts, nsamples,
-			      sample_interval, cbstate);
+    f = dms_motif_as_gff_feat(dm, blocks, seqnames, key, counts, nsamples,
+			      sample_interval);
     lst_push_ptr(predictions->features, f);
   }
 
   /* Free up some memory */
   lst_free(keys);  
-  for (i = 0; i < blocks->nblocks; i++) {
+  for (i = 0; i < lst_size(blocks->source_msas); i++) {
 /*     for (j = 0; j < dm->phmm->hmm->nstates; j++) */
 /*       free(emissions[j]); */
     free(emissions[i]);

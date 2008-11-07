@@ -1,4 +1,4 @@
-/* $Id: sufficient_stats.c,v 1.23 2005-09-06 03:34:15 acs Exp $
+/* $Id: sufficient_stats.c,v 1.24 2008-11-07 17:30:51 agd27 Exp $
    Written by Adam Siepel, 2002 and 2003
    Copyright 2002, 2003, Adam Siepel, University of California */
 
@@ -316,7 +316,7 @@ PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size, int ncats,
   if (ncats >= 0) pmsa->pooled_msa->ncats = ncats;
   pmsa->lens = smalloc(lst_size(source_msas) * sizeof(int));
 
-  pmsa->tuple_idx_map = smalloc(lst_size(source_msas) * sizeof(int));
+  pmsa->tuple_idx_map = smalloc(lst_size(source_msas) * sizeof(int*));
   key = smalloc((rep_msa->nseqs * tuple_size + 1) * sizeof(char));
   key[rep_msa->nseqs * tuple_size] = '\0';
   for (i = 0; i < lst_size(source_msas); i++) {
@@ -335,7 +335,9 @@ PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size, int ncats,
        indexing scheme to be used */
     pmsa->tuple_idx_map[i] = smalloc(smsa->ss->ntuples * sizeof(int));
     for (j = 0; j < smsa->ss->ntuples; j++) {
-      strncpy(key, smsa->ss->col_tuples[j], smsa->nseqs * tuple_size);      
+      strncpy(key, smsa->ss->col_tuples[j], smsa->nseqs * tuple_size);
+/*       fprintf(stderr, "i %d, j %d, key %s, tuple_idx[i][j] %d\n", */
+/* 	      i, j, key, (int)hsh_get(tuple_hash, key)); */
       pmsa->tuple_idx_map[i][j] = (int)hsh_get(tuple_hash, key);
       assert(pmsa->tuple_idx_map[i][j] >= 0);
     }
