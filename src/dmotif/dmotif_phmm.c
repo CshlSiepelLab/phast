@@ -1377,64 +1377,25 @@ void dms_combine_hashes(Hashtable *target, Hashtable *query, int nstates) {
   }
 }
 
-/* Compute emission probabilities for a set of distinct tuples represented in
-   a multisequence dataset -- this may be unneccesary with the current setup
-   of dmsample!! -- can probably just use the phmm version! */
-void dms_compute_emissions(PhyloHmm *phmm, MSA *msa, int quiet) {
+/** Compute emissions for given PhyloHmm and MSA. Slightly modified from
+    phmm version -- retains all basic functionality, but does not allocate
+    any memory, so all must be allocated externally. */
+void dms_compute_emissions(PhyloHmm *phmm,
+                                /**< Initialized PhyloHmm */
+                            MSA *msa,
+                                /**< Source alignment */
+                            int quiet
+                                /**< Determins whether progress is
+                                   reported to stderr */
+                            ) {
   int i, mod, j;
 
-  for (i = 0; i < phmm->nmods; i++)
-    phmm->state_pos[i] = phmm->state_neg[i] = -1;
-  
   for (i = 0; i < phmm->hmm->nstates; i++) {
-
-    /* reuse already computed values if possible */
-    mod = phmm->state_to_mod[i];
-    if (!phmm->reverse_compl[i] && phmm->state_pos[mod] != -1)
-      phmm->emissions[i] = phmm->emissions[phmm->state_pos[mod]]; /* saves memo\
-								     ry */
-    else if (phmm->reverse_compl[i] && phmm->state_neg[mod] != -1)
-      phmm->emissions[i] = phmm->emissions[phmm->state_neg[mod]];
-    else {
-
-      tl_compute_log_likelihood(phmm->mods[mod], msa,
-				phmm->emissions[i], -1, NULL);
-      if (!phmm->reverse_compl[i]) phmm->state_pos[mod] = i;
-      else phmm->state_neg[mod] = i;
-    }
-  }
-
-  /* finally, adjust for indel model, if necessary */
-  if (phmm->indel_mode != MISSING_DATA) {
-    int *matches = smalloc(msa->ss->ntuples * sizeof(int));
-    /* msa->ss should exist
-       (tl_compute_log_likelihood) */
-
     if (!quiet)
-      fprintf(stderr, "Adjusting emission probs according to gap patterns...\n");
-    for (i = phmm->hmm->nstates - 1; i >= 0; i--) {
-      /* by going backwards, we ensure that
-	 the "base" state (with gap pattern
-	 == 0) is visited last */
-      if (phmm->state_to_pattern[i] >= 0) {
-	double *orig_emissions = phmm->emissions[i];
-	
-	if (phmm->state_to_pattern[i] > 0)
-	  phmm->emissions[i] = smalloc(msa->length * sizeof(double));
-	/* otherwise, use the array already
-	   allocated */
-	
-	gp_tuple_matches_pattern(phmm->gpm, msa, phmm->state_to_pattern[i],
-				 matches);
-        for (j = 0; j < msa->length; j++)
-	  phmm->emissions[i][j] =
-	    (matches[msa->ss->tuple_idx[j]] ? orig_emissions[j] : NEGINFTY);
-      }
-    }
-    free(matches);
-
+      fprintf(stderr, "\tstate %d of %d\n", i, phmm->hmm->nstates);
+    mod = phmm->state_to_mod[i];
+    dm_compute_log_likelihood(phmm->mods[mod], msa, phmm->emissions[i], -1);
   }
-  
 }
 
 /* Fill in an emissions matrix for a single sequence based on a precomputed
@@ -1758,4 +1719,160 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih) {
   str_free(line);
   str_free(fname);
   return dmpmsa;
+}
+
+/* Pared down version of tL_compute_log_likelihood with improved memory
+   performance */
+double dm_compute_log_likelihood(TreeModel *mod, MSA *msa, 
+                                 double *col_scores, int cat) {
+
+  int i, j, k, nodeidx, tupleidx, defined, nstates, alph_size,
+    *partial_match, skip_fels, thisseq, ninform, observed_state;
+  double retval, total_prob, **inside_joint, *tuple_scores, totl, totr;
+  TreeNode *n;
+  List *traversal;
+  MarkovMatrix *lsubst_mat, *rsubst_mat;
+
+  inside_joint = NULL;
+  retval = 0;
+  nstates = mod->rate_matrix->size;
+  alph_size = strlen(mod->rate_matrix->states);
+
+  /* allocate memory */
+  partial_match = smalloc(alph_size * sizeof(int));
+  inside_joint = (double**)smalloc(nstates * sizeof(double*));
+  for (j = 0; j < nstates; j++) 
+    inside_joint[j] = (double*)smalloc((mod->tree->nnodes+1) * 
+                                       sizeof(double));
+  
+  if (col_scores != NULL) {
+    tuple_scores = (double*)smalloc(msa->ss->ntuples * sizeof(double));
+    for (tupleidx = 0; tupleidx < msa->ss->ntuples; tupleidx++)
+      tuple_scores[tupleidx] = 0;
+  }
+
+  /* set up leaf to sequence mapping, if necessary */
+  if (mod->msa_seq_idx == NULL)
+    tm_build_seq_idx(mod, msa);
+
+  /* set up prob matrices, if any are undefined */
+  for (i = 0, defined = TRUE; defined && i < mod->tree->nnodes; i++) {
+    if (((TreeNode*)lst_get_ptr(mod->tree->nodes, i))->parent == NULL)
+      continue;  		/* skip root */
+    for (j = 0; j < mod->nratecats; j++)
+      if (mod->P[i][j] == NULL) defined = FALSE;
+  }
+  if (!defined) {
+    tm_set_subst_matrices(mod);
+  }
+
+  /* Compute log probability for each tuple in the dataset */
+  for (tupleidx = 0; tupleidx < msa->ss->ntuples; tupleidx++) {
+    skip_fels = FALSE;
+    total_prob = 0;
+
+    /* check for gaps and whether column is informative, if necessary */
+    if (!mod->allow_gaps)
+      for (j = 0; !skip_fels && j < msa->nseqs; j++) 
+        if (ss_get_char_tuple(msa, tupleidx, j, 0) == GAP_CHAR) 
+          skip_fels = TRUE;
+    if (!skip_fels && mod->inform_reqd) {
+      ninform = 0;
+      for (j = 0; j < msa->nseqs; j++) {
+        if (msa->is_informative != NULL && !msa->is_informative[j])
+          continue;
+        else if (!msa->is_missing[(int)ss_get_char_tuple(msa, tupleidx, j, 0)])
+          ninform++;
+      }
+      if (ninform < 2) skip_fels = TRUE;
+    }
+          
+    if (!skip_fels) {
+      traversal = tr_postorder(mod->tree);
+      for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
+	n = lst_get_ptr(traversal, nodeidx);      
+	if (n->lchild == NULL) { 
+	  /* leaf: base case of recursion */	  
+	  assert(n->name != NULL);
+	  thisseq = mod->msa_seq_idx[n->id];
+	  observed_state = mod->rate_matrix->
+	    inv_states[(int)ss_get_char_tuple(msa, tupleidx, 
+					      thisseq, 0)];
+	  
+	  for (i = 0; i < alph_size; i++) {
+	    if (observed_state < 0 || i == observed_state) 
+	      partial_match[i] = 1;
+	    else
+	      partial_match[i] = 0; 
+	  }
+	  
+	  /* now find the intersection of the partial matches */
+	  for (i = 0; i < nstates; i++)
+	    inside_joint[i][n->id] = partial_match[i]; 
+	}
+	else {                    
+	  /* general recursive case */
+	  lsubst_mat = mod->P[n->lchild->id][0];
+	  rsubst_mat = mod->P[n->rchild->id][0];
+	  for (i = 0; i < nstates; i++) {
+	    totl = totr = 0;
+	    for (j = 0; j < nstates; j++) 
+	      totl += inside_joint[j][n->lchild->id] *
+		mm_get(lsubst_mat, i, j);
+	    
+	    for (k = 0; k < nstates; k++) 
+	      totr += inside_joint[k][n->rchild->id] *
+		mm_get(rsubst_mat, i, k);
+	    
+	    inside_joint[i][n->id] = totl * totr;
+	  }
+	}
+      }
+
+      for (i = 0; i < nstates; i++) {
+	total_prob += vec_get(mod->backgd_freqs, i) * 
+	  inside_joint[i][mod->tree->id] * mod->freqK[0];
+      }
+    } /* if skip_fels */
+    
+    total_prob = log2(total_prob);
+    tuple_scores[tupleidx] = total_prob; /* Unweighted log prob! */
+    total_prob *= msa->ss->counts[tupleidx]; /* log space */
+    retval += total_prob;     /* log space */        
+  } /* for tupleidx */
+  
+  for (j = 0; j < nstates; j++)
+    free(inside_joint[j]);
+  free(inside_joint);
+  if (col_scores != NULL) {
+    for (i = 0; i < msa->length; i++)
+      col_scores[i] = tuple_scores[msa->ss->tuple_idx[i]];
+    free(tuple_scores);
+  }
+  free(partial_match);
+/*   free(mod->msa_seq_idx); */
+/*   mod->msa_seq_idx = NULL; */
+  dm_free_subst_matrices(mod);
+  free(mod->in_subtree);
+  mod->in_subtree = NULL;
+/*   lst_free(traversal); */
+/*   mod->tree->postorder = NULL; */
+  return(retval);
+}
+
+void dm_free_subst_matrices(TreeModel *tm) {
+  int i, j;
+  TreeNode *n;
+  for (i = 0; i < tm->tree->nnodes; i++) {
+    n = lst_get_ptr(tm->tree->nodes, i);
+    if (n->parent == NULL) continue;
+    for (j = 0; j < tm->nratecats; j++) {
+      mm_free(tm->P[i][j]);
+      tm->P[i][j] = NULL;
+    }
+    free(tm->P[i]);
+    tm->P[i] = NULL;
+  }
+  free(tm->P);
+  tm->P = NULL;
 }

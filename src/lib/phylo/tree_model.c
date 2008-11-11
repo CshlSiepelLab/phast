@@ -1,4 +1,4 @@
-/* $Id: tree_model.c,v 1.36 2008-08-16 21:16:05 acs Exp $
+/* $Id: tree_model.c,v 1.37 2008-11-11 17:33:07 agd27 Exp $
    Written by Adam Siepel, 2002
    Copyright 2002, Adam Siepel, University of California */
 
@@ -475,11 +475,13 @@ TreeModel *tm_create_copy(TreeModel *src) {
 
 void tm_set_subst_matrices(TreeModel *tm) {
   int i, j;
-  double scaling_const = -1, tmp;
+  double scaling_const, tmp, branch_scale;
   Vector *backgd_freqs = tm->backgd_freqs;
   subst_mod_type subst_mod = tm->subst_mod;
   MarkovMatrix *rate_matrix = tm->rate_matrix;
   
+  scaling_const = -1;
+
   if (tm->estimate_branchlens != TM_SCALE_ONLY && tm->scale != 1) 
     tm->scale = 1;
                                 /* be sure scale factor has an effect
@@ -500,7 +502,7 @@ void tm_set_subst_matrices(TreeModel *tm) {
   }
 
   for (i = 0; i < tm->tree->nnodes; i++) {
-    double branch_scale = tm->scale;
+    branch_scale = tm->scale;
     TreeNode *n = lst_get_ptr(tm->tree->nodes, i);
 
     if (n->parent == NULL) continue;

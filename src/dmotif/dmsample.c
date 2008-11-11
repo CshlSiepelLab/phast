@@ -267,12 +267,15 @@ int main(int argc, char *argv[]) {
      for emissions computation, an nstates * ntuples matrix for the tuple-wise
      emission scores and a nstates * max_seqlen matrix for the sequence-wise
      emission scores. */
-  fprintf(stderr, "Computing emission probabilities...\n");
 
   /* Contains the non-redundant col_tuples matrix */
   msa = blocks->pooled_msa;
+
+  fprintf(stderr, "Computing emission probabilities for %d distinct tuples...\n",
+	  msa->ss->ntuples);
+
   /* Some hacks to please tl_compute_log_likelihood -- avoids having to create
-     a dummy msa to compute the emissions. */
+     a dummy msa to compute emissions. */
   msa->length = msa->ss->ntuples;
   msa->ss->tuple_idx = smalloc(msa->ss->ntuples * sizeof(int));
   for (i = 0; i < msa->ss->ntuples; i++)
@@ -289,12 +292,8 @@ int main(int argc, char *argv[]) {
   dm->phmm->emissions = tuple_scores; 
   dm->phmm->alloc_len = msa->ss->ntuples;
 
-  /*  Needed for the emissions computation */
-  dm->phmm->state_pos = smalloc(dm->phmm->nmods * sizeof(int));
-  dm->phmm->state_neg = smalloc(dm->phmm->nmods * sizeof(int));
-
   /* Compute the tuple-wise emissions matrix */
-  phmm_compute_emissions(dm->phmm, msa, TRUE);
+  dms_compute_emissions(dm->phmm, msa, FALSE);
   /* Adjust for missing data */
   fprintf(stderr, "Adjusting emissions for missing data...\n");
   dm_handle_missing_data(dm, msa);
