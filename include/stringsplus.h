@@ -1,9 +1,17 @@
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
 /* stringsplus - String-handling functions, with automatic memory management and basic regex support. */
    
-/* $Id: stringsplus.h,v 1.7 2006-10-06 14:07:53 bbrejova Exp $
-   Written by Adam Siepel, Summer 2002
-   Copyright 2002, Adam Siepel, University of California 
+/* $Id: stringsplus.h,v 1.8 2008-11-12 02:07:59 acs Exp $ */
 
+/*
    TODO
    * support "views" of strings (use same memory as another string).
    How to handle null terminators?

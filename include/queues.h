@@ -1,11 +1,17 @@
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
 /* queues - Simple array-based queues and supporting functions (uses 'lists'). */
 
 /* See documentation for lists2.h.
 
-   $Id: queues.h,v 1.1.1.1 2004-06-03 22:43:11 acs Exp $
-   Written by Adam Siepel, Spring 2001, Summer 2002
-   Copyright 2001, 2002, Adam Siepel, University of California
-*/
+   $Id: queues.h,v 1.2 2008-11-12 02:07:59 acs Exp $ */
 
 #ifndef QUEUES_H
 #define QUEUES_H

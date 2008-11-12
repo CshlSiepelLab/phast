@@ -1,6 +1,13 @@
-/* $Id: maf.c,v 1.26 2008-05-30 03:07:40 acs Exp $
-   Written by Adam Siepel, 2003
-   Copyright 2003, Adam Siepel, University of California */
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: maf.c,v 1.27 2008-11-12 02:07:59 acs Exp $ */
 
 /** \file maf.c
     Reading of alignments from MAF ("Multiple Alignment Format")

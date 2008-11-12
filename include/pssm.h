@@ -1,4 +1,13 @@
-/* $Id: pssm.h,v 1.1 2008-04-09 13:01:58 acs Exp $ */
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: pssm.h,v 1.2 2008-11-12 02:07:59 acs Exp $ */
 
 #ifndef PSSM_H
 #define PSSM_H

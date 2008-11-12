@@ -1,7 +1,13 @@
-/* $Id: subst_distrib.c,v 1.41 2008-08-15 21:47:48 acs Exp $ 
-   Written by Adam Siepel, 2005
-   Copyright 2005, Adam Siepel, University of California 
-*/
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: subst_distrib.c,v 1.42 2008-11-12 02:07:59 acs Exp $ */
 
 /* distributions of numbers of substitutions, prior and posterior */
 

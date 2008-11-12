@@ -1,10 +1,16 @@
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
 /* String-handling functions, with automatic memory management and
    basic regex support.
    
-   $Id: stringsplus.c,v 1.9 2006-10-06 14:08:15 bbrejova Exp $
-   Written by Adam Siepel, Summer 2002
-   Copyright 2002, Adam Siepel, University of California 
-*/
+   $Id: stringsplus.c,v 1.10 2008-11-12 02:07:59 acs Exp $ */
 
 #include "stringsplus.h"
 #include "misc.h"

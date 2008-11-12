@@ -1,10 +1,16 @@
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
 /* hmm_train - estimation of HMM transition probabilities from labeled
    training data */
 
-/* $Id: hmm_train.c,v 1.12 2005-11-25 05:17:30 acs Exp $
-   Written by Adam Siepel, 2002-2004
-   Copyright 2002-2004, Adam Siepel, University of California 
-*/
+/* $Id: hmm_train.c,v 1.13 2008-11-12 02:07:58 acs Exp $ */
 
 
 #include <stdlib.h>

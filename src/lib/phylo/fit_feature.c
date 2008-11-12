@@ -1,6 +1,13 @@
-/* $Id: fit_feature.c,v 1.2 2008-10-26 00:52:32 acs Exp $
-   Written by Adam Siepel, 2008
-*/
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: fit_feature.c,v 1.3 2008-11-12 02:07:59 acs Exp $ */
 
 /* Functions to compute likelihoods, estimate scale factors, perform
    LRTs, score tests, etc. for multi-column features.  Generalization

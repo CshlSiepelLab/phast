@@ -1,6 +1,13 @@
-/* $Id: lists.c,v 1.6 2005-05-30 23:07:48 acs Exp $
-   Written by Adam Siepel, Spring 2001 and Summer 2002
-   Copyright 2001, 2002, Adam Siepel, University of California */
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: lists.c,v 1.7 2008-11-12 02:07:59 acs Exp $ */
 
 /** \file lists.c 
    Simple array-based lists and supporting functions.  

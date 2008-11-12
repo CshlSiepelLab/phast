@@ -1,6 +1,13 @@
-/* $Id: tree_model.c,v 1.37 2008-11-11 17:33:07 agd27 Exp $
-   Written by Adam Siepel, 2002
-   Copyright 2002, Adam Siepel, University of California */
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: tree_model.c,v 1.38 2008-11-12 02:07:59 acs Exp $ */
 
 #include <tree_model.h>
 #include <subst_mods.h>

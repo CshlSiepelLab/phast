@@ -1,6 +1,13 @@
-/* $Id: subst_mods.c,v 1.11 2008-04-09 01:52:17 acs Exp $
-   Written by Adam Siepel, 2002-2004
-   Copyright 2002-2004, Adam Siepel, University of California */
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: subst_mods.c,v 1.12 2008-11-12 02:07:59 acs Exp $ */
 
 /* Handling of specific substitution models.  This needs reworking:
    was originally set up for small number of models but has become

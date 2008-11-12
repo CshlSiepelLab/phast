@@ -1,5 +1,13 @@
-/* $Id: phyloP.h,v 1.9 2008-08-27 22:33:53 acs Exp $
-   Written by Adam Siepel, 2006-2008 */
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: phyloP.h,v 1.10 2008-11-12 02:07:59 acs Exp $ */
 
 /* Functions that output data computed by phyloP */
 

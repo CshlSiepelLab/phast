@@ -1,9 +1,15 @@
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
 /* hashtable - Fast, simple array-based hash table, optimized for 'put' and 'get' ('delete' somewhat inefficient). */
 
-/* $Id: hashtable.h,v 1.4 2005-06-24 17:41:52 acs Exp $ 
-   Written by Adam Siepel, 2002.
-   Copyright 2002, Adam Siepel, University of California.
-*/
+/* $Id: hashtable.h,v 1.5 2008-11-12 02:07:59 acs Exp $  */
 
 
 #ifndef HASHTABLE_H

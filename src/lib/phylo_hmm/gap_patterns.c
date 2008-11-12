@@ -1,6 +1,13 @@
-/* $Id: gap_patterns.c,v 1.5 2004-08-14 20:22:41 acs Exp $
-   Written by Adam Siepel, 2003
-   Copyright 2003, Adam Siepel, University of California */
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: gap_patterns.c,v 1.6 2008-11-12 02:07:59 acs Exp $ */
 
 /* Code relating to the patterns of gaps and nongaps that occur at
    each site in an alignment, which are the basis of the phylo-hmm's

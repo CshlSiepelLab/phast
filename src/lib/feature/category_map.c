@@ -1,6 +1,13 @@
-/* $Id: category_map.c,v 1.14 2004-08-14 16:44:56 acs Exp $
-   Written by Adam Siepel, Summer 2002
-   Copyright 2002, Adam Siepel, University of California */
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: category_map.c,v 1.15 2008-11-12 02:07:59 acs Exp $ */
 
 /** \file category_map.c
     Mapping between feature types and site categories.  See

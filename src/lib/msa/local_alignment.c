@@ -1,6 +1,13 @@
-/* $Id: local_alignment.c,v 1.1.1.1 2004-06-03 22:43:12 acs Exp $
-   Written by Adam Siepel, 2002
-   Copyright 2002, Adam Siepel, University of California 
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: local_alignment.c,v 1.2 2008-11-12 02:07:59 acs Exp $
 
    Functions for dealing with pairwise local alignments, primarily as
    produced by BLASTZ.  This code is somewhat experimental.  '

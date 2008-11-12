@@ -1,6 +1,13 @@
-/* $Id: mutli_msa.h,v 0.1 2008/08/09
-   Written by Adam Diehl, 2008
-   Copyright 2008, Adam Diehl, Cornell University */
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: multi_msa.h,v 1.2 2008-11-12 02:07:59 acs Exp $ */
 
 /** \file multi_msa.h
    Multiple sequence alignments.

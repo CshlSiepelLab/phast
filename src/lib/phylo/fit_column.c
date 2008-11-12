@@ -1,6 +1,13 @@
-/* $Id: fit_column.c,v 1.17 2008-08-16 15:21:42 acs Exp $
-   Written by Adam Siepel, 2008
-*/
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: fit_column.c,v 1.18 2008-11-12 02:07:59 acs Exp $ */
 
 /* Functions to compute likelihoods for individual alignment columns,
    estimate column-by-column scale factors by maximum likelihood,

@@ -1,6 +1,13 @@
-/* $Id: phylo_hmm.c,v 1.30 2008-10-08 18:30:54 agd27 Exp $
-   Written by Adam Siepel, 2003
-   Copyright 2003, Adam Siepel, University of California */
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: phylo_hmm.c,v 1.31 2008-11-12 02:07:59 acs Exp $ */
 
 /** \file phylo_hmm.c
    Code for phylo-HMMs.  Allows for automatic expansion of the state

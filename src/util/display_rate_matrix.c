@@ -1,6 +1,13 @@
-/* $Id: display_rate_matrix.c,v 1.5 2008-04-23 01:29:20 bbrejova Exp $
-   Written by Adam Siepel, 2003
-   Copyright 2003, Adam Siepel, University of California */
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+/* $Id: display_rate_matrix.c,v 1.6 2008-11-12 02:07:58 acs Exp $ */
 
 /* simple program to display the contents of a rate matrix in various
    ways (see USAGE) */
@@ -35,7 +42,7 @@ OPTIONS:\n\
     -S:     (For use with -l)  Assume a symmetric matrix and report half \n\
             as many lines.  Useful with -e.\n\
     -E:     (for use with -l) Print rates and probabilities \n\
-            in scientific notation (format %e instead of %f).\n\
+            in scientific notation (format %%e instead of %%f).\n\
     -a:     (Requires a model of order 3).  Replace a matrix of codon\n\
             substitution rates with the induced matrix of amino acid\n\
             substitution rates, according to the universal genetic\n\

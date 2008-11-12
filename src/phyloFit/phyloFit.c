@@ -1,9 +1,15 @@
+/***************************************************************************
+ * PHAST: PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.37 2008-02-19 03:20:15 acs Exp $
-   Written by Adam Siepel, 2002-2004
-   Copyright 2002-2004, Adam Siepel, University of California 
-*/
+   $Id: phyloFit.c,v 1.38 2008-11-12 02:07:58 acs Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
