@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: numerical_opt.h,v 1.5 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: numerical_opt.h,v 1.6 2008-11-15 19:42:03 acs Exp $ */
 
 #ifndef NEWRAPH_H
 #define NEWRAPH_H
@@ -65,35 +65,31 @@ double opt_brent(double ax, double bx, double cx,
 void mnbrak(double *ax, double *bx, double *cx, double *fa, double *fb, double *fc,
             double (*func)(double, void*), void *data, FILE *logf);
 
+int opt_newton_1d(double (*f)(double, void*), double (*x), void *data, 
+                  double *fx, int sigfigs, double lb, double ub, FILE *logf, 
+                  double (*compute_deriv)(double x, void *data, double lb, 
+                                          double ub),
+                  double (*compute_deriv2)(double x, void *data, double lb, 
+                                           double ub));
+
+void opt_derivs_1d(double *deriv, double *deriv2, double x, double fx, 
+                   double lb, double ub, double (*f)(double, void*), void *data,
+                   double (*compute_deriv)(double x, void *data, double lb, 
+                                           double ub),
+                   double (*compute_deriv2)(double x, void *data, double lb, 
+                                            double ub));
+
+int opt_bfgs_1d(double (*f)(double, void*), double (*x), void *data, 
+                  double *fx, int sigfigs, double lb, double ub, FILE *logf, 
+                  double (*compute_deriv)(double x, void *data, double lb, 
+                                          double ub));
+
+void opt_lnsrch_1d(double direction, double xold, double fold, double *x, 
+                   double *fx, double deriv, double (*func)(double, void*), 
+                   void *data, int *nevals, double *final_lambda, FILE *logf);
+
 int opt_min_sigfig(Vector *p1, Vector *p2);
 
-/***************************************************************************/
-/* inline functions -- also defined in numerical_opt.c                     */
-/***************************************************************************/
-
-#define MAXSIGFIGS 6
-
-
-/* given two vectors of consecutive parameter estimates, return the
-   minimum number of shared significant figures */
-extern inline
-int opt_min_sigfig(Vector *p1, Vector *p2) {
-  int i, sf, min = 99999;
-  assert(p1->size == p2->size);
-  for (i = 0; i < p1->size; i++) {
-    double val1 = vec_get(p1, i);
-    double val2 = vec_get(p2, i);
-    double tmp = pow(10, floor(log10(val1)));
-    val1 /= tmp; val2 /= tmp;
-    for (sf = 0; sf < MAXSIGFIGS; sf++) {
-      if (floor(val1) != floor(val2)) break;
-      val1 *= 10;
-      val2 *= 10;
-    }    
-    if (sf < min) min = sf;
-  }
-  if (min < 0) min = 0;
-  return min;
-}
+int opt_sigfig(double val1, double val2);
 
 #endif

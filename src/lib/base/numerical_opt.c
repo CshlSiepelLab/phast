@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: numerical_opt.c,v 1.10 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: numerical_opt.c,v 1.11 2008-11-15 19:42:03 acs Exp $ */
 
 #include <stdlib.h>
 #include <numerical_opt.h>
@@ -34,6 +34,9 @@
 #define TOLX_LOW 1.0e-6         /* precision versions) */
 
 #define TOLX(P) ( (P) == OPT_HIGH_PREC ? TOLX_HIGH : ( (P) == OPT_MED_PREC ? TOLX_MED : TOLX_LOW) )
+
+#define MAXSIGFIGS 6
+
 
 /* below are definitions for some alternative convergence criteria.
    They are primarily useful for approximate (low-precision)
@@ -77,7 +80,8 @@
 #define GTOL 1.0e-5             /* convergence criterion for zeroing
                                    the gradient */
 
-#define BOUNDARY_EPS 1.0e-3     /* FIXME: larger? */
+#define BOUNDARY_EPS 1.0e-3     /* "buffer" at boundary */
+#define BOUNDARY_EPS2 1.0e-6     /* use this smaller value in 1d case */
 
 #ifdef DEBUG
 FILE *debugf = NULL;
@@ -722,7 +726,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
         already_failed = 1;
       }
     }
-  } 
+  }
 
   if (logf != NULL) {
     opt_log(logf, 0, fval, params, g, trunc, lambda); /* final versions */
@@ -1087,27 +1091,336 @@ void mnbrak(double *ax, double *bx, double *cx, double *fa, double *fb,
               *ax, *fa, *bx, *fb, *cx, *fc);
 }
 
-/***************************************************************************/
-/* inline functions -- also defined in numerical_opt.h                     */
-/***************************************************************************/
+/* one-dimensional Newton-Raphson optimizer, with line search and
+   bounds.  Allows for analytical computation of both first and second
+   derivatives via function pointers.  Set these to NULL to use
+   numerical methods.  Abscissa (*x) should be initialized
+   appropriately by calling code, and will conteain optimized value on
+   exit.  Parameter (*fx) will contain minimized value of function on
+   exit.  Set sigfigs to desired number of stable significant figures
+   for convergence.  This criterion applies both to x and to f(x).
+   Function returns 0 on success, 1 if maximum number of iterations is
+   reached */
+int opt_newton_1d(double (*f)(double, void*), double (*x), void *data, 
+                  double *fx, int sigfigs, double lb, double ub, FILE *logf, 
+                  double (*compute_deriv)(double x, void *data, double lb, 
+                                          double ub),
+                  double (*compute_deriv2)(double x, void *data, double lb, 
+                                           double ub)) {
+
+  double xold, fxold, d, d2, direction, lambda = -1;
+  int its, nevals = 0, converged = FALSE;
+  struct timeval start_time, end_time;
+
+  assert(*x > lb && *x < ub && ub > lb);
+
+  if (logf != NULL) {
+    gettimeofday(&start_time, NULL);
+    fprintf(logf, "%15s %15s %15s %15s %15s\n", "f(x)", "x", "f'(x)", 
+            "f''(x)", "lambda");
+  }
+
+  /* initial function evaluation */
+  (*fx) = f(*x, data);
+  nevals++;
+
+  xold = (*x);                  /* invariant condition at loop start */
+  fxold = (*fx);
+
+  for (its = 0; !converged && its < ITMAX; its++) { 
+    opt_derivs_1d(&d, &d2, *x, *fx, lb, ub, f, data, compute_deriv, 
+                  compute_deriv2);
+    nevals += 2;                /* assume cost of each deriv approx
+                                   equals that of a functional evaluation */
+
+    if (logf != NULL)               /* write initial entry to log after
+                                       computing derivatives */
+      fprintf(logf, "%15.6f %15.6f %15.6f %15.6f %15.6f\n", *fx, *x, d, d2, lambda);
+
+    direction = -d / d2;
+
+    /* truncate for bounds, if necessary */
+    if ((*x) + direction - lb < BOUNDARY_EPS2) 
+      direction = lb + BOUNDARY_EPS2 - (*x); 
+    else if (ub - ((*x) + direction) < BOUNDARY_EPS2) 
+      direction = ub - BOUNDARY_EPS2 - (*x);
+
+    /* line search; function eval occurs here */
+    opt_lnsrch_1d(direction, xold, fxold, x, fx, d, f, data, &nevals, 
+                  &lambda, logf);
+
+    /* test for convergence */
+    if (opt_sigfig(*x, xold) >= sigfigs && opt_sigfig(*fx, fxold) >= sigfigs) 
+      converged = TRUE;
+
+    fxold = (*fx);
+    xold = (*x);
+  }  
+
+  if (logf != NULL) {
+    fprintf(logf, "%15.6f %15.6f %15s %15s %15f\n", *fx, *x, "-", "-", lambda);
+    gettimeofday(&end_time, NULL);
+    fprintf(logf, "\nNumber of iterations: %d\nNumber of function evaluations: %d\nTotal time: %.4f sec.\n", 
+            its, nevals, end_time.tv_sec - start_time.tv_sec + 
+            (end_time.tv_usec - start_time.tv_usec)/1.0e6);
+
+    if (!converged)
+      fprintf(logf, "WARNING: exceeded maximum number of iterations.\n");
+  }
+
+  return(!converged);
+}
+
+/* one-dimensional BFGS optimizer, with line search and
+   bounds.  Allows for analytical computation of first 
+   derivatives via function pointer.  Set to NULL to use
+   numerical methods.  Abscissa (*x) should be initialized
+   appropriately by calling code, and will contain optimized value on
+   exit.  Parameter (*fx) will contain minimized value of function on
+   exit.  Set sigfigs to desired number of stable significant figures
+   for convergence.  This criterion applies both to x and to f(x).
+   Function returns 0 on success, 1 if maximum number of iterations is
+   reached */
+int opt_bfgs_1d(double (*f)(double, void*), double (*x), void *data, 
+                  double *fx, int sigfigs, double lb, double ub, FILE *logf, 
+                  double (*compute_deriv)(double x, void *data, double lb, 
+                                          double ub)) {
+
+  double xold, fxold, d, d2, dold, direction, lambda = -1;
+  int its, nevals = 0, converged = FALSE;
+  struct timeval start_time, end_time;
+
+  assert(*x > lb && *x < ub && ub > lb);
+
+  if (logf != NULL) {
+    gettimeofday(&start_time, NULL);
+    fprintf(logf, "%15s %15s %15s %15s %15s\n", "f(x)", "x", "f'(x)", 
+            "f''(x)", "lambda");
+  }
+
+  /* initial function and derivative evaluation */
+  (*fx) = f(*x, data);
+  opt_derivs_1d(&d, NULL, *x, *fx, lb, ub, f, data, compute_deriv, NULL);
+  nevals += 2;                /* assume cost of deriv approx
+                                 equals that of a functional evaluation */
+
+  d2 = 1;                       /* this is the approximate second
+                                   derivative; initialize to 1 and
+                                   iteratively refine  */
+
+  xold = (*x);                  /* invariant condition at loop start */
+  fxold = (*fx);
+  dold = d;
+
+  for (its = 0; !converged && its < ITMAX; its++) { 
+    if (logf != NULL)               /* write initial entry to log after
+                                       computing derivatives */
+      fprintf(logf, "%15.6f %15.6f %15.6f %15.6f %15.6f\n", *fx, *x, d, d2, lambda);
+
+    direction = -d / d2;
+
+    /* truncate for bounds, if necessary */
+    if ((*x) + direction - lb < BOUNDARY_EPS2) 
+      direction = lb + BOUNDARY_EPS2 - (*x); 
+    else if (ub - ((*x) + direction) < BOUNDARY_EPS2) 
+      direction = ub - BOUNDARY_EPS2 - (*x);
+
+    /* line search; function eval occurs here */
+    opt_lnsrch_1d(direction, xold, fxold, x, fx, d, f, data, &nevals, 
+                  &lambda, logf);
+
+    /* test for convergence */
+    if (opt_sigfig(*x, xold) >= sigfigs && opt_sigfig(*fx, fxold) >= sigfigs) {
+      converged = TRUE;
+      break;
+    }
+
+    opt_derivs_1d(&d, NULL, *x, *fx, lb, ub, f, data, compute_deriv, NULL);
+    nevals++;                   
+
+    d2 *= (1 - d/dold);         /* Hessian update takes a trivial form
+                                   in the 1d case */
+    if (d2 < 0.01)              /* check if ill-conditioned */
+      d2 = 1;
+
+    fxold = (*fx);
+    xold = (*x);
+    dold = d;
+  }  
+
+  if (logf != NULL) {
+    fprintf(logf, "%15.6f %15.6f %15s %15s %15f\n", *fx, *x, "-", "-", lambda);
+    gettimeofday(&end_time, NULL);
+    fprintf(logf, "\nNumber of iterations: %d\nNumber of function evaluations: %d\nTotal time: %.4f sec.\n", 
+            its, nevals, end_time.tv_sec - start_time.tv_sec + 
+            (end_time.tv_usec - start_time.tv_usec)/1.0e6);
+
+    if (!converged)
+      fprintf(logf, "WARNING: exceeded maximum number of iterations.\n");
+  }
+
+  return(!converged);
+}
+
+/* compute first and (optionally) second derivative at particular
+   abscissa, using numerical approximations to derivatives if
+   necessary.  Allows for bounds.  For use in one-dimensional
+   optimizers.  Set deriv2 == NULL to skip second derivative.  Note:
+   function value fx is only used in the numerical case (avoids a
+   redundant function evaluation) */
+void opt_derivs_1d(double *deriv, double *deriv2, double x, double fx, 
+                   double lb, double ub, double (*f)(double, void*), void *data,
+                   double (*compute_deriv)(double x, void *data, double lb, 
+                                           double ub),
+                   double (*compute_deriv2)(double x, void *data, double lb, 
+                                            double ub)) {
+  double fxeps, fx2eps;
+  int at_ub = (ub - x < BOUNDARY_EPS2); /* at upper bound */
+
+  if (compute_deriv == NULL) {
+    if (at_ub) {           /* use backward method if at upper bound */
+      fxeps = f(x - DERIV_EPSILON, data);
+      *deriv = (fx - fxeps) / DERIV_EPSILON;
+    }
+    else { 
+      fxeps = f(x + DERIV_EPSILON, data);
+      *deriv = (fxeps - fx) / DERIV_EPSILON;
+    }
+  }
+  else 
+    *deriv = compute_deriv(x, data, lb, ub);
+
+  if (deriv2 == NULL) return;
+
+  if (compute_deriv2 == NULL) {     /* numerical 2nd deriv */
+    if (at_ub) {                    /* at upper bound */
+      if (compute_deriv != NULL)    /* exact 1d available */
+        *deriv2 = (*deriv - compute_deriv(x - DERIV_EPSILON, data, lb, ub)) / 
+          DERIV_EPSILON;
+      else {                    /* numerical 1st and second derivs */
+        fx2eps = f(x - 2*DERIV_EPSILON, data);
+        *deriv2 = (fx2eps + 2*fxeps - fx) / (DERIV_EPSILON * DERIV_EPSILON);
+      }
+    }
+    else {                       /* not at upper bound */
+      if (compute_deriv != NULL) /* exact 1d available */
+        *deriv2 = (compute_deriv(x + DERIV_EPSILON, data, lb, ub) - *deriv) / 
+          DERIV_EPSILON;
+      else {                    /* numerical 1st and second derivs */
+        fx2eps = f(x + 2*DERIV_EPSILON, data);
+        *deriv2 = (fx2eps - 2*fxeps + fx) / (DERIV_EPSILON * DERIV_EPSILON);
+      }
+    }
+  }
+  else                          /* exact 2nd deriv */
+    *deriv2 = compute_deriv2(x, data, lb, ub);
+}
+
+/* line search for 1d case.  Sets *x, *fx, *final_lambda on exit */
+void opt_lnsrch_1d(double direction, double xold, double fxold, double *x, 
+                   double *fx, double deriv, double (*func)(double, void*), 
+                   void *data, int *nevals, double *final_lambda, FILE *logf) {
+
+  double lambda, lambda_min, slope, lambda2, tmplam, f2;
+
+  /* one-d line search */
+  lambda = 1;
+  lambda_min = TOLX(OPT_HIGH_PREC) * max(xold, 1) / (*x);
+  slope = deriv * direction;
+
+  for (;;) {
+    (*x) = xold + lambda * direction;
+    (*fx) = func(*x, data);
+    (*nevals)++;
+
+    if (lambda < lambda_min) {
+      (*x) = xold;
+      (*fx) = fxold;
+      if (logf != NULL)
+        fprintf(logf, "WARNING: insufficient decrease in line search.\n");
+      break;
+    }
+
+    else if ((*fx) <= fxold + ALPHA * lambda * slope) 
+      /* sufficient decrease */
+      break;
+
+    else {                    /* have to backtrack */
+      if (lambda == 1)
+        tmplam = -slope/(2*((*fx) - fxold - slope));
+      else {
+        double rhs1, rhs2, a, b, disc;
+        rhs1 = (*fx) - fxold - lambda * slope;
+        rhs2 = f2 - fxold - lambda2 * slope;
+        a = (rhs1/(lambda*lambda) - rhs2/(lambda2*lambda2)) /
+          (lambda-lambda2);
+        b = (-lambda2*rhs1/(lambda*lambda) + lambda*rhs2/(lambda2*lambda2)) /
+          (lambda-lambda2);
+        if (a == 0.0) tmplam = -slope/(2.0*b);
+        else {
+          disc = b*b - 3.0*a*slope;
+          if (disc < 0.0) tmplam = 0.5*lambda;
+          else if (b <= 0.0) tmplam = (-b + sqrt(disc)) / (3.0*a);
+          else tmplam = -slope / (b + sqrt(disc));
+        }
+        if (tmplam > 0.5 * lambda)
+          tmplam = 0.5 * lambda;      
+      }
+      lambda2 = lambda;
+      f2 = (*fx);
+      lambda = max(tmplam, 0.1*lambda); 
+    }
+  }
+
+  *final_lambda = lambda;
+}
 
 /* given two vectors of consecutive parameter estimates, return the
    minimum number of shared significant figures */
 int opt_min_sigfig(Vector *p1, Vector *p2) {
-  int i, sf, min = 99999;
+  double tmp;
+  int i, sf, min = INFTY;
   assert(p1->size == p2->size);
   for (i = 0; i < p1->size; i++) {
     double val1 = vec_get(p1, i);
     double val2 = vec_get(p2, i);
-    double tmp = pow(10, floor(log10(val1)));
+    if (val1 == val2) continue;
+    if ((val1 < 0 && val2 > 0) || (val1 > 0 && val2 < 0)) {
+      min = 0;
+      break;
+    }
+    val1 = fabs(val1); val2 = fabs(val2);
+    tmp = pow(10, floor(log10(val1)));
     val1 /= tmp; val2 /= tmp;
     for (sf = 0; sf < MAXSIGFIGS; sf++) {
       if (floor(val1) != floor(val2)) break;
       val1 *= 10;
       val2 *= 10;
     }    
-    if (sf < min) min = sf;
+    if (sf < min) {
+      min = sf;
+      if (min == 0)
+        break;
+    }
   }
-  if (min < 0) min = 0;
   return min;
+}
+
+/* given two numbers, return number of shared significant figures */
+int opt_sigfig(double val1, double val2) {
+  double tmp;
+  int sf, tv1, tv2;
+  if (val1 == val2) return INFTY;
+  if ((val1 < 0 && val2 > 0) || (val1 > 0 && val2 < 0)) return 0;
+  val1 = fabs(val1); val2 = fabs(val2);
+  tmp = pow(10, floor(log10(val1)));
+  val1 /= tmp; val2 /= tmp;
+  for (sf = 0; sf < 30; sf++) { /* never look at more than 30 digits */
+    tv1 = trunc(val1); tv2 = trunc(val2);
+    if (tv1 != tv2 || (val1 < 1e-30 && val2 < 1e-30)) break;
+                                /* avoid pathological roundoff cases */
+    val1 = (val1 - tv1) * 10;   /* avoid overflow */
+    val2 = (val2 - tv2) * 10;
+  }    
+  return sf;
 }

@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_column.h,v 1.11 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: fit_column.h,v 1.12 2008-11-15 19:42:04 acs Exp $ */
 
 #ifndef FIT_COL_H
 #define FIT_COL_H
@@ -49,6 +49,7 @@ typedef struct {
   int nfels_scratch;            /* number of scratch arrays (depends on mode) */
   Zmatrix *mat_scratch;         /* scratch memory for derivative computation */
   Zvector *vec_scratch1, *vec_scratch2;
+  double deriv2;                /* second deriv for 1d case */
 } ColFitData;
 
 /* data for grid of precomputed Fisher Information Matrices */
