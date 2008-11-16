@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_column.c,v 1.19 2008-11-16 02:32:54 acs Exp $ */
+/* $Id: fit_column.c,v 1.20 2008-11-16 21:59:48 acs Exp $ */
 
 /* Functions to compute likelihoods for individual alignment columns,
    estimate column-by-column scale factors by maximum likelihood,
@@ -685,14 +685,14 @@ double col_grad_wrapper_1d(double x, void *data, double lb, double ub) {
   ColFitData *d = (ColFitData*)data;
   assert(d->stype == ALL);
   col_scale_derivs(d, &deriv, &deriv2, d->fels_scratch); 
-  d->deriv2 = -deriv2;           /* store for use in other wrapper */ 
+  d->deriv2 = -deriv2;           /* store for use by wrapper below */ 
   return -deriv; /* because working with neg lnl */
 }
 
 /* Wrapper for second derivative function for use in parameter
    estimation; version for use with opt_newton_1d.  Simply returns
-   value computed in col_grad_wrapper_1d (it is more efficient to
-   compute the 1st and 2nd derivs simultaneously) */
+   value computed in col_grad_wrapper_1d (1st and 2nd derivs are
+   computed simultaneously) */
 double col_deriv2_wrapper_1d(double x, void *data, double lb, double ub) {
   ColFitData *d = (ColFitData*)data;
   return d->deriv2;
@@ -712,61 +712,64 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
               double *tuple_scales, double *tuple_llrs, FILE *logf) {
   int i;
   ColFitData *d;
-  double null_lnl, alt_lnl, delta_lnl;
+  double null_lnl, alt_lnl, delta_lnl, this_scale = 1;
 
   /* init ColFitData */
   d = col_init_fit_data(mod, msa, ALL, mode, FALSE);
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
-    mod->scale = 1;
-    tm_set_subst_matrices(mod);
 
-    /* compute log likelihoods under null and alt hypotheses */
-    null_lnl = col_compute_log_likelihood(mod, msa, i, d->fels_scratch[0]);
+    /* first check for actual substitution data in column; if none,
+       don't waste time computing likelihoods */
+    if (!col_has_data(mod, msa, i)) {
+      delta_lnl = 0;
+      this_scale = 1;
+    }
 
-    vec_set(d->params, 0, d->init_scale);
-    d->tupleidx = i;
+    else {                      /* compute null and alt lnl */
+      mod->scale = 1;
+      tm_set_subst_matrices(mod);
 
-    /* orig version */
-/*        if (opt_bfgs(col_likelihood_wrapper, d->params, d, &alt_lnl, d->lb,     */
-/*                     d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)     */
-/*          ; */                            /* do nothing; nonzero exit typically
-                                   occurs when max iterations is
-                                   reached; a warning is printed to
-                                   the log */
-    /* end orig version */
+      /* compute log likelihoods under null and alt hypotheses */
+      null_lnl = col_compute_log_likelihood(mod, msa, i, d->fels_scratch[0]);
 
-    /* alt version */
-     opt_newton_1d(col_likelihood_wrapper_1d, &d->params->data[0], d, &alt_lnl, SIGFIGS, d->lb->data[0], d->ub->data[0], logf, /* col_grad_wrapper_1d */ NULL, /* col_deriv2_wrapper_1d */ NULL);   
-    /* end alt version */
+      vec_set(d->params, 0, d->init_scale);
+      d->tupleidx = i;
 
-       /* alt version 2 */
-/*     opt_bfgs_1d(col_likelihood_wrapper_1d, &d->params->data[0], d, &alt_lnl, SIGFIGS, d->lb->data[0], d->ub->data[0], logf, col_grad_wrapper_1d);    */
-       /* end alt version 2 */
+      opt_newton_1d(col_likelihood_wrapper_1d, &d->params->data[0], d, 
+                    &alt_lnl, SIGFIGS, d->lb->data[0], d->ub->data[0], 
+                    logf, NULL, NULL);   
+      /* turns out to be faster (roughly 15% in limited experiments)
+         to use numerical rather than exact derivatives */
 
-    alt_lnl *= -1;
+      alt_lnl *= -1;
+      this_scale = d->params->data[0];
 
-    delta_lnl = alt_lnl - null_lnl;
-    assert(delta_lnl > -0.01);
-    if (delta_lnl < 0) delta_lnl = 0;
+      delta_lnl = alt_lnl - null_lnl;
+      assert(delta_lnl > -0.01);
+      if (delta_lnl < 0) delta_lnl = 0;
+    } /* end estimation of delta_lnl */
 
     /* compute p-vals via chi-sq */
     if (tuple_pvals != NULL) {
       if (mode == NNEUT) 
         tuple_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
-      else {
+      else 
         tuple_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
         /* assumes 50:50 mix of chisq and point mass at zero, due to
            bounding of param */
 
-        if (mode == CONACC && d->params->data[0] > 1)
+      if (tuple_pvals[i] < 1e-20)
+        tuple_pvals[i] = 1e-20;
+      /* approx limit of eval of tail prob; pvals of 0 cause problems */
+
+      if (mode == CONACC && this_scale > 1)
           tuple_pvals[i] *= -1; /* mark as acceleration */
-      }
     }
 
     /* store scales and log likelihood ratios if necessary */
-    if (tuple_scales != NULL) tuple_scales[i] = d->params->data[0];
+    if (tuple_scales != NULL) tuple_scales[i] = this_scale;
     if (tuple_llrs != NULL) tuple_llrs[i] = delta_lnl;
   }
   
@@ -795,46 +798,59 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
-    /* compute log likelihoods under null and alt hypotheses */
-    d->tupleidx = i;
-    vec_set(d->params, 0, d->init_scale);
-    if (opt_bfgs(col_likelihood_wrapper, d->params, d, &null_lnl, d->lb, 
-                 d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
-      ;                         /* do nothing; nonzero exit typically
-                                   occurs when max iterations is
-                                   reached; a warning is printed to
-                                   the log */
-    null_lnl *= -1;
 
-    d2->tupleidx = i;
-    vec_set(d2->params, 0, d->params->data[0]); /* init to previous estimate
-                                                   to save time */
-    vec_set(d2->params, 1, d2->init_scale_sub);
-    if (opt_bfgs(col_likelihood_wrapper, d2->params, d2, &alt_lnl, d2->lb, 
-                 d2->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
-      ;                         /* do nothing; nonzero exit typically
-                                   occurs when max iterations is
-                                   reached; a warning is printed to
-                                   the log */
-    alt_lnl *= -1;
+    /* first check for actual substitution data in column; if none,
+       don't waste time computing likeihoods */
+    if (!col_has_data(mod, msa, i)) { /* FIXME: should check subtree
+                                         leaves specifically */
+      delta_lnl = 0;
+      d->params->data[0] = d2->params->data[0] = d2->params->data[1] = 1;
+    }
 
-    delta_lnl = alt_lnl - null_lnl;
-    assert(delta_lnl > -0.1);
-    if (delta_lnl < 0.001) delta_lnl = 0;
-    /* within tolerance of optimization */
+    else {
+      /* compute log likelihoods under null and alt hypotheses */
+      d->tupleidx = i;
+      vec_set(d->params, 0, d->init_scale);
+      opt_newton_1d(col_likelihood_wrapper_1d, &d->params->data[0], d, 
+                    &null_lnl, SIGFIGS, d->lb->data[0], d->ub->data[0], 
+                    logf, NULL, NULL);   
+      /* turns out to be faster (roughly 15% in limited experiments)
+         to use numerical rather than exact derivatives */
+      null_lnl *= -1;
+    
+      d2->tupleidx = i;
+      vec_set(d2->params, 0, d->params->data[0]); /* init to previous estimate
+                                                     to save time */
+      vec_set(d2->params, 1, d2->init_scale_sub);
+      if (opt_bfgs(col_likelihood_wrapper, d2->params, d2, &alt_lnl, d2->lb, 
+                   d2->ub, logf, NULL, OPT_HIGH_PREC, NULL) != 0)
+        ;                         /* do nothing; nonzero exit typically
+                                     occurs when max iterations is
+                                     reached; a warning is printed to
+                                     the log */
+      alt_lnl *= -1;
+
+      delta_lnl = alt_lnl - null_lnl;
+      assert(delta_lnl > -0.1);
+      if (delta_lnl < 0.001) delta_lnl = 0;
+      /* within tolerance of optimization */
+    }
 
     /* compute p-vals via chi-sq */
     if (tuple_pvals != NULL) {
       if (mode == NNEUT) 
         tuple_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
-      else {
+      else 
         tuple_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
         /* assumes 50:50 mix of chisq and point mass at zero, due to
            bounding of param */
 
-        if (mode == CONACC && d2->params->data[1] > 1)
-          tuple_pvals[i] *= -1;    /* mark as acceleration */        
-      }
+      if (tuple_pvals[i] < 1e-20)
+        tuple_pvals[i] = 1e-20;
+      /* approx limit of eval of tail prob; pvals of 0 cause problems */
+
+      if (mode == CONACC && d2->params->data[1] > 1)
+        tuple_pvals[i] *= -1;    /* mark as acceleration */        
     }
 
     /* store scales and log likelihood ratios if necessary */
@@ -875,27 +891,40 @@ void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode,
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
-    d->tupleidx = i;
 
-    col_scale_derivs(d, &first_deriv, NULL, d->fels_scratch);
+    /* first check for actual substitution data in column; if none,
+       don't waste time computing score */
+    if (!col_has_data(mod, msa, i)) {
+      first_deriv = 0;
+      teststat = 0;
+    }
 
-    teststat = first_deriv*first_deriv / fim;
+    else {
+      d->tupleidx = i;
 
-    if ((mode == ACC && first_deriv < 0) ||
-        (mode == CON && first_deriv > 0))
-      teststat = 0;             /* derivative points toward boundary;
-                                   truncate at 0 */
+      col_scale_derivs(d, &first_deriv, NULL, d->fels_scratch);
+
+      teststat = first_deriv*first_deriv / fim;
+
+      if ((mode == ACC && first_deriv < 0) ||
+          (mode == CON && first_deriv > 0))
+        teststat = 0;             /* derivative points toward boundary;
+                                     truncate at 0 */
+    }
 
     if (tuple_pvals != NULL) {
       if (mode == NNEUT)
         tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
-      else {
+      else 
         tuple_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
         /* assumes 50:50 mix of chisq and point mass at zero */
+
+      if (tuple_pvals[i] < 1e-20)
+        tuple_pvals[i] = 1e-20;
+      /* approx limit of eval of tail prob; pvals of 0 cause problems */
         
-        if (mode == CONACC && first_deriv > 0)
-          tuple_pvals[i] *= -1; /* mark as acceleration */
-      }
+      if (mode == CONACC && first_deriv > 0)
+        tuple_pvals[i] *= -1; /* mark as acceleration */
     }
 
     /* store scales and log likelihood ratios if necessary */
@@ -932,46 +961,60 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
-    d->tupleidx = i;
-    vec_set(d->params, 0, d->init_scale);
-    if (opt_bfgs(col_likelihood_wrapper, d->params, d, &lnl, d->lb, 
-                 d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
-      ;                         /* do nothing; nonzero exit typically
-                                   occurs when max iterations is
-                                   reached; a warning is printed to
-                                   the log */
-    
-    d2->tupleidx = i;
-    d2->mod->scale = d->params->data[0];
-    d2->mod->scale_sub = 1;
-    tm_set_subst_matrices(d2->mod);
-    col_scale_derivs_subtree(d2, grad, NULL, d2->fels_scratch);
 
-    fim = col_get_fim_sub(grid, d2->mod->scale); 
-    
-    teststat = grad->data[1]*grad->data[1] / 
-      (fim->data[1][1] - fim->data[0][1]*fim->data[1][0]/fim->data[0][0]);
-
-    if (teststat < 0) {
-      fprintf(stderr, "WARNING: teststat < 0 (%f)\n", teststat);
-      teststat = 0; 
+    /* first check for actual substitution data in column; if none,
+       don't waste time computing score */
+    if (!col_has_data(mod, msa, i)) { /* FIXME: should check subtree
+                                         leaves specifically */
+      teststat = 0;
+      vec_zero(grad);
     }
 
-    if ((mode == ACC && grad->data[1] < 0) ||
-        (mode == CON && grad->data[1] > 0))
-      teststat = 0;             /* derivative points toward boundary;
-                                   truncate at 0 */
+    else {
+      d->tupleidx = i;
+      vec_set(d->params, 0, d->init_scale);
+
+      opt_newton_1d(col_likelihood_wrapper_1d, &d->params->data[0], d, 
+                    &lnl, SIGFIGS, d->lb->data[0], d->ub->data[0], 
+                    logf, NULL, NULL);   
+      /* turns out to be faster (roughly 15% in limited experiments)
+         to use numerical rather than exact derivatives */
+    
+      d2->tupleidx = i;
+      d2->mod->scale = d->params->data[0];
+      d2->mod->scale_sub = 1;
+      tm_set_subst_matrices(d2->mod);
+      col_scale_derivs_subtree(d2, grad, NULL, d2->fels_scratch);
+
+      fim = col_get_fim_sub(grid, d2->mod->scale); 
+    
+      teststat = grad->data[1]*grad->data[1] / 
+        (fim->data[1][1] - fim->data[0][1]*fim->data[1][0]/fim->data[0][0]);
+
+      if (teststat < 0) {
+        fprintf(stderr, "WARNING: teststat < 0 (%f)\n", teststat);
+        teststat = 0; 
+      }
+
+      if ((mode == ACC && grad->data[1] < 0) ||
+          (mode == CON && grad->data[1] > 0))
+        teststat = 0;             /* derivative points toward boundary;
+                                     truncate at 0 */
+    }
 
     if (tuple_pvals != NULL) {
       if (mode == NNEUT)
         tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
-      else {
+      else 
         tuple_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
-        /* assumes 50:50 mix of chisq and point mass at zero */
+      /* assumes 50:50 mix of chisq and point mass at zero */
 
-        if (mode == CONACC && grad->data[1] > 0)
-          tuple_pvals[i] *= -1; /* mark as acceleration */
-      }
+      if (tuple_pvals[i] < 1e-20)
+        tuple_pvals[i] = 1e-20;
+      /* approx limit of eval of tail prob; pvals of 0 cause problems */
+        
+      if (mode == CONACC && grad->data[1] > 0)
+        tuple_pvals[i] *= -1; /* mark as acceleration */
     }
 
     /* store scales and log likelihood ratios if necessary */
@@ -1177,13 +1220,13 @@ void col_gerp(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_nneut,
     else {
       vec_set(d->params, 0, d->init_scale);
       d->tupleidx = i;
-      if (opt_bfgs(col_likelihood_wrapper, d->params, d, &lnl, d->lb, 
-                   d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0) 
-        ;                         /* do nothing; nonzero exit typically
-                                     occurs when max iterations is
-                                     reached; a warning is printed to
-                                     the log */
-      
+
+      opt_newton_1d(col_likelihood_wrapper_1d, &d->params->data[0], d, 
+                    &lnl, SIGFIGS, d->lb->data[0], d->ub->data[0], 
+                    logf, NULL, NULL);   
+      /* turns out to be faster (roughly 15% in limited experiments)
+         to use numerical rather than exact derivatives */
+
       scale = d->params->data[0];
       for (j = 1, nneut = 0; j < mod->tree->nnodes; j++)  /* node 0 is root */
         if (has_data[j]) 
@@ -1200,45 +1243,6 @@ void col_gerp(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_nneut,
     }
   }
   col_free_fit_data(d);
-  free(has_data);
-}
-
-/* Perform an alternative GERP-like computation for each tuple, based
-   on the posterior expected number of substitutions (actually
-   differences) rather than an MLE of the scaled tree at each site.
-   Computes expected number of subst. under neutrality (tuple_nneut),
-   posterior expected numbers of differences along branches
-   (tuple_ndiff), expected number of rejected substitutions
-   (tuple_nrejected), and number of species with data
-   (tuple_nspecies).  If any arrays are NULL, values will not be
-   retained.  Gaps and missing data are handled by working with
-   induced subtree.  */
-void col_gerp_alt(TreeModel *mod, MSA *msa, double *tuple_nneut, 
-                  double *tuple_ndiff, double *tuple_nrejected, 
-                  double *tuple_nspec) { 
-  int i, j, nspec = 0;
-  double nneut, ndiff;
-  int *has_data = smalloc(mod->tree->nnodes * sizeof(int));
-  TreePosteriors *post = tl_new_tree_posteriors(mod, msa, FALSE, FALSE, 
-                                                TRUE, FALSE, FALSE, FALSE);
-  tl_compute_log_likelihood(mod, msa, NULL, -1, post);
-  for (i = 0; i < msa->ss->ntuples;i++) {
-    nneut = ndiff = 0;
-    col_find_missing_branches(mod, msa, i, has_data, &nspec);
-    for (j = 1; j < mod->tree->nnodes; j++) { /* node 0 is root */
-      if (has_data[j]) {
-        TreeNode *n = lst_get_ptr(mod->tree->nodes, j);
-        nneut += n->dparent;
-        ndiff += post->expected_nsubst[0][j][i];
-      }
-    }
-
-    if (tuple_nspec != NULL) tuple_nspec[i] = (double)nspec;
-    if (tuple_nneut != NULL) tuple_nneut[i] = nneut;
-    if (tuple_ndiff != NULL) tuple_ndiff[i] = ndiff;
-    if (tuple_nrejected != NULL) tuple_nrejected[i] = nneut - ndiff;
-  }
-  tl_free_tree_posteriors(mod, msa, post);
   free(has_data);
 }
 
@@ -1479,4 +1483,17 @@ Matrix *col_get_fim_sub(FimGrid *g, double scale) {
       mat_linear_comb(retval, g->fim[idx], frac, g->fim[idx+1], 1-frac); 
   }
   return retval;  
+}
+
+/* returns TRUE if column has two or more actual bases (not gaps or
+   missing data), otherwise returns FALSE */
+int col_has_data(TreeModel *mod, MSA *msa, int tupleidx) {
+  int i, nbases = 0;
+  for (i = 0; i < msa->nseqs && nbases < 2; i++) {
+    int state = mod->rate_matrix->
+      inv_states[(int)ss_get_char_tuple(msa, tupleidx, i, 0)];
+    if (state >= 0) 
+      nbases++;
+  }
+  return(nbases >= 2);
 }

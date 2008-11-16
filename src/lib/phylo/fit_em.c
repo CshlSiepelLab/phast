@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_em.c,v 1.7 2008-11-16 02:32:54 acs Exp $ */
+/* $Id: fit_em.c,v 1.8 2008-11-16 21:59:48 acs Exp $ */
 
 /* Functions for fitting tree models by EM */
 
@@ -94,6 +94,9 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
   mod->tree_posteriors = tl_new_tree_posteriors(mod, msa, 0, 0, 0, 1, 0, 
                                                 mod->empirical_rates ? 1 : 0);
   mod->category = cat;
+
+  /* routines for derivative computation assume complex numbers */
+  mm_set_eigentype(mod->rate_matrix, COMPLEX);
 
   /* most params have lower bound of zero and no upper bound */
   lower_bounds = vec_new(params->size);

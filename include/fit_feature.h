@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_feature.h,v 1.2 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: fit_feature.h,v 1.3 2008-11-16 21:59:48 acs Exp $ */
 
 #ifndef FIT_FEAT_H
 #define FIT_FEAT_H
@@ -63,5 +63,7 @@ void ff_free_fit_data(FeatFitData *d);
 
 void ff_find_missing_branches(TreeModel *mod, MSA *msa, GFF_Feature *feat, 
                               int *has_data, int *nspec);
+
+int ff_has_data(TreeModel *mod, MSA *msa, GFF_Feature *f);
 
 #endif

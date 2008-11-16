@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_feature.c,v 1.3 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: fit_feature.c,v 1.4 2008-11-16 21:59:48 acs Exp $ */
 
 /* Functions to compute likelihoods, estimate scale factors, perform
    LRTs, score tests, etc. for multi-column features.  Generalization
@@ -18,6 +18,10 @@
 #include <fit_column.h>
 #include <sufficient_stats.h>
 #include <tree_likelihoods.h>
+
+#define SIGFIGS 4
+/* number of significant figures to which to estimate scale
+   parameters (currently affects 1d parameter estimation only) */
 
 /* Compute and return the log likelihood of a tree model with respect
    to a given feature.  Calls col_compute_log_likelihood for each
@@ -94,6 +98,21 @@ double ff_likelihood_wrapper(Vector *params, void *data) {
                                         d->feat, d->cdata->fels_scratch[0]);
 }
 
+/* Wrapper for likelihood function for use in parameter estimation;
+   version for use with opt_newton_1d */
+double ff_likelihood_wrapper_1d(double x, void *data) {
+  FeatFitData *d = (FeatFitData*)data;
+  assert (d->cdata->stype != SUBTREE) ;
+
+  d->cdata->mod->scale = x;
+
+  /* reestimate subst models on edges */
+  tm_set_subst_matrices(d->cdata->mod); 
+
+  return -1 * ff_compute_log_likelihood(d->cdata->mod, d->cdata->msa, 
+                                        d->feat, d->cdata->fels_scratch[0]);
+}
+
 /* Wrapper for gradient function for use in parameter estimation */
 void ff_grad_wrapper(Vector *grad, Vector *params, void *data, 
                      Vector *lb, Vector *ub) {
@@ -125,7 +144,7 @@ void ff_lrts(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
              FILE *logf) {
   int i;
   FeatFitData *d;
-  double null_lnl, alt_lnl, delta_lnl;
+  double null_lnl, alt_lnl, delta_lnl, this_scale = 1;
 
   /* init FeatFitData */
   d = ff_init_fit_data(mod, msa, ALL, mode, FALSE);
@@ -133,45 +152,58 @@ void ff_lrts(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
   /* iterate through features  */
   for (i = 0; i < lst_size(gff->features); i++) {
     GFF_Feature *f = lst_get_ptr(gff->features, i);
-    mod->scale = 1;
-    tm_set_subst_matrices(mod);
 
-    /* compute log likelihoods under null and alt hypotheses */
-    null_lnl = ff_compute_log_likelihood(mod, msa, f, 
-                                         d->cdata->fels_scratch[0]);
+    /* first check for actual substitution data in feature; if none,
+       don't waste time computing likelihoods */
+    if (!ff_has_data(mod, msa, f)) {
+      delta_lnl = 0;
+      this_scale = 1;
+    }
 
-    vec_set(d->cdata->params, 0, d->cdata->init_scale);
-    d->feat = f;
-    if (opt_bfgs(ff_likelihood_wrapper, d->cdata->params, d, &alt_lnl, 
-                 d->cdata->lb, d->cdata->ub, logf, ff_grad_wrapper, 
-                 OPT_HIGH_PREC, NULL) != 0) 
-      ;                         /* do nothing; nonzero exit typically
-                                   occurs when max iterations is
-                                   reached; a warning is printed to
-                                   the log */
+    else {
+      mod->scale = 1;
+      tm_set_subst_matrices(mod);
 
-    alt_lnl *= -1;
+      /* compute log likelihoods under null and alt hypotheses */
+      null_lnl = ff_compute_log_likelihood(mod, msa, f, 
+                                           d->cdata->fels_scratch[0]);
 
-    delta_lnl = alt_lnl - null_lnl;
-    assert(delta_lnl > -0.01);
-    if (delta_lnl < 0) delta_lnl = 0;
+      vec_set(d->cdata->params, 0, d->cdata->init_scale);
+      d->feat = f;
+
+      opt_newton_1d(ff_likelihood_wrapper_1d, &d->cdata->params->data[0], d, 
+                    &alt_lnl, SIGFIGS, d->cdata->lb->data[0], 
+                    d->cdata->ub->data[0], logf, NULL, NULL);   
+      /* turns out to be faster to use numerical rather than exact
+         derivatives (judging by col case) */
+
+      alt_lnl *= -1;
+      this_scale = d->cdata->params->data[0];
+
+      delta_lnl = alt_lnl - null_lnl;
+      assert(delta_lnl > -0.01);
+      if (delta_lnl < 0) delta_lnl = 0;
+    }
 
     /* compute p-vals via chi-sq */
     if (feat_pvals != NULL) {
       if (mode == NNEUT) 
         feat_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
-      else {
+      else 
         feat_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
-        /* assumes 50:50 mix of chisq and point mass at zero, due to
-           bounding of param */
+      /* assumes 50:50 mix of chisq and point mass at zero, due to
+         bounding of param */
 
-        if (mode == CONACC && d->cdata->params->data[0] > 1)
-          feat_pvals[i] *= -1; /* mark as acceleration */
-      }
+      if (feat_pvals[i] < 1e-20)
+        feat_pvals[i] = 1e-20;
+      /* approx limit of eval of tail prob; pvals of 0 cause problems */
+
+      if (mode == CONACC && this_scale > 1)
+        feat_pvals[i] *= -1; /* mark as acceleration */
     }
 
     /* store scales and log likelihood ratios if necessary */
-    if (feat_scales != NULL) feat_scales[i] = d->cdata->params->data[0];
+    if (feat_scales != NULL) feat_scales[i] = this_scale;
     if (feat_llrs != NULL) feat_llrs[i] = delta_lnl;
   }
   
@@ -202,48 +234,57 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
   for (i = 0; i < lst_size(gff->features); i++) {
     GFF_Feature *f = lst_get_ptr(gff->features, i);
 
-    /* compute log likelihoods under null and alt hypotheses */
-    d->feat = f;
-    vec_set(d->cdata->params, 0, d->cdata->init_scale);
-    if (opt_bfgs(ff_likelihood_wrapper, d->cdata->params, d, &null_lnl, 
-                 d->cdata->lb, d->cdata->ub, logf, ff_grad_wrapper, 
-                 OPT_HIGH_PREC, NULL) != 0)
-      ;                         /* do nothing; nonzero exit typically
-                                   occurs when max iterations is
-                                   reached; a warning is printed to
-                                   the log */
-    null_lnl *= -1;
+    /* first check for actual substitution data in feature; if none,
+       don't waste time computing likelihoods */
+    if (!ff_has_data(mod, msa, f)) {
+      delta_lnl = 0;
+      d->cdata->params->data[0] = d2->cdata->params->data[0] = 
+        d2->cdata->params->data[1] = 1;
+    }
 
-    d2->feat = f;
-    vec_set(d2->cdata->params, 0, d->cdata->params->data[0]); 
+    else {
+      /* compute log likelihoods under null and alt hypotheses */
+      d->feat = f;
+      vec_set(d->cdata->params, 0, d->cdata->init_scale);
+      opt_newton_1d(ff_likelihood_wrapper_1d, &d->cdata->params->data[0], d, 
+                    &null_lnl, SIGFIGS, d->cdata->lb->data[0], 
+                    d->cdata->ub->data[0], logf, NULL, NULL);   
+      null_lnl *= -1;
+
+      d2->feat = f;
+      vec_set(d2->cdata->params, 0, d->cdata->params->data[0]); 
                                 /* init to previous estimate to save time */
-    vec_set(d2->cdata->params, 1, d2->cdata->init_scale_sub);
-    if (opt_bfgs(ff_likelihood_wrapper, d2->cdata->params, d2, &alt_lnl, 
-                 d2->cdata->lb, d2->cdata->ub, logf, ff_grad_wrapper, 
-                 OPT_HIGH_PREC, NULL) != 0)
-      ;                         /* do nothing; nonzero exit typically
-                                   occurs when max iterations is
-                                   reached; a warning is printed to
-                                   the log */
-    alt_lnl *= -1;
+      vec_set(d2->cdata->params, 1, d2->cdata->init_scale_sub);
+      if (opt_bfgs(ff_likelihood_wrapper, d2->cdata->params, d2, &alt_lnl, 
+                   d2->cdata->lb, d2->cdata->ub, logf, NULL, 
+                   OPT_HIGH_PREC, NULL) != 0)
+        ;                         /* do nothing; nonzero exit typically
+                                     occurs when max iterations is
+                                     reached; a warning is printed to
+                                     the log */
+      alt_lnl *= -1;
 
-    delta_lnl = alt_lnl - null_lnl;
-    assert(delta_lnl > -0.1);
-    if (delta_lnl < 0.001) delta_lnl = 0;
-    /* within tolerance of optimization */
+      delta_lnl = alt_lnl - null_lnl;
+      assert(delta_lnl > -0.1);
+      if (delta_lnl < 0.001) delta_lnl = 0;
+      /* within tolerance of optimization */
+    }
 
     /* compute p-vals via chi-sq */
     if (feat_pvals != NULL) {
       if (mode == NNEUT) 
         feat_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
-      else {
+      else 
         feat_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
         /* assumes 50:50 mix of chisq and point mass at zero, due to
            bounding of param */
 
-        if (mode == CONACC && d2->cdata->params->data[1] > 1)
-          feat_pvals[i] *= -1;    /* mark as acceleration */        
-      }
+      if (feat_pvals[i] < 1e-20)
+        feat_pvals[i] = 1e-20;
+      /* approx limit of eval of tail prob; pvals of 0 cause problems */
+
+      if (mode == CONACC && d2->cdata->params->data[1] > 1)
+        feat_pvals[i] *= -1;    /* mark as acceleration */        
     }
 
     /* store scales and log likelihood ratios if necessary */
@@ -286,38 +327,41 @@ void ff_score_tests(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
   for (i = 0; i < lst_size(gff->features); i++) {
     d->feat = lst_get_ptr(gff->features, i);
 
-    ff_scale_derivs(d, &first_deriv, NULL, d->cdata->fels_scratch);
+    /* first check for actual substitution data in feature; if none,
+       don't waste time computing likelihoods */
+    if (!ff_has_data(mod, msa, d->feat)) {
+      teststat = 0;
+      first_deriv = 1;
+    }
 
-    teststat = first_deriv*first_deriv / 
-      ((d->feat->end - d->feat->start + 1) * fim);
-    /* scale column-by-column FIM by length of feature (expected
-       values are additive) */
+    else {
 
-    if ((mode == ACC && first_deriv < 0) ||
-        (mode == CON && first_deriv > 0))
-      teststat = 0;             /* derivative points toward boundary;
-                                   truncate at 0 */
+      ff_scale_derivs(d, &first_deriv, NULL, d->cdata->fels_scratch);
+
+      teststat = first_deriv*first_deriv / 
+        ((d->feat->end - d->feat->start + 1) * fim);
+      /* scale column-by-column FIM by length of feature (expected
+         values are additive) */
+
+      if ((mode == ACC && first_deriv < 0) ||
+          (mode == CON && first_deriv > 0))
+        teststat = 0;             /* derivative points toward boundary;
+                                     truncate at 0 */
+    }
 
     if (feat_pvals != NULL) {
       if (mode == NNEUT)
         feat_pvals[i] = chisq_cdf(teststat, 1, FALSE);
-      else {
+      else 
         feat_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
-        /* assumes 50:50 mix of chisq and point mass at zero */
-
-        if (feat_pvals[i] == 0)
-          feat_pvals[i] = 1e-20;
-        /* this is a hack to address the problem that the chisq p-vals
-           evaluate to 0 when the test statistic is very large (>70),
-           despite that a better implementation of the incomplete
-           gamma function (as in R) would allow them to be computed.
-           This causes problems when reporting -log p-vals.  At the
-           limits of resolution, the p-values are in the ballpark of
-           10^-20, so we'll simply reset values of zero to this value. */ 
+      /* assumes 50:50 mix of chisq and point mass at zero */
+      
+      if (feat_pvals[i] < 1e-20)
+        feat_pvals[i] = 1e-20;
+      /* approx limit of eval of tail prob; pvals of 0 cause problems */
         
-        if (mode == CONACC && first_deriv > 0)
-          feat_pvals[i] *= -1; /* mark as acceleration */
-      }
+      if (mode == CONACC && first_deriv > 0)
+        feat_pvals[i] *= -1; /* mark as acceleration */
     }
 
     /* store scales and log likelihood ratios if necessary */
@@ -355,59 +399,61 @@ void ff_score_tests_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
   /* iterate through features  */
   for (i = 0; i < lst_size(gff->features); i++) {
     d->feat = lst_get_ptr(gff->features, i);
-    vec_set(d->cdata->params, 0, d->cdata->init_scale);
-    if (opt_bfgs(ff_likelihood_wrapper, d->cdata->params, d, &lnl, 
-                 d->cdata->lb, d->cdata->ub, logf, ff_grad_wrapper, 
-                 OPT_HIGH_PREC, NULL) != 0)
-      ;                         /* do nothing; nonzero exit typically
-                                   occurs when max iterations is
-                                   reached; a warning is printed to
-                                   the log */
-    
-    d2->feat = d->feat;
-    d2->cdata->mod->scale = d->cdata->params->data[0];
-    d2->cdata->mod->scale_sub = 1;
-    tm_set_subst_matrices(d2->cdata->mod);
-    ff_scale_derivs_subtree(d2, grad, NULL, d2->cdata->fels_scratch);
 
-    fim = col_get_fim_sub(grid, d2->cdata->mod->scale); 
-    mat_scale(fim, d->feat->end - d->feat->start + 1);
-    /* scale column-by-column FIM by length of feature (expected
-       values are additive) */
-    
-    teststat = grad->data[1]*grad->data[1] / 
-      (fim->data[1][1] - fim->data[0][1]*fim->data[1][0]/fim->data[0][0]);
-
-    if (teststat < 0) {
-      fprintf(stderr, "WARNING: teststat < 0 (%f)\n", teststat);
-      teststat = 0; 
+    /* first check for actual substitution data in feature; if none,
+       don't waste time computing likelihoods */
+    if (!ff_has_data(mod, msa, d->feat)) { /* FIXME: should specifically
+                                              check subtree */
+      teststat = 0;
+      vec_zero(grad);
     }
 
-    if ((mode == ACC && grad->data[1] < 0) ||
-        (mode == CON && grad->data[1] > 0))
-      teststat = 0;             /* derivative points toward boundary;
-                                   truncate at 0 */
+    else {
+      vec_set(d->cdata->params, 0, d->cdata->init_scale);
+      opt_newton_1d(ff_likelihood_wrapper_1d, &d->cdata->params->data[0], d, 
+                    &lnl, SIGFIGS, d->cdata->lb->data[0], d->cdata->ub->data[0], 
+                    logf, NULL, NULL);   
+      /* turns out to be faster to use numerical rather than exact
+         derivatives (judging by col case) */
+
+      d2->feat = d->feat;
+      d2->cdata->mod->scale = d->cdata->params->data[0];
+      d2->cdata->mod->scale_sub = 1;
+      tm_set_subst_matrices(d2->cdata->mod);
+      ff_scale_derivs_subtree(d2, grad, NULL, d2->cdata->fels_scratch);
+
+      fim = col_get_fim_sub(grid, d2->cdata->mod->scale); 
+      mat_scale(fim, d->feat->end - d->feat->start + 1);
+      /* scale column-by-column FIM by length of feature (expected
+         values are additive) */
+    
+      teststat = grad->data[1]*grad->data[1] / 
+        (fim->data[1][1] - fim->data[0][1]*fim->data[1][0]/fim->data[0][0]);
+
+      if (teststat < 0) {
+        fprintf(stderr, "WARNING: teststat < 0 (%f)\n", teststat);
+        teststat = 0; 
+      }
+
+      if ((mode == ACC && grad->data[1] < 0) ||
+          (mode == CON && grad->data[1] > 0))
+        teststat = 0;             /* derivative points toward boundary;
+                                     truncate at 0 */
+    }
 
     if (feat_pvals != NULL) {
       if (mode == NNEUT)
         feat_pvals[i] = chisq_cdf(teststat, 1, FALSE);
-      else {
+      else 
         feat_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
         /* assumes 50:50 mix of chisq and point mass at zero */
 
-        if (feat_pvals[i] == 0)
-          feat_pvals[i] = 1e-20;
-        /* this is a hack to address the problem that the chisq p-vals
-           evaluate to 0 when the test statistic is very large (>70),
-           despite that a better implementation of the incomplete
-           gamma function (as in R) would allow them to be computed.
-           This causes problems when reporting -log p-vals.  At the
-           limits of resolution, the p-values are in the ballpark of
-           10^-20, so we'll simply reset values of zero to this value. */ 
+      if (feat_pvals[i] < 1e-20)
+        feat_pvals[i] = 1e-20;
+      /* approx limit of eval of tail prob; pvals of 0 cause problems */
 
-        if (mode == CONACC && grad->data[1] > 0)
-          feat_pvals[i] *= -1; /* mark as acceleration */
-      }
+      if (mode == CONACC && grad->data[1] > 0)
+        feat_pvals[i] *= -1; /* mark as acceleration */
     }
 
     /* store scales and log likelihood ratios if necessary */
@@ -457,13 +503,12 @@ void ff_gerp(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
     else {
       vec_set(d->cdata->params, 0, d->cdata->init_scale);
       d->feat = f;
-      if (opt_bfgs(ff_likelihood_wrapper, d->cdata->params, d, &lnl, 
-                   d->cdata->lb, d->cdata->ub, logf, ff_grad_wrapper, 
-                   OPT_HIGH_PREC, NULL) != 0) 
-        ;                         /* do nothing; nonzero exit typically
-                                     occurs when max iterations is
-                                     reached; a warning is printed to
-                                     the log */
+
+      opt_newton_1d(ff_likelihood_wrapper_1d, &d->cdata->params->data[0], d, 
+                    &lnl, SIGFIGS, d->cdata->lb->data[0], d->cdata->ub->data[0], 
+                    logf, NULL, NULL);   
+      /* turns out to be faster to use numerical rather than exact
+         derivatives (judging by col case) */
       
       scale = d->cdata->params->data[0];
       for (j = 1, nneut = 0; j < mod->tree->nnodes; j++)  /* node 0 is root */
@@ -535,4 +580,22 @@ void ff_find_missing_branches(TreeModel *mod, MSA *msa, GFF_Feature *feat,
         has_data[n->id] = FALSE;
     }
   }
+}
+
+/* returns TRUE if at least one column in feature has two or more
+   actual bases (not gaps or missing data), otherwise returns FALSE */
+int ff_has_data(TreeModel *mod, MSA *msa, GFF_Feature *f) {
+  int i, j;
+  for (j = f->start-1; j < f->end; j++) {
+    int tupleidx = msa->ss->tuple_idx[j];
+    int nbases = 0;
+    for (i = 0; i < msa->nseqs && nbases < 2; i++) {
+      int state = mod->rate_matrix->
+        inv_states[(int)ss_get_char_tuple(msa, tupleidx, i, 0)];
+      if (state >= 0) 
+        nbases++;
+    }
+    if (nbases >= 2) return TRUE;
+  }
+  return FALSE;
 }

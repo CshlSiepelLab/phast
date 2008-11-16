@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: numerical_opt.c,v 1.13 2008-11-16 03:07:47 acs Exp $ */
+/* $Id: numerical_opt.c,v 1.14 2008-11-16 21:59:48 acs Exp $ */
 
 #include <stdlib.h>
 #include <numerical_opt.h>
@@ -82,6 +82,10 @@
 
 #define BOUNDARY_EPS 1.0e-3     /* "buffer" at boundary */
 #define BOUNDARY_EPS2 1.0e-6     /* use this smaller value in 1d case */
+
+#define RHO 0.5                 /* constant for geometric decrease of
+                                   step size during backtracking in
+                                   one dimensional linesearch */
 
 #ifdef DEBUG
 FILE *debugf = NULL;
@@ -1133,12 +1137,13 @@ int opt_newton_1d(double (*f)(double, void*), double (*x), void *data,
     nevals += 2;                /* assume cost of each deriv approx
                                    equals that of a functional evaluation */
 
-    if (fabs(d2) < 1e-6)       /* don't let second deriv go to zero */
-      d2 = 1e-6 * (d2 < 0 ? -1 : 1);  
-
-    if (logf != NULL)               /* write initial entry to log after
-                                       computing derivatives */
+    if (logf != NULL)               
       fprintf(logf, "%15.6f %15.6f %15.6f %15.6f %15.6f\n", *fx, *x, d, d2, lambda);
+
+    if (d2 < 1e-4)
+      d2 = 1;                    /* if second deriv is negative or very
+                                   close to zero, reduce to simple
+                                   gradient descent */
 
     direction = -d / d2;
 
@@ -1158,103 +1163,6 @@ int opt_newton_1d(double (*f)(double, void*), double (*x), void *data,
 
     fxold = (*fx);
     xold = (*x);
-  }  
-
-  if (logf != NULL) {
-    fprintf(logf, "%15.6f %15.6f %15s %15s %15f\n", *fx, *x, "-", "-", lambda);
-    gettimeofday(&end_time, NULL);
-    fprintf(logf, "\nNumber of iterations: %d\nNumber of function evaluations: %d\nTotal time: %.4f sec.\n", 
-            its, nevals, end_time.tv_sec - start_time.tv_sec + 
-            (end_time.tv_usec - start_time.tv_usec)/1.0e6);
-
-    if (!converged)
-      fprintf(logf, "WARNING: exceeded maximum number of iterations.\n");
-  }
-
-  return(!converged);
-}
-
-/* one-dimensional BFGS optimizer, with line search and
-   bounds.  Allows for analytical computation of first 
-   derivatives via function pointer.  Set to NULL to use
-   numerical methods.  Abscissa (*x) should be initialized
-   appropriately by calling code, and will contain optimized value on
-   exit.  Parameter (*fx) will contain minimized value of function on
-   exit.  Set sigfigs to desired number of stable significant figures
-   for convergence.  This criterion applies both to x and to f(x).
-   Function returns 0 on success, 1 if maximum number of iterations is
-   reached */
-/* WARNING: experimental code.  Doesn't seem to work very well, at
-   least with phyloP.  Could be that the approximation is poor in the
-   1d case, or there could be a problem with my derivation of the
-   1d BFGS update (ACS, 11/08) */
-int opt_bfgs_1d(double (*f)(double, void*), double (*x), void *data, 
-                  double *fx, int sigfigs, double lb, double ub, FILE *logf, 
-                  double (*compute_deriv)(double x, void *data, double lb, 
-                                          double ub)) {
-
-  double xold, fxold, d, d2, dold, direction, lambda = -1;
-  int its, nevals = 0, converged = FALSE;
-  struct timeval start_time, end_time;
-
-  assert(*x > lb && *x < ub && ub > lb);
-
-  if (logf != NULL) {
-    gettimeofday(&start_time, NULL);
-    fprintf(logf, "%15s %15s %15s %15s %15s\n", "f(x)", "x", "f'(x)", 
-            "f''(x)", "lambda");
-  }
-
-  /* initial function and derivative evaluation */
-  (*fx) = f(*x, data);
-  opt_derivs_1d(&d, NULL, *x, *fx, lb, ub, f, data, compute_deriv, NULL);
-  nevals += 2;                /* assume cost of deriv approx
-                                 equals that of a functional evaluation */
-
-  d2 = 1;                       /* this is the approximate second
-                                   derivative; initialize to 1 and
-                                   iteratively refine  */
-
-  xold = (*x);                  /* invariant condition at loop start */
-  fxold = (*fx);
-  dold = d;
-
-  for (its = 0; !converged && its < ITMAX; its++) { 
-    if (logf != NULL)               /* write initial entry to log after
-                                       computing derivatives */
-      fprintf(logf, "%15.6f %15.6f %15.6f %15.6f %15.6f\n", *fx, *x, d, d2, lambda);
-
-    direction = -d / d2;
-
-    /* truncate for bounds, if necessary */
-    if ((*x) + direction - lb < BOUNDARY_EPS2) 
-      direction = lb + BOUNDARY_EPS2 - (*x); 
-    else if (ub - ((*x) + direction) < BOUNDARY_EPS2) 
-      direction = ub - BOUNDARY_EPS2 - (*x);
-
-    /* line search; function eval occurs here */
-    opt_lnsrch_1d(direction, xold, fxold, x, fx, d, f, data, &nevals, 
-                  &lambda, logf);
-
-    /* test for convergence */
-    if (opt_sigfig(*x, xold) >= sigfigs && opt_sigfig(*fx, fxold) >= sigfigs) {
-      converged = TRUE;
-      break;
-    }
-
-    opt_derivs_1d(&d, NULL, *x, *fx, lb, ub, f, data, compute_deriv, NULL);
-    nevals++;                   
-
-    d2 *= (1 - d/dold);         /* Hessian update takes a trivial form
-                                   in the 1d case */
-
-    if (d2 < 0.01)              /* check if ill-conditioned; this may
-                                   need refinement */
-      d2 = 1;
-
-    fxold = (*fx);
-    xold = (*x);
-    dold = d;
   }  
 
   if (logf != NULL) {
@@ -1330,55 +1238,37 @@ void opt_lnsrch_1d(double direction, double xold, double fxold, double *x,
                    double *fx, double deriv, double (*func)(double, void*), 
                    void *data, int *nevals, double *final_lambda, FILE *logf) {
 
-  double lambda, lambda_min, slope, lambda2, tmplam, f2;
+  double lambda, slope;
 
   /* one-d line search */
   lambda = 1;
-  lambda_min = TOLX(OPT_HIGH_PREC) * max(xold, 1) / (*x);
   slope = deriv * direction;
+  /* Let phi(lambda) = f(xold + direction * lambda).  Then
+     phi'(lambda) is the rate of change of the new function value as a
+     function of lambda.  phi'(lambda) can be shown to equal to
+     direction * f'(xold + direction * lambda).  Thus, slope is
+     phi'(lambda) evaluated lambda = 0; in other words, it is the
+     downward slope as a function of lambda at xold.  See Nocedal and
+     Write, Numerical Optimization, chapter 3, for a reasonably clear
+     discussion */
 
   for (;;) {
     (*x) = xold + lambda * direction;
     (*fx) = func(*x, data);
     (*nevals)++;
 
-    if (lambda < lambda_min) {
-      (*x) = xold;
-      (*fx) = fxold;
-      if (logf != NULL)
-        fprintf(logf, "WARNING: insufficient decrease in line search.\n");
+    if (*fx <= fxold + ALPHA * lambda * slope) 
+      /* the "sufficient decrease" (Armijo) condition has been met--
+         essentially, the slope achieved by the update is less (i.e.,
+         a steeper negative slope) than a constant times the tangent
+         at xold.  This ensures that the update slope is not becoming
+         increasingly smaller, so that the algorithm converges to a
+         suboptimal value  */
       break;
-    }
-
-    else if ((*fx) <= fxold + ALPHA * lambda * slope) 
-      /* sufficient decrease */
-      break;
-
-    else {                    /* have to backtrack */
-      if (lambda == 1)
-        tmplam = -slope/(2*((*fx) - fxold - slope));
-      else {
-        double rhs1, rhs2, a, b, disc;
-        rhs1 = (*fx) - fxold - lambda * slope;
-        rhs2 = f2 - fxold - lambda2 * slope;
-        a = (rhs1/(lambda*lambda) - rhs2/(lambda2*lambda2)) /
-          (lambda-lambda2);
-        b = (-lambda2*rhs1/(lambda*lambda) + lambda*rhs2/(lambda2*lambda2)) /
-          (lambda-lambda2);
-        if (a == 0.0) tmplam = -slope/(2.0*b);
-        else {
-          disc = b*b - 3.0*a*slope;
-          if (disc < 0.0) tmplam = 0.5*lambda;
-          else if (b <= 0.0) tmplam = (-b + sqrt(disc)) / (3.0*a);
-          else tmplam = -slope / (b + sqrt(disc));
-        }
-        if (tmplam > 0.5 * lambda)
-          tmplam = 0.5 * lambda;      
-      }
-      lambda2 = lambda;
-      f2 = (*fx);
-      lambda = max(tmplam, 0.1*lambda); 
-    }
+    
+    lambda *= RHO;              /* have to backtrack */
+    /* Simple geometric decrease in lambda still allows for guaranteed
+       convergence.  See Nocedal and Write, pp 41-42 */
   }
 
   *final_lambda = lambda;

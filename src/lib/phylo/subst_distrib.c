@@ -7,9 +7,13 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: subst_distrib.c,v 1.42 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: subst_distrib.c,v 1.43 2008-11-16 21:59:48 acs Exp $ */
 
 /* distributions of numbers of substitutions, prior and posterior */
+
+#define SIGFIGS 4
+/* number of significant figures to which to estimate column scale
+   parameters */
 
 #include <subst_distrib.h>
 #include <misc.h>
@@ -423,10 +427,9 @@ void sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type mode,
     if (fit_model) {            /* estimate scale factor for col */
       vec_set(d->params, 0, d->init_scale);
       d->tupleidx = tup;
-      if (opt_bfgs(col_likelihood_wrapper, d->params, d, &lnl, d->lb, 
-                   d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
-        ;                       /* do nothing; warning will be
-                                   produced if problem */
+      opt_newton_1d(col_likelihood_wrapper_1d, &d->params->data[0], d, 
+                    &lnl, SIGFIGS, d->lb->data[0], d->ub->data[0], 
+                    logf, NULL, NULL);   
       jp->mod->scale = d->params->data[0];
       sub_recompute_conditionals(jp);
     }
@@ -528,7 +531,7 @@ void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode,
       vec_set(d->params, 1, d->init_scale_sub);
       d->tupleidx = tup;
       if (opt_bfgs(col_likelihood_wrapper, d->params, d, &lnl, d->lb, 
-                   d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)
+                   d->ub, logf, NULL, OPT_HIGH_PREC, NULL) != 0)
         ;                       /* do nothing; warning will be
                                    produced if problem */
       jp->mod->scale = d->params->data[0];

@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_column.h,v 1.13 2008-11-16 02:32:54 acs Exp $ */
+/* $Id: fit_column.h,v 1.14 2008-11-16 21:59:48 acs Exp $ */
 
 #ifndef FIT_COL_H
 #define FIT_COL_H
@@ -79,6 +79,8 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
 
 double col_likelihood_wrapper(Vector *params, void *data);
 
+double col_likelihood_wrapper_1d(double x, void *data);
+
 void col_grad_wrapper(Vector *grad, Vector *params, void *data, 
                       Vector *lb, Vector *ub);
 
@@ -108,10 +110,6 @@ void col_gerp(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_nneut,
               double *tuple_nobs, double *tuple_nrejected, 
               double *tuple_nspecies, FILE *logf);
 
-void col_gerp_alt(TreeModel *mod, MSA *msa, double *tuple_nneut, 
-                  double *tuple_ndiff, double *tuple_nrejected, 
-                  double *tuple_nspec);
-
 void col_find_missing_branches(TreeModel *mod, MSA *msa, int tupleidx, 
                                int *has_data, int *nspec);
 
@@ -130,5 +128,7 @@ void col_free_fim_grid(FimGrid *g);
 double col_estimate_fim(TreeModel *mod);
 
 Matrix *col_get_fim_sub(FimGrid *g, double scale);
+
+int col_has_data(TreeModel *mod, MSA *msa, int tupleidx);
 
 #endif
