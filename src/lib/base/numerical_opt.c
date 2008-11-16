@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: numerical_opt.c,v 1.12 2008-11-15 19:46:17 acs Exp $ */
+/* $Id: numerical_opt.c,v 1.13 2008-11-16 03:07:47 acs Exp $ */
 
 #include <stdlib.h>
 #include <numerical_opt.h>
@@ -1095,7 +1095,7 @@ void mnbrak(double *ax, double *bx, double *cx, double *fa, double *fb,
    bounds.  Allows for analytical computation of both first and second
    derivatives via function pointers.  Set these to NULL to use
    numerical methods.  Abscissa (*x) should be initialized
-   appropriately by calling code, and will conteain optimized value on
+   appropriately by calling code, and will contain optimized value on
    exit.  Parameter (*fx) will contain minimized value of function on
    exit.  Set sigfigs to desired number of stable significant figures
    for convergence.  This criterion applies both to x and to f(x).
@@ -1132,6 +1132,9 @@ int opt_newton_1d(double (*f)(double, void*), double (*x), void *data,
                   compute_deriv2);
     nevals += 2;                /* assume cost of each deriv approx
                                    equals that of a functional evaluation */
+
+    if (fabs(d2) < 1e-6)       /* don't let second deriv go to zero */
+      d2 = 1e-6 * (d2 < 0 ? -1 : 1);  
 
     if (logf != NULL)               /* write initial entry to log after
                                        computing derivatives */
@@ -1181,6 +1184,10 @@ int opt_newton_1d(double (*f)(double, void*), double (*x), void *data,
    for convergence.  This criterion applies both to x and to f(x).
    Function returns 0 on success, 1 if maximum number of iterations is
    reached */
+/* WARNING: experimental code.  Doesn't seem to work very well, at
+   least with phyloP.  Could be that the approximation is poor in the
+   1d case, or there could be a problem with my derivation of the
+   1d BFGS update (ACS, 11/08) */
 int opt_bfgs_1d(double (*f)(double, void*), double (*x), void *data, 
                   double *fx, int sigfigs, double lb, double ub, FILE *logf, 
                   double (*compute_deriv)(double x, void *data, double lb, 
@@ -1240,7 +1247,9 @@ int opt_bfgs_1d(double (*f)(double, void*), double (*x), void *data,
 
     d2 *= (1 - d/dold);         /* Hessian update takes a trivial form
                                    in the 1d case */
-    if (d2 < 0.01)              /* check if ill-conditioned */
+
+    if (d2 < 0.01)              /* check if ill-conditioned; this may
+                                   need refinement */
       d2 = 1;
 
     fxold = (*fx);

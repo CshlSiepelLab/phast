@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: markov_matrix.c,v 1.9 2008-11-16 02:32:54 acs Exp $ */
+/* $Id: markov_matrix.c,v 1.10 2008-11-16 03:07:47 acs Exp $ */
 
 /* functions for manipulating continuous and discrete Markov matrices */
 
@@ -21,6 +21,7 @@
 #include <complex.h>
 #include <misc.h>
 #include <eigen.h>
+#include <prob_vector.h>
 
 #define SUM_EPSILON 0.0001
 #define ELEMENT_EPSILON 0.00001
@@ -261,7 +262,7 @@ void mm_exp_real(MarkovMatrix *P, MarkovMatrix *Q, double t) {
   static Vector *exp_evals = NULL; /* reuse if possible */
   static int last_size = -1;
   int n = Q->size;
-  int i, j;
+  int i;
 
   assert(P->size == Q->size && t >= 0);
 
@@ -384,7 +385,7 @@ void mm_diagonalize_real(MarkovMatrix *M) {
   static Zmatrix *evecs_z = NULL;
   static Zmatrix *evecs_inv_z = NULL;
   static Zvector *evals_z = NULL;
-  static size = -1;
+  static int size = -1;
 
   if (size != M->size) {
     if (size > -1) {
