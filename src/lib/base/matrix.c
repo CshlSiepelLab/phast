@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: matrix.c,v 1.9 2008-11-16 02:32:54 acs Exp $ */
+/* $Id: matrix.c,v 1.10 2008-11-16 02:43:24 acs Exp $ */
 
 /** \file matrix.c
     Matrices of real numbers (doubles)
@@ -282,16 +282,10 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
    representing its diagonal elements.  */
 void mat_mult_diag(Matrix *A, Matrix *B, Vector *C, Matrix *D) {
   int i, j, k;
-  int size = C->size;
-
-  assert(A->nrows == A->ncols && A->nrows == B->nrows &&
-         B->nrows == B->ncols && B->nrows == C->size && 
-         C->size == D->nrows && D->nrows == D->ncols);
-
-  for (i = 0; i < size; i++) {
-    for (j = 0; j < size; j++) {
+  for (i = 0; i < C->size; i++) {
+    for (j = 0; j < C->size; j++) {
       A->data[i][j] = 0;
-      for (k = 0; k < size; k++) 
+      for (k = 0; k < C->size; k++) 
         A->data[i][j] += B->data[i][k] * C->data[k] * D->data[k][j];
     }
   }
