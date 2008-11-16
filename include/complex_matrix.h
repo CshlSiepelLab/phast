@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: complex_matrix.h,v 1.5 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: complex_matrix.h,v 1.6 2008-11-16 02:32:54 acs Exp $ */
 
 /** \file complex_matrix.h
     Matrices of complex numbers
@@ -50,6 +50,7 @@ void zmat_plus_eq(Zmatrix *thism, Zmatrix *addm);
 void zmat_minus_eq(Zmatrix *thism, Zmatrix *subm);
 void zmat_mult_real_diag(Matrix *A, Zmatrix *B, Zvector *C, Zmatrix *D,
                          Zmatrix *scratch);
+void zmat_as_real(Matrix *dest, Zmatrix *src, int strict);
 
 /***************************************************************************
  * inline functions; also defined in complex_matrix.c 

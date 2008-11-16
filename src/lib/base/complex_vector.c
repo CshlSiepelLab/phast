@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: complex_vector.c,v 1.4 2008-11-12 02:07:59 acs Exp $*/
+/* $Id: complex_vector.c,v 1.5 2008-11-16 02:32:54 acs Exp $*/
 
 /** \file complex_vector.c
     Vectors of complex numbers
@@ -109,4 +109,16 @@ void zvec_had_prod(Zvector *dest, Zvector *src1, Zvector *src2) {
   assert(dest->size == src1->size && src1->size == src2->size);
   for (i = 0; i < dest->size; i++)
     dest->data[i] = z_mul(src1->data[i], src2->data[i]);
+}
+
+/* "cast" complex vector as real, by extracting real component of each
+   element.  If strict == TRUE ensure imaginary components are zero
+   (or very close)  */
+void zvec_as_real(Vector *dest, Zvector *src, int strict) {
+  int i;
+  assert(dest->size == src->size);
+  for (i = 0; i < src->size; i++) {
+    dest->data[i] = src->data[i].x;
+    assert(!strict || src->data[i].y < 1e-6);
+  }
 }

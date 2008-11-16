@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_column.c,v 1.18 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: fit_column.c,v 1.19 2008-11-16 02:32:54 acs Exp $ */
 
 /* Functions to compute likelihoods for individual alignment columns,
    estimate column-by-column scale factors by maximum likelihood,
@@ -23,6 +23,10 @@
 
 #define NSAMPLES_FIM 50
 /* number of samples to use in estimating FIM */ 
+
+#define SIGFIGS 4
+/* number of significant figures to which to estimate column scale
+   parameters (currently affects 1d parameter estimation only) */
 
 /* Compute and return the log likelihood of a tree model with respect
    to a single column tuple in an alignment.  This is a pared-down
@@ -103,13 +107,11 @@ double col_compute_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
   return(log(total_prob));
 }
 
-/* Compute 1st and 2nd derivs wrt scale params of substitution
-   matrices for each branch of the tree (and each rate category).
-   These are used in the recursive computation of derivatives of the
-   column likelihoods */
-void col_scale_derivs_subst(ColFitData *d) {
-  Zmatrix *S = d->mod->rate_matrix->evec_matrix, 
-    *Sinv = d->mod->rate_matrix->evec_matrix_inv;
+/* version of col_scale_derivs_subst that allows for the general case
+   of complex eigenvalues and eigenvectors */
+void col_scale_derivs_subst_complex(ColFitData *d) {
+  Zmatrix *S = d->mod->rate_matrix->evec_matrix_z, 
+    *Sinv = d->mod->rate_matrix->evec_matrix_inv_z;
   MarkovMatrix *Q = d->mod->rate_matrix;
   int size = Q->size;
   int rcat, nid, i;
@@ -127,22 +129,22 @@ void col_scale_derivs_subst(ColFitData *d) {
       /* set up exponentiated diagonal matrix */
       for (i = 0; i < size; i++) {
         double r = t * l1 * l2 * d->mod->rK[rcat];
-        zvec_set(d->expdiag, i, z_exp(z_mul_real(zvec_get(Q->evals, i), r)));
+        zvec_set(d->expdiag_z, i, z_exp(z_mul_real(zvec_get(Q->evals_z, i), r)));
       }
 
       /* PP */
-      zvec_copy(d->vec_scratch1, Q->evals);
-      zvec_scale(d->vec_scratch1, t * l2);
-      zvec_had_prod(d->vec_scratch2, d->vec_scratch1, d->expdiag);
-      zmat_mult_real_diag(d->PP[nid][rcat], S, d->vec_scratch2, Sinv, 
-                          d->mat_scratch);
+      zvec_copy(d->vec_scratch1_z, Q->evals_z);
+      zvec_scale(d->vec_scratch1_z, t * l2);
+      zvec_had_prod(d->vec_scratch2_z, d->vec_scratch1_z, d->expdiag_z);
+      zmat_mult_real_diag(d->PP[nid][rcat], S, d->vec_scratch2_z, Sinv, 
+                          d->mat_scratch_z);
 
       if (d->second_derivs) {
         /* PPP */
-        zvec_had_prod(d->vec_scratch2, d->vec_scratch1, d->vec_scratch1);
-        zvec_had_prod(d->vec_scratch1, d->vec_scratch2, d->expdiag);
-        zmat_mult_real_diag(d->PPP[nid][rcat], S, d->vec_scratch1, Sinv, 
-                            d->mat_scratch);
+        zvec_had_prod(d->vec_scratch2_z, d->vec_scratch1_z, d->vec_scratch1_z);
+        zvec_had_prod(d->vec_scratch1_z, d->vec_scratch2_z, d->expdiag_z);
+        zmat_mult_real_diag(d->PPP[nid][rcat], S, d->vec_scratch1_z, Sinv, 
+                            d->mat_scratch_z);
       }
 
       if (d->stype == SUBTREE && d->mod->in_subtree[nid]) {
@@ -150,32 +152,121 @@ void col_scale_derivs_subst(ColFitData *d) {
            initialized) */
 
         /* QQ */
-        zvec_copy(d->vec_scratch1, Q->evals);
-        zvec_scale(d->vec_scratch1, t * l1);
-        zvec_had_prod(d->vec_scratch2, d->vec_scratch1, d->expdiag);
-        zmat_mult_real_diag(d->QQ[nid][rcat], S, d->vec_scratch2, Sinv, 
-                            d->mat_scratch);
+        zvec_copy(d->vec_scratch1_z, Q->evals_z);
+        zvec_scale(d->vec_scratch1_z, t * l1);
+        zvec_had_prod(d->vec_scratch2_z, d->vec_scratch1_z, d->expdiag_z);
+        zmat_mult_real_diag(d->QQ[nid][rcat], S, d->vec_scratch2_z, Sinv, 
+                            d->mat_scratch_z);
 
         if (d->second_derivs) {
           /* QQQ */
-          zvec_had_prod(d->vec_scratch2, d->vec_scratch1, d->vec_scratch1);
-          zvec_had_prod(d->vec_scratch1, d->vec_scratch2, d->expdiag);
-          zmat_mult_real_diag(d->QQQ[nid][rcat], S, d->vec_scratch1, Sinv, 
-                              d->mat_scratch);
+          zvec_had_prod(d->vec_scratch2_z, d->vec_scratch1_z, d->vec_scratch1_z);
+          zvec_had_prod(d->vec_scratch1_z, d->vec_scratch2_z, d->expdiag_z);
+          zmat_mult_real_diag(d->QQQ[nid][rcat], S, d->vec_scratch1_z, Sinv, 
+                              d->mat_scratch_z);
 
           /* RRR */        
-          zvec_copy(d->vec_scratch1, Q->evals);
-          zvec_scale(d->vec_scratch1, t);
-          zvec_had_prod(d->vec_scratch2, Q->evals, Q->evals);
-          zvec_scale(d->vec_scratch2, t * t * l1 * l2);
-          zvec_plus_eq(d->vec_scratch2, d->vec_scratch1);
-          zvec_had_prod(d->vec_scratch1, d->vec_scratch2, d->expdiag);      
-          zmat_mult_real_diag(d->RRR[nid][rcat], S, d->vec_scratch1, Sinv, 
-                              d->mat_scratch);
+          zvec_copy(d->vec_scratch1_z, Q->evals_z);
+          zvec_scale(d->vec_scratch1_z, t);
+          zvec_had_prod(d->vec_scratch2_z, Q->evals_z, Q->evals_z);
+          zvec_scale(d->vec_scratch2_z, t * t * l1 * l2);
+          zvec_plus_eq(d->vec_scratch2_z, d->vec_scratch1_z);
+          zvec_had_prod(d->vec_scratch1_z, d->vec_scratch2_z, d->expdiag_z);
+          zmat_mult_real_diag(d->RRR[nid][rcat], S, d->vec_scratch1_z, Sinv, 
+                              d->mat_scratch_z);
         }
       }
     }
   }
+}
+
+/* version of col_scale_derivs_subst that is optimized for the case in
+   which eigenvalues and eigenvectors can be assumed to be real */
+void col_scale_derivs_subst_real(ColFitData *d) {
+  Matrix *S = d->mod->rate_matrix->evec_matrix_r, 
+    *Sinv = d->mod->rate_matrix->evec_matrix_inv_r;
+  MarkovMatrix *Q = d->mod->rate_matrix;
+  int size = Q->size;
+  int rcat, nid, i;
+
+  assert(S != NULL && Sinv != NULL);
+
+  for (rcat = 0; rcat < d->mod->nratecats; rcat++) {
+    for (nid = 1; nid < d->mod->tree->nnodes; nid++) { /* skip root */
+
+      double t = ((TreeNode*)lst_get_ptr(d->mod->tree->nodes, nid))->dparent;
+      double l1 = d->mod->scale;
+      double l2 = (d->stype == SUBTREE && d->mod->in_subtree[nid] ? 
+                   d->mod->scale_sub : 1);
+
+      /* set up exponentiated diagonal matrix */
+      for (i = 0; i < size; i++) 
+        d->expdiag_r->data[i] = exp(Q->evals_r->data[i] * t * 
+                                    l1 * l2 * d->mod->rK[rcat]);
+
+      /* PP */
+      for (i = 0; i < size; i++) {
+        d->vec_scratch1_r->data[i] = Q->evals_r->data[i] * t * l2;
+        d->vec_scratch2_r->data[i] = d->vec_scratch1_r->data[i] * 
+          d->expdiag_r->data[i];
+      }
+      mat_mult_diag(d->PP[nid][rcat], S, d->vec_scratch2_r, Sinv);
+
+      if (d->second_derivs) {
+        /* PPP */
+        for (i = 0; i < size; i++) {
+          d->vec_scratch2_r->data[i] = d->vec_scratch1_r->data[i] * 
+            d->vec_scratch1_r->data[i];
+          d->vec_scratch1_r->data[i] = d->vec_scratch2_r->data[i] * 
+            d->expdiag_r->data[i];
+        }
+        mat_mult_diag(d->PPP[nid][rcat], S, d->vec_scratch1_r, Sinv);
+      }
+
+      if (d->stype == SUBTREE && d->mod->in_subtree[nid]) {
+        /* if not in subtree, leave all of these equal to 0 (as
+           initialized) */
+
+        /* QQ */
+        for (i = 0; i < size; i++) {
+          d->vec_scratch1_r->data[i] = Q->evals_r->data[i] * t * l1;
+          d->vec_scratch2_r->data[i] = d->vec_scratch1_r->data[i] * 
+            d->expdiag_r->data[i];
+        }
+        mat_mult_diag(d->QQ[nid][rcat], S, d->vec_scratch2_r, Sinv);
+
+        if (d->second_derivs) {
+          /* QQQ */
+          for (i = 0; i < size; i++) {
+            d->vec_scratch2_r->data[i] = d->vec_scratch1_r->data[i] * 
+              d->vec_scratch1_r->data[i];
+            d->vec_scratch1_r->data[i] = d->vec_scratch2_r->data[i] * 
+              d->expdiag_r->data[i];
+          }
+          mat_mult_diag(d->QQQ[nid][rcat], S, d->vec_scratch1_r, Sinv);
+
+          /* RRR */        
+          for (i = 0; i < size; i++) 
+            d->vec_scratch1_r->data[i] = d->expdiag_r->data[i] *
+              (Q->evals_r->data[i] * Q->evals_r->data[i] * t * t * l1 * l2 + 
+               Q->evals_r->data[i] * t);
+          mat_mult_diag(d->RRR[nid][rcat], S, d->vec_scratch1_r, Sinv);
+        }
+      }
+    }
+  }
+}
+
+/* Compute 1st and 2nd derivs wrt scale params of substitution
+   matrices for each branch of the tree (and each rate category).
+   These are used in the recursive computation of derivatives of the
+   column likelihoods */
+void col_scale_derivs_subst(ColFitData *d) {
+  /* now broken into real and complex cases for efficiency */
+  if (d->mod->rate_matrix->eigentype == REAL)
+    col_scale_derivs_subst_real(d);
+  else
+    col_scale_derivs_subst_complex(d);
 }
 
 /* Compute the first and (optionally) second derivatives with respect
@@ -556,6 +647,21 @@ double col_likelihood_wrapper(Vector *params, void *data) {
                                          d->fels_scratch[0]);
 }
 
+/* Wrapper for likelihood function for use in parameter estimation;
+   version for use with opt_newton_1d */
+double col_likelihood_wrapper_1d(double x, void *data) {
+  ColFitData *d = (ColFitData*)data;
+  assert(d->stype != SUBTREE);
+
+  d->mod->scale = x;
+
+  /* reestimate subst models on edges */
+  tm_set_subst_matrices(d->mod); 
+
+  return -1 * col_compute_log_likelihood(d->mod, d->msa, d->tupleidx, 
+                                         d->fels_scratch[0]);
+}
+
 /* Wrapper for gradient function for use in parameter estimation */
 void col_grad_wrapper(Vector *grad, Vector *params, void *data, 
                       Vector *lb, Vector *ub) {
@@ -570,6 +676,26 @@ void col_grad_wrapper(Vector *grad, Vector *params, void *data,
     col_scale_derivs_subtree(d, grad, NULL, d->fels_scratch);
     vec_scale(grad, -1);
   }
+}
+
+/* Wrapper for gradient function for use in parameter estimation;
+   version for use with opt_newton_1d */
+double col_grad_wrapper_1d(double x, void *data, double lb, double ub) {
+  double deriv, deriv2;
+  ColFitData *d = (ColFitData*)data;
+  assert(d->stype == ALL);
+  col_scale_derivs(d, &deriv, &deriv2, d->fels_scratch); 
+  d->deriv2 = -deriv2;           /* store for use in other wrapper */ 
+  return -deriv; /* because working with neg lnl */
+}
+
+/* Wrapper for second derivative function for use in parameter
+   estimation; version for use with opt_newton_1d.  Simply returns
+   value computed in col_grad_wrapper_1d (it is more efficient to
+   compute the 1st and 2nd derivs simultaneously) */
+double col_deriv2_wrapper_1d(double x, void *data, double lb, double ub) {
+  ColFitData *d = (ColFitData*)data;
+  return d->deriv2;
 }
 
 /* Perform a likelihood ratio test for each column tuple in an
@@ -601,12 +727,23 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
 
     vec_set(d->params, 0, d->init_scale);
     d->tupleidx = i;
-    if (opt_bfgs(col_likelihood_wrapper, d->params, d, &alt_lnl, d->lb, 
-                 d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0) 
-      ;                         /* do nothing; nonzero exit typically
+
+    /* orig version */
+/*        if (opt_bfgs(col_likelihood_wrapper, d->params, d, &alt_lnl, d->lb,     */
+/*                     d->ub, logf, col_grad_wrapper, OPT_HIGH_PREC, NULL) != 0)     */
+/*          ; */                            /* do nothing; nonzero exit typically
                                    occurs when max iterations is
                                    reached; a warning is printed to
                                    the log */
+    /* end orig version */
+
+    /* alt version */
+     opt_newton_1d(col_likelihood_wrapper_1d, &d->params->data[0], d, &alt_lnl, SIGFIGS, d->lb->data[0], d->ub->data[0], logf, /* col_grad_wrapper_1d */ NULL, /* col_deriv2_wrapper_1d */ NULL);   
+    /* end alt version */
+
+       /* alt version 2 */
+/*     opt_bfgs_1d(col_likelihood_wrapper_1d, &d->params->data[0], d, &alt_lnl, SIGFIGS, d->lb->data[0], d->ub->data[0], logf, col_grad_wrapper_1d);    */
+       /* end alt version 2 */
 
     alt_lnl *= -1;
 
@@ -951,7 +1088,8 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
     }
   }
 
-  d->expdiag = zvec_new(size); 
+  d->expdiag_z = zvec_new(size); 
+  d->expdiag_r = vec_new(size); 
   d->nfels_scratch = stype == SUBTREE ? 6 : 3;
   d->fels_scratch = smalloc(d->nfels_scratch * sizeof(void*));
   for (i = 0; i < d->nfels_scratch; i++) {
@@ -959,9 +1097,11 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
     for (j = 0; j < size; j++) 
       d->fels_scratch[i][j] = smalloc((nnodes+1) * sizeof(double)); 
   }
-  d->mat_scratch = zmat_new(size, size);   
-  d->vec_scratch1 = zvec_new(size);
-  d->vec_scratch2 = zvec_new(size);
+  d->mat_scratch_z = zmat_new(size, size);   
+  d->vec_scratch1_z = zvec_new(size);
+  d->vec_scratch2_z = zvec_new(size);
+  d->vec_scratch1_r = vec_new(size);
+  d->vec_scratch2_r = vec_new(size);
   return d;
 }
 
@@ -993,16 +1133,19 @@ void col_free_fit_data(ColFitData *d) {
   free(d->QQQ);
   free(d->RRR);
 
-  zvec_free(d->expdiag); 
+  zvec_free(d->expdiag_z); 
+  vec_free(d->expdiag_r); 
   for (i = 0; i < d->nfels_scratch; i++) {
     for (j = 0; j < d->mod->rate_matrix->size; j++) 
       free(d->fels_scratch[i][j]);
     free(d->fels_scratch[i]);
   }
   free(d->fels_scratch);
-  zmat_free(d->mat_scratch); 
-  zvec_free(d->vec_scratch1);
-  zvec_free(d->vec_scratch2);
+  zmat_free(d->mat_scratch_z); 
+  zvec_free(d->vec_scratch1_z);
+  zvec_free(d->vec_scratch2_z);
+  vec_free(d->vec_scratch1_r);
+  vec_free(d->vec_scratch2_r);
 
   free(d);
 }

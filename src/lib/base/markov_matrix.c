@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: markov_matrix.c,v 1.8 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: markov_matrix.c,v 1.9 2008-11-16 02:32:54 acs Exp $ */
 
 /* functions for manipulating continuous and discrete Markov matrices */
 
@@ -29,8 +29,10 @@
 MarkovMatrix* mm_new(int size, char *states, mm_type type) {
   int i, alph_size;
   MarkovMatrix *M = (MarkovMatrix*)smalloc(sizeof(MarkovMatrix));
-  M->evec_matrix = M->evec_matrix_inv = NULL;
-  M->evals = NULL;
+  M->evec_matrix_z = M->evec_matrix_inv_z = NULL;
+  M->evec_matrix_r = M->evec_matrix_inv_r = NULL;
+  M->evals_z = NULL;
+  M->evals_r = NULL;
   M->matrix = mat_new(size, size);
   mat_zero(M->matrix);
   M->size = size;
@@ -50,6 +52,7 @@ MarkovMatrix* mm_new(int size, char *states, mm_type type) {
     strcpy(M->states, states);
 
   M->type = type;
+  M->eigentype = COMPLEX;       /* default */
 
   /* build inverse table, for lookup of state number from state
    * character */
@@ -80,7 +83,7 @@ MarkovMatrix* mm_new_from_counts(Matrix *counts, char *states) {
     else 
       for (j = 0; j < counts->ncols; j++) 
         mat_set(M->matrix, i, j, 
-                       safediv(mat_get(counts, i, j), rowsum));
+                safediv(mat_get(counts, i, j), rowsum));
                                 /* safediv no longer necessary? */
   }
   mm_validate(M);
@@ -90,16 +93,42 @@ MarkovMatrix* mm_new_from_counts(Matrix *counts, char *states) {
 void mm_free(MarkovMatrix *M) {
   if (M->matrix != NULL)
     mat_free(M->matrix);
-  if (M->evec_matrix != NULL)
-    zmat_free(M->evec_matrix);
-  if (M->evec_matrix_inv != NULL)
-    zmat_free(M->evec_matrix_inv);
-  if (M->evals != NULL)
-    zvec_free(M->evals);
   if (M->states != NULL)
     free(M->states);
+  mm_free_eigen(M);
   free(M);
 }
+
+/* free eigenvector and eigenvalue matrices/vectors, if allocated */
+void mm_free_eigen(MarkovMatrix *M) {
+  if (M->evec_matrix_r != NULL)
+    mat_free(M->evec_matrix_r);
+  if (M->evec_matrix_inv_r != NULL)
+    mat_free(M->evec_matrix_inv_r);
+  if (M->evals_r != NULL)
+    vec_free(M->evals_r);
+  if (M->evec_matrix_z != NULL)
+    zmat_free(M->evec_matrix_z);
+  if (M->evec_matrix_inv_z != NULL)
+    zmat_free(M->evec_matrix_inv_z);
+  if (M->evals_z != NULL)
+    zvec_free(M->evals_z);
+  M->evec_matrix_r = M->evec_matrix_inv_r = NULL;
+  M->evals_r = NULL;
+  M->evec_matrix_z = M->evec_matrix_inv_z = NULL;
+  M->evals_z = NULL;
+}
+
+/* define matrix as having real or complex eigenvectors/eigenvalues.
+   If the matrix is to be diagonalized, exponentiated, etc.,
+   significant saving in computation can be had by using real numbers
+   rather than complex numbers where possible (e.g., with reversible
+   Markov models).  */
+void mm_set_eigentype(MarkovMatrix *M, number_type eigentype) {
+  M->eigentype = eigentype;
+  mm_free_eigen(M);             /* instantiate new ones on demand */
+}
+
 
 /* returns 1 on failure, 0 on success */
 int mm_validate(MarkovMatrix *M) {
@@ -182,9 +211,8 @@ void mm_pretty_print(FILE *F, MarkovMatrix *M) {
   mat_print(M->matrix, F);
 }
 
-/* computes discrete matrix P by the formula P = exp(Qt),
-   given Q and t */
-void mm_exp(MarkovMatrix *P, MarkovMatrix *Q, double t) {
+/* general version allowing for complex eigenvalues/eigenvectors */
+void mm_exp_complex(MarkovMatrix *P, MarkovMatrix *Q, double t) {
 
   static Zmatrix *Eexp = NULL; /* reuse these if possible */
   static Zmatrix *tmp = NULL;
@@ -212,80 +240,77 @@ void mm_exp(MarkovMatrix *P, MarkovMatrix *Q, double t) {
   }
 
   /* Diagonalize (if necessary) */
-  if (Q->evec_matrix == NULL || Q->evals == NULL || 
-      Q->evec_matrix == NULL) 
+  if (Q->evec_matrix_z == NULL || Q->evals_z == NULL || 
+      Q->evec_matrix_z == NULL) 
     mm_diagonalize(Q);
 
-  /* Now compute P(t) = S exp(Dt) S^-1.  Start by computing exp(Dt) S^-1 */
+  /* Compute P(t) = S exp(Dt) S^-1.  Start by computing exp(Dt) S^-1 */
   for (i = 0; i < n; i++) {
     Complex exp_dt_i =
-      z_exp(z_mul_real(zvec_get(Q->evals, i), t));
+      z_exp(z_mul_real(zvec_get(Q->evals_z, i), t));
     for (j = 0; j < n; j++) 
-      zmat_set(tmp, i, j, z_mul(exp_dt_i, zmat_get(Q->evec_matrix_inv, i, j)));
+      zmat_set(tmp, i, j, z_mul(exp_dt_i, zmat_get(Q->evec_matrix_inv_z, i, j)));
   }
 
   /* Now multiply by S (on the left) */
-  zmat_mult_real(P->matrix, Q->evec_matrix, tmp);
+  zmat_mult_real(P->matrix, Q->evec_matrix_z, tmp);
 }
 
-/* given a diagonal matrix with elements l_i,i create a new matrix
-   with elements exp(l_i,i * t) */
-/* void mm_diag_exp(Matrix *dest, Matrix *src,  */
-/*         double t) { */
-/*   int i; */
-/*   assert((src->nrows == src->ncols) && (dest->nrows == dest->ncols) */
-/*      && (src->nrows == dest->nrows)); */
-/*   mat_zero(dest); */
-/*   for (i = 0; i < src->nrows; i++) { */
-/*     double expon = mat_get(src, i, i) * t; */
-/*     mat_set(dest, i, i, exp(expon)); */
-/*   } */
-/* } */
+/* version that assumes real eigenvalues/eigenvectors */
+void mm_exp_real(MarkovMatrix *P, MarkovMatrix *Q, double t) {
+  static Vector *exp_evals = NULL; /* reuse if possible */
+  static int last_size = -1;
+  int n = Q->size;
+  int i, j;
+
+  assert(P->size == Q->size && t >= 0);
+
+  if (t == 0) {
+    mat_set_identity(P->matrix);
+    return;
+  }
+
+  if (last_size != Q->size) {
+    if (exp_evals != NULL) 
+      vec_free(exp_evals);
+
+    exp_evals = vec_new(Q->size);
+    last_size = Q->size;
+  }
+
+  /* Diagonalize (if necessary) */
+  if (Q->evec_matrix_r == NULL || Q->evals_r == NULL || 
+      Q->evec_matrix_r == NULL) 
+    mm_diagonalize(Q);
+
+  /* Compute P(t) = S exp(Dt) S^-1 */
+  for (i = 0; i < n; i++) 
+    exp_evals->data[i] = exp(Q->evals_r->data[i] * t);
+
+  mat_mult_diag(P->matrix, Q->evec_matrix_r, exp_evals, Q->evec_matrix_inv_r);
+}
+
+/* computes discrete matrix P by the formula P = exp(Qt),
+   given Q and t */
+void mm_exp(MarkovMatrix *dest, MarkovMatrix *src, double t) {
+  if (src->eigentype == REAL)
+    mm_exp_real(dest, src, t);
+  else
+    mm_exp_complex(dest, src, t);
+}
 
 /* given a state, draw the next state from the multinomial
  * distribution defined by the corresponding row in the matrix */
 int mm_sample_state(MarkovMatrix *M, int state) {
-
-  /* this is a bit inefficient, but we'll keep it for now, because it
-   * simplifies the code */
   Vector *v = mat_get_row(M->matrix, state);
-  int retval = mm_sample_vector(v);
+  int retval = pv_draw_idx(v);
   vec_free(v);
   return retval;
 }
 
-/* given a probability vector, make a draw, and return the
- * corresponding index. */ 
-int mm_sample_vector(Vector *v) {
-  double r;
-  int i;
-  double sum;
-
-  r = random()*1.0/RAND_MAX;
-
-  sum = 0;
-  for (i = 0; i < v->size; i++) {
-    sum += vec_get(v, i);
-    if (sum > r) break;
-  }
-
-  if (i == v->size) {
-    /* this seems to happen occasionally: check for bad prob vector or
-       bad draw */
-    if (abs(1 - sum) > SUM_EPSILON) 
-      die("ERROR: unnormalized probability vector in mm_sample_vector (sum = %f)\n", sum);
-    else if (r > 1)
-      die("ERROR: bad random draw in mm_sample_vector (r = %f)\n", r);
-    else i = v->size-1;         /* prob. just slight rounding error */
-  }
-
-  return i;
-}
-
-/* similar to above, but by character; for convenience in sampling
- * from background distrib */
+/* as above but by character */
 char mm_sample_backgd(char *labels, Vector *backgd) {
-  return labels[mm_sample_vector(backgd)];
+  return labels[pv_draw_idx(backgd)];
 }
 
 
@@ -297,38 +322,102 @@ char mm_sample_char(MarkovMatrix *M, char c) {
 }
 
 /* WARNING: assumes matrices in dest already allocated and of correct
- * size.  Also assumes type, states, and size are the same */
+ * size.  Also assumes type, states, size, and eigentype are the same */
 void mm_cpy(MarkovMatrix *dest, MarkovMatrix *src) {
   mat_copy(dest->matrix, src->matrix);
-  if (src->evec_matrix != NULL)
-    zmat_copy(dest->evec_matrix, src->evec_matrix);
-  if (src->evals != NULL)
-    zvec_copy(dest->evals, src->evals);
-  if (src->evec_matrix_inv != NULL)
-    zmat_copy(dest->evec_matrix_inv, src->evec_matrix_inv);
+  if (src->eigentype == COMPLEX) {
+    if (src->evec_matrix_z != NULL)
+      zmat_copy(dest->evec_matrix_z, src->evec_matrix_z);
+    if (src->evals_z != NULL)
+      zvec_copy(dest->evals_z, src->evals_z);
+    if (src->evec_matrix_inv_z != NULL)
+      zmat_copy(dest->evec_matrix_inv_z, src->evec_matrix_inv_z);
+  }
+  else {
+    if (src->evec_matrix_r != NULL)
+      mat_copy(dest->evec_matrix_r, src->evec_matrix_r);
+    if (src->evals_r != NULL)
+      vec_copy(dest->evals_r, src->evals_r);
+    if (src->evec_matrix_inv_r != NULL)
+      mat_copy(dest->evec_matrix_inv_r, src->evec_matrix_inv_r);
+  }
 }
 
 MarkovMatrix *mm_create_copy(MarkovMatrix *src) {
   MarkovMatrix *retval = mm_new(src->size, src->states, src->type);
-  if (src->evec_matrix != NULL)
-    retval->evec_matrix = zmat_new(src->size, src->size);
-  if (src->evals != NULL)
-    retval->evals = zvec_new(src->size);
-  if (src->evec_matrix_inv != NULL)
-    retval->evec_matrix_inv = zmat_new(src->size, src->size);
+  retval->eigentype = src->eigentype;
+  if (src->eigentype == COMPLEX) {
+    if (src->evec_matrix_z != NULL)
+      retval->evec_matrix_z = zmat_new(src->size, src->size);
+    if (src->evals_z != NULL)
+      retval->evals_z = zvec_new(src->size);
+    if (src->evec_matrix_inv_z != NULL)
+      retval->evec_matrix_inv_z = zmat_new(src->size, src->size);
+  }
+  else {
+    if (src->evec_matrix_r != NULL)
+      retval->evec_matrix_r = mat_new(src->size, src->size);
+    if (src->evals_r != NULL)
+      retval->evals_r = vec_new(src->size);
+    if (src->evec_matrix_inv_r != NULL)
+      retval->evec_matrix_inv_r = mat_new(src->size, src->size);
+  }
   mm_cpy(retval, src);
   return(retval);
 }
 
-void mm_diagonalize(MarkovMatrix *M) { 
-  if (M->evec_matrix == NULL)
-    M->evec_matrix = zmat_new(M->size, M->size);
-  if (M->evals == NULL)
-    M->evals = zvec_new(M->size);
-  if (M->evec_matrix_inv == NULL)
-    M->evec_matrix_inv = zmat_new(M->size, M->size);
-  mat_diagonalize(M->matrix, M->evals, M->evec_matrix, M->evec_matrix_inv);
+void mm_diagonalize_complex(MarkovMatrix *M) { 
+  if (M->evec_matrix_z == NULL)
+    M->evec_matrix_z = zmat_new(M->size, M->size);
+  if (M->evals_z == NULL)
+    M->evals_z = zvec_new(M->size);
+  if (M->evec_matrix_inv_z == NULL)
+    M->evec_matrix_inv_z = zmat_new(M->size, M->size);
+  mat_diagonalize(M->matrix, M->evals_z, M->evec_matrix_z, M->evec_matrix_inv_z);
 } 
+
+void mm_diagonalize_real(MarkovMatrix *M) { 
+  /* use existing routines then "cast" complex matrices/vectors as real */
+
+  /* keep temp storage around -- this function will be called many
+     times repeatedly */
+  static Zmatrix *evecs_z = NULL;
+  static Zmatrix *evecs_inv_z = NULL;
+  static Zvector *evals_z = NULL;
+  static size = -1;
+
+  if (size != M->size) {
+    if (size > -1) {
+      zmat_free(evecs_z);
+      zmat_free(evecs_inv_z);
+      zvec_free(evals_z);
+    }
+
+    evecs_z = zmat_new(M->size, M->size);
+    evecs_inv_z = zmat_new(M->size, M->size);
+    evals_z = zvec_new(M->size);
+    size = M->size;
+  }
+
+  if (M->evec_matrix_r == NULL) {
+    M->evec_matrix_r = mat_new(M->size, M->size);
+    M->evals_r = vec_new(M->size);
+    M->evec_matrix_inv_r = mat_new(M->size, M->size);
+  }
+
+  mat_diagonalize(M->matrix, evals_z, evecs_z, evecs_inv_z);
+
+  zvec_as_real(M->evals_r, evals_z, TRUE);
+  zmat_as_real(M->evec_matrix_r, evecs_z, TRUE);
+  zmat_as_real(M->evec_matrix_inv_r, evecs_inv_z, TRUE);
+} 
+
+void mm_diagonalize(MarkovMatrix *M) { 
+  if (M->eigentype == COMPLEX)
+    mm_diagonalize_complex(M);
+  else 
+    mm_diagonalize_real(M);
+}
 
 void mm_scale(MarkovMatrix *M, double scale) {
   mat_scale(M->matrix, scale);

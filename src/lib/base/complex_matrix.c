@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: complex_matrix.c,v 1.3 2008-11-12 02:07:59 acs Exp $*/
+/* $Id: complex_matrix.c,v 1.4 2008-11-16 02:32:54 acs Exp $*/
 
 /** \file complex_matrix.c
     Matrices of complex numbers
@@ -216,4 +216,18 @@ void zmat_mult_real_diag(Matrix *A, Zmatrix *B, Zvector *C, Zmatrix *D,
 
   if (scratch == NULL)
     zmat_free(tmp);
+}
+
+/* "cast" complex matrix as real, by extracting real component of each
+   element.  If strict == TRUE ensure imaginary components are zero
+   (or very close)  */
+void zmat_as_real(Matrix *dest, Zmatrix *src, int strict) {
+  int i, j;
+  assert(dest->nrows == src->nrows && dest->ncols == src->ncols);
+  for (i = 0; i < src->nrows; i++) {
+    for (j = 0; j < src->ncols; j++) {
+      dest->data[i][j] = src->data[i][j].x;
+      assert(!strict || src->data[i][j].y < 1e-6);
+    }
+  }
 }

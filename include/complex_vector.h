@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: complex_vector.h,v 1.4 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: complex_vector.h,v 1.5 2008-11-16 02:32:54 acs Exp $ */
 
 /** \file complex_vector.h
     Vectors of complex numbers
@@ -42,6 +42,7 @@ void zvec_plus_eq(Zvector *thisv, Zvector *addv);
 void zvec_minus_eq(Zvector *thisv, Zvector *subv);
 void zvec_scale(Zvector *v, double scale_factor);
 void zvec_had_prod(Zvector *dest, Zvector *src1, Zvector *src2);
+void zvec_as_real(Vector *dest, Zvector *src, int strict);
 
 /***************************************************************************
  * inline functions; also defined in complex_vector.c 

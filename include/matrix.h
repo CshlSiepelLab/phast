@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: matrix.h,v 1.7 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: matrix.h,v 1.8 2008-11-16 02:32:54 acs Exp $ */
 
 /* \file matrix.h
    Matrices of real numbers (doubles)
@@ -55,6 +55,7 @@ void mat_linear_comb(Matrix *dest, Matrix *src1, double coef1,
                      Matrix *src2, double coef2);
 void mat_resize(Matrix *m, int nrows, int ncols);
 int mat_invert(Matrix *M_inv, Matrix *M);
+void mat_mult_diag(Matrix *A, Matrix *B, Vector *C, Matrix *D);
 
 /***************************************************************************
  * inline functions; also defined in matrix.c 

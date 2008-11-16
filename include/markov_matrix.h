@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: markov_matrix.h,v 1.3 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: markov_matrix.h,v 1.4 2008-11-16 02:32:54 acs Exp $ */
 
 #ifndef MARKOVMAT_H
 #define MARKOVMAT_H
@@ -20,12 +20,24 @@
 #define NCHARS 256
 
 typedef enum {DISCRETE, CONTINUOUS} mm_type;
+typedef enum {REAL, COMPLEX} number_type;
 
 typedef struct {
   Matrix *matrix;
-  Zmatrix *evec_matrix;
-  Zmatrix *evec_matrix_inv;
-  Zvector *evals;
+
+  number_type eigentype;
+
+  /* these are used if eigen_type == COMPLEX (general case) */
+  Zmatrix *evec_matrix_z;
+  Zmatrix *evec_matrix_inv_z;
+  Zvector *evals_z;
+
+  /* these are used if eigen_type == REAL (always true if reversible,
+     results in significant savings in computation) */
+  Matrix *evec_matrix_r;
+  Matrix *evec_matrix_inv_r;
+  Vector *evals_r;
+
   int size;
   char *states;
   int inv_states[NCHARS];
@@ -36,14 +48,14 @@ MarkovMatrix* mm_new(int size, char *states, mm_type type);
 MarkovMatrix* mm_new_from_matrix(Matrix *A, char *states, mm_type type); 
 MarkovMatrix* mm_new_from_file(FILE *F, mm_type type); 
 void mm_free(MarkovMatrix *M); 
+void mm_free_eigen(MarkovMatrix *M);
+void mm_set_eigentype(MarkovMatrix *M, number_type eigentype);
 int mm_validate(MarkovMatrix *M); 
 double mm_get(MarkovMatrix *M, int row, int col); 
 void mm_set(MarkovMatrix *M, int row, int col, double val);
 double mm_get_by_state(MarkovMatrix *M, char from, char to);
 void mm_pretty_print(FILE *F, MarkovMatrix *M); 
 void mm_exp(MarkovMatrix *P, MarkovMatrix *Q, double t);
-void mm_diag_exp(Matrix *dest, Matrix *src, 
-		 double t);
 int mm_sample_state(MarkovMatrix *M, int state);
 char mm_sample_char(MarkovMatrix *M, char c);
 int mm_sample_vector(Vector *v);

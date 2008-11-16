@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: tree_model.c,v 1.38 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: tree_model.c,v 1.39 2008-11-16 02:32:54 acs Exp $ */
 
 #include <tree_model.h>
 #include <subst_mods.h>
@@ -76,6 +76,10 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   else {                        /* full tree model */
     tm->rate_matrix = rate_matrix != NULL ? rate_matrix :
       mm_new(int_pow(strlen(alphabet), tm->order+1), alphabet, CONTINUOUS);
+
+    if (tm_is_reversible(subst_mod))
+      mm_set_eigentype(tm->rate_matrix, REAL);
+    /* can assume real eigenvalues and eigenvectors in this case */
 
     /* set up probability matrices and rate variation stuff */
     tm->nratecats = nratecats;
@@ -200,6 +204,11 @@ void tm_reinit(TreeModel *tm,   /**< TreeModel object to reinitialize  */
     tm->P[i] = srealloc(tm->P[i], new_nratecats * sizeof(MarkovMatrix*));
     for (j = old_nratecats; j < new_nratecats; j++) tm->P[i][j] = NULL;
   }
+
+  if (tm_is_reversible(new_subst_mod) && tm->rate_matrix->eigentype == COMPLEX)
+    mm_set_eigentype(tm->rate_matrix, REAL);
+  else if (!tm_is_reversible(new_subst_mod) && tm->rate_matrix->eigentype == REAL)
+    mm_set_eigentype(tm->rate_matrix, COMPLEX);    
 }
 
 void tm_free(TreeModel *tm) {
@@ -768,7 +777,7 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
 }
 
 
-/* Wrapper for computation of likelihood, for use by nr_optimize */
+/* Wrapper for computation of likelihood */
 double tm_likelihood_wrapper(Vector *params, void *data) {
   TreeModel *mod = (TreeModel*)data;
   tm_unpack_params(mod, params, -1);

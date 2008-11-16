@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: eigen.c,v 1.4 2008-11-12 02:07:59 acs Exp $*/
+/* $Id: eigen.c,v 1.5 2008-11-16 02:32:54 acs Exp $*/
 
 /** \file eigen.c
     Eigenvalue computation and matrix diagonalization.  CLAPACK is used.
@@ -33,7 +33,7 @@
    normalized so that they are inverses.  Returns 0 on success, 1 on
    failure. */ 
 int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
-		    Zvector *eval, 
+                    Zvector *eval, 
                                 /* computed vector of eigenvectors --
                                    preallocate dim. n */
                     Zmatrix *revect, 

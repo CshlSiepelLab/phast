@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_column.h,v 1.12 2008-11-15 19:42:04 acs Exp $ */
+/* $Id: fit_column.h,v 1.13 2008-11-16 02:32:54 acs Exp $ */
 
 #ifndef FIT_COL_H
 #define FIT_COL_H
@@ -42,13 +42,15 @@ typedef struct {
   Matrix ***QQ;
   Matrix ***QQQ;
   Matrix ***RRR;
-  Zvector *expdiag;
+  Zvector *expdiag_z;
+  Vector *expdiag_r;
 
   double ***fels_scratch;       /* scratch memory for Felsenstein's
                                    alg (likelihoods and derivatives) */
   int nfels_scratch;            /* number of scratch arrays (depends on mode) */
-  Zmatrix *mat_scratch;         /* scratch memory for derivative computation */
-  Zvector *vec_scratch1, *vec_scratch2;
+  Zmatrix *mat_scratch_z;         /* scratch memory for derivative computation */
+  Zvector *vec_scratch1_z, *vec_scratch2_z;
+  Vector *vec_scratch1_r, *vec_scratch2_r;
   double deriv2;                /* second deriv for 1d case */
 } ColFitData;
 

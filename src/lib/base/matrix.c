@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: matrix.c,v 1.8 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: matrix.c,v 1.9 2008-11-16 02:32:54 acs Exp $ */
 
 /** \file matrix.c
     Matrices of real numbers (doubles)
@@ -277,3 +277,22 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
   return 0;
 }
 
+/* Compute A = B * C * D where A, B, C, D are square matrices of the
+   same dimension, and C is diagonal.  C is described by a vector
+   representing its diagonal elements.  */
+void mat_mult_diag(Matrix *A, Matrix *B, Vector *C, Matrix *D) {
+  int i, j, k;
+  int size = C->size;
+
+  assert(A->nrows == A->ncols && A->nrows == B->nrows &&
+         B->nrows == B->ncols && B->nrows == C->size && 
+         C->size == D->nrows && D->nrows == D->ncols);
+
+  for (i = 0; i < size; i++) {
+    for (j = 0; j < size; j++) {
+      A->data[i][j] = 0;
+      for (k = 0; k < size; k++) 
+        A->data[i][j] += B->data[i][k] * C->data[k] * D->data[k][j];
+    }
+  }
+}

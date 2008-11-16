@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_em.c,v 1.6 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: fit_em.c,v 1.7 2008-11-16 02:32:54 acs Exp $ */
 
 /* Functions for fitting tree models by EM */
 
@@ -472,7 +472,7 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
       /* main diagonal of matrix of eigenvalues * exponentials of
          eigenvalues for branch length t*/
       for (i = 0; i < nstates; i++)
-        diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals, i), t)), zvec_get(Q->evals, i)), mod->rK[rcat] * unrooted_factor);
+        diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), zvec_get(Q->evals_z, i)), mod->rK[rcat] * unrooted_factor);
 
       /* save time by only using complex numbers in the inner loop if
          necessary (each complex mult equivalent to four real mults and
@@ -485,8 +485,8 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
             double dp_dt_div_p;
 
             for (i = 0; i < nstates; i++) 
-              dp_dt += (zmat_get(Q->evec_matrix, k, i)).x * (diag[i]).x * 
-                (zmat_get(Q->evec_matrix_inv, i, l)).x;
+              dp_dt += (zmat_get(Q->evec_matrix_z, k, i)).x * (diag[i]).x * 
+                (zmat_get(Q->evec_matrix_inv_z, i, l)).x;
 
             /* have to handle case of p == 0 carefully -- want contrib
                to derivative to be zero if dp_dt == 0 or
@@ -515,7 +515,7 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
             Complex partial_p = z_set(0, 0);
 
             for (i = 0; i < nstates; i++) 
-              partial_p = z_add(partial_p, z_mul(z_mul(zmat_get(Q->evec_matrix, k, i), diag[i]), zmat_get(Q->evec_matrix_inv, i, l)));
+              partial_p = z_add(partial_p, z_mul(z_mul(zmat_get(Q->evec_matrix_z, k, i), diag[i]), zmat_get(Q->evec_matrix_inv_z, i, l)));
           
             assert(fabs(partial_p.y) <= TM_IMAG_EPS);
 
@@ -552,7 +552,7 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
         P = mod->P[n->id][rcat];
 
         for (i = 0; i < nstates; i++)
-          diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals, i), t)), zvec_get(Q->evals, i)), n->dparent * dr_da);
+          diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), zvec_get(Q->evals_z, i)), n->dparent * dr_da);
 
         /* only use complex numbers if necessary (as above) */
         if (tm_is_reversible(mod->subst_mod)) {
@@ -564,8 +564,8 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
 
               for (i = 0; i < nstates; i++) 
                 dp_da += 
-                  (zmat_get(Q->evec_matrix, k, i)).x * diag[i].x * 
-                  (zmat_get(Q->evec_matrix_inv, i, l)).x;
+                  (zmat_get(Q->evec_matrix_z, k, i)).x * diag[i].x * 
+                  (zmat_get(Q->evec_matrix_inv_z, i, l)).x;
  
               if (p == 0) {
                 if (dp_da == 0) dp_da_div_p = 0;
@@ -589,7 +589,7 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
               double dp_da_div_p;
               Complex dp_da = z_set(0, 0);
               for (i = 0; i < nstates; i++) 
-                dp_da = z_add(dp_da, z_mul(z_mul(zmat_get(Q->evec_matrix, k, i), diag[i]), zmat_get(Q->evec_matrix_inv, i, l)));
+                dp_da = z_add(dp_da, z_mul(z_mul(zmat_get(Q->evec_matrix_z, k, i), diag[i]), zmat_get(Q->evec_matrix_inv_z, i, l)));
 
               assert(fabs(dp_da.y) <= TM_IMAG_EPS);
 
@@ -887,7 +887,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
       /* main diagonal of matrix of eigenvalues * exponentials of
          eigenvalues for branch length t*/
       for (i = 0; i < nstates; i++)
-        diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals, i), t)), zvec_get(Q->evals, i)), mod->rK[rcat] * unrooted_factor);
+        diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), zvec_get(Q->evals_z, i)), mod->rK[rcat] * unrooted_factor);
 
       /* save time by only using complex numbers in the inner loop if
          necessary (each complex mult equivalent to four real mults and
@@ -900,8 +900,8 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
             double dp_dt_div_p;
 
             for (i = 0; i < nstates; i++) 
-              dp_dt += (zmat_get(Q->evec_matrix, k, i)).x * diag[i].x * 
-                (zmat_get(Q->evec_matrix_inv, i, l)).x;
+              dp_dt += (zmat_get(Q->evec_matrix_z, k, i)).x * diag[i].x * 
+                (zmat_get(Q->evec_matrix_inv_z, i, l)).x;
 
             /* have to handle case of p == 0 carefully -- want contrib
                to derivative to be zero if dp_dt == 0 or
@@ -930,7 +930,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
             Complex dp_dt = z_set(0, 0);
 
             for (i = 0; i < nstates; i++) 
-              dp_dt = z_add(dp_dt, z_mul(z_mul(zmat_get(Q->evec_matrix, k, i), diag[i]), zmat_get(Q->evec_matrix_inv, i, l)));
+              dp_dt = z_add(dp_dt, z_mul(z_mul(zmat_get(Q->evec_matrix_z, k, i), diag[i]), zmat_get(Q->evec_matrix_inv_z, i, l)));
 
             /* see comments for real case (above) */
             if (p == 0) {
@@ -966,7 +966,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
         P = mod->P[n->id][rcat];
 
         for (i = 0; i < nstates; i++)
-          diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals, i), t)), zvec_get(Q->evals, i)), n->dparent * dr_da);
+          diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), zvec_get(Q->evals_z, i)), n->dparent * dr_da);
 
         /* only use complex numbers if necessary (as above) */
         if (tm_is_reversible(mod->subst_mod)) {
@@ -978,8 +978,8 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
 
               for (i = 0; i < nstates; i++) 
                 dp_da += 
-                  (zmat_get(Q->evec_matrix, k, i)).x * diag[i].x *
-                  (zmat_get(Q->evec_matrix_inv, i, l)).x;
+                  (zmat_get(Q->evec_matrix_z, k, i)).x * diag[i].x *
+                  (zmat_get(Q->evec_matrix_inv_z, i, l)).x;
  
               if (p == 0) {
                 if (dp_da == 0) dp_da_div_p = 0;
@@ -1003,7 +1003,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
               double dp_da_div_p;
               Complex dp_da = z_set(0, 0);
               for (i = 0; i < nstates; i++) 
-                dp_da = z_add(dp_da, z_mul(z_mul(zmat_get(Q->evec_matrix, k, i), diag[i]), zmat_get(Q->evec_matrix_inv, i, l)));
+                dp_da = z_add(dp_da, z_mul(z_mul(zmat_get(Q->evec_matrix_z, k, i), diag[i]), zmat_get(Q->evec_matrix_inv_z, i, l)));
 
               assert(fabs(dp_da.y) <= TM_IMAG_EPS);
 
@@ -1090,7 +1090,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
       i = lst_get_int(erows, lidx);
       k = lst_get_int(ecols, lidx);
       for (j = 0; j < nstates; j++)
-        tmpmat[i][j] = z_add(tmpmat[i][j], z_mul_real(zmat_get(Q->evec_matrix, k, j), dq[i][k]));
+        tmpmat[i][j] = z_add(tmpmat[i][j], z_mul_real(zmat_get(Q->evec_matrix_z, k, j), dq[i][k]));
     }
 
     for (lidx = 0; lidx < lst_size(distinct_rows); lidx++) {
@@ -1098,7 +1098,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
       for (i = 0; i < nstates; i++) {
         for (j = 0; j < nstates; j++) {
           sinv_dq_s[i][j] =
-            z_add(sinv_dq_s[i][j], z_mul(zmat_get(Q->evec_matrix_inv, i, k), tmpmat[k][j]));
+            z_add(sinv_dq_s[i][j], z_mul(zmat_get(Q->evec_matrix_inv_z, i, k), tmpmat[k][j]));
         }
       }
     }
@@ -1119,13 +1119,13 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
           /* build the matrix F */
           for (i = 0; i < nstates; i++) {
             for (j = 0; j < nstates; j++) {
-              if ((zvec_get(Q->evals, i)).x ==
-                  (zvec_get(Q->evals, j)).x)
-		f[i][j].x = exp((zvec_get(Q->evals, i)).x * t) * t;
+              if ((zvec_get(Q->evals_z, i)).x ==
+                  (zvec_get(Q->evals_z, j)).x)
+		f[i][j].x = exp((zvec_get(Q->evals_z, i)).x * t) * t;
               else
-                f[i][j].x = (exp((zvec_get(Q->evals, i)).x * t) 
-			     - exp((zvec_get(Q->evals, j)).x * t)) /
-		  ((zvec_get(Q->evals, i)).x - (zvec_get(Q->evals, j)).x);
+                f[i][j].x = (exp((zvec_get(Q->evals_z, i)).x * t) 
+			     - exp((zvec_get(Q->evals_z, j)).x * t)) /
+		  ((zvec_get(Q->evals_z, i)).x - (zvec_get(Q->evals_z, j)).x);
             }
           }
 
@@ -1135,7 +1135,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
               tmpmat[i][j].x = 0;
               for (k = 0; k < nstates; k++) 
                 tmpmat[i][j].x += f[i][k].x * sinv_dq_s[i][k].x *
-		  (zmat_get(Q->evec_matrix_inv, k, j)).x;
+		  (zmat_get(Q->evec_matrix_inv_z, k, j)).x;
             }
           }
 
@@ -1148,7 +1148,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
               double partial_p_div_p;
 
               for (k = 0; k < nstates; k++) 
-                partial_p += (zmat_get(Q->evec_matrix, i, k)).x * 
+                partial_p += (zmat_get(Q->evec_matrix_z, i, k)).x * 
                   tmpmat[k][j].x;
 
               /* handle case of p == 0 carefully, as described above */
@@ -1169,11 +1169,11 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
           /* build the matrix F */
           for (i = 0; i < nstates; i++) {
             for (j = 0; j < nstates; j++) {
-              if (z_eq(zvec_get(Q->evals, i),
-		       zvec_get(Q->evals, j)))
-                f[i][j] = z_mul_real(z_exp(z_mul_real(zvec_get(Q->evals, i), t)), t);
+              if (z_eq(zvec_get(Q->evals_z, i),
+		       zvec_get(Q->evals_z, j)))
+                f[i][j] = z_mul_real(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), t);
               else
-                f[i][j] = z_div(z_sub(z_exp(z_mul_real(zvec_get(Q->evals, i), t)), z_exp(z_mul_real(zvec_get(Q->evals, j), t))), z_sub(zvec_get(Q->evals, i), zvec_get(Q->evals, j)));
+                f[i][j] = z_div(z_sub(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), z_exp(z_mul_real(zvec_get(Q->evals_z, j), t))), z_sub(zvec_get(Q->evals_z, i), zvec_get(Q->evals_z, j)));
           
             }
           }
@@ -1183,7 +1183,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
             for (j = 0; j < nstates; j++) {
 	      tmpmat[i][j] = z_set(0, 0);
               for (k = 0; k < nstates; k++) 
-                tmpmat[i][j] = z_add(tmpmat[i][j], z_mul(f[i][k], z_mul(sinv_dq_s[i][k], zmat_get(Q->evec_matrix_inv, k, j))));
+                tmpmat[i][j] = z_add(tmpmat[i][j], z_mul(f[i][k], z_mul(sinv_dq_s[i][k], zmat_get(Q->evec_matrix_inv_z, k, j))));
             }
           }
 
@@ -1196,7 +1196,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
               Complex partial_p = z_set(0, 0);
 
               for (k = 0; k < nstates; k++) 
-                partial_p = z_add(partial_p, z_mul(zmat_get(Q->evec_matrix, i, k), tmpmat[k][j]));
+                partial_p = z_add(partial_p, z_mul(zmat_get(Q->evec_matrix_z, i, k), tmpmat[k][j]));
 
               assert(fabs(partial_p.y) <= TM_IMAG_EPS);
 
