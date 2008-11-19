@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: msa_split.c,v 1.26 2008-11-12 02:07:58 acs Exp $ */
+/* $Id: msa_split.c,v 1.27 2008-11-19 15:21:26 agd27 Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -817,6 +817,12 @@ int main(int argc, char* argv[]) {
       
       sprintf(subfname, "%s.%d-%d.%s", out_fname_root, orig_start, 
               orig_end, msa_suffix_for_format(output_format));
+
+      /* Avoid complaints about msa->seqs and msa->categories being non-null
+	 when using maf input sequences */
+      sub_msa->seqs = NULL;
+      sub_msa->categories = NULL:
+      sub_msa->ncats = -1;
 
       if (!quiet_mode)
         fprintf(stderr, "Writing partition %d to %s...\n", i+1, subfname);
