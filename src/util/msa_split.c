@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: msa_split.c,v 1.27 2008-11-19 15:21:26 agd27 Exp $ */
+/* $Id: msa_split.c,v 1.28 2008-11-19 15:23:10 agd27 Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -821,7 +821,7 @@ int main(int argc, char* argv[]) {
       /* Avoid complaints about msa->seqs and msa->categories being non-null
 	 when using maf input sequences */
       sub_msa->seqs = NULL;
-      sub_msa->categories = NULL:
+      sub_msa->categories = NULL;
       sub_msa->ncats = -1;
 
       if (!quiet_mode)
