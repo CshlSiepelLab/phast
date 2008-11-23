@@ -2,40 +2,6 @@
             PHAST: PHYLOGENETIC ANALYSIS WITH SPACE/TIME MODELS
 ---------------------------------------------------------------------------
 
-This README describes a software package for the analysis of multiple,
-aligned biological sequences using combined phylogenetic and hidden
-Markov models.
-
-The theory underlying PHAST is described in:
-
-    A. Siepel and D. Haussler.  Combining phylogenetic and hidden Markov
-      models in biosequence analysis.  RECOMB, 2003.
-
-    A. Siepel and D. Haussler.  Phylogenetic estimation of
-      context-dependent substitution rates by maximum likelihood.
-      Mol. Biol. Evol., 21:468-488, 2004.
-
-    A. Siepel and D. Haussler.  Computational identification of
-      evolutionarily conserved exons.  RECOMB, 2004.
-
-    A. Siepel and D. Haussler.  Phylogenetic hidden Markov models.  In
-      R. Nielsen, Statistical Methods in Molecular Evolution,
-      Springer, NY, 2005.
-
-
-                       DEVELOPMENT AND AVAILABILITY
-
-PHAST was developed at the University of California, Santa Cruz, by
-Adam Siepel, working under the direction of David Haussler (Computer
-Science Department and Center for Biomolecular Science and
-Engineering).  The package is written in ANSI C, and has been compiled
-and run on the Linux, SunOS, and Mac OS X operating systems; it should
-be easy to port it to other UNIX-based systems.  Note that it
-currently depends on the LAPACK linear algebra package (see below).
-
-The software is freely available for research purposes.
-
-
                                  CONTENTS
 
 PHAST consists of a fairly large library of reusable subroutines and
