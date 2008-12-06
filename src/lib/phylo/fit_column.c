@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_column.c,v 1.20 2008-11-16 21:59:48 acs Exp $ */
+/* $Id: fit_column.c,v 1.21 2008-12-06 16:46:31 acs Exp $ */
 
 /* Functions to compute likelihoods for individual alignment columns,
    estimate column-by-column scale factors by maximum likelihood,
@@ -1458,7 +1458,7 @@ double col_estimate_fim(TreeModel *mod) {
 Matrix *col_get_fim_sub(FimGrid *g, double scale) {
   int idx;
   double frac;
-  Matrix *retval = mat_new(2,2);
+  Matrix *retval;
   assert(scale >= 0);
 
   if (scale < 1) 
@@ -1479,8 +1479,10 @@ Matrix *col_get_fim_sub(FimGrid *g, double scale) {
       retval = mat_create_copy(g->fim[idx]);
     else if (frac > 0.9) 
       retval = mat_create_copy(g->fim[idx+1]);    
-    else  /* interpolate */ 
+    else {  /* interpolate */ 
+      retval = mat_new(2,2);
       mat_linear_comb(retval, g->fim[idx], frac, g->fim[idx+1], 1-frac); 
+    }
   }
   return retval;  
 }

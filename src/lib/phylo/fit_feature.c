@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_feature.c,v 1.4 2008-11-16 21:59:48 acs Exp $ */
+/* $Id: fit_feature.c,v 1.5 2008-12-06 16:46:31 acs Exp $ */
 
 /* Functions to compute likelihoods, estimate scale factors, perform
    LRTs, score tests, etc. for multi-column features.  Generalization
@@ -439,6 +439,8 @@ void ff_score_tests_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
           (mode == CON && grad->data[1] > 0))
         teststat = 0;             /* derivative points toward boundary;
                                      truncate at 0 */
+
+      mat_free(fim);
     }
 
     if (feat_pvals != NULL) {
@@ -461,8 +463,6 @@ void ff_score_tests_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
     if (feat_derivs != NULL) feat_derivs[i] = grad->data[0];
     if (feat_sub_derivs != NULL) feat_sub_derivs[i] = grad->data[1];
     if (feat_teststats != NULL) feat_teststats[i] = teststat;
-
-    mat_free(fim);
   }
 
   ff_free_fit_data(d);
