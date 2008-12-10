@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: numerical_opt.c,v 1.14 2008-11-16 21:59:48 acs Exp $ */
+/* $Id: numerical_opt.c,v 1.15 2008-12-10 15:25:51 acs Exp $ */
 
 #include <stdlib.h>
 #include <numerical_opt.h>
@@ -253,15 +253,16 @@ inline int scale_for_bounds(Vector *linev, Vector *params,
     if (scale1 < minscale) { minscale = scale1; retval = i; }    
     if (scale2 < minscale) { minscale = scale2; retval = i; }
   }
-  if (minscale < 1)
+  if (minscale < 1) {
     vec_scale(linev, minscale);
 
-  if (lower_bounds != NULL)
-    for (i = 0; i < params->size; i++) 
-      assert(vec_get(params, i) + vec_get(linev, i) >= vec_get(lower_bounds, i));
-  if (upper_bounds != NULL)
-    for (i = 0; i < params->size; i++) 
-      assert(vec_get(params, i) + vec_get(linev, i) <= vec_get(upper_bounds, i));
+    if (lower_bounds != NULL)
+      for (i = 0; i < params->size; i++) 
+        assert(vec_get(params, i) + vec_get(linev, i) >= vec_get(lower_bounds, i));
+    if (upper_bounds != NULL)
+      for (i = 0; i < params->size; i++) 
+        assert(vec_get(params, i) + vec_get(linev, i) <= vec_get(upper_bounds, i));
+  }
 
   return retval;
 }
