@@ -813,7 +813,7 @@ void dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
 		      GFF_Set *reference, int ref_as_prior, int force_priors) {
   int i, j, *path, **trans, **ref_paths = NULL, nwins;
   double **forward_scores, llh;
-  MSA *msa;
+/*   MSA *msa; */
   GFF_Set *query_gff = NULL;
 
   /* Allocate space for the forward scores and path. Set to the 
@@ -971,7 +971,7 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
 				   int nsamples, int sample_interval) {
   int i, cat, seqnum, start, end, best,
     mtf_total, b_total, d_total, c_total, n_total;
-  double bestscore;
+/*   double bestscore; */
   char *strand, delim[2], post[STR_LONG_LEN], *seqname;
   CategoryMap *cm = dm->phmm->cm;
   String *attributes, *key_string;
@@ -1218,7 +1218,8 @@ void dms_combine_gffs(GFF_Set *target_gff, GFF_Set *query_gff) {
 */
 int* dms_composite_path(DMotifPhyloHmm *dm, int *path1, int *path2, 
 			int seqlen, int offset, int force_priors) {
-  int i, j, s1, s2, m1, m2, mc, *composite_path;
+  int i, s1, s2, m1, m2, *composite_path;
+/*   int mc, j; */
 
   composite_path = smalloc(seqlen * sizeof(int));
   for (i = 0; i < seqlen; i++) {
@@ -1265,8 +1266,9 @@ int* dms_composite_path(DMotifPhyloHmm *dm, int *path1, int *path2,
    motifs, neutral background will be used in all spacer regions. */
 int* dm_gff_to_path(DMotifPhyloHmm *dm, GFF_Set *gff, int seqlen, 
 		     int offset) {
-  int i, j, *path;
-  GFF_Feature *f;
+  int *path;
+/*   int i, j; */
+/*   GFF_Feature *f; */
   
   /* Cycle through the indeces from 0 to seqlen and reconstruct the state path
      based on the presence/absence of a GFF feature. Motif features require
@@ -1280,10 +1282,11 @@ int* dm_gff_to_path(DMotifPhyloHmm *dm, GFF_Set *gff, int seqlen,
 /* Generate a set of state paths based on a GFF_Set and a Multi_MSA. */
 int** dm_gff_to_paths(DMotifPhyloHmm *dm, GFF_Set *gff, Multi_MSA *blocks,
 		      int offset) {
-  int i, j, **paths;
-  GFF_Set *tmp_gff;
-  GFF_Feature *f;
-  String *seqname;
+  int **paths;
+/*   int i, j; */
+/*   GFF_Set *tmp_gff; */
+/*   GFF_Feature *f; */
+/*   String *seqname; */
 
 /*   paths = smalloc(blocks->nblocks * sizeof(int*)); */
 /*   for (i = 0; i < blocks->nblocks; i++) */
@@ -1313,7 +1316,7 @@ Hashtable* dms_read_hash(FILE *hash_f, int nstates, int* nsamples) {
     if (line->length == 0) continue;
     
     if (str_re_match(line, ne_re, matches, 1) >= 0) {
-      str_as_int(lst_get_int(matches, 1), &nelements);
+      str_as_int(lst_get_ptr(matches, 1), &nelements);
       retval = hsh_new(nelements);
     } else if (str_re_match(line, ns_re, matches, 1) >= 0) {
       str_as_int(lst_get_ptr(matches, 1), nsamples);
@@ -1361,7 +1364,7 @@ void dms_combine_hashes(Hashtable *target, Hashtable *query, int nstates) {
   keys = hsh_keys(query);
   for (i = 0; i < lst_size(keys); i++) {
     key = lst_get_ptr(keys, i);
-    if (hsh_get(target, key) != -1) {
+    if (hsh_get(target, key) != (void*)-1) {
       counts_t = hsh_get(target, key);
       counts_q = hsh_get(query, key);
       for (j = 0; j < nstates; j++) {
@@ -1388,7 +1391,8 @@ void dms_compute_emissions(PhyloHmm *phmm,
                                 /**< Determins whether progress is
                                    reported to stderr */
                             ) {
-  int i, mod, j;
+  int i, mod;
+/*   int j; */
 
   for (i = 0; i < phmm->hmm->nstates; i++) {
     if (!quiet)
@@ -1506,7 +1510,7 @@ void dms_count_motifs(DMotifPhyloHmm *dm, int *path, int seqlen,
     if (p == 0) {
       sprintf(hsh_key, "%d_%d", seqnum, i);
       counts = hsh_get(path_counts, hsh_key);
-      if (counts == -1) { /* First motif at this position */
+      if (counts == (void*)-1) { /* First motif at this position */
 	counts = smalloc(dm->phmm->hmm->nstates * sizeof(int));
 	for (j = 0; j < dm->phmm->hmm->nstates; j++)
 	  counts[j] = 0;
@@ -1644,7 +1648,7 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih) {
 	if (do_ih) { /* Allocate space for indel histories, if
 			called for -- this will need to be filled
 			in explicitly later */
-	  dmpmsa->ih = smalloc(nblocks * sizeof(IndelHistory));
+	  dmpmsa->ih = smalloc(nblocks * sizeof(void*));
 	}
 	i = 0;
       }

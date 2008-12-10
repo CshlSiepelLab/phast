@@ -30,11 +30,12 @@
 
 int main(int argc, char *argv[]) {
   char c, *key;
-  int opt_idx, i, j, old_nnodes, *counts, cbstate, nsamples, nsamples_this,
+  int opt_idx, i, old_nnodes, *counts, nsamples, nsamples_this,
     max_seqlen;
+/*   int cbstate, j; */
   DMotifPmsaStruct *dmpmsa;
   PooledMSA *blocks;
-  MSA *msa;
+/*   MSA *msa; */
   List *pruned_names = lst_new_ptr(5), *tmpl;
   DMotifPhyloHmm *dm;
   GFF_Set *predictions;
@@ -43,7 +44,7 @@ int main(int argc, char *argv[]) {
   List *keys, *seqnames;
   PSSM *motif;
   Hashtable *path_counts, *tmp;
-  String *cbname;
+/*   String *cbname; */
   FILE *hash_f;
 
   struct option long_opts[] = {
@@ -67,7 +68,7 @@ int main(int argc, char *argv[]) {
     alpha_n = -1, beta_n = -1, tau_n = -1, epsilon_n = -1;
   int refidx = 1, sample_interval = DEFAULT_SAMPLE_INTERVAL, do_ih = 0;
   char *seqname = NULL, *idpref = NULL, delim[2];
-  IndelHistory *ih = NULL;
+/*   IndelHistory *ih = NULL; */
   String *hash_f_string;
   List *hash_files;  
 

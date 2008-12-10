@@ -31,7 +31,8 @@
 
 int main(int argc, char *argv[]) {
   char c, *key;
-  int opt_idx, i, j, old_nnodes, **priors, *counts, cbstate, max_seqlen;
+  int opt_idx, i, old_nnodes, **priors, *counts, cbstate, max_seqlen;
+/*   int j; */
   int found = FALSE;
   double **tuple_scores, **emissions;
   PooledMSA *blocks = NULL;

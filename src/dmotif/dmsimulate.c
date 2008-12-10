@@ -25,7 +25,8 @@
 
 int main(int argc, char *argv[]) {
   char c;
-  int i, opt_idx, *path;
+  int opt_idx, *path;
+/*   int i; */
   MSA *msa;
   List *tmpl;
   DMotifPhyloHmm *dm;
