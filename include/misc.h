@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: misc.h,v 1.26 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: misc.h,v 1.27 2008-12-10 18:09:17 agd27 Exp $ */
 
 #ifndef MISC_H
 #define MISC_H
@@ -195,5 +195,6 @@ void norm_confidence_interval(double mu, double sigma, double interval_size,
                               double *min_x, double *max_x);
 void print_seq_fasta(FILE *F, char *seq, char *name, int len);
 double get_elapsed_time(struct timeval *start_time);
+int file_exists(char *filename);
 
 #endif

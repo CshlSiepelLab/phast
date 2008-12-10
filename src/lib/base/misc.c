@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: misc.c,v 1.36 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: misc.c,v 1.37 2008-12-10 18:09:17 agd27 Exp $ */
 
 #include <stdlib.h>
 #include <misc.h>
@@ -17,6 +17,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <hashtable.h>
+#include <unistd.h>
 
 #define NCODONS 64
 
@@ -1100,6 +1101,11 @@ int log2_int(unsigned x) {
     x >>= 1;
     if (x == 0) return i;
   }
+}
+
+/* check to see if a file is present and readable on the filesystem */
+int file_exists(char *filename) {
+ return (access(filename, F_OK) == 0);
 }
 
 /***************************************************************************/

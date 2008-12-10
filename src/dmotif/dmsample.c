@@ -28,16 +28,17 @@
 #define DEFAULT_BSAMPLES 5000
 #define DEFAULT_NSAMPLES 100000
 #define DEFAULT_SAMPLE_INTERVAL 1
+#define DEFAULT_CACHE_INTERVAL 100
 
 int main(int argc, char *argv[]) {
   char c, *key;
-  int opt_idx, i, old_nnodes, **priors, *counts, cbstate, max_seqlen;
+  int opt_idx, i, old_nnodes, **priors, *counts, cbstate, max_seqlen, csamples;
 /*   int j; */
   int found = FALSE;
   double **tuple_scores, **emissions;
   PooledMSA *blocks = NULL;
   MSA *msa;
-  List *pruned_names = lst_new_ptr(5), *tmpl, *keys, *seqnames;
+  List *pruned_names = lst_new_ptr(5), *tmpl, *keys, *seqnames, *cache_files;
   IndelHistory **ih = NULL;
   DMotifPmsaStruct *dmpmsa;
   DMotifPhyloHmm *dm;
@@ -62,6 +63,9 @@ int main(int argc, char *argv[]) {
     {"force_priors", 0, 0, 'p'},
     {"dump-hash", 1, 0, 'D'},
     {"precomputed-hash", 1, 0, 'd'},
+    {"cache-fname", 1, 0, 'c'},
+    {"cache-int", 1, 0, 'i'},
+    {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -76,10 +80,13 @@ int main(int argc, char *argv[]) {
     alpha_n = -1, beta_n = -1, tau_n = -1, epsilon_n = -1;
   int refidx = 1, bsamples = DEFAULT_BSAMPLES, nsamples = DEFAULT_NSAMPLES, 
     sample_interval = DEFAULT_SAMPLE_INTERVAL, do_ih = 0, 
-    ref_as_prior = FALSE, force_priors = FALSE, precomputed_hash = FALSE;
-  char *seqname = NULL, *idpref = NULL;
+    ref_as_prior = FALSE, force_priors = FALSE, precomputed_hash = FALSE,
+    quiet = FALSE, cache_int = DEFAULT_CACHE_INTERVAL;
+  char *seqname = NULL, *idpref = NULL, 
+    *cache_fname = smalloc(STR_MED_LEN * sizeof(char));
+  sprintf(cache_fname, "dmsample_%ti", time(0));
   
-  while ((c = getopt_long(argc, argv, "R:b:s:r:N:P:I:l:v:g:u:p:D:d:h",
+  while ((c = getopt_long(argc, argv, "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:h",
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
@@ -148,6 +155,15 @@ int main(int argc, char *argv[]) {
       precomputed_hash = TRUE;
       hash_f = fopen_fname(optarg, "r");
       break;
+    case 'c':
+      sprintf(cache_fname, "%s", optarg);
+      break;
+    case 'i':
+      cache_int = atoi(optarg);
+      break;
+    case 'q':
+      quiet = TRUE;
+      break;
     case 'h':
       printf(HELP);
       exit(0);
@@ -204,14 +220,15 @@ int main(int argc, char *argv[]) {
 
   /* read alignments */
   fprintf(stderr, "Reading alignments from %s...\n", argv[optind]);
-  dmpmsa = dms_read_alignments(msa_f, do_ih);
+  dmpmsa = dms_read_alignments(msa_f, do_ih, quiet);
 
   blocks = dmpmsa->pmsa;
   seqnames = dmpmsa->seqnames;
   if (do_ih)
     ih = dmpmsa->ih;
   max_seqlen = dmpmsa->max_seqlen;
-
+  
+/*   fprintf(stderr, "max_seqlen %d\n", max_seqlen); */
 /*   fprintf(stderr, "ntuples %d\n", blocks->pooled_msa->ss->ntuples); */
 
   /* Read in priors for parameter estimation */
@@ -267,63 +284,80 @@ int main(int argc, char *argv[]) {
      traceback algorithms. This requires a dummy MSA of all tuples, in order,
      for emissions computation, an nstates * ntuples matrix for the tuple-wise
      emission scores and a nstates * max_seqlen matrix for the sequence-wise
-     emission scores. */
+     emission scores. Not needed if using a precomputed hash. */
 
-  /* Contains the non-redundant col_tuples matrix */
-  msa = blocks->pooled_msa;
-
-  fprintf(stderr, "Computing emission probabilities for %d distinct tuples...\n",
-	  msa->ss->ntuples);
-
-  /* Some hacks to please tl_compute_log_likelihood -- avoids having to create
-     a dummy msa to compute emissions. */
-  msa->length = msa->ss->ntuples;
-  msa->ss->tuple_idx = smalloc(msa->ss->ntuples * sizeof(int));
-  for (i = 0; i < msa->ss->ntuples; i++)
-    msa->ss->tuple_idx[i] = i; /* One to one mapping of column to tuple */
-
-  /* tuple-wise emissions matrix */
-  tuple_scores = smalloc(dm->phmm->hmm->nstates * sizeof(double*));
-  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
-    tuple_scores[i] = smalloc(blocks->pooled_msa->ss->ntuples 
-			      * sizeof(double));
-  }
-  /* Assign dm->phmm->emissions as the tuple-wise table for computation
-     purposes */
-  dm->phmm->emissions = tuple_scores; 
-  dm->phmm->alloc_len = msa->ss->ntuples;
-
-  /* Compute the tuple-wise emissions matrix */
-  dms_compute_emissions(dm->phmm, msa, FALSE);
-  /* Adjust for missing data */
-  fprintf(stderr, "Adjusting emissions for missing data...\n");
-  dm_handle_missing_data(dm, msa);
-
-  /* sequence-wise emissions matrix */
-  emissions = smalloc(dm->phmm->hmm->nstates * sizeof(double*));
-  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
-    emissions[i] = smalloc(max_seqlen * sizeof(double));
-  }
-  /* Reassign the emissions matrix associated with the phmm to the sequence-
-     wise matrix. */
-  dm->phmm->emissions = emissions;
-  dm->phmm->alloc_len = max_seqlen;
-  
-  /** Call the sampler **/
   if (!precomputed_hash) {
+    /* Contains the non-redundant col_tuples matrix */
+    msa = blocks->pooled_msa;
+    
+    fprintf(stderr, "Computing emission probabilities for %d distinct tuples...\n",
+	    msa->ss->ntuples);
+    
+    /* Some hacks to please tl_compute_log_likelihood -- avoids having to create
+       a dummy msa to compute emissions. */
+    msa->length = msa->ss->ntuples;
+    msa->ss->tuple_idx = smalloc(msa->ss->ntuples * sizeof(int));
+    for (i = 0; i < msa->ss->ntuples; i++)
+      msa->ss->tuple_idx[i] = i; /* One to one mapping of column to tuple */
+    
+    /* tuple-wise emissions matrix */
+    tuple_scores = smalloc(dm->phmm->hmm->nstates * sizeof(double*));
+    for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+      tuple_scores[i] = smalloc(blocks->pooled_msa->ss->ntuples 
+				* sizeof(double));
+    }
+    /* Assign dm->phmm->emissions as the tuple-wise table for computation
+       purposes */
+    dm->phmm->emissions = tuple_scores; 
+    dm->phmm->alloc_len = msa->ss->ntuples;
+    
+    /* Compute the tuple-wise emissions matrix */
+    dms_compute_emissions(dm->phmm, msa, quiet);
+    /* Adjust for missing data */
+    fprintf(stderr, "Adjusting emissions for missing data...\n");
+    dm_handle_missing_data(dm, msa);
+    
+    /* sequence-wise emissions matrix */
+    emissions = smalloc(dm->phmm->hmm->nstates * sizeof(double*));
+    for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+      emissions[i] = smalloc(max_seqlen * sizeof(double));
+    }
+    /* Reassign the emissions matrix associated with the phmm to the sequence-
+       wise matrix. */
+    dm->phmm->emissions = emissions;
+    dm->phmm->alloc_len = max_seqlen;
+    
+    /** Call the sampler **/
     fprintf(stderr, "Sampling state paths...\n");
-    path_counts = hsh_new(max((10 * lst_size(blocks->source_msas)), 10000));
+    
+    cache_files = dms_sample_paths(dm, blocks, tuple_scores, ih, seqnames, 
+				   max_seqlen, bsamples, nsamples, 
+				   sample_interval, priors,
+				   log, reference, ref_as_prior, force_priors,
+				   quiet, cache_fname, cache_int);
 
-    dms_sample_paths(dm, blocks, tuple_scores, ih, seqnames, max_seqlen,
-		     bsamples, nsamples, sample_interval, path_counts, priors,
-		     log, reference, ref_as_prior, force_priors);
+    /* Free emissions matrix */
+    for (i = 0; i < lst_size(blocks->source_msas); i++) {
+      /*     for (j = 0; j < dm->phmm->hmm->nstates; j++) */
+      /*       free(emissions[j]); */
+      free(tuple_scores[i]);
+      free(emissions[i]);
+    }
+    free(tuple_scores);
+    free(emissions);
+    dm->phmm->emissions = NULL;
 
+    path_counts = dms_uncache(cache_files, 
+			      max(10*lst_size(blocks->source_msas), 10000),
+			      ((2*dm->k)+2), &csamples, 1);
+/*     fprintf(stderr, "nsamples %d, csamples %d\n", nsamples, csamples); */
+    
   } else {
     fprintf(stderr, "Reading sampling data from disk...\n");
 /*     fprintf(stderr, "nsamples_init %d\t", nsamples); */
-    path_counts = dms_read_hash(hash_f, dm->phmm->hmm->nstates, &nsamples);
+    path_counts = dms_read_hash(hash_f, ((2*dm->k)+2), &nsamples);
   }
-
+  
 /*   fprintf(stderr, "nsamples_new %d\n", nsamples); */
   
   /* Can free priors */
@@ -333,7 +367,7 @@ int main(int argc, char *argv[]) {
 
   /* Dump hash, for debugging purposes. */
   if (hash_f != NULL && !precomputed_hash) {
-    dms_write_hash(path_counts, hash_f, dm->phmm->hmm->nstates, nsamples);
+    dms_write_hash(path_counts, hash_f, ((2*dm->k)+2), nsamples);
     return 0;
   }
 
@@ -357,18 +391,12 @@ int main(int argc, char *argv[]) {
 
   /* Free up some memory */
   lst_free(keys);  
-  for (i = 0; i < lst_size(blocks->source_msas); i++) {
-/*     for (j = 0; j < dm->phmm->hmm->nstates; j++) */
-/*       free(emissions[j]); */
-    free(emissions[i]);
-  }
-  free(emissions);
-  dm->phmm->emissions = NULL;
   
   /* convert GFF to coord frame of reference sequence and adjust
-     coords by idx_offset, if necessary  */
-  if (refidx != 0 || msa->idx_offset != 0)
-    msa_map_gff_coords(msa, predictions, 0, refidx, msa->idx_offset, NULL);
+     coords by idx_offset, if necessary  -- needs to be fixed to work with
+     multiple msa's */
+/*   if (refidx != 0 || msa->idx_offset != 0) */
+/*     msa_map_gff_coords(msa, predictions, 0, refidx, msa->idx_offset, NULL); */
   
   /* now output predictions */
   fprintf(stderr, "Writing GFF to stdout...\n");
@@ -377,7 +405,19 @@ int main(int argc, char *argv[]) {
   if (reference != NULL)
     gff_free_set(reference);
   gff_free_set(predictions);
-  
+
+  /* Clean up temp files and file list */
+  if (!precomputed_hash) {
+    for (i = 0; i < lst_size(cache_files); i++) {
+      sprintf(cache_fname, "%s %s", "rm", 
+	      ((String*)lst_get_ptr(cache_files, i))->chars);
+      /* delete the file */
+      system(cache_fname);
+      str_free(lst_get_ptr(cache_files, i));
+    }
+    lst_free(cache_files); 
+  }
+  free(cache_fname);
   fprintf(stderr, "Done.\n");
   
   return 0;

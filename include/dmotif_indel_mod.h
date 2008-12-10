@@ -14,6 +14,7 @@
 #define DM_INDMOD_H
 
 #include <indel_history.h>
+#include <msa.h>
 
 #define NINDEL_STATES 3
 typedef enum {MATCH, CHILDINS, CHILDDEL, SKIP, ERROR} col_type;

@@ -2,6 +2,10 @@
 # this file defines variables used by all Makefiles
 ###########################################################################
 
+# currently set up for linux and GCC and Pentium III/IV processors,
+# with options for Mac OS X.  Adjustments may be needed for other
+# systems.
+
 # set below to point to top-level directory of PHAST installation
 ifndef PHAST
 PHAST=${HOME}/phast
@@ -23,13 +27,14 @@ TARGETLIB = ${LIB}/libphast.a
 # an appropriate alternative
 
 # for debugging
-#CFLAGS = -g -fno-inline -Wall
+CFLAGS = -g -fno-inline -Wall
 # for best performance
-CFLAGS = -O3 
-# some other options
+#CFLAGS = -O3 
+# use this instead for Mac OS X
+#CFLAGS = -mcpu=powerpc -O3
+# other possible options
 #CFLAGS = -mcpu=opteron -O3
 #CFLAGS = -mcpu=pentiumpro -O3 
-#CFLAGS = -mcpu=powerpc -O3
 
 CFLAGS += -I${INC} -DPHAST_VERSION=\"$(shell cat ${PHAST}/version)\" -DPHAST_HOME=\"${PHAST}\"
 LIBPATH = -L${LIB} 
@@ -37,7 +42,6 @@ LIBPATH = -L${LIB}
 # uncomment these lines for profiling (add -g for line-by-line
 # profiling and -a for monitoring of basic blocks)
 #CFLAGS += -pg
-#LFLAGS += -pg
 
 # this flag tells certain routines to dump internal, debugging output.
 # Don't uncomment unless you know what you're doing.

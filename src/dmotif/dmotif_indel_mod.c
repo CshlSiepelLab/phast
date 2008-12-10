@@ -1,4 +1,4 @@
-/* $Id: dmotif_indel_mod.c,v 1.1 2008-10-28 22:29:56 agd27 Exp $
+/* $Id: dmotif_indel_mod.c,v 1.2 2008-12-10 18:09:17 agd27 Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -547,4 +547,3 @@ DMotifIndelSuffStats *dmih_suff_stats_cat(IndelHistory *ih, int *categories,
   }
   return iss;
 }
-

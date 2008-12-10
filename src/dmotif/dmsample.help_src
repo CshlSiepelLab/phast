@@ -107,5 +107,9 @@ OPTIONS:
 	previous dmsample run with the --dump-hash option) and produce the
 	output data from the stored data. No additional sampling will be done.
 
+    --cache-fname, -c <filename>
+	Temp-file name for hash caching. Default name is based on machine time
+	on the local system.
+
     --help, -h
         Show this help message and exit.

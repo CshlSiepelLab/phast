@@ -23,15 +23,19 @@
 #define DEFAULT_ZETA 0.001
 #define DEFAULT_MSA_LEN 1000000;
 
+
+
 int main(int argc, char *argv[]) {
-  char c;
-  int opt_idx, *path;
-/*   int i; */
-  MSA *msa;
-  List *tmpl;
+  char c, *msa_fname;
+  int i, j, k, opt_idx, *path, len;
+  MSA *msa, *indel_msa;
+  List *tmpl, *leaf_seqs;
   DMotifPhyloHmm *dm;
-  GFF_Set *motifs;
+  GFF_Set *motifs, *tmp_gff;
+  GFF_Feature *f;
   PSSM *motif;
+  IndelHistory *ih;
+  TreeNode *n;
 
   struct option long_opts[] = {
     {"refseq", 1, 0, 'M'},
@@ -47,10 +51,12 @@ int main(int argc, char *argv[]) {
     {"idpref", 1, 0, 'P'},
     {"indel-model", 1, 0, 'I'},
     {"msa-length", 1, 0, 'L'},
+    {"random-lengths", 1, 0, 'l'},
+    {"keep-ancestral", 0, 0, 'k'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
-
+  
   /* arguments and defaults for options */
   FILE *refseq_f = NULL, *msa_f = NULL, *motif_f = NULL;
   msa_format_type msa_format = FASTA;
@@ -58,11 +64,13 @@ int main(int argc, char *argv[]) {
   double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU, 
     phi = DEFAULT_PHI, zeta = DEFAULT_ZETA, gamma = -1, omega = -1, 
     alpha_c = -1, beta_c = -1, tau_c = -1, epsilon_c = -1,
-    alpha_n = -1, beta_n = -1, tau_n = -1, epsilon_n = -1;
+    alpha_n = -1, beta_n = -1, tau_n = -1, epsilon_n = -1,
+    lambda = -1;
   int set_transitions = FALSE, refidx = 1, msa_len = DEFAULT_MSA_LEN;
-  char *seqname = NULL, *idpref = NULL;
+  int max_len = 0, min_len = 0, do_ih = FALSE, keep_ancestral = FALSE;
+  char *seqname = NULL, *idpref = NULL, *seqname_root = NULL;
   
-  while ((c = getopt_long(argc, argv, "R:t:p:z:E:C:r:M:i:N:P:I:L:h", 
+  while ((c = getopt_long(argc, argv, "R:t:p:z:E:C:r:M:i:N:P:I:L:l:k:h", 
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
@@ -104,33 +112,49 @@ int main(int argc, char *argv[]) {
         die("ERROR: unrecognized alignment format.\n");
       break;
     case 'N':
-      seqname = optarg;
+      seqname_root = optarg;
       break;
     case 'P':
       idpref = optarg;
       break;
     case 'I':
       tmpl = get_arg_list_dbl(optarg);
-      if (lst_size(tmpl) != 3 && lst_size(tmpl) != 6)
-        die("ERROR: bad argument to --indel-model.\n");
+      if (lst_size(tmpl) != 4 && lst_size(tmpl) != 8)
+	die("ERROR: bad argument to --indel-model.\n");
       alpha_n = lst_get_dbl(tmpl, 0);
       beta_n = lst_get_dbl(tmpl, 1);
       tau_n = lst_get_dbl(tmpl, 2);
+      epsilon_n = lst_get_dbl(tmpl, 3);
       if (lst_size(tmpl) == 6) {
-        alpha_c = lst_get_dbl(tmpl, 3);
-        beta_c = lst_get_dbl(tmpl, 4);
-        tau_c = lst_get_dbl(tmpl, 5);
+	alpha_c = lst_get_dbl(tmpl, 4);
+	beta_c = lst_get_dbl(tmpl, 5);
+	tau_c = lst_get_dbl(tmpl, 6);
+	epsilon_c = lst_get_dbl(tmpl, 7);
       }
       else {
-        alpha_c = alpha_n; beta_c = beta_n; tau_c = tau_n;
+	alpha_c = alpha_n; beta_c = beta_n; tau_c = tau_n;
+	epsilon_c = epsilon_n;
       }
-      if (alpha_c <= 0 || alpha_c >= 1 || beta_c <= 0 || beta_c >= 1 || 
-          tau_c <= 0 || tau_c >= 1 || alpha_n <= 0 || alpha_n >= 1 || 
-          beta_n <= 0 || beta_n >= 1 || tau_n <= 0 || tau_n >= 1)
-        die("ERROR: bad argument to --indel-model.\n");
+      if (alpha_c <= 0 || alpha_c >= 1 || beta_c <= 0 || beta_c >= 1 ||
+	  tau_c <= 0 || tau_c >= 1 || epsilon_c <= 0 || epsilon_c >= 1 ||
+	  alpha_n <= 0 || alpha_n >= 1 || beta_n <= 0 || beta_n >= 1 ||
+	  tau_n <= 0 || tau_n >= 1 || epsilon_n <= 0 || epsilon_n >= 1)
+	die("ERROR: bad argument to --indel-model.\n");
+      do_ih = TRUE;
       break;
     case 'L':
       msa_len = get_arg_int_bounds(optarg, 0, INFTY);
+      break;
+    case 'l':
+      tmpl = get_arg_list_dbl(optarg);
+      if (lst_size(tmpl) != 3)
+	die("ERROR: bad argument to --random-lengths.\n");
+      min_len = (int)lst_get_dbl(tmpl, 0);
+      max_len = (int)lst_get_dbl(tmpl, 1);
+      lambda = lst_get_dbl(tmpl, 2);
+      break;  
+    case 'k':
+      keep_ancestral = TRUE;
       break;
     case 'h':
       printf(HELP);
@@ -175,48 +199,115 @@ int main(int argc, char *argv[]) {
   dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, alpha_c, beta_c, 
               tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n, FALSE,
 	      FALSE, FALSE, FALSE);
-
+  
   /* set seqname and idpref, if necessary */
-  if (seqname == NULL || idpref == NULL) {
+  if (seqname_root == NULL || idpref == NULL) {
     /* derive default from msa file name root */
     String *tmp = str_new_charstr(argv[optind+2]);
     if (!str_equals_charstr(tmp, "-")) {
       str_remove_path(tmp);
-      str_root(tmp, '.');
       if (idpref == NULL) idpref = strdup(tmp->chars);
-      if (seqname == NULL) seqname = tmp->chars;    
+      if (seqname_root == NULL) seqname_root = tmp->chars;    
     }
-    else if (seqname == NULL) seqname = "refseq";
+    else if (seqname_root == NULL) seqname_root = "refseq";
   }
 
-  /* Simulate the alignment */
-  fprintf(stderr, "Simulating multiple sequence alignment of length %d...\n",
-	  msa_len);
-  path = smalloc(msa_len * sizeof(int));
-  msa = tm_generate_msa(msa_len, dm->phmm->hmm, dm->phmm->mods, path);
+  if (keep_ancestral == FALSE) {
+    leaf_seqs = lst_new_int( ((source_mod->tree->nnodes - 1) / 2));
+    for (i = 0; i < source_mod->tree->nnodes; i++) {
+      n = lst_get_ptr(source_mod->tree->nodes, i);
+      if (n->lchild == NULL) /* leaf node */
+	lst_push_int(leaf_seqs, n->id);
+    }			 
+  }
+  
+  /* Simulate the alignment(s) */
+  fprintf(stderr, "Simulating sequences...\n");
+  /* Seed the random number generator */
+  srandom(time(0));
 
-/*   for (i = 0; i < msa_len; i++) */
-/*     fprintf(stderr, "%d", path[i]); */
-/*   fprintf(stderr, "\n"); */
+  j = 1;
+  msa_fname = smalloc(STR_MED_LEN * sizeof(char));
+  seqname = smalloc(STR_MED_LEN * sizeof(char));
+  motifs = gff_new_set();
+  for (i = 0; i < msa_len; /* incrementing done inside loop */) {
+    fprintf(stderr, "\tSimulating sequence %d...\n", j);
 
-  /* Build the motif features GFF */
-  motifs = dm_labeling_as_gff(dm->phmm->cm, path, msa_len, 
-			      dm->m->width, dm->phmm->state_to_cat,
-			      dm->state_to_motifpos, dm->phmm->reverse_compl,
-			      seqname, "DMSIMULATE", NULL, NULL, idpref);
+    if (lambda != -1) {
+      len = ((int)gamma_draw(max_len, lambda) + min_len);
+      sprintf(seqname, "%s.%d", seqname_root, j);
+    } else {
+      len = msa_len;
+      sprintf(seqname, "%s", seqname_root);
+    }
+    i += len;
 
-  /* Print the alignment to the msa file */
-  fprintf(stderr, "Writing multiple sequence alignment to %s in %s format...\n",
-	  argv[optind+2], msa_suffix_for_format(msa_format));
-  msa_f = fopen_fname(argv[optind+2], "w");
-  msa_print(msa_f, msa, msa_format, 0);
+    path = smalloc(len * sizeof(int));
+    msa = tm_generate_msa(len, dm->phmm->hmm, dm->phmm->mods, path);
+    
+    /*   for (i = 0; i < msa_len; i++) */
+    /*     fprintf(stderr, "%d", path[i]); */
+    /*   fprintf(stderr, "\n"); */
+
+    if (do_ih) {
+      ih = ih_new(source_mod->tree, len);
+      fprintf(stderr, "\tSimulating indels for sequence %d...\n", j);
+      indel_msa = dm_indel_mask(dm, msa, ih, path);
+      msa_free(msa);
+      if (!keep_ancestral) {
+	fprintf(stderr, "\tPruning away ancestral sequences...\n");
+	msa = msa_sub_alignment(indel_msa, leaf_seqs, TRUE, 0, len-1);
+	msa_free(indel_msa);
+	lst_free(leaf_seqs);
+      } else {
+	msa = indel_msa;
+      }
+    }
+    
+    /* Build the motif features GFF */
+    tmp_gff = dm_labeling_as_gff(dm->phmm->cm, path, len, 
+				 dm->m->width, dm->phmm->state_to_cat,
+				 dm->state_to_motifpos, 
+				 dm->phmm->reverse_compl,
+				 seqname, "DMSIMULATE", NULL, NULL, idpref);
+    
+    for (k = 0; k < lst_size(tmp_gff->features); k++) {
+      f = lst_get_ptr(tmp_gff->features, k);
+      lst_push_ptr(motifs->features, gff_new_feature_copy(f));
+    }
+    
+/*     fprintf(stderr, "i %d, j %d, len %d, tmp_gff %d, motifs %d\n", i, j, len,  */
+/* 	    lst_size(tmp_gff->features), */
+/* 	    lst_size(motifs->features)); */
+    
+    /* Print the alignment to the msa file */
+    sprintf(msa_fname, "%s.%d.%s", argv[optind+2], j, 
+	    msa_suffix_for_format(msa_format));
+    fprintf(stderr, "\tWriting alignment to %s...\n", msa_fname);
+    msa_f = fopen_fname(msa_fname, "w");
+    msa_print(msa_f, msa, msa_format, 0);
+    if (do_ih) {
+      sprintf(msa_fname, "%s.%d.%s", argv[optind+2], j, "ih");
+      fprintf(stderr, "\tWriting indel history to %s...\n", msa_fname);
+      fclose(msa_f);
+      msa_f = fopen_fname(msa_fname, "w");
+      ih_print(ih, msa_f, seqname, "dmsimulate");
+      ih_free(ih);
+    }
+    fclose(msa_f);
+    free(path);
+    msa_free(msa);
+    gff_free_set(tmp_gff);
+    j++;
+  }
 
   /* Print motif features to stdout */
   fprintf(stderr, "Writing GFF to stdout...\n");
   gff_print_set(stdout, motifs);
 
-  free(path);
   fprintf(stderr, "Done.\n");
+  free(seqname);
+  free(msa_fname);
   
   return 0;
 }

@@ -18,7 +18,7 @@
 #include <dmotif_phmm.h>
 #include <pssm.h>
 #include <hashtable.h>
-#include "dmsample.help"
+#include "dmsProcessParallel.help"
 
 #define DEFAULT_RHO 0.3
 #define DEFAULT_PHI 0.5
@@ -35,26 +35,23 @@ int main(int argc, char *argv[]) {
 /*   int cbstate, j; */
   DMotifPmsaStruct *dmpmsa;
   PooledMSA *blocks;
-/*   MSA *msa; */
-  List *pruned_names = lst_new_ptr(5), *tmpl;
+  List *pruned_names = lst_new_ptr(5);
   DMotifPhyloHmm *dm;
   GFF_Set *predictions;
   GFF_Feature *f;
   int found = FALSE;
   List *keys, *seqnames;
   PSSM *motif;
-  Hashtable *path_counts, *tmp;
+  Hashtable *path_counts;
 /*   String *cbname; */
-  FILE *hash_f;
 
   struct option long_opts[] = {
     {"refseq", 1, 0, 'M'},
     {"refidx", 1, 0, 'r'},
-    {"rho", 1, 0, 'R'},
     {"seqname", 1, 0, 'N'},
     {"idpref", 1, 0, 'P'},
-    {"indel-model", 1, 0, 'I'},
     {"dump-hash", 1, 0, 'D'},
+    {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -62,22 +59,15 @@ int main(int argc, char *argv[]) {
   /* arguments and defaults for options */
   FILE *refseq_f = NULL, *msa_f = NULL, *motif_f = NULL, *dump_f = NULL;
   TreeModel *source_mod;
-  double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU, 
-    phi = DEFAULT_PHI, zeta = DEFAULT_ZETA,
-    alpha_c = -1, beta_c = -1, tau_c = -1, epsilon_c = -1,
-    alpha_n = -1, beta_n = -1, tau_n = -1, epsilon_n = -1;
-  int refidx = 1, sample_interval = DEFAULT_SAMPLE_INTERVAL, do_ih = 0;
+  int refidx = 1, sample_interval = DEFAULT_SAMPLE_INTERVAL, do_ih = 0,
+    quiet = FALSE;
   char *seqname = NULL, *idpref = NULL, delim[2];
-/*   IndelHistory *ih = NULL; */
   String *hash_f_string;
   List *hash_files;  
 
-  while ((c = getopt_long(argc, argv, "R:r:M:N:P:I:D:h",
+  while ((c = getopt_long(argc, argv, "r:M:N:P:D:h",
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {
-    case 'R':
-      rho = get_arg_dbl_bounds(optarg, 0, 1);
-      break;
     case 'r':
       refidx = get_arg_int_bounds(optarg, 0, INFTY);
       break;
@@ -90,33 +80,11 @@ int main(int argc, char *argv[]) {
     case 'P':
       idpref = optarg;
       break;
-    case 'I':
-      tmpl = get_arg_list_dbl(optarg);
-      if (lst_size(tmpl) != 4 && lst_size(tmpl) != 8)
-        die("ERROR: bad argument to --indel-model.\n");
-      alpha_n = lst_get_dbl(tmpl, 0);
-      beta_n = lst_get_dbl(tmpl, 1);
-      tau_n = lst_get_dbl(tmpl, 2);
-      epsilon_n = lst_get_dbl(tmpl, 3);
-      if (lst_size(tmpl) == 6) {
-        alpha_c = lst_get_dbl(tmpl, 4);
-        beta_c = lst_get_dbl(tmpl, 5);
-        tau_c = lst_get_dbl(tmpl, 6);
-	epsilon_c = lst_get_dbl(tmpl, 7);
-      }
-      else {
-        alpha_c = alpha_n; beta_c = beta_n; tau_c = tau_n;
-	epsilon_c = epsilon_n;
-      }
-      if (alpha_c <= 0 || alpha_c >= 1 || beta_c <= 0 || beta_c >= 1 ||
-          tau_c <= 0 || tau_c >= 1 || epsilon_c <= 0 || epsilon_c >= 1 ||
-	  alpha_n <= 0 || alpha_n >= 1 || beta_n <= 0 || beta_n >= 1 || 
-	  tau_n <= 0 || tau_n >= 1 || epsilon_n <= 0 || epsilon_n >= 1)
-        die("ERROR: bad argument to --indel-model.\n");
-      do_ih = 1;
-      break;
     case 'D':
       dump_f = fopen_fname(optarg, "w");
+      break;
+    case 'q':
+      quiet = TRUE;
       break;
     case 'h':
       printf(HELP);
@@ -142,7 +110,7 @@ int main(int argc, char *argv[]) {
   /* read alignments -- we really only need sequence lengths! */
   fprintf(stderr, "Reading alignments from %s...\n", argv[optind+1]);
   msa_f = fopen_fname(argv[optind+1], "r");
-  dmpmsa = dms_read_alignments(msa_f, do_ih);
+  dmpmsa = dms_read_alignments(msa_f, do_ih, quiet);
   blocks = dmpmsa->pmsa;
   seqnames = dmpmsa->seqnames;
   max_seqlen = dmpmsa->max_seqlen;
@@ -192,30 +160,20 @@ int main(int argc, char *argv[]) {
     if (!found) die("ERROR: no match for reference sequence in tree.\n");
   }
   
-  dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, alpha_c, beta_c,
-              tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n,
-	      FALSE, FALSE, FALSE, FALSE);
+  /* Only state mappings will be used */
+  dm = dm_new(source_mod, motif, 0.01, 0.01, 0.01, 0.5, 0.001, 0.03, 0.03,
+              0.3, 0.0003, 0.03, 0.03, 0.3, 0.0003, FALSE, FALSE, FALSE, 
+	      FALSE);
 
   /* Not using emissions, so no need to compute */
 
   /* Read hashes from each file, flattening into the merged hash as we go */
-  path_counts = hsh_new(lst_size(hash_files));
-  for (i = 0; i < lst_size(hash_files); i++) {
-    hash_f = fopen_fname(((String*)lst_get_ptr(hash_files, i))->chars, "r");
-    fprintf(stderr, "Reading sampling data from file %s...\n", 
-	    ((String*)lst_get_ptr(hash_files, i))->chars);
-/*     fprintf(stderr, "nsamples_init %d\t", nsamples); */
-    tmp = dms_read_hash(hash_f, dm->phmm->hmm->nstates, &nsamples_this);
-    nsamples += nsamples_this;
-/*     fprintf(stderr, "nsamples_this = %d, nsamples = %d\n", nsamples_this, nsamples); */
-    dms_combine_hashes(path_counts, tmp, dm->phmm->hmm->nstates);
-    fclose(hash_f);
-    hsh_free(tmp);
-  }
+  nsamples = nsamples_this = 0;
+  path_counts = dms_uncache(hash_files, 10000, ((2*dm->k)+2), &nsamples, 0);
 
   /* Dump hash, for debugging purposes. */
   if (dump_f != NULL) {
-    dms_write_hash(path_counts, dump_f, dm->phmm->hmm->nstates, nsamples);
+    dms_write_hash(path_counts, dump_f, ((2*dm->k)+2), nsamples);
     return 0;
   }
     
