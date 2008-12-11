@@ -28,7 +28,7 @@
 #define DEFAULT_BSAMPLES 5000
 #define DEFAULT_NSAMPLES 100000
 #define DEFAULT_SAMPLE_INTERVAL 1
-#define DEFAULT_CACHE_INTERVAL 100
+#define DEFAULT_CACHE_INTERVAL 200
 
 int main(int argc, char *argv[]) {
   char c, *key;
@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
     ref_as_prior = FALSE, force_priors = FALSE, precomputed_hash = FALSE,
     quiet = FALSE, cache_int = DEFAULT_CACHE_INTERVAL;
   char *seqname = NULL, *idpref = NULL, 
-    *cache_fname = smalloc(STR_MED_LEN * sizeof(char));
+    *cache_fname = (char*)smalloc(STR_MED_LEN * sizeof(char));
   sprintf(cache_fname, "dmsample_%ti", time(0));
   
   while ((c = getopt_long(argc, argv, "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:h",
@@ -233,9 +233,9 @@ int main(int argc, char *argv[]) {
 
   /* Read in priors for parameter estimation */
   fprintf(stderr, "Reading transition parameter priors from %s...\n", argv[optind + 3]);
-  priors = smalloc(4 * sizeof(int*));
+  priors = (int**)smalloc(4 * sizeof(int*));
   for (i = 0; i < 4; i++) {
-    priors[i] = smalloc(2 * sizeof(int));
+    priors[i] = (int*)smalloc(2 * sizeof(int));
     priors[i][0] = priors[i][1] = 0;
   }
   dms_read_priors(priors, prior_f);
@@ -290,21 +290,23 @@ int main(int argc, char *argv[]) {
     /* Contains the non-redundant col_tuples matrix */
     msa = blocks->pooled_msa;
     
-    fprintf(stderr, "Computing emission probabilities for %d distinct tuples...\n",
+    fprintf(stderr,
+	    "Computing emission probabilities for %d distinct tuples...\n",
 	    msa->ss->ntuples);
     
     /* Some hacks to please tl_compute_log_likelihood -- avoids having to create
        a dummy msa to compute emissions. */
     msa->length = msa->ss->ntuples;
-    msa->ss->tuple_idx = smalloc(msa->ss->ntuples * sizeof(int));
+    msa->ss->tuple_idx = (int*)smalloc(msa->ss->ntuples 
+				       * sizeof(int));
     for (i = 0; i < msa->ss->ntuples; i++)
       msa->ss->tuple_idx[i] = i; /* One to one mapping of column to tuple */
     
     /* tuple-wise emissions matrix */
-    tuple_scores = smalloc(dm->phmm->hmm->nstates * sizeof(double*));
+    tuple_scores = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*));
     for (i = 0; i < dm->phmm->hmm->nstates; i++) {
-      tuple_scores[i] = smalloc(blocks->pooled_msa->ss->ntuples 
-				* sizeof(double));
+      tuple_scores[i] = (double*)smalloc(blocks->pooled_msa->ss->ntuples 
+					 * sizeof(double));
     }
     /* Assign dm->phmm->emissions as the tuple-wise table for computation
        purposes */
@@ -318,9 +320,10 @@ int main(int argc, char *argv[]) {
     dm_handle_missing_data(dm, msa);
     
     /* sequence-wise emissions matrix */
-    emissions = smalloc(dm->phmm->hmm->nstates * sizeof(double*));
+    emissions = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*));
     for (i = 0; i < dm->phmm->hmm->nstates; i++) {
-      emissions[i] = smalloc(max_seqlen * sizeof(double));
+      emissions[i] = (double*)smalloc(max_seqlen 
+				      * sizeof(double));
     }
     /* Reassign the emissions matrix associated with the phmm to the sequence-
        wise matrix. */
@@ -332,9 +335,9 @@ int main(int argc, char *argv[]) {
     
     cache_files = dms_sample_paths(dm, blocks, tuple_scores, ih, seqnames, 
 				   max_seqlen, bsamples, nsamples, 
-				   sample_interval, priors,
-				   log, reference, ref_as_prior, force_priors,
-				   quiet, cache_fname, cache_int);
+				   sample_interval, priors, log, reference, 
+				   ref_as_prior, force_priors, quiet, 
+				   cache_fname, cache_int);
 
     /* Free emissions matrix */
     for (i = 0; i < lst_size(blocks->source_msas); i++) {
@@ -409,7 +412,7 @@ int main(int argc, char *argv[]) {
   /* Clean up temp files and file list */
   if (!precomputed_hash) {
     for (i = 0; i < lst_size(cache_files); i++) {
-      sprintf(cache_fname, "%s %s", "rm", 
+      sprintf(cache_fname, "rm %s", 
 	      ((String*)lst_get_ptr(cache_files, i))->chars);
       /* delete the file */
       system(cache_fname);

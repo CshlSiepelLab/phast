@@ -245,7 +245,7 @@ void bd_handle_missing_data(BDPhyloHmm *bdphmm, MSA *msa) {
       else {			/* internal node */
         if (mark[n->lchild->id] == MISSING && mark[n->rchild->id] == MISSING)
           mark[n->id] = MISSING;
-        else if (mark[n->lchild->id] != MISSING && mark[n->rchild->id != MISSING])
+        else if (mark[n->lchild->id] != MISSING && mark[n->rchild->id] != MISSING)
           mark[n->id] = DATA;
         else if (mark[n->lchild->id] != MISSING)
           mark[n->id] = DATA_LEFT;

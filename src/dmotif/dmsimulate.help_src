@@ -83,9 +83,6 @@ OPTIONS:
         "chr22.35" if input file is "chr22.35.ss").
 
     --indel-model, -I alpha,beta,tau,epsilon[,alpha2,beta2,tau2,epsilon2]
-
-	CURRENTLY NOT SUPPORTED!!!
-
         Use a simple model of insertions and deletions that assumes a known
         indel history and at most one indel per branch of the tree at any
         given position.  The parameters alpha and beta are rates of

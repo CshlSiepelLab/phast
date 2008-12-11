@@ -28,19 +28,27 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
   List *inside = lst_new_ptr(source_mod->tree->nnodes),
     *outside = lst_new_ptr(source_mod->tree->nnodes);
   DMotifPhyloHmm *dm;
-  double *alpha = smalloc(source_mod->tree->nnodes * sizeof(double)),
-    *beta = smalloc(source_mod->tree->nnodes * sizeof(double)),
-    *tau = smalloc(source_mod->tree->nnodes * sizeof(double)),
-    *epsilon = smalloc(source_mod->tree->nnodes * sizeof(double));
+  double *alpha = (double*)smalloc(source_mod->tree->nnodes 
+				   * sizeof(double)),
+    *beta = (double*)smalloc(source_mod->tree->nnodes 
+			     * sizeof(double)),
+    *tau = (double*)smalloc(source_mod->tree->nnodes 
+			    * sizeof(double)),
+    *epsilon = (double*)smalloc(source_mod->tree->nnodes 
+				* sizeof(double));
   assert(rho > 0 && rho < 1);
   assert(mu > 0 && 2*mu < 1);
   assert(nu > 0 && nu < 1);
 
   dm = smalloc(sizeof(DMotifPhyloHmm));
-  dm->state_to_branch = smalloc(nstates * sizeof(int));
-  dm->state_to_event = smalloc(nstates * sizeof(int));
-  dm->state_to_motifpos = smalloc(nstates * sizeof(int));
-  dm->state_to_motif = smalloc(nstates * sizeof(int));
+  dm->state_to_branch = (int*)smalloc(nstates 
+				      * sizeof(int));
+  dm->state_to_event = (int*)smalloc(nstates 
+				     * sizeof(int));
+  dm->state_to_motifpos = (int*)smalloc(nstates 
+					* sizeof(int));
+  dm->state_to_motif = (int*)smalloc(nstates 
+				     * sizeof(int));
   dm->branch_to_states = smalloc(source_mod->tree->nnodes * sizeof(void*));
   dm->rho = rho;
   dm->mu = mu;
@@ -363,7 +371,7 @@ void dm_handle_missing_data(DMotifPhyloHmm *dm, MSA *msa) {
       else {			/* internal node */
         if (mark[n->lchild->id] == MISSING && mark[n->rchild->id] == MISSING)
           mark[n->id] = MISSING;
-        else if (mark[n->lchild->id] != MISSING && mark[n->rchild->id != MISSING])
+        else if (mark[n->lchild->id] != MISSING && mark[n->rchild->id] != MISSING)
           mark[n->id] = DATA;
         else if (mark[n->lchild->id] != MISSING)
           mark[n->id] = DATA_LEFT;
@@ -487,7 +495,8 @@ void dm_print_motif_scores(DMotifPhyloHmm *dm) {
 /* combine indel emissions with substitution-based emissions */
 void dm_add_indel_emissions(DMotifPhyloHmm *dm, IndelHistory *ih) {
   int state, i;
-  double *col_logl = smalloc(ih->ncols * sizeof(double));
+  double *col_logl = (double*)smalloc(ih->ncols 
+				      * sizeof(double));
   for (state = 0; state < dm->phmm->hmm->nstates; state++) {
     dmih_column_logl(ih, dm->indel_mods[state], col_logl);
     for (i = 0; i < ih->ncols; i++)
@@ -526,11 +535,11 @@ double dm_estimate_transitions(DMotifPhyloHmm *dm, MSA *msa) {
   double retval;
 
   if (dm->phmm->forward == NULL) {
-    dm->phmm->forward = smalloc(dm->phmm->hmm->nstates *
+    dm->phmm->forward = (double**)smalloc(dm->phmm->hmm->nstates *
                                     sizeof(double*));
     for (i = 0; i < dm->phmm->hmm->nstates; i++)
-      dm->phmm->forward[i] = smalloc(dm->phmm->alloc_len *
-                                         sizeof(double));
+      dm->phmm->forward[i] = (double*)smalloc(dm->phmm->alloc_len 
+					      * sizeof(double));
   }
 
   if (dm->estim_omega) nparams++;
@@ -833,20 +842,20 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
   List *cache_files;
 
   path_counts = hsh_new(max((10 * lst_size(blocks->source_msas)), 10000));
-  cache_files = lst_new_ptr(max(100, nsamples/100));
+  cache_files = lst_new_ptr(nsamples/cache_int);
   
   /* Allocate space for the forward scores and path. Set to the
      length of the longest sequence -- will reuse for each sequnce. */
-  forward_scores = smalloc(dm->phmm->hmm->nstates * sizeof(double*));
+  forward_scores = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*));
   for (i = 0; i < dm->phmm->hmm->nstates; i++) {
-    forward_scores[i] = smalloc(max_seqlen * sizeof(double*));
+    forward_scores[i] = (double*)smalloc(max_seqlen * sizeof(double));
   }
-  path = smalloc(max_seqlen * sizeof(int));
+  path = (int*)smalloc(max_seqlen * sizeof(int));
   
   /* Allocate space for the transition counts and set to prior values */
-  trans = smalloc(4 * sizeof(int*));
+  trans = (int**)smalloc(4 * sizeof(int*));
   for (i = 0; i < 4; i++) {
-    trans[i] = smalloc(2 * sizeof(int));
+    trans[i] = (int*)smalloc(2 * sizeof(int));
     trans[i][0] = priors[i][0];
     trans[i][1] = priors[i][1];
   }
@@ -865,11 +874,12 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
   
   k = 0;
   l = 1;
-  cache_out = smalloc(STR_MED_LEN * sizeof(char));
-  for (i = 0; i < (bsamples + nsamples); i++) {
-    /* Seed the random number generator */
-    srandom(time(0));
+  cache_out = (char*)smalloc(STR_MED_LEN * sizeof(char));
 
+  /* Seed the random number generator */
+  srandom(time(0));
+
+  for (i = 0; i < (bsamples + nsamples); i++) {
     if (!quiet) fprintf(stderr, "*");
     /* Clean things up for logging motif stats for individual samples, if
        needed */
@@ -880,10 +890,10 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
     }
     
     /* Draw a set of params */
-    dm->mu = beta_draw(trans[0][0], trans[0][1]);
-    dm->nu = beta_draw(trans[1][0], trans[1][1]);
-    dm->phi = beta_draw(trans[2][0], trans[2][1]);
-    dm->zeta = beta_draw(trans[3][0], trans[3][1]);
+    dm->mu = beta_draw((double)trans[0][0], (double)trans[0][1]);
+    dm->nu = beta_draw((double)trans[1][0], (double)trans[1][1]);
+    dm->phi = beta_draw((double)trans[2][0], (double)trans[2][1]);
+    dm->zeta = beta_draw((double)trans[3][0], (double)trans[3][1]);
     dm_set_transitions(dm);
 
     /* Reset transition counts to prior values */
@@ -1137,8 +1147,10 @@ void dms_compare_gffs(GFF_Set *target_gff, GFF_Set *query_gff, int *stats,
      coordinate base of the target set */
   int i, j, k, nmatches, *tmatch_idx, *qmatch_idx;
   GFF_Feature *ft, *fq;
-  tmatch_idx = smalloc(lst_size(target_gff->features) * sizeof(int));
-  qmatch_idx = smalloc(lst_size(query_gff->features) * sizeof(int));
+  tmatch_idx = (int*)smalloc(lst_size(target_gff->features) 
+			     * sizeof(int));
+  qmatch_idx = (int*)smalloc(lst_size(query_gff->features) 
+			     * sizeof(int));
 
   if (matches != NULL && (mismatches == NULL || unique_to_query == NULL ||
 			  unique_to_target == NULL))
@@ -1235,7 +1247,7 @@ Hashtable* dms_read_hash(FILE *hash_f, /* 2*dm->k+2 */ int nstates,
       str_as_int(lst_get_ptr(matches, 1), nsamples);
     } else {
       str_split(line, NULL, matches);
-      counts = smalloc(nstates * sizeof(int));
+      counts = (int*)smalloc(nstates * sizeof(int));
       /* Count entries in matches are offset by 1 due to the key occupying
 	 index 0 */
       for (i = 1; i <= nstates; i++)
@@ -1424,7 +1436,8 @@ void dms_count_motifs(DMotifPhyloHmm *dm, int *path, int seqlen,
       sprintf(hsh_key, "%d_%d", seqnum, i);
       counts = hsh_get(path_counts, hsh_key);
       if (counts == (void*)-1) { /* First motif at this position */
-	counts = smalloc(dm->phmm->hmm->nstates * sizeof(int));
+	counts = (int*)smalloc(dm->phmm->hmm->nstates 
+			       * sizeof(int));
 	for (j = 0; j < dm->phmm->hmm->nstates; j++)
 	  counts[j] = 0;
 	counts[p] = 1;
@@ -1472,7 +1485,7 @@ void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample,
      keep track of the matches, mismatches, etc. in the stats structure */
   if (reference != NULL) {
     fpr = spc = ppv = 0;
-    stats = smalloc(4 * sizeof(int*));
+    stats = (int*)smalloc(4 * sizeof(int));
     for (i = 0; i < 4; i++)
       stats[i] = 0;
     
@@ -1658,14 +1671,15 @@ double dm_compute_log_likelihood(TreeModel *mod, MSA *msa,
   alph_size = strlen(mod->rate_matrix->states);
 
   /* allocate memory */
-  partial_match = smalloc(alph_size * sizeof(int));
+  partial_match = (int*)smalloc(alph_size * sizeof(int));
   inside_joint = (double**)smalloc(nstates * sizeof(double*));
   for (j = 0; j < nstates; j++) 
-    inside_joint[j] = (double*)smalloc((mod->tree->nnodes+1) * 
-                                       sizeof(double));
+    inside_joint[j] = (double*)smalloc((mod->tree->nnodes+1)
+				       * sizeof(double));
   
   if (col_scores != NULL) {
-    tuple_scores = (double*)smalloc(msa->ss->ntuples * sizeof(double));
+    tuple_scores = (double*)smalloc(msa->ss->ntuples 
+				    * sizeof(double));
     for (tupleidx = 0; tupleidx < msa->ss->ntuples; tupleidx++)
       tuple_scores[tupleidx] = 0;
   }
