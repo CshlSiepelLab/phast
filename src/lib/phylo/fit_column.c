@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_column.c,v 1.21 2008-12-06 16:46:31 acs Exp $ */
+/* $Id: fit_column.c,v 1.22 2008-12-16 19:54:09 mt269 Exp $ */
 
 /* Functions to compute likelihoods for individual alignment columns,
    estimate column-by-column scale factors by maximum likelihood,
@@ -36,7 +36,7 @@
    sufficient stats already available.  Note that this function uses
    natural log rather than log2.  This function does allow for rate
    variation. */
-double col_compute_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
+double col_compute_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
                                   double **scratch) {
 
   int i, j, k, nodeidx, rcat;
@@ -104,8 +104,19 @@ double col_compute_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
     free(pL);
   }
 
-  return(log(total_prob));
+  return(total_prob);
 }
+
+
+
+/* See col_compute_likelihood above for notes.
+   Note that this function uses natural log rather than log2
+ */
+double col_compute_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
+                                  double **scratch) {
+  return log(col_compute_likelihood(mod, msa, tupleidx, scratch));
+}
+
 
 /* version of col_scale_derivs_subst that allows for the general case
    of complex eigenvalues and eigenvectors */

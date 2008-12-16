@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_column.h,v 1.14 2008-11-16 21:59:48 acs Exp $ */
+/* $Id: fit_column.h,v 1.15 2008-12-16 19:54:09 mt269 Exp $ */
 
 #ifndef FIT_COL_H
 #define FIT_COL_H
@@ -70,6 +70,9 @@ typedef struct {
 
 double col_compute_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
                                   double **scratch);
+
+double col_compute_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
+		              double **scratch);
 
 double col_scale_derivs(ColFitData *d, double *first_deriv, 
                         double *second_deriv, double ***scratch);
