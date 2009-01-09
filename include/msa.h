@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: msa.h,v 1.22 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: msa.h,v 1.23 2009-01-09 22:01:00 mt269 Exp $ */
 
 /** \file msa.h
    Multiple sequence alignments.
@@ -22,6 +22,7 @@
 #include <category_map.h>
 #include <markov_matrix.h>
 #include <vector.h>
+#include <hashtable.h>
 
 /* maximum "order" allowed when indexing columns (see
    msa_index_cols) */
@@ -127,6 +128,9 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *set, int from_seq, int to_seq,
 int msa_map_seq_to_seq(msa_coord_map *from_map, msa_coord_map *to_map, 
                        int coord);
 
+int msa_add_seq(MSA *msa, char *name);
+void msa_add_seq_ss(MSA *msa, int new_nseq);
+
 /* Returns complement of a single DNA base.  Leaves all bases but A,C,G,T unchanged. */
 char msa_compl_char(char c);
 
@@ -187,5 +191,6 @@ void msa_missing_to_gaps(MSA *msa, int refseq);
 int msa_alph_has_lowercase(MSA *msa);
 void msa_toupper(MSA *msa);
 void msa_delete_cols(MSA *msa, int *delete_cols);
+void msa_realloc(MSA *msa, int new_length, int new_alloclen, int do_cats, int store_order);
 
 #endif

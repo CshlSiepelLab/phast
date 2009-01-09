@@ -1,3 +1,4 @@
+
 /***************************************************************************
  * PHAST: PHylogenetic Analysis with Space/Time models
  * Copyright (c) 2002-2005 University of California, 2006-2009 Cornell 
@@ -9,7 +10,7 @@
 
 /* sufficient_stats.h - Representation of multiple alignments in terms of their sufficient statistics */
 
-/* $Id: sufficient_stats.h,v 1.11 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: sufficient_stats.h,v 1.12 2009-01-09 22:01:00 mt269 Exp $ */
 
 #ifndef MSA_SS_H
 #define MSA_SS_H
@@ -27,7 +28,7 @@ struct msa_ss_struct {
   int ntuples;                  /* number of distinct tuples */
   char **col_tuples;            /* the actual column tuples;
                                    col_tuples[i] is string of length
-                                   msa->nseqs * tuple_size */
+                                   ss->nseqs * tuple_size */
   int *tuple_idx;               /* defines order of column tuples in
                                    alignment; tuple_idx[i] is the
                                    index in col_tuples of the tuple
@@ -91,20 +92,22 @@ void ss_strip_missing(MSA *msa, int refseq);
 int ss_is_4d(MSA *msa, int tuple);
 int ss_is_4nd(MSA *msa, int tuple);
 void ss_reduce_tuple_size(MSA *msa, int new_tuple_size);
-
-
+void ss_add_seq(MSA *msa, int new_nseq);
+int ss_lookup_coltuple(char *coltuple_str, Hashtable *tuple_hash, MSA *msa);
+void ss_add_coltuple(char *coltuple_str, void *val, Hashtable *tuple_hash, MSA *msa);
 
 /* Produce a string representation of an alignment column tuple, given
    the model order; str must be allocated externally to size
    msa->nseqs * (tuple_size) + 1 */
 extern inline 
 void col_to_string(char *str, MSA *msa, int col, int tuple_size) {
-  int col_offset, j;
-  for (col_offset = -1 * (tuple_size-1); col_offset <= 0; col_offset++) 
+  int col_offset, j, pos = 0;
   for (j = 0; j < msa->nseqs; j++) 
-    str[msa->nseqs*(tuple_size-1 + col_offset) + j] = 
-      (col+col_offset >= 0 ? msa->seqs[j][col+col_offset] : GAP_CHAR);
-  str[msa->nseqs*tuple_size] = '\0';
+    for (col_offset = -1 * (tuple_size-1); col_offset <= 0; col_offset++)
+      str[pos++] = 
+	(col + col_offset >=0 ? msa->seqs[j][col+col_offset] : GAP_CHAR);
+  str[pos] = '\0';
+  assert(pos = msa->nseqs*tuple_size);
 }
 
 /* Given a string representation of a column tuple, return the
@@ -115,13 +118,13 @@ void col_to_string(char *str, MSA *msa, int col, int tuple_size) {
    == -1 then the preceding one is considered, and so on. */
 extern inline 
 char col_string_to_char(MSA *msa, char *str, int seqidx, int tuple_size, int col_offset) {
-  return str[msa->nseqs*(tuple_size-1+col_offset) + seqidx];
+  return str[tuple_size*seqidx + tuple_size - 1 + col_offset];
                                 /* FIXME: WRONG */
 }
 
 extern inline
 void set_col_char_in_string(MSA *msa, char *str, int seqidx, int tuple_size, int col_offset, char c) {
-  str[msa->nseqs*(tuple_size-1+col_offset) + seqidx] = c;
+  str[tuple_size*seqidx + tuple_size - 1 + col_offset] = c;
 }
 
 /* return character for specified sequence given index of tuple */
@@ -163,14 +166,15 @@ void tuple_to_string_pretty(char *str, MSA *msa, int tupleidx) {
    tuple_size (null terminator will not be added, but if present will
    be left unchanged). */
 extern inline
-void ss_get_tuple_of_chars(MSA *msa, int tupleidx, int seqidx, 
+void ss_get_tuple_of_chars(MSA *msa, int tupleidx, int seqidx,
                            char *tuplestr) {
   int offset;
   for (offset = -1 * (msa->ss->tuple_size-1); offset <= 0; offset++) {
-    tuplestr[msa->ss->tuple_size + offset - 1] = 
-      col_string_to_char(msa, msa->ss->col_tuples[tupleidx], 
+    tuplestr[msa->ss->tuple_size + offset - 1] =
+      col_string_to_char(msa, msa->ss->col_tuples[tupleidx],
                          seqidx, msa->ss->tuple_size, offset);
   }
 }
+
 
 #endif

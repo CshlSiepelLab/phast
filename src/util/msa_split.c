@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: msa_split.c,v 1.28 2008-11-19 15:23:10 agd27 Exp $ */
+/* $Id: msa_split.c,v 1.29 2009-01-09 22:01:00 mt269 Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -588,12 +588,15 @@ int main(int argc, char* argv[]) {
 
   if (gff != NULL && cm == NULL) cm = cm_new_from_features(gff);
 
+  if (cats_to_do_str != NULL) cats_to_do = cm_get_category_list(cm, cats_to_do_str, FALSE);
+
   if (input_format == MAF) {
     if (gff != NULL) fprintf(stderr, "WARNING: use of --features with a MAF file currently forces a projection onto the reference sequence.\n");
 
-    msa = maf_read(fopen_fname(msa_fname, "r"), 
+    msa = maf_read_cats(fopen_fname(msa_fname, "r"), 
                    rseq_fname == NULL ? NULL : fopen_fname(rseq_fname, "r"), 
-                   tuple_size, NULL, gff, cm, -1, TRUE, NULL, NO_STRIP, FALSE); 
+                   tuple_size, NULL, gff, cm, -1, TRUE, NULL, NO_STRIP, FALSE,
+		   cats_to_do); 
     /* NOTE: no support yet for reverse complementing groups on
        reverse strand in MAF case */
   }
@@ -720,11 +723,6 @@ int main(int argc, char* argv[]) {
       lst_push_int(split_indices_list, f->start);
       lst_push_int(segment_ends_list, f->end);
     }
-  }
-
-  else if (by_category) {
-    if (cats_to_do_str != NULL) 
-      cats_to_do = cm_get_category_list(cm, cats_to_do_str, FALSE);
   }
 
 

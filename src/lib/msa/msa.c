@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: msa.c,v 1.59 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: msa.c,v 1.60 2009-01-09 22:01:00 mt269 Exp $ */
 
 /** \file msa.c
    Multiple sequence alignments.
@@ -844,6 +844,58 @@ int msa_map_seq_to_seq(msa_coord_map *from_map, msa_coord_map *to_map,
   if (msa_coord == -1) return -1;
   return (to_map == NULL ? msa_coord : msa_map_msa_to_seq(to_map, msa_coord));
 }
+
+
+
+/* Allocate space in col_tuples for more sequences, and set all columns
+   of new sequences to missing data.  new_nseq should be > msa->nseq.
+   Exception: If all the currently existing sequences have a GAP_CHAR in
+   the same column, then change all new species to GAP_CHAR as well. 
+*/
+void msa_add_seq_ss(MSA *msa, int new_nseqs) {
+  int i, j, k, newlen;
+  char newchar;
+  if (new_nseqs <= msa->nseqs) 
+    die("ERROR: new numseq must be >= than old in ss_add_seq\n");
+  newlen = new_nseqs*msa->ss->tuple_size + 1;
+  for (i=0; i<msa->ss->ntuples; i++) {
+    msa->ss->col_tuples[i] = srealloc(msa->ss->col_tuples[i], newlen*sizeof(char));
+    for (k = -msa->ss->tuple_size + 1; k<=0; k++) {
+      for (j=0; j < msa->nseqs; j++)
+	if (col_string_to_char(msa, msa->ss->col_tuples[i], j, msa->ss->tuple_size, k) 
+	    != GAP_CHAR) break;
+      if (j == msa->nseqs) newchar = GAP_CHAR;
+      else newchar = msa->missing[0];
+      for (j=msa->nseqs; j<new_nseqs; j++)
+	set_col_char_in_string(msa, msa->ss->col_tuples[i], j, msa->ss->tuple_size, k, newchar);
+    }
+    msa->ss->col_tuples[i][newlen - 1] = '\0';
+  }
+}
+
+
+/* Adds a sequence name to the msa, and allocates space for the sequence.
+   Assumes sequence is not already present!  Returns the new sequence index. */
+int msa_add_seq(MSA *msa, char *name) {
+  int seqidx = msa->nseqs;
+  
+  if (msa->nseqs == 0)  {
+      msa->names = smalloc(sizeof(char*));
+      msa->seqs = smalloc(sizeof(char*));
+  }
+  else {
+    msa->names = srealloc(msa->names, (seqidx+1)*sizeof(char*));
+    msa->seqs = srealloc(msa->seqs, (seqidx+1)*sizeof(char*));
+  }
+  msa->names[seqidx] = strdup(name);
+  if (msa->alloc_len > 0)
+    msa->seqs[seqidx] = smalloc((msa->alloc_len+1)*sizeof(char));
+  if (msa->ss != NULL)
+    msa_add_seq_ss(msa, seqidx+1);
+  msa->nseqs++;
+  return seqidx;
+}
+
 
 char msa_compl_char(char c) {
   if (c == 'A') return 'T';
@@ -2206,4 +2258,26 @@ void msa_delete_cols(MSA *msa, int *delete_cols) {
     }
   }
   msa->length = k;
+}
+
+
+//realloc if sequence length increases
+//if the number of sequences increases, call msa_add_seq
+void msa_realloc(MSA *msa, int new_length, int new_alloclen, int do_cats,
+		 int store_order) {
+  int i;
+  msa->length = new_length;
+  if (new_length <= msa->alloc_len) return;
+  if (msa->seqs != NULL) {
+    for (i=0; i<msa->nseqs; i++)
+      if (msa->seqs[i] != NULL) {
+	msa->seqs[i] = realloc(msa->seqs[i], (msa->length+1)*sizeof(int));
+	msa->seqs[i][msa->length] = '\0';
+      }
+  }
+  if (msa->categories != NULL) 
+    msa->categories = realloc(msa->categories, msa->length*sizeof(int));
+  if (msa->ss != NULL)
+    ss_realloc(msa, msa->ss->tuple_size, msa->ss->alloc_ntuples, do_cats,
+	       store_order);
 }

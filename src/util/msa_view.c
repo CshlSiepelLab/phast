@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: msa_view.c,v 1.41 2008-11-12 02:07:58 acs Exp $ */
+/* $Id: msa_view.c,v 1.42 2009-01-09 22:01:00 mt269 Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -680,10 +680,11 @@ int main(int argc, char* argv[]) {
                                    stats, and it's a common mistake to
                                    forget -z */
 
-    msa = maf_read(fopen_fname(infname, "r"), RSEQF, tuple_size, 
-                   alphabet, gff, cm, cycle_size, 
-                   output_format != SS || ordered_stats, 
-                   reverse_groups_tag, gap_strip_mode, maf_keep_overlapping);
+    msa = maf_read_cats(fopen_fname(infname, "r"), RSEQF, tuple_size, 
+		        alphabet, gff, cm, cycle_size, 
+		        output_format != SS || ordered_stats, 
+		        reverse_groups_tag, gap_strip_mode, 
+			maf_keep_overlapping, cats_to_do);
                                 /* store order unless output is SS and
                                    no ordered stats */
   }

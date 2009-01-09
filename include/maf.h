@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: maf.h,v 1.6 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: maf.h,v 1.7 2009-01-09 22:01:00 mt269 Exp $ */
 
 /** \file maf.h 
     Reading of alignments from MAF ("Multiple Alignment Format")
@@ -32,12 +32,31 @@
 #include "hashtable.h"
 #include "gff.h"
 
+MSA *maf_read_cats(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
+		   GFF_Set *gff, CategoryMap *cm, int cycle_size, int store_order, 
+		   char *reverse_groups, int gap_strip_mode, int keep_overlapping,
+		   List* cats_to_do);
 MSA *maf_read(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
+	      GFF_Set *gff, CategoryMap *cm, int cycle_size, int store_order, 
+	      char *reverse_groups, int gap_strip_mode, int keep_overlapping);
+
+MSA *maf_read_unsorted(FILE *f, FILE *REFSEQF, int tuple_size, char *alphabet,
+		  GFF_Set *gff, CategoryMap *cm, int cycle_size, int store_order,
+		  char *reverse_groups, int gap_strip_mode, int keep_overlapping,
+		  List *cats_to_do);
+
+MSA *maf_read_old(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
               GFF_Set *gff, CategoryMap *cm, int cycle_size, int store_order, 
               char *reverse_groups, int gap_strip_mode, int keep_overlapping);
 
 int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
                    int *start_idx, int *length, int do_toupper);
+
+int maf_read_block_addseq(FILE *f, MSA *mini_msa, Hashtable *name_hash,
+			  int *start_idx, int *length, int do_toupper);
+
+void maf_quick_peek(FILE *f, char ***names, Hashtable *name_hash,
+		    int *nseqs, int *refseqlen);
 
 void maf_peek(FILE *F, char ***names, Hashtable *name_hash, 
               int *nseqs, msa_coord_map *map, List *redundant_blocks,

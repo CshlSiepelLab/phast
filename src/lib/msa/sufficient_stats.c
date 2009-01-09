@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: sufficient_stats.c,v 1.25 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: sufficient_stats.c,v 1.26 2009-01-09 22:01:00 mt269 Exp $ */
 
 #include "sufficient_stats.h"
 #include "maf.h"
@@ -128,6 +128,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
                      upper_bound);
     ss_realloc(msa, tuple_size, max_tuples, do_cats, store_order);
   }
+    
 
   main_ss = msa->ss;
   tuple_hash = existing_hash != NULL ? existing_hash : hsh_new(max_tuples/3);
@@ -139,15 +140,12 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
   if (source_ss != NULL && !store_order) { /* in this case, just use
                                               existing suff stats */
     for (i = 0; i < source_ss->ntuples; i++) {
-      strncpy(key, source_ss->col_tuples[i], msa->nseqs * tuple_size);
-      if ((idx = (int)hsh_get(tuple_hash, key)) == -1) {
-                                /* column tuple has not been seen
-                                   before */
-        idx = main_ss->ntuples++;
-        hsh_put(tuple_hash, key, (void*)idx);
+      if ((idx = ss_lookup_coltuple(source_ss->col_tuples[i], tuple_hash, msa)) == -1) {
+	idx = main_ss->ntuples++;
+	ss_add_coltuple(source_ss->col_tuples[i], (void*)idx, tuple_hash, msa);
         main_ss->col_tuples[idx] = (char*)smalloc(tuple_size * msa->nseqs * 
                                                   sizeof(char));
-        strncpy(main_ss->col_tuples[idx], key, msa->nseqs * tuple_size);
+        strncpy(main_ss->col_tuples[idx], source_ss->col_tuples[i], msa->nseqs * tuple_size);
                                 /* NOTE: here main_ss must have
                                    sufficient size; we don't need to
                                    worry about reallocating */
@@ -180,11 +178,11 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
         strncpy(key, smsa->ss->col_tuples[smsa->ss->tuple_idx[i]], 
                 msa->nseqs * tuple_size);
 
-      if ((idx = (int)hsh_get(tuple_hash, key)) == -1) {
+      if ((idx = ss_lookup_coltuple(key, tuple_hash, msa)) == -1) {
                                 /* column tuple has not been seen
                                    before */
         idx = main_ss->ntuples++;
-        hsh_put(tuple_hash, key, (void*)idx);
+	ss_add_coltuple(key, (void*)idx, tuple_hash, msa);
 
         if (main_ss->ntuples > main_ss->alloc_ntuples) 
                                 /* possible if allocated only for
@@ -259,11 +257,15 @@ void ss_new(MSA *msa, int tuple_size, int max_ntuples, int do_cats,
 void ss_realloc(MSA *msa, int tuple_size, int max_ntuples, int do_cats, 
                 int store_order) {
 
-  int i, j, cat_counts_done = FALSE;
+  int i, j, cat_counts_done = FALSE, old_alloc_len;
   MSA_SS *ss = msa->ss;
   if (store_order && msa->length > ss->alloc_len) {
+    old_alloc_len = ss->alloc_len;
     ss->alloc_len = max(ss->alloc_len * 2, msa->length);
     ss->tuple_idx = (int*)srealloc(ss->tuple_idx, ss->alloc_len * sizeof(int));
+    for (i = old_alloc_len; i < ss->alloc_len; i++)
+      ss->tuple_idx[i] = -1;
+    
   }
   if (do_cats && ss->cat_counts == NULL) {
     assert(msa->ncats >= 0);
@@ -345,7 +347,7 @@ PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size, int ncats,
       strncpy(key, smsa->ss->col_tuples[j], smsa->nseqs * tuple_size);
 /*       fprintf(stderr, "i %d, j %d, key %s, tuple_idx[i][j] %d\n", */
 /* 	      i, j, key, (int)hsh_get(tuple_hash, key)); */
-      pmsa->tuple_idx_map[i][j] = (int)hsh_get(tuple_hash, key);
+      pmsa->tuple_idx_map[i][j] = ss_lookup_coltuple(key, tuple_hash, smsa);
       assert(pmsa->tuple_idx_map[i][j] >= 0);
     }
   }
@@ -405,8 +407,8 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
 
     F = fopen_fname(fname->chars, "r");
     if (format == MAF)
-      source_msa = maf_read(F, NULL, tuple_size, NULL, NULL, NULL, cycle_size, 
-                            FALSE, NULL, NO_STRIP, FALSE); 
+      source_msa = maf_read_cats(F, NULL, tuple_size, NULL, NULL, NULL, cycle_size, 
+                            FALSE, NULL, NO_STRIP, FALSE, cats_to_do); 
                                 /* note: assuming unordered, not allowing
                                    overlapping blocks */
     else 
@@ -549,13 +551,19 @@ void msa_read_AXT(MSA *msa, List *axt_fnames) {
 /* Produce a string representation of an alignment column tuple, given
    the model order; str must be allocated externally to size
    msa->nseqs * (tuple_size) + 1 */
+/* Note: this has been redefined so that any sequence which contains
+   only values of msa->missing[0] are removed if there are not any
+   sequences with greater indices with non-missing data.  This enables
+   the string to be the same regardless of whether sequences containing
+   only missing data have been added to the msa yet or not */
 void col_to_string(char *str, MSA *msa, int col, int tuple_size) {
-  int col_offset, j;
-  for (col_offset = -1 * (tuple_size-1); col_offset <= 0; col_offset++) 
-  for (j = 0; j < msa->nseqs; j++) 
-    str[msa->nseqs*(tuple_size-1 + col_offset) + j] = 
-      (col+col_offset >= 0 ? msa->seqs[j][col+col_offset] : GAP_CHAR);
-  str[msa->nseqs*tuple_size] = '\0';
+  int col_offset, j, pos = 0;
+  for (j=0; j < msa->nseqs; j++)
+    for (col_offset = -1 * (tuple_size-1); col_offset <= 0; col_offset++)
+      str[pos++] = 
+	(col + col_offset >=0 ? msa->seqs[j][col+col_offset] : GAP_CHAR);
+  str[pos] = '\0';
+  assert(pos = msa->nseqs*tuple_size);
 }
 
 /* Produce a printable representation of the specified tuple.  Strings
@@ -579,12 +587,12 @@ void tuple_to_string_pretty(char *str, MSA *msa, int tupleidx) {
    the last column is considered, if col_offset == -1 then the
    preceding one is considered, and so on. */
 char col_string_to_char(MSA *msa, char *str, int seqidx, int tuple_size, int col_offset) {
-  return str[msa->nseqs*(tuple_size-1+col_offset) + seqidx];
+  return str[tuple_size*seqidx + tuple_size - 1 + col_offset];
 }
 
 void set_col_char_in_string(MSA *msa, char *str, int seqidx, 
                             int tuple_size, int col_offset, char c) {
-  str[msa->nseqs*(tuple_size-1+col_offset) + seqidx] = c;
+  str[tuple_size*seqidx + tuple_size - 1 + col_offset] = c;
 }
 
 /* return character for specified sequence given index of tuple */
@@ -604,19 +612,21 @@ char ss_get_char_pos(MSA *msa, int position, int seqidx,
                             seqidx, msa->ss->tuple_size, col_offset);
 }
 
+
 /* fill out 'tuplestr' with tuple of characters present in specified
    sequence and column tuple; tuplestr must be allocated to at least
    tuple_size (null terminator will not be added, but if present will
    be left unchanged). */
-void ss_get_tuple_of_chars(MSA *msa, int tupleidx, int seqidx, 
+void ss_get_tuple_of_chars(MSA *msa, int tupleidx, int seqidx,
                            char *tuplestr) {
   int offset;
   for (offset = -1 * (msa->ss->tuple_size-1); offset <= 0; offset++) {
-    tuplestr[msa->ss->tuple_size + offset - 1] = 
-      col_string_to_char(msa, msa->ss->col_tuples[tupleidx], 
+    tuplestr[msa->ss->tuple_size + offset - 1] =
+      col_string_to_char(msa, msa->ss->col_tuples[tupleidx],
                          seqidx, msa->ss->tuple_size, offset);
   }
 }
+
 
 /* write a representation of an alignment in terms of its sufficient
    statistics */
@@ -968,13 +978,13 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
     for (offset = -(ss->tuple_size-1); offset <= 0; offset++) {
       for (i = 0; i < lst_size(include_list); i++) {
         seqidx = lst_get_int(include_list, i);
-        ss->col_tuples[sub_tupidx][retval->nseqs*(ss->tuple_size-1 + offset) + i] = 
-          msa->ss->col_tuples[tupidx][msa->nseqs*(msa->ss->tuple_size-1 + offset) + seqidx];
+	ss->col_tuples[sub_tupidx][ss->tuple_size*i + ss->tuple_size-1 + offset] =
+	  msa->ss->col_tuples[tupidx][msa->ss->tuple_size*seqidx + msa->ss->tuple_size-1 + offset];
       }
     }
     full_to_sub[tupidx] = sub_tupidx++;
   }
-
+  
   assert(sub_tupidx == sub_ntuples);
 
   /* copy ordering info for specified columns and recompute counts.
@@ -1134,11 +1144,10 @@ void ss_reorder_rows(MSA *msa, int *new_to_old, int new_nseqs) {
     for (col_offset = -ts+1; col_offset <= 0; col_offset++) {
       for (j = 0; j < new_nseqs; j++) {
         if (new_to_old[j] >= 0)
-          msa->ss->col_tuples[tup][new_nseqs * (ts - 1 + col_offset) + j] = 
-            tmp[msa->nseqs * (ts - 1 + col_offset) + new_to_old[j]];
+	  msa->ss->col_tuples[tup][ts*j + ts - 1 + col_offset] = 
+	    tmp[ts*new_to_old[j] + ts - 1 + col_offset];
         else
-          msa->ss->col_tuples[tup][new_nseqs * (ts-1 + col_offset) + j] = 
-           msa->missing[0];
+	  msa->ss->col_tuples[tup][ts*j + ts-1 + col_offset] = msa->missing[0];
       }
     }
   }
@@ -1364,20 +1373,68 @@ int ss_is_4d(MSA *msa, int tuple) {
 }
 
 /* reduce to smaller tuple size representation */
+/* NOTE: this only works because we know that ss are represented in
+   strings in such a way that the old tuples won't be over-written by 
+   the new ones. */
 void ss_reduce_tuple_size(MSA *msa, int new_tuple_size) {
-  int i, j, len, offset;
+  int i, j, k, newlen;
   if (new_tuple_size >= msa->ss->tuple_size)
     die("ERROR: new tuple size must be smaller than old in ss_reduce_tuple_size.\n");
-  len = new_tuple_size * msa->nseqs;
-  offset = (msa->ss->tuple_size - new_tuple_size) * msa->nseqs;
-  for (i = 0; i < msa->ss->ntuples; i++) 
-    for (j = 0; j < len; j++) 
-      msa->ss->col_tuples[i][j] = msa->ss->col_tuples[i][j+offset];
-                                /* because of the way the tuples are
-                                   stored, we can just shift everthing
-                                   back offset bytes; could realloc
-                                   each col_tuple but probably not
-                                   worth the cost */
+  newlen = msa->nseqs * new_tuple_size;
+  for (i = 0; i < msa->ss->ntuples; i++)  {
+    for (j = 0; j < msa->nseqs; j++)
+      for (k= -new_tuple_size+1; k>=0; k++)
+	set_col_char_in_string(msa, msa->ss->col_tuples[i], j, new_tuple_size, k,
+			       col_string_to_char(msa, msa->ss->col_tuples[i], j, msa->ss->tuple_size, k));
+    msa->ss->col_tuples[i][newlen] = '\0';
+    msa->ss->col_tuples[i] = srealloc(msa->ss->col_tuples[i], (newlen+1)*sizeof(char));
+  }
   msa->ss->tuple_size = new_tuple_size;
   ss_unique(msa);
 }
+
+int ss_lookup_coltuple(char *coltuple_str, Hashtable *tuple_hash, MSA *msa) {
+  int allgap[msa->ss->tuple_size], i, j, rv, tuple_size, len;
+  char tempchar;
+  tuple_size = msa->ss->tuple_size;
+  len = tuple_size * msa->nseqs;
+  for (i=0; i < tuple_size; i++) {
+    for (j=0; j<msa->nseqs; j++)
+      if (coltuple_str[j*tuple_size + i]!=GAP_CHAR &&
+	  coltuple_str[j*tuple_size + i]!=msa->missing[0]) break;
+    allgap[i] = (j == msa->nseqs);
+  }
+  for (i=len-1; i>=0; i--)
+    if (coltuple_str[i] != msa->missing[0] && allgap[i%tuple_size]==0)
+      break;
+  i++;
+  while (i%msa->ss->tuple_size != 0) i++;
+  tempchar = coltuple_str[i];
+  coltuple_str[i] = '\0';
+  rv = (int)hsh_get(tuple_hash, coltuple_str);
+  coltuple_str[i] = tempchar;
+  return rv;
+}
+
+void ss_add_coltuple(char *coltuple_str, void *val, Hashtable *tuple_hash, MSA *msa) {
+  int allgap[msa->ss->tuple_size], i, j, tuple_size, len;
+  char tempchar;
+  tuple_size = msa->ss->tuple_size;
+  len = tuple_size * msa->nseqs;
+  for (i=0; i < tuple_size; i++) {
+    for (j=0; j<msa->nseqs; j++)
+      if (coltuple_str[j*tuple_size + i]!=GAP_CHAR &&
+	  coltuple_str[j*tuple_size + i]!=msa->missing[0]) break;
+    allgap[i] = (j==msa->nseqs);
+  }
+  for (i=len-1; i>=0; i--)
+    if (coltuple_str[i] != msa->missing[0] && allgap[i%tuple_size]==0)
+      break;
+  i++;
+  while (i%msa->ss->tuple_size != 0) i++;
+  coltuple_str[i] = '\0';
+  hsh_put(tuple_hash, coltuple_str, val);
+  coltuple_str[i] = tempchar;
+}
+
+
