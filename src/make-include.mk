@@ -2,10 +2,6 @@
 # this file defines variables used by all Makefiles
 ###########################################################################
 
-# currently set up for linux and GCC and Pentium III/IV processors,
-# with options for Mac OS X.  Adjustments may be needed for other
-# systems.
-
 # set below to point to top-level directory of PHAST installation
 ifndef PHAST
 PHAST=${HOME}/phast
@@ -27,12 +23,10 @@ TARGETLIB = ${LIB}/libphast.a
 # an appropriate alternative
 
 # for debugging
-CFLAGS = -g -fno-inline -Wall
+#CFLAGS = -g -fno-inline -Wall
 # for best performance
-#CFLAGS = -O3 
-# use this instead for Mac OS X
-#CFLAGS = -mcpu=powerpc -O3
-# other possible options
+CFLAGS = -O3 
+# some other options
 #CFLAGS = -mcpu=opteron -O3
 #CFLAGS = -mcpu=pentiumpro -O3 
 
@@ -71,10 +65,10 @@ endif
 
 # separately installed CLAPACK; uncomment CLAPACKPATH definition and
 # set appropriately to use
-CLAPACKPATH = /usr/local/software/CLAPACK-3.1.1
+CLAPACKPATH = /usr/local/software/CLAPACK
 # platform-specific suffix used for CLAPACK libraries; use the same
 # value as in CLAPACK's "make.inc" file 
-PLAT = _LINUX
+PLAT = _x86
 # F2C libraries used by CLAPACK; most users won't need to edit
 F2CPATH = ${CLAPACKPATH}/F2CLIBS
 
