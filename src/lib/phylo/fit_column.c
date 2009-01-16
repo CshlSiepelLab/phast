@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_column.c,v 1.22 2008-12-16 19:54:09 mt269 Exp $ */
+/* $Id: fit_column.c,v 1.23 2009-01-16 03:16:14 acs Exp $ */
 
 /* Functions to compute likelihoods for individual alignment columns,
    estimate column-by-column scale factors by maximum likelihood,
@@ -830,8 +830,9 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
       null_lnl *= -1;
     
       d2->tupleidx = i;
-      vec_set(d2->params, 0, d->params->data[0]); /* init to previous estimate
-                                                     to save time */
+      vec_set(d2->params, 0, max(0.05, d->params->data[0])); 
+      /* init to previous estimate to save time, but don't init to
+         value at boundary */
       vec_set(d2->params, 1, d2->init_scale_sub);
       if (opt_bfgs(col_likelihood_wrapper, d2->params, d2, &alt_lnl, d2->lb, 
                    d2->ub, logf, NULL, OPT_HIGH_PREC, NULL) != 0)
