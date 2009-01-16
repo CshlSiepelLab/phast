@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: numerical_opt.c,v 1.15 2008-12-10 15:25:51 acs Exp $ */
+/* $Id: numerical_opt.c,v 1.16 2009-01-16 03:15:18 acs Exp $ */
 
 #include <stdlib.h>
 #include <numerical_opt.h>
@@ -814,7 +814,8 @@ void opt_lnsrch(Vector *xold, double fold, Vector *g, Vector *p,
       fprintf(logf, "WARNING: positive slope in opt_lnsrch.  Roundoff error?\n");
     vec_copy(x, xold);
     *check_convergence = 1;
-    *final_lambda = lambda;
+    *final_lambda = 0;
+    *f = fold;
     return;
   }
 
