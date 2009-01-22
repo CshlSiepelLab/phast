@@ -262,7 +262,7 @@ int main(int argc, char *argv[]) {
   /* add emissions for indel model, if necessary */
   if (alpha_c > 0) {
     fprintf(stderr, "Adjusting emissions for indels...\n");
-    dm_add_indel_emissions(dm, ih);
+    dm_add_indel_emissions(dm, dm->phmm->emissions, ih);
   }
 
   /* postprocess for missing data (requires special handling) */
