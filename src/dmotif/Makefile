@@ -23,7 +23,7 @@ all: ${EXEC}
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
 ${EXEC}: ${BIN}/%: %.o ${OBJS_MODULES} ${PHAST}/lib/libphast.a
-	${CC} ${LFLAGS} ${LIBPATH} -o $@ $< ${OBJS_MODULES} ${LIBS} 
+	${CC} ${LFLAGS} ${LIBPATH} -o $@ $< ${OBJS_MODULES} ${LIBS} ${CFLAGS}
 
 %.help : %.help_src
 	../munge-help.sh $< > $@

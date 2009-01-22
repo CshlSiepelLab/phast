@@ -1,4 +1,4 @@
-/* $Id: dmotif_indel_mod.c,v 1.2 2008-12-10 18:09:17 agd27 Exp $
+/* $Id: dmotif_indel_mod.c,v 1.3 2009-01-22 23:29:59 agd27 Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -546,4 +546,85 @@ DMotifIndelSuffStats *dmih_suff_stats_cat(IndelHistory *ih, int *categories,
                                                      categories, do_cat);
   }
   return iss;
+}
+
+/* convert to an alignment, including sequences for ancestral nodes as
+   well as leaf nodes, and with '^' characters in place of '-' for
+   insertions and '.' characters in place of '-' for deletions.
+   Useful for debugging */
+MSA *dmih_as_alignment(IndelHistory *ih, MSA *msa) {
+  int i, j, k, s, ins;
+  char **seqs = smalloc(ih->tree->nnodes * sizeof(char*));
+  char **names = smalloc(ih->tree->nnodes * sizeof(char*));
+  List *inside, *outside;
+  TreeNode *n, *n2;
+
+  inside = lst_new_ptr(10);
+  outside = lst_new_ptr(10);
+
+  for (i = 0; i < ih->tree->nnodes; i++) {
+    n = lst_get_ptr(ih->tree->nodes, i);
+    names[i] = strdup(n->name);
+    seqs[i] = smalloc((ih->ncols+1) * sizeof(char));
+  }
+
+  for (i = 0; i < ih->tree->nnodes; i++) {
+    n = lst_get_ptr(ih->tree->nodes, i);
+    /* initialize with actual bases if available or 'N's otherwise */
+    if (n->lchild == NULL) {    /* leaf */
+      if (msa != NULL) {
+        if ((s = msa_get_seq_idx(msa, n->name)) < 0)
+          die("ERROR: no match for leaf \"%s\" in alignment.\n", n->name);
+      }
+      for (j = 0; j < ih->ncols; j++) {
+        if (ih->indel_strings[i][j] == BASE) 
+          seqs[i][j] = msa == NULL ? 'N' : msa_get_char(msa, s, j);
+        else {
+	  if (ih->indel_strings[i][j] == INS) { /* Insertion */
+	    /* Find the node below the branch where the insertion happened */
+	    for (k = 0; 
+		 k < ih->tree->nnodes && ih->indel_strings[k][j] != BASE;
+		 k++){
+	      if (k == 0 || i == ih->tree->nnodes)
+		ins = -1;
+	      else 
+		ins = k;
+	    }
+	    /* Nodes in the subtree under the node receiving the insertion
+	       will all have a non-insertion char while those in the supertree
+	       will all have an insertion character */
+	    tr_partition_nodes(ih->tree, lst_get_ptr(ih->tree->nodes, ins), 
+			       inside, outside);
+	    for (k = 0; k < lst_size(inside); k++) {
+	      n2 = lst_get_ptr(inside, k);
+	      s = msa_get_seq_idx(msa, n2->name);
+	      seqs[n2->id][j] = (n2->lchild == NULL) ?
+		msa_get_char(msa, s, j) : 'N';
+	    }
+	    for (k = 0; k < lst_size(outside); k++) {
+	      n2 = lst_get_ptr(outside, k);
+	      seqs[n2->id][j] = '^';
+	    }
+	  } else { /* Deletion */
+	    seqs[i][j] = '.';
+	  }
+	}
+      }
+    }
+
+
+    else {                      /* ancestor */
+      for (j = 0; j < ih->ncols; j++) {
+        if (ih->indel_strings[i][j] == BASE) 
+          seqs[i][j] = 'N';
+        else
+          seqs[i][j] = ih->indel_strings[i][j] == INS ? '^' : '.';
+      }
+    }
+
+    seqs[i][ih->ncols] = '\0';
+  }
+  lst_free(inside);
+  lst_free(outside);
+  return msa_new(seqs, names, ih->tree->nnodes, ih->ncols, "ACGTN-^.");
 }

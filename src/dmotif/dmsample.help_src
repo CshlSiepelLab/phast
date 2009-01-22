@@ -33,6 +33,11 @@ OPTIONS:
         value is 1, first sequence in alignment; 0 indicates
         coordinate frame of entire multiple alignment.
 
+    --threads, -t <N>
+	Number of concurrent threads to launch during emissions and sampling
+	computations. Default value is 0 (multithreading not used). This is
+	best set to the number of cores per processor on your machine.
+
     --seqname, -N <name>
         Use specified string for 'seqname' (GFF) or 'chrom' field in
         output file.  Default is obtained from input file name (double

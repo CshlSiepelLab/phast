@@ -19,16 +19,18 @@
 #include <pssm.h>
 #include <hashtable.h>
 #include "dmsample.help"
+#include <pthr.h>
 
 #define DEFAULT_RHO 0.3
 #define DEFAULT_PHI 0.5
 #define DEFAULT_MU 0.01
 #define DEFAULT_NU 0.01
 #define DEFAULT_ZETA 0.001
-#define DEFAULT_BSAMPLES 5000
-#define DEFAULT_NSAMPLES 100000
+#define DEFAULT_BSAMPLES 200
+#define DEFAULT_NSAMPLES 9000
 #define DEFAULT_SAMPLE_INTERVAL 1
 #define DEFAULT_CACHE_INTERVAL 200
+#define DEFAULT_NTHREADS 0
 
 int main(int argc, char *argv[]) {
   char c, *key;
@@ -47,6 +49,7 @@ int main(int argc, char *argv[]) {
   PSSM *motif;
   Hashtable *path_counts;
   String *cbname;
+  ThreadPool *pool;
 
   struct option long_opts[] = {
     {"refidx", 1, 0, 'r'},
@@ -66,6 +69,7 @@ int main(int argc, char *argv[]) {
     {"cache-fname", 1, 0, 'c'},
     {"cache-int", 1, 0, 'i'},
     {"quiet", 0, 0, 'q'},
+    {"threads", 1, 0, 't'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -81,12 +85,13 @@ int main(int argc, char *argv[]) {
   int refidx = 1, bsamples = DEFAULT_BSAMPLES, nsamples = DEFAULT_NSAMPLES, 
     sample_interval = DEFAULT_SAMPLE_INTERVAL, do_ih = 0, 
     ref_as_prior = FALSE, force_priors = FALSE, precomputed_hash = FALSE,
-    quiet = FALSE, cache_int = DEFAULT_CACHE_INTERVAL;
+    quiet = FALSE, cache_int = DEFAULT_CACHE_INTERVAL,
+    nthreads = DEFAULT_NTHREADS;
   char *seqname = NULL, *idpref = NULL, 
     *cache_fname = (char*)smalloc(STR_MED_LEN * sizeof(char));
   sprintf(cache_fname, "dmsample_%ti", time(0));
   
-  while ((c = getopt_long(argc, argv, "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:h",
+  while ((c = getopt_long(argc, argv, "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:t:h",
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
@@ -163,6 +168,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'q':
       quiet = TRUE;
+      break;
+    case 't':
+      nthreads = atoi(optarg);
       break;
     case 'h':
       printf(HELP);
@@ -279,6 +287,9 @@ int main(int argc, char *argv[]) {
               tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n,
 	      FALSE, FALSE, FALSE, FALSE);
   
+  /* Prepare a thread pool to keep all cores working */
+  pool = thr_pool_init(nthreads);
+
   /* Prepare the emissions by tuple and state. Later, emissions for each seq
      will be reconsitituted on the fly for the forward and stochastic
      traceback algorithms. This requires a dummy MSA of all tuples, in order,
@@ -289,19 +300,19 @@ int main(int argc, char *argv[]) {
   if (!precomputed_hash) {
     /* Contains the non-redundant col_tuples matrix */
     msa = blocks->pooled_msa;
-    
+
     fprintf(stderr,
 	    "Computing emission probabilities for %d distinct tuples...\n",
 	    msa->ss->ntuples);
     
-    /* Some hacks to please tl_compute_log_likelihood -- avoids having to create
+    /* Some hacks to please tl_compute_log_likelihood -- avoids having to use
        a dummy msa to compute emissions. */
     msa->length = msa->ss->ntuples;
     msa->ss->tuple_idx = (int*)smalloc(msa->ss->ntuples 
 				       * sizeof(int));
     for (i = 0; i < msa->ss->ntuples; i++)
       msa->ss->tuple_idx[i] = i; /* One to one mapping of column to tuple */
-    
+
     /* tuple-wise emissions matrix */
     tuple_scores = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*));
     for (i = 0; i < dm->phmm->hmm->nstates; i++) {
@@ -314,30 +325,59 @@ int main(int argc, char *argv[]) {
     dm->phmm->alloc_len = msa->ss->ntuples;
     
     /* Compute the tuple-wise emissions matrix */
-    dms_compute_emissions(dm->phmm, msa, quiet);
+    dms_compute_emissions(dm->phmm, msa, quiet, pool);
+
+/*     return 0; */
+
     /* Adjust for missing data */
     fprintf(stderr, "Adjusting emissions for missing data...\n");
     dm_handle_missing_data(dm, msa);
     
     /* sequence-wise emissions matrix */
-    emissions = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*));
-    for (i = 0; i < dm->phmm->hmm->nstates; i++) {
-      emissions[i] = (double*)smalloc(max_seqlen 
-				      * sizeof(double));
-    }
+/*     emissions = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*)); */
+/*     for (i = 0; i < dm->phmm->hmm->nstates; i++) { */
+/*       emissions[i] = (double*)smalloc(max_seqlen  */
+/* 				      * sizeof(double)); */
+/*     } */
+
+    /* Debugging -- reinitialize the dmotif phmm to see if resolves bus
+       errors */
+/*     dm->phmm->emissions = NULL; /\* preserve the emissions matrix *\/ */
+/*     dm_free(dm); */
+
+/*     /\* Need to recreate source_mod and motif objectss to reinit *\/ */
+/*     source_mod_f = fopen_fname(argv[optind+1], "r"); */
+/*     source_mod = tm_new_from_file(source_mod_f); */
+/*     fclose(source_mod_f); */
+
+/*     motif_f = fopen_fname(argv[optind+2], "r"); */
+/*     motif = mot_read(motif_f); */
+/*     fclose(motif_f); */
+
+/*     fprintf(stderr, "Reinitializing dmotif model\n"); */
+/*     dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, alpha_c, beta_c, */
+/* 		tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n, */
+/* 		FALSE, FALSE, FALSE, FALSE); */
+
     /* Reassign the emissions matrix associated with the phmm to the sequence-
        wise matrix. */
-    dm->phmm->emissions = emissions;
-    dm->phmm->alloc_len = max_seqlen;
+/*     dm->phmm->emissions = emissions; */
+/*     dm->phmm->alloc_len = max_seqlen; */
     
     /** Call the sampler **/
     fprintf(stderr, "Sampling state paths...\n");
     
-    cache_files = dms_sample_paths(dm, blocks, tuple_scores, ih, seqnames, 
-				   max_seqlen, bsamples, nsamples, 
-				   sample_interval, priors, log, reference, 
-				   ref_as_prior, force_priors, quiet, 
-				   cache_fname, cache_int);
+/*     cache_files = dms_sample_paths(dm, blocks, tuple_scores, ih, seqnames,  */
+/* 				   max_seqlen, bsamples, nsamples,  */
+/* 				   sample_interval, priors, log, reference,  */
+/* 				   ref_as_prior, force_priors, quiet,  */
+/* 				   cache_fname, cache_int); */
+    cache_files = dms_sample_paths_pthr(dm, blocks, tuple_scores, ih, seqnames,
+					max_seqlen, bsamples, nsamples,
+					sample_interval, priors, log, 
+					reference, ref_as_prior, force_priors,
+					quiet, cache_fname, cache_int, pool);
+    
 
     /* Free emissions matrix */
     for (i = 0; i < lst_size(blocks->source_msas); i++) {
@@ -421,6 +461,7 @@ int main(int argc, char *argv[]) {
     lst_free(cache_files); 
   }
   free(cache_fname);
+  thr_pool_free(pool);
   fprintf(stderr, "Done.\n");
   
   return 0;

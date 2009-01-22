@@ -19,7 +19,7 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
 		       int estim_phi, int estim_zeta) {
   int i, state, pos, e, b;
   int nleaves = (source_mod->tree->nnodes + 1) / 2;
-  int k = 2*nleaves - 3;                            /* no. branches */
+  int k = 2*nleaves - 3;                  /* no. branches (unrooted tree) */
   int nstates = (2 + 2*k) * (m->width+1); /* number of states */
   HMM *hmm;
   TreeModel **models = smalloc(nstates * sizeof(void*));
@@ -121,8 +121,8 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
       models[state] = tm_create_copy(source_mod);
     else {
       models[state] = tm_new(tr_create_copy(source_mod->tree), NULL,
-                             m->probs[pos], F81, DEFAULT_ALPHABET,
-                             1, -1, NULL, -1);
+                             vec_create_copy(m->probs[pos]), F81, 
+			     DEFAULT_ALPHABET, 1, -1, NULL, -1);
       //      fprintf(stderr, "state %d pos %d ", state, pos);
       //      vec_print(m->probs[pos], stderr);
     }
@@ -221,6 +221,7 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
   free(alpha);
   free(beta);
   free(tau);
+  free(epsilon);
   return dm;
 }
 
@@ -493,14 +494,15 @@ void dm_print_motif_scores(DMotifPhyloHmm *dm) {
 }
 
 /* combine indel emissions with substitution-based emissions */
-void dm_add_indel_emissions(DMotifPhyloHmm *dm, IndelHistory *ih) {
+void dm_add_indel_emissions(DMotifPhyloHmm *dm, double **emissions, 
+			    IndelHistory *ih) {
   int state, i;
   double *col_logl = (double*)smalloc(ih->ncols 
 				      * sizeof(double));
   for (state = 0; state < dm->phmm->hmm->nstates; state++) {
     dmih_column_logl(ih, dm->indel_mods[state], col_logl);
     for (i = 0; i < ih->ncols; i++)
-      dm->phmm->emissions[state][i] += col_logl[i];
+      emissions[state][i] += col_logl[i];
   }
   free(col_logl);
 }
@@ -830,10 +832,10 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
 		       List *seqnames, int max_seqlen, int bsamples,
 		       int nsamples, int sample_interval,
 		       int **priors, FILE *log,
-		       GFF_Set *reference, int ref_as_prior, 
+		       GFF_Set *reference, int ref_as_prior,
 		       int force_priors,
 		       int quiet, char *cache_fname, int cache_int) {
-  
+
   int i, j, k, l, *path, **trans, **ref_paths = NULL, nwins, reinit;
   double **forward_scores, llh;
   char *cache_out;
@@ -843,7 +845,7 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
 
   path_counts = hsh_new(max((10 * lst_size(blocks->source_msas)), 10000));
   cache_files = lst_new_ptr(nsamples/cache_int);
-  
+
   /* Allocate space for the forward scores and path. Set to the
      length of the longest sequence -- will reuse for each sequnce. */
   forward_scores = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*));
@@ -851,6 +853,156 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
     forward_scores[i] = (double*)smalloc(max_seqlen * sizeof(double));
   }
   path = (int*)smalloc(max_seqlen * sizeof(int));
+
+  /* Allocate space for the transition counts and set to prior values */
+  trans = (int**)smalloc(4 * sizeof(int*));
+  for (i = 0; i < 4; i++) {
+    trans[i] = (int*)smalloc(2 * sizeof(int));
+    trans[i][0] = priors[i][0];
+    trans[i][1] = priors[i][1];
+  }
+
+  /* If comparing to a reference GFF for logging purposes, allocate the
+     stats array and compute the number of motif windows in the dataset. */
+  if (reference != NULL && log != NULL) {
+    for (i = 0; i < lst_size(blocks->source_msas); i++)
+      nwins += (blocks->lens[i] - (dm->m->width -1));
+  }
+  /* If using the reference set as prior information, reconstruct a set of
+     state paths from the GFF_Set. NOT FULLY IMPLEMENTED!! */
+  /*   if (reference != NULL && ref_as_prior == TRUE) { */
+  /*     ref_paths = dm_gff_to_paths(dm, reference, blocks, -1); */
+  /*   } */
+
+  k = 0;
+  l = 1;
+  cache_out = (char*)smalloc(STR_MED_LEN * sizeof(char));
+
+  /* Seed the random number generator */
+  srandom(time(0));
+
+  for (i = 0; i < (bsamples + nsamples); i++) {
+    if (!quiet) fprintf(stderr, "*");
+    /* Clean things up for logging motif stats for individual samples, if
+       needed */
+    if (log != NULL && reference != NULL) {
+      if (query_gff != NULL)
+	gff_free_set(query_gff);
+      query_gff = gff_new_set();
+    }
+
+    /* Draw a set of params */
+    dm->mu = beta_draw((double)trans[0][0], (double)trans[0][1]);
+    dm->nu = beta_draw((double)trans[1][0], (double)trans[1][1]);
+    dm->phi = beta_draw((double)trans[2][0], (double)trans[2][1]);
+    dm->zeta = beta_draw((double)trans[3][0], (double)trans[3][1]);
+    dm_set_transitions(dm);
+
+    /* Reset transition counts to prior values */
+    for (j = 0; j < 4; j++) {
+      trans[j][0] = priors[j][0];
+      trans[j][1] = priors[j][1];
+    }
+
+    llh = 0;
+    for (j = 0; j < lst_size(blocks->source_msas); j++) {
+      /* Zero out the emissions, forward and path structs to be safe */
+
+      /* Fill in emissions table for this sequence */
+      /*       fprintf(stderr, "j %d, blocks->lens[j] %d, ih[j] %p, forward_scores %p\
+	       \n", j, */
+      /*            blocks->lens[j], ih[j], forward_scores); */
+      /*       fprintf(stderr, "seqname %s\n", ((String*)lst_get_ptr(seqnames, j))->c\
+	       hars); */
+      dms_lookup_emissions(dm, tuple_scores, dm->phmm->emissions,
+			   blocks, j, blocks->lens[j],
+			   (ih == NULL ? NULL : ih[j]));
+      
+      /* Run the forward algorithm */
+      llh += hmm_forward(dm->phmm->hmm, dm->phmm->emissions, blocks->lens[j],
+			 forward_scores);
+
+      /* Run stochastic traceback to get the path */
+      hmm_stochastic_traceback(dm->phmm->hmm, forward_scores, blocks->lens[j],
+			       path);
+
+      /* Determine if need to take a sample this iteration, else continue */
+      if (i % sample_interval) {
+	continue;
+      } else {
+	dms_count_transitions(dm, path, trans, blocks->lens[j],
+			      ref_paths == NULL ? NULL : ref_paths[j],
+			      force_priors);
+	if (i >= bsamples) /* Past burn-in -- sample motifs */
+	  dms_count_motifs(dm, path, blocks->lens[j], path_counts, j);
+	if (log != NULL && reference != NULL) /* Prepare GFF for this sequence
+						 and fold into query_gff for 
+						 comparison to reference at 
+						 end of sample */
+	  dms_path_log(dm, path, blocks->lens[j], lst_get_ptr(seqnames, j),
+		       query_gff);
+      }
+    }
+
+    if (log != NULL) /* Write stats for this sample to the log file */
+      dms_write_log(log, dm, trans, i, llh, query_gff, reference, nwins);
+
+    /* Cache and reinitialize the hash every 100 samples after burn-in */
+    if (i >= bsamples) {
+      if (l == cache_int || i == nsamples+bsamples-1) {
+	sprintf(cache_out, "%s.%d.tmp", cache_fname, k++);
+	lst_push_ptr(cache_files, (void*)str_new_charstr(cache_out));
+	/*      fprintf(stderr, "i %d, k %d, l %d, cache_file %s\n", i, k-1, l, cache_out); */
+	if (i == nsamples+bsamples-1)
+	  reinit = -1;
+	else
+	  reinit = max(10*lst_size(blocks->source_msas), 10000);
+	path_counts = dms_cache_hash(path_counts, cache_out, (2*dm->k)+2, l,
+				     reinit);
+	l = 1;
+      } else {
+	l++;
+      }
+    }
+  }
+
+  fprintf(stderr, "\nDone.\n");
+
+  /* Clean up our area */
+  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+    free(forward_scores[i]);
+  }
+  free(forward_scores);
+  free(path);
+  if (query_gff != NULL)
+    gff_free_set(query_gff);
+  free(cache_out);
+  
+  return cache_files;
+}
+
+List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
+			    double **tuple_scores, IndelHistory **ih,
+			    List *seqnames, int max_seqlen, int bsamples,
+			    int nsamples, int sample_interval,
+			    int **priors, FILE *log,
+			    GFF_Set *reference, int ref_as_prior, 
+			    int force_priors,
+			    int quiet, char *cache_fname, int cache_int,
+			    ThreadPool *pool) {
+  
+  int i, j, k, l, **trans, nwins, reinit;
+/*   int **ref_paths = NULL; */
+  double llh;
+  char *cache_out;
+  GFF_Set *query_gff = NULL;
+  Hashtable *path_counts;
+  List *cache_files, *work;
+  DMsamplingThreadData *data;
+
+  path_counts = hsh_new(max((10 * lst_size(blocks->source_msas)), 10000));
+  cache_files = lst_new_ptr(nsamples/cache_int);
+  work = lst_new_ptr(lst_size(blocks->source_msas));
   
   /* Allocate space for the transition counts and set to prior values */
   trans = (int**)smalloc(4 * sizeof(int*));
@@ -903,41 +1055,36 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
     }
 
     llh = 0;
+
+/*     fprintf(stderr, "dm %p dm->phmm->hmm %p hmm->end_predecessors %p hmm->predecessors %p\n", dm, dm->phmm->hmm, dm->phmm->hmm->end_predecessors, dm->phmm->hmm->predecessors); */
+    
+    /* Set up the work list for multithreading over sequences */
     for (j = 0; j < lst_size(blocks->source_msas); j++) {
-      /* Zero out the emissions, forward and path structs to be safe */
-
-      /* Fill in emissions table for this sequence */
-/*       fprintf(stderr, "j %d, blocks->lens[j] %d, ih[j] %p, forward_scores %p\n", j, */
-/* 	      blocks->lens[j], ih[j], forward_scores); */
-/*       fprintf(stderr, "seqname %s\n", ((String*)lst_get_ptr(seqnames, j))->chars); */
-      dms_lookup_emissions(dm, tuple_scores, blocks, j, blocks->lens[j],
-			   (ih == NULL ? NULL : ih[j]));
-
-      /* Run the forward algorithm */
-      llh += hmm_forward(dm->phmm->hmm, dm->phmm->emissions, blocks->lens[j],
-			 forward_scores);
+      data = (DMsamplingThreadData*)smalloc(sizeof(DMsamplingThreadData));
       
-      /* Run stochastic traceback to get the path */
-      hmm_stochastic_traceback(dm->phmm->hmm, forward_scores, blocks->lens[j],
-			       path);
+      data->dm = dm;
+      data->blocks = blocks;
+      data->ih = (ih == NULL ? NULL : ih[j]);
+      data->tuple_scores = tuple_scores;
+      data->llh = &llh;
+      data->trans = trans;
+      data->path_counts = path_counts;
+      data->do_sample = (i % sample_interval ? 0 : 1);
+      data->seqnum = j;
+      data->seqname = ((char*)((String*)lst_get_ptr(seqnames, j))->chars);
+      data->log = log;
+      data->query_gff = query_gff;
+      data->do_reference = (reference == NULL ? 0 : (log == NULL ? 0 : 1));
 
-      /* Determine if need to take a sample this iteration, else continue */
-      if (i % sample_interval) {
-	continue;
-      } else {
-	dms_count_transitions(dm, path, trans, blocks->lens[j],
-			      ref_paths == NULL ? NULL : ref_paths[j],
-			      force_priors);
-	if (i >= bsamples) /* Past burn-in -- sample motifs */
-	  dms_count_motifs(dm, path, blocks->lens[j], path_counts, j);
-	if (log != NULL && reference != NULL) /* Prepare GFF for this sequence
-						 and fold into query_gff for
-						 comparison to reference at
-						 end of sample */
-	  dms_path_log(dm, path, blocks->lens[j], lst_get_ptr(seqnames, j),
-		       query_gff);
-      }
+      lst_push(work, (void*)(&data));      
     }
+    
+    /* This causes complaints about dereferencing to an incomplete type -- find
+       out why! */
+/*     if (pool->n_threads == 0) */
+/*       lst_reverse(work); */
+
+    thr_foreach(pool, work, dms_launch_sample_thread);
     
     if (log != NULL) /* Write stats for this sample to the log file */
       dms_write_log(log, dm, trans, i, llh, query_gff, reference, nwins);
@@ -946,7 +1093,7 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
     if (i >= bsamples) {
       if (l == cache_int || i == nsamples+bsamples-1) {
 	sprintf(cache_out, "%s.%d.tmp", cache_fname, k++);
-	lst_push_ptr(cache_files, str_new_charstr(cache_out));
+	lst_push_ptr(cache_files, (void*)str_new_charstr(cache_out));
 /* 	fprintf(stderr, "i %d, k %d, l %d, cache_file %s\n", i, k-1, l, cache_out); */
 	if (i == nsamples+bsamples-1)
 	  reinit = -1;
@@ -960,18 +1107,90 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
       }
     }
   }
+
   fprintf(stderr, "\nDone.\n");
+
+  /* Clean up our area */
+  if (query_gff != NULL)
+    gff_free_set(query_gff);
+  for (i = 0; i < lst_size(blocks->source_msas); i++) {
+    data = lst_get_ptr(work, i);
+    free(data);
+  }
+  lst_free(work);
+  free(cache_out);
+  
+  return cache_files;
+}
+
+/* This will be used to run individual sampling threads, called by
+   dms_launch_sample_thread. This will require making copies of several structs
+   to avoid threads stepping on each others' toes. The structs that need to be
+   copied include the dm object (because of param vals and emissions),
+   forward_scores, path, query_gff (if applicable) and trans. tuple_scores and
+   path_counts should be safe to share between threads. */
+void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih, 
+		     double **tuple_scores, double *llh, int **trans, 
+		     Hashtable *path_counts, int do_sample, int seqnum,
+		     char *seqname, FILE *log, GFF_Set *query_gff, 
+		     int do_reference) {
+
+  int i,*path;
+  double **emissions, **forward_scores;
+  MSA *msa = lst_get_ptr(blocks->source_msas, seqnum);
+  
+  /* Allocate space for the forward scores, emissions and path. Set to the
+     length of the longest sequence -- will reuse for each sequnce. */
+  forward_scores = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*));
+  emissions = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*));
+  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+    forward_scores[i] = (double*)smalloc(msa->length * sizeof(double));
+    emissions[i] = (double*)smalloc(msa->length * sizeof(double));
+  }
+  path = (int*)smalloc(msa->length * sizeof(int));
+  
+  dms_lookup_emissions(dm, tuple_scores, emissions, blocks, seqnum,
+		       msa->length, ih);
+  
+  /* Run the forward algorithm */
+  *llh += hmm_forward(dm->phmm->hmm, emissions, msa->length, forward_scores);
+  /* Run stochastic traceback to get the path */
+  hmm_stochastic_traceback(dm->phmm->hmm, forward_scores, msa->length, path);
+
+  /* Determine if need to take a sample this iteration, else continue */
+  if (do_sample) {
+    dms_count_transitions(dm, path, trans, msa->length,
+			  NULL, FALSE);
+    if (do_sample > 1) /* Past burn-in -- sample motifs */
+      dms_count_motifs(dm, path, msa->length, path_counts, seqnum);
+    if (log != NULL && do_reference != 0) /* Prepare GFF for this sequence
+					     and fold into query_gff for
+					     comparison to reference at
+					     end of sample */
+      dms_path_log(dm, path, msa->length, seqname, query_gff);
+  }
 
   /* Clean up our area */
   for (i = 0; i < dm->phmm->hmm->nstates; i++) {
     free(forward_scores[i]);
+    free(emissions[i]);
   }
   free(forward_scores);
+  free(emissions);
   free(path);
-  if (query_gff != NULL)
-    gff_free_set(query_gff);
   
-  return cache_files;
+}
+
+/* Worker function to launch sampling threads */
+void dms_launch_sample_thread(void *data) {
+  DMsamplingThreadData *thread = *((void**)data);
+
+  dms_sample_path(thread->dm, thread->blocks, thread->ih, 
+		  thread->tuple_scores, thread->llh, thread->trans, 
+		  thread->path_counts, thread->do_sample, thread->seqnum, 
+		  thread->seqname, thread->log, thread->query_gff,
+		  thread->do_reference);
+
 }
 
 void dms_read_priors(int **priors, FILE *prior_f) {
@@ -1036,7 +1255,7 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
   char *strand, delim[2], post[STR_LONG_LEN], *seqname;
   CategoryMap *cm = dm->phmm->cm;
   String *attributes, *key_string;
-  List *split = lst_new(2, sizeof(String));
+  List *split = lst_new_ptr(2);
   GFF_Feature *f;
 
   key_string = str_new_charstr(key);
@@ -1047,9 +1266,9 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
   str_free(key_string);
   str_as_int(lst_get_ptr(split, 0), &seqnum);
   str_as_int(lst_get_ptr(split, 1), &start);
-  start++; /* Correct 0-based coordinate to 1-based */
-  end = ((start + dm->m->width - 1) < blocks->lens[seqnum]) ?
-    (start + dm->m->width - 1) : (blocks->lens[seqnum] - 1);
+/*   start++; /\* Correct 0-based coordinate to 1-based *\/ */
+  end = ((start + dm->m->width) < blocks->lens[seqnum]) ?
+    (start + dm->m->width) : (blocks->lens[seqnum] - 1);
   seqname = ((char*)((String*)lst_get_ptr(seqnames, seqnum))->chars);
 
 /*   fprintf(stderr, "key %s, seqnum %d, start %d, end %d, &seqname %p, seqname %s\n",  */
@@ -1314,29 +1533,63 @@ void dms_combine_hashes(Hashtable *target, Hashtable *query,
     any memory, so all must be allocated externally. */
 void dms_compute_emissions(PhyloHmm *phmm,
                                 /**< Initialized PhyloHmm */
-                            MSA *msa,
+			   MSA *msa,
                                 /**< Source alignment */
-                            int quiet
-                                /**< Determins whether progress is
+			   int quiet,
+			   /**< Determins whether progress is
                                    reported to stderr */
+			   ThreadPool *pool
                             ) {
   int i, mod;
-  
-  for (i = 0; i < phmm->hmm->nstates; i++) {
-    if (!quiet)
-      fprintf(stderr, "\tstate %d of %d\n", i+1, phmm->hmm->nstates);
+  DMemissionsThreadData *data;
+  List *work = lst_new_ptr(phmm->hmm->nstates);
+  /* build the list of calls to dm_compute_log_likelihood to thread out */
+  for (i = phmm->hmm->nstates-1; i >= 0; i--) {
+    data = (DMemissionsThreadData*)smalloc(sizeof(DMemissionsThreadData));
+
     mod = phmm->state_to_mod[i];
-    dm_compute_log_likelihood(phmm->mods[mod], msa, phmm->emissions[i], -1);
+    data->mod = phmm->mods[mod];
+    data->msa = msa;
+    data->emissions_vec = phmm->emissions[i];
+    data->cat = -1;
+    data->state = i+1;
+    data->nstates = phmm->hmm->nstates;
+    data->quiet = quiet;
+    lst_push(work, (void*)(&data));
+
+/*     fprintf(stderr, "data %p %p  %p  %p  %d\n", data, data->mod, data->msa, data->emissions_vec, data->cat); */
+    
+/*     data = *((void**)lst_get(work, i)); */
+/*     fprintf(stderr, "data %p %p  %p  %p  %d\n", data, data->mod, data->msa, data->emissions_vec, data->cat); */
   }
+
+  thr_foreach(pool, work, dms_do_emissions_row);
+  for (i = 0; i < phmm->hmm->nstates; i++) {
+    data = lst_get_ptr(work, i);
+    free(data);
+  }
+  lst_free(work);
+}
+
+/* Launch a thread to compute a single emissions row */
+void dms_do_emissions_row(void *data) {
+  DMemissionsThreadData *thread = *((void**)data);
+
+  if (!thread->quiet) {
+    fprintf(stderr, "\tState %d (%d remaining of %d total)\n", thread->state, (thread->nstates - thread->state), thread->nstates);
+  }
+/*   fprintf(stderr, "data %p mod %p msa %p emissions %p cat %d\n", thread,  */
+/* 	  thread->mod, thread->msa, thread->emissions_vec, thread->cat); */
+  dm_compute_log_likelihood(thread->mod, thread->msa, thread->emissions_vec,
+			    thread->cat);
 }
 
 /* Fill in an emissions matrix for a single sequence based on a precomputed
    table of values for each tuple. */
 void dms_lookup_emissions(DMotifPhyloHmm *dm, double **tuple_scores,
-			  PooledMSA *blocks, int seqnum, int seqlen,
-			  IndelHistory *ih) {
+			  double **emissions, PooledMSA *blocks, 
+			  int seqnum, int seqlen, IndelHistory *ih) {
   int i, j, tuple_idx, tuple;
-  double **emissions = dm->phmm->emissions;
   MSA *smsa = lst_get_ptr(blocks->source_msas, seqnum);
   
   for (i = 0; i < dm->phmm->hmm->nstates; i++) {
@@ -1350,7 +1603,7 @@ void dms_lookup_emissions(DMotifPhyloHmm *dm, double **tuple_scores,
   }
   /* Adjust for indels, if needed */
   if (ih != NULL)
-    dm_add_indel_emissions(dm, ih);
+    dm_add_indel_emissions(dm, emissions, ih);
 }
 
 /* Count transitions between states for parameter draws */
@@ -1544,7 +1797,7 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
     *fname = str_new(STR_MED_LEN);
   DMotifPmsaStruct *dmpmsa;
 
-  dmpmsa = smalloc(sizeof(DMotifPmsaStruct));
+  dmpmsa = (DMotifPmsaStruct*)smalloc(sizeof(DMotifPmsaStruct));
   
   nblocks = i = dmpmsa->max_seqlen = 0;
 
@@ -1567,8 +1820,8 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
       }
       
       if (nblocks != 0 && alphabet != NULL && i == 3) {
-	msas = lst_new(nblocks, sizeof(MSA));
-	dmpmsa->seqnames = lst_new(nblocks, sizeof(String));
+	msas = lst_new_ptr(nblocks);
+	dmpmsa->seqnames = lst_new_ptr(nblocks);
 	if (do_ih) { /* Allocate space for indel histories, if
 			called for -- this will need to be filled
 			in explicitly later */
@@ -1785,9 +2038,9 @@ double dm_compute_log_likelihood(TreeModel *mod, MSA *msa,
   free(partial_match);
 /*   free(mod->msa_seq_idx); */
 /*   mod->msa_seq_idx = NULL; */
-  dm_free_subst_matrices(mod);
-  free(mod->in_subtree);
-  mod->in_subtree = NULL;
+/*   dm_free_subst_matrices(mod); */
+/*   free(mod->in_subtree); */
+/*   mod->in_subtree = NULL; */
 /*   lst_free(traversal); */
 /*   mod->tree->postorder = NULL; */
   return(retval);
@@ -1916,7 +2169,7 @@ MSA *dm_indel_mask(DMotifPhyloHmm *dm, MSA *msa, IndelHistory *ih,
 /*     fprintf(stderr, "\n"); */
 /*   } */
   
-  indel_msa = ih_as_alignment(ih, msa);
+  indel_msa = dmih_as_alignment(ih, msa);
   return indel_msa;
 }
 
@@ -1972,4 +2225,29 @@ Hashtable* dms_uncache(List *cache_files, int init_size, int nstates,
     hsh_free(tmp_hash);
   }
   return path_counts;
+}
+
+/* Free memory associated with a DMotifPhyloHmm object */
+void dm_free(DMotifPhyloHmm *dm) {
+  int i;
+  int nnodes = dm->phmm->mods[0]->tree->nnodes;
+  int nstates = dm->phmm->hmm->nstates;     /* number of states */
+
+  free(dm->state_to_branch);
+  free(dm->state_to_event);
+  free(dm->state_to_motifpos);
+  free(dm->state_to_motif);
+  /* free dm->branch_to_states */
+  for (i = 0; i < nnodes; i++)
+    lst_free(dm->branch_to_states[i]);
+  free(dm->branch_to_states);
+  /* free dm->indel_mods, if used */
+  if (dm->indel_mods != NULL) {
+    for (i = 0; i < nstates; i++)
+      dmih_free(dm->indel_mods[i]);
+    free(dm->indel_mods);
+  }
+  phmm_free(dm->phmm);
+  mot_free(dm->m);
+  free(dm);
 }

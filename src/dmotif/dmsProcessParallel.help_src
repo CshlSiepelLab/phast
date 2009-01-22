@@ -16,9 +16,6 @@ EXAMPLES:
 
 OPTIONS:
 
-    --rho, -R <rho>
-        (default 0.3)
-
     --refseq, -M <fname>
         (for use with --msa-format MAF) Read the complete text of the
         reference sequence from <fname> (FASTA format) and combine it
@@ -42,17 +39,6 @@ OPTIONS:
         file.  Can be used to ensure ids are unique.  Default is
         obtained from input file name (single filename root, e.g.,
         "chr22.35" if input file is "chr22.35.ss").
-
-    --indel-model, -I alpha,beta,tau,epsilon[,alpha2,beta2,tau2,epsilon2]
-        Use a simple model of insertions and deletions that assumes a known
-        indel history and at most one indel per branch of the tree at any
-        given position.  The parameters alpha and beta are rates of
-        insertion and deletion, respectively, per expected substitution per
-        site, and the parameter tau is approximately the inverse of the
-        expected indel length (see indelFit). Epsilon is the rate parameter for
-	indels within motifs, and is expected to be very low. If two sets are 
-	parameters are given the first will be used for nonconserved regions 
-	and the second for conserved regions.
 
     --help, -h
         Show this help message and exit.
