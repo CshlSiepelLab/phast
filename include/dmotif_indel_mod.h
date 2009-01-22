@@ -85,6 +85,7 @@ DMotifBranchIndelSuffStats *dmih_suff_stats_branch_cat(IndelHistory *ih,
 						 int child_id, int *categories,
 						 int do_cat);
 DMotifIndelSuffStats *dmih_suff_stats_cat(IndelHistory *ih, int *categories, 
-                                  int do_cat);
+					  int do_cat);
+MSA *dmih_as_alignment(IndelHistory *ih, MSA *msa);
 
 #endif

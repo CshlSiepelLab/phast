@@ -25,6 +25,7 @@
 #include <hashtable.h>
 #include <multi_msa.h>
 #include <sufficient_stats.h>
+#include <pthr.h>
 
 /* typedef enum dmevent_t; /\* Defined in dmotif_indel_mod.h -- declare as an */
 /* 			   incomplete type here to avoid errors with  */
@@ -55,17 +56,47 @@ typedef struct {
   int max_seqlen;
 } DMotifPmsaStruct;
 
+/* Convenience structure for emissions multithreading */
+typedef struct {
+  TreeModel *mod;
+  MSA *msa;
+  double *emissions_vec;
+  int cat;
+  int state;
+  int nstates;
+  int quiet;
+} DMemissionsThreadData;
+
+/* Convenience structure for sampling multithreading */
+typedef struct {
+  DMotifPhyloHmm *dm;
+  PooledMSA *blocks;
+  IndelHistory *ih;
+  double **tuple_scores;
+  double *llh;
+  int **trans;
+  Hashtable *path_counts;
+  int do_sample;
+  int seqnum;
+  char *seqname;
+  FILE *log;
+  GFF_Set *query_gff;
+  int do_reference;
+} DMsamplingThreadData;
+
 DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu, 
                        double nu, double phi, double zeta, double alpha_c, 
                        double beta_c, double tau_c, double epsilon_c, 
 		       double alpha_n, double beta_n, double tau_n,
 		       double epsilon_n, int estim_gamma, int estim_omega, 
 		       int estim_phi, int estim_zeta);
+void dm_free(DMotifPhyloHmm *dm);
 void dm_set_transitions(DMotifPhyloHmm *dm);
 void dm_handle_missing_data(DMotifPhyloHmm *dm, MSA *msa);
 void dm_score_predictions(DMotifPhyloHmm *dm, GFF_Set *predictions);
 void dm_score_feat(DMotifPhyloHmm *dm, GFF_Feature *f, int cbstate);
-void dm_add_indel_emissions(DMotifPhyloHmm *dm, IndelHistory *ih);
+void dm_add_indel_emissions(DMotifPhyloHmm *dm, double **emissions,
+			    IndelHistory *ih);
 double dm_estimate_transitions(DMotifPhyloHmm *dm, MSA *msa);
 void dm_set_backgd_branches(TreeModel *tm, TreeModel *backgd_mod, 
                             List *nodelist);
@@ -86,6 +117,20 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
 		       GFF_Set *reference, int ref_as_prior, 
 		       int force_priors,
 		       int quiet, char *cache_fname, int cache_int);
+/* Multithreaded version of dms_sample_paths */
+List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
+			    double **tuple_scores, IndelHistory **ih,
+			    List *seqnames, int max_seqlen, int bsamples,
+			    int nsamples, int sample_interval, int **priors,
+			    FILE *log, GFF_Set *reference, int ref_as_prior,
+			    int force_priors, int quiet, char *cache_fname,
+			    int cache_int, ThreadPool *pool);
+void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
+		     double **tuple_scores, double *llh, int **trans, 
+		     Hashtable *path_counts, int do_sample, int seqnum,
+		     char *seqname, FILE *log, GFF_Set *query_gff,
+		     int do_reference);
+void dms_launch_sample_thread(void *data);
 void dms_read_priors(int **priors, FILE *prior_f);
 GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks, 
 				   List *seqnames, char *key, int *counts, 
@@ -110,10 +155,11 @@ void dms_write_hash(Hashtable *path_counts, FILE *hash_f, int nstates,
 Hashtable* dms_cache_hash(Hashtable *path_counts, char *hash_fname,
 			  int nstates, int nsamples, int reinit_val);
 void dms_combine_hashes(Hashtable *target, Hashtable *query, int nstates);
-void dms_compute_emissions(PhyloHmm *phmm, MSA *pmsa, int quiet);
-void dms_lookup_emissions(DMotifPhyloHmm *dm, double **tuple_scores, 
-			  PooledMSA *blocks, int seqnum, int seqlen, 
-			  IndelHistory *ih);
+void dms_compute_emissions(PhyloHmm *phmm, MSA *pmsa, int quiet, 
+			   ThreadPool *pool);
+void dms_lookup_emissions(DMotifPhyloHmm *dm, double **tuple_scores,
+			  double **emissions, PooledMSA *blocks, int seqnum,
+			  int seqlen, IndelHistory *ih);
 void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans, 
 			   int seqlen, int *ref_path, int force_priors);
 void dms_count_motifs(DMotifPhyloHmm *dm, int *path, int seqlen,
@@ -131,5 +177,6 @@ MSA *dm_indel_mask(DMotifPhyloHmm *dm, MSA *msa, IndelHistory *ih,
 		   int *path);
 Hashtable* dms_uncache(List *cache_files, int init_size, int nstates,
 		       int* nsamples, int quiet);
+void dms_do_emissions_row(void *data);
 
 #endif
