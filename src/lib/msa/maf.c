@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: maf.c,v 1.28 2009-01-09 22:01:00 mt269 Exp $ */
+/* $Id: maf.c,v 1.29 2009-01-23 21:11:47 mt269 Exp $ */
 
 /** \file maf.c
     Reading of alignments from MAF ("Multiple Alignment Format")
@@ -496,7 +496,7 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 MSA *maf_read(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
 	      GFF_Set *gff, CategoryMap *cm, int cycle_size, int store_order, 
 	      char *reverse_groups, int gap_strip_mode, int keep_overlapping) {
-  maf_read_cats(F, REFSEQF, tuple_size, alphabet, gff, cm, cycle_size, store_order,
+  return maf_read_cats(F, REFSEQF, tuple_size, alphabet, gff, cm, cycle_size, store_order,
 		reverse_groups, gap_strip_mode, keep_overlapping, NULL);
 }
 
