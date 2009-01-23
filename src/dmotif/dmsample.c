@@ -89,7 +89,10 @@ int main(int argc, char *argv[]) {
     nthreads = DEFAULT_NTHREADS;
   char *seqname = NULL, *idpref = NULL, 
     *cache_fname = (char*)smalloc(STR_MED_LEN * sizeof(char));
-  sprintf(cache_fname, "dmsample_%ti", time(0));
+  struct timeval now;
+
+  gettimeofday(&now, NULL);
+  sprintf(cache_fname, "dmsample_%d", (int)now.tv_sec);
   
   while ((c = getopt_long(argc, argv, "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:t:h",
 			  long_opts, &opt_idx)) != -1) {
