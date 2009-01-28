@@ -23,9 +23,9 @@ TARGETLIB = ${LIB}/libphast.a
 # an appropriate alternative
 
 # for debugging
-CFLAGS = -g -fno-inline -Wall -pthread
+#CFLAGS = -g -fno-inline -Wall
 # for best performance
-#CFLAGS = -O3  -pthread
+CFLAGS = -O3 
 # some other options
 #CFLAGS = -mcpu=opteron -O3
 #CFLAGS = -mcpu=pentiumpro -O3 
