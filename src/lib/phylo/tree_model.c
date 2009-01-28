@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: tree_model.c,v 1.39 2008-11-16 02:32:54 acs Exp $ */
+/* $Id: tree_model.c,v 1.40 2009-01-28 21:09:14 agd27 Exp $ */
 
 #include <tree_model.h>
 #include <subst_mods.h>
@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <dgamma.h>
 #include <math.h>
+#include <pthr.h>
 
 #define ALPHABET_TAG "ALPHABET:"
 #define BACKGROUND_TAG "BACKGROUND:"
@@ -562,9 +563,13 @@ void tm_set_subst_matrices(TreeModel *tm) {
         tm_set_probs_F81(backgd_freqs, tm->P[i][j], scaling_const, 
                          n->dparent * branch_scale * tm->rK[j]);
 
-      else                      /* full matrix exponentiation */
-        mm_exp(tm->P[i][j], rate_matrix, 
-               n->dparent * branch_scale * tm->rK[j]);
+      else {                     /* full matrix exponentiation */
+/* /\* 	fprintf(stderr, "thread %d, tm %p, tm->P[%d][%d] %p, rate_matrix %p, n->dparent %f, branch_scale %f, tm->rK[j] %f\n", *\/ */
+/* 		(int)pthread_self(), tm, i, j, tm->P[i][j], rate_matrix,  */
+/* 		n->dparent, branch_scale, tm->rK[j]); */
+	mm_exp(tm->P[i][j], rate_matrix, 
+	       n->dparent * branch_scale * tm->rK[j]);
+      }
     }
   }
 }

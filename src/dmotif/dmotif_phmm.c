@@ -358,6 +358,8 @@ void dm_handle_missing_data(DMotifPhyloHmm *dm, MSA *msa) {
     for (j = 0; j < lst_size(traversal); j++) {
       n = lst_get_ptr(traversal, j);
       if (n->lchild == NULL) {	/* leaf */
+/* 	fprintf(stderr, "i %d, n->id %d, char tuple %d, msa->is_missing %d\n", */
+/* 		i, n->id, (int)ss_get_char_tuple(msa, i, dm->phmm->mods[0]->msa_seq_idx[n->id], 0), msa->is_missing[(int)ss_get_char_tuple(msa, i, dm->phmm->mods[0]->msa_seq_idx[n->id], 0)]); */
         if (msa->is_missing[(int)ss_get_char_tuple(msa, i, dm->phmm->mods[0]->msa_seq_idx[n->id], 0)])
           mark[n->id] = MISSING;
         else
@@ -989,7 +991,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 			    GFF_Set *reference, int ref_as_prior, 
 			    int force_priors,
 			    int quiet, char *cache_fname, int cache_int,
-			    ThreadPool *pool) {
+			    ThreadPool *pool, int nthreads) {
   
   int i, j, k, l, **trans, nwins, reinit;
 /*   int **ref_paths = NULL; */
@@ -1001,7 +1003,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
   DMsamplingThreadData *data;
 
   path_counts = hsh_new(max((10 * lst_size(blocks->source_msas)), 10000));
-  cache_files = lst_new_ptr(nsamples/cache_int);
+  cache_files = lst_new_ptr(max(1, nsamples/cache_int));
   work = lst_new_ptr(lst_size(blocks->source_msas));
   
   /* Allocate space for the transition counts and set to prior values */
@@ -1069,7 +1071,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
       data->llh = &llh;
       data->trans = trans;
       data->path_counts = path_counts;
-      data->do_sample = (i % sample_interval ? 0 : 1);
+      data->do_sample = (i < bsamples ? 0 : (i % sample_interval ? 0 : 1));
       data->seqnum = j;
       data->seqname = ((char*)((String*)lst_get_ptr(seqnames, j))->chars);
       data->log = log;
@@ -1079,17 +1081,12 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
       lst_push(work, (void*)(&data));      
     }
     
-    /* This causes complaints about dereferencing to an incomplete type -- find
-       out why! */
-/*     if (pool->n_threads == 0) */
-/*       lst_reverse(work); */
-
     thr_foreach(pool, work, dms_launch_sample_thread);
     
     if (log != NULL) /* Write stats for this sample to the log file */
       dms_write_log(log, dm, trans, i, llh, query_gff, reference, nwins);
     
-    /* Cache and reinitialize the hash every 100 samples after burn-in */
+    /* Cache and reinitialize the hash periodically after burn-in */
     if (i >= bsamples) {
       if (l == cache_int || i == nsamples+bsamples-1) {
 	sprintf(cache_out, "%s.%d.tmp", cache_fname, k++);
@@ -1161,7 +1158,7 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
   if (do_sample) {
     dms_count_transitions(dm, path, trans, msa->length,
 			  NULL, FALSE);
-    if (do_sample > 1) /* Past burn-in -- sample motifs */
+    if (do_sample == 1) /* Past burn-in -- sample motifs */
       dms_count_motifs(dm, path, msa->length, path_counts, seqnum);
     if (log != NULL && do_reference != 0) /* Prepare GFF for this sequence
 					     and fold into query_gff for
@@ -1538,7 +1535,8 @@ void dms_compute_emissions(PhyloHmm *phmm,
 			   int quiet,
 			   /**< Determins whether progress is
                                    reported to stderr */
-			   ThreadPool *pool
+			   ThreadPool *pool,
+			   int nthreads
                             ) {
   int i, mod;
   DMemissionsThreadData *data;
@@ -1562,7 +1560,10 @@ void dms_compute_emissions(PhyloHmm *phmm,
 /*     data = *((void**)lst_get(work, i)); */
 /*     fprintf(stderr, "data %p %p  %p  %p  %d\n", data, data->mod, data->msa, data->emissions_vec, data->cat); */
   }
-
+  
+  if (nthreads == 0)
+    lst_reverse(work);
+  
   thr_foreach(pool, work, dms_do_emissions_row);
   for (i = 0; i < phmm->hmm->nstates; i++) {
     data = lst_get_ptr(work, i);
@@ -1574,14 +1575,16 @@ void dms_compute_emissions(PhyloHmm *phmm,
 /* Launch a thread to compute a single emissions row */
 void dms_do_emissions_row(void *data) {
   DMemissionsThreadData *thread = *((void**)data);
-
+  
   if (!thread->quiet) {
-    fprintf(stderr, "\tState %d (%d remaining of %d total)\n", thread->state, (thread->nstates - thread->state), thread->nstates);
+    fprintf(stderr, "\tState %d (%d remaining of %d total)\n", 
+	    thread->state, (thread->nstates - thread->state), thread->nstates);
   }
-/*   fprintf(stderr, "data %p mod %p msa %p emissions %p cat %d\n", thread,  */
-/* 	  thread->mod, thread->msa, thread->emissions_vec, thread->cat); */
+/*   fprintf(stderr, "thread id %d, data %p, mod %p, msa %p, emissions row %p, cat %d\n", */
+/* 	  (int)pthread_self(), thread, thread->mod, thread->msa,  */
+/* 	  thread->emissions_vec, thread->cat); */
   dm_compute_log_likelihood(thread->mod, thread->msa, thread->emissions_vec,
-			    thread->cat);
+			  thread->cat);
 }
 
 /* Fill in an emissions matrix for a single sequence based on a precomputed
@@ -1826,6 +1829,8 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
 			called for -- this will need to be filled
 			in explicitly later */
 	  dmpmsa->ih = smalloc(nblocks * sizeof(void*));
+	} else {
+	  dmpmsa->ih = NULL;
 	}
 	i = 0;
       }
@@ -1843,14 +1848,15 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
       if (!quiet)
 	fprintf(stderr, "\t%s (%d of %d)\n", msa_fname, (i+1), nblocks);
       msa_f = fopen_fname(msa_fname, "r");
-      msa = msa_new_from_file(msa_f, format, (char*)alphabet->chars);
+      msa = msa_new_from_file(msa_f, format, (char*)(alphabet->chars));
+      lst_push_ptr(msas, msa);
+      fclose(msa_f);
+
       str_cpy_charstr(fname, msa_fname);
       str_remove_path(fname);
       str_root(fname, '.');
-      fclose(msa_f);
-
       lst_push_ptr(dmpmsa->seqnames, str_dup(fname));
-      lst_push_ptr(msas, msa);
+
       if (msa->length > dmpmsa->max_seqlen)
 	dmpmsa->max_seqlen = msa->length;
 
@@ -1871,14 +1877,16 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
       if (i == 0) {
 	ncats = msa->ncats;
 	tuple_size = msa->ss->tuple_size;
+      } else if (ncats != msa->ncats || tuple_size != msa->ss->tuple_size) {   
+       	die("ERROR: All MSA's must have same ncats and tuple_size.\n");
       }
       
       if (do_ih) {
 	if (ih_fname == NULL)
 	  die("ERROR: --indel-model requires an indel history for all alignment files! Try 'dmsample -h'\n");
 	if (!quiet)
-	  fprintf(stderr, "\tReading indel history for %s from %s\n", msa_fname, 
-		ih_fname);
+	  fprintf(stderr, "\tReading indel history for %s from %s\n", 
+		  msa_fname, ih_fname);
 	ih_f = fopen_fname(ih_fname, "r");
 	dmpmsa->ih[i] = ih_new_from_file(ih_f);
 	fclose(ih_f);
@@ -1887,7 +1895,7 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
     }
   }
   if (i < (nblocks - 1))
-    die("Not enough files in alignments list\n");
+    die("ERROR: Not enough files in alignments list!\n");
 
   /* Create the PooledMSA structure from the list of MSA's */
   if (!quiet)
@@ -2044,6 +2052,16 @@ double dm_compute_log_likelihood(TreeModel *mod, MSA *msa,
 /*   lst_free(traversal); */
 /*   mod->tree->postorder = NULL; */
   return(retval);
+}
+
+void dm_set_subst_mods(DMotifPhyloHmm *dm) {
+  int i;
+  TreeModel *mod;
+
+  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+    mod = dm->phmm->mods[ (dm->phmm->state_to_mod[i]) ];
+    tm_set_subst_matrices(mod);
+  }
 }
 
 void dm_free_subst_matrices(TreeModel *tm) {

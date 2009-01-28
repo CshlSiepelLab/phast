@@ -70,6 +70,7 @@ int main(int argc, char *argv[]) {
     {"cache-int", 1, 0, 'i'},
     {"quiet", 0, 0, 'q'},
     {"threads", 1, 0, 't'},
+    {"hash-debug", 0, 0, 'm'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -86,7 +87,7 @@ int main(int argc, char *argv[]) {
     sample_interval = DEFAULT_SAMPLE_INTERVAL, do_ih = 0, 
     ref_as_prior = FALSE, force_priors = FALSE, precomputed_hash = FALSE,
     quiet = FALSE, cache_int = DEFAULT_CACHE_INTERVAL,
-    nthreads = DEFAULT_NTHREADS;
+    nthreads = DEFAULT_NTHREADS, hash_debug = FALSE;
   char *seqname = NULL, *idpref = NULL, 
     *cache_fname = (char*)smalloc(STR_MED_LEN * sizeof(char));
   struct timeval now;
@@ -94,7 +95,7 @@ int main(int argc, char *argv[]) {
   gettimeofday(&now, NULL);
   sprintf(cache_fname, "dmsample_%d", (int)now.tv_sec);
   
-  while ((c = getopt_long(argc, argv, "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:t:h",
+  while ((c = getopt_long(argc, argv, "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:t:m:h",
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
@@ -174,6 +175,9 @@ int main(int argc, char *argv[]) {
       break;
     case 't':
       nthreads = atoi(optarg);
+      break;
+    case 'm':
+      hash_debug = TRUE;
       break;
     case 'h':
       printf(HELP);
@@ -290,6 +294,12 @@ int main(int argc, char *argv[]) {
               tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n,
 	      FALSE, FALSE, FALSE, FALSE);
   
+  /* Precompute P matrices for all states -- this avoids collisions between
+     threads later */
+  if (!quiet)
+    fprintf(stderr, "Initializing P-matrices in phylogenetic models...\n");
+  dm_set_subst_mods(dm);
+
   /* Prepare a thread pool to keep all cores working */
   pool = thr_pool_init(nthreads);
 
@@ -328,7 +338,7 @@ int main(int argc, char *argv[]) {
     dm->phmm->alloc_len = msa->ss->ntuples;
     
     /* Compute the tuple-wise emissions matrix */
-    dms_compute_emissions(dm->phmm, msa, quiet, pool);
+    dms_compute_emissions(dm->phmm, msa, quiet, pool, nthreads);
 
 /*     return 0; */
 
@@ -370,27 +380,24 @@ int main(int argc, char *argv[]) {
     /** Call the sampler **/
     fprintf(stderr, "Sampling state paths...\n");
     
-/*     cache_files = dms_sample_paths(dm, blocks, tuple_scores, ih, seqnames,  */
-/* 				   max_seqlen, bsamples, nsamples,  */
-/* 				   sample_interval, priors, log, reference,  */
-/* 				   ref_as_prior, force_priors, quiet,  */
+/*     cache_files = dms_sample_paths(dm, blocks, tuple_scores, ih, seqnames, */
+/* 				   max_seqlen, bsamples, nsamples, */
+/* 				   sample_interval, priors, log, reference, */
+/* 				   ref_as_prior, force_priors, quiet, */
 /* 				   cache_fname, cache_int); */
     cache_files = dms_sample_paths_pthr(dm, blocks, tuple_scores, ih, seqnames,
 					max_seqlen, bsamples, nsamples,
-					sample_interval, priors, log, 
+					sample_interval, priors, log,
 					reference, ref_as_prior, force_priors,
-					quiet, cache_fname, cache_int, pool);
+					quiet, cache_fname, cache_int, pool, 
+					nthreads);
     
 
     /* Free emissions matrix */
-    for (i = 0; i < lst_size(blocks->source_msas); i++) {
-      /*     for (j = 0; j < dm->phmm->hmm->nstates; j++) */
-      /*       free(emissions[j]); */
+    for (i = 0; i < dm->phmm->hmm->nstates; i++) {
       free(tuple_scores[i]);
-      free(emissions[i]);
     }
     free(tuple_scores);
-    free(emissions);
     dm->phmm->emissions = NULL;
 
     path_counts = dms_uncache(cache_files, 
@@ -455,10 +462,12 @@ int main(int argc, char *argv[]) {
   /* Clean up temp files and file list */
   if (!precomputed_hash) {
     for (i = 0; i < lst_size(cache_files); i++) {
-      sprintf(cache_fname, "rm %s", 
-	      ((String*)lst_get_ptr(cache_files, i))->chars);
-      /* delete the file */
-      system(cache_fname);
+      if (!hash_debug) {
+	sprintf(cache_fname, "rm %s",
+		((String*)lst_get_ptr(cache_files, i))->chars);
+	/* delete the file */
+	system(cache_fname);
+      }
       str_free(lst_get_ptr(cache_files, i));
     }
     lst_free(cache_files); 

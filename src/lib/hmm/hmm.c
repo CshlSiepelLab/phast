@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: hmm.c,v 1.11 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: hmm.c,v 1.12 2009-01-28 21:09:14 agd27 Exp $ */
 
 #include "hmm.h"
 #include <assert.h>
@@ -1131,10 +1131,11 @@ void hmm_stochastic_traceback(HMM *hmm, double **forward_scores, int seqlen,
   
   /* Recursion */
   for (i = seqlen; i > 0; i--) {
-/*     if (i < seqlen) */
-/*       path[i] = state; */
-/*     if (i == 0) */
-/*       continue; */
+
+    fprintf(stderr, "i %d, state %d, predecessors %p\n",
+	    i, state, (state == END_STATE ? hmm->end_predecessors :
+		       hmm->predecessors[state]));
+
     max = -INFTY;
     z = 1;
     predecessors = (state == END_STATE ? hmm->end_predecessors :

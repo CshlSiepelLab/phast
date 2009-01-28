@@ -124,7 +124,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 			    int nsamples, int sample_interval, int **priors,
 			    FILE *log, GFF_Set *reference, int ref_as_prior,
 			    int force_priors, int quiet, char *cache_fname,
-			    int cache_int, ThreadPool *pool);
+			    int cache_int, ThreadPool *pool, int nthreads);
 void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 		     double **tuple_scores, double *llh, int **trans, 
 		     Hashtable *path_counts, int do_sample, int seqnum,
@@ -156,7 +156,7 @@ Hashtable* dms_cache_hash(Hashtable *path_counts, char *hash_fname,
 			  int nstates, int nsamples, int reinit_val);
 void dms_combine_hashes(Hashtable *target, Hashtable *query, int nstates);
 void dms_compute_emissions(PhyloHmm *phmm, MSA *pmsa, int quiet, 
-			   ThreadPool *pool);
+			   ThreadPool *pool, int nthreads);
 void dms_lookup_emissions(DMotifPhyloHmm *dm, double **tuple_scores,
 			  double **emissions, PooledMSA *blocks, int seqnum,
 			  int seqlen, IndelHistory *ih);
@@ -178,5 +178,6 @@ MSA *dm_indel_mask(DMotifPhyloHmm *dm, MSA *msa, IndelHistory *ih,
 Hashtable* dms_uncache(List *cache_files, int init_size, int nstates,
 		       int* nsamples, int quiet);
 void dms_do_emissions_row(void *data);
+void dm_set_subst_mods(DMotifPhyloHmm *dm);
 
 #endif
