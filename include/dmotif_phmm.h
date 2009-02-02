@@ -82,6 +82,8 @@ typedef struct {
   FILE *log;
   GFF_Set *query_gff;
   int do_reference;
+  int nthreads;
+  int thread_id;
 } DMsamplingThreadData;
 
 DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu, 
@@ -120,7 +122,7 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
 /* Multithreaded version of dms_sample_paths */
 List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 			    double **tuple_scores, IndelHistory **ih,
-			    List *seqnames, int max_seqlen, int bsamples,
+			    List *seqnames, int bsamples,
 			    int nsamples, int sample_interval, int **priors,
 			    FILE *log, GFF_Set *reference, int ref_as_prior,
 			    int force_priors, int quiet, char *cache_fname,
@@ -129,7 +131,7 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 		     double **tuple_scores, double *llh, int **trans, 
 		     Hashtable *path_counts, int do_sample, int seqnum,
 		     char *seqname, FILE *log, GFF_Set *query_gff,
-		     int do_reference);
+		     int do_reference, int nthreads, int thread_id);
 void dms_launch_sample_thread(void *data);
 void dms_read_priors(int **priors, FILE *prior_f);
 GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks, 
