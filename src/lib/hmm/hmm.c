@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: hmm.c,v 1.12 2009-01-28 21:09:14 agd27 Exp $ */
+/* $Id: hmm.c,v 1.13 2009-02-02 22:58:30 agd27 Exp $ */
 
 #include "hmm.h"
 #include <assert.h>
@@ -17,6 +17,8 @@
 #include "stacks.h"
 #include <vector.h>
 #include <prob_vector.h>
+#include <pthr.h>
+#include <time.h>
 
 /* Library of functions for manipulation of hidden Markov models.
    Includes simple reading and writing routines, as well as
@@ -254,7 +256,7 @@ double hmm_get_transition_score(HMM *hmm, int from_state, int to_state) {
     for (i = 0; i < hmm->nstates; i++) {
       for (j = 0; j < hmm->nstates; j++) {
         prob = mm_get(hmm->transition_matrix, i, j);
-        if (prob == 0) 
+        if (prob == 0)
           mat_set(m, i, j, NEGINFTY);
         else
           mat_set(m, i, j, log2(prob));
@@ -331,12 +333,17 @@ void hmm_viterbi(HMM *hmm, double **emission_scores, int seqlen, int *path) {
    the same size.  It will be filled by this function. */
 double hmm_forward(HMM *hmm, double **emission_scores, int seqlen, 
                    double **forward_scores) {
+  double llh;
+/*   int t0, t1; */
 
+/*   t0 = (int)time(0); */
   hmm_do_dp_forward(hmm, emission_scores, seqlen, FORWARD, forward_scores, 
                     NULL);
-
-  return hmm_max_or_sum(hmm, forward_scores, NULL, NULL, END_STATE, 
+  llh = hmm_max_or_sum(hmm, forward_scores, NULL, NULL, END_STATE, 
                         seqlen, FORWARD);
+/*   t1 = (int)time(0); */
+/*   fprintf(stderr, "Forward algorithm time elapsed: %d seconds\n", (t1 - t0)); */
+  return llh;
 }
 
 /* Fills matrix of "backward" scores and returns total log probability
@@ -483,7 +490,7 @@ double hmm_max_or_sum(HMM *hmm, double **full_scores, double **emission_scores,
                       int **backptr, int i, int j, hmm_mode mode) { 
   int k;
   double retval = NEGINFTY;
-
+  
   static List *l = NULL;
 
   if (l == NULL)
@@ -535,7 +542,7 @@ double hmm_max_or_sum(HMM *hmm, double **full_scores, double **emission_scores,
 
   if (mode == FORWARD || mode == BACKWARD)
     retval = log_sum(l);
-  
+
   return retval;
 }
 
@@ -1132,9 +1139,10 @@ void hmm_stochastic_traceback(HMM *hmm, double **forward_scores, int seqlen,
   /* Recursion */
   for (i = seqlen; i > 0; i--) {
 
-    fprintf(stderr, "i %d, state %d, predecessors %p\n",
-	    i, state, (state == END_STATE ? hmm->end_predecessors :
-		       hmm->predecessors[state]));
+/*     fprintf(stderr, "thread %d, i %d, state %d, predecessors %p\n", */
+/* 	    (int)pthread_self(), i, state, (state == END_STATE ?  */
+/* 					    hmm->end_predecessors : */
+/* 					    hmm->predecessors[state])); */
 
     max = -INFTY;
     z = 1;
@@ -1181,4 +1189,187 @@ void hmm_stochastic_traceback(HMM *hmm, double **forward_scores, int seqlen,
     vec_free(pv); /* Cannot reuse this, as size may not be constant */
     path[i-1] = state;
   }
+}
+
+/* Set the transition_score_matrix in an hmm object. This must be done before
+   calling any functions that use hmm_get_transition_score in a multithreaded
+   context. */
+void hmm_set_transition_score_matrix(HMM *hmm) {
+  int i, j;
+  double prob;
+  Matrix *m = mat_new(hmm->nstates, hmm->nstates);
+
+  /* "normal" transitions */
+  for (i = 0; i < hmm->nstates; i++) {
+    for (j = 0; j < hmm->nstates; j++) {
+      prob = mm_get(hmm->transition_matrix, i, j);
+      if (prob == 0) 
+	mat_set(m, i, j, NEGINFTY);
+      else
+	mat_set(m, i, j, log2(prob));
+    }
+  }
+  hmm->transition_score_matrix = m;
+
+  /* end transitions, if used */
+  if (hmm->end_transitions != NULL) {
+    hmm->end_transition_scores =
+      vec_new(hmm->end_transitions->size);
+    for (i = 0; i < hmm->end_transitions->size; i++) {
+      prob = vec_get(hmm->end_transitions, i);
+      if (prob == 0)
+	vec_set(hmm->end_transition_scores, i, NEGINFTY);
+      else
+	vec_set(hmm->end_transition_scores, i, log2(prob));
+    }
+  }
+  
+  /* begin transitions */
+  hmm->begin_transition_scores =
+    vec_new(hmm->begin_transitions->size);
+  for (i = 0; i < hmm->begin_transitions->size; i++) {
+    prob = vec_get(hmm->begin_transitions, i);
+    if (prob == 0)
+      vec_set(hmm->begin_transition_scores, i, NEGINFTY);
+    else
+      vec_set(hmm->begin_transition_scores, i, log2(prob));
+  }
+}
+
+/* Generalized version of hmm_forward that can handle either single-thread or
+   multithreaded calls. Setting nthreads = 0 bypasses multithread code. */
+double hmm_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
+			   double **forward_scores, int nthreads,
+			   int thread_id) {
+/*   int t0, t1; */
+  double llh;
+
+/*   t0 = (int)time(0); */
+
+  if (nthreads > 0) {
+/*     fprintf(stderr, "hmm_forward_pthread: threaded path\n"); */
+    hmm_do_dp_forward_pthread(hmm, emission_scores, seqlen, FORWARD, 
+			      forward_scores, NULL, nthreads, thread_id);
+    llh = hmm_max_or_sum_pthread(hmm, forward_scores, NULL, NULL, END_STATE,
+				 seqlen, FORWARD, nthreads, thread_id);
+  } else {
+/*     fprintf(stderr, "hmm_forward_pthread: standard path\n"); */
+    hmm_do_dp_forward(hmm, emission_scores, seqlen, FORWARD, forward_scores,
+		      NULL);
+    llh = hmm_max_or_sum(hmm, forward_scores, NULL, NULL, END_STATE,
+			 seqlen, FORWARD);
+  }
+
+/*   t1 = (int)time(0); */
+/*   fprintf(stderr, "Forward algorithm time elapsed: %d seconds\n", (t1 - t0)); */
+  return llh;
+}
+
+/* Version of hmm_do_dp_forward generalized for use in multithreaded or
+   standard applications. */
+void hmm_do_dp_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
+			       hmm_mode mode, double **full_scores, 
+			       int **backptr, int nthreads, int thread_id) {
+  
+  int i, j;
+  double z;
+  
+  assert(seqlen > 0 && hmm != NULL && hmm->nstates > 0 &&
+	 (mode == VITERBI || mode == FORWARD) &&
+	 full_scores != NULL && (mode != VITERBI || backptr != NULL));
+  
+  /* initialization */
+  for (i = 0; i < hmm->nstates; i++) {
+    full_scores[i][0] = emission_scores[i][0] +
+      hmm_get_transition_score(hmm, BEGIN_STATE, i);
+    if (mode == VITERBI) backptr[i][0] = -1;
+  }
+  
+  /* recursion */
+  for (j = 1; j < seqlen; j++) {
+    for (i = 0; i < hmm->nstates; i++) {
+      if (nthreads == 0)
+	z = hmm_max_or_sum(hmm, full_scores, emission_scores, backptr,
+			   i, j, mode);
+      else
+	hmm_max_or_sum_pthread(hmm, full_scores, emission_scores, backptr,
+			       i, j, mode, nthreads, thread_id);
+      
+      full_scores[i][j] = emission_scores[i][j] + z;
+    }
+  }
+  
+  #ifdef DEBUG
+  hmm_dump_matrices(hmm, emission_scores, seqlen, full_scores, backptr);
+  #endif
+}
+
+/* Version of hmm_max_or_sum specialized for multithreading. Allocates a 
+   a static list for each thread to avoid collisions. */
+double hmm_max_or_sum_pthread(HMM *hmm, double **full_scores, 
+			      double **emission_scores, int **backptr, 
+			      int i, int j, hmm_mode mode, int nthreads,
+			      int thread_id) {
+  int t, k;
+  double retval = NEGINFTY;
+  List *l;
+  
+  static List **thread_l = NULL;
+  
+  if (thread_l == NULL) {
+    thread_l = smalloc(nthreads * sizeof(List));
+    for (t = 0; t < nthreads; t++)
+      thread_l[t] = lst_new_dbl(hmm->nstates);
+  }
+
+  l = thread_l[thread_id];
+
+  if (mode == VITERBI) {
+    for (k = 0; k < lst_size(hmm->predecessors[i]); k++) {
+      int pred;
+      double candidate;
+      pred = lst_get_int(hmm->predecessors[i], k);
+      if (pred == BEGIN_STATE) continue;
+            candidate = full_scores[pred][j-1] +
+	      hmm_get_transition_score(hmm, pred, i);
+
+	    if (candidate > retval) {
+	      retval = candidate;
+	      backptr[i][j] = pred;
+	    }
+    }
+  }
+  else if (mode == FORWARD) {
+    List *pred_lst = (i == END_STATE ? hmm->end_predecessors :
+		      hmm->predecessors[i]);
+    lst_clear(l);
+    for (k = 0; k < lst_size(pred_lst); k++) {
+      int pred;
+      double candidate;
+      pred = lst_get_int(pred_lst, k);
+      if (pred == BEGIN_STATE) continue;
+            candidate = full_scores[pred][j-1] +
+	      hmm_get_transition_score(hmm, pred, i);
+	    lst_push_dbl(l, candidate);
+    }
+  }
+  else {                        /* mode == BACKWARD */
+    List *succ_lst = (i == BEGIN_STATE ? hmm->begin_successors :
+		      hmm->successors[i]);
+    lst_clear(l);
+    for (k = 0; k < lst_size(succ_lst); k++) {
+      int succ;
+      double candidate;
+      succ = lst_get_int(succ_lst, k);
+      if (succ == END_STATE) continue;
+            candidate = emission_scores[succ][j+1] + full_scores[succ][j+1]
+	      + hmm_get_transition_score(hmm, i, succ);
+	    lst_push_dbl(l, candidate);
+    }
+  }
+
+  if (mode == FORWARD || mode == BACKWARD)
+    retval = log_sum(l);
+  
+  return retval;
 }
