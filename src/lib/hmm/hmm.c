@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: hmm.c,v 1.13 2009-02-02 22:58:30 agd27 Exp $ */
+/* $Id: hmm.c,v 1.14 2009-02-03 00:05:08 agd27 Exp $ */
 
 #include "hmm.h"
 #include <assert.h>
@@ -1239,25 +1239,24 @@ void hmm_set_transition_score_matrix(HMM *hmm) {
 /* Generalized version of hmm_forward that can handle either single-thread or
    multithreaded calls. Setting nthreads = 0 bypasses multithread code. */
 double hmm_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
-			   double **forward_scores, int nthreads,
-			   int thread_id) {
+			   double **forward_scores, List *l) {
 /*   int t0, t1; */
   double llh;
 
 /*   t0 = (int)time(0); */
 
-  if (nthreads > 0) {
-/*     fprintf(stderr, "hmm_forward_pthread: threaded path\n"); */
-    hmm_do_dp_forward_pthread(hmm, emission_scores, seqlen, FORWARD, 
-			      forward_scores, NULL, nthreads, thread_id);
-    llh = hmm_max_or_sum_pthread(hmm, forward_scores, NULL, NULL, END_STATE,
-				 seqlen, FORWARD, nthreads, thread_id);
-  } else {
-/*     fprintf(stderr, "hmm_forward_pthread: standard path\n"); */
+  if (l == NULL) {
+    /*     fprintf(stderr, "hmm_forward_pthread: standard path\n"); */
     hmm_do_dp_forward(hmm, emission_scores, seqlen, FORWARD, forward_scores,
 		      NULL);
     llh = hmm_max_or_sum(hmm, forward_scores, NULL, NULL, END_STATE,
 			 seqlen, FORWARD);
+  } else {
+    /*     fprintf(stderr, "hmm_forward_pthread: threaded path\n"); */
+    hmm_do_dp_forward_pthread(hmm, emission_scores, seqlen, FORWARD,
+			      forward_scores, NULL, l);
+    llh = hmm_max_or_sum_pthread(hmm, forward_scores, NULL, NULL, END_STATE,
+				 seqlen, FORWARD, l);
   }
 
 /*   t1 = (int)time(0); */
@@ -1269,7 +1268,7 @@ double hmm_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
    standard applications. */
 void hmm_do_dp_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
 			       hmm_mode mode, double **full_scores, 
-			       int **backptr, int nthreads, int thread_id) {
+			       int **backptr, List *l) {
   
   int i, j;
   double z;
@@ -1288,12 +1287,12 @@ void hmm_do_dp_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
   /* recursion */
   for (j = 1; j < seqlen; j++) {
     for (i = 0; i < hmm->nstates; i++) {
-      if (nthreads == 0)
+      if (l == NULL)
 	z = hmm_max_or_sum(hmm, full_scores, emission_scores, backptr,
 			   i, j, mode);
       else
-	hmm_max_or_sum_pthread(hmm, full_scores, emission_scores, backptr,
-			       i, j, mode, nthreads, thread_id);
+	z = hmm_max_or_sum_pthread(hmm, full_scores, emission_scores, backptr,
+				   i, j, mode, l);
       
       full_scores[i][j] = emission_scores[i][j] + z;
     }
@@ -1304,25 +1303,14 @@ void hmm_do_dp_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
   #endif
 }
 
-/* Version of hmm_max_or_sum specialized for multithreading. Allocates a 
-   a static list for each thread to avoid collisions. */
+/* Version of hmm_max_or_sum specialized for multithreading. */
 double hmm_max_or_sum_pthread(HMM *hmm, double **full_scores, 
 			      double **emission_scores, int **backptr, 
-			      int i, int j, hmm_mode mode, int nthreads,
-			      int thread_id) {
-  int t, k;
+			      int i, int j, hmm_mode mode, List *l) {
+  int k;
   double retval = NEGINFTY;
-  List *l;
-  
-  static List **thread_l = NULL;
-  
-  if (thread_l == NULL) {
-    thread_l = smalloc(nthreads * sizeof(List));
-    for (t = 0; t < nthreads; t++)
-      thread_l[t] = lst_new_dbl(hmm->nstates);
-  }
 
-  l = thread_l[thread_id];
+  lst_clear(l);
 
   if (mode == VITERBI) {
     for (k = 0; k < lst_size(hmm->predecessors[i]); k++) {
