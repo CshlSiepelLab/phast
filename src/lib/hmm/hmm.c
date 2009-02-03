@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: hmm.c,v 1.14 2009-02-03 00:05:08 agd27 Exp $ */
+/* $Id: hmm.c,v 1.15 2009-02-03 22:09:35 agd27 Exp $ */
 
 #include "hmm.h"
 #include <assert.h>
@@ -1237,15 +1237,21 @@ void hmm_set_transition_score_matrix(HMM *hmm) {
 }
 
 /* Generalized version of hmm_forward that can handle either single-thread or
-   multithreaded calls. Setting nthreads = 0 bypasses multithread code. */
+   multithreaded calls. Setting nthreads <= 0 bypasses multithread code.
+   See notes for hmm_max_or_sum_pthread for the right way to obtain thread_id!
+   Before this can be used in a multithread context, static lists in 
+   hmm_max_or_sum_pthread must be initialized. See notes for 
+   hmm_max_or_sum_pthread for how to do this!
+*/
 double hmm_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
-			   double **forward_scores, List *l) {
+			   double **forward_scores, int nthreads, 
+			   int thread_id) {
 /*   int t0, t1; */
   double llh;
 
 /*   t0 = (int)time(0); */
 
-  if (l == NULL) {
+  if (nthreads <= 0) {
     /*     fprintf(stderr, "hmm_forward_pthread: standard path\n"); */
     hmm_do_dp_forward(hmm, emission_scores, seqlen, FORWARD, forward_scores,
 		      NULL);
@@ -1254,9 +1260,9 @@ double hmm_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
   } else {
     /*     fprintf(stderr, "hmm_forward_pthread: threaded path\n"); */
     hmm_do_dp_forward_pthread(hmm, emission_scores, seqlen, FORWARD,
-			      forward_scores, NULL, l);
+			      forward_scores, NULL, nthreads, thread_id);
     llh = hmm_max_or_sum_pthread(hmm, forward_scores, NULL, NULL, END_STATE,
-				 seqlen, FORWARD, l);
+				 seqlen, FORWARD, nthreads, thread_id);
   }
 
 /*   t1 = (int)time(0); */
@@ -1265,10 +1271,11 @@ double hmm_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
 }
 
 /* Version of hmm_do_dp_forward generalized for use in multithreaded or
-   standard applications. */
+   standard applications. See notes for hmm_max_or_sum_pthread for the right
+   way to obtain thread_id! */
 void hmm_do_dp_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
 			       hmm_mode mode, double **full_scores, 
-			       int **backptr, List *l) {
+			       int **backptr, int nthreads, int thread_id) {
   
   int i, j;
   double z;
@@ -1287,12 +1294,12 @@ void hmm_do_dp_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
   /* recursion */
   for (j = 1; j < seqlen; j++) {
     for (i = 0; i < hmm->nstates; i++) {
-      if (l == NULL)
+      if (nthreads <= 0)
 	z = hmm_max_or_sum(hmm, full_scores, emission_scores, backptr,
 			   i, j, mode);
       else
 	z = hmm_max_or_sum_pthread(hmm, full_scores, emission_scores, backptr,
-				   i, j, mode, l);
+				   i, j, mode, nthreads, thread_id);
       
       full_scores[i][j] = emission_scores[i][j] + z;
     }
@@ -1303,14 +1310,34 @@ void hmm_do_dp_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
   #endif
 }
 
-/* Version of hmm_max_or_sum specialized for multithreading. */
+/* Version of hmm_max_or_sum specialized for multithreading. Static lists
+   must be initialized before the first multithreaded call to this function.
+   Do this by externally calling this function with nthreads equal to the size
+   of the threadpool and thread_id = -1 before calling thr_foreach. From then
+   on, thread_id must be obtained by calling thr_index from within the worker
+   function that calls hmm_(forward:viterbi:backward)_pthread -- this is the
+   only way to ensure each list is only used by a single worker thread! */
 double hmm_max_or_sum_pthread(HMM *hmm, double **full_scores, 
 			      double **emission_scores, int **backptr, 
-			      int i, int j, hmm_mode mode, List *l) {
-  int k;
+			      int i, int j, hmm_mode mode, 
+			      int nthreads, int thread_id) {
+  int k, t;
   double retval = NEGINFTY;
+  List *l;
 
-  lst_clear(l);
+  static List **thread_l = NULL;
+  if (thread_id == -1 && thread_l == NULL) {
+    thread_l = smalloc(nthreads * sizeof(List*));
+    for (t = 0; t < nthreads; t++)
+      thread_l[t] = lst_new_dbl(hmm->nstates);
+    return 0;
+  } else if (thread_l == NULL) {
+    die("ERROR: hmm_max_or_sum_pthread must be called externally with thread_id = -1 and nthreads = the number of threads in the thread pool before multithread calls are executed!\n");
+  } else if (thread_l != NULL && (thread_id < 0 || thread_id >= nthreads)) {
+    die("ERROR: hmm_max_or_sum_pthread: bad argument or illegal attempt to reallocate static lists!\n");
+  }  
+  
+  l = thread_l[thread_id];
 
   if (mode == VITERBI) {
     for (k = 0; k < lst_size(hmm->predecessors[i]); k++) {
@@ -1318,13 +1345,13 @@ double hmm_max_or_sum_pthread(HMM *hmm, double **full_scores,
       double candidate;
       pred = lst_get_int(hmm->predecessors[i], k);
       if (pred == BEGIN_STATE) continue;
-            candidate = full_scores[pred][j-1] +
-	      hmm_get_transition_score(hmm, pred, i);
-
-	    if (candidate > retval) {
-	      retval = candidate;
-	      backptr[i][j] = pred;
-	    }
+      candidate = full_scores[pred][j-1] +
+	hmm_get_transition_score(hmm, pred, i);
+      
+      if (candidate > retval) {
+	retval = candidate;
+	backptr[i][j] = pred;
+      }
     }
   }
   else if (mode == FORWARD) {
@@ -1336,9 +1363,9 @@ double hmm_max_or_sum_pthread(HMM *hmm, double **full_scores,
       double candidate;
       pred = lst_get_int(pred_lst, k);
       if (pred == BEGIN_STATE) continue;
-            candidate = full_scores[pred][j-1] +
-	      hmm_get_transition_score(hmm, pred, i);
-	    lst_push_dbl(l, candidate);
+      candidate = full_scores[pred][j-1] +
+	hmm_get_transition_score(hmm, pred, i);
+      lst_push_dbl(l, candidate);
     }
   }
   else {                        /* mode == BACKWARD */
@@ -1350,12 +1377,12 @@ double hmm_max_or_sum_pthread(HMM *hmm, double **full_scores,
       double candidate;
       succ = lst_get_int(succ_lst, k);
       if (succ == END_STATE) continue;
-            candidate = emission_scores[succ][j+1] + full_scores[succ][j+1]
-	      + hmm_get_transition_score(hmm, i, succ);
-	    lst_push_dbl(l, candidate);
+      candidate = emission_scores[succ][j+1] + full_scores[succ][j+1]
+	+ hmm_get_transition_score(hmm, i, succ);
+      lst_push_dbl(l, candidate);
     }
   }
-
+  
   if (mode == FORWARD || mode == BACKWARD)
     retval = log_sum(l);
   
