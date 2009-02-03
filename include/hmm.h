@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: hmm.h,v 1.6 2009-02-02 22:59:54 agd27 Exp $ */
+/* $Id: hmm.h,v 1.7 2009-02-03 00:05:42 agd27 Exp $ */
 
 /* Library of functions relating to hidden Markov models.  Includes
  * simple reading and writing routines, as well as implementations of
@@ -108,15 +108,13 @@ void hmm_stochastic_traceback(HMM *hmm, double **forward_scores,
 			      int seqlen, int *path);
 void hmm_set_transition_score_matrix(HMM *hmm);
 double hmm_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
-			   double **forward_scores, int nthreads, 
-			   int thread_id);
+			   double **forward_scores, List *l);
 void hmm_do_dp_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
 			       hmm_mode mode, double **full_scores,
-			       int **backptr, int nthreads, int thread_id);
+			       int **backptr, List *l);
 double hmm_max_or_sum_pthread(HMM *hmm, double **full_scores, 
 			      double **emission_scores, int **backptr, 
-			      int i, int j, hmm_mode mode, int nthreads,
-			      int thread_id);
+			      int i, int j, hmm_mode mode, List *l);
 
 
 #endif

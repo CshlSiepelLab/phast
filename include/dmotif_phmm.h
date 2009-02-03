@@ -82,8 +82,7 @@ typedef struct {
   FILE *log;
   GFF_Set *query_gff;
   int do_reference;
-  int nthreads;
-  int thread_id;
+  List *l;
 } DMsamplingThreadData;
 
 DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu, 
@@ -131,7 +130,7 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 		     double **tuple_scores, double *llh, int **trans, 
 		     Hashtable *path_counts, int do_sample, int seqnum,
 		     char *seqname, FILE *log, GFF_Set *query_gff,
-		     int do_reference, int nthreads, int thread_id);
+		     int do_reference, List *l);
 void dms_launch_sample_thread(void *data);
 void dms_read_priors(int **priors, FILE *prior_f);
 GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks, 
