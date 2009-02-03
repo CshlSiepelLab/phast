@@ -73,16 +73,17 @@ typedef struct {
   PooledMSA *blocks;
   IndelHistory *ih;
   double **tuple_scores;
-  double *llh;
-  int **trans;
-  Hashtable *path_counts;
+  double *thread_llh;
+  int ***thread_trans;
+  Hashtable **thread_counts;
   int do_sample;
   int seqnum;
   char *seqname;
   FILE *log;
   GFF_Set *query_gff;
   int do_reference;
-  List *l;
+  int nthreads;
+  ThreadPool *p;
 } DMsamplingThreadData;
 
 DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu, 
@@ -127,10 +128,11 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 			    int force_priors, int quiet, char *cache_fname,
 			    int cache_int, ThreadPool *pool, int nthreads);
 void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
-		     double **tuple_scores, double *llh, int **trans, 
-		     Hashtable *path_counts, int do_sample, int seqnum,
-		     char *seqname, FILE *log, GFF_Set *query_gff,
-		     int do_reference, List *l);
+		     double **tuple_scores, double *thread_llh, 
+		     int ***thread_trans, Hashtable **thread_counts, 
+		     int do_sample, int seqnum, char *seqname, FILE *log, 
+		     GFF_Set *query_gff, int do_reference, int nthreads,
+		     ThreadPool *p);
 void dms_launch_sample_thread(void *data);
 void dms_read_priors(int **priors, FILE *prior_f);
 GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks, 
@@ -141,8 +143,7 @@ void dms_compare_gffs(GFF_Set *reference, GFF_Set *query, int *stats,
 				    of the query set to match the target set
 				    (e.g., from 0-based to 1-based) */
 		      GFF_Set *matches, GFF_Set *mismatches,
-		      GFF_Set *unique_to_query, GFF_Set *unique_to_target
-		      );
+		      GFF_Set *unique_to_query, GFF_Set *unique_to_target);
 int* dms_composite_path(DMotifPhyloHmm *dm, int *path1, int *path2, 
 			int seqlen, int offset, int force_priors);
 int* dm_gff_to_path(DMotifPhyloHmm *dm, GFF_Set *gff, int seqlen,
@@ -180,5 +181,6 @@ Hashtable* dms_uncache(List *cache_files, int init_size, int nstates,
 		       int* nsamples, int quiet);
 void dms_do_emissions_row(void *data);
 void dm_set_subst_mods(DMotifPhyloHmm *dm);
+List* dms_read_tmp_from_file(FILE *tmp_lst_f);
 
 #endif
