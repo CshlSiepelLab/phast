@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
   int opt_idx, i, old_nnodes, **priors, *counts, cbstate, max_seqlen, csamples;
 /*   int j; */
   int found = FALSE;
-  double **tuple_scores, **emissions;
+  double **tuple_scores;
   PooledMSA *blocks = NULL;
   MSA *msa;
   List *pruned_names = lst_new_ptr(5), *tmpl, *keys, *seqnames, *cache_files;
@@ -90,10 +90,7 @@ int main(int argc, char *argv[]) {
     nthreads = DEFAULT_NTHREADS, hash_debug = FALSE;
   char *seqname = NULL, *idpref = NULL, 
     *cache_fname = (char*)smalloc(STR_MED_LEN * sizeof(char));
-  struct timeval now;
-
-  gettimeofday(&now, NULL);
-  sprintf(cache_fname, "dmsample_%d", (int)now.tv_sec);
+  sprintf(cache_fname, "dmsample_%ti", time(0));
   
   while ((c = getopt_long(argc, argv, "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:t:m:h",
 			  long_opts, &opt_idx)) != -1) {
@@ -347,7 +344,7 @@ int main(int argc, char *argv[]) {
     dm_handle_missing_data(dm, msa);
     
     /* sequence-wise emissions matrix */
-/*     emissions = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*)); */
+/*     double **emissions = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*)); */
 /*     for (i = 0; i < dm->phmm->hmm->nstates; i++) { */
 /*       emissions[i] = (double*)smalloc(max_seqlen  */
 /* 				      * sizeof(double)); */
@@ -386,11 +383,10 @@ int main(int argc, char *argv[]) {
 /* 				   ref_as_prior, force_priors, quiet, */
 /* 				   cache_fname, cache_int); */
     cache_files = dms_sample_paths_pthr(dm, blocks, tuple_scores, ih, seqnames,
-					max_seqlen, bsamples, nsamples,
-					sample_interval, priors, log,
-					reference, ref_as_prior, force_priors,
-					quiet, cache_fname, cache_int, pool, 
-					nthreads);
+					bsamples, nsamples, sample_interval, 
+					priors, log, reference, ref_as_prior,
+					force_priors, quiet, cache_fname, 
+					cache_int, pool, nthreads);
     
 
     /* Free emissions matrix */

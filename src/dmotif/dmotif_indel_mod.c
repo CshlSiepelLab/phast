@@ -1,4 +1,4 @@
-/* $Id: dmotif_indel_mod.c,v 1.3 2009-01-22 23:29:59 agd27 Exp $
+/* $Id: dmotif_indel_mod.c,v 1.4 2009-02-03 00:06:30 agd27 Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -175,7 +175,7 @@ void dmih_set_all(DMotifIndelModel *im, double alpha, double beta, double tau,
 void dmih_set(DMotifIndelModel *im, double *alpha, double *beta, double *tau, 
 	      double *epsilon, TreeNode *tree, int e, List *l, int motif) {
   int i, j, mnode;
-  im->alpha = im->beta = im->tau = -1;
+  im->alpha = im->beta = im->tau = im->epsilon = -1;
   im->tree = tree;
 
   for (i = 0; i < tree->nnodes; i++) {
