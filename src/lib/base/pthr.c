@@ -216,3 +216,29 @@ void thr_foreach(ThreadPool * pool, List * work, wrk_func func) {
     pthread_cond_wait(&(pool->cond_wait_finish),&(pool->mtx_wait_finish));
   pthread_mutex_unlock(&(pool->mtx_wait_finish));
 }
+
+/* Index of current thread within thread pool.
+
+  Given a thread pool, compare the current thread with each of the ThreadPool
+  threads and return an index (from 0 to n_threads - 1).
+  
+  Returns -1 if the current thread does not belong to the thread pool and
+  the number of threads is > 0. If the number of threads is zero, it will always
+  return 0.
+*/
+int thr_index(ThreadPool * pool) {
+  int i;
+  pthread_t current;
+  
+  if (pool->n_threads == 0)
+    return 0;
+  
+  current = pthread_self();
+  
+  for (i = 0; i < pool->n_threads; ++i)
+    if (pthread_equal(current, pool->threads[i]))
+      return i;
+
+  return -1;
+}
+

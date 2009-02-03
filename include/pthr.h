@@ -51,4 +51,14 @@ void thr_pool_free(ThreadPool * pool);
 */
 void thr_foreach(ThreadPool * pool, List * work, wrk_func func);
 
+/** Index of current thread within thread pool.
+
+  Given a thread pool, compare the current thread with each of the ThreadPool
+  threads and return an index (from 0 to n_threads - 1).
+  
+  Returns -1 if the current thread does not belong to the thread pool and
+  the number of threads is > 0. If the number of threads is zero, it will always
+  return 0.
+*/
+int thr_index(ThreadPool * pool);
 #endif
