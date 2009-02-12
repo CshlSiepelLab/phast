@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: sufficient_stats.c,v 1.27 2009-01-28 21:09:14 agd27 Exp $ */
+/* $Id: sufficient_stats.c,v 1.28 2009-02-12 15:15:11 mt269 Exp $ */
 
 #include "sufficient_stats.h"
 #include "maf.h"
@@ -1158,7 +1158,7 @@ void ss_reorder_rows(MSA *msa, int *new_to_old, int new_nseqs) {
   char tmp[msa->nseqs * ts];
   int col_offset, j, tup;
   for (tup = 0; tup < msa->ss->ntuples; tup++) {
-    strncpy(tmp, msa->ss->col_tuples[tup], (msa->nseqs * ts + 1));
+    strncpy(tmp, msa->ss->col_tuples[tup], msa->nseqs * ts);
     if (new_nseqs > msa->nseqs) 
       msa->ss->col_tuples[tup] = srealloc(msa->ss->col_tuples[tup], 
                                           new_nseqs * ts);
