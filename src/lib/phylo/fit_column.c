@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_column.c,v 1.23 2009-01-16 03:16:14 acs Exp $ */
+/* $Id: fit_column.c,v 1.24 2009-02-19 17:23:17 acs Exp $ */
 
 /* Functions to compute likelihoods for individual alignment columns,
    estimate column-by-column scale factors by maximum likelihood,
@@ -955,7 +955,7 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
   int i;
   ColFitData *d, *d2;
   Vector *grad = vec_new(2);
-  Matrix *fim = mat_new(2, 2);
+  Matrix *fim;
   double lnl, teststat;
   FimGrid *grid;
   TreeModel *modcpy = tm_create_copy(mod); /* need separate copy of tree model
@@ -1003,6 +1003,8 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
       teststat = grad->data[1]*grad->data[1] / 
         (fim->data[1][1] - fim->data[0][1]*fim->data[1][0]/fim->data[0][0]);
 
+      mat_free(fim);
+
       if (teststat < 0) {
         fprintf(stderr, "WARNING: teststat < 0 (%f)\n", teststat);
         teststat = 0; 
@@ -1034,8 +1036,6 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
     if (tuple_derivs != NULL) tuple_derivs[i] = grad->data[0];
     if (tuple_sub_derivs != NULL) tuple_sub_derivs[i] = grad->data[1];
     if (tuple_teststats != NULL) tuple_teststats[i] = teststat;
-
-    mat_free(fim);
   }
 
   col_free_fit_data(d);
