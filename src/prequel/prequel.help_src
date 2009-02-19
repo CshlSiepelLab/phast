@@ -1,0 +1,161 @@
+PROGRAM: PREQUEL (Probabilistic REconstruction of ancestral seQUEnces, Largely)
+
+USAGE: prequel [OPTIONS] alignment.fa tree.mod outroot
+
+DESCRIPTION: 
+
+    Compute marginal probability distributions for bases at ancestral
+    nodes in a phylogenetic tree, using the tree model defined in
+    tree.mod (may be produced with phyloFit).  These distributions
+    are computed using the sum-product algorithm, assuming
+    independence of sites.  
+
+    Currently, indels are not treated probabilistically (hence the
+    "largely") but are reconstructed by parsimony, also assuming site
+    independence.  Specifically, each base is assumed to have been inserted
+    on the branch leading to the last common ancestor (LCA) of all species
+    that have actual bases (as opposed to alignment gaps or missing data)
+    at a given site; gaps in descendant species are assumed to have arisen
+    (parsimoniously) from deletions.  When this LCA is either the left or
+    right child of the root, insertions on one branch cannot be
+    distinguished from deletions on the other.  We conservatively assume
+    that the base was present at the root and was subsequently deleted.
+    (Note that this will produce an upward bias on the length of the
+    sequence at the root.)
+
+    Output is to files of the form outroot.XXX.probs, where XXX is the
+    name of an ancestral node in the tree.  These nodes may be named
+    explicitly in tree.mod.  Any ancestral node that is left unnamed
+    will be given a name that is a concatenation of two names,
+    belonging to arbitrarily selected leaves of each subtree beneath
+    the node (see below).
+
+EXAMPLES:
+
+    Given a multiple alignment in a file called "mammals.fa" and a
+    tree model called "mytree.mod" (see phyloFit), reconstruct all
+    ancestral sequences:
+
+        prequel mammals.fa mytree.mod anc
+
+    If the TREE definition in mytree.mod has labeled ancestral nodes,
+    e.g.,
+
+        TREE: ((human:0.101627,chimp:0.149870)primate:0.035401,(mouse:0.280291,rat:0.157212)rodent:0.035401)mammal;
+
+    then output will be to files named "anc.primate.probs",
+    "anc.rodent.probs", and "anc.mammal.probs".  (See
+    http://evolution.genetics.washington.edu/phylip/newicktree.html)
+    If instead the ancestral nodes are unlabeled, e.g.,
+
+        TREE: ((human:0.101627,chimp:0.149870):0.035401,(mouse:0.280291,rat:0.157212):0.035401);
+
+    then names will be created by concatenating leaf names, e.g.,
+    "anc.human-chimp.probs", "anc.mouse-rat.probs", and
+    "anc.human-mouse.probs". 
+
+    Each output file will consist of a row for each position in the
+    sequence and a column for each base, with the (i,j)th value giving
+    the probability of base j at position i.  For example,
+
+        #p(A)   p(C)    p(G)    p(T)
+        0.001449        0.000039        0.998460        0.000052
+        0.998150        0.000065        0.001755        0.000030
+        0.000427        0.271307        0.000599        0.727668
+        0.001449        0.000039        0.998460        0.000052
+        0.025826        0.000179        0.973813        0.000182
+        ...
+
+    By default, no row is reported for bases inferred not to have been
+    present at an ancestral node, so the number of rows will generally
+    be smaller than the number of columns in the input alignment.
+    However, if you wish to maintain a correspondence between row
+    number and alignment column, you can use the --keep-gaps option,
+    which will cause "padding" rows to be included in the output,
+    e.g.,
+
+        #p(A)   p(C)    p(G)    p(T)
+        0.998150        0.000065        0.001755        0.000030
+        0.001449        0.000039        0.998460        0.000052
+        0.125811        0.000393        0.873431        0.000365
+        -
+        -
+        -
+        0.004878        0.018097        0.118851        0.858174
+        0.000030        0.001637        0.000064        0.998269
+        ...
+
+    The output files produced by prequel can get quite large.  They
+    can be encoded in a compact binary form using pbsEncode, e.g.,
+
+        pbsEncode anc.human-mouse.probs codefile > anc.human-mouse.bin
+
+    although this encoding results in some loss of precision.  Encoded
+    files can be decoded using pbsDecode, e.g.,
+
+        pbsDecode anc.human-mouse.bin codefile > anc.human-mouse.probs
+
+    For maximum efficiency, encode ancestral reconstructions on the
+    fly using the --encode option to prequel, e.g.,
+
+        prequel --encode codefile mammals.fa mytree.mod anc
+
+    Prequel can also be useful in optimizing a code based on training
+    data.  The --suff-stats option produces a more compact output
+    file, which can then be fed to pbsTrain, e.g.,
+
+        prequel --suff-stats mammals.fa mytree.mod training
+        pbsTrain training.stats > mammals.code
+
+OPTIONS:
+
+    --seqs, -s <seqlist>    
+        Only produce output for specified sequences.  Argument should
+        be comma-separated list of names of ancestral nodes.
+
+    --exclude, -x
+        (for use with --seqs) Exclude rather than include specified
+        sequences.
+
+    --keep-gaps, -k
+        Retain gaps in output, as described above.
+
+    --no-probs, -n
+        Instead of reporting a probability distribution for each ancestral
+        base, output the base with the maximum posterior probability.
+        Output will be in FASTA format to files having suffix ".fa" rather
+        than ".probs".  If used with --keep-gaps, gap characters ('-') will
+        appear in reconstructed sequences.
+
+    --suff-stats, -S  
+        Output a table of probability vectors and counts, pooling
+        together all nodes of the tree (or a subset defined by
+        --seqs).  Produces a file that can be used for code estimation
+        by pbsTrain.  Output file will have suffix ".stats".
+
+    --encode, -e <code_file>
+        Encode probabilities using given code and output as binary
+        files.  Output files will have suffix ".bin" rather than ".probs"
+
+    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
+        Alignment format (default FASTA).  Note that the program
+        msa_view can be used for conversion.
+
+    --refseq, -r <fname>
+        (for use with --msa-format MAF) Read the complete text of the
+        reference sequence from <fname> (FASTA format) and combine it
+        with the contents of the MAF file to produce a complete,
+        ordered representation of the alignment.  The reference
+        sequence of the MAF file is assumed to be the one that appears
+        first in each block.
+
+    --gibbs, -G <nsamples>
+        (experimental) Estimate posterior probabilities by Gibbs sampling
+        rather than by the sum-product algorithm.  Sample each sequence
+        <nsamples> times and estimate posterior probabilities as fraction
+        of times each base appeared at each position.  This option is used
+        by default if a dinucleotide or trinucleotide model is given (exact
+        inference not possible).   NOT YET IMPLEMENTED
+
+    --help, -h
+        Produce this help message.

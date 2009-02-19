@@ -1,0 +1,38 @@
+PROGRAM: pbsDecode
+
+USAGE: pbsDecode [OPTIONS] input.bin codefile > output.probs
+
+DESCRIPTION: 
+
+    Decode a binary encoding of a probabilistic biological sequence
+    (PBS).  Outputs a table with a row for each position in the
+    sequence and a column for each base, such that the (i,j)th value
+    is the probability of base j at position i.  The same codefile
+    that was used to encode the sequence should be given.
+
+    This program performs the inverse function of pbsEncode.
+
+EXAMPLE:
+
+    Decode an encoded ancestral sequence:
+        pbsDecode anc.human-mouse.bin mammal.code > anc.human-mouse.probs
+
+    where "anc.human-mouse.bin" is a binary encoding of an ancestral
+    sequence produced by pbsEncode or prequel, and "mammal.code" is a
+    codefile produced by pbsTrain.
+
+OPTIONS:
+
+    --start, -s <sidx>
+	Decode only the subsequence starting at position <sidx>.
+	Indexing starts with 1.
+
+    --end, -e <eidx>
+	Decode only the subsequence ending at position <eidx>.
+	Indexing starts with 1.
+
+    --discard-gaps, -G
+	Do not report gaps in the PBS.  
+
+    --help, -h
+	Produce this help message.

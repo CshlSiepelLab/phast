@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: tree_model.h,v 1.19 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: tree_model.h,v 1.20 2009-02-19 17:25:28 acs Exp $ */
 
 #ifndef TREE_MODEL_H
 #define TREE_MODEL_H
@@ -169,6 +169,8 @@ void tm_cpy(TreeModel *dest, TreeModel *src);
 TreeModel *tm_create_copy(TreeModel *src);
 
 void tm_set_subst_matrices(TreeModel *tm);
+
+void tm_set_subst_matrix(TreeModel *tm, MarkovMatrix *P, double t);
 
 void tm_scale(TreeModel *tm, double scale_const, int reset_subst_mats);
 

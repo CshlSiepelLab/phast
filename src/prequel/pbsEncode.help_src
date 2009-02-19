@@ -1,0 +1,32 @@
+PROGRAM: pbsEncode
+
+USAGE: pbsEncode [OPTIONS] input.probs codefile > output.bin
+
+DESCRIPTION: 
+
+    Produce an approximate binary encoding of a probabilistic
+    biological sequence (PBS), as defined by a text file
+    ("input.probs") with a row for each position in the sequence and a
+    column for each base.  The (i,j)th value in this table should be
+    the probability of base j at position i.  Columns should be
+    white-space delimited.  The encoding will be as defined by
+    "codefile", which should be in the format used by pbsTrain.
+
+    This program performs the inverse function of pbsDecode.
+
+EXAMPLE:
+
+    Encode the probabilities in a file "anc.human-mouse.probs",
+    produced by prequel, using a code file "mammals.code", produced by
+    pbsTrain.
+
+	pbsEncode anc.human-mouse.probs mammals.code > anc.human-mouse.bin
+
+OPTIONS:
+
+    --discard-gaps, -G
+	Discard gaps in the PBS.  Gaps in the input data are assumed
+	to be represented by rows consisting of a single "-" character.
+
+    --help, -h
+	Produce this help message.
