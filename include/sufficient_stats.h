@@ -10,7 +10,7 @@
 
 /* sufficient_stats.h - Representation of multiple alignments in terms of their sufficient statistics */
 
-/* $Id: sufficient_stats.h,v 1.12 2009-01-09 22:01:00 mt269 Exp $ */
+/* $Id: sufficient_stats.h,v 1.13 2009-02-19 19:41:03 agd27 Exp $ */
 
 #ifndef MSA_SS_H
 #define MSA_SS_H
@@ -107,7 +107,7 @@ void col_to_string(char *str, MSA *msa, int col, int tuple_size) {
       str[pos++] = 
 	(col + col_offset >=0 ? msa->seqs[j][col+col_offset] : GAP_CHAR);
   str[pos] = '\0';
-  assert(pos = msa->nseqs*tuple_size);
+  assert(pos == msa->nseqs*tuple_size);
 }
 
 /* Given a string representation of a column tuple, return the
