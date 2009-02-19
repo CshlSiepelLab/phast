@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: indel_mod.c,v 1.8 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: indel_mod.c,v 1.9 2009-02-19 22:16:16 acs Exp $ */
 
 /* simple model of insertions and deletions, assumes given indel history */
 
@@ -182,6 +182,8 @@ double im_branch_column_logl(IndelHistory *ih, BranchIndelModel *bim,
     }
   }
   logl = col_logl[i];
+  i++;
+
   for (; i < ih->ncols; i++) {
     this_type = get_col_type(ih, child, parent_id, i);
 
