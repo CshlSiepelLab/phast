@@ -1,4 +1,4 @@
-/* $Id: dmotif_indel_mod.c,v 1.4 2009-02-03 00:06:30 agd27 Exp $
+/* $Id: dmotif_indel_mod.c,v 1.5 2009-02-19 19:38:48 agd27 Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 
@@ -11,7 +11,8 @@
 
 DMotifBranchIndelModel *dmih_new_branch(double alpha, double beta, double tau,
 					double epsilon, double t, int motif) {
-  DMotifBranchIndelModel *bim = smalloc(sizeof(DMotifBranchIndelModel));
+  DMotifBranchIndelModel *bim =
+    (DMotifBranchIndelModel*)smalloc(sizeof(DMotifBranchIndelModel));
   bim->probs = mm_new(NINDEL_STATES, NULL, DISCRETE);
   bim->log_probs = mat_new(NINDEL_STATES, NINDEL_STATES);
   bim->beg_probs = vec_new(NINDEL_STATES);
@@ -25,7 +26,9 @@ DMotifBranchIndelModel *dmih_new_branch(double alpha, double beta, double tau,
 DMotifIndelModel *dmih_new_all(double alpha, double beta, double tau, 
 			       double epsilon, TreeNode *tree) {
   int i, mnode;
-  DMotifIndelModel *im = smalloc(sizeof(DMotifIndelModel));
+  /* Figure out how mnode should be used!! */
+  DMotifIndelModel *im = (DMotifIndelModel*)smalloc(sizeof(DMotifIndelModel));
+  mnode = 0;
   im->training_lnl = 0;
   im->branch_mods = smalloc(tree->nnodes * sizeof(void*));
   for (i = 0; i < tree->nnodes; i++) {
@@ -42,14 +45,18 @@ DMotifIndelModel *dmih_new(double *alpha, double *beta, double *tau,
 			   double *epsilon, TreeNode *tree, int e, List *l,
 			   int motif) {
   int i, j, mnode;
-  DMotifIndelModel *im = smalloc(sizeof(DMotifIndelModel));
+  DMotifIndelModel *im = (DMotifIndelModel*)smalloc(sizeof(DMotifIndelModel));
   im->training_lnl = 0;
-  im->branch_mods = smalloc(tree->nnodes * sizeof(void*));
+  im->branch_mods = (DMotifBranchIndelModel**)smalloc(tree->nnodes 
+						      * sizeof(void*));
   
   for (i = 0; i < tree->nnodes; i++) {
-    mnode = 0;
     TreeNode *n = lst_get_ptr(tree->nodes, i);
-    if (n == tree) { im->branch_mods[i] = NULL; continue; }
+    mnode = 0;
+    if (n == tree) {
+      im->branch_mods[i] = NULL; 
+      continue;
+    }
     if (motif) { /* See if we're at a motif node */
       if (e == CONS || e == NEUT) { /* All nodes are motif nodes */
 	mnode = 1;
@@ -66,7 +73,10 @@ DMotifIndelModel *dmih_new(double *alpha, double *beta, double *tau,
     im->branch_mods[i] = dmih_new_branch(alpha[i], beta[i], tau[i], epsilon[i],
 					 n->dparent, mnode);
   }
-  dmih_set(im, alpha, beta, tau, epsilon, tree, e, l, motif);
+  im->tree = tree;
+  im->alpha = im->beta = im->tau = im->epsilon = -1;
+  /* This call seems to be redundant when the above two lines are set here! */
+/*   dmih_set(im, alpha, beta, tau, epsilon, tree, e, l, motif); */
   return im;
 }
 
@@ -111,15 +121,15 @@ void dmih_set_branch(DMotifBranchIndelModel *bim, double alpha, double beta,
     
     mm_set(bim->probs, MATCH, CHILDINS, epsilon * t);
     mm_set(bim->probs, MATCH, CHILDDEL, epsilon * t);
-    mm_set(bim->probs, MATCH, MATCH, 1 - epsilon * t - epsilon * t);
+    mm_set(bim->probs, MATCH, MATCH, 1 - 2 * epsilon * t);
     
     /* set begin probabilities to stationary distribution */
     vec_set(bim->beg_probs, CHILDINS, 
-	    alpha * t / (alpha * t + beta * t + tau));
+	    epsilon * t / (epsilon * t + tau));
     vec_set(bim->beg_probs, CHILDDEL, 
-	    beta * t / (alpha * t + beta * t + tau));
+	    epsilon * t / (epsilon * t + tau));
     vec_set(bim->beg_probs, MATCH, 
-	    tau / (alpha * t + beta * t + tau));
+	    tau / (epsilon * t + tau));
   } else { /* Background state -- use default dless model */
     /* transition probabilities */
     mm_set(bim->probs, CHILDINS, CHILDINS, 1 - tau - beta * t);
@@ -145,12 +155,15 @@ void dmih_set_branch(DMotifBranchIndelModel *bim, double alpha, double beta,
 
   /* set log probs; also check that everything is a probability */
   for (i = 0; i < NINDEL_STATES; i++) {
+    double rowsum = 0;
     for (j = 0; j < NINDEL_STATES; j++) {
       double prob = mm_get(bim->probs, i, j);
+      rowsum += prob;
       if (prob < 0 || prob > 1) 
         die("ERROR: invalid indel probability.  Alpha, beta, tau and/or epsilon\nare probably too large given branch lengths.\n");
       mat_set(bim->log_probs, i, j, log2(prob));
     }
+    assert(fabs(1-rowsum) < 1e-6);
     vec_set(bim->beg_log_probs, i, log2(vec_get(bim->beg_probs, i)));
   }
 }
@@ -158,7 +171,7 @@ void dmih_set_branch(DMotifBranchIndelModel *bim, double alpha, double beta,
 /* To Do: This needs to be retooled to pay attention to motif vs. bg states */
 void dmih_set_all(DMotifIndelModel *im, double alpha, double beta, double tau, 
 		  double epsilon, TreeNode *tree) {
-  int i, mnode;
+  int i, mnode = 0; /* To do check value */
   im->alpha = alpha;
   im->beta = beta;
   im->tau = tau;
@@ -179,8 +192,8 @@ void dmih_set(DMotifIndelModel *im, double *alpha, double *beta, double *tau,
   im->tree = tree;
 
   for (i = 0; i < tree->nnodes; i++) {
-    mnode = 0;
     TreeNode *n = lst_get_ptr(tree->nodes, i);
+    mnode = 0;
     
     if (motif) { /* See if we're at a motif node */
       if (e == CONS || e == NEUT) { /* All nodes are motif nodes */
@@ -230,31 +243,52 @@ double dmih_branch_column_logl(IndelHistory *ih, DMotifBranchIndelModel *bim,
   double logl = 0;
   int parent_id = ((TreeNode*)lst_get_ptr(ih->tree->nodes, child))->parent->id;
 
+/*   for (i = 0; i < ih->ncols; i++) { */
+/*     last_type = get_col_type(ih, child, parent_id, i); */
+/*     if (last_type == SKIP)  */
+/*       col_logl[i] = 0; */
+/*     else { */
+/*       col_logl[i] = vec_get(bim->beg_log_probs, last_type); */
+/*       break; */
+/*     } */
+/*   } */
+/*   logl = col_logl[i++]; */
+/*   /\* Note that in DLESS, i is NOT advanced before restarting the loop -- this */
+/*      seems to result in the standard transition prob. replacing the begin prob. */
+/*      in the col_logl vector and a double-counted transition. *\/ */
+/*   for (; i < ih->ncols; i++) { */
+/*     this_type = get_col_type(ih, child, parent_id, i); */
+
+/*     assert(this_type != ERROR); */
+
+/*     if (this_type == SKIP) { */
+/*       col_logl[i] = 0; */
+/*       continue; */
+/*     } */
+
+/*     col_logl[i] = bim->log_probs->data[last_type][this_type]; */
+/*     logl += col_logl[i]; */
+/*     last_type = this_type; */
+/*   } */
+
   for (i = 0; i < ih->ncols; i++) {
-    last_type = get_col_type(ih, child, parent_id, i);
-    if (last_type == SKIP) 
-      col_logl[i] = 0;
-    else {
-      col_logl[i] = vec_get(bim->beg_log_probs, last_type);
-      break;
-    }
-  }
-  logl = col_logl[i];
-  for (; i < ih->ncols; i++) {
     this_type = get_col_type(ih, child, parent_id, i);
-
+    
     assert(this_type != ERROR);
-
+    
     if (this_type == SKIP) {
       col_logl[i] = 0;
       continue;
     }
-
-    col_logl[i] = bim->log_probs->data[last_type][this_type];
+    if (last_type == SKIP)
+      col_logl[i] = vec_get(bim->beg_log_probs, this_type);
+    else
+      col_logl[i] = bim->log_probs->data[last_type][this_type];
+    
     logl += col_logl[i];
     last_type = this_type;
   }
-
+  
   return logl;
 }
 
@@ -264,12 +298,14 @@ double dmih_column_logl(IndelHistory *ih, DMotifIndelModel *im,
   int i, j;
   double logl = 0;
   double *branch_col_logl = smalloc(ih->ncols * sizeof(double));
+  TreeNode *n;
+
   for (i = 0; i < ih->ncols; i++) col_logl[i] = 0;
   for (i = 0; i < im->tree->nnodes; i++) {
-    TreeNode *n = lst_get_ptr(im->tree->nodes, i);
+    n = lst_get_ptr(im->tree->nodes, i);
     if (n == im->tree) continue;
     logl += dmih_branch_column_logl(ih, im->branch_mods[n->id], i, 
-                                  branch_col_logl);
+				    branch_col_logl);
     for (j = 0; j < ih->ncols; j++) col_logl[j] += branch_col_logl[j];
   }
   free(branch_col_logl);

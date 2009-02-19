@@ -1,4 +1,4 @@
-/* $Id: pssm.c,v 1.1 2008-04-09 13:01:58 acs Exp $ */
+/* $Id: pssm.c,v 1.2 2009-02-19 19:38:48 agd27 Exp $ */
 
 #include <pssm.h>
 #include <msa.h>
@@ -9,7 +9,7 @@
 /* if alphabet == NULL, default will be used */
 PSSM *mot_new(int width, char *alphabet) {
   int i;
-  PSSM *m = smalloc(sizeof(PSSM));
+  PSSM *m = (PSSM*)smalloc(sizeof(PSSM));
   m->width = width;
   m->alphabet = (alphabet == NULL ? DEFAULT_ALPHABET : alphabet);
   m->alphsize = strlen(m->alphabet);

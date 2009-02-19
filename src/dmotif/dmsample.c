@@ -40,7 +40,8 @@ int main(int argc, char *argv[]) {
   double **tuple_scores;
   PooledMSA *blocks = NULL;
   MSA *msa;
-  List *pruned_names = lst_new_ptr(5), *tmpl, *keys, *seqnames, *cache_files;
+  List *pruned_names = lst_new_ptr(5), *tmpl, *keys, *seqnames, 
+    *cache_files = NULL;
   IndelHistory **ih = NULL;
   DMotifPmsaStruct *dmpmsa;
   DMotifPhyloHmm *dm;
@@ -66,6 +67,7 @@ int main(int argc, char *argv[]) {
     {"force_priors", 0, 0, 'p'},
     {"dump-hash", 1, 0, 'D'},
     {"precomputed-hash", 1, 0, 'd'},
+    {"recover-temp", 1, 0, 'T'},
     {"cache-fname", 1, 0, 'c'},
     {"cache-int", 1, 0, 'i'},
     {"quiet", 0, 0, 'q'},
@@ -77,7 +79,7 @@ int main(int argc, char *argv[]) {
 
   /* arguments and defaults for options */
   FILE *msa_f = NULL, *source_mod_f, *motif_f = NULL, *prior_f = NULL,
-    *log = NULL, *ref_gff_f = NULL, *hash_f = NULL;
+    *log = NULL, *ref_gff_f = NULL, *hash_f = NULL, *tmp_lst_f = NULL;
   TreeModel *source_mod;
   double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU, 
     phi = DEFAULT_PHI, zeta = DEFAULT_ZETA,
@@ -90,9 +92,11 @@ int main(int argc, char *argv[]) {
     nthreads = DEFAULT_NTHREADS, hash_debug = FALSE;
   char *seqname = NULL, *idpref = NULL, 
     *cache_fname = (char*)smalloc(STR_MED_LEN * sizeof(char));
-  sprintf(cache_fname, "dmsample_%ti", time(0));
+
+  snprintf(cache_fname, STR_MED_LEN, "dmsample_%ld", (long) time(0));
   
-  while ((c = getopt_long(argc, argv, "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:t:m:h",
+  while ((c = getopt_long(argc, argv, 
+			  "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:t:m:T:h",
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
@@ -143,6 +147,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'v':
       sample_interval = get_arg_int_bounds(optarg, 0, INFTY);
+      break;
     case 'g':
       ref_gff_f = fopen_fname(optarg, "r");
       fprintf(stderr, "Reading reference features from %s...\n", optarg);
@@ -162,7 +167,7 @@ int main(int argc, char *argv[]) {
       hash_f = fopen_fname(optarg, "r");
       break;
     case 'c':
-      sprintf(cache_fname, "%s", optarg);
+      snprintf(cache_fname, STR_MED_LEN, "%s", optarg);
       break;
     case 'i':
       cache_int = atoi(optarg);
@@ -175,6 +180,10 @@ int main(int argc, char *argv[]) {
       break;
     case 'm':
       hash_debug = TRUE;
+      break;
+    case 'T':
+      tmp_lst_f = fopen_fname(optarg, "r");
+      precomputed_hash = TRUE;
       break;
     case 'h':
       printf(HELP);
@@ -244,14 +253,16 @@ int main(int argc, char *argv[]) {
 /*   fprintf(stderr, "ntuples %d\n", blocks->pooled_msa->ss->ntuples); */
 
   /* Read in priors for parameter estimation */
-  fprintf(stderr, "Reading transition parameter priors from %s...\n", argv[optind + 3]);
-  priors = (int**)smalloc(4 * sizeof(int*));
-  for (i = 0; i < 4; i++) {
-    priors[i] = (int*)smalloc(2 * sizeof(int));
-    priors[i][0] = priors[i][1] = 0;
+  if (!precomputed_hash) {
+    fprintf(stderr, "Reading transition parameter priors from %s...\n", 
+	    argv[optind + 3]);
+    priors = (int**)smalloc(4 * sizeof(int*));
+    for (i = 0; i < 4; i++) {
+      priors[i] = (int*)smalloc(2 * sizeof(int));
+      priors[i][0] = priors[i][1] = 0;
+    }
+    dms_read_priors(priors, prior_f);
   }
-  dms_read_priors(priors, prior_f);
-
   /* Do some cleanup of files we no longer need */
   if (ref_gff_f != NULL)
     fclose(ref_gff_f);
@@ -293,13 +304,19 @@ int main(int argc, char *argv[]) {
   
   /* Precompute P matrices for all states -- this avoids collisions between
      threads later */
-  if (!quiet)
+  if (!quiet && !precomputed_hash)
     fprintf(stderr, "Initializing P-matrices in phylogenetic models...\n");
   dm_set_subst_mods(dm);
 
   /* Prepare a thread pool to keep all cores working */
   pool = thr_pool_init(nthreads);
 
+
+  /* If reconstructing a run from temp files, build the cache_files list */
+  if (precomputed_hash == TRUE && tmp_lst_f != NULL) {
+    cache_files = dms_read_tmp_from_file(tmp_lst_f);
+  }
+  
   /* Prepare the emissions by tuple and state. Later, emissions for each seq
      will be reconsitituted on the fly for the forward and stochastic
      traceback algorithms. This requires a dummy MSA of all tuples, in order,
@@ -325,13 +342,12 @@ int main(int argc, char *argv[]) {
 
     /* tuple-wise emissions matrix */
     tuple_scores = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*));
-    for (i = 0; i < dm->phmm->hmm->nstates; i++) {
-      tuple_scores[i] = (double*)smalloc(blocks->pooled_msa->ss->ntuples 
-					 * sizeof(double));
-    }
+    for (i = 0; i < dm->phmm->hmm->nstates; i++)
+      tuple_scores[i] = (double*)smalloc(msa->ss->ntuples * sizeof(double));
+
     /* Assign dm->phmm->emissions as the tuple-wise table for computation
        purposes */
-    dm->phmm->emissions = tuple_scores; 
+    dm->phmm->emissions = tuple_scores;
     dm->phmm->alloc_len = msa->ss->ntuples;
     
     /* Compute the tuple-wise emissions matrix */
@@ -342,37 +358,6 @@ int main(int argc, char *argv[]) {
     /* Adjust for missing data */
     fprintf(stderr, "Adjusting emissions for missing data...\n");
     dm_handle_missing_data(dm, msa);
-    
-    /* sequence-wise emissions matrix */
-/*     double **emissions = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*)); */
-/*     for (i = 0; i < dm->phmm->hmm->nstates; i++) { */
-/*       emissions[i] = (double*)smalloc(max_seqlen  */
-/* 				      * sizeof(double)); */
-/*     } */
-
-    /* Debugging -- reinitialize the dmotif phmm to see if resolves bus
-       errors */
-/*     dm->phmm->emissions = NULL; /\* preserve the emissions matrix *\/ */
-/*     dm_free(dm); */
-
-/*     /\* Need to recreate source_mod and motif objectss to reinit *\/ */
-/*     source_mod_f = fopen_fname(argv[optind+1], "r"); */
-/*     source_mod = tm_new_from_file(source_mod_f); */
-/*     fclose(source_mod_f); */
-
-/*     motif_f = fopen_fname(argv[optind+2], "r"); */
-/*     motif = mot_read(motif_f); */
-/*     fclose(motif_f); */
-
-/*     fprintf(stderr, "Reinitializing dmotif model\n"); */
-/*     dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, alpha_c, beta_c, */
-/* 		tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n, */
-/* 		FALSE, FALSE, FALSE, FALSE); */
-
-    /* Reassign the emissions matrix associated with the phmm to the sequence-
-       wise matrix. */
-/*     dm->phmm->emissions = emissions; */
-/*     dm->phmm->alloc_len = max_seqlen; */
     
     /** Call the sampler **/
     fprintf(stderr, "Sampling state paths...\n");
@@ -396,23 +381,32 @@ int main(int argc, char *argv[]) {
     free(tuple_scores);
     dm->phmm->emissions = NULL;
 
+    fprintf(stderr, "Reloading cached data from disk...\n");
     path_counts = dms_uncache(cache_files, 
 			      max(10*lst_size(blocks->source_msas), 10000),
 			      ((2*dm->k)+2), &csamples, 1);
 /*     fprintf(stderr, "nsamples %d, csamples %d\n", nsamples, csamples); */
     
-  } else {
+  } else if (precomputed_hash && cache_files == NULL) {
     fprintf(stderr, "Reading sampling data from disk...\n");
 /*     fprintf(stderr, "nsamples_init %d\t", nsamples); */
     path_counts = dms_read_hash(hash_f, ((2*dm->k)+2), &nsamples);
+  } else {
+    fprintf(stderr, "Reloading cached data from disk...\n");
+/*     fprintf(stderr, "nsamples_init %d\t", nsamples); */
+    path_counts = dms_uncache(cache_files, 
+			      max(10*lst_size(blocks->source_msas), 10000),
+			      ((2*dm->k)+2), &nsamples, 0);
   }
   
 /*   fprintf(stderr, "nsamples_new %d\n", nsamples); */
   
   /* Can free priors */
-  for (i = 0; i < 4; i++)
-    free(priors[i]);
-  free(priors);
+  if (!precomputed_hash) {
+    for (i = 0; i < 4; i++)
+      free(priors[i]);
+    free(priors);
+  }
 
   /* Dump hash, for debugging purposes. */
   if (hash_f != NULL && !precomputed_hash) {
@@ -459,7 +453,7 @@ int main(int argc, char *argv[]) {
   if (!precomputed_hash) {
     for (i = 0; i < lst_size(cache_files); i++) {
       if (!hash_debug) {
-	sprintf(cache_fname, "rm %s",
+	snprintf(cache_fname, STR_MED_LEN, "rm %s",
 		((String*)lst_get_ptr(cache_files, i))->chars);
 	/* delete the file */
 	system(cache_fname);
