@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: tree_model.c,v 1.40 2009-01-28 21:09:14 agd27 Exp $ */
+/* $Id: tree_model.c,v 1.41 2009-02-19 17:22:58 acs Exp $ */
 
 #include <tree_model.h>
 #include <subst_mods.h>
@@ -564,14 +564,37 @@ void tm_set_subst_matrices(TreeModel *tm) {
                          n->dparent * branch_scale * tm->rK[j]);
 
       else {                     /* full matrix exponentiation */
-/* /\* 	fprintf(stderr, "thread %d, tm %p, tm->P[%d][%d] %p, rate_matrix %p, n->dparent %f, branch_scale %f, tm->rK[j] %f\n", *\/ */
-/* 		(int)pthread_self(), tm, i, j, tm->P[i][j], rate_matrix,  */
-/* 		n->dparent, branch_scale, tm->rK[j]); */
-	mm_exp(tm->P[i][j], rate_matrix, 
-	       n->dparent * branch_scale * tm->rK[j]);
+        mm_exp(tm->P[i][j], rate_matrix, 
+               n->dparent * branch_scale * tm->rK[j]);
       }
     }
   }
+}
+
+/* version of above that can be used with specified branch length and
+   prob matrix */
+void tm_set_subst_matrix(TreeModel *tm, MarkovMatrix *P, double t) {
+  int i;
+  double scaling_const = -1, tmp;
+
+  assert(tm->alt_subst_mods == NULL);
+  assert(tm->estimate_branchlens != TM_SCALE_ONLY);
+
+  /* need to compute a matrix scaling constant from the equilibrium
+     freqs, in this case (see below) */
+  if (tm->subst_mod == F81) {   
+    for (i = 0, tmp = 0; i < tm->rate_matrix->size; i++)
+      tmp += vec_get(tm->backgd_freqs, i) * vec_get(tm->backgd_freqs, i);
+    scaling_const = 1.0/(1 - tmp);
+  }
+
+  /* for simple models, full matrix exponentiation is not necessary */
+  if (tm->subst_mod == JC69)
+    tm_set_probs_JC69(tm, P, t);
+  else if (tm->subst_mod == F81)
+    tm_set_probs_F81(tm->backgd_freqs, P, scaling_const, t);
+  else 
+    mm_exp(P, tm->rate_matrix, t);
 }
 
 /* scale evolutionary rate by const factor (affects branch lengths
