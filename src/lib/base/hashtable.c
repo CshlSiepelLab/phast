@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: hashtable.c,v 1.7 2008-11-12 02:07:59 acs Exp $*/
+/* $Id: hashtable.c,v 1.8 2009-02-19 19:44:15 agd27 Exp $*/
 
 /* hashtable - Fast, simple array-based hash table, optimized for
    'put' and 'get' ('delete' somewhat inefficient).  Stores copies of
@@ -154,4 +154,21 @@ List *hsh_keys(Hashtable *ht) {
       lst_push_ptr(retval, lst_get_ptr(ht->keys[i], j));
   }
   return retval;
+}
+
+/* Clear keys and values in a hashtable without freeing the hashtable. The end
+   result is equivaslent to a newly-allocated hashtable. */
+void hsh_clear(Hashtable *ht) {
+  int i, j;
+  for (i = 0; i < ht->nbuckets; i++) {
+    if (ht->keys[i] != NULL) {
+      for (j = 0; j < lst_size(ht->keys[i]); j++)
+        free(lst_get_ptr(ht->keys[i], j));
+      for (j = 0; j < lst_size(ht->vals[i]); j++)
+        free(lst_get_ptr(ht->vals[i], j));
+      lst_free(ht->keys[i]);
+      lst_free(ht->vals[i]);      
+      ht->keys[i] = ht->vals[i] = NULL;
+    }
+  }
 }
