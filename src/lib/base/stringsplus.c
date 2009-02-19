@@ -10,7 +10,7 @@
 /* String-handling functions, with automatic memory management and
    basic regex support.
    
-   $Id: stringsplus.c,v 1.10 2008-11-12 02:07:59 acs Exp $ */
+   $Id: stringsplus.c,v 1.11 2009-02-19 22:22:11 acs Exp $ */
 
 #include "stringsplus.h"
 #include "misc.h"
@@ -26,7 +26,7 @@ extern unsigned regs_allocated;
 
 String *str_new(int starting_nchars) {
   String *s = (String*)smalloc(sizeof(String));
-  s->chars = (char*)smalloc(starting_nchars * sizeof(char) + 1);
+  s->chars = (char*)smalloc((starting_nchars+1) * sizeof(char));
   str_clear(s);
   s->nchars = starting_nchars;
   return s;
@@ -74,7 +74,7 @@ void str_append(String *s, String *suffix) {
 void str_nappend_charstr(String *s, char *charstr, int len) {
   int i;
   if (s->length + len + 1 >= s->nchars)
-    str_realloc(s, max(s->length + len, s->nchars * 2) + 1);
+    str_realloc(s, max(s->length + len, s->nchars * 2));
                                 /* try to avoid heavy srealloc when
                                    frequently appending short
                                    strings  */
@@ -110,7 +110,7 @@ void str_append_dbl(String *s, double d) {
 
 
 void str_realloc(String *s, int new_nchars) {
-  s->chars = (char*)srealloc(s->chars, new_nchars * sizeof (char));
+  s->chars = (char*)srealloc(s->chars, (new_nchars+1) * sizeof (char));
   s->nchars = new_nchars;
 }
 
