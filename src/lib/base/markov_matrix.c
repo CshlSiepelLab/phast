@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: markov_matrix.c,v 1.10 2008-11-16 03:07:47 acs Exp $ */
+/* $Id: markov_matrix.c,v 1.11 2009-02-19 21:29:24 agd27 Exp $ */
 
 /* functions for manipulating continuous and discrete Markov matrices */
 
@@ -65,6 +65,7 @@ MarkovMatrix* mm_new(int size, char *states, mm_type type) {
 
 MarkovMatrix* mm_new_from_matrix(Matrix *A, char *states, mm_type type) {
   MarkovMatrix *M = mm_new(A->nrows, states, type);
+  mat_free(M->matrix);
   M->matrix = A;
   mm_validate(M);
   return M;
