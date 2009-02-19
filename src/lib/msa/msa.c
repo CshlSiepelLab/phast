@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: msa.c,v 1.60 2009-01-09 22:01:00 mt269 Exp $ */
+/* $Id: msa.c,v 1.61 2009-02-19 23:35:48 agd27 Exp $ */
 
 /** \file msa.c
    Multiple sequence alignments.
@@ -111,7 +111,7 @@ MSA *msa_new(char **seqs, char **names, int nseqs, int length, char *alphabet) {
 MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
   int i, j, k, nseqs, len, do_toupper;
   MSA *msa;
-  String *tmpstr = str_new(STR_MED_LEN);
+  String *tmpstr;
 
   if (format == FASTA) 
     return (msa_read_fasta(F, alphabet));
@@ -124,6 +124,8 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
     if (fscanf(F, "%d %d", &nseqs, &len) <= 0) 
       die("ERROR: PHYLIP or MPM file missing initial length declaration.\n");
   }
+
+  tmpstr = str_new(STR_MED_LEN);
 
   /* we'll initialize the MSA first, so that we can use its
    * "inv_alphabet" */
