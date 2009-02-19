@@ -10,7 +10,7 @@
 /* String-handling functions, with automatic memory management and
    basic regex support.
    
-   $Id: stringsplus.c,v 1.11 2009-02-19 22:22:11 acs Exp $ */
+   $Id: stringsplus.c,v 1.12 2009-02-19 23:33:48 agd27 Exp $ */
 
 #include "stringsplus.h"
 #include "misc.h"
@@ -146,6 +146,8 @@ int str_index_of(String *s, String *substr) {
 
 void str_substring(String *dest, String *src, int startidx, int len) {
   str_clear(dest);
+  if (startidx < 0 || startidx >= src->length)
+    die("ERROR in str_substr: startidx is outside the coordinates of the source string!\n");
   if (len < 0 || len > src->length - startidx) 
     len = src->length - startidx;
   str_nappend_charstr(dest, &src->chars[startidx], len);
@@ -359,6 +361,9 @@ int str_re_match(String *s, Regex *re, List *l, int nsubexp) {
   int retval, i;
   String *substr;
 
+  /* WARNING: lst_clear DOES NOT free memory associated with the contents,
+     so must free substrings from previous calls if these are no longer being
+     used or there will be a memory leak! */
   if (l != NULL)
     lst_clear(l);
 
@@ -386,9 +391,12 @@ int str_re_search(String *s, Regex *re, int start_offset, List *l,
   int retval, i;
   String *substr;
 
+  /* WARNING: lst_clear DOES NOT free memory associated with the contents,
+     so must free substrings from previous calls if these are no longer being
+     used or there will be a memory leak! */
   if (l != NULL)
     lst_clear(l);
-
+  
   retval = re_search(re, s->chars, s->length, start_offset, s->length, &regs);
 
   if (retval >= 0 && l != NULL) {
