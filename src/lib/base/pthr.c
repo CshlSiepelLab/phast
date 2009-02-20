@@ -226,8 +226,10 @@ void thr_foreach(ThreadPool * pool, List * work, wrk_func func) {
   pthread_mutex_lock(&(pool->mtx_wait_work));
   {
     int n_items = lst_size(work);
+    
+    pool->work_type = WRK_FOREACH;
 
-     /* fill pool data */
+    /* fill pool data */
     pool->work_list = work;
     pool->next_unit = n_items - 1;
     pool->unfinished = n_items;
