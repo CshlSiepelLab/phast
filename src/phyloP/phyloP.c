@@ -205,7 +205,7 @@ int main(int argc, char *argv[]) {
     msa_f = fopen_fname(argv[optind+1], "r");
     if (msa_format == MAF) 
       msa = maf_read(msa_f, NULL, 1, NULL, NULL, NULL, -1, 
-                     feats == NULL ? FALSE : TRUE, /* --features requires order */
+                     (feats == NULL && base_by_base==0) ? FALSE : TRUE, /* --features requires order */
                      NULL, NO_STRIP, FALSE); 
     else 
       msa = msa_new_from_file(msa_f, msa_format, NULL);
