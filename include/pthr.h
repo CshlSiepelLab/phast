@@ -8,8 +8,8 @@
     the requests. The threads remain asleep between function calls
     and can be reused many times in the program.
 
-    Note: Thread pools are not reentrant and so cannot be called from
-          different threads.
+    \note Thread pools are not reentrant and so cannot be reused from
+          within worker functions.
     \ingroup base
 */
 
@@ -61,4 +61,18 @@ void thr_foreach(ThreadPool * pool, List * work, wrk_func func);
   return 0.
 */
 int thr_index(ThreadPool * pool);
+
+/** Thread fork using thread pool.
+
+  Given a null-terminated array of functions and a data pointer, apply each 
+  function to the data. Each function runs in its separate thread, with the
+  maximum number of simultaneous threads determined by the size of the thread
+  pool.
+  
+  \warning Worker functions cannot call thr_foreach with the same pool.
+  
+  Synchronized wait for all the work to finish.
+*/
+void thr_fork(ThreadPool * pool, void * work, wrk_func * funcs);
+
 #endif

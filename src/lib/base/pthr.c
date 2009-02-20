@@ -4,11 +4,21 @@
 #include <misc.h>
 #include <pthr.h>
 
+#define WRK_FOREACH 0
+#define WRK_FORK 1
+
 struct thrpool_ {
+  int work_type;
+
+  /* foreach work */
   wrk_func work_func;
   List * work_list;
   int next_unit;
   int unfinished;
+  
+  /* fork work */
+  void * work;
+  wrk_func * next_func;
   
   pthread_t * threads;
   int n_threads;
@@ -57,16 +67,32 @@ wait_state:
   
   /* check for work */
 check_work:
-  if (pool->next_unit < 0)
-    goto wait_state;
+  if (pool->work_type == WRK_FOREACH) {
+    if (pool->next_unit < 0)
+      goto wait_state;
 
-  current_work_data = lst_get(pool->work_list, pool->next_unit);
-  --(pool->next_unit);
+    current_work_data = lst_get(pool->work_list, pool->next_unit);
+    --(pool->next_unit);
 
-  pthread_mutex_unlock(&(pool->mtx_wait_work));
-  
-  /* do some work */
-  (*(pool->work_func))(current_work_data);
+    pthread_mutex_unlock(&(pool->mtx_wait_work));
+    
+    /* do some work */
+    (*(pool->work_func))(current_work_data);
+  } else if (pool->work_type == WRK_FORK) {
+    wrk_func current_func;
+    
+    if (*(pool->next_func) == NULL)
+      goto wait_state;
+
+    current_func = *(pool->next_func);
+    ++(pool->next_func);
+
+    pthread_mutex_unlock(&(pool->mtx_wait_work));
+    
+    /* do some work */
+    (*current_func)(pool->work);
+  } else
+    fprintf(stderr, "error: invalid thread pool work type.\n");
   
   /* decrement work counter */
   pthread_mutex_lock(&(pool->mtx_wait_finish));
@@ -240,5 +266,55 @@ int thr_index(ThreadPool * pool) {
       return i;
 
   return -1;
+}
+
+static void serial_fork(void * work, wrk_func * funcs) {
+  while (*funcs != NULL) {
+    (*(*funcs))(work);
+    ++funcs;
+  }
+}
+
+/* Thread fork using thread pool.
+
+  Given a null-terminated array of functions and a data pointer, apply each 
+  function to the data. Each function runs in its separate thread, with the
+  maximum number of simultaneous threads determined by the size of the thread
+  pool.
+  
+  \warning Functions cannot call thr_foreach with the same pool.
+  
+  Synchronized wait for all the work to finish.
+*/
+void thr_fork(ThreadPool * pool, void * work, wrk_func * funcs) {
+  if (pool->n_threads == 0) {
+    serial_fork(work, funcs);
+    return;
+  }
+
+  /* broadcast work */
+  pthread_mutex_lock(&(pool->mtx_wait_work));
+  {
+    wrk_func * ptr;
+
+    pool->work_type = WRK_FORK;
+    
+    /* fill pool data */
+    pool->next_func = funcs;
+    pool->work = work;
+    
+    /* count units */
+    pool->unfinished = 0;
+    for (ptr = funcs; *ptr != NULL; ++ptr)
+      ++(pool->unfinished);
+  }
+  pthread_cond_broadcast(&(pool->cond_wait_work));
+  pthread_mutex_unlock(&(pool->mtx_wait_work));
+  
+  /* wait for work to finish */
+  pthread_mutex_lock(&(pool->mtx_wait_finish));
+  while (*(pool->next_func) != NULL || pool->unfinished > 0)
+    pthread_cond_wait(&(pool->cond_wait_finish),&(pool->mtx_wait_finish));
+  pthread_mutex_unlock(&(pool->mtx_wait_finish));
 }
 
