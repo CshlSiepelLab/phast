@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
     case 'i':
       msa_format = msa_str_to_format(optarg);
       if (msa_format == -1)
-        die("ERROR: unrecognized alignment format.\n");
+	die("ERROR: unrecognized alignment format.\n");
       break;
     case 'S':
       suff_stats = TRUE;
@@ -89,29 +89,18 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (optind != argc - 3) 
+  if (optind != argc - 3)
     die("Three arguments required.  Try 'prequel -h'.\n");
 
   if (!do_probs && (suff_stats || code != NULL))
     die("ERROR: --no-probs can't be used with --suff-stats or --encode.\n");
 
   msa_f = fopen_fname(argv[optind], "r");
-  mod_f = fopen_fname(argv[optind+1], "r");
-  out_root = argv[optind+2];
-
-  mod = tm_new_from_file(mod_f);
-  tr_name_ancestors(mod->tree);
-
-  if (mod->order != 0)
-    die("ERROR: Only single nucleotide models are supported.\n");
-
-  if (mod->nratecats > 1)
-    die("ERROR: Rate variation not supported.\n");
 
   fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
   if (msa_format == MAF) {
-    msa = maf_read(msa_f, refseq_f, 1, NULL, NULL, NULL, -1, !suff_stats, NULL, 
-                   NO_STRIP, FALSE); 
+    msa = maf_read(msa_f, refseq_f, 1, NULL, NULL, NULL, -1, !suff_stats, NULL,
+                   NO_STRIP, FALSE);
     /* (no need to store order if suff_stats mode) */
   }
   else 
@@ -124,6 +113,35 @@ int main(int argc, char *argv[]) {
   else if (msa->ss->tuple_idx == NULL && !suff_stats)
     die("ERROR: ordered representation of alignment required unless --suff-stats.\n");
 
+  mod_f = fopen_fname(argv[optind+1], "r");
+  out_root = argv[optind+2];
+
+  mod = tm_new_from_file(mod_f);
+
+  /* MH prune just like in phastcons */
+  int old_nnodes = mod->tree->nnodes;
+  List *pruned_names = lst_new_ptr(msa->nseqs);
+  tm_prune(mod, msa, pruned_names);  
+  if (lst_size(pruned_names) == (old_nnodes + 1) / 2)
+    die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
+  if (lst_size(pruned_names) > 0) {
+    fprintf(stderr, "WARNING: pruned away leaves of tree with no match in alignment (");
+    int j;
+    for (j = 0; j < lst_size(pruned_names); j++)
+      fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars, j < lst_size(pruned_names) - 1 ? ", " : ").\n");
+  }
+  lst_free_strings(pruned_names);  
+
+
+  tr_name_ancestors(mod->tree);
+
+  if (mod->order != 0)
+    die("ERROR: Only single nucleotide models are supported.\n");
+
+  if (mod->nratecats > 1)
+    die("ERROR: Rate variation not supported.\n");
+
+
   mod->tree_posteriors = tl_new_tree_posteriors(mod, msa, TRUE, FALSE, 
                                                 FALSE, FALSE, FALSE, FALSE);
 
@@ -131,7 +149,7 @@ int main(int argc, char *argv[]) {
 
   if (gibbs_nsamples > 0)
     die("ERROR: --gibbs not implemented yet.");
-/*     gb_sample_ancestral_seqs(mod, msa, mod->tree_posteriors, gibbs_nsamples); */
+  /*     gb_sample_ancestral_seqs(mod, msa, mod->tree_posteriors, gibbs_nsamples); */
   else
     tl_compute_log_likelihood(mod, msa, NULL, -1, mod->tree_posteriors);
 
@@ -177,7 +195,7 @@ int main(int argc, char *argv[]) {
     }
 
     else if (code == NULL && do_probs) {	/* ordinary sequence-by-sequence 
-                                               output */
+						   output */
       sprintf(out_fname, "%s.%s.probs", out_root, n->name);
       out_f = fopen_fname(out_fname, "w+");
 
@@ -203,7 +221,7 @@ int main(int argc, char *argv[]) {
     }
 
     else if (code == NULL && !do_probs) {	/* write point estimates
-                                               to FASTA file */
+						   to FASTA file */
       char *outseq = smalloc((msa->length + 1) * sizeof(char));
       int len = 0;
 
@@ -236,7 +254,7 @@ int main(int argc, char *argv[]) {
     }
 
     else {			/* encoded sequence-by-sequence
-                       output */
+				   output */
       double error, tot_error = 0;
       int ngaps = 0;
       static Vector *v = NULL;
@@ -335,7 +353,7 @@ void do_indels(MSA *msa, TreeModel *mod) {
           continue;               /* ignore leaves */
         for (j = 0; j < mod->rate_matrix->size; j++)
           mod->tree_posteriors->base_probs[0][j][n->id][tup] = -1;
-                                /* mark as gap */
+	/* mark as gap */
       }
       continue;
     }
@@ -372,7 +390,7 @@ void do_indels(MSA *msa, TreeModel *mod) {
         continue;               /* skip root if condition above */
       for (j = 0; j < mod->rate_matrix->size; j++)
         mod->tree_posteriors->base_probs[0][j][n->id][tup] = -1;
-                                /* mark as gap */
+      /* mark as gap */
     }
 
     /* check for gaps in subtree; if there's at most one, we can go
