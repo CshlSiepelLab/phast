@@ -884,6 +884,8 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
 		       int quiet, char *cache_fname, int cache_int) {
 
   int i, j, k, l, *path, **trans, **ref_paths = NULL, nwins, reinit;
+  unsigned long int seed;
+  FILE *devrandom;
   double **forward_scores, llh;
   char *cache_out;
   GFF_Set *query_gff = NULL;
@@ -926,8 +928,11 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
   l = 1;
   cache_out = (char*)smalloc(STR_MED_LEN * sizeof(char));
 
-  /* Seed the random number generator */
-  srandom(time(0));
+  /* Seed the random number generator based on the value of /dev/random */
+  devrandom = fopen("/dev/random", "r");
+  fread(&seed, sizeof(seed), 1, devrandom);
+  srandom(abs(seed));
+  fclose(devrandom);
 
   for (i = 0; i < (bsamples + nsamples); i++) {
     if (!quiet) fprintf(stderr, "*");
@@ -1038,6 +1043,8 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 			    int cache_int, ThreadPool *pool, int nthreads) {
   
   int i, j, k, l, t, **trans, ***thread_trans, nwins, reinit, threads;
+  unsigned long int seed;
+  FILE *devrandom;
 /*   int **ref_paths = NULL; */
   double llh, *thread_llh;
   char *cache_out;
@@ -1119,9 +1126,13 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
   l = 1;
   cache_out = (char*)smalloc(STR_MED_LEN * sizeof(char));
 
-  /* Seed the random number generator */
-  srandom(time(0));
-
+  /* Seed the random number generator based on the value of /dev/random */
+  devrandom = fopen("/dev/random", "r");
+  fread(&seed, sizeof(seed), 1, devrandom);
+  fprintf(stderr, "seed %d\n", abs(seed));
+  srandom(abs(seed));
+  fclose(devrandom);
+  
   /* Initialize the static "*l" Lists in hmm_max_or_sum_pthread */
   hmm_max_or_sum_pthread(dm->phmm->hmm, NULL, NULL, NULL, 0, 0, FORWARD,
 			 nthreads, -1);
@@ -2365,13 +2376,20 @@ MSA *dm_indel_mask(DMotifPhyloHmm *dm, MSA *msa, IndelHistory *ih,
 		   int *path) {
   
   int i, j, k, state, c;
+  unsigned long int seed;
+  FILE *devrandom;
   double trans;
   TreeNode *n, *ns;
   List *outside;
   DMotifIndelModel *im;
   MSA *indel_msa;
 
-  srandom(time(0));
+  /* Seed the random number generator based on the value of /dev/random */
+  devrandom = fopen("/dev/random", "r");
+  fread(&seed, sizeof(seed), 1, devrandom);
+  srandom(abs(seed));
+  fclose(devrandom);
+
   outside = lst_new_ptr(dm->phmm->mods[0]->tree->nnodes);
   
   /* Do a preorder traversal to overlay insertions first */
