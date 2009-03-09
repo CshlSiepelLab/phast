@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: msa.c,v 1.61 2009-02-19 23:35:48 agd27 Exp $ */
+/* $Id: msa.c,v 1.62 2009-03-09 16:34:32 agd27 Exp $ */
 
 /** \file msa.c
    Multiple sequence alignments.
@@ -621,9 +621,9 @@ int msa_map_msa_to_seq(msa_coord_map *map, int msa_pos) {
 
   /* check to see if coordinate falls in gapped region of sequence.
      If it does, return position immediately preceding the gap */
-  if (seq_pos >= next_match_seq_pos) 
+  if (seq_pos >= next_match_seq_pos) {
     seq_pos = next_match_seq_pos - 1;
-
+  }
   return (seq_pos);
 }
 

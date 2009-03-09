@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: sufficient_stats.c,v 1.28 2009-02-12 15:15:11 mt269 Exp $ */
+/* $Id: sufficient_stats.c,v 1.29 2009-03-09 16:34:33 agd27 Exp $ */
 
 #include "sufficient_stats.h"
 #include "maf.h"
@@ -197,6 +197,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
 
         main_ss->col_tuples[idx] = (char*)smalloc((tuple_size * msa->nseqs + 1)
 						  * sizeof(char));
+	main_ss->col_tuples[idx][tuple_size * msa->nseqs] = '\0';
         strncpy(main_ss->col_tuples[idx], key, (msa->nseqs * tuple_size + 1));
       }
 
