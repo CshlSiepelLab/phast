@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: hmm.c,v 1.15 2009-02-03 22:09:35 agd27 Exp $ */
+/* $Id: hmm.c,v 1.16 2009-03-09 16:33:04 agd27 Exp $ */
 
 #include "hmm.h"
 #include <assert.h>
@@ -1138,12 +1138,6 @@ void hmm_stochastic_traceback(HMM *hmm, double **forward_scores, int seqlen,
   
   /* Recursion */
   for (i = seqlen; i > 0; i--) {
-
-/*     fprintf(stderr, "thread %d, i %d, state %d, predecessors %p\n", */
-/* 	    (int)pthread_self(), i, state, (state == END_STATE ?  */
-/* 					    hmm->end_predecessors : */
-/* 					    hmm->predecessors[state])); */
-
     max = -INFTY;
     z = 1;
     predecessors = (state == END_STATE ? hmm->end_predecessors :
@@ -1246,27 +1240,19 @@ void hmm_set_transition_score_matrix(HMM *hmm) {
 double hmm_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
 			   double **forward_scores, int nthreads, 
 			   int thread_id) {
-/*   int t0, t1; */
   double llh;
 
-/*   t0 = (int)time(0); */
-
   if (nthreads <= 0) {
-    /*     fprintf(stderr, "hmm_forward_pthread: standard path\n"); */
     hmm_do_dp_forward(hmm, emission_scores, seqlen, FORWARD, forward_scores,
 		      NULL);
     llh = hmm_max_or_sum(hmm, forward_scores, NULL, NULL, END_STATE,
 			 seqlen, FORWARD);
   } else {
-    /*     fprintf(stderr, "hmm_forward_pthread: threaded path\n"); */
     hmm_do_dp_forward_pthread(hmm, emission_scores, seqlen, FORWARD,
 			      forward_scores, NULL, nthreads, thread_id);
     llh = hmm_max_or_sum_pthread(hmm, forward_scores, NULL, NULL, END_STATE,
 				 seqlen, FORWARD, nthreads, thread_id);
   }
-
-/*   t1 = (int)time(0); */
-/*   fprintf(stderr, "Forward algorithm time elapsed: %d seconds\n", (t1 - t0)); */
   return llh;
 }
 
