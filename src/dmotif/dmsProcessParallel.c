@@ -187,7 +187,7 @@ int main(int argc, char *argv[]) {
 /*     fprintf(stderr, "i %d lst_size %d key %s\n", i, lst_size(keys), key); */
     counts = hsh_get(path_counts, key);
     f = dms_motif_as_gff_feat(dm, blocks, seqnames, key, counts, nsamples,
-			      sample_interval);
+			      sample_interval, refidx);
     lst_push_ptr(predictions->features, f);
   }
 

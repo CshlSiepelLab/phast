@@ -124,7 +124,7 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
   /* now create tree models and scale branches as needed */
   for (state = 0; state < nstates; state++) {
     pos = dm->state_to_motifpos[state];
-
+    
     if (pos == -1 && dm->state_to_event[state] == NEUT)
       models[state] = source_mod;
     else if (pos == -1)
@@ -1400,14 +1400,16 @@ void dms_read_priors(int **priors, FILE *prior_f) {
 
 GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
 				   List *seqnames, char *key, int *counts,
-				   int nsamples, int sample_interval) {
-  int i, cat, seqnum, start, end, best,
+				   int nsamples, int sample_interval,
+				   int refidx) {
+  int i, j, cat, seqnum, start, end, best, all_missing,
     mtf_total, b_total, d_total, c_total, n_total, m;
-  char *strand, delim[2], post[STR_LONG_LEN], *seqname;
+  char *strand, delim[2], post[STR_LONG_LEN], *seqname, *candidate;
   CategoryMap *cm = dm->phmm->cm;
-  String *attributes, *key_string;
+  String *attributes, *key_string, *tmp_str;
   List *split = lst_new_ptr(3);
   GFF_Feature *f;
+  MSA *msa, *sub_msa;
 
   key_string = str_new_charstr(key);
   attributes = str_new(STR_LONG_LEN);
@@ -1494,6 +1496,42 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
   cat = cm->ranges[dm->phmm->state_to_cat[best]]->start_cat_no;
   strand = dm->phmm->reverse_compl[best] ? "-" : "+";
 
+  /* Get the subalignment representing the current motif. This will need seq
+     strings rebuilt if using SS as the input format. Padd with 5 bases up and
+     downstream. */
+  msa = lst_get_ptr(blocks->source_msas, seqnum);
+  sub_msa = msa_sub_alignment(msa, NULL, 0, (start-5 < 0 ? 0 : start-5),
+			      (end+5 > msa->length ? msa->length : end+5));
+  if (sub_msa->seqs == NULL)
+    ss_to_msa(sub_msa);
+
+  /* Stringify the sequences. Use comma delimiting. */
+  tmp_str = str_new(STR_LONG_LEN);
+  str_append_charstr(tmp_str, "SEQS \"");
+  for (i = 0; i < sub_msa->nseqs; i++) {
+    /* Do not include strings of all missing data characters */
+    all_missing = 1;
+    candidate = sub_msa->seqs[i];
+    for (j = 0; j < strlen(candidate); j++) {
+      if (!msa->is_missing[(int)candidate[j]]) {
+	all_missing = 0;
+	break;
+      }
+    }
+    
+    if (all_missing)
+      continue;
+    
+    str_append_charstr(tmp_str, sub_msa->names[i]);
+    str_append_char(tmp_str, ':');
+    str_append_charstr(tmp_str, sub_msa->seqs[i]);
+    str_append_char(tmp_str, ',');
+  }
+  str_append_charstr(tmp_str, "\"; ");
+  str_append(attributes, tmp_str);
+  str_free(tmp_str);
+  msa_free(sub_msa);
+
   /* Construct the GFF feature */
   f = gff_new_feature(str_new_charstr(seqname),
 		      str_new_charstr("DMSAMPLE"),
@@ -1504,6 +1542,9 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
 		      attributes, TRUE);
   
 /*   gff_print_feat(stderr, f); */
+  /* Adjust coordinates to the reference sequence, if needed */
+  if (refidx != 0)
+    dms_map_gff_coords(blocks, seqnum, f, 0, refidx);
 
   lst_free(split);
   return f;
@@ -1993,8 +2034,8 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
   Regex *alph_re = str_re_new("#[[:space:]]*ALPHABET[[:space:]]*=[[:space:]]*([A-Z]+)");
   Regex *format_re = str_re_new("#[[:space:]]*FORMAT[[:space:]]*=[[:space:]]*([A-Z]+)");
   
-  int i, nblocks, ncats, tuple_size;
-  char *msa_fname, *ih_fname = NULL;
+  int i, j, nblocks, ncats, tuple_size;
+  char msa_fname[STR_MED_LEN], ih_fname[STR_MED_LEN];
   FILE *msa_f, *ih_f;
   msa_format_type format;
   List *msas = NULL, *matches = lst_new_ptr(4);
@@ -2008,6 +2049,12 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
   nblocks = i = dmpmsa->max_seqlen = 0;
 
   while (str_readline(line, F) != EOF) {
+
+    /* Free all substrings in the matches list or there will be a memory 
+       leak */
+    for (j = 0; j < lst_size(matches); j++)
+      str_free((String*)lst_get_ptr(matches, j));
+
     str_trim(line);
     if (line->length == 0) continue; /* ignore blank lines */
     
@@ -2042,10 +2089,12 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
 	die("Too many alignment files for format\n");
       
       if (str_split(line, NULL, matches) > 1) {
-	msa_fname = ((String*)lst_get_ptr(matches, 0))->chars;
-	ih_fname = ((String*)lst_get_ptr(matches, 1))->chars;
+	strncpy(msa_fname, ((String*)lst_get_ptr(matches, 0))->chars,
+		STR_MED_LEN);
+	strncpy(ih_fname, ((String*)lst_get_ptr(matches, 1))->chars,
+		STR_MED_LEN);
       } else {
-	msa_fname = line->chars;
+	strncpy(msa_fname, line->chars, STR_MED_LEN);
       }
       
       if (!quiet)
@@ -2085,7 +2134,7 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
       }
       
       if (do_ih) {
-	if (ih_fname == NULL)
+	if (strlen(ih_fname) == 0)
 	  die("ERROR: --indel-model requires an indel history for all alignment files! Try 'dmsample -h'\n");
 	if (!quiet)
 	  fprintf(stderr, "\tReading indel history for %s from %s\n", 
@@ -2110,11 +2159,36 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
 /*   fprintf(stderr, "msas[i] %p, blocks->source_msas[0] %p\n", */
 /* 	  lst_get_ptr(msas, 0), lst_get_ptr(blocks->source_msas, 0)); */
 
+  str_re_free(blocks_re);
+  str_re_free(alph_re);
+  str_re_free(format_re);
   lst_free(matches);
   str_free(alphabet);
   str_free(line);
   str_free(fname);
   return dmpmsa;
+}
+
+void dms_free_dmpmsa_struct(DMotifPmsaStruct *dmpmsa) {
+  int i;
+  List *msas;
+  msas = dmpmsa->pmsa->source_msas;
+
+  for (i = 0; i < lst_size(msas); i++) {
+    msa_free(lst_get_ptr(msas, i));
+    str_free(lst_get_ptr(dmpmsa->seqnames, i));
+  }
+
+  if(dmpmsa->ih != NULL) {
+    for (i = 0; i < lst_size(msas); i++)
+      ih_free(dmpmsa->ih[i]);
+    free(dmpmsa->ih);
+  }
+
+  lst_free(dmpmsa->seqnames);
+  ss_free_pooled_msa(dmpmsa->pmsa);
+  free(dmpmsa);
+  lst_free(msas);
 }
 
 /* Pared down version of tL_compute_log_likelihood with improved memory
@@ -2533,5 +2607,86 @@ void dms_dump_sample_data(int sample, int thread_id, char *seqname,
   /* Print out the hashtable */
   fprintf(out, "\nMotifs Hash:\n");
   dms_write_hash(path_counts, out, dim, 1);
+}
+
+/* Adjust coordinates of a motif GFF feature to the coordinate frame of the
+   reference sequence. Assumes all features will be found within the coordinate
+   frame of the given MSA -- behavior is undefined if this is not true! */
+void dms_map_gff_coords(PooledMSA *blocks, int seqidx, GFF_Feature *f,
+			int from_seq, int to_seq) {
+
+  int i, j, s, e, offset, fseq, tseq;
+  static msa_coord_map ***all_maps = NULL;
+  msa_coord_map **maps = NULL, *from_map = NULL, *to_map = NULL;
+  MSA *msa;
+  String *prev_name = NULL;
   
+  /* Check for static maps and allocate if needed */
+  if (all_maps == NULL) {
+    all_maps = (msa_coord_map***)smalloc(lst_size(blocks->source_msas) *
+				     sizeof(msa_coord_map**));
+    for (i = 0; i < lst_size(blocks->source_msas); i++) {
+      msa = lst_get_ptr(blocks->source_msas, i);
+      all_maps[i] = (msa_coord_map**)smalloc((msa->nseqs + 1) *
+					     sizeof(msa_coord_map*));
+      for (j = 0; j <= msa->nseqs; j++)
+	all_maps[i][j] = NULL;
+    }      
+  }
+  
+  /* Get appropriate pointers for the sequence containing this feature */
+  msa = lst_get_ptr(blocks->source_msas, seqidx);
+  offset = msa->idx_offset;
+  maps = all_maps[seqidx];
+  fseq = from_seq;
+  tseq = to_seq;
+
+  if (from_seq == to_seq) {
+    f->start += offset;
+    f->end += offset;
+  }
+  else if (from_seq == -1) {
+    if (str_equals_nocase_charstr(f->seqname, "MSA"))
+      fseq = 0;
+    else if (prev_name == NULL || !str_equals(prev_name, f->seqname)) {
+      /* generally all seqs will have the same name; take advantage of
+	 this property */
+      if ((fseq = msa_get_seq_idx(msa, f->seqname->chars)) == -1)
+	die("ERROR: name %s not present in MSA.\n", f->seqname->chars);
+      fseq++;                 /* need 1-based index */
+      prev_name = f->seqname;
+    }
+  }
+  else if (to_seq == -1) {
+    if (str_equals_nocase_charstr(f->seqname, "MSA"))
+      tseq = 0;
+    else if (prev_name == NULL || !str_equals(prev_name, f->seqname)) {
+      if ((tseq = msa_get_seq_idx(msa, f->seqname->chars)) == -1)
+	die("ERROR: name %s not present in MSA.\n", f->seqname->chars);
+      prev_name = f->seqname;
+      tseq++;                 /* need 1-based index */
+    }
+  }
+  
+  if ((from_map = maps[fseq]) == NULL && fseq > 0) 
+    from_map = maps[fseq] = msa_build_coord_map(msa, fseq);
+  
+  if ((to_map = maps[tseq]) == NULL && tseq > 0) 
+    to_map = maps[tseq] = msa_build_coord_map(msa, tseq);
+  
+/*   fprintf(stderr, "f->start %d, f->end %d, to_map->msa_len %d, to_map->seq_len %d, offset %d, ", */
+/* 	  f->start, f->end, to_map->msa_len, to_map->seq_len, offset); */
+  
+  /* from_map, to_map will be NULL iff fseq, to_seq are 0 */
+  s = msa_map_seq_to_seq(from_map, to_map, f->start);
+  e = msa_map_seq_to_seq(from_map, to_map, f->end);
+    
+  f->start = (s < 0 ? 1 : s) + offset;
+
+  if (e < 0)
+    f->end = (to_map != NULL ? to_map->seq_len : msa->length) + offset;
+  else
+    f->end = e + offset;
+  
+/*   fprintf(stderr, "f->start new %d, f->end new %d\n", f->start, f->end); */
 }

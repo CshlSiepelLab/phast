@@ -130,11 +130,11 @@ int main(int argc, char *argv[]) {
         beta_c = lst_get_dbl(tmpl, 5);
         tau_c = lst_get_dbl(tmpl, 6);
 	epsilon_c = lst_get_dbl(tmpl, 7);
-      }
-      else {
+      } else {
         alpha_c = alpha_n; beta_c = beta_n; tau_c = tau_n;
 	epsilon_c = epsilon_n;
       }
+      lst_free(tmpl);    
       if (alpha_c <= 0 || alpha_c >= 1 || beta_c <= 0 || beta_c >= 1 ||
           tau_c <= 0 || tau_c >= 1 || epsilon_c <= 0 || epsilon_c >= 1 ||
 	  alpha_n <= 0 || alpha_n >= 1 || beta_n <= 0 || beta_n >= 1 || 
@@ -411,44 +411,43 @@ int main(int argc, char *argv[]) {
   /* Dump hash, for debugging purposes. */
   if (hash_f != NULL && !precomputed_hash) {
     dms_write_hash(path_counts, hash_f, ((2*dm->k)+2), nsamples);
-    return 0;
+    /*     return 0; */
+  } else {
+    
+    /* Generate a GFF from the features hash */
+    fprintf(stderr, "Formatting output as GFF...\n");
+    predictions = gff_new_set();
+    cbname = str_new(STR_SHORT_LEN);
+    str_append_charstr(cbname, "conserved-background");
+    cbstate = cm_get_category(dm->phmm->cm, cbname);
+    str_free(cbname);
+    keys = hsh_keys(path_counts);
+    for (i = 0; i < lst_size(keys); i++) {
+      /* go through entries, build data for gff feture from each */
+      key = lst_get_ptr(keys, i);
+      /*     fprintf(stderr, "i %d lst_size %d key %s\n", i, lst_size(keys), key); */
+      counts = hsh_get(path_counts, key);
+      f = dms_motif_as_gff_feat(dm, blocks, seqnames, key, counts, nsamples,
+				sample_interval, refidx);
+      lst_push_ptr(predictions->features, f);
+    }
+    
+    /* Free up some memory */
+    lst_free(keys);  
+    
+    /* now output predictions */
+    fprintf(stderr, "Writing GFF to stdout...\n");
+    gff_print_set(stdout, predictions);
+
+    gff_free_set(predictions);    
   }
-
-  /* Generate a GFF from the features hash */
-  fprintf(stderr, "Formatting output as GFF...\n");
-  predictions = gff_new_set();
-  cbname = str_new(STR_SHORT_LEN);
-  str_append_charstr(cbname, "conserved-background");
-  cbstate = cm_get_category(dm->phmm->cm, cbname);
-  str_free(cbname);
-  keys = hsh_keys(path_counts);
-  for (i = 0; i < lst_size(keys); i++) {
-    /* go through entries, build data for gff feture from each */
-    key = lst_get_ptr(keys, i);
-/*     fprintf(stderr, "i %d lst_size %d key %s\n", i, lst_size(keys), key); */
-    counts = hsh_get(path_counts, key);
-    f = dms_motif_as_gff_feat(dm, blocks, seqnames, key, counts, nsamples,
-			      sample_interval);
-    lst_push_ptr(predictions->features, f);
-  }
-
-  /* Free up some memory */
-  lst_free(keys);  
   
-  /* convert GFF to coord frame of reference sequence and adjust
-     coords by idx_offset, if necessary  -- needs to be fixed to work with
-     multiple msa's */
-/*   if (refidx != 0 || msa->idx_offset != 0) */
-/*     msa_map_gff_coords(msa, predictions, 0, refidx, msa->idx_offset, NULL); */
-  
-  /* now output predictions */
-  fprintf(stderr, "Writing GFF to stdout...\n");
-  gff_print_set(stdout, predictions);
-
+  /* Free up all our allocated storage */
+  dms_free_dmpmsa_struct(dmpmsa);
+  dm_free(dm);
   if (reference != NULL)
     gff_free_set(reference);
-  gff_free_set(predictions);
-
+  
   /* Clean up temp files and file list */
   if (!precomputed_hash) {
     for (i = 0; i < lst_size(cache_files); i++) {
