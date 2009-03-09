@@ -138,7 +138,8 @@ void dms_launch_sample_thread(void *data);
 void dms_read_priors(int **priors, FILE *prior_f);
 GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks, 
 				   List *seqnames, char *key, int *counts, 
-				   int nsamples, int sample_interval);
+				   int nsamples, int sample_interval,
+				   int refidx);
 void dms_compare_gffs(GFF_Set *reference, GFF_Set *query, int *stats, 
 		      int offset, /*< Can be used to adjust the coordinate base
 				    of the query set to match the target set
@@ -186,5 +187,8 @@ List* dms_read_tmp_from_file(FILE *tmp_lst_f);
 void dms_dump_sample_data(int sample, int thread_id, char *seqname, 
 			  int seqlen, int *path, int **trans, 
 			  Hashtable *path_counts, FILE *out, int dim);
+void dms_free_dmpmsa_struct(DMotifPmsaStruct *dmpmsa);
+void dms_map_gff_coords(PooledMSA *blocks, int seqidx, GFF_Feature *f,
+			int from_seq, int to_seq);
 
 #endif
