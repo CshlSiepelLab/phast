@@ -101,7 +101,7 @@ init_syntax_once ()
    if (done)
      return;
 
-   bzero (re_syntax_table, sizeof re_syntax_table);
+   bzero(re_syntax_table, sizeof re_syntax_table);
 
    for (c = 'a'; c <= 'z'; c++)
      re_syntax_table[c] = Sword;
@@ -1156,7 +1156,7 @@ regex_compile (pattern, size, syntax, bufp)
 
   if (bufp->allocated == 0)
     {
-      if (bufp->buffer)
+      if (bufp->buffer != NULL)
 	{ /* If zero allocated, but buffer is non-null, try to realloc
              enough space.  This loses if buffer's address is bogus, but
              that is the user's responsibility.  */
@@ -1166,7 +1166,10 @@ regex_compile (pattern, size, syntax, bufp)
         { /* Caller did not allocate a buffer.  Do it for them.  */
           bufp->buffer = TALLOC (INIT_BUF_SIZE, unsigned char);
         }
-      if (!bufp->buffer) return REG_ESPACE;
+      if (!bufp->buffer){
+	free (compile_stack.stack);
+	return REG_ESPACE;
+      }
 
       bufp->allocated = INIT_BUF_SIZE;
     }
@@ -1220,12 +1223,14 @@ regex_compile (pattern, size, syntax, bufp)
           /* If there is no previous pattern... */
           if (!laststart)
             {
-              if (syntax & RE_CONTEXT_INVALID_OPS)
+              if (syntax & RE_CONTEXT_INVALID_OPS) {
+		free (compile_stack.stack);
                 return REG_BADRPT;
+	      }
               else if (!(syntax & RE_CONTEXT_INDEP_OPS))
                 goto normal_char;
             }
-
+	  
           {
             /* Are we optimizing this jump?  */
             boolean keep_string_p = false;
@@ -1250,11 +1255,14 @@ regex_compile (pattern, size, syntax, bufp)
 
                 if (c == '*'
                     || (!(syntax & RE_BK_PLUS_QM) && (c == '+' || c == '?')))
-                  ;
+                  /* Do Nothing */;
 
                 else if (syntax & RE_BK_PLUS_QM  &&  c == '\\')
                   {
-                    if (p == pend) return REG_EESCAPE;
+                    if (p == pend) {
+		      free(compile_stack.stack);
+		      return REG_EESCAPE;
+		    }
 
                     PATFETCH (c1);
                     if (!(c1 == '+' || c1 == '?'))
@@ -1384,15 +1392,19 @@ regex_compile (pattern, size, syntax, bufp)
             /* Read in characters and ranges, setting map bits.  */
             for (;;)
               {
-                if (p == pend) return REG_EBRACK;
-
+                if (p == pend) {
+		  free(compile_stack.stack);
+		  return REG_EBRACK;
+		}
                 PATFETCH (c);
 
                 /* \ might escape characters inside [...] and [^...].  */
                 if ((syntax & RE_BACKSLASH_ESCAPE_IN_LISTS) && c == '\\')
                   {
-                    if (p == pend) return REG_EESCAPE;
-
+                    if (p == pend) {
+		      free(compile_stack.stack);
+		      return REG_EESCAPE;
+		    }
                     PATFETCH (c1);
                     SET_LIST_BIT (c1);
                     continue;
@@ -1406,8 +1418,10 @@ regex_compile (pattern, size, syntax, bufp)
 
                 /* Look ahead to see if it's a range when the last thing
                    was a character class.  */
-                if (had_char_class && c == '-' && *p != ']')
+                if (had_char_class && c == '-' && *p != ']') {
+		  free(compile_stack.stack);
                   return REG_ERANGE;
+		}
 
                 /* Look ahead to see if it's a range when the last thing
                    was a character: if this is a hyphen not at the
@@ -1420,8 +1434,11 @@ regex_compile (pattern, size, syntax, bufp)
                   {
                     reg_errcode_t ret
                       = compile_range (&p, pend, translate, syntax, b);
-                    if (ret != REG_NOERROR) return ret;
-                  }
+                    if (ret != REG_NOERROR) {
+		      free(compile_stack.stack);
+		      return ret;
+		    }
+		  }
 
                 else if (p[0] == '-' && p[1] != ']')
                   { /* This handles ranges made up of characters only.  */
@@ -1431,7 +1448,10 @@ regex_compile (pattern, size, syntax, bufp)
                     PATFETCH (c1);
                     
                     ret = compile_range (&p, pend, translate, syntax, b);
-                    if (ret != REG_NOERROR) return ret;
+                    if (ret != REG_NOERROR) {
+		      free(compile_stack.stack);
+		      return ret;
+		    }
                   }
 
                 /* See if we're at the beginning of a possible character
@@ -1445,7 +1465,10 @@ regex_compile (pattern, size, syntax, bufp)
                     c1 = 0;
 
                     /* If pattern is `[[:'.  */
-                    if (p == pend) return REG_EBRACK;
+                    if (p == pend) {
+		      free(compile_stack.stack);
+		      return REG_EBRACK;
+		    }
 
                     for (;;)
                       {
@@ -1476,14 +1499,19 @@ regex_compile (pattern, size, syntax, bufp)
                         boolean is_upper = STREQ (str, "upper");
                         boolean is_xdigit = STREQ (str, "xdigit");
                         
-                        if (!IS_CHAR_CLASS (str)) return REG_ECTYPE;
+                        if (!IS_CHAR_CLASS (str)) {
+			  free(compile_stack.stack);
+			  return REG_ECTYPE;
+			}
 
                         /* Throw away the ] at the end of the character
                            class.  */
                         PATFETCH (c);					
 
-                        if (p == pend) return REG_EBRACK;
-
+                        if (p == pend) {
+			  free(compile_stack.stack);
+			  return REG_EBRACK;
+			}
                         for (ch = 0; ch < 1 << BYTEWIDTH; ch++)
                           {
                             if (   (is_alnum  && ISALNUM (ch))
@@ -1564,7 +1592,10 @@ regex_compile (pattern, size, syntax, bufp)
 
 
         case '\\':
-          if (p == pend) return REG_EESCAPE;
+          if (p == pend) {
+	    free(compile_stack.stack);
+	    return REG_EESCAPE;
+	  }
 
           /* Do not translate the character after the \, so that we can
              distinguish, e.g., \B from \b, even if we normally would
@@ -1585,11 +1616,11 @@ regex_compile (pattern, size, syntax, bufp)
                 { 
                   RETALLOC (compile_stack.stack, compile_stack.size << 1,
                             compile_stack_elt_t);
-                  if (compile_stack.stack == NULL) return REG_ESPACE;
-
+                  if (compile_stack.stack == NULL)
+		    return REG_ESPACE;
                   compile_stack.size <<= 1;
                 }
-
+	      
               /* These are the values to restore when we hit end of this
                  group.  They are all relative offsets, so that if the
                  whole pattern moves because of realloc, they will still
@@ -1599,7 +1630,7 @@ regex_compile (pattern, size, syntax, bufp)
                 = fixup_alt_jump ? fixup_alt_jump - bufp->buffer + 1 : 0;
               COMPILE_STACK_TOP.laststart_offset = b - bufp->buffer;
               COMPILE_STACK_TOP.regnum = regnum;
-
+	      
               /* We will eventually replace the 0 with the number of
                  groups inner to this one.  But do not push a
                  start_memory for groups beyond the last one we can
@@ -1628,9 +1659,11 @@ regex_compile (pattern, size, syntax, bufp)
               if (COMPILE_STACK_EMPTY) {
                 if (syntax & RE_UNMATCHED_RIGHT_PAREN_ORD)
                   goto normal_backslash;
-                else
-                  return REG_ERPAREN;
-              }
+                else {
+		  free(compile_stack.stack);
+		  return REG_ERPAREN;
+		}
+	      }
 
             handle_close:
               if (fixup_alt_jump)
@@ -1649,9 +1682,11 @@ regex_compile (pattern, size, syntax, bufp)
               if (COMPILE_STACK_EMPTY) {
                 if (syntax & RE_UNMATCHED_RIGHT_PAREN_ORD)
                   goto normal_char;
-                else
-                  return REG_ERPAREN;
-              }
+                else {
+		  free(compile_stack.stack);
+		  return REG_ERPAREN;
+		}
+	      }
 
               /* Since we just checked for an empty stack above, this
                  ``can't happen''.  */
@@ -1757,8 +1792,10 @@ regex_compile (pattern, size, syntax, bufp)
                   {
                     if (syntax & RE_NO_BK_BRACES)
                       goto unfetch_interval;
-                    else
+                    else {
+		      free(compile_stack.stack);
                       return REG_EBRACE;
+		    }
                   }
 
                 GET_UNSIGNED_NUMBER (lower_bound);
@@ -1777,14 +1814,18 @@ regex_compile (pattern, size, syntax, bufp)
                   {
                     if (syntax & RE_NO_BK_BRACES)
                       goto unfetch_interval;
-                    else 
+                    else {
+		      free(compile_stack.stack);
                       return REG_BADBR;
+		    }
                   }
 
                 if (!(syntax & RE_NO_BK_BRACES)) 
                   {
-                    if (c != '\\') return REG_EBRACE;
-
+                    if (c != '\\') {
+		      free(compile_stack.stack);
+		      return REG_EBRACE;
+		    }
                     PATFETCH (c);
                   }
 
@@ -1792,8 +1833,10 @@ regex_compile (pattern, size, syntax, bufp)
                   {
                     if (syntax & RE_NO_BK_BRACES)
                       goto unfetch_interval;
-                    else 
+                    else {
+		      free(compile_stack.stack);
                       return REG_BADBR;
+		    }
                   }
 
                 /* We just parsed a valid interval.  */
@@ -1801,8 +1844,10 @@ regex_compile (pattern, size, syntax, bufp)
                 /* If it's invalid to have no preceding re.  */
                 if (!laststart)
                   {
-                    if (syntax & RE_CONTEXT_INVALID_OPS)
+                    if (syntax & RE_CONTEXT_INVALID_OPS) {
+		      free(compile_stack.stack);
                       return REG_BADRPT;
+		    }
                     else if (syntax & RE_CONTEXT_INDEP_OPS)
                       laststart = b;
                     else
@@ -1968,9 +2013,10 @@ regex_compile (pattern, size, syntax, bufp)
 
               c1 = c - '0';
 
-              if (c1 > regnum)
+              if (c1 > regnum) {
+		free(compile_stack.stack);
                 return REG_ESUBREG;
-
+	      }
               /* Can't back reference to a subexpression if inside of it.  */
               if (group_in_compile_stack (compile_stack, c1))
                 goto normal_char;
@@ -2040,8 +2086,10 @@ regex_compile (pattern, size, syntax, bufp)
   if (fixup_alt_jump)
     STORE_JUMP (jump_past_alt, fixup_alt_jump, b);
 
-  if (!COMPILE_STACK_EMPTY) 
+  if (!COMPILE_STACK_EMPTY) {
+    free(compile_stack.stack);
     return REG_EPAREN;
+  }
 
   free (compile_stack.stack);
 
@@ -4735,12 +4783,7 @@ re_exec (s)
    It returns 0 if it succeeds, nonzero if it doesn't.  (See regex.h for
    the return codes and their meanings.)  */
 
-int
-regcomp (preg, pattern, cflags)
-    regex_t *preg;
-    const char *pattern; 
-    int cflags;
-{
+int regcomp (regex_t *preg, const char *pattern, int cflags) {
   reg_errcode_t ret;
   unsigned syntax
     = (cflags & REG_EXTENDED) ?
@@ -4810,14 +4853,11 @@ regcomp (preg, pattern, cflags)
    
    We return 0 if we find a match and REG_NOMATCH if not.  */
 
-int
-regexec (preg, string, nmatch, pmatch, eflags)
-    const regex_t *preg;
-    const char *string; 
-    size_t nmatch; 
-    regmatch_t pmatch[]; 
-    int eflags;
-{
+int regexec (const regex_t *preg,
+	     const char *string,
+	     size_t nmatch,
+	     regmatch_t pmatch[],
+	     int eflags) {
   int ret;
   struct re_registers regs;
   regex_t private_preg;
@@ -4875,13 +4915,11 @@ regexec (preg, string, nmatch, pmatch, eflags)
 /* Returns a message corresponding to an error code, ERRCODE, returned
    from either regcomp or regexec.   We don't use PREG here.  */
 
-size_t
-regerror (errcode, preg, errbuf, errbuf_size)
-    int errcode;
-    const regex_t *preg;
-    char *errbuf;
-    size_t errbuf_size;
-{
+size_t regerror (int errcode,
+		 const regex_t *preg,
+		 char *errbuf,
+		 size_t errbuf_size
+		 ) {
   const char *msg;
   size_t msg_size;
 
