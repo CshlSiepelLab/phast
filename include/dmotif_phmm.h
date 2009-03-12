@@ -173,7 +173,8 @@ void dms_path_log(DMotifPhyloHmm *dm, int *path, int seqlen, char *seqname,
 void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample, 
 		   double llh, GFF_Set *query_gff, GFF_Set *reference, 
 		   int nwins);
-DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet);
+DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
+				      int revcomp);
 double dm_compute_log_likelihood(TreeModel *mod, MSA *msa, double *col_scores,
 				 int cat);
 void dm_free_subst_matrices(TreeModel *tm);
