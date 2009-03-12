@@ -1129,7 +1129,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
   /* Seed the random number generator based on the value of /dev/random */
   devrandom = fopen("/dev/random", "r");
   fread(&seed, sizeof(seed), 1, devrandom);
-  fprintf(stderr, "seed %d\n", abs(seed));
+/*   fprintf(stderr, "seed %d\n", abs(seed)); */
   srandom(abs(seed));
   fclose(devrandom);
   
@@ -1413,14 +1413,18 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
 				   List *seqnames, char *key, int *counts,
 				   int nsamples, int sample_interval,
 				   int refidx) {
-  int i, j, cat, seqnum, start, end, best, all_missing,
-    mtf_total, b_total, d_total, c_total, n_total, m;
-  char *strand, delim[2], post[STR_LONG_LEN], *seqname, *candidate;
+  int i, cat, seqnum, start, end, best, mtf_total, b_total, d_total,
+    c_total, n_total, m, width;
+/*   int j, all_missing; */
+  char strand[2], delim[2], post[STR_LONG_LEN], *seqname;
+/*   char *candidate; */
   CategoryMap *cm = dm->phmm->cm;
   String *attributes, *key_string, *tmp_str;
   List *split = lst_new_ptr(3);
   GFF_Feature *f;
-  MSA *msa, *sub_msa;
+  MSA *msa; 
+  /* MSA *sub_msa; */
+  Regex *rc_re = str_re_new("[A-Za-z0-9.]+_rc");
 
   key_string = str_new_charstr(key);
   attributes = str_new(STR_LONG_LEN);
@@ -1491,7 +1495,6 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
       continue;
 
     cat = cm->ranges[dm->phmm->state_to_cat[i]]->start_cat_no;
-    strand = dm->phmm->reverse_compl[i] ? "-" : "+";
     snprintf(post, STR_LONG_LEN, "PP %s %f; ",
 	     ((String*)cm_get_feature(cm, cat))->chars,
 	     ((double)counts[m] / (double)mtf_total));
@@ -1503,45 +1506,60 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
   
   /*   fprintf(stderr, "seqname: %s, attributes: %s\n", seqname, attributes->chars); */
   
-  /* Get the category and strand for the feature with the highest PP */
+  /* Get the category for the feature with the highest PP */
   cat = cm->ranges[dm->phmm->state_to_cat[best]]->start_cat_no;
-  strand = dm->phmm->reverse_compl[best] ? "-" : "+";
+
+  /* Get the strand for the feature -- this is always + if we're not dealing
+     with reverese complemented sequences. Also adjust coordinates if we're
+     dealing with a feature on the - strand */
+  tmp_str = str_new_charstr(seqname);
+  if (str_re_match(tmp_str, rc_re, NULL, 1) >= 0) {
+    sprintf(strand, "%s", "-");
+    msa = lst_get_ptr(blocks->source_msas, seqnum);
+    width = end - start;
+    start = (msa->length - end) + 1;
+    end = start + width;
+    seqname = ((char*)((String*)lst_get_ptr(seqnames, seqnum-1))->chars);
+  } else {
+    sprintf(strand, "%s", "+");
+  }
+  str_free(tmp_str);
 
   /* Get the subalignment representing the current motif. This will need seq
      strings rebuilt if using SS as the input format. Padd with 5 bases up and
-     downstream. */
-  msa = lst_get_ptr(blocks->source_msas, seqnum);
-  sub_msa = msa_sub_alignment(msa, NULL, 0, (start-5 < 0 ? 0 : start-5),
-			      (end+5 > msa->length ? msa->length : end+5));
-  if (sub_msa->seqs == NULL)
-    ss_to_msa(sub_msa);
+     downstream. -- NOTE: this is now handled by the browser display code! */
+/*   msa = lst_get_ptr(blocks->source_msas, seqnum); */
+/*   sub_msa = msa_sub_alignment(msa, NULL, 0, (start-5 < 0 ? 0 : start-5), */
+/* 			      (end+5 > msa->length ? msa->length : end+5)); */
+/*   if (sub_msa->seqs == NULL) */
+/*     ss_to_msa(sub_msa); */
 
-  /* Stringify the sequences. Use comma delimiting. */
-  tmp_str = str_new(STR_LONG_LEN);
-  str_append_charstr(tmp_str, "SEQS \"");
-  for (i = 0; i < sub_msa->nseqs; i++) {
-    /* Do not include strings of all missing data characters */
-    all_missing = 1;
-    candidate = sub_msa->seqs[i];
-    for (j = 0; j < strlen(candidate); j++) {
-      if (!msa->is_missing[(int)candidate[j]]) {
-	all_missing = 0;
-	break;
-      }
-    }
+/*   /\* Stringify the sequences. Use comma delimiting. *\/ */
+/*   tmp_str = str_new(STR_LONG_LEN); */
+/*   str_append_charstr(tmp_str, "SEQS \""); */
+/*   for (i = 0; i < sub_msa->nseqs; i++) { */
+/*     /\* Do not include strings of all missing data characters *\/ */
+/*     all_missing = 1; */
+/*     candidate = sub_msa->seqs[i]; */
+/*     for (j = 0; j < strlen(candidate); j++) { */
+/*       if (!msa->is_missing[(int)candidate[j]]) { */
+/* 	all_missing = 0; */
+/* 	break; */
+/*       } */
+/*     } */
     
-    if (all_missing)
-      continue;
+/*     if (all_missing) */
+/*       continue; */
     
-    str_append_charstr(tmp_str, sub_msa->names[i]);
-    str_append_char(tmp_str, ':');
-    str_append_charstr(tmp_str, sub_msa->seqs[i]);
-    str_append_char(tmp_str, ',');
-  }
-  str_append_charstr(tmp_str, "\"; ");
-  str_append(attributes, tmp_str);
-  str_free(tmp_str);
-  msa_free(sub_msa);
+/*     str_append_charstr(tmp_str, sub_msa->names[i]); */
+/*     str_append_char(tmp_str, ':'); */
+/*     str_append_charstr(tmp_str, sub_msa->seqs[i]); */
+/*     str_append_char(tmp_str, ','); */
+/*   } */
+/*   str_append_charstr(tmp_str, "\"; "); */
+/*   str_append(attributes, tmp_str); */
+/*   str_free(tmp_str); */
+/*   msa_free(sub_msa); */
 
   /* Construct the GFF feature */
   f = gff_new_feature(str_new_charstr(seqname),
@@ -1558,6 +1576,7 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
     dms_map_gff_coords(blocks, seqnum, f, 0, refidx);
 
   lst_free(split);
+  str_re_free(rc_re);
   return f;
 }
 
@@ -2039,7 +2058,8 @@ void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample,
 	  dm->nu, dm->phi, dm->zeta);
 }
 
-DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
+DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet, 
+				      int revcomp) {
   
   Regex *blocks_re = str_re_new("#[[:space:]]*BLOCKS[[:space:]]*=[[:space:]]*([0-9]+)");
   Regex *alph_re = str_re_new("#[[:space:]]*ALPHABET[[:space:]]*=[[:space:]]*([A-Z]+)");
@@ -2050,7 +2070,7 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
   FILE *msa_f, *ih_f;
   msa_format_type format;
   List *msas = NULL, *matches = lst_new_ptr(4);
-  MSA *msa;
+  MSA *msa, *msa_rc;
   String *line = str_new(STR_MED_LEN), *alphabet = NULL, 
     *fname = str_new(STR_MED_LEN);
   DMotifPmsaStruct *dmpmsa;
@@ -2072,6 +2092,8 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
     if (msas == NULL) {
       if (str_re_match(line, blocks_re, matches, 1) >= 0) { 
 	str_as_int(lst_get_ptr(matches, 1), &nblocks);
+	if (revcomp == TRUE)
+	  nblocks *= 2;
 	i++;
       } else if (str_re_match(line, alph_re, matches, 1) >= 0) {
 	alphabet = str_dup(lst_get_ptr(matches, 1));
@@ -2096,8 +2118,8 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
 	i = 0;
       }
     } else {
-      if (i >= nblocks)
-	die("Too many alignment files for format\n");
+      if ((i >= nblocks && !revcomp) || (i >= (nblocks / 2) && revcomp))
+	  die("Too many alignment files for format\n");
       
       if (str_split(line, NULL, matches) > 1) {
 	strncpy(msa_fname, ((String*)lst_get_ptr(matches, 0))->chars,
@@ -2154,10 +2176,26 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet) {
 	dmpmsa->ih[i] = ih_new_from_file(ih_f);
 	fclose(ih_f);
       }
+      
+      /* Create reverse complement of sequence i, if called for */
+      if (revcomp == TRUE) {
+	if (!quiet)
+	  fprintf(stderr, "\tProducing reverse complement of %s\n",
+		  msa_fname);
+	msa_rc = msa_create_copy(msa, (format == SS ? 1 : 0));
+	msa_reverse_compl(msa_rc);
+	lst_push_ptr(msas, msa_rc);
+        str_append_charstr(fname, "_rc");
+	lst_push_ptr(dmpmsa->seqnames, str_dup(fname));
+	/* TO DO: There is a way to create an indel history for the reverse 
+	   seq from the indel history for the forward seq -- this needs to be
+           implemented before using indel mod! */
+      }
+
       i++;
     }
   }
-  if (i < (nblocks - 1))
+  if ((i < (nblocks - 1) && !revcomp) || (i < (nblocks / 2)-1 && revcomp))
     die("ERROR: Not enough files in alignments list!\n");
 
   /* Create the PooledMSA structure from the list of MSA's */

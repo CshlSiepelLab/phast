@@ -33,6 +33,14 @@ OPTIONS:
         value is 1, first sequence in alignment; 0 indicates
         coordinate frame of entire multiple alignment.
 
+    --revcomp, -C
+	Produce reverse complement sequences for all input MSA's, which, in
+	effect, causes both strands to be searched for motifs. This is
+	equivalent to including reverse-complement states in the hmm, but
+	potentially less computation and memory intensive.
+
+	WARNING: Currently not compatible with indel histories!
+
     --threads, -t <N>
 	Number of concurrent threads to launch during emissions and sampling
 	computations. Default value is 0 (multithreading not used). This is
@@ -99,7 +107,7 @@ OPTIONS:
 	cause incomplete exploration of the posterior space. As a result, the
 	reported posterior probabilities may be inaccurate.
 
-    --dump-hash <filename>
+    --dump-hash, -D <filename>
 	Run sampling for the period specified and write the hash of raw counts
 	to a file before terminating the run. Results will not be postprocessed
 	and no GFF output will be output. This is mainly useful for debugging
@@ -107,10 +115,17 @@ OPTIONS:
 	separate hashes which can be flattened using dmsProcessParallel to 
 	produce the final output
 
-    --precomputed-hash <filename>
+    --precomputed-hash, -d <filename>
 	Read sampling data directly from a file (most likely produced by a
 	previous dmsample run with the --dump-hash option) and produce the
 	output data from the stored data. No additional sampling will be done.
+
+    --recover, -T <list file name>
+	Recover an aborted run from cached temp files. Can also be used to
+	assemble hashes from multiple parallel sampling runs into a set of
+	results. Takes a list file as an argument with a single header line:
+	# NFILES = N, where N is the number of files to read in. Each file
+	name goes on its own lin and blank lines are ignored.
 
     --cache-fname, -c <filename>
 	Temp-file name for hash caching. Default name is based on machine time

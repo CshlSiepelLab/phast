@@ -73,6 +73,7 @@ int main(int argc, char *argv[]) {
     {"quiet", 0, 0, 'q'},
     {"threads", 1, 0, 't'},
     {"hash-debug", 0, 0, 'm'},
+    {"revcomp", 0, 0, 'C'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -89,14 +90,14 @@ int main(int argc, char *argv[]) {
     sample_interval = DEFAULT_SAMPLE_INTERVAL, do_ih = 0, 
     ref_as_prior = FALSE, force_priors = FALSE, precomputed_hash = FALSE,
     quiet = FALSE, cache_int = DEFAULT_CACHE_INTERVAL,
-    nthreads = DEFAULT_NTHREADS, hash_debug = FALSE;
+    nthreads = DEFAULT_NTHREADS, hash_debug = FALSE, revcomp = FALSE;
   char *seqname = NULL, *idpref = NULL, 
     *cache_fname = (char*)smalloc(STR_MED_LEN * sizeof(char));
 
   snprintf(cache_fname, STR_MED_LEN, "dmsample_%ld", (long) time(0));
   
   while ((c = getopt_long(argc, argv, 
-			  "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:t:m:T:h",
+			  "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:t:m:T:C:h",
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
@@ -185,6 +186,9 @@ int main(int argc, char *argv[]) {
       tmp_lst_f = fopen_fname(optarg, "r");
       precomputed_hash = TRUE;
       break;
+    case 'C':
+      revcomp = TRUE;
+      break;
     case 'h':
       printf(HELP);
       exit(0);
@@ -241,7 +245,7 @@ int main(int argc, char *argv[]) {
 
   /* read alignments */
   fprintf(stderr, "Reading alignments from %s...\n", argv[optind]);
-  dmpmsa = dms_read_alignments(msa_f, do_ih, quiet);
+  dmpmsa = dms_read_alignments(msa_f, do_ih, quiet, revcomp);
 
   blocks = dmpmsa->pmsa;
   seqnames = dmpmsa->seqnames;
