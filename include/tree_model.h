@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: tree_model.h,v 1.20 2009-02-19 17:25:28 acs Exp $ */
+/* $Id: tree_model.h,v 1.20.2.1 2009-03-18 19:35:57 mt269 Exp $ */
 
 #ifndef TREE_MODEL_H
 #define TREE_MODEL_H
@@ -61,12 +61,23 @@ typedef enum {
 
 struct tp_struct;
 
+
 /* defines alternative substitution model for a particular branch */
 typedef struct {
   subst_mod_type subst_mod;  
-  Vector *backgd_freqs;
-  MarkovMatrix *rate_matrix;
+  Vector *backgd_freqs;        /* eq freqs (set to NULL if separate_freq=0 */
+  MarkovMatrix *rate_matrix;   /* rate_matrix (set to NULL if separate_rm=0 */
+  int ratematrix_idx, backgd_idx;  /* indicies in main model parameter list
+				      where lineage-specific parameters
+				      start */
+  int separate_model;   /* ==1 if no parameters shared with main model */
+  List *param_list;     /* list of string arguments giving which params to
+			   estimate separately (only if separate_model=0) */
+  String *nodename;     /* name of node defining subtree (with + added to
+			   include leading branch) */
+  List *bound_arg;
 } AltSubstMod;
+
 
 /** Tree model object */
 struct tm_struct {
@@ -136,11 +147,18 @@ struct tm_struct {
                                    rate-variation */
   int estimate_ratemat;         /* indicates whether rate-matrix
                                    parameters should be estimated */
-  AltSubstMod **alt_subst_mods; /* optional alternative substitution
+  AltSubstMod **alt_subst_mods_node;
+                                /* optional alternative substitution
                                    models per branch of three; can be
                                    used for nonhomogeneous models.
                                    Typically set to NULL and
                                    ignored.  */
+  List *alt_subst_mods;
+  Vector *all_params;
+  //  Vector *lowbound, *upbound;
+  int *param_map;
+  int scale_idx, bl_idx, ratematrix_idx, backgd_idx, ratevar_idx;
+  List *bound_arg;
 };
 
 typedef struct tm_struct TreeModel;
@@ -155,6 +173,8 @@ void tm_reinit(TreeModel *tm, subst_mod_type subst_mod,
                List *new_rate_consts, List *new_rate_weights);
 
 TreeModel *tm_new_from_file(FILE *F);
+
+void tm_add_alt_mod(TreeModel *tm, String *altmod_str);
 
 void tm_init_rmp(TreeModel *tm);
 
@@ -224,5 +244,7 @@ AltSubstMod* tm_new_alt_subst_mod(subst_mod_type subst_mod,
                                   MarkovMatrix *rate_matrix);
 
 void tm_free_alt_subst_mod(AltSubstMod *am); 
+
+void tm_setup_params(TreeModel *mod);
 
 #endif

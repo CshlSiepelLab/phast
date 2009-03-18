@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: subst_mods.h,v 1.9 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: subst_mods.h,v 1.9.2.1 2009-03-18 19:35:57 mt269 Exp $ */
 
 #ifndef SUBST_MODS_H
 #define SUBST_MODS_H
@@ -23,6 +23,7 @@ typedef enum {
   HKY85,
   HKY85G,
   REV,
+  REV_BGC,
   UNREST,
   HKY2,
   R2,
@@ -53,6 +54,9 @@ void tm_rate_params_init(struct tm_struct *mod, Vector *params,
 void tm_rate_params_init_from_model(struct tm_struct *mod, Vector *params, 
                                     int params_idx);
 void tm_set_HKY_matrix(struct tm_struct *mod, double kappa, int kappa_idx);
-
+int tm_substmod_get_nratematparams(subst_mod_type submod, 
+				   struct tm_struct *mod);
+int tm_flag_subst_param_pos(struct tm_struct *mod, int *flag, 
+			    String *param_name);
 
 #endif

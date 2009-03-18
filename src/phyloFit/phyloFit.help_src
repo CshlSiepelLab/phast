@@ -312,6 +312,45 @@ OPTIONS:
         considered.  This option cannot be used with an alignment
         represented only by unordered sufficient statistics.
 
+ (Option for lineage-specific models)
+
+   --alt-mod, -d <node[+][:model|param_list]>
+        Create a lineage-specific substitution model on subtree of the
+	specified node.  If the node name is appended by a +, then also
+	include the branch leading up to this node.
+
+	If the name of a substitution model (such as HKY85, REV, UNREST)
+	is given after the node name, then an entirely separate set of 
+	parameters will be estimated for the sub-tree.  This model must
+	have the same number of states and be of the same order as the
+	model used for the rest of the tree.
+
+	If instead, a list of parameter names is given after the colon,
+	then the same substitution model will be used for the entire tree,
+	but the parameters listed will be estimated separately in the subtree.
+	The parameter names are model-specific, and include "kappa" for
+	HKY models, "alpha" for BGC models, "ratematrix" to specify
+	all rate-matrix parameters in general models, and "backgd" for
+	the equilibrium background frequencies.
+
+	The --alt-mod argument may be used multiple times, and is
+	applied in the order given, so that later uses may override
+	previous ones.  This allows separate models to be applied to
+	a subtree within a subtree.
+
+	If no model or parameters are listed, this creates a "dummy"
+	lineage-specific model, which is identical to the main model
+	and does not estimate any extra parameters.
+
+	Example:
+	phyloFit align.fa --subst-mod HKY85 \
+	--tree "(human, (mouse, rat)mr, cow)"\
+	--alt-mod mr+:HKY85 --alt-mod rat+
+	
+	will estimate a separate set of parameters on the subtree defined
+	by the mouse-rat node (as well as the branch leading to it), but
+	excluding the branch leading to rat.
+
 
  (Options for posterior probabilities)
 

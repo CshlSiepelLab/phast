@@ -4,7 +4,7 @@
 
 # set below to point to top-level directory of PHAST installation
 ifndef PHAST
-PHAST=${HOME}/phast
+PHAST=${HOME}/newphast/phast
 endif
 # (if you prefer, you can set the environment variable PHAST instead)
 
@@ -65,10 +65,10 @@ endif
 
 # separately installed CLAPACK; uncomment CLAPACKPATH definition and
 # set appropriately to use
-CLAPACKPATH = /usr/local/software/CLAPACK
+CLAPACKPATH = /usr/local/software/CLAPACK-3.1.1
 # platform-specific suffix used for CLAPACK libraries; use the same
 # value as in CLAPACK's "make.inc" file 
-PLAT = _x86
+PLAT = _LINUX
 # F2C libraries used by CLAPACK; most users won't need to edit
 F2CPATH = ${CLAPACKPATH}/F2CLIBS
 

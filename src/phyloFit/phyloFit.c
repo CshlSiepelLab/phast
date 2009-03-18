@@ -9,7 +9,7 @@
 
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.38 2008-11-12 02:07:58 acs Exp $ */
+   $Id: phyloFit.c,v 1.38.2.1 2009-03-18 19:35:58 mt269 Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -267,9 +267,9 @@ int main(int argc, char *argv[]) {
   String *mod_fname;
   MSA *msa, *source_msa;
   FILE *logf = NULL;
-  String *tmpstr = str_new(STR_SHORT_LEN);
+  String *tmpstr = str_new(STR_SHORT_LEN), *optstr;
   List *cats_to_do = NULL, *tmplist = NULL, *window_coords = NULL, 
-    *cats_to_do_str = NULL, *ignore_branches = NULL;
+    *cats_to_do_str = NULL, *ignore_branches = NULL, *alt_mod_str=NULL;
   double *gc;
   double cpg, alpha = DEFAULT_ALPHA;
   GFF_Set *gff = NULL;
@@ -317,10 +317,11 @@ int main(int argc, char *argv[]) {
     {"column-probs", 0, 0, 'U'},
     {"rate-constants", 1, 0, 'K'},
     {"ignore-branches", 1, 0, 'b'},
+    {"alt-mod", 1, 0, 'd'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:GVEeNDRTqLPXZUBFfnrh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:GVEeNDRTqLPXZUBFfnrh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -469,6 +470,13 @@ int main(int argc, char *argv[]) {
       break;
     case 'b':
       ignore_branches = get_arg_list(optarg);
+      break;
+    case 'd':
+      if (alt_mod_str == NULL) {
+	alt_mod_str = lst_new_ptr(1);
+      }
+      optstr = str_new_charstr(optarg);
+      lst_push_ptr(alt_mod_str, optstr);
       break;
     case 'h':
       printf("%s", HELP);
@@ -695,10 +703,12 @@ int main(int argc, char *argv[]) {
       }
 
       mod->use_conditionals = use_conditionals;
+      if (alt_mod_str != NULL) {
+	for (j = 0 ; j < lst_size(alt_mod_str); j++) 
+	  tm_add_alt_mod(mod, (String*)lst_get_ptr(alt_mod_str, j));
+      }
 
       if (estimate_scale_only || estimate_backgd || no_rates) {
-        tm_free_rmp(mod);
-
         if (estimate_scale_only) {
           mod->estimate_branchlens = TM_SCALE_ONLY;
 
@@ -722,8 +732,6 @@ int main(int argc, char *argv[]) {
           mod->estimate_ratemat = FALSE;
 
         mod->estimate_backgd = estimate_backgd;
-        tm_init_rmp(mod);        /* necessary because number of
-                                    parameters changes */
       }
 
       if (ignore_branches != NULL) 
@@ -887,6 +895,7 @@ int main(int argc, char *argv[]) {
     if (window_coords != NULL) 
       msa_free(msa);
   }
+  str_free(tmpstr);
   
   if (!quiet) fprintf(stderr, "Done.\n");
   

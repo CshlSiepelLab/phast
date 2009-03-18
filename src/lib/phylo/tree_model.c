@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: tree_model.c,v 1.41 2009-02-19 17:22:58 acs Exp $ */
+/* $Id: tree_model.c,v 1.41.2.1 2009-03-18 19:35:57 mt269 Exp $ */
 
 #include <tree_model.h>
 #include <subst_mods.h>
@@ -42,6 +42,7 @@
 #define NRATECATS_TAG "NRATECATS:"
 #define RATE_CONSTS_TAG "RATE_CONSTS:"
 #define RATE_WEIGHTS_TAG "RATE_WEIGHTS:"
+#define ALT_MODEL_TAG "ALT_SUBST_MOD:"
 
 /* internal functions */
 double tm_likelihood_wrapper(Vector *params, void *data);
@@ -135,8 +136,12 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   tm->estimate_ratemat = TRUE;
   tm->ignore_branch = NULL;
   tm->alt_subst_mods = NULL;
-  tm_init_rmp(tm);
-
+  tm->alt_subst_mods_node = NULL;
+  tm->all_params = NULL;
+  tm->param_map = NULL;
+  tm->scale_idx = tm->bl_idx = tm->backgd_idx = 
+    tm->ratevar_idx = tm->ratematrix_idx = -1;
+  tm->rate_matrix_param_row = tm->rate_matrix_param_col = NULL;
   return tm;
 }
 
@@ -168,13 +173,13 @@ void tm_reinit(TreeModel *tm,   /**< TreeModel object to reinitialize  */
   int old_nratecats = tm->nratecats;
   assert(new_nratecats >= 1);
   tm_free_rmp(tm);
+  tm->rate_matrix_param_row = tm->rate_matrix_param_col = NULL;
   if (tm_order(new_subst_mod) != tm->order)
     die("ERROR: Cannot initialize tree model from model of different order.\n");
   tm->subst_mod = new_subst_mod;
   tm->nratecats = new_nratecats;
   tm->alpha = (tm->nratecats > 1 ? new_alpha : 0);
   tm->empirical_rates = new_rate_consts != NULL ? 1 : 0;
-  tm_init_rmp(tm);
   tm->rK = srealloc(tm->rK, new_nratecats * sizeof(double));
   tm->freqK = srealloc(tm->freqK, new_nratecats * sizeof(double));
 
@@ -221,8 +226,6 @@ void tm_free(TreeModel *tm) {
       for (j = 0; j < tm->nratecats; j++)
         if (tm->P[i][j] != NULL) mm_free(tm->P[i][j]);
       free(tm->P[i]);
-      if (tm->alt_subst_mods != NULL && tm->alt_subst_mods[i] != NULL) 
-        tm_free_alt_subst_mod(tm->alt_subst_mods[i]);
     }
     if (tm->msa_seq_idx != NULL) free(tm->msa_seq_idx);
     free(tm->P);
@@ -234,14 +237,23 @@ void tm_free(TreeModel *tm) {
   if (tm->backgd_freqs != NULL) vec_free(tm->backgd_freqs);
   if (tm->ignore_branch != NULL) free(tm->ignore_branch);
   if (tm->in_subtree != NULL) free(tm->in_subtree);
-  if (tm->alt_subst_mods != NULL) free(tm->alt_subst_mods);
+  if (tm->alt_subst_mods != NULL) {
+    for (i=0; i<lst_size(tm->alt_subst_mods); i++) 
+      tm_free_alt_subst_mod(lst_get_ptr(tm->alt_subst_mods, i));
+    free(tm->alt_subst_mods);
+  }
+  if (tm->alt_subst_mods_node != NULL)
+    free(tm->alt_subst_mods_node);
+  if (tm->param_map != NULL) free(tm->param_map);
+  if (tm->all_params != NULL) vec_free(tm->all_params);
   free(tm);
 }
 
 /* set up lists that allow each rate matrix parameter to be mapped to
    the rows and columns in which it appears */
 void tm_init_rmp(TreeModel *tm) {
-  int i;
+  int i, j;
+  if (tm->rate_matrix_param_row != NULL) return;
   if (tm->rate_matrix == NULL || tm->subst_mod == UNDEF_MOD || 
       tm->tree == NULL) 
     tm->rate_matrix_param_row = tm->rate_matrix_param_col = NULL;
@@ -250,14 +262,27 @@ void tm_init_rmp(TreeModel *tm) {
     int nrmparams = tm_get_nratematparams(tm);
     tm->rate_matrix_param_row = (List**)smalloc(nparams * sizeof(List*));
     tm->rate_matrix_param_col = (List**)smalloc(nparams * sizeof(List*));
-    for (i = 0; i < nparams - nrmparams; i++) 
+    for (i = 0; i < nparams; i++) 
       tm->rate_matrix_param_row[i] = tm->rate_matrix_param_col[i] = NULL;
                                 /* NULL for non-rate-matrix params;
                                    keeps indexing simple */
-    for (; i < nparams; i++) {
-      tm->rate_matrix_param_row[i] = lst_new_int(2); 
-      tm->rate_matrix_param_col[i] = lst_new_int(2);
-      /* usually 2 elements (general reversible models) */
+    for (i=0; i<nrmparams; i++) {
+      tm->rate_matrix_param_row[tm->ratematrix_idx + i] = lst_new_int(2);
+      tm->rate_matrix_param_col[tm->ratematrix_idx + i] = lst_new_int(2);
+    }
+
+    if (tm->alt_subst_mods != NULL) {
+      subst_mod_type tempmod = tm->subst_mod;
+      for (j=0; j<lst_size(tm->alt_subst_mods); j++) {
+	AltSubstMod *altmod = lst_get_ptr(tm->alt_subst_mods, j);
+	tm->subst_mod = altmod->subst_mod;
+	nrmparams = tm_get_nratematparams(tm);
+	for (i=0; i<nrmparams; i++) {
+	  tm->rate_matrix_param_row[altmod->ratematrix_idx+i] = lst_new_int(2);
+	  tm->rate_matrix_param_col[altmod->ratematrix_idx+i] = lst_new_int(2);
+	}
+      }
+      tm->subst_mod = tempmod;
     }
   }
 }
@@ -265,13 +290,17 @@ void tm_init_rmp(TreeModel *tm) {
 void tm_free_rmp(TreeModel *tm) {
   int i;
   int nparams = tm_get_nparams(tm);
-  int nrmparams = tm_get_nratematparams(tm);
-  for (i = nparams - nrmparams; i < nparams; i++) {
-    lst_free(tm->rate_matrix_param_row[i]);
-    lst_free(tm->rate_matrix_param_col[i]);
+  if (tm->rate_matrix_param_row == NULL) return;
+  for (i = 0; i < nparams; i++) {
+    if (tm->rate_matrix_param_row[i] != NULL) {
+      lst_free(tm->rate_matrix_param_row[i]);
+      lst_free(tm->rate_matrix_param_col[i]);
+    }
   }  
   free(tm->rate_matrix_param_row);
   free(tm->rate_matrix_param_col);
+  tm->rate_matrix_param_row = NULL;
+  tm->rate_matrix_param_col = NULL;
 }
 
 /* read tree model from file, with simple format specifying background
@@ -368,6 +397,9 @@ TreeModel *tm_new_from_file(FILE *f) {
         die("ERROR: NRATECATS must precede RATE_WEIGHTS in tree model file.\n");
       rate_weights = vec_new_from_file(f, nratecats);
     }
+    else if (!strcmp(tag, ALT_MODEL_TAG)) {
+      die("ERROR: reading ALT_MODELS from model file not yet supported.\n");
+    }
     else {
       fprintf(stderr, "ERROR: unrecognized tag in model file (\"%s\").\n", 
 	      tag);
@@ -409,6 +441,32 @@ TreeModel *tm_new_from_file(FILE *f) {
 
   return retval;
 }
+
+
+void tm_print_altmodel(FILE *F, AltSubstMod *alt_model, TreeModel *tm) {
+  int i;
+  Vector *backgd_freqs;
+  MarkovMatrix *rate_matrix;
+
+  fprintf(F, "\n%s %s\n", ALT_MODEL_TAG, alt_model->nodename->chars);
+  fprintf(F, "%s %s\n", SUBST_MOD_TAG, 
+          tm_get_subst_mod_string(alt_model->subst_mod));
+  if (alt_model->backgd_freqs == NULL)
+    backgd_freqs = tm->backgd_freqs;
+  else backgd_freqs = alt_model->backgd_freqs;
+  if (alt_model->rate_matrix == NULL)
+    rate_matrix = tm->rate_matrix;
+  else rate_matrix = alt_model->rate_matrix;
+
+  fprintf(F, "%s ", BACKGROUND_TAG);
+  for (i = 0; i < backgd_freqs->size; i++) 
+    fprintf(F, "%f ", vec_get(backgd_freqs, i));
+  fprintf(F, "\n");
+
+  fprintf(F, "%s\n", RATE_MATRIX_TAG);
+  mat_print(rate_matrix->matrix, F);
+}
+
 
 void tm_print(FILE *F, TreeModel *tm) {
   int i;
@@ -453,12 +511,17 @@ void tm_print(FILE *F, TreeModel *tm) {
     fprintf(F, "%s ", TREE_TAG);
     tr_print(F, tm->tree, 1);
   }
+
+  if (tm->alt_subst_mods != NULL) {
+    for (i=0; i<lst_size(tm->alt_subst_mods); i++)
+      tm_print_altmodel(F, lst_get_ptr(tm->alt_subst_mods, i), tm);
+  }
 }
 
 TreeModel *tm_create_copy(TreeModel *src) {
   TreeModel *retval;
   Vector *freqs = vec_new(src->backgd_freqs->size);
-  int i;
+  int i, j;
 
   vec_copy(freqs, src->backgd_freqs);
   retval = tm_new(src->tree != NULL ? tr_create_copy(src->tree) : NULL, 
@@ -476,7 +539,7 @@ TreeModel *tm_create_copy(TreeModel *src) {
   retval->estimate_backgd = src->estimate_backgd;
   retval->estimate_branchlens = src->estimate_branchlens;
   retval->scale = src->scale;
-
+  
   if (src->empirical_rates) {
     for (i = 0; i < src->nratecats; i++) {
       retval->rK[i] = src->rK[i];
@@ -485,10 +548,178 @@ TreeModel *tm_create_copy(TreeModel *src) {
     retval->empirical_rates = 1;
   }
 
+  retval->scale_idx = src->scale_idx;
+  retval->bl_idx = src->bl_idx;
+  retval->ratematrix_idx = src->ratematrix_idx;
+  retval->backgd_idx = src->backgd_idx;
+  retval->ratevar_idx = src->ratevar_idx;
+  
+  if (src->all_params != NULL) {
+    retval->all_params = vec_create_copy(src->all_params);
+    if (src->param_map != NULL) {
+      retval->param_map = malloc(src->all_params->size*sizeof(int));
+      for (i=0; i<src->all_params->size; i++)
+	retval->param_map[i] = src->param_map[i];
+    }
+    else retval->param_map = NULL;
+  }
+
+  /* Copy lineage-specific models */
+  if (retval->alt_subst_mods != NULL) {
+    AltSubstMod *currmod, *newmod;
+    src->alt_subst_mods = lst_new(lst_size(retval->alt_subst_mods), sizeof(AltSubstMod*));
+    for (i = 0; i < lst_size(retval->alt_subst_mods); i++) {
+      currmod = (AltSubstMod*)lst_get(src->alt_subst_mods, i);
+      newmod = malloc(sizeof(AltSubstMod));
+      newmod->subst_mod = currmod->subst_mod;
+      if (currmod->backgd_freqs != NULL)
+	newmod->backgd_freqs = vec_create_copy(currmod->backgd_freqs);
+      else newmod->backgd_freqs = NULL;
+      if (currmod->rate_matrix != NULL)
+	newmod->rate_matrix = mm_create_copy(currmod->rate_matrix);
+      else newmod->rate_matrix = NULL;
+      newmod->ratematrix_idx = currmod->ratematrix_idx;
+      newmod->backgd_idx = currmod->backgd_idx;
+      newmod->separate_model = currmod->separate_model;
+      if (currmod->param_list != NULL) {
+	String *currstr;
+	newmod->param_list = lst_new_ptr(lst_size(currmod->param_list));
+	for (j = 0; j < lst_size(currmod->param_list); j++) {
+	  currstr = str_new_charstr(((String*)lst_get(currmod->param_list, j))->chars);
+	  lst_push_ptr(newmod->param_list, currstr);
+	}
+      }
+      else newmod->param_list = NULL;
+      lst_push_ptr(retval->alt_subst_mods, (void*)newmod);
+    }
+  }
+  else retval->alt_subst_mods = NULL;
+  if (retval->alt_subst_mods_node != NULL) {
+    List *traversal;
+    TreeNode *n;
+    assert(retval->tree != NULL);
+    traversal = tr_preorder(retval->tree);
+    for (i=0; i<lst_size(traversal); i++) {
+      n = lst_get_ptr(traversal, i);
+      if (retval->alt_subst_mods_node[n->id] != NULL) {
+	/* Need to find the model for this lineage */
+	for (j = 0; j<lst_size(src->alt_subst_mods); j++) {
+	  if (lst_get_ptr(src->alt_subst_mods, j) == src->alt_subst_mods_node[n->id])
+	    break;
+	}
+	assert(j < lst_size(src->alt_subst_mods));
+	src->alt_subst_mods_node[n->id] = lst_get_ptr(retval->alt_subst_mods, j);
+      }
+      else src->alt_subst_mods_node[n->id] = NULL;
+    }
+  }
+  else retval->alt_subst_mods_node = NULL;
+
+
   /* NOTE: ignoring params, tree_posteriors, etc. */
 
   return retval;
 }
+
+
+//add a lineage-specific model.   altmod_string should be in the
+//form node[+]:MODNAME   or node[+]:param1,param2.
+//then an alternative model will be set up for subtree of node, 
+//including branch above if the + is present.
+//string following the colon will be saved in altmod to be parsed later.
+//if it is a model name, an entirely separate subst model will be used 
+//for this lineage.  If it is a list of parameters, then same subst 
+//model will be used, with these parameters estimated separately.
+void tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
+  AltSubstMod *altmod = malloc(sizeof(AltSubstMod));
+  String *nodestr, *modstr;
+  List *templst, *traversal;
+  TreeNode *n, *tempnode;
+  int parentbranch=0, i;
+  templst = lst_new_ptr(2);
+  str_split(altmod_str, ":", templst);
+  nodestr = (String*)lst_get_ptr(templst, 0);
+  modstr = (String*) lst_get_ptr(templst, 1);
+  if (lst_size(templst) > 2) 
+    die("ERROR: can't parse alt-mod argument %s\n", altmod_str->chars);
+  lst_free(templst);
+  
+  //parse nodes
+ tm_add_alt_mod_getnode:
+  traversal = tr_preorder(mod->tree);
+  for (i=0; i<lst_size(traversal); i++) {
+    n = lst_get_ptr(traversal, i);
+    if (str_equals_nocase_charstr(nodestr, n->name))
+      break;
+  }
+  if (i == lst_size(traversal)) {
+    if (parentbranch==0 && nodestr->chars[nodestr->length-1]=='+') {
+      parentbranch=1;
+      nodestr->chars[--(nodestr->length)] = '\0';
+      goto tm_add_alt_mod_getnode;
+    }
+    die("ERROR: can't find node %s from alt-mod argument\n", nodestr->chars);
+  }
+  if (parentbranch) 
+    nodestr->chars[nodestr->length++] = '+';
+  altmod->nodename = nodestr;
+
+  //set up pointers to node
+  if (mod->alt_subst_mods_node ==  NULL) {
+    mod->alt_subst_mods_node = malloc(mod->tree->nnodes*sizeof(AltSubstMod*));
+    for (i=0; i<mod->tree->nnodes; i++)
+      mod->alt_subst_mods_node[i] = NULL;
+  }
+  traversal = tr_preorder(n);
+  for (i=0; i<lst_size(traversal); i++) {
+    tempnode = lst_get_ptr(traversal, i);
+    if (parentbranch == 0 && tempnode==n) continue;
+    assert(tempnode->id < mod->tree->nnodes);
+    mod->alt_subst_mods_node[tempnode->id] = altmod;
+  }
+
+  //add altmod to mod
+  if (mod->alt_subst_mods == NULL)
+    mod->alt_subst_mods = lst_new_ptr(1);
+  lst_push_ptr(mod->alt_subst_mods, altmod);
+
+
+
+  //if modstr is empty, then this model is exactly the same as main model, and
+  //no new parameters are estimated.  This may be useful to override a 
+  //lineage-specific model in part of a subtree
+  if (modstr ==  NULL) {
+    altmod->subst_mod = mod->subst_mod;
+    altmod->separate_model = 0;
+    altmod->param_list = NULL;
+  }
+  else {
+    //if modstr is a subst mod, then this is a separate model 
+    //(optimize all params separately)
+    altmod->subst_mod = tm_get_subst_mod_type(modstr->chars);
+    if (altmod->subst_mod != UNDEF_MOD) {
+      altmod->param_list = NULL;
+      altmod->separate_model = 1;
+    }
+    else {
+      //otherwise it is a list of parameters to be optimized.  Use the 
+      //same subst model as main model, but optimize these parameters
+      //separately.
+      altmod->subst_mod = mod->subst_mod;
+      altmod->param_list = lst_new_ptr(10);
+      str_split(modstr, ",", altmod->param_list);
+      altmod->separate_model = 0;
+    }
+    str_free(modstr);
+  }
+  altmod->rate_matrix = NULL;
+  altmod->backgd_freqs = NULL;
+  if (mod->rate_matrix_param_row != NULL) {
+    tm_free_rmp(mod);
+    tm_init_rmp(mod);
+  }
+}
+
 
 void tm_set_subst_matrices(TreeModel *tm) {
   int i, j;
@@ -496,10 +727,11 @@ void tm_set_subst_matrices(TreeModel *tm) {
   Vector *backgd_freqs = tm->backgd_freqs;
   subst_mod_type subst_mod = tm->subst_mod;
   MarkovMatrix *rate_matrix = tm->rate_matrix;
-  
+  TreeNode *n;
+
   scaling_const = -1;
 
-  if (tm->estimate_branchlens != TM_SCALE_ONLY && tm->scale != 1) 
+  if (tm->estimate_branchlens != TM_SCALE_ONLY) 
     tm->scale = 1;
                                 /* be sure scale factor has an effect
                                    only if estimating scale */
@@ -520,16 +752,18 @@ void tm_set_subst_matrices(TreeModel *tm) {
 
   for (i = 0; i < tm->tree->nnodes; i++) {
     branch_scale = tm->scale;
-    TreeNode *n = lst_get_ptr(tm->tree->nodes, i);
+    n = lst_get_ptr(tm->tree->nodes, i);
 
     if (n->parent == NULL) continue;
 
     /* special case where subst models differ by branch */
     if (tm->alt_subst_mods != NULL) {
-      if (tm->alt_subst_mods[n->id] != NULL) {
-        backgd_freqs = tm->alt_subst_mods[n->id]->backgd_freqs;
-        subst_mod = tm->alt_subst_mods[n->id]->subst_mod;
-        rate_matrix = tm->alt_subst_mods[n->id]->rate_matrix;
+      if (tm->alt_subst_mods_node[n->id] != NULL) {
+	backgd_freqs = tm->alt_subst_mods_node[n->id]->backgd_freqs;
+	if (backgd_freqs==NULL) backgd_freqs = tm->backgd_freqs;
+        subst_mod = tm->alt_subst_mods_node[n->id]->subst_mod;
+        rate_matrix = tm->alt_subst_mods_node[n->id]->rate_matrix;
+	if (rate_matrix==NULL) rate_matrix = tm->rate_matrix;
       }
       else {
         backgd_freqs = tm->backgd_freqs;
@@ -714,8 +948,8 @@ MSA *tm_generate_msa(int ncolumns,
 int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat, 
            opt_precision_type precision, FILE *logf) {
   double ll;
-  Vector *lower_bounds, *upper_bounds;
-  int retval = 0;
+  Vector *lower_bounds, *upper_bounds, *small_params;
+  int i, j, retval = 0, npar;
 
   if (msa->ss == NULL) {
     assert(msa->seqs != NULL);
@@ -730,6 +964,19 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
     else
       msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order + 1, cat);
   }
+  if (mod->alt_subst_mods != NULL) {
+    AltSubstMod *altmod;
+    for (i = 0; i < lst_size(mod->alt_subst_mods); i++) {
+      altmod = lst_get_ptr(mod->alt_subst_mods, i);
+      if (altmod->separate_model == 0 && 
+	  altmod->param_list == NULL) continue;
+
+      if (altmod->backgd_freqs == NULL) 
+	altmod->backgd_freqs = vec_create_copy(mod->backgd_freqs);
+      if (altmod->rate_matrix == NULL)
+	altmod->rate_matrix = mm_create_copy(mod->rate_matrix);
+    }
+  }
 
   if (mod->tree == NULL) {      /* weight matrix */
     mod->lnL = tl_compute_log_likelihood(mod, msa, NULL, cat, NULL) * 
@@ -741,35 +988,62 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
                                    compute likelihoods */
   mod->category = cat;
 
+  npar=0;
+  for (i=0; i<params->size; i++) {
+    vec_set(mod->all_params, i, vec_get(params, i));
+    if (mod->param_map[i] >= npar)
+      npar = mod->param_map[i]+1;
+  }
+  assert(npar > 0);
+  small_params = vec_new(npar);
+  for (i=0; i<params->size; i++)
+    if (mod->param_map[i] >=0)
+      vec_set(small_params, mod->param_map[i], vec_get(params, i));
+
   /* most params have lower bound of zero and no upper bound */
-  lower_bounds = vec_new(params->size);
+  lower_bounds = vec_new(npar);
   vec_zero(lower_bounds);
   upper_bounds = NULL;
 
   /* however, in this case we don't want the eq freqs to go to zero */
   if (mod->estimate_backgd) {
-    int i, offset = tm_get_nbranchlenparams(mod);
-    for (i = 0; i < mod->backgd_freqs->size; i++)
-      vec_set(lower_bounds, i + offset, 0.001);
+    for (i = 0; i < mod->backgd_freqs->size; i++) {
+      if (mod->param_map[mod->backgd_idx+i] >= 0)
+	vec_set(lower_bounds, mod->param_map[mod->backgd_idx+i], 0.001);
+    }
+  }
+  /* Check eq freqs in lineage-specific models too */
+  if (mod->alt_subst_mods != NULL) {
+    for (j=0; j<lst_size(mod->alt_subst_mods); j++) {
+      AltSubstMod *altmod = lst_get_ptr(mod->alt_subst_mods, j);
+      if (altmod->backgd_freqs == NULL) continue;
+      if (mod->param_map[altmod->backgd_idx] >= 0)
+	for (i=0; i<altmod->backgd_freqs->size; i++)
+	  vec_set(lower_bounds, mod->param_map[altmod->backgd_idx+i], 
+		  0.001);
+    }
   }
 
   /* Also, in this case, we need to bound the scale of the subtree */
   if (mod->estimate_branchlens == TM_SCALE_ONLY && mod->subtree_root != NULL 
       && mod->scale_sub_bound != NB) {
-    if (mod->scale_sub_bound == LB) vec_set(lower_bounds, 1, 1);
-    if (mod->scale_sub_bound == UB) {
-      upper_bounds = vec_new(params->size);
+    if (mod->scale_sub_bound == LB && mod->param_map[mod->scale_idx+1] >= 0) 
+      vec_set(lower_bounds, mod->param_map[mod->scale_idx+1], 1);
+    if (mod->scale_sub_bound == UB && mod->param_map[mod->scale_idx+1] >= 0) {
+      upper_bounds = vec_new(small_params->size);
       vec_set_all(upper_bounds, INFTY);
-      vec_set(upper_bounds, 1, 1);
+      vec_set(upper_bounds, mod->param_map[mod->scale_idx+1], 1);
     }
   }
 
-  retval = opt_bfgs(tm_likelihood_wrapper, params, (void*)mod, &ll, 
+  retval = opt_bfgs(tm_likelihood_wrapper, small_params, (void*)mod, &ll, 
                     lower_bounds, upper_bounds, logf, NULL, precision, NULL);
 
   mod->lnL = ll * -1 * log(2);  /* make negative again and convert to
                                    natural log scale */
-  tm_unpack_params(mod, params, -1);
+  tm_unpack_params(mod, small_params, -1);
+  vec_copy(params, mod->all_params);
+  vec_free(small_params);
 
   if (mod->subst_mod != JC69 && mod->subst_mod != F81) {   
                                 /* in this case, need to scale final
@@ -805,6 +1079,193 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
 }
 
 
+
+void tm_setup_params(TreeModel *mod) {
+  int i, opt_idx = 0, next_idx, alph_size;
+
+  //first assign indices in mod->all_params to give position of each
+  //type of parameter
+  mod->scale_idx = 0;
+  mod->bl_idx = 2;
+  assert(mod->tree != NULL);
+  if (mod->backgd_freqs == NULL)
+    alph_size = strlen(mod->rate_matrix->states);
+  else alph_size = mod->backgd_freqs->size;
+
+  //subtract 1 for root 
+  mod->backgd_idx = mod->bl_idx + mod->tree->nnodes - 1;
+  next_idx = mod->backgd_idx + alph_size;
+  if (mod->nratecats > 1) {
+    mod->ratevar_idx = next_idx;
+    if (mod->empirical_rates)
+      next_idx += mod->nratecats;
+    else next_idx++;
+  }
+  else mod->ratevar_idx = -1;
+
+  mod->ratematrix_idx = next_idx;
+  next_idx += tm_get_nratematparams(mod);
+
+  if (mod->alt_subst_mods != NULL) {
+    AltSubstMod *altmod;
+    subst_mod_type tempmod = mod->subst_mod;
+    for (i = 0; i<lst_size(mod->alt_subst_mods); i++) {
+      altmod = lst_get_ptr(mod->alt_subst_mods, i);
+      mod->subst_mod = altmod->subst_mod;
+      altmod->backgd_idx = next_idx;
+      next_idx += alph_size;
+      altmod->ratematrix_idx = next_idx;
+      next_idx += tm_get_nratematparams(mod);
+    }
+    mod->subst_mod = tempmod;
+  }
+
+  //now, allocate all_params and param_map if necessary
+  if (mod->all_params != NULL && mod->all_params->size != next_idx) {
+    vec_free(mod->all_params);
+    if (mod->param_map != NULL) {
+      free(mod->param_map);
+      mod->param_map = NULL;
+    }
+  }
+  if (mod->all_params == NULL) 
+    mod->all_params = vec_new(next_idx);
+  if (mod->param_map == NULL)
+    mod->param_map = malloc(next_idx*sizeof(int));
+
+  //now assign positions in param_map so that
+  //param_map[i] >= 0 if this parameter is optimized
+  //param_map[i] = -1 if this parameter is held constant
+  for (i=0; i<next_idx; i++)
+    mod->param_map[i] = -1;
+
+  //first do scale/branchlength params
+  if (mod->estimate_branchlens == TM_SCALE_ONLY) {
+    mod->param_map[mod->scale_idx] = opt_idx++;
+    if (mod->subtree_root != NULL)
+      mod->param_map[mod->scale_idx+1] = opt_idx++;
+  }
+  else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
+    List *traversal = tr_preorder(mod->tree);
+    int node_idx, root_idx = -1, temp_idx=0;
+    int isreversible = tm_is_reversible(mod->subst_mod);
+    TreeNode *n;
+    for (node_idx=0; node_idx < lst_size(traversal); node_idx++) {
+      n = lst_get_ptr(traversal, node_idx);
+      if (n->parent == NULL) continue;  //skip root
+      if ((n == mod->tree->lchild || n == mod->tree->rchild) &&
+	  isreversible) {
+	if (root_idx == -1) root_idx = opt_idx++;
+	mod->param_map[mod->bl_idx + temp_idx++] = root_idx;
+      }
+      else mod->param_map[mod->bl_idx + temp_idx++] = opt_idx++;
+    }
+  }
+  //else TM_BRANCHLENS_NONE: keep everything at -1
+
+  if (mod->estimate_backgd) {
+    for (i=0; i<alph_size; i++)
+      mod->param_map[mod->backgd_idx+i] = opt_idx++;
+  }
+
+  if (mod->nratecats > 1) {
+    if (mod->empirical_rates) {
+      for (i=0; i<mod->nratecats; i++)
+	mod->param_map[mod->ratevar_idx+i] = opt_idx++;
+    }
+    else {
+      mod->param_map[mod->ratevar_idx] = opt_idx++;
+    }
+  }
+
+  if (mod->estimate_ratemat) {
+    int numpar = tm_get_nratematparams(mod);
+    for (i=0; i<numpar; i++)
+      mod->param_map[mod->ratematrix_idx+i] = opt_idx++;
+  }
+
+  if (mod->alt_subst_mods != NULL) {
+    AltSubstMod* altmod;
+    int j, *opt_par, opt_freq, numpar;
+    subst_mod_type tempmod = mod->subst_mod;
+    for (j=0; j<lst_size(mod->alt_subst_mods); j++) {
+      altmod = lst_get_ptr(mod->alt_subst_mods, j);
+      opt_freq = mod->estimate_backgd && altmod->separate_model;
+      mod->subst_mod = altmod->subst_mod;
+      altmod = lst_get_ptr(mod->alt_subst_mods, j);
+      numpar = tm_get_nratematparams(mod);
+      opt_par = malloc(numpar*sizeof(int));
+
+      //if altmod->separate_model, optimize everything separately
+      if (altmod->separate_model == 1) {
+	for (i=0; i<numpar; i++)
+	  opt_par[i] = 1;
+      }
+      //if sepatate_model==0 but param_list==NULL, this isn't really 
+      //a separate model at all.  Optimize nothing.
+      else if (altmod->param_list == NULL) {
+	for (i=0; i<numpar; i++)
+	  opt_par[i] = 0;
+	if (altmod->backgd_freqs != NULL) {
+	  vec_free(altmod->backgd_freqs);
+	  altmod->backgd_freqs=NULL;
+	}
+	if (altmod->rate_matrix != NULL) {
+	  mm_free(altmod->rate_matrix);
+	  altmod->rate_matrix = NULL;
+	}
+      }
+      else {
+	//otherwise we only optimize pars in list
+	for (i=0; i<numpar; i++)
+	  opt_par[i] = 0;
+	for (i=0; i<lst_size(altmod->param_list); i++) {
+	  String *currparam;
+	  currparam = lst_get_ptr(altmod->param_list, i);
+	  printf("parsing string %s\n", currparam->chars);
+	  if (str_equals_nocase_charstr(currparam, "backgd"))
+	    opt_freq = 1;
+	  else  {
+	    if (0==tm_flag_subst_param_pos(mod, opt_par, currparam)) {
+	      if (currparam->chars[currparam->length-1] == '+' ||
+		  currparam->chars[currparam->length-1] == '-') {
+		String *tempstr = str_new_charstr(currparam->chars);
+		tempstr->chars[--tempstr->length] = '\0';
+		if (0 == tm_flag_subst_param_pos(mod, opt_par, tempstr)) {
+		  die("altmod %s couldn't parse parameter name %s\n",
+		      tm_get_subst_mod_string(altmod->subst_mod),
+		      currparam->chars);
+		}
+	      }
+	    }
+	  }
+	}
+      }
+      
+      if (opt_freq) {
+	for (i=0; i<alph_size; i++)
+	  mod->param_map[altmod->backgd_idx+i] = opt_idx++;
+      }
+      else {
+	for (i=0; i<alph_size; i++)
+	  mod->param_map[altmod->backgd_idx+i] = 
+	    mod->param_map[mod->backgd_idx+i];
+      }
+      for (i=0; i<numpar; i++) {
+	if (opt_par[i])
+	  mod->param_map[altmod->ratematrix_idx+i] = opt_idx++;
+	else mod->param_map[altmod->ratematrix_idx+i] = 
+	       mod->param_map[mod->ratematrix_idx+i];
+      }
+      free(opt_par);
+    }
+    mod->subst_mod = tempmod;
+  }
+
+  tm_init_rmp(mod);
+}
+
+
 /* Wrapper for computation of likelihood */
 double tm_likelihood_wrapper(Vector *params, void *data) {
   TreeModel *mod = (TreeModel*)data;
@@ -818,86 +1279,46 @@ double tm_likelihood_wrapper(Vector *params, void *data) {
    can be specified for cases in which vectors of parameters are
    nested within larger vectors of parameters (set to -1 if not
    needed) */
-void tm_unpack_params(TreeModel *mod, Vector *params, int idx_offset) {
+void tm_unpack_params(TreeModel *mod, Vector *params_in, int idx_offset) {
   TreeNode *n;
-  int nparams = tm_get_nparams(mod);
-  int assigned = 0, nodeidx, i, j;
+  int nodeidx, i, j;
   List *traversal;
+  Vector *params = mod->all_params;
 
-  if (idx_offset == -1) {       /* don't do if nested */
-    assert(params->size == nparams && mod->tree->nnodes >= 3);
-    /* this is a check on parameter values that helps catch errors
-       before they've become untraceable.  Make sure all params are
-       finite.  As of yet, all models use nonnegative parameters only,
-       so also make sure all params are nonnegative. */
-    for (i = 0; i < params->size; i++) {
-      double p = vec_get(params, i);
-      if (p < 0 && abs(p) < TM_IMAG_EPS) /* consider close enough to 0 */
-        vec_set(params, i, p=0);
-      if (p < 0) die("ERROR: parameter %d has become negative (%f).\n", i, p);
-      if (!finite(p)) die("ERROR: parameter %d is no longer finite (%f).\n", 
-                          i, p);
-    }
-    i = 0;
-  }
-  else 
-    i = idx_offset;
+  if (idx_offset == -1) idx_offset = 0;
 
-  if (mod->estimate_branchlens == TM_SCALE_ONLY) {
-    if (mod->empirical_rates && (mod->nratecats > 1 || mod->alpha < 0)) i++;
-                                /* in this case, skip scale */
-    else {
-      mod->scale = vec_get(params, i++);
-      if (mod->subtree_root) /* estimating subtree scale */
-        mod->scale_sub = vec_get(params, i++);
-    }
-  }
-  else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
-    /* first nnodes-2 elements define branch lengths */
-    /* NOTE: order of traversal is not important as long as it is
-       consistently obeyed */
-    traversal = tr_preorder(mod->tree);
-    for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
-      n = lst_get_ptr(traversal, nodeidx);
-
-      if (n->parent != NULL) {
-        /* if the model is reversible, divide the first parameter evenly
-           between the two branches from the root; this is a simple way
-           to simulate an unrooted tree */
-        if ((n == mod->tree->lchild || n == mod->tree->rchild) && 
-            tm_is_reversible(mod->subst_mod)) {
-          n->dparent = vec_get(params, 0)/2;
-          if (!assigned) {
-            i++;     /* only increment the first time */
-            assigned = 1;
-          }
-        }
-        else if (n->id == mod->root_leaf_id) 
-          n->dparent = 0;
-        else 
-          n->dparent = vec_get(params, i++);
-      }
-    }
+  for (j=0; j<params->size; j++) {
+    if (mod->param_map [j] >= 0)
+      vec_set(params, j, vec_get(params_in, mod->param_map[j] + idx_offset));
   }
 
-  /* if estimating backgd, next params are backgd freqs */
-  if (mod->estimate_backgd) {
-    double sum = 0;
-    for (j = 0; j < mod->backgd_freqs->size; j++) 
-      sum += vec_get(params, i+j);
-    for (j = 0; j < mod->backgd_freqs->size; j++)
-      vec_set(mod->backgd_freqs, j, vec_get(params, i++)/sum);
+  mod->scale = vec_get(params, mod->scale_idx);
+  mod->scale_sub = vec_get(params, mod->scale_idx+1);
+  traversal = tr_preorder(mod->tree);
+  i=0;
+  for (nodeidx=0; nodeidx < lst_size(traversal); nodeidx++) {
+    n = lst_get_ptr(traversal, nodeidx);
+    if (n->parent == NULL) continue;
+    n->dparent = vec_get(params, mod->bl_idx + i);
+    i++;
   }
 
-  /* next parameters are for rate variation */
+  /* backgd freqs */
+  double sum = 0;
+  for (j = 0; j < mod->backgd_freqs->size; j++) 
+    sum += vec_get(params, mod->backgd_idx+j);
+  for (j = 0; j < mod->backgd_freqs->size; j++)
+    vec_set(mod->backgd_freqs, j, vec_get(params, mod->backgd_idx+j)/sum);
+
+  /* rate variation */
   if (mod->nratecats > 1) {
     if (mod->empirical_rates) {
       for (j = 0; j < mod->nratecats; j++)
-        mod->freqK[j] = vec_get(params, i++);
+        mod->freqK[j] = vec_get(params, mod->ratevar_idx+j);
                                 /* assume normalized */
     }
     else {                      /* discrete gamma model */
-      mod->alpha = vec_get(params, i++);
+      mod->alpha = vec_get(params, mod->ratevar_idx);
       DiscreteGamma(mod->freqK, mod->rK, mod->alpha, mod->alpha, 
                     mod->nratecats, 0); 
     }
@@ -908,16 +1329,44 @@ void tm_unpack_params(TreeModel *mod, Vector *params, int idx_offset) {
     else i++;
   }
 
-  /* (remaining parameters define the subst matrix) */ 
+  /* lineage-specific models */ 
+  if (mod->alt_subst_mods != NULL) {
+    AltSubstMod *altmod;
+    subst_mod_type temp_mod = mod->subst_mod;
+    MarkovMatrix *temp_mm = mod->rate_matrix;
+    Vector *temp_backgd = mod->backgd_freqs;
 
-  if (mod->estimate_ratemat) {
-    /* redefine substitution matrix */
-    tm_set_rate_matrix(mod, params, i);
+    for (j = 0; j < lst_size(mod->alt_subst_mods); j++) {
+      altmod = lst_get_ptr(mod->alt_subst_mods, j);
+      mod->subst_mod = altmod->subst_mod;
 
-    /* diagonalize, if necessary */
-    if (mod->subst_mod != JC69 && mod->subst_mod != F81)
-      mm_diagonalize(mod->rate_matrix);
+      if (altmod->backgd_freqs != NULL) {
+	double sum = 0;
+	for (i = 0; i < altmod->backgd_freqs->size; i++) 
+	  sum += vec_get(params, altmod->backgd_idx+i);
+	for (i = 0; i < altmod->backgd_freqs->size; i++)
+	  vec_set(altmod->backgd_freqs, i, 
+		  vec_get(params, altmod->backgd_idx+i)/sum);
+	mod->backgd_freqs = altmod->backgd_freqs;
+      }
+      if (altmod->rate_matrix != NULL) {
+	mod->rate_matrix = altmod->rate_matrix;
+	tm_set_rate_matrix(mod, params, altmod->ratematrix_idx);
+	if (altmod->subst_mod != JC69 && altmod->subst_mod != F81)
+	  mm_diagonalize(altmod->rate_matrix);
+      }
+    }
+    mod->subst_mod = temp_mod;
+    mod->rate_matrix = temp_mm;
+    mod->backgd_freqs = temp_backgd;
   }
+
+  /* redefine substitution matrix */
+  tm_set_rate_matrix(mod, params, mod->ratematrix_idx);
+  
+  /* diagonalize, if necessary */
+  if (mod->subst_mod != JC69 && mod->subst_mod != F81)
+    mm_diagonalize(mod->rate_matrix);
 
   /* set exponentiated version at each edge */
   tm_set_subst_matrices(mod); 
@@ -931,6 +1380,9 @@ void tm_unpack_params(TreeModel *mod, Vector *params, int idx_offset) {
    NOTE: now returns scaling factor, which can be used to adjust
    branch lengths if the rate matrix has not been scaled throughout the
    fitting procedure.
+
+   NOTE NOTE!: how do we fix this to deal with alt models?  Just leaving
+   it unchanged for now.
 */ 
 double tm_scale_rate_matrix(TreeModel *mod) {
   double scale = 0;
@@ -950,6 +1402,8 @@ double tm_scale_rate_matrix(TreeModel *mod) {
 /* scale a parameter vector according to a specified rate matrix scale
    factor.  Branch length params are multiplied by the specified factor
    and rate matrix params by its inverse */
+/* Again, I (mt269) am not sure what to do with this in terms of 
+   incorporating lineage-specific models.  Leave unchanged for now */
 void tm_scale_params(TreeModel *mod, Vector *params, double scale_factor) {
   int i;
   int nbl = tm_get_nbranchlenparams(mod);
@@ -972,45 +1426,68 @@ Vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
                        double alpha) {
   int nparams = tm_get_nparams(mod);
   Vector *params = vec_new(nparams);
-  int i, nbranches, params_idx;
+  int i, nbranches, alph_size;
+
+  tm_setup_params(mod);
 
   /* initialize branch-length parameters */
   nbranches = tm_get_nbranchlenparams(mod);
-  
+  vec_set(params, mod->scale_idx, 1.0);
+  vec_set(params, mod->scale_idx+1, 1.0);
+
   for (i = 0; i < nbranches; i++)
-    vec_set(params, i, branchlen);
+    vec_set(params, mod->bl_idx+i, branchlen);
 
-  params_idx = nbranches;
-
-  if (mod->estimate_backgd) {
-    if (mod->backgd_freqs == NULL) {
-      double alph_size = strlen(mod->rate_matrix->states);
-      for (i = 0; i < alph_size; i++)
-        vec_set(params, params_idx++, 1.0/alph_size);
-    }
-    else
-      for (i = 0; i < mod->backgd_freqs->size; i++)
-        vec_set(params, params_idx++, vec_get(mod->backgd_freqs, i));
+  if (mod->backgd_freqs == NULL) {
+    alph_size = strlen(mod->rate_matrix->states);
+    for (i = 0; i < alph_size; i++)
+      vec_set(params, mod->backgd_idx+i, 1.0/(double)alph_size);
+  }
+  else {
+    alph_size = mod->backgd_freqs->size;
+    for (i = 0; i < alph_size; i++)
+      vec_set(params, mod->backgd_idx+i, vec_get(mod->backgd_freqs, i));
   }
 
   if (mod->nratecats > 1) {
     if (mod->empirical_rates)
       for (i = 0; i < mod->nratecats; i++) 
-        vec_set(params, params_idx++, mod->freqK[i]);
+        vec_set(params, mod->ratevar_idx+i, mod->freqK[i]);
     else
-      vec_set(params, params_idx++, alpha);
+      vec_set(params, mod->ratevar_idx, alpha);
   }
 
   /* initialize rate-matrix parameters */
-  tm_rate_params_init(mod, params, params_idx, kappa);
+  tm_rate_params_init(mod, params, mod->ratematrix_idx, kappa);
 
+  if (mod->alt_subst_mods != NULL) {
+    AltSubstMod *altmod;
+    subst_mod_type tempmod = mod->subst_mod;
+    int j;
+    for (i = 0; i<lst_size(mod->alt_subst_mods); i++) {
+      altmod = lst_get_ptr(mod->alt_subst_mods, i);
+      mod->subst_mod = altmod->subst_mod;
+      tm_rate_params_init(mod, params, altmod->ratematrix_idx, kappa);
+      
+      if (mod->backgd_freqs == NULL) {
+	for (j=0; j<alph_size; j++)
+	  vec_set(params, altmod->backgd_idx+j, 1.0/(double)alph_size);
+      }
+      else {
+	for (j=0; j<alph_size; j++)
+	  vec_set(params, altmod->backgd_idx+j, vec_get(mod->backgd_freqs, j));
+      }
+    }
+    mod->subst_mod = tempmod;
+  }
   return params;
 }
+
 
 /* initializes branch lengths and rate matrix parameters
    randomly; can be used multiple times to ensure the MLE is real */
 Vector *tm_params_init_random(TreeModel *mod) {
-  int i, params_idx = 0;
+  int i;
   Vector *params = vec_new(tm_get_nparams(mod));
   int nbranches = tm_get_nbranchlenparams(mod);
   int nratematparams = tm_get_nratematparams(mod);
@@ -1019,9 +1496,14 @@ Vector *tm_params_init_random(TreeModel *mod) {
          mod->estimate_branchlens == TM_BRANCHLENS_ALL);
 
   srandom(time(NULL));
+
+  tm_setup_params(mod);
+  
+  vec_set(params, mod->scale_idx, 1.0);
+  vec_set(params, mod->scale_idx+1, 1.0);
   
   for (i = 0; i < nbranches; i++)
-    vec_set(params, params_idx++, 
+    vec_set(params, mod->bl_idx+i, 
                    0.01 + random() * (0.5 - 0.01) / RAND_MAX);
                                 /* we'll use the interval from 0.01 to 0.5 */
 
@@ -1029,27 +1511,42 @@ Vector *tm_params_init_random(TreeModel *mod) {
     if (mod->empirical_rates) { /* empirical rate model (category weights) */
       double val, sum = 0;
       for (i = 0; i < mod->nratecats; i++) {
-        vec_set(params, params_idx + i, 
+        vec_set(params, mod->ratevar_idx + i, 
                        val = 0.1 + random() * (1 - 0.5) / RAND_MAX);
                                 /* we'll use the interval from 0.1 to 1 */
         sum += val;
       }
       for (i = 0; i < mod->nratecats; i++) /* normalize */
-        vec_set(params, params_idx + i, 
-                       vec_get(params, params_idx + i) / sum);
-      params_idx += mod->nratecats;
+        vec_set(params, mod->ratevar_idx+i, 
+                       vec_get(params, mod->ratevar_idx + i) / sum);
     }
 
     else                        /* discrete gamma (alpha) */                       
-      vec_set(params, params_idx++, 
+      vec_set(params, mod->ratevar_idx, 
                      0.5 + random() * (10 - 0.5) / RAND_MAX);
                                 /* we'll use the interval from 0.5 to 10 */
   }
 
   for (i = 0; i < nratematparams; i++) 
-    vec_set(params, params_idx++, 
+    vec_set(params, mod->ratematrix_idx+i, 
                    0.1 + random() * (5 - 0.1) / RAND_MAX);
                                 /* we'll use the interval from 0.1 to 5 */
+
+  if (mod->alt_subst_mods != NULL) {
+    AltSubstMod *altmod;
+    subst_mod_type temp_mod = mod->subst_mod;
+    int j;
+    for (j=0; j<lst_size(mod->alt_subst_mods); j++) {
+      altmod = lst_get_ptr(mod->alt_subst_mods, j);
+      mod->subst_mod = altmod->subst_mod;
+      nratematparams = tm_get_nratematparams(mod);
+      for (i=0; i<nratematparams; i++)
+	vec_set(params, altmod->ratematrix_idx+i, 0.1 + 
+		random()*(5-0.1)/RAND_MAX);
+      //don't worry about backgd_freq since it is not estimated
+    }
+    mod->subst_mod = temp_mod;
+  }
 
   return params;
 }
@@ -1064,48 +1561,64 @@ Vector *tm_params_new_init_from_model(TreeModel *mod) {
 
 void tm_params_init_from_model(TreeModel *mod, Vector *params, 
                                int start_idx) {
-  int params_idx = start_idx, nodeidx, j;
+  int params_idx = start_idx, nodeidx, j, i;
   List *traversal;
   TreeNode *n;
 
-  if (mod->estimate_branchlens == TM_SCALE_ONLY) {
-    vec_set(params, params_idx++, mod->scale); 
-    if (mod->subtree_root != NULL) /* estimating subtree scale */
-      vec_set(params, params_idx++, mod->scale_sub);
-  }
-  else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
-    traversal = tr_preorder(mod->tree);
-    for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
-      n = lst_get_ptr(traversal, nodeidx);
-      if (n->parent == NULL) continue;
+  tm_setup_params(mod);
 
-      /* Note: if the model is reversible, then the first parameter is
-         the sum of the lengths of the two branches from the root */
-      if (n == mod->tree->lchild && tm_is_reversible(mod->subst_mod))
-        vec_set(params, params_idx++, n->dparent*2);
-      else if (n != mod->tree->rchild || !tm_is_reversible(mod->subst_mod))
-        vec_set(params, params_idx++, n->dparent);
-    }
-  }
+  vec_set(params, mod->scale_idx, mod->scale);
+  vec_set(params, mod->scale_idx+1, mod->scale_sub);
+  traversal = tr_preorder(mod->tree);
+  i=0;
+  for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
+    n = lst_get_ptr(traversal, nodeidx);
+    if (n->parent == NULL) continue;
 
-  /* if estimating backgd, next params are backgd freqs */
-  if (mod->estimate_backgd) 
-    for (j = 0; j < mod->backgd_freqs->size; j++) 
-      vec_set(params, params_idx++, 
-                     vec_get(mod->backgd_freqs, j));
+    /* Note: if the model is reversible, then the distances from root
+       to lchild equals distance from root to rchild.  Setting each to
+       average distance as a convention.
+    */
+    if ((n == mod->tree->lchild || n == mod->tree->rchild) && 
+	tm_is_reversible(mod->subst_mod)) 
+      vec_set(params, mod->bl_idx+i, (mod->tree->lchild->dparent +
+				      mod->tree->rchild->dparent)/2.0);
+    else vec_set(params, mod->bl_idx+i, n->dparent);
+    i++;
+  }
+  if (mod->backgd_freqs != NULL) {
+    for (i=0; i<mod->backgd_freqs->size; i++)
+      vec_set(params, mod->backgd_idx+i, vec_get(mod->backgd_freqs, i));
+  }
 
   /* next parameters are for rate variation */
   if (mod->nratecats > 1 || mod->alpha < 0) {
     if (mod->empirical_rates) 
       for (j = 0; j < mod->nratecats; j++)
-        vec_set(params, params_idx++, mod->freqK[j]);
+        vec_set(params, mod->ratevar_idx+j, mod->freqK[j]);
     else                        /* discrete gamma model */
-      vec_set(params, params_idx++, mod->alpha);
+      vec_set(params, mod->ratevar_idx, mod->alpha);
   }
 
   /* initialize rate-matrix parameters */
-  if (mod->estimate_ratemat)
+  //  if (mod->estimate_ratemat)
     tm_rate_params_init_from_model(mod, params, params_idx);
+
+  /* Now initialize alt_models */
+  if (mod->alt_subst_mods != NULL) {
+    subst_mod_type tempmod = mod->subst_mod;
+    AltSubstMod *altmod;
+    for (j=0; j<lst_size(mod->alt_subst_mods); j++) {
+      altmod = lst_get_ptr(mod->alt_subst_mods, j);
+      mod->subst_mod = altmod->subst_mod;
+      tm_rate_params_init_from_model(mod, params, altmod->ratematrix_idx);
+      if (mod->backgd_freqs != NULL)
+	for (i=0; i<mod->backgd_freqs->size; i++)
+	  vec_set(params, altmod->backgd_idx+i, vec_get(mod->backgd_freqs, i));
+    }
+    mod->subst_mod = tempmod;
+  }
+
 }
 
 /* Given a codon model, create and return the induced amino acid model */
@@ -1163,16 +1676,36 @@ TreeModel *tm_induced_aa(TreeModel *codon_mod) {
 /* return number of parameters for specified TreeModel (based on
    number of taxa and substitution model) */
 int tm_get_nparams(TreeModel *mod) {
+  int rv, neqfreq, nummod=1;
+  
+  /*old code:
   return (tm_get_nbranchlenparams(mod) + tm_get_neqfreqparams(mod) + 
-          tm_get_nratevarparams(mod) + tm_get_nratematparams(mod));
+          tm_get_nratevarparams(mod) + tm_get_nratematparams(mod));    
+   */
+  
+  //2 for scale and subtree scale, subtract one for root
+  rv = 2 + mod->tree->nnodes - 1 + tm_get_nratevarparams(mod) + 
+    tm_get_nratematparams(mod);
+  neqfreq = tm_get_neqfreqparams(mod);
+  if (mod->alt_subst_mods != NULL) {
+    subst_mod_type temp_mod = mod->subst_mod;
+    AltSubstMod *altmod;
+    int i;
+    for (i=0; i<lst_size(mod->alt_subst_mods); i++) {
+      altmod = lst_get_ptr(mod->alt_subst_mods, i);
+      mod->subst_mod = altmod->subst_mod;
+      rv += tm_get_nratematparams(mod);
+      nummod++;
+    }
+    mod->subst_mod = temp_mod;
+  }
+  rv += nummod*neqfreq;
+  return rv;
 }
 
 int tm_get_neqfreqparams(TreeModel *mod) {
-  if (mod->estimate_backgd) {
-    if (mod->backgd_freqs == NULL) return strlen(mod->rate_matrix->states);
-    else return mod->backgd_freqs->size;
-  }
-  return 0;
+  if (mod->backgd_freqs == NULL) return strlen(mod->rate_matrix->states);
+  return mod->backgd_freqs->size;
 }
 
 int tm_get_nratevarparams(TreeModel *mod) {
@@ -1190,6 +1723,9 @@ int tm_get_nratevarparams(TreeModel *mod) {
 /** Return number of branch length params */
 int tm_get_nbranchlenparams(TreeModel *mod) {
   int retval;
+  return mod->tree->nnodes - 1;
+
+
   if (mod->estimate_branchlens == TM_BRANCHLENS_NONE) return 0;
   else if (mod->estimate_branchlens == TM_SCALE_ONLY) {
     if (mod->subtree_root == NULL) return 1;
@@ -1236,10 +1772,7 @@ void tm_prune(TreeModel *mod,   /**< TreeModel whose tree is to be pruned  */
   for (i = 0; i < msa->nseqs; i++)
     lst_push_ptr(names, str_new_charstr(msa->names[i]));
 
-  tm_free_rmp(mod);             /* necessary because parameter indices
-                                   can change */
   tr_prune(&mod->tree, names, TRUE);
-  tm_init_rmp(mod);
 
   if (mod->tree == NULL)
     return;                     /* whole tree pruned away; special case */
@@ -1251,6 +1784,12 @@ void tm_prune(TreeModel *mod,   /**< TreeModel whose tree is to be pruned  */
         if (mod->P[i][j] != NULL) mm_free(mod->P[i][j]);
       free(mod->P[i]);
     }
+  }
+
+  /* necessary because parameter indices can change */
+  if (mod->rate_matrix_param_row != NULL) {
+    tm_free_rmp(mod);
+    tm_init_rmp(mod);
   }
 }
 
@@ -1326,7 +1865,16 @@ AltSubstMod *tm_new_alt_subst_mod(subst_mod_type subst_mod,
 }
 
 void tm_free_alt_subst_mod(AltSubstMod *am) {
-  vec_free(am->backgd_freqs);
-  mm_free(am->rate_matrix);
+  int i;
+  if (am->backgd_freqs != NULL)
+    vec_free(am->backgd_freqs);
+  if (am->rate_matrix != NULL)
+    mm_free(am->rate_matrix);
+  if (am->param_list != NULL) {
+    for (i = 0; i < lst_size(am->param_list); i++) 
+      str_free(lst_get_ptr(am->param_list, i));
+    lst_free(am->param_list);
+  }
+  str_free(am->nodename);
   free(am);
 }

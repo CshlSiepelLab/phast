@@ -882,54 +882,51 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
 }
 
 /* Special-purpose unpack function, adapted from tm_unpack_params */
-void unpack_params_mod(TreeModel *mod, Vector *params) {
+void unpack_params_mod(TreeModel *mod, Vector *params_in) {
   TreeNode *n;
   int assigned = 0, nodeidx, i;
   List *traversal;
+  Vector *params = mod->all_params;
 
-  assert(!mod->estimate_backgd && !mod->empirical_rates);
+  assert(!mod->estimate_backgd && !mod->empirical_rates && 
+	 mod->alt_subst_mods==NULL);
 
   /* check parameter values */
-  for (i = 0; i < params->size; i++) {
-    double mu = vec_get(params, i);
+  for (i = 0; i < params_in->size; i++) {
+    double mu = vec_get(params_in, i);
     if (mu < 0 && abs(mu) < TM_IMAG_EPS) /* consider close enough to 0 */
-      vec_set(params, i, mu=0);
+      vec_set(params_in, i, mu=0);
     if (mu < 0) die("ERROR: parameter %d has become negative (%f).\n", i, mu);
     if (!finite(mu)) die("ERROR: parameter %d is no longer finite (%f).\n", i, mu);
   }
-  i = 0;
+  for (i = 0; i<params->size; i++) {
+    if (mod->param_map[i] >= 0)
+      vec_set(params, mod->param_map[i],
+	      vec_get(params_in, mod->param_map[i]));
+  }
 
   if (mod->estimate_branchlens == TM_SCALE_ONLY) 
-    mod->scale = vec_get(params, i++);
+    mod->scale = vec_get(params, mod->scale_idx);
   else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
     traversal = tr_preorder(mod->tree);
+    i=0;
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
       n = lst_get_ptr(traversal, nodeidx);
-
-      if (n->parent != NULL) {
-        if ((n == mod->tree->lchild || n == mod->tree->rchild) && 
-            tm_is_reversible(mod->subst_mod)) {
-          n->dparent = vec_get(params, 0)/2;
-          if (!assigned) {
-            i++;     /* only increment the first time */
-            assigned = 1;
-          }
-        }
-        else if (n->id == mod->root_leaf_id) 
-          n->dparent = 0;
-        else 
-          n->dparent = vec_get(params, i++);
-      }
+      if (n->parent == NULL) continue;
+      n->dparent = vec_get(params, mod->bl_idx+i);
+      i++;
+      if (n->id == mod->root_leaf_id)
+	n->dparent = 0.0;
     }
   }
 
   /* next parameters are for rate variation */
   if (mod->nratecats > 1) 
-    mod->alpha = vec_get(params, i++);
+    mod->alpha = vec_get(params, mod->ratevar_idx);
   else i++;                     /* there's always a placeholder
                                    here */
 
-  tm_set_rate_matrix(mod, params, i);
+  tm_set_rate_matrix(mod, params, mod->ratematrix_idx);
 
   /* diagonalize, if necessary */
   if (mod->subst_mod != JC69 && mod->subst_mod != F81)
@@ -993,11 +990,15 @@ void reestimate_trees(void **models, int nmodels, void *data,
   tm_params_init_from_model(phmm->mods[1], params, 0); /* unscaled branch lens */
 
   /* special initialization of rate-variation parameters and rho */
-  vec_set(params, tm_get_nbranchlenparams(phmm->mods[0]), 
+  vec_set(params, phmm->mods[1]->ratevar_idx,
+	  //  vec_set(params, tm_get_nbranchlenparams(phmm->mods[0]), 
                  phmm->mods[0]->nratecats > 1 ? phmm->mods[0]->alpha : 0);
   vec_set(params, params->size - 2,  
                  phmm->mods[1]->nratecats > 1 ? phmm->mods[1]->alpha : 0);
   vec_set(params, params->size - 1, phmm->em_data->rho);
+  params->param_map = realloc(params->size*sizeof(int));
+  npar = 0 ;
+  //  for (i=0; i<
 
   lower_bounds = vec_new(params->size);
   vec_zero(lower_bounds);
