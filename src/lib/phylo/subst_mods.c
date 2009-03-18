@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: subst_mods.c,v 1.12.2.1 2009-03-18 19:35:57 mt269 Exp $ */
+/* $Id: subst_mods.c,v 1.12.2.2 2009-03-18 20:59:56 mt269 Exp $ */
 
 /* Handling of specific substitution models.  This needs reworking:
    was originally set up for small number of models but has become
@@ -1347,7 +1347,7 @@ void tm_init_mat_REV(TreeModel *mod, Vector *params, int parm_idx,
 
 void tm_init_mat_REV_BGC(TreeModel *mod, Vector *params, int parm_idx,
 			 double kappa) {
-  vec_set(params, parm_idx, 2.0);  //init BGC to 2?
+  vec_set(params, parm_idx, 2.0);  //init BGC to 1?
   tm_init_mat_REV(mod, params, parm_idx+1, kappa);
 }
 
