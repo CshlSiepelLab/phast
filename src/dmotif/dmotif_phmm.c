@@ -1424,7 +1424,7 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
   GFF_Feature *f;
   MSA *msa; 
   /* MSA *sub_msa; */
-  Regex *rc_re = str_re_new("[A-Za-z0-9.]+_rc");
+  Regex *rc_re = str_re_new("_rc");
 
   key_string = str_new_charstr(key);
   attributes = str_new(STR_LONG_LEN);
@@ -1513,7 +1513,7 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
      with reverese complemented sequences. Also adjust coordinates if we're
      dealing with a feature on the - strand */
   tmp_str = str_new_charstr(seqname);
-  if (str_re_match(tmp_str, rc_re, NULL, 1) >= 0) {
+  if (str_re_search(tmp_str, rc_re, tmp_str->length-3, NULL, 1) >= 0) {
     sprintf(strand, "%s", "-");
     msa = lst_get_ptr(blocks->source_msas, seqnum);
     width = end - start;
@@ -2605,7 +2605,7 @@ void dm_free(DMotifPhyloHmm *dm) {
 
 List* dms_read_tmp_from_file(FILE *tmp_lst_f) {
   Regex *nfiles_re = str_re_new("#[[:space:]]*NFILES[[:space:]]*=[[:space:]]*([0-9]+)");
-  int i, nfiles;
+  int i, nfiles = -1;
   String *line = str_new(STR_MED_LEN);
   List *matches = lst_new_ptr(2), *ret;
 
@@ -2618,6 +2618,8 @@ List* dms_read_tmp_from_file(FILE *tmp_lst_f) {
     if (str_re_match(line, nfiles_re, matches, 1) >= 0) {
       str_as_int(lst_get_ptr(matches, 1), &nfiles);
       ret = lst_new_ptr(nfiles);
+    } else if (nfiles == -1) {
+      die("ERROR: Bad or mising header in temp file list!\n");
     } else {
       lst_push_ptr(ret, (void*)str_dup(line));
       i++;
