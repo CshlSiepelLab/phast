@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_em.c,v 1.8 2008-11-16 21:59:48 acs Exp $ */
+/* $Id: fit_em.c,v 1.8.2.1 2009-03-19 17:19:07 mt269 Exp $ */
 
 /* Functions for fitting tree models by EM */
 
@@ -55,10 +55,15 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
   FILE *F;
   void (*grad_func)(Vector*, Vector*, void*, Vector*, 
                     Vector*);
-  Matrix *H = mat_new(params->size, params->size);
-  opt_precision_type bfgs_prec = OPT_LOW_PREC;
-                                /* will be adjusted as necessary */
+  Matrix *H; // = mat_new(params->size, params->size);
+  opt_precision_type bfgs_prec = OPT_LOW_PREC; /* will be adjusted as
+						  necessary */
+  Vector *optpar;
+  int numpar=0;
 
+  if (mod->alt_subst_mods != NULL) 
+    die("ERROR: cannot use EM with lineage-specific models (alt-mod)\n");
+  
   /* obtain sufficient statistics for MSA, if necessary */
   if (msa->ss == NULL) {
     assert(msa->seqs != NULL);
@@ -71,6 +76,8 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
       vec_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
     else
       msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order + 1, cat);
+    for (i=0; i<mod->backgd_freqs->size; i++)
+      vec_set(params, mod->backgd_idx+i, vec_get(mod->backgd_freqs, i));
   }
 
   if (mod->tree == NULL) {      /* weight matrix */
@@ -78,6 +85,18 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
       log(2);
     return 0;
   }
+
+  for (i=0; i<params->size; i++) {
+    if (mod->param_map[i] >= numpar)
+      numpar = mod->param_map[i]+1;
+  }
+  optpar = vec_new(numpar);
+  for (i=0; i<params->size; i++)
+    if (mod->param_map[i] >= 0)
+      vec_set(optpar, mod->param_map[i], vec_get(params, i));
+  H = mat_new(numpar, numpar);
+  vec_copy(mod->all_params, params);
+
 
   /* if using an expensive model, set up filename for temporary files */
   if (mod->order >= 2) {
@@ -99,15 +118,15 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
   mm_set_eigentype(mod->rate_matrix, COMPLEX);
 
   /* most params have lower bound of zero and no upper bound */
-  lower_bounds = vec_new(params->size);
+  lower_bounds = vec_new(optpar->size);
   vec_zero(lower_bounds);
   upper_bounds = NULL;
 
   /* however, in this case we don't want the eq freqs to go to zero */
   if (mod->estimate_backgd) {
-    int offset = tm_get_nbranchlenparams(mod);
     for (i = 0; i < mod->backgd_freqs->size; i++)
-      vec_set(lower_bounds, i + offset, 0.001);
+      if (mod->param_map[mod->backgd_idx+i] >= 0)
+	vec_set(lower_bounds, mod->param_map[mod->backgd_idx + i], 0.001);
   }
 
   /* in the case of rate variation, start by ignoring then reinstate
@@ -138,7 +157,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
   for (it = 1; ; it++) {
     double tmp;
 
-    tm_unpack_params(mod, params, -1);
+    tm_unpack_params(mod, optpar, -1);
     
     /* if appropriate, dump intermediate version of model for inspection */
     if (mod->order >= 2) {
@@ -200,8 +219,10 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
        get it right.  Probably try with U2S, R2, U2. */
     
 
-    opt_bfgs(tm_partial_ll_wrapper, params, (void*)mod, &tmp, lower_bounds,
+    opt_bfgs(tm_partial_ll_wrapper, optpar, (void*)mod, &tmp, lower_bounds,
              upper_bounds, logf, grad_func, bfgs_prec, H); 
+    tm_unpack_params(mod, optpar, -1);
+    vec_copy(params, mod->all_params);
 
     /* in case of empirical rate variation, also reestimate mixing
        proportions (rate weights).  The m.l.e. for these is a simple
@@ -209,12 +230,11 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
        rate constants (the maximization step of EM decomposes into two
        separate problems) */
     if (mod->nratecats > 1 && mod->empirical_rates) {
-      int offset = tm_get_nbranchlenparams(mod) + tm_get_neqfreqparams(mod);
       double sum = 0;
       for (i = 0; i < mod->nratecats; i++) 
         sum += mod->tree_posteriors->rcat_expected_nsites[i];
       for (i = 0; i < mod->nratecats; i++) 
-        vec_set(params, offset + i, 
+        vec_set(params, mod->ratevar_idx + i, 
                        mod->tree_posteriors->rcat_expected_nsites[i] / sum);
       /* NOTE: currently, the rate weights are part of the parameter
          vector optimized by BFGS, but are given partial derivatives
@@ -273,6 +293,8 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
   vec_free(lower_bounds);
   tl_free_tree_posteriors(mod, msa, mod->tree_posteriors);
   mod->tree_posteriors = NULL;
+  mat_free(H);
+  vec_free(optpar);
 
   return retval;
 }
@@ -346,7 +368,8 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
   int nneighbors = ((alph_size-1) * ndigits + 1);
   int neighbors[nstates][nneighbors];
   int mark_col[nstates];
-  int i, j, k, l, m, rcat, params_idx, node, lidx, lidx2, orig_size, assigned;
+  int i, j, k, l, m, rcat, params_idx, node, lidx, lidx2, orig_size;
+  int grad_idx, idx, numpar;
   TreeNode *n;
   List *traversal;
   double t;
@@ -434,38 +457,15 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
   traversal = tr_preorder(mod->tree); /* branch-length parameters
                                          correspond to pre-order
                                          traversal of tree */
-  params_idx = 0;
-  assigned = 0;
+  idx = 0;
   for (j = 0; j < lst_size(traversal); j++) {
-    double unrooted_factor;
-    int grad_idx;
 
     n = lst_get_ptr(traversal, j);
-    if (n == mod->tree || n->id == mod->root_leaf_id) continue;
+    if (n == mod->tree) continue;
+    params_idx = mod->bl_idx + idx++;
+    grad_idx = mod->param_map[params_idx];
+    if (grad_idx < 0) continue;
 
-    /* if the tree is unrooted, then the the branches descending from
-       the (virtual) root are governed by a single parameter, and
-       there is a hidden factor of 1/2 to consider in the
-       derivative */
-    if (tm_is_reversible(mod->subst_mod) && 
-        (n == mod->tree->lchild || n == mod->tree->rchild)) {
-      grad_idx = 0;
-      unrooted_factor = 0.5;
-      if (!assigned) { params_idx++; assigned = 1; }
-    }
-    else {
-      unrooted_factor = 1.0;
-      grad_idx = params_idx++;
-    }
-
-    /* NOTE: I think the contortions above are provably equivalent to
-       the simpler strategy of ignoring one of the two branches from
-       the root and treating the other as an ordinary branch, because
-       with a reversible process, the expected numbers of
-       substitutions on the two branches have to be equal, and 2 * 1/2
-       = 1.  This was how I had originally implemented things,
-       without understanding the subtleties ... */
- 
     for (rcat = 0; rcat < mod->nratecats; rcat++) {
       P = mod->P[n->id][rcat];
       t = n->dparent * mod->rK[rcat]; /* the factor of 1/2 is taken
@@ -475,7 +475,7 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
       /* main diagonal of matrix of eigenvalues * exponentials of
          eigenvalues for branch length t*/
       for (i = 0; i < nstates; i++)
-        diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), zvec_get(Q->evals_z, i)), mod->rK[rcat] * unrooted_factor);
+        diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), zvec_get(Q->evals_z, i)), mod->rK[rcat]);
 
       /* save time by only using complex numbers in the inner loop if
          necessary (each complex mult equivalent to four real mults and
@@ -541,6 +541,8 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
 
   /* compute partial deriv for alpha (if dgamma) */
   if (mod->nratecats > 1 && !mod->empirical_rates) {
+    grad_idx = mod->param_map[mod->ratevar_idx];
+    assert(grad_idx >= 0);
     /* for numerical est. of derivatives of rate consts wrt alpha */
     DiscreteGamma(freqK, rK_tweak, mod->alpha + DERIV_EPSILON, 
                   mod->alpha + DERIV_EPSILON, mod->nratecats, 0);
@@ -550,8 +552,12 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
 
       for (j = 0; j < mod->tree->nnodes; j++) {
         n = lst_get_ptr(mod->tree->nodes, j);
-        if (n->parent == NULL || n->id == mod->root_leaf_id) continue;
+        if (n->parent == NULL) continue;
         t = n->dparent * mod->rK[rcat];
+	if (n->id == mod->root_leaf_id) {
+	  assert(t == 0.0);
+	  continue;
+	}
         P = mod->P[n->id][rcat];
 
         for (i = 0; i < nstates; i++)
@@ -577,10 +583,10 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
               }
               else dp_da_div_p = dp_da / p;
 
-              vec_set(grad, params_idx, 
-                             vec_get(grad, params_idx) +
-                             dp_da_div_p * 
-                             mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]); 
+              vec_set(grad, grad_idx, 
+		      vec_get(grad, grad_idx) +
+		      dp_da_div_p * 
+		      mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]); 
             }
           }
         }
@@ -603,7 +609,7 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
               }
               else dp_da_div_p = dp_da.x / p;
 
-              vec_set(grad, params_idx, vec_get(grad, params_idx) +
+              vec_set(grad, grad_idx, vec_get(grad, grad_idx) +
 		      dp_da_div_p * 
 		      mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]); 
             }
@@ -611,7 +617,6 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
         }
       }
     }
-    params_idx++;
   }
   else if (mod->empirical_rates && (mod->nratecats > 1 || mod->alpha < 0)) {
                                 /* empirical rates -- gradient is zero
@@ -619,12 +624,18 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
                                    incorporated into the post
                                    probs) */
     int nrc = mod->nratecats > 1 ? mod->nratecats : -mod->alpha;
-    for (; nrc >= 1; nrc--) vec_set(grad, params_idx++, 0);
+    for (; nrc >= 1; nrc--) {
+      grad_idx = mod->param_map[mod->ratevar_idx + nrc - 1];
+      if (grad_idx >= 0)
+	vec_set(grad, grad_idx, 0);
+    }
   }
-  else if (mod->alpha < 0)      /* dgamma temporarily disabled -- grad
+  else if (mod->alpha < 0) {     /* dgamma temporarily disabled -- grad
                                    for alpha is zero */
-    vec_set(grad, params_idx++, 0);
-
+    grad_idx = mod->param_map[mod->ratevar_idx];
+    if (grad_idx >= 0)
+      vec_set(grad, grad_idx, 0);
+  }
 
   /* compute partial derivs for rate matrix params */
 
@@ -632,8 +643,11 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
          /* mod->subst_mod != HKY2 &&  */mod->subst_mod != UNDEF_MOD); 
                                 /* FIXME: temporary */
 
-  for (; params_idx < params->size; params_idx++) {
-
+  numpar = tm_get_nratematparams(mod);
+  for (idx=0; idx<numpar; idx++) {
+    params_idx = mod->ratematrix_idx + idx;
+    grad_idx = mod->param_map[params_idx];
+    if (grad_idx < 0) continue;
     /* zero all matrices */
     for (i = 0; i < nstates; i++)
       for (j = 0; j < nstates; j++)
@@ -766,11 +780,15 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
       for (node = 0; node < mod->tree->nnodes; node++) {
         double taylor2, taylor3, taylor4;
 
-        if (node == mod->tree->id || node == mod->root_leaf_id)
+        if (node == mod->tree->id)
           continue; 
-
         n = lst_get_ptr(mod->tree->nodes, node);
         t = n->dparent * mod->rK[rcat];
+	if (n->id == mod->root_leaf_id) {
+	  assert(t==0.0);
+	  continue;
+	}
+
         P = mod->P[n->id][rcat];
 
         /* this allows for fewer mults in intensive loop below */
@@ -796,9 +814,9 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
             }
             else partial_p_div_p = partial_p / p;
 
-            vec_set(grad, params_idx, vec_get(grad, params_idx) + 
-                           partial_p_div_p * 
-                           mod->tree_posteriors->expected_nsubst_tot[rcat][i][j][node]);
+            vec_set(grad, grad_idx, vec_get(grad, grad_idx) + 
+		    partial_p_div_p * 
+		    mod->tree_posteriors->expected_nsubst_tot[rcat][i][j][node]);
           }
         }
       }
@@ -818,7 +836,8 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
   TreeModel *mod = (TreeModel*)data;
 /*   int alph_size = strlen(mod->rate_matrix->states); */
   int nstates = mod->rate_matrix->size;
-  int i, j, k, l, m, rcat, params_idx, node, lidx, orig_size, assigned;
+  int i, j, k, l, m, rcat, params_idx, node, lidx, orig_size;
+  int idx, grad_idx, numpar;
   TreeNode *n;
   MarkovMatrix *P, *Q;
   List *traversal;
@@ -857,29 +876,15 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
   traversal = tr_preorder(mod->tree); /* branch-length parameters
                                          correspond to pre-order
                                          traversal of tree */
-  params_idx = 0;
-  assigned = 0;
+  idx = 0;
   for (j = 0; j < lst_size(traversal); j++) {
-    double unrooted_factor;
-    int grad_idx;
 
     n = lst_get_ptr(traversal, j);
-    if (n == mod->tree || n->id == mod->root_leaf_id) continue;
-
-    /* if the tree is unrooted, then the the branches descending from
-       the (virtual) root are governed by a single parameter, and
-       there is a hidden factor of 1/2 to consider in the
-       derivative */
-    if (tm_is_reversible(mod->subst_mod) && 
-        (n == mod->tree->lchild || n == mod->tree->rchild)) {
-      grad_idx = 0;
-      unrooted_factor = 0.5;
-      if (!assigned) { params_idx++; assigned = 1; }
-    }
-    else {
-      unrooted_factor = 1.0;
-      grad_idx = params_idx++;
-    }
+    if (n == mod->tree) continue;
+    params_idx = mod->bl_idx + idx++;
+    grad_idx = mod->param_map[params_idx];
+    if (grad_idx < 0) continue;
+    assert(n->id != mod->root_leaf_id);
 
     for (rcat = 0; rcat < mod->nratecats; rcat++) {
       P = mod->P[n->id][rcat];
@@ -890,7 +895,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
       /* main diagonal of matrix of eigenvalues * exponentials of
          eigenvalues for branch length t*/
       for (i = 0; i < nstates; i++)
-        diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), zvec_get(Q->evals_z, i)), mod->rK[rcat] * unrooted_factor);
+        diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), zvec_get(Q->evals_z, i)), mod->rK[rcat]);
 
       /* save time by only using complex numbers in the inner loop if
          necessary (each complex mult equivalent to four real mults and
@@ -918,8 +923,8 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
             else dp_dt_div_p = dp_dt / p;
           
             vec_set(grad, grad_idx, vec_get(grad, grad_idx) +
-                           dp_dt_div_p *
-                           mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]);
+		    dp_dt_div_p *
+		    mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]);
 
           }
         }
@@ -955,77 +960,82 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
 
   /* compute partial deriv for alpha (if dgamma) */
   if (mod->nratecats > 1 && !mod->empirical_rates) {
-    /* for numerical est. of derivatives of rate consts wrt alpha */
-    DiscreteGamma(freqK, rK_tweak, mod->alpha + DERIV_EPSILON, 
-                  mod->alpha + DERIV_EPSILON, mod->nratecats, 0);
-
-    for (rcat = 0; rcat < mod->nratecats; rcat++) {
-      double dr_da = (rK_tweak[rcat] - mod->rK[rcat]) / DERIV_EPSILON;
-
-      for (j = 0; j < mod->tree->nnodes; j++) {
-        n = lst_get_ptr(mod->tree->nodes, j);
-        if (n->parent == NULL || n->id == mod->root_leaf_id) continue;
-        t = n->dparent * mod->rK[rcat];
-        P = mod->P[n->id][rcat];
-
-        for (i = 0; i < nstates; i++)
-          diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), zvec_get(Q->evals_z, i)), n->dparent * dr_da);
-
-        /* only use complex numbers if necessary (as above) */
-        if (tm_is_reversible(mod->subst_mod)) {
-          for (k = 0; k < nstates; k++) {
-            for (l = 0; l < nstates; l++) {
-              double p = mm_get(P, k, l);
-              double dp_da = 0; 
-              double dp_da_div_p;
-
-              for (i = 0; i < nstates; i++) 
-                dp_da += 
-                  (zmat_get(Q->evec_matrix_z, k, i)).x * diag[i].x *
-                  (zmat_get(Q->evec_matrix_inv_z, i, l)).x;
- 
-              if (p == 0) {
-                if (dp_da == 0) dp_da_div_p = 0;
-                else if (dp_da < 0) dp_da_div_p = NEGINFTY;
-                else dp_da_div_p = INFTY;
-              }
-              else dp_da_div_p = dp_da / p;
-
-              vec_set(grad, params_idx, 
-                             vec_get(grad, params_idx) +
-                             dp_da_div_p * 
-                             mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]); 
-            }
-          }
-        }
-        else {                  /* non-reversible model -- use complex
-                                   numbers */
-          for (k = 0; k < nstates; k++) {
-            for (l = 0; l < nstates; l++) {
-              double p = mm_get(P, k, l);
-              double dp_da_div_p;
-              Complex dp_da = z_set(0, 0);
-              for (i = 0; i < nstates; i++) 
-                dp_da = z_add(dp_da, z_mul(z_mul(zmat_get(Q->evec_matrix_z, k, i), diag[i]), zmat_get(Q->evec_matrix_inv_z, i, l)));
-
-              assert(fabs(dp_da.y) <= TM_IMAG_EPS);
-
-              if (p == 0) {
-                if (dp_da.x == 0) dp_da_div_p = 0;
-                else if (dp_da.x < 0) dp_da_div_p = NEGINFTY;
-                else dp_da_div_p = INFTY;
-              }
-              else dp_da_div_p = dp_da.x / p;
-
-              vec_set(grad, params_idx, vec_get(grad, params_idx) +
-                             dp_da_div_p * 
-                             mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]); 
-            }
-          }
-        }
+    grad_idx = mod->param_map[mod->ratevar_idx];
+    if (grad_idx >= 0) {
+      /* for numerical est. of derivatives of rate consts wrt alpha */
+      DiscreteGamma(freqK, rK_tweak, mod->alpha + DERIV_EPSILON, 
+		    mod->alpha + DERIV_EPSILON, mod->nratecats, 0);
+      
+      for (rcat = 0; rcat < mod->nratecats; rcat++) {
+	double dr_da = (rK_tweak[rcat] - mod->rK[rcat]) / DERIV_EPSILON;
+	for (j = 0; j < mod->tree->nnodes; j++) {
+	  n = lst_get_ptr(mod->tree->nodes, j);
+	  if (n->parent == NULL) continue;
+	  t = n->dparent * mod->rK[rcat];
+	  if (n->id == mod->root_leaf_id) {
+	    assert(t == 0.0);
+	    continue;
+	  }
+	  P = mod->P[n->id][rcat];
+	  
+	  for (i = 0; i < nstates; i++)
+	    diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), zvec_get(Q->evals_z, i)), n->dparent * dr_da);
+	  
+	  /* only use complex numbers if necessary (as above) */
+	  if (tm_is_reversible(mod->subst_mod)) {
+	    for (k = 0; k < nstates; k++) {
+	      for (l = 0; l < nstates; l++) {
+		double p = mm_get(P, k, l);
+		double dp_da = 0; 
+		double dp_da_div_p;
+		
+		for (i = 0; i < nstates; i++) 
+		  dp_da += 
+		    (zmat_get(Q->evec_matrix_z, k, i)).x * diag[i].x *
+		    (zmat_get(Q->evec_matrix_inv_z, i, l)).x;
+		
+		if (p == 0) {
+		  if (dp_da == 0) dp_da_div_p = 0;
+		  else if (dp_da < 0) dp_da_div_p = NEGINFTY;
+		  else dp_da_div_p = INFTY;
+		}
+		else dp_da_div_p = dp_da / p;
+		
+		vec_set(grad, grad_idx, 
+			vec_get(grad, grad_idx) +
+			dp_da_div_p * 
+			mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]); 
+	      }
+	    }
+	  }
+	  else {                  /* non-reversible model -- use complex
+				     numbers */
+	    for (k = 0; k < nstates; k++) {
+	      for (l = 0; l < nstates; l++) {
+		double p = mm_get(P, k, l);
+		double dp_da_div_p;
+		Complex dp_da = z_set(0, 0);
+		for (i = 0; i < nstates; i++) 
+		  dp_da = z_add(dp_da, z_mul(z_mul(zmat_get(Q->evec_matrix_z, k, i), diag[i]), zmat_get(Q->evec_matrix_inv_z, i, l)));
+		
+		assert(fabs(dp_da.y) <= TM_IMAG_EPS);
+		
+		if (p == 0) {
+		  if (dp_da.x == 0) dp_da_div_p = 0;
+		  else if (dp_da.x < 0) dp_da_div_p = NEGINFTY;
+		  else dp_da_div_p = INFTY;
+		}
+		else dp_da_div_p = dp_da.x / p;
+		
+		vec_set(grad, grad_idx, vec_get(grad, grad_idx) +
+			dp_da_div_p * 
+			mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]); 
+	      }
+	    }
+	  }
+	}
       }
     }
-    params_idx++;
   }
   else if (mod->empirical_rates && (mod->nratecats > 1 || mod->alpha < 0)) {
                                 /* empirical rates -- gradient is zero
@@ -1033,11 +1043,18 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
                                    incorporated into the post
                                    probs) */
     int nrc = mod->nratecats > 1 ? mod->nratecats : -mod->alpha;
-    for (; nrc >= 1; nrc--) vec_set(grad, params_idx++, 0);
+    for (; nrc >= 1; nrc--) {
+      grad_idx = mod->param_map[mod->ratevar_idx + nrc - 1];
+      if (grad_idx >= 0)
+	vec_set(grad, grad_idx, 0);
+    }
   }
-  else if (mod->alpha < 0)      /* dgamma temporarily disabled -- grad
-                                   for alpha is zero */
-    vec_set(grad, params_idx++, 0);
+  else if (mod->alpha < 0) {     /* dgamma temporarily disabled -- grad
+				    for alpha is zero */
+    grad_idx = mod->param_map[mod->ratevar_idx];
+    if (grad_idx >= 0)
+      vec_set(grad, grad_idx, 0);
+  }
 
   /* compute partial derivs for rate matrix params */
 
@@ -1045,7 +1062,11 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
          mod->subst_mod != UNDEF_MOD); 
                                 /* FIXME: temporary */
 
-  for (; params_idx < params->size; params_idx++) {
+  numpar = tm_get_nratematparams(mod);
+  for (idx=0; idx < numpar; idx++) {
+    params_idx = mod->ratematrix_idx + idx;
+    grad_idx = mod->param_map[params_idx];
+    if (grad_idx < 0) continue;
 
     for (i = 0; i < nstates; i++) {
       for (j = 0; j < nstates; j++) {
@@ -1108,11 +1129,15 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
 
     for (rcat = 0; rcat < mod->nratecats; rcat++) {
       for (node = 0; node < mod->tree->nnodes; node++) {
-        if (node == mod->tree->id || node == mod->root_leaf_id)
+        if (node == mod->tree->id)
           continue; 
 
         n = lst_get_ptr(mod->tree->nodes, node);
         t = n->dparent * mod->rK[rcat];
+	if (n->id == mod->root_leaf_id) {
+	  assert(t == 0.0);
+	  continue;
+	}
         P = mod->P[n->id][rcat];
 
         /* as above, it's worth it to have separate versions of the
@@ -1162,9 +1187,9 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
               }
               else partial_p_div_p = partial_p / p;
 
-              vec_set(grad, params_idx, vec_get(grad, params_idx) + 
-                             partial_p_div_p *
-                             mod->tree_posteriors->expected_nsubst_tot[rcat][i][j][node]);
+              vec_set(grad, grad_idx, vec_get(grad, grad_idx) + 
+		      partial_p_div_p *
+		      mod->tree_posteriors->expected_nsubst_tot[rcat][i][j][node]);
             }
           }
         }
@@ -1177,7 +1202,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
                 f[i][j] = z_mul_real(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), t);
               else
                 f[i][j] = z_div(z_sub(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), z_exp(z_mul_real(zvec_get(Q->evals_z, j), t))), z_sub(zvec_get(Q->evals_z, i), zvec_get(Q->evals_z, j)));
-          
+	      
             }
           }
 
@@ -1211,9 +1236,9 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
               }
               else partial_p_div_p = partial_p.x / p;
 
-              vec_set(grad, params_idx, vec_get(grad, params_idx) + 
-                             partial_p_div_p * 
-                             mod->tree_posteriors->expected_nsubst_tot[rcat][i][j][node]);
+              vec_set(grad, grad_idx, vec_get(grad, grad_idx) + 
+		      partial_p_div_p * 
+		      mod->tree_posteriors->expected_nsubst_tot[rcat][i][j][node]);
             }
           }
         }

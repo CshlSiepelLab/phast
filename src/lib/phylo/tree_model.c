@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: tree_model.c,v 1.41.2.1 2009-03-18 19:35:57 mt269 Exp $ */
+/* $Id: tree_model.c,v 1.41.2.2 2009-03-19 17:19:07 mt269 Exp $ */
 
 #include <tree_model.h>
 #include <subst_mods.h>
@@ -963,6 +963,8 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
       vec_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
     else
       msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order + 1, cat);
+    for (i=0; i<mod->backgd_freqs->size; i++)
+      vec_set(params, mod->backgd_idx+i, vec_get(mod->backgd_freqs, i));
   }
   if (mod->alt_subst_mods != NULL) {
     AltSubstMod *altmod;
@@ -1153,6 +1155,10 @@ void tm_setup_params(TreeModel *mod) {
     for (node_idx=0; node_idx < lst_size(traversal); node_idx++) {
       n = lst_get_ptr(traversal, node_idx);
       if (n->parent == NULL) continue;  //skip root
+      if (mod->root_leaf_id == node_idx) {
+	temp_idx++;
+	continue;  //don't optimize
+      }
       if ((n == mod->tree->lchild || n == mod->tree->rchild) &&
 	  isreversible) {
 	if (root_idx == -1) root_idx = opt_idx++;
@@ -1288,7 +1294,7 @@ void tm_unpack_params(TreeModel *mod, Vector *params_in, int idx_offset) {
   if (idx_offset == -1) idx_offset = 0;
 
   for (j=0; j<params->size; j++) {
-    if (mod->param_map [j] >= 0)
+    if (mod->param_map[j] >= 0)
       vec_set(params, j, vec_get(params_in, mod->param_map[j] + idx_offset));
   }
 
@@ -1322,11 +1328,6 @@ void tm_unpack_params(TreeModel *mod, Vector *params_in, int idx_offset) {
       DiscreteGamma(mod->freqK, mod->rK, mod->alpha, mod->alpha, 
                     mod->nratecats, 0); 
     }
-  }
-  else if (mod->alpha < 0) {    /* code to ignore rate variation temporarily */
-    if (mod->empirical_rates) i += -mod->alpha; 
-                                /* original nratecats is stored as -alpha */
-    else i++;
   }
 
   /* lineage-specific models */ 
@@ -1399,6 +1400,7 @@ double tm_scale_rate_matrix(TreeModel *mod) {
   return scale/(mod->order + 1);
 }
 
+
 /* scale a parameter vector according to a specified rate matrix scale
    factor.  Branch length params are multiplied by the specified factor
    and rate matrix params by its inverse */
@@ -1416,6 +1418,26 @@ void tm_scale_params(TreeModel *mod, Vector *params, double scale_factor) {
   for (i = np - nrm; i < np; i++) 
     vec_set(params, i, vec_get(params, i) / scale_factor);
 }
+
+
+void tm_init_rootleaf(TreeModel *mod, Vector *params) {
+  List *traversal = tr_preorder(mod->tree);
+  int idx=0, i;
+  TreeNode *n;
+  if (mod->root_leaf_id < 0) return;
+  for (i=0; i<lst_size(traversal); i++) {
+    n = lst_get_ptr(traversal, i);
+    if (n == mod->tree) continue;
+    if (n->id == mod->root_leaf_id) {
+      vec_set(params, mod->bl_idx + idx, 0.0);
+      break;
+    }
+    idx++;
+  }
+  assert(i < lst_size(traversal));
+  return;
+}
+  
 
 /* initializes all branch lengths to designated constant; initializes
    rate-matrix params using specified kappa; kappa ignored for JC69;
@@ -1435,8 +1457,9 @@ Vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
   vec_set(params, mod->scale_idx, 1.0);
   vec_set(params, mod->scale_idx+1, 1.0);
 
-  for (i = 0; i < nbranches; i++)
+  for (i = 0; i < nbranches; i++) 
     vec_set(params, mod->bl_idx+i, branchlen);
+  tm_init_rootleaf(mod, params);
 
   if (mod->backgd_freqs == NULL) {
     alph_size = strlen(mod->rate_matrix->states);
@@ -1506,6 +1529,7 @@ Vector *tm_params_init_random(TreeModel *mod) {
     vec_set(params, mod->bl_idx+i, 
                    0.01 + random() * (0.5 - 0.01) / RAND_MAX);
                                 /* we'll use the interval from 0.01 to 0.5 */
+  tm_init_rootleaf(mod, params);
 
   if (mod->nratecats > 1) {
     if (mod->empirical_rates) { /* empirical rate model (category weights) */
@@ -1586,6 +1610,8 @@ void tm_params_init_from_model(TreeModel *mod, Vector *params,
     else vec_set(params, mod->bl_idx+i, n->dparent);
     i++;
   }
+  tm_init_rootleaf(mod, params);
+
   if (mod->backgd_freqs != NULL) {
     for (i=0; i<mod->backgd_freqs->size; i++)
       vec_set(params, mod->backgd_idx+i, vec_get(mod->backgd_freqs, i));
@@ -1733,7 +1759,6 @@ int tm_get_nbranchlenparams(TreeModel *mod) {
   }
   retval = tm_is_reversible(mod->subst_mod) ? mod->tree->nnodes - 2 :
     mod->tree->nnodes - 1;
-  if (mod->root_leaf_id != -1) retval--;
   return retval;
 }
 
