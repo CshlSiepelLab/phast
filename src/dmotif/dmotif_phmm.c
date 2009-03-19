@@ -2617,15 +2617,20 @@ List* dms_read_tmp_from_file(FILE *tmp_lst_f) {
     
     if (str_re_match(line, nfiles_re, matches, 1) >= 0) {
       str_as_int(lst_get_ptr(matches, 1), &nfiles);
-      ret = lst_new_ptr(nfiles);
+      if (nfiles > 0)
+	ret = lst_new_ptr(nfiles);
+      else
+	die("ERROR: Bad header in temp file list!\n");
     } else if (nfiles == -1) {
       die("ERROR: Bad or mising header in temp file list!\n");
     } else {
+      if (i == nfiles)
+	die("ERROR: Too many lines in temp file list!\n");
       lst_push_ptr(ret, (void*)str_dup(line));
       i++;
     }
   }
-  if (i != nfiles) die("ERROR: Wrong number of lines in temp file list!\n");
+  if (i != nfiles) die("ERROR: Not enough lines in temp file list!\n");
   return ret;
 }
 
