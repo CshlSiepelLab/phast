@@ -1222,6 +1222,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
     
     /* Cache and reinitialize the hash periodically after burn-in */
     if (i >= bsamples) {
+
       if (l == cache_int || i == nsamples+bsamples-1) {
 	/* Fold together hashes from individual threads */
 	for (t = 0; t < threads; t++) {
@@ -2554,7 +2555,7 @@ Hashtable* dms_uncache(List *cache_files, int init_size, int nstates,
     snprintf(fname, STR_MED_LEN, "%s", ((String*)lst_get_ptr(cache_files, i))->chars);
     
     if (!quiet)
-      fprintf(stderr, "Reading sampling data from file %s...\n", fname);
+      fprintf(stderr, "\tReading sampling data from file %s...\n", fname);
     
     hash_f = fopen_fname(fname, "r");
     tmp_hash = dms_read_hash(hash_f, nstates, &csamples);

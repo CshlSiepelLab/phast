@@ -127,6 +127,11 @@ OPTIONS:
 	# NFILES = N, where N is the number of files to read in. Each file
 	name goes on its own lin and blank lines are ignored.
 
+    -cache-int, -i <N>
+        Number of samples to run before caching the global motifs hash to disk.
+	Setting this lower will decrease memory usage, but at the expense of
+	increased I/O and reallocation overhead. Default is 200 samples.
+
     --cache-fname, -c <filename>
 	Temp-file name for hash caching. Default name is based on machine time
 	on the local system.
