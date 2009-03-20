@@ -9,7 +9,7 @@
 
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.38.2.1 2009-03-18 19:35:58 mt269 Exp $ */
+   $Id: phyloFit.c,v 1.38.2.2 2009-03-20 21:25:47 mt269 Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -256,7 +256,7 @@ int main(int argc, char *argv[]) {
     do_expected_nsubst = FALSE, do_expected_nsubst_tot = FALSE, 
     random_init = FALSE, estimate_backgd = FALSE, estimate_scale_only = FALSE,
     do_column_probs = FALSE, nonoverlapping = FALSE, gaps_as_bases = FALSE,
-    no_freqs = FALSE, no_rates = FALSE;
+    no_freqs = FALSE, no_rates = FALSE, no_branchlens = FALSE;
   unsigned int nsites_threshold = DEFAULT_NSITES_THRESHOLD;
   msa_format_type input_format = FASTA;
   char c;
@@ -304,6 +304,7 @@ int main(int argc, char *argv[]) {
     {"estimate-freqs", 0, 0, 'F'},
     {"no-freqs", 0, 0, 'f'},
     {"no-rates", 0, 0, 'n'},
+    {"no-branchlens", 0, 0, 'e'},
     {"min-informative", 1, 0, 'I'},
     {"gaps-as-bases", 0, 0, 'G'},     
     {"quiet", 0, 0, 'q'},
@@ -321,7 +322,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:GVEeNDRTqLPXZUBFfnrh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:GVEeNDRTqLPXZUBFfnerh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -454,6 +455,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'f':
       no_freqs = TRUE;
+      break;
+    case 'e':
+      no_branchlens = TRUE;
       break;
     case 'n':
       no_rates = TRUE;
@@ -733,6 +737,9 @@ int main(int argc, char *argv[]) {
 
         mod->estimate_backgd = estimate_backgd;
       }
+      
+      if (no_branchlens)
+	mod->estimate_branchlens = TM_BRANCHLENS_NONE;
 
       if (ignore_branches != NULL) 
         tm_set_ignore_branches(mod, ignore_branches);

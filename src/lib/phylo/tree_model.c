@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: tree_model.c,v 1.41.2.3 2009-03-20 13:54:23 mt269 Exp $ */
+/* $Id: tree_model.c,v 1.41.2.4 2009-03-20 21:25:47 mt269 Exp $ */
 
 #include <tree_model.h>
 #include <subst_mods.h>
@@ -1047,7 +1047,8 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
   vec_copy(params, mod->all_params);
   vec_free(small_params);
 
-  if (mod->subst_mod != JC69 && mod->subst_mod != F81) {   
+  if (mod->subst_mod != JC69 && mod->subst_mod != F81 && 
+      mod->estimate_branchlens != TM_BRANCHLENS_NONE) {   
                                 /* in this case, need to scale final
                                    model (JC69 and F81 are exceptions,
                                    because probability subst. matrices
