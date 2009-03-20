@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: tree_model.c,v 1.41 2009-02-19 17:22:58 acs Exp $ */
+/* $Id: tree_model.c,v 1.42 2009-03-20 18:16:48 agd27 Exp $ */
 
 #include <tree_model.h>
 #include <subst_mods.h>
@@ -84,14 +84,14 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
 
     /* set up probability matrices and rate variation stuff */
     tm->nratecats = nratecats;
-    tm->P = smalloc(tree->nnodes * sizeof(MarkovMatrix**));
+    tm->P = (MarkovMatrix***)smalloc(tree->nnodes * sizeof(MarkovMatrix**));
     for (i = 0; i < tree->nnodes; i++) {
-      tm->P[i] = smalloc(nratecats * sizeof(MarkovMatrix*));
+      tm->P[i] = (MarkovMatrix**)smalloc(nratecats * sizeof(MarkovMatrix*));
       for (j = 0; j < nratecats; j++) tm->P[i][j] = NULL;
     }
 
-    tm->rK = smalloc(nratecats * sizeof(double));
-    tm->freqK = smalloc(nratecats * sizeof(double));
+    tm->rK = (double*)smalloc(nratecats * sizeof(double));
+    tm->freqK = (double*)smalloc(nratecats * sizeof(double));
 
     if (rate_consts != NULL) {  /* empirical rate model */
       double interval_size, initalpha = (alpha > 0 ? alpha : 1);
@@ -377,9 +377,9 @@ TreeModel *tm_new_from_file(FILE *f) {
 
   if (empty) die("ERROR: empty tree model file.\n");
 
-  if (rmat != NULL) 
+  if (rmat != NULL) {
     M = mm_new_from_matrix(rmat, alphabet, CONTINUOUS);
-  else {
+  }  else {
     if (size == 0) 
       die ("ERROR: ALPHABET line must precede RATE_MAT in tree model file.");
     M = mm_new(size, alphabet, CONTINUOUS);
@@ -1318,7 +1318,7 @@ void tm_set_ignore_branches(TreeModel *mod, List *ignore_branches) {
 AltSubstMod *tm_new_alt_subst_mod(subst_mod_type subst_mod,
                                   Vector *backgd_freqs, 
                                   MarkovMatrix *rate_matrix) {
-  AltSubstMod *am = smalloc(sizeof(AltSubstMod));
+  AltSubstMod *am = (AltSubstMod*)smalloc(sizeof(AltSubstMod));
   am->subst_mod = subst_mod;
   am->backgd_freqs = backgd_freqs;
   am->rate_matrix = rate_matrix;
