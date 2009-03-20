@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: subst_mods.c,v 1.12.2.3 2009-03-20 13:54:23 mt269 Exp $ */
+/* $Id: subst_mods.c,v 1.12.2.4 2009-03-20 19:42:26 mt269 Exp $ */
 
 /* Handling of specific substitution models.  This needs reworking:
    was originally set up for small number of models but has become
@@ -368,7 +368,7 @@ void tm_rate_params_init(TreeModel *mod, Vector *params,
    existing model.  Starting index is 'params_idx'. */
 void tm_rate_params_init_from_model(TreeModel *mod, Vector *params, 
                                     int params_idx) {
-  double kappa;
+  double kappa, alpha;
 
   switch(mod->subst_mod) {
   case JC69:
@@ -409,7 +409,14 @@ void tm_rate_params_init_from_model(TreeModel *mod, Vector *params,
              mod->rate_matrix->inv_states['C'], 
              mod->rate_matrix->inv_states['A']);
     vec_set(params, params_idx, kappa);
-    vec_set(params, params_idx+1, 1); /* just use a 1 for gamma */
+    alpha = 
+      mm_get(mod->rate_matrix,
+	     mod->rate_matrix->inv_states['A'],
+	     mod->rate_matrix->inv_states['C']) /
+      mm_get(mod->rate_matrix,
+	     mod->rate_matrix->inv_states['G'],
+	     mod->rate_matrix->inv_states['C']);
+    vec_set(params, params_idx+1, alpha); /* just use a 1 for gamma */
     break;
   case REV_BGC:
     vec_set(params, params_idx++, 1.0);
@@ -606,9 +613,13 @@ void tm_set_BGC_matrix(TreeModel *mod, double kappa, int kappa_idx, double alpha
         }
       }
 
-      if ((mod->rate_matrix->states[j] == 'G' || mod->rate_matrix->states[j] == 'C') &&
-          (mod->rate_matrix->states[i] != 'G' && mod->rate_matrix->states[i] != 'C')) {
-        val *= alpha;
+      /*      if ((mod->rate_matrix->states[j] == 'G' || mod->rate_matrix->states[j] == 'C') &&
+	      (mod->rate_matrix->states[i] != 'G' && mod->rate_matrix->states[i] != 'C')) {*/
+      if ((mod->rate_matrix->states[j] == 'G' || mod->rate_matrix->states[j]=='C') &&
+	  (mod->rate_matrix->states[i] == 'G' || mod->rate_matrix->states[i] == 'C')) {
+
+	//        val *= alpha;
+	val /= alpha;
 
         if (setup_mapping) {
           lst_push_int(mod->rate_matrix_param_row[kappa_idx+1], i);
