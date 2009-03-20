@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: tree_model.c,v 1.41.2.2 2009-03-19 17:19:07 mt269 Exp $ */
+/* $Id: tree_model.c,v 1.41.2.3 2009-03-20 13:54:23 mt269 Exp $ */
 
 #include <tree_model.h>
 #include <subst_mods.h>
@@ -1001,7 +1001,7 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
   for (i=0; i<params->size; i++)
     if (mod->param_map[i] >=0)
       vec_set(small_params, mod->param_map[i], vec_get(params, i));
-
+  
   /* most params have lower bound of zero and no upper bound */
   lower_bounds = vec_new(npar);
   vec_zero(lower_bounds);
@@ -1585,7 +1585,7 @@ Vector *tm_params_new_init_from_model(TreeModel *mod) {
 
 void tm_params_init_from_model(TreeModel *mod, Vector *params, 
                                int start_idx) {
-  int params_idx = start_idx, nodeidx, j, i;
+  int nodeidx, j, i;
   List *traversal;
   TreeNode *n;
 
@@ -1628,7 +1628,7 @@ void tm_params_init_from_model(TreeModel *mod, Vector *params,
 
   /* initialize rate-matrix parameters */
   //  if (mod->estimate_ratemat)
-    tm_rate_params_init_from_model(mod, params, params_idx);
+    tm_rate_params_init_from_model(mod, params, mod->ratematrix_idx);
 
   /* Now initialize alt_models */
   if (mod->alt_subst_mods != NULL) {

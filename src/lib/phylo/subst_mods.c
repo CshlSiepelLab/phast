@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: subst_mods.c,v 1.12.2.2 2009-03-18 20:59:56 mt269 Exp $ */
+/* $Id: subst_mods.c,v 1.12.2.3 2009-03-20 13:54:23 mt269 Exp $ */
 
 /* Handling of specific substitution models.  This needs reworking:
    was originally set up for small number of models but has become
@@ -174,7 +174,7 @@ char *tm_get_subst_mod_string(subst_mod_type type) {
 /* number of rate matrix params (not counting eq. freqs) */
 int tm_get_nratematparams(TreeModel *mod) {
 
-  if (mod->estimate_ratemat == FALSE) return 0;
+  //  if (mod->estimate_ratemat == FALSE) return 0;
 
   switch (mod->subst_mod) {
   case JC69:
@@ -410,9 +410,10 @@ void tm_rate_params_init_from_model(TreeModel *mod, Vector *params,
              mod->rate_matrix->inv_states['A']);
     vec_set(params, params_idx, kappa);
     vec_set(params, params_idx+1, 1); /* just use a 1 for gamma */
-    break;    
-  case REV:
+    break;
   case REV_BGC:
+    vec_set(params, params_idx++, 1.0);
+  case REV:
     tm_init_mat_from_model_REV(mod, params, params_idx);
     break;      
   case UNREST:
