@@ -4,7 +4,7 @@
 
 # set below to point to top-level directory of PHAST installation
 ifndef PHAST
-PHAST=${HOME}/newphast/phast
+PHAST=${HOME}/newphast/phast-ls
 endif
 # (if you prefer, you can set the environment variable PHAST instead)
 

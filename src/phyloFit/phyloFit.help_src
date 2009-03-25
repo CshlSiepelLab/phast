@@ -329,7 +329,7 @@ OPTIONS:
 	then the same substitution model will be used for the entire tree,
 	but the parameters listed will be estimated separately in the subtree.
 	The parameter names are model-specific, and include "kappa" for
-	HKY models, "alpha" for BGC models, "ratematrix" to specify
+	HKY models, "alpha" for GC models, "ratematrix" to specify
 	all rate-matrix parameters in general models, and "backgd" for
 	the equilibrium background frequencies.
 
