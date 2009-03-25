@@ -1081,10 +1081,13 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
   return retval;
 }
 
-
+int void_str_equals_charstr(void *strptr, void *charptr) {
+  return str_equals_charstr(*((String**)strptr),
+			    *((char**)charptr));
+}
 
 void tm_setup_params(TreeModel *mod) {
-  int i, opt_idx = 0, next_idx, alph_size, pos;
+  int i, opt_idx = 0, next_idx, alph_size, pos, numpar, *flag;
   List *noopt=NULL;
 
   //first assign indices in mod->all_params to give position of each
@@ -1146,7 +1149,24 @@ void tm_setup_params(TreeModel *mod) {
   if (mod->noopt_str != NULL) {
     noopt = lst_new_ptr(3);
     str_split(mod->noopt_str, ",", noopt);
-    if (lst_delete_obj_compare(noopt, 
+    pos = lst_find_compare(noopt, "branches", void_str_equals_charstr);
+    if (pos >= 0) {
+      mod->estimate_branchlens = TM_BRANCHLENS_NONE;
+      str_free(lst_get_ptr(noopt, pos));
+      lst_delete_idx(noopt, pos);
+    }
+    pos = lst_find_compare(noopt, "backgd", void_str_equals_charstr);
+    if (pos >= 0) {
+      mod->estimate_backgd = 0;
+      str_free(lst_get_ptr(noopt, pos));
+      lst_delete_idx(noopt, pos);
+    }
+    pos = lst_find_compare(noopt, "ratematrix", void_str_equals_charstr);
+    if (pos >= 0) {
+      mod->estimate_ratemat = 0;
+      str_free(lst_get_ptr(noopt, pos));
+      lst_delete_idx(noopt, pos);
+    }
   }
 
   //first do scale/branchlength params
@@ -1183,24 +1203,49 @@ void tm_setup_params(TreeModel *mod) {
   }
 
   if (mod->nratecats > 1) {
-    if (mod->empirical_rates) {
-      for (i=0; i<mod->nratecats; i++)
-	mod->param_map[mod->ratevar_idx+i] = opt_idx++;
+    int est_rates = (noopt==NULL);
+    if (noopt != NULL) {
+      pos = lst_find_compare(noopt, "ratevar", void_str_equals_charstr);
+      if (pos >= 0) {
+	est_rates = 0;
+	str_free(lst_get_ptr(noopt, pos));
+	lst_delete_idx(noopt, pos);
+      }
     }
-    else {
-      mod->param_map[mod->ratevar_idx] = opt_idx++;
+    if (est_rates) {
+      if (mod->empirical_rates) {
+	for (i=0; i<mod->nratecats; i++)
+	  mod->param_map[mod->ratevar_idx+i] = opt_idx++;
+      }
+      else {
+	mod->param_map[mod->ratevar_idx] = opt_idx++;
+      }
     }
   }
-
+  
+  numpar = tm_get_nratematparams(mod);
+  if (numpar > 0) 
+    flag = malloc(numpar*sizeof(int));
+  for (i=0; i<numpar; i++) flag[i]=0;
+  if (noopt != NULL) {
+    for (i=0; i<lst_size(noopt); i++) {
+      if (0 == tm_flag_subst_param_pos(mod, flag, lst_get_ptr(noopt, i))) 
+	die("ERROR: couldn't parse parameter name %s from noopt argument\n", ((String*)lst_get_ptr(noopt, i))->chars);
+      str_free(lst_get_ptr(noopt, i));
+    }
+    lst_free(noopt);
+  }
+  
   if (mod->estimate_ratemat) {
-    int numpar = tm_get_nratematparams(mod);
     for (i=0; i<numpar; i++)
-      mod->param_map[mod->ratematrix_idx+i] = opt_idx++;
+      if (flag[i] == 0)
+	mod->param_map[mod->ratematrix_idx+i] = opt_idx++;
   }
+  if (numpar > 0) free(flag);
 
   if (mod->alt_subst_mods != NULL) {
     AltSubstMod* altmod;
-    int j, *opt_par, opt_freq, numpar;
+    int j, *opt_par, opt_freq;
     subst_mod_type tempmod = mod->subst_mod;
     for (j=0; j<lst_size(mod->alt_subst_mods); j++) {
       altmod = lst_get_ptr(mod->alt_subst_mods, j);

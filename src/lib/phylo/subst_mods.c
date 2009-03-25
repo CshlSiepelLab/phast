@@ -2142,6 +2142,14 @@ void tm_init_mat_from_model_U3S(TreeModel *mod, Vector *params,
 int tm_flag_subst_param_pos(TreeModel *mod, int *flag, 
 			    String *param_name) {
   int numpar, i;
+  if (str_equals_nocase_charstr(param_name, "ratematrix")) {
+    numpar = tm_get_nratematparams(mod);
+    if (numpar==0) return 0;
+
+    for (i=0; i<numpar; i++)
+      flag[i] = 1;
+    return 1;
+  }
   switch(mod->subst_mod) {
   case JC69:  //no named params: return error unless param_name is NULL
   case F81:
@@ -2158,7 +2166,7 @@ int tm_flag_subst_param_pos(TreeModel *mod, int *flag,
       flag[0] = 1;
       return 1;
     }
-    else if (str_equals_nocase_charstr(param_name, "sigma")) {
+    else if (str_equals_nocase_charstr(param_name, "gap_param")) {
       flag[1] = 1;
       return 1;
     }
@@ -2168,19 +2176,13 @@ int tm_flag_subst_param_pos(TreeModel *mod, int *flag,
   case R2S:
   case R3:
   case R3S:
-    if (str_equals_nocase_charstr(param_name, "ratematrix")) {
-      numpar = mod->rate_matrix->size*(mod->rate_matrix->size-1)/2;
-      for (i=0; i<numpar; i++)
-	flag[i] = 1;
-      return 1;
-    }
     return 0;
   case REV_GC:
-    if (str_equals_nocase_charstr(param_name, "alpha")) {
+    if (str_equals_nocase_charstr(param_name, "gc_param")) {
       flag[0] = 1;
       return 1;
     }
-    else if (str_equals_nocase_charstr(param_name, "ratematrix")) {
+    else if (str_equals_nocase_charstr(param_name, "alphas")) {
       numpar = mod->rate_matrix->size*(mod->rate_matrix->size-1)/2;
       for (i=1; i<=numpar; i++)
 	flag[i] = 1;
@@ -2192,20 +2194,13 @@ int tm_flag_subst_param_pos(TreeModel *mod, int *flag,
   case U2S:
   case U3:
   case U3S:
-    numpar = mod->rate_matrix->size*(mod->rate_matrix->size-1);
-    if (str_equals_nocase_charstr(param_name, "ratematrix")) {
-      numpar = mod->rate_matrix->size*(mod->rate_matrix->size-1);
-      for (i=0; i<numpar; i++)
-	flag[i] = 1;
-      return 1;
-    }
     return 0;
   case GC:
     if (str_equals_nocase_charstr(param_name, "kappa")) {
       flag[0] = 1;
       return 1;
     }
-    if (str_equals_nocase_charstr(param_name, "alpha")) {
+    if (str_equals_nocase_charstr(param_name, "gc_param")) {
       flag[1] = 1;
       return 1;
     }

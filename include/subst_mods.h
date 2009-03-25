@@ -23,7 +23,7 @@ typedef enum {
   HKY85,
   HKY85G,
   REV,
-  REV_BGC,
+  REV_GC,
   UNREST,
   HKY2,
   R2,
@@ -34,7 +34,7 @@ typedef enum {
   R3S,
   U3,
   U3S,
-  BGC,
+  GC,
   UNDEF_MOD
 } subst_mod_type;
 

@@ -159,6 +159,7 @@ struct tm_struct {
   int *param_map;
   int scale_idx, bl_idx, ratematrix_idx, backgd_idx, ratevar_idx;
   List *bound_arg;
+  String *noopt_str;
 };
 
 typedef struct tm_struct TreeModel;
