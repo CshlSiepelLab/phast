@@ -267,7 +267,7 @@ int main(int argc, char *argv[]) {
   String *mod_fname;
   MSA *msa, *source_msa;
   FILE *logf = NULL;
-  String *tmpstr = str_new(STR_SHORT_LEN), *optstr;
+  String *tmpstr = str_new(STR_SHORT_LEN), *optstr, *nooptstr;
   List *cats_to_do = NULL, *tmplist = NULL, *window_coords = NULL, 
     *cats_to_do_str = NULL, *ignore_branches = NULL, *alt_mod_str=NULL;
   double *gc;
@@ -304,6 +304,7 @@ int main(int argc, char *argv[]) {
     {"estimate-freqs", 0, 0, 'F'},
     {"no-freqs", 0, 0, 'f'},
     {"no-rates", 0, 0, 'n'},
+    {"no-opt", 1, 0, 'O'},
     {"no-branchlens", 0, 0, 'e'},
     {"min-informative", 1, 0, 'I'},
     {"gaps-as-bases", 0, 0, 'G'},     
@@ -322,7 +323,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:GVEeNDRTqLPXZUBFfnerh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:GVEeNDRTqLPXZUBFfnerh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -474,6 +475,11 @@ int main(int argc, char *argv[]) {
       break;
     case 'b':
       ignore_branches = get_arg_list(optarg);
+      break;
+    case 'O':
+      if (nooptstr == NULL) 
+	nooptstr = str_new_charstr(optarg);
+      else die("ERROR: no-opt argument can only be used once!  parameters can be comma-separated list.");
       break;
     case 'd':
       if (alt_mod_str == NULL) {
@@ -705,6 +711,7 @@ int main(int argc, char *argv[]) {
         mod = input_mod;
         tm_reinit(mod, subst_mod, nratecats, newalpha, rate_consts, NULL);
       }
+      mod->noopt_str = noopt_str;
 
       mod->use_conditionals = use_conditionals;
       if (alt_mod_str != NULL) {

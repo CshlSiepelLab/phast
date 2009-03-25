@@ -1084,7 +1084,8 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
 
 
 void tm_setup_params(TreeModel *mod) {
-  int i, opt_idx = 0, next_idx, alph_size;
+  int i, opt_idx = 0, next_idx, alph_size, pos;
+  List *noopt=NULL;
 
   //first assign indices in mod->all_params to give position of each
   //type of parameter
@@ -1141,6 +1142,12 @@ void tm_setup_params(TreeModel *mod) {
   //param_map[i] = -1 if this parameter is held constant
   for (i=0; i<next_idx; i++)
     mod->param_map[i] = -1;
+
+  if (mod->noopt_str != NULL) {
+    noopt = lst_new_ptr(3);
+    str_split(mod->noopt_str, ",", noopt);
+    if (lst_delete_obj_compare(noopt, 
+  }
 
   //first do scale/branchlength params
   if (mod->estimate_branchlens == TM_SCALE_ONLY) {
