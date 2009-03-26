@@ -700,11 +700,12 @@ void tm_set_REV_GC_matrix(TreeModel *mod, Vector *params, int start_idx) {
     c1 = toupper(mod->rate_matrix->states[i]);
     for (j = i+1; j<mod->rate_matrix->size; j++) {
       double val;
+      //set val to alpha{i,j}
       val = vec_get(params, start_idx);
       c2 = toupper(mod->rate_matrix->states[j]);
       if ((c1=='C' && c2=='G') ||
 	  (c1=='G' && c2=='C')) {
-	val *= 1.0/gamma;
+	val *= sum/gamma;
 	if (setup_mapping) {
 	  lst_push_int(mod->rate_matrix_param_row[gamma_idx], i);
 	  lst_push_int(mod->rate_matrix_param_col[gamma_idx], j);
