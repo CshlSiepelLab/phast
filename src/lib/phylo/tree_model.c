@@ -142,6 +142,8 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   tm->scale_idx = tm->bl_idx = tm->backgd_idx = 
     tm->ratevar_idx = tm->ratematrix_idx = -1;
   tm->rate_matrix_param_row = tm->rate_matrix_param_col = NULL;
+  tm->noopt_str = NULL;
+  tm->eqfreq_sym = 0;
   return tm;
 }
 
@@ -553,6 +555,10 @@ TreeModel *tm_create_copy(TreeModel *src) {
   retval->ratematrix_idx = src->ratematrix_idx;
   retval->backgd_idx = src->backgd_idx;
   retval->ratevar_idx = src->ratevar_idx;
+  if (src->noopt_str != NULL)
+    retval->noopt_str = str_new_charstr(src->noopt_str->chars);
+  else retval->noopt_str = NULL;
+  retval->eqfreq_sym = src->eqfreq_sym;
   
   if (src->all_params != NULL) {
     retval->all_params = vec_create_copy(src->all_params);
@@ -1083,7 +1089,7 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
 
 int void_str_equals_charstr(void *strptr, void *charptr) {
   return str_equals_charstr(*((String**)strptr),
-			    *((char**)charptr));
+			    (char*)charptr);
 }
 
 void tm_setup_params(TreeModel *mod) {
@@ -1151,18 +1157,21 @@ void tm_setup_params(TreeModel *mod) {
     str_split(mod->noopt_str, ",", noopt);
     pos = lst_find_compare(noopt, "branches", void_str_equals_charstr);
     if (pos >= 0) {
+      printf("holding branches const\n");
       mod->estimate_branchlens = TM_BRANCHLENS_NONE;
       str_free(lst_get_ptr(noopt, pos));
       lst_delete_idx(noopt, pos);
     }
     pos = lst_find_compare(noopt, "backgd", void_str_equals_charstr);
     if (pos >= 0) {
+      printf("holding backgd const\n");
       mod->estimate_backgd = 0;
       str_free(lst_get_ptr(noopt, pos));
       lst_delete_idx(noopt, pos);
     }
     pos = lst_find_compare(noopt, "ratematrix", void_str_equals_charstr);
     if (pos >= 0) {
+      printf("holding ratematrix const\n");
       mod->estimate_ratemat = 0;
       str_free(lst_get_ptr(noopt, pos));
       lst_delete_idx(noopt, pos);
@@ -1198,8 +1207,35 @@ void tm_setup_params(TreeModel *mod) {
   //else TM_BRANCHLENS_NONE: keep everything at -1
 
   if (mod->estimate_backgd) {
-    for (i=0; i<alph_size; i++)
-      mod->param_map[mod->backgd_idx+i] = opt_idx++;
+    if (mod->eqfreq_sym==1) {
+      int atpos=-1, gcpos=-1;
+      char c;
+      for (i=0; i<alph_size; i++) {
+	c = tolower(mod->rate_matrix->states[i]);
+	switch (c) {
+	case 'g':
+	case 'c':
+	  if (gcpos == -1) gcpos = opt_idx++;
+	  pos = gcpos;
+	  break;
+	case 'a':
+	case 't':
+	  if (atpos == -1) atpos = opt_idx++;
+	  pos = atpos;
+	  break;
+	case '-':
+	  pos = opt_idx++;
+	  break;
+	default:
+	  die("ERROR: eqfreq_sym only defined for ACGT alphabet right now (got %c)\n", mod->rate_matrix->states[i]);
+	}
+	mod->param_map[mod->backgd_idx+i] = pos;
+      }
+    }
+    else {
+      for (i=0; i<alph_size; i++)
+	mod->param_map[mod->backgd_idx+i] = opt_idx++;
+    }
   }
 
   if (mod->nratecats > 1) {
@@ -1207,6 +1243,7 @@ void tm_setup_params(TreeModel *mod) {
     if (noopt != NULL) {
       pos = lst_find_compare(noopt, "ratevar", void_str_equals_charstr);
       if (pos >= 0) {
+	printf("holding ratevar const\n");
 	est_rates = 0;
 	str_free(lst_get_ptr(noopt, pos));
 	lst_delete_idx(noopt, pos);

@@ -263,7 +263,7 @@ int main(int argc, char *argv[]) {
   FILE *F, *WINDOWF;
   TreeNode *tree = NULL;
   CategoryMap *cm = NULL;
-  int i, j, win, opt_idx;
+  int i, j, win, opt_idx, symfreq=FALSE;
   String *mod_fname;
   MSA *msa, *source_msa;
   FILE *logf = NULL;
@@ -302,6 +302,7 @@ int main(int argc, char *argv[]) {
     {"scale-only", 0, 0, 'B'},
     {"scale-subtree", 1, 0, 'S'},
     {"estimate-freqs", 0, 0, 'F'},
+    {"sym-freqs", 0, 0, 'y'},
     {"no-freqs", 0, 0, 'f'},
     {"no-rates", 0, 0, 'n'},
     {"no-opt", 1, 0, 'O'},
@@ -322,7 +323,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:GVEeNDRTqLPXZUBFfnrh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:GVEeNDRTqLPXZUBFfnrhy", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -452,6 +453,10 @@ int main(int argc, char *argv[]) {
       break;       
     case 'F':
       estimate_backgd = TRUE;
+      break;
+    case 'y':
+      estimate_backgd = TRUE;
+      symfreq = TRUE;
       break;
     case 'f':
       no_freqs = TRUE;
@@ -708,6 +713,7 @@ int main(int argc, char *argv[]) {
         tm_reinit(mod, subst_mod, nratecats, newalpha, rate_consts, NULL);
       }
       mod->noopt_str = nooptstr;
+      mod->eqfreq_sym = symfreq;
 
       mod->use_conditionals = use_conditionals;
       if (alt_mod_str != NULL) {

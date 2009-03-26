@@ -206,6 +206,11 @@ OPTIONS:
         Estimate equilibrium frequencies by maximum likelihood, rather
         than approximating them by the relative frequencies in the data.
 
+    --sym-freqs, -F
+        Estimate equilibrium frequencies, assuming freq(A)=freq(T) and
+	freq(C)=freq(G).  This only works for an alphabet ACGT (and possibly
+	gap).  This option implies --estimate-freqs.
+
     --no-freqs, -f
         (for use with --init-model) Do not estimate equilibrium
         frequencies; just use the ones from the given tree model.
@@ -220,6 +225,18 @@ OPTIONS:
         (in practice, the branch from the root to the specified
         sequence will be retained, but will be constrained to have
         length zero).
+
+    --no-opt, -O <param_list>
+        Hold parameteres listed in comma-separated param_list constant at
+	initial values.  This applies only to the "main" model, and not to 
+	any models defined with the --alt-mod option.  Param list can 
+	contain values such as "branches" to hold branch lengths constant,
+	"ratematrix", "backgd", or "ratevar" to hold entire rate matrix, 
+	equilibrium frequencies, or rate variation parameters constant 
+	(respectively).  There are also substitution model-specific 
+	parameters such as "kappa" (transition/transversion rate ratio), 
+	"gc_parameter" (gc bias parameter), and "alphas" (the REV 
+	parameters in the REV+GC model).
 
 
  (Options for modeling rate variation)

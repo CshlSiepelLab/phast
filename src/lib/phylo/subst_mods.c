@@ -667,9 +667,20 @@ void tm_set_REV_matrix(TreeModel *mod, Vector *params, int start_idx) {
 void tm_set_REV_GC_matrix(TreeModel *mod, Vector *params, int start_idx) {
   int i, j, gamma_idx = start_idx;
   int setup_mapping = (lst_size(mod->rate_matrix_param_row[start_idx])==0);
-  double gamma;
+  double gamma, sum=0.0;
   char c1, c2;
+
   gamma = vec_get(params, start_idx++);
+
+  for (i=0; i<mod->rate_matrix->size; i++) {
+    c1 = toupper(mod->rate_matrix->states[i]);
+    if (c1 == 'C' || c1 == 'G')
+      vec_set(mod->backgd_freqs, i, vec_get(mod->backgd_freqs, i)*gamma);
+    sum += vec_get(mod->backgd_freqs, i);
+  }
+  for (i=0; i<mod->rate_matrix->size; i++)
+    vec_set(mod->backgd_freqs, i, vec_get(mod->backgd_freqs, i)/sum);
+
   for (i = 0; i < mod->rate_matrix->size; i++) {
     double rowsum = 0;
     c1 = toupper(mod->rate_matrix->states[i]);
