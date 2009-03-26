@@ -1256,7 +1256,7 @@ void tm_setup_params(TreeModel *mod) {
     if (noopt != NULL) {
       pos = lst_find_compare(noopt, "ratevar", void_str_equals_charstr);
       if (pos >= 0) {
-	printf("holding ratevar const\n");
+	//	printf("holding ratevar const\n");
 	est_rates = 0;
 	str_free(lst_get_ptr(noopt, pos));
 	lst_delete_idx(noopt, pos);
