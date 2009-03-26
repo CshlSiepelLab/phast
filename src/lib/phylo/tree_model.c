@@ -1096,15 +1096,14 @@ int void_str_equals_charstr(void *strptr, void *charptr) {
 /* tm_setup_params: assigns parameter indices to mod->scale_idx,
    mod->bl_idx, mod->ratevar_idx, mod->ratematrix_idx which point
    to indices in mod->all_params where corresponding parameters are
-   stored.
+   stored.  (as well as pointers in altmod structures).
    
-   Then, it determines which parameters are to be optimizes, and allocates
+   Then, it determines which parameters are to be optimized, and allocates
    and assigns values to mod->param_map, which maps indices in all_params
    to indices in the optimization vector, so that param_map[i]=j implies
    that all_params[i] is stored in opt_vec[j].  Only parameters which
    are to be optimized are stored in the optimization vector.  Parameters
-   which are held constant have param_map[i]=-1.
-   
+   which are held constant have param_map[i]=-1.   
  */
 void tm_setup_params(TreeModel *mod) {
   int i, opt_idx = 0, next_idx, alph_size, pos, numpar, *flag;
@@ -1171,21 +1170,21 @@ void tm_setup_params(TreeModel *mod) {
     str_split(mod->noopt_str, ",", noopt);
     pos = lst_find_compare(noopt, "branches", void_str_equals_charstr);
     if (pos >= 0) {
-      printf("holding branches const\n");
+      //      printf("holding branches const\n");
       mod->estimate_branchlens = TM_BRANCHLENS_NONE;
       str_free(lst_get_ptr(noopt, pos));
       lst_delete_idx(noopt, pos);
     }
     pos = lst_find_compare(noopt, "backgd", void_str_equals_charstr);
     if (pos >= 0) {
-      printf("holding backgd const\n");
+      //      printf("holding backgd const\n");
       mod->estimate_backgd = 0;
       str_free(lst_get_ptr(noopt, pos));
       lst_delete_idx(noopt, pos);
     }
     pos = lst_find_compare(noopt, "ratematrix", void_str_equals_charstr);
     if (pos >= 0) {
-      printf("holding ratematrix const\n");
+      //      printf("holding ratematrix const\n");
       mod->estimate_ratemat = 0;
       str_free(lst_get_ptr(noopt, pos));
       lst_delete_idx(noopt, pos);
