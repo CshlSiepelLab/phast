@@ -595,8 +595,19 @@ void tm_set_HKYG_matrix(TreeModel *mod, Vector *params, int start_idx ) {
 
 void tm_set_GC_matrix(TreeModel *mod, double kappa, int kappa_idx, double alpha) {
   int i, j;
+  char c;
+  double sum = 0.0;
   int setup_mapping = 
     (kappa_idx >= 0 && lst_size(mod->rate_matrix_param_row[kappa_idx]) == 0);
+  for (i=0; i<mod->rate_matrix->size; i++) {
+    c = toupper(mod->rate_matrix->states[i]);
+    if (c=='G' || c=='C')
+      vec_set(mod->backgd_freqs, i, vec_get(mod->backgd_freqs, i)*alpha);
+    sum += vec_get(mod->backgd_freqs, i);
+  }
+  for (i=0; i<mod->rate_matrix->size; i++)
+    vec_set(mod->backgd_freqs, i, vec_get(mod->backgd_freqs, i)/sum);
+
   for (i = 0; i < mod->rate_matrix->size; i++) {
     double rowsum = 0;
     for (j = 0; j < mod->rate_matrix->size; j++) {
