@@ -2167,7 +2167,7 @@ void tm_init_mat_from_model_U3S(TreeModel *mod, Vector *params,
 int tm_flag_subst_param_pos(TreeModel *mod, int *flag, 
 			    String *param_name) {
   int numpar, i;
-  if (str_equals_nocase_charstr(param_name, "ratematrix")) {
+  if (str_equals_nocase_charstr(param_name, RATEMAT_STR)) {
     numpar = tm_get_nratematparams(mod);
     if (numpar==0) return 0;
 

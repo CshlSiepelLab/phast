@@ -716,10 +716,6 @@ int main(int argc, char *argv[]) {
       mod->eqfreq_sym = symfreq;
 
       mod->use_conditionals = use_conditionals;
-      if (alt_mod_str != NULL) {
-	for (j = 0 ; j < lst_size(alt_mod_str); j++) 
-	  tm_add_alt_mod(mod, (String*)lst_get_ptr(alt_mod_str, j));
-      }
 
       if (estimate_scale_only || estimate_backgd || no_rates) {
         if (estimate_scale_only) {
@@ -766,6 +762,11 @@ int main(int argc, char *argv[]) {
       }
       lst_free_strings(pruned_names);
       lst_free(pruned_names);
+
+     if (alt_mod_str != NULL) {
+	for (j = 0 ; j < lst_size(alt_mod_str); j++) 
+	  tm_add_alt_mod(mod, (String*)lst_get_ptr(alt_mod_str, j));
+      }
 
       if (!quiet) {
         str_clear(tmpstr);

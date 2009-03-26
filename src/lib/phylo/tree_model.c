@@ -709,13 +709,56 @@ void tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
       altmod->separate_model = 1;
     }
     else {
+      int *boundpos, inparens=0, tempidx, count=0, maxidx, j;
+      char tempchar='*';
+      String *tempstr;
       //otherwise it is a list of parameters to be optimized.  Use the 
       //same subst model as main model, but optimize these parameters
       //separately.
       altmod->subst_mod = mod->subst_mod;
       altmod->param_list = lst_new_ptr(10);
+      
+      //since commas are used to separate boundaries and parameters, 
+      //need to temporarily change boundary separators so that we
+      //can split param_list.  Only want to keep commas that are not
+      //within parenthesis.  This is a bit uglier than it probably should be.
+      boundpos = malloc(modstr->length*sizeof(int));
+      for (i=0; i<modstr->length; i++) {
+	boundpos[i]=0;
+	if (modstr->chars[i] == '(') {
+	  inparens = 1;
+	  count=0;
+	}
+	else if (modstr->chars[i] == ')')
+	    inparens = 0;
+	else if (modstr->chars[i] == ',' && inparens) {
+	  count++;
+	  if (count > 1)  {
+	    for (i=0; i<modstr->length; i++) if (boundpos[i]) modstr->chars[i]=',';
+	    die("ERROR: format error in --alt-mod argument %s\n", modstr);
+	  }
+	  boundpos[i]=1;
+	  modstr->chars[i] = tempchar;
+	}
+      }
+      if (inparens) die("ERROR: format error in --alt-mod argument (unbalanced parentheses)\n");
+		 
       str_split(modstr, ",", altmod->param_list);
       altmod->separate_model = 0;
+
+      tempidx=0;
+      for (j=0; j<lst_size(altmod->param_list); j++) {
+	tempstr = lst_get_ptr(altmod->param_list, j);
+	maxidx = tempidx + tempstr->length;
+	for (i=tempidx; i<maxidx; i++) {
+	  if (boundpos[i]) {
+	    assert(tempstr->chars[i-tempidx]==tempchar);
+	    tempstr->chars[i-tempidx]=',';
+	  }
+	}
+	tempidx += tempstr->length+1;
+      }
+      free(boundpos);
     }
     str_free(modstr);
   }
@@ -1345,23 +1388,28 @@ void tm_setup_params(TreeModel *mod) {
 	  opt_par[i] = 0;
 	for (i=0; i<lst_size(altmod->param_list); i++) {
 	  String *currparam;
+	  int parenpos=-1, k;
 	  currparam = lst_get_ptr(altmod->param_list, i);
+	  for (k=0; k<currparam->length; k++)
+	    if (currparam->chars[k]=='(') {
+	      parenpos = k;
+	      currparam->chars[parenpos]='\0';
+	      currparam->length=parenpos;
+	      break;
+	    }
 	  //	  printf("parsing string %s\n", currparam->chars);
 	  if (str_equals_nocase_charstr(currparam, BACKGD_STR))
 	    opt_freq = 1;
 	  else  {
 	    if (0==tm_flag_subst_param_pos(mod, opt_par, currparam)) {
-	      if (currparam->chars[currparam->length-1] == '+' ||
-		  currparam->chars[currparam->length-1] == '-') {
-		String *tempstr = str_new_charstr(currparam->chars);
-		tempstr->chars[--tempstr->length] = '\0';
-		if (0 == tm_flag_subst_param_pos(mod, opt_par, tempstr)) {
-		  die("altmod %s couldn't parse parameter name %s\n",
-		      tm_get_subst_mod_string(altmod->subst_mod),
-		      currparam->chars);
-		}
-	      }
+	      die("altmod %s couldn't parse parameter name %s\n",
+		  tm_get_subst_mod_string(altmod->subst_mod),
+		  currparam->chars);
 	    }
+	  }
+	  if (parenpos >= 0) {
+	    currparam->chars[parenpos] = '(';
+	    currparam->length = strlen(currparam->chars);
 	  }
 	}
       }
@@ -1385,7 +1433,6 @@ void tm_setup_params(TreeModel *mod) {
     }
     mod->subst_mod = tempmod;
   }
-
   tm_init_rmp(mod);
 }
 
