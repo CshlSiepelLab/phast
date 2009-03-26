@@ -269,7 +269,8 @@ int main(int argc, char *argv[]) {
   FILE *logf = NULL;
   String *tmpstr = str_new(STR_SHORT_LEN), *optstr, *nooptstr=NULL;
   List *cats_to_do = NULL, *tmplist = NULL, *window_coords = NULL, 
-    *cats_to_do_str = NULL, *ignore_branches = NULL, *alt_mod_str=NULL;
+    *cats_to_do_str = NULL, *ignore_branches = NULL, *alt_mod_str=NULL,
+    *bound_arg=NULL;
   double *gc;
   double cpg, alpha = DEFAULT_ALPHA;
   GFF_Set *gff = NULL;
@@ -320,10 +321,11 @@ int main(int argc, char *argv[]) {
     {"rate-constants", 1, 0, 'K'},
     {"ignore-branches", 1, 0, 'b'},
     {"alt-mod", 1, 0, 'd'},
+    {"bound", 1, 0, 'u'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:GVEeNDRTqLPXZUBFfnrhy", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:u:GVEeNDRTqLPXZUBFfnrhy", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -483,11 +485,16 @@ int main(int argc, char *argv[]) {
       else die("ERROR: no-opt argument can only be used once!  parameters can be comma-separated list.");
       break;
     case 'd':
-      if (alt_mod_str == NULL) {
+      if (alt_mod_str == NULL) 
 	alt_mod_str = lst_new_ptr(1);
-      }
       optstr = str_new_charstr(optarg);
       lst_push_ptr(alt_mod_str, optstr);
+      break;
+    case 'u':
+      if (bound_arg == NULL) 
+	bound_arg = lst_new_ptr(1);
+      optstr = str_new_charstr(optarg);
+      lst_push_ptr(bound_arg, optstr);
       break;
     case 'h':
       printf("%s", HELP);
@@ -714,6 +721,7 @@ int main(int argc, char *argv[]) {
       }
       mod->noopt_str = nooptstr;
       mod->eqfreq_sym = symfreq;
+      mod->bound_arg = bound_arg;
 
       mod->use_conditionals = use_conditionals;
 

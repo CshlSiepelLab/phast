@@ -725,11 +725,11 @@ void tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
       boundpos = malloc(modstr->length*sizeof(int));
       for (i=0; i<modstr->length; i++) {
 	boundpos[i]=0;
-	if (modstr->chars[i] == '(') {
+	if (modstr->chars[i] == '[') {
 	  inparens = 1;
 	  count=0;
 	}
-	else if (modstr->chars[i] == ')')
+	else if (modstr->chars[i] == ']')
 	    inparens = 0;
 	else if (modstr->chars[i] == ',' && inparens) {
 	  count++;
@@ -989,13 +989,85 @@ MSA *tm_generate_msa(int ncolumns,
 }
 
 
+/*
+  Sets *bound[idx,..., idx+len-1] to value indicated in strval.
+  if *bound does not exist, allocate length npar and initialize to
+  default_bound.
+ */
+void tm_add_limit(String *strval, Vector **bound, int *param_map, 
+		  int idx, int len, int numpar, double default_bound) {
+  double lim;
+  int i;
+  if (strval == NULL) return;
+  if (0 != str_as_dbl(strval, &lim))
+    die("ERROR: can't parse boundary parsing value %s\n", strval->chars);
+  if (*bound == NULL) {
+    *bound = vec_new(numpar);
+    vec_set_all(*bound, default_bound);
+  }
+  for (i=0; i<len; i++) {
+    if (param_map[idx+i]==-1) 
+      fprintf(stderr, "Warning: can't set lower bound %s on constant parameter\n", strval->chars);
+    else
+      vec_set(*bound, param_map[idx+i], lim);
+  }
+}
+
+
+//takes a string in the form a,b  (where a and b may be empty strings) and
+//sets lower limit to a (if not empty) and upper limit to b (if not empty)
+//for params with indices from [idx,..., idx+len-1].  Allocates lower_bounds
+//and upper_bounds if necessary.
+void tm_add_bounds(String *limitstr, Vector **lower_bounds, 
+		   Vector **upper_bounds,
+		   int *param_map, int idx, int len, int npar) {
+  List *bound_lst;
+  String *lb_str, *ub_str;
+  
+  if (idx == -1) {
+    fprintf(stderr, "warning: could not add bound %s to constant parameter\n",
+	    limitstr->chars);
+    return;
+  }
+
+  bound_lst = lst_new_ptr(2);
+  str_split(limitstr, ",", bound_lst);
+  if (lst_size(bound_lst) == 1) {
+    if (limitstr->chars[0]==',') {
+      lb_str = NULL;
+      ub_str = lst_get_ptr(bound_lst, 0);
+    }
+    else {
+      ub_str = NULL;
+      lb_str = lst_get_ptr(bound_lst, 0);
+    }
+  }
+  else if (lst_size(bound_lst)==2) {
+    lb_str = lst_get_ptr(bound_lst, 0);
+    ub_str = lst_get_ptr(bound_lst, 1);
+  }
+  else 
+    die("ERROR: problem parsing boundary argument %s\n", limitstr->chars);
+
+  tm_add_limit(lb_str, lower_bounds, param_map, idx, len, npar, 0);
+  tm_add_limit(ub_str, upper_bounds, param_map, idx, len, npar, INFTY);
+  if (lb_str != NULL) str_free(lb_str);
+  if (ub_str != NULL) str_free(ub_str);
+  lst_free(bound_lst);
+}
+
+
 /* Assumes *lower_bounds and *upper_bounds have not been allocated.
    Also assumes tm_setup_params has already been called.
    Sets each to NULL if no boundaries are needed */
 void tm_set_boundaries(Vector **lower_bounds, Vector **upper_bounds,
 		       int npar, TreeModel *mod) {
-  int i, j;
+  int i, j, k, *flag, nratepar;
+  String *boundstr, *paramstr, *limitstr;
+  List *boundarg_lst;
 
+  /* The following few sections contain the original code which sets
+     default boundaries */
   /* most params have lower bound of zero and no upper bound */
   *lower_bounds = vec_new(npar);
   vec_zero(*lower_bounds);
@@ -1032,8 +1104,134 @@ void tm_set_boundaries(Vector **lower_bounds, Vector **upper_bounds,
     }
   }
 
+  
+  /* The remaining code in this function parses the boundary 
+     options passed to --bound and --alt-mod options */
+  if (mod->bound_arg != NULL) {
+    boundarg_lst = lst_new_ptr(2);
+    for (i=0; i<lst_size(mod->bound_arg); i++) {
+      boundstr = lst_get_ptr(mod->bound_arg, i);
+      str_split(boundstr, "[]", boundarg_lst);
+      if (lst_size(boundarg_lst) != 2) 
+	die("error parsing --bound argument %s\n", boundstr);
+      paramstr = lst_get_ptr(boundarg_lst, 0);
+      limitstr = lst_get_ptr(boundarg_lst, 1);
+      if (str_equals_nocase_charstr(paramstr, BACKGD_STR)) 
+	tm_add_bounds(limitstr, lower_bounds, upper_bounds, mod->param_map,
+		      mod->backgd_idx, tm_get_neqfreqparams(mod), npar);
+      else if (str_equals_nocase_charstr(paramstr, RATEMAT_STR)) 
+	tm_add_bounds(limitstr, lower_bounds, upper_bounds, mod->param_map,
+		      mod->ratematrix_idx, tm_get_nratematparams(mod), npar);
+      else if (str_equals_nocase_charstr(paramstr, RATEVAR_STR))
+	tm_add_bounds(limitstr, lower_bounds, upper_bounds, mod->param_map,
+		      mod->ratevar_idx, tm_get_nratevarparams(mod), npar);
+      else if (str_equals_nocase_charstr(paramstr, BRANCHES_STR))
+	tm_add_bounds(limitstr, lower_bounds, upper_bounds, mod->param_map,
+		      mod->bl_idx, tm_get_nbranchlenparams(mod), npar);
+      else if (str_equals_nocase_charstr(paramstr, SCALE_STR))
+	tm_add_bounds(limitstr, lower_bounds, upper_bounds, mod->param_map,
+		      mod->scale_idx, 1, npar);
+      else if (str_equals_nocase_charstr(paramstr, SCALE_SUB_STR))
+	tm_add_bounds(limitstr, lower_bounds, upper_bounds, mod->param_map,
+		      mod->scale_idx+1, 1, npar);
+      else {  //if not match any of the above, must be model-specific
+	nratepar = tm_get_nratematparams(mod);
+	flag = malloc(nratepar*sizeof(int));
+	for (j=0; j<nratepar; j++) flag[j]=0;
+	if (0 == tm_flag_subst_param_pos(mod, flag, paramstr)) 
+	  die("ERROR: couldn't parse --bound argument %s\n", boundstr);
+	for (j=0; j<nratepar; j++)
+	  if (flag[j])
+	    tm_add_bounds(limitstr, lower_bounds, upper_bounds, 
+			  mod->param_map,
+			  mod->ratematrix_idx+j, 1, npar);
+	free(flag);
+      }
+      str_free(paramstr);
+      str_free(limitstr);
+    }
+    lst_free(boundarg_lst);
+  }
+
+  //now parse through boundary arguments in alternative models
+  if (mod->alt_subst_mods != NULL) {
+    for (j=0; j<lst_size(mod->alt_subst_mods); j++) {
+      AltSubstMod *altmod = lst_get_ptr(mod->alt_subst_mods, j);
+      if (altmod->param_list != NULL) {
+	subst_mod_type temp_subst_mod = mod->subst_mod;
+	mod->subst_mod = altmod->subst_mod;
+	for (i=0; i<lst_size(altmod->param_list); i++) {
+	  boundstr = lst_get_ptr(altmod->param_list, i);
+	  for (k=0; k<boundstr->length; k++)
+	    if (boundstr->chars[k]=='[') break;
+	  if (k==boundstr->length) continue;
+	  for (; k < boundstr->length; k++)
+	    if (boundstr->chars[k]==']') break;
+	  if (k==boundstr->length) 
+	    die("unbalacned bracketes in --alt-mod argument %s\n", boundstr);
+	  boundarg_lst = lst_new_ptr(2);
+	  str_split(boundstr, "[]", boundarg_lst);
+	  if (lst_size(boundarg_lst) != 2) 
+	    die("error parsing --alt-mod argument %s\n", boundstr->chars);
+	  paramstr = lst_get_ptr(boundarg_lst, 0);
+	  limitstr = lst_get_ptr(boundarg_lst, 1);
+	  if (str_equals_nocase_charstr(paramstr, BACKGD_STR)) 
+	    tm_add_bounds(limitstr, lower_bounds, upper_bounds, mod->param_map,
+			  altmod->backgd_idx, tm_get_neqfreqparams(mod), npar);
+	  else if (str_equals_nocase_charstr(paramstr, RATEMAT_STR)) 
+	    tm_add_bounds(limitstr, lower_bounds, upper_bounds, mod->param_map,
+			  altmod->ratematrix_idx, 
+			  tm_get_nratematparams(mod), npar);
+	  else {  //if not match any of the above, must be model-specific
+	    nratepar = tm_get_nratematparams(mod);
+	    flag = malloc(nratepar*sizeof(int));
+	    for (k=0; k<nratepar; k++) flag[k]=0;
+	    if (0 == tm_flag_subst_param_pos(mod, flag, paramstr)) 
+	      die("ERROR: couldn't parse --bound argument %s\n", boundstr);
+	    for (k=0; k<nratepar; k++)
+	      if (flag[k])
+		tm_add_bounds(limitstr, lower_bounds, upper_bounds, 
+			      mod->param_map,
+			      altmod->ratematrix_idx+k, 1, npar);
+	    free(flag);
+	  }
+	  str_free(paramstr);
+	  str_free(limitstr);
+	  lst_free(boundarg_lst);
+	}
+	mod->subst_mod = temp_subst_mod;
+      }
+    }
+  }
 }
-		       
+	
+	       
+//makes sure lower bounds are lower than upper bounds,
+//and that opt_param values are between lower and upper bounds.  If not,
+//adjusts opt_param to closest boundary and prints warning (sometimes
+//this will ruin reversibility).
+void tm_check_boundaries(Vector *opt_params, Vector *lower_bounds, 
+			 Vector *upper_bounds) {
+  int i;
+  //check that parameters are within boundaries
+  assert(lower_bounds == NULL || lower_bounds->size == opt_params->size);
+  assert(upper_bounds == NULL || upper_bounds->size == opt_params->size);
+  for (i=0; i<opt_params->size; i++) {
+    if (lower_bounds != NULL && upper_bounds != NULL)
+      if (vec_get(lower_bounds, i) > vec_get(upper_bounds, i)) 
+	die("ERROR: lower bounds are higher than upper bounds!\n");
+    if (lower_bounds != NULL && 
+	vec_get(opt_params, i) < vec_get(lower_bounds, i)) {
+      vec_set(opt_params, i, vec_get(lower_bounds, i));
+      fprintf(stderr, "Warning: had to adjust initial value of parameter %i to stay above lower bound %f\n", i, vec_get(lower_bounds, i));
+    }
+    if (upper_bounds != NULL &&
+	vec_get(opt_params, i) > vec_get(upper_bounds, i)) {
+      vec_set(opt_params, i, vec_get(upper_bounds, i));
+      fprintf(stderr, "Warning: had to adjust initial value of parameter %i to stay below upper bound %f\n", i, vec_get(upper_bounds, i));
+    }
+  }
+}
 
 
 /* Given an MSA, a tree topology, and a substitution model, fit a tree
@@ -1101,6 +1299,7 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
       vec_set(opt_params, mod->param_map[i], vec_get(params, i));
   
   tm_set_boundaries(&lower_bounds, &upper_bounds, npar, mod);
+  tm_check_boundaries(opt_params, lower_bounds, upper_bounds);
 
   retval = opt_bfgs(tm_likelihood_wrapper, opt_params, (void*)mod, &ll, 
                     lower_bounds, upper_bounds, logf, NULL, precision, NULL);
@@ -1391,7 +1590,7 @@ void tm_setup_params(TreeModel *mod) {
 	  int parenpos=-1, k;
 	  currparam = lst_get_ptr(altmod->param_list, i);
 	  for (k=0; k<currparam->length; k++)
-	    if (currparam->chars[k]=='(') {
+	    if (currparam->chars[k]=='[') {
 	      parenpos = k;
 	      currparam->chars[parenpos]='\0';
 	      currparam->length=parenpos;
@@ -1408,7 +1607,7 @@ void tm_setup_params(TreeModel *mod) {
 	    }
 	  }
 	  if (parenpos >= 0) {
-	    currparam->chars[parenpos] = '(';
+	    currparam->chars[parenpos] = '[';
 	    currparam->length = strlen(currparam->chars);
 	  }
 	}
