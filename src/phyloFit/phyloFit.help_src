@@ -238,6 +238,14 @@ OPTIONS:
 	"gc_parameter" (gc bias parameter), and "alphas" (the REV 
 	parameters in the REV+GC model).
 
+    --bound <param_name[lower_bound,upper_bound]>
+        Set boundaries for parameter.  lower_bound or upper_bound may be
+	empty string to keep default.  For example --bound gc_param[1,] will
+	set the lower bound for gc_param to 1 (keeping upper bound at infinity),
+	for a GC model.  Only applies to parameters for model in the "main" 
+	tree, but similar syntax can be used within the --alt-mod arguments.
+    	Can be used multiple times to set boundaries for different parameters.
+
 
  (Options for modeling rate variation)
 
@@ -348,7 +356,9 @@ OPTIONS:
 	The parameter names are model-specific, and include "kappa" for
 	HKY models, "alpha" for GC models, "ratematrix" to specify
 	all rate-matrix parameters in general models, and "backgd" for
-	the equilibrium background frequencies.
+	the equilibrium background frequencies.  The parameter names
+	may optionally be followed by boundaries in square brackets to
+	specify parameter bounds, as described in --bound option.
 
 	The --alt-mod argument may be used multiple times, and is
 	applied in the order given, so that later uses may override
