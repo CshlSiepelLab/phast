@@ -41,6 +41,13 @@
 
 #define TM_EM_CONV(P) ( (P) == OPT_HIGH_PREC ? TM_EM_CONV_HIGH : ( (P) == OPT_MED_PREC ? TM_EM_CONV_MED : ( (P) == OPT_CRUDE_PREC ? TM_EM_CONV_CRUDE : TM_EM_CONV_LOW) ))
 
+
+#define BACKGD_STR "backgd"
+#define RATEMAT_STR "ratematrix"
+#define RATEVAR_STR "ratevar"
+#define BRANCHES_STR "branches"
+
+
 /* type of branch length estimation */
 typedef enum { 
   TM_BRANCHLENS_ALL, 
@@ -160,6 +167,7 @@ struct tm_struct {
   int scale_idx, bl_idx, ratematrix_idx, backgd_idx, ratevar_idx;
   List *bound_arg;
   String *noopt_str;
+  int eqfreq_sym;
 };
 
 typedef struct tm_struct TreeModel;

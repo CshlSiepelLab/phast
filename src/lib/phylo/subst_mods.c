@@ -599,6 +599,8 @@ void tm_set_GC_matrix(TreeModel *mod, double kappa, int kappa_idx, double alpha)
   double sum = 0.0;
   int setup_mapping = 
     (kappa_idx >= 0 && lst_size(mod->rate_matrix_param_row[kappa_idx]) == 0);
+
+  //first scale eq frequencies
   for (i=0; i<mod->rate_matrix->size; i++) {
     c = toupper(mod->rate_matrix->states[i]);
     if (c=='G' || c=='C')
@@ -683,6 +685,7 @@ void tm_set_REV_GC_matrix(TreeModel *mod, Vector *params, int start_idx) {
 
   gamma = vec_get(params, start_idx++);
 
+  //first scale the eq frequencies
   for (i=0; i<mod->rate_matrix->size; i++) {
     c1 = toupper(mod->rate_matrix->states[i]);
     if (c1 == 'C' || c1 == 'G')

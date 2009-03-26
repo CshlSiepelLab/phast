@@ -44,6 +44,7 @@
 #define RATE_WEIGHTS_TAG "RATE_WEIGHTS:"
 #define ALT_MODEL_TAG "ALT_SUBST_MOD:"
 
+
 /* internal functions */
 double tm_likelihood_wrapper(Vector *params, void *data);
 
@@ -944,6 +945,54 @@ MSA *tm_generate_msa(int ncolumns,
   return msa;
 }
 
+
+/* Assumes *lower_bounds and *upper_bounds have not been allocated.
+   Also assumes tm_setup_params has already been called.
+   Sets each to NULL if no boundaries are needed */
+void tm_set_boundaries(Vector **lower_bounds, Vector **upper_bounds,
+		       int npar, TreeModel *mod) {
+  int i, j;
+
+  /* most params have lower bound of zero and no upper bound */
+  *lower_bounds = vec_new(npar);
+  vec_zero(*lower_bounds);
+  *upper_bounds = NULL;
+
+  /* however, in this case we don't want the eq freqs to go to zero */
+  if (mod->estimate_backgd) {
+    for (i = 0; i < mod->backgd_freqs->size; i++) {
+      if (mod->param_map[mod->backgd_idx+i] >= 0)
+	vec_set(*lower_bounds, mod->param_map[mod->backgd_idx+i], 0.001);
+    }
+  }
+  /* Check eq freqs in lineage-specific models too */
+  if (mod->alt_subst_mods != NULL) {
+    for (j=0; j<lst_size(mod->alt_subst_mods); j++) {
+      AltSubstMod *altmod = lst_get_ptr(mod->alt_subst_mods, j);
+      if (altmod->backgd_freqs == NULL) continue;
+      if (mod->param_map[altmod->backgd_idx] >= 0)
+	for (i=0; i<altmod->backgd_freqs->size; i++)
+	  vec_set(*lower_bounds, mod->param_map[altmod->backgd_idx+i], 
+		  0.001);
+    }
+  }
+
+  /* Also, in this case, we need to bound the scale of the subtree */
+  if (mod->estimate_branchlens == TM_SCALE_ONLY && mod->subtree_root != NULL 
+      && mod->scale_sub_bound != NB) {
+    if (mod->scale_sub_bound == LB && mod->param_map[mod->scale_idx+1] >= 0) 
+      vec_set(*lower_bounds, mod->param_map[mod->scale_idx+1], 1);
+    if (mod->scale_sub_bound == UB && mod->param_map[mod->scale_idx+1] >= 0) {
+      *upper_bounds = vec_new(npar);
+      vec_set_all(*upper_bounds, INFTY);
+      vec_set(*upper_bounds, mod->param_map[mod->scale_idx+1], 1);
+    }
+  }
+
+}
+		       
+
+
 /* Given an MSA, a tree topology, and a substitution model, fit a tree
    model using a multidimensional optimization algorithm (BFGS).
    TreeModel 'mod' must already be allocated, and initialized with
@@ -954,8 +1003,8 @@ MSA *tm_generate_msa(int ncolumns,
 int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat, 
            opt_precision_type precision, FILE *logf) {
   double ll;
-  Vector *lower_bounds, *upper_bounds, *small_params;
-  int i, j, retval = 0, npar;
+  Vector *lower_bounds, *upper_bounds, *opt_params;
+  int i, retval = 0, npar;
 
   if (msa->ss == NULL) {
     assert(msa->seqs != NULL);
@@ -1003,55 +1052,21 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
       npar = mod->param_map[i]+1;
   }
   assert(npar > 0);
-  small_params = vec_new(npar);
+  opt_params = vec_new(npar);
   for (i=0; i<params->size; i++)
     if (mod->param_map[i] >=0)
-      vec_set(small_params, mod->param_map[i], vec_get(params, i));
+      vec_set(opt_params, mod->param_map[i], vec_get(params, i));
   
-  /* most params have lower bound of zero and no upper bound */
-  lower_bounds = vec_new(npar);
-  vec_zero(lower_bounds);
-  upper_bounds = NULL;
+  tm_set_boundaries(&lower_bounds, &upper_bounds, npar, mod);
 
-  /* however, in this case we don't want the eq freqs to go to zero */
-  if (mod->estimate_backgd) {
-    for (i = 0; i < mod->backgd_freqs->size; i++) {
-      if (mod->param_map[mod->backgd_idx+i] >= 0)
-	vec_set(lower_bounds, mod->param_map[mod->backgd_idx+i], 0.001);
-    }
-  }
-  /* Check eq freqs in lineage-specific models too */
-  if (mod->alt_subst_mods != NULL) {
-    for (j=0; j<lst_size(mod->alt_subst_mods); j++) {
-      AltSubstMod *altmod = lst_get_ptr(mod->alt_subst_mods, j);
-      if (altmod->backgd_freqs == NULL) continue;
-      if (mod->param_map[altmod->backgd_idx] >= 0)
-	for (i=0; i<altmod->backgd_freqs->size; i++)
-	  vec_set(lower_bounds, mod->param_map[altmod->backgd_idx+i], 
-		  0.001);
-    }
-  }
-
-  /* Also, in this case, we need to bound the scale of the subtree */
-  if (mod->estimate_branchlens == TM_SCALE_ONLY && mod->subtree_root != NULL 
-      && mod->scale_sub_bound != NB) {
-    if (mod->scale_sub_bound == LB && mod->param_map[mod->scale_idx+1] >= 0) 
-      vec_set(lower_bounds, mod->param_map[mod->scale_idx+1], 1);
-    if (mod->scale_sub_bound == UB && mod->param_map[mod->scale_idx+1] >= 0) {
-      upper_bounds = vec_new(small_params->size);
-      vec_set_all(upper_bounds, INFTY);
-      vec_set(upper_bounds, mod->param_map[mod->scale_idx+1], 1);
-    }
-  }
-
-  retval = opt_bfgs(tm_likelihood_wrapper, small_params, (void*)mod, &ll, 
+  retval = opt_bfgs(tm_likelihood_wrapper, opt_params, (void*)mod, &ll, 
                     lower_bounds, upper_bounds, logf, NULL, precision, NULL);
 
   mod->lnL = ll * -1 * log(2);  /* make negative again and convert to
                                    natural log scale */
-  tm_unpack_params(mod, small_params, -1);
+  tm_unpack_params(mod, opt_params, -1);
   vec_copy(params, mod->all_params);
-  vec_free(small_params);
+  vec_free(opt_params);
 
   if (mod->subst_mod != JC69 && mod->subst_mod != F81 && 
       mod->estimate_branchlens != TM_BRANCHLENS_NONE) {   
@@ -1078,7 +1093,7 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
     }
   }
 
-  vec_free(lower_bounds);
+  if (lower_bounds != NULL) vec_free(lower_bounds);
   if (upper_bounds != NULL) vec_free(upper_bounds);
 
   if (retval != 0) 
@@ -1168,21 +1183,21 @@ void tm_setup_params(TreeModel *mod) {
   if (mod->noopt_str != NULL) {
     noopt = lst_new_ptr(3);
     str_split(mod->noopt_str, ",", noopt);
-    pos = lst_find_compare(noopt, "branches", void_str_equals_charstr);
+    pos = lst_find_compare(noopt, BRANCHES_STR, void_str_equals_charstr);
     if (pos >= 0) {
       //      printf("holding branches const\n");
       mod->estimate_branchlens = TM_BRANCHLENS_NONE;
       str_free(lst_get_ptr(noopt, pos));
       lst_delete_idx(noopt, pos);
     }
-    pos = lst_find_compare(noopt, "backgd", void_str_equals_charstr);
+    pos = lst_find_compare(noopt, BACKGD_STR, void_str_equals_charstr);
     if (pos >= 0) {
       //      printf("holding backgd const\n");
       mod->estimate_backgd = 0;
       str_free(lst_get_ptr(noopt, pos));
       lst_delete_idx(noopt, pos);
     }
-    pos = lst_find_compare(noopt, "ratematrix", void_str_equals_charstr);
+    pos = lst_find_compare(noopt, RATEMAT_STR, void_str_equals_charstr);
     if (pos >= 0) {
       //      printf("holding ratematrix const\n");
       mod->estimate_ratemat = 0;
@@ -1254,7 +1269,7 @@ void tm_setup_params(TreeModel *mod) {
   if (mod->nratecats > 1) {
     int est_rates = (noopt==NULL);
     if (noopt != NULL) {
-      pos = lst_find_compare(noopt, "ratevar", void_str_equals_charstr);
+      pos = lst_find_compare(noopt, RATEVAR_STR, void_str_equals_charstr);
       if (pos >= 0) {
 	//	printf("holding ratevar const\n");
 	est_rates = 0;
@@ -1331,8 +1346,8 @@ void tm_setup_params(TreeModel *mod) {
 	for (i=0; i<lst_size(altmod->param_list); i++) {
 	  String *currparam;
 	  currparam = lst_get_ptr(altmod->param_list, i);
-	  printf("parsing string %s\n", currparam->chars);
-	  if (str_equals_nocase_charstr(currparam, "backgd"))
+	  //	  printf("parsing string %s\n", currparam->chars);
+	  if (str_equals_nocase_charstr(currparam, BACKGD_STR))
 	    opt_freq = 1;
 	  else  {
 	    if (0==tm_flag_subst_param_pos(mod, opt_par, currparam)) {
