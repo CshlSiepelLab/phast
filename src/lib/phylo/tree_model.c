@@ -1092,6 +1092,20 @@ int void_str_equals_charstr(void *strptr, void *charptr) {
 			    (char*)charptr);
 }
 
+
+/* tm_setup_params: assigns parameter indices to mod->scale_idx,
+   mod->bl_idx, mod->ratevar_idx, mod->ratematrix_idx which point
+   to indices in mod->all_params where corresponding parameters are
+   stored.
+   
+   Then, it determines which parameters are to be optimizes, and allocates
+   and assigns values to mod->param_map, which maps indices in all_params
+   to indices in the optimization vector, so that param_map[i]=j implies
+   that all_params[i] is stored in opt_vec[j].  Only parameters which
+   are to be optimized are stored in the optimization vector.  Parameters
+   which are held constant have param_map[i]=-1.
+   
+ */
 void tm_setup_params(TreeModel *mod) {
   int i, opt_idx = 0, next_idx, alph_size, pos, numpar, *flag;
   List *noopt=NULL;
@@ -1267,7 +1281,7 @@ void tm_setup_params(TreeModel *mod) {
   if (noopt != NULL) {
     for (i=0; i<lst_size(noopt); i++) {
       if (0 == tm_flag_subst_param_pos(mod, flag, lst_get_ptr(noopt, i))) 
-	die("ERROR: couldn't parse parameter name %s from noopt argument\n", ((String*)lst_get_ptr(noopt, i))->chars);
+	die("ERROR: couldn't parse parameter name %s from no-opt argument for model %s\n", ((String*)lst_get_ptr(noopt, i))->chars, tm_get_subst_mod_string(mod->subst_mod));
       str_free(lst_get_ptr(noopt, i));
     }
     lst_free(noopt);
