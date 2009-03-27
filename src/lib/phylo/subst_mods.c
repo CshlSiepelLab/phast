@@ -632,7 +632,7 @@ void tm_set_GC_matrix(TreeModel *mod, double kappa, int kappa_idx, double alpha)
 	  (mod->rate_matrix->states[i] == 'G' || mod->rate_matrix->states[i] == 'C')) {
 
 	//        val *= alpha;
-	val /= alpha;
+	val *= sum/alpha;
 
         if (setup_mapping) {
           lst_push_int(mod->rate_matrix_param_row[kappa_idx+1], i);
