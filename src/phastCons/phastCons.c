@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
   indel_mode_type indel_mode;
 
   while ((c = getopt_long(argc, argv, 
-			  "S:H:V:ni:k:l:C:G:zt:E:R:T:O:r:xL:s:N:P:g:U:c:e:IY:D:JM:F:pA:Xqh", 
+			  "S:H:V:ni:k:l:C:G:zt:E:R:T:O:r:xL:sN:P:g:U:c:e:IY:D:JM:F:pA:Xqh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
@@ -884,7 +884,7 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
 /* Special-purpose unpack function, adapted from tm_unpack_params */
 void unpack_params_mod(TreeModel *mod, Vector *params_in) {
   TreeNode *n;
-  int assigned = 0, nodeidx, i;
+  int nodeidx, i;
   List *traversal;
   Vector *params = mod->all_params;
 
@@ -900,9 +900,8 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
     if (!finite(mu)) die("ERROR: parameter %d is no longer finite (%f).\n", i, mu);
   }
   for (i = 0; i<params->size; i++) {
-    if (mod->param_map[i] >= 0)
-      vec_set(params, mod->param_map[i],
-	      vec_get(params_in, mod->param_map[i]));
+    vec_set(params, i,
+	    vec_get(params_in, mod->param_map[i]));
   }
 
   if (mod->estimate_branchlens == TM_SCALE_ONLY) 
@@ -913,7 +912,12 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
       n = lst_get_ptr(traversal, nodeidx);
       if (n->parent == NULL) continue;
-      n->dparent = vec_get(params, mod->bl_idx+i);
+
+      if ((n == mod->tree->lchild || n == mod->tree->rchild) && 
+	  tm_is_reversible(mod->subst_mod))
+	n->dparent = vec_get(params, mod->bl_idx+i)/2.0;
+      else 
+	n->dparent = vec_get(params, mod->bl_idx+i);
       i++;
       if (n->id == mod->root_leaf_id)
 	n->dparent = 0.0;
@@ -923,12 +927,10 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
   /* next parameters are for rate variation */
   if (mod->nratecats > 1) 
     mod->alpha = vec_get(params, mod->ratevar_idx);
-  else i++;                     /* there's always a placeholder
-                                   here */
 
   tm_set_rate_matrix(mod, params, mod->ratematrix_idx);
-
-  /* diagonalize, if necessary */
+  
+/* diagonalize, if necessary */
   if (mod->subst_mod != JC69 && mod->subst_mod != F81)
     mm_diagonalize(mod->rate_matrix);
 }
@@ -938,7 +940,7 @@ void unpack_params_phmm(PhyloHmm *phmm, Vector *params) {
   unpack_params_mod(phmm->mods[0], params);
   unpack_params_mod(phmm->mods[1], params);
   phmm->em_data->rho = vec_get(params, params->size - 1);
-  tm_scale(phmm->mods[0], vec_get(params, params->size-1), FALSE);
+  tm_scale(phmm->mods[0], phmm->em_data->rho, FALSE);
   
   if (phmm->mods[0]->nratecats > 1) 
     DiscreteGamma(phmm->mods[0]->freqK, phmm->mods[0]->rK, phmm->mods[0]->alpha, 
@@ -973,8 +975,8 @@ void reestimate_trees(void **models, int nmodels, void *data,
                       double **E, int nobs, FILE *logf) {
 
   PhyloHmm *phmm = (PhyloHmm*)data;
-  int k, obsidx;
-  Vector *params, *lower_bounds, *upper_bounds;
+  int k, obsidx, i, npar;
+  Vector *params, *lower_bounds, *upper_bounds, *opt_params;
   double ll;
 
   /* FIXME: what about when multiple states per model?  Need to
@@ -986,25 +988,51 @@ void reestimate_trees(void **models, int nmodels, void *data,
     for (obsidx = 0; obsidx < nobs; obsidx++) 
       phmm->em_data->msa->ss->cat_counts[k][obsidx] = E[k][obsidx];
 
-  params = vec_new(tm_get_nparams(phmm->mods[1]) + 2);
-  tm_params_init_from_model(phmm->mods[1], params, 0); /* unscaled branch lens */
+  /*  // old code
+      params = vec_new(tm_get_nparams(phmm->mods[1]) + 2);
+      tm_params_init_from_model(phmm->mods[1], params, 0); // unscaled branch lens 
+  
+      // special initialization of rate-variation parameters and rho 
+      vec_set(params, tm_get_nbranchlenparams(phmm->mods[0]), 
+         phmm->mods[0]->nratecats > 1 ? phmm->mods[0]->alpha : 0);
+      vec_set(params, params->size - 2,  
+         phmm->mods[1]->nratecats > 1 ? phmm->mods[1]->alpha : 0);
+      vec_set(params, params->size - 1, phmm->em_data->rho);  */
+  params = tm_params_new_init_from_model(phmm->mods[1]);
+  vec_set(params, phmm->mods[1]->ratevar_idx, 
+	  phmm->mods[0]->nratecats > 1 ? phmm->mods[0]->alpha : 0);
+  
 
-  /* special initialization of rate-variation parameters and rho */
-  vec_set(params, phmm->mods[1]->ratevar_idx,
-	  //  vec_set(params, tm_get_nbranchlenparams(phmm->mods[0]), 
-                 phmm->mods[0]->nratecats > 1 ? phmm->mods[0]->alpha : 0);
-  vec_set(params, params->size - 2,  
-                 phmm->mods[1]->nratecats > 1 ? phmm->mods[1]->alpha : 0);
-  vec_set(params, params->size - 1, phmm->em_data->rho);
-  params->param_map = realloc(params->size*sizeof(int));
+  /*Note: usually tm_setup_params is called by tm_params_init* functions.
+    param setup will be phmm->mods[0] and phmm->mods[1] because at this point
+    in the code, we are assured to be using the same model for both states 
+    (only one .mod file is allowed for --estimate-trees).
+  */
+  tm_setup_params(phmm->mods[0]);
+  vec_set(params, phmm->mods[1]->ratevar_idx, 
+	  phmm->mods[0]->nratecats > 1 ? phmm->mods[0]->alpha : 0);
+  
   npar = 0 ;
-  //  for (i=0; i<
+  for (i=0; i < tm_get_nparams(phmm->mods[1]); i++)
+    if (phmm->mods[1]->param_map[i] >= npar)
+      npar = phmm->mods[1]->param_map[i]+1;
+  npar += 2;
 
-  lower_bounds = vec_new(params->size);
+  opt_params = vec_new(npar);
+  for (i=0; i<params->size; i++)
+    if (phmm->mods[1]->param_map[i] >= 0)
+      vec_set(opt_params, phmm->mods[1]->param_map[i],
+	      vec_get(params, i));
+
+  vec_set(opt_params, npar - 2,
+	  phmm->mods[1]->nratecats > 1 ? phmm->mods[1]->alpha : 0);
+  vec_set(opt_params, npar - 1, phmm->em_data->rho);
+
+  lower_bounds = vec_new(npar);
   vec_zero(lower_bounds);
-  upper_bounds = vec_new(params->size);
+  upper_bounds = vec_new(npar);
   vec_set_all(upper_bounds, INFTY);
-  vec_set(upper_bounds, params->size - 1, 1); /* 0 < rho < 1 */
+  vec_set(upper_bounds, npar - 1, 1); /* 0 < rho < 1 */
 
   if (logf != NULL)
     fprintf(logf, "\nRE-ESTIMATION OF TREE MODEL:\n");
@@ -1012,23 +1040,27 @@ void reestimate_trees(void **models, int nmodels, void *data,
   /* keep Hessian arround so it can be used from one iteration to the
      next */
   if (phmm->em_data->H == NULL) {
-    phmm->em_data->H = mat_new(params->size, params->size);
+    phmm->em_data->H = mat_new(npar,npar);
     mat_set_identity(phmm->em_data->H);
   }
 
-  if (opt_bfgs(likelihood_wrapper, params, phmm, &ll, lower_bounds, 
+  vec_copy(phmm->mods[0]->all_params, params);
+  vec_copy(phmm->mods[1]->all_params, params);
+
+  if (opt_bfgs(likelihood_wrapper, opt_params, phmm, &ll, lower_bounds, 
                NULL, logf, NULL, OPT_MED_PREC, phmm->em_data->H) != 0)
     die("ERROR returned by opt_bfgs.\n");
 
   if (logf != NULL) 
     fprintf(logf, "END RE-ESTIMATION OF TREE MODEL\n\n");
 
-  unpack_params_phmm(phmm, params);
+  unpack_params_phmm(phmm, opt_params);
 
   if (phmm->indel_mode == PARAMETERIC)
     phmm_set_branch_len_factors(phmm);
 
   vec_free(params); 
+  vec_free(opt_params);
   vec_free(lower_bounds);
   vec_free(upper_bounds);
 }

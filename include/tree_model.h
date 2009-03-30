@@ -46,6 +46,8 @@
 #define RATEMAT_STR "ratematrix"
 #define RATEVAR_STR "ratevar"
 #define BRANCHES_STR "branches"
+#define SCALE_STR "scale"
+#define SCALE_SUB_STR "scale_sub"
 
 
 /* type of branch length estimation */
@@ -155,11 +157,6 @@ struct tm_struct {
   int estimate_ratemat;         /* indicates whether rate-matrix
                                    parameters should be estimated */
   AltSubstMod **alt_subst_mods_node;
-                                /* optional alternative substitution
-                                   models per branch of three; can be
-                                   used for nonhomogeneous models.
-                                   Typically set to NULL and
-                                   ignored.  */
   List *alt_subst_mods;
   Vector *all_params;
   //  Vector *lowbound, *upbound;

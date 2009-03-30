@@ -145,6 +145,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   tm->rate_matrix_param_row = tm->rate_matrix_param_col = NULL;
   tm->noopt_str = NULL;
   tm->eqfreq_sym = 0;
+  tm->bound_arg = NULL;
   return tm;
 }
 
@@ -249,6 +250,13 @@ void tm_free(TreeModel *tm) {
     free(tm->alt_subst_mods_node);
   if (tm->param_map != NULL) free(tm->param_map);
   if (tm->all_params != NULL) vec_free(tm->all_params);
+  if (tm->bound_arg != NULL) {
+    for (i=0; i<lst_size(tm->bound_arg); i++) 
+      str_free(lst_get_ptr(tm->bound_arg, i));
+    lst_free(tm->bound_arg);
+  }
+  if (tm->noopt_str != NULL)
+    str_free(tm->noopt_str);
   free(tm);
 }
 
@@ -1669,7 +1677,16 @@ void tm_unpack_params(TreeModel *mod, Vector *params_in, int idx_offset) {
   for (nodeidx=0; nodeidx < lst_size(traversal); nodeidx++) {
     n = lst_get_ptr(traversal, nodeidx);
     if (n->parent == NULL) continue;
-    n->dparent = vec_get(params, mod->bl_idx + i);
+
+    /*Keeping the old convention here, even though it is a bit
+      more complicated, for consistency's sake.  Set the bl of branches
+      coming from root to half the value in parameter vector if model
+      is reversibl*/
+    if ((n == mod->tree->lchild || n == mod->tree->rchild) &&
+	tm_is_reversible(mod->subst_mod))
+      n->dparent = vec_get(params, mod->bl_idx + i)/2.0;
+    else
+      n->dparent = vec_get(params, mod->bl_idx + i);
     i++;
   }
 
@@ -1964,13 +1981,16 @@ void tm_params_init_from_model(TreeModel *mod, Vector *params,
     if (n->parent == NULL) continue;
 
     /* Note: if the model is reversible, then the distances from root
-       to lchild equals distance from root to rchild.  Setting each to
-       average distance as a convention.
+       to lchild equals distance from root to rchild.  In older versions,
+       the parameter was set to 2*(distance to lchild).  Here, using
+       (distance to lchild) + (distance to rchild), which is more correct.
+       But explains slightly different results between older and newer 
+       versions.
     */
     if ((n == mod->tree->lchild || n == mod->tree->rchild) && 
 	tm_is_reversible(mod->subst_mod)) 
-      vec_set(params, mod->bl_idx+i, (mod->tree->lchild->dparent +
-				      mod->tree->rchild->dparent)/2.0);
+      vec_set(params, mod->bl_idx + i, (mod->tree->lchild->dparent +
+					mod->tree->rchild->dparent));
     else vec_set(params, mod->bl_idx+i, n->dparent);
     i++;
   }
