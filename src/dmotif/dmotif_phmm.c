@@ -625,16 +625,21 @@ void dm_set_backgd_branches(TreeModel *tm, TreeModel *backgd_mod,
                             List *nodelist) {
   int i;
   TreeNode *n;
-  tm->alt_subst_mods = (AltSubstMod**)smalloc(tm->tree->nnodes
-					      * sizeof(void*));
-  for (i = 0; i < tm->tree->nnodes; i++) tm->alt_subst_mods[i] = NULL;
+  AltSubstMod *altmod = 
+    tm_new_alt_subst_mod(backgd_mod->subst_mod,
+			 vec_create_copy(backgd_mod->backgd_freqs),
+			 mm_create_copy(backgd_mod->rate_matrix));
+  tm->alt_subst_mods = lst_new_ptr(1);
+  lst_push_ptr(tm->alt_subst_mods, (void*)altmod);
+  
+  tm->alt_subst_mods_node = malloc(mod->tree->nnodes * sizeof(AltSubstMod*));
+  for (i=0; i<mod->tree->nnodes; i++)
+    tm->alt_subst_mods_node[i] = NULL;
 
   for (i = 0; i < lst_size(nodelist); i++) {
     n = lst_get_ptr(nodelist, i);
-    tm->alt_subst_mods[n->id] =
-      tm_new_alt_subst_mod(backgd_mod->subst_mod,
-                           vec_create_copy(backgd_mod->backgd_freqs),
-                           mm_create_copy(backgd_mod->rate_matrix));
+    assert(n->id < mod->tree->nnodes);
+    tm->alt_subst_mods[n->id] = altmod;
   }
 }
 

@@ -165,6 +165,9 @@ struct tm_struct {
   List *bound_arg;
   String *noopt_str;
   int eqfreq_sym;
+  int scale_during_opt;       /* Whether to scale rate matrix during optimization.
+				 Normally 0, but 1 if TM_BRANCHLENS_NONE, or
+				 if TM_SCALE and alt_subst_mods!=NULL */
 };
 
 typedef struct tm_struct TreeModel;
@@ -198,7 +201,10 @@ void tm_set_subst_matrices(TreeModel *tm);
 
 void tm_set_subst_matrix(TreeModel *tm, MarkovMatrix *P, double t);
 
-void tm_scale(TreeModel *tm, double scale_const, int reset_subst_mats);
+void tm_scale_model(TreeModel *tm, Vector *params, int scale_blens,
+		    int reset_subst_matrices);
+
+void tm_scale_branchlens(TreeModel *tm, double scale_const, int reset_subst_mats);
 
 int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat, 
            opt_precision_type precision, FILE *logf);

@@ -263,11 +263,8 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
   /* take care of final scaling of rate matrix and branch lengths */
   branchlen_scale = 1;
   if (mod->subst_mod != JC69 && mod->subst_mod != F81) {
-    branchlen_scale *= tm_scale_rate_matrix(mod); 
-    tm_scale_params(mod, params, branchlen_scale); 
-    /* FIXME: this inserted so params reflect model on exit, but won't
-       be correct if either condition below holds -- not currently an
-       issue because they aren't supported in phyloBoot anyway */
+    //this will scale the branchlens, so don't add factor to branchlen_scale
+    tm_scale_model(mod, params, 1, 0);
   }
   if (mod->estimate_branchlens == TM_SCALE_ONLY) { 
     branchlen_scale *= mod->scale;
@@ -280,7 +277,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
     branchlen_scale *= rate_scale;
   }
   if (branchlen_scale != 1)
-    tm_scale(mod, branchlen_scale, 0); 
+    tm_scale_branchlens(mod, branchlen_scale, 0); 
 
   /* close log */
   if (logf != NULL) {

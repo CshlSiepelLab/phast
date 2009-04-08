@@ -1223,7 +1223,7 @@ Motif* mtf_new(int motif_size, int multiseq, Vector **freqs,
                                    object (otherwise problem keeping
                                    them synched) */
 /*         fuzz(m->ph_mods[i]->backgd_freqs);  */
-        tm_scale(m->ph_mods[i], scale_factor, 0);
+        tm_scale_branchlens(m->ph_mods[i], scale_factor, 0);
       }
     }
   }
@@ -1947,7 +1947,7 @@ void mtf_add_features(Motif *m, GFF_Set *gff) {
 /*         tmpmodels[i]->estimate_backgd = 1; */
 /*         tm_init_rmp(tmpmodels[i]); */
 /*         vec_copy(tmpmodels[i]->backgd_freqs, mult[i]); */
-/*         tm_scale(tmpmodels[i], 0.5, 0); */
+/*         tm_scale_branchlens(tmpmodels[i], 0.5, 0); */
 /*       } */
 
 /*       logl = mtf_find_em(tmpmodels, pmsa, lst_size(msas), msa_lens,  */

@@ -481,7 +481,7 @@ int main(int argc, char *argv[]) {
                                             rescale first */
       mod = srealloc(mod, 2 * sizeof(void*));
       mod[1] = tm_create_copy(mod[0]);
-      if (!estim_rho) tm_scale(mod[0], rho, TRUE);
+      if (!estim_rho) tm_scale_branchlens(mod[0], rho, TRUE);
     }
     if (nrates != -1 && nrates != mod[0]->nratecats) 
       tm_reinit(mod[0], mod[0]->subst_mod, nrates, mod[0]->alpha, NULL, NULL);
@@ -829,10 +829,8 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
     /* have to do final rescaling of tree models to get units of subst/site */
     if (phmm->mods[0]->subst_mod != JC69 && phmm->mods[0]->subst_mod != F81) {   
                                 /* JC69 and F81 are exceptions */
-      double scale = tm_scale_rate_matrix(phmm->mods[0]); 
-      tm_scale_rate_matrix(phmm->mods[1]); /* will be the same */
-      tm_scale(phmm->mods[0], scale, 0); 
-      tm_scale(phmm->mods[1], scale, 0);
+      tm_scale_model(phmm->mods[0], NULL, 1, 0);
+      tm_scale_model(phmm->mods[1], NULL, 1, 0);
     }
 
     phmm->mods[0]->lnL = phmm->mods[1]->lnL = retval;
@@ -851,7 +849,7 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
                              phmm_log_em, phmm->emissions, logf) * log(2);
 
     /* do final rescaling of conserved tree */
-    tm_scale(phmm->mods[0], phmm->em_data->rho, FALSE);  
+    tm_scale_branchlens(phmm->mods[0], phmm->em_data->rho, FALSE);  
     phmm->mods[0]->scale = 1;
 
     phmm->mods[0]->lnL = phmm->mods[1]->lnL = retval;
@@ -940,7 +938,7 @@ void unpack_params_phmm(PhyloHmm *phmm, Vector *params) {
   unpack_params_mod(phmm->mods[0], params);
   unpack_params_mod(phmm->mods[1], params);
   phmm->em_data->rho = vec_get(params, params->size - 1);
-  tm_scale(phmm->mods[0], phmm->em_data->rho, FALSE);
+  tm_scale_branchlens(phmm->mods[0], phmm->em_data->rho, FALSE);
   
   if (phmm->mods[0]->nratecats > 1) 
     DiscreteGamma(phmm->mods[0]->freqK, phmm->mods[0]->rK, phmm->mods[0]->alpha, 
