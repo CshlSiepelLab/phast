@@ -1791,13 +1791,13 @@ void tm_scale_params(TreeModel *mod, Vector *params, double scale_factor) {
   int i;
   int nbl = tm_get_nbranchlenparams(mod);
   int nrm = tm_get_nratematparams(mod);
-  int np = tm_get_nparams(mod);     /* we won't assume anything about the
-                                       number of params between the
-                                       branchlen and ratemat params */
+
   for (i = 0; i < nbl; i++)
-    vec_set(params, i, vec_get(params, i) * scale_factor);
-  for (i = np - nrm; i < np; i++) 
-    vec_set(params, i, vec_get(params, i) / scale_factor);
+    vec_set(params, mod->bl_idx+i, 
+	    vec_get(params, mod->bl_idx + i) * scale_factor);
+  for (i=0; i<nrm; i++)
+    vec_set(params, mod->ratematrix_idx + i, 
+	    vec_get(params, mod->ratematrix_idx + i) / scale_factor);
 }
 
 
