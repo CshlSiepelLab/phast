@@ -1790,7 +1790,7 @@ void tm_unpack_params(TreeModel *mod, Vector *params_in, int idx_offset) {
     /*Keeping the old convention here, even though it is a bit
       more complicated, for consistency's sake.  Set the bl of branches
       coming from root to half the value in parameter vector if model
-      is reversibl*/
+      is reversible*/
     if ((n == mod->tree->lchild || n == mod->tree->rchild) &&
 	tm_is_reversible(mod->subst_mod))
       n->dparent = vec_get(params, mod->bl_idx + i)/2.0;
@@ -2099,9 +2099,12 @@ void tm_params_init_from_model(TreeModel *mod, Vector *params,
        versions.
     */
     if ((n == mod->tree->lchild || n == mod->tree->rchild) && 
-	tm_is_reversible(mod->subst_mod)) 
-      vec_set(params, mod->bl_idx + i, (mod->tree->lchild->dparent +
-					mod->tree->rchild->dparent));
+	tm_is_reversible(mod->subst_mod)) {
+      if (mod->estimate_branchlens == TM_BRANCHLENS_ALL)
+	vec_set(params, mod->bl_idx + i, (mod->tree->lchild->dparent +
+					  mod->tree->rchild->dparent));
+      else vec_set(params, mod->bl_idx + i, 2.0*n->dparent);
+    }
     else vec_set(params, mod->bl_idx+i, n->dparent);
     i++;
   }
