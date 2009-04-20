@@ -164,7 +164,7 @@ int lst_empty(List *l);
 
 /** Free the elements of a list of strings.
 
-  \warning This will not free the list, nor clear the list! Use with care!
+  \warning This will not free the list! Use with care!
   
   @param l Target list containing strings.
   \sa lst_free

@@ -228,6 +228,7 @@ void lst_free_strings(List *l) {
   int i;
   for (i = 0; i < lst_size(l); i++) 
     if (lst_get_ptr(l, i) != NULL) str_free(lst_get_ptr(l, i));
+  lst_clear(l);
 }
 
 /* reverse the order of a list */
