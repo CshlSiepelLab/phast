@@ -9,12 +9,6 @@
 
 /* $Id: vector.c,v 1.3 2008-11-12 02:07:59 acs Exp $*/
 
-/** \file vector.c
-    Vectors of doubles.  Very simple implementation -- essentially
-    just an array.
-    \ingroup base
-*/
-
 #include <vector.h>
 #include <misc.h>
 #include <assert.h>
