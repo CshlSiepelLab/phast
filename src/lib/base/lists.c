@@ -9,19 +9,6 @@
 
 /* $Id: lists.c,v 1.7 2008-11-12 02:07:59 acs Exp $ */
 
-/** \file lists.c 
-   Simple array-based lists and supporting functions.  
-   Elements stored in contiguous memory locations (for efficient
-   caching performance).  Supports storage of objects of arbitrary
-   size.  Convenience functions are available for common data types
-   such as ints, doubles, and pointers.  The "stacks" and "queues"
-   libraries are layered on top of this one.  Use these lists when
-   memory locality is important or when you need to access elements by
-   index; use linked-lists instead when (mid-list) insertions and
-   deletions are important. 
-   \ingroup base
-*/
-
 /*
    TODO
    - generalize lst_bsearch_int to work with any kind of object and with
