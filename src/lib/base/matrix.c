@@ -9,11 +9,6 @@
 
 /* $Id: matrix.c,v 1.10 2008-11-16 02:43:24 acs Exp $ */
 
-/** \file matrix.c
-    Matrices of real numbers (doubles)
-    \ingroup base
-*/
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
