@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: hashtable.c,v 1.8 2009-02-19 19:44:15 agd27 Exp $*/
+/* $Id: hashtable.c,v 1.8 2009/02/19 19:44:15 agd27 Exp $*/
 
 /* hashtable - Fast, simple array-based hash table, optimized for
    'put' and 'get' ('delete' somewhat inefficient).  Stores copies of
@@ -158,7 +158,7 @@ List *hsh_keys(Hashtable *ht) {
 
 /* Clear keys and values in a hashtable without freeing the hashtable. The end
    result is equivaslent to a newly-allocated hashtable. */
-void hsh_clear(Hashtable *ht) {
+void hsh_clear_with_vals(Hashtable *ht) {
   int i, j;
   for (i = 0; i < ht->nbuckets; i++) {
     if (ht->keys[i] != NULL) {
@@ -168,6 +168,22 @@ void hsh_clear(Hashtable *ht) {
         free(lst_get_ptr(ht->vals[i], j));
       lst_free(ht->keys[i]);
       lst_free(ht->vals[i]);      
+      ht->keys[i] = ht->vals[i] = NULL;
+    }
+  }
+}
+
+/* Clear keys in a hashtable without freeing the hashtable or values. The end
+   result is equivaslent to a newly-allocated hashtable, but objects pointed
+   to by the hash are left intact. */
+void hsh_clear(Hashtable *ht) {
+  int i, j;
+  for (i = 0; i < ht->nbuckets; i++) {
+    if (ht->keys[i] != NULL) {
+      for (j = 0; j < lst_size(ht->keys[i]); j++)
+	free(lst_get_ptr(ht->keys[i], j));
+      lst_free(ht->keys[i]);
+      lst_free(ht->vals[i]);
       ht->keys[i] = ht->vals[i] = NULL;
     }
   }

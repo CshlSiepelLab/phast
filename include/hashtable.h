@@ -9,7 +9,7 @@
 
 /* hashtable - Fast, simple array-based hash table, optimized for 'put' and 'get' ('delete' somewhat inefficient). */
 
-/* $Id: hashtable.h,v 1.6 2009-02-02 22:59:54 agd27 Exp $  */
+/* $Id: hashtable.h,v 1.6 2009/02/02 22:59:54 agd27 Exp $  */
 
 
 #ifndef HASHTABLE_H
@@ -38,6 +38,7 @@ void hsh_free_with_vals(Hashtable *ht);
 unsigned int hsh_hash_func(Hashtable *ht, char* key);
 List *hsh_keys(Hashtable *ht);
 void hsh_clear(Hashtable *ht);
+void hsh_clear_with_vals(Hashtable *ht);
 
 /***************************************************************************
  * inline functions; also defined in vector.c 
