@@ -53,6 +53,7 @@ typedef struct {
   PooledMSA *pmsa;
   IndelHistory **ih;
   List *seqnames;
+  List **zeroed_states;
   int max_seqlen;
 } DMotifPmsaStruct;
 
@@ -72,7 +73,11 @@ typedef struct {
   DMotifPhyloHmm *dm;
   PooledMSA *blocks;
   IndelHistory *ih;
+  List *zeroed_states;
   double **tuple_scores;
+  int **thread_path;
+  double ***thread_emissions;
+  double ***thread_forward;
   double *thread_llh;
   int ***thread_trans;
   Hashtable **thread_counts;
@@ -86,6 +91,16 @@ typedef struct {
   ThreadPool *p;
   int sample;
 } DMsamplingThreadData;
+
+/* Structure to specify states and positions to zero out when conditioning on
+   presence of substitutions for gain/loss states and presence of a site in a
+   specific specie(s) */
+typedef struct {
+  int state;
+  int do_row;
+  List *starts;
+  List *lengths;
+} DMzeroedState;
 
 DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu, 
                        double nu, double phi, double zeta, double alpha_c, 
@@ -123,17 +138,20 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
 /* Multithreaded version of dms_sample_paths */
 List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 			    double **tuple_scores, IndelHistory **ih,
-			    List *seqnames, int bsamples,
+			    List *seqnames, int max_seqlen, int bsamples,
 			    int nsamples, int sample_interval, int **priors,
 			    FILE *log, GFF_Set *reference, int ref_as_prior,
 			    int force_priors, int quiet, char *cache_fname,
-			    int cache_int, ThreadPool *pool, int nthreads);
+			    int cache_int, ThreadPool *pool, int nthreads,
+			    List **zeroed_states);
 void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
-		     double **tuple_scores, double *thread_llh, 
+		     double **tuple_scores, double *thread_llh,
+		     int **thread_path,
+		     double ***thread_emissions, double ***thread_forward,
 		     int ***thread_trans, Hashtable **thread_counts, 
 		     int do_sample, int seqnum, char *seqname, FILE *log, 
 		     GFF_Set *query_gff, int do_reference, int nthreads,
-		     ThreadPool *p, int sample);
+		     ThreadPool *p, int sample, List *zeroed_states);
 void dms_launch_sample_thread(void *data);
 void dms_read_priors(int **priors, FILE *prior_f);
 GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks, 
@@ -174,7 +192,8 @@ void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample,
 		   double llh, GFF_Set *query_gff, GFF_Set *reference, 
 		   int nwins);
 DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
-				      int revcomp);
+				      int revcomp, int do_zeroed,
+				      FILE *cond_spec_f);
 double dm_compute_log_likelihood(TreeModel *mod, MSA *msa, double *col_scores,
 				 int cat);
 void dm_free_subst_matrices(TreeModel *tm);
@@ -191,5 +210,42 @@ void dms_dump_sample_data(int sample, int thread_id, char *seqname,
 void dms_free_dmpmsa_struct(DMotifPmsaStruct *dmpmsa);
 void dms_map_gff_coords(PooledMSA *blocks, int seqidx, GFF_Feature *f,
 			int from_seq, int to_seq);
+
+/* Functions related to conditioning on presence of sites and substitutions */
+void dms_zero_states(MSA *msa, double **emissions, List *zeroed_states);
+void dms_zero_emissions_row(double *row, int seqlen);
+DMzeroedState **dms_condition_on_species(DMotifPhyloHmm *dm, TreeNode *tree,
+					 int cond_on /* Node ID of (leaf) 
+							sequence believed to 
+							contain a site */
+			       );
+void dms_condition_on_subs(DMotifPhyloHmm *dm, TreeModel *mod, MSA *msa, 
+			   DMzeroedState **zeroed_states, int nosubs);
+DMzeroedState *dms_new_zeroed_state(int state, int do_row);
+void dms_free_zeroed_state(DMzeroedState *z);
+void dms_write_zeroed_states(FILE *f, List *zeroed_states);
+List *dms_read_zeroed_states(FILE *F);
+List *dms_zeroed_states_array_to_list(DMzeroedState **zeroed_states,
+				      int nstates, int init_size);
+void dms_print_zeroed_states(FILE *f, DMotifPhyloHmm *dm, TreeNode *tree,
+			     List *zeroed_states);
+List *dms_reverse_zeroed_states(List *zeroed_states, MSA *msa);
+
+/* Create an array of Lists that describe nodes to zero emissions for at
+   each motif window. Nosubs toggles between choosing branches to zero
+   based on whether parent and child character sets are identical (nosubs ==
+   0) or whether scenarios exist that allow substitutions on a branch (nosubs
+   == 1) */
+List **dms_label_subst_nodes(MSA *msa, TreeModel *mod, PSSM *m, int nosubs);
+
+/* Create a list that represents the intersection of two int lists or, if there
+   is no overlap between the two lists, the union of both lists. Returns the
+   size of the intersection or 0 if dest represents the union. */
+int dms_intersect_or_union(List *dest, List *left, List *right);
+void dms_compact_zeroed_states(List **zeroed_states, int nblocks);
+int dms_compare_lists_identity(List *parent, List *child);
+int dms_compare_lists_nosubs(List *parent, List *child);
+void dms_zeroed_as_bed(FILE *f, DMotifPhyloHmm *dm, List *zeroed_states,
+		       char *fname);
 
 #endif

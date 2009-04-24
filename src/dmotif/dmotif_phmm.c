@@ -22,7 +22,7 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
   int k = 2*nleaves - 3;                  /* no. branches (unrooted tree) */
   int nstates = (2 + 2*k) * (m->width+1); /* number of states */
   HMM *hmm;
-  TreeModel **models = smalloc(nstates * sizeof(void*));
+  TreeModel **models = (TreeModel**)smalloc(nstates * sizeof(TreeModel*));
   TreeNode *n;
   CategoryMap *cm;
   List *inside = lst_new_ptr(source_mod->tree->nnodes),
@@ -40,7 +40,7 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
   assert(mu > 0 && 2*mu < 1);
   assert(nu > 0 && nu < 1);
 
-  dm = smalloc(sizeof(DMotifPhyloHmm));
+  dm = (DMotifPhyloHmm*)smalloc(sizeof(DMotifPhyloHmm));
   dm->state_to_branch = (int*)smalloc(nstates 
 				      * sizeof(int));
   dm->state_to_event = (int*)smalloc(nstates 
@@ -49,7 +49,8 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
 					* sizeof(int));
   dm->state_to_motif = (int*)smalloc(nstates 
 				     * sizeof(int));
-  dm->branch_to_states = (List**)smalloc(source_mod->tree->nnodes * sizeof(void*));
+  dm->branch_to_states = (List**)smalloc(source_mod->tree->nnodes *
+					 sizeof(List*));
   dm->rho = rho;
   dm->mu = mu;
   dm->nu = nu;
@@ -187,7 +188,8 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
 
   /* set up indel model, if necessary */
  if (alpha_c > 0) {
-   dm->indel_mods = (DMotifIndelModel**)smalloc(nstates * sizeof(void*));
+   dm->indel_mods = (DMotifIndelModel**)smalloc(nstates * 
+						sizeof(DMotifIndelModel*));
     for (state = 0; state < nstates; state++) {
       List *l;
       /* Need event, motif position and branch to apply appropriate model
@@ -358,10 +360,10 @@ void dm_set_transitions(DMotifPhyloHmm *dm) {
 /* adjust emission probabilities to prevent birth/death events from
    spanning regions where they would be supported only by missing data */
 void dm_handle_missing_data(DMotifPhyloHmm *dm, MSA *msa) {
-  List **uninform = smalloc(msa->ss->ntuples * sizeof(void*));
+  List **uninform = (List**)smalloc(msa->ss->ntuples * sizeof(List*));
   TreeNode *n, *tree = dm->phmm->mods[0]->tree;
   typedef enum {MISSING, DATA, DATA_LEFT, DATA_RIGHT} node_type;
-  node_type *mark = smalloc(tree->nnodes * sizeof(node_type));
+  node_type *mark = (node_type*)smalloc(tree->nnodes * sizeof(node_type));
   List *traversal;
   int i, j, l, mod;
 
@@ -626,7 +628,7 @@ void dm_set_backgd_branches(TreeModel *tm, TreeModel *backgd_mod,
   int i;
   TreeNode *n;
   tm->alt_subst_mods = (AltSubstMod**)smalloc(tm->tree->nnodes
-					      * sizeof(void*));
+					      * sizeof(AltSubstMod*));
   for (i = 0; i < tm->tree->nnodes; i++) tm->alt_subst_mods[i] = NULL;
 
   for (i = 0; i < lst_size(nodelist); i++) {
@@ -1036,17 +1038,19 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
 
 List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 			    double **tuple_scores, IndelHistory **ih,
-			    List *seqnames, int bsamples, int nsamples, 
-			    int sample_interval, int **priors, FILE *log,
-			    GFF_Set *reference, int ref_as_prior, 
+			    List *seqnames, int max_seqlen, int bsamples,
+			    int nsamples, int sample_interval, int **priors,
+			    FILE *log, GFF_Set *reference, int ref_as_prior, 
 			    int force_priors, int quiet, char *cache_fname,
-			    int cache_int, ThreadPool *pool, int nthreads) {
+			    int cache_int, ThreadPool *pool, int nthreads,
+			    List **zeroed_states) {
   
-  int i, j, k, l, t, **trans, ***thread_trans, nwins, reinit, threads;
+  int i, j, k, l, t, **trans, ***thread_trans, nwins, reinit, threads,
+    **thread_path;
   unsigned long int seed;
   FILE *devrandom;
 /*   int **ref_paths = NULL; */
-  double llh, *thread_llh;
+  double llh, *thread_llh, ***thread_emissions, ***thread_forward;
   char *cache_out;
   GFF_Set *query_gff = NULL;
   Hashtable *path_counts, **thread_counts;  /**< path_counts is the global hash
@@ -1107,6 +1111,25 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
   thread_llh = (double*)smalloc(threads * sizeof(double));
   for (i = 0; i < threads; i++) {
     thread_llh[i] = 0;
+  }
+
+  /* Allocate space for thread-specific emissions and forward matrices, and
+     paths, sized for the longest sequence in the dataset. */
+  thread_emissions = (double***)smalloc(threads * sizeof(double**));
+  thread_forward = (double***)smalloc(threads * sizeof(double**));
+  thread_path = (int**)smalloc(threads * sizeof(int*));
+  for (i = 0; i < threads; i++) {
+    thread_emissions[i] = (double**)smalloc(dm->phmm->hmm->nstates *
+					    sizeof(double*));
+    thread_forward[i] = (double**)smalloc(dm->phmm->hmm->nstates *
+					  sizeof(double*));
+    thread_path[i] = (int*)smalloc(max_seqlen * sizeof(int));
+    for (j = 0; j < dm->phmm->hmm->nstates; j++) {
+      thread_emissions[i][j] = (double*)smalloc(max_seqlen *
+					      sizeof(double));
+      thread_forward[i][j] = (double*)smalloc(max_seqlen *
+					    sizeof(double));
+    }
   }
     
   /* If comparing to a reference GFF for logging purposes, allocate the
@@ -1177,7 +1200,11 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
       
       data->dm = dm;
       data->blocks = blocks;
+      data->thread_path = thread_path;
+      data->thread_emissions = thread_emissions;
+      data->thread_forward = thread_forward;
       data->ih = (ih == NULL ? NULL : ih[j]);
+      data->zeroed_states = (zeroed_states == NULL ? NULL : zeroed_states[j]);
       data->tuple_scores = tuple_scores;
 
       data->thread_llh = thread_llh;
@@ -1227,7 +1254,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 	/* Fold together hashes from individual threads */
 	for (t = 0; t < threads; t++) {
 	  dms_combine_hashes(path_counts, thread_counts[t], (2*dm->k)+2);
-	  hsh_clear(thread_counts[t]);
+	  hsh_clear_with_vals(thread_counts[t]);
 	}
 	/* build and store a temp file name to hold the cached data */
 	snprintf(cache_out, STR_MED_LEN, "%s.%d.tmp", cache_fname, k++);
@@ -1262,11 +1289,23 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
       free(thread_trans[i][j]);
     }
     free(thread_trans[i]);
+    
+    for (j = 0; j < dm->phmm->hmm->nstates; j++) {
+/*       fprintf(stderr, "i %d, j %d\n", i, j); */
+      free(thread_emissions[i][j]);
+      free(thread_forward[i][j]);
+    }
+    free(thread_emissions[i]);
+    free(thread_forward[i]);
     hsh_free_with_vals(thread_counts[i]);
+    free(thread_path[i]);
   }
   free(thread_trans);
   free(thread_counts);
   free(thread_llh);
+  free(thread_path);
+  free(thread_emissions);
+  free(thread_forward);
   free(cache_out);
   
   return cache_files;
@@ -1275,13 +1314,15 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 /* This will be used to run individual sampling threads, called by
    dms_launch_sample_thread. */
 void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih, 
-		     double **tuple_scores, double *thread_llh, 
+		     double **tuple_scores, double *thread_llh,
+		     int **thread_path,
+		     double ***thread_emissions, double ***thread_forward,
 		     int ***thread_trans, Hashtable **thread_counts, 
 		     int do_sample, int seqnum, char *seqname, FILE *log, 
 		     GFF_Set *query_gff, int do_reference, int nthreads,
-		     ThreadPool *pool, int sample) {
+		     ThreadPool *pool, int sample, List *zeroed_states) {
 
-  int i,*path, thread_idx, **trans;
+  int *path, thread_idx, **trans;
   double **emissions, **forward_scores, *llh;
   MSA *msa = lst_get_ptr(blocks->source_msas, seqnum);
   Hashtable *path_counts;
@@ -1296,19 +1337,14 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
   trans = thread_trans[thread_idx];
   llh = &(thread_llh[thread_idx]);
   path_counts = thread_counts[thread_idx];
-  
-  /* Allocate space for the forward scores, emissions and path. Set to the
-     length of the longest sequence -- will reuse for each sequnce. */
-  forward_scores = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*));
-  emissions = (double**)smalloc(dm->phmm->hmm->nstates * sizeof(double*));
-  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
-    forward_scores[i] = (double*)smalloc(msa->length * sizeof(double));
-    emissions[i] = (double*)smalloc(msa->length * sizeof(double));
-  }
-  path = (int*)smalloc(msa->length * sizeof(int));
+  emissions = thread_emissions[thread_idx];
+  forward_scores = thread_forward[thread_idx];
+  path = thread_path[thread_idx];
   
   dms_lookup_emissions(dm, tuple_scores, emissions, blocks, seqnum,
 		       msa->length, ih);
+  if (zeroed_states != NULL)
+    dms_zero_states(msa, emissions, zeroed_states);
   
   /* Run the forward algorithm */
   *llh += hmm_forward_pthread(dm->phmm->hmm, emissions, msa->length,
@@ -1333,15 +1369,6 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 /*     dms_dump_sample_data(sample, thread_idx, seqname, msa->length, path, trans, */
 /* 			 path_counts, stderr, 2*dm->k+2); */
   }
-  
-  /* Clean up our area */
-  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
-    free(forward_scores[i]);
-    free(emissions[i]);
-  }
-  free(forward_scores);
-  free(emissions);
-  free(path);  
 }
 
 /* Worker function to launch sampling threads */
@@ -1350,10 +1377,13 @@ void dms_launch_sample_thread(void *data) {
 
   dms_sample_path(thread->dm, thread->blocks, thread->ih, 
 		  thread->tuple_scores, thread->thread_llh, 
+		  thread->thread_path, thread->thread_emissions,
+		  thread->thread_forward,
 		  thread->thread_trans, thread->thread_counts,
 		  thread->do_sample, thread->seqnum, thread->seqname, 
 		  thread->log, thread->query_gff, thread->do_reference, 
-		  thread->nthreads, thread->p, thread->sample);  
+		  thread->nthreads, thread->p, thread->sample,
+		  thread->zeroed_states);  
 }
 
 void dms_read_priors(int **priors, FILE *prior_f) {
@@ -2060,17 +2090,20 @@ void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample,
 }
 
 DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet, 
-				      int revcomp) {
+				      int revcomp, int do_zeroed,
+				      FILE *cond_spec_f) {
   
   Regex *blocks_re = str_re_new("#[[:space:]]*BLOCKS[[:space:]]*=[[:space:]]*([0-9]+)");
   Regex *alph_re = str_re_new("#[[:space:]]*ALPHABET[[:space:]]*=[[:space:]]*([A-Z]+)");
   Regex *format_re = str_re_new("#[[:space:]]*FORMAT[[:space:]]*=[[:space:]]*([A-Z]+)");
+  Regex *comment_re = str_re_new("#");
   
   int i, j, nblocks, ncats, tuple_size;
-  char msa_fname[STR_MED_LEN], ih_fname[STR_MED_LEN];
-  FILE *msa_f, *ih_f;
+  char msa_fname[STR_MED_LEN], ih_fname[STR_MED_LEN],
+    zeroed_fname[STR_MED_LEN];
+  FILE *msa_f, *ih_f, *zeroed_f;
   msa_format_type format;
-  List *msas = NULL, *matches = lst_new_ptr(4);
+  List *msas = NULL, *matches = lst_new_ptr(5);
   MSA *msa, *msa_rc;
   String *line = str_new(STR_MED_LEN), *alphabet = NULL, 
     *fname = str_new(STR_MED_LEN);
@@ -2081,12 +2114,6 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
   nblocks = i = dmpmsa->max_seqlen = 0;
 
   while (str_readline(line, F) != EOF) {
-
-    /* Free all substrings in the matches list or there will be a memory 
-       leak */
-    for (j = 0; j < lst_size(matches); j++)
-      str_free((String*)lst_get_ptr(matches, j));
-
     str_trim(line);
     if (line->length == 0) continue; /* ignore blank lines */
     
@@ -2102,6 +2129,8 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
       } else if (str_re_match(line, format_re, matches, 1) >= 0) {
 	format = msa_str_to_format(((String*)lst_get_ptr(matches, 1))->chars);
 	i++;
+      } else if (str_re_match(line, comment_re, matches, 1) >= 0) {
+	continue;
       } else {
 	die("Bad header in alignment list file\n");
       }
@@ -2112,14 +2141,26 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
 	if (do_ih) { /* Allocate space for indel histories, if
 			called for -- this will need to be filled
 			in explicitly later */
-	  dmpmsa->ih = smalloc(nblocks * sizeof(void*));
+	  dmpmsa->ih = smalloc(nblocks * sizeof(IndelHistory*));
 	} else {
 	  dmpmsa->ih = NULL;
+	}
+	if (do_zeroed) {
+	  dmpmsa->zeroed_states = smalloc((nblocks+1) * sizeof(List*));
+	  if (cond_spec_f != NULL) {
+	    /* zeroed_states[nblocks] is reserved for zeroed rows that affect
+ 	       all seqs */
+	    dmpmsa->zeroed_states[nblocks] = dms_read_zeroed_states(cond_spec_f);
+	  } else {
+	    dmpmsa->zeroed_states[nblocks] = NULL;
+	  }
+	} else {
+	  dmpmsa->zeroed_states = NULL;
 	}
 	i = 0;
       }
     } else {
-      if ((i >= nblocks && !revcomp) || (i >= (nblocks / 2) && revcomp))
+      if (i >= nblocks)
 	  die("Too many alignment files for format\n");
       
       if (str_split(line, NULL, matches) > 1) {
@@ -2127,12 +2168,16 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
 		STR_MED_LEN);
 	strncpy(ih_fname, ((String*)lst_get_ptr(matches, 1))->chars,
 		STR_MED_LEN);
+	if (lst_size(matches) > 2)
+	  strncpy(zeroed_fname, ((String*)lst_get_ptr(matches, 2))->chars,
+		  STR_MED_LEN);
       } else {
 	strncpy(msa_fname, line->chars, STR_MED_LEN);
       }
       
       if (!quiet)
-	fprintf(stderr, "\t%s (%d of %d)\n", msa_fname, (i+1), nblocks);
+	fprintf(stderr, "\tReading alignment from %s  (%d of %d)\n", 
+		msa_fname, (i+1), nblocks);
       msa_f = fopen_fname(msa_fname, "r");
       msa = msa_new_from_file(msa_f, format, (char*)(alphabet->chars));
       lst_push_ptr(msas, msa);
@@ -2177,28 +2222,50 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
 	dmpmsa->ih[i] = ih_new_from_file(ih_f);
 	fclose(ih_f);
       }
+
+      if (do_zeroed && lst_size(matches) > 2) {
+	if (!quiet)
+	  fprintf(stderr, "\tReading conditioning data from %s...\n",
+		  zeroed_fname);
+	if (lst_size(matches) < 3)
+	  die("ERROR: --cond-on-subs and --cond-on-species both require a zeroed-states file created with dmcondition. See 'dmsample -h' and 'dmcondition -h' for details.\n");
+	zeroed_f = fopen_fname(zeroed_fname, "r");
+	dmpmsa->zeroed_states[i] = dms_read_zeroed_states(zeroed_f);
+	fclose(zeroed_f);
+      }
       
       /* Create reverse complement of sequence i, if called for */
       if (revcomp == TRUE) {
 	if (!quiet)
-	  fprintf(stderr, "\tProducing reverse complement of %s\n",
-		  msa_fname);
+	  fprintf(stderr, "\tReverse complementing  %s  (%d of %d)\n",
+		  msa_fname, (i+2), nblocks);
 	msa_rc = msa_create_copy(msa, (format == SS ? 1 : 0));
 	msa_reverse_compl(msa_rc);
 	lst_push_ptr(msas, msa_rc);
         str_append_charstr(fname, "_rc");
 	lst_push_ptr(dmpmsa->seqnames, str_dup(fname));
+	if (do_zeroed) {
+	  dmpmsa->zeroed_states[i+1] =
+	    dms_reverse_zeroed_states(dmpmsa->zeroed_states[i], msa);
+	}
 	/* TO DO: There is a way to create an indel history for the reverse 
 	   seq from the indel history for the forward seq -- this needs to be
            implemented before using indel mod! */
+	i++;
       }
 
       i++;
     }
-  }
-  if ((i < (nblocks - 1) && !revcomp) || (i < (nblocks / 2)-1 && revcomp))
-    die("ERROR: Not enough files in alignments list!\n");
 
+    /* Free all substrings in the matches list or there will be a memory 
+       leak */
+    for (j = 0; j < lst_size(matches); j++) {
+      str_free((String*)lst_get_ptr(matches, j));
+    }
+  }
+  if (i < (nblocks - 1))
+    die("ERROR: Not enough files in alignments list!\n");
+  
   /* Create the PooledMSA structure from the list of MSA's */
   if (!quiet)
     fprintf(stderr, "\tBuilding pooled SS...\n");
@@ -2209,9 +2276,14 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
 /*   fprintf(stderr, "msas[i] %p, blocks->source_msas[0] %p\n", */
 /* 	  lst_get_ptr(msas, 0), lst_get_ptr(blocks->source_msas, 0)); */
 
+  /* Compact the zeroed_states lists, if needed */
+  if (cond_spec_f != NULL)
+    dms_compact_zeroed_states(dmpmsa->zeroed_states, nblocks);
+  
   str_re_free(blocks_re);
   str_re_free(alph_re);
   str_re_free(format_re);
+  str_re_free(comment_re);
   lst_free(matches);
   str_free(alphabet);
   str_free(line);
@@ -2220,14 +2292,12 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
 }
 
 void dms_free_dmpmsa_struct(DMotifPmsaStruct *dmpmsa) {
-  int i;
+  int i, j;
   List *msas;
+  DMzeroedState *z;
   msas = dmpmsa->pmsa->source_msas;
 
-  for (i = 0; i < lst_size(msas); i++) {
-    msa_free(lst_get_ptr(msas, i));
-    str_free(lst_get_ptr(dmpmsa->seqnames, i));
-  }
+  ss_free_pooled_msa(dmpmsa->pmsa);
 
   if(dmpmsa->ih != NULL) {
     for (i = 0; i < lst_size(msas); i++)
@@ -2235,8 +2305,26 @@ void dms_free_dmpmsa_struct(DMotifPmsaStruct *dmpmsa) {
     free(dmpmsa->ih);
   }
 
+  if (dmpmsa->zeroed_states != NULL) {
+    for (i = 0; i <= lst_size(msas); i++) {
+      if (dmpmsa->zeroed_states[i] == NULL)
+	continue;
+      for (j = 0; j < lst_size(dmpmsa->zeroed_states[i]); j++) {
+	z = lst_get_ptr(dmpmsa->zeroed_states[i], j);
+	if (z->do_row == 1 && i < lst_size(msas))
+	  continue;
+	dms_free_zeroed_state(z);
+      }
+      lst_free(dmpmsa->zeroed_states[i]);
+    }
+  }
+  
+  for (i = 0; i < lst_size(msas); i++) {
+    msa_free(lst_get_ptr(msas, i));
+    str_free(lst_get_ptr(dmpmsa->seqnames, i));
+  }
+  
   lst_free(dmpmsa->seqnames);
-  ss_free_pooled_msa(dmpmsa->pmsa);
   free(dmpmsa);
   lst_free(msas);
 }
@@ -2606,6 +2694,7 @@ void dm_free(DMotifPhyloHmm *dm) {
 
 List* dms_read_tmp_from_file(FILE *tmp_lst_f) {
   Regex *nfiles_re = str_re_new("#[[:space:]]*NFILES[[:space:]]*=[[:space:]]*([0-9]+)");
+  Regex *comment_re = str_re_new("#");
   int i, nfiles = -1;
   String *line = str_new(STR_MED_LEN);
   List *matches = lst_new_ptr(2), *ret;
@@ -2624,6 +2713,8 @@ List* dms_read_tmp_from_file(FILE *tmp_lst_f) {
 	die("ERROR: Bad header in temp file list!\n");
     } else if (nfiles == -1) {
       die("ERROR: Bad or mising header in temp file list!\n");
+    } else if (str_re_match(line, comment_re, matches, 1) >= 0) {
+      continue;
     } else {
       if (i == nfiles)
 	die("ERROR: Too many lines in temp file list!\n");
@@ -2632,6 +2723,10 @@ List* dms_read_tmp_from_file(FILE *tmp_lst_f) {
     }
   }
   if (i != nfiles) die("ERROR: Not enough lines in temp file list!\n");
+  str_re_free(nfiles_re);
+  str_re_free(comment_re);
+  str_free(line);
+  lst_free(matches);
   return ret;
 }
 
@@ -2753,4 +2848,818 @@ void dms_map_gff_coords(PooledMSA *blocks, int seqidx, GFF_Feature *f,
     f->end = e + offset;
   
 /*   fprintf(stderr, "f->start new %d, f->end new %d\n", f->start, f->end); */
+}
+
+/* Zero out emissions for combiations of states and sequence positions where
+   no valid motifs are possible */
+void dms_zero_states(MSA *msa, double **emissions, List *zeroed_states) {
+  int i, j, k, pos, len;
+  DMzeroedState *z;
+
+  for (i = 0; i < lst_size(zeroed_states); i++) {
+    z = lst_get_ptr(zeroed_states, i);
+    if (z->do_row == 1) {
+/*       fprintf(stderr, "Zeroing emissions row for state %d\n", z->state); */
+      dms_zero_emissions_row(emissions[z->state], msa->length);
+    } else {
+/*       fprintf(stderr, "state %d, do_row %d\n", z->state, z->do_row); */
+      for (j = 0; j < lst_size(z->starts); j++) {
+	pos = lst_get_int(z->starts, j);
+	len = lst_get_int(z->lengths, j);
+/* 	fprintf(stderr, "z->state %d, pos %d, len %d, pos + len %d, msa->length %d\n", */
+/* 		z->state, pos, len, (pos + len), msa->length); */
+	for (k = pos; k < (pos + len); k++) {
+/* 	  if (k >= msa->length) */
+/* 	    fprintf(stderr, "\tk %d, pos %d, len %d, pos + len %d\n", */
+/* 		    k, pos, len, (pos + len)); */
+/* 	  fprintf(stderr, "%.3f  ", emissions[z->state][k]); */
+	  emissions[z->state][k] = -INFTY;
+/* 	  fprintf(stderr, "%.3f\n", emissions[z->state][k]); */
+	}
+      }	
+    } 
+  }  
+}
+
+/* Zero out an entire row in the emissions matrix */
+void dms_zero_emissions_row(double *row, int seqlen) {
+  int i;
+  for (i = 0; i < seqlen; i++) {
+/*     fprintf(stderr, "%.3f  ", row[i]); */
+    row[i] = -INFTY;
+/*     fprintf(stderr, "%.3f\n", row[i]); */
+  }
+}
+
+/* Create an array of DMzeroedState objects to emulate conditioning predictions
+   on presence of a site in a given species. Right now this will only work for
+   a single species, but should be possible to modify for conditioning on a
+   site's presence in multiple species. */ 
+DMzeroedState **dms_condition_on_species(DMotifPhyloHmm *dm, TreeNode *tree,
+					 int cond_on /* Node ID of (leaf) 
+							sequence believed to 
+							contain a site */
+					 ) {
+  int i, j, state, nodes_visited, states_visited, *mark;
+  TreeNode *n;
+  DMzeroedState *z, **retval;
+
+  retval = (DMzeroedState**)smalloc(dm->phmm->hmm->nstates * 
+				    sizeof(DMzeroedState*));
+  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+    retval[i] = NULL;
+  }
+
+  /* Create an array of ints to indicate whether to zero births or deaths for
+     a given node id. 0 indicates births will be zeroed, 1 indicates deaths 
+     will be zeroed. */
+  mark = smalloc(tree->nnodes * sizeof(int));
+  for (i = 0; i < tree->nnodes; i++)
+    mark[i] = 0;
+
+
+  /* Starting at the leaf sequence we're conditioning on, climb the tree and
+     mark nodes that are predecessors of the node we're conditioning on */
+  n = lst_get_ptr(tree->nodes, cond_on);
+  assert(n->lchild == NULL && n->rchild == NULL);
+  while (n != tree) {
+/*     fprintf(stderr, "n->id %d, n->name %s, parent->id %d\n",  */
+/* 	    n->id, n->name, n->parent->id); */
+    mark[n->id] = 1;
+    n = n->parent;
+  }
+/*   fprintf(stderr, "\n"); */
+
+  /* Traverse the nodes in the tree in arbitrary order and zero birth or death
+     states according to the value or mark[n->id] */
+  nodes_visited = states_visited = 0;
+  for (i = 0; i < tree->nnodes; i++) {
+    n = lst_get_ptr(tree->nodes, i);
+    nodes_visited++;
+    if (n == tree) {
+      continue;
+    } else if (mark[n->id] == 1) { /* Zero death states */
+/*       fprintf(stderr, "n->id %d, n->name %s, zeroing deaths\n", */
+/* 	      n->id, n->name); */
+      for (j = 0; j < lst_size(dm->branch_to_states[n->id]); j++) {
+	states_visited++;
+	state = lst_get_int(dm->branch_to_states[n->id], j);
+	if (dm->state_to_event[state] == DEATH &&
+	    dm->state_to_motifpos[state] != -1) {
+/* 	  fprintf(stderr, "\tstate %d (death, zeroed)\n", state); */
+	  z = dms_new_zeroed_state(state, 1);
+	  retval[state] = z;
+	} else {
+/* 	  fprintf(stderr, "\tstate %d (%s)\n",  */
+/* 		  state, dm->state_to_motifpos[state] == -1 ? "bg" : "birth"); */
+	}
+      }
+    } else { /* mark[n->id] == 0 -- zero birth states */
+/*       fprintf(stderr, "n->id %d, n->name %s, zeroing births\n", */
+/* 	      n->id, n->name); */
+      for (j = 0; j < lst_size(dm->branch_to_states[n->id]); j++) {
+	states_visited++;
+	state = lst_get_int(dm->branch_to_states[n->id], j);
+	if (dm->state_to_event[state] == BIRTH &&
+	    dm->state_to_motifpos[state] != -1) {
+/* 	  fprintf(stderr, "\tstate %d (birth, zeroed)\n", state); */
+	  z = dms_new_zeroed_state(state, 1);
+	  retval[state] = z;
+	} else {
+/* 	  fprintf(stderr, "\tstate %d (%s)\n", */
+/* 		  state, dm->state_to_motifpos[state] == -1 ? "bg" : "death"); */
+	}
+      }
+    }
+  }
+
+/*   fprintf(stderr, "nodes visited: %d of %d\n", nodes_visited, tree->nnodes); */
+/*   fprintf(stderr, "states visited: %d of %d\n", states_visited, dm->phmm->hmm->nstates); */
+  assert(states_visited == (dm->phmm->hmm->nstates - (2 * dm->m->width + 2)));
+  assert(nodes_visited == tree->nnodes);
+  free(mark);
+  return retval;
+}
+
+/* Build a list of DMzeroedState objects to condition on presence
+   of substitutions by zeroing chains of motif states for which there are no
+   substitutions to support a gain/loss prediction. */
+void dms_condition_on_subs(DMotifPhyloHmm *dm, TreeModel *mod, MSA *msa, 
+			   DMzeroedState **zeroed_states, int nosubs) {
+  int i, j, k, n_id, state, start, lastpos, len, offset, **starts_ar;
+  List **zeroed_nodes;
+  DMzeroedState *z;
+
+  /* Used to keep the starts lists as compact as possible */
+  starts_ar = smalloc(dm->phmm->hmm->nstates * sizeof(int*));
+  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+    starts_ar[i] = smalloc(msa->length * sizeof(int));
+    for (j = 0; j < msa->length; j++)
+      starts_ar[i][j] = 0;
+  }
+  
+  zeroed_nodes = dms_label_subst_nodes(msa, mod, dm->m, nosubs);
+
+  for (i = 0; i < (msa->length - dm->m->width) + 1; i++) {
+    if (zeroed_nodes[i] != NULL) {
+      for (j = 0; j < lst_size(zeroed_nodes[i]); j++) {
+	n_id = lst_get_int(zeroed_nodes[i], j);
+
+	offset = 0;
+	for (k = 0; k < lst_size(dm->branch_to_states[n_id]); k++) {
+	  state = lst_get_int(dm->branch_to_states[n_id], k);
+	  /* Only zero birth and death states. Here we DO NOT pay attention
+	     to whether the state is a motif state; we don't want to count
+	     any substitutionless gain/loss events within background states
+	     because these may skew phi. Background states will need special
+	     handling. */
+	  if (dm->state_to_event[state] != BIRTH && 
+	      dm->state_to_event[state] != DEATH)
+	    continue;
+	  
+	  /* Check for an existing DMzeroedState object with a starts list and
+	     create one if not found or continue if the whole row is already
+	     being zeroed. */
+	  z = zeroed_states[state];
+	  if (z != NULL && z->do_row == 1) {
+	    continue;
+	  } else if (z == NULL) {
+	    z = zeroed_states[state] = dms_new_zeroed_state(state, 0);
+	    z->starts = lst_new_int(100); /* Wild guess at size needed */
+	    z->lengths = lst_new_int(100);
+	  } else {
+	    if (z->starts == NULL)
+	      die("ERROR: Expected starts list for state %d but found NULL!\n",
+		  state);
+	  }
+	  
+	  if (dm->state_to_motifpos[state] == -1) { /* bg state */
+	    for (offset = 0; offset < dm->m->width; offset++)
+	      starts_ar[state][i + offset] = 1;
+	    offset = 0;
+	  } else {
+	    starts_ar[state][i + offset] = 1;
+	    if (offset < dm->m->width - 1)
+	      offset++;
+	    else
+	      offset = 0;	  
+	  }
+	}
+      }      
+    }    
+  }
+  
+  /* Compact the states_ar arrays into the z->starts lists */
+  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+    z = zeroed_states[i];
+    if (z == NULL || z->do_row == 1)
+      continue;
+    
+    lastpos = 0;
+    for (j = 0; j <= msa->length; j++) {
+
+      if (j < msa->length) {
+	if (starts_ar[i][j] == 1) {
+	  if (lastpos == 0) { /* Starting a new block of zeroed pos's */
+	    start = j;
+	    len = 1;
+	    lastpos = 1;
+	  } else {
+	    len++;
+	  }
+	} else { /* (starts_ar[i][j] == 0)  */
+	  if (lastpos == 1) { /* Ending a block of zeroed pos's */
+	    lst_push_int(z->starts, start);
+	    lst_push_int(z->lengths, len);
+	    lastpos = 0;
+	  } else {
+	    continue;
+	  }
+	}
+      } else { /* (j == msa->length) */
+	if (lastpos == 1) { /* Ending a block of zeroed pos's */
+	  lst_push_int(z->starts, start);
+	  lst_push_int(z->lengths, len);
+	}
+      }
+    }
+  }
+  
+  for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+    if (starts_ar[i] != NULL)
+      free(starts_ar[i]);    
+  }
+  free(starts_ar);
+}
+
+/* Create a new DMzeroedState object */
+DMzeroedState *dms_new_zeroed_state(int state, int do_row) {
+  DMzeroedState *z = smalloc(sizeof(DMzeroedState));
+  z->state = state;
+  z->do_row = do_row;
+  z->starts = NULL;
+  z->lengths = NULL;
+  return z;
+}
+
+/* Free a DMzeroedState object */
+void dms_free_zeroed_state(DMzeroedState *z) {
+  if (z->starts != NULL) {
+    lst_free(z->starts);
+    lst_free(z->lengths);
+  }
+  free(z);
+}
+
+void dms_write_zeroed_states(FILE *f, List *zeroed_states) {
+  int i, j, start, len;
+  DMzeroedState *z;
+
+  fprintf(f, "# NZEROED_STATES = %d\n", lst_size(zeroed_states));
+  for (i = 0; i < lst_size(zeroed_states); i++) {
+    z = lst_get_ptr(zeroed_states, i);
+    fprintf(f, "%d\t%d\t", z->state, z->do_row);
+    if (z->starts != NULL) {
+      for (j = 0; j < lst_size(z->starts); j++) {
+	start = lst_get_int(z->starts, j);
+	fprintf(f, "%d,", start);
+      }
+      fprintf(f, "\t");
+      for (j = 0; j < lst_size(z->lengths); j++) {
+	len = lst_get_int(z->lengths, j);
+	fprintf(f, "%d,", len);
+      }
+    }
+    fprintf(f, "\n");
+  }
+}
+
+List *dms_read_zeroed_states(FILE *f) {
+  Regex *nzeroed_states_re = str_re_new("#[[:space:]]*NZEROED_STATES[[:space:]]*=[[:space:]]*([0-9]+)");
+  int i, j, state, do_row, start, len, nzeroed = -1;
+  char delim[2];
+  List *retval, *starts, *lengths, *matches, *tmpl;
+  String *line = str_new(STR_LONG_LEN), *starts_str, *lens_str;
+  DMzeroedState *z;
+
+  matches = lst_new_ptr(4);
+  tmpl = lst_new_ptr(5000); /* Connservative guess at the number of starts,
+				to avoid having to realloc this list, which
+				seems to be a major contributor to bus error
+				crashes! */
+  snprintf(delim, 2, ",");
+
+  i = 0;
+  while (str_readline(line, f) != EOF) {
+    lst_clear(matches);
+    str_trim(line);
+    if (line->length == 0) continue;
+
+    if (str_re_match(line, nzeroed_states_re, matches, 1) >= 0) {
+      str_as_int(lst_get_ptr(matches, 1), &nzeroed);
+      if (nzeroed > 0)
+	retval = lst_new_ptr(nzeroed);
+      else
+	die("ERROR: Bad header in zeroed_states file!\n");
+    } else if (nzeroed == -1) {
+      die("ERROR: Bad or mising header in zeroed_states file!\n");
+    } else {
+      if (i == nzeroed)
+	die("ERROR: Too many lines in zeroed_states file!\n");
+      str_split(line, NULL, matches);
+
+      str_as_int((String*)lst_get_ptr(matches, 0), &state);
+      str_as_int((String*)lst_get_ptr(matches, 1), &do_row);
+
+      if (do_row == 0) {
+	starts_str = lst_get_ptr(matches, 2);
+	str_split(starts_str, delim, tmpl);
+	starts = lst_new_int(lst_size(tmpl));
+	for (j = 0; j < lst_size(tmpl); j++) {
+	  str_as_int(lst_get_ptr(tmpl, j), &start);
+	  lst_push_int(starts, start);
+	}
+	lens_str = lst_get_ptr(matches, 3);
+	str_split(lens_str, delim, tmpl);
+	lengths = lst_new_int(lst_size(tmpl));
+	for (j = 0; j < lst_size(tmpl); j++) {
+	  str_as_int(lst_get_ptr(tmpl, j), &len);
+	  lst_push_int(lengths, len);
+	}
+      } else {
+	starts = NULL;
+	lengths = NULL;
+      }
+
+      z = dms_new_zeroed_state(state, do_row);
+      z->starts = starts;
+      z->lengths = lengths;
+      lst_push_ptr(retval, z);
+
+      i++;
+    }
+  }
+
+  if (i != nzeroed) die("ERROR: Not enough lines in zeroed_states file!\n");
+  lst_free(matches);
+  lst_free(tmpl);
+  str_free(line);
+  str_re_free(nzeroed_states_re);
+  return retval;
+}
+
+/* Convert an array of DMzeroedState objects into a List. Copies pointers to
+   DMzeroedState objects directly from the array -- does not make copies of the
+   objects themselves, so NOT safe to free the objects after calling this 
+   function, but can free zeroed_states array safely. */
+List *dms_zeroed_states_array_to_list(DMzeroedState **zeroed_states, 
+				      int nstates, int init_size) {
+  int i;
+  List *retval = lst_new_ptr(init_size);
+
+  for (i = 0; i < nstates; i++) {
+    if (zeroed_states[i] != NULL)
+      lst_push_ptr(retval, zeroed_states[i]);
+  }
+
+  return retval;
+}
+
+/* Given a dm object, a tree and a zereoed_states list, print the states,
+   branches and events for zeroedState objects in the list to the given
+   stream */
+void dms_print_zeroed_states(FILE *f, DMotifPhyloHmm *dm, TreeNode *tree,
+			     List *zeroed_states) {
+  int i, j;
+  TreeNode *n;
+  DMzeroedState *z;
+
+  for (i = 0; i < lst_size(zeroed_states); i++) {
+    z = lst_get_ptr(zeroed_states, i);
+    n = lst_get_ptr(tree->nodes, dm->state_to_branch[z->state]);
+    fprintf(f, "i = %d, state = %d, motifpos %d, n->id = %d, n->name = %s, event = %s, do_row = %d\n",
+	    i, z->state, dm->state_to_motifpos[z->state], n->id, n->name, 
+	    dm->state_to_event[z->state] == BIRTH ? "birth" :
+	    dm->state_to_event[z->state] == DEATH ? "death" : "other",
+	    z->do_row);
+    if (z->starts != NULL) {
+      fprintf(f, "\tstarts: ");
+      for (j = 0; j < lst_size(z->starts); j++) {
+	fprintf(f, "%d,", lst_get_int(z->starts, j));
+      }
+      fprintf(f, "\n");
+      fprintf(f, "\tlengths: ");
+      for (j = 0; j < lst_size(z->lengths); j++) {
+	fprintf(f, "%d,", lst_get_int(z->lengths, j));
+      }
+      fprintf(f, "\n");
+    }
+  }
+}
+
+/* Reverse POSITIONS ONLY in a List of DMzeroedState objects */
+List *dms_reverse_zeroed_states(List *zeroed_states, MSA *msa) {
+  int i, j, start, len;
+  DMzeroedState *z, *z_copy;
+  List *retval, *starts_copy = NULL, *lens_copy = NULL;
+
+  retval = lst_new_ptr(lst_size(zeroed_states));
+
+  for (i = 0; i < lst_size(zeroed_states); i++) {
+    z = lst_get_ptr(zeroed_states, i);
+    z_copy = dms_new_zeroed_state(z->state, z->do_row);
+    if (z->starts != NULL) {
+      starts_copy = lst_new_int(lst_size(z->starts));
+      lens_copy = lst_new_int(lst_size(z->lengths));
+      for (j = lst_size(z->starts) - 1; j >= 0; j--) {
+	start = lst_get_int(z->starts, j);
+	len = lst_get_int(z->lengths, j);
+	lst_push_int(starts_copy, (msa->length - start - len));
+	lst_push_int(lens_copy, len);
+      }
+      z_copy->starts = starts_copy;
+      z_copy->lengths = lens_copy;
+    }
+    lst_push_ptr(retval, z_copy);
+  }
+
+  return retval;
+}
+
+/* Given an MSA, Tree and Motif models, label the nodes of the tree that lack
+   substitutions for zeroing of emissions as a way of conditioning gain and
+   loss events on presence of substitutions to support the predictions. Uses
+   a simple Fitch parsimony algorithm. */
+List **dms_label_subst_nodes(MSA *msa, TreeModel *mod, PSSM *m, int nosubs) {
+  int i, j, k, tuple_idx, seq_idx, overlap, p, *mark, zero_branch, all_missing;
+  char *key;
+  MSA *sub_msa;
+  Hashtable *tuple_hash;
+  TreeNode *n;
+  List *traversal, *lchild_seqs, *rchild_seqs, *seqs, **pre, **post, **retval;
+  
+  /* The return value is an array of pointers to List objects describing nodes
+     that need to be zeroed for each overlapping motif window in the dataset
+     or null pointers for windows that need no nodes zeroed. */
+  retval = smalloc(((msa->length - m->width) + 1) * sizeof(List*));
+  for (i = 0; i < (msa->length - m->width) + 1; i++)
+    retval[i] = NULL;
+
+  mark = smalloc(msa->nseqs * sizeof(int));
+  tuple_hash = hsh_new(mod->tree->nnodes);
+  pre = smalloc(mod->tree->nnodes * sizeof(List*));
+  post = smalloc(mod->tree->nnodes * sizeof(List*));
+  for (i = 0; i < mod->tree->nnodes; i++) {
+    pre[i] = lst_new_int(mod->tree->nnodes);
+    post[i] =lst_new_int(mod->tree->nnodes);
+  }
+  
+  if (mod->msa_seq_idx == NULL)
+    tm_build_seq_idx(mod, msa);
+
+  /* Find nodes for all overlapping motif windows that do not have subsitutions
+     to support gain/loss predictions. */
+  for (i = 0; i < (msa->length - m->width) + 1; i++) {
+    
+    /* First encode each leaf string as a single character */
+    hsh_clear(tuple_hash);
+    tuple_idx = 0;
+    sub_msa = msa_sub_alignment(msa, NULL, 0, i, (i + m->width));
+    if (sub_msa->seqs == NULL)
+      ss_to_msa(sub_msa);
+    for (j = 0; j < sub_msa->nseqs; j++) {
+      key = sub_msa->seqs[j];
+
+      /* Exclude species with all missing data in this window */
+      all_missing = 1;
+      for (k = 0; k < m->width; k++) {
+	if (!msa->is_missing[(int)key[k]]) {
+	  all_missing = 0;
+	  break;
+	}
+      }
+      if (all_missing == 1) {
+	mark[j] = -1;
+	continue;
+      }
+/*       fprintf(stderr, "pos %d, spec %d, key %s\n", i, j, key); */      
+      if (hsh_get(tuple_hash, key) == (void*)-1) {
+	mark[j] = tuple_idx;
+	hsh_put(tuple_hash, key, (void*)&mark[j]);
+	tuple_idx++;
+/*         fprintf(stderr, "mark[%d] %d\n", j, mark[j]); */
+      } else {
+	mark[j] = *(int*)hsh_get(tuple_hash, key);
+/* 	fprintf(stderr, "mark[%d] %d\n", j, mark[j]); */
+      }
+    }
+    msa_free(sub_msa);
+
+/*     for (j = 0; j < msa->nseqs; j++) */
+/*       fprintf(stderr, "mark[%d] %d, ", j, mark[j]); */
+/*     fprintf(stderr, "\n"); */
+    
+    /* Do the postorder traversal step of the Fitch parsimony algorithm */
+    traversal = tr_postorder(mod->tree);
+    for (j = 0; j < lst_size(traversal); j++) {
+      n = lst_get_ptr(traversal, j);
+      seqs = pre[n->id];
+      lst_clear(seqs);
+      if (n->lchild == NULL) { /* base case: leaf node */
+	seq_idx = mod->msa_seq_idx[n->id];
+	if (mark[seq_idx] == -1)
+	  continue;
+	lst_push_int(seqs, mark[seq_idx]);
+      } else { /* internal node or root */
+	lchild_seqs = pre[n->lchild->id];
+	rchild_seqs = pre[n->rchild->id];
+	dms_intersect_or_union(seqs, lchild_seqs, rchild_seqs);
+
+/* 	fprintf(stderr, "i %d, j %d\n", i, j); */
+/* 	fprintf(stderr, "\tlchild_seqs: "); */
+/* 	for (k = 0; k < lst_size(lchild_seqs); k++) */
+/* 	  fprintf(stderr, "%d,", lst_get_int(lchild_seqs, k)); */
+/* 	fprintf(stderr, "\n"); */
+/* 	fprintf(stderr, "\trchild_seqs: "); */
+/* 	for (k = 0; k < lst_size(rchild_seqs); k++) */
+/* 	  fprintf(stderr, "%d,", lst_get_int(rchild_seqs, k)); */
+/* 	fprintf(stderr, "\n"); */
+/* 	fprintf(stderr, "\tseqs: "); */
+/* 	for (k = 0; k < lst_size(seqs); k++) */
+/* 	  fprintf(stderr, "%d,", lst_get_int(seqs, k)); */
+/* 	fprintf(stderr, "\n\n"); */
+      }
+    }
+    
+    /* As we go down the tree, we want to zero out scenarios where there
+       are NO parsimonious scenarios that REQUIRE a substitution. This is much
+       simpler than it sounds: because in the downward pass, lists at all child
+       nodes will intersect. */
+
+    traversal = tr_preorder(mod->tree);
+    for (j = 0; j < lst_size(traversal); j++) {
+      n = lst_get_ptr(traversal, j);
+      lst_clear(post[n->id]);
+      if (n == mod->tree) { /* Root node -- base case */
+	for (k = 0; k < lst_size(pre[n->id]); k++) {
+	  p = lst_get_int(pre[n->id], k);
+	  lst_push_int(post[n->id], p);
+	}
+	continue;
+      } else {
+	lst_clear(post[n->id]);
+	overlap = dms_intersect_or_union(post[n->id], post[n->parent->id],
+					 pre[n->id]);
+	/* Since dms_intersect_or_union will take the union if there is no
+	   intersection between parent and child, which may cause incorrect
+	   behavior at internal nodes. dms_intersect_or_union returns 0 in
+	   these cases, so we can take corrective measures to avoid any
+	   problems. */
+	if (overlap == 0) { /* union was taken */
+	  lst_clear(post[n->id]);
+	  for (k = 0; k < lst_size(pre[n->id]); k++) {
+	    p = lst_get_int(pre[n->id], k);
+	    lst_push_int(post[n->id], p);
+	  }
+	}
+	
+	if (nosubs == 1) {
+	  /* Use comparison method that zeroes branches only when no 
+	     substitution is possible along a branch */
+	  zero_branch = dms_compare_lists_nosubs(post[n->parent->id],
+						 post[n->id]);
+	} else {
+	  /* Use comparison method that zeroes branches when parent and
+	     child nodes contain sets of characters that are identical in
+	     size and content. */
+	  zero_branch = dms_compare_lists_identity(post[n->parent->id],
+						   post[n->id]);
+	}
+	if (zero_branch == 1) {
+	  if (retval[i] == NULL)
+	    retval[i] = lst_new_int(mod->tree->nnodes);
+	  lst_push_int(retval[i], n->id);
+	}
+
+/* 	fprintf(stderr, "i %d, j %d\n", i, j); */
+/* 	fprintf(stderr, "\tpost[%d] (%s): ", n->id, n->name); */
+/* 	for (k = 0; k < lst_size(post[n->id]); k++) */
+/* 	  fprintf(stderr, "%d,", lst_get_int(post[n->id], k)); */
+/* 	fprintf(stderr, "\n"); */
+/* 	fprintf(stderr, "\tparent (%d) (%s): ", n->parent->id, n->parent->name); */
+/* 	for (k = 0; k < lst_size(post[n->parent->id]); k++) */
+/* 	  fprintf(stderr, "%d,", lst_get_int(post[n->parent->id], k)); */
+/* 	fprintf(stderr, "\n"); */
+/* 	fprintf(stderr, "\tpre[%d] (%s): ", n->id, n->name); */
+/* 	for (k = 0; k < lst_size(pre[n->id]); k++) */
+/* 	  fprintf(stderr, "%d,", lst_get_int(pre[n->id], k)); */
+/* 	fprintf(stderr, "\n"); */
+/* 	fprintf(stderr, "zero_branch %d\n", zero_branch); */
+/* 	if (zero_branch == 1) { */
+/* 	  fprintf(stderr, " Zeroed: "); */
+/* 	  for (k = 0; k < lst_size(retval[i]); k++) */
+/* 	    fprintf(stderr, "%d,", lst_get_int(retval[i], k)); */
+/* 	} */
+/* 	fprintf(stderr, "\n"); */
+
+      }
+    }
+  }
+  
+  for (i = 0; i < mod->tree->nnodes; i++) {
+    if (pre[i] != NULL)
+      lst_free(pre[i]);
+    if (post[i] != NULL)
+      lst_free(post[i]);
+  }
+  free(pre);
+  free(post);
+  free(mark);
+  hsh_free(tuple_hash);
+  return retval;
+}
+
+/* Create a list that represents the intersection of two int lists or, if there
+   is no overlap between the two lists, the union of both lists. *dest may be
+   NULL, in which case the function only returns the size of the overlap
+   or 0 if there is none. */
+int dms_intersect_or_union(List *dest, List *left, List *right) {
+  int i, j, l, r, found;
+  List *l1, *l2;
+
+  assert((dest == NULL || lst_empty(dest)));
+  
+  if (lst_size(left) > lst_size(right)) {
+    l1 = left;
+    l2 = right;
+  } else {
+    l1 = right;
+    l2 = left;
+  }
+
+  /* Handle simple cases in which no comparison is needed */
+  if (lst_size(l1) == lst_size(l2) && lst_size(l2) == 0) {
+    return 0;
+  } else if (lst_size(l2) == 0) {
+    if (dest == NULL)
+      return 0;
+
+    for (i = 0; i < lst_size(l1); i++) {
+      l = lst_get_int(l1, i);
+      lst_push_int(dest, l);
+    }
+    return 0;
+  }
+  
+  /* Search for and keep track of the number of elements in the intersection */
+  found = 0;
+  for (i = 0; i < lst_size(l1); i++) {
+    l = lst_get_int(l1, i);
+
+    for (j = 0; j < lst_size(l2); j++) {
+      r = lst_get_int(l2, j);
+      if (l == r) {
+	if (dest != NULL)
+	  lst_push_int(dest, l);
+	found++;
+	break;
+      }
+    }
+  }
+
+  /* No intersection -- take the union of the two lists */
+  if (found == 0 && dest != NULL) {
+    for (i = 0; i < lst_size(l1); i++) {
+      l = lst_get_int(l1, i);
+      lst_push_int(dest, l);
+    }
+    for (i = 0; i < lst_size(l2); i++) {
+      r = lst_get_int(l2, i);
+      lst_push_int(dest, r);
+    }
+  }
+  return found;
+}
+
+/* Given an array of lists of DMzeroedState objects, make all DMzeroedState
+   pointers to states with entire rows zeroed out (i.e., do_row == 1) within
+   List** indeces above 0 pointers to the corresponding object in List**
+   index 0.
+
+   WARNING: This assumes that zeroed_states List items for each emissions
+   row needing zeroing are in the same order in all Lists!!! */
+void dms_compact_zeroed_states(List **zeroed_states, int nblocks) {
+  int i, j, k;
+  DMzeroedState *z, *z_row;
+
+  for (i = 0; i < nblocks; i++) {
+    k = 0;
+    for (j = 0; j < lst_size(zeroed_states[i]); j++) {
+      z = lst_get_ptr(zeroed_states[i], j);
+      if (z->do_row == 1) {
+	z_row = lst_get_ptr(zeroed_states[nblocks], k);
+/* 	fprintf(stderr, "k %d, z->state %d, z_row->state %d\n", */
+/* 		k, z->state, z_row->state); */
+	dms_free_zeroed_state(z);
+	lst_set_ptr(zeroed_states[i], j, z_row);
+	k++;
+      }
+    }
+    assert(k == lst_size(zeroed_states[nblocks]));
+  }
+}
+
+/* If assume that the only branches we want to zero are those where there
+   is no possibility of substitution along that branch,
+   the only cases where we need to zero out a branch will be
+   indicated by a single character in the parent that is identical
+   to the character at its child after the intersection at the child
+   node is taken -- all other cases allow/require substitutions on 
+   the connecting branch. */
+int dms_compare_lists_nosubs(List *parent, List *child) {
+  int p, c;
+
+  /* We only need to pay attention if the parent list is size 1, otherwise
+     there exist scenarios where substitutions may occur along the branch */
+  if (lst_size(parent) == 1) {
+    if (lst_size(child) > 1) { /* There can be no intersection with parent or 
+				  the child list would be size 1. */
+      return 0;
+    } else { /* Need to see if parent char matches child char */
+      p = lst_get_int(parent, 0);
+      c = lst_get_int(child, 0);
+      if (p == c)
+	return 1;
+    }
+  }    
+  return 0;
+}
+
+/* A less restrictive case is to zero branches where the parent and child
+   have identical sets of characters. */
+int dms_compare_lists_identity(List *parent, List *child) {
+  int overlap;
+
+  if (lst_size(parent) != lst_size(child)) {
+    /* lists cannot be identical */
+    return 0;
+  } else if (lst_size(parent) == 1) {
+    /* use simple comparison */
+    return dms_compare_lists_nosubs(parent, child);
+  } else {
+    overlap = dms_intersect_or_union(NULL, parent, child);
+    if (overlap == lst_size(parent)) {
+      /* the two lists are identical -- they have 100% overlap */
+      return 1;
+    }
+  }
+  return 0;
+}
+
+/* Print out zeroed regions in bed format. Skips zeroed rows. */
+void dms_zeroed_as_bed(FILE *f, DMotifPhyloHmm *dm, List *zeroed_states,
+		       char *fname) {
+  int i, j, start, end, len, cat, genstart;
+  char delim[2], chrom[10];
+  List *split;
+  String *fname_str, *name, *chrom_str = str_new(STR_MED_LEN);
+  CategoryMap *cm = dm->phmm->cm;
+  DMzeroedState *z;
+
+  snprintf(delim, 2, ".");
+  split = lst_new_ptr(4);
+  fname_str = str_new_charstr(fname);
+  str_split(fname_str, delim, split);
+  str_as_int((String*)lst_get_ptr(split, 1), &genstart);
+  str_append(chrom_str, (String*)lst_get_ptr(split, 0));
+  str_remove_path(chrom_str);
+  snprintf(chrom, 10, chrom_str->chars);
+
+  for (i = 0; i < lst_size(zeroed_states); i++) {
+    z = lst_get_ptr(zeroed_states, i);
+    if (z->do_row == 1 || dm->state_to_motifpos[z->state] > 0)
+      continue;
+
+    name = str_new_charstr(fname);
+    str_remove_path(name);
+    str_append_charstr(name, "_");
+    cat = cm->ranges[dm->phmm->state_to_cat[z->state]]->start_cat_no;
+    str_append(name, (String*)cm_get_feature(cm, cat));
+    
+    for (j = 0; j < lst_size(z->starts); j++) {
+      start = lst_get_int(z->starts, j);
+      len = lst_get_int(z->lengths, j);
+      if (dm->state_to_motifpos[z->state] == 0)
+	end = (start + len);
+      else
+	end = (start + len);
+      
+      fprintf(f, "%s\t%d\t%d\t%s\n", chrom, (start + genstart - 1),
+	      (end + genstart - 1), name->chars);
+    }
+    str_free(name);
+  }
+  str_free(fname_str);
+  str_free(chrom_str);
+  lst_free(split);
 }

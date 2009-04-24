@@ -57,6 +57,36 @@ OPTIONS:
         obtained from input file name (single filename root, e.g.,
         "chr22.35" if input file is "chr22.35.ss").
 
+    # The following two options are for conditioning on either site presence
+    # in a given species or presence of substitutions for gain/loss
+    # predictions. Both require a file specified in the alignments list that
+    # describes states and positions to zero out emissions where certain types
+    # of predictions are incompatible with the conditioning. See dmcondition
+    # for details.
+
+    --cond-on-species, -x <species-condition filename>
+	Condition gain and loss calls in the hmm on presence of a site in a
+	given species. This is useful if ChIP-based regions are used as inputs
+	for motif finding. The effect is to prohibit motif loss predictions on
+	branches leading to a species believed to contain a binding site based
+	on ChIP (or other) evidence and prohibit gain predictions on branches
+	leading away from that species.
+
+    --cond-on-subs, -X
+	Condition gain and loss predictions on presence of at least one
+	substitution within a window believed to represent a binding site. This
+	prevents gain/loss predictions on branches that contain no observable
+	substitutions in the multiple alignment. The underlying algorithm uses
+	Fitch parsimony to partition the tree into branches that do and do not
+	contain substitutions for each motif window in the dataset and zeroes
+	out the chain of gain and loss states in the emissions matrix 
+	corresponding to combinations of branch and motif position that do not
+	contain any substitutions to support such a prediction.
+
+	If used in conjunction with --cond-on-species, states that are already
+	zeroed out because they are incompatible with site presence in a
+	given species will be skipped in this step.
+
     --indel-model, -I alpha,beta,tau,epsilon[,alpha2,beta2,tau2,epsilon2]
         Use a simple model of insertions and deletions that assumes a known
         indel history and at most one indel per branch of the tree at any

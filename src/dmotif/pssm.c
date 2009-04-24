@@ -1,4 +1,4 @@
-/* $Id: pssm.c,v 1.2 2009-02-19 19:38:48 agd27 Exp $ */
+/* $Id: pssm.c,v 1.2 2009/02/19 19:38:48 agd27 Exp $ */
 
 #include <pssm.h>
 #include <msa.h>

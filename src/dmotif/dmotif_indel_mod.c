@@ -1,4 +1,4 @@
-/* $Id: dmotif_indel_mod.c,v 1.5 2009-02-19 19:38:48 agd27 Exp $
+/* $Id: dmotif_indel_mod.c,v 1.5 2009/02/19 19:38:48 agd27 Exp $
    Written by Adam Siepel, 2005
    Copyright 2005, Adam Siepel, University of California */
 

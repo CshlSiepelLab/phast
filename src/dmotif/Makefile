@@ -3,7 +3,7 @@ include ../make-include.mk
 #CFLAGS += -g -fno-inline -Wall
 
 #EXEC = $(addprefix ${BIN}/,$(notdir ${PWD}))
-PROGS = dmotif dmsample dmsimulate dmcompare
+PROGS = dmotif dmsample dmsimulate dmcompare dmcondition
 MODULES = dmotif_phmm pssm dmotif_indel_mod
 EXEC = $(addprefix ${BIN}/,${PROGS})
 

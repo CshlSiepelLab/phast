@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
   PooledMSA *blocks = NULL;
   MSA *msa;
   List *pruned_names = lst_new_ptr(5), *tmpl, *keys, *seqnames, 
-    *cache_files = NULL;
+    *cache_files = NULL, **zeroed_states = NULL;
   IndelHistory **ih = NULL;
   DMotifPmsaStruct *dmpmsa;
   DMotifPhyloHmm *dm;
@@ -74,13 +74,16 @@ int main(int argc, char *argv[]) {
     {"threads", 1, 0, 't'},
     {"hash-debug", 0, 0, 'm'},
     {"revcomp", 0, 0, 'C'},
+    {"cond-on-subs", 0, 0, 'X'},
+    {"cond-on-species", 1, 0, 'x'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
   /* arguments and defaults for options */
   FILE *msa_f = NULL, *source_mod_f, *motif_f = NULL, *prior_f = NULL,
-    *log = NULL, *ref_gff_f = NULL, *hash_f = NULL, *tmp_lst_f = NULL;
+    *log = NULL, *ref_gff_f = NULL, *hash_f = NULL, *tmp_lst_f = NULL,
+    *cond_spec_f = NULL;
   TreeModel *source_mod;
   double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU, 
     phi = DEFAULT_PHI, zeta = DEFAULT_ZETA,
@@ -90,8 +93,9 @@ int main(int argc, char *argv[]) {
     sample_interval = DEFAULT_SAMPLE_INTERVAL, do_ih = 0, 
     ref_as_prior = FALSE, force_priors = FALSE, precomputed_hash = FALSE,
     quiet = FALSE, cache_int = DEFAULT_CACHE_INTERVAL,
-    nthreads = DEFAULT_NTHREADS, hash_debug = FALSE, revcomp = FALSE;
-  char *seqname = NULL, *idpref = NULL, 
+    nthreads = DEFAULT_NTHREADS, hash_debug = FALSE, revcomp = FALSE,
+    do_zeroed = FALSE;
+  char *seqname = NULL, *idpref = NULL,
     *cache_fname = (char*)smalloc(STR_MED_LEN * sizeof(char));
 
   snprintf(cache_fname, STR_MED_LEN, "dmsample_%ld", (long) time(0));
@@ -189,6 +193,13 @@ int main(int argc, char *argv[]) {
     case 'C':
       revcomp = TRUE;
       break;
+    case 'X':
+      do_zeroed = TRUE;
+      break;
+    case 'x':
+      cond_spec_f = fopen_fname(optarg, "r");
+      do_zeroed = TRUE;
+      break;
     case 'h':
       printf(HELP);
       exit(0);
@@ -245,12 +256,15 @@ int main(int argc, char *argv[]) {
 
   /* read alignments */
   fprintf(stderr, "Reading alignments from %s...\n", argv[optind]);
-  dmpmsa = dms_read_alignments(msa_f, do_ih, quiet, revcomp);
+  dmpmsa = dms_read_alignments(msa_f, do_ih, quiet, revcomp, do_zeroed,
+			       cond_spec_f);
 
   blocks = dmpmsa->pmsa;
   seqnames = dmpmsa->seqnames;
   if (do_ih)
     ih = dmpmsa->ih;
+  if (do_zeroed)
+    zeroed_states = dmpmsa->zeroed_states;
   max_seqlen = dmpmsa->max_seqlen;
   
 /*   fprintf(stderr, "max_seqlen %d\n", max_seqlen); */
@@ -274,6 +288,8 @@ int main(int argc, char *argv[]) {
   fclose(source_mod_f);
   fclose(motif_f);
   fclose(prior_f);
+  if (cond_spec_f != NULL)
+    fclose(cond_spec_f);
   
   /* prune tree, if necessary */
   old_nnodes = source_mod->tree->nnodes;
@@ -306,6 +322,15 @@ int main(int argc, char *argv[]) {
               tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n,
 	      FALSE, FALSE, FALSE, FALSE);
   
+/*   for (i = 0; i < lst_size(blocks->source_msas); i++) */
+/*     dms_write_zeroed_states(stdout, zeroed_states[i]); */
+/*   return 0; */
+/*   for (i = 0; i < lst_size(blocks->source_msas); i++) { */
+/*     fprintf(stderr, "zeroed states for sequence %d:\n", i); */
+/*     dms_print_zeroed_states(stderr, dm, source_mod->tree, zeroed_states[i]); */
+/*   } */
+/*   return 0; */
+  
   /* Precompute P matrices for all states -- this avoids collisions between
      threads later */
   if (!quiet && !precomputed_hash)
@@ -314,7 +339,6 @@ int main(int argc, char *argv[]) {
 
   /* Prepare a thread pool to keep all cores working */
   pool = thr_pool_init(nthreads);
-
 
   /* If reconstructing a run from temp files, build the cache_files list */
   if (precomputed_hash == TRUE && tmp_lst_f != NULL) {
@@ -362,7 +386,7 @@ int main(int argc, char *argv[]) {
     /* Adjust for missing data */
     fprintf(stderr, "Adjusting emissions for missing data...\n");
     dm_handle_missing_data(dm, msa);
-    
+
     /** Call the sampler **/
     fprintf(stderr, "Sampling state paths...\n");
     
@@ -372,10 +396,11 @@ int main(int argc, char *argv[]) {
 /* 				   ref_as_prior, force_priors, quiet, */
 /* 				   cache_fname, cache_int); */
     cache_files = dms_sample_paths_pthr(dm, blocks, tuple_scores, ih, seqnames,
-					bsamples, nsamples, sample_interval, 
-					priors, log, reference, ref_as_prior,
-					force_priors, quiet, cache_fname, 
-					cache_int, pool, nthreads);
+					max_seqlen, bsamples, nsamples,
+					sample_interval, priors, log, 
+					reference, ref_as_prior, force_priors,
+					quiet, cache_fname, cache_int, pool,
+					nthreads, zeroed_states);
     
 
     /* Free emissions matrix */
@@ -447,8 +472,8 @@ int main(int argc, char *argv[]) {
   }
   
   /* Free up all our allocated storage */
-  dms_free_dmpmsa_struct(dmpmsa);
   dm_free(dm);
+  dms_free_dmpmsa_struct(dmpmsa);
   if (reference != NULL)
     gff_free_set(reference);
   
