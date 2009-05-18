@@ -21,9 +21,7 @@
 #define DEFAULT_MU 0.01
 #define DEFAULT_NU 0.01
 #define DEFAULT_ZETA 0.001
-#define DEFAULT_MSA_LEN 1000000;
-
-
+#define DEFAULT_MSA_LEN 100000
 
 int main(int argc, char *argv[]) {
   char c, *msa_fname;
@@ -36,6 +34,7 @@ int main(int argc, char *argv[]) {
   PSSM *motif;
   IndelHistory *ih;
   TreeNode *n;
+  List *zeroed_states;
 
   struct option long_opts[] = {
     {"refseq", 1, 0, 'M'},
@@ -53,12 +52,14 @@ int main(int argc, char *argv[]) {
     {"msa-length", 1, 0, 'L'},
     {"random-lengths", 1, 0, 'l'},
     {"keep-ancestral", 0, 0, 'k'},
+    {"cond-on-subs", 0, 0, 'X'},
+    {"cond-on-species", 1, 0, 'x'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
   
   /* arguments and defaults for options */
-  FILE *refseq_f = NULL, *msa_f = NULL, *motif_f = NULL;
+  FILE *refseq_f = NULL, *msa_f = NULL, *motif_f = NULL, *cond_spec_f = NULL;
   msa_format_type msa_format = FASTA;
   TreeModel *source_mod;
   double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU, 
@@ -66,8 +67,9 @@ int main(int argc, char *argv[]) {
     alpha_c = -1, beta_c = -1, tau_c = -1, epsilon_c = -1,
     alpha_n = -1, beta_n = -1, tau_n = -1, epsilon_n = -1,
     lambda = -1;
-  int set_transitions = FALSE, refidx = 1, msa_len = DEFAULT_MSA_LEN;
-  int max_len = 0, min_len = 0, do_ih = FALSE, keep_ancestral = FALSE;
+  int set_transitions = FALSE, refidx = 1, msa_len = DEFAULT_MSA_LEN,
+    max_len = 0, min_len = 0, do_ih = FALSE, keep_ancestral = FALSE, 
+    do_zeroed = FALSE;
   char *seqname = NULL, *idpref = NULL, *seqname_root = NULL;
   
   while ((c = getopt_long(argc, argv, "R:t:p:z:E:C:r:M:i:N:P:I:L:l:k:h", 
@@ -156,6 +158,13 @@ int main(int argc, char *argv[]) {
     case 'k':
       keep_ancestral = TRUE;
       break;
+    case 'X':
+      do_zeroed = TRUE;
+      break;
+    case 'x':
+      cond_spec_f = fopen_fname(optarg, "r");
+      do_zeroed = TRUE;
+      break;
     case 'h':
       printf(HELP);
       exit(0);
@@ -199,6 +208,14 @@ int main(int argc, char *argv[]) {
   dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, alpha_c, beta_c, 
               tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n, FALSE,
 	      FALSE, FALSE, FALSE);
+
+  /* Read in the zeroed states if used and condition the model on site
+     presence */
+  if (do_zeroed) {
+    zeroed_states = dms_read_zeroed_states(cond_spec_f);
+    fclose(cond_spec_f);
+    dms_condition_transitions(dm, zeroed_states);
+  }
   
   /* set seqname and idpref, if necessary */
   if (seqname_root == NULL || idpref == NULL) {
@@ -243,7 +260,7 @@ int main(int argc, char *argv[]) {
     i += len;
 
     path = smalloc(len * sizeof(int));
-    msa = tm_generate_msa(len, dm->phmm->hmm, dm->phmm->mods, path);
+    msa = dm_generate_msa(len, dm, dm->phmm->mods, path);
     
     /*   for (i = 0; i < msa_len; i++) */
     /*     fprintf(stderr, "%d", path[i]); */

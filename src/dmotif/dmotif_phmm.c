@@ -1,6 +1,7 @@
  
 /* dmotif phylo-HMM */
 #include <dmotif_phmm.h>
+#include <stacks.h>
 #include <lists.h>
 #include <sufficient_stats.h>
 #include <numerical_opt.h>
@@ -1547,9 +1548,9 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
   if (str_re_search(tmp_str, rc_re, tmp_str->length-3, NULL, 1) >= 0) {
     sprintf(strand, "%s", "-");
     msa = lst_get_ptr(blocks->source_msas, seqnum);
-    width = end - start;
-    start = (msa->length - end) + 1;
-    end = start + width;
+    width = (end - start) + 1;
+    start = msa->length - (end + 1);
+    end = start + width - 1;
     seqname = ((char*)((String*)lst_get_ptr(seqnames, seqnum-1))->chars);
   } else {
     sprintf(strand, "%s", "+");
@@ -2904,14 +2905,14 @@ DMzeroedState **dms_condition_on_species(DMotifPhyloHmm *dm, TreeNode *tree,
   TreeNode *n;
   DMzeroedState *z, **retval;
 
-  retval = (DMzeroedState**)smalloc(dm->phmm->hmm->nstates * 
+  retval = (DMzeroedState**)smalloc(dm->phmm->hmm->nstates *
 				    sizeof(DMzeroedState*));
   for (i = 0; i < dm->phmm->hmm->nstates; i++) {
     retval[i] = NULL;
   }
 
   /* Create an array of ints to indicate whether to zero births or deaths for
-     a given node id. 0 indicates births will be zeroed, 1 indicates deaths 
+     a given node id. 0 indicates births will be zeroed, 1 indicates deaths
      will be zeroed. */
   mark = smalloc(tree->nnodes * sizeof(int));
   for (i = 0; i < tree->nnodes; i++)
@@ -2984,7 +2985,7 @@ DMzeroedState **dms_condition_on_species(DMotifPhyloHmm *dm, TreeNode *tree,
 /* Build a list of DMzeroedState objects to condition on presence
    of substitutions by zeroing chains of motif states for which there are no
    substitutions to support a gain/loss prediction. */
-void dms_condition_on_subs(DMotifPhyloHmm *dm, TreeModel *mod, MSA *msa, 
+void dms_condition_on_subs(DMotifPhyloHmm *dm, TreeModel *mod, MSA *msa,
 			   DMzeroedState **zeroed_states, int nosubs) {
   int i, j, k, n_id, state, start, lastpos, len, offset, **starts_ar;
   List **zeroed_nodes;
@@ -3013,7 +3014,7 @@ void dms_condition_on_subs(DMotifPhyloHmm *dm, TreeModel *mod, MSA *msa,
 	     any substitutionless gain/loss events within background states
 	     because these may skew phi. Background states will need special
 	     handling. */
-	  if (dm->state_to_event[state] != BIRTH && 
+	  if (dm->state_to_event[state] != BIRTH &&
 	      dm->state_to_event[state] != DEATH)
 	    continue;
 	  
@@ -3042,11 +3043,11 @@ void dms_condition_on_subs(DMotifPhyloHmm *dm, TreeModel *mod, MSA *msa,
 	    if (offset < dm->m->width - 1)
 	      offset++;
 	    else
-	      offset = 0;	  
+	      offset = 0;
 	  }
 	}
-      }      
-    }    
+      }
+    }
   }
   
   /* Compact the states_ar arrays into the z->starts lists */
@@ -3087,7 +3088,7 @@ void dms_condition_on_subs(DMotifPhyloHmm *dm, TreeModel *mod, MSA *msa,
   
   for (i = 0; i < dm->phmm->hmm->nstates; i++) {
     if (starts_ar[i] != NULL)
-      free(starts_ar[i]);    
+      free(starts_ar[i]);
   }
   free(starts_ar);
 }
@@ -3210,9 +3211,9 @@ List *dms_read_zeroed_states(FILE *f) {
 
 /* Convert an array of DMzeroedState objects into a List. Copies pointers to
    DMzeroedState objects directly from the array -- does not make copies of the
-   objects themselves, so NOT safe to free the objects after calling this 
+   objects themselves, so NOT safe to free the objects after calling this
    function, but can free zeroed_states array safely. */
-List *dms_zeroed_states_array_to_list(DMzeroedState **zeroed_states, 
+List *dms_zeroed_states_array_to_list(DMzeroedState **zeroed_states,
 				      int nstates, int init_size) {
   int i;
   List *retval = lst_new_ptr(init_size);
@@ -3238,7 +3239,7 @@ void dms_print_zeroed_states(FILE *f, DMotifPhyloHmm *dm, TreeNode *tree,
     z = lst_get_ptr(zeroed_states, i);
     n = lst_get_ptr(tree->nodes, dm->state_to_branch[z->state]);
     fprintf(f, "i = %d, state = %d, motifpos %d, n->id = %d, n->name = %s, event = %s, do_row = %d\n",
-	    i, z->state, dm->state_to_motifpos[z->state], n->id, n->name, 
+	    i, z->state, dm->state_to_motifpos[z->state], n->id, n->name,
 	    dm->state_to_event[z->state] == BIRTH ? "birth" :
 	    dm->state_to_event[z->state] == DEATH ? "death" : "other",
 	    z->do_row);
@@ -3291,7 +3292,7 @@ List *dms_reverse_zeroed_states(List *zeroed_states, MSA *msa) {
    loss events on presence of substitutions to support the predictions. Uses
    a simple Fitch parsimony algorithm. */
 List **dms_label_subst_nodes(MSA *msa, TreeModel *mod, PSSM *m, int nosubs) {
-  int i, j, k, tuple_idx, seq_idx, overlap, p, *mark, zero_branch, all_missing;
+  int i, j, k, tuple_idx, seq_idx, overlap, p, *mark, all_missing, *zeroed;
   char *key;
   MSA *sub_msa;
   Hashtable *tuple_hash;
@@ -3304,7 +3305,7 @@ List **dms_label_subst_nodes(MSA *msa, TreeModel *mod, PSSM *m, int nosubs) {
   retval = smalloc(((msa->length - m->width) + 1) * sizeof(List*));
   for (i = 0; i < (msa->length - m->width) + 1; i++)
     retval[i] = NULL;
-
+  zeroed = (int*)smalloc(mod->tree->nnodes * sizeof(int));
   mark = smalloc(msa->nseqs * sizeof(int));
   tuple_hash = hsh_new(mod->tree->nnodes);
   pre = smalloc(mod->tree->nnodes * sizeof(List*));
@@ -3324,32 +3325,50 @@ List **dms_label_subst_nodes(MSA *msa, TreeModel *mod, PSSM *m, int nosubs) {
     /* First encode each leaf string as a single character */
     hsh_clear(tuple_hash);
     tuple_idx = 0;
+    /* Initialize mark to all missing data */
+    for (j = 0; j < msa->nseqs; j++)
+      mark[j] = -1;
+    /* Get the alignment for the current window */
     sub_msa = msa_sub_alignment(msa, NULL, 0, i, (i + m->width));
     if (sub_msa->seqs == NULL)
       ss_to_msa(sub_msa);
-    for (j = 0; j < sub_msa->nseqs; j++) {
-      key = sub_msa->seqs[j];
+    
+    for (j = 0; j < mod->tree->nnodes; j++) {
+      n = lst_get_ptr(mod->tree->nodes, j);
+      if (n->lchild != NULL) /* internal node */
+	continue;
+      seq_idx = mod->msa_seq_idx[n->id];
+
+      key = sub_msa->seqs[seq_idx];
 
       /* Exclude species with all missing data in this window */
       all_missing = 1;
       for (k = 0; k < m->width; k++) {
-	if (!msa->is_missing[(int)key[k]]) {
+	if (!msa->is_missing[(int)key[k]] /* && key[k] != GAP_CHAR */) {
+	  /* FIXME: It is not clear if windows of all gap characters should
+	     be considered missing and zeroed -- there are (at least) two
+	     things these could be: deletions of entire motifs, which could be
+	     considered legitimate losses, or regions of poor alignment
+	     quality. Quality-masked MAF's may resolve the latter issue. For
+	     the moment, do not zero these -- instead use quality-masked MAF
+	     files. */
 	  all_missing = 0;
 	  break;
 	}
       }
       if (all_missing == 1) {
-	mark[j] = -1;
+	mark[seq_idx] = -1;
+/* 	fprintf(stderr, "n->name %s, key %s\n", n->name, key); */
 	continue;
       }
-/*       fprintf(stderr, "pos %d, spec %d, key %s\n", i, j, key); */      
+/*       fprintf(stderr, "pos %d, spec %d, key %s\n", i, j, key); */
       if (hsh_get(tuple_hash, key) == (void*)-1) {
-	mark[j] = tuple_idx;
-	hsh_put(tuple_hash, key, (void*)&mark[j]);
+	mark[seq_idx] = tuple_idx;
+	hsh_put(tuple_hash, key, (void*)&mark[seq_idx]);
 	tuple_idx++;
 /*         fprintf(stderr, "mark[%d] %d\n", j, mark[j]); */
       } else {
-	mark[j] = *(int*)hsh_get(tuple_hash, key);
+	mark[seq_idx] = *(int*)hsh_get(tuple_hash, key);
 /* 	fprintf(stderr, "mark[%d] %d\n", j, mark[j]); */
       }
     }
@@ -3367,7 +3386,7 @@ List **dms_label_subst_nodes(MSA *msa, TreeModel *mod, PSSM *m, int nosubs) {
       lst_clear(seqs);
       if (n->lchild == NULL) { /* base case: leaf node */
 	seq_idx = mod->msa_seq_idx[n->id];
-	if (mark[seq_idx] == -1)
+	if (mark[seq_idx] == -1) 
 	  continue;
 	lst_push_int(seqs, mark[seq_idx]);
       } else { /* internal node or root */
@@ -3395,11 +3414,11 @@ List **dms_label_subst_nodes(MSA *msa, TreeModel *mod, PSSM *m, int nosubs) {
        are NO parsimonious scenarios that REQUIRE a substitution. This is much
        simpler than it sounds: because in the downward pass, lists at all child
        nodes will intersect. */
-
     traversal = tr_preorder(mod->tree);
     for (j = 0; j < lst_size(traversal); j++) {
       n = lst_get_ptr(traversal, j);
       lst_clear(post[n->id]);
+
       if (n == mod->tree) { /* Root node -- base case */
 	for (k = 0; k < lst_size(pre[n->id]); k++) {
 	  p = lst_get_int(pre[n->id], k);
@@ -3424,21 +3443,24 @@ List **dms_label_subst_nodes(MSA *msa, TreeModel *mod, PSSM *m, int nosubs) {
 	}
 	
 	if (nosubs == 1) {
-	  /* Use comparison method that zeroes branches only when no 
+	  /* Use comparison method that zeroes branches only when no
 	     substitution is possible along a branch */
-	  zero_branch = dms_compare_lists_nosubs(post[n->parent->id],
-						 post[n->id]);
+	  zeroed[n->id] = dms_compare_lists_nosubs(post[n->parent->id],
+						   post[n->id]);
 	} else {
 	  /* Use comparison method that zeroes branches when parent and
 	     child nodes contain sets of characters that are identical in
 	     size and content. */
-	  zero_branch = dms_compare_lists_identity(post[n->parent->id],
-						   post[n->id]);
+	  zeroed[n->id] = dms_compare_lists_identity(post[n->parent->id],
+						     post[n->id]);
 	}
-	if (zero_branch == 1) {
-	  if (retval[i] == NULL)
-	    retval[i] = lst_new_int(mod->tree->nnodes);
-	  lst_push_int(retval[i], n->id);
+	
+	/* Check for leaf nodes with all missing data and zero branches leading
+	   to these nodes also. */
+	if (n->lchild == NULL) {
+	  seq_idx =  mod->msa_seq_idx[n->id];
+	  if (mark[seq_idx] == -1)
+	    zeroed[n->id] = -1;
 	}
 
 /* 	fprintf(stderr, "i %d, j %d\n", i, j); */
@@ -3464,6 +3486,27 @@ List **dms_label_subst_nodes(MSA *msa, TreeModel *mod, PSSM *m, int nosubs) {
 
       }
     }
+    
+    /* Go through the zeroed array and check for subtrees of all missing data
+       -- zero branches leading to these subtrees. */
+    traversal = tr_postorder(mod->tree);
+    for (j = 0; j < lst_size(traversal); j++) {
+      n = lst_get_ptr(traversal, j);
+      if (n->lchild == NULL)
+	continue;
+      if (zeroed[n->lchild->id] == -1 && zeroed[n->rchild->id] == -1)
+	zeroed[n->id] = -1;
+    }
+    
+    /* Push zeroed node id's onto the return list */
+    for (j = 0; j < lst_size(traversal); j++) {
+      n = lst_get_ptr(traversal, j);
+      if (retval[i] == NULL)
+	retval[i] = lst_new_int(mod->tree->nnodes);
+      if (zeroed[n->id] != 0)
+	lst_push_int(retval[i], n->id);
+    }
+    
   }
   
   for (i = 0; i < mod->tree->nnodes; i++) {
@@ -3475,6 +3518,7 @@ List **dms_label_subst_nodes(MSA *msa, TreeModel *mod, PSSM *m, int nosubs) {
   free(pre);
   free(post);
   free(mark);
+  free(zeroed);
   hsh_free(tuple_hash);
   return retval;
 }
@@ -3574,7 +3618,7 @@ void dms_compact_zeroed_states(List **zeroed_states, int nblocks) {
    the only cases where we need to zero out a branch will be
    indicated by a single character in the parent that is identical
    to the character at its child after the intersection at the child
-   node is taken -- all other cases allow/require substitutions on 
+   node is taken -- all other cases allow/require substitutions on
    the connecting branch. */
 int dms_compare_lists_nosubs(List *parent, List *child) {
   int p, c;
@@ -3582,7 +3626,7 @@ int dms_compare_lists_nosubs(List *parent, List *child) {
   /* We only need to pay attention if the parent list is size 1, otherwise
      there exist scenarios where substitutions may occur along the branch */
   if (lst_size(parent) == 1) {
-    if (lst_size(child) > 1) { /* There can be no intersection with parent or 
+    if (lst_size(child) > 1) { /* There can be no intersection with parent or
 				  the child list would be size 1. */
       return 0;
     } else { /* Need to see if parent char matches child char */
@@ -3591,7 +3635,7 @@ int dms_compare_lists_nosubs(List *parent, List *child) {
       if (p == c)
 	return 1;
     }
-  }    
+  }
   return 0;
 }
 
@@ -3644,7 +3688,7 @@ void dms_zeroed_as_bed(FILE *f, DMotifPhyloHmm *dm, List *zeroed_states,
     str_remove_path(name);
     str_append_charstr(name, "_");
     cat = cm->ranges[dm->phmm->state_to_cat[z->state]]->start_cat_no;
-    str_append(name, (String*)cm_get_feature(cm, cat));
+     str_append(name, (String*)cm_get_feature(cm, cat));
     
     for (j = 0; j < lst_size(z->starts); j++) {
       start = lst_get_int(z->starts, j);
@@ -3662,4 +3706,221 @@ void dms_zeroed_as_bed(FILE *f, DMotifPhyloHmm *dm, List *zeroed_states,
   str_free(fname_str);
   str_free(chrom_str);
   lst_free(split);
+}
+
+/* Condition transition probabilities in the hmm to require site presence in
+   a given species, based on a List of DMzeroedState objects. This needs to
+   be done only when simulating data conditional on site presence in a species
+   -- this is automatically accounted for in the stochastic traceback
+   recurrence under normal sampling. */
+void dms_condition_transitions(DMotifPhyloHmm *dm, List *zeroed_states) {
+  int i, s1, s2;
+  double norm, rowsum, trans;
+  DMzeroedState *z;
+  HMM *hmm = dm->phmm->hmm;
+  
+  for (i = 0; i < lst_size(zeroed_states); i++) {
+    z = lst_get_ptr(zeroed_states, i);
+    if (z->do_row == 0) {
+      continue;
+    } else {
+      s2 = z->state;
+      for (s1 = 0; s1 < hmm->nstates; s1++) {
+	mm_set(hmm->transition_matrix, s1, s2, 0);
+	mm_set(hmm->transition_matrix, s2, s1, 0);
+      }
+      vec_set(hmm->begin_transitions, s2, 0);
+    }
+  }
+  /* Renormalize the transitions matrix */
+  mm_renormalize(hmm->transition_matrix);
+
+  /* Renormalize the begin transitions vector */
+  rowsum = norm = 0;
+  for (i = 0; i < hmm->nstates; i++)
+    rowsum += vec_get(hmm->begin_transitions, i);
+  norm = 1 / rowsum;
+  for (i = 0; i < hmm->nstates; i++) {
+    trans = vec_get(hmm->begin_transitions, i);
+    trans /= norm;
+    vec_set(hmm->begin_transitions, i, trans);
+  }
+
+  hmm_reset(hmm);
+}
+
+/* Generate a MSA using a DMotifPhyloHmm and a set of tree models,
+   requiring gain/loss elements to contain at least one substitution on 
+   the branch where the gain/loss has occured. Based on tm_generate_msa. */
+MSA *dm_generate_msa(int ncolumns, 
+                     DMotifPhyloHmm *dm,
+                     TreeModel **classmods, 
+                     int *labels /* if non-NULL, will be used to
+                                    record state (model) responsible
+                                    for generating each site; pass
+                                    NULL if hmm is NULL */
+                     ) {
+
+  int i, j, class, nextclass, nseqs, col, ntreenodes, idx, nclasses, has_subs;
+  char *newchar, **names, **seqs, **motif, p, c;
+  MSA *msa;
+  Stack *stack;
+  HMM *hmm = dm->phmm->hmm;
+  TreeModel *mod;
+  TreeNode *n;
+  
+  nclasses = hmm->nstates;
+  
+  /* obtain number of sequences from tree models; ensure all have same
+     number */
+  ntreenodes = classmods[0]->tree->nnodes; 
+  
+  stack = stk_new_ptr(ntreenodes);
+  nseqs = -1;
+  for (i = 0; i < nclasses; i++) {
+    /* count leaves in tree */
+    int num = (classmods[i]->tree->nnodes + 1) / 2;
+
+    assert(classmods[i]->nratecats == 1); /* assuming no rate variation */
+
+    if (nseqs == -1) 
+      nseqs = num;
+    else if (nseqs != num) 
+      die("ERROR in tm_generate_msa: model #%d has %d taxa, while a previous model had %d taxa.\n", i+1, num, nseqs);
+  }
+
+  /* create new MSA */
+  names = (char**)smalloc(nseqs * sizeof(char*));
+  seqs = (char**)smalloc(nseqs * sizeof(char*));
+  for (i = 0; i < nseqs; i++) 
+    seqs[i] = (char*)smalloc((ncolumns + 1) * sizeof(char));
+  msa = msa_new(seqs, names, nseqs, ncolumns, 
+                classmods[0]->rate_matrix->states);
+
+  /* build sequence idx maps for each model */
+  for (i = 0; i < hmm->nstates; i++) {
+    classmods[i]->msa_seq_idx = smalloc(classmods[0]->tree->nnodes * 
+					sizeof(int));
+    
+    for (j = 0, idx = 0; j < classmods[i]->tree->nnodes; j++) {
+      n = lst_get_ptr(classmods[i]->tree->nodes, j);
+      if (n->lchild == NULL && n->rchild == NULL) {
+	classmods[i]->msa_seq_idx[j] = idx;
+	names[idx] = strdup(n->name);
+	idx++;
+      }
+      else classmods[i]->msa_seq_idx[j] = -1;
+    }
+  }
+  
+  motif = (char**)smalloc(classmods[0]->tree->nnodes * sizeof(char*));
+  for (i = 0; i < classmods[0]->tree->nnodes; i++)
+    motif[i] = (char*)smalloc(dm->m->width * sizeof(char));
+  
+  /* generate sequences, column by column */
+  if (hmm != NULL && hmm->begin_transitions != NULL)
+    class = draw_index(hmm->begin_transitions->data, hmm->nstates);
+  else
+    class = 0;
+  
+  newchar = (char*)smalloc(ntreenodes * sizeof(char));
+  
+  for (col = 0; col < ncolumns; /* incrementing done inside loop */) {
+    mod = classmods[class];
+    
+    if ( (dm->state_to_event[class] == BIRTH || 
+	  dm->state_to_event[class] == DEATH) &&
+	 dm->state_to_motifpos[class] != -1) { 
+      /* Motif gain or loss -- must make sure motif window has
+	 at least one substitution on the gain/loss branch. */
+      n = lst_get_ptr(classmods[class]->tree->nodes, 
+		      dm->state_to_branch[class]);
+      has_subs = FALSE;
+
+      while (has_subs == FALSE) {
+	/* Generate a candidate motif alignment */
+	nextclass = class;
+	for (i = 0; i < dm->m->width; i++) {
+	  dm_sample_char_col(msa->seqs, mod, newchar, nextclass, i, TRUE);
+	  nextclass = mm_sample_state(hmm->transition_matrix, nextclass);
+	}
+	/* Check that the gain/loss branch has substitution(s) */
+	for (i = 0; i < dm->m->width; i++) {
+	  p = motif[n->parent->id][i];
+	  c = motif[n->id][i];
+	  if (p != c) {
+	    has_subs = TRUE;
+	    break;
+	  }
+	}
+      }
+
+      /* Once we have a motif alignment with appropriately places subs, push
+	 the leaf sequences onto the MSA */
+      for (i = 0; i < dm->m->width; i++) {
+	for (j = 0; j < classmods[class]->tree->nnodes; j++) {
+	  n = lst_get_ptr(classmods[class]->tree->nodes, j);
+	  if (n->lchild == NULL)
+	    msa->seqs[classmods[class]->msa_seq_idx[n->id]][col] = 
+	      motif[n->id][i];
+	}
+	if (labels != NULL) labels[col] = class;
+	class = mm_sample_state(hmm->transition_matrix, class);     
+	col++;
+      }
+      
+    } else {
+      dm_sample_char_col(msa->seqs, mod, newchar, class, col, FALSE);
+      if (labels != NULL) labels[col] = class;
+      class = mm_sample_state(hmm->transition_matrix, class);
+      col++;
+    }
+    
+
+  }
+
+  for (i = 0; i < classmods[0]->tree->nnodes; i++)
+    free(motif[i]);
+  free(motif);
+
+  return msa;
+}
+
+/* Sample a single column of characters when simulating an MSA */
+void dm_sample_char_col(char **seqs, TreeModel *mod, char *newchar, 
+			int class, int col, int keep_ancestral) {
+  int i;
+  List *traversal;
+  TreeNode *n, *l, *r;
+  MarkovMatrix *lsubst_mat, *rsubst_mat;
+  
+  traversal = tr_preorder(mod->tree);
+  newchar[mod->tree->id] = 
+    mm_sample_backgd(mod->rate_matrix->states, 
+		     mod->backgd_freqs);
+  for (i = 0; i < lst_size(traversal); i++) {
+    n = lst_get_ptr(traversal, i);
+    l = n->lchild;
+    r = n->rchild;
+    assert ((l == NULL && r == NULL) || (l != NULL && r != NULL));
+
+    if (l == NULL && !keep_ancestral) /* Leaf node and not storing ancestral
+					 sequences */
+      seqs[mod->msa_seq_idx[n->id]][col] = newchar[n->id];
+    else {
+      if (mod->P[l->id][0] == NULL)
+	tm_set_subst_matrices(mod);
+      
+      lsubst_mat = mod->P[l->id][0];
+      rsubst_mat = mod->P[r->id][0];
+      newchar[l->id] = mm_sample_char(lsubst_mat, newchar[n->id]);
+      newchar[r->id] = mm_sample_char(rsubst_mat, newchar[n->id]);
+    }
+  }
+  if (keep_ancestral) {
+    for (i = 0; i < lst_size(traversal); i++) {
+      n = lst_get_ptr(traversal, i);
+      seqs[n->id][col] = newchar[n->id];
+    }
+  }
 }
