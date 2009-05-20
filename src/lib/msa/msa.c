@@ -731,7 +731,7 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
   String *prev_name = NULL;
   msa_coord_map *from_map = NULL, *to_map = NULL;
   GFF_Feature *feat;
-  int i, s, e, orig_span;
+  int i, j, s, e, orig_span;
   List *keepers = lst_new_ptr(lst_size(gff->features));
 
   maps = (msa_coord_map**)smalloc((msa->nseqs + 1) * 
@@ -785,6 +785,29 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
     if (s < 0 && e < 0) {
       gff_free_feature(feat);
       continue;
+    }
+
+    /* Adjust start coordinate if element starts in gap in 
+       new reference frame (if refernece is not entire alignment). */
+    if (tseq != 0) {
+      int mstart, mend;
+      // first convert to msa coords
+      if (fseq==0) {
+	mstart=feat->start-1;
+	mend=feat->end;
+      } else {
+	mstart=msa_map_seq_to_seq(from_map, NULL, feat->start)-1;
+	mend=msa_map_seq_to_seq(from_map, NULL, feat->end);
+      }
+      for (j=mstart; j<mend; j++)
+	if (msa_get_char(msa, tseq-1, j) != GAP_CHAR)
+	  break;
+      if (j==mend) {
+	gff_free_feature(feat);
+	continue;
+      }
+      if (j!=mstart) 
+        s = msa_map_seq_to_seq(NULL, to_map, j+1);
     }
 
     feat->start = (s < 0 ? 1 : s) + offset;
