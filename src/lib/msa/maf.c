@@ -431,7 +431,7 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 	  if ((tuple_idx = ss_lookup_coltuple(tuple_str, tuple_hash, msa)) == -1) {
                                 /* tuple isn't in hash yet; have to add */
             tuple_idx = msa->ss->ntuples++;
-	    ss_add_coltuple(tuple_str, (void*)tuple_idx, tuple_hash, msa);
+	    ss_add_coltuple(tuple_str, int_to_ptr(tuple_idx), tuple_hash, msa);
             msa->ss->col_tuples[tuple_idx] = smalloc(tuple_size * msa->nseqs * sizeof(char));
             strncpy(msa->ss->col_tuples[tuple_idx], tuple_str, msa->nseqs * tuple_size);
             if (fasthash_idx != -1) fasthash[fasthash_idx] = tuple_idx;
@@ -826,7 +826,7 @@ MSA *maf_read_unsorted(FILE *F,          /**< MAF file */
 	  if ((tuple_idx = ss_lookup_coltuple(tuple_str, tuple_hash, msa)) == -1) {
                                 /* tuple isn't in hash yet; have to add */
             tuple_idx = msa->ss->ntuples++;
-	    ss_add_coltuple(tuple_str, (void*)tuple_idx, tuple_hash, msa);
+	    ss_add_coltuple(tuple_str, int_to_ptr(tuple_idx), tuple_hash, msa);
             msa->ss->col_tuples[tuple_idx] = smalloc(tuple_size * msa->nseqs * sizeof(char));
             strncpy(msa->ss->col_tuples[tuple_idx], tuple_str, msa->nseqs * tuple_size);
             if (fasthash_idx != -1) fasthash[fasthash_idx] = tuple_idx;
@@ -960,10 +960,10 @@ int maf_read_block_addseq(FILE *F, MSA *mini_msa, Hashtable *name_hash,
     }
 
     /* obtain index of seq */
-    seqidx = (int)hsh_get(name_hash, this_name->chars);
+    seqidx = ptr_to_int(hsh_get(name_hash, this_name->chars));
     if (seqidx == -1) {
       seqidx = msa_add_seq(mini_msa, this_name->chars);
-      hsh_put(name_hash, this_name->chars, (void*)seqidx);
+      hsh_put(name_hash, this_name->chars, int_to_ptr(seqidx));
       mark = srealloc(mark, mini_msa->nseqs*sizeof(int));
     }
     assert(str_equals_charstr(this_name, mini_msa->names[seqidx]));
@@ -1097,7 +1097,7 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
     }
 
     /* obtain index of seq */
-    seqidx = (int)hsh_get(name_hash, this_name->chars);
+    seqidx = ptr_to_int(hsh_get(name_hash, this_name->chars));
     if (seqidx == -1) {
       fprintf(stderr, "ERROR: unexpected sequence name '%s' --\n\tsee line \"%s\"\n", this_name->chars, linebuffer->chars);
       exit(1);
@@ -1186,8 +1186,8 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
       str_cpy(name, fullname);
       str_shortest_root(name, '.');
       assert(name->length > 0); /* must be a non-empty name */
-      if ((int)hsh_get(name_hash, name->chars) == -1) {
-        hsh_put(name_hash, name->chars, (void*)count);
+      if (ptr_to_int(hsh_get(name_hash, name->chars)) == -1) {
+        hsh_put(name_hash, name->chars, int_to_ptr(count));
         *names = srealloc(*names, (count+1) * sizeof(char*));
         (*names)[count] = strdup(name->chars);
         count++;
@@ -1249,8 +1249,8 @@ void maf_peek(FILE *F, char ***names, Hashtable *name_hash,
       str_cpy(name, fullname);
       str_shortest_root(name, '.');
       assert(name->length > 0); /* must be a non-empty name */
-      if ((int)hsh_get(name_hash, name->chars) == -1) {
-        hsh_put(name_hash, name->chars, (void*)count);
+      if (ptr_to_int(hsh_get(name_hash, name->chars)) == -1) {
+        hsh_put(name_hash, name->chars, int_to_ptr(count));
         *names = srealloc(*names, (count+1) * sizeof(char*));
         (*names)[count] = strdup(name->chars);
         count++;

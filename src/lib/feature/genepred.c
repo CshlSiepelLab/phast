@@ -80,10 +80,10 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
     str_split(lst_get_ptr(l, 9), ",", tmpl2);
 
     /* make sure group name is unique */
-    if ((num = (int)hsh_get(hash, name->chars)) > 0) {
+    if ((num = ptr_to_int(hsh_get(hash, name->chars))) > 0) {
       num++;
       sprintf(group, "transcript_id \"%s.%d\"", name->chars, num);
-      hsh_reset(hash, name->chars, (void*)num);
+      hsh_reset(hash, name->chars, int_to_ptr(num));
     }
     else {
       sprintf(group, "transcript_id \"%s\"", name->chars);

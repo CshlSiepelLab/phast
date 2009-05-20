@@ -655,6 +655,7 @@ struct hash_table *make_name_hash(char *mapstr) {
 
 /** Evaluate pdf of gamma distribution with parameters a and b */
 double gamma_pdf(double x, double a, double b) {
+  double tgamma(double d);
   assert(x >= 0);
   return 1/(tgamma(a) * pow(b, a)) * pow(x, a-1) * exp(-x/b);
 }

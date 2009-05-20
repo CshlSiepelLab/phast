@@ -1,5 +1,6 @@
 /* Extended regular expression matching and search library,
    version 0.12.
+   Modified slightly by mt269 to get rid of 64-bit compiler warnings 5/20/09
    (Implements POSIX draft P10003.2/D11.2, except for
    internationalization features.)
 
@@ -19,6 +20,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include <misc.h>
 #define STDC_HEADERS 1
 
 /* AIX requires this to be the first thing in the file. */
@@ -2456,10 +2458,10 @@ typedef struct
       }									\
 									\
     DEBUG_PRINT2 ("  Pushing  low active reg: %d\n", lowest_active_reg);\
-    PUSH_FAILURE_ITEM (lowest_active_reg);				\
+    PUSH_FAILURE_ITEM (int_to_ptr(lowest_active_reg));			\
 									\
     DEBUG_PRINT2 ("  Pushing high active reg: %d\n", highest_active_reg);\
-    PUSH_FAILURE_ITEM (highest_active_reg);				\
+    PUSH_FAILURE_ITEM (int_to_ptr(highest_active_reg));			\
 									\
     DEBUG_PRINT2 ("  Pushing pattern 0x%x: ", pattern_place);		\
     DEBUG_PRINT_COMPILED_PATTERN (bufp, pattern_place, pend);		\
@@ -2544,10 +2546,10 @@ typedef struct
   DEBUG_PRINT_COMPILED_PATTERN (bufp, pat, pend);			\
 									\
   /* Restore register info.  */						\
-  high_reg = (unsigned) POP_FAILURE_ITEM ();				\
+  high_reg = (unsigned) ptr_to_int(POP_FAILURE_ITEM ());		\
   DEBUG_PRINT2 ("  Popping high active reg: %d\n", high_reg);		\
 									\
-  low_reg = (unsigned) POP_FAILURE_ITEM ();				\
+  low_reg = (unsigned) ptr_to_int(POP_FAILURE_ITEM ());			\
   DEBUG_PRINT2 ("  Popping  low active reg: %d\n", low_reg);		\
 									\
   for (this_reg = high_reg; this_reg >= low_reg; this_reg--)		\
@@ -3813,7 +3815,7 @@ re_match_2 (bufp, string1, size1, string2, size2, pos, regs, stop)
                           regstart[r] = old_regstart[r];
 
                           /* xx why this test?  */
-                          if ((int) old_regend[r] >= (int) regstart[r])
+                          if (ptr_to_int(old_regend[r]) >= ptr_to_int(regstart[r]))
                             regend[r] = old_regend[r];
                         }     
                     }

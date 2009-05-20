@@ -43,6 +43,10 @@ struct hash_table;
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #endif
 
+#define int_to_ptr(i) ((void*) (long) (i))
+#define ptr_to_int(p) ((int) (long) (p))
+
+
 #define safediv(x, y) ((y) != 0 ? (x) / (y) : ((x) == 0 ? 0 : ((x) > 0 ? INFTY : NEGINFTY)))
 
 #define AA_ALPHABET "ARNDCQEGHILKMFPSTWYV$"

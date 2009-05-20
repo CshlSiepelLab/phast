@@ -940,7 +940,7 @@ void gff_filter_by_group(GFF_Set *feats, List *groups) {
   for (i = 0; i < lst_size(feats->groups); i++) {
     GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
     int keep = FALSE;
-    if ((int)hsh_get(hash, g->name->chars) != -1) 
+    if (ptr_to_int(hsh_get(hash, g->name->chars)) != -1) 
       keep = TRUE;
     for (j = 0; j < lst_size(g->features); j++) {
       if (keep)

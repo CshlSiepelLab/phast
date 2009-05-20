@@ -1755,7 +1755,7 @@ MSA *msa_concat_from_files(List *fnames, msa_format_type format,
 
   /* build a hash with the index corresponding to each name */
   for (i = 0; i < nseqs; i++) 
-    hsh_put(name_hash, names[i], (void*)i);
+    hsh_put(name_hash, names[i], int_to_ptr(i));
 
   for (i = 0; i < lst_size(fnames); i++) {
     String *fname = lst_get_ptr(fnames, i);
@@ -1774,7 +1774,7 @@ MSA *msa_concat_from_files(List *fnames, msa_format_type format,
     /* reorder the seqs and names; add seqs of gaps as necessary */
     for (j = 0; j < nseqs; j++) tmpseqs[j] = NULL;
     for (j = 0; j < source_msa->nseqs; j++) {
-      int idx = (int)hsh_get(name_hash, source_msa->names[j]);
+      int idx = ptr_to_int(hsh_get(name_hash, source_msa->names[j]));
       if (idx == -1) 
         die("ERROR: no match for sequence name '%s' in list.\n",
             source_msa->names[j]);

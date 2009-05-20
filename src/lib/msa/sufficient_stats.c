@@ -146,7 +146,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
 
       if ((idx = ss_lookup_coltuple(source_ss->col_tuples[i], tuple_hash, msa)) == -1) {
  	idx = main_ss->ntuples++;
-	ss_add_coltuple(source_ss->col_tuples[i], (void*)idx, tuple_hash, msa);
+	ss_add_coltuple(source_ss->col_tuples[i], int_to_ptr(idx), tuple_hash, msa);
         main_ss->col_tuples[idx] = (char*)smalloc((tuple_size * msa->nseqs +1) 
 						  * sizeof(char));
 	main_ss->col_tuples[idx][msa->nseqs * tuple_size] = '\0';
@@ -188,7 +188,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
                                 /* column tuple has not been seen
                                    before */
         idx = main_ss->ntuples++;
-	ss_add_coltuple(key, (void*)idx, tuple_hash, msa);
+	ss_add_coltuple(key, int_to_ptr(idx), tuple_hash, msa);
 
         if (main_ss->ntuples > main_ss->alloc_ntuples) 
                                 /* possible if allocated only for
@@ -1220,8 +1220,8 @@ void ss_unique(MSA *msa) {
 
   for (i = 0; i < msa->ss->ntuples; i++) {
     strncpy(key, msa->ss->col_tuples[i], (msa->nseqs * msa->ss->tuple_size + 1));
-    if ((idx = (int)hsh_get(hash, key)) == -1) { /* tuple not seen before */
-      hsh_put(hash, key, (void*)i);
+    if ((idx = ptr_to_int(hsh_get(hash, key))) == -1) { /* tuple not seen before */
+      hsh_put(hash, key, int_to_ptr(i));
       old_to_new[i] = i;
     }
     else { /* seen before: combine counts with prev, zero out this version */
@@ -1437,7 +1437,7 @@ int ss_lookup_coltuple(char *coltuple_str, Hashtable *tuple_hash, MSA *msa) {
   while (i%msa->ss->tuple_size != 0) i++;
   tempchar = coltuple_str[i];
   coltuple_str[i] = '\0';
-  rv = (int)hsh_get(tuple_hash, coltuple_str);
+  rv = ptr_to_int(hsh_get(tuple_hash, coltuple_str));
   coltuple_str[i] = tempchar;
   return rv;
 }
