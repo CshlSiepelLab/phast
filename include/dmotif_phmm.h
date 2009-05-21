@@ -247,5 +247,16 @@ int dms_compare_lists_identity(List *parent, List *child);
 int dms_compare_lists_nosubs(List *parent, List *child);
 void dms_zeroed_as_bed(FILE *f, DMotifPhyloHmm *dm, List *zeroed_states,
 		       char *fname);
+void dms_condition_transitions(DMotifPhyloHmm *dm, List *zeroed_states);
+MSA *dm_generate_msa(int ncolumns, 
+                     DMotifPhyloHmm *dm,
+                     TreeModel **classmods, 
+                     int *labels /* if non-NULL, will be used to
+                                    record state (model) responsible
+                                    for generating each site; pass
+                                    NULL if hmm is NULL */
+                     );
+void dm_sample_char_col(char **seqs, TreeModel *mod, char *newchar, 
+			int class, int col, int keep_ancestral);
 
 #endif
