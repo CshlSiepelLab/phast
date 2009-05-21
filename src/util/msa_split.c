@@ -90,8 +90,9 @@ EXAMPLES:\n\
     5. Obtain a sub-alignment for each of a set of regulatory regions,\n\
     as defined in a BED file.\n\
 \n\
-        msa_split chr22.maf --refseq chr22.fa --features chr22.reg.bed \\\n\
-            --for-features --out-root chr22.reg\n\
+        msa_split chr22.maf --in-format MAF --refseq chr22.fa \\\n\
+	    --features chr22.reg.bed --for-features \\\n\
+	    --out-root chr22.reg\n\
 \n\
 OPTIONS:\n\
 \n\
