@@ -71,6 +71,8 @@ int main(int argc, char *argv[]) {
     *null_scales = NULL, *derivs = NULL, *sub_derivs = NULL,
     *teststats = NULL, *nneut = NULL, *nobs = NULL,
     *nspec = NULL, *nrejected = NULL;
+  List *cats_to_do=NULL, *cats_to_do_str=NULL;
+  CategoryMap *cm=NULL;
 
   struct option long_opts[] = {
     {"method", 1, 0, 'm'},
@@ -90,6 +92,8 @@ int main(int argc, char *argv[]) {
     {"chrom", 1, 0, 'N'},
     {"log", 1, 0, 'l'},
     {"gff-scores", 0, 0, 'g'},
+    {"do-cats", 1, 0, 'C'},
+    {"catmap", 1, 0, 'M'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -172,6 +176,12 @@ int main(int argc, char *argv[]) {
       else
         logf = fopen_fname(optarg, "w+");
       break;
+    case 'C':
+      cats_to_do_str = get_arg_list(optarg);
+      break;
+    case 'M':
+      cm = cm_new_string_or_file(optarg);
+      break;
     case 'h':
       printf(HELP);
       exit(0);
@@ -201,12 +211,17 @@ int main(int argc, char *argv[]) {
 
   mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
 
+  if (cats_to_do_str != NULL) {
+    if (cm == NULL) die("ERROR: --cats-to-do requires --catmap option\n");
+    cats_to_do = cm_get_category_list(cm, cats_to_do_str, FALSE);
+  }
+
   if (!prior_only) {
     msa_f = fopen_fname(argv[optind+1], "r");
     if (msa_format == MAF) 
-      msa = maf_read(msa_f, NULL, 1, NULL, NULL, NULL, -1, 
+      msa = maf_read_cats(msa_f, NULL, 1, NULL, feats, cm, -1, 
                      (feats == NULL && base_by_base==0) ? FALSE : TRUE, /* --features requires order */
-                     NULL, NO_STRIP, FALSE); 
+                     NULL, NO_STRIP, FALSE, cats_to_do); 
     else 
       msa = msa_new_from_file(msa_f, msa_format, NULL);
 

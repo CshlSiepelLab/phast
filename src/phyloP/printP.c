@@ -507,7 +507,7 @@ void print_feats_generic(char *header, GFF_Set *gff, char **formatstr,
         str_re_match(f->attribute, tag_val_re, l, 1) >= 0) {
       name = lst_get_ptr(l, 1);
       str_remove_quotes(name);
-    }
+    } else name=NULL;
 
     printf("%s\t%d\t%d\t%s\t", f->seqname->chars, f->start-1, f->end, 
            name == NULL ? "." : name->chars);
