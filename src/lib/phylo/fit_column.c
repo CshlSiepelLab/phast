@@ -796,6 +796,8 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
   ColFitData *d, *d2;
   double null_lnl, alt_lnl, delta_lnl;
   TreeModel *modcpy;
+  List *inside = lst_new_ptr(mod->tree->nnodes), 
+    *outside = lst_new_ptr(mod->tree->nnodes);
 
   modcpy = tm_create_copy(mod);   /* need separate copy of tree model
                                      with different internal scaling
@@ -807,13 +809,16 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
                                 /* mod has the subtree info, modcpy
                                    does not */
 
+  /* prepare lists of leaves inside and outside root, for use in
+     checking for informative substitutions */
+  tr_partition_leaves(mod->tree, mod->subtree_root, inside, outside);
+
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
 
-    /* first check for actual substitution data in column; if none,
+    /* first check for informative substitution data in column; if none,
        don't waste time computing likeihoods */
-    if (!col_has_data(mod, msa, i)) { /* FIXME: should check subtree
-                                         leaves specifically */
+    if (!col_has_data_sub(mod, msa, i, inside, outside)) {
       delta_lnl = 0;
       d->params->data[0] = d2->params->data[0] = d2->params->data[1] = 1;
     }
@@ -882,6 +887,8 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
                                 /* have to revert for tm_free to work
                                    correctly */
   tm_free(modcpy);
+  lst_free(inside);
+  lst_free(outside);
 }
 
 /* Score test */
@@ -958,6 +965,8 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
   Matrix *fim;
   double lnl, teststat;
   FimGrid *grid;
+  List *inside = lst_new_ptr(mod->tree->nnodes), 
+    *outside = lst_new_ptr(mod->tree->nnodes);
   TreeModel *modcpy = tm_create_copy(mod); /* need separate copy of tree model
                                               with different internal scaling
                                               data for supertree/subtree case */
@@ -971,13 +980,16 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
   /* precompute Fisher information matrices for a grid of scale values */
   grid = col_fim_grid_sub(mod); 
 
+  /* prepare lists of leaves inside and outside root, for use in
+     checking for informative substitutions */
+  tr_partition_leaves(mod->tree, mod->subtree_root, inside, outside);
+
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
 
-    /* first check for actual substitution data in column; if none,
+    /* first check for informative substitution data in column; if none,
        don't waste time computing score */
-    if (!col_has_data(mod, msa, i)) { /* FIXME: should check subtree
-                                         leaves specifically */
+    if (!col_has_data_sub(mod, msa, i, inside, outside)) { 
       teststat = 0;
       vec_zero(grad);
     }
@@ -1045,6 +1057,8 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
                                 /* have to revert for tm_free to work
                                    correctly */
   tm_free(modcpy);
+  lst_free(inside);
+  lst_free(outside);
   col_free_fim_grid(grid); 
 }
 
@@ -1510,4 +1524,41 @@ int col_has_data(TreeModel *mod, MSA *msa, int tupleidx) {
       nbases++;
   }
   return(nbases >= 2);
+}
+
+/* returns TRUE if column has at least one base in the subtree of
+   interest, at least one in the supertree of interest, and at least
+   three bases total (the minimum required for a meaningful subtree
+   test), otherwise returns FALSE */
+int col_has_data_sub(TreeModel *mod, MSA *msa, int tupleidx, List *inside, 
+                     List *outside) {
+  int i, nbases = 0, state;
+  TreeNode *n;
+
+  for (i = 0; i < lst_size(inside) && nbases < 2; i++) {
+    n = lst_get_ptr(inside, i);
+    state = mod->rate_matrix->
+      inv_states[(int)ss_get_char_tuple(msa, tupleidx, 
+                                        mod->msa_seq_idx[n->id], 0)];
+    if (state >= 0) nbases++;
+  }
+
+  if (nbases == 0)              /* no leaves in subtree */
+    return FALSE;
+  /* NOTE: nbases at most two here */
+
+  for (i = 0; i < lst_size(outside) && nbases < 3; i++) {
+    n = lst_get_ptr(outside, i);
+    state = mod->rate_matrix->
+      inv_states[(int)ss_get_char_tuple(msa, tupleidx, 
+                                        mod->msa_seq_idx[n->id], 0)];
+    if (state >= 0) nbases++;
+  }
+
+  if (nbases == 3)              /* has to be at least one in each
+                                   partition and a third from one of
+                                   the two partitions */
+    return TRUE;
+
+  return FALSE;
 }

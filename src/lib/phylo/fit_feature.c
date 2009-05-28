@@ -219,6 +219,8 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
   FeatFitData *d, *d2;
   double null_lnl, alt_lnl, delta_lnl;
   TreeModel *modcpy;
+  List *inside = lst_new_ptr(mod->tree->nnodes), 
+    *outside = lst_new_ptr(mod->tree->nnodes); 
 
   modcpy = tm_create_copy(mod);   /* need separate copy of tree model
                                      with different internal scaling
@@ -230,13 +232,17 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
                                 /* mod has the subtree info, modcpy
                                    does not */
 
+  /* prepare lists of leaves inside and outside root, for use in
+     checking for informative substitutions */
+  tr_partition_leaves(mod->tree, mod->subtree_root, inside, outside);
+
   /* iterate through features  */
   for (i = 0; i < lst_size(gff->features); i++) {
     GFF_Feature *f = lst_get_ptr(gff->features, i);
 
-    /* first check for actual substitution data in feature; if none,
+    /* first check for informative substitution data in feature; if none,
        don't waste time computing likelihoods */
-    if (!ff_has_data(mod, msa, f)) {
+    if (!ff_has_data_sub(mod, msa, f, inside, outside)) {
       delta_lnl = 0;
       d->cdata->params->data[0] = d2->cdata->params->data[0] = 
         d2->cdata->params->data[1] = 1;
@@ -304,6 +310,8 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
                                 /* have to revert for tm_free to work
                                    correctly */
   tm_free(modcpy);
+  lst_free(inside);
+  lst_free(outside);
 }
 
 /* Score test */
@@ -383,6 +391,8 @@ void ff_score_tests_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
   Matrix *fim = mat_new(2, 2);
   double lnl, teststat;
   FimGrid *grid;
+  List *inside = lst_new_ptr(mod->tree->nnodes), 
+    *outside = lst_new_ptr(mod->tree->nnodes); 
   TreeModel *modcpy = tm_create_copy(mod); /* need separate copy of tree model
                                               with different internal scaling
                                               data for supertree/subtree case */
@@ -396,14 +406,17 @@ void ff_score_tests_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
   /* precompute Fisher information matrices for a grid of scale values */
   grid = col_fim_grid_sub(mod); 
 
+  /* prepare lists of leaves inside and outside root, for use in
+     checking for informative substitutions */
+  tr_partition_leaves(mod->tree, mod->subtree_root, inside, outside);
+
   /* iterate through features  */
   for (i = 0; i < lst_size(gff->features); i++) {
     d->feat = lst_get_ptr(gff->features, i);
 
-    /* first check for actual substitution data in feature; if none,
+    /* first check for informative substitution data in feature; if none,
        don't waste time computing likelihoods */
-    if (!ff_has_data(mod, msa, d->feat)) { /* FIXME: should specifically
-                                              check subtree */
+    if (!ff_has_data_sub(mod, msa, d->feat, inside, outside)) { 
       teststat = 0;
       vec_zero(grad);
     }
@@ -473,6 +486,8 @@ void ff_score_tests_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
                                    correctly */
   tm_free(modcpy);
   col_free_fim_grid(grid); 
+  lst_free(inside);
+  lst_free(outside);
 }
 
 /* Perform a GERP-like computation for each feature.  Computes expected
@@ -598,4 +613,16 @@ int ff_has_data(TreeModel *mod, MSA *msa, GFF_Feature *f) {
     if (nbases >= 2) return TRUE;
   }
   return FALSE;
+}
+
+/* returns TRUE if at least one column in feature meets the criteria
+   of col_has_data_sub, otherwise returns FALSE */
+int ff_has_data_sub(TreeModel *mod, MSA *msa, GFF_Feature *f, List *inside,
+                    List *outside) {
+  int j, retval = FALSE;
+  for (j = f->start-1; j < f->end && !retval; j++) {
+    if (col_has_data_sub(mod, msa, msa->ss->tuple_idx[j], inside, outside))
+      retval = TRUE;
+  }
+  return retval;
 }
