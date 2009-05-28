@@ -498,8 +498,9 @@ int main(int argc, char *argv[]) {
     die("ERROR: cannot use --non-overlapping with --markov, --features,\n--msa-format SS, or --do-cats.\n");
 
   if (gaps_as_bases && subst_mod != JC69 && subst_mod != F81 && 
-      subst_mod != HKY85G && subst_mod != REV && subst_mod != UNREST)
-    die("ERROR: --gaps-as-bases currently only supported with JC69, F81, HKY85+Gap, REV, and UNREST.\n");
+      subst_mod != HKY85G && subst_mod != REV && subst_mod != UNREST &&
+      subst_mod != SSREV)
+    die("ERROR: --gaps-as-bases currently only supported with JC69, F81, HKY85+Gap, REV, SSREV, and UNREST.\n");
                                 /* with HKY, yields undiagonalizable matrix */
 
   if ((no_freqs || no_rates) && input_mod == NULL)

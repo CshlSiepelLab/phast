@@ -23,6 +23,7 @@ typedef enum {
   HKY85,
   HKY85G,
   REV,
+  SSREV,
   UNREST,
   HKY2,
   R2,
