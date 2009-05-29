@@ -272,8 +272,7 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
 
       delta_lnl = alt_lnl - null_lnl;
       assert(delta_lnl > -0.1);
-      if (delta_lnl < 0.001) delta_lnl = 0;
-      /* within tolerance of optimization */
+      if (delta_lnl < 0) delta_lnl = 0;
     }
 
     /* compute p-vals via chi-sq */
