@@ -187,7 +187,7 @@ void ff_lrts(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
 
     /* compute p-vals via chi-sq */
     if (feat_pvals != NULL) {
-      if (mode == NNEUT) 
+      if (mode == NNEUT || mode == CONACC) 
         feat_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
       else 
         feat_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
@@ -277,7 +277,7 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
 
     /* compute p-vals via chi-sq */
     if (feat_pvals != NULL) {
-      if (mode == NNEUT) 
+      if (mode == NNEUT || mode == CONACC) 
         feat_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
       else 
         feat_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
@@ -357,7 +357,7 @@ void ff_score_tests(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
     }
 
     if (feat_pvals != NULL) {
-      if (mode == NNEUT)
+      if (mode == NNEUT || mode == CONACC)
         feat_pvals[i] = chisq_cdf(teststat, 1, FALSE);
       else 
         feat_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
@@ -456,7 +456,7 @@ void ff_score_tests_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
     }
 
     if (feat_pvals != NULL) {
-      if (mode == NNEUT)
+      if (mode == NNEUT || mode == CONACC)
         feat_pvals[i] = chisq_cdf(teststat, 1, FALSE);
       else 
         feat_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
