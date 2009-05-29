@@ -764,7 +764,7 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
 
     /* compute p-vals via chi-sq */
     if (tuple_pvals != NULL) {
-      if (mode == NNEUT) 
+      if (mode == NNEUT || mode == CONACC) 
         tuple_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
       else 
         tuple_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
@@ -849,13 +849,12 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
 
       delta_lnl = alt_lnl - null_lnl;
       assert(delta_lnl > -0.1);
-      if (delta_lnl < 0.001) delta_lnl = 0;
-      /* within tolerance of optimization */
+      if (delta_lnl < 0) delta_lnl = 0;
     }
 
     /* compute p-vals via chi-sq */
     if (tuple_pvals != NULL) {
-      if (mode == NNEUT) 
+      if (mode == NNEUT || mode == CONACC) 
         tuple_pvals[i] = chisq_cdf(2*delta_lnl, 1, FALSE);
       else 
         tuple_pvals[i] = half_chisq_cdf(2*delta_lnl, 1, FALSE);
@@ -932,7 +931,7 @@ void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode,
     }
 
     if (tuple_pvals != NULL) {
-      if (mode == NNEUT)
+      if (mode == NNEUT || mode == CONACC)
         tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
       else 
         tuple_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
@@ -1029,7 +1028,7 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
     }
 
     if (tuple_pvals != NULL) {
-      if (mode == NNEUT)
+      if (mode == NNEUT || mode == CONACC)
         tuple_pvals[i] = chisq_cdf(teststat, 1, FALSE);
       else 
         tuple_pvals[i] = half_chisq_cdf(teststat, 1, FALSE);
