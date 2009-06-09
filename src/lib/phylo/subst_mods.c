@@ -220,6 +220,8 @@ int tm_get_nratematparams(TreeModel *mod) {
     return 288;
   case BGC:
     return 2;
+  case HB:
+    return 0;
   default:
     assert(0);
   }

@@ -132,12 +132,13 @@ CompactIndelHistory *ih_compact(IndelHistory *ih) {
      smallest id that has a base, because ids are assigned in
      preorder */
   for (j = 0; j < ih->ncols; j++) {
-    for (i = 0; i < ih->tree->nnodes && ih->indel_strings[i][j] != BASE; i++){
+    for (i = 0; i < ih->tree->nnodes && ih->indel_strings[i][j] != BASE; )
+      i++;
+    
     if (i == 0 || i == ih->tree->nnodes)
       ins[j] = -1;
     else 
-      ins[j] = i;
-    }
+      ins[j] = i; 
   }
 
   /* summarize remaining deletions with Indel objects */
@@ -638,7 +639,11 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
   for (i = 0; i < tree->nnodes; i++) {
     for (j = 0; j < msa->length; j++) {
       if (tup_hist[msa->ss->tuple_idx[j]][i] != BASE) {
-        c = ss_get_char_tuple(msa, msa->ss->tuple_idx[j], leaf_to_seq[i], 0);
+	if (leaf_to_seq[i] >= 0) {
+/* 	fprintf(stderr, "i %d, j %d, seqidx %d, ", i, j, leaf_to_seq[i]); */
+	  c = ss_get_char_tuple(msa, msa->ss->tuple_idx[j], leaf_to_seq[i], 0);
+/* 	fprintf(stderr, "c %c\n", c); */
+	}
         assert(leaf_to_seq[i] < 0 || c == GAP_CHAR || msa->is_missing[(int)c]);
         ih->indel_strings[i][j] = tup_hist[msa->ss->tuple_idx[j]][i];
       }
