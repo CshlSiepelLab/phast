@@ -52,7 +52,13 @@ The library is composed of six packages, as follows:
 
     a. Download clapack.tgz from http://www.netlib.org/clapack, unpack
        in your directory of choice (e.g., "tar xfz clapack.tgz"), and cd
-       to the CLAPACK directory
+       to the CLAPACK directory.
+
+       Note: if the file clapack.h is not in your CLAPACK/INCLUDE/
+       directory, you will need to download it separately from 
+       http://www.netlib.org/clapack and put it there.  It seems that 
+       some more recent versions of clapack do not include it in the
+       tarball.
 
     b. Edit the following variables in make.inc.
 
