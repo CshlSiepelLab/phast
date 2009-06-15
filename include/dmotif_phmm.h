@@ -42,8 +42,8 @@ typedef struct {
   List **branch_to_states;       /* mapping from branches to states
                                     indicating birth or death events */
   DMotifIndelModel **indel_mods; /* indel models, one per state */
-  double rho, mu, nu, phi, zeta;
-  int estim_gamma, estim_omega, estim_phi, estim_zeta;
+  double rho, mu, nu, phi, zeta, xi;
+  int estim_gamma, estim_omega, estim_phi, estim_zeta, estim_xi;
   int k;
 } DMotifPhyloHmm;
 
@@ -90,6 +90,7 @@ typedef struct {
   int nthreads;
   ThreadPool *p;
   int sample;
+  int xi_mode;
 } DMsamplingThreadData;
 
 /* Structure to specify states and positions to zero out when conditioning on
@@ -103,19 +104,22 @@ typedef struct {
 } DMzeroedState;
 
 DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu, 
-                       double nu, double phi, double zeta, double alpha_c, 
-                       double beta_c, double tau_c, double epsilon_c, 
-		       double alpha_n, double beta_n, double tau_n,
-		       double epsilon_n, int estim_gamma, int estim_omega, 
-		       int estim_phi, int estim_zeta);
+                       double nu, double phi, double zeta, double xi,
+		       int xi_mode, double alpha_c, double beta_c, 
+		       double tau_c, double epsilon_c, double alpha_n, 
+		       double beta_n, double tau_n, double epsilon_n, 
+		       int estim_gamma, int estim_omega,  int estim_phi, 
+		       int estim_zeta, int estim_xi, subst_mod_type mmod_type,
+		       int scale_by_branch);
 void dm_free(DMotifPhyloHmm *dm);
-void dm_set_transitions(DMotifPhyloHmm *dm);
+void dm_set_transitions(DMotifPhyloHmm *dm, int xi_mode, int scale_by_branch);
 void dm_handle_missing_data(DMotifPhyloHmm *dm, MSA *msa);
 void dm_score_predictions(DMotifPhyloHmm *dm, GFF_Set *predictions);
 void dm_score_feat(DMotifPhyloHmm *dm, GFF_Feature *f, int cbstate);
 void dm_add_indel_emissions(DMotifPhyloHmm *dm, double **emissions,
 			    IndelHistory *ih);
-double dm_estimate_transitions(DMotifPhyloHmm *dm, MSA *msa);
+double dm_estimate_transitions(DMotifPhyloHmm *dm, MSA *msa, int xi_mode,
+			       int scale_by_branch);
 void dm_set_backgd_branches(TreeModel *tm, TreeModel *backgd_mod, 
                             List *nodelist);
 CategoryMap* dm_create_catmap(DMotifPhyloHmm *dm, TreeModel *source_mod,
@@ -134,7 +138,8 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
 		       int **priors, FILE *log, 
 		       GFF_Set *reference, int ref_as_prior, 
 		       int force_priors,
-		       int quiet, char *cache_fname, int cache_int);
+		       int quiet, char *cache_fname, int cache_int,
+		       int xi_mode, int scale_by_branch);
 /* Multithreaded version of dms_sample_paths */
 List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 			    double **tuple_scores, IndelHistory **ih,
@@ -143,7 +148,8 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 			    FILE *log, GFF_Set *reference, int ref_as_prior,
 			    int force_priors, int quiet, char *cache_fname,
 			    int cache_int, ThreadPool *pool, int nthreads,
-			    List **zeroed_states);
+			    List **zeroed_states, int xi_mode,
+			    int scale_by_branch);
 void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 		     double **tuple_scores, double *thread_llh,
 		     int **thread_path,
@@ -151,9 +157,10 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 		     int ***thread_trans, Hashtable **thread_counts, 
 		     int do_sample, int seqnum, char *seqname, FILE *log, 
 		     GFF_Set *query_gff, int do_reference, int nthreads,
-		     ThreadPool *p, int sample, List *zeroed_states);
+		     ThreadPool *p, int sample, List *zeroed_states,
+		     int xi_mode);
 void dms_launch_sample_thread(void *data);
-void dms_read_priors(int **priors, FILE *prior_f);
+void dms_read_priors(int **priors, FILE *prior_f, int xi_mode);
 GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks, 
 				   List *seqnames, char *key, int *counts, 
 				   int nsamples, int sample_interval,
@@ -183,19 +190,19 @@ void dms_lookup_emissions(DMotifPhyloHmm *dm, double **tuple_scores,
 			  double **emissions, PooledMSA *blocks, int seqnum,
 			  int seqlen, IndelHistory *ih);
 void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans, 
-			   int seqlen, int *ref_path, int force_priors);
+			   int seqlen, int *ref_path, int force_priors,
+			   int xi_mode);
 void dms_count_motifs(DMotifPhyloHmm *dm, int *path, int seqlen,
 		      Hashtable *path_counts, int seqnum);
 void dms_path_log(DMotifPhyloHmm *dm, int *path, int seqlen, char *seqname,
 		  GFF_Set *motifs);
 void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample, 
 		   double llh, GFF_Set *query_gff, GFF_Set *reference, 
-		   int nwins);
+		   int nwins, int xi_mode);
 DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
 				      int revcomp, int do_zeroed,
 				      FILE *cond_spec_f);
-double dm_compute_log_likelihood(TreeModel *mod, MSA *msa, double *col_scores,
-				 int cat);
+double dm_compute_log_likelihood(TreeModel *mod, MSA *msa, double *col_scores);
 void dm_free_subst_matrices(TreeModel *tm);
 MSA *dm_indel_mask(DMotifPhyloHmm *dm, MSA *msa, IndelHistory *ih,
 		   int *path);
@@ -251,12 +258,20 @@ void dms_condition_transitions(DMotifPhyloHmm *dm, List *zeroed_states);
 MSA *dm_generate_msa(int ncolumns, 
                      DMotifPhyloHmm *dm,
                      TreeModel **classmods, 
-                     int *labels /* if non-NULL, will be used to
-                                    record state (model) responsible
-                                    for generating each site; pass
-                                    NULL if hmm is NULL */
+                     int *labels, /* if non-NULL, will be used to
+				     record state (model) responsible
+				     for generating each site; pass
+				     NULL if hmm is NULL */
+		     int keep_ancestral
                      );
 void dm_sample_char_col(char **seqs, TreeModel *mod, char *newchar, 
 			int class, int col, int keep_ancestral);
+/* Set Halpern-Bruno model alt_subst_mod objects for motif branches within a
+   TreeModel object. If nodelist size is equal to the number of nodes in the
+   source tree, conserved motif is assumed and alt_subst_mods will not be
+   used -- instead, rate_matrix, background_freqs and subst_mod in the
+   original model will be reset and originals freed. */
+void dm_set_motif_branches_hb(TreeModel *tm, Vector *motif_freqs, 
+			      List *nodelist);
 
 #endif

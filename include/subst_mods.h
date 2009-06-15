@@ -35,6 +35,7 @@ typedef enum {
   U3,
   U3S,
   BGC,
+  HB,
   UNDEF_MOD
 } subst_mod_type;
 
