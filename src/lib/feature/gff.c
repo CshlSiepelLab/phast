@@ -1209,3 +1209,15 @@ void gff_partition_by_type(GFF_Set *feats, List *types, List *subsets) {
     lst_push_ptr(lst_get_ptr(subsets, idx), f);
   }
 }
+
+/* Clear all features from a GFF_Set and free associated memory */
+void gff_clear_set(GFF_Set *gff) {
+  int i;
+  GFF_Feature *f;
+  for (i = 0; i < lst_size(gff->features); i++) {
+    f = lst_get_ptr(gff->features, i);
+    gff_free_feature(f);
+  }
+  lst_clear(gff->features);
+  if (gff->groups != NULL) gff_ungroup(gff);
+}
