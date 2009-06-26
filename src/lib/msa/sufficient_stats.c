@@ -837,7 +837,12 @@ MSA* ss_read(FILE *F, char *alphabet) {
   str_re_free(tuple_size_re);
   str_re_free(ntuples_re);
   str_re_free(names_re);
+  str_re_free(alph_re);
+  str_re_free(ncats_re);
+  str_re_free(offset_re);
   str_re_free(tuple_re);
+  str_re_free(order_re);
+  str_free(line);
   
 /*   for (idx = 0; idx < ntuples; idx++) */
 /*     fprintf(stderr, "Tuple %d in msa: %s\n", idx, msa->ss->col_tuples[idx]); */
