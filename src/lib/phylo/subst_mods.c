@@ -122,6 +122,8 @@ subst_mod_type tm_get_subst_mod_type(char *str) {
     retval = U3S;
   else if (str_equals_nocase_charstr(subst_mod_str, "BGC"))
     retval = BGC;
+  else if (str_equals_nocase_charstr(subst_mod_str, "HB"))
+    retval = HB;
   str_free(subst_mod_str);
   return retval;
 }
