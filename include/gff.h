@@ -192,4 +192,6 @@ void gff_flatten(GFF_Set *feats);
 
 void gff_partition_by_type(GFF_Set *feats, List *types, List *subsets);
 
+void gff_clear_set(GFF_Set *gff);
+
 #endif

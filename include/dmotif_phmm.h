@@ -85,7 +85,7 @@ typedef struct {
   int seqnum;
   char *seqname;
   FILE *log;
-  GFF_Set *query_gff;
+  GFF_Set **thread_gff;
   int do_reference;
   int nthreads;
   ThreadPool *p;
@@ -156,7 +156,7 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 		     double ***thread_emissions, double ***thread_forward,
 		     int ***thread_trans, Hashtable **thread_counts, 
 		     int do_sample, int seqnum, char *seqname, FILE *log, 
-		     GFF_Set *query_gff, int do_reference, int nthreads,
+		     GFF_Set **thread_gff, int do_reference, int nthreads,
 		     ThreadPool *p, int sample, List *zeroed_states,
 		     int xi_mode);
 void dms_launch_sample_thread(void *data);
@@ -262,7 +262,8 @@ MSA *dm_generate_msa(int ncolumns,
 				     record state (model) responsible
 				     for generating each site; pass
 				     NULL if hmm is NULL */
-		     int keep_ancestral
+		     int keep_ancestral,
+		     int fixed_path
                      );
 void dm_sample_char_col(char **seqs, TreeModel *mod, char *newchar, 
 			int class, int col, int keep_ancestral);
@@ -273,5 +274,8 @@ void dm_sample_char_col(char **seqs, TreeModel *mod, char *newchar,
    original model will be reset and originals freed. */
 void dm_set_motif_branches_hb(TreeModel *tm, Vector *motif_freqs, 
 			      List *nodelist);
+dmevent_t dm_get_event_type(char *ename);
+IndelHistory *dms_reverse_ih(IndelHistory *ih);
+void dms_merge_thread_gffs(GFF_Set *target_gff, GFF_Set *query_gff);
 
 #endif
