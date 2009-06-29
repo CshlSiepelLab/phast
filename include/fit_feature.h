@@ -66,4 +66,7 @@ void ff_find_missing_branches(TreeModel *mod, MSA *msa, GFF_Feature *feat,
 
 int ff_has_data(TreeModel *mod, MSA *msa, GFF_Feature *f);
 
+int ff_has_data_sub(TreeModel *mod, MSA *msa, GFF_Feature *f, List *inside,
+		                    List *outside);
+
 #endif

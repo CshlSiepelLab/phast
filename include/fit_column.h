@@ -133,5 +133,6 @@ double col_estimate_fim(TreeModel *mod);
 Matrix *col_get_fim_sub(FimGrid *g, double scale);
 
 int col_has_data(TreeModel *mod, MSA *msa, int tupleidx);
-
+int col_has_data_sub(TreeModel *mod, MSA *msa, int tupleidx, List *inside,
+		                     List *outside);
 #endif
