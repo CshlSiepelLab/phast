@@ -24,6 +24,7 @@
 #define DEFAULT_MU 0.01
 #define DEFAULT_NU 0.01
 #define DEFAULT_ZETA 0.001
+#define DEFAULT_XI 0.0001
 
 int main(int argc, char *argv[]) {
   int opt_idx, i, old_nnodes, found = FALSE;
@@ -161,9 +162,9 @@ int main(int argc, char *argv[]) {
     if (!found) die("ERROR: no match for reference sequence in tree.\n");
   }
   
-  dm = dm_new(source_mod, motif, 0.3, 0.01, 0.01, 0.01, 0.001, 0.1, 0.1,
-              0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
-	      FALSE, FALSE, FALSE, FALSE);
+  dm = dm_new(source_mod, motif, 0.3, 0.01, 0.01, 0.01, 0.001, 0.0001, FALSE, 
+	      0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
+	      FALSE, FALSE, FALSE, FALSE, FALSE, F81, FALSE);
 
   tree = source_mod->tree;
 

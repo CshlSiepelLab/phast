@@ -10,8 +10,12 @@
 PSSM *mot_new(int width, char *alphabet) {
   int i;
   PSSM *m = (PSSM*)smalloc(sizeof(PSSM));
+  if (alphabet == NULL)
+    die("Alphabet cannot be null in mot_new.\n");
   m->width = width;
-  m->alphabet = (alphabet == NULL ? DEFAULT_ALPHABET : alphabet);
+  m->alphabet = (char*)smalloc(strlen(alphabet) + 1 * sizeof(char));
+  m->alphabet[strlen(alphabet)] = '\0';
+  strncpy(m->alphabet, alphabet, strlen(alphabet));
   m->alphsize = strlen(m->alphabet);
   m->probs = smalloc(m->width * sizeof(void*));
   for (i = 0; i < m->width; i++)
@@ -70,6 +74,7 @@ PSSM *mot_read(FILE *F) {
   str_re_free(alph_re);
   str_free(line);
   str_free(alphabet);
+  lst_free_strings(matches);
   lst_free(matches);
   return(m);
 }
@@ -89,4 +94,6 @@ void mot_free(PSSM *m) {
   for (i = 0; i < m->width; i++)
     vec_free(m->probs[i]);
   free(m->probs);
+  free(m->alphabet);
+  free(m);
 }

@@ -110,6 +110,10 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
   phmm->gpm = NULL;
   phmm->T = phmm->t = NULL;
   phmm->em_data = NULL;
+  phmm->alpha = NULL;
+  phmm->beta = NULL;
+  phmm->tau = NULL;
+  
 
   /* make sure tree models all have trees and all have the same number
      of leaves; keep a pointer to a representative tree for use with
@@ -219,10 +223,6 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
       phmm->tau[j] = TAU_INIT;
     }
     phmm_reset(phmm);
-  } else {
-    phmm->alpha = NULL;
-    phmm->beta = NULL;
-    phmm->tau = NULL;
   }
 
   return phmm;

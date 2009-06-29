@@ -21,28 +21,32 @@
 #define DEFAULT_MU 0.01
 #define DEFAULT_NU 0.01
 #define DEFAULT_ZETA 0.001
-#define DEFAULT_MSA_LEN 100000
+#define DEFAULT_XI 0.0001
+#define DEFAULT_MSA_LEN 1000000
+#define DEFAULT_MMOD_TYPE "HB"
 
 int main(int argc, char *argv[]) {
   char c, *msa_fname;
-  int i, j, k, opt_idx, *path, len;
+  int i, j, k, opt_idx, *path, msa_len, cat, branch;
   MSA *msa, *indel_msa;
-  List *tmpl, *leaf_seqs;
+  List *tmpl, *leaf_seqs, *zeroed_states, *motif_states;
   DMotifPhyloHmm *dm;
   GFF_Set *motifs, *tmp_gff;
   GFF_Feature *f;
   PSSM *motif;
   IndelHistory *ih;
   TreeNode *n;
-  List *zeroed_states;
+  String *cname;
 
   struct option long_opts[] = {
     {"refseq", 1, 0, 'M'},
-    {"msa-format", 1, 0, 'i'},
+    {"msa-format", 1, 0, 'o'},
     {"refidx", 1, 0, 'r'},
     {"rho", 1, 0, 'R'},
     {"phi", 1, 0, 'p'},
     {"zeta", 1, 0, 'z'},
+    {"xi", 1, 0, 'Z'},
+    {"xi-off", 0, 0, 'F'},
     {"transitions", 1, 0, 't'},    
     {"expected-length", 1, 0, 'E'},
     {"target-coverage", 1, 0, 'C'},
@@ -54,6 +58,11 @@ int main(int argc, char *argv[]) {
     {"keep-ancestral", 0, 0, 'k'},
     {"cond-on-subs", 0, 0, 'X'},
     {"cond-on-species", 1, 0, 'x'},
+    {"mot-mod-type", 1, 0, 'S'},
+    {"scale-by-branch", 0, 0, 'B'},
+    {"single-branch", 1, 0, 'b'},
+    {"event", 1, 0, 'e'},
+    {"nseqs", 1, 0, 'n'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -63,16 +72,22 @@ int main(int argc, char *argv[]) {
   msa_format_type msa_format = FASTA;
   TreeModel *source_mod;
   double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU, 
-    phi = DEFAULT_PHI, zeta = DEFAULT_ZETA, gamma = -1, omega = -1, 
+    phi = DEFAULT_PHI, zeta = DEFAULT_ZETA, xi = DEFAULT_XI,
+    gamma = -1, omega = -1, 
     alpha_c = -1, beta_c = -1, tau_c = -1, epsilon_c = -1,
     alpha_n = -1, beta_n = -1, tau_n = -1, epsilon_n = -1,
     lambda = -1;
-  int set_transitions = FALSE, refidx = 1, msa_len = DEFAULT_MSA_LEN,
+  int set_transitions = FALSE, refidx = 1, len = DEFAULT_MSA_LEN,
     max_len = 0, min_len = 0, do_ih = FALSE, keep_ancestral = FALSE, 
-    do_zeroed = FALSE;
-  char *seqname = NULL, *idpref = NULL, *seqname_root = NULL;
+    do_zeroed = FALSE, xi_mode = TRUE, scale_by_branch = FALSE,
+    nseqs = -1, fixed_path = FALSE;
+  char *seqname = NULL, *idpref = NULL, *seqname_root = NULL, *ename = NULL,
+    *bname = NULL;
+  subst_mod_type mmod_type = tm_get_subst_mod_type(DEFAULT_MMOD_TYPE);
+  dmevent_t event;
   
-  while ((c = getopt_long(argc, argv, "R:t:p:z:E:C:r:M:i:N:P:I:L:l:k:h", 
+  while ((c = getopt_long(argc, argv,
+			  "R:t:p:z:Z:F:E:C:r:M:o:N:P:I:L:l:k:S:B:b:e:n:h", 
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
@@ -108,7 +123,7 @@ int main(int argc, char *argv[]) {
     case 'M':
       refseq_f = fopen_fname(optarg, "r");
       break;
-    case 'i':
+    case 'o':
       msa_format = msa_str_to_format(optarg);
       if (msa_format == -1)
         die("ERROR: unrecognized alignment format.\n");
@@ -145,7 +160,7 @@ int main(int argc, char *argv[]) {
       do_ih = TRUE;
       break;
     case 'L':
-      msa_len = get_arg_int_bounds(optarg, 0, INFTY);
+      len = get_arg_int_bounds(optarg, 0, INFTY);
       break;
     case 'l':
       tmpl = get_arg_list_dbl(optarg);
@@ -164,6 +179,29 @@ int main(int argc, char *argv[]) {
     case 'x':
       cond_spec_f = fopen_fname(optarg, "r");
       do_zeroed = TRUE;
+      break;
+    case 'Z':
+      xi = get_arg_dbl_bounds(optarg, 0, INFTY);
+      break;
+    case 'F':
+      xi_mode = FALSE;
+      break;
+    case 'S':
+      mmod_type = tm_get_subst_mod_type(optarg);
+      break;
+    case 'B':
+      scale_by_branch = TRUE;
+      break;
+    case 'b':
+      bname = optarg;
+      break;
+    case 'e':
+      ename = optarg;
+      event = dm_get_event_type(ename);
+      fixed_path = TRUE;
+      break;
+    case 'n':
+      nseqs = atoi(optarg);
       break;
     case 'h':
       printf(HELP);
@@ -201,13 +239,33 @@ int main(int argc, char *argv[]) {
   if (!tm_is_reversible(source_mod->subst_mod))
     fprintf(stderr, "WARNING: p-value computation assumes reversibility and your model is non-reversible.\n");
 
+  if (ename != NULL) {
+    if (event == -1)
+      die("ERROR: --event requires a valid event type as an argument (CONS|NEUT|BIRTH|DEATH). Try dmsimulate -h.\n");
+    if ((event == BIRTH || event == DEATH) && bname == NULL)
+      die("ERROR: A branch must be specified when simulating sequences with the --event option and type BIRTH or DEATH.\n");
+  }
+
+  if (bname != NULL) {
+    if (ename == NULL)
+      die("ERROR: An event must be specified with --event when using --single-branch. Try dmsimulate -h.\n");
+    if (event == CONS || event == NEUT)
+      die("ERROR: --single-branch can only be used with --event BIRTH|DEATH. Try dmsimulate -h.\n");
+  }
+
+  if (nseqs != -1) {
+    if (max_len != 0)
+      die("ERROR: --nseqs cannot be used with --random-legths! Try dmsimulate -h.\n");
+  }
+
   /* Name ancestral nodes */
   tr_name_ancestors(source_mod->tree);
 
   /* Instantiate the dmotif phmm */
-  dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, alpha_c, beta_c, 
-              tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n, FALSE,
-	      FALSE, FALSE, FALSE);
+  dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, xi, xi_mode,
+	      alpha_c, beta_c, tau_c, epsilon_c, alpha_n, beta_n, tau_n, 
+	      epsilon_n, FALSE, FALSE, FALSE, FALSE, FALSE, mmod_type,
+	      scale_by_branch);
 
   /* Read in the zeroed states if used and condition the model on site
      presence */
@@ -237,31 +295,77 @@ int main(int argc, char *argv[]) {
 	lst_push_int(leaf_seqs, n->id);
     }			 
   }
-  
+
+  path = smalloc(len * sizeof(int));
+  if (fixed_path == TRUE) { /* Simualting a single site type and fixed sequence
+			       length */
+    cname = str_new(STR_SHORT_LEN);
+    if (bname != NULL && (event == BIRTH || event == DEATH)) {
+      str_append_charstr(cname, event == BIRTH ? "birth" : "death");
+      str_append_charstr(cname, "-");
+      str_append_charstr(cname, bname);
+    } else {
+      str_append_charstr(cname, event == CONS ? "conserved" : "nonconserved");
+    }
+    str_append_charstr(cname, "-motif");
+    cat = cm_get_category(dm->phmm->cm, cname);
+    branch = dm->state_to_branch[cat];
+
+    motif_states = lst_new_int(dm->m->width);
+    for (i = 0; i < lst_size(dm->branch_to_states[branch]); i++) {
+      cat = lst_get_int(dm->branch_to_states[branch], i);
+      if (dm->state_to_event[cat] == event &&
+	  dm->state_to_motifpos[cat] != -1)
+	lst_push_int(motif_states, cat);
+    }
+
+    j = 0;
+    for (i = 0; i < len; i++) {
+      if (i < ((len - dm->m->width) / 2) ||
+	  i > ((len - dm->m->width) / 2) + (dm->m->width - 1)) {
+	path[i] = 0; /* Neutral background states */
+      } else { /* Motif states */
+	path[i] = lst_get_int(motif_states, j);
+	j++;
+      }
+/*       fprintf(stderr, "%d ", path[i]); */
+    }
+/*     fprintf(stderr, "\n"); */
+
+    str_free(cname);
+    lst_free(motif_states);
+  }
+
   /* Simulate the alignment(s) */
   fprintf(stderr, "Simulating sequences...\n");
   /* Seed the random number generator */
   srandom(time(0));
 
   j = 1;
+  if (nseqs != -1)
+    msa_len = len * nseqs;
+  else
+    msa_len = len;
+  
   msa_fname = smalloc(STR_MED_LEN * sizeof(char));
   seqname = smalloc(STR_MED_LEN * sizeof(char));
   motifs = gff_new_set();
   for (i = 0; i < msa_len; /* incrementing done inside loop */) {
     fprintf(stderr, "\tSimulating sequence %d...\n", j);
-
-    if (lambda != -1) {
+    
+    if (nseqs != -1) {
+      sprintf(seqname, "%s.%d", seqname_root, j);
+    } else if (lambda != -1) {
       len = ((int)gamma_draw(max_len, lambda) + min_len);
       sprintf(seqname, "%s.%d", seqname_root, j);
     } else {
-      len = msa_len;
       sprintf(seqname, "%s", seqname_root);
     }
     i += len;
 
-    path = smalloc(len * sizeof(int));
-    msa = dm_generate_msa(len, dm, dm->phmm->mods, path);
-    
+    msa = dm_generate_msa(len, dm, dm->phmm->mods, path, keep_ancestral,
+			  fixed_path);
+
     /*   for (i = 0; i < msa_len; i++) */
     /*     fprintf(stderr, "%d", path[i]); */
     /*   fprintf(stderr, "\n"); */
@@ -312,7 +416,6 @@ int main(int argc, char *argv[]) {
       ih_free(ih);
     }
     fclose(msa_f);
-    free(path);
     msa_free(msa);
     gff_free_set(tmp_gff);
     j++;
@@ -325,6 +428,7 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Done.\n");
   free(seqname);
   free(msa_fname);
+  free(path);
   
   return 0;
 }

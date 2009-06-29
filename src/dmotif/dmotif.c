@@ -21,6 +21,8 @@
 #define DEFAULT_MU 0.01
 #define DEFAULT_NU 0.01
 #define DEFAULT_ZETA 0.001
+#define DEFAULT_XI 0.0001
+#define DEFAULT_MMOD_TYPE "HB"
 
 int main(int argc, char *argv[]) {
   char c;
@@ -40,6 +42,8 @@ int main(int argc, char *argv[]) {
     {"rho", 1, 0, 'R'},
     {"phi", 1, 0, 'p'},
     {"zeta", 1, 0, 'z'},
+    {"xi", 1, 0, 'Z'},
+    {"xi-off", 0, 0, 'F'},
     {"transitions", 1, 0, 't'},    
     {"expected-length", 1, 0, 'E'},
     {"target-coverage", 1, 0, 'C'},
@@ -48,6 +52,9 @@ int main(int argc, char *argv[]) {
     {"indel-model", 1, 0, 'I'},
     {"indel-history", 1, 0, 'H'},
     {"score-list", 0, 0, 'l'},
+    {"xi-off", 0, 0, 'F'},
+    {"mot-mod-type", 1, 0, 'S'},
+    {"scale-by-branch", 0, 0, 'B'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -57,16 +64,19 @@ int main(int argc, char *argv[]) {
   msa_format_type msa_format = FASTA;
   TreeModel *source_mod;
   double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU, 
-    phi = DEFAULT_PHI, zeta = DEFAULT_ZETA, gamma = -1, omega = -1, 
+    phi = DEFAULT_PHI, zeta = DEFAULT_ZETA, xi = DEFAULT_XI,
+    gamma = -1, omega = -1, 
     alpha_c = -1, beta_c = -1, tau_c = -1, epsilon_c = -1,
     alpha_n = -1, beta_n = -1, tau_n = -1, epsilon_n = -1;
   int set_transitions = FALSE, refidx = 1, estim_phi = TRUE, 
     estim_gamma = TRUE, estim_omega = TRUE, estim_zeta = TRUE,
-    score_list = FALSE;
+    estim_xi = FALSE, score_list = FALSE, xi_mode = TRUE,
+    scale_by_branch = FALSE;
   char *seqname = NULL, *idpref = NULL;
   IndelHistory *ih = NULL;
+  subst_mod_type mmod_type = tm_get_subst_mod_type(DEFAULT_MMOD_TYPE);
   
-  while ((c = getopt_long(argc, argv, "R:t:p:z:E:C:r:M:i:N:P:I:H:l:h", 
+  while ((c = getopt_long(argc, argv, "R:t:p:z:Z:F:E:C:r:M:i:N:P:I:H:l:S:B:h", 
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
@@ -94,6 +104,14 @@ int main(int argc, char *argv[]) {
       if (optarg[0] != '~') estim_zeta = FALSE;
       else optarg = &optarg[1];
       zeta = get_arg_dbl_bounds(optarg, 0, 1);
+      break;
+    case 'Z':
+      if (optarg[0] != '~') estim_xi = FALSE;
+      else optarg = &optarg[1];
+      xi = get_arg_dbl_bounds(optarg, 0, 1);
+      break;
+    case 'F':
+      xi_mode = FALSE;
       break;
     case 'E':
       if (optarg[0] != '~') estim_omega = FALSE;
@@ -149,6 +167,12 @@ int main(int argc, char *argv[]) {
       break;
     case 'l':
       score_list = TRUE;
+      break;
+    case 'S':
+      mmod_type = tm_get_subst_mod_type(optarg);
+      break;
+    case 'B':
+      scale_by_branch = TRUE;
       break;
     case 'h':
       printf(HELP);
@@ -246,9 +270,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, alpha_c, beta_c, 
-              tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n, estim_gamma,
-	      estim_omega, estim_phi, estim_zeta);
+  dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, xi, xi_mode,
+	      alpha_c, beta_c, tau_c, epsilon_c, alpha_n, beta_n, tau_n, 
+	      epsilon_n, estim_gamma, estim_omega, estim_phi, estim_zeta, 
+	      estim_xi, mmod_type, scale_by_branch);
 
   /* compute emissions */
   phmm_compute_emissions(dm->phmm, msa, TRUE);
@@ -271,7 +296,7 @@ int main(int argc, char *argv[]) {
 
   if (estim_gamma || estim_omega || estim_phi) {
     fprintf(stderr, "Estimating free parameters...\n");
-    dm_estimate_transitions(dm, msa);
+    dm_estimate_transitions(dm, msa, xi_mode, scale_by_branch);
   }
 
   /* set seqname and idpref, if necessary */

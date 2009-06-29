@@ -26,11 +26,13 @@
 #define DEFAULT_MU 0.01
 #define DEFAULT_NU 0.01
 #define DEFAULT_ZETA 0.001
+#define DEFAULT_XI 0.0001
 #define DEFAULT_BSAMPLES 200
 #define DEFAULT_NSAMPLES 9000
 #define DEFAULT_SAMPLE_INTERVAL 1
 #define DEFAULT_CACHE_INTERVAL 200
 #define DEFAULT_NTHREADS 0
+#define DEFAULT_MMOD_TYPE "HB"
 
 int main(int argc, char *argv[]) {
   char c, *key;
@@ -76,6 +78,9 @@ int main(int argc, char *argv[]) {
     {"revcomp", 0, 0, 'C'},
     {"cond-on-subs", 0, 0, 'X'},
     {"cond-on-species", 1, 0, 'x'},
+    {"xi-off", 0, 0, 'F'},
+    {"mot-mod-type", 1, 0, 'S'},
+    {"scale-by-branch", 0, 0, 'B'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -83,10 +88,10 @@ int main(int argc, char *argv[]) {
   /* arguments and defaults for options */
   FILE *msa_f = NULL, *source_mod_f, *motif_f = NULL, *prior_f = NULL,
     *log = NULL, *ref_gff_f = NULL, *hash_f = NULL, *tmp_lst_f = NULL,
-    *cond_spec_f = NULL;
+    *cond_spec_f = NULL;;
   TreeModel *source_mod;
   double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU, 
-    phi = DEFAULT_PHI, zeta = DEFAULT_ZETA,
+    phi = DEFAULT_PHI, zeta = DEFAULT_ZETA, xi = DEFAULT_XI,
     alpha_c = -1, beta_c = -1, tau_c = -1, epsilon_c = -1,
     alpha_n = -1, beta_n = -1, tau_n = -1, epsilon_n = -1;
   int refidx = 1, bsamples = DEFAULT_BSAMPLES, nsamples = DEFAULT_NSAMPLES, 
@@ -94,14 +99,15 @@ int main(int argc, char *argv[]) {
     ref_as_prior = FALSE, force_priors = FALSE, precomputed_hash = FALSE,
     quiet = FALSE, cache_int = DEFAULT_CACHE_INTERVAL,
     nthreads = DEFAULT_NTHREADS, hash_debug = FALSE, revcomp = FALSE,
-    do_zeroed = FALSE;
+    do_zeroed = FALSE, xi_mode = TRUE, scale_by_branch = FALSE;
   char *seqname = NULL, *idpref = NULL,
     *cache_fname = (char*)smalloc(STR_MED_LEN * sizeof(char));
+  subst_mod_type mmod_type = tm_get_subst_mod_type(DEFAULT_MMOD_TYPE);
 
   snprintf(cache_fname, STR_MED_LEN, "dmsample_%ld", (long) time(0));
   
   while ((c = getopt_long(argc, argv, 
-			  "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:t:m:T:C:h",
+			  "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:t:m:T:C:M:S:B:h",
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
@@ -200,6 +206,15 @@ int main(int argc, char *argv[]) {
       cond_spec_f = fopen_fname(optarg, "r");
       do_zeroed = TRUE;
       break;
+    case 'F':
+      xi_mode = FALSE;
+      break;
+    case 'S':
+      mmod_type = tm_get_subst_mod_type(optarg);
+      break;
+    case 'B':
+      scale_by_branch = TRUE;
+      break;
     case 'h':
       printf(HELP);
       exit(0);
@@ -274,12 +289,14 @@ int main(int argc, char *argv[]) {
   if (!precomputed_hash) {
     fprintf(stderr, "Reading transition parameter priors from %s...\n", 
 	    argv[optind + 3]);
-    priors = (int**)smalloc(4 * sizeof(int*));
-    for (i = 0; i < 4; i++) {
+    priors = (int**)smalloc((xi_mode == FALSE ? 4 : 5) * sizeof(int*));
+    for (i = 0; i < 5; i++) {
+      if (xi_mode == FALSE && i == 4)
+	continue;
       priors[i] = (int*)smalloc(2 * sizeof(int));
       priors[i][0] = priors[i][1] = 0;
     }
-    dms_read_priors(priors, prior_f);
+    dms_read_priors(priors, prior_f, xi_mode);
   }
   /* Do some cleanup of files we no longer need */
   if (ref_gff_f != NULL)
@@ -303,6 +320,7 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, i))->chars,
               i < lst_size(pruned_names) - 1 ? ", " : ").\n");
   }
+  lst_free_strings(pruned_names);
   lst_free(pruned_names);
 
   /* this has to be done after pruning tree */
@@ -318,10 +336,11 @@ int main(int argc, char *argv[]) {
     if (!found) die("ERROR: no match for reference sequence in tree.\n");
   }
   
-  dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, alpha_c, beta_c,
-              tau_c, epsilon_c, alpha_n, beta_n, tau_n, epsilon_n,
-	      FALSE, FALSE, FALSE, FALSE);
-  
+  dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, xi, xi_mode, 
+	      alpha_c, beta_c, tau_c, epsilon_c, alpha_n, beta_n, tau_n, 
+	      epsilon_n, FALSE, FALSE, FALSE, FALSE, xi_mode, mmod_type,
+	      scale_by_branch);
+
 /*   for (i = 0; i < lst_size(blocks->source_msas); i++) */
 /*     dms_write_zeroed_states(stdout, zeroed_states[i]); */
 /*   return 0; */
@@ -400,7 +419,8 @@ int main(int argc, char *argv[]) {
 					sample_interval, priors, log, 
 					reference, ref_as_prior, force_priors,
 					quiet, cache_fname, cache_int, pool,
-					nthreads, zeroed_states);
+					nthreads, zeroed_states, xi_mode,
+					scale_by_branch);
     
 
     /* Free emissions matrix */
@@ -432,8 +452,11 @@ int main(int argc, char *argv[]) {
   
   /* Can free priors */
   if (!precomputed_hash) {
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 5; i++) {
+      if (xi_mode == FALSE && i == 4)
+	continue;
       free(priors[i]);
+    }
     free(priors);
   }
 
@@ -492,6 +515,7 @@ int main(int argc, char *argv[]) {
   }
   free(cache_fname);
   thr_pool_free(pool);
+  hsh_free_with_vals(path_counts);
   fprintf(stderr, "Done.\n");
   
   return 0;

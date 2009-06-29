@@ -13,34 +13,47 @@
 
 /* create a new birth-death phylo-HMM based on parameter values */
 DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
-                       double nu, double phi, double zeta, double alpha_c,
-                       double beta_c, double tau_c, double epsilon_c,
-		       double alpha_n, double beta_n, double tau_n,
-		       double epsilon_n, int estim_gamma, int estim_omega,
-		       int estim_phi, int estim_zeta) {
-  int i, state, pos, e, b;
-  int nleaves = (source_mod->tree->nnodes + 1) / 2;
-  int k = 2*nleaves - 3;                  /* no. branches (unrooted tree) */
-  int nstates = (2 + 2*k) * (m->width+1); /* number of states */
+                       double nu, double phi, double zeta, double xi,
+		       int xi_mode, double alpha_c, double beta_c, 
+		       double tau_c, double epsilon_c, double alpha_n, 
+		       double beta_n, double tau_n, double epsilon_n,
+		       int estim_gamma, int estim_omega, int estim_phi, 
+		       int estim_zeta, int estim_xi, subst_mod_type mmod_type,
+		       int scale_by_branch) {
+
+  int i, state, pos, e, b, nleaves, k, nstates;
   HMM *hmm;
-  TreeModel **models = (TreeModel**)smalloc(nstates * sizeof(TreeModel*));
+  TreeModel **models;
   TreeNode *n;
   CategoryMap *cm;
-  List *inside = lst_new_ptr(source_mod->tree->nnodes),
-    *outside = lst_new_ptr(source_mod->tree->nnodes);
+  List *inside, *outside;
+  double *alpha, *beta, *tau, *epsilon;
   DMotifPhyloHmm *dm;
-  double *alpha = (double*)smalloc(source_mod->tree->nnodes 
-				   * sizeof(double)),
-    *beta = (double*)smalloc(source_mod->tree->nnodes 
-			     * sizeof(double)),
-    *tau = (double*)smalloc(source_mod->tree->nnodes 
-			    * sizeof(double)),
-    *epsilon = (double*)smalloc(source_mod->tree->nnodes 
-				* sizeof(double));
+
+  /* Some sanity checks */
   assert(rho > 0 && rho < 1);
   assert(mu > 0 && 2*mu < 1);
   assert(nu > 0 && nu < 1);
+  assert(zeta > 0 && zeta < 1);
+  assert(xi > 0 && xi < 1);
 
+  /* Compute the number of leaves, branches and states */
+  nleaves = (source_mod->tree->nnodes + 1) / 2;
+  k = 2*nleaves - 3;                  /* no. branches (unrooted tree) */
+  nstates = (2 + 2*k) * (m->width+1); /* number of states */
+
+  /* Allocate memory for temporary items */
+  inside = lst_new_ptr(source_mod->tree->nnodes);
+  outside = lst_new_ptr(source_mod->tree->nnodes);
+  alpha = (double*)smalloc(source_mod->tree->nnodes * sizeof(double));
+  beta = (double*)smalloc(source_mod->tree->nnodes * sizeof(double));
+  tau = (double*)smalloc(source_mod->tree->nnodes * sizeof(double));
+  epsilon = (double*)smalloc(source_mod->tree->nnodes * sizeof(double));
+
+  /* Allocate memory that will be retained in the DMotifPhyloHmm object */
+  models = (TreeModel**)smalloc(nstates * sizeof(TreeModel*));
+
+  /* Set up the DMotifPhyloHmm object */
   dm = (DMotifPhyloHmm*)smalloc(sizeof(DMotifPhyloHmm));
   dm->state_to_branch = (int*)smalloc(nstates 
 				      * sizeof(int));
@@ -57,10 +70,12 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
   dm->nu = nu;
   dm->phi = phi;
   dm->zeta = zeta;
+  dm->xi = xi;
   dm->estim_gamma = estim_gamma;
   dm->estim_omega = estim_omega;
   dm->estim_phi = estim_phi;
   dm->estim_zeta = estim_zeta;
+  dm->estim_xi = estim_xi;
   dm->m = m;
   dm->k = k;
   dm->indel_mods = NULL;
@@ -68,12 +83,11 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
   /* set up mappings between states and branches.  Branches are
      indexed by ids of child nodes; "birth" means functional element
      arose on branch, "death" means element was lost on branch. */
-  
   for (i = 0; i < source_mod->tree->nnodes; i++)
     dm->branch_to_states[i] = lst_new_int(2 * m->width + 2);
   
   state = 0;
-  for (i = 0; i < source_mod->tree->nnodes; i++){
+  for (i = 0; i < source_mod->tree->nnodes; i++) {
     n = lst_get_ptr(source_mod->tree->nodes, i);
 
     for (pos = -1; pos < m->width; pos++) {
@@ -84,7 +98,6 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
       dm->state_to_event[state] = (i == 0 ? NEUT : DEATH);
       state++;
     }
-
 /*     fprintf(stderr, "mapping second half of model\n"); */
 
     for (pos = -1; pos < m->width; pos++) {
@@ -99,12 +112,9 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
       dm->state_to_motifpos[state] = pos;
       dm->state_to_event[state] = (i == 0 ? CONS : BIRTH);
       state++;
-    }
-    
+    }    
 /*     fprintf(stderr, "done with second half of model\n"); */
   }
-
-
   assert(state == nstates);
 			     
   /* Set up state to motif mapping. Maps states to first motif positions.
@@ -117,7 +127,6 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
     else
       dm->state_to_motif[state] = -1;
   }
-
  
   /* note: this is structured so that state 0 is the nonconserved
      model (like element "died" prior to root) and state nnodes is the
@@ -128,15 +137,24 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
     pos = dm->state_to_motifpos[state];
     
     if (pos == -1 && dm->state_to_event[state] == NEUT)
+      /* Neutral background state */
       models[state] = source_mod;
-    else if (pos == -1)
+    else if (pos == -1) /* Background state */
       models[state] = tm_create_copy(source_mod);
-    else { /* F81 model with motif freqs as equilibrium freqs */
-      models[state] = tm_new(tr_create_copy(source_mod->tree), NULL,
-                             vec_create_copy(m->probs[pos]), F81, 
-			     DEFAULT_ALPHABET, 1, -1, NULL, -1);
-      //      fprintf(stderr, "state %d pos %d ", state, pos);
-      //      vec_print(m->probs[pos], stderr);
+    else { /* Motif state */
+
+      if (mmod_type == F81 || dm->state_to_event[state] == NEUT) {
+	/* F81 model with motif freqs as equilibrium freqs */
+	models[state] = tm_new(tr_create_copy(source_mod->tree), NULL,
+			       vec_create_copy(m->probs[pos]), F81, 
+			       DEFAULT_ALPHABET, 1, -1, NULL, -1);
+	//      fprintf(stderr, "state %d pos %d ", state, pos);
+	//      vec_print(m->probs[pos], stderr);
+	
+      } else {
+	/* Halpern-Bruno model -- use REV bg model as the source */
+	models[state] = tm_create_copy(source_mod);
+      }
     }
     
     if (dm->state_to_event[state] == NEUT)
@@ -145,22 +163,42 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
     n = lst_get_ptr(models[state]->tree->nodes, dm->state_to_branch[state]);
     tr_partition_nodes(models[state]->tree, n, inside, outside);
 
-    /* adjust branch lengths if BIRTH, DEATH, or CONS */
-    if (dm->state_to_event[state] == DEATH)
-      for (i = 0; i < lst_size(outside); i++)
-        ((TreeNode*)lst_get_ptr(outside, i))->dparent *= rho;
-    else if (dm->state_to_event[state] == BIRTH ||
-             dm->state_to_event[state] == CONS)
-      for (i = 0; i < lst_size(inside); i++)
-        ((TreeNode*)lst_get_ptr(inside, i))->dparent *= rho;
+    /* adjust branch lengths if BIRTH, DEATH, or CONS and either background
+       state or using F81 as the motif model type */
+    if (pos == -1 || mmod_type == F81) {
+      if (dm->state_to_event[state] == DEATH)      
+	for (i = 0; i < lst_size(outside); i++)
+	  ((TreeNode*)lst_get_ptr(outside, i))->dparent *= rho;
+      else if (dm->state_to_event[state] == BIRTH ||
+	       dm->state_to_event[state] == CONS)
+	for (i = 0; i < lst_size(inside); i++)
+	  ((TreeNode*)lst_get_ptr(inside, i))->dparent *= rho;
+    }
 
-    /* if BIRTH or DEATH, use alternative subst model (the background
-       model) for non-motif branches */
-     if (dm->state_to_event[state] == DEATH)
-       dm_set_backgd_branches(models[state], source_mod, inside);
-     else if (dm->state_to_event[state] == BIRTH)
-       dm_set_backgd_branches(models[state], source_mod, outside);
-    
+    /* if BIRTH or DEATH, and mmod_type is F81, use alternative subst model 
+       (the background model) for non-motif branches */
+    if (pos != -1) {
+      if (mmod_type == F81) {
+	if (dm->state_to_event[state] == DEATH)
+	  dm_set_backgd_branches(models[state], source_mod, inside);
+	else if (dm->state_to_event[state] == BIRTH)
+	  dm_set_backgd_branches(models[state], source_mod, outside);
+	
+      } else { /* Using Halpern-Bruno -- use alternative subst model for motif
+		  branches. Conserved model is handled specially within
+		  dm_set_motif_branches_hb and does not use the alt_subst_mods
+		  attribute. */
+/*       if (pos == -1) /\* BG states handled above *\/ */
+/* 	continue; */
+/* 	fprintf(stderr, "state %d, pos %d\n", state, pos); */
+	if (dm->state_to_event[state] == BIRTH ||
+	    dm->state_to_event[state] == CONS)
+	  dm_set_motif_branches_hb(models[state], m->probs[pos], inside);
+	else if (dm->state_to_event[state] == DEATH)
+	  dm_set_motif_branches_hb(models[state], m->probs[pos], outside);  
+      }
+    }
+
     /* if birth event, reroot tree.  This ensures that the correct
        stationary distribution is used at the root of the subtree in
        question */
@@ -176,21 +214,19 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
     models[state]->inform_reqd = TRUE;
 
   /* set up HMM transitions */
-  hmm = hmm_new_nstates(nstates, TRUE, FALSE);
+  hmm = hmm_new_nstates(nstates, TRUE, TRUE);
 
   /* build category map */
   cm = dm_create_catmap(dm, source_mod, NULL);
 
   dm->phmm = phmm_new(hmm, models, cm, NULL, MISSING_DATA);
-  cm_free(cm); /* A copy of this is made within phmm_new, so it's safe to
-		  free this one. */
-
-  dm_set_transitions(dm);
+  cm_free(cm); /* This is copied within phmm_new, so it's safe to free. */
+  dm_set_transitions(dm, xi_mode, scale_by_branch);
 
   /* set up indel model, if necessary */
- if (alpha_c > 0) {
-   dm->indel_mods = (DMotifIndelModel**)smalloc(nstates * 
-						sizeof(DMotifIndelModel*));
+  if (alpha_c > 0) {
+    dm->indel_mods = (DMotifIndelModel**)smalloc(nstates * 
+						 sizeof(DMotifIndelModel*));
     for (state = 0; state < nstates; state++) {
       List *l;
       /* Need event, motif position and branch to apply appropriate model
@@ -198,16 +234,16 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
       e = dm->state_to_event[state];
       pos = dm->state_to_motifpos[state];
       b = dm->state_to_branch[state];
-
+      
       n = lst_get_ptr(models[state]->tree->nodes, b);
       tr_partition_nodes(models[state]->tree, n, inside, outside);
-
+      
       /* initialize alpha, beta, tau with nonconserved params */
       for (i = 0; i < models[state]->tree->nnodes; i++) {
         alpha[i] = alpha_n; beta[i] = beta_n; tau[i] = tau_n;
 	epsilon[i] = epsilon_n;
       }
-
+      
       /* now change to conserved params for conserved branches */
       if (e == DEATH)
         l = outside;            /* death */
@@ -225,68 +261,152 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
 	  epsilon[n->id] = epsilon_c;
 	}
       }
-
+      
       dm->indel_mods[state] = dmih_new(alpha, beta, tau, epsilon,
 				       models[state]->tree, e, l,
 				       (pos == -1 ? 0 : 1));
     }
   }
-  else
-    dm->indel_mods = NULL;
-
+  
+  /* Free all temporary memory items */
   lst_free(inside);
   lst_free(outside);
   free(alpha);
   free(beta);
   free(tau);
   free(epsilon);
+  
   return dm;
 }
 
-void dm_set_transitions(DMotifPhyloHmm *dm) {
-  int s1, s2, p1, p2, b1, b2, e1, e2;
-  double trans, rowsum;
+void dm_set_transitions(DMotifPhyloHmm *dm, int xi_mode, int scale_by_branch) {
+  int i, s1, s2, p1, p2, b1, b2, e1, e2;
+  double trans, rowsum, treelen, *scale;
+/*   double bsum; */
   HMM *hmm = dm->phmm->hmm;
-  //  TreeNode *nn;
+  TreeNode *nn;
 
-  /* set transition probs based on mu, nu, and phi */
+  if (scale_by_branch == TRUE) {
+    /* Adjusting lineage-specific transistion probs by branch length instead 
+       of uniformly distributing across all branches -- need total tree length
+       to do this. */
+    scale = smalloc(dm->phmm->mods[0]->tree->nnodes * sizeof(double));
+    treelen = 0;
+    for (i = 0; i < dm->phmm->mods[0]->tree->nnodes; i++) {
+      nn = lst_get_ptr(dm->phmm->mods[0]->tree->nodes, i);
+      scale[nn->id] = 0;
+/*       if (nn->parent == dm->phmm->mods[0]->tree) */
+/* 	continue; */
+      treelen += nn->dparent;
+    }
+    
+/*     bsum = 0; */
+    for (i = 0; i < dm->phmm->mods[0]->tree->nnodes; i++) {
+      nn = lst_get_ptr(dm->phmm->mods[0]->tree->nodes, i);
+      /* Nodes immediately below the root need special handling, since we
+	 cannot distinguish gain on one branch from loss on the other. We have
+	 already accounted for this in setting up the HMM, by assigning gains
+	 to one branch and losses to the opposite branch. Since the underlying
+	 tree structure is unrooted, we need to count both branches under the
+	 root toward the branch length for these gain/loss events. */
+      if (nn->parent == dm->phmm->mods[0]->tree)
+	scale[nn->id] = ((nn->parent->lchild->dparent +
+			  nn->parent->rchild->dparent) / treelen) / 2;
+      else
+	scale[nn->id] = (nn->dparent / treelen) / 2;
+/*       bsum += scale[nn->id]; */
+    }
+/*     fprintf(stderr, "treelen %f, bsum %f\n", treelen, bsum); */
+  }
+  
+  /* set transition probs for each state */
   for (s1 = 0; s1 < hmm->nstates; s1++) {
     p1 = dm->state_to_motifpos[s1];
     b1 = dm->state_to_branch[s1];
     e1 = dm->state_to_event[s1];
     rowsum = 0;
+/*     bsum = 0; */
 
     for (s2 = 0; s2 < hmm->nstates; s2++) {
       p2 = dm->state_to_motifpos[s2];
       b2 = dm->state_to_branch[s2];
       e2 = dm->state_to_event[s2];
       trans = 0;
-
-      /* Explicitly set params for each type of allowed transition */
-      if ( e1 == NEUT ) { /* Transitions from NEUT states */
-	if ( e2 == NEUT ) {
-	  if (p1 == -1 && p2 == -1) /* Nb self-transition */
-	    trans = ((1 - dm->zeta) * (1 - dm->nu));
-	  else if (p1 == -1 && p2 == 0) /* Nb to Neutral-motif */
-	    trans = (dm->zeta * (1 - dm->nu));
-	  else if (p2 == (p1 + 1) || (p1 == dm->m->width-1 && p2 == -1))
-	    /* transitions between motif states and from NMw to Nb*/
-	    trans = 1;
-	  else continue;
-	} else if ( e2 == CONS ) {
-	  if (p1 == -1 && p2 == -1) /* Nb to Cb */
-	    trans = (dm->nu * (1 - dm->zeta) * (1 - dm->phi));
-	  else if (p1 == -1 && p2 == 0) /* first cons-mtf position, from Nb */
-	    trans = (dm->nu * dm->zeta * (1 - dm->phi));
-	  else continue;
-	} else { /* e2 == BIRTH or DEATH */
-	  if (p1 == -1 && p2 == -1 ) /* lineage-specific background */
-	    trans = (dm->nu * dm->phi * (1 - dm->zeta)) / (2 * dm->k);
-	  else if (p1 == -1 && p2 == 0 ) /* lineage-specific M1 */
-	    trans = (dm->nu * dm->phi * dm->zeta) / (2 * dm->k);
-	  else continue;
+      
+      nn = lst_get_ptr(dm->phmm->mods[s2]->tree->nodes,
+		       dm->state_to_branch[s2]);
+      
+      /* Set params for each type of legal transition */
+      
+      /* Transitions from neutral background state */
+      if (e1 == NEUT && p1 == -1) {
+	/* Into another neutral state (bg or motif) */
+	if (e2 == NEUT) {
+	  if (p2 == -1) { /* Self-transition */
+	    if (xi_mode == FALSE)
+	      trans = ((1 - dm->nu) * (1 - dm->zeta));
+	    else
+	      trans = ((1 - dm->nu) * (1 - dm->xi));
+	  } else if (p2 == 0) { /* Motif position 1 */
+	    if (xi_mode == FALSE)
+	      trans = ((1 - dm->nu) * dm->zeta);
+	    else
+	      trans = ((1 - dm->nu) * dm->xi);
+	  } else { /* Internal motif position */
+	    continue;
+	  }
 	}
-      } else { /* Transitions from CONS, BIRTH and DEATH states */
+	
+	/* Into a conserved state (bg or motif) */
+	else if (e2 == CONS) {
+	  if (p2 == -1) /* bg state */
+	    trans = (dm->nu * (1 - dm->zeta) * (1 - dm->phi));
+	  else if (p2 == 0) /* Motif position 1 */
+	    trans = (dm->nu * dm->zeta * (1 - dm->phi));
+	  else { /* Internal motif position */
+	    continue;
+	  }
+	}
+
+	/* Into a lineage-specific state (bg or motif) */
+	else if (e2 == BIRTH || e2 == DEATH) {
+	  if (p2 == -1) { /* bg state */
+	    if (scale_by_branch == TRUE) {
+	      trans = (dm->nu *  (1 - dm->zeta) * dm->phi) * scale[nn->id];
+	    } else {
+	      trans = (dm->nu *  (1 - dm->zeta) * dm->phi) / (2 * dm->k);
+	    }
+	  } else if (p2 == 0) { /* Motif position 1 */
+            if (scale_by_branch == TRUE) {
+	      trans = (dm->nu * dm->phi * dm->zeta) * scale[nn->id];
+/* 	      bsum += scale[nn->id]; */
+	    } else {
+	      trans = (dm->nu * dm->phi * dm->zeta) / (2 * dm->k);
+	    }
+	  } else { /* Internal motif position */
+	    continue;
+	  }
+	}
+/* 	fprintf(stderr, "s1 %d, s2, %d, p1 %d, p2 %d, node %s, blen %f, treelen %f, scale %f, trans %.9f, rowsum %.9f, bsum %.9f\n", */
+/* 		s1, s2, p1, p2, nn->name, n0->dparent, treelen, scale[nn->id], */
+/* 		trans, (rowsum + trans), bsum); */	
+      }
+
+      /* Transitions between neutral motif states and other neutral motif 
+	 states or neutral background state */
+      else if (e1 == NEUT && p1 >= 0) {
+	if (e2 != NEUT)
+	  continue;
+	if ((p1 < dm->m->width-1 && p2 == p1+1) ||
+	    (p1 == dm->m->width-1 && p2 == -1))
+	  trans = 1;
+	else
+	  continue;
+      }
+      
+      /* Transitions from CONS, BIRTH and DEATH states */
+      else if (e1 == CONS || e1 == BIRTH || e1 == DEATH) {
+	
         if (e2 == e1 && b2 == b1) { /* same selection and branch */
 	  if (p1 == -1 && p2 == -1) /* background self-transitions */
 	    trans = ((1 - dm->zeta) * (1 - dm->mu));
@@ -299,74 +419,166 @@ void dm_set_transitions(DMotifPhyloHmm *dm) {
 	    trans = 1;
 	  else continue;
 	} else if (e2 == NEUT && (p1 == -1 || p1 == dm->m->width-1)
-		   && p2 == -1) /* Last motif position or BG under selection
-				   to Nb */
+		   && p2 == -1) /* Last motif position or non-neutral
+				   background to Nb */
 	  trans = dm->mu;
 	else continue;
-      }
+      } else continue;
+      
+      rowsum += trans;
+/*       fprintf(stderr, "s1 %d, s2, %d, p1 %d, p2 %d, node %s, blen %f, treelen %f, scale %f, trans %.9f, rowsum %.9f, bsum %.9f\n", */
+/* 	      s1, s2, p1, p2, nn->name, n0->dparent, treelen, scale[nn->id], */
+/* 	      trans, rowsum, bsum); */
       mm_set(hmm->transition_matrix, s1, s2, trans);
       //      printf("s1 %d, s2 %d, p1 %d, p2 %d, trans %f\n", s1, s2, p1, p2, trans);
     }
-
+    
     /* check that sum of outgoing arcs is 1 */
+    rowsum = 0;
     for (s2 = 0; s2 < hmm->nstates; s2++)
       rowsum += mm_get(hmm->transition_matrix, s1, s2);
-/*      printf("%d %f (%d, ", s1, rowsum, p1); */
-/*      if (e1 == NEUT)  */
-/*        printf("NEUT, ");  */
-/*      else if (e1 == CONS)  */
-/*        printf("CONS, ");  */
-/*      else if (e1 == BIRTH)  */
-/*        printf("BIRTH, ");  */
-/*      else  */
-/*        printf("DEATH, ");  */
-  
-/*      nn = lst_get_ptr(dm->phmm->mods[s1]->tree->nodes, dm->state_to_branch[s1]); */
-/*      printf("%s)\n", nn->name); */
-
-        assert(fabs(rowsum-1) < 1e-6);
+/*     fprintf(stderr, "%d %f (%d, ", s1, rowsum, p1); */
+/*     if (e1 == NEUT) */
+/*       fprintf(stderr, "NEUT, "); */
+/*     else if (e1 == CONS) */
+/*       fprintf(stderr, "CONS, "); */
+/*     else if (e1 == BIRTH) */
+/*       fprintf(stderr, "BIRTH, "); */
+/*     else */
+/*       fprintf(stderr, "DEATH, "); */
+    
+/*     nn = lst_get_ptr(dm->phmm->mods[s1]->tree->nodes, dm->state_to_branch[s1]); */
+/*     printf("%s)\n", nn->name); */
+    
+    assert(fabs(rowsum-1) < 1e-6);
   }
 
   /* Begin transitions */
   rowsum = 0;
   for (s1 = 0; s1 < hmm->nstates; s1++) {
     /* motif stationary probs */
-    if (dm->state_to_motifpos[s1] == -1) /* background state */
-      trans = 1 / (1 + dm->zeta);
-    /*       trans = 1; */
-    else if (dm->state_to_motifpos[s1] == 0) /* first motif position */
-      trans = dm->zeta / (1 + dm->zeta);
-    else /* internal motif position -- don't allow starts here! */
-      trans = 0;
-    
-    /* multiply by dless stationary probs*/
-    if (dm->state_to_event[s1] == NEUT)
-      trans *= dm->mu/(dm->mu + dm->nu);
-    
-    else if (dm->state_to_event[s1] == CONS)
-      trans *= dm->nu * (1-dm->phi) / (dm->mu + dm->nu);
 
-    else
-      trans *= dm->nu * dm->phi / ((dm->mu + dm->nu) * 2 * dm->k);
+    if (xi_mode == FALSE) {
+
+      if (dm->state_to_motifpos[s1] == -1) /* background state */
+	trans = 1 / (1 + dm->zeta);
+      else if (dm->state_to_motifpos[s1] == 0) /* first motif position */
+	trans = dm->zeta / (1 + dm->zeta);      
+      else /* internal motif position -- don't allow starts here! */
+	trans = 0;
+
+    } else { /* using xi for transitions into neutral motifs */
+
+      if (dm->state_to_motifpos[s1] == -1) {/* background state */
+	if (dm->state_to_event == NEUT)
+	  trans = 1 / (1 + dm->xi);
+	else
+	  trans = 1 / (1 + dm->zeta);
+      } else if (dm->state_to_motifpos[s1] == 0) { /* first motif position */
+	if (dm->state_to_event == NEUT)
+	  trans = dm->xi / (1 + dm->xi);
+	else
+	  trans = dm->zeta / (1 + dm->zeta);	
+      } else { /* internal motif position -- don't allow starts here! */
+	trans = 0;
+      }
+    }
+
+    /* multiply by dless stationary probs*/
+    nn = lst_get_ptr(dm->phmm->mods[s1]->tree->nodes,
+		     dm->state_to_branch[s1]);
+    
+    if (dm->state_to_event[s1] == NEUT) {
+      trans *= dm->mu/(dm->mu + dm->nu);
+      
+    } else if (dm->state_to_event[s1] == CONS) {
+      trans *= dm->nu * (1-dm->phi) / (dm->mu + dm->nu);
+      
+    } else {
+      if (scale_by_branch == FALSE) {
+	trans *= dm->nu * dm->phi / ((dm->mu + dm->nu) * 2 * dm->k);
+      } else {
+	trans *= dm->nu * dm->phi / ((dm->mu + dm->nu) / scale[nn->id]);
+      }
+    }
 
     vec_set(hmm->begin_transitions, s1, trans);
     rowsum += trans;
 /*     fprintf(stderr, "s1 %d, trans %f, rowsum %f\n", s1, trans, rowsum); */
   }
-  assert(fabs(rowsum-1) < 1e-6);  
+  assert(fabs(rowsum-1) < 1e-6);
+
+  /* End transitions -- we need these to prevent predictions of partial motifs
+     at the end of a ChIP fragment */
+  rowsum = 0;
+  for (s1 = 0; s1 < hmm->nstates; s1++) {
+
+    if (xi_mode == FALSE) {
+
+      if (dm->state_to_motifpos[s1] == -1) /* background state */
+	trans = 1 / (1 + dm->zeta);
+      else if (dm->state_to_motifpos[s1] == dm->m->width-1) /* motif end pos */
+	trans = dm->zeta / (1 + dm->zeta);
+      else /* first or internal motif position -- don't allow ends from here */
+	trans = 0;
+
+    } else { /* using xi for transitions into neutral motifs */
+
+      if (dm->state_to_motifpos[s1] == -1) {/* background state */
+	if (dm->state_to_event == NEUT)
+	  trans = 1 / (1 + dm->xi);
+	else
+	  trans = 1 / (1 + dm->zeta);
+      
+      } else if (dm->state_to_motifpos[s1] == dm->m->width-1) { /* motif end */
+	if (dm->state_to_event == NEUT)
+	  trans = dm->xi / (1 + dm->xi);
+	else
+	  trans = dm->zeta / (1 + dm->zeta);
+	
+      } else { /* internal motif position -- don't allow starts here! */
+	trans = 0;
+      }
+    }
+    
+    /* multiply by dless stationary probs*/
+    nn = lst_get_ptr(dm->phmm->mods[s1]->tree->nodes,
+		     dm->state_to_branch[s1]);
+
+    if (dm->state_to_event[s1] == NEUT) {
+      trans *= dm->mu/(dm->mu + dm->nu);
+    } else if (dm->state_to_event[s1] == CONS) {
+      trans *= dm->nu * (1-dm->phi) / (dm->mu + dm->nu);
+    } else {
+      if (scale_by_branch == FALSE)
+	trans *= dm->nu * dm->phi / ((dm->mu + dm->nu) * 2 * dm->k);
+      else
+	trans *= dm->nu * dm->phi / ((dm->mu + dm->nu) / scale[nn->id]);
+    }
+
+    vec_set(hmm->end_transitions, s1, trans);
+    rowsum += trans;
+/*     fprintf(stderr, "s1 %d, trans %f, rowsum %f\n", s1, trans, rowsum); */
+  }
+  assert(fabs(rowsum-1) < 1e-6);
+
+  if (scale_by_branch == TRUE)
+    free(scale);
   
   hmm_reset(hmm);
+
+/*   mm_pretty_print(stderr, hmm->transition_matrix); */
 }
 
 /* adjust emission probabilities to prevent birth/death events from
    spanning regions where they would be supported only by missing data */
 void dm_handle_missing_data(DMotifPhyloHmm *dm, MSA *msa) {
   List **uninform = (List**)smalloc(msa->ss->ntuples * sizeof(List*));
-  TreeNode *n, *tree = dm->phmm->mods[0]->tree;
+  TreeNode *n, *tree = dm->phmm->mods[0]->tree, *ns;
   typedef enum {MISSING, DATA, DATA_LEFT, DATA_RIGHT} node_type;
   node_type *mark = (node_type*)smalloc(tree->nnodes * sizeof(node_type));
   List *traversal;
-  int i, j, l, mod;
+  int i, j, l, state, mod;
 
   /* enumerate the states for which each tuple is "uninformative" */
   for (i = 0; i < msa->ss->ntuples; i++) {
@@ -421,15 +633,30 @@ void dm_handle_missing_data(DMotifPhyloHmm *dm, MSA *msa) {
       n = lst_get_ptr(traversal, j);
       if (n == tree) continue;
       
-      /* resolve ambiguity, if necessary */
-      if (mark[n->id] == DATA_LEFT || mark[n->id] == DATA_RIGHT)
+      /* resolve ambiguity, if necessary. */
+      if (mark[n->id] == DATA_LEFT || mark[n->id] == DATA_RIGHT) {
         mark[n->id] = mark[n->parent->id];
-
+	/* If the parent ID is missing, then there is no information regarding
+	   losses on the branch leading to the subtree with data. Zero loss
+	   states on this branch. */
+	if (mark[n->parent->id] == MISSING) {
+	  if (mark[n->lchild->id] != MISSING)
+	    ns = n->lchild;
+	  else
+	    ns = n->rchild;
+	  for (l = 0; l < lst_size(dm->branch_to_states[ns->id]); l++) {
+	    state = lst_get_int(dm->branch_to_states[ns->id], l);
+/* 	    if (dm->state_to_event[state] == DEATH) */
+	    lst_push_int(uninform[i], state);
+	  }
+	}
+      }
       /* now check if missing data in subtree; if so, the tuple is
          uninformative wrt this branch */
       if (mark[n->id] == MISSING) {
         for (l = 0; l < lst_size(dm->branch_to_states[n->id]); l++)
-          lst_push_int(uninform[i], lst_get_int(dm->branch_to_states[n->id], l));
+          lst_push_int(uninform[i],
+		       lst_get_int(dm->branch_to_states[n->id], l));
       }
     } /* End preorder traversal */
   } /* End loop over tuples */
@@ -548,7 +775,8 @@ void dm_add_indel_emissions(DMotifPhyloHmm *dm, double **emissions,
 }
 
 /* these two functions for use by dm_estimate_transitions */
-void unpack_params(Vector *params, DMotifPhyloHmm *dm) {
+void unpack_params(Vector *params, DMotifPhyloHmm *dm, int xi_mode,
+		   int scale_by_branch) {
   int params_idx = 0;
   if (dm->estim_omega)
     dm->mu = 1/vec_get(params, params_idx++);
@@ -560,21 +788,29 @@ void unpack_params(Vector *params, DMotifPhyloHmm *dm) {
     dm->phi = vec_get(params, params_idx++);
   if (dm->estim_zeta)
     dm->zeta = vec_get(params, params_idx++);
-  dm_set_transitions(dm);
+  if (dm->estim_xi)
+    dm->xi = vec_get(params, params_idx++);
+  dm_set_transitions(dm, xi_mode, scale_by_branch);
 }
 
-double lnl_wrapper(Vector *params, void *data) {
+double lnl_wrapper(Vector *params, void *data, int xi_mode, 
+		   int scale_by_branch) {
   DMotifPhyloHmm *dm = data;
-  unpack_params(params, data);
+  unpack_params(params, data, xi_mode, scale_by_branch);
   return -hmm_forward(dm->phmm->hmm, dm->phmm->emissions,
                       dm->phmm->alloc_len, dm->phmm->forward);
 }
 
 /* estimate free parameters */
-double dm_estimate_transitions(DMotifPhyloHmm *dm, MSA *msa) {
+double dm_estimate_transitions(DMotifPhyloHmm *dm, MSA *msa, int xi_mode,
+			       int scale_by_branch) {
   int i, nparams = 0;
   Vector *params, *lb, *ub;
   double retval;
+
+  /* This method for parameter estimation does not work well and will not be
+     supported. */
+  die("ERROR: Parameter estimation is no longer supported in dmotif. Please use dmsample. (See dmsample -h)\n");
 
   if (dm->phmm->forward == NULL) {
     dm->phmm->forward = (double**)smalloc(dm->phmm->hmm->nstates *
@@ -588,6 +824,7 @@ double dm_estimate_transitions(DMotifPhyloHmm *dm, MSA *msa) {
   if (dm->estim_gamma) nparams++;
   if (dm->estim_phi) nparams++;
   if (dm->estim_zeta) nparams++;
+  if (dm->estim_xi) nparams++;
 
   params = vec_new(nparams);
   lb = vec_new(nparams);
@@ -611,11 +848,15 @@ double dm_estimate_transitions(DMotifPhyloHmm *dm, MSA *msa) {
     vec_set(params, nparams, dm->zeta);
     vec_set(ub, nparams++, 0.1);
   }
+  if (dm->estim_xi) {
+    vec_set(params, nparams, dm->xi);
+    vec_set(ub, nparams++, 0.1);
+  }
 
-  opt_bfgs(lnl_wrapper, params, dm, &retval, lb, ub, stderr, NULL,
-           OPT_HIGH_PREC, NULL);
+/*   opt_bfgs(lnl_wrapper, params, dm, &retval, lb, ub, stderr, NULL, */
+/*            OPT_HIGH_PREC, NULL); */
 
-  unpack_params(params, dm);
+  unpack_params(params, dm, xi_mode, scale_by_branch);
 
   vec_free(params);
   vec_free(lb);
@@ -676,8 +917,10 @@ CategoryMap* dm_create_catmap(DMotifPhyloHmm *dm, TreeModel *source_mod,
     if ( e == NEUT ) {
       str_append_charstr(type, "nonconserved");
       if ( p == -1 ) { /* 0th category is background */
+	str_free(type);
+	type = str_new_charstr(BACKGD_CAT_NAME);
       	retval->ranges[0] =
-	  cm_new_category_range(str_new_charstr(BACKGD_CAT_NAME), 0, 0);
+	  cm_new_category_range(type, 0, 0);
  	continue;
       }
       else
@@ -830,7 +1073,7 @@ GFF_Set *dm_labeling_as_gff(CategoryMap *cm,
     frame = do_frame[cat] ? path_to_cat[path[i]] - cat : GFF_NULL_FRAME;
     
     /* scan ahead until enter new category range (or reach end of seq) */
-    beg = i + 1;                /* begin of feature (GFF coords) */
+    beg = i;                /* begin of feature */
     for (i++; i < length &&
 	   cm->ranges[path_to_cat[path[i]]]->start_cat_no == cat; i++);
     end = i;                    /* end of feature (GFF coords) */
@@ -884,7 +1127,8 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
 		       int **priors, FILE *log,
 		       GFF_Set *reference, int ref_as_prior,
 		       int force_priors,
-		       int quiet, char *cache_fname, int cache_int) {
+		       int quiet, char *cache_fname, int cache_int,
+		       int xi_mode, int scale_by_branch) {
 
   int i, j, k, l, *path, **trans, **ref_paths = NULL, nwins, reinit;
   unsigned long int seed;
@@ -907,8 +1151,10 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
   path = (int*)smalloc(max_seqlen * sizeof(int));
 
   /* Allocate space for the transition counts and set to prior values */
-  trans = (int**)smalloc(4 * sizeof(int*));
-  for (i = 0; i < 4; i++) {
+  trans = (int**)smalloc((xi_mode == FALSE ? 4 : 5) * sizeof(int*));
+  for (i = 0; i < 5; i++) {
+    if (xi_mode == FALSE && i == 4)
+      continue;
     trans[i] = (int*)smalloc(2 * sizeof(int));
     trans[i][0] = priors[i][0];
     trans[i][1] = priors[i][1];
@@ -952,10 +1198,15 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
     dm->nu = beta_draw((double)trans[1][0], (double)trans[1][1]);
     dm->phi = beta_draw((double)trans[2][0], (double)trans[2][1]);
     dm->zeta = beta_draw((double)trans[3][0], (double)trans[3][1]);
-    dm_set_transitions(dm);
+    if (xi_mode == TRUE)
+      dm->xi = beta_draw((double)trans[4][0], (double)trans[4][1]);
+
+    dm_set_transitions(dm, xi_mode, scale_by_branch);
 
     /* Reset transition counts to prior values */
-    for (j = 0; j < 4; j++) {
+    for (j = 0; j < 5; j++) {
+      if (xi_mode == FALSE && j == 4)
+	continue;
       trans[j][0] = priors[j][0];
       trans[j][1] = priors[j][1];
     }
@@ -988,7 +1239,7 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
       } else {
 	dms_count_transitions(dm, path, trans, blocks->lens[j],
 			      ref_paths == NULL ? NULL : ref_paths[j],
-			      force_priors);
+			      force_priors, xi_mode);
 	if (i >= bsamples) /* Past burn-in -- sample motifs */
 	  dms_count_motifs(dm, path, blocks->lens[j], path_counts, j);
 	if (log != NULL && reference != NULL) /* Prepare GFF for this sequence
@@ -1001,7 +1252,8 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
     }
 
     if (log != NULL) /* Write stats for this sample to the log file */
-      dms_write_log(log, dm, trans, i, llh, query_gff, reference, nwins);
+      dms_write_log(log, dm, trans, i, llh, query_gff, reference, nwins, 
+		    xi_mode);
 
     /* Cache and reinitialize the hash every 100 samples after burn-in */
     if (i >= bsamples) {
@@ -1044,7 +1296,8 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 			    FILE *log, GFF_Set *reference, int ref_as_prior, 
 			    int force_priors, int quiet, char *cache_fname,
 			    int cache_int, ThreadPool *pool, int nthreads,
-			    List **zeroed_states) {
+			    List **zeroed_states, int xi_mode, 
+			    int scale_by_branch) {
   
   int i, j, k, l, t, **trans, ***thread_trans, nwins, reinit, threads,
     **thread_path;
@@ -1053,7 +1306,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 /*   int **ref_paths = NULL; */
   double llh, *thread_llh, ***thread_emissions, ***thread_forward;
   char *cache_out;
-  GFF_Set *query_gff = NULL;
+  GFF_Set *query_gff = NULL, **thread_gff = NULL;
   Hashtable *path_counts, **thread_counts;  /**< path_counts is the global hash
 					       for all sequences. thread_counts
 					       contains a separate hash for
@@ -1089,8 +1342,10 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
   }
   
   /* Allocate space for the global transition counts and set to prior values */
-  trans = (int**)smalloc(4 * sizeof(int*));
-  for (i = 0; i < 4; i++) {
+  trans = (int**)smalloc((xi_mode == FALSE ? 4 : 5) * sizeof(int*));
+  for (i = 0; i < 5; i++) {
+    if (xi_mode == FALSE && i == 4)
+      continue;
     trans[i] = (int*)smalloc(2 * sizeof(int));
     trans[i][0] = priors[i][0];
     trans[i][1] = priors[i][1];
@@ -1100,8 +1355,11 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
      to 0 as pseudocounts are added into the global struct! */
   thread_trans = (int***)smalloc(threads * sizeof(int**));
   for (i = 0; i < threads; i++) {
-    thread_trans[i] = (int**)smalloc(4 * sizeof(int*));
-    for (j = 0; j < 4; j++) {
+    thread_trans[i] = (int**)smalloc((xi_mode == FALSE ? 4 : 5) * 
+				     sizeof(int*));
+    for (j = 0; j < 5; j++) {
+      if (xi_mode == FALSE && j == 4)
+	continue;
       thread_trans[i][j] = (int*)smalloc(2 * sizeof(int));
       thread_trans[i][j][0] = thread_trans[i][j][1] = 0;
     }
@@ -1139,7 +1397,14 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
   if (reference != NULL && log != NULL) {
     for (i = 0; i < lst_size(blocks->source_msas); i++)
       nwins += (blocks->lens[i] - (dm->m->width -1));
+  
+    /* Also set up GFF Sets for tracking of true and false positives */
+    query_gff = gff_new_set();
+    thread_gff = (GFF_Set**)smalloc(threads * sizeof(GFF_Set));
+    for (i = 0; i < threads; i++)
+      thread_gff[i] = gff_new_set();
   }
+
   /* If using the reference set as prior information, reconstruct a set of
      state paths from the GFF_Set. NOT FULLY IMPLEMENTED!! */
 /*   if (reference != NULL && ref_as_prior == TRUE) { */
@@ -1165,10 +1430,10 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
     if (!quiet) fprintf(stderr, "*");
     /* Clean things up for logging motif stats for individual samples, if
        needed */
-    if (log != NULL && reference != NULL) {
-      if (query_gff != NULL)
-	gff_free_set(query_gff);
-      query_gff = gff_new_set();
+    if (query_gff != NULL) {
+	gff_clear_set(query_gff);
+	for (j = 0; j <  threads; j++)
+	  gff_clear_set(thread_gff[j]);
     }
     
     /* Draw a set of params */
@@ -1176,59 +1441,80 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
     dm->nu = beta_draw((double)trans[1][0], (double)trans[1][1]);
     dm->phi = beta_draw((double)trans[2][0], (double)trans[2][1]);
     dm->zeta = beta_draw((double)trans[3][0], (double)trans[3][1]);
-    dm_set_transitions(dm);
+    if (xi_mode == TRUE)
+      dm->xi = beta_draw((double)trans[4][0], (double)trans[4][1]);
+    
+    dm_set_transitions(dm, xi_mode, scale_by_branch);
 
     /* Set transition_score matrix in the hmm */
     hmm_set_transition_score_matrix(dm->phmm->hmm);
 
     /* Reset transition counts to prior values */
-    for (j = 0; j < 4; j++) {
+    for (j = 0; j < 5; j++) {
+      if (xi_mode == FALSE && j == 4)
+	continue;
       trans[j][0] = priors[j][0];
       trans[j][1] = priors[j][1];
     }
 
     /* Set up the work list for multithreading over sequences. First make sure
        the existing list is empty and all old work items have been freed. */
-    if (!lst_empty(work)) {
-      for (j = 0; j < lst_size(blocks->source_msas); j++) {
-	data = lst_get_ptr(work, j);
-	free(data);
+    if (i == 0) {
+      if (!lst_empty(work)) {
+	for (j = 0; j < lst_size(blocks->source_msas); j++) {
+	  data = lst_get_ptr(work, j);
+	  free(data);
+	}
+	lst_clear(work);
       }
-      lst_clear(work);
+      for (j = 0; j < lst_size(blocks->source_msas); j++) {
+	data = (DMsamplingThreadData*)smalloc(sizeof(DMsamplingThreadData));
+	
+	data->dm = dm;
+	data->blocks = blocks;
+	data->thread_path = thread_path;
+	data->thread_emissions = thread_emissions;
+	data->thread_forward = thread_forward;
+	data->ih = (ih == NULL ? NULL : ih[j]);
+	data->zeroed_states = (zeroed_states == NULL ? NULL : zeroed_states[j]);
+	data->tuple_scores = tuple_scores;
+	
+	data->thread_llh = thread_llh;
+	data->thread_trans = thread_trans;
+	data->thread_counts = thread_counts;
+	
+	data->do_sample = (i < bsamples ? 0 : (i % sample_interval ? 0 : 1));
+	data->seqnum = j;
+	data->seqname = ((char*)((String*)lst_get_ptr(seqnames, j))->chars);
+	data->log = log;
+	data->thread_gff = thread_gff;
+	data->do_reference = (reference == NULL ? 0 : (log == NULL ? 0 : 1));
+	data->nthreads = nthreads;
+	data->p = pool;
+	data->sample = i;
+	data->xi_mode = xi_mode;
+	
+	/*       fprintf(stderr, "i %d, j %d, t %d, data->llh %p, data->trans %p, data->path_counts %p, data->do_sample %d\n", */
+	/* 	      i, j, t, data->llh, data->trans, data->path_counts, */
+	/* 	      data->do_sample); */
+	
+	lst_push(work, (void*)(&data));
+      }
+    } else {
+      /* Only a couple things need to be changed in the work list from sample
+	 to sample -- only changing things that need to be changed instead of
+	 freeing and reallocating/rebuilding the work list on each sample
+	 should save a lot of memory overhead. -- 3 June 2009 */
+      for (j = 0; j < lst_size(blocks->source_msas); j++) {
+	data = (DMsamplingThreadData*)lst_get_ptr(work, j);
+	data->do_sample = (i < bsamples ? 0 : (i % sample_interval ? 0 : 1));
+	data->sample = i;
+/* 	fprintf(stderr, "i %d, j %d, seqnum %d, seqname %s, do_sample %d, sample %d\n", */
+/* 		i, j, data->seqnum, data->seqname, data->do_sample, */
+/* 		data->sample); */
+      }
     }
-    for (j = 0; j < lst_size(blocks->source_msas); j++) {
-      data = (DMsamplingThreadData*)smalloc(sizeof(DMsamplingThreadData));
-      
-      data->dm = dm;
-      data->blocks = blocks;
-      data->thread_path = thread_path;
-      data->thread_emissions = thread_emissions;
-      data->thread_forward = thread_forward;
-      data->ih = (ih == NULL ? NULL : ih[j]);
-      data->zeroed_states = (zeroed_states == NULL ? NULL : zeroed_states[j]);
-      data->tuple_scores = tuple_scores;
 
-      data->thread_llh = thread_llh;
-      data->thread_trans = thread_trans;
-      data->thread_counts = thread_counts;
-      
-      data->do_sample = (i < bsamples ? 0 : (i % sample_interval ? 0 : 1));
-      data->seqnum = j;
-      data->seqname = ((char*)((String*)lst_get_ptr(seqnames, j))->chars);
-      data->log = log;
-      data->query_gff = query_gff;
-      data->do_reference = (reference == NULL ? 0 : (log == NULL ? 0 : 1));
-      data->nthreads = nthreads;
-      data->p = pool;
-      data->sample = i;
-      
-/*       fprintf(stderr, "i %d, j %d, t %d, data->llh %p, data->trans %p, data->path_counts %p, data->do_sample %d\n", */
-/* 	      i, j, t, data->llh, data->trans, data->path_counts, */
-/* 	      data->do_sample); */
-
-      lst_push(work, (void*)(&data));
-    }
-    
     thr_foreach(pool, work, dms_launch_sample_thread);
 
     /* Combine transition counts from all threads into global counts and
@@ -1236,7 +1522,9 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
        thread-specific vals to 0. */
     llh = 0;
     for (t = 0; t < threads; t++) {
-      for (j = 0; j < 4; j++) {
+      for (j = 0; j < 5; j++) {
+	if (xi_mode == FALSE && j == 4)
+	  continue;
 	trans[j][0] += thread_trans[t][j][0];
 	trans[j][1] += thread_trans[t][j][1];
 	thread_trans[t][j][0] = thread_trans[t][j][1] = 0;
@@ -1245,9 +1533,15 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
       thread_llh[t] = 0;
     }
     
-    if (log != NULL) /* Write stats for this sample to the log file */
-      dms_write_log(log, dm, trans, i, llh, query_gff, reference, nwins);
-    
+    if (log != NULL) { /* Write stats for this sample to the log file */
+      if (query_gff != NULL) {
+	for (t = 0; t < threads; t++)
+	  dms_merge_thread_gffs(query_gff, thread_gff[t]);
+      }
+      dms_write_log(log, dm, trans, i, llh, query_gff, reference, nwins, 
+		    xi_mode);    
+    }
+
     /* Cache and reinitialize the hash periodically after burn-in */
     if (i >= bsamples) {
 
@@ -1276,8 +1570,12 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
   fprintf(stderr, "\n\tSampling complete.\n");
 
   /* Clean up our area */
-  if (query_gff != NULL)
+  if (query_gff != NULL) {
     gff_free_set(query_gff);
+    for (i = 0; i < threads; i++)
+      gff_free_set(thread_gff[i]);
+  }
+  free(thread_gff);
 
   for (i = 0; i < lst_size(blocks->source_msas); i++) {
     data = lst_get_ptr(work, i);
@@ -1285,8 +1583,17 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
   }
   lst_free(work);
 
+  for (i = 0; i < 5; i++) {
+    if (xi_mode == FALSE && i == 4)
+      continue;
+    free(trans[i]);
+  }
+  free(trans);
+
   for (i = 0; i < threads; i++) {
-    for (j = 0; j < 4; j++) {
+    for (j = 0; j < 5; j++) {
+      if (xi_mode == FALSE && j == 4)
+	continue;
       free(thread_trans[i][j]);
     }
     free(thread_trans[i]);
@@ -1320,13 +1627,15 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 		     double ***thread_emissions, double ***thread_forward,
 		     int ***thread_trans, Hashtable **thread_counts, 
 		     int do_sample, int seqnum, char *seqname, FILE *log, 
-		     GFF_Set *query_gff, int do_reference, int nthreads,
-		     ThreadPool *pool, int sample, List *zeroed_states) {
+		     GFF_Set **thread_gff, int do_reference, int nthreads,
+		     ThreadPool *pool, int sample, List *zeroed_states,
+		     int xi_mode) {
 
   int *path, thread_idx, **trans;
   double **emissions, **forward_scores, *llh;
   MSA *msa = lst_get_ptr(blocks->source_msas, seqnum);
   Hashtable *path_counts;
+  GFF_Set *query_gff;
 
   /* Get the index of the current thread and appropriate vectors in thread-
      specific structures. */
@@ -1341,7 +1650,11 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
   emissions = thread_emissions[thread_idx];
   forward_scores = thread_forward[thread_idx];
   path = thread_path[thread_idx];
-  
+  if (thread_gff != NULL)
+    query_gff = thread_gff[thread_idx];
+  else
+    query_gff = NULL;
+ 
   dms_lookup_emissions(dm, tuple_scores, emissions, blocks, seqnum,
 		       msa->length, ih);
   if (zeroed_states != NULL)
@@ -1358,7 +1671,7 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 /* 	  thread_id, seqname); */
   
   dms_count_transitions(dm, path, trans, msa->length,
-			NULL, FALSE);
+			NULL, FALSE, xi_mode);
   
   if (do_sample == 1) { /* Past burn-in -- sample motifs */
     dms_count_motifs(dm, path, msa->length, path_counts, seqnum);
@@ -1382,21 +1695,22 @@ void dms_launch_sample_thread(void *data) {
 		  thread->thread_forward,
 		  thread->thread_trans, thread->thread_counts,
 		  thread->do_sample, thread->seqnum, thread->seqname, 
-		  thread->log, thread->query_gff, thread->do_reference, 
+		  thread->log, thread->thread_gff, thread->do_reference, 
 		  thread->nthreads, thread->p, thread->sample,
-		  thread->zeroed_states);  
+		  thread->zeroed_states, thread->xi_mode);  
 }
 
-void dms_read_priors(int **priors, FILE *prior_f) {
+void dms_read_priors(int **priors, FILE *prior_f, int xi_mode) {
   Regex *mu_re = str_re_new("#[[:space:]]*MU[[:space:]]*([0-9]+[[:space:]]*[0-9]+)");
   Regex *nu_re = str_re_new("#[[:space:]]*NU[[:space:]]*([0-9]+[[:space:]]*[0-9]+)");
   Regex *phi_re = str_re_new("#[[:space:]]*PHI[[:space:]]*([0-9]+[[:space:]]*[0-9]+)");
   Regex *zeta_re = str_re_new("#[[:space:]]*ZETA[[:space:]]*([0-9]+[[:space:]]*[0-9]+)");
+  Regex *xi_re = str_re_new("#[[:space:]]*XI[[:space:]]*([0-9]+[[:space:]]*[0-9]+)");
 
   String *line = str_new(STR_MED_LEN);
   List *matches = lst_new_ptr(2);
   List *counts = lst_new_ptr(2);
-  int count;
+  int count, xi_found = FALSE;
 
   while (str_readline(line, prior_f) != EOF) {
     lst_clear(matches);
@@ -1428,15 +1742,36 @@ void dms_read_priors(int **priors, FILE *prior_f) {
       priors[3][0] = count;
       str_as_int(lst_get_ptr(counts, 1), &count);
       priors[3][1] = count;
+    } else  if (str_re_match(line, xi_re, matches, 1) >= 0) {
+      if (xi_mode == FALSE) {
+	lst_free_strings(matches);
+	continue;
+      }
+      str_split(lst_get_ptr(matches, 1), NULL, counts);
+      str_as_int(lst_get_ptr(counts, 0), &count);
+      priors[4][0] = count;
+      str_as_int(lst_get_ptr(counts, 1), &count);
+      priors[4][1] = count;
+      xi_found = TRUE;
     } else { /* something unexpected */
+      lst_free_strings(matches);
+      lst_free_strings(counts);
       die("ERROR: Too many lines in priors file.\n");
     }
+    lst_free_strings(matches);
+    lst_free_strings(counts);
   }
+
+  if (xi_mode == TRUE && xi_found == FALSE)
+    die("ERROR: Priors file must contain a line for xi when xi parameter is used.\n");
+
   str_re_free(mu_re);
   str_re_free(nu_re);
   str_re_free(phi_re);
   str_re_free(zeta_re);
+  str_re_free(xi_re);
   str_free(line);
+  lst_free_strings(matches);
   lst_free(matches);
   lst_free(counts);
 }
@@ -1731,8 +2066,11 @@ Hashtable* dms_read_hash(FILE *hash_f, /* 2*dm->k+2 */ int nstates,
 	str_as_int((String*)lst_get_ptr(matches, i), &counts[i-1]);
       hsh_put(retval, ((String*)lst_get_ptr(matches, 0))->chars, counts);
     }
+    lst_free_strings(matches);
   }
   str_re_free(ne_re);
+  str_re_free(ns_re);
+  lst_free_strings(matches);
   lst_free(matches);
   str_free(line);
   return(retval);
@@ -1853,8 +2191,7 @@ void dms_do_emissions_row(void *data) {
 /*   fprintf(stderr, "thread id %d, data %p, mod %p, msa %p, emissions row %p, cat %d\n", */
 /* 	  (int)pthread_self(), thread, thread->mod, thread->msa,  */
 /* 	  thread->emissions_vec, thread->cat); */
-  dm_compute_log_likelihood(thread->mod, thread->msa, thread->emissions_vec,
-			  thread->cat);
+  dm_compute_log_likelihood(thread->mod, thread->msa, thread->emissions_vec);
 }
 
 /* Fill in an emissions matrix for a single sequence based on a precomputed
@@ -1883,7 +2220,8 @@ void dms_lookup_emissions(DMotifPhyloHmm *dm, double **tuple_scores,
 
 /* Count transitions between states for parameter draws */
 void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans,
-			   int seqlen, int *ref_path, int force_priors) {
+			   int seqlen, int *ref_path, int force_priors,
+			   int xi_mode) {
   int i, s1, s2, p1, p2, e1, e2/*, *tmp_path */;
 
   /* If using reference set as priors, build a composite path containing
@@ -1905,63 +2243,76 @@ void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans,
 
     /* 2-11-2009 -- After discussions with ACS, seems the best thing to do is
        ignore begin transitions -- entries into these states are poorly modeled
-       in this context and don't give much information as to the actual param
-       values. */
+       and don't give much information as to the param values. Using the
+       stationary frequencies of each state as the begin transition probs,
+       though probably reasonable, is a bit arbitrary. */
     if (s1 == BEGIN_STATE) {
       s1 = s2;
       continue;
     }
 
-    /* Begin transitions are counted as if they are from the neutral
-       background state */
-    p1 = (s1 == BEGIN_STATE ? -1 : dm->state_to_motifpos[s1]);
-    e1 = (s1 == BEGIN_STATE ? NEUT : dm->state_to_event[s1]);
+    p1 = dm->state_to_motifpos[s1] ;
+    e1 = dm->state_to_event[s1];
     p2 = dm->state_to_motifpos[s2];
     e2 = dm->state_to_event[s2];
-    
+
     /* Track different types of transitions for param estimation */
-    if (p1 == -1) { /* Transitions from bg states */
-      if (e1 == NEUT) { /* Neutral BG to...  */
-	if (e2 != NEUT) { /* selected state -- affects alpha count for nu */
-	  trans[1][0]++;
-	  if (e2 == BIRTH || e2 == DEATH) { /* lineage-specific state --
-					       also affects alpha count 
-					       for phi */
-	    trans[2][0]++;
-	  } else { /* conserved state -- also affects beta count for phi */
-	    trans[2][1]++;
-	  }
-	} else { /* Transition from neutral bg to neutral state (bg or motif)
-		    -- affects beta count for nu */
-	  trans[1][1]++;
-	}
-      } else { /* Source state is under selection (can be cons, birth 
-		  or death) -- count transitions into... */
-	if (e2 == NEUT) { /* neutral states -- Affects alpha count for mu */
-	  trans[0][0]++;
-	} else { /* selected states -- Affects beta count for mu */
-	  trans[0][1]++;
-	}
-      }
-      /* Motif entries can be counted without regard to selection -- they only
-	 affect zeta.... */
-      if (p2 == 0) { /* BG into a motif -- affects alpha count for zeta */
-	trans[3][0]++;
-      } else { /* into another background category -- affects beta count for
-		  zeta. */
-	trans[3][1]++;
-      }
-      
-    } else if (p1 == (dm->m->width - 1)
-	       && e1 != NEUT) { /* Transitions from motif end */
-      if (e2 == NEUT) { /* into neutral background -- affects alpha count for 
-			   mu */
+
+    /* Transitions that affect mu -- i.e., from non-neutral bg states and 
+       motif end positions */
+    if (e1 != NEUT && (p1 == -1 || p1 == dm->m->width - 1)) {
+      if (e2 == NEUT)
 	trans[0][0]++;
-      } else { /* into the background state associated with the current branch
-		  -- affects beta count for mu */
+      else
 	trans[0][1]++;
+    }
+
+    /* Transitions that affect nu -- all of these are from NB state */
+    if (e1 == NEUT && p1 == -1) {
+      if (e2 != NEUT)
+	trans[1][0]++;
+      else
+	trans[1][1]++;
+    }
+      
+    /* Transitions that affect phi -- all are from NB. Must pay attention to
+       whether destination state is conserved or not. */
+    if (e1 == NEUT && e2 != NEUT) {
+      if (e2 != CONS)
+	trans[2][0]++;
+      else
+	trans[2][1]++;
+    }
+
+    /* Transitions that affect zeta or xi. All these are from bg states, which
+       may be either neutral, conserved or lineage-specific. If we're using
+       xi, also pay attention to whether we're starting a neutral motif or a
+       conserved/gain/loss motif. */
+    if (p1 == -1) {
+      if (p2 == 0) { /* Started a motif -- add an alpha count */
+
+	if (xi_mode == TRUE) {
+	  if (e2 == NEUT)
+	    trans[4][0]++;
+	  else
+	    trans[3][0]++;
+	} else {
+	   trans[3][0]++;
+	}
+
+      } else { /* Stayed in background -- add a beta count */
+
+	if (xi_mode == TRUE) {
+	  if (e2 == NEUT)
+	     trans[4][1]++;
+	  else
+	     trans[3][1]++;
+	} else {
+	   trans[3][1]++;
+	}
       }
     }
+
     s1 = s2;
   }
 }
@@ -1996,7 +2347,7 @@ void dms_count_motifs(DMotifPhyloHmm *dm, int *path, int seqlen,
     
     if (p != -1 || end != -1) {
       if (end == -1)
-	end = i + w;
+	end = i + w - 1;
       snprintf(hsh_key, STR_SHORT_LEN, "%d_%d_%d", seqnum, i, end);
       counts = hsh_get(path_counts, hsh_key);
       if (counts == (void*)-1) { /* First motif at this position */
@@ -2036,7 +2387,7 @@ void dms_path_log(DMotifPhyloHmm *dm, int *path, int seqlen, char *seqname,
 
 void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample, 
 		   double llh, GFF_Set *query_gff, GFF_Set *reference, 
-		   int nwins) { 
+		   int nwins, int xi_mode) { 
   int i, *stats;
   double fpr, spc, ppv;
   char param[STR_SHORT_LEN];
@@ -2072,22 +2423,31 @@ void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample,
     fprintf(log, "PPV: %f\n", ppv);
   }
   
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 5; i++) {
+    if (xi_mode == FALSE && i == 4)
+      continue;
     if (i == 0)
       snprintf(param, STR_SHORT_LEN, "mu");
     else if (i == 1)
       snprintf(param, STR_SHORT_LEN, "nu");
     else if (i == 2)
       snprintf(param, STR_SHORT_LEN, "phi");
-    else /* (i == 3) */
+    else if (i == 3)
       snprintf(param, STR_SHORT_LEN, "zeta");
+    else /* (i == 4) */
+      snprintf(param, STR_SHORT_LEN, "xi");
     
     fprintf(log, "%s transitions: alpha = %d, beta = %d\n", param, 
 	    trans[i][0], trans[i][1]);
   }
   
-  fprintf(log, "mu = %f, nu = %f, phi = %f, zeta = %f\n\n", dm->mu, 
-	  dm->nu, dm->phi, dm->zeta);
+  if (xi_mode == FALSE) {
+    fprintf(log, "mu = %f, nu = %f, phi = %f, zeta = %f\n\n", dm->mu, 
+	    dm->nu, dm->phi, dm->zeta);
+  } else {
+    fprintf(log, "mu = %f, nu = %f, phi = %f, zeta = %f, xi = %f\n\n", dm->mu, 
+	    dm->nu, dm->phi, dm->zeta, dm->xi);
+  }
 }
 
 DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet, 
@@ -2099,7 +2459,7 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
   Regex *format_re = str_re_new("#[[:space:]]*FORMAT[[:space:]]*=[[:space:]]*([A-Z]+)");
   Regex *comment_re = str_re_new("#");
   
-  int i, j, nblocks, ncats, tuple_size;
+  int i, nblocks, ncats, tuple_size;
   char msa_fname[STR_MED_LEN], ih_fname[STR_MED_LEN],
     zeroed_fname[STR_MED_LEN];
   FILE *msa_f, *ih_f, *zeroed_f;
@@ -2249,20 +2609,14 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
 	  dmpmsa->zeroed_states[i+1] =
 	    dms_reverse_zeroed_states(dmpmsa->zeroed_states[i], msa);
 	}
-	/* TO DO: There is a way to create an indel history for the reverse 
-	   seq from the indel history for the forward seq -- this needs to be
-           implemented before using indel mod! */
+	if (do_ih)
+	  dmpmsa->ih[i+1] = dms_reverse_ih(dmpmsa->ih[i]);
 	i++;
       }
 
       i++;
     }
-
-    /* Free all substrings in the matches list or there will be a memory 
-       leak */
-    for (j = 0; j < lst_size(matches); j++) {
-      str_free((String*)lst_get_ptr(matches, j));
-    }
+    lst_free_strings(matches);
   }
   if (i < (nblocks - 1))
     die("ERROR: Not enough files in alignments list!\n");
@@ -2285,6 +2639,7 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
   str_re_free(alph_re);
   str_re_free(format_re);
   str_re_free(comment_re);
+  lst_free_strings(matches);
   lst_free(matches);
   str_free(alphabet);
   str_free(line);
@@ -2301,8 +2656,9 @@ void dms_free_dmpmsa_struct(DMotifPmsaStruct *dmpmsa) {
   ss_free_pooled_msa(dmpmsa->pmsa);
 
   if(dmpmsa->ih != NULL) {
-    for (i = 0; i < lst_size(msas); i++)
+    for (i = 0; i < lst_size(msas); i++) {
       ih_free(dmpmsa->ih[i]);
+    }
     free(dmpmsa->ih);
   }
 
@@ -2333,8 +2689,7 @@ void dms_free_dmpmsa_struct(DMotifPmsaStruct *dmpmsa) {
 /* Pared down version of tL_compute_log_likelihood with improved memory
    performance */
 double dm_compute_log_likelihood(TreeModel *mod, MSA *msa, 
-                                 double *col_scores, int cat) {
-
+				 double *col_scores) {
   int i, j, k, nodeidx, tupleidx, defined, nstates, alph_size,
     *partial_match, skip_fels, thisseq, ninform, observed_state;
   double retval, total_prob, **inside_joint, *tuple_scores, totl, totr;
@@ -2342,7 +2697,6 @@ double dm_compute_log_likelihood(TreeModel *mod, MSA *msa,
   List *traversal;
   MarkovMatrix *lsubst_mat, *rsubst_mat;
 
-  inside_joint = NULL;
   retval = 0;
   nstates = mod->rate_matrix->size;
   alph_size = strlen(mod->rate_matrix->states);
@@ -2376,6 +2730,9 @@ double dm_compute_log_likelihood(TreeModel *mod, MSA *msa,
     tm_set_subst_matrices(mod);
   }
 
+/*   fprintf(stderr, "mod->allow_gaps %d, mod->inform_reqd %d\n",  */
+/* 	  mod->allow_gaps, mod->inform_reqd); */
+
   /* Compute log probability for each tuple in the dataset */
   for (tupleidx = 0; tupleidx < msa->ss->ntuples; tupleidx++) {
     skip_fels = FALSE;
@@ -2401,6 +2758,7 @@ double dm_compute_log_likelihood(TreeModel *mod, MSA *msa,
       traversal = tr_postorder(mod->tree);
       for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
 	n = lst_get_ptr(traversal, nodeidx);      
+
 	if (n->lchild == NULL) { 
 	  /* leaf: base case of recursion */	  
 	  assert(n->name != NULL);
@@ -2419,8 +2777,8 @@ double dm_compute_log_likelihood(TreeModel *mod, MSA *msa,
 	  /* now find the intersection of the partial matches */
 	  for (i = 0; i < nstates; i++)
 	    inside_joint[i][n->id] = (double)partial_match[i]; 
-	}
-	else {                    
+	
+	} else {                    
 	  /* general recursive case */
 	  lsubst_mat = mod->P[n->lchild->id][0];
 	  rsubst_mat = mod->P[n->rchild->id][0];
@@ -2443,7 +2801,7 @@ double dm_compute_log_likelihood(TreeModel *mod, MSA *msa,
 	total_prob += vec_get(mod->backgd_freqs, i) * 
 	  inside_joint[i][mod->tree->id] * mod->freqK[0];
       }
-    } /* if skip_fels */
+    } /* if !skip_fels */
     
     total_prob = log2(total_prob);
     tuple_scores[tupleidx] = total_prob; /* Unweighted log prob! */
@@ -2475,6 +2833,7 @@ void dm_set_subst_mods(DMotifPhyloHmm *dm) {
   TreeModel *mod;
 
   for (i = 0; i < dm->phmm->hmm->nstates; i++) {
+/*     fprintf(stderr, "state %d, pos %d\n", i, dm->state_to_motifpos[i]); */
     mod = dm->phmm->mods[ (dm->phmm->state_to_mod[i]) ];
     tm_set_subst_matrices(mod);
   }
@@ -2636,6 +2995,7 @@ Hashtable* dms_uncache(List *cache_files, int init_size, int nstates,
   char fname[STR_MED_LEN];
   Hashtable *path_counts, *tmp_hash;
   FILE *hash_f;
+
   path_counts = hsh_new(init_size);
   
   *nsamples = csamples = 0;
@@ -2722,11 +3082,13 @@ List* dms_read_tmp_from_file(FILE *tmp_lst_f) {
       lst_push_ptr(ret, (void*)str_dup(line));
       i++;
     }
+    lst_free_strings(matches);
   }
   if (i != nfiles) die("ERROR: Not enough lines in temp file list!\n");
   str_re_free(nfiles_re);
   str_re_free(comment_re);
   str_free(line);
+  lst_free_strings(matches);
   lst_free(matches);
   return ret;
 }
@@ -3199,9 +3561,11 @@ List *dms_read_zeroed_states(FILE *f) {
 
       i++;
     }
+    lst_free_strings(matches);
   }
 
   if (i != nzeroed) die("ERROR: Not enough lines in zeroed_states file!\n");
+  lst_free_strings(matches);
   lst_free(matches);
   lst_free(tmpl);
   str_free(line);
@@ -3755,10 +4119,12 @@ void dms_condition_transitions(DMotifPhyloHmm *dm, List *zeroed_states) {
 MSA *dm_generate_msa(int ncolumns, 
                      DMotifPhyloHmm *dm,
                      TreeModel **classmods, 
-                     int *labels /* if non-NULL, will be used to
-                                    record state (model) responsible
-                                    for generating each site; pass
-                                    NULL if hmm is NULL */
+                     int *labels, /* if non-NULL, will be used to
+				     record state (model) responsible
+				     for generating each site; pass
+				     NULL if hmm is NULL */
+		     int keep_ancestral,
+		     int fixed_path
                      ) {
 
   int i, j, class, nextclass, nseqs, col, ntreenodes, idx, nclasses, has_subs;
@@ -3766,8 +4132,9 @@ MSA *dm_generate_msa(int ncolumns,
   MSA *msa;
   Stack *stack;
   HMM *hmm = dm->phmm->hmm;
-  TreeModel *mod;
+  TreeModel *mod, *nextmod;
   TreeNode *n;
+/*   TreeNode *n2; */
   
   nclasses = hmm->nstates;
   
@@ -3792,8 +4159,11 @@ MSA *dm_generate_msa(int ncolumns,
   /* create new MSA */
   names = (char**)smalloc(nseqs * sizeof(char*));
   seqs = (char**)smalloc(nseqs * sizeof(char*));
-  for (i = 0; i < nseqs; i++) 
+  for (i = 0; i < nseqs; i++) {
     seqs[i] = (char*)smalloc((ncolumns + 1) * sizeof(char));
+    seqs[i][ncolumns] = '\0';
+    names[i] = (char*)smalloc(STR_MED_LEN * sizeof(char));
+  }
   msa = msa_new(seqs, names, nseqs, ncolumns, 
                 classmods[0]->rate_matrix->states);
 
@@ -3818,15 +4188,20 @@ MSA *dm_generate_msa(int ncolumns,
     motif[i] = (char*)smalloc(dm->m->width * sizeof(char));
   
   /* generate sequences, column by column */
-  if (hmm != NULL && hmm->begin_transitions != NULL)
-    class = draw_index(hmm->begin_transitions->data, hmm->nstates);
-  else
-    class = 0;
+  if (fixed_path == TRUE) {
+    class = labels[0];				\
+  } else {
+    if (hmm != NULL && hmm->begin_transitions != NULL)
+      class = draw_index(hmm->begin_transitions->data, hmm->nstates);
+    else
+      class = 0;
+  }
   
   newchar = (char*)smalloc(ntreenodes * sizeof(char));
   
   for (col = 0; col < ncolumns; /* incrementing done inside loop */) {
     mod = classmods[class];
+/*     fprintf(stderr, "col %d, class %d\n", col, class); */
     
     if ( (dm->state_to_event[class] == BIRTH || 
 	  dm->state_to_event[class] == DEATH) &&
@@ -3837,12 +4212,20 @@ MSA *dm_generate_msa(int ncolumns,
 		      dm->state_to_branch[class]);
       has_subs = FALSE;
 
+      j = 0;
       while (has_subs == FALSE) {
 	/* Generate a candidate motif alignment */
 	nextclass = class;
 	for (i = 0; i < dm->m->width; i++) {
-	  dm_sample_char_col(msa->seqs, mod, newchar, nextclass, i, TRUE);
-	  nextclass = mm_sample_state(hmm->transition_matrix, nextclass);
+/* 	  fprintf(stderr, "%d ", nextclass); */
+
+	  nextmod = classmods[nextclass];
+	  dm_sample_char_col(motif, nextmod, newchar, nextclass, i, TRUE);
+	  if (fixed_path == TRUE && (col + i + 1) < ncolumns) {
+	    nextclass = labels[(col + i + 1)];
+	  } else {
+	    nextclass = mm_sample_state(hmm->transition_matrix, nextclass);
+	  }
 	}
 	/* Check that the gain/loss branch has substitution(s) */
 	for (i = 0; i < dm->m->width; i++) {
@@ -3853,31 +4236,50 @@ MSA *dm_generate_msa(int ncolumns,
 	    break;
 	  }
 	}
+/*         fprintf(stderr, "Motif attempt %d (branch %d, parent %d):\n", j++, n->id, n->parent->id); */
+/* 	for (i = 0; i < classmods[class]->tree->nnodes; i++) { */
+/* 	  n2 = lst_get_ptr(classmods[class]->tree->nodes, i); */
+/* 	  fprintf(stderr, "\tn->id %d: %s\n", n2->id, motif[n2->id]); */
+/* 	} */
       }
 
       /* Once we have a motif alignment with appropriately places subs, push
 	 the leaf sequences onto the MSA */
-      for (i = 0; i < dm->m->width; i++) {
+      for (i = 0; i < dm->m->width && col < ncolumns; i++) {
 	for (j = 0; j < classmods[class]->tree->nnodes; j++) {
 	  n = lst_get_ptr(classmods[class]->tree->nodes, j);
-	  if (n->lchild == NULL)
+	  if (n->lchild == NULL) {
+/* 	    fprintf(stderr, "i %d, j %d, col %d, ncols %d, n->id %d\n", i, j, col, ncolumns, n->id); */
 	    msa->seqs[classmods[class]->msa_seq_idx[n->id]][col] = 
 	      motif[n->id][i];
+	  }
 	}
-	if (labels != NULL) labels[col] = class;
-	class = mm_sample_state(hmm->transition_matrix, class);     
+	if (labels != NULL && fixed_path == FALSE)
+	  labels[col] = class;
+	if (fixed_path == TRUE && (col + 1) < ncolumns) {
+	  class = labels[(col + 1)];
+	} else {
+	  class = mm_sample_state(hmm->transition_matrix, class);
+	}
 	col++;
       }
       
     } else {
-      dm_sample_char_col(msa->seqs, mod, newchar, class, col, FALSE);
-      if (labels != NULL) labels[col] = class;
-      class = mm_sample_state(hmm->transition_matrix, class);
+      dm_sample_char_col(msa->seqs, mod, newchar, class, col,
+			 keep_ancestral);
+
+      if (labels != NULL && fixed_path == FALSE)
+	labels[col] = class;
+      if (fixed_path == TRUE && (col + 1) < ncolumns) {
+	class = labels[(col + 1)];
+      } else {
+	class = mm_sample_state(hmm->transition_matrix, class);
+      }
       col++;
     }
-    
-
+/*     fprintf(stderr, "%d ", labels[col-1]); */
   }
+/*   fprintf(stderr, "\n"); */
 
   for (i = 0; i < classmods[0]->tree->nnodes; i++)
     free(motif[i]);
@@ -3893,28 +4295,40 @@ void dm_sample_char_col(char **seqs, TreeModel *mod, char *newchar,
   List *traversal;
   TreeNode *n, *l, *r;
   MarkovMatrix *lsubst_mat, *rsubst_mat;
-  
-  traversal = tr_preorder(mod->tree);
-  newchar[mod->tree->id] = 
-    mm_sample_backgd(mod->rate_matrix->states, 
-		     mod->backgd_freqs);
+
+  /* Check for substitution matrices */
+  if (mod->P[0][0] == NULL)
+    tm_set_subst_matrices(mod);
+    
+  /* Sample a character at the root */
+  if (mod->alt_subst_mods != NULL &&
+      mod->alt_subst_mods[mod->tree->id] != NULL) {
+    newchar[mod->tree->id] = 
+      mm_sample_backgd(mod->alt_subst_mods[mod->tree->id]->rate_matrix->states, 
+		       mod->alt_subst_mods[mod->tree->id]->backgd_freqs);
+  } else {
+    newchar[mod->tree->id] = 
+      mm_sample_backgd(mod->rate_matrix->states, 
+		       mod->backgd_freqs);
+  }
+/*   fprintf(stderr, "n->id %d, newchar[root] %c\n", mod->tree->id, newchar[mod->tree->id]); */
+
+  traversal = tr_preorder(mod->tree);  
   for (i = 0; i < lst_size(traversal); i++) {
     n = lst_get_ptr(traversal, i);
     l = n->lchild;
     r = n->rchild;
     assert ((l == NULL && r == NULL) || (l != NULL && r != NULL));
-
-    if (l == NULL && !keep_ancestral) /* Leaf node and not storing ancestral
-					 sequences */
-      seqs[mod->msa_seq_idx[n->id]][col] = newchar[n->id];
-    else {
-      if (mod->P[l->id][0] == NULL)
-	tm_set_subst_matrices(mod);
-      
+    
+    if (l != NULL) { /* internal or root node -- draw chars for children */
       lsubst_mat = mod->P[l->id][0];
       rsubst_mat = mod->P[r->id][0];
       newchar[l->id] = mm_sample_char(lsubst_mat, newchar[n->id]);
       newchar[r->id] = mm_sample_char(rsubst_mat, newchar[n->id]);
+/*       fprintf(stderr, "i %d, n->id %d, newchar[n] %c, newchar[lchild] %c, newchar[rchild] %c\n", i, n->id, newchar[n->id], newchar[l->id], newchar[r->id]); */
+    } else { /* Leaf node */
+      if (!keep_ancestral) /* not storing ancestral sequences */
+	seqs[mod->msa_seq_idx[n->id]][col] = newchar[n->id];
     }
   }
   if (keep_ancestral) {
@@ -3922,5 +4336,177 @@ void dm_sample_char_col(char **seqs, TreeModel *mod, char *newchar,
       n = lst_get_ptr(traversal, i);
       seqs[n->id][col] = newchar[n->id];
     }
+  }
+}
+  
+/* Set Halpern-Bruno model alt_subst_mod objects for motif branches within a
+   TreeModel object. If nodelist size is equal to the number of nodes in the
+   source tree, conserved motif is assumed and alt_subst_mods will not be
+   used -- instead, rate_matrix, background_freqs and subst_mod in the
+   original model will be reset and originals freed. */
+void dm_set_motif_branches_hb(TreeModel *tm, Vector *motif_freqs, 
+			      List *nodelist) {
+  int i, j;
+  double rab, pia, pib, pab, pba, rowsum;
+  MarkovMatrix *hb_matrix;
+  TreeNode *n;
+
+  if (tm->subst_mod != REV)
+    die("ERROR: Halpern-Bruno motif model requires use of an REV background model!\n");
+
+  /* First compute the Halpern-Bruno substitution matrix based on the equations
+     in Halpern and Bruno, 1998. MBE. 15(7):910-917. Note that the scaling
+     factor, k, used in Halpern-Bruno is not needed when using REV as the 
+     background model. */
+  hb_matrix = mm_new(motif_freqs->size, tm->rate_matrix->states, CONTINUOUS);
+  for (i = 0; i < motif_freqs->size; i++) {
+    rowsum = 0;
+    for (j = 0; j < motif_freqs->size; j++) {
+      if (i == j)
+	continue;
+      else { /* off-diagonal element -- compute rab and add to the row sum */
+	pia = vec_get(motif_freqs, i); /* Starting nucleotide frequency */ 
+	pib = vec_get(motif_freqs, j); /* Ending nucleotide frequency */
+	pab = mm_get(tm->rate_matrix, i, j); /* REV rate param for a->b mut. */
+	pba = mm_get(tm->rate_matrix, j, i); /* REV rate param for b->a mut. */
+
+	if ((pib * pba) / (pia * pab) != 1) {
+	  rab = pab * ( (log((pib * pba) / (pia * pab))) / 
+			(1 - ((pia * pab) / (pib * pba)))
+			);
+	} else {
+	  rab = pab;
+	}
+
+	mm_set(hb_matrix, i, j, rab);
+	rowsum += rab;
+/* 	fprintf(stderr, "i %d, j %d, pia %f, pib %f, pab %f, pba %f, rab %f\n", */
+/* 		i, j, pia, pib, pab, pba, rab); */
+      }
+    }
+    mm_set(hb_matrix, i, i, -rowsum);
+/*     for (j = 0; j < motif_freqs->size; j++) */
+/*       fprintf(stderr, "%f\t", mm_get(hb_matrix, i, j)); */
+/*     fprintf(stderr, "\n"); */
+  }
+/*   fprintf(stderr, "\n"); */
+/*   mm_pretty_print(stderr, hb_matrix); */
+  
+  /* Now set up the alternate subst. mods for the motif branches in the source
+     model, according to the nodelist. Check to see if the entire tree is
+     contained within the nodes list -- this indicates the entire tree is under
+     selection as a motif (i.e., conserved motif) and we can simply substitute
+     the freqs and rate_matrix within the entire mod instead of using the
+     alt_subst_mods. */
+/*   if (lst_size(nodelist) == tm->tree->nnodes) { */
+/*     mm_free(tm->rate_matrix); */
+/*     vec_free(tm->backgd_freqs); */
+/*     tm->rate_matrix = mm_create_copy(hb_matrix); */
+/*     tm->backgd_freqs = vec_create_copy(motif_freqs); */
+/*     tm->subst_mod = HB; */
+/*   } else { */
+    tm->alt_subst_mods = (AltSubstMod**)smalloc(tm->tree->nnodes
+						* sizeof(AltSubstMod*));
+
+    for (i = 0; i < tm->tree->nnodes; i++) tm->alt_subst_mods[i] = NULL;
+    
+    for (i = 0; i < lst_size(nodelist); i++) {
+      n = lst_get_ptr(nodelist, i);
+      tm->alt_subst_mods[n->id] =
+	tm_new_alt_subst_mod(HB, vec_create_copy(motif_freqs),
+			     mm_create_copy(hb_matrix));
+/*       fprintf(stderr, "mod[%d]:\n", n->id); */
+/*       fprintf(stderr, "\tbg: "); */
+/*       vec_print(tm->alt_subst_mods[n->id]->backgd_freqs, stderr); */
+/*       fprintf(stderr, "rate_matrix:\n"); */
+/*       mm_pretty_print(stderr, tm->alt_subst_mods[n->id]->rate_matrix); */
+/*       fprintf(stderr, "\n"); */
+    }
+/*   } */
+  /* Free up the source hb_matrix and we're done */
+  mm_free(hb_matrix);
+}
+
+dmevent_t dm_get_event_type(char *ename) {
+  if (strcmp(ename, "NEUT") == 0)
+    return NEUT;
+  else if (strcmp(ename, "CONS") == 0)
+    return CONS;
+  else if (strcmp(ename, "BIRTH") == 0)
+    return BIRTH;
+  else if (strcmp(ename, "DEATH") == 0)
+    return DEATH;
+  else
+    return -1;
+}
+
+/* Produce an indel history for the reverse strand */
+IndelHistory *dms_reverse_ih(IndelHistory *ih) {
+  int i, j;
+  CompactIndelHistory *cih_f, *cih_r;
+  IndelHistory *retval;
+  Indel *indel_f, *indel_r;
+
+  cih_f = ih_compact(ih);
+
+  cih_r = ih_new_compact(tr_create_copy(cih_f->tree), cih_f->ncols);
+  for (i = 0; i < cih_f->tree->nnodes; i++) {
+    for (j = 0; j < lst_size(cih_f->indels[i]); j++) {
+      indel_f = lst_get_ptr(cih_f->indels[i], j);
+      indel_r = (Indel*)smalloc(sizeof(Indel));
+      indel_r->type = indel_f->type;
+      indel_r->len = indel_f->len;
+      indel_r->start = (cih_f->ncols -
+			((indel_f->start + indel_f->len - 1) + 1));
+      lst_push_ptr(cih_r->indels[i], indel_r);
+    }
+  }
+  retval = ih_expand(cih_r);
+  ih_free_compact(cih_f);
+  ih_free_compact(cih_r);
+  return retval;
+}
+
+/* Fold non-identical motif features from the second gff set into the first
+   gff set, which will then contain the union of both sets */
+void dms_combine_gffs(GFF_Set *target_gff, GFF_Set *query_gff) {
+  int i, j, found;
+  GFF_Feature *tf, *qf;
+  GFF_Set *unique = gff_new_set();
+
+  for (i = 0; i < lst_size(query_gff->features); i++) {
+    qf = lst_get_ptr(query_gff->features, i);
+    found = 0;
+    for (j = 0; j < lst_size(target_gff->features); j++) {
+      tf = lst_get_ptr(target_gff->features, j);
+      if (qf->seqname == tf->seqname &&
+	  qf->feature == tf->feature &&
+	  qf->start == tf->start &&
+	  qf->end == tf-> end &&
+	  qf->strand == tf->strand) { /* Features are identical */
+	found = 1;
+	break;
+      }
+    }
+    if (found == 0) /* query feature not found in target set */
+      lst_push_ptr(unique->features, gff_new_feature_copy(qf));
+  }
+  for (i = 0; i < lst_size(unique->features); i++) {
+    qf = lst_get_ptr(unique->features, i);
+    lst_push_ptr(target_gff->features, gff_new_feature_copy(qf));
+  }
+  gff_free_set(unique);
+}
+
+/* Merge two GFF sets without comparing the contents -- assumes no overlap
+   between target and query! This is valid for single thread gff_sets from
+   dms_sample_path because each thread samples paths in a unique set of
+   sequences, thus gff_sets from different threads should never overlap. */
+void dms_merge_thread_gffs(GFF_Set *target_gff, GFF_Set *query_gff) {
+  int i;
+  GFF_Feature *f;
+  for (i = 0; i < lst_size(query_gff->features); i++) {
+    f = lst_get_ptr(query_gff->features, i);
+    lst_push_ptr(target_gff->features, gff_new_feature_copy(f));
   }
 }

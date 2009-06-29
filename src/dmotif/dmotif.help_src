@@ -17,8 +17,16 @@ OPTIONS:
         (default 0.5)
 
     --zeta, -z [~]<zeta>
-        (default 0.001)
+        Motif entry parameter for conserved sequences (default 0.001)
 
+    --xi, -x [~]<xi>
+	Motif entry parameter for nonconserved sequences (default 0.001)
+
+    --xi-off, -F	
+	Use the alternate model parameterization (single motif entry
+	parameter) instead of the default (separate motif entry parameters
+	for nonconserved (xi) and conserved sequences (zeta)).
+	
     --target-coverage, -C [~]<gamma>
         (Alternative to transitions, use with --expected-length) Set
         the transition parameters such that the expected fraction of
@@ -38,6 +46,30 @@ OPTIONS:
     --transitions, -t [~]<mu>,<nu> 
         Set the transition probabilities of the two-state HMM using
         the specified values of <mu> and <nu> (both between 0 and 1).
+
+    --mot-mod-type, -S F81|HB
+	Set the substitution model type used for motif states. Default is HB.
+	With HB, the Halpern-Bruno model (1998. MBE. 15(7):910-917) will be
+	used on motif branches, with site-specific selective pressure modeled
+	through the rate matrix and equilibrium frequencies; branch lengths are
+	not scaled by rho on motif branches. With F81, motif branches are
+	explicitly scaled by rho and only equilibrium frequencies will be used
+	in the substitution model for these branches. All branches are scaled 
+	equally, by rho, regardless of constraint implied by the motif weight
+	matrix, which implies equal constraint at all motif positions.
+
+    --scale-by-branch, -B
+	Scale transition probabilities for lineage-specific states by the
+	branch length leading to the node predicted to contain the gain or
+	loss event. Default is to treat all branches as if they were of equal
+	length when assigning transition probabilities.
+
+    --xi-off, -M
+	Toggle between default and alternate parameterization for entry into
+	motif states. Default parameterization uses zeta for transitions into
+	conserved and lineage-specific motifs and xi for entry into 
+	nonconserved motif states. Alternate parameterization uses a single
+	zeta parameter for both types of transitions.
 
     --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
         Alignment format (default FASTA).  Note that the program
