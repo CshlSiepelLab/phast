@@ -20,6 +20,8 @@
 #include <maf.h>
 #include <ctype.h>
 
+
+
 /** Read An Alignment from a MAF file.  The alignment won't be
    constructed explicitly; instead, a sufficient-statistics
    representation will be extracted directly from the MAF.  The MAF file must
@@ -110,6 +112,7 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
   int last_gap_start = -1;
   int idx_offset, end_idx, gap_sum=0;
   int block_list_idx, prev_end, next_start;
+  int first_idx=-1, last_idx=-1;
 
   if (gff != NULL) gap_strip_mode = 1; /* for now, automatically
                                           project if GFF (see comment
@@ -141,14 +144,12 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
     map->seq_list = lst_new_int(1);
     map->msa_list = lst_new_int(1);
     /* "prime" coord map */
+    /* Note: re-prime map->seq_list later if msa->idx_offset > 0 */
     lst_push_int(map->seq_list, 1);
     lst_push_int(map->msa_list, 1);
   }
                                 /* inner lists will be allocated by maf_peek */
 
-  /* scan MAF file for total number of sequences and their names, and
-     initialize msa accordingly.  Simultaneously build coordinate map,
-     if necessary */
   msa = msa_new(NULL, NULL, -1, 0, alphabet);
 
   //look at first block to get initial sequence names and refseqlen
@@ -180,7 +181,6 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 
   msa->length = 0;
   if (store_order) {
-    //    msa->length = map != NULL ? map->msa_len : refseqlen;
     msa->length = refseqlen;
     max_tuples = min(msa->length,
                      pow(strlen(msa->alphabet)+strlen(msa->missing)+1, 
@@ -197,8 +197,10 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
   ss_new(msa, tuple_size, max_tuples, gff != NULL || cycle_size > 0 ? 1 : 0, 
          store_order); 
 
-  if (store_order)
-    for (i = 0; i < msa->length; i++) msa->ss->tuple_idx[i] = -1;
+  if (store_order) {
+    for (i = 0; i < msa->length; i++) 
+      msa->ss->tuple_idx[i] = -1;
+  }
 
   /* process MAF one block at a time */
   block_no = 0;
@@ -211,7 +213,6 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
       msa_add_seq_ss(msa, mini_msa->nseqs);
       msa->nseqs = mini_msa->nseqs;
     }
-
     end_idx = start_idx + length - 1;
 
     /* if creating a map, require MAF to be sorted wrt reference sequence, otherwise skip block */
@@ -239,6 +240,19 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
     if (length < tuple_size)  {
       continue; 
     }
+
+    if (first_idx == -1) {
+      first_idx = start_idx;
+      if (store_order && REFSEQF == NULL) {
+	msa->idx_offset = first_idx;
+	/* reprime map->seq_list if necessary */
+	if (map != NULL && first_idx != 0)
+	  lst_set_int(map->seq_list, 0, msa->idx_offset + 1);
+      }
+    }
+    if (start_idx + length > last_idx)
+      last_idx = start_idx + length;
+
     /* add block to list to check for redundant blocks later */
     lst_push_int(block_starts, start_idx);
     lst_push_int(block_ends, end_idx);
@@ -253,12 +267,13 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 	else {
 	  if (gaplen > 0) {
 	    gap_sum += gaplen;
-	    if (idx == 0) 
+	    if (idx == msa->idx_offset) 
 	      lst_set_int(map->msa_list, 0, gap_sum + 1);
 	    else if (idx == last_gap_start) 
-	      lst_set_int(map->msa_list, lst_size(map->msa_list)-1, idx + gap_sum + 1);
+	      lst_set_int(map->msa_list, lst_size(map->msa_list)-1, 
+			  idx + gap_sum + 1 - msa->idx_offset);
 	    else {
-	      lst_push_int(map->msa_list, idx + gap_sum + 1);
+	      lst_push_int(map->msa_list, idx + gap_sum + 1 - msa->idx_offset);
 	      lst_push_int(map->seq_list, idx + 1);
 	    }
 	    last_gap_start = idx;
@@ -273,9 +288,10 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 	gapsum_block += gaplen;
 	gap_sum += gaplen;
 	if (idx == last_gap_start) 
-	  lst_set_int(map->msa_list, lst_size(map->msa_list)-1, idx + gap_sum + 1);
+	  lst_set_int(map->msa_list, lst_size(map->msa_list)-1, 
+		      idx + gap_sum + 1 - msa->idx_offset);
 	else {
-	  lst_push_int(map->msa_list, idx + gap_sum + 1);
+	  lst_push_int(map->msa_list, idx + gap_sum + 1 - msa->idx_offset);
 	  lst_push_int(map->seq_list, idx + 1);
 	}
 	last_gap_start = idx;
@@ -286,7 +302,7 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 		    store_order);
 	
       }
-    }
+    } /* end coordinate map section */
     
     if (gap_strip_mode != NO_STRIP) 
       msa_strip_gaps(mini_msa, gap_strip_mode);
@@ -330,7 +346,7 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
       assert(idx_offset >= 0);
     }
 
-    else if (store_order) idx_offset = start_idx; 
+    else if (store_order) idx_offset = start_idx - msa->idx_offset; 
 
     else idx_offset = -1;           /* no offset */
 
@@ -360,18 +376,23 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 
     for (i = 0; i < nreftuples; i++) fasthash[i] = -1;
 
-    if (REFSEQF != NULL)
+    if (REFSEQF != NULL) {
       refseq = msa_read_seq_fasta(REFSEQF);
+      if (refseq->length != refseqlen) 
+	die("ERROR: reference sequence length (%d) does not match description in MAF file (%d).\n", 
+	    refseq->length, refseqlen);
+    }
     else {
       /* in this case, create a dummy sequence (see below) */
-      refseq = str_new(map == NULL ? refseqlen : map->seq_len);
-      refseq->length = map == NULL ? refseqlen : map->seq_len;
+      /* update: if store_order is true but there is no REFSEQF, only store parts of
+       the alignment that fall inside the range of coordinates found in MAF file.  So
+       we still create a dummy sequence (in order to fill parts of alignment between blocks),
+       but it is length last_idx-first_idx.*/
+      msa->length = last_idx - first_idx + gap_sum;
+      msa_realloc(msa, msa->length, msa->length, 0, store_order);
+      refseq = str_new(msa->length);
+      refseq->length = msa->length;
     }
-
-    if ((map == NULL && refseq->length != refseqlen) ||
-        (map != NULL && refseq->length != map->seq_len)) 
-      die("ERROR: reference sequence length (%d) does not match description in MAF file (%d).\n", 
-          refseq->length, map == NULL ? refseqlen : map->seq_len);
 
     for (offset = -1 * (tuple_size-1); offset <= 0; offset++) 
       for (i = 1; i < msa->nseqs; i++)
@@ -381,11 +402,13 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
     /* look at each site in the reference sequence */
     map_idx = 0;
     reftuple[tuple_size] = '\0';
+
+
     for (i = 0, msa_idx = 0; i < refseq->length; i++, msa_idx++) {
 
       /* use the coord map but avoid a separate lookup at each position */
       if (map != NULL) {
-        if (lst_get_int(map->seq_list, map_idx) - 1 == i) 
+        if (lst_get_int(map->seq_list, map_idx) - 1 == i + msa->idx_offset) 
           msa_idx = lst_get_int(map->msa_list, map_idx++) - 1;
       }
       else msa_idx = i;

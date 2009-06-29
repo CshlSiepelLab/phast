@@ -122,7 +122,8 @@ OPTIONS:\n\
         List of explicit indices at which to split alignment\n\
         (comma-separated).  If the list of indices is \"10,20\",\n\
         then sub-alignments will be output for sites 1-9, 10-19, and\n\
-        20-<msa_len>.\n\
+        20-<msa_len>.  Note that the indices are relative to the \n\
+        input alignment, and not necessarily in genomic coordinates.\n\
 \n\
     --npartitions, -n <number>\n\
         Split alignment equally into specified number of partitions.\n\
@@ -644,8 +645,11 @@ int main(int argc, char* argv[]) {
 
   if (!for_features)            /* always add position 1 to list
                                    *unless* --for-features */
-    lst_push_int(split_indices_list, map != NULL ? 
-                 msa_map_seq_to_msa(map, 1) : 1); 
+    //    lst_push_int(split_indices_list, map != NULL ? 
+    //                 msa_map_seq_to_msa(map, 1) : 1); 
+    //bug fix: don't use map here, since this will cut off gaps in reference seq at
+    //beginning of alignment
+    lst_push_int(split_indices_list, 1);
 
   if (split_indices_str != NULL) { /* --by-index */
     List *l = lst_new_ptr(10);
@@ -661,6 +665,7 @@ int main(int argc, char* argv[]) {
 
       if (map != NULL)          /* convert to frame of entire alignment */
         idx = msa_map_seq_to_msa(map, idx);
+
       lst_push_int(split_indices_list, idx);
       str_free(idxstr);
     }
@@ -674,7 +679,7 @@ int main(int argc, char* argv[]) {
   else if (npartitions > 1) {        /* --npartitions */
     /* NOTE: currently ignores partition frame */
     double split_size = (double)msa->length/npartitions;
-    for (i = 1; i < npartitions; i++) { 
+    for (i = 1; i < npartitions; i++) {  
                                 /* note: will loop npartitions-1
                                    times */
       int idx = (int)ceil(i * split_size);

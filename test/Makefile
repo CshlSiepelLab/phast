@@ -116,3 +116,10 @@ show-cons:
 	rm chr22_phastConsTest.wig
 
 
+# Here are a few cases to make sure idx_offset of maf_read is working ok (should do
+# more testing when maf changes are complete)
+mafread:
+	msa_view -i MAF chr22.14500000-15500000.maf > test.fa
+	msa_view -i MAF test.maf > test.fa
+	msa_view -i MAF -o SS test.maf > test.ss
+	msa_split -i MAF --by-index 7,295 --out-root splitTest -o SS test.maf

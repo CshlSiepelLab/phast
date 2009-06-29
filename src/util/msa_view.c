@@ -672,9 +672,9 @@ int main(int argc, char* argv[]) {
 
     if (rseq_fname != NULL) RSEQF = fopen_fname(rseq_fname, "r");
 
-    if (output_format == SS && RSEQF == NULL && ordered_stats && 
+    /*    if (output_format == SS && RSEQF == NULL && ordered_stats && 
         gff == NULL && startcol == 1 && endcol == -1)
-      ordered_stats = FALSE;    /* in this case, assume unordered
+	ordered_stats = FALSE; */   /* in this case, assume unordered
                                    stats are desired; can't think of
                                    any value in collecting ordered
                                    stats, and it's a common mistake to
