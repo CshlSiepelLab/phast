@@ -36,6 +36,11 @@ OPTIONS:\n\
     --prune-all-but, -P <list>\n\
         Like --prune, but remove all leaves *except* the ones specified.\n\
 \n\
+    --get-subtree, -g <node_name>\n\
+        Like --prune, but remove all leaves who are not descendants of \n\
+        node.  (Note: implies --name-ancestors if given node not \n\
+        explicitly named in input tree)\n\
+\n\
     --rename, -r <mapping>\n\
         Rename leaves according to the given mapping.  The format of\n\
         <mapping> must be: \"oldname1 -> newname1 ; oldname2 ->\n\
@@ -59,6 +64,10 @@ OPTIONS:\n\
         label (name), parent, children, and distance to parent for\n\
         each node of the tree.  Sometimes useful for debugging.  Can be\n\
         used with other options.\n\
+\n\
+    --branchlen, -b\n\
+        In place of ordinary output, print the total branch length of\n\
+        the tree that would have been printed.\n\
 \n\
     --reroot, -R <node_name>\n\
         Reroot tree at internal node with specified name.\n\
@@ -119,9 +128,9 @@ int main(int argc, char *argv[]) {
   double scale_factor = 1;
   List *prune_names = NULL;
   int prune_all_but = FALSE, tree_only = FALSE, dissect = FALSE,
-    name_ancestors = FALSE, with_branch = FALSE;
+    name_ancestors = FALSE, with_branch = FALSE, print_branchlen=FALSE;
   TreeModel *mod = NULL, *merge_mod = NULL;
-  char *reroot_name = NULL, *subtree_name = FALSE;
+  char *reroot_name = NULL, *subtree_name =NULL, *get_subtree_name = NULL;
   
   /* other variables */
   String *suffix;
@@ -134,6 +143,7 @@ int main(int argc, char *argv[]) {
     {"extrapolate", 1, 0, 'e'},
     {"prune", 1, 0, 'p'},
     {"prune-all-but", 1, 0, 'P'},
+    {"get-subtree", 1, 0, 'g'},
     {"merge", 1, 0, 'm'},
     {"rename", 1, 0, 'r'},
     {"tree-only", 0, 0, 't'},
@@ -142,11 +152,12 @@ int main(int argc, char *argv[]) {
     {"reroot", 1, 0, 'R'},
     {"with-branch", 1, 0, 'B'},
     {"subtree", 1, 0, 'S'},
+    {"branchlen", 0, 0, 'b'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "s:p:P:m:r:R:B:S:adth", 
+  while ((c = getopt_long(argc, argv, "s:p:P:g:m:r:R:B:S:adtbh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 's':
@@ -167,6 +178,9 @@ int main(int argc, char *argv[]) {
       prune_names = get_arg_list(optarg);
       prune_all_but = TRUE;
       break;
+    case 'g':
+      get_subtree_name = optarg;
+      break;
     case 'm':
       suffix = str_new_charstr(optarg);
       str_suffix(suffix, '.');
@@ -185,6 +199,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'd':
       dissect = TRUE;
+      break;
+    case 'b':
+      print_branchlen = TRUE;
       break;
     case 'R':
       reroot_name = optarg;
@@ -225,6 +242,19 @@ int main(int argc, char *argv[]) {
   if (prune_names != NULL) {
     tr_prune(&tree, prune_names, prune_all_but);
     if (mod != NULL) mod->tree = tree; /* root may have changed */
+  }
+
+  if (get_subtree_name != NULL) {
+    n = tr_get_node(tree, get_subtree_name);
+    if (n == NULL) {
+      tr_name_ancestors(tree);
+      n = tr_get_node(tree, get_subtree_name);
+      if (n == NULL) {
+	die("ERROR: no node named '%s'.\n", subtree_name);
+      }
+    }
+    tr_prune_supertree(&tree, n);
+    if (mod != NULL) mod->tree = tree;
   }
 
   if (merge_tree != NULL) {
@@ -273,10 +303,14 @@ int main(int argc, char *argv[]) {
 
   if (dissect) 
     tr_print_nodes(stdout, tree);
-  else if (tree_only)
-    tr_print(stdout, tree, TRUE);
-  else
-    tm_print(stdout, mod);
-  
+  if (print_branchlen) 
+    printf("TOTAL_TREE_LEN: %f\n", tr_total_len(tree));
+
+  if (dissect==0 && print_branchlen==0) {
+    if (tree_only)
+      tr_print(stdout, tree, TRUE);
+    else
+      tm_print(stdout, mod);
+  }
   return 0;
 }

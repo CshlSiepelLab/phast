@@ -997,6 +997,25 @@ void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
   free(is_leaf);
 }
 
+void tr_prune_supertree(TreeNode **t, TreeNode *node) {
+  List *prune_names=lst_new_ptr((*t)->nnodes);
+  int i, *inSub = tr_in_subtree(*t, node);       
+  String *s;
+  TreeNode *n;
+
+  for (i=0; i<(*t)->nnodes; i++) {
+    n = lst_get_ptr((*t)->nodes, i);
+    if (inSub[i]==0 && n->lchild == NULL) {
+      s = str_new_charstr(n->name);
+      lst_push_ptr(prune_names, s);
+    }
+  }
+  tr_prune(t, prune_names, FALSE);
+  lst_free_strings(prune_names);
+  lst_free(prune_names);
+}
+
+
 /** Return the LCA of the given species.  Assumes ids are numbered in
     preorder (a node's parent always has a smaller id than it does and
     left descendants have smaller ids than right descendants). */
