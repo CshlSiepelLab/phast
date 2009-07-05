@@ -96,7 +96,7 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
   }
 
   cm = NULL;                    /* be sure doesn't get used by mistake */
-
+  
   phmm->mods = tree_models;
   phmm->nmods = phmm->cm->ncats + 1;
   phmm->nratecats = 1;
@@ -487,6 +487,9 @@ void phmm_free(PhyloHmm *phmm) {
   free(phmm->state_to_cat);
   free(phmm->state_to_pattern);
   free(phmm->reverse_compl);
+  for (i = 0; i <= phmm->cm->ncats; i++)
+    lst_free(phmm->cat_to_states[i]);
+  free(phmm->cat_to_states);
   cm_free(phmm->cm);
   if (phmm->T != NULL) {
     for (i = 0; i < phmm->functional_hmm->nstates; i++) {

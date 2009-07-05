@@ -181,8 +181,8 @@ void dms_combine_gffs(GFF_Set *target_gff, GFF_Set *query_gff);
 Hashtable* dms_read_hash(FILE *hash_f, int nstates, int* nsamples);
 void dms_write_hash(Hashtable *path_counts, FILE *hash_f, int nstates, 
 		    int nsamples);
-Hashtable* dms_cache_hash(Hashtable *path_counts, char *hash_fname,
-			  int nstates, int nsamples, int reinit_val);
+void dms_cache_hash(Hashtable *path_counts, char *hash_fname,
+		    int nstates, int nsamples);
 void dms_combine_hashes(Hashtable *target, Hashtable *query, int nstates);
 void dms_compute_emissions(PhyloHmm *phmm, MSA *pmsa, int quiet, 
 			   ThreadPool *pool, int nthreads);

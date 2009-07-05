@@ -26,6 +26,7 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
   TreeModel **models;
   TreeNode *n;
   CategoryMap *cm;
+/*   CategoryMap *cm_copy; */
   List *inside, *outside;
   double *alpha, *beta, *tau, *epsilon;
   DMotifPhyloHmm *dm;
@@ -218,8 +219,10 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
 
   /* build category map */
   cm = dm_create_catmap(dm, source_mod, NULL);
-
   dm->phmm = phmm_new(hmm, models, cm, NULL, MISSING_DATA);
+/*   cm_copy = dm->phmm->cm; */
+/*   dm->phmm->cm = cm; */
+/*   cm_free(cm_copy); */
   cm_free(cm); /* This is copied within phmm_new, so it's safe to free. */
   dm_set_transitions(dm, xi_mode, scale_by_branch);
 
@@ -1130,7 +1133,7 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
 		       int quiet, char *cache_fname, int cache_int,
 		       int xi_mode, int scale_by_branch) {
 
-  int i, j, k, l, *path, **trans, **ref_paths = NULL, nwins, reinit;
+  int i, j, k, l, *path, **trans, **ref_paths = NULL, nwins;
   unsigned long int seed;
   FILE *devrandom;
   double **forward_scores, llh;
@@ -1261,12 +1264,8 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
 	snprintf(cache_out, STR_MED_LEN, "%s.%d.tmp", cache_fname, k++);
 	lst_push_ptr(cache_files, (void*)str_new_charstr(cache_out));
 	/*      fprintf(stderr, "i %d, k %d, l %d, cache_file %s\n", i, k-1, l, cache_out); */
-	if (i == nsamples+bsamples-1)
-	  reinit = -1;
-	else
-	  reinit = max(10*lst_size(blocks->source_msas), 10000);
-	path_counts = dms_cache_hash(path_counts, cache_out, (2*dm->k)+2, l,
-				     reinit);
+	dms_cache_hash(path_counts, cache_out, (2*dm->k)+2, l);
+	hsh_clear_with_vals(path_counts);
 	l = 1;
       } else {
 	l++;
@@ -1299,8 +1298,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 			    List **zeroed_states, int xi_mode, 
 			    int scale_by_branch) {
   
-  int i, j, k, l, t, **trans, ***thread_trans, nwins, reinit, threads,
-    **thread_path;
+  int i, j, k, l, t, **trans, ***thread_trans, nwins, threads, **thread_path;
   unsigned long int seed;
   FILE *devrandom;
 /*   int **ref_paths = NULL; */
@@ -1322,23 +1320,22 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
   cache_files = lst_new_ptr(max(nsamples/cache_int, 1));
   work = lst_new_ptr(lst_size(blocks->source_msas));
   lst_clear(work); /* to be safe */
+  lst_clear(cache_files);
   
   /* Simplifies looping for case where thread pool size == 0 */
   if (nthreads == 0)
     threads = 1;
   else
     threads = nthreads;
-  
-  /* Global hash initial allocation size */
-  reinit = max(100*lst_size(blocks->source_msas), 1000);
-  
+
   /* Allocate the global hashtable */
-  path_counts = hsh_new(reinit);
+  path_counts = hsh_new(max(100*lst_size(blocks->source_msas), 1000));
   
   /* Allocate the thread_specific hashtables */
   thread_counts = (Hashtable**)smalloc(threads * sizeof(Hashtable*));
   for (i = 0; i < threads; i++) {
-    thread_counts[i] = hsh_new(reinit/threads);
+    thread_counts[i] = hsh_new(max(100*lst_size(blocks->source_msas), 1000) /
+			       threads);
   }
   
   /* Allocate space for the global transition counts and set to prior values */
@@ -1400,7 +1397,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
   
     /* Also set up GFF Sets for tracking of true and false positives */
     query_gff = gff_new_set();
-    thread_gff = (GFF_Set**)smalloc(threads * sizeof(GFF_Set));
+    thread_gff = (GFF_Set**)smalloc(threads * sizeof(GFF_Set*));
     for (i = 0; i < threads; i++)
       thread_gff[i] = gff_new_set();
   }
@@ -1458,7 +1455,8 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
     }
 
     /* Set up the work list for multithreading over sequences. First make sure
-       the existing list is empty and all old work items have been freed. */
+       the existing list is empty. Once this is set up, we can reuse the
+       work items in subsequent samples by just changing two values. */
     if (i == 0) {
       if (!lst_empty(work)) {
 	for (j = 0; j < lst_size(blocks->source_msas); j++) {
@@ -1467,6 +1465,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 	}
 	lst_clear(work);
       }
+      /* Set up the individual work items */
       for (j = 0; j < lst_size(blocks->source_msas); j++) {
 	data = (DMsamplingThreadData*)smalloc(sizeof(DMsamplingThreadData));
 	
@@ -1555,11 +1554,8 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 	snprintf(cache_out, STR_MED_LEN, "%s.%d.tmp", cache_fname, k++);
 	lst_push_ptr(cache_files, (void*)str_new_charstr(cache_out));
 /* 	fprintf(stderr, "i %d, k %d, l %d, cache_file %s\n", i, k-1, l, cache_out); */
-	if (i == nsamples+bsamples-1) /* Don't reinit the hash if we're 
-					 done with sampling. */
-	  reinit = -1;
-	path_counts = dms_cache_hash(path_counts, cache_out, (2*dm->k)+2, l, 
-				     reinit);
+	dms_cache_hash(path_counts, cache_out, (2*dm->k)+2, l);
+	hsh_clear_with_vals(path_counts);
 	l = 1;
       } else {
 	l++;
@@ -1608,6 +1604,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
     hsh_free_with_vals(thread_counts[i]);
     free(thread_path[i]);
   }
+  hsh_free_with_vals(path_counts);
   free(thread_trans);
   free(thread_counts);
   free(thread_llh);
@@ -1633,9 +1630,12 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 
   int *path, thread_idx, **trans;
   double **emissions, **forward_scores, *llh;
-  MSA *msa = lst_get_ptr(blocks->source_msas, seqnum);
+  MSA *msa;
   Hashtable *path_counts;
   GFF_Set *query_gff;
+
+  /* Get a pointer to the msa we're looking at */
+  msa = lst_get_ptr(blocks->source_msas, seqnum);
 
   /* Get the index of the current thread and appropriate vectors in thread-
      specific structures. */
@@ -1957,14 +1957,19 @@ void dms_compare_gffs(GFF_Set *target_gff, GFF_Set *query_gff, int *stats,
      coordinate base of the target set */
   int i, j, k, nmatches, *tmatch_idx, *qmatch_idx;
   GFF_Feature *ft, *fq;
-  tmatch_idx = (int*)smalloc(lst_size(target_gff->features) 
-			     * sizeof(int));
-  qmatch_idx = (int*)smalloc(lst_size(query_gff->features) 
-			     * sizeof(int));
 
-  if (matches != NULL && (mismatches == NULL || unique_to_query == NULL ||
-			  unique_to_target == NULL))
-    die("ERROR in dms_compare_gffs: Not enough GFF_Sets for format!\n");
+  if (matches != NULL) {
+    tmatch_idx = (int*)smalloc(lst_size(target_gff->features) == 0 ? 1 :
+			       lst_size(target_gff->features)
+			       * sizeof(int));
+    qmatch_idx = (int*)smalloc(lst_size(query_gff->features) == 0 ? 1 :
+			       lst_size(query_gff->features)
+			       * sizeof(int));
+  
+    if (mismatches == NULL || unique_to_query == NULL ||
+	unique_to_target == NULL)
+      die("ERROR in dms_compare_gffs: Not enough GFF_Sets for format!\n");
+  }
 
   nmatches = 0;
   for (i = 0; i < lst_size(query_gff->features); i++) {
@@ -1975,9 +1980,11 @@ void dms_compare_gffs(GFF_Set *target_gff, GFF_Set *query_gff, int *stats,
 	continue;
       if ((fq->start + offset) == ft->start) {
 	/* Motif found in same position */
-	tmatch_idx[nmatches] = j;
-	qmatch_idx[nmatches] = i;
 	nmatches++;
+	if (matches != NULL) {
+	  tmatch_idx[nmatches] = j;
+	  qmatch_idx[nmatches] = i;
+	}
 	if (str_compare(fq->feature, ft->feature) == 0) { /* feature types
 							     match */
 	  stats[0]++;
@@ -2032,8 +2039,10 @@ void dms_compare_gffs(GFF_Set *target_gff, GFF_Set *query_gff, int *stats,
       j = (tmatch_idx[i] - 1);
     }
   }
-  free(tmatch_idx);
-  free(qmatch_idx);
+  if (matches != NULL) {
+    free(tmatch_idx);
+    free(qmatch_idx);
+  }
 }
 
 /* Create a hashtable from a stored representation on disk */
@@ -2131,6 +2140,7 @@ void dms_combine_hashes(Hashtable *target, Hashtable *query,
 /* 	fprintf(stderr, "tc_new %d\n", counts_t[j]); */
     }
   }
+  lst_free(keys);
 }
 
 /** Compute emissions for given PhyloHmm and MSA using posix threads. Based on
@@ -2388,7 +2398,8 @@ void dms_path_log(DMotifPhyloHmm *dm, int *path, int seqlen, char *seqname,
 void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample, 
 		   double llh, GFF_Set *query_gff, GFF_Set *reference, 
 		   int nwins, int xi_mode) { 
-  int i, *stats;
+  int i;
+  static int *stats = NULL;
   double fpr, spc, ppv;
   char param[STR_SHORT_LEN];
  
@@ -2398,7 +2409,10 @@ void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample,
      keep track of the matches, mismatches, etc. in the stats structure */
   if (reference != NULL) {
     fpr = spc = ppv = 0;
-    stats = (int*)smalloc(4 * sizeof(int));
+
+    if (stats == NULL) {
+      stats = (int*)smalloc(4 * sizeof(int));
+    }
     for (i = 0; i < 4; i++)
       stats[i] = 0;
     
@@ -2408,7 +2422,7 @@ void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample,
        / (double)(nwins - lst_size(reference->features));
     spc = (double)(nwins - lst_size(query_gff->features))
       / (double)((nwins - lst_size(query_gff->features)) + stats[3] + stats[1]);
-    if (stats[0])
+    if (stats[0] != 0)
       ppv = (double)(stats[0]) / (double)(lst_size(query_gff->features));
     else
       ppv = 0;
@@ -2974,19 +2988,13 @@ MSA *dm_indel_mask(DMotifPhyloHmm *dm, MSA *msa, IndelHistory *ih,
 }
 
 /* Incrementally cache the motifs hash to disk and reset the working hash */
-Hashtable* dms_cache_hash(Hashtable *path_counts, char *cache_fname, 
-			  int nstates, int nsamples, int reinit) {
-  Hashtable *tmp_hash;
+void dms_cache_hash(Hashtable *path_counts, char *cache_fname, 
+			  int nstates, int nsamples) {
   FILE *hash_f;
-
+  
   hash_f = fopen_fname(cache_fname, "w");
   dms_write_hash(path_counts, hash_f, nstates, nsamples);
   fclose(hash_f);
-  hsh_free_with_vals(path_counts);
-  if (reinit == -1) /* Do not reinitialize -- return null pointer */
-    return NULL;
-  tmp_hash = hsh_new(reinit);
-  return tmp_hash;
 }
 
 Hashtable* dms_uncache(List *cache_files, int init_size, int nstates, 
