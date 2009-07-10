@@ -401,7 +401,7 @@ CategoryMap *cm_create_copy(CategoryMap *src) {
   for (i = 0; i <= src->ncats; i++) {
     if (src->ranges[i] != lastrange) {
       retval->ranges[i] = cm_category_range_create_copy(src->ranges[i]);
-      lastrange = src->ranges[i];
+      lastrange = retval->ranges[i];
     } else {
       retval->ranges[i] = lastrange;
     }
