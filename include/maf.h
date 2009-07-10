@@ -32,6 +32,25 @@
 #include "hashtable.h"
 #include "gff.h"
 
+
+typedef struct {
+  String *text;  //text[i] contains line i of the block
+  int numline, seqlen;
+
+  int *specmap;  /* specmap[i]=j if line[i] of block contains information
+                    about species j.  If line i isn't species-specific 
+		    (ie, the first line), specmap[i] = -1 */
+  char **seq;  /* seq[i] points to sequence for species i (pointer to
+		  position in text array) */
+  char **quality;  /* quality[i] points to string of quality scores for
+                      species[i], or NULL if no data */
+  char **qline, **sline, **iline, **eline;  /* pointers to lines
+                                               starting with q, s, i, e for
+					       each species (or NULL if
+					       no data for species i) */
+} MAF_BLOCK;
+                 
+
 MSA *maf_read_cats(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
 		   GFF_Set *gff, CategoryMap *cm, int cycle_size, int store_order, 
 		   char *reverse_groups, int gap_strip_mode, int keep_overlapping,

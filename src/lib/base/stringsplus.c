@@ -178,6 +178,23 @@ int str_readline(String *s, FILE *F) {
   return abort ? EOF : 0;
 }
 
+int str_readline_alloc(String *s, FILE *F) {
+  int pos=0, maxlen=s->nchars;
+  char c;
+  while ('\n'!=(c=fgetc(F)) && c!=EOF) {
+    s->chars[pos++]=c;
+    if (pos==maxlen) {
+      maxlen += BUFFERSIZE;
+      s->chars = realloc(s->chars, maxlen*sizeof(char));
+      s->nchars = maxlen;
+    }
+  }
+  s->chars[pos] = '\0';
+  s->length = pos;
+  return c==EOF ? EOF : 0;
+} 
+
+
 void str_slurp(String *s, FILE *F) {
   String *line = str_new(BUFFERSIZE);
   str_clear(s);

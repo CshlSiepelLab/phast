@@ -1474,3 +1474,5 @@ void maf_block_sub_gff(GFF_Set *sub_gff, GFF_Set *gff, int start_idx,
                                    block to be considered for the next
                                    block */
 }
+
+
