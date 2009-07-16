@@ -43,6 +43,57 @@ MafSubBlock *mafBlock_new_subBlock()  {
   return sub;
 }
 
+
+MafSubBlock *mafSubBlock_copy(MafSubBlock *src) {
+  MafSubBlock *sub = smalloc(sizeof(MafSubBlock));
+  int i, j;
+  if (src->seq == NULL) sub->seq = NULL;
+  else sub->seq = str_new_charstr(src->seq->chars);
+  if (src->src == NULL) sub->src = NULL;
+  else sub->src = str_new_charstr(src->src->chars);
+  if (src->specName == NULL) sub->specName = NULL;
+  else sub->specName = str_new_charstr(src->specName->chars);
+  sub->start = src->start;
+  sub->size = src->size;
+  sub->strand = src->strand;
+  sub->srcSize = src->srcSize;
+  sub->numLine = src->numLine;
+  for (i=0; i<src->numLine; i++) {
+    sub->lineType[i] = src->lineType[i];
+    if (src->lineType[i]=='i') {
+      for (j=0; j<2; j++) {
+	sub->iStatus[j] = src->iStatus[j];
+	sub->iCount[j]  = src->iCount[j];
+      }
+    }
+    if (src->lineType[i]=='e') 
+      sub->eStatus = src->eStatus;
+  }
+  if (src->quality == NULL) sub->quality = NULL;
+  else sub->quality = str_new_charstr(src->quality->chars);
+  return sub;
+}
+
+MafBlock* mafBlock_copy(MafBlock *src) {
+  MafBlock *block = smalloc(sizeof(MafBlock));
+  MafSubBlock *sub;
+  int i;
+  if (src->aLine == NULL) block->aLine = NULL;
+  else block->aLine = str_new_charstr(src->aLine->chars);
+  if (src->specMap == NULL) block->specMap = NULL;
+  else block->specMap = hsh_copy(src->specMap);
+  block->seqlen = src->seqlen;
+  if (src->data==NULL) block->data = NULL;
+  else {
+    block->data = lst_new_ptr(lst_size(src->data));
+    for (i=0; i<lst_size(src->data); i++) {
+      sub = mafSubBlock_copy((MafSubBlock*)lst_get_ptr(src->data, i));
+      lst_push_ptr(block->data, (void*)sub);
+    }
+  }
+  return block;
+}
+
 //parses a line from maf block starting with 'e' or 's' and returns a new MafSubBlock 
 //object. 
 MafSubBlock *mafBlock_get_subBlock(String *line) {
@@ -98,8 +149,10 @@ MafSubBlock *mafBlock_get_subBlock(String *line) {
     if (str->length != 1)
       die("ERROR: e-Line with status %s in MAF block\n", str->chars);
     sub->eStatus = str->chars[0];
+    //note: don't know what status 'T' means (it's not in MAF documentation), but
+    //it is in the 44-way MAFs
     if (sub->eStatus != 'C' && sub->eStatus != 'I' && sub->eStatus != 'M' &&
-	sub->eStatus != 'n')
+	sub->eStatus != 'n' && sub->eStatus != 'T')
       die("ERROR: e-Line has illegal status %c\n", sub->eStatus);
   }
   sub->numLine = 1;
@@ -346,11 +399,12 @@ void mafBlock_print(FILE *outfile, MafBlock *block) {
 	if (firstChar == 's') fprintf(outfile, "%s\n", sub->seq->chars);
 	else fprintf(outfile, "%c\n", sub->eStatus);
       } else if (firstChar=='i') {
-	sprintf(formatstr, "i %%-%is %%c %%i %%c %%i\\n",
+	sprintf(formatstr, "i %%-%is %%c %%i %%c %%i",
 		fieldSize[1]);
 	fprintf(outfile, formatstr, sub->src->chars,
 		sub->iStatus[0], sub->iCount[0],
 		sub->iStatus[1], sub->iCount[1]);
+	fputc('\n', outfile);
       } else {
 	assert(firstChar=='q');
 	sprintf(formatstr, "q %%-%is", fieldSize[1]);
@@ -385,21 +439,10 @@ void mafSubBlock_free(MafSubBlock *sub) {
   free(sub);
 }
 
-//if exclude==0, removes all species not in list.
-//if exclude==1, removes all species in list
-void mafBlock_subSpec(MafBlock *block, List *specNameList, int include) {
-  String *str;
+
+void mafBlock_remove_lines(MafBlock *block, int *keep) {
+  int i, oldSize = lst_size(block->data), newSize=0;
   MafSubBlock *sub, *testSub;
-  int i, idx, *keep, oldSize = lst_size(block->data), newSize=0;
-
-  keep = malloc(oldSize*sizeof(int));
-  for (i=0; i<oldSize; i++) keep[i]=(include==0);
-
-  for (i=0; i<lst_size(specNameList); i++) {
-    str = (String*)lst_get_ptr(specNameList, i);
-    idx = ptr_to_int(hsh_get(block->specMap, str->chars));
-    if (idx != -1) keep[idx] = !(include==0);
-  }
   for (i=0; i<oldSize; i++) {
     if (keep[i]) {
       if (i != newSize) {
@@ -422,6 +465,23 @@ void mafBlock_subSpec(MafBlock *block, List *specNameList, int include) {
   }
   for (i=oldSize-1; i>=newSize; i--)
     lst_delete_idx(block->data, i);
+}
+
+//if exclude==0, removes all species not in list.
+//if exclude==1, removes all species in list
+void mafBlock_subSpec(MafBlock *block, List *specNameList, int include) {
+  String *str;
+  int i, idx, *keep, oldSize = lst_size(block->data);
+
+  keep = malloc(oldSize*sizeof(int));
+  for (i=0; i<oldSize; i++) keep[i]=(include==0);
+
+  for (i=0; i<lst_size(specNameList); i++) {
+    str = (String*)lst_get_ptr(specNameList, i);
+    idx = ptr_to_int(hsh_get(block->specMap, str->chars));
+    if (idx != -1) keep[idx] = !(include==0);
+  }
+  mafBlock_remove_lines(block, keep);
   free(keep);
   return;
 }
@@ -533,8 +593,22 @@ int mafBlock_numSpec(MafBlock *block) {
   return lst_size(block->data);
 }
 
+void mafSubBlock_strip_iLine(MafSubBlock *sub) {
+  int i, j;
+  for (i=0; i<sub->numLine; i++) 
+    if (sub->lineType[i]=='i') break;
+  if (i < sub->numLine) {
+    for (j=i+1; j<sub->numLine; j++) {
+      sub->lineType[j-1] = sub->lineType[j];
+      assert(sub->lineType[j] != 'i');
+    }
+    sub->numLine--;
+  }
+}
+
+
 void mafBlock_subAlign(MafBlock *block, int start, int end) {
-  int i, j, k, oldSeqlen = block->seqlen;
+  int i, j, oldSeqlen = block->seqlen;
   MafSubBlock *sub;
   String *str;
   if (start > end || start <= 0 || start > oldSeqlen ||
@@ -556,17 +630,11 @@ void mafBlock_subAlign(MafBlock *block, int start, int end) {
     sub->size = 0;
     for (j=start; j<end; j++)
       if (sub->seq->chars[j] != '-') sub->size++;
+    
+    mafSubBlock_strip_iLine(sub);
 
     //get rid of i-line if exists
-    for (j=1; j<sub->numLine; j++) 
-      if (sub->lineType[i]=='i') break;
-    if (j < sub->numLine) {
-      for (k=j+1; k<sub->numLine; k++) {
-	sub->lineType[k-1] = sub->lineType[k];
-	assert(sub->lineType[k] != 'i');
-      }
-      sub->numLine--;
-    }
+    mafSubBlock_strip_iLine(sub);
 
     //trim seq and quality scores
     str = str_new(end-start);
@@ -625,3 +693,44 @@ int mafBlock_trim(MafBlock *block, int startcol, int endcol, String *refseq,
   mafBlock_subAlign(block, first, last);
   return 1;
 }
+
+
+void mafBlock_strip_iLines(MafBlock *block) {
+  MafSubBlock *sub;
+  int i;
+  for (i=0; i<lst_size(block->data); i++) {
+    sub = (MafSubBlock*)lst_get_ptr(block->data, i);
+    mafSubBlock_strip_iLine(sub);
+  }
+}
+
+
+void mafBlock_strip_eLines(MafBlock *block) {
+  int i, *keep = malloc(lst_size(block->data)*sizeof(int));
+  for (i=0; i<lst_size(block->data); i++) 
+    keep[i] = (((MafSubBlock*)lst_get_ptr(block->data, i))->lineType[0] != 'e');
+  mafBlock_remove_lines(block, keep);
+  free(keep);
+}
+
+//strip both i- and e-lines
+void mafBlock_strip_ieLines(MafBlock*block) {
+  mafBlock_strip_iLines(block);
+  mafBlock_strip_eLines(block);
+}
+
+//change all bases with quality score <= cutoff to N
+void mafBlock_mask_bases(MafBlock *block, int cutoff) {
+  MafSubBlock *sub;
+  int i, j;
+  for (i=0; i<lst_size(block->data); i++) {
+    sub = (MafSubBlock*)lst_get_ptr(block->data, i);
+    if (sub->quality==NULL) continue;
+    for (j=0; j<block->seqlen; j++) {
+      if (sub->quality->chars[j]=='-' || sub->quality->chars[j]=='F') continue;
+      if (sub->quality->chars[j] - '0' <= cutoff)
+	sub->seq->chars[j]='N';
+    }
+  }
+}
+

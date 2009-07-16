@@ -58,6 +58,9 @@ typedef struct MAFBLOCK {
 void mafBlock_print(FILE *outfile, MafBlock *block);
 MafBlock *mafBlock_read_next(FILE *mfile, int *numspec, Hashtable *specHash);
 
+MafSubBlock *mafSubBlock_coppy(MafSubBlock *src);
+MafBlock *mafBlock_copy(MafBlock *src);
+
 //reorder rows of maf block given list with names of species in desired order
 void mafBlock_reorder(MafBlock *block, List *specNameOrder);
 
@@ -106,4 +109,15 @@ int mafBlock_trim(MafBlock *block, int startcol, int endcol,
 //(1-based, in the reference frame of entire alignment).  start should be
 //<= end and both should be in the range [1,block->seqlen]. 
 void mafBlock_subAlign(MafBlock *block, int start, int end);
+
+//strip iLines
+void mafBlock_strip_iLines(MafBlock *block);
+
+//strip eLines
+void mafBlock_strip_eLines(MafBlock *block);
+
+//strip i- and e-Lines
+void mafBlock_strip_ieLines(MafBlock *block);
+
+void mafBlock_mask_bases(MafBlock *block, int cutoff);
 #endif

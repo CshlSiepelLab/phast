@@ -29,6 +29,7 @@ struct hash_table {
 };
 
 Hashtable* hsh_new(int est_capacity);
+Hashtable* hsh_copy(Hashtable *ht);
 void hsh_put(Hashtable *ht, char* key, void* val);
 void* hsh_get(Hashtable* ht, char *key);
 int hsh_delete(Hashtable* ht, char *key);

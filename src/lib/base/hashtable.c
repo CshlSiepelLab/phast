@@ -38,6 +38,37 @@ Hashtable* hsh_new(int est_capacity) {
   return ht;
 }
 
+/* makes copy of hashtable.  Warning: if vals are pointers,
+   only copies pointers.  Does copy keys. */
+Hashtable *hsh_copy(Hashtable *src) {
+  Hashtable *ht;
+  int i, j, len;
+  char *key, *keycpy;
+  ht = (Hashtable*)smalloc(sizeof(Hashtable));
+  ht->nbuckets = src->nbuckets;
+  ht->keys = (List**)smalloc(ht->nbuckets*sizeof(List*));
+  ht->vals = (List**)smalloc(ht->nbuckets*sizeof(List*));
+  for (i=0; i<ht->nbuckets; i++) {
+    if (src->keys[i] == NULL) {
+      ht->keys[i] = NULL;
+      ht->vals[i] = NULL;
+    }
+    else {
+      len = lst_size(src->keys[i]);
+      ht->keys[i] = lst_new_ptr(len);
+      ht->vals[i] = lst_new_ptr(len);
+      for (j=0; j<len; j++) {
+	key = (char*)lst_get_ptr(src->keys[i], j);
+	keycpy = smalloc(sizeof(char)*(strlen(key)+1));
+	strcpy(keycpy, key);
+	lst_push_ptr(ht->keys[i], keycpy);
+	lst_push_ptr(ht->vals[i], lst_get_ptr(src->vals[i], j));
+      }
+    }
+  }
+  return ht;
+}
+
 /* Insert object with specified key and value. */
 void hsh_put(Hashtable *ht, char* key, void* val) {
   unsigned int bucket = hsh_hash_func(ht, key);

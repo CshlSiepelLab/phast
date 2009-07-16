@@ -150,6 +150,8 @@ GFF_Feature *gff_new_feature_copy(GFF_Feature *orig);
 GFF_Set *gff_subset_range(GFF_Set *set, int startcol, int endcol, 
                           int reset_indices);
 
+GFF_Set *gff_subset_range_overlap(GFF_Set *set, int startcol, int endcol);
+
 void gff_filter_by_type(GFF_Set *gff, List *types, int exclude, 
                         FILE *discards_f);
 
@@ -164,6 +166,8 @@ int gff_group_comparator(const void* ptr1, const void* ptr2);
 void gff_sort(GFF_Set *set);
 
 void gff_group(GFF_Set *set, char *tag);
+
+void gff_group_by_feature(GFF_Set *set);
 
 void gff_exon_group(GFF_Set *set, char *tag);
 
@@ -188,7 +192,11 @@ void gff_create_introns(GFF_Set *feats);
 
 void gff_create_signals(GFF_Set *feats);
 
+String *gff_group_name(GFF_Set *feats, GFF_Feature *f);
+
 void gff_flatten(GFF_Set *feats);
+
+void gff_flatten_within_groups(GFF_Set *feats);
 
 void gff_partition_by_type(GFF_Set *feats, List *types, List *subsets);
 

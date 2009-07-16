@@ -408,6 +408,29 @@ GFF_Set *gff_subset_range(GFF_Set *set, int startcol, int endcol,
   return subset;
 }
 
+/** Like gff_subset_range, except keep any featuers that
+    overlap with range (even if parts of the feature fall outside 
+    range) **/
+GFF_Set *gff_subset_range_overlap(GFF_Set *set, int startcol, int endcol) {
+  GFF_Set *subset = gff_new_set();
+  int i;
+  str_cpy(subset->gff_version, set->gff_version);
+  str_cpy(subset->source, set->source);
+  str_cpy(subset->source_version, set->source_version);
+  str_cpy(subset->date, set->date); /* make current date instead? */
+
+  /* Note: uses linear search */
+  for (i = 0; i < lst_size(set->features); i++) {
+    GFF_Feature *feat = (GFF_Feature*)lst_get_ptr(set->features, i);
+    if (feat->start <= endcol && feat->end >= startcol) {
+      GFF_Feature *newfeat = gff_new_feature_copy(feat);
+      lst_push_ptr(subset->features, newfeat);
+    }
+  }
+  return subset;
+}
+
+
 /** Discard any feature whose feature type is not in the specified
     list. */
 void gff_filter_by_type(GFF_Set *gff, 
@@ -606,6 +629,45 @@ void gff_group(GFF_Set *set, char *tag) {
   str_free(nullstr);
   hsh_free(hash);
 }
+
+
+/** Group features by feature type.  All features with
+    undefined values will be placed in a single group. */
+void gff_group_by_feature(GFF_Set *set) {
+  int est_no_groups = max(lst_size(set->features) / 10, 1);
+  Hashtable *hash = hsh_new(est_no_groups);
+  int i;
+
+  if (set->groups != NULL)
+    gff_ungroup(set);
+
+  set->groups = lst_new_ptr(est_no_groups);
+  set->group_tag = str_new_charstr("feature");
+
+  for (i = 0; i < lst_size(set->features); i++) {
+    GFF_Feature *f = lst_get_ptr(set->features, i);
+    GFF_FeatureGroup *group;
+    
+    if ((group = hsh_get(hash, f->feature->chars)) == (void*)-1) {
+                                /* new group */
+      group = smalloc(sizeof(GFF_FeatureGroup));
+      group->name = str_dup(f->feature);
+      group->features = lst_new_ptr(5);
+      group->start = f->start;
+      group->end = f->end;
+      lst_push_ptr(set->groups, group);
+      hsh_put(hash, f->feature->chars, group);
+    }
+    else {                      /* new member for existing group */
+      if (f->start < group->start) group->start = f->start;
+      if (f->end > group->end) group->end = f->end;
+    }
+    lst_push_ptr(group->features, f);
+
+  }
+  hsh_free(hash);
+}
+
 
 /** Remove grouping of features */
 void gff_ungroup(GFF_Set *set) {
@@ -1151,11 +1213,111 @@ void gff_create_signals(GFF_Set *feats) {
   }
 }
 
+/* return index of group that feature f belongs to.  If pos is not
+   NULL, sets it to feature's position in group.
+   Warning: not efficient- must search through all groups until
+   feature is found */
+int gff_group_idx(GFF_Set *feats, GFF_Feature *f, int *pos) {
+  GFF_FeatureGroup *grp;
+  int i, j;
+  if (pos != NULL) *pos = -1;
+  if (feats->groups == NULL) return -1;
+  for (i=0; i<lst_size(feats->groups); i++) {
+    grp = (GFF_FeatureGroup*)lst_get_ptr(feats->groups, i);
+    for (j=0; j<lst_size(grp->features); j++) {
+      if ((GFF_Feature*)lst_get_ptr(grp->features, j) == f) {
+	if (pos != NULL) *pos = j;
+	return i;
+      }
+    }
+  }
+  die("ERROR: gff_group_idx couldn't find feature in any group\n");
+  return -1;
+}
+
+/* return name of group that feature f belongs to.
+   Warning: not efficient- must search through all groups until
+   feature is found */
+String *gff_group_name(GFF_Set *feats, GFF_Feature *f) {
+  int idx = gff_group_idx(feats, f, NULL);
+  if (idx == -1) return NULL;
+  return ((GFF_FeatureGroup*)lst_get_ptr(feats->groups, idx))->name;
+}
+
+
+/** Sub-routine called by gff_flatten and gff_flatten_groups.
+    Merges overlapping or adjacent features of same type.  Assumes
+    features are sorted.  When two features are merged, scores are
+    summed, but attributes are ignored.  Will not merge if 'frame' is
+    non-null.  If keepGroups, will not combine features in different
+    groups, and will preserve group structure*/
+void gff_flatten_sub(GFF_Set *feats, int keepGroups) {
+  List *keepers;
+  GFF_Feature *last;
+  int i, changed = FALSE;
+
+  if (lst_size(feats->features) <= 1) return;
+
+  keepers = lst_new_ptr(lst_size(feats->features));
+  last = lst_get_ptr(feats->features, 0);
+  lst_push_ptr(keepers, last);
+
+  for (i = 1; i < lst_size(feats->features); i++) {
+    GFF_Feature *this = lst_get_ptr(feats->features, i);
+    if (last->end >= this->start - 1 && last->strand == this->strand && 
+	str_equals(last->feature, this->feature) && 
+	last->frame == GFF_NULL_FRAME && this->frame == GFF_NULL_FRAME) {
+      //need to see if two features are in same group.  Unfortunately 
+      //no efficient way to do this
+      if (keepGroups && feats->groups != NULL) {
+	int thisGrp, lastGrp, thispos;
+	thisGrp = gff_group_idx(feats, this, &thispos);
+	lastGrp = gff_group_idx(feats, last, NULL);
+
+	//don't combine if this/last are in different groups
+	if (thisGrp != lastGrp) continue;
+
+	//otherwise need to remove this from group list
+	lst_delete_idx(lst_get_ptr(feats->groups, thisGrp), thispos);
+      }
+      last->end = this->end;
+      if (!last->score_is_null && !this->score_is_null) 
+	last->score += this->score;
+      /* (ignore attribute) */
+      gff_free_feature(this);
+      changed = TRUE;
+    }
+    else {
+      lst_push_ptr(keepers, this);
+      last = this;
+    }
+  }
+  if (changed) {
+    lst_free(feats->features);
+    feats->features = keepers;
+    if (feats->groups != NULL && keepGroups==0) 
+      gff_ungroup(feats);
+  }
+  else 
+    lst_free(keepers);
+}
+
+
 /** Merges overlapping or adjacent features of same type.  Assumes
     features are sorted.  When two features are merged, scores are
     summed, but attributes are ignored.  Will not merge if 'frame' is
-    non-null.  */
+    non-null.  Removes group structure and combines between groups if
+    they are defined */
 void gff_flatten(GFF_Set *feats) {
+  gff_flatten_sub(feats, 0);
+}
+
+
+/** Merges overlapping or adjacent features of same type, if they
+    are they are in the same group.  Assumes features are sorted.  
+    When two features are merged, scores are summed, but attributes are 
+    ignored.  Will not merge if 'frame' is non-null.  */
+void gff_flatten_within_groups(GFF_Set *feats) {
   List *keepers;
   GFF_Feature *last;
   int i, changed = FALSE;
@@ -1191,6 +1353,7 @@ void gff_flatten(GFF_Set *feats) {
   else 
     lst_free(keepers);
 }
+
 
 /* partition features of a GFF by feature type.  On return, 'types'
    will be a list of feature types and subsets will be a corresponding
