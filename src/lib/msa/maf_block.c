@@ -157,7 +157,7 @@ MafSubBlock *mafBlock_get_subBlock(String *line) {
   }
   sub->numLine = 1;
   //free all strings except field 1 and field 6 when lineType=='s'
-  for (i=0; i<6; i++)
+  for (i=0; i<7; i++)
     if (i!=1 && (i!=6 || sub->lineType[0]!='s')) 
       str_free((String*)lst_get_ptr(l, i));
   lst_free(l);
