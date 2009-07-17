@@ -41,6 +41,20 @@ DESCRIPTION:\n\
 \n\
 OPTIONS:\n\
 \n\
+ (Output format)\n\
+    --out-format, -o MAF|PHYLIP|FASTA|MPM|SS\n\
+        (Default MAF).  Output file format.  SS format is only\n\
+        available un-ordered.  Note that some options, which involve\n\
+        reversing alignments based on strand, or stripping gaps, \n\
+        cannot be output in MAF format and use FASTA by default.\n\
+        Also note that when output format is not MAF, the entire\n\
+        output must be loaded into memory.\n\
+\n\
+    --pretty, -p\n\
+        Pretty-print alignment (use '.' when character matches\n\
+        corresponding character in first sequence).  Ignored if\n\
+        --out-format SS is selected.\n\
+\n\
  (Obtaining sub-alignments and re-ordering rows)\n\
     --start, -s <start_col>\n\
         Starting column of sub-alignment (indexing starts with 1).\n\
@@ -65,53 +79,57 @@ OPTIONS:\n\
         the reference sequence.\n\
 \n\
     --no-refseq, -n\n\
-        Do not assume first sequence in MAF is refseq.  Instead, use coordinates\n\
-        given by absolute position in alignment (starting from 1).\n\
+        Do not assume first sequence in MAF is refseq.  Instead, use\n\
+        coordinates  given by absolute position in alignment (starting\n\
+        from 1).\n\
 \n\
 (Splitting into multiple MAFs by length)\n\
     --split, -S length \n\
-        Split MAF into pieces by length, and puts output in outRootX.maf, where\n\
-        X=1,2,...,numPieces.  outRoot can be modified with --out-root, and the\n\
-        minimum number of digits in X can be modified with --out-root-digits.\n\
-        Splits between blocks, so that each output file does not exceed specified\n\
-        length.  By default, length is counted by distance spanned in alignment\n\
-        by refseq, unless --no-refseq is specified.\n\
+        Split MAF into pieces by length, and puts output in \n\
+        outRootX.maf, where X=1,2,...,numPieces.  outRoot can be\n\
+        modified with --out-root, and the minimum number of digits in X\n\
+        can be modified with --out-root-digits.\n\
+        Splits between blocks, so that each output file does not exceed\n\
+        specified length.  By default, length is counted by distance\n\
+        spanned in alignment by refseq, unless --no-refseq is specified.\n\
 \n\
    --out-root, -r <name>\n\
-        Filename root for output files produced by --split (default \"maf_parse\").\n\
+        Filename root for output files produced by --split (default\n\
+        \"maf_parse\").\n\
 \n\
    --out-root-digits, -d <numdigits>\n\
-        (for use with --split).  The minimum number of digits used to index each\n\
-        output file produced by split.\n\
+        (for use with --split).  The minimum number of digits used to \n\
+        index each output file produced by split.\n\
 \n\
 (Extracting features from MAF)\n\
     --features, -g <fname>\n\
-        Annotations file.  May be GFF, BED, or genepred format.  Coordinates assumed\n\
-        to be in frame of first sequence of alignment (reference sequence).  By\n\
-        default, outputs subset of MAF which are labeled in annotations file.  But\n\
-        can be used with --by-category, --by-group, and/or --do-cats to split MAF\n\
-        by annotation type.  Implies --strip-i-lines, --strip-e-lines\n\
+        Annotations file.  May be GFF, BED, or genepred format.\n\
+        Coordinates assumed to be in frame of first sequence of\n\
+        alignment (reference sequence).  By default, outputs subset of \n\
+        MAF which are labeled in annotations file.  But can be used with\n\
+        --by-category, --by-group, and/or --do-cats to split MAF by\n\
+        annotation type.  Implies --strip-i-lines, --strip-e-lines\n\
     --by-category, -L\n\
-        (Requires --features).  Split by category, as defined by annotations file\n\
-        and (optionally) category map (see --catmap). (NOT IMPLEMENTED YET)\n\
+        (Requires --features).  Split by category, as defined by\n\
+        annotations file and (optionally) category map (see --catmap).\n\
     --do-cats, -C <cat_list>\n\
-        (For use with --by-category) Output sub-alignments for only the specified\n\
-        categories. (NOT IMPLEMENTED YET)\n\
+        (For use with --by-category) Output sub-alignments for only the\n\
+        specified categories.\n\
     --catmap, -c <fname>|<string>\n\
-        (Optionally use with --by-category) Mapping of feature types to category\n\
-        numbers.  Can either give a filename or an \"inline\" description of a\n\
-        simple category map, e.g.,\n --catmap \"NCATS = 3 ; CDS 1-3\" or\n\
-        --catmap \"NCATS = 1; UTR 1\". (NOT IMPLEMENTED YET)\n\
+        (Optionally use with --by-category) Mapping of feature types to\n\
+        category numbers.  Can either give a filename or an \"inline\"\n\
+        description of a simple category map, e.g.,\n --catmap\n\
+        \"NCATS = 3 ; CDS 1-3\" or --catmap \"NCATS = 1; UTR 1\".\n\
     --by-group, -P <tag>\n\
-        (Requires --features).  Split by groups in annotation file, as defined\n\
-        by specified tag. (NOT IMPLEMENTED YET)\n\
+        (Requires --features).  Split by groups in annotation file, as \n\
+        defined by specified tag.\n\
 \n\
 (Masking by quality score)\n\
     --mask-bases, -b <qscore>\n\
-        Mask all bases with quality score <= n.  Note that n is in the same units\n\
-        as displayed in the MAF (ranging from 0-9), and represents\n\
-        min(9, floor(PHRED_score/5)).  Bases without any quality score will not be\n\
-        masked.\n\
+        Mask all bases with quality score <= n.  Note that n is in the\n\
+        same units as displayed in the MAF (ranging from 0-9), and\n\
+        represents min(9, floor(PHRED_score/5)).  Bases without any\n\
+        quality score will not be masked.\n\
 \n\
  (Other)\n\
     --strip-i-lines, -I\n\
@@ -158,12 +176,16 @@ int main(int argc, char* argv[]) {
   MafBlock *block;
   FILE *mfile, *outfile=NULL;
   int useRefseq=TRUE, currLen=-1, blockIdx=0, currSize, sortWarned=0;
-  int lastIdx = 0, currStart=0, by_category = FALSE, i;
+  int lastIdx = 0, currStart=0, by_category = FALSE, i, pretty_print = FALSE;
+  int lastStart = -1, gffSearchIdx=0;
   GFF_Set *gff = NULL, *gffSub;
   CategoryMap *cm = NULL;
-  int base_mask_cutoff = -1, stripILines=FALSE, stripELines=FALSE;
+  int base_mask_cutoff = -1, stripILines=FALSE, stripELines=FALSE;//, numspec=0;
   List *outfileList=NULL;
-  Hashtable *outfileHash=NULL;
+  Hashtable *outfileHash=NULL;//, *specNameHash=NULL;
+  msa_format_type output_format = MAF;
+  MSA *msa = NULL;//, **catMsa;
+  
 
   struct option long_opts[] = {
     {"start", 1, 0, 's'},
@@ -187,7 +209,7 @@ int main(int argc, char* argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "s:e:l:O:r:S:d:g:c:P:b:LnxEIh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "s:e:l:O:r:S:d:g:c:P:b:o:pLnxEIh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 's':
       startcol = get_arg_int(optarg);
@@ -211,13 +233,14 @@ int main(int argc, char* argv[]) {
       out_root_fname = optarg;
       break;
     case 'd':
-      sprintf(splitFormat, "%%s%%.%si.maf", optarg);
+      sprintf(splitFormat, "%%s%%.%si.%%s", optarg);
       break;
     case 'n':
       useRefseq = FALSE;
       break;
     case 'g':
       gff = gff_read_set(fopen_fname(optarg, "r"));
+      gff_sort(gff);
       stripILines=TRUE;
       stripELines=TRUE;
       break;
@@ -241,6 +264,14 @@ int main(int argc, char* argv[]) {
       break;
     case 'I':
       stripILines=TRUE;
+      break;
+    case 'o':
+      output_format = msa_str_to_format(optarg);
+      if (output_format == -1) 
+	die("ERROR: bad output format.  Try \"maf_parse -h\" for help.\n");
+      break;
+    case 'p':
+      pretty_print = TRUE;
       break;
     case 'h':
       print_usage();
@@ -334,17 +365,26 @@ int main(int argc, char* argv[]) {
       }
     }
     else currStart = lastIdx;
+
+    if (currStart < lastStart) gffSearchIdx = 0;
+    lastStart = currStart;
     
     lastIdx = currStart + currSize;
 
     //split by length
     if (splitInterval != -1) {
       if (currLen == -1 || currLen+currSize > splitInterval) {
-	sprintf(outfilename, splitFormat, out_root_fname, ++blockIdx);
-	if (outfile != NULL) {
-	  mafBlock_close_file(outfile);
+	sprintf(outfilename, splitFormat, out_root_fname, ++blockIdx,
+		msa_suffix_for_format(output_format));
+	if (output_format == MAF) {
+	  if (outfile != NULL) mafBlock_close_file(outfile);
+	  outfile = mafBlock_open_file(outfilename);
 	}
-	outfile = mafBlock_open_file(outfilename);
+	else if (output_format != MAF && msa != NULL) {
+	  //	  msa_print_to_filename(msa, outfilename, output_format, pretty_print);
+	  msa_free(msa);
+	  msa = NULL;
+	}
 	currLen = 0;
       }
       currLen += currSize;
@@ -352,8 +392,9 @@ int main(int argc, char* argv[]) {
     else outfile = stdout;
 
     if (gff != NULL) {
-      gffSub = gff_subset_range_overlap(gff, currStart, lastIdx);
-      if (lst_size(gffSub->features) != 0) {
+      gffSub = gff_subset_range_overlap_sorted(gff, currStart, lastIdx, 
+					       &gffSearchIdx);
+      if (gffSub != NULL) {
 	if (by_category) gff_group_by_feature(gffSub);
 	else if (group_tag != NULL) gff_group(gffSub, group_tag);
 	gff_sort(gffSub);
@@ -368,22 +409,34 @@ int main(int argc, char* argv[]) {
 	    outfile = get_outfile(outfileList, outfileHash, 
 				  gff_group_name(gffSub, feat), out_root_fname);
 	  else outfile = stdout;
-	  mafBlock_print(outfile, subBlock);
+	  if (output_format == MAF)
+	    mafBlock_print(outfile, subBlock, pretty_print);
+	  //	  else msa_add_mafBlock(msa);
 	  mafBlock_free(subBlock);
 	}
+	gff_free_set(gffSub);
       }
-      gff_free_set(gffSub);
-    } 
-    else mafBlock_print(outfile, block);
-
+    }
+    else {
+      if (output_format == MAF) 
+	mafBlock_print(outfile, block, pretty_print);
+      //      else msa = msa_add_mafBlock(mafBlock, msa, );
+    }
+    
   get_next_block:
     mafBlock_free(block);
     block = mafBlock_read_next(mfile, NULL, NULL);
   }
-  if (by_category || group_tag != NULL)
-    close_outfiles(outfileList, outfileHash);
-  else mafBlock_close_file(outfile);
 
+  if (output_format == MAF) {
+    if (by_category || group_tag != NULL)
+      close_outfiles(outfileList, outfileHash);
+    else mafBlock_close_file(outfile);
+  } else {
+    msa_print(stdout, msa, output_format, pretty_print);
+    msa_free(msa);
+  }
+  if (gff != NULL) gff_free_set(gff);
   fclose(mfile);
   return 0;
 }

@@ -392,20 +392,10 @@ CategoryMap *cm_new(int ncats) {
 }
 
 CategoryMap *cm_create_copy(CategoryMap *src) {
-  int i, has_dependencies;
+  int i, has_dependencies = 0;
   CategoryMap *retval = cm_new(src->ncats);
-  CategoryRange *lastrange;
-
-  has_dependencies = 0;
-  lastrange = NULL;
   for (i = 0; i <= src->ncats; i++) {
-    if (src->ranges[i] != lastrange) {
-      retval->ranges[i] = cm_category_range_create_copy(src->ranges[i]);
-      lastrange = retval->ranges[i];
-    } else {
-      retval->ranges[i] = lastrange;
-    }
-
+    retval->ranges[i] = cm_category_range_create_copy(src->ranges[i]);
     if (retval->conditioned_on[i] != NULL) {
       retval->conditioned_on[i] = lst_new_int(lst_size(src->conditioned_on[i]));
       lst_cpy(retval->conditioned_on[i], src->conditioned_on[i]);
@@ -519,9 +509,9 @@ void cm_realloc(CategoryMap *cm, int new_ncats) {
 
 /** Free memory associated with category map. */
 void cm_free(CategoryMap *cm) {
-  int i, len;
+  int i;
   for (i = 0; i <= cm->ncats; i++) {
-    len = 0;
+    int len = 0;
     if (cm->ranges[i] != NULL) {
       len = cm->ranges[i]->end_cat_no - cm->ranges[i]->start_cat_no;
       cm_free_category_range(cm->ranges[i]);

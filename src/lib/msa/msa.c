@@ -369,6 +369,14 @@ void msa_print(FILE *F, MSA *msa, msa_format_type format, int pretty_print) {
   }
 }
 
+void msa_print_to_file(char *filename, MSA *msa, msa_format_type format, 
+		       int pretty_print) {
+  FILE *outfile = fopen_fname(filename, "w");
+  msa_print(outfile, msa, format, pretty_print);
+  fclose(outfile);
+}
+
+
 /* Frees MSA object.  Names and seqs are freed also, even though they may
    have been allocated externally. */
 void msa_free(MSA *msa) {

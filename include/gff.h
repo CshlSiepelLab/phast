@@ -152,6 +152,9 @@ GFF_Set *gff_subset_range(GFF_Set *set, int startcol, int endcol,
 
 GFF_Set *gff_subset_range_overlap(GFF_Set *set, int startcol, int endcol);
 
+GFF_Set *gff_subset_range_overlap_sorted(GFF_Set *set, int startcol, int endcol, 
+					 int *startSearchIdx);
+
 void gff_filter_by_type(GFF_Set *gff, List *types, int exclude, 
                         FILE *discards_f);
 

@@ -412,24 +412,57 @@ GFF_Set *gff_subset_range(GFF_Set *set, int startcol, int endcol,
     overlap with range (even if parts of the feature fall outside 
     range) **/
 GFF_Set *gff_subset_range_overlap(GFF_Set *set, int startcol, int endcol) {
-  GFF_Set *subset = gff_new_set();
+  GFF_Set *subset = NULL;
   int i;
-  str_cpy(subset->gff_version, set->gff_version);
-  str_cpy(subset->source, set->source);
-  str_cpy(subset->source_version, set->source_version);
-  str_cpy(subset->date, set->date); /* make current date instead? */
 
   /* Note: uses linear search */
   for (i = 0; i < lst_size(set->features); i++) {
     GFF_Feature *feat = (GFF_Feature*)lst_get_ptr(set->features, i);
     if (feat->start <= endcol && feat->end >= startcol) {
       GFF_Feature *newfeat = gff_new_feature_copy(feat);
+      if (subset == NULL) {
+	subset = gff_new_set();
+	str_cpy(subset->gff_version, set->gff_version);
+	str_cpy(subset->source, set->source);
+	str_cpy(subset->source_version, set->source_version);
+	str_cpy(subset->date, set->date); /* make current date instead? */
+      }
       lst_push_ptr(subset->features, newfeat);
     }
   }
   return subset;
 }
 
+
+/** Like gff_subset_range_overlap, but assume gff is sorted by start
+    position of feature.  Start search at index startSearchIdx and assume
+    that there are no overlapping features before this index.  Reset
+    startSearchIdx to the first matching feature (or leave it alone if no
+    matches).  Stop searching gff when indices in gff exceed endcol */
+GFF_Set *gff_subset_range_overlap_sorted(GFF_Set *set, int startcol, int endcol,
+					 int *startSearchIdx) {
+  GFF_Set *subset = NULL;
+  int i;
+
+  /* Note: uses linear search */
+  for (i = *startSearchIdx; i < lst_size(set->features); i++) {
+    GFF_Feature *feat = (GFF_Feature*)lst_get_ptr(set->features, i);
+    if (feat->start <= endcol && feat->end >= startcol) {
+      GFF_Feature *newfeat = gff_new_feature_copy(feat);
+      if (subset == NULL) {
+	subset = gff_new_set();
+	str_cpy(subset->gff_version, set->gff_version);
+	str_cpy(subset->source, set->source);
+	str_cpy(subset->source_version, set->source_version);
+	str_cpy(subset->date, set->date); /* make current date instead? */
+	*startSearchIdx = i;
+      }
+      lst_push_ptr(subset->features, newfeat);
+    }
+    else if (feat->start > endcol) break;
+  }
+  return subset;
+}
 
 /** Discard any feature whose feature type is not in the specified
     list. */

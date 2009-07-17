@@ -55,8 +55,8 @@ typedef struct MAFBLOCK {
 } MafBlock;
   
              
-void mafBlock_print(FILE *outfile, MafBlock *block);
-MafBlock *mafBlock_read_next(FILE *mfile, int *numspec, Hashtable *specHash);
+void mafBlock_print(FILE *outfile, MafBlock *block, int pretty_print);
+MafBlock *mafBlock_read_next(FILE *mfile, Hashtable *specHash, int *numspec);
 
 MafSubBlock *mafSubBlock_coppy(MafSubBlock *src);
 MafBlock *mafBlock_copy(MafBlock *src);

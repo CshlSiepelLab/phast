@@ -252,20 +252,20 @@ void mafBlock_add_qLine(String *line, MafSubBlock *sub) {
 
 
 //read next block in mfile and return MafBlock object or NULL if EOF.
-//specHash and numSpec are not used, but they should both either be NULL or not-NULL.
-//if not-NULL, they should be initialized, and any new species encountered will
-//be added to the hash, with numspec increased accordingly
-MafBlock *mafBlock_read_next(FILE *mfile, int *numSpec, Hashtable *specHash) {
+//specHash and numSpec are not used, but if specHash is not NULL,
+//it should be initialized, and any new species encountered will be added
+//to the hash, with numSpec increased accordingly.  If specHash is NULL,
+//numSpec will not be used or modified.
+MafBlock *mafBlock_read_next(FILE *mfile, Hashtable *specHash, int *numSpec) {
   int i;
   char firstchar;
   String *currLine = str_new(1000);
   MafBlock *block=NULL;
   MafSubBlock *sub=NULL;
 
-  if ((specHash==NULL && numSpec!=NULL) ||
-      (specHash!=NULL && numSpec==NULL)) 
-    die("ERROR: mafblock_read_next expects numSpec and specHash both to be non-NULL,"
-	"or both to be NULL\n");
+  if (specHash != NULL && numSpec==NULL) 
+    die("ERROR: mafBlock_read_next: numSpec cannot be NULL "
+	"if specHash is not NULL\n");
 
   while (EOF != str_readline_alloc(currLine, mfile)) {
     str_trim(currLine);
@@ -305,7 +305,7 @@ MafBlock *mafBlock_read_next(FILE *mfile, int *numSpec, Hashtable *specHash) {
       else die("ERROR: found line in MAF block starting with '%c'\n", firstchar);
     }
   }
-  free(currLine);
+  str_free(currLine);
   if (block == NULL) return NULL;
 
   //set seqlen and make sure all seq arrays agree
@@ -374,11 +374,12 @@ void mafBlock_get_fieldSizes(MafBlock *block, int fieldSize[6]) {
 }
 
 
-void mafBlock_print(FILE *outfile, MafBlock *block) {
+void mafBlock_print(FILE *outfile, MafBlock *block, int pretty_print) {
   int i, j, k, numSpace;
   int fieldSize[6];  //maximum # of characters in the first 6 fields of block
   MafSubBlock *sub;
   char firstChar, formatstr[1000];
+  char *firstseq=NULL;
 
   //if processing has reduced the number of species with data to zero, or has
   //reduced the block to all gaps, don't print
@@ -396,7 +397,18 @@ void mafBlock_print(FILE *outfile, MafBlock *block) {
 		fieldSize[1], fieldSize[2], fieldSize[3], fieldSize[5]);
 	fprintf(outfile, formatstr, firstChar, sub->src->chars,
 		sub->start, sub->size, sub->strand, sub->srcSize);
-	if (firstChar == 's') fprintf(outfile, "%s\n", sub->seq->chars);
+	if (firstChar == 's') {
+	  if (firstseq == NULL) {
+	    fprintf(outfile, "%s\n", sub->seq->chars);
+	    if (pretty_print) firstseq = sub->seq->chars;
+	  }
+	  else {
+	    for (k=0; k<block->seqlen; k++)
+	      fputc(tolower(sub->seq->chars[k])==tolower(firstseq[k]) ? 
+		    '.' : sub->seq->chars[k], 
+		    outfile);
+	  }
+	}
 	else fprintf(outfile, "%c\n", sub->eStatus);
       } else if (firstChar=='i') {
 	sprintf(formatstr, "i %%-%is %%c %%i %%c %%i",
@@ -416,7 +428,7 @@ void mafBlock_print(FILE *outfile, MafBlock *block) {
     }
   }
   fputc('\n', outfile);  //blank line to mark end of block
-  fflush(outfile);
+  //  fflush(outfile);
 }
 
 void mafSubBlock_free(MafSubBlock *sub) {

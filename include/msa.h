@@ -111,6 +111,8 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet);
 MSA *msa_create_copy(MSA *msa, int suff_stats_only);
 MSA *msa_read_fasta(FILE *F, char *alphabet);
 void msa_print(FILE *F, MSA *msa, msa_format_type format, int pretty_print);
+void msa_print_to_file(char *filename, MSA *msa, msa_format_type format, 
+		       int pretty_print);
 void msa_free(MSA *msa);
 void msa_strip_gaps(MSA *msa, int gap_strip_mode);
 void msa_project(MSA *msa, int refseq);
