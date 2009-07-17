@@ -267,7 +267,7 @@ MafBlock *mafBlock_read_next(FILE *mfile, Hashtable *specHash, int *numSpec) {
     die("ERROR: mafBlock_read_next: numSpec cannot be NULL "
 	"if specHash is not NULL\n");
 
-  while (EOF != str_readline_alloc(currLine, mfile)) {
+  while (EOF != str_readline(currLine, mfile)) {
     str_trim(currLine);
     if (currLine->length==0) {  //if blank line, it is either first or last line
       if (block == NULL) continue;

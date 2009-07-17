@@ -142,11 +142,6 @@ void str_substring(String *dest, String *src, int startidx, int len);
    Returns 0 on success and EOF if end-of-file or error. */
 int str_readline(String *s, FILE *F); 
 
-/* Read a line from a file.  Destination String must be allocated
-   externally, but will be re-allocated if line is too long.
-   Returns 0 on success and EOF if end-of-file or error */
-int str_readline_alloc(String *s, FILE *f);
-
 /* Read an entire file.   Destination String must be initialized
    externally.  */
 void str_slurp(String *s, FILE *F); 

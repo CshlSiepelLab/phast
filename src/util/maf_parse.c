@@ -269,6 +269,8 @@ int main(int argc, char* argv[]) {
       output_format = msa_str_to_format(optarg);
       if (output_format == -1) 
 	die("ERROR: bad output format.  Try \"maf_parse -h\" for help.\n");
+      if (output_format != MAF)
+	die("Sorry, only MAF format output has been implemented right now.\n");
       break;
     case 'p':
       pretty_print = TRUE;
