@@ -144,15 +144,15 @@ int main(int argc, char *argv[]) {
       }
       else
         tr_free(t);
-
-      if (groups != NULL)
-        used[nextgroup] = TRUE;
     }
 
     /* swap treelist and newlist */
     tmpl = treelist;
     treelist = newlist;
     newlist = tmpl;
+
+    if (groups != NULL)
+      used[nextgroup] = TRUE;
   }
 
   /* traverse list and add outgroup at root of each tree */
