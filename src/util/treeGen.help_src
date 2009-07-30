@@ -1,0 +1,16 @@
+PROGRAM: treeGen
+
+DESCRIPTION: Enumerate rooted tree topologies, subject to constraints on
+monophyletic groups.  An outgroup is assumed to be specified.
+
+USAGE: treeGen spec1,spec2,spec3,... > outfile
+            OR
+       treeGen '*speciesFile' > outfile
+
+       (where speciesFile contains whitespace-delimited species names) 
+
+       The last species listed is assumed to be the outgroup.
+
+OPTIONS:
+    --help, -h
+        Print this help message.
