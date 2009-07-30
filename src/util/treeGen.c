@@ -17,15 +17,16 @@
 
 int num_rooted_topologies(int n);
 TreeNode *tr_new_trivial(char *name1, char *name2);
-void tr_add_leaf_internal(TreeNode *t, int branch, char *lname);
-void tr_add_leaf_at_root(TreeNode *t, char *lname);
+void tr_add_leaf_internal(TreeNode *t, int branch, char *lname, int lgroup);
+void tr_add_leaf_at_root(TreeNode *t, char *lname, int lgroup);
 
 
 int main(int argc, char *argv[]) {
   char c;
   int opt_idx, i, j, k, N, nleaves;
-  List *names, *treelist, *newlist, *tmpl;
+  List *names, *treelist, *newlist, *tmpl, *groups = NULL;
   TreeNode *t, *tnew;
+  int *used;
 
   struct option long_opts[] = {
     {"help", 0, 0, 'h'},
@@ -42,7 +43,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (optind != argc - 1) 
+  if (optind < argc - 2 || optind > argc - 1)
     die("ERROR: Wrong number of arguments.  Try 'treeGen -h'.\n");
 
   names = get_arg_list(argv[optind]);
@@ -50,9 +51,25 @@ int main(int argc, char *argv[]) {
   if (lst_size(names) <= 1)
     die("ERROR: must specify at least two species names.\n");
 
+  if (optind == argc - 2) {
+    groups = get_arg_list_int(argv[optind+1]);
+    if (lst_size(names) != lst_size(groups))
+      die("ERROR: name list and group list must be equal in length.\n");
+  }
+
   nleaves = lst_size(names) - 1; /* excluding outgroup */
 
   N = num_rooted_topologies(nleaves); 
+
+  if (groups != NULL) {
+    int maxgroup = 0;
+    for (i = 0; i < lst_size(groups); i++)
+      if (lst_get_int(groups, i) > maxgroup)
+          maxgroup = lst_get_int(groups, i);
+    used = smalloc((maxgroup+1) * sizeof(int));
+    for (i = 0; i <= maxgroup; i++)
+      used[i] = FALSE;
+  }
 
   /* FIXME: eventually need to consider constraints here */
 
@@ -67,8 +84,20 @@ int main(int argc, char *argv[]) {
   newlist = lst_new_ptr(1000);
   lst_push_ptr(treelist, t);
 
+  if (groups != NULL) {         /* use branch lengths to encode group
+                                   membership -- sort of an ugly hack
+                                   but should be okay here */
+    t->lchild->dparent = lst_get_int(groups, 0);
+    t->rchild->dparent = lst_get_int(groups, 1);
+    if (t->lchild->dparent == t->rchild->dparent)
+      t->dparent = t->lchild->dparent;    
+    used[lst_get_int(groups, 0)] = TRUE;
+    used[lst_get_int(groups, 1)] = TRUE;
+  }
+
   for (i = 2; i < nleaves; i++) {
     char *nextname = ((String*)lst_get_ptr(names, i))->chars;
+    int nextgroup = groups != NULL ? lst_get_int(groups, i) : -1;
     lst_clear(newlist);
 
     for (j = 0; j < lst_size(treelist); j++) {
@@ -76,15 +105,48 @@ int main(int argc, char *argv[]) {
 
       /* create copies and add leaf to each internal branch */
       for (k = 1; k < t->nnodes; k++) {
+        TreeNode *n = lst_get_ptr(t->nodes, k);
+
+        /* decide whether adding leaf to this branch is consistent
+           with monophyletic groups */
+        if (groups != NULL) {
+          int branchgroup = n->dparent;
+          int ancgroup = n->parent->dparent;
+          if (nextgroup > 0 && used[nextgroup]) { 
+                                /* group is represented in the tree */
+            if (nextgroup != branchgroup) {
+              continue;   /* can only add to the designated subtree */
+            }
+          }
+
+          else {                  /* group is zero (background) or not
+                                     yet represented in the tree */ 
+            if (branchgroup != 0 && nextgroup != branchgroup && 
+                branchgroup == ancgroup) {
+              continue;             /* only prohibit adding inside
+                                       another designated subtree
+                                       (adding to leading branch is
+                                       okay) */
+            }
+          }
+        }
+
         tnew = tr_create_copy(t);
-        tr_add_leaf_internal(tnew, k, nextname);
+        tr_add_leaf_internal(tnew, k, nextname, nextgroup);
         lst_push_ptr(newlist, tnew);
-      }
+    }
 
       /* now add leaf at root; this time reuse the original copy to
          avoid unnecessary memory reallocation */
-      tr_add_leaf_at_root(t, nextname);
-      lst_push_ptr(newlist, t);
+      if (nextgroup <= 0 || !used[nextgroup] || t->dparent == nextgroup) {
+        tr_add_leaf_at_root(t, nextname, nextgroup);
+        lst_push_ptr(newlist, t);
+      }
+      else
+        tr_free(t);
+
+      if (groups != NULL)
+        used[nextgroup] = TRUE;
     }
 
     /* swap treelist and newlist */
@@ -94,9 +156,11 @@ int main(int argc, char *argv[]) {
   }
 
   /* traverse list and add outgroup at root of each tree */
-  for (j = 0; j < lst_size(treelist); j++) {
-    t = lst_get_ptr(treelist, j);
-    tr_add_leaf_at_root(t, ((String*)lst_get_ptr(names, nleaves))->chars);
+  if (nleaves > 1) {
+    for (j = 0; j < lst_size(treelist); j++) {
+      t = lst_get_ptr(treelist, j);
+      tr_add_leaf_at_root(t, ((String*)lst_get_ptr(names, nleaves))->chars, 0);
+    }
   }
 
   /* print trees */
@@ -143,7 +207,7 @@ TreeNode *tr_new_trivial(char *name1, char *name2) {
 }
 
 /* add leaf with specified name to specified internal branch */
-void tr_add_leaf_internal(TreeNode *t, int branch, char *lname) {
+void tr_add_leaf_internal(TreeNode *t, int branch, char *lname, int lgroup) {
   TreeNode *oldnode, *newanc, *newleaf;
 
   oldnode = lst_get_ptr(t->nodes, branch); /* node beneath branch in question */
@@ -152,6 +216,7 @@ void tr_add_leaf_internal(TreeNode *t, int branch, char *lname) {
   newanc = tr_new_node();
   newleaf = tr_new_node();
   strcpy(newleaf->name, lname);
+  newleaf->dparent = lgroup;
 
   newanc->rchild = newleaf;
   newleaf->parent = newanc;
@@ -165,6 +230,9 @@ void tr_add_leaf_internal(TreeNode *t, int branch, char *lname) {
 
   oldnode->parent = newanc;
 
+  if (lgroup > 0 && lgroup == oldnode->dparent)
+    newanc->dparent = lgroup;
+
   /* fix up ids and nodes list */
   lst_push_ptr(t->nodes, newanc);
   newanc->id = lst_size(t->nodes) - 1; /* circumvent normal id assignment */
@@ -174,12 +242,13 @@ void tr_add_leaf_internal(TreeNode *t, int branch, char *lname) {
 }
 
 /* add a leaf with specified name to root branch */
-void tr_add_leaf_at_root(TreeNode *t, char *lname) {
+void tr_add_leaf_at_root(TreeNode *t, char *lname, int lgroup) {
   TreeNode *newanc, *newleaf;
 
   newanc = tr_new_node();
   newleaf = tr_new_node();
   strcpy(newleaf->name, lname);
+  newleaf->dparent = lgroup;
 
   /* we don't want to change the identity of the root node, so will
      add the new node below it and rewire as necessary */
@@ -191,6 +260,11 @@ void tr_add_leaf_at_root(TreeNode *t, char *lname) {
   t->rchild = newleaf;
   newanc->parent = t;
   newleaf->parent = t;
+
+  if (lgroup == t->dparent) 
+    newanc->dparent = lgroup;    
+  else
+    newanc->dparent = t->dparent = 0; 
 
   /* fix up ids and nodes list */
   lst_push_ptr(t->nodes, newanc);
