@@ -261,10 +261,12 @@ void tr_add_leaf_at_root(TreeNode *t, char *lname, int lgroup) {
   newanc->parent = t;
   newleaf->parent = t;
 
-  if (lgroup == t->dparent) 
-    newanc->dparent = lgroup;    
+  newanc->dparent = t->dparent;
+
+  if (lgroup == newanc->dparent) 
+    t->dparent = lgroup;    
   else
-    newanc->dparent = t->dparent = 0; 
+    t->dparent = 0; 
 
   /* fix up ids and nodes list */
   lst_push_ptr(t->nodes, newanc);
