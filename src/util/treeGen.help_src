@@ -3,13 +3,27 @@ PROGRAM: treeGen
 DESCRIPTION: Enumerate rooted tree topologies, subject to constraints on
 monophyletic groups.  An outgroup is assumed to be specified.
 
-USAGE: treeGen spec1,spec2,spec3,... > outfile
+USAGE: treeGen spec1,spec2,spec3,... [group1,group2,...] > outfile
             OR
-       treeGen '*speciesFile' > outfile
+       treeGen '*speciesFile' ['*groupFile'] > outfile
 
-       (where speciesFile contains whitespace-delimited species names) 
+       (where speciesFile/groupFile contain whitespace-delimited names) 
 
        The last species listed is assumed to be the outgroup.
+
+       The optional "groups" classification can be used to define
+       monophyletic groups.  Each species may be assigned a nonnegative
+       integer indicating its group, with 0 indicating no group
+       assignment.  The integers should appear in the same order as the
+       species names.  For example,
+
+            treeGen human,chimp,macaque,mouse,rat,dog,horse,fugu 1,1,1,2,2,0,0,0
+
+       could be used to generate all topologies of the specified vertebrate
+       species such that the primates (human, chimp, and macaque) and the
+       rodents (mouse and rat) appear as monophyletic groups.  The outgroup
+       should always be assigned a group of 0 (a nonzero value will be
+       ignored).
 
 OPTIONS:
     --help, -h
