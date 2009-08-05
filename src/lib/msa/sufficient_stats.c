@@ -710,6 +710,7 @@ MSA* ss_read(FILE *F, char *alphabet) {
   while (str_readline(line, F) != EOF) {
     str_trim(line);
     if (line->length == 0) continue;
+    if (line->chars[0]=='#') continue;
 
     if (!header_done) {
       if (str_re_match(line, nseqs_re, matches, 1) >= 0) {
