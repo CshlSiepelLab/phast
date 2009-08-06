@@ -256,7 +256,7 @@ int main(int argc, char *argv[]) {
     do_expected_nsubst = FALSE, do_expected_nsubst_tot = FALSE, 
     random_init = FALSE, estimate_backgd = FALSE, estimate_scale_only = FALSE,
     do_column_probs = FALSE, nonoverlapping = FALSE, gaps_as_bases = FALSE,
-    no_freqs = FALSE, no_rates = FALSE;
+    no_freqs = FALSE, no_rates = FALSE, assume_clock = FALSE;
   unsigned int nsites_threshold = DEFAULT_NSITES_THRESHOLD;
   msa_format_type input_format = FASTA;
   char c;
@@ -317,10 +317,11 @@ int main(int argc, char *argv[]) {
     {"column-probs", 0, 0, 'U'},
     {"rate-constants", 1, 0, 'K'},
     {"ignore-branches", 1, 0, 'b'},
+    {"clock", 0, 0, 'z'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:GVEeNDRTqLPXZUBFfnrh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:GVEeNDRTqLPXZUBFfnrzh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -469,6 +470,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'b':
       ignore_branches = get_arg_list(optarg);
+      break;
+    case 'z':
+      assume_clock = TRUE;
       break;
     case 'h':
       printf("%s", HELP);
@@ -697,7 +701,7 @@ int main(int argc, char *argv[]) {
 
       mod->use_conditionals = use_conditionals;
 
-      if (estimate_scale_only || estimate_backgd || no_rates) {
+      if (estimate_scale_only || estimate_backgd || no_rates || assume_clock) {
         tm_free_rmp(mod);
 
         if (estimate_scale_only) {
@@ -718,6 +722,9 @@ int main(int argc, char *argv[]) {
             str_free(s1); str_free(s2);
           }
         }
+
+        else if (assume_clock)
+          mod->estimate_branchlens = TM_BRANCHLENS_CLOCK;
         
         if (no_rates)
           mod->estimate_ratemat = FALSE;

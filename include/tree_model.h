@@ -44,6 +44,7 @@
 /* type of branch length estimation */
 typedef enum { 
   TM_BRANCHLENS_ALL, 
+  TM_BRANCHLENS_CLOCK,          /* molecular clock */
   TM_SCALE_ONLY, 
   TM_BRANCHLENS_NONE 
 } blen_estim_type;

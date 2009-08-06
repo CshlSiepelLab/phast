@@ -852,8 +852,28 @@ void tm_unpack_params(TreeModel *mod, Vector *params, int idx_offset) {
         mod->scale_sub = vec_get(params, i++);
     }
   }
+  else if (mod->estimate_branchlens == TM_BRANCHLENS_CLOCK) { 
+    /* molecular clock; set total height of each node from parameter
+       vector; temporarily store in dparent */
+    for (nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++) {
+      n = lst_get_ptr(mod->tree->nodes, nodeidx);
+      if (n->lchild == NULL)  /* leaf */
+        n->dparent = 0;
+      else 
+        n->dparent = vec_get(params, i++);
+    }
+    /* set branch lengths to differences in heights */
+    traversal = tr_postorder(mod->tree);
+    for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
+      n = lst_get_ptr(traversal, nodeidx);
+      if (n->parent == NULL)
+        n->dparent = 0;
+      else
+        n->dparent = n->parent->dparent - n->dparent;
+    }      
+  }
   else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
-    /* first nnodes-2 elements define branch lengths */
+    /* no clock; first nnodes-2 elements define branch lengths */
     /* NOTE: order of traversal is not important as long as it is
        consistently obeyed */
     traversal = tr_preorder(mod->tree);
@@ -972,15 +992,26 @@ Vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
                        double alpha) {
   int nparams = tm_get_nparams(mod);
   Vector *params = vec_new(nparams);
-  int i, nbranches, params_idx;
+  int i, nbranches, params_idx = 0;
 
   /* initialize branch-length parameters */
   nbranches = tm_get_nbranchlenparams(mod);
-  
-  for (i = 0; i < nbranches; i++)
-    vec_set(params, i, branchlen);
 
-  params_idx = nbranches;
+  if (mod->estimate_branchlens == TM_BRANCHLENS_CLOCK)  {     
+                                /* set parameter to constant times
+                                   height of corresponding node
+                                   (parameters represent total branch
+                                   length to ancestral nodes)  */
+    for (i = 0; i < mod->tree->nnodes; i++) {
+      TreeNode *n = lst_get_ptr(mod->tree->nodes, i);
+      if (n->lchild != NULL)  /* non-leaf */
+        vec_set(params, params_idx++, branchlen * n->height);
+    }
+  }
+  else {                        /* simply set branch length to constant */
+    for (params_idx = 0; params_idx < nbranches; params_idx++) 
+      vec_set(params, i, branchlen);
+  }
 
   if (mod->estimate_backgd) {
     if (mod->backgd_freqs == NULL) {
@@ -1014,16 +1045,44 @@ Vector *tm_params_init_random(TreeModel *mod) {
   Vector *params = vec_new(tm_get_nparams(mod));
   int nbranches = tm_get_nbranchlenparams(mod);
   int nratematparams = tm_get_nratematparams(mod);
+  TreeNode *n;
+  List *traversal;
+  double *heights;
 
   assert(!mod->estimate_backgd && 
-         mod->estimate_branchlens == TM_BRANCHLENS_ALL);
+         (mod->estimate_branchlens == TM_BRANCHLENS_ALL ||
+          mod->estimate_branchlens == TM_BRANCHLENS_CLOCK));
 
   srandom(time(NULL));
-  
-  for (i = 0; i < nbranches; i++)
-    vec_set(params, params_idx++, 
-                   0.01 + random() * (0.5 - 0.01) / RAND_MAX);
-                                /* we'll use the interval from 0.01 to 0.5 */
+
+  if  (mod->estimate_branchlens == TM_BRANCHLENS_CLOCK) { 
+    /* in this case, have to ensure ancestral nodes have larger values
+       than their descendants */
+    traversal = tr_postorder(mod->tree);
+    heights = smalloc(mod->tree->nnodes * sizeof(double));
+    for (i = 0; i < lst_size(traversal); i++) {
+      n = lst_get_ptr(traversal, i);
+      if (n->lchild == NULL)    /* leaf */
+        heights[n->id] = 0;
+      else
+        heights[n->id] = 
+          max(heights[n->lchild->id], heights[n->rchild->id]) +
+          0.01 + random() * (0.5 - 0.01) / RAND_MAX;
+    }
+    for (i = 0; i < mod->tree->nnodes; i++) { /* has to follow index
+                                                 order, excluding leaves */
+      n = lst_get_ptr(mod->tree->nodes, i);
+      if (n->lchild != NULL)
+        vec_set(params, params_idx++, heights[n->id]);      
+    }
+    free(heights);
+  }
+  else {                        /* no clock */
+    for (i = 0; i < nbranches; i++)
+      vec_set(params, params_idx++, 
+              0.01 + random() * (0.5 - 0.01) / RAND_MAX);
+              /* we'll use the interval from 0.01 to 0.5 */
+  }
 
   if (mod->nratecats > 1) {
     if (mod->empirical_rates) { /* empirical rate model (category weights) */
@@ -1072,6 +1131,26 @@ void tm_params_init_from_model(TreeModel *mod, Vector *params,
     vec_set(params, params_idx++, mod->scale); 
     if (mod->subtree_root != NULL) /* estimating subtree scale */
       vec_set(params, params_idx++, mod->scale_sub);
+  }
+  else if (mod->estimate_branchlens == TM_BRANCHLENS_CLOCK) {
+    /* compute height of each node */
+    double *heights = smalloc(mod->tree->nnodes * sizeof(double));
+    traversal = tr_postorder(mod->tree);
+    for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
+      n = lst_get_ptr(traversal, nodeidx);
+      if (n->lchild == NULL)    /* leaf */
+        heights[n->id] = 0;
+      else 
+        heights[n->id] = max(heights[n->lchild->id], heights[n->rchild->id]) + 
+          n->dparent;
+    }
+    /* set params equal to heights, in order of ids (skipping leaves) */
+    for (nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++) {
+      n = lst_get_ptr(mod->tree->nodes, nodeidx);
+      if (n->lchild != NULL)
+        vec_set(params, params_idx++, heights[n->id]);
+    }
+    free(heights);
   }
   else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
     traversal = tr_preorder(mod->tree);
@@ -1194,6 +1273,9 @@ int tm_get_nbranchlenparams(TreeModel *mod) {
   else if (mod->estimate_branchlens == TM_SCALE_ONLY) {
     if (mod->subtree_root == NULL) return 1;
     else return 2;
+  }
+  else if (mod->estimate_branchlens == TM_BRANCHLENS_CLOCK) {
+    return ((mod->tree->nnodes + 1) / 2 - 1); /* number of ancestral nodes */
   }
   retval = tm_is_reversible(mod->subst_mod) ? mod->tree->nnodes - 2 :
     mod->tree->nnodes - 1;
