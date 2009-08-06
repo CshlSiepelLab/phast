@@ -1010,7 +1010,7 @@ Vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
   }
   else {                        /* simply set branch length to constant */
     for (params_idx = 0; params_idx < nbranches; params_idx++) 
-      vec_set(params, i, branchlen);
+      vec_set(params, params_idx, branchlen);
   }
 
   if (mod->estimate_backgd) {
