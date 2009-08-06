@@ -110,7 +110,7 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
 		       double beta_n, double tau_n, double epsilon_n, 
 		       int estim_gamma, int estim_omega,  int estim_phi, 
 		       int estim_zeta, int estim_xi, subst_mod_type mmod_type,
-		       int scale_by_branch);
+		       int scale_by_branch, int ncm_idl_mode);
 void dm_free(DMotifPhyloHmm *dm);
 void dm_set_transitions(DMotifPhyloHmm *dm, int xi_mode, int scale_by_branch);
 void dm_handle_missing_data(DMotifPhyloHmm *dm, MSA *msa);
@@ -149,7 +149,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 			    int force_priors, int quiet, char *cache_fname,
 			    int cache_int, ThreadPool *pool, int nthreads,
 			    List **zeroed_states, int xi_mode,
-			    int scale_by_branch);
+			    int scale_by_branch, int fix_params);
 void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 		     double **tuple_scores, double *thread_llh,
 		     int **thread_path,
@@ -263,7 +263,8 @@ MSA *dm_generate_msa(int ncolumns,
 				     for generating each site; pass
 				     NULL if hmm is NULL */
 		     int keep_ancestral,
-		     int fixed_path
+		     int fixed_path,
+		     int require_subs
                      );
 void dm_sample_char_col(char **seqs, TreeModel *mod, char *newchar, 
 			int class, int col, int keep_ancestral);
@@ -277,5 +278,7 @@ void dm_set_motif_branches_hb(TreeModel *tm, Vector *motif_freqs,
 dmevent_t dm_get_event_type(char *ename);
 IndelHistory *dms_reverse_ih(IndelHistory *ih);
 void dms_merge_thread_gffs(GFF_Set *target_gff, GFF_Set *query_gff);
+void dms_dump_matrices(FILE *F, double **emissions, double **forward,
+		       int *path, int seqlen, int nstates);
 
 #endif
