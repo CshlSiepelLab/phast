@@ -22,6 +22,13 @@ OPTIONS:
     --rho, -R <rho>
         (default 0.3)
 
+    --fix-params, -f <mu,nu,phi,zeta[,xi]>
+        Fix parameters at the user-supplied levels (or defaults, if none are
+        given). Parameter values are supplied as a comma-delimited string in
+	the order specified. If four values are supplied, xi will not be set
+	(presumably because xi-mode is being set to FALSE -- see --xi-mode).
+	To use default values for all params, supply one (arbitrary) value.
+
     --burn-in-samples -b <N>
 	Number of samples for model burn-in. Defaults to 5,000.
 
@@ -88,7 +95,7 @@ OPTIONS:
 	given species will be skipped in this step.
 
     --mot-mod-type, -S F81|HB
-	Set the substitution model type used for motif states. Default is HB.
+	Set the substitution model type used for motif states. Default is F81.
 	With HB, the Halpern-Bruno model (1998. MBE. 15(7):910-917) will be
 	used on motif branches, with site-specific selective pressure modeled
 	through the rate matrix and equilibrium frequencies; branch lengths are
@@ -121,6 +128,11 @@ OPTIONS:
 	indels within motifs, and is expected to be very low. If two sets are 
 	parameters are given the first will be used for nonconserved regions 
 	and the second for conserved regions.
+
+    --nc-mot-indel-mode, -j
+	Specify the set of indel params to use in nonconserved motif states.
+	Default is motif params. Use of this option toggles to background
+	params in these states.
 
     --log, -l <logfile>
 	Keep a log of sampling output (transition counts, param estimates and

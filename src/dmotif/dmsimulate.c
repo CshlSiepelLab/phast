@@ -53,6 +53,7 @@ int main(int argc, char *argv[]) {
     {"seqname", 1, 0, 'N'},
     {"idpref", 1, 0, 'P'},
     {"indel-model", 1, 0, 'I'},
+    {"nc-mot-indel-mode", 0, 0, 'g'},
     {"msa-length", 1, 0, 'L'},
     {"random-lengths", 1, 0, 'l'},
     {"keep-ancestral", 0, 0, 'k'},
@@ -63,6 +64,7 @@ int main(int argc, char *argv[]) {
     {"single-branch", 1, 0, 'b'},
     {"event", 1, 0, 'e'},
     {"nseqs", 1, 0, 'n'},
+    {"no-require-subs", 0, 0, 's'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -80,14 +82,14 @@ int main(int argc, char *argv[]) {
   int set_transitions = FALSE, refidx = 1, len = DEFAULT_MSA_LEN,
     max_len = 0, min_len = 0, do_ih = FALSE, keep_ancestral = FALSE, 
     do_zeroed = FALSE, xi_mode = TRUE, scale_by_branch = FALSE,
-    nseqs = -1, fixed_path = FALSE;
+    nseqs = -1, fixed_path = FALSE, ncm_idl_mode = 0, require_subs = TRUE;
   char *seqname = NULL, *idpref = NULL, *seqname_root = NULL, *ename = NULL,
     *bname = NULL;
   subst_mod_type mmod_type = tm_get_subst_mod_type(DEFAULT_MMOD_TYPE);
   dmevent_t event;
   
   while ((c = getopt_long(argc, argv,
-			  "R:t:p:z:Z:F:E:C:r:M:o:N:P:I:L:l:k:S:B:b:e:n:h", 
+			  "R:t:p:z:Z:F:E:C:r:M:o:N:P:I:L:l:k:S:B:b:e:n:j:s:h", 
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
@@ -203,6 +205,12 @@ int main(int argc, char *argv[]) {
     case 'n':
       nseqs = atoi(optarg);
       break;
+    case 'j':
+      ncm_idl_mode = 1;
+      break;
+    case 's':
+      require_subs = FALSE;
+      break;
     case 'h':
       printf(HELP);
       exit(0);
@@ -265,7 +273,7 @@ int main(int argc, char *argv[]) {
   dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, xi, xi_mode,
 	      alpha_c, beta_c, tau_c, epsilon_c, alpha_n, beta_n, tau_n, 
 	      epsilon_n, FALSE, FALSE, FALSE, FALSE, FALSE, mmod_type,
-	      scale_by_branch);
+	      scale_by_branch, ncm_idl_mode);
 
   /* Read in the zeroed states if used and condition the model on site
      presence */
@@ -364,7 +372,7 @@ int main(int argc, char *argv[]) {
     i += len;
 
     msa = dm_generate_msa(len, dm, dm->phmm->mods, path, keep_ancestral,
-			  fixed_path);
+			  fixed_path, require_subs);
 
     /*   for (i = 0; i < msa_len; i++) */
     /*     fprintf(stderr, "%d", path[i]); */

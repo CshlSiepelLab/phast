@@ -32,7 +32,7 @@
 #define DEFAULT_SAMPLE_INTERVAL 1
 #define DEFAULT_CACHE_INTERVAL 200
 #define DEFAULT_NTHREADS 0
-#define DEFAULT_MMOD_TYPE "HB"
+#define DEFAULT_MMOD_TYPE "F81"
 
 int main(int argc, char *argv[]) {
   char c, *key;
@@ -81,6 +81,8 @@ int main(int argc, char *argv[]) {
     {"xi-off", 0, 0, 'F'},
     {"mot-mod-type", 1, 0, 'S'},
     {"scale-by-branch", 0, 0, 'B'},
+    {"nc-mot-indel-mode", 0, 0, 'j'},
+    {"fix-params", 1, 0, 'f'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -99,15 +101,16 @@ int main(int argc, char *argv[]) {
     ref_as_prior = FALSE, force_priors = FALSE, precomputed_hash = FALSE,
     quiet = FALSE, cache_int = DEFAULT_CACHE_INTERVAL,
     nthreads = DEFAULT_NTHREADS, hash_debug = FALSE, revcomp = FALSE,
-    do_zeroed = FALSE, xi_mode = TRUE, scale_by_branch = FALSE;
+    do_zeroed = FALSE, xi_mode = TRUE, scale_by_branch = FALSE,
+    ncm_idl_mode = 0, fix_params = FALSE;
   char *seqname = NULL, *idpref = NULL,
     *cache_fname = (char*)smalloc(STR_MED_LEN * sizeof(char));
   subst_mod_type mmod_type = tm_get_subst_mod_type(DEFAULT_MMOD_TYPE);
 
   snprintf(cache_fname, STR_MED_LEN, "dmsample_%ld", (long) time(0));
   
-  while ((c = getopt_long(argc, argv, 
-			  "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:t:m:T:C:M:S:B:h",
+  while ((c = getopt_long(argc, argv,
+			  "R:b:s:r:N:P:I:l:v:g:u:p:D:d:q:c:i:j:t:m:T:C:M:S:B:f:h",
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
@@ -214,6 +217,26 @@ int main(int argc, char *argv[]) {
       break;
     case 'B':
       scale_by_branch = TRUE;
+      break;
+    case 'j':
+      ncm_idl_mode = 1;
+      break;
+    case 'f':
+      fix_params = TRUE;
+      tmpl = get_arg_list_dbl(optarg);
+      if (lst_size(tmpl) != 1 && lst_size(tmpl) != 4 && lst_size(tmpl) != 5)
+	die("ERROR: bad argument to --fix-params.\n");
+      if (lst_size(tmpl) == 1) {
+	break;
+      } else {
+	mu = lst_get_dbl(tmpl, 0);
+	nu = lst_get_dbl(tmpl, 1);
+	phi = lst_get_dbl(tmpl, 2);
+	zeta = lst_get_dbl(tmpl, 3);
+	if (lst_size(tmpl) == 5)
+	  xi = lst_get_dbl(tmpl, 4);
+      }
+      lst_free(tmpl);
       break;
     case 'h':
       printf(HELP);
@@ -339,7 +362,12 @@ int main(int argc, char *argv[]) {
   dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, xi, xi_mode, 
 	      alpha_c, beta_c, tau_c, epsilon_c, alpha_n, beta_n, tau_n, 
 	      epsilon_n, FALSE, FALSE, FALSE, FALSE, xi_mode, mmod_type,
-	      scale_by_branch);
+	      scale_by_branch, ncm_idl_mode);
+/*   for (i = 0; i < dm->phmm->hmm->nstates; i++) { */
+/*     fprintf(stderr, "state %d, cat %s\n", i, */
+/* 	    ((String*)cm_get_feature(dm->phmm->cm, i))->chars); */
+/*   } */
+/*   return 0; */
 
 /*   for (i = 0; i < lst_size(blocks->source_msas); i++) */
 /*     dms_write_zeroed_states(stdout, zeroed_states[i]); */
@@ -402,10 +430,24 @@ int main(int argc, char *argv[]) {
 
 /*     return 0; */
 
+/*     char tuple[100]; */
+/*     for (i = 0; i < msa->length; i++) { */
+/*       tuple_to_string_pretty(tuple, msa, i); */
+/*       fprintf(stderr, "tuple_idx %d: %s\n", i, tuple); */
+/*     } */
+/*     return 0; */
+
+/*     dms_dump_matrices(stderr, tuple_scores, NULL, NULL, msa->ss->ntuples, */
+/* 		      dm->phmm->hmm->nstates); */
+
     /* Adjust for missing data */
     fprintf(stderr, "Adjusting emissions for missing data...\n");
     dm_handle_missing_data(dm, msa);
 
+/*     dms_dump_matrices(stderr, tuple_scores, NULL, NULL, msa->ss->ntuples, */
+/* 		      dm->phmm->hmm->nstates); */
+/*     return 0; */
+    
     /** Call the sampler **/
     fprintf(stderr, "Sampling state paths...\n");
     
@@ -420,7 +462,7 @@ int main(int argc, char *argv[]) {
 					reference, ref_as_prior, force_priors,
 					quiet, cache_fname, cache_int, pool,
 					nthreads, zeroed_states, xi_mode,
-					scale_by_branch);
+					scale_by_branch, fix_params);
     
 
     /* Free emissions matrix */

@@ -140,9 +140,19 @@ OPTIONS:
         history will be inferred on the fly using a simple parsimony
         algorithm.
 
-    --keep-ancestral, k
+    --nc-mot-indel-mode, -j
+	Specify the set of indel params to use in nonconserved motif states.
+	Default is motif params. Use of this option toggles to background
+	params in these states.
+
+    --keep-ancestral, -k
 	Include ancestral sequences in output MSA. Ancestral bases will not be
 	predicted -- all will be reported as N's.
+
+    --no-require-subs, -s
+	Do not require any substitutions on a branch incurring a gain/loss
+	event. Default behavior is to require at least one substitution 
+	relative to the parent node when generating a motif gain or loss.
 
     --help, -h
         Show this help message and exit.

@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
   
   dm = dm_new(source_mod, motif, 0.3, 0.01, 0.01, 0.01, 0.001, 0.0001, FALSE, 
 	      0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1,
-	      FALSE, FALSE, FALSE, FALSE, FALSE, F81, FALSE);
+	      FALSE, FALSE, FALSE, FALSE, FALSE, F81, FALSE, 0);
 
   tree = source_mod->tree;
 

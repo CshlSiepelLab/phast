@@ -273,7 +273,7 @@ int main(int argc, char *argv[]) {
   dm = dm_new(source_mod, motif, rho, mu, nu, phi, zeta, xi, xi_mode,
 	      alpha_c, beta_c, tau_c, epsilon_c, alpha_n, beta_n, tau_n, 
 	      epsilon_n, estim_gamma, estim_omega, estim_phi, estim_zeta, 
-	      estim_xi, mmod_type, scale_by_branch);
+	      estim_xi, mmod_type, scale_by_branch, 0);
 
   /* compute emissions */
   phmm_compute_emissions(dm->phmm, msa, TRUE);

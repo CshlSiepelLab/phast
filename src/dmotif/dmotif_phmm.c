@@ -19,9 +19,9 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
 		       double beta_n, double tau_n, double epsilon_n,
 		       int estim_gamma, int estim_omega, int estim_phi, 
 		       int estim_zeta, int estim_xi, subst_mod_type mmod_type,
-		       int scale_by_branch) {
+		       int scale_by_branch, int ncm_idl_mode) {
 
-  int i, state, pos, e, b, nleaves, k, nstates;
+  int i, state, pos, e, b, nleaves, k, nstates, use_eps;
   HMM *hmm;
   TreeModel **models;
   TreeNode *n;
@@ -220,9 +220,6 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
   /* build category map */
   cm = dm_create_catmap(dm, source_mod, NULL);
   dm->phmm = phmm_new(hmm, models, cm, NULL, MISSING_DATA);
-/*   cm_copy = dm->phmm->cm; */
-/*   dm->phmm->cm = cm; */
-/*   cm_free(cm_copy); */
   cm_free(cm); /* This is copied within phmm_new, so it's safe to free. */
   dm_set_transitions(dm, xi_mode, scale_by_branch);
 
@@ -264,6 +261,13 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
 	  epsilon[n->id] = epsilon_c;
 	}
       }
+
+      if (ncm_idl_mode == 1 && pos != -1 && e == NEUT)
+	use_eps = 0;
+      else if (pos != -1)
+	use_eps = 1;
+      else
+	use_eps = 0;
       
       dm->indel_mods[state] = dmih_new(alpha, beta, tau, epsilon,
 				       models[state]->tree, e, l,
@@ -1070,9 +1074,13 @@ GFF_Set *dm_labeling_as_gff(CategoryMap *cm,
   while (i < length) {
     lastcat = cat;
     cat = cm->ranges[path_to_cat[path[i]]]->start_cat_no;
-/*     printf("%d %d %d\n", path[i], path_to_cat[33], cat); */
+/*     fprintf(stderr, "i %d, path[%d] %d, path_to_cat[%d] %d, cm->ranges[path_to_cat[%d]] %p, cm->ranges[path_to_cat[path[i]]]->start_cat_no %d, cat %d\n", */
+/* 	    i , i, path[i], path[i],  path_to_cat[path[i]], path[i], */
+/* 	    cm->ranges[path_to_cat[path[i]]], */
+/* 	    cm->ranges[path_to_cat[path[i]]]->start_cat_no, cat); */
     mpos = state_to_motifpos[path[i]];
     strand = reverse_compl[path[i]] ? '-' : '+';
+/*     fprintf(stderr, "i %d, length %d, cat %d\n", i, length, cat); */
     frame = do_frame[cat] ? path_to_cat[path[i]] - cat : GFF_NULL_FRAME;
     
     /* scan ahead until enter new category range (or reach end of seq) */
@@ -1296,7 +1304,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 			    int force_priors, int quiet, char *cache_fname,
 			    int cache_int, ThreadPool *pool, int nthreads,
 			    List **zeroed_states, int xi_mode, 
-			    int scale_by_branch) {
+			    int scale_by_branch, int fix_params) {
   
   int i, j, k, l, t, **trans, ***thread_trans, nwins, threads, **thread_path;
   unsigned long int seed;
@@ -1433,19 +1441,23 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 	  gff_clear_set(thread_gff[j]);
     }
     
-    /* Draw a set of params */
-    dm->mu = beta_draw((double)trans[0][0], (double)trans[0][1]);
-    dm->nu = beta_draw((double)trans[1][0], (double)trans[1][1]);
-    dm->phi = beta_draw((double)trans[2][0], (double)trans[2][1]);
-    dm->zeta = beta_draw((double)trans[3][0], (double)trans[3][1]);
-    if (xi_mode == TRUE)
-      dm->xi = beta_draw((double)trans[4][0], (double)trans[4][1]);
+    /* Draw a set of params (unless sampling only paths) */
+    if (!fix_params) {
+      dm->mu = beta_draw((double)trans[0][0], (double)trans[0][1]);
+      dm->nu = beta_draw((double)trans[1][0], (double)trans[1][1]);
+      dm->phi = beta_draw((double)trans[2][0], (double)trans[2][1]);
+      dm->zeta = beta_draw((double)trans[3][0], (double)trans[3][1]);
+      if (xi_mode == TRUE)
+	dm->xi = beta_draw((double)trans[4][0], (double)trans[4][1]);
+      
+      dm_set_transitions(dm, xi_mode, scale_by_branch);
+    }
+
+    if (!fix_params || i == 0) {
+      /* Set transition_score matrix in the hmm */
+      hmm_set_transition_score_matrix(dm->phmm->hmm);
+    }
     
-    dm_set_transitions(dm, xi_mode, scale_by_branch);
-
-    /* Set transition_score matrix in the hmm */
-    hmm_set_transition_score_matrix(dm->phmm->hmm);
-
     /* Reset transition counts to prior values */
     for (j = 0; j < 5; j++) {
       if (xi_mode == FALSE && j == 4)
@@ -1670,6 +1682,9 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 /*   fprintf(stderr, "Thread: %d done with sequence %s\n", */
 /* 	  thread_id, seqname); */
   
+/*   dms_dump_matrices(stderr, emissions, forward_scores, path, msa->length, */
+/* 		    dm->phmm->hmm->nstates); */
+
   dms_count_transitions(dm, path, trans, msa->length,
 			NULL, FALSE, xi_mode);
   
@@ -4132,7 +4147,8 @@ MSA *dm_generate_msa(int ncolumns,
 				     for generating each site; pass
 				     NULL if hmm is NULL */
 		     int keep_ancestral,
-		     int fixed_path
+		     int fixed_path,
+		     int require_subs
                      ) {
 
   int i, j, class, nextclass, nseqs, col, ntreenodes, idx, nclasses, has_subs;
@@ -4213,13 +4229,14 @@ MSA *dm_generate_msa(int ncolumns,
     
     if ( (dm->state_to_event[class] == BIRTH || 
 	  dm->state_to_event[class] == DEATH) &&
-	 dm->state_to_motifpos[class] != -1) { 
-      /* Motif gain or loss -- must make sure motif window has
-	 at least one substitution on the gain/loss branch. */
+	 dm->state_to_motifpos[class] != -1 &&
+	 require_subs == TRUE) {
+      /* Motif gain or loss and substitutions required
+	 -- must make sure motif window has at least one substitution on 
+	 the gain/loss branch using a simple rejection-sampling routine. */
       n = lst_get_ptr(classmods[class]->tree->nodes, 
 		      dm->state_to_branch[class]);
       has_subs = FALSE;
-
       j = 0;
       while (has_subs == FALSE) {
 	/* Generate a candidate motif alignment */
@@ -4516,5 +4533,62 @@ void dms_merge_thread_gffs(GFF_Set *target_gff, GFF_Set *query_gff) {
   for (i = 0; i < lst_size(query_gff->features); i++) {
     f = lst_get_ptr(query_gff->features, i);
     lst_push_ptr(target_gff->features, gff_new_feature_copy(f));
+  }
+}
+
+/* Dump emissions, forward_scores and path from dms_sample_path */
+void dms_dump_matrices(FILE *F, double **emissions, double **forward,
+		       int *path, int seqlen, int nstates) {
+  int i, j;
+  char tmpstr[50];
+  
+  if (emissions != NULL) {
+    fprintf(F, "EMISSION SCORES:\n");
+    fprintf(F, "    ");
+    for (j = 0; j < seqlen; j++)
+      fprintf(F, "%10d ", j);
+    fprintf(F, "\n");
+    for (i = 0; i < nstates; i++) {
+      fprintf(F, "%2d: ", i);
+      for (j = 0; j < seqlen; j++) {
+	if (emissions[i][j] <= NEGINFTY)
+	  strcpy(tmpstr, "-INF");
+	else
+	  sprintf(tmpstr, "%.3f", emissions[i][j]);
+	fprintf(F, "%10s ", tmpstr);
+      }
+      fprintf(F, "\n");
+    }
+  }
+
+  if (forward != NULL) {
+    fprintf(F, "\nFORWARD SCORES:\n");
+    fprintf(F, "    ");
+    for (j = 0; j < seqlen; j++)
+      fprintf(F, "%10d ", j);
+    fprintf(F, "\n");
+    for (i = 0; i < nstates; i++) {
+      fprintf(F, "%2d: ", i);
+      for (j = 0; j < seqlen; j++) {
+	if (forward[i][j] <= NEGINFTY)
+	  strcpy(tmpstr, "-INF");
+	else
+	  sprintf(tmpstr, "%.3f", forward[i][j]);
+	fprintf(F, "%10s ", tmpstr);
+      }
+      fprintf(F, "\n");
+    }
+  }
+
+  if (path != NULL) {
+    fprintf(F, "\nPATH:\n");
+    fprintf(F, "    ");
+    for (j = 0; j < seqlen; j++)
+      fprintf(F, "%3d ", j);
+    fprintf(F, "\n");
+    fprintf(F, "    ");
+    for (j = 0; j < seqlen; j++)
+      fprintf(F, "%3d ", path[j]);
+    fprintf(F, "\n");
   }
 }
