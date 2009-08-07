@@ -194,6 +194,9 @@ Vector *tm_params_new_init_from_model(TreeModel *mod);
 void tm_params_init_from_model(TreeModel *mod, Vector *params,
                                       int start_idx);
 
+double tm_params_init_branchlens_parsimony(Vector *params, 
+					   TreeModel *mod, MSA *msa);
+
 int tm_get_nparams(TreeModel *mod);
 
 int tm_get_neqfreqparams(TreeModel *mod);
@@ -201,6 +204,9 @@ int tm_get_neqfreqparams(TreeModel *mod);
 int tm_get_nratevarparams(TreeModel *mod);
 
 int tm_is_reversible(int subst_mod);
+
+
+int tm_get_nleaf(TreeModel *mod);
 
 int tm_get_nbranchlenparams(TreeModel *mod);
 

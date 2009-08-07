@@ -1038,6 +1038,8 @@ Vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
   return params;
 }
 
+
+
 /* initializes branch lengths and rate matrix parameters
    randomly; can be used multiple times to ensure the MLE is real */
 Vector *tm_params_init_random(TreeModel *mod) {
@@ -1111,6 +1113,192 @@ Vector *tm_params_init_random(TreeModel *mod) {
                                 /* we'll use the interval from 0.1 to 5 */
 
   return params;
+}
+
+
+//assume that numMin and minState have already been set for leaf nodes
+//recurse downward and set state to intersection if exists, 
+//otherwise union
+int tm_fitch_rec_down(TreeNode *tree, int *numMin, int **minState) {
+  int sum;
+  int i, j, child[2];
+
+  if (tree->lchild==NULL) return 0;
+  sum = tm_fitch_rec_down(tree->lchild, numMin, minState);
+  sum += tm_fitch_rec_down(tree->rchild, numMin, minState);
+
+  child[0] = tree->lchild->id;
+  child[1] = tree->rchild->id;
+
+  numMin[tree->id]=0;
+  
+  //first see if there's an intersection in minStates for children
+  for (i=0; i<numMin[child[0]]; i++)
+    for (j=0; j<numMin[child[1]]; j++)
+      if (minState[child[0]][i] == minState[child[1]][j]) 
+	minState[tree->id][numMin[tree->id]++] = minState[child[0]][i];
+  if (numMin[tree->id] > 0) return sum;
+  
+
+  //otherwise take union and add 1 to cost
+  for (i=0; i<2; i++) 
+    for (j=0; j<numMin[child[i]]; j++)
+      minState[tree->id][numMin[tree->id]++] = minState[child[i]][j];
+  return sum+1;
+}
+
+
+void tm_fitch_rec_up(int *nodecost, TreeNode *tree, 
+		     int *numMin, int **minState, int pState) {
+  int node, state=-1, i;
+
+  node = tree->id;
+  nodecost[node]=0;
+  
+  //get state at node.  If only one minimum, we already have it.
+  //Otherwise, if one of the minimums matches parent state, use that.
+  //Otherwise pick one at random.
+  if (tree->parent != NULL) {
+    if (numMin[node]==1) state = minState[node][0];
+    else {
+      for (i=0; i<numMin[node]; i++)
+	if (minState[node][i] == pState) {
+	  state = pState;
+	  break;
+	}
+      if (i == numMin[node]) 
+	state = minState[node][(int)(random()/RAND_MAX*(double)numMin[node])];
+    }      
+
+    //now add cost to nodecost if state != parentState
+    if (state != pState) nodecost[node]=1;
+  } else state = pState;
+  
+  if (tree->lchild != NULL) {
+    tm_fitch_rec_up(nodecost, tree->lchild, numMin, minState, state);
+    tm_fitch_rec_up(nodecost, tree->rchild, numMin, minState, state);
+  }
+}
+
+
+
+//initialize branchlengths to average number of mutations under parsimony.
+//returns parsimony score
+double tm_params_init_branchlens_parsimony(Vector *params, 
+					   TreeModel *mod, MSA *msa) {
+  int i, numnode = mod->tree->nnodes;
+  int numspec=tm_get_nleaf(mod);
+  int numstate=strlen(msa->alphabet), **minState, *numMinState;
+  int tupleIdx, spec, node, rootMinState, *nodecost, params_idx;
+  double *brlen, weight, denom=0, totalCost;
+  List *traversal;
+  char currCh;
+  TreeNode *currNode;
+
+  if (msa->ss==NULL) 
+    die("ERROR: tm_params_init_branchlens_parsimony needs msa->ss!=NULL\n");
+
+  if (mod->order!=0) 
+    die("ERROR: tm_params_init_branches currently only works for order 1 models\n");
+
+  if  (mod->estimate_branchlens == TM_BRANCHLENS_CLOCK) { 
+    die("Sorry, --init-parsimony not implemented for molecular clock\n");
+  }
+
+  srandom(time(NULL));
+
+
+  //this array keeps track of number of mutations on each branch
+  brlen = malloc(numnode*sizeof(double));
+  for (i=0; i<numnode; i++)
+    brlen[i] = 0;
+
+  //get sequence index if not already there
+  if (mod->msa_seq_idx==NULL)
+    tm_build_seq_idx(mod, msa);
+
+  minState = malloc(numnode*sizeof(int*));
+  for (i=0; i<numnode; i++)
+    minState[i] = malloc(numstate*sizeof(int));
+  numMinState = malloc(numnode*sizeof(int));
+  nodecost = malloc(numnode*sizeof(int));
+  traversal = tr_preorder(mod->tree);
+
+  for (tupleIdx=0; tupleIdx<msa->ss->ntuples; tupleIdx++) {
+    //get states at tips
+    for (node=0; node<numnode; node++) {
+      spec = mod->msa_seq_idx[node];
+      if (spec==-1) continue;
+      currCh = ss_get_char_tuple(msa, tupleIdx, spec, 0);
+      if (msa->is_missing[currCh]) {
+	numMinState[node] = numstate;
+	for (i=0; i<numstate; i++) {
+	  minState[node][i] = i;
+	}
+      } else {
+	numMinState[node]=1;
+	for (i=0; i<numstate; i++) 
+	  if (msa->alphabet[i] == currCh) {
+	    minState[node][0] = i;
+	    break;
+	  }
+	assert(i < numstate);
+      }
+    }
+    
+    totalCost += (double)tm_fitch_rec_down(mod->tree, numMinState, minState);
+
+    if (numMinState[mod->tree->id] > 0) 
+      rootMinState = minState[mod->tree->id][(int)(random()/RAND_MAX*(double)numMinState[mod->tree->id])];
+    else rootMinState = minState[mod->tree->id][0];
+
+    tm_fitch_rec_up(nodecost, mod->tree, numMinState, minState, rootMinState);
+
+    weight = msa->ss->counts[tupleIdx];
+    denom += weight;
+    for (node=0; node<numnode; node++)
+      brlen[node] += nodecost[node]*weight;
+  }
+
+  for (node=0; node<numnode; node++)
+    brlen[node] /= denom;
+
+  if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
+    params_idx = 0;
+    for (node=0; node<lst_size(traversal); node++) {
+      currNode = (TreeNode*)lst_get_ptr(traversal, node);
+      if (currNode->parent == NULL) continue;
+      if (currNode == mod->tree->lchild && tm_is_reversible(mod->subst_mod)) 
+	vec_set(params, params_idx++, 
+		brlen[currNode->id] + brlen[mod->tree->rchild->id]);
+      else if (currNode != mod->tree->rchild || 
+	       !tm_is_reversible(mod->subst_mod))
+	vec_set(params, params_idx++, brlen[currNode->id]);
+    }
+  } else if (mod->estimate_branchlens==TM_SCALE_ONLY) {
+    double sum=0.0;
+    for (node=0; node<numnode; node++)
+      sum += brlen[node];
+    vec_set(params, 0, sum);
+    if (mod->subtree_root != NULL) {
+      sum=0.0;
+      traversal = tr_preorder(mod->subtree_root);
+      for (node=0; node<lst_size(traversal); node++) {
+	currNode = (TreeNode*)lst_get_ptr(traversal,node);
+	sum += brlen[currNode->id];
+      }
+      vec_set(params, 1, sum/vec_get(params, 0));
+    }
+  }
+	
+  free(brlen);
+  for (i=0; i<numnode; i++)
+    free(minState[i]);
+  free(minState);
+  free(numMinState);
+  free(nodecost);
+  //  printf("totalCost=%f\n", totalCost);
+  return totalCost;
 }
 
 
@@ -1266,6 +1454,16 @@ int tm_get_nratevarparams(TreeModel *mod) {
   return 0;
 }
 
+
+int tm_get_nleaf(TreeModel *mod) {
+  int i,retval=0;
+  for (i=0; i<mod->tree->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(mod->tree->nodes, i);
+    if (n->lchild==NULL) retval++;
+  }
+  return retval;
+}
+
 /** Return number of branch length params */
 int tm_get_nbranchlenparams(TreeModel *mod) {
   int retval;
@@ -1288,7 +1486,7 @@ int tm_get_nbranchlenparams(TreeModel *mod) {
     not required that there's a leaf for every sequence in the
     alignment. */
 void tm_build_seq_idx(TreeModel *mod, MSA *msa) {
-  int i, idx;
+  int i, idx;  
   mod->msa_seq_idx = smalloc(mod->tree->nnodes * sizeof(int));
   for (i = 0; i < mod->tree->nnodes; i++) {
     TreeNode *n = lst_get_ptr(mod->tree->nodes, i);

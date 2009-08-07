@@ -354,7 +354,7 @@ void msa_print(FILE *F, MSA *msa, msa_format_type format, int pretty_print) {
       fprintf(F, "%s\n", msa->names[i]);
   for (i = 0; i < msa->nseqs; i++) {
     if (format == PHYLIP)
-      fprintf(F, "%s\n", msa->names[i]);
+      fprintf(F, "%-10s\n", msa->names[i]);
     else if (format == FASTA)
       fprintf(F, "> %s\n", msa->names[i]);
     for (j = 0; j < msa->length; j += OUTPUT_LINE_LEN) {

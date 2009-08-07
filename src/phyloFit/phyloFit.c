@@ -256,7 +256,8 @@ int main(int argc, char *argv[]) {
     do_expected_nsubst = FALSE, do_expected_nsubst_tot = FALSE, 
     random_init = FALSE, estimate_backgd = FALSE, estimate_scale_only = FALSE,
     do_column_probs = FALSE, nonoverlapping = FALSE, gaps_as_bases = FALSE,
-    no_freqs = FALSE, no_rates = FALSE, assume_clock = FALSE;
+    no_freqs = FALSE, no_rates = FALSE, assume_clock = FALSE, 
+    parsimony_init=FALSE;
   unsigned int nsites_threshold = DEFAULT_NSITES_THRESHOLD;
   msa_format_type input_format = FASTA;
   char c;
@@ -298,6 +299,7 @@ int main(int argc, char *argv[]) {
     {"reverse-groups", 1, 0, 'R'},
     {"init-model", 1, 0, 'M'},
     {"init-random", 0, 0, 'r'},
+    {"init-parsimony", 0, 0, 'y'},
     {"lnl", 0, 0, 'L'},
     {"scale-only", 0, 0, 'B'},
     {"scale-subtree", 1, 0, 'S'},
@@ -321,7 +323,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:GVEeNDRTqLPXZUBFfnrzh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:GVEeNDRTqLPXZUBFfynrzh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -410,6 +412,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'r':
       random_init = TRUE;
+      break;
+    case 'y':
+      parsimony_init = TRUE;
       break;
     case 'L':
       likelihood_only = TRUE;
@@ -807,20 +812,6 @@ int main(int argc, char *argv[]) {
         }
       }
       else {                    /* fit model */
-        if (random_init) 
-          params = tm_params_init_random(mod);
-        else if (input_mod != NULL)
-          params = tm_params_new_init_from_model(input_mod);
-        else
-          params = tm_params_init(mod, .1, 5, alpha);     
-        if (input_mod != NULL && mod->backgd_freqs != NULL && !no_freqs) {
-          /* in some cases, the eq freqs are needed for
-             initialization, but now they should be re-estimated --
-             UNLESS user specifies --no-freqs */
-          vec_free(mod->backgd_freqs);
-          mod->backgd_freqs = NULL;
-        }
-
         if (msa->ss == NULL) {    /* get sufficient stats if necessary */
           if (!quiet)
             fprintf(stderr, "Extracting sufficient statistics ...\n");
@@ -836,6 +827,25 @@ int main(int argc, char *argv[]) {
             msa->seqs = NULL;
           }
         }
+
+        if (random_init) 
+          params = tm_params_init_random(mod);
+        else if (input_mod != NULL)
+          params = tm_params_new_init_from_model(input_mod);
+        else 
+          params = tm_params_init(mod, .1, 5, alpha);     
+
+	if (parsimony_init)
+	  tm_params_init_branchlens_parsimony(params, mod, msa);
+
+        if (input_mod != NULL && mod->backgd_freqs != NULL && !no_freqs) {
+          /* in some cases, the eq freqs are needed for
+             initialization, but now they should be re-estimated --
+             UNLESS user specifies --no-freqs */
+          vec_free(mod->backgd_freqs);
+          mod->backgd_freqs = NULL;
+        }
+
 
         if (i == 0) {
           if (!quiet) fprintf(stderr, "Compacting sufficient statistics ...\n");

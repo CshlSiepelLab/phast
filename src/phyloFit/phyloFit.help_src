@@ -189,6 +189,13 @@ OPTIONS:
         Initialize parameters randomly.  Can be used multiple times to test
         whether the m.l.e. is real.
 
+    --init-parsimony, -y
+        Initialize branch lengths using parsimony counts for given data.
+        Only currently implemented for models with single character state
+	(ie, not di- or tri-nucleotides).  Other --init options such
+	as --init-random or --init-model can be used in conjunction to 
+	initialize substitution matrix parameters.
+
     --clock, -z
         Assume a molecular clock in estimation.  Causes the distances to all
         descendant leaves to be equal for each ancestral node and cuts the
