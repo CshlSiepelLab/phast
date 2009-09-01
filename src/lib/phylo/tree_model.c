@@ -618,7 +618,7 @@ MSA *tm_generate_msa(int ncolumns,
                                     NULL if hmm is NULL */
                      ) {
 
-  int i, class, nseqs, col, ntreenodes, idx;
+  int i, class, nseqs, col, ntreenodes, idx, ratecat;
   MSA *msa;
   Stack *stack;
   char *newchar;
@@ -636,7 +636,11 @@ MSA *tm_generate_msa(int ncolumns,
     /* count leaves in tree */
     int num = (classmods[i]->tree->nnodes + 1) / 2;
 
-    assert(classmods[i]->nratecats == 1); /* assuming no rate variation */
+    if (classmods[i]->nratecats > 1 && !classmods[i]->empirical_rates)
+      DiscreteGamma(classmods[i]->freqK, classmods[i]->rK, 
+		    classmods[i]->alpha, classmods[i]->alpha,
+		    classmods[i]->nratecats, 0);
+    //    assert(classmods[i]->nratecats == 1); /* assuming no rate variation */
 
     if (nseqs == -1) 
       nseqs = num;
@@ -675,6 +679,10 @@ MSA *tm_generate_msa(int ncolumns,
   newchar = (char*)smalloc(ntreenodes * sizeof(char));
   for (col = 0; col < ncolumns; col++) {
     List *traversal = tr_preorder(classmods[class]->tree);
+    if (classmods[class]->nratecats > 1)
+      ratecat = pv_draw_idx_arr(classmods[class]->freqK, classmods[class]->nratecats);
+    else ratecat=0;
+
     newchar[classmods[class]->tree->id] = 
       mm_sample_backgd(classmods[class]->rate_matrix->states, 
                        classmods[class]->backgd_freqs);
@@ -688,10 +696,10 @@ MSA *tm_generate_msa(int ncolumns,
         msa->seqs[classmods[0]->msa_seq_idx[n->id]][col] = newchar[n->id];
       else {
         MarkovMatrix *lsubst_mat, *rsubst_mat;
-        if (classmods[class]->P[l->id][0] == NULL)
+        if (classmods[class]->P[l->id][ratecat] == NULL)
           tm_set_subst_matrices(classmods[class]);
-        lsubst_mat = classmods[class]->P[l->id][0];
-        rsubst_mat = classmods[class]->P[r->id][0];
+        lsubst_mat = classmods[class]->P[l->id][ratecat];
+        rsubst_mat = classmods[class]->P[r->id][ratecat];
         newchar[l->id] = mm_sample_char(lsubst_mat, newchar[n->id]);
         newchar[r->id] = mm_sample_char(rsubst_mat, newchar[n->id]);
       }
