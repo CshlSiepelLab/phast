@@ -28,6 +28,7 @@ Vector *pv_convolve_many(Vector **p, int *counts, int n, double epsilon);
 Vector *pv_poisson(double lambda, double epsilon);
 Vector *pv_convolve_fast(Vector *p, int n, double epsilon);
 Vector *pv_cdf(Vector *pdf, p_val_type side);
+int pv_draw_idx_arr(double *arr, int n);
 int pv_draw_idx(Vector *pdf);
 
 #endif

@@ -394,17 +394,25 @@ Vector *pv_cdf(Vector *pdf, p_val_type side) {
   }
   return cdf;
 }
-
 /** Given a probability vector, draw an index.  Call srandom externally */
-int pv_draw_idx(Vector *pv) {
+
+int pv_draw_idx_arr(double *arr, int n) {
   int i;
   double sum, r;
   sum = 0;
   r = 1.0 * random()/RAND_MAX;
-  for (i = 0; i < pv->size; i++) {
-    sum += pv->data[i];
+  for (i = 0; i < n; i++) {
+    sum += arr[i];
     if (r < sum) break;
   }
-  if (i == pv->size) i = pv->size-1;    /* to be safe */
+  if (i == n) i = n-1;    /* to be safe */
   return i;
 }
+  
+
+/** Given a probability vector, draw an index.  Call srandom externally */
+int pv_draw_idx(Vector *pv) {
+  return pv_draw_idx_arr(pv->data, pv->size);
+}
+
+
