@@ -154,6 +154,8 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 
   //look at first block to get initial sequence names and refseqlen
   maf_quick_peek(F, &msa->names, name_hash, &msa->nseqs, &refseqlen);
+  if (msa->nseqs == 0) 
+    die("ERROR: got empty maf file\n");
   if (map != NULL)
     map->seq_len = refseqlen;
 

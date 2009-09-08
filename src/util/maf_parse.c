@@ -433,7 +433,7 @@ int main(int argc, char* argv[]) {
   if (output_format == MAF) {
     if (by_category || group_tag != NULL)
       close_outfiles(outfileList, outfileHash);
-    else mafBlock_close_file(outfile);
+    else if (outfile!=NULL) mafBlock_close_file(outfile);
   } else {
     msa_print(stdout, msa, output_format, pretty_print);
     msa_free(msa);
