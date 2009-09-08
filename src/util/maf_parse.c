@@ -394,7 +394,7 @@ int main(int argc, char* argv[]) {
     else outfile = stdout;
 
     if (gff != NULL) {
-      gffSub = gff_subset_range_overlap_sorted(gff, currStart, lastIdx, 
+      gffSub = gff_subset_range_overlap_sorted(gff, currStart+1, lastIdx, 
 					       &gffSearchIdx);
       if (gffSub != NULL) {
 	if (by_category) gff_group_by_feature(gffSub);
