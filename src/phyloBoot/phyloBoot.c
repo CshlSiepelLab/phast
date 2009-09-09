@@ -102,6 +102,9 @@ int main(int argc, char *argv[]) {
   char fname[STR_MED_LEN];
   char tmpchstr[STR_MED_LEN];
   TreeModel *repmod = NULL;
+  double subtreeScale=1.0, subtreeSwitchProb=0.0, scale=1.0;
+  char *subtreeName=NULL;
+  
 
   struct option long_opts[] = {
     {"nsites", 1, 0, 'L'},
@@ -123,10 +126,14 @@ int main(int argc, char *argv[]) {
     {"precision", 1, 0, 'p'},
     {"init-model", 1, 0, 'M'},
     {"init-random", 0, 0, 'r'},
+    {"subtree", 1, 0, 'S'},
+    {"subtree-switch", 1, 0, 'w'},
+    {"subtree-scale", 1, 0, 'l'},
+    {"scale", 1, 0, 'P'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "L:n:i:d:a:m:o:xR:qht:s:k:Ep:M:r", 
+  while ((c = getopt_long(argc, argv, "L:n:i:d:a:m:o:xR:qht:s:k:Ep:M:S:w:l:P:r", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'L':
@@ -176,6 +183,22 @@ int main(int argc, char *argv[]) {
     case 'q':
       quiet = 1;
       break;
+    case 'P':
+      scale=atof(optarg);
+      break;
+    case 'S':
+      subtreeName=optarg;
+      break;
+    case 'w':
+      subtreeSwitchProb=atof(optarg);
+      if (subtreeSwitchProb > 1.0 || subtreeSwitchProb < 0.0) 
+	die("ERROR: --subtree-switch argument should be between 0 and 1\n");
+      break;
+    case 'l':
+      subtreeScale = atof(optarg);
+      if (subtreeScale < 0.0)
+	die("ERROR: --subtree-scale argument should be >=0.0\n");
+      break;
     case 'h':
       printf(HELP);
       exit(0);
@@ -215,6 +238,9 @@ int main(int argc, char *argv[]) {
   }
 
   srandom(time(NULL));
+  if ((subtreeScale!=1.0 || subtreeSwitchProb!=0.0) &&
+      subtreeName==NULL)
+    die("ERROR: need to use --subtree with --subtree-scale or --subtree-switch\n");
 
   if (input_mods == NULL) {     /* only do if models aren't given */
     if (optind != argc - 1) 
@@ -227,8 +253,12 @@ int main(int argc, char *argv[]) {
       parametric = TRUE;
       model = tm_new_from_file(INF);
       tree = model->tree;
+      if (scale != 1.0)
+	tm_scale(model, scale, 0);
     }
     else {
+      if (subtreeName != NULL) 
+	die("subtree option only works if .mod file given (parametric mode)\n");
       if (input_format == MAF)
         msa = maf_read(INF, NULL, 1, NULL, NULL, NULL, -1, FALSE, NULL, NO_STRIP, FALSE);
       else
@@ -286,8 +316,12 @@ int main(int argc, char *argv[]) {
 
     /* generate alignment */
     if (input_mods == NULL) {   /* skip if models given */
-      if (parametric) 
-        msa = tm_generate_msa(nsites, NULL, &model, NULL);
+      if (parametric) {
+	if (subtreeName!=NULL && (subtreeScale!=1.0 || subtreeSwitchProb!=0.0)) 
+	  msa = tm_generate_msa_random_subtree(nsites, model, subtreeName,
+					       subtreeScale, subtreeSwitchProb);
+	else msa = tm_generate_msa(nsites, NULL, &model, NULL);
+      }
       else {
 
         double sum=0;

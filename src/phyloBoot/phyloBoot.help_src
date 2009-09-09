@@ -129,3 +129,21 @@ OPTIONS:
 
     --init-random, -r
         Initialize parameters randomly.
+
+    --scale,-P <rho>
+        Scale input tree by factor rho before doing parametric simulations.
+
+    --subtree,-S <node>
+        For use with --subtree-scale and/or subtree-switch.  Define 
+        subtree including all children of named node, including branch 
+	leading up to node.
+
+    --subtree-scale,-l <lambda>
+        Scale subtree defined with --subtree option by factor lambda.
+
+    --subtree-switch,-w <prob>
+        With given probability, randomly switch branches in tree from
+	subtree to supertree and vice versa.  Randomization is performed
+	independently for each branch in every column of simulated data.
+
+     

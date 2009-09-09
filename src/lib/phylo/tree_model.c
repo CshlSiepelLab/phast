@@ -712,6 +712,108 @@ MSA *tm_generate_msa(int ncolumns,
   return msa;
 }
 
+
+/* Generates an alignment according to set of Tree Models and a
+   Markov matrix defing how to transition among them.  TreeModels must
+   appear in same order as the states of the Markov matrix. 
+   NOTE: call srandom externally. */
+MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
+				    char *subtree, double subtreeScale,
+				    double subtreeSwitchProb) {
+  int i, nseqs, col, idx, ratecat;
+  MSA *msa;
+  char *newchar;
+  char **names, **seqs;
+  TreeNode *subtreeNode;
+  List *traversal = tr_preorder(mod->tree);
+  double *origBrlen;
+  int *inSubtree, inSub;
+
+  subtreeNode = tr_get_node(mod->tree, subtree);
+  if (subtreeNode==NULL) {
+    die("ERROR: no node with name %s\n", subtree);
+  }
+  origBrlen = malloc(lst_size(traversal)*sizeof(double));
+  inSubtree = malloc(lst_size(traversal)*sizeof(int));
+  for (i=0; i<lst_size(traversal); i++) {
+    TreeNode *n = (TreeNode*)lst_get_ptr(traversal, i);
+    origBrlen[i]=n->dparent;
+    while (n!=subtreeNode && n!=NULL)
+      n=n->parent;
+    if (n==subtreeNode) inSubtree[i]=1;
+  }
+  
+  nseqs = (mod->tree->nnodes+1)/2;
+
+  /* create new MSA */
+  names = (char**)smalloc(nseqs * sizeof(char*));
+  seqs = (char**)smalloc(nseqs * sizeof(char*));
+  for (i = 0; i < nseqs; i++) 
+    seqs[i] = (char*)smalloc((ncolumns + 1) * sizeof(char));
+  msa = msa_new(seqs, names, nseqs, ncolumns, 
+                mod->rate_matrix->states);
+
+  /* build sequence idx map; only need one for first model */
+  /* FIXME: this assumes all tree models have the same topology; may
+     want to relax... */
+  mod->msa_seq_idx = smalloc(mod->tree->nnodes * sizeof(int));
+  for (i = 0, idx = 0; i < mod->tree->nnodes; i++) {
+    TreeNode *n = (TreeNode*)lst_get_ptr(traversal, i);
+    if (n->lchild == NULL && n->rchild == NULL) {
+      mod->msa_seq_idx[i] = idx;
+      names[idx] = strdup(n->name);
+      idx++;
+    }
+    else mod->msa_seq_idx[i] = -1;
+  }
+
+  /* generate sequences, column by column */
+  newchar = (char*)smalloc(mod->tree->nnodes * sizeof(char));
+  for (col = 0; col < ncolumns; col++) {
+    for (i=0; i<lst_size(traversal); i++) {
+      TreeNode *n =(TreeNode*)lst_get_ptr(traversal, i);
+      inSub = inSubtree[i];
+      if (1.0*(double)random()/(double)RAND_MAX < subtreeSwitchProb)
+	inSub = !inSub;
+      n->dparent = origBrlen[i];
+      if (inSub) n->dparent *= subtreeScale;
+    }
+    if (mod->nratecats > 1)
+      ratecat = pv_draw_idx_arr(mod->freqK, mod->nratecats);
+    else ratecat=0;
+
+    newchar[mod->tree->id] = 
+      mm_sample_backgd(mod->rate_matrix->states, 
+                       mod->backgd_freqs);
+    for (i = 0; i < lst_size(traversal); i++) {
+      TreeNode *n = (TreeNode*)lst_get_ptr(traversal, i);
+      TreeNode *l = n->lchild;
+      TreeNode *r = n->rchild;
+      assert ((l == NULL && r == NULL) || (l != NULL && r != NULL));
+
+      if (l == NULL) 
+        msa->seqs[mod->msa_seq_idx[n->id]][col] = newchar[n->id];
+      else {
+        MarkovMatrix *lsubst_mat, *rsubst_mat;
+	//        if (mod->P[l->id][ratecat] == NULL)
+          tm_set_subst_matrices(mod);
+        lsubst_mat = mod->P[l->id][ratecat];
+        rsubst_mat = mod->P[r->id][ratecat];
+        newchar[l->id] = mm_sample_char(lsubst_mat, newchar[n->id]);
+        newchar[r->id] = mm_sample_char(rsubst_mat, newchar[n->id]);
+      }
+    }
+  }
+  for (i=0; i<lst_size(traversal); i++) {
+    TreeNode *n = lst_get_ptr(traversal, i);
+    n->dparent = origBrlen[i];
+  }
+  free(origBrlen);
+  free(inSubtree);
+  return msa;
+}
+
+
 /* Given an MSA, a tree topology, and a substitution model, fit a tree
    model using a multidimensional optimization algorithm (BFGS).
    TreeModel 'mod' must already be allocated, and initialized with
@@ -1195,7 +1297,6 @@ void tm_fitch_rec_up(int *nodecost, TreeNode *tree,
 double tm_params_init_branchlens_parsimony(Vector *params, 
 					   TreeModel *mod, MSA *msa) {
   int i, numnode = mod->tree->nnodes;
-  int numspec=tm_get_nleaf(mod);
   int numstate=strlen(msa->alphabet), **minState, *numMinState;
   int tupleIdx, spec, node, rootMinState, *nodecost, params_idx;
   double *brlen, weight, denom=0, totalCost;
@@ -1238,7 +1339,7 @@ double tm_params_init_branchlens_parsimony(Vector *params,
       spec = mod->msa_seq_idx[node];
       if (spec==-1) continue;
       currCh = ss_get_char_tuple(msa, tupleIdx, spec, 0);
-      if (msa->is_missing[currCh]) {
+      if (msa->is_missing[(int)currCh]) {
 	numMinState[node] = numstate;
 	for (i=0; i<numstate; i++) {
 	  minState[node][i] = i;
@@ -1268,8 +1369,14 @@ double tm_params_init_branchlens_parsimony(Vector *params,
       brlen[node] += nodecost[node]*weight;
   }
 
-  for (node=0; node<numnode; node++)
-    brlen[node] /= denom;
+ // for (node=0; node<numnode; node++)
+  //  brlen[node] /= denom;
+
+ //for now try JC correction:
+   for (node=0; node<numnode; node++) 
+    if (brlen[node]!=0.0) {
+       brlen[node] = -0.75*log(1.0-4.0*brlen[node]/(3.0*denom));
+   }
 
   if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
     params_idx = 0;
