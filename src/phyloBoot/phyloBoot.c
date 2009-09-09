@@ -104,6 +104,7 @@ int main(int argc, char *argv[]) {
   TreeModel *repmod = NULL;
   double subtreeScale=1.0, subtreeSwitchProb=0.0, scale=1.0;
   char *subtreeName=NULL;
+  TreeModel *subtreeModel=NULL;
   
 
   struct option long_opts[] = {
@@ -255,6 +256,10 @@ int main(int argc, char *argv[]) {
       tree = model->tree;
       if (scale != 1.0)
 	tm_scale(model, scale, 0);
+      if (subtreeName != NULL) {
+	subtreeModel = tm_create_copy(model);
+	tm_scale(subtreeModel, subtreeScale, 0);
+      }
     }
     else {
       if (subtreeName != NULL) 
@@ -318,8 +323,8 @@ int main(int argc, char *argv[]) {
     if (input_mods == NULL) {   /* skip if models given */
       if (parametric) {
 	if (subtreeName!=NULL && (subtreeScale!=1.0 || subtreeSwitchProb!=0.0)) 
-	  msa = tm_generate_msa_random_subtree(nsites, model, subtreeName,
-					       subtreeScale, subtreeSwitchProb);
+	  msa = tm_generate_msa_random_subtree(nsites, model, subtreeModel, 
+					       subtreeName, subtreeSwitchProb);
 	else msa = tm_generate_msa(nsites, NULL, &model, NULL);
       }
       else {

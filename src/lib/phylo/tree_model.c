@@ -718,31 +718,19 @@ MSA *tm_generate_msa(int ncolumns,
    appear in same order as the states of the Markov matrix. 
    NOTE: call srandom externally. */
 MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
-				    char *subtree, double subtreeScale,
+				    TreeModel *subtreeMod, char *subtree,
 				    double subtreeSwitchProb) {
-  int i, nseqs, col, idx, ratecat;
+  int i, nseqs, col, idx, ratecat, inSubtree[2];
   MSA *msa;
   char *newchar;
   char **names, **seqs;
   TreeNode *subtreeNode;
   List *traversal = tr_preorder(mod->tree);
-  double *origBrlen;
-  int *inSubtree, inSub;
 
   subtreeNode = tr_get_node(mod->tree, subtree);
   if (subtreeNode==NULL) {
     die("ERROR: no node with name %s\n", subtree);
   }
-  origBrlen = malloc(lst_size(traversal)*sizeof(double));
-  inSubtree = malloc(lst_size(traversal)*sizeof(int));
-  for (i=0; i<lst_size(traversal); i++) {
-    TreeNode *n = (TreeNode*)lst_get_ptr(traversal, i);
-    origBrlen[i]=n->dparent;
-    while (n!=subtreeNode && n!=NULL)
-      n=n->parent;
-    if (n==subtreeNode) inSubtree[i]=1;
-  }
-  
   nseqs = (mod->tree->nnodes+1)/2;
 
   /* create new MSA */
@@ -754,8 +742,6 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
                 mod->rate_matrix->states);
 
   /* build sequence idx map; only need one for first model */
-  /* FIXME: this assumes all tree models have the same topology; may
-     want to relax... */
   mod->msa_seq_idx = smalloc(mod->tree->nnodes * sizeof(int));
   for (i = 0, idx = 0; i < mod->tree->nnodes; i++) {
     TreeNode *n = (TreeNode*)lst_get_ptr(traversal, i);
@@ -770,14 +756,7 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
   /* generate sequences, column by column */
   newchar = (char*)smalloc(mod->tree->nnodes * sizeof(char));
   for (col = 0; col < ncolumns; col++) {
-    for (i=0; i<lst_size(traversal); i++) {
-      TreeNode *n =(TreeNode*)lst_get_ptr(traversal, i);
-      inSub = inSubtree[i];
-      if (1.0*(double)random()/(double)RAND_MAX < subtreeSwitchProb)
-	inSub = !inSub;
-      n->dparent = origBrlen[i];
-      if (inSub) n->dparent *= subtreeScale;
-    }
+    int inSubtree[2];
     if (mod->nratecats > 1)
       ratecat = pv_draw_idx_arr(mod->freqK, mod->nratecats);
     else ratecat=0;
@@ -785,31 +764,48 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
     newchar[mod->tree->id] = 
       mm_sample_backgd(mod->rate_matrix->states, 
                        mod->backgd_freqs);
+    inSubtree[0]=inSubtree[1]=0;
     for (i = 0; i < lst_size(traversal); i++) {
       TreeNode *n = (TreeNode*)lst_get_ptr(traversal, i);
       TreeNode *l = n->lchild;
       TreeNode *r = n->rchild;
+      int j, inSub[2];
+      TreeModel *lmod, *rmod;
       assert ((l == NULL && r == NULL) || (l != NULL && r != NULL));
 
       if (l == NULL) 
         msa->seqs[mod->msa_seq_idx[n->id]][col] = newchar[n->id];
       else {
         MarkovMatrix *lsubst_mat, *rsubst_mat;
-	//        if (mod->P[l->id][ratecat] == NULL)
-          tm_set_subst_matrices(mod);
-        lsubst_mat = mod->P[l->id][ratecat];
-        rsubst_mat = mod->P[r->id][ratecat];
+	if (l==subtreeNode) inSubtree[0]=1;
+	else if (r==subtreeNode) inSubtree[1]=1;
+
+	for (j=0; j<2; j++) {
+	  inSub[j] = inSubtree[j];
+	  if (1.0*(double)random()/(double)RAND_MAX < subtreeSwitchProb) 
+	    inSub[j]=!inSub[j];
+	}
+	if (inSub[0]) lmod = subtreeMod;
+	else lmod = mod;
+	if (inSub[1]) rmod = subtreeMod;
+	else rmod=mod;
+	
+	if (lmod->P[l->id][ratecat]==NULL) {
+	  //	  printf("setting subst matcies inSub=%i\n", inSub[0]);
+	  tm_set_subst_matrices(lmod);
+	}
+	if (rmod->P[r->id][ratecat]==NULL) {
+	  //	  printf("setting subst matrices inSub=%i\n", inSub[1]);
+	  tm_set_subst_matrices(rmod);
+	}
+        lsubst_mat = lmod->P[l->id][ratecat];
+        rsubst_mat = rmod->P[r->id][ratecat];
         newchar[l->id] = mm_sample_char(lsubst_mat, newchar[n->id]);
         newchar[r->id] = mm_sample_char(rsubst_mat, newchar[n->id]);
       }
     }
+    assert(inSubtree[0] || inSubtree[1]);
   }
-  for (i=0; i<lst_size(traversal); i++) {
-    TreeNode *n = lst_get_ptr(traversal, i);
-    n->dparent = origBrlen[i];
-  }
-  free(origBrlen);
-  free(inSubtree);
   return msa;
 }
 

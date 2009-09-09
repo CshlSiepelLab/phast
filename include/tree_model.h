@@ -214,8 +214,8 @@ MSA *tm_generate_msa(int ncolumns, HMM *hmm,
                      TreeModel **classmods, int *labels);
 
 MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
-				    char *subtree, double subtreeScale,
-				    double subtreeSwitchProb);
+				    TreeModel *subtreeMod, 
+				    char *subtree, double subtreeSwitchProb);
 
 TreeModel *tm_induced_aa(TreeModel *codon_mod);
 
