@@ -806,6 +806,7 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
     }
     assert(inSubtree[0] || inSubtree[1]);
   }
+  free(newchar);
   return msa;
 }
 
