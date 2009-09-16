@@ -146,4 +146,10 @@ OPTIONS:
 	subtree to supertree and vice versa.  Randomization is performed
 	independently for each branch in every column of simulated data.
 
-     
+    --scale-file,-F <file>
+        (For use with --subtree in parametric mode).  Instead of using 
+        --subtree-scale or --scale, read in a tab-delimited file with 
+        three columns: numSite,scale,subtree_scale.  For each row in the 
+        file phyloBoot will simulate the given number of sites with those 
+        scaling factors, and then will move on to the next row, so that the 
+        total number of sites is the sum of the first column.

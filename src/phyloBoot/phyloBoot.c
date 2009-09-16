@@ -103,8 +103,10 @@ int main(int argc, char *argv[]) {
   char tmpchstr[STR_MED_LEN];
   TreeModel *repmod = NULL;
   double subtreeScale=1.0, subtreeSwitchProb=0.0, scale=1.0;
-  char *subtreeName=NULL;
+  char *subtreeName=NULL, *scaleFileName=NULL;
   TreeModel *subtreeModel=NULL;
+  List *scaleLst=NULL, *subtreeScaleLst=NULL, *nsitesLst=NULL;
+  FILE *scaleFile;
   
 
   struct option long_opts[] = {
@@ -131,10 +133,11 @@ int main(int argc, char *argv[]) {
     {"subtree-switch", 1, 0, 'w'},
     {"subtree-scale", 1, 0, 'l'},
     {"scale", 1, 0, 'P'},
+    {"scale-file", 1, 0, 'F'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "L:n:i:d:a:m:o:xR:qht:s:k:Ep:M:S:w:l:P:r", 
+  while ((c = getopt_long(argc, argv, "L:n:i:d:a:m:o:xR:qht:s:k:Ep:M:S:w:l:P:F:r", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'L':
@@ -189,6 +192,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'S':
       subtreeName=optarg;
+      break;
+    case 'F':
+      scaleFileName = optarg;
       break;
     case 'w':
       subtreeSwitchProb=atof(optarg);
@@ -281,6 +287,7 @@ int main(int argc, char *argv[]) {
 
     /* general set up -- different for parametric and non-parametric cases */
     if (!parametric) {
+      if  (scaleFileName != NULL) die("ERROR: --scale-file only works in parametric mode\n");
       if (tree == NULL) {
         if (msa->nseqs == 2) {
           sprintf(tmpchstr, "(%s,%s)", msa->names[0], msa->names[1]);
@@ -311,6 +318,27 @@ int main(int argc, char *argv[]) {
       tmpcounts = smalloc(msa->ss->ntuples * sizeof(int));
     }
     else {                        /* parametric */
+      if (scaleFileName != NULL) {
+	double tempScale, tempSubtreeScale;
+	int tempNumSite;
+	if (subtreeSwitchProb!=0.0) die("ERROR: Cannot use --subtree-switch with --scale-file (not implemented)\n");
+	scaleFile = fopen_fname(scaleFileName, "r");
+	scaleLst = lst_new_dbl(100);
+	subtreeScaleLst = lst_new_dbl(100);
+	nsitesLst = lst_new_int(100);
+	if (nsites != -1) fprintf(stderr, "Warning: number of simulated sites will be determined by --scale-file.  Ignoring --nsites argument\n");
+	if (subtreeScale!=1.0) fprintf(stderr, "Warning: --subtree-file overrides --subtree-scale.  Ignoring --subtree-scale argument\n");
+	subtreeScale = 1.0;
+	nsites=0;
+	while (EOF != fscanf(scaleFile, "%i %lf %lf", 
+			     &tempNumSite, &tempScale, &tempSubtreeScale)) {
+	  lst_push_int(nsitesLst, tempNumSite);
+	  lst_push_dbl(scaleLst, tempScale);
+	  lst_push_dbl(subtreeScaleLst, tempSubtreeScale);
+	  nsites += tempNumSite;
+	}
+	fclose(scaleFile);
+      }
       if (nsites == -1) nsites = default_nsites;
     }
   } /* if input_mods == NULL */
@@ -322,7 +350,10 @@ int main(int argc, char *argv[]) {
     /* generate alignment */
     if (input_mods == NULL) {   /* skip if models given */
       if (parametric) {
-	if (subtreeName!=NULL && (subtreeScale!=1.0 || subtreeSwitchProb!=0.0)) 
+	if (scaleLst != NULL)
+	  msa = tm_generate_msa_scaleLst(nsitesLst, scaleLst, subtreeScaleLst,
+					 model, subtreeName);
+	else if (subtreeName!=NULL && (subtreeScale!=1.0 || subtreeSwitchProb!=0.0)) 
 	  msa = tm_generate_msa_random_subtree(nsites, model, subtreeModel, 
 					       subtreeName, subtreeSwitchProb);
 	else msa = tm_generate_msa(nsites, NULL, &model, NULL);

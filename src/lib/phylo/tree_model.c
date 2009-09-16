@@ -712,6 +712,95 @@ MSA *tm_generate_msa(int ncolumns,
   return msa;
 }
 
+/* Generates a random alignment as above but uses a list of 
+   scales and subtree scales to use.  (If subtreeName is NULL
+   subtree scales must be 1).  */
+MSA *tm_generate_msa_scaleLst(List *nsitesLst, List *scaleLst, 
+			      List *subtreeScaleLst,
+			      TreeModel *mod, char *subtreeName) {
+  double scale, subtreeScale;
+  int nsite, ncolumns=0, i, j, k, idx, col, nseqs, ratecat;
+  char **seqs, **names, *newchar;
+  MSA *msa;
+  TreeNode *subtreeNode;
+  List *traversal = tr_preorder(mod->tree);
+
+  if (subtreeName == NULL) {
+    for (i=0; i<lst_size(subtreeScaleLst); i++) {
+      subtreeScale = lst_get_dbl(subtreeScaleLst, i);
+      if (subtreeScale != 1.0) {
+	fprintf(stderr, "Warning: ignoring subtreeScales because subtree not given\n");
+	break;
+      }
+    }
+  }
+  else {
+    subtreeNode = tr_get_node(mod->tree, subtreeName);
+    if (subtreeNode == NULL) die("ERROR: no node with name %s\n", subtreeName);
+  }
+  for (i=0; i<lst_size(nsitesLst); i++) 
+    ncolumns += lst_get_int(nsitesLst, i);
+  nseqs = (mod->tree->nnodes+1)/2;
+  
+    /* create new MSA */
+  names = (char**)smalloc(nseqs * sizeof(char*));
+  seqs = (char**)smalloc(nseqs * sizeof(char*));
+  for (i = 0; i < nseqs; i++) 
+    seqs[i] = (char*)smalloc((ncolumns + 1) * sizeof(char));
+  msa = msa_new(seqs, names, nseqs, ncolumns, 
+                mod->rate_matrix->states);
+  
+  mod->msa_seq_idx = smalloc(mod->tree->nnodes * sizeof(int));
+  for (i = 0, idx = 0; i < mod->tree->nnodes; i++) {
+    TreeNode *n = (TreeNode*)lst_get_ptr(traversal, i);
+    if (n->lchild == NULL && n->rchild == NULL) {
+      mod->msa_seq_idx[i] = idx;
+      names[idx] = strdup(n->name);
+      idx++;
+    }
+    else mod->msa_seq_idx[i] = -1;
+  }
+
+  newchar = (char*)smalloc(mod->tree->nnodes * sizeof(char));
+  col=0;
+  for (i=0; i<lst_size(nsitesLst); i++) {
+    nsite = lst_get_int(nsitesLst, i);
+    scale = lst_get_dbl(scaleLst, i);
+    subtreeScale = lst_get_dbl(subtreeScaleLst, i);
+    tr_scale(mod->tree, scale);
+    if (subtreeName != NULL) 
+      tr_scale_subtree(mod->tree, subtreeNode, subtreeScale);
+    tm_set_subst_matrices(mod);
+    for (j=0; j<nsite; j++) {
+      if (mod->nratecats > 1) 
+	ratecat = pv_draw_idx_arr(mod->freqK, mod->nratecats);
+      else ratecat=0;
+      newchar[mod->tree->id] = 
+	mm_sample_backgd(mod->rate_matrix->states, 
+			 mod->backgd_freqs);
+      
+      for (k=0; k<lst_size(traversal); k++) {
+	TreeNode *n = (TreeNode*)lst_get_ptr(traversal, k);
+	TreeNode *l = n->lchild;
+	TreeNode *r = n->rchild;
+	assert( (l==NULL && r==NULL) || (l!=NULL && r!=NULL));
+	if (l == NULL)
+	  msa->seqs[mod->msa_seq_idx[n->id]][col] = newchar[n->id];
+	else {
+	  newchar[l->id] = mm_sample_char(mod->P[l->id][ratecat], newchar[n->id]);
+	  newchar[r->id] = mm_sample_char(mod->P[r->id][ratecat], newchar[n->id]);
+	}
+      }
+      col++;
+    }
+    tr_scale_subtree(mod->tree, subtreeNode, 1.0/subtreeScale);
+    tr_scale(mod->tree, 1.0/scale);
+  }
+  tm_set_subst_matrices(mod);
+  free(newchar);
+  return msa;
+}
+
 
 /* Generates an alignment according to set of Tree Models and a
    Markov matrix defing how to transition among them.  TreeModels must
@@ -720,7 +809,7 @@ MSA *tm_generate_msa(int ncolumns,
 MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
 				    TreeModel *subtreeMod, char *subtree,
 				    double subtreeSwitchProb) {
-  int i, nseqs, col, idx, ratecat, inSubtree[2];
+  int i, nseqs, col, idx, ratecat;
   MSA *msa;
   char *newchar;
   char **names, **seqs;
