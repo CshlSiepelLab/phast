@@ -213,6 +213,10 @@ int tm_get_nbranchlenparams(TreeModel *mod);
 MSA *tm_generate_msa(int ncolumns, HMM *hmm, 
                      TreeModel **classmods, int *labels);
 
+MSA *tm_generate_msa_scaleLst(List *nsitesList, List *scaleLst,
+			      List *subtreeScaleLst, TreeModel *model,
+			      char *subtreeName);
+
 MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
 				    TreeModel *subtreeMod, 
 				    char *subtree, double subtreeSwitchProb);
