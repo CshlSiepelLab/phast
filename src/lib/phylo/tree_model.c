@@ -815,12 +815,15 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
   char **names, **seqs;
   TreeNode *subtreeNode;
   List *traversal = tr_preorder(mod->tree);
+  int *inSubtree;
 
   subtreeNode = tr_get_node(mod->tree, subtree);
   if (subtreeNode==NULL) {
     die("ERROR: no node with name %s\n", subtree);
   }
   nseqs = (mod->tree->nnodes+1)/2;
+  inSubtree = tr_in_subtree(mod->tree, subtreeNode);
+  inSubtree[subtreeNode->id] = TRUE;
 
   /* create new MSA */
   names = (char**)smalloc(nseqs * sizeof(char*));
@@ -845,7 +848,6 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
   /* generate sequences, column by column */
   newchar = (char*)smalloc(mod->tree->nnodes * sizeof(char));
   for (col = 0; col < ncolumns; col++) {
-    int inSubtree[2];
     if (mod->nratecats > 1)
       ratecat = pv_draw_idx_arr(mod->freqK, mod->nratecats);
     else ratecat=0;
@@ -853,7 +855,6 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
     newchar[mod->tree->id] = 
       mm_sample_backgd(mod->rate_matrix->states, 
                        mod->backgd_freqs);
-    inSubtree[0]=inSubtree[1]=0;
     for (i = 0; i < lst_size(traversal); i++) {
       TreeNode *n = (TreeNode*)lst_get_ptr(traversal, i);
       TreeNode *l = n->lchild;
@@ -866,11 +867,10 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
         msa->seqs[mod->msa_seq_idx[n->id]][col] = newchar[n->id];
       else {
         MarkovMatrix *lsubst_mat, *rsubst_mat;
-	if (l==subtreeNode) inSubtree[0]=1;
-	else if (r==subtreeNode) inSubtree[1]=1;
+        inSub[0] = inSubtree[l->id];
+        inSub[1] = inSubtree[r->id];
 
 	for (j=0; j<2; j++) {
-	  inSub[j] = inSubtree[j];
 	  if (1.0*(double)random()/(double)RAND_MAX < subtreeSwitchProb) 
 	    inSub[j]=!inSub[j];
 	}
@@ -893,9 +893,9 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
         newchar[r->id] = mm_sample_char(rsubst_mat, newchar[n->id]);
       }
     }
-    assert(inSubtree[0] || inSubtree[1]);
   }
   free(newchar);
+  free(inSubtree);
   return msa;
 }
 
