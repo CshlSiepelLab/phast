@@ -20,8 +20,8 @@ PROGRAM:      %s\n\
 \n\
 DESCRIPTION:  Scale, prune, merge, and otherwise tweak phylogenetic trees.\n\
               Expects input to be a tree model (.mod) file unless\n\
-              filename ends with '.nh', in which case it will be\n\
-              expected to be a tree file in Newick format.\n\
+              filename ends with '.nh' or -n option is used, in which case \n\
+              it will be expected to be a tree file in Newick format.\n\
 \n\
 USAGE:        %s [OPTIONS] <file.mod>|<file.nh>\n\
 \n\
@@ -116,6 +116,10 @@ OPTIONS:\n\
         larger tree and the smaller tree doesn't have to be a proper\n\
         subset of the larger tree.\n\
 \n\
+    --newick,-n\n\
+        The input file is in Newick format (necessary if file name does\n\
+        not end in .nh)\n\
+\n\
     --help, -h\n\
         Print this help message.\n\n", prog, prog);
   exit(0);
@@ -128,7 +132,8 @@ int main(int argc, char *argv[]) {
   double scale_factor = 1;
   List *prune_names = NULL;
   int prune_all_but = FALSE, tree_only = FALSE, dissect = FALSE,
-    name_ancestors = FALSE, with_branch = FALSE, print_branchlen=FALSE;
+    name_ancestors = FALSE, with_branch = FALSE, print_branchlen=FALSE,
+    inNewick=FALSE;
   TreeModel *mod = NULL, *merge_mod = NULL;
   char *reroot_name = NULL, *subtree_name =NULL, *get_subtree_name = NULL;
   
@@ -153,11 +158,12 @@ int main(int argc, char *argv[]) {
     {"with-branch", 1, 0, 'B'},
     {"subtree", 1, 0, 'S'},
     {"branchlen", 0, 0, 'b'},
+    {"newick", 0, 0, 'n'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "s:p:P:g:m:r:R:B:S:adtbh", 
+  while ((c = getopt_long(argc, argv, "s:p:P:g:m:r:R:B:S:adtbnh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 's':
@@ -215,6 +221,9 @@ int main(int argc, char *argv[]) {
     case 'S':
       subtree_name = optarg;
       break;
+    case 'n':
+      inNewick=TRUE;
+      break;
     case 'h':
       usage(argv[0]);
     case '?':
@@ -230,7 +239,7 @@ int main(int argc, char *argv[]) {
     
   suffix = str_new_charstr(argv[optind]);
   str_suffix(suffix, '.');
-  if (str_equals_charstr(suffix, "nh")) {
+  if (inNewick || str_equals_charstr(suffix, "nh")) {
     tree = tr_new_from_file(fopen_fname(argv[optind], "r"));
     tree_only = TRUE;           /* can't output tree model in this case */
   }
