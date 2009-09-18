@@ -1380,8 +1380,9 @@ void tm_fitch_rec_up(int *nodecost, TreeNode *tree,
 
 //initialize branchlengths to average number of mutations under parsimony.
 //returns parsimony score
-double tm_params_init_branchlens_parsimony(Vector *params, 
-					   TreeModel *mod, MSA *msa) {
+//If params is NULL, sets the branchlengths in mod->tree directly.
+//Otherwise sets the parameter vector
+double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod, MSA *msa) {
   int i, numnode = mod->tree->nnodes;
   int numstate=strlen(msa->alphabet), **minState, *numMinState;
   int tupleIdx, spec, node, rootMinState, *nodecost, params_idx;
@@ -1397,7 +1398,7 @@ double tm_params_init_branchlens_parsimony(Vector *params,
     die("ERROR: tm_params_init_branches currently only works for order 1 models\n");
 
   if  (mod->estimate_branchlens == TM_BRANCHLENS_CLOCK) { 
-    die("Sorry, --init-parsimony not implemented for molecular clock\n");
+    die("Sorry, parsimony algorithm not implemented for molecular clock\n");
   }
 
   srandom(time(NULL));
@@ -1459,12 +1460,15 @@ double tm_params_init_branchlens_parsimony(Vector *params,
   //  brlen[node] /= denom;
 
  //for now try JC correction:
-   for (node=0; node<numnode; node++) 
+  for (node=0; node<numnode; node++) 
     if (brlen[node]!=0.0) {
-       brlen[node] = -0.75*log(1.0-4.0*brlen[node]/(3.0*denom));
-   }
-
-  if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
+      brlen[node] = -0.75*log(1.0-4.0*brlen[node]/(3.0*denom));
+    }
+  if (params == NULL) {
+    for (node=0; node < numnode; node++)
+      ((TreeNode*)(lst_get_ptr(mod->tree->nodes, node)))->dparent = brlen[node];
+  }   
+  else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
     params_idx = 0;
     for (node=0; node<lst_size(traversal); node++) {
       currNode = (TreeNode*)lst_get_ptr(traversal, node);

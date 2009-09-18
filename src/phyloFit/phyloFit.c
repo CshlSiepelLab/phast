@@ -257,7 +257,7 @@ int main(int argc, char *argv[]) {
     random_init = FALSE, estimate_backgd = FALSE, estimate_scale_only = FALSE,
     do_column_probs = FALSE, nonoverlapping = FALSE, gaps_as_bases = FALSE,
     no_freqs = FALSE, no_rates = FALSE, assume_clock = FALSE, 
-    parsimony_init=FALSE;
+    init_parsimony=FALSE;
   unsigned int nsites_threshold = DEFAULT_NSITES_THRESHOLD;
   msa_format_type input_format = FASTA;
   char c;
@@ -414,7 +414,7 @@ int main(int argc, char *argv[]) {
       random_init = TRUE;
       break;
     case 'y':
-      parsimony_init = TRUE;
+      init_parsimony = TRUE;
       break;
     case 'L':
       likelihood_only = TRUE;
@@ -496,7 +496,7 @@ int main(int argc, char *argv[]) {
   if (use_conditionals && use_em) 
     die("ERROR: Cannot use --markov with --EM.    Type 'phyloFit -h' for usage.\n");
 
-  if (likelihood_only && input_mod == NULL) 
+  if (likelihood_only && input_mod == NULL)  
     die("ERROR: --lnl requires --init-model.  Type 'phyloFit -h' for usage.\n");
 
   if (input_mod != NULL && tree != NULL)
@@ -783,6 +783,9 @@ int main(int argc, char *argv[]) {
         continue;
       }
 
+     if (init_parsimony)
+	tm_params_init_branchlens_parsimony(NULL, mod, msa);
+
       if (likelihood_only) {
         double *col_log_probs = do_column_probs ? 
           smalloc(msa->length * sizeof(double)) : NULL;
@@ -835,7 +838,7 @@ int main(int argc, char *argv[]) {
         else 
           params = tm_params_init(mod, .1, 5, alpha);     
 
-	if (parsimony_init)
+	if (init_parsimony)
 	  tm_params_init_branchlens_parsimony(params, mod, msa);
 
         if (input_mod != NULL && mod->backgd_freqs != NULL && !no_freqs) {
