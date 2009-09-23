@@ -240,4 +240,6 @@ AltSubstMod* tm_new_alt_subst_mod(subst_mod_type subst_mod,
 
 void tm_free_alt_subst_mod(AltSubstMod *am); 
 
+void tm_variance(TreeModel *mod, MSA *msa, Vector *params, int cat, char *error_fname, int appendToFile);
+
 #endif

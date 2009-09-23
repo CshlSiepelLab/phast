@@ -233,6 +233,9 @@ OPTIONS:
         sequence will be retained, but will be constrained to have
         length zero).
 
+    --error, -e <filename>
+	For each parameter, report estimate, variance, and 95% confidence
+        interval, printed to given filename, one parameter per line.
 
  (Options for modeling rate variation)
 

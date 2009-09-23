@@ -1815,3 +1815,28 @@ void tm_free_alt_subst_mod(AltSubstMod *am) {
   mm_free(am->rate_matrix);
   free(am);
 }
+
+
+void tm_variance(TreeModel *mod, MSA *msa, Vector *params, int cat, char *error_fname, int appendToFile) {
+  FILE *outfile = fopen_fname(error_fname, appendToFile ? "a" : "w");
+  double delta=1.0e-6, origParam, origLike, like1, like2, var, sd;
+  int idx;
+  
+  tm_unpack_params(mod, params, -1);
+  origLike = tl_compute_log_likelihood(mod, msa, NULL, cat, NULL);
+  for (idx=0; idx < params->size; idx++) {
+    origParam = vec_get(params, idx);
+    vec_set(params, idx, origParam + 2*delta);
+    tm_unpack_params(mod, params, -1);
+    like1 = tl_compute_log_likelihood(mod, msa, NULL, cat, NULL);
+    vec_set(params, idx, origParam + delta);
+    tm_unpack_params(mod, params, -1);
+    like2 = tl_compute_log_likelihood(mod, msa, NULL, cat, NULL);
+    var = -(delta*delta)/(like1 - 2*like2 + origLike);
+    sd = sqrt(var);
+    fprintf(outfile, "%f\t%e\t%f\t%f\n", origParam, var, origParam - 1.96*sd, origParam + 1.96*sd);
+    vec_set(params, idx, origParam);
+  }
+  tm_unpack_params(mod, params, -1);
+  fclose(outfile);
+}

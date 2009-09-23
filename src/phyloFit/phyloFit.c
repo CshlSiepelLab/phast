@@ -249,7 +249,7 @@ void print_window_summary(FILE* WINDOWF, List *window_coords, int win,
 int main(int argc, char *argv[]) {
   char *msa_fname = NULL, *output_fname_root = "phyloFit", 
     *log_fname = NULL, *reverse_group_tag = NULL, *alph = "ACGT", 
-    *root_seqname = NULL, *subtree_name = NULL;
+    *root_seqname = NULL, *subtree_name = NULL, *error_fname=NULL;
   int subst_mod = REV, quiet = FALSE, nratecats = 1, use_em = FALSE, 
     window_size = -1, window_shift = -1, use_conditionals = FALSE, 
     precision = OPT_HIGH_PREC, likelihood_only = FALSE, do_bases = FALSE, 
@@ -292,6 +292,7 @@ int main(int argc, char *argv[]) {
     {"out-root", 1, 0, 'o'},
     {"output-tree", 0, 0, 'T'},
     {"EM", 0, 0, 'E'},
+    {"error", 1, 0, 'e'},
     {"precision", 1, 0, 'p'},
     {"do-cats", 1, 0, 'C'},
     {"non-overlapping", 0, 0, 'V'},
@@ -323,7 +324,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:GVEeNDRTqLPXZUBFfynrzh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:e:GVEeNDRTqLPXZUBFfynrzh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -400,6 +401,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'E':
       use_em = TRUE;
+      break;
+    case 'e':
+      error_fname=optarg;
       break;
     case 'p':
       if (!strcmp(optarg, "LOW")) precision = OPT_LOW_PREC;
@@ -869,7 +873,11 @@ int main(int argc, char *argv[]) {
           tm_fit_em(mod, msa, params, cat, precision, logf);
         else
           tm_fit(mod, msa, params, cat, precision, logf);
-      }
+
+        if (error_fname != NULL)
+	  tm_variance(mod, msa, params, cat, error_fname, i!=0 || win!=0);
+      }  
+      
 
       str_cpy_charstr(mod_fname, output_fname_root);
       if (window_coords != NULL) {
