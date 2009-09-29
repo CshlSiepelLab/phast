@@ -59,6 +59,9 @@ OPTIONS:\n\
     --tree-only, -t\n\
         Output tree only in Newick format rather than complete tree model.\n\
 \n\
+    --no-branchlen, -N\n\
+        (Implies --tree-only).  Output only topology in Newick format.\n\
+\n\
     --dissect, -d\n\
         In place of ordinary output, print a description of the id,\n\
         label (name), parent, children, and distance to parent for\n\
@@ -133,7 +136,7 @@ int main(int argc, char *argv[]) {
   List *prune_names = NULL;
   int prune_all_but = FALSE, tree_only = FALSE, dissect = FALSE,
     name_ancestors = FALSE, with_branch = FALSE, print_branchlen=FALSE,
-    inNewick=FALSE;
+    inNewick=FALSE, no_branchlen = FALSE;
   TreeModel *mod = NULL, *merge_mod = NULL;
   char *reroot_name = NULL, *subtree_name =NULL, *get_subtree_name = NULL;
   
@@ -152,6 +155,7 @@ int main(int argc, char *argv[]) {
     {"merge", 1, 0, 'm'},
     {"rename", 1, 0, 'r'},
     {"tree-only", 0, 0, 't'},
+    {"no-branchlen", 0, 0, 'N'},
     {"dissect", 0, 0, 'd'},
     {"name-ancestors", 0, 0, 'a'},
     {"reroot", 1, 0, 'R'},
@@ -163,7 +167,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "s:p:P:g:m:r:R:B:S:adtbnh", 
+  while ((c = getopt_long(argc, argv, "s:p:P:g:m:r:R:B:S:adtNbnh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 's':
@@ -201,6 +205,10 @@ int main(int argc, char *argv[]) {
       rename_hash = make_name_hash(optarg);
       break;
     case 't':
+      tree_only = TRUE;
+      break;
+    case 'N':
+      no_branchlen = TRUE;
       tree_only = TRUE;
       break;
     case 'd':
@@ -317,7 +325,7 @@ int main(int argc, char *argv[]) {
 
   if (dissect==0 && print_branchlen==0) {
     if (tree_only)
-      tr_print(stdout, tree, TRUE);
+      tr_print(stdout, tree, no_branchlen==FALSE);
     else
       tm_print(stdout, mod);
   }
