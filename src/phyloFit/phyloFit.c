@@ -257,7 +257,7 @@ int main(int argc, char *argv[]) {
     random_init = FALSE, estimate_backgd = FALSE, estimate_scale_only = FALSE,
     do_column_probs = FALSE, nonoverlapping = FALSE, gaps_as_bases = FALSE,
     no_freqs = FALSE, no_rates = FALSE, assume_clock = FALSE, 
-    init_parsimony=FALSE;
+    init_parsimony=FALSE, parsimony_only=FALSE;
   unsigned int nsites_threshold = DEFAULT_NSITES_THRESHOLD;
   msa_format_type input_format = FASTA;
   char c;
@@ -278,6 +278,7 @@ int main(int argc, char *argv[]) {
   int root_leaf_id = -1;
   List *rate_consts = NULL;
   char tmpchstr[STR_MED_LEN];
+  FILE *parsimony_cost_file = NULL;
 
   struct option long_opts[] = {
     {"msa", 1, 0, 'm'},
@@ -301,6 +302,7 @@ int main(int argc, char *argv[]) {
     {"init-model", 1, 0, 'M'},
     {"init-random", 0, 0, 'r'},
     {"init-parsimony", 0, 0, 'y'},
+    {"print-parsimony", 1, 0, 'Y'},
     {"lnl", 0, 0, 'L'},
     {"scale-only", 0, 0, 'B'},
     {"scale-subtree", 1, 0, 'S'},
@@ -324,7 +326,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:e:GVEeNDRTqLPXZUBFfynrzh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:e:Y:GVEeNDRTqLPXZUBFfynrzh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -420,6 +422,11 @@ int main(int argc, char *argv[]) {
     case 'y':
       init_parsimony = TRUE;
       break;
+    case 'Y':
+      init_parsimony = TRUE;
+      parsimony_cost_file = fopen_fname(optarg, "w");
+      parsimony_only=TRUE;
+      break; 
     case 'L':
       likelihood_only = TRUE;
       break;
@@ -787,9 +794,12 @@ int main(int argc, char *argv[]) {
         continue;
       }
 
-     if (init_parsimony)
-	tm_params_init_branchlens_parsimony(NULL, mod, msa);
-
+     if (init_parsimony) {
+	double parsimony_cost = tm_params_init_branchlens_parsimony(NULL, mod, msa);
+        if (parsimony_cost_file != NULL) 
+           fprintf(parsimony_cost_file, "%f\n", parsimony_cost);
+        if (parsimony_only) continue;
+      }
       if (likelihood_only) {
         double *col_log_probs = do_column_probs ? 
           smalloc(msa->length * sizeof(double)) : NULL;
@@ -916,7 +926,7 @@ int main(int argc, char *argv[]) {
     if (window_coords != NULL) 
       msa_free(msa);
   }
-  
+  if (parsimony_cost_file != NULL) fclose(parsimony_cost_file); 
   if (!quiet) fprintf(stderr, "Done.\n");
   
   return 0;

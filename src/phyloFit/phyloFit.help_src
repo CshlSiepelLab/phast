@@ -196,6 +196,10 @@ OPTIONS:
 	as --init-random or --init-model can be used in conjunction to 
 	initialize substitution matrix parameters.
 
+    --print-parsimony, -Y <filename>
+        Print parsimony score to given file, and quit.  (Does not optimize
+        or report likelihoods).
+
     --clock, -z
         Assume a molecular clock in estimation.  Causes the distances to all
         descendant leaves to be equal for each ancestral node and cuts the

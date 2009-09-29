@@ -1394,7 +1394,7 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod, MSA *
   int i, numnode = mod->tree->nnodes;
   int numstate=strlen(msa->alphabet), **minState, *numMinState;
   int tupleIdx, spec, node, rootMinState, *nodecost, params_idx;
-  double *brlen, weight, denom=0, totalCost;
+  double *brlen, weight, denom=0, totalCost=0;
   List *traversal;
   char currCh;
   TreeNode *currNode;
