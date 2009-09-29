@@ -1434,7 +1434,7 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod, MSA *
       spec = mod->msa_seq_idx[node];
       if (spec==-1) continue;
       currCh = ss_get_char_tuple(msa, tupleIdx, spec, 0);
-      if (msa->is_missing[(int)currCh]) {
+      if (msa->is_missing[(int)currCh] || currCh==GAP_CHAR) {
 	numMinState[node] = numstate;
 	for (i=0; i<numstate; i++) {
 	  minState[node][i] = i;
