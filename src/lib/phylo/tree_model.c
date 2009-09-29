@@ -1058,8 +1058,16 @@ void tm_unpack_params(TreeModel *mod, Vector *params, int idx_offset) {
       else 
         n->dparent = vec_get(params, i++);
     }
-    /* set branch lengths to differences in heights */
+    /* set branch lengths */
     traversal = tr_postorder(mod->tree);
+    /* first ensure ordering constraints are obeyed; can be violated
+       during parameter estimation */
+    for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
+      n = lst_get_ptr(traversal, nodeidx);
+      if (n->parent != NULL && n->dparent > n->parent->dparent)
+        n->parent->dparent = n->dparent;
+    }
+    /* now set branch lengths to differences in heights */
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
       n = lst_get_ptr(traversal, nodeidx);
       if (n->parent == NULL)

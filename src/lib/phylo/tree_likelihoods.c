@@ -735,7 +735,7 @@ double tl_compute_partial_ll_suff_stats(TreeModel *mod, TreePosteriors *post) {
       subst_mat = mod->P[n->id][rcat];
       for (j = 0; j < nstates; j++) { /* from tuple */
         for (k = 0; k < nstates; k++) { /* to tuple */
-          retval += (post->expected_nsubst_tot[rcat][j][k][i] * 
+          retval += (post->expected_nsubst_tot[rcat][j][k][i] *
                      log2(mm_get(subst_mat, j, k)));
         }
       }

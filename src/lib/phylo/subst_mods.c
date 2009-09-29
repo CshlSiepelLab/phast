@@ -458,6 +458,7 @@ void tm_rate_params_init_from_model(TreeModel *mod, Vector *params,
 void tm_set_probs_JC69(TreeModel *mod, MarkovMatrix *P, double t) {
   int i, j;
   double scale = mod->rate_matrix->size * 1.0/(mod->rate_matrix->size - 1);
+  assert(t >= 0);
   for (i = 0; i < mod->rate_matrix->size; i++) {
     for (j = 0; j < mod->rate_matrix->size; j++) {
       if (i == j)
