@@ -1450,15 +1450,14 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod, MSA *
       }
     }
     
-    totalCost += (double)tm_fitch_rec_down(mod->tree, numMinState, minState);
-
+    weight = msa->ss->counts[tupleIdx];
+    totalCost += weight*(double)tm_fitch_rec_down(mod->tree, numMinState, minState);
     if (numMinState[mod->tree->id] > 0) 
       rootMinState = minState[mod->tree->id][(int)(random()/RAND_MAX*(double)numMinState[mod->tree->id])];
     else rootMinState = minState[mod->tree->id][0];
 
     tm_fitch_rec_up(nodecost, mod->tree, numMinState, minState, rootMinState);
 
-    weight = msa->ss->counts[tupleIdx];
     denom += weight;
     for (node=0; node<numnode; node++)
       brlen[node] += nodecost[node]*weight;
