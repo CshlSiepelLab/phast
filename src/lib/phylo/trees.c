@@ -840,6 +840,12 @@ double tr_max_branchlen(TreeNode *t) {
   return retval;  
 }
 
+
+double tr_distance_to_root(TreeNode *node) {
+  if (node->parent == NULL) return 0.0;
+  return node->dparent + tr_distance_to_root(node->parent);
+}
+
 /** Return node having specified name or NULL if none found.  */
 TreeNode *tr_get_node(TreeNode *t, char *name) {
   int i;
@@ -850,6 +856,7 @@ TreeNode *tr_get_node(TreeNode *t, char *name) {
   }
   return NULL;
 }
+
 
 /** Scale all branch lengths by constant factor. */
 void tr_scale(TreeNode *t, double scale_const) {

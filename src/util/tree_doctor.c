@@ -72,6 +72,10 @@ OPTIONS:\n\
         In place of ordinary output, print the total branch length of\n\
         the tree that would have been printed.\n\
 \n\
+    --depth, -D <node_name>\n\
+        In place of ordinary output, report distance from named node to\n\
+        root\n\
+\n\
     --reroot, -R <node_name>\n\
         Reroot tree at internal node with specified name.\n\
 \n\
@@ -136,9 +140,10 @@ int main(int argc, char *argv[]) {
   List *prune_names = NULL;
   int prune_all_but = FALSE, tree_only = FALSE, dissect = FALSE,
     name_ancestors = FALSE, with_branch = FALSE, print_branchlen=FALSE,
-    inNewick=FALSE, no_branchlen = FALSE;
+    inNewick=FALSE, no_branchlen = FALSE, print_distance_to_root = FALSE;
   TreeModel *mod = NULL, *merge_mod = NULL;
-  char *reroot_name = NULL, *subtree_name =NULL, *get_subtree_name = NULL;
+  char *reroot_name = NULL, *subtree_name =NULL, *get_subtree_name = NULL,
+    *node_distance_name = NULL;
   
   /* other variables */
   String *suffix;
@@ -167,7 +172,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "s:p:P:g:m:r:R:B:S:adtNbnh", 
+  while ((c = getopt_long(argc, argv, "s:p:P:g:m:r:R:B:S:D:adtNbnh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 's':
@@ -216,6 +221,10 @@ int main(int argc, char *argv[]) {
       break;
     case 'b':
       print_branchlen = TRUE;
+      break;
+    case 'D':
+      print_distance_to_root = TRUE;
+      node_distance_name = optarg;
       break;
     case 'R':
       reroot_name = optarg;
@@ -322,8 +331,15 @@ int main(int argc, char *argv[]) {
     tr_print_nodes(stdout, tree);
   if (print_branchlen) 
     printf("TOTAL_TREE_LEN: %f\n", tr_total_len(tree));
+  if (print_distance_to_root) {
+    TreeNode *node = tr_get_node(tree, node_distance_name);
+    if (node == NULL) 
+      die("ERROR: no node named '%s'.\n", node_distance_name);
+    printf("length(root-%s): %f\n", node_distance_name, 
+	   tr_distance_to_root(node));
+  }
 
-  if (dissect==0 && print_branchlen==0) {
+  if (dissect==0 && print_branchlen==0 && print_distance_to_root==0) {
     if (tree_only)
       tr_print(stdout, tree, no_branchlen==FALSE);
     else

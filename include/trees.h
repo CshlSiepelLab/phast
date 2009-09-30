@@ -84,6 +84,7 @@ void tr_print_ps(FILE *F, TreeNode *tree, int show_branch_lens,
 double tr_total_len(TreeNode *t);
 double tr_total_len_subtree(TreeNode *sub_root);
 double tr_max_branchlen(TreeNode *sub_root);
+double tr_distance_to_root(TreeNode *node);
 TreeNode *tr_get_node(TreeNode *t, char *name);
 void tr_scale(TreeNode *t, double scale_const);
 void tr_scale_subtree(TreeNode *t, TreeNode *sub, double scale_const);
