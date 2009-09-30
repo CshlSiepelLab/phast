@@ -233,14 +233,12 @@ inline int scale_for_bounds(Vector *linev, Vector *params,
                             Vector *lower_bounds, 
                             Vector *upper_bounds) {
   int i;
-  double minscale = 1, scale1, scale2;
+  double minscale = 1;
   int retval = -1;
   
   if (lower_bounds == NULL && upper_bounds == NULL) return -1;
-  printf("scale_for_bounds\n");
   for (i = 0; i < params->size; i++) {
-    scale1 = 1;
-    scale2 = 1;
+    double scale1=1, scale2=1;
     if (lower_bounds != NULL && 
         vec_get(params, i) + vec_get(linev, i) <
         vec_get(lower_bounds, i) && vec_get(linev, i) != 0) 
