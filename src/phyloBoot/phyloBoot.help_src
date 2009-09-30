@@ -108,7 +108,7 @@ OPTIONS:
         (Required if non-parametric and more than two species) Name
         of file or literal string defining tree topology.
 
-    --subst-mod, -s JC69|F81|HKY85|REV|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S
+    --subst-mod, -s JC69|F81|HKY85|REV|SSREV|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S
         (default REV).  Nucleotide substitution model.
 
     --nrates, -k <nratecats>
