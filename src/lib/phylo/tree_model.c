@@ -410,7 +410,7 @@ TreeModel *tm_new_from_file(FILE *f) {
       rate_weights = vec_new_from_file(f, nratecats);
     }
     else if (!strcmp(tag, ALT_MODEL_TAG)) {
-      die("ERROR: reading ALT_MODELS from model file not yet supported.\n");
+      break;
     }
     else {
       fprintf(stderr, "ERROR: unrecognized tag in model file (\"%s\").\n", 
@@ -447,6 +447,29 @@ TreeModel *tm_new_from_file(FILE *f) {
     normalize_probs(retval->freqK, retval->nratecats);
   }
 
+  while (!strcmp(tag, ALT_MODEL_TAG)) {
+    String *altmod_str = str_new(100);
+    AltSubstMod *altmod;
+    str_readline(altmod_str, f);
+    str_double_trim(altmod_str);
+    altmod = tm_add_alt_mod(retval, altmod_str);
+    fscanf(f, "%s", tag);
+    if (!strcmp(tag, SUBST_MOD_TAG)) {
+      str_readline(tmpstr, f);
+      str_double_trim(tmpstr);
+      altmod->subst_mod = tm_get_subst_mod_type(tmpstr->chars);
+    } else if (!strcmp(tag, BACKGROUND_TAG)) {
+      altmod->backgd_freqs = vec_new_from_file(f, size);
+    } else if (!strcmp(tag, RATE_MATRIX_TAG)) {     
+      altmod->rate_matrix = 
+	mm_new_from_matrix(mat_new_from_file(f, size, size), 
+			   alphabet, CONTINUOUS);
+    } else if (!strcmp(tag, ALT_MODEL_TAG)) {
+      die("ERROR: unrecognized tag %s in ALT_SUBST_MODEL section of mod file\n",
+	  tag);
+    }
+  }
+
   str_free(tmpstr);
   if (rate_consts != NULL) lst_free(rate_consts);
   if (rate_weights != NULL) vec_free(rate_weights);
@@ -457,26 +480,22 @@ TreeModel *tm_new_from_file(FILE *f) {
 
 void tm_print_altmodel(FILE *F, AltSubstMod *alt_model, TreeModel *tm) {
   int i;
-  Vector *backgd_freqs;
-  MarkovMatrix *rate_matrix;
 
-  fprintf(F, "\n%s %s\n", ALT_MODEL_TAG, alt_model->nodename->chars);
+  fprintf(F, "\n%s %s\n", ALT_MODEL_TAG, alt_model->defString->chars);
   fprintf(F, "%s %s\n", SUBST_MOD_TAG, 
           tm_get_subst_mod_string(alt_model->subst_mod));
-  if (alt_model->backgd_freqs == NULL)
-    backgd_freqs = tm->backgd_freqs;
-  else backgd_freqs = alt_model->backgd_freqs;
-  if (alt_model->rate_matrix == NULL)
-    rate_matrix = tm->rate_matrix;
-  else rate_matrix = alt_model->rate_matrix;
 
-  fprintf(F, "%s ", BACKGROUND_TAG);
-  for (i = 0; i < backgd_freqs->size; i++) 
-    fprintf(F, "%f ", vec_get(backgd_freqs, i));
-  fprintf(F, "\n");
+  if (alt_model->backgd_freqs != NULL) {
+    fprintf(F, "%s ", BACKGROUND_TAG);
+    for (i = 0; i < alt_model->backgd_freqs->size; i++) 
+      fprintf(F, "%f ", vec_get(alt_model->backgd_freqs, i));
+    fprintf(F, "\n");
+  }
 
-  fprintf(F, "%s\n", RATE_MATRIX_TAG);
-  mat_print(rate_matrix->matrix, F);
+  if (alt_model->rate_matrix != NULL) {
+    fprintf(F, "%s\n", RATE_MATRIX_TAG);
+    mat_print(alt_model->rate_matrix->matrix, F);
+  }
 }
 
 
@@ -622,10 +641,10 @@ TreeModel *tm_create_copy(TreeModel *src) {
 	/* Need to find the model for this lineage */
 	for (j = 0; j<lst_size(src->alt_subst_mods); j++) {
 	  if (lst_get_ptr(src->alt_subst_mods, j) == src->alt_subst_mods_node[n->id])
+	    src->alt_subst_mods_node[n->id] = lst_get_ptr(retval->alt_subst_mods, j);
 	    break;
 	}
 	assert(j < lst_size(src->alt_subst_mods));
-	src->alt_subst_mods_node[n->id] = lst_get_ptr(retval->alt_subst_mods, j);
       }
       else src->alt_subst_mods_node[n->id] = NULL;
     }
@@ -647,12 +666,13 @@ TreeModel *tm_create_copy(TreeModel *src) {
 //if it is a model name, an entirely separate subst model will be used 
 //for this lineage.  If it is a list of parameters, then same subst 
 //model will be used, with these parameters estimated separately.
-void tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
+AltSubstMod* tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
   AltSubstMod *altmod = malloc(sizeof(AltSubstMod));
   String *nodestr, *modstr;
   List *templst, *traversal;
   TreeNode *n, *tempnode;
   int parentbranch=0, i;
+  altmod->defString = str_new_charstr(altmod_str->chars);
   templst = lst_new_ptr(2);
   str_split(altmod_str, ":", templst);
   nodestr = (String*)lst_get_ptr(templst, 0);
@@ -688,6 +708,9 @@ void tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
       mod->alt_subst_mods_node[i] = NULL;
   }
   traversal = tr_preorder(n);
+  if (parentbranch == 0 && lst_size(traversal)==1) 
+    die("ERROR: alt_subst_model at node %s does not apply to any branches!\n",
+	nodestr);
   for (i=0; i<lst_size(traversal); i++) {
     tempnode = lst_get_ptr(traversal, i);
     if (parentbranch == 0 && tempnode==n) continue;
@@ -705,7 +728,7 @@ void tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
   //if modstr is empty, then this model is exactly the same as main model, and
   //no new parameters are estimated.  This may be useful to override a 
   //lineage-specific model in part of a subtree
-  if (modstr ==  NULL) {
+  if (modstr == NULL) {
     altmod->subst_mod = mod->subst_mod;
     altmod->separate_model = 0;
     altmod->param_list = NULL;
@@ -780,6 +803,7 @@ void tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
   }
   if (mod->estimate_branchlens == TM_SCALE_ONLY)
     mod->scale_during_opt=1;
+  return altmod;
 }
 
 
@@ -1070,9 +1094,23 @@ MSA *tm_generate_msa(int ncolumns,
   newchar = (char*)smalloc(ntreenodes * sizeof(char));
   for (col = 0; col < ncolumns; col++) {
     List *traversal = tr_preorder(classmods[class]->tree);
+    Vector *backgd=NULL;
+    MarkovMatrix *rate_matrix=NULL;
+    AltSubstMod *altmod=NULL;
+    if (classmods[class]->alt_subst_mods_node != NULL) {
+      altmod = classmods[class]->alt_subst_mods_node[classmods[class]->tree->id];
+      if (altmod != NULL) {
+	backgd = altmod->backgd_freqs;
+	rate_matrix = altmod->rate_matrix;
+      }
+    }
+    if (backgd == NULL)
+      backgd = classmods[class]->backgd_freqs;
+    if (rate_matrix == NULL)
+      rate_matrix = classmods[class]->rate_matrix;
+
     newchar[classmods[class]->tree->id] = 
-      mm_sample_backgd(classmods[class]->rate_matrix->states, 
-                       classmods[class]->backgd_freqs);
+      mm_sample_backgd(rate_matrix->states, backgd);
     for (i = 0; i < lst_size(traversal); i++) {
       TreeNode *n = lst_get_ptr(traversal, i);
       TreeNode *l = n->lchild;
@@ -2395,5 +2433,6 @@ void tm_free_alt_subst_mod(AltSubstMod *am) {
     lst_free(am->param_list);
   }
   str_free(am->nodename);
+  str_free(am->defString);
   free(am);
 }

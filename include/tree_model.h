@@ -84,6 +84,8 @@ typedef struct {
 			   estimate separately (only if separate_model=0) */
   String *nodename;     /* name of node defining subtree (with + added to
 			   include leading branch) */
+  String *defString;    /* this is the exact argument given to phyloFit
+			   to define the alt model */
   List *bound_arg;
 } AltSubstMod;
 
@@ -183,7 +185,7 @@ void tm_reinit(TreeModel *tm, subst_mod_type subst_mod,
 
 TreeModel *tm_new_from_file(FILE *F);
 
-void tm_add_alt_mod(TreeModel *tm, String *altmod_str);
+AltSubstMod* tm_add_alt_mod(TreeModel *tm, String *altmod_str);
 
 void tm_init_rmp(TreeModel *tm);
 

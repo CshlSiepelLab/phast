@@ -621,6 +621,10 @@ double dm_estimate_transitions(DMotifPhyloHmm *dm, MSA *msa) {
   return retval;
 }
 
+/* NOTE: This needs to be looked at again when the lineage-specific
+   branch is merged.  It used altModels prior to any of the lineage-
+   specific updates, need to make sure they still work.
+ */
 void dm_set_backgd_branches(TreeModel *tm, TreeModel *backgd_mod,
                             List *nodelist) {
   int i;
@@ -632,14 +636,15 @@ void dm_set_backgd_branches(TreeModel *tm, TreeModel *backgd_mod,
   tm->alt_subst_mods = lst_new_ptr(1);
   lst_push_ptr(tm->alt_subst_mods, (void*)altmod);
   
-  tm->alt_subst_mods_node = malloc(mod->tree->nnodes * sizeof(AltSubstMod*));
-  for (i=0; i<mod->tree->nnodes; i++)
+  tm->alt_subst_mods_node = malloc(tm->tree->nnodes * sizeof(AltSubstMod*));
+  for (i=0; i<tm->tree->nnodes; i++)
     tm->alt_subst_mods_node[i] = NULL;
 
   for (i = 0; i < lst_size(nodelist); i++) {
     n = lst_get_ptr(nodelist, i);
-    assert(n->id < mod->tree->nnodes);
-    tm->alt_subst_mods[n->id] = altmod;
+    assert(n->id < tm->tree->nnodes);
+    
+    tm->alt_subst_mods_node[n->id] = altmod;
   }
 }
 
