@@ -25,11 +25,32 @@ OPTIONS:
 	named based on the query gff filename, and are appended with the
 	category names indicated above.
 
-    --compute-fpr <dataset size>,<motif length> , 
-	-f <dataset size>,<motif length>
+    --compute-fpr, -f <dataset size>,<motif length>
 	
 	Compute false positive rate and specificity. <dataset size> is the
 	total length of the input sequence(s), measured in base pairs.
+
+    --inexact, -i <tree_model.mod>
+	Allow a motif prediction one branch above or below the node specified
+	in the reference gff to be called a true positive. NOT COMPATIBLE
+	WITH --present-in-posteriors!
+
+    --present-in-posteriors, -p
+	Allow a true positive call if a prediction contains the correct branch
+	and mode of selection in the full posteriors. Use with --thresh to
+	require the associated posterior probabilty to be at least 
+	(N * PP-best), where PP-best is the posterior probability of the 
+	"best" prediction (i.e., the one used as the feature type in the gff).
+
+    --thresh, -t N
+	To be used with --present-in-posteriors. Require the posterior
+	probability for the correct branch and mode of selection be at least
+	(N * PP-best), where PP-best is the posterior probability of the 
+	"best" prediction (i.e., the one used as the feature type in the gff).
+	For example, if N = 0.5 and the posterior probability for the best
+	prediction is 0.5, the posterior probability of the correct prediction
+	in the full posteriors must be >= 0.25 in order to count the feature
+	as a true positive prediction.
 
     --help, -h
         Show this help message and exit.

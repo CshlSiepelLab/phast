@@ -23,11 +23,13 @@
 #define DEFAULT_ZETA 0.001
 #define DEFAULT_XI 0.0001
 #define DEFAULT_MSA_LEN 1000000
-#define DEFAULT_MMOD_TYPE "HB"
+#define DEFAULT_MMOD_TYPE "F81"
 
 int main(int argc, char *argv[]) {
   char c, *msa_fname;
   int i, j, k, opt_idx, *path, msa_len, cat, branch;
+  unsigned long int seed;
+  FILE *devrandom;
   MSA *msa, *indel_msa;
   List *tmpl, *leaf_seqs, *zeroed_states, *motif_states;
   DMotifPhyloHmm *dm;
@@ -230,6 +232,7 @@ int main(int argc, char *argv[]) {
 
   if (gamma != -1)
     nu = gamma/(1-gamma) * mu;
+  lst_free(tmpl);
 
   fprintf(stderr, "Reading tree model from %s...\n", argv[optind]);
   source_mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
@@ -296,12 +299,12 @@ int main(int argc, char *argv[]) {
   }
 
   if (keep_ancestral == FALSE) {
-    leaf_seqs = lst_new_int( ((source_mod->tree->nnodes - 1) / 2));
+    leaf_seqs = lst_new_int( ((source_mod->tree->nnodes + 1) / 2));
     for (i = 0; i < source_mod->tree->nnodes; i++) {
       n = lst_get_ptr(source_mod->tree->nodes, i);
       if (n->lchild == NULL) /* leaf node */
 	lst_push_int(leaf_seqs, n->id);
-    }			 
+    }
   }
 
   path = smalloc(len * sizeof(int));
@@ -317,6 +320,8 @@ int main(int argc, char *argv[]) {
     }
     str_append_charstr(cname, "-motif");
     cat = cm_get_category(dm->phmm->cm, cname);
+    if (cat == 0)
+      die("ERROR: Invalid branch given as argument to --branch!\n");
     branch = dm->state_to_branch[cat];
 
     motif_states = lst_new_int(dm->m->width);
@@ -347,7 +352,10 @@ int main(int argc, char *argv[]) {
   /* Simulate the alignment(s) */
   fprintf(stderr, "Simulating sequences...\n");
   /* Seed the random number generator */
-  srandom(time(0));
+  devrandom = fopen("/dev/random", "r");
+  fread(&seed, sizeof(seed), 1, devrandom);
+  srandom(abs(seed));
+  fclose(devrandom);
 
   j = 1;
   if (nseqs != -1)
@@ -381,13 +389,12 @@ int main(int argc, char *argv[]) {
     if (do_ih) {
       ih = ih_new(source_mod->tree, len);
       fprintf(stderr, "\tSimulating indels for sequence %d...\n", j);
-      indel_msa = dm_indel_mask(dm, msa, ih, path);
+      indel_msa = dm_indel_mask(dm, msa, ih, path, FALSE);
       msa_free(msa);
-      if (!keep_ancestral) {
+      if (keep_ancestral == FALSE) {
 	fprintf(stderr, "\tPruning away ancestral sequences...\n");
 	msa = msa_sub_alignment(indel_msa, leaf_seqs, TRUE, 0, len-1);
 	msa_free(indel_msa);
-	lst_free(leaf_seqs);
       } else {
 	msa = indel_msa;
       }
@@ -434,6 +441,8 @@ int main(int argc, char *argv[]) {
   gff_print_set(stdout, motifs);
 
   fprintf(stderr, "Done.\n");
+  if (keep_ancestral == FALSE)
+    lst_free(leaf_seqs);
   free(seqname);
   free(msa_fname);
   free(path);

@@ -199,17 +199,17 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
 	  dm_set_motif_branches_hb(models[state], m->probs[pos], outside);  
       }
     }
-
+    
     /* if birth event, reroot tree.  This ensures that the correct
        stationary distribution is used at the root of the subtree in
        question */
-     if (dm->state_to_event[state] == BIRTH)
-       tr_reroot(models[state]->tree, n, TRUE);
-
-     tm_reinit(models[state], models[state]->subst_mod,
-               models[state]->nratecats, models[state]->alpha, NULL, NULL);
+    if (dm->state_to_event[state] == BIRTH)
+      tr_reroot(models[state]->tree, n, TRUE);
+    
+    tm_reinit(models[state], models[state]->subst_mod,
+	      models[state]->nratecats, models[state]->alpha, NULL, NULL);
   }
-
+  
   /* Require informative sites for all but state 0 */
   for (state = 1; state < nstates; state++)
     models[state]->inform_reqd = TRUE;
@@ -1087,7 +1087,7 @@ GFF_Set *dm_labeling_as_gff(CategoryMap *cm,
     beg = i;                /* begin of feature */
     for (i++; i < length &&
 	   cm->ranges[path_to_cat[path[i]]]->start_cat_no == cat; i++);
-    end = i;                    /* end of feature (GFF coords) */
+    end = i-1;                    /* end of feature (GFF coords) */
     //    printf("mpos %d, start %d, end %d\n", mpos, beg, end);
 
 
@@ -1826,7 +1826,6 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
   
   snprintf(post, STR_LONG_LEN, "ID \"%s.%d\"; ", seqname, start);
   str_append_charstr(attributes, post);
-
   /* First pass counts the total number of motifs predicted in this position
      and totals for conserved, gain, loss and neutral categories of motifs,
      along with finding the "best" category -- that is, the one with the
@@ -1967,19 +1966,51 @@ GFF_Feature* dms_motif_as_gff_feat(DMotifPhyloHmm *dm, PooledMSA *blocks,
    unique to query list. */
 void dms_compare_gffs(GFF_Set *target_gff, GFF_Set *query_gff, int *stats,
 		      int offset, GFF_Set *matches, GFF_Set *mismatches,
-		      GFF_Set *unique_to_query, GFF_Set *unique_to_target) {
+		      GFF_Set *unique_to_query, GFF_Set *unique_to_target,
+		      TreeModel *tm, int present_in_posteriors,
+		      double thresh) {
   /* offset can be used to adjust coordinates of the query to match the
      coordinate base of the target set */
-  int i, j, k, nmatches, *tmatch_idx, *qmatch_idx;
+  int i, j, k, nmatches, *tmatch_idx, *qmatch_idx, found;
+  double best_score, target_score;
+  char *name, delim[2];
   GFF_Feature *ft, *fq;
+  TreeNode *tree, *nt, *nq;
+  List *split, *post;
+  String *event1, *event2;
+
+  if (tm != NULL) {
+    tree = tm->tree;
+    name = smalloc(STR_SHORT_LEN * sizeof(char));
+    split = lst_new_ptr(4);
+    snprintf(delim, 2, "-");
+    event1 = str_new(STR_SHORT_LEN);
+    event2 = str_new(STR_SHORT_LEN);
+  } else {
+    tree = NULL;
+  }
+
+  if (present_in_posteriors == TRUE) {
+    if (tree != NULL)
+      die("dms_compare_gffs: ERROR: --present_in_posteriors and --inexact cannot be used together!\n");
+    split = lst_new_ptr(25); /* Wild guess at size needed */
+    post = lst_new_ptr(3);
+  }
 
   if (matches != NULL) {
     tmatch_idx = (int*)smalloc(lst_size(target_gff->features) == 0 ? 1 :
 			       lst_size(target_gff->features)
 			       * sizeof(int));
+/*     for (i = 0; i < (lst_size(target_gff->features) == 0 ? 1 : */
+/* 		     lst_size(target_gff->features)); i++) */
+/*       tmatch_idx[i] = -1; */
+
     qmatch_idx = (int*)smalloc(lst_size(query_gff->features) == 0 ? 1 :
 			       lst_size(query_gff->features)
 			       * sizeof(int));
+/*     for (i = 0; i < (lst_size(query_gff->features) == 0 ? 1 : */
+/* 		     lst_size(query_gff->features)); i++) */
+/*       qmatch_idx[i] = -1;     */
   
     if (mismatches == NULL || unique_to_query == NULL ||
 	unique_to_target == NULL)
@@ -1987,12 +2018,16 @@ void dms_compare_gffs(GFF_Set *target_gff, GFF_Set *query_gff, int *stats,
   }
 
   nmatches = 0;
+
   for (i = 0; i < lst_size(query_gff->features); i++) {
     fq = lst_get_ptr(query_gff->features, i);
+
     for (j = 0; j < lst_size(target_gff->features); j++) {
       ft = lst_get_ptr(target_gff->features, j);
+
       if (str_compare(fq->seqname, ft->seqname) != 0) /* Different sequences */
 	continue;
+
       if ((fq->start + offset) == ft->start) {
 	/* Motif found in same position */
 	nmatches++;
@@ -2000,11 +2035,141 @@ void dms_compare_gffs(GFF_Set *target_gff, GFF_Set *query_gff, int *stats,
 	  tmatch_idx[nmatches] = j;
 	  qmatch_idx[nmatches] = i;
 	}
+
 	if (str_compare(fq->feature, ft->feature) == 0) { /* feature types
 							     match */
 	  stats[0]++;
 	  if (matches != NULL)
 	    lst_push_ptr(matches->features, gff_new_feature_copy(fq));
+
+	} else if (tree != NULL) {
+	  /* Allow a match if the prediction is one branch above or below the
+	     actual node */
+	  str_clear(event1);
+	  str_clear(event2);
+	  lst_clear(split);
+
+	  str_split(ft->feature, delim, split);
+	  if (lst_size(split) == 3) { /* leaf node */
+	    snprintf(name, STR_SHORT_LEN, "%s",
+		     ((String*)lst_get_ptr(split, 1))->chars);
+	    str_append_charstr(event1, 
+			       ((String*)lst_get_ptr(split, 0))->chars);
+	  } else if (lst_size(split) == 4) {
+	    snprintf(name, STR_SHORT_LEN, "%s-%s",
+		     ((String*)lst_get_ptr(split, 1))->chars,
+		     ((String*)lst_get_ptr(split, 2))->chars);
+	    str_append_charstr(event1, 
+			       ((String*)lst_get_ptr(split, 0))->chars);
+	  } else if (lst_size(split) == 2) {
+	    snprintf(name, STR_SHORT_LEN, "%s", tree->name);
+	    str_append_charstr(event1,
+			       ((String*)lst_get_ptr(split, 0))->chars);
+	  } else {
+	    die("dms_compare_gffs: ERROR: unexpected format in node name!\n");
+	  }
+	  lst_free_strings(split);
+	  nt = tr_get_node(tree, name);
+
+/* 	  fprintf(stderr, "tree %p, name %s, nt %p, event %s\n", */
+/* 		  tree, name, nt, event1->chars); */
+
+	  str_split(fq->feature, delim, split);
+	  if (lst_size(split) == 3) { /* leaf node */
+	    snprintf(name, STR_SHORT_LEN, "%s",
+		     ((String*)lst_get_ptr(split, 1))->chars);
+	    str_append_charstr(event2, 
+			       ((String*)lst_get_ptr(split, 0))->chars);
+	  } else if (lst_size(split) == 4) {
+	    snprintf(name, STR_SHORT_LEN, "%s-%s",
+		     ((String*)lst_get_ptr(split, 1))->chars,
+		     ((String*)lst_get_ptr(split, 2))->chars);
+	    str_append_charstr(event2, 
+			       ((String*)lst_get_ptr(split, 0))->chars);
+	  } else if (lst_size(split) == 2) {
+	    snprintf(name, STR_SHORT_LEN, "%s", tree->name);
+	    str_append_charstr(event2, 
+			       ((String*)lst_get_ptr(split, 0))->chars);
+	  } else {
+	    die("dms_compare_gffs: ERROR: unexpected format in node name!\n");
+	  }
+	  lst_free_strings(split);
+	  nq = tr_get_node(tree, name);
+/* 	  fprintf(stderr, "tree %p, name %s, nq %p, event %s\n", */
+/* 		  tree, name, nq, event2->chars); */
+
+	  if (str_compare(event1, event2) != 0) {
+	    /* Correct position, wrong flavor of motif */
+	    stats[1]++;
+	    if (matches != NULL) {
+	      lst_push_ptr(mismatches->features, gff_new_feature_copy(fq));
+	      lst_push_ptr(mismatches->features, gff_new_feature_copy(ft));
+	    }
+	  } else {
+	    if (nq->parent == nt || nq->lchild == nt || nq->rchild == nt) {
+	      stats[0]++;
+	      if (matches != NULL)
+		lst_push_ptr(matches->features, gff_new_feature_copy(fq));
+	    } else { /* not a match */
+	      stats[1]++;
+	      if (matches != NULL) {
+		lst_push_ptr(mismatches->features, gff_new_feature_copy(fq));
+		lst_push_ptr(mismatches->features, gff_new_feature_copy(ft));
+	      }
+	    }
+	  }
+
+	} else if (present_in_posteriors == TRUE) {
+	  /* Check full posteriors to see if the correct type is within the
+	     top N predictions */
+	  found = best_score = target_score = 0;
+	  lst_clear(split);
+	  snprintf(delim, 2, ";");
+	  str_split(fq->attribute, delim, split);
+
+/* 	  fprintf(stderr, "%s\n", fq->attribute->chars); */
+/* 	  fprintf(stderr, "lst_size(split) %d\n", lst_size(split)); */
+	  
+	  for (k = 5; k < lst_size(split); k++) {
+	    lst_free_strings(post);
+	    str_split(lst_get_ptr(split, k), NULL, post);
+
+/* 	    fprintf(stderr, "k %d, split[k] %s\n", k, */
+/* 		    ((String*)lst_get_ptr(split, k))->chars); */
+/* 	    fprintf(stderr, "i %d, j %d, ft->feature %s, feat %s\n", */
+/* 		    i, j, ft->feature->chars, */
+/* 		    ((String*)lst_get_ptr(post, 2))->chars); */
+
+	    if (str_compare(lst_get_ptr(post, 2), fq->feature) == 0) {
+	      str_as_dbl(lst_get_ptr(post, 3), &best_score);
+	      if (found == 1)
+		break;
+
+	    } else if (str_compare(lst_get_ptr(post, 2), ft->feature) == 0) {
+
+/* 	      fprintf(stderr, "k %d, split[k] %s\n", k, */
+/* 		      ((String*)lst_get_ptr(post, 2))->chars); */
+	      
+	      found = 1;
+	      str_as_dbl(lst_get_ptr(post, 3), &target_score);
+	      if (best_score > 0 || thresh == 0)
+		break;
+	    }
+	  }
+	  
+	  if (found == 1 && (thresh == 0 ||
+			     (target_score / best_score) >= thresh)) {
+	    stats[0]++;
+	    if (matches != NULL)
+	      lst_push_ptr(matches->features, gff_new_feature_copy(fq));
+	  } else {
+	    stats[1]++;
+	    if (matches != NULL) {
+	      lst_push_ptr(mismatches->features, gff_new_feature_copy(fq));
+	      lst_push_ptr(mismatches->features, gff_new_feature_copy(ft));
+	    }
+	  }
+	  lst_free_strings(split);
 	} else { /* Correct position, wrong flavor of motif */
 	  stats[1]++;
 	  if (matches != NULL) {
@@ -2015,6 +2180,7 @@ void dms_compare_gffs(GFF_Set *target_gff, GFF_Set *query_gff, int *stats,
       }
     }
   }
+
   /* Number features unique to target */
   stats[2] = (lst_size(target_gff->features) - nmatches);
   /* Number features unique to query */
@@ -2023,23 +2189,32 @@ void dms_compare_gffs(GFF_Set *target_gff, GFF_Set *query_gff, int *stats,
   if (matches != NULL) { /* Build gff's for feats unique to target and query */
     /* unique_to_query set */
     j = lst_size(query_gff->features)-1;
-    for (i = (nmatches-1); i >= -1; i--) {
+    for (i = (nmatches-1); i >= -1 && j >= 0; i--) {
+
+/*       fprintf(stderr, "i %d, j %d, tmatch_idx[i] %d\n", */
+/* 	      i, j, tmatch_idx[i]); */
+
       if (i == -1) {
 	for (k = j; k >= 0; k--) {
 	  fq = lst_get_ptr(query_gff->features, k);
 	  lst_push_ptr(unique_to_query->features, gff_new_feature_copy(fq));
 	}
+
       } else {
 	for (k = j; k > qmatch_idx[i]; k--) {
 	  fq = lst_get_ptr(query_gff->features, k);
+/* 	  fprintf(stderr, "i %d, j %d, k %d, fq %p, fq->seqname \n",  */
+/* 		  i, j, k, fq); */
 	  lst_push_ptr(unique_to_query->features, gff_new_feature_copy(fq));
 	}
       }
+
       j = (qmatch_idx[i] - 1);
     }
+
     /* unique_to_target set */
     j = lst_size(target_gff->features)-1;
-    for (i = (nmatches-1); i >= -1; i--) {
+    for (i = (nmatches-1); i >= -1 && j >=0; i--) {
       if (i == -1) {
 	for (k = j; k >= 0; k--) {
 	  fq = lst_get_ptr(target_gff->features, k);
@@ -2057,6 +2232,16 @@ void dms_compare_gffs(GFF_Set *target_gff, GFF_Set *query_gff, int *stats,
   if (matches != NULL) {
     free(tmatch_idx);
     free(qmatch_idx);
+  }
+  if (tree != NULL) {
+    free(name);
+    lst_free(split);
+    str_free(event1);
+    str_free(event2);
+  }
+  if (present_in_posteriors == TRUE) {
+    lst_free(split);
+    lst_free(post);
   }
 }
 
@@ -2432,7 +2617,7 @@ void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample,
       stats[i] = 0;
     
     dms_compare_gffs(reference, query_gff, stats, 0, NULL, NULL, NULL, 
-		     NULL);
+		     NULL, NULL, FALSE, 0);
     fpr = (double)(stats[1] + stats[3])
        / (double)(nwins - lst_size(reference->features));
     spc = (double)(nwins - lst_size(query_gff->features))
@@ -2889,9 +3074,8 @@ void dm_free_subst_matrices(TreeModel *tm) {
    indels and a corresponding indel history according to the dmotif indel
    model. */
 MSA *dm_indel_mask(DMotifPhyloHmm *dm, MSA *msa, IndelHistory *ih,
-		   int *path) {
-  
-  int i, j, k, state, c;
+		   int *path, int debug) {  
+  int i, j, k, state, c, cp;
   unsigned long int seed;
   FILE *devrandom;
   double trans;
@@ -2906,8 +3090,8 @@ MSA *dm_indel_mask(DMotifPhyloHmm *dm, MSA *msa, IndelHistory *ih,
   srandom(abs(seed));
   fclose(devrandom);
 
-  outside = lst_new_ptr(dm->phmm->mods[0]->tree->nnodes);
-  
+  outside = lst_new_ptr(ih->tree->nnodes);
+ 
   /* Do a preorder traversal to overlay insertions first */
   for (i = 0; i < ih->tree->nnodes; i++) {
     n = lst_get_ptr(ih->tree->nodes, i);
@@ -2928,31 +3112,53 @@ MSA *dm_indel_mask(DMotifPhyloHmm *dm, MSA *msa, IndelHistory *ih,
 	trans = vec_get(im->branch_mods[n->id]->beg_probs, CHILDINS);
       } else {
 	c = ih->indel_strings[n->id][j-1];
+	cp = ih->indel_strings[n->parent->id][j-1];
 	if (c == BASE) {
-	  trans = mm_get(im->branch_mods[n->id]->probs, MATCH, CHILDINS);
+	  if (cp == INS)
+	    trans = mm_get(im->branch_mods[n->id]->probs, CHILDINS, CHILDINS);
+	  else
+	    trans = mm_get(im->branch_mods[n->id]->probs, MATCH, CHILDINS);
 	} else if (c == DEL) {
 	  trans = mm_get(im->branch_mods[n->id]->probs, CHILDDEL, CHILDINS);
 	} else /* c == INS */ {
-	  trans = mm_get(im->branch_mods[n->id]->probs, CHILDINS, CHILDINS);
+	  continue; /* Nested insertions in ancestral spp. can't be detected */
 	}
       }
       
       if (bn_draw(1, trans)) {
-	ih->indel_strings[n->id][j] = INS;
+	ih->indel_strings[n->id][j] = BASE;
+/*         fprintf(stderr, "i %d, j %d, n->id %d, ih->indel_strings[n->id][j] %c\n", */
+/* 		i, j, n->id, ih->indel_strings[n->id][j] == BASE ? 'B' : 'I'); */
 	/* Insertions always propagate through the supertree above a node */
+	lst_clear(outside);
 	tr_partition_nodes(ih->tree, n, NULL, outside);
 	for (k = 0; k < lst_size(outside); k++) {
 	  ns = lst_get_ptr(outside, k);
 	  ih->indel_strings[ns->id][j] = INS;
 	}
+/*         fprintf(stderr, "i %d, j %d, n->id %d, n->parent->id %d, ih->indel_strings[n->id][j] %c, ih->indel_strings[n->parent->id][j] %c\n", */
+/* 		i, j, n->id, n->parent->id, */
+/* 		ih->indel_strings[n->id][j] == BASE ? 'B' : 'I', */
+/* 		ih->indel_strings[n->parent->id][j] == BASE ? 'B' : 'I'); */	
       }
     }
   }
-      
+  
+/*   for (i = 0; i < ih->tree->nnodes; i++) { */
+/*     n = lst_get_ptr(ih->tree->nodes, i); */
+/*     if (n == ih->tree) */
+/*       continue; */
+/*         fprintf(stderr, "i %d, n->name %s\n", i, n->name); */
+/*     for (j = 0; j < msa->length; j++) { */
+/*       fprintf(stderr, "%d", ih->indel_strings[n->id][j]); */
+/*     } */
+/*     fprintf(stderr, "\n"); */
+/*   } */
+  
   /* Do a preorder traversal to overlay deletions. */
   for (i = 0; i < ih->tree->nnodes; i++) {
     n = lst_get_ptr(ih->tree->nodes, i);
-      
+
     if (n == ih->tree) /* skip root node */
       continue;
 
@@ -2960,37 +3166,49 @@ MSA *dm_indel_mask(DMotifPhyloHmm *dm, MSA *msa, IndelHistory *ih,
       state = path[j];
       im = dm->indel_mods[state];
       
-      if (ih->indel_strings[n->id][j] == INS)
+      if (ih->indel_strings[n->id][j] == INS) /* Can't delete a gap char */
 	continue;
-      else if (ih->indel_strings[n->parent->id][j] == DEL)
+
+      if (ih->indel_strings[n->parent->id][j] == DEL)
 	ih->indel_strings[n->id][j] = DEL; /* Deletion characters can only give
 					      rise to deletion characters */
+      else if (ih->indel_strings[n->parent->id][j] == INS)
+	continue; /* would create a column of all gaps */
+      
       else {
 	if (j == 0) { /* Use begin probs if first seq. column */
 	  trans = vec_get(im->branch_mods[n->id]->beg_probs, CHILDDEL);
 	} else {
 	  c = ih->indel_strings[n->id][j-1];
-	  
+	  cp = ih->indel_strings[n->parent->id][j-1];
 	  if (c == BASE)
-	    trans = mm_get(im->branch_mods[n->id]->probs, MATCH, CHILDDEL);
+	    if (cp == INS)
+/* 	      trans = mm_get(im->branch_mods[n->id]->probs, CHILDINS, CHILDDEL); */
+	      continue; /* Would create a column of all gaps */
+	    else
+	      trans = mm_get(im->branch_mods[n->id]->probs, MATCH, CHILDDEL);
 	  else if (c == DEL)
 	    trans = mm_get(im->branch_mods[n->id]->probs, CHILDDEL, CHILDDEL);
 	  else /* c == INS */
-	    trans = mm_get(im->branch_mods[n->id]->probs, CHILDINS, CHILDDEL);
+	    continue; /* Can't have a deletion where no base is present! */
 	}
 	
-	if (bn_draw(1, trans))
+	if (bn_draw(1, trans)) {
 	  ih->indel_strings[n->id][j] = DEL;
+	  
+/* 	  fprintf(stderr, "i %d, j %d, n->id %d, n->parent->id %d, ih->indel_strings[n->id][j] %c, ih->indel_strings[n->parent->id][j] %d\n", */
+/* 		  i, j, n->id, n->parent->id, */
+/* 		  ih->indel_strings[n->id][j] == BASE ? 'B' : 'D', */
+/* 		  ih->indel_strings[n->parent->id][j]); */
+	}
       }
     }
   }
     
-/*   for (i = 0; i < ih->tree->nnodes; i++) { */
-    
+/*   for (i = 0; i < ih->tree->nnodes; i++) {     */
 /*     n = lst_get_ptr(ih->tree->nodes, i); */
 /*     if (n == ih->tree) */
-/*       continue; */
-    
+/*       continue;     */
 /*     fprintf(stderr, "i %d, n->name %s\n", i, n->name); */
 /*     for (j = 0; j < msa->length; j++) { */
 /*       fprintf(stderr, "%d", ih->indel_strings[n->id][j]); */
@@ -2998,7 +3216,7 @@ MSA *dm_indel_mask(DMotifPhyloHmm *dm, MSA *msa, IndelHistory *ih,
 /*     fprintf(stderr, "\n"); */
 /*   } */
   
-  indel_msa = dmih_as_alignment(ih, msa);
+  indel_msa = dmih_as_alignment(ih, msa, debug);
   return indel_msa;
 }
 
@@ -4180,6 +4398,9 @@ MSA *dm_generate_msa(int ncolumns,
       die("ERROR in tm_generate_msa: model #%d has %d taxa, while a previous model had %d taxa.\n", i+1, num, nseqs);
   }
 
+  if (keep_ancestral)
+    nseqs = ntreenodes;
+
   /* create new MSA */
   names = (char**)smalloc(nseqs * sizeof(char*));
   seqs = (char**)smalloc(nseqs * sizeof(char*));
@@ -4327,17 +4548,20 @@ void dm_sample_char_col(char **seqs, TreeModel *mod, char *newchar,
     
   /* Sample a character at the root */
   if (mod->alt_subst_mods != NULL &&
-      mod->alt_subst_mods[mod->tree->id] != NULL) {
-    newchar[mod->tree->id] = 
-      mm_sample_backgd(mod->alt_subst_mods[mod->tree->id]->rate_matrix->states, 
+      mod->alt_subst_mods[mod->tree->id] != NULL &&
+      mod->alt_subst_mods[mod->tree->id]->subst_mod == HB) {
+    newchar[mod->tree->id] =
+      mm_sample_backgd(mod->alt_subst_mods[mod->tree->id]->rate_matrix->states,
 		       mod->alt_subst_mods[mod->tree->id]->backgd_freqs);
+/*     fprintf(stderr, "mod->tree->name %s, newchar[mod->tree->id] %c\n", */
+/* 	    mod->tree->name, newchar[mod->tree->id]); */
   } else {
     newchar[mod->tree->id] = 
       mm_sample_backgd(mod->rate_matrix->states, 
 		       mod->backgd_freqs);
   }
-/*   fprintf(stderr, "n->id %d, newchar[root] %c\n", mod->tree->id, newchar[mod->tree->id]); */
-
+  /*   fprintf(stderr, "n->id %d, newchar[root] %c\n", mod->tree->id, newchar[mod->tree->id]); */
+  
   traversal = tr_preorder(mod->tree);  
   for (i = 0; i < lst_size(traversal); i++) {
     n = lst_get_ptr(traversal, i);
@@ -4350,7 +4574,7 @@ void dm_sample_char_col(char **seqs, TreeModel *mod, char *newchar,
       rsubst_mat = mod->P[r->id][0];
       newchar[l->id] = mm_sample_char(lsubst_mat, newchar[n->id]);
       newchar[r->id] = mm_sample_char(rsubst_mat, newchar[n->id]);
-/*       fprintf(stderr, "i %d, n->id %d, newchar[n] %c, newchar[lchild] %c, newchar[rchild] %c\n", i, n->id, newchar[n->id], newchar[l->id], newchar[r->id]); */
+      /*       fprintf(stderr, "i %d, n->id %d, newchar[n] %c, newchar[lchild] %c, newchar[rchild] %c\n", i, n->id, newchar[n->id], newchar[l->id], newchar[r->id]); */
     } else { /* Leaf node */
       if (!keep_ancestral) /* not storing ancestral sequences */
 	seqs[mod->msa_seq_idx[n->id]][col] = newchar[n->id];

@@ -585,24 +585,36 @@ DMotifIndelSuffStats *dmih_suff_stats_cat(IndelHistory *ih, int *categories,
 }
 
 /* convert to an alignment, including sequences for ancestral nodes as
-   well as leaf nodes, and with '^' characters in place of '-' for
-   insertions and '.' characters in place of '-' for deletions.
-   Useful for debugging */
-MSA *dmih_as_alignment(IndelHistory *ih, MSA *msa) {
+   well as leaf nodes. If "debug" is set to TRUE, will substitute '^'
+   characters in place of '-' for insertions and '.' characters in place 
+   of '-' for deletions. */
+MSA *dmih_as_alignment(IndelHistory *ih, MSA *msa, int debug) {
   int i, j, k, s, ins;
   char **seqs = smalloc(ih->tree->nnodes * sizeof(char*));
   char **names = smalloc(ih->tree->nnodes * sizeof(char*));
   List *inside, *outside;
   TreeNode *n, *n2;
 
-  inside = lst_new_ptr(10);
-  outside = lst_new_ptr(10);
+  inside = lst_new_ptr(ih->tree->nnodes);
+  outside = lst_new_ptr(ih->tree->nnodes);
 
   for (i = 0; i < ih->tree->nnodes; i++) {
     n = lst_get_ptr(ih->tree->nodes, i);
     names[i] = strdup(n->name);
     seqs[i] = smalloc((ih->ncols+1) * sizeof(char));
   }
+
+/*   for (i = 0; i < ih->tree->nnodes; i++) { */
+/*     n = lst_get_ptr(ih->tree->nodes, i); */
+/*     if (n == ih->tree) */
+/*       continue; */
+/*     fprintf(stderr, "i %d, n->name %s\n", i, n->name); */
+/*     for (j = 0; j < msa->length; j++) { */
+/*       fprintf(stderr, "%d", ih->indel_strings[n->id][j]); */
+/*     } */
+/*     fprintf(stderr, "\n"); */
+/*   } */
+  
 
   for (i = 0; i < ih->tree->nnodes; i++) {
     n = lst_get_ptr(ih->tree->nodes, i);
@@ -613,46 +625,67 @@ MSA *dmih_as_alignment(IndelHistory *ih, MSA *msa) {
           die("ERROR: no match for leaf \"%s\" in alignment.\n", n->name);
       }
       for (j = 0; j < ih->ncols; j++) {
-        if (ih->indel_strings[i][j] == BASE) 
+        if (ih->indel_strings[n->id][j] == BASE) {
+/* 	  fprintf(stderr, "sp %s, i %d, j %d, BASE: %c\n", names[i], i, j,  */
+/* 		  msa == NULL ? 'N' : msa_get_char(msa, s, j)); */
           seqs[i][j] = msa == NULL ? 'N' : msa_get_char(msa, s, j);
-        else {
-	  if (ih->indel_strings[i][j] == INS) { /* Insertion */
+        } else {
+
+/* 	  fprintf(stderr, "sp %s, i %d, j %d, %c: %c\n", names[i], i, j, */
+/* 		  ih->indel_strings[n->id][j] == DEL ? 'D' : 'I', */
+/* 		  msa == NULL ? 'N' : msa_get_char(msa, s, j)); */
+
+	  if (ih->indel_strings[n->id][j] == INS) { /* Insertion */
 	    /* Find the node below the branch where the insertion happened */
 	    for (k = 0; 
 		 k < ih->tree->nnodes && ih->indel_strings[k][j] != BASE;
-		 k++){
-	      if (k == 0 || i == ih->tree->nnodes)
+		 ) {
+	      k++;
+/* 	      fprintf(stderr, "k %d, j %d, ih->indel_strings[k][j] %d\n", */
+/* 		      k, j, ih->indel_strings[k][j]); */
+	      if (k == 0 || n->id == ih->tree->nnodes)
 		ins = -1;
 	      else 
 		ins = k;
 	    }
+
+/* 	    fprintf(stderr, "node %d, name = %s\n", ins, names[ins]); */
 	    /* Nodes in the subtree under the node receiving the insertion
 	       will all have a non-insertion char while those in the supertree
 	       will all have an insertion character */
+
 	    tr_partition_nodes(ih->tree, lst_get_ptr(ih->tree->nodes, ins), 
 			       inside, outside);
+
 	    for (k = 0; k < lst_size(inside); k++) {
 	      n2 = lst_get_ptr(inside, k);
 	      s = msa_get_seq_idx(msa, n2->name);
 	      seqs[n2->id][j] = (n2->lchild == NULL) ?
 		msa_get_char(msa, s, j) : 'N';
 	    }
+
 	    for (k = 0; k < lst_size(outside); k++) {
 	      n2 = lst_get_ptr(outside, k);
-	      seqs[n2->id][j] = '^';
+	      if (debug == TRUE)
+		seqs[n2->id][j] = '^';
+	      else
+		seqs[n2->id][j] = '-';
 	    }
 	  } else { /* Deletion */
-	    seqs[i][j] = '.';
+	    if (debug == TRUE)
+	      seqs[n->id][j] = '.';
+	    else
+	      seqs[n->id][j] = '-'; 
 	  }
 	}
       }
     }
 
-
     else {                      /* ancestor */
       for (j = 0; j < ih->ncols; j++) {
-        if (ih->indel_strings[i][j] == BASE) 
-          seqs[i][j] = 'N';
+	if (ih->indel_strings[i][j] == BASE) 
+          seqs[i][j] = 'N';/* msa == NULL ? 'N' :  */
+/* 	    msa_get_char(msa, n->id, j); */
         else
           seqs[i][j] = ih->indel_strings[i][j] == INS ? '^' : '.';
       }

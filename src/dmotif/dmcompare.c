@@ -25,17 +25,27 @@ int main(int argc, char *argv[]) {
     *unique_to_target;
   String *fname_root;
   List *tmpl;
+  TreeModel *tm;
+  FILE *f;
+
+  matches = mismatch = unique_to_query = unique_to_target = NULL;
 
   struct option long_opts[] = {
     {"gff-out", 0, 0, 'g'},
     {"compute-fpr", 1, 0, 'f'},
     {"offset", 1, 0, 'o'},
+    {"inexact", 1, 0, 'i'},
+    {"present-in-posteriors", 0, 0, 'p'},
+    {"thresh", 1, 0, 't'},
     {"help", 0, 0, 'h'},
     {0,0,0,0}
   };
 
   /* arguments and defaults for options */
-  int gff_out = FALSE, seqlen = 0, w = 0, offset = DEFAULT_OFFSET;
+  int gff_out = FALSE, seqlen = 0, w = 0, offset = DEFAULT_OFFSET,
+    present_in_posteriors = FALSE;
+  double thresh = 0;
+  tm = NULL;
 
   while ((c = getopt_long(argc, argv, "g, f, h, o", long_opts, &opt_idx)) 
 	 != -1) {
@@ -54,6 +64,18 @@ int main(int argc, char *argv[]) {
     case 'o':
       offset = atoi(optarg);
       break;
+    case 'i':
+      f = fopen_fname(optarg, "r");
+      tm = tm_new_from_file(f);
+      tr_name_ancestors(tm->tree);
+      fclose(f);
+      break;
+    case 'p':
+      present_in_posteriors = TRUE;
+      break;
+    case 't':
+      thresh = get_arg_dbl_bounds(optarg, 0, 1);
+      break;
     case 'h':
       printf(HELP);
       exit(0);
@@ -64,6 +86,10 @@ int main(int argc, char *argv[]) {
   
   if (optind != argc - 2)
     die("Two arguments required. Try 'dmcompare -h'.\n");
+  if (thresh > 0 && present_in_posteriors == FALSE)
+    die("ERROR: --thresh requires --present-in-posteriors");
+  if (present_in_posteriors && tm != NULL)
+    die("ERROR: --inexact and --present-in-posteriors are not compatible!\n");
 
   fprintf(stderr, "Reading target gff from %s...\n", argv[optind]);
   target_gff = gff_read_set(fopen_fname(argv[optind], "r"));
@@ -71,10 +97,13 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Reading query gff from %s...\n", argv[optind+1]);
   query_gff = gff_read_set(fopen_fname(argv[optind+1], "r"));
 
-  matches = gff_new_set();
-  mismatch = gff_new_set();
-  unique_to_query = gff_new_set();
-  unique_to_target = gff_new_set();
+  if (gff_out == TRUE) {
+    matches = gff_new_set();
+    mismatch = gff_new_set();
+    unique_to_query = gff_new_set();
+    unique_to_target = gff_new_set();
+  }
+
   len1 = lst_size(target_gff->features);
   len2 = lst_size(query_gff->features);
   stats = smalloc(4 * sizeof(int));
@@ -83,7 +112,8 @@ int main(int argc, char *argv[]) {
     stats[i] = 0;
 
   dms_compare_gffs(target_gff, query_gff, stats, offset, matches, mismatch,
-		   unique_to_query, unique_to_target);
+		   unique_to_query, unique_to_target, tm,
+		   present_in_posteriors, thresh);
 
   /* Sensitivity is (# true pos) / (# true pos + # false neg) -- computed here
      as (# true pos) / (# features in target set) */
