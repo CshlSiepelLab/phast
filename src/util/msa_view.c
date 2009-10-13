@@ -155,6 +155,13 @@ OPTIONS:\n\
         argument should be replaced with a list of (whitespace-\n\
         separated) file names.\n\
 \n\
+    --split-all, -X <filename root>\n\
+        Split output alignment into separate fasta files by species.\n\
+        File naming convention is filename_root.species.fa. If used with\n\
+        --gap-strip, gap characters will be stripped from all output files.\n\
+	In this case, '--gap-strip <s>' should NOT be used (ALL or ANY\n\
+        should both work fine).\n\
+\n\
  (File formats, gap stripping, reordering, etc.)\n\
     --in-format, -i PHYLIP|FASTA|MPM|MAF|SS\n\
         (Default FASTA) Input file format.  FASTA is as usual.  PHYLIP\n\
@@ -422,9 +429,9 @@ void reduce_to_4d(MSA *msa, CategoryMap *cm) {
 }
 
 int main(int argc, char* argv[]) {
-  MSA *msa = NULL, *sub_msa = NULL;
+  MSA *msa = NULL, *sub_msa = NULL, *split_msa = NULL;
   msa_format_type input_format = FASTA, output_format = FASTA;
-  List *seqlist_str = NULL, *l = NULL;
+  List *seqlist_str = NULL, *l = NULL, *tmpl = NULL, *seq = NULL;
   char *infname = NULL, *clean_seqname = NULL, *rseq_fname = NULL,
     *reverse_groups_tag = NULL, *alphabet = NULL;
   int i, opt_idx, startcol = 1, endcol = -1, include = 1, gap_strip_mode = NO_STRIP,
@@ -433,13 +440,15 @@ int main(int argc, char* argv[]) {
     rand_perm = FALSE, reverse_compl = FALSE, stats_only = FALSE, win_size = -1, 
     cycle_size = -1, maf_keep_overlapping = FALSE, collapse_missing = FALSE,
     fourD = FALSE, mark_missing_maxsize = -1, missing_as_indels = FALSE,
-    unmask = FALSE;
-  char c;
+    unmask = FALSE, split_all = FALSE;
+  char c, *out_root, out_fname[STR_MED_LEN];
   List *cats_to_do = NULL, *aggregate_list = NULL, *msa_fname_list = NULL, 
     *order_list = NULL, *fill_N_list = NULL;
   msa_coord_map *map = NULL;
   GFF_Set *gff = NULL;
   CategoryMap *cm = NULL;
+  String *tmpstr = NULL;
+  FILE *outfile = NULL;
 
   struct option long_opts[] = {
     {"start", 1, 0, 's'},
@@ -477,11 +486,12 @@ int main(int argc, char* argv[]) {
     {"randomize", 0, 0, 'R'},
     {"keep-overlapping", 0, 0, 'k'},
     {"missing-as-indels", 0, 0, 'm'},
+    {"split-all", 1, 0, 'X'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:fuDVxPzRSk4mh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:X:fuDVxPzRSk4mh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
@@ -604,6 +614,10 @@ int main(int argc, char* argv[]) {
     case 'm':
       missing_as_indels = TRUE;
       break;
+    case 'X':
+      split_all = TRUE;
+      out_root = optarg;
+      break;
     case '?':
       fprintf(stderr, "Bad argument.  Try 'msa_view -h' for help.\n");
       exit(1); 
@@ -653,6 +667,9 @@ int main(int argc, char* argv[]) {
     }
     else if (input_format == SS && (output_format != SS || ordered_stats))
       fprintf(stderr, "WARNING: use --unordered-ss unless you're sure you need order\n");
+
+    if (split_all == TRUE && gap_strip_mode != NO_STRIP)
+      gap_strip_mode = STRIP_ALL_GAPS;
 
     if (output_format == SS && !ordered_stats) {
       msa = ss_aggregate_from_files(msa_fname_list, input_format, 
@@ -818,7 +835,7 @@ int main(int argc, char* argv[]) {
   if (missing_as_indels) 
     msa_missing_to_gaps(sub_msa, refseq);
 
-  if (gap_strip_mode != NO_STRIP)
+  if (gap_strip_mode != NO_STRIP && split_all == FALSE)
     msa_strip_gaps(sub_msa, gap_strip_mode);
 
   if (mark_missing_maxsize >= 0)
@@ -866,6 +883,31 @@ int main(int argc, char* argv[]) {
       msa_print_stats(sub_msa, stdout, "[aggregate]", 0, -1, -1);
     else
       msa_print_stats(sub_msa, stdout, infname, 0, -1, -1);
+  }
+
+  if (split_all == TRUE) { /* Print each species' sequence in its own fasta */
+    tmpl = lst_new_ptr(1);
+    for (i = 0; i < sub_msa->nseqs; i++) {
+      lst_clear(tmpl);
+      if (l != NULL)
+	lst_free(l);
+      if (tmpstr != NULL)
+	str_free(tmpstr);
+      if (split_msa != NULL)
+	msa_free(split_msa);
+      tmpstr = str_new_charstr(sub_msa->names[i]);
+      lst_push_ptr(tmpl, tmpstr);
+      l = msa_seq_indices(msa, tmpl);
+      split_msa = msa_sub_alignment(sub_msa, l, TRUE, 0,
+				    sub_msa->length);
+      if (gap_strip_mode != NO_STRIP)
+	msa_strip_gaps(split_msa, gap_strip_mode);
+      snprintf(out_fname, STR_MED_LEN, "%s.%s.fa", out_root, 
+	       sub_msa->names[i]);
+      outfile = fopen(out_fname, "w");
+      msa_print(outfile, split_msa, FASTA, pretty_print);
+      fclose(outfile);
+    }
   }
 
   else                          /* print alignment */
