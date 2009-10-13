@@ -170,7 +170,9 @@ void dms_compare_gffs(GFF_Set *reference, GFF_Set *query, int *stats,
 				    of the query set to match the target set
 				    (e.g., from 0-based to 1-based) */
 		      GFF_Set *matches, GFF_Set *mismatches,
-		      GFF_Set *unique_to_query, GFF_Set *unique_to_target);
+		      GFF_Set *unique_to_query, GFF_Set *unique_to_target,
+		      TreeModel *tm, int present_in_posteriors,
+		      double thresh);
 int* dms_composite_path(DMotifPhyloHmm *dm, int *path1, int *path2, 
 			int seqlen, int offset, int force_priors);
 int* dm_gff_to_path(DMotifPhyloHmm *dm, GFF_Set *gff, int seqlen,
@@ -205,7 +207,7 @@ DMotifPmsaStruct *dms_read_alignments(FILE *F, int do_ih, int quiet,
 double dm_compute_log_likelihood(TreeModel *mod, MSA *msa, double *col_scores);
 void dm_free_subst_matrices(TreeModel *tm);
 MSA *dm_indel_mask(DMotifPhyloHmm *dm, MSA *msa, IndelHistory *ih,
-		   int *path);
+		   int *path, int debug);
 Hashtable* dms_uncache(List *cache_files, int init_size, int nstates,
 		       int* nsamples, int quiet);
 void dms_do_emissions_row(void *data);
