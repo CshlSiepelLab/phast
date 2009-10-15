@@ -160,7 +160,7 @@ struct tm_struct {
   int estimate_ratemat;         /* indicates whether rate-matrix
                                    parameters should be estimated */
   AltSubstMod **alt_subst_mods_node; /*pointer to alt_subst_mod for 
-				       each branch*
+				       each branch*/
 
   List *alt_subst_mods;         /* list of relevant AltSubstMods for 
                                    this tree.  alt_subst_mods_node above are 
