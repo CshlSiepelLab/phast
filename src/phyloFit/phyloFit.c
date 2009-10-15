@@ -9,7 +9,7 @@
 
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
    
-   $Id: phyloFit.c,v 1.38 2008-11-12 02:07:58 acs Exp $ */
+   $Id: phyloFit.c,v 1.38.2.2 2009-03-20 21:25:47 mt269 Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -257,20 +257,21 @@ int main(int argc, char *argv[]) {
     random_init = FALSE, estimate_backgd = FALSE, estimate_scale_only = FALSE,
     do_column_probs = FALSE, nonoverlapping = FALSE, gaps_as_bases = FALSE,
     no_freqs = FALSE, no_rates = FALSE, assume_clock = FALSE, 
-    init_parsimony=FALSE, parsimony_only=FALSE;
+    init_parsimony=FALSE, parsimony_only=FALSE, no_branchlens = FALSE;
   unsigned int nsites_threshold = DEFAULT_NSITES_THRESHOLD;
   msa_format_type input_format = FASTA;
   char c;
   FILE *F, *WINDOWF;
   TreeNode *tree = NULL;
   CategoryMap *cm = NULL;
-  int i, j, win, opt_idx;
+  int i, j, win, opt_idx, symfreq=FALSE;
   String *mod_fname;
   MSA *msa, *source_msa;
   FILE *logf = NULL;
-  String *tmpstr = str_new(STR_SHORT_LEN);
+  String *tmpstr = str_new(STR_SHORT_LEN), *optstr, *nooptstr=NULL;
   List *cats_to_do = NULL, *tmplist = NULL, *window_coords = NULL, 
-    *cats_to_do_str = NULL, *ignore_branches = NULL;
+    *cats_to_do_str = NULL, *ignore_branches = NULL, *alt_mod_str=NULL,
+    *bound_arg=NULL;
   double *gc;
   double cpg, alpha = DEFAULT_ALPHA;
   GFF_Set *gff = NULL;
@@ -307,8 +308,10 @@ int main(int argc, char *argv[]) {
     {"scale-only", 0, 0, 'B'},
     {"scale-subtree", 1, 0, 'S'},
     {"estimate-freqs", 0, 0, 'F'},
+    {"sym-freqs", 0, 0, 'W'},
     {"no-freqs", 0, 0, 'f'},
     {"no-rates", 0, 0, 'n'},
+    {"no-opt", 1, 0, 'O'},
     {"min-informative", 1, 0, 'I'},
     {"gaps-as-bases", 0, 0, 'G'},     
     {"quiet", 0, 0, 'q'},
@@ -323,10 +326,12 @@ int main(int argc, char *argv[]) {
     {"rate-constants", 1, 0, 'K'},
     {"ignore-branches", 1, 0, 'b'},
     {"clock", 0, 0, 'z'},
+    {"alt-mod", 1, 0, 'd'},
+    {"bound", 1, 0, 'u'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:e:Y:GVEeNDRTqLPXZUBFfynrzh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:u:Y:GVEeNDRTqLPXZUBFfnrzhWy", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -468,6 +473,10 @@ int main(int argc, char *argv[]) {
     case 'F':
       estimate_backgd = TRUE;
       break;
+    case 'W':
+      estimate_backgd = TRUE;
+      symfreq = TRUE;
+      break;
     case 'f':
       no_freqs = TRUE;
       break;
@@ -489,6 +498,23 @@ int main(int argc, char *argv[]) {
       break;
     case 'z':
       assume_clock = TRUE;
+      break;
+    case 'O':
+      if (nooptstr == NULL) 
+	nooptstr = str_new_charstr(optarg);
+      else die("ERROR: no-opt argument can only be used once!  parameters can be comma-separated list.");
+      break;
+    case 'd':
+      if (alt_mod_str == NULL) 
+	alt_mod_str = lst_new_ptr(1);
+      optstr = str_new_charstr(optarg);
+      lst_push_ptr(alt_mod_str, optstr);
+      break;
+    case 'u':
+      if (bound_arg == NULL) 
+	bound_arg = lst_new_ptr(1);
+      optstr = str_new_charstr(optarg);
+      lst_push_ptr(bound_arg, optstr);
       break;
     case 'h':
       printf("%s", HELP);
@@ -714,12 +740,13 @@ int main(int argc, char *argv[]) {
         mod = input_mod;
         tm_reinit(mod, subst_mod, nratecats, newalpha, rate_consts, NULL);
       }
+      mod->noopt_str = nooptstr;
+      mod->eqfreq_sym = symfreq;
+      mod->bound_arg = bound_arg;
 
       mod->use_conditionals = use_conditionals;
 
       if (estimate_scale_only || estimate_backgd || no_rates || assume_clock) {
-        tm_free_rmp(mod);
-
         if (estimate_scale_only) {
           mod->estimate_branchlens = TM_SCALE_ONLY;
 
@@ -746,9 +773,10 @@ int main(int argc, char *argv[]) {
           mod->estimate_ratemat = FALSE;
 
         mod->estimate_backgd = estimate_backgd;
-        tm_init_rmp(mod);        /* necessary because number of
-                                    parameters changes */
       }
+      
+      if (no_branchlens)
+	mod->estimate_branchlens = TM_BRANCHLENS_NONE;
 
       if (ignore_branches != NULL) 
         tm_set_ignore_branches(mod, ignore_branches);
@@ -766,6 +794,11 @@ int main(int argc, char *argv[]) {
       }
       lst_free_strings(pruned_names);
       lst_free(pruned_names);
+
+     if (alt_mod_str != NULL) {
+	for (j = 0 ; j < lst_size(alt_mod_str); j++) 
+	  tm_add_alt_mod(mod, (String*)lst_get_ptr(alt_mod_str, j));
+      }
 
       if (!quiet) {
         str_clear(tmpstr);
@@ -927,6 +960,8 @@ int main(int argc, char *argv[]) {
       msa_free(msa);
   }
   if (parsimony_cost_file != NULL) fclose(parsimony_cost_file); 
+  str_free(tmpstr);
+  
   if (!quiet) fprintf(stderr, "Done.\n");
   
   return 0;

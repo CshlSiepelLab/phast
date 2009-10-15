@@ -25,43 +25,48 @@
 void set_param_descriptions(char **descriptions, TreeModel *mod) {
   List *traversal;
   String *str = str_new(STR_MED_LEN);
-  int nparams = tm_get_nparams(mod);
   int nrv_params = tm_get_nratevarparams(mod);
   int nrm_params = tm_get_nratematparams(mod);
-  int i, j, idx = 0;
+  int i, j, idx;
 
   assert(mod->estimate_branchlens == TM_BRANCHLENS_ALL);
   assert(mod->estimate_backgd == FALSE);
+  assert(mod->alt_subst_mods == NULL);
 
   traversal = tr_preorder(mod->tree);
+  idx=0;
   for (i = 0; i < lst_size(traversal); i++) {
     TreeNode *n = lst_get_ptr(traversal, i);
     if (n->parent == NULL) continue;
     /* if the model is reversible, then the first parameter is
        the sum of the lengths of the two branches from the root */
-    if (n == mod->tree->lchild && tm_is_reversible(mod->subst_mod))
-      sprintf(descriptions[idx++], "branch (spans root)"); 
-    else if (n != mod->tree->rchild || !tm_is_reversible(mod->subst_mod)) {
+    if ((n == mod->tree->lchild ||
+	 n == mod->tree->rchild) && tm_is_reversible(mod->subst_mod))
+      sprintf(descriptions[mod->bl_idx+idx], "branch (spans root)"); 
+    else {
       if (strlen(n->name) > 0)
-        sprintf(descriptions[idx++], "branch (lf_%s->anc_%d)", n->name, n->parent->id);
+        sprintf(descriptions[mod->bl_idx+idx], 
+		"branch (lf_%s->anc_%d)", n->name, n->parent->id);
       else 
-        sprintf(descriptions[idx++], "branch (anc_%d->anc_%d)", n->id, n->parent->id);
+        sprintf(descriptions[mod->bl_idx+idx], 
+		"branch (anc_%d->anc_%d)", n->id, n->parent->id);
     }
+    idx++;
   }
 
   for (i = 0; i < nrv_params; i++) {
     if (nrv_params == 1) 
-      strcpy(descriptions[idx++], "alpha");
+      strcpy(descriptions[mod->ratevar_idx+i], "alpha");
     else
-      sprintf(descriptions[idx++], "rate var #%d", i+1);
+      sprintf(descriptions[mod->ratevar_idx+i], "rate var #%d", i+1);
   }
 
   if (nrm_params == 1)
-    strcpy(descriptions[idx++], "kappa");
+    strcpy(descriptions[mod->ratematrix_idx], "kappa");
   else {
     for (i = 0; i < nrm_params; i++) {
-      List *rows = mod->rate_matrix_param_row[idx];
-      List *cols = mod->rate_matrix_param_col[idx];
+      List *rows = mod->rate_matrix_param_row[mod->ratematrix_idx+i];
+      List *cols = mod->rate_matrix_param_col[mod->ratematrix_idx+i];
       str_cpy_charstr(str, "rmatrix");
       for (j = 0; j < lst_size(rows); j++) {
         char tmp[STR_SHORT_LEN];
@@ -69,10 +74,9 @@ void set_param_descriptions(char **descriptions, TreeModel *mod) {
                 lst_get_int(cols, j) + 1);
         str_append_charstr(str, tmp);
       }
-      strcpy(descriptions[idx++], str->chars);
+      strcpy(descriptions[mod->ratematrix_idx+i], str->chars);
     }
   }
-  assert(idx == nparams);
   str_free(str);
 }
 
@@ -261,10 +265,10 @@ int main(int argc, char *argv[]) {
       model = tm_new_from_file(INF);
       tree = model->tree;
       if (scale != 1.0)
-	tm_scale(model, scale, 0);
+	tm_scale_branchlens(model, scale, 0);
       if (subtreeName != NULL) {
 	subtreeModel = tm_create_copy(model);
-	tm_scale(subtreeModel, subtreeScale, 0);
+	tm_scale_branchlens(subtreeModel, subtreeScale, 0);
       }
     }
     else {

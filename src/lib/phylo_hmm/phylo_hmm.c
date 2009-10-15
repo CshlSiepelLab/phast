@@ -373,7 +373,7 @@ void phmm_rates_cross(PhyloHmm *phmm,
 /*         fprintf(stderr, "Scaling tree model %d by factor %f ...\n", */
 /*                 mod+1, sconsts[ratecat]); */ /* remove? */
 
-        tm_scale(new_mods[thismod_new], sconsts[ratecat], 1);
+        tm_scale_branchlens(new_mods[thismod_new], sconsts[ratecat], 1);
         thismod_new++;
       }
     }

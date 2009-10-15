@@ -876,13 +876,14 @@ void dm_set_backgd_branches(TreeModel *tm, TreeModel *backgd_mod,
                             List *nodelist) {
   int i;
   TreeNode *n;
-  tm->alt_subst_mods = (AltSubstMod**)smalloc(tm->tree->nnodes
-					      * sizeof(AltSubstMod*));
-  for (i = 0; i < tm->tree->nnodes; i++) tm->alt_subst_mods[i] = NULL;
+  tm->alt_subst_mods_node = (AltSubstMod**)smalloc(tm->tree->nnodes
+						   * sizeof(AltSubstMod*));
+  for (i = 0; i < tm->tree->nnodes; i++) 
+    tm->alt_subst_mods_node[i] = NULL;
 
   for (i = 0; i < lst_size(nodelist); i++) {
     n = lst_get_ptr(nodelist, i);
-    tm->alt_subst_mods[n->id] =
+    tm->alt_subst_mods_node[n->id] =
       tm_new_alt_subst_mod(backgd_mod->subst_mod,
                            vec_create_copy(backgd_mod->backgd_freqs),
                            mm_create_copy(backgd_mod->rate_matrix));
@@ -4547,12 +4548,12 @@ void dm_sample_char_col(char **seqs, TreeModel *mod, char *newchar,
     tm_set_subst_matrices(mod);
     
   /* Sample a character at the root */
-  if (mod->alt_subst_mods != NULL &&
-      mod->alt_subst_mods[mod->tree->id] != NULL &&
-      mod->alt_subst_mods[mod->tree->id]->subst_mod == HB) {
+  if (mod->alt_subst_mods_node != NULL &&
+      mod->alt_subst_mods_node[mod->tree->id] != NULL &&
+      mod->alt_subst_mods_node[mod->tree->id]->subst_mod == HB) {
     newchar[mod->tree->id] =
-      mm_sample_backgd(mod->alt_subst_mods[mod->tree->id]->rate_matrix->states,
-		       mod->alt_subst_mods[mod->tree->id]->backgd_freqs);
+      mm_sample_backgd(mod->alt_subst_mods_node[mod->tree->id]->rate_matrix->states,
+		       mod->alt_subst_mods_node[mod->tree->id]->backgd_freqs);
 /*     fprintf(stderr, "mod->tree->name %s, newchar[mod->tree->id] %c\n", */
 /* 	    mod->tree->name, newchar[mod->tree->id]); */
   } else {
@@ -4654,21 +4655,22 @@ void dm_set_motif_branches_hb(TreeModel *tm, Vector *motif_freqs,
 /*     tm->backgd_freqs = vec_create_copy(motif_freqs); */
 /*     tm->subst_mod = HB; */
 /*   } else { */
-    tm->alt_subst_mods = (AltSubstMod**)smalloc(tm->tree->nnodes
+    tm->alt_subst_mods_node = (AltSubstMod**)smalloc(tm->tree->nnodes
 						* sizeof(AltSubstMod*));
 
-    for (i = 0; i < tm->tree->nnodes; i++) tm->alt_subst_mods[i] = NULL;
+    for (i = 0; i < tm->tree->nnodes; i++) 
+      tm->alt_subst_mods_node[i] = NULL;
     
     for (i = 0; i < lst_size(nodelist); i++) {
       n = lst_get_ptr(nodelist, i);
-      tm->alt_subst_mods[n->id] =
+      tm->alt_subst_mods_node[n->id] =
 	tm_new_alt_subst_mod(HB, vec_create_copy(motif_freqs),
 			     mm_create_copy(hb_matrix));
 /*       fprintf(stderr, "mod[%d]:\n", n->id); */
 /*       fprintf(stderr, "\tbg: "); */
-/*       vec_print(tm->alt_subst_mods[n->id]->backgd_freqs, stderr); */
+/*       vec_print(tm->alt_subst_mods_node[n->id]->backgd_freqs, stderr); */
 /*       fprintf(stderr, "rate_matrix:\n"); */
-/*       mm_pretty_print(stderr, tm->alt_subst_mods[n->id]->rate_matrix); */
+/*       mm_pretty_print(stderr, tm->alt_subst_mods_node[n->id]->rate_matrix); */
 /*       fprintf(stderr, "\n"); */
     }
 /*   } */

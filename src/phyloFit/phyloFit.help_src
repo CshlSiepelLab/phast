@@ -223,6 +223,11 @@ OPTIONS:
         Estimate equilibrium frequencies by maximum likelihood, rather
         than approximating them by the relative frequencies in the data.
 
+    --sym-freqs, -W
+        Estimate equilibrium frequencies, assuming freq(A)=freq(T) and
+	freq(C)=freq(G).  This only works for an alphabet ACGT (and possibly
+	gap).  This option implies --estimate-freqs.
+
     --no-freqs, -f
         (for use with --init-model) Do not estimate equilibrium
         frequencies; just use the ones from the given tree model.
@@ -241,6 +246,27 @@ OPTIONS:
     --error, -e <filename>
 	For each parameter, report estimate, variance, and 95% confidence
         interval, printed to given filename, one parameter per line.
+
+    --no-opt, -O <param_list>
+        Hold parameteres listed in comma-separated param_list constant at
+	initial values.  This applies only to the "main" model, and not to 
+	any models defined with the --alt-mod option.  Param list can 
+	contain values such as "branches" to hold branch lengths constant,
+	"ratematrix", "backgd", or "ratevar" to hold entire rate matrix, 
+	equilibrium frequencies, or rate variation parameters constant 
+	(respectively).  There are also substitution model-specific 
+	parameters such as "kappa" (transition/transversion rate ratio), 
+	"gc_parameter" (gc bias parameter), and "alphas" (the REV 
+	parameters in the REV+GC model).
+
+    --bound <param_name[lower_bound,upper_bound]>
+        Set boundaries for parameter.  lower_bound or upper_bound may be
+	empty string to keep default.  For example --bound gc_param[1,] will
+	set the lower bound for gc_param to 1 (keeping upper bound at infinity),
+	for a GC model.  Only applies to parameters for model in the "main" 
+	tree, but similar syntax can be used within the --alt-mod arguments.
+    	Can be used multiple times to set boundaries for different parameters.
+
 
  (Options for modeling rate variation)
 
@@ -331,6 +357,47 @@ OPTIONS:
         triplet model is selected, every third tuple will be
         considered.  This option cannot be used with an alignment
         represented only by unordered sufficient statistics.
+
+ (Option for lineage-specific models)
+
+   --alt-mod, -d <node[+][:model|param_list]>
+        Create a lineage-specific substitution model on subtree of the
+	specified node.  If the node name is appended by a +, then also
+	include the branch leading up to this node.
+
+	If the name of a substitution model (such as HKY85, REV, UNREST)
+	is given after the node name, then an entirely separate set of 
+	parameters will be estimated for the sub-tree.  This model must
+	have the same number of states and be of the same order as the
+	model used for the rest of the tree.
+
+	If instead, a list of parameter names is given after the colon,
+	then the same substitution model will be used for the entire tree,
+	but the parameters listed will be estimated separately in the subtree.
+	The parameter names are model-specific, and include "kappa" for
+	HKY models, "alpha" for GC models, "ratematrix" to specify
+	all rate-matrix parameters in general models, and "backgd" for
+	the equilibrium background frequencies.  The parameter names
+	may optionally be followed by boundaries in square brackets to
+	specify parameter bounds, as described in --bound option.
+
+	The --alt-mod argument may be used multiple times, and is
+	applied in the order given, so that later uses may override
+	previous ones.  This allows separate models to be applied to
+	a subtree within a subtree.
+
+	If no model or parameters are listed, this creates a "dummy"
+	lineage-specific model, which is identical to the main model
+	and does not estimate any extra parameters.
+
+	Example:
+	phyloFit align.fa --subst-mod HKY85 \
+	--tree "(human, (mouse, rat)mr, cow)"\
+	--alt-mod mr+:HKY85 --alt-mod rat+
+	
+	will estimate a separate set of parameters on the subtree defined
+	by the mouse-rat node (as well as the branch leading to it), but
+	excluding the branch leading to rat.
 
 
  (Options for posterior probabilities)

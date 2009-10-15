@@ -116,8 +116,9 @@ int lst_delete_obj(List *l, void *o) {
 
 int lst_delete_obj_compare(List *l, void *o, int (*compare)(void*, void*)) {
   int idx;
-  if ((idx = lst_find_compare(l, o, compare)) != -1)
-    return lst_delete_idx(l, idx);
+  if ((idx = lst_find_compare(l, o, compare)) == -1)
+    return 0;
+  lst_delete_idx(l, idx);
   return 1;
 }
 

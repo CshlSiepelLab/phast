@@ -632,7 +632,7 @@ TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa,
 
   tm_fit(retval, msa, params, -1, OPT_HIGH_PREC, NULL);
 
-  oldscale = vec_get(params, 0);
+  oldscale = vec_get(params, retval->scale_idx);
 
   if (subtree_name == NULL) {
     /* correction for variance in estimates.  Based on simulation
@@ -646,7 +646,7 @@ TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa,
        and very large p-values due to a thickening of the tails in the
        distribution of estimated numbers of substitutions  */
     *scale = (oldscale - 1) * 0.75 + 1; 
-    tm_scale(retval, *scale/oldscale, 0);  /* (tree has already been
+    tm_scale_branchlens(retval, *scale/oldscale, 0);  /* (tree has already been
                                               scaled by oldscale) */    
   }
   else {
@@ -654,7 +654,7 @@ TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa,
        that the method is conservative enough to compensate for any
        estimation error */
     *scale = oldscale;
-    *sub_scale = vec_get(params, 1) * oldscale; 
+    *sub_scale = vec_get(params, retval->scale_idx+1) * oldscale; 
                                 /* actual scale of sub is product of
                                    overall scale and of
                                    subtree-specific parameter  */

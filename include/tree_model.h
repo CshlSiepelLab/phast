@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: tree_model.h,v 1.20 2009-02-19 17:25:28 acs Exp $ */
+/* $Id: tree_model.h,v 1.20.2.1 2009-03-18 19:35:57 mt269 Exp $ */
 
 #ifndef TREE_MODEL_H
 #define TREE_MODEL_H
@@ -41,6 +41,15 @@
 
 #define TM_EM_CONV(P) ( (P) == OPT_HIGH_PREC ? TM_EM_CONV_HIGH : ( (P) == OPT_MED_PREC ? TM_EM_CONV_MED : ( (P) == OPT_CRUDE_PREC ? TM_EM_CONV_CRUDE : TM_EM_CONV_LOW) ))
 
+
+#define BACKGD_STR "backgd"
+#define RATEMAT_STR "ratematrix"
+#define RATEVAR_STR "ratevar"
+#define BRANCHES_STR "branches"
+#define SCALE_STR "scale"
+#define SCALE_SUB_STR "scale_sub"
+
+
 /* type of branch length estimation */
 typedef enum { 
   TM_BRANCHLENS_ALL, 
@@ -62,12 +71,25 @@ typedef enum {
 
 struct tp_struct;
 
+
 /* defines alternative substitution model for a particular branch */
 typedef struct {
   subst_mod_type subst_mod;  
-  Vector *backgd_freqs;
-  MarkovMatrix *rate_matrix;
+  Vector *backgd_freqs;        /* eq freqs (set to NULL if separate_freq=0 */
+  MarkovMatrix *rate_matrix;   /* rate_matrix (set to NULL if separate_rm=0 */
+  int ratematrix_idx, backgd_idx;  /* indicies in main model parameter list
+				      where lineage-specific parameters
+				      start */
+  int separate_model;   /* ==1 if no parameters shared with main model */
+  List *param_list;     /* list of string arguments giving which params to
+			   estimate separately (only if separate_model=0) */
+  String *nodename;     /* name of node defining subtree (with + added to
+			   include leading branch) */
+  String *defString;    /* this is the exact argument given to phyloFit
+			   to define the alt model */
+  List *bound_arg;
 } AltSubstMod;
+
 
 /** Tree model object */
 struct tm_struct {
@@ -137,11 +159,18 @@ struct tm_struct {
                                    rate-variation */
   int estimate_ratemat;         /* indicates whether rate-matrix
                                    parameters should be estimated */
-  AltSubstMod **alt_subst_mods; /* optional alternative substitution
-                                   models per branch of three; can be
-                                   used for nonhomogeneous models.
-                                   Typically set to NULL and
-                                   ignored.  */
+  AltSubstMod **alt_subst_mods_node;
+  List *alt_subst_mods;
+  Vector *all_params;
+  //  Vector *lowbound, *upbound;
+  int *param_map;
+  int scale_idx, bl_idx, ratematrix_idx, backgd_idx, ratevar_idx;
+  List *bound_arg;
+  String *noopt_str;
+  int eqfreq_sym;
+  int scale_during_opt;       /* Whether to scale rate matrix during optimization.
+				 Normally 0, but 1 if TM_BRANCHLENS_NONE, or
+				 if TM_SCALE and alt_subst_mods!=NULL */
 };
 
 typedef struct tm_struct TreeModel;
@@ -156,6 +185,8 @@ void tm_reinit(TreeModel *tm, subst_mod_type subst_mod,
                List *new_rate_consts, List *new_rate_weights);
 
 TreeModel *tm_new_from_file(FILE *F);
+
+AltSubstMod* tm_add_alt_mod(TreeModel *tm, String *altmod_str);
 
 void tm_init_rmp(TreeModel *tm);
 
@@ -173,7 +204,10 @@ void tm_set_subst_matrices(TreeModel *tm);
 
 void tm_set_subst_matrix(TreeModel *tm, MarkovMatrix *P, double t);
 
-void tm_scale(TreeModel *tm, double scale_const, int reset_subst_mats);
+void tm_scale_model(TreeModel *tm, Vector *params, int scale_blens,
+		    int reset_subst_matrices);
+
+void tm_scale_branchlens(TreeModel *tm, double scale_const, int reset_subst_mats);
 
 int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat, 
            opt_precision_type precision, FILE *logf);
@@ -241,5 +275,7 @@ AltSubstMod* tm_new_alt_subst_mod(subst_mod_type subst_mod,
 void tm_free_alt_subst_mod(AltSubstMod *am); 
 
 void tm_variance(TreeModel *mod, MSA *msa, Vector *params, int cat, char *error_fname, int appendToFile);
+
+void tm_setup_params(TreeModel *mod);
 
 #endif
