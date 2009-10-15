@@ -143,7 +143,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   tm->scale_idx = tm->bl_idx = tm->backgd_idx = 
     tm->ratevar_idx = tm->ratematrix_idx = -1;
   tm->rate_matrix_param_row = tm->rate_matrix_param_col = NULL;
-  tm->noopt_str = NULL;
+  tm->noopt_arg = NULL;
   tm->eqfreq_sym = 0;
   tm->bound_arg = NULL;
   tm->scale_during_opt = 0;
@@ -256,8 +256,8 @@ void tm_free(TreeModel *tm) {
       str_free(lst_get_ptr(tm->bound_arg, i));
     lst_free(tm->bound_arg);
   }
-  if (tm->noopt_str != NULL)
-    str_free(tm->noopt_str);
+  if (tm->noopt_arg != NULL)
+    str_free(tm->noopt_arg);
   free(tm);
 }
 
@@ -586,9 +586,9 @@ TreeModel *tm_create_copy(TreeModel *src) {
   retval->ratematrix_idx = src->ratematrix_idx;
   retval->backgd_idx = src->backgd_idx;
   retval->ratevar_idx = src->ratevar_idx;
-  if (src->noopt_str != NULL)
-    retval->noopt_str = str_new_charstr(src->noopt_str->chars);
-  else retval->noopt_str = NULL;
+  if (src->noopt_arg != NULL)
+    retval->noopt_arg = str_new_charstr(src->noopt_arg->chars);
+  else retval->noopt_arg = NULL;
   retval->eqfreq_sym = src->eqfreq_sym;
   retval->scale_during_opt = src->scale_during_opt;
   
@@ -1789,9 +1789,9 @@ void tm_setup_params(TreeModel *mod) {
   for (i=0; i<next_idx; i++)
     mod->param_map[i] = -1;
 
-  if (mod->noopt_str != NULL) {
+  if (mod->noopt_arg != NULL) {
     noopt = lst_new_ptr(3);
-    str_split(mod->noopt_str, ",", noopt);
+    str_split(mod->noopt_arg, ",", noopt);
     pos = lst_find_compare(noopt, BRANCHES_STR, void_str_equals_charstr);
     if (pos >= 0) {
       //      printf("holding branches const\n");

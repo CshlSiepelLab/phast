@@ -159,15 +159,33 @@ struct tm_struct {
                                    rate-variation */
   int estimate_ratemat;         /* indicates whether rate-matrix
                                    parameters should be estimated */
-  AltSubstMod **alt_subst_mods_node;
-  List *alt_subst_mods;
-  Vector *all_params;
+  AltSubstMod **alt_subst_mods_node; /*pointer to alt_subst_mod for 
+				       each branch*
+
+  List *alt_subst_mods;         /* list of relevant AltSubstMods for 
+                                   this tree.  alt_subst_mods_node above are 
+				   usually pointers to elements in this 
+				   list */
+  Vector *all_params;           /* all parameters relevant to this model */
   //  Vector *lowbound, *upbound;
-  int *param_map;
+  int *param_map;               /* map of parameter indices used by 
+				   phyloFit.  If param_map[i]==-1, then 
+				   parameter i is held constant.  Otherwise,
+				   if param_map[i]==j, then it is the j'th
+				   element in the vector of parameters which
+				   are optimized */
   int scale_idx, bl_idx, ratematrix_idx, backgd_idx, ratevar_idx;
-  List *bound_arg;
-  String *noopt_str;
-  int eqfreq_sym;
+                                /* These are the indices in all_params that
+				   show where scale, branchlens, rateMatrix,
+				   backgd_freqs, and rate variation parameters
+				   are stored */
+  List *bound_arg;              /* Used by phyloFit, this is a copy of the
+				   command-line argument(s) which specify
+				   boundaries on parameters */
+  String *noopt_arg;            /* Used by phyloFit, this is a copy of the
+				   command-line argument which specifies
+				   which parameters to hold constant */
+  int eqfreq_sym;               /* use symmetrical equilibrium frequencies? */
   int scale_during_opt;       /* Whether to scale rate matrix during optimization.
 				 Normally 0, but 1 if TM_BRANCHLENS_NONE, or
 				 if TM_SCALE and alt_subst_mods!=NULL */

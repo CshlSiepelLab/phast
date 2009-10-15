@@ -740,7 +740,7 @@ int main(int argc, char *argv[]) {
         mod = input_mod;
         tm_reinit(mod, subst_mod, nratecats, newalpha, rate_consts, NULL);
       }
-      mod->noopt_str = nooptstr;
+      mod->noopt_arg = nooptstr;
       mod->eqfreq_sym = symfreq;
       mod->bound_arg = bound_arg;
 
