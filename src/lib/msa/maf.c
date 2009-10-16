@@ -185,9 +185,10 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
   if (store_order) {
     msa->length = refseqlen;
     max_tuples = min(msa->length,
-                     pow(strlen(msa->alphabet)+strlen(msa->missing)+1, 
+		     pow(strlen(msa->alphabet)+strlen(msa->missing)+1, 
 			 2 * msa->nseqs * tuple_size));
-    if (max_tuples > 1000000) max_tuples = 1000000; 
+    if (max_tuples > 10000000) max_tuples = 10000000; 
+    if (max_tuples < 100000) max_tuples = 100000;
   }
   else {
     msa->length = 0;
@@ -1190,10 +1191,11 @@ int gap_pair_compare(const void* ptr1, const void* ptr2) {
    index.  Also get the length of refseq */
 void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, int *refseqlen) {
   String *line = str_new(STR_VERY_LONG_LEN);
-  int count = 0, seqidx = 0, tmp, startidx, i, length;
+  int count = 0, seqidx = 0, tmp, startidx, i, j, length, linenum=0;
   String *fullname = str_new(STR_SHORT_LEN), *name = str_new(STR_SHORT_LEN);
   List *l = lst_new_ptr(7);
   fpos_t pos;
+  int hash_val, inParens;
 
   *refseqlen = -1;
 
@@ -1201,6 +1203,33 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
     die("ERROR: Currently, MAF input stream must be seekable (can't be stdin).\n");
 
   while (str_readline(line, F) != EOF) {
+    linenum++;
+    //if second line is comment, assume it contains parameters as 
+    //described by UCSC specification.  If a tree is found, use it
+    if (linenum==2 && line->chars[0]=='#') {
+      inParens=0;
+      for (i=1; i<line->length; i++) {
+	if (line->chars[i]=='(') inParens++;
+	else if (line->chars[i]==')') inParens--;
+	else if (inParens && !isspace(line->chars[i])) {
+	  str_clear(fullname);
+	  for (j=i; j <line->length; j++) {
+	    if (line->chars[j]==')' || isspace(line->chars[j])) break;
+	    str_append_char(fullname, line->chars[j]);
+	  }
+	  str_cpy(name, fullname);
+	  str_shortest_root(name, '.');
+	  assert(name->length > 0);
+	  if (ptr_to_int(hsh_get(name_hash, name->chars)) == -1) {
+	    hsh_put(name_hash, name->chars, int_to_ptr(count));
+	    *names = srealloc(*names, (count+1) * sizeof(char*));
+	    (*names)[count] = strdup(name->chars);
+	    count++;
+	  }
+	  i=j-1;
+	}
+      }
+    }
     if (line->chars[0] == 'a' && seqidx > 0) break;  //break after first block is read
     if (line->chars[0] == 's') {
       /* avoid calling str_split for efficiency */
@@ -1227,6 +1256,16 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
           die("ERROR: bad line in MAF file --\n\t\"%s\"\n", line->chars);
 
         if (*refseqlen == -1) *refseqlen = tmp;
+
+	//make sure reference sequence is first sequence.  Swap if necessary.
+	hash_val = ptr_to_int(hsh_get(name_hash, name->chars));
+	if (hash_val != 0) {
+	  char *tempCharPtr = (*names)[hash_val];
+	  (*names)[hash_val] = (*names)[0];
+	  (*names)[0] = tempCharPtr;
+	  hsh_reset(name_hash, (*names)[hash_val], int_to_ptr(hash_val));
+	  hsh_reset(name_hash, name->chars, int_to_ptr(0));
+	}
       }
       seqidx++;
     }
