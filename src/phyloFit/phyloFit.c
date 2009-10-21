@@ -880,9 +880,9 @@ int main(int argc, char *argv[]) {
 
         if (random_init) 
           params = tm_params_init_random(mod);
-        else if (input_mod != NULL)
+        else if (input_mod != NULL) 
           params = tm_params_new_init_from_model(input_mod);
-        else 
+	else 
           params = tm_params_init(mod, .1, 5, alpha);     
 
 	if (init_parsimony)
