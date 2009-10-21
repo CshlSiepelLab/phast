@@ -154,7 +154,7 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 
   //look at first block to get initial sequence names and refseqlen
   maf_quick_peek(F, &msa->names, name_hash, &msa->nseqs, &refseqlen);
-  if (msa->nseqs == 0) 
+  if (msa->nseqs == 0 || refseqlen==-1) 
     die("ERROR: got empty maf file\n");
   if (map != NULL)
     map->seq_len = refseqlen;
@@ -393,8 +393,8 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
        but it is length last_idx-first_idx.*/
       msa->length = last_idx - first_idx + gap_sum;
       msa_realloc(msa, msa->length, msa->length, 0, store_order);
-      refseq = str_new(msa->length);
-      refseq->length = msa->length;
+      refseq = str_new(last_idx - first_idx);
+      refseq->length = last_idx - first_idx;
     }
 
     for (offset = -1 * (tuple_size-1); offset <= 0; offset++) 
