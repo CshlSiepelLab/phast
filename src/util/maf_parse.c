@@ -57,12 +57,14 @@ OPTIONS:\n\
 \n\
  (Obtaining sub-alignments and re-ordering rows)\n\
     --start, -s <start_col>\n\
-        Starting column of sub-alignment (indexing starts with 1).\n\
-        Default is 1.\n\
+        Start index of sub-alignment (indexing starts with 1).\n\
+        Coordinates are in terms of the reference sequence unless\n\
+        the --no-refseq option is used, in which case they are in\n\
+        terms of alignment columns.  Default is 1.\n\
 \n\
     --end, -e <end_col>\n\
-        Ending column of sub-alignment.  Default is length of\n\
-        alignment.\n\
+        End index of sub-alignment.  Default is length of alignment.\n\
+        Coordinates defined as in --start option, above.\n\
 \n\
     --seqs, -l <seq_list>\n\
         Comma-separated list of sequences to include (default)\n\
@@ -109,17 +111,22 @@ OPTIONS:\n\
         MAF which are labeled in annotations file.  But can be used with\n\
         --by-category, --by-group, and/or --do-cats to split MAF by\n\
         annotation type.  Implies --strip-i-lines, --strip-e-lines\n\
+\n\
     --by-category, -L\n\
         (Requires --features).  Split by category, as defined by\n\
         annotations file and (optionally) category map (see --catmap).\n\
+\n\
     --do-cats, -C <cat_list>\n\
         (For use with --by-category) Output sub-alignments for only the\n\
         specified categories.\n\
+\n\
     --catmap, -c <fname>|<string>\n\
         (Optionally use with --by-category) Mapping of feature types to\n\
         category numbers.  Can either give a filename or an \"inline\"\n\
-        description of a simple category map, e.g.,\n --catmap\n\
-        \"NCATS = 3 ; CDS 1-3\" or --catmap \"NCATS = 1; UTR 1\".\n\
+        description of a simple category map, e.g.,\n\
+         --catmap \"NCATS = 3 ; CDS 1-3\" or\n\
+         --catmap \"NCATS = 1; UTR 1\".\n\
+\n\
     --by-group, -P <tag>\n\
         (Requires --features).  Split by groups in annotation file, as \n\
         defined by specified tag.\n\
@@ -140,7 +147,8 @@ OPTIONS:\n\
         Print this help message.\n\n");
 }
 
-FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char *out_root) {
+FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char *out_root,
+		  int argc, char *argv[]) {
   int idx;
   FILE *outfile;
   char *fname = malloc((strlen(out_root)+name->length+2)*sizeof(char));
@@ -148,7 +156,7 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
   idx = ptr_to_int(hsh_get(outfileHash, fname));
   if (idx == -1) {
     hsh_put(outfileHash, fname, int_to_ptr(lst_size(outfileList)));
-    outfile = mafBlock_open_file(fname);
+    outfile = mafBlock_open_outfile(fname, argc, argv);
     lst_push_ptr(outfileList, (void*)outfile);
     return outfile;
   }
@@ -160,7 +168,7 @@ void close_outfiles(List *outfileList, Hashtable *outfileHash) {
   FILE *f;
   for (i=0; i<lst_size(outfileList); i++) {
     f = (FILE*)lst_get_ptr(outfileList, i);
-    mafBlock_close_file(f);
+    mafBlock_close_outfile(f);
   }
   lst_free(outfileList);
   hsh_free(outfileHash);
@@ -315,7 +323,7 @@ int main(int argc, char* argv[]) {
     cm = cm_new_from_features(gff);
 
   if (cats_to_do_str != NULL) {
-    cats_to_do = cm_get_category_list(cm, cats_to_do_str, FALSE);
+    cats_to_do = cm_get_category_str_list(cm, cats_to_do_str, FALSE);
     if (gff != NULL) 
       gff_filter_by_type(gff, cats_to_do, 0, NULL);
   }
@@ -328,7 +336,7 @@ int main(int argc, char* argv[]) {
 
   if (splitInterval == -1 && gff==NULL) {
     //TODO: do we want to copy header from original MAF in this case?
-    mafBlock_open_file(NULL);
+    mafBlock_open_outfile(NULL, argc, argv);
   }
 
   while (block != NULL) {
@@ -344,6 +352,9 @@ int main(int argc, char* argv[]) {
       mafBlock_strip_eLines(block);
     if (base_mask_cutoff != -1)
       mafBlock_mask_bases(block, base_mask_cutoff);
+    //TODO: still need to implement (either here or elsewhere)
+    //    if (indel_mask_cutoff != -1) 
+    //      mafBlock_mask_indels(block, indel_mask_cutoff, mfile);
 
     if (useRefseq) {  //get refseq and check that it is consistent in MAF file
       currRefseq = mafBlock_get_refSpec(block);
@@ -379,8 +390,8 @@ int main(int argc, char* argv[]) {
 	sprintf(outfilename, splitFormat, out_root_fname, ++blockIdx,
 		msa_suffix_for_format(output_format));
 	if (output_format == MAF) {
-	  if (outfile != NULL) mafBlock_close_file(outfile);
-	  outfile = mafBlock_open_file(outfilename);
+	  if (outfile != NULL) mafBlock_close_outfile(outfile);
+	  outfile = mafBlock_open_outfile(outfilename, argc, argv);
 	}
 	else if (output_format != MAF && msa != NULL) {
 	  //	  msa_print_to_filename(msa, outfilename, output_format, pretty_print);
@@ -406,10 +417,12 @@ int main(int argc, char* argv[]) {
 	  MafBlock *subBlock = mafBlock_copy(block);
 	  mafBlock_trim(subBlock, feat->start, feat->end, refseq, 0);
 	  if (by_category) 
-	    outfile = get_outfile(outfileList, outfileHash, feat->feature, out_root_fname);
+	    outfile = get_outfile(outfileList, outfileHash, feat->feature, out_root_fname,
+				  argc, argv);
 	  else if (group_tag != NULL) 
 	    outfile = get_outfile(outfileList, outfileHash, 
-				  gff_group_name(gffSub, feat), out_root_fname);
+				  gff_group_name(gffSub, feat), out_root_fname,
+				  argc, argv);
 	  else outfile = stdout;
 	  if (output_format == MAF)
 	    mafBlock_print(outfile, subBlock, pretty_print);
@@ -433,7 +446,7 @@ int main(int argc, char* argv[]) {
   if (output_format == MAF) {
     if (by_category || group_tag != NULL)
       close_outfiles(outfileList, outfileHash);
-    else if (outfile!=NULL) mafBlock_close_file(outfile);
+    else if (outfile!=NULL) mafBlock_close_outfile(outfile);
   } else {
     msa_print(stdout, msa, output_format, pretty_print);
     msa_free(msa);

@@ -90,7 +90,6 @@ void ss_collapse_missing(MSA *msa, int do_gaps);
 void ss_strip_gaps(MSA *msa, int gap_strip_mode);
 void ss_strip_missing(MSA *msa, int refseq);
 int ss_is_4d(MSA *msa, int tuple);
-int ss_is_4nd(MSA *msa, int tuple);
 void ss_reduce_tuple_size(MSA *msa, int new_tuple_size);
 void ss_add_seq(MSA *msa, int new_nseq);
 int ss_lookup_coltuple(char *coltuple_str, Hashtable *tuple_hash, MSA *msa);

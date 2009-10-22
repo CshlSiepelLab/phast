@@ -186,6 +186,8 @@ int cm_get_category(CategoryMap *cm, String *type);
 
 List *cm_get_category_list(CategoryMap *cm, List *names, int ignore_missing);
 
+List *cm_get_category_str_list(CategoryMap *cm, List *names, int ignore_missing);
+
 String *cm_get_feature(CategoryMap *cm, int cat);
 
 String *cm_get_feature_unique(CategoryMap *cm, int cat);

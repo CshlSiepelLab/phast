@@ -68,11 +68,14 @@ void mafBlock_reorder(MafBlock *block, List *specNameOrder);
 //otherwise removes species in specNameList
 void mafBlock_subSpec(MafBlock *block, List *specNameList, int include);
 
-//opens new file and prints minimal header for MAF.  If fn==NULL uses stdout
-FILE *mafBlock_open_file(char *fn);
+//opens new MAF file for writing and prints minimal header for MAF.  
+//If fn==NULL uses stdout.  If argc > 0 then it uses this to 
+//print second comment line of MAF giving parameters
+//this file
+FILE *mafBlock_open_outfile(char *fn, int argc, char *argv[]);
 
 //prints #eof and closes file if outfile != stdout
-void mafBlock_close_file(FILE *outfile);
+void mafBlock_close_outfile(FILE *outfile);
 
 //returns species name of first species in block
 String *mafBlock_get_refSpec(MafBlock *block);
@@ -120,4 +123,6 @@ void mafBlock_strip_eLines(MafBlock *block);
 void mafBlock_strip_ieLines(MafBlock *block);
 
 void mafBlock_mask_bases(MafBlock *block, int cutoff);
+
+//void mafBlock_mask_indels(MafBlock *block, int cutoff, FILE *mfile);
 #endif

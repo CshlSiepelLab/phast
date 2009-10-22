@@ -334,6 +334,56 @@ List *cm_get_category_list(CategoryMap *cm,
   return retval;
 }
 
+
+/** Return a list of category names corresponding to a given list of
+   category names and or numbers.  Doesn't allocate new names,
+   just pointers to Strings in the CategoryMap object or the
+   provided List */
+List *cm_get_category_str_list(CategoryMap *cm, 
+			       /**< CategoryMap object.  May be NULL
+				  if categories are specified by
+				  name rather than by number.  (In
+				  that case, this function will create
+				  a copy of names with pointers to
+				  its elements) */
+			       List *names, 
+			       /**< List of categories.  May be
+				  specified by name or number (useful
+				  when accepting input from users) */
+			       int ignore_missing
+			       /**< Whether to ignore unrecognized
+				  types.  If FALSE, then function
+				  will abort when it encounters an
+				  unrecognized type. */
+                           ) {
+  int i, cat;
+  List *retval = lst_new_ptr(lst_size(names));
+  for (i = 0; i < lst_size(names); i++) {
+    String *n = lst_get_ptr(names, i);
+    if (str_as_int(n, &cat) == 0) {
+      if (cm == NULL)
+	die("ERROR: if categories are specified by number, a category map is required\n");
+      if (cat < 0 || (cm != NULL && cat > cm->ncats)) 
+        die("ERROR: category number %d is out of bounds.\n", cat);
+      lst_push_ptr(retval, cm_get_feature(cm, cat));
+    }
+    else {
+      if (cm != NULL) {
+	cat = cm_get_category(cm, n);
+	if (cat == 0 && !ignore_missing && !str_equals(n, cm_get_feature(cm, 0))) {
+	  die("ERROR: illegal category name (\%s\")\n", n->chars);
+	}
+	//return pointers to cm if possible
+	lst_push_ptr(retval, cm_get_feature(cm, cat));
+      }
+      //otherwise return pointers to strings in list
+      else lst_push_ptr(retval, n);
+    }
+  }
+  return retval;
+}
+
+
 /** Retrieve the (primary) feature type associated with the specified
    category number.  Note: return value is passed by reference -- do
    not alter. */

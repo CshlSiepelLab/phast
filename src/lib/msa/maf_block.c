@@ -321,7 +321,7 @@ MafBlock *mafBlock_read_next(FILE *mfile, Hashtable *specHash, int *numSpec) {
   return block;
 }
 
-//returns 1 if 
+//returns 1 if the block entirely consists of gaps.
 int mafBlock_all_gaps(MafBlock *block) {
   MafSubBlock *sub;
   int i, j;
@@ -332,6 +332,74 @@ int mafBlock_all_gaps(MafBlock *block) {
       if (sub->seq->chars[j] != '-') return 0;
   }
   return 1;
+}
+
+
+/* Checks for columns which are only gaps (may happen after processing 
+   such as removal of certain species or indel masking).  Deletes these
+   columns from the block.  If all bases in a species are gaps, then
+   convert to e-line.
+ */
+void mafBlock_remove_gap_cols(MafBlock *block) {
+  int *isGap = NULL, nonGapSpecies=0, i, j, k, gapCount, start, pos;
+  MafSubBlock *sub;
+
+  for (i=0; i<lst_size(block->data); i++) {
+    sub = (MafSubBlock*)lst_get_ptr(block->data, i);
+    if (sub->lineType[0]=='e') continue;
+    if (isGap==NULL) {
+      isGap = malloc(block->seqlen*sizeof(int));
+      for (j=0; j<block->seqlen; j++) isGap[j]=1;
+    }
+    gapCount = 0;
+    for (j=0; j<block->seqlen; j++) {
+      if (sub->seq->chars[j] != '-') 
+	isGap[j]=0;
+      else gapCount++;
+    }
+    if (gapCount == block->seqlen) {
+      for (k=1; k<sub->numLine; k++) {
+	if (sub->lineType[k] == 'q') {
+	  str_free(sub->quality);
+	  sub->quality = NULL;
+	}
+      }
+      sub->numLine = 1;
+      sub->lineType[0] = 'e';
+      str_free(sub->seq);
+      sub->seq = NULL;
+      sub->eStatus = 'C';  //FIXME? this seems like the right status in the case
+                           //that bases were deleted and turned to gaps,
+                           //but not completely sure.
+    }
+    else nonGapSpecies++;
+  }
+  if (isGap==NULL) return;
+
+  for (start=0; start<block->seqlen; start++)
+    if (isGap[start]) break;
+
+  if (nonGapSpecies > 0 && start != block->seqlen) {
+    for (i=0; i<lst_size(block->data); i++) {
+      sub = (MafSubBlock*)lst_get_ptr(block->data, i);
+      if (sub->lineType[0] == 'e') continue;
+      pos = start;
+      for (j=start; j<block->seqlen; j++) {
+	if (isGap[j]==0) {
+	  if (pos != j)
+	    sub->seq->chars[pos] = sub->seq->chars[j];
+	  pos++;
+	}
+	sub->seq->chars[pos]='\0';
+      }
+    }
+    assert(pos > 0);
+    block->seqlen = pos;
+  } 
+  else if (nonGapSpecies==0) 
+    block->seqlen = 0;
+  free(isGap);
+  return;
 }
 
 
@@ -561,16 +629,20 @@ void mafBlock_free(MafBlock *block) {
   free(block);
 }
 
-FILE *mafBlock_open_file(char *fn) {
+FILE *mafBlock_open_outfile(char *fn, int argc, char *argv[]) {
   FILE *outfile;
+  int i;
   if (fn != NULL) 
     outfile = fopen_fname(fn, "w");
   else outfile = stdout;
-  fprintf(outfile, "##maf version=1\n# maf_parse\n\n");
+  fprintf(outfile, "##maf version=1\n#");
+  for (i=0; i<argc; i++) 
+    fprintf(outfile, " %s", argv[i]);
+  fputc('\n', outfile);
   return outfile;
 }
 
-void mafBlock_close_file(FILE *outfile) {
+void mafBlock_close_outfile(FILE *outfile) {
   fprintf(outfile, "#eof\n");
   if (outfile != stdout) fclose(outfile);
 }
@@ -688,7 +760,7 @@ int mafBlock_trim(MafBlock *block, int startcol, int endcol, String *refseq,
   if (startcol != 1 && endcol != -1 && startcol > endcol) 
     die("ERROR: startcol > endcol\n");
   if (startcol > lastIdx) return 0;
-  if (endcol  != -1 && endcol   < startIdx) return 0;
+  if (endcol  != -1 && endcol < startIdx) return 0;
   if (startcol <= startIdx && 
       (endcol   == -1 || endcol  >= lastIdx)) return 1;
   
@@ -746,3 +818,22 @@ void mafBlock_mask_bases(MafBlock *block, int cutoff) {
   }
 }
 
+/* mask any indels that start in this block.  An indel will be "masked" if
+   it is lineage-specific and has a quality score <= cutoff.  An insertion
+   is masked by deleting the inserted bases (changing them to gaps).  A 
+   deletion is masked by changing the gaps to N's.
+   Treat indels of length > max_indel_length as missing data (don't mask).  
+   Reads additional blocks from mfile as necessary to check contiguity and
+   deal with indels which span multiple blocks.
+   flank_size determines the number of neighbors used to determine quality
+   score of indel.  If deletion, then it is the minimum score across this
+   many neighbors.  If insertion, it is minimum score across insertion plus
+   this many neighbors.
+   WARNING:  masking indels changes the coordinate system.  The coordinates 
+   will no longer be consistent with each other in the resulting block!  
+   High-quality species should still be OK, since we will not mask there. */
+/*void mafBlock_mask_indels(MafBlock *block, int cutoff, int flank_size, 
+			  int max_indel_length, TreeNode *tree, 
+			  FILE *mfile) {
+  
+			  }*/
