@@ -431,7 +431,7 @@ void reduce_to_4d(MSA *msa, CategoryMap *cm) {
 int main(int argc, char* argv[]) {
   MSA *msa = NULL, *sub_msa = NULL, *split_msa = NULL;
   msa_format_type input_format = FASTA, output_format = FASTA;
-  List *seqlist_str = NULL, *l = NULL, *tmpl = NULL, *seq = NULL;
+  List *seqlist_str = NULL, *l = NULL, *tmpl = NULL;
   char *infname = NULL, *clean_seqname = NULL, *rseq_fname = NULL,
     *reverse_groups_tag = NULL, *alphabet = NULL;
   int i, opt_idx, startcol = 1, endcol = -1, include = 1, gap_strip_mode = NO_STRIP,
