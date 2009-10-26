@@ -2970,7 +2970,7 @@ double dm_compute_log_likelihood(TreeModel *mod, MSA *msa,
       for (j = 0; !skip_fels && j < msa->nseqs; j++) 
         if (ss_get_char_tuple(msa, tupleidx, j, 0) == GAP_CHAR) 
           skip_fels = TRUE;
-    if (!skip_fels && mod->inform_reqd && !mod->allow_but_penalize_gaps) {
+    if (!skip_fels && mod->inform_reqd) {
       ninform = 0;
       for (j = 0; j < msa->nseqs; j++) {
         if (msa->is_informative != NULL && !msa->is_informative[j])
