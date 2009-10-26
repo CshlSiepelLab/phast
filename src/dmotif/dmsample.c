@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
     phi = DEFAULT_PHI, zeta = DEFAULT_ZETA, xi = DEFAULT_XI,
     alpha_c = -1, beta_c = -1, tau_c = -1, epsilon_c = -1,
     alpha_n = -1, beta_n = -1, tau_n = -1, epsilon_n = -1;
-  int refidx = 1, bsamples = DEFAULT_BSAMPLES, nsamples = DEFAULT_NSAMPLES, 
+  int refidx = 0, bsamples = DEFAULT_BSAMPLES, nsamples = DEFAULT_NSAMPLES, 
     sample_interval = DEFAULT_SAMPLE_INTERVAL, do_ih = 0, 
     ref_as_prior = FALSE, force_priors = FALSE, precomputed_hash = FALSE,
     quiet = FALSE, cache_int = DEFAULT_CACHE_INTERVAL,
@@ -363,6 +363,11 @@ int main(int argc, char *argv[]) {
 	      alpha_c, beta_c, tau_c, epsilon_c, alpha_n, beta_n, tau_n, 
 	      epsilon_n, FALSE, FALSE, FALSE, FALSE, xi_mode, mmod_type,
 	      scale_by_branch, ncm_idl_mode);
+
+/*   for (i = 0; i < dm->phmm->hmm->nstates; i++) { */
+/*     fprintf(stderr, "state %d, inform_reqd %d\n", */
+/* 	    i, dm->phmm->mods[i]->inform_reqd); */
+/*   } */
 /*   for (i = 0; i < dm->phmm->hmm->nstates; i++) { */
 /*     fprintf(stderr, "state %d, cat %s\n", i, */
 /* 	    ((String*)cm_get_feature(dm->phmm->cm, i))->chars); */

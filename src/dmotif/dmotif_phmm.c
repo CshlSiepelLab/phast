@@ -211,9 +211,15 @@ DMotifPhyloHmm *dm_new(TreeModel *source_mod, PSSM *m, double rho, double mu,
   }
   
   /* Require informative sites for all but state 0 */
-  for (state = 1; state < nstates; state++)
-    models[state]->inform_reqd = TRUE;
-
+  for (state = 1; state < nstates; state++) {
+    if (dm->state_to_event[state] != NEUT)
+      models[state]->inform_reqd = TRUE;
+  }
+/*   for (state = 0; state < nstates; state++) { */
+/*     fprintf(stderr, "state  %d, inform_reqd %d\n", */
+/* 	    state, models[state]->inform_reqd); */
+/*   } */
+  
   /* set up HMM transitions */
   hmm = hmm_new_nstates(nstates, TRUE, TRUE);
 
@@ -1551,7 +1557,7 @@ List* dms_sample_paths_pthr(DMotifPhyloHmm *dm, PooledMSA *blocks,
 	  dms_merge_thread_gffs(query_gff, thread_gff[t]);
       }
       dms_write_log(log, dm, trans, i, llh, query_gff, reference, nwins, 
-		    xi_mode);    
+		    xi_mode);
     }
 
     /* Cache and reinitialize the hash periodically after burn-in */
@@ -1699,6 +1705,12 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 /*     dms_dump_sample_data(sample, thread_idx, seqname, msa->length, path, trans, */
 /* 			 path_counts, stderr, 2*dm->k+2); */
   }
+  int i;
+  fprintf(stderr, "path for sequence %d:\n", seqnum);
+  for (i = 0; i < msa->length; i++)
+    fprintf(stderr, "%d ", path[i]);
+  fprintf(stderr, "\n");
+  
 }
 
 /* Worker function to launch sampling threads */
@@ -2593,7 +2605,7 @@ void dms_path_log(DMotifPhyloHmm *dm, int *path, int seqlen, char *seqname,
     f = lst_get_ptr(tmp_gff->features, i);
     lst_push_ptr(motifs->features, gff_new_feature_copy(f));
   }
-  gff_free_set(tmp_gff);  
+  gff_free_set(tmp_gff);
 }
 
 void dms_write_log(FILE *log, DMotifPhyloHmm *dm, int **trans, int sample, 
@@ -2958,17 +2970,21 @@ double dm_compute_log_likelihood(TreeModel *mod, MSA *msa,
       for (j = 0; !skip_fels && j < msa->nseqs; j++) 
         if (ss_get_char_tuple(msa, tupleidx, j, 0) == GAP_CHAR) 
           skip_fels = TRUE;
-    if (!skip_fels && mod->inform_reqd) {
+    if (!skip_fels && mod->inform_reqd && !mod->allow_but_penalize_gaps) {
       ninform = 0;
       for (j = 0; j < msa->nseqs; j++) {
         if (msa->is_informative != NULL && !msa->is_informative[j])
           continue;
-        else if (!msa->is_missing[(int)ss_get_char_tuple(msa, tupleidx, j, 0)])
+        else if (!msa->is_missing[(int)ss_get_char_tuple(msa, tupleidx, j, 0)]
+		 && (!mod->allow_but_penalize_gaps &&
+		     ss_get_char_tuple(msa, tupleidx, j, 0) != GAP_CHAR))
           ninform++;
       }
       if (ninform < 2) skip_fels = TRUE;
-    }
-          
+      /*       fprintf(stderr, "tupleidx %d, ninform %d, skip_fels %d\n",  */
+      /* 	      tupleidx, ninform, skip_fels); */
+    } 
+    
     if (!skip_fels) {
       traversal = tr_postorder(mod->tree);
       for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
