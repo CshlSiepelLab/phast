@@ -1706,10 +1706,10 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 /* 			 path_counts, stderr, 2*dm->k+2); */
   }
   int i;
-  fprintf(stderr, "path for sequence %d:\n", seqnum);
-  for (i = 0; i < msa->length; i++)
-    fprintf(stderr, "%d ", path[i]);
-  fprintf(stderr, "\n");
+/*   fprintf(stderr, "path for sequence %d:\n", seqnum); */
+/*   for (i = 0; i < msa->length; i++) */
+/*     fprintf(stderr, "%d ", path[i]); */
+/*   fprintf(stderr, "\n"); */
   
 }
 
