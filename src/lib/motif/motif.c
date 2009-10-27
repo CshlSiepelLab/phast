@@ -223,9 +223,9 @@ List* mtf_find(void *data, int multiseq, int motif_size, int nmotifs,
   for (i = 0; i < lst_size(motifs); i++) {
     Motif *m = lst_get_ptr(motifs, i);
     mtf_get_consensus(m, cons_str);
-    if (hsh_get(hash, cons_str) == (void*)-1 && lst_size(tmpl) < nmotifs) {
+    if (hsh_get_int(hash, cons_str) == -1 && lst_size(tmpl) < nmotifs) {
       lst_push_ptr(tmpl, m);
-      hsh_put(hash, cons_str, (void*)1);
+      hsh_put_int(hash, cons_str, 1);
     }
     else mtf_free(m);
   }

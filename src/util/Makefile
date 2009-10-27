@@ -22,4 +22,4 @@ ${EXECS}: ${BIN}/%: %.o ${PHAST}/lib/libphast.a
 	../munge-help.sh $< > $@
 
 clean: 
-	rm -f *.o ${EXECS} 
+	rm -f *.o *.help ${EXECS} 

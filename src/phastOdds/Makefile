@@ -25,4 +25,4 @@ ${EXEC}: ${OBJS} ${PHAST}/lib/libphast.a
 	../munge-help.sh $< > $@
 
 clean: 
-	rm -f *.o ${EXEC} 
+	rm -f *.o *.help ${EXEC} 

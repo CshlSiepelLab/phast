@@ -31,9 +31,12 @@ struct hash_table {
 Hashtable* hsh_new(int est_capacity);
 Hashtable* hsh_copy(Hashtable *ht);
 void hsh_put(Hashtable *ht, char* key, void* val);
+void hsh_put_int(Hashtable *ht, char *key, int val);
 void* hsh_get(Hashtable* ht, char *key);
+int hsh_get_int(Hashtable *ht, char *key);
 int hsh_delete(Hashtable* ht, char *key);
 int hsh_reset(Hashtable *ht, char* key, void* val);
+int hsh_reset_int(Hashtable *ht, char *key, int val);
 void hsh_free(Hashtable *ht);
 void hsh_free_with_vals(Hashtable *ht);
 unsigned int hsh_hash_func(Hashtable *ht, char* key);

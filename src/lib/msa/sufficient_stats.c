@@ -1226,8 +1226,8 @@ void ss_unique(MSA *msa) {
 
   for (i = 0; i < msa->ss->ntuples; i++) {
     strncpy(key, msa->ss->col_tuples[i], (msa->nseqs * msa->ss->tuple_size + 1));
-    if ((idx = ptr_to_int(hsh_get(hash, key))) == -1) { /* tuple not seen before */
-      hsh_put(hash, key, int_to_ptr(i));
+    if ((idx = hsh_get_int(hash, key)) == -1) { /* tuple not seen before */
+      hsh_put_int(hash, key, i);
       old_to_new[i] = i;
     }
     else { /* seen before: combine counts with prev, zero out this version */
@@ -1443,7 +1443,7 @@ int ss_lookup_coltuple(char *coltuple_str, Hashtable *tuple_hash, MSA *msa) {
   while (i%msa->ss->tuple_size != 0) i++;
   tempchar = coltuple_str[i];
   coltuple_str[i] = '\0';
-  rv = ptr_to_int(hsh_get(tuple_hash, coltuple_str));
+  rv = hsh_get_int(tuple_hash, coltuple_str);
   coltuple_str[i] = tempchar;
   return rv;
 }

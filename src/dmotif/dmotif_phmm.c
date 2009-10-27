@@ -3984,13 +3984,13 @@ List **dms_label_subst_nodes(MSA *msa, TreeModel *mod, PSSM *m, int nosubs) {
 	continue;
       }
 /*       fprintf(stderr, "pos %d, spec %d, key %s\n", i, j, key); */
-      if (hsh_get(tuple_hash, key) == (void*)-1) {
+      if (hsh_get_int(tuple_hash, key) == -1) {
 	mark[seq_idx] = tuple_idx;
-	hsh_put(tuple_hash, key, (void*)&mark[seq_idx]);
+	hsh_put_int(tuple_hash, key, mark[seq_idx]);
 	tuple_idx++;
 /*         fprintf(stderr, "mark[%d] %d\n", j, mark[j]); */
       } else {
-	mark[seq_idx] = *(int*)hsh_get(tuple_hash, key);
+	mark[seq_idx] = hsh_get_int(tuple_hash, key);
 /* 	fprintf(stderr, "mark[%d] %d\n", j, mark[j]); */
       }
     }

@@ -489,7 +489,7 @@ CategoryMap* cm_new_from_features(GFF_Set *feats) {
     GFF_Feature *f = lst_get_ptr(feats->features, i);
     if (hsh_get(hash, f->feature->chars) == (void*)-1) {
       lst_push_ptr(types, f->feature);
-      hsh_put(hash, f->feature->chars, (void*)1);
+      hsh_put_int(hash, f->feature->chars, 1);
     }
   }
   hsh_free(hash);

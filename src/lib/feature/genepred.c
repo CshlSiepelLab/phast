@@ -80,14 +80,14 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
     str_split(lst_get_ptr(l, 9), ",", tmpl2);
 
     /* make sure group name is unique */
-    if ((num = ptr_to_int(hsh_get(hash, name->chars))) > 0) {
+    if ((num = hsh_get_int(hash, name->chars)) > 0) {
       num++;
       sprintf(group, "transcript_id \"%s.%d\"", name->chars, num);
-      hsh_reset(hash, name->chars, int_to_ptr(num));
+      hsh_reset_int(hash, name->chars, num);
     }
     else {
       sprintf(group, "transcript_id \"%s\"", name->chars);
-      hsh_put(hash, name->chars, (void*)1);
+      hsh_put_int(hash, name->chars, 1);
     }
     
     if (exonCount != lst_size(tmpl1) || lst_size (tmpl1) != lst_size(tmpl2))

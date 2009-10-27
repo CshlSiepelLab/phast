@@ -284,15 +284,15 @@ MafBlock *mafBlock_read_next(FILE *mfile, Hashtable *specHash, int *numSpec) {
     //if 's' or 'e', then this is first line of data for this species
     else if (firstchar == 's' || firstchar == 'e') {
       sub = mafBlock_get_subBlock(currLine);
-      if (ptr_to_int(hsh_get(block->specMap, sub->src->chars)) != -1) 
+      if (hsh_get_int(block->specMap, sub->src->chars) != -1) 
 	die("ERROR: mafBlock has two alignments with same srcName (%s)\n", 
 	    sub->src->chars);
-      hsh_put(block->specMap, sub->src->chars, int_to_ptr(lst_size(block->data)));
-      hsh_put(block->specMap, sub->specName->chars, int_to_ptr(lst_size(block->data)));
+      hsh_put_int(block->specMap, sub->src->chars, lst_size(block->data));
+      hsh_put_int(block->specMap, sub->specName->chars, lst_size(block->data));
       lst_push_ptr(block->data, (void*)sub);
       if (specHash != NULL) {
-	if (-1 == ptr_to_int(hsh_get(specHash, sub->specName->chars))) {
-	  hsh_put(specHash, sub->specName->chars, int_to_ptr(*numSpec));
+	if (-1 == hsh_get_int(specHash, sub->specName->chars)) {
+	  hsh_put_int(specHash, sub->specName->chars, *numSpec);
 	  (*numSpec)++;
 	}
       }
@@ -527,8 +527,8 @@ void mafBlock_remove_lines(MafBlock *block, int *keep) {
     if (keep[i]) {
       if (i != newSize) {
 	sub = (MafSubBlock*)lst_get_ptr(block->data, i);
-	hsh_reset(block->specMap, sub->src->chars, int_to_ptr(newSize));
-	hsh_reset(block->specMap, sub->specName->chars, int_to_ptr(newSize));
+	hsh_reset_int(block->specMap, sub->src->chars, newSize);
+	hsh_reset_int(block->specMap, sub->specName->chars, newSize);
 	testSub = (MafSubBlock*)lst_get_ptr(block->data, newSize);
 	assert(testSub == NULL);
 	lst_set_ptr(block->data, newSize, (void*)sub);
@@ -537,8 +537,8 @@ void mafBlock_remove_lines(MafBlock *block, int *keep) {
       newSize++;
     } else {
       sub = (MafSubBlock*)lst_get_ptr(block->data, i);
-      hsh_reset(block->specMap, sub->src->chars, int_to_ptr(-1));
-      hsh_reset(block->specMap, sub->specName->chars, int_to_ptr(-1));
+      hsh_reset_int(block->specMap, sub->src->chars, -1);
+      hsh_reset_int(block->specMap, sub->specName->chars, -1);
       mafSubBlock_free(sub);
       lst_set_ptr(block->data, i, NULL);
     }
@@ -558,7 +558,7 @@ void mafBlock_subSpec(MafBlock *block, List *specNameList, int include) {
 
   for (i=0; i<lst_size(specNameList); i++) {
     str = (String*)lst_get_ptr(specNameList, i);
-    idx = ptr_to_int(hsh_get(block->specMap, str->chars));
+    idx = hsh_get_int(block->specMap, str->chars);
     if (idx != -1) keep[idx] = !(include==0);
   }
   mafBlock_remove_lines(block, keep);
@@ -582,13 +582,13 @@ void mafBlock_reorder(MafBlock *block, List *specNameOrder) {
 
   for (i=0; i<newSize; i++) {
     str = (String*)lst_get_ptr(specNameOrder, i);
-    idx = ptr_to_int(hsh_get(block->specMap, str->chars));
+    idx = hsh_get_int(block->specMap, str->chars);
     if (idx != -1) {
       if (found[idx]==1) die("ERROR: species %s appears twice in reorder list\n", 
 			     str->chars);
       sub = (MafSubBlock*)lst_get_ptr(block->data, idx);
-      hsh_put(newSpecMap, sub->src->chars, int_to_ptr(lst_size(newData)));
-      hsh_put(newSpecMap, sub->specName->chars, int_to_ptr(lst_size(newData)));
+      hsh_put_int(newSpecMap, sub->src->chars, lst_size(newData));
+      hsh_put_int(newSpecMap, sub->specName->chars, lst_size(newData));
       lst_push_ptr(newData, (void*)sub);
       found[idx] = 1;
     }
@@ -656,7 +656,7 @@ String *mafBlock_get_refSpec(MafBlock *block) {
 int mafBlock_get_start(MafBlock *block, String *specName) {
   int idx=0;
   if (specName != NULL) 
-    idx = ptr_to_int(hsh_get(block->specMap, specName->chars));
+    idx = hsh_get_int(block->specMap, specName->chars);
   if (idx == -1 || idx >= lst_size(block->data)) return -1;
   return ((MafSubBlock*)lst_get_ptr(block->data, idx))->start;
 }
@@ -665,7 +665,7 @@ int mafBlock_get_size(MafBlock *block, String *specName) {
   int idx=0;
   MafSubBlock *sub;
   if (specName == NULL) return block->seqlen;
-    idx = ptr_to_int(hsh_get(block->specMap, specName->chars));
+    idx = hsh_get_int(block->specMap, specName->chars);
   if (idx == -1 || idx >= lst_size(block->data)) return -1;
   sub = (MafSubBlock*)lst_get_ptr(block->data, idx);
   if (sub->lineType[0]=='s') return sub->size;
@@ -746,7 +746,7 @@ int mafBlock_trim(MafBlock *block, int startcol, int endcol, String *refseq,
     length = block->seqlen;
   }
   else {
-    specIdx = ptr_to_int(hsh_get(block->specMap, refseq->chars));
+    specIdx = hsh_get_int(block->specMap, refseq->chars);
     assert(specIdx != -1);
     sub = (MafSubBlock*)lst_get_ptr(block->data, specIdx);
     startIdx = sub->start + 1;

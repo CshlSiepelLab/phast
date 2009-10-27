@@ -61,14 +61,14 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
         String *bed_name = lst_get_ptr(l, 3);
         int num;
         /* make sure unique name is assigned */
-        if ((num = ptr_to_int(hsh_get(hash, bed_name->chars))) > 0) {
+        if ((num = hsh_get_int(hash, bed_name->chars)) > 0) {
           num++;
           sprintf(group, "id \"%s.%d\"", bed_name->chars, num);
-          hsh_reset(hash, bed_name->chars, int_to_ptr(num));
+          hsh_reset_int(hash, bed_name->chars, num);
         }
         else {
           sprintf(group, "id \"%s\"", bed_name->chars);
-          hsh_put(hash, bed_name->chars, (void*)1);
+          hsh_put_int(hash, bed_name->chars, 1);
         }
       }
       else

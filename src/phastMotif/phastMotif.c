@@ -250,7 +250,7 @@ int main(int argc, char *argv[]) {
   if (pos_examples != NULL) {
     hash = hsh_new(lst_size(pos_examples));
     for (i = 0; i < lst_size(pos_examples); i++)
-      hsh_put(hash, ((String*)lst_get_ptr(pos_examples, i))->chars, (void*)1);
+      hsh_put_int(hash, ((String*)lst_get_ptr(pos_examples, i))->chars, 1);
     has_motif = smalloc(lst_size(msa_name_list) * sizeof(double));
   }
 
@@ -274,7 +274,7 @@ int main(int argc, char *argv[]) {
     msa_remove_N_from_alph(msa); /* Ns can be a problem */
     lst_push_ptr(msas, msa);
     if (has_motif != NULL) {
-      int k, hm = (hsh_get(hash, name->chars) == (void*)1);
+      int k, hm = (hsh_get_int(hash, name->chars) == 1);
       if (meme_mode) {          /* here need to record at individ seq level */
         has_motif = srealloc(has_motif, 
                              (j + msa->nseqs + 1) * sizeof(double)); /* FIXME */

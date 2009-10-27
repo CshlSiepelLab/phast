@@ -1030,12 +1030,12 @@ void gff_filter_by_group(GFF_Set *feats, List *groups) {
     die("ERROR: gff_filter_by_group requires groups.\n");
 
   for (i = 0; i < lst_size(groups); i++) 
-    hsh_put(hash, ((String*)lst_get_ptr(groups, i))->chars, (void*)1);
+    hsh_put_int(hash, ((String*)lst_get_ptr(groups, i))->chars, 1);
 
   for (i = 0; i < lst_size(feats->groups); i++) {
     GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
     int keep = FALSE;
-    if (ptr_to_int(hsh_get(hash, g->name->chars)) != -1) 
+    if (hsh_get_int(hash, g->name->chars) != -1) 
       keep = TRUE;
     for (j = 0; j < lst_size(g->features); j++) {
       if (keep)

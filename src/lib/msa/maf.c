@@ -986,10 +986,10 @@ int maf_read_block_addseq(FILE *F, MSA *mini_msa, Hashtable *name_hash,
     }
 
     /* obtain index of seq */
-    seqidx = ptr_to_int(hsh_get(name_hash, this_name->chars));
+    seqidx = hsh_get_int(name_hash, this_name->chars);
     if (seqidx == -1) {
       seqidx = msa_add_seq(mini_msa, this_name->chars);
-      hsh_put(name_hash, this_name->chars, int_to_ptr(seqidx));
+      hsh_put_int(name_hash, this_name->chars, seqidx);
       mark = srealloc(mark, mini_msa->nseqs*sizeof(int));
     }
     assert(str_equals_charstr(this_name, mini_msa->names[seqidx]));
@@ -1123,7 +1123,7 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
     }
 
     /* obtain index of seq */
-    seqidx = ptr_to_int(hsh_get(name_hash, this_name->chars));
+    seqidx = hsh_get_int(name_hash, this_name->chars);
     if (seqidx == -1) {
       fprintf(stderr, "ERROR: unexpected sequence name '%s' --\n\tsee line \"%s\"\n", this_name->chars, linebuffer->chars);
       exit(1);
@@ -1220,8 +1220,8 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
 	  str_cpy(name, fullname);
 	  str_shortest_root(name, '.');
 	  assert(name->length > 0);
-	  if (ptr_to_int(hsh_get(name_hash, name->chars)) == -1) {
-	    hsh_put(name_hash, name->chars, int_to_ptr(count));
+	  if (hsh_get_int(name_hash, name->chars) == -1) {
+	    hsh_put_int(name_hash, name->chars, count);
 	    *names = srealloc(*names, (count+1) * sizeof(char*));
 	    (*names)[count] = strdup(name->chars);
 	    count++;
@@ -1240,8 +1240,8 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
       str_cpy(name, fullname);
       str_shortest_root(name, '.');
       assert(name->length > 0); /* must be a non-empty name */
-      if (ptr_to_int(hsh_get(name_hash, name->chars)) == -1) {
-        hsh_put(name_hash, name->chars, int_to_ptr(count));
+      if (hsh_get_int(name_hash, name->chars) == -1) {
+        hsh_put_int(name_hash, name->chars, count);
         *names = srealloc(*names, (count+1) * sizeof(char*));
         (*names)[count] = strdup(name->chars);
         count++;
@@ -1258,13 +1258,13 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
         if (*refseqlen == -1) *refseqlen = tmp;
 
 	//make sure reference sequence is first sequence.  Swap if necessary.
-	hash_val = ptr_to_int(hsh_get(name_hash, name->chars));
+	hash_val = hsh_get_int(name_hash, name->chars);
 	if (hash_val != 0) {
 	  char *tempCharPtr = (*names)[hash_val];
 	  (*names)[hash_val] = (*names)[0];
 	  (*names)[0] = tempCharPtr;
-	  hsh_reset(name_hash, (*names)[hash_val], int_to_ptr(hash_val));
-	  hsh_reset(name_hash, name->chars, int_to_ptr(0));
+	  hsh_reset_int(name_hash, (*names)[hash_val], hash_val);
+	  hsh_reset_int(name_hash, name->chars, 0);
 	}
       }
       seqidx++;
@@ -1313,8 +1313,8 @@ void maf_peek(FILE *F, char ***names, Hashtable *name_hash,
       str_cpy(name, fullname);
       str_shortest_root(name, '.');
       assert(name->length > 0); /* must be a non-empty name */
-      if (ptr_to_int(hsh_get(name_hash, name->chars)) == -1) {
-        hsh_put(name_hash, name->chars, int_to_ptr(count));
+      if (hsh_get_int(name_hash, name->chars) == -1) {
+        hsh_put_int(name_hash, name->chars, count);
         *names = srealloc(*names, (count+1) * sizeof(char*));
         (*names)[count] = strdup(name->chars);
         count++;

@@ -84,6 +84,11 @@ void hsh_put(Hashtable *ht, char* key, void* val) {
   lst_push_ptr(ht->vals[bucket], val);
 }
 
+
+void hsh_put_int(Hashtable *ht, char *key, int val) {
+  hsh_put(ht, key, int_to_ptr(val));
+}
+
 /* Equality function to pass to list_find_equivalent; simply tests for
    exact string match */
 int equal(void *key1ptr, void *key2) {
@@ -104,6 +109,11 @@ void* hsh_get(Hashtable* ht, char *key) {
     return (void*)-1;
   return lst_get_ptr(ht->vals[bucket], idx);
 }
+
+int hsh_get_int(Hashtable *ht, char *key) {
+  return ptr_to_int(hsh_get(ht, key));
+}
+
 
 /* Delete entry with specified key.  
    Returns 1 if item found and deleted, 0 if item not found */
@@ -132,6 +142,11 @@ int hsh_reset(Hashtable *ht, char* key, void* val) {
   lst_set_ptr(ht->vals[bucket], idx, val);
   return 0;
 }
+
+int hsh_reset_int(Hashtable *ht, char *key, int val) {
+  return hsh_reset(ht, key, int_to_ptr(val));
+}
+
 
 /* Free all resources; does *not* free memory associated with values */
 void hsh_free(Hashtable *ht) {
