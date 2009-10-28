@@ -107,15 +107,18 @@ OPTIONS:
         rooted.  When a reversible substitution model is used, the root
         is ignored during the optimization procedure.
 
-    --subst-mod, -s JC69|F81|HKY85|HKY85+Gap|REV|SSREV|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S
+    --subst-mod, -s JC69|F81|HKY85|HKY85+Gap|REV|SSREV|REV+GC|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S
         (default REV).  Nucleotide substitution model.  JC69, F81, HKY85
         REV, and UNREST have the usual meanings (see, e.g., Yang, 
         Goldman, and Friday, 1994).  SSREV is a strand-symmetric version
         of REV.  HKY85+Gap is an adaptation of HKY that treats gaps as a 
-        fifth character (courtesy of James Taylor).  The others, all 
-        considered "context-dependent", are as defined in Siepel and 
-        Haussler, 2004.  The options --EM and --precision MED are 
-        recommended with context-dependent models (see below).
+        fifth character (courtesy of James Taylor).  REV+GC is REV plus
+        an extra parameter describing GC percent, and is only apporpriate
+        in conjunction with lineage-specific substitution models (see
+        --alt-mod, below).  The others, all considered "context-
+        dependent", are as defined in Siepel and Haussler, 2004.  The 
+        options --EM and --precision MED are recommended with 
+        context-dependent models (see below).
 
     --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
         (default FASTA) Alignment format.  FASTA is as usual.  PHYLIP
