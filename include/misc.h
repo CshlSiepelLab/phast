@@ -200,5 +200,8 @@ void norm_confidence_interval(double mu, double sigma, double interval_size,
 void print_seq_fasta(FILE *F, char *seq, char *name, int len);
 double get_elapsed_time(struct timeval *start_time);
 int file_exists(char *filename);
+char **get_iupac_map();
+int **build_iupac_inv_map(int *inv_states, int alph_size);
+void free_iupac_inv_map(int **iim);
 
 #endif

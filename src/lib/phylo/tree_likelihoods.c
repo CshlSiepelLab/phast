@@ -91,6 +91,11 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
     }
   }
 
+  /* create IUPAC mapping if needed */
+  if (mod->iupac_inv_map == NULL)
+    mod->iupac_inv_map = build_iupac_inv_map(mod->rate_matrix->inv_states, 
+                                             alph_size);
+
   assert(cat <= msa->ncats);
 
   assert(cat < 0 || col_scores == NULL || msa->categories != NULL);
@@ -189,21 +194,31 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
                  "partial_matches". */
               for (col_offset = -1*mod->order; col_offset <= 0; col_offset++) {
                 int observed_state = -1;
+                int *iupac_prob = NULL;
 
-                if (pass == 0 || col_offset < 0) 
-                  observed_state = mod->rate_matrix->
-                    inv_states[(int)ss_get_char_tuple(msa, tupleidx, 
-                                                      thisseq, col_offset)];
-
+                if (pass == 0 || col_offset < 0) {
+                  char thischar = (int)ss_get_char_tuple(msa, tupleidx, 
+                                                         thisseq, col_offset);
+                  observed_state = mod->rate_matrix->inv_states[(int)thischar];
+                  if (observed_state < 0)
+                    iupac_prob = mod->iupac_inv_map[(int)thischar];
+                }
+ 
                 /* otherwise, we're on a second pass and looking the
                    current base, so we want to use the "missing
                    information" principle */
 
-                for (i = 0; i < alph_size; i++) {
-                  if (observed_state < 0 || i == observed_state) 
-                    partial_match[mod->order+col_offset][i] = 1;
-                  else
-                    partial_match[mod->order+col_offset][i] = 0; 
+                if (iupac_prob != NULL) {
+                  for (i = 0; i < alph_size; i++) 
+                    partial_match[mod->order+col_offset][i] = iupac_prob[i];
+                }
+                else {
+                  for (i = 0; i < alph_size; i++) {
+                    if (observed_state < 0 || i == observed_state) 
+                      partial_match[mod->order+col_offset][i] = 1;
+                    else
+                      partial_match[mod->order+col_offset][i] = 0; 
+                  }
                 }
               }
 

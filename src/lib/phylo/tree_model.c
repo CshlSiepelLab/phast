@@ -147,6 +147,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   tm->eqfreq_sym = 0;
   tm->bound_arg = NULL;
   tm->scale_during_opt = 0;
+  tm->iupac_inv_map = NULL;
   return tm;
 }
 
@@ -258,6 +259,8 @@ void tm_free(TreeModel *tm) {
   }
   if (tm->noopt_arg != NULL)
     str_free(tm->noopt_arg);
+  if (tm->iupac_inv_map != NULL)
+    free_iupac_inv_map(tm->iupac_inv_map);
   free(tm);
 }
 

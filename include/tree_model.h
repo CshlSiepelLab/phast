@@ -189,6 +189,7 @@ struct tm_struct {
   int scale_during_opt;       /* Whether to scale rate matrix during optimization.
 				 Normally 0, but 1 if TM_BRANCHLENS_NONE, or
 				 if TM_SCALE and alt_subst_mods!=NULL */
+  int **iupac_inv_map;          /* inverse map for IUPAC ambiguity characters */
 };
 
 typedef struct tm_struct TreeModel;

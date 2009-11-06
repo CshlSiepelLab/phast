@@ -1109,6 +1109,84 @@ int file_exists(char *filename) {
  return (access(filename, F_OK) == 0);
 }
 
+/* build static mapping from IUPAC ambiguity characters to the bases
+   that they represent */
+static char **build_iupac_map() {
+  char **retval = smalloc(256 * sizeof(char*));
+  int i;
+
+  for (i = 0; i < 256; i++) 
+    retval[i] = NULL;
+
+  retval['R'] = "AG";
+  retval['Y'] = "CT";
+  retval['S'] = "CG";
+  retval['W'] = "AT";
+  retval['K'] = "GT";
+  retval['M'] = "AC";
+  retval['D'] = "AGT";
+  retval['H'] = "ACT";
+  retval['B'] = "CGT";
+  retval['V'] = "ACG";  
+
+  return(retval);
+}
+
+/* accessor for static mapping */
+char **get_iupac_map() {
+  static char **iupac_map = NULL;
+  if (iupac_map == NULL)
+    iupac_map = build_iupac_map();
+  return iupac_map;
+}
+
+/* build an inverse mapping that allows an IUPAC ambiguity character
+   to be mapped to an array, alph_size elements, with 1s or 0s
+   indicating presence or absence of each character in the set
+   associated with the IUPAC character.  This array obeys the indexing
+   of the provided inv_states.  For use in computing likelihoods with
+   ambiguity characters */
+int **build_iupac_inv_map(int *inv_states, int alph_size) {
+  int i, j, k;
+  int **retval = smalloc(256 * sizeof(int*));
+  char **iupac_map = get_iupac_map();
+
+  memset(iupac_map, 0, 256 * sizeof(int*));
+
+  for (i = 0; i < 256; i++) {
+    if (iupac_map[i] != NULL) {
+      retval[i] = smalloc(alph_size * sizeof(int));
+      for (j = 0; j < alph_size; j++) retval[i][j] = 0;
+      for (j = 0; j < strlen(iupac_map[i]); j++) {
+        if (inv_states[(int)iupac_map[i][j]] < 0) {
+          /* in this case, we have an alphabet inconsistent with
+             IUPAC; erase the previous settings, return an array of
+             NULL pointers, which will cause IUPAC characters to be
+             treated like 'N's in phylogenetic analysis */
+          for (k = 0; k <= i; k++) {
+            if (retval[k] != NULL) {
+              free(retval[k]);
+              retval[k] = NULL;
+            }
+          }          
+          return retval;
+        }
+        retval[i][inv_states[(int)iupac_map[i][j]]] = 1;
+      }
+    }
+  }
+  return retval;
+}
+
+void free_iupac_inv_map(int **iim) {
+  int i;
+  for (i = 0; i < 256; i++) {
+    if (iim[i] != NULL)
+      free(iim[i]);
+  }
+  free(iim);
+}
+
 /***************************************************************************/
 /* for debugging: these functions can be called dynamically in gdb to
    print the contents of 1d and 2d arrays */
