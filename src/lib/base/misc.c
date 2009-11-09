@@ -1151,7 +1151,7 @@ int **build_iupac_inv_map(int *inv_states, int alph_size) {
   int **retval = smalloc(256 * sizeof(int*));
   char **iupac_map = get_iupac_map();
 
-  memset(iupac_map, 0, 256 * sizeof(int*));
+  memset(retval, 0, 256 * sizeof(int*));
 
   for (i = 0; i < 256; i++) {
     if (iupac_map[i] != NULL) {
