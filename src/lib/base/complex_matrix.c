@@ -96,6 +96,13 @@ Zmatrix *zmat_create_copy(Zmatrix *src) {
   return dest;
 }
 
+void zmat_scale_complex(Zmatrix *m, Complex val) {
+   int i,j;
+   for (i=0; i<m->nrows; i++)
+     for (j=0; j<m->ncols; j++)
+	m->data[i][j] = z_mul(m->data[i][j], val);
+}
+
 void zmat_scale(Zmatrix *m, double scale_factor) {
   int i, j;
   for (i = 0; i < m->nrows; i++)

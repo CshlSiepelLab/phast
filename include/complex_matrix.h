@@ -39,6 +39,7 @@ void zmat_zero(Zmatrix *m);
 void zmat_set_all(Zmatrix *m, Complex val);
 void zmat_copy(Zmatrix *dest, Zmatrix *src);
 Zmatrix *zmat_create_copy(Zmatrix *src);
+void zmat_scale_complex(Zmatrix *m, Complex scale_factor);
 void zmat_scale(Zmatrix *m, double scale_factor);
 void zmat_print(Zmatrix *m, FILE *F);
 void zmat_read(Zmatrix *m, FILE *F);
