@@ -393,7 +393,9 @@ int main(int argc, char *argv[]) {
       msa_free(msa);
       if (keep_ancestral == FALSE) {
 	fprintf(stderr, "\tPruning away ancestral sequences...\n");
-	msa = msa_sub_alignment(indel_msa, leaf_seqs, TRUE, 0, len-1);
+	msa = msa_sub_alignment(indel_msa, leaf_seqs, TRUE, 0, len);
+	fprintf(stderr, "msa->length %d, ih->length %d, indel_msa->length %d\n",
+		msa->length, ih->ncols, indel_msa->length);
 	msa_free(indel_msa);
       } else {
 	msa = indel_msa;

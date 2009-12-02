@@ -2446,6 +2446,12 @@ void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans,
 			   int seqlen, int *ref_path, int force_priors,
 			   int xi_mode) {
   int i, s1, s2, p1, p2, e1, e2/*, *tmp_path */;
+  int total_trans, mu_trans, nu_trans, phi_trans, zeta_trans, xi_trans, 
+    c_bg_trans, n_bg_trans, n_mtf_trans, c_mtf_trans, other_trans, mtf_starts;
+
+  total_trans = mu_trans = nu_trans = phi_trans = zeta_trans = xi_trans = 
+    c_bg_trans = n_bg_trans = c_mtf_trans = n_mtf_trans = other_trans =
+    mtf_starts = 0;
 
   /* If using reference set as priors, build a composite path containing
      all known and predicted features and use this as the path */
@@ -2474,16 +2480,33 @@ void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans,
       continue;
     }
 
+    total_trans++;
+
     p1 = dm->state_to_motifpos[s1] ;
     e1 = dm->state_to_event[s1];
     p2 = dm->state_to_motifpos[s2];
     e2 = dm->state_to_event[s2];
 
     /* Track different types of transitions for param estimation */
+    
+    /* Start with some counts to use as checks for accuracy later */
+    if (p1 == -1 && e1 == NEUT)
+      n_bg_trans++;
+    else if (p1 == -1 && e1 != NEUT)
+      c_bg_trans++;
+    else if (p1 == dm->m->width - 1) {
+      if (e1 == NEUT)
+	n_mtf_trans++;
+      else
+	c_mtf_trans++;
+    } else
+      other_trans++;
+      
 
     /* Transitions that affect mu -- i.e., from non-neutral bg states and 
        motif end positions */
     if (e1 != NEUT && (p1 == -1 || p1 == dm->m->width - 1)) {
+      mu_trans++;
       if (e2 == NEUT)
 	trans[0][0]++;
       else
@@ -2492,6 +2515,7 @@ void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans,
 
     /* Transitions that affect nu -- all of these are from NB state */
     if (e1 == NEUT && p1 == -1) {
+      nu_trans++;
       if (e2 != NEUT)
 	trans[1][0]++;
       else
@@ -2501,6 +2525,7 @@ void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans,
     /* Transitions that affect phi -- all are from NB. Must pay attention to
        whether destination state is conserved or not. */
     if (e1 == NEUT && e2 != NEUT) {
+      phi_trans++;
       if (e2 != CONS)
 	trans[2][0]++;
       else
@@ -2511,33 +2536,74 @@ void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans,
        may be either neutral, conserved or lineage-specific. If we're using
        xi, also pay attention to whether we're starting a neutral motif or a
        conserved/gain/loss motif. */
+
     if (p1 == -1) {
+      if (e1 == NEUT) {
+	xi_trans++;
+	zeta_trans++;
+      } else
+	zeta_trans++;
+
       if (p2 == 0) { /* Started a motif -- add an alpha count */
+	mtf_starts++;
 
 	if (xi_mode == TRUE) {
-	  if (e2 == NEUT)
+
+	  if (e1 == NEUT && e2 == NEUT) {
 	    trans[4][0]++;
-	  else
+	    trans[3][1]++;
+	  } else if (e1 == NEUT && e2 != NEUT) {
 	    trans[3][0]++;
+	    trans[4][1]++;
+	  } else
+	    trans[3][0]++;
+
 	} else {
 	   trans[3][0]++;
 	}
 
       } else { /* Stayed in background -- add a beta count */
-
+	
+	
 	if (xi_mode == TRUE) {
-	  if (e2 == NEUT)
-	     trans[4][1]++;
-	  else
-	     trans[3][1]++;
+
+	  if (e1 == NEUT) {
+	    trans[3][1]++;
+	    trans[4][1]++;
+	  } else
+	    trans[3][1]++;
+
 	} else {
-	   trans[3][1]++;
+	  trans[3][1]++;
 	}
       }
     }
 
     s1 = s2;
   }
+
+/*   fprintf(stderr, "total_trans %d, n_bg_trans %d, c_bg_trans %d, c_mtf_trans %d, n_mtf_trans %d, other_trans %d\n", */
+/* 	  total_trans, n_bg_trans, c_bg_trans, c_mtf_trans, n_mtf_trans, */
+/* 	  other_trans); */
+/*   fprintf(stderr, "mu_trans %d, nu_trans %d, phi_trans %d, zeta_trans %d, xi_trans %d\n", */
+/* 	  mu_trans, nu_trans, phi_trans, zeta_trans, xi_trans); */
+/*   fprintf(stderr, "mtf_starts %d\n", mtf_starts); */
+
+/*   for (i = 0; i < 5; i++) */
+/*     fprintf(stderr, "row %d: %d, %d, %d\n", i, trans[i][0], trans[i][1], */
+/* 	    trans[i][0] + trans[i][1]); */
+
+  assert(n_bg_trans + c_bg_trans + n_mtf_trans + c_mtf_trans + other_trans 
+	 == total_trans);
+  assert(xi_trans ==  nu_trans);
+  assert(zeta_trans == n_bg_trans + c_bg_trans);
+  assert(mu_trans == c_mtf_trans + c_bg_trans);
+  assert(trans[0][0] + trans[0][1] == mu_trans);
+  assert(trans[1][0] + trans[1][1] == nu_trans);
+  assert(trans[2][0] + trans[2][1] == phi_trans);
+  assert(trans[3][0] + trans[3][1] == zeta_trans);
+  if (xi_mode == TRUE)
+    assert(trans[4][0] + trans[4][1] == xi_trans);
 }
 
 
