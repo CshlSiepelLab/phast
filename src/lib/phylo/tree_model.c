@@ -594,7 +594,7 @@ TreeModel *tm_create_copy(TreeModel *src) {
   else retval->noopt_arg = NULL;
   retval->eqfreq_sym = src->eqfreq_sym;
   retval->scale_during_opt = src->scale_during_opt;
-  
+
   if (src->all_params != NULL) {
     retval->all_params = vec_create_copy(src->all_params);
     if (src->param_map != NULL) {
@@ -868,8 +868,8 @@ void tm_set_subst_matrices(TreeModel *tm) {
       }
     }
 
-    if (tm->estimate_branchlens == TM_SCALE_ONLY && tm->subtree_root != NULL
-        && tm->in_subtree[i]) 
+    if (tm->estimate_branchlens == TM_SCALE_ONLY && tm->in_subtree != NULL &&
+	tm->in_subtree[i])
       branch_scale *= tm->scale_sub;
 
     for (j = 0; j < tm->nratecats; j++) {
@@ -1450,7 +1450,7 @@ void tm_set_boundaries(Vector **lower_bounds, Vector **upper_bounds,
   }
 
   /* Also, in this case, we need to bound the scale of the subtree */
-  if (mod->estimate_branchlens == TM_SCALE_ONLY && mod->subtree_root != NULL 
+  if (mod->estimate_branchlens == TM_SCALE_ONLY && mod->in_subtree != NULL 
       && mod->scale_sub_bound != NB) {
     if (mod->scale_sub_bound == LB && mod->param_map[mod->scale_idx+1] >= 0) 
       vec_set(*lower_bounds, mod->param_map[mod->scale_idx+1], 1);
@@ -1696,9 +1696,17 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
       mod->subtree_root->dparent *= mod->scale_sub; /* also need to scale 
                                                        leading branch */
       mod->scale_sub = 1;
+    } else if (mod->in_subtree != NULL) { /* internal branch scale */
+      TreeNode *n;
+      for (i=0; i<mod->tree->nnodes; i++)
+	if (mod->in_subtree[i]) {
+	  n = lst_get_ptr(mod->tree->nodes, i);
+	  n->dparent *= mod->scale_sub;
+	}
+      mod->scale_sub = 1;
     }
   }
-
+  
   if (lower_bounds != NULL) vec_free(lower_bounds);
   if (upper_bounds != NULL) vec_free(upper_bounds);
 
@@ -1821,7 +1829,7 @@ void tm_setup_params(TreeModel *mod) {
   //first do scale/branchlength params
   if (mod->estimate_branchlens == TM_SCALE_ONLY) {
     mod->param_map[mod->scale_idx] = opt_idx++;
-    if (mod->subtree_root != NULL)
+    if (mod->subtree_root != NULL || mod->in_subtree != NULL)
       mod->param_map[mod->scale_idx+1] = opt_idx++;
   }
   else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
@@ -2616,7 +2624,17 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod,
       }
       vec_set(params, 1, sum/vec_get(params, 0));
     }
+    else if (mod->in_subtree != NULL) {
+      sum = 0.0;
+      for (i=0; i < mod->tree->nnodes; i++)
+	if (mod->in_subtree[i]) {
+	  currNode = lst_get_ptr(mod->tree->nodes, i);
+	  sum += brlen[currNode->id];
+	}
+      vec_set(params, 1, sum/vec_get(params, 0));
+    }
   }
+
 	
   free(brlen);
   for (i=0; i<numnode; i++)

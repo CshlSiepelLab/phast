@@ -49,6 +49,7 @@ int main(int argc, char *argv[]) {
     default_epsilon = TRUE, output_gff = FALSE, refidx = 1;
   double ci = -1, epsilon = DEFAULT_EPSILON;
   char *subtree_name = NULL, *chrom = NULL;
+  List *branch_name = NULL;
   GFF_Set *feats = NULL;
   method_type method = SPH;
   mode_type mode = CON;
@@ -82,6 +83,7 @@ int main(int argc, char *argv[]) {
     {"posterior", 0, 0, 'p'},
     {"confidence-interval", 1, 0, 'c'},
     {"subtree", 1, 0, 's'},
+    {"branch", 1, 0, 'B'},
     {"features", 1, 0, 'f'},
     {"fit-model", 0, 0, 'F'},
     {"epsilon", 1, 0, 'e'},
@@ -98,7 +100,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "m:o:i:n:pc:s:f:Fe:l:r:qwgbN:h", 
+  while ((c = getopt_long(argc, argv, "m:o:i:n:pc:s:f:Fe:l:r:B:qwgbN:h", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'm':
@@ -143,6 +145,9 @@ int main(int argc, char *argv[]) {
       break;
     case 's':
       subtree_name = optarg;
+      break;
+    case 'B':
+      branch_name = get_arg_list(optarg);
       break;
     case 'f':
       feats = gff_read_set(fopen_fname(optarg, "r"));
@@ -208,6 +213,10 @@ int main(int argc, char *argv[]) {
     die("ERROR: --wig-scores and --base-by-base cannot be used with --null, --posterior, --features, --quantiles, or --confidence-interval.\n");
   if (method == GERP && subtree_name != NULL)
     die("ERROR: --subtree not supported with --method GERP.\n");
+  if ((method == GERP || method == SPH) && branch_name != NULL) 
+    die("ERROR --branch not support with --method GERP or --method SPH\n");
+  if (branch_name != NULL && subtree_name != NULL)
+    die("ERROR: can use only one of --subtree or --branch options\n");
 
   mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
 
@@ -265,6 +274,25 @@ int main(int argc, char *argv[]) {
     mod->subtree_root = tr_get_node(mod->tree, subtree_name);
     if (mod->subtree_root == NULL)
       die("ERROR: no node named '%s'.\n", subtree_name);
+  }
+  if (branch_name != NULL) {
+    TreeNode *n;
+    char *nodeName;
+    tr_name_ancestors(mod->tree);
+    mod->in_subtree = smalloc(mod->tree->nnodes * sizeof(int));
+    for (j=0; j<mod->tree->nnodes; j++)
+      mod->in_subtree[j] = 0;
+    for (j=0; j<lst_size(branch_name); j++) {
+      nodeName = ((String*)lst_get_ptr(branch_name, j))->chars;
+      n = tr_get_node(mod->tree, nodeName);
+      if (n == NULL) 
+	die("ERROR: no node named %s\n", nodeName);
+      mod->in_subtree[n->id] = 1;
+    }
+    for (j=0; j<mod->tree->nnodes; j++)
+      if (mod->in_subtree[j] == 0) break;
+    if (j == mod->tree->nnodes)
+      die("ERROR: ERROR: cannot name all branches with --branch option\n");
   }
 
   if (feats != NULL) 
@@ -439,7 +467,7 @@ int main(int argc, char *argv[]) {
         llrs = smalloc(msa->ss->ntuples * sizeof(double));
         scales = smalloc(msa->ss->ntuples * sizeof(double));
       }
-      if (subtree_name == NULL) { /* no subtree case */
+      if (subtree_name == NULL && branch_name == NULL) { /* no subtree case */
         col_lrts(mod, msa, mode, pvals, scales, llrs, logf);
         if (output_wig) 
           print_wig(msa, pvals, chrom, refidx, TRUE);
@@ -470,7 +498,7 @@ int main(int argc, char *argv[]) {
         scales = smalloc(lst_size(feats->features) * sizeof(double));
         llrs = smalloc(lst_size(feats->features) * sizeof(double));
       }
-      if (subtree_name == NULL) {  /* no subtree case */
+      if (subtree_name == NULL && branch_name == NULL) {  /* no subtree case */
         ff_lrts(mod, msa, feats, mode, pvals, scales, llrs, logf);
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
         if (output_gff) 
@@ -507,7 +535,7 @@ int main(int argc, char *argv[]) {
         derivs = smalloc(msa->ss->ntuples * sizeof(double));
       }
 
-      if (subtree_name == NULL) { /* no subtree case */
+      if (subtree_name == NULL && branch_name == NULL) { /* no subtree case */
         col_score_tests(mod, msa, mode, pvals, derivs, 
                         teststats);
         if (output_wig) 
@@ -539,7 +567,7 @@ int main(int argc, char *argv[]) {
         teststats = smalloc(lst_size(feats->features) * sizeof(double));
         derivs = smalloc(lst_size(feats->features) * sizeof(double));
       }
-      if (subtree_name == NULL) { /* no subtree case */
+      if (subtree_name == NULL && branch_name == NULL) { /* no subtree case */
         ff_score_tests(mod, msa, feats, mode, pvals, derivs, teststats);
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
         if (output_gff) 

@@ -198,6 +198,13 @@ OPTIONS:
         partition consisting of the rest of the tree.  In 'SPH' mode, a
         reversible substitution model is assumed.
 
+    --branch, -B <node-name(s)>
+        (Not available in GERP or SPH mode).  Like subtree, but partitions
+	the tree into the set of named branches (each named by its child
+	node), and all the remaining branches.  Then tests for conservation/
+	acceleration in the set of named branches relative to the others.
+	The argument is a comma-delimited list of child nodes.
+
     --chrom, -N <name>
         (Optionally use with --wig-scores or --base-by-base) Chromosome
         name for wig output.  Default is root of multiple alignment

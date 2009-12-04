@@ -796,8 +796,7 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
   ColFitData *d, *d2;
   double null_lnl, alt_lnl, delta_lnl;
   TreeModel *modcpy;
-  List *inside = lst_new_ptr(mod->tree->nnodes), 
-    *outside = lst_new_ptr(mod->tree->nnodes);
+  List *inside=NULL, *outside=NULL;
 
   modcpy = tm_create_copy(mod);   /* need separate copy of tree model
                                      with different internal scaling
@@ -811,7 +810,11 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
 
   /* prepare lists of leaves inside and outside root, for use in
      checking for informative substitutions */
-  tr_partition_leaves(mod->tree, mod->subtree_root, inside, outside);
+  if (mod->subtree_root != NULL) {
+    inside = lst_new_ptr(mod->tree->nnodes);
+    outside = lst_new_ptr(mod->tree->nnodes);
+    tr_partition_leaves(mod->tree, mod->subtree_root, inside, outside);
+  }
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
@@ -827,9 +830,13 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
       /* compute log likelihoods under null and alt hypotheses */
       d->tupleidx = i;
       vec_set(d->params, 0, d->init_scale);
-      opt_newton_1d(col_likelihood_wrapper_1d, &d->params->data[0], d, 
+      /*      opt_newton_1d(col_likelihood_wrapper_1d, &d->params->data[0], d, 
                     &null_lnl, SIGFIGS, d->lb->data[0], d->ub->data[0], 
-                    logf, NULL, NULL);   
+                    logf, NULL, NULL);   */
+
+      opt_bfgs(col_likelihood_wrapper, d->params, d, &null_lnl, d->lb,
+	       d->ub, logf, NULL, OPT_HIGH_PREC, NULL);
+
       /* turns out to be faster (roughly 15% in limited experiments)
          to use numerical rather than exact derivatives */
       null_lnl *= -1;
@@ -886,8 +893,8 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
                                 /* have to revert for tm_free to work
                                    correctly */
   tm_free(modcpy);
-  lst_free(inside);
-  lst_free(outside);
+  if (inside != NULL) lst_free(inside);
+  if (outside != NULL) lst_free(outside);
 }
 
 /* Score test */
@@ -964,8 +971,7 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
   Matrix *fim;
   double lnl, teststat;
   FimGrid *grid;
-  List *inside = lst_new_ptr(mod->tree->nnodes), 
-    *outside = lst_new_ptr(mod->tree->nnodes);
+  List *inside=NULL, *outside=NULL;
   TreeModel *modcpy = tm_create_copy(mod); /* need separate copy of tree model
                                               with different internal scaling
                                               data for supertree/subtree case */
@@ -981,7 +987,11 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
 
   /* prepare lists of leaves inside and outside root, for use in
      checking for informative substitutions */
-  tr_partition_leaves(mod->tree, mod->subtree_root, inside, outside);
+  if (mod->subtree_root != NULL) {
+    inside = lst_new_ptr(mod->tree->nnodes);
+    outside = lst_new_ptr(mod->tree->nnodes);
+    tr_partition_leaves(mod->tree, mod->subtree_root, inside, outside);
+  }
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
@@ -1056,8 +1066,8 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
                                 /* have to revert for tm_free to work
                                    correctly */
   tm_free(modcpy);
-  lst_free(inside);
-  lst_free(outside);
+  if (inside != NULL) lst_free(inside);
+  if (outside != NULL) lst_free(outside);
   col_free_fim_grid(grid); 
 }
 
@@ -1079,7 +1089,7 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
 
   d->mod->estimate_branchlens = TM_SCALE_ONLY;
   if (stype == SUBTREE) 
-    assert(mod->subtree_root != NULL);
+    assert(mod->subtree_root != NULL || mod->in_subtree!=NULL);
   else {
     assert(mod->subtree_root == NULL);
     mod->scale_sub = 1;
@@ -1528,12 +1538,28 @@ int col_has_data(TreeModel *mod, MSA *msa, int tupleidx) {
 /* returns TRUE if column has at least one base in the subtree of
    interest, at least one in the supertree of interest, and at least
    three bases total (the minimum required for a meaningful subtree
-   test), otherwise returns FALSE */
+   test), otherwise returns FALSE.  
+   If inside and outside are both NULL, then returns TRUE if there
+   are at least three bases total.
+ */
 int col_has_data_sub(TreeModel *mod, MSA *msa, int tupleidx, List *inside, 
                      List *outside) {
   int i, nbases = 0, state;
   TreeNode *n;
 
+  if (inside == NULL && outside == NULL) {
+    for (i=0; i<mod->tree->nnodes; i++) {
+      n = lst_get_ptr(mod->tree->nodes, i);
+      if (n->lchild == NULL) {
+	state = mod->rate_matrix->
+	  inv_states[(int)ss_get_char_tuple(msa, tupleidx,
+					    mod->msa_seq_idx[n->id], 0)];
+	if (state >=0) nbases++;
+	if (nbases==2) return TRUE;
+      }
+    }
+    return FALSE;
+  }
   for (i = 0; i < lst_size(inside) && nbases < 2; i++) {
     n = lst_get_ptr(inside, i);
     state = mod->rate_matrix->

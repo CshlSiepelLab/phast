@@ -171,7 +171,7 @@ void sub_recompute_conditionals(JumpProcess *jp) {
     if (n != jp->mod->tree) {
 
       double t = n->dparent * jp->mod->scale;
-      if (jp->mod->subtree_root != NULL && jp->mod->in_subtree != NULL &&
+      if (jp->mod->in_subtree != NULL &&
           jp->mod->in_subtree[i])
         t *= jp->mod->scale_sub;
 
