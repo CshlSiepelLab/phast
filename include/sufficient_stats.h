@@ -71,6 +71,7 @@ void ss_to_msa(MSA *msa);
 void msa_read_AXT(MSA *msa, List *axt_fnames);
 void ss_write(MSA *msa, FILE *F, int show_order);
 MSA* ss_read(FILE *F, char *alphabet);
+void ss_free_categories(MSA_SS *ss);
 void ss_free(MSA_SS *ss);
 void ss_update_categories(MSA *msa);
 void ss_new(MSA *msa, int tuple_size, int max_ntuples, int do_cats, 

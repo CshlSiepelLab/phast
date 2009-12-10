@@ -378,6 +378,17 @@ void msa_print_to_file(char *filename, MSA *msa, msa_format_type format,
 }
 
 
+void msa_free_categories(MSA *msa) {
+  if (msa->categories != NULL) {
+    free(msa->categories);
+    msa->categories = NULL;
+  }
+  if (msa->ss != NULL)
+    ss_free_categories(msa->ss);
+  msa->ncats = -1;
+}
+
+
 /* Frees MSA object.  Names and seqs are freed also, even though they may
    have been allocated externally. */
 void msa_free(MSA *msa) {
@@ -391,7 +402,7 @@ void msa_free(MSA *msa) {
   if (msa->names != NULL) free(msa->names);
   if (msa->seqs != NULL) free(msa->seqs);
   if (msa->alphabet != NULL) free(msa->alphabet);
-  if (msa->categories != NULL) free(msa->categories);
+  msa_free_categories(msa);
   if (msa->ss != NULL) ss_free(msa->ss);
   if (msa->is_informative != NULL) free(msa->is_informative);
   free(msa);
@@ -486,7 +497,7 @@ MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col,
 
   int new_nseqs;
   char **new_names;
-  char **new_seqs;
+  char **new_seqs=NULL;
   int new_len = end_col - start_col;
 
   assert(new_len > 0);

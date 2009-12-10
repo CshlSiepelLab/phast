@@ -748,6 +748,7 @@ int main(int argc, char* argv[]) {
 
   if (!by_category) {           /* splitting by position
                                    (split_indices_list) */
+    msa_free_categories(msa);
     for (i = 0; i < lst_size(split_indices_list); i++) {
       MSA *sub_msa;
       GFF_Set *sub_gff;
@@ -824,7 +825,7 @@ int main(int argc, char* argv[]) {
 
       /* Avoid complaints about msa->seqs and msa->categories being non-null
 	 when using maf input sequences */
-      sub_msa->seqs = NULL;
+      //      sub_msa->seqs = NULL;
       sub_msa->categories = NULL;
       sub_msa->ncats = -1;
 

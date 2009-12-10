@@ -851,17 +851,24 @@ MSA* ss_read(FILE *F, char *alphabet) {
   return msa;
 }
 
+void ss_free_categories(MSA_SS *ss) {
+  int j;
+  if (ss->cat_counts != NULL) {
+    for (j = 0; j < ss->msa->ncats; j++)
+      free(ss->cat_counts[j]);
+    free(ss->cat_counts);
+    ss->cat_counts = NULL;
+  }
+}
+
+
 /* free all memory associated with a sufficient stats object */
 void ss_free(MSA_SS *ss) {
   int j;
-    for (j = 0; j < ss->alloc_ntuples; j++)
-      free(ss->col_tuples[j]);
-    free(ss->col_tuples);
-  if (ss->cat_counts != NULL) {
-    for (j = 0; j <= ss->msa->ncats; j++) 
-      free(ss->cat_counts[j]); 
-    free(ss->cat_counts); 
-  } 
+  for (j = 0; j < ss->alloc_ntuples; j++)
+    free(ss->col_tuples[j]);
+  free(ss->col_tuples);
+  ss_free_categories(ss);
   if (ss->counts != NULL) free(ss->counts);
   if (ss->tuple_idx != NULL) free(ss->tuple_idx);
   free(ss);
@@ -966,6 +973,7 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
     retval->ncats = msa->ncats;
     retval->categories = smalloc(retval->length * sizeof(int));
   }
+    
 
   /* mapping of original tuple numbers to tuple numbers in the
      sub-alignment */
