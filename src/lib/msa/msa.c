@@ -175,7 +175,7 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
                                      maybe no longer necessary */
         else if (base != GAP_CHAR && !msa->is_missing[(int)base] &&
                  msa->inv_alphabet[(int)base] == -1 && 
-                 get_iupac_map()[(int)base] != NULL) {
+                 get_iupac_map()[(int)base] == NULL) {
           if (isalpha(base)) base = 'N';  
                                 /* use 'N' in place of unrecognized
                                    alphabetical character */
@@ -317,7 +317,7 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
         msa->seqs[i][j] = msa->missing[0]; /* interpret '.' as missing
                                               data; maybe no longer
                                               necessary */
-      if (isalpha(msa->seqs[i][j]) && msa->inv_alphabet[(int)msa->seqs[i][j]] == -1 && get_iupac_map()[(int)msa->seqs[i][j]] != NULL) 
+      if (isalpha(msa->seqs[i][j]) && msa->inv_alphabet[(int)msa->seqs[i][j]] == -1 && get_iupac_map()[(int)msa->seqs[i][j]] == NULL) 
         msa->seqs[i][j] = 'N';   /* assume 'N' if unrecognized letter */
     }
     msa->seqs[i][maxlen] = '\0';

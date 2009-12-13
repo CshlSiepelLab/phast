@@ -432,6 +432,7 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
       if (msa->inv_alphabet[(int)refseq->chars[i]] < 0 &&
           refseq->chars[i] != GAP_CHAR &&
           !msa->is_missing[(int)refseq->chars[i]] &&
+	  get_iupac_map()[(int)refseq->chars[i]] == NULL &&
           isalpha(refseq->chars[i]))
         refseq->chars[i] = msa->missing[1];
       /* (for now, assume ambiguity character and treat as missing data) */
@@ -828,6 +829,7 @@ MSA *maf_read_unsorted(FILE *F,          /**< MAF file */
       if (msa->inv_alphabet[(int)refseq->chars[i]] < 0 &&
           refseq->chars[i] != GAP_CHAR &&
           !msa->is_missing[(int)refseq->chars[i]] &&
+	  get_iupac_map()[(int)refseq->chars[i]] == NULL &&
           isalpha(refseq->chars[i]))
         refseq->chars[i] = msa->missing[1];
       /* (for now, assume ambiguity character and treat as missing data) */
@@ -1013,7 +1015,8 @@ int maf_read_block_addseq(FILE *F, MSA *mini_msa, Hashtable *name_hash,
         mini_msa->seqs[seqidx][i] = mini_msa->missing[0];
       if (mini_msa->seqs[seqidx][i] != GAP_CHAR && 
           !mini_msa->is_missing[(int)mini_msa->seqs[seqidx][i]] &&
-          mini_msa->inv_alphabet[(int)mini_msa->seqs[seqidx][i]] == -1) {
+          mini_msa->inv_alphabet[(int)mini_msa->seqs[seqidx][i]] == -1 &&
+	  get_iupac_map()[(int)mini_msa->seqs[seqidx][i]] == NULL) {
         if (isalpha(mini_msa->seqs[seqidx][i]))
           mini_msa->seqs[seqidx][i] = 'N';
         else 
@@ -1137,7 +1140,8 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
         mini_msa->seqs[seqidx][i] = mini_msa->missing[0];
       if (mini_msa->seqs[seqidx][i] != GAP_CHAR && 
           !mini_msa->is_missing[(int)mini_msa->seqs[seqidx][i]] &&
-          mini_msa->inv_alphabet[(int)mini_msa->seqs[seqidx][i]] == -1) {
+          mini_msa->inv_alphabet[(int)mini_msa->seqs[seqidx][i]] == -1 &&
+	  get_iupac_map()[(int)mini_msa->seqs[seqidx][i]] == NULL) {
         if (isalpha(mini_msa->seqs[seqidx][i]))
           mini_msa->seqs[seqidx][i] = 'N';
         else 
