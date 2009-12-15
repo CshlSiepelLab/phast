@@ -55,7 +55,7 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
   double wr[n],wi[n], vr[n * n], vl[n * n], work[4 * n];
   int i, j, k;
   double tmp[n*n];
-  enum {REAL, CONJ1, CONJ2} eval_type;
+  enum {REALVAL, CONJ1, CONJ2} eval_type;
   int check = 0;
 
   assert(n == M->ncols);
@@ -83,7 +83,7 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
         check = 1;
 
     if (wi[j] == 0)             /* real eigenvalue */
-      eval_type = REAL;
+      eval_type = REALVAL;
     else if (j < n-1 && wr[j] == wr[j+1] && wi[j] == -wi[j+1]) 
       eval_type = CONJ1;        /* first in conjugate pair */
     else if (j > 0 && wr[j-1] == wr[j] && wi[j-1] == -wi[j]) 
@@ -94,7 +94,7 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
     for (i = 0; i < n; i++) {   /* row */
       Complex zr, zl;
       switch (eval_type) {
-      case REAL:
+      case REALVAL:
 	zr = z_set(vr[j*n + i], 0);
 	zl = z_set(vl[j*n + i], 0);
         break;

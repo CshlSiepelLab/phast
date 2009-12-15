@@ -53,7 +53,7 @@ MarkovMatrix* mm_new(int size, char *states, mm_type type) {
     strcpy(M->states, states);
 
   M->type = type;
-  M->eigentype = COMPLEX;       /* default */
+  M->eigentype = COMPLEX_NUM;       /* default */
 
   /* build inverse table, for lookup of state number from state
    * character */
@@ -295,7 +295,7 @@ void mm_exp_real(MarkovMatrix *P, MarkovMatrix *Q, double t) {
 /* computes discrete matrix P by the formula P = exp(Qt),
    given Q and t */
 void mm_exp(MarkovMatrix *dest, MarkovMatrix *src, double t) {
-  if (src->eigentype == REAL)
+  if (src->eigentype == REAL_NUM)
     mm_exp_real(dest, src, t);
   else
     mm_exp_complex(dest, src, t);
@@ -327,7 +327,7 @@ char mm_sample_char(MarkovMatrix *M, char c) {
  * size.  Also assumes type, states, size, and eigentype are the same */
 void mm_cpy(MarkovMatrix *dest, MarkovMatrix *src) {
   mat_copy(dest->matrix, src->matrix);
-  if (src->eigentype == COMPLEX) {
+  if (src->eigentype == COMPLEX_NUM) {
     if (src->evec_matrix_z != NULL)
       zmat_copy(dest->evec_matrix_z, src->evec_matrix_z);
     if (src->evals_z != NULL)
@@ -348,7 +348,7 @@ void mm_cpy(MarkovMatrix *dest, MarkovMatrix *src) {
 MarkovMatrix *mm_create_copy(MarkovMatrix *src) {
   MarkovMatrix *retval = mm_new(src->size, src->states, src->type);
   retval->eigentype = src->eigentype;
-  if (src->eigentype == COMPLEX) {
+  if (src->eigentype == COMPLEX_NUM) {
     if (src->evec_matrix_z != NULL)
       retval->evec_matrix_z = zmat_new(src->size, src->size);
     if (src->evals_z != NULL)
@@ -415,7 +415,7 @@ void mm_diagonalize_real(MarkovMatrix *M) {
 } 
 
 void mm_diagonalize(MarkovMatrix *M) { 
-  if (M->eigentype == COMPLEX)
+  if (M->eigentype == COMPLEX_NUM)
     mm_diagonalize_complex(M);
   else 
     mm_diagonalize_real(M);

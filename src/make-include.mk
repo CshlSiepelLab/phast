@@ -44,10 +44,12 @@ LIBPATH = -L${LIB}
 # uncomment this line to build the RPHAST shared library, which allows
 # access to PHAST from the R programming environment.  Requires an
 # up-to-date installation of R.
-#RPHAST = T
+# Set RPHAST = T to build official package, or RPHAST = D during development
+RPHAST = D
 
 ifdef RPHAST
-CFLAGS += -fPIC
+RDIR=/usr/share/R/include
+CFLAGS += -fPIC -I${RDIR}
 endif
 
 # The next section is concerned with the LAPACK linear algebra

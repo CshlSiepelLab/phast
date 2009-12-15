@@ -274,7 +274,7 @@ void col_scale_derivs_subst_real(ColFitData *d) {
    column likelihoods */
 void col_scale_derivs_subst(ColFitData *d) {
   /* now broken into real and complex cases for efficiency */
-  if (d->mod->rate_matrix->eigentype == REAL)
+  if (d->mod->rate_matrix->eigentype == REAL_NUM)
     col_scale_derivs_subst_real(d);
   else
     col_scale_derivs_subst_complex(d);

@@ -1,0 +1,32 @@
+Notes on compilation/directory structure.
+
+All C code that interfaces phast with R goes in phast/src/lib/rphast/src.
+All other rphast code (R code and documentation) goes in phast/src/RPHAST.
+
+The RPHAST directory is the "head" of the RPHAST package, but the
+RPHAST/src directory is created automatically by the makePackage.sh script
+which is called by make (it will contain all .c files from phast/src/lib,
+all .h files from phast/include, and either a Makevars or Makefile).
+
+The RPHAST/src directory is deleted with "make clean"!
+
+For development purposes, set RPHAST = D in make-include.mk.  Then
+makePackage.sh will create a Makefile in RPHAST/src, which will behave like
+makefiles and only compile things that have changed, and will also use all 
+the options specified in make-include.mk.
+
+For package releases, set RPHAST = T, and instead a Makevars file will be
+created.  This is because official packages are supposed to use Makevars
+instead of Makefiles whenever possible, but it seems that Makevars always
+compiles everything, so it's a pain for development (at least as far as I
+can tell, after reading much documentation and also examining other
+packages).
+
+Before actual release, will need to check that the options we are using in
+Makevars are OK for R packages... in particular -pthread, and
+-fgnu89-inline (without which there are many warnings about inline
+functions being deprecated).  I also don't think the way we are linking to
+the clapack libraries is completely kosher.
+
+We also need to look into c-code optimization for R packages, and make sure
+to specify an optimization flag in Makevars which does not rely on gcc.

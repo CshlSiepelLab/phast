@@ -20,19 +20,19 @@
 #define NCHARS 256
 
 typedef enum {DISCRETE, CONTINUOUS} mm_type;
-typedef enum {REAL, COMPLEX} number_type;
+typedef enum {REAL_NUM, COMPLEX_NUM} number_type;
 
 typedef struct {
   Matrix *matrix;
 
   number_type eigentype;
 
-  /* these are used if eigen_type == COMPLEX (general case) */
+  /* these are used if eigen_type == COMPLEX_NUM (general case) */
   Zmatrix *evec_matrix_z;
   Zmatrix *evec_matrix_inv_z;
   Zvector *evals_z;
 
-  /* these are used if eigen_type == REAL (always true if reversible,
+  /* these are used if eigen_type == REAL_NUM (always true if reversible,
      results in significant savings in computation) */
   Matrix *evec_matrix_r;
   Matrix *evec_matrix_inv_r;

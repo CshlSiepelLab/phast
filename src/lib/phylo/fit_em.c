@@ -115,7 +115,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
   mod->category = cat;
 
   /* routines for derivative computation assume complex numbers */
-  mm_set_eigentype(mod->rate_matrix, COMPLEX);
+  mm_set_eigentype(mod->rate_matrix, COMPLEX_NUM);
 
   /* most params have lower bound of zero and no upper bound */
   lower_bounds = vec_new(optpar->size);

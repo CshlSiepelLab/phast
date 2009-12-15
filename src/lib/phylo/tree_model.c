@@ -81,7 +81,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
       mm_new(int_pow(strlen(alphabet), tm->order+1), alphabet, CONTINUOUS);
 
     if (tm_is_reversible(subst_mod))
-      mm_set_eigentype(tm->rate_matrix, REAL);
+      mm_set_eigentype(tm->rate_matrix, REAL_NUM);
     /* can assume real eigenvalues and eigenvectors in this case */
 
     /* set up probability matrices and rate variation stuff */
@@ -217,10 +217,10 @@ void tm_reinit(TreeModel *tm,   /**< TreeModel object to reinitialize  */
     for (j = old_nratecats; j < new_nratecats; j++) tm->P[i][j] = NULL;
   }
 
-  if (tm_is_reversible(new_subst_mod) && tm->rate_matrix->eigentype == COMPLEX)
-    mm_set_eigentype(tm->rate_matrix, REAL);
-  else if (!tm_is_reversible(new_subst_mod) && tm->rate_matrix->eigentype == REAL)
-    mm_set_eigentype(tm->rate_matrix, COMPLEX);    
+  if (tm_is_reversible(new_subst_mod) && tm->rate_matrix->eigentype == COMPLEX_NUM)
+    mm_set_eigentype(tm->rate_matrix, REAL_NUM);
+  else if (!tm_is_reversible(new_subst_mod) && tm->rate_matrix->eigentype == REAL_NUM)
+    mm_set_eigentype(tm->rate_matrix, COMPLEX_NUM);    
 }
 
 void tm_free(TreeModel *tm) {
