@@ -1,14 +1,9 @@
-phast.init <- function(){
-   dyn.load("/home/melissa/phast/lib/librphast.so")
-   return()
-}
-
 msa.free <- function(extMsaPtr) {
   print("msa.free")
   .Call("rph_msa_free", extMsaPtr)
 }
 
-msa.new <- function(nseqs=0, seqlen=0, names=NULL, seqs=NULL, alphabet=NULL) {
+msa <- msa.new <- function(nseqs=0, seqlen=0, names=NULL, seqs=NULL, alphabet=NULL) {
   msa <- list()
   class(msa) <- "msa"
   if (! is.null(seqs)) {
@@ -40,21 +35,24 @@ msa.new <- function(nseqs=0, seqlen=0, names=NULL, seqs=NULL, alphabet=NULL) {
 }
 
 msa.validFormat <- function(format) {
-  isValid <- .Call("rph_msa_valid_fmt", format);
-  isValid
+  result <- logical(length(format))
+  for (i in 1:length(format)) {
+    result[i] <- .Call("rph_msa_valid_fmt", format[i]);
+  }
+  result
 }
 
 
-print.msa <- function(msa, printSeq=FALSE, format="FASTA", prettyPrint=FALSE) {
+print.msa <- function(msa, ..., printSeq=FALSE, format="FASTA", prettyPrint=FALSE) {
   cat(paste("msa object with", msa$nseqs, "sequences and", msa$seqlen, "columns"))
   cat("\n")
   if (!is.null(msa$names)) {
     cat("$names\n")
-    print(msa$names)
+    print(msa$names, ...)
   }
   if (!is.null(msa$alphabet)) {
     cat("$alphabet")
-    print(msa$alphabet)
+    print(msa$alphabet, ...)
   }
   if (printSeq) {
     if (! msa.validFormat(format)) {
@@ -69,8 +67,8 @@ print.msa <- function(msa, printSeq=FALSE, format="FASTA", prettyPrint=FALSE) {
 }
 
 # same as print.msa but no option to print sequence
-summary.msa <- function(msa) {
-  print.msa(msa)
+summary.msa <- function(msa, ...) {
+  print.msa(msa, ...)
 }
 
 

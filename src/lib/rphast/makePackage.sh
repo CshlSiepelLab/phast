@@ -15,7 +15,10 @@ if [[ $RPHAST == "D" ]]; then
 echo -e \
 "include ../../../../make-include.mk
 OBJECTS = \$(addsuffix .o, \$(basename \$(wildcard *.c)))
-all: \$(OBJECTS)
+
+all: rphast.so
+
+rphast.so: \$(OBJECTS)
 \t\$(CC) -shared -o rphast.so \$(CFLAGS) \$(LIBPATH) \$(LFLAGS) -L/usr/lib64/R/lib -lR \$(OBJECTS) -I$CLAPACK/INCLUDE $CLAPACK/lapack${PLAT}.a $CLAPACK/blas${PLAT}.a $CLAPACK/F2CLIBS/libf2c.a
 
 .o: %.c %.h

@@ -26,7 +26,7 @@ msa.new(nseqs = 0, seqlen = 0, names = NULL, seqs = NULL, alphabet = NULL)
     containing the alignment.
 }
   \item{alphabet}{
-    a character string containing all valid characters that may appear
+    a character string containing all valid symbols that may appear
   in the alignment.
 }
 }
