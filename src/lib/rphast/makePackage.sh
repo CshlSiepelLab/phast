@@ -3,16 +3,13 @@ PHAST_VERSION=$1
 CLAPACK_INCLUDE=$2/INCLUDE
 RPHAST=$3
 
-# testing
-PHAST_VERSION=phastv1.0
-CLAPACK_INCLUDE=/usr/local/software/CLAPACK-3.1.1/INCLUDE
-
 mkdir -p RPHAST/src/include
 cp -ua `find ../ -name "*.c" | grep -v "RPHAST/src"` RPHAST/src
 cp -ua ../../../include/ RPHAST/src
 
 CSOURCES=`cd RPHAST/src; ls *.c`
 
+# if development, make Makefile instead of Makevars
 if [[ $RPHAST == "D" ]]; then
 echo -e 
 "include ../../../../make-include.mk

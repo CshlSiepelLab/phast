@@ -30,7 +30,8 @@ CFLAGS = -O3 -pthread
 #CFLAGS = -mcpu=opteron -O3
 #CFLAGS = -mcpu=pentiumpro -O3 
 
-CFLAGS += -I${INC} -DPHAST_VERSION=\"$(shell cat ${PHAST}/version)\" -DPHAST_HOME=\"${PHAST}\"
+PHAST_VERSION=\"$(shell cat ${PHAST}/version)\"
+CFLAGS += -I${INC} -DPHAST_VERSION=${PHAST_VERSION} -DPHAST_HOME=\"${PHAST}\"
 LIBPATH = -L${LIB} 
 
 # uncomment these lines for profiling (add -g for line-by-line
@@ -45,7 +46,7 @@ LIBPATH = -L${LIB}
 # access to PHAST from the R programming environment.  Requires an
 # up-to-date installation of R.
 # Set RPHAST = T to build official package, or RPHAST = D during development
-#RPHAST = D
+# RPHAST = D
 
 ifdef RPHAST
 RDIR=/usr/share/R/include
