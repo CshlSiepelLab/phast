@@ -11,7 +11,7 @@ CSOURCES=`cd RPHAST/src; ls *.c`
 
 # if development, make Makefile instead of Makevars
 if [[ $RPHAST == "D" ]]; then
-echo -e 
+echo -e \
 "include ../../../../make-include.mk
 OBJECTS = \$(addsuffix .o, \$(basename \$(wildcard *.c)))
 all: \$(OBJECTS)
