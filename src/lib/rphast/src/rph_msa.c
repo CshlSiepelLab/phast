@@ -109,13 +109,17 @@ SEXP rph_msa_valid_fmt(SEXP formatP) {
 
 //print sequence in given format.  If format not valid,
 //use FASTA, but give no warning.
-SEXP rph_msa_printSeq(SEXP msaP, SEXP formatP, SEXP prettyPrintP) {
+SEXP rph_msa_printSeq(SEXP msaP, SEXP filenameP, SEXP formatP, SEXP prettyPrintP) {
   MSA *msa;
   msa_format_type fmt;
   msa = (MSA*)EXTPTR_PTR(msaP);
   fmt = msa_str_to_format((char*)CHAR(STRING_ELT(formatP, 0)));
   if ((int)fmt == -1) 
     fmt = FASTA;
-  msa_print(stdout, msa, fmt, INTEGER_VALUE(prettyPrintP));
+  if (filenameP != R_NilValue)
+    msa_print_to_file((char*)CHAR(STRING_ELT(filenameP, 0)),
+		      msa, fmt, INTEGER_VALUE(prettyPrintP));
+  else msa_print(stdout, msa, fmt, INTEGER_VALUE(prettyPrintP));
   return R_NilValue;
 }
+

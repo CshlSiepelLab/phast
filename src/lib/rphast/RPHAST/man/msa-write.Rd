@@ -1,32 +1,31 @@
-\name{print.msa}
-\alias{print.msa}
+\name{msa.write}
+\alias{msa.write}
 \title{
-  Printing MSA objects.
+  Writing MSA objects to files
 }
 \description{
-  Prints an msa (multiple sequence alignment) object.
+  Writes a multiple sequence alignment (MSA) object to a file in one of
+  several format.
 }
 \usage{
-print.msa(msa, ..., printSeq = FALSE, format = "FASTA", prettyPrint = FALSE)
+msa.write(msa, filename = NULL, format = "FASTA", prettyPrint = FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{msa}{
-    An object of class 'msa'.
-  }
-  \item{\dots}{optional arguments to \code{print} methods.}
-  \item{printSeq}{
-    If TRUE, does not supress the alignment.
-  }
-  \item{format}{
-    If printSeq is TRUE, specifies the format to print the alignment.
-    See \code{\link{msa.validFormat}}.
-  }
+    MSA object.
+}
+\item{filename}{
+  File to write (will be overwritten).
+}
+\item{format}{
+  Format.  Should be valid MSA format.  See \code{msa.validFormat}.  MAF
+  format is not currently supported for output.
+}
   \item{prettyPrint}{
-    If printSeq is TRUE, prettyPrint=TRUE will cause '.' to be printed
-    whenever character matches corresponding character in first
-    sequence.  Ignored if format is SS.
-  }
+    Use pretty-printing (replacing characters which match the first
+    sequence to '.').  Ignored if format=="SS".
+}
 }
 \details{
 %%  ~~ If necessary, more details than the description above ~~
@@ -57,13 +56,10 @@ print.msa(msa, ..., printSeq = FALSE, format = "FASTA", prettyPrint = FALSE)
 
 m <- msa.new(names=c("human", "mouse", "rat"),
              seqs=c("ACGTAT", "AGGTAA", "AGGTAG"))
-m
-print(m, printSeq=TRUE)
-print(m, printSeq=TRUE, format="SS")
-print(m, printSeq=TRUE, format="PHYLIP", prettyPrint=TRUE)
-
-  }
+msa.write(m, "testSeq.ss", format="SS")
+msa.write(m, "testSeq.fa", format="FASTA", prettyPrint=TRUE)
+}
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
-\keyword{print}
+\keyword{write}
 \keyword{msa}% __ONLY ONE__ keyword per line

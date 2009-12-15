@@ -60,6 +60,7 @@ print.msa <- function(msa, ..., printSeq=FALSE, format="FASTA", prettyPrint=FALS
     } else {
       x<-.Call("rph_msa_printSeq",
                msaP=msa$externalPtr,
+               filenameP=NULL,
                formatP=format,
                prettyPrintP=(prettyPrint==TRUE))
     }
@@ -71,23 +72,20 @@ summary.msa <- function(msa, ...) {
   print.msa(msa, ...)
 }
 
-
-########################################
-#testing code
-msa.testing <- function() {
-seqs <- c("ACGT", "ACGT", "ACCC")
-names <- c("human", "chimp", "rat")
-nseqs <- 3
-length <- 4
-alphabet <- "ACGT"
-
-dyn.load("/home/melissa/phast/lib/librphast.so")
-m <- msa.new(3, 4, names, seqs, NULL)
-rm(m)
-gc()
-
-m <- msa.new(3, 4, names, seqs, NULL)
-print(m)
-print(m, printSeq=TRUE)
-print(m, printSeq=TRUE, format="PHYLIP")
+msa.write <- function(msa, filename=NULL, format="FASTA", prettyPrint=FALSE) {
+  if (! msa.validFormat(format)) {
+    stop(paste("invalid MSA format \"", format, "\"", sep=""))
+  }
+  x <- .Call("rph_msa_printSeq",
+             msaP=msa$externalPtr,
+             filenameP=filename,
+             formatP=format,
+             prettyPrintP=(prettyPrint==TRUE))
 }
+
+
+msa.read <- function(filename, format=FASTA, gff=NULL, do4d=FALSE) {
+  
+}
+
+
