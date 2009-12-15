@@ -45,7 +45,7 @@ LIBPATH = -L${LIB}
 # access to PHAST from the R programming environment.  Requires an
 # up-to-date installation of R.
 # Set RPHAST = T to build official package, or RPHAST = D during development
-RPHAST = D
+#RPHAST = D
 
 ifdef RPHAST
 RDIR=/usr/share/R/include
