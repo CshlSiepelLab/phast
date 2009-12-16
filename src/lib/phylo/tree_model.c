@@ -2952,11 +2952,16 @@ void tm_reset_tree(TreeModel *mod,   /** TreeModel */
     free(mod->P[i]);
   }
 
-  tm_free_rmp(mod);             /* necessary because parameter indices
-                                   can change */
-  tr_free(mod->tree);
-  mod->tree = newtree;
-  tm_init_rmp(mod);
+  if (mod->rate_matrix_param_row != NULL) {
+    tm_free_rmp(mod);             /* necessary because parameter indices
+				     can change */
+    tr_free(mod->tree);
+    mod->tree = newtree;
+    tm_init_rmp(mod);
+  } else {
+    tr_free(mod->tree);
+    mod->tree = newtree;
+  }
 
   /* realloc P matrices */
   mod->P = srealloc(mod->P, mod->tree->nnodes * sizeof(void**));
