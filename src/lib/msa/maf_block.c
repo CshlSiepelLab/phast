@@ -358,6 +358,7 @@ void mafBlock_remove_gap_cols(MafBlock *block) {
       else gapCount++;
     }
     if (gapCount == block->seqlen) {
+      //in this case, convert to e-line
       for (k=1; k<sub->numLine; k++) {
 	if (sub->lineType[k] == 'q') {
 	  str_free(sub->quality);
@@ -453,6 +454,7 @@ void mafBlock_print(FILE *outfile, MafBlock *block, int pretty_print) {
   //reduced the block to all gaps, don't print
   if (lst_size(block->data) == 0 ||
       mafBlock_all_gaps(block)) return;
+  mafBlock_remove_gap_cols(block);
   mafBlock_get_fieldSizes(block, fieldSize);
 
   fprintf(outfile, "%s\n", block->aLine->chars);
