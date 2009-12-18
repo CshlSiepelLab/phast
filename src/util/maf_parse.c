@@ -147,6 +147,27 @@ OPTIONS:\n\
         Print this help message.\n\n");
 }
 
+
+
+/*
+  open a file with name out_root.name.maf, or returns it if already open.
+  This is a bit messy because in some cases (splitting by feature) there may
+  be more output files than the OS can handle.  But it would be computationally
+  expensive to check and see which files are finished, assuming that the MAF is
+  sorted.  
+
+  So, if it tries to open a file and fails, it the goes through the list of
+  filehandles, finds an open one, closes it, and tries to open the new one 
+  again.  Repeat until successful.
+
+  Then, if a filehandle needs to be re-opened, it is opened with append.  Again,
+  if this is not successful, it looks for another file to close.  If it can't
+  find one the program reports an error and dies.
+
+  Finally, close_outfiles below checks and makes sure that all files
+  are closed with mafBlock_close_file in the end, so that they get the #eof
+  closer.
+ */
 FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char *out_root,
 		  int argc, char *argv[]) {
   int idx, i;
@@ -194,6 +215,8 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
 }
 
 
+/* Closes all outfiles.  If already closed, reopen with append, add #eof 
+   closer, and close again.  see comment above at get_outfile */
 void close_outfiles(List *outfileList, Hashtable *outfileHash) {
   List *keys = hsh_keys(outfileHash);
   int *done, idx, i;
