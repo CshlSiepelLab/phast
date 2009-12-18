@@ -635,8 +635,9 @@ FILE *mafBlock_open_outfile(char *fn, int argc, char *argv[]) {
   FILE *outfile;
   int i;
   if (fn != NULL) 
-    outfile = fopen_fname(fn, "w");
+    outfile = fopen(fn, "w");
   else outfile = stdout;
+  if (outfile == NULL) return NULL;
   fprintf(outfile, "##maf version=1\n#");
   for (i=0; i<argc; i++) 
     fprintf(outfile, " %s", argv[i]);

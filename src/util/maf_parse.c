@@ -149,27 +149,75 @@ OPTIONS:\n\
 
 FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char *out_root,
 		  int argc, char *argv[]) {
-  int idx;
+  int idx, i;
   FILE *outfile;
   char *fname = malloc((strlen(out_root)+name->length+2)*sizeof(char));
-  sprintf(fname, "%s.%s", out_root, name->chars);
+  sprintf(fname, "%s.%s.maf", out_root, name->chars);
   idx = ptr_to_int(hsh_get(outfileHash, fname));
   if (idx == -1) {
     hsh_put(outfileHash, fname, int_to_ptr(lst_size(outfileList)));
     outfile = mafBlock_open_outfile(fname, argc, argv);
+    while (outfile==NULL) {  //too many files are open, close one first
+      for (i=0; i<lst_size(outfileList); i++) {
+	outfile = (FILE*)lst_get_ptr(outfileList, i);
+	if (outfile != NULL) break;
+      }
+      if (i == lst_size(outfileList)) {
+	die("ERROR: too many files open in maf_parse\n");
+      } else {
+	fclose(outfile);
+	lst_set_ptr(outfileList, i, NULL);
+      }
+      outfile = mafBlock_open_outfile(fname, argc, argv);
+    }
     lst_push_ptr(outfileList, (void*)outfile);
     return outfile;
   }
-  return (FILE*)lst_get_ptr(outfileList, idx);
+  outfile = (FILE*)lst_get_ptr(outfileList, idx);
+  if (outfile == NULL) { //has already been opened but then closed.
+    outfile = fopen(fname, "a");
+    while (outfile == NULL) {
+      for (i=0; i<lst_size(outfileList); i++) {
+	outfile = (FILE*)lst_get_ptr(outfileList, i);
+	if (outfile != NULL) break;
+      }
+      if (i == lst_size(outfileList)) {
+	die("ERROR: too many files open in maf_parse\n");
+      } else {
+	fclose(outfile);
+	lst_set_ptr(outfileList, i, NULL);
+      }
+      outfile = fopen(fname, "a");
+    }
+  }
+  return outfile;
 }
 
+
 void close_outfiles(List *outfileList, Hashtable *outfileHash) {
-  int i;
-  FILE *f;
-  for (i=0; i<lst_size(outfileList); i++) {
-    f = (FILE*)lst_get_ptr(outfileList, i);
-    mafBlock_close_outfile(f);
+  List *keys = hsh_keys(outfileHash);
+  int *done, idx, i;
+  char *fname;
+  FILE *outfile;
+  done = malloc(lst_size(keys)*sizeof(int));
+  for (i=0; i<lst_size(keys); i++) {
+    done[i]=0;
+    fname = (char*)lst_get_ptr(keys, i);
+    idx = hsh_get_int(outfileHash, fname);
+    outfile = (FILE*)lst_get_ptr(outfileList, idx);
+    if (outfile != NULL) {
+      mafBlock_close_outfile(outfile);
+      done[i]=1;
+    }
   }
+  for (i=0; i<lst_size(keys); i++) {
+    if (done[i]) continue;
+    fname = (char*)lst_get_ptr(keys, i);
+    outfile = fopen_fname(fname, "a");
+    mafBlock_close_outfile(outfile);
+  }
+  free(done);
+  lst_free(keys);
   lst_free(outfileList);
   hsh_free(outfileHash);
 }
