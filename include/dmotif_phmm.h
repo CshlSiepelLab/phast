@@ -193,7 +193,7 @@ void dms_lookup_emissions(DMotifPhyloHmm *dm, double **tuple_scores,
 			  int seqlen, IndelHistory *ih);
 void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans, 
 			   int seqlen, int *ref_path, int force_priors,
-			   int xi_mode);
+			   int xi_mode, int thread_idx);
 void dms_count_motifs(DMotifPhyloHmm *dm, int *path, int seqlen,
 		      Hashtable *path_counts, int seqnum);
 void dms_path_log(DMotifPhyloHmm *dm, int *path, int seqlen, char *seqname,
