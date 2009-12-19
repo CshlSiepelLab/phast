@@ -1257,7 +1257,7 @@ List* dms_sample_paths(DMotifPhyloHmm *dm, PooledMSA *blocks,
       } else {
 	dms_count_transitions(dm, path, trans, blocks->lens[j],
 			      ref_paths == NULL ? NULL : ref_paths[j],
-			      force_priors, xi_mode);
+			      force_priors, xi_mode, 0);
 	if (i >= bsamples) /* Past burn-in -- sample motifs */
 	  dms_count_motifs(dm, path, blocks->lens[j], path_counts, j);
 	if (log != NULL && reference != NULL) /* Prepare GFF for this sequence
@@ -1647,6 +1647,7 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 		     ThreadPool *pool, int sample, List *zeroed_states,
 		     int xi_mode) {
 
+  /* /\* int i; *\/ */
   int *path, thread_idx, **trans;
   double **emissions, **forward_scores, *llh;
   MSA *msa;
@@ -1663,6 +1664,8 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
   if (thread_idx == -1)
     die("ERROR: Attempt to access out-of-bounds thread in dms_sample_path!\n");
 
+/*   fprintf(stderr, "Thread %d reporting. seqname: %s\n", thread_idx, seqname); */
+
   trans = thread_trans[thread_idx];
   llh = &(thread_llh[thread_idx]);
   path_counts = thread_counts[thread_idx];
@@ -1673,7 +1676,7 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
     query_gff = thread_gff[thread_idx];
   else
     query_gff = NULL;
- 
+  
   dms_lookup_emissions(dm, tuple_scores, emissions, blocks, seqnum,
 		       msa->length, ih);
   if (zeroed_states != NULL)
@@ -1692,8 +1695,10 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 /*   dms_dump_matrices(stderr, emissions, forward_scores, path, msa->length, */
 /* 		    dm->phmm->hmm->nstates); */
 
+/*   fprintf(stderr, "dms_sample_path thread %d: trans %p\n", thread_idx, trans); */
+
   dms_count_transitions(dm, path, trans, msa->length,
-			NULL, FALSE, xi_mode);
+			NULL, FALSE, xi_mode, thread_idx);
   
   if (do_sample == 1) { /* Past burn-in -- sample motifs */
     dms_count_motifs(dm, path, msa->length, path_counts, seqnum);
@@ -1705,7 +1710,7 @@ void dms_sample_path(DMotifPhyloHmm *dm, PooledMSA *blocks, IndelHistory *ih,
 /*     dms_dump_sample_data(sample, thread_idx, seqname, msa->length, path, trans, */
 /* 			 path_counts, stderr, 2*dm->k+2); */
   }
-  int i;
+/*   int i; */
 /*   fprintf(stderr, "path for sequence %d:\n", seqnum); */
 /*   for (i = 0; i < msa->length; i++) */
 /*     fprintf(stderr, "%d ", path[i]); */
@@ -2444,14 +2449,23 @@ void dms_lookup_emissions(DMotifPhyloHmm *dm, double **tuple_scores,
 /* Count transitions between states for parameter draws */
 void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans,
 			   int seqlen, int *ref_path, int force_priors,
-			   int xi_mode) {
+			   int xi_mode, int thread_idx) {
   int i, s1, s2, p1, p2, e1, e2/*, *tmp_path */;
   int total_trans, mu_trans, nu_trans, phi_trans, zeta_trans, xi_trans, 
-    c_bg_trans, n_bg_trans, n_mtf_trans, c_mtf_trans, other_trans, mtf_starts;
+    c_bg_trans, n_bg_trans, n_mtf_trans, c_mtf_trans, other_trans, mtf_starts,
+    mu_trans_total, nu_trans_total, phi_trans_total, zeta_trans_total,
+    xi_trans_total, nu_alpha_trans;
 
   total_trans = mu_trans = nu_trans = phi_trans = zeta_trans = xi_trans = 
     c_bg_trans = n_bg_trans = c_mtf_trans = n_mtf_trans = other_trans =
-    mtf_starts = 0;
+    mtf_starts = nu_alpha_trans = 0;
+
+  mu_trans_total = trans[0][0] + trans[0][1];
+  nu_trans_total = trans[1][0] + trans[1][1];
+  phi_trans_total = trans[2][0] + trans[2][1];
+  zeta_trans_total = trans[3][0] + trans[3][1];
+  if (xi_mode == TRUE)
+    xi_trans_total = trans[4][0] + trans[4][1];
 
   /* If using reference set as priors, build a composite path containing
      all known and predicted features and use this as the path */
@@ -2516,15 +2530,16 @@ void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans,
     /* Transitions that affect nu -- all of these are from NB state */
     if (e1 == NEUT && p1 == -1) {
       nu_trans++;
-      if (e2 != NEUT)
+      if (e2 != NEUT) {
 	trans[1][0]++;
-      else
+	nu_alpha_trans++;
+      } else
 	trans[1][1]++;
     }
       
     /* Transitions that affect phi -- all are from NB. Must pay attention to
        whether destination state is conserved or not. */
-    if (e1 == NEUT && e2 != NEUT) {
+    if (e1 == NEUT && e2 != NEUT && p1 == -1) {
       phi_trans++;
       if (e2 != CONS)
 	trans[2][0]++;
@@ -2538,41 +2553,43 @@ void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans,
        conserved/gain/loss motif. */
 
     if (p1 == -1) {
-      if (e1 == NEUT) {
+      if (e1 == NEUT && e2 == NEUT)
 	xi_trans++;
+      else if (e1 == NEUT && e2 != NEUT) {
 	zeta_trans++;
-      } else
+	xi_trans++;
+      } else if (e1 != NEUT)
 	zeta_trans++;
 
       if (p2 == 0) { /* Started a motif -- add an alpha count */
 	mtf_starts++;
 
 	if (xi_mode == TRUE) {
-
+	  
 	  if (e1 == NEUT && e2 == NEUT) {
 	    trans[4][0]++;
-	    trans[3][1]++;
+	    /* 	    trans[3][1]++; */
 	  } else if (e1 == NEUT && e2 != NEUT) {
 	    trans[3][0]++;
 	    trans[4][1]++;
 	  } else
 	    trans[3][0]++;
-
+	  
 	} else {
-	   trans[3][0]++;
+	  trans[3][0]++;
 	}
-
+	
       } else { /* Stayed in background -- add a beta count */
 	
-	
 	if (xi_mode == TRUE) {
-
+	  
 	  if (e1 == NEUT) {
-	    trans[3][1]++;
+	    if (e2 != NEUT)
+	      trans[3][1]++;
 	    trans[4][1]++;
 	  } else
 	    trans[3][1]++;
-
+	  
 	} else {
 	  trans[3][1]++;
 	}
@@ -2582,28 +2599,37 @@ void dms_count_transitions(DMotifPhyloHmm *dm, int *path, int **trans,
     s1 = s2;
   }
 
-/*   fprintf(stderr, "total_trans %d, n_bg_trans %d, c_bg_trans %d, c_mtf_trans %d, n_mtf_trans %d, other_trans %d\n", */
-/* 	  total_trans, n_bg_trans, c_bg_trans, c_mtf_trans, n_mtf_trans, */
+/*   fprintf(stderr, "thread %d: seqlen %d, trans %p\n", thread_idx, seqlen, trans); */
+/*   fprintf(stderr, "thread %d: total_trans %d, n_bg_trans %d, c_bg_trans %d, c_mtf_trans %d, n_mtf_trans %d, other_trans %d\n", */
+/* 	  thread_idx, total_trans, n_bg_trans, c_bg_trans, c_mtf_trans, n_mtf_trans, */
 /* 	  other_trans); */
-/*   fprintf(stderr, "mu_trans %d, nu_trans %d, phi_trans %d, zeta_trans %d, xi_trans %d\n", */
-/* 	  mu_trans, nu_trans, phi_trans, zeta_trans, xi_trans); */
-/*   fprintf(stderr, "mtf_starts %d\n", mtf_starts); */
+/*   fprintf(stderr, "thread %d: mu_trans %d, nu_trans %d, phi_trans %d, zeta_trans %d, xi_trans %d\n", */
+/* 	  thread_idx, mu_trans, nu_trans, phi_trans, zeta_trans, xi_trans); */
+/*   fprintf(stderr, "thread %d: mtf_starts %d\n", thread_idx, mtf_starts); */
 
 /*   for (i = 0; i < 5; i++) */
-/*     fprintf(stderr, "row %d: %d, %d, %d\n", i, trans[i][0], trans[i][1], */
+/*     fprintf(stderr, "thread %d: row %d: %d, %d, %d\n", thread_idx, i, trans[i][0], trans[i][1], */
 /* 	    trans[i][0] + trans[i][1]); */
 
   assert(n_bg_trans + c_bg_trans + n_mtf_trans + c_mtf_trans + other_trans 
 	 == total_trans);
   assert(xi_trans ==  nu_trans);
-  assert(zeta_trans == n_bg_trans + c_bg_trans);
+  assert(phi_trans == nu_alpha_trans);
   assert(mu_trans == c_mtf_trans + c_bg_trans);
-  assert(trans[0][0] + trans[0][1] == mu_trans);
-  assert(trans[1][0] + trans[1][1] == nu_trans);
-  assert(trans[2][0] + trans[2][1] == phi_trans);
-  assert(trans[3][0] + trans[3][1] == zeta_trans);
+
+  mu_trans_total += mu_trans;
+  nu_trans_total += nu_trans;
+  phi_trans_total += phi_trans;
+  zeta_trans_total += zeta_trans;
   if (xi_mode == TRUE)
-    assert(trans[4][0] + trans[4][1] == xi_trans);
+    xi_trans_total += xi_trans;
+
+  assert(trans[0][0] + trans[0][1] == mu_trans_total);
+  assert(trans[1][0] + trans[1][1] == nu_trans_total);
+  assert(trans[2][0] + trans[2][1] == phi_trans_total);
+  assert(trans[3][0] + trans[3][1] == zeta_trans_total);
+  if (xi_mode == TRUE)
+    assert(trans[4][0] + trans[4][1] == xi_trans_total);
 }
 
 

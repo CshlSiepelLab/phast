@@ -89,7 +89,8 @@ int main(int argc, char *argv[]) {
     *bname = NULL;
   subst_mod_type mmod_type = tm_get_subst_mod_type(DEFAULT_MMOD_TYPE);
   dmevent_t event;
-  
+  tmpl = NULL;
+
   while ((c = getopt_long(argc, argv,
 			  "R:t:p:z:Z:F:E:C:r:M:o:N:P:I:L:l:k:S:B:b:e:n:j:s:h", 
 			  long_opts, &opt_idx)) != -1) {
@@ -232,7 +233,9 @@ int main(int argc, char *argv[]) {
 
   if (gamma != -1)
     nu = gamma/(1-gamma) * mu;
-  lst_free(tmpl);
+
+  if (tmpl != NULL)
+    lst_free(tmpl);
 
   fprintf(stderr, "Reading tree model from %s...\n", argv[optind]);
   source_mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
@@ -394,8 +397,8 @@ int main(int argc, char *argv[]) {
       if (keep_ancestral == FALSE) {
 	fprintf(stderr, "\tPruning away ancestral sequences...\n");
 	msa = msa_sub_alignment(indel_msa, leaf_seqs, TRUE, 0, len);
-	fprintf(stderr, "msa->length %d, ih->length %d, indel_msa->length %d\n",
-		msa->length, ih->ncols, indel_msa->length);
+/* 	fprintf(stderr, "msa->length %d, ih->length %d, indel_msa->length %d\n", */
+/* 		msa->length, ih->ncols, indel_msa->length); */
 	msa_free(indel_msa);
       } else {
 	msa = indel_msa;
