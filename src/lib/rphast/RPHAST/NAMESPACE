@@ -1,4 +1,0 @@
-useDynLib(rphast)
-exportPattern("^[^\\.]")
-S3method(print, msa)
-S3method(summary, msa)

@@ -1,9 +1,0 @@
-Package: rphast
-Version: 0.1-1
-Date: 2009-12-14
-Title: RPHAST
-Author: Melissa Hubisz <mt269@cornell.edu>, with Adam Siepel <acs4@cornell.edu>
-Maintainer: Melissa Hubisz <mt269@cornell.edu>
-Description: R interface to PHAST
-License: GPL (>= 2)
-URL: http://compgen.bscb.cornell.edu/phast
