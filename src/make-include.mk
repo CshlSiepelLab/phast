@@ -42,12 +42,10 @@ LIBPATH = -L${LIB}
 # Don't uncomment unless you know what you're doing.
 #CFLAGS += -DDEBUG
 
-# uncomment this line to build the RPHAST shared library, which allows
-# access to PHAST from the R programming environment.  Requires an
-# up-to-date installation of R.
-# Set RPHAST = T to build official package, or RPHAST = D during development
-# RPHAST = D
-
+# the following line should be uncommented when installing RPHAST, 
+# and also during phast development to make sure C code still compiles.
+# Not necessary for compiling phast executables.
+#RPHAST = T
 ifdef RPHAST
 RDIR=/usr/share/R/include
 CFLAGS += -fPIC -I${RDIR}
