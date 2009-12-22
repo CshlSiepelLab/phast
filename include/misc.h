@@ -152,7 +152,7 @@ int tuple_index(char *tuple, int *inv_alph, int alph_size);
 void get_tuple_str(char *tuple_str, int tuple_idx, int tuple_size, 
                    char *alphabet);
 Matrix* read_subst_mat(FILE *F, char *alph);
-FILE* fopen_fname(char *fname, char *mode);
+FILE* fopen_fname(const char *fname, char *mode);
 void die(char *warnfmt, ...);
 List *get_arg_list(char *arg);
 List *remaining_arg_list(char *argv[], int argc, int optind);

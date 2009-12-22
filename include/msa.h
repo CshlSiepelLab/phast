@@ -111,7 +111,7 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet);
 MSA *msa_create_copy(MSA *msa, int suff_stats_only);
 MSA *msa_read_fasta(FILE *F, char *alphabet);
 void msa_print(FILE *F, MSA *msa, msa_format_type format, int pretty_print);
-void msa_print_to_file(char *filename, MSA *msa, msa_format_type format, 
+void msa_print_to_file(const char *filename, MSA *msa, msa_format_type format, 
 		       int pretty_print);
 void msa_free_categories(MSA *msa);
 void msa_free(MSA *msa);
@@ -180,7 +180,7 @@ void msa_indel_clean(MSA *msa, int indel_border, int min_nbases,
 void msa_permute(MSA *msa);
 void msa_reorder_rows(MSA *msa, List *target_order);
 char msa_get_char(MSA *msa, int seq, int pos);
-msa_format_type msa_str_to_format(char *str);
+msa_format_type msa_str_to_format(const char *str);
 msa_format_type msa_format_for_suffix(char *fname);
 char *msa_suffix_for_format(msa_format_type t);
 void msa_remove_N_from_alph(MSA *msa);

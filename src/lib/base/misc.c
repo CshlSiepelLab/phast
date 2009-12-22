@@ -252,7 +252,7 @@ Matrix* read_subst_mat(FILE *F, char *alph) {
 /* simple wrapper for fopen that opens specified filename or aborts
    with appropriate error message.  Saves typing in mains for
    command-line programs */
-FILE* fopen_fname(char *fname, char *mode) {
+FILE* fopen_fname(const char *fname, char *mode) {
   FILE *F = NULL;
   if (!strcmp(fname, "-")) {
     if (strcmp(mode, "r") == 0)
