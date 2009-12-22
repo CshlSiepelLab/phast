@@ -58,8 +58,8 @@ SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphab
   if (alphabetP != R_NilValue) {
     PROTECT(alphabetP = AS_CHARACTER(alphabetP));
     numProtect++;
-    alphabet = malloc((strlen(CHAR(STRING_ELT(alphabetP, 0)))+1)*sizeof(char));
-    strcpy(alphabet, CHAR(STRING_ELT(alphabetP, 0)));
+    alphabet = malloc((strlen(CHARACTER_VALUE(alphabetP))+1)*sizeof(char));
+    strcpy(alphabet, CHARACTER_VALUE(alphabetP));
   }
 
   printf("nseqs=%i length=%i\n", nseqs, length);
@@ -100,7 +100,7 @@ SEXP rph_msa_valid_fmt(SEXP formatP) {
   int *resultP;
   PROTECT( result = allocVector(LGLSXP, 1));
   resultP = LOGICAL_POINTER(result);
-  fmt = msa_str_to_format((char*)CHAR(STRING_ELT(formatP, 0)));
+  fmt = msa_str_to_format(CHARACTER_VALUE(formatP));
   resultP[0] = (fmt != -1);
   UNPROTECT(1);
   return result;
@@ -113,13 +113,50 @@ SEXP rph_msa_printSeq(SEXP msaP, SEXP filenameP, SEXP formatP, SEXP prettyPrintP
   MSA *msa;
   msa_format_type fmt;
   msa = (MSA*)EXTPTR_PTR(msaP);
-  fmt = msa_str_to_format((char*)CHAR(STRING_ELT(formatP, 0)));
+  fmt = msa_str_to_format(CHARACTER_VALUE(formatP));
   if ((int)fmt == -1) 
     fmt = FASTA;
   if (filenameP != R_NilValue)
-    msa_print_to_file((char*)CHAR(STRING_ELT(filenameP, 0)),
+    msa_print_to_file(CHARACTER_VALUE(filenameP), 
 		      msa, fmt, INTEGER_VALUE(prettyPrintP));
   else msa_print(stdout, msa, fmt, INTEGER_VALUE(prettyPrintP));
   return R_NilValue;
 }
 
+SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP, SEXP do4dP,
+		  SEXP alphabetP, SEXP tupleSizeP, SEXP refseqP) {
+  int do4d, tupleSize=1;
+  GFF_Set *gff=NULL;
+  msa_format_type fmt;
+  MSA *msa;
+  FILE *infile;
+  char *alphabet = NULL, *refseq=NULL;
+
+  do4d = INTEGER_VALUE(do4dP);
+  if (gffP != R_NilValue) 
+    gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  fmt = msa_str_to_format(CHARACTER_VALUE(formatP));
+  if ((int)fmt == -1) 
+    fmt = FASTA;
+  if (alphabetP != R_NilValue) {
+    alphabet = malloc((strlen(CHARACTER_VALUE(alphabetP))+1)*sizeof(char));
+    strcpy(alphabet, CHARACTER_VALUE(alphabetP));
+  }
+  if (refseqP != R_NilValue) {
+    refseq = malloc((strlen(CHARACTER_VALUE(refseqP))+1)*sizeof(char));
+    strcpy(refseq, CHARACTER_VALUE(refseqP));
+  }
+  if (tupleSizeP != R_NilValue)
+    tupleSize = INTEGER_VALUE(tupleSizeP);
+  infile = fopen_fname(CHARACTER_VALUE(filenameP), "r");
+  /*  if (fmt == MAF) {
+    msa = maf_read(infile, refseq, tupleSize, alphabet, gff, NULL, 
+		   } else {
+    msa = msa_new_from_file(infile, fmt, alphabet);
+    }*/
+  if (alphabet != NULL)
+    free(alphabet);
+  if (refseq != NULL)
+    free(refseq);
+  return R_MakeExternalPtr((void*)msa, R_NilValue, R_NilValue);
+}
