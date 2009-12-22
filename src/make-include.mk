@@ -42,13 +42,17 @@ LIBPATH = -L${LIB}
 # Don't uncomment unless you know what you're doing.
 #CFLAGS += -DDEBUG
 
-# the following line should be uncommented when installing RPHAST, 
-# and also during phast development to make sure C code still compiles.
-# Not necessary for compiling phast executables.
+# ignore the section below if installing RPHAST
+ifndef RPHAST
+
+# the following line should be uncommented during phast development
+# to make sure RPHAST C files stay up-to-date.
+# Not necessary for installing phast or RPHAST.
 #RPHAST = T
 ifdef RPHAST
 RDIR=/usr/share/R/include
 CFLAGS += -fPIC -I${RDIR}
+endif
 endif
 
 # The next section is concerned with the LAPACK linear algebra
