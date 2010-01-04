@@ -153,7 +153,11 @@ void get_tuple_str(char *tuple_str, int tuple_idx, int tuple_size,
                    char *alphabet);
 Matrix* read_subst_mat(FILE *F, char *alph);
 FILE* fopen_fname(const char *fname, char *mode);
+#ifdef RPHAST
+#define die Rf_error
+#else
 void die(char *warnfmt, ...);
+#endif
 List *get_arg_list(char *arg);
 List *remaining_arg_list(char *argv[], int argc, int optind);
 List *get_arg_list_int(char *arg);
