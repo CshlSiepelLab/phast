@@ -453,6 +453,34 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
   return retval;
 }
 
+
+char *ss_get_one_seq(MSA *msa, int spec) {
+  char *seq, c;
+  int i, j, col;
+  
+  seq = (char*)smalloc((msa->length+1)*sizeof(char));
+  seq[msa->length] = '\0';
+  if (msa->ss->tuple_idx == NULL) { /*unordered sufficient stats */
+    col = 0;
+    for (i=0; i<msa->ss->ntuples; i++) {
+      c = col_string_to_char(msa, msa->ss->col_tuples[i], spec,
+			     msa->ss->tuple_size, 0);
+      for (j=0; j<msa->ss->counts[i]; j++)
+	seq[col++] = c;
+    }
+  } else { /* ordered sufficient stats */
+    for (col = 0; col < msa->length; col++) {
+      seq[col] = col_string_to_char(msa, 
+				    msa->ss->col_tuples[msa->ss->tuple_idx[col]], 
+				    spec, msa->ss->tuple_size, 0);
+    }
+  }
+  return seq;
+}
+				   
+    
+  
+
 /* Reconstruct sequences from suff stats.  Only uses right-most col in
    tuple; requires length and nseqs to be correct, seqs to be NULL,
    categories to be NULL; does not set category labels (impossible
@@ -460,39 +488,14 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
 /* FIXME: this will be wrong if suff stats only describe certain
    categories and a higher-order model is used */
 void ss_to_msa(MSA *msa) {
-  int i, j, k, col;
-  char *colstr;
+  int i;
 
   assert(msa->seqs == NULL && msa->categories == NULL);
   msa->seqs = (char**)smalloc(msa->nseqs*sizeof(char*));
-  for (i = 0; i < msa->nseqs; i++) {
-    msa->seqs[i] = (char*)smalloc((msa->length+1) * sizeof(char));
-    msa->seqs[i][msa->length] = '\0';
-  }  
-
-  if (msa->ss->tuple_idx == NULL) { /* unordered sufficient stats */
-    col = 0;
-    for (i = 0; i < msa->ss->ntuples; i++) {
-      colstr = msa->ss->col_tuples[i];
-      for (j = 0; j < msa->ss->counts[i]; j++) {
-        for (k = 0; k < msa->nseqs; k++) {
-          msa->seqs[k][col] = col_string_to_char(msa, colstr, k, 
-                                                 msa->ss->tuple_size, 0);
-        }
-        col++;
-      }
-    }
-  }
-  else {                        /* ordered sufficient stats */
-    for (col = 0; col < msa->length; col++) {
-      colstr = msa->ss->col_tuples[msa->ss->tuple_idx[col]];
-      for (k = 0; k < msa->nseqs; k++) {
-        msa->seqs[k][col] = col_string_to_char(msa, colstr, k, 
-                                               msa->ss->tuple_size, 0);
-      }
-    }
-  }
+  for (i = 0; i < msa->nseqs; i++) 
+    msa->seqs[i] = ss_get_one_seq(msa, i);
 }
+
 
 /* NOTE: assumes one file per species ... is this reasonable? */
 /* this function should eventually be moved to msa.c */
