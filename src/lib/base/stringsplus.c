@@ -32,7 +32,7 @@ String *str_new(int starting_nchars) {
   return s;
 }
 
-String *str_new_charstr(char *str) {
+String *str_new_charstr(const char *str) {
   String *s = str_new(strlen(str));
   str_cpy_charstr(s, str);
   return s;
@@ -71,7 +71,7 @@ void str_append(String *s, String *suffix) {
 }
 
 /* stops at null terminator if occurs before len */
-void str_nappend_charstr(String *s, char *charstr, int len) {
+void str_nappend_charstr(String *s, const char *charstr, int len) {
   int i;
   if (s->length + len + 1 >= s->nchars)
     str_realloc(s, max(s->length + len, s->nchars * 2));
@@ -87,7 +87,7 @@ void str_nappend_charstr(String *s, char *charstr, int len) {
 }
 
 /* uses NULL terminator of charstr */
-void str_append_charstr(String *s, char *charstr) {
+void str_append_charstr(String *s, const char *charstr) {
   str_nappend_charstr(s, charstr, strlen(charstr));
 }
 
@@ -120,12 +120,12 @@ void str_cpy(String *dest, String *src) {
   str_append(dest, src);
 }
 
-void str_cpy_charstr(String *dest, char *src) {
+void str_cpy_charstr(String *dest, const char *src) {
   str_clear(dest);
   str_append_charstr(dest, src);
 }
 
-void str_ncpy_charstr(String *dest, char *src, int len) {
+void str_ncpy_charstr(String *dest, const char *src, int len) {
   str_clear(dest);
   str_nappend_charstr(dest, src, len);
 }
@@ -190,7 +190,7 @@ int str_equals(String *s1, String *s2) {
   return (str_compare(s1, s2) == 0);
 }
 
-int str_equals_charstr(String *s1, char *s2) {
+int str_equals_charstr(String *s1, const char *s2) {
   return (str_compare_charstr(s1, s2) == 0);
 }
 
@@ -198,7 +198,7 @@ int str_equals_nocase(String *s1, String *s2) {
   return (str_compare_nocase(s1, s2) == 0);
 }
 
-int str_equals_nocase_charstr(String *s1, char *s2) {
+int str_equals_nocase_charstr(String *s1, const char *s2) {
   return (str_compare_nocase_charstr(s1, s2) == 0);
 }
 
@@ -206,7 +206,7 @@ int str_compare(String *s1, String *s2) {
   return strcmp(s1->chars, s2->chars);
 }
 
-int str_compare_charstr(String *s1, char *s2) {
+int str_compare_charstr(String *s1, const char *s2) {
   return strcmp(s1->chars, s2);
 }
 
@@ -214,7 +214,7 @@ int str_compare_nocase(String *s1, String *s2) {
   return strcasecmp(s1->chars, s2->chars);
 }
 
-int str_compare_nocase_charstr(String *s1, char *s2) {
+int str_compare_nocase_charstr(String *s1, const char *s2) {
   return strcasecmp(s1->chars, s2);
 }
 
@@ -260,11 +260,11 @@ void str_remove_quotes(String *str) {
   }
 }
 
-int str_split(String *s, char* delim, List *l) {
+int str_split(String *s, const char* delim, List *l) {
   int i, j, n;
   int inv_delim[NCHARS];
   String *tok;
-  char *real_delim;
+  const char *real_delim;
 
   if (delim == NULL)        /* whitespace */
     real_delim = " \t\n\r\f\v"; 
@@ -312,7 +312,7 @@ int str_starts_with(String *s, String *substr) {
   return (strncmp(s->chars, substr->chars, substr->length) == 0);
 }
 
-int str_starts_with_charstr(String *s, char *substr) {
+int str_starts_with_charstr(String *s, const char *substr) {
   int len = strlen(substr);
   if (len > s->length) return 0;
   return (strncmp(s->chars, substr, len) == 0);
@@ -324,13 +324,13 @@ int str_ends_with(String *s, String *substr) {
                   substr->chars, substr->length) == 0);
 }
 
-int str_ends_with_charstr(String *s, char *substr) {
+int str_ends_with_charstr(String *s, const char *substr) {
   int len = strlen(substr);
   if (len > s->length) return 0;
   return (strncmp(&s->chars[s->length - len], substr, len) == 0);
 }
 
-Regex *str_re_new(char *re_str) {
+Regex *str_re_new(const char *re_str) {
   const char *retval;
   Regex *re = (Regex*)smalloc(sizeof(Regex));
   re->translate = 0;
@@ -526,7 +526,7 @@ int str_in_list_idx(String *s, List *l, int *idx) {
 }
 
 /* Returns 1 if list includes specified string, 0 otherwise */
-int str_in_list_charstr(char *s, List *l) {
+int str_in_list_charstr(const char *s, List *l) {
   int i;
   for (i = 0; i < lst_size(l); i++)
     if (str_equals_charstr(lst_get_ptr(l, i), s)) return 1;

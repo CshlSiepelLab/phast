@@ -60,7 +60,7 @@ String *str_new(int starting_nchars);
 /* Create new String (by char*).  
    Returns newly allocated String object, equal to specified char*
    string (string will be copied). */
-String *str_new_charstr(char *str);
+String *str_new_charstr(const char *str);
 
 String *str_new_int(int i);
 String *str_new_dbl(double d);
@@ -85,7 +85,7 @@ void str_append(String *s, String *suffix);
 
 /* Append a char* string to a String object.  All memory is copied.
    Destination String must be initialized externally. */
-void str_append_charstr(String *s, char *charstr);
+void str_append_charstr(String *s, const char *charstr);
 
 /* Append a character to a String object.  Destination String must be
    initialized externally. */
@@ -96,7 +96,7 @@ void str_append_char(String *s, char c);
    externally.  Operation will not proceed beyond NULL terminator.  If
    necessary, a NULL terminator is added to the String object's chars
    attribute.  */
-void str_nappend_charstr(String *s, char *charstr, int len);
+void str_nappend_charstr(String *s, const char *charstr, int len);
 
 /* Append a string representation of an integer to a String object.
    Destination String must be initialized externally.  */
@@ -115,13 +115,13 @@ void str_cpy(String *dest, String *src);
 
 /* Copy a char* string to a String object.  Requires proper NULL
    terminator.  Destination String must be initialized externally.  */
-void str_cpy_charstr(String *dest, char *src);
+void str_cpy_charstr(String *dest, const char *src);
 
 /* Copy first n bytes of a char* string to a String object.
    Destination String must be initialized externally.  Operation will
    not proceed beyond NULL terminator.  If necessary, a NULL
    terminator is added to the String object's chars attribute.  */
-void str_ncpy_charstr(String *dest, char *src, int len);
+void str_ncpy_charstr(String *dest, const char *src, int len);
 
 /* Create a duplicate copy of a String.
    Returns newly allocated String object, equal to specified "template". */
@@ -153,7 +153,7 @@ int str_equals(String *s1, String *s2);
 /* Test if a String object is equal to a char* string 
    (uses str_compare_charstr).
    Returns 1 if equal, 0 otherwise. */
-int str_equals_charstr(String *s1, char *s2);
+int str_equals_charstr(String *s1, const char *s2);
 
 /* Test if two String objects are equal, ignoring case (uses
    str_compare_nocase).
@@ -163,7 +163,7 @@ int str_equals_nocase(String *s1, String *s2);
 /* Test if a String object is equal to a char* string, ignoring case
    (uses str_compare_nocase_charstr).
    Returns 1 if equal, 0 otherwise. */
-int str_equals_nocase_charstr(String *s1, char *s2);
+int str_equals_nocase_charstr(String *s1, const char *s2);
 
 /* Compare two String objects alphanumerically.  Uses strcmp.
    Returns an integer less than zero if s1 < s2, greater than zero if
@@ -174,7 +174,7 @@ int str_compare(String *s1, String *s2);
    strcmp.
    Returns an integer less than zero if s1 < s2, greater than zero if
    s1 > s2, or equal to zero if s1 == s2. */
-int str_compare_charstr(String *s1, char *s2);
+int str_compare_charstr(String *s1, const char *s2);
 
 /* Compare two String objects alphanumerically, ignoring case.  Uses
    strcasecmp.
@@ -186,7 +186,7 @@ int str_compare_nocase(String *s1, String *s2);
    ignoring case.  Uses strcasecmp.
    Returns an integer less than zero if s1 < s2, greater than zero if
    s1 > s2, or equal to zero if s1 == s2. */
-int str_compare_nocase_charstr(String *s1, char *s2);
+int str_compare_nocase_charstr(String *s1, const char *s2);
 
 /* Trim trailing whitespace.  All characters c are removed such that
    isspace(c) != 0. */
@@ -209,7 +209,7 @@ void str_remove_quotes(String *str);
    Warning: substrings added to List l are newly allocated and must be
    freed externally. */
 int str_split(String *s,  
-              char* delim,	/* NULL-terminated char* string of
+              const char* delim,	/* NULL-terminated char* string of
                                valid delimiters or NULL; if NULL,
                                String will be split on
                                whitespace  */
@@ -235,10 +235,10 @@ int str_starts_with(String *s, String *substr);
 /* Tests whether a string starts with the specified substring (passed
    as char* string).
    Returns 0 on exact match and 1 otherwise. */
-int str_starts_with_charstr(String *s, char *substr);
+int str_starts_with_charstr(String *s, const char *substr);
 
 int str_ends_with(String *s, String *substr);
-int str_ends_with_charstr(String *s, char *substr);
+int str_ends_with_charstr(String *s, const char *substr);
 
 /* Create new regular expression object based on the specified string.
    Character string re_str must be NULL terminated.  Function aborts
@@ -247,7 +247,7 @@ int str_ends_with_charstr(String *s, char *substr);
    readily available online or as emacs info pages), with the "egrep"
    syntax (re_syntax_options = RE_SYNTAX_EGREP).
    Returns a newly allocated and compiled Regex object. */
-Regex *str_re_new(char *re_str);
+Regex *str_re_new(const char *re_str);
 
 /* Free resources associated with regular expression object. The
    object itself is freed also. */
@@ -296,7 +296,7 @@ void str_shortest_root(String *str, char delim);
 void str_suffix(String *str, char delim);
 void str_remove_path(String *str);
 int str_in_list(String *s, List *l);
-int str_in_list_charstr(char *s, List *l);
+int str_in_list_charstr(const char *s, List *l);
 int str_list_overlap(List *dest, List *src1, List *src2);
 List *str_list_as_int(List *str_list);
 List *str_list_as_dbl(List *str_list);
