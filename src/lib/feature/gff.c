@@ -30,7 +30,7 @@
    GFF_Set object.  Function reads until end-of-file is encountered or
    error occurs (aborts on error).  Comments and blank lines are
    ignored and special "meta-data" comments are parsed (see
-   http://www.sanger.ac.uk/Software/formats/GFF/GFF_Spec.shtml).  Only
+   http://www.sanger.ac.uk/resources/software/gff/spec.html).  Only
    the first five columns of feature lines are considered required
    ('name', 'source', 'feature', 'start', and 'end'); subsequent
    fields are optional ('score', 'strand', 'frame', and 'attribute').
@@ -258,11 +258,11 @@ GFF_Feature *gff_new_feature_genomic_pos(String *position, String *source,
   return retval;
 }
 
-/** Create new GFF_Set object.  All attributes will be left as empty
-    strings.  */
-GFF_Set *gff_new_set() {
+
+/** Create new GFF_Set object with the number of rows specified */
+GFF_Set *gff_new_set_len(int len) {
   GFF_Set *set = (GFF_Set*)smalloc(sizeof(GFF_Set));
-  set->features = lst_new_ptr(GFF_SET_START_SIZE);
+  set->features = lst_new_ptr(len);
   set->gff_version = str_new(STR_SHORT_LEN);
   set->source = str_new(STR_SHORT_LEN);
   set->source_version = str_new(STR_SHORT_LEN);
@@ -271,6 +271,14 @@ GFF_Set *gff_new_set() {
   set->group_tag = NULL;
   return set;
 }
+
+
+/** Create new GFF_Set object.  All attributes will be left as empty
+    strings.  */
+GFF_Set *gff_new_set() {
+  return (GFF_Set*)gff_new_set_len(GFF_SET_START_SIZE);
+}
+
 
 /** Create new GFF_Set object, initializing with same version, source,
     etc.\ as a template GFF_Set object */

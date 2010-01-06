@@ -26,7 +26,7 @@
 #include <stdlib.h>
 
 /** GFF_Feature structure.  Simply mirrors file-format spec (see
-   http://www.sanger.ac.uk/Software/formats/GFF/GFF_Spec.shtml) */ 
+   http://www.sanger.ac.uk/resources/software/gff/spec.html) */ 
 typedef struct {
   String *seqname;              /**< name of sequence (a single GFF file
                                    may describe multiple sequences) */
@@ -130,6 +130,8 @@ GFF_Feature *gff_new_feature_genomic_pos(String *position, String *source,
                                          String *feature, double score, 
                                          int frame, String *attribute,
                                          int score_is_null);
+
+GFF_Set *gff_new_set_len(int len);
 
 GFF_Set *gff_new_set();
 
