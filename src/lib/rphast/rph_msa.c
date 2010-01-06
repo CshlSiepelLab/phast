@@ -29,10 +29,12 @@ Last updated: 12/14/08
 
 #include <Rdefines.h>
 
+
 SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphabetP) {
   char **seqs=NULL, **names=NULL, *alphabet=NULL;
   int nseqs=0, length=0, i, numProtect=0;
   MSA *msa=NULL;
+  SEXP result;
 
   nseqs = INTEGER_VALUE(nseqsP);
   length = INTEGER_VALUE(lengthP);
@@ -78,50 +80,14 @@ SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphab
 
   //don't free seqs or names because they are used by MSA object
   if (alphabet != NULL) free(alphabet);
+  
+  PROTECT(result = R_MakeExternalPtr((void*)msa, R_NilValue, R_NilValue));
+  numProtect++;
+
   UNPROTECT(numProtect);
-  return R_MakeExternalPtr((void*)msa, R_NilValue, R_NilValue);
-}
-
-
-SEXP rph_msa_free(SEXP msaP) {
-  MSA *msa;
-  printf("freeing msa\n");
-  msa = (MSA*)EXTPTR_PTR(msaP);
-  printf("msa->nseqs=%i\n", msa->nseqs);
-  msa_free(msa);
-  printf("done rph_msa_free\n");
-  return R_NilValue;
-}
-
-
-SEXP rph_msa_valid_fmt(SEXP formatP) {
-  msa_format_type fmt;
-  SEXP result;
-  int *resultP;
-  PROTECT( result = allocVector(LGLSXP, 1));
-  resultP = LOGICAL_POINTER(result);
-  fmt = msa_str_to_format(CHARACTER_VALUE(formatP));
-  resultP[0] = (fmt != -1);
-  UNPROTECT(1);
   return result;
 }
 
-
-//print sequence in given format.  If format not valid,
-//use FASTA, but give no warning.
-SEXP rph_msa_printSeq(SEXP msaP, SEXP filenameP, SEXP formatP, SEXP prettyPrintP) {
-  MSA *msa;
-  msa_format_type fmt;
-  msa = (MSA*)EXTPTR_PTR(msaP);
-  fmt = msa_str_to_format(CHARACTER_VALUE(formatP));
-  if ((int)fmt == -1) 
-    fmt = FASTA;
-  if (filenameP != R_NilValue)
-    msa_print_to_file(CHARACTER_VALUE(filenameP), 
-		      msa, fmt, INTEGER_VALUE(prettyPrintP));
-  else msa_print(stdout, msa, fmt, INTEGER_VALUE(prettyPrintP));
-  return R_NilValue;
-}
 
 SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP, SEXP do4dP,
 		  SEXP alphabetP, SEXP tupleSizeP, SEXP refseqP) {
@@ -159,4 +125,156 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP, SEXP do4dP,
   if (refseq != NULL)
     free(refseq);
   return R_MakeExternalPtr((void*)msa, R_NilValue, R_NilValue);
+}
+
+
+SEXP rph_msa_free(SEXP msaP) {
+  MSA *msa;
+  printf("freeing msa\n");
+  msa = (MSA*)EXTPTR_PTR(msaP);
+  printf("msa->nseqs=%i\n", msa->nseqs);
+  msa_free(msa);
+  printf("done rph_msa_free\n");
+  return R_NilValue;
+}
+
+
+SEXP rph_msa_valid_fmt_str(SEXP formatP) {
+  msa_format_type fmt;
+  SEXP result;
+  int *resultP;
+  PROTECT( result = allocVector(LGLSXP, 1));
+  resultP = LOGICAL_POINTER(result);
+  fmt = msa_str_to_format(CHARACTER_VALUE(formatP));
+  resultP[0] = (fmt != -1);
+  UNPROTECT(1);
+  return result;
+}
+
+
+//print sequence in given format.  If format not valid,
+//use FASTA, but give no warning.
+SEXP rph_msa_printSeq(SEXP msaP, SEXP filenameP, SEXP formatP, 
+		      SEXP prettyPrintP) {
+  MSA *msa;
+  msa_format_type fmt;
+  msa = (MSA*)EXTPTR_PTR(msaP);
+  printf("got msa pointer\n");
+  fmt = msa_str_to_format(CHARACTER_VALUE(formatP));
+  printf("got format string %i\n", (int)fmt);
+  if ((int)fmt == -1) 
+    fmt = FASTA;
+  if (filenameP != R_NilValue)
+    msa_print_to_file(CHARACTER_VALUE(filenameP), 
+		      msa, fmt, INTEGER_VALUE(prettyPrintP));
+  else msa_print(stdout, msa, fmt, INTEGER_VALUE(prettyPrintP));
+  return R_NilValue;
+}
+
+
+
+/****** Accessor functions**********/
+
+/* Returns a SEXP containing the sequence.
+ */
+SEXP rph_msa_seqs(SEXP msaP) {
+  SEXP result;
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  char *tempseq;
+  int seq;
+  
+  PROTECT(result = NEW_CHARACTER(msa->nseqs));
+
+  if (msa->ss != NULL) {
+    /* rather than calling ss_to_msa, which will allocate an entire new
+       sequence that we don't need, only convert one species at a time.
+     */
+    for  (seq = 0; seq < msa->nseqs; seq++) {
+      tempseq = ss_get_one_seq(msa, seq);
+      SET_STRING_ELT(result, seq, mkChar(tempseq));
+      free(tempseq);
+    }
+  } else {
+    for (seq = 0; seq < msa->nseqs; seq++) {
+      SET_STRING_ELT(result, seq, mkChar(msa->seqs[seq]));
+    }
+  }
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_msa_seqlen(SEXP msaP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  SEXP result;
+  int *resultP;
+  PROTECT(result = NEW_INTEGER(1));
+  resultP = INTEGER_POINTER(result);
+  resultP[0] = msa->length;
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_msa_nseq(SEXP msaP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  SEXP result;
+  int *resultP;
+  PROTECT(result = NEW_INTEGER(1));
+  resultP = INTEGER_POINTER(result);
+  resultP[0] = msa->nseqs;
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_msa_seqNames(SEXP msaP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  SEXP result;
+  int i;
+  if (msa->names==NULL) return R_NilValue;
+  PROTECT(result = NEW_CHARACTER(msa->nseqs));
+  //PROTECT(mychar = allocVector(STRSXP, 5));
+  for (i=0; i<msa->nseqs; i++) 
+    SET_STRING_ELT(result, i, mkChar(msa->names[i]));
+  UNPROTECT(1);
+  return result;
+}
+
+SEXP rph_msa_alphabet(SEXP msaP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  SEXP result;
+  if (msa->alphabet==NULL) return R_NilValue;
+  PROTECT(result = NEW_CHARACTER(1));
+  SET_STRING_ELT(result, 0, mkChar(msa->alphabet));
+  UNPROTECT(1);
+  return result;
+}
+
+/* TODO (maybe not here but in general): at some point it would
+   be nice to have unordered MSA objects without requiring SS format */
+SEXP rph_msa_isOrdered(SEXP msaP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  SEXP result;
+  int *resultP;
+  if (msa->ss == NULL) return R_NilValue;
+
+  PROTECT(result = NEW_LOGICAL(1));
+
+  resultP = LOGICAL_POINTER(result);
+  resultP[0] = (msa->ss->tuple_idx != NULL);
+  UNPROTECT(1);
+  return result;
+}
+
+SEXP rph_msa_idxOffset(SEXP msaP, SEXP tagP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  SEXP result;
+  int *resultP;
+  
+  PROTECT(result = NEW_INTEGER(1));
+  resultP = INTEGER_POINTER(result);
+  resultP[0] = msa->idx_offset;
+  UNPROTECT(1);
+  return result;
 }
