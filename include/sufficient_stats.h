@@ -68,6 +68,7 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
                              List *seqnames, int tuple_size, 
                              List *cats_to_do, int cds_mode);
 void ss_to_msa(MSA *msa);
+char *ss_get_one_seq(MSA *msa, int spec);
 void msa_read_AXT(MSA *msa, List *axt_fnames);
 void ss_write(MSA *msa, FILE *F, int show_order);
 MSA* ss_read(FILE *F, char *alphabet);
