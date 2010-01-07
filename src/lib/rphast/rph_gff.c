@@ -9,8 +9,8 @@
 
 /*****************************************************
 rph_gff.c
-The RPHAST handles to functions dealing with multiple
-sequence alignment functions from the phast package.
+The RPHAST handles to functions dealing with GFFs from
+the phast package.
 
 Melissa Hubisz
 Last updated: 1/5/2010

@@ -64,7 +64,7 @@ SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphab
     strcpy(alphabet, CHARACTER_VALUE(alphabetP));
   }
 
-  printf("nseqs=%i length=%i\n", nseqs, length);
+  /*  printf("nseqs=%i length=%i\n", nseqs, length);
   if (names != NULL) {
     for (i=0; i<nseqs; i++) 
       printf("names[%i]=%s\n", i, names[i]==NULL ? "NULL" : names[i]);
@@ -75,7 +75,7 @@ SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphab
       printf("seqs[%i]=%s\n", i, seqs[i]==NULL ? "NULL" : seqs[i]);
   } else printf("seqs is NULL\n");
   if (alphabet != NULL) printf("alphabet=%s\n", alphabet);
-  else printf("alphabet is NULL\n");
+  else printf("alphabet is NULL\n");*/
   msa = msa_new(seqs, names, nseqs, length, alphabet);
 
   //don't free seqs or names because they are used by MSA object
