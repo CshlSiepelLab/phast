@@ -19,7 +19,9 @@
 #include <lists.h>
 #include <time.h>
 #include <sys/time.h>
-
+/*#ifdef RPHAST
+#include <R_ext/Error.h>
+#endif*/
 struct hash_table;
 
 #define TRUE 1
@@ -154,6 +156,7 @@ void get_tuple_str(char *tuple_str, int tuple_idx, int tuple_size,
 Matrix* read_subst_mat(FILE *F, char *alph);
 FILE* fopen_fname(const char *fname, char *mode);
 #ifdef RPHAST
+void    Rf_error(const char *, ...);
 #define die Rf_error
 #else
 void die(char *warnfmt, ...);
