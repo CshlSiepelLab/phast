@@ -174,7 +174,7 @@ CategoryMap* cm_create_trivial(int ncats, char *feature_prefix);
 
 CategoryMap* cm_new_from_features(GFF_Set *feats);
 
-CategoryMap* cm_new_string_or_file(char *optarg);
+CategoryMap* cm_new_string_or_file(const char *optarg);
 
 void cm_realloc(CategoryMap *cm, int ncats);
 

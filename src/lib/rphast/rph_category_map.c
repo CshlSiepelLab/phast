@@ -33,3 +33,9 @@ SEXP rph_cm_new_from_gff(SEXP gff) {
   return R_MakeExternalPtr(cm_new_from_features((GFF_Set*)EXTPTR_PTR(gff)),
 			   R_NilValue, R_NilValue);
 }
+
+
+SEXP rph_cm_new_from_str(SEXP str) {
+  return R_MakeExternalPtr(cm_new_string_or_file(CHARACTER_VALUE(str)),
+			   R_NilValue, R_NilValue);
+}

@@ -509,7 +509,7 @@ CategoryMap* cm_new_from_features(GFF_Set *feats) {
 /** Create a new category map from a string that can
     either be a filename or a brief "inlined" category map, e.g.,
     "NCATS = 3 ; CDS 1-3".  Useful for command-line arguments. */
-CategoryMap* cm_new_string_or_file(char *optarg) {
+CategoryMap* cm_new_string_or_file(const char *optarg) {
   int i;
   char fname[STR_SHORT_LEN];
   String *str = str_new_charstr(optarg);
