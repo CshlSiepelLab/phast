@@ -280,7 +280,7 @@ void die(char *warnfmt, ...) {
 void phast_warning(char *warnfmt, ...) {
   va_list args;
   va_start(args, warnfmt);
-  vfprint(stderr, warnfmt, args);
+  vfprintf(stderr, warnfmt, args);
   va_end(args);
 }
 #endif
