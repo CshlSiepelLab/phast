@@ -161,6 +161,7 @@ void Rf_warning(const char*, ...);
 #define die Rf_error
 #define phast_warning Rf_warning
 #else
+void phast_warning(char *warnfmt, ...);
 void die(char *warnfmt, ...);
 #endif
 List *get_arg_list(char *arg);
