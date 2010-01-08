@@ -1288,6 +1288,17 @@ void ss_collapse_missing(MSA *msa, int do_gaps) {
 	 data */
 }
 
+
+/* return the number of non-gap characters for a particular sequnce */
+int ss_seqlen(MSA *msa, int seqidx) {
+  int i, count=0;
+  for (i=0; i<msa->ss->ntuples; i++)
+    if (ss_get_char_tuple(msa, i, seqidx, 0) != GAP_CHAR)
+      count += (int)msa->ss->counts[i];
+  return count;
+}
+
+
 /** Like msa_strip_gaps, but in terms of suffient statistics.  If
    gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all
    columns with ALL or ANY gaps, respectively.  Otherwise, assumes a

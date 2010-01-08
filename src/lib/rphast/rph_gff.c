@@ -142,14 +142,18 @@ SEXP rph_gff_dataframe(SEXP gffPtr) {
   PROTECT(attribute = allocVector(STRSXP, len));
   for (i=0; i<len; i++) {
     feat = (GFF_Feature*)lst_get_ptr(gff->features, i);
-    SET_STRING_ELT(attribute, i, mkChar(feat->attribute->chars));
-    if (feat->attribute->length != 0)
+    //suspect mkChar is not dealing well with empty string?
+    //    SET_STRING_ELT(attribute, i, mkChar(feat->attribute->chars));
+    if (feat->attribute->length != 0) {
       have[attributePos] = 1;
+      SET_STRING_ELT(attribute, i, mkChar(feat->attribute->chars));
+    } else 
+      SET_STRING_ELT(attribute, i, mkChar("."));
   }
   vec[8] = attribute;
-
+  
   listlen = 0;
-  for (i=0; i<len; i++) listlen += have[i];
+  for (i=0; i<9; i++) listlen += have[i];
   
   PROTECT(header = allocVector(STRSXP, listlen));
   PROTECT(result = allocVector(VECSXP, listlen));

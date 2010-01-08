@@ -115,6 +115,7 @@ void msa_print_to_file(const char *filename, MSA *msa, msa_format_type format,
 		       int pretty_print);
 void msa_free_categories(MSA *msa);
 void msa_free(MSA *msa);
+void reduce_to_4d(MSA *msa, CategoryMap *cm);
 void msa_strip_gaps(MSA *msa, int gap_strip_mode);
 void msa_project(MSA *msa, int refseq);
 MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col, 
@@ -125,7 +126,7 @@ int msa_map_seq_to_msa(msa_coord_map *map, int seq_pos);
 int msa_map_msa_to_seq(msa_coord_map *map, int pos);
 void msa_map_free(msa_coord_map *map);
 void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm);
-int msa_get_seq_idx(MSA *msa, char *name);
+int msa_get_seq_idx(MSA *msa, const char *name);
 void msa_map_gff_coords(MSA *msa, GFF_Set *set, int from_seq, int to_seq, 
                         int offset, CategoryMap *cm);
 int msa_map_seq_to_seq(msa_coord_map *from_map, msa_coord_map *to_map, 
@@ -166,6 +167,7 @@ void msa_print_stats(MSA *msa, FILE *F, char *label, int header, int start,
                      int end);
 Vector *msa_get_base_freqs(MSA *msa, int start, int end);
 void msa_get_base_freqs_tuples(MSA *msa, Vector *freqs, int k, int cat);
+int msa_seqlen(MSA *msa, int seqidx);
 int msa_num_gapped_cols(MSA *msa, int gap_strip_mode, int start, int end);
 unsigned int msa_ninformative_sites(MSA *msa, int cat);
 void msa_index_cols(MSA *msa, int order);

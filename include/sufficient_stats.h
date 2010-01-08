@@ -89,6 +89,7 @@ void ss_reorder_rows(MSA *msa, int *new_to_old, int new_nseqs);
 void ss_remove_zero_counts(MSA *msa);
 void ss_unique(MSA *msa);
 void ss_collapse_missing(MSA *msa, int do_gaps);
+int ss_seqlen(MSA *msa, int seqidx);
 void ss_strip_gaps(MSA *msa, int gap_strip_mode);
 void ss_strip_missing(MSA *msa, int refseq);
 int ss_is_4d(MSA *msa, int tuple);

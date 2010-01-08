@@ -408,6 +408,35 @@ void msa_free(MSA *msa) {
   free(msa);
 }
 
+
+/* reduce SS representation of alignment with nucleotide triples to 4d
+   sites only (supports --4d option) */
+void reduce_to_4d(MSA *msa, CategoryMap *cm) {
+  String *tmpstr = str_new_charstr("CDS");
+  int cat_pos3 = cm->ranges[cm_get_category(cm, tmpstr)]->end_cat_no;
+  int i, j, len = 0;
+  if (cat_pos3 == 0)
+    die("ERROR: no match for 'CDS' feature type (required with --4d).\n");
+  assert(msa->ss->cat_counts != NULL && msa->ncats >= cat_pos3);
+  for (i = 0; i < msa->ss->ntuples; i++) {
+    if (ss_is_4d(msa, i)) {
+      msa->ss->counts[i] = msa->ss->cat_counts[cat_pos3][i];
+      len += msa->ss->counts[i];
+    }
+    else 
+      msa->ss->counts[i] = 0;
+  }
+  for (j = 0; j <= msa->ncats; j++) free(msa->ss->cat_counts[j]);
+  free(msa->ss->cat_counts);
+  msa->ss->cat_counts = NULL;
+  msa->ncats = -1;
+  msa->length = len;
+  ss_remove_zero_counts(msa);
+  str_free(tmpstr);
+}
+
+
+
 /** If gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all
    columns with ALL or ANY gaps, respectively.  Otherwise, assumes a
    *projection* is desired onto the sequence whose index is
@@ -541,6 +570,7 @@ MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col,
       new_seqs[i] = (char*)smalloc((new_len + 1) * sizeof(char));
       for (j = 0; j < new_len; j++)
         new_seqs[i][j] = msa->seqs[seq][start_col+j];
+      new_seqs[i][j] = '\0';
     }
     
     new_msa = msa_new(new_seqs, new_names, new_nseqs, new_len, 
@@ -726,7 +756,7 @@ void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm) {
 }
 
 /** Return sequence index of given sequence name or -1 if not found. */
-int msa_get_seq_idx(MSA *msa, char *name) {
+int msa_get_seq_idx(MSA *msa, const char *name) {
   int i, retval = -1;
   for (i = 0; retval < 0 && i < msa->nseqs; i++) 
     if (!strcmp(name, msa->names[i]))
@@ -1352,6 +1382,19 @@ void msa_get_base_freqs_tuples(MSA *msa, Vector *freqs, int k, int cat) {
   for (i = 0; i < freqs->size; i++) sum += vec_get(freqs, i);
   vec_scale(freqs, 1.0/sum);
 }
+
+/* return the length of a particular sequence (alignment length minus 
+   gaps */
+int msa_seqlen(MSA *msa, int seqidx) {
+  int len=0, i;
+  if (msa->ss != NULL)
+    return ss_seqlen(msa, seqidx);
+  for (i=0; i<msa->length; i++)
+    if (msa->seqs[seqidx][i] != GAP_CHAR) 
+      len++;
+  return len;
+}
+
 
 /* return number of gapped columns.  If mode == STRIP_ANY_GAPS, a
    gapped column is one containing at least one gap; if mode ==
@@ -2101,7 +2144,7 @@ List *msa_seq_indices(MSA *msa, List *seqnames) {
         }
       }
       if (j == msa->nseqs) 
-        fprintf(stderr, "WARNING: No match for name \"%s\" in alignment.\n", name->chars);
+        phast_warning("WARNING: No match for name \"%s\" in alignment.\n", name->chars);
     }
   }
   return retval;

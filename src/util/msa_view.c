@@ -314,9 +314,7 @@ OPTIONS:\n\
     --do-cats, -C <cat_list>\n\
         (For use with --features or --cats-cycle)  Obtain\n\
         sufficient statistics only for the specified categories\n\
-        (comma-delimited list, by number).  Currently has no effect with\n\
-        --in-format MAF (stats for all categories are automatically\n\
-        collected as file is read).\n\
+        (comma-delimited list, by number).\n\
 \n\
     --codons, -D\n\
         Extract sufficient statistics for in-frame codons.  Implies\n\
@@ -402,31 +400,6 @@ void fill_with_Ns(MSA *msa, List *fill_N_list, msa_coord_map *map) {
   str_re_free(fill_N_re);
 }
 
-/* reduce SS representation of alignment with nucleotide triples to 4d
-   sites only (supports --4d option) */
-void reduce_to_4d(MSA *msa, CategoryMap *cm) {
-  String *tmpstr = str_new_charstr("CDS");
-  int cat_pos3 = cm->ranges[cm_get_category(cm, tmpstr)]->end_cat_no;
-  int i, j, len = 0;
-  if (cat_pos3 == 0)
-    die("ERROR: no match for 'CDS' feature type (required with --4d).\n");
-  assert(msa->ss->cat_counts != NULL && msa->ncats >= cat_pos3);
-  for (i = 0; i < msa->ss->ntuples; i++) {
-    if (ss_is_4d(msa, i)) {
-      msa->ss->counts[i] = msa->ss->cat_counts[cat_pos3][i];
-      len += msa->ss->counts[i];
-    }
-    else 
-      msa->ss->counts[i] = 0;
-  }
-  for (j = 0; j <= msa->ncats; j++) free(msa->ss->cat_counts[j]);
-  free(msa->ss->cat_counts);
-  msa->ss->cat_counts = NULL;
-  msa->ncats = -1;
-  msa->length = len;
-  ss_remove_zero_counts(msa);
-  str_free(tmpstr);
-}
 
 int main(int argc, char* argv[]) {
   MSA *msa = NULL, *sub_msa = NULL, *split_msa = NULL;

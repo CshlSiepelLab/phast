@@ -276,6 +276,13 @@ void die(char *warnfmt, ...) {
   va_end(args);
   exit(1);
 }
+
+void warning(char *warnfmt, ...) {
+  va_list args;
+  va_start(args, warnfmt);
+  vfprint(stderr, warnfmt, args);
+  va_end(args);
+}
 #endif
 
 /* returns List of Strings derived from an argument that may either be
