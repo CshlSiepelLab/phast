@@ -172,7 +172,7 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
 		  int argc, char *argv[]) {
   int idx, i;
   FILE *outfile;
-  char *fname = malloc((strlen(out_root)+name->length+2)*sizeof(char));
+  char *fname = malloc((strlen(out_root)+name->length+7)*sizeof(char));
   sprintf(fname, "%s.%s.maf", out_root, name->chars);
   idx = ptr_to_int(hsh_get(outfileHash, fname));
   if (idx == -1) {
