@@ -391,7 +391,18 @@ void mafBlock_remove_gap_cols(MafBlock *block) {
 	    sub->seq->chars[pos] = sub->seq->chars[j];
 	  pos++;
 	}
-	sub->seq->chars[pos]='\0';
+      }
+      sub->seq->chars[pos]='\0';
+      if (sub->quality != NULL) {
+	pos = start;
+	for (j=start; j<block->seqlen; j++) {
+	  if (isGap[j] == 0) {
+	    if (pos != j)
+	      sub->quality->chars[pos] = sub->quality->chars[j];
+	    pos++;
+	  }
+	}
+	sub->quality->chars[pos]='\0';
       }
     }
     assert(pos > 0);
