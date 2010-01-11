@@ -192,6 +192,7 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
       outfile = mafBlock_open_outfile(fname, argc, argv);
     }
     lst_push_ptr(outfileList, (void*)outfile);
+    free(fname);
     return outfile;
   }
   outfile = (FILE*)lst_get_ptr(outfileList, idx);
@@ -211,6 +212,7 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
       outfile = fopen(fname, "a");
     }
   }
+  free(fname);
   return outfile;
 }
 
