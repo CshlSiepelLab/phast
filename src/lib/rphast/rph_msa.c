@@ -30,14 +30,15 @@ Last updated: 12/14/08
 #include <Rdefines.h>
 
 
-SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphabetP) {
+SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphabetP, SEXP orderedP, SEXP idxOffsetP) {
   char **seqs=NULL, **names=NULL, *alphabet=NULL;
-  int nseqs=0, length=0, i, numProtect=0;
+  int nseqs=0, length=0, i, numProtect=0, ordered;
   MSA *msa=NULL;
   SEXP result;
 
   nseqs = INTEGER_VALUE(nseqsP);
   length = INTEGER_VALUE(lengthP);
+  ordered = LOGICAL_VALUE(orderedP);
 
   if (namesP != R_NilValue) {
     PROTECT(namesP = AS_CHARACTER(namesP));
@@ -77,6 +78,10 @@ SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphab
   if (alphabet != NULL) printf("alphabet=%s\n", alphabet);
   else printf("alphabet is NULL\n");*/
   msa = msa_new(seqs, names, nseqs, length, alphabet);
+  if (! ordered) {
+    ss_from_msas(msa, 1, 0, NULL, NULL, NULL, -1);
+  } else if (idxOffsetP != R_NilValue)
+    msa->idx_offset = INTEGER_VALUE(idxOffsetP);
 
   //don't free seqs or names because they are used by MSA object
   if (alphabet != NULL) free(alphabet);
@@ -87,6 +92,12 @@ SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphab
   UNPROTECT(numProtect);
   return result;
 }
+
+SEXP rph_msa_copy(SEXP msa) {
+  return R_MakeExternalPtr(msa_create_copy(EXTPTR_PTR(msa), 0),
+			   R_NilValue, R_NilValue);
+}
+			   
 
 
 /* Note: this changes the object passed in */
@@ -102,7 +113,7 @@ SEXP rph_msa_reduce_to_4d(SEXP msa) {
 SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP, 
 		  SEXP do4dP, SEXP alphabetP, 
 		  SEXP tupleSizeP, SEXP refseqP, SEXP orderedP,
-		  SEXP docatsP) {
+		  SEXP docatsP, SEXP idxOffsetP) {
   int do4d, tupleSize=1, ordered, i;
   GFF_Set *gff=NULL;
   msa_format_type fmt;
@@ -134,13 +145,19 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
     ordered=0;
     tupleSize=3;
   }
-  if (gff != NULL && cm==NULL) 
-    cm = cm_new_from_features(gff);
   if (docatsP != R_NilValue) {
-    int numcats;
+    int numcats, cmStrLen=100;
+    char *cmStr;
     PROTECT(docatsP = AS_CHARACTER(docatsP));
     numProtect++;
     numcats = LENGTH(docatsP);
+    for (i=0; i<LENGTH(docatsP); i++)
+      cmStrLen += strlen(CHAR(STRING_ELT(docatsP, i))) + 10;
+    cmStr = malloc(cmStrLen*sizeof(char));
+    sprintf(cmStr, "NCATS = %i", LENGTH(docatsP));
+    for (i=0; i<LENGTH(docatsP); i++)
+      sprintf(cmStr, "%s; %s %i", cmStr, CHAR(STRING_ELT(docatsP, i)), i+1);
+    cm = cm_new_string_or_file(cmStr);
     cats_to_do_str = lst_new_ptr(numcats);
     for (i=0; i<numcats; i++) {
       lst_push_ptr(cats_to_do_str, 
@@ -153,6 +170,8 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
     lst_free_strings(cats_to_do_str);
     lst_free(cats_to_do_str);
   } else if (gff != NULL) {
+    if (cm ==  NULL)
+      cm = cm_new_from_features(gff);
     cats_to_do = lst_new_int(cm->ncats);
     for (i=1; i<=cm->ncats; i++)
       lst_push_int(cats_to_do, i);
@@ -160,12 +179,12 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
 
   infile = fopen_fname(CHARACTER_VALUE(filenameP), "r");
   if (fmt == MAF) {  //reads and automatically converts to SS format
-    printf("cats_to do is nULL=%i\n", cats_to_do==NULL);
     msa = maf_read_cats(infile, refseq, tupleSize, alphabet, gff, cm, -1, 
 			ordered, reverse_groups_tag, NO_STRIP, 0, 
 			cats_to_do);
   } else {
     msa = msa_new_from_file(infile, fmt, alphabet);
+    if (idxOffsetP != R_NilValue) msa->idx_offset = INTEGER_VALUE(idxOffsetP);
     if (gff != NULL) {
       if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
 	die("ordered representation of alignment required to extract features");
@@ -178,7 +197,7 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
 	  f->end -= msa->idx_offset;
 	}
       }
-      msa_map_gff_coords(msa, gff, -1, 0, 0, cm);
+      msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
       if (reverse_groups_tag != NULL) { /*reverse complement by group */
 	if (fmt == SS) 
 	  die("ERROR: need an explicit representation of the alignment to reverse complement");
@@ -195,20 +214,25 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
     }
   }
   if (tupleSize != 1 || cats_to_do != NULL) {
-    if (msa->ss == NULL)
+    if (msa->ss == NULL) {
       ss_from_msas(msa, tupleSize, ordered, cats_to_do, NULL, NULL, -1);
+    }
     else {
       if (msa->ss->tuple_size < tupleSize)
 	die("ERROR: input tuple size must be at least as large as tupleSize");
       if (msa->ss->tuple_idx != NULL && ordered==0) {
 	free(msa->ss->tuple_idx);
-	free(msa->ss->tuple_idx);
+	msa->ss->tuple_idx = NULL;
       }
       if (msa->ss->tuple_size > tupleSize)
 	ss_reduce_tuple_size(msa, tupleSize);
     }
   }
   if (do4d) reduce_to_4d(msa, cm);
+
+  if (ordered==0 && msa->ss != NULL)
+    assert(msa->ss->tuple_idx == NULL);
+  if (ordered==0) msa->idx_offset = 0;
 
   if (cats_to_do != NULL)
     lst_free(cats_to_do);
@@ -219,6 +243,28 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
   if (refseq != NULL)
     fclose(refseq);
   fclose(infile);
+  
+  /* If we have caluclated sufficient statistics, they are more up-to-date
+     than the sequences.  The sequences may contain the full alignment
+     whereas the sufficient statistics only the part of the alignment
+     that was requested.  Remove the sequences to prevent downstream
+     phast functions from working with them */
+  if (msa->ss != NULL && gff != NULL) 
+    msa_free_seqs(msa);
+  
+  /* This should probably be somewhere in the main code, but I'm not 
+     sure where.
+     It seems like, if unordered sufficient statistics are calculated, 
+     then the length of the MSA should be reduced to the number of 
+     tuples which have been kept after filtering.  But they never are.
+   */
+  msa_update_length(msa);
+
+  // also, do we need category-specific counts anymore?  We just wanted
+  // the subset of the alignment.  
+  msa_free_categories(msa);
+
+
   if (numProtect > 0)
     UNPROTECT(numProtect);
   return R_MakeExternalPtr((void*)msa, R_NilValue, R_NilValue);
@@ -288,7 +334,7 @@ SEXP rph_msa_seqs(SEXP msaP) {
     }
   } else {
     for (seq = 0; seq < msa->nseqs; seq++) { 
-      printf("calling set_string_elt %s\n", msa->seqs[seq]);
+      assert(msa->seqs[seq][msa->length] == '\0');
       SET_STRING_ELT(result, seq, mkChar(msa->seqs[seq]));
     }
   }
@@ -357,17 +403,15 @@ SEXP rph_msa_isOrdered(SEXP msaP) {
   MSA *msa = (MSA*)EXTPTR_PTR(msaP);
   SEXP result;
   int *resultP;
-  if (msa->ss == NULL) return R_NilValue;
-
   PROTECT(result = NEW_LOGICAL(1));
-
   resultP = LOGICAL_POINTER(result);
-  resultP[0] = (msa->ss->tuple_idx != NULL);
+  if (msa->ss == NULL) resultP[0] = 1;
+  else resultP[0] = (msa->ss->tuple_idx != NULL);
   UNPROTECT(1);
   return result;
 }
 
-SEXP rph_msa_idxOffset(SEXP msaP, SEXP tagP) {
+SEXP rph_msa_idxOffset(SEXP msaP) {
   MSA *msa = (MSA*)EXTPTR_PTR(msaP);
   SEXP result;
   int *resultP;
@@ -436,3 +480,37 @@ SEXP rph_msa_sub_alignment(SEXP msaP, SEXP seqsP, SEXP keepP,
   if (numProtect > 0) UNPROTECT(numProtect);
   return R_MakeExternalPtr(subMsa, R_NilValue, R_NilValue);
 }
+
+
+/*  Note msa_strip_gaps modifies original alignment.  This returns
+    same pointer as was passed in.
+ */
+SEXP rph_msa_strip_gaps(SEXP msaP, SEXP stripModeP, SEXP allOrAnyGaps) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  int stripMode, unordered;
+
+  unordered=(msa->ss!=NULL && msa->ss->tuple_idx==NULL);
+  
+  if (allOrAnyGaps != R_NilValue) {
+    if (!strcmp(CHARACTER_VALUE(allOrAnyGaps), "all.gaps"))
+      stripMode = STRIP_ALL_GAPS;
+    else if (!strcmp(CHARACTER_VALUE(allOrAnyGaps), "any.gaps"))
+      stripMode = STRIP_ANY_GAPS;
+    else die("invalid strip.mode %s", CHARACTER_VALUE(allOrAnyGaps));
+  } else stripMode = INTEGER_VALUE(stripModeP);
+
+  msa_strip_gaps(msa, stripMode);
+
+  /* sometimes stripping gaps restores order to the tuples where it
+     shouldn't */
+  if (unordered) {
+    if (msa->ss == NULL) 
+      ss_from_msas(msa, 1, 0, NULL, NULL, NULL, -1);
+    else if (msa->ss->tuple_idx != NULL) {
+      free(msa->ss->tuple_idx);
+      msa->ss->tuple_idx = NULL;
+    }
+  }
+  return msaP;
+}
+

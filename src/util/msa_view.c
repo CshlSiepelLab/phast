@@ -695,7 +695,8 @@ int main(int argc, char* argv[]) {
 
   if (rand_perm) msa_permute(msa);
 
-  if (startcol < 1 || (endcol != -1 && endcol > msa->length) || 
+  if (startcol < 1 || 
+      (endcol != -1 && endcol > msa->length) || 
       (endcol != -1 && endcol < startcol)) 
                                 /* careful: msa->length is unsigned */
     die("ERROR: must have 1 <= start <= end <= [msa_length]\n");

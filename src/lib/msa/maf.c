@@ -221,8 +221,8 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
     /* if creating a map, require MAF to be sorted wrt reference sequence, otherwise skip block */
     if (map != NULL && start_idx <= last_refseqpos) {
       if (refseq_sorted) {
-	fprintf(stderr, "warning: maf_read: MAF file must be sorted with respect to reference"\
-		" sequence if store_order=TRUE.  Ignoring out-of-order blocks\n");
+	phast_warning("warning: maf_read: MAF file must be sorted with respect to reference" \
+		      " sequence if store_order=TRUE.  Ignoring out-of-order blocks\n");
 	/* only print the warning once */
 	refseq_sorted=0;
       }

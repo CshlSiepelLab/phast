@@ -73,7 +73,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
   char key[msa->nseqs * tuple_size + 1];
   MSA *smsa;
   int effective_offset = (idx_offset < 0 ? 0 : idx_offset); 
-  
+
   if (source_msa == NULL && 
       (msa->seqs == NULL || msa->length <= 0 || msa->ss != NULL))
     die("ERROR: with no separate source alignment, ss_from_msas expects sequences of positive length and no SS object.\n");
@@ -129,7 +129,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
                      upper_bound);
     ss_realloc(msa, tuple_size, max_tuples, do_cats, store_order);
   }
-    
+
 
   main_ss = msa->ss;
   tuple_hash = existing_hash != NULL ? existing_hash : hsh_new(max_tuples/3);
@@ -465,9 +465,18 @@ char *ss_get_one_seq(MSA *msa, int spec) {
     for (i=0; i<msa->ss->ntuples; i++) {
       c = col_string_to_char(msa, msa->ss->col_tuples[i], spec,
 			     msa->ss->tuple_size, 0);
+      if (col + msa->ss->counts[i] >= msa->length) {  
+	//this shouldn't happen, but the length isn't necessarily initialized
+	//when SS is created
+	msa->length *= 2;
+	seq = realloc(seq, (msa->length*sizeof(char)));
+      }
       for (j=0; j<msa->ss->counts[i]; j++)
 	seq[col++] = c;
     }
+    seq[col] = '\0';
+    if (col < msa->length)
+      seq = realloc(seq, (col+1)*sizeof(char));
   } else { /* ordered sufficient stats */
     for (col = 0; col < msa->length; col++) {
       seq[col] = col_string_to_char(msa, 
@@ -1345,7 +1354,8 @@ void ss_strip_gaps(MSA *msa, int gap_strip_mode) {
 
     assert(newlen == j);
     msa->length = newlen;
-  }
+  } else 
+    msa_update_length(msa);
 
   ss_remove_zero_counts(msa);
 }

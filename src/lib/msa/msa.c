@@ -389,6 +389,18 @@ void msa_free_categories(MSA *msa) {
 }
 
 
+void msa_free_seqs(MSA *msa) {
+  int i;
+  if (msa->seqs ==  NULL) return;
+  for (i = 0; i < msa->nseqs; i++) {
+    if (msa->seqs[i] != NULL) 
+      free(msa->seqs[i]);
+  }
+  if (msa->seqs != NULL) free(msa->seqs);
+  msa->seqs = NULL;
+}
+
+
 /* Frees MSA object.  Names and seqs are freed also, even though they may
    have been allocated externally. */
 void msa_free(MSA *msa) {
@@ -410,7 +422,7 @@ void msa_free(MSA *msa) {
 
 
 /* reduce SS representation of alignment with nucleotide triples to 4d
-   sites only (supports --4d option) */
+   sites only (supports --4d option to msa_view) */
 void reduce_to_4d(MSA *msa, CategoryMap *cm) {
   String *tmpstr = str_new_charstr("CDS");
   int cat_pos3 = cm->ranges[cm_get_category(cm, tmpstr)]->end_cat_no;
@@ -435,6 +447,20 @@ void reduce_to_4d(MSA *msa, CategoryMap *cm) {
   str_free(tmpstr);
 }
 
+
+/* If MSA is stored as unordered sufficient statistics, 
+   sometimes sites are removed and msa->length should be updated
+   to reflect only the sites which are kept.
+ */
+void msa_update_length(MSA *msa) {
+  int i;
+  if (msa->seqs != NULL ||
+      msa->ss == NULL ||
+      msa->ss->tuple_idx != NULL) return;
+  msa->length = 0;
+  for (i=0; i<msa->ss->ntuples; i++)
+    msa->length += msa->ss->counts[i];
+}
 
 
 /** If gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all
@@ -488,6 +514,8 @@ void msa_strip_gaps(MSA *msa, int gap_strip_mode) {
     }
   }
   msa->length = k;
+  for (i=0; i<msa->nseqs; i++)
+    msa->seqs[i][msa->length] = '\0';
 }
 
 /* "project" alignment on specified sequence, by eliminating all
@@ -506,8 +534,9 @@ void msa_project(MSA *msa, int refseq) {
       k++;      
     }
   }
-
   msa->length = k;
+  for (i=0; i < msa->nseqs; i++)
+    msa->seqs[i][msa->length] = '\0';
 }
 
 /* Returns a sub-alignment consisting of the specified sequences
@@ -717,7 +746,7 @@ void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm) {
                                    feature */
 
     if (feat->start == -1 || feat->end == -1 || feat->end > msa->length) {
-      fprintf(stderr, "WARNING: ignoring out-of-range feature\n");
+      phast_warning("WARNING: ignoring out-of-range feature\n");
       gff_print_feat(stderr, feat);
       continue;
     }

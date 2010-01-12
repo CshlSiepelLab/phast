@@ -388,6 +388,7 @@ GFF_Feature *gff_new_feature_copy(GFF_Feature *orig) {
                          orig->score_is_null);
 }
 
+
 /** Create a new GFF_Set representing the features in a particular
     coordinate range.  Keeps features such that feat->start >= startcol
     and feat->end <= endcol. */

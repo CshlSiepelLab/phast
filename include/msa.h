@@ -114,8 +114,10 @@ void msa_print(FILE *F, MSA *msa, msa_format_type format, int pretty_print);
 void msa_print_to_file(const char *filename, MSA *msa, msa_format_type format, 
 		       int pretty_print);
 void msa_free_categories(MSA *msa);
+void msa_free_seqs(MSA *msa);
 void msa_free(MSA *msa);
 void reduce_to_4d(MSA *msa, CategoryMap *cm);
+void msa_update_length(MSA *msa);
 void msa_strip_gaps(MSA *msa, int gap_strip_mode);
 void msa_project(MSA *msa, int refseq);
 MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col, 

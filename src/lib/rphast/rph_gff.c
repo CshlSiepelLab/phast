@@ -176,7 +176,7 @@ SEXP rph_gff_print(SEXP filename, SEXP gff) {
   FILE *outfile;
   if (filename == R_NilValue)
     outfile = stdout;
-  else outfile = fopen_fname(CHARACTER_VALUE(filename), "r");
+  else outfile = fopen_fname(CHARACTER_VALUE(filename), "w");
   
   gff_print_set(outfile, (GFF_Set*)EXTPTR_PTR(gff));
   if (outfile != stdout) fclose(outfile);
