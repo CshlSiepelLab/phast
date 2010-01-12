@@ -59,9 +59,11 @@ struct tree_node {
 };
 
 TreeNode *tr_new_from_file(FILE *f);
-TreeNode *tr_new_from_string(char *s);
+TreeNode *tr_new_from_string(const char *s);
 TreeNode *tr_new_node();
 void tr_add_child(TreeNode *parent, TreeNode *child);
+char *tr_to_string(TreeNode *root, int show_branch_lengths);
+void tr_to_string_recur(char *str, TreeNode *node, int show_branch_lengths);
 void tr_print(FILE* f, TreeNode *root, int show_branch_lengths);
 void tr_print_recur(FILE* f, TreeNode *n, int show_branch_lengths);
 void tr_free(TreeNode *n);
@@ -85,7 +87,7 @@ double tr_total_len(TreeNode *t);
 double tr_total_len_subtree(TreeNode *sub_root);
 double tr_max_branchlen(TreeNode *sub_root);
 double tr_distance_to_root(TreeNode *node);
-TreeNode *tr_get_node(TreeNode *t, char *name);
+TreeNode *tr_get_node(TreeNode *t, const char *name);
 void tr_scale(TreeNode *t, double scale_const);
 void tr_scale_subtree(TreeNode *t, TreeNode *sub, double scale_const);
 void tr_prune(TreeNode **t, List *names, int all_but);

@@ -70,7 +70,7 @@ Hashtable *hsh_copy(Hashtable *src) {
 }
 
 /* Insert object with specified key and value. */
-void hsh_put(Hashtable *ht, char* key, void* val) {
+void hsh_put(Hashtable *ht, const char* key, void* val) {
   unsigned int bucket = hsh_hash_func(ht, key);
   char *keycpy;
   if (ht->keys[bucket] == NULL) {
@@ -85,7 +85,7 @@ void hsh_put(Hashtable *ht, char* key, void* val) {
 }
 
 
-void hsh_put_int(Hashtable *ht, char *key, int val) {
+void hsh_put_int(Hashtable *ht, const char *key, int val) {
   hsh_put(ht, key, int_to_ptr(val));
 }
 
@@ -100,29 +100,29 @@ int equal(void *key1ptr, void *key2) {
 
    Warning: Convention of returning -1 when object is not found is
    inappropriate when objects are integers (needs to be fixed).*/
-void* hsh_get(Hashtable* ht, char *key) {
+void* hsh_get(Hashtable* ht, const char *key) {
   unsigned int bucket;
   int idx;
   bucket = hsh_hash_func(ht, key);
   if (ht->keys[bucket] == NULL || 
-      (idx = lst_find_compare(ht->keys[bucket], key, equal)) == -1) 
+      (idx = lst_find_compare(ht->keys[bucket], (void*)key, equal)) == -1) 
     return (void*)-1;
   return lst_get_ptr(ht->vals[bucket], idx);
 }
 
-int hsh_get_int(Hashtable *ht, char *key) {
+int hsh_get_int(Hashtable *ht, const char *key) {
   return ptr_to_int(hsh_get(ht, key));
 }
 
 
 /* Delete entry with specified key.  
    Returns 1 if item found and deleted, 0 if item not found */
-int hsh_delete(Hashtable* ht, char *key) {
+int hsh_delete(Hashtable* ht, const char *key) {
   unsigned int bucket;
   int idx;
   bucket = hsh_hash_func(ht, key);
   if (ht->keys[bucket] == NULL || 
-      (idx = lst_find_compare(ht->keys[bucket], key, equal)) == -1) 
+      (idx = lst_find_compare(ht->keys[bucket], (void*)key, equal)) == -1) 
     return 0;
 
   lst_delete_idx(ht->keys[bucket], idx);
@@ -131,19 +131,19 @@ int hsh_delete(Hashtable* ht, char *key) {
 }
 
 /* reset value for given key; returns 0 on success, 1 if item isn't found */
-int hsh_reset(Hashtable *ht, char* key, void* val) {
+int hsh_reset(Hashtable *ht, const char* key, void* val) {
   unsigned int bucket;
   int idx;
   bucket = hsh_hash_func(ht, key);
   if (ht->keys[bucket] == NULL || 
-      (idx = lst_find_compare(ht->keys[bucket], key, equal)) == -1) 
+      (idx = lst_find_compare(ht->keys[bucket], (void*)key, equal)) == -1) 
     return 1;
   
   lst_set_ptr(ht->vals[bucket], idx, val);
   return 0;
 }
 
-int hsh_reset_int(Hashtable *ht, char *key, int val) {
+int hsh_reset_int(Hashtable *ht, const char *key, int val) {
   return hsh_reset(ht, key, int_to_ptr(val));
 }
 
@@ -183,7 +183,7 @@ void hsh_free_with_vals(Hashtable *ht) {
 }
 
 /* Hash function */
-unsigned int hsh_hash_func(Hashtable *ht, char* key) {
+unsigned int hsh_hash_func(Hashtable *ht, const char* key) {
   unsigned int h = 0;
   int i = 0;
   for (i = 0; key[i] != '\0'; i++)

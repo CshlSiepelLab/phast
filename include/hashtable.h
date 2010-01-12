@@ -30,16 +30,16 @@ struct hash_table {
 
 Hashtable* hsh_new(int est_capacity);
 Hashtable* hsh_copy(Hashtable *ht);
-void hsh_put(Hashtable *ht, char* key, void* val);
-void hsh_put_int(Hashtable *ht, char *key, int val);
-void* hsh_get(Hashtable* ht, char *key);
-int hsh_get_int(Hashtable *ht, char *key);
-int hsh_delete(Hashtable* ht, char *key);
-int hsh_reset(Hashtable *ht, char* key, void* val);
-int hsh_reset_int(Hashtable *ht, char *key, int val);
+void hsh_put(Hashtable *ht, const char* key, void* val);
+void hsh_put_int(Hashtable *ht, const char *key, int val);
+void* hsh_get(Hashtable* ht, const char *key);
+int hsh_get_int(Hashtable *ht, const char *key);
+int hsh_delete(Hashtable* ht, const char *key);
+int hsh_reset(Hashtable *ht, const char* key, void* val);
+int hsh_reset_int(Hashtable *ht, const char *key, int val);
 void hsh_free(Hashtable *ht);
 void hsh_free_with_vals(Hashtable *ht);
-unsigned int hsh_hash_func(Hashtable *ht, char* key);
+unsigned int hsh_hash_func(Hashtable *ht, const char* key);
 List *hsh_keys(Hashtable *ht);
 void hsh_clear(Hashtable *ht);
 void hsh_clear_with_vals(Hashtable *ht);
@@ -52,7 +52,7 @@ void hsh_clear_with_vals(Hashtable *ht);
    loops */  
 
 extern inline
-unsigned int hsh_hash_func(Hashtable *ht, char* key) {
+unsigned int hsh_hash_func(Hashtable *ht, const char* key) {
   unsigned int h = 0;
   int i = 0;
   for (i = 0; key[i] != '\0'; i++)
@@ -61,7 +61,7 @@ unsigned int hsh_hash_func(Hashtable *ht, char* key) {
 }
 
 extern inline
-void hsh_put(Hashtable *ht, char* key, void* val) {
+void hsh_put(Hashtable *ht, const char* key, void* val) {
   unsigned int bucket = hsh_hash_func(ht, key);
   char *keycpy;
   if (ht->keys[bucket] == NULL) {

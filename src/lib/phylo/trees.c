@@ -70,7 +70,7 @@ TreeNode *tr_new_from_file(FILE *f) {
 }
 
 /** Parse a Newick-formatted tree from a character string */
-TreeNode *tr_new_from_string(char *treestr) { 
+TreeNode *tr_new_from_string(const char *treestr) { 
   TreeNode *root, *node, *newnode;
   int i, in_distance = FALSE, len = strlen(treestr), nopen_parens = 0,
     nclose_parens = 0, already_allowed = FALSE;
@@ -155,8 +155,9 @@ void tr_set_nnodes(TreeNode *tree) {
   stack = stk_new_ptr(tree->nnodes);
   stk_push_ptr(stack, tree);
   while ((node = stk_pop_ptr(stack)) != NULL) {
-    assert((node->lchild == NULL && node->rchild == NULL) ||
-           (node->lchild != NULL && node->rchild != NULL));
+    if (! ((node->lchild == NULL && node->rchild == NULL) ||
+           (node->lchild != NULL && node->rchild != NULL)))
+      die("Invalid tree");
 
     if (node->lchild == NULL) {
       node->nnodes = 1;
@@ -227,6 +228,43 @@ void tr_add_child(TreeNode *parent, TreeNode *child) {
   }
   child->parent = parent;
 }
+
+
+/*  returns a newly allocated char * with newick representation of
+    tree.
+ */
+char *tr_to_string(TreeNode *root, int show_branch_lengths) {
+  char *str;
+  str = smalloc((STR_MED_LEN+20)*(root->nnodes+1)*sizeof(char));
+  str[0] = '\0';
+  tr_to_string_recur(str, root, show_branch_lengths);
+  str = srealloc(str, (strlen(str)+1)*sizeof(char));
+  return str;
+}
+
+
+/* recursive subroutine used by tr_to_string */
+void tr_to_string_recur(char *str, TreeNode *n, int show_branch_lengths) {
+  char temp[100];
+  assert((n->lchild == NULL && n->rchild == NULL) ||
+	 (n->lchild != NULL && n->rchild != NULL));
+  if (n->lchild != NULL) {
+    strcat(str, "(");
+    tr_to_string_recur(str, n->lchild, show_branch_lengths);
+    strcat(str, ",");
+    tr_to_string_recur(str, n->rchild, show_branch_lengths);
+    strcat(str, ")");
+    strcat(str, n->name);
+  }
+  else {
+    strcat(str, n->name);
+  }
+  if (show_branch_lengths && n->parent != NULL) {
+    sprintf(temp, ":%f", n->dparent);
+    strcat(str, temp);
+  }
+}
+
 
 /** Print tree in New Hampshire format. */
 void tr_print(FILE* f, TreeNode *root, int show_branch_lengths) {
@@ -847,7 +885,7 @@ double tr_distance_to_root(TreeNode *node) {
 }
 
 /** Return node having specified name or NULL if none found.  */
-TreeNode *tr_get_node(TreeNode *t, char *name) {
+TreeNode *tr_get_node(TreeNode *t, const char *name) {
   int i;
   for (i = 0; i < t->nnodes; i++) {
     TreeNode *n = lst_get_ptr(t->nodes, i);
