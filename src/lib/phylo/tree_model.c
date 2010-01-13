@@ -1840,7 +1840,7 @@ void tm_setup_params(TreeModel *mod) {
     for (node_idx=0; node_idx < lst_size(traversal); node_idx++) {
       n = lst_get_ptr(traversal, node_idx);
       if (n->parent == NULL) continue;  //skip root
-      if (mod->root_leaf_id == node_idx) {
+      if (mod->root_leaf_id == n->id) {
 	temp_idx++;
 	continue;  //don't optimize
       }

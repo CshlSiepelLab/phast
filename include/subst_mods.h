@@ -46,7 +46,7 @@ struct tm_struct;               /* use incomplete type because of
 void tm_set_probs_JC69(struct tm_struct *mod, MarkovMatrix *P, double t);
 void tm_set_probs_F81(Vector *backgd_freqs, MarkovMatrix *P, double scale, double t);
 void tm_set_probs_independent(struct tm_struct *mod, MarkovMatrix *P);
-subst_mod_type tm_get_subst_mod_type(char *str);
+subst_mod_type tm_get_subst_mod_type(const char *str);
 char *tm_get_subst_mod_string(subst_mod_type type);
 int tm_get_nratematparams(struct tm_struct *mod);
 int tm_order(int subst_mod);

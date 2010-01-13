@@ -92,7 +92,7 @@ int tm_flag_subst_param_pos(TreeModel *mod, int *flag,
 
 /* Return the substitution model (enum val) corresponding to the
    specified string */
-subst_mod_type tm_get_subst_mod_type(char *str) {
+subst_mod_type tm_get_subst_mod_type(const char *str) {
   String *subst_mod_str = str_new_charstr(str);
   subst_mod_type retval = UNDEF_MOD;
   if (str_equals_nocase_charstr(subst_mod_str, "JC69"))
