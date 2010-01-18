@@ -29,6 +29,12 @@ Last updated: 1/5/2010
 #include <Rdefines.h>
 
 
+TreeNode* rph_tree_new(SEXP treeStr) {
+  TreeNode *tree = tr_new_from_string(CHARACTER_VALUE(treeStr));
+  return tree;
+}
+
+
 /* read in a tree from a file.  Return character string 
    representing tree */
 SEXP rph_tree_read(SEXP filename) {
@@ -72,7 +78,6 @@ SEXP rph_tree_read(SEXP filename) {
       strcpy(strvec[numtrees], currStr);
 
       //check to make sure phast can read this tree
-      printf("making tree with %s\n", strvec[numtrees]);
       tempTree = tr_new_from_string(strvec[numtrees]);
       tr_free(tempTree);
 
@@ -95,7 +100,7 @@ SEXP rph_tree_read(SEXP filename) {
 
 
 SEXP rph_tree_numnodes(SEXP tree) {
-  TreeNode *tr = tr_new_from_string(CHARACTER_VALUE(tree));
+  TreeNode *tr = rph_tree_new(tree);
   SEXP result;
   int *resultP;
   PROTECT(result = NEW_INTEGER(1));
@@ -108,7 +113,7 @@ SEXP rph_tree_numnodes(SEXP tree) {
 
 
 SEXP rph_tree_prune(SEXP treeStr, SEXP seqsP, SEXP allButP) {
-  TreeNode *tr = tr_new_from_string(CHARACTER_VALUE(treeStr));
+  TreeNode *tr = rph_tree_new(treeStr);
   List *names = lst_new_ptr(LENGTH(seqsP));
   String *tempStr;
   char *temp;
@@ -132,7 +137,7 @@ SEXP rph_tree_prune(SEXP treeStr, SEXP seqsP, SEXP allButP) {
 
 
 SEXP rph_tree_name_ancestors(SEXP treeStr) {
-  TreeNode *tr = tr_new_from_string(CHARACTER_VALUE(treeStr));
+  TreeNode *tr = rph_tree_new(treeStr);
   char *newTreeStr;
   SEXP result;
   tr_name_ancestors(tr);
@@ -148,7 +153,7 @@ SEXP rph_tree_name_ancestors(SEXP treeStr) {
   
 
 SEXP rph_tree_subtree(SEXP treeStr, SEXP nodeStr) {
-  TreeNode *tr = tr_new_from_string(CHARACTER_VALUE(treeStr));
+  TreeNode *tr = rph_tree_new(treeStr);
   TreeNode *n;
   char *newTreeStr;
   SEXP result;
@@ -168,7 +173,7 @@ SEXP rph_tree_subtree(SEXP treeStr, SEXP nodeStr) {
 
 
 SEXP rph_tree_scale(SEXP treeStr, SEXP scaleP, SEXP nodeStr) {
-  TreeNode *tr = tr_new_from_string(CHARACTER_VALUE(treeStr));
+  TreeNode *tr = rph_tree_new(treeStr);
   double scale = NUMERIC_VALUE(scaleP);
   char *newTreeStr;
   SEXP result;
@@ -207,7 +212,8 @@ SEXP rph_tree_rename(SEXP treeVec, SEXP oldNamesP, SEXP newNamesP) {
 
   PROTECT(result = NEW_CHARACTER(numtree));
   for (treeIdx=0; treeIdx < numtree; treeIdx++) {
-    tr = tr_new_from_string(CHAR(STRING_ELT(treeVec, treeIdx)));
+    tr = rph_tree_new(STRING_ELT(treeVec, treeIdx));
+    //    tr = tr_new_from_string(CHAR(STRING_ELT(treeVec, treeIdx)));
     for (i=0; i<tr->nnodes; i++) {
       n = lst_get_ptr(tr->nodes, i);
       if (n->name != NULL && n->name[0] != '\0' &&
@@ -231,7 +237,7 @@ SEXP rph_tree_nodeName(SEXP treeP, SEXP idP) {
   
   if (idP == R_NilValue || treeP == R_NilValue) return R_NilValue;
   id = INTEGER_VALUE(idP);
-  tr = tr_new_from_string(CHARACTER_VALUE(treeP));
+  tr = rph_tree_new(treeP);
   n = (TreeNode*)lst_get_ptr(tr->nodes, id);
   if (id != n->id) die("id-mixup in tree");
   PROTECT(result = NEW_CHARACTER(1));
@@ -245,7 +251,7 @@ SEXP rph_tree_isNode(SEXP treeP, SEXP nodeName) {
   TreeNode *tr, *n;
   SEXP result;
   int *resultP, i;
-  tr = tr_new_from_string(CHARACTER_VALUE(treeP));
+  tr = rph_tree_new(treeP);
   for (i=0; i<tr->nnodes; i++) {
     n = (TreeNode*)lst_get_ptr(tr->nodes, i);
     if (strcmp(n->name, CHARACTER_VALUE(nodeName))==0)

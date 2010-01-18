@@ -25,15 +25,29 @@ Last updated: 1/13/10
 #include <sufficient_stats.h>
 #include <local_alignment.h>
 #include <tree_model.h>
-#include <rph_util.h>
 #include <matrix.h>
-
+#include <tree_likelihoods.h>
 #include <Rdefines.h>
 
 //these are defined as macros in R and we don't want them overriding
 // phast's matrix->nrows and matrix->ncols
 #undef nrows
 #undef ncols
+
+void rph_tm_free(SEXP tmP) {
+  tm_free((TreeModel*)EXTPTR_PTR(tmP));
+}
+
+
+SEXP rph_tm_new_extptr(TreeModel *tm) {
+  SEXP result;
+  PROTECT(result=R_MakeExternalPtr((void*)tm, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(result, rph_tm_free, 1);
+  UNPROTECT(1);
+  return result;
+}
+
+
 
 SEXP rph_tm_tree(SEXP tmP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
@@ -47,6 +61,7 @@ SEXP rph_tm_tree(SEXP tmP) {
   UNPROTECT(1);
   return result;
 }
+
 
 
 SEXP rph_tm_alphabet(SEXP tmP) {
@@ -125,6 +140,34 @@ SEXP rph_tm_order(SEXP tmP) {
   return result;
 }
 
+SEXP rph_tm_likelihood(SEXP tmP) {
+  TreeModel *tm;
+  SEXP result;
+  double *resultP;
+
+  if (tm->lnL == NULL_LOG_LIKELIHOOD)
+    return R_NilValue;
+  tm = (TreeModel*)EXTPTR_PTR(tmP);
+  PROTECT(result = NEW_NUMERIC(1));
+  resultP = NUMERIC_POINTER(result);
+  resultP[0] = tm->lnL;
+  UNPROTECT(1);
+  return result;
+}
+
+SEXP rph_tm_empirical_rates(SEXP tmP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  SEXP result;
+  int *resultP;
+  
+  PROTECT(result = NEW_LOGICAL(1));
+  resultP = LOGICAL_POINTER(result);
+  resultP[0] = tm->empirical_rates;
+  UNPROTECT(1);
+  return result;
+}
+
+
 
 SEXP rph_tm_alpha(SEXP tmP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
@@ -156,7 +199,7 @@ SEXP rph_tm_rK(SEXP tmP) {
   double *resultP;
   int i;
 
-  if (tm->rK == NULL)
+  if (tm->rK == NULL || tm->empirical_rates==0)
     return R_NilValue;
   PROTECT(result = NEW_NUMERIC(tm->nratecats));
   resultP = NUMERIC_POINTER(result);
@@ -172,7 +215,7 @@ SEXP rph_tm_freqK(SEXP tmP) {
   double *resultP;
   int i;
   
-  if (tm->freqK == NULL)
+  if (tm->freqK == NULL || tm->empirical_rates==0)
     return R_NilValue;
   PROTECT(result = NEW_NUMERIC(tm->nratecats));
   resultP = NUMERIC_POINTER(result);
@@ -198,15 +241,9 @@ SEXP rph_tm_rootLeaf(SEXP tmP) {
 }
 
 
-SEXP rph_tm_free(SEXP tmP) {
-  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
-  tm_free(tm);
-  return R_NilValue;
-}
-
 
 SEXP rph_tm_new(SEXP treeP, SEXP alphabetP, SEXP backgdP, SEXP matrixP, 
-		SEXP substModP, SEXP alphaP, SEXP nratecatsP,
+		SEXP substModP, SEXP lnlP, SEXP alphaP, SEXP nratecatsP,
 		SEXP rKP, SEXP freqKP, SEXP rootLeafP) {
   TreeModel *tm;
   TreeNode *tree;
@@ -266,7 +303,7 @@ SEXP rph_tm_new(SEXP treeP, SEXP alphabetP, SEXP backgdP, SEXP matrixP,
     die("invalid subst mod %s", CHARACTER_VALUE(substModP));
 
   //alpha
-  if (alphaP != R_NilValue)
+  if (alphaP != R_NilValue) 
     alpha = NUMERIC_VALUE(alphaP);
 
   //nratecats
@@ -312,14 +349,16 @@ SEXP rph_tm_new(SEXP treeP, SEXP alphabetP, SEXP backgdP, SEXP matrixP,
     normalize_probs(tm->freqK, tm->nratecats);
   }
 
+  if (lnlP != R_NilValue)
+    tm->lnL = NUMERIC_VALUE(lnlP);
+
   //these get copied by tm_new
   free(alphabet);
   if (rate_consts != NULL) lst_free(rate_consts);
 
   if (numProtect > 0)
     UNPROTECT(numProtect);
-
-  return R_MakeExternalPtr(tm, R_NilValue, R_NilValue);
+  return rph_tm_new_extptr(tm);
 }
  
 
@@ -348,5 +387,7 @@ SEXP rph_tm_read(SEXP filenameP) {
   infile = fopen_fname(CHARACTER_VALUE(filenameP), "r");
   tm = tm_new_from_file(infile);
   fclose(infile);
-  return R_MakeExternalPtr(tm, R_NilValue, R_NilValue);
+  return rph_tm_new_extptr(tm);
 }
+
+

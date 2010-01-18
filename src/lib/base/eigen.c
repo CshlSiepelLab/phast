@@ -14,8 +14,8 @@
     \ingroup base
 */
 
+#include <stdlib.h>
 #include <eigen.h>
-#include <assert.h>
 #include <math.h>
 
 #ifdef VECLIB
@@ -27,6 +27,9 @@
 #include <clapack.h> 
 #endif 
 #endif
+
+#include <misc.h>
+
 
 /* Diagonalize a square, real, nonsymmetric matrix.  Computes vector
    of eigenvalues and matrices of right and left eigenvectors,
@@ -47,8 +50,7 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
 		    ) { 
 
 #ifdef SKIP_LAPACK
-  fprintf(stderr, "ERROR: LAPACK required for matrix diagonalization.\n");
-  assert(0);
+  die("ERROR: LAPACK required for matrix diagonalization.\n");
 #else
   char jobvl = 'V', jobvr = 'V';
   long int n = M->nrows, lwork = 4 * M->nrows, info; 
@@ -57,8 +59,10 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
   double tmp[n*n];
   enum {REALVAL, CONJ1, CONJ2} eval_type;
   int check = 0;
-
-  assert(n == M->ncols);
+  
+  if (n != M->ncols)
+    die("ERROR in mat_diagonalize: M->nrows (%i) != M->ncols (%i)\n",
+	M->nrows, M->ncols);
 
   /* convert matrix to representation used by LAPACK (column-major) */
   for (j = 0; j < n; j++) 
@@ -89,7 +93,7 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
     else if (j > 0 && wr[j-1] == wr[j] && wi[j-1] == -wi[j]) 
       eval_type = CONJ2;        /* second in conjugate pair */
     else
-      assert(0);
+      die("ERROR in mat_diagnoalize: complex eigenvalue does not have a conjugate pair");
 
     for (i = 0; i < n; i++) {   /* row */
       Complex zr, zl;
@@ -144,9 +148,8 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
 
         if (fabs(z.y) > EQ_THRESHOLD ||
             fabs(z.x - mat_get(M, i, j)) > EQ_THRESHOLD) {
-          fprintf(stderr, "ERROR: diagonalization failed (got %f + %fi, expected %f).\n", 
+          die("ERROR: diagonalization failed (got %e + %ei, expected %e).\n", 
 		  z.x, z.y, mat_get(M, i, j));
-	  assert(0);
 	}
       }
     }
@@ -166,8 +169,7 @@ int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
 				   (preallocate n-dim) */
 		  ) {
 #ifdef SKIP_LAPACK
-  fprintf(stderr, "ERROR: LAPACK required for eigenvalue computation.\n");
-  assert(0);
+  die("ERROR: LAPACK required for eigenvalue computation.\n");
 #else
   char jobvl = 'N';
   char jobvr = 'N';
@@ -184,7 +186,9 @@ int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
     for (j = 0; j < n; j++) 
       tmp[i][j] = mat_get(M, j, i);
 
-  assert(n == M->ncols);
+  if (n != M->ncols) 
+    die("ERROR in mat_eigenvals: M->nrows (%i) != M->ncols (%i)\n",
+	M->nrows, M->ncols);
 
   dgeev_(&jobvl, &jobvr, &n, (doublereal*)tmp, &n, wr, wi, NULL, 
          &n, NULL, &n, work, &lwork, &info);

@@ -448,7 +448,6 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
     }
     free(subst_probs);
   }
-
   return(retval);
 }
 

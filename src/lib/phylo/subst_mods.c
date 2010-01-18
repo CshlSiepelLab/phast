@@ -176,6 +176,8 @@ char *tm_get_subst_mod_string(subst_mod_type type) {
     return "U3S";
   case GC:
     return "GC";
+  case HB:
+    return "HB";
   default:
     return "(unknown model)";
   }

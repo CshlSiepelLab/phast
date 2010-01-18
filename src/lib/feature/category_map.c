@@ -501,7 +501,6 @@ CategoryMap* cm_new_from_features(GFF_Set *feats) {
       str_dup(lst_get_ptr(types, i-1));
     retval->ranges[i] = cm_new_category_range(type, i, i);
   }
-
   lst_free(types);
   return retval;
 }

@@ -234,6 +234,9 @@ void zmat_as_real(Matrix *dest, Zmatrix *src, int strict) {
   for (i = 0; i < src->nrows; i++) {
     for (j = 0; j < src->ncols; j++) {
       dest->data[i][j] = src->data[i][j].x;
+      if (strict && src->data[i][j].y >= 1e-6)
+	die("ERROR in zmat_as_real: src matrix has imaginary component %ei",
+	    src->data[i][j].y);
       assert(!strict || src->data[i][j].y < 1e-6);
     }
   }

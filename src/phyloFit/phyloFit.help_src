@@ -251,7 +251,7 @@ OPTIONS:
         interval, printed to given filename, one parameter per line.
 
     --no-opt, -O <param_list>
-        Hold parameteres listed in comma-separated param_list constant at
+        Hold parameters listed in comma-separated param_list constant at
 	initial values.  This applies only to the "main" model, and not to 
 	any models defined with the --alt-mod option.  Param list can 
 	contain values such as "branches" to hold branch lengths constant,

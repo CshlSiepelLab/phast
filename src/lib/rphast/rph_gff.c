@@ -28,14 +28,22 @@ Last updated: 1/5/2010
 
 #include <Rdefines.h>
 
-SEXP rph_gff_free(SEXP gffPtr) {
+void rph_gff_free(SEXP gffPtr) {
   gff_free_set((GFF_Set*)EXTPTR_PTR(gffPtr));
-  return R_NilValue;
+}
+
+
+SEXP rph_gff_new_extptr(GFF_Set *gff) {
+  SEXP result;
+  PROTECT(result=R_MakeExternalPtr((void*)gff, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(result, rph_gff_free, 1);
+  UNPROTECT(1);
+  return result;
 }
 
 
 SEXP rph_gff_read(SEXP filename) {
-  return R_MakeExternalPtr((void*)gff_read_set(fopen_fname(CHARACTER_VALUE(filename), "r")), R_NilValue, R_NilValue);
+  return rph_gff_new_extptr(gff_read_set(fopen_fname(CHARACTER_VALUE(filename), "r")));
 }
 
 
@@ -267,6 +275,6 @@ SEXP rph_gff_new(SEXP seqnameP, SEXP srcP, SEXP featureP, SEXP startP, SEXP endP
   }
 
   UNPROTECT(numProtect);
-  return R_MakeExternalPtr((void*)gff, R_NilValue, R_NilValue);
+  return rph_gff_new_extptr(gff);
 }
 

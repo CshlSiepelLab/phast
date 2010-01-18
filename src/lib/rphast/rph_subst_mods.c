@@ -30,9 +30,14 @@ Last updated: 1/13/10
 #include <Rdefines.h>
 
 
+subst_mod_type rph_get_subst_mod(SEXP mod) {
+  return tm_get_subst_mod_type(CHARACTER_VALUE(mod));
+}
+
+
 SEXP rph_subst_mods_is_valid_string(SEXP mod) {
   subst_mod_type subst_mod = tm_get_subst_mod_type(CHARACTER_VALUE(mod));
-  SEXP result = NEW_LOGICAL(1);
+  SEXP result;
   int *resultP;
   
   PROTECT(result = NEW_LOGICAL(1));
@@ -41,3 +46,22 @@ SEXP rph_subst_mods_is_valid_string(SEXP mod) {
   UNPROTECT(1);
   return result;
 }
+
+
+SEXP rph_subst_mods_list_all(SEXP nilvalue) {
+  SEXP result;
+  int i, total=0;
+  if (nilvalue != R_NilValue)
+    die("rph_subst_mods_list_all doesn't really take an argument");
+      
+  for (i=0; ; i++) {
+    if ((subst_mod_type)i == UNDEF_MOD) break;
+    total++;
+  }
+  PROTECT(result = NEW_CHARACTER(total));
+  for (i=0; i<total; i++) 
+    SET_STRING_ELT(result, i, mkChar(tm_get_subst_mod_string((subst_mod_type)i)));
+  UNPROTECT(1);
+  return result;
+}
+  

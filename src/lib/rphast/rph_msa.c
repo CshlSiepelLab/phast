@@ -25,9 +25,25 @@ Last updated: 12/14/08
 #include <sufficient_stats.h>
 #include <local_alignment.h>
 #include <maf.h>
-#include <rph_util.h>
+#include <tree_likelihoods.h>
 
 #include <Rdefines.h>
+
+
+void rph_msa_free(SEXP msaP) {
+  MSA *msa;
+  msa = (MSA*)EXTPTR_PTR(msaP);
+  msa_free(msa);
+}
+
+
+SEXP rph_msa_new_extptr(MSA *msa) {
+  SEXP result;
+  PROTECT(result=R_MakeExternalPtr((void*)msa, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(result, rph_msa_free, 1);
+  UNPROTECT(1);
+  return result;
+}
 
 
 SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphabetP, SEXP orderedP, SEXP idxOffsetP) {
@@ -271,14 +287,6 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
 }
 
 
-SEXP rph_msa_free(SEXP msaP) {
-  MSA *msa;
-  msa = (MSA*)EXTPTR_PTR(msaP);
-  msa_free(msa);
-  return R_NilValue;
-}
-
-
 SEXP rph_msa_valid_fmt_str(SEXP formatP) {
   msa_format_type fmt;
   SEXP result;
@@ -514,3 +522,46 @@ SEXP rph_msa_strip_gaps(SEXP msaP, SEXP stripModeP, SEXP allOrAnyGaps) {
   return msaP;
 }
 
+
+
+SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP byColumnP) {
+  int by_column, force_order=0, i;
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  double *col_log_probs=NULL, likelihood, *resultP;
+  SEXP result;
+
+  tm_set_subst_matrices(tm);
+  
+  by_column = LOGICAL_VALUE(byColumnP);
+  if (by_column) {
+    if (msa->ss != NULL && msa->ss->tuple_idx == NULL) {
+      force_order = 1;
+      msa->ss->tuple_idx = smalloc(msa->length*sizeof(int));
+      for (i=0; i<msa->length; i++)
+	msa->ss->tuple_idx[i] = i;
+    }
+    col_log_probs = smalloc(msa->length*sizeof(double));
+    PROTECT(result = NEW_NUMERIC(msa->length));
+  }
+  else PROTECT(result = NEW_NUMERIC(1));
+  resultP = NUMERIC_POINTER(result);
+
+
+  likelihood = log(2)*tl_compute_log_likelihood(tm, msa, col_log_probs, -1, NULL);
+  
+  if (by_column) {
+    for (i=0; i<msa->length; i++)
+      resultP[i] = col_log_probs[i];
+    free(col_log_probs);
+  }
+  else resultP[0] = likelihood;
+  
+  if (force_order) {
+    free(msa->ss->tuple_idx);
+    msa->ss->tuple_idx = NULL;
+  }
+
+  UNPROTECT(1);
+  return result;
+}
