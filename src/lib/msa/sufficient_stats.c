@@ -1442,10 +1442,11 @@ void ss_reduce_tuple_size(MSA *msa, int new_tuple_size) {
     die("ERROR: new tuple size must be smaller than old in ss_reduce_tuple_size.\n");
   newlen = msa->nseqs * new_tuple_size;
   for (i = 0; i < msa->ss->ntuples; i++)  {
-    for (j = 0; j < msa->nseqs; j++)
-      for (k= -new_tuple_size+1; k>=0; k++)
+    for (j = 0; j < msa->nseqs; j++) 
+      for (k= -new_tuple_size+1; k<=0; k++) {
 	set_col_char_in_string(msa, msa->ss->col_tuples[i], j, new_tuple_size, k,
 			       col_string_to_char(msa, msa->ss->col_tuples[i], j, msa->ss->tuple_size, k));
+      }
     msa->ss->col_tuples[i][newlen] = '\0';
     msa->ss->col_tuples[i] = srealloc(msa->ss->col_tuples[i], (newlen+1)*sizeof(char));
   }
