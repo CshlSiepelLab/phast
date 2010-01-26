@@ -141,13 +141,11 @@ SEXP rph_tm_order(SEXP tmP) {
 }
 
 SEXP rph_tm_likelihood(SEXP tmP) {
-  TreeModel *tm;
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   SEXP result;
   double *resultP;
-
   if (tm->lnL == NULL_LOG_LIKELIHOOD)
     return R_NilValue;
-  tm = (TreeModel*)EXTPTR_PTR(tmP);
   PROTECT(result = NEW_NUMERIC(1));
   resultP = NUMERIC_POINTER(result);
   resultP[0] = tm->lnL;

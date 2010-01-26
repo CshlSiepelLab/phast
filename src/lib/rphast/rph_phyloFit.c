@@ -41,7 +41,7 @@ struct phyloFit_result_struct {
 
 void rph_phyloFit_result_struct_free(struct phyloFit_result_struct *pf) {
   int i;
-  printf("rph_phyloFit_result_struct_free\n");
+//  printf("rph_phyloFit_result_struct_free\n");
   if (pf->models != NULL) {
     for (i=0; i<lst_size(pf->models); i++)
       tm_free((TreeModel*)lst_get_ptr(pf->models, i));
