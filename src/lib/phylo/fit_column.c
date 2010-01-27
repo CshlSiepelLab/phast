@@ -912,7 +912,7 @@ void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode,
   fim = col_estimate_fim(mod);
 
   if (fim < 0) 
-    die("ERROR: negative fisher information in col_score_tests\n", i);
+    die("ERROR: negative fisher information in col_score_tests\n");
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {

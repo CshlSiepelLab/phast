@@ -18,6 +18,9 @@
 #include <eigen.h>
 #include <math.h>
 
+#ifdef RPHAST
+#include <R_ext/Lapack.h>
+#else
 #ifdef VECLIB
 #include <vecLib/clapack.h>
 #define doublereal __CLPK_doublereal
@@ -26,6 +29,7 @@
 #include <f2c.h>  
 #include <clapack.h> 
 #endif 
+#endif
 #endif
 
 #include <misc.h>
@@ -53,7 +57,11 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
   die("ERROR: LAPACK required for matrix diagonalization.\n");
 #else
   char jobvl = 'V', jobvr = 'V';
+#ifdef RPHAST
+  int n = M->nrows, lwork = 4*M->nrows, info;
+#else
   long int n = M->nrows, lwork = 4 * M->nrows, info; 
+#endif
   double wr[n],wi[n], vr[n * n], vl[n * n], work[4 * n];
   int i, j, k;
   double tmp[n*n];
@@ -69,8 +77,13 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
     for (i = 0; i < n; i++) 
       tmp[j*n + i] = mat_get(M, i, j);
 
+#ifdef RPHAST
+  F77_CALL(dgeev)(&jobvl, &jobvr, &n, tmp, &n, wr, wi, vl, &n,
+		  vr, &n, work, &lwork, &info);
+#else
   dgeev_(&jobvl, &jobvr, &n, (doublereal*)tmp, &n, wr, wi, vl, 
          &n, vr, &n, work, &lwork, &info);
+#endif
 
   if (info != 0) {
     fprintf(stderr, "ERROR executing the LAPACK 'dgeev' routine.\n"); 
@@ -173,25 +186,33 @@ int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
 #else
   char jobvl = 'N';
   char jobvr = 'N';
-  long int n = M->nrows;
+#ifdef RPHAST
+  int n = M->nrows, lwork = 4*n, info;
+#else
+  long int n = M->nrows, lwork = 4*n, info;
+#endif
+
   double wr[n];
   double wi[n];
   double work[4 * n];
-  long int lwork = 4 * n;
-  long int info; 
   int i, j;
   double tmp[n][n];
 
   for (i = 0; i < n; i++) 
-    for (j = 0; j < n; j++) 
+    for (j = 0; j < n; j++)
       tmp[i][j] = mat_get(M, j, i);
 
   if (n != M->ncols) 
     die("ERROR in mat_eigenvals: M->nrows (%i) != M->ncols (%i)\n",
 	M->nrows, M->ncols);
 
+#ifdef RPHAST
+  F77_CALL(dgeev)(&jobvl, &jobvr, &n, (double*)tmp, &n, wr, wi, NULL, &n,
+		  NULL, &n, work, &lwork, &info);
+#else
   dgeev_(&jobvl, &jobvr, &n, (doublereal*)tmp, &n, wr, wi, NULL, 
          &n, NULL, &n, work, &lwork, &info);
+#endif
 
   if (info != 0) {
     fprintf(stderr, "ERROR executing the LAPACK 'dgeev' routine.\n"); 

@@ -14,6 +14,9 @@
 #include <assert.h>
 #include <matrix.h>
 
+#ifdef RPHAST
+#include <R_ext/Lapack.h>
+#else
 #ifdef VECLIB
 #include <vecLib/clapack.h>
 #define doublereal __CLPK_doublereal
@@ -21,6 +24,7 @@
 #ifndef SKIP_LAPACK
 #include <f2c.h>
 #include <clapack.h>
+#endif
 #endif
 #endif
 
@@ -234,10 +238,14 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
   die("ERROR: LAPACK required for matrix inversion.\n");
 #else
   int i, j;
+#ifdef RPHAST
+  int info, n = M->nrows;
+  int ipiv[n], lwork = n;
+#else
   long int info, n = M->nrows;
-  long int ipiv[n];
+  long int ipiv[n], lwork=n;
+#endif
   double tmp[n][n];
-  long int lwork = n;
   double work[lwork];
 
   assert(M->nrows == M->ncols && M_inv->nrows == M_inv->ncols && 
@@ -247,14 +255,21 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
     for (j = 0; j < n; j++) 
       tmp[i][j] = mat_get(M, j, i);
 
+#ifdef RPHAST
+  F77_CALL(dgetrf)(&n, &n, (double*)tmp, &n, ipiv, &info);
+#else
   dgetrf_(&n, &n, (doublereal*)tmp, &n, ipiv, &info);
+#endif
 
   if (info != 0) {
     fprintf(stderr, "ERROR: unable to compute LU factorization of matrix (for matrix inversion); dgetrf returned value of %d.\n", (int)info); 
     return 1;
   }
-
+#ifdef RPHAST
+  F77_CALL(dgetri)(&n, (double*)tmp, &n, ipiv, work, &lwork, &info);
+#else
   dgetri_(&n, (doublereal*)tmp, &n, ipiv, work, &lwork, &info);
+#endif
 
   if (info != 0) {
     if (info > 0)
