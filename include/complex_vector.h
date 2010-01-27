@@ -19,6 +19,7 @@
 
 #include <complex.h>
 #include <stdio.h>
+#include <rph_util.h>
 
 /** Structure for vector of complex numbers -- array of Complex
     objects and its length */
@@ -51,12 +52,12 @@ void zvec_as_real(Vector *dest, Zvector *src, int strict);
 /* we'll only inline the functions likely to be used heavily in inner
    loops */  
 
-extern inline
+extern PHAST_INLINE
 Complex zvec_get(Zvector *v, int i) { /* check */
   return v->data[i];
 }
 
-extern inline
+extern PHAST_INLINE
 void zvec_set(Zvector *v, int i, Complex val) {
   v->data[i] = val;
 }

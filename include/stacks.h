@@ -17,6 +17,7 @@
 #define STACKS_H
 
 #include "lists.h"
+#include "rph_util.h"
 
 typedef List Stack;
 
@@ -132,93 +133,93 @@ void stk_free(Stack *s);
 /* situations in which inlining is not available                           */
 /***************************************************************************/
 
-extern inline
+extern PHAST_INLINE
 int stk_empty(Stack *s) { return lst_empty(s); }
 
-extern inline
+extern PHAST_INLINE
 void* stk_pop(Stack* s) {
   if (stk_empty(s)) return NULL;
   return lst_arr_get(s, --s->ridx);
 }
 
-extern inline
+extern PHAST_INLINE
 void* stk_peek(Stack* s) {
   if (stk_empty(s)) return NULL;
   return lst_arr_get(s, s->ridx-1);
 }
 
-extern inline
+extern PHAST_INLINE
 int stk_pop_int(Stack *s) {
   int *ptr = (int*)stk_pop(s);
   return (ptr == NULL ? 0 : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 double stk_pop_dbl(Stack *s) {
   double *ptr = (double*)stk_pop(s);
   return (ptr == NULL ? 0 : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 void* stk_pop_ptr(Stack *s) {
   void **ptr = (void**)stk_pop(s);
   return (ptr == NULL ? NULL : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 int stk_peek_int(Stack *s) {
   int *ptr = (int*)stk_peek(s);
   return (ptr == NULL ? 0 : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 double stk_peek_dbl(Stack *s) {
   double *ptr = (double*)stk_peek(s);
   return (ptr == NULL ? 0 : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 void* stk_peek_ptr(Stack *s) {
   void **ptr = (void**)stk_peek(s);
   return (ptr == NULL ? NULL : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 void stk_push(Stack *s, void *o) { lst_push(s, o); }
 
-extern inline
+extern PHAST_INLINE
 void stk_push_int(Stack *s, int i) { lst_push_int(s, i); }
 
-extern inline
+extern PHAST_INLINE
 void stk_push_dbl(Stack *s, double d) { lst_push_dbl(s, d); }
 
-extern inline
+extern PHAST_INLINE
 void stk_push_ptr(Stack *s, void *ptr) { lst_push_ptr(s, ptr); }
 
-extern inline
+extern PHAST_INLINE
 int stk_size(Stack *s) { return lst_size(s); }
 
-extern inline
+extern PHAST_INLINE
 Stack* stk_new(int nelements, /* Starting number of elements */
 	      int elementsz)	    /* Size of each element (bytes) */
 { return lst_new(nelements, elementsz); }
 
-extern inline
+extern PHAST_INLINE
 Stack* stk_new_int(int nelements) /* Starting number of elements */
 { return lst_new(nelements, sizeof(int)); }
 
-extern inline
+extern PHAST_INLINE
 Stack* stk_new_dbl(int nelements) /* Starting number of elements */
 { return lst_new(nelements, sizeof(double)); }
 
-extern inline
+extern PHAST_INLINE
 Stack* stk_new_ptr(int nelements) 
 { return lst_new(nelements, sizeof(void*)); }
 
-extern inline
+extern PHAST_INLINE
 void stk_clear(Stack *s) { lst_clear(s); }
 
-extern inline
+extern PHAST_INLINE
 void stk_free(Stack *s) { lst_free(s); }
 
 #endif

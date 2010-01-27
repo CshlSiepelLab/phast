@@ -18,6 +18,7 @@
 #define MAT_H
 
 #include <vector.h>
+#include <rph_util.h>
 
 /* Equality threshold -- consider equal if this close */
 #define EQ_THRESHOLD 1e-10
@@ -315,12 +316,12 @@ void mat_mult_diag(Matrix *A, Matrix *B, Vector *C, Matrix *D);
 /* we'll only inline the functions likely to be used heavily in inner
    loops */  
 
-extern inline
+extern PHAST_INLINE
 double mat_get(Matrix *m, int row, int col) {
   return m->data[row][col];
 }
 
-extern inline
+extern PHAST_INLINE
 void mat_set(Matrix *m, int row, int col, double val) {
   m->data[row][col] = val;
 }

@@ -17,6 +17,7 @@
 
 #include <lists.h>
 #include <misc.h>
+#include <rph_util.h>
 
 #define MULTIPLIER 31		/* recommended by Kernighan and Pike */
 #define LOADING_FACTOR 5
@@ -51,7 +52,7 @@ void hsh_clear_with_vals(Hashtable *ht);
 /* we'll only inline the functions likely to be used heavily in inner
    loops */  
 
-extern inline
+extern PHAST_INLINE
 unsigned int hsh_hash_func(Hashtable *ht, const char* key) {
   unsigned int h = 0;
   int i = 0;
@@ -60,7 +61,7 @@ unsigned int hsh_hash_func(Hashtable *ht, const char* key) {
   return h % ht->nbuckets;
 }
 
-extern inline
+extern PHAST_INLINE
 void hsh_put(Hashtable *ht, const char* key, void* val) {
   unsigned int bucket = hsh_hash_func(ht, key);
   char *keycpy;

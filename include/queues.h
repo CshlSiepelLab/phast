@@ -17,6 +17,7 @@
 #define QUEUES_H
 
 #include "lists.h"
+#include "rph_util.h"
 
 typedef List Queue;
 
@@ -135,92 +136,92 @@ void que_free(Queue *q);
 /* situations in which inlining is not available                           */
 /***************************************************************************/
 
-extern inline
+extern PHAST_INLINE
 int que_empty(Queue *q) { return lst_empty(q); }
 
-extern inline
+extern PHAST_INLINE
 void* que_pop(Queue* q) {
   if (que_empty(q)) return NULL;
   return lst_arr_get(q, q->lidx++);
 }
 
-extern inline
+extern PHAST_INLINE
 void* que_peek(Queue* q) {
   if (que_empty(q)) return NULL;
   return lst_arr_get(q, q->lidx);
 }
 
-extern inline
+extern PHAST_INLINE
 int que_pop_int(Queue *q) {
   int *ptr = (int*)que_pop(q);
   return (ptr == NULL ? 0 : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 double que_pop_dbl(Queue *q) {
   double *ptr = (double*)que_pop(q);
   return (ptr == NULL ? 0 : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 void* que_pop_ptr(Queue *q) {
   void **ptr = (void**)que_pop(q);
   return (ptr == NULL ? NULL : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 int que_peek_int(Queue *q) {
   int *ptr = (int*)que_peek(q);
   return (ptr == NULL ? 0 : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 double que_peek_dbl(Queue *q) {
   double *ptr = (double*)que_peek(q);
   return (ptr == NULL ? 0 : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 void* que_peek_ptr(Queue *q) {
   void **ptr = (void**)que_peek(q);
   return (ptr == NULL ? NULL : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 void que_push(Queue *q, void *o) { lst_push(q, o); }
 
-extern inline
+extern PHAST_INLINE
 void que_push_int(Queue *q, int i) { lst_push_int(q, i); }
 
-extern inline
+extern PHAST_INLINE
 void que_push_dbl(Queue *q, double d) { lst_push_dbl(q, d); }
 
-extern inline
+extern PHAST_INLINE
 void que_push_ptr(Queue *q, void *ptr) { lst_push_ptr(q, ptr); }
 
-extern inline
+extern PHAST_INLINE
 int que_size(Queue *q) { return lst_size(q); }
 
-extern inline
+extern PHAST_INLINE
 Queue* que_new(int nelements, int elementsz)
 { return lst_new(nelements, elementsz); }
 
-extern inline
+extern PHAST_INLINE
 Queue* que_new_int(int nelements) 
 { return lst_new(nelements, sizeof(int)); }
 
-extern inline
+extern PHAST_INLINE
 Queue* que_new_dbl(int nelements) 
 { return lst_new(nelements, sizeof(double)); }
 
-extern inline
+extern PHAST_INLINE
 Queue* que_new_ptr(int nelements) 
 { return lst_new(nelements, sizeof(void*)); }
 
-extern inline
+extern PHAST_INLINE
 void que_clear(Queue *q) { lst_clear(q); }
 
-extern inline
+extern PHAST_INLINE
 void que_free(Queue *q) { lst_free(q); }
 
 #endif

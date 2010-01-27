@@ -19,6 +19,8 @@
 #define VEC_H
 
 #include <stdio.h>
+#include <rph_util.h>
+
 struct lst_struct;
 
 /* temporary -- elim gsl */
@@ -253,12 +255,12 @@ void vec_ave(Vector *dest_v, struct lst_struct *source_vs,
 /* we'll only inline the functions likely to be used heavily in inner
    loops */  
 
-extern inline
+extern PHAST_INLINE
 double vec_get(Vector *v, int i) {
   return v->data[i];
 }
 
-extern inline
+extern PHAST_INLINE
 void vec_set(Vector *v, int i, double val) {
   v->data[i] = val;
 }

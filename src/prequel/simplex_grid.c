@@ -4,9 +4,10 @@
 #include <simplex_grid.h>
 #include <misc.h>
 #include <assert.h>
+#include <rph_util.h>
 
 /* return single index from coords in d dimensions */
-static inline
+static PHAST_INLINE
 int int_idx(int *coord, int dim, int nrows) {
   int i, retval = 0;
   for (i = 0; i < dim; i++) {
@@ -17,7 +18,7 @@ int int_idx(int *coord, int dim, int nrows) {
 }
 
 /* inverse of above: obtain d-dimensional coords from single index */
-static inline
+static PHAST_INLINE
 void get_coords(int *coord, int dim, int nrows, int idx_d) {
   int i;
   for (i = dim-1; i >= 0; i--) {

@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <dmotif_indel_mod.h>
 #include <numerical_opt.h>
+#include <rph_util.h>
 
 DMotifBranchIndelModel *dmih_new_branch(double alpha, double beta, double tau,
 					double epsilon, double t, int motif) {
@@ -215,7 +216,7 @@ void dmih_set(DMotifIndelModel *im, double *alpha, double *beta, double *tau,
   }
 }
 
-static inline
+static PHAST_INLINE
 col_type get_col_type(IndelHistory *ih, int child_id, int parent_id, int col) {
   if (ih->indel_strings[parent_id][col] == BASE && 
       ih->indel_strings[child_id][col] == BASE)

@@ -37,6 +37,7 @@
 
 #include <stdlib.h> 
 #include <string.h>
+#include <rph_util.h>
 
 /** Basic List object */
 struct lst_struct {
@@ -656,7 +657,7 @@ void lst_dbl_quantiles(List *l, double *quantiles, int nquantiles,
 /* situations in which inlining is not available                           */
 /***************************************************************************/
 
-extern inline
+extern PHAST_INLINE
 void lst_arr_set(List *l, int i, void *o) {
   if (l->elementsz <= sizeof(void*))
     l->array[i] = *((void**)o);	/* ?? */
@@ -664,16 +665,16 @@ void lst_arr_set(List *l, int i, void *o) {
     memcpy(&l->array[i * l->step], o, l->elementsz);
 }
 
-extern inline
+extern PHAST_INLINE
 void* lst_arr_get(List *l, int i) {
   return (&l->array[i * l->step]);
 }
 
-extern inline
+extern PHAST_INLINE
 int lst_size(List *l) 
 {  return (l->ridx - l->lidx); }
 
-extern inline
+extern PHAST_INLINE
 void lst_push(List *l, void* o) {
   int i;
   if (l->ridx >= l->CAPACITY) {
@@ -692,76 +693,76 @@ void lst_push(List *l, void* o) {
   lst_arr_set(l, l->ridx++, o);
 }
 
-extern inline
+extern PHAST_INLINE
 void* lst_get(List *l, int i) {
   if (i >= lst_size(l)) return NULL;
   return lst_arr_get(l, l->lidx + i);
 }
 
-extern inline
+extern PHAST_INLINE
 void lst_set(List *l, int i, void *o) {
   lst_arr_set(l, l->lidx + i, o);
 }
 
-extern inline
+extern PHAST_INLINE
 void lst_clear(List* l) 
 {  l->ridx = l->lidx = 0; }
 
-extern inline
+extern PHAST_INLINE
 int lst_empty(List *l) 
 {  return (l->lidx >= l->ridx); }
 
-extern inline
+extern PHAST_INLINE
 void lst_push_int(List *l, int i) 
 {  lst_push(l, &i); }
 
-extern inline
+extern PHAST_INLINE
 void lst_push_dbl(List *l, double d) 
 {  lst_push(l, &d); }
 
-extern inline
+extern PHAST_INLINE
 void lst_push_ptr(List *l, void *ptr) 
 {  lst_push(l, &ptr); }
 
-extern inline
+extern PHAST_INLINE
 int lst_get_int(List* l, int i) {  
   int *ptr = (int*)lst_get(l, i);
   return (ptr == NULL ? 0 : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 double lst_get_dbl(List* l, int i) { 
   double *ptr =  (double*)lst_get(l, i); 
   return (ptr == NULL ? 0 : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 void* lst_get_ptr(List *l, int i) {
   void **ptr =  (void**)lst_get(l, i); 
   return (ptr == NULL ? NULL : *ptr);
 }
 
-extern inline
+extern PHAST_INLINE
 void lst_set_int(List *l, int idx, int i) 
 {  lst_set(l, idx, &i); }
 
-extern inline
+extern PHAST_INLINE
 void lst_set_dbl(List *l, int idx, double d) 
 {  lst_set(l, idx, &d); }
 
-extern inline
+extern PHAST_INLINE
 void lst_set_ptr(List *l, int idx, void *ptr) 
 {  lst_set(l, idx, &ptr); }
 
-extern inline
+extern PHAST_INLINE
 int lst_find_int(List *l, int i) 
 { return lst_find(l, &i); }
 
-extern inline
+extern PHAST_INLINE
 int lst_find_dbl(List *l, double d) 
 { return lst_find(l, &d); }
 
-extern inline
+extern PHAST_INLINE
 int lst_find_ptr(List *l, void *ptr) 
 { return lst_find(l, &ptr); }
 

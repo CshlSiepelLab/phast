@@ -16,6 +16,7 @@
 #include <vector.h>
 #include <complex_matrix.h>
 #include <complex_vector.h>
+#include <rph_util.h>
 
 #define NCHARS 256
 
@@ -68,12 +69,12 @@ void mm_scale(MarkovMatrix *M, double scale);
 void mm_renormalize(MarkovMatrix *M);
 
 /* allows shorthand for element access */
-extern inline
+extern PHAST_INLINE
 double mm_get(MarkovMatrix *M, int row, int col) {
   return(mat_get(M->matrix, row, col));
 }
 
-extern inline
+extern PHAST_INLINE
 void mm_set(MarkovMatrix *M, int row, int col, double val) {
   mat_set(M->matrix, row, col, val);
 }

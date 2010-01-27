@@ -19,6 +19,7 @@
 #include "lists.h"
 #include "msa.h"
 #include "assert.h"
+#include "rph_util.h"
 
 /* sufficient statistics for an alignment */
 /* for now, allow only one tuple_size per object */
@@ -101,7 +102,7 @@ void ss_add_coltuple(char *coltuple_str, void *val, Hashtable *tuple_hash, MSA *
 /* Produce a string representation of an alignment column tuple, given
    the model order; str must be allocated externally to size
    msa->nseqs * (tuple_size) + 1 */
-extern inline 
+extern PHAST_INLINE 
 void col_to_string(char *str, MSA *msa, int col, int tuple_size) {
   int col_offset, j, pos = 0;
   for (j = 0; j < msa->nseqs; j++) 
@@ -118,19 +119,19 @@ void col_to_string(char *str, MSA *msa, int col, int tuple_size) {
    relative to the last column in the tuple.  Specifically, if
    col_offset == 0 then the last column is considered, if col_offset
    == -1 then the preceding one is considered, and so on. */
-extern inline 
+extern PHAST_INLINE 
 char col_string_to_char(MSA *msa, char *str, int seqidx, int tuple_size, int col_offset) {
   return str[tuple_size*seqidx + tuple_size - 1 + col_offset];
                                 /* FIXME: WRONG */
 }
 
-extern inline
+extern PHAST_INLINE
 void set_col_char_in_string(MSA *msa, char *str, int seqidx, int tuple_size, int col_offset, char c) {
   str[tuple_size*seqidx + tuple_size - 1 + col_offset] = c;
 }
 
 /* return character for specified sequence given index of tuple */
-extern inline
+extern PHAST_INLINE
 char ss_get_char_tuple(MSA *msa, int tupleidx, int seqidx, 
                        int col_offset) {
   return col_string_to_char(msa, msa->ss->col_tuples[tupleidx], seqidx, 
@@ -139,7 +140,7 @@ char ss_get_char_tuple(MSA *msa, int tupleidx, int seqidx,
 
 /* return character for specified sequence at specified alignment
    position; requires representation of column order */
-extern inline
+extern PHAST_INLINE
 char ss_get_char_pos(MSA *msa, int position, int seqidx,
                      int col_offset) {
   assert(msa->ss->tuple_idx != NULL);
@@ -150,7 +151,7 @@ char ss_get_char_pos(MSA *msa, int position, int seqidx,
 
 /* Produce a printable representation of the specified tuple.  Strings
    representing each column will be separated by spaces */
-extern inline
+extern PHAST_INLINE
 void tuple_to_string_pretty(char *str, MSA *msa, int tupleidx) {
   int stridx = 0, offset, j;
   for (offset = -1 * (msa->ss->tuple_size-1); offset <= 0; offset++) {
@@ -167,7 +168,7 @@ void tuple_to_string_pretty(char *str, MSA *msa, int tupleidx) {
    sequence and column tuple; tuplestr must be allocated to at least
    tuple_size (null terminator will not be added, but if present will
    be left unchanged). */
-extern inline
+extern PHAST_INLINE
 void ss_get_tuple_of_chars(MSA *msa, int tupleidx, int seqidx,
                            char *tuplestr) {
   int offset;

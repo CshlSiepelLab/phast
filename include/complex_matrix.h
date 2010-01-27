@@ -19,6 +19,7 @@
 
 #include <complex.h>
 #include <complex_vector.h>
+#include <rph_util.h>
 
 /** Structure for matrix of complex numbers -- 2d array of Complex
     objects and its dimensions */
@@ -60,12 +61,12 @@ void zmat_as_real(Matrix *dest, Zmatrix *src, int strict);
 /* we'll only inline the functions likely to be used heavily in inner
    loops */  
 
-extern inline
+extern PHAST_INLINE
 Complex zmat_get(Zmatrix *m, int row, int col) {
   return m->data[row][col];
 }
 
-extern inline
+extern PHAST_INLINE
 void zmat_set(Zmatrix *m, int row, int col, Complex val) {
   m->data[row][col] = val;
 }

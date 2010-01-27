@@ -19,6 +19,7 @@
 #include <lists.h>
 #include <time.h>
 #include <sys/time.h>
+#include <rph_util.h>
 /*#ifdef RPHAST
 #include <R_ext/Error.h>
 #endif*/
@@ -57,7 +58,7 @@ struct hash_table;
 #define IS_PYRIMIDINE(b) (toupper(b) == 'C' || toupper(b) == 'T')
 
 /* raise integer to small integral power */
-extern inline
+extern PHAST_INLINE
 int int_pow(int x, int y) { 
   int retval = 1, i;
   for (i = 0; i < y; i++) retval *= x;
@@ -65,7 +66,7 @@ int int_pow(int x, int y) {
 }
 
 /* fast computation of floor(log2(x)), where x is a positive integer */
-extern inline
+extern PHAST_INLINE
 int log2_int(unsigned x) {
   int i;
   for (i = 0; ; i++) {
@@ -74,7 +75,7 @@ int log2_int(unsigned x) {
   }
 }
 
-extern inline
+extern PHAST_INLINE
 double log_sum(List *l) {
   double maxval, expsum;
   int k;
@@ -92,7 +93,7 @@ double log_sum(List *l) {
   return maxval + log2(expsum);        
 }
 
-extern inline
+extern PHAST_INLINE
 double log_sum_e(List *l) {
   double maxval, expsum;
   int k;
@@ -111,7 +112,7 @@ double log_sum_e(List *l) {
 }
 
 /* return n! */
-extern inline
+extern PHAST_INLINE
 int permutations(int n) {
   int i, retval = 1;
   for (i = 2; i <= n; i++) retval *= i;
@@ -119,7 +120,7 @@ int permutations(int n) {
 }
 
 /* return n-choose-k */
-extern inline 
+extern PHAST_INLINE 
 int combinations(int n, int k) {
   int i, retval = 1;
   for (i = 0; i < k; i++) retval *= (n - i);
@@ -128,7 +129,7 @@ int combinations(int n, int k) {
 
 /* compute relative entropy in bits of q with respect to p, both
    probability vectors of dimension d */
-extern inline
+extern PHAST_INLINE
 double rel_entropy(double *p, double *q, int d) {
   int i;
   double H = 0;
@@ -141,7 +142,7 @@ double rel_entropy(double *p, double *q, int d) {
 }
 
 /* symmetric version of relative entropy */
-extern inline
+extern PHAST_INLINE
 double sym_rel_entropy(double *p, double *q, int d) {
   double re1 = rel_entropy(p, q, d), re2 = rel_entropy(q, p, d);
   return min(re1, re2);
