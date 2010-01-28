@@ -11,6 +11,8 @@
 #define RPHASTH
 
 #ifdef RPHAST
+//#include <R_ext/Error.h>
+#include <Rconfig.h>
 #define PHAST_INLINE R_INLINE
 #else
 #define PHAST_INLINE inline
