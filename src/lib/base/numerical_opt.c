@@ -18,7 +18,7 @@
 #include <assert.h>
 #include <sys/time.h>
 #include <vector.h>
-#include <rph_util.h>
+#include <external_libs.h>
 
 /* Numerical optimization of multidimensional functions by the
    "variable metric" or "quasi-Newton" Broyden-Fletcher-Goldfarb-

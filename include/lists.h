@@ -37,7 +37,7 @@
 
 #include <stdlib.h> 
 #include <string.h>
-#include <rph_util.h>
+#include <external_libs.h>
 
 /** Basic List object */
 struct lst_struct {

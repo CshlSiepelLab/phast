@@ -21,7 +21,7 @@
 #include "tree_likelihoods.h"
 #include "stacks.h"
 #include "ctype.h"
-#include "rph_util.h"
+#include "external_libs.h"
 
 #define DERIV_EPSILON 1e-6
 

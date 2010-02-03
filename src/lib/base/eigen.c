@@ -17,21 +17,7 @@
 #include <stdlib.h>
 #include <eigen.h>
 #include <math.h>
-
-#ifdef RPHAST
-#include <R_ext/Lapack.h>
-#else
-#ifdef VECLIB
-#include <vecLib/clapack.h>
-#define doublereal __CLPK_doublereal
-#else
-#ifndef SKIP_LAPACK 
-#include <f2c.h>  
-#include <clapack.h> 
-#endif 
-#endif
-#endif
-
+#include <external_libs.h>
 #include <misc.h>
 
 
@@ -57,14 +43,9 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
   die("ERROR: LAPACK required for matrix diagonalization.\n");
 #else
   char jobvl = 'V', jobvr = 'V';
-#ifdef RPHAST
-  int n = M->nrows, lwork = 4*M->nrows, info;
-#else
-  long int n = M->nrows, lwork = 4 * M->nrows, info; 
-#endif
-  double wr[n],wi[n], vr[n * n], vl[n * n], work[4 * n];
+  LAPACK_INT n = (LAPACK_INT)M->nrows, lwork = (LAPACK_INT)(4*M->nrows), info;
+  LAPACK_DOUBLE tmp[n*n], wr[n], wi[n], vl[n * n], vr[n * n], work[4 * n];
   int i, j, k;
-  double tmp[n*n];
   enum {REALVAL, CONJ1, CONJ2} eval_type;
   int check = 0;
   
@@ -75,13 +56,13 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
   /* convert matrix to representation used by LAPACK (column-major) */
   for (j = 0; j < n; j++) 
     for (i = 0; i < n; i++) 
-      tmp[j*n + i] = mat_get(M, i, j);
+      tmp[j*n + i] = (LAPACK_DOUBLE)mat_get(M, i, j);
 
-#ifdef RPHAST
+#ifdef R_LAPACK
   F77_CALL(dgeev)(&jobvl, &jobvr, &n, tmp, &n, wr, wi, vl, &n,
 		  vr, &n, work, &lwork, &info);
 #else
-  dgeev_(&jobvl, &jobvr, &n, (doublereal*)tmp, &n, wr, wi, vl, 
+  dgeev_(&jobvl, &jobvr, &n, tmp, &n, wr, wi, vl, 
          &n, vr, &n, work, &lwork, &info);
 #endif
 
@@ -91,7 +72,7 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
   }
 
   for (j = 0; j < n; j++) {     /* column */
-    Complex z = z_set(wr[j], wi[j]);
+    Complex z = z_set((double)wr[j], (double)wi[j]);
     zvec_set(eval, j, z);
 
     /* if there are repeated eigenvalues, diagonalization may fail */
@@ -112,20 +93,20 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
       Complex zr, zl;
       switch (eval_type) {
       case REALVAL:
-	zr = z_set(vr[j*n + i], 0);
-	zl = z_set(vl[j*n + i], 0);
+	zr = z_set((double)vr[j*n + i], 0);
+	zl = z_set((double)vl[j*n + i], 0);
         break;
       case CONJ1:
-	zr = z_set(vr[j*n + i], vr[(j+1)*n + i]);
-        zl = z_set(vl[j*n + i], -vl[(j+1)*n + i]);
+	zr = z_set((double)vr[j*n + i], (double)vr[(j+1)*n + i]);
+        zl = z_set((double)vl[j*n + i], -(double)vl[(j+1)*n + i]);
                                 /* left eigenvectors according to
                                    dgeev are complex conjugates of
                                    those described by Press et al. --
                                    see dgeev man page */
         break;
       case CONJ2:
-	zr = z_set(vr[(j-1)*n + i], -vr[j*n + i]);
-        zl = z_set(vl[(j-1)*n + i], vl[j*n + i]);
+	zr = z_set((double)vr[(j-1)*n + i], -(double)vr[j*n + i]);
+        zl = z_set((double)vl[(j-1)*n + i], (double)vl[j*n + i]);
         break;
       }
 
@@ -186,31 +167,23 @@ int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
 #else
   char jobvl = 'N';
   char jobvr = 'N';
-#ifdef RPHAST
-  int n = M->nrows, lwork = 4*n, info;
-#else
-  long int n = M->nrows, lwork = 4*n, info;
-#endif
-
-  double wr[n];
-  double wi[n];
-  double work[4 * n];
+  LAPACK_INT n = (LAPACK_INT)M->nrows, lwork = (LAPACK_INT)4*n, info;
+  LAPACK_DOUBLE wr[n], wi[n], work[4 * n], tmp[n][n];
   int i, j;
-  double tmp[n][n];
 
   for (i = 0; i < n; i++) 
     for (j = 0; j < n; j++)
-      tmp[i][j] = mat_get(M, j, i);
+      tmp[i][j] = (LAPACK_DOUBLE)mat_get(M, j, i);
 
   if (n != M->ncols) 
     die("ERROR in mat_eigenvals: M->nrows (%i) != M->ncols (%i)\n",
 	M->nrows, M->ncols);
 
-#ifdef RPHAST
-  F77_CALL(dgeev)(&jobvl, &jobvr, &n, (double*)tmp, &n, wr, wi, NULL, &n,
-		  NULL, &n, work, &lwork, &info);
+#ifdef R_LAPACK
+  F77_CALL(dgeev)(&jobvl, &jobvr, &n, (LAPACK_DOUBLE*)tmp, &n, wr, wi, NULL,
+		  &n, NULL, &n, work, &lwork, &info);
 #else
-  dgeev_(&jobvl, &jobvr, &n, (doublereal*)tmp, &n, wr, wi, NULL, 
+  dgeev_(&jobvl, &jobvr, &n, (LAPACK_DOUBLE*)tmp, &n, wr, wi, NULL, 
          &n, NULL, &n, work, &lwork, &info);
 #endif
 
@@ -220,7 +193,7 @@ int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
   }
 
   for (i = 0; i < n; i++) {
-    Complex z = z_set(wr[i], wi[i]);
+    Complex z = z_set((double)wr[i], (double)wi[i]);
     zvec_set(evals, i, z);
   }
 

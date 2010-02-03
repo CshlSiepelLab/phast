@@ -13,21 +13,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <matrix.h>
-
-#ifdef RPHAST
-#include <R_ext/Lapack.h>
-#else
-#ifdef VECLIB
-#include <vecLib/clapack.h>
-#define doublereal __CLPK_doublereal
-#else
-#ifndef SKIP_LAPACK
-#include <f2c.h>
-#include <clapack.h>
-#endif
-#endif
-#endif
-
+#include <external_libs.h>
 #include <math.h>
 #include <misc.h>
 
@@ -238,27 +224,20 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
   die("ERROR: LAPACK required for matrix inversion.\n");
 #else
   int i, j;
-#ifdef RPHAST
-  int info, n = M->nrows;
-  int ipiv[n], lwork = n;
-#else
-  long int info, n = M->nrows;
-  long int ipiv[n], lwork=n;
-#endif
-  double tmp[n][n];
-  double work[lwork];
+  LAPACK_INT info, n = (LAPACK_INT)M->nrows, ipiv[n], lwork=(LAPACK_INT)n;
+  LAPACK_DOUBLE tmp[n][n], work[lwork];
 
   assert(M->nrows == M->ncols && M_inv->nrows == M_inv->ncols && 
          M->nrows == M_inv->nrows);
 
   for (i = 0; i < n; i++) 
     for (j = 0; j < n; j++) 
-      tmp[i][j] = mat_get(M, j, i);
+      tmp[i][j] = (LAPACK_DOUBLE)mat_get(M, j, i);
 
-#ifdef RPHAST
-  F77_CALL(dgetrf)(&n, &n, (double*)tmp, &n, ipiv, &info);
+#ifdef R_LAPACK
+  F77_CALL(dgetrf)(&n, &n, (LAPACK_DOUBLE*)tmp, &n, ipiv, &info);
 #else
-  dgetrf_(&n, &n, (doublereal*)tmp, &n, ipiv, &info);
+  dgetrf_(&n, &n, (LAPACK_DOUBLE*)tmp, &n, ipiv, &info);
 #endif
 
   if (info != 0) {
@@ -266,9 +245,9 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
     return 1;
   }
 #ifdef RPHAST
-  F77_CALL(dgetri)(&n, (double*)tmp, &n, ipiv, work, &lwork, &info);
+  F77_CALL(dgetri)(&n, (LAPACK_DOUBLE*)tmp, &n, ipiv, work, &lwork, &info);
 #else
-  dgetri_(&n, (doublereal*)tmp, &n, ipiv, work, &lwork, &info);
+  dgetri_(&n, (LAPACK_DOUBLE*)tmp, &n, ipiv, work, &lwork, &info);
 #endif
 
   if (info != 0) {
@@ -281,7 +260,7 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
 
   for (i = 0; i < M->nrows; i++) 
     for (j = 0; j < M->nrows; j++) 
-      mat_set(M_inv, i, j, tmp[j][i]);
+      mat_set(M_inv, i, j, (double)tmp[j][i]);
 
 #endif
   return 0;

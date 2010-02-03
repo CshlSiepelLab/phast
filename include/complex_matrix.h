@@ -19,7 +19,7 @@
 
 #include <complex.h>
 #include <complex_vector.h>
-#include <rph_util.h>
+#include <external_libs.h>
 
 /** Structure for matrix of complex numbers -- 2d array of Complex
     objects and its dimensions */

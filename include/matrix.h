@@ -18,7 +18,7 @@
 #define MAT_H
 
 #include <vector.h>
-#include <rph_util.h>
+#include <external_libs.h>
 
 /* Equality threshold -- consider equal if this close */
 #define EQ_THRESHOLD 1e-10

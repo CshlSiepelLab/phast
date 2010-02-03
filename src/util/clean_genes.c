@@ -16,7 +16,7 @@
 #include <sufficient_stats.h>
 #include <getopt.h>
 #include <maf.h>
-#include <rph_util.h>
+#include <external_libs.h>
 #include "clean_genes.help"
 
 /* types of features examined */

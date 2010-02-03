@@ -8,7 +8,7 @@
 #include <assert.h>
 #include <dmotif_indel_mod.h>
 #include <numerical_opt.h>
-#include <rph_util.h>
+#include <external_libs.h>
 
 DMotifBranchIndelModel *dmih_new_branch(double alpha, double beta, double tau,
 					double epsilon, double t, int motif) {

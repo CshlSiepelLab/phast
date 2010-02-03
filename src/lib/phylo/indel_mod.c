@@ -15,7 +15,7 @@
 #include <assert.h>
 #include <indel_mod.h>
 #include <numerical_opt.h>
-#include <rph_util.h>
+#include <external_libs.h>
 
 BranchIndelModel *im_new_branch(double alpha, double beta, double tau,
                                 double t) {

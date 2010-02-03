@@ -19,10 +19,7 @@
 #include <lists.h>
 #include <time.h>
 #include <sys/time.h>
-#include <rph_util.h>
-/*#ifdef RPHAST
-#include <R_ext/Error.h>
-#endif*/
+#include <external_libs.h>
 struct hash_table;
 
 #define TRUE 1

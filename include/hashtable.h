@@ -17,7 +17,7 @@
 
 #include <lists.h>
 #include <misc.h>
-#include <rph_util.h>
+#include <external_libs.h>
 
 #define MULTIPLIER 31		/* recommended by Kernighan and Pike */
 #define LOADING_FACTOR 5

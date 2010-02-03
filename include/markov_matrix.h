@@ -16,7 +16,7 @@
 #include <vector.h>
 #include <complex_matrix.h>
 #include <complex_vector.h>
-#include <rph_util.h>
+#include <external_libs.h>
 
 #define NCHARS 256
 

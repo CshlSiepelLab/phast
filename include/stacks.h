@@ -17,7 +17,7 @@
 #define STACKS_H
 
 #include "lists.h"
-#include "rph_util.h"
+#include "external_libs.h"
 
 typedef List Stack;
 

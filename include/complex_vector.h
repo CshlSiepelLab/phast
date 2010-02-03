@@ -19,7 +19,7 @@
 
 #include <complex.h>
 #include <stdio.h>
-#include <rph_util.h>
+#include <external_libs.h>
 
 /** Structure for vector of complex numbers -- array of Complex
     objects and its length */

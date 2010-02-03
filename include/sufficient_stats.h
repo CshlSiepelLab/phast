@@ -19,7 +19,7 @@
 #include "lists.h"
 #include "msa.h"
 #include "assert.h"
-#include "rph_util.h"
+#include "external_libs.h"
 
 /* sufficient statistics for an alignment */
 /* for now, allow only one tuple_size per object */

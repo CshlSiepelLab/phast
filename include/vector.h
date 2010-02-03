@@ -19,7 +19,7 @@
 #define VEC_H
 
 #include <stdio.h>
-#include <rph_util.h>
+#include <external_libs.h>
 
 struct lst_struct;
 

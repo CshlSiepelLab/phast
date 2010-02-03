@@ -25,7 +25,7 @@ Last updated: 1/13/10
 #include <sufficient_stats.h>
 #include <local_alignment.h>
 #include <subst_mods.h>
-#include <rph_util.h>
+#include <external_libs.h>
 
 #include <Rdefines.h>
 

@@ -4,7 +4,7 @@
 #include <simplex_grid.h>
 #include <misc.h>
 #include <assert.h>
-#include <rph_util.h>
+#include <external_libs.h>
 
 /* return single index from coords in d dimensions */
 static PHAST_INLINE
