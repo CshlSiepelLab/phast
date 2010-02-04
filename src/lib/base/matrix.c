@@ -244,7 +244,7 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
     fprintf(stderr, "ERROR: unable to compute LU factorization of matrix (for matrix inversion); dgetrf returned value of %d.\n", (int)info); 
     return 1;
   }
-#ifdef RPHAST
+#ifdef R_LAPACK
   F77_CALL(dgetri)(&n, (LAPACK_DOUBLE*)tmp, &n, ipiv, work, &lwork, &info);
 #else
   dgetri_(&n, (LAPACK_DOUBLE*)tmp, &n, ipiv, work, &lwork, &info);
