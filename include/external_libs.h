@@ -14,13 +14,12 @@
 
  */
 
-#ifndef PHAST_MISC_DEFS
-#define PHAST_MISC_DEFS
+#ifndef _PHAST_EXTERNAL_LIBS_
+#define _PHAST_EXTERNAL_LIBS_
 
 #include <stdlib.h>
 
 #ifdef RPHAST
-//#include <R_ext/Error.h>
 #include <Rconfig.h>
 #define PHAST_INLINE R_INLINE
 #else
@@ -50,4 +49,4 @@
 
 #endif  /* ifdef R_LAPACK */
 
-#endif  /* ifndef PHAST_MISC_DEFS */
+#endif  /* ifndef PHAST_EXTERNAL_LIBS */

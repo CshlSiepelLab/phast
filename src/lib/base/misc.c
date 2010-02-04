@@ -268,7 +268,7 @@ FILE* fopen_fname(const char *fname, char *mode) {
 
 /* print error message and die with exit 1; saves typing in mains */
 #ifndef RPHAST
-void die(char *warnfmt, ...) {
+void die(const char *warnfmt, ...) {
   va_list args;
 
   va_start(args, warnfmt);
@@ -277,7 +277,7 @@ void die(char *warnfmt, ...) {
   exit(1);
 }
 
-void phast_warning(char *warnfmt, ...) {
+void phast_warning(const char *warnfmt, ...) {
   va_list args;
   va_start(args, warnfmt);
   vfprintf(stderr, warnfmt, args);

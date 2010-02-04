@@ -17,6 +17,8 @@
 #include <indel_history.h>
 
 #define NINDEL_STATES 3
+//need to make sure ERROR isn't already defined from R libraries
+#undef ERROR
 typedef enum {MATCH, CHILDINS, CHILDDEL, SKIP, ERROR} col_type;
 
 typedef struct {

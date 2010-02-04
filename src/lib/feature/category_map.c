@@ -28,7 +28,7 @@ static int *prec;
 CategoryMap *cm_read(FILE *F) {
   String *line, *name;
   List *l;
-  int cat, cat2, lineno, i, error;
+  int cat, cat2, lineno, i, cm_read_error;
   CategoryMap *cm = NULL;
   CategoryRange *existing_range;
   static Regex *cat_range_re = NULL;
@@ -137,18 +137,18 @@ CategoryMap *cm_read(FILE *F) {
          range.  Either no such definition must exist, or one must
          exist that spans exactly the same category numbers */
       existing_range = NULL;
-      error = 0;
-      for (i = cat; !error && i <= cat2; i++) {
+      cm_read_error = 0;
+      for (i = cat; !cm_read_error && i <= cat2; i++) {
         if (cm->ranges[i] != NULL && existing_range == NULL) 
           existing_range = cm->ranges[i];
         else if (cm->ranges[i] != existing_range)
-          error = 1;
+          cm_read_error = 1;
       }
       if (existing_range != NULL && (existing_range->start_cat_no != cat || 
                                      existing_range->end_cat_no != cat2)) 
-        error = 1;
+        cm_read_error = 1;
 
-      if (error) 
+      if (cm_read_error) 
         die("ERROR: Overlapping category ranges.\n");
 
       /* either add new category range, or add new type to existing one */

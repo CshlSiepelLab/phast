@@ -154,13 +154,12 @@ void get_tuple_str(char *tuple_str, int tuple_idx, int tuple_size,
 Matrix* read_subst_mat(FILE *F, char *alph);
 FILE* fopen_fname(const char *fname, char *mode);
 #ifdef RPHAST
-void Rf_error(const char *, ...);
-void Rf_warning(const char*, ...);
+#include <R_ext/Error.h>
 #define die Rf_error
 #define phast_warning Rf_warning
 #else
-void phast_warning(char *warnfmt, ...);
-void die(char *warnfmt, ...);
+void phast_warning(const char *warnfmt, ...);
+void die(const char *warnfmt, ...);
 #endif
 List *get_arg_list(char *arg);
 List *remaining_arg_list(char *argv[], int argc, int optind);
