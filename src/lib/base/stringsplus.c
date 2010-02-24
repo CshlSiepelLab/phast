@@ -382,6 +382,11 @@ int str_re_match(String *s, Regex *re, List *l, int nsubexp) {
     }
   }
 
+  if (re->regs_allocated == REGS_REALLOCATE) {
+    free(regs.start);
+    free(regs.end);
+    re->regs_allocated = REGS_UNALLOCATED;
+  }
   return retval;
 }
 
