@@ -274,7 +274,20 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
       alt_lnl *= -1;
 
       delta_lnl = alt_lnl - null_lnl;
-      assert(delta_lnl > -0.1);
+
+      /* This is a hack, it would be better to figure out why the
+	 optimization sometimes fails here.
+	 If we get a significantly negative lnL, re-initialize params
+	 so that they are identical to null model params and re-start */
+      if (delta_lnl <= -0.05) {
+	d2->feat = f;
+	vec_set(d2->cdata->params, 0, d->cdata->params->data[0]); 
+	vec_set(d2->cdata->params, 1, 1.0);
+	if (opt_bfgs(ff_likelihood_wrapper, d2->cdata->params, d2, &alt_lnl, 
+		     d2->cdata->lb, d2->cdata->ub, logf, NULL, 
+		     OPT_HIGH_PREC, NULL) != 0)
+	  assert(delta_lnl > -0.1);
+      }
       if (delta_lnl < 0) delta_lnl = 0;
     }
 
