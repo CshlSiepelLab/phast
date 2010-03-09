@@ -2511,7 +2511,7 @@ void tm_fitch_rec_up(int *nodecost, TreeNode *tree,
 //If params is NULL, sets the branchlengths in mod->tree directly.
 //Otherwise sets the parameter vector
 double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod, 
-					   MSA *msa) {
+					   MSA *msa, int cat) {
   int i, numnode = mod->tree->nnodes;
   int numstate=strlen(msa->alphabet), **minState, *numMinState;
   int tupleIdx, spec, node, rootMinState, *nodecost, params_idx;
@@ -2550,6 +2550,10 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod,
   traversal = tr_preorder(mod->tree);
 
   for (tupleIdx=0; tupleIdx<msa->ss->ntuples; tupleIdx++) {
+    weight = (cat >=0 ? msa->ss->cat_counts[cat][tupleIdx] : 
+	      msa->ss->counts[tupleIdx]);
+    if (weight == 0.0) continue;
+
     //get states at tips
     for (node=0; node<numnode; node++) {
       spec = mod->msa_seq_idx[node];
@@ -2570,8 +2574,6 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod,
 	assert(i < numstate);
       }
     }
-    
-    weight = msa->ss->counts[tupleIdx];
     totalCost += weight*(double)tm_fitch_rec_down(mod->tree, numMinState, minState);
     if (numMinState[mod->tree->id] > 0) 
       rootMinState = minState[mod->tree->id][(int)(random()/RAND_MAX*(double)numMinState[mod->tree->id])];

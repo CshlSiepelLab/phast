@@ -263,7 +263,8 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
       d2->feat = f;
       vec_set(d2->cdata->params, 0, d->cdata->params->data[0]); 
                                 /* init to previous estimate to save time */
-      vec_set(d2->cdata->params, 1, d2->cdata->init_scale_sub);
+      //      vec_set(d2->cdata->params, 1, d2->cdata->init_scale_sub);
+      vec_set(d2->cdata->params, 1, 0.01);
       if (opt_bfgs(ff_likelihood_wrapper, d2->cdata->params, d2, &alt_lnl, 
                    d2->cdata->lb, d2->cdata->ub, logf, NULL, 
                    OPT_HIGH_PREC, NULL) != 0)

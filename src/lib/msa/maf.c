@@ -112,15 +112,18 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
   int last_gap_start = -1;
   int idx_offset, end_idx, gap_sum=0;
   int block_list_idx, prev_end, next_start;
-  int first_idx=-1, last_idx=-1;
+  int first_idx=-1, last_idx=-1, free_cm=0;
 
   if (gff != NULL) gap_strip_mode = 1; /* for now, automatically
                                           project if GFF (see comment
                                           above) */
 
-  if ((gff == NULL && cm != NULL) || (gff != NULL && cm == NULL)) 
-    die("ERROR: maf_read should be passed either both a set of features and a category map, or neither one.\n");
-
+  if (gff ==  NULL && cm != NULL) 
+    die("ERROR: maf_read got non-null category map without a set of features");
+  if (gff != NULL && cm == NULL) {
+    cm = cm_new_from_features(gff);
+    free_cm = 1;
+  }
   if (gff != NULL && cycle_size > 0)
     die("ERROR: gff and cycle_size mutually exclusive in maf_read.\n");
   
@@ -517,6 +520,7 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
   hsh_free(tuple_hash);
   hsh_free(name_hash);
   if (map != NULL) msa_map_free(map);
+  if (free_cm) cm_free(cm);
   return msa;
 }
 

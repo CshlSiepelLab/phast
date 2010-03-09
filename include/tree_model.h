@@ -248,7 +248,7 @@ void tm_params_init_from_model(TreeModel *mod, Vector *params,
                                       int start_idx);
 
 double tm_params_init_branchlens_parsimony(Vector *params, 
-					   TreeModel *mod, MSA *msa);
+					   TreeModel *mod, MSA *msa, int cat);
 
 int tm_get_nparams(TreeModel *mod);
 

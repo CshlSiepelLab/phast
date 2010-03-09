@@ -737,7 +737,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
       }
 
       if (pf->init_parsimony) {
-	double parsimony_cost = tm_params_init_branchlens_parsimony(NULL, mod, msa);
+	double parsimony_cost = tm_params_init_branchlens_parsimony(NULL, mod, msa, cat);
         if (parsimony_cost_file != NULL) 
            fprintf(parsimony_cost_file, "%f\n", parsimony_cost);
         if (pf->parsimony_only) continue;
@@ -801,7 +801,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
           params = tm_params_init(mod, .1, 5, pf->alpha);     
 
 	if (pf->init_parsimony)
-	  tm_params_init_branchlens_parsimony(params, mod, msa);
+	  tm_params_init_branchlens_parsimony(params, mod, msa, cat);
 
         if (input_mod != NULL && mod->backgd_freqs != NULL && !pf->no_freqs) {
           /* in some cases, the eq freqs are needed for

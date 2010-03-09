@@ -207,4 +207,6 @@ void gff_partition_by_type(GFF_Set *feats, List *types, List *subsets);
 
 void gff_clear_set(GFF_Set *gff);
 
+void gff_add_offset(GFF_Set *gff, int offset, int maxCoord);
+
 #endif

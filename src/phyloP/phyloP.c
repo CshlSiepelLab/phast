@@ -41,6 +41,7 @@ TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa,
                           char *subtree_name, double *scale,
                           double *sub_scale);
 
+
 int main(int argc, char *argv[]) {
   /* variables for options with defaults */
   msa_format_type msa_format = FASTA;
@@ -51,6 +52,7 @@ int main(int argc, char *argv[]) {
   char *subtree_name = NULL, *chrom = NULL;
   List *branch_name = NULL;
   GFF_Set *feats = NULL;
+  List *origFeats = NULL;
   method_type method = SPH;
   mode_type mode = CON;
   FILE *logf = NULL;
@@ -295,9 +297,11 @@ int main(int argc, char *argv[]) {
       die("ERROR: ERROR: cannot name all branches with --branch option\n");
   }
 
-  if (feats != NULL) 
+  if (feats != NULL) {
+    if (msa->idx_offset > 0)
+      gff_add_offset(feats, -(msa->idx_offset), msa_seqlen(msa, 0));
     msa_map_gff_coords(msa, feats, 1, 0, 0, NULL);
-  /* NOTE: msa offset not currently handled */
+  }
 
   /* SPH method */
   if (method == SPH) {
@@ -385,6 +389,8 @@ int main(int argc, char *argv[]) {
       else {                        /* --features case */
         p_value_stats *stats = sub_p_value_many(jp, msa, feats->features, ci);
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+	if (msa->idx_offset > 0)
+	  gff_add_offset(feats, msa->idx_offset, 0);
         print_feats_sph(stats, feats, mode, epsilon, output_gff);
       }
     }
@@ -454,6 +460,8 @@ int main(int argc, char *argv[]) {
           sub_p_value_joint_many(jp, msa, feats->features, 
                                  ci, MAX_CONVOLVE_SIZE, NULL);
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+	if (msa->idx_offset > 0)
+	  gff_add_offset(feats, msa->idx_offset, 0);
         print_feats_sph_subtree(jstats, feats, mode, epsilon, output_gff);
       }
     }
@@ -501,6 +509,8 @@ int main(int argc, char *argv[]) {
       if (subtree_name == NULL && branch_name == NULL) {  /* no subtree case */
         ff_lrts(mod, msa, feats, mode, pvals, scales, llrs, logf);
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+	if (msa->idx_offset > 0)
+	  gff_add_offset(feats, msa->idx_offset, 0);
         if (output_gff) 
           print_gff_scores(feats, pvals, TRUE);
         else
@@ -515,6 +525,8 @@ int main(int argc, char *argv[]) {
         ff_lrts_sub(mod, msa, feats, mode, pvals, null_scales, scales, 
                     sub_scales, llrs, logf);
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+	if (msa->idx_offset > 0)
+	  gff_add_offset(feats, msa->idx_offset, 0);
         if (output_gff) 
           print_gff_scores(feats, pvals, TRUE);
         else
@@ -570,6 +582,8 @@ int main(int argc, char *argv[]) {
       if (subtree_name == NULL && branch_name == NULL) { /* no subtree case */
         ff_score_tests(mod, msa, feats, mode, pvals, derivs, teststats);
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+	if (msa->idx_offset > 0)
+	  gff_add_offset(feats, msa->idx_offset, 0);
         if (output_gff) 
           print_gff_scores(feats, pvals, TRUE);
         else
@@ -584,6 +598,8 @@ int main(int argc, char *argv[]) {
         ff_score_tests_sub(mod, msa, feats, mode, pvals, null_scales, derivs, 
                            sub_derivs, teststats, logf);
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+	if (msa->idx_offset > 0)
+	  gff_add_offset(feats, msa->idx_offset, 0);
         if (output_gff) 
           print_gff_scores(feats, pvals, TRUE);
         else
@@ -621,6 +637,8 @@ int main(int argc, char *argv[]) {
       }
       ff_gerp(mod, msa, feats, mode, nneut, nobs, nrejected, nspec, logf);
       msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
+      if (msa->idx_offset > 0)
+	gff_add_offset(feats, msa->idx_offset, 0);
       if (output_gff) 
         print_gff_scores(feats, nrejected, FALSE);
       else 

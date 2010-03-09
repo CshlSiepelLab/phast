@@ -1426,3 +1426,31 @@ void gff_clear_set(GFF_Set *gff) {
   lst_clear(gff->features);
   if (gff->groups != NULL) gff_ungroup(gff);
 }
+
+
+/* adds offset to start and end of each feature. */
+/* If new end coordinate < 1, or if maxCoord > 0 and new
+   start coordinate > maxCoord, then feature is removed.
+   If part of feature is out of bounds, start and end
+   may be truncated to be in the range [1,maxCoord] (or
+   [1, infinity) if maxCoord < 0 */
+void gff_add_offset(GFF_Set *gff, int offset, int maxCoord) {
+  List *keepers = lst_new_ptr(lst_size(gff->features));
+  GFF_Feature *feat;
+  int i;
+  for (i=0; i < lst_size(gff->features); i++) {
+    feat = (GFF_Feature*)lst_get_ptr(gff->features, i);
+    feat->start += offset;
+    feat->end += offset;
+    if (feat->end < 1 || (maxCoord > 0 && feat->start > maxCoord)) {
+      gff_free_feature(feat);
+    } else {
+      if (feat->start < 1) feat->start = 1;
+      if (maxCoord > 0 && feat->end > maxCoord) feat->end = maxCoord;
+      lst_push_ptr(keepers, feat);
+    }
+  }
+  lst_free(gff->features);
+  gff->features = keepers;
+  if (gff->groups != NULL) gff_ungroup(gff);
+}
