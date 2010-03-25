@@ -465,7 +465,7 @@ char *ss_get_one_seq(MSA *msa, int spec) {
     for (i=0; i<msa->ss->ntuples; i++) {
       c = col_string_to_char(msa, msa->ss->col_tuples[i], spec,
 			     msa->ss->tuple_size, 0);
-      if (col + msa->ss->counts[i] >= msa->length) {  
+      if (col + msa->ss->counts[i] > msa->length) {  
 	//this shouldn't happen, but the length isn't necessarily initialized
 	//when SS is created
 	msa->length *= 2;
