@@ -1450,8 +1450,9 @@ void tm_set_boundaries(Vector **lower_bounds, Vector **upper_bounds,
   }
 
   /* Also, in this case, we need to bound the scale of the subtree */
-  if (mod->estimate_branchlens == TM_SCALE_ONLY && mod->in_subtree != NULL 
-      && mod->scale_sub_bound != NB) {
+  if (mod->estimate_branchlens == TM_SCALE_ONLY && 
+      (mod->in_subtree != NULL || mod->subtree_root != NULL) && 
+      mod->scale_sub_bound != NB) {
     if (mod->scale_sub_bound == LB && mod->param_map[mod->scale_idx+1] >= 0) 
       vec_set(*lower_bounds, mod->param_map[mod->scale_idx+1], 1);
     if (mod->scale_sub_bound == UB && mod->param_map[mod->scale_idx+1] >= 0) {
