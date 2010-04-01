@@ -93,6 +93,16 @@ The library is composed of six packages, as follows:
              times (with different errors each run), until no errors
              remained.
 
+3. If not already installed on your system, download and install the
+   pcre library.  The pcre package is available at http://www.pcre.org.
+    a. Download the most recent version.
+    b. Unpack and install with:
+       tar -zxf pcre-VERSION.tar.gz
+       cd pcre-VERSION
+       ./configure
+       make
+       make install
+
 3. Edit the file "make-include.mk" in phast/src.  Specifically:
 
     a. Set the PHAST variable equal to the root directory of your

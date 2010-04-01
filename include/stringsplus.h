@@ -23,6 +23,7 @@
 #ifndef STRINGSPLUS_H
 #define STRINGSPLUS_H
 
+#include <pcre.h>
 #include "lists.h"
 #include "stdio.h"
 
@@ -50,7 +51,7 @@ typedef struct {
 } String;
 
 
-typedef struct re_pattern_buffer Regex;
+typedef pcre Regex;
 				/* COMMENT */
 
 /* Create new String (by size).
@@ -243,9 +244,8 @@ int str_ends_with_charstr(String *s, const char *substr);
 /* Create new regular expression object based on the specified string.
    Character string re_str must be NULL terminated.  Function aborts
    and reports an error message to stderr if the expression cannot be
-   compiled.  The GNU regex package is used (see GNU regex manual,
-   readily available online or as emacs info pages), with the "egrep"
-   syntax (re_syntax_options = RE_SYNTAX_EGREP).
+   compiled.  The PCRE regex package is used, which uses perl regular
+   expression syntax.
    Returns a newly allocated and compiled Regex object. */
 Regex *str_re_new(const char *re_str);
 
@@ -259,11 +259,11 @@ void str_re_free(Regex *re);
    0th such substring corresponds to the entire regex.  A maximum of
    nsubexp will be examined (not including the 0th one).  NULLs will
    be added for all non-matching groups.  The list must be initialized
-   externally.  This function uses the re_match function of the GNU
+   externally.  This function uses the pcre_exec function of the PCRE
    regex package.
 
    Returns number of matched characters (possibly zero) on match, -1
-   on mismatch, and -2 on error.
+   on no match, and -2 on error.
 
    Warning: substrings added to List l are newly allocated and must be
    freed externally. */
@@ -273,8 +273,8 @@ int str_re_match(String *s, Regex *re, List *l, int nsubexp);
    regex.  The first start_offset characters will be ignored.  If List
    l is non-NULL, it will be populated with substrings corresponding
    to subexpressions, as described under str_re_match.  The list must be
-   initialized externally.  This function uses the re_search function
-   of the GNU regex package.
+   initialized externally.  This function uses the pcre_exec function
+   of the PCRE regex package.
    Returns index of first match, -1 if no match exists, or -2 if an
    internal error occurs. 
 
@@ -282,14 +282,6 @@ int str_re_match(String *s, Regex *re, List *l, int nsubexp);
    freed externally. */
 int str_re_search(String *s, Regex *re, int start_offset, List *l, 
                   int nsubexp);
-
-/* Split a string according to specified regex.  Copies of resulting
-   substrings are added to specified List, which must be allocated
-   externally.
-
-   Warning: substrings added to List l are newly allocated and must be
-   freed externally. */
-void str_re_split(String *s, Regex *re, List *l);
 
 void str_root(String *str, char delim);
 void str_shortest_root(String *str, char delim);

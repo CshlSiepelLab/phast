@@ -12,17 +12,13 @@
    
    $Id: stringsplus.c,v 1.12 2009-02-19 23:33:48 agd27 Exp $ */
 
+//#include <pcre.h>
 #include "stringsplus.h"
 #include "misc.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 #include <ctype.h>
-#include <regex.h>
-
-extern reg_syntax_t re_syntax_options;
-extern unsigned regs_allocated;
-
 
 String *str_new(int starting_nchars) {
   String *s = (String*)smalloc(sizeof(String));
@@ -331,131 +327,76 @@ int str_ends_with_charstr(String *s, const char *substr) {
 }
 
 Regex *str_re_new(const char *re_str) {
-  const char *retval;
-  Regex *re = (Regex*)smalloc(sizeof(Regex));
-  re->translate = 0;
-  re->fastmap = 0;
-  re->buffer = 0;
-  re->allocated = 0;
+  Regex *re;
+  const char *errstr;
+  int erroffset;
 
-  re_syntax_options =  RE_SYNTAX_EGREP; 
-                                /* use egrep-style regex conventions
-                                   (see GNU regex manual). */ 
-
-  if ((retval = re_compile_pattern(re_str, strlen(re_str), re)) != NULL) {
-    fprintf(stderr, "ERROR: cannot compile regular expression '%s'\n\n\
-Error message is as follows: %s\n.", re_str, retval);
+  re = pcre_compile(re_str, 0, &errstr, &erroffset, NULL);
+  if (re == NULL) {
+    fprintf(stderr, "ERROR: cannot compile regular expression '%s' (%d): %s\n",
+	    re_str, erroffset, errstr);
     exit(-1);
   }
-
   return re;
 }
 
+
 void str_re_free(Regex *re) {
-  regfree(re);
-  free(re);
+  if (re != NULL)
+    free(re);
 }
+
+
+#define OVECCOUNT 300
+int str_re_match_sub(String *s, Regex *re, List *l, int offset, int nsubexp, 
+		     int *first_match) {
+  int i, len, rc, ovector[OVECCOUNT], rv;
+  String *substr;
+
+  /* WARNING: lst_clear DOES NOT free memory associated with the contents,
+     so must free substrings from previous calls if these are no longer being
+     used or there will be a memory leak! */
+  if (l != NULL) lst_clear(l);
+
+  rc = pcre_exec(re, NULL, s->chars, s->length, offset, 0, ovector, OVECCOUNT);
+  if (rc == PCRE_ERROR_NOMATCH) return -1;
+  if (rc < 0) return -2;  //any other error
+  if (first_match != NULL) (*first_match) = ovector[0];
+  rv = ovector[1]-ovector[0];
+  if (rc >= 0 && l != NULL) {
+    if (rc == 0) {
+      printf("nsubexp=%i rc=%i\n", nsubexp, rc);
+      fprintf(stderr, "Warning: pcre_exec only has room for %d captured substrings.  May need to increase OVECCOUNT and re-compile\n", OVECCOUNT/3);
+      rc = OVECCOUNT/3;
+    }
+    for (i = 0; i < rc && i <= nsubexp; i++) {
+      if (ovector[2*i]==-1) {
+	assert(ovector[2*i+1] == -1);
+	lst_push_ptr(l, NULL);
+      } else {
+	len = ovector[2*i+1] - ovector[2*i];
+	substr = str_new(len);
+	str_substring(substr, s, ovector[2*i], len);
+	lst_push_ptr(l, substr);
+      }
+    }
+  }
+  return rv;
+}
+
 
 int str_re_match(String *s, Regex *re, List *l, int nsubexp) {
-  static struct re_registers regs;
-  int retval, i;
-  String *substr;
-
-  /* WARNING: lst_clear DOES NOT free memory associated with the contents,
-     so must free substrings from previous calls if these are no longer being
-     used or there will be a memory leak! */
-  if (l != NULL)
-    lst_clear(l);
-
-  retval = re_match(re, s->chars, s->length, 0, &regs);
-
-  if (retval > 0 && l != NULL) {
-    for (i = 0; i <= nsubexp; i++) {
-      if (regs.start[i] == -1)
-        lst_push_ptr(l, NULL);
-      else {
-        substr = str_new(regs.end[i] - regs.start[i]);
-        str_substring(substr, s, regs.start[i],
-                      regs.end[i] - regs.start[i]);
-        lst_push_ptr(l, substr);
-      }
-    }
-  }
-
-  if (re->regs_allocated == REGS_REALLOCATE) {
-    free(regs.start);
-    free(regs.end);
-    re->regs_allocated = REGS_UNALLOCATED;
-  }
-  return retval;
+  return str_re_match_sub(s, re, l, 0, nsubexp, NULL);
 }
 
-int str_re_search(String *s, Regex *re, int start_offset, List *l, 
-                  int nsubexp) {
-  static struct re_registers regs;
-  int retval, i;
-  String *substr;
-
-  /* WARNING: lst_clear DOES NOT free memory associated with the contents,
-     so must free substrings from previous calls if these are no longer being
-     used or there will be a memory leak! */
-  if (l != NULL)
-    lst_clear(l);
-  
-  retval = re_search(re, s->chars, s->length, start_offset, s->length, &regs);
-
-  if (retval >= 0 && l != NULL) {
-    for (i = 0; i <= nsubexp; i++) {
-      if (regs.start[i] == -1)
-        lst_push_ptr(l, NULL);
-      else {
-        substr = str_new(regs.end[i] - regs.start[i]);
-        str_substring(substr, s, regs.start[i],
-                      regs.end[i] - regs.start[i]);
-        lst_push_ptr(l, substr);
-      }
-    }
-  }
-
-  return retval;
+int str_re_search(String *s, Regex *re, int start_offset, List *l,
+		  int nsubexp) {
+  int first_match_idx, rc;
+  rc = str_re_match_sub(s, re, l, start_offset, nsubexp, &first_match_idx);
+  if (rc < 0) return rc;
+  return first_match_idx;
 }
 
-void str_re_split(String *s, Regex *re, List *l) {
-  List *delim_l;
-  String *tok;
-  int tok_idx, delim_idx, j, tok_len, delim_len;
-
-  delim_l = lst_new_ptr(1);     /* only care about match to entire
-                                   expression (0th register) */
-  lst_clear(l);
-
-  for (tok_idx = 0; (delim_idx = str_re_search(s, re, tok_idx, delim_l, 0)) > 0;  
-       tok_idx += tok_len + delim_len) {
-
-    tok_len = delim_idx - tok_idx;
-    delim_len = ((String*)lst_get_ptr(delim_l, 0))->length;
-
-    tok = str_new(tok_len);
-    str_substring(tok, s, tok_idx, tok_len);
-    lst_push_ptr(l, tok);
-
-    /* the lines below are a precaution against the possibility that the
-       user puts parentheses in the delimiter regex (generally won't
-       be necessary or even sensible); we have to be sure we free ALL
-       allocated substrings */
-    for (j = 0; j < lst_size(delim_l); j++)
-      str_free((String*)lst_get_ptr(delim_l, j));
-  }
-
-  /* don't forget last token */
-  if (tok_idx < s->length) {
-    tok = str_new(s->length - tok_idx);
-    str_substring(tok, s, tok_idx, s->length);
-    lst_push_ptr(l, tok);
-  }    
-
-  lst_free(delim_l);
-}
 
 /* Reduces to portion of String before final instance of specified
    delimiter.  Useful for filenames.  If no delimiter is present,

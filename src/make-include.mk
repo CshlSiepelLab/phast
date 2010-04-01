@@ -32,7 +32,7 @@ CFLAGS = -O3 -pthread
 
 PHAST_VERSION=\"$(shell cat ${PHAST}/version)\"
 CFLAGS += -I${INC} -DPHAST_VERSION=${PHAST_VERSION} -DPHAST_HOME=\"${PHAST}\"
-LIBPATH = -L${LIB} 
+LIBPATH = -L${LIB} -lpcre
 
 # uncomment these lines for profiling (add -g for line-by-line
 # profiling and -a for monitoring of basic blocks)
