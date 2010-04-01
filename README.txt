@@ -103,7 +103,7 @@ The library is composed of six packages, as follows:
        make
        make install
 
-3. Edit the file "make-include.mk" in phast/src.  Specifically:
+4. Edit the file "make-include.mk" in phast/src.  Specifically:
 
     a. Set the PHAST variable equal to the root directory of your
        installation (the "phast" directory)
@@ -117,7 +117,7 @@ The library is composed of six packages, as follows:
 
     d. With MAC OS X, also comment out the "LFLAGS = -static" option.
 
-4. Type "cd src" and "make".  The package should compile cleanly.  If
+5. Type "cd src" and "make".  The package should compile cleanly.  If
    you encounter problems compiling, please report them to
    acs4@cornell.edu.  I'll do my best to help you work around them and
    to avoid similar problems in the future.
