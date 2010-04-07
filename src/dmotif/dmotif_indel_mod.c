@@ -234,7 +234,7 @@ col_type get_col_type(IndelHistory *ih, int child_id, int parent_id, int col) {
            ih->indel_strings[child_id][col] == DEL)
     return SKIP;
   else 
-    return ERROR;
+    return COL_ERROR;
 }
 
 double dmih_branch_column_logl(IndelHistory *ih, DMotifBranchIndelModel *bim, 
@@ -260,7 +260,7 @@ double dmih_branch_column_logl(IndelHistory *ih, DMotifBranchIndelModel *bim,
 /*   for (; i < ih->ncols; i++) { */
 /*     this_type = get_col_type(ih, child, parent_id, i); */
 
-/*     assert(this_type != ERROR); */
+/*     assert(this_type != COL_ERROR); */
 
 /*     if (this_type == SKIP) { */
 /*       col_logl[i] = 0; */
@@ -275,7 +275,7 @@ double dmih_branch_column_logl(IndelHistory *ih, DMotifBranchIndelModel *bim,
   for (i = 0; i < ih->ncols; i++) {
     this_type = get_col_type(ih, child, parent_id, i);
     
-    assert(this_type != ERROR);
+    assert(this_type != COL_ERROR);
     
     if (this_type == SKIP) {
       col_logl[i] = 0;
@@ -355,7 +355,7 @@ DMotifBranchIndelSuffStats *dmih_suff_stats_branch(IndelHistory *ih, int child_i
   for (; i < ih->ncols; i++) {
     this_type = get_col_type(ih, child_id, parent_id, i);
 
-    if (this_type == ERROR) {
+    if (this_type == COL_ERROR) {
       fprintf(stderr, "ERROR at column %d of indel history:\n", i);
       for (j = 0; j < ih->tree->nnodes; j++) {
         if (ih->indel_strings[j][i] == BASE)
@@ -538,7 +538,7 @@ DMotifBranchIndelSuffStats *dmih_suff_stats_branch_cat(IndelHistory *ih,
   for (; i < ih->ncols; i++) {
     this_type = get_col_type(ih, child_id, parent_id, i);
 
-    if (this_type == ERROR) {
+    if (this_type == COL_ERROR) {
       fprintf(stderr, "ERROR at column %d of indel history:\n", i);
       for (j = 0; j < ih->tree->nnodes; j++) {
         if (ih->indel_strings[j][i] == BASE)

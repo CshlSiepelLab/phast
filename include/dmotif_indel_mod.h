@@ -17,7 +17,7 @@
 #include <msa.h>
 
 #define NINDEL_STATES 3
-typedef enum {MATCH, CHILDINS, CHILDDEL, SKIP, ERROR} col_type;
+typedef enum {MATCH, CHILDINS, CHILDDEL, SKIP, COL_ERROR} col_type;
 
 typedef struct {
   double alpha;

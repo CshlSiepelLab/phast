@@ -9,8 +9,9 @@
 
 /** discrete encodings of probabilistic biological sequences */
 
-#include <pbs_code.h>
+
 #include <misc.h>
+#include <pbs_code.h>
 #include <assert.h>
 #include <time.h>
 
@@ -187,10 +188,10 @@ void pbs_assign_points(PbsCode *c) {
   }    
 }
 
-/* get code index for probability vector; if 'error' is non-null, it
+/* get code index for probability vector; if 'errorVal' is non-null, it
    will be set equal to the symmetric KL divergence between the vector
    and the representative point */
-unsigned pbs_get_index(PbsCode *code, Vector *p, double *error) {
+unsigned pbs_get_index(PbsCode *code, Vector *p, double *errorVal) {
   unsigned retval;
   double min_d = INFTY + 1;	/* because min distance could be INFTY */
   int i;
@@ -199,7 +200,7 @@ unsigned pbs_get_index(PbsCode *code, Vector *p, double *error) {
 
   if (ncodes == 0)
     die("ERROR: no representative points for simplex region.\n");
-  else if (ncodes == 1 && error == NULL)
+  else if (ncodes == 1 && errorVal == NULL)
     return lst_get_int(code->codes_by_region[r->idx], 0);
 
   for (i = 0; i < ncodes; i++) {
@@ -211,7 +212,7 @@ unsigned pbs_get_index(PbsCode *code, Vector *p, double *error) {
     }
   }
 
-  if (error != NULL) *error = min_d;
+  if (errorVal != NULL) *errorVal = min_d;
 
   return retval;
 }
