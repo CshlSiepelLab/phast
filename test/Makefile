@@ -105,7 +105,21 @@ phastCons:
 # exoniphy
 
 
-#...
+phyloP:
+	phyloFit hmrc.ss --tree "(human, (mouse,rat), cow)" -i SS --quiet
+	phyloP --null 10 phyloFit.mod > phyloP_null_test.txt
+	phyloP -i SS phyloFit.mod hmrc.ss > phyloP_sph_test.txt
+	phyloP -i SS --method LRT phyloFit.mod hmrc.ss > phyloP_lrt_test.txt
+        phyloP -i SS --method LRT --mode CONACC phyloFit.mod hmrc.ss > phyloP_lrt_conacc_test.txt
+	phyloP -i SS --method GERP phyloFit.mod hmrc.ss > phyloP_gerp_test.txt
+	phyloP -i SS --method SCORE phyloFit.mod hmrc.ss > phyloP_score_test.txt
+	phyloP -i SS --method LRT --wig-scores phyloFit.mod hmrc.ss > phyloP_wig_test.wig
+	phyloP -i SS --method LRT --base-by-base phyloFit.mod hmrc.ss > phyloP_basebybase_test.txt
+	phyloP -i SS --method SCORE --wig-scores --refidx 2 phyloFit.mod hmrc.ss > phyloP_refidx_test.txt
+	echo -e "chr1\t0\t10\nchr1\t50\t100\nchr1\t200\t300" > temp.bed
+	phyloP -i SS --method LRT --mode CONACC --features temp.bed phyloFit.mod hmrc.ss > phyloP_features_test.txt
+	phyloP -i SS --method SCORE --features temp.bed -g phyloFit.mod hmrc.ss > phyloP_gff_test.gff
+	tree_doctor --name-ancestors phyloFit.mod > phyloFit-named.mod
 
 # show output of phastCons test cases as tracks (run on hgwdev)
 show-cons:

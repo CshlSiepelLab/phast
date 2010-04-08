@@ -41,7 +41,7 @@ struct phyloP_struct {
   GFF_Set *feats;
   method_type method;
   mode_type mode;
-  FILE *logf;
+  FILE *outfile, *logf;
   TreeModel *mod;
   List *cats_to_do;
   CategoryMap *cm;

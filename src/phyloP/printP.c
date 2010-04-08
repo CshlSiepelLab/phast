@@ -21,48 +21,50 @@
 #include <prob_matrix.h>
 #include <phyloP.h>
 
-void print_quantiles(Vector *distrib) {
+void print_quantiles(FILE *outfile, Vector *distrib) {
   int *quantiles = pv_quantiles(distrib);
   int i;
   for (i = 0; i <= 100; i++)
-    printf("%.2f\t%d\n", 1.0*i/100, quantiles[i]);
+    fprintf(outfile, "%.2f\t%d\n", 1.0*i/100, quantiles[i]);
   free(quantiles);
 }
 
-void print_prior_only(int nsites, char *mod_fname, Vector *prior_distrib) {
+void print_prior_only(FILE *outfile, int nsites, char *mod_fname, 
+		      Vector *prior_distrib) {
   int i, prior_min, prior_max;
   double prior_mean, prior_var;
   pv_stats(prior_distrib, &prior_mean, &prior_var);
   pv_confidence_interval(prior_distrib, 0.95, &prior_min, &prior_max);
-  printf("#Let n be no. substitutions in %d sites given '%s'.\n", 
+  fprintf(outfile, "#Let n be no. substitutions in %d sites given '%s'.\n", 
          nsites, mod_fname);
-  printf("#E[n] = %.3f; Var[n] = %.3f; 95%% c.i. = [%d, %d]\n", 
+  fprintf(outfile, "#E[n] = %.3f; Var[n] = %.3f; 95%% c.i. = [%d, %d]\n", 
          prior_mean, prior_var, prior_min, prior_max);
-  printf("#n p(n)\n");
+  fprintf(outfile, "#n p(n)\n");
   for (i = 0; i < prior_distrib->size; i++)
-    printf("%d\t%f\n", i, prior_distrib->data[i]);
+    fprintf(outfile, "%d\t%f\n", i, prior_distrib->data[i]);
 }
 
-void print_post_only(char *mod_fname, char *msa_fname, Vector *post_distrib,
-                     double ci, double scale) {
+void print_post_only(FILE *outfile, char *mod_fname, char *msa_fname, 
+		     Vector *post_distrib, double ci, double scale) {
   int i, post_min, post_max;
   double post_mean, post_var;
   if (ci == -1) ci = 0.95;      /* for purposes of stats */
   pv_stats(post_distrib, &post_mean, &post_var);
   pv_confidence_interval(post_distrib, ci, &post_min, &post_max);
-  printf("#Let n be no. substitutions given '%s' and '%s'.\n", 
+  fprintf(outfile, "#Let n be no. substitutions given '%s' and '%s'.\n", 
          mod_fname, msa_fname);
-  printf("#E[n] = %.3f; Var[n] = %.3f; %.1f%% c.i. = [%d, %d]\n", 
+  fprintf(outfile, "#E[n] = %.3f; Var[n] = %.3f; %.1f%% c.i. = [%d, %d]\n", 
          post_mean, post_var, ci*100, post_min, post_max);
   if (scale != -1)
-    printf("#estimated scale factor: %f\n", scale);
-  printf("#n p(n)\n");
+    fprintf(outfile, "#estimated scale factor: %f\n", scale);
+  fprintf(outfile, "#n p(n)\n");
   for (i = 0; i < post_distrib->size; i++)
-    printf("%d\t%f\n", i, post_distrib->data[i]);
+    fprintf(outfile, "%d\t%f\n", i, post_distrib->data[i]);
 }
 
-void print_p(char *mod_fname, char *msa_fname, Vector *prior_distrib,
-             double post_mean, double post_var, double ci, double scale) {
+void print_p(FILE *outfile, char *mod_fname, char *msa_fname, 
+	     Vector *prior_distrib, double post_mean, 
+	     double post_var, double ci, double scale) {
   double prior_mean, prior_var, post_min, post_max;
   int prior_min, prior_max;
 
@@ -78,24 +80,25 @@ void print_p(char *mod_fname, char *msa_fname, Vector *prior_distrib,
 
   post_min = floor(post_min); post_max = ceil(post_max);
 
-  printf("\n*****\nP-values for number of substitutions observed in '%s' given '%s'\n*****\n\n", 
+  fprintf(outfile, "\n*****\nP-values for number of substitutions observed in '%s' given '%s'\n*****\n\n", 
          msa_fname, mod_fname);
-  printf("p-value of conservation: %e\n", 
+  fprintf(outfile, "p-value of conservation: %e\n", 
          pv_p_value(prior_distrib, post_max, LOWER));
-  printf("p-value of acceleration: %e\n\n",
+  fprintf(outfile, "p-value of acceleration: %e\n\n",
          pv_p_value(prior_distrib, post_min, UPPER));
-  printf("null distrib: mean = %f, var = %f, 95%% c.i. = [%d, %d]\n", 
+  fprintf(outfile, "null distrib: mean = %f, var = %f, 95%% c.i. = [%d, %d]\n", 
          prior_mean, prior_var, prior_min, prior_max);
-  printf("posterior distrib: mean = %f, var = %f", post_mean, post_var);
+  fprintf(outfile, "posterior distrib: mean = %f, var = %f", 
+	  post_mean, post_var);
   if (ci != -1)
-    printf(", %.1f%% c.i. = [%.0f, %.0f]", ci*100, post_min, post_max);
-  printf("\n\n");
+    fprintf(outfile, ", %.1f%% c.i. = [%.0f, %.0f]", ci*100, post_min, post_max);
+  fprintf(outfile, "\n\n");
   if (scale != -1)
-    printf("estimated scale factor: %f\n\n", scale);
+    fprintf(outfile, "estimated scale factor: %f\n\n", scale);
 }
 
-void print_prior_only_joint(char *node_name, int nsites, char *mod_fname, 
-                            Matrix *prior_distrib) {
+void print_prior_only_joint(FILE *outfile, char *node_name, int nsites, 
+			    char *mod_fname, Matrix *prior_distrib) {
   int i, j, min_sup, max_sup, min_sub, max_sub;
   double mean_sup, var_sup, mean_sub, var_sub;
   Vector *marg_sub = vec_new(prior_distrib->nrows),
@@ -116,25 +119,25 @@ void print_prior_only_joint(char *node_name, int nsites, char *mod_fname,
   pv_confidence_interval(marg_sup, 0.95, &min_sup, &max_sup);
   pv_confidence_interval(marg_sub, 0.95, &min_sub, &max_sub);
 
-  printf("#Let n1 be no. substitutions in supertree above '%s' (excluding leading branch) over %d site(s) given '%s'.\n", 
+  fprintf(outfile, "#Let n1 be no. substitutions in supertree above '%s' (excluding leading branch) over %d site(s) given '%s'.\n", 
          node_name, nsites, mod_fname);
-  printf("#Let n2 be no. substitutions in subtree beneath '%s' (including leading branch) over %d site(s) given '%s'.\n", 
+  fprintf(outfile, "#Let n2 be no. substitutions in subtree beneath '%s' (including leading branch) over %d site(s) given '%s'.\n", 
          node_name, nsites, mod_fname);
-  printf("#E[n1] = %.3f; Var[n1] = %.3f; 95%% c.i. = [%d, %d]\n", 
+  fprintf(outfile, "#E[n1] = %.3f; Var[n1] = %.3f; 95%% c.i. = [%d, %d]\n", 
          mean_sup, var_sup, min_sup, max_sup);
-  printf("#E[n2] = %.3f; Var[n2] = %.3f; 95%% c.i. = [%d, %d]\n", 
+  fprintf(outfile, "#E[n2] = %.3f; Var[n2] = %.3f; 95%% c.i. = [%d, %d]\n", 
          mean_sub, var_sub, min_sub, max_sub);
-  printf("\n#element at row n1 and col n2 in table below is p(n1, n2)\n");
+  fprintf(outfile, "\n#element at row n1 and col n2 in table below is p(n1, n2)\n");
   for (i = 0; i < prior_distrib->ncols; i++) 
     for (j = 0; j < prior_distrib->nrows; j++) 
-      printf("%f%c", prior_distrib->data[j][i], 
+      fprintf(outfile, "%f%c", prior_distrib->data[j][i], 
              j == prior_distrib->nrows - 1 ? '\n' : '\t');
 
   vec_free(marg_sup);
   vec_free(marg_sub);
 }
 
-void print_post_only_joint(char *node_name, char *mod_fname, 
+void print_post_only_joint(FILE *outfile, char *node_name, char *mod_fname, 
                            char *msa_fname, Matrix *post_distrib, 
                            double ci, double scale, double sub_scale) {
   int i, j, min_sup, max_sup, min_sub, max_sub;
@@ -159,27 +162,28 @@ void print_post_only_joint(char *node_name, char *mod_fname,
   pv_confidence_interval(marg_sup, ci, &min_sup, &max_sup);
   pv_confidence_interval(marg_sub, ci, &min_sub, &max_sub);
 
-  printf("#Let n1 be no. substitutions in supertree above '%s' (excluding leading branch) given '%s' and '%s'.\n", 
+  fprintf(outfile, "#Let n1 be no. substitutions in supertree above '%s' (excluding leading branch) given '%s' and '%s'.\n", 
          node_name, mod_fname, msa_fname);
-  printf("#Let n2 be no. substitutions in subtree beneath '%s' (including leading branch) given '%s' and '%s'.\n", 
+  fprintf(outfile, "#Let n2 be no. substitutions in subtree beneath '%s' (including leading branch) given '%s' and '%s'.\n", 
          node_name, mod_fname, msa_fname);
-  printf("#E[n1] = %.3f; Var[n1] = %.3f; %.1f%% c.i. = [%d, %d]\n", 
+  fprintf(outfile, "#E[n1] = %.3f; Var[n1] = %.3f; %.1f%% c.i. = [%d, %d]\n", 
          mean_sup, var_sup, ci*100, min_sup, max_sup);
-  printf("#E[n2] = %.3f; Var[n2] = %.3f; %.1f%% c.i. = [%d, %d]\n", 
+  fprintf(outfile, "#E[n2] = %.3f; Var[n2] = %.3f; %.1f%% c.i. = [%d, %d]\n", 
          mean_sub, var_sub, ci*100, min_sub, max_sub);
   if (scale != -1)
-    printf("#estimated scale factors: %f [tree], %f [subtree]\n", scale, sub_scale);
-  printf("\n#element at row n1 and col n2 in table below is p(n1, n2)\n");
+    fprintf(outfile, "#estimated scale factors: %f [tree], %f [subtree]\n", scale, sub_scale);
+  fprintf(outfile, "\n#element at row n1 and col n2 in table below is p(n1, n2)\n");
   for (i = 0; i < post_distrib->ncols; i++) 
     for (j = 0; j < post_distrib->nrows; j++) 
-      printf("%f%c", post_distrib->data[j][i], 
+      fprintf(outfile, "%f%c", post_distrib->data[j][i], 
              j == post_distrib->nrows - 1 ? '\n' : '\t');
 
   vec_free(marg_sup);
   vec_free(marg_sub);
 }
 
-void print_p_joint(char *node_name, char *mod_fname, char *msa_fname, 
+void print_p_joint(FILE *outfile, char *node_name, char *mod_fname, 
+		   char *msa_fname, 
                    double ci, Matrix *prior_joint, 
                    double post_mean, double post_var, 
                    double post_mean_sup, double post_var_sup, 
@@ -242,39 +246,39 @@ void print_p_joint(char *node_name, char *mod_fname, char *msa_fname,
   vec_free(prior_marg_sub);
 
 
-  printf("\n*****\nP-values for number of substitutions observed in '%s' given '%s',\n", 
+  fprintf(outfile, "\n*****\nP-values for number of substitutions observed in '%s' given '%s',\n", 
          msa_fname, mod_fname);
   printf ("considering subtree/supertree beneath/above node '%s'\n*****\n\n", node_name);
 
-  printf("p-value of conservation in subtree: %e\n", cons_p_sub);
-  printf("p-value of acceleration in subtree: %e\n\n", anti_cons_p_sub);
+  fprintf(outfile, "p-value of conservation in subtree: %e\n", cons_p_sub);
+  fprintf(outfile, "p-value of acceleration in subtree: %e\n\n", anti_cons_p_sub);
 
-  printf("p-value of conservation in supertree: %e\n", cons_p_sup);
-  printf("p-value of acceleration in supertree: %e\n\n", anti_cons_p_sup);
+  fprintf(outfile, "p-value of conservation in supertree: %e\n", cons_p_sup);
+  fprintf(outfile, "p-value of acceleration in supertree: %e\n\n", anti_cons_p_sup);
 
-  printf("p-value of conservation in subtree given total: %e\n", cond_cons_p_sub);
-  printf("p-value of acceleration in subtree given total: %e\n\n", cond_anti_cons_p_sub);
+  fprintf(outfile, "p-value of conservation in subtree given total: %e\n", cond_cons_p_sub);
+  fprintf(outfile, "p-value of acceleration in subtree given total: %e\n\n", cond_anti_cons_p_sub);
 
-  printf("null distrib in subtree: mean = %f, var = %f, 95%% c.i. = [%d, %d]\n", 
+  fprintf(outfile, "null distrib in subtree: mean = %f, var = %f, 95%% c.i. = [%d, %d]\n", 
          prior_mean_sub, prior_var_sub, prior_min_sub, prior_max_sub);
-  printf("posterior distrib in subtree: mean = %f, var = %f", 
+  fprintf(outfile, "posterior distrib in subtree: mean = %f, var = %f", 
          post_mean_sub, post_var_sub);
   if (ci != -1)
-    printf(", %.1f%% c.i. = [%.0f, %.0f]", ci*100, post_min_sub, post_max_sub);
-  printf("\n\nnull distrib in supertree: mean = %f, var = %f, 95%% c.i. = [%d, %d]\n", 
+    fprintf(outfile, ", %.1f%% c.i. = [%.0f, %.0f]", ci*100, post_min_sub, post_max_sub);
+  fprintf(outfile, "\n\nnull distrib in supertree: mean = %f, var = %f, 95%% c.i. = [%d, %d]\n", 
          prior_mean_sup, prior_var_sup, prior_min_sup, prior_max_sup);
-  printf("posterior distrib in supertree: mean = %f, var = %f",
+  fprintf(outfile, "posterior distrib in supertree: mean = %f, var = %f",
          post_mean_sup, post_var_sup);
   if (ci != -1)
-    printf(", %.1f%% c.i. = [%.0f, %.0f]", ci*100, post_min_sup, post_max_sup);
-  printf("\n\n");
+    fprintf(outfile, ", %.1f%% c.i. = [%.0f, %.0f]", ci*100, post_min_sup, post_max_sup);
+  fprintf(outfile, "\n\n");
   if (scale != -1)
-    printf("estimated scale factors: %f [tree], %f [subtree]\n\n", scale,
+    fprintf(outfile, "estimated scale factors: %f [tree], %f [subtree]\n\n", scale,
            sub_scale);
 }
 
 /* Features output for SPH without subtree */
-void print_feats_sph(p_value_stats *stats, GFF_Set *feats, 
+void print_feats_sph(FILE *outfile, p_value_stats *stats, GFF_Set *feats, 
                      mode_type mode, double epsilon, int output_gff) {
   int i;
   double *pvals = smalloc(lst_size(feats->features) * sizeof(double)),
@@ -322,9 +326,9 @@ void print_feats_sph(p_value_stats *stats, GFF_Set *feats,
     }
   }
   if (output_gff) 
-    print_gff_scores(feats, pvals, TRUE);
+    print_gff_scores(outfile, feats, pvals, TRUE);
   else 
-    print_feats_generic("prior_mean\tprior_var\tpost_mean\tpost_var\tpval",
+    print_feats_generic(outfile, "prior_mean\tprior_var\tpost_mean\tpost_var\tpval",
                         feats, NULL, 5, prior_means, prior_vars, post_means, 
                         post_vars, pvals);
   if (!output_gff) {
@@ -337,7 +341,8 @@ void print_feats_sph(p_value_stats *stats, GFF_Set *feats,
 }
 
 /* Features output for SPH with subtree */
-void print_feats_sph_subtree(p_value_joint_stats *stats, GFF_Set *feats, 
+void print_feats_sph_subtree(FILE *outfile, p_value_joint_stats *stats, 
+			     GFF_Set *feats, 
                              mode_type mode, double epsilon, int output_gff) {
   int i;
   double *pvals = smalloc(lst_size(feats->features) * sizeof(double)),
@@ -395,9 +400,9 @@ void print_feats_sph_subtree(p_value_joint_stats *stats, GFF_Set *feats,
     }
   }
   if (output_gff) 
-    print_gff_scores(feats, pvals, TRUE);
+    print_gff_scores(outfile, feats, pvals, TRUE);
   else 
-    print_feats_generic("prior_mean_sub\tprior_var_sub\tprior_mean_sup\tprior_var_sup\tpost_mean_sub\tpost_var_sub\tpost_mean_sup\tpost_var_sup\t\tpval",
+    print_feats_generic(outfile, "prior_mean_sub\tprior_var_sub\tprior_mean_sup\tprior_var_sup\tpost_mean_sub\tpost_var_sub\tpost_mean_sup\tpost_var_sup\t\tpval",
                         feats, NULL, 9, prior_means_sub, prior_vars_sub, 
                         prior_means_sup, prior_vars_sup, post_means_sub, 
                         post_vars_sub, post_means_sup, post_vars_sup, pvals);
@@ -414,8 +419,8 @@ void print_feats_sph_subtree(p_value_joint_stats *stats, GFF_Set *feats,
   free(pvals);
 }
 
-void print_wig(MSA *msa, double *vals, char *chrom, int refidx, 
-               int log_trans) {
+void print_wig(FILE *outfile, MSA *msa, double *vals, char *chrom, 
+	       int refidx, int log_trans) {
   int last, j, k;
   double val;
   last = -INFTY;
@@ -424,7 +429,7 @@ void print_wig(MSA *msa, double *vals, char *chrom, int refidx,
     if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
       if (refidx == 0 || !msa_missing_col(msa, refidx, j)) {
         if (k > last + 1) 
-          printf("fixedStep chrom=%s start=%d step=1\n", chrom, 
+          fprintf(outfile, "fixedStep chrom=%s start=%d step=1\n", chrom, 
                  k + msa->idx_offset + 1);
         val = vals[msa->ss->tuple_idx[j]];
         if (log_trans) {
@@ -435,7 +440,7 @@ void print_wig(MSA *msa, double *vals, char *chrom, int refidx,
           }
           val = fabs(-log10(val)) * sign; /* fabs prevents -0 for val == 1 */
         }
-        printf("%.3f\n", val);
+        fprintf(outfile, "%.3f\n", val);
         last = k;
       }
       k++;
@@ -444,7 +449,7 @@ void print_wig(MSA *msa, double *vals, char *chrom, int refidx,
 }
 
 /* Print arbitrary columns of tuple-specific data in wig-like format */
-void print_base_by_base(char *header, char *chrom, MSA *msa, 
+void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa, 
                         char **formatstr, int refidx, int ncols, ...) {
   int last, j, k, tup, col;
   va_list ap;
@@ -453,7 +458,7 @@ void print_base_by_base(char *header, char *chrom, MSA *msa,
 
   last = -INFTY;
   if (header != NULL)
-    printf("%s\n", header);
+    fprintf(outfile, "%s\n", header);
 
   va_start(ap, ncols);
   for (col = 0; col < ncols; col++)
@@ -463,12 +468,12 @@ void print_base_by_base(char *header, char *chrom, MSA *msa,
     if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
       if (refidx == 0 || !msa_missing_col(msa, refidx, j)) {
         if (k > last + 1) 
-          printf("fixedStep chrom=%s start=%d step=1\n", chrom, 
+          fprintf(outfile, "fixedStep chrom=%s start=%d step=1\n", chrom, 
                  k + msa->idx_offset + 1);
         tup = msa->ss->tuple_idx[j];
         for (col = 0; col < ncols; col++) {
-          printf((formatstr == NULL ? "%.5f" : formatstr[col]), data[col][tup]);
-          printf(col < ncols-1 ? "\t" : "\n");
+          fprintf(outfile, (formatstr == NULL ? "%.5f" : formatstr[col]), data[col][tup]);
+          fprintf(outfile, col < ncols-1 ? "\t" : "\n");
         }
         last = k;
       }
@@ -479,8 +484,8 @@ void print_base_by_base(char *header, char *chrom, MSA *msa,
 }
 
 /* Print a list of features and artibrary associated statistics */
-void print_feats_generic(char *header, GFF_Set *gff, char **formatstr, 
-                         int ncols, ...) {
+void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff, 
+			 char **formatstr, int ncols, ...) {
   int i, col;
   String *name;
   va_list ap;
@@ -488,11 +493,11 @@ void print_feats_generic(char *header, GFF_Set *gff, char **formatstr,
   Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
   List *l = lst_new_ptr(2);
 
-  printf("#chr\tstart\tend\tname");
+  fprintf(outfile, "#chr\tstart\tend\tname");
   if (header != NULL) 
-    printf("\t%s\n", header);
+    fprintf(outfile, "\t%s\n", header);
   else 
-    printf("\n");
+    fprintf(outfile, "\n");
 
   va_start(ap, ncols);
   for (col = 0; col < ncols; col++)
@@ -509,12 +514,12 @@ void print_feats_generic(char *header, GFF_Set *gff, char **formatstr,
       str_remove_quotes(name);
     } else name=NULL;
 
-    printf("%s\t%d\t%d\t%s\t", f->seqname->chars, f->start-1, f->end, 
+    fprintf(outfile, "%s\t%d\t%d\t%s\t", f->seqname->chars, f->start-1, f->end, 
            name == NULL ? "." : name->chars);
 
     for (col = 0; col < ncols; col++) {
-      printf((formatstr == NULL ? "%.5f" : formatstr[col]), data[col][i]);
-      printf(col < ncols-1 ? "\t" : "\n");
+      fprintf(outfile, (formatstr == NULL ? "%.5f" : formatstr[col]), data[col][i]);
+      fprintf(outfile, col < ncols-1 ? "\t" : "\n");
     }
 
     lst_free_strings(l);
@@ -527,7 +532,7 @@ void print_feats_generic(char *header, GFF_Set *gff, char **formatstr,
 /* Print GFF to stdout with feature scores defined by vals.  If
    log_trans == TRUE, take log transform (propagating negative
    signs) */
-void print_gff_scores(GFF_Set *gff, double *vals, int log_trans) {
+void print_gff_scores(FILE *outfile, GFF_Set *gff, double *vals, int log_trans) {
   int i;
   for (i = 0; i < lst_size(gff->features); i++) {
     GFF_Feature *f = lst_get_ptr(gff->features, i);
