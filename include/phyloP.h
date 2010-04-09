@@ -14,38 +14,48 @@
 #ifndef PHYLOP_H
 #define PHYLOP_H
 
+#include <list_of_lists.h>
+
 void print_prior_only(FILE *outfile, int nsites, char *mod_fname, 
-		      Vector *prior_distrib);
+		      Vector *prior_distrib, ListOfLists *result);
 void print_post_only(FILE *outfile, char *mod_fname, char *msa_fname, 
-		     Vector *post_distrib, double ci, double scale);
+		     Vector *post_distrib, double ci, double scale,
+		     ListOfLists *result);
 void print_p(FILE *outfile, char *mod_fname, char *msa_fname, 
 	     Vector *prior_distrib, double post_mean, 
-	     double post_var, double ci, double scale);
+	     double post_var, double ci, double scale,
+	     ListOfLists *result);
 void print_prior_only_joint(FILE *outfile, char *node_name, 
 			    int nsites, char *mod_fname, 
-                            Matrix *prior_distrib);
+                            Matrix *prior_distrib,
+			    ListOfLists *result);
 void print_post_only_joint(FILE *outfile, char *node_name, char *mod_fname, 
                            char *msa_fname, Matrix *post_distrib, 
-                           double ci, double scale, double sub_scale);
+                           double ci, double scale, double sub_scale,
+			   ListOfLists *result);
 void print_p_joint(FILE *outfile, char *node_name, char *mod_fname, 
 		   char *msa_fname, 
                    double ci, Matrix *prior_joint, 
                    double post_mean, double post_var, 
                    double post_mean_sup, double post_var_sup, 
                    double post_mean_sub, double post_var_sub,
-                   double scale, double sub_scale);
+                   double scale, double sub_scale,
+		   ListOfLists *result);
 void print_feats_sph(FILE *outfile, p_value_stats *stats, GFF_Set *gff, 
-                     mode_type mode, double epsilon, int output_gff);
+                     mode_type mode, double epsilon, int output_gff,
+		     ListOfLists *result);
 void print_feats_sph_subtree(FILE *outfile, p_value_joint_stats *stats, 
 			     GFF_Set *gff, mode_type mode, double epsilon, 
-			     int output_gff);
-void print_quantiles(FILE *outfile, Vector *distrib);
+			     int output_gff, ListOfLists *result);
+void print_quantiles(FILE *outfile, Vector *distrib, ListOfLists *result);
 void print_wig(FILE *outfile, MSA *msa, double *tuple_pvals, char *chrom, 
-	       int refidx, int log_trans);
+	       int refidx, int log_trans, ListOfLists *result);
 void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa, 
-                        char **formatstr, int refidx, int ncols, ...);
+                        char **formatstr, int refidx, ListOfLists *result,
+			int ncols, ...);
 void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff, 
-			 char **formatstr, int ncols, ...);
+			 char **formatstr, ListOfLists *result, 
+			 int ncols, ...);
 void print_gff_scores(FILE *outfile, GFF_Set *gff, double *pvals, 
 		      int log_trans);
 

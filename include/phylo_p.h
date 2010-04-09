@@ -12,6 +12,7 @@
 #include <subst_distrib.h>
 #include <prob_vector.h>
 #include <prob_matrix.h>
+#include "list_of_lists.h"
 #include "phyloP.h"
 #include "fit_column.h"
 #include "fit_feature.h"
@@ -46,6 +47,7 @@ struct phyloP_struct {
   List *cats_to_do;
   CategoryMap *cm;
   char *help, *mod_fname, *msa_fname;
+  ListOfLists *results;
 };
 
 struct phyloP_struct *phyloP_struct_new(int rphast);

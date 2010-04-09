@@ -18,6 +18,7 @@
 #include <subst_distrib.h>
 #include <prob_vector.h>
 #include <prob_matrix.h>
+#include "list_of_lists.h"
 #include "phyloP.h"
 #include "phylo_p.h"
 #include "fit_column.h"
@@ -46,7 +47,7 @@ struct phyloP_struct *phyloP_struct_new(int rphast) {
   p->feats = NULL;
   p->method = SPH;
   p->mode = CON;
-  p->outfile = NULL;
+  p->outfile = rphast ? NULL : stdout;
   p->logf = NULL;
   p->mod = NULL;
   p->cats_to_do = NULL;
@@ -54,6 +55,7 @@ struct phyloP_struct *phyloP_struct_new(int rphast) {
   p->help = rphast ? "?phyloP" : "phyloP -h";
   p->mod_fname = NULL;
   p->msa_fname = NULL;
+  p->results = rphast ? ListOfLists_new(20) : NULL;
   return p;
 }
 
@@ -134,6 +136,7 @@ void phyloP(struct phyloP_struct *p) {
   CategoryMap *cm;
   char *mod_fname, *msa_fname, *help;
   FILE *outfile;
+  ListOfLists *results;
 
   /* other variables */
   TreeModel *mod, *mod_fitted = NULL;
@@ -177,11 +180,12 @@ void phyloP(struct phyloP_struct *p) {
   help = p->help;
   mod_fname = p->mod_fname;
   msa_fname = p->msa_fname;
-  outfile = p->outfile == NULL ? stdout : p->outfile;
+  outfile = p->outfile;
+  results = p->results;
 
   if (method != SPH && (prior_only || post_only || fit_model || 
                         !default_epsilon || quantiles || ci != -1))
-    die("ERROR: bad arguments.  Try '%s'.\n", help);
+    die("ERROR: given arguments only available in SPH mode.  Try '%s'.\n", help);
 
   if (quantiles && !prior_only && !post_only)
     die("ERROR: --quantiles can only be used with --null or --posterior.\n");
@@ -306,13 +310,15 @@ void phyloP(struct phyloP_struct *p) {
                           pvals, post_means, post_vars, logf);
 
         if (output_wig) 
-          print_wig(outfile, msa, pvals, chrom, refidx, TRUE);
+          print_wig(outfile, msa, pvals, chrom, refidx, TRUE, results);
         else {
           char str[1000];
           sprintf(str, "#neutral mean = %.3f var = %.3f\n#post_mean post_var pval", 
                   prior_mean, prior_var);
-          print_base_by_base(outfile, str, chrom, msa, NULL, refidx, 3, post_means, 
-                             post_vars, pvals);
+          print_base_by_base(outfile, str, chrom, msa, NULL, 
+			     refidx, results, 3, 
+			     "post.mean", post_means, 
+                             "post.var", post_vars, "pval", pvals);
         }
       }
       else if (feats == NULL) {
@@ -329,21 +335,24 @@ void phyloP(struct phyloP_struct *p) {
 
         /* print output */
         if (quantiles)
-          print_quantiles(outfile, prior_only ? prior_distrib : post_distrib);
+          print_quantiles(outfile, prior_only ? prior_distrib : post_distrib,
+			  results);
         else if (prior_only) 
-          print_prior_only(outfile, nsites, mod_fname, prior_distrib);
+          print_prior_only(outfile, nsites, mod_fname, prior_distrib, results);
         else if (post_only)
-          print_post_only(outfile, mod_fname, msa_fname, post_distrib, ci, scale);
+          print_post_only(outfile, mod_fname, msa_fname, post_distrib, 
+			  ci, scale, results);
         else
           print_p(outfile, mod_fname, msa_fname, prior_distrib, 
-                  post_mean, post_var, ci, scale);
+                  post_mean, post_var, ci, scale, results);
       }
       else {                        /* --features case */
         p_value_stats *stats = sub_p_value_many(jp, msa, feats->features, ci);
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
 	if (msa->idx_offset > 0)
 	  gff_add_offset(feats, msa->idx_offset, 0);
-        print_feats_sph(outfile, stats, feats, mode, epsilon, output_gff);
+        print_feats_sph(outfile, stats, feats, mode, epsilon, output_gff, 
+			results);
       }
     }
     else {			/* SPH and supertree/subtree */
@@ -367,14 +376,22 @@ void phyloP(struct phyloP_struct *p) {
                                   logf);
 
         if (output_wig) 
-          print_wig(outfile, msa, pvals, chrom, refidx, TRUE);
+          print_wig(outfile, msa, pvals, chrom, refidx, TRUE, results);
         else {
           char str[1000];
           sprintf(str, "#neutral mean_sub = %.3f var_sub = %.3f mean_sup = %.3f  var_sup = %.3f\n#post_mean_sub post_var_sub post_mean_sup post_var_sup pval", 
                   prior_mean_sub, prior_var_sub, prior_mean_sup, prior_var_sup);
-          print_base_by_base(outfile, str, chrom, msa, NULL, refidx, 5, post_means_sub, 
-                             post_vars_sub, post_means_sup, post_vars_sup, 
-                             pvals);
+          print_base_by_base(outfile, str, chrom, msa, NULL, 
+			     refidx, results, 5, 
+			     "post.mean.sub", post_means_sub, 
+                             "post.var.sub", post_vars_sub, 
+			     "post.mean.sup", post_means_sup, 
+			     "post.var.sup", post_vars_sup, 
+                             "pval", pvals);
+	  free(post_means_sub);
+	  free(post_means_sup);
+	  free(post_vars_sub);
+	  free(post_vars_sup);
         }
       }
 
@@ -396,16 +413,16 @@ void phyloP(struct phyloP_struct *p) {
         /* print output */
         if (prior_only) 
           print_prior_only_joint(outfile, subtree_name, nsites, mod_fname,
-                                 prior_joint_distrib);
+                                 prior_joint_distrib, results);
         else if (post_only) 
           print_post_only_joint(outfile, subtree_name, mod_fname, 
                                 msa_fname, post_joint_distrib, ci,
-                                scale, sub_scale);
+                                scale, sub_scale, results);
         else 
           print_p_joint(outfile, subtree_name, mod_fname, msa_fname,
                         ci, prior_joint_distrib, post_mean, post_var, 
                         post_mean_sup, post_var_sup, post_mean_sub, 
-                        post_var_sub, scale, sub_scale);
+                        post_var_sub, scale, sub_scale, results);
       }
       else {                      /* --features case */
         p_value_joint_stats *jstats = 
@@ -414,7 +431,8 @@ void phyloP(struct phyloP_struct *p) {
         msa_map_gff_coords(msa, feats, 0, 1, 0, NULL);
 	if (msa->idx_offset > 0)
 	  gff_add_offset(feats, msa->idx_offset, 0);
-        print_feats_sph_subtree(outfile, jstats, feats, mode, epsilon, output_gff);
+        print_feats_sph_subtree(outfile, jstats, feats, mode, epsilon, 
+				output_gff, results);
       }
     }
   } /* end SPH */
@@ -430,10 +448,11 @@ void phyloP(struct phyloP_struct *p) {
       if (subtree_name == NULL && branch_name == NULL) { /* no subtree case */
         col_lrts(mod, msa, mode, pvals, scales, llrs, logf);
         if (output_wig) 
-          print_wig(outfile, msa, pvals, chrom, refidx, TRUE);
+          print_wig(outfile, msa, pvals, chrom, refidx, TRUE, results);
         else 
-          print_base_by_base(outfile, "#scale lnlratio pval", chrom, msa, NULL, refidx, 
-                             3, scales, llrs, pvals);
+          print_base_by_base(outfile, "#scale lnlratio pval", chrom, msa, 
+			     NULL, refidx, results, 3, 
+                             "scale", scales, "lnlratio", llrs, "pval", pvals);
       }
       else {                    /* subtree case */
         if (!output_wig) {
@@ -445,11 +464,13 @@ void phyloP(struct phyloP_struct *p) {
                      llrs, logf);
 
         if (output_wig) 
-          print_wig(outfile, msa, pvals, chrom, refidx, TRUE);
+          print_wig(outfile, msa, pvals, chrom, refidx, TRUE, results);
         else 
           print_base_by_base(outfile, "#null_scale alt_scale alt_subscale lnlratio pval", 
-                             chrom, msa, NULL, refidx, 5, null_scales, scales, 
-                             sub_scales, llrs, pvals);
+                             chrom, msa, NULL, refidx, results, 5, 
+			     "null.scale", null_scales, "alt.scale", scales,
+                             "alt.subscale", sub_scales, "lnlratio", llrs,
+			     "pval", pvals);
       }
     }
     else if (feats != NULL) {   /* feature-by-feature evaluation */
@@ -466,8 +487,9 @@ void phyloP(struct phyloP_struct *p) {
         if (output_gff) 
           print_gff_scores(outfile, feats, pvals, TRUE);
         else
-          print_feats_generic(outfile, "scale\tlnlratio\tpval", feats, NULL, 3,
-                              scales, llrs, pvals);
+          print_feats_generic(outfile, "scale\tlnlratio\tpval", feats, NULL, 
+			      results, 3, 
+                              "scale", scales, "lnlratio", llrs, "pval", pvals);
       }
       else {                    /* subtree case */
         if (!output_gff) {
@@ -483,8 +505,10 @@ void phyloP(struct phyloP_struct *p) {
           print_gff_scores(outfile, feats, pvals, TRUE);
         else
           print_feats_generic(outfile, "null_scale\talt_scale\talt_subscale\tlnlratio\tpval",
-                              feats, NULL, 5, null_scales, scales, sub_scales,
-                              llrs, pvals);
+                              feats, NULL, results, 5, 
+			      "null.scale", null_scales, "alt.scale", scales, 
+			      "alt.subsclae", sub_scales,"lnlratio", llrs,
+                              "pval", pvals);
       }
     }
   } /* end LRT method */
@@ -503,10 +527,12 @@ void phyloP(struct phyloP_struct *p) {
         col_score_tests(mod, msa, mode, pvals, derivs, 
                         teststats);
         if (output_wig) 
-          print_wig(outfile, msa, pvals, chrom, refidx, TRUE);
+          print_wig(outfile, msa, pvals, chrom, refidx, TRUE, results);
         else 
-          print_base_by_base(outfile, "#deriv teststat pval", chrom, msa, NULL, refidx, 
-                             3, derivs, teststats, pvals);
+          print_base_by_base(outfile, "#deriv teststat pval", 
+			     chrom, msa, NULL, refidx, results, 3, 
+                             "deriv", derivs, "teststat", teststats, 
+			     "pval", pvals);
       }
       else {                    /* subtree case */
         if (!output_wig) {
@@ -518,11 +544,13 @@ void phyloP(struct phyloP_struct *p) {
                             sub_derivs, teststats, logf);
 
         if (output_wig) 
-          print_wig(outfile, msa, pvals, chrom, refidx, TRUE);
+          print_wig(outfile, msa, pvals, chrom, refidx, TRUE, results);
         else 
-          print_base_by_base(outfile, "#scale deriv subderiv teststat pval", chrom, 
-                             msa, NULL, refidx, 5, null_scales, derivs, 
-                             sub_derivs, teststats, pvals);
+          print_base_by_base(outfile, "#scale deriv subderiv teststat pval", 
+			     chrom, msa, NULL, refidx, results, 5, 
+			     "scale", null_scales, "deriv", derivs, 
+                             "subderiv", sub_derivs, "teststat", teststats, 
+			     "pval", pvals);
       }
     }
     else if (feats != NULL) {   /* feature by feature evaluation */
@@ -539,8 +567,10 @@ void phyloP(struct phyloP_struct *p) {
         if (output_gff) 
           print_gff_scores(outfile, feats, pvals, TRUE);
         else
-          print_feats_generic(outfile, "deriv\tteststat\tpval", feats, NULL, 3,
-                              derivs, teststats, pvals);
+          print_feats_generic(outfile, "deriv\tteststat\tpval", feats, NULL, 
+			      results, 3,
+                              "deriv", derivs, "teststat", teststats, 
+			      "pval", pvals);
       }
       else {                     /* subtree case */
         if (!output_gff) {
@@ -556,8 +586,10 @@ void phyloP(struct phyloP_struct *p) {
           print_gff_scores(outfile, feats, pvals, TRUE);
         else
           print_feats_generic(outfile, "scale\tderiv\tsubderiv\tteststat\tpval",
-                              feats, NULL, 5, null_scales, derivs, sub_derivs,
-                              teststats, pvals);
+                              feats, NULL, results, 5, 
+			      "scale", null_scales, "deriv", derivs, 
+			      "subderiv", sub_derivs, "teststat", teststats,
+                              "pval", pvals);
       }
     }
   } /* end SCORE */
@@ -574,10 +606,12 @@ void phyloP(struct phyloP_struct *p) {
       }
       col_gerp(mod, msa, mode, nneut, nobs, nrejected, nspec, logf);
       if (output_wig) 
-        print_wig(outfile, msa, nrejected, chrom, refidx, FALSE);
+        print_wig(outfile, msa, nrejected, chrom, refidx, FALSE, results);
       else {
-        print_base_by_base(outfile, "#nneut nobs nrej nspec", chrom, msa, formatstr, 
-                           refidx, 4, nneut, nobs, nrejected, nspec);
+        print_base_by_base(outfile, "#nneut nobs nrej nspec", chrom, 
+			   msa, formatstr, refidx, results, 4, 
+			   "nneut", nneut, "nobs", nobs, "nrej", nrejected, 
+			   "nspec", nspec);
       }
     }
     else if (feats != NULL) {   /* feature by feature evaluation */
@@ -594,10 +628,27 @@ void phyloP(struct phyloP_struct *p) {
       if (output_gff) 
         print_gff_scores(outfile, feats, nrejected, FALSE);
       else 
-        print_feats_generic(outfile, "nneut\tnobs\tnrej\tnspec", feats, formatstr, 4,
-                            nneut, nobs, nrejected, nspec);
+        print_feats_generic(outfile, "nneut\tnobs\tnrej\tnspec", 
+			    feats, formatstr, results, 4,
+                            "nneut", nneut, "nobs", nobs, 
+			    "nrej", nrejected, "nspec", nspec);
     }
   } /* end GERP */
-}
+
+  if (pvals != NULL) free(pvals);
+  if (post_means != NULL) free(post_means);
+  if (post_vars != NULL) free(post_vars);
+  if (llrs != NULL) free(llrs);
+  if (scales != NULL) free(scales);
+  if (sub_scales != NULL) free(sub_scales);
+  if (null_scales != NULL) free(null_scales);
+  if (teststats != NULL) free(teststats);
+  if (derivs != NULL) free(derivs);
+  if (sub_derivs != NULL) free(sub_derivs);
+  if (nrejected != NULL) free(nrejected);
+  if (nneut != NULL) free(nneut);
+  if (nobs != NULL) free(nobs);
+  if (nspec != NULL) free(nspec);
+} 
 
 
