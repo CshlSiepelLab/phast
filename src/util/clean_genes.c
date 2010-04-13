@@ -807,7 +807,7 @@ int ref_seq_okay(List *features, MSA *msa, int offset3,
 
     if (seqalloc <= feat->end - feat->start + 2) {
       seqalloc = (feat->end - feat->start) * 2; 
-      seq = realloc(seq, seqalloc * sizeof(char));
+      seq = srealloc(seq, seqalloc * sizeof(char));
     }
 
     for (i = feat->start - 1, len = 0; i < feat->end; i++) {

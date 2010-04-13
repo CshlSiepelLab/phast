@@ -31,8 +31,8 @@ Hashtable* hsh_new(int est_capacity) {
   ht = (Hashtable*)smalloc(sizeof(Hashtable));
   ht->nbuckets = ceil(est_capacity*1.0/LOADING_FACTOR);
   if (ht->nbuckets < 10) ht->nbuckets = 10;
-  ht->keys = (List**)calloc(ht->nbuckets, sizeof(List*));
-  ht->vals = (List**)calloc(ht->nbuckets, sizeof(List*));
+  ht->keys = (List**)smalloc(ht->nbuckets*sizeof(List*));
+  ht->vals = (List**)smalloc(ht->nbuckets*sizeof(List*));
   for (i = 0; i < ht->nbuckets; i++) 
     ht->keys[i] = ht->vals[i] = NULL;    
   return ht;

@@ -8,12 +8,12 @@
 phyloP --null 10 phyloFit.mod
 @msa_view -i SS -o SS --end 100 hmrc.ss > hmrc_short.ss
 phyloP -i SS phyloFit.mod hmrc_short.ss
-phyloP -i SS --method LRT phyloFit.mod hmrc.ss
-phyloP -i SS --method LRT --mode CONACC phyloFit.mod hmrc.ss
-phyloP -i SS --method SCORE --mode NNEUT phyloFit.mod hmrc.ss
-phyloP -i SS --method GERP --mode ACC phyloFit.mod hmrc.ss
-phyloP -i SS --method GERP phyloFit.mod hmrc.ss
-phyloP -i SS --method SCORE phyloFit.mod hmrc.ss
+phyloP -i SS --method LRT --base-by-base phyloFit.mod hmrc.ss
+phyloP -i SS --method LRT --mode CONACC --wig-scores phyloFit.mod hmrc.ss
+phyloP -i SS --method SCORE --mode NNEUT --base-by-base phyloFit.mod hmrc.ss
+phyloP -i SS --method GERP --mode ACC --wig-scores phyloFit.mod hmrc.ss
+phyloP -i SS --method GERP --base-by-base phyloFit.mod hmrc.ss
+phyloP -i SS --method SCORE --wig-scores phyloFit.mod hmrc.ss
 phyloP -i SS --method LRT --wig-scores phyloFit.mod hmrc.ss
 phyloP -i SS --method LRT --base-by-base phyloFit.mod hmrc.ss
 phyloP -i SS --method SCORE --wig-scores --refidx 2 phyloFit.mod hmrc.ss

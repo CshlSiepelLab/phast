@@ -4,7 +4,7 @@
 
 //make a new list of lists (LOL)
 ListOfLists *ListOfLists_new(int approx_size) {
-  ListOfLists *lol = malloc(sizeof(ListOfLists));
+  ListOfLists *lol = smalloc(sizeof(ListOfLists));
   lol->lst = lst_new_ptr(approx_size);
   lol->lstName = lst_new_ptr(approx_size);
   lol->lstType = lst_new_int(approx_size);

@@ -59,25 +59,25 @@ SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphab
   if (namesP != R_NilValue) {
     PROTECT(namesP = AS_CHARACTER(namesP));
     numProtect++;
-    names = malloc(nseqs*sizeof(char*));
+    names = smalloc(nseqs*sizeof(char*));
     for (i=0; i<nseqs; i++) {
-      names[i] = malloc((strlen(CHAR(STRING_ELT(namesP, i)))+1)*sizeof(char));
+      names[i] = smalloc((strlen(CHAR(STRING_ELT(namesP, i)))+1)*sizeof(char));
       strcpy(names[i], CHAR(STRING_ELT(namesP, i)));
     }
   }
   if (seqsP != R_NilValue) {
     PROTECT(seqsP = AS_CHARACTER(seqsP));
     numProtect++;
-    seqs = malloc(nseqs*sizeof(char*));
+    seqs = smalloc(nseqs*sizeof(char*));
     for (i=0; i<nseqs; i++) {
-      seqs[i] = malloc((strlen(CHAR(STRING_ELT(seqsP, i)))+1)*sizeof(char));
+      seqs[i] = smalloc((strlen(CHAR(STRING_ELT(seqsP, i)))+1)*sizeof(char));
       strcpy(seqs[i], CHAR(STRING_ELT(seqsP, i)));
     }
   }
   if (alphabetP != R_NilValue) {
     PROTECT(alphabetP = AS_CHARACTER(alphabetP));
     numProtect++;
-    alphabet = malloc((strlen(CHARACTER_VALUE(alphabetP))+1)*sizeof(char));
+    alphabet = smalloc((strlen(CHARACTER_VALUE(alphabetP))+1)*sizeof(char));
     strcpy(alphabet, CHARACTER_VALUE(alphabetP));
   }
 
@@ -144,7 +144,7 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
   if ((int)fmt == -1) 
     fmt = FASTA;
   if (alphabetP != R_NilValue) {
-    alphabet = malloc((strlen(CHARACTER_VALUE(alphabetP))+1)*sizeof(char));
+    alphabet = smalloc((strlen(CHARACTER_VALUE(alphabetP))+1)*sizeof(char));
     strcpy(alphabet, CHARACTER_VALUE(alphabetP));
   }
   if (refseqP != R_NilValue) 
@@ -169,7 +169,7 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
     numcats = LENGTH(docatsP);
     for (i=0; i<LENGTH(docatsP); i++)
       cmStrLen += strlen(CHAR(STRING_ELT(docatsP, i))) + 10;
-    cmStr = malloc(cmStrLen*sizeof(char));
+    cmStr = smalloc(cmStrLen*sizeof(char));
     sprintf(cmStr, "NCATS = %i", LENGTH(docatsP));
     for (i=0; i<LENGTH(docatsP); i++)
       sprintf(cmStr, "%s; %s %i", cmStr, CHAR(STRING_ELT(docatsP, i)), i+1);

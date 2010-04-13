@@ -172,7 +172,7 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
 		  int argc, char *argv[]) {
   int idx, i;
   FILE *outfile;
-  char *fname = malloc((strlen(out_root)+name->length+7)*sizeof(char));
+  char *fname = smalloc((strlen(out_root)+name->length+7)*sizeof(char));
   sprintf(fname, "%s.%s.maf", out_root, name->chars);
   idx = ptr_to_int(hsh_get(outfileHash, fname));
   if (idx == -1) {
@@ -224,7 +224,7 @@ void close_outfiles(List *outfileList, Hashtable *outfileHash) {
   int *done, idx, i;
   char *fname;
   FILE *outfile;
-  done = malloc(lst_size(keys)*sizeof(int));
+  done = smalloc(lst_size(keys)*sizeof(int));
   for (i=0; i<lst_size(keys); i++) {
     done[i]=0;
     fname = (char*)lst_get_ptr(keys, i);

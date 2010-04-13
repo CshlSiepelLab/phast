@@ -2388,12 +2388,12 @@ void msa_realloc(MSA *msa, int new_length, int new_alloclen, int do_cats,
   if (msa->seqs != NULL) {
     for (i=0; i<msa->nseqs; i++)
       if (msa->seqs[i] != NULL) {
-	msa->seqs[i] = realloc(msa->seqs[i], (msa->length+1)*sizeof(int));
+	msa->seqs[i] = srealloc(msa->seqs[i], (msa->length+1)*sizeof(int));
 	msa->seqs[i][msa->length] = '\0';
       }
   }
   if (msa->categories != NULL) 
-    msa->categories = realloc(msa->categories, msa->length*sizeof(int));
+    msa->categories = srealloc(msa->categories, msa->length*sizeof(int));
   if (msa->ss != NULL)
     ss_realloc(msa, msa->ss->tuple_size, msa->ss->alloc_ntuples, do_cats,
 	       store_order);

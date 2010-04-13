@@ -469,14 +469,14 @@ char *ss_get_one_seq(MSA *msa, int spec) {
 	//this shouldn't happen, but the length isn't necessarily initialized
 	//when SS is created
 	msa->length *= 2;
-	seq = realloc(seq, (msa->length*sizeof(char)));
+	seq = srealloc(seq, (msa->length*sizeof(char)));
       }
       for (j=0; j<msa->ss->counts[i]; j++)
 	seq[col++] = c;
     }
     seq[col] = '\0';
     if (col < msa->length)
-      seq = realloc(seq, (col+1)*sizeof(char));
+      seq = srealloc(seq, (col+1)*sizeof(char));
   } else { /* ordered sufficient stats */
     for (col = 0; col < msa->length; col++) {
       seq[col] = col_string_to_char(msa, 

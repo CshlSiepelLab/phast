@@ -598,7 +598,7 @@ TreeModel *tm_create_copy(TreeModel *src) {
   if (src->all_params != NULL) {
     retval->all_params = vec_create_copy(src->all_params);
     if (src->param_map != NULL) {
-      retval->param_map = malloc(src->all_params->size*sizeof(int));
+      retval->param_map = smalloc(src->all_params->size*sizeof(int));
       for (i=0; i<src->all_params->size; i++)
 	retval->param_map[i] = src->param_map[i];
     }
@@ -611,7 +611,7 @@ TreeModel *tm_create_copy(TreeModel *src) {
     src->alt_subst_mods = lst_new(lst_size(retval->alt_subst_mods), sizeof(AltSubstMod*));
     for (i = 0; i < lst_size(retval->alt_subst_mods); i++) {
       currmod = (AltSubstMod*)lst_get(src->alt_subst_mods, i);
-      newmod = malloc(sizeof(AltSubstMod));
+      newmod = smalloc(sizeof(AltSubstMod));
       newmod->subst_mod = currmod->subst_mod;
       if (currmod->backgd_freqs != NULL)
 	newmod->backgd_freqs = vec_create_copy(currmod->backgd_freqs);
@@ -672,7 +672,7 @@ TreeModel *tm_create_copy(TreeModel *src) {
 //for this lineage.  If it is a list of parameters, then same subst 
 //model will be used, with these parameters estimated separately.
 AltSubstMod* tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
-  AltSubstMod *altmod = malloc(sizeof(AltSubstMod));
+  AltSubstMod *altmod = smalloc(sizeof(AltSubstMod));
   String *nodestr, *modstr;
   List *templst, *traversal;
   TreeNode *n, *tempnode;
@@ -708,7 +708,7 @@ AltSubstMod* tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
 
   //set up pointers to node
   if (mod->alt_subst_mods_node ==  NULL) {
-    mod->alt_subst_mods_node = malloc(mod->tree->nnodes*sizeof(AltSubstMod*));
+    mod->alt_subst_mods_node = smalloc(mod->tree->nnodes*sizeof(AltSubstMod*));
     for (i=0; i<mod->tree->nnodes; i++)
       mod->alt_subst_mods_node[i] = NULL;
   }
@@ -760,7 +760,7 @@ AltSubstMod* tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
       //need to temporarily change boundary separators so that we
       //can split param_list.  Only want to keep commas that are not
       //within parenthesis.  This is a bit uglier than it probably should be.
-      boundpos = malloc(modstr->length*sizeof(int));
+      boundpos = smalloc(modstr->length*sizeof(int));
       for (i=0; i<modstr->length; i++) {
 	boundpos[i]=0;
 	if (modstr->chars[i] == '[') {
@@ -1500,7 +1500,7 @@ void tm_set_boundaries(Vector **lower_bounds, Vector **upper_bounds,
       }
       else {  //if not match any of the above, must be model-specific
 	nratepar = tm_get_nratematparams(mod);
-	flag = malloc(nratepar*sizeof(int));
+	flag = smalloc(nratepar*sizeof(int));
 	for (j=0; j<nratepar; j++) flag[j]=0;
 	if (0 == tm_flag_subst_param_pos(mod, flag, paramstr)) 
 	  die("ERROR: couldn't parse --bound argument %s\n", boundstr);
@@ -1548,7 +1548,7 @@ void tm_set_boundaries(Vector **lower_bounds, Vector **upper_bounds,
 			  tm_get_nratematparams(mod), npar);
 	  else {  //if not match any of the above, must be model-specific
 	    nratepar = tm_get_nratematparams(mod);
-	    flag = malloc(nratepar*sizeof(int));
+	    flag = smalloc(nratepar*sizeof(int));
 	    for (k=0; k<nratepar; k++) flag[k]=0;
 	    if (0 == tm_flag_subst_param_pos(mod, flag, paramstr)) 
 	      die("ERROR: couldn't parse --bound argument %s\n", boundstr);
@@ -1793,7 +1793,7 @@ void tm_setup_params(TreeModel *mod) {
   if (mod->all_params == NULL) 
     mod->all_params = vec_new(next_idx);
   if (mod->param_map == NULL)
-    mod->param_map = malloc(next_idx*sizeof(int));
+    mod->param_map = smalloc(next_idx*sizeof(int));
 
   //now assign positions in param_map so that
   //param_map[i] >= 0 if this parameter is optimized
@@ -1916,7 +1916,7 @@ void tm_setup_params(TreeModel *mod) {
   
   numpar = tm_get_nratematparams(mod);
   if (numpar > 0) 
-    flag = malloc(numpar*sizeof(int));
+    flag = smalloc(numpar*sizeof(int));
   for (i=0; i<numpar; i++) flag[i]=0;
   if (noopt != NULL) {
     for (i=0; i<lst_size(noopt); i++) {
@@ -1944,7 +1944,7 @@ void tm_setup_params(TreeModel *mod) {
       mod->subst_mod = altmod->subst_mod;
       altmod = lst_get_ptr(mod->alt_subst_mods, j);
       numpar = tm_get_nratematparams(mod);
-      opt_par = malloc(numpar*sizeof(int));
+      opt_par = smalloc(numpar*sizeof(int));
 
       //if altmod->separate_model, optimize everything separately
       if (altmod->separate_model == 1) {
@@ -2535,7 +2535,7 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod,
 
 
   //this array keeps track of number of mutations on each branch
-  brlen = malloc(numnode*sizeof(double));
+  brlen = smalloc(numnode*sizeof(double));
   for (i=0; i<numnode; i++)
     brlen[i] = 0;
 
@@ -2543,11 +2543,11 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod,
   if (mod->msa_seq_idx==NULL)
     tm_build_seq_idx(mod, msa);
 
-  minState = malloc(numnode*sizeof(int*));
+  minState = smalloc(numnode*sizeof(int*));
   for (i=0; i<numnode; i++)
-    minState[i] = malloc(numstate*sizeof(int));
-  numMinState = malloc(numnode*sizeof(int));
-  nodecost = malloc(numnode*sizeof(int));
+    minState[i] = smalloc(numstate*sizeof(int));
+  numMinState = smalloc(numnode*sizeof(int));
+  nodecost = smalloc(numnode*sizeof(int));
   traversal = tr_preorder(mod->tree);
 
   for (tupleIdx=0; tupleIdx<msa->ss->ntuples; tupleIdx++) {

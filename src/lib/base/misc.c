@@ -384,6 +384,7 @@ double get_arg_dbl_bounds(char *arg, double min, double max) {
   return retval;
 }
 
+
 /* safe malloc and realloc */
 void *smalloc(size_t size) {
   void *retval = malloc(size);

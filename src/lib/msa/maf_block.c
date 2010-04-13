@@ -348,7 +348,7 @@ void mafBlock_remove_gap_cols(MafBlock *block) {
     sub = (MafSubBlock*)lst_get_ptr(block->data, i);
     if (sub->lineType[0]=='e') continue;
     if (isGap==NULL) {
-      isGap = malloc(block->seqlen*sizeof(int));
+      isGap = smalloc(block->seqlen*sizeof(int));
       for (j=0; j<block->seqlen; j++) isGap[j]=1;
     }
     gapCount = 0;
@@ -566,7 +566,7 @@ void mafBlock_subSpec(MafBlock *block, List *specNameList, int include) {
   String *str;
   int i, idx, *keep, oldSize = lst_size(block->data);
 
-  keep = malloc(oldSize*sizeof(int));
+  keep = smalloc(oldSize*sizeof(int));
   for (i=0; i<oldSize; i++) keep[i]=(include==0);
 
   for (i=0; i<lst_size(specNameList); i++) {
@@ -587,7 +587,7 @@ void mafBlock_reorder(MafBlock *block, List *specNameOrder) {
   Hashtable *newSpecMap;
   int i, idx, *found, oldSize = lst_size(block->data), newSize = lst_size(specNameOrder);
 
-  found = malloc(oldSize*sizeof(int));
+  found = smalloc(oldSize*sizeof(int));
   for (i=0; i<oldSize; i++) found[i]=0;
 
   newData = lst_new_ptr(oldSize);
@@ -804,7 +804,7 @@ void mafBlock_strip_iLines(MafBlock *block) {
 
 
 void mafBlock_strip_eLines(MafBlock *block) {
-  int i, *keep = malloc(lst_size(block->data)*sizeof(int));
+  int i, *keep = smalloc(lst_size(block->data)*sizeof(int));
   for (i=0; i<lst_size(block->data); i++) 
     keep[i] = (((MafSubBlock*)lst_get_ptr(block->data, i))->lineType[0] != 'e');
   mafBlock_remove_lines(block, keep);
