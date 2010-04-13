@@ -403,6 +403,16 @@ void *srealloc(void *ptr, size_t size) {
   return retval;
 }
 
+
+/* make a copy of word, allocating just enough space.*/
+char *copy_charstr(const char *word) {
+  int len = strlen(word);
+  char *retval = smalloc((len+1)*sizeof(char));
+  strcpy(retval, word);
+  return retval;
+}
+
+
 /* efficiently compute log of sum of values, which themselves are
    stored as logs: that is, return log(sum_i exp(l_i)).  The largest
    of the elements of l (call it maxval) is factored out, so that

@@ -171,6 +171,7 @@ int get_arg_int_bounds(char *arg, int min, int max);
 double get_arg_dbl_bounds(char *arg, double min, double max);
 void *smalloc(size_t size);
 void *srealloc(void *ptr, size_t size);
+char *copy_charstr(const char *word);
 double log_sum(List *l);
 double normalize_probs(double *p, int size);
 int is_transition(char b1, char b2);

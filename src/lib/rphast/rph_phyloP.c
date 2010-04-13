@@ -31,12 +31,14 @@ Last updated: 4/8/2010
 SEXP rph_listOfLists_to_SEXP(ListOfLists *lol);
 
 SEXP rph_phyloP(SEXP modP, SEXP msaP, SEXP methodP, SEXP modeP,
-		SEXP gffP, SEXP subtreeP, SEXP wigP, SEXP baseByBaseP,
-		SEXP outputFileP) {
-
+		SEXP gffP, SEXP basewiseP, 
+		SEXP subtreeP, SEXP branchesP, 
+		SEXP refidxP, 
+		SEXP outfileP, SEXP outfileOnlyP, SEXP outfileFormatP) {
   struct phyloP_struct *p = phyloP_struct_new(1);
   SEXP rv;
   char tempstr[1000];
+  int i, numprotect=0;
 
   p->mod = (TreeModel*)EXTPTR_PTR(modP);
   if (msaP != R_NilValue)
@@ -61,23 +63,71 @@ SEXP rph_phyloP(SEXP modP, SEXP msaP, SEXP methodP, SEXP modeP,
   }
   if (gffP != R_NilValue)
     p->feats = (GFF_Set*)EXTPTR_PTR(gffP);
-  if (subtreeP != R_NilValue) {
-    p->subtree_name = smalloc((1+strlen(CHARACTER_VALUE(subtreeP)))*sizeof(char));
-    strcpy(p->subtree_name, CHARACTER_VALUE(subtreeP));
-  } 
-  if (wigP != R_NilValue) 
-    p->output_wig = LOGICAL_VALUE(wigP);
-  if (baseByBaseP != R_NilValue)
-    p->base_by_base = LOGICAL_VALUE(baseByBaseP);
-  if (outputFileP != R_NilValue) 
-    p->outfile = fopen_fname(CHARACTER_VALUE(outputFileP), "w");
-  
+
+  if (basewiseP != R_NilValue)
+    p->base_by_base = LOGICAL_VALUE(basewiseP);
+
+  if (subtreeP != R_NilValue) 
+    p->subtree_name = copy_charstr(CHARACTER_VALUE(subtreeP));
+
+  if (branchesP != R_NilValue) {
+    p->branch_name = lst_new_ptr(LENGTH(branchesP));
+    for (i=0; i<LENGTH(branchesP); i++)
+      lst_push_ptr(p->branch_name, str_new_charstr(CHAR(STRING_ELT(branchesP, i))));
+  }
+
+  if (refidxP != R_NilValue) {
+    p->refidx = INTEGER_VALUE(refidxP);
+    if (p->msa != NULL && (p->refidx < 0 || p->refidx > p->msa->nseqs)) 
+      die("ref.idx should be in >=0 and <= msa$nseqs (%i)", p->msa->nseqs);
+  }
+  if (p->refidx == 0) p->chrom = copy_charstr("align");
+  else p->chrom = copy_charstr(p->msa->names[p->refidx-1]);
+
+  if (outfileP != R_NilValue) {
+    p->outfile = fopen_fname(CHARACTER_VALUE(outfileP), "w");
+    if (p->outfile == NULL) die("ERROR opening %s\n", CHARACTER_VALUE(outfileP));
+  }
+
+  if (outfileOnlyP != R_NilValue && LOGICAL_VALUE(outfileOnlyP)) {
+    ListOfLists_free(p->results);
+    p->results = NULL;
+  }
+
+  if (outfileFormatP != R_NilValue) {
+    char *format = copy_charstr(CHARACTER_VALUE(outfileFormatP));
+    if (strcmp(format, "default")==0);
+    else if (strcmp(format, "wig")==0) {
+      p->output_wig = TRUE;
+      if (! (p->base_by_base)) die("need basewise scores for wig output");
+    }
+    else if (strcmp(format, "gff")==0) {
+      p->output_gff = TRUE;
+      if (p->feats == NULL) die("need features for gff output");
+    }
+    else die("unknown format string %s", format);
+    free(format);
+  }
+
   phyloP(p);
+  printf("done phyloP\n");
   
   if (p->subtree_name != NULL) free(p->subtree_name);
-  if (p->outfile != NULL) fclose(p->outfile);
-  PROTECT(rv = rph_listOfLists_to_SEXP(p->results));
+  if (p->branch_name != NULL) {
+    lst_free_strings(p->branch_name);
+    lst_free(p->branch_name);
+  }
+  if (p->outfile != NULL) 
+    fclose(p->outfile);
+  if (p->results != NULL) {
+    PROTECT(rv = rph_listOfLists_to_SEXP(p->results));
+    numprotect++;
+    ListOfLists_free(p->results);
+  }
+  else rv = R_NilValue;
+  fflush(stdout);
+  if (p->chrom != NULL) free(p->chrom);
   free(p);
-  UNPROTECT(1);
+  if (numprotect > 0) UNPROTECT(numprotect);
   return rv;
 }

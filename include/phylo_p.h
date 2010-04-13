@@ -34,8 +34,9 @@ typedef enum{SPH, LRT, SCORE, GERP} method_type;
 
 struct phyloP_struct {
   MSA *msa;
-  int nsites, prior_only, post_only, quantiles, fit_model,
-    base_by_base, output_wig, default_epsilon, output_gff, refidx;
+  int prior_only, post_only, quantiles_only;
+  int output_wig, output_gff;
+  int nsites, fit_model, base_by_base, default_epsilon, refidx;
   double ci, epsilon;
   char *subtree_name, *chrom;
   List *branch_name;

@@ -25,7 +25,6 @@
 void print_quantiles(FILE *outfile, Vector *distrib, ListOfLists *result) {
   int *quantiles = pv_quantiles(distrib);
   int i;
-  //  double *dquantiles = smalloc(101*sizeof(double));
   if (outfile != NULL) {
     for (i = 0; i <= 100; i++) 
       fprintf(outfile, "%.2f\t%d\n", 1.0*i/100, quantiles[i]);
@@ -51,8 +50,11 @@ void print_prior_only(FILE *outfile, int nsites, char *mod_fname,
   pv_stats(prior_distrib, &prior_mean, &prior_var);
   pv_confidence_interval(prior_distrib, 0.95, &prior_min, &prior_max);
   if (outfile != NULL) {
-    fprintf(outfile, "#Let n be no. substitutions in %d sites given '%s'.\n", 
-	    nsites, mod_fname);
+    fprintf(outfile, "#Let n be no. substitutions in %d sites given ", nsites);
+    if (mod_fname != NULL)
+      fprintf(outfile, "'%s'.\n", 
+	      mod_fname);
+    else fprintf(outfile, "the model\n");
     fprintf(outfile, "#E[n] = %.3f; Var[n] = %.3f; 95%% c.i. = [%d, %d]\n", 
 	    prior_mean, prior_var, prior_min, prior_max);
     fprintf(outfile, "#n p(n)\n");
@@ -81,8 +83,11 @@ void print_post_only(FILE *outfile, char *mod_fname, char *msa_fname,
   pv_stats(post_distrib, &post_mean, &post_var);
   pv_confidence_interval(post_distrib, ci, &post_min, &post_max);
   if (outfile != NULL) {
-    fprintf(outfile, "#Let n be no. substitutions given '%s' and '%s'.\n", 
-	    mod_fname, msa_fname);
+    fprintf(outfile, "#Let n be no. substitutions given ");
+    if (mod_fname != NULL && msa_fname != NULL) 
+      fprintf(outfile, "'%s' and '%s'.\n", 
+	      mod_fname, msa_fname);
+    else fprintf(outfile, "the model and alignment\n");
     fprintf(outfile, "#E[n] = %.3f; Var[n] = %.3f; %.1f%% c.i. = [%d, %d]\n", 
 	    post_mean, post_var, ci*100, post_min, post_max);
     if (scale != -1)
@@ -131,8 +136,11 @@ void print_p(FILE *outfile, char *mod_fname, char *msa_fname,
   pacc = pv_p_value(prior_distrib, post_min, UPPER);
 
   if (outfile != NULL) {
-    fprintf(outfile, "\n*****\nP-values for number of substitutions observed in '%s' given '%s'\n*****\n\n", 
+    fprintf(outfile, "\n*****\nP-values for number of substitutions observed in ");
+    if (msa_fname != NULL && mod_fname != NULL)
+      fprintf(outfile, "'%s' given '%s'\n*****\n\n", 
 	    msa_fname, mod_fname);
+    else fprintf(outfile, "the alignment given the model\n*****\n\n");
     fprintf(outfile, "p-value of conservation: %e\n", pcons);
     fprintf(outfile, "p-value of acceleration: %e\n\n", pacc);
     fprintf(outfile, 
@@ -263,10 +271,16 @@ void print_post_only_joint(FILE *outfile, char *node_name, char *mod_fname,
   pv_confidence_interval(marg_sub, ci, &min_sub, &max_sub);
 
   if (outfile != NULL) {
-    fprintf(outfile, "#Let n1 be no. substitutions in supertree above '%s' (excluding leading branch) given '%s' and '%s'.\n", 
-	    node_name, mod_fname, msa_fname);
-    fprintf(outfile, "#Let n2 be no. substitutions in subtree beneath '%s' (including leading branch) given '%s' and '%s'.\n", 
-	    node_name, mod_fname, msa_fname);
+    fprintf(outfile, "#Let n1 be no. substitutions in supertree above '%s' (excluding leading branch) given ", node_name);
+    if (mod_fname != NULL && msa_fname != NULL)
+      fprintf(outfile, "'%s' and '%s'.\n",
+	     mod_fname, msa_fname);
+    else fprintf(outfile, "the model and alignment.\n");
+    fprintf(outfile, "#Let n2 be no. substitutions in subtree beneath '%s' (including leading branch) given ", mod_fname);
+    if (mod_fname != NULL && msa_fname != NULL) 
+      fprintf(outfile, "'%s' and '%s'.\n", 
+	      mod_fname, msa_fname);
+    else fprintf(outfile, "the model and alignment\n");
     fprintf(outfile, "#E[n1] = %.3f; Var[n1] = %.3f; %.1f%% c.i. = [%d, %d]\n", 
 	    mean_sup, var_sup, ci*100, min_sup, max_sup);
     fprintf(outfile, "#E[n2] = %.3f; Var[n2] = %.3f; %.1f%% c.i. = [%d, %d]\n", 
@@ -374,9 +388,12 @@ void print_p_joint(FILE *outfile, char *node_name, char *mod_fname,
   vec_free(prior_marg_sub);
 
   if (outfile != NULL) {
-    fprintf(outfile, "\n*****\nP-values for number of substitutions observed in '%s' given '%s',\n", 
-	    msa_fname, mod_fname);
-    printf ("considering subtree/supertree beneath/above node '%s'\n*****\n\n", node_name);
+    fprintf(outfile, "\n*****\nP-values for number of substitutions observed in ");
+    if (msa_fname != NULL && mod_fname != NULL)
+      fprintf(outfile, "'%s' given '%s',\n", 
+	      msa_fname, mod_fname);
+    else fprintf(outfile, "the alignment given the model\n");
+    fprintf (outfile, "considering subtree/supertree beneath/above node '%s'\n*****\n\n", node_name);
     
     fprintf(outfile, "p-value of conservation in subtree: %e\n", cons_p_sub);
     fprintf(outfile, "p-value of acceleration in subtree: %e\n\n", anti_cons_p_sub);
@@ -449,14 +466,14 @@ void print_feats_sph(FILE *outfile, p_value_stats *stats, GFF_Set *feats,
     *post_means = NULL, *post_vars = NULL, *prior_means = NULL, 
     *prior_vars = NULL;
 
-  if (!output_gff) {
+  if (result != NULL || !output_gff) {
     post_means = smalloc(lst_size(feats->features) * sizeof(double));
     post_vars = smalloc(lst_size(feats->features) * sizeof(double));
     prior_means = smalloc(lst_size(feats->features) * sizeof(double));
     prior_vars = smalloc(lst_size(feats->features) * sizeof(double));
   }
   for (i = 0; i < lst_size(feats->features); i++) {
-    if (!output_gff) {
+    if (result != NULL || !output_gff) {
       post_means[i] = stats[i].post_mean;
       post_vars[i] = stats[i].post_var;
       prior_means[i] = stats[i].prior_mean;
@@ -489,15 +506,16 @@ void print_feats_sph(FILE *outfile, p_value_stats *stats, GFF_Set *feats,
          distrib */
     }
   }
-  if (output_gff) 
+  if (output_gff && outfile != NULL) 
     print_gff_scores(outfile, feats, pvals, TRUE);
-  else 
-    print_feats_generic(outfile, "prior_mean\tprior_var\tpost_mean\tpost_var\tpval",
+  if (result != NULL || !output_gff) 
+    print_feats_generic(output_gff ? NULL : outfile, 
+			"prior_mean\tprior_var\tpost_mean\tpost_var\tpval",
                         feats, NULL, result, 5, 
 			"prior.mean", prior_means, "prior.var", prior_vars, 
 			"post.mean", post_means, 
                         "post.var", post_vars, "pval", pvals);
-  if (!output_gff) {
+  if (result != NULL || !output_gff) {
     free(post_means);
     free(post_vars);
     free(prior_means);
@@ -662,7 +680,7 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
   }
 
   last = -INFTY;
-  if (header != NULL && outfile != NULL)
+  if (header != NULL && outfile != NULL) 
     fprintf(outfile, "%s\n", header);
 
   va_start(ap, ncols);
@@ -671,7 +689,6 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
     colname[col] = va_arg(ap, char*);
     data[col] = va_arg(ap, double*);
   }
-
 
   for (j = 0, k = 0; j < msa->length; j++) {
     if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
@@ -701,8 +718,8 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
   if (result != NULL) {
     ListOfLists *group = ListOfLists_new(ncols+1);
     ListOfLists_push(group, resultList[0], "coord", INT_LIST);
-    for (col=1; col<=ncols; col++) {
-      ListOfLists_push(group, resultList[col], colname[col], DBL_LIST);
+    for (col=1; col<=ncols; col++) { 
+      ListOfLists_push(group, resultList[col], colname[col-1], DBL_LIST);
     }
     group->isDataFrame = 1;
     ListOfLists_push_listOfLists(result, group, "baseByBase");
@@ -820,5 +837,5 @@ void print_gff_scores(FILE *outfile, GFF_Set *gff, double *vals, int log_trans) 
                                                    for val == 1 */
     }
   }
-  gff_print_set(stdout, gff);
+  if (outfile != NULL) gff_print_set(outfile, gff);
 }

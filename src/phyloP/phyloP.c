@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
       p->default_epsilon = FALSE;
       break;
     case 'q':
-      p->quantiles = TRUE;
+      p->quantiles_only = TRUE;
       break;
     case 'w':
       p->base_by_base = TRUE;
