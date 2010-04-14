@@ -34,7 +34,10 @@ SEXP rph_phyloP(SEXP modP, SEXP msaP, SEXP methodP, SEXP modeP,
 		SEXP gffP, SEXP basewiseP, 
 		SEXP subtreeP, SEXP branchesP, 
 		SEXP refidxP, 
-		SEXP outfileP, SEXP outfileOnlyP, SEXP outfileFormatP) {
+		SEXP outfileP, SEXP outfileOnlyP, SEXP outfileFormatP,
+		SEXP priorOnlyP, SEXP nsitesP, SEXP postOnlyP,
+		SEXP fitModelP, SEXP epsilonP, SEXP confIntP,
+		SEXP quantilesP) {
   struct phyloP_struct *p = phyloP_struct_new(1);
   SEXP rv;
   char tempstr[1000];
@@ -75,25 +78,22 @@ SEXP rph_phyloP(SEXP modP, SEXP msaP, SEXP methodP, SEXP modeP,
     for (i=0; i<LENGTH(branchesP); i++)
       lst_push_ptr(p->branch_name, str_new_charstr(CHAR(STRING_ELT(branchesP, i))));
   }
-
   if (refidxP != R_NilValue) {
     p->refidx = INTEGER_VALUE(refidxP);
     if (p->msa != NULL && (p->refidx < 0 || p->refidx > p->msa->nseqs)) 
       die("ref.idx should be in >=0 and <= msa$nseqs (%i)", p->msa->nseqs);
   }
   if (p->refidx == 0) p->chrom = copy_charstr("align");
-  else p->chrom = copy_charstr(p->msa->names[p->refidx-1]);
-
+  else if (p->msa != NULL)
+    p->chrom = copy_charstr(p->msa->names[p->refidx-1]);
   if (outfileP != R_NilValue) {
     p->outfile = fopen_fname(CHARACTER_VALUE(outfileP), "w");
     if (p->outfile == NULL) die("ERROR opening %s\n", CHARACTER_VALUE(outfileP));
   }
-
   if (outfileOnlyP != R_NilValue && LOGICAL_VALUE(outfileOnlyP)) {
     ListOfLists_free(p->results);
     p->results = NULL;
   }
-
   if (outfileFormatP != R_NilValue) {
     char *format = copy_charstr(CHARACTER_VALUE(outfileFormatP));
     if (strcmp(format, "default")==0);
@@ -109,8 +109,25 @@ SEXP rph_phyloP(SEXP modP, SEXP msaP, SEXP methodP, SEXP modeP,
     free(format);
   }
 
+  if (p->method == SPH) {
+    if (priorOnlyP != R_NilValue)
+      p->prior_only = LOGICAL_VALUE(priorOnlyP);
+    if (nsitesP != R_NilValue)
+      p->nsites = INTEGER_VALUE(nsitesP);
+    if (postOnlyP != R_NilValue)
+      p->post_only = LOGICAL_VALUE(postOnlyP);
+    if (fitModelP != R_NilValue) {
+      p->fit_model = LOGICAL_VALUE(fitModelP);
+    }
+    if (epsilonP != R_NilValue)
+      p->epsilon = NUMERIC_VALUE(epsilonP);
+    if (confIntP != R_NilValue)
+      p->ci = NUMERIC_VALUE(confIntP);
+    if (quantilesP != R_NilValue)
+      p->quantiles_only = LOGICAL_VALUE(quantilesP);
+  }
+
   phyloP(p);
-  printf("done phyloP\n");
   
   if (p->subtree_name != NULL) free(p->subtree_name);
   if (p->branch_name != NULL) {

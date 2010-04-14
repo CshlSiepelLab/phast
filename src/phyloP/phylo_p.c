@@ -40,10 +40,9 @@ struct phyloP_struct *phyloP_struct_new(int rphast) {
 
   p->fit_model = FALSE;
   p->base_by_base = FALSE;
-  p->default_epsilon = TRUE;
   p->refidx = 1;
   p->ci = -1;
-  p->epsilon = DEFAULT_EPSILON;
+  p->epsilon = -1;
   p->subtree_name = NULL;
   p->chrom = NULL;
   p->branch_name = NULL;
@@ -126,8 +125,7 @@ TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa,
 
 void phyloP(struct phyloP_struct *p) {
   /* variables for options that are passed through p */
-  int nsites, fit_model, base_by_base,
-    default_epsilon, refidx;
+  int nsites, fit_model, base_by_base, refidx;
   int prior_only, post_only, quantiles_only,
     output_wig, output_gff;
   double ci, epsilon;
@@ -163,7 +161,6 @@ void phyloP(struct phyloP_struct *p) {
   nsites = p->nsites;
   fit_model = p->fit_model;
   base_by_base = p->base_by_base;
-  default_epsilon = p->default_epsilon;
   refidx = p->refidx;
   ci = p->ci;
   epsilon = p->epsilon;
@@ -193,7 +190,7 @@ void phyloP(struct phyloP_struct *p) {
     die("Need either --prior-only or an alignment\n");
   if (msa != NULL && (refidx < 0 || refidx > msa->nseqs))
     die("refidx should be 0 (for alignment frame of refernce), or between 1 and msa->nseqs (%i)", msa->nseqs);
-  if (method != SPH && (fit_model || !default_epsilon || ci!=-1 || 
+  if (method != SPH && (fit_model || epsilon>=0 || ci!=-1 || 
 			prior_only || post_only || quantiles_only))
     die("ERROR: given arguments only available in SPH mode.  Try '%s'.\n", help);
   if (quantiles_only && !prior_only && !post_only)
@@ -212,6 +209,8 @@ void phyloP(struct phyloP_struct *p) {
     die("ERROR: can use only one of --subtree or --branch options\n");
   if (method != SPH && feats==NULL && !base_by_base)
     die("ERROR: need base-by-base, wig-scores, or features unless method is SPH\n");
+  if (prior_only && msa==NULL && nsites < 0)
+    die("ERROR: need to specify nsites or msa to get prior");
   if (!prior_only) {
     if (msa->ss == NULL)
       ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);
@@ -290,11 +289,10 @@ void phyloP(struct phyloP_struct *p) {
       if (fit_model && base_by_base) 
         mod->subtree_root = mod->tree->lchild; /* for rescaling */
     }
-
     /* if base-by-base, use larger default epsilon */
-    if (base_by_base && default_epsilon)
+    if (base_by_base && epsilon < 0)
       epsilon = DEFAULT_EPSILON_BASE_BY_BASE;
-
+    else if (epsilon < 0) epsilon = DEFAULT_EPSILON;
     /* jump process for prior */
     jp = sub_define_jump_process(mod, epsilon, tr_total_len(mod->tree));
 
@@ -307,7 +305,6 @@ void phyloP(struct phyloP_struct *p) {
                                         10 * tr_max_branchlen(mod->tree));
     else
       jp_post = jp;
-    
     if (nsites == -1) nsites = msa->length;
 
     /* now actually compute and print output */

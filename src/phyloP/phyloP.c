@@ -103,7 +103,6 @@ int main(int argc, char *argv[]) {
       break;
     case 'e':
       p->epsilon = get_arg_dbl_bounds(optarg, 0, 0.1);
-      p->default_epsilon = FALSE;
       break;
     case 'q':
       p->quantiles_only = TRUE;
