@@ -13,7 +13,7 @@ PSSM *mot_new(int width, char *alphabet) {
   if (alphabet == NULL)
     die("Alphabet cannot be null in mot_new.\n");
   m->width = width;
-  m->alphabet = (char*)smalloc(strlen(alphabet) + 1 * sizeof(char));
+  m->alphabet = (char*)smalloc((strlen(alphabet) + 1)* sizeof(char));
   m->alphabet[strlen(alphabet)] = '\0';
   strncpy(m->alphabet, alphabet, strlen(alphabet));
   m->alphsize = strlen(m->alphabet);

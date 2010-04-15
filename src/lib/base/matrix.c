@@ -208,6 +208,7 @@ void mat_linear_comb(Matrix *dest, Matrix *src1, double coef1,
 
 void mat_resize(Matrix *m, int nrows, int ncols) {
   int i;
+  assert(nrows >= 0 && ncols >= 0);
   for (i = nrows; i < m->nrows; i++) free(m->data[i]);
   m->data = srealloc(m->data, nrows * sizeof(void*));
   for (i = 0; i < nrows; i++)

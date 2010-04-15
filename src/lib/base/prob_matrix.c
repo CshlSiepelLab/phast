@@ -269,6 +269,7 @@ Matrix *pm_convolve_many(Matrix **p, int *counts, int n, double epsilon) {
       Vector *marg_x = pm_marg_x(p[i]);
       Vector *marg_y = pm_marg_y(p[i]);
       pv_stats(marg_x, &mean, &var);
+      count = (counts == NULL ? 1 : counts[i]);
       tot_mean_x += mean * count;
       tot_var_x += var * count;
       pv_stats(marg_y, &mean, &var);
@@ -320,10 +321,12 @@ Matrix *pm_convolve_many(Matrix **p, int *counts, int n, double epsilon) {
     for (y = 0; max_nrows == -1 && y < q_i->ncols; y++) 
       if (q_i->data[x][y] > epsilon) 
         max_nrows = x+1;      
+  if (max_nrows == -1) max_nrows = q_i->nrows;
   for (y = q_i->ncols - 1; max_ncols == -1 && y >= 0; y--) 
     for (x = 0; max_ncols == -1 && x < q_i->nrows; x++) 
       if (q_i->data[x][y] > epsilon) 
         max_ncols = y+1;
+  if (max_ncols == -1) max_ncols = q_i->ncols;
   mat_resize(q_i, max_nrows, max_ncols);
 
   pm_normalize(q_i);
