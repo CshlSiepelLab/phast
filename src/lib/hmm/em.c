@@ -186,6 +186,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
            
         /* compute expected number of transitions from each state to
            each other ('A' in Durbin et al.'s notation, pp. 63-64) */
+	if (i != sample_lens[s]-1) {
         for (k = 0; k < hmm->nstates; k++) {
           for (l = 0; l < hmm->nstates; l++) {
             val = exp2(forward_scores[k][i] + 
@@ -198,6 +199,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
             totalA[k] += val;
           }
         }
+	}
       }
     }
 

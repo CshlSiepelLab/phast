@@ -102,7 +102,7 @@ SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphab
   //don't free seqs or names because they are used by MSA object
   if (alphabet != NULL) free(alphabet);
   
-  PROTECT(result = R_MakeExternalPtr((void*)msa, R_NilValue, R_NilValue));
+  PROTECT(result = rph_msa_new_extptr(msa));
   numProtect++;
 
   UNPROTECT(numProtect);
@@ -110,8 +110,7 @@ SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphab
 }
 
 SEXP rph_msa_copy(SEXP msa) {
-  return R_MakeExternalPtr(msa_create_copy((MSA*)EXTPTR_PTR(msa), 0),
-			   R_NilValue, R_NilValue);
+  return rph_msa_new_extptr(msa_create_copy((MSA*)EXTPTR(msa)));
 }
 			   
 
@@ -283,7 +282,7 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
 
   if (numProtect > 0)
     UNPROTECT(numProtect);
-  return R_MakeExternalPtr((void*)msa, R_NilValue, R_NilValue);
+  return rph_msa_new_extptr((void*)msa);
 }
 
 
@@ -486,7 +485,7 @@ SEXP rph_msa_sub_alignment(SEXP msaP, SEXP seqsP, SEXP keepP,
   if (l != NULL) lst_free(l);
   if (map != NULL) msa_map_free(map);
   if (numProtect > 0) UNPROTECT(numProtect);
-  return R_MakeExternalPtr(subMsa, R_NilValue, R_NilValue);
+  return rph_msa_new_extptr(subMsa);
 }
 
 

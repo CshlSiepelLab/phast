@@ -148,10 +148,10 @@ OPTIONS:
         --estimate-rho).
 
     --nrates, -k <nrates> | <nrates_conserved,nrates_nonconserved>
-        (Optionally use with a discrete-gamma model) Assume the
-        specified number of rate categories, instead of the number
-        given in the *.mod file.  The shape parameter 'alpha' will be
-        as given in the *.mod file.  In the case of the default
+        (Optionally use with a discrete-gamma model and --estimate-trees) 
+        Assume the specified number of rate categories, instead of the 
+        number given in the *.mod file.  The shape parameter 'alpha' will 
+        be as given in the *.mod file.  In the case of the default
         two-state HMM, two values can be specified, for the numbers of
         rates for the conserved and the nonconserved states, resp.
 

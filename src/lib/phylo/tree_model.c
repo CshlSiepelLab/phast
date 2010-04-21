@@ -2664,7 +2664,7 @@ void tm_params_init_from_model(TreeModel *mod, Vector *params,
   TreeNode *n;
 
   tm_setup_params(mod);
-  tr_print(stdout, mod->tree, 1);
+  //  tr_print(stdout, mod->tree, 1);
   vec_set(params, mod->scale_idx, mod->scale);
   vec_set(params, mod->scale_idx+1, mod->scale_sub);
   i=0;
