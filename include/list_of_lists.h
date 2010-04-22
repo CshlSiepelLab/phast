@@ -1,5 +1,6 @@
 #include <lists.h>
-/* Recursive list structure emulating R's lists.  List of basic list types:
+#include <tree_model.h>
+/* Recursive list structure emulating R's lists.  List of particular list types:
    char*, integer, or double currently supported */
 
 #ifndef __LIST_OF_LISTS__
@@ -13,32 +14,46 @@ struct list_of_list_struct {
                   //be a ListOfList*.
   List *lstName;  //list of char* giving name of each element of lst
   List *lstType;  //list of list_element_type giving type of each element in lst
-  int isMatrix;      //if isMatrix or isDataFrame is TRUE, all lsts 
-                     //should be same length.
-  int isDataFrame;
+  char *class;    //NULL if this should be treated as a list; otherwise tells
+                  //R to coerce this list into this type of element (ie,
+                  //"matrix", "data.frame", "tm")
 };
 
 typedef struct list_of_list_struct ListOfLists;
 
-ListOfLists *ListOfLists_new(int approx_size);
-void ListOfLists_push(ListOfLists *lol, void *data,
-		     const char *name, 
-		     list_element_type listType);
+ListOfLists *lol_new(int approx_size);
 
-void ListOfLists_push_list(ListOfLists *lol, List *data, 
-			   const char *name, list_element_type listType);
+void lol_set_class(ListOfLists *lol, char *class);
 
-void ListOfLists_push_listOfLists(ListOfLists *lol, 
-				  ListOfLists *data, const char *name);
+void lol_push(ListOfLists *lol, void *data,
+	      const char *name, 
+	      list_element_type listType);
 
-void ListOfLists_push_dbl(ListOfLists *lol, double *vals, int len,
-			    const char *name);
-void ListOfLists_push_int(ListOfLists *lol, int *vals, int len, 
-			  const char *name);
+void lol_push_list(ListOfLists *lol, List *data, 
+		   const char *name, list_element_type listType);
 
-void ListOfLists_push_charvec(ListOfLists *lol, char **vals, int len,
-			      const char *name);
+void lol_push_lol(ListOfLists *lol, 
+		  ListOfLists *data, const char *name);
 
-void ListOfLists_free(ListOfLists *lol);
+void lol_push_dbl(ListOfLists *lol, double *vals, int len,
+		  const char *name);
+void lol_push_int(ListOfLists *lol, int *vals, int len, 
+		  const char *name);
+
+void lol_push_charvec(ListOfLists *lol, char **vals, int len,
+		      const char *name);
+
+void lol_push_matrix(ListOfLists *lol, Matrix *mat, 
+		     const char *name);
+
+void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
+			const char *name);
+
+void lol_push_gff(ListOfLists *lol, GFF_Set *gff,
+		  const char *name);
+
+void lol_push_wig(ListOfLists *lol, double *scores, MSA *msa);
+
+void lol_free(ListOfLists *lol);
 
 #endif

@@ -31,13 +31,13 @@ void print_quantiles(FILE *outfile, Vector *distrib, ListOfLists *result) {
   }
   if (result != NULL) {
     double *tmpd = malloc(101*sizeof(double));
-    ListOfLists *group = ListOfLists_new(2);
+    ListOfLists *group = lol_new(2);
     for (i=0; i<=100; i++) tmpd[i]=1.0*i/100;
-    ListOfLists_push_dbl(group, tmpd, 101, "quantile");
+    lol_push_dbl(group, tmpd, 101, "quantile");
     free(tmpd);
-    ListOfLists_push_int(group, quantiles, 101, "nsub");
-    group->isDataFrame = 1;
-    ListOfLists_push_listOfLists(result, group, "nsub.quantile");
+    lol_push_int(group, quantiles, 101, "nsub");
+    lol_set_class(group, "data.frame");
+    lol_push_lol(result, group, "nsub.quantile");
   }
   free(quantiles);
 }
@@ -62,14 +62,14 @@ void print_prior_only(FILE *outfile, int nsites, char *mod_fname,
       fprintf(outfile, "%d\t%f\n", i, prior_distrib->data[i]);
   }
   if (result != NULL) {
-    ListOfLists *group = ListOfLists_new(2);
+    ListOfLists *group = lol_new(2);
     int *tmpint = malloc(prior_distrib->size*sizeof(int));
     for (i=0; i<prior_distrib->size; i++) tmpint[i]=i;
-    ListOfLists_push_int(group, tmpint, prior_distrib->size, "nsub");
+    lol_push_int(group, tmpint, prior_distrib->size, "nsub");
     free(tmpint);
-    ListOfLists_push_dbl(group, prior_distrib->data, prior_distrib->size, "prior.distrib");
-    group->isDataFrame = 1;
-    ListOfLists_push_listOfLists(result, group, "prior");
+    lol_push_dbl(group, prior_distrib->data, prior_distrib->size, "prior.distrib");
+    lol_set_class(group, "data.frame");
+    lol_push_lol(result, group, "prior");
   }
 }
 
@@ -97,20 +97,20 @@ void print_post_only(FILE *outfile, char *mod_fname, char *msa_fname,
       fprintf(outfile, "%d\t%f\n", i, post_distrib->data[i]);
   }
   if (result != NULL) {
-    ListOfLists *group = ListOfLists_new(2);
+    ListOfLists *group = lol_new(2);
     int *tmpint = smalloc(post_distrib->size*sizeof(int));
     for (i=0; i<post_distrib->size; i++)
       tmpint[i] = i;
-    ListOfLists_push_int(group, tmpint, post_distrib->size, "nsub");
-    ListOfLists_push_dbl(group, post_distrib->data, post_distrib->size, "post.distrib");
-    group->isDataFrame = 1;
+    lol_push_int(group, tmpint, post_distrib->size, "nsub");
+    lol_push_dbl(group, post_distrib->data, post_distrib->size, "post.distrib");
+    lol_set_class(group, "data.frame");
     if (scale != -1) {
-      ListOfLists *tmp = ListOfLists_new(2);
-      ListOfLists_push_dbl(tmp, &scale, 1, "scale");
-      ListOfLists_push_listOfLists(tmp, group, "post.distrib");
+      ListOfLists *tmp = lol_new(2);
+      lol_push_dbl(tmp, &scale, 1, "scale");
+      lol_push_lol(tmp, group, "post.distrib");
       group = tmp;
     }
-    ListOfLists_push_listOfLists(result, group, "post.distrib");
+    lol_push_lol(result, group, "post.distrib");
   }
 }
 
@@ -155,23 +155,23 @@ void print_p(FILE *outfile, char *mod_fname, char *msa_fname,
       fprintf(outfile, "estimated scale factor: %f\n\n", scale);
   }
   if (result != NULL) {
-    ListOfLists *group = ListOfLists_new(12);
-    ListOfLists_push_dbl(group, &pcons, 1, "pval.cons");
-    ListOfLists_push_dbl(group, &pacc, 1, "pval.acc");
-    ListOfLists_push_dbl(group, &prior_mean, 1, "prior.mean");
-    ListOfLists_push_dbl(group, &prior_var, 1, "prior.var");
-    ListOfLists_push_int(group, &prior_min, 1, "prior.min");
-    ListOfLists_push_int(group, &prior_max, 1, "prior.max");
-    ListOfLists_push_dbl(group, &post_mean, 1, "posterior.mean");
-    ListOfLists_push_dbl(group, &post_var, 1, "posterior.var");
+    ListOfLists *group = lol_new(12);
+    lol_push_dbl(group, &pcons, 1, "pval.cons");
+    lol_push_dbl(group, &pacc, 1, "pval.acc");
+    lol_push_dbl(group, &prior_mean, 1, "prior.mean");
+    lol_push_dbl(group, &prior_var, 1, "prior.var");
+    lol_push_int(group, &prior_min, 1, "prior.min");
+    lol_push_int(group, &prior_max, 1, "prior.max");
+    lol_push_dbl(group, &post_mean, 1, "posterior.mean");
+    lol_push_dbl(group, &post_var, 1, "posterior.var");
     if (ci != -1) {
-      ListOfLists_push_dbl(group, &ci, 1, "confidence.int");
-      ListOfLists_push_dbl(group, &post_min, 1, "posterior.ci.min");
-      ListOfLists_push_dbl(group, &post_max, 1, "posterior.ci.max");
+      lol_push_dbl(group, &ci, 1, "confidence.int");
+      lol_push_dbl(group, &post_min, 1, "posterior.ci.min");
+      lol_push_dbl(group, &post_max, 1, "posterior.ci.max");
     }
     if (scale != -1) 
-      ListOfLists_push_dbl(group, &scale, 1, "scale");
-    ListOfLists_push_listOfLists(result, group, "distribution");
+      lol_push_dbl(group, &scale, 1, "scale");
+    lol_push_lol(result, group, "distribution");
   }
 }
 
@@ -214,30 +214,12 @@ void print_prior_only_joint(FILE *outfile, char *node_name, int nsites,
 		j == prior_distrib->nrows - 1 ? '\n' : '\t');
   }
   if (result != NULL) {
-    ListOfLists *group = ListOfLists_new(3);
-    ListOfLists *mat = ListOfLists_new(1 + prior_distrib->nrows);
-    List *rowNames=lst_new_ptr(prior_distrib->ncols);
-    char *tempstr = smalloc(10*sizeof(char));
+    ListOfLists *group = lol_new(3);
     
-    ListOfLists_push_int(group, &nsites, 1, "nsite");
-    ListOfLists_push_charvec(group, &node_name, 1, "subtree.node");
-    for (j=0; j<prior_distrib->nrows; j++) {
-      sprintf(tempstr, "%i", j);
-      ListOfLists_push_dbl(mat, 
-			   prior_distrib->data[j], 
-			   prior_distrib->ncols, 
-			   tempstr);
-    }
-    free(tempstr);
-    for (j=0; j<prior_distrib->ncols; j++) {
-      tempstr = smalloc(10*sizeof(char));
-      sprintf(tempstr, "%i", j);
-      lst_push_ptr(rowNames, (void*)tempstr);
-    }
-    ListOfLists_push_list(mat, rowNames, "row.names", CHAR_LIST);
-    mat->isMatrix = 1;
-    ListOfLists_push_listOfLists(group, mat, "joint.distrib");
-    ListOfLists_push_listOfLists(result, group, "joint.distrib");
+    lol_push_int(group, &nsites, 1, "nsite");
+    lol_push_charvec(group, &node_name, 1, "subtree.node");
+    lol_push_matrix(group, prior_distrib, "joint.distrib");
+    lol_push_lol(result, group, "joint.distrib");
   }
 
   vec_free(marg_sup);
@@ -294,29 +276,11 @@ void print_post_only_joint(FILE *outfile, char *node_name, char *mod_fname,
 		j == post_distrib->nrows - 1 ? '\n' : '\t');
   }
   if (result != NULL) {
-    ListOfLists *group = ListOfLists_new(2);
-    ListOfLists *mat = ListOfLists_new(1 + post_distrib->nrows);
-    List *rowNames=lst_new_ptr(post_distrib->ncols);
-    char *tempstr = smalloc(10*sizeof(char));
+    ListOfLists *group = lol_new(2);
     
-    ListOfLists_push_charvec(group, &node_name, 1, "subtree.node");
-    for (j=0; j<post_distrib->nrows; j++) {
-      sprintf(tempstr, "%i", j);
-      ListOfLists_push_dbl(mat, 
-			   post_distrib->data[j], 
-			   post_distrib->ncols, 
-			   tempstr);
-    }
-    free(tempstr);
-    for (j=0; j<post_distrib->ncols; j++) {
-      tempstr = smalloc(10*sizeof(char));
-      sprintf(tempstr, "%i", j);
-      lst_push_ptr(rowNames, (void*)tempstr);
-    }
-    ListOfLists_push_list(mat, rowNames, "row.names", CHAR_LIST);
-    mat->isMatrix = 1;
-    ListOfLists_push_listOfLists(group, mat, "joint.distrib");
-    ListOfLists_push_listOfLists(result, group, "joint.distrib");
+    lol_push_charvec(group, &node_name, 1, "subtree.node");
+    lol_push_matrix(group, post_distrib, "joint.distrib");
+    lol_push_lol(result, group, "joint.distrib");
   }
 
   vec_free(marg_sup);
@@ -422,38 +386,38 @@ void print_p_joint(FILE *outfile, char *node_name, char *mod_fname,
 	      sub_scale);
   }
   if (result != NULL) {
-    ListOfLists *group = ListOfLists_new(30);
-    ListOfLists_push_charvec(group, &node_name, 1, "subtree.node");
-    ListOfLists_push_dbl(group, &cons_p_sub, 1, "pval.cons.subtree");
-    ListOfLists_push_dbl(group, &anti_cons_p_sub, 1, "pval.acc.subtree");
-    ListOfLists_push_dbl(group, &cons_p_sup, 1, "pval.cons.supertree");
-    ListOfLists_push_dbl(group, &anti_cons_p_sup, 1, "pval.acc.supertree");
-    ListOfLists_push_dbl(group, &cond_cons_p_sub, 1, "pval.cons.subtree.given.total");
-    ListOfLists_push_dbl(group, &cond_anti_cons_p_sub, 1, "pval.acc.subtree.given.total");
-    ListOfLists_push_dbl(group, &prior_mean_sub, 1, "prior.subtree.mean");
-    ListOfLists_push_dbl(group, &prior_var_sub, 1, "prior.subtree.var");
-    ListOfLists_push_int(group, &prior_min_sub, 1, "prior.subtree.ci95.min");
-    ListOfLists_push_int(group, &prior_max_sub, 1, "prior.subtree.ci95.max");
-    ListOfLists_push_dbl(group, &post_mean_sub, 1, "post.subtree.mean");
-    ListOfLists_push_dbl(group, &post_var_sub, 1, "post.subtree.var");
+    ListOfLists *group = lol_new(30);
+    lol_push_charvec(group, &node_name, 1, "subtree.node");
+    lol_push_dbl(group, &cons_p_sub, 1, "pval.cons.subtree");
+    lol_push_dbl(group, &anti_cons_p_sub, 1, "pval.acc.subtree");
+    lol_push_dbl(group, &cons_p_sup, 1, "pval.cons.supertree");
+    lol_push_dbl(group, &anti_cons_p_sup, 1, "pval.acc.supertree");
+    lol_push_dbl(group, &cond_cons_p_sub, 1, "pval.cons.subtree.given.total");
+    lol_push_dbl(group, &cond_anti_cons_p_sub, 1, "pval.acc.subtree.given.total");
+    lol_push_dbl(group, &prior_mean_sub, 1, "prior.subtree.mean");
+    lol_push_dbl(group, &prior_var_sub, 1, "prior.subtree.var");
+    lol_push_int(group, &prior_min_sub, 1, "prior.subtree.ci95.min");
+    lol_push_int(group, &prior_max_sub, 1, "prior.subtree.ci95.max");
+    lol_push_dbl(group, &post_mean_sub, 1, "post.subtree.mean");
+    lol_push_dbl(group, &post_var_sub, 1, "post.subtree.var");
     if (ci != -1) {
-      ListOfLists_push_dbl(group, &ci, 1, "post.conf.int");
-      ListOfLists_push_dbl(group, &post_min_sub, 1, "post.subtree.conf.min");
-      ListOfLists_push_dbl(group, &post_max_sub, 1, "post.subtree.conf.max");
-      ListOfLists_push_dbl(group, &post_min_sup, 1, "post.supertree.conf.min");
-      ListOfLists_push_dbl(group, &post_max_sup, 1, "post.supertree.conf.max");
+      lol_push_dbl(group, &ci, 1, "post.conf.int");
+      lol_push_dbl(group, &post_min_sub, 1, "post.subtree.conf.min");
+      lol_push_dbl(group, &post_max_sub, 1, "post.subtree.conf.max");
+      lol_push_dbl(group, &post_min_sup, 1, "post.supertree.conf.min");
+      lol_push_dbl(group, &post_max_sup, 1, "post.supertree.conf.max");
     }
-    ListOfLists_push_dbl(group, &prior_mean_sup, 1, "prior.supertree.mean");
-    ListOfLists_push_dbl(group, &prior_var_sup, 1, "prior.supertree.var");
-    ListOfLists_push_int(group, &prior_min_sup, 1, "prior.supertree.ci95.min");
-    ListOfLists_push_int(group, &prior_max_sup, 1, "prior.supertree.ci95.max");
-    ListOfLists_push_dbl(group, &post_mean_sup, 1, "post.supertree.mean");
-    ListOfLists_push_dbl(group, &post_var_sup, 1, "post.supertree.var");
+    lol_push_dbl(group, &prior_mean_sup, 1, "prior.supertree.mean");
+    lol_push_dbl(group, &prior_var_sup, 1, "prior.supertree.var");
+    lol_push_int(group, &prior_min_sup, 1, "prior.supertree.ci95.min");
+    lol_push_int(group, &prior_max_sup, 1, "prior.supertree.ci95.max");
+    lol_push_dbl(group, &post_mean_sup, 1, "post.supertree.mean");
+    lol_push_dbl(group, &post_var_sup, 1, "post.supertree.var");
     if (scale != -1) {
-      ListOfLists_push_dbl(group, &scale, 1, "scale");
-      ListOfLists_push_dbl(group, &sub_scale, 1, "subtree.scale");
+      lol_push_dbl(group, &scale, 1, "scale");
+      lol_push_dbl(group, &sub_scale, 1, "subtree.scale");
     }
-    ListOfLists_push_listOfLists(result, group, "distrib.stats");
+    lol_push_lol(result, group, "distrib.stats");
   }
 }
 
@@ -651,11 +615,11 @@ void print_wig(FILE *outfile, MSA *msa, double *vals, char *chrom,
     }
   }
   if (result != NULL) {
-    ListOfLists *group = ListOfLists_new(2);
-    ListOfLists_push(group, posList, "coord", INT_LIST);
-    ListOfLists_push(group, scoreList, "score", DBL_LIST);
-    group->isDataFrame = 1;
-    ListOfLists_push_listOfLists(result, group, "wig");
+    ListOfLists *group = lol_new(2);
+    lol_push(group, posList, "coord", INT_LIST);
+    lol_push(group, scoreList, "score", DBL_LIST);
+    lol_set_class(group, "data.frame");
+    lol_push_lol(result, group, "wig");
   }
 }
 
@@ -716,13 +680,13 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
   va_end(ap);
 
   if (result != NULL) {
-    ListOfLists *group = ListOfLists_new(ncols+1);
-    ListOfLists_push(group, resultList[0], "coord", INT_LIST);
+    ListOfLists *group = lol_new(ncols+1);
+    lol_push(group, resultList[0], "coord", INT_LIST);
     for (col=1; col<=ncols; col++) { 
-      ListOfLists_push(group, resultList[col], colname[col-1], DBL_LIST);
+      lol_push(group, resultList[col], colname[col-1], DBL_LIST);
     }
-    group->isDataFrame = 1;
-    ListOfLists_push_listOfLists(result, group, "baseByBase");
+    lol_set_class(group, "data.frame");
+    lol_push_lol(result, group, "baseByBase");
     free(resultList);
   }
   free(colname);
@@ -799,17 +763,17 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
   }
   
   if (result != NULL) {
-    ListOfLists *group = ListOfLists_new(4+ncols);
-    ListOfLists_push(group, resultList[0], "chr", CHAR_LIST);
-    ListOfLists_push(group, resultList[1], "start", INT_LIST);
-    ListOfLists_push(group, resultList[2], "end", INT_LIST);
-    ListOfLists_push(group, resultList[3], "name", CHAR_LIST);
+    ListOfLists *group = lol_new(4+ncols);
+    lol_push(group, resultList[0], "chr", CHAR_LIST);
+    lol_push(group, resultList[1], "start", INT_LIST);
+    lol_push(group, resultList[2], "end", INT_LIST);
+    lol_push(group, resultList[3], "name", CHAR_LIST);
     free(resultList);
     for (col=0; col < ncols; col++) 
-      ListOfLists_push_dbl(group, data[col], lst_size(gff->features), 
+      lol_push_dbl(group, data[col], lst_size(gff->features), 
 			   colname[col]);
-    group->isDataFrame = 1;
-    ListOfLists_push_listOfLists(result, group, "feature.stats");
+    lol_set_class(group, "data.frame");
+    lol_push_lol(result, group, "feature.stats");
   }
 
   va_end(ap);

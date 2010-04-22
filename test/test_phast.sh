@@ -1,4 +1,5 @@
-*** phyloP ***
+******************** phyloP ********************
+
 phyloFit hmrc.ss --tree "(human, (mouse,rat), cow)" -i SS --quiet
 @phyloP --null 10 phyloFit.mod
 msa_view -i SS -o SS --end 100 hmrc.ss > hmrc_short.ss
@@ -25,7 +26,10 @@ tree_doctor --name-ancestors phyloFit.mod > phyloFit-named.mod
 @phyloP --quantiles --null 100 phyloFit-named.mod
 rm -f hmrc_short.ss phyloFit.mod phyloFit-named.mod temp.bed
 
-*** phastCons ***
+
+
+******************** phastCons ********************
+
 # these are the two examples in the original test Makefile
 !elements.bed @phastCons hpmrc.ss hpmrc-rev-dg-global.mod --nrates 20 --transitions .08,.008  --viterbi elements.bed --seqname chr22
 tree_doctor hpmrc-rev-dg-global.mod --prune galGal2 > hpmr.mod
@@ -125,7 +129,9 @@ tree_doctor --scale 0.1 hpmr.mod > hpmr_slow.mod
 rm -f hpmr.mod hpmr_fast.mod hpmrc_short.ss hmrc_correct_tuple3.ss hpmr_pruned.mod hpmr_slow.mod
 
 
-*** phyloFit ***
+
+******************** phyloFit ********************
+
 # These are the same tests implemented in $PHAST/test/Makefile
 # Should add more thorough testing at some point
 
@@ -149,7 +155,7 @@ msa_view hmrc.ss -i SS --seqs human,mouse --unordered -o SS > hm.ss
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod UNREST --tree "((human, mouse), cow)" -i SS --ancestor cow
 rm -f phyloFit.mod phyloFit.postprob hmr.ss hm.ss
 
-*** msa_view ***
+******************** msa_view ********************
 
 # These are the same tests implemented in $PHAST/test/Makefile
 # Should add more thorough testing at some point

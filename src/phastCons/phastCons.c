@@ -241,7 +241,7 @@ int main(int argc, char *argv[]) {
       p->alias_hash = make_name_hash(optarg);
       break;
     case 'q':
-      p->quiet = TRUE;
+      p->results_f = NULL;
       break;
     case 'h':
       printf(HELP);
@@ -277,7 +277,8 @@ int main(int argc, char *argv[]) {
     if (p->hmm == NULL) {
       sprintf(tmp, "%s/data/phastCons/%s", PHAST_HOME,
               p->indels ? "simple-coding-indels.hmm" : "simple-coding.hmm");
-      if (!p->quiet) fprintf(stderr, "Reading HMM from %s...\n", tmp);
+      if (p->results_f!=NULL) 
+	fprintf(p->results_f, "Reading HMM from %s...\n", tmp);
       p->hmm = hmm_new_from_file(fopen_fname(tmp, "r"));
     }
     if (mods_fname == NULL) {
@@ -297,8 +298,8 @@ int main(int argc, char *argv[]) {
   }
   
   /* read alignment */
-  if (!p->quiet)
-    fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
+  if (p->results_f != NULL)
+    fprintf(p->results_f, "Reading alignment from %s...\n", argv[optind]);
   if (msa_format == MAF)
     p->msa = maf_read(fopen_fname(argv[optind], "r"), NULL, 1, NULL, NULL, 
 		      NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
@@ -312,8 +313,8 @@ int main(int argc, char *argv[]) {
   for (i = 0; i < p->nummod; i++) {
     String *fname = lst_get_ptr(mod_fname_list, i);
 
-    if (!p->quiet)
-      fprintf(stderr, "Reading tree model from %s...\n", fname->chars);
+    if (p->results_f != NULL)
+      fprintf(p->results_f, "Reading tree model from %s...\n", fname->chars);
     p->mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"));
     p->mod[i]->use_conditionals = 1;     
   }

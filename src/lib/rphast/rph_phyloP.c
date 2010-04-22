@@ -91,7 +91,7 @@ SEXP rph_phyloP(SEXP modP, SEXP msaP, SEXP methodP, SEXP modeP,
     if (p->outfile == NULL) die("ERROR opening %s\n", CHARACTER_VALUE(outfileP));
   }
   if (outfileOnlyP != R_NilValue && LOGICAL_VALUE(outfileOnlyP)) {
-    ListOfLists_free(p->results);
+    lol_free(p->results);
     p->results = NULL;
   }
   if (outfileFormatP != R_NilValue) {
@@ -139,7 +139,7 @@ SEXP rph_phyloP(SEXP modP, SEXP msaP, SEXP methodP, SEXP modeP,
   if (p->results != NULL) {
     PROTECT(rv = rph_listOfLists_to_SEXP(p->results));
     numprotect++;
-    ListOfLists_free(p->results);
+    lol_free(p->results);
   }
   else rv = R_NilValue;
   fflush(stdout);

@@ -25,7 +25,6 @@ struct phastCons_struct *phastCons_struct_new(int rphast) {
   struct phastCons_struct *p = smalloc(sizeof(struct phastCons_struct));
   p->post_probs = TRUE; 
   p->score = FALSE; 
-  p->quiet = FALSE;
   p->gff = FALSE; 
   p->FC = FALSE; 
   p->estim_lambda = TRUE;
@@ -56,6 +55,7 @@ struct phastCons_struct *phastCons_struct_new(int rphast) {
   p->rho = DEFAULT_RHO; 
   p->omega = -1;
   p->viterbi_f = NULL;
+  p->viterbi = FALSE;
   p->lnl_f = NULL; 
   p->log_f = NULL;
   p->states = NULL; 
@@ -72,7 +72,10 @@ struct phastCons_struct *phastCons_struct_new(int rphast) {
   p->alias_hash = NULL;
   p->extrapolate_tree = NULL;
   p->cm = NULL;
-  p->results = rphast ? ListOfLists_new(2) : NULL;
+  p->post_probs_f = rphast ? NULL : stdout;
+  p->results_f = rphast ? stdout : stderr;
+  p->progress_f = rphast ? stdout : stderr;
+  p->results = rphast ? lol_new(2) : NULL;
   return p;
 }
 
@@ -82,11 +85,11 @@ int phastCons(struct phastCons_struct *p) {
     estim_transitions, two_state, indels, 
     indels_only, estim_indels,
     estim_trees, ignore_missing, estim_rho, set_transitions,
-    nummod;
+    nummod, viterbi;
   int nrates, nrates2, refidx, max_micro_indel;
   double lambda, mu, nu, alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1,
     gc, gamma, rho, omega;
-  FILE *viterbi_f, *lnl_f, *log_f;
+  FILE *viterbi_f, *lnl_f, *log_f, *post_probs_f, *results_f;
   List *states, *pivot_states, *inform_reqd,
     *not_informative;
   char *seqname, *idpref, *estim_trees_fname_root,
@@ -105,11 +108,11 @@ int phastCons(struct phastCons_struct *p) {
   PhyloHmm *phmm;
   char *newname;
   indel_mode_type indel_mode;
+  int compute_likelihood;
 
   msa = p->msa;
   post_probs = p->post_probs;
   score = p->score;
-  quiet = p->quiet;
   gff = p->gff;
   FC = p->FC;
   estim_lambda = p->estim_lambda;
@@ -156,7 +159,13 @@ int phastCons(struct phastCons_struct *p) {
   alias_hash = p->alias_hash;
   extrapolate_tree = p->extrapolate_tree;
   cm = p->cm;
+  post_probs_f = p->post_probs_f;
+  results_f = p->results_f;
   results = p->results;
+  viterbi = p->viterbi;
+  if (viterbi_f != NULL) viterbi=TRUE;
+  quiet = (results_f == NULL);
+  compute_likelihood = (lnl_f!=NULL || results != NULL);
 
   /* enforce usage rules */
   if ((hmm != NULL && FC))
@@ -241,7 +250,7 @@ int phastCons(struct phastCons_struct *p) {
       double scale = tm_extrapolate_and_prune(mod[i], extrapolate_tree, 
                                               msa, pruned_names);
       if (!quiet) 
-        fprintf(stderr, "Extrapolating based on %s (scale=%f)...\n", 
+        fprintf(results_f, "Extrapolating based on %s (scale=%f)...\n", 
                 extrapolate_tree_fname, scale);
     }
     else
@@ -250,9 +259,9 @@ int phastCons(struct phastCons_struct *p) {
     if (lst_size(pruned_names) == (old_nnodes + 1) / 2)
       die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names).\n");
     if (!quiet && lst_size(pruned_names) > 0) {
-      fprintf(stderr, "WARNING: pruned away leaves of tree with no match in alignment (");
+      fprintf(results_f, "WARNING: pruned away leaves of tree with no match in alignment (");
       for (j = 0; j < lst_size(pruned_names); j++)
-        fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars, 
+        fprintf(results_f, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars, 
                 j < lst_size(pruned_names) - 1 ? ", " : ").\n");
     }
 
@@ -302,7 +311,7 @@ int phastCons(struct phastCons_struct *p) {
     if (nrates == -1) nrates = mod[0]->nratecats;
   }
 
-  if (viterbi_f != NULL && seqname==NULL)
+  if (viterbi && seqname==NULL)
     seqname = "refseq";
 
   /* set up states */
@@ -320,7 +329,7 @@ int phastCons(struct phastCons_struct *p) {
 
   if (two_state) {
     if (!quiet) 
-      fprintf(stderr, "Creating 'conserved' and 'nonconserved' states in HMM...\n");
+      fprintf(results_f, "Creating 'conserved' and 'nonconserved' states in HMM...\n");
     if (gamma != -1) {
       nu = gamma/(1-gamma) * mu;
       if (nu >= 1) 
@@ -341,7 +350,7 @@ int phastCons(struct phastCons_struct *p) {
 
   if (FC) {
     if (!quiet) 
-      fprintf(stderr, "Creating %d scaled versions of tree model...\n", nrates);
+      fprintf(results_f, "Creating %d scaled versions of tree model...\n", nrates);
     phmm_rates_cross(phmm, nrates, lambda, TRUE);
   }
 
@@ -363,9 +372,10 @@ int phastCons(struct phastCons_struct *p) {
 
   /* estimate lambda, if necessary */
   if (FC && estim_lambda) {
-    if (!quiet) fprintf(stderr, "Finding MLE for lambda...");
+    if (!quiet) fprintf(results_f, "Finding MLE for lambda...");
     lnl = phmm_fit_lambda(phmm, &lambda, log_f);
-    if (!quiet) fprintf(stderr, " (lambda = %f)\n", lambda);
+    if (!quiet) fprintf(results_f, " (lambda = %f)\n", lambda);
+    if (results != NULL) lol_push_dbl(results, &lambda, 1, "lambda");
     phmm_update_cross_prod(phmm, lambda);
   }
 
@@ -374,55 +384,87 @@ int phastCons(struct phastCons_struct *p) {
 	   (estim_transitions || estim_indels || estim_trees || estim_rho)) {
     char cons_fname[STR_MED_LEN], noncons_fname[STR_MED_LEN];
     if (!quiet) {
-      fprintf(stderr, "Finding MLE for (");
+      fprintf(results_f, "Finding MLE for (");
       if (estim_transitions) 
-        fprintf(stderr, "mu, nu%s", estim_indels || estim_trees || estim_rho 
+        fprintf(results_f, "mu, nu%s", estim_indels || estim_trees || estim_rho 
 		? ", " : "");
       if (estim_indels) 
-        fprintf(stderr, "alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1%s",
+        fprintf(results_f, "alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1%s",
                 estim_trees || estim_rho ? ", " : "");
       if (estim_trees)
-        fprintf(stderr, "[tree models]");
+        fprintf(results_f, "[tree models]");
       else if (estim_rho) 
-        fprintf(stderr, "rho");
-      fprintf(stderr, ")...\n");
+        fprintf(results_f, "rho");
+      fprintf(results_f, ")...\n");
     }
     lnl = fit_two_state(phmm, msa, estim_transitions, estim_indels, 
 			estim_trees, estim_rho,
                         &mu, &nu, &alpha_0, &beta_0, &tau_0, 
                         &alpha_1, &beta_1, &tau_1, &rho,
                         gamma, log_f);
-    if (!quiet && (estim_transitions || estim_indels || estim_rho)) {      
-      fprintf(stderr, "(");
-      if (estim_transitions)
-        fprintf(stderr, "mu = %f. nu = %f%s", mu, nu, 
-		estim_indels || estim_rho ? ", " : "");
-      if (estim_indels)
-        fprintf(stderr, 
-		"alpha_0 = %f, beta_0 = %f, tau_0 = %f, alpha_1 = %f, beta_1 = %f, tau_1 = %f%s", 
-		alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1, 
-		estim_rho ? ", " : "");
-      if (estim_rho) 
-        fprintf(stderr, "rho = %f", rho);
-      fprintf(stderr, ")\n");
+    if (estim_transitions || estim_indels || estim_rho) {
+      if (!quiet) {
+	fprintf(results_f, "(");
+	if (estim_transitions)
+	  fprintf(results_f, "mu = %f. nu = %f%s", mu, nu, 
+		  estim_indels || estim_rho ? ", " : "");
+	if (estim_indels)
+	  fprintf(results_f, 
+		  "alpha_0 = %f, beta_0 = %f, tau_0 = %f, alpha_1 = %f, beta_1 = %f, tau_1 = %f%s", 
+		  alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1, 
+		  estim_rho ? ", " : "");
+	if (estim_rho) 
+	  fprintf(results_f, "rho = %f", rho);
+	fprintf(results_f, ")\n");
+      } 
+      if (results != NULL) {
+	double *temp;
+	if (estim_transitions) {
+	  temp = smalloc(2*sizeof(double));
+	  temp[0] = mu;
+	  temp[1] = nu;
+	  lol_push_dbl(results, temp, 2, "transition.rates");
+	  free(temp);
+	}
+	if (estim_indels) {
+	  temp = smalloc(6*sizeof(double));
+	  temp[0] = alpha_0;
+	  temp[1] = beta_0;
+	  temp[2] = tau_0;
+	  temp[3] = alpha_1;
+	  temp[4] = beta_1;
+	  temp[5] = tau_1;
+	  lol_push_dbl(results, temp, 6, "indel.rates");
+	  free(temp);
+	}
+	if (estim_rho)
+	  lol_push_dbl(results, &rho, 1, "rho");
+      }
     }
-
     if (estim_trees || estim_rho) {
-      sprintf(cons_fname, "%s.cons.mod", estim_trees_fname_root);
-      sprintf(noncons_fname, "%s.noncons.mod", estim_trees_fname_root);
-      if (!quiet)
-        fprintf(stderr, "Writing re-estimated tree models to %s and %s...\n", 
-                cons_fname, noncons_fname);
-      tm_print(fopen_fname(cons_fname, "w+"), phmm->mods[0]);
-      tm_print(fopen_fname(noncons_fname, "w+"), phmm->mods[1]);
+      if (estim_trees_fname_root != NULL) {
+	sprintf(cons_fname, "%s.cons.mod", estim_trees_fname_root);
+	sprintf(noncons_fname, "%s.noncons.mod", estim_trees_fname_root);
+	if (!quiet)
+	  fprintf(results_f, "Writing re-estimated tree models to %s and %s...\n", 
+		  cons_fname, noncons_fname);
+	tm_print(fopen_fname(cons_fname, "w+"), phmm->mods[0]);
+	tm_print(fopen_fname(noncons_fname, "w+"), phmm->mods[1]);
+      }
+      if (results != NULL) {
+	ListOfLists *tmplist = lol_new(2);
+	lol_push_treeModel(tmplist, phmm->mods[0], "cons.mod");
+	lol_push_treeModel(tmplist, phmm->mods[1], "noncons.mod");
+	lol_push_lol(results, tmplist, "tree.models");
+      }
     }
   }
 
   /* estimate indel parameters only, if necessary */
   else if (indels_only) {
-    if (!quiet) fprintf(stderr, "Estimating parameters for indel model...");
+    if (!quiet) fprintf(results_f, "Estimating parameters for indel model...");
     lnl = phmm_fit_em(phmm, msa, TRUE, FALSE, log_f);
-    if (!quiet) fprintf(stderr, "...\n");
+    if (!quiet) fprintf(results_f, "...\n");
   }
 
   /* still have to set indel params if not estimating */
@@ -434,24 +476,24 @@ int phastCons(struct phastCons_struct *p) {
 
   /* before output, have to restore gaps in reference sequence, for
      proper coord conversion */
-  if (indels && (post_probs || viterbi_f != NULL)) {
+  if (indels && (post_probs || viterbi)) {
     ss_free(msa->ss); msa->ss = NULL; /* msa->seqs must already exist */
     for (i = 0; i < msa->length; i++) 
       if (msa->seqs[0][i] == msa->missing[0]) msa->seqs[0][i] = GAP_CHAR;
   }
     
   /* Viterbi */
-  if (viterbi_f != NULL) {
+  if (viterbi) {
     GFF_Set *predictions;
 
-    if (!quiet) fprintf(stderr, "Running Viterbi algorithm...\n");
+    if (!quiet) fprintf(results_f, "Running Viterbi algorithm...\n");
     predictions = phmm_predict_viterbi_cats(phmm, states, seqname, NULL,
                                             idpref, NULL, "phastCons_predicted");
     /* note that selected state numbers are also cat numbers  */
    
     /* score predictions, if necessary */
     if (score) { 
-      if (!quiet) fprintf(stderr, "Scoring predictions...\n");            
+      if (!quiet) fprintf(results_f, "Scoring predictions...\n");            
       phmm_score_predictions(phmm, predictions, states, NULL, NULL, FALSE);
     }
 
@@ -466,57 +508,75 @@ int phastCons(struct phastCons_struct *p) {
        features (can happen in deletions in reference sequence) */
 
     /* now output predictions */
-    if (gff)
-      gff_print_set(viterbi_f, predictions);
-    else                        /* BED format */
-      gff_print_bed(viterbi_f, predictions, FALSE); 
+    if (viterbi_f != NULL) {
+      if (gff)
+	gff_print_set(viterbi_f, predictions);
+      else                        /* BED format */
+	gff_print_bed(viterbi_f, predictions, FALSE); 
+    }
+    if (results != NULL)
+      lol_push_gff(results, predictions, "most.conserved");
   }
 
   /* posterior probs */
   if (post_probs) {
     int j, k;
     double *postprobs;
+    int *coord = smalloc(msa->length*sizeof(int));
 
-    if (!quiet) fprintf(stderr, "Computing posterior probabilities...\n");
+    if (!quiet) fprintf(results_f, "Computing posterior probabilities...\n");
 
     postprobs = phmm_postprobs_cats(phmm, states, &lnl);
 
-    /* print to stdout */
+    /* print to post_probs_f */
     last = -INFTY;
     for (j = 0, k = 0; j < msa->length; j++) {
       if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
-        if (!msa_missing_col(msa, refidx, j)) {
-          if (k > last + 1) 
-            printf("fixedStep chrom=%s start=%d step=1\n", seqname, 
-                   k + msa->idx_offset + 1);
-          printf("%.3f\n", postprobs[j]);
-          last = k;
-        }
-        k++;
+	if (!msa_missing_col(msa, refidx, j)) {
+	  if (post_probs_f != NULL) {
+	    if (k > last + 1) 
+	      fprintf(post_probs_f, "fixedStep chrom=%s start=%d step=1\n", seqname, 
+		      k + msa->idx_offset + 1);
+	    fprintf(post_probs_f, "%.3f\n", postprobs[j]);
+	  }
+	  coord[j] = k + msa->idx_offset + 1;
+	  last = k;
+	}
+	k++;
+      }
+    }
+    if (results != NULL) {
+      ListOfLists *wigList = lol_new(2);
+      lol_push_int(wigList, coord, msa->length, "coord");
+      lol_push_dbl(wigList, postprobs, msa->length, "post.prob");
+      lol_set_class(wigList, "data.frame");
+      lol_push_lol(results, wigList, "post.prob.wig");
+    }
+  }
+
+  if (lnl_f != NULL || compute_likelihood) {
+    if (lnl > 0) {              /* may have already been computed */
+      if (!quiet) fprintf(results_f, "Computing total log likelihood...\n");
+      lnl = phmm_lnl(phmm); 
+    }
+    if (results != NULL)
+      lol_push_dbl(results, &lnl, 1, "likelihood");
+    if (lnl_f != NULL) {
+      fprintf(lnl_f, "lnL = %.4f\n", lnl); 
+      if (FC) fprintf(lnl_f, "(lambda = %f)\n", lambda);
+      else if (two_state && (estim_transitions || estim_indels)) {
+	fprintf(lnl_f, "(");
+	if (estim_transitions)
+	  fprintf(lnl_f, "mu = %f, nu = %f%s", mu, nu, estim_indels ? ", " : "");
+	if (estim_indels)
+	  fprintf(lnl_f, "alpha_0 = %f, beta_0 = %f, tau_0 = %f, alpha_1 = %f, beta_1 = %f, tau_1 = %f", alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1);
+	fprintf(lnl_f, ")\n");
       }
     }
   }
 
-  /* likelihood */
-  if (lnl_f != NULL) {
-    if (lnl > 0) {              /* may have already been computed */
-      if (!quiet) fprintf(stderr, "Computing total log likelihood...\n");
-      lnl = phmm_lnl(phmm); 
-    }
-    fprintf(lnl_f, "lnL = %.4f\n", lnl); 
-    if (FC) fprintf(lnl_f, "(lambda = %f)\n", lambda);
-    else if (two_state && (estim_transitions || estim_indels)) {
-      fprintf(lnl_f, "(");
-      if (estim_transitions)
-        fprintf(lnl_f, "mu = %f, nu = %f%s", mu, nu, estim_indels ? ", " : "");
-      if (estim_indels)
-        fprintf(lnl_f, "alpha_0 = %f, beta_0 = %f, tau_0 = %f, alpha_1 = %f, beta_1 = %f, tau_1 = %f", alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1);
-      fprintf(lnl_f, ")\n");
-    }
-  }
-
   if (!quiet)
-    fprintf(stderr, "Done.\n");
+    fprintf(results_f, "Done.\n");
 
   return 0;
 }

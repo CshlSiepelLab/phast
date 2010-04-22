@@ -110,7 +110,7 @@ SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP, SEXP alphab
 }
 
 SEXP rph_msa_copy(SEXP msa) {
-  return rph_msa_new_extptr(msa_create_copy((MSA*)EXTPTR(msa)));
+  return rph_msa_new_extptr(msa_create_copy((MSA*)EXTPTR_PTR(msa), 0));
 }
 			   
 

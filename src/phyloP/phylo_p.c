@@ -58,7 +58,7 @@ struct phyloP_struct *phyloP_struct_new(int rphast) {
   p->mod_fname = NULL;
   p->msa_fname = NULL;
 
-  p->results = rphast ? ListOfLists_new(20) : NULL;
+  p->results = rphast ? lol_new(20) : NULL;
   return p;
 }
 

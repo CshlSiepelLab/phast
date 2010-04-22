@@ -1,7 +1,6 @@
 #include "misc.h"
 #include "list_of_lists.h"
 #include <Rdefines.h>
-#undef isMatrix
 
 //convert from C ListOfLists object to a list in R.
 SEXP rph_listOfLists_to_SEXP(ListOfLists *lol) {
@@ -69,17 +68,16 @@ SEXP rph_listOfLists_to_SEXP(ListOfLists *lol) {
   if (lol->lstName != NULL)
     SET_NAMES(result, header);
   
-  if (lol->isMatrix || lol->isDataFrame) {
+  if (lol->class != NULL) {
     SEXP attrName, attrVal;
     PROTECT(attrName = allocVector(STRSXP, 1));
-    SET_STRING_ELT(attrName, 0, lol->isMatrix ? mkChar("isMatrix") : mkChar("isDataFrame"));
-    PROTECT(attrVal = allocVector(LGLSXP, 1));
-    intp = LOGICAL_POINTER(attrVal);
-    intp[0] = TRUE;
+    SET_STRING_ELT(attrName, 0, mkChar("class"));
+    PROTECT(attrVal = allocVector(STRSXP, 1));
+    SET_STRING_ELT(attrVal, 0, mkChar(lol->class));
     SET_ATTR(result, attrName, attrVal);
     numprotect += 2;
   }
 
-  UNPROTECT(numprotect);
+  if (numprotect > 0) UNPROTECT(numprotect);
   return result;
 }

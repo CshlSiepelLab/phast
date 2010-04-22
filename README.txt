@@ -115,12 +115,10 @@ The library is composed of six packages, as follows:
        (if Mac OS X.3 or later), or the CLAPACKPATH and PLAT variables, to
        allow linking to LAPACK.
 
-    d. With MAC OS X, also comment out the "LFLAGS = -static" option.
-
 5. Type "cd src" and "make".  The package should compile cleanly.  If
    you encounter problems compiling, please report them to
-   acs4@cornell.edu.  I'll do my best to help you work around them and
-   to avoid similar problems in the future.
+   phast-help-l@cornell.edu.  I'll do my best to help you work around
+   them and to avoid similar problems in the future.
 
 
                                    NOTES

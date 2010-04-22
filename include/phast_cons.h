@@ -25,6 +25,7 @@
 #include <stringsplus.h>
 #include <lists.h>
 #include <gff.h>
+#include "phylo_hmm.h"
 #include "list_of_lists.h"
 
 #define DEFAULT_RHO 0.3
@@ -34,11 +35,12 @@ struct phastCons_struct {
   int post_probs, score, quiet, gff, FC, estim_lambda,
     estim_transitions, two_state, indels,
     indels_only, estim_indels, estim_trees,
-    ignore_missing, estim_rho, set_transitions;
+    ignore_missing, estim_rho, set_transitions,
+    viterbi;
   int nrates, nrates2, refidx, max_micro_indel;
   double lambda, mu, nu, alpha_0, beta_0, tau_0,
     alpha_1, beta_1, tau_1, gc, gamma, rho, omega;
-  FILE *viterbi_f, *lnl_f, *log_f;
+  FILE *viterbi_f, *lnl_f, *log_f, *post_probs_f, *results_f, *progress_f;
   List *states, *pivot_states, *inform_reqd, *not_informative;
   TreeModel **mod;
   int nummod;
