@@ -29,23 +29,6 @@ Last updated: 4/21/2010
 
 SEXP rph_listOfLists_to_SEXP(ListOfLists *lol);
 
-SEXP rph_phastCons_test(SEXP modP) {
-  TreeModel **mod;
-  int i;
-  
-  printf("lenght=%i\n", LENGTH(modP));
-  mod = (TreeModel**)R_alloc(LENGTH(modP),sizeof(TreeModel*));
-  for (i=0; i<LENGTH(modP); i++) {
-    printf("i=%i\n", i);
-    mod[i] = (TreeModel*)EXTPTR_PTR(VECTOR_ELT(modP, i));
-    tm_print(stdout, mod[i]);
-    printf("done\n");
-  }
-  printf("here\n");
-  return R_NilValue;
-}
-
-
 SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP estimateTreesP,
 		   SEXP estimateRhoP, SEXP gcP, SEXP nratesP, 
 		   SEXP transitionsP, SEXP initTransitionsP,
@@ -59,10 +42,11 @@ SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP estimateTreesP,
   SEXP rv;
 
   p->msa = (MSA*)EXTPTR_PTR(msaP);
-  p->mod = (TreeModel**)R_alloc(LENGTH(modP), sizeof(TreeModel*));
+  p->mod = (TreeModel**)smalloc(LENGTH(modP)*sizeof(TreeModel*));
   for (i=0; i<LENGTH(modP); i++) {
     p->mod[i]=(TreeModel*)EXTPTR_PTR(VECTOR_ELT(modP, i));
   }
+  p->nummod = LENGTH(modP);
   if (rhoP != R_NilValue) 
     p->rho = NUMERIC_VALUE(rhoP);
   if (estimateTreesP != R_NilValue) {
@@ -73,9 +57,6 @@ SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP estimateTreesP,
   }
   if (estimateRhoP != R_NilValue) {
     p->estim_rho = LOGICAL_VALUE(estimateRhoP);
-    if (p->estim_rho) {
-      //      p->estim_rho_fname_root = NULL; //TODO: Same as above.
-    }
   }
   if (gcP != R_NilValue) {
     p->gc = NUMERIC_VALUE(gcP);
@@ -119,7 +100,7 @@ SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP estimateTreesP,
   }
   if (computeLnlP != R_NilValue) {
     if (LOGICAL_VALUE(computeLnlP)) {
-      //TODO: figure out how to incorporate lnl into result
+      p->compute_likelihood = TRUE;
     }
   }
   if (suppressProbsP != R_NilValue) 

@@ -1628,13 +1628,17 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
   }
   if (mod->alt_subst_mods != NULL) {
     AltSubstMod *altmod;
+    int j;
     for (i = 0; i < lst_size(mod->alt_subst_mods); i++) {
       altmod = lst_get_ptr(mod->alt_subst_mods, i);
       if (altmod->separate_model == 0 && 
 	  altmod->param_list == NULL) continue;
 
-      if (altmod->backgd_freqs == NULL) 
+      if (altmod->backgd_freqs == NULL) {
 	altmod->backgd_freqs = vec_create_copy(mod->backgd_freqs);
+	for (j=0; j<mod->backgd_freqs->size; j++) 
+	  vec_set(params, altmod->backgd_idx+j, vec_get(mod->backgd_freqs, j));
+      }
       if (altmod->rate_matrix == NULL)
 	altmod->rate_matrix = mm_create_copy(mod->rate_matrix);
     }
@@ -1736,7 +1740,7 @@ int void_str_equals_charstr(void *strptr, void *charptr) {
    which are held constant have param_map[i]=-1.   
  */
 void tm_setup_params(TreeModel *mod) {
-  int i, opt_idx = 0, next_idx, alph_size, pos, numpar, *flag;
+  int i, opt_idx = 0, next_idx, pos, numpar, *flag, size;
   List *noopt=NULL;
 
   //first assign indices in mod->all_params to give position of each
@@ -1744,9 +1748,7 @@ void tm_setup_params(TreeModel *mod) {
   mod->scale_idx = 0;  //keep room for scale and subtree_scale
   mod->bl_idx = 2;
   assert(mod->tree != NULL);
-  if (mod->backgd_freqs == NULL)
-    alph_size = strlen(mod->rate_matrix->states);
-  else alph_size = mod->backgd_freqs->size;
+  size = mod->rate_matrix->size;
 
   if (mod->estimate_branchlens == TM_BRANCHLENS_CLOCK) {
     /* in this case the number of BL pars is numspec-1, 
@@ -1756,7 +1758,8 @@ void tm_setup_params(TreeModel *mod) {
   else
     mod->backgd_idx = mod->bl_idx + mod->tree->nnodes - 1;
 
-  next_idx = mod->backgd_idx + alph_size;
+  next_idx =  mod->backgd_idx + size;
+
   if (mod->nratecats > 1) {
     mod->ratevar_idx = next_idx;
     if (mod->empirical_rates)
@@ -1775,7 +1778,7 @@ void tm_setup_params(TreeModel *mod) {
       altmod = lst_get_ptr(mod->alt_subst_mods, i);
       mod->subst_mod = altmod->subst_mod;
       altmod->backgd_idx = next_idx;
-      next_idx += alph_size;
+      next_idx += size;
       altmod->ratematrix_idx = next_idx;
       next_idx += tm_get_nratematparams(mod);
     }
@@ -1785,6 +1788,7 @@ void tm_setup_params(TreeModel *mod) {
   //now, allocate all_params and param_map if necessary
   if (mod->all_params != NULL && mod->all_params->size != next_idx) {
     vec_free(mod->all_params);
+    mod->all_params = NULL;
     if (mod->param_map != NULL) {
       free(mod->param_map);
       mod->param_map = NULL;
@@ -1864,7 +1868,8 @@ void tm_setup_params(TreeModel *mod) {
     if (mod->eqfreq_sym==1) {
       int atpos=-1, gcpos=-1;
       char c;
-      for (i=0; i<alph_size; i++) {
+      assert(mod->order==0);
+      for (i=0; i<size; i++) {
 	c = tolower(mod->rate_matrix->states[i]);
 	switch (c) {
 	case 'g':
@@ -1887,7 +1892,7 @@ void tm_setup_params(TreeModel *mod) {
       }
     }
     else {
-      for (i=0; i<alph_size; i++)
+      for (i=0; i<size; i++)
 	mod->param_map[mod->backgd_idx+i] = opt_idx++;
     }
   }
@@ -1998,11 +2003,11 @@ void tm_setup_params(TreeModel *mod) {
       }
       
       if (opt_freq) {
-	for (i=0; i<alph_size; i++)
+	for (i=0; i<size; i++)
 	  mod->param_map[altmod->backgd_idx+i] = opt_idx++;
       }
       else {
-	for (i=0; i<alph_size; i++)
+	for (i=0; i<size; i++)
 	  mod->param_map[altmod->backgd_idx+i] = 
 	    mod->param_map[mod->backgd_idx+i];
       }
@@ -2239,7 +2244,7 @@ Vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
                        double alpha) {
   int nparams = tm_get_nparams(mod);
   Vector *params = vec_new(nparams);
-  int i, nbranches, alph_size;
+  int i, nbranches, size;
 
   tm_setup_params(mod);
 
@@ -2269,13 +2274,13 @@ Vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
   }
 
   if (mod->backgd_freqs == NULL) {
-    alph_size = strlen(mod->rate_matrix->states);
-    for (i = 0; i < alph_size; i++)
-      vec_set(params, mod->backgd_idx+i, 1.0/(double)alph_size);
+    size = mod->rate_matrix->size;
+    for (i = 0; i < size; i++)
+      vec_set(params, mod->backgd_idx+i, 1.0/(double)size);
   }
   else {
-    alph_size = mod->backgd_freqs->size;
-    for (i = 0; i < alph_size; i++)
+    size = mod->backgd_freqs->size;
+    for (i = 0; i < size; i++)
       vec_set(params, mod->backgd_idx+i, vec_get(mod->backgd_freqs, i));
   }
 
@@ -2300,11 +2305,11 @@ Vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
       tm_rate_params_init(mod, params, altmod->ratematrix_idx, kappa);
       
       if (mod->backgd_freqs == NULL) {
-	for (j=0; j<alph_size; j++)
-	  vec_set(params, altmod->backgd_idx+j, 1.0/(double)alph_size);
+	for (j=0; j<size; j++)
+	  vec_set(params, altmod->backgd_idx+j, 1.0/(double)size);
       }
       else {
-	for (j=0; j<alph_size; j++)
+	for (j=0; j<size; j++)
 	  vec_set(params, altmod->backgd_idx+j, vec_get(mod->backgd_freqs, j));
       }
     }
@@ -2317,7 +2322,7 @@ Vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
 /* initializes branch lengths and rate matrix parameters
    randomly; can be used multiple times to ensure the MLE is real */
 Vector *tm_params_init_random(TreeModel *mod) {
-  int i, alph_size=strlen(mod->rate_matrix->states);
+  int i, size=mod->rate_matrix->size;
   Vector *params = vec_new(tm_get_nparams(mod));
   int nbranches = tm_get_nbranchlenparams(mod);
   int nratematparams = tm_get_nratematparams(mod);
@@ -2396,11 +2401,11 @@ Vector *tm_params_init_random(TreeModel *mod) {
                                 /* we'll use the interval from 0.1 to 5 */
   if (mod->estimate_backgd) {
     double sum=0.0;
-    for (i=0; i<alph_size; i++) {
+    for (i=0; i<size; i++) {
       vec_set(params, mod->backgd_idx+i, random()/RAND_MAX);
       sum += vec_get(params, mod->backgd_idx+i);
     }
-    for (i=0; i<alph_size; i++)
+    for (i=0; i<size; i++)
       vec_set(params, mod->backgd_idx+i, 
 	      vec_get(params, mod->backgd_idx+i)/sum);
   }
@@ -2420,11 +2425,11 @@ Vector *tm_params_init_random(TreeModel *mod) {
       }
       if (altmod->backgd_freqs != NULL) {
 	double sum=0.0;
-	for (i=0; i<alph_size; i++)  {
+	for (i=0; i<size; i++)  {
 	  vec_set(params, altmod->backgd_idx+i, random()/RAND_MAX);
 	  sum += vec_get(params, altmod->backgd_idx+i);
 	}
-	for (i=0; i<alph_size; i++)
+	for (i=0; i<size; i++)
 	  vec_set(params, altmod->backgd_idx+i, 
 		  vec_get(params, altmod->backgd_idx+i)/sum);
       }
@@ -2525,7 +2530,7 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod,
     die("ERROR: tm_params_init_branchlens_parsimony needs msa->ss!=NULL\n");
 
   if (mod->order!=0) 
-    die("ERROR: tm_params_init_branches currently only works for order 1 models\n");
+    die("ERROR: tm_params_init_branches currently only works for order 0 models\n");
 
   if  (mod->estimate_branchlens == TM_BRANCHLENS_CLOCK) { 
     die("Sorry, parsimony algorithm not implemented for molecular clock\n");
@@ -2836,7 +2841,7 @@ int tm_get_nparams(TreeModel *mod) {
 }
 
 int tm_get_neqfreqparams(TreeModel *mod) {
-  if (mod->backgd_freqs == NULL) return strlen(mod->rate_matrix->states);
+  if (mod->backgd_freqs == NULL) return mod->rate_matrix->size;
   return mod->backgd_freqs->size;
 }
 

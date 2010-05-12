@@ -143,13 +143,16 @@ my $errorFlag=0;
 sub compare_files {
     my $file1=$_[0];
     my $file2=$_[1];
+    my $fileRoot = $_[2];
     my $diffout = `diff --brief $file1 $file2`;
+    print "\tchecking $fileRoot...";
     if ($diffout) {
-	print STDERR "ERROR: $file1 and $file2 differ\n";
-	exit(-1) if (!$noQuitOnError);
+	print "ERROR: $file1 and $file2 differ\n";
 	$errorFlag=1;
-    } 
-    system("rm -f $file1 $file2");
+    } else {
+	print "\tgood.\n";
+	system("rm -f $file1 $file2");
+    }
 }
 
 
@@ -214,15 +217,16 @@ while (<INFILE>) {
 	foreach $file (@compareFiles) {
 	    system("mv $file $tempPrefix.2.$file") if (! ($file eq "stdout"));
 	}
-	compare_files("$tempPrefix.1.stdout", "$tempPrefix.2.stdout") 
+	compare_files("$tempPrefix.1.stdout", "$tempPrefix.2.stdout", "stdout") 
 	    if ($compareStdout);
-	compare_files("$tempPrefix.1.stderr", "$tempPrefix.2.stderr") 
+	compare_files("$tempPrefix.1.stderr", "$tempPrefix.2.stderr", "stderr") 
 	    if ($compareStderr);
 	foreach $file (@compareFiles) {
-	    compare_files("$tempPrefix.1.$file", "$tempPrefix.2.$file");
+	    compare_files("$tempPrefix.1.$file", "$tempPrefix.2.$file", "$file");
 	}
 	if ($errorFlag) {
 	    $numerror++;
+	    exit(1) if (!$noQuitOnError);
 	}
 	else {
 	    $numgood++;

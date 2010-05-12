@@ -858,34 +858,35 @@ int main(int argc, char* argv[]) {
     else
       msa_print_stats(sub_msa, stdout, infname, 0, -1, -1);
   }
-
-  if (split_all == TRUE) { /* Print each species' sequence in its own fasta */
-    tmpl = lst_new_ptr(1);
-    for (i = 0; i < sub_msa->nseqs; i++) {
-      lst_clear(tmpl);
-      if (l != NULL)
-	lst_free(l);
-      if (tmpstr != NULL)
-	str_free(tmpstr);
-      if (split_msa != NULL)
-	msa_free(split_msa);
-      tmpstr = str_new_charstr(sub_msa->names[i]);
-      lst_push_ptr(tmpl, tmpstr);
-      l = msa_seq_indices(msa, tmpl);
-      split_msa = msa_sub_alignment(sub_msa, l, TRUE, 0,
-				    sub_msa->length);
-      if (gap_strip_mode != NO_STRIP)
-	msa_strip_gaps(split_msa, gap_strip_mode);
-      snprintf(out_fname, STR_MED_LEN, "%s.%s.fa", out_root, 
-	       sub_msa->names[i]);
-      outfile = fopen(out_fname, "w");
-      msa_print(outfile, split_msa, FASTA, pretty_print);
-      fclose(outfile);
+  else {
+    if (split_all == TRUE) { /* Print each species' sequence in its own fasta */
+      tmpl = lst_new_ptr(1);
+      for (i = 0; i < sub_msa->nseqs; i++) {
+	lst_clear(tmpl);
+	if (l != NULL)
+	  lst_free(l);
+	if (tmpstr != NULL)
+	  str_free(tmpstr);
+	if (split_msa != NULL)
+	  msa_free(split_msa);
+	tmpstr = str_new_charstr(sub_msa->names[i]);
+	lst_push_ptr(tmpl, tmpstr);
+	l = msa_seq_indices(msa, tmpl);
+	split_msa = msa_sub_alignment(sub_msa, l, TRUE, 0,
+				      sub_msa->length);
+	if (gap_strip_mode != NO_STRIP)
+	  msa_strip_gaps(split_msa, gap_strip_mode);
+	snprintf(out_fname, STR_MED_LEN, "%s.%s.fa", out_root, 
+		 sub_msa->names[i]);
+	outfile = fopen(out_fname, "w");
+	msa_print(outfile, split_msa, FASTA, pretty_print);
+	fclose(outfile);
+      }
     }
+    
+    else                          /* print alignment */
+      msa_print(stdout, sub_msa, output_format, pretty_print);
   }
-
-  else                          /* print alignment */
-    msa_print(stdout, sub_msa, output_format, pretty_print);
 
   if (sub_msa != msa) msa_free(sub_msa);
   msa_free(msa);

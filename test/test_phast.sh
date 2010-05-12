@@ -1,3 +1,9 @@
+# Basic syntax:
+# commands starting with @ mean "test this command", ie, run it in
+# two different versions of PHAST and compare results.
+# commands starting with @ can be preceded with files starting with !,
+# which indicates to compare these files as well as stdout/stderr.
+
 ******************** phyloP ********************
 
 phyloFit hmrc.ss --tree "(human, (mouse,rat), cow)" -i SS --quiet
@@ -17,7 +23,7 @@ echo -e "chr1\t0\t10\nchr1\t50\t100\nchr1\t200\t300" > temp.bed
 @phyloP -i SS --method LRT --mode CONACC --features temp.bed phyloFit.mod hmrc.ss
 @phyloP -i SS --method SCORE --features temp.bed -g phyloFit.mod hmrc.ss
 tree_doctor --name-ancestors phyloFit.mod > phyloFit-named.mod
-@phyloP -i SS --method LRT --mode CONACC --subtree mouse-rat -w phyloFit-named.mod hmrc.ss
+@phyloP -i SS --method LRT --mode CONACC --subtree mouse-rat --base-by-base phyloFit-named.mod hmrc.ss
 @phyloP -i SS --method LRT --mode ACC --branch mouse-rat -w phyloFit-named.mod hmrc.ss
 @phyloP --posterior -i SS phyloFit.mod hmrc_short.ss
 @phyloP --fit-model -w -i SS --subtree mouse-rat phyloFit-named.mod hmrc_short.ss
@@ -32,7 +38,7 @@ rm -f hmrc_short.ss phyloFit.mod phyloFit-named.mod temp.bed
 
 # these are the two examples in the original test Makefile
 !elements.bed @phastCons hpmrc.ss hpmrc-rev-dg-global.mod --nrates 20 --transitions .08,.008  --viterbi elements.bed --seqname chr22
-tree_doctor hpmrc-rev-dg-global.mod --prune galGal2 > hpmr.mod
+phyloFit -i SS --tree "((hg16, panTro1), (mm3, rn3))" -o hpmr hpmrc.ss --quiet
 !elements-4way.bed @phastCons hpmrc.ss hpmr.mod --nrates 20 --transitions .08,.008  --viterbi elements-4way.bed --seqname chr22
 
 
@@ -41,7 +47,7 @@ tree_doctor --scale 3.0 hpmr.mod > hpmr_fast.mod
 @phastCons  hpmrc.ss hpmr.mod,hpmr_fast.mod
 @phastCons  hpmrc.ss --rho  0.5 hpmr.mod
 msa_view -i SS --end 1000 -o SS hpmrc.ss > hpmrc_short.ss
-!tempTree.cons.mod !tempTree.noncons.mod @phastCons  hpmrc_short.ss hpmr.mod --estimate-trees tempTree
+!tempTree.cons.mod !tempTree.noncons.mod @phastCons  hpmrc.ss hpmr.mod --estimate-trees tempTree
 @phastCons --target-coverage 0.25 --expected-length 12 hpmrc.ss hpmr.mod,hpmr_fast.mod
 @phastCons --transitions 0.01,0.02 hpmrc.ss hpmr.mod,hpmr_fast.mod
 !tempRho.cons.mod !tempRho.noncons.mod @phastCons --target-coverage 0.25 --expected-length 12 --estimate-rho tempRho --no-post-probs hpmrc.ss hpmr.mod
@@ -54,8 +60,9 @@ msa_view -i SS --end 1000 -o SS hpmrc.ss > hpmrc_short.ss
 !tempRho.cons.mod !tempRho.noncons.mod @phastCons --gc 0.8 --estimate-rho tempRho hpmrc_short.ss hpmr.mod
 !tempTree.cons.mod !tempTree.noncons.mod @phastCons --gc 0.7 --estimate-trees tempTree hpmrc_short.ss hpmr.mod
 #--nrates,-K
-!tempTree.cons.mod !tempTree.noncons.mod @phastCons -k 12 --estimate-trees tempTree hpmrc_short.ss hpmr.mod
-!tempTree.cons.mod !tempTree.noncons.mod @phastCons -k 2,3 --estimate-trees tempTree hpmrc_short.ss hpmr.mod 
+phyloFit --quiet -i SS --tree "((hg16, panTro1), (mm3, rn3))" -o hpmr-ratevar --alpha 2.0 --nrates 3 hpmrc.ss
+!tempTree.cons.mod !tempTree.noncons.mod @phastCons -k 12 --estimate-trees tempTree hpmrc_short.ss hpmr-ratevar.mod
+!tempTree.cons.mod !tempTree.noncons.mod @phastCons -k 2,3 --estimate-trees tempTree hpmrc_short.ss hpmr-ratevar.mod 
 #--transitions,-t
 @phastCons -t 0.01,0.02 hpmrc_short.ss hpmr.mod
 @phastCons -t ~0.02,0.03 hpmrc_short.ss hpmr.mod
@@ -77,7 +84,7 @@ rm hpmrc.fa
 !elements.bed @phastCons --most-conserved elements.bed --no-post-probs hpmrc.ss hpmr.mod
 #--log.  But don't compare the log files because they include runtime information.
 !tempTree.cons.mod !tempTree.noncons.mod  @phastCons --estimate-trees tempTree --log log.txt hpmrc_short.ss hpmr.mod
-rm log.txt
+rm -f log.txt
 #--refidx
 @phastCons --refidx 0 hpmrc_short.ss hpmr.mod
 @phastCons --refidx 2 hpmrc_short.ss hpmr.mod
@@ -97,10 +104,11 @@ rm log.txt
 
 # Felsenstein/Churchill model
 #--FC
-@phastCons --FC hpmrc_short.ss hpmr.mod
+
+@phastCons --FC hpmrc_short.ss hpmr-ratevar.mod
 #--lambda
-@phastCons --FC --lambda 0.1 hpmrc_short.ss hpmr.mod
-@phastCons --FC --lambda ~0.1 hpmrc_short.ss hpmr.mod
+@phastCons --FC --lambda 0.1 hpmrc_short.ss hpmr-ratevar.mod
+@phastCons --FC --lambda ~0.1 hpmrc_short.ss hpmr-ratevar.mod
 
 #--coding-potential
 msa_view -i FASTA -o SS --tuple-size 3 hmrc_correct.fa > hmrc_correct_tuple3.ss
@@ -109,7 +117,7 @@ msa_view -i FASTA -o SS --tuple-size 3 hmrc_correct.fa > hmrc_correct_tuple3.ss
 #@phastCons --coding-potential -i FASTA hmrc_correct.fa
 #--extrapolate and alias
 tree_doctor --prune mm3 hpmr.mod --rename "hg16 -> human; panTro1 -> chimp; rn3 -> rat" > hpmr_pruned.mod
--stderr @phastCons --alias hg16=human,panTro1=chimp,rn3=rat,mm3=mouse,galGal2=chicken --extrapolate default hpmrc_short.ss hpmr_pruned.mod
+@phastCons --alias "hg16=human; panTro1=chimp; rn3=rat; mm3=mouse; galGal2=chicken" --extrapolate default hpmrc_short.ss hpmr_pruned.mod
 
 #--hmm
 tree_doctor --scale 0.1 hpmr.mod > hpmr_slow.mod
@@ -126,7 +134,7 @@ tree_doctor --scale 0.1 hpmr.mod > hpmr_slow.mod
 @phastCons --ignore-missing hpmrc.ss hpmr.mod
 
 #remove temporary files
-rm -f hpmr.mod hpmr_fast.mod hpmrc_short.ss hmrc_correct_tuple3.ss hpmr_pruned.mod hpmr_slow.mod
+rm -f hpmr.mod hpmr-ratevar.mod hpmr_fast.mod hpmrc_short.ss hmrc_correct_tuple3.ss hpmr_pruned.mod hpmr_slow.mod
 
 
 
@@ -136,6 +144,8 @@ rm -f hpmr.mod hpmr_fast.mod hpmrc_short.ss hmrc_correct_tuple3.ss hpmr_pruned.m
 # Should add more thorough testing at some point
 
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod JC69 --tree "(human, (mouse,rat), cow)" -i SS
+# try at least one other kind of input
+!phyloFit.mod @phyloFit -i FASTA --subst-mod REV+GC --tree "(human, (mouse, rat), cow)" hmrc_correct.fa
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod JC69 --tree "((((human,chimp), (mouse,rat)), cow), chicken)" -i SS
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod F81 --tree "(human, (mouse,rat), cow)" -i SS
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod HKY85 --tree "(human, (mouse,rat), cow)" -i SS
@@ -148,12 +158,117 @@ rm -f hpmr.mod hpmr_fast.mod hpmrc_short.ss hmrc_correct_tuple3.ss hpmr_pruned.m
 !phyloFit.mod @phyloFit hpmrc.ss --subst-mod REV --tree "(hg16, (mm3,rn3), galGal2)" -i SS --gaps-as-bases
 !phyloFit.mod !phyloFit.postprob @phyloFit hmrc.ss --subst-mod REV -i SS --init-model rev.mod --post-probs --lnl
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod REV --tree "(human, (mouse,rat))" -i SS
+msa_view  -i SS -o FASTA hpmrc.ss > hpmrc.fa
+!phyloFit.mod @phyloFit -i FASTA hpmrc.fa --tree "(((hg16,panTro2),(rn3,mm3)),galGal2)"
+
+# test some of the higher order models (they are slow so use small simulated data set)
+base_evolve --nsites 50 rev.mod > simulated.fa
+# move all these commands to another section so they aren't run automatically with phastCons check
+#!phyloFit.mod @phyloFit --subst-mod R2 --tree "((human,(mouse,rat)),cow)" simulated.fa
+#!phyloFit.mod @phyloFit --subst-mod R2S --tree "((human,(mouse,rat)),cow)" simulated.fa
+#!phyloFit.mod @phyloFit --subst-mod U2 --tree "((human,(mouse,rat)),cow)" simulated.fa
+#!phyloFit.mod @phyloFit --subst-mod U2S --tree "((human,(mouse,rat)),cow)" simulated.fa
+#!phyloFit.mod @phyloFit --subst-mod R3 --tree "((human,(mouse,rat)),cow)" simulated.fa
+#!phyloFit.mod @phyloFit --subst-mod R3S --tree "((human,(mouse,rat)),cow)" simulated.fa
+#!phyloFit.mod @phyloFit --subst-mod U3 --tree "((human,(mouse,rat)),cow)" simulated.fa
+#!phyloFit.mod @phyloFit --subst-mod U3S --tree "((human,(mouse,rat)),cow)" simulated.fa
+
 msa_view hmrc.ss -i SS --seqs human,mouse,rat --unordered -o SS > hmr.ss
 !phyloFit.mod @phyloFit hmr.ss -i SS
 msa_view hmrc.ss -i SS --seqs human,mouse --unordered -o SS > hm.ss
 !phyloFit.mod @phyloFit hm.ss -i SS
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod UNREST --tree "((human, mouse), cow)" -i SS --ancestor cow
-rm -f phyloFit.mod phyloFit.postprob hmr.ss hm.ss
+!phyloFit.mod @phyloFit hmrc.ss --subst-mod UNREST --tree "((human, (mouse, rat)mouse-rat), cow)" -i SS --ignore-branches mouse-rat
+!phyloFit.mod @phyloFit hmrc.ss --precision LOW --tree "((human, (mouse, rat)), cow)" -i SS
+!phyloFit.mod @phyloFit hmrc.ss --init-model rev-em.mod -i SS
+!phyloFit.mod @phyloFit hmrc.ss --init-random --tree "((human, (mouse, rat)), cow)" -i SS
+#parsimony
+!phyloFit.mod @phyloFit hmrc.ss --init-parsimony --tree "((human, (mouse, rat)), cow)" -i SS
+!parsimony.txt @phyloFit hmrc.ss --print-parsimony parsimony.txt --tree "((human, (mouse, rat)), cow)" -i SS
+#clock
+!phyloFit.mod @phyloFit hmrc.ss --tree "((human, (mouse,rat)), cow)" -i SS --clock
+#scale-only
+!phyloFit.mod @phyloFit hmrc.ss --init-mod rev-em.mod --scale-only -iSS 
+#scale-subtree
+tree_doctor --name-ancestors rev-em.mod --scale 2.0 > rev-em-scaled-named.mod
+!phyloFit.mod @phyloFit hmrc.ss --init-mod rev-em-scaled-named.mod --scale-only --scale-subtree mouse-rat -i SS
+!phyloFit.mod @phyloFit hmrc.ss --init-mod rev-em-scaled-named.mod --scale-only --scale-subtree mouse-rat:gain -i SS
+!phyloFit.mod @phyloFit hmrc.ss --init-mod rev-em-scaled-named.mod --scale-only --scale-subtree mouse-rat:loss -i SS
+# estimate-freqs
+!phyloFit.mod @phyloFit hmrc.ss --init-mod rev-em.mod --estimate-freqs -i SS
+# sym-freqs
+!phyloFit.mod @phyloFit hmrc.ss -i SS --sym-freqs --init-mod rev-em.mod
+# no-freqs
+!phyloFit.mod @phyloFit hmrc.ss -i SS --no-freqs --init-mod rev-em.mod
+# no-rates
+!phyloFit.mod @phyloFit hmrc.ss -i SS --no-rates --init-mod rev-em.mod
+# ancestor tested above
+# error
+!errors.txt !phyloFit.mod @phyloFit hmrc.ss -i SS --no-rates --init-mod rev-em.mod --error errors.txt
+# no-opt
+!phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --no-opt branches
+!phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --no-opt backgd
+!phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --no-opt ratematrix,branches
+# bound
+!phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --bound "branches[0.1,0.2]"
+!phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --bound "branches[0.1,]"
+#--nrates
+!phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --nrates 4
+#--alpha
+!phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --nrates 4 --alpha 5.2
+#--rate-constants
+!phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --nrates 4 --rate-constants 10.0,6.0,1.0,0.1
+
+#--features
+!phyloFit.bed_feature.mod !phyloFit.background.mod @phyloFit hpmrc.ss --tree "(((hg16,panTro2),(rn3,mm3)),galGal2)" --features elements_correct.bed -i SS
+
+#--markov
+!phyloFit.mod @phyloFit --markov --subst-mod R2 --tree "((human,(mouse,rat)),cow)" simulated.fa
+#--non-overlapping, --min-informative
+!phyloFit.mod @phyloFit --non-overlapping --subst-mod R2 --tree "((human,(mouse,rat)),cow)" --min-informative 25 simulated.fa
+
+#--alt-mod
+!phyloFit.mod @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --alt-mod mouse-rat:HKY85 --subst-mod REV simulated.fa
+!phyloFit.mod @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --alt-mod mouse-rat:ratematrix --subst-mod REV simulated.fa
+!phyloFit.mod @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --alt-mod mouse-rat+:backgd --subst-mod REV simulated.fa --estimate-freqs
+!phyloFit.mod @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --alt-mod mouse-rat+:backgd --subst-mod REV --alt-mod mouse+ simulated.fa --estimate-freqs
+
+#--post-probs 
+!phyloFit.mod !phyloFit.postprob @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --post-probs simulated.fa
+!phyloFit.mod !phyloFit.postprob @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --post-probs --alt-mod mouse+:HKY85
+
+#--expected-subs, --expected-total-subs
+!phyloFit.mod !phyloFit.expsub !phyloFit.exptotsub @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --expected-subs --expected-total-subs simulated.fa
+#--column-probs
+!phyloFit.mod !phyloFit.colprobs @phyloFit --init-mod rev.mod -i SS hmrc.ss --column-probs
+
+#--windows
+!phyloFit.win-1.mod !phyloFit.win-2.mod !phyloFit.win-3.mod !phyloFit.win-sum.mod @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --windows 20,15 simulated.fa --min-informative 15
+#--windows-explicit
+!phyloFit.win-1.mod !phyloFit.win-2.mod !phyloFit.win-sum.mod @phyloFit  --tree "((human,(mouse,rat)mouse-rat),cow)" --windows-explicit 1,20,25,45 simulated.fa --min-informative 15
+echo -e "1\t20\n25\t45" > windows.txt
+!phyloFit.win-1.mod !phyloFit.win-2.mod !phyloFit.win-sum.mod @phyloFit  --tree "((human,(mouse,rat)mouse-rat),cow)" --windows-explicit '*windows.txt' simulated.fa --min-informative 15
+rm -f windows.txt
+
+
+rm -f phyloFit.mod phyloFit.postprob hmr.ss hm.ss rev-em-scaled-named.mod simulated.fa
+
+
+# TODO: phyloFit options not currently tested above:
+# --min-informative,--log,--catmap,--do-cats,--reverse-groups
+
+******************** phyloFit-slow ********************
+# These models are so slow only test them if we really need to
+base_evolve --nsites 50 rev.mod > simulated.fa
+!phyloFit.mod @phyloFit --subst-mod R2 --tree "((human,(mouse,rat)),cow)" simulated.fa
+!phyloFit.mod @phyloFit --subst-mod R2S --tree "((human,(mouse,rat)),cow)" simulated.fa
+!phyloFit.mod @phyloFit --subst-mod U2 --tree "((human,(mouse,rat)),cow)" simulated.fa
+!phyloFit.mod @phyloFit --subst-mod U2S --tree "((human,(mouse,rat)),cow)" simulated.fa
+!phyloFit.mod @phyloFit --subst-mod R3 --tree "((human,(mouse,rat)),cow)" simulated.fa
+!phyloFit.mod @phyloFit --subst-mod R3S --tree "((human,(mouse,rat)),cow)" simulated.fa
+!phyloFit.mod @phyloFit --subst-mod U3 --tree "((human,(mouse,rat)),cow)" simulated.fa
+!phyloFit.mod @phyloFit --subst-mod U3S --tree "((human,(mouse,rat)),cow)" simulated.fa
+
 
 ******************** msa_view ********************
 

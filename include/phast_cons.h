@@ -36,7 +36,7 @@ struct phastCons_struct {
     estim_transitions, two_state, indels,
     indels_only, estim_indels, estim_trees,
     ignore_missing, estim_rho, set_transitions,
-    viterbi;
+    viterbi, compute_likelihood;
   int nrates, nrates2, refidx, max_micro_indel;
   double lambda, mu, nu, alpha_0, beta_0, tau_0,
     alpha_1, beta_1, tau_1, gc, gamma, rho, omega;

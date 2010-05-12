@@ -390,7 +390,7 @@ double hmm_posterior_probs(HMM *hmm, double **emission_scores, int seqlen,
   logp_fw = hmm_forward(hmm, emission_scores, seqlen, forward_scores); 
   logp_bw = hmm_backward(hmm, emission_scores, seqlen, backward_scores);
 
-  if (abs(logp_fw - logp_bw) > 0.01)
+  if (fabs(logp_fw - logp_bw) > 0.01)
     fprintf(stderr, "WARNING: forward and backward algorithms returned different total log\nprobabilities (%f and %f, respectively).\n", logp_fw, logp_bw);
 
   /* compute posterior probs */

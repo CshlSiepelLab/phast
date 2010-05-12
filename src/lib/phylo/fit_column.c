@@ -643,6 +643,7 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
   return(total_prob);
 }
 
+
 /* Wrapper for likelihood function for use in parameter estimation */
 double col_likelihood_wrapper(Vector *params, void *data) {
   ColFitData *d = (ColFitData*)data;
@@ -653,7 +654,7 @@ double col_likelihood_wrapper(Vector *params, void *data) {
 
   /* reestimate subst models on edges */
   tm_set_subst_matrices(d->mod); 
-
+  
   return -1 * col_compute_log_likelihood(d->mod, d->msa, d->tupleidx, 
                                          d->fels_scratch[0]);
 }
@@ -830,12 +831,12 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
       /* compute log likelihoods under null and alt hypotheses */
       d->tupleidx = i;
       vec_set(d->params, 0, d->init_scale);
-      /*      opt_newton_1d(col_likelihood_wrapper_1d, &d->params->data[0], d, 
+      opt_newton_1d(col_likelihood_wrapper_1d, &d->params->data[0], d, 
                     &null_lnl, SIGFIGS, d->lb->data[0], d->ub->data[0], 
-                    logf, NULL, NULL);   */
+                    logf, NULL, NULL);   
 
-      opt_bfgs(col_likelihood_wrapper, d->params, d, &null_lnl, d->lb,
-	       d->ub, logf, NULL, OPT_HIGH_PREC, NULL);
+      //      opt_bfgs(col_likelihood_wrapper, d->params, d, &null_lnl, d->lb,
+      //	       d->ub, logf, NULL, OPT_HIGH_PREC, NULL);
 
       /* turns out to be faster (roughly 15% in limited experiments)
          to use numerical rather than exact derivatives */
@@ -846,6 +847,7 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
       /* init to previous estimate to save time, but don't init to
          value at boundary */
       vec_set(d2->params, 1, d2->init_scale_sub);
+
       if (opt_bfgs(col_likelihood_wrapper, d2->params, d2, &alt_lnl, d2->lb, 
                    d2->ub, logf, NULL, OPT_HIGH_PREC, NULL) != 0)
         ;                         /* do nothing; nonzero exit typically

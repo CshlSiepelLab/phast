@@ -72,6 +72,7 @@ struct phastCons_struct *phastCons_struct_new(int rphast) {
   p->alias_hash = NULL;
   p->extrapolate_tree = NULL;
   p->cm = NULL;
+  p->compute_likelihood = FALSE;
   p->post_probs_f = rphast ? NULL : stdout;
   p->results_f = rphast ? stdout : stderr;
   p->progress_f = rphast ? stdout : stderr;
@@ -85,7 +86,7 @@ int phastCons(struct phastCons_struct *p) {
     estim_transitions, two_state, indels, 
     indels_only, estim_indels,
     estim_trees, ignore_missing, estim_rho, set_transitions,
-    nummod, viterbi;
+    nummod, viterbi, compute_likelihood;
   int nrates, nrates2, refidx, max_micro_indel;
   double lambda, mu, nu, alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1,
     gc, gamma, rho, omega;
@@ -108,7 +109,6 @@ int phastCons(struct phastCons_struct *p) {
   PhyloHmm *phmm;
   char *newname;
   indel_mode_type indel_mode;
-  int compute_likelihood;
 
   msa = p->msa;
   post_probs = p->post_probs;
@@ -163,9 +163,11 @@ int phastCons(struct phastCons_struct *p) {
   results_f = p->results_f;
   results = p->results;
   viterbi = p->viterbi;
+  if (lnl_f != NULL) compute_likelihood=TRUE;
+  else if (lnl_f == NULL && results==NULL) compute_likelihood=FALSE;
+  else compute_likelihood = p->compute_likelihood;
   if (viterbi_f != NULL) viterbi=TRUE;
   quiet = (results_f == NULL);
-  compute_likelihood = (lnl_f!=NULL || results != NULL);
 
   /* enforce usage rules */
   if ((hmm != NULL && FC))
@@ -521,12 +523,16 @@ int phastCons(struct phastCons_struct *p) {
   /* posterior probs */
   if (post_probs) {
     int j, k;
-    double *postprobs;
-    int *coord = smalloc(msa->length*sizeof(int));
+    double *postprobs, *postprobsNoMissing;
+    int idx=0, *coord;
 
     if (!quiet) fprintf(results_f, "Computing posterior probabilities...\n");
 
     postprobs = phmm_postprobs_cats(phmm, states, &lnl);
+    if (results != NULL) {
+      postprobsNoMissing = smalloc(msa->length*sizeof(double));
+      coord = smalloc(msa->length*sizeof(int));
+    }
 
     /* print to post_probs_f */
     last = -INFTY;
@@ -539,7 +545,10 @@ int phastCons(struct phastCons_struct *p) {
 		      k + msa->idx_offset + 1);
 	    fprintf(post_probs_f, "%.3f\n", postprobs[j]);
 	  }
-	  coord[j] = k + msa->idx_offset + 1;
+	  if (results != NULL) {
+	    coord[idx] = k + msa->idx_offset + 1;
+	    postprobsNoMissing[idx++] = postprobs[j];
+	  }
 	  last = k;
 	}
 	k++;
@@ -547,14 +556,16 @@ int phastCons(struct phastCons_struct *p) {
     }
     if (results != NULL) {
       ListOfLists *wigList = lol_new(2);
-      lol_push_int(wigList, coord, msa->length, "coord");
-      lol_push_dbl(wigList, postprobs, msa->length, "post.prob");
+      lol_push_int(wigList, coord, idx, "coord");
+      lol_push_dbl(wigList, postprobsNoMissing, idx, "post.prob");
       lol_set_class(wigList, "data.frame");
       lol_push_lol(results, wigList, "post.prob.wig");
+      free(postprobsNoMissing);
+      free(coord);
     }
   }
 
-  if (lnl_f != NULL || compute_likelihood) {
+  if (compute_likelihood) {
     if (lnl > 0) {              /* may have already been computed */
       if (!quiet) fprintf(results_f, "Computing total log likelihood...\n");
       lnl = phmm_lnl(phmm); 
@@ -662,10 +673,10 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
   if (estim_trees) {
     /* force re-initialization of tree models with rate variation;
        this is a hack that helps keep the parameterization simple */
-    if (phmm->mods[0]->nratecats == 1) {
+    /*    if (phmm->mods[0]->nratecats == 1) {
       tm_reinit(phmm->mods[0], phmm->mods[0]->subst_mod, 2, 
                 phmm->mods[0]->alpha, NULL, NULL);
-      phmm->mods[0]->nratecats = 1; phmm->mods[0]->alpha = -1; /* ignore rate variation */
+      phmm->mods[0]->nratecats = 1; phmm->mods[0]->alpha = -1; // ignore rate variation 
       phmm->mods[0]->freqK[0] = phmm->mods[0]->rK[0] = 1;
     }
     if (phmm->mods[1]->nratecats == 1) {
@@ -673,7 +684,7 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
                 phmm->mods[1]->alpha, NULL, NULL);
       phmm->mods[1]->nratecats = 1; phmm->mods[1]->alpha = -1;
       phmm->mods[1]->freqK[0] = phmm->mods[1]->rK[0] = 1;
-    }
+    }*/
 
     retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, NULL, 
                              phmm_compute_emissions_em, reestimate_trees,
@@ -681,6 +692,7 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
                              phmm_estim_trans_em_coverage : phmm_estim_trans_em, 
                              phmm_get_obs_idx_em, 
                              phmm_log_em, phmm->emissions, logf) * log(2);
+
 
     /* have to do final rescaling of tree models to get units of subst/site */
     if (phmm->mods[0]->subst_mod != JC69 && phmm->mods[0]->subst_mod != F81) {   
@@ -742,8 +754,9 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
   List *traversal;
   Vector *params = mod->all_params;
 
-  assert(!mod->estimate_backgd && !mod->empirical_rates && 
-	 mod->alt_subst_mods==NULL);
+  assert(mod->estimate_ratemat);
+  //  assert(!mod->estimate_backgd && !mod->empirical_rates && !mod->estimate_ratemat &&
+  //	 mod->alt_subst_mods==NULL);
 
   /* check parameter values */
   for (i = 0; i < params_in->size; i++) {
@@ -754,13 +767,13 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
     if (!finite(mu)) die("ERROR: parameter %d is no longer finite (%f).\n", i, mu);
   }
   for (i = 0; i<params->size; i++) {
-    if (mod->param_map[i] >= 0)
+    if (mod->param_map[i] >= 0) 
       vec_set(params, i,
 	      vec_get(params_in, mod->param_map[i]));
   }
 
-  if (mod->estimate_branchlens == TM_SCALE_ONLY) 
-    mod->scale = vec_get(params, mod->scale_idx);
+  if (mod->estimate_branchlens == TM_SCALE_ONLY)
+    mod->scale = vec_get(params, mod->scale_idx); 
   else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
     traversal = tr_preorder(mod->tree);
     i=0;
@@ -790,6 +803,7 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
     mm_diagonalize(mod->rate_matrix);
 }
 
+
 /* Unpack all params for two-state HMM.  Used during M step of EM */
 void unpack_params_phmm(PhyloHmm *phmm, Vector *params) {
   unpack_params_mod(phmm->mods[0], params);
@@ -800,12 +814,9 @@ void unpack_params_phmm(PhyloHmm *phmm, Vector *params) {
   if (phmm->mods[0]->nratecats > 1) 
     DiscreteGamma(phmm->mods[0]->freqK, phmm->mods[0]->rK, phmm->mods[0]->alpha, 
                   phmm->mods[0]->alpha, phmm->mods[0]->nratecats, 0); 
-                                /* mods[0]->alpha will already be set */
-  if (phmm->mods[1]->nratecats > 1) {
-    phmm->mods[1]->alpha = vec_get(params, params->size - 2);
+  if (phmm->mods[1]->nratecats > 1) 
     DiscreteGamma(phmm->mods[1]->freqK, phmm->mods[1]->rK, phmm->mods[1]->alpha, 
                   phmm->mods[1]->alpha, phmm->mods[1]->nratecats, 0); 
-  }
   tm_set_subst_matrices(phmm->mods[0]);
   tm_set_subst_matrices(phmm->mods[1]);
 }
@@ -819,7 +830,7 @@ double likelihood_wrapper(Vector *params, void *data) {
 
   retval0 = -tl_compute_log_likelihood(phmm->mods[0], phmm->em_data->msa, NULL, 0, NULL);
   retval1 = -tl_compute_log_likelihood(phmm->mods[1], phmm->em_data->msa, NULL, 1, NULL);
-  
+
   return retval0 + retval1;
                                 /* FIXME: what happens when not one to
                                    one cats and mods? */
@@ -833,6 +844,7 @@ void reestimate_trees(void **models, int nmodels, void *data,
   int k, obsidx, i, npar;
   Vector *params, *lower_bounds, *upper_bounds, *opt_params;
   double ll;
+  int haveratevar, orig_nratecats[2];
 
   /* FIXME: what about when multiple states per model?  Need to
      collapse sufficient stats.  Could probably be done generally...
@@ -843,44 +855,60 @@ void reestimate_trees(void **models, int nmodels, void *data,
     for (obsidx = 0; obsidx < nobs; obsidx++) 
       phmm->em_data->msa->ss->cat_counts[k][obsidx] = E[k][obsidx];
 
-  /*  // old code
-      params = vec_new(tm_get_nparams(phmm->mods[1]) + 2);
-      tm_params_init_from_model(phmm->mods[1], params, 0); // unscaled branch lens 
-  
-      // special initialization of rate-variation parameters and rho 
-      vec_set(params, tm_get_nbranchlenparams(phmm->mods[0]), 
-         phmm->mods[0]->nratecats > 1 ? phmm->mods[0]->alpha : 0);
-      vec_set(params, params->size - 2,  
-         phmm->mods[1]->nratecats > 1 ? phmm->mods[1]->alpha : 0);
-      vec_set(params, params->size - 1, phmm->em_data->rho);  */
-  params = tm_params_new_init_from_model(phmm->mods[1]);
-  vec_set(params, phmm->mods[1]->ratevar_idx, 
-	  phmm->mods[0]->nratecats > 1 ? phmm->mods[0]->alpha : 0);
-  
+  /* This will set up params in phmm->mods[0] and phmm->mods[1].  The
+     tree models should be the same at this point, since only one model
+     is allowed for --estimate-trees.  Therefore the parameter setup
+     should be the same. */
+  phmm->mods[0]->estimate_ratemat = phmm->mods[1]->estimate_ratemat = TRUE;
+  phmm->mods[0]->estimate_backgd = phmm->mods[1]->estimate_backgd = FALSE;
+  phmm->mods[0]->estimate_branchlens = phmm->mods[1]->estimate_branchlens =
+    TM_BRANCHLENS_ALL;
 
-  /*Note: usually tm_setup_params is called by tm_params_init* functions.
-    param setup will be phmm->mods[0] and phmm->mods[1] because at this point
-    in the code, we are assured to be using the same model for both states 
-    (only one .mod file is allowed for --estimate-trees).
-  */
+  /* in order to have the parameter mappings the same in both models,
+     we need to call tm_setup_params in both models so that they either
+     both have rate variation or both not.
+   */
+  haveratevar=(phmm->mods[0]->nratecats > 1 ||
+	       phmm->mods[1]->nratecats > 1);
+  for (i=0; i<2; i++) {
+    if (phmm->mods[i]->nratecats > 1 && phmm->mods[i]->empirical_rates) 
+      die("ERROR: --estimate-trees not implemented with empirical rate model.");
+    orig_nratecats[i] = phmm->mods[i]->nratecats;
+    if (haveratevar && phmm->mods[i]->nratecats ==1) 
+      phmm->mods[i]->nratecats = phmm->mods[!i]->nratecats;
+  }
+
   tm_setup_params(phmm->mods[0]);
-  vec_set(params, phmm->mods[1]->ratevar_idx, 
-	  phmm->mods[0]->nratecats > 1 ? phmm->mods[0]->alpha : 0);
-  
+  params = tm_params_new_init_from_model(phmm->mods[1]);
+
+  //get number of parameters
   npar = 0 ;
-  for (i=0; i < tm_get_nparams(phmm->mods[1]); i++)
-    if (phmm->mods[1]->param_map[i] >= npar)
+  for (i=0; i < tm_get_nparams(phmm->mods[0]); i++)
+    if (phmm->mods[0]->param_map[i] >= npar)
       npar = phmm->mods[1]->param_map[i]+1;
-  npar += 2;
+  if (orig_nratecats[1] > 1) {
+    if (orig_nratecats[0] > 1) 
+      phmm->mods[1]->param_map[phmm->mods[1]->ratevar_idx] = npar++;
+    else if (orig_nratecats[0]==1) {
+      phmm->mods[0]->param_map[phmm->mods[0]->ratevar_idx] = -1;
+      phmm->mods[0]->ratevar_idx = -1;
+    }
+  }
+  npar++;  //make room for rho parameter
+
+  phmm->mods[0]->nratecats = orig_nratecats[0];
+  phmm->mods[1]->nratecats = orig_nratecats[1];
 
   opt_params = vec_new(npar);
   for (i=0; i<params->size; i++)
-    if (phmm->mods[1]->param_map[i] >= 0)
-      vec_set(opt_params, phmm->mods[1]->param_map[i],
+    if (phmm->mods[0]->param_map[i] >= 0) 
+      vec_set(opt_params, phmm->mods[0]->param_map[i],
 	      vec_get(params, i));
-
-  vec_set(opt_params, npar - 2,
-	  phmm->mods[1]->nratecats > 1 ? phmm->mods[1]->alpha : 0);
+  for (i=0; i<2; i++) {
+    if (phmm->mods[i]->nratecats > 1) 
+      vec_set(opt_params, phmm->mods[i]->param_map[phmm->mods[i]->ratevar_idx], 
+	      phmm->mods[i]->alpha);
+  }
   vec_set(opt_params, npar - 1, phmm->em_data->rho);
 
   lower_bounds = vec_new(npar);
