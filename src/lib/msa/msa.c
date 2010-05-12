@@ -1212,7 +1212,8 @@ void msa_partition_by_category(MSA *msa, List *submsas, List *cats_to_do,
     }
     /* copy column */
     for (i = 0; i < msa->nseqs; i++) 
-      seqs[cat][i][idx[cat]] = msa->seqs[i][j];
+      seqs[cat][i][idx[cat]] = msa_get_char(msa, i, j);
+    // old bug      seqs[cat][i][idx[cat]] = msa->seqs[i][j];
     idx[cat]++;
   }
   for (cat = 0; cat < ncats; cat++) 
