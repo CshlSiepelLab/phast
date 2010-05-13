@@ -73,6 +73,8 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
       vec_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
     else
       msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order + 1, cat);
+    for (i=0; i<mod->backgd_freqs->size; i++)
+      vec_set(params, mod->backgd_idx+i, vec_get(mod->backgd_freqs, i));
   }
 
   if (mod->tree == NULL) {      /* weight matrix */

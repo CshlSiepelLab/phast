@@ -153,12 +153,24 @@ rm -f hpmr.mod hpmr-ratevar.mod hpmr_fast.mod hpmrc_short.ss hmrc_correct_tuple3
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod UNREST --tree "(human, (mouse,rat), cow)" -i SS
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod HKY85 --tree "(human, (mouse,rat), cow)" -i SS -k 4
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod REV --tree "(human, (mouse,rat), cow)" -i SS -k 4
-!phyloFit.mod @phyloFit hmrc.ss --subst-mod HKY85 --tree "(human, (mouse,rat), cow)" -i SS --EM
-!phyloFit.mod @phyloFit hmrc.ss --subst-mod REV --tree "(human, (mouse,rat), cow)" -i SS --EM
 !phyloFit.mod @phyloFit hpmrc.ss --subst-mod REV --tree "(hg16, (mm3,rn3), galGal2)" -i SS --gaps-as-bases
 !phyloFit.mod !phyloFit.postprob @phyloFit hmrc.ss --subst-mod REV -i SS --init-model rev.mod --post-probs --lnl
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod REV --tree "(human, (mouse,rat))" -i SS
 msa_view  -i SS -o FASTA hpmrc.ss > hpmrc.fa
+!phyloFit.mod @phyloFit -i FASTA hpmrc.fa --tree "(((hg16,panTro2),(rn3,mm3)),galGal2)"
+
+# try most of the above again with --EM
+!phyloFit.mod @phyloFit hmrc.ss --EM --subst-mod JC69 --tree "(human, (mouse,rat), cow)" -i SS
+!phyloFit.mod @phyloFit hmrc.ss --EM --subst-mod JC69 --tree "((((human,chimp), (mouse,rat)), cow), chicken)" -i SS
+!phyloFit.mod @phyloFit hmrc.ss --EM --subst-mod F81 --tree "(human, (mouse,rat), cow)" -i SS
+!phyloFit.mod @phyloFit hmrc.ss --EM --subst-mod HKY85 --tree "(human, (mouse,rat), cow)" -i SS
+!phyloFit.mod @phyloFit hmrc.ss --EM --subst-mod REV --tree "(human, (mouse,rat), cow)" -i SS
+!phyloFit.mod @phyloFit hmrc.ss --EM --subst-mod UNREST --tree "(human, (mouse,rat), cow)" -i SS
+!phyloFit.mod @phyloFit hmrc.ss --EM --subst-mod HKY85 --tree "(human, (mouse,rat), cow)" -i SS -k 4
+!phyloFit.mod @phyloFit hmrc.ss --EM --subst-mod REV --tree "(human, (mouse,rat), cow)" -i SS -k 4
+!phyloFit.mod @phyloFit hpmrc.ss --EM --subst-mod REV --tree "(hg16, (mm3,rn3), galGal2)" -i SS --gaps-as-bases
+!phyloFit.mod !phyloFit.postprob @phyloFit hmrc.ss --subst-mod REV --EM -i SS --init-model rev.mod --post-probs --lnl
+!phyloFit.mod @phyloFit hmrc.ss --subst-mod REV --EM --tree "(human, (mouse,rat))" -i SS
 !phyloFit.mod @phyloFit -i FASTA hpmrc.fa --tree "(((hg16,panTro2),(rn3,mm3)),galGal2)"
 
 # test some of the higher order models (they are slow so use small simulated data set)
