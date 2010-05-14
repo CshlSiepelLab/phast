@@ -45,10 +45,6 @@ void mat_free(Matrix *m) {
   free(m);
 }
 
-double mat_get(Matrix *m, int row, int col) {
-  return m->data[row][col];
-}
-
 Vector *mat_get_row(Matrix *m, int row) {
   int j;
   Vector *v = vec_new(m->ncols);
@@ -63,10 +59,6 @@ Vector *mat_get_col(Matrix *m, int col) {
   for (i = 0; i < m->nrows; i++)
     v->data[i] = m->data[i][col];
   return v;
-}
-
-void mat_set(Matrix *m, int row, int col, double val) {
-  m->data[row][col] = val;
 }
 
 void mat_set_identity(Matrix *m) {

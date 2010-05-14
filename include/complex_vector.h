@@ -30,8 +30,6 @@ typedef struct {
 
 Zvector *zvec_new(int size);
 void zvec_free(Zvector *v);
-Complex zvec_get(Zvector *v, int i);
-void zvec_set(Zvector *v, int i, Complex val);
 void zvec_set_all(Zvector *v, Complex val);
 void zvec_copy(Zvector *dest, Zvector *src);
 Zvector* zvec_create_copy(Zvector *src);
@@ -46,18 +44,18 @@ void zvec_had_prod(Zvector *dest, Zvector *src1, Zvector *src2);
 void zvec_as_real(Vector *dest, Zvector *src, int strict);
 
 /***************************************************************************
- * inline functions; also defined in complex_vector.c 
+ * inline functions
  ***************************************************************************/
 
 /* we'll only inline the functions likely to be used heavily in inner
    loops */  
 
-extern PHAST_INLINE
+static PHAST_INLINE
 Complex zvec_get(Zvector *v, int i) { /* check */
   return v->data[i];
 }
 
-extern PHAST_INLINE
+static PHAST_INLINE
 void zvec_set(Zvector *v, int i, Complex val) {
   v->data[i] = val;
 }

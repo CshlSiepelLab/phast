@@ -31,10 +31,8 @@ typedef struct {
 
 Zmatrix *zmat_new(int nrows, int ncols);
 void zmat_free(Zmatrix *m);
-Complex zmat_get(Zmatrix *m, int row, int col);
 Zvector *zmat_get_row(Zmatrix *m, int row);
 Zvector *zmat_get_col(Zmatrix *m, int col);
-void zmat_set(Zmatrix *m, int row, int col, Complex val);
 void zmat_set_identity(Zmatrix *m);
 void zmat_zero(Zmatrix *m);
 void zmat_set_all(Zmatrix *m, Complex val);
@@ -55,18 +53,18 @@ void zmat_mult_real_diag(Matrix *A, Zmatrix *B, Zvector *C, Zmatrix *D,
 void zmat_as_real(Matrix *dest, Zmatrix *src, int strict);
 
 /***************************************************************************
- * inline functions; also defined in complex_matrix.c 
+ * inline functions
  ***************************************************************************/
 
 /* we'll only inline the functions likely to be used heavily in inner
    loops */  
 
-extern PHAST_INLINE
+static PHAST_INLINE
 Complex zmat_get(Zmatrix *m, int row, int col) {
   return m->data[row][col];
 }
 
-extern PHAST_INLINE
+static PHAST_INLINE
 void zmat_set(Zmatrix *m, int row, int col, Complex val) {
   m->data[row][col] = val;
 }

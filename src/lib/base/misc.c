@@ -21,12 +21,6 @@
 
 #define NCODONS 64
 
-int int_pow(int x, int y) {
-  int retval = 1, i;
-  for (i = 0; i < y; i++) retval *= x;
-  return retval;
-}
-
 /* fill an array with 1s or zeroes, indicating a random choice of k
    elements from a list of N.  The array 'selections' must already be
    allocated to be of length N, and should be initialized.
@@ -413,49 +407,6 @@ char *copy_charstr(const char *word) {
   return retval;
 }
 
-
-/* efficiently compute log of sum of values, which themselves are
-   stored as logs: that is, return log(sum_i exp(l_i)).  The largest
-   of the elements of l (call it maxval) is factored out, so that
-   log(sum_i(exp(l_i))) = maxval + log(1 + sum_i(exp(l_i-maxval))),
-   where the new sum is taken over 2 <= i < n.  All of the quantities
-   in the exp must be negative, and those smaller than some reasonable
-   threshold can be ignored. [Thanks to David Haussler for showing me
-   this trick].  WARNING: sorts list as side effect. */
-double log_sum(List *l) {
-  double maxval, expsum;
-  int k;
-
-  if (lst_size(l) > 1)
-    lst_qsort_dbl(l, DESCENDING);
-
-  maxval = lst_get_dbl(l, 0);  
-  expsum = 1;
-  k = 1;
-
-  while (k < lst_size(l) && lst_get_dbl(l, k) - maxval > SUM_LOG_THRESHOLD)
-    expsum += exp2(lst_get_dbl(l, k++) - maxval);
-  
-  return maxval + log2(expsum);        
-}
-
-/* Same as above, but base e */
-double log_sum_e(List *l) {
-  double maxval, expsum;
-  int k;
-
-  if (lst_size(l) > 1)
-    lst_qsort_dbl(l, DESCENDING);
-
-  maxval = lst_get_dbl(l, 0);  
-  expsum = 1;
-  k = 1;
-
-  while (k < lst_size(l) && lst_get_dbl(l, k) - maxval > SUM_LOG_THRESHOLD)
-    expsum += exp(lst_get_dbl(l, k++) - maxval);
-  
-  return maxval + log(expsum);        
-}
 
 /* return 1 if a change from b1 to b2 is a transition, and 0 otherwise */
 int is_transition(char b1, char b2) {
@@ -1013,31 +964,6 @@ double bvn_p(double x, double y, double mu_x, double mu_y, double sigma_x,
           exp(-0.5 * 1/(1-rho2) * (x*x - 2*rho*x*y + y*y)));
 }
 
-/* return n! */
-int permutations(int n) {
-  if (n <= 2) return n;
-  return gamma(n+1);
-}
-
-/* return n-choose-k */
-int combinations(int n, int k) {
-  assert(n >= 0 && k >= 0 && k <= n);
-  if (k > n/2) k = n-k;
-  /* handle some easy special cases to avoid expensive call below */
-  switch (k) {
-  case 0:
-    return 1;
-  case 1:
-    return n;
-  case 2:
-    return n * (n-1) / 2;
-  case 3:
-    return n * (n-1) * (n-2) / 6;
-  default:
-    /* use logs to avoid overflow */
-    return rint(exp(lgamma(n+1) - lgamma(k+1) - lgamma(n-k+1)));
-  }
-}
 
 /* Call repeatedly to enumerate combinations.  On successful exit, the
    array index (preallocate to size k) will contain indices in [0,
@@ -1076,25 +1002,6 @@ int next_comb(int n, int k, int *index) {
   return TRUE;
 }
 
-/* compute relative entropy in bits of q with respect to p, both
-   probability vectors of dimension d */
-double rel_entropy(double *p, double *q, int d) {
-  int i;
-  double H = 0;
-  for (i = 0; i < d; i++) {
-    if (p[i] == 0) continue;
-    if (q[i] == 0) return INFTY;    
-    H += p[i] * (log2(p[i]) - log2(q[i]));
-  }
-  return H;
-}
-
-/* symmetric version of relative entropy */
-double sym_rel_entropy(double *p, double *q, int d) {
-  double re1 = rel_entropy(p, q, d), re2 = rel_entropy(q, p, d);
-  return min(re1, re2);
-}
-
 /* print a single sequence in FASTA format */
 void print_seq_fasta(FILE *F, char *seq, char *name, int len) {
   int j, k;
@@ -1112,16 +1019,6 @@ double get_elapsed_time(struct timeval *start_time) {
   gettimeofday(&now, NULL);
   return now.tv_sec - start_time->tv_sec + 
     (now.tv_usec - start_time->tv_usec)/1.0e6;
-}
-
-/* fast computation of floor(log2(x)), where x is a positive integer */
-int log2_int(unsigned x) {
-  int i;
-  assert(x > 0);
-  for (i = 0; ; i++) {
-    x >>= 1;
-    if (x == 0) return i;
-  }
 }
 
 /* check to see if a file is present and readable on the filesystem */

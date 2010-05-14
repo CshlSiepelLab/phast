@@ -69,22 +69,6 @@ Hashtable *hsh_copy(Hashtable *src) {
   return ht;
 }
 
-/* Insert object with specified key and value. */
-void hsh_put(Hashtable *ht, const char* key, void* val) {
-  unsigned int bucket = hsh_hash_func(ht, key);
-  char *keycpy;
-  if (ht->keys[bucket] == NULL) {
-    ht->keys[bucket] = lst_new_ptr(LOADING_FACTOR);
-    ht->vals[bucket] = lst_new_ptr(LOADING_FACTOR);
-  }
-  keycpy = smalloc(sizeof(char) * (strlen(key) + 1));
-  strcpy(keycpy, key);
-
-  lst_push_ptr(ht->keys[bucket], keycpy);
-  lst_push_ptr(ht->vals[bucket], val);
-}
-
-
 void hsh_put_int(Hashtable *ht, const char *key, int val) {
   hsh_put(ht, key, int_to_ptr(val));
 }
@@ -180,15 +164,6 @@ void hsh_free_with_vals(Hashtable *ht) {
   free(ht->keys);
   free(ht->vals);
   free(ht);
-}
-
-/* Hash function */
-unsigned int hsh_hash_func(Hashtable *ht, const char* key) {
-  unsigned int h = 0;
-  int i = 0;
-  for (i = 0; key[i] != '\0'; i++)
-    h = MULTIPLIER * h + key[i];
-  return h % ht->nbuckets;
 }
 
 List *hsh_keys(Hashtable *ht) {

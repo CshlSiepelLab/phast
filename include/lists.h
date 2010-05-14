@@ -63,12 +63,23 @@ typedef enum {
 } order_t;
 
 
-void lst_arr_set(List *l, int i, void *o);
-void* lst_arr_get(List *l, int i);
 int lst_int_compare_asc(const void* ptr1, const void* ptr2);
 int lst_int_compare_desc(const void* ptr1, const void* ptr2);
 int lst_dbl_compare_asc(const void* ptr1, const void* ptr2);
 int lst_dbl_compare_desc(const void* ptr1, const void* ptr2);
+
+static PHAST_INLINE
+void lst_arr_set(List *l, int i, void *o) {
+  if (l->elementsz <= sizeof(void*))
+    l->array[i] = *((void**)o);	/* ?? */
+  else
+    memcpy(&l->array[i * l->step], o, l->elementsz);
+}
+
+static PHAST_INLINE
+void* lst_arr_get(List *l, int i) {
+  return (&l->array[i * l->step]);
+}
 
 
 /** Create new list.
@@ -151,7 +162,8 @@ void lst_cpy(List* dest, List* src);
 
   @param l Target list.
 */
-int lst_size(List *l);
+static PHAST_INLINE int lst_size(List *l)
+{  return (l->ridx - l->lidx); }
 
 /** Test whether list is empty.
    Returns 1 if empty, 0 otherwise 
@@ -160,7 +172,9 @@ int lst_size(List *l);
 
   \sa lst_clear.
 */
-int lst_empty(List *l); 
+static PHAST_INLINE
+int lst_empty(List *l) 
+{  return (l->lidx >= l->ridx); }
 
 
 /** Free the elements of a list of strings.
@@ -233,7 +247,11 @@ void lst_reverse(List *l);
   
   \sa lst_new, lst_push, lst_get_int, lst_get_dbl, lst_get_ptr.
 */
-void* lst_get(List *l, int i);
+static PHAST_INLINE
+void* lst_get(List *l, int i) {
+  if (i >= lst_size(l)) return NULL;
+  return lst_arr_get(l, l->lidx + i);
+}
 
 /** Retrieve ith integer in list .
    Returns integer at ith position in list or 0 if i is out of bounds.
@@ -246,7 +264,11 @@ void* lst_get(List *l, int i);
 
   \sa lst_get, lst_get_dbl, lst_get_ptr.
 */
-int lst_get_int(List* l, int i);
+static PHAST_INLINE
+int lst_get_int(List* l, int i) {
+  int *ptr = (int*)lst_get(l, i);
+  return (ptr == NULL ? 0 : *ptr);
+}
 
 /** Retrieve ith double in list .
    Returns double at ith position in list or 0 if i is out of bounds.
@@ -259,7 +281,11 @@ int lst_get_int(List* l, int i);
 
   \sa lst_get, lst_get_int, lst_get_ptr.
 */
-double lst_get_dbl(List* l, int i);
+static PHAST_INLINE
+double lst_get_dbl(List* l, int i) {
+  double *ptr =  (double*)lst_get(l, i); 
+  return (ptr == NULL ? 0 : *ptr);
+}
 
 /** Retrieve ith pointer in list .
    Returns pointer at ith position in list or NULL if i is out of bounds. 
@@ -269,7 +295,11 @@ double lst_get_dbl(List* l, int i);
 
   \sa lst_get, lst_get_int, lst_get_ptr.
 */
-void* lst_get_ptr(List* l, int i);
+static PHAST_INLINE
+void* lst_get_ptr(List* l, int i) {
+  void **ptr =  (void**)lst_get(l, i); 
+  return (ptr == NULL ? NULL : *ptr);
+}
 
 /** Set value of ith object in list. 
 
@@ -283,9 +313,12 @@ void* lst_get_ptr(List* l, int i);
 
   \sa lst_set_int, lst_set_dbl, lst_set_ptr, lst_get.
 */
+static PHAST_INLINE
 void lst_set(List *l, int i, 
-	     void *o);		/* Pointer to object to be copied into
+	     void *o) {		/* Pointer to object to be copied into
 				   list (see details under lst_push) */
+  lst_arr_set(l, l->lidx + i, o);
+}
 
 /** Set value of ith integer in list. 
 
@@ -295,7 +328,10 @@ void lst_set(List *l, int i,
 
   \sa lst_set, lst_set_dbl, lst_set_ptr.
 */
-void lst_set_int(List *l, int idx, int i);
+static PHAST_INLINE
+void lst_set_int(List *l, int idx, int i)
+{  lst_set(l, idx, &i); }
+
 
 /** Set value of ith double in list. 
 
@@ -305,7 +341,10 @@ void lst_set_int(List *l, int idx, int i);
 
   \sa lst_set, lst_set_dbl, lst_set_ptr.
 */
-void lst_set_dbl(List *l, int idx, double d);
+static PHAST_INLINE
+void lst_set_dbl(List *l, int idx, double d)
+{  lst_set(l, idx, &d); }
+
 
 /** Set value of ith pointer in list. 
 
@@ -315,7 +354,9 @@ void lst_set_dbl(List *l, int idx, double d);
 
   \sa lst_set, lst_set_int, lst_set_ptr.
 */
-void lst_set_ptr(List *l, int idx, void *ptr);
+static PHAST_INLINE
+void lst_set_ptr(List *l, int idx, void *ptr)
+{  lst_set(l, idx, &ptr); }
 
 
 /** \} */
@@ -374,14 +415,32 @@ of the node within the list.
   
   \sa lst_push_int, lst_push_dbl, lst_push_ptr.
  */
+static PHAST_INLINE 
 void lst_push(List *l, 
-              void* o);		/* Pointer to object to be copied into
+              void* o) {	/* Pointer to object to be copied into
                                list (elementsz bytes) -- e.g., if
                                object is an int i, o must equal
                                (void*)(&i); if object is a Node* nptr,
                                o must equal (void*)(&nptr); if object
                                is a Node n, o must equal
                                (void*)(&n). */
+
+  int i;
+  if (l->ridx >= l->CAPACITY) {
+    if (l->lidx > 0) {
+      for (i = l->lidx; i < l->ridx; i++) 
+        lst_arr_set(l, i - l->lidx, lst_arr_get(l, i));
+      l->ridx -= l->lidx;
+      l->lidx = 0;
+    }
+
+    else {
+      l->CAPACITY *= 2;
+      l->array = (void**)realloc(l->array, l->CAPACITY * l->elementsz);
+    }
+  }
+  lst_arr_set(l, l->ridx++, o);
+}
                                
 /** Push integer onto end of list.
 
@@ -390,7 +449,10 @@ void lst_push(List *l,
   
   \sa lst_push, lst_push_dbl, lst_push_ptr.
 */
-void lst_push_int(List *l, int i);
+static PHAST_INLINE
+void lst_push_int(List *l, int i) 
+{  lst_push(l, &i); }
+
 
 /** Push double onto end of list .
   @param l List where object is to be appended.
@@ -398,7 +460,9 @@ void lst_push_int(List *l, int i);
   
   \sa lst_push, lst_push_int, lst_push_ptr.
 */
-void lst_push_dbl(List *l, double d);
+static PHAST_INLINE
+void lst_push_dbl(List *l, double d) 
+{  lst_push(l, &d); }
 
 /** Push pointer onto end of list.
 
@@ -407,7 +471,9 @@ void lst_push_dbl(List *l, double d);
   
   \sa lst_push, lst_push_int, lst_push_dbl.
 */
-void lst_push_ptr(List *l, void *ptr);
+static PHAST_INLINE
+void lst_push_ptr(List *l, void *ptr)
+{  lst_push(l, &ptr); }
 
 
 /** Insert object after given index.
@@ -528,7 +594,10 @@ int lst_delete_obj_compare(List *l,
 
   @param l Target list.
 */
-void lst_clear(List* l);
+static PHAST_INLINE
+void lst_clear(List* l) 
+{  l->ridx = l->lidx = 0; }
+
 
 /** \} */
 
@@ -652,117 +721,15 @@ void lst_dbl_quantiles(List *l, double *quantiles, int nquantiles,
 
 /** \} */
 
-/***************************************************************************/
-/* Inline functions; note: these are redefined in lists.c for              */
-/* situations in which inlining is not available                           */
-/***************************************************************************/
-
-extern PHAST_INLINE
-void lst_arr_set(List *l, int i, void *o) {
-  if (l->elementsz <= sizeof(void*))
-    l->array[i] = *((void**)o);	/* ?? */
-  else
-    memcpy(&l->array[i * l->step], o, l->elementsz);
-}
-
-extern PHAST_INLINE
-void* lst_arr_get(List *l, int i) {
-  return (&l->array[i * l->step]);
-}
-
-extern PHAST_INLINE
-int lst_size(List *l) 
-{  return (l->ridx - l->lidx); }
-
-extern PHAST_INLINE
-void lst_push(List *l, void* o) {
-  int i;
-  if (l->ridx >= l->CAPACITY) {
-    if (l->lidx > 0) {
-      for (i = l->lidx; i < l->ridx; i++) 
-        lst_arr_set(l, i - l->lidx, lst_arr_get(l, i));
-      l->ridx -= l->lidx;
-      l->lidx = 0;
-    }
-
-    else {
-      l->CAPACITY *= 2;
-      l->array = (void**)realloc(l->array, l->CAPACITY * l->elementsz);
-    }
-  }
-  lst_arr_set(l, l->ridx++, o);
-}
-
-extern PHAST_INLINE
-void* lst_get(List *l, int i) {
-  if (i >= lst_size(l)) return NULL;
-  return lst_arr_get(l, l->lidx + i);
-}
-
-extern PHAST_INLINE
-void lst_set(List *l, int i, void *o) {
-  lst_arr_set(l, l->lidx + i, o);
-}
-
-extern PHAST_INLINE
-void lst_clear(List* l) 
-{  l->ridx = l->lidx = 0; }
-
-extern PHAST_INLINE
-int lst_empty(List *l) 
-{  return (l->lidx >= l->ridx); }
-
-extern PHAST_INLINE
-void lst_push_int(List *l, int i) 
-{  lst_push(l, &i); }
-
-extern PHAST_INLINE
-void lst_push_dbl(List *l, double d) 
-{  lst_push(l, &d); }
-
-extern PHAST_INLINE
-void lst_push_ptr(List *l, void *ptr) 
-{  lst_push(l, &ptr); }
-
-extern PHAST_INLINE
-int lst_get_int(List* l, int i) {  
-  int *ptr = (int*)lst_get(l, i);
-  return (ptr == NULL ? 0 : *ptr);
-}
-
-extern PHAST_INLINE
-double lst_get_dbl(List* l, int i) { 
-  double *ptr =  (double*)lst_get(l, i); 
-  return (ptr == NULL ? 0 : *ptr);
-}
-
-extern PHAST_INLINE
-void* lst_get_ptr(List *l, int i) {
-  void **ptr =  (void**)lst_get(l, i); 
-  return (ptr == NULL ? NULL : *ptr);
-}
-
-extern PHAST_INLINE
-void lst_set_int(List *l, int idx, int i) 
-{  lst_set(l, idx, &i); }
-
-extern PHAST_INLINE
-void lst_set_dbl(List *l, int idx, double d) 
-{  lst_set(l, idx, &d); }
-
-extern PHAST_INLINE
-void lst_set_ptr(List *l, int idx, void *ptr) 
-{  lst_set(l, idx, &ptr); }
-
-extern PHAST_INLINE
+static PHAST_INLINE
 int lst_find_int(List *l, int i) 
 { return lst_find(l, &i); }
 
-extern PHAST_INLINE
+static PHAST_INLINE
 int lst_find_dbl(List *l, double d) 
 { return lst_find(l, &d); }
 
-extern PHAST_INLINE
+static PHAST_INLINE
 int lst_find_ptr(List *l, void *ptr) 
 { return lst_find(l, &ptr); }
 

@@ -42,14 +42,6 @@ void vec_free(Vector *v) {
   free(v);
 }
 
-double vec_get(Vector *v, int i) {
-  return v->data[i];
-}
-
-void vec_set(Vector *v, int i, double val) {
-  v->data[i] = val;
-}
-
 void vec_set_all(Vector *v, double val) {
   int i;
   for (i = 0; i < v->size; i++)

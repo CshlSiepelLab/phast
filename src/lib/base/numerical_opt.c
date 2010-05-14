@@ -153,7 +153,8 @@ void opt_gradient(Vector *grad, double (*f)(Vector*, void*),
    value is equal to the number of params that have been determined to
    be at a bound (if only_add == 1, then only newly identified ones
    will be counted).  This is a support function for opt_bfgs.  */
-PHAST_INLINE int test_bounds(Vector *params, Vector *grad, 
+static PHAST_INLINE 
+int test_bounds(Vector *params, Vector *grad, 
                        Vector *lower_bounds, Vector *upper_bounds,
                        Vector *at_bounds, int only_add) {
   int i;
@@ -203,7 +204,8 @@ PHAST_INLINE int test_bounds(Vector *params, Vector *grad,
 /* Simulate a projection of the specified matrix to a
    lower-dimensional space by zeroing all rows and columns
    corresponding to parameters at a boundary.  For use in opt_bfgs. */
-PHAST_INLINE void project_matrix(Matrix *M, Vector *at_bounds) {
+static PHAST_INLINE 
+void project_matrix(Matrix *M, Vector *at_bounds) {
   int i, j;
   assert(M->nrows == at_bounds->size && M->ncols == at_bounds->size);
   for (i = 0; i < at_bounds->size; i++) {
@@ -219,7 +221,8 @@ PHAST_INLINE void project_matrix(Matrix *M, Vector *at_bounds) {
 /* Simulate a projection of the specified vector to a
    lower-dimensional space by zeroing all elements corresponding to
    parameters at a boundary.  For use in opt_bfgs. */
-PHAST_INLINE void project_vector(Vector *v, Vector *at_bounds) {
+static PHAST_INLINE 
+void project_vector(Vector *v, Vector *at_bounds) {
   int i;
   assert(v->size == at_bounds->size);
   for (i = 0; i < at_bounds->size; i++) 
@@ -230,9 +233,10 @@ PHAST_INLINE void project_vector(Vector *v, Vector *at_bounds) {
 /* Scale a line vector, if necessary, such that it will cause no
    parameter to be updated beyond a boundary; return the index of the
    limiting parameter, or -1. */
-PHAST_INLINE int scale_for_bounds(Vector *linev, Vector *params, 
-                            Vector *lower_bounds, 
-                            Vector *upper_bounds) {
+static PHAST_INLINE 
+int scale_for_bounds(Vector *linev, Vector *params, 
+		     Vector *lower_bounds, 
+		     Vector *upper_bounds) {
   int i;
   double minscale = 1;
   int retval = -1;
@@ -270,7 +274,8 @@ PHAST_INLINE int scale_for_bounds(Vector *linev, Vector *params,
 
 #ifdef DEBUG
 /* for debugging: check that H is positive definite and print to log file  */
-PHAST_INLINE void check_H(Matrix *H, Vector *at_bounds){
+static PHAST_INLINE 
+void check_H(Matrix *H, Vector *at_bounds){
   int nfree = 0, pos_def, i, j, k, l;
   Matrix *H_proj;
   Vector *evals;

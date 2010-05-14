@@ -45,51 +45,6 @@ void lst_free(List* l) {
   free(l);
 }
 
-void lst_push(List *l, void* o) {
-  int i;
-  if (l->ridx >= l->CAPACITY) {
-    if (l->lidx > 0) {
-      for (i = l->lidx; i < l->ridx; i++) 
-        lst_arr_set(l, i - l->lidx, lst_arr_get(l, i));
-      l->ridx -= l->lidx;
-      l->lidx = 0;
-    }
-
-    else {
-      l->CAPACITY *= 2;
-      l->array = (void**)srealloc(l->array, l->CAPACITY * l->elementsz);
-      assert(l->array != NULL);
-    }
-  }
-  lst_arr_set(l, l->ridx++, o);
-}
-
-void* lst_get(List *l, int i) {
-  if (i >= lst_size(l)) return NULL;
-  return lst_arr_get(l, l->lidx + i);
-}
-
-void lst_set(List *l, int i, void *o) {
-  assert(i >= 0 && i < lst_size(l));
-  lst_arr_set(l, l->lidx + i, o);
-}
-
-
-/* low-level array access routine, encapsulates memcpy, helps simplify
-   indexing.  For use internally only. */ 
-void lst_arr_set(List *l, int i, void *o) {
-  if (l->elementsz <= sizeof(void*))
-    l->array[i] = *((void**)o);	
-  else
-    memcpy(&l->array[i * l->step], o, l->elementsz);
-}
-
-/* low-level array access routine, helps simplify indexing.  For use
- * internally only */
-void* lst_arr_get(List *l, int i) {
-  return (&l->array[i * l->step]);
-}
-
 void lst_cpy(List* dest, List* src) {
   int i;
   lst_clear(dest);
@@ -315,58 +270,6 @@ int lst_dbl_compare_desc(const void* ptr1, const void* ptr2) {
   else if (val1 < val2) return 1;
   return -1;                    
 }
-
-
-void lst_clear(List* l) 
-{  l->ridx = l->lidx = 0; }
-
-int lst_size(List *l) 
-{  return (l->ridx - l->lidx); }
-
-int lst_empty(List *l) 
-{  return (l->lidx >= l->ridx); }
-
-void lst_push_int(List *l, int i) 
-{  lst_push(l, &i); }
-
-void lst_push_dbl(List *l, double d) 
-{  lst_push(l, &d); }
-
-void lst_push_ptr(List *l, void *ptr) 
-{  lst_push(l, &ptr); }
-
-int lst_get_int(List* l, int i) {  
-  int *ptr = (int*)lst_get(l, i);
-  return (ptr == NULL ? 0 : *ptr);
-}
-
-double lst_get_dbl(List* l, int i) { 
-  double *ptr =  (double*)lst_get(l, i); 
-  return (ptr == NULL ? 0 : *ptr);
-}
-
-void* lst_get_ptr(List *l, int i) {
-  void **ptr =  (void**)lst_get(l, i); 
-  return (ptr == NULL ? NULL : *ptr);
-}
-
-void lst_set_int(List *l, int idx, int i) 
-{  lst_set(l, idx, &i); }
-
-void lst_set_dbl(List *l, int idx, double d) 
-{  lst_set(l, idx, &d); }
-
-void lst_set_ptr(List *l, int idx, void *ptr) 
-{  lst_set(l, idx, &ptr); }
-
-int lst_find_int(List *l, int val) 
-{  return lst_find(l, (void*)(&val)); }
-
-int lst_find_dbl(List *l, double val) 
-{  return lst_find(l, (void*)(&val)); } 
-
-int lst_find_ptr(List *l, void *ptr) 
-{ return lst_find(l, &ptr); }
 
 /** Sort list of integers using qsort */
 void lst_qsort_int(List *l, order_t ord) 

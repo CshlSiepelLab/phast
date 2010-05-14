@@ -126,7 +126,11 @@ void vec_copy(Vector *dest, Vector *src);
   @param v Vector of elements.
   @param i 0-based element index.
 */
-double vec_get(Vector *v, int i);
+static PHAST_INLINE
+double vec_get(Vector *v, int i) {
+  return v->data[i];
+
+}
 
 /** Set value of i'th element in vector.
 
@@ -134,7 +138,10 @@ double vec_get(Vector *v, int i);
   @param i 0-based element index.
   @param val New value to store.
 */
-void vec_set(Vector *v, int i, double val);
+static PHAST_INLINE
+void vec_set(Vector *v, int i, double val) {
+  v->data[i] = val;
+}
 
 /** Print supplied vector.
 
@@ -247,22 +254,5 @@ void vec_ave(Vector *dest_v, struct lst_struct *source_vs,
 	     struct lst_struct *counts);
 
 /* \} */
-
-/***************************************************************************
- * inline functions; also defined in vector.c 
- ***************************************************************************/
-
-/* we'll only inline the functions likely to be used heavily in inner
-   loops */  
-
-extern PHAST_INLINE
-double vec_get(Vector *v, int i) {
-  return v->data[i];
-}
-
-extern PHAST_INLINE
-void vec_set(Vector *v, int i, double val) {
-  v->data[i] = val;
-}
 
 #endif

@@ -55,7 +55,7 @@ struct hash_table;
 #define IS_PYRIMIDINE(b) (toupper(b) == 'C' || toupper(b) == 'T')
 
 /* raise integer to small integral power */
-extern PHAST_INLINE
+static PHAST_INLINE
 int int_pow(int x, int y) { 
   int retval = 1, i;
   for (i = 0; i < y; i++) retval *= x;
@@ -63,7 +63,7 @@ int int_pow(int x, int y) {
 }
 
 /* fast computation of floor(log2(x)), where x is a positive integer */
-extern PHAST_INLINE
+static PHAST_INLINE
 int log2_int(unsigned x) {
   int i;
   for (i = 0; ; i++) {
@@ -72,7 +72,15 @@ int log2_int(unsigned x) {
   }
 }
 
-extern PHAST_INLINE
+/* efficiently compute log of sum of values, which themselves are
+   stored as logs: that is, return log(sum_i exp(l_i)).  The largest
+   of the elements of l (call it maxval) is factored out, so that
+   log(sum_i(exp(l_i))) = maxval + log(1 + sum_i(exp(l_i-maxval))),
+   where the new sum is taken over 2 <= i < n.  All of the quantities
+   in the exp must be negative, and those smaller than some reasonable
+   threshold can be ignored. [Thanks to David Haussler for showing me
+   this trick].  WARNING: sorts list as side effect. */
+static PHAST_INLINE
 double log_sum(List *l) {
   double maxval, expsum;
   int k;
@@ -90,7 +98,8 @@ double log_sum(List *l) {
   return maxval + log2(expsum);        
 }
 
-extern PHAST_INLINE
+/* Same as above, but base e */
+static PHAST_INLINE
 double log_sum_e(List *l) {
   double maxval, expsum;
   int k;
@@ -109,7 +118,7 @@ double log_sum_e(List *l) {
 }
 
 /* return n! */
-extern PHAST_INLINE
+static PHAST_INLINE
 int permutations(int n) {
   int i, retval = 1;
   for (i = 2; i <= n; i++) retval *= i;
@@ -117,7 +126,7 @@ int permutations(int n) {
 }
 
 /* return n-choose-k */
-extern PHAST_INLINE 
+static PHAST_INLINE 
 int combinations(int n, int k) {
   int i, retval = 1;
   for (i = 0; i < k; i++) retval *= (n - i);
@@ -126,7 +135,7 @@ int combinations(int n, int k) {
 
 /* compute relative entropy in bits of q with respect to p, both
    probability vectors of dimension d */
-extern PHAST_INLINE
+static PHAST_INLINE
 double rel_entropy(double *p, double *q, int d) {
   int i;
   double H = 0;
@@ -139,7 +148,7 @@ double rel_entropy(double *p, double *q, int d) {
 }
 
 /* symmetric version of relative entropy */
-extern PHAST_INLINE
+static PHAST_INLINE
 double sym_rel_entropy(double *p, double *q, int d) {
   double re1 = rel_entropy(p, q, d), re2 = rel_entropy(q, p, d);
   return min(re1, re2);
@@ -172,7 +181,6 @@ double get_arg_dbl_bounds(char *arg, double min, double max);
 void *smalloc(size_t size);
 void *srealloc(void *ptr, size_t size);
 char *copy_charstr(const char *word);
-double log_sum(List *l);
 double normalize_probs(double *p, int size);
 int is_transition(char b1, char b2);
 int is_indel(char b1, char b2);
@@ -192,7 +200,6 @@ double half_chisq_cdf(double x, double dof, int lower_tail);
 double d_beta(double x, double a, double b);
 double beta_draw(double a, double b);
 void dirichlet_draw(int k, double *alpha, double *theta);
-double rel_entropy(double *p, double *q, int d);
 int next_comb(int n, int k, int *index);
 double incomplete_gamma(double a, double x, char type);
 double d_poisson(double lambda, int k);

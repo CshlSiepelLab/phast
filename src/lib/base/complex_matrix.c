@@ -37,10 +37,6 @@ void zmat_free(Zmatrix *m) {
   free(m);
 }
 
-Complex zmat_get(Zmatrix *m, int row, int col) {
-  return m->data[row][col];
-}
-
 Zvector *zmat_get_row(Zmatrix *m, int row) {
   int j;
   Zvector *v = zvec_new(m->ncols);
@@ -55,10 +51,6 @@ Zvector *zmat_get_col(Zmatrix *m, int col) {
   for (i = 0; i < m->nrows; i++)
     v->data[i] = m->data[i][col];
   return v;
-}
-
-void zmat_set(Zmatrix *m, int row, int col, Complex val) {
-  m->data[row][col] = val;
 }
 
 void zmat_set_identity(Zmatrix *m) {

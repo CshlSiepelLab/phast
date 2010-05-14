@@ -163,15 +163,6 @@ int mm_validate(MarkovMatrix *M) {
   return 0;
 }
 
-/* allows shorthand for element access */
-double mm_get(MarkovMatrix *M, int row, int col) {
-  return(mat_get(M->matrix, row, col));
-}
-
-void mm_set(MarkovMatrix *M, int row, int col, double val) {
-  mat_set(M->matrix, row, col, val);
-}
-
 /* element access by state character 
    FIXME: this won't work with higher-order models */
 double mm_get_by_state(MarkovMatrix *M, char from, char to) {

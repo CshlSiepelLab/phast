@@ -1312,7 +1312,8 @@ void mtf_build_coord_maps(Motif *m) {
 
 /* used in various functions below for mapping alignment coordinates
    to coords in reference sequence */
-PHAST_INLINE int safe_map(msa_coord_map *map, int pos) {
+static PHAST_INLINE 
+int safe_map(msa_coord_map *map, int pos) {
   if (pos <= 0) return pos;
   if (pos > map->msa_len) pos = map->msa_len;
   return msa_map_msa_to_seq(map, pos);

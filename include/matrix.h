@@ -152,7 +152,10 @@ void mat_read(Matrix *m, FILE *F);
   
   \sa mat_get_row, mat_get_col
 */
-double mat_get(Matrix *m, int row, int col);
+static PHAST_INLINE 
+double mat_get(Matrix *m, int row, int col) {
+  return m->data[row][col];
+}
 /** Retrieve matrix row.
 
   Allocates a new vector and copies row values from input matrix.
@@ -182,7 +185,10 @@ Vector *mat_get_col(Matrix *m, int col);
   
   \sa mat_set_identity,mat_zero, mat_set_all.
 */
-void mat_set(Matrix *m, int row, int col, double val);
+static PHAST_INLINE
+void mat_set(Matrix *m, int row, int col, double val) {
+  m->data[row][col] = val;
+}
 
 /** Print matrix to file.
 
@@ -308,22 +314,5 @@ int mat_invert(Matrix *M_inv, Matrix *M);
 void mat_mult_diag(Matrix *A, Matrix *B, Vector *C, Matrix *D);
 
 /* \} */
-
-/***************************************************************************
- * inline functions; also defined in matrix.c 
- ***************************************************************************/
-
-/* we'll only inline the functions likely to be used heavily in inner
-   loops */  
-
-extern PHAST_INLINE
-double mat_get(Matrix *m, int row, int col) {
-  return m->data[row][col];
-}
-
-extern PHAST_INLINE
-void mat_set(Matrix *m, int row, int col, double val) {
-  m->data[row][col] = val;
-}
 
 #endif

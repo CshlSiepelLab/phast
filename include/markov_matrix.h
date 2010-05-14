@@ -52,8 +52,6 @@ void mm_free(MarkovMatrix *M);
 void mm_free_eigen(MarkovMatrix *M);
 void mm_set_eigentype(MarkovMatrix *M, number_type eigentype);
 int mm_validate(MarkovMatrix *M); 
-double mm_get(MarkovMatrix *M, int row, int col); 
-void mm_set(MarkovMatrix *M, int row, int col, double val);
 double mm_get_by_state(MarkovMatrix *M, char from, char to);
 void mm_pretty_print(FILE *F, MarkovMatrix *M); 
 void mm_exp(MarkovMatrix *P, MarkovMatrix *Q, double t);
@@ -69,12 +67,12 @@ void mm_scale(MarkovMatrix *M, double scale);
 void mm_renormalize(MarkovMatrix *M);
 
 /* allows shorthand for element access */
-extern PHAST_INLINE
+static PHAST_INLINE
 double mm_get(MarkovMatrix *M, int row, int col) {
   return(mat_get(M->matrix, row, col));
 }
 
-extern PHAST_INLINE
+static PHAST_INLINE
 void mm_set(MarkovMatrix *M, int row, int col, double val) {
   mat_set(M->matrix, row, col, val);
 }

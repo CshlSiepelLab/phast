@@ -26,21 +26,11 @@ typedef struct {
   double y;			/* imaginary component */
 } Complex;
 
-Complex z_set(double x, double y);
-Complex z_add(Complex z1, Complex z2);
-Complex z_sub(Complex z1, Complex z2);
-Complex z_mul(Complex z1, Complex z2);
-Complex z_div(Complex z1, Complex z2);
-Complex z_mul_real(Complex z, double x);
-Complex z_exp(Complex z);
-double z_abs(Complex z);
-int z_eq(Complex z1, Complex z2);
-
 /***************************************************************************
- * inline functions; also defined in complex.c 
+ * All functions are inline; there is no complex.c file
  ***************************************************************************/
 
-extern PHAST_INLINE
+static PHAST_INLINE
 Complex z_set(double x, double y) {
   Complex z;
   z.x = x;
@@ -48,7 +38,7 @@ Complex z_set(double x, double y) {
   return z;
 }
 
-extern PHAST_INLINE
+static PHAST_INLINE
 Complex z_add(Complex z1, Complex z2) {
   Complex sum;
   sum.x = z1.x + z2.x;
@@ -56,7 +46,7 @@ Complex z_add(Complex z1, Complex z2) {
   return sum;
 }
 
-extern PHAST_INLINE
+static PHAST_INLINE
 Complex z_sub(Complex z1, Complex z2) {
   Complex diff;
   diff.x = z1.x - z2.x;
@@ -64,7 +54,7 @@ Complex z_sub(Complex z1, Complex z2) {
   return diff;
 }
 
-extern PHAST_INLINE
+static PHAST_INLINE
 Complex z_mul(Complex z1, Complex z2) {
   Complex prod;
   prod.x = z1.x * z2.x - z1.y * z2.y;
@@ -72,7 +62,7 @@ Complex z_mul(Complex z1, Complex z2) {
   return prod;
 }
 
-extern PHAST_INLINE
+static PHAST_INLINE
 Complex z_div(Complex z1, Complex z2) {
   Complex quot;
   double denom = z2.x * z2.x + z2.y * z2.y;
@@ -81,7 +71,7 @@ Complex z_div(Complex z1, Complex z2) {
   return quot;
 }
 
-extern PHAST_INLINE
+static PHAST_INLINE
 Complex z_mul_real(Complex z, double x) {
   Complex prod;
   prod.x = z.x * x;
@@ -89,7 +79,7 @@ Complex z_mul_real(Complex z, double x) {
   return prod;
 }
 
-extern PHAST_INLINE
+static PHAST_INLINE
 Complex z_exp(Complex z) {
   Complex retval;
   double exp_zx = exp(z.x);
@@ -98,12 +88,12 @@ Complex z_exp(Complex z) {
   return retval;
 }
 
-extern PHAST_INLINE
+static PHAST_INLINE
 double z_abs(Complex z) {
   return sqrt(z.x * z.x + z.y * z.y);
 }
 
-extern PHAST_INLINE
+static PHAST_INLINE
 int z_eq(Complex z1, Complex z2) {
   return(z1.x == z2.x && z1.y == z2.y);
 }

@@ -31,14 +31,6 @@ void zvec_free(Zvector *v) {
   free(v);
 }
 
-Complex zvec_get(Zvector *v, int i) { /* check */
-  return v->data[i];
-}
-
-void zvec_set(Zvector *v, int i, Complex val) {
-  v->data[i] = val;
-}
-
 void zvec_set_all(Zvector *v, Complex val) {
   int i;
   for (i = 0; i < v->size; i++)

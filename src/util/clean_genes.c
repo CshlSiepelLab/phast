@@ -152,7 +152,8 @@ void problems_free(List *problems) {
   lst_free(problems);
 }
 
-PHAST_INLINE int is_signal(char *str, int n_sig, char **signals, int *is_missing) {
+static PHAST_INLINE 
+int is_signal(char *str, int n_sig, char **signals, int *is_missing) {
   /* determine if str equals one of the strings in signals,
    * possibly with replacing some chars with missing values*/
   int i, j;
@@ -172,7 +173,8 @@ PHAST_INLINE int is_signal(char *str, int n_sig, char **signals, int *is_missing
 }
 
 
-PHAST_INLINE int is_conserved_start(GFF_Feature *feat, MSA *msa) {
+static PHAST_INLINE 
+int is_conserved_start(GFF_Feature *feat, MSA *msa) {
   char tuplestr[4];
   int j;
   int start = feat->start - 1;  /* base 0 indexing */
@@ -189,14 +191,16 @@ PHAST_INLINE int is_conserved_start(GFF_Feature *feat, MSA *msa) {
   return 1;
 }
 
-PHAST_INLINE int is_stop_codon(char *str) {
+static PHAST_INLINE 
+int is_stop_codon(char *str) {
  return (strncmp(str, "TAA", 3) == 0 || strncmp(str, "TAG", 3) == 0 ||
          strncmp(str, "TGA", 3) == 0);
  /* strncmp allows testing of codons in the middle of larger strings */
 }
 
 
-PHAST_INLINE int is_conserved_stop(GFF_Feature *feat, MSA *msa) {
+static PHAST_INLINE 
+int is_conserved_stop(GFF_Feature *feat, MSA *msa) {
   char tuplestr[4];
   int j;
   int start = feat->start - 1;
@@ -214,7 +218,8 @@ PHAST_INLINE int is_conserved_stop(GFF_Feature *feat, MSA *msa) {
 
 /* returns 1 if GT, GC or AT, and 0 otherwise.  If splice_strict,
    returns 0 unless GT. */
-PHAST_INLINE int is_valid_5splice(char *str, int splice_strict) {
+static PHAST_INLINE 
+int is_valid_5splice(char *str, int splice_strict) {
   if (strncmp(str, "GT", 2) == 0) return 1;
   else if (splice_strict) return 0;
   else if (strncmp(str, "GC", 2) == 0 || strncmp(str, "AT", 2) == 0)
@@ -222,8 +227,9 @@ PHAST_INLINE int is_valid_5splice(char *str, int splice_strict) {
   return 0;
 }
 
-PHAST_INLINE int is_conserved_5splice(GFF_Feature *feat, MSA *msa, int offset5,
-                                int splice_strict) {
+static PHAST_INLINE 
+int is_conserved_5splice(GFF_Feature *feat, MSA *msa, int offset5,
+			 int splice_strict) {
   char tuplestr[3];
   int j, start = feat->start - 1;  /* base 0 indexing */
   if (feat->strand == '-') start += offset5;
@@ -242,15 +248,17 @@ PHAST_INLINE int is_conserved_5splice(GFF_Feature *feat, MSA *msa, int offset5,
 
 /* returns 1 for AG or AC, 0 otherwise.  If splice_strict, returns 0
    unless AG. */
-PHAST_INLINE int is_valid_3splice(char *str, int splice_strict) {
+static PHAST_INLINE 
+int is_valid_3splice(char *str, int splice_strict) {
   if (strncmp(str, "AG", 2) == 0) return 1;
   else if (splice_strict) return 0;
   else if (strncmp(str, "AC", 2) == 0) return 1;
   return 0;
 }
 
-PHAST_INLINE int is_conserved_3splice(GFF_Feature *feat, MSA *msa, int offset3,
-                                int splice_strict) {
+static PHAST_INLINE 
+int is_conserved_3splice(GFF_Feature *feat, MSA *msa, int offset3,
+			 int splice_strict) {
   char tuplestr[3];
   int j, start = feat->start - 1;  /* base 0 indexing */
   if (feat->strand == '+') start += offset3;
