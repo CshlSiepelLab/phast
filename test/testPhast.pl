@@ -156,13 +156,15 @@ if ($doLineStr) {
 my $errorFlag=0;
 
 my $tempTimeFile="";
-if ($timeFile && !$appendTime) {
+if ($timeFile) {
+    if (!$appendTime) {
+	open(OUTTIME, ">$timeFile");
+	print OUTTIME "$bin1\t$bin2\tline-number\tcommand\n";
+	close(OUTTIME);
+    }
     $tempTimeFile="$tempPrefix.timeOutput.txt";
-    open(OUTTIME, ">$timeFile");
-    print OUTTIME "command\t$bin1\t$bin2\n";
-    close(OUTTIME);
-    $bin1 = "/usr/bin/time -f \"%E real,%U user,%S sys\" -o $tempTimeFile $bin1";
-    $bin2 = "/usr/bin/time -f \"%E real,%U user,%S sys\" -o $tempTimeFile $bin2";
+    $bin1 = "/usr/bin/time -f \"%U\" -o $tempTimeFile $bin1";
+    $bin2 = "/usr/bin/time -f \"%U\" -o $tempTimeFile $bin2";
 }
 
 
@@ -326,7 +328,9 @@ while (<INFILE>) {
 	if ($timeFile) {
 	    $timeStr2=`cat $tempTimeFile`;
 	    chomp($timeStr2);
-	    `echo "$cmd\\t$timeStr1\\t$timeStr2" >> $timeFile`;
+	    open(TIMEFILE, ">>$timeFile");
+	    print TIMEFILE "$timeStr1\t$timeStr2\t$line\t$cmd\n";
+	    close(TIMEFILE);
 	}
 
 	compare_files("$tempPrefix.1.stdout", "$tempPrefix.2.stdout", "stdout") 

@@ -117,7 +117,7 @@ msa_view -i FASTA -o SS --tuple-size 3 hmrc_correct.fa > hmrc_correct_tuple3.ss
 #@phastCons --coding-potential -i FASTA hmrc_correct.fa
 #--extrapolate and alias
 tree_doctor --prune mm3 hpmr.mod --rename "hg16 -> human; panTro1 -> chimp; rn3 -> rat" > hpmr_pruned.mod
-@phastCons --alias "hg16=human; panTro1=chimp; rn3=rat; mm3=mouse; galGal2=chicken" --extrapolate default hpmrc_short.ss hpmr_pruned.mod
+-stderr @phastCons --alias "hg16=human; panTro1=chimp; rn3=rat; mm3=mouse; galGal2=chicken" --extrapolate default hpmrc_short.ss hpmr_pruned.mod
 
 #--hmm
 tree_doctor --scale 0.1 hpmr.mod > hpmr_slow.mod
@@ -174,7 +174,7 @@ msa_view  -i SS -o FASTA hpmrc.ss > hpmrc.fa
 !phyloFit.mod @phyloFit -i FASTA hpmrc.fa --tree "(((hg16,panTro2),(rn3,mm3)),galGal2)"
 
 # test some of the higher order models (they are slow so use small simulated data set)
-base_evolve --nsites 50 rev.mod > simulated.fa
+base_evolve --nsites 100 rev.mod > simulated.fa
 # move all these commands to another section so they aren't run automatically with phastCons check
 #!phyloFit.mod @phyloFit --subst-mod R2 --tree "((human,(mouse,rat)),cow)" simulated.fa
 #!phyloFit.mod @phyloFit --subst-mod R2S --tree "((human,(mouse,rat)),cow)" simulated.fa
@@ -220,7 +220,7 @@ tree_doctor --name-ancestors rev-em.mod --scale 2.0 > rev-em-scaled-named.mod
 # no-opt
 !phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --no-opt branches
 !phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --no-opt backgd
-!phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --no-opt ratematrix,branches
+!phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --no-opt ratematrix
 # bound
 !phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --bound "branches[0.1,0.2]"
 !phyloFit.mod @phyloFit hmrc.ss -i SS --init-mod rev-em.mod --bound "branches[0.1,]"
@@ -247,7 +247,7 @@ tree_doctor --name-ancestors rev-em.mod --scale 2.0 > rev-em-scaled-named.mod
 
 #--post-probs 
 !phyloFit.mod !phyloFit.postprob @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --post-probs simulated.fa
-!phyloFit.mod !phyloFit.postprob @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --post-probs --alt-mod mouse+:HKY85
+!phyloFit.mod !phyloFit.postprob @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --post-probs --alt-mod mouse+:HKY85 simulated.fa
 
 #--expected-subs, --expected-total-subs
 !phyloFit.mod !phyloFit.expsub !phyloFit.exptotsub @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --expected-subs --expected-total-subs simulated.fa
@@ -255,11 +255,11 @@ tree_doctor --name-ancestors rev-em.mod --scale 2.0 > rev-em-scaled-named.mod
 !phyloFit.mod !phyloFit.colprobs @phyloFit --init-mod rev.mod -i SS hmrc.ss --column-probs
 
 #--windows
-!phyloFit.win-1.mod !phyloFit.win-2.mod !phyloFit.win-3.mod !phyloFit.win-sum.mod @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --windows 20,15 simulated.fa --min-informative 15
+!phyloFit.win-1.mod !phyloFit.win-2.mod !phyloFit.win-3.mod !phyloFit.win-4.mod !phyloFit.win-5.mod !phyloFit.win-6.mod @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --windows 20,15 simulated.fa --min-informative 15
 #--windows-explicit
-!phyloFit.win-1.mod !phyloFit.win-2.mod !phyloFit.win-sum.mod @phyloFit  --tree "((human,(mouse,rat)mouse-rat),cow)" --windows-explicit 1,20,25,45 simulated.fa --min-informative 15
-echo -e "1\t20\n25\t45" > windows.txt
-!phyloFit.win-1.mod !phyloFit.win-2.mod !phyloFit.win-sum.mod @phyloFit  --tree "((human,(mouse,rat)mouse-rat),cow)" --windows-explicit '*windows.txt' simulated.fa --min-informative 15
+!phyloFit.win-1.mod !phyloFit.win-2.mod @phyloFit  --tree "((human,(mouse,rat)mouse-rat),cow)" --windows-explicit 1,20,25,45 simulated.fa --min-informative 15
+echo "1\t20\n25\t45" > windows.txt
+!phyloFit.win-1.mod !phyloFit.win-2.mod @phyloFit  --tree "((human,(mouse,rat)mouse-rat),cow)" --windows-explicit '*windows.txt' simulated.fa --min-informative 15
 rm -f windows.txt
 
 
@@ -276,10 +276,10 @@ base_evolve --nsites 50 rev.mod > simulated.fa
 !phyloFit.mod @phyloFit --subst-mod R2S --tree "((human,(mouse,rat)),cow)" simulated.fa
 !phyloFit.mod @phyloFit --subst-mod U2 --tree "((human,(mouse,rat)),cow)" simulated.fa
 !phyloFit.mod @phyloFit --subst-mod U2S --tree "((human,(mouse,rat)),cow)" simulated.fa
-!phyloFit.mod @phyloFit --subst-mod R3 --tree "((human,(mouse,rat)),cow)" simulated.fa
-!phyloFit.mod @phyloFit --subst-mod R3S --tree "((human,(mouse,rat)),cow)" simulated.fa
-!phyloFit.mod @phyloFit --subst-mod U3 --tree "((human,(mouse,rat)),cow)" simulated.fa
-!phyloFit.mod @phyloFit --subst-mod U3S --tree "((human,(mouse,rat)),cow)" simulated.fa
+#!phyloFit.mod @phyloFit --subst-mod R3 --tree "((human,(mouse,rat)),cow)" simulated.fa
+#!phyloFit.mod @phyloFit --subst-mod R3S --tree "((human,(mouse,rat)),cow)" simulated.fa
+#!phyloFit.mod @phyloFit --subst-mod U3 --tree "((human,(mouse,rat)),cow)" simulated.fa
+#!phyloFit.mod @phyloFit --subst-mod U3S --tree "((human,(mouse,rat)),cow)" simulated.fa
 
 
 ******************** msa_view ********************
