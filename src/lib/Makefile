@@ -2,7 +2,7 @@ include ../make-include.mk
 
 CDIR = ${PWD}
 
-PACKAGES=base msa feature hmm phylo phylo_hmm motif
+PACKAGES=base msa feature hmm phylo phylo_hmm motif pcre
 
 ifdef RPHAST
 PACKAGES += rphast

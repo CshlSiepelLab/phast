@@ -23,16 +23,16 @@ TARGETLIB = ${LIB}/libphast.a
 # an appropriate alternative
 
 # for debugging
-CFLAGS = -g -fno-inline -Wall -pthread
+#CFLAGS = -g -fno-inline -Wall -pthread
 # for best performance
-#CFLAGS = -O3 -pthread
+CFLAGS = -O3 -pthread
 # some other options
 #CFLAGS = -mcpu=opteron -O3
 #CFLAGS = -mcpu=pentiumpro -O3 
 
 PHAST_VERSION=\"$(shell cat ${PHAST}/version)\"
-CFLAGS += -I${INC} -DPHAST_VERSION=${PHAST_VERSION} -DPHAST_HOME=\"${PHAST}\"
-LIBPATH = -L${LIB} -lpcre
+CFLAGS += -I${INC} -DPHAST_VERSION=${PHAST_VERSION} -DPHAST_HOME=\"${PHAST}\" -I${PHAST}/src/lib/pcre
+LIBPATH = -L${LIB} 
 
 # uncomment these lines for profiling (add -g for line-by-line
 # profiling and -a for monitoring of basic blocks)
