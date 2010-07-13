@@ -26,13 +26,14 @@ Last updated: 12/14/08
 #include <local_alignment.h>
 #include <maf.h>
 #include <tree_likelihoods.h>
+#include <hmm.h>
 
 #include <Rdefines.h>
 
 
 void rph_msa_free(SEXP msaP) {
   MSA *msa;
-  msa = (MSA*)EXTPTR_PTR(msaP);
+  msa = (MSA*)EXTPTR_PTR(msaP); fflush(stdout);
   msa_free(msa);
 }
 
@@ -115,15 +116,104 @@ SEXP rph_msa_copy(SEXP msa) {
 			   
 
 
-/* Note: this changes the object passed in */
-SEXP rph_msa_reduce_to_4d(SEXP msa) {
-  CategoryMap  *cm;
-  cm = cm_new_string_or_file("NCATS=3; CDS 1-3");
-  reduce_to_4d((MSA*)EXTPTR_PTR(msa), cm);
-  cm_free(cm);
-  return msa;
+/* Not really sure if this will work, but seems better than 
+   nothing (or is it worse)? How can we test? */
+SEXP rph_is_msa(SEXP msaP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  return ScalarLogical(msa != NULL && (msa->seqs != NULL || msa->ss != NULL) &&
+		       msa->names != NULL && msa->length > 0);
 }
 
+
+/* Note: this changes the object passed in */
+SEXP rph_msa_reduce_to_4d(SEXP msaP, SEXP gffP) {
+  CategoryMap  *cm;
+  GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  GFF_Feature *f;
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  String *fourD_refseq = NULL;
+  int i, tuple_size;
+  if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
+    die("cannot extract 4d sites with unordered representation of MSA");
+  msa_free_categories(msa);
+  if (msa->ss != NULL) ss_free_categories(msa->ss);
+  for (i=0; i<lst_size(gff->features); i++) {
+    f = lst_get_ptr(gff->features, i);
+    if (f->frame == GFF_NULL_FRAME) f->frame = 0;
+    if (fourD_refseq == NULL) fourD_refseq = f->seqname;
+    else if (!str_equals(fourD_refseq, f->seqname))
+      die("to obtain 4d sites, all features should have same source");
+    if (str_equals_charstr(f->feature, "CDS") && f->strand != '-')
+      str_cpy_charstr(f->feature, "CDSplus");
+    else if (str_equals_charstr(f->feature, "CDS") && f->strand == '-')
+      str_cpy_charstr(f->feature, "CDSminus");
+  }
+
+  tuple_size = 1;
+  if (msa->ss != NULL && msa->ss->tuple_size != 1) 
+    ss_reduce_tuple_size(msa, tuple_size);
+
+  cm = cm_new_string_or_file("NCATS=6; CDSplus 1-3; CDSminus 4-6");
+
+  if (msa->idx_offset != 0) {
+    for (i=0; i<lst_size(gff->features); i++) {
+      f = lst_get_ptr(gff->features, i);
+      f->start -= msa->idx_offset;
+      f->end -= msa->idx_offset;
+    }
+    msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
+  }
+  msa_label_categories(msa, gff, cm);
+  msa_strip_gaps(msa, msa_get_seq_idx(msa, fourD_refseq->chars)+1);
+
+  reduce_to_4d(msa, cm);  //this returns SS with tuple size 3
+  
+  ss_reduce_tuple_size(msa, tuple_size);
+
+  cm_free(cm);
+  return msaP;
+}
+
+
+SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
+  int i;
+  GFF_Set *gff=NULL;
+  MSA *msa;
+  CategoryMap *cm;
+
+  msa = (MSA*)EXTPTR_PTR(msaP);
+  if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
+    die("ordered representation of alignment required to extract features");
+  if (msa->ss == NULL)
+    ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1);
+  gff=(GFF_Set*)gffP;
+  cm = cm_new_from_features(gff);
+  
+  /* convert GFF to coordinate frame of alignment */
+  if (msa->idx_offset !=0) {
+    for (i=0; i<lst_size(gff->features); i++) {
+      GFF_Feature *f = lst_get_ptr(gff->features, i);
+      f->start -= msa->idx_offset;
+      f->end -= msa->idx_offset;
+    }
+  }
+  msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
+  msa_label_categories(msa, gff, cm);
+
+  for (i=0; i<msa->length; i++) {
+    if (msa->categories[i] == 0) {
+      msa->ss->counts[msa->ss->tuple_idx[i]]--;
+      assert(msa->ss->counts[msa->ss->tuple_idx[i]] >= 0);
+    }
+  }
+  ss_remove_zero_counts(msa);
+  free(msa->ss->tuple_idx);
+  msa->ss->tuple_idx = NULL;
+  free(msa->categories);
+  msa_update_length(msa);
+  msa_free_categories(msa);
+  return msaP;
+}
 
 SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP, 
 		  SEXP do4dP, SEXP alphabetP, 
@@ -138,6 +228,7 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
   char *alphabet = NULL, *reverse_groups_tag=NULL;
   int numProtect=0;
   List *cats_to_do=NULL, *cats_to_do_str;
+  String *fourD_refseq = NULL;
 
   fmt = msa_str_to_format(CHARACTER_VALUE(formatP));
   if ((int)fmt == -1) 
@@ -155,10 +246,22 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
   ordered = INTEGER_VALUE(orderedP);
   do4d = INTEGER_VALUE(do4dP);
   if (do4d) {
-    reverse_groups_tag = "transcript_id";
-    cm = cm_new_string_or_file("NCATS=3; CDS 1-3");
-    ordered=0;
-    tupleSize=3;
+    cm = cm_new_string_or_file("NCATS=6; CDSplus 1-3; CDSminus 4-6");
+    ordered=1;
+    tupleSize=1;
+    for (i=0; i<lst_size(gff->features); i++) {
+      GFF_Feature *f = lst_get_ptr(gff->features, i);
+      if (f->frame == GFF_NULL_FRAME) f->frame = 0;
+      if (fourD_refseq == NULL) fourD_refseq = f->seqname;
+      else if (!str_equals(fourD_refseq, f->seqname))
+	die("get4d requires all features have same source column");
+      if (str_equals_charstr(f->feature, "CDS") && f->strand != '-')
+	str_cpy_charstr(f->feature, "CDSplus");
+      else if (str_equals_charstr(f->feature, "CDS") && f->strand == '-')
+	str_cpy_charstr(f->feature, "CDSminus");
+    }
+    cats_to_do = lst_new_int(6);
+    for (i=1; i<=6; i++) lst_push_int(cats_to_do, i);
   }
   if (docatsP != R_NilValue) {
     int numcats, cmStrLen=100;
@@ -200,34 +303,33 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
   } else {
     msa = msa_new_from_file(infile, fmt, alphabet);
     if (idxOffsetP != R_NilValue) msa->idx_offset = INTEGER_VALUE(idxOffsetP);
-    if (gff != NULL) {
-      if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
-	die("ordered representation of alignment required to extract features");
-      
-      /* convert GFF to coordinate frame of alignment */
-      if (msa->idx_offset !=0) {
-	for (i=0; i<lst_size(gff->features); i++) {
-	  GFF_Feature *f = lst_get_ptr(gff->features, i);
-	  f->start -= msa->idx_offset;
-	  f->end -= msa->idx_offset;
-	}
+  }
+  if ((fmt != MAF || do4d) && gff != NULL) {
+    if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
+      die("ordered representation of alignment required to extract features");
+    if (msa->ss != NULL) ss_free_categories(msa->ss);
+    
+    /* convert GFF to coordinate frame of alignment */
+    if (msa->idx_offset !=0) {
+      for (i=0; i<lst_size(gff->features); i++) {
+	GFF_Feature *f = lst_get_ptr(gff->features, i);
+	f->start -= msa->idx_offset;
+	f->end -= msa->idx_offset;
       }
-      msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
-      if (reverse_groups_tag != NULL) { /*reverse complement by group */
-	if (fmt == SS) 
-	  die("ERROR: need an explicit representation of the alignment to reverse complement");
-	gff_group(gff, reverse_groups_tag);
-	msa_reverse_compl_feats(msa, gff, NULL);
-      }
-      msa_label_categories(msa, gff, cm);
     }
+    msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
+    if (reverse_groups_tag != NULL) { /*reverse complement by group */
+      if (fmt == SS) {
+	ss_to_msa(msa);
+	ss_free(msa->ss);
+	msa->ss = NULL;
+      }
+      gff_group(gff, reverse_groups_tag);
+      msa_reverse_compl_feats(msa, gff, NULL);
+    }
+    msa_label_categories(msa, gff, cm);
   }
   if (msa == NULL) die("ERROR reading %s\n", CHARACTER_VALUE(filenameP));
-  if (gff != NULL && fmt != MAF) {
-    if ((fmt == SS || fmt==MAF) && (msa->ss==NULL || msa->ss->tuple_idx==NULL)) {
-      die("ordered representation of alignment required to extract features");
-    }
-  }
   if (tupleSize != 1 || cats_to_do != NULL) {
     if (msa->ss == NULL) {
       ss_from_msas(msa, tupleSize, ordered, cats_to_do, NULL, NULL, -1);
@@ -243,7 +345,11 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
 	ss_reduce_tuple_size(msa, tupleSize);
     }
   }
-  if (do4d) reduce_to_4d(msa, cm);
+  if (do4d) {
+    //might want to move this to gap strip option at some point
+    msa_strip_gaps(msa, msa_get_seq_idx(msa, fourD_refseq->chars)+1);
+    reduce_to_4d(msa, cm);
+  }
 
   if (ordered==0 && msa->ss != NULL)
     assert(msa->ss->tuple_idx == NULL);
@@ -387,7 +493,6 @@ SEXP rph_msa_seqNames(SEXP msaP) {
   int i;
   if (msa->names==NULL) return R_NilValue;
   PROTECT(result = NEW_CHARACTER(msa->nseqs));
-  //PROTECT(mychar = allocVector(STRSXP, 5));
   for (i=0; i<msa->nseqs; i++) 
     SET_STRING_ELT(result, i, mkChar(msa->names[i]));
   UNPROTECT(1);
@@ -404,8 +509,6 @@ SEXP rph_msa_alphabet(SEXP msaP) {
   return result;
 }
 
-/* TODO (maybe not here but in general): at some point it would
-   be nice to have unordered MSA objects without requiring SS format */
 SEXP rph_msa_isOrdered(SEXP msaP) {
   MSA *msa = (MSA*)EXTPTR_PTR(msaP);
   SEXP result;
@@ -563,4 +666,33 @@ SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP byColumnP) {
 
   UNPROTECT(1);
   return result;
+}
+
+
+SEXP rph_msa_base_evolve(SEXP modP, SEXP nsitesP, SEXP hmmP, SEXP seedP) {
+  TreeModel **mods;
+  int nsites, nstate=1, i;
+  MSA *msa;
+  HMM *hmm=NULL;
+  nsites = INTEGER_VALUE(nsitesP);
+  if (hmmP != R_NilValue) {
+    hmm = (HMM*)EXTPTR_PTR(hmmP);
+    nstate = hmm->nstates;
+  }
+  mods = malloc(nstate*sizeof(TreeModel*));
+  for (i=0; i<nstate; i++) 
+    mods[i] = (TreeModel*)EXTPTR_PTR(VECTOR_ELT(modP, i));
+  if (seedP == R_NilValue)
+    srandom(time(NULL));
+  else srandom(abs(INTEGER_VALUE(seedP)));
+  msa = tm_generate_msa(nsites, hmm, mods, NULL);
+  free(mods);
+  return rph_msa_new_extptr((void*)msa);
+}
+
+
+SEXP rph_msa_concat(SEXP aggregate_msaP, SEXP source_msaP) {
+  msa_concatenate((MSA*)EXTPTR_PTR(aggregate_msaP), 
+		  (MSA*)EXTPTR_PTR(source_msaP));
+  return aggregate_msaP;
 }

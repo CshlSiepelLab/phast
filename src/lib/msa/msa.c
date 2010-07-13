@@ -398,6 +398,7 @@ void msa_free_seqs(MSA *msa) {
   }
   if (msa->seqs != NULL) free(msa->seqs);
   msa->seqs = NULL;
+  msa->alloc_len = 0;
 }
 
 
@@ -421,30 +422,111 @@ void msa_free(MSA *msa) {
 }
 
 
-/* reduce SS representation of alignment with nucleotide triples to 4d
-   sites only (supports --4d option to msa_view) */
+/* reduce alignment to unordered SS with tuple size 3 
+   containing only 4d sites.  Assumes that msa_label_categories has already
+   been called using a GFF where the CDS regions on the + strand have been
+   given feature type CDSplus and CDS regions on - have type CDSminus*/
 void reduce_to_4d(MSA *msa, CategoryMap *cm) {
-  String *tmpstr = str_new_charstr("CDS");
-  int cat_pos3 = cm->ranges[cm_get_category(cm, tmpstr)]->end_cat_no;
-  int i, j, len = 0;
-  if (cat_pos3 == 0)
-    die("ERROR: no match for 'CDS' feature type (required with --4d).\n");
-  assert(msa->ss->cat_counts != NULL && msa->ncats >= cat_pos3);
-  for (i = 0; i < msa->ss->ntuples; i++) {
-    if (ss_is_4d(msa, i)) {
-      msa->ss->counts[i] = msa->ss->cat_counts[cat_pos3][i];
-      len += msa->ss->counts[i];
-    }
-    else 
-      msa->ss->counts[i] = 0;
-  }
-  for (j = 0; j <= msa->ncats; j++) free(msa->ss->cat_counts[j]);
-  free(msa->ss->cat_counts);
-  msa->ss->cat_counts = NULL;
-  msa->ncats = -1;
-  msa->length = len;
-  ss_remove_zero_counts(msa);
+  String *tmpstr = str_new_charstr("CDSplus");
+  int cat_pos3[2];
+  int i, j, k, len = 0, is_4d, tuple_size = 3, idx;
+  char **seq, codon[3], key[msa->nseqs * 3 + 1];
+  MSA *temp_msa, *new_msa;
+  Hashtable *tuple_hash = hsh_new(msa->length);
+
+  assert(msa->categories != NULL);
+
+  cat_pos3[0] = cm->ranges[cm_get_category(cm, tmpstr)]->end_cat_no;
+  str_cpy_charstr(tmpstr, "CDSminus");
+  cat_pos3[1] = cm->ranges[cm_get_category(cm, tmpstr)]->end_cat_no;
   str_free(tmpstr);
+  if (cat_pos3[0] == 0 || cat_pos3[1] == 0)
+    die("ERROR: no match for 'CDSplus' or 'CDSminus' feature type (required with --4d).\n");
+
+  seq = malloc(msa->nseqs*sizeof(char*));
+  for (i=0; i<msa->nseqs; i++) 
+    seq[i] = malloc(3*sizeof(char));
+  temp_msa = msa_new(seq, msa->names, msa->nseqs, 3, msa->alphabet);
+  new_msa = msa_new(NULL, msa->names, msa->nseqs, 0, msa->alphabet);
+  ss_new(new_msa, tuple_size, msa->length, 0, 0);
+
+  for (i=0; i<msa->length; i++) {
+    if (msa->categories[i] == cat_pos3[0]) {  //3rd codon position on plus strand
+      if (i < 2 || 
+	  msa->categories[i-2] != cat_pos3[0]-2 ||
+	  msa->categories[i-1] != cat_pos3[0]-1) 
+	continue;
+      for (j=0; j < msa->nseqs; j++) {
+	for (k=0; k<3; k++)
+	  seq[j][k] = msa_get_char(msa, j, i+k-2);
+      }
+    } else if (msa->categories[i] == cat_pos3[1]) {  //3rd codon position on minus strand
+      if (i > msa->length-3 || 
+	  msa->categories[i+2] != cat_pos3[1]-2 ||
+	  msa->categories[i+1] != cat_pos3[1]-1) 
+	continue;
+      for (j=0; j < msa->nseqs; j++) {
+	for (k=0; k<3; k++)
+	  seq[j][k] = msa_compl_char(msa_get_char(msa, j, i+2-k));
+      }
+    } else continue;  //not 3rd codon position
+
+    //first check first two codon positions to see if there
+    // are any mutations, and there are no gaps in position 3
+    for (k=0; k<3; k++) 
+      codon[k] = msa->missing[0];
+    is_4d = TRUE;
+    for (j=0; j<msa->nseqs; j++) {
+      for (k=0; k<2; k++) {
+	if (msa->is_missing[(int)seq[j][k]]);
+	else if (msa->is_missing[(int)codon[k]])
+	  codon[k] = seq[j][k];
+	else if (seq[j][k] == GAP_CHAR || 
+		 seq[j][k] != codon[k]) {
+	  is_4d = FALSE;
+	  break;
+	}
+	if (!is_4d) break;
+      }
+      if (seq[j][2] == GAP_CHAR) is_4d = FALSE;
+      if (!is_4d) break;
+    }
+    if (!is_4d) continue;
+
+    if (! (((codon[0] == 'A' || codon[0] == 'T') && codon[1] == 'C') ||
+	   ((codon[0] == 'C' || codon[0] == 'G') && codon[1] != 'A')))
+      continue;
+
+    //now we have to add this to the SS!
+    col_to_string(key, temp_msa, 2, 3);
+    if ((idx = ss_lookup_coltuple(key, tuple_hash, new_msa)) == -1) {
+      idx = new_msa->ss->ntuples++;
+      ss_add_coltuple(key, int_to_ptr(idx), tuple_hash, new_msa);
+      new_msa->ss->col_tuples[idx] = (char*)smalloc((tuple_size * msa->nseqs + 1)*sizeof(char));
+      strncpy(new_msa->ss->col_tuples[idx], key, (msa->nseqs*tuple_size+1));
+    } 
+    new_msa->ss->counts[idx]++;
+    new_msa->length++;
+  }
+
+  if (msa->ss != NULL) ss_free(msa->ss);
+  msa_free_seqs(msa);
+  msa_free_categories(msa);
+  msa->length = new_msa->length;
+  msa->ss = new_msa->ss;
+  msa->idx_offset = 0;
+  if (msa->is_informative != NULL) {
+    free(msa->is_informative);
+    msa->is_informative = NULL;
+  }
+
+  msa->ss = new_msa->ss;
+  new_msa->ss = NULL;
+  new_msa->names = NULL;
+  temp_msa->names = NULL;
+  msa_free(new_msa);
+  msa_free(temp_msa);
+  hsh_free(tuple_hash);
 }
 
 
@@ -722,11 +804,12 @@ void msa_map_free(msa_coord_map *map) {
   free(map);
 }
 
+
 /* what to do with overlapping categories? for now, just rely on external code to order them appropriately ... */ 
 /* TODO: document "MSA" convention; provide option to specify source sequence 
    explicitly */
 /* warning: requires coordinates of GFF_Set to be in frame of ref of entire alignment */
-void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm) {
+void msa_label_categories_old(MSA *msa, GFF_Set *gff, CategoryMap *cm) {
   int cat, i, j;
   GFF_Feature *feat;
 
@@ -784,12 +867,108 @@ void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm) {
     ss_update_categories(msa);
 }
 
+/* what to do with overlapping categories? for now, just rely on external code to order them appropriately ... */ 
+/* TODO: document "MSA" convention; provide option to specify source sequence 
+   explicitly */
+/* warning: requires coordinates of GFF_Set to be in frame of ref of entire alignment */
+void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm) {
+  int cat, i, j, seq;
+  GFF_Feature *feat;
+  String *prev_name = NULL;
+
+  if (msa->categories == NULL) 
+    msa->categories = (int*)smalloc(msa->length * sizeof(int));
+  msa->ncats = cm->ncats;
+
+  /* begin by initializing all categories to "other" */
+  for (i = 0; i < msa->length; i++) msa->categories[i] = 0;
+
+  for (i = 0; i < lst_size(gff->features); i++) {
+    feat = (GFF_Feature*)lst_get_ptr(gff->features, i);
+    cat = cm_get_category(cm, feat->feature); 
+
+    if (cat == 0 && !str_equals_charstr(feat->feature, BACKGD_CAT_NAME))
+      continue;                 /* don't label in case of unrecognized
+                                   feature */
+
+    if (feat->end < feat->start) continue;
+    if (feat->start == -1 || feat->end == -1 || feat->end > msa->length) {
+      phast_warning("WARNING: ignoring out-of-range feature\n");
+      gff_print_feat(stderr, feat);
+      continue;
+    }  
+
+    if (cm->ranges[cat]->start_cat_no == cm->ranges[cat]->end_cat_no) {
+      for (j = feat->start; j <= feat->end; j++) {
+        int oldprec = cm->labelling_precedence[msa->categories[j-1]];
+        int newprec = cm->labelling_precedence[cat];
+        if (oldprec == -1 || (newprec != -1 && newprec < oldprec))
+          msa->categories[j-1] = cat;
+      }
+    }
+    else {
+      int range_size = cm->ranges[cat]->end_cat_no - 
+        cm->ranges[cat]->start_cat_no + 1;
+      int frm;
+
+      if (str_equals_nocase_charstr(feat->seqname, "MSA")) 
+	seq = -1;
+      else if (prev_name == NULL || !str_equals(prev_name, feat->seqname)) {
+	if ((seq = msa_get_seq_idx(msa, feat->seqname->chars)) == -1) 
+	  die("ERROR: name %s not present in MSA.\n", feat->seqname->chars);
+	prev_name = feat->seqname;
+      }
+
+      if (feat->frame < 0 || feat->frame > 2)
+        frm = 0;                /* FIXME: something better here? */
+      else
+        frm = feat->frame;
+
+      int thiscat = cm->ranges[cat]->start_cat_no + (frm % range_size);
+      int jstart, jend, jdir;
+      if (feat->strand != '-') {
+	jstart = feat->start;
+	jend = feat->end + 1;
+	jdir = 1;
+      } else {
+	jstart = feat->end;
+	jend = feat->start - 1;
+	jdir = -1;
+      }
+      for (j = jstart; j != jend; j += jdir) {
+	int oldprec = cm->labelling_precedence[msa->categories[j-1]];
+	int thisprec = cm->labelling_precedence[thiscat];
+	if (oldprec == -1 || (thisprec != -1 && thisprec < oldprec))
+	  msa->categories[j-1] = thiscat;
+	//only change cycle if source sequence does not have a gap
+	if (seq == -1 || msa_get_char(msa, seq, j-1) != GAP_CHAR) {
+	  thiscat++;
+	  if (thiscat > cm->ranges[cat]->end_cat_no)
+	    thiscat = cm->ranges[cat]->start_cat_no;
+	}
+      }
+    }
+  }
+  if (msa->ss != NULL) 
+    ss_update_categories(msa);
+}
+
 /** Return sequence index of given sequence name or -1 if not found. */
 int msa_get_seq_idx(MSA *msa, const char *name) {
   int i, retval = -1;
   for (i = 0; retval < 0 && i < msa->nseqs; i++) 
     if (!strcmp(name, msa->names[i]))
       retval = i;
+  if (retval == -1) {
+    String *tmp;
+    tmp = str_new_charstr(name);
+    str_shortest_root(tmp, '.');
+    for (i=0; retval < 0 && i < msa->nseqs; i++) {
+      if (!strcmp(tmp->chars, msa->names[i]))
+	retval = i;
+    }
+    str_free(tmp);
+  }
   return retval;
 }
 
@@ -888,11 +1067,24 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
       if (j!=mstart) 
         s = msa_map_seq_to_seq(NULL, to_map, j+1);
     }
-
+    
+    if (s < 0 && feat->frame != GFF_NULL_FRAME && feat->strand != '-') {
+      //this is the coordinate of adjusted start in fseq
+      int newstart_from = msa_map_seq_to_seq(to_map, from_map, 1);
+      feat->frame = (feat->frame + newstart_from - feat->start)%3;
+    }
     feat->start = (s < 0 ? 1 : s) + offset;
 
-    if (e < 0)
-      feat->end = (to_map != NULL ? to_map->seq_len : msa->length) + offset;
+    
+    if (e < 0) {
+      int newend = (to_map != NULL ? to_map->seq_len : msa->length);
+      if (feat->frame != GFF_NULL_FRAME && feat->strand == '-') {
+	//this is coordinate of adjusted end in fseq
+	int newend_from = msa_map_seq_to_seq(to_map, from_map, newend);
+	feat->frame = (feat->frame + feat->end - newend_from);
+      }
+      feat->end = newend + offset;
+    }
     else
       feat->end = e + offset;
 
@@ -1092,9 +1284,11 @@ void msa_reverse_compl(MSA *msa) {
    the system used for storage). */
 void msa_reverse_compl_segment(MSA *msa, int start, int end) {
   int i;
-  assert(msa->ss == NULL);      /* suff stats not yet supported */
-  for (i = 0; i < msa->nseqs; i++) 
-    msa_reverse_compl_seq_segment(msa->seqs[i], start, end);
+  assert(msa->ss == NULL);  //for now
+  if (msa->seqs != NULL) {
+    for (i = 0; i < msa->nseqs; i++) 
+      msa_reverse_compl_seq_segment(msa->seqs[i], start, end);
+  }
 }
 
 /** Reverse complement segments of an MSA corresponding to groups of
@@ -2399,3 +2593,4 @@ void msa_realloc(MSA *msa, int new_length, int new_alloclen, int do_cats,
     ss_realloc(msa, msa->ss->tuple_size, msa->ss->alloc_ntuples, do_cats,
 	       store_order);
 }
+

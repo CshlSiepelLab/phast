@@ -21,7 +21,6 @@
 #include <ctype.h>
 
 
-
 /** Read An Alignment from a MAF file.  The alignment won't be
    constructed explicitly; instead, a sufficient-statistics
    representation will be extracted directly from the MAF.  The MAF file must
@@ -117,6 +116,9 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
   if (gff != NULL) gap_strip_mode = 1; /* for now, automatically
                                           project if GFF (see comment
                                           above) */
+
+  if (tuple_size != 1) 
+    phast_warning("Warning: reading in MAF with tuple_size > 1 loses information that crosses blocks");
 
   if (gff ==  NULL && cm != NULL) 
     die("ERROR: maf_read got non-null category map without a set of features");
@@ -327,8 +329,8 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 /*         msa_map_gff_coords(mini_msa, mini_gff, 1, 0, 0, cm); */
 
       if (reverse_groups != NULL && lst_size(mini_gff->features) > 0) {
-          gff_group(mini_gff, reverse_groups);
-          msa_reverse_compl_feats(mini_msa, mini_gff, NULL);
+	gff_group(mini_gff, reverse_groups);
+	msa_reverse_compl_feats(mini_msa, mini_gff, NULL);
       }
 
       /* now label categories of mini_msa accordingly */
@@ -519,6 +521,8 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 
   hsh_free(tuple_hash);
   hsh_free(name_hash);
+  lst_free(block_starts);
+  lst_free(block_ends);
   if (map != NULL) msa_map_free(map);
   if (free_cm) cm_free(cm);
   return msa;
@@ -1036,6 +1040,7 @@ int maf_read_block_addseq(FILE *F, MSA *mini_msa, Hashtable *name_hash,
 
   lst_free(l);
   str_free(linebuffer);
+  str_free(this_name);
 
   if (mini_msa->length == -1 && !more_blocks) {
     free(mark);
@@ -1280,7 +1285,7 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
   }
   fsetpos(F, &pos);
   str_free(line); str_free(fullname); str_free(name);
-  lst_free(l);
+  lst_free_strings(l); lst_free(l);
   *nseqs = count;
 }
 
@@ -1465,10 +1470,6 @@ void maf_block_sub_gff(GFF_Set *sub_gff, GFF_Set *gff, int start_idx,
   int first_extend = -1;
   GFF_Feature *feat;
   for (; *gff_idx < lst_size(gff->features) && 
-         ((GFF_Feature *)lst_get_ptr(gff->features, *gff_idx))->end < 
-         start_idx;
-       (*gff_idx)++);            /* ignore upstream features */
-  for (; *gff_idx < lst_size(gff->features) && 
          (feat = lst_get_ptr(gff->features, *gff_idx))->start <= end_idx;
        (*gff_idx)++) {           /* look at all that overlap */
     GFF_Feature *featcpy;
@@ -1486,20 +1487,20 @@ void maf_block_sub_gff(GFF_Set *sub_gff, GFF_Set *gff, int start_idx,
     if (feat->start < start_idx || feat->end > end_idx) {
       int cat = cm_get_category(cm, feat->feature);
       if (cm->ranges[cat]->start_cat_no != cm->ranges[cat]->end_cat_no &&
-          feat->frame == GFF_NULL_FRAME)
+          feat->frame == GFF_NULL_FRAME) 
         continue;
     }
 
     featcpy = gff_new_feature_copy(feat);
     if (featcpy->start < start_idx) {
-      if (featcpy->strand == '+' && featcpy->frame != GFF_NULL_FRAME) 
+      if (featcpy->strand != '-' && featcpy->frame != GFF_NULL_FRAME) 
         featcpy->frame = (featcpy->frame + start_idx - featcpy->start) % 3;
       featcpy->start = start_idx;
     }
     if (featcpy->end > end_idx) {
       int effective_end = end_idx;
       if (featcpy->strand == '-' && reverse_compl) 
-        effective_end -= (tuple_size - 1);
+	effective_end -= (tuple_size - 1);
                                 /* if we truncate a feature that is to
                                    be reverse complemented, we have to
                                    be careful not to introduce

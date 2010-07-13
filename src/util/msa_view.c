@@ -420,7 +420,7 @@ int main(int argc, char* argv[]) {
   msa_coord_map *map = NULL;
   GFF_Set *gff = NULL;
   CategoryMap *cm = NULL;
-  String *tmpstr = NULL;
+  String *tmpstr = NULL, *fourD_refseq=NULL;
   FILE *outfile = NULL;
 
   struct option long_opts[] = {
@@ -534,11 +534,14 @@ int main(int argc, char* argv[]) {
       break;
     case '4':
       fourD = TRUE;
-      tuple_size = 3;
+      tuple_size = 1;
       output_format = SS;
-      ordered_stats = FALSE;
-      reverse_groups_tag = "transcript_id";
-      cm = cm_new_string_or_file("NCATS=3; CDS 1-3");
+      //      ordered_stats = FALSE;
+      ordered_stats = TRUE;  //want to keep stats ordered until reduce_to_4d call
+      //      reverse_groups_tag = "transcript_id";
+      cm = cm_new_string_or_file("NCATS=6; CDSplus 1-3; CDSminus 4-6");
+      cats_to_do = lst_new_int(6);
+      for (i=1; i<=6; i++) lst_push_int(cats_to_do, i);
       break;
     case 'z':
       ordered_stats = FALSE;
@@ -617,8 +620,24 @@ int main(int argc, char* argv[]) {
     ordered_stats = FALSE; 
   }
 
-  if (fourD && gff == NULL)
-    die("ERROR: --4d requires --features.\n");
+  if (fourD) {
+    if (gff == NULL)
+      die("ERROR: --4d requires --features.\n");
+    //make sure frame is given; if not, assume each feature starts at frame 0
+    for (i=0; i<lst_size(gff->features); i++) {
+      GFF_Feature *f = lst_get_ptr(gff->features, i);
+      if (f->frame == GFF_NULL_FRAME) f->frame = 0;
+      if (fourD_refseq == NULL) fourD_refseq = f->seqname;
+      else if (!str_equals(fourD_refseq, f->seqname))
+	die("--4d requires all features have same source column");
+      if (str_equals_charstr(f->feature, "CDS") && f->strand != '-')
+	str_cpy_charstr(f->feature, "CDSplus");
+      else if (str_equals_charstr(f->feature, "CDS") && f->strand == '-')
+	str_cpy_charstr(f->feature, "CDSminus");
+    }
+    tuple_size = 1;  //actually will use tuple size of 1 to read in sequence; 
+                     // reduce_to_4d will convert to tuple_size 3
+  }
 
   if (aggregate_list != NULL) {
     if (msa_fname_list == NULL)
@@ -661,14 +680,6 @@ int main(int argc, char* argv[]) {
     FILE *RSEQF = NULL;
 
     if (rseq_fname != NULL) RSEQF = fopen_fname(rseq_fname, "r");
-
-    /*    if (output_format == SS && RSEQF == NULL && ordered_stats && 
-        gff == NULL && startcol == 1 && endcol == -1)
-	ordered_stats = FALSE; */   /* in this case, assume unordered
-                                   stats are desired; can't think of
-                                   any value in collecting ordered
-                                   stats, and it's a common mistake to
-                                   forget -z */
 
     msa = maf_read_cats(fopen_fname(infname, "r"), RSEQF, tuple_size, 
 		        alphabet, gff, cm, cycle_size, 
@@ -721,13 +732,14 @@ int main(int argc, char* argv[]) {
   if (fill_N_list != NULL) fill_with_Ns(msa, fill_N_list, map);
 
   /* read annotations and label columns, if necessary */
-  if (gff != NULL && input_format != MAF) {
+  if (gff != NULL && (input_format != MAF || fourD)) {
     if (input_format == SS || input_format == MAF || aggregate_list != NULL) {
       if (msa->ss->tuple_idx == NULL) {
         fprintf(stderr, "ERROR: ordered representation of alignment required with --features.\n");
         exit(1);
       }
     }
+    if (msa->ss != NULL) ss_free_categories(msa->ss);
 
     /* convert GFF to coordinate frame of alignment */
     if (msa->idx_offset != 0) {
@@ -741,10 +753,10 @@ int main(int argc, char* argv[]) {
 
     if (reverse_groups_tag != NULL) { /* reverse complement by group */
       if (input_format == SS) {
-        fprintf(stderr, "ERROR: need an explicit representation of the alignment to reverse complement.\n");
-        exit(1);
+	ss_to_msa(msa);
+	ss_free(msa->ss);
+	msa->ss = NULL;
       }
-
       gff_group(gff, reverse_groups_tag);
       msa_reverse_compl_feats(msa, gff, NULL);
     }
@@ -809,8 +821,10 @@ int main(int argc, char* argv[]) {
   if (missing_as_indels) 
     msa_missing_to_gaps(sub_msa, refseq);
 
-  if (gap_strip_mode != NO_STRIP && split_all == FALSE)
+  if ((gap_strip_mode != NO_STRIP && split_all == FALSE) || fourD) {
+    if (fourD) gap_strip_mode = msa_get_seq_idx(msa, fourD_refseq->chars)+1;
     msa_strip_gaps(sub_msa, gap_strip_mode);
+  }
 
   if (mark_missing_maxsize >= 0)
     msa_mask_macro_indels(sub_msa, mark_missing_maxsize, refseq);
@@ -842,6 +856,8 @@ int main(int argc, char* argv[]) {
 
   if (fourD)                    /* reduce to 4d sites */
     reduce_to_4d(sub_msa, cm);
+  if (msa->ss != NULL && msa->ss->tuple_idx == NULL)  //if unordered we don't need idx_offset anymore 
+    msa->idx_offset = 0;
 
   if (stats_only) {             /* only print summary stats */
     msa_print_stats(sub_msa, stdout, NULL, 1, -1, -1);

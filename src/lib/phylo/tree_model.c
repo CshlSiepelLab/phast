@@ -1075,8 +1075,10 @@ MSA *tm_generate_msa(int ncolumns,
   /* create new MSA */
   names = (char**)smalloc(nseqs * sizeof(char*));
   seqs = (char**)smalloc(nseqs * sizeof(char*));
-  for (i = 0; i < nseqs; i++) 
+  for (i = 0; i < nseqs; i++) {
     seqs[i] = (char*)smalloc((ncolumns + 1) * sizeof(char));
+    seqs[i][ncolumns]='\0';
+  }
   msa = msa_new(seqs, names, nseqs, ncolumns, 
                 classmods[0]->rate_matrix->states);
 

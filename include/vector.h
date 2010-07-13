@@ -240,6 +240,12 @@ void vec_outer_prod(struct matrix_struct *mat, Vector *v1, Vector *v2);
 */
 double vec_norm(Vector *v);
 
+/** Force elements of vector to sum to 1.
+
+  @param v Input vector.
+*/
+void vec_normalize(Vector *v);
+
 /** Compute point wise average of vectors. 
 
   If counts is NULL, each source vector is assumed to have a count of 1.

@@ -983,6 +983,7 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
   return retval;
 }
 
+
 /* adjust sufficient statistics to reflect the reverse complement of
    an alignment.  Refer to msa_reverse_compl */
 void ss_reverse_compl(MSA *msa) {
@@ -1093,6 +1094,7 @@ void ss_reverse_compl(MSA *msa) {
 
   que_free(overwrites);
 }
+
 
 /* change sufficient stats to reflect reordered rows of an alignment --
    see msa_reorder_rows.  */

@@ -151,6 +151,18 @@ double vec_norm(Vector *v) {
   return sqrt(ss);
 }
 
+
+/* Force elements of vector to sum to 1 */
+void vec_normalize(Vector *v) {
+  double sum=0.0;
+  int i;
+  for (i=0; i<v->size; i++) 
+    sum += v->data[i];
+  for (i=0; i<v->size; i++)
+    v->data[i] /= sum;
+}
+
+
 /* Compute pointwise average of vectors.  If counts is NULL, each
    source vector is assumed to have a count of 1 */
 void vec_ave(Vector *dest_v, List *source_vs, List *counts) {

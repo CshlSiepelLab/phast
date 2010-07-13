@@ -119,8 +119,7 @@ HMM *hmm_create_copy(HMM *src) {
 /* Frees all memory associated with an HMM object */
 void hmm_free(HMM *hmm) {
   int i;
-
-  if (hmm->transition_matrix != NULL)
+  if (hmm->transition_matrix != NULL) 
     mm_free(hmm->transition_matrix);
   if (hmm->transition_score_matrix != NULL) 
     mat_free(hmm->transition_score_matrix);
@@ -134,7 +133,6 @@ void hmm_free(HMM *hmm) {
     vec_free(hmm->end_transitions);
   if (hmm->end_transition_scores != NULL)
     vec_free(hmm->end_transition_scores);
-
   for (i = 0; i < hmm->nstates; i++) {
     lst_free(hmm->predecessors[i]);
     lst_free(hmm->successors[i]);
