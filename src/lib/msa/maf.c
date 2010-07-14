@@ -188,7 +188,7 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 
   msa->length = 0;
   if (store_order) {
-    msa->length = refseqlen;
+    msa->length = msa->alloc_len = max(msa->length, 500000);
     max_tuples = min(msa->length,
 		     pow(strlen(msa->alphabet)+strlen(msa->missing)+1, 
 			 2 * msa->nseqs * tuple_size));
