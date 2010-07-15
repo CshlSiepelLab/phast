@@ -536,12 +536,14 @@ void reduce_to_4d(MSA *msa, CategoryMap *cm) {
  */
 void msa_update_length(MSA *msa) {
   int i;
-  if (msa->seqs != NULL ||
-      msa->ss == NULL ||
+  if (msa->ss == NULL ||
       msa->ss->tuple_idx != NULL) return;
-  msa->length = 0;
-  for (i=0; i<msa->ss->ntuples; i++)
-    msa->length += msa->ss->counts[i];
+  if (msa->seqs != NULL) msa->length = strlen(msa->seqs[0]);
+  else {
+      msa->length = 0;
+      for (i=0; i<msa->ss->ntuples; i++)
+        msa->length += msa->ss->counts[i];
+  }
 }
 
 

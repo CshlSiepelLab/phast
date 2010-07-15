@@ -117,12 +117,18 @@ GFF_Set* gff_read_set(FILE *F) {
         gff_read_from_bed(set, F);
         break;
       }
-      else if (lst_size(l) >= 10 && 
-          str_as_int(lst_get_ptr(l, 3), &start) == 0 && 
-          str_as_int(lst_get_ptr(l, 4), &end) == 0 &&
-          str_as_int(lst_get_ptr(l, 5), &start) == 0 &&
-          str_as_int(lst_get_ptr(l, 6), &end) == 0) {
-        if (!seekable) 
+      else if ((lst_size(l) >= 10 && 
+		str_as_int(lst_get_ptr(l, 3), &start) == 0 && 
+		str_as_int(lst_get_ptr(l, 4), &end) == 0 &&
+		str_as_int(lst_get_ptr(l, 5), &start) == 0 &&
+		str_as_int(lst_get_ptr(l, 6), &end) == 0) ||
+	       (lst_size(l) >= 11 &&  //this is genepred with bin column
+		str_as_int(lst_get_ptr(l, 0), &start) == 0 &&
+		str_as_int(lst_get_ptr(l, 4), &start) == 0 &&
+		str_as_int(lst_get_ptr(l, 5), &start) == 0 &&
+		str_as_int(lst_get_ptr(l, 6), &start) == 0 &&
+		str_as_int(lst_get_ptr(l, 7), &start) == 0)) {
+	if (!seekable) 
           die("ERROR: Looks like genepred format but can't rewind (non-seekable stream).\n");
         fsetpos(F, &pos);
         gff_read_from_genepred(set, F);

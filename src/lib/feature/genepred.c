@@ -19,6 +19,7 @@
 #include <ctype.h>
 #include <misc.h>
 #include <hashtable.h>
+#include <string.h>
 
 #define GENEPRED_SOURCE "genepred"
 
@@ -27,7 +28,7 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
   String *line = str_new(STR_LONG_LEN);
   List *l = lst_new_ptr(12), *tmpl1 = lst_new_ptr(10), 
     *tmpl2 = lst_new_ptr(10), *framefeats = lst_new_ptr(50);
-  int i, lineno = 0;
+  int i, lineno = 0, hasbin=-1;
   Hashtable *hash = hsh_new(10000);
 
   while (str_readline(line, F) != EOF) {
@@ -39,6 +40,8 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
     char strand;
 
     lineno++;
+    
+    if (line->chars[0] == '#') continue;
 
     str_trim(line);
     if (line->length == 0) continue;
@@ -48,10 +51,25 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
     if (lst_size(l) < 10)
       die("ERROR (line %d): >= 10 columns required in genepred file.\n", lineno);
 
-    name = lst_get_ptr(l, 0);
-    chrom = lst_get_ptr(l, 1);
+    if (hasbin == -1) {  //determine if this genepred has a "bin" column
+      if (lst_size(l) >= 11 &&
+	  str_as_int(lst_get_ptr(l, 0), &i)==0 &&
+	  str_as_int(lst_get_ptr(l, 4), &i)==0 &&
+	  str_as_int(lst_get_ptr(l, 5), &i)==0 &&
+	  str_as_int(lst_get_ptr(l, 6), &i)==0 &&
+	  str_as_int(lst_get_ptr(l, 7), &i)==0) {
+	tmpstr = lst_get_ptr(l, 3);
+	if (str_equals_charstr(tmpstr, "+") ||
+	    str_equals_charstr(tmpstr, "-"))
+	  hasbin = 1;
+      }
+      if (hasbin == -1) hasbin=0;
+    }
 
-    tmpstr = lst_get_ptr(l, 2);
+    name = lst_get_ptr(l, 0+hasbin);
+    chrom = lst_get_ptr(l, 1+hasbin);
+
+    tmpstr = lst_get_ptr(l, 2+hasbin);
     
     if (tmpstr->length != 1 || 
         (tmpstr->chars[0] != '+' && tmpstr->chars[0] != '-'))
@@ -60,10 +78,10 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
 
     strand = tmpstr->chars[0];
 
-    if (str_as_int(lst_get_ptr(l, 3), &txStart) != 0 ||
-        str_as_int(lst_get_ptr(l, 4), &txEnd) != 0 ||
-        str_as_int(lst_get_ptr(l, 5), &cdsStart) != 0 ||
-        str_as_int(lst_get_ptr(l, 6), &cdsEnd) != 0)
+    if (str_as_int(lst_get_ptr(l, 3+hasbin), &txStart) != 0 ||
+        str_as_int(lst_get_ptr(l, 4+hasbin), &txEnd) != 0 ||
+        str_as_int(lst_get_ptr(l, 5+hasbin), &cdsStart) != 0 ||
+        str_as_int(lst_get_ptr(l, 6+hasbin), &cdsEnd) != 0)
       die("ERROR (line %d): can't parse txStart, txEnd, cdsStart, or cdsEnd in genepred file.\n", lineno);
 
     txStart++; cdsStart++;      /* switch to GFF coord convention */
@@ -72,12 +90,12 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
       die("ERROR (line %d): cds bounds outside of tx bounds in genepred file.\n", 
           lineno);
 
-    if (str_as_int(lst_get_ptr(l, 7), &exonCount) != 0)
+    if (str_as_int(lst_get_ptr(l, 7+hasbin), &exonCount) != 0)
       die("ERROR (line %d): can't parse exonCount in genepred file.\n", 
           lineno);
 
-    str_split(lst_get_ptr(l, 8), ",", tmpl1);
-    str_split(lst_get_ptr(l, 9), ",", tmpl2);
+    str_split(lst_get_ptr(l, 8+hasbin), ",", tmpl1);
+    str_split(lst_get_ptr(l, 9+hasbin), ",", tmpl2);
 
     /* make sure group name is unique */
     if ((num = hsh_get_int(hash, name->chars)) > 0) {
