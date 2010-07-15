@@ -176,7 +176,7 @@ SEXP rph_msa_reduce_to_4d(SEXP msaP, SEXP gffP) {
 
 
 SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
-  int i;
+  int i, j, pos=0;
   GFF_Set *gff=NULL;
   MSA *msa;
   CategoryMap *cm;
@@ -184,8 +184,6 @@ SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
   msa = (MSA*)EXTPTR_PTR(msaP);
   if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
     die("ordered representation of alignment required to extract features");
-  if (msa->ss == NULL)
-    ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1);
   gff=(GFF_Set*)gffP;
   cm = cm_new_from_features(gff);
   
@@ -200,18 +198,34 @@ SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
   msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
   msa_label_categories(msa, gff, cm);
 
-  for (i=0; i<msa->length; i++) {
-    if (msa->categories[i] == 0) {
-      msa->ss->counts[msa->ss->tuple_idx[i]]--;
-      assert(msa->ss->counts[msa->ss->tuple_idx[i]] >= 0);
+  if (msa->ss != NULL) {
+    for (i=0; i<msa->length; i++) {
+      if (msa->categories[i] == 0) {
+	msa->ss->counts[msa->ss->tuple_idx[i]]--;
+	assert(msa->ss->counts[msa->ss->tuple_idx[i]] >= 0);
+      }
     }
+    ss_remove_zero_counts(msa);
+    free(msa->ss->tuple_idx);
+    msa->ss->tuple_idx = NULL;
   }
-  ss_remove_zero_counts(msa);
-  free(msa->ss->tuple_idx);
-  msa->ss->tuple_idx = NULL;
+  if (msa->seqs != NULL) {
+    for (i=0; i<msa->length; i++) {
+      if (msa->categories[i] > 0) {
+	if (pos != i) {
+	  for (j=0; j<msa->nseqs; j++) 
+	    msa->seqs[j][pos] = msa->seqs[j][i];
+	}
+	pos++;
+      }
+    }
+    for (j=0; j<msa->nseqs; j++) 
+      msa->seqs[j][pos] = '\0';
+  }
   free(msa->categories);
   msa_update_length(msa);
   msa_free_categories(msa);
+  msa->idx_offset = 0;
   return msaP;
 }
 

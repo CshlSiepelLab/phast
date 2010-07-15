@@ -51,9 +51,6 @@ SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP estimateTreesP,
     p->rho = NUMERIC_VALUE(rhoP);
   if (estimateTreesP != R_NilValue) {
     p->estim_trees = LOGICAL_VALUE(estimateTreesP);
-    if (p->estim_trees) {
-      //      p->estim_trees_fname_root = NULL; //TODO: allow printing of estimated models to outfile!  Or at least make sure they are returned
-    }
   }
   if (estimateRhoP != R_NilValue) {
     p->estim_rho = LOGICAL_VALUE(estimateRhoP);
