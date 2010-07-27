@@ -41,7 +41,7 @@ void zvec_plus_eq(Zvector *thisv, Zvector *addv);
 void zvec_minus_eq(Zvector *thisv, Zvector *subv);
 void zvec_scale(Zvector *v, double scale_factor);
 void zvec_had_prod(Zvector *dest, Zvector *src1, Zvector *src2);
-void zvec_as_real(Vector *dest, Zvector *src, int strict);
+int zvec_as_real(Vector *dest, Zvector *src, int strict);
 
 /***************************************************************************
  * inline functions

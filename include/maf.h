@@ -51,6 +51,12 @@ typedef struct {
 } MAF_BLOCK;
                  
 
+
+MSA *maf_read_cats_subset(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
+		   GFF_Set *gff, CategoryMap *cm, int cycle_size, int store_order, 
+		   char *reverse_groups, int gap_strip_mode, int keep_overlapping,
+			  List* cats_to_do, List *seqnames, int seq_keep);
+
 MSA *maf_read_cats(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
 		   GFF_Set *gff, CategoryMap *cm, int cycle_size, int store_order, 
 		   char *reverse_groups, int gap_strip_mode, int keep_overlapping,
@@ -72,10 +78,11 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
                    int *start_idx, int *length, int do_toupper);
 
 int maf_read_block_addseq(FILE *f, MSA *mini_msa, Hashtable *name_hash,
-			  int *start_idx, int *length, int do_toupper);
+			  int *start_idx, int *length, int do_toupper,
+			  int skip_new_species);
 
 void maf_quick_peek(FILE *f, char ***names, Hashtable *name_hash,
-		    int *nseqs, int *refseqlen);
+		    int *nseqs, int *refseqlen, int add_seqs);
 
 void maf_peek(FILE *F, char ***names, Hashtable *name_hash, 
               int *nseqs, msa_coord_map *map, List *redundant_blocks,

@@ -125,6 +125,10 @@ int main(int argc, char* argv[]) {
   GFF_Set *gff;
   char *reverse_groups_tag = NULL;
 
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
   while ((c = getopt(argc, argv, "i:g:c:m:M:R:I:n:t:P:G:qh")) != -1) {
     switch(c) {
     case 'i':
@@ -299,10 +303,10 @@ int main(int argc, char* argv[]) {
         for (i = 0; i < msa->length; ) {
           if ((pat = msa_gap_patterns[i]) != 0) {
             if (complex_allowed[msa->categories[i]])
-              newpat = 1 + (random() * (double)npatterns / (RAND_MAX + 1.0));
+              newpat = 1 + ((double)npatterns * unif_rand());
             /* random number in interval [1, npatterns] */
             else 
-              newpat = 1 + (random() * (double)(npatterns-1) / (RAND_MAX + 1.0));
+              newpat = 1 + ((double)(npatterns-1) * unif_rand());
             /* random number in interval [1,npatterns-1] 
                (excludes complex gap pattern) */
             for (; i < msa->length && msa_gap_patterns[i] == pat; i++)

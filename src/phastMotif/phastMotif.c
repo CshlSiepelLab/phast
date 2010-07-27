@@ -146,6 +146,12 @@ int main(int argc, char *argv[]) {
   double prior = PRIOR;
   char c;
   GFF_Set *bedfeats = NULL;
+
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
+
   while ((c = getopt(argc, argv, "t:i:b:sk:md:pn:I:R:P:w:c:SB:o:HDxh")) != -1) {
     switch (c) {
     case 't':

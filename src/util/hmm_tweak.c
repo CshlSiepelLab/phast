@@ -93,6 +93,10 @@ int main(int argc, char *argv[]) {
   double gp_sum[5] = {0, 0, 0, 0, 0};
   int gp_count[5] = {0, 0, 0, 0, 0};
 
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
   while ((c = getopt(argc, argv, "m:a:e:f:t:i:u:F:T:zyRh")) != -1) {
     switch (c) {
     case 'm':

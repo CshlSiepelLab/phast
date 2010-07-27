@@ -19,6 +19,7 @@
 #include <msa.h>
 #include <maf.h>
 #include <ctype.h>
+#include <maf_block.h>
 
 
 /** Read An Alignment from a MAF file.  The alignment won't be
@@ -27,7 +28,7 @@
    be sorted with respect to the reference sequence.  Any blocks falling out
    of order, or which are redundant with previous blocks, will be discarded.
    This allows the MAF to be read in one pass.*/
-MSA *maf_read_cats(FILE *F,          /**< MAF file */
+MSA *maf_read_cats_subset(FILE *F,          /**< MAF file */
 		   FILE *REFSEQF,    /**< optional reference sequence.  If
 					non-NULL, the indicated file will
 					be used to define bases in regions
@@ -80,16 +81,23 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 		      reference sequence).  This is
 		      simply to avoid some complexity in
 		      coordinate mapping. */
-		   int keep_overlapping
+		   int keep_overlapping,
 		   /**< If TRUE, keep overlapping blocks,
 		      otherwise keep only first instance.
 		      Must be FALSE if store_order ==
 		      TRUE or gff != NULL or 
-		      cycle_size != -1 */,
-		   List *cats_to_do
+		      cycle_size != -1 */
+			  List *cats_to_do,
 		   /**< If non-NULL, only loads elements of the
 		      alignment with features in this list.  
 		      Requires gff != NULL and cm != NULL */
+			  List *seqnames, 
+			  /**< If non-NULL, this is the list of sequence names
+			     to keep (if seq_keep==TRUE) or discard 
+			     (if seq_keep==FALSE) */
+			  int seq_keep
+			  /**< Only used if seqnames != NULL, determines whether
+			     to keep only or discard seqnames */
 		   ) {
 
   /* NOTE: for now, if a GFF is defined, then all blocks are projected
@@ -157,10 +165,30 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 
   msa = msa_new(NULL, NULL, -1, 0, alphabet);
 
-  //look at first block to get initial sequence names and refseqlen
-  maf_quick_peek(F, &msa->names, name_hash, &msa->nseqs, &refseqlen);
+  if (seqnames != NULL) {
+    String *currname;
+    if (seq_keep) {
+      msa->names = smalloc(lst_size(seqnames)*sizeof(char*));
+      for (i=0; i<lst_size(seqnames); i++) {
+	currname = (String*)lst_get_ptr(seqnames, i);
+	hsh_put_int(name_hash, currname->chars, i);
+	msa->names[i] = strdup(currname->chars);
+      }
+      msa->nseqs = lst_size(seqnames);
+      maf_quick_peek(F, &msa->names, name_hash, NULL, &refseqlen, 0);
+    } else {
+      for (i=0; i<lst_size(seqnames); i++) {
+	currname = (String*)lst_get_ptr(seqnames, i);
+	hsh_put_int(name_hash, currname->chars, -2);
+      }
+      maf_quick_peek(F, &msa->names, name_hash, &msa->nseqs, &refseqlen, 1);
+    }
+  } else {
+    //look at first block to get initial sequence names and refseqlen
+    maf_quick_peek(F, &msa->names, name_hash, &msa->nseqs, &refseqlen, 1);
+  }
   if (msa->nseqs == 0 || refseqlen==-1) 
-    die("ERROR: got empty maf file\n");
+    die("ERROR: got invalid maf file\n");
   if (map != NULL)
     map->seq_len = refseqlen;
 
@@ -188,7 +216,10 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 
   msa->length = 0;
   if (store_order) {
-    msa->length = msa->alloc_len = max(msa->length, 500000);
+    if (REFSEQF != NULL) 
+      msa->alloc_len = msa->length = refseqlen;  //this may still not be big enough because of gaps in refseq
+    else 
+      msa->alloc_len = max(msa->length, 50000);
     max_tuples = min(msa->length,
 		     pow(strlen(msa->alphabet)+strlen(msa->missing)+1, 
 			 2 * msa->nseqs * tuple_size));
@@ -213,7 +244,7 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
   /* process MAF one block at a time */
   block_no = 0;
   while (maf_read_block_addseq(F, mini_msa, name_hash, &start_idx,
-			       &length, do_toupper) != EOF) {
+			       &length, do_toupper, seqnames != NULL && seq_keep) != EOF) {
 
     //sequence may have been added in maf_read_block so reset numseqs
     //do not have to reset msa->names since they are shared with mini_msa
@@ -304,12 +335,12 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
 	}
 	last_gap_start = idx;
       }
-      msa->length += gapsum_block;
+      /*      msa->length += gapsum_block;
       if (msa->length > msa->alloc_len) {
-	msa_realloc(msa, msa->length, max(2 * msa->length, idx + gap_sum), 0,
+      	msa_realloc(msa, msa->length, max(2 * msa->length, idx + gap_sum), 0,
 		    store_order);
 	
-      }
+		    }*/
     } /* end coordinate map section */
     
     if (gap_strip_mode != NO_STRIP) 
@@ -421,6 +452,9 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
       }
       else msa_idx = i;
 
+      if (msa_idx >= msa->length)
+	msa_realloc(msa, msa_idx+1, msa_idx + 10000, 0, store_order);
+
       assert(msa_idx >= 0);
 
       /* simple hack to handle the case where order is stored but 
@@ -526,6 +560,76 @@ MSA *maf_read_cats(FILE *F,          /**< MAF file */
   if (map != NULL) msa_map_free(map);
   if (free_cm) cm_free(cm);
   return msa;
+}
+
+
+MSA *maf_read_cats(FILE *F,          /**< MAF file */
+		   FILE *REFSEQF,    /**< optional reference sequence.  If
+					non-NULL, the indicated file will
+					be used to define bases in regions
+					of no alignment (not represented in
+					the MAF).  File format is expected
+					to be FASTA.  Ignored if
+					store_order == FALSE.  If NULL and
+					store_order == TRUE, then bases in
+					reference seq not present in MAF
+					are represented as Ns  */
+		   int tuple_size,   /**< tuple size for sufficient
+					statistics */
+		   char *alphabet,   /**< alphabet for alignment; if NULL,
+					DEFAULT_ALPHABET is assumed */
+		   GFF_Set *gff,     /**< optional GFF_Set.  If non-NULL,
+					category-specific counts will be
+					collected (cm must be non-NULL
+					also).  The gff is assumed to use
+					the indexing system of the
+					reference sequence (sequence 1).
+					Currently, a non-NULL gff implies
+					gap_strip_mode == 1 (projection
+					onto reference sequence).  */
+		   CategoryMap *cm,  /**< Used for category-specific
+					counts, ignored otherwise */
+		   int cycle_size,   /**< Label site categories
+					12...<cycle_size>...12...<cycle_size>
+					instead of using gff and cm.
+					Useful when stats are to be
+					collected for non-overlapping
+					tuples.  Use -1 to ignore. */
+		   int store_order,  /**< Whether to store order in which
+					tuples occur.  Storing order
+					requires more memory and larger
+					files, and is not necessary in many
+					cases. */
+		   char *reverse_groups, 
+		   /**< Tag defining groups in gff;
+		      indicates groups on negative strand
+		      should be reverse complemented.
+		      Ignored if NULL.  Useful when
+		      collecting counts for
+		      strand-specific categories.  Can't
+		      be used if store_order == TRUE */
+		   int gap_strip_mode,
+		   /**< Gap stripping mode.  Currently,
+		      if store_order == 1, may only have
+		      value NO_STRIP or 1 (indicating
+		      projection onto sequence 1, the
+		      reference sequence).  This is
+		      simply to avoid some complexity in
+		      coordinate mapping. */
+		   int keep_overlapping,
+		   /**< If TRUE, keep overlapping blocks,
+		      otherwise keep only first instance.
+		      Must be FALSE if store_order ==
+		      TRUE or gff != NULL or 
+		      cycle_size != -1 */
+			  List *cats_to_do
+		   /**< If non-NULL, only loads elements of the
+		      alignment with features in this list.  
+		      Requires gff != NULL and cm != NULL */
+			  ) {
+  return maf_read_cats_subset(F, REFSEQF, tuple_size, alphabet, gff, cm, cycle_size,
+			      store_order, reverse_groups, gap_strip_mode, 
+			      keep_overlapping, cats_to_do, NULL, 0);
 }
 
 MSA *maf_read(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
@@ -941,7 +1045,8 @@ MSA *maf_read_old(FILE *f, FILE *REFSEQF, int tuple_size, char *alphabet,
    sequence indices (prefix of name wrt '.' character); sequences not
    present in a block will be represented by missing-data characters. */
 int maf_read_block_addseq(FILE *F, MSA *mini_msa, Hashtable *name_hash, 
-			  int *start_idx, int *length, int do_toupper) {
+			  int *start_idx, int *length, int do_toupper,
+			  int skip_new_species) {
 
   int seqidx, more_blocks = 0, i, j;
   String *this_seq, *linebuffer = str_new(STR_VERY_LONG_LEN);
@@ -991,16 +1096,17 @@ int maf_read_block_addseq(FILE *F, MSA *mini_msa, Hashtable *name_hash,
     if (mini_msa->length == -1) 
       mini_msa->length = this_seq->length;
     else if (this_seq->length != mini_msa->length) {
-      fprintf(stderr, "ERROR: sequence lengths do not match in MAF block -- \n\tsee line \"%s\"\n", linebuffer->chars);
-      exit(1);
+      die("ERROR: sequence lengths do not match in MAF block -- \n\tsee line \"%s\"\n", linebuffer->chars);
     }
 
     /* obtain index of seq */
     seqidx = hsh_get_int(name_hash, this_name->chars);
-    if (seqidx == -1) {
+    if (seqidx == -2 || (seqidx == -1 && !skip_new_species)) {
       seqidx = msa_add_seq(mini_msa, this_name->chars);
       hsh_put_int(name_hash, this_name->chars, seqidx);
       mark = srealloc(mark, mini_msa->nseqs*sizeof(int));
+    } else if (seqidx == -1) {
+      goto msa_read_block_addseq_free_loop;
     }
     assert(str_equals_charstr(this_name, mini_msa->names[seqidx]));
 
@@ -1035,6 +1141,7 @@ int maf_read_block_addseq(FILE *F, MSA *mini_msa, Hashtable *name_hash,
     fflush(stdout);
     mini_msa->seqs[seqidx][this_seq->length] = '\0';
     mark[seqidx] = 1;
+  msa_read_block_addseq_free_loop:
     for (i = 0; i < lst_size(l); i++) str_free(lst_get_ptr(l, i));
   }
 
@@ -1099,8 +1206,7 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
     /* if we get here, linebuffer should contain a sequence line */
     str_split(linebuffer, NULL, l);    
     if (lst_size(l) != 7 || !str_equals_charstr(lst_get_ptr(l, 0), "s")) {
-      fprintf(stderr, "ERROR: bad sequence line in MAF file --\n\t\"%s\"\n", linebuffer->chars);
-      exit(1);
+      die("ERROR: bad sequence line in MAF file --\n\t\"%s\"\n", linebuffer->chars);
     }
     str_cpy(this_name, lst_get_ptr(l, 1));
     str_shortest_root(this_name, '.');
@@ -1201,8 +1307,10 @@ int gap_pair_compare(const void* ptr1, const void* ptr2) {
 /* Scan the first block of a MAF file to get a partial list of 
    sequence names (only roots of names are considered), and fill
    the hashtable with these names and a corresponding sequence
-   index.  Also get the length of refseq */
-void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, int *refseqlen) {
+   index.  Also get the length of refseq.  If add_seqs==0 will
+   not add any new seqs to names or name_hash (but still may
+   re-order names to put refseq first) */
+void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, int *refseqlen, int add_seqs) {
   String *line = str_new(STR_VERY_LONG_LEN);
   int count = 0, seqidx = 0, tmp, startidx, i, j, length, linenum=0;
   String *fullname = str_new(STR_SHORT_LEN), *name = str_new(STR_SHORT_LEN);
@@ -1234,9 +1342,11 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
 	  str_shortest_root(name, '.');
 	  assert(name->length > 0);
 	  if (hsh_get_int(name_hash, name->chars) == -1) {
-	    hsh_put_int(name_hash, name->chars, count);
-	    *names = srealloc(*names, (count+1) * sizeof(char*));
-	    (*names)[count] = strdup(name->chars);
+	    if (add_seqs) {
+	      hsh_put_int(name_hash, name->chars, count);
+	      *names = srealloc(*names, (count+1) * sizeof(char*));
+	      (*names)[count] = strdup(name->chars);
+	    }
 	    count++;
 	  }
 	  i=j-1;
@@ -1253,14 +1363,18 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
       str_cpy(name, fullname);
       str_shortest_root(name, '.');
       assert(name->length > 0); /* must be a non-empty name */
-      if (hsh_get_int(name_hash, name->chars) == -1) {
-        hsh_put_int(name_hash, name->chars, count);
-        *names = srealloc(*names, (count+1) * sizeof(char*));
-        (*names)[count] = strdup(name->chars);
-        count++;
+
+      if (hsh_get_int(name_hash, name->chars) == -1 && add_seqs) {
+	hsh_put_int(name_hash, name->chars, count);
+	*names = srealloc(*names, (count+1) * sizeof(char*));
+	(*names)[count] = strdup(name->chars);
+	count++;
       }
 
       if (seqidx == 0) { /* reference sequence */
+	if (hsh_get_int(name_hash, name->chars) == -1) {
+	  die("cannot disregard reference species (%s) when reading MAF file", name->chars);
+	}
         str_split(line, NULL, l);
         if (lst_size(l) != 7 || 
             str_as_int(lst_get_ptr(l, 2), &startidx) != 0 ||
@@ -1286,7 +1400,7 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
   fsetpos(F, &pos);
   str_free(line); str_free(fullname); str_free(name);
   lst_free_strings(l); lst_free(l);
-  *nseqs = count;
+  if (nseqs != NULL) *nseqs = count;
 }
 
 

@@ -243,8 +243,10 @@ void phmm_reflect_hmm(PhyloHmm *phmm, List *pivot_cats) {
 
   if (pivot_cats != NULL) {
     List *cats = cm_get_category_list(phmm->cm, pivot_cats, TRUE);
-    for (i = 0; i < lst_size(cats); i++)
+    for (i = 0; i < lst_size(cats); i++) {
       mark[lst_get_int(cats, i)] = 1;
+      //      printf("pivot state %i\n", lst_get_int(cats, i));
+    }
     lst_free(cats);
   }
 

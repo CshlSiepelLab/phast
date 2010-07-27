@@ -429,7 +429,7 @@ void msa_free(MSA *msa) {
 void reduce_to_4d(MSA *msa, CategoryMap *cm) {
   String *tmpstr = str_new_charstr("CDSplus");
   int cat_pos3[2];
-  int i, j, k, len = 0, is_4d, tuple_size = 3, idx;
+  int i, j, k, is_4d, tuple_size = 3, idx;
   char **seq, codon[3], key[msa->nseqs * 3 + 1];
   MSA *temp_msa, *new_msa;
   Hashtable *tuple_hash = hsh_new(msa->length);
@@ -1043,6 +1043,7 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
     e = msa_map_seq_to_seq(from_map, to_map, feat->end);
 
     if (s < 0 && e < 0) {
+      if (prev_name == feat->seqname) prev_name = NULL;
       gff_free_feature(feat);
       continue;
     }
@@ -1063,6 +1064,7 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
 	if (msa_get_char(msa, tseq-1, j) != GAP_CHAR)
 	  break;
       if (j==mend) {
+	if (prev_name == feat->seqname) prev_name = NULL;
 	gff_free_feature(feat);
 	continue;
       }
@@ -1173,9 +1175,11 @@ void msa_add_seq_ss(MSA *msa, int new_nseqs) {
 
 
 /* Adds a sequence name to the msa, and allocates space for the sequence.
-   Assumes sequence is not already present!  Returns the new sequence index. */
+   Assumes sequence is not already present!  Returns the new sequence index. 
+  Fills in new sequence with missing data, except for columns where all other
+  sequences contain a gap, then it fills in a gap instead */
 int msa_add_seq(MSA *msa, char *name) {
-  int seqidx = msa->nseqs;
+  int i, j, seqidx = msa->nseqs;
   
   if (msa->nseqs == 0)  {
       msa->names = smalloc(sizeof(char*));
@@ -1183,11 +1187,20 @@ int msa_add_seq(MSA *msa, char *name) {
   }
   else {
     msa->names = srealloc(msa->names, (seqidx+1)*sizeof(char*));
-    msa->seqs = srealloc(msa->seqs, (seqidx+1)*sizeof(char*));
+    if (msa->seqs != NULL) 
+      msa->seqs = srealloc(msa->seqs, (seqidx+1)*sizeof(char*));
   }
   msa->names[seqidx] = strdup(name);
-  if (msa->alloc_len > 0)
+  if (msa->alloc_len > 0) {
     msa->seqs[seqidx] = smalloc((msa->alloc_len+1)*sizeof(char));
+    for (i=0; i < msa->alloc_len; i++) {
+      for (j=0; j < msa->nseqs; j++)
+	if (msa->seqs[j][i] != GAP_CHAR) break;
+      if (j == msa->nseqs)
+	msa->seqs[seqidx][i] = GAP_CHAR;
+      else msa->seqs[seqidx][i] = msa->missing[0];
+    }
+  }
   if (msa->ss != NULL)
     msa_add_seq_ss(msa, seqidx+1);
   msa->nseqs++;
@@ -2107,10 +2120,70 @@ MSA *msa_concat_from_files(List *fnames, msa_format_type format,
   return retval;
 }
 
+
+void msa_concatenate(MSA *aggregate_msa, MSA *source_msa) {
+  Hashtable *name_hash=hsh_new(aggregate_msa->nseqs + source_msa->nseqs);
+  int nseq=aggregate_msa->nseqs, *source_msa_idx, i, j;
+  
+  for (i=0; i < aggregate_msa->nseqs; i++) 
+    hsh_put_int(name_hash, aggregate_msa->names[i], i);
+  for (i=0; i < source_msa->nseqs; i++) {
+    if (-1 == hsh_get_int(name_hash, source_msa->names[i])) {
+      hsh_put_int(name_hash, source_msa->names[i], nseq);
+      msa_add_seq(aggregate_msa, source_msa->names[i]);
+      nseq++;
+    }
+  }
+  if (aggregate_msa->ss != NULL && aggregate_msa->seqs==NULL)
+    ss_to_msa(aggregate_msa);
+  if (aggregate_msa->ss != NULL) {
+    ss_free(aggregate_msa->ss);
+    aggregate_msa->ss = NULL;
+  }
+
+  if (aggregate_msa->alloc_len == 0) {
+    aggregate_msa->alloc_len = aggregate_msa->length + source_msa->length;
+    for (j = 0; j < nseq; j++) {
+      aggregate_msa->seqs[j] = 
+        (char*)smalloc((aggregate_msa->alloc_len+1) * sizeof(char));
+      for (i=0; i < aggregate_msa->length; i++)
+	aggregate_msa->seqs[j][i] = msa_get_char(aggregate_msa, j, i);
+    }
+  }
+
+  else if (aggregate_msa->length + source_msa->length > 
+           aggregate_msa->alloc_len) {
+    aggregate_msa->alloc_len += source_msa->length * 2;
+    for (j = 0; j < aggregate_msa->nseqs; j++)
+      aggregate_msa->seqs[j] = 
+        (char*)srealloc(aggregate_msa->seqs[j], 
+                       (aggregate_msa->alloc_len+1) * sizeof(char));
+  }
+
+  source_msa_idx = smalloc(nseq*sizeof(int));
+  for (i=0; i < nseq; i++) source_msa_idx[i] = -1;
+  for (i=0; i < source_msa->nseqs; i++) 
+    source_msa_idx[hsh_get_int(name_hash, source_msa->names[i])] = i;
+  for (i = 0; i < source_msa->length; i++) {
+    for (j = 0; j < nseq; j++)
+      aggregate_msa->seqs[j][i+aggregate_msa->length] = 
+	source_msa_idx[j] == -1 ? aggregate_msa->missing[0] : 
+	msa_get_char(source_msa, source_msa_idx[j], i);
+  }
+
+  aggregate_msa->length += source_msa->length;
+  for (j = 0; j < aggregate_msa->nseqs; j++)
+    aggregate_msa->seqs[j][aggregate_msa->length] = '\0';
+
+  hsh_free(name_hash);
+  free(source_msa_idx);
+}
+
+
 /* Concatenate one MSA onto another.  Both alignments must have the
    same number of sequences and their order must correspond.  The
    sequence names of 'source_msa' will be ignored. */
-void msa_concatenate(MSA *aggregate_msa, MSA *source_msa) {
+void msa_concatenate_old(MSA *aggregate_msa, MSA *source_msa) {
   int i, j;
   assert(aggregate_msa->nseqs == source_msa->nseqs);
 
@@ -2467,7 +2540,7 @@ void msa_missing_to_gaps(MSA *msa, int refseq) {
           char c = ss_get_char_tuple(msa, i, j, -k);
           if (msa->is_missing[(int)c]) {
             if (j == refseq - 1 && c == 'N') {
-              int char_idx = 4.0 * random()/RAND_MAX;
+              int char_idx = 4.0 * unif_rand();
               set_col_char_in_string(msa, msa->ss->col_tuples[i], j, 
                                      msa->ss->tuple_size, -k, 
                                      msa->alphabet[char_idx]);
@@ -2485,7 +2558,7 @@ void msa_missing_to_gaps(MSA *msa, int refseq) {
       for (j = 0; j < msa->length; j++) {
         if (msa->is_missing[(int)msa->seqs[i][j]]) {
           if (i == refseq - 1 && msa->seqs[i][j] == 'N') {
-            int char_idx = 4.0 * random()/RAND_MAX;
+            int char_idx = 4.0 * unif_rand();
             msa->seqs[i][j] = msa->alphabet[char_idx];
           }
           else
@@ -2595,4 +2668,5 @@ void msa_realloc(MSA *msa, int new_length, int new_alloclen, int do_cats,
     ss_realloc(msa, msa->ss->tuple_size, msa->ss->alloc_ntuples, do_cats,
 	       store_order);
 }
+
 

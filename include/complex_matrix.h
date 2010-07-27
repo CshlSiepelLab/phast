@@ -50,7 +50,7 @@ void zmat_plus_eq(Zmatrix *thism, Zmatrix *addm);
 void zmat_minus_eq(Zmatrix *thism, Zmatrix *subm);
 void zmat_mult_real_diag(Matrix *A, Zmatrix *B, Zvector *C, Zmatrix *D,
                          Zmatrix *scratch);
-void zmat_as_real(Matrix *dest, Zmatrix *src, int strict);
+int zmat_as_real(Matrix *dest, Zmatrix *src, int strict);
 
 /***************************************************************************
  * inline functions

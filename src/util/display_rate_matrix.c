@@ -387,6 +387,10 @@ int main(int argc, char* argv[]) {
   Matrix *subst_mat = NULL;
   List *matrix_list = lst_new_ptr(20), *traversal = NULL;
 
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
   while ((c = getopt(argc, argv, "t:fedlLiM:N:A:B:aszSECh")) != -1) {
    switch(c) {
     case 't':

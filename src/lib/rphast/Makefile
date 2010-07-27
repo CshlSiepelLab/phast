@@ -6,7 +6,7 @@ OBJS =  $(addsuffix .o,$(basename $(wildcard *.c)))
 all: ${TARGETLIB}(${OBJS})
 
 %.o: %.c ../../make-include.mk
-	$(CC) $(CFLAGS) -c $< -o $@ 
+	$(CC) $(CFLAGS) -c $< -o $@ -DRPHAST 
 
 ${TARGETLIB}(${OBJS}) : ${OBJS} 
 	${AR} rs ${TARGETLIB} $?

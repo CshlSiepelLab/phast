@@ -23,6 +23,7 @@
 #include "phylo_p.h"
 #include "fit_column.h"
 #include "fit_feature.h"
+#include "trees.h"
 
 
 /* initialize phyloP options to default (may be different for rphast) */
@@ -75,8 +76,12 @@ TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa,
 
   if (subtree_name != NULL) {
     retval->subtree_root = tr_get_node(retval->tree, subtree_name);
-    if (retval->subtree_root == NULL) 
-      die("ERROR: no node named '%s'.\n", subtree_name);
+    if (retval->subtree_root == NULL)  {
+      tr_name_ancestors(retval->tree);
+      retval->subtree_root = tr_get_node(retval->tree, subtree_name);
+      if (retval->subtree_root == NULL)
+	die("ERROR: no node named '%s'.\n", subtree_name);
+    }
     /* also make sure the supertree has nonzero branch length in the
        unrooted tree */
     if ((retval->tree->lchild == retval->subtree_root && retval->tree->rchild->lchild == NULL) || 
@@ -243,8 +248,12 @@ void phyloP(struct phyloP_struct *p) {
   if (subtree_name != NULL && method != SPH) {
     /* (SPH is a special case -- requires rerooting) */
     mod->subtree_root = tr_get_node(mod->tree, subtree_name);
-    if (mod->subtree_root == NULL)
-      die("ERROR: no node named '%s'.\n", subtree_name);
+    if (mod->subtree_root == NULL) {
+      tr_name_ancestors(mod->tree);
+      mod->subtree_root = tr_get_node(mod->tree, subtree_name);
+      if (mod->subtree_root == NULL)
+	die("ERROR: no node named '%s'.\n", subtree_name);
+    }
   }
   if (branch_name != NULL) {
     TreeNode *n;
@@ -256,8 +265,13 @@ void phyloP(struct phyloP_struct *p) {
     for (j=0; j<lst_size(branch_name); j++) {
       nodeName = ((String*)lst_get_ptr(branch_name, j))->chars;
       n = tr_get_node(mod->tree, nodeName);
-      if (n == NULL) 
-	die("ERROR: no node named %s\n", nodeName);
+      if (n == NULL) {
+	tr_name_ancestors(mod->tree);
+	n = tr_get_node(mod->tree, nodeName);
+	if (n == NULL) {
+	  die("ERROR: no node named %s\n", nodeName);
+	}
+      }
       mod->in_subtree[n->id] = 1;
     }
     for (j=0; j<mod->tree->nnodes; j++)
@@ -523,7 +537,7 @@ void phyloP(struct phyloP_struct *p) {
 			      "null_scale\talt_scale\talt_subscale\tlnlratio\tpval",
                               feats, NULL, results, 5, 
 			      "null.scale", null_scales, "alt.scale", scales, 
-			      "alt.subsclae", sub_scales,"lnlratio", llrs,
+			      "alt.subscale", sub_scales,"lnlratio", llrs,
                               "pval", pvals);
       }
     }

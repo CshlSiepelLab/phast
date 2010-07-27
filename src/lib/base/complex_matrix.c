@@ -220,16 +220,19 @@ void zmat_mult_real_diag(Matrix *A, Zmatrix *B, Zvector *C, Zmatrix *D,
 /* "cast" complex matrix as real, by extracting real component of each
    element.  If strict == TRUE ensure imaginary components are zero
    (or very close)  */
-void zmat_as_real(Matrix *dest, Zmatrix *src, int strict) {
-  int i, j;
+int zmat_as_real(Matrix *dest, Zmatrix *src, int strict) {
+  int i, j, rv=0;
   assert(dest->nrows == src->nrows && dest->ncols == src->ncols);
   for (i = 0; i < src->nrows; i++) {
     for (j = 0; j < src->ncols; j++) {
       dest->data[i][j] = src->data[i][j].x;
-      if (strict && src->data[i][j].y >= 1e-6)
-	die("ERROR in zmat_as_real: src matrix has imaginary component %ei",
-	    src->data[i][j].y);
-      assert(!strict || src->data[i][j].y < 1e-6);
+      if (src->data[i][j].y >= 1e-6) {
+	rv = 1;
+	if (strict) 
+	  die("ERROR in zmat_as_real: src matrix has imaginary component %ei",
+	      src->data[i][j].y);
+      }
     }
   }
+  return rv;
 }

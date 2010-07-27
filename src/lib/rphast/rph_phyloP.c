@@ -64,7 +64,7 @@ SEXP rph_phyloP(SEXP modP, SEXP msaP, SEXP methodP, SEXP modeP,
     else 
       die("unknown phyloP mode %s\n", tempstr);
   }
-  if (gffP != R_NilValue)
+  if (gffP != R_NilValue) 
     p->feats = (GFF_Set*)EXTPTR_PTR(gffP);
 
   if (basewiseP != R_NilValue)

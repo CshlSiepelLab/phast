@@ -76,6 +76,10 @@ int main(int argc, char *argv[]) {
   List *mod_fname_list;
   msa_format_type msa_format = SS;
 
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
   while ((c = getopt_long(argc, argv, 
 			  "S:H:V:ni:k:l:C:G:zt:E:R:T:O:r:xL:sN:P:g:U:c:e:IY:D:JM:F:pA:Xqh", 
                           long_opts, &opt_idx)) != -1) {

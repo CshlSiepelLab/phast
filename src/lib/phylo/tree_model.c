@@ -26,7 +26,7 @@
 #include <unistd.h>
 #include <dgamma.h>
 #include <math.h>
-#include <pthr.h>
+#include <misc.h>
 
 #define ALPHABET_TAG "ALPHABET:"
 #define BACKGROUND_TAG "BACKGROUND:"
@@ -1321,7 +1321,7 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
         inSub[1] = inSubtree[r->id];
 
 	for (j=0; j<2; j++) {
-	  if (1.0*(double)random()/(double)RAND_MAX < subtreeSwitchProb) 
+	  if (unif_rand() < subtreeSwitchProb) 
 	    inSub[j]=!inSub[j];
 	}
 	if (inSub[0]) lmod = subtreeMod;
@@ -1439,8 +1439,18 @@ void tm_set_boundaries(Vector **lower_bounds, Vector **upper_bounds,
 	vec_set(*lower_bounds, mod->param_map[mod->backgd_idx+i], 0.001);
     }
   }
-  /* Check eq freqs in lineage-specific models too */
+  /* Also do not let rate matrix parameters get too small (this was
+     causing some errors diagonalizing the rate matrix, although the
+     errors were ultimately due to not enough data)*/
+  if (mod->estimate_ratemat) {
+    for (i = 0; i < tm_get_nratematparams(mod); i++) {
+      if (mod->param_map[mod->ratematrix_idx+i] >= 0) 
+	vec_set(*lower_bounds, mod->param_map[mod->ratematrix_idx+i], 1.0e-6);
+    }
+  }
+  /* Check eq freqs and rate matrix params in lineage-specific models too */
   if (mod->alt_subst_mods != NULL) {
+    subst_mod_type temp_mod = mod->subst_mod;
     for (j=0; j<lst_size(mod->alt_subst_mods); j++) {
       AltSubstMod *altmod = lst_get_ptr(mod->alt_subst_mods, j);
       if (altmod->backgd_freqs == NULL) continue;
@@ -1448,8 +1458,15 @@ void tm_set_boundaries(Vector **lower_bounds, Vector **upper_bounds,
 	for (i=0; i<altmod->backgd_freqs->size; i++)
 	  vec_set(*lower_bounds, mod->param_map[altmod->backgd_idx+i], 
 		  0.001);
+      mod->subst_mod = altmod->subst_mod;
+      for (i=0; i < tm_get_nratematparams(mod); i++) {
+	if (mod->param_map[altmod->ratematrix_idx+i] >= 0)
+	  vec_set(*lower_bounds, mod->param_map[altmod->ratematrix_idx+i], 1.0e-6);
+      }
     }
+    mod->subst_mod = temp_mod;
   }
+
 
   /* Also, in this case, we need to bound the scale of the subtree */
   if (mod->estimate_branchlens == TM_SCALE_ONLY && 
@@ -2337,8 +2354,8 @@ Vector *tm_params_init_random(TreeModel *mod) {
   tm_setup_params(mod);
   
   if (mod->estimate_branchlens == TM_SCALE_ONLY) {
-    vec_set(params, mod->scale_idx, 0.001+random()*2.0/RAND_MAX);
-    vec_set(params, mod->scale_idx+1, 0.001+random()*2.0/RAND_MAX);
+    vec_set(params, mod->scale_idx, 0.001+2.0*unif_rand());
+    vec_set(params, mod->scale_idx+1, 0.001+2.0*unif_rand());
   } else {
     vec_set(params, mod->scale_idx, 1.0);
     vec_set(params, mod->scale_idx+1, 1.0);
@@ -2357,7 +2374,7 @@ Vector *tm_params_init_random(TreeModel *mod) {
       else
         heights[n->id] = 
           max(heights[n->lchild->id], heights[n->rchild->id]) +
-          0.01 + random() * (0.5 - 0.01) / RAND_MAX;
+          0.01 + (0.5 - 0.01)*unif_rand();
     }
     for (i = 0; i < mod->tree->nnodes; i++) { /* has to follow index
                                                  order, excluding leaves */
@@ -2372,7 +2389,7 @@ Vector *tm_params_init_random(TreeModel *mod) {
   else {                        /* no clock */
     for (i = 0; i < nbranches; i++)
       vec_set(params, mod->bl_idx+i, 
-              0.01 + random() * (0.5 - 0.01) / RAND_MAX);
+              0.01 + (0.5 - 0.01) * unif_rand());
               /* we'll use the interval from 0.01 to 0.5 */
     tm_init_rootleaf(mod, params);
   }
@@ -2382,7 +2399,7 @@ Vector *tm_params_init_random(TreeModel *mod) {
       double val, sum = 0;
       for (i = 0; i < mod->nratecats; i++) {
         vec_set(params, mod->ratevar_idx + i, 
-                       val = 0.1 + random() * (1 - 0.5) / RAND_MAX);
+		val = 0.1 + (1 - 0.5) * unif_rand());
                                 /* we'll use the interval from 0.1 to 1 */
         sum += val;
       }
@@ -2393,18 +2410,18 @@ Vector *tm_params_init_random(TreeModel *mod) {
 
     else                        /* discrete gamma (alpha) */
       vec_set(params, mod->ratevar_idx, 
-                     0.5 + random() * (10 - 0.5) / RAND_MAX);
+	      0.5 + (10 - 0.5) * unif_rand());
                                 /* we'll use the interval from 0.5 to 10 */
   }
 
   for (i = 0; i < nratematparams; i++) 
     vec_set(params, mod->ratematrix_idx+i, 
-                   0.1 + random() * (5 - 0.1) / RAND_MAX);
+	    0.1 + (5 - 0.1) * unif_rand());
                                 /* we'll use the interval from 0.1 to 5 */
   if (mod->estimate_backgd) {
     double sum=0.0;
     for (i=0; i<size; i++) {
-      vec_set(params, mod->backgd_idx+i, random()/RAND_MAX);
+      vec_set(params, mod->backgd_idx+i, unif_rand());
       sum += vec_get(params, mod->backgd_idx+i);
     }
     for (i=0; i<size; i++)
@@ -2423,12 +2440,12 @@ Vector *tm_params_init_random(TreeModel *mod) {
 	nratematparams = tm_get_nratematparams(mod);
 	for (i=0; i<nratematparams; i++)
 	  vec_set(params, altmod->ratematrix_idx+i, 0.1 + 
-		  random()*(5-0.1)/RAND_MAX);
+		  (5-0.1)*unif_rand());
       }
       if (altmod->backgd_freqs != NULL) {
 	double sum=0.0;
 	for (i=0; i<size; i++)  {
-	  vec_set(params, altmod->backgd_idx+i, random()/RAND_MAX);
+	  vec_set(params, altmod->backgd_idx+i, unif_rand());
 	  sum += vec_get(params, altmod->backgd_idx+i);
 	}
 	for (i=0; i<size; i++)
@@ -2498,7 +2515,7 @@ void tm_fitch_rec_up(int *nodecost, TreeNode *tree,
 	  break;
 	}
       if (i == numMin[node]) 
-	state = minState[node][(int)(random()/RAND_MAX*(double)numMin[node])];
+	state = minState[node][(int)(unif_rand()*(double)numMin[node])];
     }      
 
     //now add cost to nodecost if state != parentState
@@ -2584,7 +2601,7 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod,
     }
     totalCost += weight*(double)tm_fitch_rec_down(mod->tree, numMinState, minState);
     if (numMinState[mod->tree->id] > 0) 
-      rootMinState = minState[mod->tree->id][(int)(random()/RAND_MAX*(double)numMinState[mod->tree->id])];
+      rootMinState = minState[mod->tree->id][(int)(unif_rand()*(double)numMinState[mod->tree->id])];
     else rootMinState = minState[mod->tree->id][0];
 
     tm_fitch_rec_up(nodecost, mod->tree, numMinState, minState, rootMinState);

@@ -46,6 +46,10 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
+#ifdef RPHAST
+  GetRNGstate();  //seed R's random number generator
+#endif
+
   /* first capture arg list for comment in output */
   for (i = 1; i < argc; i++) {
     str_append_charstr(args, argv[i]);

@@ -28,6 +28,10 @@ int main(int argc, char *argv[]) {
   TreeModel *tm;
   FILE *f;
 
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
   matches = mismatch = unique_to_query = unique_to_target = NULL;
 
   struct option long_opts[] = {

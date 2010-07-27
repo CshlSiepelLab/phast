@@ -233,6 +233,36 @@ GFF_Feature *gff_new_feature(String *seqname, String *source, String *feature,
   return feat;
 }
 
+/** Create new GFF_Feature object with specified attributes.  Strings
+   are copied by value.  Returns newly allocated GFF_Feature
+   object. */
+GFF_Feature *gff_new_feature_copy_chars(const char *seqname, const char *source, 
+					const char *feature,
+					int start, int end, double score, char strand, 
+					int frame, const char *attribute, 
+					int score_is_null) {
+  GFF_Feature *feat = (GFF_Feature*)smalloc(sizeof(GFF_Feature));
+
+  assert(seqname != NULL && source != NULL && feature != NULL && 
+         attribute != NULL && 
+         (strand == '+' || strand == '-' || strand == '.') &&
+         (frame == GFF_NULL_FRAME || (0 <= frame && frame <=2)));
+
+  feat->seqname = str_new_charstr(seqname);
+  feat->source = str_new_charstr(source);
+  feat->feature = str_new_charstr(feature);
+  feat->start = start;
+  feat->end = end;
+  feat->score = score;
+  feat->strand = strand;
+  feat->frame = frame;
+  feat->attribute = str_new_charstr(attribute);
+  feat->score_is_null = score_is_null;
+  return feat;
+}
+
+
+
 /** Create a new GFF_Feature from a genomic position string of the
    type used in the UCSC genome browser, e.g.,
    chr10:102553847-102554897.  A trailing '+' or '-' will be
@@ -289,12 +319,21 @@ GFF_Set *gff_new_set() {
 /** Create new GFF_Set object, initializing with same version, source,
     etc.\ as a template GFF_Set object */
 GFF_Set *gff_new_from_template(GFF_Set *gff) {
-  GFF_Set *retval = gff_new_set();
+  GFF_Set *retval = gff_new_set_len(lst_size(gff->features));
   str_cpy(retval->gff_version, gff->gff_version);
   str_cpy(retval->source, gff->source);
   str_cpy(retval->source_version, gff->source_version);
   str_cpy(retval->date, gff->date); 
   return retval;
+}
+
+/** Copy a GFF */
+GFF_Set *gff_set_copy(GFF_Set *gff) {
+  GFF_Set *rv = gff_new_from_template(gff);
+  int i;
+  for (i=0; i < lst_size(gff->features); i++)
+    lst_push_ptr(rv->features, gff_new_feature_copy(lst_get_ptr(gff->features, i)));
+  return rv;
 }
 
 /** Create new GFF_Set object, using typical defaults and other
@@ -323,8 +362,9 @@ GFF_Set *gff_new_set_init(char *source, char *source_version) {
    features and the set object itself). */ 
 void gff_free_set(GFF_Set *set) {
   int i;
+  if (set->groups != NULL) gff_ungroup(set);
   if (set->features != NULL) {
-    for (i = 0; i < lst_size(set->features); i++)
+    for (i = 0; i < lst_size(set->features); i++) 
       gff_free_feature((GFF_Feature*)lst_get_ptr(set->features, i));
     lst_free(set->features);
   }
@@ -332,7 +372,6 @@ void gff_free_set(GFF_Set *set) {
   str_free(set->source);
   str_free(set->source_version);
   str_free(set->date);
-  if (set->groups != NULL) gff_ungroup(set);
   free(set);
 }
 
@@ -614,6 +653,17 @@ void gff_sort(GFF_Set *set) {
   }
 }
 
+//like above, but don't sort the groups
+void gff_sort_within_groups(GFF_Set *set) {
+  int i;
+  if (set->groups != NULL) {
+    for (i=0; i < lst_size(set->groups); i++)
+      lst_qsort(((GFF_FeatureGroup*)lst_get_ptr(set->groups, i))->features, 
+                gff_feature_comparator);
+  }
+}
+
+
 /** Group features by value of specified tag.  All features with
     undefined values will be placed in a single group. */
 void gff_group(GFF_Set *set, char *tag) {
@@ -714,6 +764,83 @@ void gff_group_by_feature(GFF_Set *set) {
 
   }
   hsh_free(hash);
+}
+
+
+/** Group features by seqname.*/
+void gff_group_by_seqname(GFF_Set *set) {
+  int est_no_groups = max(lst_size(set->features) / 10, 1);
+  Hashtable *hash = hsh_new(est_no_groups);
+  int i;
+
+  if (set->groups != NULL)
+    gff_ungroup(set);
+
+  set->groups = lst_new_ptr(est_no_groups);
+  set->group_tag = str_new_charstr("seqname");
+
+  for (i = 0; i < lst_size(set->features); i++) {
+    GFF_Feature *f = lst_get_ptr(set->features, i);
+    GFF_FeatureGroup *group;
+    
+    if ((group = hsh_get(hash, f->seqname->chars)) == (void*)-1) {
+                                /* new group */
+      group = smalloc(sizeof(GFF_FeatureGroup));
+      group->name = str_dup(f->seqname);
+      group->features = lst_new_ptr(5);
+      group->start = f->start;
+      group->end = f->end;
+      lst_push_ptr(set->groups, group);
+      hsh_put(hash, f->seqname->chars, group);
+    }
+    else {                      /* new member for existing group */
+      if (f->start < group->start) group->start = f->start;
+      if (f->end > group->end) group->end = f->end;
+    }
+    lst_push_ptr(group->features, f);
+
+  }
+  hsh_free(hash);
+}
+
+
+/* group a set of features by seqname.  model is a GFF_Set already
+   grouped by seqname.  We want to use the same groups and have the 
+   same order as in model.  seqnames that exist in set but not in model
+   are not placed in any group.  returns 0 if all features are placed
+   in groups, 1 if any features are not placed in groups.
+ */
+int gff_group_by_seqname_existing_group(GFF_Set *set, GFF_Set *model) {
+  int i, ngroup, rv=0;
+  Hashtable *hash;
+  GFF_FeatureGroup *group;
+
+  ngroup = lst_size(model->groups);
+  hash = hsh_new(ngroup);
+  if (set->groups != NULL) gff_ungroup(set);
+  set->groups = lst_new_ptr(ngroup);
+  set->group_tag = str_new_charstr("seqname_existing");
+  for (i=0; i < ngroup; i++) {
+    group = smalloc(sizeof(GFF_FeatureGroup));
+    group->name = str_dup(((GFF_FeatureGroup*)lst_get_ptr(model->groups, i))->name);
+    group->features = lst_new_ptr(5);
+    group->start = -1; group->end = -1;
+    lst_push_ptr(set->groups, group);
+    hsh_put(hash, group->name->chars, group);
+  }
+  for (i=0; i < lst_size(set->features); i++) {
+    GFF_Feature *f = lst_get_ptr(set->features, i);
+    GFF_FeatureGroup *group;
+    if ((group = hsh_get(hash, f->seqname->chars)) != (void*)-1) {
+      if (group->start == -1 || f->start < group->start) 
+	group->start = f->start;
+      if (group->end == -1 || f->end > group->end)
+	group->end = f->end;
+      lst_push_ptr(group->features, f);
+    } else rv = 1;
+  }
+  hsh_free(hash);
+  return rv;
 }
 
 
@@ -1459,4 +1586,276 @@ void gff_add_offset(GFF_Set *gff, int offset, int maxCoord) {
   lst_free(gff->features);
   gff->features = keepers;
   if (gff->groups != NULL) gff_ungroup(gff);
+}
+
+
+
+int *gff_get_seqname(GFF_Set *gff, Hashtable *seqname_hash, int *nseq) {
+  GFF_Feature *feat;
+  int i, *rv;
+  rv = smalloc(lst_size(gff->features)*sizeof(int));
+  for (i=0; i<lst_size(gff->features); i++) {
+    feat = lst_get_ptr(gff->features, i);
+    rv[i] = hsh_get_int(seqname_hash, feat->seqname->chars);
+    if (rv[i] == -1) {
+      rv[i] = (*nseq)++;
+      hsh_put_int(seqname_hash, feat->seqname->chars, rv[i]);
+    }
+  }
+  return rv;
+}
+
+
+GFF_Set *gff_overlap_gff(GFF_Set *gff, GFF_Set *filter_gff, int numbaseOverlap,
+			 double percentOverlap, int nonOverlapping,
+			 int overlappingFragments) {
+  int i, j, g, feat2_start_idx, numbase, group_size[2];
+  int overlapStart, overlapEnd, currOverlapStart, currOverlapEnd, overlap_total;
+  double frac;
+  GFF_Feature *feat1, *feat2, *newfeat;
+  GFF_FeatureGroup *group1, *group2;
+  GFF_Set *rv = gff_new_set();
+
+  if (nonOverlapping && overlappingFragments) {
+    die("gff_overlap cannot be used with non-overlapping and overlappingFragments");
+  }
+  if (numbaseOverlap <= 0 && percentOverlap <=0)
+    die("either numbaseOverlap should be >=1 or percentOverlap should be in (0, 1)");
+
+  //make sure both gffs are sorted by seqname and start position
+  gff_group_by_seqname(gff);
+  gff_group_by_seqname_existing_group(filter_gff, gff);
+  gff_sort_within_groups(gff);
+  gff_sort_within_groups(filter_gff);
+  
+  for (g=0; g<lst_size(gff->groups); g++) {
+    group1 = lst_get_ptr(gff->groups, g);
+    group2 = lst_get_ptr(filter_gff->groups, g);
+    group_size[0] = lst_size(group1->features);
+    group_size[1] = lst_size(group2->features);
+    feat2_start_idx = 0;
+    if (group_size[1] == 0 || group1->end < group2->start || group2->end < group1->start) {
+      i=0;
+      goto gff_overlap_check_for_nonOverlapping;
+    }
+    feat2 = (GFF_Feature*)lst_get_ptr(group2->features, feat2_start_idx);
+    for (i=0; i < lst_size(group1->features); i++) {
+      feat1 = (GFF_Feature*)lst_get_ptr(group1->features, i);
+      overlapStart = -1;
+      overlapEnd = -1;
+      overlap_total = 0;
+      feat2 = (GFF_Feature*)lst_get_ptr(group2->features, feat2_start_idx);
+      while (feat2->end < feat1->start) {
+	feat2_start_idx++;
+	if (feat2_start_idx == group_size[1]) break;
+	feat2 = (GFF_Feature*)lst_get_ptr(group2->features, feat2_start_idx);
+      }
+      if (feat2_start_idx == group_size[1]) break;
+
+      // now feat2->end is at least as big as feat1->start
+      j = feat2_start_idx;
+      while (feat2->start <= feat1->end) {
+	currOverlapStart = max(feat1->start, feat2->start);
+	currOverlapEnd = min(feat1->end, feat2->end);
+
+	if (overlappingFragments) {
+	  numbase = (currOverlapEnd - currOverlapStart + 1);
+	  frac = (double)numbase/(double)(feat2->end - feat2->start + 1);
+	  if (overlappingFragments) {
+	    if ((percentOverlap < 0 || frac >= percentOverlap) && 
+		(numbaseOverlap < 0 || numbase >= numbaseOverlap)) {
+	      newfeat = gff_new_feature_copy(feat1);
+	      newfeat->start = currOverlapStart;
+	      newfeat->end = currOverlapEnd;
+	      lst_push_ptr(rv->features, newfeat);
+	    }
+	  }
+	} else {
+	  if (overlapEnd != -1 && overlapEnd < currOverlapStart) {
+	    overlap_total += (overlapEnd - overlapStart + 1);
+	    overlapStart = currOverlapStart;
+	    overlapEnd = currOverlapEnd;
+	  } else if  (overlapEnd != -1) {
+	    if (currOverlapEnd > overlapEnd) overlapEnd = currOverlapEnd;
+	  } else {
+	    overlapStart = currOverlapStart;
+	    overlapEnd = currOverlapEnd;
+	  }
+	}
+	j++;
+	if (j == group_size[1]) break;
+	feat2 = (GFF_Feature*)lst_get_ptr(group2->features, j);
+      }
+
+      if (!overlappingFragments) {
+	if (overlapEnd != -1) 
+	  overlap_total += (overlapEnd - overlapStart + 1);
+	frac = (double)overlap_total/(double)(feat1->end - feat1->start + 1);
+
+	if ((nonOverlapping == 0 && 
+	     (percentOverlap < 0 || frac >= percentOverlap) &&
+	     (numbaseOverlap < 0 || overlap_total >= numbaseOverlap)) ||
+	    (nonOverlapping &&
+	     (percentOverlap < 0 || frac < percentOverlap) &&
+	     (numbaseOverlap < 0 || overlap_total < numbaseOverlap))) {
+	  newfeat = gff_new_feature_copy(feat1);
+	  lst_push_ptr(rv->features, newfeat);
+	}
+      }
+    }
+  gff_overlap_check_for_nonOverlapping:
+    if (nonOverlapping && i < lst_size(group1->features)) {
+      for (; i< lst_size(group1->features); i++) {
+	newfeat = gff_new_feature_copy(lst_get_ptr(group1->features, i));
+	lst_push_ptr(rv->features, newfeat);
+      }
+    }
+  }
+  gff_ungroup(gff);
+  gff_ungroup(filter_gff);
+  return rv;
+}
+
+
+/*  flatten a GFF without regard to strand, score, feature type (though do merge these
+    appropriately).  Does pay attention to seqname (so elements on different chromosomes
+    are not merged).
+    If numbits is not null, compute the coverage of the gff.
+ */
+int gff_flatten_mergeAll(GFF_Set *gff) {
+  GFF_Feature *last, *this;
+  int i, j, numbits=0;
+  List *newfeats = lst_new_ptr(lst_size(gff->features));
+  gff_group_by_seqname(gff);
+  gff_sort_within_groups(gff);
+  for (i=0; i<lst_size(gff->groups); i++) {
+    GFF_FeatureGroup *group = lst_get_ptr(gff->groups, i);
+    last = lst_get_ptr(group->features, 0);
+    numbits += (last->end - last->start + 1);
+    lst_push_ptr(newfeats, last);   //always keep first feature
+    for (j=1; j<lst_size(group->features); j++) {
+      this = lst_get_ptr(group->features, j);
+      if (this->start <= last->end) {  //merge with previous
+	if (last->end < this->end) {
+	  numbits += (this->end - last->end);
+	  last->end = this->end;
+	}
+	if (!str_equals(last->source, this->source))
+	  str_cpy_charstr(last->source, "gff_featureBits");
+	last->score += this->score;
+	if (last->strand != this->strand)
+	  last->strand = '.';
+	if (last->frame != this->frame) 
+	  last->frame = GFF_NULL_FRAME;
+	if (!str_equals(last->attribute, this->attribute))
+	  str_cpy_charstr(last->attribute, ".");
+	if (this->score_is_null) 
+	  last->score_is_null = 1;
+	gff_free_feature(this);
+      } else {  //no overlap
+	last = this;
+	numbits += (this->end - this->start + 1);
+	lst_push_ptr(newfeats, this);
+      }
+    }
+  }
+  lst_free(gff->features);
+  gff->features = newfeats;
+  gff_ungroup(gff);
+  return numbits;
+}
+
+
+
+GFF_Set *gff_inverse(GFF_Set *gff, GFF_Set *region0) {
+  GFF_Set *region = gff_set_copy(region0), *notGff;
+  GFF_Feature *newfeat, *regionFeat, *currFeat;
+  GFF_FeatureGroup *regionG, *gffG;
+  int i, g, currStart, currEnd, regionStart, regionEnd, regionIdx;
+  
+  gff_flatten_mergeAll(region);
+  gff_group_by_seqname(region);
+  if (gff_group_by_seqname_existing_group(gff, region))  {
+    gff_free_set(region);
+    die("region does not contain all seqnames found in gff");
+  }
+  gff_sort_within_groups(region);
+  gff_sort_within_groups(gff);
+  notGff = gff_new_set();
+  
+  for (g=0; g < lst_size(region->groups); g++) {
+    regionG = lst_get_ptr(region->groups, g);
+    gffG = lst_get_ptr(gff->groups, g);
+    regionIdx = 0;
+    regionFeat = lst_get_ptr(regionG->features, regionIdx);
+    regionStart = regionFeat->start;
+    regionEnd = regionFeat->end;
+    for (i=0; i < lst_size(gffG->features); i++) {
+      currFeat = lst_get_ptr(gffG->features, i);
+      currStart = currFeat->start;
+      currEnd = currFeat->end;
+      while (currStart > regionEnd) {
+	if (regionStart <= regionEnd) {
+	  newfeat = gff_new_feature_copy_chars(regionFeat->seqname->chars,
+					       "gff_inverse", "inverse feat", 
+					       regionStart, regionEnd, 0, '.',
+					       GFF_NULL_FRAME, ".", TRUE);
+	  lst_push_ptr(notGff->features, newfeat);
+	}
+	regionIdx++;
+	if (regionIdx >= lst_size(gffG->features))
+	  die("gff contains coords (%s, %i, %i) outside region boundaries",
+	      currFeat->seqname->chars, currStart, currEnd);
+	regionFeat = lst_get_ptr(regionG->features, regionIdx);
+	regionStart = regionFeat->start;
+	regionEnd = regionFeat->end;
+      }
+      if (currEnd > regionEnd)
+	die("gff contains coords (%s, %i, %i) which exceeds region boundaries",
+	    currFeat->seqname->chars, currStart, currEnd);
+      if (currStart > regionStart) {
+	newfeat = gff_new_feature_copy_chars(regionFeat->seqname->chars,
+					     "gff_inverse", "inverse feat",
+					     regionStart, currStart-1, 0, '.',
+					     GFF_NULL_FRAME, ".", TRUE);
+	lst_push_ptr(notGff->features, newfeat);
+      }
+      if (regionStart <= currEnd)
+	regionStart = currEnd + 1;
+    }
+    if (regionStart <= regionEnd) {
+      newfeat = gff_new_feature_copy_chars(regionFeat->seqname->chars,
+					   "gff_inverse", "inverse feat",
+					   regionStart, regionEnd, 0, '.',
+					   GFF_NULL_FRAME, ".", TRUE);
+      lst_push_ptr(notGff->features, newfeat);
+    }
+  }
+  gff_free_set(region);
+  return notGff;
+}
+
+
+//Create a new GFF where features are split.  Maxlen can be
+//a single value or a vector of integers, values wil be recycled
+//to the number of features in gff.
+GFF_Set *gff_split(GFF_Set *gff, int *maxlen, int nmaxlen) {
+  GFF_Set *newgff = gff_new_set();
+  GFF_Feature *feat, *newfeat;
+  int i, idx=0, start, end;
+  for (i=0; i < lst_size(gff->features); i++) {
+    feat = lst_get_ptr(gff->features, i);
+    start = feat->start;
+    end = feat->end;
+    while (end - start + 1 > 0) {
+      newfeat = gff_new_feature_copy(feat);
+      newfeat->start = start;
+      newfeat->end = min(start + maxlen[idx] - 1, end);
+      lst_push_ptr(newgff->features, newfeat);
+      start += maxlen[idx];
+    }
+    idx++;
+    if (idx == nmaxlen) idx=0;
+  }
+  return newgff;
 }

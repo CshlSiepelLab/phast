@@ -750,13 +750,11 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
     }
     if (result != NULL) {
       char *tempstr;
-      tempstr = smalloc((strlen(f->seqname->chars)+1)*sizeof(char));
-      strcpy(tempstr, f->seqname->chars);
+      tempstr = strdup(f->seqname->chars);
       lst_push_ptr(resultList[0], tempstr);
       lst_push_int(resultList[1], f->start-1);
       lst_push_int(resultList[2], f->end);
-      tempstr = smalloc(((strlen(name==NULL ? "." : name->chars))+1)*sizeof(char));
-      strcpy(tempstr, name==NULL ? "." : name->chars);
+      tempstr = strdup(name == NULL ? "." : name->chars);
       lst_push_ptr(resultList[3], tempstr);
     }
     lst_free_strings(l);

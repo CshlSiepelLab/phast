@@ -659,8 +659,12 @@ int run_phyloFit(struct phyloFit_struct *pf) {
               *s2 = str_new_charstr(pf->subtree_name);
             str_root(s1, ':'); str_suffix(s2, ':'); /* parse string */
             mod->subtree_root = tr_get_node(mod->tree, s1->chars);
-            if (mod->subtree_root == NULL)
-              die("ERROR: no node named '%s'.\n", s1->chars);
+            if (mod->subtree_root == NULL) {
+	      tr_name_ancestors(mod->tree);
+	      mod->subtree_root = tr_get_node(mod->tree, s1->chars);
+	      if (mod->subtree_root == NULL)
+		die("ERROR: no node named '%s'.\n", s1->chars);
+	    }
             if (s2->length > 0) {
               if (str_equals_charstr(s2, "loss")) 
 		mod->scale_sub_bound = LB;

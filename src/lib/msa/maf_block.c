@@ -620,10 +620,24 @@ void mafBlock_reorder(MafBlock *block, List *specNameOrder) {
 }
 
 
-//frees all elements of block except prev and next pointers
-void mafBlock_free(MafBlock *block) {
+void mafBlock_free_data(MafBlock *block) {
   MafSubBlock *sub;
   int i;
+  
+  if (block->data != NULL) {
+    for (i=0; i<lst_size(block->data); i++) {
+      sub = (MafSubBlock*)lst_get_ptr(block->data, i);
+      mafSubBlock_free(sub);
+    }
+    lst_free(block->data);
+    block->data = NULL;
+  }
+  block->seqlen = 0;
+}
+
+
+//frees all elements of block except prev and next pointers
+void mafBlock_free(MafBlock *block) {
   if (block->aLine != NULL) {
     str_free(block->aLine);
     block->aLine = NULL;
@@ -632,15 +646,10 @@ void mafBlock_free(MafBlock *block) {
     hsh_free(block->specMap);
     block->specMap = NULL;
   }
-  if (block->data != NULL) {
-    for (i=0; i<lst_size(block->data); i++) {
-      sub = (MafSubBlock*)lst_get_ptr(block->data, i);
-      mafSubBlock_free(sub);
-    }
-    lst_free(block->data);
-  }
+  mafBlock_free_data(block);
   free(block);
 }
+
 
 FILE *mafBlock_open_outfile(char *fn, int argc, char *argv[]) {
   FILE *outfile;
@@ -750,6 +759,9 @@ void mafBlock_subAlign(MafBlock *block, int start, int end) {
 }
 
 
+//trim mafblock to only keep columns with indcies[startcol..endcol] wrt
+//refseq.  If refseq is null use frame of entire alignment.  If endcol is -1
+//then keep everything with index >= startcol.
 int mafBlock_trim(MafBlock *block, int startcol, int endcol, String *refseq,
 		  int offset) {
   MafSubBlock *sub=NULL;
@@ -773,8 +785,10 @@ int mafBlock_trim(MafBlock *block, int startcol, int endcol, String *refseq,
 
   if (startcol != 1 && endcol != -1 && startcol > endcol) 
     die("ERROR: startcol > endcol\n");
-  if (startcol > lastIdx) return 0;
-  if (endcol  != -1 && endcol < startIdx) return 0;
+  if (startcol > lastIdx || (endcol != -1 && endcol < startIdx)) {
+    mafBlock_free_data(block);
+    return 0;
+  }
   if (startcol <= startIdx && 
       (endcol   == -1 || endcol  >= lastIdx)) return 1;
   

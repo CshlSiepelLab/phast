@@ -58,7 +58,7 @@ typedef struct MAFBLOCK {
 void mafBlock_print(FILE *outfile, MafBlock *block, int pretty_print);
 MafBlock *mafBlock_read_next(FILE *mfile, Hashtable *specHash, int *numspec);
 
-MafSubBlock *mafSubBlock_coppy(MafSubBlock *src);
+MafSubBlock *mafSubBlock_copy(MafSubBlock *src);
 MafBlock *mafBlock_copy(MafBlock *src);
 
 //reorder rows of maf block given list with names of species in desired order
@@ -88,6 +88,8 @@ int mafBlock_get_start(MafBlock *block, String *specName);
 //given.  Returns total alignment length if specName == NULL.  Returns
 //-1 if specName not in block
 int mafBlock_get_size(MafBlock *block, String *specName);
+
+void mafBlock_free_data(MafBlock *block);
 
 void mafBlock_free(MafBlock *block);
 

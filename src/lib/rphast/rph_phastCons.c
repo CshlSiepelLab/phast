@@ -25,7 +25,9 @@ Last updated: 4/21/2010
 #include <local_alignment.h>
 #include <trees.h>
 #include <phast_cons.h>
+#include <hmm.h>
 #include <Rdefines.h>
+#include <R_ext/Random.h>
 
 SEXP rph_listOfLists_to_SEXP(ListOfLists *lol);
 
@@ -35,12 +37,15 @@ SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP estimateTreesP,
 		   SEXP targetCoverageP, SEXP expectedLengthP,
 		   SEXP initExpectedLengthP, SEXP viterbiP,
 		   SEXP scoreViterbiP, SEXP computeLnlP, 
-		   SEXP suppressProbsP, SEXP refIdxP) {
+		   SEXP suppressProbsP, SEXP refIdxP, SEXP hmmP,
+		   SEXP statesP, SEXP reflectStrandP) {
   struct phastCons_struct *p = phastCons_struct_new(1);
+  HMM *hmm;
   int i, *intp, numprotect=0;
   double *doublep;
   SEXP rv;
-
+  
+  GetRNGstate(); //seed R's random number generator
   p->msa = (MSA*)EXTPTR_PTR(msaP);
   p->mod = (TreeModel**)smalloc(LENGTH(modP)*sizeof(TreeModel*));
   for (i=0; i<LENGTH(modP); i++) {
@@ -105,6 +110,34 @@ SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP estimateTreesP,
   if (refIdxP != R_NilValue) 
     p->refidx = INTEGER_VALUE(refIdxP);
 
+  p->seqname = p->msa->names[p->refidx-1];
+
+  if (hmmP != R_NilValue) {
+    p->hmm = (HMM*)EXTPTR_PTR(hmmP);
+    p->two_state = FALSE;
+    p->nummod = p->hmm->nstates;
+  }
+  
+  if (statesP != R_NilValue) {
+    char tempstr[100];
+    p->states = lst_new_ptr(LENGTH(statesP));
+    intp = INTEGER_POINTER(statesP);
+    for (i=0; i < LENGTH(statesP); i++) {
+      sprintf(tempstr, "%i", intp[i]-1);
+      lst_push_ptr(p->states, str_new_charstr(tempstr));
+    }
+  }
+
+  if (reflectStrandP != R_NilValue) {
+    char tempstr[100];
+    p->pivot_states = lst_new_ptr(LENGTH(reflectStrandP));
+    intp = INTEGER_POINTER(reflectStrandP);
+    for (i=0; i < LENGTH(reflectStrandP); i++) {
+      sprintf(tempstr, "%i", intp[i]-1);
+      lst_push_ptr(p->pivot_states, str_new_charstr(tempstr));
+    }
+  }
+
   phastCons(p);
 
   //free anything allocated?
@@ -116,6 +149,7 @@ SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP estimateTreesP,
   } else rv=R_NilValue;
   
   free(p);
+  PutRNGstate();
   if (numprotect > 0) UNPROTECT(numprotect);
   return rv;
 }

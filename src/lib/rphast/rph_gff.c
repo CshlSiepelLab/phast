@@ -213,7 +213,7 @@ SEXP rph_gff_new(SEXP seqnameP, SEXP srcP, SEXP featureP, SEXP startP, SEXP endP
   int gfflen, i;
   int haveScore=0, haveStrand=0, haveFrame=0, haveAttribute=0, numProtect=5;
   String *seqname, *source, *feature, *attribute;
-  int *start, *end, frame, *frameVec;
+  int *start, *end, frame=GFF_NULL_FRAME, *frameVec;
   double *scoreVec, score;
   char strand;
   
@@ -237,7 +237,7 @@ SEXP rph_gff_new(SEXP seqnameP, SEXP srcP, SEXP featureP, SEXP startP, SEXP endP
     PROTECT(frameP = AS_INTEGER(frameP));
     haveFrame=1;
     frameVec = INTEGER_POINTER(frameP);
-  } else frame=GFF_NULL_FRAME;
+  }
   if (attributeP != R_NilValue) {
     PROTECT(attributeP = AS_CHARACTER(attributeP));
     haveAttribute=1;
@@ -278,3 +278,242 @@ SEXP rph_gff_new(SEXP seqnameP, SEXP srcP, SEXP featureP, SEXP startP, SEXP endP
   return rph_gff_new_extptr(gff);
 }
 
+SEXP rph_gff_minCoord(SEXP gffP) {
+  GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  GFF_Feature *f;
+  int i, mincoord=-1;
+  SEXP rv;
+  for (i=0; i<lst_size(gff->features); i++) {
+    f = (GFF_Feature*)lst_get_ptr(gff->features, i);
+    if (i==0 || f->start < mincoord)
+      mincoord = f->start;
+  }
+  PROTECT(rv = allocVector(INTSXP, 1));
+  INTEGER(rv)[0] = mincoord;
+  UNPROTECT(1);
+  return rv;
+}
+
+
+
+SEXP rph_gff_maxCoord(SEXP gffP) {
+  GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  GFF_Feature *f;
+  int i, maxcoord=-1;
+  SEXP rv;
+  for (i=0; i<lst_size(gff->features); i++) {
+    f = (GFF_Feature*)lst_get_ptr(gff->features, i);
+    if (i==0 || f->end > maxcoord)
+      maxcoord = f->end;
+  }
+  PROTECT(rv = allocVector(INTSXP, 1));
+  INTEGER(rv)[0] = maxcoord;
+  UNPROTECT(1);
+  return rv;
+}
+
+
+SEXP rph_gff_starts(SEXP gffP) {
+  GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  GFF_Feature *f;
+  int i;
+  SEXP rv;
+  PROTECT(rv = allocVector(INTSXP, lst_size(gff->features)));
+  for (i=0; i<lst_size(gff->features); i++) {
+    f = (GFF_Feature*)lst_get_ptr(gff->features, i);
+    INTEGER(rv)[i] = f->start;
+  }
+  UNPROTECT(1);
+  return rv;
+}
+
+
+SEXP rph_gff_ends(SEXP gffP) {
+  GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  GFF_Feature *f;
+  int i;
+  SEXP rv;
+  PROTECT(rv = allocVector(INTSXP, lst_size(gff->features)));
+  for (i=0; i<lst_size(gff->features); i++) {
+    f = (GFF_Feature*)lst_get_ptr(gff->features, i);
+    INTEGER(rv)[i] = f->end;
+  }
+  UNPROTECT(1);
+  return rv;
+}
+
+
+SEXP rph_gff_scores(SEXP gffP) {
+  GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  GFF_Feature *f;
+  int i;
+  SEXP rv;
+  PROTECT(rv = allocVector(REALSXP, lst_size(gff->features)));
+  for (i=0; i<lst_size(gff->features); i++) {
+    f = (GFF_Feature*)lst_get_ptr(gff->features, i);
+    REAL(rv)[i] = f->score;
+  }
+  UNPROTECT(1);
+  return rv;
+}
+
+
+
+SEXP rph_gff_seqnames(SEXP gffP) {
+  GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  GFF_Feature *f;
+  int i;
+  SEXP rv;
+  PROTECT(rv = allocVector(STRSXP, lst_size(gff->features)));
+  for (i=0; i < lst_size(gff->features); i++) {
+    f = (GFF_Feature*)lst_get_ptr(gff->features, i);
+    SET_STRING_ELT(rv, i, mkChar(f->seqname->chars));
+  }
+  UNPROTECT(1);
+  return rv;
+}
+
+
+SEXP rph_gff_overlapSelect(SEXP gffP, SEXP filter_gffP, 
+			   SEXP numbaseOverlapP,
+			   SEXP percentOverlapP,
+			   SEXP nonOverlappingP,
+			   SEXP overlappingFragmentsP) {
+  GFF_Set *gff, *filter_gff;
+  int numbaseOverlap, nonOverlapping;
+  double percentOverlap, overlappingFragments;
+
+  gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  filter_gff = (GFF_Set*)EXTPTR_PTR(filter_gffP);
+  if (percentOverlapP == R_NilValue)
+    percentOverlap = -1.0;
+  else percentOverlap = NUMERIC_VALUE(percentOverlapP);
+  if (nonOverlappingP == R_NilValue)
+    nonOverlapping = FALSE;
+  else nonOverlapping = LOGICAL_VALUE(nonOverlappingP);
+  if (numbaseOverlapP == R_NilValue)
+    numbaseOverlap = -1;
+  else numbaseOverlap = INTEGER_VALUE(numbaseOverlapP);
+  if (overlappingFragmentsP == R_NilValue)
+    overlappingFragments = FALSE;
+  else overlappingFragments = LOGICAL_VALUE(overlappingFragmentsP);
+
+  filter_gff = gff_overlap_gff(gff, filter_gff,
+			       numbaseOverlap, percentOverlap, nonOverlapping,
+			       overlappingFragments);
+  return rph_gff_new_extptr(filter_gff);
+}
+
+
+SEXP rph_gff_add_UTRs(SEXP gffP) {
+  GFF_Set *gff;
+  gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  gff_group(gff, "transcript_id");
+  gff_create_utrs(gff);
+  return gffP;
+}
+
+
+SEXP rph_gff_add_introns(SEXP gffP) {
+  GFF_Set *gff;
+  gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  gff_group(gff, "transcript_id");
+  gff_create_introns(gff);
+  return gffP;
+}
+
+
+SEXP rph_gff_inverse(SEXP gffP, SEXP regionP) {
+  GFF_Set *gff, *region, *notgff;
+  gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  region = (GFF_Set*)EXTPTR_PTR(regionP);
+  
+  notgff = gff_inverse(gff, region);
+  return rph_gff_new_extptr(notgff);
+}
+
+
+SEXP rph_gff_featureBits(SEXP gffListP, SEXP orP, SEXP returnGffP) {
+  int numGff, i, j, or, returnGff, numbit=0;
+  List *gfflist;
+  GFF_Set *gff, *newgff=NULL;
+  GFF_Feature *feat, *newfeat;
+  SEXP rv;
+
+  numGff = length(gffListP);
+  gfflist = lst_new_ptr(numGff);
+  //  Rf_PrintValue(gffListP);
+  for (i = 0; i < length(gffListP); i++) {
+    gff = (GFF_Set*)EXTPTR_PTR(VECTOR_ELT(gffListP, i));
+    lst_push_ptr(gfflist, gff);
+  }
+  or = LOGICAL_VALUE(orP);
+  returnGff = LOGICAL_VALUE(returnGffP);
+  if (!or && numGff >= 2) {
+    newgff = gff_overlap_gff(lst_get_ptr(gfflist, 0),
+			     lst_get_ptr(gfflist, 1),
+			     1, -1.0, FALSE, TRUE);
+    numbit = gff_flatten_mergeAll(newgff);
+    for (i=2; i < numGff; i++) {
+      gff = gff_overlap_gff(newgff,
+			    lst_get_ptr(gfflist, i),
+			    1, -1.0, FALSE, TRUE);
+      numbit = gff_flatten_mergeAll(gff);
+      gff_free_set(newgff);
+      newgff = gff;
+    }
+  } else {
+    newgff = gff_new_set();
+    for (i=0; i< numGff; i++) {
+      gff = (GFF_Set*)lst_get_ptr(gfflist, i);
+      for (j=0; j < lst_size(gff->features); j++) {
+	feat = lst_get_ptr(gff->features, j);
+	newfeat = gff_new_feature_copy(feat);
+	lst_push_ptr(newgff->features, newfeat);
+      }
+    }
+    numbit = gff_flatten_mergeAll(newgff);
+  }
+  lst_free(gfflist);
+  if (returnGff) 
+    return rph_gff_new_extptr(newgff);
+  gff_free_set(newgff);
+  PROTECT(rv = allocVector(INTSXP, 1));
+  INTEGER(rv)[0] = numbit;
+  UNPROTECT(1);
+  return rv;
+}
+
+
+SEXP rph_gff_append(SEXP gffListP) {
+  GFF_Set *newgff = gff_new_set(), *gff;
+  int i, j;
+  for (i=0 ; i<length(gffListP); i++) {
+    gff = (GFF_Set*)EXTPTR_PTR(VECTOR_ELT(gffListP, i));
+    for (j=0; j < lst_size(gff->features); j++) {
+      lst_push_ptr(newgff->features, 
+		   gff_new_feature_copy(lst_get_ptr(gff->features, j)));
+    }
+  }
+  return rph_gff_new_extptr(newgff);
+}
+
+
+SEXP rph_gff_split(SEXP gffP, SEXP maxLengthP) {
+  GFF_Set *gff, *newgff;
+  int *maxlen, maxlen_size;
+  gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  PROTECT(maxLengthP = AS_INTEGER(maxLengthP));
+  maxlen = INTEGER_POINTER(maxLengthP);
+  maxlen_size = LENGTH(maxLengthP);
+  newgff = gff_split(gff, maxlen, maxlen_size);
+  UNPROTECT(1);
+  return rph_gff_new_extptr(newgff);
+}
+
+
+SEXP rph_gff_sort(SEXP gffP) {
+  GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  gff_sort(gff);
+  return gffP;
+}

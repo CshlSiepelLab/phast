@@ -92,6 +92,7 @@ void tr_scale(TreeNode *t, double scale_const);
 void tr_scale_subtree(TreeNode *t, TreeNode *sub, double scale_const);
 void tr_prune(TreeNode **t, List *names, int all_but);
 void tr_prune_supertree(TreeNode **t, TreeNode *n);
+void tr_prune_subtree(TreeNode **t, TreeNode *n);
 TreeNode *tr_lca(TreeNode *tree, List *names);
 TreeNode *tr_hybrid(TreeNode *sub, TreeNode *super);
 double tr_scale_by_subtree(TreeNode *tree, TreeNode *sub);

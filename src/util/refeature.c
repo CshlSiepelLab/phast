@@ -136,6 +136,10 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
   while ((c = getopt_long(argc, argv, "o:i:l:g:e:d:UISfusbh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'o':

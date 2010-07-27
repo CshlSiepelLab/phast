@@ -93,6 +93,9 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
 
   pf = phyloFit_struct_new(0);
 

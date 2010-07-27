@@ -52,6 +52,10 @@ int main(int argc, char *argv[]) {
   char c;
   String *source, *sink;
 
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
   while ((c = getopt(argc, argv, "k:i:t:C:xh")) != -1) {
     switch(c) {
     case 'k':

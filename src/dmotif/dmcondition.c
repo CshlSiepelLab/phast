@@ -55,7 +55,11 @@ int main(int argc, char *argv[]) {
   int refidx = 1, cond_on_subs = FALSE, cond_spec = -1, nosubs = FALSE;
   String *cond_spec_str = NULL;
   msa_format_type msa_format = FASTA;  
-  
+
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
   while ((c = getopt_long(argc, argv, "M:r:X:x:i:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'M':

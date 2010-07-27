@@ -91,6 +91,10 @@ int main(int argc, char *argv[]) {
   dmevent_t event;
   tmpl = NULL;
 
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
   while ((c = getopt_long(argc, argv,
 			  "R:t:p:z:Z:F:E:C:r:M:o:N:P:I:L:l:k:S:B:b:e:n:j:s:h", 
 			  long_opts, &opt_idx)) != -1) {

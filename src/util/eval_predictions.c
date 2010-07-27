@@ -231,6 +231,10 @@ int main(int argc, char* argv[]) {
     tot_nexons_pred = 0, dump_exons = 0, nnc = -1, tot_nnc = -1, 
     nc_threshold = 0;
 
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
   while ((c = getopt(argc, argv, "r:p:f:l:d:n:h")) != -1) {
     switch(c) {
     case 'r':

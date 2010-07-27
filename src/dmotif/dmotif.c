@@ -75,7 +75,11 @@ int main(int argc, char *argv[]) {
   char *seqname = NULL, *idpref = NULL;
   IndelHistory *ih = NULL;
   subst_mod_type mmod_type = tm_get_subst_mod_type(DEFAULT_MMOD_TYPE);
-  
+
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
   while ((c = getopt_long(argc, argv, "R:t:p:z:Z:F:E:C:r:M:i:N:P:I:H:l:S:B:h", 
 			  long_opts, &opt_idx)) != -1) {
     switch (c) {

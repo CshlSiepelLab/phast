@@ -22,6 +22,9 @@
 #include <hashtable.h>
 #include <unistd.h>
 
+//this has a conflict with RPHAST
+#undef prec
+
 static int *prec;
 
 /** Read a CategoryMap from a file */

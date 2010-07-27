@@ -193,7 +193,7 @@ msa_view hmrc.ss -i SS --seqs human,mouse --unordered -o SS > hm.ss
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod UNREST --tree "((human, (mouse, rat)mouse-rat), cow)" -i SS --ignore-branches mouse-rat
 !phyloFit.mod @phyloFit hmrc.ss --precision LOW --tree "((human, (mouse, rat)), cow)" -i SS
 !phyloFit.mod @phyloFit hmrc.ss --init-model rev-em.mod -i SS
-!phyloFit.mod @phyloFit hmrc.ss --init-random --tree "((human, (mouse, rat)), cow)" -i SS
+#!phyloFit.mod @phyloFit hmrc.ss --init-random --tree "((human, (mouse, rat)), cow)" -i SS
 #parsimony
 !phyloFit.mod @phyloFit hmrc.ss --init-parsimony --tree "((human, (mouse, rat)), cow)" -i SS
 !parsimony.txt @phyloFit hmrc.ss --print-parsimony parsimony.txt --tree "((human, (mouse, rat)), cow)" -i SS
@@ -311,5 +311,13 @@ msa_view hmrc.fa -o SS > hmrc_short_a.ss
 @msa_view hmrc.ss --start 10000 --end 20000 -i SS
 @msa_view hmrc.ss -i SS | msa_view - --start 10000 --end 20000
 @msa_view hmrc.ss --summary -i SS
+@msa_view -i MAF -o SS chr22.14500000-15500000.maf
+@msa_view -i MAF -o SS --refseq chr22.14500000-15500000.fa chr22.14500000-15500000.maf
+@msa_view -i MAF -o SS --gap-strip 1 chr22.14500000-15500000.maf
 
-rm -f hmrc.fa hmrc.ph hmrc.mpm hmrc_short_a.ss
+refeature chr22.14500000-15500000.gp | awk -v OFS="\t" '{start=$4-14500000; end=$5-14500000; print $1,$2,$3,start,end,$6,$7,$8,$9}' > temp.gff
+@msa_view -i MAF -o SS --features temp.gff chr22.14500000-15500000.maf
+@msa_view -i MAF -o SS --features temp.gff --4d chr22.14500000-15500000.maf
+@msa_view -i MAF -o SS 
+
+rm -f hmrc.fa hmrc.ph hmrc.mpm hmrc_short_a.ss temp.gff

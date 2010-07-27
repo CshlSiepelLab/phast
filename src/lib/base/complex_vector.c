@@ -106,11 +106,16 @@ void zvec_had_prod(Zvector *dest, Zvector *src1, Zvector *src2) {
 /* "cast" complex vector as real, by extracting real component of each
    element.  If strict == TRUE ensure imaginary components are zero
    (or very close)  */
-void zvec_as_real(Vector *dest, Zvector *src, int strict) {
-  int i;
+int zvec_as_real(Vector *dest, Zvector *src, int strict) {
+  int i, rv = 0;
   assert(dest->size == src->size);
   for (i = 0; i < src->size; i++) {
     dest->data[i] = src->data[i].x;
-    assert(!strict || src->data[i].y < 1e-6);
+    if (src->data[i].y >= 1.0e-6) {
+      rv = 1;
+      if (strict) 
+	die("Error in zvec_as_real: src vector has imaginary component %ei", src->data[i].y);
+    }
   }
+  return rv;
 }

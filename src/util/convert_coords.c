@@ -58,6 +58,10 @@ int main(int argc, char* argv[]) {
   GFF_Set *gff;
   char c;
 
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
   while ((c = getopt(argc, argv, "m:f:s:d:i:p:n:")) != -1) {
     switch(c) {
     case 'm':

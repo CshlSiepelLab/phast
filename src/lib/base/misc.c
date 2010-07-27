@@ -21,6 +21,8 @@
 
 #define NCODONS 64
 
+//avoid conflict with R
+#undef choose
 /* fill an array with 1s or zeroes, indicating a random choice of k
    elements from a list of N.  The array 'selections' must already be
    allocated to be of length N, and should be initialized.
@@ -42,7 +44,7 @@ void choose(int *selections, int N, int k) {
 
   srandom(time(NULL));
   for (i = 0; i < k && lst_size(eligible) > 0; i++) {
-    int randidx = rint(1.0 * (lst_size(eligible)-1) * random() / RAND_MAX);
+    int randidx = rint(1.0 * (lst_size(eligible)-1) * unif_rand());
     int item = lst_get_int(eligible, randidx);
     selections[item] = 1;
     
@@ -65,7 +67,7 @@ void permute(int *permutation, int N) {
 
   srandom(time(NULL));
   for (i = 0; i < N; i++) {
-    randidx = rint(1.0 * (lst_size(eligible)-1) * random() / RAND_MAX);
+    randidx = rint(1.0 * (lst_size(eligible)-1) * unif_rand());
     assert(randidx >= 0 && randidx < lst_size(eligible));
     permutation[i] = lst_get_int(eligible, randidx);
     
@@ -441,7 +443,7 @@ void unif_draw(int n, double min, double max, double *draws, int antithetics) {
   int i;
   double range = max - min;
   for (i = 0; i < n; i++) {
-    draws[i] = min + range * random()/RAND_MAX;
+    draws[i] = min + range * unif_rand();
     if (antithetics) {
       draws[i+1] = min + (max - draws[i]);
       i++;
@@ -496,7 +498,7 @@ int bn_draw_fast(int n, double pp) {
     g = exp(-am);
     t = 1.0;
     for (j = 0; j <= n; j++) {
-      t *= random()/RAND_MAX;
+      t *= unif_rand();
       if (t < g) break;
     }
     bn1 = min(j, n);
@@ -517,7 +519,7 @@ int bn_draw_fast(int n, double pp) {
                                    comparison function */
     do {
       do {
-        angle = M_PI * random()/RAND_MAX;
+	angle = M_PI * unif_rand();
         y = tan(angle);
         em = sq * y + am;
       } while(em < 0 || em >= en + 1); /* reject */
@@ -525,7 +527,7 @@ int bn_draw_fast(int n, double pp) {
       t = 1.2*sq*(1+y*y)* 
         exp(oldg - lgamma(em+1) - lgamma(en-em+1) + 
             em*plog + (en-em)*pclog);
-    } while (random()/RAND_MAX > t);
+    } while (unif_rand() > t);
     bn1 = em;
   }
 
@@ -586,7 +588,8 @@ void mn_draw(int n, double *p, int d, int *counts) {
 /** Given a probability vector, draw an index.  Call srandom externally */
 int draw_index(double *p, int size) {
   int i;
-  double sum = 0, r = 1.0 * random()/RAND_MAX;
+  double sum = 0, r = unif_rand();
+  
   for (i = 0; i < size; i++) {
     sum += p[i];
     if (r < sum) break;
@@ -665,7 +668,7 @@ double half_chisq_cdf(double x, double dof, int lower_tail) {
 /* make a draw from an exponential distribution with parameter
    (expected value) 'b' */
 double exp_draw(double b) {
-  return -log(1.0 * random() / RAND_MAX) * b; /* inversion method */
+  return -log(unif_rand()) * b; /* inversion method */
 }
 
 /* make a draw from a gamma distribution with parameters 'a' and
@@ -687,8 +690,8 @@ double gamma_draw(double a, double b) {
       double U, V, W, X, Y, Z;
       double d = a - 1, c = 3 * a - 0.75;
 
-      U = 1.0*random()/RAND_MAX;	/* uniform on [0, 1]; used for draw */
-      V = 1.0*random()/RAND_MAX;	/* also uniform on [0, 1]; used for
+      U = unif_rand();  	/* uniform on [0, 1]; used for draw */
+      V = unif_rand();	        /* also uniform on [0, 1]; used for
                                        rejection/acceptance */
       W = U * (1 - U);
       Y = sqrt(c / W) * (U - 0.5); 

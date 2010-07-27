@@ -30,8 +30,12 @@ Last updated: 12/14/08
 #include <vector.h>
 #include <list_of_lists.h>
 
+//TODO: fix this!  Freeing hmm is causing crashes because phmm_reflect_hmm
+//frees it already (when calling phastCons --hmm --reflect-strand).  Not
+//sure how to get around, for now a small memory leak seems OK.
 void rph_hmm_free(SEXP hmmP) {
   HMM *hmm;
+  return;
   hmm = (HMM*)EXTPTR_PTR(hmmP);
   hmm_free(hmm);
 }
@@ -60,9 +64,9 @@ SEXP rph_hmm_new(SEXP matrixP, SEXP eqFreqP, SEXP beginFreqP,
   dim = m->nrows;
   for (i=0; i<dim; i++) {
     sum = 0.0;
-    for (j=0; j<dim; j++)
+    for (j=0; j<dim; j++) 
       sum += mat_get(m, i, j);
-    for (i=0; i<dim; i++)
+    for (j=0; j<dim; j++)
       mat_set(m, i, j, mat_get(m,i,j)/sum);
   }
   mm = mm_new_from_matrix(m, NULL, DISCRETE);

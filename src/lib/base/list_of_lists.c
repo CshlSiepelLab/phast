@@ -67,7 +67,7 @@ void lol_push_dbl(ListOfLists *lol, double *vals, int len,
 //add a list of ints to end of LOL object.  Copies all values.
 void lol_push_int(ListOfLists *lol, int *vals, int len,
 		  const char *name) {
-  List *lst = lst_new_dbl(len);
+  List *lst = lst_new_int(len);
   int i;
   for (i=0; i<len;  i++) 
     lst_push_int(lst, vals[i]);
@@ -128,8 +128,8 @@ void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
   if (tm->rate_matrix != NULL && tm->rate_matrix->matrix != NULL) 
     lol_push_matrix(tmList, tm->rate_matrix->matrix, "rate.matrix");
   str = copy_charstr(tm_get_subst_mod_string(tm->subst_mod));
-  free(str);
   lol_push_charvec(tmList, &str, 1, "subst.mod");
+  free(str);
   if (tm->lnL != NULL_LOG_LIKELIHOOD)
     lol_push_dbl(tmList, &(tm->lnL), 1, "likelihood");
   if (tm->alpha != 0.0)

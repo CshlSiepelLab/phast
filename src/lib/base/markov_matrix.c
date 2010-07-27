@@ -403,6 +403,7 @@ void mm_diagonalize_real(MarkovMatrix *M) {
   zvec_as_real(M->evals_r, evals_z, TRUE);
   zmat_as_real(M->evec_matrix_r, evecs_z, TRUE);
   zmat_as_real(M->evec_matrix_inv_r, evecs_inv_z, TRUE);
+  mm_diagonalize_complex(M);
 } 
 
 void mm_diagonalize(MarkovMatrix *M) { 

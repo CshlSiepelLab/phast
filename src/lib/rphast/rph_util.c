@@ -37,3 +37,11 @@ Matrix *rph_get_matrix(SEXP matP) {
 }
 
 
+SEXP rph_list_len(SEXP listP) {
+  List* l= (List*)EXTPTR_PTR(listP);
+  SEXP rv;
+  PROTECT(rv = allocVector(INTSXP, 1));
+  INTEGER(rv)[0] = (int)lst_size(l);
+  UNPROTECT(1);
+  return rv;
+}

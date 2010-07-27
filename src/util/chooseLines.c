@@ -33,6 +33,12 @@ int main(int argc, char *argv[]) {
   String *line = str_new(STR_MED_LEN);
   int *chosen;
   char c;
+
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
+
   while ((c = getopt(argc, argv, "k:rh")) != -1) {
     switch (c) {
     case 'k':

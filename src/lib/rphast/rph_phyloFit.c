@@ -27,7 +27,7 @@ Last updated: 1/5/2010
 #include <phylo_fit.h>
 
 #include <Rdefines.h>
-
+#include <R_ext/Random.h>
 
 TreeNode* rph_tree_new(SEXP treeStr);
 subst_mod_type rph_get_subst_mod(SEXP mod);
@@ -147,6 +147,8 @@ SEXP rph_phyloFit(SEXP msaP,
 		  SEXP alphaP,
 		  SEXP rateConstantsP,
 		  SEXP initModP,
+		  SEXP noFreqsP,
+		  SEXP noRatesP,
 		  SEXP initRandomP,
 		  SEXP initParsimonyP,
 		  SEXP clockP,
@@ -158,8 +160,10 @@ SEXP rph_phyloFit(SEXP msaP,
   struct phyloFit_struct *pf;
   int numProtect=0, i;
   double *doubleP;
+  char *die_message=NULL;
   struct phyloFit_result_struct *result;
 
+  GetRNGstate(); //seed R's random number generator
   pf = phyloFit_struct_new(1);  //sets appropriate defaults for RPHAST mode
 
   pf->msa = (MSA*)EXTPTR_PTR(msaP);
@@ -194,6 +198,10 @@ SEXP rph_phyloFit(SEXP msaP,
     pf->input_mod = (TreeModel*)EXTPTR_PTR(initModP);
 
   pf->random_init = LOGICAL_VALUE(initRandomP);
+
+  pf->no_freqs = LOGICAL_VALUE(noFreqsP);
+
+  pf->no_rates = LOGICAL_VALUE(noRatesP);
   
   pf->init_parsimony = LOGICAL_VALUE(initParsimonyP);
   
@@ -207,7 +215,10 @@ SEXP rph_phyloFit(SEXP msaP,
     pf->precision = OPT_MED_PREC;
   else if (strcmp(CHARACTER_VALUE(precisionP), "HIGH")==0)
     pf->precision = OPT_HIGH_PREC;
-  else die("invalid precision");
+  else {
+    die_message = "invalid precision";
+    goto rph_phyloFit_end;
+  }
 
   pf->estimated_models = lst_new_ptr(50);
   pf->model_labels = lst_new_ptr(50);
@@ -226,6 +237,7 @@ SEXP rph_phyloFit(SEXP msaP,
   result->models = pf->estimated_models;
   result->labels = pf->model_labels;
 
+ rph_phyloFit_end:
   if (pf->tree != NULL)
     tr_free(pf->tree);
   if (pf->subtree_name != NULL)
@@ -233,8 +245,9 @@ SEXP rph_phyloFit(SEXP msaP,
   if (pf->rate_consts != NULL)
     lst_free(pf->rate_consts);
   free(pf);
-
+  PutRNGstate();
   if (numProtect > 0) 
     UNPROTECT(numProtect);
+  if (die_message != NULL) die(die_message);
   return rph_phyloFit_result_new_extptr(result);
 }

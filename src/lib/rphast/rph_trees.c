@@ -157,11 +157,38 @@ SEXP rph_tree_subtree(SEXP treeStr, SEXP nodeStr) {
   TreeNode *n;
   char *newTreeStr;
   SEXP result;
+  n = tr_get_node(tr, CHARACTER_VALUE(nodeStr));
+  if (n == NULL) {
+    tr_name_ancestors(tr);
+    n = tr_get_node(tr, CHARACTER_VALUE(nodeStr));
+    if (n == NULL)
+      die("No node named %s", CHARACTER_VALUE(nodeStr));
+  }
+  tr_prune_supertree(&tr, n);
+  newTreeStr = tr_to_string(tr, 1);
+  PROTECT(result = NEW_CHARACTER(1));
+  SET_STRING_ELT(result, 0, mkChar(newTreeStr));
+  free(newTreeStr);
+  tr_free(tr);
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_tree_supertree(SEXP treeStr, SEXP nodeStr) {
+  TreeNode *tr = rph_tree_new(treeStr);
+  TreeNode *n;
+  char *newTreeStr;
+  SEXP result;
 
   n = tr_get_node(tr, CHARACTER_VALUE(nodeStr));
-  if (n == NULL)
-    die("No node named %s", CHARACTER_VALUE(nodeStr));
-  tr_prune_supertree(&tr, n);
+  if (n == NULL) {
+    tr_name_ancestors(tr);
+    n = tr_get_node(tr, CHARACTER_VALUE(nodeStr));
+    if (n == NULL)
+      die("No node named %s", CHARACTER_VALUE(nodeStr));
+  }
+  tr_prune_subtree(&tr, n);
   newTreeStr = tr_to_string(tr, 1);
   PROTECT(result = NEW_CHARACTER(1));
   SET_STRING_ELT(result, 0, mkChar(newTreeStr));
@@ -181,9 +208,13 @@ SEXP rph_tree_scale(SEXP treeStr, SEXP scaleP, SEXP nodeStr) {
   if (nodeStr != R_NilValue) {
     TreeNode *n;
     n = tr_get_node(tr, CHARACTER_VALUE(nodeStr));
-    if (n == NULL)
-      die("No node named %s in %s\n", CHARACTER_VALUE(nodeStr),
-	  CHARACTER_VALUE(treeStr));
+    if (n == NULL) {
+      tr_name_ancestors(tr);
+      n = tr_get_node(tr, CHARACTER_VALUE(nodeStr));
+      if (n == NULL) 
+	die("No node named %s in %s\n", CHARACTER_VALUE(nodeStr),
+	    CHARACTER_VALUE(treeStr));
+    }
     tr_scale_subtree(tr, n, scale);
   } 
   else tr_scale(tr, scale);
@@ -223,6 +254,7 @@ SEXP rph_tree_rename(SEXP treeVec, SEXP oldNamesP, SEXP newNamesP) {
     str = tr_to_string(tr, 1);
     SET_STRING_ELT(result, treeIdx, mkChar(str));
     free(str);
+    tr_free(tr);
   }
   hsh_free_with_vals(hash);
   UNPROTECT(1);
@@ -242,6 +274,7 @@ SEXP rph_tree_nodeName(SEXP treeP, SEXP idP) {
   if (id != n->id) die("id-mixup in tree");
   PROTECT(result = NEW_CHARACTER(1));
   SET_STRING_ELT(result, 0, mkChar(n->name));
+  tr_free(tr);
   UNPROTECT(1);
   return result;
 }
@@ -260,6 +293,36 @@ SEXP rph_tree_isNode(SEXP treeP, SEXP nodeName) {
   PROTECT(result = NEW_LOGICAL(1));
   resultP = LOGICAL_POINTER(result);
   resultP[0] = (i < tr->nnodes);
+  tr_free(tr);
   UNPROTECT(1);
   return result;
+}
+
+
+SEXP rph_tree_branchlen(SEXP treeP) {
+  TreeNode *tr = rph_tree_new(treeP);
+  SEXP rv;
+
+  PROTECT(rv = NEW_NUMERIC(1));
+  REAL(rv)[0] = tr_total_len(tr);
+  tr_free(tr);
+  UNPROTECT(1);
+  return rv;
+}
+
+
+SEXP rph_tree_depth(SEXP treeP, SEXP nodeP) {
+  TreeNode *tr = rph_tree_new(treeP), *node;
+  SEXP rv;
+  
+  node = tr_get_node(tr, CHARACTER_VALUE(nodeP));
+  if (node == NULL) {
+    tr_free(tr);
+    die("no node named %s", CHARACTER_VALUE(nodeP));
+  }
+  PROTECT(rv = NEW_NUMERIC(1));
+  REAL(rv)[0] = tr_distance_to_root(node);
+  tr_free(tr);
+  UNPROTECT(1);
+  return rv;
 }

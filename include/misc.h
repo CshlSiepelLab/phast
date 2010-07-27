@@ -164,11 +164,14 @@ Matrix* read_subst_mat(FILE *F, char *alph);
 FILE* fopen_fname(const char *fname, char *mode);
 #ifdef RPHAST
 #include <R_ext/Error.h>
+#include <Rmath.h>
+#include <R_ext/Random.h>
 #define die Rf_error
 #define phast_warning Rf_warning
 #else
 void phast_warning(const char *warnfmt, ...);
 void die(const char *warnfmt, ...);
+#define unif_rand(void) (1.0*random()/RAND_MAX)
 #endif
 List *get_arg_list(char *arg);
 List *remaining_arg_list(char *argv[], int argc, int optind);

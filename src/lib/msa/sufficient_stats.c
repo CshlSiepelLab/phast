@@ -114,12 +114,15 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
     ss_new(msa, tuple_size, max_tuples, do_cats, store_order);
     if (source_msa != NULL) msa->length = source_msa->length;
   }
-  else if (idx_offset < 0) {    /* if storing order based on source
+  else {  //if (idx_offset < 0) {    
+    /* if storing order based on source
                                    alignments and offset, then assume
                                    proper preallocation; otherwise
                                    (this case), realloc to accommodate
                                    new source msa */
-    msa->length += source_msa->length;
+    int newlen = effective_offset + source_msa->length;
+    msa_realloc(msa, newlen, newlen+100000, 
+		do_cats, store_order);
     if (source_msa->ss != NULL) 
       upper_bound = msa->ss->ntuples + source_msa->ss->ntuples;
     else
@@ -240,8 +243,12 @@ void ss_new(MSA *msa, int tuple_size, int max_ntuples, int do_cats,
   ss->ntuples = 0;
   ss->tuple_idx = NULL;
   ss->cat_counts = NULL;
-  if (store_order)
-    ss->tuple_idx = (int*)smalloc(msa->length * sizeof(int));
+  ss->alloc_len = max(1000, msa->length);
+  if (store_order) {
+    ss->tuple_idx = (int*)smalloc(ss->alloc_len * sizeof(int));
+    for (i=0; i < ss->alloc_len; i++)
+      ss->tuple_idx[i] = -1;
+  }
   ss->col_tuples = (char**)smalloc(max_ntuples * sizeof(char*));
   for (i = 0; i < max_ntuples; i++) ss->col_tuples[i] = NULL;
   ss->counts = (double*)smalloc(max_ntuples * sizeof(double));
@@ -255,7 +262,6 @@ void ss_new(MSA *msa, int tuple_size, int max_ntuples, int do_cats,
         ss->cat_counts[j][i] = 0;
     }
   }
-  ss->alloc_len = msa->length;  /* see ss_realloc */
   ss->alloc_ntuples = max_ntuples;
 }
 
@@ -503,6 +509,7 @@ void ss_to_msa(MSA *msa) {
   msa->seqs = (char**)smalloc(msa->nseqs*sizeof(char*));
   for (i = 0; i < msa->nseqs; i++) 
     msa->seqs[i] = ss_get_one_seq(msa, i);
+  msa->alloc_len = msa->length;
 }
 
 

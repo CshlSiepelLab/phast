@@ -400,7 +400,7 @@ int pv_draw_idx_arr(double *arr, int n) {
   int i;
   double sum, r;
   sum = 0;
-  r = 1.0 * random()/RAND_MAX;
+  r = unif_rand();
   for (i = 0; i < n; i++) {
     sum += arr[i];
     if (r < sum) break;

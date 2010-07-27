@@ -54,6 +54,10 @@ int main(int argc, char *argv[]) {
   String *cbname;
   ThreadPool *pool;
 
+#ifdef RPHAST
+  GetRNGstate(); //seed R's random number generator
+#endif
+
   struct option long_opts[] = {
     {"refidx", 1, 0, 'r'},
     {"rho", 1, 0, 'R'},

@@ -126,6 +126,13 @@ GFF_Feature *gff_new_feature(String *seqname, String *source, String *feature,
                              int start, int end, double score, char strand, 
                              int frame, String *attribute, int score_is_null);
 
+GFF_Feature *gff_new_feature_copy_chars(const char *seqname, const char *source,
+					const char *feature,
+					int start, int end, double score, 
+					char strand, int frame, 
+					const char *attribute,
+					int score_is_null);
+
 GFF_Feature *gff_new_feature_genomic_pos(String *position, String *source, 
                                          String *feature, double score, 
                                          int frame, String *attribute,
@@ -203,10 +210,24 @@ void gff_flatten(GFF_Set *feats);
 
 void gff_flatten_within_groups(GFF_Set *feats);
 
+//returns the total number of bases covered by feats,
+//and flattens without regard to feature type, strand, or frame,
+// but with regard to seqname only
+int gff_flatten_mergeAll(GFF_Set *feats);
+
 void gff_partition_by_type(GFF_Set *feats, List *types, List *subsets);
 
 void gff_clear_set(GFF_Set *gff);
 
 void gff_add_offset(GFF_Set *gff, int offset, int maxCoord);
+
+GFF_Set *gff_overlap_gff(GFF_Set *gff, GFF_Set *filter_gff,
+			 int numbase_overlap, 
+			 double percentOverlap,
+			 int nonOverlapping,
+			 int overlappingFragments);
+
+GFF_Set *gff_inverse(GFF_Set *gff, GFF_Set *region0);
+GFF_Set *gff_split(GFF_Set *gff, int *maxlen, int nmaxlen);
 
 #endif
