@@ -283,10 +283,10 @@ MSA *maf_read_cats_subset(FILE *F,          /**< MAF file */
     if (first_idx == -1) {
       first_idx = start_idx;
       if (store_order && REFSEQF == NULL) {
-	msa->idx_offset = first_idx;
-	/* reprime map->seq_list if necessary */
-	if (map != NULL && first_idx != 0)
-	  lst_set_int(map->seq_list, 0, msa->idx_offset + 1);
+        msa->idx_offset = first_idx < 0 ? 0 : first_idx;
+        /* reprime map->seq_list if necessary */
+        if (map != NULL && first_idx != 0)
+          lst_set_int(map->seq_list, 0, msa->idx_offset + 1);
       }
     }
     if (start_idx + length > last_idx)
