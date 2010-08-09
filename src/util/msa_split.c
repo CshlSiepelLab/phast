@@ -766,8 +766,13 @@ int main(int argc, char* argv[]) {
          reference sequence: orig_start will be off by one in this
          case because of the way the coord mapping is done */
       if (map != NULL && 
-          msa_get_char(msa, partition_frame-1, start - 1) == GAP_CHAR) 
-        orig_start++;
+          msa_get_char(msa, partition_frame-1, start - 1) == GAP_CHAR) {
+	//if orig_start == -1 this is presumably because we are at
+	//very beginning of alignment and coordinate map didn't include this
+	//position
+	if (orig_start == -1) orig_start = 1;
+        else orig_start++;
+      }
       
       if (segment_ends_list == NULL) {
         end = (i == lst_size(split_indices_list)-1 ? msa->length :

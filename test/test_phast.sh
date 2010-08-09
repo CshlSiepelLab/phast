@@ -318,6 +318,5 @@ msa_view hmrc.fa -o SS > hmrc_short_a.ss
 refeature chr22.14500000-15500000.gp | awk -v OFS="\t" '{start=$4-14500000; end=$5-14500000; print $1,$2,$3,start,end,$6,$7,$8,$9}' > temp.gff
 @msa_view -i MAF -o SS --features temp.gff chr22.14500000-15500000.maf
 @msa_view -i MAF -o SS --features temp.gff --4d chr22.14500000-15500000.maf
-@msa_view -i MAF -o SS 
 
 rm -f hmrc.fa hmrc.ph hmrc.mpm hmrc_short_a.ss temp.gff
