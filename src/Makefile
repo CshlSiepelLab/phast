@@ -1,4 +1,4 @@
-SUB = lib dless dmotif exoniphy phastCons phastOdds phastMotif phyloFit phyloBoot phyloP prequel util 
+SUB = lib dless exoniphy phastCons phastOdds phastMotif phyloFit phyloBoot phyloP prequel util 
 
 CDIR = ${PWD}
 INSTALLDIR = /cluster/bin/phast/${MACHTYPE}
