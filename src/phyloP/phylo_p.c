@@ -342,7 +342,7 @@ void phyloP(struct phyloP_struct *p) {
                   prior_mean, prior_var);
           print_base_by_base(output_wig ? NULL : outfile, 
 			     str, chrom, msa, NULL, 
-			     refidx, results, 3,
+			     refidx, results, FALSE, TRUE, 3,
 			     "post.mean", post_means, 
                              "post.var", post_vars, "pval", pvals);
         }
@@ -409,7 +409,7 @@ void phyloP(struct phyloP_struct *p) {
                   prior_mean_sub, prior_var_sub, prior_mean_sup, prior_var_sup);
           print_base_by_base(output_wig ? NULL : outfile, 
 			     str, chrom, msa, NULL, 
-			     refidx, results, 5, 
+			     refidx, results, FALSE, TRUE, 5, 
 			     "post.mean.sub", post_means_sub, 
                              "post.var.sub", post_vars_sub, 
 			     "post.mean.sup", post_means_sup, 
@@ -479,7 +479,7 @@ void phyloP(struct phyloP_struct *p) {
 	if (results != NULL || !output_wig)
           print_base_by_base(output_wig ? NULL : outfile, 
 			     "#scale lnlratio pval", 
-			     chrom, msa, NULL, refidx, results, 3, 
+			     chrom, msa, NULL, refidx, results, FALSE, TRUE, 3, 
                              "scale", scales, "lnlratio", llrs, "pval", pvals);
       }
       else {                    /* subtree case */
@@ -495,7 +495,7 @@ void phyloP(struct phyloP_struct *p) {
 	if (results != NULL || !output_wig)
           print_base_by_base(output_wig ? NULL : outfile, 
 			     "#null_scale alt_scale alt_subscale lnlratio pval", 
-                             chrom, msa, NULL, refidx, results, 5, 
+                             chrom, msa, NULL, refidx, results, FALSE, TRUE, 5, 
 			     "null.scale", null_scales, "alt.scale", scales,
                              "alt.subscale", sub_scales, "lnlratio", llrs,
 			     "pval", pvals);
@@ -517,7 +517,7 @@ void phyloP(struct phyloP_struct *p) {
 	if (results != NULL || !output_gff)
           print_feats_generic(output_gff ? NULL : outfile, 
 			      "scale\tlnlratio\tpval",
-			      feats, NULL, results, 3, 
+			      feats, NULL, results, FALSE, TRUE, 3, 
                               "scale", scales, "lnlratio", llrs, "pval", pvals);
       }
       else {                    /* subtree case */
@@ -535,7 +535,7 @@ void phyloP(struct phyloP_struct *p) {
 	if (results != NULL || !output_gff)
           print_feats_generic(output_gff ? NULL : outfile, 
 			      "null_scale\talt_scale\talt_subscale\tlnlratio\tpval",
-                              feats, NULL, results, 5, 
+                              feats, NULL, results, FALSE, TRUE, 5, 
 			      "null.scale", null_scales, "alt.scale", scales, 
 			      "alt.subscale", sub_scales,"lnlratio", llrs,
                               "pval", pvals);
@@ -560,7 +560,7 @@ void phyloP(struct phyloP_struct *p) {
 	if (results != NULL || !output_wig)
           print_base_by_base(output_wig ? NULL : outfile, 
 			     "#deriv teststat pval", 
-			     chrom, msa, NULL, refidx, results, 3, 
+			     chrom, msa, NULL, refidx, results, FALSE, TRUE, 3, 
                              "deriv", derivs, "teststat", teststats, 
 			     "pval", pvals);
       }
@@ -578,7 +578,7 @@ void phyloP(struct phyloP_struct *p) {
 	if (results != NULL || !output_wig)
           print_base_by_base(output_wig ? NULL : outfile, 
 			     "#scale deriv subderiv teststat pval", 
-			     chrom, msa, NULL, refidx, results, 5, 
+			     chrom, msa, NULL, refidx, results, FALSE, TRUE, 5, 
 			     "scale", null_scales, "deriv", derivs, 
                              "subderiv", sub_derivs, "teststat", teststats, 
 			     "pval", pvals);
@@ -600,7 +600,7 @@ void phyloP(struct phyloP_struct *p) {
 	if (results != NULL || !output_gff)
           print_feats_generic(output_gff ? NULL : outfile, 
 			      "deriv\tteststat\tpval", feats, NULL, 
-			      results, 3,
+			      results, FALSE, TRUE, 3,
                               "deriv", derivs, "teststat", teststats, 
 			      "pval", pvals);
       }
@@ -619,7 +619,7 @@ void phyloP(struct phyloP_struct *p) {
 	if (results != NULL || !output_gff)
           print_feats_generic(output_gff ? NULL : outfile, 
 			      "scale\tderiv\tsubderiv\tteststat\tpval",
-                              feats, NULL, results, 5, 
+                              feats, NULL, results, FALSE, TRUE, 5, 
 			      "scale", null_scales, "deriv", derivs, 
 			      "subderiv", sub_derivs, "teststat", teststats,
                               "pval", pvals);
@@ -643,7 +643,7 @@ void phyloP(struct phyloP_struct *p) {
       if (results != NULL || !output_wig) {
         print_base_by_base(output_wig ? NULL : outfile, 
 			   "#nneut nobs nrej nspec", chrom, 
-			   msa, formatstr, refidx, results, 4, 
+			   msa, formatstr, refidx, results, FALSE, FALSE, 4, 
 			   "nneut", nneut, "nobs", nobs, "nrej", nrejected, 
 			   "nspec", nspec);
       }
@@ -664,7 +664,7 @@ void phyloP(struct phyloP_struct *p) {
       if (results != NULL || !output_gff)
         print_feats_generic(output_gff ? NULL : outfile, 
 			    "nneut\tnobs\tnrej\tnspec", 
-			    feats, formatstr, results, 4,
+			    feats, formatstr, results, FALSE, TRUE, 4,
                             "nneut", nneut, "nobs", nobs, 
 			    "nrej", nrejected, "nspec", nspec);
     }

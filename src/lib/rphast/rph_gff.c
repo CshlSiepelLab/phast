@@ -374,6 +374,22 @@ SEXP rph_gff_seqnames(SEXP gffP) {
 }
 
 
+SEXP rph_gff_features(SEXP gffP) {
+  GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  GFF_Feature *f;
+  int i;
+  SEXP rv;
+  PROTECT(rv = allocVector(STRSXP, lst_size(gff->features)));
+  for (i=0; i < lst_size(gff->features); i++) {
+    f = (GFF_Feature*)lst_get_ptr(gff->features, i);
+    SET_STRING_ELT(rv, i, mkChar(f->feature->chars));
+  }
+  UNPROTECT(1);
+  return rv;
+}
+
+
+
 SEXP rph_gff_overlapSelect(SEXP gffP, SEXP filter_gffP, 
 			   SEXP numbaseOverlapP,
 			   SEXP percentOverlapP,

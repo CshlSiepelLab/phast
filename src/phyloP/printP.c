@@ -475,7 +475,7 @@ void print_feats_sph(FILE *outfile, p_value_stats *stats, GFF_Set *feats,
   if (result != NULL || !output_gff) 
     print_feats_generic(output_gff ? NULL : outfile, 
 			"prior_mean\tprior_var\tpost_mean\tpost_var\tpval",
-                        feats, NULL, result, 5, 
+                        feats, NULL, result, FALSE, TRUE, 5, 
 			"prior.mean", prior_means, "prior.var", prior_vars, 
 			"post.mean", post_means, 
                         "post.var", post_vars, "pval", pvals);
@@ -552,7 +552,7 @@ void print_feats_sph_subtree(FILE *outfile, p_value_joint_stats *stats,
     print_gff_scores(outfile, feats, pvals, TRUE);
   else 
     print_feats_generic(outfile, "prior_mean_sub\tprior_var_sub\tprior_mean_sup\tprior_var_sup\tpost_mean_sub\tpost_var_sub\tpost_mean_sup\tpost_var_sup\t\tpval",
-                        feats, NULL, result, 9, 
+                        feats, NULL, result, FALSE, TRUE, 9, 
 			"prior.mean.sub", prior_means_sub, 
 			"prior.var.sub", prior_vars_sub, 
                         "prior.mean.sup", prior_means_sup, 
@@ -624,34 +624,62 @@ void print_wig(FILE *outfile, MSA *msa, double *vals, char *chrom,
 }
 
 
+double *log10_pval(double *pval, int len) {
+  double *scores = smalloc(len*sizeof(double)), sign;
+  int i;
+
+  for (i=0; i < len; i++) {
+    if (pval[i] < 0) sign = -1.0;
+    else sign=1.0;
+    scores[i] = fabs(-log10(sign*pval[i])) * sign;
+  }
+  return scores;
+
+}
+	  
+
+
 /* Print arbitrary columns of tuple-specific data in wig-like format */
 void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa, 
                         char **formatstr, int refidx, ListOfLists *result,
+			int log_trans_outfile, int log_trans_results,
 			int ncols, ...) {
   int last, j, k, tup, col;
   va_list ap;
-  double *data[ncols];
+  double *data[ncols+1];
   List **resultList;
   char **colname;
+  int get_log = (log_trans_outfile && outfile != NULL) || 
+    (log_trans_results && result != NULL);
+  
   assert(refidx >= 0 && refidx <= msa->nseqs);
 
   if (result != NULL) {
-    resultList = malloc((ncols+1)*sizeof(List*));
+    int resultLen = ncols + 1 + log_trans_results;
+    resultList = malloc(resultLen*sizeof(List*));
     resultList[0] = lst_new_int(msa->length);
-    for (j=1; j<=ncols; j++) {
+    for (j=1; j<resultLen; j++) {
       resultList[j] = lst_new_dbl(msa->length);
     }
   }
 
   last = -INFTY;
-  if (header != NULL && outfile != NULL) 
-    fprintf(outfile, "%s\n", header);
+  if (header != NULL && outfile != NULL) {
+    fprintf(outfile, "%s", header);
+    if (log_trans_outfile) fprintf(outfile, " score\n");
+    else fprintf(outfile, "\n");
+  }
 
   va_start(ap, ncols);
-  colname = malloc(ncols*sizeof(char*));
+  colname = malloc((ncols+1)*sizeof(char*));
   for (col = 0; col < ncols; col++) {
     colname[col] = va_arg(ap, char*);
     data[col] = va_arg(ap, double*);
+  }
+  if (get_log) {
+    assert(strcmp(colname[col-1], "pval")==0);
+    colname[col] = "score";
+    data[col] = log10_pval(data[col-1], msa->ss->ntuples);
   }
 
   for (j = 0, k = 0; j < msa->length; j++) {
@@ -664,12 +692,16 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
 	if (outfile != NULL) {
 	  for (col = 0; col < ncols; col++) {
 	    fprintf(outfile, (formatstr == NULL ? "%.5f" : formatstr[col]), data[col][tup]);
-	    fprintf(outfile, col < ncols-1 ? "\t" : "\n");
+	    if (col <  ncols-1) fputc('\t', outfile);
 	  }
+	  if (log_trans_outfile) fprintf(outfile, "\t%.5f", data[col][tup]);
+	  fputc('\n', outfile);
 	}
 	if (result != NULL) {
 	  lst_push_int(resultList[0], k + msa->idx_offset + 1);
 	  for (col=0; col < ncols; col++) 
+	    lst_push_dbl(resultList[col+1], data[col][tup]);
+	  if (log_trans_results)
 	    lst_push_dbl(resultList[col+1], data[col][tup]);
 	}
         last = k;
@@ -680,15 +712,18 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
   va_end(ap);
 
   if (result != NULL) {
-    ListOfLists *group = lol_new(ncols+1);
+    ListOfLists *group = lol_new(ncols+1+log_trans_results);
     lol_push(group, resultList[0], "coord", INT_LIST);
     for (col=1; col<=ncols; col++) { 
       lol_push(group, resultList[col], colname[col-1], DBL_LIST);
     }
+    if (log_trans_results) 
+      lol_push(group, resultList[col], colname[col-1], DBL_LIST);
     lol_set_class(group, "data.frame");
     lol_push_lol(result, group, "baseByBase");
     free(resultList);
   }
+  if (get_log) free(data[ncols]);
   free(colname);
 }
 
@@ -696,20 +731,26 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
 /* Print a list of features and artibrary associated statistics */
 void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff, 
 			 char **formatstr, ListOfLists *result, 
+			 int log_trans_outfile, int log_trans_results, 
 			 int ncols, ...) {
   int i, col;
   String *name;
   va_list ap;
-  double *data[ncols];
+  double *data[ncols+1];
   Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
   List *l = lst_new_ptr(2);
   char **colname;
   List **resultList;
+  int get_log = (log_trans_outfile && outfile != NULL) || 
+    (log_trans_results && result != NULL);
 
   if (outfile != NULL) {
     fprintf(outfile, "#chr\tstart\tend\tname");
-    if (header != NULL) 
-      fprintf(outfile, "\t%s\n", header);
+    if (header != NULL) {
+      fprintf(outfile, "\t%s", header);
+      if (log_trans_outfile) fprintf(outfile, "\tscore\n");
+      else fprintf(outfile, "\n");
+    }
     else 
       fprintf(outfile, "\n");
   }
@@ -721,11 +762,16 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
     resultList[3] = lst_new_ptr(lst_size(gff->features));
   }
 
-  colname = malloc(ncols*sizeof(char*));
+  colname = malloc((ncols+1)*sizeof(char*));
   va_start(ap, ncols);
   for (col = 0; col < ncols; col++) {
     colname[col] = va_arg(ap, char*);
     data[col] = va_arg(ap, double*);
+  }
+  if (get_log) {
+    assert(strcmp(colname[col-1], "pval")==0);
+    colname[col] = "score";
+    data[col] = log10_pval(data[col-1], lst_size(gff->features));
   }
 
   for (i = 0; i < lst_size(gff->features); i++) {
@@ -745,8 +791,11 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
       
       for (col = 0; col < ncols; col++) {
 	fprintf(outfile, (formatstr == NULL ? "%.5f" : formatstr[col]), data[col][i]);
-	fprintf(outfile, col < ncols-1 ? "\t" : "\n");
+	if (col < ncols-1) fputc('\t', outfile);
       }
+      if (log_trans_outfile) fprintf(outfile, "\t%.5f\n", data[col][i]);
+      else fputc('\n', outfile);
+	  
     }
     if (result != NULL) {
       char *tempstr;
@@ -761,7 +810,7 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
   }
   
   if (result != NULL) {
-    ListOfLists *group = lol_new(4+ncols);
+    ListOfLists *group = lol_new(4+ncols+log_trans_results);
     lol_push(group, resultList[0], "chr", CHAR_LIST);
     lol_push(group, resultList[1], "start", INT_LIST);
     lol_push(group, resultList[2], "end", INT_LIST);
@@ -770,6 +819,9 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
     for (col=0; col < ncols; col++) 
       lol_push_dbl(group, data[col], lst_size(gff->features), 
 			   colname[col]);
+    if (log_trans_results)
+      lol_push_dbl(group, data[col], lst_size(gff->features),
+		   colname[col]);
     lol_set_class(group, "data.frame");
     lol_push_lol(result, group, "feature.stats");
   }
@@ -777,6 +829,7 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
   va_end(ap);
   lst_free(l);
   str_re_free(tag_val_re);
+  if (get_log) free(data[ncols]);
   free(colname);
 }
 

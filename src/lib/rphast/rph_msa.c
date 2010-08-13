@@ -27,6 +27,8 @@ Last updated: 12/14/08
 #include <maf.h>
 #include <tree_likelihoods.h>
 #include <hmm.h>
+#include <category_map.h>
+#include <gff.h>
 
 #include <Rdefines.h>
 #include <R_ext/Random.h>
@@ -770,23 +772,105 @@ SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP byColumnP) {
 }
 
 
-SEXP rph_msa_base_evolve(SEXP modP, SEXP nsitesP, SEXP hmmP) {
+//there is a separate finalizer for msa struct so only
+//free the list and array
+void rph_msa_base_evolve_struct_free(SEXP lP) {
+  List *l;
+  int *labels;
+  l = (List*)EXTPTR_PTR(lP);
+  lst_free(l);
+}
+
+
+SEXP rph_msa_base_evolve_struct_get_msa(SEXP lP) {
+  List *l;
+  l = (List*)EXTPTR_PTR(lP);
+  return (SEXP)lst_get_ptr(l, 0);
+}
+
+
+SEXP rph_msa_base_evolve_struct_get_labels(SEXP lP, SEXP nsitesP) {
+  List *l;
+  int i, nsites, *resultP, *arr;
+  SEXP result;
+  l = (List*)EXTPTR_PTR(lP);
+  return (SEXP)lst_get_ptr(l, 1);
+}
+
+
+SEXP rph_msa_base_evolve(SEXP modP, SEXP nsitesP, SEXP hmmP, 
+			 SEXP getFeaturesP) {
   TreeModel **mods;
-  int nsites, nstate=1, i;
+  int nsites, nstate=1, i, *labels=NULL;
   MSA *msa;
   HMM *hmm=NULL;
+  List *rv;
+  SEXP result, names_sexp;
+  char **names;
+  GFF_Set *feats;
+  GFF_Feature *newfeat;
+  int currstart, currstate;
+  char *seqname, *src="base.evolve", temp[1000];
+  SEXP rph_gff_new_extptr(GFF_Set *gff);
+
   GetRNGstate(); //seed R's random number generator
   nsites = INTEGER_VALUE(nsitesP);
   if (hmmP != R_NilValue) {
     hmm = (HMM*)EXTPTR_PTR(hmmP);
     nstate = hmm->nstates;
+    if (LOGICAL_VALUE(getFeaturesP))
+      labels = malloc(nsites*sizeof(int));
   }
   mods = malloc(nstate*sizeof(TreeModel*));
   for (i=0; i<nstate; i++) 
     mods[i] = (TreeModel*)EXTPTR_PTR(VECTOR_ELT(modP, i));
-  msa = tm_generate_msa(nsites, hmm, mods, NULL);
+  msa = tm_generate_msa(nsites, hmm, mods, labels);
+  seqname = msa->names[0];
   free(mods);
   PutRNGstate();
+  if (labels != NULL) {
+    rv = lst_new_ptr(2);
+    feats = gff_new_set();
+    names = malloc(nstate*sizeof(char*));
+    PROTECT(names_sexp = GET_NAMES(modP));
+    if (names_sexp == R_NilValue) {
+      for (i=0; i < nstate; i++) {
+	sprintf(temp, "state%i", i+1);
+	names[i] = strdup(temp);
+      }
+    } else {
+      for (i = 0 ; i < nstate; i++)
+	names[i] = strdup(CHAR(STRING_ELT(names_sexp, i)));
+    }
+    currstart = 0;
+    currstate = labels[0];
+    for (i=1; i < nsites; i++) {
+      if (labels[i] != currstate) {
+	sprintf(temp, "id \"%s\"", names[currstate]);
+	newfeat = gff_new_feature_copy_chars(seqname, src, 
+					     names[currstate], 
+					     currstart+1, i, 0, '+', 
+					     GFF_NULL_FRAME, temp, TRUE);
+	lst_push_ptr(feats->features, newfeat);
+	currstate = labels[i];
+	currstart = i;
+      }
+    }
+    sprintf(temp, "id \%s\"", names[currstate]);
+    newfeat = gff_new_feature_copy_chars(seqname, src, names[currstate],
+					 currstart+1, i, 0, '+', GFF_NULL_FRAME,
+					 temp, TRUE);
+    for (i=0; i < nstate; i++)
+      free(names[i]);
+    free(names);
+    lst_push_ptr(feats->features, newfeat);
+    lst_push_ptr(rv, rph_msa_new_extptr((void*)msa));
+    lst_push_ptr(rv, rph_gff_new_extptr((void*)feats));
+    PROTECT(result=R_MakeExternalPtr((void*)rv, R_NilValue, R_NilValue));
+    R_RegisterCFinalizerEx(result, rph_msa_base_evolve_struct_free, 1);
+    UNPROTECT(2);
+    return result;
+  }
   return rph_msa_new_extptr((void*)msa);
 }
 

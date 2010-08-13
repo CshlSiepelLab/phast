@@ -52,10 +52,10 @@ void print_wig(FILE *outfile, MSA *msa, double *tuple_pvals, char *chrom,
 	       int refidx, int log_trans, ListOfLists *result);
 void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa, 
                         char **formatstr, int refidx, ListOfLists *result,
-			int ncols, ...);
+			int log_trans_outfile, int log_trans_results, int ncols, ...);
 void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff, 
 			 char **formatstr, ListOfLists *result, 
-			 int ncols, ...);
+			 int log_trans_outfile, int log_trans_results, int ncols, ...);
 void print_gff_scores(FILE *outfile, GFF_Set *gff, double *pvals, 
 		      int log_trans);
 

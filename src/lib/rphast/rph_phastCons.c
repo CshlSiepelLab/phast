@@ -31,14 +31,17 @@ Last updated: 4/21/2010
 
 SEXP rph_listOfLists_to_SEXP(ListOfLists *lol);
 
-SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP estimateTreesP,
-		   SEXP estimateRhoP, SEXP gcP, SEXP nratesP, 
-		   SEXP transitionsP, SEXP initTransitionsP,
-		   SEXP targetCoverageP, SEXP expectedLengthP,
-		   SEXP initExpectedLengthP, SEXP viterbiP,
-		   SEXP scoreViterbiP, SEXP computeLnlP, 
-		   SEXP suppressProbsP, SEXP refIdxP, SEXP hmmP,
-		   SEXP statesP, SEXP reflectStrandP) {
+SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP targetCoverageP,
+		   SEXP expectedLengthP, SEXP transitionsP,
+		   SEXP estimateRhoP,
+		   SEXP estimateExpectedLengthP,
+		   SEXP estimateTransitionsP,
+		   SEXP estimateTreesP,
+		   SEXP viterbiP, SEXP scoreViterbiP,
+		   SEXP gcP, SEXP nratesP, 
+		   SEXP computeLnlP, SEXP suppressProbsP,
+		   SEXP refIdxP,
+		   SEXP hmmP, SEXP statesP, SEXP reflectStrandP) {
   struct phastCons_struct *p = phastCons_struct_new(1);
   HMM *hmm;
   int i, *intp, numprotect=0;
@@ -72,29 +75,21 @@ SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP estimateTreesP,
   if (transitionsP != R_NilValue) {
     doublep = NUMERIC_POINTER(transitionsP);
     p->set_transitions = TRUE;
-    p->estim_transitions = FALSE;
-    p->mu = doublep[0];
-    p->nu = doublep[1];
-  }
-  if (initTransitionsP != R_NilValue) {
-    doublep = NUMERIC_POINTER(initTransitionsP);
-    p->set_transitions = TRUE;
-    p->estim_transitions=TRUE;  //this is the default anyway
+    p->estim_transitions = LOGICAL_VALUE(estimateTransitionsP);
     p->mu = doublep[0];
     p->nu = doublep[1];
   }
   if (targetCoverageP != R_NilValue) 
     p->gamma = NUMERIC_VALUE(targetCoverageP);
   if (expectedLengthP != R_NilValue) {
-    p->estim_transitions = FALSE;
     p->omega = NUMERIC_VALUE(expectedLengthP);
     p->mu = 1.0/p->omega;
   }
-  if (initExpectedLengthP != R_NilValue) {
-    p->estim_transitions = TRUE;  //default anyway
-    p->omega = NUMERIC_VALUE(initExpectedLengthP);
-    p->mu = 1.0/p->omega;
-  }
+  p->estim_transitions = FALSE;
+  if ((estimateExpectedLengthP != R_NilValue && LOGICAL_VALUE(estimateExpectedLengthP)) ||
+      (estimateTransitionsP != R_NilValue && LOGICAL_VALUE(estimateTransitionsP)))
+    p->estim_transitions = TRUE;
+
   if (viterbiP != R_NilValue) 
     p->viterbi = LOGICAL_VALUE(viterbiP);
   if (scoreViterbiP != R_NilValue) {
