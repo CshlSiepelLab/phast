@@ -860,12 +860,12 @@ SEXP rph_msa_base_evolve(SEXP modP, SEXP nsitesP, SEXP hmmP,
     newfeat = gff_new_feature_copy_chars(seqname, src, names[currstate],
 					 currstart+1, i, 0, '+', GFF_NULL_FRAME,
 					 temp, TRUE);
+    lst_push_ptr(feats->features, newfeat);
     for (i=0; i < nstate; i++)
       free(names[i]);
     free(names);
-    lst_push_ptr(feats->features, newfeat);
-    lst_push_ptr(rv, rph_msa_new_extptr((void*)msa));
-    lst_push_ptr(rv, rph_gff_new_extptr((void*)feats));
+    lst_push_ptr(rv, rph_msa_new_extptr(msa));
+    lst_push_ptr(rv, rph_gff_new_extptr(feats));
     PROTECT(result=R_MakeExternalPtr((void*)rv, R_NilValue, R_NilValue));
     R_RegisterCFinalizerEx(result, rph_msa_base_evolve_struct_free, 1);
     UNPROTECT(2);
