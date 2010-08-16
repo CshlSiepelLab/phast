@@ -1839,23 +1839,37 @@ GFF_Set *gff_inverse(GFF_Set *gff, GFF_Set *region0) {
 //Create a new GFF where features are split.  Maxlen can be
 //a single value or a vector of integers, values wil be recycled
 //to the number of features in gff.
-GFF_Set *gff_split(GFF_Set *gff, int *maxlen, int nmaxlen) {
+GFF_Set *gff_split(GFF_Set *gff, int *maxlen, int nmaxlen,
+		   int *splitFromRight, int splitFromRight_len) {
   GFF_Set *newgff = gff_new_set();
   GFF_Feature *feat, *newfeat;
-  int i, idx=0, start, end;
+  int i, idx=0, start, end, sidx=0;
   for (i=0; i < lst_size(gff->features); i++) {
     feat = lst_get_ptr(gff->features, i);
     start = feat->start;
     end = feat->end;
-    while (end - start + 1 > 0) {
-      newfeat = gff_new_feature_copy(feat);
-      newfeat->start = start;
-      newfeat->end = min(start + maxlen[idx] - 1, end);
-      lst_push_ptr(newgff->features, newfeat);
-      start += maxlen[idx];
+
+    if (splitFromRight[sidx] == 0) {
+      while (end - start + 1 > 0) {
+	newfeat = gff_new_feature_copy(feat);
+	newfeat->start = start;
+	newfeat->end = min(start + maxlen[idx] - 1, end);
+	lst_push_ptr(newgff->features, newfeat);
+	start += maxlen[idx];
+      }
+    } else {
+      while (end - start + 1 > 0) {
+	newfeat = gff_new_feature_copy(feat);
+	newfeat->end = end;
+	newfeat->start = max(end - maxlen[idx] + 1, start);
+	lst_push_ptr(newgff->features, newfeat);
+	end -= maxlen[idx];
+      }
     }
     idx++;
     if (idx == nmaxlen) idx=0;
+    sidx++;
+    if (sidx == splitFromRight_len) sidx=0;
   }
   return newgff;
 }

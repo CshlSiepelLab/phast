@@ -358,6 +358,25 @@ SEXP rph_gff_scores(SEXP gffP) {
 }
 
 
+SEXP rph_gff_strand(SEXP gffP) {
+  GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  GFF_Feature *f;
+  int i;
+  SEXP rv;
+  PROTECT(rv = allocVector(STRSXP, lst_size(gff->features)));
+  for (i=0; i < lst_size(gff->features); i++) {
+    f = (GFF_Feature*)lst_get_ptr(gff->features, i);
+    if (f->strand == '+')
+      SET_STRING_ELT(rv, i, mkChar("+"));
+    else if (f->strand == '-')
+      SET_STRING_ELT(rv, i, mkChar("-"));
+    else SET_STRING_ELT(rv, i, mkChar("."));
+  }
+  UNPROTECT(1);
+  return rv;
+}
+
+
 
 SEXP rph_gff_seqnames(SEXP gffP) {
   GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
@@ -515,15 +534,19 @@ SEXP rph_gff_append(SEXP gffListP) {
 }
 
 
-SEXP rph_gff_split(SEXP gffP, SEXP maxLengthP) {
+SEXP rph_gff_split(SEXP gffP, SEXP maxLengthP, SEXP splitFromRightP) {
   GFF_Set *gff, *newgff;
-  int *maxlen, maxlen_size;
+  int *maxlen, maxlen_size, *splitFromRight, splitFrom_size;
   gff = (GFF_Set*)EXTPTR_PTR(gffP);
   PROTECT(maxLengthP = AS_INTEGER(maxLengthP));
   maxlen = INTEGER_POINTER(maxLengthP);
   maxlen_size = LENGTH(maxLengthP);
-  newgff = gff_split(gff, maxlen, maxlen_size);
-  UNPROTECT(1);
+  PROTECT(splitFromRightP = AS_INTEGER(splitFromRightP));
+  splitFromRight = INTEGER_POINTER(splitFromRightP);
+  splitFrom_size = LENGTH(splitFromRightP);
+  newgff = gff_split(gff, maxlen, maxlen_size, 
+		     splitFromRight, splitFrom_size);
+  UNPROTECT(2);
   return rph_gff_new_extptr(newgff);
 }
 

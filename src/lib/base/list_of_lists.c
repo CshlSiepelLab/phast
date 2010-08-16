@@ -217,7 +217,7 @@ void lol_push_gff(ListOfLists *lol, GFF_Set *gff, const char *name) {
   if (haveStrand) lol_push_charvec(gffList, strand, gffLen, "strand");
   if (haveFrame) lol_push_int(gffList, frame, gffLen, "frame");
   if (haveAttribute) lol_push_charvec(gffList, attribute, gffLen, "attribute");
-  lol_set_class(gffList, "gff");
+  lol_set_class(gffList, "feat");
   lol_push_lol(lol, gffList, name);
 
   for (i=0; i<gffLen; i++) {

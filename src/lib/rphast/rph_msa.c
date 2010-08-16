@@ -772,29 +772,29 @@ SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP byColumnP) {
 }
 
 
+struct base_evolve_struct {
+  MSA *msa;
+  GFF_Set *gff;
+};
+
 //there is a separate finalizer for msa struct so only
 //free the list and array
 void rph_msa_base_evolve_struct_free(SEXP lP) {
-  List *l;
-  int *labels;
-  l = (List*)EXTPTR_PTR(lP);
-  lst_free(l);
+  struct base_evolve_struct *x = (struct base_evolve_struct*)EXTPTR_PTR(lP);
+  free(x);
 }
 
 
 SEXP rph_msa_base_evolve_struct_get_msa(SEXP lP) {
-  List *l;
-  l = (List*)EXTPTR_PTR(lP);
-  return (SEXP)lst_get_ptr(l, 0);
+  struct base_evolve_struct *x = (struct base_evolve_struct*)EXTPTR_PTR(lP);
+  return rph_msa_new_extptr(x->msa);
 }
 
 
 SEXP rph_msa_base_evolve_struct_get_labels(SEXP lP, SEXP nsitesP) {
-  List *l;
-  int i, nsites, *resultP, *arr;
-  SEXP result;
-  l = (List*)EXTPTR_PTR(lP);
-  return (SEXP)lst_get_ptr(l, 1);
+  struct base_evolve_struct *x = (struct base_evolve_struct*)EXTPTR_PTR(lP);
+  SEXP rph_gff_new_extptr(GFF_Set *gff);
+  return rph_gff_new_extptr(x->gff);
 }
 
 
@@ -804,14 +804,13 @@ SEXP rph_msa_base_evolve(SEXP modP, SEXP nsitesP, SEXP hmmP,
   int nsites, nstate=1, i, *labels=NULL;
   MSA *msa;
   HMM *hmm=NULL;
-  List *rv;
   SEXP result, names_sexp;
   char **names;
+  struct base_evolve_struct *rv;
   GFF_Set *feats;
   GFF_Feature *newfeat;
   int currstart, currstate;
   char *seqname, *src="base.evolve", temp[1000];
-  SEXP rph_gff_new_extptr(GFF_Set *gff);
 
   GetRNGstate(); //seed R's random number generator
   nsites = INTEGER_VALUE(nsitesP);
@@ -829,7 +828,7 @@ SEXP rph_msa_base_evolve(SEXP modP, SEXP nsitesP, SEXP hmmP,
   free(mods);
   PutRNGstate();
   if (labels != NULL) {
-    rv = lst_new_ptr(2);
+    rv = smalloc(sizeof(struct base_evolve_struct));
     feats = gff_new_set();
     names = malloc(nstate*sizeof(char*));
     PROTECT(names_sexp = GET_NAMES(modP));
@@ -858,14 +857,15 @@ SEXP rph_msa_base_evolve(SEXP modP, SEXP nsitesP, SEXP hmmP,
     }
     sprintf(temp, "id \%s\"", names[currstate]);
     newfeat = gff_new_feature_copy_chars(seqname, src, names[currstate],
-					 currstart+1, i, 0, '+', GFF_NULL_FRAME,
+					 currstart+1, i, 0, '+', 
+					 GFF_NULL_FRAME,
 					 temp, TRUE);
     lst_push_ptr(feats->features, newfeat);
     for (i=0; i < nstate; i++)
       free(names[i]);
     free(names);
-    lst_push_ptr(rv, rph_msa_new_extptr(msa));
-    lst_push_ptr(rv, rph_gff_new_extptr(feats));
+    rv->msa = msa;
+    rv->gff = feats;
     PROTECT(result=R_MakeExternalPtr((void*)rv, R_NilValue, R_NilValue));
     R_RegisterCFinalizerEx(result, rph_msa_base_evolve_struct_free, 1);
     UNPROTECT(2);
