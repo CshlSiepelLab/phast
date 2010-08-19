@@ -884,7 +884,6 @@ SEXP rph_msa_concat(SEXP aggregate_msaP, SEXP source_msaP) {
 SEXP rph_list_new_extptr(List *l);
 
 SEXP rph_msa_split_by_gff(SEXP msaP, SEXP gffP) {
-  SEXP rv;
   MSA *msa, *newmsa;
   List *rvlist;
   GFF_Feature *feat;
@@ -931,4 +930,38 @@ SEXP rph_msa_reverse_complement(SEXP msaP) {
   MSA *msa = (MSA*)EXTPTR_PTR(msaP);
   msa_reverse_compl(msa);
   return msaP;
+}
+
+
+SEXP rph_msa_informative_feats(SEXP msaP,
+			       SEXP minInformativeP,
+			       SEXP specP,
+			       SEXP refseqP,
+			       SEXP gapsAreInformativeP) {
+  GFF_Set *feats;
+  MSA *msa;
+  int min_informative, *spec, numprotect=0, refseq, i, gaps_inf;
+  List *speclist=NULL;
+  SEXP rph_gff_new_extptr(GFF_Set *gff);
+
+  msa = (MSA*)EXTPTR_PTR(msaP);
+  min_informative = INTEGER_VALUE(minInformativeP);
+  gaps_inf = LOGICAL_VALUE(gapsAreInformativeP);
+  if (specP != R_NilValue) {
+    PROTECT(specP = AS_INTEGER(specP));
+    numprotect++;
+    spec = INTEGER_POINTER(specP);
+    speclist = lst_new_int(LENGTH(specP));
+    for (i = 0 ; i < LENGTH(specP); i++) {
+      lst_push_int(speclist, spec[i]-1);  //convert to zero-based species indices
+    }
+  }
+  refseq = INTEGER_VALUE(refseqP);
+
+  feats = msa_get_informative_feats(msa, min_informative, speclist,
+				    refseq, gaps_inf);
+
+  if (speclist != NULL) lst_free(speclist);
+  if (numprotect > 0) UNPROTECT(numprotect);
+  return rph_gff_new_extptr(feats);
 }

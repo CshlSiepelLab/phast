@@ -1723,6 +1723,95 @@ unsigned int msa_ninformative_sites(MSA *msa, int cat) {
   return retval;
 }
 
+/* Returns a GFF_Set in refseq reference frame giving coordinates of
+   informative sites.  Informative sites have at least min_informative 
+   non-missing (and non-gap if gaps_are_informative==0) characters.  
+   If spec is not NULL, it should
+   be an integer list giving indices of species to consider in determining
+   informativeness.  Otherwise all species wil be used */
+GFF_Set *msa_get_informative_feats(MSA *msa, 
+				   int min_informative, List *specList,
+				   int refseq, 
+				   int gaps_are_informative) {
+  GFF_Set *rv = gff_new_set();
+  int *is_informative=NULL, *useSpec,  useSpecLen, i, j, ninf, 
+    featStart, featEnd, idx, is_inf;
+  GFF_Feature *new_feat;
+  char c, *seqname;
+  
+  if (specList == NULL) {
+    useSpecLen = msa->nseqs;
+    useSpec = smalloc(useSpecLen * sizeof(int));
+    for (i=0; i < useSpecLen; i++) 
+      useSpec[i] = i;
+  } else {
+    useSpecLen = lst_size(specList);
+    useSpec = smalloc(useSpecLen*sizeof(int));
+    for (i=0; i < useSpecLen; i++)
+      useSpec[i] = lst_get_int(specList, i);
+  }
+  if (msa->ss != NULL && msa->ss->tuple_idx == NULL && msa->seqs == NULL)
+    die("need ordered alignment for msa_get_informative_sites");
+  if (msa->ss != NULL && msa->ss->tuple_idx != NULL) {
+    is_informative = smalloc(msa->ss->ntuples*sizeof(int));
+    for (i=0; i < msa->ss->ntuples; i++) {
+      ninf=0;
+      for (j = 0 ; j < useSpecLen; j++)  {
+	c = ss_get_char_tuple(msa, i, useSpec[j], 0);
+	if ((!msa->is_missing[(int)c]) && (gaps_are_informative || c!=GAP_CHAR))
+	  ninf++;
+      }
+      is_informative[i] = (ninf >= min_informative);
+    }
+  }
+
+  featStart = -1;
+  featEnd = -1;
+  if (refseq == 1) idx = msa->idx_offset;  //assume idx_offset refers to first sequence?
+  else idx = 0;
+
+  if (refseq == 0) seqname = "align";
+  else seqname = msa->names[refseq-1];
+
+  for (i=0; i < msa->length; i++) {
+    if (refseq != 0) {
+      c = msa_get_char(msa, refseq-1, i);
+      if (c == GAP_CHAR) continue;
+    }
+    if (is_informative == NULL) {
+      ninf=0;
+      for (j=0; j < useSpecLen; j++) {
+	c = msa_get_char(msa, useSpec[j], i);
+	if ((!msa->is_missing[(int)c]) && (gaps_are_informative || c!=GAP_CHAR))
+	  ninf++;
+      }
+      is_inf = (ninf >= min_informative);
+    } else is_inf = is_informative[msa->ss->tuple_idx[i]];
+    
+    if ((!is_inf) && featStart != -1) {
+      new_feat = gff_new_feature_copy_chars(seqname, "msa_get_informative", 
+					    "informative", featStart, featEnd, 
+					    0, '.', GFF_NULL_FRAME, ".", 1);
+      lst_push_ptr(rv->features, new_feat);
+      featStart = featEnd = -1;
+    }
+    if (is_inf) {
+      if (featStart == -1) featStart = idx+1;  //use 1-based coords
+      featEnd = idx+1;
+    }
+    idx++;
+  }
+  if (featStart != -1) {
+    new_feat = gff_new_feature_copy_chars(seqname, "msa_get_informative", 
+					  "informative", featStart, featEnd, 
+					  0, '.', GFF_NULL_FRAME, ".", 1);
+    lst_push_ptr(rv->features, new_feat);
+  }
+  free(useSpec);
+  if (is_informative != NULL) free(is_informative);
+  return rv;
+}
+
 /* read and return a single sequence from a FASTA file */
 String *msa_read_seq_fasta(FILE *F) {
   static Regex *descrip_re = NULL;

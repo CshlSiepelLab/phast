@@ -43,7 +43,6 @@ SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP targetCoverageP,
 		   SEXP refIdxP,
 		   SEXP hmmP, SEXP statesP, SEXP reflectStrandP) {
   struct phastCons_struct *p = phastCons_struct_new(1);
-  HMM *hmm;
   int i, *intp, numprotect=0;
   double *doublep;
   SEXP rv;

@@ -172,6 +172,9 @@ void msa_get_base_freqs_tuples(MSA *msa, Vector *freqs, int k, int cat);
 int msa_seqlen(MSA *msa, int seqidx);
 int msa_num_gapped_cols(MSA *msa, int gap_strip_mode, int start, int end);
 unsigned int msa_ninformative_sites(MSA *msa, int cat);
+GFF_Set *msa_get_informative_feats(MSA *msa, int min_informative,
+				   List *speclist, int refseq, 
+				   int gaps_are_informative);
 void msa_index_cols(MSA *msa, int order);
 String *msa_read_seq_fasta(FILE *F);
 int msa_coding_clean(MSA *msa, int refseq, int min_ncodons, 
