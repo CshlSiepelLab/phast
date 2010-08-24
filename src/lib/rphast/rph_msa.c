@@ -591,6 +591,8 @@ SEXP rph_msa_square_brackets(SEXP msaP, SEXP rowsP, SEXP colsP) {
   int *rows=NULL, *cols=NULL, i, j, spec, nrow, ncol, numprotect=0;
 
   msa = (MSA*)EXTPTR_PTR(msaP);
+  if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
+    ss_make_ordered(msa);
 
   if (rowsP != R_NilValue) {
     nrow = LENGTH(rowsP);
@@ -645,6 +647,9 @@ SEXP rph_msa_sub_alignment(SEXP msaP, SEXP seqsP, SEXP keepP,
   List *seqlist_str, *l=NULL;
   msa_coord_map *map = NULL;
 
+  if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
+    ss_make_ordered(msa);
+
   if (seqsP != R_NilValue) {
     PROTECT(seqsP = AS_CHARACTER(seqsP));
     numProtect++;
@@ -674,6 +679,12 @@ SEXP rph_msa_sub_alignment(SEXP msaP, SEXP seqsP, SEXP keepP,
     if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
       die("an ordered representation of the alignment is required");
     refseq++;
+    if (refseq == 1 && msa->idx_offset != 0) {   //assume idx_offset refers to first seq?
+      if (startcolP != R_NilValue)
+	startcol -= msa->idx_offset;
+      if (endcolP != R_NilValue)
+	endcol -= msa->idx_offset;
+    }
     map = msa_build_coord_map(msa, refseq);
     startcol = msa_map_seq_to_msa(map, startcol);
     if (endcolP != R_NilValue)
@@ -700,7 +711,7 @@ SEXP rph_msa_sub_alignment(SEXP msaP, SEXP seqsP, SEXP keepP,
  */
 SEXP rph_msa_strip_gaps(SEXP msaP, SEXP stripModeP, SEXP allOrAnyGaps) {
   MSA *msa = (MSA*)EXTPTR_PTR(msaP);
-  int stripMode, unordered;
+  int stripMode=-1, unordered;
 
   unordered=(msa->ss!=NULL && msa->ss->tuple_idx==NULL);
   
@@ -855,7 +866,7 @@ SEXP rph_msa_base_evolve(SEXP modP, SEXP nsitesP, SEXP hmmP,
 	currstart = i;
       }
     }
-    sprintf(temp, "id \%s\"", names[currstate]);
+    sprintf(temp, "id \"%s\"", names[currstate]);
     newfeat = gff_new_feature_copy_chars(seqname, src, names[currstate],
 					 currstart+1, i, 0, '+', 
 					 GFF_NULL_FRAME,
@@ -945,6 +956,8 @@ SEXP rph_msa_informative_feats(SEXP msaP,
   SEXP rph_gff_new_extptr(GFF_Set *gff);
 
   msa = (MSA*)EXTPTR_PTR(msaP);
+  if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
+    ss_make_ordered(msa);
   min_informative = INTEGER_VALUE(minInformativeP);
   gaps_inf = LOGICAL_VALUE(gapsAreInformativeP);
   if (specP != R_NilValue) {

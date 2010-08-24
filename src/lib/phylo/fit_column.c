@@ -13,6 +13,7 @@
    estimate column-by-column scale factors by maximum likelihood,
    perform single-base LRTs, score tests, phyloP, etc. */
 
+#include <stdlib.h>
 #include <fit_column.h>
 #include <sufficient_stats.h>
 #include <tree_likelihoods.h>
@@ -295,10 +296,10 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
   TreeNode *n;
   double total_prob = 0;
   List *traversal = tr_postorder(d->mod->tree);  
-  double **L;                   /* partial likelihoods */
-  double **LL;                  /* 1st deriv of partial likelihoods wrt
+  double **L=NULL;                   /* partial likelihoods */
+  double **LL=NULL;                  /* 1st deriv of partial likelihoods wrt
                                    scale param */ 
-  double **LLL;                 /* 2nd deriv of partial likelihoods
+  double **LLL=NULL;                 /* 2nd deriv of partial likelihoods
                                    wrt scale param */
 
   assert(d->msa->ss->tuple_size == 1);
@@ -441,16 +442,16 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
   TreeNode *n;
   double total_prob = 0;
   List *traversal = tr_postorder(d->mod->tree);  
-  double **L;                   /* partial likelihoods */
-  double **LL;                  /* 1st deriv of partial likelihoods wrt
+  double **L=NULL;                   /* partial likelihoods */
+  double **LL=NULL;                  /* 1st deriv of partial likelihoods wrt
                                    1st scale param */ 
-  double **LLL;                 /* 2nd deriv of partial likelihoods
+  double **LLL=NULL;                 /* 2nd deriv of partial likelihoods
                                    wrt 1st scale param */
-  double **MM;                  /* 1st deriv of partial likelihoods
+  double **MM=NULL;                  /* 1st deriv of partial likelihoods
                                    wrt 2nd scale param */
-  double **MMM;                 /* 2nd deriv of partial likelihoods
+  double **MMM=NULL;                 /* 2nd deriv of partial likelihoods
                                    wrt 2nd scale param */
-  double **NNN;                 /* 2nd cross deriv (off diagonal in
+  double **NNN=NULL;                 /* 2nd cross deriv (off diagonal in
                                    Hessian) of partial likelihoods */
 
   double *pd = gradient->data;  /* 1st partial derivatives */
@@ -1443,9 +1444,11 @@ FimGrid *col_fim_grid_sub(TreeModel *mod) {
   for (i = 0; i < g->ngrid2; i++)
     g->scales[g->ngrid1 + i] = exp(i * GRIDSIZE2);
 
+#ifndef RPHAST
   /* set seed for sampling */
   gettimeofday(&now, NULL);
   srandom(now.tv_usec);
+#endif
 
   g->fim = smalloc(g->ngrid * sizeof(void*));
   for (i = 0; i < g->ngrid; i++) {

@@ -423,7 +423,7 @@ BranchIndelSuffStats *im_suff_stats_branch_cat(IndelHistory *ih, int child_id,
                                                int *categories, int do_cat) {
   int i, j;
   char c;
-  col_type this_type, last_type;
+  col_type this_type=SKIP, last_type;
   int parent_id = ((TreeNode*)lst_get_ptr(ih->tree->nodes, child_id))->parent->id;
   BranchIndelSuffStats *ss = smalloc(sizeof(BranchIndelSuffStats));
   ss->trans_counts = mat_new(NINDEL_STATES, NINDEL_STATES);

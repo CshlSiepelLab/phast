@@ -109,7 +109,7 @@ MSA *msa_new(char **seqs, char **names, int nseqs, int length, char *alphabet) {
    NULL, default alphabet for DNA will be used.  This routine will
    abort if the sequence contains a character not in the alphabet. */
 MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
-  int i, j, k, nseqs, len, do_toupper;
+  int i, j, k=-1, nseqs, len, do_toupper;
   MSA *msa;
   String *tmpstr;
 
@@ -542,7 +542,7 @@ void msa_update_length(MSA *msa) {
   else {
       msa->length = 0;
       for (i=0; i<msa->ss->ntuples; i++)
-        msa->length += msa->ss->counts[i];
+        msa->length += (int)msa->ss->counts[i];
   }
 }
 
@@ -806,75 +806,12 @@ void msa_map_free(msa_coord_map *map) {
   free(map);
 }
 
-
-/* what to do with overlapping categories? for now, just rely on external code to order them appropriately ... */ 
-/* TODO: document "MSA" convention; provide option to specify source sequence 
-   explicitly */
-/* warning: requires coordinates of GFF_Set to be in frame of ref of entire alignment */
-void msa_label_categories_old(MSA *msa, GFF_Set *gff, CategoryMap *cm) {
-  int cat, i, j;
-  GFF_Feature *feat;
-
-  if (msa->categories == NULL) 
-    msa->categories = (int*)smalloc(msa->length * sizeof(int));
-  msa->ncats = cm->ncats;
-
-  /* begin by initializing all categories to "other" */
-  for (i = 0; i < msa->length; i++) msa->categories[i] = 0;
-
-  for (i = 0; i < lst_size(gff->features); i++) {
-    feat = (GFF_Feature*)lst_get_ptr(gff->features, i);
-    cat = cm_get_category(cm, feat->feature); 
-
-    if (cat == 0 && !str_equals_charstr(feat->feature, BACKGD_CAT_NAME))
-      continue;                 /* don't label in case of unrecognized
-                                   feature */
-
-    if (feat->start == -1 || feat->end == -1 || feat->end > msa->length) {
-      phast_warning("WARNING: ignoring out-of-range feature\n");
-      gff_print_feat(stderr, feat);
-      continue;
-    }
-
-    if (cm->ranges[cat]->start_cat_no == cm->ranges[cat]->end_cat_no) {
-      for (j = feat->start; j <= feat->end; j++) {
-        int oldprec = cm->labelling_precedence[msa->categories[j-1]];
-        int newprec = cm->labelling_precedence[cat];
-        if (oldprec == -1 || (newprec != -1 && newprec < oldprec))
-          msa->categories[j-1] = cat;
-      }
-    }
-    else {
-      int range_size = cm->ranges[cat]->end_cat_no - 
-        cm->ranges[cat]->start_cat_no + 1;
-      int frm;
-
-      if (feat->frame < 0 || feat->frame > 2)
-        frm = 0;                /* FIXME: something better here? */
-      else
-        frm = feat->frame;
-
-      for (j = feat->start; j <= feat->end; j++) {
-        int offset = feat->strand == '-' ? feat->end - j : j - feat->start;
-        int thiscat = cm->ranges[cat]->start_cat_no + 
-          (offset + frm) % range_size;
-        int oldprec = cm->labelling_precedence[msa->categories[j-1]];
-        int thisprec = cm->labelling_precedence[thiscat];
-        if (oldprec == -1 || (thisprec != -1 && thisprec < oldprec))
-          msa->categories[j-1] = thiscat;
-      }
-    }
-  }
-  if (msa->ss != NULL) 
-    ss_update_categories(msa);
-}
-
 /* what to do with overlapping categories? for now, just rely on external code to order them appropriately ... */ 
 /* TODO: document "MSA" convention; provide option to specify source sequence 
    explicitly */
 /* warning: requires coordinates of GFF_Set to be in frame of ref of entire alignment */
 void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm) {
-  int cat, i, j, seq;
+  int cat, i, j, seq=-1;
   GFF_Feature *feat;
   String *prev_name = NULL;
 
@@ -1770,7 +1707,7 @@ GFF_Set *msa_get_informative_feats(MSA *msa,
   if (refseq == 1) idx = msa->idx_offset;  //assume idx_offset refers to first sequence?
   else idx = 0;
 
-  if (refseq == 0) seqname = "align";
+  if (refseq == 0) seqname = "MSA";
   else seqname = msa->names[refseq-1];
 
   for (i=0; i < msa->length; i++) {
@@ -1861,7 +1798,7 @@ int msa_coding_clean(MSA *msa, int refseq, int min_ncodons,
   List *block_begs = lst_new_int(10);
   List *block_ends = lst_new_int(10);
   char *ref = msa->seqs[refseq]; /* for convenience below */
-  int i, j, k, l, beg, end, blk_beg, blk_end, blk_size, frame, pos;
+  int i, j, k, l, beg=-1, end=-1, blk_beg, blk_end, blk_size, frame, pos;
   int ngaps[msa->nseqs];
   int retval = 0, trunc = 0;
   char tmp_codon[3];
@@ -2268,43 +2205,6 @@ void msa_concatenate(MSA *aggregate_msa, MSA *source_msa) {
   free(source_msa_idx);
 }
 
-
-/* Concatenate one MSA onto another.  Both alignments must have the
-   same number of sequences and their order must correspond.  The
-   sequence names of 'source_msa' will be ignored. */
-void msa_concatenate_old(MSA *aggregate_msa, MSA *source_msa) {
-  int i, j;
-  assert(aggregate_msa->nseqs == source_msa->nseqs);
-
-  if (aggregate_msa->seqs == NULL) {
-    aggregate_msa->seqs = (char**)smalloc(aggregate_msa->nseqs * sizeof(char*));
-    aggregate_msa->alloc_len = 0;
-  }
-
-  if (aggregate_msa->alloc_len == 0) {
-    aggregate_msa->alloc_len = aggregate_msa->length + source_msa->length;
-    for (j = 0; j < aggregate_msa->nseqs; j++)
-      aggregate_msa->seqs[j] = 
-        (char*)smalloc((aggregate_msa->alloc_len+1) * sizeof(char));
-  }
-
-  else if (aggregate_msa->length + source_msa->length > 
-           aggregate_msa->alloc_len) {
-    aggregate_msa->alloc_len += source_msa->length * 2;
-    for (j = 0; j < aggregate_msa->nseqs; j++) 
-      aggregate_msa->seqs[j] = 
-        (char*)srealloc(aggregate_msa->seqs[j], 
-                       (aggregate_msa->alloc_len+1) * sizeof(char));
-  }
-
-  for (i = 0; i < source_msa->length; i++) 
-    for (j = 0; j < aggregate_msa->nseqs; j++)
-      aggregate_msa->seqs[j][i+aggregate_msa->length] = source_msa->seqs[j][i];
-
-  aggregate_msa->length += source_msa->length;
-  for (j = 0; j < aggregate_msa->nseqs; j++)
-    aggregate_msa->seqs[j][aggregate_msa->length] = '\0';
-}
 
 /* Randomly permute the columns of a multiple alignment.  */
 void msa_permute(MSA *msa) {
@@ -2757,5 +2657,6 @@ void msa_realloc(MSA *msa, int new_length, int new_alloclen, int do_cats,
     ss_realloc(msa, msa->ss->tuple_size, msa->ss->alloc_ntuples, do_cats,
 	       store_order);
 }
+
 
 

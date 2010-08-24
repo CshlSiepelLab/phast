@@ -143,6 +143,8 @@ int main(int argc, char *argv[]) {
 
 #ifdef RPHAST
   GetRNGstate(); //seed R's random number generator
+#else
+  srandom(time(NULL));
 #endif
 
   while ((c = getopt_long(argc, argv, "L:n:i:d:a:m:o:xR:qht:s:k:Ep:M:S:w:l:P:F:r", 
@@ -252,7 +254,6 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  srandom(time(NULL));
   if ((subtreeScale!=1.0 || subtreeSwitchProb!=0.0) &&
       subtreeName==NULL)
     die("ERROR: need to use --subtree with --subtree-scale or --subtree-switch\n");

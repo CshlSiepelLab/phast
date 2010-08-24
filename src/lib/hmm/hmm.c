@@ -154,7 +154,7 @@ void hmm_free(HMM *hmm) {
    be preceded by a tag, as defined in hmm.h. */
 HMM* hmm_new_from_file(FILE *F) {
   char tag[100];
-  MarkovMatrix *mm;
+  MarkovMatrix *mm=NULL;
   Vector *beg = NULL, *end = NULL, *eqfreqs = NULL;
 
   while (fscanf(F, "%s ", tag) != EOF) {
@@ -1137,6 +1137,7 @@ void hmm_stochastic_traceback(HMM *hmm, double **forward_scores, int seqlen,
   /* Recursion */
   for (i = seqlen; i > 0; i--) {
     max = -INFTY;
+    maxidx=0;
     z = 1;
     predecessors = (state == END_STATE ? hmm->end_predecessors :
 			  hmm->predecessors[state]);
@@ -1246,10 +1247,15 @@ double hmm_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
     llh = hmm_max_or_sum(hmm, forward_scores, NULL, NULL, END_STATE,
 			 seqlen, FORWARD);
   } else {
+#ifndef PHAST_PTHREAD
+    die("need pthread support for nthreads > 0");
+#else
+
     hmm_do_dp_forward_pthread(hmm, emission_scores, seqlen, FORWARD,
 			      forward_scores, NULL, nthreads, thread_id);
     llh = hmm_max_or_sum_pthread(hmm, forward_scores, NULL, NULL, END_STATE,
 				 seqlen, FORWARD, nthreads, thread_id);
+#endif
   }
   return llh;
 }

@@ -523,8 +523,8 @@ int phastCons(struct phastCons_struct *p) {
   /* posterior probs */
   if (post_probs) {
     int j, k;
-    double *postprobs, *postprobsNoMissing;
-    int idx=0, *coord;
+    double *postprobs, *postprobsNoMissing=NULL;
+    int idx=0, *coord=NULL;
 
     if (!quiet) fprintf(results_f, "Computing posterior probabilities...\n");
 

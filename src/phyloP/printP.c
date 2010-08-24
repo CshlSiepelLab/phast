@@ -580,7 +580,7 @@ void print_wig(FILE *outfile, MSA *msa, double *vals, char *chrom,
 	       int refidx, int log_trans, ListOfLists *result) {
   int last, j, k;
   double val;
-  List *posList, *scoreList;
+  List *posList=NULL, *scoreList=NULL;
 
   if (result != NULL) {
     posList = lst_new_int(msa->length);
@@ -647,7 +647,7 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
   int last, j, k, tup, col;
   va_list ap;
   double *data[ncols+1];
-  List **resultList;
+  List **resultList=NULL;
   char **colname;
   int get_log = (log_trans_outfile && outfile != NULL) || 
     (log_trans_results && result != NULL);
@@ -740,7 +740,7 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
   Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
   List *l = lst_new_ptr(2);
   char **colname;
-  List **resultList;
+  List **resultList=NULL;
   int get_log = (log_trans_outfile && outfile != NULL) || 
     (log_trans_results && result != NULL);
 

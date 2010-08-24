@@ -410,7 +410,7 @@ void sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type mode,
   Vector *prior = sub_prior_distrib_site(jp);
   Vector *post;
   double *x0; /* array of posterior means; used for p-value computation */
-  ColFitData *d;
+  ColFitData *d=NULL;
 
   if (post_mean != NULL)
     x0 = post_mean;             /* just reuse post_mean in this case */
@@ -491,10 +491,10 @@ void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode,
   int tup, alloc = FALSE;
   double lnl;
   Matrix *prior = sub_joint_distrib_site(jp, NULL, -1);
-  Matrix *post;
+  Matrix *post=NULL;
   Vector *marg_sub, *marg_sup;
   double *msub, *vsub, *msup, *vsup;
-  ColFitData *d;
+  ColFitData *d=NULL;
 
   if (post_mean_sub != NULL && post_var_sub != NULL &&
       post_mean_sup != NULL && post_var_sup != NULL) {
@@ -999,7 +999,7 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
                        ) {
 
   Matrix *p, *prior = NULL, *prior_site;
-  int maxlen = -1, len, idx, i, j, logmaxlen, loglen, max_nrows, max_ncols,
+  int maxlen = -1, len, idx, i, j, logmaxlen, loglen, max_nrows=-1, max_ncols=-1,
     max_conv_len, checksum, lastlen = -1;
   GFF_Feature *f;
   double *post_mean_left, *post_mean_right, *post_mean_tot, *post_var_left,

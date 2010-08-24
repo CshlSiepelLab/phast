@@ -222,7 +222,7 @@ void ih_print_compact(CompactIndelHistory *cih, FILE *outf, char *msa_name, char
    insertions and '.' characters in place of '-' for deletions.
    Useful for debugging */
 MSA *ih_as_alignment(IndelHistory *ih, MSA *msa) {
-  int i, j, k, s, ins;
+  int i, j, k, s=-1, ins=-1;
   char **seqs = smalloc(ih->tree->nnodes * sizeof(char*));
   char **names = smalloc(ih->tree->nnodes * sizeof(char*));
   List *inside, *outside;
@@ -299,7 +299,7 @@ MSA *ih_as_alignment(IndelHistory *ih, MSA *msa) {
 }
 
 CompactIndelHistory *ih_read_compact(FILE *inf) {
-  TreeNode *node, *tree = NULL;
+  TreeNode *node=NULL, *tree = NULL;
   String *line = str_new(STR_MED_LEN);
   CompactIndelHistory *cih = NULL;
   List *l = lst_new_ptr(3);

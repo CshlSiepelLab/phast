@@ -1,3 +1,5 @@
+#ifdef PHAST_PTHREAD
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -320,3 +322,4 @@ void thr_fork(ThreadPool * pool, void * work, wrk_func * funcs) {
   pthread_mutex_unlock(&(pool->mtx_wait_finish));
 }
 
+#endif

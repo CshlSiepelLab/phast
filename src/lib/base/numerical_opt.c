@@ -593,7 +593,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
                                    at the boundary (i.e., suggesting a
                                    move into the permitted region of
                                    the parameter space) */
-      int max_idx;              /* corresponding index */
+      int max_idx=0;              /* corresponding index */
       for (i = 0; i < at_bounds->size; i++) {
         if (vec_get(at_bounds, i) == OPT_LOWER_BOUND && 
             -1 * vec_get(g, i) > max_grad) {
@@ -805,7 +805,7 @@ void opt_lnsrch(Vector *xold, double fold, Vector *g, Vector *p,
                 void *data, int *nevals, double *final_lambda, FILE *logf) {
 
   int i, n = xold->size;
-  double a, lambda, lambda2, lamda_min, b, disc, f2, rhs1, rhs2, slope, sum,
+  double a, lambda, lambda2=0, lamda_min, b, disc, f2=0, rhs1, rhs2, slope, sum,
     temp, test, tmplam;
   *check_convergence = 0;
 
@@ -944,7 +944,7 @@ double opt_brent(double ax, double bx, double cx,
         the returned function value. */
 {
   int iter;
-  double a,b,d,etemp,fu,fv,fw,fx,p,q,r,tol1,tol2,u,v,w,x,xm;
+  double a,b,d=0,etemp,fu,fv,fw,fx,p,q,r,tol1,tol2,u,v,w,x,xm;
   double e=0.0;                  /*  This will be the distance moved on
                                     the step before last. */
   a=(ax < cx ? ax : cx);        /* a and b must be in ascending order, 
@@ -1199,7 +1199,7 @@ void opt_derivs_1d(double *deriv, double *deriv2, double x, double fx,
                                            double ub),
                    double (*compute_deriv2)(double x, void *data, double lb, 
                                             double ub)) {
-  double fxeps, fx2eps;
+  double fxeps=-1.0, fx2eps=-1.0;
   int at_ub = (ub - x < BOUNDARY_EPS2); /* at upper bound */
 
   if (compute_deriv == NULL) {

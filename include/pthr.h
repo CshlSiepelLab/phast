@@ -1,3 +1,5 @@
+#ifdef PHAST_PTHREAD
+
 #ifndef PTHR_H
 #define PTHR_H
 
@@ -74,5 +76,7 @@ int thr_index(ThreadPool * pool);
   Synchronized wait for all the work to finish.
 */
 void thr_fork(ThreadPool * pool, void * work, wrk_func * funcs);
+
+#endif
 
 #endif

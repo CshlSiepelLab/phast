@@ -12,7 +12,7 @@
    
    $Id: stringsplus.c,v 1.12 2009-02-19 23:33:48 agd27 Exp $ */
 
-//#include <pcre.h>
+#include <pcre.h>
 #include "stringsplus.h"
 #include "misc.h"
 #include <stdlib.h>

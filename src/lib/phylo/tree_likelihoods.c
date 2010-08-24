@@ -53,7 +53,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
   double **inside_joint = NULL, **inside_marginal = NULL, 
     **outside_joint = NULL, **outside_marginal = NULL, 
     ****subst_probs = NULL;
-  double *tuple_scores;
+  double *tuple_scores=NULL;
   double rcat_prob[mod->nratecats];
   double tmp[nstates];
 

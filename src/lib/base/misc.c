@@ -42,7 +42,10 @@ void choose(int *selections, int N, int k) {
     }
   }
 
+  /* if RPHAST RNG is seeded externally */
+#ifndef RPHAST
   srandom(time(NULL));
+#endif
   for (i = 0; i < k && lst_size(eligible) > 0; i++) {
     int randidx = rint(1.0 * (lst_size(eligible)-1) * unif_rand());
     int item = lst_get_int(eligible, randidx);
@@ -65,7 +68,11 @@ void permute(int *permutation, int N) {
   List *eligible = lst_new_int(N);
   for (i = 0; i < N; i++) lst_push_int(eligible, i);
 
+  /* if RPHAST RNG is seeded externally */
+#ifndef RPHAST
   srandom(time(NULL));
+#endif
+
   for (i = 0; i < N; i++) {
     randidx = rint(1.0 * (lst_size(eligible)-1) * unif_rand());
     assert(randidx >= 0 && randidx < lst_size(eligible));
@@ -789,7 +796,7 @@ double incomplete_gamma(double a,
     }
   }
   else {			/* use continued fraction representation */
-    double gold = 0.0, g, fac = 1.0, b1 = 1.0;
+    double gold = 0.0, g=-1.0, fac = 1.0, b1 = 1.0;
     double b0 = 0, anf, ana, an, a1, a0 = 1.0;
 
     a1 = x;

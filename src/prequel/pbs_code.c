@@ -446,7 +446,9 @@ double pbs_estimate_from_data(PbsCode *code, List *prob_vectors,
 
   assert(lst_size(counts) == lst_size(prob_vectors) && lst_size(prob_vectors) > 0);
 
+#ifndef RPHAST
   srandom(time(NULL));		/* for pbs_optimize_region */
+#endif
 
   for (i = 0; i < lst_size(counts); i++) 
     tot_count += lst_get_int(counts, i);

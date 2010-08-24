@@ -100,7 +100,7 @@ LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
     }
     else if (stanza_type == 's') {
       int beg, end;
-      String *tmpstr, *fname, *seq;
+      String *tmpstr, *fname, *seq=NULL;
       FILE *F2;
 
       str_double_trim(line);

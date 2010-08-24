@@ -353,13 +353,12 @@ horizontal axis.\n\n");
 
 
 void print_window_summary(FILE* WINDOWF, List *window_coords, int win, 
-                          int cat, TreeModel *mod, double *gc, double cpg, 
+                          int cat, TreeModel *mod, double *gc,
                           int ninf_sites, int nseqs, int header_only) {
   int j;
   if (header_only) {
     fprintf(WINDOWF, "%5s %8s %8s %4s", "win", "beg", "end", "cat");
     fprintf(WINDOWF, " %6s", "GC");
-    fprintf(WINDOWF, " %8s", "CpG");
     fprintf(WINDOWF, " %7s", "ninf");
     fprintf(WINDOWF, " %7s\n", "t");
   }
@@ -372,8 +371,7 @@ void print_window_summary(FILE* WINDOWF, List *window_coords, int win,
                            mod->rate_matrix->inv_states[(int)'G']) + 
             vec_get(mod->backgd_freqs, 
                            mod->rate_matrix->inv_states[(int)'C']));
-    for (j = 0; j < nseqs; j++) fprintf(WINDOWF, " %6.4f", gc[j]);
-    fprintf(WINDOWF, " %8.6f", cpg);
+    for (j = 0; j < nseqs; j++) fprintf(WINDOWF, " %6.4f", gc==NULL ? -1.0 : gc[j]);
     fprintf(WINDOWF, " %7d", ninf_sites);
     fprintf(WINDOWF, " %7.4f\n", tr_total_len(mod->tree));
   }
@@ -382,15 +380,14 @@ void print_window_summary(FILE* WINDOWF, List *window_coords, int win,
 
 
 int run_phyloFit(struct phyloFit_struct *pf) {
-  FILE *F, *WINDOWF;
+  FILE *F, *WINDOWF=NULL;
   int i, j, win, root_leaf_id = -1;
   String *mod_fname;
   MSA *source_msa;
   FILE *logf = NULL;
   String *tmpstr = str_new(STR_SHORT_LEN);
   List *cats_to_do=NULL;
-  double *gc;  //TODO: gc and cpg don't seem to have been implemented
-  double cpg;
+  double *gc=NULL;
   char tmpchstr[STR_MED_LEN];
   FILE *parsimony_cost_file = NULL;
   int free_cm = FALSE, free_cats_to_do_str=FALSE, free_tree=FALSE,
@@ -584,7 +581,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
     str_append_charstr(sumfname, ".win-sum");
     WINDOWF = fopen_fname(sumfname->chars, "w+");
     str_free(sumfname);
-    print_window_summary(WINDOWF, NULL, 0, 0, NULL, NULL, 0, 0, 0, TRUE);
+    print_window_summary(WINDOWF, NULL, 0, 0, NULL, NULL, 0, 0, TRUE);
     
     /* map to coord frame of alignment */
     map = msa_build_coord_map(msa, 1);
@@ -885,10 +882,28 @@ int run_phyloFit(struct phyloFit_struct *pf) {
       }
 
       /* print window summary, if window mode */
-      if (pf->window_coords != NULL) 
+      if (pf->window_coords != NULL) {
+	if (gc ==NULL) {
+	  int i, j, total=0;
+	  char c;
+	  gc = smalloc(msa->nseqs*sizeof(double));
+	  for (i=0; i < msa->nseqs; i++) {
+	    total=0;
+	    gc[i]=0;
+	    for (j=0; j<msa->length; j++) {
+	      c = msa_get_char(msa, i, j);
+	      if ((!msa->is_missing[(int)c]) && c != GAP_CHAR) {
+		total++;
+		if (c=='C' || c=='G') gc[i]++;
+	      }
+	    }
+	    gc[i] /= (double)total;
+	  }
+	}
         print_window_summary(WINDOWF, pf->window_coords, win, cat, mod, gc, 
-                             cpg, ninf_sites, msa->nseqs, FALSE);
-
+                             ninf_sites, msa->nseqs, FALSE);
+      }
+      
       if (input_mod == NULL) tm_free(mod);
       if (params != NULL) vec_free(params);
     }
@@ -914,5 +929,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
     lst_free(pf->window_coords);
     pf->window_coords = NULL;
   }
+  if (gc != NULL)
+    free(gc);
   return 0;
 }

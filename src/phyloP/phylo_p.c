@@ -149,8 +149,8 @@ void phyloP(struct phyloP_struct *p) {
   /* other variables */
   TreeModel *mod, *mod_fitted = NULL;
   MSA *msa;
-  Vector *prior_distrib, *post_distrib;
-  Matrix *prior_joint_distrib, *post_joint_distrib;
+  Vector *prior_distrib=NULL, *post_distrib=NULL;
+  Matrix *prior_joint_distrib=NULL, *post_joint_distrib=NULL;
   JumpProcess *jp, *jp_post;
   List *pruned_names;
   int j, old_nleaves;

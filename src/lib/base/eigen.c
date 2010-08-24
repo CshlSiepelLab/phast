@@ -46,7 +46,7 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
   LAPACK_INT n = (LAPACK_INT)M->nrows, lwork = (LAPACK_INT)(4*M->nrows), info;
   LAPACK_DOUBLE tmp[n*n], wr[n], wi[n], vl[n * n], vr[n * n], work[4 * n];
   int i, j, k;
-  enum {REALVAL, CONJ1, CONJ2} eval_type;
+  enum {REALVAL, CONJ1, CONJ2} eval_type=REALVAL;
   int check = 0;
   
   if (n != M->ncols)

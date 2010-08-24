@@ -213,8 +213,8 @@ SEXP rph_gff_new(SEXP seqnameP, SEXP srcP, SEXP featureP, SEXP startP, SEXP endP
   int gfflen, i;
   int haveScore=0, haveStrand=0, haveFrame=0, haveAttribute=0, numProtect=5;
   String *seqname, *source, *feature, *attribute;
-  int *start, *end, frame=GFF_NULL_FRAME, *frameVec;
-  double *scoreVec, score;
+  int *start, *end, frame=GFF_NULL_FRAME, *frameVec=NULL;
+  double *scoreVec=NULL, score;
   char strand;
   
   PROTECT(seqnameP = AS_CHARACTER(seqnameP));

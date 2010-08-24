@@ -675,7 +675,7 @@ AltSubstMod* tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
   AltSubstMod *altmod = smalloc(sizeof(AltSubstMod));
   String *nodestr, *modstr;
   List *templst, *traversal;
-  TreeNode *n, *tempnode;
+  TreeNode *n=NULL, *tempnode;
   int parentbranch=0, i;
   altmod->defString = str_new_charstr(altmod_str->chars);
   templst = lst_new_ptr(2);
@@ -1162,7 +1162,7 @@ MSA *tm_generate_msa_scaleLst(List *nsitesLst, List *scaleLst,
   int nsite, ncolumns=0, i, j, k, idx, col, nseqs, ratecat;
   char **seqs, **names, *newchar;
   MSA *msa;
-  TreeNode *subtreeNode;
+  TreeNode *subtreeNode=NULL;
   List *traversal = tr_preorder(mod->tree);
 
   if (subtreeName == NULL) {
@@ -1382,7 +1382,7 @@ void tm_add_bounds(String *limitstr, Vector **lower_bounds,
 		   Vector **upper_bounds,
 		   int *param_map, int idx, int len, int npar) {
   List *bound_lst;
-  String *lb_str, *ub_str;
+  String *lb_str=NULL, *ub_str=NULL;
   
   if (idx == -1) {
     fprintf(stderr, "warning: could not add bound %s to constant parameter\n",
@@ -1759,7 +1759,7 @@ int void_str_equals_charstr(void *strptr, void *charptr) {
    which are held constant have param_map[i]=-1.   
  */
 void tm_setup_params(TreeModel *mod) {
-  int i, opt_idx = 0, next_idx, pos, numpar, *flag, size;
+  int i, opt_idx = 0, next_idx, pos=0, numpar, *flag=NULL, size;
   List *noopt=NULL;
 
   //first assign indices in mod->all_params to give position of each
@@ -2349,7 +2349,9 @@ Vector *tm_params_init_random(TreeModel *mod) {
   List *traversal;
   double *heights;
 
+#ifndef RPHAST
   srandom(time(NULL));
+#endif
 
   tm_setup_params(mod);
   
@@ -2555,7 +2557,9 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod,
     die("Sorry, parsimony algorithm not implemented for molecular clock\n");
   }
 
+#ifndef RPHAST
   srandom(time(NULL));
+#endif
 
 
   //this array keeps track of number of mutations on each branch

@@ -29,6 +29,8 @@ CFLAGS = -O3 -pthread
 # some other options
 #CFLAGS = -mcpu=opteron -O3
 #CFLAGS = -mcpu=pentiumpro -O3 
+# add this to include threading support
+CFLAGS += -DPHAST_PTHREAD
 
 PHAST_VERSION=\"$(shell cat ${PHAST}/version)\"
 CFLAGS += -I${INC} -DPHAST_VERSION=${PHAST_VERSION} -DPHAST_HOME=\"${PHAST}\" -I${PHAST}/src/lib/pcre

@@ -98,6 +98,7 @@ void ss_reduce_tuple_size(MSA *msa, int new_tuple_size);
 void ss_add_seq(MSA *msa, int new_nseq);
 int ss_lookup_coltuple(char *coltuple_str, Hashtable *tuple_hash, MSA *msa);
 void ss_add_coltuple(char *coltuple_str, void *val, Hashtable *tuple_hash, MSA *msa);
+void ss_make_ordered(MSA *msa);
 
 /* Produce a string representation of an alignment column tuple, given
    the model order; str must be allocated externally to size

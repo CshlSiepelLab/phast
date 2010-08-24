@@ -9,7 +9,7 @@ SEXP rph_listOfLists_to_SEXP(ListOfLists *lol) {
   double *doublep;
   List *currlist;
   SEXPTYPE lstType;
-  SEXP result, header, tempvec;
+  SEXP result, header=R_NilValue, tempvec=R_NilValue;
 
   listlen = lst_size(lol->lst);
 

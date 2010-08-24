@@ -374,7 +374,7 @@ List *cm_get_category_str_list(CategoryMap *cm,
       if (cm != NULL) {
 	cat = cm_get_category(cm, n);
 	if (cat == 0 && !ignore_missing && !str_equals(n, cm_get_feature(cm, 0))) {
-	  die("ERROR: illegal category name (\%s\")\n", n->chars);
+	  die("ERROR: illegal category name (\"%s\")\n", n->chars);
 	}
 	//return pointers to cm if possible
 	lst_push_ptr(retval, cm_get_feature(cm, cat));

@@ -161,7 +161,7 @@ SEXP rph_phyloFit(SEXP msaP,
   int numProtect=0, i;
   double *doubleP;
   char *die_message=NULL;
-  struct phyloFit_result_struct *result;
+  struct phyloFit_result_struct *result=NULL;
 
   GetRNGstate(); //seed R's random number generator
   pf = phyloFit_struct_new(1);  //sets appropriate defaults for RPHAST mode

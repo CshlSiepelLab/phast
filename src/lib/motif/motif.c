@@ -723,7 +723,7 @@ double mtf_em(void *models, void *data, int nsamples,
   int i, j, k, s, obsidx, nobs, maxlen = 0;
   double **emissions, **E;
   double *logpY, *postpY;
-  double total_logl, prev_total_logl, expected_nmotifs, max, window_sum;
+  double total_logl, prev_total_logl, expected_nmotifs, max=0, window_sum;
   List *tmplst;
 
   for (s = 0; s < nsamples; s++)

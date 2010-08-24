@@ -67,7 +67,7 @@ Multi_MSA *msa_multimsa_new(FILE *F, int do_ih) {
   int i, nblocks;
   char *msa_fname, *ih_fname = NULL;
   FILE *msa_f, *ih_f;
-  msa_format_type format;
+  msa_format_type format=0;
   Multi_MSA *msas = NULL;
   MSA *msa;
   List *matches = lst_new_ptr(4);

@@ -127,7 +127,9 @@ SEXP rph_phyloP(SEXP modP, SEXP msaP, SEXP methodP, SEXP modeP,
       p->quantiles_only = LOGICAL_VALUE(quantilesP);
   }
 
+  GetRNGstate();
   phyloP(p);
+  PutRNGstate();
   
   if (p->subtree_name != NULL) free(p->subtree_name);
   if (p->branch_name != NULL) {

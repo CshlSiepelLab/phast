@@ -1434,3 +1434,18 @@ void ss_add_coltuple(char *coltuple_str, void *val, Hashtable *tuple_hash, MSA *
 }
 
 
+/* impose an artificial ordering on tuples if they aren't already ordered */
+void ss_make_ordered(MSA *msa) {
+  int i, j, idx=0, count;
+  if (msa->ss == NULL || msa->ss->tuple_idx != NULL) return;
+  msa_update_length(msa);
+  msa->ss->tuple_idx = smalloc(msa->length*sizeof(int));
+  for (i=0; i < msa->ss->ntuples; i++) {
+    count = (int)msa->ss->counts[i];
+    if (fabs(msa->ss->counts[i] - count) > 0.00001)
+      die("can't impose order on alignment with non-integral counts");
+    for (j=0; j < count; j++)
+      msa->ss->tuple_idx[idx++] = i;
+  }
+  assert(idx == msa->length);
+}

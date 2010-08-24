@@ -69,7 +69,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
                        void (*log_function)(FILE*, double, HMM*, void*, int),
 		       double **emissions_alloc, FILE *logf) { 
 
-  int i, k, l, s, obsidx, nobs, maxlen = 0, done, it;
+  int i, k, l, s, obsidx, nobs=0, maxlen = 0, done, it;
   double **emissions, **forward_scores, **backward_scores, **E = NULL, **A;
   double *totalE = NULL, *totalA;
   double total_logl, prev_total_logl, val;

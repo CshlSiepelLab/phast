@@ -341,7 +341,7 @@ int mafBlock_all_gaps(MafBlock *block) {
    convert to e-line.
  */
 void mafBlock_remove_gap_cols(MafBlock *block) {
-  int *isGap = NULL, nonGapSpecies=0, i, j, k, gapCount, start, pos;
+  int *isGap = NULL, nonGapSpecies=0, i, j, k, gapCount, start, pos=-1;
   MafSubBlock *sub;
 
   for (i=0; i<lst_size(block->data); i++) {

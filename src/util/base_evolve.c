@@ -105,10 +105,13 @@ int main(int argc, char *argv[]) {
   /* generate alignment and labels */
   if (features_fname != NULL)
     labels = smalloc(nsites * sizeof(int));
+#ifndef RPHAST
   gettimeofday(&now, NULL);
   srandom(now.tv_usec);         /* use microseconds to avoid using
                                    same seed in rapidly repeated
                                    calls */
+#endif
+
   msa = tm_generate_msa(nsites, hmm, mods, labels);
 
   /* generate features, if necessary */
