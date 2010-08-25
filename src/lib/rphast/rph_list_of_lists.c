@@ -62,8 +62,11 @@ SEXP rph_listOfLists_to_SEXP(ListOfLists *lol) {
     }
 
     SET_VECTOR_ELT(result, col, tempvec);
-    if (lol->lstName != NULL) 
-      SET_STRING_ELT(header, col, mkChar((char*)lst_get_ptr(lol->lstName, col)));
+    if (lol->lstName != NULL && lst_size(lol->lstName) > col) {
+      char *name = lst_get_ptr(lol->lstName, col);
+      if ((void*)name != NULL)
+	SET_STRING_ELT(header, col, mkChar((char*)lst_get_ptr(lol->lstName, col)));
+    }
   }
 
   if (lol->lstName != NULL)

@@ -258,7 +258,8 @@ void lol_free(ListOfLists *lol) {
       if (currtype == CHAR_LIST) {
 	for (j=0; j<lst_size(currlst); j++) {
 	  currstr = (char*)lst_get_ptr(currlst, j);
-	  free(currstr);
+	  if ((void*)currstr != NULL)
+	    free(currstr);
 	}
       }
       lst_free(currlst);

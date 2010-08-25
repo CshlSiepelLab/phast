@@ -26,6 +26,7 @@ Last updated: 1/5/2010
 #include <local_alignment.h>
 #include <gff.h>
 #include <misc.h>
+#include <list_of_lists.h>
 
 #include <Rdefines.h>
 
@@ -408,6 +409,64 @@ SEXP rph_gff_features(SEXP gffP) {
   return rv;
 }
 
+
+SEXP rph_gff_one_attribute(SEXP gffP, SEXP tagP) {
+  GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  GFF_Feature *f;
+  ListOfLists *lol;
+  List *l1, *l2;
+  int numtag, numval, i, j, k, resultLen, maxResultLen=10;
+  String *currStr, *tag;
+  char **result;
+  SEXP rv;
+  SEXP rph_listOfLists_to_SEXP(ListOfLists *lol);
+
+
+  if (lst_size(gff->features) == 0) return R_NilValue;
+  result = smalloc(maxResultLen*sizeof(char*));    
+  tag = str_new_charstr(CHARACTER_VALUE(tagP));
+  str_double_trim(tag);
+  lol = lol_new(lst_size(gff->features));
+  l1 = lst_new_ptr(10);
+  l2 = lst_new_ptr(10);
+  for (i=0; i < lst_size(gff->features); i++) {
+    resultLen=0;
+    f = (GFF_Feature*) lst_get_ptr(gff->features, i);
+    numtag = str_split(f->attribute, ";", l1);  //split tags
+    for (j=0; j < numtag; j++) {
+      numval = str_split(f->attribute, NULL, l2);  //split into tag val val ... by whitespace
+      if (numval > 1) {
+	currStr = (String*)lst_get_ptr(l2, 0);
+	str_double_trim(currStr);
+	if (str_equals(tag, currStr)) {  //tag matches target, add all values to list
+	  for (k=1; k < numval; k++) {
+	    currStr = (String*)lst_get_ptr(l2, k);
+	    str_double_trim(currStr);
+	    str_remove_quotes(currStr);
+	    if (resultLen > maxResultLen) {
+	      maxResultLen += 100;
+	      result = realloc(result, maxResultLen*sizeof(char*));
+	    }
+	    result[resultLen++] = strdup(currStr->chars);
+	  }
+	}
+      }
+      lst_free_strings(l2);
+    }
+    lst_free_strings(l1);
+    if (resultLen == 0) 
+      result[resultLen++] = strdup("");  //empty string will be converted to NA later
+    lol_push_charvec(lol, result, resultLen, NULL);
+    for (j=0; j < resultLen; j++) free(result[j]);
+  }
+  PROTECT(rv = rph_listOfLists_to_SEXP(lol));
+  lol_free(lol);
+  free(tag);
+  lst_free(l1);
+  lst_free(l2);
+  UNPROTECT(1);
+  return rv;
+}
 
 
 SEXP rph_gff_overlapSelect(SEXP gffP, SEXP filter_gffP, 
