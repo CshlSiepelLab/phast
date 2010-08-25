@@ -6,6 +6,7 @@
 #include <math.h>
 #include <assert.h>
 #include <dgamma.h>
+#include <misc.h>
 
 #define FOR(i,n) for(i=0; i<n; i++)
 

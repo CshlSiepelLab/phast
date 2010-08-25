@@ -16,6 +16,7 @@
 #include <gap_patterns.h>
 #include <category_map.h>
 #include <sufficient_stats.h>
+#include <misc.h>
 
 /** Expands the set of categories in the specified cat map such that
    each designated "indel category" is replaced by ngap_patterns

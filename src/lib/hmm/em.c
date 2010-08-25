@@ -13,6 +13,7 @@
    phylogenetic models. */
 
 #include <em.h>
+#include <misc.h>
 #include <assert.h>
 #include <sufficient_stats.h>
 #include <fit_em.h>

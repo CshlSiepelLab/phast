@@ -19,6 +19,7 @@ Last updated: 7/24/10
 #include <stdio.h>
 #include <lists.h>
 #include <Rdefines.h>
+#include <misc.h>
 
 
 void rph_list_free(SEXP listP) {

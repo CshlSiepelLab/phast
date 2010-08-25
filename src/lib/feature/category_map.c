@@ -18,6 +18,7 @@
 #include "category_map.h"
 #include "gff.h"
 #include "stacks.h"
+#include "misc.h"
 #include <assert.h>
 #include <hashtable.h>
 #include <unistd.h>

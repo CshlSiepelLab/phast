@@ -25,6 +25,7 @@ Last updated: 1/5/2010
 #include <sufficient_stats.h>
 #include <local_alignment.h>
 #include <trees.h>
+#include <misc.h>
 
 #include <Rdefines.h>
 

@@ -15,6 +15,7 @@
     \ingroup msa
 */
 
+#include <misc.h>
 #include <sufficient_stats.h>
 #include <msa.h>
 #include <maf_block.h>

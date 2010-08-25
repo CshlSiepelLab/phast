@@ -13,6 +13,7 @@
 #include <msa.h>
 #include <sufficient_stats.h>
 #include <indel_history.h>
+#include <misc.h>
 
 /* note: when there are nested indels a (compact) indel history is
    *not* a most parsimonious description of indel events; however it

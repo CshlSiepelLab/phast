@@ -26,6 +26,7 @@ Last updated: 12/14/08
 #include <hmm.h>
 #include <math.h>
 #include <rph_util.h>
+#include <misc.h>
 #include <markov_matrix.h>
 #include <vector.h>
 #include <list_of_lists.h>

@@ -21,6 +21,7 @@ Last updated: 4/8/2010
 #include <assert.h>
 #include <getopt.h>
 #include <ctype.h>
+#include <misc.h>
 #include <sufficient_stats.h>
 #include <local_alignment.h>
 #include <trees.h>

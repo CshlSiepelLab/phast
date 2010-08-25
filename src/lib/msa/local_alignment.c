@@ -30,6 +30,7 @@
 
 
 #include "local_alignment.h"
+#include "misc.h"
 #include <math.h>
 #include <assert.h>
 

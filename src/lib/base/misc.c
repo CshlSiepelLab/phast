@@ -286,6 +286,23 @@ void phast_warning(const char *warnfmt, ...) {
   vfprintf(stderr, warnfmt, args);
   va_end(args);
 }
+
+
+#endif
+
+#ifdef RPHAST
+
+int rphast_fprintf(FILE *f, const char *format, ...) {
+  va_list args;
+  va_start(args, format);
+  if (f == stdout)
+    Rvprintf(format, args);
+  else if (f == stderr)
+    REvprintf(format, args);
+  else vfprintf(f, format, args);
+}
+
+
 #endif
 
 /* returns List of Strings derived from an argument that may either be

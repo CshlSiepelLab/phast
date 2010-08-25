@@ -12,6 +12,7 @@
 #include "hmm.h"
 #include <assert.h>
 #include <math.h>
+#include <misc.h>
 #include <string.h>
 #include "queues.h"
 #include "stacks.h"

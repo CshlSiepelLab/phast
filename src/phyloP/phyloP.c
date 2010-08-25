@@ -9,6 +9,7 @@
 
 #include "phylo_p.h"
 #include "phyloP.help"
+#include <misc.h>
 
 
 int main(int argc, char *argv[]) {

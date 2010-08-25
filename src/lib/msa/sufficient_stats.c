@@ -9,6 +9,7 @@
 
 /* $Id: sufficient_stats.c,v 1.29 2009-03-09 16:34:33 agd27 Exp $ */
 
+#include "misc.h"
 #include "sufficient_stats.h"
 #include "maf.h"
 #include "assert.h"

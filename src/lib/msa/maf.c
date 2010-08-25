@@ -20,6 +20,7 @@
 #include <maf.h>
 #include <ctype.h>
 #include <maf_block.h>
+#include <misc.h>
 
 
 /** Read An Alignment from a MAF file.  The alignment won't be

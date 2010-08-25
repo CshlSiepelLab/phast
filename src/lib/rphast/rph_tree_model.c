@@ -27,6 +27,7 @@ Last updated: 1/13/10
 #include <tree_model.h>
 #include <matrix.h>
 #include <tree_likelihoods.h>
+#include <misc.h>
 #include <Rdefines.h>
 
 //these are defined as macros in R and we don't want them overriding

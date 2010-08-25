@@ -26,6 +26,7 @@ Last updated: 1/13/10
 #include <local_alignment.h>
 #include <subst_mods.h>
 #include <external_libs.h>
+#include <misc.h>
 
 #include <Rdefines.h>
 

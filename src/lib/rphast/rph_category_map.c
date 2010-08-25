@@ -22,6 +22,7 @@ Last updated: 1/5/2010
 #include <assert.h>
 #include <getopt.h>
 #include <ctype.h>
+#include <misc.h>
 #include <sufficient_stats.h>
 #include <local_alignment.h>
 #include <category_map.h>

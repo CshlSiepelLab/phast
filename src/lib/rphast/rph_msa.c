@@ -22,6 +22,7 @@ Last updated: 12/14/08
 #include <assert.h>
 #include <getopt.h>
 #include <ctype.h>
+#include <misc.h>
 #include <sufficient_stats.h>
 #include <local_alignment.h>
 #include <maf.h>
@@ -98,7 +99,7 @@ SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP,
   if (alphabet != NULL) printf("alphabet=%s\n", alphabet);
   else printf("alphabet is NULL\n");*/
   msa = msa_new(seqs, names, nseqs, length, alphabet);
-  if (! ordered) {
+  if (msa->length > 0 && ! ordered) {
     ss_from_msas(msa, 1, 0, NULL, NULL, NULL, -1);
   } else if (idxOffsetP != R_NilValue)
     msa->idx_offset = INTEGER_VALUE(idxOffsetP);
