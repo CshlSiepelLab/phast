@@ -557,3 +557,12 @@ SEXP rph_gff_sort(SEXP gffP) {
   gff_sort(gff);
   return gffP;
 }
+
+
+SEXP rph_gff_nonOverlapping_genes(SEXP gffP) {
+  GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  if (lst_size(gff->features) == 0) return gffP;
+  gff_group(gff, "transcript_id");
+  gff_remove_overlaps(gff, NULL);
+  return gffP;
+}
