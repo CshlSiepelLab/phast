@@ -598,17 +598,18 @@ SEXP rph_gff_append(SEXP gffListP) {
 }
 
 
-SEXP rph_gff_split(SEXP gffP, SEXP maxLengthP, SEXP splitFromRightP) {
+SEXP rph_gff_split(SEXP gffP, SEXP maxLengthP, SEXP dropP, SEXP splitFromRightP) {
   GFF_Set *gff, *newgff;
-  int *maxlen, maxlen_size, *splitFromRight, splitFrom_size;
+  int *maxlen, maxlen_size, *splitFromRight, splitFrom_size, drop;
   gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  drop = LOGICAL_VALUE(dropP);
   PROTECT(maxLengthP = AS_INTEGER(maxLengthP));
   maxlen = INTEGER_POINTER(maxLengthP);
   maxlen_size = LENGTH(maxLengthP);
   PROTECT(splitFromRightP = AS_INTEGER(splitFromRightP));
   splitFromRight = INTEGER_POINTER(splitFromRightP);
   splitFrom_size = LENGTH(splitFromRightP);
-  newgff = gff_split(gff, maxlen, maxlen_size, 
+  newgff = gff_split(gff, maxlen, maxlen_size, drop, 
 		     splitFromRight, splitFrom_size);
   UNPROTECT(2);
   return rph_gff_new_extptr(newgff);
