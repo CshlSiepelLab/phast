@@ -432,9 +432,13 @@ SEXP rph_gff_one_attribute(SEXP gffP, SEXP tagP) {
   for (i=0; i < lst_size(gff->features); i++) {
     resultLen=0;
     f = (GFF_Feature*) lst_get_ptr(gff->features, i);
-    numtag = str_split(f->attribute, ";", l1);  //split tags
+    numtag = str_split_with_quotes(f->attribute, ";", l1);  //split tags
     for (j=0; j < numtag; j++) {
-      numval = str_split(f->attribute, NULL, l2);  //split into tag val val ... by whitespace
+      currStr = (String*)lst_get_ptr(l1, j);
+      str_double_trim(currStr);
+
+      //split into tag val val ... by whitespace unless enclosed in quotes
+      numval =  str_split_with_quotes(currStr, NULL, l2);
       if (numval > 1) {
 	currStr = (String*)lst_get_ptr(l2, 0);
 	str_double_trim(currStr);

@@ -203,6 +203,10 @@ void str_remove_all_whitespace(String *s);
 
 void str_remove_quotes(String *str);
 
+/* Split on whitespace, unless enclosed in quotes.  Handles
+   nested double- and single-quotes appropriately */
+int str_split_with_quotes(String *s, const char *delim, List *l);
+
 /* Split a string according to specified delimiters.  Copies of
    resulting substrings will be added to specified List.
    Returns number of fields.

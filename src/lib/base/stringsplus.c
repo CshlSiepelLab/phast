@@ -256,6 +256,56 @@ void str_remove_quotes(String *str) {
   }
 }
 
+
+/** Split on whitespace, but don't split strings that fall inside quotes */
+int str_split_with_quotes(String *s, const char *delim, List *l) {
+  const char *real_delim = " \t\n\r\f\v";
+  char *quote;
+  int quoteIdx=-1, inv_delim[NCHARS], i, j, n;
+  String *tok;
+
+  lst_clear(l);
+  if (s->length == 0) return 0;
+
+  if (delim == NULL)        /* whitespace */
+    real_delim = " \t\n\r\f\v"; 
+  else
+    real_delim = delim;
+
+  /* prepare inv_delim */
+  for (i = 0; i < NCHARS; i++) inv_delim[i] = 0;
+  for (i = 0; real_delim[i] != '\0'; i++) {
+    if (real_delim[i] == '"' || real_delim[i] == '\'')
+      die("str_split_whitespace_with_quotes can't split on quotes");
+    inv_delim[(int)real_delim[i]] = 1;
+  }
+  quote = smalloc(s->length*sizeof(char));
+
+  n = 0;
+  for (i = 0 ; i < s->length; i += n+1) {
+    for (j=i; j < s->length; j++) {
+      if (s->chars[j] == '"' ||
+	  s->chars[j] == '\'') {
+	if (quoteIdx >= 0 && quote[quoteIdx]==s->chars[j])
+	  quoteIdx--;
+	else quote[++quoteIdx] = s->chars[j];
+      } else 
+	if (quoteIdx == -1 && inv_delim[(int)s->chars[j]]) break;
+    }
+    n = j - i;
+    tok = str_new(n);
+    str_substring(tok, s, i, n);
+    lst_push_ptr(l, tok);       
+
+    if (delim == NULL)      /* gobble whitespace */
+      for (j++; j < s->length; j++, n++) 
+    if (!inv_delim[(int)s->chars[j]]) break;
+  }
+  free(quote);
+  return lst_size(l);
+}
+
+
 int str_split(String *s, const char* delim, List *l) {
   int i, j, n;
   int inv_delim[NCHARS];
