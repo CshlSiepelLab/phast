@@ -229,6 +229,6 @@ GFF_Set *gff_overlap_gff(GFF_Set *gff, GFF_Set *filter_gff,
 
 GFF_Set *gff_inverse(GFF_Set *gff, GFF_Set *region0);
 GFF_Set *gff_split(GFF_Set *gff, int *maxlen, int nmaxlen,
-		   int *splitFrom, int splitFrom_len);
+		   int drop, int *splitFrom, int splitFrom_len);
 
 #endif
