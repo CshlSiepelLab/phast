@@ -86,11 +86,9 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
   /* if using an expensive model, set up filename for temporary files */
   if (mod->order >= 2) {
     char tmpstr[20];
-#ifdef RPHAST
-    strcpy(tmpstr, "rphast");
-#else
-    gethostname(tmpstr, 20);
-#endif
+
+    strcpy(tmpstr, "phast");
+
     sprintf(tmp_mod_fname, "fit_em.%s.%d.mod", tmpstr, getpid());
   }
 

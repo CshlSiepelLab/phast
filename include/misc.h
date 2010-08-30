@@ -153,7 +153,10 @@ double sym_rel_entropy(double *p, double *q, int d) {
   double re1 = rel_entropy(p, q, d), re2 = rel_entropy(q, p, d);
   return min(re1, re2);
 }
-
+#if defined(__MINGW32__)
+int random();
+void srandom(int seed);
+#endif
 void choose(int *selections, int N, int k);
 void permute(int *permutation, int N);
 char* get_codon_mapping(char *alphabet);

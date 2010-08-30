@@ -231,7 +231,7 @@ sub compare_files {
     }
     return if ($done);
 
-    my $diffout = `diff --brief $file1 $file2`;
+    my $diffout = `diff -b --brief $file1 $file2`;
     print "\tchecking $fileRoot...";
     if ($diffout) {
 	if ($file1 =~ /.mod$/ && $file2 =~ /.mod$/) {

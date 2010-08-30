@@ -11,6 +11,9 @@ endif
 # specify alternative compiler or utilities if necessary
 CC = gcc
 AR = ar
+# Enable this CC and AR for windows builds
+#CC = /usr/bin/i586-mingw32msvc-gcc
+#AR = /usr/bin/i586-mingw32msvc-ar
 LN = ln
 
 LIB = ${PHAST}/lib
@@ -26,11 +29,13 @@ TARGETLIB = ${LIB}/libphast.a
 #CFLAGS = -g -fno-inline -Wall -pthread
 # for best performance
 CFLAGS = -O3 -pthread
+# use this CFLAGS for windows builds
+#CFLAGS = -O3
 # some other options
 #CFLAGS = -mcpu=opteron -O3
 #CFLAGS = -mcpu=pentiumpro -O3 
-# add this to include threading support
-CFLAGS += -DPHAST_PTHREAD
+# add this to include threading support, not currently supported for windows
+#CFLAGS += -DPHAST_PTHREAD
 
 PHAST_VERSION=\"$(shell cat ${PHAST}/version)\"
 CFLAGS += -I${INC} -DPHAST_VERSION=${PHAST_VERSION} -DPHAST_HOME=\"${PHAST}\" -I${PHAST}/src/lib/pcre
@@ -73,9 +78,13 @@ endif
 # separately installed CLAPACK; uncomment CLAPACKPATH definition and
 # set appropriately to use
 CLAPACKPATH = /usr/local/software/CLAPACK
+# for windows use the pre-compiled clapack libraries bundled with phast
+#CLAPACKPATH = ${PHAST}/src/lib/clapack/windows
 # platform-specific suffix used for CLAPACK libraries; use the same
 # value as in CLAPACK's "make.inc" file 
 PLAT = _x86
+# PLAT is empty for windows builds
+#PLAT = 
 # F2C libraries used by CLAPACK; most users won't need to edit
 F2CPATH = ${CLAPACKPATH}/F2CLIBS
 
@@ -97,6 +106,9 @@ else
 ifdef CLAPACKPATH
 CFLAGS += -I${CLAPACKPATH}/INCLUDE -I${F2CPATH}
 LIBS = -lphast -llapack -ltmg -lblaswr -lc -lf2c -lm
+# Use the following CFLAGS and LIBS for windows build
+#CFLAGS += -I${CLAPACKPATH}/INCLUDE -I${F2CPATH} -DPCRE_STATIC
+#LIBS = -lphast -lm  ${CLAPACKPATH}/liblapack.a ${CLAPACKPATH}/libf2c.a ${CLAPACKPATH}/libblas.a
 # IMPORTANT: use the following two lines instead for versions of CLAPACK
 # older than 3.1.1
 #CFLAGS += -I${CLAPACKPATH} -I${F2CPATH}
@@ -107,6 +119,9 @@ LIBPATH += -L${F2CPATH}
 else
 CFLAGS += -DSKIP_LAPACK
 LIBS = -lphast -lc -lm
+# Use the following CFLAGS and LIBS for windows build
+#CFLAGS += -DSKIP_LAPACK -DPCRE_STATIC
+#LIBS = -lphast -lm  
 endif
 endif
 

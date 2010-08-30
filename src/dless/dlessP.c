@@ -147,7 +147,11 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Setting up directory '%s'...\n", htmldir);
     if (stat(htmldir, &st) != 0) {
       if (errno == ENOENT) {	/* missing; create dir */
+	#if defined(__MINGW32__)
+	    if (mkdir(htmldir) != 0)
+    #else
         if (mkdir(htmldir, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH) != 0)
+	#endif
           die("ERROR: cannot create directory '%s'\n", htmldir);
       }
       else 			/* stat returned some other error */
