@@ -14,9 +14,6 @@ install:
 	mkdir -p ${INSTALLDIR}
 	cp ../bin/* ${INSTALLDIR}
 
-rphast:
-	cd lib/rphast/src; ln -s `find ../.. -name "*.c" | grep -v "rphast/"` ../../../../include/*.h .
-
 doc:
 	doxygen
 
