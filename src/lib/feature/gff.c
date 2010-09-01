@@ -434,6 +434,19 @@ GFF_Feature *gff_new_feature_copy(GFF_Feature *orig) {
 }
 
 
+
+/** Copies a GFF set but not any groups */
+GFF_Set *gff_copy_set_no_groups(GFF_Set *orig) {
+  GFF_Set *gff = gff_new_from_template(orig);
+  int i;
+  for (i=0; i< lst_size(orig->features); i++)
+    lst_push_ptr(gff->features, gff_new_feature_copy((GFF_Feature*)lst_get_ptr(orig->features, i)));
+  return gff;
+}
+
+
+
+
 /** Create a new GFF_Set representing the features in a particular
     coordinate range.  Keeps features such that feat->start >= startcol
     and feat->end <= endcol. */

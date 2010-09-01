@@ -156,7 +156,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
       logp_bw = hmm_backward(hmm, emissions, sample_lens[s], 
                              backward_scores);
 
-      if (fabs(logp_fw - logp_bw) > 0.01)
+      if (fabs(logp_fw - logp_bw) > 1.0)
         if (logf != NULL) 
           fprintf(logf, "WARNING: forward and backward algorithms returned different total log\nprobabilities (%f and %f, respectively).\n", logp_fw, logp_bw);
 

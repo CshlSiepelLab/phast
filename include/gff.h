@@ -156,6 +156,8 @@ void gff_print_feat(FILE *F, GFF_Feature *feat);
 
 GFF_Feature *gff_new_feature_copy(GFF_Feature *orig);
 
+GFF_Set *gff_copy_set_no_groups(GFF_Set *orig);
+
 GFF_Set *gff_subset_range(GFF_Set *set, int startcol, int endcol, 
                           int reset_indices);
 

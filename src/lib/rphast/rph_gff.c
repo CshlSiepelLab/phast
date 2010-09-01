@@ -44,6 +44,11 @@ SEXP rph_gff_new_extptr(GFF_Set *gff) {
 }
 
 
+SEXP rph_gff_copy(SEXP gffP) {
+  return rph_gff_new_extptr(gff_copy_set_no_groups((GFF_Set*)EXTPTR_PTR(gffP)));
+}
+
+
 SEXP rph_gff_read(SEXP filename) {
   return rph_gff_new_extptr(gff_read_set(fopen_fname(CHARACTER_VALUE(filename), "r")));
 }

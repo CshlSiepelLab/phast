@@ -42,7 +42,8 @@ SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP targetCoverageP,
 		   SEXP gcP, SEXP nratesP, 
 		   SEXP computeLnlP, SEXP suppressProbsP,
 		   SEXP refIdxP,
-		   SEXP hmmP, SEXP statesP, SEXP reflectStrandP) {
+		   SEXP hmmP, SEXP statesP, SEXP reflectStrandP,
+		   SEXP quietP) {
   struct phastCons_struct *p = phastCons_struct_new(1);
   int i, *intp, numprotect=0;
   double *doublep;
@@ -132,6 +133,8 @@ SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP targetCoverageP,
       lst_push_ptr(p->pivot_states, str_new_charstr(tempstr));
     }
   }
+  if (LOGICAL_VALUE(quietP))
+    p->results_f = NULL;
 
   phastCons(p);
 

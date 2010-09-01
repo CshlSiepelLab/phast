@@ -741,16 +741,23 @@ SEXP rph_msa_strip_gaps(SEXP msaP, SEXP stripModeP, SEXP allOrAnyGaps) {
 
 
 
-SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP byColumnP) {
-  int by_column, force_order=0, i;
+SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP gffP, SEXP byColumnP) {
+  int by_column, force_order=0, i, j, start, end;
   MSA *msa = (MSA*)EXTPTR_PTR(msaP);
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
-  double *col_log_probs=NULL, likelihood, *resultP;
+  double *col_log_probs=NULL, likelihood, *resultP, log2=log(2);
   SEXP result;
+  GFF_Set *gff=NULL;
+  GFF_Feature *feat;
+
+  by_column = LOGICAL_VALUE(byColumnP);
+  if (gffP != R_NilValue) {
+    gff = (GFF_Set*)EXTPTR_PTR(gffP);
+    if (by_column) die("cannot use by.column with features");
+  }
 
   tm_set_subst_matrices(tm);
-  
-  by_column = LOGICAL_VALUE(byColumnP);
+
   if (by_column) {
     if (msa->ss != NULL && msa->ss->tuple_idx == NULL) {
       force_order = 1;
@@ -760,17 +767,40 @@ SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP byColumnP) {
     }
     col_log_probs = smalloc(msa->length*sizeof(double));
     PROTECT(result = NEW_NUMERIC(msa->length));
+  } else if (gff != NULL) {
+    if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
+      die("cannot get likelihood for features of an un-ordered alignment");
+    PROTECT(result = NEW_NUMERIC(lst_size(gff->features)));
+    col_log_probs = smalloc(msa->length*sizeof(double));
   }
   else PROTECT(result = NEW_NUMERIC(1));
   resultP = NUMERIC_POINTER(result);
 
 
-  likelihood = log(2)*tl_compute_log_likelihood(tm, msa, col_log_probs, -1, NULL);
+  likelihood = log2*tl_compute_log_likelihood(tm, msa, col_log_probs, -1, NULL);
   
   if (by_column) {
     for (i=0; i<msa->length; i++)
-      resultP[i] = col_log_probs[i];
+      resultP[i] = log2*col_log_probs[i];
     free(col_log_probs);
+  } else if (gff != NULL) {    
+    if (msa->idx_offset != 0) {
+      for (i=0; i < lst_size(gff->features); i++) {
+	feat = (GFF_Feature*)lst_get_ptr(gff->features, i);
+	feat->start -= msa->idx_offset;
+	feat->end -= msa->idx_offset;
+      }
+    }
+    msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
+    for (i=0; i < lst_size(gff->features); i++) {
+      feat=(GFF_Feature*)lst_get_ptr(gff->features, i);
+      start = max(feat->start-1, 0);
+      end = min(feat->end, msa->length);
+      resultP[i] = 0.0;
+      for (j=start; j < end; j++)
+	resultP[i] += col_log_probs[j];
+      resultP[i] *= log2;
+    }
   }
   else resultP[0] = likelihood;
   
@@ -778,7 +808,7 @@ SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP byColumnP) {
     free(msa->ss->tuple_idx);
     msa->ss->tuple_idx = NULL;
   }
-
+  
   UNPROTECT(1);
   return result;
 }
