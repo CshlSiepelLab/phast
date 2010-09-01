@@ -1,8 +1,12 @@
 # Basic syntax:
-# commands starting with @ mean "test this command", ie, run it in
+# Commands starting with @ mean "test this command", ie, run it in
 # two different versions of PHAST and compare results.
 # commands starting with @ can be preceded with files starting with !,
 # which indicates to compare these files as well as stdout/stderr.
+# You can also preceded a command with "-stdout" or "-stderr" to avoid
+# comparing stdout/stderr, otherwise they are compared by default.
+# Commands that do not start with @ are run only once (using the default
+# $PATH).  Lines starting with "*" are comments.
 
 ******************** phyloP ********************
 

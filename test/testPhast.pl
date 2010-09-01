@@ -12,25 +12,28 @@ use Getopt::Long;
 # for each program it reads in a list of commands from the file 
 # test_program.sh
 
-# Commands beginning with @ are run twice (after stripping the !), 
-# once from each bin directory, and the output from each is stored
-# in a temporary file (temp_$filename_1.txt and temp_$filename_2.txt).  
+# Commands beginning with @ are run twice, once from each bin 
+# directory, and the stdout/stderr from each is stored
+# in a temporary file (temp_stdout_1.txt and temp_stdout_2.txt).
 # These files are compared, and an error is reported if there is any 
 # difference.
 #
 # For programs (such as phyloFit) which do not write their output to
-# stdout, file names can be provided to compare in place of stdout.
+# stdout, file names can be provided to compare along with stdout/stderr.
 # A list of file names to compare is given before the command, each 
-# preceded by a !.  If stdout should be included, add !stdout to the
-# list.
+# preceded by a !.  If stdout or stderr should be excluded, they
+# can be added to the list, using a dash instead of a exclamation pointe,
+# ie, 
 # For example,
-# !stdout !features.bed @phastCons --most-conserved features.bed align.ss model.mod 
-# will run phastCons from the bin1 dir, copy stdout to temp_stdout_1 and
+# -stdout !features.bed @phastCons --most-conserved features.bed align.ss model.mod 
+# will run phastCons from the bin1 dir, copy stderr to temp_stderr_1 and
 # features.bed to temp_features.bed_1, then run phastCons from the bin2
-# dir, copy stdout to temp_stdout_2 and features.bed to temp_features.bed_2,
-# then compare temp_stdout_1 to temp_stdout_2, and temp_features.bed_1 to
+# dir, copy stderr to temp_stderr_2 and features.bed to temp_features.bed_2,
+# then compare temp_stderr_1 to temp_stderr_2, and temp_features.bed_1 to
 # temp_features.bed_2.  If there are any differences in either comparison
-# it will report an error.
+# it will report an error.  It will not compare stdout because of the "-stdout"
+# argument.  Regardless whether stdout or stderr are compared, they will
+# also be displayed on the terminal.
 #
 # Commands which do not begin with @ are treated as simple shell commands.
 # Output is not captured or compared to anything.  (These can be used

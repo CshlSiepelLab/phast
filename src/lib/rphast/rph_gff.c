@@ -527,6 +527,26 @@ SEXP rph_gff_add_introns(SEXP gffP) {
 }
 
 
+SEXP rph_gff_add_signals(SEXP gffP) {
+  GFF_Set *gff;
+  gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  gff_group(gff, "transcript_id");
+  gff_create_signals(gff);
+  return gffP;
+}
+
+
+SEXP rph_gff_fix_start_stop(SEXP gffP) {
+  GFF_Set *gff;
+  gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  gff_group(gff, "transcript_id");
+  gff_fix_start_stop(gff);
+  return gffP;
+}
+
+
+
+
 SEXP rph_gff_inverse(SEXP gffP, SEXP regionP) {
   GFF_Set *gff, *region, *notgff;
   gff = (GFF_Set*)EXTPTR_PTR(gffP);
