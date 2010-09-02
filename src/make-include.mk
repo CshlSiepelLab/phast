@@ -26,16 +26,15 @@ TARGETLIB = ${LIB}/libphast.a
 # an appropriate alternative
 
 # for debugging
-#CFLAGS = -g -fno-inline -Wall -pthread
+#CFLAGS = -g -fno-inline
 # for best performance
-CFLAGS = -O3 -pthread
+CFLAGS = -O3
 # use this CFLAGS for windows builds
 #CFLAGS = -O3
 # some other options
 #CFLAGS = -mcpu=opteron -O3
 #CFLAGS = -mcpu=pentiumpro -O3 
-# add this to include threading support, not currently supported for windows
-#CFLAGS += -DPHAST_PTHREAD
+
 
 PHAST_VERSION=\"$(shell cat ${PHAST}/version)\"
 CFLAGS += -I${INC} -DPHAST_VERSION=${PHAST_VERSION} -DPHAST_HOME=\"${PHAST}\" -I${PHAST}/src/lib/pcre

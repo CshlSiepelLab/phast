@@ -107,16 +107,5 @@ void hmm_renormalize(HMM *hmm);
 void hmm_stochastic_traceback(HMM *hmm, double **forward_scores, 
 			      int seqlen, int *path);
 void hmm_set_transition_score_matrix(HMM *hmm);
-double hmm_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
-			   double **forward_scores, int nthreads, 
-			   int thread_id);
-void hmm_do_dp_forward_pthread(HMM *hmm, double **emission_scores, int seqlen,
-			       hmm_mode mode, double **full_scores,
-			       int **backptr, int nthreads, int thread_id);
-double hmm_max_or_sum_pthread(HMM *hmm, double **full_scores, 
-			      double **emission_scores, int **backptr, 
-			      int i, int j, hmm_mode mode,
-			      int nthreads, int thread_id);
-
 
 #endif
