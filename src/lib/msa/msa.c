@@ -39,7 +39,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
-#include <assert.h>
 
 #include <lists.h>
 #include <stacks.h>
@@ -205,7 +204,8 @@ MSA *msa_create_copy(MSA *msa, int suff_stats_only) {
   int i;
   MSA *retval;
 
-  assert(!(suff_stats_only && msa->ss == NULL));
+  if (suff_stats_only && msa->ss == NULL)
+    die("ERROR msa_create_copy: suff_stats_only but msa->ss is NULL\n");
 
   /* copy names */
   new_names = smalloc(msa->nseqs * sizeof(char*));
@@ -291,7 +291,9 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
 
   /* now create MSA */
   nseqs = lst_size(names);
-  assert(nseqs == lst_size(seqs));
+  if (nseqs != lst_size(seqs))
+    die("ERROR msa_read_fasta: nseqs (%i) != lst_size(seqs) (%i)\n",
+	nseqs, lst_size(seqs));
 
   msa = msa_new(NULL, NULL, nseqs, maxlen, alphabet);
   msa->names = (char**)smalloc(nseqs * sizeof(char*));
@@ -434,7 +436,8 @@ void reduce_to_4d(MSA *msa, CategoryMap *cm) {
   MSA *temp_msa, *new_msa;
   Hashtable *tuple_hash = hsh_new(msa->length);
 
-  assert(msa->categories != NULL);
+  if (msa->categories == NULL)
+    die("ERROR reduce_to_4d go msa->categories==NULL\n");
 
   cat_pos3[0] = cm->ranges[cm_get_category(cm, tmpstr)]->end_cat_no;
   str_cpy_charstr(tmpstr, "CDSminus");
@@ -574,7 +577,8 @@ void msa_strip_gaps(MSA *msa, int gap_strip_mode) {
     return;
   }
 
-  assert(gap_strip_mode == STRIP_ALL_GAPS || gap_strip_mode == STRIP_ANY_GAPS);
+  if (gap_strip_mode != STRIP_ALL_GAPS && gap_strip_mode != STRIP_ANY_GAPS)
+    die("ERROR msa_strip_gaps: bad strip mode\n");
   k = 0;
   for (i = 0; i < msa->length; i++) {
     strip = (gap_strip_mode == STRIP_ALL_GAPS);
@@ -607,7 +611,9 @@ void msa_strip_gaps(MSA *msa, int gap_strip_mode) {
    starts with 1 */
 void msa_project(MSA *msa, int refseq) {
   int i, j, k;
-  assert(refseq >= 1 && refseq <= msa->nseqs);
+  if (refseq <= 0 || refseq > msa->nseqs)
+    die("ERROR msa_project: bad refseq (%i), should be in [1,%i]\n",
+	refseq, msa->nseqs);
   k = 0;
   for (i = 0; i < msa->length; i++) {
     if (msa->seqs[refseq-1][i] != GAP_CHAR) {
@@ -642,8 +648,10 @@ MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col,
   char **new_seqs=NULL;
   int new_len = end_col - start_col;
 
-  assert(new_len > 0);
-  assert(msa->seqs != NULL || msa->ss != NULL);
+  if (new_len <= 0)
+    die("ERROR msa_sub_alignment got new_len=%i (should be >0)\n", new_len);
+  if (msa->seqs==NULL && msa->ss == NULL)
+    die("ERROR msa_sub_alignment: msa->seqs and msa->ss are NULL\n");
 
   if (seqlist != NULL)
     for (i = 0; i < lst_size(seqlist); i++)
@@ -716,7 +724,8 @@ msa_coord_map* msa_build_coord_map(MSA *msa, int refseq) {
   int i, j, last_char_gap;
   msa_coord_map* map = (msa_coord_map*)smalloc(sizeof(msa_coord_map));
 
-  assert(msa->seqs != NULL || msa->ss != NULL);
+  if (msa->seqs == NULL && msa->ss == NULL)
+    die("ERROR msa_build_coord_map: msa->seqs and msa->ss are NULL\n");
 
   map->msa_list = lst_new_int(msa->length/10 + 1);
   map->seq_list = lst_new_int(msa->length/10 + 1);
@@ -758,7 +767,9 @@ int msa_map_seq_to_msa(msa_coord_map *map, int seq_pos) {
   int idx, prec_match_msa_pos, prec_match_seq_pos;
   if (seq_pos < 1 || seq_pos > map->seq_len) return -1;
   idx = lst_bsearch_int(map->seq_list, seq_pos);
-  assert(idx >= 0 && idx < lst_size(map->msa_list));
+  if (idx < 0 || idx >= lst_size(map->msa_list))
+    die("ERROR msa_map_seq_to_msa: idx=%i, should be in [0,%i)\n",
+	idx, 0, lst_size(map->msa_list));
   prec_match_msa_pos = lst_get_int(map->msa_list, idx);
   prec_match_seq_pos = lst_get_int(map->seq_list, idx);
   return (prec_match_msa_pos + (seq_pos - prec_match_seq_pos));
@@ -773,7 +784,9 @@ int msa_map_msa_to_seq(msa_coord_map *map, int msa_pos) {
   if (msa_pos < 1 || msa_pos > map->msa_len) return -1;
   idx = lst_bsearch_int(map->msa_list, msa_pos);
   if (idx < 0) return -1;
-  assert(idx < lst_size(map->msa_list));
+  if (idx >= lst_size(map->msa_list))
+    die("ERROR msa_map_msa_to_seq: idx=%i, should be < %i\n",
+	idx, 0, lst_size(map->msa_list));
   prec_match_msa_pos = lst_get_int(map->msa_list, idx);
   prec_match_seq_pos = lst_get_int(map->seq_list, idx);
   next_match_seq_pos = (idx < lst_size(map->seq_list) - 1 ? 
@@ -1202,7 +1215,8 @@ void msa_reverse_data_segment(int *data, int start, int end) {
 void msa_reverse_compl(MSA *msa) {
   int i, tupsize = -1, store_order = 0;
 
-  if (msa->ss == NULL) assert(msa->categories == NULL);
+  if (msa->ss == NULL && msa->categories != NULL)
+    die("ERROR msa_reverse_complement got msa->ss ==NULL but msa->categories != NULL, only ss can handle categories\n");
                                 /* FIXME: ss case is handling
                                    categories but other case isn't */
   
@@ -1236,7 +1250,8 @@ void msa_reverse_compl(MSA *msa) {
    the system used for storage). */
 void msa_reverse_compl_segment(MSA *msa, int start, int end) {
   int i;
-  assert(msa->ss == NULL);  //for now
+  if (msa->ss != NULL)  //for now
+    die("ERROR msa_reverse_compl_segment: got msa->ss == NULL\n");
   if (msa->seqs != NULL) {
     for (i = 0; i < msa->nseqs; i++) 
       msa_reverse_compl_seq_segment(msa->seqs[i], start, end);
@@ -1270,7 +1285,8 @@ void msa_reverse_compl_feats(MSA *msa,
 
   if (lst_size(feats->features) == 0) return;
 
-  if (msa != NULL) assert(msa->ss == NULL);      
+  if (msa != NULL && msa->ss != NULL)
+    die("ERROR msa_reverse_compl_feats: got msa->ss != NULL, not equipped to handle sufficient stats\n");
                                 /* not yet equipped to handle suff stats */
 
   if (feats->groups == NULL) 
@@ -1323,7 +1339,8 @@ void msa_partition_by_category(MSA *msa, List *submsas, List *cats_to_do,
   count = (int*)smalloc(ncats * sizeof(int));
   for (i = 0; i < ncats; i++) count[i] = 0;
   for (i = 0; i < msa->length; i++) {
-    assert(msa->categories[i] < ncats);
+    if (msa->categories[i] >= ncats)
+      die("ERROR msa_partition_by_category: msa->categories[%i]=%i, should be < ncats (%i)\n", i, msa->categories[i], ncats);
     count[msa->categories[i]]++;
     if (i > 0 && msa->categories[i] != msa->categories[i-1])
       count[msa->categories[i]] += tuple_size - 1;      
@@ -1443,7 +1460,8 @@ Vector *msa_get_base_freqs(MSA *msa, int start, int end) {
   vec_zero(base_freqs);
 
   if (msa->ss != NULL && (start != -1 || end != -1)) 
-    assert(msa->ss->tuple_idx != NULL);
+    if (msa->ss->tuple_idx == NULL)
+      die("ERROR msa_get_base_freqs: msa->ss->tuple_idx is NULL\n");
 
   /* use sufficient stats, if available; WARNING: considers only
      right-most column if tuple_size > 1 (possible problem if only
@@ -1472,8 +1490,7 @@ Vector *msa_get_base_freqs(MSA *msa, int start, int end) {
         if (c != GAP_CHAR && !msa->is_missing[(int)c]) {
           int idx = msa->inv_alphabet[(int)c];
           if (idx == -1) {
-            fprintf(stderr, "ERROR: unrecognized character in alignment ('%c').\n", c);
-            exit(1);
+            die("ERROR: unrecognized character in alignment ('%c').\n", c);
           }
           vec_set(base_freqs, idx, 
                          vec_get(base_freqs, idx) + 1); 
@@ -1506,8 +1523,11 @@ void msa_get_base_freqs_tuples(MSA *msa, Vector *freqs, int k, int cat) {
 
   /* use sufficient stats, if available */
   if (msa->ss != NULL) {
-    assert(msa->ss->tuple_size == k); 
-    assert(cat < 0 || (msa->ncats >= cat && msa->ss->cat_counts != NULL));
+    if (msa->ss->tuple_size != k)
+      die("ERROR msa_get_base_freqs_tuples: msa->ss->tuple_size (%i) should be %i\n", msa->ss->tuple_size, k);
+    
+    if (!(cat < 0 || (msa->ncats >= cat && msa->ss->cat_counts != NULL)))
+      die("ERROR msa_get_base_freqs_tuples: bad category %i\n", cat);
     for (i = 0; i < msa->ss->ntuples; i++) {
       for (j = 0; j < msa->nseqs; j++) {
         int offset;
@@ -1532,7 +1552,8 @@ void msa_get_base_freqs_tuples(MSA *msa, Vector *freqs, int k, int cat) {
   }
 
   else {
-    assert(cat < 0 || msa->categories != NULL);
+    if (!(cat < 0 || msa->categories != NULL))
+      die("ERROR: msa_get_base_freqs_tuples: bad category (%i) or no category data\n", cat);
     for (i = 0; i < msa->length-k+1; i++) {
       if (cat != -1 && msa->categories != NULL && 
           msa->categories[i+k-1] != cat) 
@@ -1578,11 +1599,13 @@ int msa_seqlen(MSA *msa, int seqidx) {
 int msa_num_gapped_cols(MSA *msa, int gap_strip_mode, int start, int end) {
   int i, j, k = 0, has_gap;
   int s = start > 0 ? start : 0, e = end > 0 ? end : msa->length;
-
-  assert(gap_strip_mode == STRIP_ALL_GAPS || gap_strip_mode == STRIP_ANY_GAPS);
+  
+  if (!(gap_strip_mode == STRIP_ALL_GAPS || gap_strip_mode == STRIP_ANY_GAPS))
+    die("ERROR msa_num_gapped_cols: bad gap_strip_mode (%i)\n", gap_strip_mode);
 
   if (msa->ss != NULL && (start != -1 || end != -1)) 
-    assert(msa->ss->tuple_idx != NULL);
+    if (msa->ss->tuple_idx == NULL)
+      die("ERROR msa_num_gapped_cols msa->ss->tuple_idx is NULL\n");
 
   if (msa->ss != NULL && start == -1 && end == -1) {
     for (i = 0; i < msa->ss->ntuples; i++) {
@@ -1839,7 +1862,9 @@ int msa_coding_clean(MSA *msa, int refseq, int min_ncodons,
        encountered in each sequence (wrt the ref seq) */
     int gapless_codon_col = 1;  /* whether currently considered column
                                    of codons is gapless (so far) */
-    assert(frame == 0 || ref[i] == GAP_CHAR); /* see incr of frame, below */
+    if (!(frame == 0 || ref[i] == GAP_CHAR)) /* see incr of frame, below */
+      die("ERROR msa_coding_clean: got frame (%i), ref[%i]=%c\n",
+	  frame, i, ref[i]);
     while (i <= end) {
       for (j = 0; j < msa->nseqs; j++) {
         if (msa->seqs[j][i] == GAP_CHAR) {
@@ -1859,7 +1884,8 @@ int msa_coding_clean(MSA *msa, int refseq, int min_ncodons,
     }
 
     if (i > end) break;
-    assert(frame == 2);
+    if (frame != 2)
+      die("ERROR msa_coding_clean frame should be 2\n");
     blk_beg = i-2;
 
     /* find next col with gap */
@@ -1941,7 +1967,8 @@ int msa_coding_clean(MSA *msa, int refseq, int min_ncodons,
     for (i = 0, j = 0; j < lst_size(block_begs); j++) {
       blk_beg = lst_get_int(block_begs, j);
       blk_end = lst_get_int(block_ends, j);
-      assert((blk_end - blk_beg + 1) % 3 == 0);
+      if (!((blk_end - blk_beg + 1) % 3 == 0))
+	die("ERROR msa_coding_clean: blk_end-blk_beg+1 should be multiple of 3\n");
       for (k = blk_beg; k <= blk_end; k++) {
         for (l = 0; l < msa->nseqs; l++)
           msa->seqs[l][i] = msa->seqs[l][k];
@@ -1949,7 +1976,8 @@ int msa_coding_clean(MSA *msa, int refseq, int min_ncodons,
       }
     }
     msa->length = i;
-    assert(msa->length % 3 == 0);
+    if (msa->length % 3 != 0) 
+      die("ERROR msa_coding_clean msa->length should be multiple of 3\n");
     for (l = 0; l < msa->nseqs; l++) msa->seqs[l][i] = '\0';
   }
 
@@ -2097,7 +2125,8 @@ MSA *msa_concat_from_files(List *fnames, msa_format_type format,
       ss_to_msa(source_msa);
     }
 
-    assert(source_msa->seqs != NULL);
+    if (source_msa->seqs == NULL)
+      die("ERROR msa_concat_from_files: source_msa->seqs is NULL\n");
 
     /* reorder the seqs and names; add seqs of gaps as necessary */
     for (j = 0; j < nseqs; j++) tmpseqs[j] = NULL;
@@ -2252,14 +2281,15 @@ void msa_reorder_rows(MSA *msa, List *target_order) {
   for (i = 0; i < lst_size(target_order); i++) {
     new_to_old[i] = msa_get_seq_idx(msa, ((String*)lst_get_ptr(target_order, i))->chars);
     if (new_to_old[i] >= 0) {
-      assert(covered[new_to_old[i]] == 0); /* prohibits mult. refs */
+      if (covered[new_to_old[i]] != 0)  /* prohibits mult. refs */
+	die("ERROR msa_reorder_rows: covered[new_to_old[%i]]=%i should be 0\n",
+	    i, covered[new_to_old[i]]);
       covered[new_to_old[i]] = 1;
     }
   }
   for (i = 0; i < msa->nseqs; i++) {
     if (!covered[i]) {
-      fprintf(stderr, "ERROR (msa_reorder_rows): name '%s' missing from reorder list.\n", msa->names[i]);
-      exit(1);
+      die("ERROR (msa_reorder_rows): name '%s' missing from reorder list.\n", msa->names[i]);
     }
   }
 
@@ -2293,7 +2323,8 @@ void msa_reorder_rows(MSA *msa, List *target_order) {
     msa->seqs = new_seqs;
   }
   else {                        /* suff stats only */
-    assert(msa->ss != NULL);
+    if (msa->ss == NULL)
+      die("ERROR msa_reorder_rows: msa->ss == NULL\n");
     ss_reorder_rows(msa, new_to_old, lst_size(target_order));
   }
 
@@ -2382,7 +2413,8 @@ void msa_remove_N_from_alph(MSA *msa) {
    missing data */
 void msa_find_noaln(MSA *msa, int refseqidx, int min_block_size, int *noaln) {
   int j, k, run_start = -1, allbutref;
-  assert(msa->seqs != NULL || (msa->ss != NULL && msa->ss->tuple_idx != NULL));
+  if (!(msa->seqs != NULL || (msa->ss != NULL && msa->ss->tuple_idx != NULL)))
+    die("ERROR msa_find_noaln need ordered alignment\n");
   for (j = 0; j < msa->length; j++) {
     noaln[j] = 0; 
     allbutref = msa_missing_col(msa, refseqidx, j);
@@ -2520,7 +2552,8 @@ void msa_reset_alphabet(MSA *msa, char *newalph) {
 void msa_missing_to_gaps(MSA *msa, int refseq) {
   int i, j, k;
 
-  assert(msa->seqs != NULL || msa->ss != NULL);
+  if (!(msa->seqs != NULL || msa->ss != NULL))
+    die("ERROR msa_missing_to_gaps: msa->seqs is NULL and msa->ss is NULL\n");
 
   if (msa->ss != NULL) {
     for (i = 0; i < msa->ss->ntuples; i++) {
@@ -2571,8 +2604,9 @@ int msa_alph_has_lowercase(MSA *msa) {
    alphabet accordingly */
 void msa_toupper(MSA *msa) {
   int i, j, k;
-
-  assert(msa->seqs != NULL || msa->ss != NULL);
+  
+  if (!(msa->seqs != NULL || msa->ss != NULL))
+    die("ERROR msa_toupper: msa->seqs and msa->ss is NULL\n");
 
   for (i = 0, j = 0; msa->alphabet[i] != '\0'; i++) {
     if (msa->alphabet[i] >= 'a' && msa->alphabet[i] <= 'z') {

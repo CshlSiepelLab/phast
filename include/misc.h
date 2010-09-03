@@ -166,10 +166,13 @@ void get_tuple_str(char *tuple_str, int tuple_idx, int tuple_size,
 Matrix* read_subst_mat(FILE *F, char *alph);
 FILE* fopen_fname(const char *fname, char *mode);
 #ifdef RPHAST
-#include <R_ext/Error.h>
+/*#include <R_ext/Error.h>
 #include <Rmath.h>
 #include <R_ext/Random.h>
-#include <R_ext/Print.h>
+#include <R_ext/Print.h>*/
+#undef Rf_error
+#undef die
+#include <R.h>
 #define die Rf_error
 #define phast_warning Rf_warning
 #define printf Rprintf

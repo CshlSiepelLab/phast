@@ -12,7 +12,6 @@
 #include "misc.h"
 #include "sufficient_stats.h"
 #include "maf.h"
-#include "assert.h"
 #include "queues.h"
 
 #define MAX_NTUPLE_ALLOC 100000
@@ -78,7 +77,10 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
   if (source_msa == NULL && 
       (msa->seqs == NULL || msa->length <= 0 || msa->ss != NULL))
     die("ERROR: with no separate source alignment, ss_from_msas expects sequences of positive length and no SS object.\n");
-  if (idx_offset >= 0) assert(store_order && source_msa != NULL);
+  if (idx_offset >= 0) 
+    if (!(store_order && source_msa != NULL))
+      die("ERROR ss_from_msas: idx_offset=%i store_order=%i, source_msa=NULL=%i\n",
+	  idx_offset, store_order, source_msa==NULL);
                                 /* this is a little clumsy but it
                                    allows idx_offset both to signal
                                    the mode of usage and to specify
@@ -207,7 +209,9 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
 
       main_ss->counts[idx]++;
       if (do_cats && smsa->categories != NULL) {
-        assert(smsa->categories[i] >= 0 && smsa->categories[i] <= msa->ncats);
+        if (!(smsa->categories[i] >= 0 && smsa->categories[i] <= msa->ncats))
+	  die("ERROR ss_from_msas: smsa->categories[i]=%i should be in [0,%i]\n",
+	      smsa->categories[i], msa->ncats);
         main_ss->cat_counts[smsa->categories[i]][idx]++;
       }
       if (store_order)
@@ -255,7 +259,8 @@ void ss_new(MSA *msa, int tuple_size, int max_ntuples, int do_cats,
   ss->counts = (double*)smalloc(max_ntuples * sizeof(double));
   for (i = 0; i < max_ntuples; i++) ss->counts[i] = 0; 
   if (do_cats) {
-    assert(msa->ncats >= 0);
+    if (msa->ncats < 0)
+      die("ERROR ss_new: msa->ncats=%i (should be >=0)\n", msa->ncats);
     ss->cat_counts = (double**)smalloc((msa->ncats+1) * sizeof(double*));
     for (j = 0; j <= msa->ncats; j++) {
       ss->cat_counts[j] = (double*)smalloc(max_ntuples * sizeof(double));
@@ -282,7 +287,8 @@ void ss_realloc(MSA *msa, int tuple_size, int max_ntuples, int do_cats,
     
   }
   if (do_cats && ss->cat_counts == NULL) {
-    assert(msa->ncats >= 0);
+    if (msa->ncats < 0)
+      die("ERROR ss_realloc: msa->ncats=%i (should be >=0)\n", msa->ncats);
     ss->cat_counts = smalloc((msa->ncats+1) * sizeof(double*));
     for (j = 0; j <= msa->ncats; j++) {
       ss->cat_counts[j] = smalloc(max_ntuples * sizeof(double));
@@ -328,7 +334,9 @@ PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size, int ncats,
                                               enough?  Preview files? */
   char *key;
 
-  assert(lst_size(source_msas) > 0);
+  if (lst_size(source_msas) <= 0)
+    die("ERROR ss_pooled_from_msas: lst_size(source_msas)=%i, should be >0\n",
+	lst_size(source_msas));
   rep_msa = (MSA*)lst_get_ptr(source_msas, 0);
 
   pmsa->pooled_msa = msa_new(NULL, NULL, rep_msa->nseqs, 0, rep_msa->alphabet);
@@ -363,7 +371,9 @@ PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size, int ncats,
 /*       fprintf(stderr, "i %d, j %d, key %s, tuple_idx[i][j] %d\n", */
 /* 	      i, j, key, (int)hsh_get(tuple_hash, key)); */
       pmsa->tuple_idx_map[i][j] = ss_lookup_coltuple(key, tuple_hash, smsa);
-      assert(pmsa->tuple_idx_map[i][j] >= 0);
+      if (pmsa->tuple_idx_map[i][j] < 0)
+	die("ERROR ss_pooled_from_msas: pmsa->tuple_idx_map[%i][%i]=%i, should be >= 0\n",
+	    i, j, pmsa->tuple_idx_map[i][j]);
     }
   }
   hsh_free(tuple_hash);
@@ -506,7 +516,8 @@ char *ss_get_one_seq(MSA *msa, int spec) {
 void ss_to_msa(MSA *msa) {
   int i;
 
-  assert(msa->seqs == NULL && msa->categories == NULL);
+  if (!(msa->seqs == NULL && msa->categories == NULL))
+    die("ERROR ss_to_msa: msa->seqs and msa->categories should be NULL\n");
   msa->seqs = (char**)smalloc(msa->nseqs*sizeof(char*));
   for (i = 0; i < msa->nseqs; i++) 
     msa->seqs[i] = ss_get_one_seq(msa, i);
@@ -539,10 +550,8 @@ void msa_read_AXT(MSA *msa, List *axt_fnames) {
     msa->seqs[i+1][msa->length] = '\0';
     strcpy(msa->names[i+1], axtfname->chars); /* ?? */
 
-    if ((F = fopen(axtfname->chars, "r")) == NULL) {
-      fprintf(stderr, "ERROR: unable to open %s\n", axtfname->chars);
-      exit(1);
-    }
+    if ((F = fopen(axtfname->chars, "r")) == NULL) 
+      die("ERROR: unable to open %s\n", axtfname->chars);
 
     /* FIXME: need to deal with strand!  Also, soft masking ... */
     while (str_readline(line, F) != EOF) {
@@ -563,7 +572,6 @@ void msa_read_AXT(MSA *msa, List *axt_fnames) {
       k = start;
       for (j = 0; j < ref->length; j++) {
         if (ref->chars[j] != GAP_CHAR) {
-/*           assert(msa->seqs[0][k] == ref->chars[j]); */
           msa->seqs[i+1][k] = targ->chars[j];
           k++;
         }
@@ -715,17 +723,14 @@ MSA* ss_read(FILE *F, char *alphabet) {
 
       tmpstr = lst_get_ptr(matches, 0);
       str_as_int(tmpstr, &idx);
-      if (idx < 0 || idx >= ntuples) {
-        fprintf(stderr, "ERROR: tuple line has index out of bounds.\nOffending line is, \"%s\"\n", line->chars);
-        exit(1);
-      }
+      if (idx < 0 || idx >= ntuples) 
+        die("ERROR: tuple line has index out of bounds.\nOffending line is, \"%s\"\n", line->chars);
 
       for (offset = -1 * (msa->ss->tuple_size-1); offset <= 0; offset++) {
         tmpstr = lst_get_ptr(matches, offset + msa->ss->tuple_size);
-        if (tmpstr->length != msa->nseqs) {
-          fprintf(stderr, "ERROR: length of column tuple does not match NSEQS.\nOffending line is, \"%s\"\n", line->chars);
-          exit(1);
-        }
+        if (tmpstr->length != msa->nseqs) 
+          die("ERROR: length of column tuple does not match NSEQS.\nOffending line is, \"%s\"\n", line->chars);
+
 /* 	fprintf(stderr, "tuple %d from input msa: %s\n", idx, tmpstr->chars); */
         for (i = 0; i < msa->nseqs; i++) {
           set_col_char_in_string(msa, msa->ss->col_tuples[idx], i,
@@ -749,15 +754,11 @@ MSA* ss_read(FILE *F, char *alphabet) {
       for (i = 0; str_readline(line, F) != EOF && i < msa->length; i++) {
         str_trim(line);
         if (line->length == 0) continue;
-        if (str_as_int(line, &msa->ss->tuple_idx[i]) != 0) {
-          fprintf(stderr, "ERROR: bad integer in TUPLE_IDX_ORDER list.\n");
-          exit(1);
-        }        
+        if (str_as_int(line, &msa->ss->tuple_idx[i]) != 0) 
+          die("ERROR: bad integer in TUPLE_IDX_ORDER list.\n");
       }
-      if (i < msa->length) {
-        fprintf(stderr, "ERROR: too few numbers in TUPLE_IDX_ORDER list.\n");
-        exit(1);
-      }
+      if (i < msa->length) 
+        die("ERROR: too few numbers in TUPLE_IDX_ORDER list.\n");
     }
 
     for (i = 0; i < lst_size(matches); i++)
@@ -816,8 +817,9 @@ void ss_free(MSA_SS *ss) {
 void ss_update_categories(MSA *msa) {
   MSA_SS *ss = msa->ss;
   int i, j;
-  assert(msa->ncats >= 0 && msa->categories != NULL && 
-         ss->tuple_idx != NULL);
+  if (!(msa->ncats >= 0 && msa->categories != NULL && 
+	ss->tuple_idx != NULL))
+    die("ERROR ss_update_categories: msa->ncats=%i msa->categories==NULL=%i, ss->tuple_idx==NULL=%i\n", msa->ncats, msa->categories==NULL, ss->tuple_idx==NULL);
   if (ss->cat_counts == NULL) {
     ss->cat_counts = (double**)smalloc((msa->ncats+1) * sizeof(double*));
     for (i = 0; i <= msa->ncats; i++) 
@@ -828,7 +830,8 @@ void ss_update_categories(MSA *msa) {
     for (j = 0; j < ss->ntuples; j++) 
       ss->cat_counts[i][j] = 0;
   for (i = 0; i < msa->length; i++) {
-    assert(msa->categories[i] <= msa->ncats);
+    if (msa->categories[i] > msa->ncats)
+      die("ERROR ss_update_categories: msa->categories[%i]=%i, should be <= msa->ncats (%i)\n", i, msa->categories[i], msa->ncats);
     ss->cat_counts[msa->categories[i]][ss->tuple_idx[i]]++;
   }
 }
@@ -858,7 +861,10 @@ MSA* ss_alt_msa(MSA *orig_msa, int new_tuple_size, int store_order,
   int i;
   MSA *new_msa = NULL;
 
-  assert(col_offset >= 0 && new_tuple_size > 0);
+  if (col_offset < 0)
+    die("ERROR ss_alt_msa: col_offset=%i, should be >=0\n", col_offset);
+  if (new_tuple_size <= 0)
+    die("ERROR ss_alt_msa: new_tuple_size=%i, should be >=0\n", new_tuple_size);
 
   /* for now, must have sequences, so reconstruct them if all we have
      are suff stats.  This could be done more efficiently, but it's
@@ -927,8 +933,9 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
       full_to_sub[tupidx] = -1; /* indicates absent from subalignment */
     sub_ntuples = 0;
     for (i = 0; i < retval->length; i++) {
-      assert(msa->ss->tuple_idx[i+start_col] >= 0 && 
-             msa->ss->tuple_idx[i+start_col] < msa->ss->ntuples);
+      if (!(msa->ss->tuple_idx[i+start_col] >= 0 && 
+	    msa->ss->tuple_idx[i+start_col] < msa->ss->ntuples))
+	die("ERROR: ss_sub_alignment: msa->ss->tuple_idx[%i]=%i, should be in [0, %i)\n", i+start_col, msa->ss->tuple_idx[i+start_col], msa->ss->ntuples);
       if (full_to_sub[msa->ss->tuple_idx[i+start_col]] == -1) {
         full_to_sub[msa->ss->tuple_idx[i+start_col]] = 0; /* placeholder */
         sub_ntuples++;
@@ -957,7 +964,9 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
     full_to_sub[tupidx] = sub_tupidx++;
   }
   
-  assert(sub_tupidx == sub_ntuples);
+  if (sub_tupidx != sub_ntuples)
+    die("ERROR ss_sub_alignment: sub_tupidx (%i) != sub_ntuples (%i)\n",
+	sub_tupidx, sub_ntuples);
 
   /* copy ordering info for specified columns and recompute counts.
      Also take care of category labels and category-specific counts */
@@ -975,7 +984,9 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
   else {                        /* go site by site */
     for (i = 0; i < retval->length; i++) {
       ss->tuple_idx[i] = full_to_sub[msa->ss->tuple_idx[i+start_col]];
-      assert(ss->tuple_idx[i] >= 0);
+      if (ss->tuple_idx[i] < 0) 
+	die("ERROR ss_sub_alignment: ss->tuple_idx[%i]=%i, should be >=0\n", 
+	    i, ss->tuple_idx);
       ss->counts[ss->tuple_idx[i]]++;
       if (do_cats) {
         retval->categories[i] = msa->categories[i+start_col];
@@ -1002,7 +1013,8 @@ void ss_reverse_compl(MSA *msa) {
   char new_tuple[msa->ss->tuple_size * msa->nseqs + 1];
   Queue *overwrites = que_new_int(msa->ss->tuple_size);
 
-  assert(msa->ss != NULL && msa->ss->tuple_idx != NULL);
+  if (msa->ss == NULL || msa->ss->tuple_idx == NULL)
+    die("ERROR ss_reverse_compl: Need ordered sufficient statistics\n");
   ss = msa->ss;
 
   if (msa->categories == NULL && ss->cat_counts != NULL)
@@ -1278,7 +1290,8 @@ void ss_strip_gaps(MSA *msa, int gap_strip_mode) {
     /* above assumes any tuple is to be removed that is present in
        tuple_idx but has a count of zero */
 
-    assert(newlen == j);
+    if (newlen != j)
+      die("ERROR ss_strip_gaps: newlen (%i) != j (%i)\n", newlen, j);
     msa->length = newlen;
   } else 
     msa_update_length(msa);
@@ -1323,7 +1336,8 @@ void ss_strip_missing(MSA *msa, /**< Input alignment; will be altered */
     /* above assumes any tuple is to be removed that is present in
        tuple_idx but has a count of zero */
 
-    assert(newlen == j);
+    if (newlen != j)
+      die("ERROR ss_strip_missing: newlen (%i) != j (%i)\n", newlen, j);
     msa->length = newlen;
   }
 
@@ -1334,7 +1348,8 @@ void ss_strip_missing(MSA *msa, /**< Input alignment; will be altered */
 int ss_is_4d(MSA *msa, int tuple) {
   char base[2];
   int offset, seq;
-  assert(msa->ss->tuple_size == 3);
+  if (msa->ss->tuple_size != 3)
+    die("ERROR ss_is_4d need tuple_size 3, got %i\n", msa->ss->tuple_size);
   for (offset = -2; offset < 0; offset++) {
     base[offset+2] = '\0';
     for (seq = 0; seq < msa->nseqs; seq++) {
@@ -1448,5 +1463,7 @@ void ss_make_ordered(MSA *msa) {
     for (j=0; j < count; j++)
       msa->ss->tuple_idx[idx++] = i;
   }
-  assert(idx == msa->length);
+  if (idx != msa->length)
+    die("ERROR ss_make_ordered: idx (%i) != msa->length (%i)\n", 
+	idx, msa->length);
 }

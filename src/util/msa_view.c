@@ -13,7 +13,6 @@
 #include <stdio.h>
 #include <msa.h>
 #include <string.h>
-#include <assert.h>
 #include <getopt.h>
 #include <string.h>
 #include <ctype.h>
@@ -367,8 +366,7 @@ void fill_with_Ns(MSA *msa, List *fill_N_list, msa_coord_map *map) {
         str_as_int(lst_get_ptr(word_list, 1), &nseq) != 0 ||
         str_as_int(lst_get_ptr(word_list, 2), &nstart) != 0 ||
         str_as_int(lst_get_ptr(word_list, 3), &nend) != 0) {
-      fprintf(stderr, "ERROR: cannot parse option to -N ('%s').\n", s->chars);
-      exit(1);
+      die("ERROR: cannot parse option to -N ('%s').\n", s->chars);
     }
     nstart -= msa->idx_offset;
     nend -= msa->idx_offset;
@@ -378,8 +376,7 @@ void fill_with_Ns(MSA *msa, List *fill_N_list, msa_coord_map *map) {
     }
     if (nstart < 1 || nstart > msa->length || nend < nstart || 
         nend > msa->length || nseq < 1 || nseq > msa->nseqs) {
-      fprintf(stderr, "ERROR: bad sequence no. or coords. (-N option).\n");
-      exit(1);
+      die("ERROR: bad sequence no. or coords. (-N option).\n");
     }
 
     /* for now, require explicit alignment */
@@ -599,8 +596,7 @@ int main(int argc, char* argv[]) {
       out_root = optarg;
       break;
     case '?':
-      fprintf(stderr, "Bad argument.  Try 'msa_view -h' for help.\n");
-      exit(1); 
+      die("Bad argument.  Try 'msa_view -h' for help.\n");
     }
   }
 
@@ -718,8 +714,7 @@ int main(int argc, char* argv[]) {
 
 
   if (refseq < 0 || refseq > msa->nseqs) { 
-    fprintf(stderr, "ERROR: reference sequence out of range.\n");
-    exit(1); 
+    die("ERROR: reference sequence out of range.\n");
   }
   if (refseq != 0 && (startcol != 1 || endcol != -1)) {
     if ((input_format == SS || aggregate_list != NULL) && 
@@ -739,8 +734,7 @@ int main(int argc, char* argv[]) {
   if (gff != NULL && (input_format != MAF || fourD)) {
     if (input_format == SS || input_format == MAF || aggregate_list != NULL) {
       if (msa->ss->tuple_idx == NULL) {
-        fprintf(stderr, "ERROR: ordered representation of alignment required with --features.\n");
-        exit(1);
+        die("ERROR: ordered representation of alignment required with --features.\n");
       }
     }
     if (msa->ss != NULL) ss_free_categories(msa->ss);
@@ -791,19 +785,18 @@ int main(int argc, char* argv[]) {
     String *errstr = str_new(STR_MED_LEN);
     int i;
 
-    assert(startcol == 1);
+    if (startcol != 1)
+      die("ERROR: startcol should be 1\n");
 
     /* find seq number corresponding to name */
     for (i = 0; i < sub_msa->nseqs && 
            strcmp(clean_seqname, sub_msa->names[i]) != 0; i++);
     if (i == msa->nseqs) { 
-      fprintf(stderr, "ERROR: no match for argument of --clean-coding.\n");
-      exit(1);
+      die("ERROR: no match for argument of --clean-coding.\n");
     }
     if (msa_coding_clean(sub_msa, i, MIN_NCODONS, errstr) != 0) {
-      fprintf(stderr, "ERROR: unable to clean coding alignment (%s).\n%s\n", 
-              infname, errstr->chars);
-      exit(1);
+      die("ERROR: unable to clean coding alignment (%s).\n%s\n", 
+	  infname, errstr->chars);
     }
 
     /* in this case, assign categories *after* cleaning */
@@ -852,8 +845,7 @@ int main(int argc, char* argv[]) {
 
   if (gff == NULL && reverse_compl) {
     if (msa->seqs == NULL && msa->ss->tuple_idx == NULL) {
-      fprintf(stderr, "ERROR: an ordered representation of the alignment is required to\nreverse complement.\n");
-      exit(1);
+      die("ERROR: an ordered representation of the alignment is required to\nreverse complement.\n");
     }
     msa_reverse_compl(sub_msa);
   }

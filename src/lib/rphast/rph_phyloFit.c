@@ -18,7 +18,6 @@ Last updated: 1/5/2010
 #include <stdio.h>
 #include <msa.h>
 #include <string.h>
-#include <assert.h>
 #include <getopt.h>
 #include <ctype.h>
 #include <misc.h>
@@ -233,7 +232,8 @@ SEXP rph_phyloFit(SEXP msaP,
 
   run_phyloFit(pf);
 
-  assert(pf->estimated_models != NULL);
+  if (pf->estimated_models == NULL)
+    die("ERROR in rph_phyloFit: estimated_models is NULL\n");
   result = smalloc(sizeof(struct phyloFit_result_struct));
   result->models = pf->estimated_models;
   result->labels = pf->model_labels;

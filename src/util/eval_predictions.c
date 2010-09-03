@@ -13,7 +13,6 @@
 #include <stdio.h>
 #include "gff.h"
 #include <string.h>
-#include <assert.h>
 #include <getopt.h>
 #include <math.h>
 #include <misc.h>
@@ -251,8 +250,7 @@ int main(int argc, char* argv[]) {
         int tmp;
         if (str_as_int((String*)lst_get_ptr(l, i), 
                        &tmp) != 0) {
-          fprintf(stderr, "ERROR: Bad integer in <seq_len_list>.\n"); 
-          exit(1);
+          die("ERROR: Bad integer in <seq_len_list>.\n"); 
         }
         lst_push_int(seq_len_list, tmp);
       }
@@ -272,8 +270,7 @@ int main(int argc, char* argv[]) {
       print_usage();
       exit(0);
     case '?':
-      fprintf(stderr, "Unrecognized option.  Try \"eval_predictions -h\" for help.\n");
-      exit(1);
+      die("Unrecognized option.  Try \"eval_predictions -h\" for help.\n");
     }
   }
 
@@ -284,13 +281,11 @@ int main(int argc, char* argv[]) {
   
   if (real_fname_list == NULL || pred_fname_list == NULL || 
       seq_len_list == NULL) {
-    fprintf(stderr, "ERROR: Must specify -r, -p, and -l.  Try \"eval_predictions -h\" for help.\n");
-    exit(1);
+    die("ERROR: Must specify -r, -p, and -l.  Try \"eval_predictions -h\" for help.\n");
   }
 
   if (lst_size(real_fname_list) != lst_size(pred_fname_list)) {
-    fprintf(stderr, "ERROR: Must specify lists of equal length for real and predicted filenames.\n\n.");
-    exit(1);
+    die("ERROR: Must specify lists of equal length for real and predicted filenames.\n\n.");
   }
 
   if (lst_size(seq_len_list) == 1 && lst_size(real_fname_list) > 1)
@@ -314,18 +309,16 @@ int main(int argc, char* argv[]) {
     real_fname = (String*)lst_get_ptr(real_fname_list, nfile);
     if ((F = fopen(real_fname->chars, "r"))
         == NULL || (gff_real = gff_read_set(F)) == NULL) {
-      fprintf(stderr, "ERROR: Unable to read file \"%s\".\n", 
-              real_fname->chars);
-      exit(1);
+      die("ERROR: Unable to read file \"%s\".\n", 
+	  real_fname->chars);
     }
     fclose(F);
 
     pred_fname = (String*)lst_get_ptr(pred_fname_list, nfile);
     if ((F = fopen(pred_fname->chars, "r"))
         == NULL || (gff_pred = gff_read_set(F)) == NULL) {
-      fprintf(stderr, "ERROR: Unable to read file \"%s\".\n", 
-              pred_fname->chars);
-      exit(1);
+      die("ERROR: Unable to read file \"%s\".\n", 
+	  pred_fname->chars);
     }
     fclose(F);
 

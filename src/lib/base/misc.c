@@ -14,10 +14,10 @@
 #include <lists.h>
 #include <stacks.h>
 #include <stringsplus.h>
-#include <assert.h>
 #include <stdarg.h>
 #include <hashtable.h>
 #include <unistd.h>
+#include <assert.h>
 
 #define NCODONS 64
 
@@ -90,7 +90,9 @@ void permute(int *permutation, int N) {
 
   for (i = 0; i < N; i++) {
     randidx = rint(1.0 * (lst_size(eligible)-1) * unif_rand());
-    assert(randidx >= 0 && randidx < lst_size(eligible));
+    if (!(randidx >= 0 && randidx < lst_size(eligible)))
+      die("ERROR permute: randidx=%i, should be in [0, %i)\n",
+	  randidx, lst_size(eligible));
     permutation[i] = lst_get_int(eligible, randidx);
     
     /* replace selected element with last one in list, then shorten list */
@@ -225,14 +227,12 @@ Matrix* read_subst_mat(FILE *F, char *alph) {
     else {
       str_split(line, NULL, fields);
       if (lst_size(fields) != file_size + 1) {
-        fprintf(stderr, "ERROR: unexpected number of columns for row %d.\n",
-                i+1);
-        exit(1);
+        die("ERROR: unexpected number of columns for row %d.\n",
+	    i+1);
       }
       rowstr = lst_get_ptr(fields, 0);
       if (rowstr->chars[0] != file_alph[i]) {
-        fprintf(stderr, "ERROR: unexpected row label in row %d\n", i+1);
-        exit(1);
+        die("ERROR: unexpected row label in row %d\n", i+1);
       } 
       str_free(rowstr);
 
@@ -246,9 +246,8 @@ Matrix* read_subst_mat(FILE *F, char *alph) {
         int col_idx = (predefined_alph ? inv_alph[(int)file_alph[j]] : j);
         if (col_idx != -1) {
           if (str_as_dbl(lst_get_ptr(fields, j+1), &val) != 0) {
-            fprintf(stderr, "ERROR: non-numeric matrix element in subst. matrix ('%s')\n", 
-                    ((String*)lst_get_ptr(fields, j+1))->chars);
-            exit(1);
+            die("ERROR: non-numeric matrix element in subst. matrix ('%s')\n", 
+		((String*)lst_get_ptr(fields, j+1))->chars);
           }
           mat_set(retval, row_idx, col_idx, val);
         }
@@ -258,8 +257,7 @@ Matrix* read_subst_mat(FILE *F, char *alph) {
   }
 
   if (i != file_size) {
-    fprintf(stderr, "ERROR: too few rows in subst. matrix.\n");
-    exit(1);
+    die("ERROR: too few rows in subst. matrix.\n");
   }
 
   lst_free(fields);
@@ -292,6 +290,9 @@ void die(const char *warnfmt, ...) {
   va_start(args, warnfmt);
   vfprintf(stderr, warnfmt, args);
   va_end(args);
+#ifdef PHAST_DEBUG
+  assert(0);
+#endif
   exit(1);
 }
 
@@ -331,8 +332,7 @@ List *get_arg_list(char *arg) {
     FILE *F;
     String *fname_str;
     if ((F = fopen(&argstr->chars[1], "r")) == NULL) {
-      fprintf(stderr, "ERROR: Cannot open file %s.\n", &argstr->chars[1]);
-      exit(1);
+      die("ERROR: Cannot open file %s.\n", &argstr->chars[1]);
     }
     fname_str = str_new(STR_MED_LEN);
     str_slurp(fname_str, F);
@@ -423,19 +423,15 @@ double get_arg_dbl_bounds(char *arg, double min, double max) {
 /* safe malloc and realloc */
 void *smalloc(size_t size) {
   void *retval = malloc(size);
-  if (retval == NULL) {
-    fprintf(stderr, "FATAL ERROR: out of memory.\n");
-    assert(0);
-  }
+  if (retval == NULL)
+    die("FATAL ERROR: out of memory.\n");
   return retval;
 }
 
 void *srealloc(void *ptr, size_t size) {
   void *retval = realloc(ptr, size);
-  if (retval == NULL && ptr != NULL && size != 0) {
-    fprintf(stderr, "FATAL ERROR: out of memory.\n");
-    assert(0);
-  }
+  if (retval == NULL && ptr != NULL && size != 0)
+    die("FATAL ERROR: out of memory.\n");
   return retval;
 }
 
@@ -497,7 +493,8 @@ void unif_draw(int n, double min, double max, double *draws, int antithetics) {
 int bn_draw(int N, double p) {
   int j, retval = 0;
   double *unif_draws;
-  assert(N >= 1);
+  if (N < 1)
+    die("ERROR bn_draw: got N=%i\n", N);
   unif_draws = smalloc(N * sizeof(double));
   unif_draw(N, 0, 1, unif_draws, FALSE);
                                 /* antithetics can have undesirable
@@ -669,20 +666,23 @@ struct hash_table *make_name_hash(char *mapstr) {
 /** Evaluate pdf of gamma distribution with parameters a and b */
 double gamma_pdf(double x, double a, double b) {
   double tgamma(double d);
-  assert(x >= 0);
+  if (x < 0)
+    die("ERROR gamma_pdf got x=%f\n", x);
   return 1/(tgamma(a) * pow(b, a)) * pow(x, a-1) * exp(-x/b);
 }
 
 /** Evaluate cdf of gamma distribution with parameters a and b.  If
     lower_tail == TRUE returns P(X<=x), else returns P(X>=x) */
 double gamma_cdf(double x, double a, double b, int lower_tail) {
-  assert(x >= 0);
+  if (x < 0)
+    die("ERROR gamma_cdf got x=%f\n", x);
   return incomplete_gamma(a, x/b, lower_tail ? 'p' : 'q');
 }
 
 /* Evaluate pdf of chi-square distribution with dof degrees of freedom */
 double chisq_pdf(double x, double dof) {
-  assert(x >= 0);
+  if (x < 0)
+    die("ERROR chisq_pdf got x=%f\n", x);
   return gamma_pdf(x, dof/2, 2);
 }
 
@@ -690,7 +690,8 @@ double chisq_pdf(double x, double dof) {
     freedom.  If lower_tail == TRUE returns P(X<=x), else returns
     P(X>=x) */
 double chisq_cdf(double x, double dof, int lower_tail) {
-  assert(x >= 0);
+  if (x < 0)
+    die("ERROR chisq_cdf got x=%f\n", x);
   return gamma_cdf(x, dof/2, 2, lower_tail);
 }
 
@@ -720,7 +721,8 @@ double exp_draw(double b) {
 double gamma_draw(double a, double b) {
   double retval = -1;
 
-  assert(a > 0);
+  if (a <= 0)
+    die("ERROR gamma_draw got a=%f\n", a);
 
   if (a == 1) return exp_draw(b);
 
@@ -775,7 +777,8 @@ double gamma_draw(double a, double b) {
 /* evaluate density of Beta distribution */
 double d_beta(double x, double a, double b) {
   double lb;
-  assert(x >= 0 && x <= 1 && a >= 0 && b >= 0);
+  if (!(x >= 0 && x <= 1 && a >= 0 && b >= 0))
+    die("ERROR d_beta got x=%f, a=%f, b=%f\n", x, a, b);
   lb = lgamma(a+b) - lgamma(a) - lgamma(b) + (a-1) * log(x) + (b-1) * log(1-x);
   return (exp(lb));
 }
@@ -808,7 +811,8 @@ double incomplete_gamma(double a,
   int n;
   double retval = -1;
 
-  assert (x >= 0 && a > 0 && (type == 'p' || type == 'q'));
+  if (!(x >= 0 && a > 0 && (type == 'p' || type == 'q')))
+    die("ERROR incomplete_gamma got x=%f, a=%f, type=%c\n", x, a, type);
 
   gln = lgamma(a);
 
@@ -864,21 +868,24 @@ double incomplete_gamma(double a,
 /* return P(x = k | lambda), for a variable x that obeys a Poisson
    distribution with parameter lambda */
 double d_poisson(double lambda, int k) {
-  assert(lambda >= 0 && k >= 0);
+  if (!(lambda >= 0 && k >= 0))
+    die("ERROR d_poisson got lambda=%f, k=%i\n", lambda, k);
   return exp(-lambda + k * log(lambda) - lgamma(k+1));
 }
 
 /* return P(x <= k | lambda), for a variable x that obeys a Poisson
    distribution with parameter lambda */
 double cum_poisson(double lambda, int k) {
-  assert(lambda >= 0 && k >= 0);
+  if (!(lambda >= 0 && k >= 0))
+    die("ERROR cum_poisson got lambda=%f, k=%i\n", lambda, k);
   return incomplete_gamma(k+1, lambda, 'q');
 }
 
 /* return P(x > k | lambda), for a variable x that obeys a Poisson
    distribution with parameter lambda */
 double cum_poisson_c(double lambda, int k) {
-  assert(lambda >= 0 && k >= 0);
+  if (!(lambda >= 0 && k >= 0))
+    die("ERROR cum_poisson_c got lambda=%f, k=%i\n", lambda, k);
   return incomplete_gamma(k+1, lambda, 'p');
 }
 
@@ -911,7 +918,7 @@ double cum_norm_c(double mu, double sigma, double a) {
    http://home.online.no/~pjacklam/notes/invnorm/.  */
 double inv_cum_norm(double p) {
   double p_low, p_high, q, r, x, e, u;
-
+  
   static double a[] = {
     0,
     -3.969683028665376e+01,
@@ -920,7 +927,7 @@ double inv_cum_norm(double p) {
     1.383577518672690e+02,
     -3.066479806614716e+01,
     2.506628277459239e+00};
-
+  
   static double b[] = {
     0,
     -5.447609879822406e+01,
@@ -928,7 +935,7 @@ double inv_cum_norm(double p) {
     -1.556989798598866e+02,
     6.680131188771972e+01,
     -1.328068155288572e+01};
-
+  
   static double c[] = {
     0,
     -7.784894002430293e-03,
@@ -937,16 +944,17 @@ double inv_cum_norm(double p) {
     -2.549732539343734e+00,
     4.374664141464968e+00,
     2.938163982698783e+00};
-
-    static double d[] = {
-      0,
-      7.784695709041462e-03,
-      3.224671290700398e-01,
-      2.445134137142996e+00,
-      3.754408661907416e+00};
-
-  assert (p > 0 && p < 1);
-
+  
+  static double d[] = {
+    0,
+    7.784695709041462e-03,
+    3.224671290700398e-01,
+    2.445134137142996e+00,
+    3.754408661907416e+00};
+  
+  if (!(p > 0 && p < 1))
+    die("ERROR inv_cum_norm got p=%f\n", p);
+  
   p_low = 0.02425;
   p_high = 1 - p_low;
 
@@ -987,7 +995,8 @@ double inv_cum_norm(double p) {
 void norm_confidence_interval(double mu, double sigma, double interval_size, 
                               double *min_x, double *max_x) {
   double a;
-  assert(interval_size > 0 && interval_size < 1);
+  if (!(interval_size > 0 && interval_size < 1))
+    die("ERROR norm_confidence_interval got interval_size=%f\n", interval_size);
   a = inv_cum_norm((1 - interval_size) / 2) * sigma; /* a will be negative */
   *min_x = mu + a;
   *max_x = mu - a;
@@ -1016,7 +1025,8 @@ double bvn_p(double x, double y, double mu_x, double mu_y, double sigma_x,
 int next_comb(int n, int k, int *index) {
   int i;
 
-  assert(n > 0 && k > 0 && k <= n);
+  if (!(n > 0 && k > 0 && k <= n))
+    die("ERROR next_comb got n=%i k=%i\n", n, k);
 
   if (index[0] == -1) {
     for (i = 0; i < k; i++) index[i] = i;

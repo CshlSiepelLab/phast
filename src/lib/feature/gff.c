@@ -17,7 +17,6 @@
 */
    
 #include <gff.h>
-#include <assert.h>
 #include <string.h>
 #include <time.h>
 #include <hashtable.h>
@@ -215,10 +214,11 @@ GFF_Feature *gff_new_feature(String *seqname, String *source, String *feature,
                              int score_is_null) {
   GFF_Feature *feat = (GFF_Feature*)smalloc(sizeof(GFF_Feature));
 
-  assert(seqname != NULL && source != NULL && feature != NULL && 
-         attribute != NULL && 
-         (strand == '+' || strand == '-' || strand == '.') &&
-         (frame == GFF_NULL_FRAME || (0 <= frame && frame <=2)));
+  if (!(seqname != NULL && source != NULL && feature != NULL && 
+	attribute != NULL && 
+	(strand == '+' || strand == '-' || strand == '.') &&
+	(frame == GFF_NULL_FRAME || (0 <= frame && frame <=2))))
+    die("ERROR gff_new_features: bad arguments\n");
 
   feat->seqname = seqname;
   feat->source = source;
@@ -242,11 +242,12 @@ GFF_Feature *gff_new_feature_copy_chars(const char *seqname, const char *source,
 					int frame, const char *attribute, 
 					int score_is_null) {
   GFF_Feature *feat = (GFF_Feature*)smalloc(sizeof(GFF_Feature));
-
-  assert(seqname != NULL && source != NULL && feature != NULL && 
-         attribute != NULL && 
-         (strand == '+' || strand == '-' || strand == '.') &&
-         (frame == GFF_NULL_FRAME || (0 <= frame && frame <=2)));
+  
+  if (!(seqname != NULL && source != NULL && feature != NULL && 
+	attribute != NULL && 
+	(strand == '+' || strand == '-' || strand == '.') &&
+	(frame == GFF_NULL_FRAME || (0 <= frame && frame <=2))))
+    die("ERROR gff_new_feature_copy_chars: bad arguments\n");
 
   feat->seqname = str_new_charstr(seqname);
   feat->source = str_new_charstr(source);

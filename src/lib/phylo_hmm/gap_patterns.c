@@ -110,7 +110,9 @@ GapPatternMap *gp_create_gapcats(CategoryMap *cm,
 
     /* initialize per-gap-pattern mapping (non-NULL only for indel
        categories).  Also init mappings for pattern 0 (no gaps) */
-    assert(gpm->cat_x_pattern_to_gapcat[cat] == NULL); /* check redund. */
+    /* check redund */
+    if (gpm->cat_x_pattern_to_gapcat[cat] != NULL)
+      die("ERROR gp_create_gapcats: gpm->cat_x_pattern_to_gapcat[%i] should be NULL\n", cat);
     for (k = 0; k < range_size; k++) {
       gpm->cat_x_pattern_to_gapcat[cat+k] = 
         smalloc(gpm->ngap_patterns*sizeof(int));
@@ -235,7 +237,8 @@ void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa) {
   /* require ordered sufficient statistics representation */
   if (msa->ss == NULL)
     ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1);
-  assert(msa->ss->tuple_idx != NULL);
+  if (msa->ss->tuple_idx == NULL)
+    die("ERROR gp_set_phylo_patterns: msa->ss->tuple_idx is NULL\n");
 
   /* set up mappings of node ids to sequence indices */
   leaf_to_seq = smalloc(tree->nnodes * sizeof(int));
@@ -264,7 +267,9 @@ void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa) {
     for (i = 0; i < lst_size(traversal); i++) {
       n = lst_get_ptr(traversal, i);
       if (n->lchild == NULL) {
-        assert(leaf_to_seq[n->id] >= 0);
+	if (leaf_to_seq[n->id] < 0)
+	  die("ERROR gp_set_phylo_patterns: leaf_to_seq[%i]=%i, should be >=0\n",
+	      n->id, leaf_to_seq[n->id]);
         gap_code[n->id] = 
           (ss_get_char_tuple(msa, tup, leaf_to_seq[n->id], 0) == GAP_CHAR);
       }
@@ -350,7 +355,9 @@ void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa) {
           tuple_patterns[tup] = gpm->node_to_branch[indel_node->lchild->id];
         /* deletion between indel_node and its right child */
         else {
-          assert(gap_code[indel_node->rchild->id] == 1);
+	  if (gap_code[indel_node->rchild->id] != 1)
+	    die("ERROR gp_set_phylo_patterns: gap_code[%i]=%i, should be 1\n",
+		indel_node->rchild->id, gap_code[indel_node->rchild->id]);
           tuple_patterns[tup] = gpm->node_to_branch[indel_node->rchild->id];
         }
       }
@@ -361,7 +368,9 @@ void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa) {
             gpm->nbranches;
         /* insertion between indel_node and its right child */
         else {
-          assert(gap_code[indel_node->rchild->id] == 0);
+	  if (gap_code[indel_node->rchild->id] != 0)
+	    die("ERROR gp_set_phylo_patterns: gap_code[%i]=%i, should be 0\n",
+		indel_node->rchild->id, gap_code[indel_node->rchild->id]);
           tuple_patterns[tup] = gpm->node_to_branch[indel_node->rchild->id] +
             gpm->nbranches;
         }

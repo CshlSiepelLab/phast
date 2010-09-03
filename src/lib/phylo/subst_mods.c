@@ -16,7 +16,6 @@
 #include <subst_mods.h>
 #include <tree_model.h>
 #include <stringsplus.h>
-#include <assert.h>
 #include <string.h>
 #include <ctype.h>
 #include <misc.h>
@@ -243,7 +242,7 @@ int tm_get_nratematparams(TreeModel *mod) {
   case HB:
     return 0;
   default:
-    assert(0);
+    die("ERROR: tm_get_nrateparams unknown substitution model\n");
   }
   return -1;
 }
@@ -323,7 +322,7 @@ void tm_set_rate_matrix(TreeModel *mod, Vector *params, int i) {
     tm_set_GC_matrix(mod, vec_get(params, i), i, vec_get(params, i+1));
     break;
   default:
-    assert(0);
+    die("ERROR tm_set_rate_matrix: unknown substitution model\n");
   }
 
   if (mod->scale_during_opt && mod->subst_mod!=JC69 && mod->subst_mod != F81)
@@ -393,7 +392,7 @@ void tm_rate_params_init(TreeModel *mod, Vector *params,
     tm_init_mat_U3S(mod, params, params_idx, kappa);
     break;
   default:
-    assert(0);
+    die("ERROR tm_rate_params_init: unknown substitution model\n");
   }
 }
 
@@ -484,7 +483,7 @@ void tm_rate_params_init_from_model(TreeModel *mod, Vector *params,
     tm_init_mat_from_model_U3S(mod, params, params_idx);
     break;      
   default:
-    assert(0);
+    die("ERROR tm_rate_params_init_from_model: unknown substitution model\n");
   }
 }
 
@@ -494,7 +493,7 @@ void tm_rate_params_init_from_model(TreeModel *mod, Vector *params,
 void tm_set_probs_JC69(TreeModel *mod, MarkovMatrix *P, double t) {
   int i, j;
   double scale = mod->rate_matrix->size * 1.0/(mod->rate_matrix->size - 1);
-  assert(t >= 0);
+  if (t < 0) die("ERROR tm_set_probs_JC69 t should be >=0 but is %f\n", t);
   for (i = 0; i < mod->rate_matrix->size; i++) {
     for (j = 0; j < mod->rate_matrix->size; j++) {
       if (i == j)
@@ -765,7 +764,9 @@ void tm_set_SSREV_matrix(TreeModel *mod, Vector *params, int start_idx) {
     mm_set(mod->rate_matrix, i, i, -1 * rowsum);
   }
   //testing
-  assert(count == tm_get_nratematparams(mod));
+  if (count != tm_get_nratematparams(mod))
+    die("ERROR tm_set_SSREV_matrix count (%i) != tm_get_nratematparams(mod) (%i)\n",
+	count, tm_get_nratematparams(mod));
 }
 
 
@@ -919,7 +920,9 @@ void tm_set_R2_matrix(TreeModel *mod, Vector *params, int start_idx) {
       rowsum += mm_get(mod->rate_matrix, i, j);
     mm_set(mod->rate_matrix, i, i, -1 * rowsum);
   }
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_set_R2_matrix: start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 void tm_set_R2S_matrix(TreeModel *mod, Vector *params, 
@@ -1008,7 +1011,9 @@ void tm_set_R2S_matrix(TreeModel *mod, Vector *params,
     mm_set(mod->rate_matrix, i, i, -1 * rowsum);
   }
   
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR: tm_set_R2S_matrix start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 void tm_set_U2_matrix(TreeModel *mod, Vector *params, int start_idx) {
@@ -1042,7 +1047,9 @@ void tm_set_U2_matrix(TreeModel *mod, Vector *params, int start_idx) {
     }
     mm_set(mod->rate_matrix, i, i, -1 * rowsum);
   }
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_set_U2_matrix start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 void tm_set_U2S_matrix(TreeModel *mod, Vector *params, 
@@ -1120,8 +1127,9 @@ void tm_set_U2S_matrix(TreeModel *mod, Vector *params,
       if (j != i) rowsum += mm_get(mod->rate_matrix, i, j);
     mm_set(mod->rate_matrix, i, i, -1 * rowsum);
   }
-  
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_set_U2S_matrix start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 /* FIXME: this should probably be generalized for a reversible matrix
@@ -1167,7 +1175,9 @@ void tm_set_R3_matrix(TreeModel *mod, Vector *params, int start_idx) {
       rowsum += mm_get(mod->rate_matrix, i, j);
     mm_set(mod->rate_matrix, i, i, -1 * rowsum);
   }
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_set_RS_matrix start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 void tm_set_R3S_matrix(TreeModel *mod, Vector *params, int start_idx) {
@@ -1264,8 +1274,9 @@ void tm_set_R3S_matrix(TreeModel *mod, Vector *params, int start_idx) {
       if (j != i) rowsum += mm_get(mod->rate_matrix, i, j);
     mm_set(mod->rate_matrix, i, i, -1 * rowsum);
   }
-
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_set_R3S_matrix start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 void tm_set_U3_matrix(TreeModel *mod, Vector *params, int start_idx) {
@@ -1303,7 +1314,9 @@ void tm_set_U3_matrix(TreeModel *mod, Vector *params, int start_idx) {
     }        
     mm_set(mod->rate_matrix, i, i, -1 * rowsum);
   }
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_set_US_matrix start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 void tm_set_U3S_matrix(TreeModel *mod, Vector *params, 
@@ -1393,8 +1406,9 @@ void tm_set_U3S_matrix(TreeModel *mod, Vector *params,
       if (j != i) rowsum += mm_get(mod->rate_matrix, i, j);
     mm_set(mod->rate_matrix, i, i, -1 * rowsum);
   }
-  
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_set_U3S_matrix start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 /* void tm_set_GY_matrix(TreeModel *mod, double kappa, double omega) { */
@@ -1440,7 +1454,9 @@ void tm_set_U3S_matrix(TreeModel *mod, Vector *params,
 /*       rowsum += mm_get(mod->rate_matrix, i, j); */
 /*     mm_set(mod->rate_matrix, i, i, -1 * rowsum); */
 /*   } */
-/*   assert(start_idx == params->size); */
+/*  if (start_idx != params_size) */
+/*    die("ERROR tm_set_GY_matrix start_idx (%i) != params->size (%i)\n", */
+/*	start_idx, params->size); */
 /*   free(aa); */
 /* } */
 
@@ -1500,7 +1516,9 @@ void tm_init_mat_SSREV(TreeModel *mod, Vector *params, int parm_idx,
                                    with gap-as-fifth-char) */
     }
   }    
-  assert(count==tm_get_nratematparams(mod));
+  if (count != tm_get_nratematparams(mod))
+    die("ERROR tm_init_mat_SSERV count (%i) != tm_get_nratematparams(mod) (%i)\n",
+	count, tm_get_nratematparams(mod));
 }
 
 
@@ -1552,7 +1570,9 @@ void tm_init_mat_R2(TreeModel *mod, Vector *params, int parm_idx,
       vec_set(params, parm_idx++, val);
     }
   }    
-  assert(parm_idx == params->size);
+  if (parm_idx != params->size)
+    die("ERROR tm_init_mat_R2: parm_idx (%i) != params->size (%i)\n",
+	parm_idx, params->size);
 }
 
 /* initialize R2S as if HKY2 */
@@ -1609,7 +1629,9 @@ void tm_init_mat_R2S(TreeModel *mod, Vector *params,
     }        
     done_row[i] = done_row[i_comp] = 1;
   }
-  assert(parm_idx == params->size);
+  if (parm_idx != params->size)
+    die("ERROR tm_init_mat_R2S: parm_idx (%i) != params->size (%i)\n",
+	parm_idx, params->size);
 }
 
 /* initialize U2 as if HKY2 */
@@ -1637,7 +1659,9 @@ void tm_init_mat_U2(TreeModel *mod, Vector *params,
                                    undiagonalizable :) */
     }
   }    
-  assert(parm_idx == params->size);
+  if (parm_idx != params->size)
+    die("ERROR tm_init_mat_U2: parm_idx (%i) != params->size (%i)\n",
+	parm_idx, params->size);
 }
 
 /* initialize U2S as if HKY2 */
@@ -1699,7 +1723,9 @@ void tm_init_mat_U2S(TreeModel *mod, Vector *params,
     }        
     done_row[i] = done_row[i_comp] = 1;
   }
-  assert(parm_idx == params->size);
+  if (parm_idx != params->size)
+    die("ERROR tm_init_mat_U2S: parm_idx (%i) != params->size (%i)\n",
+	parm_idx, params->size);
 }
 
 void tm_init_mat_R3(TreeModel *mod, Vector *params, int parm_idx, 
@@ -1728,8 +1754,10 @@ void tm_init_mat_R3(TreeModel *mod, Vector *params, int parm_idx,
         val *= kappa;
       vec_set(params, parm_idx++, val);
     }
-  }    
-  assert(parm_idx == params->size);
+  }
+  if (parm_idx != params->size)
+    die("ERROR tm_init_mat_RS: parm_idx (%i) != params->size (%i)\n",
+	parm_idx, params->size);
 }
 
 void tm_init_mat_R3S(TreeModel *mod, Vector *params, int parm_idx, 
@@ -1797,8 +1825,10 @@ void tm_init_mat_R3S(TreeModel *mod, Vector *params, int parm_idx,
       vec_set(params, parm_idx++, val);
     }
     done_row[i] = done_row[i_comp] = 1;
-  }    
-  assert(parm_idx == params->size);
+  }
+  if (parm_idx != params->size)
+    die("ERROR tm_init_mat_R3S: parm_idx (%i) != params->size (%i)\n",
+	parm_idx, params->size);
 }
 
 void tm_init_mat_U3(TreeModel *mod, Vector *params, 
@@ -1832,7 +1862,9 @@ void tm_init_mat_U3(TreeModel *mod, Vector *params,
                                    undiagonalizable :) */
     }
   }    
-  assert(parm_idx == params->size);
+  if (parm_idx != params->size)
+    die("ERROR tm_init_mat_US: parm_idx (%i) != params->size (%i)\n",
+	parm_idx, params->size);
 }
 
 void tm_init_mat_U3S(TreeModel *mod, Vector *params, 
@@ -1905,8 +1937,10 @@ void tm_init_mat_U3S(TreeModel *mod, Vector *params,
                                    undiagonalizable :) */
     }
     done_row[i] = done_row[i_comp] = 1;
-  }    
-  assert(parm_idx == params->size);
+  }
+  if (parm_idx != params->size)
+    die("ERROR tm_init_mat_U3S: parm_idx (%i) != params->size (%i)\n",
+	parm_idx, params->size);
 }
 
 void tm_init_mat_GY(TreeModel *mod, double kappa, double omega) {
@@ -1970,7 +2004,9 @@ void tm_init_mat_from_model_SSREV(TreeModel *mod, Vector *params,
       count++;
     }
   }
-  assert(count==tm_get_nratematparams(mod));
+  if (count != tm_get_nratematparams(mod))
+    die("ERROR tm_init_mat_from_model_SSREV: count (%i) != tm_get_nratematparams(mod) (%i)\n",
+	count, tm_get_nratematparams(mod));
 }
 
 
@@ -2006,7 +2042,9 @@ void tm_init_mat_from_model_R2(TreeModel *mod, Vector *params,
       vec_set(params, start_idx++, val);
     }
   }
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_init_mat_from_model_R2: start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 void tm_init_mat_from_model_U2(TreeModel *mod, Vector *params, 
@@ -2026,7 +2064,9 @@ void tm_init_mat_from_model_U2(TreeModel *mod, Vector *params,
       vec_set(params, start_idx++, val);
     }
   }
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_init_mat_from_model_U2: start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 void tm_init_mat_from_model_R2S(TreeModel *mod, Vector *params, 
@@ -2077,7 +2117,9 @@ void tm_init_mat_from_model_R2S(TreeModel *mod, Vector *params,
     }        
     done_row[i] = done_row[i_comp] = 1;
   }
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_init_mat_from_model_R2S: start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 void tm_init_mat_from_model_U2S(TreeModel *mod, Vector *params, 
@@ -2127,7 +2169,9 @@ void tm_init_mat_from_model_U2S(TreeModel *mod, Vector *params,
     }        
     done_row[i] = done_row[i_comp] = 1;
   }
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_init_mat_from_model_U2S: start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 void tm_init_mat_from_model_R3(TreeModel *mod, Vector *params, 
@@ -2152,7 +2196,9 @@ void tm_init_mat_from_model_R3(TreeModel *mod, Vector *params,
       vec_set(params, start_idx++, val);
     }
   }
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_init_mat_from_model_R3: start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 void tm_init_mat_from_model_R3S(TreeModel *mod, Vector *params, 
@@ -2214,7 +2260,9 @@ void tm_init_mat_from_model_R3S(TreeModel *mod, Vector *params,
     }
     done_row[i] = done_row[i_comp] = 1;
   }
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_init_mat_from_model_R3S: start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 void tm_init_mat_from_model_U3(TreeModel *mod, Vector *params, 
@@ -2239,7 +2287,9 @@ void tm_init_mat_from_model_U3(TreeModel *mod, Vector *params,
       vec_set(params, start_idx++, val);
     }
   }
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_init_mat_from_model_U3: start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 void tm_init_mat_from_model_U3S(TreeModel *mod, Vector *params, 
@@ -2304,7 +2354,9 @@ void tm_init_mat_from_model_U3S(TreeModel *mod, Vector *params,
    }
     done_row[i] = done_row[i_comp] = 1;
   }    
-  assert(start_idx == params->size);
+  if (start_idx != params->size)
+    die("ERROR tm_init_mat_from_model_U3S: start_idx (%i) != params->size (%i)\n",
+	start_idx, params->size);
 }
 
 

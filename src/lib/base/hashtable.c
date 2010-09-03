@@ -15,7 +15,6 @@
    management expected to be done externally) */
 
 #include <stdlib.h>
-#include <assert.h>
 #include <lists.h>
 #include <hashtable.h>
 #include <string.h>

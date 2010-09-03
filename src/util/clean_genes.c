@@ -695,8 +695,8 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
     case WARN_Ns:
       reason = "CDS contains Ns";
       break;
-    default: 
-      assert(0);
+    default:
+      die("ERROR in write_log: unknown problem->status %i\n", problem->status);
     }
 
     fprintf(logf, "%s (%d-%d):\n", reason,
@@ -752,7 +752,7 @@ char *status_type_str(status_type status) {
   case WARN_Ns:
     return "warning_Ns";
   default:
-    assert(0);
+    die("ERROR: status_type_str unknown status %i\n", status);
     return "unknown status";
   }
 } 
@@ -1081,14 +1081,12 @@ int main(int argc, char *argv[]) {
       printf (HELP);
       exit(0);
     case '?':
-      fprintf(stderr, "ERROR: Bad argument.  Try the --help option.\n");
-      exit(1);
+      die("ERROR: Bad argument.  Try the --help option.\n");
     }
   }
 
   if (optind + 1 >= argc ) {
-    fprintf(stderr, "ERROR:  Missing required arguments.  Try the --help option.\n");
-    exit(1);
+    die("ERROR:  Missing required arguments.  Try the --help option.\n");
   }
 
   gff = gff_read_set(fopen_fname(argv[optind], "r"));
@@ -1103,7 +1101,8 @@ int main(int argc, char *argv[]) {
     if (msa->ss == NULL) 
       ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1);
   }
-  assert(msa->ss->tuple_idx);
+  if (!msa->ss->tuple_idx)
+    die("ERROR: need ordered tuples\n");
   msa_remove_N_from_alph(msa);  /* for backward compatibility (old SS files) */
 
   if (msa->idx_offset != 0) {   /* avoids offset problem */

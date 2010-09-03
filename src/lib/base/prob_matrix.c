@@ -19,7 +19,6 @@
 #include <prob_matrix.h>
 #include <prob_vector.h>
 #include <misc.h>
-#include <assert.h>
 
 void pm_mean(Matrix *p, double *mean_x, double *mean_y) {
   int x, y;
@@ -71,7 +70,9 @@ Vector *pm_x_given_tot(Matrix *p, int tot) {
   Vector *cond = vec_new(min(p->nrows, tot+1));
   vec_zero(cond);
 
-  assert(tot <= p->nrows + p->ncols - 2);
+  if (!(tot <= p->nrows + p->ncols - 2))
+    die("ERROR pm_x_given_tot: tot=%i, p->nrows=%i, p->ncols=%i\n",
+	tot, p->nrows, p->ncols);
   /* joint distribution has to allow for a total this large */
 
   for (x = max(0, tot - p->ncols + 1); x < p->nrows; x++) {
@@ -88,7 +89,9 @@ Vector *pm_y_given_tot(Matrix *p, int tot) {
   Vector *cond = vec_new(min(p->ncols, tot+1));
   vec_zero(cond);
 
-  assert(tot <= p->nrows + p->ncols - 2);
+  if (!(tot <= p->nrows + p->ncols - 2))
+    die("ERROR: pm_y_given_tot: tot=%i, p->nrows=%i, p->ncols=%i\n",
+	tot, p->nrows, p->ncols);
   /* joint distribution has to allow for a total this large */
 
   for (y = max(0, tot - p->nrows + 1); y < p->ncols; y++) {
@@ -116,7 +119,8 @@ Matrix *pm_convolve(Matrix *p, int n, double epsilon) {
   double mean, var, max_nsd;
   int max_nrows = p->nrows * n, max_ncols = p->ncols * n;
 
-  assert(n > 0);
+  if (n <= 0)
+    die("ERROR pm_convlve: n=%i\n", n);
 
   if (n == 1) 
     return mat_create_copy(p);
@@ -182,7 +186,8 @@ Matrix **pm_convolve_save(Matrix *p, int n, double epsilon) {
   int max_nrows = p->nrows * n, max_ncols = p->ncols * n;
   Matrix **q = smalloc((n+1) * sizeof(void*));
 
-  assert(n > 0);
+  if (n <=0)
+    die("ERROR pm_convolve_save: n=%i\n", n);
 
   q[0] = NULL;			/* placeholder */
 
@@ -421,7 +426,8 @@ Matrix *pm_convolve_fast(Matrix *p, int n, double epsilon) {
       checksum += int_pow(2, i);
     }
   }
-  assert(n == checksum);
+  if (n != checksum)
+    die("ERROR pm_convolve_fast: n (%i) != checksum (%i)\n", n, checksum);
 
   retval = pm_convolve_many_fast(pows, j, max_nrows, max_ncols);
 

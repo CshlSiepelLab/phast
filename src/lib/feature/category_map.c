@@ -19,7 +19,6 @@
 #include "gff.h"
 #include "stacks.h"
 #include "misc.h"
-#include <assert.h>
 #include <hashtable.h>
 #include <unistd.h>
 
@@ -174,7 +173,9 @@ CategoryMap *cm_read(FILE *F) {
         else {
           List *tmpl = lst_new_ptr(cm->ncats);
           int tmpi;
-          assert (cm->conditioned_on[cat] == NULL);
+	  if (cm->conditioned_on[cat] != NULL)
+	    die("ERROR cm_read: cm->conditioned_on[%i] should be NULL\n",
+		cat);
 
           str_split((String*)lst_get_ptr(l, 6), " ,", tmpl);
           cm->conditioned_on[cat] = lst_new_int(lst_size(tmpl));
@@ -392,7 +393,9 @@ List *cm_get_category_str_list(CategoryMap *cm,
    category number.  Note: return value is passed by reference -- do
    not alter. */
 String *cm_get_feature(CategoryMap *cm, int cat) {
-  assert (cat >= 0 && cat <= cm->ncats);
+  if (!(cat >= 0 && cat <= cm->ncats))
+    die("ERROR cm_get_feature: cat=%i, should be in [0, %i]\n",
+	cat, cm->ncats);
   return lst_get_ptr(cm->ranges[cat]->feature_types, 0);
 }
 
@@ -401,7 +404,9 @@ String *cm_get_feature(CategoryMap *cm, int cat) {
    to a newly allocated String.*/
 String *cm_get_feature_unique(CategoryMap *cm, int cat) {
   String *retval = str_dup(lst_get_ptr(cm->ranges[cat]->feature_types, 0));
-  assert (cat >= 0 && cat <= cm->ncats);
+  if (! (cat >= 0 && cat <= cm->ncats))
+    die("ERROR cm_get_feature_unique: cat=%i, should be in [0,%i]\n",
+	cat, cm->ncats);
   if (cm->ranges[cat]->start_cat_no != cm->ranges[cat]->end_cat_no) {
     str_append_char(retval, '-');
     str_append_int(retval, cat - cm->ranges[cat]->start_cat_no + 1);
@@ -750,15 +755,15 @@ void cm_spooled_to_unspooled(CategoryMap *cm, int *path, int pathlen) {
   pred = lst_new_int(cm->unspooler->nstates_spooled);
   prev_sp_state = -1;
   for (j = 0; j < pathlen; j++) {
-    assert(path[j] >= 0 && path[j] <= cm->unspooler->nstates_spooled);
+    if (!(path[j] >= 0 && path[j] <= cm->unspooler->nstates_spooled))
+      die("ERROR cm_spooled_to_unspooled: path[%i]=%i, should be in [0, %i]\n",
+	  j, path[j], cm->unspooler->nstates_spooled);
 
     sp_state = path[j];
     path[j] = cm_get_unspooled_state(cm, path[j], pred);
 
-    if (path[j] == -1) {
-      fprintf(stderr, "ERROR: failure mapping to uspooled state at position %d.\n", j);
-      exit(1);
-    }
+    if (path[j] == -1) 
+      die("ERROR: failure mapping to uspooled state at position %d.\n", j);
 
     if (sp_state != prev_sp_state) {
       /* if the current (spooled) state is not conditioned on any
@@ -783,7 +788,9 @@ void cm_unspooled_to_spooled(CategoryMap *cm, int *path, int pathlen) {
   int j;
   if (cm->unspooler == NULL) return;
   for (j = 0; j < pathlen; j++) {
-    assert(path[j] >= 0 && path[j] <= cm->unspooler->nstates_unspooled);  
+    if (!(path[j] >= 0 && path[j] <= cm->unspooler->nstates_unspooled))
+      die("ERROR cm_unspooled_to_spooled: path[%i]=%i, should be in [0,%i]\n",
+	  j, path[j], cm->unspooler->nstates_unspooled);
     path[j] = cm->unspooler->unspooled_to_spooled[path[j]];
   }
 }
@@ -843,10 +850,8 @@ Unspooler *cm_create_unspooler(int nstates_spooled, List **conditioned_on) {
           int oldstate = lst_get_int(conditioned_on[n->oldstate], j);
           UnspoolNode *m;
 
-          if (mark[oldstate] == 1) {
-            fprintf(stderr, "ERROR: cycle in 'conditioned_on' dependencies.\n");
-            exit(1);
-          }
+          if (mark[oldstate] == 1)
+            die("ERROR: cycle in 'conditioned_on' dependencies.\n");
           mark[oldstate] = 1;
 
           m = cm_new_unspool_node(oldstate);
@@ -919,7 +924,8 @@ int cm_get_unspooled_state(CategoryMap *cm, int spooled_state,
       fprintf(stderr, "\n");
       return -1;
     }
-    assert(n == child);
+    if (n != child)
+      die("ERROR cm_get_unspooled_state: n != child\n");
   }
   return n->newstate;
 }
@@ -931,10 +937,8 @@ CategoryMap* cm_read_from_fname(char *fname) {
   CategoryMap *cm = NULL;
   FILE *F;
   if ((F = fopen(fname, "r")) == NULL || 
-      (cm = cm_read(F)) == NULL) {
-    fprintf(stderr, "ERROR: cannot read category map from %s.\n", fname);
-    exit(1);
-  }
+      (cm = cm_read(F)) == NULL) 
+    die("ERROR: cannot read category map from %s.\n", fname);
   fclose(F);
   return cm;
 }

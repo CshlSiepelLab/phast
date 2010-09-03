@@ -20,7 +20,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 #include <ctype.h>
 #include "stacks.h"
 #include "trees.h"
@@ -246,8 +245,9 @@ char *tr_to_string(TreeNode *root, int show_branch_lengths) {
 /* recursive subroutine used by tr_to_string */
 void tr_to_string_recur(char *str, TreeNode *n, int show_branch_lengths) {
   char temp[100];
-  assert((n->lchild == NULL && n->rchild == NULL) ||
-	 (n->lchild != NULL && n->rchild != NULL));
+  if (!((n->lchild == NULL && n->rchild == NULL) ||
+	(n->lchild != NULL && n->rchild != NULL)))
+    die("ERROR: tr_to_string_recur, either both children should be NULL or neither\n");
   if (n->lchild != NULL) {
     strcat(str, "(");
     tr_to_string_recur(str, n->lchild, show_branch_lengths);
@@ -276,8 +276,9 @@ void tr_print(FILE* f, TreeNode *root, int show_branch_lengths) {
 /* Recursive subroutine used by print_tree */
 void tr_print_recur(FILE* f, TreeNode *n, int show_branch_lengths) {
 
-  assert((n->lchild == NULL && n->rchild == NULL) || 
-	 (n->lchild != NULL && n->rchild != NULL));
+  if (!((n->lchild == NULL && n->rchild == NULL) || 
+	(n->lchild != NULL && n->rchild != NULL)))
+    die("ERROR tr_print_recur: either both children should be NULL or neither\n");
 
   if (n->lchild != NULL) {
     fprintf(f, "(");
@@ -443,8 +444,11 @@ void tr_print_ordered(FILE* f, TreeNode *root, int show_branch_lengths) {
   stack = stk_new_ptr(root->nnodes);
   stk_push_ptr(stack, root);
   while ((n = stk_pop_ptr(stack)) != NULL) {
-    assert((n->lchild == NULL && n->rchild == NULL) ||
-           (n->lchild != NULL && n->rchild != NULL));
+
+    if (!((n->lchild == NULL && n->rchild == NULL) ||
+	  (n->lchild != NULL && n->rchild != NULL)))
+      die("ERROR tr_print_ordered: either both children should be NULL or neither\n");
+	
     if (n->lchild == NULL) {
       names[n->id] = n->name;
       mark[n->id] = 1;
@@ -486,8 +490,9 @@ void tr_print_ordered(FILE* f, TreeNode *root, int show_branch_lengths) {
 void tr_print_ordered_recur(FILE* f, TreeNode *n, int *left_right,
                             int show_branch_lengths) {
 
-  assert((n->lchild == NULL && n->rchild == NULL) || 
-	 (n->lchild != NULL && n->rchild != NULL));
+  if (!((n->lchild == NULL && n->rchild == NULL) || 
+	(n->lchild != NULL && n->rchild != NULL)))
+    die("ERROR tr_print_ordered_recur: either both children should be NULL or neither\n");
 
   if (n->lchild != NULL) {
     fprintf(f, "(");
@@ -523,8 +528,9 @@ List *tr_preorder(TreeNode *tr) {
     stack = stk_new_ptr(tr->nnodes);
     stk_push_ptr(stack, tr);
     while ((n = stk_pop_ptr(stack)) != NULL) {
-      assert((n->lchild == NULL && n->rchild == NULL) ||
-             (n->lchild != NULL && n->rchild != NULL));
+      if (!((n->lchild == NULL && n->rchild == NULL) ||
+	    (n->lchild != NULL && n->rchild != NULL)))
+	die("ERROR tr_preorder: either both children should be NULL or neither\n");
       if (n->lchild != NULL) {
         stk_push_ptr(stack, n->rchild);
         stk_push_ptr(stack, n->lchild);
@@ -553,8 +559,9 @@ List *tr_inorder(TreeNode *tr) {
     stack = stk_new_ptr(tr->nnodes);
     stk_push_ptr(stack, tr);
     while ((n = stk_pop_ptr(stack)) != NULL) {
-      assert((n->lchild == NULL && n->rchild == NULL) ||
-             (n->lchild != NULL && n->rchild != NULL));
+      if (!((n->lchild == NULL && n->rchild == NULL) ||
+	    (n->lchild != NULL && n->rchild != NULL)))
+	die("ERROR: tr_inorder: either both children should be NULL or neither\n");
       if (n->lchild != NULL && mark[n->lchild->id] == 0) {
         stk_push_ptr(stack, n->rchild);
         stk_push_ptr(stack, n);
@@ -588,8 +595,9 @@ List *tr_postorder(TreeNode *tr) {
     stack = stk_new_ptr(tr->nnodes);
     stk_push_ptr(stack, tr);
     while ((n = stk_pop_ptr(stack)) != NULL) {
-      assert((n->lchild == NULL && n->rchild == NULL) ||
-             (n->lchild != NULL && n->rchild != NULL));
+      if (!((n->lchild == NULL && n->rchild == NULL) ||
+	    (n->lchild != NULL && n->rchild != NULL)))
+	die("ERROR tr_postorder: either both children should be NULL or neither\n");
       if (n->lchild != NULL && mark[n->lchild->id] == 0) {
         stk_push_ptr(stack, n); /* order? */
         stk_push_ptr(stack, n->rchild);
@@ -983,7 +991,8 @@ void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
     }
     else if (n->lchild == NULL) { /* missing left child only */
       if (n->parent == NULL) {
-        assert(n == *t);        /* n must be root */
+	if (n != *t)
+	  die("ERROR tr_prune n is not root!\n");
         n->rchild->parent = NULL; /* redefine root */
         *t = n->rchild;
         (*t)->dparent = 0;
@@ -1000,7 +1009,8 @@ void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
     }
     else if (n->rchild == NULL) { /* missing right child only */
       if (n->parent == NULL) {
-        assert(n == *t);        /* n must be root */
+	if (n != *t)
+	  die("ERROR tr_prune n must be root\n");
         n->lchild->parent = NULL; /* redefine root */
         *t = n->lchild;         
         (*t)->dparent = 0;
@@ -1355,8 +1365,10 @@ void tr_reroot(TreeNode *tree, TreeNode *selected_node, int include_branch) {
   double d, d2;
   double root_d;
   int i;
-
-  assert(tree->nnodes >= 3);
+  
+  if (tree->nnodes < 3)
+    die("Error: tr_reroot tree should have at least 3 nodes, has %i\n",
+	tree->nnodes);
 
   if (tree == selected_node) {
     if (include_branch) 
@@ -1418,7 +1430,8 @@ void tr_reroot(TreeNode *tree, TreeNode *selected_node, int include_branch) {
   }
 
   /* now n points to either root_rchild or root_lchild */
-  assert(n == root_rchild || n == root_lchild);
+  if (!(n == root_rchild || n == root_lchild))
+    die("ERROR tr_reroot n should be root->rchild or root->lchild\n");
   if (n == root_lchild) {
     if (n->lchild == NULL) 
       n->lchild = root_rchild;

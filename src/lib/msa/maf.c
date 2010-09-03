@@ -376,14 +376,16 @@ MSA *maf_read_cats_subset(FILE *F,          /**< MAF file */
     /* first map starting coordinate */
     if (map != NULL) {
       idx_offset = msa_map_seq_to_msa(map, start_idx + 1) - 1;
-      assert(idx_offset >= 0);
+      if (idx_offset < 0)
+	die("ERROR maf_read_subset: invalid idx_offset %i\n", idx_offset);
 
       /* when the reference sequence begins with gaps, 
          start_idx will actually map to the first *non-gap*
          character; we have to adjust accordingly */
       for (i = 0; mini_msa->seqs[0][i] == GAP_CHAR; i++) idx_offset--;
 
-      assert(idx_offset >= 0);
+      if (idx_offset < 0)
+	die("ERROR maf_read_subset: invalid idx_offset2 %i\n", idx_offset);
     }
 
     else if (store_order) idx_offset = start_idx - msa->idx_offset; 
@@ -455,8 +457,10 @@ MSA *maf_read_cats_subset(FILE *F,          /**< MAF file */
 
       if (msa_idx >= msa->length)
 	msa_realloc(msa, msa_idx+1, msa_idx + 10000, 0, store_order);
-
-      assert(msa_idx >= 0);
+      
+      if (msa_idx < 0)
+	die("ERROR maf_read_subset: msa_idx=%i, should be >=0\n",
+	    msa_idx);
 
       /* simple hack to handle the case where order is stored but 
          refseq is not available: use the char from the alignment if
@@ -865,7 +869,8 @@ MSA *maf_read_unsorted(FILE *F,          /**< MAF file */
          character; we have to adjust accordingly */
       for (i = 0; mini_msa->seqs[0][i] == GAP_CHAR; i++) idx_offset--;
 
-      assert(idx_offset >= 0);
+      if (idx_offset < 0)
+	die("ERROR maf_read_unsorted: idx_offset=%i\n", idx_offset);
     }
 
     else if (store_order) idx_offset = start_idx; 
@@ -926,7 +931,8 @@ MSA *maf_read_unsorted(FILE *F,          /**< MAF file */
       }
       else msa_idx = i;
 
-      assert(msa_idx >= 0);
+      if (msa_idx < 0)
+	die("ERROR maf_read_unsorted: msa_idx=%i\n", msa_idx);
 
       /* simple hack to handle the case where order is stored but 
          refseq is not available: use the char from the alignment if
@@ -1075,10 +1081,8 @@ int maf_read_block_addseq(FILE *F, MSA *mini_msa, Hashtable *name_hash,
 
     /* if we get here, linebuffer should contain a sequence line */
     str_split(linebuffer, NULL, l);    
-    if (lst_size(l) != 7 || !str_equals_charstr(lst_get_ptr(l, 0), "s")) {
-      fprintf(stderr, "ERROR: bad sequence line in MAF file --\n\t\"%s\"\n", linebuffer->chars);
-      exit(1);
-    }
+    if (lst_size(l) != 7 || !str_equals_charstr(lst_get_ptr(l, 0), "s")) 
+      die("ERROR: bad sequence line in MAF file --\n\t\"%s\"\n", linebuffer->chars);
     str_cpy(this_name, lst_get_ptr(l, 1));
     str_shortest_root(this_name, '.');
     this_seq = lst_get_ptr(l, 6);
@@ -1089,8 +1093,7 @@ int maf_read_block_addseq(FILE *F, MSA *mini_msa, Hashtable *name_hash,
         ((start_idx != NULL && str_as_int(lst_get_ptr(l, 2), start_idx) != 0) ||
         (length != NULL && str_as_int(lst_get_ptr(l, 3), length) != 0) ||
         ((String*)lst_get_ptr(l, 4))->chars[0] != '+')) {
-      fprintf(stderr, "ERROR: bad integers or strand in MAF (strand must be + for reference sequence) --\n\t\"%s\"\n", linebuffer->chars);
-      exit(1);
+      die("ERROR: bad integers or strand in MAF (strand must be + for reference sequence) --\n\t\"%s\"\n", linebuffer->chars);
     }
 
     /* ensure lengths of all seqs are consistent */
@@ -1109,7 +1112,9 @@ int maf_read_block_addseq(FILE *F, MSA *mini_msa, Hashtable *name_hash,
     } else if (seqidx == -1) {
       goto msa_read_block_addseq_free_loop;
     }
-    assert(str_equals_charstr(this_name, mini_msa->names[seqidx]));
+    if (!(str_equals_charstr(this_name, mini_msa->names[seqidx])))
+      die("ERROR: maf_read_block_addseq: %s != %s\n",
+	  this_name->chars, mini_msa->names[seqidx]);
 
 
     /* enlarge allocated sequence lengths as necessary */
@@ -1218,17 +1223,13 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
     if (mini_msa->length == -1 && 
         ((start_idx != NULL && str_as_int(lst_get_ptr(l, 2), start_idx) != 0) ||
         (length != NULL && str_as_int(lst_get_ptr(l, 3), length) != 0) ||
-        ((String*)lst_get_ptr(l, 4))->chars[0] != '+')) {
-      fprintf(stderr, "ERROR: bad integers or strand in MAF (strand must be + for reference sequence) --\n\t\"%s\"\n", linebuffer->chars);
-      exit(1);
-    }
+        ((String*)lst_get_ptr(l, 4))->chars[0] != '+'))
+      die("ERROR: bad integers or strand in MAF (strand must be + for reference sequence) --\n\t\"%s\"\n", linebuffer->chars);
 
     /* ensure lengths of all seqs are consistent */
     if (mini_msa->length == -1) mini_msa->length = this_seq->length;
-    else if (this_seq->length != mini_msa->length) {
-      fprintf(stderr, "ERROR: sequence lengths do not match in MAF block -- \n\tsee line \"%s\"\n", linebuffer->chars);
-      exit(1);
-    }
+    else if (this_seq->length != mini_msa->length) 
+      die("ERROR: sequence lengths do not match in MAF block -- \n\tsee line \"%s\"\n", linebuffer->chars);
 
     /* enlarge allocated sequence lengths as necessary */
     if (this_seq->length > mini_msa->alloc_len) {
@@ -1243,11 +1244,10 @@ int maf_read_block(FILE *F, MSA *mini_msa, Hashtable *name_hash,
 
     /* obtain index of seq */
     seqidx = hsh_get_int(name_hash, this_name->chars);
-    if (seqidx == -1) {
-      fprintf(stderr, "ERROR: unexpected sequence name '%s' --\n\tsee line \"%s\"\n", this_name->chars, linebuffer->chars);
-      exit(1);
-    }
-    assert(str_equals_charstr(this_name, mini_msa->names[seqidx]));
+    if (seqidx == -1) 
+      die("ERROR: unexpected sequence name '%s' --\n\tsee line \"%s\"\n", this_name->chars, linebuffer->chars);
+    if (!(str_equals_charstr(this_name, mini_msa->names[seqidx])))
+      die("ERROR: maf_read_block: %s != %s\n", this_name->chars, mini_msa->names[seqidx]);
 
     for (i = 0; i < this_seq->length; i++) {
       mini_msa->seqs[seqidx][i] = do_toupper ? toupper(this_seq->chars[i]) : 
@@ -1341,7 +1341,8 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
 	  }
 	  str_cpy(name, fullname);
 	  str_shortest_root(name, '.');
-	  assert(name->length > 0);
+	  if (name->length <= 0)
+	    die("ERROR maf_quick_peek name->length=%i\n", name->length);
 	  if (hsh_get_int(name_hash, name->chars) == -1) {
 	    if (add_seqs) {
 	      hsh_put_int(name_hash, name->chars, count);
@@ -1363,7 +1364,8 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
         str_append_char(fullname, line->chars[i]);
       str_cpy(name, fullname);
       str_shortest_root(name, '.');
-      assert(name->length > 0); /* must be a non-empty name */
+      if (name->length <= 0)
+	die("ERROR maf_quick_peek2: name->length=%i\n", name->length);
 
       if (hsh_get_int(name_hash, name->chars) == -1 && add_seqs) {
 	hsh_put_int(name_hash, name->chars, count);
@@ -1440,7 +1442,8 @@ void maf_peek(FILE *F, char ***names, Hashtable *name_hash,
         str_append_char(fullname, line->chars[i]);
       str_cpy(name, fullname);
       str_shortest_root(name, '.');
-      assert(name->length > 0); /* must be a non-empty name */
+      if (name->length <= 0)  /* must be a non-empty name */
+	die("ERROR: maf_peek: name->length=%i\n", name->length);
       if (hsh_get_int(name_hash, name->chars) == -1) {
         hsh_put_int(name_hash, name->chars, count);
         *names = srealloc(*names, (count+1) * sizeof(char*));

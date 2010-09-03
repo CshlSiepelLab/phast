@@ -11,7 +11,6 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 #include <matrix.h>
 #include <external_libs.h>
 #include <math.h>
@@ -84,7 +83,12 @@ void mat_set_all(Matrix *m, double val) {
 
 void mat_copy(Matrix *dest, Matrix *src) {
   int i, j;
-  assert(dest->nrows == src->nrows && dest->ncols == src->ncols);
+  if (dest->nrows != src->nrows)
+    die("ERROR: mat_copy: dest->nrows (%i) != src->nrows (%i)\n",
+	dest->nrows, src->nrows);
+  if (dest->ncols != src->ncols)
+    die("ERROR: mat_copy: dest->ncols (%i) != src->ncols (%i)\n",
+	dest->ncols, src->ncols);
   for (i = 0; i < dest->nrows; i++)
     for (j = 0; j < dest->ncols; j++)
       dest->data[i][j] = src->data[i][j];
@@ -148,8 +152,9 @@ Matrix *mat_new_from_file(FILE *F, int nrows, int ncols) {
 }
 
 void mat_mult(Matrix *prod, Matrix *m1, Matrix *m2) {
-  assert(m1->ncols == m2->nrows && m1->nrows == m2->ncols && 
-         prod->nrows == m1->nrows && prod->ncols == m2->ncols);
+  if (!(m1->ncols == m2->nrows && m1->nrows == m2->ncols && 
+	prod->nrows == m1->nrows && prod->ncols == m2->ncols))
+    die("ERROR mat_mult: bad matrix dimensions\n");
   int i, j, k;
   for (i = 0; i < prod->nrows; i++) {
     for (j = 0; j < prod->ncols; j++) {
@@ -162,8 +167,8 @@ void mat_mult(Matrix *prod, Matrix *m1, Matrix *m2) {
 
 void mat_vec_mult(Vector *prod, Matrix *m, Vector *v) {
   int i, j;
-  assert(m->nrows == v->size && v->size == prod->size);
-
+  if (!(m->nrows == v->size && v->size == prod->size))
+    die("ERROR mat_vec_mult: bad dimensions\n");
   for (i = 0; i < m->nrows; i++) {
     prod->data[i] = 0;
     for (j = 0; j < m->ncols; j++) {
@@ -174,7 +179,8 @@ void mat_vec_mult(Vector *prod, Matrix *m, Vector *v) {
 
 void mat_plus_eq(Matrix *thism, Matrix *addm) {
   int i, j;
-  assert(thism->nrows == addm->nrows && thism->ncols == addm->ncols);
+  if (!(thism->nrows == addm->nrows && thism->ncols == addm->ncols))
+    die("mat_plus_eq: bad dimensions\n");
   for (i = 0; i < thism->nrows; i++)
     for (j = 0; j < thism->ncols; j++)  
       thism->data[i][j] += addm->data[i][j];
@@ -182,7 +188,8 @@ void mat_plus_eq(Matrix *thism, Matrix *addm) {
 
 void mat_minus_eq(Matrix *thism, Matrix *subm) {
   int i, j;
-  assert(thism->nrows == subm->nrows && thism->ncols == subm->ncols);
+  if (!(thism->nrows == subm->nrows && thism->ncols == subm->ncols))
+    die("ERROR mat_minus_eq: bad dimensions\n");
   for (i = 0; i < thism->nrows; i++)
     for (j = 0; j < thism->ncols; j++)  
       thism->data[i][j] -= subm->data[i][j];
@@ -191,8 +198,9 @@ void mat_minus_eq(Matrix *thism, Matrix *subm) {
 void mat_linear_comb(Matrix *dest, Matrix *src1, double coef1, 
                      Matrix *src2, double coef2) {
   int i, j;
-  assert(dest->nrows == src1->nrows && dest->ncols == src1->ncols &&
-         dest->nrows == src2->nrows && dest->ncols == src2->ncols);
+  if (!(dest->nrows == src1->nrows && dest->ncols == src1->ncols &&
+	dest->nrows == src2->nrows && dest->ncols == src2->ncols))
+    die("ERROR mat_linear_comb: bad dimensions\n");
   for (i = 0; i < dest->nrows; i++)
     for (j = 0; j < dest->ncols; j++)  
       dest->data[i][j] = coef1*src1->data[i][j] + coef2*src2->data[i][j];
@@ -200,7 +208,8 @@ void mat_linear_comb(Matrix *dest, Matrix *src1, double coef1,
 
 void mat_resize(Matrix *m, int nrows, int ncols) {
   int i;
-  assert(nrows >= 0 && ncols >= 0);
+  if (!(nrows >= 0 && ncols >= 0))
+    die("ERROR mat_resize: nrows=%i ncols=%i\n", nrows, ncols);
   for (i = nrows; i < m->nrows; i++) free(m->data[i]);
   m->data = srealloc(m->data, nrows * sizeof(void*));
   for (i = 0; i < nrows; i++)
@@ -220,8 +229,9 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
   LAPACK_INT info, n = (LAPACK_INT)M->nrows, ipiv[n], lwork=(LAPACK_INT)n;
   LAPACK_DOUBLE tmp[n][n], work[lwork];
 
-  assert(M->nrows == M->ncols && M_inv->nrows == M_inv->ncols && 
-         M->nrows == M_inv->nrows);
+  if (!(M->nrows == M->ncols && M_inv->nrows == M_inv->ncols && 
+	M->nrows == M_inv->nrows))
+    die("ERROR mat_invert: bad dimensions\n");
 
   for (i = 0; i < n; i++) 
     for (j = 0; j < n; j++) 

@@ -24,7 +24,6 @@
 #include <subst_mods.h>
 #include <string.h>
 #include <local_alignment.h>
-#include <assert.h>
 #include <ctype.h>
 #include <tree_likelihoods.h>
 #include <numerical_opt.h>

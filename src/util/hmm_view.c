@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "hmm.h"
-#include <assert.h>
 #include <getopt.h>
 #include "category_map.h"
 #include "gap_patterns.h"
@@ -80,8 +79,7 @@ int main(int argc, char *argv[]) {
       print_usage();
       exit(0);
     case '?':
-      fprintf(stderr, "Bad argument.  Try 'hmm_view -h' for help.\n");
-      exit(1);
+      die("Bad argument.  Try 'hmm_view -h' for help.\n");
     }
   }
 
@@ -110,8 +108,7 @@ int main(int argc, char *argv[]) {
 
   if (hmm->nstates != (cm->unspooler == NULL ? cm->ncats + 1 : 
                        cm->unspooler->nstates_unspooled) * nratecats) {
-    fprintf(stderr, "ERROR: number of states in HMM must equal number of site categories (unspooled).\n");
-    exit(1);
+    die("ERROR: number of states in HMM must equal number of site categories (unspooled).\n");
   }
 
   if (pivots != NULL) 

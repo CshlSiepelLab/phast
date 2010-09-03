@@ -17,7 +17,6 @@
 
 #include <prob_vector.h>
 #include <misc.h>
-#include <assert.h>
 
 /* compute mean and variance */
 void pv_stats(Vector *p, double *mean, double *var) {  
@@ -39,8 +38,10 @@ void pv_confidence_interval(Vector *p, double size, int *interval_min,
   int x;
   double tail_size = (1-size)/2;
   double cum = 0;
-  assert(p->size > 0);
-  assert(size > 0 && size < 1);
+  if (p->size <= 0)
+    die("ERROR pv_confidence_interval got p->size=%i\n", p->size);
+  if (!(size > 0 && size < 1))
+    die("ERROR pv_confidence_interval got size=%f\n", size);
   
   for (x = 0; x < p->size; x++) {
     cum += p->data[x];
@@ -133,7 +134,8 @@ void pv_normalize(Vector *p) {
   int x;
   double sum = 0;
   for (x = 0; x < p->size; x++) {
-    assert(p->data[x] >= 0);
+    if (p->data[x] < 0) die("ERROR pv_normalize got pv->data[%i]=%f\n",
+			    x, p->data[x]);
     sum += p->data[x];
   }
   vec_scale(p, 1/sum);
@@ -366,7 +368,8 @@ Vector *pv_convolve_fast(Vector *p, int n, double epsilon) {
       checksum += int_pow(2, i);
     }
   }
-  assert(checksum == n);
+  if (checksum != n)
+    die("ERROR pv_convolve_fast checksum (%i) != n (%i)\n", checksum, n);
   
   retval = pv_convolve_many(pows, NULL, j, epsilon);
 

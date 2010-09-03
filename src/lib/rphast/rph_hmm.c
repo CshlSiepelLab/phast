@@ -18,7 +18,6 @@ Last updated: 12/14/08
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 #include <getopt.h>
 #include <ctype.h>
 #include <Rdefines.h>

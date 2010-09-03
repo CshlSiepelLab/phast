@@ -14,7 +14,6 @@
 #include "sufficient_stats.h"
 #include "msa.h"
 #include <string.h>
-#include <assert.h>
 #include <getopt.h>
 #include <string.h>
 #include <ctype.h>
@@ -622,7 +621,8 @@ int main(int argc, char* argv[]) {
       }
     }
   }
-  assert(msa->length > 0);
+  if (msa->length <= 0) 
+    die("ERROR: msa->length is %i\n", msa->length);
 
   if (gff != NULL) {
     if (!quiet_mode)

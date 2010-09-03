@@ -178,10 +178,13 @@ void lol_push_gff(ListOfLists *lol, GFF_Set *gff, const char *name) {
     feature[i] = copy_charstr(feat->feature->chars);
     start[i] = feat->start;
     end[i] = feat->end;
-    if (feat->score_is_null) 
-      assert(haveScore==0);
+    if (feat->score_is_null)  {
+      if (haveScore != 0)
+	die("ERROR lol_push_gff haveScore is not zero but score is NULL\n");
+    }
     else {
-      assert(i==0 || haveScore);
+      if (!(i==0 || haveScore))
+	die("ERROR haveScore should be same for all features\n");
       haveScore=1;
       score[i] = feat->score;
     }

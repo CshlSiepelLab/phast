@@ -11,7 +11,6 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 #include <getopt.h>
 #include <string.h>
 #include <phylo_hmm.h>
@@ -191,8 +190,7 @@ int main(int argc, char* argv[]) {
       printf(HELP);
       exit(0);
     case '?':
-      fprintf(stderr, "ERROR: unrecognized option.  Try 'exoniphy -h' for help.\n");
-      exit(1);
+      die("ERROR: unrecognized option.  Try 'exoniphy -h' for help.\n");
     }
   }
 

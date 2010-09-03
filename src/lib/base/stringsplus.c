@@ -16,7 +16,6 @@
 #include "stringsplus.h"
 #include "misc.h"
 #include <stdlib.h>
-#include <assert.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -383,9 +382,8 @@ Regex *str_re_new(const char *re_str) {
 
   re = pcre_compile(re_str, 0, &errstr, &erroffset, NULL);
   if (re == NULL) {
-    fprintf(stderr, "ERROR: cannot compile regular expression '%s' (%d): %s\n",
-	    re_str, erroffset, errstr);
-    exit(-1);
+    die("ERROR: cannot compile regular expression '%s' (%d): %s\n",
+	re_str, erroffset, errstr);
   }
   return re;
 }
@@ -421,7 +419,9 @@ int str_re_match_sub(String *s, Regex *re, List *l, int offset, int nsubexp,
     }
     for (i = 0; i < rc && i <= nsubexp; i++) {
       if (ovector[2*i]==-1) {
-	assert(ovector[2*i+1] == -1);
+	if (ovector[2*i+1] != -1)
+	  die("ERROR str_re_match_sub expected ovector[%i]==-1, got %i\n",
+	      2*i+1, ovector[2*i+1]);
 	lst_push_ptr(l, NULL);
       } else {
 	len = ovector[2*i+1] - ovector[2*i];

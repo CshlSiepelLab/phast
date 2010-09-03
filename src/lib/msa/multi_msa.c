@@ -39,7 +39,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h>
-#include <assert.h>
 
 #include <lists.h>
 #include <stacks.h>

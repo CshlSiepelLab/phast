@@ -19,7 +19,6 @@
 #include <msa.h> 
 #include <misc.h>
 #include <numerical_opt.h>
-#include <assert.h>
 #include <subst_mods.h>
 
 #define MAX_ALPH_SIZE 100

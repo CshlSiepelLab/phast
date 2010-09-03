@@ -219,7 +219,8 @@ int phastCons(struct phastCons_struct *p) {
     /* this little hack allows gaps in refseq to be restored before
        output (needed for proper coord conversion) */
     if (msa->seqs == NULL) { ss_to_msa(msa); ss_free(msa->ss); msa->ss = NULL; }
-    assert(strlen(msa->missing) >= 2);
+    if (strlen(msa->missing) < 2)
+      die("ERROR strlen(msa->missing)=%i\n", strlen(msa->missing));
     for (i = 0; i < msa->length; i++) 
       if (msa->is_missing[(int)msa->seqs[0][i]]) msa->seqs[0][i] = msa->missing[1];
                                 /* msa->missing[0] is used in msa_mask_macro_indels */
@@ -754,9 +755,8 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
   List *traversal;
   Vector *params = mod->all_params;
 
-  assert(mod->estimate_ratemat);
-  //  assert(!mod->estimate_backgd && !mod->empirical_rates && !mod->estimate_ratemat &&
-  //	 mod->alt_subst_mods==NULL);
+  if (!mod->estimate_ratemat)
+    die("ERROR unpack_params_mod: mod->estimate_ratemat is FALSE\n");
 
   /* check parameter values */
   for (i = 0; i < params_in->size; i++) {
@@ -982,7 +982,8 @@ void reestimate_rho(void **models, int nmodels, void *data,
   if (logf != NULL) 
     fprintf(logf, "END RE-ESTIMATION OF RHO\n\n");
 
-  assert(phmm->indel_mode != PARAMETERIC);
+  if (phmm->indel_mode == PARAMETERIC)
+    die("ERROR reestimate:rho: phmm->indel_mode is PARAMETERIC\n");
   /* FIXME: to make work with parameteric indel model, will have to
      propagate scale parameter through phmm_set_branch_len_factors */
 }
@@ -1017,7 +1018,8 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
     c = C[0][1] + C[1][0];
 
     tmp = b*b - 4*a*c;
-    assert (tmp >= 0);
+    if (tmp < 0)
+      die("ERROR phmm_estim_trans_em_coverage: tmp=%e\n", tmp);
     tmp = sqrt(tmp);
     nu1 = (-b + tmp) / (2*a);
     nu2 = (-b - tmp) / (2*a);
@@ -1027,10 +1029,12 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
     else nu = nu1;
 
     /* double check that derivative is really zero */
-    assert(fabs(-z*C[0][0]/(1-z*nu) + (C[0][1] + C[1][0])/nu - C[1][1]/(1-nu)) < 1e-6);
+    if (!(fabs(-z*C[0][0]/(1-z*nu) + (C[0][1] + C[1][0])/nu - C[1][1]/(1-nu)) < 1e-6))
+      die("ERROR phmm_estim_trans_em_coverage: derivate not zero?\n");
 
     mu = z * nu;
-    assert(nu >= 0 && nu <= 1 && mu >= 0 && mu <= 1);
+    if (!(nu >= 0 && nu <= 1 && mu >= 0 && mu <= 1))
+      die("ERROR phmm_estim_trans_em_coverage: mu=%e, nu=%e\n", mu, nu);
 
     mm_set(phmm->functional_hmm->transition_matrix, 0, 0, 1-mu);
     mm_set(phmm->functional_hmm->transition_matrix, 0, 1, mu);
@@ -1060,7 +1064,8 @@ void init_eqfreqs(TreeModel *mod, MSA *msa, double gc) {
         mod->rate_matrix->inv_states[(int)'G'] < 0 ||
         mod->rate_matrix->inv_states[(int)'T'] < 0)
       die("ERROR: Four-character DNA alphabet required with --gc.\n");
-    assert(gc > 0 && gc < 1);
+    if (! (gc > 0 && gc < 1))
+      die("ERROR init_eqfreqs got gc=%e\n", gc);
     vec_set(mod->backgd_freqs, 
                    mod->rate_matrix->inv_states[(int)'G'], gc/2);
     vec_set(mod->backgd_freqs, 

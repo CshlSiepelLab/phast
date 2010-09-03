@@ -19,7 +19,6 @@ Last updated: 1/5/2010
 #include <stdio.h>
 #include <msa.h>
 #include <string.h>
-#include <assert.h>
 #include <getopt.h>
 #include <ctype.h>
 #include <misc.h>

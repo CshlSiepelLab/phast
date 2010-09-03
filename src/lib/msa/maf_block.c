@@ -146,7 +146,9 @@ MafSubBlock *mafBlock_get_subBlock(String *line) {
   if (sub->lineType[0]=='s')
     sub->seq = str;
   else {
-    assert(sub->lineType[0]=='e');
+    if (sub->lineType[0] != 'e')
+      die("ERROR mafBlock_get_subBlock: bad lineType (expected 'e', got %c)\n",
+	  sub->lineType[0]);
     if (str->length != 1)
       die("ERROR: e-Line with status %s in MAF block\n", str->chars);
     sub->eStatus = str->chars[0];
@@ -178,7 +180,9 @@ void mafBlock_add_iLine(String *line, MafSubBlock *sub) {
 	lst_size(l));
 
   //field[0] should be 'i'
-  assert(str_compare_charstr((String*)lst_get_ptr(l, 0), "i")==0);
+  if (!(str_compare_charstr((String*)lst_get_ptr(l, 0), "i")==0))
+    die("ERROR: mafBlock_add_iLine: field[0] should be 'i', got %s\n",
+	((String*)lst_get_ptr(l, 0))->chars);
 
   //field[1] should be src, and should match src already set in sub
   if (str_compare((String*)lst_get_ptr(l, 1), sub->src) != 0)
@@ -221,7 +225,9 @@ void mafBlock_add_qLine(String *line, MafSubBlock *sub) {
     die("ERROR: expected three fields in q-Line of maf file, got %i\n", lst_size(l));
   
   //field[0] should be 'q'
-  assert(str_compare_charstr((String*)lst_get_ptr(l, 0), "q")==0);
+  if (!(str_compare_charstr((String*)lst_get_ptr(l, 0), "q")==0))
+    die("ERROR mafBlock_add_qLine expected 'q' got %s\n",
+	((String*)lst_get_ptr(l, 0))->chars);
   
   //field[1] should be src, and should match src already set in sub
   if (str_compare((String*)lst_get_ptr(l, 1), sub->src) != 0)
@@ -229,7 +235,8 @@ void mafBlock_add_qLine(String *line, MafSubBlock *sub) {
 	((String*)lst_get_ptr(l, 1))->chars, sub->src->chars);
 
   //field[2] should be quality
-  assert(sub->seq != NULL);
+  if (sub->seq == NULL)
+    die("ERROR mafBlock_add_qLine: sub->seq is NULL\n");
   str = (String*)lst_get_ptr(l, 2);
   if (sub->seq->length != str->length) 
     die("ERROR: length of q-line does not match sequence length\n");
@@ -406,7 +413,8 @@ void mafBlock_remove_gap_cols(MafBlock *block) {
 	sub->quality->chars[pos]='\0';
       }
     }
-    assert(pos > 0);
+    if (pos <= 0)
+      die("ERROR mafBlock_remove_gap_cols: pos=%i, should be >0\n", pos);
     block->seqlen = pos;
   } 
   else if (nonGapSpecies==0) 
@@ -500,7 +508,8 @@ void mafBlock_print(FILE *outfile, MafBlock *block, int pretty_print) {
 		sub->iStatus[1], sub->iCount[1]);
 	fputc('\n', outfile);
       } else {
-	assert(firstChar=='q');
+	if (firstChar != 'q')
+	  die("ERROR mafBlock_print: firstChar should be q, got %c\n", firstChar);
 	sprintf(formatstr, "q %%-%is", fieldSize[1]);
 	fprintf(outfile, formatstr, sub->src->chars);
 	numSpace = 6 + fieldSize[2] + fieldSize[3] + fieldSize[5];
@@ -544,7 +553,8 @@ void mafBlock_remove_lines(MafBlock *block, int *keep) {
 	hsh_reset_int(block->specMap, sub->src->chars, newSize);
 	hsh_reset_int(block->specMap, sub->specName->chars, newSize);
 	testSub = (MafSubBlock*)lst_get_ptr(block->data, newSize);
-	assert(testSub == NULL);
+	if (testSub != NULL)
+	  die("ERROR: mafBlock_remove_lines: testSub should be NULL\n");
 	lst_set_ptr(block->data, newSize, (void*)sub);
 	lst_set_ptr(block->data, i, NULL);
       }
@@ -693,7 +703,9 @@ int mafBlock_get_size(MafBlock *block, String *specName) {
   if (idx == -1 || idx >= lst_size(block->data)) return -1;
   sub = (MafSubBlock*)lst_get_ptr(block->data, idx);
   if (sub->lineType[0]=='s') return sub->size;
-  assert(sub->lineType[0]=='e');
+  if (sub->lineType[0] != 'e')
+    die("ERROR mafBlock_get_size, expected line type 'e', got %c\n",
+	sub->lineType[0]);
   return 0;
 }
 
@@ -708,7 +720,9 @@ void mafSubBlock_strip_iLine(MafSubBlock *sub) {
   if (i < sub->numLine) {
     for (j=i+1; j<sub->numLine; j++) {
       sub->lineType[j-1] = sub->lineType[j];
-      assert(sub->lineType[j] != 'i');
+      if (sub->lineType[j] == 'i')
+	die("ERROR mafSubBlock_strip_iLine: sub->lineType[%i]=%c\n",
+	    j, sub->lineType[j]);
     }
     sub->numLine--;
   }
@@ -732,7 +746,9 @@ void mafBlock_subAlign(MafBlock *block, int start, int end) {
     sub = (MafSubBlock*)lst_get_ptr(block->data, i);
     if (sub->lineType[0]=='e') continue;  //e-lines remain unchanged
 
-    assert(sub->lineType[0]=='s');
+    if (sub->lineType[0] != 's')
+      die("ERROR mafBlock_sub_align: expected lineType 's', got %c\n",
+	  sub->lineType[0]);
     for (j=0; j<start; j++)
       if (sub->seq->chars[j]!='-') sub->start++;
     sub->size = 0;
@@ -774,7 +790,8 @@ int mafBlock_trim(MafBlock *block, int startcol, int endcol, String *refseq,
   }
   else {
     specIdx = hsh_get_int(block->specMap, refseq->chars);
-    assert(specIdx != -1);
+    if (specIdx == -1)
+      die("Error: mafBlock_trim got specIdx -1\n");
     sub = (MafSubBlock*)lst_get_ptr(block->data, specIdx);
     startIdx = sub->start + 1;
     length = sub->size;

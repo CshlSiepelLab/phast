@@ -11,7 +11,6 @@
 
 #include <vector.h>
 #include <misc.h>
-#include <assert.h>
 #include <lists.h>
 
 Vector *vec_new(int size) {
@@ -50,7 +49,8 @@ void vec_set_all(Vector *v, double val) {
 
 void vec_copy(Vector *dest, Vector *src) {
   int i;
-  assert(dest->size == src->size);
+  if (dest->size != src->size)
+    die("ERROR vec_copy bad dimensions\n");
   for (i = 0; i < src->size; i++) 
     dest->data[i] = src->data[i];
 }
@@ -94,14 +94,16 @@ void vec_zero(Vector *v) {
 
 void vec_plus_eq(Vector *thisv, Vector *addv) {
   int i;
-  assert(thisv->size == addv->size);
+  if (thisv->size != addv->size)
+    die("ERROR vec_plus_eq: bad dimensions\n");
   for (i = 0; i < thisv->size; i++) 
     thisv->data[i] += addv->data[i];  
 }
 
 void vec_minus_eq(Vector *thisv, Vector *subv) {
   int i;
-  assert(thisv->size == subv->size);
+  if (thisv->size != subv->size)
+    die("ERROR vec_minus_eq: bad dimensions\n");
   for (i = 0; i < thisv->size; i++) 
     thisv->data[i] -= subv->data[i];  
 }
@@ -119,7 +121,8 @@ double vec_inner_prod(Vector *v1, /* first input vector (n-dim) */
 		      ) {
   int i;
   double retval = 0;
-  assert(v1->size == v2->size);
+  if (v1->size != v2->size)
+    die("ERROR vec_inner_prod: bad dimensions\n");
   for (i = 0; i < v1->size; i++)
     retval += (vec_get(v1, i) * vec_get(v2, i));
   return retval;
@@ -133,8 +136,9 @@ void vec_outer_prod(Matrix *mat, /* computed cross-product matrix
 		    Vector *v2 /* second input vector (n-dim) */
 		    ) {
   int i, j;
-  assert(v1->size == v2->size && mat->nrows == v1->size && 
-         mat->ncols == v1->size);
+  if (!(v1->size == v2->size && mat->nrows == v1->size && 
+	mat->ncols == v1->size))
+    die("ERROR vec_outer_prod: bad dimensions\n");
   for (i = 0; i < v1->size; i++) {
     for (j = 0; j < v1->size; j++) {
       mat_set(mat, i, j, vec_get(v1, i) * vec_get(v2, j));
@@ -169,10 +173,13 @@ void vec_ave(Vector *dest_v, List *source_vs, List *counts) {
   int i, j;
   double n = 0;
 
-  assert(lst_size(source_vs) >= 1);
+  if (lst_size(source_vs) < 1)
+    die("ERROR vec_ave: lst_size(source_vs)=%i\n", lst_size(source_vs));
 
   if (counts != NULL) {
-    assert(lst_size(source_vs) == lst_size(counts));
+    if (lst_size(source_vs) != lst_size(counts))
+      die("ERROR vec_ave: lst_size(source_vs)=%i != lst_size(counts)=%i\n",
+	  lst_size(source_vs), lst_size(counts));
     for (i = 0; i < lst_size(counts); i++) n += lst_get_int(counts, i);
   }
   else n = lst_size(source_vs);

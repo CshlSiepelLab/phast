@@ -36,9 +36,12 @@ BDPhyloHmm *bd_new(TreeModel *source_mod, double rho, double mu,
   double *alpha = smalloc(source_mod->tree->nnodes * sizeof(double)), 
     *beta = smalloc(source_mod->tree->nnodes * sizeof(double)), 
     *tau = smalloc(source_mod->tree->nnodes * sizeof(double));
-  assert(rho > 0 && rho < 1);  
-  assert(mu > 0 && 2*mu < 1);
-  assert(nu > 0 && nu < 1);
+  if (rho <= 0 || rho >= 1)
+    die("ERROR bd_new: rho (%e) out of bound (0, 1)\n", rho);
+  if (mu <= 0 || 2*mu >=1) 
+    die("ERROR bd_new: mu (%e) out of bound (0, 0.5)\n", mu);
+  if (nu <= 0 || nu >= 1)
+    die("ERROR bd_new: nu (%e) out of bound (0, 1)\n", nu);
 
   bdphmm = smalloc(sizeof(BDPhyloHmm));
   bdphmm->state_to_branch = smalloc(nstates * sizeof(int));
@@ -76,7 +79,8 @@ BDPhyloHmm *bd_new(TreeModel *source_mod, double rho, double mu,
     bdphmm->branch_to_state_birth[n->id] = state;
     state++;
   }
-  assert(state == nstates);
+  if  (state != nstates)
+    die("ERROR bd_new state (%i) != nstates (%i)\n", state, nstates);
   /* note: this is structured so that state 0 is the nonconserved
      model (like element "died" prior to root) and state nnodes is the
      fully conserved model (like element was "born" prior to root) */

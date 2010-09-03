@@ -30,7 +30,6 @@
 #include <subst_mods.h>
 #include <string.h>
 #include <local_alignment.h>
-#include <assert.h>
 #include <ctype.h>
 #include <tree_likelihoods.h>
 #include <numerical_opt.h>
@@ -200,10 +199,13 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
   coltupstr[msa->nseqs] = '\0';
 
   /* FIXME: rate variation!     need rate post probs! */
-  assert(mod->nratecats == 1);
+  if (mod->nratecats != 1)
+    die("ERROR print_post_prob_states nratecats should be 1 but is %i\n",
+	mod->nratecats);
 
   /* compute desired stats */
-  assert(mod->tree_posteriors == NULL); 
+  if (mod->tree_posteriors != NULL)
+    die("ERROR: mod->tree_posteriors should be NULL\n");
   if (!quiet) 
     fprintf(stderr, "Computing posterior probabilities and/or related stats ...\n");
   mod->tree_posteriors = tl_new_tree_posteriors(mod, msa, do_bases, 0, 
@@ -525,7 +527,8 @@ int run_phyloFit(struct phyloFit_struct *pf) {
   else if (pf->nonoverlapping && pf->label_categories) {
                                 /* (already taken care of if MAF) */
     int cycle_size = tm_order(subst_mod) + 1;
-    assert(msa->seqs != NULL && msa->ss == NULL);  /* need explicit seqs */
+    if (!(msa->seqs != NULL && msa->ss == NULL))
+      die("ERROR run_phyloFit: need explicit sequences, not sufficient statistics\n");
     msa->categories = smalloc(msa->length * sizeof(int));
     for (i = 0; i < msa->length; i++) 
       msa->categories[i] = (i % cycle_size) + 1;

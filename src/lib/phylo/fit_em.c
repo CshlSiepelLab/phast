@@ -14,7 +14,6 @@
 #include <fit_em.h>
 #include <tree_model.h>
 #include <stringsplus.h>
-#include <assert.h>
 #include <string.h>
 #include <ctype.h>
 #include <numerical_opt.h>
@@ -63,7 +62,8 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
 
   /* obtain sufficient statistics for MSA, if necessary */
   if (msa->ss == NULL) {
-    assert(msa->seqs != NULL);
+    if (msa->seqs == NULL)
+      die("ERROR tm_fit_em: msa->seqs == NULL\n");
     ss_from_msas(msa, mod->order+1, 0, NULL, NULL, NULL, -1);
   }
 
@@ -535,7 +535,9 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
             for (i = 0; i < nstates; i++) 
               partial_p = z_add(partial_p, z_mul(z_mul(zmat_get(Q->evec_matrix_z, k, i), diag[i]), zmat_get(Q->evec_matrix_inv_z, i, l)));
           
-            assert(fabs(partial_p.y) <= TM_IMAG_EPS);
+            if (! (fabs(partial_p.y) <= TM_IMAG_EPS))
+	      die("ERROR compute_grad_em_approx: fabs(partial_p.y=%e) should be <= %e\n",
+		  partial_p.y, TM_IMAG_EPS);
 
             /* see comments for real case (above) */
             if (p == 0) {
@@ -557,7 +559,9 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
   /* compute partial deriv for alpha (if dgamma) */
   if (mod->nratecats > 1 && !mod->empirical_rates) {
     grad_idx = mod->param_map[mod->ratevar_idx];
-    assert(grad_idx >= 0);
+    if (grad_idx < 0)
+      die("ERROR compute_grad_em_approx: grad_idx=%i should be >= 0\n",
+	  grad_idx);
     /* for numerical est. of derivatives of rate consts wrt alpha */
     DiscreteGamma(freqK, rK_tweak, mod->alpha + DERIV_EPSILON, 
                   mod->alpha + DERIV_EPSILON, mod->nratecats, 0);
@@ -570,7 +574,8 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
         if (n->parent == NULL) continue;
         t = n->dparent * mod->rK[rcat];
 	if (n->id == mod->root_leaf_id) {
-	  assert(t == 0.0);
+	  if (t != 0.0)
+	    die("ERROR compute_grad_em_approx: t != 0\n");
 	  continue;
 	}
         P = mod->P[n->id][rcat];
@@ -615,8 +620,9 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
               for (i = 0; i < nstates; i++) 
                 dp_da = z_add(dp_da, z_mul(z_mul(zmat_get(Q->evec_matrix_z, k, i), diag[i]), zmat_get(Q->evec_matrix_inv_z, i, l)));
 
-              assert(fabs(dp_da.y) <= TM_IMAG_EPS);
-
+              if (!(fabs(dp_da.y) <= TM_IMAG_EPS))
+		die("ERROR compute_grad_em_approx: fabs(dp_da.y=%i) should be <= %e\n", dp_da.y, TM_IMAG_EPS);
+	      
               if (p == 0) {
                 if (dp_da.x == 0) dp_da_div_p = 0;
                 else if (dp_da.x < 0) dp_da_div_p = NEGINFTY;
@@ -654,9 +660,10 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
 
   /* compute partial derivs for rate matrix params */
 
-  assert(mod->subst_mod != JC69 && mod->subst_mod != K80 && 
-         /* mod->subst_mod != HKY2 &&  */mod->subst_mod != UNDEF_MOD); 
-                                /* FIXME: temporary */
+  /* FIXME: temporary */
+  if (mod->subst_mod == JC69 || mod->subst_mod == K80 ||
+      mod->subst_mod == UNDEF_MOD)
+    die("ERROR compute_grad_em_approx: bad model\n");
 
   numpar = tm_get_nratematparams(mod);
   for (idx=0; idx<numpar; idx++) {
@@ -673,7 +680,8 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
     /* element coords (rows/col pairs) at which current param appears in Q */
     lst_cpy(erows, mod->rate_matrix_param_row[params_idx]);
     lst_cpy(ecols, mod->rate_matrix_param_col[params_idx]);
-    assert(lst_size(erows) == lst_size(ecols));
+    if (lst_size(erows) != lst_size(ecols))
+      die("ERROR compute_grad_em_approx: size of erows (%i) does not match size of ecols (%i)\n", erows, ecols);
 
     /* set up dQ, the partial deriv of Q wrt the current param */
     for (i = 0; i < nstates; i++) mark_col[i] = 0;
@@ -683,7 +691,8 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
       l = lst_get_int(erows, i); 
       m = lst_get_int(ecols, i);
 
-      assert(dq[l][m] == 0);    /* row/col pairs should be unique */
+      if (dq[l][m] != 0)    /* row/col pairs should be unique */
+	die("ERROR compute_grad_em_approx: dq[%i][%i] should be zero but is %e\n", l, m, dq[l][k]);
 
       dq[l][m] = tm_is_reversible(mod->subst_mod) ? 
         vec_get(mod->backgd_freqs, m) : 1;
@@ -800,7 +809,8 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
         n = lst_get_ptr(mod->tree->nodes, node);
         t = n->dparent * mod->rK[rcat];
 	if (n->id == mod->root_leaf_id) {
-	  assert(t==0.0);
+	  if (t != 0.0)
+	    die("ERROR compute_grad_em_approx: t should be 0.0 but is %e\n", t);
 	  continue;
 	}
 
@@ -899,7 +909,9 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
     params_idx = mod->bl_idx + idx++;
     grad_idx = mod->param_map[params_idx];
     if (grad_idx < 0) continue;
-    assert(n->id != mod->root_leaf_id);
+    if (n->id == mod->root_leaf_id)
+      die("ERROR compute_grad_em_exact: n->id == mod->root_leaf_id = %i\n",
+	  n->id);
 
     for (rcat = 0; rcat < mod->nratecats; rcat++) {
       P = mod->P[n->id][rcat];
@@ -963,7 +975,9 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
             }
             else dp_dt_div_p = dp_dt.x / p;
 
-            assert(fabs(dp_dt.y) <= TM_IMAG_EPS);
+            if (!(fabs(dp_dt.y) <= TM_IMAG_EPS))
+	      die("ERROR compute_grad_exact: fabs(dp_dt.y=%e) should be <= %e\n",
+		  dp_dt.y, TM_IMAG_EPS);
             vec_set(grad, grad_idx, vec_get(grad, grad_idx) +
                            dp_dt_div_p *
                            mod->tree_posteriors->expected_nsubst_tot[rcat][k][l][n->id]);
@@ -988,7 +1002,8 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
 	  if (n->parent == NULL) continue;
 	  t = n->dparent * mod->rK[rcat];
 	  if (n->id == mod->root_leaf_id) {
-	    assert(t == 0.0);
+	    if (t != 0.0)
+	      die("ERROR compute_grad_exact: t should be zero but is %e\n", t);
 	    continue;
 	  }
 	  P = mod->P[n->id][rcat];
@@ -1033,7 +1048,9 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
 		for (i = 0; i < nstates; i++) 
 		  dp_da = z_add(dp_da, z_mul(z_mul(zmat_get(Q->evec_matrix_z, k, i), diag[i]), zmat_get(Q->evec_matrix_inv_z, i, l)));
 		
-		assert(fabs(dp_da.y) <= TM_IMAG_EPS);
+		if (!(fabs(dp_da.y) <= TM_IMAG_EPS))
+		  die("ERROR compute_grad_exact: fabs(dp_da.y=%e) should be <= %e\n",
+		      dp_da.y, TM_IMAG_EPS);
 		
 		if (p == 0) {
 		  if (dp_da.x == 0) dp_da_div_p = 0;
@@ -1073,9 +1090,10 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
 
   /* compute partial derivs for rate matrix params */
 
-  assert(mod->subst_mod != JC69 && mod->subst_mod != K80 && 
-         mod->subst_mod != UNDEF_MOD); 
-                                /* FIXME: temporary */
+  /* FIXME: temporary */
+  if (mod->subst_mod == JC69 || mod->subst_mod == K80 ||
+      mod->subst_mod == UNDEF_MOD)
+    die("ERROR compute_grad_exact: bad subst mod\n");
 
   numpar = tm_get_nratematparams(mod);
   for (idx=0; idx < numpar; idx++) {
@@ -1094,7 +1112,8 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
     /* element coords (rows/col pairs) at which current param appears in Q */
     lst_cpy(erows, mod->rate_matrix_param_row[params_idx]);
     lst_cpy(ecols, mod->rate_matrix_param_col[params_idx]);
-    assert(lst_size(erows) == lst_size(ecols));
+    if (lst_size(erows) != lst_size(ecols))
+      die("ERROR compute_grad_exact: size of erows (%i) does not match size of ecols (%i)\n", lst_size(erows), lst_size(ecols));
 
     /* set up dQ, the partial deriv of Q wrt the current param */
     lst_clear(distinct_rows);
@@ -1102,7 +1121,9 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
       l = lst_get_int(erows, i); 
       m = lst_get_int(ecols, i);
 
-      assert(dq[l][m] == 0);    /* row/col pairs should be unique */
+      if (dq[l][m] != 0)    /* row/col pairs should be unique */
+	die("ERROR compute_grad_exact dq[%i][%i] should be zero but is %e\n",
+	    l, m, dq[l][m]);
 
       dq[l][m] = tm_is_reversible(mod->subst_mod) ? 
         vec_get(mod->backgd_freqs, m) : 1;
@@ -1150,7 +1171,9 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
         n = lst_get_ptr(mod->tree->nodes, node);
         t = n->dparent * mod->rK[rcat];
 	if (n->id == mod->root_leaf_id) {
-	  assert(t == 0.0);
+	  if (t != 0.0)
+	    die("ERROR compute_grad_exact expected t to be zero but was %e\n",
+		t);
 	  continue;
 	}
         P = mod->P[n->id][rcat];
@@ -1241,7 +1264,8 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
               for (k = 0; k < nstates; k++) 
                 partial_p = z_add(partial_p, z_mul(zmat_get(Q->evec_matrix_z, i, k), tmpmat[k][j]));
 
-              assert(fabs(partial_p.y) <= TM_IMAG_EPS);
+              if (!(fabs(partial_p.y) <= TM_IMAG_EPS))
+		die("ERROR compute_grad_exact: fabs(partial_p.y=%e) should be <= %e\n", partial_p.y, TM_IMAG_EPS);
 
               /* handle case of p == 0 carefully, as described above */
               if (p == 0) {

@@ -26,7 +26,7 @@ TARGETLIB = ${LIB}/libphast.a
 # an appropriate alternative
 
 # for debugging
-#CFLAGS = -g -fno-inline
+#CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG
 # for best performance
 CFLAGS = -O3
 # use this CFLAGS for windows builds

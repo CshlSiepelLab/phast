@@ -12,7 +12,6 @@
 /* simple model of insertions and deletions, assumes given indel history */
 
 #include <misc.h>
-#include <assert.h>
 #include <indel_mod.h>
 #include <numerical_opt.h>
 #include <external_libs.h>
@@ -187,8 +186,9 @@ double im_branch_column_logl(IndelHistory *ih, BranchIndelModel *bim,
 
   for (; i < ih->ncols; i++) {
     this_type = get_col_type(ih, child, parent_id, i);
-
-    assert(this_type != ERROR);
+    
+    if (this_type == ERROR)
+      die("ERROR im_branch_column_logl\n");
 
     if (this_type == SKIP) {
       col_logl[i] = 0;
@@ -274,7 +274,7 @@ BranchIndelSuffStats *im_suff_stats_branch(IndelHistory *ih, int child_id) {
         fprintf(stderr, "%25s %c\n", 
                 ((TreeNode*)lst_get_ptr(ih->tree->nodes, j))->name, c);
       }
-      assert(0);
+      die("ERROR im_suff_stats_branch\n");
     }
 
     else if (this_type == SKIP) continue;
@@ -456,7 +456,7 @@ BranchIndelSuffStats *im_suff_stats_branch_cat(IndelHistory *ih, int child_id,
         fprintf(stderr, "%25s %c\n", 
                 ((TreeNode*)lst_get_ptr(ih->tree->nodes, j))->name, c);
       }
-      assert(0);
+      die("ERROR im_suff_stats_branch_cat\n");
     }
     else if (this_type == SKIP) continue;
 

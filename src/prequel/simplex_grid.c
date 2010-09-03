@@ -3,7 +3,6 @@
 
 #include <simplex_grid.h>
 #include <misc.h>
-#include <assert.h>
 #include <external_libs.h>
 
 /* return single index from coords in d dimensions */
@@ -68,7 +67,8 @@ SimplexGrid *sxg_build_grid(int dim, int nrows) {
 
   g->nregs = sxg_nregions(dim, nrows);
   
-  assert(dim < 256);
+  if (dim >= 256) die("ERROR sxg_build_grid: dim must be < 256, but is %i\n",
+		      dim);
   g->d = dim;
   g->nrows = nrows;
   g->sr_d = smalloc(maxsize * sizeof(void*));
@@ -89,7 +89,9 @@ SimplexGrid *sxg_build_grid(int dim, int nrows) {
     else 
       g->sr_d[i] = NULL;
   }
-  assert(idx == g->nregs);
+  if (idx != g->nregs)
+    die("ERROR sxg_build_grid: idx (%i) should equal g->nregs (%i)\n",
+	idx, g->nregs);
 
   return g;
 }
@@ -107,13 +109,16 @@ void sxg_free_grid(SimplexGrid *g) {
 SimplexRegion *sxg_get_region(SimplexGrid *g, Vector *p) {
   int i, alpha = g->nrows;
   int coord[256];
-  assert (g->d < 256);
+  if (g->d >= 256)
+    die("ERROR sxg_get_region: g->d should be < 256 but is %i\n", g->d);
   for (i = 0; i < g->d; i++) {
     if (vec_get(p, i) == 1) coord[i] = g->nrows - 1;
     else coord[i] = vec_get(p, i) * g->nrows;
     alpha -= coord[i];
   }
-  assert(alpha >= 1 && alpha <= g->d - 1);
+  if (alpha < 1 || alpha > g->d-1)
+    die("ERROR sxg_get_region: alpha should be between 1 and %i, but is %i\n",
+	g->d-1, alpha);
   return g->sr_d[int_idx(coord, g->d, g->nrows)];
 }
 

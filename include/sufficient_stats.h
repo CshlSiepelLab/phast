@@ -18,7 +18,6 @@
 #include "hashtable.h"
 #include "lists.h"
 #include "msa.h"
-#include "assert.h"
 #include "external_libs.h"
 
 /* sufficient statistics for an alignment */
@@ -116,7 +115,9 @@ void col_to_string(char *str, MSA *msa, int col, int tuple_size) {
       str[pos++] = 
 	(col + col_offset >=0 ? msa->seqs[j][col+col_offset] : GAP_CHAR);
   str[pos] = '\0';
-  assert(pos == msa->nseqs*tuple_size);
+  if (pos != msa->nseqs * tuple_size)
+    die("ERROR col_to_string: pos (%i) != msa->nseqs*tuple_size (%i*%i=%i)\n",
+	pos, msa->nseqs, tuple_size, msa->nseqs*tuple_size);
 }
 
 /* Given a string representation of a column tuple, return the
@@ -149,7 +150,8 @@ char ss_get_char_tuple(MSA *msa, int tupleidx, int seqidx,
 static PHAST_INLINE
 char ss_get_char_pos(MSA *msa, int position, int seqidx,
                      int col_offset) {
-  assert(msa->ss->tuple_idx != NULL);
+  if (msa->ss->tuple_idx == NULL)
+    die("ERROR ss_get_char_pos: msa->ss->tuple_idx is NULL\n");
   return col_string_to_char(msa, 
                             msa->ss->col_tuples[msa->ss->tuple_idx[position]], 
                             seqidx, msa->ss->tuple_size, col_offset);

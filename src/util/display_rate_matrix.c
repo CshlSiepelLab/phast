@@ -100,14 +100,12 @@ Matrix* read_subst_scores(TreeModel *mod, FILE *F) {
       continue;
     str_split(line, NULL, l);
     if (lst_size(l) < 3) {
-      fprintf(stderr, "ERROR: wrong number of columns in subst. score file.\n");
-      exit(1);
+      die("ERROR: wrong number of columns in subst. score file.\n");
     }
     tuple1 = lst_get_ptr(l, 0);
     tuple2 = lst_get_ptr(l, 1);
     if (str_as_dbl(lst_get_ptr(l, 2), &val) != 0) {
-      fprintf(stderr, "ERROR: bad value in subst. score file.\n");
-      exit(1);
+      die("ERROR: bad value in subst. score file.\n");
     }
     mat_set(retval, tuple_index(tuple1->chars, inv_alph, alph_size),
                    tuple_index(tuple2->chars, inv_alph, alph_size), val);
@@ -131,7 +129,9 @@ Matrix *read_paml_matrix(FILE *F, char *alph) {
   List *fields = lst_new_ptr(100);
   String *line = str_new(STR_MED_LEN);
   int i, j;
-  assert(strcmp(alph, paml_alph) == 0);
+  if (strcmp(alph, paml_alph) != 0)
+    die("ERROR read_paml_matrix (alph (%s) != paml_alph (%s))\n",
+	alph, paml_alph);
   mat_zero(retval);
 
   for (i = 1; i < size-1 && str_readline(line, F) != EOF; ) {
@@ -141,21 +141,20 @@ Matrix *read_paml_matrix(FILE *F, char *alph) {
     if (line->length == 0) continue;
     str_split(line, NULL, fields);
     if (lst_size(fields) != i) {
-      fprintf(stderr, "ERROR: row %d of matrix must have %d columns.\n",
-              i+1, i);
-      exit(1);
+      die("ERROR: row %d of matrix must have %d columns.\n",
+	  i+1, i);
     }
     for (j = 0; j < lst_size(fields); j++) {
       double val;
 
       if (str_as_dbl(lst_get_ptr(fields, j), &val) != 0) {
-        fprintf(stderr, "ERROR: non-numeric matrix element in subst. matrix ('%s')\n", 
-                ((String*)lst_get_ptr(fields, j+1))->chars);
-        exit(1);
+        die("ERROR: non-numeric matrix element in subst. matrix ('%s')\n", 
+	    ((String*)lst_get_ptr(fields, j+1))->chars);
       }
       str_free(lst_get_ptr(fields, j));
 
-      assert(j < size);
+      if (j >= size)
+	die("ERROR read_paml_matrix j (%i) should be < size (%i)\n", j, size);
       mat_set(retval, i, j, val);
       mat_set(retval, j, i, val);
     }
@@ -163,8 +162,7 @@ Matrix *read_paml_matrix(FILE *F, char *alph) {
   }
 
   if (i != size - 1) {
-    fprintf(stderr, "ERROR: too few rows in subst. matrix.\n");
-    exit(1);
+    die("ERROR: too few rows in subst. matrix.\n");
   }
   
   lst_free(fields);
@@ -209,7 +207,12 @@ void do_context_dependent_ti_tv(TreeModel *mod) {
     all_ti, all_tv, expected_rate;
   int mid_src, mid_targ, first, last, at_states[2], gc_states[2], i, j, 
     num_5_pyrim;
-  assert(mod->order == 2 && alph_size == 4);
+  if (mod->order != 2)
+    die("ERROR do_context_dependent_ti_tv: mod->order (%i) should be 2\n",
+	mod->order);
+  if (alph_size != 4)
+    die("ERROR do_contect_dependent_ti_tv: alph_size (%i) should be 4\n", 
+	alph_size);
 
   tuple_i[mod->order+1] = tuple_j[mod->order+1] = '\0';
 
@@ -453,8 +456,7 @@ int main(int argc, char* argv[]) {
       print_usage();
       exit(0);
     case '?':
-      fprintf(stderr, "Unrecognized option.  Try \"display_rate_matrix -h\" for help.\n");
-      exit(1);
+      die("Unrecognized option.  Try \"display_rate_matrix -h\" for help.\n");
     }
   }
 
@@ -465,21 +467,18 @@ int main(int argc, char* argv[]) {
       (subst_score_fname != NULL && subst_mat_fname_paml != NULL) || 
       (subst_mat_fname != NULL && subst_mat_fname_paml != NULL) || 
       optind != argc - 1) {
-    fprintf(stderr, "ERROR: missing required arguments or illegal combination of arguments.\nTry \"display_rate_matrix -h\" for help.\n");
-    exit(1);
+    die("ERROR: missing required arguments or illegal combination of arguments.\nTry \"display_rate_matrix -h\" for help.\n");
   }
 
   if ((F = fopen(argv[optind], "r")) == NULL) {
-    fprintf(stderr, "ERROR: Can't open %s.\n", argv[optind]);
-    exit(1);
+    die("ERROR: Can't open %s.\n", argv[optind]);
   }
   model = tm_new_from_file(F);
 
   if (context_ti_tv) {
     /* this option requires completely different handling from the others */
     if (model->order != 2) { 
-      fprintf(stderr, "ERROR: -C requires a model of order 3.\n");
-      exit(1);
+      die("ERROR: -C requires a model of order 3.\n");
     }
     do_context_dependent_ti_tv(model);
     exit(0);
@@ -526,29 +525,25 @@ int main(int argc, char* argv[]) {
 
   if (subst_mat_fname != NULL) {
     if ((F = fopen(subst_mat_fname, "r")) == NULL) {
-      fprintf(stderr, "ERROR: Can't open %s.\n", subst_mat_fname);
-      exit(1);
+      die("ERROR: Can't open %s.\n", subst_mat_fname);
     }    
     subst_mat = read_subst_mat(F, AA_ALPHABET); 
   }
   else if (subst_mat_fname_paml != NULL) {
     if ((F = fopen(subst_mat_fname_paml, "r")) == NULL) {
-      fprintf(stderr, "ERROR: Can't open %s.\n", subst_mat_fname_paml);
-      exit(1);
+      die("ERROR: Can't open %s.\n", subst_mat_fname_paml);
     }    
     subst_mat = read_paml_matrix(F, AA_ALPHABET); 
   }
   else if (subst_score_fname != NULL) {
     if ((F = fopen(subst_score_fname, "r")) == NULL) {
-      fprintf(stderr, "ERROR: Can't open %s.\n", subst_score_fname);
-      exit(1);
+      die("ERROR: Can't open %s.\n", subst_score_fname);
     }    
     subst_mat = read_subst_scores(model, F);
   }
   else if (order1_mod_fname != NULL) {
     if ((F = fopen(order1_mod_fname, "r")) == NULL) {
-      fprintf(stderr, "ERROR: Can't open %s.\n", order1_mod_fname);
-      exit(1);
+      die("ERROR: Can't open %s.\n", order1_mod_fname);
     }    
     subst_mat = unproject_rates(model, tm_new_from_file(F));
   }
@@ -651,7 +646,8 @@ int main(int argc, char* argv[]) {
                   is_cpg = 1;
               }
             }
-            assert(ti != -1);
+	    if (ti == -1)
+	      die("ERROR ti=-1\n");
             printf("%5s ", ti ? "ti" : "tv");
 /*             printf("%5s ", is_cpg ? "CPG" : "-"); */
             if (ti) {

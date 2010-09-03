@@ -319,7 +319,7 @@ msa_view hmrc.fa -o SS > hmrc_short_a.ss
 @msa_view -i MAF -o SS --refseq chr22.14500000-15500000.fa chr22.14500000-15500000.maf
 @msa_view -i MAF -o SS --gap-strip 1 chr22.14500000-15500000.maf
 
-refeature chr22.14500000-15500000.gp | awk -v OFS="\t" '{start=$4-14500000; end=$5-14500000; print $1,$2,$3,start,end,$6,$7,$8,$9}' > temp.gff
+refeature chr22.14500000-15500000.gp | awk -v OFS="\t" '{start=$4-14500000; end=$5-14500000; print "hg17."$1,$2,$3,start,end,$6,$7,$8,$9}' > temp.gff
 @msa_view -i MAF -o SS --features temp.gff chr22.14500000-15500000.maf
 @msa_view -i MAF -o SS --features temp.gff --4d chr22.14500000-15500000.maf
 

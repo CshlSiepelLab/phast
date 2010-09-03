@@ -193,7 +193,9 @@ Vector *sub_distrib_branch(JumpProcess *jp, double t) {
   Vector *pois = pv_poisson(jp->lambda * t, jp->epsilon);  
   Vector *distrib = vec_new(pois->size);
 
-  assert(jp->njumps_max >= pois->size);
+  if (jp->njumps_max < pois->size)
+    die("ERROR sub_distrib_branch jp->njumps_max (%i) < pois_size (%i)\n",
+	jp->njumps_max, pois->size);
 
   /* combine jp->M with Poisson to get desired distribution */
   vec_zero(distrib);
@@ -266,8 +268,11 @@ Vector *sub_posterior_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
   Vector *retval;
   int *maxsubst = smalloc(jp->mod->tree->nnodes * sizeof(int));
 
-  assert(jp->mod->order == 0);
-  assert(msa->ss != NULL);
+  if (jp->mod->order != 0)
+    die("ERROR sub_posterior_distrib_site: jp->mod->order=%i, should be 0\n",
+	jp->mod->order);
+  if (msa->ss == NULL)
+    die("ERROR sub_posterior_distrib_size: msa->ss is NULL\n");
 
   if (jp->mod->msa_seq_idx == NULL)
     tm_build_seq_idx(jp->mod, msa);
@@ -641,7 +646,9 @@ Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
   double sum;
   int *maxsubst = smalloc(jp->mod->tree->nnodes * sizeof(int));
 
-  assert(jp->mod->order == 0);
+  if (jp->mod->order != 0)
+    die("ERROR sub_joint_distrib_site: jp->mod->Order should be 0, is %i\n",
+	jp->mod->order);
 
   if (msa != NULL && jp->mod->msa_seq_idx == NULL)
     tm_build_seq_idx(jp->mod, msa);
@@ -665,7 +672,9 @@ Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
         for (a = 0; a < size; a++)
           L[node->id]->data[a][0] = 1;
       else {
-        assert(msa->inv_alphabet[(int)c] >= 0);
+        if (msa->inv_alphabet[(int)c] < 0)
+	  die("ERROR sub_joint_distrib_site: msa->inv_alphabet[%c]=%i\n",
+	      c, msa->inv_alphabet[(int)c]);
         L[node->id]->data[msa->inv_alphabet[(int)c]][0] = 1;
       }
 
@@ -909,7 +918,9 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
           checksum += int_pow(2, i);
         }
       }
-      assert(checksum == len);
+      if (checksum != len)
+	die("ERROR sub_p_value_many: checksum (%i) != len (%i)\n",
+	    checksum, len);
       prior = pv_convolve_many(pows, NULL, j, jp->epsilon);
 
       pv_stats(prior, &prior_mean, &prior_var);
@@ -1118,7 +1129,9 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
             checksum += int_pow(2, i);
           }
         }
-        assert(checksum == len);
+	if (checksum != len)
+	  die("ERROR sub_p_value_joint_many: checksum (%i) != len (%i)\n",
+	      checksum, len);
 
         if (len > 25) {
           /* use central limit theorem to limit size of matrix to keep

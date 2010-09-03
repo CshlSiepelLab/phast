@@ -15,7 +15,6 @@
 #include <markov_matrix.h>
 #include <math.h>
 #include <misc.h>
-#include <assert.h>
 #include <sys/time.h>
 #include <vector.h>
 #include <external_libs.h>
@@ -159,10 +158,11 @@ int test_bounds(Vector *params, Vector *grad,
                        Vector *at_bounds, int only_add) {
   int i;
   int retval = 0;
-  assert((grad == NULL || params->size == grad->size) && 
-         params->size == at_bounds->size && 
-         (lower_bounds == NULL || lower_bounds->size == params->size) && 
-         (upper_bounds == NULL || upper_bounds->size == params->size));
+  if (!((grad == NULL || params->size == grad->size) && 
+	params->size == at_bounds->size && 
+	(lower_bounds == NULL || lower_bounds->size == params->size) && 
+	(upper_bounds == NULL || upper_bounds->size == params->size)))
+    die("ERROR test_bounds: bad args\n");
 
   /* short circuit if only_add == 1 and no bounds are defined */
   if (only_add && lower_bounds == NULL && upper_bounds == NULL)
@@ -207,7 +207,8 @@ int test_bounds(Vector *params, Vector *grad,
 static PHAST_INLINE 
 void project_matrix(Matrix *M, Vector *at_bounds) {
   int i, j;
-  assert(M->nrows == at_bounds->size && M->ncols == at_bounds->size);
+  if (!(M->nrows == at_bounds->size && M->ncols == at_bounds->size))
+    die("ERROR project_matrix: bad dimensions\n");
   for (i = 0; i < at_bounds->size; i++) {
     if (vec_get(at_bounds, i) != OPT_NO_BOUND) {
       for (j = 0; j < M->nrows; j++) {
@@ -224,7 +225,8 @@ void project_matrix(Matrix *M, Vector *at_bounds) {
 static PHAST_INLINE 
 void project_vector(Vector *v, Vector *at_bounds) {
   int i;
-  assert(v->size == at_bounds->size);
+  if (!(v->size == at_bounds->size))
+    die("ERROR project_vector: bad dimensions\n");
   for (i = 0; i < at_bounds->size; i++) 
     if (vec_get(at_bounds, i) != OPT_NO_BOUND) 
       vec_set(v, i, 0);
@@ -263,10 +265,24 @@ int scale_for_bounds(Vector *linev, Vector *params,
 
     if (lower_bounds != NULL)
       for (i = 0; i < params->size; i++) 
-        assert(vec_get(params, i) + vec_get(linev, i) >= vec_get(lower_bounds, i));
+	if (vec_get(params, i) + vec_get(linev, i) < vec_get(lower_bounds, i)) {
+	  if (vec_get(lower_bounds, i) - vec_get(params, i) - vec_get(linev, i) > 1.0e-8)
+	    die("Error in numerical_opt: parameter < lower bound (%e + %e = %e < %e)\n", 
+		vec_get(params, i), vec_get(linev, i),
+		vec_get(lower_bounds, i)+ vec_get(params, i), 
+		vec_get(linev, i));
+	  else vec_set(linev, i, vec_get(lower_bounds, i) - vec_get(params, i));
+	}
     if (upper_bounds != NULL)
       for (i = 0; i < params->size; i++) 
-        assert(vec_get(params, i) + vec_get(linev, i) <= vec_get(upper_bounds, i));
+	if (vec_get(params, i) + vec_get(linev, i) > vec_get(upper_bounds, i)) {
+	  if (vec_get(params, i) + vec_get(linev, i) - vec_get(upper_bounds, i) > 1.0e-8)
+	    die("Error in numerical_opt: parameter > upper bound (%e + %e = %e > %e)\n", 
+		vec_get(params, i), vec_get(linev, i),
+		vec_get(params, i) + vec_get(linev, i),
+		vec_get(upper_bounds, i));
+	  else vec_set(linev, i, vec_get(upper_bounds, i) - vec_get(params, i));
+	}
   }
 
   return retval;
@@ -288,9 +304,10 @@ void check_H(Matrix *H, Vector *at_bounds){
   for (i = 0; i < H->nrows; i++) {
     if (vec_get(at_bounds, i) == OPT_NO_BOUND) nfree++;
     for (j = i; j < H->ncols; j++) 
-      assert((vec_get(at_bounds, i) == OPT_NO_BOUND &&
-              vec_get(at_bounds, j) == OPT_NO_BOUND) ||
-             (mat_get(H, i, j) == 0 && mat_get(H, j, i) == 0));
+      if (!((vec_get(at_bounds, i) == OPT_NO_BOUND &&
+	     vec_get(at_bounds, j) == OPT_NO_BOUND) ||
+	    (mat_get(H, i, j) == 0 && mat_get(H, j, i) == 0)))
+	die("ERROR check_H: error\n");
   }
       
   /* create a "proper" projection of H */
@@ -484,8 +501,9 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
 #ifdef DEBUG
     /* verify xi has correct dimensionality */
     for (i = 0; i < params->size; i++)
-      assert(vec_get(at_bounds, i) == OPT_NO_BOUND ||
-             vec_get(xi, i) == 0);
+      if (!(vec_get(at_bounds, i) == OPT_NO_BOUND ||
+	    vec_get(xi, i) == 0))
+	die("ERROR: opt_bfgs: DEBUG error\n");
 #endif
 
     /* test for convergence. "test" will be set to max_i
@@ -1124,7 +1142,8 @@ int opt_newton_1d(double (*f)(double, void*), double (*x), void *data,
   int its, nevals = 0, converged = FALSE;
   struct timeval start_time, end_time;
 
-  assert(*x > lb && *x < ub && ub > lb);
+  if (!(*x > lb && *x < ub && ub > lb))
+    die("ERROR opt_newton_1d: x=%e, lb=%e, ub=%e\n", x, lb, ub);
 
   if (logf != NULL) {
     gettimeofday(&start_time, NULL);
@@ -1287,7 +1306,8 @@ void opt_lnsrch_1d(double direction, double xold, double fxold, double *x,
 int opt_min_sigfig(Vector *p1, Vector *p2) {
   double tmp;
   int i, sf, min = INFTY;
-  assert(p1->size == p2->size);
+  if (p1->size != p2->size)
+    die("ERROR opt_min_sigf: bad dimensions\n");
   for (i = 0; i < p1->size; i++) {
     double val1 = vec_get(p1, i);
     double val2 = vec_get(p2, i);

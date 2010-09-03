@@ -19,7 +19,6 @@ Last updated: 12/14/08
 #include <stdio.h>
 #include <msa.h>
 #include <string.h>
-#include <assert.h>
 #include <getopt.h>
 #include <ctype.h>
 #include <misc.h>
@@ -153,7 +152,8 @@ SEXP rph_msa_reduce_to_4d(SEXP msaP, SEXP gffP) {
     else if (str_equals_charstr(f->feature, "CDS") && f->strand == '-')
       str_cpy_charstr(f->feature, "CDSminus");
   }
-  assert(fourD_refseq != NULL);
+  if (fourD_refseq == NULL)
+    die("ERROR rph_msa_reduce_to_4d: fourD_refseq is NULL\n");
   tuple_size = 1;
   if (msa->ss != NULL && msa->ss->tuple_size != 1) 
     ss_reduce_tuple_size(msa, tuple_size);
@@ -208,7 +208,9 @@ SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
     for (i=0; i<msa->length; i++) {
       if (msa->categories[i] == 0) {
 	msa->ss->counts[msa->ss->tuple_idx[i]]--;
-	assert(msa->ss->counts[msa->ss->tuple_idx[i]] >= 0);
+	if (msa->ss->counts[msa->ss->tuple_idx[i]] < 0)
+	  die("ERROR msa->ss->counts[msa->ss->tuple_idx[%i]]=%i\n",
+	      i, msa->ss->counts[msa->ss->tuple_idx[i]]);
       }
     }
     ss_remove_zero_counts(msa);
@@ -325,7 +327,8 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
       lst_push_ptr(seqnames, str_new_charstr(CHAR(STRING_ELT(seqnamesP, i))));
     }
   } else {
-    assert(discardSeqnamesP != R_NilValue);
+    if (discardSeqnamesP == R_NilValue)
+      die("ERROR rph_msa_read discardSeqnames = NULL\n");
     seq_keep = 0;
     seqnames = lst_new_ptr(LENGTH(discardSeqnamesP));
     for (i = 0 ; i < LENGTH(discardSeqnamesP); i++) {
@@ -390,7 +393,8 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
   }
 
   if (ordered==0 && msa->ss != NULL)
-    assert(msa->ss->tuple_idx == NULL);
+    if (msa->ss->tuple_idx != NULL)
+      die("ERROR: rph_msa_read: msa->ss->tuple_idx is not NULL\n");
   if (ordered==0) msa->idx_offset = 0;
 
   if (cats_to_do != NULL)
@@ -489,7 +493,8 @@ SEXP rph_msa_seqs(SEXP msaP) {
     }
   } else {
     for (seq = 0; seq < msa->nseqs; seq++) { 
-      assert(msa->seqs[seq][msa->length] == '\0');
+      if (msa->seqs[seq][msa->length] != '\0')
+	die("ERROR rph_msa_seqs: bad sequence terminator\n");
       SET_STRING_ELT(result, seq, mkChar(msa->seqs[seq]));
     }
   }
@@ -699,7 +704,8 @@ SEXP rph_msa_sub_alignment(SEXP msaP, SEXP seqsP, SEXP keepP,
     
 
   subMsa = msa_sub_alignment(msa, l, keep, startcol-1, endcol);
-  assert(subMsa != NULL);
+  if (subMsa == NULL)
+    die("ERROR rph_msa_sub_alignment got NULL subMsa\n");
   if (l != NULL) lst_free(l);
   if (map != NULL) msa_map_free(map);
   if (numProtect > 0) UNPROTECT(numProtect);

@@ -15,7 +15,6 @@
 */
 
 #include <gff.h>
-#include <assert.h>
 #include <ctype.h>
 #include <misc.h>
 #include <hashtable.h>

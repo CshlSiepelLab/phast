@@ -32,7 +32,6 @@
 #include "local_alignment.h"
 #include "misc.h"
 #include <math.h>
-#include <assert.h>
 
 LocalPwAlignment *la_new() {
   LocalPwAlignment *lpwa = (LocalPwAlignment*)smalloc(sizeof(LocalPwAlignment));
@@ -62,8 +61,7 @@ LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
 
     if (firstline) {
       if (!str_equals_charstr(line, "#:lav")) {
-        fprintf(stderr, "ERROR: lav file missing header.\n");
-        exit(1);
+        die("ERROR: lav file missing header.\n");
       }
       firstline = 0;
     }
@@ -75,9 +73,8 @@ LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
       str_free(lst_get_ptr(fields, 0));
 
       if (stanza_type != 'a' && done_with[(int)stanza_type]) {
-        fprintf(stderr, "ERROR: multiple '%c' stanzas in lav file.\n", 
+        die("ERROR: multiple '%c' stanzas in lav file.\n", 
                 stanza_type);
-        exit(1);
       }
 
       if (stanza_type == 'a') {
@@ -89,8 +86,7 @@ LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
     /* end current stanza */
     else if (str_equals_charstr(line, "}")) {
       if (stanza_type == '\0') {
-        fprintf(stderr, "ERROR: end stanza without matching begin.\n");
-        exit(1);
+        die("ERROR: end stanza without matching begin.\n");
       }
       done_with[(int)stanza_type] = 1;
       stanza_type = '\0';
@@ -109,16 +105,14 @@ LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
       if (lst_size(fields) != 3 || 
           str_as_int(lst_get_ptr(fields, 1), &beg) != 0 || 
           str_as_int(lst_get_ptr(fields, 2), &end) != 0) {
-        fprintf(stderr, "ERROR: bad line in 's' stanza in lav file.\n");
-        exit(1);
+        die("ERROR: bad line in 's' stanza in lav file.\n");
       }
       tmpstr = lst_get_ptr(fields, 0);
       fname = str_new(tmpstr->length-2); /* remove quotes */
       str_substring(fname, tmpstr, 1, tmpstr->length-2);
       if (read_seqs) {
         if ((F2 = fopen(fname->chars, "r")) == NULL) {
-          fprintf(stderr, "ERROR: cannot read sequence from %s.\n", fname->chars);
-          exit(1);
+          die("ERROR: cannot read sequence from %s.\n", fname->chars);
         }
         seq = msa_read_seq_fasta(F2);
       }
@@ -127,8 +121,7 @@ LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
         str_free(lst_get_ptr(fields, i));
       
       if (beg != 1) {
-        fprintf(stderr, "ERROR: unexpected begin index in 's' stanza of lav file (begin index currently must be 1).\n");
-        exit(1);
+        die("ERROR: unexpected begin index in 's' stanza of lav file (begin index currently must be 1).\n");
       }
       if (lpwa->query_len == -1) {
         lpwa->query_len = end;
@@ -139,8 +132,7 @@ LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
         if (read_seqs) lpwa->target_seq = seq;
       }
       else {
-        fprintf(stderr, "ERROR: too many sequences listed in 's' stanza of lav file.\n");
-        exit(1);
+        die("ERROR: too many sequences listed in 's' stanza of lav file.\n");
       }
       str_free(fname);
     }
@@ -154,8 +146,7 @@ LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
       if (lpwa->query_name == NULL) lpwa->query_name = name;
       else if (lpwa->target_name == NULL) lpwa->target_name = name;
       else {
-        fprintf(stderr, "ERROR: too many entries in 'h' stanza of lav file.\n");
-        exit(1);
+        die("ERROR: too many entries in 'h' stanza of lav file.\n");
       }
     }
     else if (stanza_type == 'a') {
@@ -163,16 +154,14 @@ LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
       int val[6];
       if (!done_with[(int)'s'] || !done_with[(int)'d'] || 
           !done_with[(int)'h']) {
-        fprintf(stderr, "ERROR: 'a' stanza appears in lav file before 'd', 's', or 'h' stanza.\n");
-        exit(1);
+        die("ERROR: 'a' stanza appears in lav file before 'd', 's', or 'h' stanza.\n");
       }
 
       str_double_trim(line);
       str_split(line, NULL, fields);
       type = lst_get_ptr(fields, 0);
       if (lst_size(fields) > 6) {
-        fprintf(stderr, "ERROR: illegal line in 'a' stanza.\n");
-        exit(1);
+        die("ERROR: illegal line in 'a' stanza.\n");
       }
       for (i = 1; i < lst_size(fields); i++) {
         str_as_int(lst_get_ptr(fields, i), &val[i]);
@@ -304,8 +293,7 @@ MSA* la_to_msa(LocalPwAlignment *lpwa, int force_global) {
       else {
         if (lga->query_end >= ga->query_beg ||
             (force_global && lga->target_end >= ga->target_beg)) {
-          fprintf(stderr, "ERROR: overlapping alignment segments.\n");
-          exit(1);
+          die("ERROR: overlapping alignment segments.\n");
         }
         if (j > 0 && lga->query_end == ga->query_beg-1) {
                                 /* gap in query seq */
@@ -387,7 +375,8 @@ int la_get_target_coord(LocalPwAlignment *lpwa, int query_coord,
      and corresponding target coords t1 and t2 */
   for (i = 0; i < lst_size(lpwa->alignment_blocks); i++) {
     AlignmentBlock *ab = lst_get_ptr(lpwa->alignment_blocks, i);
-    assert(last_ab == NULL || last_ab->query_end < query_coord);
+    if (!(last_ab == NULL || last_ab->query_end < query_coord))
+      die("ERROR la_get_target_coord: bad value for last_ab\n");
     if (ab->query_beg > query_coord) {
       /* coord falls between alignment blocks */
       if (last_ab == NULL) {    /* occurs at beginning */
@@ -410,7 +399,8 @@ int la_get_target_coord(LocalPwAlignment *lpwa, int query_coord,
 
       for (j = 0; j < lst_size(ab->gapless_alns); j++) {
         GaplessAlignment *ga = lst_get_ptr(ab->gapless_alns, j);
-        assert(last_ga == NULL || last_ga->query_end < query_coord);
+        if (!(last_ga == NULL || last_ga->query_end < query_coord))
+	  die("ERROR la_get_target_coord: bad value for last_ga\n");
         if (ga->query_beg > query_coord) {
           q1 = last_ga->query_end;  
           q2 = ga->query_beg;
@@ -424,7 +414,9 @@ int la_get_target_coord(LocalPwAlignment *lpwa, int query_coord,
 
         last_ga = ga;           /* keep looking */
       }
-      assert(q1 != -1);         /* coords must be assigned above;
+      if (q1 == -1)
+	die("ERROR la_get_target_coord: bad coords\n");
+                                /* coords must be assigned above;
                                    otherwise the coords for the block
                                    must have been wrong */
       break;
@@ -543,7 +535,9 @@ void la_gff_transform(LocalPwAlignment *lpwa, GFF_Set *gff) {
           }
         }
         
-        assert(new_beg != -1 && new_end != -1);
+        if (!(new_beg != -1 && new_end != -1))
+	  die("ERROR: la_gff_transform: new_beg=%i new_end=%i\n",
+	      new_beg, new_end);
 /*         fprintf(stderr, "(%d, %d) -> (%d, %d)\n", feat->start, feat->end, new_beg, new_end); */
         new_feat = gff_new_feature_copy(feat);
         new_feat->start = new_beg;

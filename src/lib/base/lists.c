@@ -22,7 +22,6 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 #include <math.h>
 #include <string.h>
 #include "lists.h"
@@ -35,7 +34,8 @@ List* lst_new(int nelements, int elementsz) {
   l->CAPACITY = nelements;
   l->elementsz = elementsz;
   l->array = (void**)smalloc(nelements * elementsz);
-  assert(l->array != NULL);
+  if (l->array == NULL)
+    die("ERROR lst_new l->array is NULL\n");
   l->step = ceil(l->elementsz * 1.0/sizeof(void*));
   return l;
 }
@@ -222,7 +222,9 @@ void lst_dbl_quantiles(List *l, double *quantiles, int nquantiles,
   int i, max_idx = lst_size(l) - 1;
   for (i = 0; i < nquantiles; i++) {
     double lower_idx, upper_idx, lower_val, upper_val;
-    assert(quantiles[i] >= 0 && quantiles[i] <= 1);
+    if (!(quantiles[i] >= 0 && quantiles[i] <= 1))
+      die("ERROR lst_dbl_quantiles: quantiles[%i]=%f, should be in [0,1]\n",
+	  i, quantiles[i]);
     lower_idx = floor(quantiles[i] * max_idx);
     upper_idx = ceil(quantiles[i] * max_idx);
     lower_val = lst_get_dbl(l, lower_idx);

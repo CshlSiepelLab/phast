@@ -47,9 +47,14 @@ double col_compute_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
   List *traversal = tr_postorder(mod->tree);  
   double **pL = NULL;
 
-  assert(msa->ss->tuple_size == 1);
-  assert(mod->order == 0);
-  assert(mod->allow_gaps == TRUE);
+  if (msa->ss->tuple_size != 1)
+    die("ERROR col_compute_likelihood: need tuple size 1, got %i\n",
+	msa->ss->tuple_size);
+  if (mod->order != 0)
+    die("ERROR col_compute_likelihood: got mod->order of %i, expected 0\n",
+	mod->order);
+  if (!mod->allow_gaps)
+    die("ERROR col_compute_likelihood: need mod->allow_gaps to be TRUE\n");
 
   /* allocate memory or use scratch if avail */
   if (scratch != NULL) 
@@ -128,7 +133,10 @@ void col_scale_derivs_subst_complex(ColFitData *d) {
   int size = Q->size;
   int rcat, nid, i;
 
-  assert(S != NULL && Sinv != NULL);
+  if (S==NULL)
+    die("ERROR col_scale_derivs_subst_complex: got S==NULL\n");
+  if (Sinv==NULL)
+    die("ERROR col_scale_derivs_subst_complex: got Sinv==NULL\n");
 
   for (rcat = 0; rcat < d->mod->nratecats; rcat++) {
     for (nid = 1; nid < d->mod->tree->nnodes; nid++) { /* skip root */
@@ -201,7 +209,10 @@ void col_scale_derivs_subst_real(ColFitData *d) {
   int size = Q->size;
   int rcat, nid, i;
 
-  assert(S != NULL && Sinv != NULL);
+  if (S==NULL)
+    die("ERROR col_scale_derivs_subst_real: got S==NULL\n");
+  if (Sinv==NULL)
+    die("ERROR col_scale_derivs_subst_real: got Sinv==NULL\n");
 
   for (rcat = 0; rcat < d->mod->nratecats; rcat++) {
     for (nid = 1; nid < d->mod->tree->nnodes; nid++) { /* skip root */
@@ -301,10 +312,14 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
                                    scale param */ 
   double **LLL=NULL;                 /* 2nd deriv of partial likelihoods
                                    wrt scale param */
-
-  assert(d->msa->ss->tuple_size == 1);
-  assert(d->mod->order == 0);
-  assert(d->mod->allow_gaps == TRUE);
+  if (d->msa->ss->tuple_size != 1)
+    die("ERROR col_scale_derivs: need tuple size 1, got %i\n",
+	d->msa->ss->tuple_size);
+  if (d->mod->order != 0)
+    die("ERROR col_scale_derivs: got mod->order of %i, expected 0\n",
+	d->mod->order);
+  if (!d->mod->allow_gaps)
+    die("ERROR col_scale_derivs: need mod->allow_gaps to be TRUE\n");
 
   *first_deriv = 0;
   if (second_deriv != NULL) *second_deriv = 0;
@@ -460,10 +475,14 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
                                    symmetry, only pd2[0][0],
                                    pd2[1][1], and pd2[1][0] need to be
                                    considered during computation */
-
-  assert(d->msa->ss->tuple_size == 1);
-  assert(d->mod->order == 0);
-  assert(d->mod->allow_gaps == TRUE);
+  if (d->msa->ss->tuple_size != 1)
+    die("ERROR col_scale_derivs_subtree: need tuple size 1, got %i\n",
+	d->msa->ss->tuple_size);
+  if (d->mod->order != 0)
+    die("ERROR col_scale_derivs_subtree: got mod->order of %i, expected 0\n",
+	d->mod->order);
+  if (!d->mod->allow_gaps)
+    die("ERROR col_scale_derivs_subtree: need mod->allow_gaps to be TRUE\n");
 
   pd[0] = pd[1] = 0;
   if (pd2 != NULL) 
@@ -664,7 +683,8 @@ double col_likelihood_wrapper(Vector *params, void *data) {
    version for use with opt_newton_1d */
 double col_likelihood_wrapper_1d(double x, void *data) {
   ColFitData *d = (ColFitData*)data;
-  assert(d->stype != SUBTREE);
+  if (d->stype == SUBTREE)
+    die("ERROR col_likelihood_wrapper_1d: d->stype cannot be SUBTREE\n");
 
   d->mod->scale = x;
 
@@ -696,7 +716,8 @@ void col_grad_wrapper(Vector *grad, Vector *params, void *data,
 double col_grad_wrapper_1d(double x, void *data, double lb, double ub) {
   double deriv, deriv2;
   ColFitData *d = (ColFitData*)data;
-  assert(d->stype == ALL);
+  if (d->stype != ALL)
+    die("ERROR col_grad_wrapper_1d: d->stype must be ALL\n");
   col_scale_derivs(d, &deriv, &deriv2, d->fels_scratch); 
   d->deriv2 = -deriv2;           /* store for use by wrapper below */ 
   return -deriv; /* because working with neg lnl */
@@ -760,7 +781,8 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
       this_scale = d->params->data[0];
 
       delta_lnl = alt_lnl - null_lnl;
-      assert(delta_lnl > -0.01);
+      if (delta_lnl <= -0.01)
+	die("ERROR col_lrts: delta_lnl = %e < -0.01\n", delta_lnl);
       if (delta_lnl < 0) delta_lnl = 0;
     } /* end estimation of delta_lnl */
 
@@ -858,7 +880,8 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
       alt_lnl *= -1;
 
       delta_lnl = alt_lnl - null_lnl;
-      assert(delta_lnl > -0.1);
+      if (delta_lnl <= -0.1)
+	die("ERROR col_lrts_sub: delta_lnl = %e <= -0.1\n", delta_lnl);
       if (delta_lnl < 0) delta_lnl = 0;
     }
 
@@ -1091,10 +1114,13 @@ ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
   d->tupleidx = -1;         /* will be set as needed */
 
   d->mod->estimate_branchlens = TM_SCALE_ONLY;
-  if (stype == SUBTREE) 
-    assert(mod->subtree_root != NULL || mod->in_subtree!=NULL);
+  if (stype == SUBTREE) {
+    if (!(mod->subtree_root != NULL || mod->in_subtree!=NULL))
+      die("ERROR col_init_fit_data: mod->subtree_root or mod->in_subtree must not be NULL in SUBTREE mode\n");
+  }
   else {
-    assert(mod->subtree_root == NULL);
+    if (mod->subtree_root != NULL)
+      die("ERROR col_init_fit_data: mod->subtree_root must be NULL if not in subtree mode\n");
     mod->scale_sub = 1;
   }
   if (mod->msa_seq_idx == NULL)
@@ -1296,8 +1322,9 @@ void col_find_missing_branches(TreeModel *mod, MSA *msa, int tupleidx,
   *nspec = 0;
   for (i = 0; i < lst_size(traversal); i++) {
     TreeNode *n = lst_get_ptr(traversal, i);
-    assert((n->lchild == NULL && n->rchild == NULL) || 
-           (n->lchild != NULL && n->rchild != NULL));
+    if (!((n->lchild == NULL && n->rchild == NULL) || 
+	  (n->lchild != NULL && n->rchild != NULL)))
+      die("ERROR: col_find_missing_branches: lchild and rchild must be either both NULL or both non-NULL\n");
     if (n->parent == NULL)      /* root */
       has_data[n->id] = FALSE;
     else if (n->lchild == NULL) {    /* leaf */
@@ -1499,7 +1526,9 @@ Matrix *col_get_fim_sub(FimGrid *g, double scale) {
   int idx;
   double frac;
   Matrix *retval;
-  assert(scale >= 0);
+  
+  if (scale < 0)
+    die("ERROR col_get_fix_sub: scale should be >= 0 but is %e\n", scale);
 
   if (scale < 1) 
     idx = floor(scale / GRIDSIZE1);
@@ -1511,8 +1540,9 @@ Matrix *col_get_fim_sub(FimGrid *g, double scale) {
                                 /* just use last one in this case */
 
   else {
-    assert(g->scales[idx] <= scale && g->scales[idx+1] > scale);
-
+    if (!(g->scales[idx] <= scale && g->scales[idx+1] > scale))
+      die("ERROR col_get_fim_sub: g->scales[%i]=%e should be <= %e and g->scales[%i+1]=%e should be > %e\n", idx, g->scales[idx], scale, idx+1, g->scales[idx+1], scale);
+    
     frac = (scale - g->scales[idx]) / (g->scales[idx+1] - g->scales[idx]);
 
     if (frac < 0.1) 

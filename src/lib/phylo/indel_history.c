@@ -453,7 +453,8 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
     *leaf_to_seq = smalloc(tree->nnodes * sizeof(int));
   char **tup_hist = smalloc(msa->ss->ntuples * sizeof(void*));
 
-  assert(msa->ss != NULL && msa->ss->tuple_idx != NULL);
+  if (!(msa->ss != NULL && msa->ss->tuple_idx != NULL))
+    die("ERROR ih_reconstruct: Need ordered sufficient statistics\n");
 
   /* build mappings between seqs and leaf indices in tree */
   for (s = 0; s < msa->nseqs; s++) {
@@ -528,7 +529,9 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
       continue;
     }
 
-    assert(min >= 0 && max >= min);
+    if (!(min >= 0 && max >= min))
+      die("ERROR ih_reconstruct min=%e should be >=0 and <= max=%e\n", 
+	  min, max);
 
     /* the LCA of all leaves with bases must be the first ancestor of
        the node with the max id that has an id smaller than the min
@@ -621,7 +624,9 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
     /* now resolve any ambiguities, by giving each ambiguous node the same
        label as its parent; traversing ambig_cases in reverse order
        ensures that parents are visited before children  */
-    assert(label[lca->id] == OBS_BASE);
+    if (label[lca->id] != OBS_BASE)
+      die("ERROR ih_reconstruct label[%i] (%i) != OBS_BASE (%i)\n",
+	  lca->id, label[lca->id], OBS_BASE);
     for (i = lst_size(ambig_cases) - 1; i >= 0; i--) {
       n = lst_get_ptr(ambig_cases, i);
       if (n == lca) continue;
@@ -645,7 +650,11 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
 	  c = ss_get_char_tuple(msa, msa->ss->tuple_idx[j], leaf_to_seq[i], 0);
 /* 	fprintf(stderr, "c %c\n", c); */
 	}
-        assert(leaf_to_seq[i] < 0 || c == GAP_CHAR || msa->is_missing[(int)c]);
+	if (leaf_to_seq[i] < 0)
+	  die("ERROR ih_reconstruct leaf_to_seq[%i]=%i should be >=0\n",
+	      i, leaf_to_seq[i]);
+	if (c==GAP_CHAR) die("ERROR ih_reconstruct got GAP_CHAR\n");
+	if (msa->is_missing[(int)c]) die("ERROR ih_reconstruct got missing data\n");
         ih->indel_strings[i][j] = tup_hist[msa->ss->tuple_idx[j]][i];
       }
     }

@@ -359,7 +359,9 @@ void phmm_rates_cross(PhyloHmm *phmm,
       /* in this case, the scaling constants must be determined from
          the model (and may be different for each model) */
       double freqs[phmm->nratecats];
-      assert(phmm->mods[mod]->alpha > 0); 
+      if (phmm->mods[mod]->alpha <= 0)
+	die("ERROR phmm_rates_cross: alpha=%f, should be > 0\n", 
+	    phmm->mods[mod]->alpha);
       DiscreteGamma(freqs, sconsts, phmm->mods[mod]->alpha, 
                     phmm->mods[mod]->alpha, phmm->nratecats, 0);
           
@@ -538,7 +540,9 @@ void phmm_compute_emissions(PhyloHmm *phmm,
       phmm->emissions = smalloc(phmm->hmm->nstates * sizeof(double*));  
     phmm->alloc_len = msa->length;
   }
-  assert(phmm->alloc_len >= msa->length);
+  if (phmm->alloc_len < msa->length)
+    die("ERROR phmm_compute_emissions: phmm->alloc_len (%i) < msa->length (%i)\n",
+	phmm->alloc_len, msa->length);
 
   /* if HMM is reflected, we need the reverse complement of the
      alignment as well */
@@ -1276,7 +1280,8 @@ double indel_max_function(Vector *params, void *data) {
         log(1 - COMPLEX_EPSILON - tau_j * alpha_j * ied->T[j][pat] 
             - tau_j * beta_j * ied->T[j][0] - tau_j);
     else {
-      assert(type == DELETION_PATTERN);
+      if (type != DELETION_PATTERN)
+	die("ERROR indel_max_function, got unknown type (%i)\n", type);
       retval += ied->u_self[j][pat] * 
         log(1 - COMPLEX_EPSILON - tau_j * alpha_j * ied->T[j][0] 
             - tau_j * beta_j * ied->T[j][pat] - tau_j);
@@ -1318,7 +1323,8 @@ void indel_max_gradient(Vector *grad, Vector *params,void *data,
           - tau_j * beta_j * ied->T[j][0] - tau_j));
     }
     else {
-      assert(type == DELETION_PATTERN);
+      if (type != DELETION_PATTERN)
+	die("ERROR indel_max_gradient, got unknown type %i\n", type);
       grad_alpha_j -= 
         (ied->u_self[j][pat] * tau_j * ied->T[j][0] /
          (1 - COMPLEX_EPSILON - tau_j * alpha_j * ied->T[j][0]
@@ -1418,16 +1424,24 @@ IndelEstimData *phmm_new_ied(PhyloHmm *phmm, double **A) {
     int pat_i = phmm->state_to_pattern[i];
     pattern_type pat_i_type = gp_pattern_type(phmm->gpm, pat_i);
 
-    assert(cat_i >= 0 && cat_i < phmm->functional_hmm->nstates);
-    assert(pat_i >= 0 && pat_i < phmm->gpm->ngap_patterns);
+    if (cat_i < 0 || cat_i >= phmm->functional_hmm->nstates)
+      die("ERROR phmm_new_ied: cat=%i, should be in [0,%i)\n",
+	  cat_i, phmm->functional_hmm->nstates);
+    if (pat_i < 0 || pat_i >= phmm->gpm->ngap_patterns)
+      die("ERROR phmm_new_ied: pat=%i, should bein [0, %i)\n",
+	  pat_i, phmm->gpm->ngap_patterns);
 
     for (j = 0; j < phmm->hmm->nstates; j++) {
       int cat_j = phmm->state_to_cat[j];
       int pat_j = phmm->state_to_pattern[j];
       pattern_type pat_j_type = gp_pattern_type(phmm->gpm, pat_j);
 
-      assert(cat_j >= 0 && cat_j < phmm->functional_hmm->nstates);
-      assert(pat_j >= 0 && pat_j < phmm->gpm->ngap_patterns);
+      if (cat_j < 0 || cat_j >= phmm->functional_hmm->nstates)
+	die("ERROR phmm_new_ied: cat_j=%i, should be in [0,%i)\n",
+	    cat_j, phmm->functional_hmm->nstates);
+      if (pat_j < 0 || pat_j >= phmm->gpm->ngap_patterns)
+	die("ERROR phmm_new_ied: pat_j=%i, should bein [0, %i)\n",
+	    pat_j, phmm->gpm->ngap_patterns);
 
       if (!phmm->em_data->fix_functional)
         ied->fcounts[cat_i][cat_j] += A[i][j];

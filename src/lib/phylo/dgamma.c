@@ -4,14 +4,10 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <assert.h>
 #include <dgamma.h>
 #include <misc.h>
 
 #define FOR(i,n) for(i=0; i<n; i++)
-
-void error2 (char * message)
-{ printf("\nError: %s.\n", message); assert(0); exit(-1); }
 
 /* functions concerning the CDF and percentage points of the gamma and
    Chi2 distribution
@@ -57,10 +53,10 @@ double LnGamma (double x)
    double f=0, fneg=0, z;
 
    if(x<=0) {
-      error2("lnGamma not implemented for x<0");
+      die("lnGamma not implemented for x<0");
       if((int)x-x==0) { puts("lnGamma undefined"); return(-1); }
       for (fneg=1; x<0; x++) fneg/=x;
-      if(fneg<0) error2("strange!! check lngamma");
+      if(fneg<0) die("strange!! check lngamma");
       fneg=log(fneg);
    }
    if (x<7) {
@@ -174,7 +170,7 @@ l3:
 l4:
    q=ch;   p1=.5*ch;
    if ((t=IncompleteGamma (p1, xx, g))<0)
-      error2 ("\nIncompleteGamma");
+      die("\nIncompleteGamma");
    p2=p-t;
    t=p2*exp(xx*aa+g+p1-c*log(ch));   
    b=t/ch;  a=0.5*t-b*c;

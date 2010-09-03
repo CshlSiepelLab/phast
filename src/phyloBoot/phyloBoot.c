@@ -29,9 +29,12 @@ void set_param_descriptions(char **descriptions, TreeModel *mod) {
   int nrm_params = tm_get_nratematparams(mod);
   int i, j, idx;
 
-  assert(mod->estimate_branchlens == TM_BRANCHLENS_ALL);
-  assert(mod->estimate_backgd == FALSE);
-  assert(mod->alt_subst_mods == NULL);
+  if (mod->estimate_branchlens != TM_BRANCHLENS_ALL)
+    die("ERROR set_param_descriptions: mod->estimate_branchlens != TM_BRANCHLENS_ALL\n");
+  if (mod->estimate_backgd)
+    die("ERROR set_param_descriptions: mod->estimate_backgd is TRUE\n");
+  if (mod->alt_subst_mods != NULL)
+    die("ERROR set_param_descriptions: mod->alt_subst_mods is not NULL\n");
 
   traversal = tr_preorder(mod->tree);
   idx=0;

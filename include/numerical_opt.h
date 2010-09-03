@@ -15,7 +15,6 @@
 #include <matrix.h>
 #include <vector.h>
 #include <math.h>
-#include <assert.h>
 
 typedef enum {
   OPT_DERIV_BACKWARD,

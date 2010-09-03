@@ -361,7 +361,8 @@ void do_indels(MSA *msa, TreeModel *mod) {
       continue;
     }
 
-    assert(min >= 0 && max >= min);
+    if (min < 0) die("prequel.c: min = %e < 0\n", min);
+    if (max < min) die("prequel.c: max (%e) < min (%e)", max, min);
 
     /* the LCA of all leaves with non-gaps must be the first ancestor of
        the node with the max id that has an id smaller than the min

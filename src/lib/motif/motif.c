@@ -15,7 +15,6 @@
 #include "em.h"
 #include "msa.h"
 #include "time.h"
-#include "assert.h" 
 #include "sufficient_stats.h"
 #include "tree_model.h"
 #include "tree_likelihoods.h"
@@ -191,7 +190,8 @@ List* mtf_find(void *data, int multiseq, int motif_size, int nmotifs,
             for (k = 0; k < m->alph_size; k++)
               vec_set(params, j++, vec_get(m->freqs[i], k));
         }
-        assert(j == nparams);
+	if (j != nparams)
+	  die("ERROR mtf_find j (%i) != nparams (%i)\n", j, nparams);
           
         retval = opt_bfgs(mtf_compute_conditional, params, m, &m->score, 
                           lower_bounds, upper_bounds, NULL,
@@ -260,7 +260,8 @@ void mn_compute_emissions(double **emissions, void **models, int nmodels,
     if (emissions[i] == NULL) continue;
                                 /* can force certain models to be
                                    ignored by setting to NULL */
-    assert(thismod->size == ((Vector*)models[0])->size);
+    if (thismod->size != ((Vector*)models[0])->size)
+      die("ERROR mn_compute_emissions bad dimensions\n");
     for (j = 0; j < thismod->size; j++) {
       double val = vec_get(thismod, j);
       vec_set(logmod, j, val == 0 ? NEGINFTY : log(val));
@@ -450,7 +451,8 @@ double mtf_compute_conditional(Vector *params, void *data) {
       sample_logprob = log(m->has_motif[s]) - log(1 + exp(-lsum)) + 
         log(1 + (1-m->has_motif[s])/m->has_motif[s] * exp(-lsum));
 
-    assert(finite(sample_logprob));
+    if (!(finite(sample_logprob)))
+      die("ERROR mtf_compute_conditional: sample_logprob not finite\n");
 
     tot_logprob += sample_logprob;
   }
@@ -786,8 +788,9 @@ double mtf_em(void *models, void *data, int nsamples,
       else
         sample_logl = tot_ll_motif + log(1 + exp(tot_ll_backgd - tot_ll_motif));
                                 /* do it this way to avoid underflow */
-
-      assert(finite(sample_logl));
+      
+      if (!(finite(sample_logl)))
+	die("ERROR mtf_em sample_logl not finite\n");
 
       /* now let postpY[i] be the posterior probability that there is a
          motif and it starts at position i */

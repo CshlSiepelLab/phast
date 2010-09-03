@@ -10,7 +10,6 @@
 /* $Id: hmm.c,v 1.16 2009-03-09 16:33:04 agd27 Exp $ */
 
 #include "hmm.h"
-#include <assert.h>
 #include <math.h>
 #include <misc.h>
 #include <string.h>
@@ -208,8 +207,10 @@ double hmm_get_transition_score(HMM *hmm, int from_state, int to_state) {
   int i, j;
   double prob;
 
-  assert(hmm->transition_matrix != NULL);
-  assert(! (from_state == BEGIN_STATE && to_state == END_STATE));
+  if (hmm->transition_matrix == NULL)
+    die("ERROR hmm_get_transition_score: hmm->transition_matrix is NULL\n");
+  if (from_state == BEGIN_STATE && to_state == END_STATE)
+    die("ERROR: hmm_get_transition_score: from_state==BEGIN_STATE and to_state==END_STATE\n");
   
   if (from_state == BEGIN_STATE) {
     if (hmm->begin_transition_scores == NULL) {
@@ -428,9 +429,10 @@ void hmm_do_dp_forward(HMM *hmm, double **emission_scores, int seqlen,
 
   int i, j;
 
-  assert(seqlen > 0 && hmm != NULL && hmm->nstates > 0 && 
-         (mode == VITERBI || mode == FORWARD) && 
-         full_scores != NULL && (mode != VITERBI || backptr != NULL));
+  if (!(seqlen > 0 && hmm != NULL && hmm->nstates > 0 && 
+	(mode == VITERBI || mode == FORWARD) && 
+	full_scores != NULL && (mode != VITERBI || backptr != NULL)))
+    die("ERROR hmm_do_dp_forward: bad params\n");
 
   /* initialization */
   for (i = 0; i < hmm->nstates; i++) {
@@ -460,8 +462,9 @@ void hmm_do_dp_backward(HMM *hmm, double **emission_scores,  int seqlen,
 
   int i, j;
 
-  assert(seqlen > 0 && hmm != NULL && hmm->nstates > 0 && 
-         full_scores != NULL);
+  if (!(seqlen > 0 && hmm != NULL && hmm->nstates > 0 && 
+	full_scores != NULL))
+    die("ERROR hmm_do_dp_backward: bad params\n");
 
   /* initialization */
   for (i = 0; i < hmm->nstates; i++)
@@ -576,7 +579,9 @@ void hmm_train_from_counts(HMM *hmm, Matrix *trans_counts,
     vec_copy(statecount, state_counts);
     vec_plus_eq(statecount, state_pseudocounts);
   }     
-  assert(beg_pseudocounts == NULL || beg_counts != NULL);
+  if (!(beg_pseudocounts == NULL || beg_counts != NULL))
+    die("ERROR hmm_train_from_counts: beg_pseudocounts==NULL=%i, beg_counts==NULL=%i\n",
+	beg_pseudocounts==NULL, beg_counts==NULL);
   if (beg_pseudocounts == NULL)
     begcount = beg_counts;      /* could be NULL */
   else {
@@ -619,7 +624,8 @@ void hmm_train_from_counts(HMM *hmm, Matrix *trans_counts,
   sum = 0;
   for (i = 0; i < hmm->nstates; i++)
     sum += vec_get(statecount, i);
-  assert(sum > 0);
+  if (sum <= 0)
+    die("ERROR hmm_train_from_counts sum=%f, should be >0\n", sum);
   vec_copy(hmm->eq_freqs, statecount);
   vec_scale(hmm->eq_freqs, 1/sum);
 
@@ -660,7 +666,9 @@ void hmm_train_from_paths(HMM *hmm, int **path, int npaths,
   if (begcounts != NULL) vec_zero(begcounts);
   for (i = 0; i < npaths; i++) {
     for (j = 0; path[i][j] != -1; j++) {
-      assert(path[i][j] >= 0 && path[i][j] < hmm->nstates);
+      if (!(path[i][j] >= 0 && path[i][j] < hmm->nstates))
+	die("ERROR hmm_train_from_paths: path[%i][%i]=%i, should be in [0,%i)\n",
+	    i, j, path[i][j], hmm->nstates);
       vec_set(state_counts, path[i][j], 
                      vec_get(state_counts, path[i][j]) + 1);
       if (j > 0)
@@ -685,7 +693,9 @@ void hmm_train_update_counts(Matrix *trans_counts, Vector *state_counts,
                              int nstates) {
   int j;
   for (j = 0; j < len; j++) {
-    assert(path[j] >= 0 && path[j] < nstates);
+    if (!(path[j] >= 0 && path[j] < nstates))
+      die("ERROR hmm_train_update_counts: path[%i]=%i, should be in [0, %i)\n",
+	  j, path[j], nstates);
     vec_set(state_counts, path[j], 
                    vec_get(state_counts, path[j]) + 1);
     if (j > 0)
@@ -697,7 +707,9 @@ void hmm_train_update_counts(Matrix *trans_counts, Vector *state_counts,
                    vec_get(beg_counts, path[0]) + 1);
   /* temporary */
   for (j = 0; j < state_counts->size; j++) 
-    assert(vec_get(state_counts, j) >= 0);
+    if (vec_get(state_counts, j) < 0)
+      die("ERROR hmm_train_update_counts: state_counts[%j]=%f\n",
+	  j, vec_get(state_counts, j));
 }
 
 /* for debugging */
@@ -1030,7 +1042,8 @@ HMM *hmm_reverse_compl(HMM *hmm, List *pivot_states, int *mapping) {
     mapping[i] = i;
     if (!is_pivot[i]) mapping[j++] = -i;
   }
-  assert(j == nstates);
+  if (j != nstates)
+    die("ERROR hmm_reverse_compl: j (%i) != nstates (%i)\n", j, nstates);
 
   /* copy transitions from forward states unchanged, and halve
      transition probs from pivot states to non-pivot (forward)

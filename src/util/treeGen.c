@@ -12,7 +12,6 @@
 #include <getopt.h>
 #include <misc.h>
 #include <trees.h>
-#include <assert.h>
 #include "treeGen.help"
 
 int num_rooted_topologies(int n);
@@ -215,7 +214,8 @@ void tr_add_leaf_internal(TreeNode *t, int branch, char *lname, int lgroup) {
   TreeNode *oldnode, *newanc, *newleaf;
 
   oldnode = lst_get_ptr(t->nodes, branch); /* node beneath branch in question */
-  assert(oldnode != t);
+  if (oldnode == t)
+    die("ERROR tr_add_leaf_internal: oldnode == t\n");
 
   newanc = tr_new_node();
   newleaf = tr_new_node();

@@ -11,7 +11,6 @@
 
 #include <tree_likelihoods.h>
 #include <markov_matrix.h>
-#include <assert.h>
 #include <string.h>
 #include <dgamma.h>
 #include <sufficient_stats.h>
@@ -96,16 +95,22 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
     mod->iupac_inv_map = build_iupac_inv_map(mod->rate_matrix->inv_states, 
                                              alph_size);
 
-  assert(cat <= msa->ncats);
+  
+  if (cat > msa->ncats)
+    die("ERROR tl_compute_log_likelihood: cat (%i) > msa->ncats (%i)\n", cat, msa->ncats);
 
-  assert(cat < 0 || col_scores == NULL || msa->categories != NULL);
+  if (!(cat < 0 || col_scores == NULL || msa->categories != NULL))
+    die("ERROR tl_compute_log_likelihood: cat=%i, col_scores==NULL=%i, msa->categories==NULL=%i\n", cat, col_scores==NULL, msa->categories==NULL);
   /* if using categories and col-by-col
      scoring, then must have col-by-col
      categories */
 
   /* obtain sufficient statistics, if necessary */
-  if (msa->ss != NULL) 
-    assert (msa->ss->tuple_size >= mod->order+1);
+  if (msa->ss != NULL){ 
+    if (msa->ss->tuple_size <= mod->order)
+      die("ERROR tl_compute_log_likelihood: tuple_size (%i) must be greater than mod->order (%i)\n",
+	  msa->ss->tuple_size, mod->order);
+  }
   else 
     ss_from_msas(msa, mod->order+1, col_scores == NULL ? 0 : 1, 
                  NULL, NULL, NULL, -1);
@@ -186,7 +191,8 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
               /* leaf: base case of recursion */
               int thisseq;
 
-              assert(n->name != NULL);
+	      if (n->name == NULL)
+		die("ERROR tl_compute_log_likelihood: n->name is NULL\n");
               thisseq = mod->msa_seq_idx[n->id];
 
               /* first figure out whether there is a match for each
@@ -373,7 +379,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
 
       /* compute posterior prob of each rate cat and related quantities */
     if (post != NULL) {
-      assert(skip_fels == 0);
+      if (skip_fels) die("ERROR: tl_compute_log_likelihood: skip_fels should be 0 but is %i\n", skip_fels);
       for (rcat = 0; rcat < mod->nratecats; rcat++) {
         double rcat_post_prob = safediv(rcat_prob[rcat], total_prob);
         if (post->rcat_probs != NULL) 
@@ -471,23 +477,29 @@ void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,
 
   tuple[mod->order+1] = '\0';
 
-  assert(mod->tree == NULL);
-  assert(msa->ss != NULL || msa->seqs != NULL); 
+  if (mod->tree != NULL)
+    die("ERROR tl_compute_log_likelihood_weight_matrix: mod->tree should be NULL\n");
+  if (msa->ss == NULL && msa->seqs == NULL)
+    die("ERROR tl_compute_log_likelihood_weight_matrix: mod->ss and mod->seqs are both NULL\n");
 
   if (cat >= 0) {
-    if (col_by_col)
-      assert(msa->categories != NULL);
+    if (col_by_col) {
+      if (msa->categories == NULL)
+	die("ERROR tl_compute_log_likelihood_weight_matrix: msa->categories is NULL\n");
+    }
     /* if using categories and col-by-col
        scoring, then must have col-by-col
        categories */
-    else assert(msa->ss->cat_counts != NULL);
+    else if (msa->ss->cat_counts == NULL)
+      die("ERROR tl_compute_log_likelihood_weight_matrix: msa->ss->cat_counts is NULL\n");
     /* if using categories and unordered
        sufficient statistics, must have
        category-by-category counts */
   }
 
   if (col_by_col)
-    assert(msa->seqs != NULL || msa->ss->tuple_idx != NULL);
+    if (msa->seqs == NULL && msa->ss->tuple_idx == NULL)
+      die("ERROR tl_compute_log_likelihood requires ordered alignment\n");
   /* if using col-by-col scoring, must
      have ordered representation */
     
@@ -582,7 +594,10 @@ TreePosteriors *tl_new_tree_posteriors(TreeModel *mod, MSA *msa, int do_bases,
   int i, j, k, r, ntuples, nnodes, nstates;
   TreePosteriors *tp = (TreePosteriors*)smalloc(sizeof(TreePosteriors));
 
-  assert(mod->tree != NULL && msa->ss != NULL);
+  if (mod->tree ==  NULL)
+    die("ERROR tl_new_tree_posteriors: mod->tree is NULL\n");
+  if (msa->ss == NULL)
+    die("ERROR tl_new_tree_posteriors: msa->ss is NULL\n");
 
   ntuples = msa->ss->ntuples;
   nnodes = mod->tree->nnodes;
@@ -668,7 +683,10 @@ TreePosteriors *tl_new_tree_posteriors(TreeModel *mod, MSA *msa, int do_bases,
 void tl_free_tree_posteriors(TreeModel *mod, MSA *msa, TreePosteriors *tp) {
   int i, j, k, r, ntuples, nnodes, nstates;
 
-  assert(msa->ss != NULL && mod->tree != NULL);
+  if (mod->tree == NULL)
+    die("ERROR tl_free_tree_posteriors: mod->tree is NULL\n");
+  if (msa->ss == NULL)
+    die("ERROR tl_free_tree_posteriors: msa->ss is NULL\n");
   ntuples = msa->ss->ntuples;
   nnodes = mod->tree->nnodes;
   nstates = mod->rate_matrix->size;

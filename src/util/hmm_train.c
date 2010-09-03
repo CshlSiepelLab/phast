@@ -17,7 +17,6 @@
 #include <stdio.h>
 #include <msa.h>
 #include <hmm.h>
-#include <assert.h>
 #include <getopt.h>
 #include <string.h>
 #include <gff.h>
@@ -193,7 +192,8 @@ int main(int argc, char* argv[]) {
            lst_size(msa_fname_list));
 
   if (model_indels_str != NULL) {
-    assert(tree != NULL);       /* FIXME: indel_ncats broken */
+    if (tree == NULL)
+      die("ERROR: tree is NULL\n");  /*FIXME: indel_ncats broken */
     gpm = gp_create_gapcats(cm, model_indels_str, tree, FALSE); 
     ncats = cm->ncats + 1;    /* numbers will change */ 
     ncats_unspooled = cm->unspooler == NULL ? ncats : 

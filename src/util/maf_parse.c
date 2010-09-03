@@ -13,7 +13,6 @@
 #include <stdio.h>
 #include <msa.h>
 #include <string.h>
-#include <assert.h>
 #include <getopt.h>
 #include <string.h>
 #include <ctype.h>
@@ -364,8 +363,7 @@ int main(int argc, char* argv[]) {
       print_usage();
       exit(0);
     case '?':
-      fprintf(stderr, "Bad argument.  Try 'maf_parse -h' for help.\n");
-      exit(1); 
+      die("Bad argument.  Try 'maf_parse -h' for help.\n");
     }
   }
 

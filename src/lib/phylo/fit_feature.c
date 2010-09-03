@@ -102,7 +102,8 @@ double ff_likelihood_wrapper(Vector *params, void *data) {
    version for use with opt_newton_1d */
 double ff_likelihood_wrapper_1d(double x, void *data) {
   FeatFitData *d = (FeatFitData*)data;
-  assert (d->cdata->stype != SUBTREE) ;
+  if (d->cdata->stype == SUBTREE)
+    die("ERROR: ff_likelihood_wrapper_1d: d->cdata->stype is SUBTREE\n");
 
   d->cdata->mod->scale = x;
 
@@ -181,7 +182,8 @@ void ff_lrts(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
       this_scale = d->cdata->params->data[0];
 
       delta_lnl = alt_lnl - null_lnl;
-      assert(delta_lnl > -0.01);
+      if (delta_lnl <= -0.01)
+	die("ERROR ff_lrts: delta_lnl (%f) <= -0.01\n", delta_lnl);
       if (delta_lnl < 0) delta_lnl = 0;
     }
 
@@ -287,7 +289,8 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
 	if (opt_bfgs(ff_likelihood_wrapper, d2->cdata->params, d2, &alt_lnl, 
 		     d2->cdata->lb, d2->cdata->ub, logf, NULL, 
 		     OPT_HIGH_PREC, NULL) != 0)
-	  assert(delta_lnl > -0.1);
+	  if (delta_lnl <= -0.1)
+	    die("ERROR ff_lrts_sub: delta_lnl (%f) <= -0.1\n", delta_lnl);
       }
       if (delta_lnl < 0) delta_lnl = 0;
     }
@@ -590,8 +593,9 @@ void ff_find_missing_branches(TreeModel *mod, MSA *msa, GFF_Feature *feat,
   *nspec = 0;
   for (i = 0; i < lst_size(traversal); i++) {
     TreeNode *n = lst_get_ptr(traversal, i);
-    assert((n->lchild == NULL && n->rchild == NULL) || 
-           (n->lchild != NULL && n->rchild != NULL));
+    if (!((n->lchild == NULL && n->rchild == NULL) || 
+	  (n->lchild != NULL && n->rchild != NULL)))
+      die("ERROR ff_find_missing_branches: lchild and rchild should both be NULL or not NULL\n");
     if (n->parent == NULL)      /* root */
       has_data[n->id] = FALSE;
     else if (n->lchild == NULL) {    /* leaf */

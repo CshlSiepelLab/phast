@@ -14,7 +14,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include <assert.h>
 #include <math.h>
 #include <matrix.h>
 #include <markov_matrix.h>
@@ -213,7 +212,9 @@ void mm_exp_complex(MarkovMatrix *P, MarkovMatrix *Q, double t) {
   int n = Q->size;
   int i, j;
 
-  assert(P->size == Q->size && t >= 0);
+  if (!(P->size == Q->size && t >= 0))
+    die("ERROR mm_exp_complex: got P->size=%i, Q->sizse=%i, t=%f\n",
+	P->size, Q->size, t);
 
   if (t == 0) {
     mat_set_identity(P->matrix);
@@ -256,7 +257,9 @@ void mm_exp_real(MarkovMatrix *P, MarkovMatrix *Q, double t) {
   int n = Q->size;
   int i;
 
-  assert(P->size == Q->size && t >= 0);
+ if (!(P->size == Q->size && t >= 0))
+   die("ERROR mm_exp_real: got P->size=%i, Q->sizse=%i, t=%f\n",
+       P->size, Q->size, t);
 
   if (t == 0) {
     mat_set_identity(P->matrix);
@@ -420,7 +423,8 @@ void mm_scale(MarkovMatrix *M, double scale) {
 /* Renormalize a discrete Markov matrix so that all rows sum to 1. */
 void mm_renormalize(MarkovMatrix *M) {
   int i, j;
-  assert(M->type == DISCRETE);
+  if (M->type != DISCRETE)
+    die("ERROR mm_renormalize:  M->type should be discrete\n");
   for (i = 0; i < M->size; i++) {
     double rowsum = 0;
     for (j = 0; j < M->size; j++) 

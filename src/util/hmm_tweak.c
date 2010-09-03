@@ -210,8 +210,7 @@ int main(int argc, char *argv[]) {
 
   if (hmm->nstates != (cm->unspooler == NULL ? cm->ncats + 1 : 
                        cm->unspooler->nstates_unspooled)) {
-    fprintf(stderr, "ERROR: number of states in HMM must equal number of site categories (unspooled).\n");
-    exit(1);
+    die("ERROR: number of states in HMM must equal number of site categories (unspooled).\n");
   }
 
   /* identify isolated states; need to eliminate their default

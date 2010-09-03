@@ -451,7 +451,8 @@ void print_feats_sph(FILE *outfile, p_value_stats *stats, GFF_Set *feats,
     else if (mode == NNEUT)
       pvals[i] = 2 * (min(stats[i].p_cons, stats[i].p_anti_cons));
     else {
-      assert(mode == CONACC);
+      if (mode != CONACC)
+	die("ERROR print_feats_sph: unknown mode\n");
       if (stats[i].p_cons < stats[i].p_anti_cons)
         pvals[i] = stats[i].p_cons;
       else 
@@ -529,7 +530,8 @@ void print_feats_sph_subtree(FILE *outfile, p_value_joint_stats *stats,
     else if (mode == NNEUT)
       pvals[i] = 2 * (min(stats[i].p_cons_left, stats[i].p_anti_cons_left));
     else {
-      assert(mode == CONACC);
+      if (mode != CONACC)
+	die("ERROR print_feats_sph_subtree: unknown mode\n");
       if (stats[i].p_cons_left < stats[i].p_anti_cons_left)
         pvals[i] = stats[i].p_cons_left;
       else 
@@ -588,7 +590,8 @@ void print_wig(FILE *outfile, MSA *msa, double *vals, char *chrom,
   }
 
   last = -INFTY;
-  assert(refidx >= 0 && refidx <= msa->nseqs);
+  if (!(refidx >= 0 && refidx <= msa->nseqs))
+    die("ERROR print_wig: bad refidx (%i)\n", refidx);
   for (j = 0, k = 0; j < msa->length; j++) {
     if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
       if (refidx == 0 || !msa_missing_col(msa, refidx, j)) {
@@ -652,7 +655,8 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
   int get_log = (log_trans_outfile && outfile != NULL) || 
     (log_trans_results && result != NULL);
   
-  assert(refidx >= 0 && refidx <= msa->nseqs);
+  if (!(refidx >= 0 && refidx <= msa->nseqs))
+    die("ERROR print_base_by_base: bad refidx (%i)\n", refidx);
 
   if (result != NULL) {
     int resultLen = ncols + 1 + log_trans_results;
@@ -677,7 +681,9 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
     data[col] = va_arg(ap, double*);
   }
   if (get_log) {
-    assert(strcmp(colname[col-1], "pval")==0);
+    if (!(strcmp(colname[col-1], "pval")==0))
+      die("ERROR print_base_by_base expected last col to be pval, got %s\n",
+	  colname[col-1]);
     colname[col] = "score";
     data[col] = log10_pval(data[col-1], msa->ss->ntuples);
   }
@@ -769,7 +775,9 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
     data[col] = va_arg(ap, double*);
   }
   if (get_log) {
-    assert(strcmp(colname[col-1], "pval")==0);
+    if (!(strcmp(colname[col-1], "pval")==0))
+      die("ERROR print_feats_generic: expected last col to be pval, got %s\n",
+	  colname[col-1]);
     colname[col] = "score";
     data[col] = log10_pval(data[col-1], lst_size(gff->features));
   }

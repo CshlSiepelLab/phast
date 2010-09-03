@@ -273,7 +273,8 @@ void do_p_values(BDPhyloHmm *bdphmm, GFF_Set *predictions,
       GFF_Feature *f = lst_get_ptr(feats_this_type, j);
         
       /* grab id from attribute */
-      assert(str_re_match(f->attribute, id_re, l, 1) >= 0);
+      if (! (str_re_match(f->attribute, id_re, l, 1) >= 0)) 
+	die("ERROR in do_pvalues: could not parse %s\n", f->attribute);
       str_cpy(id, lst_get_ptr(l, 1));
       lst_free_strings(l);
 

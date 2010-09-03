@@ -14,7 +14,6 @@
 #include <msa.h>
 #include <gff.h>
 #include <string.h>
-#include <assert.h>
 #include <getopt.h>
 #include <local_alignment.h>
 
@@ -98,12 +97,10 @@ int main(int argc, char* argv[]) {
   }
 
   if ((F = fopen(feat_fname, "r")) == NULL) {
-    fprintf(stderr, "ERROR: cannot open %s.\n", feat_fname);
-    exit(1);
+    die("ERROR: cannot open %s.\n", feat_fname);
   }
   if ((gff = gff_read_set(F)) == NULL) { 
-    fprintf(stderr, "ERROR: error reading %s.\n", feat_fname);
-    exit(1);
+    die("ERROR: error reading %s.\n", feat_fname);
   }
   fclose(F);
 
@@ -116,8 +113,7 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "WARNING: in local alignment mode, coordinates may only be mapped from query (reference) sequence to target (aligned) sequence.\n"); 
 
     if ((F = fopen(msa_fname, "r")) == NULL) {
-      fprintf(stderr, "ERROR: cannot open %s.\n", msa_fname);
-      exit(1);
+      die("ERROR: cannot open %s.\n", msa_fname);
     }
     lpwa = la_read_lav(F, 0);
     la_gff_transform(lpwa, gff);
@@ -130,8 +126,7 @@ int main(int argc, char* argv[]) {
 
   else {                        /* normal alignment */
     if ((F = fopen(msa_fname, "r")) == NULL) {
-      fprintf(stderr, "ERROR: cannot open %s.\n", msa_fname);
-      exit(1);
+      die("ERROR: cannot open %s.\n", msa_fname);
     }
     msa = msa_new_from_file(F, format, NULL);
     fclose(F);

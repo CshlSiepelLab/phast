@@ -12,7 +12,6 @@
 
 #include <misc.h>
 #include <pbs_code.h>
-#include <assert.h>
 #include <time.h>
 
 PbsCode *pbs_new(int dim, int nrows, int nbytes) {
@@ -28,8 +27,11 @@ PbsCode *pbs_new(int dim, int nrows, int nbytes) {
   retval->code_size = retval->sg->nregs;
   retval->gap_code = retval->max_size;
 
-  assert(retval->code_size < retval->max_size);
-  assert(nbytes <= MAX_NBYTES);
+  if (retval->code_size >= retval->max_size)
+    die("pbs_new: retval->code_size %i >= retval->max_size %i", 
+	retval->code_size, retval->max_size);
+  if (nbytes > MAX_NBYTES)
+    die("pbs_new: nbytes (%i) <= %i", nbytes, MAX_NBYTES);
 
   /* initialize representative points to centroids of simplex regions */
   retval->codes_by_region = smalloc(retval->sg->nregs * sizeof(void*));
@@ -51,8 +53,11 @@ PbsCode *pbs_new_shell(int dim, int nrows, int nbytes, int code_size) {
 					    for nbytes = 2; note that
 					    max_size itself will be a
 					    reserved code, for gaps */
-  assert(code_size <= retval->max_size);
-  assert(nbytes <= MAX_NBYTES);
+  if (code_size > retval->max_size)
+    die("pbs_new_shell: code_size (%i) > retval->max_size (%i)\n",
+	code_size, retval->max_size);
+  if (nbytes > MAX_NBYTES)
+    die("pbs_new_shell: nbytes (%i) > MAX_NBYTES\n", nbytes, MAX_NBYTES);
 
   retval->sg = sxg_build_grid(dim, nrows);
   retval->rp = smalloc(code_size * sizeof(void*));
@@ -378,7 +383,10 @@ PbsCodeTrainingData *pbs_new_training_data(PbsCode *code, List *prob_vectors,
   int i, init_size;
   PbsCodeTrainingData *td;
 
-  assert(lst_size(prob_vectors) == lst_size(counts) && lst_size(prob_vectors) > 0);
+  if (lst_size(prob_vectors) != lst_size(counts))
+    die("ERROR: pbs_new_training_data: prob_vectors of different size (%i) than counts (%i)\n", lst_size(prob_vectors), lst_size(counts));
+  if (lst_size(prob_vectors) <= 0)
+    die("ERROR: pbs_new_training_data: prob_vectors must have size > 0 (has size %i)\n", lst_size(prob_vectors));
 
   td = smalloc(sizeof(PbsCodeTrainingData));
   td->code = code;
@@ -444,7 +452,10 @@ double pbs_estimate_from_data(PbsCode *code, List *prob_vectors,
   double tot_error = 0;
   PbsCodeTrainingData *td = pbs_new_training_data(code, prob_vectors, counts);
 
-  assert(lst_size(counts) == lst_size(prob_vectors) && lst_size(prob_vectors) > 0);
+  if (lst_size(prob_vectors) != lst_size(counts))
+    die("ERROR: pbs_estimate_from_data: prob_vectors of different size (%i) than counts (%i)\n", lst_size(prob_vectors), lst_size(counts));
+  if (lst_size(prob_vectors) <= 0)
+    die("ERROR: pbs_estimate_from_data: prob_vectors must have size > 0 (has size %i)\n", lst_size(prob_vectors));
 
 #ifndef RPHAST
   srandom(time(NULL));		/* for pbs_optimize_region */

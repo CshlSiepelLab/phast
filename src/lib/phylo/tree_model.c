@@ -13,7 +13,6 @@
 #include <subst_mods.h>
 #include <stacks.h>
 #include <stringsplus.h>
-#include <assert.h>
 #include <string.h>
 #include <ctype.h>
 #include <numerical_opt.h>
@@ -177,7 +176,8 @@ void tm_reinit(TreeModel *tm,   /**< TreeModel object to reinitialize  */
                ) {
   int i, j;
   int old_nratecats = tm->nratecats;
-  assert(new_nratecats >= 1);
+  if (new_nratecats < 1)
+    die("ERROR tm_reinit: new_nratecats=%i\n", new_nratecats);
   tm_free_rmp(tm);
   tm->rate_matrix_param_row = tm->rate_matrix_param_col = NULL;
   if (tm_order(new_subst_mod) != tm->order)
@@ -350,8 +350,7 @@ TreeModel *tm_new_from_file(FILE *f) {
     else if (!strcmp(tag, ORDER_TAG)) {
       str_readline(tmpstr, f);
       if (str_as_int(tmpstr, &order) == 1 || order < 0) {
-        fprintf(stderr, "ERROR: bad ORDER line in tree model file.\n");
-        exit(1);
+        die("ERROR: bad ORDER line in tree model file.\n");
       }
       size = int_pow(size, order+1);
     }
@@ -363,28 +362,24 @@ TreeModel *tm_new_from_file(FILE *f) {
     else if (!strcmp(tag, NRATECATS_TAG)) {
       str_readline(tmpstr, f);
       if (str_as_int(tmpstr, &nratecats) == 1 || nratecats < 0) {
-        fprintf(stderr, "ERROR: bad NRATECATS line in tree model file.\n");
-        exit(1);
+        die("ERROR: bad NRATECATS line in tree model file.\n");
       }
     }
     else if (!strcmp(tag, ALPHA_TAG)) {
       str_readline(tmpstr, f);
       if (str_as_dbl(tmpstr, &alpha) == 1 || alpha < 0) {
-        fprintf(stderr, "ERROR: bad ALPHA line in tree model file.\n");
-        exit(1);
+        die("ERROR: bad ALPHA line in tree model file.\n");
       }
     }
     else if (!strcmp(tag, BACKGROUND_TAG)) {
       if (size == 0) {
-        fprintf(stderr, "ERROR: ALPHABET line must precede BACKGROUND and RATE_MATRIX in tree model file.\n");
-        exit(1);
+        die("ERROR: ALPHABET line must precede BACKGROUND and RATE_MATRIX in tree model file.\n");
       }
       backgd = vec_new_from_file(f, size);
     }
     else if (!strcmp(tag, RATE_MATRIX_TAG)) {
       if (size == 0) {
-        fprintf(stderr, "ERROR: ALPHABET line must precede BACKGROUND and RATE_MAT in tree model file.\n");
-        exit(1);
+        die("ERROR: ALPHABET line must precede BACKGROUND and RATE_MAT in tree model file.\n");
       }
       rmat = mat_new_from_file(f, size, size);
     }
@@ -418,9 +413,8 @@ TreeModel *tm_new_from_file(FILE *f) {
       break;
     }
     else {
-      fprintf(stderr, "ERROR: unrecognized tag in model file (\"%s\").\n", 
-	      tag);
-      exit(1);
+      die("ERROR: unrecognized tag in model file (\"%s\").\n", 
+	  tag);
     }
   }
 
@@ -638,7 +632,8 @@ TreeModel *tm_create_copy(TreeModel *src) {
   if (retval->alt_subst_mods_node != NULL) {
     List *traversal;
     TreeNode *n;
-    assert(retval->tree != NULL);
+    if (retval->tree == NULL)
+      die("ERROR tm_create_copy: retval->tree is NULL\n");
     traversal = tr_preorder(retval->tree);
     for (i=0; i<lst_size(traversal); i++) {
       n = lst_get_ptr(traversal, i);
@@ -649,7 +644,8 @@ TreeModel *tm_create_copy(TreeModel *src) {
 	    src->alt_subst_mods_node[n->id] = lst_get_ptr(retval->alt_subst_mods, j);
 	    break;
 	}
-	assert(j < lst_size(src->alt_subst_mods));
+	if (j >= lst_size(src->alt_subst_mods))
+	  die("ERROR in tm_create_copy\n");
       }
       else src->alt_subst_mods_node[n->id] = NULL;
     }
@@ -719,7 +715,9 @@ AltSubstMod* tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
   for (i=0; i<lst_size(traversal); i++) {
     tempnode = lst_get_ptr(traversal, i);
     if (parentbranch == 0 && tempnode==n) continue;
-    assert(tempnode->id < mod->tree->nnodes);
+    if (tempnode->id >= mod->tree->nnodes)
+      die("ERROR tm_add_altmod: tempnode->id (%i) >= mod->tree->nnodes\n",
+	  tempnode->id, mod->tree->nnodes);
     mod->alt_subst_mods_node[tempnode->id] = altmod;
   }
 
@@ -790,7 +788,8 @@ AltSubstMod* tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
 	maxidx = tempidx + tempstr->length;
 	for (i=tempidx; i<maxidx; i++) {
 	  if (boundpos[i]) {
-	    assert(tempstr->chars[i-tempidx]==tempchar);
+	    if (tempstr->chars[i-tempidx]!=tempchar)
+	      die("ERROR parsing arguments in tm_add_altmod\n");
 	    tempstr->chars[i-tempidx]=',';
 	  }
 	}
@@ -902,8 +901,11 @@ void tm_set_subst_matrix(TreeModel *tm, MarkovMatrix *P, double t) {
   int i;
   double scaling_const = -1, tmp;
 
-  assert(tm->alt_subst_mods == NULL);
-  assert(tm->estimate_branchlens != TM_SCALE_ONLY);
+  if (tm->alt_subst_mods != NULL)
+    die("ERROR tm_set_subst_mtarix: tm->alt_subst_mods is not NULL\n");
+  if (tm->estimate_branchlens == TM_SCALE_ONLY)
+    die("ERROR tm_set_subst_matrix: estimate_branchlens is TM_SCALE_ONLY\n");
+  
 
   /* need to compute a matrix scaling constant from the equilibrium
      freqs, in this case (see below) */
@@ -953,7 +955,8 @@ void tm_scale_model(TreeModel *mod, Vector *params, int scale_blens,
   int i, j, nrmparams;
   double scale;
   if (scale_blens) {
-    assert(mod->tree != NULL);
+    if (mod->tree == NULL)
+      die("ERROR tm_scale_modeln: mod->tree is NULL\n");
     traversal = tr_preorder(mod->tree);
   }
   if (mod->alt_subst_mods != NULL) {
@@ -1064,7 +1067,6 @@ MSA *tm_generate_msa(int ncolumns,
       DiscreteGamma(classmods[i]->freqK, classmods[i]->rK, 
 		    classmods[i]->alpha, classmods[i]->alpha,
 		    classmods[i]->nratecats, 0);
-    //    assert(classmods[i]->nratecats == 1); /* assuming no rate variation */
 
     if (nseqs == -1) 
       nseqs = num;
@@ -1130,7 +1132,8 @@ MSA *tm_generate_msa(int ncolumns,
       TreeNode *n = lst_get_ptr(traversal, i);
       TreeNode *l = n->lchild;
       TreeNode *r = n->rchild;
-      assert ((l == NULL && r == NULL) || (l != NULL && r != NULL));
+      if (!((l == NULL && r == NULL) || (l != NULL && r != NULL)))
+	die("ERROR tm_generate_msa: both children should be NULL or neither\n");
 
       if (l == NULL) 
         msa->seqs[classmods[0]->msa_seq_idx[n->id]][col] = newchar[n->id];
@@ -1229,7 +1232,8 @@ MSA *tm_generate_msa_scaleLst(List *nsitesLst, List *scaleLst,
 	TreeNode *n = (TreeNode*)lst_get_ptr(traversal, k);
 	TreeNode *l = n->lchild;
 	TreeNode *r = n->rchild;
-	assert( (l==NULL && r==NULL) || (l!=NULL && r!=NULL));
+	if (!( (l==NULL && r==NULL) || (l!=NULL && r!=NULL)))
+	  die("ERROR tm_msa_generate_scaleLst: both children should be NULL or neither\n");
 	if (l == NULL)
 	  msa->seqs[mod->msa_seq_idx[n->id]][col] = newchar[n->id];
 	else {
@@ -1311,7 +1315,8 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
       TreeNode *r = n->rchild;
       int j, inSub[2];
       TreeModel *lmod, *rmod;
-      assert ((l == NULL && r == NULL) || (l != NULL && r != NULL));
+      if (! ((l == NULL && r == NULL) || (l != NULL && r != NULL)))
+	die("ERROR tm_generate_msa_random_subtree: both children should be NULL or neither\n");
 
       if (l == NULL) 
         msa->seqs[mod->msa_seq_idx[n->id]][col] = newchar[n->id];
@@ -1597,8 +1602,10 @@ void tm_check_boundaries(Vector *opt_params, Vector *lower_bounds,
 			 Vector *upper_bounds) {
   int i;
   //check that parameters are within boundaries
-  assert(lower_bounds == NULL || lower_bounds->size == opt_params->size);
-  assert(upper_bounds == NULL || upper_bounds->size == opt_params->size);
+  if (!(lower_bounds == NULL || lower_bounds->size == opt_params->size))
+    die("ERROR tm_check_boundaries: bad dimensions of lower_bounds\n");
+  if (!(upper_bounds == NULL || upper_bounds->size == opt_params->size))
+    die("ERROR tm_check_boundaries: bad dimensions of upper_bounds\n");
   for (i=0; i<opt_params->size; i++) {
     if (lower_bounds != NULL && upper_bounds != NULL)
       if (vec_get(lower_bounds, i) > vec_get(upper_bounds, i)) 
@@ -1631,7 +1638,8 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
   int i, retval = 0, npar;
 
   if (msa->ss == NULL) {
-    assert(msa->seqs != NULL);
+    if (msa->seqs == NULL)
+      die("ERROR tm_fit: msa->ss and msa->seqs are both NULL\n");
     ss_from_msas(msa, mod->order+1, 0, NULL, NULL, NULL, -1);
   }
 
@@ -1679,7 +1687,8 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
     if (mod->param_map[i] >= npar)
       npar = mod->param_map[i]+1;
   }
-  assert(npar > 0);
+  if (npar <= 0)
+    die("ERROR tm_fit npar=%i\n", npar);
   opt_params = vec_new(npar);
   for (i=0; i<params->size; i++)
     if (mod->param_map[i] >=0)
@@ -1766,7 +1775,8 @@ void tm_setup_params(TreeModel *mod) {
   //type of parameter
   mod->scale_idx = 0;  //keep room for scale and subtree_scale
   mod->bl_idx = 2;
-  assert(mod->tree != NULL);
+  if (mod->tree == NULL)
+    die("ERROR tm_setup_params: mod->tree is NULL\n");
   size = mod->rate_matrix->size;
 
   if (mod->estimate_branchlens == TM_BRANCHLENS_CLOCK) {
@@ -1887,7 +1897,8 @@ void tm_setup_params(TreeModel *mod) {
     if (mod->eqfreq_sym==1) {
       int atpos=-1, gcpos=-1;
       char c;
-      assert(mod->order==0);
+      if (mod->order != 0)
+	die("ERROR tm_setup_params mod->order=%i\n", mod->order);
       for (i=0; i<size; i++) {
 	c = tolower(mod->rate_matrix->states[i]);
 	switch (c) {
@@ -2249,7 +2260,9 @@ void tm_init_rootleaf(TreeModel *mod, Vector *params) {
     }
     idx++;
   }
-  assert(i < lst_size(traversal));
+  if (i >= lst_size(traversal))
+    die("ERROR tm_init_rootleaf: i (%i) >= lst_size(traversal) (%i)\n",
+	i, lst_size(traversal));
   return;
 }
   
@@ -2600,7 +2613,8 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod,
 	    minState[node][0] = i;
 	    break;
 	  }
-	assert(i < numstate);
+	if (i >= numstate)
+	  die("ERROR tm_params_init_branchlens_parsimony: i (%i) >= numstate (%i)\n", i, numstate);
       }
     }
     totalCost += weight*(double)tm_fitch_rec_down(mod->tree, numMinState, minState);
@@ -2790,7 +2804,8 @@ TreeModel *tm_induced_aa(TreeModel *codon_mod) {
   int i, j;
   int nstates = codon_mod->rate_matrix->size;
 
-  assert(codon_mod->order == 2);
+  if (codon_mod->order != 2)
+    die("ERROR: tm_induced_aa: codon_mod->order=%i (should be 2)\n", codon_mod->order);
   vec_zero(aa_freqs);
 
   /* compute induced equilibrium freqs */
@@ -2928,7 +2943,9 @@ void tm_prune(TreeModel *mod,   /**< TreeModel whose tree is to be pruned  */
               ) {
   int i, j, old_nnodes = mod->tree->nnodes;
 
-  assert(mod->tree->nnodes >= 3);
+  if (mod->tree->nnodes < 3)
+    die("ERROR tm_prune: tree has %i nodes (should have at least 3)\n", 
+	mod->tree->nnodes);
 
   lst_clear(names);
   for (i = 0; i < msa->nseqs; i++)
@@ -3008,7 +3025,8 @@ void tm_reset_tree(TreeModel *mod,   /** TreeModel */
    nodes. */
 void tm_set_ignore_branches(TreeModel *mod, List *ignore_branches) {
   int j;
-  assert(mod->ignore_branch == NULL);
+  if (mod->ignore_branch != NULL)
+    die("ERROR tm_set_ignore_branches: mod->ignore_branch is not NULL\n");
   mod->ignore_branch = smalloc(mod->tree->nnodes * sizeof(int));
   for (j = 0; j < mod->tree->nnodes; j++) 
     mod->ignore_branch[j] = FALSE;

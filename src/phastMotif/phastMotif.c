@@ -190,7 +190,9 @@ int main(int argc, char *argv[]) {
       if (lst_size(tmpl) != 2) die("ERROR: bad argument to -P.\n");
       nmostprevalent = lst_get_int(tmpl, 0);
       tuple_size = lst_get_int(tmpl, 1);
-      assert(nmostprevalent > 0 && tuple_size > 0);
+      if (!(nmostprevalent > 0 && tuple_size > 0))
+	die("ERROR: bad argument nmostprevalent=%i tuple_size=%i\n", 
+	    nmostprevalent, tuple_size);
       lst_free(tmpl);
       break;
     case 'R':
@@ -198,7 +200,8 @@ int main(int argc, char *argv[]) {
       if (lst_size(tmpl) != 2) die("ERROR: bad argument to -R.\n");
       nsamples = lst_get_int(tmpl, 0);
       tuple_size = lst_get_int(tmpl, 1);
-      assert(nsamples > 0 && tuple_size > 0);
+      if (!(nsamples > 0 && tuple_size > 0))
+	die("ERROR nsamples=%i tuple_sizse=%i\n", nsamples, tuple_size);
       lst_free(tmpl);
       break;
     case 'c':

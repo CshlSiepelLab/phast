@@ -15,17 +15,16 @@
 */
 
 #include <gff.h>
-#include <assert.h>
 #include <ctype.h>
-#include <misc.h>
 #include <hashtable.h>
+#include <misc.h>
 
 /** Fill out a GFF_Set from a BED file. */
 void gff_read_from_bed(GFF_Set *gff, FILE *F) {
   String *line = str_new(STR_MED_LEN);
   List *l = lst_new_ptr(12), *block_sizes = lst_new_ptr(10), 
     *block_starts = lst_new_ptr(10);
-  int i, error = 0, lineno = 0, id = 1;
+  int i, is_error = 0, lineno = 0, id = 1;
   char group[STR_MED_LEN];
   Hashtable *hash = hsh_new(10000);
 
@@ -51,7 +50,7 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
       if (lst_size(l) < 3 ||
           str_as_int(lst_get_ptr(l, 1), &start) != 0 ||
           str_as_int(lst_get_ptr(l, 2), &end) != 0)  
-        error = 1;
+        is_error = 1;
       else {
         chrom = lst_get_ptr(l, 0);
         start++;                /* switch to GFF coord convention */
@@ -76,26 +75,26 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
         
       if (lst_size(l) >= 5) {
         if ((str_as_int(lst_get_ptr(l, 4), &score) != 0))
-          error = 1;
+          is_error = 1;
         score_is_null = 0;
       }
       if (lst_size(l) >= 6 && 
           (((String*)lst_get_ptr(l, 5))->length != 1 ||
            ((strand = ((String*)lst_get_ptr(l, 5))->chars[0]) != '+' &&
             strand != '-' && strand != '.')))
-        error = 1;
-      if (lst_size(l) >= 10 && !error) { /* multiple features for line */
-        if (lst_size(l) < 12) error = 1;
+        is_error = 1;
+      if (lst_size(l) >= 10 && !is_error) { /* multiple features for line */
+        if (lst_size(l) < 12) is_error = 1;
         else {
           int bl_size = 0, bl_start = 0;
           /* just ignore block count */
           str_split(lst_get_ptr(l, 10), ",", block_sizes);
           str_split(lst_get_ptr(l, 11), ",", block_starts);
-          if (lst_size (block_sizes) != lst_size(block_starts)) error = 1;
-          for (i = 0; !error && i < lst_size(block_sizes); i++) {
+          if (lst_size (block_sizes) != lst_size(block_starts)) is_error = 1;
+          for (i = 0; !is_error && i < lst_size(block_sizes); i++) {
             if (str_as_int(lst_get_ptr(block_sizes, i), &bl_size) != 0 ||
                 str_as_int(lst_get_ptr(block_starts, i), &bl_start) != 0)
-              error = 1;
+              is_error = 1;
             else {
               lst_push_ptr(gff->features, 
                            gff_new_feature(str_dup(chrom), str_dup(source), 
@@ -109,7 +108,7 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
           lst_free_strings(block_starts);
         }
       }      
-      else if (!error) {        /* single feature for line */
+      else if (!is_error) {        /* single feature for line */
         lst_push_ptr(gff->features, 
                      gff_new_feature(str_dup(chrom), str_dup(source), 
                                      str_dup(feature), start, end, score, 
@@ -117,10 +116,8 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
                                      str_new_charstr(group), score_is_null));
       }
 
-      if (error) {
-        fprintf(stderr, "ERROR in line %d of BED file.\n", lineno);
-        exit(1);
-      }
+      if (is_error) 
+        die("ERROR in line %d of BED file.\n", lineno);
     }
 
     lst_free_strings(l);
