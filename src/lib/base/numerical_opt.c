@@ -19,10 +19,7 @@
 #include <vector.h>
 #include <external_libs.h>
 
-/* Numerical optimization of multidimensional functions by the
-   "variable metric" or "quasi-Newton" Broyden-Fletcher-Goldfarb-
-   Shanno (BFGS) algorithm; see Numerical Recipes in C (Press et al),
-   section 10.7 (Second Edition, 1992, as reprinted 2002). */
+/* Numerical optimization of one-dimensional and multi-dimensional functions */
 
 #define DERIV_EPSILON 1e-6      /* for numerical computation of
                                    derivatives */
@@ -345,26 +342,26 @@ void check_H(Matrix *H, Vector *at_bounds){
 #endif
 
 
-/* Find a minimum of the specified function with the BFGS algorithm,
-   starting at the specified parameter values.  The implementation
-   here closely follows the one presented in Press et al.  The
-   parameter "f" is the function to be minimized, "params" are the
+/* Find a minimum of the specified function with the "quasi-Newton"
+   Broyden-Fletcher-Goldfarb-Shanno (BFGS) algorithm starting at the
+   specified parameter values.  The implementation here is loosely
+   based on the one in Numerical Recipes in C (Press et al), section
+   10.7 (Second Edition, 1992, as reprinted 2002).
+
+   The parameter "f" is the function to be minimized, "params" are the
    parameters to the function, "data" is auxiliary data to pass the
    function, "retval" will be assigned the function value at the
    minimum, upper_bounds and lower_bounds define boundaries for
    parameters (vector pointers of NULL indicate no boundary).  A log
    will be written to "logf" (set to NULL to disable logging).  On
    exit, "params" will hold the values that minimize the function.
-   Returns a non-zero value on error.  
+   Returns a non-zero value on error.
 
-   NOTE: I have layered on top of Press et al.'s BFGS algorithm the
-   capability to obey parameter bounds, piecing together a strategy
-   from the PAML source code (which has a sparsely-documented
-   implementation of BFGS with bounds) and from some reading on the
-   web.  Instead of explicitly moving between the complete
+   NOTE: This implementation supports bounding of parameters, using a
+   simple method.  Instead of explicitly moving between the complete
    n-dimensional space (for n parameters) and a reduced space in which
-   parameters at the boundary are fixed, I simulate the reduction in
-   dimension by zeroing out certain rows and columns of matrices and
+   parameters at the boundary are fixed, the reduction in dimension is
+   simulated by zeroing out certain rows and columns of matrices and
    elements of vectors.  This strategy avoids some complexity in
    coding.  */
 
@@ -789,33 +786,14 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
 /* Given a point "xold", the value of the function "f" and its gradient
    "g" at that point, and a direction "p", find a new point "x" along
    "p" from "xold" such that "f" is minimized or has "decreased
-   sufficiently" (see Press et al., pp 383-386).  "p" is generally the
-   Newton direction, or an approximation of it (as in the BFGS
-   algorithm).  This routine ensures progress will occur toward
-   convergence on every iteration, even far from a solution (unlike in
-   a straightforward implementation of Newton's method).  The idea is
-   to try the full Newton step (when close to the solution it will
-   be optimal) but to require that any step taken must reduce
-   the function value; if it does not, "backtrack" along "p" until an
-   acceptable point is reached.  One key insight is that "f" need not
-   be absolutely minimized along "p"; indeed, minimizing it can be
-   extremely wasteful of function evaluations.  Instead, any new point
-   along "p" is acceptable as long as two criteria are met: the
-   average rate of decrease of the function must be at least a
-   fraction alpha of the initial rate of decrease (given by the
-   gradient), and the rate of decrease at the new point be greater
-   than a fraction beta of the initial rate of decrease.  The first
-   must be imposed explicitly but the second evidently falls out of the
-   backtracking strategy.  See Press et al. for details.
+   sufficiently" (see Press et al., pp 383-386).  
 
    The parameter "stpmax" limits the length of the step (to help avoid
    sending the function into undefined regions).  The value
    "check_convergence" is true when the routine terminates due to a
-   new point falling too close to the old one.  In a minimization
-   algorithm this apparently tends to happen only at convergence, and
-   thus the flag can be ignored; but in a zero-finding algorithm it
-   should be examined.  The parameter "nevals" will incremented each
-   time the function is evaluated.  Function returns the value of
+   new point falling too close to the old one (can typically be
+   ignored in minimziation).  The parameter "nevals" will incremented
+   each time the function is evaluated.  Function returns the value of
    the final scaling factor for "p" (lambda). */
 void opt_lnsrch(Vector *xold, double fold, Vector *g, Vector *p, 
                 Vector *x, double *f, double stpmax, 
@@ -937,8 +915,7 @@ void opt_log(FILE *logf, int header_only, double val, Vector *params,
 }
 
 /***************************************************************************
- Implementation of Brent's method; very slightly adapted from
- Numerical Recipes in C.
+ Brent's method
 ****************************************************************************/
 
 #define ITMAX_BRENT 100
@@ -962,46 +939,46 @@ double opt_brent(double ax, double bx, double cx,
         the returned function value. */
 {
   int iter;
-  double a,b,d=0,etemp,fu,fv,fw,fx,p,q,r,tol1,tol2,u,v,w,x,xm;
-  double e=0.0;                  /*  This will be the distance moved on
-                                    the step before last. */
-  a=(ax < cx ? ax : cx);        /* a and b must be in ascending order, 
-                                   but input abscissas need not be. */
-  b=(ax > cx ? ax : cx);
-  x=w=v=bx;                     /*  Initializations... */
-  fw=fv=fx=(*f)(x, data);
+  double a, b, d=0, etemp, fu, fv, fw, fx, p, q, r, tol1, tol2, u, v, w, x, xm;
+  double e = 0.0;                  /*  This will be the distance moved on
+                                       the step before last. */
+  a = (ax < cx ? ax : cx);        /* a and b must be in ascending order, 
+                                     but input abscissas need not be. */
+  b = (ax > cx ? ax : cx);
+  x = w = v = bx;  
+  fw = fv = fx = (*f)(x, data);
   if (logf != NULL) 
-    fprintf(logf, "opt_brent:\nStarting with x_a = %f, x_b = %f, x_c = %f, f(x_b) = %f\n", ax, bx, cx, fx);
-  for (iter=1;iter<=ITMAX_BRENT;iter++) { /* Main program loop. */
-    xm=0.5*(a+b);
-    tol2=2.0*(tol1=tol*fabs(x)+ZEPS);
-    if (fabs(x-xm) <= (tol2-0.5*(b-a))) { /* Test for done here. */
-      *xmin=x;
+    fprintf(logf, "opt_brent:\nStarting with x_a = %f, x_b = %f, x_c = %f, f(x_b) = %f\n", 
+            ax, bx, cx, fx);
+  for (iter = 1; iter <= ITMAX_BRENT; iter++) { 
+    xm = 0.5 * (a + b);
+    tol2 = 2.0 * (tol1 = tol * fabs(x) + ZEPS);
+    if (fabs(x - xm) <= (tol2 - 0.5 * (b - a))) { 
+      *xmin = x;
       if (logf != NULL) 
         fprintf(logf, "Returning x_min = %f, f(x_min) = %f\n", x, fx);
       return fx;
     }
-    if (fabs(e) > tol1) {       /* Construct a trial parabolic fit. */
-      r=(x-w)*(fx-fv);
-      q=(x-v)*(fx-fw);
-      p=(x-v)*q-(x-w)*r;
-      q=2.0*(q-r);
-      if (q > 0.0) p = -p;
-      q=fabs(q);
-      etemp=e;
-      e=d;
+    if (fabs(e) > tol1) { 
+      r = (x - w) * (fx - fv);
+      q = (x - v) * (fx - fw);
+      p = (x - v) * q - (x - w) * r;
+      q = 2.0 * (q - r);
+      if (q > 0.0) 
+        p = -p;
+      q = fabs(q);
+      etemp = e;
+      e = d;
       if (fabs(p) >= fabs(0.5*q*etemp) || p <= q*(a-x) || p >= q*(b-x))
-        d=CGOLD*(e=(x >= xm ? a-x : b-x));
-      /* The above conditions determine the acceptability of the
-         parabolic fit. Here we take the golden section step into the
-         larger of the two segments. */
+        d = CGOLD * (e=(x >= xm ? a-x : b-x));
       else {
-        d=p/q;                  /* Take the parabolic step. */
-        u=x+d;
+        d = p/q;
+        u = x + d;
         if (u-a < tol2 || b-u < tol2)
-          d=SIGN(tol1,xm-x);
+          d = SIGN(tol1, xm-x);
       }
-    } else {
+    } 
+    else {
       d=CGOLD*(e=(x >= xm ? a-x : b-x));
     }
     u=(fabs(d) >= tol1 ? x+d : x+SIGN(tol1,d));
@@ -1010,27 +987,33 @@ double opt_brent(double ax, double bx, double cx,
       fprintf(logf, "u = %f, f(u) = %f\n", u, fu);
       fflush(logf);
     }
-    /* This is the one function evaluation per iteration. */
-    if (fu <= fx) {             /* Now decide what to do with our
-                                   function evaluation.  */
-      if (u >= x) a=x; else b=x;
-      SHFT(v,w,x,u)             /* Housekeeping follows: */
-        SHFT(fv,fw,fx,fu)
-        } else {
-          if (u < x) a=u; else b=u;
-          if (fu <= fw || w == x) {
-            v=w;
-            w=u;
-            fv=fw;
-            fw=fu;
-          } else if (fu <= fv || v == x || v == w) {
-            v=u;
-            fv=fu;
-          }
-        } /* Done with housekeeping. Back for another iteration. */ 
+    if (fu <= fx) { 
+      if (u >= x) 
+        a = x; 
+      else 
+        b = x;
+      SHFT(v, w, x, u)
+      SHFT(fv, fw, fx, fu)
+    } 
+    else {
+      if (u < x) 
+        a = u; 
+      else 
+        b = u;
+      if (fu <= fw || w == x) {
+        v = w;
+        w = u;
+        fv = fw;
+        fw = fu;
+      } 
+      else if (fu <= fv || v == x || v == w) {
+        v = u;
+        fv = fu;
+      }
+    }
   }
-  die("ERROR: exceeded max iterations in brent.\n");
-  return -1;                    /* never get here */
+  die("ERROR: exceeded maximum number of iterations in brent.\n");
+  return -1;                    
 }
 
 #define GOLD 1.618034
@@ -1049,73 +1032,63 @@ void mnbrak(double *ax, double *bx, double *cx, double *fa, double *fb,
         the function. Also returned are the function values at the
         three points, fa, fb, and fc. */
 {
-  double ulim,u,r,q,fu,dum;
-  *fa=(*func)(*ax, data);
-  *fb=(*func)(*bx, data);
+  double ulim, u, r, q, fu, dum;
+  *fa = (*func)(*ax, data);
+  *fb = (*func)(*bx, data);
   if (logf != NULL)
     fprintf(logf, "opt_mnbrak:\nx_a = %f, f(x_a) = %f\nx_b = %f, f(x_b) = %f\n", 
             *ax, *fa, *bx, *fb);
-  if (*fb > *fa) {              /* Switch roles of a and b so that we
-                                   can go downhill in the direction
-                                   from a to b.*/
-    SHFT(dum,*ax,*bx,dum) 
-    SHFT(dum,*fb,*fa,dum)
-      }
-  *cx=(*bx)+GOLD*(*bx-*ax);     /* First guess for c. */
-  *fc=(*func)(*cx, data);
-  while (*fb > *fc) {           /* Keep returning here until we
-                                   bracket. */
+  if (*fb > *fa) {             
+    SHFT(dum, *ax, *bx, dum) 
+    SHFT(dum, *fb, *fa, dum)
+  }
+  *cx = (*bx) + GOLD * (*bx-*ax); 
+  *fc = (*func)(*cx, data);
+  while (*fb > *fc) {   
     if (logf != NULL)
       fprintf(logf, "x_a = %f, f(x_a) = %f\nx_b = %f, f(x_b) = %f\nx_c = %f, f(x_c) = %f\n", 
               *ax, *fa, *bx, *fb, *cx, *fc);
-    r=(*bx-*ax)*(*fb-*fc);      /* Compute u by parabolic
-                                   extrapolation from a, b, c. TINY is
-                                   used to prevent any possible
-                                   division by zero. */
-    q=(*bx-*cx)*(*fb-*fa);
-    u=(*bx)-((*bx-*cx)*q-(*bx-*ax)*r)/
-      (2.0*SIGN(max(fabs(q-r),TINY),q-r));
-    ulim=(*bx)+GLIMIT*(*cx-*bx);
-    /* We wont go farther than this. Test various possibilities: */
-    if ((*bx-u)*(u-*cx) > 0.0) { /* Parabolic u is between b and c:
-                                    try it. */
-      fu=(*func)(u, data);
-      if (fu < *fc) {           /* Got a minimum between b and c. */
-        *ax=(*bx);
-        *bx=u;
-        *fa=(*fb);
-        *fb=fu;
+    r = (*bx-*ax)*(*fb-*fc);  
+    q = (*bx-*cx)*(*fb-*fa);
+    u = (*bx) - ((*bx - *cx) * q - (*bx - *ax) * r) /
+      (2.0 * SIGN(max(fabs(q - r), TINY), q - r));
+    ulim = (*bx) + GLIMIT * (*cx - *bx);
+
+    if ((*bx - u) * (u - *cx) > 0.0) { 
+      fu = (*func)(u, data);
+      if (fu < *fc) {           
+        *ax = (*bx);
+        *bx = u;
+        *fa = (*fb);
+        *fb = fu;
         return;
-      } else if (fu > *fb) {    /* Got a minimum between between a and
-                                   u. */
+      } 
+      else if (fu > *fb) {    
         *cx=u;
         *fc=fu;
         return;
       }
-      u=(*cx)+GOLD*(*cx-*bx);   /* Parabolic fit was no use. Use
-                                   default magnification. */
-      fu=(*func)(u, data);
-    } else if ((*cx-u)*(u-ulim) > 0.0) { /* Parabolic fit is between c
-                                            and its allowed limit.  */
-      fu=(*func)(u, data);
+      u = (*cx) + GOLD * (*cx - *bx);   
+      fu = (*func)(u, data);
+    } 
+    else if ((*cx - u) * (u - ulim) > 0.0) {
+      fu = (*func)(u, data);
       if (fu < *fc) {
         SHFT(*bx,*cx,u,*cx+GOLD*(*cx-*bx))
-          SHFT(*fb,*fc,fu,(*func)(u, data))
-          }
-    } else if ((u-ulim)*(ulim-*cx) >= 0.0) { /* Limit parabolic u to
-                                                maximum allowed
-                                                value.  */
-      u=ulim;
-      fu=(*func)(u, data);
-    } else {                    /* Reject parabolic u, use default
-                                   magnification. */
+        SHFT(*fb,*fc,fu,(*func)(u, data))
+      }
+    } 
+    else if ((u-ulim)*(ulim-*cx) >= 0.0) {
+      u = ulim;
+      fu = (*func)(u, data);
+    } 
+    else {                   
       u=(*cx)+GOLD*(*cx-*bx);
       fu=(*func)(u, data);
     }
-    SHFT(*ax,*bx,*cx,u)         /* Eliminate oldest point and
-                                   continue. */
-      SHFT(*fa,*fb,*fc,fu)
-      }
+    SHFT(*ax,*bx,*cx,u)       
+    SHFT(*fa,*fb,*fc,fu)
+  }
   if (logf != NULL)
     fprintf(logf, "(final)\nx_a = %f, f(x_a) = %f\nx_b = %f, f(x_b) = %f\nx_c = %f, f(x_c) = %f\n", 
               *ax, *fa, *bx, *fb, *cx, *fc);
