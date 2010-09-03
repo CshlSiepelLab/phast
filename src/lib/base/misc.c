@@ -509,10 +509,9 @@ int bn_draw(int N, double p) {
 }
 
 /* Make a draw from a binomial distribution with parameters 'n' and
-   'pp'.  This version is adapted slightly from Numerical Recipes in C
-   (pp 223-224) and uses rejection sampling unless n < 25 or n * p <
-   1/25; it takes constant expected time.  Be sure to call srandom
-   externally.  */
+   'pp'.  This version uses rejection sampling unless n < 25 or n * p <
+   1/25.  It takes constant expected time.  Be sure to call srandom
+   externally. */
 int bn_draw_fast(int n, double pp) {
   int j;
   static int nold = -1;
@@ -555,15 +554,17 @@ int bn_draw_fast(int n, double pp) {
                                    comparison function */
     do {
       do {
-	angle = M_PI * unif_rand();
+        angle = M_PI * unif_rand();
         y = tan(angle);
         em = sq * y + am;
-      } while(em < 0 || em >= en + 1); /* reject */
+      } 
+      while(em < 0 || em >= en + 1); /* reject */
       em = floor(em);
       t = 1.2*sq*(1+y*y)* 
         exp(oldg - lgamma(em+1) - lgamma(en-em+1) + 
             em*plog + (en-em)*pclog);
-    } while (unif_rand() > t);
+    } 
+    while (unif_rand() > t);
     bn1 = em;
   }
 
@@ -801,12 +802,12 @@ void dirichlet_draw(int k, double *alpha, double *theta) {
   normalize_probs(theta, k);
 }
 
-/* incomplete gamma function; see Numerical Recipes in C */
+/* incomplete gamma function */
 double incomplete_gamma(double a, 
 			double x, 
 			char type /* 'p' means first half of integral,
 				     'q' means second half; see p. 171 */
-			) {
+                        ) {
   double gln;
   int n;
   double retval = -1;
@@ -826,8 +827,8 @@ double incomplete_gamma(double a,
       del *= x/ap;
       sum += del;
       if (fabs(del) < fabs(sum) * 3.0e-7) {
-	retval = sum * exp(-x + a * log(x) - gln);
-	break;
+        retval = sum * exp(-x + a * log(x) - gln);
+        break;
       }
     }
   }
@@ -845,12 +846,12 @@ double incomplete_gamma(double a,
       a1 = x * a0 + anf * a1;
       b1 = x * b0 + anf * b1;
       if (a1) {
-	fac = 1/a1;
-	g = b1 * fac;
-	if (fabs((g - gold) / g) < 3.0e-7) {
-	  retval = 1 - exp(-x + a * log(x) - gln) * g;
-	  break;
-	}
+        fac = 1/a1;
+        g = b1 * fac;
+        if (fabs((g - gold) / g) < 3.0e-7) {
+          retval = 1 - exp(-x + a * log(x) - gln) * g;
+          break;
+        }
       }
       gold = g;
     }
