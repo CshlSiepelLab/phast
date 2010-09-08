@@ -2,20 +2,17 @@
 # this file defines variables used by all Makefiles
 ###########################################################################
 
-# Gets the Operating System type i.e. Linux or Mac
-UNAME := $(shell uname -s)
-
-# Points to top-level directory of PHAST installation
+# set below to point to top-level directory of PHAST installation
 ifndef PHAST
-PHAST=$(shell expr match ${PWD} '\(.*\)/src.*')
+PHAST=${HOME}/phast
 endif
 # (if you prefer, you can set the environment variable PHAST instead)
 
 # specify alternative compiler or utilities if necessary
-CC = lsbcc -fno-stack-protector -m32
+CC = gcc
 AR = ar
 # Enable this CC and AR for windows builds
-#CC = lsbcc -fno-stack-protector
+#CC = /usr/bin/i586-mingw32msvc-gcc
 #AR = /usr/bin/i586-mingw32msvc-ar
 LN = ln
 
@@ -75,24 +72,21 @@ endif
 # phastCons, exoniphy, and phyloFit) will not be usable.
 
 # vecLib on Mac OS X; uncomment to use
-ifeq ($(UNAME), Darwin)
-  VECLIB = T
-endif
+#VECLIB = T
 
 # separately installed CLAPACK; uncomment CLAPACKPATH definition and
 # set appropriately to use
-ifndef VECLIB
- CLAPACKPATH = /usr/projects/phast/dailybuild/lsbCLAPACK-3.2.1
- # for windows use the pre-compiled clapack libraries bundled with phast
- #CLAPACKPATH = /usr/projects/phast/dailybuild/lsbCLAPACK-3.2.1
- # platform-specific suffix used for CLAPACK libraries; use the same
- # value as in CLAPACK's "make.inc" file 
- PLAT = _LINUX
- # PLAT is empty for windows builds
- #PLAT = _LINUX
- # F2C libraries used by CLAPACK; most users won't need to edit
- F2CPATH = ${CLAPACKPATH}/F2CLIBS
-endif
+CLAPACKPATH = /usr/local/software/CLAPACK
+# for windows use the pre-compiled clapack libraries bundled with phast
+#CLAPACKPATH = ${PHAST}/src/lib/clapack/windows
+# platform-specific suffix used for CLAPACK libraries; use the same
+# value as in CLAPACK's "make.inc" file 
+PLAT = _x86
+# PLAT is empty for windows builds
+#PLAT = 
+# F2C libraries used by CLAPACK; most users won't need to edit
+F2CPATH = ${CLAPACKPATH}/F2CLIBS
+
 
 # if neither VECLIB nor CLAPACKPATH is defined, then LAPACK will be
 # bypassed altogether
