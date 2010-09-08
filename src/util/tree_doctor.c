@@ -172,10 +172,6 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt_long(argc, argv, "s:p:P:g:m:r:R:B:S:D:adtNbnh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
@@ -257,6 +253,8 @@ int main(int argc, char *argv[]) {
 
   if (merge_tree != NULL && extrapolate_tree != NULL)
     die("ERROR: Can't use --merge and --extrapolate together");
+
+  set_seed(-1);
     
   suffix = str_new_charstr(argv[optind]);
   str_suffix(suffix, '.');

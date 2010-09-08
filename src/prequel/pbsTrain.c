@@ -35,6 +35,7 @@ int main(int argc, char *argv[]) {
   int nrows = -1, nbytes = 1;
   training_mode mode = FULL;
   FILE *logf = NULL;
+  struct timeval now;
 
   struct option long_opts[] = {
     {"nrows", 1, 0, 'n'},
@@ -46,9 +47,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate();  //seed R's random number generator
-#endif
+  set_seed(-1);
 
   /* first capture arg list for comment in output */
   for (i = 1; i < argc; i++) {

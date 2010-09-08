@@ -124,10 +124,6 @@ int main(int argc, char* argv[]) {
   GFF_Set *gff;
   char *reverse_groups_tag = NULL;
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt(argc, argv, "i:g:c:m:M:R:I:n:t:P:G:qh")) != -1) {
     switch(c) {
     case 'i':
@@ -184,6 +180,8 @@ int main(int argc, char* argv[]) {
     die("ERROR: -I requires -t.  Type 'hmm_train -h' for usage.\n");
   if (cm == NULL) 
     die("ERROR: category map required.\n");
+
+  set_seed(-1);
   
   ncats = cm->ncats + 1;
   ncats_unspooled = cm->unspooler != NULL ? cm->unspooler->nstates_unspooled : 

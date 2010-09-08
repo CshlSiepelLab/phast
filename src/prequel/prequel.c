@@ -49,9 +49,6 @@ int main(int argc, char *argv[]) {
   List *seqlist = NULL;
   PbsCode *code = NULL;
   int gibbs_nsamples = -1;
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
 
   while ((c = getopt_long(argc, argv, "r:i:s:e:knxSh", long_opts, &opt_idx)) != -1) {
     switch (c) {
@@ -94,6 +91,8 @@ int main(int argc, char *argv[]) {
 
   if (optind != argc - 3)
     die("Three arguments required.  Try 'prequel -h'.\n");
+
+  set_seed(-1);
 
   if (!do_probs && (suff_stats || code != NULL))
     die("ERROR: --no-probs can't be used with --suff-stats or --encode.\n");

@@ -43,10 +43,6 @@ int main(int argc, char *argv[]) {
   char c;
   String *suffix;
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt(argc, argv, "dbvs")) != -1) {
     switch(c) {
     case 'd':
@@ -72,6 +68,8 @@ int main(int argc, char *argv[]) {
     print_usage();
     exit(1);
   }
+  
+  set_seed(-1);
 
   suffix = str_new_charstr(argv[optind]);
   str_suffix(suffix, '.');

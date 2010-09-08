@@ -31,9 +31,6 @@ int main(int argc, char *argv[]) {
 
   /* options and defaults */
   int start = -1, end = -1, discard_gaps = FALSE;
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
 
   while ((c = getopt_long(argc, argv, "s:e:Gh", long_opts, &opt_idx)) != -1) {
     switch (c) {
@@ -56,6 +53,8 @@ int main(int argc, char *argv[]) {
 
   if (optind != argc - 2) 
     die("Two arguments required.  Try 'pbsDecode -h'.\n");
+
+  set_seed(-1);
     
   prob_f = fopen_fname(argv[optind], "rb");
   code = pbs_new_from_file(fopen_fname(argv[optind+1], "r"));

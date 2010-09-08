@@ -26,10 +26,6 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt_long(argc, argv, "h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'h':
@@ -42,6 +38,8 @@ int main(int argc, char *argv[]) {
 
   if (optind != argc - 2 && optind != argc - 5) 
     die("ERROR: Wrong number of arguments.  Try 'modFreqs -h'.\n");
+
+  set_seed(-1);
 
   mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
 

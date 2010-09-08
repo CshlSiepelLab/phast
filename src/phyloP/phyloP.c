@@ -19,8 +19,9 @@ int main(int argc, char *argv[]) {
   msa_format_type msa_format = FASTA;
 
   /* other variables */
-  int opt_idx;
+  int opt_idx, seed = -1;
   List *cats_to_do_str=NULL;
+  struct timeval now;
 
   struct option long_opts[] = {
     {"method", 1, 0, 'm'},
@@ -43,15 +44,18 @@ int main(int argc, char *argv[]) {
     {"gff-scores", 0, 0, 'g'},
     {"do-cats", 1, 0, 'C'},
     {"catmap", 1, 0, 'M'},
+    {"seed", 1, 0, 'd'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
+#ifndef RPHAST
+  /* set seed for sampling */
+  gettimeofday(&now, NULL);
+  srandom(now.tv_usec);
 #endif
 
-  while ((c = getopt_long(argc, argv, "m:o:i:n:pc:s:f:Fe:l:r:B:qwgbN:h", 
+  while ((c = getopt_long(argc, argv, "m:o:i:n:pc:s:f:Fe:l:r:B:d:qwgbN:h", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'm':
@@ -137,6 +141,9 @@ int main(int argc, char *argv[]) {
     case 'M':
       p->cm = cm_new_string_or_file(optarg);
       break;
+    case 'd':
+      seed = get_arg_int_bounds(optarg, 1, INFTY);
+      break;
     case 'h':
       printf(HELP);
       exit(0);
@@ -144,6 +151,8 @@ int main(int argc, char *argv[]) {
       die("Bad argument.  Try 'phyloP -h'.\n");
     }
   }
+
+  set_seed(seed);
 
   if ((p->prior_only && optind > argc - 1) || 
       (!p->prior_only && optind != argc - 2))

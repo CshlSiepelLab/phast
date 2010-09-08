@@ -76,10 +76,6 @@ int main(int argc, char *argv[]) {
   List *mod_fname_list;
   msa_format_type msa_format = SS;
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt_long(argc, argv, 
 			  "S:H:V:ni:k:l:C:G:zt:E:R:T:O:r:xL:sN:P:g:U:c:e:IY:D:JM:F:pA:Xqh", 
                           long_opts, &opt_idx)) != -1) {
@@ -258,6 +254,8 @@ int main(int argc, char *argv[]) {
   if ((!coding_potential && optind != argc - 2) ||
       (coding_potential && optind != argc - 2 && optind != argc - 1))
     die("ERROR: extra or missing arguments.  Try '%s -h'.\n", argv[0]);
+
+  set_seed(-1);
 
   if (p->extrapolate_tree_fname != NULL &&
       !strcmp(p->extrapolate_tree_fname, "default")) {

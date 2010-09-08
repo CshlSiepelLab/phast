@@ -157,6 +157,7 @@ double sym_rel_entropy(double *p, double *q, int d) {
 int random();
 void srandom(int seed);
 #endif
+void set_seed(int seed);
 void choose(int *selections, int N, int k);
 void permute(int *permutation, int N);
 char* get_codon_mapping(char *alphabet);
@@ -166,10 +167,6 @@ void get_tuple_str(char *tuple_str, int tuple_idx, int tuple_size,
 Matrix* read_subst_mat(FILE *F, char *alph);
 FILE* fopen_fname(const char *fname, char *mode);
 #ifdef RPHAST
-/*#include <R_ext/Error.h>
-#include <Rmath.h>
-#include <R_ext/Random.h>
-#include <R_ext/Print.h>*/
 #undef Rf_error
 #undef die
 #include <R.h>
@@ -178,9 +175,13 @@ FILE* fopen_fname(const char *fname, char *mode);
 #define printf Rprintf
 int rphast_fprintf(FILE *f, const char *format, ...);
 #define fprintf rphast_fprintf
+#define checkInterrupt() R_CheckUserInterrupt()
+#define checkInterruptN(i, n) if ((i)%(n) == 0) R_CheckUserInterrupt()
 #else
 void phast_warning(const char *warnfmt, ...);
 void die(const char *warnfmt, ...);
+#define checkInterrupt()
+#define checkInterruptN(i,n)
 #define unif_rand(void) (1.0*random()/RAND_MAX)
 #endif
 List *get_arg_list(char *arg);

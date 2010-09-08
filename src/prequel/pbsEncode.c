@@ -34,9 +34,7 @@ int main(int argc, char *argv[]) {
   /* variables for options, with defaults */
   int discard_gaps = FALSE;
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
+  set_seed(-1);
 
   while ((c = getopt_long(argc, argv, "Gh", long_opts, &opt_idx)) != -1) {
     switch (c) {

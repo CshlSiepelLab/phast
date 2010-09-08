@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
   int *labels = NULL, *path_to_cat, *reverse_compl;
   GFF_Set *feats;
   char c;
-  int opt_idx, i, j;
+  int opt_idx, i, j, seed = -1;
   List *l;
   struct timeval now;
 
@@ -43,15 +43,12 @@ int main(int argc, char *argv[]) {
     {"features", 1, 0, 'f'},
     {"catmap", 1, 0, 'c'},
     {"embed", 1, 0, 'e'},
+    {"seed", 1, 0, 's'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
-  while ((c = getopt_long(argc, argv, "n:o:f:c:e:h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "n:o:f:c:e:s:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'n':
       nsites = get_arg_int_bounds(optarg, 1, INFTY);
@@ -71,6 +68,9 @@ int main(int argc, char *argv[]) {
       l = get_arg_list(optarg);
       embed_mod = tm_new_from_file(fopen_fname(((String*)lst_get_ptr(l, 0))->chars, "r"));
       embed_len = get_arg_dbl_bounds(((String*)lst_get_ptr(l, 1))->chars, 1, INFTY);
+      break;
+    case 's':
+      seed = get_arg_int_bounds(optarg, 1, INFTY);
       break;
     case 'h':
       printf(HELP);
@@ -105,12 +105,8 @@ int main(int argc, char *argv[]) {
   /* generate alignment and labels */
   if (features_fname != NULL)
     labels = smalloc(nsites * sizeof(int));
-#ifndef RPHAST
-  gettimeofday(&now, NULL);
-  srandom(now.tv_usec);         /* use microseconds to avoid using
-                                   same seed in rapidly repeated
-                                   calls */
-#endif
+
+  set_seed(seed);
 
   msa = tm_generate_msa(nsites, hmm, mods, labels);
 

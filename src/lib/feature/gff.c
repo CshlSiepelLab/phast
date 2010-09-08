@@ -59,6 +59,7 @@ GFF_Set* gff_read_set(FILE *F) {
   lineno = 0;
   while (str_readline(line, F) != EOF) {
     lineno++;
+    checkInterruptN(lineno, 10000);
 
     str_double_trim(line);
     if (line->length == 0) continue;
@@ -332,8 +333,10 @@ GFF_Set *gff_new_from_template(GFF_Set *gff) {
 GFF_Set *gff_set_copy(GFF_Set *gff) {
   GFF_Set *rv = gff_new_from_template(gff);
   int i;
-  for (i=0; i < lst_size(gff->features); i++)
+  for (i=0; i < lst_size(gff->features); i++) {
+    checkInterruptN(i, 10000);
     lst_push_ptr(rv->features, gff_new_feature_copy(lst_get_ptr(gff->features, i)));
+  }
   return rv;
 }
 
@@ -400,8 +403,10 @@ void gff_print_set(FILE *F, GFF_Set *set) {
     fprintf(F, "##%s %s\n", GFF_DATE_TAG, set->date->chars);
 
   if (set->features != NULL)
-    for (i = 0; i < lst_size(set->features); i++) 
+    for (i = 0; i < lst_size(set->features); i++) {
+      checkInterruptN(i, 1000);
       gff_print_feat(F, (GFF_Feature*)lst_get_ptr(set->features, i));
+    }
 }
 
 /** Print an individual GFF_Feature object as a GFF line. */
@@ -440,8 +445,10 @@ GFF_Feature *gff_new_feature_copy(GFF_Feature *orig) {
 GFF_Set *gff_copy_set_no_groups(GFF_Set *orig) {
   GFF_Set *gff = gff_new_from_template(orig);
   int i;
-  for (i=0; i< lst_size(orig->features); i++)
+  for (i=0; i< lst_size(orig->features); i++) {
+    checkInterruptN(i+1, 10000);
     lst_push_ptr(gff->features, gff_new_feature_copy((GFF_Feature*)lst_get_ptr(orig->features, i)));
+  }
   return gff;
 }
 
@@ -464,6 +471,7 @@ GFF_Set *gff_subset_range(GFF_Set *set, int startcol, int endcol,
   /* Note: uses linear search */
   for (i = 0; i < lst_size(set->features); i++) {
     GFF_Feature *feat = (GFF_Feature*)lst_get_ptr(set->features, i);
+    checkInterruptN(i, 1000);
     if (feat->start >= startcol && feat->end <= endcol) {
       GFF_Feature *newfeat = gff_new_feature_copy(feat);
       if (reset_indices) {
@@ -486,6 +494,7 @@ GFF_Set *gff_subset_range_overlap(GFF_Set *set, int startcol, int endcol) {
   /* Note: uses linear search */
   for (i = 0; i < lst_size(set->features); i++) {
     GFF_Feature *feat = (GFF_Feature*)lst_get_ptr(set->features, i);
+    checkInterruptN(i, 1000);
     if (feat->start <= endcol && feat->end >= startcol) {
       GFF_Feature *newfeat = gff_new_feature_copy(feat);
       if (subset == NULL) {
@@ -515,6 +524,7 @@ GFF_Set *gff_subset_range_overlap_sorted(GFF_Set *set, int startcol, int endcol,
   /* Note: uses linear search */
   for (i = *startSearchIdx; i < lst_size(set->features); i++) {
     GFF_Feature *feat = (GFF_Feature*)lst_get_ptr(set->features, i);
+    checkInterruptN(i, 1000);
     if (feat->start <= endcol && feat->end >= startcol) {
       GFF_Feature *newfeat = gff_new_feature_copy(feat);
       if (subset == NULL) {
@@ -551,6 +561,7 @@ void gff_filter_by_type(GFF_Set *gff,
   for (i = 0; i < lst_size(gff->features); i++) {
     GFF_Feature *f = lst_get_ptr(gff->features, i);
     int in_list = str_in_list(f->feature, types);
+    checkInterruptN(i, 1000);
 
     if ((in_list == TRUE && exclude == FALSE) || 
         (in_list == FALSE && exclude == TRUE))
@@ -574,6 +585,7 @@ int gff_reverse_strand_only(List *features) {
   int i, impossible = 0, possible = 0;
   for (i = 0; !impossible && i < lst_size(features); i++) {
     GFF_Feature *feat = (GFF_Feature*)lst_get_ptr(features, i);
+    checkInterruptN(i, 1000);
     if (feat->strand == '-') 
       possible = 1;
     else if (feat->strand == '+')
@@ -604,6 +616,7 @@ void gff_reverse_compl(List *features,
   for (i = 0; i < lst_size(features); i++) {
     GFF_Feature *feat = lst_get_ptr(features, i);
     int tmp = feat->start;
+    checkInterruptN(i, 1000);
     feat->start = end_range - feat->end + start_range;
     feat->end = end_range - tmp + start_range;
     if (feat->strand == '-') feat->strand = '+';
@@ -612,6 +625,7 @@ void gff_reverse_compl(List *features,
   /* also reverse order of features (will generally be in ascending order) */
   for (i = 0; i < lst_size(features)/2; i++) {
     GFF_Feature *tmp = lst_get_ptr(features, i);
+    checkInterruptN(i, 1000);
     lst_set_ptr(features, i, 
                 lst_get_ptr(features, lst_size(features)-i-1));
     lst_set_ptr(features, lst_size(features)-i-1, tmp);
@@ -661,6 +675,7 @@ void gff_sort(GFF_Set *set) {
     lst_clear(set->features);
     for (i = 0; i < lst_size(set->groups); i++) {
       GFF_FeatureGroup *group = lst_get_ptr(set->groups, i);
+      checkInterrupt();
       for (j = 0; j < lst_size(group->features); j++)
         lst_push_ptr(set->features, lst_get_ptr(group->features, j));
     }
@@ -706,6 +721,7 @@ void gff_group(GFF_Set *set, char *tag) {
     GFF_Feature *f = lst_get_ptr(set->features, i);
     String *val = nullstr;
     GFF_FeatureGroup *group;
+    checkInterruptN(i, 1000);
     lst_clear(l);
 
     if (f->attribute->length > taglen && /* avoid checking empty
@@ -759,6 +775,7 @@ void gff_group_by_feature(GFF_Set *set) {
   for (i = 0; i < lst_size(set->features); i++) {
     GFF_Feature *f = lst_get_ptr(set->features, i);
     GFF_FeatureGroup *group;
+    checkInterruptN(i, 1000);
     
     if ((group = hsh_get(hash, f->feature->chars)) == (void*)-1) {
                                 /* new group */
@@ -796,6 +813,7 @@ void gff_group_by_seqname(GFF_Set *set) {
   for (i = 0; i < lst_size(set->features); i++) {
     GFF_Feature *f = lst_get_ptr(set->features, i);
     GFF_FeatureGroup *group;
+    checkInterruptN(i, 1000);
     
     if ((group = hsh_get(hash, f->seqname->chars)) == (void*)-1) {
                                 /* new group */
@@ -845,6 +863,7 @@ int gff_group_by_seqname_existing_group(GFF_Set *set, GFF_Set *model) {
   for (i=0; i < lst_size(set->features); i++) {
     GFF_Feature *f = lst_get_ptr(set->features, i);
     GFF_FeatureGroup *group;
+    checkInterruptN(i, 1000);
     if ((group = hsh_get(hash, f->seqname->chars)) != (void*)-1) {
       if (group->start == -1 || f->start < group->start) 
 	group->start = f->start;
@@ -908,8 +927,10 @@ void gff_exon_group(GFF_Set *set, /**< Set to process  */
     GFF_FeatureGroup *group = lst_get_ptr(groups, i);
     int idx = 0;
     GFF_Feature *lastfeat = NULL;
+    checkInterrupt();
     for (j = 0; j < lst_size(group->features); j++) {
       GFF_Feature *f = lst_get_ptr(group->features, j);
+      checkInterruptN(j+1, 1000);
       if (lastfeat == NULL || f->start > lastfeat->end + 1 || 
           f->strand != lastfeat->strand) 
         idx++;
@@ -964,6 +985,7 @@ void gff_remove_overlaps(GFF_Set *gff,
     GFF_FeatureGroup *group = lst_get_ptr(gff->groups, i);
     double score = 0;
     int has_scores = FALSE;
+    checkInterrupt();
 
     /* get a rough "score" to use in deciding which of a pair of
        overlapping groups to keep.  Use sum of scores of features, or
@@ -1076,6 +1098,7 @@ void gff_fix_start_stop(GFF_Set *gff) {
   for (i = 0; i < lst_size(gff->groups); i++) {
     GFF_Feature *f, *start = NULL, *stop = NULL;
     GFF_FeatureGroup *g = lst_get_ptr(gff->groups, i);
+    checkInterrupt();
     /* first scan for start and/or stop codon */
     for (j = 0; j < lst_size(g->features); j++) {
       f = lst_get_ptr(g->features, j);
@@ -1124,6 +1147,7 @@ void gff_absorb_helpers(GFF_Set *feats, List *primary_types,
     GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
     for (j = 0; j < lst_size(g->features); j++) {
       GFF_Feature *f = lst_get_ptr(g->features, j);
+      checkInterruptN(j, 1000);
       if (str_in_list(f->feature, primary_types)) {
         /* extend to left */
         for (k = j-1; k >= 0; k--) {
@@ -1168,6 +1192,7 @@ void gff_add_gene_id(GFF_Set *feats) {
     GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
     for (j = 0; j < lst_size(g->features); j++) {
       GFF_Feature *f = lst_get_ptr(g->features, j);
+      checkInterruptN(j, 1000);
       sprintf(tmp, "gene_id \"%s\" ; %s", g->name->chars, f->attribute != NULL ?
               f->attribute->chars : "");
       str_cpy_charstr(f->attribute, tmp);
@@ -1229,6 +1254,7 @@ void gff_create_utrs(GFF_Set *feats) {
     lst_clear(exons);
     for (j = 0; j < lst_size(g->features); j++) {
       GFF_Feature *f = lst_get_ptr(g->features, j);
+      checkInterruptN(j, 1000);
 
       if (str_equals_charstr(f->feature, GFF_CDS_TYPE)) {
         if (f->start < cds_start) cds_start = f->start;
@@ -1283,6 +1309,7 @@ void gff_create_introns(GFF_Set *feats) {
     lst_clear(exons);
     for (j = 0; j < lst_size(g->features); j++) {
       GFF_Feature *f = lst_get_ptr(g->features, j);
+      checkInterruptN(j, 1000);
       if (str_equals_charstr(f->feature, GFF_EXON_TYPE)) 
         lst_push_ptr(exons, f);
     }    
@@ -1321,6 +1348,7 @@ void gff_create_signals(GFF_Set *feats) {
     /* first scan for strand and start/end of cds and transcript */
     for (j = 0; j < lst_size(g->features); j++) {
       GFF_Feature *f = lst_get_ptr(g->features, j);
+      checkInterruptN(j, 1000);
       if (str_equals_charstr(f->feature, GFF_CDS_TYPE)) {
         if (f->start < cds_start) cds_start = f->start;
         if (f->end > cds_end) cds_end = f->end;
@@ -1338,6 +1366,7 @@ void gff_create_signals(GFF_Set *feats) {
     for (j = 0; j < lst_size(g->features); j++) {
       GFF_Feature *f = lst_get_ptr(g->features, j);
       GFF_Feature *f_new;
+      checkInterruptN(j, 1000);
       if (str_equals_charstr(f->feature, GFF_CDS_TYPE) &&
           f->end - f->start + 1 >= 3) {
                                 /* don't create if shorter than 3 b.p. */
@@ -1414,6 +1443,7 @@ int gff_group_idx(GFF_Set *feats, GFF_Feature *f, int *pos) {
   for (i=0; i<lst_size(feats->groups); i++) {
     grp = (GFF_FeatureGroup*)lst_get_ptr(feats->groups, i);
     for (j=0; j<lst_size(grp->features); j++) {
+      checkInterruptN(j, 1000);
       if ((GFF_Feature*)lst_get_ptr(grp->features, j) == f) {
 	if (pos != NULL) *pos = j;
 	return i;
@@ -1453,6 +1483,7 @@ void gff_flatten_sub(GFF_Set *feats, int keepGroups) {
 
   for (i = 1; i < lst_size(feats->features); i++) {
     GFF_Feature *this = lst_get_ptr(feats->features, i);
+    checkInterruptN(i, 1000);
     if (last->end >= this->start - 1 && last->strand == this->strand && 
 	str_equals(last->feature, this->feature) && 
 	last->frame == GFF_NULL_FRAME && this->frame == GFF_NULL_FRAME) {
@@ -1519,6 +1550,7 @@ void gff_flatten_within_groups(GFF_Set *feats) {
 
   for (i = 1; i < lst_size(feats->features); i++) {
     GFF_Feature *this = lst_get_ptr(feats->features, i);
+    checkInterruptN(i, 1000);
     if (last->end >= this->start - 1 && last->strand == this->strand && 
 	str_equals(last->feature, this->feature) && 
 	last->frame == GFF_NULL_FRAME && this->frame == GFF_NULL_FRAME) {
@@ -1553,6 +1585,7 @@ void gff_partition_by_type(GFF_Set *feats, List *types, List *subsets) {
   lst_clear(subsets);
   for (i = 0; i < lst_size(feats->features); i++) {
     GFF_Feature *f = lst_get_ptr(feats->features, i);
+    checkInterruptN(i, 1000);
     if (!str_in_list_idx(f->feature, types, &idx)) {
       lst_push_ptr(types, f->feature);
       lst_push_ptr(subsets, lst_new_ptr(max(1, lst_size(feats->features) / 10)));
@@ -1567,6 +1600,7 @@ void gff_clear_set(GFF_Set *gff) {
   int i;
   GFF_Feature *f;
   for (i = 0; i < lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     f = lst_get_ptr(gff->features, i);
     gff_free_feature(f);
   }
@@ -1586,6 +1620,7 @@ void gff_add_offset(GFF_Set *gff, int offset, int maxCoord) {
   GFF_Feature *feat;
   int i;
   for (i=0; i < lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     feat = (GFF_Feature*)lst_get_ptr(gff->features, i);
     feat->start += offset;
     feat->end += offset;
@@ -1609,6 +1644,7 @@ int *gff_get_seqname(GFF_Set *gff, Hashtable *seqname_hash, int *nseq) {
   int i, *rv;
   rv = smalloc(lst_size(gff->features)*sizeof(int));
   for (i=0; i<lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     feat = lst_get_ptr(gff->features, i);
     rv[i] = hsh_get_int(seqname_hash, feat->seqname->chars);
     if (rv[i] == -1) {
@@ -1643,6 +1679,7 @@ GFF_Set *gff_overlap_gff(GFF_Set *gff, GFF_Set *filter_gff, int numbaseOverlap,
   gff_sort_within_groups(filter_gff);
   
   for (g=0; g<lst_size(gff->groups); g++) {
+    checkInterrupt();
     group1 = lst_get_ptr(gff->groups, g);
     group2 = lst_get_ptr(filter_gff->groups, g);
     group_size[0] = lst_size(group1->features);
@@ -1654,6 +1691,7 @@ GFF_Set *gff_overlap_gff(GFF_Set *gff, GFF_Set *filter_gff, int numbaseOverlap,
     }
     feat2 = (GFF_Feature*)lst_get_ptr(group2->features, feat2_start_idx);
     for (i=0; i < lst_size(group1->features); i++) {
+      checkInterruptN(i, 1000);
       feat1 = (GFF_Feature*)lst_get_ptr(group1->features, i);
       overlapStart = -1;
       overlapEnd = -1;
@@ -1748,6 +1786,7 @@ int gff_flatten_mergeAll(GFF_Set *gff) {
     numbits += (last->end - last->start + 1);
     lst_push_ptr(newfeats, last);   //always keep first feature
     for (j=1; j<lst_size(group->features); j++) {
+      checkInterruptN(j, 1000);
       this = lst_get_ptr(group->features, j);
       if (this->start <= last->end) {  //merge with previous
 	if (last->end < this->end) {
@@ -1805,6 +1844,7 @@ GFF_Set *gff_inverse(GFF_Set *gff, GFF_Set *region0) {
     regionStart = regionFeat->start;
     regionEnd = regionFeat->end;
     for (i=0; i < lst_size(gffG->features); i++) {
+      checkInterruptN(i, 1000);
       currFeat = lst_get_ptr(gffG->features, i);
       currStart = currFeat->start;
       currEnd = currFeat->end;
@@ -1859,6 +1899,7 @@ GFF_Set *gff_split(GFF_Set *gff, int *maxlen, int nmaxlen, int drop,
   GFF_Feature *feat, *newfeat;
   int i, idx=0, start, end, sidx=0;
   for (i=0; i < lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     feat = lst_get_ptr(gff->features, i);
     start = feat->start;
     end = feat->end;

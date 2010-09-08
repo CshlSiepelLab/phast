@@ -41,10 +41,6 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt_long(argc, argv, "i:H:AIh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'i':
@@ -68,6 +64,8 @@ int main(int argc, char *argv[]) {
       die("Bad argument.  Try 'indelHistory -h'.\n");
     }
   }
+
+  set_seed(-1);
 
   if (read_hist_fname != NULL) {
     fprintf(stderr, "Reading indel history from %s...\n", read_hist_fname);

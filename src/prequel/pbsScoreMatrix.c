@@ -34,9 +34,6 @@ int main(int argc, char *argv[]) {
 
   /* argument variables and defaults */
   enum {FULL, HALF, NONE} pbs_mode = FULL;
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
 
   while ((c = getopt_long(argc, argv, "a:b:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
@@ -61,6 +58,8 @@ int main(int argc, char *argv[]) {
     die("Two input filenames required.  Try 'pbsScoreMatrix -h'.\n");
   else if (pbs_mode == NONE && optind != argc - 1) 
     die("One input filenames required.  Try 'pbsScoreMatrix -h'.\n");
+  
+  set_seed(-1);
     
   mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
   

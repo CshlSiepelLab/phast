@@ -39,10 +39,6 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt_long(argc, argv, "g:p:t:T:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'g':
@@ -73,6 +69,8 @@ int main(int argc, char *argv[]) {
 
   if (optind != argc - 1) 
     die("Bad arguments.  Try 'makeHKY -h'.\n");
+
+  set_seed(-1);
     
   kappa = get_arg_dbl_bounds(argv[optind], 0, INFTY);
 

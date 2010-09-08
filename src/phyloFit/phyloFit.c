@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
   char *msa_fname = NULL, *alph = "ACGT";
   msa_format_type input_format = FASTA;
   char c;
-  int opt_idx;
+  int opt_idx, seed=-1;
   String *optstr;
   List *tmplist = NULL; 
   struct phyloFit_struct *pf;
@@ -89,16 +89,13 @@ int main(int argc, char *argv[]) {
     {"clock", 0, 0, 'z'},
     {"alt-mod", 1, 0, 'd'},
     {"bound", 1, 0, 'u'},
+    {"seed", 1, 0, 'D'},
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   pf = phyloFit_struct_new(0);
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:u:Y:e:GVENDRTqLPXZUBFfnrzhWy", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:u:Y:e:D:GVENRTqLPXZUBFfnrzhWy", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -276,6 +273,9 @@ int main(int argc, char *argv[]) {
       optstr = str_new_charstr(optarg);
       lst_push_ptr(pf->bound_arg, optstr);
       break;
+    case 'D':
+      seed = get_arg_int_bounds(optarg, 1, INFTY);
+      break;
     case 'h':
       printf("%s", HELP);
       exit(0);
@@ -283,6 +283,8 @@ int main(int argc, char *argv[]) {
       die("ERROR: illegal argument.     Type 'phyloFit -h' for usage.\n");
     }
   }
+
+  set_seed(seed);
 
   if (msa_fname == NULL) {
     if (optind >= argc) 

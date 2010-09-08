@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
   /* other variables */
   FILE *INF, *F;
   char c;
-  int i, j, opt_idx, nparams = -1;
+  int i, j, opt_idx, nparams = -1, seed = -1;
   String *tmpstr;
   List **estimates;
   double *p = NULL;
@@ -141,16 +141,11 @@ int main(int argc, char *argv[]) {
     {"subtree-scale", 1, 0, 'l'},
     {"scale", 1, 0, 'P'},
     {"scale-file", 1, 0, 'F'},
+    {"seed", 1, 0, 'D'},
     {0, 0, 0, 0}
   };
-
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#else
-  srandom(time(NULL));
-#endif
-
-  while ((c = getopt_long(argc, argv, "L:n:i:d:a:m:o:xR:qht:s:k:Ep:M:S:w:l:P:F:r", 
+  
+  while ((c = getopt_long(argc, argv, "L:n:i:d:a:m:o:xR:qht:s:k:Ep:M:S:w:l:P:F:D:r", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'L':
@@ -252,10 +247,15 @@ int main(int argc, char *argv[]) {
     case 'r':
       random_init = 1;
       break;
+    case 'D':
+      seed = get_arg_int_bounds(optarg, 1, INFTY);
+      break;
     case '?':
       die("Bad argument.  Try '%s -h'.\n", argv[0]);
     }
   }
+
+  set_seed(seed);
 
   if ((subtreeScale!=1.0 || subtreeSwitchProb!=0.0) &&
       subtreeName==NULL)

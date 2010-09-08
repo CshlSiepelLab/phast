@@ -64,10 +64,6 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt_long(argc, argv, "r:M:i:t:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'r':
@@ -97,6 +93,8 @@ int main(int argc, char *argv[]) {
 
   if (optind != argc - 3) 
     die("Three arguments required.  Try 'dlessP -h'.\n");
+
+  set_seed(-1);
 
   /* read input files; do alignment last, because it may be slow */
 

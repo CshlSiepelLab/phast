@@ -461,10 +461,6 @@ int main(int argc, char* argv[]) {
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt_long(argc, argv, "i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:X:fuDVxPzRSk4mh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
@@ -608,6 +604,8 @@ int main(int argc, char* argv[]) {
     msa_fname_list = remaining_arg_list(argv, argc, optind);
   else 
     die("ERROR: Too many arguments.  Try 'msa_view -h' for help.\n");
+
+  set_seed(-1);
 
   if (gff != NULL && lst_size(gff->features) == 0)
     die("ERROR: empty features file.\n");

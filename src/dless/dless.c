@@ -69,10 +69,6 @@ int main(int argc, char *argv[]) {
   char *seqname = NULL, *idpref = NULL;
   IndelHistory *ih = NULL;
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt_long(argc, argv, "R:t:p:E:C:r:M:i:N:P:I:H:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
@@ -164,6 +160,8 @@ int main(int argc, char *argv[]) {
 
   if ((gamma != -1 && omega == -1) || (gamma == -1 && omega != -1))
     die("ERROR: --target-coverage and --expecteed-length must be used together.\n");
+
+  set_seed(-1);
 
   if (gamma != -1)
     nu = gamma/(1-gamma) * mu;

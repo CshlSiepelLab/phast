@@ -303,10 +303,23 @@ void phast_warning(const char *warnfmt, ...) {
   va_end(args);
 }
 
+void set_seed(int seed) {
+  if (seed < 0) {
+    struct timeval now;
+    gettimeofday(&now, NULL);
+    srandom(now.tv_usec);
+  } else srandom(seed);
+}
 
 #endif
 
 #ifdef RPHAST
+
+//seed is ignored in RPHAST mode!
+void set_seed(int seed) {
+  GetRNGstate();
+}
+
 
 int rphast_fprintf(FILE *f, const char *format, ...) {
   va_list args;

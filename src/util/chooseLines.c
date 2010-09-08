@@ -34,11 +34,6 @@ int main(int argc, char *argv[]) {
   int *chosen;
   char c;
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
-
   while ((c = getopt(argc, argv, "k:rh")) != -1) {
     switch (c) {
     case 'k':
@@ -57,6 +52,8 @@ int main(int argc, char *argv[]) {
 
   if (optind != argc - 1) 
     die("Input filename required.  Try '%s -h'.\n", argv[0]);
+  
+  set_seed(-1);
 
   INF = fopen_fname(argv[optind], "r");
 

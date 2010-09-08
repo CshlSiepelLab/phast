@@ -53,10 +53,6 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt_long(argc, argv, "a:b:t:Lcf:r:l:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'a':
@@ -97,6 +93,8 @@ int main(int argc, char *argv[]) {
     die("WARNING: --log ignored.\n");
   if (feats != NULL && (columns || lnl_only))
     die("ERROR: can't use --features with --lnl or --columns.\n");
+
+  set_seed(-1);
 
   ih = ih_new_from_file(fopen_fname(argv[optind], "r"));
   tree = tr_new_from_file(fopen_fname(argv[optind+1], "r"));

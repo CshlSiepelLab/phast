@@ -255,6 +255,7 @@ SEXP rph_gff_new(SEXP seqnameP, SEXP srcP, SEXP featureP, SEXP startP, SEXP endP
   gff = gff_new_set_len(gfflen);
 
   for (i=0; i<gfflen; i++) {
+    checkInterruptN(i, 1000);
     seqname = str_new_charstr(CHAR(STRING_ELT(seqnameP, i)));
     source = str_new_charstr(CHAR(STRING_ELT(srcP, i)));
     feature = str_new_charstr(CHAR(STRING_ELT(featureP, i)));
@@ -290,6 +291,7 @@ SEXP rph_gff_minCoord(SEXP gffP) {
   int i, mincoord=-1;
   SEXP rv;
   for (i=0; i<lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     f = (GFF_Feature*)lst_get_ptr(gff->features, i);
     if (i==0 || f->start < mincoord)
       mincoord = f->start;
@@ -308,6 +310,7 @@ SEXP rph_gff_maxCoord(SEXP gffP) {
   int i, maxcoord=-1;
   SEXP rv;
   for (i=0; i<lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     f = (GFF_Feature*)lst_get_ptr(gff->features, i);
     if (i==0 || f->end > maxcoord)
       maxcoord = f->end;
@@ -326,6 +329,7 @@ SEXP rph_gff_starts(SEXP gffP) {
   SEXP rv;
   PROTECT(rv = allocVector(INTSXP, lst_size(gff->features)));
   for (i=0; i<lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     f = (GFF_Feature*)lst_get_ptr(gff->features, i);
     INTEGER(rv)[i] = f->start;
   }
@@ -341,6 +345,7 @@ SEXP rph_gff_ends(SEXP gffP) {
   SEXP rv;
   PROTECT(rv = allocVector(INTSXP, lst_size(gff->features)));
   for (i=0; i<lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     f = (GFF_Feature*)lst_get_ptr(gff->features, i);
     INTEGER(rv)[i] = f->end;
   }
@@ -356,6 +361,7 @@ SEXP rph_gff_scores(SEXP gffP) {
   SEXP rv;
   PROTECT(rv = allocVector(REALSXP, lst_size(gff->features)));
   for (i=0; i<lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     f = (GFF_Feature*)lst_get_ptr(gff->features, i);
     REAL(rv)[i] = f->score;
   }
@@ -371,6 +377,7 @@ SEXP rph_gff_strand(SEXP gffP) {
   SEXP rv;
   PROTECT(rv = allocVector(STRSXP, lst_size(gff->features)));
   for (i=0; i < lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     f = (GFF_Feature*)lst_get_ptr(gff->features, i);
     if (f->strand == '+')
       SET_STRING_ELT(rv, i, mkChar("+"));
@@ -391,6 +398,7 @@ SEXP rph_gff_seqnames(SEXP gffP) {
   SEXP rv;
   PROTECT(rv = allocVector(STRSXP, lst_size(gff->features)));
   for (i=0; i < lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     f = (GFF_Feature*)lst_get_ptr(gff->features, i);
     SET_STRING_ELT(rv, i, mkChar(f->seqname->chars));
   }
@@ -406,6 +414,7 @@ SEXP rph_gff_features(SEXP gffP) {
   SEXP rv;
   PROTECT(rv = allocVector(STRSXP, lst_size(gff->features)));
   for (i=0; i < lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     f = (GFF_Feature*)lst_get_ptr(gff->features, i);
     SET_STRING_ELT(rv, i, mkChar(f->feature->chars));
   }
@@ -434,6 +443,7 @@ SEXP rph_gff_one_attribute(SEXP gffP, SEXP tagP) {
   l1 = lst_new_ptr(10);
   l2 = lst_new_ptr(10);
   for (i=0; i < lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     resultLen=0;
     f = (GFF_Feature*) lst_get_ptr(gff->features, i);
     numtag = str_split_with_quotes(f->attribute, ";", l1);  //split tags
@@ -578,6 +588,7 @@ SEXP rph_gff_featureBits(SEXP gffListP, SEXP orP, SEXP returnGffP) {
 			     1, -1.0, FALSE, TRUE);
     numbit = gff_flatten_mergeAll(newgff);
     for (i=2; i < numGff; i++) {
+      checkInterrupt();
       gff = gff_overlap_gff(newgff,
 			    lst_get_ptr(gfflist, i),
 			    1, -1.0, FALSE, TRUE);
@@ -590,6 +601,7 @@ SEXP rph_gff_featureBits(SEXP gffListP, SEXP orP, SEXP returnGffP) {
     for (i=0; i< numGff; i++) {
       gff = (GFF_Set*)lst_get_ptr(gfflist, i);
       for (j=0; j < lst_size(gff->features); j++) {
+	checkInterruptN(j, 1000);
 	feat = lst_get_ptr(gff->features, j);
 	newfeat = gff_new_feature_copy(feat);
 	lst_push_ptr(newgff->features, newfeat);
@@ -614,6 +626,7 @@ SEXP rph_gff_append(SEXP gffListP) {
   for (i=0 ; i<length(gffListP); i++) {
     gff = (GFF_Set*)EXTPTR_PTR(VECTOR_ELT(gffListP, i));
     for (j=0; j < lst_size(gff->features); j++) {
+      checkInterruptN(j, 1000);
       lst_push_ptr(newgff->features, 
 		   gff_new_feature_copy(lst_get_ptr(gff->features, j)));
     }

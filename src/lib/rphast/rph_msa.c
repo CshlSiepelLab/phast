@@ -141,6 +141,7 @@ SEXP rph_msa_reduce_to_4d(SEXP msaP, SEXP gffP) {
   msa_free_categories(msa);
   if (msa->ss != NULL) ss_free_categories(msa->ss);
   for (i=0; i<lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     f = lst_get_ptr(gff->features, i);
     if (f->frame == GFF_NULL_FRAME) f->frame = 0;
     if (fourD_refseq == NULL) 
@@ -197,6 +198,7 @@ SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
   if (msa->idx_offset !=0) {
     for (i=0; i<lst_size(gff->features); i++) {
       GFF_Feature *f = lst_get_ptr(gff->features, i);
+      checkInterruptN(i, 1000);
       f->start -= msa->idx_offset;
       f->end -= msa->idx_offset;
     }
@@ -273,6 +275,7 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
     tupleSize=1;
     for (i=0; i<lst_size(gff->features); i++) {
       GFF_Feature *f = lst_get_ptr(gff->features, i);
+      checkInterruptN(i, 1000);
       if (f->frame == GFF_NULL_FRAME) f->frame = 0;
       if (fourD_refseq == NULL) fourD_refseq = f->seqname;
       else if (!str_equals(fourD_refseq, f->seqname))
@@ -618,6 +621,7 @@ SEXP rph_msa_square_brackets(SEXP msaP, SEXP rowsP, SEXP colsP) {
   names = smalloc(nrow*sizeof(char*));
   seqs = smalloc(nrow*sizeof(char*));
   for (i=0; i < nrow; i++) {
+    checkInterrupt();
     if (rows == NULL) spec = i;
     else {
       spec = rows[i]-1; //convert to 0-based numbers from R indices
@@ -799,6 +803,7 @@ SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP gffP, SEXP byColumnP) {
     }
     msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
     for (i=0; i < lst_size(gff->features); i++) {
+      checkInterruptN(i, 1000);
       feat=(GFF_Feature*)lst_get_ptr(gff->features, i);
       start = max(feat->start-1, 0);
       end = min(feat->end, msa->length);
@@ -946,6 +951,7 @@ SEXP rph_msa_split_by_gff(SEXP msaP, SEXP gffP) {
   /* convert GFF to coordinate frame of alignment */
   if (msa->idx_offset != 0)
     for (i=0; i < lst_size(gff->features); i++) {
+      checkInterruptN(i, 1000);
       feat = lst_get_ptr(gff->features, i);
       starts[i] = feat->start;
       feat->start -= msa->idx_offset;
@@ -1015,3 +1021,5 @@ SEXP rph_msa_informative_feats(SEXP msaP,
   if (numprotect > 0) UNPROTECT(numprotect);
   return rph_gff_new_extptr(feats);
 }
+
+

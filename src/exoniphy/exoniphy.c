@@ -106,10 +106,6 @@ int main(int argc, char* argv[]) {
   char tmpstr[STR_LONG_LEN];
   String *fname_str = str_new(STR_LONG_LEN), *str;
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt_long(argc, argv, "i:D:c:H:m:s:p:g:B:T:L:F:IW:N:n:b:e:A:xSYUhq", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
@@ -196,6 +192,8 @@ int main(int argc, char* argv[]) {
 
   if (optind != argc - 1) 
     die("ERROR: alignment filename is required argument.  Try 'exoniphy -h' for help.\n");
+
+  set_seed(-1);
 
   if(data_path == NULL) {
     data_path = str_new(strlen(PHAST_HOME)+strlen("/data")+1);

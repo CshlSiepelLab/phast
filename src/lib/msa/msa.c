@@ -246,7 +246,7 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
   List *names = lst_new_ptr(10);
   List *seqs = lst_new_ptr(10);
   static Regex *descrip_re = NULL;
-  int maxlen, i, nseqs, j, do_toupper;
+  int maxlen, i, nseqs, j, do_toupper, line_no;
   String *line = str_new(STR_MED_LEN);
   List *l = lst_new_ptr(2);
   String *new_str = NULL;
@@ -255,6 +255,7 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
   if (descrip_re == NULL) 
     descrip_re = str_re_new("[[:space:]]*>[[:space:]]*([^[:space:]]+)");
 
+  line_no=1;
   while ((str_readline(line, F)) != EOF) {
     if (str_re_match(line, descrip_re, l, 1) > 0) {
       lst_push_ptr(names, lst_get_ptr(l, 1));
@@ -272,6 +273,7 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
       die("ERROR in FASTA file: non-blank line preceding first description ('>') line.\n");
 
     str_append(new_str, line);
+    checkInterruptN(line_no++, 1000);
   }
 
   if (lst_size(seqs) == 0)
@@ -356,11 +358,13 @@ void msa_print(FILE *F, MSA *msa, msa_format_type format, int pretty_print) {
     for (i = 0; i < msa->nseqs; i++) 
       fprintf(F, "%s\n", msa->names[i]);
   for (i = 0; i < msa->nseqs; i++) {
+    checkInterrupt();
     if (format == PHYLIP)
       fprintf(F, "%-10s\n", msa->names[i]);
     else if (format == FASTA)
       fprintf(F, "> %s\n", msa->names[i]);
     for (j = 0; j < msa->length; j += OUTPUT_LINE_LEN) {
+      checkInterruptN(j, 100);
       for (k = 0; k < OUTPUT_LINE_LEN && j + k < msa->length; k++) 
         if (pretty_print && i > 0 && msa->seqs[i][j+k] == msa->seqs[0][j+k])
           fprintf(F, ".");
@@ -454,6 +458,7 @@ void reduce_to_4d(MSA *msa, CategoryMap *cm) {
   ss_new(new_msa, tuple_size, msa->length, 0, 0);
 
   for (i=0; i<msa->length; i++) {
+    checkInterruptN(i, 10000);
     if (msa->categories[i] == cat_pos3[0]) {  //3rd codon position on plus strand
       if (i < 2 || 
 	  msa->categories[i-2] != cat_pos3[0]-2 ||
@@ -581,6 +586,7 @@ void msa_strip_gaps(MSA *msa, int gap_strip_mode) {
     die("ERROR msa_strip_gaps: bad strip mode\n");
   k = 0;
   for (i = 0; i < msa->length; i++) {
+    checkInterrupt();
     strip = (gap_strip_mode == STRIP_ALL_GAPS);
     for (j = 0; j < msa->nseqs; j++) {
       c = msa->seqs[j][i];
@@ -616,6 +622,7 @@ void msa_project(MSA *msa, int refseq) {
 	refseq, msa->nseqs);
   k = 0;
   for (i = 0; i < msa->length; i++) {
+    checkInterruptN(i, 10000);
     if (msa->seqs[refseq-1][i] != GAP_CHAR) {
       for (j = 0; k != i && j < msa->nseqs; j++)
         msa->seqs[j][k] = msa->seqs[j][i];

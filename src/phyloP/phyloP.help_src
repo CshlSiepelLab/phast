@@ -214,6 +214,12 @@ OPTIONS:
         Write log to <fname> describing details of parameter optimization.
         Useful for debugging.  (Warning: may produce large file.)
 
+    --seed, -d <seed>
+        Provide a random number seed, should be an integer >=1.  Random
+        numbers are used in some cases to generate starting values for
+        optimization.  If not specified will use a seed based on the
+	current time.
+
     --help, -h
         Produce this help message.
 

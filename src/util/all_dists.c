@@ -58,10 +58,6 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt_long(argc, argv, "mt:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'm':
@@ -82,6 +78,8 @@ int main(int argc, char *argv[]) {
 
   if (optind > argc - 1) 
     die("Input filename required.  Try '%s -h'.\n", argv[0]);
+
+  set_seed(-1);
 
   /* build a comma-delimited list and pass to get_arg_list; allows
      possibility of reading from file via '*' operator */

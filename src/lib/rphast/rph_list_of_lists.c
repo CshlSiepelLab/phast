@@ -28,6 +28,7 @@ SEXP rph_listOfLists_to_SEXP(ListOfLists *lol) {
     numprotect++;
   }
   for (col=0; col < listlen; col++) {
+    checkInterrupt();
     lstType = lst_get_int(lol->lstType, col);
     if (lstType == LIST_LIST) {
       PROTECT(tempvec = 

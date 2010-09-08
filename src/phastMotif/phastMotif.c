@@ -147,11 +147,6 @@ int main(int argc, char *argv[]) {
   char c;
   GFF_Set *bedfeats = NULL;
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
-
   while ((c = getopt(argc, argv, "t:i:b:sk:md:pn:I:R:P:w:c:SB:o:HDxh")) != -1) {
     switch (c) {
     case 't':
@@ -244,6 +239,8 @@ int main(int argc, char *argv[]) {
       (nsamples > 0 && init_list != NULL) || 
       (nmostprevalent > 0 && init_list != NULL)) 
     die("ERROR: -I, -P, and -R are mutually exclusive.");
+
+  set_seed(-1);
     
   msa_name_list = get_arg_list(argv[optind]);
 

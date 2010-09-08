@@ -60,10 +60,6 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt_long(argc, argv, "H:N::h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'H':
@@ -83,6 +79,8 @@ int main(int argc, char *argv[]) {
 
   if ((H == -1 && optind != argc - 4) || (H != -1 && optind != argc - 2))
     die("Missing mandatory arguments.  Try '%s -h'.\n", argv[0]);
+
+  set_seed(-1);
     
   target_coverage = get_arg_dbl_bounds(argv[optind], 0, 1);
   expected_len = get_arg_dbl_bounds(argv[optind+1], 0, INFTY);

@@ -51,10 +51,6 @@ int main(int argc, char *argv[]) {
   char c;
   String *source, *sink;
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt(argc, argv, "k:i:t:C:xh")) != -1) {
     switch(c) {
     case 'k':
@@ -88,6 +84,8 @@ int main(int argc, char *argv[]) {
 
   if (indel_cats != NULL && tree == NULL) 
     die("Must specify -t with -i.  Try 'hmm_view -h' for help.\n");
+
+  set_seed(-1);
 
   hmm = hmm_new_from_file(fopen_fname(argv[optind], "r"));
   cm = cm_new_string_or_file(argv[optind+1]);

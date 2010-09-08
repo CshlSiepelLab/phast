@@ -91,6 +91,34 @@ SEXP rph_hmm_new(SEXP matrixP, SEXP eqFreqP, SEXP beginFreqP,
 }
 
 
+SEXP rph_hmm_new_from_file(SEXP filenameP) {
+  HMM *hmm;
+  FILE *f = fopen_fname(CHARACTER_VALUE(filenameP), "r");
+  hmm = hmm_new_from_file(f);
+  fclose(f);
+  return rph_hmm_new_extptr(hmm);
+}
+
+
+SEXP rph_hmm_print(SEXP hmmP, SEXP filenameP, SEXP appendP) {
+  FILE *f=stdout;
+  HMM *hmm;
+  char *mode;
+  if (filenameP != R_NilValue) {
+    if (LOGICAL_VALUE(appendP))
+      mode="a";
+    else mode="w";
+    f = fopen_fname(CHARACTER_VALUE(filenameP), mode);
+  }
+  hmm = (HMM*)EXTPTR_PTR(hmmP);
+  hmm_print(f, hmm);
+  if (f != stdout) fclose(f);
+  return R_NilValue;
+}
+  
+  
+
+
 /* return the matrix */
 SEXP rph_hmm_transMat(SEXP hmmP) {
   HMM *hmm = (HMM*)EXTPTR_PTR(hmmP);
@@ -135,6 +163,8 @@ SEXP rph_hmm_endFreq(SEXP hmmP) {
   HMM *hmm = (HMM*)EXTPTR_PTR(hmmP);
   ListOfLists *lol;
   SEXP result;
+  if (hmm->end_transitions == NULL)
+    return R_NilValue;
   lol = lol_new(1);
   lol_push_dbl(lol, hmm->end_transitions->data, hmm->end_transitions->size, 
 	       "endFreq");

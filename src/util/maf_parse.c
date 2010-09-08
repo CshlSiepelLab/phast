@@ -289,10 +289,6 @@ int main(int argc, char* argv[]) {
     {0, 0, 0, 0}
   };
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt_long(argc, argv, "s:e:l:O:r:S:d:g:c:P:b:o:pLnxEIh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 's':
@@ -373,6 +369,8 @@ int main(int argc, char* argv[]) {
     maf_fname = argv[optind];
   else 
     die("ERROR: Too many arguments.  Try 'maf_parse -h' for help.\n");
+  
+  set_seed(-1);
 
   if (startcol < 1 || (endcol != -1 && endcol < startcol))
     die("ERROR: must have 1 <= start <= end <= [msa_length]\n");

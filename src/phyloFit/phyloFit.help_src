@@ -193,6 +193,12 @@ OPTIONS:
         Initialize parameters randomly.  Can be used multiple times to test
         whether the m.l.e. is real.
 
+    --seed, -D <seed>
+        Provide a random number seed for choosing initial parameter values
+	(usually with --init-random, though random values are used in some
+        other cases as well).  Should be an integer >=1.  If not provided,
+	seed is chosen based on current time.
+
     --init-parsimony, -y
         Initialize branch lengths using parsimony counts for given data.
         Only currently implemented for models with single character state

@@ -268,9 +268,14 @@ void tr_to_string_recur(char *str, TreeNode *n, int show_branch_lengths) {
 
 /** Print tree in New Hampshire format. */
 void tr_print(FILE* f, TreeNode *root, int show_branch_lengths) {
+  int len;
+
   /* It's simplest to do this recursively. */
   tr_print_recur(f, root, show_branch_lengths);
-  fprintf(f, ";\n");
+  len = strlen(root->name);
+  if (len == 0 || root->name[len-1] != ';')
+    fprintf(f, ";");
+  fprintf(f, "\n");
 }
 
 /* Recursive subroutine used by print_tree */

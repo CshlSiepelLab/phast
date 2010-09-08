@@ -457,10 +457,6 @@ double pbs_estimate_from_data(PbsCode *code, List *prob_vectors,
   if (lst_size(prob_vectors) <= 0)
     die("ERROR: pbs_estimate_from_data: prob_vectors must have size > 0 (has size %i)\n", lst_size(prob_vectors));
 
-#ifndef RPHAST
-  srandom(time(NULL));		/* for pbs_optimize_region */
-#endif
-
   for (i = 0; i < lst_size(counts); i++) 
     tot_count += lst_get_int(counts, i);
 

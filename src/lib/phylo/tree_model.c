@@ -841,6 +841,7 @@ void tm_set_subst_matrices(TreeModel *tm) {
   }
 
   for (i = 0; i < tm->tree->nnodes; i++) {
+    checkInterrupt();
     branch_scale = tm->scale;
     n = lst_get_ptr(tm->tree->nodes, i);
 
@@ -2362,10 +2363,6 @@ Vector *tm_params_init_random(TreeModel *mod) {
   List *traversal;
   double *heights;
 
-#ifndef RPHAST
-  srandom(time(NULL));
-#endif
-
   tm_setup_params(mod);
   
   if (mod->estimate_branchlens == TM_SCALE_ONLY) {
@@ -2569,10 +2566,6 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod,
   if  (mod->estimate_branchlens == TM_BRANCHLENS_CLOCK) { 
     die("Sorry, parsimony algorithm not implemented for molecular clock\n");
   }
-
-#ifndef RPHAST
-  srandom(time(NULL));
-#endif
 
 
   //this array keeps track of number of mutations on each branch

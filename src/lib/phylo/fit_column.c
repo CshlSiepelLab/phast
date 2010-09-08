@@ -1456,7 +1456,6 @@ Matrix *col_estimate_fim_sub(TreeModel *mod) {
 FimGrid *col_fim_grid_sub(TreeModel *mod) {
   int i;
   FimGrid *g = smalloc(sizeof(FimGrid));
-  struct timeval now;
 
   g->ngrid1 = 1.0/GRIDSIZE1;
   g->ngrid2 = (1.0 * GRIDMAXLOG / GRIDSIZE2) + 1;
@@ -1470,12 +1469,6 @@ FimGrid *col_fim_grid_sub(TreeModel *mod) {
 
   for (i = 0; i < g->ngrid2; i++)
     g->scales[g->ngrid1 + i] = exp(i * GRIDSIZE2);
-
-#ifndef RPHAST
-  /* set seed for sampling */
-  gettimeofday(&now, NULL);
-  srandom(now.tv_usec);
-#endif
 
   g->fim = smalloc(g->ngrid * sizeof(void*));
   for (i = 0; i < g->ngrid; i++) {

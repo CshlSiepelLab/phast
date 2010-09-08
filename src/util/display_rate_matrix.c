@@ -390,10 +390,6 @@ int main(int argc, char* argv[]) {
   Matrix *subst_mat = NULL;
   List *matrix_list = lst_new_ptr(20), *traversal = NULL;
 
-#ifdef RPHAST
-  GetRNGstate(); //seed R's random number generator
-#endif
-
   while ((c = getopt(argc, argv, "t:fedlLiM:N:A:B:aszSECh")) != -1) {
    switch(c) {
     case 't':
@@ -459,6 +455,8 @@ int main(int argc, char* argv[]) {
       die("Unrecognized option.  Try \"display_rate_matrix -h\" for help.\n");
     }
   }
+
+  set_seed(-1);
 
   if ((t >= 0 && exch_mode) || (latex_mode && list_mode) || 
       ((ti_tv || subst_mat_fname != NULL || subst_score_fname != NULL || 
