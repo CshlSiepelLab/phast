@@ -34,6 +34,7 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
 
   while (str_readline(line, F) != EOF) {
     lineno++;
+    checkInterruptN(lineno, 1000);
 
     str_trim(line);
     if (line->length == 0) continue;
@@ -163,6 +164,7 @@ void gff_print_bed(FILE *OUTF,  /**< Output stream  */
     /* now print one line per feature */
     for (i = 0; i < lst_size(gff->features); i++) {
       String *name = NULL;
+      checkInterruptN(i, 100);
       feat = lst_get_ptr(gff->features, i);
 
       /* try to extract name from attribute field (first value in
@@ -200,6 +202,7 @@ void gff_print_bed(FILE *OUTF,  /**< Output stream  */
     for (i = 0; i < lst_size(gff->groups); i++) {
       GFF_FeatureGroup *group = lst_get_ptr(gff->groups, i);
       double score = 0;
+      checkInterrupt();
 
       if (lst_size(group->features) == 0) continue;
 

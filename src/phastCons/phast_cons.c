@@ -538,6 +538,7 @@ int phastCons(struct phastCons_struct *p) {
     /* print to post_probs_f */
     last = -INFTY;
     for (j = 0, k = 0; j < msa->length; j++) {
+      checkInterruptN(j, 1000);
       if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
 	if (!msa_missing_col(msa, refidx, j)) {
 	  if (post_probs_f != NULL) {

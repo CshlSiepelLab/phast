@@ -163,6 +163,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
 
   for (it = 1; ; it++) {
     double tmp;
+    checkInterrupt();
 
     tm_unpack_params(mod, opt_params, -1);
     

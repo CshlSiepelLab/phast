@@ -263,6 +263,7 @@ void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa) {
     TreeNode *indel_node = NULL; /* node beneath which indel event is
                                     postulated to occur */
     int nchanges = 0;
+    checkInterruptN(tup, 1000);
     tuple_patterns[tup] = 0;
     for (i = 0; i < lst_size(traversal); i++) {
       n = lst_get_ptr(traversal, i);
@@ -488,14 +489,18 @@ void gp_tuple_matches_pattern(GapPatternMap *gpm, MSA *msa, int pattern,
   }
 
   if (gp_pattern_type(gpm, pattern) != COMPLEX_PATTERN) 
-    for (i = 0; i < msa->ss->ntuples; i++) 
+    for (i = 0; i < msa->ss->ntuples; i++)  {
+      checkInterruptN(i, 10000);
+      
       matches[i] = match(msa, i, gpm->pattern[pattern], active_seqs);
+    }
 
   else {                        /* complex pattern: there's a match
                                    iff there's *no* match with any
                                    simple pattern */
     for (i = 0; i < msa->ss->ntuples; i++) {
       int pat;
+      checkInterruptN(i, 10000);
       matches[i] = TRUE;
       for (pat = 0; pat < pattern; pat++) {
         if (match(msa, i, gpm->pattern[pat], active_seqs)) {

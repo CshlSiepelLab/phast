@@ -58,8 +58,8 @@ GFF_Set* gff_read_set(FILE *F) {
 
   lineno = 0;
   while (str_readline(line, F) != EOF) {
+    checkInterruptN(lineno, 1000);
     lineno++;
-    checkInterruptN(lineno, 10000);
 
     str_double_trim(line);
     if (line->length == 0) continue;
@@ -446,7 +446,7 @@ GFF_Set *gff_copy_set_no_groups(GFF_Set *orig) {
   GFF_Set *gff = gff_new_from_template(orig);
   int i;
   for (i=0; i< lst_size(orig->features); i++) {
-    checkInterruptN(i+1, 10000);
+    checkInterruptN(i, 10000);
     lst_push_ptr(gff->features, gff_new_feature_copy((GFF_Feature*)lst_get_ptr(orig->features, i)));
   }
   return gff;
@@ -930,7 +930,7 @@ void gff_exon_group(GFF_Set *set, /**< Set to process  */
     checkInterrupt();
     for (j = 0; j < lst_size(group->features); j++) {
       GFF_Feature *f = lst_get_ptr(group->features, j);
-      checkInterruptN(j+1, 1000);
+      checkInterruptN(j, 1000);
       if (lastfeat == NULL || f->start > lastfeat->end + 1 || 
           f->strand != lastfeat->strand) 
         idx++;

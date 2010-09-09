@@ -753,6 +753,7 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
+    checkInterruptN(i, 100);
 
     /* first check for actual substitution data in column; if none,
        don't waste time computing likelihoods */
@@ -842,6 +843,7 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
+    checkInterruptN(i, 100);
 
     /* first check for informative substitution data in column; if none,
        don't waste time computing likeihoods */
@@ -942,6 +944,7 @@ void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode,
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
+    checkInterruptN(i, 1000);
 
     /* first check for actual substitution data in column; if none,
        don't waste time computing score */
@@ -1021,6 +1024,7 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples; i++) {
+    checkInterruptN(i, 100);
 
     /* first check for informative substitution data in column; if none,
        don't waste time computing score */
@@ -1277,6 +1281,7 @@ void col_gerp(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_nneut,
 
   /* iterate through column tuples */
   for (i = 0; i < msa->ss->ntuples;i++) {
+    checkInterruptN(i, 1000);
     col_find_missing_branches(mod, msa, i, has_data, &nspec);
 
     if (nspec < 3) 

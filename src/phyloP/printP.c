@@ -240,6 +240,7 @@ void print_post_only_joint(FILE *outfile, char *node_name, char *mod_fname,
   /* get marginal distributions for stats */
   vec_zero(marg_sup); vec_zero(marg_sub);
   for (i = 0; i < post_distrib->nrows; i++) {
+    checkInterruptN(i, 100);
     for (j = 0; j < post_distrib->ncols; j++) {
       marg_sub->data[i] += post_distrib->data[i][j];
       marg_sup->data[j] += post_distrib->data[i][j];
@@ -270,10 +271,12 @@ void print_post_only_joint(FILE *outfile, char *node_name, char *mod_fname,
     if (scale != -1)
       fprintf(outfile, "#estimated scale factors: %f [tree], %f [subtree]\n", scale, sub_scale);
     fprintf(outfile, "\n#element at row n1 and col n2 in table below is p(n1, n2)\n");
-    for (i = 0; i < post_distrib->ncols; i++) 
+    for (i = 0; i < post_distrib->ncols; i++) {
+      checkInterruptN(i, 100);
       for (j = 0; j < post_distrib->nrows; j++) 
 	fprintf(outfile, "%f%c", post_distrib->data[j][i], 
 		j == post_distrib->nrows - 1 ? '\n' : '\t');
+    }
   }
   if (result != NULL) {
     ListOfLists *group = lol_new(2);
@@ -437,6 +440,7 @@ void print_feats_sph(FILE *outfile, p_value_stats *stats, GFF_Set *feats,
     prior_vars = smalloc(lst_size(feats->features) * sizeof(double));
   }
   for (i = 0; i < lst_size(feats->features); i++) {
+    checkInterruptN(i, 100);
     if (result != NULL || !output_gff) {
       post_means[i] = stats[i].post_mean;
       post_vars[i] = stats[i].post_var;
@@ -512,6 +516,7 @@ void print_feats_sph_subtree(FILE *outfile, p_value_joint_stats *stats,
     prior_vars_sup = smalloc(lst_size(feats->features) * sizeof(double));
   }
   for (i = 0; i < lst_size(feats->features); i++) {
+    checkInterruptN(i, 100);
     if (!output_gff) {
       post_means_sub[i] = stats[i].post_mean_left;
       post_vars_sub[i] = stats[i].post_var_left;
@@ -593,6 +598,7 @@ void print_wig(FILE *outfile, MSA *msa, double *vals, char *chrom,
   if (!(refidx >= 0 && refidx <= msa->nseqs))
     die("ERROR print_wig: bad refidx (%i)\n", refidx);
   for (j = 0, k = 0; j < msa->length; j++) {
+    checkInterruptN(j, 1000);
     if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
       if (refidx == 0 || !msa_missing_col(msa, refidx, j)) {
         if (k > last + 1 && outfile != NULL) 
@@ -689,6 +695,7 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
   }
 
   for (j = 0, k = 0; j < msa->length; j++) {
+    checkInterruptN(j, 1000);
     if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
       if (refidx == 0 || !msa_missing_col(msa, refidx, j)) {
         if (k > last + 1 && outfile != NULL) 
@@ -784,6 +791,7 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
 
   for (i = 0; i < lst_size(gff->features); i++) {
     GFF_Feature *f = lst_get_ptr(gff->features, i);
+    checkInterruptN(i, 100);
 
     /* try to extract feature name from attribute field */
     lst_clear(l);
@@ -848,6 +856,7 @@ void print_gff_scores(FILE *outfile, GFF_Set *gff, double *vals, int log_trans) 
   int i;
   for (i = 0; i < lst_size(gff->features); i++) {
     GFF_Feature *f = lst_get_ptr(gff->features, i);
+    checkInterruptN(i, 100);
     f->score = vals[i];
     f->score_is_null = FALSE;
     if (log_trans) {

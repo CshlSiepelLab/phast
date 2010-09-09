@@ -250,6 +250,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 
     /* print post probs */
     for (tup = 0; tup < msa->ss->ntuples; tup++) {
+      checkInterruptN(tup, 1000);
 
       if ((cat >= 0 && msa->ss->cat_counts[cat][tup] == 0) ||
           msa->ss->counts[tup] == 0) continue;
@@ -284,6 +285,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
     fprintf(EXPSUBF, "    total\n");
     for (tup = 0; tup < msa->ss->ntuples; tup++) {
       double total = 0;
+      checkInterruptN(tup, 1000);
 
       if ((cat >= 0 && msa->ss->cat_counts[cat][tup] == 0) ||
           msa->ss->counts[tup] == 0) continue;

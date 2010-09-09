@@ -246,6 +246,7 @@ MSA *maf_read_cats_subset(FILE *F,          /**< MAF file */
   block_no = 0;
   while (maf_read_block_addseq(F, mini_msa, name_hash, &start_idx,
 			       &length, do_toupper, seqnames != NULL && seq_keep) != EOF) {
+    checkInterruptN(block_no++, 1000);
 
     //sequence may have been added in maf_read_block so reset numseqs
     //do not have to reset msa->names since they are shared with mini_msa
@@ -819,6 +820,7 @@ MSA *maf_read_unsorted(FILE *F,          /**< MAF file */
   while (maf_read_block(F, mini_msa, name_hash, &start_idx, 
                         &length, do_toupper) != EOF) {
     int idx_offset;
+    checkInterruptN(block_no, 1000);
 
     /* ignore if block is marked as redundant */
     if (lst_size(redundant_blocks) > rbl_idx &&

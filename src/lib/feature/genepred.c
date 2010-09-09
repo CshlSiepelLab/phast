@@ -38,6 +38,7 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
     char group[STR_MED_LEN];
     char strand;
 
+    checkInterruptN(lineno, 1000);
     lineno++;
     
     if (line->chars[0] == '#') continue;
@@ -190,6 +191,7 @@ void gff_print_genepred(FILE *OUTF,
     String *seqname = NULL;
     GFF_FeatureGroup *g = lst_get_ptr(feats->groups, i);
 
+    checkInterruptN(i, 100);
     str_clear(exonStarts);
     str_clear(exonEnds);
     str_clear(cdsStarts);

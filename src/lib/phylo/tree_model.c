@@ -1111,6 +1111,7 @@ MSA *tm_generate_msa(int ncolumns,
     Vector *backgd=NULL;
     MarkovMatrix *rate_matrix=NULL;
     AltSubstMod *altmod=NULL;
+    checkInterruptN(col, 1000);
     if (classmods[class]->alt_subst_mods_node != NULL) {
       altmod = classmods[class]->alt_subst_mods_node[classmods[class]->tree->id];
       if (altmod != NULL) {
@@ -1208,6 +1209,7 @@ MSA *tm_generate_msa_scaleLst(List *nsitesLst, List *scaleLst,
   newchar = (char*)smalloc(mod->tree->nnodes * sizeof(char));
   col=0;
   for (i=0; i<lst_size(nsitesLst); i++) {
+    checkInterruptN(i, 10000);
     nsite = lst_get_int(nsitesLst, i);
     scale = lst_get_dbl(scaleLst, i);
     subtreeScale = lst_get_dbl(subtreeScaleLst, i);
@@ -1300,6 +1302,7 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
   newchar = (char*)smalloc(mod->tree->nnodes * sizeof(char));
   for (col = 0; col < ncolumns; col++) {
     Vector *backgd;
+    checkInterruptN(col, 10000);
     if (mod->nratecats > 1)
       ratecat = pv_draw_idx_arr(mod->freqK, mod->nratecats);
     else ratecat=0;
@@ -2585,6 +2588,7 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod,
   traversal = tr_preorder(mod->tree);
 
   for (tupleIdx=0; tupleIdx<msa->ss->ntuples; tupleIdx++) {
+    checkInterruptN(tupleIdx, 1000);
     weight = (cat >=0 ? msa->ss->cat_counts[cat][tupleIdx] : 
 	      msa->ss->counts[tupleIdx]);
     if (weight == 0.0) continue;

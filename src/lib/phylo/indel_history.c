@@ -478,6 +478,7 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
   for (tup = 0; tup < msa->ss->ntuples; tup++) {
     int min = tree->nnodes, max = -1, ngaps = 0, nmissing = 0,
       skip_root = FALSE;
+    checkInterruptN(tup, 1000);
 
     /* initialize tuple history to all bases */
     tup_hist[tup] = smalloc(tree->nnodes * sizeof(char));

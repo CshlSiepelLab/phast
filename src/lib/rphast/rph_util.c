@@ -45,3 +45,19 @@ SEXP rph_list_len(SEXP listP) {
   UNPROTECT(1);
   return rv;
 }
+
+
+void rph_list_free(SEXP listP) {
+  List *l;
+  l = (List*)EXTPTR_PTR(listP);
+  lst_free(l);
+}
+
+
+SEXP rph_list_new_extptr(List *l) {
+  SEXP result;
+  PROTECT(result=R_MakeExternalPtr((void*)l, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(result, rph_list_free, 1);
+  UNPROTECT(1);
+  return result;
+}

@@ -208,6 +208,7 @@ SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
 
   if (msa->ss != NULL) {
     for (i=0; i<msa->length; i++) {
+      checkInterruptN(i, 1000);
       if (msa->categories[i] == 0) {
 	msa->ss->counts[msa->ss->tuple_idx[i]]--;
 	if (msa->ss->counts[msa->ss->tuple_idx[i]] < 0)
@@ -221,6 +222,7 @@ SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
   }
   if (msa->seqs != NULL) {
     for (i=0; i<msa->length; i++) {
+      checkInterruptN(i, 1000);
       if (msa->categories[i] > 0) {
 	if (pos != i) {
 	  for (j=0; j<msa->nseqs; j++) 
@@ -636,6 +638,7 @@ SEXP rph_msa_square_brackets(SEXP msaP, SEXP rowsP, SEXP colsP) {
     } else {
       seqs[i] = smalloc((ncol+1)*sizeof(char));
       for (j=0; j<ncol; j++) {
+	checkInterruptN(j, 10000);
 	if (cols[j] > msa->length) 
 	  die("invalid column in rph_msa_square_brackets");
 	seqs[i][j] = msa_get_char(msa, spec, cols[j]-1);
@@ -897,6 +900,7 @@ SEXP rph_msa_base_evolve(SEXP modP, SEXP nsitesP, SEXP hmmP,
     currstart = 0;
     currstate = labels[0];
     for (i=1; i < nsites; i++) {
+      checkInterruptN(i, 1000);
       if (labels[i] != currstate) {
 	sprintf(temp, "id \"%s\"", names[currstate]);
 	newfeat = gff_new_feature_copy_chars(seqname, src, 

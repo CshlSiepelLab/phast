@@ -451,6 +451,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
   stpmax = STEP_SCALE * max(vec_norm(params), n);
 
   for (its = 0; its < ITMAX; its++) { /* main loop */
+    checkInterrupt();
 
     /* see if any parameters are (newly) at a boundary, and update
        total number at boundary */
@@ -951,6 +952,7 @@ double opt_brent(double ax, double bx, double cx,
     fprintf(logf, "opt_brent:\nStarting with x_a = %f, x_b = %f, x_c = %f, f(x_b) = %f\n", 
             ax, bx, cx, fx);
   for (iter = 1; iter <= ITMAX_BRENT; iter++) { 
+    checkInterruptN(iter, 100);
     xm = 0.5 * (a + b);
     tol2 = 2.0 * (tol1 = tol * fabs(x) + ZEPS);
     if (fabs(x - xm) <= (tol2 - 0.5 * (b - a))) { 
@@ -1132,6 +1134,7 @@ int opt_newton_1d(double (*f)(double, void*), double (*x), void *data,
   fxold = (*fx);
 
   for (its = 0; !converged && its < ITMAX; its++) { 
+    checkInterruptN(its, 100);
     opt_derivs_1d(&d, &d2, *x, *fx, lb, ub, f, data, compute_deriv, 
                   compute_deriv2);
     nevals += 2;                /* assume cost of each deriv approx

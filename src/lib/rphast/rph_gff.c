@@ -78,6 +78,7 @@ SEXP rph_gff_dataframe(SEXP gffPtr) {
     SET_STRING_ELT(names, i, mkChar(feat->seqname->chars));
   }
   vec[0] = names;
+  checkInterrupt();
 
   PROTECT(src = allocVector(STRSXP, len));
   for (i=0; i<len; i++) {
@@ -85,13 +86,15 @@ SEXP rph_gff_dataframe(SEXP gffPtr) {
     SET_STRING_ELT(src, i, mkChar(feat->source->chars));
   }
   vec[1] = src;
-  
+  checkInterrupt();
+
   PROTECT(feature=allocVector(STRSXP, len));
   for (i=0; i<len; i++) {
     feat = (GFF_Feature*)lst_get_ptr(gff->features, i);
     SET_STRING_ELT(feature, i, mkChar(feat->feature->chars));
   }
   vec[2] = feature;
+  checkInterrupt();
 
   PROTECT(start=NEW_INTEGER(len));
   intp = INTEGER_POINTER(start);
@@ -100,6 +103,7 @@ SEXP rph_gff_dataframe(SEXP gffPtr) {
     intp[i] = feat->start;
   }
   vec[3] = start;
+  checkInterrupt();
 
   PROTECT(end = NEW_INTEGER(len));
   intp = INTEGER_POINTER(end);
@@ -108,7 +112,9 @@ SEXP rph_gff_dataframe(SEXP gffPtr) {
     intp[i] = feat->end;
   }
   vec[4] = end;
-    
+  checkInterrupt();
+
+
   PROTECT(score = NEW_NUMERIC(len));
   doublep = NUMERIC_POINTER(score);
   for (i=0; i<len; i++) {
@@ -121,6 +127,8 @@ SEXP rph_gff_dataframe(SEXP gffPtr) {
     }
   }
   vec[5] = score;
+  checkInterrupt();
+
 
   PROTECT(strand = allocVector(STRSXP, len));
   strandStr[1] = '\0';
@@ -132,6 +140,7 @@ SEXP rph_gff_dataframe(SEXP gffPtr) {
       have[strandPos] = 1;
   }
   vec[6] = strand;
+  checkInterrupt();
       
   PROTECT(frame = NEW_INTEGER(len));
   intp = INTEGER_POINTER(frame);
@@ -152,6 +161,7 @@ SEXP rph_gff_dataframe(SEXP gffPtr) {
     }
   }
   vec[7] = frame;
+  checkInterrupt();
 
   PROTECT(attribute = allocVector(STRSXP, len));
   for (i=0; i<len; i++) {
@@ -165,6 +175,7 @@ SEXP rph_gff_dataframe(SEXP gffPtr) {
       SET_STRING_ELT(attribute, i, mkChar("."));
   }
   vec[8] = attribute;
+  checkInterrupt();
   
   listlen = 0;
   for (i=0; i<9; i++) listlen += have[i];

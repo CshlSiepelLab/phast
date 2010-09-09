@@ -396,6 +396,7 @@ double hmm_posterior_probs(HMM *hmm, double **emission_scores, int seqlen,
   val_list = lst_new_dbl(hmm->nstates);
   for (j = 0; j < len; j++) {
     double this_logp;
+    checkInterruptN(i, 1000);
 
     /* to avoid rounding errors, estimate total log prob
        separately for each column */
@@ -473,6 +474,7 @@ void hmm_do_dp_backward(HMM *hmm, double **emission_scores,  int seqlen,
 
   /* recursion */
   for (j = seqlen - 2; j >= 0; j--) {
+    checkInterruptN(j, 1000);
     for (i = 0; i < hmm->nstates; i++) {
       full_scores[i][j] = 
         hmm_max_or_sum(hmm, full_scores, emission_scores, NULL, 
@@ -790,13 +792,15 @@ HMM *hmm_create_trivial() {
 void hmm_cross_product(HMM *dest, HMM *src1, HMM *src2) {
   int i, j, k, l;
 
-  for (i = 0; i < src1->nstates; i++) 
+  for (i = 0; i < src1->nstates; i++) {
+    checkInterrupt();
     for (j = 0; j < src2->nstates; j++) 
       for (k = 0; k < src1->nstates; k++) 
         for (l = 0; l < src2->nstates; l++) 
           mm_set(dest->transition_matrix, i*src2->nstates + j, 
                  k*src2->nstates + l, mm_get(src1->transition_matrix, i, k) * 
                  mm_get(src2->transition_matrix, j, l));
+  }
 
   if (src1->eq_freqs != NULL && src2->eq_freqs != NULL) {
     for (i = 0; i < src1->nstates; i++) 
@@ -1149,6 +1153,7 @@ void hmm_stochastic_traceback(HMM *hmm, double **forward_scores, int seqlen,
   
   /* Recursion */
   for (i = seqlen; i > 0; i--) {
+    checkInterruptN(i, 1000);
     max = -INFTY;
     maxidx=0;
     z = 1;

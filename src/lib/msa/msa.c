@@ -164,6 +164,7 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
 
     j = 0;
     while (j < len) {
+      checkInterruptN(j, 1000);
       fgets(line, MAX_LINE_LEN, F);
       for (k = 0; line[k] != '\0'; k++) {
         char base;
@@ -586,7 +587,7 @@ void msa_strip_gaps(MSA *msa, int gap_strip_mode) {
     die("ERROR msa_strip_gaps: bad strip mode\n");
   k = 0;
   for (i = 0; i < msa->length; i++) {
-    checkInterrupt();
+    checkInterruptN(i, 1000);
     strip = (gap_strip_mode == STRIP_ALL_GAPS);
     for (j = 0; j < msa->nseqs; j++) {
       c = msa->seqs[j][i];
@@ -696,8 +697,10 @@ MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col,
     for (i = 0; i < lst_size(include_list); i++) {
       int seq = lst_get_int(include_list, i);
       new_seqs[i] = (char*)smalloc((new_len + 1) * sizeof(char));
-      for (j = 0; j < new_len; j++)
+      for (j = 0; j < new_len; j++) {
+	checkInterruptN(j, 10000);
         new_seqs[i][j] = msa->seqs[seq][start_col+j];
+      }
       new_seqs[i][j] = '\0';
     }
     
@@ -707,8 +710,10 @@ MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col,
     if (msa->ncats >= 0 && msa->categories != NULL) {
       new_msa->ncats = msa->ncats;
       new_msa->categories = (int*)smalloc(new_len * sizeof(int));
-      for (j = 0; j < new_len; j++)
+      for (j = 0; j < new_len; j++) {
+	checkInterruptN(j, 10000);
         new_msa->categories[j] = msa->categories[start_col+j];
+      }
     }
   }
   else                          /* have only sufficient statistics */
@@ -745,6 +750,7 @@ msa_coord_map* msa_build_coord_map(MSA *msa, int refseq) {
   for (i = 0; i < msa->length; i++) {
     char c = (msa->seqs != NULL ? msa->seqs[refseq-1][i] : 
               ss_get_char_pos(msa, i, refseq-1, 0));
+    checkInterruptN(i, 10000);
     if (c == GAP_CHAR) 
       last_char_gap = 1;
     else {
@@ -843,6 +849,7 @@ void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm) {
   for (i = 0; i < msa->length; i++) msa->categories[i] = 0;
 
   for (i = 0; i < lst_size(gff->features); i++) {
+    checkInterruptN(i, 100);
     feat = (GFF_Feature*)lst_get_ptr(gff->features, i);
     cat = cm_get_category(cm, feat->feature); 
 
@@ -957,6 +964,7 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
   for (i = 0; i <= msa->nseqs; i++) maps[i] = NULL;
 
   for (i = 0; i < lst_size(gff->features); i++) {
+    checkInterruptN(i, 100);
     feat = (GFF_Feature*)lst_get_ptr(gff->features, i);
 
     if (from_seq == to_seq) {
@@ -1116,6 +1124,7 @@ void msa_add_seq_ss(MSA *msa, int new_nseqs) {
     die("ERROR: new numseq must be >= than old in ss_add_seq\n");
   newlen = new_nseqs*msa->ss->tuple_size + 1;
   for (i=0; i<msa->ss->ntuples; i++) {
+    checkInterruptN(i, 1000);
     msa->ss->col_tuples[i] = srealloc(msa->ss->col_tuples[i], newlen*sizeof(char));
     for (k = -msa->ss->tuple_size + 1; k<=0; k++) {
       for (j=0; j < msa->nseqs; j++)
@@ -1179,6 +1188,7 @@ void msa_reverse_compl_seq(char *seq, int length) {
   midpt = (length-1)/2;
   for (i = 0; i <= midpt; i++) {
     char tmp = msa_compl_char(seq[i]);
+    checkInterruptN(i, 10000);
     seq[i] = msa_compl_char(seq[length-i-1]);
     seq[length-i-1] = tmp;
                                 /* NOTE: case of middle base in
@@ -1197,6 +1207,7 @@ void msa_reverse_compl_seq_segment(char *seq, int start, int end) {
   midpt = start + (end-start)/2; 
   for (i = start; i <= midpt; i++) {
     char tmp = msa_compl_char(seq[i]);
+    checkInterruptN(i, 10000);
     seq[i] = msa_compl_char(seq[end-i+start]);
     seq[end-i+start] = tmp;
                                 /* NOTE: case of middle base in
@@ -1213,6 +1224,7 @@ void msa_reverse_data_segment(int *data, int start, int end) {
   midpt = start + (end-start)/2; 
   for (i = start; i <= midpt; i++) {
     int tmp = data[i];
+    checkInterruptN(i, 10000);
     data[i] = data[end-i+start];
     data[end-i+start] = tmp;
   }
@@ -1346,6 +1358,7 @@ void msa_partition_by_category(MSA *msa, List *submsas, List *cats_to_do,
   count = (int*)smalloc(ncats * sizeof(int));
   for (i = 0; i < ncats; i++) count[i] = 0;
   for (i = 0; i < msa->length; i++) {
+    checkInterruptN(i, 10000);
     if (msa->categories[i] >= ncats)
       die("ERROR msa_partition_by_category: msa->categories[%i]=%i, should be < ncats (%i)\n", i, msa->categories[i], ncats);
     count[msa->categories[i]]++;
@@ -1370,6 +1383,7 @@ void msa_partition_by_category(MSA *msa, List *submsas, List *cats_to_do,
 
   /* copy sites to subalignments */
   for (j = 0; j < msa->length; j++) {
+    checkInterruptN(j, 10000);
     cat = msa->categories[j];
     if (!do_cat[cat]) continue;
     if (j > 0 && cat != msa->categories[j-1] && idx[cat] > 0) {
@@ -1403,6 +1417,7 @@ void msa_partition_by_category(MSA *msa, List *submsas, List *cats_to_do,
   }
 
   for (cat = 0; cat < ncats; cat++) {
+    checkInterrupt();
     if (do_cat[cat]) {
       msa = msa_new(seqs[cat], names[cat], msa->nseqs, idx[cat], msa->alphabet);
       lst_push_ptr(submsas, msa);
@@ -1536,6 +1551,7 @@ void msa_get_base_freqs_tuples(MSA *msa, Vector *freqs, int k, int cat) {
     if (!(cat < 0 || (msa->ncats >= cat && msa->ss->cat_counts != NULL)))
       die("ERROR msa_get_base_freqs_tuples: bad category %i\n", cat);
     for (i = 0; i < msa->ss->ntuples; i++) {
+      checkInterruptN(i, 10000);
       for (j = 0; j < msa->nseqs; j++) {
         int offset;
         ignore = 0;
@@ -1562,6 +1578,7 @@ void msa_get_base_freqs_tuples(MSA *msa, Vector *freqs, int k, int cat) {
     if (!(cat < 0 || msa->categories != NULL))
       die("ERROR: msa_get_base_freqs_tuples: bad category (%i) or no category data\n", cat);
     for (i = 0; i < msa->length-k+1; i++) {
+      checkInterruptN(i, 10000);
       if (cat != -1 && msa->categories != NULL && 
           msa->categories[i+k-1] != cat) 
         continue;
@@ -1741,6 +1758,7 @@ GFF_Set *msa_get_informative_feats(MSA *msa,
   else seqname = msa->names[refseq-1];
 
   for (i=0; i < msa->length; i++) {
+    checkInterruptN(i, 10000);
     if (refseq != 0) {
       c = msa_get_char(msa, refseq-1, i);
       if (c == GAP_CHAR) continue;
@@ -1869,6 +1887,7 @@ int msa_coding_clean(MSA *msa, int refseq, int min_ncodons,
        encountered in each sequence (wrt the ref seq) */
     int gapless_codon_col = 1;  /* whether currently considered column
                                    of codons is gapless (so far) */
+    checkInterruptN(i, 10000);
     if (!(frame == 0 || ref[i] == GAP_CHAR)) /* see incr of frame, below */
       die("ERROR msa_coding_clean: got frame (%i), ref[%i]=%c\n",
 	  frame, i, ref[i]);
@@ -2024,6 +2043,7 @@ void msa_indel_clean(MSA *msa,  /* MSA to clean */
   /* first replace bases at indel boundaries and subseqs of
      insufficient length with missing data */
   for (j = 0; j < msa->nseqs; j++) {
+    checkInterrupt();
     i = 0;
     first_base = -1;
     while (1) {
@@ -2227,6 +2247,7 @@ void msa_concatenate(MSA *aggregate_msa, MSA *source_msa) {
   for (i=0; i < source_msa->nseqs; i++) 
     source_msa_idx[hsh_get_int(name_hash, source_msa->names[i])] = i;
   for (i = 0; i < source_msa->length; i++) {
+    checkInterruptN(i, 10000);
     for (j = 0; j < nseq; j++)
       aggregate_msa->seqs[j][i+aggregate_msa->length] = 
 	source_msa_idx[j] == -1 ? aggregate_msa->missing[0] : 
@@ -2263,9 +2284,11 @@ void msa_permute(MSA *msa) {
       tmpseq[i][j] = msa->seqs[i][j];
 
   permute(rand_perm, msa->length);
-  for (i = 0; i < msa->nseqs; i++)
+  for (i = 0; i < msa->nseqs; i++) {
+    checkInterrupt();
     for (j = 0; j < msa->length; j++) 
       msa->seqs[i][j] = tmpseq[i][rand_perm[j]];
+  }
 
   for (i = 0; i < msa->nseqs; i++) free(tmpseq[i]);
   free(tmpseq);
@@ -2564,6 +2587,7 @@ void msa_missing_to_gaps(MSA *msa, int refseq) {
 
   if (msa->ss != NULL) {
     for (i = 0; i < msa->ss->ntuples; i++) {
+      checkInterruptN(i, 10000);
       for (j = 0; j < msa->nseqs; j++) {
         for (k = 0; k < msa->ss->tuple_size; k++) {
           char c = ss_get_char_tuple(msa, i, j, -k);
@@ -2584,6 +2608,7 @@ void msa_missing_to_gaps(MSA *msa, int refseq) {
   }
   if (msa->seqs != NULL) {
     for (i = 0; i < msa->nseqs; i++) {
+      checkInterrupt();
       for (j = 0; j < msa->length; j++) {
         if (msa->is_missing[(int)msa->seqs[i][j]]) {
           if (i == refseq - 1 && msa->seqs[i][j] == 'N') {
@@ -2634,17 +2659,21 @@ void msa_toupper(MSA *msa) {
 
   /* now replace all lowercase chars in alignment */
   if (msa->ss != NULL) {
-    for (i = 0; i < msa->ss->ntuples; i++) 
+    for (i = 0; i < msa->ss->ntuples; i++) {
+      checkInterruptN(i, 10000);
       for (j = 0; j < msa->nseqs; j++) 
         for (k = 0; k < msa->ss->tuple_size; k++) 
           set_col_char_in_string(msa, msa->ss->col_tuples[i], j, 
                                  msa->ss->tuple_size, -k, 
                                  toupper(ss_get_char_tuple(msa, i, j, -k)));
+    }
   }
-  if (msa->seqs != NULL) {                        
-    for (i = 0; i < msa->nseqs; i++) 
+  if (msa->seqs != NULL) {
+    for (i = 0; i < msa->nseqs; i++) {
+      checkInterrupt();
       for (j = 0; j < msa->length; j++) 
         msa->seqs[i][j] = toupper(msa->seqs[i][j]);
+    }
   }
 }
 
@@ -2665,6 +2694,7 @@ void msa_delete_cols(MSA *msa, int *delete_cols) {
 
   k = 0;
   for (i = 0; i < msa->length; i++) {
+    checkInterruptN(i, 10000);
     if (k == i && !delete_cols[i]) k++;
     else if (!delete_cols[i]) {
       for (j = 0; j < msa->nseqs; j++) 

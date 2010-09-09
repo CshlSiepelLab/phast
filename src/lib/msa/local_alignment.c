@@ -44,6 +44,7 @@ LocalPwAlignment *la_new() {
 
 LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
   String *line = str_new(STR_MED_LEN);
+  int line_no=0;
   int firstline = 1;
   LocalPwAlignment *lpwa = la_new();
   List *fields = lst_new_ptr(6);
@@ -59,13 +60,12 @@ LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
     str_trim(line);
     if (line->length == 0) continue;
 
-    if (firstline) {
+    checkInterruptN(line_no++, 1000);
+    if (line_no == 1) {
       if (!str_equals_charstr(line, "#:lav")) {
         die("ERROR: lav file missing header.\n");
       }
-      firstline = 0;
-    }
-
+    } 
     else if (str_re_match(line, stanza_start_re, fields, 1) >= 0) {
       String *tmpstr = lst_get_ptr(fields, 1);
       stanza_type = tmpstr->chars[0];
@@ -275,6 +275,7 @@ MSA* la_to_msa(LocalPwAlignment *lpwa, int force_global) {
 
   for (i = 0; i < lst_size(lpwa->alignment_blocks); i++) {
     AlignmentBlock* b = lst_get_ptr(lpwa->alignment_blocks, i);
+    checkInterrupt();
     for (j = 0; j < lst_size(b->gapless_alns); j++) {
       GaplessAlignment *ga = lst_get_ptr(b->gapless_alns, j);
 
@@ -375,6 +376,7 @@ int la_get_target_coord(LocalPwAlignment *lpwa, int query_coord,
      and corresponding target coords t1 and t2 */
   for (i = 0; i < lst_size(lpwa->alignment_blocks); i++) {
     AlignmentBlock *ab = lst_get_ptr(lpwa->alignment_blocks, i);
+    checkInterrupt();
     if (!(last_ab == NULL || last_ab->query_end < query_coord))
       die("ERROR la_get_target_coord: bad value for last_ab\n");
     if (ab->query_beg > query_coord) {
@@ -466,6 +468,7 @@ void la_gff_transform(LocalPwAlignment *lpwa, GFF_Set *gff) {
   GFF_Feature *feat, *new_feat;
 
   for (i = 0; i < lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
     feat = lst_get_ptr(gff->features, i);
     for (j = 0; j < lst_size(lpwa->alignment_blocks); j++) {
                                 /* this is a somewhat inefficient way

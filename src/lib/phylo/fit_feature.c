@@ -153,6 +153,7 @@ void ff_lrts(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
   /* iterate through features  */
   for (i = 0; i < lst_size(gff->features); i++) {
     GFF_Feature *f = lst_get_ptr(gff->features, i);
+    checkInterrupt();
 
     /* first check for actual substitution data in feature; if none,
        don't waste time computing likelihoods */
@@ -244,6 +245,7 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
   /* iterate through features  */
   for (i = 0; i < lst_size(gff->features); i++) {
     GFF_Feature *f = lst_get_ptr(gff->features, i);
+    checkInterrupt();
 
     /* first check for informative substitution data in feature; if none,
        don't waste time computing likelihoods */
@@ -352,6 +354,7 @@ void ff_score_tests(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
 
   /* iterate through features  */
   for (i = 0; i < lst_size(gff->features); i++) {
+    checkInterrupt();
     d->feat = lst_get_ptr(gff->features, i);
 
     /* first check for actual substitution data in feature; if none,
@@ -434,6 +437,7 @@ void ff_score_tests_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
 
   /* iterate through features  */
   for (i = 0; i < lst_size(gff->features); i++) {
+    checkInterrupt();
     d->feat = lst_get_ptr(gff->features, i);
 
     /* first check for informative substitution data in feature; if none,
@@ -533,6 +537,7 @@ void ff_gerp(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
   /* iterate through features  */
   for (i = 0; i < lst_size(gff->features); i++) {
     GFF_Feature *f = lst_get_ptr(gff->features, i);
+    checkInterrupt();
     ff_find_missing_branches(mod, msa, f, has_data, &nspec);
 
     if (nspec < 3) 

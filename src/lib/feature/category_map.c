@@ -496,6 +496,7 @@ CategoryMap* cm_new_from_features(GFF_Set *feats) {
   types = lst_new_ptr(10);
   for (i = 0; i < lst_size(feats->features); i++) {
     GFF_Feature *f = lst_get_ptr(feats->features, i);
+    checkInterruptN(i, 10000);
     if (hsh_get(hash, f->feature->chars) == (void*)-1) {
       lst_push_ptr(types, f->feature);
       hsh_put_int(hash, f->feature->chars, 1);
@@ -705,6 +706,7 @@ GFF_Set *cm_labeling_as_gff(CategoryMap *cm,
 
   i = 0;
   while (i < length) {
+    checkInterruptN(i, 10000);
     cat = cm->ranges[path_to_cat[path[i]]]->start_cat_no;
     strand = reverse_compl[path[i]] ? '-' : '+';
     frame = do_frame[cat] ? path_to_cat[path[i]] - cat : GFF_NULL_FRAME;

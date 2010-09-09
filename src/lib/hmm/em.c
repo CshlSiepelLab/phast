@@ -126,6 +126,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
   done = FALSE;
 
   for (it = 1; !done; it++) {
+    checkInterrupt();
     total_logl = 0;
 
     /* initialize 'A' and 'E' counts (see below) */

@@ -230,6 +230,7 @@ double im_column_logl(IndelHistory *ih, IndelModel *im, double *col_logl) {
 double im_likelihood(IndelModel *im, IndelSuffStats *iss) {
   double logl = 0;
   int i, j, k;
+  checkInterrupt();
   for (i = 0; i < im->tree->nnodes; i++) {
     TreeNode *n = lst_get_ptr(im->tree->nodes, i);
     if (n == im->tree) continue;
@@ -442,6 +443,7 @@ BranchIndelSuffStats *im_suff_stats_branch_cat(IndelHistory *ih, int child_id,
   ss->beg_counts->data[this_type]++;
   last_type = this_type;
   for (; i < ih->ncols; i++) {
+    checkInterruptN(i, 1000);
     this_type = get_col_type(ih, child_id, parent_id, i);
 
     if (this_type == ERROR) {

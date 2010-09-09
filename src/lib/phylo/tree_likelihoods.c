@@ -56,6 +56,8 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
   double rcat_prob[mod->nratecats];
   double tmp[nstates];
 
+  checkInterrupt();
+
   /* allocate memory */
   inside_joint = (double**)smalloc(nstates * sizeof(double*));
   for (j = 0; j < nstates; j++) 
@@ -475,6 +477,7 @@ void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,
                                    available */
                                 /* NOTE: !col_by_col -> msa->ss != NULL */
 
+  checkInterrupt();
   tuple[mod->order+1] = '\0';
 
   if (mod->tree != NULL)
@@ -620,6 +623,7 @@ TreePosteriors *tl_new_tree_posteriors(TreeModel *mod, MSA *msa, int do_bases,
   if (do_substs) {
     tp->subst_probs = (double*****)smalloc(mod->nratecats * sizeof(double****));
     for (r = 0; r < mod->nratecats; r++) {
+      checkInterrupt();
       tp->subst_probs[r] = (double****)smalloc(nstates * sizeof(double***));
       for (i = 0; i < nstates; i++) {
         tp->subst_probs[r][i] = (double***)smalloc(nstates * sizeof(double**));

@@ -49,6 +49,7 @@ Matrix **get_substs_and_bases_given_jumps(JumpProcess *jp, int jmax,
 
   /* recurrence */
   for (j = 1; j < jmax; j++) {
+    checkInterrupt();
     for (n = 0; n <= j; n++) {
       for (i = 0; i < size; i++) {
         A[i]->data[n][j] = A[i]->data[n][j-1] * jp->R->data[i][i];
@@ -235,11 +236,13 @@ Matrix **sub_distrib_branch_conditional(JumpProcess *jp, double t) {
      base k */
 
   /* now combine with Poisson to get desired distribution */
-  for (k = 0; k < size; k++)
+  for (k = 0; k < size; k++) {
+    checkInterrupt();
     for (n = 0; n < maxjumps; n++) 
       for (j = 0; j < maxjumps; j++) 
         for (i = 0; i < size; i++)
           D[k]->data[i][n] += jp->B[k][i]->data[n][j] * pois->data[j];
+  }
   /* i.e., p(i, n | k, t) += p(i, n | j, k, t) * p(j | t) */
 
   vec_free(pois);
@@ -314,6 +317,7 @@ Vector *sub_posterior_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
                                maxsubst[node->rchild->id] + d_right[0]->ncols - 1);
 
       for (n = 0; n <= maxsubst[node->id]; n++) {
+	checkInterruptN(n, 10);
         for (j = 0; j <= n; j++) {
           int min_i, max_i, min_k, max_k;
           min_i = max(0, j - d_left[0]->ncols + 1);
@@ -385,6 +389,7 @@ Vector *sub_posterior_distrib_alignment(JumpProcess *jp, MSA *msa) {
   int *counts = smalloc(msa->ss->ntuples * sizeof(int));
 
   for (tup = 0; tup < msa->ss->ntuples; tup++) {
+    checkInterruptN(tup, 1000);
     tup_p[tup] = sub_posterior_distrib_site(jp, msa, tup); 
     counts[tup] = msa->ss->counts[tup]; /* have to convert to int */
   }
@@ -530,6 +535,7 @@ void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode,
     d = col_init_fit_data(jp->mod, msa, SUBTREE, NNEUT, FALSE);
 
   for (tup = 0; tup < msa->ss->ntuples; tup++) {
+    checkInterruptN(tup, 1000);
     if (fit_model) {            /* estimate scale factors (supertree
                                    and subtree) for col */
       vec_set(d->params, 0, d->init_scale);
@@ -618,6 +624,7 @@ void sub_posterior_stats_alignment(JumpProcess *jp, MSA *msa,
   Vector *p;
   *mean = 0; *variance = 0;
   for (tup = 0; tup < msa->ss->ntuples; tup++) {
+    checkInterruptN(tup, 1000);
     p = sub_posterior_distrib_site(jp, msa, tup); 
     pv_stats(p, &this_mean, &this_var);
     *mean += this_mean * msa->ss->counts[tup];
@@ -655,6 +662,7 @@ Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
 
   for (lidx = 0; lidx < lst_size(traversal); lidx++) {
     TreeNode *node = lst_get_ptr(traversal, lidx);
+    checkInterrupt();
 
     L[node->id] = mat_new(size, 500);
     mat_zero(L[node->id]);
@@ -799,6 +807,7 @@ Matrix *sub_posterior_joint_distrib_alignment(JumpProcess *jp, MSA *msa) {
   int *counts = smalloc(msa->ss->ntuples * sizeof(int));
   
   for (tup = 0; tup < msa->ss->ntuples; tup++) {
+    checkInterruptN(tup, 1000);
     tup_p[tup] = sub_joint_distrib_site(jp, msa, tup); 
     counts[tup] = msa->ss->counts[tup]; /* have to convert to int */
   }
@@ -827,6 +836,7 @@ void sub_posterior_joint_stats_alignment(JumpProcess *jp, MSA *msa,
   Vector *marg_x, *marg_y, *marg_tot;
   *mean_left = *var_left = *mean_right = *var_right = *mean_tot = *var_tot = 0;
   for (tup = 0; tup < msa->ss->ntuples; tup++) {
+    checkInterruptN(tup, 1000);
     p = sub_joint_distrib_site(jp, msa, tup); 
     marg_x = pm_marg_x(p);
     pv_stats(marg_x, &this_mean, &this_var);
@@ -872,6 +882,7 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
      column tuples actually used (saves time below) */
   for (i = 0; i < msa->ss->ntuples; i++) used[i] = 'N';
   for (idx = 0; idx < lst_size(feats); idx++) {
+    checkInterruptN(i, 1000);
     f = lst_get_ptr(feats, idx);
     len = f->end - f->start + 1;
     if (len > maxlen) maxlen = len;
@@ -893,6 +904,7 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
   post_mean = smalloc(msa->ss->ntuples * sizeof(double));
   post_var = smalloc(msa->ss->ntuples * sizeof(double));
   for (idx = 0; idx < msa->ss->ntuples; idx++) {
+    checkInterruptN(idx, 1000);
     if (used[idx] == 'N') continue; /* can save fairly expensive call below */
     p = sub_posterior_distrib_site(jp, msa, idx); 
     pv_stats(p, &post_mean[idx], &post_var[idx]);
@@ -901,6 +913,7 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
 
   /* now obtain stats for each feature */
   for (idx = 0; idx < lst_size(feats); idx++) {
+    checkInterruptN(idx, 100);
     f = lst_get_ptr(feats, idx);
     len = f->end - f->start + 1;
     loglen = log2_int(len);
@@ -1083,6 +1096,7 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
   post_var_right = smalloc(msa->ss->ntuples * sizeof(double));
   post_var_tot = smalloc(msa->ss->ntuples * sizeof(double));
   for (idx = 0; idx < msa->ss->ntuples; idx++) {
+    checkInterruptN(idx, 100);
     if (used[idx] == 'N') continue; /* can save fairly expensive call below */
     p = sub_joint_distrib_site(jp, msa, idx); 
     marg = pm_marg_x(p);
@@ -1099,6 +1113,7 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
 
   /* now obtain stats for each feature */
   for (idx = 0; idx < lst_size(feats); idx++) {
+    checkInterruptN(idx, 100);
     f = lst_get_ptr(feats, idx);
     len = f->end - f->start + 1;
     loglen = log2_int(len);
