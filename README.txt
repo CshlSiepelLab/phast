@@ -15,7 +15,7 @@ and are suggested for new users.
 -Installing using Binaries 
   Phast is distributed in binary form for the following platforms: 
 	Windows 	- http://compgen.bscb.cornell.edu/phast/Windows/ 
-	MacOSX (Intel) 	- http://compgen.bscb.cornell.edu/phast/MacOSX
+	MacOSX (Intel) 	- http://compgen.bscb.cornell.edu/phast/MacOSX/
 	Linux  		- http://compgen.bscb.cornell.edu/phast/Linux/  
 
 -Compiling from Source	
@@ -45,7 +45,7 @@ and are suggested for new users.
     Building under Windows is possible but difficult, we recommend using provided binaries.
 
 The Phast package should compile cleanly.  If you encounter problems compiling,
-please report them to phast-help-l@cornell.edu.  I'll do my best to help you work 
+please report them to phast-help-l@cornell.edu.  We'll do our best to help you work 
 around them and to avoid similar problems in the future.
 
 
