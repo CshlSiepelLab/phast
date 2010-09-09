@@ -2,18 +2,30 @@
 # this file defines variables used by all Makefiles
 ###########################################################################
 
-# set below to point to top-level directory of PHAST installation
+# If the user did not specify a Operating System to target, determine what OS this system is using 
+ifndef TARGETOS
+  TARGETOS := $(shell uname -s)
+endif
+# (if you prefer, you can target a specific OS instead by setting the environment variable TARGETOS instead)
+
+# Points to top-level directory of PHAST installation
 ifndef PHAST
-PHAST=${HOME}/phast
+  PHAST=$(shell expr match ${PWD} '\(.*\)/src.*')
 endif
 # (if you prefer, you can set the environment variable PHAST instead)
 
 # specify alternative compiler or utilities if necessary
-CC = gcc
-AR = ar
-# Enable this CC and AR for windows builds
-#CC = /usr/bin/i586-mingw32msvc-gcc
-#AR = /usr/bin/i586-mingw32msvc-ar
+ifeq ($(TARGETOS), Windows)
+  CC = /usr/bin/i586-mingw32msvc-gcc
+  AR = /usr/bin/i586-mingw32msvc-ar
+else
+  ifeq ($(TARGETOS), LSB)
+    CC = lsbcc -fno-stack-protector -m32    
+  else
+    CC = gcc
+  endif
+  AR = ar
+endif
 LN = ln
 
 LIB = ${PHAST}/lib
@@ -24,17 +36,17 @@ TARGETLIB = ${LIB}/libphast.a
 
 # set compiler options; uncomment one of the lines below or define
 # an appropriate alternative
-
-# for debugging
-#CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG
-# for best performance
-CFLAGS = -O3
-# use this CFLAGS for windows builds
-#CFLAGS = -O3
-# some other options
-#CFLAGS = -mcpu=opteron -O3
-#CFLAGS = -mcpu=pentiumpro -O3 
-
+ifneq ($(TARGETOS), Windows)
+ #for debugging
+ #CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG
+ # for best performance
+ CFLAGS = -O3 
+ # some other options
+ #CFLAGS = -mcpu=opteron -O3
+ #CFLAGS = -mcpu=pentiumpro -O3 
+else
+  CFLAGS = -O3
+endif
 
 PHAST_VERSION=\"$(shell cat ${PHAST}/version)\"
 CFLAGS += -I${INC} -DPHAST_VERSION=${PHAST_VERSION} -DPHAST_HOME=\"${PHAST}\" -I${PHAST}/src/lib/pcre
@@ -72,25 +84,34 @@ endif
 # phastCons, exoniphy, and phyloFit) will not be usable.
 
 # vecLib on Mac OS X; uncomment to use
-#VECLIB = T
+ifeq ($(TARGETOS), Darwin)
+  VECLIB = T
+endif
 
 # separately installed CLAPACK; uncomment CLAPACKPATH definition and
-# set appropriately to use
-CLAPACKPATH = /usr/local/software/CLAPACK
-# for windows use the pre-compiled clapack libraries bundled with phast
-#CLAPACKPATH = ${PHAST}/src/lib/clapack/windows
-# platform-specific suffix used for CLAPACK libraries; use the same
-# value as in CLAPACK's "make.inc" file 
-PLAT = _x86
-# PLAT is empty for windows builds
-#PLAT = 
-# F2C libraries used by CLAPACK; most users won't need to edit
-F2CPATH = ${CLAPACKPATH}/F2CLIBS
-
+# set appropriately to use, or define CLAPACKPATH when you run 'make'
+ifndef VECLIB
+  # platform-specific suffix used for CLAPACK libraries; use the same
+  #value as in CLAPACK's "make.inc" file
+  ifneq ($(TARGETOS), Windows)
+    ifndef CLAPACKPATH
+      CLAPACKPATH = /usr/local/software/clapack/
+    endif 
+    #Automatically detects PLAT type by looking in CLAPACKPATH for blas*.a and extracts the * part
+    PLAT = $(shell find ${CLAPACKPATH}/ -name '*.a' -exec expr match {} '.*blas\(.*\).a' \; | tr -d "\n")
+  else
+    # PLAT is empty for windows builds
+    ifndef CLAPACKPATH
+      CLAPACKPATH = ${PHAST}/src/lib/clapack/windows
+    endif
+    PLAT =
+  endif
+  # F2C libraries used by CLAPACK; most users won't need to edit
+  F2CPATH = ${CLAPACKPATH}/F2CLIBS
+endif
 
 # if neither VECLIB nor CLAPACKPATH is defined, then LAPACK will be
 # bypassed altogether
-
 
 # Most users shouldn't edit the lines below (but see note about older
 # versions of CLAPACK)
@@ -103,11 +124,13 @@ LIBS = -lphast -framework vecLib -lc -lm
 # CLAPACK
 else
 ifdef CLAPACKPATH
-CFLAGS += -I${CLAPACKPATH}/INCLUDE -I${F2CPATH}
-LIBS = -lphast -llapack -ltmg -lblaswr -lc -lf2c -lm
-# Use the following CFLAGS and LIBS for windows build
-#CFLAGS += -I${CLAPACKPATH}/INCLUDE -I${F2CPATH} -DPCRE_STATIC
-#LIBS = -lphast -lm  ${CLAPACKPATH}/liblapack.a ${CLAPACKPATH}/libf2c.a ${CLAPACKPATH}/libblas.a
+ifneq ($(TARGETOS), Windows)
+  CFLAGS += -I${CLAPACKPATH}/INCLUDE -I${F2CPATH}
+  LIBS = -lphast -llapack -ltmg -lblaswr -lc -lf2c -lm
+else
+  CFLAGS += -I${CLAPACKPATH}/INCLUDE -I${F2CPATH} -DPCRE_STATIC
+  LIBS = -lphast -lm  ${CLAPACKPATH}/liblapack.a ${CLAPACKPATH}/libf2c.a ${CLAPACKPATH}/libblas.a
+endif
 # IMPORTANT: use the following two lines instead for versions of CLAPACK
 # older than 3.1.1
 #CFLAGS += -I${CLAPACKPATH} -I${F2CPATH}
@@ -116,11 +139,13 @@ LIBPATH += -L${F2CPATH}
 
 # bypass
 else
-CFLAGS += -DSKIP_LAPACK
-LIBS = -lphast -lc -lm
-# Use the following CFLAGS and LIBS for windows build
-#CFLAGS += -DSKIP_LAPACK -DPCRE_STATIC
-#LIBS = -lphast -lm  
+ifneq ($(TARGETOS), Windows)
+  CFLAGS += -DSKIP_LAPACK
+  LIBS = -lphast -lc -lm
+else
+  CFLAGS += -DSKIP_LAPACK -DPCRE_STATIC
+  LIBS = -lphast -lm  
+endif
 endif
 endif
 
