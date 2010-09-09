@@ -139,6 +139,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
     if (mod->param_map[i] >= npar) 
       npar = mod->param_map[i]+1;
   opt_params = vec_new(npar);
+  for (i=0; i<npar; i++) vec_set(opt_params, i, 0);  // in some cases some parameters are not used but need to be initialized
   for (i=0; i<params->size; i++) {
     if (mod->param_map[i] >= 0) 
       vec_set(opt_params, mod->param_map[i], vec_get(params, i));

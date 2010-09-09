@@ -561,7 +561,8 @@ void msa_read_AXT(MSA *msa, List *axt_fnames) {
     line_no=0;
     /* FIXME: need to deal with strand!  Also, soft masking ... */
     while (str_readline(line, F) != EOF) {
-      checkInterruptN(line_no++, 1000);
+      checkInterruptN(line_no, 1000);
+      line_no++;
       str_trim(line);
 
       if (line->length == 0) continue;
@@ -662,7 +663,8 @@ MSA* ss_read(FILE *F, char *alphabet) {
   nseqs = length = tuple_size = ntuples = -1;
 
   while (str_readline(line, F) != EOF) {
-    checkInterruptN(line_no++, 1000);
+    checkInterruptN(line_no, 1000);
+    line_no++;
     str_trim(line);
     if (line->length == 0) continue;
     if (line->chars[0]=='#') continue;

@@ -45,7 +45,6 @@ LocalPwAlignment *la_new() {
 LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
   String *line = str_new(STR_MED_LEN);
   int line_no=0;
-  int firstline = 1;
   LocalPwAlignment *lpwa = la_new();
   List *fields = lst_new_ptr(6);
   Regex *stanza_start_re = str_re_new("^([dshaxm])[[:space:]]*{");
@@ -60,7 +59,8 @@ LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
     str_trim(line);
     if (line->length == 0) continue;
 
-    checkInterruptN(line_no++, 1000);
+    checkInterruptN(line_no, 1000);
+    line_no++;
     if (line_no == 1) {
       if (!str_equals_charstr(line, "#:lav")) {
         die("ERROR: lav file missing header.\n");

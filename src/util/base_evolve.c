@@ -35,7 +35,6 @@ int main(int argc, char *argv[]) {
   char c;
   int opt_idx, i, j, seed = -1;
   List *l;
-  struct timeval now;
 
   struct option long_opts[] = {
     {"nsites", 1, 0, 'n'},

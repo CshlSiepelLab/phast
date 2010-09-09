@@ -35,7 +35,6 @@ int main(int argc, char *argv[]) {
   int nrows = -1, nbytes = 1;
   training_mode mode = FULL;
   FILE *logf = NULL;
-  struct timeval now;
 
   struct option long_opts[] = {
     {"nrows", 1, 0, 'n'},

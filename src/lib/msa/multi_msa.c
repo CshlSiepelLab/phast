@@ -76,7 +76,8 @@ Multi_MSA *msa_multimsa_new(FILE *F, int do_ih) {
 
   while (str_readline(line, F) != EOF) {
     str_trim(line);
-    checkInterruptN(line_no++, 1000);
+    checkInterruptN(line_no, 1000);
+    line_no++;
     if (line->length == 0) continue; /* ignore blank lines */
     
     if (msas == NULL) {

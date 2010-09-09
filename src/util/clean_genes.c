@@ -1306,16 +1306,16 @@ int main(int argc, char *argv[]) {
 
         /* also check fraction of Ns */
         if (Nfrac < 1) {
-          enum {OKAY, FAIL, WARN} Nstatus = OKAY;
+          enum {MY_OKAY, MY_FAIL, MY_WARN} Nstatus = MY_OKAY;
           for (j = 0; j < msa->nseqs; j++) {
-            if ((double)countNs[j] / countCDSs[j] > Nfrac) Nstatus = FAIL;
-            if (Nstatus == OKAY && countNs[j] > 0) Nstatus = WARN;
+            if ((double)countNs[j] / countCDSs[j] > Nfrac) Nstatus = MY_FAIL;
+            if (Nstatus == MY_OKAY && countNs[j] > 0) Nstatus = MY_WARN;
           }
-          if (Nstatus == FAIL) {
+          if (Nstatus == MY_FAIL) {
             problem_add(problems, NULL, TOO_MANY_Ns, -1, -1);
-            if (status == OKAY) status = TOO_MANY_Ns;
+            if (status == MY_OKAY) status = TOO_MANY_Ns;
           }
-          else if (Nstatus == WARN) 
+          else if (Nstatus == MY_WARN) 
             problem_add(problems, NULL, WARN_Ns, -1, -1);
         }
 
