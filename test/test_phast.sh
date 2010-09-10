@@ -65,7 +65,7 @@ msa_view -i SS --end 1000 -o SS hpmrc.ss > hpmrc_short.ss
 !tempTree.cons.mod !tempTree.noncons.mod @phastCons --gc 0.7 --estimate-trees tempTree hpmrc_short.ss hpmr.mod
 #--nrates,-K
 phyloFit --quiet -i SS --tree "((hg16, panTro1), (mm3, rn3))" -o hpmr-ratevar --alpha 2.0 --nrates 3 hpmrc.ss
-!tempTree.cons.mod !tempTree.noncons.mod @phastCons -k 12 --estimate-trees tempTree hpmrc_short.ss hpmr-ratevar.mod
+!tempTree.cons.mod !tempTree.noncons.mod @phastCons -k 4 --estimate-trees tempTree hpmrc_short.ss hpmr-ratevar.mod
 !tempTree.cons.mod !tempTree.noncons.mod @phastCons -k 2,3 --estimate-trees tempTree hpmrc_short.ss hpmr-ratevar.mod 
 #--transitions,-t
 @phastCons -t 0.01,0.02 hpmrc_short.ss hpmr.mod

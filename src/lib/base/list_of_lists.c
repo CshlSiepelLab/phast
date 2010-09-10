@@ -270,6 +270,7 @@ void lol_free(ListOfLists *lol) {
   }
   lst_free(lol->lstType);
   lst_free(lol->lstName);
+  lst_free(lol->lst);
   if (lol->class != NULL) free(lol->class);
   free(lol);
 }

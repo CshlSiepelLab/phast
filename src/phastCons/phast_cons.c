@@ -87,7 +87,7 @@ int phastCons(struct phastCons_struct *p) {
     indels_only, estim_indels,
     estim_trees, ignore_missing, estim_rho, set_transitions,
     nummod, viterbi, compute_likelihood;
-  int nrates, nrates2, refidx, max_micro_indel;
+  int nrates, nrates2, refidx, max_micro_indel, free_cm=0;
   double lambda, mu, nu, alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1,
     gc, gamma, rho, omega;
   FILE *viterbi_f, *lnl_f, *log_f, *post_probs_f, *results_f;
@@ -340,8 +340,10 @@ int phastCons(struct phastCons_struct *p) {
     }
     setup_two_state(&hmm, &cm, mu, nu);
   }
-  else if (cm == NULL)
+  else if (cm == NULL) {
     cm = cm_create_trivial(nummod-1, NULL);
+    free_cm=TRUE;
+  }
 
   /* set up PhyloHmm */
   if (!indels) indel_mode = MISSING_DATA;
@@ -369,6 +371,7 @@ int phastCons(struct phastCons_struct *p) {
     }
     lst_free(l);
   }        
+  if (free_cm) cm_free(cm);
 
   /* compute emissions */
   phmm_compute_emissions(phmm, msa, quiet);
@@ -519,6 +522,7 @@ int phastCons(struct phastCons_struct *p) {
     }
     if (results != NULL)
       lol_push_gff(results, predictions, "most.conserved");
+    gff_free_set(predictions);
   }
 
   /* posterior probs */
@@ -565,6 +569,7 @@ int phastCons(struct phastCons_struct *p) {
       free(postprobsNoMissing);
       free(coord);
     }
+    free(postprobs);
   }
 
   if (compute_likelihood) {

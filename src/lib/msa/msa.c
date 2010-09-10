@@ -442,7 +442,7 @@ void reduce_to_4d(MSA *msa, CategoryMap *cm) {
   Hashtable *tuple_hash = hsh_new(msa->length);
 
   if (msa->categories == NULL)
-    die("ERROR reduce_to_4d go msa->categories==NULL\n");
+    die("ERROR reduce_to_4d got msa->categories==NULL\n");
 
   cat_pos3[0] = cm->ranges[cm_get_category(cm, tmpstr)]->end_cat_no;
   str_cpy_charstr(tmpstr, "CDSminus");
@@ -519,6 +519,7 @@ void reduce_to_4d(MSA *msa, CategoryMap *cm) {
   }
 
   if (msa->ss != NULL) ss_free(msa->ss);
+  msa->ss = NULL;
   msa_free_seqs(msa);
   msa_free_categories(msa);
   msa->length = new_msa->length;

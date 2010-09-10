@@ -303,6 +303,7 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
     for (i=0; i<LENGTH(docatsP); i++)
       sprintf(cmStr, "%s; %s %i", cmStr, CHAR(STRING_ELT(docatsP, i)), i+1);
     cm = cm_new_string_or_file(cmStr);
+    free(cmStr);
     cats_to_do_str = lst_new_ptr(numcats);
     for (i=0; i<numcats; i++) {
       lst_push_ptr(cats_to_do_str, 

@@ -211,6 +211,7 @@ void ff_lrts(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
   }
   
   ff_free_fit_data(d);
+  free(d);  //above function doesn't actually free object
 }
 
 /* Subtree version of LRT */

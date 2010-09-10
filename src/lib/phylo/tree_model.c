@@ -1048,7 +1048,6 @@ MSA *tm_generate_msa(int ncolumns,
 
   int i, class, nseqs, col, ntreenodes, idx, ratecat;
   MSA *msa;
-  Stack *stack;
   char *newchar;
   char **names, **seqs;
 
@@ -1058,7 +1057,6 @@ MSA *tm_generate_msa(int ncolumns,
      number */
   ntreenodes = classmods[0]->tree->nnodes; 
 
-  stack = stk_new_ptr(ntreenodes);
   nseqs = -1;
   for (i = 0; i < nclasses; i++) {
     /* count leaves in tree */
@@ -1153,6 +1151,7 @@ MSA *tm_generate_msa(int ncolumns,
     if (hmm != NULL)
       class = mm_sample_state(hmm->transition_matrix, class);
   }
+  free(newchar);
 
   return msa;
 }

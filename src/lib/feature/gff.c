@@ -115,6 +115,7 @@ GFF_Set* gff_read_set(FILE *F) {
           die("ERROR: Looks like BED format but can't rewind (non-seekable stream).\n");
         fsetpos(F, &pos);
         gff_read_from_bed(set, F);
+	lst_free_strings(l);
         break;
       }
       else if ((lst_size(l) >= 10 && 
@@ -132,6 +133,7 @@ GFF_Set* gff_read_set(FILE *F) {
           die("ERROR: Looks like genepred format but can't rewind (non-seekable stream).\n");
         fsetpos(F, &pos);
         gff_read_from_genepred(set, F);
+	lst_free_strings(l);
         break;
       }
     }

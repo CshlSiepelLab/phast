@@ -1073,6 +1073,7 @@ void tr_prune_supertree(TreeNode **t, TreeNode *node) {
   tr_prune(t, prune_names, FALSE);
   lst_free_strings(prune_names);
   lst_free(prune_names);
+  free(inSub);
 }
 
 void tr_prune_subtree(TreeNode **t, TreeNode *node) {

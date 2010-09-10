@@ -242,6 +242,7 @@ void phyloP(struct phyloP_struct *p) {
       phast_warning(warnstr->chars);
       str_free(warnstr);
     }
+    lst_free(pruned_names);
   }
 
   /* set subtree if necessary */
@@ -371,6 +372,7 @@ void phyloP(struct phyloP_struct *p) {
         else
           print_p(outfile, mod_fname, msa_fname, prior_distrib, 
                   post_mean, post_var, ci, scale, results);
+	if (prior_distrib != NULL) vec_free(prior_distrib);
       }
       else {                        /* --features case */
         p_value_stats *stats = sub_p_value_many(jp, msa, feats->features, ci);

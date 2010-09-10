@@ -714,9 +714,11 @@ GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm,
   /* do this way to allow input to be numbers or names */
   catnos = cm_get_category_list(phmm->cm, cats, 1);
   types = cm_get_features(phmm->cm, catnos);
+  lst_free(catnos);
 
   /* filter out unwanted types */
   gff_filter_by_type(retval, types, FALSE, NULL);
+  lst_free(types);
 
   /* now merge adjacent features */
   keepers = lst_new_ptr(lst_size(retval->features));

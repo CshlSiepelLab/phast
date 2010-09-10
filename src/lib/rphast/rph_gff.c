@@ -488,9 +488,10 @@ SEXP rph_gff_one_attribute(SEXP gffP, SEXP tagP) {
     lol_push_charvec(lol, result, resultLen, NULL);
     for (j=0; j < resultLen; j++) free(result[j]);
   }
+  free(result);
   PROTECT(rv = rph_listOfLists_to_SEXP(lol));
   lol_free(lol);
-  free(tag);
+  str_free(tag);
   lst_free(l1);
   lst_free(l2);
   UNPROTECT(1);
