@@ -12,11 +12,9 @@ You can either download the Phast binaries or compile Phast from source.
 Binaries are generally the easiest way to get up and running with Phast 
 and are suggested for new users.  
 
--Installing using Binaries 
-  Phast is distributed in binary form for the following platforms: 
-	Windows 	- http://compgen.bscb.cornell.edu/phast/Windows/ 
-	MacOSX (Intel) 	- http://compgen.bscb.cornell.edu/phast/MacOSX/
-	Linux  		- http://compgen.bscb.cornell.edu/phast/Linux/  
+-Installing using Binaries
+  Phast binaries for Windows, MacOSX, and Linux can be downloaded from the 
+    main PHAST page: http://compgen.bscb.cornell.edu/phast
 
 -Compiling from Source	
   MacOSX

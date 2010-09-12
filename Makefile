@@ -7,8 +7,8 @@ all:
 package:
 	rm -rf ${TMPDIR}
 	mkdir -p ${TMPDIR}
-	cd ${TMPDIR} ; cvs checkout phast 
-	find ${TMPDIR}/phast -name "CVS" | xargs rm -rf
+	cd ${TMPDIR} ; svn checkout http://compgen.bscb.cornell.edu/svnrepo/phast/trunk phast
+	find ${TMPDIR}/phast -name ".svn" | xargs rm -rf
 	rm -r ${TMPDIR}/phast/doc ${TMPDIR}/phast/src/lib/rphast ${TMPDIR}/phast/test
 	VERSION=`cat ${TMPDIR}/phast/version | sed 's/\./_/g'` ;\
 	cd ${TMPDIR} ; tar cfz ${CWD}/phast.$$VERSION.tgz phast

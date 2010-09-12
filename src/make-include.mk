@@ -95,7 +95,7 @@ ifndef VECLIB
   #value as in CLAPACK's "make.inc" file
   ifneq ($(TARGETOS), Windows)
     ifndef CLAPACKPATH
-      CLAPACKPATH = /usr/local/software/clapack/
+      CLAPACKPATH = /usr/local/software/clapack
     endif 
     #Automatically detects PLAT type by looking in CLAPACKPATH for blas*.a and extracts the * part
     PLAT = $(shell find ${CLAPACKPATH}/ -name '*.a' -exec expr match {} '.*blas\(.*\).a' \; | tr -d "\n")
