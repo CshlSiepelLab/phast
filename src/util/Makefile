@@ -1,4 +1,5 @@
 include ../make-include.mk
+PHAST := ${PHAST}/..
 
 # assume every *.c file represents an executable
 EXECS = $(addprefix ${BIN}/,$(basename $(wildcard *.c)))

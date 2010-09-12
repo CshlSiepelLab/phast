@@ -10,7 +10,7 @@ endif
 
 # Points to top-level directory of PHAST installation
 ifndef PHAST
-  PHAST=$(shell expr match ${PWD} '\(.*\)/src.*')
+  PHAST=${PWD}/..
 endif
 # (if you prefer, you can set the environment variable PHAST instead)
 

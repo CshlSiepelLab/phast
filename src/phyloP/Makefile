@@ -1,4 +1,5 @@
 include ../make-include.mk
+PHAST := ${PHAST}/..
 
 # assume executable name is given by directory name
 EXEC = $(addprefix ${BIN}/,$(notdir ${PWD}))

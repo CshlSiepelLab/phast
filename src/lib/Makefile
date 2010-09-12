@@ -1,4 +1,5 @@
 include ../make-include.mk
+PHAST := $(abspath ${PHAST}/..)
 
 CDIR = ${PWD}
 

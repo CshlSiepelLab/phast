@@ -1,4 +1,5 @@
 include ../../make-include.mk
+PHAST := ${PHAST}/../..
 
 # assume every *.c file goes in the library
 OBJS =  $(addsuffix .o,$(basename $(wildcard *.c)))

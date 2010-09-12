@@ -1,4 +1,5 @@
 include ../make-include.mk
+PHAST := ${PHAST}/..
 
 #EXEC = $(addprefix ${BIN}/,$(notdir ${PWD}))
 PROGS = dless dlessP
