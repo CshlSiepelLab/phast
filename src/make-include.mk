@@ -102,7 +102,7 @@ ifndef VECLIB
   else
     # PLAT is empty for windows builds
     ifndef CLAPACKPATH
-      CLAPACKPATH = ${PHAST}/src/lib/clapack/windows
+      CLAPACKPATH = /usr/local/software/clapack-windows
     endif
     PLAT =
   endif
