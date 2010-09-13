@@ -97,7 +97,7 @@ static FILE *SUMF = NULL;       /* hack to allow total number of bases
 /* dump record of predictions to files */
 void dump(char *prefix, GFF_Feature *real, GFF_Feature *pred, pred_type t,
           double pct_correct) {
-  char *type;
+  char *type=NULL;
   static FILE *CRF = NULL, *PCF = NULL, *NCF = NULL, *WEF = NULL, 
     *MEF = NULL, *OLF = NULL;
 
@@ -218,7 +218,7 @@ void compute_and_print_stats(FILE *F, String *real_name, String *pred_name,
 
 int main(int argc, char* argv[]) {
   FILE* F;
-  GFF_Set *gff_real, *gff_pred;
+  GFF_Set *gff_real=NULL, *gff_pred=NULL;
   char c;
   List *real_fname_list = NULL, *pred_fname_list = NULL, 
     *feat_list = NULL, *seq_len_list = NULL, *l = NULL;
@@ -302,7 +302,7 @@ int main(int argc, char* argv[]) {
       npcp, nola, nolp, nreal_pos, npred_pos, len_real, len_pred, seqlen,
       already_counted_real;
     String *real_fname, *pred_fname;
-    GFF_Feature *feat_real, *feat_pred;
+    GFF_Feature *feat_real, *feat_pred=NULL;
 
     real_fname = (String*)lst_get_ptr(real_fname_list, nfile);
     if ((F = fopen(real_fname->chars, "r"))

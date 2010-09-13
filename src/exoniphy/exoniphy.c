@@ -99,7 +99,7 @@ int main(int argc, char* argv[]) {
   HMM *hmm = NULL;
   CategoryMap *cm = NULL;
   GFF_Set *predictions;
-  String *data_path;
+  String *data_path=NULL;
   char c;
   int i, j, ncats, ncats_unspooled, trial, ntrials, opt_idx, gc_cat;
   double gc;

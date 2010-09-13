@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
   PooledMSA *pmsa = NULL;
   msa_format_type msa_format = FASTA;
   Vector *backgd_mnmod = NULL;
-  Hashtable *hash;
+  Hashtable *hash=NULL;
   String *output_prefix = str_new_charstr("phastm.");
   double *has_motif = NULL;
   double prior = PRIOR;

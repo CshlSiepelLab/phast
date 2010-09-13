@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
     do_estimates = TRUE;
   TreeNode *tree = NULL;
   TreeModel *model = NULL, *init_mod = NULL;
-  MSA *msa;
+  MSA *msa=NULL;
   char *dump_mods_root = NULL, *dump_msas_root = NULL, *ave_model = NULL;
   TreeModel **input_mods = NULL;
 
@@ -101,9 +101,9 @@ int main(int argc, char *argv[]) {
   char c;
   int i, j, opt_idx, nparams = -1, seed = -1;
   String *tmpstr;
-  List **estimates;
+  List **estimates=NULL;
   double *p = NULL;
-  int *tmpcounts;
+  int *tmpcounts=NULL;
   char **descriptions = NULL;
   List *tmpl;
   char fname[STR_MED_LEN];
@@ -356,8 +356,8 @@ int main(int argc, char *argv[]) {
   } /* if input_mods == NULL */
 
   for (i = 0; i < nreps; i++) {
-    Vector *params;
-    TreeModel *thismod;
+    Vector *params=NULL;
+    TreeModel *thismod=NULL;
 
     /* generate alignment */
     if (input_mods == NULL) {   /* skip if models given */

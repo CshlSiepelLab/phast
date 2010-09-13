@@ -694,7 +694,7 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
       m = lst_get_int(ecols, i);
 
       if (dq[l][m] != 0)    /* row/col pairs should be unique */
-	die("ERROR compute_grad_em_approx: dq[%i][%i] should be zero but is %e\n", l, m, dq[l][k]);
+	die("ERROR compute_grad_em_approx: dq[%i][%i] should be zero but is %e\n", l, m, dq[l][m]);
 
       dq[l][m] = tm_is_reversible(mod->subst_mod) ? 
         vec_get(mod->backgd_freqs, m) : 1;
@@ -840,7 +840,6 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
               else partial_p_div_p = INFTY;
             }
             else partial_p_div_p = partial_p / p;
-
             vec_set(grad, grad_idx, vec_get(grad, grad_idx) + 
 		    partial_p_div_p * 
 		    mod->tree_posteriors->expected_nsubst_tot[rcat][i][j][node]);

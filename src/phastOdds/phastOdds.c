@@ -35,10 +35,10 @@ int main(int argc, char *argv[]) {
   HMM *backgd_hmm = NULL, *feat_hmm = NULL;
   msa_format_type inform = FASTA;
   GFF_Set *features = NULL;
-  MSA *msa, *msa_compl;
+  MSA *msa, *msa_compl=NULL;
   double **backgd_emissions, **feat_emissions, **mem, **dummy_emissions,
-    *winscore_pos, *winscore_neg;
-  int *no_alignment;
+    *winscore_pos=NULL, *winscore_neg=NULL;
+  int *no_alignment=NULL;
   List *pruned_names;
 
   int opt_idx;

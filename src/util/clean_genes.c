@@ -626,7 +626,7 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
 
   for (i = 0; i < lst_size(problems); i++) {
     struct Problem *problem = lst_get_ptr(problems, i);
-    char *reason;
+    char *reason=NULL;
     int print_alignment = TRUE;
 
     switch (problem->status) {
@@ -971,7 +971,7 @@ int main(int argc, char *argv[]) {
   msa_format_type msa_format = SS;
   List *keepers, *problems = lst_new_ptr(10), 
     *ends_adjusted = lst_new_ptr(1), *starts_adjusted = lst_new_ptr(1), 
-    *discards, *intron_splice = lst_new_ptr(10);
+    *discards=NULL, *intron_splice = lst_new_ptr(10);
   char *rseq_fname = NULL;
   FILE *logf = NULL, *mlogf = NULL, *statsf = NULL, *discardf = NULL;
   cds_gap_type fshift_mode = FSHIFT_BAD;

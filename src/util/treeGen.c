@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
   int opt_idx, i, j, k, N, nleaves;
   List *names, *treelist, *newlist, *tmpl, *groups = NULL;
   TreeNode *t, *tnew;
-  int *used;
+  int *used=NULL;
 
   struct option long_opts[] = {
     {"help", 0, 0, 'h'},

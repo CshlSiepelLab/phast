@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
   TreeNode *tree = NULL;
   HMM *hmm;
   CategoryMap *cm;
-  int *tcat, *fcat, *tpat, *fpat, *isolated;
+  int *tcat, *fcat, *tpat=NULL, *fpat=NULL, *isolated;
   GapPatternMap *gpm = NULL;
   char c;
   double sum = 0;

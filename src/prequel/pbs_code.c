@@ -197,7 +197,7 @@ void pbs_assign_points(PbsCode *c) {
    will be set equal to the symmetric KL divergence between the vector
    and the representative point */
 unsigned pbs_get_index(PbsCode *code, Vector *p, double *errorVal) {
-  unsigned retval;
+  unsigned retval=-1;
   double min_d = INFTY + 1;	/* because min distance could be INFTY */
   int i;
   SimplexRegion *r = sxg_get_region(code->sg, p);

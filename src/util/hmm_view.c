@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
   List *indel_cats = NULL, *cats_to_show = NULL, *pivots = NULL;
   GapPatternMap *gpm = NULL;
   int i, j, nratecats = 1, gapped_cat, basecat, suppress_unconnected = 0;
-  int *new_to_old, *show_cat;
+  int *new_to_old=NULL, *show_cat;
   TreeNode *tree = NULL;
   double t;
   char c;
