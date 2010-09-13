@@ -551,7 +551,7 @@ int str_list_overlap(List *dest, List *src1, List *src2) {
 /* converts a list of strings to a list of integers; aborts on error */
 List *str_list_as_int(List *str_list) {
   List *retval = lst_new_int(lst_size(str_list));
-  int i, tmp;
+  int i, tmp=0;
   for (i = 0; i < lst_size(str_list); i++) {
     if (str_as_int(lst_get_ptr(str_list, i), &tmp) != 0)
       die("ERROR: bad integer ('%s').\n", 
