@@ -68,11 +68,14 @@ around them and to avoid similar problems in the future.
       LAPACK routine.
 
     - The most recent source code of Phast can be obtained from our public
-      SVN.  To download the latest code simply run the command as follows
+      SVN.  It may be helpful to try out the latest version before submitting
+      a bug report.  To download the latest code simply run the command as follows
       'svn co http://compgen.bscb.cornell.edu/svnrepo/phast/trunk/ phast'.
       The source code will be saved in a folder called 'phast' in the 
       directory where the command was run. You can substitute SVN code for
       the *.tgz formated code download from our site and build by following
       the above build instructions.
       
-
+    - The phast source code includes the PCRE library (http://www.pcre.org),
+      located in the directory phast/src/lib/pcre.  We gratefully acknowledge
+      the author of PCRE for creating this library.
