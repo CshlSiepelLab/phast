@@ -1241,7 +1241,7 @@ void opt_lnsrch_1d(double direction, double xold, double fxold, double *x,
                    double *fx, double deriv, double (*func)(double, void*), 
                    void *data, int *nevals, double *final_lambda, FILE *logf) {
 
-  double lambda, slope;
+  double lambda, slope, test, lambda_min;
 
   /* one-d line search */
   lambda = 1;
@@ -1255,19 +1255,29 @@ void opt_lnsrch_1d(double direction, double xold, double fxold, double *x,
      Write, Numerical Optimization, chapter 3, for a reasonably clear
      discussion */
 
+  test = fabs(*x)/max(fabs(xold), 1.0);
+  lambda_min = TOLX(OPT_HIGH_PREC)/test;
+
   for (;;) {
     (*x) = xold + lambda * direction;
     (*fx) = func(*x, data);
     (*nevals)++;
 
-    if (*fx <= fxold + ALPHA * lambda * slope) 
+    if (lambda < lambda_min) {
+      (*x) = xold;
+      *final_lambda = lambda;
+      break;
+    }
+    else if (*fx <= fxold + ALPHA * lambda * slope) {
       /* the "sufficient decrease" (Armijo) condition has been met--
          essentially, the slope achieved by the update is less (i.e.,
          a steeper negative slope) than a constant times the tangent
          at xold.  This ensures that the update slope is not becoming
          increasingly smaller, so that the algorithm converges to a
          suboptimal value  */
+      *final_lambda = lambda;
       break;
+    }
     
     lambda *= RHO;              /* have to backtrack */
     /* Simple geometric decrease in lambda still allows for guaranteed
