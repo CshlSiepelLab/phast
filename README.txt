@@ -1,12 +1,8 @@
-                                                               
-                                             
 ---------------------------------------------------------------------------
-            PHAST: PHYLOGENETIC ANALYSIS WITH SPACE/TIME MODELS
+PHAST: PHYLOGENETIC ANALYSIS WITH SPACE/TIME MODELS
 ---------------------------------------------------------------------------
 
-                                 CONTENTS
-
-			QUICK START - INSTALLING PHAST
+QUICK START - INSTALLING PHAST
 
 You can either download the Phast binaries or compile Phast from source.
 Binaries are generally the easiest way to get up and running with Phast 
@@ -35,19 +31,24 @@ and are suggested for new users.
     4. Download a copy of Phast from http://compgen.bscb.cornell.edu/phast/ 
 	and extract the contents of phast*.tgz using 'tar -xvzf phast*.tgz'
     5. Change directory to 'phast/src/' and run 'make CLAPACKPATH=/usr/local/software/clapack'
-	Replacing '/usr/local/software/clapack' with the path of your
-	Clapack install i.e. CLAPACKPATH=/home/username/CLAPACK-3.2.1
+	replacing '/usr/local/software/clapack' with the path of your
+	Clapack install (e.g., CLAPACKPATH=/home/username/CLAPACK-3.2.1)
     6. The Phast binaries should be created in the '../bin/' directory
     
   Windows 
-    Building under Windows is possible but difficult, we recommend using provided binaries.
+    PHAST can be compiled under Windows using the Cygwin linux-like
+    environment, but some users have reported difficulties in making this
+    work.  We recommend using the provided binaries for Windows, unless you
+    have a good reason to compile the package from source.
 
-The Phast package should compile cleanly.  If you encounter problems compiling,
-please report them to phast-help-l@cornell.edu.  We'll do our best to help you work 
-around them and to avoid similar problems in the future.
+The Phast package should compile cleanly in most standard linux or
+linux-like environments (including MacOS).  If you encounter problems
+compiling, please report them to phast-help-l@cornell.edu.  We'll do our
+best to help you work around them and to avoid similar problems in the
+future.
 
 
-                                   NOTES
+NOTES
 
     - If CLAPACK is used, PHAST also depends on the "F2C" (Fortran to C)
       package and on an implementation of the "BLAS" (Basic Linear Algebra
@@ -68,14 +69,19 @@ around them and to avoid similar problems in the future.
       LAPACK routine.
 
     - The most recent source code of Phast can be obtained from our public
-      SVN.  It may be helpful to try out the latest version before submitting
-      a bug report.  To download the latest code simply run the command as follows
-      'svn co http://compgen.bscb.cornell.edu/svnrepo/phast/trunk/ phast'.
+      subversion server.  If you are set up to use subversion, you may want
+      to try checkout out the latest version before submitting a bug
+      report.  To download the latest code simply run the command as follows
+      'svn co http://compgen.bscb.cornell.edu/svnrepo/phast/trunk/phast'.
       The source code will be saved in a folder called 'phast' in the 
       directory where the command was run. You can substitute SVN code for
       the *.tgz formated code download from our site and build by following
-      the above build instructions.
-      
-    - The phast source code includes the PCRE library (http://www.pcre.org),
-      located in the directory phast/src/lib/pcre.  We gratefully acknowledge
-      the author of PCRE for creating this library.
+      the above instructions.
+
+
+ACKNOWLEDGEMENTS
+
+PHAST makes use of the CLAPACK linear algebra library
+(http://www.netlib.org/clapack/) and the PCRE regular expression library
+(http://www.pcre.org).  We thank the authors of these packages for making
+them freely available to the community.
