@@ -2217,6 +2217,7 @@ void msa_concatenate(MSA *aggregate_msa, MSA *source_msa) {
       nseq++;
     }
   }
+
   if (aggregate_msa->ss != NULL && aggregate_msa->seqs==NULL)
     ss_to_msa(aggregate_msa);
   if (aggregate_msa->ss != NULL) {
@@ -2226,6 +2227,8 @@ void msa_concatenate(MSA *aggregate_msa, MSA *source_msa) {
 
   if (aggregate_msa->alloc_len == 0) {
     aggregate_msa->alloc_len = aggregate_msa->length + source_msa->length;
+    if (aggregate_msa->seqs == NULL)
+      aggregate_msa->seqs = malloc(aggregate_msa->nseqs*sizeof(char*));
     for (j = 0; j < nseq; j++) {
       aggregate_msa->seqs[j] = 
         (char*)smalloc((aggregate_msa->alloc_len+1) * sizeof(char));
