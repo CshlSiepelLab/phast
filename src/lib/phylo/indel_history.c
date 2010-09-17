@@ -698,7 +698,7 @@ void ih_convert_ia_names(MSA *msa, TreeNode *tree) {
 
   /* now rename */
   for (i = 0; i < msa->nseqs; i++) {
-    if ((newname = hsh_get(name_map, msa->names[i])) != (char*)-1) {
+    if ((newname = hsh_get(name_map, msa->names[i])) != NULL) {
       free(msa->names[i]);
       msa->names[i] = strdup(newname);
     }

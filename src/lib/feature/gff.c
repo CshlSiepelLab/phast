@@ -698,7 +698,7 @@ void gff_sort_within_groups(GFF_Set *set) {
 /** Group features by value of specified tag.  All features with
     undefined values will be placed in a single group. */
 void gff_group(GFF_Set *set, char *tag) {
-  char tmpstr[STR_SHORT_LEN];
+  char tmpstr[STR_MED_LEN];
   Regex *tag_re;
   List *l = lst_new_ptr(1);
   int est_no_groups = max(lst_size(set->features) / 10, 1);
@@ -735,7 +735,7 @@ void gff_group(GFF_Set *set, char *tag) {
       str_remove_quotes(val);
     }
 
-    if ((group = hsh_get(hash, val->chars)) == (void*)-1) {
+    if ((group = hsh_get(hash, val->chars)) == NULL) {
                                 /* new group */
       group = smalloc(sizeof(GFF_FeatureGroup));
       group->name = str_dup(val);
@@ -779,7 +779,7 @@ void gff_group_by_feature(GFF_Set *set) {
     GFF_FeatureGroup *group;
     checkInterruptN(i, 1000);
     
-    if ((group = hsh_get(hash, f->feature->chars)) == (void*)-1) {
+    if ((group = hsh_get(hash, f->feature->chars)) == NULL) {
                                 /* new group */
       group = smalloc(sizeof(GFF_FeatureGroup));
       group->name = str_dup(f->feature);
@@ -817,7 +817,7 @@ void gff_group_by_seqname(GFF_Set *set) {
     GFF_FeatureGroup *group;
     checkInterruptN(i, 1000);
     
-    if ((group = hsh_get(hash, f->seqname->chars)) == (void*)-1) {
+    if ((group = hsh_get(hash, f->seqname->chars)) == NULL) {
                                 /* new group */
       group = smalloc(sizeof(GFF_FeatureGroup));
       group->name = str_dup(f->seqname);
@@ -866,7 +866,7 @@ int gff_group_by_seqname_existing_group(GFF_Set *set, GFF_Set *model) {
     GFF_Feature *f = lst_get_ptr(set->features, i);
     GFF_FeatureGroup *group;
     checkInterruptN(i, 1000);
-    if ((group = hsh_get(hash, f->seqname->chars)) != (void*)-1) {
+    if ((group = hsh_get(hash, f->seqname->chars)) != NULL) {
       if (group->start == -1 || f->start < group->start) 
 	group->start = f->start;
       if (group->end == -1 || f->end > group->end)

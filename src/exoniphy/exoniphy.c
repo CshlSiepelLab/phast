@@ -234,7 +234,7 @@ int main(int argc, char* argv[]) {
   /* rename if aliases are defined */
   if (alias_hash != NULL) {
     for (i = 0; i < msa->nseqs; i++) {
-      if ((newname = hsh_get(alias_hash, msa->names[i])) != (char*)-1) {
+      if ((newname = hsh_get(alias_hash, msa->names[i])) != NULL) {
         free(msa->names[i]);
         msa->names[i] = strdup(newname);
       }
