@@ -248,7 +248,7 @@ SEXP rph_tree_rename(SEXP treeVec, SEXP oldNamesP, SEXP newNamesP) {
     for (i=0; i<tr->nnodes; i++) {
       n = lst_get_ptr(tr->nodes, i);
       if (n->name != NULL && n->name[0] != '\0' &&
-	  (str = hsh_get(hash, n->name)) != NULL)
+	  (str = hsh_get(hash, n->name)) != (char*)-1)
 	strcpy(n->name, str);
     }
     str = tr_to_string(tr, 1);

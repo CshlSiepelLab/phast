@@ -207,7 +207,7 @@ int phastCons(struct phastCons_struct *p) {
   /* rename if aliases are defined */
   if (alias_hash != NULL) {
     for (i = 0; i < msa->nseqs; i++) {
-      if ((newname = hsh_get(alias_hash, msa->names[i])) != NULL) {
+      if ((newname = hsh_get(alias_hash, msa->names[i])) != (char*)-1) {
         free(msa->names[i]);
         msa->names[i] = strdup(newname);
       }

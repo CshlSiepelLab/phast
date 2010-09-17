@@ -89,13 +89,11 @@ void* hsh_get(Hashtable* ht, const char *key) {
   bucket = hsh_hash_func(ht, key);
   if (ht->keys[bucket] == NULL || 
       (idx = lst_find_compare(ht->keys[bucket], (void*)key, equal)) == -1) 
-    return NULL;
+    return (void*)-1;
   return lst_get_ptr(ht->vals[bucket], idx);
 }
 
 int hsh_get_int(Hashtable *ht, const char *key) {
-  void *val = hsh_get(ht, key);
-  if (val == NULL) return -1;
   return ptr_to_int(hsh_get(ht, key));
 }
 

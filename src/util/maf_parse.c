@@ -173,7 +173,7 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
   FILE *outfile;
   char *fname = smalloc((strlen(out_root)+name->length+7)*sizeof(char));
   sprintf(fname, "%s.%s.maf", out_root, name->chars);
-  idx = hsh_get_int(outfileHash, fname);
+  idx = ptr_to_int(hsh_get(outfileHash, fname));
   if (idx == -1) {
     hsh_put(outfileHash, fname, int_to_ptr(lst_size(outfileList)));
     outfile = mafBlock_open_outfile(fname, argc, argv);

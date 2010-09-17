@@ -315,7 +315,7 @@ int main(int argc, char *argv[]) {
     for (i = 0; i < tree->nnodes; i++) {
       n = lst_get_ptr(tree->nodes, i);
       if (n->name != NULL && n->name[0] != '\0' && 
-          (newname = hsh_get(rename_hash, n->name)) != NULL) {
+          (newname = hsh_get(rename_hash, n->name)) != (char*)-1) {
         strcpy(n->name, newname);
       }
     }
