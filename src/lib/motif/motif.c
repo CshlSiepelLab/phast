@@ -11,6 +11,7 @@
 
 /* Motif-finding routines */
 
+#include <math.h>
 #include "motif.h"
 #include "em.h"
 #include "msa.h"
@@ -451,7 +452,7 @@ double mtf_compute_conditional(Vector *params, void *data) {
       sample_logprob = log(m->has_motif[s]) - log(1 + exp(-lsum)) + 
         log(1 + (1-m->has_motif[s])/m->has_motif[s] * exp(-lsum));
 
-    if (!(finite(sample_logprob)))
+    if (isinf(sample_logprob) || isnan(sample_logprob))
       die("ERROR mtf_compute_conditional: sample_logprob not finite\n");
 
     tot_logprob += sample_logprob;
@@ -789,7 +790,7 @@ double mtf_em(void *models, void *data, int nsamples,
         sample_logl = tot_ll_motif + log(1 + exp(tot_ll_backgd - tot_ll_motif));
                                 /* do it this way to avoid underflow */
       
-      if (!(finite(sample_logl)))
+      if (isinf(sample_logl) || isnan(sample_logl)) 
 	die("ERROR mtf_em sample_logl not finite\n");
 
       /* now let postpY[i] be the posterior probability that there is a

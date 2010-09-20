@@ -770,7 +770,8 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
     if (mu < 0 && abs(mu) < TM_IMAG_EPS) /* consider close enough to 0 */
       vec_set(params_in, i, mu=0);
     if (mu < 0) die("ERROR: parameter %d has become negative (%f).\n", i, mu);
-    if (!finite(mu)) die("ERROR: parameter %d is no longer finite (%f).\n", i, mu);
+    if (isinf(mu) || isnan(mu))
+      die("ERROR: parameter %d is no longer finite (%f).\n", i, mu);
   }
   for (i = 0; i<params->size; i++) {
     if (mod->param_map[i] >= 0) 
