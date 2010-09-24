@@ -20,7 +20,7 @@
 void print_usage() {
   printf("USAGE: eval_predictions -r <real_fname_list> -p <pred_fname_list>\n\
                         -l <seq_len_list> [OPTIONS] \n\
-\n\
+\n\DESCRIPTION:\n\
 Compares predicted genes with \"real\" (or annotated) genes.\n\
 Reports standard measures of prediction quality.  The following\n\
 measures are reported:\n\
@@ -46,7 +46,7 @@ Programs on Mammalian Sequences,\" by Rogic et al. (Genome Research\n\
 WE = 1.  Note also that each set (predicted and real) should consist of\n\
 non-overlapping groups of features (see 'refeature').\n\
 \n\
-Options:\n\
+OPTIONS:\n\
     -r <real_fname_list> \n\
         (required) List of names of files defining real genes (GFF). \n\
 \n\
