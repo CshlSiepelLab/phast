@@ -3,7 +3,6 @@ include make-include.mk
 SUB = lib dless exoniphy phastCons phastOdds phastMotif phyloFit phyloBoot phyloP prequel util 
 
 CDIR = ${PWD}
-INSTALLDIR = /cluster/bin/phast/${MACHTYPE}
 
 all: 
 	mkdir -p ../bin ../lib
@@ -13,9 +12,11 @@ ifeq ($(TARGETOS), Windows)
 endif
 
 install:
-	@if [ "${MACHTYPE}" == "" ] ; then echo "ERROR: MACHTYPE must be defined." ; exit 1 ; fi
-	mkdir -p ${INSTALLDIR}
-	cp ../bin/* ${INSTALLDIR}
+ifndef DESTDIR
+	DESTDIR=/
+endif
+	mkdir -p ${DESTDIR}/usr/bin/
+	cp ../bin/* ${DESTDIR}/usr/bin/
 
 doc:
 	doxygen
