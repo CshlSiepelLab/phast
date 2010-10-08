@@ -3,6 +3,7 @@ CWD = ${PWD}
 
 all:
 	@echo "Type \"make package\" to create a tarball reflecting the current state of the CVS tree."
+	(cd src; make DESTDIR=${DESTDIR} CLAPACKPATH=/usr/lib )
 
 package:
 	rm -rf ${TMPDIR}
@@ -13,3 +14,6 @@ package:
 	VERSION=`cat ${TMPDIR}/phast/version | sed 's/\./_/g'` ;\
 	cd ${TMPDIR} ; tar cfz ${CWD}/phast.$$VERSION.tgz phast
 	rm -rf ${TMPDIR}
+
+install:
+	(cd src; make install DESTDIR=${DESTDIR} )
