@@ -20,7 +20,7 @@
 void print_usage() {
   printf("USAGE: eval_predictions -r <real_fname_list> -p <pred_fname_list>\n\
                         -l <seq_len_list> [OPTIONS] \n\
-\n\DESCRIPTION:\n\
+\nDESCRIPTION:\n\
 Compares predicted genes with \"real\" (or annotated) genes.\n\
 Reports standard measures of prediction quality.  The following\n\
 measures are reported:\n\

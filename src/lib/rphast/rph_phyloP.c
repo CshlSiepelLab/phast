@@ -30,13 +30,24 @@ Last updated: 4/8/2010
 
 SEXP rph_listOfLists_to_SEXP(ListOfLists *lol);
 
-SEXP rph_phyloP(SEXP modP, SEXP msaP, SEXP methodP, SEXP modeP,
-		SEXP gffP, SEXP basewiseP, 
-		SEXP subtreeP, SEXP branchesP, 
+SEXP rph_phyloP(SEXP modP, 
+		SEXP msaP, 
+		SEXP methodP, 
+		SEXP modeP,
+		SEXP gffP, 
+		SEXP basewiseP, 
+		SEXP subtreeP, 
+		SEXP branchesP, 
 		SEXP refidxP, 
-		SEXP outfileP, SEXP outfileOnlyP, SEXP outfileFormatP,
-		SEXP priorOnlyP, SEXP nsitesP, SEXP postOnlyP,
-		SEXP fitModelP, SEXP epsilonP, SEXP confIntP,
+		SEXP outfileP, 
+		SEXP outfileOnlyP, 
+		SEXP outfileFormatP,
+		SEXP priorOnlyP, 
+		SEXP nsitesP, 
+		SEXP postOnlyP,
+		SEXP fitModelP, 
+		SEXP epsilonP, 
+		SEXP confIntP,
 		SEXP quantilesP) {
   struct phyloP_struct *p = phyloP_struct_new(1);
   SEXP rv;

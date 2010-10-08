@@ -147,8 +147,7 @@ SEXP rph_phyloFit(SEXP msaP,
 		  SEXP alphaP,
 		  SEXP rateConstantsP,
 		  SEXP initModP,
-		  SEXP noFreqsP,
-		  SEXP noRatesP,
+		  SEXP initBackgdFromDataP,
 		  SEXP initRandomP,
 		  SEXP initParsimonyP,
 		  SEXP clockP,
@@ -156,7 +155,10 @@ SEXP rph_phyloFit(SEXP msaP,
 		  SEXP precisionP,
 		  SEXP gffP,
 		  SEXP ninfSitesP,
-		  SEXP quietP) {
+		  SEXP quietP,
+		  SEXP noOptP,
+		  SEXP boundP,
+		  SEXP logFileP) {
   struct phyloFit_struct *pf;
   int numProtect=0, i;
   double *doubleP;
@@ -199,10 +201,8 @@ SEXP rph_phyloFit(SEXP msaP,
 
   pf->random_init = LOGICAL_VALUE(initRandomP);
 
-  pf->no_freqs = LOGICAL_VALUE(noFreqsP);
+  pf->init_backgd_from_data = LOGICAL_VALUE(initBackgdFromDataP);
 
-  pf->no_rates = LOGICAL_VALUE(noRatesP);
-  
   pf->init_parsimony = LOGICAL_VALUE(initParsimonyP);
   
   pf->assume_clock = LOGICAL_VALUE(clockP);
@@ -215,6 +215,8 @@ SEXP rph_phyloFit(SEXP msaP,
     pf->precision = OPT_MED_PREC;
   else if (strcmp(CHARACTER_VALUE(precisionP), "HIGH")==0)
     pf->precision = OPT_HIGH_PREC;
+  else if (strcmp(CHARACTER_VALUE(precisionP), "VERY_HIGH")==0)
+    pf->precision = OPT_VERY_HIGH_PREC;
   else {
     die_message = "invalid precision";
     goto rph_phyloFit_end;
@@ -229,6 +231,40 @@ SEXP rph_phyloFit(SEXP msaP,
     pf->nsites_threshold = INTEGER_VALUE(ninfSitesP);
   
   pf->quiet = LOGICAL_VALUE(quietP);
+
+  if (noOptP != R_NilValue) {
+    int len=LENGTH(noOptP), pos=0;
+    char *temp;
+    for (i=0; i < LENGTH(noOptP); i++) 
+      len += strlen(CHARACTER_VALUE(STRING_ELT(noOptP, i)));
+    temp = smalloc(len*sizeof(char));
+    for (i=0; i < LENGTH(noOptP); i++) {
+      if (i != 0) temp[pos++] = ',';
+      sprintf(&temp[pos], "%s", CHARACTER_VALUE(STRING_ELT(noOptP, i)));
+      pos += strlen(CHARACTER_VALUE(STRING_ELT(noOptP, i)));
+    }
+    if (pos != len-1) die("ERROR parsing noOpt len=%i pos=%i\n", len, pos);
+    temp[pos] = '\0';
+    pf->nooptstr = str_new_charstr(temp);
+    free(temp);
+  }
+
+  if (boundP != R_NilValue) {
+    pf->bound_arg = lst_new_ptr(LENGTH(boundP));
+    for (i=0; i < LENGTH(boundP); i++) {
+      String *temp = str_new_charstr(CHARACTER_VALUE(STRING_ELT(boundP, i)));
+      lst_push_ptr(pf->bound_arg, temp);
+    }
+  }
+
+  if (logFileP != R_NilValue) {
+    if (IS_CHARACTER(logFileP)) 
+      pf->logf = fopen_fname(CHARACTER_VALUE(logFileP), "w+");
+    else if (IS_LOGICAL(logFileP) &&
+	     LOGICAL_VALUE(logFileP)) {
+      pf->logf = stdout;
+    }
+  }
 
   run_phyloFit(pf);
 
@@ -245,10 +281,22 @@ SEXP rph_phyloFit(SEXP msaP,
     free(pf->subtree_name);
   if (pf->rate_consts != NULL)
     lst_free(pf->rate_consts);
+  if (pf->alt_mod_str != NULL) {
+    lst_free_strings(pf->alt_mod_str);
+    lst_free(pf->alt_mod_str);
+  }
+  if (pf->nooptstr != NULL)
+    str_free(pf->nooptstr);
+  if (pf->bound_arg != NULL) {
+    lst_free_strings(pf->bound_arg);
+    lst_free(pf->bound_arg);
+  }
+  if (pf->logf != NULL && pf->logf != stdout && pf->logf != stderr)
+    fclose(pf->logf);
   free(pf);
   PutRNGstate();
+  if (die_message != NULL) die(die_message);
   if (numProtect > 0) 
     UNPROTECT(numProtect);
-  if (die_message != NULL) die(die_message);
   return rph_phyloFit_result_new_extptr(result);
 }

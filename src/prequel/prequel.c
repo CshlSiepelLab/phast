@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
       gibbs_nsamples = get_arg_int_bounds(optarg, 1, INFTY);
       break;
     case 'h':
-      printf(HELP);
+      printf("%s", HELP);
       exit(0);
     case '?':
       die("Bad argument.  Try 'prequel -h'.\n");

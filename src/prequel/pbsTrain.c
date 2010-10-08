@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
       logf = fopen_fname(optarg, "w+");
       break;
     case 'h':
-      printf(HELP);
+      printf("%s", HELP);
       exit(0);
     case '?':
       die("Bad argument.  Try 'pbsTrain -h'.\n");

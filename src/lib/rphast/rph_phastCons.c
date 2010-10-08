@@ -31,17 +31,26 @@ Last updated: 4/21/2010
 
 SEXP rph_listOfLists_to_SEXP(ListOfLists *lol);
 
-SEXP rph_phastCons(SEXP msaP, SEXP modP, SEXP rhoP, SEXP targetCoverageP,
-		   SEXP expectedLengthP, SEXP transitionsP,
+SEXP rph_phastCons(SEXP msaP, 
+		   SEXP modP, 
+		   SEXP rhoP, 
+		   SEXP targetCoverageP,
+		   SEXP expectedLengthP, 
+		   SEXP transitionsP,
 		   SEXP estimateRhoP,
 		   SEXP estimateExpectedLengthP,
 		   SEXP estimateTransitionsP,
 		   SEXP estimateTreesP,
-		   SEXP viterbiP, SEXP scoreViterbiP,
-		   SEXP gcP, SEXP nratesP, 
-		   SEXP computeLnlP, SEXP suppressProbsP,
+		   SEXP viterbiP, 
+		   SEXP scoreViterbiP,
+		   SEXP gcP, 
+		   SEXP nratesP, 
+		   SEXP computeLnlP, 
+		   SEXP suppressProbsP,
 		   SEXP refIdxP,
-		   SEXP hmmP, SEXP statesP, SEXP reflectStrandP,
+		   SEXP hmmP, 
+		   SEXP statesP, 
+		   SEXP reflectStrandP,
 		   SEXP quietP) {
   struct phastCons_struct *p = phastCons_struct_new(1);
   int i, *intp, numprotect=0;

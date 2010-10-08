@@ -413,7 +413,7 @@ int main(int argc, char* argv[]) {
   String *sum_fname = NULL;
   FILE *SUM_F = NULL;
   char c;
-  int nallgaps, nallgaps_strip, nanygaps, nanygaps_strip, length, 
+  int nallgaps, nallgaps_strip, nanygaps, nanygaps_strip, 
     length_strip, i;
   Vector *freqs, *freqs_strip;
   msa_coord_map *map = NULL;
@@ -842,7 +842,7 @@ int main(int argc, char* argv[]) {
 
       if (SUM_F != NULL) 
         write_summary_line(SUM_F, subfname, sub_msa->alphabet, freqs, 
-                           freqs_strip, length, length_strip, nallgaps, 
+                           freqs_strip, sub_msa->length, -1, nallgaps, 
                            nallgaps_strip, nanygaps, nanygaps_strip);
 
       if (sub_features && gff != NULL) {
@@ -884,11 +884,10 @@ int main(int argc, char* argv[]) {
     for (i = 0; i < lst_size(submsas); i++) {
       MSA *sub = (MSA*)lst_get_ptr(submsas, i);
       int cat = (cats_to_do == NULL ? i : lst_get_int(cats_to_do, i));
-
+      
       /* collect summary information; do this *before* stripping gaps */
       if (SUM_F != NULL) {
         freqs = msa_get_base_freqs(sub, -1, -1);
-        length = sub->length;
         nallgaps = msa_num_gapped_cols(sub, STRIP_ALL_GAPS, -1, -1);
         nanygaps = msa_num_gapped_cols(sub, STRIP_ANY_GAPS, -1, -1);      
         freqs_strip = NULL; length_strip = -1; nallgaps_strip = -1; 
@@ -920,7 +919,7 @@ int main(int argc, char* argv[]) {
       /* if necessary, write line to summary file */
       if (SUM_F != NULL) 
         write_summary_line(SUM_F, subfname, sub->alphabet, freqs, freqs_strip, 
-                           length, length_strip, nallgaps, nallgaps_strip, 
+                           sub->length, length_strip, nallgaps, nallgaps_strip, 
                            nanygaps, nanygaps_strip);
 
       msa_free(sub);

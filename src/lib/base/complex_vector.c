@@ -60,7 +60,8 @@ void zvec_print(Zvector *v, FILE *F) {
 void zvec_read(Zvector *v, FILE *F) {
   int i;
   for (i = 0; i < v->size; i++)
-    fscanf(F, "%lf %lf ", &(v->data[i].x), &(v->data[i].y));
+    if (2 != fscanf(F, "%lf %lf ", &(v->data[i].x), &(v->data[i].y)))
+      die("ERROR reading complex vector");
 }
 
 Zvector *zvec_new_from_file(FILE *F, int size) {

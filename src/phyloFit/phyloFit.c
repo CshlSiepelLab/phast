@@ -53,7 +53,6 @@ int main(int argc, char *argv[]) {
     {"catmap", 1, 0, 'c'},
     {"log", 1, 0, 'l'},
     {"out-root", 1, 0, 'o'},
-    {"output-tree", 0, 0, 'T'},
     {"EM", 0, 0, 'E'},
     {"error", 1, 0, 'e'},
     {"precision", 1, 0, 'p'},
@@ -87,15 +86,19 @@ int main(int argc, char *argv[]) {
     {"rate-constants", 1, 0, 'K'},
     {"ignore-branches", 1, 0, 'b'},
     {"clock", 0, 0, 'z'},
-    {"alt-mod", 1, 0, 'd'},
+    {"alt-model", 1, 0, 'd'},
+    {"label-branches", 1, 0, 0},
+    {"label-subtree", 1, 0, 0},
     {"bound", 1, 0, 'u'},
     {"seed", 1, 0, 'D'},
     {0, 0, 0, 0}
   };
 
+  // NOTE: remaining shortcuts left: HjJQx
+
   pf = phyloFit_struct_new(0);
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:u:Y:e:D:GVENRTqLPXZUBFfnrzhWy", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:u:Y:e:D:GVENRqLPXZUBFfnrzhWy", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -127,9 +130,6 @@ int main(int argc, char *argv[]) {
     case 'o':
       pf->output_fname_root = optarg;
       break;
-    case 'T': 
-      fprintf(stderr, "WARNING: --output-tree (-T) is deprecated; leaf names now appear in .mod\nfile.    (If necessary, use 'tree_doctor --tree-only' to extract tree.)\n");
-      break;
     case 'k':
       pf->nratecats = get_arg_int_bounds(optarg, 0, INFTY);
       break;
@@ -145,7 +145,9 @@ int main(int argc, char *argv[]) {
         die("ERROR: unrecognized alignment format.    Type 'phyloFit -h' for usage.\n");
       break;
     case 'l':
-      pf->log_fname = optarg;
+      if (!strcmp(optarg, "-"))
+	pf->logf = stderr;
+      else pf->logf = fopen_fname(optarg, "w+");
       break;
     case 'N':
       pf->use_conditionals = 1;
@@ -176,6 +178,7 @@ int main(int argc, char *argv[]) {
       if (!strcmp(optarg, "LOW")) pf->precision = OPT_LOW_PREC;
       else if (!strcmp(optarg, "MED")) pf->precision = OPT_MED_PREC;
       else if (!strcmp(optarg, "HIGH")) pf->precision = OPT_HIGH_PREC;
+      else if (!strcmp(optarg, "VERY_HIGH")) pf->precision = OPT_VERY_HIGH_PREC;
       else die("ERROR: --precision must be LOW, MED, or HIGH.\n\n");
       break;
     case 'M':
@@ -262,10 +265,28 @@ int main(int argc, char *argv[]) {
       else die("ERROR: no-opt argument can only be used once!  parameters can be comma-separated list.");
       break;
     case 'd':
-      if (pf->alt_mod_str == NULL) 
+      if (pf->alt_mod_str == NULL) {
 	pf->alt_mod_str = lst_new_ptr(1);
+      }
       optstr = str_new_charstr(optarg);
       lst_push_ptr(pf->alt_mod_str, optstr);
+      break;
+    case 0:
+      if (strcmp(long_opts[opt_idx].name, "label-branches") == 0 ||
+	  strcmp(long_opts[opt_idx].name, "label-subtree") == 0) {
+	optstr = str_new_charstr(optarg);
+	if (pf->label_str == NULL) {
+	  pf->label_str = lst_new_ptr(3);
+	  pf->label_type = lst_new_int(3);
+	}
+	lst_push_ptr(pf->label_str, optstr);
+	lst_push_int(pf->label_type, 
+		     strcmp(long_opts[opt_idx].name, "label-branches") == 0 ? 
+		     BRANCH_TYPE : SUBTREE_TYPE);
+      }
+      else {
+	die("ERROR: unknown option.  Type 'phyloFit -h' for usage.\n");
+      }
       break;
     case 'u':
       if (pf->bound_arg == NULL) 
@@ -293,7 +314,6 @@ int main(int argc, char *argv[]) {
     pf->msa_fname = msa_fname;
   }
 
-
   if (pf->nonoverlapping && (pf->use_conditionals || pf->gff != NULL || 
 			     pf->cats_to_do_str || input_format == SS))
     die("ERROR: cannot use --non-overlapping with --markov, --features,\n--msa-format SS, or --do-cats.\n");
@@ -320,6 +340,8 @@ int main(int argc, char *argv[]) {
 
   run_phyloFit(pf);
 
+  if (pf->logf != NULL && pf->logf != stderr && pf->logf != stdout)
+    fclose(pf->logf);
   if (!pf->quiet) fprintf(stderr, "Done.\n");
   free(pf);
   

@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
     sprintf(tmpstr, "choose_lines.%d", getpid());
     F = fopen_fname(tmpstr, "w+");
     for (n = 0; str_readline(line, INF) != EOF; n++) 
-      fprintf(F, line->chars);
+      fprintf(F, "%s", line->chars);
     fclose(F);
     INF = fopen_fname(tmpstr, "r");
   }
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
 
   rewind(INF);
   for (i = 0; str_readline(line, INF) != EOF; i++) 
-    if (chosen[i]) printf(line->chars);
+    if (chosen[i]) printf("%s", line->chars);
   
   return 0;
 }

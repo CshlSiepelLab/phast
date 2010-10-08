@@ -107,18 +107,15 @@ OPTIONS:
         rooted.  When a reversible substitution model is used, the root
         is ignored during the optimization procedure.
 
-    --subst-mod, -s JC69|F81|HKY85|HKY85+Gap|REV|SSREV|REV+GC|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S
+    --subst-mod, -s JC69|F81|HKY85|HKY85+Gap|REV|SSREV|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S
         (default REV).  Nucleotide substitution model.  JC69, F81, HKY85
         REV, and UNREST have the usual meanings (see, e.g., Yang, 
         Goldman, and Friday, 1994).  SSREV is a strand-symmetric version
         of REV.  HKY85+Gap is an adaptation of HKY that treats gaps as a 
-        fifth character (courtesy of James Taylor).  REV+GC is REV plus
-        an extra parameter describing GC percent, and is only apporpriate
-        in conjunction with lineage-specific substitution models (see
-        --alt-mod, below).  The others, all considered "context-
-        dependent", are as defined in Siepel and Haussler, 2004.  The 
-        options --EM and --precision MED are recommended with 
-        context-dependent models (see below).
+        fifth character (courtesy of James Taylor).  The others, all
+	considered "context-dependent", are as defined in Siepel and 
+        Haussler, 2004.  The options --EM and --precision MED are 
+        recommended with context-dependent models (see below).
 
     --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
         (default FASTA) Alignment format.  FASTA is as usual.  PHYLIP
@@ -264,9 +261,7 @@ OPTIONS:
 	"ratematrix", "backgd", or "ratevar" to hold entire rate matrix, 
 	equilibrium frequencies, or rate variation parameters constant 
 	(respectively).  There are also substitution model-specific 
-	parameters such as "kappa" (transition/transversion rate ratio), 
-	"gc_parameter" (gc bias parameter), and "alphas" (the REV 
-	parameters in the REV+GC model).
+	parameters such as "kappa" (transition/transversion rate ratio).
 
     --bound <param_name[lower_bound,upper_bound]>
         Set boundaries for parameter.  lower_bound or upper_bound may be
@@ -369,20 +364,56 @@ OPTIONS:
 
  (Option for lineage-specific models)
 
-   --alt-mod, -d <node[+][:model|param_list]>
-        Create a lineage-specific substitution model on subtree of the
-	specified node.  If the node name is appended by a +, then also
-	include the branch leading up to this node.
+   --label-branches branch1,branch2,branch3...:label
+        Create a group of branches by giving a set of branches a 
+        single label.  The label should be a word which does not 
+        contain special characters (in particular, no spaces, brackets,
+        parentheses, pound signs, commas, or colons).
 
-	If the name of a substitution model (such as HKY85, REV, UNREST)
-	is given after the node name, then an entirely separate set of 
-	parameters will be estimated for the sub-tree.  This model must
-	have the same number of states and be of the same order as the
-	model used for the rest of the tree.
+        The label is for use with --alt-model option below, so that an 
+        alternate model can be defined for a set of branches.  A branch
+        is specified by the name of the node which is a descendant of
+        that branch.
 
-	If instead, a list of parameter names is given after the colon,
-	then the same substitution model will be used for the entire tree,
-	but the parameters listed will be estimated separately in the subtree.
+        For example, 
+        --label-branches hg18,chimp,hg18-chimp:HC
+        will apply the label "HC" to the hg18,chimp,and hg18-chimp 
+        branches in the following tree:
+        (((hg18,chimp)hg18-chimp, (mouse,rat)mouse-rat)
+
+        The same label could be defined without using --label-branches
+        by specifing the tree (either on the command-line or within
+        init-model) as follows:
+        (((hg18 # HC, chimp #HC)#HC, (mouse,rat))
+
+   --label-subtree node[+]:label
+        Similar to label-branches, except labels the entire subtree
+        of the named node.  If the node name is followed by a "+" sign,
+        then includes the branch leading up to the node in the subtree.
+
+   --alt-model, -d <label:(model|param_list)>
+        Create a lineage-specific substitution model on a group of branches.
+        The group is defined by a label, which can be specified within
+        the tree string (using the # sign notation), or by using the
+        --label-branches or --label-subtree arguments.  If the alt-model
+        applies to only a single branch, labelling is not necessary and
+        the name of the node descending from the branch can be used instead.  
+        See --label-branches above for more details on labelling groups of
+        branches.
+
+	If a name of a substitution model (HKY85, REV, UNREST, etc)
+	is given after the colon, then this model will be used for the
+        group of branches, and parameters relevant to the model will be 
+        estimated separately in this group.  This model may be different 
+        (or the same) as the model used in the rest of the tree, but it
+        must have the same number of states and be of the same order as 
+	the model used for the rest of the tree.
+
+	Alternately, a list of parameter names can be given after the colon.
+	In this case, the same substitution model will be used for the 
+        entire tree, but the parameters listed will be estimated separately 
+        in the specified group of branches.
+
 	The parameter names are model-specific, and include "kappa" for
 	HKY models, "alpha" for GC models, "ratematrix" to specify
 	all rate-matrix parameters in general models, and "backgd" for
@@ -390,24 +421,31 @@ OPTIONS:
 	may optionally be followed by boundaries in square brackets to
 	specify parameter bounds, as described in --bound option.
 
-	The --alt-mod argument may be used multiple times, and is
-	applied in the order given, so that later uses may override
-	previous ones.  This allows separate models to be applied to
-	a subtree within a subtree.
-
-	If no model or parameters are listed, this creates a "dummy"
-	lineage-specific model, which is identical to the main model
-	and does not estimate any extra parameters.
+	The --alt-model argument may be used multiple times, if one
+        wishes to (for example) optimize a parameter independently 
+        on several different groups of branches.
 
 	Example:
 	phyloFit align.fa --subst-mod HKY85 \
-	--tree "(human, (mouse, rat)mr, cow)"\
-	--alt-mod mr+:HKY85 --alt-mod rat+
-	
-	will estimate a separate set of parameters on the subtree defined
-	by the mouse-rat node (as well as the branch leading to it), but
-	excluding the branch leading to rat.
+	--tree "(human, (mouse#MR, rat#MR)#MR, cow)"\
+	--alt-model "MR:kappa[0, 1]"
+ 
+        will estimate the HKY85 parameter kappa separately on the
+        mouse/rat subtree, and constrain kappa between 0 and 1.  The
+        quotes are often necessary to prevent the square brakcets from
+        being parsed by the shell.  The same model could be achieved with:
+ 
+        phyloFit align.fa --subst-mod HKY85 \
+        --tree "(human, (mouse,rat)mouse-rat, cow)"\
+        --label-branches mouse,rat,mouse-rat:MR \
+        --alt-model "MR:kappa[0,1]"
 
+        or
+
+        phyloFit align.fa --subst-mod HKY85 \
+        --tree "(human, (mouse,rat)mouse-rat, cow)" \
+        --label-subtree "mouse-rat+:MR" \
+        --alt-model "MR:kappa[0,1]"
 
  (Options for posterior probabilities)
 

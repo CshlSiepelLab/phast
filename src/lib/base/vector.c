@@ -78,7 +78,8 @@ void vec_fprintf(Vector *v, FILE *F, char *formatstr) {
 void vec_read(Vector *v, FILE *F) {
   int i;
   for (i = 0; i < v->size; i++)
-    fscanf(F, "%lf ", &v->data[i]);
+    if (1 != fscanf(F, "%lf ", &v->data[i]))
+      die("ERROR reading vector from file");
 }
 
 Vector *vec_new_from_file(FILE *F, int size) {

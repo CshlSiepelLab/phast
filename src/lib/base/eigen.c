@@ -43,12 +43,12 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
   die("ERROR: LAPACK required for matrix diagonalization.\n");
 #else
   char jobvl = 'V', jobvr = 'V';
-  LAPACK_INT n = (LAPACK_INT)M->nrows, lwork = (LAPACK_INT)(4*M->nrows), info;
-  LAPACK_DOUBLE tmp[n*n], wr[n], wi[n], vl[n * n], vr[n * n], work[4 * n];
+  LAPACK_INT n = (LAPACK_INT)M->nrows, lwork = (LAPACK_INT)(100*M->nrows), info;
+  LAPACK_DOUBLE tmp[n*n], wr[n], wi[n], vl[n * n], vr[n * n], work[100 * n];
   int i, j, k;
   enum {REALVAL, CONJ1, CONJ2} eval_type=REALVAL;
   int check = 0;
-  
+
   if (n != M->ncols)
     die("ERROR in mat_diagonalize: M->nrows (%i) != M->ncols (%i)\n",
 	M->nrows, M->ncols);
@@ -77,7 +77,7 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
 
     /* if there are repeated eigenvalues, diagonalization may fail */
     for (k = 0; !check && k < j; k++) 
-      if (z_abs(z_sub(zvec_get(eval, k), z)) < EQ_THRESHOLD)
+      if (z_abs(z_sub(zvec_get(eval, k), z)) < 1.0e-4)
         check = 1;
 
     if (wi[j] == 0)             /* real eigenvalue */
@@ -87,7 +87,7 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
     else if (j > 0 && wr[j-1] == wr[j] && wi[j-1] == -wi[j]) 
       eval_type = CONJ2;        /* second in conjugate pair */
     else
-      die("ERROR in mat_diagnoalize: complex eigenvalue does not have a conjugate pair");
+      die("ERROR in mat_diagonalize: complex eigenvalue does not have a conjugate pair");
 
     for (i = 0; i < n; i++) {   /* row */
       Complex zr, zl;
@@ -121,9 +121,9 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
   for (i = 0; i < n; i++) {
     /* compute dot product of row i in levect and col i in revect */
     Complex dotprod = z_set(0, 0);
-    for (j = 0; j < n; j++) 
+    for (j = 0; j < n; j++)
       dotprod = z_add(dotprod, z_mul(zmat_get(levect, i, j), zmat_get(revect, j, i)));
-      
+
     /* now scale levect accordingly */
     for (j = 0; j < n; j++) {
       Complex oldval = zmat_get(levect, i, j);
@@ -136,12 +136,17 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
   if (check) {
     for (i = 0; i < n; i++) {
       for (j = 0; j < n; j++) {
-        Complex z = z_set(0,0);
-        for (k = 0; k < n; k++) 
-          z = z_add(z, z_mul(zmat_get(revect, i, k), z_mul(zvec_get(eval, k), zmat_get(levect, k, j))));
-
+        Complex z = z_set(0,0), z2=z_set(0,0);
+        for (k = 0; k < n; k++)  {
+	  Complex temp = z_mul(zmat_get(revect, i, k), zmat_get(levect, k, j));
+	  z = z_add(z, z_mul(zvec_get(eval, k), temp));
+	  z2 = z_add(z2, temp);
+	}
         if (fabs(z.y) > EQ_THRESHOLD ||
-            fabs(z.x - mat_get(M, i, j)) > EQ_THRESHOLD) {
+            fabs(z.x - mat_get(M, i, j)) > EQ_THRESHOLD ||
+	    fabs(z2.y > EQ_THRESHOLD) ||
+	    fabs(z2.x - (i==j)) > EQ_THRESHOLD) {
+	  return 1;
           die("ERROR: diagonalization failed (got %e + %ei, expected %e).\n", 
 		  z.x, z.y, mat_get(M, i, j));
 	}
@@ -167,8 +172,8 @@ int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
 #else
   char jobvl = 'N';
   char jobvr = 'N';
-  LAPACK_INT n = (LAPACK_INT)M->nrows, lwork = (LAPACK_INT)4*n, info;
-  LAPACK_DOUBLE wr[n], wi[n], work[4 * n], tmp[n][n];
+  LAPACK_INT n = (LAPACK_INT)M->nrows, lwork = (LAPACK_INT)100*n, info;
+  LAPACK_DOUBLE wr[n], wi[n], work[100 * n], tmp[n][n];
   int i, j;
 
   for (i = 0; i < n; i++) 

@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
       LminH = get_arg_dbl_bounds(optarg, 0, INFTY);
       break;
     case 'h':
-      printf(HELP);
+      printf("%s", HELP);
       exit(0);
     case '?':
       die("Bad argument.  Try '%s -h'.\n", argv[0]);

@@ -30,7 +30,7 @@
 struct phyloFit_struct {
   MSA *msa;
   char *output_fname_root, 
-    *log_fname, *reverse_group_tag,
+    *reverse_group_tag,
     *root_seqname, *subtree_name, *error_fname,
     *see_for_help, *parsimony_cost_fname,
     *msa_fname;  //note: msa_fname will not be read by run_phyloFit.  
@@ -44,17 +44,19 @@ struct phyloFit_struct {
     do_column_probs, nonoverlapping, gaps_as_bases,
     no_freqs, no_rates, assume_clock, 
     init_parsimony, parsimony_only, no_branchlens,
-    label_categories, symfreq;
+    label_categories, symfreq, init_backgd_from_data;
   unsigned int nsites_threshold;
   TreeNode *tree;
   CategoryMap *cm;
   String *nooptstr;
   List *cats_to_do_str,  *window_coords, 
     *ignore_branches, *alt_mod_str,
-    *bound_arg, *rate_consts;
+    *bound_arg, *rate_consts, 
+    *label_str, *label_type;
   double alpha;
   GFF_Set *gff;
   TreeModel *input_mod;
+  FILE *logf;
 
   //results go in these if not-null
   List *estimated_models;
@@ -64,5 +66,8 @@ struct phyloFit_struct {
 
 struct phyloFit_struct* phyloFit_struct_new();
 int run_phyloFit(struct phyloFit_struct *pf);
+
+#define BRANCH_TYPE 0
+#define SUBTREE_TYPE 1
 
 #endif

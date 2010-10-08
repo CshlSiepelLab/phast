@@ -401,6 +401,9 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
     **q3dq = NULL;
   static Complex *diag = NULL;
 
+  if  (Q->evals_z == NULL || Q->evec_matrix_z == NULL || Q->evec_matrix_inv_z == NULL)
+    die("ERRROR: compute_grad_em_approx got NULL value in eigensystem; error diagonalizing matrix.");
+
   if (diag == NULL) 
     diag = (Complex*)smalloc(nstates * sizeof(Complex));
 
@@ -880,6 +883,9 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
     diag = (Complex*)smalloc(nstates * sizeof(Complex));
 
   Q = mod->rate_matrix;
+  if (Q->evals_z == NULL || Q->evec_matrix_z == NULL ||
+      Q->evec_matrix_inv_z == NULL)
+    die("ERROR compute_grade_em_exact got NULL value in eigensystem; error diagonalizing rate matrix\n");
 
   /* init memory (first time only) */
   if (dq == NULL) {

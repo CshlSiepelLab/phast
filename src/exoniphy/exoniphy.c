@@ -183,7 +183,7 @@ int main(int argc, char* argv[]) {
       quiet = TRUE;
       break;
     case 'h':
-      printf(HELP);
+      printf("%s", HELP);
       exit(0);
     case '?':
       die("ERROR: unrecognized option.  Try 'exoniphy -h' for help.\n");

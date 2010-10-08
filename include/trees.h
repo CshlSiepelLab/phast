@@ -37,6 +37,10 @@ struct tree_node {
   int height;                   /* height of this node in the tree
                                    (maximum distance to a leaf, in
                                    terms of number of edges) */
+  char *label;                  /* paml-style node label indicated by # 
+                                   sign and a character string.  Used 
+				   to indicate which lineage-specific 
+				   model to use */
 
   /* the following attributes are only guaranteed to be defined for
      the TreeNode at the root of a tree; 'nodes' is defined upon
@@ -89,7 +93,8 @@ double tr_max_branchlen(TreeNode *sub_root);
 double tr_distance_to_root(TreeNode *node);
 TreeNode *tr_get_node(TreeNode *t, const char *name);
 void tr_scale(TreeNode *t, double scale_const);
-void tr_scale_subtree(TreeNode *t, TreeNode *sub, double scale_const);
+void tr_scale_subtree(TreeNode *t, TreeNode *sub, double scale_const,
+		      int include_leading);
 void tr_prune(TreeNode **t, List *names, int all_but);
 void tr_prune_supertree(TreeNode **t, TreeNode *n);
 void tr_prune_subtree(TreeNode **t, TreeNode *n);
@@ -105,5 +110,11 @@ void tr_name_ancestors(TreeNode *tree);
 void tr_print_nodes(FILE *F, TreeNode *tree);
 void tr_reroot(TreeNode *tree, TreeNode *newroot, int include_branch);
 int* tr_in_subtree(TreeNode *t, TreeNode *sub);
+void tr_label(TreeNode *t, const char *label);
+void tr_label_node(TreeNode *t, const char *nodename, const char *label);
+void tr_label_subtree(TreeNode *tree, const char *subtreeNode, 
+		      int include_leading_branch,
+		      const char *label);
+void tr_get_labelled_nodes(TreeNode *tree, const char *label, List *rv);
 
 #endif 

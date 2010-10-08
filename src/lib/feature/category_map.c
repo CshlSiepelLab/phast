@@ -534,7 +534,7 @@ CategoryMap* cm_new_string_or_file(const char *optarg) {
     /* we'll just dump a little tmp file and read it with cm_read */
     sprintf(fname, "cm.tmp.%d", getpid());
     F = fopen_fname(fname, "w+");
-    fprintf(F, str->chars);
+    fprintf(F, "%s", str->chars);
     fclose(F);
     retval = cm_read(fopen_fname(fname, "r"));
     unlink(fname);

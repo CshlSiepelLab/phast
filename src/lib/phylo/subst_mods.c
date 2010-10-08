@@ -38,12 +38,10 @@ void tm_set_R3S_matrix(TreeModel *mod, Vector *params, int start_idx);
 void tm_set_U3_matrix(TreeModel *mod, Vector *params, int start_idx);
 void tm_set_U3S_matrix(TreeModel *mod, Vector *params, int start_idx);
 void tm_set_GC_matrix(TreeModel *mod, double kappa, int kappa_idx, double alpha);
-void tm_set_REV_GC_matrix(TreeModel *mod, Vector *params, int start_idx);
 void tm_init_mat_REV(TreeModel *mod, Vector *params, int nbranches, 
                      double kappa);
 void tm_init_mat_SSREV(TreeModel *mod, Vector *params, int nbranches,
 		       double kappa);
-void tm_init_mat_REV_GC(TreeModel *mod, Vector *params, int nbranches, double kappa);
 void tm_init_mat_UNREST(TreeModel *mod, Vector *params, int nbranches, 
                         double kappa);
 void tm_init_mat_R2(TreeModel *mod, Vector *params, 
@@ -66,8 +64,6 @@ void tm_init_mat_from_model_REV(TreeModel *mod, Vector *params,
                                 int start_idx);
 void tm_init_mat_from_model_SSREV(TreeModel *mod, Vector *params, 
                                 int start_idx);
-void tm_init_mat_from_model_REV_GC(TreeModel *mod, Vector *params, 
-				    int start_idx);
 void tm_init_mat_from_model_UNREST(TreeModel *mod, Vector *params, 
                                    int start_idx);
 void tm_init_mat_from_model_R2(TreeModel *mod, Vector *params, 
@@ -109,8 +105,6 @@ subst_mod_type tm_get_subst_mod_type(const char *str) {
     retval = REV;
   else if (str_equals_nocase_charstr(subst_mod_str, "SSREV"))
     retval = SSREV;
-  else if (str_equals_nocase_charstr(subst_mod_str, "REV+GC"))
-    retval = REV_GC;
   else if (str_equals_nocase_charstr(subst_mod_str, "UNREST"))
     retval = UNREST;
   else if (str_equals_nocase_charstr(subst_mod_str, "R2"))
@@ -131,8 +125,6 @@ subst_mod_type tm_get_subst_mod_type(const char *str) {
     retval = U3S;
   else if (str_equals_nocase_charstr(subst_mod_str, "GC"))
     retval = GC;
-  else if (str_equals_nocase_charstr(subst_mod_str, "HB"))
-    retval = HB;
   str_free(subst_mod_str);
   return retval;
 }
@@ -154,8 +146,6 @@ char *tm_get_subst_mod_string(subst_mod_type type) {
     return "REV";
   case SSREV:
     return "SSREV";
-  case REV_GC:
-    return "REV+GC";
   case UNREST:
     return "UNREST";
   case R2:
@@ -176,8 +166,6 @@ char *tm_get_subst_mod_string(subst_mod_type type) {
     return "U3S";
   case GC:
     return "GC";
-  case HB:
-    return "HB";
   default:
     return "(unknown model)";
   }
@@ -210,9 +198,6 @@ int tm_get_nratematparams(TreeModel *mod) {
     /* subtract mod->rate_matrix->size/2 assuming that all but possibly one
        of the characters (ie, gap) has a complement.  The last line adds 2 
        if there is an odd number of bases*/
-  case REV_GC:
-    return (mod->rate_matrix->size * mod->rate_matrix->size
-	    - mod->rate_matrix->size)/2 + 1;
   case UNREST:
     return (mod->rate_matrix->size * mod->rate_matrix->size 
             - mod->rate_matrix->size);     
@@ -239,8 +224,6 @@ int tm_get_nratematparams(TreeModel *mod) {
     return 288;
   case GC:
     return 2;
-  case HB:
-    return 0;
   default:
     die("ERROR: tm_get_nrateparams unknown substitution model\n");
   }
@@ -288,9 +271,6 @@ void tm_set_rate_matrix(TreeModel *mod, Vector *params, int i) {
   case SSREV:
     tm_set_SSREV_matrix(mod, params, i);
     break;
-  case REV_GC:
-    tm_set_REV_GC_matrix(mod, params, i);
-    break;
   case UNREST:
     tm_set_UNREST_matrix(mod, params, i);
     break;
@@ -327,9 +307,6 @@ void tm_set_rate_matrix(TreeModel *mod, Vector *params, int i) {
 
   if (mod->scale_during_opt && mod->subst_mod!=JC69 && mod->subst_mod != F81)
     tm_scale_rate_matrix(mod);
-
-  /* NOTE: used to scale rate matrices here, but have removed scaling
-     for more well-behaved derivatives.  */
 }
 
 /* initialize rate-matrix parameters in parameter vector, using an
@@ -361,9 +338,6 @@ void tm_rate_params_init(TreeModel *mod, Vector *params,
   case SSREV:
     tm_init_mat_SSREV(mod, params, params_idx, kappa);
     break; 
-  case REV_GC:
-    tm_init_mat_REV_GC(mod, params, params_idx, kappa);
-    break;
   case UNREST:
     tm_init_mat_UNREST(mod, params, params_idx, kappa);
     break;      
@@ -450,8 +424,6 @@ void tm_rate_params_init_from_model(TreeModel *mod, Vector *params,
 	     mod->rate_matrix->inv_states['C']);
     vec_set(params, params_idx+1, alpha); /* just use a 1 for gamma */
     break;
-  case REV_GC:
-    vec_set(params, params_idx++, 1.0);
   case REV:
     tm_init_mat_from_model_REV(mod, params, params_idx);
     break;      
@@ -767,60 +739,6 @@ void tm_set_SSREV_matrix(TreeModel *mod, Vector *params, int start_idx) {
   if (count != tm_get_nratematparams(mod))
     die("ERROR tm_set_SSREV_matrix count (%i) != tm_get_nratematparams(mod) (%i)\n",
 	count, tm_get_nratematparams(mod));
-}
-
-
-void tm_set_REV_GC_matrix(TreeModel *mod, Vector *params, int start_idx) {
-  int i, j, gamma_idx = start_idx;
-  int setup_mapping = (lst_size(mod->rate_matrix_param_row[start_idx])==0);
-  double gamma, sum=0.0;
-  char c1, c2;
-
-  gamma = vec_get(params, start_idx++);
-
-  //first scale the eq frequencies
-  for (i=0; i<mod->rate_matrix->size; i++) {
-    c1 = toupper(mod->rate_matrix->states[i]);
-    if (c1 == 'C' || c1 == 'G')
-      vec_set(mod->backgd_freqs, i, vec_get(mod->backgd_freqs, i)*gamma);
-    sum += vec_get(mod->backgd_freqs, i);
-  }
-  for (i=0; i<mod->rate_matrix->size; i++)
-    vec_set(mod->backgd_freqs, i, vec_get(mod->backgd_freqs, i)/sum);
-
-  for (i = 0; i < mod->rate_matrix->size; i++) {
-    double rowsum = 0;
-    c1 = toupper(mod->rate_matrix->states[i]);
-    for (j = i+1; j<mod->rate_matrix->size; j++) {
-      double val;
-      //set val to alpha{i,j}
-      val = vec_get(params, start_idx);
-      c2 = toupper(mod->rate_matrix->states[j]);
-      if ((c1=='C' && c2=='G') ||
-	  (c1=='G' && c2=='C')) {
-	val *= sum/gamma;
-	if (setup_mapping) {
-	  lst_push_int(mod->rate_matrix_param_row[gamma_idx], i);
-	  lst_push_int(mod->rate_matrix_param_col[gamma_idx], j);
-	  lst_push_int(mod->rate_matrix_param_row[gamma_idx], j);
-	  lst_push_int(mod->rate_matrix_param_col[gamma_idx], i);
-	}
-      }
-      mm_set(mod->rate_matrix, i, j, val*vec_get(mod->backgd_freqs, j));
-      mm_set(mod->rate_matrix, j, i, val*vec_get(mod->backgd_freqs, i));
-      rowsum += (val * vec_get(mod->backgd_freqs, j));
-      if (setup_mapping) {
-        lst_push_int(mod->rate_matrix_param_row[start_idx], i);
-        lst_push_int(mod->rate_matrix_param_col[start_idx], j);
-        lst_push_int(mod->rate_matrix_param_row[start_idx], j);
-        lst_push_int(mod->rate_matrix_param_col[start_idx], i);
-      }
-      start_idx++;
-    }
-    for (j=0; j<i; j++)
-      rowsum += mm_get(mod->rate_matrix, i, j);
-    mm_set(mod->rate_matrix, i, i, -1.0*rowsum);
-  }
 }
 
 
@@ -1519,13 +1437,6 @@ void tm_init_mat_SSREV(TreeModel *mod, Vector *params, int parm_idx,
   if (count != tm_get_nratematparams(mod))
     die("ERROR tm_init_mat_SSERV count (%i) != tm_get_nratematparams(mod) (%i)\n",
 	count, tm_get_nratematparams(mod));
-}
-
-
-void tm_init_mat_REV_GC(TreeModel *mod, Vector *params, int parm_idx,
-			 double kappa) {
-  vec_set(params, parm_idx, 2.0);  //init GC to 1?
-  tm_init_mat_REV(mod, params, parm_idx+1, kappa);
 }
 
 
@@ -2369,8 +2280,10 @@ int tm_flag_subst_param_pos(TreeModel *mod, int *flag,
     numpar = tm_get_nratematparams(mod);
     if (numpar==0) return 0;
 
-    for (i=0; i<numpar; i++)
-      flag[i] = 1;
+    if (flag != NULL) {
+      for (i=0; i<numpar; i++)
+	flag[i] = 1;
+    }
     return 1;
   }
   switch(mod->subst_mod) {
@@ -2380,17 +2293,17 @@ int tm_flag_subst_param_pos(TreeModel *mod, int *flag,
   case K80:
   case HKY85:
     if (str_equals_nocase_charstr(param_name, "kappa")) {
-      flag[0] = 1;
+      if (flag != NULL) flag[0] = 1;
       return 1;
     }
     return 0;
   case HKY85G:
     if (str_equals_nocase_charstr(param_name, "kappa")) {
-      flag[0] = 1;
+      if (flag != NULL) flag[0] = 1;
       return 1;
     }
     else if (str_equals_nocase_charstr(param_name, "gap_param")) {
-      flag[1] = 1;
+      if (flag != NULL) flag[1] = 1;
       return 1;
     }
     return 0;
@@ -2400,18 +2313,6 @@ int tm_flag_subst_param_pos(TreeModel *mod, int *flag,
   case R3:
   case R3S:
     return 0;
-  case REV_GC:
-    if (str_equals_nocase_charstr(param_name, "gc_param")) {
-      flag[0] = 1;
-      return 1;
-    }
-    else if (str_equals_nocase_charstr(param_name, "alphas")) {
-      numpar = mod->rate_matrix->size*(mod->rate_matrix->size-1)/2;
-      for (i=1; i<=numpar; i++)
-	flag[i] = 1;
-      return 1;
-    }
-    return 0;
   case UNREST:
   case U2:
   case U2S:
@@ -2420,11 +2321,11 @@ int tm_flag_subst_param_pos(TreeModel *mod, int *flag,
     return 0;
   case GC:
     if (str_equals_nocase_charstr(param_name, "kappa")) {
-      flag[0] = 1;
+      if (flag != NULL) flag[0] = 1;
       return 1;
     }
     if (str_equals_nocase_charstr(param_name, "gc_param")) {
-      flag[1] = 1;
+      if (flag != NULL) flag[1] = 1;
       return 1;
     }
     return 0;

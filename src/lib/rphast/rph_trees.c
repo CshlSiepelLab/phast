@@ -97,8 +97,6 @@ SEXP rph_tree_read(SEXP filename) {
   return result;
 }
 
-
-
 SEXP rph_tree_numnodes(SEXP tree) {
   TreeNode *tr = rph_tree_new(tree);
   SEXP result;
@@ -199,7 +197,8 @@ SEXP rph_tree_supertree(SEXP treeStr, SEXP nodeStr) {
 }
 
 
-SEXP rph_tree_scale(SEXP treeStr, SEXP scaleP, SEXP nodeStr) {
+SEXP rph_tree_scale(SEXP treeStr, SEXP scaleP, SEXP nodeStr,
+		    SEXP includeLeadingP) {
   TreeNode *tr = rph_tree_new(treeStr);
   double scale = NUMERIC_VALUE(scaleP);
   char *newTreeStr;
@@ -207,6 +206,7 @@ SEXP rph_tree_scale(SEXP treeStr, SEXP scaleP, SEXP nodeStr) {
 
   if (nodeStr != R_NilValue) {
     TreeNode *n;
+    int includeLeading=LOGICAL_VALUE(includeLeadingP);
     n = tr_get_node(tr, CHARACTER_VALUE(nodeStr));
     if (n == NULL) {
       tr_name_ancestors(tr);
@@ -215,7 +215,7 @@ SEXP rph_tree_scale(SEXP treeStr, SEXP scaleP, SEXP nodeStr) {
 	die("No node named %s in %s\n", CHARACTER_VALUE(nodeStr),
 	    CHARACTER_VALUE(treeStr));
     }
-    tr_scale_subtree(tr, n, scale);
+    tr_scale_subtree(tr, n, scale, includeLeading);
   } 
   else tr_scale(tr, scale);
   newTreeStr = tr_to_string(tr, 1);
@@ -325,4 +325,204 @@ SEXP rph_tree_depth(SEXP treeP, SEXP nodeP) {
   tr_free(tr);
   UNPROTECT(1);
   return rv;
+}
+
+SEXP rph_tree_label_branches(SEXP treeP, SEXP nodep, SEXP labelP) {
+  int i, j, numtree = LENGTH(treeP);
+  TreeNode *tr;
+  SEXP result;
+  char *nodename, *label;
+
+  label = strdup(CHARACTER_VALUE(labelP));
+  PROTECT(result = NEW_CHARACTER(numtree));
+  for (i=0; i < numtree; i++) {
+    tr = rph_tree_new(STRING_ELT(treeP, i));
+    for (j = 0; j < LENGTH(nodep); j++) 
+      tr_label_node(tr, CHARACTER_VALUE(STRING_ELT(nodep, j)), label);
+    SET_STRING_ELT(result, i, mkChar(tr_to_string(tr, 1)));
+  }
+  free(label);
+  UNPROTECT(1);
+  return result;
+}
+  
+SEXP rph_tree_label_subtree(SEXP treeP, SEXP nodeP,
+			    SEXP includeLeadingBranchP,
+			    SEXP labelP) {
+  int i, numtree = LENGTH(treeP), include_leading_branch=0;
+  TreeNode *tr;
+  SEXP result;
+  char *node, *label;
+  label = strdup(CHARACTER_VALUE(labelP));
+  node = strdup(CHARACTER_VALUE(nodeP));
+  include_leading_branch = LOGICAL_VALUE(includeLeadingBranchP);
+  PROTECT(result = NEW_CHARACTER(numtree));
+  for (i=0; i < numtree; i++) {
+    tr = rph_tree_new(STRING_ELT(treeP, i));
+    tr_label_subtree(tr, node, include_leading_branch, label);
+    SET_STRING_ELT(result, i, mkChar(tr_to_string(tr, 1)));
+  }
+  free(label);
+  free(node);
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_tree_summary_nodenames(SEXP treeP) {
+  TreeNode *tr = rph_tree_new(treeP), *node;
+  int i;
+  List *nodes = tr_preorder(tr);
+  SEXP result = PROTECT(NEW_CHARACTER(lst_size(nodes)));
+  for (i=0; i < lst_size(nodes); i++) {
+    node = (TreeNode*)lst_get_ptr(nodes, i);
+    if (strlen(node->name)==0 || strcmp(node->name, ";")==0)
+      SET_STRING_ELT(result, i, NA_STRING);
+    else SET_STRING_ELT(result, i, mkChar(node->name));
+  }
+  tr_free(tr);
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_tree_summary_len(SEXP treeP) {
+  TreeNode *tr = rph_tree_new(treeP), *node;
+  int i;
+  List *nodes = tr_preorder(tr);
+  SEXP result = PROTECT(NEW_NUMERIC(lst_size(nodes)));
+  double *d = NUMERIC_POINTER(result);
+  for (i=0; i < lst_size(nodes); i++) {
+    node = (TreeNode*)lst_get_ptr(nodes, i);
+    if (node->parent == NULL) d[i] = -1;
+    else d[i] = node->dparent;
+  }
+  tr_free(tr);
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_tree_summary_depth(SEXP treeP) {
+  TreeNode *tr = rph_tree_new(treeP), *node;
+  int i;
+  List *nodes = tr_preorder(tr);
+  SEXP result = PROTECT(NEW_NUMERIC(lst_size(nodes)));
+  double *d = NUMERIC_POINTER(result);
+  for (i=0; i < lst_size(nodes); i++) {
+    node = (TreeNode*)lst_get_ptr(nodes, i);
+    d[i] = tr_distance_to_root(node);
+  }
+  tr_free(tr);
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_tree_summary_parent(SEXP treeP) {
+  TreeNode *tr = rph_tree_new(treeP), *node;
+  int i, *parent, nnode, *idmap;
+  List *nodes = tr_preorder(tr);
+  SEXP result;
+
+  nnode = lst_size(nodes);
+  result = PROTECT(NEW_INTEGER(nnode));
+  parent = INTEGER_POINTER(result);
+  idmap = smalloc((nnode+1)*sizeof(int));
+  for (i=0; i < nnode; i++) {
+    node = (TreeNode*)lst_get_ptr(nodes, i);
+    if (node->id > nnode || node->id < 0)
+      die("invalid id (%i) in tree node\n", node->id);
+    idmap[(int)node->id] = i;
+  }
+  for (i=0; i < nnode; i++) {
+    node = (TreeNode*)lst_get_ptr(nodes, i);
+    if (node->parent == NULL) 
+      parent[idmap[node->id]] = -1;
+    else parent[idmap[node->id]] = idmap[node->parent->id] + 1;
+  }
+  free(idmap);
+  tr_free(tr);
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_tree_summary_lchild(SEXP treeP) {
+  TreeNode *tr = rph_tree_new(treeP), *node;
+  int i, *lchild, nnode, *idmap;
+  List *nodes = tr_preorder(tr);
+  SEXP result;
+
+  nnode = lst_size(nodes);
+  result = PROTECT(NEW_INTEGER(nnode));
+  lchild = INTEGER_POINTER(result);
+  idmap = smalloc((nnode+1)*sizeof(int));
+  for (i=0; i < nnode; i++) {
+    node = (TreeNode*)lst_get_ptr(nodes, i);
+    if (node->id > nnode || node->id < 0)
+      die("invalid id (%i) in tree node\n", node->id);
+    idmap[(int)node->id] = i;
+  }
+  for (i=0; i < nnode; i++) {
+    node = (TreeNode*)lst_get_ptr(nodes, i);
+    if (node->lchild == NULL) 
+      lchild[idmap[node->id]] = -1;
+    else lchild[idmap[node->id]] = idmap[node->lchild->id] + 1;
+  }
+  free(idmap);
+  tr_free(tr);
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_tree_summary_rchild(SEXP treeP) {
+  TreeNode *tr = rph_tree_new(treeP), *node;
+  int i, *rchild, nnode, *idmap;
+  List *nodes = tr_preorder(tr);
+  SEXP result;
+
+  nnode = lst_size(nodes);
+  result = PROTECT(NEW_INTEGER(nnode));
+  rchild = INTEGER_POINTER(result);
+  idmap = smalloc((nnode+1)*sizeof(int));
+  for (i=0; i < nnode; i++) {
+    node = (TreeNode*)lst_get_ptr(nodes, i);
+    if (node->id > nnode || node->id < 0)
+      die("invalid id (%i) in tree node\n", node->id);
+    idmap[(int)node->id] = i;
+  }
+  for (i=0; i < nnode; i++) {
+    node = (TreeNode*)lst_get_ptr(nodes, i);
+    if (node->rchild == NULL) 
+      rchild[idmap[node->id]] = -1;
+    else rchild[idmap[node->id]] = idmap[node->rchild->id] + 1;
+  }
+  free(idmap);
+  tr_free(tr);
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_tree_summary_label(SEXP treeP) {
+  TreeNode *tr = rph_tree_new(treeP), *node;
+  List *nodes = tr_preorder(tr);
+  int i, nnodes = lst_size(nodes);
+  SEXP result;
+  for (i=0; i < nnodes; i++) {
+    node = (TreeNode*)lst_get_ptr(nodes, i);
+    if (node->label != NULL) break;
+  }
+  if (i == nnodes) return R_NilValue;
+  
+  PROTECT(result = NEW_CHARACTER(nnodes));
+  for (i=0; i < nnodes; i++) {
+    node = (TreeNode*)lst_get_ptr(nodes, i);
+    if (node->label == NULL) SET_STRING_ELT(result, i, NA_STRING);
+    else SET_STRING_ELT(result, i, mkChar(node->label));
+  }
+  UNPROTECT(1);
+  return result;
 }

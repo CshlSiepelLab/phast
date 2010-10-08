@@ -150,17 +150,20 @@ int mm_validate(MarkovMatrix *M) {
   /* ensure rows sum to one (or zero) */
   targetval = M->type == DISCRETE ? 1 : 0;
   for (i = 0; i < M->size; i++) {
-    double sum = 0;
+    double sum = 0.0, diag;
     for (j = 0; j < M->size; j++) 
-      sum += mm_get(M, i, j);
-    if (abs(sum - targetval) > SUM_EPSILON) {
-      fprintf(stderr, "Error validating Markov matrix: rows do not sum to %.1f (+-%f).\n", targetval, SUM_EPSILON);
+      if (i != j)
+	sum += mm_get(M, i, j);
+    diag = mm_get(M, i, i);
+    if (abs(sum + diag - targetval) > SUM_EPSILON) {
+      fprintf(stderr, "Error validating Markov  matrix: rows do not sum to %.1f (+-%f). %f %f\n", targetval, SUM_EPSILON, sum, diag);
       return 1;
-    }
+    } /*else if (sum != -diag)
+	mm_set(M, i, i, -sum);*/
   }
-  
   return 0;
 }
+
 
 /* element access by state character 
    FIXME: this won't work with higher-order models */
@@ -176,7 +179,8 @@ MarkovMatrix *mm_new_from_file(FILE *F, mm_type type) {
   char line[2*MAXALPHA], *states;
   MarkovMatrix *M;
 
-  fgets(line, 2*MAXALPHA, F);
+  if (fgets(line, 2*MAXALPHA, F)==NULL)
+    die("ERROR reading markov matrix\n");
   states = smalloc(sizeof(char) * strlen(line));
   for (i = 0; i < strlen(line); i++) {
     if (isalnum(line[i])) {
@@ -202,6 +206,54 @@ void mm_pretty_print(FILE *F, MarkovMatrix *M) {
 
   mat_print(M->matrix, F);
 }
+
+
+void mm_exp_taylor(MarkovMatrix *P, MarkovMatrix *Q, double t) {
+  Matrix *Qt, *lastQ, *newQ, *lastP;
+  Matrix *sumP;
+  double diff, fac=1.0, d;
+  int rep, i, j, n = P->size;
+
+  sumP = mat_new(n, n);
+  Qt = mat_create_copy(Q->matrix);
+  mat_scale(Qt, t);
+  
+  mat_set_identity(sumP);
+  
+  mat_plus_eq(sumP, Qt);
+  
+  lastQ = mat_create_copy(Qt);
+  newQ = mat_new(n, n);
+  lastP = mat_new(n, n);
+  
+  for (rep=2; 1; rep++) {
+    mat_mult(newQ, Qt, lastQ);  //lastQ = (Qt)^(rep-1), newQ=(Qt)^rep
+    mat_copy(lastQ, newQ);    // now lastQ is (Qt)^rep too
+    fac /= (double)rep;
+    if (fac == 0.0) break;
+    mat_scale(newQ, fac);      //scale newQ by 1/rep!
+    mat_copy(lastP, sumP);     //put previous result in lastP
+    mat_plus_eq(sumP, newQ);     //add new term
+    //check convergence
+    diff = 0;
+    for (i=0; i < n; i++) {
+      for (j=0; j < n; j++) {
+	d = mat_get(sumP, i, j) - mat_get(lastP, i, j);
+	diff += (d*d);
+      }
+    }
+    if (diff == 0.0 || (diff < 1.0e-8 && rep >= 10)) break;
+  }
+  //  printf("done manual exponentiation rep=%i diff=%e\n", rep, diff);
+  mat_copy(P->matrix, sumP);
+  mat_free(sumP);
+  mat_free(lastP);
+  mat_free(lastQ);
+  mat_free(newQ);
+  mat_free(Qt);
+  return;
+}
+
 
 /* general version allowing for complex eigenvalues/eigenvectors */
 void mm_exp_complex(MarkovMatrix *P, MarkovMatrix *Q, double t) {
@@ -235,9 +287,14 @@ void mm_exp_complex(MarkovMatrix *P, MarkovMatrix *Q, double t) {
 
   /* Diagonalize (if necessary) */
   if (Q->evec_matrix_z == NULL || Q->evals_z == NULL || 
-      Q->evec_matrix_z == NULL) 
+      Q->evec_matrix_inv_z == NULL) 
     mm_diagonalize(Q);
 
+  /* Diagonalization failed: use taylor expansion instead */
+  if (Q->evec_matrix_z == NULL || Q->evals_z == NULL ||
+      Q->evec_matrix_inv_z == NULL) 
+    return mm_exp_taylor(P, Q, t);
+    
   /* Compute P(t) = S exp(Dt) S^-1.  Start by computing exp(Dt) S^-1 */
   for (i = 0; i < n; i++) {
     Complex exp_dt_i =
@@ -248,6 +305,7 @@ void mm_exp_complex(MarkovMatrix *P, MarkovMatrix *Q, double t) {
 
   /* Now multiply by S (on the left) */
   zmat_mult_real(P->matrix, Q->evec_matrix_z, tmp);
+
 }
 
 /* version that assumes real eigenvalues/eigenvectors */
@@ -369,7 +427,14 @@ void mm_diagonalize_complex(MarkovMatrix *M) {
     M->evals_z = zvec_new(M->size);
   if (M->evec_matrix_inv_z == NULL)
     M->evec_matrix_inv_z = zmat_new(M->size, M->size);
-  mat_diagonalize(M->matrix, M->evals_z, M->evec_matrix_z, M->evec_matrix_inv_z);
+  if (mat_diagonalize(M->matrix, M->evals_z, M->evec_matrix_z, M->evec_matrix_inv_z)) {
+    zmat_free(M->evec_matrix_z);
+    zvec_free(M->evals_z);
+    zmat_free(M->evec_matrix_inv_z);
+    M->evec_matrix_z = NULL;
+    M->evals_z = NULL;
+    M->evec_matrix_inv_z = NULL;
+  }
 } 
 
 void mm_diagonalize_real(MarkovMatrix *M) { 
@@ -410,7 +475,7 @@ void mm_diagonalize_real(MarkovMatrix *M) {
 } 
 
 void mm_diagonalize(MarkovMatrix *M) { 
-  if (M->eigentype == COMPLEX_NUM)
+  if (M->eigentype == COMPLEX_NUM) 
     mm_diagonalize_complex(M);
   else 
     mm_diagonalize_real(M);

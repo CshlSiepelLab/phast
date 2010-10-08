@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
       ia_names = TRUE;
       break;
     case 'h':
-      printf(HELP);
+      printf("%s", HELP);
       exit(0);
     case '?':
       die("Bad argument.  Try 'indelHistory -h'.\n");

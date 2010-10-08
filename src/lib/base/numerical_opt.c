@@ -26,11 +26,12 @@
 
 #define EPS 1e-15               /* approx machine precision */
 
+#define TOLX_VERY_HIGH 0.0
 #define TOLX_HIGH (4*EPS)       /* convergence criterion for param */
 #define TOLX_MED 1.0e-8         /* vals (high, medium, and low */
 #define TOLX_LOW 1.0e-6         /* precision versions) */
 
-#define TOLX(P) ( (P) == OPT_HIGH_PREC ? TOLX_HIGH : ( (P) == OPT_MED_PREC ? TOLX_MED : TOLX_LOW) )
+#define TOLX(P) ( (P) == OPT_VERY_HIGH_PREC ? TOLX_VERY_HIGH : ( (P) == OPT_HIGH_PREC ? TOLX_HIGH : ( (P) == OPT_MED_PREC ? TOLX_MED : TOLX_LOW) ) )
 
 #define MAXSIGFIGS 6
 
@@ -41,21 +42,23 @@
 
 /* convergence criteria in terms of minimum number of stable
    significant figures of parameter estimates */
+#define SIGFIG_VERY_HIGH 10
 #define SIGFIG_HIGH 4
 #define SIGFIG_MED 3
 #define SIGFIG_LOW 2
 
-#define SIGFIG(P) ( (P) == OPT_HIGH_PREC ? SIGFIG_HIGH : ( (P) == OPT_MED_PREC ? SIGFIG_MED : SIGFIG_LOW) )
+#define SIGFIG(P) ( (P) == OPT_VERY_HIGH_PREC ? SIGFIG_VERY_HIGH : ( (P) == OPT_HIGH_PREC ? SIGFIG_HIGH : ( (P) == OPT_MED_PREC ? SIGFIG_MED : SIGFIG_LOW) ) )
 
 /* convergence criteria in terms of changes to function value.  These
    are tuned roughly for phylogenetic models and may need to be
    adjusted for other problems. */
 
+#define DELTA_FUNC_VERY_HIGH 0
 #define DELTA_FUNC_HIGH 1e-9    /* (f(x2) - f(x1)) / f(x2) */
 #define DELTA_FUNC_MED 1e-7
 #define DELTA_FUNC_LOW 1e-6
 
-#define DELTA_FUNC(P) ( (P) == OPT_HIGH_PREC ? DELTA_FUNC_HIGH : ( (P) == OPT_MED_PREC ? DELTA_FUNC_MED : DELTA_FUNC_LOW) )
+#define DELTA_FUNC(P) ( (P) == OPT_VERY_HIGH_PREC ? DELTA_FUNC_VERY_HIGH : ( (P) == OPT_HIGH_PREC ? DELTA_FUNC_HIGH : ( (P) == OPT_MED_PREC ? DELTA_FUNC_MED : DELTA_FUNC_LOW) ) )
 
 #define LAMBDA_THRESHOLD 0.01   /* SIGFIG and DELTA_FUNC convergence
                                    criteria will not be applied when a
@@ -74,8 +77,10 @@
 #define ALPHA 1.0e-4            /* threshold for sufficient decrease
                                    in function value (lnsrch) */
 
-#define GTOL 1.0e-5             /* convergence criterion for zeroing
-                                   the gradient */
+#define GTOL_VERY_HIGH 0.0             /* convergence criterion for zeroing
+					     the gradient */
+#define GTOL_OTHER 1.0e-5
+#define GTOL(P) ( (P) == OPT_VERY_HIGH_PREC ? GTOL_VERY_HIGH : GTOL_OTHER )
 
 #define BOUNDARY_EPS 1.0e-3     /* "buffer" at boundary */
 #define BOUNDARY_EPS2 1.0e-6     /* use this smaller value in 1d case */
@@ -102,33 +107,33 @@ FILE *debugf = NULL;
 void opt_gradient(Vector *grad, double (*f)(Vector*, void*), 
                   Vector *params, void* data, opt_deriv_method method,
                   double reference_val, Vector *lower_bounds, 
-                  Vector *upper_bounds) {
+                  Vector *upper_bounds, double deriv_epsilon) {
   int i;
   double val1, val2;
 
   for (i = 0; i < params->size; i++) {
     double origparm = vec_get(params, i);
-    double delta = 2 * DERIV_EPSILON;
+    double delta = 2 * deriv_epsilon;
 
     if (method == OPT_DERIV_FORWARD ||
         (lower_bounds != NULL && 
-         origparm - vec_get(lower_bounds, i) < DERIV_EPSILON)) {
-      delta = DERIV_EPSILON;
+         origparm - vec_get(lower_bounds, i) < deriv_epsilon)) {
+      delta = deriv_epsilon;
       val1 = reference_val;
     }
     else {
-      vec_set(params, i, origparm - DERIV_EPSILON);
+      vec_set(params, i, origparm - deriv_epsilon);
       val1 = f(params, data);
     }
 
     if (method == OPT_DERIV_BACKWARD || 
         (upper_bounds != NULL && 
-         vec_get(upper_bounds, i) - origparm < DERIV_EPSILON)) {
-      delta = DERIV_EPSILON;
+         vec_get(upper_bounds, i) - origparm < deriv_epsilon)) {
+      delta = deriv_epsilon;
       val2 = reference_val;
     }
     else {
-      vec_set(params, i, origparm + DERIV_EPSILON);
+      vec_set(params, i, origparm + deriv_epsilon);
       val2 = f(params, data);
     }
 
@@ -377,7 +382,8 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
   int check, i, its, n = params->size, success = 0, nevals = 0, 
     params_at_bounds = 0, new_at_bounds, changed_dimension = 0,
     trunc, already_failed = 0, minsf;
-  double den, fac, fae, fval, stpmax, temp, test, lambda, fval_old;
+  double den, fac, fae, fval, stpmax, temp, test, lambda, fval_old,
+    deriv_epsilon = DERIV_EPSILON;
   Vector *dg, *g, *hdg, *params_new, *xi, *at_bounds;
   Matrix *H, *first_frac, *sec_frac, *bfgs_term;
   opt_deriv_method deriv_method = OPT_DERIV_FORWARD;
@@ -418,7 +424,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
   }
   else {
     opt_gradient(g, f, params, data, deriv_method, fval, lower_bounds, 
-                 upper_bounds);
+                 upper_bounds, deriv_epsilon);
     nevals += (deriv_method == OPT_DERIV_CENTRAL ? 2 : 1)*params->size;
   }
 
@@ -517,8 +523,9 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
         max(fabs(vec_get(params, i)), 1.0);
       if (temp > test) test = temp;
     }
-    if (test < TOLX(precision)) {
-      if (logf != NULL) fprintf(logf, "Convergence via TOLX\n");
+    if (test <= TOLX(precision)) {
+      if (logf != NULL) fprintf(logf, "Convergence via TOLX (%e <= %e)\n",
+				test, TOLX(precision));
       success = 1;
       break;
     }
@@ -533,7 +540,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
     }
 
     if (lambda > LAMBDA_THRESHOLD && 
-        fabs((fval_old - fval) / fval) < DELTA_FUNC(precision)) {
+        fabs((fval_old - fval) / fval) <= DELTA_FUNC(precision)) {
       if (logf != NULL) fprintf(logf, "Convergence via delta func\n");
       success = 1;
       break;
@@ -562,7 +569,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
     }
     else {
       opt_gradient(g, f, params, data, deriv_method, fval, lower_bounds, 
-                   upper_bounds);
+                   upper_bounds, deriv_epsilon);
       nevals += (deriv_method == OPT_DERIV_CENTRAL ? 2 : 1)*params->size;
     }
 
@@ -584,7 +591,8 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
         max(fabs(vec_get(params, i)), 1.0) / den;
       if (temp > test) test = temp;
     }
-    if (test < GTOL) {
+    if (test <= GTOL(precision)) {
+      if (logf != NULL) fprintf(logf, "Convergence via gradiant tolerance (%e < %e)\n", test, GTOL(precision));
       success = 1;
       break;
     }
@@ -740,6 +748,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
        on second failure of this type, assume convergence */
     if (vec_inner_prod(g, xi) >= 0) {
       if (already_failed) {
+	if (logf != NULL) fprintf(logf, "Convergence via inner product (%e) >= 0\n", vec_inner_prod(g, xi));
         success = 1; 
         break;
       }
@@ -1136,7 +1145,7 @@ int opt_newton_1d(double (*f)(double, void*), double (*x), void *data,
   for (its = 0; !converged && its < ITMAX; its++) { 
     checkInterruptN(its, 100);
     opt_derivs_1d(&d, &d2, *x, *fx, lb, ub, f, data, compute_deriv, 
-                  compute_deriv2);
+                  compute_deriv2, DERIV_EPSILON);
     nevals += 2;                /* assume cost of each deriv approx
                                    equals that of a functional evaluation */
 
@@ -1193,18 +1202,19 @@ void opt_derivs_1d(double *deriv, double *deriv2, double x, double fx,
                    double (*compute_deriv)(double x, void *data, double lb, 
                                            double ub),
                    double (*compute_deriv2)(double x, void *data, double lb, 
-                                            double ub)) {
+                                            double ub),
+		   double deriv_epsilon) {
   double fxeps=-1.0, fx2eps=-1.0;
   int at_ub = (ub - x < BOUNDARY_EPS2); /* at upper bound */
 
   if (compute_deriv == NULL) {
     if (at_ub) {           /* use backward method if at upper bound */
-      fxeps = f(x - DERIV_EPSILON, data);
-      *deriv = (fx - fxeps) / DERIV_EPSILON;
+      fxeps = f(x - deriv_epsilon, data);
+      *deriv = (fx - fxeps) / deriv_epsilon;
     }
     else { 
-      fxeps = f(x + DERIV_EPSILON, data);
-      *deriv = (fxeps - fx) / DERIV_EPSILON;
+      fxeps = f(x + deriv_epsilon, data);
+      *deriv = (fxeps - fx) / deriv_epsilon;
     }
   }
   else 
@@ -1215,20 +1225,20 @@ void opt_derivs_1d(double *deriv, double *deriv2, double x, double fx,
   if (compute_deriv2 == NULL) {     /* numerical 2nd deriv */
     if (at_ub) {                    /* at upper bound */
       if (compute_deriv != NULL)    /* exact 1d available */
-        *deriv2 = (*deriv - compute_deriv(x - DERIV_EPSILON, data, lb, ub)) / 
-          DERIV_EPSILON;
+        *deriv2 = (*deriv - compute_deriv(x - deriv_epsilon, data, lb, ub)) / 
+          deriv_epsilon;
       else {                    /* numerical 1st and second derivs */
-        fx2eps = f(x - 2*DERIV_EPSILON, data);
-        *deriv2 = (fx2eps + 2*fxeps - fx) / (DERIV_EPSILON * DERIV_EPSILON);
+        fx2eps = f(x - 2*deriv_epsilon, data);
+        *deriv2 = (fx2eps + 2*fxeps - fx) / (deriv_epsilon * deriv_epsilon);
       }
     }
     else {                       /* not at upper bound */
       if (compute_deriv != NULL) /* exact 1d available */
-        *deriv2 = (compute_deriv(x + DERIV_EPSILON, data, lb, ub) - *deriv) / 
-          DERIV_EPSILON;
+        *deriv2 = (compute_deriv(x + deriv_epsilon, data, lb, ub) - *deriv) / 
+          deriv_epsilon;
       else {                    /* numerical 1st and second derivs */
-        fx2eps = f(x + 2*DERIV_EPSILON, data);
-        *deriv2 = (fx2eps - 2*fxeps + fx) / (DERIV_EPSILON * DERIV_EPSILON);
+        fx2eps = f(x + 2*deriv_epsilon, data);
+        *deriv2 = (fx2eps - 2*fxeps + fx) / (deriv_epsilon * deriv_epsilon);
       }
     }
   }

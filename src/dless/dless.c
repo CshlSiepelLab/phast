@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
       ih = ih_new_from_file(fopen_fname(optarg, "r"));
       break;
     case 'h':
-      printf(HELP);
+      printf("%s", HELP);
       exit(0);
     case '?':
       die("Bad argument.  Try 'dless -h'.\n");

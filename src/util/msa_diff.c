@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
         die("ERROR: bad input format.\n");
       break;      
     case 'h':
-      printf(HELP); 
+      printf("%s", HELP); 
       exit(0);
     case '?':
       die("Bad argument.  Try 'program -h'.\n");

@@ -71,10 +71,10 @@ TreeNode *tr_new_from_file(FILE *f) {
 /** Parse a Newick-formatted tree from a character string */
 TreeNode *tr_new_from_string(const char *treestr) { 
   TreeNode *root, *node, *newnode;
-  int i, in_distance = FALSE, len = strlen(treestr), nopen_parens = 0,
+  int i, in_distance = FALSE, in_label=FALSE, len = strlen(treestr), nopen_parens = 0,
     nclose_parens = 0, already_allowed = FALSE;
   char c;
-  String *diststr = str_new(STR_SHORT_LEN);
+  String *diststr = str_new(STR_SHORT_LEN), *labelstr = str_new(STR_SHORT_LEN);
 
   tr_reset_id();
   root = tr_new_node(); root->nnodes = 1;
@@ -83,16 +83,29 @@ TreeNode *tr_new_from_string(const char *treestr) {
     c = treestr[i];
 
     if (in_distance) {
-      if (c != '(' && c != ',' && c != ')' && c != ':') {
+      if (c != '(' && c != ',' && c != ')' && c != ':' && c != '#') {
         str_append_char(diststr, c);
         continue;
       }
       else {
+	str_double_trim(diststr);
         if (str_as_dbl(diststr, &node->dparent) != 0)
           die("ERROR: Can't parse distance in tree (\"%s\").\n", 
               diststr->chars);
+	in_distance = FALSE;
       }
-      in_distance = FALSE;
+    }
+
+    if (in_label) {
+      if (c != '(' && c != ',' && c != ')' && c != ':' && c != '#') {
+        str_append_char(labelstr, c);
+        continue;
+      }
+      else {
+	str_double_trim(labelstr);
+	node->label = strdup(labelstr->chars);
+	in_label = FALSE;
+      }
     }
 
     if (c == '(') {
@@ -128,6 +141,10 @@ TreeNode *tr_new_from_string(const char *treestr) {
       str_clear(diststr);
       in_distance = TRUE;
     }
+    else if (c == '#') {
+      str_clear(labelstr);
+      in_label = TRUE;
+    }
     else {			/* has to be part of name */
       if (!isspace(c) || node->name[0] != '\0')	/* avoid leading spaces */
         strncat(node->name, &c, 1);
@@ -139,6 +156,7 @@ TreeNode *tr_new_from_string(const char *treestr) {
 
   tr_set_nnodes(root);
   str_free(diststr);
+  str_free(labelstr);
   return root;
 }
 
@@ -200,6 +218,7 @@ TreeNode *tr_new_node() {
   n->dparent = 0;
   n->nnodes = -1;
   n->height = 0;
+  n->label = NULL;
   n->nodes = n->preorder = n->inorder = n->postorder = NULL;
   return(n);
 }
@@ -263,6 +282,10 @@ void tr_to_string_recur(char *str, TreeNode *n, int show_branch_lengths) {
     sprintf(temp, ":%f", n->dparent);
     strcat(str, temp);
   }
+  if (n->label != NULL) {
+    sprintf(temp, " # %s", n->label);
+    strcat(str, temp);
+  }
 }
 
 
@@ -299,6 +322,8 @@ void tr_print_recur(FILE* f, TreeNode *n, int show_branch_lengths) {
 
   if (show_branch_lengths && n->parent != NULL)
     fprintf(f, ":%f", n->dparent);
+  if (n->label != NULL)
+    fprintf(f, " # %s", n->label);
 }
 
 /** Free memory for tree */
@@ -314,6 +339,7 @@ void tr_free(TreeNode *tree) {
     if (n->preorder != NULL) lst_free(n->preorder);
     if (n->inorder != NULL) lst_free(n->inorder);
     if (n->postorder != NULL) lst_free(n->postorder);
+    if (n->label != NULL) free(n->label);
     free(n);
   }
   stk_free(stack);
@@ -420,6 +446,7 @@ void tr_node_cpy(TreeNode *dest, TreeNode *src) {
   dest->id = src->id;
   strcpy(dest->name, src->name); 
   dest->dparent = src->dparent;
+  if (src->label != NULL) dest->label = strdup(src->label);
   /* don't copy data, nnodes, height, preorder, inorder, postorder */
 }
 
@@ -519,6 +546,9 @@ void tr_print_ordered_recur(FILE* f, TreeNode *n, int *left_right,
 
   if (show_branch_lengths)
     fprintf(f, ":%f", n->dparent);
+
+  if (n->label != NULL)
+    fprintf(f, " # %s", n->label);
 }
 
 /** Obtain a list representing a preorder traversal of the tree.
@@ -921,13 +951,14 @@ void tr_scale(TreeNode *t, double scale_const) {
 
 /** Scale all branch lengths by constant factor in subtree beneath
     given node. */
-void tr_scale_subtree(TreeNode *t, TreeNode *sub, double scale_const) {
+void tr_scale_subtree(TreeNode *t, TreeNode *sub, double scale_const,
+		      int include_leading) {
   int i;
   List *inside = lst_new_ptr(t->nnodes);
   tr_partition_nodes(t, sub, inside, NULL);
   for (i = 0; i < lst_size(inside); i++) {
     TreeNode *n = lst_get_ptr(inside, i);
-    if (n != sub) n->dparent *= scale_const;
+    if (n != sub || include_leading) n->dparent *= scale_const;
   }
   lst_free(inside);
 }
@@ -1349,7 +1380,10 @@ void tr_print_nodes(FILE *F, TreeNode *tree) {
     fprintf(F, "\tlchild = %d\n", n->lchild == NULL ? -1 : n->lchild->id);
     fprintf(F, "\trchild = %d\n", n->rchild == NULL ? -1 : n->rchild->id);
     fprintf(F, "\tname = '%s'\n", n->name);
-    fprintf(F, "\tdparent = %f\n\n", n->dparent);
+    fprintf(F, "\tdparent = %f\n", n->dparent);
+    if (n->label != NULL)
+      fprintf(F, "\tlabel = %s\n", n->label);
+    fprintf(F, "\n");
   }
 }
 
@@ -1521,4 +1555,49 @@ int* tr_in_subtree(TreeNode *t, TreeNode *sub) {
   }
   lst_free(inside);
   return in_subtree;
+}
+
+
+void tr_label(TreeNode *t, const char *label) {
+  if (t->label != NULL) free(t->label);
+  t->label = strdup(label);
+}
+
+void tr_label_node(TreeNode *tree, const char *nodename,
+		   const char *label) { 
+  TreeNode *node = tr_get_node(tree, nodename);
+  if (node == NULL) die("ERROR: unknown node %s\n", nodename);
+  tr_label(node, label);
+}
+
+
+void tr_label_subtree(TreeNode *tree, const char *subtreeNode, 
+		      int include_leading_branch,
+		      const char *label) {
+  List *inside = lst_new_ptr(10);
+  TreeNode *parent_node, *node;
+  int i;
+  parent_node = tr_get_node(tree, subtreeNode);
+  if (parent_node == NULL) die("ERROR: unknown node %s\n", subtreeNode);
+  tr_partition_nodes(tree, parent_node, inside, NULL);
+  for (i=0; i < lst_size(inside); i++) {
+    node = lst_get_ptr(inside, i);
+    if (node != parent_node || include_leading_branch)
+      tr_label(node, label);
+  }
+  lst_free(inside);
+}
+
+
+/** Sets rv to a list of nodes in tree with the given label */
+void tr_get_labelled_nodes(TreeNode *tree, const char *label, List *rv) {
+  List *traversal = tr_preorder(tree);
+  TreeNode *node;
+  int i;
+  lst_clear(rv);
+  for (i=0; i < lst_size(traversal); i++) {
+    node = lst_get_ptr(traversal, i);
+    if (node->label != NULL && strcmp(node->label, label)==0)
+      lst_push_ptr(rv, node);
+  }
 }

@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
 	die("ERROR: --subtree-scale argument should be >=0.0\n");
       break;
     case 'h':
-      printf(HELP);
+      printf("%s", HELP);
       exit(0);
     case 't':
       if (optarg[0] == '(')     /* in this case, assume topology given

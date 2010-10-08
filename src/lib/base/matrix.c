@@ -142,7 +142,8 @@ void mat_read(Matrix *m, FILE *F) {
   int i, j;
   for (i = 0; i < m->nrows; i++)
     for (j = 0; j < m->ncols; j++)
-      fscanf(F, "%lf ", &m->data[i][j]);
+      if (1 != fscanf(F, "%lf ", &m->data[i][j]))
+	die("ERROR reading matrix");
 }
 
 Matrix *mat_new_from_file(FILE *F, int nrows, int ncols) {

@@ -47,7 +47,8 @@
 #define BRANCHES_STR "branches"
 #define SCALE_STR "scale"
 #define SCALE_SUB_STR "scale_sub"
-
+#define SELECTION_STR "sel"
+#define BGC_STR "bgc"
 
 /* type of branch length estimation */
 typedef enum { 
@@ -76,17 +77,18 @@ typedef struct {
   subst_mod_type subst_mod;  
   Vector *backgd_freqs;        /* eq freqs (set to NULL if separate_freq=0 */
   MarkovMatrix *rate_matrix;   /* rate_matrix (set to NULL if separate_rm=0 */
-  int ratematrix_idx, backgd_idx;  /* indicies in main model parameter list
+  int ratematrix_idx, backgd_idx, selection_idx, bgc_idx;  
+                                   /* indicies in main model parameter list
 				      where lineage-specific parameters
-				      start */
+				      start */  
+  double selection, bgc;        /* optional selection and bgc parameters for this model, only used if selection_idx and bgc_idx are >=0 (respectively) */
   int separate_model;   /* ==1 if no parameters shared with main model */
+  int separate_backgd;
   List *param_list;     /* list of string arguments giving which params to
 			   estimate separately (only if separate_model=0) */
-  String *nodename;     /* name of node defining subtree (with + added to
-			   include leading branch) */
-  String *defString;    /* this is the exact argument given to phyloFit
+  String *defString;    /* this is the argument given to phyloFit
 			   to define the alt model */
-  List *bound_arg;
+  String *noopt_arg;
 } AltSubstMod;
 
 
@@ -243,8 +245,7 @@ Vector *tm_params_init_random(TreeModel *mod);
 
 Vector *tm_params_new_init_from_model(TreeModel *mod);
 
-void tm_params_init_from_model(TreeModel *mod, Vector *params,
-                                      int start_idx);
+void tm_params_init_from_model(TreeModel *mod, Vector *params);
 
 double tm_params_init_branchlens_parsimony(Vector *params, 
 					   TreeModel *mod, MSA *msa, int cat);

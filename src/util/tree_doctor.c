@@ -56,6 +56,21 @@ OPTIONS:\n\
         is unnamed, create a name by concatenating the names of a leaf\n\
         from its left subtree and a leaf from its right subtree.\n\
 \n\
+   --label-subtree, -L <node[+]:label>\n\
+        Add a label to the subtree of the named node.  If the node name\n\
+        is followed by a \"+\" sign, then the branch leading to that node\n\
+        is included in the subtree.  This may be used multiple times to add\n\
+        more than one label, though a single branch may have only one\n\
+        label.  --label-subtree and --label-branches options are parsed in\n\
+        the order given, so that later uses may override earlier ones.\n\
+        Labels are applied *after* all pruning, re-rooting, and re-naming\n\
+        options are applied.\n\
+\n\
+    --label-branches, -l <branch1,branch2,...:label>\n\
+        Add a label to the branches listed.  Branches are named by the name\n\
+        of the node which descends from that branch.  See --label-subtree\n\
+        above for more information.\n\
+\n\
     --tree-only, -t\n\
         Output tree only in Newick format rather than complete tree model.\n\
 \n\
@@ -64,9 +79,9 @@ OPTIONS:\n\
 \n\
     --dissect, -d\n\
         In place of ordinary output, print a description of the id,\n\
-        label (name), parent, children, and distance to parent for\n\
-        each node of the tree.  Sometimes useful for debugging.  Can be\n\
-        used with other options.\n\
+        name, parent, children, and distance to parent for each node\n\
+        of the tree.  Sometimes useful for debugging.  Can be used with\n\
+        other options.\n\
 \n\
     --branchlen, -b\n\
         In place of ordinary output, print the total branch length of\n\
@@ -137,7 +152,7 @@ int main(int argc, char *argv[]) {
   TreeNode *tree = NULL, *merge_tree = NULL, *extrapolate_tree = NULL;
   Hashtable *rename_hash = NULL;
   double scale_factor = 1;
-  List *prune_names = NULL;
+  List *prune_names = NULL, *label = NULL, *labelType = NULL;
   int prune_all_but = FALSE, tree_only = FALSE, dissect = FALSE,
     name_ancestors = FALSE, with_branch = FALSE, print_branchlen=FALSE,
     inNewick=FALSE, no_branchlen = FALSE, print_distance_to_root = FALSE;
@@ -146,7 +161,7 @@ int main(int argc, char *argv[]) {
     *node_distance_name = NULL;
   
   /* other variables */
-  String *suffix;
+  String *suffix,  *optstr;
   char c;
   int i, opt_idx;
   TreeNode *n;
@@ -168,11 +183,13 @@ int main(int argc, char *argv[]) {
     {"subtree", 1, 0, 'S'},
     {"branchlen", 0, 0, 'b'},
     {"newick", 0, 0, 'n'},
+    {"label-subtree", 1, 0, 'L'},
+    {"label-branches", 1, 0, 'l'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "s:p:P:g:m:r:R:B:S:D:adtNbnh", 
+  while ((c = getopt_long(argc, argv, "s:p:P:g:m:r:R:B:S:D:l:L:adtNbnh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 's':
@@ -241,6 +258,16 @@ int main(int argc, char *argv[]) {
     case 'n':
       inNewick=TRUE;
       break;
+    case 'L':  //do the same for --label--subtree and --label-branches
+    case 'l':
+      if (label == NULL) {
+	label = lst_new_ptr(1);
+	labelType = lst_new_int(1);
+      }
+      optstr = str_new_charstr(optarg);
+      lst_push_ptr(label, optstr);
+      lst_push_int(labelType, (int)c);
+      break;
     case 'h':
       usage(argv[0]);
     case '?':
@@ -302,8 +329,7 @@ int main(int argc, char *argv[]) {
     else {
       n = tr_get_node(tree, subtree_name);
       if (n == NULL) die("ERROR: no node named '%s'.\n", subtree_name);
-      tr_scale_subtree(tree, n, scale_factor);
-      if (with_branch) n->dparent *= scale_factor;
+      tr_scale_subtree(tree, n, scale_factor, with_branch);
     }
   }
 
@@ -327,6 +353,47 @@ int main(int argc, char *argv[]) {
     tr_reroot(tree, n, with_branch);
     if (mod != NULL) mod->tree = with_branch ? n->parent : n;
     tree = with_branch ? n->parent : n;
+  }
+
+  if (label != NULL) {
+    for (i=0; i < lst_size(label); i++) {
+      String *currstr = (String*)lst_get_ptr(label, i), *arg1, *labelVal;
+      List *tmplst = lst_new_ptr(10);
+      String *nodename;
+      int j;
+      str_split(currstr, ":", tmplst);
+      if (lst_size(tmplst) != 2) 
+	die("ERROR: bad argument to --label-branches or --label-subtree.\n");
+      arg1 = lst_get_ptr(tmplst, 0);
+      labelVal = lst_get_ptr(tmplst, 1);
+      lst_clear(tmplst);
+      if (lst_get_int(labelType, i) == (int)'l') {
+	str_split(arg1, ",", tmplst);
+	for (j=0; j < lst_size(tmplst); j++) {
+	  nodename = (String*)lst_get_ptr(tmplst, j);
+	  tr_label_node(tree, nodename->chars, labelVal->chars);
+	}
+	lst_free_strings(tmplst);
+      } else if (lst_get_int(labelType, i) == (int)'L') {
+	int include_leading_branch = FALSE;
+	TreeNode *node;
+	nodename = arg1;
+	node = tr_get_node(tree, nodename->chars);
+	if (node == NULL && nodename->chars[nodename->length-1] == '+') {
+	  nodename->chars[--nodename->length] = '\0';
+	  node = tr_get_node(tree, nodename->chars);
+	  include_leading_branch = TRUE;
+	}
+	tr_label_subtree(tree, nodename->chars, include_leading_branch, 
+			 labelVal->chars);
+      } else die("ERROR got label_type %c\n", lst_get_int(labelType, (char)i));
+      str_free(arg1);
+      str_free(labelVal);
+      lst_free(tmplst);
+      str_free(currstr);
+    }
+    lst_free(label);
+    lst_free(labelType);
   }
 
   if (dissect) 

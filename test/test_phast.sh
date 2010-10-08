@@ -150,7 +150,6 @@ rm -f hpmr.mod hpmr-ratevar.mod hpmr_fast.mod hpmrc_short.ss hmrc_correct_tuple3
 seed=124
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod JC69 --tree "(human, (mouse,rat), cow)" -i SS
 # try at least one other kind of input
-!phyloFit.mod @phyloFit -D 12345 -i FASTA --subst-mod REV+GC --tree "(human, (mouse, rat), cow)" hmrc_correct.fa
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod JC69 --tree "((((human,chimp), (mouse,rat)), cow), chicken)" -i SS
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod F81 --tree "(human, (mouse,rat), cow)" -i SS
 !phyloFit.mod @phyloFit hmrc.ss --subst-mod HKY85 --tree "(human, (mouse,rat), cow)" -i SS
@@ -205,7 +204,7 @@ msa_view hmrc.ss -i SS --seqs human,mouse --unordered -o SS > hm.ss
 #clock
 !phyloFit.mod @phyloFit hmrc.ss -D 12345 --tree "((human, (mouse,rat)), cow)" -i SS --clock
 #scale-only
-!phyloFit.mod @phyloFit hmrc.ss --init-mod rev-em.mod --scale-only -iSS 
+!phyloFit.mod @phyloFit hmrc.ss --init-mod rev-em.mod --scale-only -i SS 
 #scale-subtree
 tree_doctor --name-ancestors rev-em.mod --scale 2.0 > rev-em-scaled-named.mod
 !phyloFit.mod @phyloFit hmrc.ss --init-mod rev-em-scaled-named.mod --scale-only --scale-subtree mouse-rat -i SS
@@ -245,14 +244,18 @@ tree_doctor --name-ancestors rev-em.mod --scale 2.0 > rev-em-scaled-named.mod
 !phyloFit.mod @phyloFit --non-overlapping --subst-mod R2 --tree "((human,(mouse,rat)),cow)" --min-informative 25 simulated.fa
 
 #--alt-mod
-!phyloFit.mod @phyloFit -D 12345 --tree "((human,(mouse,rat)mouse-rat),cow)" --alt-mod mouse-rat:HKY85 --subst-mod REV simulated.fa
-!phyloFit.mod @phyloFit -D 12345 --tree "((human,(mouse,rat)mouse-rat),cow)" --alt-mod mouse-rat:ratematrix --subst-mod REV simulated.fa
-!phyloFit.mod @phyloFit -D 12345 --tree "((human,(mouse,rat)mouse-rat),cow)" --alt-mod mouse-rat+:backgd --subst-mod REV simulated.fa --estimate-freqs
-!phyloFit.mod @phyloFit -D 12345 --tree "((human,(mouse,rat)mouse-rat),cow)" --alt-mod mouse-rat+:backgd --subst-mod REV --alt-mod mouse+ simulated.fa --estimate-freqs
+!phyloFit.mod @phyloFit -D 12345 --tree "((human,(mouse#MR,rat#MR)mouse-rat),cow)" --alt-mod MR:HKY85 --subst-mod REV simulated.fa
+!phyloFit.mod @phyloFit -D 12345 --tree "((human,(mouse,rat)mouse-rat),cow)" --alt-mod MR:HKY85 --label-subtree mouse-rat:MR --subst-mod REV simulated.fa
+!phyloFit.mod @phyloFit -D 12345 --tree "((human,(mouse#MR,rat#MR)mouse-rat),cow)" --alt-mod MR:ratematrix,backgd --subst-mod REV simulated.fa
+!phyloFit.mod @phyloFit -D 12345 --tree "((human,(mouse#MR,rat#MR)mouse-rat#MR),cow)" --alt-mod MR:backgd --subst-mod REV simulated.fa --estimate-freqs
+!phyloFit.mod @phyloFit -D 12345 --tree "((human,(mouse,rat)mouse-rat),cow)" --label-subtree "mouse-rat+:MR" --alt-mod MR:bgc,sel --subst-mod REV simulated.fa --estimate-freqs
+!phyloFit.mod @phyloFit -D 12345 --tree "((human,(mouse,rat#MR)mouse-rat#MR),cow)" --alt-mod MR:backgd --subst-mod REV simulated.fa --estimate-freqs
+!phyloFit.mod @phyloFit -D 12345 --tree "((human,(mouse,rat)mouse-rat),cow)" --label-branches rat,mouse-rat:MR --alt-mod MR:backgd --subst-mod REV simulated.fa --estimate-freqs
+
 
 #--post-probs 
 !phyloFit.mod !phyloFit.postprob @phyloFit -D 12345 --tree "((human,(mouse,rat)mouse-rat),cow)" --post-probs simulated.fa
-!phyloFit.mod !phyloFit.postprob @phyloFit -D 12345 --tree "((human,(mouse,rat)mouse-rat),cow)" --post-probs --alt-mod mouse+:HKY85 simulated.fa
+!phyloFit.mod !phyloFit.postprob @phyloFit -D 12345 --tree "((human,(mouse,rat)mouse-rat),cow)" --post-probs --alt-mod mouse:HKY85 simulated.fa
 
 #--expected-subs, --expected-total-subs
 !phyloFit.mod !phyloFit.expsub !phyloFit.exptotsub @phyloFit -D 12345 --tree "((human,(mouse,rat)mouse-rat),cow)" --expected-subs --expected-total-subs simulated.fa
@@ -285,7 +288,7 @@ base_evolve --nsites 50 rev.mod > simulated.fa
 #!phyloFit.mod @phyloFit --subst-mod R3S --tree "((human,(mouse,rat)),cow)" simulated.fa
 #!phyloFit.mod @phyloFit --subst-mod U3 --tree "((human,(mouse,rat)),cow)" simulated.fa
 #!phyloFit.mod @phyloFit --subst-mod U3S --tree "((human,(mouse,rat)),cow)" simulated.fa
-
+rm -f simulated.fa
 
 ******************** msa_view ********************
 
@@ -325,3 +328,24 @@ refeature chr22.14500000-15500000.gp | awk -v OFS="\t" '{start=$4-14500000; end=
 @msa_view -i MAF -o SS --features temp.gff --4d chr22.14500000-15500000.maf
 
 rm -f hmrc.fa hmrc.ph hmrc.mpm hmrc_short_a.ss temp.gff
+
+
+******************** tree_doctor ********************
+
+# this is just a start for some recently added options; many more tests could/should
+# be added
+echo '(human, (mouse, rat), cow)' > tree.nh
+@tree_doctor --newick tree.nh
+@tree_doctor --newick --label-branches mouse,rat:MR tree.nh
+@tree_doctor --newick --name-ancestors --label-branches mouse-rat,mouse,rat:MR tree.nh
+@tree_doctor --newick --name-ancestors --label-subtree mouse-rat:MR tree.nh
+@tree_doctor --newick --name-ancestors --label-subtree mouse-rat+:MR tree.nh
+@tree_doctor --newick --name-ancestors --label-subtree mouse-rat+:MR --label-branches mouse:mouse tree.nh
+phyloFit hmrc.ss --tree "(human, (mouse,rat), cow)" -i SS --quiet
+@tree_doctor phyloFit.mod
+@tree_doctor --label-branches mouse,rat:MR phyloFit.mod
+@tree_doctor --name-ancestors --label-branches mouse-rat,mouse,rat:MR phyloFit.mod
+@tree_doctor --name-ancestors --label-subtree mouse-rat:MR phyloFit.mod
+@tree_doctor --name-ancestors --label-subtree mouse-rat+:MR phyloFit.mod
+
+rm -f phyloFit.mod tree.nh

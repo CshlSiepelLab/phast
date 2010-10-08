@@ -33,13 +33,14 @@ typedef enum {
   OPT_LOW_PREC, 
   OPT_MED_PREC, 
   OPT_HIGH_PREC,
-  OPT_CRUDE_PREC
+  OPT_CRUDE_PREC,
+  OPT_VERY_HIGH_PREC
 } opt_precision_type; 
 
 void opt_gradient(Vector *grad, double (*f)(Vector*, void*), 
                   Vector *params, void* data, opt_deriv_method method,
                   double reference_val, Vector *lower_bounds, 
-                  Vector *upper_bounds);
+                  Vector *upper_bounds, double deriv_epsilon);
 
 int opt_bfgs(double (*f)(Vector*, void*), Vector *params, 
              void *data, double *retval, Vector *lower_bounds, 
@@ -76,7 +77,8 @@ void opt_derivs_1d(double *deriv, double *deriv2, double x, double fx,
                    double (*compute_deriv)(double x, void *data, double lb, 
                                            double ub),
                    double (*compute_deriv2)(double x, void *data, double lb, 
-                                            double ub));
+                                            double ub),
+		   double deriv_epsilon);
 
 int opt_bfgs_1d(double (*f)(double, void*), double (*x), void *data, 
                   double *fx, int sigfigs, double lb, double ub, FILE *logf, 

@@ -26,13 +26,17 @@ Last updated: 1/13/10
 #include <tree_model.h>
 #include <matrix.h>
 #include <tree_likelihoods.h>
+#include <list_of_lists.h>
 #include <misc.h>
 #include <Rdefines.h>
+#include <rph_util.h>
 
 //these are defined as macros in R and we don't want them overriding
 // phast's matrix->nrows and matrix->ncols
 #undef nrows
 #undef ncols
+
+SEXP rph_listOfLists_to_SEXP(ListOfLists *lol);
 
 void rph_tm_free(SEXP tmP) {
   tm_free((TreeModel*)EXTPTR_PTR(tmP));
@@ -76,6 +80,31 @@ SEXP rph_tm_alphabet(SEXP tmP) {
 }
 
 
+SEXP rph_tm_altmodel_backgd(SEXP tmP, SEXP whichmodP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  AltSubstMod *altmod;
+  SEXP result;
+  double *resultP;
+  int i, whichmod = INTEGER_VALUE(whichmodP);
+
+  if (tm->alt_subst_mods == NULL) 
+    die("No alt subst mods in this treeModel");
+  if (lst_size(tm->alt_subst_mods) < whichmod)
+    die("Not enough alt subst mods in this treeModel");
+  altmod = lst_get_ptr(tm->alt_subst_mods, whichmod-1);
+
+  if (altmod->backgd_freqs == NULL)
+    return R_NilValue;
+  
+  PROTECT(result = NEW_NUMERIC(altmod->backgd_freqs->size));
+  resultP = NUMERIC_POINTER(result);
+  for (i=0; i<altmod->backgd_freqs->size; i++) 
+    resultP[i] = vec_get(altmod->backgd_freqs, i);
+  UNPROTECT(1);
+  return result;
+}
+
+
 SEXP rph_tm_backgd(SEXP tmP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   SEXP result;
@@ -94,25 +123,133 @@ SEXP rph_tm_backgd(SEXP tmP) {
 }
 
 
-SEXP rph_tm_rateMatrix(SEXP tmP) {
+SEXP rph_tm_num_altmodel(SEXP tmP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   SEXP result;
+  PROTECT(result = NEW_INTEGER(1));
+  int *resultP = INTEGER_POINTER(result);
+  if (tm->alt_subst_mods == NULL)
+    resultP[0] = 0;
+  else resultP[0] = lst_size(tm->alt_subst_mods);
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_tm_altmodel_sel(SEXP tmP, SEXP whichmodP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  AltSubstMod *altmod;
   double *resultP;
-  int i, j, pos=0;
-  Matrix *m;
+  SEXP result;
+  int whichmod = INTEGER_VALUE(whichmodP);
+
+  if (tm->alt_subst_mods == NULL) 
+    die("No alt subst mods in this treeModel");
+  if (lst_size(tm->alt_subst_mods) < whichmod)
+    die("Not enough alt subst mods in this treeModel");
+  altmod = lst_get_ptr(tm->alt_subst_mods, whichmod-1);
+  if  (altmod->selection_idx < 0) return R_NilValue;
+  PROTECT(result = NEW_NUMERIC(1));
+  resultP = NUMERIC_POINTER(result);
+  resultP[0] = altmod->selection;
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_tm_altmodel_bgc(SEXP tmP, SEXP whichmodP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  AltSubstMod *altmod;
+  double *resultP;
+  SEXP result;
+  int whichmod = INTEGER_VALUE(whichmodP);
+
+  if (tm->alt_subst_mods == NULL) 
+    die("No alt subst mods in this treeModel");
+  if (lst_size(tm->alt_subst_mods) < whichmod)
+    die("Not enough alt subst mods in this treeModel");
+  altmod = lst_get_ptr(tm->alt_subst_mods, whichmod-1);
+  if (altmod->bgc_idx < 0) return R_NilValue;
+
+  PROTECT(result = NEW_NUMERIC(1));
+  resultP = NUMERIC_POINTER(result);
+  resultP[0] = altmod->bgc;
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_tm_altmodel_def(SEXP tmP, SEXP whichmodP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  AltSubstMod *altmod;
+  int whichmod = INTEGER_VALUE(whichmodP);
+  SEXP result;
+  
+  if (tm->alt_subst_mods == NULL) 
+    die("No alt subst mods in this treeModel");
+  if (lst_size(tm->alt_subst_mods) < whichmod)
+    die("Not enough alt subst mods in this treeModel");
+  altmod = lst_get_ptr(tm->alt_subst_mods, whichmod-1);
+
+  PROTECT(result = NEW_CHARACTER(1));
+  SET_STRING_ELT(result, 0, mkChar(altmod->defString->chars));
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_tm_altmodel_rateMatrix(SEXP tmP, SEXP whichmodP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  AltSubstMod *altmod;
+  ListOfLists *lol;
+  int whichmod = INTEGER_VALUE(whichmodP);
+  SEXP result;
+
+  if (tm->alt_subst_mods == NULL) 
+    die("No alt subst mods in this treeModel");
+  if (lst_size(tm->alt_subst_mods) < whichmod)
+    die("Not enough alt subst mods in this treeModel");
+  altmod = lst_get_ptr(tm->alt_subst_mods, whichmod-1);
+
+  if (altmod->rate_matrix == NULL || altmod->rate_matrix->matrix == NULL)
+    return R_NilValue;
+  lol = lol_new(1);
+  lol_push_matrix(lol, altmod->rate_matrix->matrix, "rate.matrix");
+  PROTECT(result = rph_listOfLists_to_SEXP(lol));
+  lol_free(lol);
+  UNPROTECT(1);
+  return result;
+}
+
+SEXP rph_tm_rateMatrix(SEXP tmP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  ListOfLists *lol;
+  SEXP result;
 
   if (tm->rate_matrix == NULL || tm->rate_matrix->matrix == NULL)
     return R_NilValue;
-  m = tm->rate_matrix->matrix;
-  if (m->nrows != tm->rate_matrix->size ||
-      m->ncols != tm->rate_matrix->size)
-    die("invalid rate matrix dimensions");
-  PROTECT(result = NEW_NUMERIC(m->nrows * m->ncols));
-  resultP = NUMERIC_POINTER(result);
-  pos=0;
-  for (i=0; i<m->nrows; i++)
-    for (j=0;  j<m->ncols; j++)
-      resultP[pos++] = mat_get(m, i, j);
+  lol = lol_new(1);
+  lol_push_matrix(lol, tm->rate_matrix->matrix, "rate.matrix");
+  PROTECT(result = rph_listOfLists_to_SEXP(lol));
+  lol_free(lol);
+  UNPROTECT(1);
+  return result;
+}
+
+
+
+SEXP rph_tm_altmodel_substMod(SEXP tmP, SEXP whichmodP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  AltSubstMod *altmod;
+  int whichmod = INTEGER_VALUE(whichmodP);
+  SEXP result;
+  if (tm->alt_subst_mods == NULL) 
+    die("No alt subst mods in this treeModel");
+  if (lst_size(tm->alt_subst_mods) < whichmod)
+    die("Not enough alt subst mods in this treeModel");
+  altmod = lst_get_ptr(tm->alt_subst_mods, whichmod-1);
+  PROTECT(result = NEW_CHARACTER(1));
+  SET_STRING_ELT(result, 0, mkChar(tm_get_subst_mod_string(altmod->subst_mod)));
   UNPROTECT(1);
   return result;
 }
@@ -282,16 +419,7 @@ SEXP rph_tm_new(SEXP treeP, SEXP alphabetP, SEXP backgdP, SEXP matrixP,
   if (matrixP == R_NilValue)
     rateMatrix = NULL;
   else {
-    PROTECT(matrixP = AS_NUMERIC(matrixP));
-    numProtect++;
-    doubleP = NUMERIC_POINTER(matrixP);
-    if (dim*dim != LENGTH(matrixP))
-      die("size of rate matrix does not match alphabet size");
-    m = mat_new(dim, dim);
-    pos = 0;
-    for (i=0; i<dim; i++)
-      for (j=0; j<dim; j++)
-	mat_set(m, j, i, doubleP[pos++]);
+    m = rph_get_matrix(matrixP);
     rateMatrix = mm_new_from_matrix(m, alphabet, CONTINUOUS);
   }
 
@@ -389,3 +517,151 @@ SEXP rph_tm_read(SEXP filenameP) {
 }
 
 
+
+SEXP rph_tm_add_altmodel(SEXP tmP, SEXP defStrP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  String *temp = str_new_charstr(CHARACTER_VALUE(defStrP));
+  tm_add_alt_mod(tm, temp);
+  str_free(temp);
+  return R_NilValue;
+}
+
+
+SEXP rph_tm_altmod_set_subst_mod(SEXP tmP, SEXP whichModP, SEXP substModP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  int whichMod = INTEGER_VALUE(whichModP);
+  AltSubstMod *altmod;
+  if (tm->alt_subst_mods == NULL || lst_size(tm->alt_subst_mods) < whichMod)
+    die("ERROR: not enough alt subst  mods (%i %i)\n",
+	tm->alt_subst_mods == NULL ? 0 : lst_size(tm->alt_subst_mods),
+	whichMod);
+  altmod = lst_get_ptr(tm->alt_subst_mods, whichMod-1);
+  altmod->subst_mod = tm_get_subst_mod_type(CHARACTER_VALUE(substModP));
+  return R_NilValue;
+}
+
+
+SEXP rph_tm_altmod_set_backgd(SEXP tmP, SEXP whichModP, SEXP backgdP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  int whichMod = INTEGER_VALUE(whichModP), i;
+  double *doubleP;
+  AltSubstMod *altmod;
+  if (tm->alt_subst_mods == NULL || lst_size(tm->alt_subst_mods) < whichMod)
+    die("ERROR: not enough alt subst  mods (%i %i)\n",
+	tm->alt_subst_mods == NULL ? 0 : lst_size(tm->alt_subst_mods),
+	whichMod);
+  altmod = lst_get_ptr(tm->alt_subst_mods, whichMod-1);
+  if (altmod->backgd_freqs != NULL)
+    vec_free(altmod->backgd_freqs);
+  if (backgdP == R_NilValue) {
+    altmod->backgd_freqs = NULL;
+    return R_NilValue;
+  }
+  if (tm->rate_matrix ==  NULL)
+    die("tm->rate_matrix is NULL in rph_tm_altmod_set_backgd\n");
+  if (LENGTH(backgdP) != tm->rate_matrix->size)
+    die("bad dimensions in rph_tm_altmod_set_backgd");
+  altmod->backgd_freqs = vec_new(LENGTH(backgdP));
+  PROTECT(backgdP = AS_NUMERIC(backgdP));
+  doubleP = NUMERIC_POINTER(backgdP);
+  for (i=0; i < LENGTH(backgdP); i++)
+    vec_set(altmod->backgd_freqs, i, doubleP[i]);
+  UNPROTECT(1);
+  return R_NilValue;
+}
+
+
+SEXP rph_tm_altmod_set_ratematrix(SEXP tmP, SEXP whichModP, SEXP matrixP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  int whichMod = INTEGER_VALUE(whichModP), pos, i, j, dim;
+  double *doubleP;
+  AltSubstMod *altmod;
+  Matrix *m;
+  if (tm->alt_subst_mods == NULL || lst_size(tm->alt_subst_mods) < whichMod)
+    die("ERROR: not enough alt subst  mods (%i %i)\n",
+	tm->alt_subst_mods == NULL ? 0 : lst_size(tm->alt_subst_mods),
+	whichMod);
+  altmod = lst_get_ptr(tm->alt_subst_mods, whichMod-1);
+  if (altmod->rate_matrix != NULL)
+    mm_free(altmod->rate_matrix);
+  m = rph_get_matrix(matrixP);
+  if (tm->rate_matrix ==  NULL)
+    die("ERROR: tm->rate_matrix is NULL in rph_tm_altmodd_set_ratematrix\n");  
+  dim = tm->rate_matrix->size;
+  if (dim != m->nrows || dim != m->ncols)
+    die("Wrong matrix dimensions in rph_tm_altmod_set_ratematrix %i %i %i\n",
+	dim, m->nrows, m->ncols);
+  altmod->rate_matrix = mm_new_from_matrix(m, tm->rate_matrix->states, 
+					   CONTINUOUS);
+  return R_NilValue;
+}
+
+
+SEXP rph_tm_altmod_set_sel_bgc(SEXP tmP, SEXP whichModP, SEXP selP, SEXP bgcP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  int whichMod = INTEGER_VALUE(whichModP), pos, i, j;
+  AltSubstMod *altmod;
+
+  if (tm->alt_subst_mods == NULL || lst_size(tm->alt_subst_mods) < whichMod)
+    die("ERROR: not enough alt subst  mods (%i %i)\n",
+	tm->alt_subst_mods == NULL ? 0 : lst_size(tm->alt_subst_mods),
+	whichMod);
+  altmod = lst_get_ptr(tm->alt_subst_mods, whichMod-1);
+  if (selP != R_NilValue) {
+    altmod->selection_idx = 0;  //these will get reset later but setting to them something >= 0 
+                                //indicates that the parameters are used.
+    altmod->selection = NUMERIC_VALUE(selP);
+  }
+  if (bgcP != R_NilValue) {
+    altmod->bgc_idx = 0;
+    altmod->bgc = NUMERIC_VALUE(bgcP);
+  }
+  return R_NilValue;
+}
+
+
+SEXP rph_tree_model_set_matrix(SEXP tmP, SEXP paramsP, SEXP scaleP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  double *params;
+  Vector *paramVec=NULL;
+  int numparam, paramlen, scale = LOGICAL_VALUE(scaleP);
+  if (scale) tm->scale_during_opt = 1;
+  if (paramsP == R_NilValue) {
+    params = NULL;
+    paramlen = 0;
+  } else {
+    PROTECT(paramsP = AS_NUMERIC(paramsP));
+    params = NUMERIC_POINTER(paramsP);
+    paramlen = LENGTH(paramsP);
+  }
+  numparam = tm_get_nratematparams(tm);
+  if (numparam != paramlen) {
+    if (params != NULL) UNPROTECT(1);
+    die("%s requires %i params, got %i\n", tm_get_subst_mod_string(tm->subst_mod),
+	numparam, paramlen);
+  }
+  if (numparam != 0) 
+    paramVec = vec_new_from_array(params, numparam);
+  tm_set_rate_matrix(tm, paramVec, 0);
+  if (paramVec != NULL) vec_free(paramVec);
+  UNPROTECT(1);
+  return R_NilValue;  //don't need to return the value since it's the one passed in
+}
+
+
+SEXP rph_tree_model_get_rate_matrix_params(SEXP tmP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  int i, nparam=tm_get_nratematparams(tm);
+  double *resultP;
+  Vector *v;
+  SEXP result;
+  if (nparam == 0) return R_NilValue;
+  v = vec_new(nparam);
+  tm_rate_params_init_from_model(tm, v, 0);
+  PROTECT(result = NEW_NUMERIC(nparam));
+  resultP = NUMERIC_POINTER(result);
+  for (i=0; i < nparam; i++)
+    resultP[i] = vec_get(v, i);
+  UNPROTECT(1);
+  return result;
+}

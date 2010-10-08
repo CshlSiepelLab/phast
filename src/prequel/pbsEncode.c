@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
       discard_gaps = TRUE;
       break;
     case 'h':
-      printf(HELP);
+      printf("%s", HELP);
       exit(0);
     case '?':
       die("Bad argument.  Try 'pbsEncode -h'.\n");

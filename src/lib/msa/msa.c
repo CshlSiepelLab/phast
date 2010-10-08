@@ -150,14 +150,16 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
   for (i = 0; i < nseqs; i++) {
     char line[MAX_LINE_LEN];
 
-    if (format == PHYLIP)
-      fscanf(F, "%s", msa->names[i]); 
+    if (format == PHYLIP) {
+      if (1 != fscanf(F, "%s", msa->names[i]))
+	die("ERROR: error reading alignment\n");
                                 /* FIXME: this won't handle the weird
                                  * case in true PHYLIP format in which
                                  * the name is not separated from the
                                  * sequence by whitespace */ 
+    }
     else if (format == FASTA) {
-      fgets(line, MAX_LINE_LEN, F);
+      if (fgets(line, MAX_LINE_LEN, F) == NULL) die("ERROR reading alignment");
       for (j = 0; line[j] != 0 && (line[j] == '>' || isspace(line[j])); j++);
       strcpy(msa->names[i], &line[j]);
     }
@@ -165,7 +167,7 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
     j = 0;
     while (j < len) {
       checkInterruptN(j, 1000);
-      fgets(line, MAX_LINE_LEN, F);
+      if (fgets(line, MAX_LINE_LEN, F)==NULL) die("ERROR reading alignment");
       for (k = 0; line[k] != '\0'; k++) {
         char base;
         if (isspace(line[k])) continue;

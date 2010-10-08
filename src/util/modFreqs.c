@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
   while ((c = getopt_long(argc, argv, "h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'h':
-      printf(HELP);
+      printf("%s", HELP);
       exit(0);
     case '?':
       die("Bad argument.  Try 'modFreqs -h'.\n");

@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
       bed_output = 1;
       break;
     case 'h':
-      printf(HELP);
+      printf("%s", HELP);
       exit(0);
     case 'v':
       verbose = 1;

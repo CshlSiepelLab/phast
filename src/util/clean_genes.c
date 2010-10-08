@@ -1074,7 +1074,7 @@ int main(int argc, char *argv[]) {
       no_output = 1;
       break;
     case 'h':
-      printf (HELP);
+      printf("%s", HELP);
       exit(0);
     case '?':
       die("ERROR: Bad argument.  Try the --help option.\n");
@@ -1422,7 +1422,7 @@ int main(int argc, char *argv[]) {
             nfail[TOO_MANY_Ns], nconserved_exons, nce_gap_type[NGAPS], 
             nce_gap_type[NOVRLP_CLN_GAPS], nce_gap_type[CLN_GAPS], 
             nce_gap_type[FSHIFT_OK]);
-    fprintf(statsf, STATS_DESCRIPTION);
+    fprintf(statsf, "%s", STATS_DESCRIPTION);
   }
 
   if (logf != NULL) fclose(logf);

@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
       pbs_mode = NONE;
       break;
     case 'h':
-      printf(HELP);
+      printf("%s", HELP);
       exit(0);
     case '?':
       die("Bad argument.  Try 'pbsScoreMatrix -h'.\n");

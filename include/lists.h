@@ -163,7 +163,7 @@ void lst_cpy(List* dest, List* src);
   @param l Target list.
 */
 static PHAST_INLINE int lst_size(List *l)
-{  return (l->ridx - l->lidx); }
+{ return l->ridx - l->lidx;}
 
 /** Test whether list is empty.
    Returns 1 if empty, 0 otherwise 
@@ -174,7 +174,7 @@ static PHAST_INLINE int lst_size(List *l)
 */
 static PHAST_INLINE
 int lst_empty(List *l) 
-{  return (l->lidx >= l->ridx); }
+{ return (l->lidx >= l->ridx);}
 
 
 /** Free the elements of a list of strings.
