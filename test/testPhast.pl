@@ -58,9 +58,11 @@ my $scriptName="test_phast.sh";
 my $tolerance=0.0;
 my $tileFile="";
 my $appendTime="";
+my $programStr="";
 
 Getopt::Long::Configure('no_ignore_case');
 GetOptions('h|help' => \$help,
+	   'p|program=s' => \$programStr,
            't|temp=s' => \$tempPrefix,
 	   'l|line=s' => \$doLineStr,
 	   's|start-line=s' => \$startLine,
@@ -72,21 +74,20 @@ GetOptions('h|help' => \$help,
     or die "Invalid option.  Try ./testPhast.pl --help";
 
 if ($help) {
-    print "usage: perl testPhast.pl binDir1 binDir2 [progName1 progName2 ...]\
+    print "usage: perl testPhast.pl [options] binDir1 [binDir2]\
 \
 binDir1 and binDir2 are two different directories containing\
-executables to be compared.  By default the commands in test_phast.sh\
-are run.  Each \"testing\" command in this file should be preceded by\
-a \"@\".  Then stdout/stderr will be captured and compared after\
-calling the command from each binDir.  Additional results to be\
-compared from the commands can come before the command as filenames\
-preceded by a \"!\".\  Commands which do not begin with a \"@\" will\
-be run just once, using the default PATH.  (This is useful for\
-producing input files for the testing commands.)  If you want to avoid\
-comparing stdout/stderr, you can precede the command with -stdout or\
--stderr.  Programs are labelled in the script file by a line like\
-\"*** program ***\".  If program names are provided only commands\
-within the blocks given are run.  Otherwise all commands are run.
+executables to be compared.  If only one binDir is provided then\
+the commands will be run but the output will not be analyzed.\
+By default the commands in test_phast.sh are run.  Each \"testing\"\
+command in this file should be preceded by a \"@\".  Then stdout/stderr\ 
+will be captured and compared after calling the command from each binDir.\
+Additional results to be compared from the commands can come before the\
+command as filenames preceded by a \"!\".\  Commands which do not begin\ 
+with a \"@\" will be run just once, using the default PATH.  (This is\
+useful for producing input files for the testing commands.)  If you\ 
+want to avoid comparing stdout/stderr, you can precede the command\ 
+with -stdout or -stderr.  
 \
 example testing command:\
 !tree.cons.mod !tree.noncons.mod \@phastCons --estimate-trees tree align.ss model.mod\
@@ -98,6 +99,12 @@ options:\
 --temp,-t <tempPrefix>\
   prefix for temporary files used.  Default is \"temp\"\. Temporary
   files are cleaned if all tests are passed.\
+--program,-p <program1,program2,...>\
+  Only perform tests on programs named here.  The test code can be 
+  broken into blocks with program names denoted on a line as follows:
+  ********** phyloFit **************
+  Then all following code till the next program label are in the phyloFit
+  block.
 --line,-l <line(s)>\
   only perform tests on specified line of script.  Lines are\
   1-based.  Can give several lines, ie, 1,4-6,8.  Commands which\
@@ -124,17 +131,18 @@ options:\
     exit(0);
 }
 
-if (scalar(@ARGV) < 2) {
+if (scalar(@ARGV) != 1 && scalar(@ARGV) != 2) {
     die "usage: perl testPhast.pl bin1 bin2 [program1 program2 ...].  Try perl testPhast.pl --help";
 }
 
 my @programs=();
-if (@ARGV >= 3) {
-    @programs = @ARGV[2..(scalar(@ARGV)-1)];
+if ($programStr) {
+    @programs = split(',', $programStr);
 }
 
 my $bin1=$ARGV[0];
-my $bin2=$ARGV[1];
+my $bin2="";
+$bin2 = $ARGV[1] if (scalar(@ARGV) == 2);
 my $numerror = 0;
 my $numgood=0;
 
@@ -162,12 +170,14 @@ my $tempTimeFile="";
 if ($timeFile) {
     if (!$appendTime) {
 	open(OUTTIME, ">$timeFile");
-	print OUTTIME "$bin1\t$bin2\tline-number\tcommand\n";
+	print OUTTIME "$bin1";
+	print OUTTIME "\t$bin2" if ($bin2);
+	print OUTTIME "\tline-number\tcommand\n";
 	close(OUTTIME);
     }
     $tempTimeFile="$tempPrefix.timeOutput.txt";
     $bin1 = "/usr/bin/time -f \"%U\" -o $tempTimeFile $bin1";
-    $bin2 = "/usr/bin/time -f \"%U\" -o $tempTimeFile $bin2";
+    $bin2 = "/usr/bin/time -f \"%U\" -o $tempTimeFile $bin2" if ($bin2);
 }
 
 
@@ -267,6 +277,7 @@ while (<INFILE>) {
     my $cmd=$_;
     chomp($cmd);
     next if (!$cmd || $cmd =~ /^#/);
+    #check for program label
     if ($cmd =~ m/^[\s]*[\*]+[\s]*([A-Za-z][^\s]*)[\s]*[\*]*[\s]*$/) {
 	$currProgram=$1;
 	if (@programs) {
@@ -321,33 +332,43 @@ while (<INFILE>) {
 	    system("rm -f $tempPrefix.1.$file");
 	    system("mv $file $tempPrefix.1.$file") if (-e $file);
 	}
-	system("$bin2/$cmd >$tempPrefix.2.stdout 2>$tempPrefix.2.stderr");
-	print `grep -iE "error|abort|fail|assertion" $tempPrefix.1.stderr`;
-	foreach $file (@compareFiles) {
-	    system("rm -f $tempPrefix.2.$file");
-	    system("mv $file $tempPrefix.2.$file") if (-e $file);
+	if ($bin2) {
+	    system("$bin2/$cmd >$tempPrefix.2.stdout 2>$tempPrefix.2.stderr");
+	    print `grep -iE "error|abort|fail|assertion" $tempPrefix.1.stderr`;
+	    foreach $file (@compareFiles) {
+		system("rm -f $tempPrefix.2.$file");
+		system("mv $file $tempPrefix.2.$file") if (-e $file);
+	    }
+	    
+	    if ($timeFile) {
+		$timeStr2=`cat $tempTimeFile`;
+		chomp($timeStr2);
+	    }
 	}
 
 	if ($timeFile) {
-	    $timeStr2=`cat $tempTimeFile`;
-	    chomp($timeStr2);
 	    open(TIMEFILE, ">>$timeFile");
-	    print TIMEFILE "$timeStr1\t$timeStr2\t$line\t$cmd\n";
+	    print TIMEFILE "$timeStr1";
+	    print "\t$timeStr2" if ($bin2);
+	    print TIMEFILE "\t$line\t$cmd\n";
 	    close(TIMEFILE);
 	}
-
-	compare_files("$tempPrefix.1.stdout", "$tempPrefix.2.stdout", "stdout") 
-	    if ($compareStdout);
-	compare_files("$tempPrefix.1.stderr", "$tempPrefix.2.stderr", "stderr") 
-	    if ($compareStderr);
-	foreach $file (@compareFiles) {
-	    compare_files("$tempPrefix.1.$file", "$tempPrefix.2.$file", "$file");
-	}
-	if ($errorFlag) {
-	    $numerror++;
-	    exit(1) if (!$noQuitOnError);
-	}
-	else {
+	if ($bin2) {
+	    compare_files("$tempPrefix.1.stdout", "$tempPrefix.2.stdout", "stdout") 
+		if ($compareStdout);
+	    compare_files("$tempPrefix.1.stderr", "$tempPrefix.2.stderr", "stderr") 
+		if ($compareStderr);
+	    foreach $file (@compareFiles) {
+		compare_files("$tempPrefix.1.$file", "$tempPrefix.2.$file", "$file");
+	    }
+	    if ($errorFlag) {
+		$numerror++;
+		exit(1) if (!$noQuitOnError);
+	    }
+	    else {
+		$numgood++;
+	    }
+	} else {
 	    $numgood++;
 	}
     } else {
@@ -358,7 +379,11 @@ while (<INFILE>) {
 }
 close(INFILE);
 
-print "passed $numgood tests\n";
-if ($numerror > 0) {
-    print "failed $numerror tests\n";
+if ($bin2) {
+    print "passed $numgood tests\n";
+    if ($numerror > 0) {
+	print "failed $numerror tests\n";
+    }
+} else {
+    print "ran $numgood commands\n";
 }
