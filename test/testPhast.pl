@@ -349,7 +349,7 @@ while (<INFILE>) {
 	if ($timeFile) {
 	    open(TIMEFILE, ">>$timeFile");
 	    print TIMEFILE "$timeStr1";
-	    print "\t$timeStr2" if ($bin2);
+	    print TIMEFILE "\t$timeStr2" if ($bin2);
 	    print TIMEFILE "\t$line\t$cmd\n";
 	    close(TIMEFILE);
 	}
