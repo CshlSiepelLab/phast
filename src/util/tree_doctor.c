@@ -198,8 +198,13 @@ int main(int argc, char *argv[]) {
     case 'e':
       if (!strcmp(optarg, "default")) {
         optarg = smalloc(1000 * sizeof(char));
-        sprintf(optarg, "%s/data/exoniphy/mammals/cftr25_hybrid.nh", 
-                PHAST_HOME);
+        #if defined(__MINGW32__)
+          sprintf(optarg, "%s\\data\\exoniphy\\mammals\\cftr25_hybrid.nh",
+		  PHAST_HOME);
+        #else
+          sprintf(optarg, "%s/data/exoniphy/mammals/cftr25_hybrid.nh", 
+                  PHAST_HOME);
+        #endif
       }
       extrapolate_tree = tr_new_from_file(fopen_fname(optarg, "r"));
       break;

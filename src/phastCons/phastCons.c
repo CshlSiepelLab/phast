@@ -260,8 +260,13 @@ int main(int argc, char *argv[]) {
   if (p->extrapolate_tree_fname != NULL &&
       !strcmp(p->extrapolate_tree_fname, "default")) {
     p->extrapolate_tree_fname = smalloc((strlen(PHAST_HOME)+100)*sizeof(char));
-    sprintf(p->extrapolate_tree_fname, 
-            "%s/data/exoniphy/mammals/cftr25_hybrid.nh", PHAST_HOME);
+    #if defined(__MINGW32__)
+      sprintf(p->extrapolate_tree_fname,
+	      "%s\\data\\exoniphy\\mammals\\cftr25_hybrid.nh", PHAST_HOME);
+    #else
+      sprintf(p->extrapolate_tree_fname, 
+              "%s/data/exoniphy/mammals/cftr25_hybrid.nh", PHAST_HOME);
+    #endif
   }
   if (p->extrapolate_tree_fname != NULL)
     p->extrapolate_tree = tr_new_from_file(fopen_fname(p->extrapolate_tree_fname, "r"));
@@ -277,13 +282,21 @@ int main(int argc, char *argv[]) {
     if (p->cm == NULL) 
       p->cm = cm_new_string_or_file("NCATS=4; CNS 1; CDS 2-4");
     if (p->hmm == NULL) {
-      sprintf(tmp, "%s/data/phastCons/%s", PHAST_HOME,
-              p->indels ? "simple-coding-indels.hmm" : "simple-coding.hmm");
+      #if defined(__MINGW32__)
+        sprintf(tmp, "%s\\data\\phastCons\\%s", PHAST_HOME,
+                p->indels ? "simple-coding-indels.hmm" : "simple-coding.hmm");
+      #else
+        sprintf(tmp, "%s/data/phastCons/%s", PHAST_HOME,
+                p->indels ? "simple-coding-indels.hmm" : "simple-coding.hmm");
+      #endif
       if (p->results_f!=NULL) 
 	fprintf(p->results_f, "Reading HMM from %s...\n", tmp);
       p->hmm = hmm_new_from_file(fopen_fname(tmp, "r"));
     }
     if (mods_fname == NULL) {
+      #if defined(__MINGW32__)
+        sprintf(tmp, "%s\\data\\exoniphy\\mammals\\r3.ncns.mod, %s\\data\\exoniphy\\mammals\\r3.cns.mod, %s\\data\\exoniphy\\mammals\\r3.cds-1.mod, %s\\data\\exoniphy\\mammals\\r3.cds-2.mod, %s\\data\\exoniphy\\mammals\\r3.cds-3.mod",  PHAST_HOME, PHAST_HOME, PHAST_HOME, PHAST_HOME, PHAST_HOME);
+      #else
       sprintf(tmp, "\
 %s/data/exoniphy/mammals/r3.ncns.mod,\
 %s/data/exoniphy/mammals/r3.cns.mod,\
@@ -291,6 +304,7 @@ int main(int argc, char *argv[]) {
 %s/data/exoniphy/mammals/r3.cds-2.mod,\
 %s/data/exoniphy/mammals/r3.cds-3.mod", 
               PHAST_HOME, PHAST_HOME, PHAST_HOME, PHAST_HOME, PHAST_HOME);
+      #endif
       mods_fname = tmp;
     }
     if (p->states == NULL) 

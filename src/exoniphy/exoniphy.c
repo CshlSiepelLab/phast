@@ -198,7 +198,11 @@ int main(int argc, char* argv[]) {
   if(data_path == NULL) {
     data_path = str_new(strlen(PHAST_HOME)+strlen("/data")+1);
     str_append_charstr(data_path, PHAST_HOME);
-    str_append_charstr(data_path, "/data");
+    #if defined(__MINGW32__)
+      str_append_charstr(data_path, "\\data"); 
+    #else
+      str_append_charstr(data_path, "/data");
+    #endif
   }
 
   if (sens_spec_fname_root != NULL && bias != NEGINFTY)
@@ -207,8 +211,13 @@ int main(int argc, char* argv[]) {
   if (extrapolate_tree_fname != NULL &&
       !strcmp(extrapolate_tree_fname, "default")) {
     extrapolate_tree_fname = smalloc(1000 * sizeof(char));
-    sprintf(extrapolate_tree_fname, 
-            "%s/exoniphy/mammals/cftr25_hybrid.nh", data_path->chars);
+    #if defined(__MINGW32__)
+      sprintf(extrapolate_tree_fname,
+	      "%s\\exoniphy\\mammals\\cftr25_hybrid.nh", data_path->chars);
+    #else
+      sprintf(extrapolate_tree_fname, 
+              "%s/exoniphy/mammals/cftr25_hybrid.nh", data_path->chars);
+    #endif
   }
   if (extrapolate_tree_fname != NULL)
     extrapolate_tree = tr_new_from_file(fopen_fname(extrapolate_tree_fname, "r"));
@@ -263,7 +272,11 @@ int main(int argc, char* argv[]) {
       else default_hmm = "default-indels.hmm";
     }
     else if (no_cns) default_hmm = "default-no-cns.hmm";
-    sprintf(tmpstr, "%s/exoniphy/mammals/%s", data_path->chars, default_hmm);
+    #if defined(__MINGW32__)
+      sprintf(tmpstr, "%s\\exoniphy\\mammals\\%s", data_path->chars, default_hmm);
+    #else
+      sprintf(tmpstr, "%s/exoniphy/mammals/%s", data_path->chars, default_hmm);
+    #endif
     if (!quiet) fprintf(stderr, "Reading default HMM from %s...\n", tmpstr);
     hmm = hmm_new_from_file(fopen_fname(tmpstr, "r"));
     reflect_hmm = TRUE;
@@ -283,23 +296,42 @@ int main(int argc, char* argv[]) {
       fprintf(stderr, "(G+C content is %.1f%%; using tree models for G+C category %d)\n",
               gc*100, gc_cat);
     model_fname_list = lst_new_ptr(30);
-    sprintf(tmpstr, "%s/exoniphy/%s-gc%d", data_path->chars, 
-            no_cns ? "models-no-cns" : "models", gc_cat);
+    #if defined(__MINGW32__)
+      sprintf(tmpstr, "%s\\exoniphy\\%s-gc%d", data_path->chars,
+	      no_cns ? "models-no-cns" : "models", gc_cat);
+    #else
+      sprintf(tmpstr, "%s/exoniphy/%s-gc%d", data_path->chars, 
+              no_cns ? "models-no-cns" : "models", gc_cat);
+    #endif
     str_slurp(fname_str, fopen_fname(tmpstr, "r"));
     str_split(fname_str, NULL, model_fname_list);
     if (!quiet) 
-      fprintf(stderr, "Reading default tree models from %s/exoniphy/mammals/*.mod...\n", data_path->chars);
+      #if defined(__MINGW32__)
+        fprintf(stderr, "Reading default tree models from %s\\exoniphy\\mammals\\*.mod...\n", data_path->chars);
+      #else
+        fprintf(stderr, "Reading default tree models from %s/exoniphy/mammals/*.mod...\n", data_path->chars);
+      #endif
     for (i = 0; i < lst_size(model_fname_list); i++) {
       str = lst_get_ptr(model_fname_list, i);
-      sprintf(tmpstr, "%s/exoniphy/mammals/%s", data_path->chars, str->chars);
+      #if defined(__MINGW32__)
+        sprintf(tmpstr, "%s\\exoniphy\\mammals\\%s", dat_path->chars, str->chars);
+      #else
+        sprintf(tmpstr, "%s/exoniphy/mammals/%s", data_path->chars, str->chars);
+      #endif
+
       str_cpy_charstr(str, tmpstr);
     }
     vec_free(f);
   }
 
   if (cm == NULL) {
-    sprintf(tmpstr, "%s/exoniphy/%s", data_path->chars, 
-            no_cns ? "default-no-cns.cm" : "default.cm");
+    #if defined(__MINGW32__)
+      sprintf(tmpstr, "%s\\exoniphy\\%s", data_path->chars,
+	      no_cns ? "default-no-cns.cm" : "default.cm");
+    #else
+      sprintf(tmpstr, "%s/exoniphy/%s", data_path->chars, 
+              no_cns ? "default-no-cns.cm" : "default.cm");
+    #endif
     if (!quiet) fprintf(stderr, "Reading default category map from %s...\n", tmpstr);
     cm = cm_read(fopen_fname(tmpstr, "r"));
     if (no_gaps_str == NULL) 
