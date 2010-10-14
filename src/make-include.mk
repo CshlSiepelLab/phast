@@ -12,6 +12,11 @@ endif
 ifndef PHAST
   PHAST=${PWD}/..
 endif
+
+#If the user does not specify PHAST_HOME then set it to the old deault of ${PHAST}
+ifndef PHAST_HOME
+  PHAST_HOME=${PHAST}
+endif
 # (if you prefer, you can set the environment variable PHAST instead)
 
 # specify alternative compiler or utilities if necessary
@@ -49,7 +54,7 @@ else
 endif
 
 PHAST_VERSION=\"$(shell cat ${PHAST}/version)\"
-CFLAGS += -I${INC} -DPHAST_VERSION=${PHAST_VERSION} -DPHAST_HOME=\"${PHAST}\" -I${PHAST}/src/lib/pcre -fno-strict-aliasing
+CFLAGS += -I${INC} -DPHAST_VERSION=${PHAST_VERSION} -DPHAST_HOME=\"${PHAST_HOME}\" -I${PHAST}/src/lib/pcre -fno-strict-aliasing
 LIBPATH = -L${LIB} 
 
 # uncomment these lines for profiling (add -g for line-by-line
