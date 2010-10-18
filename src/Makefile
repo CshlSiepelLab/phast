@@ -18,7 +18,7 @@ endif
 	mkdir -p ${DESTDIR}/usr/bin/
 	mkdir -p ${DESTDIR}/opt/phast/data/
 	cp ../bin/* ${DESTDIR}/usr/bin/
-	cp ../data/* ${DESTDIR}/opt/phast/data/
+	cp -R ../data/* ${DESTDIR}/opt/phast/data/
 
 doc:
 	doxygen
