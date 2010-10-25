@@ -158,7 +158,8 @@ SEXP rph_phyloFit(SEXP msaP,
 		  SEXP quietP,
 		  SEXP noOptP,
 		  SEXP boundP,
-		  SEXP logFileP) {
+		  SEXP logFileP,
+		  SEXP selectionP) {
   struct phyloFit_struct *pf;
   int numProtect=0, i;
   double *doubleP;
@@ -173,7 +174,10 @@ SEXP rph_phyloFit(SEXP msaP,
   if (treeStrP != R_NilValue) 
     pf->tree = rph_tree_new(treeStrP);
 
-  pf->subst_mod = rph_get_subst_mod(substModP);  //not allowed to be null
+  if (initModP != R_NilValue) {
+    pf->input_mod = (TreeModel*)EXTPTR_PTR(initModP);
+    pf->subst_mod = pf->input_mod->subst_mod;
+  } else pf->subst_mod = rph_get_subst_mod(substModP);
   
   pf->estimate_scale_only = LOGICAL_VALUE(scaleOnlyP);
   
@@ -196,7 +200,7 @@ SEXP rph_phyloFit(SEXP msaP,
       lst_push_dbl(pf->rate_consts, doubleP[i]);
   }
 
-  if (initModP != R_NilValue)
+  if (initModP != R_NilValue) 
     pf->input_mod = (TreeModel*)EXTPTR_PTR(initModP);
 
   pf->random_init = LOGICAL_VALUE(initRandomP);
@@ -264,6 +268,11 @@ SEXP rph_phyloFit(SEXP msaP,
 	     LOGICAL_VALUE(logFileP)) {
       pf->logf = stdout;
     }
+  }
+
+  if (selectionP != R_NilValue) {
+    pf->use_selection = TRUE;
+    pf->selection = NUMERIC_VALUE(selectionP);
   }
 
   run_phyloFit(pf);

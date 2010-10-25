@@ -86,8 +86,8 @@ int main(int argc, char *argv[]) {
   expected_len = get_arg_dbl_bounds(argv[optind+1], 0, INFTY);
 
   if (H == -1) {                /* compute relative entropy */
-    cons_mod = tm_new_from_file(fopen_fname(argv[optind+2], "r"));
-    noncons_mod = tm_new_from_file(fopen_fname(argv[optind+3], "r"));
+    cons_mod = tm_new_from_file(fopen_fname(argv[optind+2], "r"), 1);
+    noncons_mod = tm_new_from_file(fopen_fname(argv[optind+3], "r"), 1);
 
     nleaves = (cons_mod->tree->nnodes + 1)/2;
     leaf_labels = smalloc((nleaves + 1) * sizeof(char));

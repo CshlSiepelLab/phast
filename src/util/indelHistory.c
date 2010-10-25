@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
       die("ERROR: ordered representation of alignment required.\n");
 
     fprintf(stderr, "Reading tree from %s...\n", argv[optind+1]);
-    source_mod = tm_new_from_file(fopen_fname(argv[optind+1], "r"));
+    source_mod = tm_new_from_file(fopen_fname(argv[optind+1], "r"), 1);
     
     /* prune tree, if necessary */
     old_nnodes = source_mod->tree->nnodes;
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
     else {                        /* infer by parsimony */
       if (msa->ss == NULL) {
         fprintf(stderr, "Extracting sufficient statistics...\n");
-        ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);
+        ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
       }
       
       fprintf(stderr, "Inferring indel history by parsimony...\n");

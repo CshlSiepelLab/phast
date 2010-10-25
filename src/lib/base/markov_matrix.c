@@ -26,7 +26,7 @@
 #define ELEMENT_EPSILON 0.00001
 #define MAXALPHA 1000
 
-MarkovMatrix* mm_new(int size, char *states, mm_type type) {
+MarkovMatrix* mm_new(int size, const char *states, mm_type type) {
   int i, alph_size;
   MarkovMatrix *M = (MarkovMatrix*)smalloc(sizeof(MarkovMatrix));
   M->evec_matrix_z = M->evec_matrix_inv_z = NULL;
@@ -62,7 +62,7 @@ MarkovMatrix* mm_new(int size, char *states, mm_type type) {
   return M;
 }
 
-MarkovMatrix* mm_new_from_matrix(Matrix *A, char *states, mm_type type) {
+MarkovMatrix* mm_new_from_matrix(Matrix *A, const char *states, mm_type type) {
   MarkovMatrix *M = mm_new(A->nrows, states, type);
   mat_free(M->matrix);
   M->matrix = A;
@@ -71,7 +71,7 @@ MarkovMatrix* mm_new_from_matrix(Matrix *A, char *states, mm_type type) {
 }
 
 /* discrete MM only */
-MarkovMatrix* mm_new_from_counts(Matrix *counts, char *states) {
+MarkovMatrix* mm_new_from_counts(Matrix *counts, const char *states) {
   int i, j;
   double rowsum;
   MarkovMatrix *M = mm_new(counts->nrows, states, DISCRETE);
@@ -334,8 +334,12 @@ void mm_exp_real(MarkovMatrix *P, MarkovMatrix *Q, double t) {
 
   /* Diagonalize (if necessary) */
   if (Q->evec_matrix_r == NULL || Q->evals_r == NULL || 
-      Q->evec_matrix_r == NULL) 
+      Q->evec_matrix_inv_r == NULL) 
     mm_diagonalize(Q);
+
+  if (Q->evec_matrix_r == NULL || Q->evals_r == NULL ||
+      Q->evec_matrix_inv_r == NULL) 
+    return mm_exp_taylor(P, Q, t);
 
   /* Compute P(t) = S exp(Dt) S^-1 */
   for (i = 0; i < n; i++) 
@@ -460,18 +464,33 @@ void mm_diagonalize_real(MarkovMatrix *M) {
     size = M->size;
   }
 
+  if (1 == mat_diagonalize(M->matrix, evals_z, evecs_z, evecs_inv_z)) 
+    goto mm_diagonalize_real_fail;
+
   if (M->evec_matrix_r == NULL) {
     M->evec_matrix_r = mat_new(M->size, M->size);
     M->evals_r = vec_new(M->size);
     M->evec_matrix_inv_r = mat_new(M->size, M->size);
   }
 
-  mat_diagonalize(M->matrix, evals_z, evecs_z, evecs_inv_z);
+  if (zvec_as_real(M->evals_r, evals_z, FALSE) ||
+      zmat_as_real(M->evec_matrix_r, evecs_z, FALSE) ||
+      zmat_as_real(M->evec_matrix_inv_r, evecs_inv_z, FALSE))
+    goto mm_diagonalize_real_fail;
+  return;
+  
+ mm_diagonalize_real_fail:
+  //by setting eigenvalues to NULL, mm_exp will call mm_exp_taylor
+  //instead of using eigenvalues.
+  if (M->evec_matrix_r != NULL)
+    mat_free(M->evec_matrix_r);
+  if (M->evals_r != NULL)
+    vec_free(M->evals_r);
+  if (M->evec_matrix_inv_r != NULL)
+    mat_free(M->evec_matrix_inv_r);
+  M->evec_matrix_r = M->evec_matrix_inv_r = NULL;
+  M->evals_r = NULL;
 
-  zvec_as_real(M->evals_r, evals_z, TRUE);
-  zmat_as_real(M->evec_matrix_r, evecs_z, TRUE);
-  zmat_as_real(M->evec_matrix_inv_r, evecs_inv_z, TRUE);
-  mm_diagonalize_complex(M);
 } 
 
 void mm_diagonalize(MarkovMatrix *M) { 

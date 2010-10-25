@@ -241,7 +241,7 @@ void write_sub_msa(MSA *submsa, char *fname, msa_format_type output_format,
   /* create sufficient stats, if necessary */
   if (output_format == SS) {
     if (submsa->ss == NULL)
-      ss_from_msas(submsa, tuple_size, ordered_stats, NULL, NULL, NULL, -1);
+      ss_from_msas(submsa, tuple_size, ordered_stats, NULL, NULL, NULL, -1, 0);
     else if (submsa->ss->tuple_size != tuple_size) 
       die("ERROR: tuple size in SS file does not match desired tuple size for output.\nConversion not supported.\n");
     ss_write(submsa, F, ordered_stats);

@@ -1097,7 +1097,7 @@ int main(int argc, char *argv[]) {
     msa = msa_new_from_file(fopen_fname(argv[optind+1], "r"),
                             msa_format, NULL); 
     if (msa->ss == NULL) 
-      ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1);
+      ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1, 0);
   }
   if (!msa->ss->tuple_idx)
     die("ERROR: need ordered tuples\n");

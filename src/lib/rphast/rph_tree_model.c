@@ -316,6 +316,25 @@ SEXP rph_tm_alpha(SEXP tmP) {
   return result;
 }
 
+
+//returns a numeric vector of length 2.  The first element will
+// be zero if there is no selection paramer.  If there is selection,
+// the first element will be one and the second will be the parameter.
+SEXP rph_tm_selection(SEXP tmP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  SEXP result;
+  double *resultP;
+  PROTECT(result = NEW_NUMERIC(2));
+  resultP = NUMERIC_POINTER(result);
+  if  (tm->selection_idx >= 0) {
+    resultP[0] = 1.0;
+    resultP[1] = tm->selection;
+  } else resultP[0] = 0.0;
+  UNPROTECT(1);
+  return result;
+}
+
+
 SEXP rph_tm_nratecats(SEXP tmP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   SEXP result;
@@ -379,12 +398,13 @@ SEXP rph_tm_rootLeaf(SEXP tmP) {
 
 SEXP rph_tm_new(SEXP treeP, SEXP alphabetP, SEXP backgdP, SEXP matrixP, 
 		SEXP substModP, SEXP lnlP, SEXP alphaP, SEXP nratecatsP,
-		SEXP rKP, SEXP freqKP, SEXP rootLeafP) {
+		SEXP rKP, SEXP freqKP, SEXP rootLeafP,
+		SEXP selectionP) {
   TreeModel *tm;
   TreeNode *tree;
   MarkovMatrix *rateMatrix;
   Matrix *m;
-  int dim=-1, i, j, pos, numProtect=0, nratecats=1, rootLeaf;
+  int dim=-1, i, numProtect=0, nratecats=1, rootLeaf;
   double *doubleP, alpha=0.0;
   Vector *backgd;
   char *alphabet;
@@ -399,7 +419,13 @@ SEXP rph_tm_new(SEXP treeP, SEXP alphabetP, SEXP backgdP, SEXP matrixP,
     die("alphabet cannot be NULL");
   alphabet = smalloc((strlen(CHARACTER_VALUE(alphabetP))+1)*sizeof(char));
   strcpy(alphabet, CHARACTER_VALUE(alphabetP));
-  dim = strlen(alphabet);
+
+  //subst mod
+  subst_mod = tm_get_subst_mod_type(CHARACTER_VALUE(substModP));
+  if (subst_mod == UNDEF_MOD) 
+    die("invalid subst mod %s", CHARACTER_VALUE(substModP));
+
+  dim = int_pow(strlen(alphabet), tm_order(subst_mod)+1);
 
   //backgd
   if (backgdP == R_NilValue)
@@ -461,6 +487,11 @@ SEXP rph_tm_new(SEXP treeP, SEXP alphabetP, SEXP backgdP, SEXP matrixP,
 	      alphabet, nratecats, alpha, rate_consts, 
 	      rootLeaf);
 
+  if (selectionP != R_NilValue) {
+    tm->selection = NUMERIC_VALUE(selectionP);
+    tm->selection_idx = 0;
+  }
+
 
   if (freqKP != R_NilValue) {
     PROTECT(freqKP = AS_NUMERIC(freqKP));
@@ -511,14 +542,14 @@ SEXP rph_tm_read(SEXP filenameP) {
   if (filenameP == R_NilValue)
     die("filename cannot be NULL");
   infile = fopen_fname(CHARACTER_VALUE(filenameP), "r");
-  tm = tm_new_from_file(infile);
+  tm = tm_new_from_file(infile, 0);
   fclose(infile);
   return rph_tm_new_extptr(tm);
 }
 
 
 
-SEXP rph_tm_add_altmodel(SEXP tmP, SEXP defStrP) {
+SEXP rph_tm_add_alt_mod(SEXP tmP, SEXP defStrP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   String *temp = str_new_charstr(CHARACTER_VALUE(defStrP));
   tm_add_alt_mod(tm, temp);
@@ -573,8 +604,7 @@ SEXP rph_tm_altmod_set_backgd(SEXP tmP, SEXP whichModP, SEXP backgdP) {
 
 SEXP rph_tm_altmod_set_ratematrix(SEXP tmP, SEXP whichModP, SEXP matrixP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
-  int whichMod = INTEGER_VALUE(whichModP), pos, i, j, dim;
-  double *doubleP;
+  int whichMod = INTEGER_VALUE(whichModP), dim;
   AltSubstMod *altmod;
   Matrix *m;
   if (tm->alt_subst_mods == NULL || lst_size(tm->alt_subst_mods) < whichMod)
@@ -599,7 +629,7 @@ SEXP rph_tm_altmod_set_ratematrix(SEXP tmP, SEXP whichModP, SEXP matrixP) {
 
 SEXP rph_tm_altmod_set_sel_bgc(SEXP tmP, SEXP whichModP, SEXP selP, SEXP bgcP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
-  int whichMod = INTEGER_VALUE(whichModP), pos, i, j;
+  int whichMod = INTEGER_VALUE(whichModP);
   AltSubstMod *altmod;
 
   if (tm->alt_subst_mods == NULL || lst_size(tm->alt_subst_mods) < whichMod)
@@ -657,7 +687,7 @@ SEXP rph_tree_model_get_rate_matrix_params(SEXP tmP) {
   SEXP result;
   if (nparam == 0) return R_NilValue;
   v = vec_new(nparam);
-  tm_rate_params_init_from_model(tm, v, 0);
+  tm_rate_params_init_from_model(tm, v, 0, tm->selection, 0.0);
   PROTECT(result = NEW_NUMERIC(nparam));
   resultP = NUMERIC_POINTER(result);
   for (i=0; i < nparam; i++)
@@ -665,3 +695,51 @@ SEXP rph_tree_model_get_rate_matrix_params(SEXP tmP) {
   UNPROTECT(1);
   return result;
 }
+
+SEXP rph_tm_apply_selection_bgc(SEXP matrixP, SEXP alphabetP, SEXP selectionP, 
+				SEXP bgcP) {
+  double selection=0.0, bgc=0.0;
+  MarkovMatrix *mm;
+  ListOfLists *lol;
+  SEXP result;
+  
+  mm = mm_new_from_matrix(rph_get_matrix(matrixP), 
+			  CHARACTER_VALUE(alphabetP), CONTINUOUS);
+  if (selectionP != R_NilValue)
+    selection = NUMERIC_VALUE(selectionP);
+  if (bgcP != R_NilValue)
+    bgc = NUMERIC_VALUE(bgcP);
+  tm_apply_selection_bgc(mm, selection, bgc);
+  lol = lol_new(1);
+  lol_push_matrix(lol, mm->matrix, "rate.matrix");
+  PROTECT(result = rph_listOfLists_to_SEXP(lol));
+  lol_free(lol);
+  mm_free(mm);
+  UNPROTECT(1);
+  return result;
+}
+
+
+SEXP rph_tm_unapply_selection_bgc(SEXP matrixP, SEXP alphabetP,
+				  SEXP selectionP, SEXP bgcP) {
+  double selection=0.0, bgc=0.0;
+  MarkovMatrix *mm;
+  ListOfLists *lol;
+  SEXP result;
+
+  mm = mm_new_from_matrix(rph_get_matrix(matrixP), CHARACTER_VALUE(alphabetP), 
+			  CONTINUOUS);
+  if (selectionP != R_NilValue)
+    selection = NUMERIC_VALUE(selectionP);
+  if (bgcP != R_NilValue)
+    bgc = NUMERIC_VALUE(bgcP);
+  tm_unapply_selection_bgc(mm, selection, bgc);
+  lol = lol_new(1);
+  lol_push_matrix(lol, mm->matrix, "rate.matrix");
+  PROTECT(result = rph_listOfLists_to_SEXP(lol));
+  mm_free(mm);
+  lol_free(lol);
+  UNPROTECT(1);
+  return result;
+}
+

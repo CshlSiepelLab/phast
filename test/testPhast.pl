@@ -59,6 +59,7 @@ my $tolerance=0.0;
 my $tileFile="";
 my $appendTime="";
 my $programStr="";
+my $ignoreStderr="";
 
 Getopt::Long::Configure('no_ignore_case');
 GetOptions('h|help' => \$help,
@@ -70,6 +71,7 @@ GetOptions('h|help' => \$help,
 	   'e|tolerance=s' => \$tolerance,
 	   'T|time=s'      => \$timeFile,
 	   'a|appendTime'  => \$appendTime,
+	   'E|ignoreStderr' => \$ignoreStderr,
            'n|no-quit' => \$noQuitOnError) 
     or die "Invalid option.  Try ./testPhast.pl --help";
 
@@ -303,6 +305,7 @@ while (<INFILE>) {
     my @compareFiles=();
     my $compareStderr=1;
     my $compareStdout=1;
+    $compareStderr = 0 if ($ignoreStderr);
     while ($cmd =~ /^!/ || $cmd =~ /^-/) {
 	my @fields=split(' ', $cmd);
 	my $tempfile = substr($fields[0], 1);

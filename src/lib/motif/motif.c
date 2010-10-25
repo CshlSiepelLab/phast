@@ -333,7 +333,7 @@ void phy_estim_mods(void **models, int nmodels, void *data,
     params = tm_params_new_init_from_model(tm);
     for (obsidx = 0; obsidx < nobs; obsidx++) 
       pmsa->pooled_msa->ss->cat_counts[k][obsidx] = E[k][obsidx];
-    tm_fit(tm, pmsa->pooled_msa, params, k, OPT_HIGH_PREC, NULL);
+    tm_fit(tm, pmsa->pooled_msa, params, k, OPT_HIGH_PREC, NULL, 1);
 /*     fprintf(stderr, "%d: %f, %f\n", k, tm->scale, tr_total_len(tm->tree)); */
     vec_free(params); 
   }

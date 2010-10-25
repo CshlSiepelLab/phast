@@ -60,7 +60,8 @@ typedef struct {
 
 void ss_from_msas(MSA *msa, int tuple_size, int store_order, 
                   List *cats_to_do, MSA *source_msa, 
-                  Hashtable *existing_hash, int idx_offset);
+                  Hashtable *existing_hash, int idx_offset,
+		  int non_overlapping);
 PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size, 
                                int ncats, List *cats_to_do);
 void ss_free_pooled_msa(PooledMSA *pmsa);

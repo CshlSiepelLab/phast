@@ -77,7 +77,7 @@ typedef struct {
   subst_mod_type subst_mod;  
   Vector *backgd_freqs;        /* eq freqs (set to NULL if separate_freq=0 */
   MarkovMatrix *rate_matrix;   /* rate_matrix (set to NULL if separate_rm=0 */
-  int ratematrix_idx, backgd_idx, selection_idx, bgc_idx;  
+  int ratematrix_idx, backgd_idx, selection_idx, bgc_idx;
                                    /* indicies in main model parameter list
 				      where lineage-specific parameters
 				      start */  
@@ -145,6 +145,7 @@ struct tm_struct {
   double scale_sub;             /* scale factor for subtree, when
                                    estimating separate scale factors
                                    for subtree and supertree */
+  double selection;
   int *in_subtree;              /* array indicating whether each
                                    branch is in designated subtree */
   scale_bound_type scale_sub_bound;
@@ -175,7 +176,8 @@ struct tm_struct {
 				   if param_map[i]==j, then it is the j'th
 				   element in the vector of parameters which
 				   are optimized */
-  int scale_idx, bl_idx, ratematrix_idx, backgd_idx, ratevar_idx;
+  int scale_idx, bl_idx, ratematrix_idx, backgd_idx, ratevar_idx,
+    selection_idx;
                                 /* These are the indices in all_params that
 				   show where scale, branchlens, rateMatrix,
 				   backgd_freqs, and rate variation parameters
@@ -204,7 +206,7 @@ void tm_reinit(TreeModel *tm, subst_mod_type subst_mod,
                int new_nratecats, double new_alpha, 
                List *new_rate_consts, List *new_rate_weights);
 
-TreeModel *tm_new_from_file(FILE *F);
+TreeModel *tm_new_from_file(FILE *F, int discard_likelihood);
 
 AltSubstMod* tm_add_alt_mod(TreeModel *tm, String *altmod_str);
 
@@ -230,7 +232,7 @@ void tm_scale_model(TreeModel *tm, Vector *params, int scale_blens,
 void tm_scale_branchlens(TreeModel *tm, double scale_const, int reset_subst_mats);
 
 int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat, 
-           opt_precision_type precision, FILE *logf);
+           opt_precision_type precision, FILE *logf, int quiet);
 
 void tm_unpack_params(TreeModel *mod, Vector *params, int idx_offset);
 
@@ -256,8 +258,11 @@ int tm_get_neqfreqparams(TreeModel *mod);
 
 int tm_get_nratevarparams(TreeModel *mod);
 
-int tm_is_reversible(int subst_mod);
+int tm_is_reversible(TreeModel *tm);
 
+int tm_node_is_reversible(TreeModel *tm, TreeNode *node);
+
+int subst_mod_is_reversible(int subst_mod);
 
 int tm_get_nleaf(TreeModel *mod);
 
@@ -296,5 +301,9 @@ void tm_free_alt_subst_mod(AltSubstMod *am);
 void tm_variance(TreeModel *mod, MSA *msa, Vector *params, int cat, char *error_fname, int appendToFile);
 
 void tm_setup_params(TreeModel *mod);
+
+void tm_set_boundaries(Vector **lower_bounds, 
+		       Vector **upper_bounds, 
+		       int npar, TreeModel *mod);
 
 #endif

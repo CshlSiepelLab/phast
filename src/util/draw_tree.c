@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
   suffix = str_new_charstr(argv[optind]);
   str_suffix(suffix, '.');
   if (str_equals_charstr(suffix, "mod")) {
-    TreeModel *tmp = tm_new_from_file(fopen_fname(argv[optind], "r"));
+    TreeModel *tmp = tm_new_from_file(fopen_fname(argv[optind], "r"), 1);
     tree = tmp->tree;
   }
   else 

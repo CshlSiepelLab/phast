@@ -147,6 +147,12 @@ SEXP rph_phastCons(SEXP msaP,
   phastCons(p);
 
   //free anything allocated?
+  if (p->pivot_states != NULL) {
+    lst_free_strings(p->pivot_states);
+    lst_free(p->pivot_states);
+  }
+  if (statesP != R_NilValue)
+    lst_free(p->states);
   //close outfiles
   if (p->results != NULL) {
     PROTECT(rv = rph_listOfLists_to_SEXP(p->results));

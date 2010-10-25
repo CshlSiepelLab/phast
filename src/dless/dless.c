@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
 
   fprintf(stderr, "Reading tree model from %s...\n", argv[optind+1]);
   msa_f = fopen_fname(argv[optind], "r");
-  source_mod = tm_new_from_file(fopen_fname(argv[optind+1], "r"));
+  source_mod = tm_new_from_file(fopen_fname(argv[optind+1], "r"), 1);
 
   if (source_mod->nratecats > 1) 
     die("ERROR: rate variation not currently supported.\n");
@@ -176,8 +176,8 @@ int main(int argc, char *argv[]) {
   if (source_mod->order > 0)
     die("ERROR: only single nucleotide models are currently supported.\n");
 
-  if (!tm_is_reversible(source_mod->subst_mod))
-    fprintf(stderr, "WARNING: p-value computation assumes reversibility and your model is non-reversible.\n");
+  if (!tm_is_reversible(source_mod))
+    phast_warning("WARNING: p-value computation assumes reversibility and your model is non-reversible.\n");
 
   /* read alignment */
   fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
 
   if (msa->ss == NULL) {
     fprintf(stderr, "Extracting sufficient statistics...\n");
-    ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);
+    ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
   }
   else if (msa->ss->tuple_idx == NULL)
     die("ERROR: ordered representation of alignment required unless --suff-stats.\n");

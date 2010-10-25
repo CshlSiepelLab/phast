@@ -45,8 +45,8 @@ typedef struct {
   mm_type type;
 } MarkovMatrix;
 
-MarkovMatrix* mm_new(int size, char *states, mm_type type);
-MarkovMatrix* mm_new_from_matrix(Matrix *A, char *states, mm_type type); 
+MarkovMatrix* mm_new(int size, const char *states, mm_type type);
+MarkovMatrix* mm_new_from_matrix(Matrix *A, const char *states, mm_type type); 
 MarkovMatrix* mm_new_from_file(FILE *F, mm_type type); 
 void mm_free(MarkovMatrix *M); 
 void mm_free_eigen(MarkovMatrix *M);
@@ -61,7 +61,7 @@ int mm_sample_vector(Vector *v);
 char mm_sample_backgd(char *labels, Vector *backgd);
 void mm_cpy(MarkovMatrix *dest, MarkovMatrix *src);
 MarkovMatrix *mm_create_copy(MarkovMatrix *src);
-MarkovMatrix* mm_new_from_counts(Matrix *counts, char *states);
+MarkovMatrix* mm_new_from_counts(Matrix *counts, const char *states);
 void mm_diagonalize(MarkovMatrix *M); 
 void mm_scale(MarkovMatrix *M, double scale);
 void mm_renormalize(MarkovMatrix *M);

@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
       backgd_nmods = lst_size(l);
       backgd_mods = smalloc(backgd_nmods * sizeof(void*));
       for (i = 0; i < backgd_nmods; i++) 
-        backgd_mods[i] = tm_new_from_file(fopen_fname(((String*)lst_get_ptr(l, i))->chars, "r"));
+        backgd_mods[i] = tm_new_from_file(fopen_fname(((String*)lst_get_ptr(l, i))->chars, "r"), 1);
       lst_free_strings(l); lst_free(l);
       break;
     case 'F':
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
       feat_nmods = lst_size(l);
       feat_mods = smalloc(feat_nmods * sizeof(void*));
       for (i = 0; i < feat_nmods; i++) 
-        feat_mods[i] = tm_new_from_file(fopen_fname(((String*)lst_get_ptr(l, i))->chars, "r"));
+        feat_mods[i] = tm_new_from_file(fopen_fname(((String*)lst_get_ptr(l, i))->chars, "r"), 1);
       lst_free_strings(l); lst_free(l);
       break;
     case 'g':

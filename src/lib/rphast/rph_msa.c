@@ -29,6 +29,9 @@ Last updated: 12/14/08
 #include <hmm.h>
 #include <category_map.h>
 #include <gff.h>
+#include <list_of_lists.h>
+#include <matrix.h>
+#include <rph_util.h>
 
 #include <Rdefines.h>
 #include <R_ext/Random.h>
@@ -99,7 +102,7 @@ SEXP rph_msa_new(SEXP seqsP, SEXP namesP, SEXP nseqsP, SEXP lengthP,
   else printf("alphabet is NULL\n");*/
   msa = msa_new(seqs, names, nseqs, length, alphabet);
   if (msa->length > 0 && ! ordered) {
-    ss_from_msas(msa, 1, 0, NULL, NULL, NULL, -1);
+    ss_from_msas(msa, 1, 0, NULL, NULL, NULL, -1, 0);
   } else if (idxOffsetP != R_NilValue)
     msa->idx_offset = INTEGER_VALUE(idxOffsetP);
 
@@ -243,8 +246,8 @@ SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
 SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP, 
 		  SEXP do4dP, SEXP alphabetP, 
 		  SEXP tupleSizeP, SEXP refseqP, SEXP orderedP,
-		  SEXP docatsP, SEXP idxOffsetP, SEXP seqnamesP,
-		  SEXP discardSeqnamesP) {
+		  SEXP catsCycleP, SEXP docatsP, SEXP idxOffsetP, 
+		  SEXP seqnamesP, SEXP discardSeqnamesP) {
   int do4d, tupleSize=1, ordered, i;
   GFF_Set *gff=NULL;
   msa_format_type fmt;
@@ -252,7 +255,7 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
   MSA *msa;
   FILE *infile, *refseq=NULL;
   char *alphabet = NULL, *reverse_groups_tag=NULL;
-  int numProtect=0, seq_keep=0;
+  int numProtect=0, seq_keep=0, cycle_size=-1;
   List *cats_to_do=NULL, *cats_to_do_str, *seqnames;
   String *fourD_refseq = NULL;
 
@@ -270,6 +273,10 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
   if (gffP != R_NilValue) 
     gff = (GFF_Set*)EXTPTR_PTR(gffP);
   ordered = INTEGER_VALUE(orderedP);
+
+  if (catsCycleP != R_NilValue)
+    cycle_size = INTEGER_VALUE(catsCycleP);
+
   do4d = INTEGER_VALUE(do4dP);
   if (do4d) {
     cm = cm_new_string_or_file("NCATS=6; CDSplus 1-3; CDSminus 4-6");
@@ -289,8 +296,15 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
     }
     cats_to_do = lst_new_int(6);
     for (i=1; i<=6; i++) lst_push_int(cats_to_do, i);
-  }
-  if (docatsP != R_NilValue) {
+  } else if (catsCycleP != R_NilValue && docatsP != R_NilValue) {
+    int *intp;
+    PROTECT(docatsP = AS_INTEGER(docatsP));
+    numProtect++;
+    intp = INTEGER_POINTER(docatsP);
+    cats_to_do = lst_new_int(LENGTH(docatsP));
+    for (i=0; i < LENGTH(docatsP); i++)
+      lst_push_int(cats_to_do, intp[i]);
+  } else if (docatsP != R_NilValue) {
     int numcats, cmStrLen=100;
     char *cmStr;
     PROTECT(docatsP = AS_CHARACTER(docatsP));
@@ -344,9 +358,9 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
 
   infile = fopen_fname(CHARACTER_VALUE(filenameP), "r");
   if (fmt == MAF) {  //reads and automatically converts to SS format
-    msa = maf_read_cats_subset(infile, refseq, tupleSize, alphabet, gff, cm, -1, 
-			       ordered, reverse_groups_tag, NO_STRIP, 0, 
-			       cats_to_do, seqnames, seq_keep);
+    msa = maf_read_cats_subset(infile, refseq, tupleSize, alphabet, gff, cm, 
+			       cycle_size, ordered, reverse_groups_tag,
+			       NO_STRIP, 0, cats_to_do, seqnames, seq_keep);
   } else {
     msa = msa_new_from_file(infile, fmt, alphabet);
     if (idxOffsetP != R_NilValue) msa->idx_offset = INTEGER_VALUE(idxOffsetP);
@@ -375,11 +389,16 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
       msa_reverse_compl_feats(msa, gff, NULL);
     }
     msa_label_categories(msa, gff, cm);
+  } else if (fmt != MAF && cycle_size > 0) {
+    msa->categories = (int*)smalloc(msa->length*sizeof(int));
+    msa->ncats = cycle_size;
+    for (i=0; i < msa->length; i++)
+      msa->categories[i] = (i%cycle_size)+1;
   }
   if (msa == NULL) die("ERROR reading %s\n", CHARACTER_VALUE(filenameP));
   if (tupleSize != 1 || cats_to_do != NULL) {
     if (msa->ss == NULL) {
-      ss_from_msas(msa, tupleSize, ordered, cats_to_do, NULL, NULL, -1);
+      ss_from_msas(msa, tupleSize, ordered, cats_to_do, NULL, NULL, -1, 0);
     }
     else {
       if (msa->ss->tuple_size < tupleSize)
@@ -459,7 +478,7 @@ SEXP rph_msa_valid_fmt_str(SEXP formatP) {
 
 //print sequence in given format.  If format not valid,
 //use FASTA, but give no warning.
-SEXP rph_msa_printSeq(SEXP msaP, SEXP filenameP, SEXP formatP, 
+SEXP rph_msa_printSeq(SEXP msaP, SEXP fileP, SEXP formatP, 
 		      SEXP prettyPrintP) {
   MSA *msa;
   msa_format_type fmt;
@@ -467,8 +486,8 @@ SEXP rph_msa_printSeq(SEXP msaP, SEXP filenameP, SEXP formatP,
   fmt = msa_str_to_format(CHARACTER_VALUE(formatP));
   if ((int)fmt == -1) 
     fmt = FASTA;
-  if (filenameP != R_NilValue)
-    msa_print_to_file(CHARACTER_VALUE(filenameP), 
+  if (fileP != R_NilValue)
+    msa_print_to_file(CHARACTER_VALUE(fileP), 
 		      msa, fmt, INTEGER_VALUE(prettyPrintP));
   else msa_print(stdout, msa, fmt, INTEGER_VALUE(prettyPrintP));
   return R_NilValue;
@@ -657,7 +676,7 @@ SEXP rph_msa_sub_alignment(SEXP msaP, SEXP seqsP, SEXP keepP,
 			   SEXP startcolP, SEXP endcolP, 
 			   SEXP refseqNameP) {
   MSA *msa = (MSA*)EXTPTR_PTR(msaP), *subMsa;
-  int numseq, i, keep=1, startcol, endcol, numProtect=0, refseq;
+  int numseq, i, keep=1, startcol, endcol, numProtect=0, refseq, idx_offset=0;
   List *seqlist_str, *l=NULL;
   msa_coord_map *map = NULL;
 
@@ -699,19 +718,20 @@ SEXP rph_msa_sub_alignment(SEXP msaP, SEXP seqsP, SEXP keepP,
       if (endcolP != R_NilValue)
 	endcol -= msa->idx_offset;
     }
+    if (refseq == 1) idx_offset = startcol - 1 + msa->idx_offset;
     map = msa_build_coord_map(msa, refseq);
     startcol = msa_map_seq_to_msa(map, startcol);
     if (endcolP != R_NilValue)
       endcol = msa_map_seq_to_msa(map, endcol);
   }
 
-  if (startcol < 0 || startcol > msa->length)
-    die("start column out of range");
-  if (endcol < 0 || endcol > msa->length)
-    die("end column out of range");
-    
+  if (startcol < 1 || startcol > msa->length)
+    die("start column (%i) out of range", startcol);
+  if (endcol < 1 || endcol > msa->length)
+    die("end column (%i) out of range", endcol);
 
   subMsa = msa_sub_alignment(msa, l, keep, startcol-1, endcol);
+  subMsa->idx_offset = idx_offset;
   if (subMsa == NULL)
     die("ERROR rph_msa_sub_alignment got NULL subMsa\n");
   if (l != NULL) lst_free(l);
@@ -744,7 +764,7 @@ SEXP rph_msa_strip_gaps(SEXP msaP, SEXP stripModeP, SEXP allOrAnyGaps) {
      shouldn't */
   if (unordered) {
     if (msa->ss == NULL) 
-      ss_from_msas(msa, 1, 0, NULL, NULL, NULL, -1);
+      ss_from_msas(msa, 1, 0, NULL, NULL, NULL, -1, 0);
     else if (msa->ss->tuple_idx != NULL) {
       free(msa->ss->tuple_idx);
       msa->ss->tuple_idx = NULL;
@@ -1028,3 +1048,85 @@ SEXP rph_msa_informative_feats(SEXP msaP,
 }
 
 
+SEXP rph_msa_codon_clean(SEXP msaP, SEXP refseqP, SEXP strandP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  char strand='+';
+  if (strandP != R_NilValue) {
+    if (strcmp("+", CHARACTER_VALUE(strandP))==0);
+    else if (strcmp("-", CHARACTER_VALUE(strandP))==0)
+      strand='-';
+    else die("Unknown strand %s\n", CHARACTER_VALUE(strandP));
+  }
+  msa_codon_clean(msa, CHARACTER_VALUE(refseqP), strand);
+  return msaP;
+}
+
+
+SEXP rph_msa_get_base_freqs_tuples(SEXP msaP, SEXP modP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  TreeModel *mod = (TreeModel*)EXTPTR_PTR(modP);
+  int nstate, i;
+  SEXP rv;
+  double *doubleP;
+
+  if (msa->ss == NULL) 
+    ss_from_msas(msa, mod->order+1, 0, NULL, NULL, NULL, -1,
+                 subst_mod_is_codon_model(mod->subst_mod));
+  nstate = int_pow(strlen(msa->alphabet), mod->order+1);
+  if (mod->backgd_freqs == NULL) 
+    mod->backgd_freqs = vec_new(nstate);
+  msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order+1, -1);
+  PROTECT(rv = NEW_NUMERIC(nstate));
+  doubleP = NUMERIC_POINTER(rv);
+  for (i=0; i < nstate; i++) 
+    doubleP[i] = vec_get(mod->backgd_freqs, i);
+  UNPROTECT(1);
+  return rv;
+}
+
+
+SEXP rph_msa_fraction_pairwise_diff(SEXP msaP, SEXP seq1P, SEXP seq2P, 
+				    SEXP ignoreMissingP, SEXP ignoreGapsP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  SEXP rv;
+  double *dp, val;
+  ListOfLists *lol;
+  Matrix *m;
+  int ignore_missing = LOGICAL_VALUE(ignoreMissingP),
+    ignore_gaps = LOGICAL_VALUE(ignoreGapsP), seq1=-1, seq2=-1;
+  
+  
+  if (seq1P != R_NilValue) seq1 = INTEGER_VALUE(seq1P)-1;
+  if (seq2P != R_NilValue) seq2 = INTEGER_VALUE(seq2P)-1;
+
+  if (seq1 != -1 && seq2 != -1) {
+    PROTECT(rv = NEW_NUMERIC(1));
+    dp = NUMERIC_POINTER(rv);
+    dp[0] = msa_fraction_pairwise_diff(msa, seq1, seq2,
+				       ignore_missing, ignore_gaps);
+  } else if (seq1 != -1) {
+    PROTECT(rv = NEW_NUMERIC(msa->nseqs));
+    dp = NUMERIC_POINTER(rv);
+    for (seq2=0; seq2 < msa->nseqs; seq2++)
+      dp[seq2] = msa_fraction_pairwise_diff(msa, seq1, seq2,
+					    ignore_missing, ignore_gaps);
+  } else {
+    m = mat_new(msa->nseqs, msa->nseqs);
+    for (seq1=0; seq1 < msa->nseqs; seq1++) {
+      mat_set(m, seq1, seq1, 0.0);
+      for (seq2=seq1+1; seq2 < msa->nseqs; seq2++) {
+	val = msa_fraction_pairwise_diff(msa, seq1, seq2,
+					 ignore_missing, ignore_gaps);
+	mat_set(m, seq1, seq2, val);
+	mat_set(m, seq2, seq1, val);
+      }
+    }
+    lol = lol_new(1);
+    lol_push_matrix(lol, m, "pairwise.diff");
+    PROTECT(rv = rph_listOfLists_to_SEXP(lol));
+    lol_free(lol);
+    mat_free(m);
+  }
+  UNPROTECT(1);
+  return rv;
+}

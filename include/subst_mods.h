@@ -36,6 +36,9 @@ typedef enum {
   U3S,
   GC,
   //  HB,
+  HKY_CODON,
+  REV_CODON,
+  SSREV_CODON,
   UNDEF_MOD
 } subst_mod_type;
 
@@ -49,15 +52,21 @@ subst_mod_type tm_get_subst_mod_type(const char *str);
 char *tm_get_subst_mod_string(subst_mod_type type);
 int tm_get_nratematparams(struct tm_struct *mod);
 int tm_order(int subst_mod);
+int subst_mod_is_codon_model(int subst_mod);
 void tm_set_rate_matrix(struct tm_struct *mod, Vector *params, int i);
+void tm_set_rate_matrix_sel_bgc(struct tm_struct *mod, Vector *params, int i,
+				double selection, double bgc);
 void tm_rate_params_init(struct tm_struct *mod, Vector *params, 
                          int params_idx, double kappa);
 void tm_rate_params_init_from_model(struct tm_struct *mod, Vector *params, 
-                                    int params_idx);
+                                    int params_idx, 
+				    double selection, double bgc);
 void tm_set_HKY_matrix(struct tm_struct *mod, double kappa, int kappa_idx);
 int tm_substmod_get_nratematparams(subst_mod_type submod, 
 				   struct tm_struct *mod);
 int tm_flag_subst_param_pos(struct tm_struct *mod, int *flag, 
 			    String *param_name);
+void tm_apply_selection_bgc(MarkovMatrix *mm, double sel, double bgc);
+void tm_unapply_selection_bgc(MarkovMatrix *mm, double sel, double bgc);
 
 #endif

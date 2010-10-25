@@ -271,6 +271,14 @@ OPTIONS:
 	tree, but similar syntax can be used within the --alt-mod arguments.
     	Can be used multiple times to set boundaries for different parameters.
 
+    --selection <selection_param>
+        Use selection in the model (is also implied if --init-model is used
+        and contains selection parameter).  Selection scales rate matrix
+	entries by selection_param/(1-exp(-selection-param)); this is done
+        after rate matrix is scaled to set expected number of substitutions
+	per unit time to 1.  If using codon models selection acts only on
+	nonysynonymous mutations.
+
 
  (Options for modeling rate variation)
 

@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
   /* read input files; do alignment last, because it may be slow */
 
   /* read tree model */
-  mod = tm_new_from_file(fopen_fname(argv[optind+1], "r"));
+  mod = tm_new_from_file(fopen_fname(argv[optind+1], "r"), 1);
 
   /* read predictions */
   predictions = gff_read_set(fopen_fname(argv[optind+2], "r"));
@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
       
   if (msa->ss == NULL) {
     fprintf(stderr, "Extracting sufficient statistics...\n");
-    ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);
+    ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
   }
   else if (msa->ss->tuple_idx == NULL)
     die("ERROR: ordered representation of alignment required unless --suff-stats.\n");

@@ -21,6 +21,7 @@
 #include <sufficient_stats.h>
 #include <gap_patterns.h>
 #include <tree_likelihoods.h>
+#include <subst_mods.h>
 #include <em.h>
 
 /* initial values for alpha, beta, tau; possibly should be passed in instead */
@@ -797,6 +798,7 @@ double* phmm_postprobs_cats(PhyloHmm *phmm,
   catnos = cm_get_category_list(phmm->cm, cats, 1);
   for (i = 0; i <= phmm->cm->ncats; i++) docat[i] = 0;
   for (i = 0; i < lst_size(catnos); i++) docat[lst_get_int(catnos, i)] = 1;
+  lst_free(catnos);
   for (i = 0; i < phmm->hmm->nstates; i++)
     if (docat[phmm->state_to_cat[i]]) lst_push_int(states, i);
                                                
@@ -818,6 +820,7 @@ double* phmm_postprobs_cats(PhyloHmm *phmm,
   }
       
   if (lnl != NULL) *lnl = l;
+  lst_free(states);
 
   return retval;
 }
@@ -1076,7 +1079,8 @@ void phmm_estim_mods_em(void **models, int nmodels, void *data,
   if (phmm->em_data->msa->ss == NULL) {
     phmm->em_data->msa->ncats = phmm->nmods - 1;   /* ?? */
     ss_from_msas(phmm->em_data->msa, phmm->mods[0]->order+1, TRUE, 
-                 NULL, NULL, NULL, -1);
+                 NULL, NULL, NULL, -1, 
+		 subst_mod_is_codon_model(phmm->mods[0]->subst_mod));
   }
   else if (phmm->em_data->msa->ncats != phmm->nmods - 1 ||
            phmm->em_data->msa->ss->cat_counts == NULL) {
@@ -1096,7 +1100,7 @@ void phmm_estim_mods_em(void **models, int nmodels, void *data,
 
     /* FIXME: need to use state_to_cat, etc. in deciding which categories to use */
 
-    tm_fit(phmm->mods[k], phmm->em_data->msa, params, k, OPT_HIGH_PREC, logf);
+    tm_fit(phmm->mods[k], phmm->em_data->msa, params, k, OPT_HIGH_PREC, logf, 1);
     vec_free(params); 
   }
 

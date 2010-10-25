@@ -1437,7 +1437,7 @@ Matrix *col_estimate_fim_sub(TreeModel *mod) {
   ColFitData *d = col_init_fit_data(mod, msa, SUBTREE, NNEUT, TRUE);   
   int i;
 
-  ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);  
+  ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
   mat_zero(fim);
   for (i = 0; i < msa->ss->ntuples; i++) {
     d->tupleidx = i;
@@ -1503,7 +1503,7 @@ double col_estimate_fim(TreeModel *mod) {
   ColFitData *d = col_init_fit_data(mod, msa, ALL, NNEUT, FALSE);   
   int i;
 
-  ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);
+  ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
 
   for (i = 0; i < msa->ss->ntuples; i++) {
     d->tupleidx = i;

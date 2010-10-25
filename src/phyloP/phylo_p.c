@@ -93,7 +93,7 @@ TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa,
   tm_init_rmp(source_mod);           /* (no. params changes) */
   params = tm_params_new_init_from_model(retval);
 
-  tm_fit(retval, msa, params, -1, OPT_HIGH_PREC, NULL);
+  tm_fit(retval, msa, params, -1, OPT_HIGH_PREC, NULL, 1);
 
   oldscale = vec_get(params, retval->scale_idx);
 
@@ -218,7 +218,7 @@ void phyloP(struct phyloP_struct *p) {
     die("ERROR: need to specify nsites or msa to get prior");
   if (!prior_only) {
     if (msa->ss == NULL)
-      ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);
+      ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
 
     if (msa_alph_has_lowercase(msa)) msa_toupper(msa);     
     msa_remove_N_from_alph(msa);
@@ -295,7 +295,7 @@ void phyloP(struct phyloP_struct *p) {
 
     /* set up for subtree mode */
     if (subtree_name != NULL) {
-      if (!tm_is_reversible(mod->subst_mod))
+      if (!tm_is_reversible(mod))
         die("ERROR: reversible model required with --subtree.\n");
       tr_name_ancestors(mod->tree);
       sub_reroot(mod, subtree_name);

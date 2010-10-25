@@ -53,7 +53,6 @@
 
 /* whether to retain stop codons when cleaning an alignment of coding
    sequences; see msa_coding_clean */
-#define KEEP_STOP_CODONS 0
 
 #define ALPHABET_TAG "ALPHABET:"
 #define NBLOCKS_TAG "BLOCKS:"
@@ -239,7 +238,7 @@ MSA *msa_create_copy(MSA *msa, int suff_stats_only) {
 
   if (msa->ss != NULL) 
     ss_from_msas(retval, msa->ss->tuple_size, (msa->ss->tuple_idx != NULL),
-                 NULL, msa, NULL, -1); /* will be created from msa->ss */
+                 NULL, msa, NULL, -1, 0); /* will be created from msa->ss */
 
   return retval;
 }
@@ -347,7 +346,7 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
 void msa_print(FILE *F, MSA *msa, msa_format_type format, int pretty_print) {
   int i, j, k;
   if (format == SS) {
-    if (msa->ss == NULL) ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1);
+    if (msa->ss == NULL) ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1, 0);
     ss_write(msa, F, 1);
     return;
   }
@@ -1262,8 +1261,8 @@ void msa_reverse_compl(MSA *msa) {
     ss_reverse_compl(msa);
 
   /* temporary (recreate SS)  FIXME: check */
-  if (tupsize != -1) 
-    ss_from_msas(msa, tupsize, store_order, NULL, NULL, NULL, -1);      
+  if (tupsize != -1)
+    ss_from_msas(msa, tupsize, store_order, NULL, NULL, NULL, -1, 0);
   /* end temporary */
 }
 
@@ -1832,6 +1831,57 @@ String *msa_read_seq_fasta(FILE *F) {
 #define IS_START(seq, i) ( toupper(seq[i]) == 'A' && toupper(seq[i+1]) == 'T' && toupper(seq[i+2]) == 'G' )
 #define IS_STOP(seq, i) ( toupper(seq[i]) == 'T' && ((toupper(seq[i+1]) == 'A' && (toupper(seq[i+2]) == 'A' || toupper(seq[i+2]) == 'G')) || (toupper(seq[i+1]) == 'G' && toupper(seq[i+2]) == 'A')) )
 
+
+
+/* Clean an alignment in preparation for codon-based analysis.
+   First remove all gaps in refseq (unless refseq is NULL).  
+   Returns an error if resulting sequence does not have multiple-of-three length.  If strand == '-',
+   get the reverse complement of entire sequence.  Then go through
+   each sequence and if any stop codons are encountered, mask out
+   the stop codon and the rest of that sequence to the end of the MSA.
+ */
+int msa_codon_clean(MSA *msa, const char *refseq, char strand) {
+  int refseq_idx, newlen=0, i, j, ncodon;
+
+  if (msa->ss != NULL)
+    die("ERROR: msa_codon_clean does not deal with sufficient statistics (yet)\n");
+  if (refseq != NULL) {
+    for (refseq_idx=0; refseq_idx < msa->nseqs; refseq_idx++)
+      if (strcmp(refseq, msa->names[refseq_idx]) == 0) break;
+    if (refseq_idx == msa->nseqs)
+      die("ERROR: msa_codon_clean: no sequence named %s in alignment\n", refseq);
+    msa_strip_gaps(msa, refseq_idx+1);
+  }
+  
+  if (msa->length % 3 != 0)
+    die("ERROR: msa_codon_clean: msa length (%i) not multiple of three after gap removal\n", msa->length);
+
+  ncodon = msa->length / 3;
+
+  if (strand == '-') 
+    msa_reverse_compl(msa);
+
+  for (i=0; i < msa->nseqs; i++) {
+    for (j=0; j < ncodon; j++) 
+      if (IS_STOP(msa->seqs[i], j*3)) break;
+    j *= 3;
+    if (j > newlen) newlen = j;
+    for (j *= 3; j < msa->length; j++)
+      msa->seqs[i][j] = msa->missing[0];
+  }
+  
+  if (msa->length != newlen) {
+    msa->length = newlen;
+    for (i=0; i < msa->nseqs; i++) {
+      msa->seqs[i] = realloc(msa->seqs[i], (newlen+1)*sizeof(char));
+      msa->seqs[i][newlen] = '\0';
+    }
+  }
+  return 0;
+}
+
+
+
 /* Clean an alignment of coding sequences (CDS exons from genomic DNA
    or mRNAs).  Remove sites with gaps and short blocks of ungapped
    sites, also look for frame shifts.  The parameter 'refseq; should
@@ -1842,10 +1892,8 @@ String *msa_read_seq_fasta(FILE *F) {
    entirely. */
 /* TODO: add special handling of short, incomplete seqs (don't treat
    missing seq as gaps) */
-/* NOTE: KEEP_STOP_CODONS (see top of file) now determines whether
-   stop codons are retained */
 int msa_coding_clean(MSA *msa, int refseq, int min_ncodons, 
-                     String *errstr) {
+                     String *errstr, int keep_stop_codons) {
   List *block_begs = lst_new_int(10);
   List *block_ends = lst_new_int(10);
   char *ref = msa->seqs[refseq]; /* for convenience below */
@@ -1867,10 +1915,10 @@ int msa_coding_clean(MSA *msa, int refseq, int min_ncodons,
     retval = 1;
   }
   i = msa->length - 1;
-  for (pos = 2; pos >= (KEEP_STOP_CODONS ? 0 : -1); pos--) {
+  for (pos = 2; pos >= (keep_stop_codons ? 0 : -1); pos--) {
     for (; i > beg && ref[i] == GAP_CHAR; i--);
     if (i == beg) break;
-    if ((pos == 2 && KEEP_STOP_CODONS) || pos == -1)  
+    if ((pos == 2 && keep_stop_codons) || pos == -1)  
       end = i;
     if (pos >= 0) tmp_codon[pos] = ref[i--];
   }
@@ -1936,7 +1984,7 @@ int msa_coding_clean(MSA *msa, int refseq, int min_ncodons,
         if (j != msa->nseqs) continue;
       }
       /* similarly for stop codons */
-      if (blk_end == end && KEEP_STOP_CODONS) {
+      if (blk_end == end && keep_stop_codons) {
         for (j = 0; j < msa->nseqs && IS_STOP(msa->seqs[j], blk_end-2); j++);
         if (j != msa->nseqs) continue;
                                 /* FIXME: if block sufficiently large,
@@ -1956,10 +2004,10 @@ int msa_coding_clean(MSA *msa, int refseq, int min_ncodons,
 
       /* finally, check all seqs for in-frame stop codons */
       for (j = blk_beg; j <= blk_end - 2 && trunc == 0; j += 3) {
-        if (KEEP_STOP_CODONS && j == end - 2) break;
+        if (keep_stop_codons && j == end - 2) break;
         for (k = 0; k < msa->nseqs && trunc == 0; k++) {
           if (IS_STOP(msa->seqs[k], j)) {
-            trunc = blk_end = (KEEP_STOP_CODONS ? j + 2 : j - 1);
+            trunc = blk_end = (keep_stop_codons ? j + 2 : j - 1);
           }
         }
       }
@@ -2546,7 +2594,7 @@ void msa_mask_macro_indels(MSA *msa, int k, int refseq) {
     int tuple_size = msa->ss->tuple_size;
     ss_free(msa->ss);
     msa->ss = NULL;
-    ss_from_msas(msa, tuple_size, TRUE, NULL, NULL, NULL, -1);
+    ss_from_msas(msa, tuple_size, TRUE, NULL, NULL, NULL, -1, 0);
   }
 }
 
@@ -2736,4 +2784,27 @@ void msa_realloc(MSA *msa, int new_length, int new_alloclen, int do_cats,
 }
 
 
+double msa_fraction_pairwise_diff(MSA *msa, int idx1, int idx2, 
+				  int ignore_missing,
+				  int ignore_gaps) {
+  int i, numdif=0, total=0;
+  if (msa->seqs == NULL)
+    die("msa_numdiff not implemented for sufficient statistics");
+  if (idx1 < 0 || idx1 >= msa->nseqs || idx2 < 0 || idx2 >= msa->nseqs)
+    die("msa_numdiff got index out of range (idx1=%i idx2=%i, numseq=%i)\n", 
+	idx1, idx2, msa->nseqs);
+  if (idx1 == idx2) return 0;
+  for (i=0; i < msa->length; i++) {
+    if (ignore_missing && (msa->is_missing[(int)msa->seqs[idx1][i]] ||
+			   msa->is_missing[(int)msa->seqs[idx2][i]]))
+      continue;
+    if (ignore_gaps && (msa->seqs[idx1][i] == GAP_CHAR ||
+			msa->seqs[idx2][i] == GAP_CHAR))
+      continue;
+    total++;
+    if (msa->seqs[idx1][i] != msa->seqs[idx2][i]) numdif++;
+  }
+  if (total == 0) return 0.0;
+  return (double)numdif/(double)total;
+}
 

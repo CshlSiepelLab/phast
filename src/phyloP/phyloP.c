@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
     die("ERROR: bad arguments.  Try 'phyloP -h'.\n");
   p->mod_fname = argv[optind];
 
-  p->mod = tm_new_from_file(fopen_fname(p->mod_fname, "r"));
+  p->mod = tm_new_from_file(fopen_fname(p->mod_fname, "r"), 1);
 
   if (cats_to_do_str != NULL) {
     if (p->cm == NULL) die("ERROR: --cats-to-do requires --catmap option\n");

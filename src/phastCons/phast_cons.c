@@ -199,7 +199,10 @@ int phastCons(struct phastCons_struct *p) {
 
   if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
   msa_remove_N_from_alph(msa);  /* for backward compatibility */
-  if (msa->ss == NULL) ss_from_msas(msa, nummod==0 ? 1 : mod[0]->order+1, TRUE, NULL, NULL, NULL, -1);
+  if (msa->ss == NULL) 
+    ss_from_msas(msa, nummod==0 ? 1 : mod[0]->order+1, 
+		 TRUE, NULL, NULL, NULL, -1, 
+		 nummod == 0 ? 0 : subst_mod_is_codon_model(mod[0]->subst_mod));
   if (msa->ss->tuple_idx == NULL)
     die("ERROR: Ordered representation of alignment required.\n");
                                 /* SS assumed below */
@@ -672,7 +675,8 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
   if (estim_trees || estim_rho) {
     msa->ncats = phmm->nmods - 1;   /* ?? */
     if (msa->ss == NULL) 
-      ss_from_msas(msa, phmm->mods[0]->order+1, TRUE, NULL, NULL, NULL, -1);
+      ss_from_msas(msa, phmm->mods[0]->order+1, TRUE, NULL, NULL, NULL, -1,
+		   subst_mod_is_codon_model(phmm->mods[0]->subst_mod));
     else if (msa->ss->cat_counts == NULL)
       ss_realloc(msa, msa->ss->tuple_size, msa->ss->ntuples, TRUE, TRUE);
   }
@@ -789,7 +793,7 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
       if (n->parent == NULL) continue;
 
       if ((n == mod->tree->lchild || n == mod->tree->rchild) && 
-	  tm_is_reversible(mod->subst_mod))
+	  tm_is_reversible(mod))
 	n->dparent = vec_get(params, mod->bl_idx+i)/2.0;
       else 
 	n->dparent = vec_get(params, mod->bl_idx+i);

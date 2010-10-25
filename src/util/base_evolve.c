@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'e':
       l = get_arg_list(optarg);
-      embed_mod = tm_new_from_file(fopen_fname(((String*)lst_get_ptr(l, 0))->chars, "r"));
+      embed_mod = tm_new_from_file(fopen_fname(((String*)lst_get_ptr(l, 0))->chars, "r"), 1);
       embed_len = get_arg_dbl_bounds(((String*)lst_get_ptr(l, 1))->chars, 1, INFTY);
       break;
     case 's':
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
   mods = smalloc(hmm->nstates * sizeof(void*));
   for (i = 0; i < hmm->nstates; i++) {
     F = fopen_fname(argv[optind+i], "r");
-    mods[i] = tm_new_from_file(F);
+    mods[i] = tm_new_from_file(F, 1);
     if (mods[i]->nratecats != 1)
       die("ERROR: rate variation currently not supported.\n");
     fclose(F);

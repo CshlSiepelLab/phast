@@ -1127,6 +1127,7 @@ HMM *hmm_reverse_compl(HMM *hmm, List *pivot_states, int *mapping) {
   }
 
   hmm_renormalize(retval);
+  lst_free(effective_pivot_states);
   
   return retval;
 }

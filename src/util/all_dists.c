@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
   for (t = 0; t < ntrees; t++) {
     String *fname = lst_get_ptr(tree_fnames, t);
     if (mod) {
-      TreeModel *m = tm_new_from_file(F = fopen_fname(fname->chars, "r"));
+      TreeModel *m = tm_new_from_file(F = fopen_fname(fname->chars, "r"), 1);
       tree[t] = tr_create_copy(m->tree);
       tm_free(m);
       fclose(F);

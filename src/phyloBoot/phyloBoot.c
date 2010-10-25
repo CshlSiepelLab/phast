@@ -44,7 +44,7 @@ void set_param_descriptions(char **descriptions, TreeModel *mod) {
     /* if the model is reversible, then the first parameter is
        the sum of the lengths of the two branches from the root */
     if ((n == mod->tree->lchild ||
-	 n == mod->tree->rchild) && tm_is_reversible(mod->subst_mod))
+	 n == mod->tree->rchild) && tm_is_reversible(mod))
       sprintf(descriptions[mod->bl_idx+idx], "branch (spans root)"); 
     else {
       if (strlen(n->name) > 0)
@@ -184,7 +184,7 @@ int main(int argc, char *argv[]) {
       input_mods = smalloc(nreps * sizeof(void*));
       for (i = 0; i < lst_size(tmpl); i++) {
         FILE *F = fopen_fname(((String*)lst_get_ptr(tmpl, i))->chars, "r");
-        input_mods[i] = tm_new_from_file(F);
+        input_mods[i] = tm_new_from_file(F, 1);
         fclose(F);
       }
       lst_free_strings(tmpl); lst_free(tmpl);
@@ -242,7 +242,7 @@ int main(int argc, char *argv[]) {
       else die("ERROR: --precision must be LOW, MED, or HIGH.\n\n");
       break;
     case 'M':
-      init_mod = tm_new_from_file(fopen_fname(optarg, "r"));
+      init_mod = tm_new_from_file(fopen_fname(optarg, "r"), 1);
       break;
     case 'r':
       random_init = 1;
@@ -270,7 +270,7 @@ int main(int argc, char *argv[]) {
     tmpstr = str_new_charstr(argv[optind]);
     if (str_ends_with_charstr(tmpstr, ".mod")) {
       parametric = TRUE;
-      model = tm_new_from_file(INF);
+      model = tm_new_from_file(INF, 1);
       tree = model->tree;
       if (scale != 1.0)
 	tm_scale_branchlens(model, scale, 0);
@@ -289,7 +289,8 @@ int main(int argc, char *argv[]) {
 
       /* represent as SS and get rid of seqs (important below) */
       if (msa->ss == NULL) {
-        ss_from_msas(msa, tm_order(subst_mod) + 1, FALSE, NULL, NULL, NULL, -1);
+        ss_from_msas(msa, tm_order(subst_mod) + 1, FALSE, NULL, NULL, NULL, -1,
+		     subst_mod_is_codon_model(subst_mod));
         for (i = 0; i < msa->nseqs; i++)
           free(msa->seqs[i]);
         free(msa->seqs);
@@ -305,7 +306,7 @@ int main(int argc, char *argv[]) {
           sprintf(tmpchstr, "(%s,%s)", msa->names[0], msa->names[1]);
           tree = tr_new_from_string(tmpchstr);
         }
-        else if (msa->nseqs == 3 && tm_is_reversible(subst_mod)) {
+        else if (msa->nseqs == 3 && subst_mod_is_reversible(subst_mod)) {
           sprintf(tmpchstr, "(%s,(%s,%s))", msa->names[0], msa->names[1], 
                   msa->names[2]);
           tree = tr_new_from_string(tmpchstr);
@@ -323,7 +324,8 @@ int main(int argc, char *argv[]) {
 
       /* define probability vector from tuple counts */
       if (msa->ss == NULL)
-        ss_from_msas(msa, tm_order(subst_mod) + 1, FALSE, NULL, NULL, NULL, -1);
+        ss_from_msas(msa, tm_order(subst_mod) + 1, FALSE, NULL, NULL, NULL, -1,
+		     subst_mod_is_codon_model(subst_mod));
       p = smalloc(msa->ss->ntuples * sizeof(double));
       for (i = 0; i < msa->ss->ntuples; i++) p[i] = msa->ss->counts[i];
       normalize_probs(p, msa->ss->ntuples);
@@ -392,7 +394,7 @@ int main(int argc, char *argv[]) {
 
         if (dump_format == SS) { /* output ss */
           if (msa->ss == NULL)   /* (only happens in parametric case) */
-            ss_from_msas(msa, tm_order(subst_mod) + 1, FALSE, NULL, NULL, NULL, -1);
+            ss_from_msas(msa, tm_order(subst_mod) + 1, FALSE, NULL, NULL, NULL, -1, subst_mod_is_codon_model(subst_mod));
           ss_write(msa, F, FALSE);
         }
         else {                  /* output actual seqs */
@@ -440,7 +442,7 @@ int main(int argc, char *argv[]) {
       if (use_em)
         tm_fit_em(thismod, msa, params, -1, precision, NULL);
       else
-        tm_fit(thismod, msa, params, -1, precision, NULL);
+        tm_fit(thismod, msa, params, -1, precision, NULL, quiet);
 
       if (dump_mods_root != NULL) {
         sprintf(fname, "%s.%d.mod", dump_mods_root, i+1);

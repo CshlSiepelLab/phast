@@ -471,7 +471,7 @@ int main(int argc, char* argv[]) {
   if ((F = fopen(argv[optind], "r")) == NULL) {
     die("ERROR: Can't open %s.\n", argv[optind]);
   }
-  model = tm_new_from_file(F);
+  model = tm_new_from_file(F, 1);
 
   if (context_ti_tv) {
     /* this option requires completely different handling from the others */
@@ -543,7 +543,7 @@ int main(int argc, char* argv[]) {
     if ((F = fopen(order1_mod_fname, "r")) == NULL) {
       die("ERROR: Can't open %s.\n", order1_mod_fname);
     }    
-    subst_mat = unproject_rates(model, tm_new_from_file(F));
+    subst_mat = unproject_rates(model, tm_new_from_file(F, 1));
   }
 
   /* loop through matrices to print */

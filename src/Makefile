@@ -25,4 +25,4 @@ doc:
 
 clean:
 	@for dir in $(SUB) ; do cd ${CDIR}/$$dir && ${MAKE} clean ; done
-	rm -f ../bin/* ../lib/*
+	rm -rf ../bin ../lib

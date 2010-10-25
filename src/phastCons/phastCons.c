@@ -312,17 +312,8 @@ int main(int argc, char *argv[]) {
     if (p->pivot_states == NULL) 
       p->pivot_states = get_arg_list("background,CNS");
   }
-  
-  /* read alignment */
-  if (p->results_f != NULL)
-    fprintf(p->results_f, "Reading alignment from %s...\n", argv[optind]);
-  if (msa_format == MAF)
-    p->msa = maf_read(fopen_fname(argv[optind], "r"), NULL, 1, NULL, NULL, 
-		      NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
-  else
-    p->msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
 
-  /* read tree models */
+   /* read tree models */
   mod_fname_list = get_arg_list(mods_fname);
   p->nummod = lst_size(mod_fname_list);
   p->mod = (TreeModel**)smalloc(sizeof(TreeModel*) * p->nummod);
@@ -331,9 +322,22 @@ int main(int argc, char *argv[]) {
 
     if (p->results_f != NULL)
       fprintf(p->results_f, "Reading tree model from %s...\n", fname->chars);
-    p->mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"));
+    p->mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"), 1);
     p->mod[i]->use_conditionals = 1;     
   }
+
+  /* read alignment */
+  if (p->results_f != NULL)
+    fprintf(p->results_f, "Reading alignment from %s...\n", argv[optind]);
+  if (msa_format == MAF) {
+    List *keepSeqs = tr_leaf_names(p->mod[0]->tree);
+    p->msa = maf_read_cats_subset(fopen_fname(argv[optind], "r"), NULL, 1, NULL, NULL, 
+				  NULL, -1, TRUE, NULL, NO_STRIP, FALSE, NULL, keepSeqs, 1);
+    lst_free_strings(keepSeqs);
+    lst_free(keepSeqs);
+  }
+  else
+    p->msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
 
   /* use file name root for default seqname */
   if (p->viterbi_f != NULL && (p->seqname == NULL || p->idpref == NULL)) {

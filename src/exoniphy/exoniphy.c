@@ -355,7 +355,7 @@ int main(int argc, char* argv[]) {
     int old_nnodes;
 
     F = fopen_fname(fname->chars, "r");
-    mod[i] = tm_new_from_file(F); 
+    mod[i] = tm_new_from_file(F, 1);
     mod[i]->use_conditionals = 1;
     fclose(F);
 

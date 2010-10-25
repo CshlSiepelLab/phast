@@ -44,7 +44,8 @@ struct phyloFit_struct {
     do_column_probs, nonoverlapping, gaps_as_bases,
     no_freqs, no_rates, assume_clock, 
     init_parsimony, parsimony_only, no_branchlens,
-    label_categories, symfreq, init_backgd_from_data;
+    label_categories, symfreq, init_backgd_from_data,
+    use_selection;
   unsigned int nsites_threshold;
   TreeNode *tree;
   CategoryMap *cm;
@@ -53,7 +54,7 @@ struct phyloFit_struct {
     *ignore_branches, *alt_mod_str,
     *bound_arg, *rate_consts, 
     *label_str, *label_type;
-  double alpha;
+  double alpha, selection;
   GFF_Set *gff;
   TreeModel *input_mod;
   FILE *logf;

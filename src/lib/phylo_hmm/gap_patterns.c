@@ -236,7 +236,7 @@ void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa) {
 
   /* require ordered sufficient statistics representation */
   if (msa->ss == NULL)
-    ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1);
+    ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1, 0);
   if (msa->ss->tuple_idx == NULL)
     die("ERROR gp_set_phylo_patterns: msa->ss->tuple_idx is NULL\n");
 

@@ -177,8 +177,9 @@ GFF_Set *msa_get_informative_feats(MSA *msa, int min_informative,
 				   int gaps_are_informative);
 void msa_index_cols(MSA *msa, int order);
 String *msa_read_seq_fasta(FILE *F);
+int msa_codon_clean(MSA *msa, const char *refseq, char strand);
 int msa_coding_clean(MSA *msa, int refseq, int min_ncodons, 
-                     String *errstr);
+                     String *errstr, int keep_stop_codons);
 MSA *msa_concat_from_files(List *msa_fname_list, msa_format_type input_format, 
                            List *seqnames, char *alphabet);
 void msa_concatenate(MSA *aggregate_msa, MSA *source_msa);
@@ -202,5 +203,7 @@ int msa_alph_has_lowercase(MSA *msa);
 void msa_toupper(MSA *msa);
 void msa_delete_cols(MSA *msa, int *delete_cols);
 void msa_realloc(MSA *msa, int new_length, int new_alloclen, int do_cats, int store_order);
+double msa_fraction_pairwise_diff(MSA *msa, int idx1, int idx2, 
+				  int ignore_missing, int ignore_gaps);
 
 #endif

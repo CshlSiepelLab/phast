@@ -98,6 +98,8 @@ struct phyloFit_struct* phyloFit_struct_new(int rphast) {
   pf->alpha = DEFAULT_ALPHA;
   pf->gff = NULL;
   pf->input_mod = NULL;
+  pf->use_selection = 0;
+  pf->selection = 0.0;
   
   pf->estimated_models = NULL;
   pf->model_labels = NULL;
@@ -350,7 +352,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
   if (pf->use_conditionals && pf->use_em) 
     die("ERROR: Cannot use --markov with --EM.    Type %s for usage.\n",
 	pf->see_for_help);
-
+  
   if (pf->likelihood_only && input_mod == NULL)  
     die("ERROR: --lnl requires --init-model.  Type '%s' for usage.\n",
 	pf->see_for_help);
@@ -404,7 +406,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
       tree = tr_new_from_string(tmpchstr);
       free_tree = TRUE;
     }
-    else if (msa->nseqs == 3 && tm_is_reversible(subst_mod)) {
+    else if (msa->nseqs == 3 && subst_mod_is_reversible(subst_mod) && pf->alt_mod_str == NULL) {
       sprintf(tmpchstr, "(%s,(%s,%s))", msa->names[0], msa->names[1], 
               msa->names[2]);
       tree = tr_new_from_string(tmpchstr);
@@ -417,7 +419,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
   /* allow for specified ancestor */
   if (pf->root_seqname != NULL) {
     TreeNode *rl;
-    if (tree == NULL || tm_is_reversible(subst_mod)) 
+    if (tree == NULL || subst_mod_is_reversible(subst_mod)) 
       die("ERROR: --ancestor requires --tree and a non-reversible model.\n");
     rl = tr_get_node(tree, pf->root_seqname);     
     if (rl == NULL || rl->parent != tree) 
@@ -614,6 +616,11 @@ int run_phyloFit(struct phyloFit_struct *pf) {
 		  pf->rate_consts, NULL);
       }
 
+      if (pf->use_selection) {
+	mod->selection_idx = 0;
+	mod->selection = pf->selection;
+      }
+
       mod->noopt_arg = pf->nooptstr == NULL ? NULL : str_new_charstr(pf->nooptstr->chars);
       mod->eqfreq_sym = pf->symfreq;
       if (pf->bound_arg != NULL) {
@@ -765,7 +772,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
             fprintf(stderr, "Extracting sufficient statistics ...\n");
           ss_from_msas(msa, mod->order+1, 0, 
                        pf->cats_to_do_str != NULL ? cats_to_do : NULL, 
-                       NULL, NULL, -1);
+                       NULL, NULL, -1, subst_mod_is_codon_model(mod->subst_mod));
           /* (sufficient stats obtained only for categories of interest) */
       
           if (msa->length > 1000000) { /* throw out original data if
@@ -811,7 +818,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
         if (pf->use_em)
           tm_fit_em(mod, msa, params, cat, pf->precision, pf->logf);
         else
-          tm_fit(mod, msa, params, cat, pf->precision, pf->logf);
+          tm_fit(mod, msa, params, cat, pf->precision, pf->logf, pf->quiet);
 
         if (pf->error_fname != NULL)
 	  tm_variance(mod, msa, params, cat, pf->error_fname, i!=0 || win!=0);

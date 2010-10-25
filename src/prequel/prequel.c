@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
 
   if (msa->ss == NULL) {
     fprintf(stderr, "Extracting sufficient statistics...\n");
-    ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1);
+    ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
   }
   else if (msa->ss->tuple_idx == NULL && !suff_stats)
     die("ERROR: ordered representation of alignment required unless --suff-stats.\n");
@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
   mod_f = fopen_fname(argv[optind+1], "r");
   out_root = argv[optind+2];
 
-  mod = tm_new_from_file(mod_f);
+  mod = tm_new_from_file(mod_f, 1);
 
   /* MH prune just like in phastcons */
   int old_nnodes = mod->tree->nnodes;

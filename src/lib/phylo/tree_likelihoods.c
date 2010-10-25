@@ -10,7 +10,9 @@
 /* $Id: tree_likelihoods.c,v 1.14 2008-11-12 02:07:59 acs Exp $ */
 
 #include <tree_likelihoods.h>
+#include <subst_mods.h>
 #include <markov_matrix.h>
+#include <subst_mods.h>
 #include <string.h>
 #include <dgamma.h>
 #include <sufficient_stats.h>
@@ -115,7 +117,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
   }
   else 
     ss_from_msas(msa, mod->order+1, col_scores == NULL ? 0 : 1, 
-                 NULL, NULL, NULL, -1);
+                 NULL, NULL, NULL, -1, subst_mod_is_codon_model(mod->subst_mod));
 
   /* set up leaf to sequence mapping, if necessary */
   if (mod->msa_seq_idx == NULL)
@@ -155,6 +157,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
     if ((cat >= 0 && msa->ss->cat_counts[cat][tupleidx] == 0) || 
         (cat < 0 && msa->ss->counts[tupleidx] == 0))
       continue;
+    checkInterruptN(tupleidx, 1000);
 
     total_prob = 0;
     marg_tot = NULL_LOG_LIKELIHOOD;

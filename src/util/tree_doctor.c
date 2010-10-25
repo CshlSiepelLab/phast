@@ -224,7 +224,7 @@ int main(int argc, char *argv[]) {
       if (str_equals_charstr(suffix, "nh"))
         merge_tree = tr_new_from_file(fopen_fname(optarg, "r"));
       else {
-        merge_mod = tm_new_from_file(fopen_fname(optarg, "r"));
+        merge_mod = tm_new_from_file(fopen_fname(optarg, "r"), 1);
         merge_tree = merge_mod->tree;
       }
       break;
@@ -295,7 +295,7 @@ int main(int argc, char *argv[]) {
     tree_only = TRUE;           /* can't output tree model in this case */
   }
   else {
-    mod = tm_new_from_file(fopen_fname(argv[optind], "r"));
+    mod = tm_new_from_file(fopen_fname(argv[optind], "r"), 1);
     tree = mod->tree;
   }
 

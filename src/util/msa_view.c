@@ -792,7 +792,7 @@ int main(int argc, char* argv[]) {
     if (i == msa->nseqs) { 
       die("ERROR: no match for argument of --clean-coding.\n");
     }
-    if (msa_coding_clean(sub_msa, i, MIN_NCODONS, errstr) != 0) {
+    if (msa_coding_clean(sub_msa, i, MIN_NCODONS, errstr, 0) != 0) {
       die("ERROR: unable to clean coding alignment (%s).\n%s\n", 
 	  infname, errstr->chars);
     }
@@ -827,7 +827,7 @@ int main(int argc, char* argv[]) {
   /* create sufficient stats, if necessary */
   if (output_format == SS) {
     if (sub_msa->ss == NULL)
-      ss_from_msas(sub_msa, tuple_size, ordered_stats, cats_to_do, NULL, NULL, -1);
+      ss_from_msas(sub_msa, tuple_size, ordered_stats, cats_to_do, NULL, NULL, -1, 0);
     else {
       if (sub_msa->ss->tuple_size < tuple_size)
         die("ERROR: input tuple size must be at least as large as output tuple size.\n");

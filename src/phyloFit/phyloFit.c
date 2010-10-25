@@ -89,6 +89,7 @@ int main(int argc, char *argv[]) {
     {"alt-model", 1, 0, 'd'},
     {"label-branches", 1, 0, 0},
     {"label-subtree", 1, 0, 0},
+    {"selection", 1, 0, 0},
     {"bound", 1, 0, 'u'},
     {"seed", 1, 0, 'D'},
     {0, 0, 0, 0}
@@ -182,7 +183,7 @@ int main(int argc, char *argv[]) {
       else die("ERROR: --precision must be LOW, MED, or HIGH.\n\n");
       break;
     case 'M':
-      pf->input_mod = tm_new_from_file(fopen_fname(optarg, "r"));
+      pf->input_mod = tm_new_from_file(fopen_fname(optarg, "r"), 1);
       break;
     case 'r':
       pf->random_init = TRUE;
@@ -283,6 +284,10 @@ int main(int argc, char *argv[]) {
 	lst_push_int(pf->label_type, 
 		     strcmp(long_opts[opt_idx].name, "label-branches") == 0 ? 
 		     BRANCH_TYPE : SUBTREE_TYPE);
+      }
+      else if (strcmp(long_opts[opt_idx].name, "selection") == 0) {
+	pf->selection = get_arg_dbl(optarg);
+	pf->use_selection = TRUE;
       }
       else {
 	die("ERROR: unknown option.  Type 'phyloFit -h' for usage.\n");

@@ -51,7 +51,15 @@
    certain categories.  All of this does not apply when source
    alignments are represented by (unordered) sufficient statistics
    only, in which case category-by-category counts are maintained iff
-   they exist for source alignments.  */
+   they exist for source alignments.  
+
+   If non_overlapping == TRUE and tuple_size > 1, then will only
+   convert non_overlapping tuples into the SS structure.  The first
+   tuple will start with position 1 and be of length tuple_size, the
+   second will start at tuple_size+1 and go to tuple_size*2, etc.
+   (This is useful for converting coding sequence into codons).
+
+*/
 
 /* ADDENDUM: added an 'idx_offset' parameter for use when storing
    order and source alignments refer to local segments of a long
@@ -64,7 +72,7 @@
 void ss_from_msas(MSA *msa, int tuple_size, int store_order, 
                   List *cats_to_do, MSA *source_msa, 
                   Hashtable *existing_hash,
-                  int idx_offset) {
+                  int idx_offset, int non_overlapping) {
   int i, j, do_cats, idx, upper_bound;
   long int max_tuples;
   MSA_SS *main_ss, *source_ss = NULL;
@@ -144,9 +152,8 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
     source_ss = source_msa->ss;
   /* otherwise, source_ss will remain NULL */
 
-  if (source_ss != NULL && !store_order) { /* in this case, just use
+  if (source_ss != NULL && !store_order && !non_overlapping) { /* in this case, just use
                                               existing suff stats */
-
     for (i = 0; i < source_ss->ntuples; i++) {
       checkInterruptN(i, 1000);
 /*       fprintf(stderr, "col_tuple %d: %s\n", i, source_ss->col_tuples[i]); */
@@ -180,6 +187,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
 
     for (i = 0; i < smsa->length; i++) { 
       checkInterruptN(i, 1000);
+      if (non_overlapping &&  ((i+1) % tuple_size != 0)) continue;
       if (do_cats && cats_to_do != NULL && 
           do_cat_number[smsa->categories[i]] == 0) {
         if (store_order) main_ss->tuple_idx[i + effective_offset] = -1;
@@ -206,7 +214,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
         main_ss->col_tuples[idx] = (char*)smalloc((tuple_size * msa->nseqs + 1)
 						  * sizeof(char));
 	main_ss->col_tuples[idx][tuple_size * msa->nseqs] = '\0';
-        strncpy(main_ss->col_tuples[idx], key, (msa->nseqs * tuple_size + 1));
+        strncpy(main_ss->col_tuples[idx], key, msa->nseqs * tuple_size);
       }
 
       main_ss->counts[idx]++;
@@ -358,11 +366,11 @@ PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size, int ncats,
     if (smsa->nseqs != rep_msa->nseqs)
       die("ERROR: All MSA's must contain the same number of species! The offending sequence is: %s\n", pmsa->pooled_msa->names[i]);
     if (smsa->ss == NULL)
-      ss_from_msas(smsa, tuple_size, 1, cats_to_do, NULL, NULL, -1);
+      ss_from_msas(smsa, tuple_size, 1, cats_to_do, NULL, NULL, -1, 0);
                                 /* assume we want ordered suff stats
                                    for source alignments */
     ss_from_msas(pmsa->pooled_msa, tuple_size, 0, cats_to_do, 
-                 smsa, tuple_hash, -1);
+                 smsa, tuple_hash, -1, 0);
     pmsa->lens[i] = smsa->length;
 
     /* keep around a mapping from the tuple indices of each source
@@ -465,7 +473,7 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
 
     /* now add the source MSA to the aggregate */
     ss_from_msas(retval, tuple_size, 0, cats_to_do, source_msa, 
-                 tuple_hash, -1);
+                 tuple_hash, -1, 0);
 
     msa_free(source_msa);
   }
@@ -895,7 +903,7 @@ MSA* ss_alt_msa(MSA *orig_msa, int new_tuple_size, int store_order,
       new_msa->categories[i] = orig_msa->categories[i+col_offset];
   }
 
-  ss_from_msas(new_msa, new_tuple_size, store_order, NULL, NULL, NULL, -1);
+  ss_from_msas(new_msa, new_tuple_size, store_order, NULL, NULL, NULL, -1, 0);
   return new_msa;
 }
 
@@ -968,7 +976,7 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
     checkInterruptN(tupidx, 1000);
     if (full_to_sub[tupidx] == -1) continue;
 
-    ss->col_tuples[sub_tupidx] = smalloc(retval->nseqs * ss->tuple_size * 
+    ss->col_tuples[sub_tupidx] = smalloc((retval->nseqs * ss->tuple_size + 1) * 
                                          sizeof(char));
     for (offset = -(ss->tuple_size-1); offset <= 0; offset++) {
       for (i = 0; i < lst_size(include_list); i++) {
@@ -1120,7 +1128,7 @@ void ss_reverse_compl(MSA *msa) {
     if (!que_empty(overwrites)) new_tuple_idx = que_pop_int(overwrites);
     else {
       ss_realloc(msa, ss->tuple_size, ss->ntuples + 1, do_cats, 1);
-      ss->col_tuples[ss->ntuples] = smalloc(ss->tuple_size * msa->nseqs * 
+      ss->col_tuples[ss->ntuples] = smalloc((ss->tuple_size * msa->nseqs+1)*
                                            sizeof(char));
       new_tuple_idx = ss->ntuples++;
     }

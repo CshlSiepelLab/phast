@@ -18,6 +18,7 @@
 #include <ctype.h>
 #include <numerical_opt.h>
 #include <tree_likelihoods.h>
+#include <subst_mods.h>
 #include <time.h>
 #include <sys/time.h>
 #include <sufficient_stats.h>
@@ -64,7 +65,8 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
   if (msa->ss == NULL) {
     if (msa->seqs == NULL)
       die("ERROR tm_fit_em: msa->seqs == NULL\n");
-    ss_from_msas(msa, mod->order+1, 0, NULL, NULL, NULL, -1);
+    ss_from_msas(msa, mod->order+1, 0, NULL, NULL, NULL, -1, 
+		 subst_mod_is_codon_model(mod->subst_mod));
   }
 
   if (mod->backgd_freqs == NULL) { 
@@ -128,7 +130,9 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
   grad_func = (proj_mod == NULL && 
                mod->estimate_branchlens == TM_BRANCHLENS_ALL && 
                mod->subst_mod != JC69 && mod->subst_mod != F81 &&
-               !mod->estimate_backgd ? compute_grad_em_approx : NULL);
+               !mod->estimate_backgd && mod->alt_subst_mods==NULL &&
+	       mod->selection_idx < 0 ? 
+	       compute_grad_em_approx : NULL);
                                 /* functions for analytical gradients
                                    don't yet know about estimating
                                    scale or backgd freqs, also require
@@ -147,16 +151,17 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
   }
 
   /* most params have lower bound of zero and no upper bound */
-  lower_bounds = vec_new(npar);
+  /*  lower_bounds = vec_new(npar);
   vec_zero(lower_bounds);
-  upper_bounds = NULL;
+  upper_bounds = NULL;*/
 
   /* however, in this case we don't want the eq freqs to go to zero */
-  if (mod->estimate_backgd) {
+  /*  if (mod->estimate_backgd) {
     for (i = 0; i < mod->backgd_freqs->size; i++)
       if (mod->param_map[mod->backgd_idx+i] >= 0)  //this should be true since mod->estimate_backgd
 	vec_set(lower_bounds, mod->param_map[mod->backgd_idx + i], 0.001);
-  }
+	}*/
+  tm_set_boundaries(&lower_bounds, &upper_bounds, npar, mod);
 
 
   H = mat_new(npar, npar);
@@ -500,7 +505,7 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
       /* save time by only using complex numbers in the inner loop if
          necessary (each complex mult equivalent to four real mults and
          two real adds) */
-      if (tm_is_reversible(mod->subst_mod)) {
+      if (tm_node_is_reversible(mod, n)) {
         for (k = 0; k < nstates; k++) {
           for (l = 0; l < nstates; l++) {
             double p = mm_get(P, k, l);
@@ -589,7 +594,7 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
           diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), zvec_get(Q->evals_z, i)), n->dparent * dr_da);
 
         /* only use complex numbers if necessary (as above) */
-        if (tm_is_reversible(mod->subst_mod)) {
+        if (tm_node_is_reversible(mod, n)) {
           for (k = 0; k < nstates; k++) {
             for (l = 0; l < nstates; l++) {
               double p = mm_get(P, k, l);
@@ -699,7 +704,7 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
       if (dq[l][m] != 0)    /* row/col pairs should be unique */
 	die("ERROR compute_grad_em_approx: dq[%i][%i] should be zero but is %e\n", l, m, dq[l][m]);
 
-      dq[l][m] = tm_is_reversible(mod->subst_mod) ? 
+      dq[l][m] = subst_mod_is_reversible(mod->subst_mod) ? 
         vec_get(mod->backgd_freqs, m) : 1;
                                 /* FIXME: may need to generalize */
       
@@ -934,7 +939,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
       /* save time by only using complex numbers in the inner loop if
          necessary (each complex mult equivalent to four real mults and
          two real adds) */
-      if (tm_is_reversible(mod->subst_mod)) {
+      if (tm_node_is_reversible(mod, n)) {
         for (k = 0; k < nstates; k++) {
           for (l = 0; l < nstates; l++) {
             double p = mm_get(P, k, l);
@@ -1019,7 +1024,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
 	    diag[i] = z_mul_real(z_mul(z_exp(z_mul_real(zvec_get(Q->evals_z, i), t)), zvec_get(Q->evals_z, i)), n->dparent * dr_da);
 	  
 	  /* only use complex numbers if necessary (as above) */
-	  if (tm_is_reversible(mod->subst_mod)) {
+	  if (tm_node_is_reversible(mod, n)) {
 	    for (k = 0; k < nstates; k++) {
 	      for (l = 0; l < nstates; l++) {
 		double p = mm_get(P, k, l);
@@ -1132,7 +1137,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
 	die("ERROR compute_grad_exact dq[%i][%i] should be zero but is %e\n",
 	    l, m, dq[l][m]);
 
-      dq[l][m] = tm_is_reversible(mod->subst_mod) ? 
+      dq[l][m] = subst_mod_is_reversible(mod->subst_mod) ? 
         vec_get(mod->backgd_freqs, m) : 1;
                                 /* FIXME: may need to generalize */
       
@@ -1188,7 +1193,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
         /* as above, it's worth it to have separate versions of the
            computations below for the real and complex cases */
 
-        if (tm_is_reversible(mod->subst_mod)) { /* real case */
+        if (tm_node_is_reversible(mod, n)) { /* real case */
           /* build the matrix F */
           for (i = 0; i < nstates; i++) {
             for (j = 0; j < nstates; j++) {
