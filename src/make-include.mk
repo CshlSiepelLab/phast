@@ -25,7 +25,7 @@ ifeq ($(TARGETOS), Windows)
   AR = /usr/bin/i586-mingw32msvc-ar
 else
   ifeq ($(TARGETOS), LSB)
-    CC = lsbcc -fno-stack-protector -m32    
+    CC = lsbcc -fno-stack-protector    
   else
     CC = gcc
   endif
