@@ -9,7 +9,11 @@ all:
 	for dir in $(SUB) ; do cd ${CDIR}/$$dir && ${MAKE} ; done	
 ifeq ($(TARGETOS), Windows)
 	@for file in `ls ../bin` ; do mv ../bin/$$file ../bin/$$file.exe ; done
+else
+	mkdir -p ../doc/man/
+	@for file in `ls ../bin` ; do perl help2man.pl ../bin/$$file ../doc/man/ ; done
 endif
+
 
 install:
 ifndef DESTDIR
@@ -26,3 +30,6 @@ doc:
 clean:
 	@for dir in $(SUB) ; do cd ${CDIR}/$$dir && ${MAKE} clean ; done
 	rm -rf ../bin ../lib
+
+manpages:
+	@for file in `ls ../bin` ; do perl help2man.pl ../bin/$$file ; done
