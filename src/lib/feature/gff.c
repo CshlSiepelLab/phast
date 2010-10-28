@@ -1860,16 +1860,19 @@ GFF_Set *gff_inverse(GFF_Set *gff, GFF_Set *region0) {
 	  lst_push_ptr(notGff->features, newfeat);
 	}
 	regionIdx++;
-	if (regionIdx >= lst_size(gffG->features))
-	  die("gff contains coords (%s, %i, %i) outside region boundaries",
-	      currFeat->seqname->chars, currStart, currEnd);
+	if (regionIdx >= lst_size(regionG->features)) {
+	  regionStart = regionEnd = -1;
+	  break;
+	}
 	regionFeat = lst_get_ptr(regionG->features, regionIdx);
 	regionStart = regionFeat->start;
 	regionEnd = regionFeat->end;
       }
-      if (currEnd > regionEnd)
-	die("gff contains coords (%s, %i, %i) which exceeds region boundaries",
-	    currFeat->seqname->chars, currStart, currEnd);
+      if (regionIdx >= lst_size(regionG->features)) break;
+      if (currStart <= regionStart && currEnd < regionEnd) {
+	regionStart = currEnd + 1;
+	continue;
+      }
       if (currStart > regionStart) {
 	newfeat = gff_new_feature_copy_chars(regionFeat->seqname->chars,
 					     "gff_inverse", "inverse feat",
@@ -1877,10 +1880,21 @@ GFF_Set *gff_inverse(GFF_Set *gff, GFF_Set *region0) {
 					     GFF_NULL_FRAME, ".", TRUE);
 	lst_push_ptr(notGff->features, newfeat);
       }
-      if (regionStart <= currEnd)
+      while (currEnd >= regionEnd) {
+	regionIdx++;
+	if (regionIdx >= lst_size(regionG->features)) {
+	  regionStart = regionEnd = -1;
+	  break;
+	}
+	regionFeat = lst_get_ptr(regionG->features, regionIdx);
+	regionStart = regionFeat->start;
+	regionEnd = regionFeat->end;
+      }
+      if (regionStart == -1) break;
+      if (currEnd >= regionStart)
 	regionStart = currEnd + 1;
     }
-    if (regionStart <= regionEnd) {
+    if (regionStart != -1 && regionStart <= regionEnd) {
       newfeat = gff_new_feature_copy_chars(regionFeat->seqname->chars,
 					   "gff_inverse", "inverse feat",
 					   regionStart, regionEnd, 0, '.',

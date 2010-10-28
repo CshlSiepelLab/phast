@@ -51,7 +51,8 @@ SEXP rph_phastCons(SEXP msaP,
 		   SEXP hmmP, 
 		   SEXP statesP, 
 		   SEXP reflectStrandP,
-		   SEXP quietP) {
+		   SEXP quietP,
+		   SEXP categoryMapP) {
   struct phastCons_struct *p = phastCons_struct_new(1);
   int i, *intp, numprotect=0;
   double *doublep;
@@ -143,6 +144,9 @@ SEXP rph_phastCons(SEXP msaP,
   }
   if (LOGICAL_VALUE(quietP))
     p->results_f = NULL;
+
+  if (categoryMapP != R_NilValue)
+    p->cm = cm_new_string_or_file(CHARACTER_VALUE(categoryMapP));
 
   phastCons(p);
 

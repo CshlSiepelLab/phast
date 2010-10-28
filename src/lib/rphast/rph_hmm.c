@@ -49,7 +49,6 @@ SEXP rph_hmm_new_extptr(HMM *hmm) {
   return result;
 }
 
-
 SEXP rph_hmm_new(SEXP matrixP, SEXP eqFreqP, SEXP beginFreqP,
 		 SEXP endFreqP) {
   MarkovMatrix *mm;
@@ -173,3 +172,5 @@ SEXP rph_hmm_endFreq(SEXP hmmP) {
   UNPROTECT(1);
   return result;
 }
+
+

@@ -115,6 +115,7 @@ GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm, List *cats, char *seqname,
                                    char *new_type);
 double phmm_lnl(PhyloHmm *phmm);
 double phmm_postprobs(PhyloHmm *phmm, double **post_probs);
+double **phmm_new_postprobs(PhyloHmm *phmm);
 double* phmm_postprobs_cats(PhyloHmm *phmm, List *cats, double *lnl);
 void phmm_score_predictions(PhyloHmm *phmm, GFF_Set *preds, List *score_cats, 
                             List *helper_cats, List *null_cats,

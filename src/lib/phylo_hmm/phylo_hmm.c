@@ -711,6 +711,7 @@ GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm,
   List *types, *keepers, *catnos;
   GFF_Set *retval = phmm_predict_viterbi(phmm, seqname, grouptag, 
                                          idpref, frame);
+  if (cats == NULL) return retval;
 
   /* do this way to allow input to be numbers or names */
   catnos = cm_get_category_list(phmm->cm, cats, 1);
@@ -771,6 +772,17 @@ double phmm_postprobs(PhyloHmm *phmm, double **post_probs) {
                              post_probs) * log(2);
                                 /* convert to natural log */          
 }
+
+
+double **phmm_new_postprobs(PhyloHmm *phmm) {
+  double **rv = smalloc(phmm->hmm->nstates * sizeof(double*));
+  int i;
+  for (i=0; i < phmm->hmm->nstates; i++)
+    rv[i] = smalloc(phmm->alloc_len * sizeof(double));
+  phmm_postprobs(phmm, rv);
+  return rv;
+}
+
 
 /** Computes and returns an array of length phmm->alloc_len
     representing the marginal posterior prob at every site, summed

@@ -3388,3 +3388,5 @@ int tm_is_reversible(TreeModel *tm) {
   }
   return 1;
 }
+
+
