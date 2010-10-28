@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
   char c;
   String *suffix;
 
-  while ((c = getopt(argc, argv, "dbvs")) != -1) {
+  while ((c = getopt(argc, argv, "dbvsh")) != -1) {
     switch(c) {
     case 'd':
       square_branches = 0;
@@ -58,6 +58,9 @@ int main(int argc, char *argv[]) {
     case 's':
       draw_to_scale = 0;
       break;
+    case 'h':
+      print_usage();
+      exit(1);
     case '?':
       print_usage();
       exit(1);

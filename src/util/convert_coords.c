@@ -20,13 +20,14 @@
 void print_usage() {
   fprintf(stderr, "USAGE: convert_coords -m <msa_fname> -f <feature_fname> [-s <src_frame>] [-d <dest_frame>] [-p] [-n] [-i PHYLIP|FASTA|MPM]\n\
 \n\
+DESCRIPTION:\n\
 Converts coordinates of features in a GFF file according to a multiple\n\
 alignment.  Will map from the coordinate system of any sequence to any\n\
 other sequence; can also map to or from the coordinate system of the\n\
 entire alignment.  In addition, supports translation of coordinates by\n\
 specified offset.\n\
 \n\
-Options:\n\
+OPTIONS:\n\
     -m <msa_fname>  (required) Name of file in which alignment is defined.\n\
     -f <gff_fname>  (required) Name of file in which features are defined (GFF). \n\
     -s <src_frame>  Index of frame of reference for feature coordinates, as \n\
@@ -57,7 +58,7 @@ int main(int argc, char* argv[]) {
   GFF_Set *gff;
   char c;
 
-  while ((c = getopt(argc, argv, "m:f:s:d:i:p:n:")) != -1) {
+  while ((c = getopt(argc, argv, "hm:f:s:d:i:p:n:")) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -81,6 +82,9 @@ int main(int argc, char* argv[]) {
     case 'n':
       offset = -1 * get_arg_int(optarg);
       break;
+    case 'h':
+      print_usage();
+      exit(1);
     case '?':
       print_usage();
       exit(1);
