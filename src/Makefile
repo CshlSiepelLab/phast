@@ -21,8 +21,10 @@ ifndef DESTDIR
 endif
 	mkdir -p ${DESTDIR}/usr/bin/
 	mkdir -p ${DESTDIR}/opt/phast/data/
+	mkdir -p ${DESTDIR}/usr/share/man/man7/
 	cp ../bin/* ${DESTDIR}/usr/bin/
 	cp -R ../data/* ${DESTDIR}/opt/phast/data/
+	cp -R ../doc/man/* ${DESTDIR}/usr/share/man/man7/
 
 doc:
 	doxygen
