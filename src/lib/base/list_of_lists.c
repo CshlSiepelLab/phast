@@ -169,6 +169,8 @@ void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
 			const char *name) {
   char *str;
   ListOfLists *tmList = lol_new(11);
+  ListOfLists *altModList, *currAltMod;
+  int i;
   if (tm->rate_matrix->states != NULL)
     lol_push_charvec(tmList, &tm->rate_matrix->states, 1, "alphabet");
   if (tm->backgd_freqs != NULL)
@@ -190,6 +192,8 @@ void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
     if (tm->freqK != NULL)
       lol_push_dbl(tmList, tm->freqK, tm->nratecats, "rate.weights");
   }
+  if (tm->selection_idx >= 0)
+    lol_push_dbl(tmList, &(tm->selection), 1, "selection");
   if (tm->tree != NULL) {
     str = tr_to_string(tm->tree, 1);
     lol_push_charvec(tmList, &str, 1, "tree");
@@ -197,6 +201,28 @@ void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
   }
   if (tm->root_leaf_id != -1)
     lol_push_int(tmList, &(tm->root_leaf_id), 1, "root.leaf");
+
+  if (tm->alt_subst_mods != NULL) {
+    altModList = lol_new(lst_size(tm->alt_subst_mods));
+    for (i=0; i < lst_size(tm->alt_subst_mods); i++) {
+      AltSubstMod *altmod = lst_get_ptr(tm->alt_subst_mods, i);
+      currAltMod = lol_new(11);
+      str = copy_charstr(tm_get_subst_mod_string(altmod->subst_mod));
+      lol_push_charvec(currAltMod, &str, 1, "subst.mod");
+      if (altmod->backgd_freqs != NULL) 
+	lol_push_dbl(currAltMod, altmod->backgd_freqs->data, altmod->backgd_freqs->size, "backgd");
+      if (altmod->rate_matrix != NULL && altmod->rate_matrix->matrix != NULL)
+	lol_push_matrix(currAltMod, altmod->rate_matrix->matrix, "rate.matrix");
+      if (altmod->selection_idx >= 0)
+	lol_push_dbl(currAltMod, &(altmod->selection), 1, "selection");
+      if (altmod->bgc_idx >= 0)
+	lol_push_dbl(currAltMod, &(altmod->bgc), 1, "bgc");
+      lol_push_charvec(currAltMod, &(altmod->defString->chars), 1, "defn");
+      lol_push_lol(altModList, currAltMod, NULL);
+    }
+    lol_push_lol(tmList, altModList, "alt.model");
+  }
+
   lol_set_class(tmList, "tm");
   lol_push_lol(lol, tmList, name);
 }
