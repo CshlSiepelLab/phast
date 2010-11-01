@@ -25,6 +25,7 @@ Last updated: 1/5/2010
 #include <local_alignment.h>
 #include <trees.h>
 #include <phylo_fit.h>
+#include <rph_util.h>
 
 #include <Rdefines.h>
 #include <R_ext/Random.h>
@@ -164,7 +165,7 @@ SEXP rph_phyloFit(SEXP msaP,
   int numProtect=0, i;
   double *doubleP;
   char *die_message=NULL;
-  struct phyloFit_result_struct *result=NULL;
+  SEXP rv=R_NilValue;
 
   GetRNGstate(); //seed R's random number generator
   pf = phyloFit_struct_new(1);  //sets appropriate defaults for RPHAST mode
@@ -226,8 +227,6 @@ SEXP rph_phyloFit(SEXP msaP,
     goto rph_phyloFit_end;
   }
 
-  pf->estimated_models = lst_new_ptr(50);
-  pf->model_labels = lst_new_ptr(50);
   if (gffP != R_NilValue)
     pf->gff = (GFF_Set*)EXTPTR_PTR(gffP);
 
@@ -274,14 +273,10 @@ SEXP rph_phyloFit(SEXP msaP,
     pf->use_selection = TRUE;
     pf->selection = NUMERIC_VALUE(selectionP);
   }
-
+  
   run_phyloFit(pf);
-
-  if (pf->estimated_models == NULL)
-    die("ERROR in rph_phyloFit: estimated_models is NULL\n");
-  result = smalloc(sizeof(struct phyloFit_result_struct));
-  result->models = pf->estimated_models;
-  result->labels = pf->model_labels;
+  rv = PROTECT(rph_listOfLists_to_SEXP(pf->results));
+  numProtect++;
 
  rph_phyloFit_end:
   if (pf->tree != NULL)
@@ -302,10 +297,11 @@ SEXP rph_phyloFit(SEXP msaP,
   }
   if (pf->logf != NULL && pf->logf != stdout && pf->logf != stderr)
     fclose(pf->logf);
+  lol_free(pf->results);
   free(pf);
   PutRNGstate();
   if (die_message != NULL) die(die_message);
   if (numProtect > 0) 
     UNPROTECT(numProtect);
-  return rph_phyloFit_result_new_extptr(result);
+  return rv;
 }

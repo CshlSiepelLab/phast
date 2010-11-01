@@ -61,7 +61,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
                   char *alphabet, int nratecats, double alpha, 
                   List *rate_consts, int root_leaf_id) {
   TreeModel *tm = (TreeModel*)smalloc(sizeof(TreeModel));
-  int i, j, nstate;
+  int i, j, nstate=-1;
 
   tm->subst_mod = subst_mod;
   tm->order = tm_order(subst_mod);
@@ -879,7 +879,8 @@ AltSubstMod* tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
 
 void tm_set_subst_matrices(TreeModel *tm) {
   int i, j;
-  double scaling_const, curr_scaling_const, tmp, branch_scale, selection, bgc=0.0;
+  double scaling_const, curr_scaling_const=1.0, 
+    tmp, branch_scale, selection, bgc=0.0;
   Vector *backgd_freqs = tm->backgd_freqs;
   subst_mod_type subst_mod = tm->subst_mod;
   MarkovMatrix *rate_matrix = tm->rate_matrix;

@@ -565,7 +565,7 @@ List *str_list_as_int(List *str_list) {
 List *str_list_as_dbl(List *str_list) {
   List *retval = lst_new_dbl(lst_size(str_list));
   int i;
-  double tmp;
+  double tmp=0;
   for (i = 0; i < lst_size(str_list); i++) {
     if (str_as_dbl(lst_get_ptr(str_list, i), &tmp) != 0)
       die("ERROR: bad floating-point number ('%s').\n", 

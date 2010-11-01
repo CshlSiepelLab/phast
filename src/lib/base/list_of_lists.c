@@ -63,6 +63,55 @@ void lol_push_dbl(ListOfLists *lol, double *vals, int len,
 }
 
 
+List *lol_find_list(ListOfLists *lol, const char *lstName, 
+		    list_element_type lstType) {
+  list_element_type currType;
+  List *temp, *currResult=NULL;
+  int i;
+  for (i=0; i < lst_size(lol->lst); i++) {
+    currType = lst_get_int(lol->lstType, i);
+    if (currType == lstType && 
+	strcmp((char*)lst_get_ptr(lol->lstName, i), lstName)==0)
+      return lol->lst;
+    if (currType == LIST_LIST) {
+      temp = lol_find_list((ListOfLists*)lst_get_ptr(lol->lst, i), lstName, lstType);
+      if (temp != NULL) {
+	if (currResult != NULL) die("lol_find_list failed: multiple lists in object named %s with same type", lstName);
+	currResult = temp;
+      }
+    }
+  }
+  return currResult;
+}
+
+
+/* The following three functions push single values onto the end of
+   a list.  They search the list of lists for a list with the given name
+   and appropriate type.  If none found, or if multiple matching lists are
+   found, it is an error */
+
+void lol_push_dbl_val(ListOfLists *lol, const char *lstName, double val) {
+  List *l = lol_find_list(lol, lstName, DBL_LIST);
+  if (l == NULL) die("Could not find double list named %s", lstName);
+  lst_push_dbl(l, val);
+}
+
+void lol_push_int_val(ListOfLists *lol, const char *lstName, int val) {
+  List *l = lol_find_list(lol, lstName, INT_LIST);
+  if (l == NULL) die("Could not find int list named %s", lstName);
+  lst_push_int(l, val);
+}
+
+
+void lol_push_char_val(ListOfLists *lol, const char *lstName, const char *val) {
+  List *l = lol_find_list(lol, lstName, CHAR_LIST);
+  char *tempstr;
+  if (l == NULL) die("Could not find char* list named %s", lstName);
+  tempstr = smalloc((strlen(val)+1)*sizeof(char));
+  strcpy(tempstr, val);
+  lst_push_ptr(l, tempstr);
+}
+
 
 //add a list of ints to end of LOL object.  Copies all values.
 void lol_push_int(ListOfLists *lol, int *vals, int len,
@@ -132,13 +181,15 @@ void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
   free(str);
   if (tm->lnL != NULL_LOG_LIKELIHOOD)
     lol_push_dbl(tmList, &(tm->lnL), 1, "likelihood");
-  if (tm->alpha != 0.0)
-    lol_push_dbl(tmList, &(tm->alpha), 1, "alpha");
-  lol_push_int(tmList, &(tm->nratecats), 1, "nratecats");
-  if (tm->rK != NULL)
-    lol_push_dbl(tmList, tm->rK, tm->nratecats, "rate.consts");
-  if (tm->freqK != NULL)
-    lol_push_dbl(tmList, tm->freqK, tm->nratecats, "rate.weights");
+  if (tm->nratecats > 1) {
+    if (tm->alpha != 0.0) 
+      lol_push_dbl(tmList, &(tm->alpha), 1, "alpha");
+    lol_push_int(tmList, &(tm->nratecats), 1, "nratecats");
+    if (tm->rK != NULL)
+      lol_push_dbl(tmList, tm->rK, tm->nratecats, "rate.consts");
+    if (tm->freqK != NULL)
+      lol_push_dbl(tmList, tm->freqK, tm->nratecats, "rate.weights");
+  }
   if (tm->tree != NULL) {
     str = tr_to_string(tm->tree, 1);
     lol_push_charvec(tmList, &str, 1, "tree");
@@ -149,7 +200,6 @@ void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
   lol_set_class(tmList, "tm");
   lol_push_lol(lol, tmList, name);
 }
-
 
 void lol_push_gff(ListOfLists *lol, GFF_Set *gff, const char *name) {
   ListOfLists *gffList = lol_new(9);

@@ -331,7 +331,7 @@ SEXP rph_tree_label_branches(SEXP treeP, SEXP nodep, SEXP labelP) {
   int i, j, numtree = LENGTH(treeP);
   TreeNode *tr;
   SEXP result;
-  char *nodename, *label;
+  char *label;
 
   label = strdup(CHARACTER_VALUE(labelP));
   PROTECT(result = NEW_CHARACTER(numtree));

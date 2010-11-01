@@ -1564,7 +1564,7 @@ void tm_set_SSREV_CODON_matrix(TreeModel *mod, Vector *params, int start_idx) {
     revmat = smalloc(alph_size*sizeof(double*));
     for (i=0; i < alph_size; i++) 
       revmat[i] = smalloc(alph_size*sizeof(double));
-    for (i=0; i < alph_size; i++)
+    for (i=0; i < alph_size; i++)  {
       compi = mod->rate_matrix->inv_states[(int)msa_compl_char(mod->rate_matrix->states[i])];
       for (j=i+1; j < alph_size; j++) {
 	compj = mod->rate_matrix->inv_states[(int)msa_compl_char(mod->rate_matrix->states[j])];
@@ -1577,6 +1577,7 @@ void tm_set_SSREV_CODON_matrix(TreeModel *mod, Vector *params, int start_idx) {
 	  revmat[compj][compi] = revmat[i][j];
 	}
       }
+    }
   }
 
   mat_zero(mod->rate_matrix->matrix);
@@ -1700,7 +1701,7 @@ void tm_init_mat_REV(TreeModel *mod, Vector *params, int parm_idx,
 /* initialize SSREV as if HKY */
 void tm_init_mat_SSREV(TreeModel *mod, Vector *params, int parm_idx, 
 		       double kappa) {
-  int i, j, compi, compj;
+  int i, j, compi=-1, compj;
   int count=0;  //testing
   for (i = 0; i < mod->rate_matrix->size; i++) {
     compi=mod->rate_matrix->inv_states[(int)msa_compl_char(mod->rate_matrix->states[i])];

@@ -89,12 +89,12 @@ SEXP rph_phyloP(SEXP modP,
     for (i=0; i<LENGTH(branchesP); i++)
       lst_push_ptr(p->branch_name, str_new_charstr(CHAR(STRING_ELT(branchesP, i))));
   }
-  if (refidxP != R_NilValue) {
+  if (gffP != R_NilValue && refidxP != R_NilValue) 
+    p->refidx_feat = INTEGER_VALUE(refidxP);
+  else if (refidxP != R_NilValue) {
     p->refidx = INTEGER_VALUE(refidxP);
-    if (p->msa != NULL && (p->refidx < 0 || p->refidx > p->msa->nseqs)) 
-      die("ref.idx should be in >=0 and <= msa$nseqs (%i)", p->msa->nseqs);
+    if (p->refidx == 0) p->chrom = copy_charstr("align");
   }
-  if (p->refidx == 0) p->chrom = copy_charstr("align");
   else if (p->msa != NULL)
     p->chrom = copy_charstr(p->msa->names[p->refidx-1]);
   if (outfileP != R_NilValue) {

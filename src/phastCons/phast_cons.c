@@ -537,7 +537,7 @@ int phastCons(struct phastCons_struct *p) {
 
     if (states == NULL) {  //this only happens if two_state==FALSE
                            //return posterior probabilites for every state
-      double **postprobs = phmm_new_postprobs(phmm), **postprobsNoMissing;
+      double **postprobs = phmm_new_postprobs(phmm), **postprobsNoMissing=NULL;
       int idx=0, j, k, l;
       if (results != NULL) {
 	postprobsNoMissing = smalloc(phmm->hmm->nstates * sizeof(double*));

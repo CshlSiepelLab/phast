@@ -1091,9 +1091,11 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
        category_map.c */
   }
 
-  lst_free(gff->features);
-  gff->features = keepers;
-  if (gff->groups != NULL) gff_ungroup(gff);
+  if (from_seq != to_seq) {
+    lst_free(gff->features);
+    gff->features = keepers;
+    if (gff->groups != NULL) gff_ungroup(gff);
+  }
 
   for (i = 1; i <= msa->nseqs; i++)
     if (maps[i] != NULL) msa_map_free(maps[i]);

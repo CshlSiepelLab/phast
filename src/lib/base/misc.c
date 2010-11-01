@@ -328,7 +328,8 @@ int rphast_fprintf(FILE *f, const char *format, ...) {
     Rvprintf(format, args);
   else if (f == stderr)
     REvprintf(format, args);
-  else vfprintf(f, format, args);
+  else return vfprintf(f, format, args);
+  return 1;
 }
 
 

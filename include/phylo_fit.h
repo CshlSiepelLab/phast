@@ -25,6 +25,7 @@
 #include <stringsplus.h>
 #include <lists.h>
 #include <gff.h>
+#include <list_of_lists.h>
 
 
 struct phyloFit_struct {
@@ -59,15 +60,17 @@ struct phyloFit_struct {
   TreeModel *input_mod;
   FILE *logf;
 
-  //results go in these if not-null
-  List *estimated_models;
-  List *model_labels;
+  //results go here if not-null
+  ListOfLists *results;
 };
 
 
 struct phyloFit_struct* phyloFit_struct_new();
 int run_phyloFit(struct phyloFit_struct *pf);
-
+void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root, 
+                           int do_bases, int do_expected_nsubst, 
+                           int do_expected_nsubst_tot, int cat, int quiet,
+			   ListOfLists *results);
 #define BRANCH_TYPE 0
 #define SUBTREE_TYPE 1
 

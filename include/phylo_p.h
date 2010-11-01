@@ -36,7 +36,7 @@ struct phyloP_struct {
   MSA *msa;
   int prior_only, post_only, quantiles_only;
   int output_wig, output_gff;
-  int nsites, fit_model, base_by_base, default_epsilon, refidx;
+  int nsites, fit_model, base_by_base, default_epsilon, refidx, refidx_feat;
   double ci, epsilon;
   char *subtree_name, *chrom;
   List *branch_name;
