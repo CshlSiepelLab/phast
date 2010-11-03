@@ -35,8 +35,8 @@
 #ifndef LISTS_H
 #define LISTS_H
 
-#include <stdlib.h> 
 #include <string.h>
+#include <stdlib.h> 
 #include <external_libs.h>
 
 /** Basic List object */
@@ -67,6 +67,10 @@ int lst_int_compare_asc(const void* ptr1, const void* ptr2);
 int lst_int_compare_desc(const void* ptr1, const void* ptr2);
 int lst_dbl_compare_asc(const void* ptr1, const void* ptr2);
 int lst_dbl_compare_desc(const void* ptr1, const void* ptr2);
+
+void *srealloc(void *ptr, size_t size);
+
+
 
 static PHAST_INLINE
 void lst_arr_set(List *l, int i, void *o) {
@@ -359,6 +363,7 @@ void lst_set_ptr(List *l, int idx, void *ptr)
 {  lst_set(l, idx, &ptr); }
 
 
+
 /** \} */
 
 /** \name List insert & delete operations. */
@@ -436,7 +441,7 @@ void lst_push(List *l,
 
     else {
       l->CAPACITY *= 2;
-      l->array = (void**)realloc(l->array, l->CAPACITY * l->elementsz);
+      l->array = (void**)srealloc(l->array, l->CAPACITY * l->elementsz);
     }
   }
   lst_arr_set(l, l->ridx++, o);

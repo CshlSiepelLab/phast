@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
     for (j = 0, i = 0; j < cons_mod->tree->nnodes; j++) {
       TreeNode *n = lst_get_ptr(cons_mod->tree->nodes, j);
       if (n->lchild == NULL && n->rchild == NULL)
-        msa->names[i++] = strdup(n->name);
+        msa->names[i++] = copy_charstr(n->name);
     }
 
     /* enumerate all possible columns and put in MSA */

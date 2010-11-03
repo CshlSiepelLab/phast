@@ -12,9 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <msa.h>
-#include <string.h>
 #include <getopt.h>
-#include <string.h>
 #include <ctype.h>
 #include <sufficient_stats.h>
 #include <local_alignment.h>
@@ -832,7 +830,7 @@ int main(int argc, char* argv[]) {
       if (sub_msa->ss->tuple_size < tuple_size)
         die("ERROR: input tuple size must be at least as large as output tuple size.\n");
       if (sub_msa->ss->tuple_idx != NULL && ordered_stats == 0) {
-        free(sub_msa->ss->tuple_idx);
+        sfree(sub_msa->ss->tuple_idx);
         sub_msa->ss->tuple_idx = NULL;
       }
       if (sub_msa->ss->tuple_size > tuple_size)

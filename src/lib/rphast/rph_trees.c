@@ -17,8 +17,6 @@ Last updated: 1/5/2010
 *****************************************************/
 #include <stdlib.h>
 #include <stdio.h>
-#include <msa.h>
-#include <string.h>
 #include <getopt.h>
 #include <ctype.h>
 #include <sufficient_stats.h>
@@ -47,7 +45,7 @@ SEXP rph_tree_read(SEXP filename) {
 
   infile = fopen_fname(CHARACTER_VALUE(filename), "r");
   currStr = smalloc((currLen+2)*sizeof(char));
-  strvec = malloc(numtrees_alloc*sizeof(char*));
+  strvec = smalloc(numtrees_alloc*sizeof(char*));
   while (1) {
     pos=0;
     numparen=0;
@@ -79,20 +77,14 @@ SEXP rph_tree_read(SEXP filename) {
 
       //check to make sure phast can read this tree
       tempTree = tr_new_from_string(strvec[numtrees]);
-      tr_free(tempTree);
-
       numtrees++;
     }
     else break;
   }
   fclose(infile);
   PROTECT(result = NEW_CHARACTER(numtrees));
-  for (i=0; i<numtrees; i++) {
+  for (i=0; i<numtrees; i++) 
     SET_STRING_ELT(result, i, mkChar(strvec[i]));
-    free(strvec[i]);
-  }
-  free(strvec);
-  free(currStr);
   UNPROTECT(1);
   return result;
 }
@@ -104,7 +96,6 @@ SEXP rph_tree_numnodes(SEXP tree) {
   PROTECT(result = NEW_INTEGER(1));
   resultP = INTEGER_POINTER(result);
   resultP[0] = tr->nnodes;
-  tr_free(tr);
   UNPROTECT(1);
   return result;
 }
@@ -122,13 +113,9 @@ SEXP rph_tree_prune(SEXP treeStr, SEXP seqsP, SEXP allButP) {
     lst_push_ptr(names, tempStr);
   }
   tr_prune(&tr, names, INTEGER_VALUE(allButP));
-  lst_free_strings(names);
-  lst_free(names);
   temp = tr_to_string(tr, 1);
   PROTECT(result = NEW_CHARACTER(1));
   SET_STRING_ELT(result, 0, mkChar(temp));
-  free(temp);
-  tr_free(tr);
   UNPROTECT(1);
   return result;
 }
@@ -142,8 +129,6 @@ SEXP rph_tree_name_ancestors(SEXP treeStr) {
   newTreeStr = tr_to_string(tr, 1);
   PROTECT(result = NEW_CHARACTER(1));
   SET_STRING_ELT(result, 0, mkChar(newTreeStr));
-  free(newTreeStr);
-  tr_free(tr);
   UNPROTECT(1);
   return result;
 }
@@ -166,8 +151,6 @@ SEXP rph_tree_subtree(SEXP treeStr, SEXP nodeStr) {
   newTreeStr = tr_to_string(tr, 1);
   PROTECT(result = NEW_CHARACTER(1));
   SET_STRING_ELT(result, 0, mkChar(newTreeStr));
-  free(newTreeStr);
-  tr_free(tr);
   UNPROTECT(1);
   return result;
 }
@@ -190,8 +173,6 @@ SEXP rph_tree_supertree(SEXP treeStr, SEXP nodeStr) {
   newTreeStr = tr_to_string(tr, 1);
   PROTECT(result = NEW_CHARACTER(1));
   SET_STRING_ELT(result, 0, mkChar(newTreeStr));
-  free(newTreeStr);
-  tr_free(tr);
   UNPROTECT(1);
   return result;
 }
@@ -221,8 +202,6 @@ SEXP rph_tree_scale(SEXP treeStr, SEXP scaleP, SEXP nodeStr,
   newTreeStr = tr_to_string(tr, 1);
   PROTECT(result = NEW_CHARACTER(1));
   SET_STRING_ELT(result, 0, mkChar(newTreeStr));
-  free(newTreeStr);
-  tr_free(tr);
   UNPROTECT(1);
   return result;    
 }
@@ -253,10 +232,7 @@ SEXP rph_tree_rename(SEXP treeVec, SEXP oldNamesP, SEXP newNamesP) {
     }
     str = tr_to_string(tr, 1);
     SET_STRING_ELT(result, treeIdx, mkChar(str));
-    free(str);
-    tr_free(tr);
   }
-  hsh_free_with_vals(hash);
   UNPROTECT(1);
   return result;
 }
@@ -274,7 +250,6 @@ SEXP rph_tree_nodeName(SEXP treeP, SEXP idP) {
   if (id != n->id) die("id-mixup in tree");
   PROTECT(result = NEW_CHARACTER(1));
   SET_STRING_ELT(result, 0, mkChar(n->name));
-  tr_free(tr);
   UNPROTECT(1);
   return result;
 }
@@ -293,7 +268,6 @@ SEXP rph_tree_isNode(SEXP treeP, SEXP nodeName) {
   PROTECT(result = NEW_LOGICAL(1));
   resultP = LOGICAL_POINTER(result);
   resultP[0] = (i < tr->nnodes);
-  tr_free(tr);
   UNPROTECT(1);
   return result;
 }
@@ -305,7 +279,6 @@ SEXP rph_tree_branchlen(SEXP treeP) {
 
   PROTECT(rv = NEW_NUMERIC(1));
   REAL(rv)[0] = tr_total_len(tr);
-  tr_free(tr);
   UNPROTECT(1);
   return rv;
 }
@@ -316,13 +289,10 @@ SEXP rph_tree_depth(SEXP treeP, SEXP nodeP) {
   SEXP rv;
   
   node = tr_get_node(tr, CHARACTER_VALUE(nodeP));
-  if (node == NULL) {
-    tr_free(tr);
+  if (node == NULL) 
     die("no node named %s", CHARACTER_VALUE(nodeP));
-  }
   PROTECT(rv = NEW_NUMERIC(1));
   REAL(rv)[0] = tr_distance_to_root(node);
-  tr_free(tr);
   UNPROTECT(1);
   return rv;
 }
@@ -333,7 +303,7 @@ SEXP rph_tree_label_branches(SEXP treeP, SEXP nodep, SEXP labelP) {
   SEXP result;
   char *label;
 
-  label = strdup(CHARACTER_VALUE(labelP));
+  label = copy_charstr(CHARACTER_VALUE(labelP));
   PROTECT(result = NEW_CHARACTER(numtree));
   for (i=0; i < numtree; i++) {
     tr = rph_tree_new(STRING_ELT(treeP, i));
@@ -341,7 +311,6 @@ SEXP rph_tree_label_branches(SEXP treeP, SEXP nodep, SEXP labelP) {
       tr_label_node(tr, CHARACTER_VALUE(STRING_ELT(nodep, j)), label);
     SET_STRING_ELT(result, i, mkChar(tr_to_string(tr, 1)));
   }
-  free(label);
   UNPROTECT(1);
   return result;
 }
@@ -353,8 +322,8 @@ SEXP rph_tree_label_subtree(SEXP treeP, SEXP nodeP,
   TreeNode *tr;
   SEXP result;
   char *node, *label;
-  label = strdup(CHARACTER_VALUE(labelP));
-  node = strdup(CHARACTER_VALUE(nodeP));
+  label = copy_charstr(CHARACTER_VALUE(labelP));
+  node = copy_charstr(CHARACTER_VALUE(nodeP));
   include_leading_branch = LOGICAL_VALUE(includeLeadingBranchP);
   PROTECT(result = NEW_CHARACTER(numtree));
   for (i=0; i < numtree; i++) {
@@ -362,8 +331,6 @@ SEXP rph_tree_label_subtree(SEXP treeP, SEXP nodeP,
     tr_label_subtree(tr, node, include_leading_branch, label);
     SET_STRING_ELT(result, i, mkChar(tr_to_string(tr, 1)));
   }
-  free(label);
-  free(node);
   UNPROTECT(1);
   return result;
 }
@@ -380,7 +347,6 @@ SEXP rph_tree_summary_nodenames(SEXP treeP) {
       SET_STRING_ELT(result, i, NA_STRING);
     else SET_STRING_ELT(result, i, mkChar(node->name));
   }
-  tr_free(tr);
   UNPROTECT(1);
   return result;
 }
@@ -397,7 +363,6 @@ SEXP rph_tree_summary_len(SEXP treeP) {
     if (node->parent == NULL) d[i] = -1;
     else d[i] = node->dparent;
   }
-  tr_free(tr);
   UNPROTECT(1);
   return result;
 }
@@ -413,7 +378,6 @@ SEXP rph_tree_summary_depth(SEXP treeP) {
     node = (TreeNode*)lst_get_ptr(nodes, i);
     d[i] = tr_distance_to_root(node);
   }
-  tr_free(tr);
   UNPROTECT(1);
   return result;
 }
@@ -441,8 +405,6 @@ SEXP rph_tree_summary_parent(SEXP treeP) {
       parent[idmap[node->id]] = -1;
     else parent[idmap[node->id]] = idmap[node->parent->id] + 1;
   }
-  free(idmap);
-  tr_free(tr);
   UNPROTECT(1);
   return result;
 }
@@ -470,8 +432,6 @@ SEXP rph_tree_summary_lchild(SEXP treeP) {
       lchild[idmap[node->id]] = -1;
     else lchild[idmap[node->id]] = idmap[node->lchild->id] + 1;
   }
-  free(idmap);
-  tr_free(tr);
   UNPROTECT(1);
   return result;
 }
@@ -499,8 +459,6 @@ SEXP rph_tree_summary_rchild(SEXP treeP) {
       rchild[idmap[node->id]] = -1;
     else rchild[idmap[node->id]] = idmap[node->rchild->id] + 1;
   }
-  free(idmap);
-  tr_free(tr);
   UNPROTECT(1);
   return result;
 }

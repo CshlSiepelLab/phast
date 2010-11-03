@@ -30,16 +30,16 @@ void print_quantiles(FILE *outfile, Vector *distrib, ListOfLists *result) {
       fprintf(outfile, "%.2f\t%d\n", 1.0*i/100, quantiles[i]);
   }
   if (result != NULL) {
-    double *tmpd = malloc(101*sizeof(double));
+    double *tmpd = smalloc(101*sizeof(double));
     ListOfLists *group = lol_new(2);
     for (i=0; i<=100; i++) tmpd[i]=1.0*i/100;
     lol_push_dbl(group, tmpd, 101, "quantile");
-    free(tmpd);
+    sfree(tmpd);
     lol_push_int(group, quantiles, 101, "nsub");
     lol_set_class(group, "data.frame");
     lol_push_lol(result, group, "nsub.quantile");
   }
-  free(quantiles);
+  sfree(quantiles);
 }
 
 void print_prior_only(FILE *outfile, int nsites, char *mod_fname, 
@@ -63,10 +63,10 @@ void print_prior_only(FILE *outfile, int nsites, char *mod_fname,
   }
   if (result != NULL) {
     ListOfLists *group = lol_new(2);
-    int *tmpint = malloc(prior_distrib->size*sizeof(int));
+    int *tmpint = smalloc(prior_distrib->size*sizeof(int));
     for (i=0; i<prior_distrib->size; i++) tmpint[i]=i;
     lol_push_int(group, tmpint, prior_distrib->size, "nsub");
-    free(tmpint);
+    sfree(tmpint);
     lol_push_dbl(group, prior_distrib->data, prior_distrib->size, "prior.distrib");
     lol_set_class(group, "data.frame");
     lol_push_lol(result, group, "prior");
@@ -485,12 +485,12 @@ void print_feats_sph(FILE *outfile, p_value_stats *stats, GFF_Set *feats,
 			"post.mean", post_means, 
                         "post.var", post_vars, "pval", pvals);
   if (result != NULL || !output_gff) {
-    free(post_means);
-    free(post_vars);
-    free(prior_means);
-    free(prior_vars);
+    sfree(post_means);
+    sfree(post_vars);
+    sfree(prior_means);
+    sfree(prior_vars);
   }
-  free(pvals);
+  sfree(pvals);
 }
 
 /* Features output for SPH with subtree */
@@ -570,16 +570,16 @@ void print_feats_sph_subtree(FILE *outfile, p_value_joint_stats *stats,
 			"post.var.sup", post_vars_sup, 
 			"pval", pvals);
   if (!output_gff) {
-    free(post_means_sub);
-    free(post_vars_sub);
-    free(post_means_sup);
-    free(post_vars_sup);
-    free(prior_means_sub);
-    free(prior_vars_sub);
-    free(prior_means_sup);
-    free(prior_vars_sup);
+    sfree(post_means_sub);
+    sfree(post_vars_sub);
+    sfree(post_means_sup);
+    sfree(post_vars_sup);
+    sfree(prior_means_sub);
+    sfree(prior_vars_sub);
+    sfree(prior_means_sup);
+    sfree(prior_vars_sup);
   }
-  free(pvals);
+  sfree(pvals);
 }
 
 
@@ -666,7 +666,7 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
 
   if (result != NULL) {
     int resultLen = ncols + 1 + log_trans_results;
-    resultList = malloc(resultLen*sizeof(List*));
+    resultList = smalloc(resultLen*sizeof(List*));
     resultList[0] = lst_new_int(msa->length);
     for (j=1; j<resultLen; j++) {
       resultList[j] = lst_new_dbl(msa->length);
@@ -681,7 +681,7 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
   }
 
   va_start(ap, ncols);
-  colname = malloc((ncols+1)*sizeof(char*));
+  colname = smalloc((ncols+1)*sizeof(char*));
   for (col = 0; col < ncols; col++) {
     colname[col] = va_arg(ap, char*);
     data[col] = va_arg(ap, double*);
@@ -734,10 +734,10 @@ void print_base_by_base(FILE *outfile, char *header, char *chrom, MSA *msa,
       lol_push(group, resultList[col], colname[col-1], DBL_LIST);
     lol_set_class(group, "data.frame");
     lol_push_lol(result, group, "baseByBase");
-    free(resultList);
+    sfree(resultList);
   }
-  if (get_log) free(data[ncols]);
-  free(colname);
+  if (get_log) sfree(data[ncols]);
+  sfree(colname);
 }
 
 
@@ -768,14 +768,14 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
       fprintf(outfile, "\n");
   }
   if (result != NULL) {
-    resultList = malloc(4*sizeof(List*));
+    resultList = smalloc(4*sizeof(List*));
     resultList[0] = lst_new_ptr(lst_size(gff->features));
     resultList[1] = lst_new_int(lst_size(gff->features));
     resultList[2] = lst_new_int(lst_size(gff->features));
     resultList[3] = lst_new_ptr(lst_size(gff->features));
   }
 
-  colname = malloc((ncols+1)*sizeof(char*));
+  colname = smalloc((ncols+1)*sizeof(char*));
   va_start(ap, ncols);
   for (col = 0; col < ncols; col++) {
     colname[col] = va_arg(ap, char*);
@@ -815,11 +815,11 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
     }
     if (result != NULL) {
       char *tempstr;
-      tempstr = strdup(f->seqname->chars);
+      tempstr = copy_charstr(f->seqname->chars);
       lst_push_ptr(resultList[0], tempstr);
       lst_push_int(resultList[1], f->start-1);
       lst_push_int(resultList[2], f->end);
-      tempstr = strdup(name == NULL ? "." : name->chars);
+      tempstr = copy_charstr(name == NULL ? "." : name->chars);
       lst_push_ptr(resultList[3], tempstr);
     }
     lst_free_strings(l);
@@ -831,7 +831,7 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
     lol_push(group, resultList[1], "start", INT_LIST);
     lol_push(group, resultList[2], "end", INT_LIST);
     lol_push(group, resultList[3], "name", CHAR_LIST);
-    free(resultList);
+    sfree(resultList);
     for (col=0; col < ncols; col++) 
       lol_push_dbl(group, data[col], lst_size(gff->features), 
 			   colname[col]);
@@ -845,8 +845,8 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
   va_end(ap);
   lst_free(l);
   str_re_free(tag_val_re);
-  if (get_log) free(data[ncols]);
-  free(colname);
+  if (get_log) sfree(data[ncols]);
+  sfree(colname);
 }
 
 /* Print GFF to stdout with feature scores defined by vals.  If

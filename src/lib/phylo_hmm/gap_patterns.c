@@ -192,19 +192,19 @@ GapPatternMap *gp_create_gapcats(CategoryMap *cm,
 
 void gp_free_map(GapPatternMap *gpm) {
   int i;
-  free(gpm->gapcat_to_cat);
-  free(gpm->gapcat_to_pattern);
+  sfree(gpm->gapcat_to_cat);
+  sfree(gpm->gapcat_to_pattern);
   for (i = 0; i < gpm->ncats; i++) 
     if (gpm->cat_x_pattern_to_gapcat[i] != NULL)
-      free(gpm->cat_x_pattern_to_gapcat[i]);
-  free(gpm->cat_x_pattern_to_gapcat);
-  free(gpm->node_to_branch);
-  free(gpm->pattern_to_node);
+      sfree(gpm->cat_x_pattern_to_gapcat[i]);
+  sfree(gpm->cat_x_pattern_to_gapcat);
+  sfree(gpm->node_to_branch);
+  sfree(gpm->pattern_to_node);
   if (gpm->pattern != NULL) {
-    for (i = 0; i < gpm->ngap_patterns; i++) free(gpm->pattern[i]);
-    free(gpm->pattern);
+    for (i = 0; i < gpm->ngap_patterns; i++) sfree(gpm->pattern[i]);
+    sfree(gpm->pattern);
   }
-  free(gpm);
+  sfree(gpm);
 }
 
 /* given a multiple alignment and a gap pattern map, fill an array
@@ -383,9 +383,9 @@ void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa) {
   for (i = 0; i < msa->length; i++)
     patterns[i] = tuple_patterns[msa->ss->tuple_idx[i]];
 
-  free(leaf_to_seq);
-  free(gap_code);
-  free(tuple_patterns);
+  sfree(leaf_to_seq);
+  sfree(gap_code);
+  sfree(tuple_patterns);
   str_free(namestr);
 }
 
@@ -442,7 +442,7 @@ void gp_set_patterns(GapPatternMap *gpm, MSA *msa) {
     }      
   }
 
-  free(leaf_to_seq);
+  sfree(leaf_to_seq);
   lst_free(inside);
   lst_free(outside);
 }
@@ -511,7 +511,7 @@ void gp_tuple_matches_pattern(GapPatternMap *gpm, MSA *msa, int pattern,
     }
   }
 
-  free(leaf_to_seq);
+  sfree(leaf_to_seq);
   lst_free(active_seqs);
 }
 

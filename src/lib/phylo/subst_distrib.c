@@ -145,22 +145,22 @@ void sub_free_jump_process(JumpProcess *jp) {
   int i, j;
   for (i = 0; i < jp->R->nrows; i++)
     mat_free(jp->A[i]);
-  free(jp->A);
+  sfree(jp->A);
   for (j = 0; j < jp->R->nrows; j++) {
     for (i = 0; i < jp->R->nrows; i++) 
       mat_free(jp->B[j][i]);
-    free(jp->B[j]);
+    sfree(jp->B[j]);
   }
-  free(jp->B);
+  sfree(jp->B);
   for (i = 0; i < jp->mod->tree->nnodes; i++) {
     if (jp->branch_distrib[i] != NULL)
       for (j = 0; j < jp->R->nrows; j++)
         mat_free(jp->branch_distrib[i][j]);
   }
-  free(jp->branch_distrib);
+  sfree(jp->branch_distrib);
   mat_free(jp->R);
   mat_free(jp->M);
-  free(jp);
+  sfree(jp);
 }
 
 /* recompute conditional distributions for branches (necessary if
@@ -362,8 +362,8 @@ Vector *sub_posterior_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
 
   for (lidx = 0; lidx < jp->mod->tree->nnodes; lidx++)
     mat_free(L[lidx]);
-  free(L);
-  free(maxsubst);
+  sfree(L);
+  sfree(maxsubst);
 
   pv_normalize(retval);
   return retval;
@@ -398,8 +398,8 @@ Vector *sub_posterior_distrib_alignment(JumpProcess *jp, MSA *msa) {
 
   for (tup = 0; tup < msa->ss->ntuples; tup++) 
     vec_free(tup_p[tup]);
-  free(tup_p);
-  free(counts);
+  sfree(tup_p);
+  sfree(counts);
   
   return retval;
 }
@@ -474,12 +474,12 @@ void sub_pval_per_site(JumpProcess *jp, MSA *msa, mode_type mode,
                                    negative signs */
         for (tup = 0; tup < msa->ss->ntuples; tup++)
           if (pvalsacc[tup] < pvalscon[tup]) pvalscon[tup] = -pvalsacc[tup];
-        free(pvalsacc);
+        sfree(pvalsacc);
       }
     }
   }
 
-  if (post_mean == NULL) free(x0);
+  if (post_mean == NULL) sfree(x0);
   vec_free(prior);
   if (fit_model) {
     col_free_fit_data(d);
@@ -599,10 +599,10 @@ void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode,
   }  
 
   if (alloc) {
-    free(msub);
-    free(vsub);
-    free(msup);
-    free(vsup);
+    sfree(msub);
+    sfree(vsub);
+    sfree(msup);
+    sfree(vsup);
   }
   mat_free(prior);
   mat_free(post);
@@ -771,9 +771,9 @@ Matrix *sub_joint_distrib_site(JumpProcess *jp, MSA *msa, int tuple_idx) {
 
   for (lidx = 0; lidx < jp->mod->tree->nnodes; lidx++)
     mat_free(L[lidx]);
-  free(L);
+  sfree(L);
 
-  free(maxsubst);
+  sfree(maxsubst);
 
   pm_normalize(retval);
   return retval;
@@ -816,8 +816,8 @@ Matrix *sub_posterior_joint_distrib_alignment(JumpProcess *jp, MSA *msa) {
 
   for (tup = 0; tup < msa->ss->ntuples; tup++) 
     mat_free(tup_p[tup]);
-  free(tup_p);
-  free(counts);
+  sfree(tup_p);
+  sfree(counts);
 
   return retval;
 }
@@ -970,12 +970,12 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
 
   for (idx = 0; idx <= logmaxlen; idx++)
     vec_free(pow_p[idx]);
-  free(pow_p);
-  free(pows);
+  sfree(pow_p);
+  sfree(pows);
 
-  free(post_mean);
-  free(post_var);
-  free(used);
+  sfree(post_mean);
+  sfree(post_var);
+  sfree(used);
 
   return stats;
 }
@@ -1282,17 +1282,17 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
 
   for (idx = 0; idx <= logmaxlen; idx++)
     mat_free(pow_p[idx]);       /* this will also free prior_site */
-  free(pow_p);
-  free(pows);
+  sfree(pow_p);
+  sfree(pows);
   vec_free(prior_site_marg_left);
   vec_free(prior_site_marg_right);
-  free(post_mean_left);
-  free(post_mean_right);
-  free(post_mean_tot);
-  free(post_var_left);
-  free(post_var_right);
-  free(post_var_tot);
-  free(used);
+  sfree(post_mean_left);
+  sfree(post_mean_right);
+  sfree(post_mean_tot);
+  sfree(post_var_left);
+  sfree(post_var_right);
+  sfree(post_var_tot);
+  sfree(used);
 
   return stats;
 }

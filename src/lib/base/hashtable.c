@@ -17,7 +17,6 @@
 #include <stdlib.h>
 #include <lists.h>
 #include <hashtable.h>
-#include <string.h>
 #include <math.h>
 #include <misc.h>
 
@@ -137,14 +136,14 @@ void hsh_free(Hashtable *ht) {
   for (i = 0; i < ht->nbuckets; i++) {
     if (ht->keys[i] != NULL) {
       for (j = 0; j < lst_size(ht->keys[i]); j++)
-        free(lst_get_ptr(ht->keys[i], j));
+        sfree(lst_get_ptr(ht->keys[i], j));
       lst_free(ht->keys[i]);
       lst_free(ht->vals[i]);      
     }
   }
-  free(ht->keys);
-  free(ht->vals);
-  free(ht);
+  sfree(ht->keys);
+  sfree(ht->vals);
+  sfree(ht);
 }
 
 /* Free all resources; *does* free memory associated with values */
@@ -153,16 +152,16 @@ void hsh_free_with_vals(Hashtable *ht) {
   for (i = 0; i < ht->nbuckets; i++) {
     if (ht->keys[i] != NULL) {
       for (j = 0; j < lst_size(ht->keys[i]); j++)
-        free(lst_get_ptr(ht->keys[i], j));
+        sfree(lst_get_ptr(ht->keys[i], j));
       for (j = 0; j < lst_size(ht->vals[i]); j++)
-        free(lst_get_ptr(ht->vals[i], j));
+        sfree(lst_get_ptr(ht->vals[i], j));
       lst_free(ht->keys[i]);
       lst_free(ht->vals[i]);      
     }
   }
-  free(ht->keys);
-  free(ht->vals);
-  free(ht);
+  sfree(ht->keys);
+  sfree(ht->vals);
+  sfree(ht);
 }
 
 List *hsh_keys(Hashtable *ht) {
@@ -183,9 +182,9 @@ void hsh_clear_with_vals(Hashtable *ht) {
   for (i = 0; i < ht->nbuckets; i++) {
     if (ht->keys[i] != NULL) {
       for (j = 0; j < lst_size(ht->keys[i]); j++)
-        free(lst_get_ptr(ht->keys[i], j));
+        sfree(lst_get_ptr(ht->keys[i], j));
       for (j = 0; j < lst_size(ht->vals[i]); j++)
-        free(lst_get_ptr(ht->vals[i], j));
+        sfree(lst_get_ptr(ht->vals[i], j));
       lst_free(ht->keys[i]);
       lst_free(ht->vals[i]);      
       ht->keys[i] = ht->vals[i] = NULL;
@@ -201,7 +200,7 @@ void hsh_clear(Hashtable *ht) {
   for (i = 0; i < ht->nbuckets; i++) {
     if (ht->keys[i] != NULL) {
       for (j = 0; j < lst_size(ht->keys[i]); j++)
-	free(lst_get_ptr(ht->keys[i], j));
+	sfree(lst_get_ptr(ht->keys[i], j));
       lst_free(ht->keys[i]);
       lst_free(ht->vals[i]);
       ht->keys[i] = ht->vals[i] = NULL;

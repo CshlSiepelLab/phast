@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <string.h>
 #include "lists.h"
 #include "stringsplus.h"
 #include <misc.h>
@@ -41,8 +40,8 @@ List* lst_new(int nelements, int elementsz) {
 }
 
 void lst_free(List* l) {
-  free(l->array);
-  free(l);
+  sfree(l->array);
+  sfree(l);
 }
 
 void lst_cpy(List* dest, List* src) {
@@ -99,7 +98,7 @@ int lst_insert_idx(List *l, int idx, void *o) {
       lastelement = smalloc(l->elementsz);
       memcpy(lastelement, lst_get(l, lst_size(l)-1), l->elementsz);
       lst_push(l, lastelement);
-      free(lastelement);
+      sfree(lastelement);
     }
 
     /* now shift each downstream element right by one */
@@ -196,7 +195,7 @@ void lst_reverse(List *l) {
     lst_set(l, j, lst_get(l, i));
     lst_set(l, i, tmp);
   }
-  free(tmp);
+  sfree(tmp);
 }
 
 /* some simple statistical functions for lists of doubles */

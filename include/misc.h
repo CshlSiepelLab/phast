@@ -18,6 +18,7 @@
 #include <ctype.h>
 #include <lists.h>
 #include <time.h>
+#include <string.h>
 #include <sys/time.h>
 #include <external_libs.h>
 struct hash_table;
@@ -177,7 +178,9 @@ int rphast_fprintf(FILE *f, const char *format, ...);
 #define fprintf rphast_fprintf
 #define checkInterrupt() R_CheckUserInterrupt()
 #define checkInterruptN(i, n) if ((i)%(n) == 0) R_CheckUserInterrupt()
+void sfree(void *ptr);
 #else
+#define sfree free
 void phast_warning(const char *warnfmt, ...);
 void die(const char *warnfmt, ...);
 #define checkInterrupt()

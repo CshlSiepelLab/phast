@@ -17,7 +17,6 @@ Last updated: 1/5/2010
 #include <stdlib.h>
 #include <stdio.h>
 #include <msa.h>
-#include <string.h>
 #include <getopt.h>
 #include <ctype.h>
 #include <misc.h>
@@ -32,111 +31,6 @@ Last updated: 1/5/2010
 
 TreeNode* rph_tree_new(SEXP treeStr);
 subst_mod_type rph_get_subst_mod(SEXP mod);
-
-struct phyloFit_result_struct {
-  List *models;
-  List *labels;
-  //  List *errors;  //should be one per model if not null
-  //...  others to be added
-};
-
-void rph_phyloFit_result_struct_free(struct phyloFit_result_struct *pf) {
-  int i;
-//  printf("rph_phyloFit_result_struct_free\n");
-  if (pf->models != NULL) {
-    for (i=0; i<lst_size(pf->models); i++)
-      tm_free((TreeModel*)lst_get_ptr(pf->models, i));
-    lst_free(pf->models);
-  }
-  if (pf->labels != NULL) {
-    lst_free_strings(pf->labels);
-    lst_free(pf->labels);
-  }
-  // need to add more as more types of results are implemented
-  free(pf);
-
-}
-
-
-void rph_phyloFit_result_free(SEXP pfP) {
-  rph_phyloFit_result_struct_free((struct phyloFit_result_struct*)EXTPTR_PTR(pfP));
-}
-
-
-SEXP rph_phyloFit_result_new_extptr(struct phyloFit_result_struct *pf) {
-  SEXP result;
-  PROTECT(result=R_MakeExternalPtr((void*)pf, R_NilValue, R_NilValue));
-  R_RegisterCFinalizerEx(result, rph_phyloFit_result_free, 1);
-  UNPROTECT(1);
-  return result;
-}
-
-
-
-//return the number of models in the result
-SEXP rph_phyloFit_result_num_models(SEXP pfResultP) {
-  struct phyloFit_result_struct *pfResult;
-  SEXP result;
-  int *integerP;
-  
-  pfResult = (struct phyloFit_result_struct*)EXTPTR_PTR(pfResultP);
-  PROTECT(result = NEW_INTEGER(1));
-  integerP = INTEGER_POINTER(result);
-  if (pfResult->models == NULL)
-    integerP[0] = 0;
-  else integerP[0] = lst_size(pfResult->models);
-  UNPROTECT(1);
-  return result;
-}
-
-
-SEXP rph_phyloFit_result_has_names(SEXP pfResultP) {
-  struct phyloFit_result_struct *pfResult;
-  SEXP result;
-  int *integerP;
-  
-  pfResult = (struct phyloFit_result_struct*)EXTPTR_PTR(pfResultP);
-  PROTECT(result = NEW_LOGICAL(1));
-  integerP = LOGICAL_POINTER(result);
-  integerP[0] = (pfResult->labels != NULL);
-  UNPROTECT(1);
-  return result;
-}
-
-
-SEXP rph_phyloFit_result_get_model(SEXP pfResultP, SEXP whichP) {
-  struct phyloFit_result_struct *pfResult;
-  int which = INTEGER_VALUE(whichP);
-  which--;  //indices are 1-based in R but 0-based in C
-  pfResult = (struct phyloFit_result_struct*)EXTPTR_PTR(pfResultP);
-  if (pfResult->models == NULL ||
-      which >= lst_size(pfResult->models))
-    die("internal error, phyloFit_result_model has no %ith element",
-	which+1);
-  //note: do not register this pointer for cleanup as the
-  //phyloFit_result_struct will be cleaned
-  return R_MakeExternalPtr(lst_get_ptr(pfResult->models, which),
-			   R_NilValue, R_NilValue);
-}
-
-SEXP rph_phyloFit_result_get_name(SEXP pfResultP, SEXP whichP) {
-  struct phyloFit_result_struct *pfResult;
-  int which;
-  SEXP result;
-  String *label;
-  which = INTEGER_VALUE(whichP);
-  which--;
-  pfResult = (struct phyloFit_result_struct*)EXTPTR_PTR(pfResultP);
-  if (pfResult->labels == NULL) return R_NilValue;
-  if (which >= lst_size(pfResult->labels))
-    die("internal error, phyloFit_result_get_name has no %ith element",
-	which+1);
-  label = (String*)lst_get_ptr(pfResult->labels, which);
-  PROTECT(result = NEW_CHARACTER(1));
-  SET_STRING_ELT(result, 0, mkChar(label->chars));
-  UNPROTECT(1);
-  return result;
-}
 
 
 SEXP rph_phyloFit(SEXP msaP, 
@@ -249,7 +143,6 @@ SEXP rph_phyloFit(SEXP msaP,
     if (pos != len-1) die("ERROR parsing noOpt len=%i pos=%i\n", len, pos);
     temp[pos] = '\0';
     pf->nooptstr = str_new_charstr(temp);
-    free(temp);
   }
 
   if (boundP != R_NilValue) {
@@ -275,30 +168,15 @@ SEXP rph_phyloFit(SEXP msaP,
   }
   
   run_phyloFit(pf);
+  rph_msa_protect(pf->msa);
+  if (pf->gff != NULL)
+    rph_gff_protect(pf->gff);
   rv = PROTECT(rph_listOfLists_to_SEXP(pf->results));
   numProtect++;
 
  rph_phyloFit_end:
-  if (pf->tree != NULL)
-    tr_free(pf->tree);
-  if (pf->subtree_name != NULL)
-    free(pf->subtree_name);
-  if (pf->rate_consts != NULL)
-    lst_free(pf->rate_consts);
-  if (pf->alt_mod_str != NULL) {
-    lst_free_strings(pf->alt_mod_str);
-    lst_free(pf->alt_mod_str);
-  }
-  if (pf->nooptstr != NULL)
-    str_free(pf->nooptstr);
-  if (pf->bound_arg != NULL) {
-    lst_free_strings(pf->bound_arg);
-    lst_free(pf->bound_arg);
-  }
   if (pf->logf != NULL && pf->logf != stdout && pf->logf != stderr)
     fclose(pf->logf);
-  lol_free(pf->results);
-  free(pf);
   PutRNGstate();
   if (die_message != NULL) die(die_message);
   if (numProtect > 0) 

@@ -211,7 +211,7 @@ void ff_lrts(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
   }
   
   ff_free_fit_data(d);
-  free(d);  //above function doesn't actually free object
+  sfree(d);  //above function doesn't actually free object
 }
 
 /* Subtree version of LRT */
@@ -569,7 +569,7 @@ void ff_gerp(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
     }
   }
   ff_free_fit_data(d);
-  free(has_data);
+  sfree(has_data);
 }
 
 /* Create object with metadata and scratch memory for fitting scale

@@ -17,7 +17,6 @@ Last updated: 10/27/2010
 *****************************************************/
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include <getopt.h>
 #include <ctype.h>
 #include <Rdefines.h>
@@ -31,17 +30,10 @@ Last updated: 10/27/2010
 #include <list_of_lists.h>
 #include <phylo_hmm.h>
 
-void rph_phylo_hmm_free(SEXP phyloHmmP) {
-  PhyloHmm *phmm = (PhyloHmm*)EXTPTR_PTR(phyloHmmP);
-  return;
-  phmm_free(phmm);
-}
-
 
 SEXP rph_phylo_hmm_new_extptr(PhyloHmm *phmm) {
   SEXP result;
   PROTECT(result=R_MakeExternalPtr((void*)phmm, R_NilValue, R_NilValue));
-  R_RegisterCFinalizerEx(result, rph_phylo_hmm_free, 1);
   UNPROTECT(1);
   return result;
 }

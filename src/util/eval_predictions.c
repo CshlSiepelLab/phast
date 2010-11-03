@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "gff.h"
-#include <string.h>
 #include <getopt.h>
 #include <math.h>
 #include <misc.h>

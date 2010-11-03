@@ -17,8 +17,6 @@ Last updated: 1/13/10
 *****************************************************/
 #include <stdlib.h>
 #include <stdio.h>
-#include <msa.h>
-#include <string.h>
 #include <getopt.h>
 #include <ctype.h>
 #include <sufficient_stats.h>
@@ -46,7 +44,6 @@ void rph_tm_free(SEXP tmP) {
 SEXP rph_tm_new_extptr(TreeModel *tm) {
   SEXP result;
   PROTECT(result=R_MakeExternalPtr((void*)tm, R_NilValue, R_NilValue));
-  R_RegisterCFinalizerEx(result, rph_tm_free, 1);
   UNPROTECT(1);
   return result;
 }
@@ -61,7 +58,6 @@ SEXP rph_tm_tree(SEXP tmP) {
   treeStr = tr_to_string(tm->tree, 1);
   PROTECT(result = NEW_CHARACTER(1));
   SET_STRING_ELT(result, 0, mkChar(treeStr));
-  free(treeStr);
   UNPROTECT(1);
   return result;
 }
@@ -216,7 +212,6 @@ SEXP rph_tm_altmodel_rateMatrix(SEXP tmP, SEXP whichmodP) {
   lol = lol_new(1);
   lol_push_matrix(lol, altmod->rate_matrix->matrix, "rate.matrix");
   PROTECT(result = rph_listOfLists_to_SEXP(lol));
-  lol_free(lol);
   UNPROTECT(1);
   return result;
 }
@@ -231,7 +226,6 @@ SEXP rph_tm_rateMatrix(SEXP tmP) {
   lol = lol_new(1);
   lol_push_matrix(lol, tm->rate_matrix->matrix, "rate.matrix");
   PROTECT(result = rph_listOfLists_to_SEXP(lol));
-  lol_free(lol);
   UNPROTECT(1);
   return result;
 }
@@ -509,10 +503,6 @@ SEXP rph_tm_new(SEXP treeP, SEXP alphabetP, SEXP backgdP, SEXP matrixP,
   if (lnlP != R_NilValue)
     tm->lnL = NUMERIC_VALUE(lnlP);
 
-  //these get copied by tm_new
-  free(alphabet);
-  if (rate_consts != NULL) lst_free(rate_consts);
-
   if (numProtect > 0)
     UNPROTECT(numProtect);
   return rph_tm_new_extptr(tm);
@@ -553,7 +543,6 @@ SEXP rph_tm_add_alt_mod(SEXP tmP, SEXP defStrP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   String *temp = str_new_charstr(CHARACTER_VALUE(defStrP));
   tm_add_alt_mod(tm, temp);
-  str_free(temp);
   return R_NilValue;
 }
 
@@ -673,7 +662,6 @@ SEXP rph_tree_model_set_matrix(SEXP tmP, SEXP paramsP, SEXP scaleP) {
   if (numparam != 0) 
     paramVec = vec_new_from_array(params, numparam);
   tm_set_rate_matrix(tm, paramVec, 0);
-  if (paramVec != NULL) vec_free(paramVec);
   UNPROTECT(1);
   return R_NilValue;  //don't need to return the value since it's the one passed in
 }

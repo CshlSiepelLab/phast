@@ -237,13 +237,13 @@ List* mtf_find(void *data, int multiseq, int motif_size, int nmotifs,
   motifs = tmpl;
 
   for (i = 0; i <= motif_size; i++) vec_free(freqs[i]);
-  free(freqs);
+  sfree(freqs);
 
   if (params != NULL) vec_free(params);
   if (lower_bounds != NULL) vec_free(lower_bounds);
   if (upper_bounds != NULL) vec_free(upper_bounds);
-  free(cons_str);
-  free(alpha);
+  sfree(cons_str);
+  sfree(alpha);
 
   return motifs;
 }
@@ -458,8 +458,8 @@ double mtf_compute_conditional(Vector *params, void *data) {
     tot_logprob += sample_logprob;
   }
 
-  for (i = 1; i <= m->motif_size; i++) free(emissions[i]);
-  free(emissions);
+  for (i = 1; i <= m->motif_size; i++) sfree(emissions[i]);
+  sfree(emissions);
   lst_free(tmplist);
 
   return -tot_logprob;          /* negate because opt_bfgs minimizes */
@@ -591,14 +591,14 @@ void mtf_compute_conditional_grad(Vector *grad, Vector *params,
 
   vec_scale(grad, -1);   /* because function is negated */
 
-  free(param_to_model);
-  free(pos_to_type);
-  free(motif_lprob);
+  sfree(param_to_model);
+  sfree(pos_to_type);
+  sfree(motif_lprob);
   lst_free(tmplist);
-  for (i = 1; i < params->size; i++) free(Dp[i]);
-  free(Dp);
-  for (i = 1; i <= m->motif_size; i++) free(emissions[i]);
-  free(emissions);
+  for (i = 1; i < params->size; i++) sfree(Dp[i]);
+  sfree(Dp);
+  for (i = 1; i <= m->motif_size; i++) sfree(emissions[i]);
+  sfree(emissions);
 }
 
 /* compute "inner derivatives" for a phylogenetic modif model (see
@@ -650,8 +650,8 @@ void mtf_compute_inner_derivs_phy(double **derivs, Motif *m,
   }
 
   msa_free(dummy_msa);
-  free(col_ll);
-  free(col_ll_tweak);
+  sfree(col_ll);
+  sfree(col_ll_tweak);
 }
 
 /* compute "inner derivatives" for a multinomial modif model (see
@@ -856,13 +856,13 @@ double mtf_em(void *models, void *data, int nsamples,
   }
 
   for (i = 0; i <= width; i++) {
-    free(emissions[i]);
-    if (i > 0) free(E[i]);
+    sfree(emissions[i]);
+    if (i > 0) sfree(E[i]);
   }
-  free(emissions);
-  free(E);
-  free(postpY);
-  free(logpY);
+  sfree(emissions);
+  sfree(E);
+  sfree(postpY);
+  sfree(logpY);
   lst_free(tmplst);
 
   return total_logl;
@@ -930,7 +930,7 @@ void mtf_get_common_ntuples(SeqSet *s, List *tuples, int tuple_size,
 
   lst_free(tmplst);
   lst_free(aux_tuples);
-  free(counts);
+  sfree(counts);
 }
 
 /* randomly sample n-tuples from sequence set */
@@ -1099,15 +1099,15 @@ void mtf_winnow_starts(void *data, List *origseqs, int ntochoose,
 /*     else */
 /*       fprintf(stderr, "Discarding %s (%.3f) \n", ((String*)lst_get_ptr(origseqs, i))->chars, score[i]); */
 
-  free(score);
+  sfree(score);
   lst_free(score_lst);
   lst_free(tmplst);
   for (j = 0; j <= motif_size; j++) {
-    if (emissions[j] != NULL) free(emissions[j]);
+    if (emissions[j] != NULL) sfree(emissions[j]);
     vec_free(freqs[j]);
   }
-  free(emissions);
-  free(freqs);
+  sfree(emissions);
+  sfree(freqs);
 }
 
 /* create a new seqset */
@@ -1123,8 +1123,8 @@ SeqSet *mn_new_seqset(int nseqs) {
 /* free a seqset */
 void mn_free_seqset(SeqSet *s) {
   msa_free(s->set);
-  free(s->lens);
-  free(s);
+  sfree(s->lens);
+  sfree(s);
 }
 
 /* create a set of individual (gapless) sequences from a set of
@@ -1159,7 +1159,7 @@ SeqSet *mtf_get_seqset(List *msas, int refseq, int min_allowable_size) {
 
       if (m < min_allowable_size) {
         fprintf(stderr, "WARNING: ignoring sequence '%s'.\n", msa->names[j]);
-        free(retval->set->seqs[k]);
+        sfree(retval->set->seqs[k]);
         continue;
       }
 
@@ -1168,7 +1168,7 @@ SeqSet *mtf_get_seqset(List *msas, int refseq, int min_allowable_size) {
       if (m > retval->set->length) retval->set->length = m;
 
       /* also copy name */
-      retval->set->names[k] = strdup(msa->names[j]);
+      retval->set->names[k] = copy_charstr(msa->names[j]);
       k++;
 
       if (refseq >= 0) break;
@@ -1260,7 +1260,7 @@ void mtf_free(Motif *m) {
   if (m->multiseq && m->ph_mods != NULL) {
     for (i = 0; i <= m->motif_size; i++) 
       tm_free(m->ph_mods[i]);
-    free(m->ph_mods);
+    sfree(m->ph_mods);
   }
   else 
     for (i = 0; i <= m->motif_size; i++) 
@@ -1269,13 +1269,13 @@ void mtf_free(Motif *m) {
     int nobs = lst_size(((PooledMSA*)m->training_data)->source_msas);
     for (i  = 0; i < nobs; i++)
       msa_map_free(m->coord_maps[i]);
-    free(m->coord_maps);
+    sfree(m->coord_maps);
   }
-  free(m->freqs);
-  free(m->postprob);
-  free(m->bestposition);
-  free(m->samplescore);
-  free(m);
+  sfree(m->freqs);
+  sfree(m->postprob);
+  sfree(m->bestposition);
+  sfree(m->samplescore);
+  sfree(m);
 }
 
 /* derive a consensus sequence from a motif (majority each position)
@@ -1339,7 +1339,7 @@ void mtf_print(FILE *F, Motif *m) {
   cons[m->motif_size] = '\0';
   mtf_get_consensus(m, cons);
   fprintf(F, "Consensus: %s\nscore: %.3f\n\n", cons, m->score);
-  free(cons);
+  sfree(cons);
 
   /* position-specific estimates */
   fprintf(F, "Motif summary:\n\n%6s", "pos.");
@@ -1478,7 +1478,7 @@ void mtf_print_html(FILE *F, Motif *m) {
 <h1>Motif details</h1>\n");
 
   fprintf(F, "Consensus: %s<br>\nscore: %.3f<br>\n\n", cons, m->score);
-  free(cons);
+  sfree(cons);
 
   /* position-specific estimates */
   fprintf(F, "<br>Position-specific distributions:<br><br>\n\n");
@@ -1668,7 +1668,7 @@ void mtf_print_html(FILE *F, Motif *m) {
   lst_free(notfound);
   for (i = 0; i < nobs; i++)
     if (posfeat[i] != NULL) gff_free_feature(posfeat[i]);
-  free(posfeat); free(motstart); free(motend);
+  sfree(posfeat); sfree(motstart); sfree(motend);
 }
 
 void mtf_print_summary_html(FILE *F, List *motifs, String *prefix) {
@@ -1752,8 +1752,8 @@ void mtf_predict(Motif *m, void *data, int *bestposition, double *score,
   }
 
   for (i = 1; i <= m->motif_size; i++)
-    free(emissions[i]);
-  free(emissions);
+    sfree(emissions[i]);
+  sfree(emissions);
 }
 
 /* add a feature to a gff for each predicted instance of a motif in
@@ -1984,11 +1984,11 @@ void mtf_add_features(Motif *m, GFF_Set *gff) {
 /*     tm_free(tmpmodels[i]); */
 /*     vec_free(mult[i]); */
 /*   } */
-/*   free(tmpmodels); */
-/*   free(mult); */
-/*   free(tmpbestposition); */
-/*   free(tmppostprob); */
-/*   free(msa_lens); */
+/*   sfree(tmpmodels); */
+/*   sfree(mult); */
+/*   sfree(tmpbestposition); */
+/*   sfree(tmppostprob); */
+/*   sfree(msa_lens); */
 /*   if (tmpl != NULL) lst_free(tmpl); */
 /*   ss_free_pooled_msa(pmsa); */
 /*   return models; */

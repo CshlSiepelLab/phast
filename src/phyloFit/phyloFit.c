@@ -22,7 +22,6 @@
 #include <tree_model.h>
 #include <fit_em.h>
 #include <subst_mods.h>
-#include <string.h>
 #include <local_alignment.h>
 #include <ctype.h>
 #include <tree_likelihoods.h>
@@ -348,7 +347,7 @@ int main(int argc, char *argv[]) {
   if (pf->logf != NULL && pf->logf != stderr && pf->logf != stdout)
     fclose(pf->logf);
   if (!pf->quiet) fprintf(stderr, "Done.\n");
-  free(pf);
+  sfree(pf);
   
   return 0;
 }

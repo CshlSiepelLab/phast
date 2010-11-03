@@ -12,7 +12,6 @@
 /* functions for manipulating continuous and discrete Markov matrices */
 
 #include <stdio.h>
-#include <string.h>
 #include <ctype.h>
 #include <math.h>
 #include <matrix.h>
@@ -95,9 +94,9 @@ void mm_free(MarkovMatrix *M) {
   if (M->matrix != NULL)
     mat_free(M->matrix);
   if (M->states != NULL)
-    free(M->states);
+    sfree(M->states);
   mm_free_eigen(M);
-  free(M);
+  sfree(M);
 }
 
 /* free eigenvector and eigenvalue matrices/vectors, if allocated */
@@ -190,7 +189,7 @@ MarkovMatrix *mm_new_from_file(FILE *F, mm_type type) {
   states[sz] = '\0';
 
   M = mm_new(sz, states, type);
-  free(states);
+  sfree(states);
 
   /* read matrix, according to dimension of labels */
   M->matrix = mat_new_from_file(F, sz, sz);
@@ -292,8 +291,10 @@ void mm_exp_complex(MarkovMatrix *P, MarkovMatrix *Q, double t) {
 
   /* Diagonalization failed: use taylor expansion instead */
   if (Q->evec_matrix_z == NULL || Q->evals_z == NULL ||
-      Q->evec_matrix_inv_z == NULL) 
-    return mm_exp_taylor(P, Q, t);
+      Q->evec_matrix_inv_z == NULL) {
+    mm_exp_taylor(P, Q, t);
+    return;
+  }
     
   /* Compute P(t) = S exp(Dt) S^-1.  Start by computing exp(Dt) S^-1 */
   for (i = 0; i < n; i++) {
@@ -338,8 +339,10 @@ void mm_exp_real(MarkovMatrix *P, MarkovMatrix *Q, double t) {
     mm_diagonalize(Q);
 
   if (Q->evec_matrix_r == NULL || Q->evals_r == NULL ||
-      Q->evec_matrix_inv_r == NULL) 
-    return mm_exp_taylor(P, Q, t);
+      Q->evec_matrix_inv_r == NULL) {
+    mm_exp_taylor(P, Q, t);
+    return;
+  }
 
   /* Compute P(t) = S exp(Dt) S^-1 */
   for (i = 0; i < n; i++) 

@@ -19,7 +19,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <ctype.h>
 #include "stacks.h"
 #include "trees.h"
@@ -103,7 +102,7 @@ TreeNode *tr_new_from_string(const char *treestr) {
       }
       else {
 	str_double_trim(labelstr);
-	node->label = strdup(labelstr->chars);
+	node->label = copy_charstr(labelstr->chars);
 	in_label = FALSE;
       }
     }
@@ -339,8 +338,8 @@ void tr_free(TreeNode *tree) {
     if (n->preorder != NULL) lst_free(n->preorder);
     if (n->inorder != NULL) lst_free(n->inorder);
     if (n->postorder != NULL) lst_free(n->postorder);
-    if (n->label != NULL) free(n->label);
-    free(n);
+    if (n->label != NULL) sfree(n->label);
+    sfree(n);
   }
   stk_free(stack);
 }
@@ -446,7 +445,7 @@ void tr_node_cpy(TreeNode *dest, TreeNode *src) {
   dest->id = src->id;
   strcpy(dest->name, src->name); 
   dest->dparent = src->dparent;
-  if (src->label != NULL) dest->label = strdup(src->label);
+  if (src->label != NULL) dest->label = copy_charstr(src->label);
   /* don't copy data, nnodes, height, preorder, inorder, postorder */
 }
 
@@ -513,9 +512,9 @@ void tr_print_ordered(FILE* f, TreeNode *root, int show_branch_lengths) {
   fprintf(f, ";\n");
   
   stk_free(stack);
-  free(left_right);
-  free(mark);
-  free(names);
+  sfree(left_right);
+  sfree(mark);
+  sfree(names);
 }
 
 /* Recursive subroutine for tr_print_ordered */
@@ -608,7 +607,7 @@ List *tr_inorder(TreeNode *tr) {
       }
     }
     stk_free(stack);
-    free(mark);
+    sfree(mark);
   }
 
   return tr->inorder;
@@ -644,7 +643,7 @@ List *tr_postorder(TreeNode *tr) {
       }
     }
     stk_free(stack);
-    free(mark);
+    sfree(mark);
   }
   
   return tr->postorder;
@@ -700,7 +699,7 @@ void tr_layout_xy(TreeNode *tree,
     }
     scale = (horizontal == 1 ? abs(delt_x)/total_height[tree->id] :
              abs(delt_y)/total_height[tree->id]);
-    free(total_height);
+    sfree(total_height);
   }
 
   /* set x coords (or y's if horizontal) by spacing evenly in an
@@ -873,8 +872,8 @@ basefont setfont\n");
   }
   fprintf(F, "showpage\n");     /* complete PS file */
 
-  free(x);
-  free(y);
+  sfree(x);
+  sfree(y);
 }
 
 /** Compute and return sum of lengths at all edges */
@@ -1021,7 +1020,7 @@ void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
           if (n == n->parent->lchild) n->parent->lchild = NULL;
           else n->parent->rchild = NULL;
         }
-        free(n);
+        sfree(n);
         new_nnodes--;
       }
     }
@@ -1040,7 +1039,7 @@ void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
         if (n == n->parent->lchild) n->parent->lchild = n->rchild;
         else n->parent->rchild = n->rchild;
       }
-      free(n);
+      sfree(n);
       new_nnodes--;
     }
     else if (n->rchild == NULL) { /* missing right child only */
@@ -1058,7 +1057,7 @@ void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
         if (n == n->parent->lchild) n->parent->lchild = n->lchild;
         else n->parent->rchild = n->lchild;
       }
-      free(n);
+      sfree(n);
       new_nnodes--;
     }
   }
@@ -1085,7 +1084,7 @@ void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
     lst_push_ptr(names, lst_get_ptr(pruned_leaves, i));
 
   lst_free(pruned_leaves);
-  free(is_leaf);
+  sfree(is_leaf);
 }
 
 void tr_prune_supertree(TreeNode **t, TreeNode *node) {
@@ -1104,7 +1103,7 @@ void tr_prune_supertree(TreeNode **t, TreeNode *node) {
   tr_prune(t, prune_names, FALSE);
   lst_free_strings(prune_names);
   lst_free(prune_names);
-  free(inSub);
+  sfree(inSub);
 }
 
 void tr_prune_subtree(TreeNode **t, TreeNode *node) {
@@ -1159,7 +1158,7 @@ TreeNode *tr_lca(TreeNode *tree, List *names) {
   for (n = lst_get_ptr(tree->nodes, max); n->id > min; n = n->parent);
 
   str_free(tmpstr);
-  free(found);
+  sfree(found);
   return n;
 }
 
@@ -1289,7 +1288,7 @@ void tr_partition_leaves(TreeNode *tree, TreeNode *sub, List *inside,
       lst_push_ptr(outside, n);
   }
   stk_free(stack);
-  free(mark);
+  sfree(mark);
 }
 
 /** Similar to above, but partition all nodes; if either 'inside' or
@@ -1322,7 +1321,7 @@ void tr_partition_nodes(TreeNode *tree, TreeNode *sub, List *inside,
     }
   }
   stk_free(stack);
-  free(mark);
+  sfree(mark);
 }
 
 /** Return a list of the leaf names in a given tree */
@@ -1366,7 +1365,7 @@ void tr_name_ancestors(TreeNode *tree) {
       repname[n->id] = repname[n->lchild->id];
     }
   }
-  free(repname);
+  sfree(repname);
 }
 
 /** Print verbose description of each node */
@@ -1559,8 +1558,8 @@ int* tr_in_subtree(TreeNode *t, TreeNode *sub) {
 
 
 void tr_label(TreeNode *t, const char *label) {
-  if (t->label != NULL) free(t->label);
-  t->label = strdup(label);
+  if (t->label != NULL) sfree(t->label);
+  t->label = copy_charstr(label);
 }
 
 void tr_label_node(TreeNode *tree, const char *nodename,

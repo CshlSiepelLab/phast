@@ -26,8 +26,8 @@ Zvector *zvec_new(int size) {
 }
 
 void zvec_free(Zvector *v) {
-  free(v->data);
-  free(v);
+  sfree(v->data);
+  sfree(v);
 }
 
 void zvec_set_all(Zvector *v, Complex val) {

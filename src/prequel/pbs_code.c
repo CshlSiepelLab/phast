@@ -76,12 +76,12 @@ void pbs_free(PbsCode *code) {
   int i;
   for (i = 0; i < code->sg->nregs; i++)
     lst_free(code->codes_by_region[i]);
-  free(code->codes_by_region);
+  sfree(code->codes_by_region);
   sxg_free_grid(code->sg);
   for (i = 0; i < code->code_size; i++)
     vec_free(code->rp[i]);
-  free(code->rp);
-  free(code);
+  sfree(code->rp);
+  sfree(code);
 }
 
 PbsCode *pbs_new_from_file(FILE *F) {
@@ -342,7 +342,7 @@ double pbs_optimize_region(PbsCodeTrainingData *td, int region_idx,
 	best_error = error;
       }
     }
-    free(index);
+    sfree(index);
   }
   else {
     for (trial = 0; trial < 10; trial++) {
@@ -372,7 +372,7 @@ double pbs_optimize_region(PbsCodeTrainingData *td, int region_idx,
     fprintf(log_f, "After k-means: %f\n", best_error);
 
   for (i = 0; i < ncodes; i++) vec_free(best_rp[i]);
-  free(best_rp);
+  sfree(best_rp);
   vec_free(freqs);
 
   return best_error;
@@ -433,13 +433,13 @@ void pbs_free_training_data(PbsCodeTrainingData *td) {
     lst_free(td->vectors_by_code[i]);
     lst_free(td->counts_by_code[i]);
   }
-  free(td->vectors_by_region);
-  free(td->counts_by_region);
-  free(td->vectors_by_code);
-  free(td->counts_by_code);
-  free(td->error_by_region);
-  free(td->error_by_code);
-  free(td);
+  sfree(td->vectors_by_region);
+  sfree(td->counts_by_region);
+  sfree(td->vectors_by_code);
+  sfree(td->counts_by_code);
+  sfree(td->error_by_region);
+  sfree(td->error_by_code);
+  sfree(td);
 }
 
 /* returns average training error */

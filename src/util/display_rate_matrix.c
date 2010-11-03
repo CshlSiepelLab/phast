@@ -494,7 +494,7 @@ int main(int argc, char* argv[]) {
           rho_s += mm_get(model->rate_matrix, i, j) * 
             vec_get(model->backgd_freqs, i);
 
-    free(codon_to_aa);
+    sfree(codon_to_aa);
 
     tm_free(model);
     model = aa_model;

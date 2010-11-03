@@ -579,15 +579,15 @@ void cm_free(CategoryMap *cm) {
       lst_free(cm->conditioned_on[i]);
     i += len;
   }
-  free(cm->ranges);
-  free(cm->conditioned_on);
-  free(cm->labelling_precedence);
-  free(cm->fill_precedence);
+  sfree(cm->ranges);
+  sfree(cm->conditioned_on);
+  sfree(cm->labelling_precedence);
+  sfree(cm->fill_precedence);
 
   if (cm->unspooler != NULL)
     cm_free_unspooler(cm->unspooler);
 
-  free(cm);
+  sfree(cm);
   return;
 }
 
@@ -619,7 +619,7 @@ void cm_free_category_range(CategoryRange *cr) {
     if (s != NULL) str_free(s);
   }
   lst_free(cr->feature_types);
-  free(cr);
+  sfree(cr);
 }
 
 /** Add new feature to CategoryMap.  Assumes a feature of the
@@ -864,7 +864,7 @@ Unspooler *cm_create_unspooler(int nstates_spooled, List **conditioned_on) {
     }
   }
   stk_free(s);
-  free(mark);
+  sfree(mark);
   return unsp;
 }
 
@@ -878,7 +878,7 @@ UnspoolNode *cm_new_unspool_node(int oldstate) {
 
 void cm_free_unspool_node(UnspoolNode *n) {
   lst_free(n->children);
-  free(n);
+  sfree(n);
 }
 
 void cm_free_unspooler(Unspooler *unsp) {
@@ -895,10 +895,10 @@ void cm_free_unspooler(Unspooler *unsp) {
     cm_free_unspool_node(n);
   }
 
-  free(unsp->spooled_to_unspooled);
-  free(unsp->unspooled_to_spooled);
+  sfree(unsp->spooled_to_unspooled);
+  sfree(unsp->unspooled_to_spooled);
   stk_free(s);
-  free(unsp);
+  sfree(unsp);
 }
 
 /* last item in predecessors is assumed to be the most recently visited */

@@ -62,7 +62,7 @@ void im_free_branch(BranchIndelModel *bim) {
   mat_free(bim->log_probs);
   vec_free(bim->beg_probs);
   vec_free(bim->beg_log_probs);
-  free(bim);
+  sfree(bim);
 }
 
 void im_free(IndelModel *im) {
@@ -70,8 +70,8 @@ void im_free(IndelModel *im) {
   for (i = 0; i < im->tree->nnodes; i++)
     if (im->branch_mods[i] != NULL)
       im_free_branch(im->branch_mods[i]);
-  free(im->branch_mods);
-  free(im);
+  sfree(im->branch_mods);
+  sfree(im);
 }
 
 void im_set_branch(BranchIndelModel *bim, double alpha, 
@@ -216,7 +216,7 @@ double im_column_logl(IndelHistory *ih, IndelModel *im, double *col_logl) {
                                   branch_col_logl);
     for (j = 0; j < ih->ncols; j++) col_logl[j] += branch_col_logl[j];
   }
-  free(branch_col_logl);
+  sfree(branch_col_logl);
 
   /* NOTE: it looks like we're combining joint probabilities over
      indel strings here, when we should be using conditional
@@ -309,11 +309,11 @@ void im_free_suff_stats(IndelSuffStats *iss) {
     if (iss->branch_counts[i] != NULL) {
       mat_free(iss->branch_counts[i]->trans_counts);
       vec_free(iss->branch_counts[i]->beg_counts);
-      free(iss->branch_counts[i]);
+      sfree(iss->branch_counts[i]);
     }
   }
-  free(iss->branch_counts);
-  free(iss);
+  sfree(iss->branch_counts);
+  sfree(iss);
 }
 
 /* double im_simulate_history(IndelModel *tim, int ncols) { */
@@ -415,7 +415,7 @@ void im_estimate(IndelModel *im, IndelHistory *ih, IndelSuffStats *ss,
   vec_free(params);
   vec_free(lb);
   im_free_suff_stats(d->ss);
-  free(d);
+  sfree(d);
 }
 
 /* collect sufficient stats for a branch, considering only sites in

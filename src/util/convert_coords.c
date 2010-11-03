@@ -13,7 +13,6 @@
 #include <stdio.h>
 #include <msa.h>
 #include <gff.h>
-#include <string.h>
 #include <getopt.h>
 #include <local_alignment.h>
 

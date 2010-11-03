@@ -17,7 +17,6 @@ Last updated: 4/21/2010
 #include <stdlib.h>
 #include <stdio.h>
 #include <msa.h>
-#include <string.h>
 #include <getopt.h>
 #include <ctype.h>
 #include <misc.h>
@@ -26,6 +25,7 @@ Last updated: 4/21/2010
 #include <trees.h>
 #include <phast_cons.h>
 #include <hmm.h>
+#include <rph_util.h>
 #include <Rdefines.h>
 #include <R_ext/Random.h>
 
@@ -149,22 +149,13 @@ SEXP rph_phastCons(SEXP msaP,
     p->cm = cm_new_string_or_file(CHARACTER_VALUE(categoryMapP));
 
   phastCons(p);
+  rph_msa_protect(p->msa);
 
-  //free anything allocated?
-  if (p->pivot_states != NULL) {
-    lst_free_strings(p->pivot_states);
-    lst_free(p->pivot_states);
-  }
-  if (statesP != R_NilValue)
-    lst_free(p->states);
-  //close outfiles
   if (p->results != NULL) {
     PROTECT(rv = rph_listOfLists_to_SEXP(p->results));
     numprotect++;
-    lol_free(p->results);
   } else rv=R_NilValue;
   
-  free(p);
   PutRNGstate();
   if (numprotect > 0) UNPROTECT(numprotect);
   return rv;

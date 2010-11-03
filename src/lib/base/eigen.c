@@ -147,6 +147,7 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
 	    fabs(z2.y > EQ_THRESHOLD) ||
 	    fabs(z2.x - (i==j)) > EQ_THRESHOLD) {
 	  return 1;
+	  return 1;
           die("ERROR: diagonalization failed (got %e + %ei, expected %e).\n", 
 		  z.x, z.y, mat_get(M, i, j));
 	}

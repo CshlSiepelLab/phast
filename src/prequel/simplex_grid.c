@@ -50,10 +50,10 @@ SimplexRegion *sxg_new_region(int dim, int nrows, int *coord) {
 }
 
 void sxg_free_region(SimplexRegion *sr) {
-  free(sr->lb);
-  free(sr->ub);
+  sfree(sr->lb);
+  sfree(sr->ub);
   vec_free(sr->centroid);
-  free(sr);
+  sfree(sr);
 }
 
 /* create and return a SimplexGrid for a simplex of the given
@@ -100,9 +100,9 @@ void sxg_free_grid(SimplexGrid *g) {
   int i;
   for (i = 0; i < g->nregs; i++)
     sxg_free_region(g->sr[i]);
-  free(g->sr_d);
-  free(g->sr);
-  free(g);
+  sfree(g->sr_d);
+  sfree(g->sr);
+  sfree(g);
 }
 
 /* return SimplexRegion containing given point */

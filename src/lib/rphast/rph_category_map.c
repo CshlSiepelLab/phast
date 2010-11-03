@@ -18,7 +18,6 @@ Last updated: 1/5/2010
 #include <stdlib.h>
 #include <stdio.h>
 #include <msa.h>
-#include <string.h>
 #include <getopt.h>
 #include <ctype.h>
 #include <misc.h>
@@ -37,7 +36,6 @@ void rph_cm_free(SEXP cmP) {
 SEXP rph_cm_new_extptr(CategoryMap *cm) {
   SEXP result;
   PROTECT(result=R_MakeExternalPtr((void*)cm, R_NilValue, R_NilValue));
-  R_RegisterCFinalizerEx(result, rph_cm_free, 1);
   UNPROTECT(1);
   return result;
 }

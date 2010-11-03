@@ -186,7 +186,7 @@ int *get_cats(IndelHistory *ih, GFF_Set *feats, CategoryMap *cm,
   dummy_msa->categories = NULL;
   dummy_msa->seqs = NULL;
   msa_free(dummy_msa);
-  free(seq);
+  sfree(seq);
 
   return retval;
 }

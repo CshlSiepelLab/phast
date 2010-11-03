@@ -295,9 +295,9 @@ void do_p_values(BDPhyloHmm *bdphmm, GFF_Set *predictions,
     }
 
     if (event_type == CONS)
-      free(stats_cons);
+      sfree(stats_cons);
     else
-      free(stats_bd);
+      sfree(stats_bd);
 
     lst_free(feats_this_type);
   }

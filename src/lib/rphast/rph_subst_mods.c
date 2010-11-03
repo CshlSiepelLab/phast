@@ -17,8 +17,6 @@ Last updated: 1/13/10
 *****************************************************/
 #include <stdlib.h>
 #include <stdio.h>
-#include <msa.h>
-#include <string.h>
 #include <getopt.h>
 #include <ctype.h>
 #include <sufficient_stats.h>
@@ -65,3 +63,4 @@ SEXP rph_subst_mods_list_all(SEXP nilvalue) {
   return result;
 }
   
+

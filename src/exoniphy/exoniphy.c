@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <string.h>
 #include <phylo_hmm.h>
 #include <gff.h>
 #include <category_map.h>
@@ -244,8 +243,8 @@ int main(int argc, char* argv[]) {
   if (alias_hash != NULL) {
     for (i = 0; i < msa->nseqs; i++) {
       if ((newname = hsh_get(alias_hash, msa->names[i])) != (char*)-1) {
-        free(msa->names[i]);
-        msa->names[i] = strdup(newname);
+        sfree(msa->names[i]);
+        msa->names[i] = copy_charstr(newname);
       }
     }
   }
@@ -256,7 +255,7 @@ int main(int argc, char* argv[]) {
     if (!str_equals_charstr(tmp, "-")) {
       str_remove_path(tmp);
       str_root(tmp, '.');
-      if (idpref == NULL) idpref = strdup(tmp->chars);
+      if (idpref == NULL) idpref = copy_charstr(tmp->chars);
       str_root(tmp, '.');         /* apply one more time for double suffix */
       if (seqname == NULL) seqname = tmp->chars;    
     }

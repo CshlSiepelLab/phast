@@ -123,8 +123,8 @@ int main(int argc, char *argv[]) {
     feats = cm_labeling_as_gff(cm, labels, msa->length, path_to_cat, 
                              reverse_compl, "sim", "base_evolve", 
                              NULL, NULL, NULL);
-    free(path_to_cat);
-    free(reverse_compl);
+    sfree(path_to_cat);
+    sfree(reverse_compl);
 
     F = fopen_fname(features_fname, "w+");
     gff_print_set(F, feats);

@@ -43,9 +43,9 @@ IndelHistory *ih_new(TreeNode *tree, int ncols) {
 void ih_free(IndelHistory *ih) {
   int i;
   for (i = 0; i < ih->tree->nnodes; i++)
-    free(ih->indel_strings[i]);
-  free(ih->indel_strings);
-  free(ih);
+    sfree(ih->indel_strings[i]);
+  sfree(ih->indel_strings);
+  sfree(ih);
 }
 
 /* create new compact indel history based on alignment and tree */
@@ -65,10 +65,10 @@ void ih_free_compact(CompactIndelHistory *cih) {
   int i, j;
   for (i = 0; i < cih->tree->nnodes; i++) {
     for (j = 0; j < lst_size(cih->indels[i]); j++)
-      free(lst_get_ptr(cih->indels[i], j));
+      sfree(lst_get_ptr(cih->indels[i], j));
     lst_free(cih->indels[i]);
   }
-  free(cih);
+  sfree(cih);
 }
 
 /* create indel history from compact indel history  */
@@ -184,7 +184,7 @@ CompactIndelHistory *ih_compact(IndelHistory *ih) {
         ih->indel_strings[i][j] = DEL;
   }
 
-  free(ins);
+  sfree(ins);
   return cih;
 }
 
@@ -234,7 +234,7 @@ MSA *ih_as_alignment(IndelHistory *ih, MSA *msa) {
 
   for (i = 0; i < ih->tree->nnodes; i++) {
     n = lst_get_ptr(ih->tree->nodes, i);
-    names[i] = strdup(n->name);
+    names[i] = copy_charstr(n->name);
     seqs[i] = smalloc((ih->ncols+1) * sizeof(char));
   }
 
@@ -431,7 +431,7 @@ IndelHistory *ih_extract_from_alignment(MSA *msa, TreeNode *tree) {
         ih->indel_strings[i][j] = DEL;
   }
 
-  free(done);
+  sfree(done);
   return ih;
 }
 
@@ -660,13 +660,13 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
   }
 
   for (tup = 0; tup < msa->ss->ntuples; tup++)
-    free(tup_hist[tup]);
-  free(tup_hist);
+    sfree(tup_hist[tup]);
+  sfree(tup_hist);
   lst_free(inside);
   lst_free(outside);
   lst_free(ambig_cases);
-  free(seq_to_leaf);
-  free(label);
+  sfree(seq_to_leaf);
+  sfree(label);
 
   return ih;
 }
@@ -699,8 +699,8 @@ void ih_convert_ia_names(MSA *msa, TreeNode *tree) {
   /* now rename */
   for (i = 0; i < msa->nseqs; i++) {
     if ((newname = hsh_get(name_map, msa->names[i])) != (char*)-1) {
-      free(msa->names[i]);
-      msa->names[i] = strdup(newname);
+      sfree(msa->names[i]);
+      msa->names[i] = copy_charstr(newname);
     }
     else 
       die("ERROR: can't convert name '%s'\n", msa->names[i]);
@@ -708,6 +708,6 @@ void ih_convert_ia_names(MSA *msa, TreeNode *tree) {
 
   for (i = 0; i < tree->nnodes; i++)
     str_free(ia_names[i]);
-  free(ia_names);
+  sfree(ia_names);
   hsh_free(name_map);
 }

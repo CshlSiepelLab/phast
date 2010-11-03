@@ -36,7 +36,6 @@
 */
 
 #include <stdlib.h>
-#include <string.h>
 #include <ctype.h>
 #include <time.h>
 
@@ -211,12 +210,12 @@ MSA *msa_create_copy(MSA *msa, int suff_stats_only) {
 
   /* copy names */
   new_names = smalloc(msa->nseqs * sizeof(char*));
-  for (i = 0; i < msa->nseqs; i++) new_names[i] = strdup(msa->names[i]);
+  for (i = 0; i < msa->nseqs; i++) new_names[i] = copy_charstr(msa->names[i]);
 
   /* copy seqs, if necessary */
   if (!suff_stats_only && msa->seqs != NULL) {
     new_seqs = smalloc(msa->nseqs * sizeof(char*));
-    for (i = 0; i < msa->nseqs; i++) new_seqs[i] = strdup(msa->seqs[i]);
+    for (i = 0; i < msa->nseqs; i++) new_seqs[i] = copy_charstr(msa->seqs[i]);
   }
   else new_seqs = NULL;
 
@@ -388,7 +387,7 @@ void msa_print_to_file(const char *filename, MSA *msa, msa_format_type format,
 
 void msa_free_categories(MSA *msa) {
   if (msa->categories != NULL) {
-    free(msa->categories);
+    sfree(msa->categories);
     msa->categories = NULL;
   }
   if (msa->ss != NULL)
@@ -402,9 +401,9 @@ void msa_free_seqs(MSA *msa) {
   if (msa->seqs ==  NULL) return;
   for (i = 0; i < msa->nseqs; i++) {
     if (msa->seqs[i] != NULL) 
-      free(msa->seqs[i]);
+      sfree(msa->seqs[i]);
   }
-  if (msa->seqs != NULL) free(msa->seqs);
+  if (msa->seqs != NULL) sfree(msa->seqs);
   msa->seqs = NULL;
   msa->alloc_len = 0;
 }
@@ -416,17 +415,17 @@ void msa_free(MSA *msa) {
   int i;
   for (i = 0; i < msa->nseqs; i++) {
     if (msa->names != NULL && msa->names[i] != NULL) 
-      free(msa->names[i]);
+      sfree(msa->names[i]);
     if (msa->seqs != NULL && msa->seqs[i] != NULL) 
-      free(msa->seqs[i]);
+      sfree(msa->seqs[i]);
   }
-  if (msa->names != NULL) free(msa->names);
-  if (msa->seqs != NULL) free(msa->seqs);
-  if (msa->alphabet != NULL) free(msa->alphabet);
+  if (msa->names != NULL) sfree(msa->names);
+  if (msa->seqs != NULL) sfree(msa->seqs);
+  if (msa->alphabet != NULL) sfree(msa->alphabet);
   msa_free_categories(msa);
   if (msa->ss != NULL) ss_free(msa->ss);
-  if (msa->is_informative != NULL) free(msa->is_informative);
-  free(msa);
+  if (msa->is_informative != NULL) sfree(msa->is_informative);
+  sfree(msa);
 }
 
 
@@ -452,9 +451,9 @@ void reduce_to_4d(MSA *msa, CategoryMap *cm) {
   if (cat_pos3[0] == 0 || cat_pos3[1] == 0)
     die("ERROR: no match for 'CDSplus' or 'CDSminus' feature type (required with --4d).\n");
 
-  seq = malloc(msa->nseqs*sizeof(char*));
+  seq = smalloc(msa->nseqs*sizeof(char*));
   for (i=0; i<msa->nseqs; i++) 
-    seq[i] = malloc(3*sizeof(char));
+    seq[i] = smalloc(3*sizeof(char));
   temp_msa = msa_new(seq, msa->names, msa->nseqs, 3, msa->alphabet);
   new_msa = msa_new(NULL, msa->names, msa->nseqs, 0, msa->alphabet);
   ss_new(new_msa, tuple_size, msa->length, 0, 0);
@@ -527,7 +526,7 @@ void reduce_to_4d(MSA *msa, CategoryMap *cm) {
   msa->ss = new_msa->ss;
   msa->idx_offset = 0;
   if (msa->is_informative != NULL) {
-    free(msa->is_informative);
+    sfree(msa->is_informative);
     msa->is_informative = NULL;
   }
 
@@ -691,7 +690,7 @@ MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col,
 
   /* copy names */
   for (i = 0; i < lst_size(include_list); i++) 
-    new_names[i] = strdup(msa->names[lst_get_int(include_list, i)]);
+    new_names[i] = copy_charstr(msa->names[lst_get_int(include_list, i)]);
 
   if (msa->seqs != NULL) {      /* have explicit sequences */
     /* copy seqs */
@@ -831,7 +830,7 @@ msa_coord_map* msa_new_coord_map(int size) {
 void msa_map_free(msa_coord_map *map) {
   lst_free(map->msa_list);
   lst_free(map->seq_list);
-  free(map);
+  sfree(map);
 }
 
 /* what to do with overlapping categories? for now, just rely on external code to order them appropriately ... */ 
@@ -1099,7 +1098,7 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
 
   for (i = 1; i <= msa->nseqs; i++)
     if (maps[i] != NULL) msa_map_free(maps[i]);
-  free(maps);
+  sfree(maps);
 }
 
 /* for convenience when going from one sequence to another.  use map=NULL to
@@ -1160,7 +1159,7 @@ int msa_add_seq(MSA *msa, char *name) {
     if (msa->seqs != NULL) 
       msa->seqs = srealloc(msa->seqs, (seqidx+1)*sizeof(char*));
   }
-  msa->names[seqidx] = strdup(name);
+  msa->names[seqidx] = copy_charstr(name);
   if (msa->alloc_len > 0) {
     msa->seqs[seqidx] = smalloc((msa->alloc_len+1)*sizeof(char));
     for (i=0; i < msa->alloc_len; i++) {
@@ -1428,11 +1427,11 @@ void msa_partition_by_category(MSA *msa, List *submsas, List *cats_to_do,
     }
   }
 
-  free(seqs);
-  free(names);
-  free(count);
-  free(idx);
-  free(do_cat);
+  sfree(seqs);
+  sfree(names);
+  sfree(count);
+  sfree(idx);
+  sfree(do_cat);
   if (cats_to_do == NULL) lst_free(cats);
 }
 
@@ -1796,8 +1795,8 @@ GFF_Set *msa_get_informative_feats(MSA *msa,
 					  0, '.', GFF_NULL_FRAME, ".", 1);
     lst_push_ptr(rv->features, new_feat);
   }
-  free(useSpec);
-  if (is_informative != NULL) free(is_informative);
+  sfree(useSpec);
+  if (is_informative != NULL) sfree(is_informative);
   return rv;
 }
 
@@ -1875,7 +1874,7 @@ int msa_codon_clean(MSA *msa, const char *refseq, char strand) {
   if (msa->length != newlen) {
     msa->length = newlen;
     for (i=0; i < msa->nseqs; i++) {
-      msa->seqs[i] = realloc(msa->seqs[i], (newlen+1)*sizeof(char));
+      msa->seqs[i] = srealloc(msa->seqs[i], (newlen+1)*sizeof(char));
       msa->seqs[i][newlen] = '\0';
     }
   }
@@ -2251,7 +2250,7 @@ MSA *msa_concat_from_files(List *fnames, msa_format_type format,
   }
 
   hsh_free(name_hash);
-  free(tmpseqs);
+  sfree(tmpseqs);
   return retval;
 }
 
@@ -2280,7 +2279,7 @@ void msa_concatenate(MSA *aggregate_msa, MSA *source_msa) {
   if (aggregate_msa->alloc_len == 0) {
     aggregate_msa->alloc_len = aggregate_msa->length + source_msa->length;
     if (aggregate_msa->seqs == NULL)
-      aggregate_msa->seqs = malloc(aggregate_msa->nseqs*sizeof(char*));
+      aggregate_msa->seqs = smalloc(aggregate_msa->nseqs*sizeof(char*));
     for (j = 0; j < nseq; j++) {
       aggregate_msa->seqs[j] = 
         (char*)smalloc((aggregate_msa->alloc_len+1) * sizeof(char));
@@ -2315,7 +2314,7 @@ void msa_concatenate(MSA *aggregate_msa, MSA *source_msa) {
     aggregate_msa->seqs[j][aggregate_msa->length] = '\0';
 
   hsh_free(name_hash);
-  free(source_msa_idx);
+  sfree(source_msa_idx);
 }
 
 
@@ -2346,9 +2345,9 @@ void msa_permute(MSA *msa) {
       msa->seqs[i][j] = tmpseq[i][rand_perm[j]];
   }
 
-  for (i = 0; i < msa->nseqs; i++) free(tmpseq[i]);
-  free(tmpseq);
-  free(rand_perm);
+  for (i = 0; i < msa->nseqs; i++) sfree(tmpseq[i]);
+  sfree(tmpseq);
+  sfree(rand_perm);
 }
 
 
@@ -2389,9 +2388,9 @@ void msa_reorder_rows(MSA *msa, List *target_order) {
   new_names = smalloc(lst_size(target_order) * sizeof(char*));
   for (i = 0; i < lst_size(target_order); i++) {
     if (new_to_old[i] >= 0) new_names[i] = msa->names[new_to_old[i]];
-    else new_names[i] = strdup(((String*)lst_get_ptr(target_order, i))->chars);
+    else new_names[i] = copy_charstr(((String*)lst_get_ptr(target_order, i))->chars);
   }
-  free(msa->names);
+  sfree(msa->names);
   msa->names = new_names;
 
   if (msa->seqs != NULL) {      /* explicit seqs only */
@@ -2405,7 +2404,7 @@ void msa_reorder_rows(MSA *msa, List *target_order) {
         new_seqs[i][msa->length] = '\0';
       }
     }
-    free(msa->seqs);
+    sfree(msa->seqs);
     msa->seqs = new_seqs;
   }
   else {                        /* suff stats only */
@@ -2417,8 +2416,8 @@ void msa_reorder_rows(MSA *msa, List *target_order) {
   /* finally, update nseqs */
   msa->nseqs = lst_size(target_order);
 
-  free(new_to_old);
-  free(covered);
+  sfree(new_to_old);
+  sfree(covered);
 }
 
 /* return character for specified sequence and position; provides a
@@ -2619,7 +2618,7 @@ void msa_set_informative(MSA *msa, /**< Alignment */
 /* reset alphabet of MSA */
 void msa_reset_alphabet(MSA *msa, char *newalph) {
   int i, nchars = strlen(newalph);
-  free(msa->alphabet);  
+  sfree(msa->alphabet);  
   msa->alphabet = smalloc((nchars + 1) * sizeof(char));
   strcpy(msa->alphabet, newalph); 
   for (i = 0; i < nchars; i++) { 

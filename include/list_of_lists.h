@@ -46,6 +46,8 @@ void lol_push_charvec(ListOfLists *lol, char **vals, int len,
 void lol_push_matrix(ListOfLists *lol, Matrix *mat, 
 		     const char *name);
 
+void lol_push_msa(ListOfLists *lol, MSA *msa, const char *name);
+
 void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
 			const char *name);
 

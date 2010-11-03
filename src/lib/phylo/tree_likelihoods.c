@@ -13,7 +13,6 @@
 #include <subst_mods.h>
 #include <markov_matrix.h>
 #include <subst_mods.h>
-#include <string.h>
 #include <dgamma.h>
 #include <sufficient_stats.h>
 
@@ -428,15 +427,15 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
   } /* for tupleidx */
 
   for (j = 0; j < nstates; j++) {
-    free(inside_joint[j]);
-    free(outside_joint[j]);
-    if (mod->order > 0) free(inside_marginal[j]);
-    if (mod->order > 0 && post != NULL) free(outside_marginal[j]);
+    sfree(inside_joint[j]);
+    sfree(outside_joint[j]);
+    if (mod->order > 0) sfree(inside_marginal[j]);
+    if (mod->order > 0 && post != NULL) sfree(outside_marginal[j]);
   }
-  free(inside_joint);
-  free(outside_joint);
-  if (mod->order > 0) free(inside_marginal);
-  if (mod->order > 0 && post != NULL) free(outside_marginal);
+  sfree(inside_joint);
+  sfree(outside_joint);
+  if (mod->order > 0) sfree(inside_marginal);
+  if (mod->order > 0 && post != NULL) sfree(outside_marginal);
   if (col_scores != NULL) {
     if (cat >= 0) 
       for (i = 0; i < msa->length; i++)
@@ -446,18 +445,18 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
     else
       for (i = 0; i < msa->length; i++)
         col_scores[i] = tuple_scores[msa->ss->tuple_idx[i]];
-    free(tuple_scores);
+    sfree(tuple_scores);
   }
   if (post != NULL) {
     for (rcat = 0; rcat < mod->nratecats; rcat++) {
       for (j = 0; j < nstates; j++) {
         for (k = 0; k < nstates; k++)
-          free(subst_probs[rcat][j][k]);
-        free(subst_probs[rcat][j]);
+          sfree(subst_probs[rcat][j][k]);
+        sfree(subst_probs[rcat][j]);
       }
-      free (subst_probs[rcat]);
+      sfree (subst_probs[rcat]);
     }
-    free(subst_probs);
+    sfree(subst_probs);
   }
   return(retval);
 }
@@ -703,12 +702,12 @@ void tl_free_tree_posteriors(TreeModel *mod, MSA *msa, TreePosteriors *tp) {
       for (i = 0; i < nstates; i++) {
         for (j = 0; j < nnodes; j++) 
           if (tp->base_probs[r][i][j] != NULL)
-            free(tp->base_probs[r][i][j]);
-        free(tp->base_probs[r][i]);
+            sfree(tp->base_probs[r][i][j]);
+        sfree(tp->base_probs[r][i]);
       }
-      free(tp->base_probs[r]);
+      sfree(tp->base_probs[r]);
     }
-    free(tp->base_probs);
+    sfree(tp->base_probs);
   }
   if (tp->subst_probs != NULL) {
     for (r = 0; r < mod->nratecats; r++) {
@@ -716,45 +715,45 @@ void tl_free_tree_posteriors(TreeModel *mod, MSA *msa, TreePosteriors *tp) {
         for (j = 0; j < nstates; j++) {
           for (k = 0; k < nnodes; k++) 
             if (k != mod->tree->id) 
-              free(tp->subst_probs[r][i][j][k]);
-          free(tp->subst_probs[r][i][j]);
+              sfree(tp->subst_probs[r][i][j][k]);
+          sfree(tp->subst_probs[r][i][j]);
         }
-        free(tp->subst_probs[r][i]);
+        sfree(tp->subst_probs[r][i]);
       }
-      free(tp->subst_probs[r]);
+      sfree(tp->subst_probs[r]);
     }
-    free(tp->subst_probs);
+    sfree(tp->subst_probs);
   }
   if (tp->expected_nsubst != NULL) {
     for (r = 0; r < mod->nratecats; r++) {
       for (i = 0; i < nnodes; i++) 
         if (i != mod->tree->id)
-          free(tp->expected_nsubst[r][i]);
-      free(tp->expected_nsubst[r]);
+          sfree(tp->expected_nsubst[r][i]);
+      sfree(tp->expected_nsubst[r]);
     }
-    free(tp->expected_nsubst);
+    sfree(tp->expected_nsubst);
   }
   if (tp->expected_nsubst_tot != NULL) {
     for (r = 0; r < mod->nratecats; r++) {
       for (i = 0; i < nstates; i++) {
         for (j = 0; j < nstates; j++) 
-          free(tp->expected_nsubst_tot[r][i][j]);
-        free(tp->expected_nsubst_tot[r][i]);
+          sfree(tp->expected_nsubst_tot[r][i][j]);
+        sfree(tp->expected_nsubst_tot[r][i]);
       }
-      free(tp->expected_nsubst_tot[r]);
+      sfree(tp->expected_nsubst_tot[r]);
     }
-    free(tp->expected_nsubst_tot);
+    sfree(tp->expected_nsubst_tot);
   }
   if (tp->rcat_probs != NULL) {
     for (i = 0; i < mod->nratecats; i++)
-      free(tp->rcat_probs[i]);
-    free(tp->rcat_probs);           
+      sfree(tp->rcat_probs[i]);
+    sfree(tp->rcat_probs);           
   }
   if (tp->rcat_expected_nsites != NULL) {
-    free(tp->rcat_expected_nsites);           
+    sfree(tp->rcat_expected_nsites);           
   }
 
-  free(tp);
+  sfree(tp);
 }
 
 /* compute the expected (posterior) complete log likelihood of a tree

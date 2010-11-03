@@ -13,7 +13,6 @@
 #include <subst_mods.h>
 #include <stacks.h>
 #include <stringsplus.h>
-#include <string.h>
 #include <ctype.h>
 #include <numerical_opt.h>
 #include <markov_matrix.h>
@@ -249,26 +248,26 @@ void tm_free(TreeModel *tm) {
     for (i = 0; i < tm->tree->nnodes; i++) {
       for (j = 0; j < tm->nratecats; j++)
         if (tm->P[i][j] != NULL) mm_free(tm->P[i][j]);
-      free(tm->P[i]);
+      sfree(tm->P[i]);
     }
-    if (tm->msa_seq_idx != NULL) free(tm->msa_seq_idx);
-    free(tm->P);
-    free(tm->rK);
-    free(tm->freqK);
+    if (tm->msa_seq_idx != NULL) sfree(tm->msa_seq_idx);
+    sfree(tm->P);
+    sfree(tm->rK);
+    sfree(tm->freqK);
     tr_free(tm->tree);
   }
   if (tm->rate_matrix != NULL) mm_free(tm->rate_matrix);
   if (tm->backgd_freqs != NULL) vec_free(tm->backgd_freqs);
-  if (tm->ignore_branch != NULL) free(tm->ignore_branch);
-  if (tm->in_subtree != NULL) free(tm->in_subtree);
+  if (tm->ignore_branch != NULL) sfree(tm->ignore_branch);
+  if (tm->in_subtree != NULL) sfree(tm->in_subtree);
   if (tm->alt_subst_mods != NULL) {
     for (i=0; i<lst_size(tm->alt_subst_mods); i++) 
       tm_free_alt_subst_mod(lst_get_ptr(tm->alt_subst_mods, i));
     lst_free(tm->alt_subst_mods);
   }
   if (tm->alt_subst_mods_node != NULL)
-    free(tm->alt_subst_mods_node);
-  if (tm->param_map != NULL) free(tm->param_map);
+    sfree(tm->alt_subst_mods_node);
+  if (tm->param_map != NULL) sfree(tm->param_map);
   if (tm->all_params != NULL) vec_free(tm->all_params);
   if (tm->bound_arg != NULL) {
     for (i=0; i<lst_size(tm->bound_arg); i++) 
@@ -279,7 +278,7 @@ void tm_free(TreeModel *tm) {
     str_free(tm->noopt_arg);
   if (tm->iupac_inv_map != NULL)
     free_iupac_inv_map(tm->iupac_inv_map);
-  free(tm);
+  sfree(tm);
 }
 
 /* set up lists that allow each rate matrix parameter to be mapped to
@@ -331,8 +330,8 @@ void tm_free_rmp(TreeModel *tm) {
       lst_free(tm->rate_matrix_param_col[i]);
     }
   }  
-  free(tm->rate_matrix_param_row);
-  free(tm->rate_matrix_param_col);
+  sfree(tm->rate_matrix_param_row);
+  sfree(tm->rate_matrix_param_col);
   tm->rate_matrix_param_row = NULL;
   tm->rate_matrix_param_col = NULL;
 }
@@ -1167,7 +1166,7 @@ MSA *tm_generate_msa(int ncolumns,
     TreeNode *n = lst_get_ptr(classmods[0]->tree->nodes, i);
     if (n->lchild == NULL && n->rchild == NULL) {
       classmods[0]->msa_seq_idx[i] = idx;
-      names[idx] = strdup(n->name);
+      names[idx] = copy_charstr(n->name);
       idx++;
     }
     else classmods[0]->msa_seq_idx[i] = -1;
@@ -1226,7 +1225,7 @@ MSA *tm_generate_msa(int ncolumns,
     if (hmm != NULL)
       class = mm_sample_state(hmm->transition_matrix, class);
   }
-  free(newchar);
+  sfree(newchar);
 
   return msa;
 }
@@ -1274,7 +1273,7 @@ MSA *tm_generate_msa_scaleLst(List *nsitesLst, List *scaleLst,
     TreeNode *n = (TreeNode*)lst_get_ptr(traversal, i);
     if (n->lchild == NULL && n->rchild == NULL) {
       mod->msa_seq_idx[i] = idx;
-      names[idx] = strdup(n->name);
+      names[idx] = copy_charstr(n->name);
       idx++;
     }
     else mod->msa_seq_idx[i] = -1;
@@ -1325,7 +1324,7 @@ MSA *tm_generate_msa_scaleLst(List *nsitesLst, List *scaleLst,
     tr_scale(mod->tree, 1.0/scale);
   }
   tm_set_subst_matrices(mod);
-  free(newchar);
+  sfree(newchar);
   return msa;
 }
 
@@ -1367,7 +1366,7 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
     TreeNode *n = (TreeNode*)lst_get_ptr(traversal, i);
     if (n->lchild == NULL && n->rchild == NULL) {
       mod->msa_seq_idx[i] = idx;
-      names[idx] = strdup(n->name);
+      names[idx] = copy_charstr(n->name);
       idx++;
     }
     else mod->msa_seq_idx[i] = -1;
@@ -1429,8 +1428,8 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
       }
     }
   }
-  free(newchar);
-  free(inSubtree);
+  sfree(newchar);
+  sfree(inSubtree);
   return msa;
 }
 
@@ -1704,7 +1703,7 @@ void tm_set_boundaries(Vector **lower_bounds, Vector **upper_bounds,
 		tm_add_bounds(limitstr, lower_bounds, upper_bounds, 
 			      mod->param_map,
 			      altmod->ratematrix_idx+k, 1, npar);
-	    free(flag);
+	    sfree(flag);
 	  }
 	  str_free(paramstr);
 	  str_free(limitstr);
@@ -1943,7 +1942,7 @@ void tm_setup_params(TreeModel *mod) {
     vec_free(mod->all_params);
     mod->all_params = NULL;
     if (mod->param_map != NULL) {
-      free(mod->param_map);
+      sfree(mod->param_map);
       mod->param_map = NULL;
     }
   }
@@ -2116,7 +2115,7 @@ void tm_setup_params(TreeModel *mod) {
       if (flag[i] == 0)
 	mod->param_map[mod->ratematrix_idx+i] = opt_idx++;
   }
-  if (numpar > 0) free(flag);
+  if (numpar > 0) sfree(flag);
 
   if (mod->alt_subst_mods != NULL) {
     subst_mod_type tempmod = mod->subst_mod;
@@ -2220,7 +2219,7 @@ void tm_setup_params(TreeModel *mod) {
 		  currparam->chars);
 	    }
 	    for (k=0; k < numpar; k++) if (tempflag[k]) use_main[k] = 0;
-	    if (tempflag != NULL) free(tempflag);
+	    if (tempflag != NULL) sfree(tempflag);
 	  }
 	  if (parenpos >= 0) {
 	    currparam->chars[parenpos] = '[';
@@ -2628,7 +2627,7 @@ Vector *tm_params_init_random(TreeModel *mod) {
 	idx++;
       }
     }
-    free(heights);
+    sfree(heights);
   }
   else {                        /* no clock */
     for (i = 0; i < nbranches; i++)
@@ -2917,12 +2916,12 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod,
   }
 
 	
-  free(brlen);
+  sfree(brlen);
   for (i=0; i<numnode; i++)
-    free(minState[i]);
-  free(minState);
-  free(numMinState);
-  free(nodecost);
+    sfree(minState[i]);
+  sfree(minState);
+  sfree(numMinState);
+  sfree(nodecost);
   //  printf("totalCost=%f\n", totalCost);
   return totalCost;
 }
@@ -2963,7 +2962,7 @@ void tm_params_init_from_model(TreeModel *mod, Vector *params) {
       if (n->lchild != NULL)
         vec_set(params, mod->bl_idx + i++, heights[n->id]);
     }
-    free(heights);
+    sfree(heights);
   } 
   else {
     traversal = tr_preorder(mod->tree);
@@ -3096,7 +3095,7 @@ TreeModel *tm_induced_aa(TreeModel *codon_mod) {
 
   /* NOTE: ignoring params, tree_posteriors, etc. */
 
-  free(codon_to_aa);
+  sfree(codon_to_aa);
   return retval;
 }
 
@@ -3216,7 +3215,7 @@ void tm_prune(TreeModel *mod,   /**< TreeModel whose tree is to be pruned  */
     for (i = mod->tree->nnodes; i < old_nnodes; i++) {
       for (j = 0; j < mod->nratecats; j++)
         if (mod->P[i][j] != NULL) mm_free(mod->P[i][j]);
-      free(mod->P[i]);
+      sfree(mod->P[i]);
     }
   }
 
@@ -3252,7 +3251,7 @@ void tm_reset_tree(TreeModel *mod,   /** TreeModel */
   for (i = 0; i < mod->tree->nnodes; i++) {
     for (j = 0; j < mod->nratecats; j++)
       if (mod->P[i][j] != NULL) mm_free(mod->P[i][j]);
-    free(mod->P[i]);
+    sfree(mod->P[i]);
   }
 
   if (mod->rate_matrix_param_row != NULL) {
@@ -3328,7 +3327,7 @@ void tm_free_alt_subst_mod(AltSubstMod *am) {
   str_free(am->defString);
   if (am->noopt_arg != NULL)
     str_free(am->noopt_arg);
-  free(am);
+  sfree(am);
 }
 
 

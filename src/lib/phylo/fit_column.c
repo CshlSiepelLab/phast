@@ -106,8 +106,8 @@ double col_compute_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
   }
 
   if (scratch == NULL) {
-    for (j = 0; j < nstates; j++) free(pL[j]);
-    free(pL);
+    for (j = 0; j < nstates; j++) sfree(pL[j]);
+    sfree(pL);
   }
 
   return(total_prob);
@@ -431,13 +431,13 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
 
   if (scratch == NULL) {
     for (j = 0; j < nstates; j++) {
-      free(L[j]);
-      free(LL[j]);
-      if (second_deriv != NULL) free(LLL[j]);
+      sfree(L[j]);
+      sfree(LL[j]);
+      if (second_deriv != NULL) sfree(LLL[j]);
     }
-    free(L);
-    free(LL);
-    if (second_deriv != NULL) free(LLL);
+    sfree(L);
+    sfree(LL);
+    if (second_deriv != NULL) sfree(LLL);
   }
 
   return(total_prob);
@@ -641,22 +641,22 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
 
   if (scratch == NULL) {
     for (j = 0; j < nstates; j++) {
-      free(L[j]);
-      free(LL[j]);
-      free(MM[j]);
+      sfree(L[j]);
+      sfree(LL[j]);
+      sfree(MM[j]);
       if (pd2 != NULL) {
-        free(LLL[j]);
-        free(MMM[j]);
-        free(NNN[j]);
+        sfree(LLL[j]);
+        sfree(MMM[j]);
+        sfree(NNN[j]);
       }
     }
-    free(L);
-    free(LL);
-    free(MM);
+    sfree(L);
+    sfree(LL);
+    sfree(MM);
     if (pd2 != NULL) {
-      free(LLL);
-      free(MMM);
-      free(NNN);
+      sfree(LLL);
+      sfree(MMM);
+      sfree(NNN);
     }
   }
 
@@ -1232,33 +1232,33 @@ void col_free_fit_data(ColFitData *d) {
       mat_free(d->QQQ[nid][rcat]);
       mat_free(d->RRR[nid][rcat]);
     }
-    free(d->PP[nid]);
-    free(d->PPP[nid]);
-    free(d->QQ[nid]);
-    free(d->QQQ[nid]);
-    free(d->RRR[nid]);
+    sfree(d->PP[nid]);
+    sfree(d->PPP[nid]);
+    sfree(d->QQ[nid]);
+    sfree(d->QQQ[nid]);
+    sfree(d->RRR[nid]);
   }
-  free(d->PP);
-  free(d->PPP);
-  free(d->QQ);
-  free(d->QQQ);
-  free(d->RRR);
+  sfree(d->PP);
+  sfree(d->PPP);
+  sfree(d->QQ);
+  sfree(d->QQQ);
+  sfree(d->RRR);
 
   zvec_free(d->expdiag_z); 
   vec_free(d->expdiag_r); 
   for (i = 0; i < d->nfels_scratch; i++) {
     for (j = 0; j < d->mod->rate_matrix->size; j++) 
-      free(d->fels_scratch[i][j]);
-    free(d->fels_scratch[i]);
+      sfree(d->fels_scratch[i][j]);
+    sfree(d->fels_scratch[i]);
   }
-  free(d->fels_scratch);
+  sfree(d->fels_scratch);
   zmat_free(d->mat_scratch_z); 
   zvec_free(d->vec_scratch1_z);
   zvec_free(d->vec_scratch2_z);
   vec_free(d->vec_scratch1_r);
   vec_free(d->vec_scratch2_r);
 
-  free(d);
+  sfree(d);
 }
 
 /* Perform a GERP-like computation for each tuple.  Computes expected
@@ -1312,7 +1312,7 @@ void col_gerp(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_nneut,
     }
   }
   col_free_fit_data(d);
-  free(has_data);
+  sfree(has_data);
 }
 
 /* Identify branches wrt which a given column tuple is uninformative,
@@ -1490,8 +1490,8 @@ void col_free_fim_grid(FimGrid *g) {
   int i;
   for (i = 0; i < g->ngrid; i++)
     mat_free(g->fim[i]);
-  free(g->fim);
-  free(g->scales);
+  sfree(g->fim);
+  sfree(g->scales);
 }
 
 /* Estimate scale Fisher Information Matrix for the non-subtree case.

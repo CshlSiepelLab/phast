@@ -250,20 +250,20 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
   }
 
   for (i = 0; i < hmm->nstates; i++) {
-    free(forward_scores[i]);
-    free(backward_scores[i]);
-    if (emissions_alloc == NULL) free(emissions[i]);
-    free(A[i]);
-    if (estimate_state_models != NULL) free(E[i]);
+    sfree(forward_scores[i]);
+    sfree(backward_scores[i]);
+    if (emissions_alloc == NULL) sfree(emissions[i]);
+    sfree(A[i]);
+    if (estimate_state_models != NULL) sfree(E[i]);
   }
-  free(forward_scores);
-  free(backward_scores);
-  if (emissions_alloc == NULL) free(emissions);
-  free(A);
-  free(totalA);
+  sfree(forward_scores);
+  sfree(backward_scores);
+  if (emissions_alloc == NULL) sfree(emissions);
+  sfree(A);
+  sfree(totalA);
   if (estimate_state_models != NULL) {
-    free(E);
-    free(totalE);
+    sfree(E);
+    sfree(totalE);
   }
   lst_free(val_list);
 

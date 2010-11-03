@@ -270,8 +270,8 @@ MSA* la_to_msa(LocalPwAlignment *lpwa, int force_global) {
   String *tseq = str_new(target_seq->length);
   GaplessAlignment *lga = NULL;
 
-  names[0] = strdup(lpwa->query_name->chars);
-  names[1] = strdup(lpwa->target_name->chars);
+  names[0] = copy_charstr(lpwa->query_name->chars);
+  names[1] = copy_charstr(lpwa->target_name->chars);
 
   for (i = 0; i < lst_size(lpwa->alignment_blocks); i++) {
     AlignmentBlock* b = lst_get_ptr(lpwa->alignment_blocks, i);

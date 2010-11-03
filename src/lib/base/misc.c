@@ -332,7 +332,6 @@ int rphast_fprintf(FILE *f, const char *format, ...) {
   return 1;
 }
 
-
 #endif
 
 /* returns List of Strings derived from an argument that may either be
@@ -433,7 +432,8 @@ double get_arg_dbl_bounds(char *arg, double min, double max) {
   return retval;
 }
 
-
+//rphast versions defined in rph_util.c
+#ifndef RPHAST
 /* safe malloc and realloc */
 void *smalloc(size_t size) {
   void *retval = malloc(size);
@@ -448,7 +448,7 @@ void *srealloc(void *ptr, size_t size) {
     die("FATAL ERROR: out of memory.\n");
   return retval;
 }
-
+#endif
 
 /* make a copy of word, allocating just enough space.*/
 char *copy_charstr(const char *word) {
@@ -518,7 +518,7 @@ int bn_draw(int N, double p) {
   for (j = 0; j < N; j++) if (unif_draws[j] < p) retval++;
                                 /* number of uniform draws less than p
                                    is binomial */
-  free(unif_draws);
+  sfree(unif_draws);
   return retval;
 }
 
@@ -633,7 +633,7 @@ void mn_draw(int n, double *p, int d, int *counts) {
   for (i = 0; i < d; i++)
     counts[data[i].idx] = data[i].count;
 
-  free(data);
+  sfree(data);
 }
 
 /** Given a probability vector, draw an index.  Call srandom externally */
@@ -666,7 +666,7 @@ struct hash_table *make_name_hash(char *mapstr) {
       die("ERROR: cannot parse mapping ('%s')\n", lst_get_ptr(mappings, i));
     oldname = lst_get_ptr(names, 1);
     newname = lst_get_ptr(names, 3);
-    hsh_put(retval, oldname->chars, strdup(newname->chars));
+    hsh_put(retval, oldname->chars, copy_charstr(newname->chars));
     lst_free_strings(names);
   }
   lst_free_strings(mappings);
@@ -1149,7 +1149,7 @@ int **build_iupac_inv_map(int *inv_states, int alph_size) {
              treated like 'N's in phylogenetic analysis */
           for (k = 0; k <= i; k++) {
             if (retval[k] != NULL) {
-              free(retval[k]);
+              sfree(retval[k]);
               retval[k] = NULL;
             }
           }          
@@ -1166,9 +1166,9 @@ void free_iupac_inv_map(int **iim) {
   int i;
   for (i = 0; i < 256; i++) {
     if (iim[i] != NULL)
-      free(iim[i]);
+      sfree(iim[i]);
   }
-  free(iim);
+  sfree(iim);
 }
 
 /***************************************************************************/

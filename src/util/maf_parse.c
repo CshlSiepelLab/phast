@@ -12,9 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <msa.h>
-#include <string.h>
 #include <getopt.h>
-#include <string.h>
 #include <ctype.h>
 #include <sufficient_stats.h>
 #include <local_alignment.h>
@@ -191,7 +189,7 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
       outfile = mafBlock_open_outfile(fname, argc, argv);
     }
     lst_push_ptr(outfileList, (void*)outfile);
-    free(fname);
+    sfree(fname);
     return outfile;
   }
   outfile = (FILE*)lst_get_ptr(outfileList, idx);
@@ -211,7 +209,7 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
       outfile = fopen(fname, "a");
     }
   }
-  free(fname);
+  sfree(fname);
   return outfile;
 }
 
@@ -240,7 +238,7 @@ void close_outfiles(List *outfileList, Hashtable *outfileHash) {
     outfile = fopen_fname(fname, "a");
     mafBlock_close_outfile(outfile);
   }
-  free(done);
+  sfree(done);
   lst_free(keys);
   lst_free(outfileList);
   hsh_free(outfileHash);
@@ -288,6 +286,7 @@ int main(int argc, char* argv[]) {
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
+
 
   while ((c = getopt_long(argc, argv, "s:e:l:O:r:S:d:g:c:P:b:o:pLnxEIh", long_opts, &opt_idx)) != -1) {
     switch(c) {

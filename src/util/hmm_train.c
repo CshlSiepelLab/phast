@@ -18,7 +18,6 @@
 #include <msa.h>
 #include <hmm.h>
 #include <getopt.h>
-#include <string.h>
 #include <gff.h>
 #include <category_map.h>
 #include <sufficient_stats.h>
@@ -330,7 +329,7 @@ int main(int argc, char* argv[]) {
                             msa->categories, msa->length, 
                             ncats_unspooled);
 
-    if (msa_gap_patterns != NULL) free(msa_gap_patterns);
+    if (msa_gap_patterns != NULL) sfree(msa_gap_patterns);
     msa_free(msa);
   }
 

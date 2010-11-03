@@ -345,7 +345,7 @@ int main(int argc, char *argv[]) {
     if (!str_equals_charstr(tmp, "-")) {
       str_remove_path(tmp);
       str_root(tmp, '.');
-      if (p->idpref == NULL) p->idpref = strdup(tmp->chars);
+      if (p->idpref == NULL) p->idpref = copy_charstr(tmp->chars);
       str_root(tmp, '.');         /* apply one more time for double suffix */
       if (p->seqname == NULL) p->seqname = tmp->chars;    
     }

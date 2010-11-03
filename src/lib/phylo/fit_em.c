@@ -14,7 +14,6 @@
 #include <fit_em.h>
 #include <tree_model.h>
 #include <stringsplus.h>
-#include <string.h>
 #include <ctype.h>
 #include <numerical_opt.h>
 #include <tree_likelihoods.h>
@@ -110,7 +109,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
      when close to convergence */
   nratecats = mod->nratecats;
   if (nratecats > 1) {
-    old_param_map = malloc(params->size*sizeof(int));
+    old_param_map = smalloc(params->size*sizeof(int));
     for (i=0; i<params->size; i++)
       old_param_map[i] = mod->param_map[i];
     nratevarparams = tm_get_nratevarparams(mod);
@@ -314,7 +313,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
   vec_free(lower_bounds);
   tl_free_tree_posteriors(mod, msa, mod->tree_posteriors);
   mod->tree_posteriors = NULL;
-  if (old_param_map != NULL) free(old_param_map);
+  if (old_param_map != NULL) sfree(old_param_map);
 
   vec_free(opt_params);
   return retval;

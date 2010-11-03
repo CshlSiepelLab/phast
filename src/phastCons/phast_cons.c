@@ -211,8 +211,8 @@ int phastCons(struct phastCons_struct *p) {
   if (alias_hash != NULL) {
     for (i = 0; i < msa->nseqs; i++) {
       if ((newname = hsh_get(alias_hash, msa->names[i])) != (char*)-1) {
-        free(msa->names[i]);
-        msa->names[i] = strdup(newname);
+        sfree(msa->names[i]);
+        msa->names[i] = copy_charstr(newname);
       }
     }
   }
@@ -433,7 +433,7 @@ int phastCons(struct phastCons_struct *p) {
 	  temp[0] = mu;
 	  temp[1] = nu;
 	  lol_push_dbl(results, temp, 2, "transition.rates");
-	  free(temp);
+	  sfree(temp);
 	}
 	if (estim_indels) {
 	  temp = smalloc(6*sizeof(double));
@@ -444,7 +444,7 @@ int phastCons(struct phastCons_struct *p) {
 	  temp[4] = beta_1;
 	  temp[5] = tau_1;
 	  lol_push_dbl(results, temp, 6, "indel.rates");
-	  free(temp);
+	  sfree(temp);
 	}
 	if (estim_rho)
 	  lol_push_dbl(results, &rho, 1, "rho");
@@ -588,13 +588,13 @@ int phastCons(struct phastCons_struct *p) {
 	lol_set_class(wigList, "data.frame");
 	lol_push_lol(results, wigList, "post.prob.wig");
 	for (j=0; j < phmm->hmm->nstates; j++) 
-	  free(postprobsNoMissing[j]);
-	free(postprobsNoMissing);
-	free(coord);
+	  sfree(postprobsNoMissing[j]);
+	sfree(postprobsNoMissing);
+	sfree(coord);
       }
       for (j=0; j < phmm->hmm->nstates; j++)
-	free(postprobs[j]);
-      free(postprobs);
+	sfree(postprobs[j]);
+      sfree(postprobs);
     } else {
       double *postprobs, *postprobsNoMissing=NULL;
       int idx=0, j, k;
@@ -626,15 +626,15 @@ int phastCons(struct phastCons_struct *p) {
 	}
       }
       if (results != NULL) {
-	ListOfLists *wigList = lol_new(2);
-	lol_push_int(wigList, coord, idx, "coord");
-	lol_push_dbl(wigList, postprobsNoMissing, idx, "post.prob");
-	lol_set_class(wigList, "data.frame");
-	lol_push_lol(results, wigList, "post.prob.wig");
-	free(postprobsNoMissing);
-	free(coord);
+        ListOfLists *wigList = lol_new(2);
+        lol_push_int(wigList, coord, idx, "coord");
+        lol_push_dbl(wigList, postprobsNoMissing, idx, "post.prob");
+        lol_set_class(wigList, "data.frame");
+        lol_push_lol(results, wigList, "post.prob.wig");
+        sfree(postprobsNoMissing);
+        sfree(coord);
       }
-      free(postprobs);
+      sfree(postprobs);
     }
   }
 

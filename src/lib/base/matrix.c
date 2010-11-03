@@ -39,9 +39,9 @@ Matrix *mat_new_from_array(double **array, int nrows, int ncols) {
 void mat_free(Matrix *m) {
   int i;
   for (i = 0; i < m->nrows; i++)
-    free(m->data[i]);
-  free(m->data);
-  free(m);
+    sfree(m->data[i]);
+  sfree(m->data);
+  sfree(m);
 }
 
 Vector *mat_get_row(Matrix *m, int row) {
@@ -211,7 +211,7 @@ void mat_resize(Matrix *m, int nrows, int ncols) {
   int i;
   if (!(nrows >= 0 && ncols >= 0))
     die("ERROR mat_resize: nrows=%i ncols=%i\n", nrows, ncols);
-  for (i = nrows; i < m->nrows; i++) free(m->data[i]);
+  for (i = nrows; i < m->nrows; i++) sfree(m->data[i]);
   m->data = srealloc(m->data, nrows * sizeof(void*));
   for (i = 0; i < nrows; i++)
     m->data[i] = srealloc(m->data[i], ncols * sizeof(double));      

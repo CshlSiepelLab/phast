@@ -236,7 +236,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
     hsh_free(tuple_hash);
   }
 
-  if (do_cats) free(do_cat_number);
+  if (do_cats) sfree(do_cat_number);
 }
 
 /* creates a new sufficient statistics object and links it to the
@@ -353,7 +353,7 @@ PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size, int ncats,
   pmsa->source_msas = source_msas;
   pmsa->pooled_msa->names = (char**)smalloc(rep_msa->nseqs * sizeof(char*));
   for (i = 0; i < rep_msa->nseqs; i++) 
-    pmsa->pooled_msa->names[i] = strdup(rep_msa->names[i]);
+    pmsa->pooled_msa->names[i] = copy_charstr(rep_msa->names[i]);
   if (ncats >= 0) pmsa->pooled_msa->ncats = ncats;
   pmsa->lens = smalloc(lst_size(source_msas) * sizeof(int));
 
@@ -388,7 +388,7 @@ PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size, int ncats,
     }
   }
   hsh_free(tuple_hash);
-  free(key);
+  sfree(key);
   return pmsa;
 }
 
@@ -397,10 +397,10 @@ void ss_free_pooled_msa(PooledMSA *pmsa) {
   int i;
   msa_free(pmsa->pooled_msa);
   for (i = 0; i < lst_size(pmsa->source_msas); i++)
-    free(pmsa->tuple_idx_map[i]);
-  free(pmsa->tuple_idx_map);
-  free(pmsa->lens);
-  free(pmsa);
+    sfree(pmsa->tuple_idx_map[i]);
+  sfree(pmsa->tuple_idx_map);
+  sfree(pmsa->lens);
+  sfree(pmsa);
 }
 
 /* Create an aggregate MSA from a list of MSA filenames, a list of
@@ -431,7 +431,7 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
   /* set up names for new MSA object */
   for (i = 0; i < nseqs; i++) {
     String *s = lst_get_ptr(seqnames, i);
-    names[i] = strdup(s->chars);
+    names[i] = copy_charstr(s->chars);
   }
 
   retval = msa_new(NULL, names, nseqs, 0, NULL);
@@ -708,7 +708,7 @@ MSA* ss_read(FILE *F, char *alphabet) {
         names = (char**)smalloc(lst_size(names_list) * sizeof(char*));
         for (i = 0; i < lst_size(names_list); i++) {
           String *s = (String*)lst_get_ptr(names_list, i);
-          names[i] = strdup(s->chars);
+          names[i] = copy_charstr(s->chars);
           str_free(s);
         }
         lst_free(names_list);
@@ -813,8 +813,8 @@ void ss_free_categories(MSA_SS *ss) {
   int j;
   if (ss->cat_counts != NULL) {
     for (j = 0; j < ss->msa->ncats; j++)
-      free(ss->cat_counts[j]);
-    free(ss->cat_counts);
+      sfree(ss->cat_counts[j]);
+    sfree(ss->cat_counts);
     ss->cat_counts = NULL;
   }
 }
@@ -824,12 +824,12 @@ void ss_free_categories(MSA_SS *ss) {
 void ss_free(MSA_SS *ss) {
   int j;
   for (j = 0; j < ss->alloc_ntuples; j++)
-    free(ss->col_tuples[j]);
-  free(ss->col_tuples);
+    sfree(ss->col_tuples[j]);
+  sfree(ss->col_tuples);
   ss_free_categories(ss);
-  if (ss->counts != NULL) free(ss->counts);
-  if (ss->tuple_idx != NULL) free(ss->tuple_idx);
-  free(ss);
+  if (ss->counts != NULL) sfree(ss->counts);
+  if (ss->tuple_idx != NULL) sfree(ss->tuple_idx);
+  sfree(ss);
 }
 
 /* update category counts, according to 'categories' attribute of MSA
@@ -1024,7 +1024,7 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
   if (lst_size(include_list) != msa->nseqs) 
     ss_unique(retval);
 
-  free(full_to_sub);
+  sfree(full_to_sub);
   return retval;
 }
 
@@ -1191,7 +1191,7 @@ void ss_remove_zero_counts(MSA *msa) {
       }
       old_to_new[i] = new_ntuples++;
     }
-    else { free(msa->ss->col_tuples[i]); msa->ss->col_tuples[i] = NULL; }
+    else { sfree(msa->ss->col_tuples[i]); msa->ss->col_tuples[i] = NULL; }
   }
 
   if (msa->ss->tuple_idx != NULL)
@@ -1200,7 +1200,7 @@ void ss_remove_zero_counts(MSA *msa) {
 
   msa->ss->ntuples = new_ntuples;
   ss_compact(msa->ss);  
-  free(old_to_new);
+  sfree(old_to_new);
 }
 
 /** Ensure all tuples are unique.  Combine counts and remap indices as
@@ -1234,7 +1234,7 @@ void ss_unique(MSA *msa) {
       msa->ss->tuple_idx[i] = old_to_new[msa->ss->tuple_idx[i]];
 
   ss_remove_zero_counts(msa);
-  free(old_to_new);
+  sfree(old_to_new);
   hsh_free(hash);
 }
 

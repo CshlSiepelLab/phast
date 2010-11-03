@@ -19,7 +19,7 @@ void lol_set_class(ListOfLists *lol, char *class) {
     if (strcmp(lol->class, class)==0) return;
     phast_warning("warning: changing class of list from %s to %s\n", 
 		  lol->class, class);
-    free(lol->class);
+    sfree(lol->class);
   }
   lol->class = copy_charstr(class);
 }
@@ -153,7 +153,7 @@ void lol_push_matrix(ListOfLists *lol, Matrix *mat,
     lol_push_dbl(matList, tmpVec->data, tmpVec->size, tmpstr);
     vec_free(tmpVec);
   }
-  free(tmpstr);
+  sfree(tmpstr);
   for (i=0; i<mat->ncols; i++) {
     tmpstr = smalloc(10*sizeof(char));
     sprintf(tmpstr, "%i", i);
@@ -180,7 +180,7 @@ void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
     lol_push_matrix(tmList, tm->rate_matrix->matrix, "rate.matrix");
   str = copy_charstr(tm_get_subst_mod_string(tm->subst_mod));
   lol_push_charvec(tmList, &str, 1, "subst.mod");
-  free(str);
+  sfree(str);
   if (tm->lnL != NULL_LOG_LIKELIHOOD)
     lol_push_dbl(tmList, &(tm->lnL), 1, "likelihood");
   if (tm->nratecats > 1) {
@@ -197,7 +197,7 @@ void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
   if (tm->tree != NULL) {
     str = tr_to_string(tm->tree, 1);
     lol_push_charvec(tmList, &str, 1, "tree");
-    free(str);
+    sfree(str);
   }
   if (tm->root_leaf_id != -1)
     lol_push_int(tmList, &(tm->root_leaf_id), 1, "root.leaf");
@@ -300,21 +300,21 @@ void lol_push_gff(ListOfLists *lol, GFF_Set *gff, const char *name) {
   lol_push_lol(lol, gffList, name);
 
   for (i=0; i<gffLen; i++) {
-    free(names[i]);
-    free(src[i]);
-    free(feature[i]);
-    free(strand[i]);
-    free(attribute[i]);
+    sfree(names[i]);
+    sfree(src[i]);
+    sfree(feature[i]);
+    sfree(strand[i]);
+    sfree(attribute[i]);
   }
-  free(names);
-  free(src);
-  free(feature);
-  free(start);
-  free(end);
-  free(score);
-  free(strand);
-  free(frame);
-  free(attribute);
+  sfree(names);
+  sfree(src);
+  sfree(feature);
+  sfree(start);
+  sfree(end);
+  sfree(score);
+  sfree(strand);
+  sfree(frame);
+  sfree(attribute);
 }
 
 
@@ -330,7 +330,7 @@ void lol_free(ListOfLists *lol) {
     currtype = lst_get_int(lol->lstType, i);
     currname = (char*)lst_get_ptr(lol->lstName, i);
     if (currname != NULL)
-      free(currname);
+      sfree(currname);
     if (currtype == LIST_LIST) 
       lol_free((ListOfLists*)currlst);
     else {
@@ -338,7 +338,7 @@ void lol_free(ListOfLists *lol) {
 	for (j=0; j<lst_size(currlst); j++) {
 	  currstr = (char*)lst_get_ptr(currlst, j);
 	  if ((void*)currstr != NULL)
-	    free(currstr);
+	    sfree(currstr);
 	}
       }
       lst_free(currlst);
@@ -347,6 +347,6 @@ void lol_free(ListOfLists *lol) {
   lst_free(lol->lstType);
   lst_free(lol->lstName);
   lst_free(lol->lst);
-  if (lol->class != NULL) free(lol->class);
-  free(lol);
+  if (lol->class != NULL) sfree(lol->class);
+  sfree(lol);
 }

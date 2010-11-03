@@ -292,8 +292,8 @@ int main(int argc, char *argv[]) {
         ss_from_msas(msa, tm_order(subst_mod) + 1, FALSE, NULL, NULL, NULL, -1,
 		     subst_mod_is_codon_model(subst_mod));
         for (i = 0; i < msa->nseqs; i++)
-          free(msa->seqs[i]);
-        free(msa->seqs);
+          sfree(msa->seqs[i]);
+        sfree(msa->seqs);
         msa->seqs = NULL;
       }
     }
@@ -405,8 +405,8 @@ int main(int argc, char *argv[]) {
           msa_print(F, msa, dump_format, FALSE);
           if (!parametric) {   /* need to get rid of seqs because msa
                                    object reused */
-            for (j = 0; j < msa->nseqs; j++) free(msa->seqs[j]);
-            free(msa->seqs);
+            for (j = 0; j < msa->nseqs; j++) sfree(msa->seqs[j]);
+            sfree(msa->seqs);
             msa->seqs = NULL;
           }
         }

@@ -18,7 +18,6 @@
 #include <ctype.h>
 #include <misc.h>
 #include <hashtable.h>
-#include <string.h>
 
 #define GENEPRED_SOURCE "genepred"
 

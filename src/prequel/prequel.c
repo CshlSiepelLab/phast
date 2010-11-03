@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
       out_f = fopen_fname(out_fname, "w+");
       print_seq_fasta(out_f, outseq, n->name, len);
       fclose(out_f);
-      free(outseq); 
+      sfree(outseq); 
     }
 
     else {			/* encoded sequence-by-sequence
@@ -289,7 +289,7 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "Average approximation error ('%s'): %f bits\n",
               n->name, tot_error/(msa->length - ngaps));
 
-      free(encoded);
+      sfree(encoded);
     }
   }
 
@@ -473,7 +473,7 @@ void do_indels(MSA *msa, TreeModel *mod) {
   lst_free(inside);
   lst_free(outside);
   lst_free(ambig_cases);
-  free(seq_to_leaf);
-  free(label);
+  sfree(seq_to_leaf);
+  sfree(label);
 }
 

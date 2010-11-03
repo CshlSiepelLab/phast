@@ -133,7 +133,7 @@ Problem *problem_add(List *problems, GFF_Feature *feat, status_type status,
 /* free a problem */
 void problem_free(Problem *p) {
   if (p != NULL) {
-    free(p);
+    sfree(p);
   }
 }
 
@@ -376,7 +376,7 @@ int scan_for_gaps(GFF_Feature *feat, MSA *msa, Problem **problem) {
                                    fixing at the moment ...  */
   }
 
-  for (i = 0; i < lst_size(gaps); i++) free(lst_get_ptr(gaps, i));
+  for (i = 0; i < lst_size(gaps); i++) sfree(lst_get_ptr(gaps, i));
   lst_free(gaps);
   return retval;
 }
@@ -431,7 +431,7 @@ int is_fshift_okay(GFF_Feature *feat, MSA *msa) {
       /* reject alignment if mod 3 test fails OR if the total length
          of the gappy region exceeds MAX_GAPPY_BLOCK_SIZE */
       if (j != msa->nseqs || blk_beg - start_gappy_reg > MAX_GAPPY_BLOCK_SIZE) {
-        free(ngaps);
+        sfree(ngaps);
         return 0;
       }
 
@@ -441,7 +441,7 @@ int is_fshift_okay(GFF_Feature *feat, MSA *msa) {
       start_gappy_reg = blk_end;
     }
   }
-  free(ngaps);
+  sfree(ngaps);
   return 1;
 }
 

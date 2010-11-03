@@ -16,7 +16,6 @@
 #include "stringsplus.h"
 #include "misc.h"
 #include <stdlib.h>
-#include <string.h>
 #include <ctype.h>
 
 String *str_new(int starting_nchars) {
@@ -46,8 +45,8 @@ String *str_new_dbl(double d) {
 }
 
 void str_free(String *s) {
-  free(s->chars);
-  free(s);
+  sfree(s->chars);
+  sfree(s);
 }
 
 void str_clear(String *s) {
@@ -125,7 +124,7 @@ void str_ncpy_charstr(String *dest, const char *src, int len) {
   str_nappend_charstr(dest, src, len);
 }
 
-/* strdup for Strings */
+/* copy_charstr for Strings */
 String *str_dup(String *src) {
   String *s = str_new(src->length);
   str_cpy(s, src);
@@ -300,7 +299,7 @@ int str_split_with_quotes(String *s, const char *delim, List *l) {
       for (j++; j < s->length; j++, n++) 
     if (!inv_delim[(int)s->chars[j]]) break;
   }
-  free(quote);
+  sfree(quote);
   return lst_size(l);
 }
 
@@ -389,6 +388,7 @@ Regex *str_re_new(const char *re_str) {
 }
 
 
+//NOTE Regex are allocated by pcre; do not use sfree
 void str_re_free(Regex *re) {
   if (re != NULL)
     free(re);

@@ -17,7 +17,6 @@ Last updated: 4/8/2010
 #include <stdlib.h>
 #include <stdio.h>
 #include <msa.h>
-#include <string.h>
 #include <getopt.h>
 #include <ctype.h>
 #include <misc.h>
@@ -25,6 +24,7 @@ Last updated: 4/8/2010
 #include <local_alignment.h>
 #include <trees.h>
 #include <phylo_p.h>
+#include <rph_util.h>
 
 #include <Rdefines.h>
 
@@ -99,7 +99,6 @@ SEXP rph_phyloP(SEXP modP,
     p->chrom = copy_charstr(p->msa->names[p->refidx-1]);
   if (outfileP != R_NilValue) {
     p->outfile = fopen_fname(CHARACTER_VALUE(outfileP), "w");
-    if (p->outfile == NULL) die("ERROR opening %s\n", CHARACTER_VALUE(outfileP));
   }
   if (outfileOnlyP != R_NilValue && LOGICAL_VALUE(outfileOnlyP)) {
     lol_free(p->results);
@@ -117,7 +116,6 @@ SEXP rph_phyloP(SEXP modP,
       if (p->feats == NULL) die("need features for gff output");
     }
     else die("unknown format string %s", format);
-    free(format);
   }
 
   if (p->method == SPH) {
@@ -141,23 +139,19 @@ SEXP rph_phyloP(SEXP modP,
   GetRNGstate();
   phyloP(p);
   PutRNGstate();
+  if (p->msa != NULL)
+    rph_msa_protect(p->msa);
+  if (p->feats != NULL) 
+    rph_gff_protect(p->feats);
   
-  if (p->subtree_name != NULL) free(p->subtree_name);
-  if (p->branch_name != NULL) {
-    lst_free_strings(p->branch_name);
-    lst_free(p->branch_name);
-  }
-  if (p->outfile != NULL) 
+  if (p->outfile != NULL && p->outfile != stdout && p->outfile != stderr) 
     fclose(p->outfile);
   if (p->results != NULL) {
     PROTECT(rv = rph_listOfLists_to_SEXP(p->results));
     numprotect++;
-    lol_free(p->results);
   }
   else rv = R_NilValue;
   fflush(stdout);
-  if (p->chrom != NULL) free(p->chrom);
-  free(p);
   if (numprotect > 0) UNPROTECT(numprotect);
   return rv;
 }

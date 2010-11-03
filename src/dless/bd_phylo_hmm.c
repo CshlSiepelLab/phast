@@ -169,9 +169,9 @@ BDPhyloHmm *bd_new(TreeModel *source_mod, double rho, double mu,
 
   lst_free(inside);
   lst_free(outside);
-  free(alpha);
-  free(beta);
-  free(tau);
+  sfree(alpha);
+  sfree(beta);
+  sfree(tau);
   return bdphmm;
 }
 
@@ -287,8 +287,8 @@ void bd_handle_missing_data(BDPhyloHmm *bdphmm, MSA *msa) {
 
   for (i = 0; i < msa->ss->ntuples; i++) 
     if (uninform[i] != NULL) lst_free(uninform[i]);
-  free(uninform);
-  free(mark);  
+  sfree(uninform);
+  sfree(mark);  
 }
 
 /* compute log odds scores for predictions (wrt neutral), using
@@ -318,7 +318,7 @@ void bd_add_indel_emissions(BDPhyloHmm *bdphmm, IndelHistory *ih) {
     for (i = 0; i < ih->ncols; i++) 
       bdphmm->phmm->emissions[state][i] += col_logl[i];
   }
-  free(col_logl);
+  sfree(col_logl);
 }
 
 /* these two functions for use by bd_estimate_transitions */

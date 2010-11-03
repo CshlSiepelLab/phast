@@ -37,8 +37,8 @@ Vector *vec_new_from_list(List *l) {
 }
 
 void vec_free(Vector *v) {
-  free(v->data);
-  free(v);
+  sfree(v->data);
+  sfree(v);
 }
 
 void vec_set_all(Vector *v, double val) {

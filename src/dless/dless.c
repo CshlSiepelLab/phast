@@ -267,7 +267,7 @@ int main(int argc, char *argv[]) {
     if (!str_equals_charstr(tmp, "-")) {
       str_remove_path(tmp);
       str_root(tmp, '.');
-      if (idpref == NULL) idpref = strdup(tmp->chars);
+      if (idpref == NULL) idpref = copy_charstr(tmp->chars);
       str_root(tmp, '.');         /* apply one more time for double suffix */
       if (seqname == NULL) seqname = tmp->chars;    
     }
@@ -286,8 +286,8 @@ int main(int argc, char *argv[]) {
   
   /* can free emissions now */
   for (i = 0; i < bdphmm->phmm->hmm->nstates; i++)
-    free(bdphmm->phmm->emissions[i]);
-  free(bdphmm->phmm->emissions);
+    sfree(bdphmm->phmm->emissions[i]);
+  sfree(bdphmm->phmm->emissions);
   bdphmm->phmm->emissions = NULL;
 
   /* convert GFF to coord frame of reference sequence and adjust

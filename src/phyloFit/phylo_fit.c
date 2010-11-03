@@ -28,7 +28,6 @@
 #include <tree_model.h>
 #include <fit_em.h>
 #include <subst_mods.h>
-#include <string.h>
 #include <local_alignment.h>
 #include <ctype.h>
 #include <tree_likelihoods.h>
@@ -272,8 +271,8 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 	}
 	lol_push_lol(dobase_lol, ratecat_lol, NULL);
       }
-      free(temparr);
-      free(dim);
+      sfree(temparr);
+      sfree(dim);
     }
     if (output_fname_root != NULL) {
       set_output_fname(fname, output_fname_root, cat, ".postprob");
@@ -380,9 +379,9 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 	}
 	lol_push_lol(exp_nsub_lol, ratecat_lol, NULL);
       }
-      free(countarr);
-      free(temparr);
-      free(dim);
+      sfree(countarr);
+      sfree(temparr);
+      sfree(dim);
     }
     if (output_fname_root != NULL) {
       set_output_fname(fname, output_fname_root, cat, ".expsub");
@@ -992,7 +991,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
             fprintf(F, "%d\t%.6f\n", j, col_log_probs[j]);
           fclose(F);
           str_free(colprob_fname);
-          free(col_log_probs);
+          sfree(col_log_probs);
         }
       }
       else {                    /* fit model */
@@ -1007,8 +1006,8 @@ int run_phyloFit(struct phyloFit_struct *pf) {
       
           if (msa->length > 1000000) { /* throw out original data if
                                           very large */
-            for (j = 0; j < msa->nseqs; j++) free(msa->seqs[j]);
-            free(msa->seqs);
+            for (j = 0; j < msa->nseqs; j++) sfree(msa->seqs[j]);
+            sfree(msa->seqs);
             msa->seqs = NULL;
           }
         }
@@ -1141,6 +1140,6 @@ int run_phyloFit(struct phyloFit_struct *pf) {
     pf->window_coords = NULL;
   }
   if (gc != NULL)
-    free(gc);
+    sfree(gc);
   return 0;
 }

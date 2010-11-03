@@ -13,9 +13,7 @@
 #include <stdio.h>
 #include "sufficient_stats.h"
 #include "msa.h"
-#include <string.h>
 #include <getopt.h>
-#include <string.h>
 #include <ctype.h>
 #include <math.h>
 #include "gff.h"

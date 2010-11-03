@@ -419,7 +419,7 @@ void mafBlock_remove_gap_cols(MafBlock *block) {
   } 
   else if (nonGapSpecies==0) 
     block->seqlen = 0;
-  free(isGap);
+  sfree(isGap);
   return;
 }
 
@@ -539,7 +539,7 @@ void mafSubBlock_free(MafSubBlock *sub) {
     str_free(sub->quality);
     sub->quality = NULL;
   }
-  free(sub);
+  sfree(sub);
 }
 
 
@@ -586,7 +586,7 @@ void mafBlock_subSpec(MafBlock *block, List *specNameList, int include) {
     if (idx != -1) keep[idx] = !(include==0);
   }
   mafBlock_remove_lines(block, keep);
-  free(keep);
+  sfree(keep);
   return;
 }
 
@@ -627,7 +627,7 @@ void mafBlock_reorder(MafBlock *block, List *specNameOrder) {
   lst_free(block->data);
   block->specMap = newSpecMap;
   block->data = newData;
-  free(found);
+  sfree(found);
 }
 
 
@@ -658,7 +658,7 @@ void mafBlock_free(MafBlock *block) {
     block->specMap = NULL;
   }
   mafBlock_free_data(block);
-  free(block);
+  sfree(block);
 }
 
 
@@ -840,7 +840,7 @@ void mafBlock_strip_eLines(MafBlock *block) {
   for (i=0; i<lst_size(block->data); i++) 
     keep[i] = (((MafSubBlock*)lst_get_ptr(block->data, i))->lineType[0] != 'e');
   mafBlock_remove_lines(block, keep);
-  free(keep);
+  sfree(keep);
 }
 
 //strip both i- and e-lines

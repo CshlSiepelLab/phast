@@ -18,7 +18,6 @@ Last updated: 1/5/2010
 #include <stdlib.h>
 #include <stdio.h>
 #include <msa.h>
-#include <string.h>
 #include <getopt.h>
 #include <ctype.h>
 #include <sufficient_stats.h>
@@ -26,6 +25,7 @@ Last updated: 1/5/2010
 #include <gff.h>
 #include <misc.h>
 #include <list_of_lists.h>
+#include <rph_util.h>
 
 #include <Rdefines.h>
 
@@ -34,10 +34,36 @@ void rph_gff_free(SEXP gffPtr) {
 }
 
 
+void rph_gff_feat_protect(GFF_Feature *feat) {
+  rph_protect_mem(feat);
+  rph_string_protect(feat->seqname);
+  rph_string_protect(feat->source);
+  rph_string_protect(feat->feature);
+  rph_string_protect(feat->attribute);
+}
+
+void rph_gff_protect(GFF_Set *gff) {
+  int i;
+  rph_protect_mem(gff);
+  if (gff->features != NULL) {
+    rph_lst_protect(gff->features);
+    for (i=0; i < lst_size(gff->features); i++) {
+      rph_gff_feat_protect(lst_get_ptr(gff->features, i));
+    }
+  }
+  rph_string_protect(gff->gff_version);
+  rph_string_protect(gff->source);
+  rph_string_protect(gff->source_version);
+  rph_string_protect(gff->date);
+  rph_lst_protect(gff->groups);
+  rph_string_protect(gff->group_tag);
+}
+
 SEXP rph_gff_new_extptr(GFF_Set *gff) {
   SEXP result;
   PROTECT(result=R_MakeExternalPtr((void*)gff, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(result, rph_gff_free, 1);
+  rph_gff_protect(gff);
   UNPROTECT(1);
   return result;
 }
@@ -474,26 +500,20 @@ SEXP rph_gff_one_attribute(SEXP gffP, SEXP tagP) {
 	    str_remove_quotes(currStr);
 	    if (resultLen > maxResultLen) {
 	      maxResultLen += 100;
-	      result = realloc(result, maxResultLen*sizeof(char*));
+	      result = srealloc(result, maxResultLen*sizeof(char*));
 	    }
-	    result[resultLen++] = strdup(currStr->chars);
+	    result[resultLen++] = copy_charstr(currStr->chars);
 	  }
 	}
       }
-      lst_free_strings(l2);
     }
-    lst_free_strings(l1);
     if (resultLen == 0) 
-      result[resultLen++] = strdup("");  //empty string will be converted to NA later
+      result[resultLen++] = copy_charstr("");  //empty string will be converted to NA later
     lol_push_charvec(lol, result, resultLen, NULL);
-    for (j=0; j < resultLen; j++) free(result[j]);
+    for (j=0; j < resultLen; j++) sfree(result[j]);
   }
-  free(result);
   PROTECT(rv = rph_listOfLists_to_SEXP(lol));
-  lol_free(lol);
-  str_free(tag);
-  lst_free(l1);
-  lst_free(l2);
+  rph_gff_protect(gff);
   UNPROTECT(1);
   return rv;
 }
@@ -526,6 +546,7 @@ SEXP rph_gff_overlapSelect(SEXP gffP, SEXP filter_gffP,
   filter_gff = gff_overlap_gff(gff, filter_gff,
 			       numbaseOverlap, percentOverlap, nonOverlapping,
 			       overlappingFragments);
+  rph_gff_protect(gff);
   return rph_gff_new_extptr(filter_gff);
 }
 
@@ -535,6 +556,7 @@ SEXP rph_gff_add_UTRs(SEXP gffP) {
   gff = (GFF_Set*)EXTPTR_PTR(gffP);
   gff_group(gff, "transcript_id");
   gff_create_utrs(gff);
+  rph_gff_protect(gff);
   return gffP;
 }
 
@@ -544,6 +566,7 @@ SEXP rph_gff_add_introns(SEXP gffP) {
   gff = (GFF_Set*)EXTPTR_PTR(gffP);
   gff_group(gff, "transcript_id");
   gff_create_introns(gff);
+  rph_gff_protect(gff);
   return gffP;
 }
 
@@ -553,6 +576,7 @@ SEXP rph_gff_add_signals(SEXP gffP) {
   gff = (GFF_Set*)EXTPTR_PTR(gffP);
   gff_group(gff, "transcript_id");
   gff_create_signals(gff);
+  rph_gff_protect(gff);
   return gffP;
 }
 
@@ -562,6 +586,7 @@ SEXP rph_gff_fix_start_stop(SEXP gffP) {
   gff = (GFF_Set*)EXTPTR_PTR(gffP);
   gff_group(gff, "transcript_id");
   gff_fix_start_stop(gff);
+  rph_gff_protect(gff);
   return gffP;
 }
 
@@ -574,6 +599,7 @@ SEXP rph_gff_inverse(SEXP gffP, SEXP regionP) {
   region = (GFF_Set*)EXTPTR_PTR(regionP);
   
   notgff = gff_inverse(gff, region);
+  rph_gff_protect(gff);
   return rph_gff_new_extptr(notgff);
 }
 
@@ -621,10 +647,10 @@ SEXP rph_gff_featureBits(SEXP gffListP, SEXP orP, SEXP returnGffP) {
     }
     numbit = gff_flatten_mergeAll(newgff);
   }
-  lst_free(gfflist);
+  for (i=0; i < numGff; i++)
+    rph_gff_protect((GFF_Set*)lst_get_ptr(gfflist, i));
   if (returnGff) 
     return rph_gff_new_extptr(newgff);
-  gff_free_set(newgff);
   PROTECT(rv = allocVector(INTSXP, 1));
   INTEGER(rv)[0] = numbit;
   UNPROTECT(1);
@@ -642,6 +668,7 @@ SEXP rph_gff_append(SEXP gffListP) {
       lst_push_ptr(newgff->features, 
 		   gff_new_feature_copy(lst_get_ptr(gff->features, j)));
     }
+    rph_gff_protect(gff);
   }
   return rph_gff_new_extptr(newgff);
 }
@@ -660,6 +687,7 @@ SEXP rph_gff_split(SEXP gffP, SEXP maxLengthP, SEXP dropP, SEXP splitFromRightP)
   splitFrom_size = LENGTH(splitFromRightP);
   newgff = gff_split(gff, maxlen, maxlen_size, drop, 
 		     splitFromRight, splitFrom_size);
+  rph_gff_protect(gff);
   UNPROTECT(2);
   return rph_gff_new_extptr(newgff);
 }
@@ -668,6 +696,7 @@ SEXP rph_gff_split(SEXP gffP, SEXP maxLengthP, SEXP dropP, SEXP splitFromRightP)
 SEXP rph_gff_sort(SEXP gffP) {
   GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
   gff_sort(gff);
+  rph_gff_protect(gff);
   return gffP;
 }
 
@@ -677,5 +706,6 @@ SEXP rph_gff_nonOverlapping_genes(SEXP gffP) {
   if (lst_size(gff->features) == 0) return gffP;
   gff_group(gff, "transcript_id");
   gff_remove_overlaps(gff, NULL);
+  rph_gff_protect(gff);
   return gffP;
 }

@@ -173,7 +173,7 @@ MSA *maf_read_cats_subset(FILE *F,          /**< MAF file */
       for (i=0; i<lst_size(seqnames); i++) {
 	currname = (String*)lst_get_ptr(seqnames, i);
 	hsh_put_int(name_hash, currname->chars, i);
-	msa->names[i] = strdup(currname->chars);
+	msa->names[i] = copy_charstr(currname->chars);
       }
       msa->nseqs = lst_size(seqnames);
       maf_quick_peek(F, &msa->names, name_hash, NULL, &refseqlen, 0);
@@ -547,7 +547,7 @@ MSA *maf_read_cats_subset(FILE *F,          /**< MAF file */
     }
     
     str_free(refseq);
-    free(fasthash);
+    sfree(fasthash);
   }
 
   msa->names = mini_msa->names;
@@ -1017,7 +1017,7 @@ MSA *maf_read_unsorted(FILE *F,          /**< MAF file */
     }
     
     str_free(refseq);
-    free(fasthash);
+    sfree(fasthash);
   }
 
   mini_msa->names = NULL;       /* will prohibit names from being
@@ -1155,7 +1155,7 @@ int maf_read_block_addseq(FILE *F, MSA *mini_msa, Hashtable *name_hash,
   str_free(this_name);
 
   if (mini_msa->length == -1 && !more_blocks) {
-    free(mark);
+    sfree(mark);
     return EOF;}                 /* in this case, an EOF must have been
                                    encountered before any alignment
                                    blocks were found */
@@ -1167,7 +1167,7 @@ int maf_read_block_addseq(FILE *F, MSA *mini_msa, Hashtable *name_hash,
       mini_msa->seqs[i][mini_msa->length] = '\0';
     }
   }
-  free(mark);
+  sfree(mark);
   return 0;
 }
 
@@ -1346,7 +1346,7 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
 	    if (add_seqs) {
 	      hsh_put_int(name_hash, name->chars, count);
 	      *names = srealloc(*names, (count+1) * sizeof(char*));
-	      (*names)[count] = strdup(name->chars);
+	      (*names)[count] = copy_charstr(name->chars);
 	    }
 	    count++;
 	  }
@@ -1369,7 +1369,7 @@ void maf_quick_peek(FILE *F, char ***names, Hashtable *name_hash, int *nseqs, in
       if (hsh_get_int(name_hash, name->chars) == -1 && add_seqs) {
 	hsh_put_int(name_hash, name->chars, count);
 	*names = srealloc(*names, (count+1) * sizeof(char*));
-	(*names)[count] = strdup(name->chars);
+	(*names)[count] = copy_charstr(name->chars);
 	count++;
       }
 
@@ -1446,7 +1446,7 @@ void maf_peek(FILE *F, char ***names, Hashtable *name_hash,
       if (hsh_get_int(name_hash, name->chars) == -1) {
         hsh_put_int(name_hash, name->chars, count);
         *names = srealloc(*names, (count+1) * sizeof(char*));
-        (*names)[count] = strdup(name->chars);
+        (*names)[count] = copy_charstr(name->chars);
         count++;
       }
 
@@ -1567,7 +1567,7 @@ void maf_peek(FILE *F, char ***names, Hashtable *name_hash,
       lst_push_int(map->seq_list, gp->idx + 1);
       lst_push_int(map->msa_list, gp->idx + partial_gap_sum + 1);
                                 /* note: coord map uses 1-based indexing */
-      free(gp);
+      sfree(gp);
     }
     map->seq_len = *refseqlen;
     map->msa_len = *refseqlen + partial_gap_sum;
