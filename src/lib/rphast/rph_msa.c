@@ -80,8 +80,12 @@ void rph_msa_protect(MSA *msa) {
   }
   if (msa->categories != NULL)
     rph_protect_mem(msa->categories);
-  if (msa->ss != NULL)
+  if (msa->ss != NULL) {
+    if (msa != msa->ss->msa) {
+      die("ss pointer mismatch\n");
+    }
     rph_msa_protect_ss(msa->ss);
+  }
   if (msa->is_informative != NULL)
     rph_protect_mem(msa->is_informative);
 }
@@ -514,6 +518,7 @@ SEXP rph_msa_printSeq(SEXP msaP, SEXP fileP, SEXP formatP,
     msa_print_to_file(CHARACTER_VALUE(fileP), 
 		      msa, fmt, INTEGER_VALUE(prettyPrintP));
   else msa_print(stdout, msa, fmt, INTEGER_VALUE(prettyPrintP));
+  rph_msa_protect(msa);
   return R_NilValue;
 }
 
@@ -547,6 +552,7 @@ SEXP rph_msa_seqs(SEXP msaP) {
       SET_STRING_ELT(result, seq, mkChar(msa->seqs[seq]));
     }
   }
+  rph_msa_protect(msa);
   UNPROTECT(1);
   return result;
 }
@@ -690,6 +696,7 @@ SEXP rph_msa_square_brackets(SEXP msaP, SEXP rowsP, SEXP colsP) {
       seqs[i][j] = '\0';
     }
   }
+  rph_msa_protect(msa);
   newMsa = msa_new(seqs, names, nrow, ncol, msa->alphabet);
   if (numprotect > 0) UNPROTECT(numprotect);
   return rph_msa_new_extptr(newMsa);
@@ -1022,24 +1029,24 @@ SEXP rph_msa_split_by_gff(SEXP msaP, SEXP gffP) {
   starts = smalloc(lst_size(gff->features)*sizeof(int));
 
   /* convert GFF to coordinate frame of alignment */
-  if (msa->idx_offset != 0)
-    for (i=0; i < lst_size(gff->features); i++) {
-      checkInterruptN(i, 1000);
-      feat = lst_get_ptr(gff->features, i);
-      starts[i] = feat->start;
-      feat->start -= msa->idx_offset;
-      feat->end -= msa->idx_offset;
-    }
+  for (i=0; i < lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
+    feat = lst_get_ptr(gff->features, i);
+    starts[i] = feat->start;
+    feat->start -= msa->idx_offset;
+    feat->end -= msa->idx_offset;
+  }
   msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
 
   for (i=0; i < lst_size(gff->features); i++) {
     feat = lst_get_ptr(gff->features, i);
     newmsa = msa_sub_alignment(msa, NULL, -1, feat->start -1, feat->end);
-    newmsa->idx_offset = starts[i];
+    newmsa->idx_offset = starts[i]-1;
     lst_push_ptr(rvlist, newmsa);
     rph_msa_protect(newmsa);
   }
   rph_gff_protect(gff);
+  rph_msa_protect(msa);
   return rph_lst_new_extptr(rvlist);
 }
 
@@ -1177,6 +1184,7 @@ SEXP rph_msa_fraction_pairwise_diff(SEXP msaP, SEXP seq1P, SEXP seq2P,
     lol_push_matrix(lol, m, "pairwise.diff");
     PROTECT(rv = rph_listOfLists_to_SEXP(lol));
   }
+  rph_msa_protect(msa);
   UNPROTECT(1);
   return rv;
 }

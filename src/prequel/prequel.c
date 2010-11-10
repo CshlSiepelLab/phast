@@ -259,11 +259,11 @@ int main(int argc, char *argv[]) {
 				   output */
       double error, tot_error = 0;
       int ngaps = 0;
-      static Vector *v = NULL;
+      Vector *v;
       unsigned *encoded;
 
       /* first encode tuple by tuple */
-      if (v == NULL) v = vec_new(mod->rate_matrix->size);
+      v = vec_new(mod->rate_matrix->size);
       encoded = smalloc(msa->ss->ntuples * sizeof(unsigned));
       for (i = 0; i < msa->ss->ntuples; i++) {
         if (mod->tree_posteriors->base_probs[0][0][node][i] == -1) {
@@ -277,6 +277,7 @@ int main(int argc, char *argv[]) {
           tot_error += error * msa->ss->counts[i];	 
         }
       }
+      vec_free(v);
 
       /* now write site by site */
       sprintf(out_fname, "%s.%s.bin", out_root, n->name);

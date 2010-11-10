@@ -797,13 +797,13 @@ void write_machine_log(FILE *mlogf, GFF_FeatureGroup *group, List *problems,
    list of features */
 int ref_seq_okay(List *features, MSA *msa, int offset3, 
                  int indel_strict, int splice_strict, List *problems) {
-  static List *signals = NULL;
-  static char *seq = NULL;
-  static int seqalloc = 0;
+  List *signals = NULL;
+  char *seq = NULL;
+  int seqalloc = 0;
   int idx, retval = TRUE;
   GFF_Feature *feat, *lastfeat_helper = NULL;
 
-  if (indel_strict && signals == NULL) {
+  if (indel_strict) {
     signals = lst_new_ptr(10);
     str_split(str_new_charstr(SIGNALS), ",", signals);
   }
@@ -857,6 +857,9 @@ int ref_seq_okay(List *features, MSA *msa, int offset3,
 
     if (indel_strict) {
       int strict_okay = TRUE;
+      List *signals = lst_new_ptr(10);
+      str_split(str_new_charstr(SIGNALS), ",", signals);
+
       if (str_in_list(feat->feature, signals)) {
         /* reject any signal feature with gaps in the ref seq, unless they
            appear in a non-critical part of a splice site or in a
@@ -901,8 +904,11 @@ int ref_seq_okay(List *features, MSA *msa, int offset3,
         problem_add(problems, feat, BAD_REF_INDEL_STRICT_FAIL, -1, -1);
         retval = FALSE;
       }
+      lst_free_strings(signals);
+      lst_free(signals);
     }
   }
+  if (seq != NULL) sfree(seq);
   return retval;
 }
 

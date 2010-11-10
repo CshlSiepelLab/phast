@@ -280,6 +280,7 @@ void mm_exp_complex(MarkovMatrix *P, MarkovMatrix *Q, double t) {
 
   if (Eexp == NULL) {
     Eexp = zmat_new(Q->size, Q->size);
+    set_static_var((void**)&Eexp);
     tmp = zmat_new(Q->size, Q->size);
     last_size = Q->size;
   }
@@ -325,11 +326,12 @@ void mm_exp_real(MarkovMatrix *P, MarkovMatrix *Q, double t) {
     return;
   }
 
-  if (last_size != Q->size) {
+  if (exp_evals == NULL || last_size != Q->size) {
     if (exp_evals != NULL) 
       vec_free(exp_evals);
 
     exp_evals = vec_new(Q->size);
+    set_static_var((void**)&exp_evals);
     last_size = Q->size;
   }
 
@@ -454,14 +456,16 @@ void mm_diagonalize_real(MarkovMatrix *M) {
   static Zvector *evals_z = NULL;
   static int size = -1;
 
-  if (size != M->size) {
-    if (size > -1) {
+  if (evecs_z == NULL || size != M->size) {
+    if (evecs_z != NULL) {
       zmat_free(evecs_z);
       zmat_free(evecs_inv_z);
       zvec_free(evals_z);
+      evecs_z = NULL;
     }
 
     evecs_z = zmat_new(M->size, M->size);
+    set_static_var((void**)&evecs_z);
     evecs_inv_z = zmat_new(M->size, M->size);
     evals_z = zvec_new(M->size);
     size = M->size;

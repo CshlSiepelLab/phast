@@ -524,13 +524,12 @@ void reduce_to_4d(MSA *msa, CategoryMap *cm) {
   msa_free_categories(msa);
   msa->length = new_msa->length;
   msa->ss = new_msa->ss;
+  msa->ss->msa = msa;
   msa->idx_offset = 0;
   if (msa->is_informative != NULL) {
     sfree(msa->is_informative);
     msa->is_informative = NULL;
   }
-
-  msa->ss = new_msa->ss;
   new_msa->ss = NULL;
   new_msa->names = NULL;
   temp_msa->names = NULL;

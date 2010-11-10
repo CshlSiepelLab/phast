@@ -227,8 +227,8 @@ MSA *maf_read_cats_subset(FILE *F,          /**< MAF file */
     if (max_tuples < 1000000) max_tuples = 1000000;
   }
   else 
-    max_tuples = min(50000,
-                     pow(strlen(msa->alphabet)+strlen(msa->missing)+1, 2 * msa->nseqs * tuple_size));
+    max_tuples = min(1000000,
+		     pow(strlen(msa->alphabet)+strlen(msa->missing)+1, 2 * msa->nseqs * tuple_size));
 
   tuple_hash = hsh_new(max_tuples); 
   ss_new(msa, tuple_size, max_tuples, gff != NULL || cycle_size > 0 ? 1 : 0, 

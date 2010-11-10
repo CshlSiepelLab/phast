@@ -495,8 +495,10 @@ double hmm_max_or_sum(HMM *hmm, double **full_scores, double **emission_scores,
   
   static List *l = NULL;
 
-  if (l == NULL)
+  if (l == NULL) {
     l = lst_new_dbl(hmm->nstates);
+    set_static_var((void**)&l);
+  }
 
   if (mode == VITERBI) {
     for (k = 0; k < lst_size(hmm->predecessors[i]); k++) {

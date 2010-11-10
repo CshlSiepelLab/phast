@@ -414,6 +414,7 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
   /* init memory (first time only) */
   if (q == NULL) {
     q = (double**)smalloc(nstates * sizeof(double*));
+    set_static_var((void**)&q);
     q2 = (double**)smalloc(nstates * sizeof(double*));
     q3 = (double**)smalloc(nstates * sizeof(double*));
     dq = (double**)smalloc(nstates * sizeof(double*));
@@ -883,8 +884,10 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
   static Complex **f = NULL, **tmpmat = NULL, **sinv_dq_s = NULL;
   static Complex *diag = NULL;
 
-  if (diag == NULL) 
+  if (diag == NULL) {
     diag = (Complex*)smalloc(nstates * sizeof(Complex));
+    set_static_var((void**)&diag);
+  }
 
   Q = mod->rate_matrix;
   if (Q->evals_z == NULL || Q->evec_matrix_z == NULL ||
@@ -894,6 +897,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
   /* init memory (first time only) */
   if (dq == NULL) {
     dq = (double**)smalloc(nstates * sizeof(double*));
+    set_static_var((void**)&dq);
     f = (Complex**)smalloc(nstates * sizeof(Complex*));
     tmpmat = (Complex**)smalloc(nstates * sizeof(Complex*));
     sinv_dq_s = (Complex**)smalloc(nstates * sizeof(Complex*));

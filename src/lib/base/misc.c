@@ -23,6 +23,7 @@
 
 //avoid conflict with R
 #undef choose
+
 /* fill an array with 1s or zeroes, indicating a random choice of k
    elements from a list of N.  The array 'selections' must already be
    allocated to be of length N, and should be initialized.
@@ -441,6 +442,9 @@ void *smalloc(size_t size) {
     die("FATAL ERROR: out of memory.\n");
   return retval;
 }
+
+void set_static_var(void **ptr) {}
+
 
 void *srealloc(void *ptr, size_t size) {
   void *retval = realloc(ptr, size);
@@ -1119,8 +1123,10 @@ static char **build_iupac_map() {
 /* accessor for static mapping */
 char **get_iupac_map() {
   static char **iupac_map = NULL;
-  if (iupac_map == NULL)
+  if (iupac_map == NULL) {
     iupac_map = build_iupac_map();
+    set_static_var((void**)(&iupac_map));
+  }    
   return iupac_map;
 }
 

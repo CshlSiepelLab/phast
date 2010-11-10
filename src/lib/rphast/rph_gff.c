@@ -55,7 +55,15 @@ void rph_gff_protect(GFF_Set *gff) {
   rph_string_protect(gff->source);
   rph_string_protect(gff->source_version);
   rph_string_protect(gff->date);
-  rph_lst_protect(gff->groups);
+  if (gff->groups != NULL) {
+    rph_lst_protect(gff->groups);
+    for (i=0; i < lst_size(gff->groups); i++) {
+      GFF_FeatureGroup *g = lst_get_ptr(gff->groups, i);
+      rph_protect_mem(g);
+      rph_string_protect(g->name);
+      rph_lst_protect(g->features);
+    }
+  }
   rph_string_protect(gff->group_tag);
 }
 
@@ -75,7 +83,12 @@ SEXP rph_gff_copy(SEXP gffP) {
 
 
 SEXP rph_gff_read(SEXP filename) {
-  return rph_gff_new_extptr(gff_read_set(fopen_fname(CHARACTER_VALUE(filename), "r")));
+  FILE *infile = fopen_fname(CHARACTER_VALUE(filename), "r");
+  SEXP rv;
+  PROTECT(rv = rph_gff_new_extptr(gff_read_set(infile)));
+  fclose(infile);
+  UNPROTECT(1);
+  return rv;
 }
 
 
@@ -216,6 +229,7 @@ SEXP rph_gff_dataframe(SEXP gffPtr) {
     }
   }
   SET_NAMES(result, header);
+  rph_gff_protect(gff);
 
   UNPROTECT(11);
   return result;

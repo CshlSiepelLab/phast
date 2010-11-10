@@ -1494,6 +1494,7 @@ void tm_set_REV_CODON_matrix(TreeModel *mod, Vector *params, int start_idx) {
     states = copy_charstr(mod->rate_matrix->states);
     alph_size = strlen(states);
     revmat = smalloc(alph_size*sizeof(double*));
+    set_static_var((void**)&revmat);
     for (i=0; i < alph_size; i++) 
       revmat[i] = smalloc(alph_size*sizeof(double));
     for (i=0; i < alph_size; i++)
@@ -1561,6 +1562,7 @@ void tm_set_SSREV_CODON_matrix(TreeModel *mod, Vector *params, int start_idx) {
     states = copy_charstr(mod->rate_matrix->states);
     alph_size = strlen(states);
     revmat = smalloc(alph_size*sizeof(double*));
+    set_static_var((void**)&revmat);
     for (i=0; i < alph_size; i++) 
       revmat[i] = smalloc(alph_size*sizeof(double));
     for (i=0; i < alph_size; i++)  {
@@ -2709,7 +2711,9 @@ void tm_apply_selection_bgc_codon(MarkovMatrix *mm,
     alphabet = NULL;
   }
   if (alphabet == NULL) {
-    alphabet = copy_charstr(mm->states);
+    alphabet = smalloc(strlen(mm->states+1)*sizeof(char));
+    set_static_var((void**)&alphabet);
+    strcpy(alphabet, mm->states);
     codon_mapping = get_codon_mapping(alphabet);
   }
   tm_set_bgc_sel_factors_codon(sbfactor, selection, bgc);
@@ -2810,7 +2814,9 @@ void tm_unapply_selection_bgc_codon(MarkovMatrix *mm,
     alphabet = NULL;
   }
   if (alphabet == NULL) {
-    alphabet = copy_charstr(mm->states);
+    alphabet = smalloc(strlen(mm->states+1)*sizeof(char));
+    set_static_var((void**)&alphabet);
+    strcpy(alphabet, mm->states);
     codon_mapping = get_codon_mapping(alphabet);
   }
   tm_set_bgc_sel_factors_codon(sbfactor, selection, bgc);

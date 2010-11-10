@@ -106,7 +106,6 @@ int hsh_delete(Hashtable* ht, const char *key) {
   if (ht->keys[bucket] == NULL || 
       (idx = lst_find_compare(ht->keys[bucket], (void*)key, equal)) == -1) 
     return 0;
-
   lst_delete_idx(ht->keys[bucket], idx);
   lst_delete_idx(ht->vals[bucket], idx);
   return 1;

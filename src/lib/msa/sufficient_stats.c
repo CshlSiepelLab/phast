@@ -1461,7 +1461,8 @@ int ss_lookup_coltuple(char *coltuple_str, Hashtable *tuple_hash, MSA *msa) {
   return rv;
 }
 
-void ss_add_coltuple(char *coltuple_str, void *val, Hashtable *tuple_hash, MSA *msa) {
+void ss_add_coltuple(char *coltuple_str, void *val, Hashtable *tuple_hash, 
+		     MSA *msa) {
   int allgap[msa->ss->tuple_size], i, j, tuple_size, len;
   char tempchar;
   tuple_size = msa->ss->tuple_size;

@@ -27,7 +27,7 @@
 #include "lists.h"
 #include "stdio.h"
 
-#define BUFFERSIZE 1000		/* size of line-by-line buffer;
+#define BUFFERSIZE 100000	/* size of line-by-line buffer;
                                overflow okay (handled by multiple
                                reads) */
 
