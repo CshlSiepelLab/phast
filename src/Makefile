@@ -11,7 +11,9 @@ ifeq ($(TARGETOS), Windows)
 	@for file in `ls ../bin` ; do mv ../bin/$$file ../bin/$$file.exe ; done
 else
 	mkdir -p ../doc/man/
+	@echo "Generating man pages..."
 	@for file in `ls ../bin` ; do perl help2man.pl ../bin/$$file ../doc/man/ ; done
+	@echo "Done."
 endif
 
 

@@ -13,7 +13,7 @@ if ($ProgramToRun eq "")
 {
   usage();
 }
-print "Generating manual page for $ProgramToRun\n";
+#print "Generating manual page for $ProgramToRun\n";
 
 $dir = $ARGV[1];
 if (! (-e $ProgramToRun))
