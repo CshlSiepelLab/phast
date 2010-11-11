@@ -10,7 +10,7 @@ package:
 	mkdir -p ${TMPDIR}
 	cd ${TMPDIR} ; svn checkout http://compgen.bscb.cornell.edu/svnrepo/phast/trunk phast
 	find ${TMPDIR}/phast -name ".svn" | xargs rm -rf
-	rm -r ${TMPDIR}/phast/doc ${TMPDIR}/phast/src/lib/rphast ${TMPDIR}/phast/test ${TMPDIR}/binary_install.sh
+	rm -r ${TMPDIR}/phast/doc ${TMPDIR}/phast/src/lib/rphast ${TMPDIR}/phast/test ${TMPDIR}/phast/binary_install.sh
 	VERSION=`cat ${TMPDIR}/phast/version | sed 's/\./_/g'` ;\
 	cd ${TMPDIR} ; tar cfz ${CWD}/phast.$$VERSION.tgz phast
 	rm -rf ${TMPDIR}
