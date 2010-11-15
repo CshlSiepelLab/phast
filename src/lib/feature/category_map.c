@@ -539,8 +539,11 @@ CategoryMap* cm_new_string_or_file(const char *optarg) {
     retval = cm_read(fopen_fname(fname, "r"));
     unlink(fname);
   }
-  else 
-    retval = cm_read(fopen_fname(str->chars, "r"));
+  else {
+    F = fopen_fname(str->chars, "r");
+    retval = cm_read(F);
+    fclose(F);
+  }
 
   str_free(str);
   return retval;
