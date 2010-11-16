@@ -67,7 +67,7 @@ void str_append(String *s, String *suffix) {
 /* stops at null terminator if occurs before len */
 void str_nappend_charstr(String *s, const char *charstr, int len) {
   int i;
-  if (s->length + len + 1 >= s->nchars)
+  if (s->length + len > s->nchars)
     str_realloc(s, max(s->length + len, s->nchars * 2));
                                 /* try to avoid heavy srealloc when
                                    frequently appending short

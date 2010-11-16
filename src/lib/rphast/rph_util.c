@@ -10,19 +10,21 @@ static int mem_list_alloc_len=0;
 static void ***static_mem_list=NULL;
 static int static_mem_list_len=0;
 static int static_mem_list_alloc_len=0;
-static int *mem_available_list=NULL;
+static void **mem_available_list=NULL;
 static int mem_available_list_len = 0;
 static int mem_available_alloc_len = 0;
 #define MEM_LIST_START_SIZE 100000
 #define MEM_LIST_INCREASE_SIZE 1000000
+
+#define USE_RPHAST_MEMORY_HANDLER
 
 /*
   RPHAST memory handler.  Basic idea- all C memory allocations must be done
   via smalloc or srealloc (careful to use copy_charstr rather than strdup,
   which uses malloc).  All frees have to be done with sfree.  Every time 
   memory is allocated it gets added to mem_list.  Each allocated memory is 
-  bigger than the requested size by sizeof(int), and smalloc actually returns 
-  ((int*)ptr)[1].  At position 0 is stored the index in mem_list where we 
+  bigger than the requested size by sizeof(void*), and smalloc actually returns 
+  ((void**)ptr)[1].  At position 0 is stored a pointer to mem_list where we 
   have a pointer to this memory.
 
   Many rphast functions use on.exit(freeall.rphast).  This invokes
@@ -30,15 +32,15 @@ static int mem_available_alloc_len = 0;
   the mem_list, static_mem_list, mem_available_list, etc.
 
   If we want to keep objects past a freeall.rphast call, it needs to be
-  protected.  This is simply done by setting mem_list[i] to NULL for
-  this piece of memory.  Anything that is protected should have a finalizer
-  arranged.  There are functions rph_msa_protect, rph_gff_protect, 
-  rph_lst_protect, etc.  Note that rph_lst_protect doesn't protect the 
-  objects in the list.
+  protected.  This is done by setting mem_list[i] to NULL for this piece
+  of memory, and also setting the pointer at the beginning of the object to
+  NULL.  Anything that is protected should have a finalizer arranged.
+  There are functions rph_msa_protect, rph_gff_protect, rph_lst_protect, etc.  
+  Note that rph_lst_protect doesn't protect the objects in the list.
 
-  sfree sets mem_list[(int*)ptr[-1]]=NULL, and frees the memory.
+  sfree frees the memory and sets the corresponding location in mem_list to NULL.
 
-  mem_available_list is an array of indices in mem_list whose values no
+  mem_available_list is an array of pointers to mem_list whose values no
   longer need to be stored (either because they have been protected or freed).
   When new memory is allocated it recycles indices from this list, if available,
   to prevent mem_list from getting too long (there are a surprising number
@@ -51,14 +53,13 @@ static int mem_available_alloc_len = 0;
   involve a lot of ugly protect statements in the code, and it's not clear
   that it is appropriate for these values to always be stored between various
   rphast calls, even if it is appropriate to store them throughout a run
-  of command-line phast.  So instead there is set_static_var, which stores
-  a pointer to the static variable in static_mem_list (which is the same 
-  length as mem_list; all non-static variables have NULL in this array).  
-  Then, when rph_free_all is called, these pointers get set to NULL.  
-  Functions which use static variables need to check whether the this value 
-  is NULL to see if it needs to be re-computed.  It is only necessary to use
-  set_static_var on the static variables whose values are checked to see if
-  they need to be reset.
+  of command-line phast.  And technically we should also arrange to free them. 
+  Instead there is set_static_var, which adds a pointer to a static variable to
+  static_mem_list.  Then, when rph_free_all is called, these pointers get set 
+  to NULL.  Functions which use static variables need to check whether the this 
+  value is NULL to see if it needs to be re-computed (which is how static variables
+  are usually used anyway).  It is only necessary to use set_static_var on the 
+  static variables whose values are checked to see if they need to be reset.
 
   Another complication arises in R code.  There are many places in the R code
   where we use as.pointer.obj to convert an object to a pointer, and then
@@ -86,6 +87,7 @@ static int mem_available_alloc_len = 0;
  */
 
 
+#ifdef USE_RPHAST_MEMORY_HANDLER
 void rph_make_mem_list() {
   mem_list = malloc(MEM_LIST_START_SIZE * sizeof(void*));
   mem_list_len = 0;
@@ -93,39 +95,70 @@ void rph_make_mem_list() {
 }
 
 void rph_realloc_mem_list() {
+  int i;
+  void *old_mem_list = mem_list, **ptr;
+  if (mem_available_list_len != 0) die("error");  //we shouldn't be reallocating if there are available spots, so we don't have to worry about these pointers being destroyed
   mem_list_alloc_len += MEM_LIST_INCREASE_SIZE;
   mem_list = realloc(mem_list, mem_list_alloc_len*sizeof(void*));
+  if (mem_list != old_mem_list) {
+    for (i=0; i < mem_list_len; i++) {
+      if (mem_list[i] != NULL) {
+	ptr = (void**)mem_list[i];
+	ptr[0] = &mem_list[i];
+      }
+    }
+  }
 }
 
 
-void rph_add_to_mem_list(void *ptr) {
-  int *iptr, idx;
+void rph_add_to_mem_list(void **ptr) {
+  int idx;
   if (mem_list == NULL)
     rph_make_mem_list();
   if (mem_available_list_len != 0) {
-    idx = mem_available_list[mem_available_list_len-1];
+    //    if (*(void**)mem_available_list[mem_available_list_len-1] != NULL) die("error");
+    *((void**)mem_available_list[mem_available_list_len-1]) = (void*)ptr;
+    ptr[0] = mem_available_list[mem_available_list_len-1];
     mem_available_list_len--;
   } else {
-    idx = mem_list_len++;
+    idx = mem_list_len;
     if (idx == mem_list_alloc_len) 
       rph_realloc_mem_list();
+    mem_list_len++;
+    mem_list[idx] = (void*)ptr;
+    ptr[0] = &mem_list[idx];
   }
-  mem_list[idx] = ptr;
-  iptr = (int*)ptr;
-  iptr[0] = idx;
 }
 
-
-void rph_protect_mem(void *ptr) {
-  int *iptr = (int*)ptr;
-  if (iptr[-1] >= 0) {
-    mem_list[iptr[-1]] = NULL;
-    iptr[-1] = -1;
+void rph_add_to_mem_available_list(void *val) {
+  if (mem_available_list == NULL) {
+    mem_available_list = malloc(MEM_LIST_START_SIZE*sizeof(void*));
+    mem_available_alloc_len = MEM_LIST_START_SIZE;
+  } else if (mem_available_list_len == mem_available_alloc_len) {
+    mem_available_alloc_len += MEM_LIST_INCREASE_SIZE;
+    mem_available_list = realloc(mem_available_list, mem_available_alloc_len*sizeof(void*));
   }
+  mem_available_list[mem_available_list_len++] = val;
+}
+
+#endif
+
+
+
+void rph_protect_mem(void *ptr0) {
+#ifdef USE_RPHAST_MEMORY_HANDLER
+  void **ptr = ((void**)ptr0)-1;
+  if (ptr[0] != NULL) {
+    rph_add_to_mem_available_list(ptr[0]);
+    *(void**)ptr[0] = NULL;
+    ptr[0] = NULL;
+  }
+#endif
 }
 
 SEXP rph_free_all() {
   int i;
+#ifdef USE_RPHAST_MEMORY_HANDLER
   if (mem_list == NULL) return R_NilValue;
   for (i=0; i < mem_list_len; i++) {
     if (mem_list[i] != NULL) 
@@ -144,19 +177,28 @@ SEXP rph_free_all() {
     mem_available_list = NULL;
   }
   mem_available_list_len = mem_available_alloc_len = 0;
+#endif
   return R_NilValue;
 }
   
+#ifdef USE_RPHAST_MEMORY_HANDLER
 void *smalloc(size_t size) {
-  int *retval = (int*)malloc(size + sizeof(int));
+  void **retval = (void**)malloc(size + sizeof(void*));
   if (retval == NULL)
     die("ERROR: out of memory\n");
   rph_add_to_mem_list(retval);
-  return (void*)(retval + 1);
+  return (void*)(retval+1);
 }
-
+#else
+void *smalloc(size_t size) {
+  void *retval = malloc(size);
+  if (retval == NULL) die("ERROR: out of memory\n");
+  return retval;
+}
+#endif
 
 void set_static_var(void **ptr) {
+#ifdef USE_RPHAST_MEMORY_HANDLER
   if (static_mem_list_len == static_mem_list_alloc_len) {
     if (static_mem_list_alloc_len == 0) {
       static_mem_list_alloc_len = MEM_LIST_START_SIZE;
@@ -169,44 +211,51 @@ void set_static_var(void **ptr) {
     }
   }
   static_mem_list[static_mem_list_len++] = ptr;
+#endif
 }
 
-  
-void *srealloc(void *ptr, size_t size) {
-  int *iptr, *newptr, oldval;
-  if (ptr == NULL) return smalloc(size);
-  iptr = ((int*)ptr) - 1;
+
+#ifdef USE_RPHAST_MEMORY_HANDLER  
+void *srealloc(void *ptr0, size_t size) {
+  void *newptr, **ptr;
+  if (ptr0 == NULL) return smalloc(size);
+  ptr = (void**)ptr0-1;
   if (size == 0) {
-    if (iptr[0] >= 0 && mem_list[iptr[0]] != NULL) 
-      sfree(ptr);
+    sfree(ptr0);
     return NULL;
   }
-  oldval = iptr[0];
-  newptr = (int*)realloc(iptr, size + sizeof(int));
-  if (oldval >= 0) mem_list[oldval] = newptr;
-  return (void*)(newptr + 1);
+  newptr = realloc((void*)ptr, size + sizeof(void*));
+  ptr = (void**)newptr;
+  if (ptr[0] != NULL)
+    *(void**)ptr[0] = newptr;
+  return (void*)(ptr+1);
 }
+#else
+void *srealloc(void *ptr, size_t size) {
+  void *retval = realloc(ptr, size);
+  if (retval == NULL && ptr != NULL && size != 0)
+    die("FATAL ERROR: out of memory.\n");
+  return retval;
+}
+#endif
 
-void sfree(void *ptr) {
-  int *iptr;
-  if (ptr == NULL) return;
-  iptr = ((int*)ptr - 1);
-  if (iptr[0] >= 0) {
-    if (iptr[0] == mem_list_len-1)
-      mem_list_len--;
-    else {
-      if (mem_available_list == NULL) {
-	mem_available_list = malloc(MEM_LIST_START_SIZE*sizeof(int));
-      } else if (mem_available_list_len == mem_available_alloc_len) {
-	mem_available_alloc_len += MEM_LIST_INCREASE_SIZE;
-	mem_available_list = realloc(mem_available_list, mem_available_alloc_len*sizeof(int));
-      }
-      mem_list[iptr[0]] = NULL;
-      mem_available_list[mem_available_list_len++] = iptr[0];
-    }
+#ifdef USE_RPHAST_MEMORY_HANDLER
+
+void sfree(void *ptr0) {
+  void **ptr;
+  if (ptr0 == NULL) return;
+  ptr = (void**)ptr0-1;
+  if (ptr[0] != NULL) {
+    rph_add_to_mem_available_list(ptr[0]);
+    *(void**)ptr[0] = NULL;
   }
-  free(iptr);
+  free((void*)ptr);
 }
+#else
+void sfree(void *ptr) {
+  free(ptr);
+}
+#endif
 
 
 void rph_lst_protect(List *l) {
