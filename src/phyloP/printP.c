@@ -768,11 +768,12 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
       fprintf(outfile, "\n");
   }
   if (result != NULL) {
-    resultList = smalloc(4*sizeof(List*));
+    resultList = smalloc(5*sizeof(List*));
     resultList[0] = lst_new_ptr(lst_size(gff->features));
     resultList[1] = lst_new_int(lst_size(gff->features));
     resultList[2] = lst_new_int(lst_size(gff->features));
     resultList[3] = lst_new_ptr(lst_size(gff->features));
+    resultList[4] = lst_new_ptr(lst_size(gff->features));
   }
 
   colname = smalloc((ncols+1)*sizeof(char*));
@@ -817,20 +818,23 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
       char *tempstr;
       tempstr = copy_charstr(f->seqname->chars);
       lst_push_ptr(resultList[0], tempstr);
-      lst_push_int(resultList[1], f->start-1);
+      lst_push_int(resultList[1], f->start);
       lst_push_int(resultList[2], f->end);
+      lst_push_ptr(resultList[3], copy_charstr(f->feature == NULL ? "." : 
+					       f->feature->chars));
       tempstr = copy_charstr(name == NULL ? "." : name->chars);
-      lst_push_ptr(resultList[3], tempstr);
+      lst_push_ptr(resultList[4], tempstr);
     }
     lst_free_strings(l);
   }
   
   if (result != NULL) {
-    ListOfLists *group = lol_new(4+ncols+log_trans_results);
+    ListOfLists *group = lol_new(5+ncols+log_trans_results);
     lol_push(group, resultList[0], "chr", CHAR_LIST);
     lol_push(group, resultList[1], "start", INT_LIST);
     lol_push(group, resultList[2], "end", INT_LIST);
-    lol_push(group, resultList[3], "name", CHAR_LIST);
+    lol_push(group, resultList[3], "feature", CHAR_LIST);
+    lol_push(group, resultList[4], "name", CHAR_LIST);
     sfree(resultList);
     for (col=0; col < ncols; col++) 
       lol_push_dbl(group, data[col], lst_size(gff->features), 

@@ -229,6 +229,8 @@ void tm_set_subst_matrix(TreeModel *tm, MarkovMatrix *P, double t);
 void tm_scale_model(TreeModel *tm, Vector *params, int scale_blens,
 		    int reset_subst_matrices);
 
+void tm_mod_freqs(TreeModel *tm, Vector *newfreqs);
+
 void tm_scale_branchlens(TreeModel *tm, double scale_const, int reset_subst_mats);
 
 int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat, 

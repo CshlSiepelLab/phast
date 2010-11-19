@@ -65,21 +65,7 @@ int main(int argc, char *argv[]) {
     pv_normalize(newfreqs);
   }
 
-  for (i = 0; i < 4; i++) {
-    double rowsum = 0;
-    for (j = 0; j < 4; j++) {
-      double newrate;
-      if (i == j) continue;
-      newrate = mm_get(mod->rate_matrix, i, j) / 
-        vec_get(mod->backgd_freqs, j) * vec_get(newfreqs, j);
-      mm_set(mod->rate_matrix, i, j, newrate);
-      rowsum += newrate;
-    }
-    mm_set(mod->rate_matrix, i, i, -rowsum);
-  }
-
-  mod->backgd_freqs = newfreqs;
-  tm_scale_rate_matrix(mod);
+  tm_mod_freqs(mod, newfreqs);
 
   tm_print(stdout, mod);
 

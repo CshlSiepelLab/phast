@@ -1106,6 +1106,36 @@ void tm_scale_model(TreeModel *mod, Vector *params, int scale_blens,
 }
 
 
+/* Modifies equilibrium frequency of a model in such a way that
+   reversibility is maintained */
+void tm_mod_freqs(TreeModel *mod, Vector *newfreqs) {
+  int i, j;
+  if (!tm_is_reversible(mod))
+    die("ERROR: reversible input model required.\n");
+  if (mod->order != 0)
+    die("ERROR: single nucleotide model required.\n");
+  if (strcmp(mod->rate_matrix->states, DEFAULT_ALPHABET) != 0)
+    die("ERROR: default nucleotide alphabet required.\n");
+  if (mod->alt_subst_mods != NULL)
+    die("ERROR: tm_mod_freqs not implemented for lineage-specific models");
+  
+  for (i = 0; i < 4; i++) {
+    double rowsum = 0;
+    for (j = 0; j < 4; j++) {
+      double newrate;
+      if (i == j) continue;
+      newrate = mm_get(mod->rate_matrix, i, j) / 
+        vec_get(mod->backgd_freqs, j) * vec_get(newfreqs, j);
+      mm_set(mod->rate_matrix, i, j, newrate);
+      rowsum += newrate;
+    }
+    mm_set(mod->rate_matrix, i, i, -rowsum);
+  }
+  for (i=0; i < 4; i++)
+    vec_set(mod->backgd_freqs, i, vec_get(newfreqs, i));
+  tm_scale_rate_matrix(mod);
+}
+
 /* Generates an alignment according to set of Tree Models and a
    Markov matrix defing how to transition among them.  TreeModels must
    appear in same order as the states of the Markov matrix. 

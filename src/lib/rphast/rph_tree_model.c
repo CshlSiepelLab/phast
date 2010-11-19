@@ -684,6 +684,20 @@ SEXP rph_tree_model_get_rate_matrix_params(SEXP tmP) {
   return result;
 }
 
+
+SEXP rph_tm_mod_freqs(SEXP tmP, SEXP newBackgdP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  Vector *newfreqs = vec_new(LENGTH(newBackgdP));
+  double *doubleP;
+
+  PROTECT(newBackgdP = AS_NUMERIC(newBackgdP));
+  doubleP = NUMERIC_POINTER(newBackgdP);
+  newfreqs = vec_new_from_array(doubleP, LENGTH(newBackgdP));
+  tm_mod_freqs(tm, newfreqs);
+  UNPROTECT(1);
+  return tmP;
+}
+
 SEXP rph_tm_apply_selection_bgc(SEXP matrixP, SEXP alphabetP, SEXP selectionP, 
 				SEXP bgcP) {
   double selection=0.0, bgc=0.0;
