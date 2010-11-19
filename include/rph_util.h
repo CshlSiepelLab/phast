@@ -1,6 +1,6 @@
-//#ifdef RPHAST
-
+#ifdef RPHAST
 #include <Rdefines.h>
+#endif
 #undef Matrix
 #include <matrix.h>
 #include <vector.h>
@@ -16,4 +16,3 @@ Matrix *rph_get_matrix(SEXP matP);
 SEXP rph_listOfLists_to_SEXP(ListOfLists *lol);
 void rph_msa_protect(MSA *msa);
 void rph_gff_protect(GFF_Set *gff);
-//#endif
