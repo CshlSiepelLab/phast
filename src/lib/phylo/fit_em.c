@@ -408,8 +408,10 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
   if  (Q->evals_z == NULL || Q->evec_matrix_z == NULL || Q->evec_matrix_inv_z == NULL)
     die("ERRROR: compute_grad_em_approx got NULL value in eigensystem; error diagonalizing matrix.");
 
-  if (diag == NULL) 
+  if (diag == NULL) {
     diag = (Complex*)smalloc(nstates * sizeof(Complex));
+    set_static_var((void**)&diag);
+  }
 
   /* init memory (first time only) */
   if (q == NULL) {
