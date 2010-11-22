@@ -2711,7 +2711,7 @@ void tm_apply_selection_bgc_codon(MarkovMatrix *mm,
     alphabet = NULL;
   }
   if (alphabet == NULL) {
-    alphabet = smalloc(strlen(mm->states+1)*sizeof(char));
+    alphabet = smalloc((strlen(mm->states)+1)*sizeof(char));
     set_static_var((void**)&alphabet);
     strcpy(alphabet, mm->states);
     codon_mapping = get_codon_mapping(alphabet);
@@ -2814,7 +2814,7 @@ void tm_unapply_selection_bgc_codon(MarkovMatrix *mm,
     alphabet = NULL;
   }
   if (alphabet == NULL) {
-    alphabet = smalloc(strlen(mm->states+1)*sizeof(char));
+    alphabet = smalloc((strlen(mm->states)+1)*sizeof(char));
     set_static_var((void**)&alphabet);
     strcpy(alphabet, mm->states);
     codon_mapping = get_codon_mapping(alphabet);
