@@ -9,6 +9,17 @@
 
 /* $Id: tree_model.h,v 1.20.2.1 2009-03-18 19:35:57 mt269 Exp $ */
 
+/** \file tree_model.h
+    \brief A tree model represents a phylogenetic tree, substitution rate matrix,
+    and background frequencies.  
+    The model allows for rate variation and
+    also for varying substitution models on different branches.  If the
+    tree model is optimized by maximum likelihood, the tree model object 
+    contains data which indicate which parameters to hold constant, and 
+    which to optimize, as well as boundary conditions.
+    \ingroup phylo
+*/
+
 #ifndef TREE_MODEL_H
 #define TREE_MODEL_H
 
@@ -74,7 +85,7 @@ struct tp_struct;
 
 /* defines alternative substitution model for a particular branch */
 typedef struct {
-  subst_mod_type subst_mod;  
+  subst_mod_type subst_mod; 
   Vector *backgd_freqs;        /* eq freqs (set to NULL if separate_freq=0 */
   MarkovMatrix *rate_matrix;   /* rate_matrix (set to NULL if separate_rm=0 */
   int ratematrix_idx, backgd_idx, selection_idx, bgc_idx;

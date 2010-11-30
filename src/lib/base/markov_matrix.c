@@ -32,6 +32,7 @@ MarkovMatrix* mm_new(int size, const char *states, mm_type type) {
   M->evec_matrix_r = M->evec_matrix_inv_r = NULL;
   M->evals_z = NULL;
   M->evals_r = NULL;
+  M->diagonalize_error = -1;
   M->matrix = mat_new(size, size);
   mat_zero(M->matrix);
   M->size = size;
@@ -117,6 +118,7 @@ void mm_free_eigen(MarkovMatrix *M) {
   M->evals_r = NULL;
   M->evec_matrix_z = M->evec_matrix_inv_z = NULL;
   M->evals_z = NULL;
+  M->diagonalize_error = -1;
 }
 
 /* define matrix as having real or complex eigenvectors/eigenvalues.
@@ -239,6 +241,7 @@ void mm_exp_taylor(MarkovMatrix *P, MarkovMatrix *Q, double t) {
       for (j=0; j < n; j++) {
 	d = mat_get(sumP, i, j) - mat_get(lastP, i, j);
 	diff += (d*d);
+	if (diff > 1.0e-8) break;
       }
     }
     if (diff == 0.0 || (diff < 1.0e-8 && rep >= 10)) break;
@@ -286,8 +289,9 @@ void mm_exp_complex(MarkovMatrix *P, MarkovMatrix *Q, double t) {
   }
 
   /* Diagonalize (if necessary) */
-  if (Q->evec_matrix_z == NULL || Q->evals_z == NULL || 
-      Q->evec_matrix_inv_z == NULL) 
+  if (Q->diagonalize_error != 1 && 
+      (Q->evec_matrix_z == NULL || Q->evals_z == NULL || 
+       Q->evec_matrix_inv_z == NULL))
     mm_diagonalize(Q);
 
   /* Diagonalization failed: use taylor expansion instead */
@@ -336,8 +340,9 @@ void mm_exp_real(MarkovMatrix *P, MarkovMatrix *Q, double t) {
   }
 
   /* Diagonalize (if necessary) */
-  if (Q->evec_matrix_r == NULL || Q->evals_r == NULL || 
-      Q->evec_matrix_inv_r == NULL) 
+  if (Q->diagonalize_error != 1 && 
+      (Q->evec_matrix_r == NULL || Q->evals_r == NULL || 
+       Q->evec_matrix_inv_r == NULL))
     mm_diagonalize(Q);
 
   if (Q->evec_matrix_r == NULL || Q->evals_r == NULL ||
@@ -443,7 +448,9 @@ void mm_diagonalize_complex(MarkovMatrix *M) {
     M->evec_matrix_z = NULL;
     M->evals_z = NULL;
     M->evec_matrix_inv_z = NULL;
+    M->diagonalize_error = 1;
   }
+  else M->diagonalize_error = 0;
 } 
 
 void mm_diagonalize_real(MarkovMatrix *M) { 
@@ -474,6 +481,7 @@ void mm_diagonalize_real(MarkovMatrix *M) {
   if (1 == mat_diagonalize(M->matrix, evals_z, evecs_z, evecs_inv_z)) 
     goto mm_diagonalize_real_fail;
 
+  M->diagonalize_error = 0;
   if (M->evec_matrix_r == NULL) {
     M->evec_matrix_r = mat_new(M->size, M->size);
     M->evals_r = vec_new(M->size);
@@ -497,7 +505,7 @@ void mm_diagonalize_real(MarkovMatrix *M) {
     mat_free(M->evec_matrix_inv_r);
   M->evec_matrix_r = M->evec_matrix_inv_r = NULL;
   M->evals_r = NULL;
-
+  M->diagonalize_error = 1;
 } 
 
 void mm_diagonalize(MarkovMatrix *M) { 

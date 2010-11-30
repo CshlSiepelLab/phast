@@ -15,5 +15,8 @@ package:
 	cd ${TMPDIR} ; tar cfz ${CWD}/phast.$$VERSION.tgz phast
 	rm -rf ${TMPDIR}
 
+doc::
+	(cat Doxyfile; echo "PROJECT_NUMBER=`cat version`") | doxygen -
+
 install:
 	(cd src; make install DESTDIR=${DESTDIR} )

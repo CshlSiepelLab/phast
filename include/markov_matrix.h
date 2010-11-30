@@ -39,6 +39,11 @@ typedef struct {
   Matrix *evec_matrix_inv_r;
   Vector *evals_r;
 
+  int diagonalize_error;  /** This is -1 if diagonalization has not been
+                              attempted, 0 if diagonalization has succeeded,
+                              and 1 if diagonalization has failed */
+                   
+
   int size;
   char *states;
   int inv_states[NCHARS];

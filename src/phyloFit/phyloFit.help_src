@@ -183,8 +183,10 @@ OPTIONS:
         Initialize with specified tree model.  By choosing good
         starting values for parameters, it is possible to reduce
         execution time dramatically.  If this option is chosen, --tree
-        is not allowed.  Note: currently only one mod_fname may be
-        specified; it will be used for all categories.
+        is not allowed.  The substitution model used in the given
+        model will be used unless --subst-mod is also specified.  
+        Note: currently only one mod_fname may be specified; it will be 
+        used for all categories.
 
     --init-random, -r
         Initialize parameters randomly.  Can be used multiple times to test

@@ -937,7 +937,6 @@ MSA *ss_sub_alignment(MSA *msa, char **new_names, List *include_list,
     retval->ncats = msa->ncats;
     retval->categories = smalloc(retval->length * sizeof(int));
   }
-    
 
   /* mapping of original tuple numbers to tuple numbers in the
      sub-alignment */

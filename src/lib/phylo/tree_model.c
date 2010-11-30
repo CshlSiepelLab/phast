@@ -1679,7 +1679,7 @@ void tm_set_boundaries(Vector **lower_bounds, Vector **upper_bounds,
 	    tm_add_bounds(limitstr, lower_bounds, upper_bounds, 
 			  mod->param_map,
 			  mod->ratematrix_idx+j, 1, npar);
-	free(flag);
+	sfree(flag);
       }
       str_free(paramstr);
       str_free(limitstr);
@@ -1843,8 +1843,8 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
   tm_set_boundaries(&lower_bounds, &upper_bounds, npar, mod);
   tm_check_boundaries(opt_params, lower_bounds, upper_bounds);
   if (mod->estimate_branchlens == TM_BRANCHLENS_NONE ||
-      (mod->estimate_branchlens == TM_SCALE_ONLY && 
-       mod->alt_subst_mods != NULL))
+      mod->alt_subst_mods != NULL ||
+      mod->selection_idx >= 0)
     mod->scale_during_opt = 1;
   
   if (!quiet) fprintf(stderr, "numpar = %i\n", opt_params->size);
@@ -2281,9 +2281,9 @@ void tm_setup_params(TreeModel *mod) {
       }
 	
       if (noopt_flag != NULL) 
-	free(noopt_flag);
+	sfree(noopt_flag);
       if (use_main != NULL)
-	free(use_main);
+	sfree(use_main);
     }
     mod->subst_mod = tempmod;
   }
@@ -2298,6 +2298,9 @@ double tm_likelihood_wrapper(Vector *params, void *data) {
   tm_unpack_params(mod, params, -1);
   val = -1 * tl_compute_log_likelihood(mod, mod->msa, NULL, mod->category,
 				       NULL);
+  /*  printf("val=%f (", val);
+  for (i=0; i < params->size; i++) printf("%e, ", params->data[i]);
+  printf(")\n");*/
   return val;
 }
 

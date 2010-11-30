@@ -21,6 +21,7 @@ Last updated: 12/14/08
 #include <ctype.h>
 #include <Rdefines.h>
 #undef Matrix
+#undef nrows
 #include <hmm.h>
 #include <math.h>
 #include <rph_util.h>
@@ -30,9 +31,44 @@ Last updated: 12/14/08
 #include <list_of_lists.h>
 
 
+void rph_hmm_protect(HMM *hmm) {
+  int i;
+  if (hmm == NULL) return;
+  rph_mem_protect(hmm);
+  rph_mm_protect(hmm->transition_matrix);
+  rph_mat_protect(hmm->transition_score_matrix);
+  rph_vec_protect(hmm->begin_transitions);
+  rph_vec_protect(hmm->end_transitions);
+  rph_vec_protect(hmm->eq_freqs);
+  rph_vec_protect(hmm->begin_transition_scores);
+  rph_vec_protect(hmm->end_transition_scores);
+  for (i=0; i < hmm->nstates; i++) {
+    rph_lst_protect(hmm->predecessors[i]);
+    rph_lst_protect(hmm->successors[i]);
+  }
+  rph_mem_protect(hmm->predecessors);
+  rph_mem_protect(hmm->successors);
+  rph_lst_protect(hmm->begin_successors);
+  rph_lst_protect(hmm->end_predecessors);
+}
+
+
+void rph_hmm_free(SEXP hmmP) {
+  HMM *hmm = (HMM*)EXTPTR_PTR(hmmP);
+  rph_unregister_protected(hmm);
+  hmm_free(hmm);
+}
+
+void rph_hmm_register_protect(HMM *hmm) {
+  rph_register_protected_object(hmm, (void (*)(void *))rph_hmm_protect);
+}
+
+
 SEXP rph_hmm_new_extptr(HMM *hmm) {
   SEXP result;
+  rph_hmm_register_protect(hmm);
   PROTECT(result=R_MakeExternalPtr((void*)hmm, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(result, rph_hmm_free, 1);
   UNPROTECT(1);
   return result;
 }

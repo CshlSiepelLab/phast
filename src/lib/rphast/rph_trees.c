@@ -23,8 +23,31 @@ Last updated: 1/5/2010
 #include <local_alignment.h>
 #include <trees.h>
 #include <misc.h>
+#include <rph_util.h>
 
 #include <Rdefines.h>
+
+
+void rph_tree_protect(TreeNode *tr) {
+  TreeNode *n;
+  int i;
+  if (tr == NULL) return;
+  rph_mem_protect(tr);
+  for (i=0; i < tr->nnodes; i++) {
+    n = (TreeNode*)lst_get_ptr(tr->nodes, i);
+    rph_mem_protect(n);
+    if (n->nodes != NULL) 
+      rph_lst_protect(n->nodes);
+    if (n->preorder != NULL)
+      rph_lst_protect(n->preorder);
+    if (n->postorder != NULL)
+      rph_lst_protect(n->postorder);
+    if (n->inorder != NULL)
+      rph_lst_protect(n->inorder);
+    if (n->label != NULL)
+      rph_mem_protect(n->label);
+  }
+}
 
 
 TreeNode* rph_tree_new(SEXP treeStr) {

@@ -144,9 +144,11 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
 	}
         if (fabs(z.y) > EQ_THRESHOLD ||
             fabs(z.x - mat_get(M, i, j)) > EQ_THRESHOLD ||
+	    (mat_get(M, i, j) != 0.0 &&
+	     fabs(z.x - mat_get(M, i, j))/mat_get(M, i, j) > EQ_THRESHOLD) ||
 	    fabs(z2.y > EQ_THRESHOLD) ||
 	    fabs(z2.x - (i==j)) > EQ_THRESHOLD) {
-	  return 1;
+//	  printf("diagonalization failed trying taylor\n");
 	  return 1;
           die("ERROR: diagonalization failed (got %e + %ei, expected %e).\n", 
 		  z.x, z.y, mat_get(M, i, j));

@@ -17,7 +17,7 @@
 
 int main(int argc, char *argv[]) {
   char c;
-  int opt_idx, i, j;
+  int opt_idx;
   Vector *newfreqs = vec_new(4);
   TreeModel *mod;
 

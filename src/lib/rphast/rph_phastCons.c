@@ -60,11 +60,11 @@ SEXP rph_phastCons(SEXP msaP,
   
   GetRNGstate(); //seed R's random number generator
   p->msa = (MSA*)EXTPTR_PTR(msaP);
-  p->mod = (TreeModel**)smalloc(LENGTH(modP)*sizeof(TreeModel*));
-  for (i=0; i<LENGTH(modP); i++) {
+  p->nummod = LENGTH(modP);
+  p->mod = (TreeModel**)smalloc(p->nummod*sizeof(TreeModel*));
+  for (i=0; i<p->nummod; i++) {
     p->mod[i]=(TreeModel*)EXTPTR_PTR(VECTOR_ELT(modP, i));
   }
-  p->nummod = LENGTH(modP);
   if (rhoP != R_NilValue) 
     p->rho = NUMERIC_VALUE(rhoP);
   if (estimateTreesP != R_NilValue) {
@@ -121,6 +121,7 @@ SEXP rph_phastCons(SEXP msaP,
     p->hmm = (HMM*)EXTPTR_PTR(hmmP);
     p->two_state = FALSE;
     p->nummod = p->hmm->nstates;
+    rph_hmm_register_protect(p->hmm);
   }
   
   if (statesP != R_NilValue) {
@@ -148,8 +149,11 @@ SEXP rph_phastCons(SEXP msaP,
   if (categoryMapP != R_NilValue)
     p->cm = cm_new_string_or_file(CHARACTER_VALUE(categoryMapP));
 
+  rph_msa_register_protect(p->msa);
+  for (i=0; i < LENGTH(modP); i++)
+    rph_tm_register_protect((TreeModel*)EXTPTR_PTR(VECTOR_ELT(modP, i)));
+
   phastCons(p);
-  rph_msa_protect(p->msa);
 
   if (p->results != NULL) {
     PROTECT(rv = rph_listOfLists_to_SEXP(p->results));

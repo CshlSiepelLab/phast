@@ -1448,6 +1448,7 @@ void tm_set_HKY_CODON_matrix(TreeModel *mod, double kappa, int kappa_idx) {
 	}
       }
       if (k != 3) continue;  //more than one diff between codi and codj
+      //whichdif must be >=0 since i != j
 
       val1 = vec_get(mod->backgd_freqs, j); 
       val2 = vec_get(mod->backgd_freqs, i);
@@ -2695,16 +2696,18 @@ void tm_bgc_assign_chartype(int* chartype, char *states) {
 }
 
 
-//assumes that transitions which require more than one mutation have rate 0.
-//called internally by tm_apply_selection_bgc
-void tm_apply_selection_bgc_codon(MarkovMatrix *mm, 
-				  double selection, double bgc,
-				  int *chartype) {
+//either applies or un-applies bgc + selection factors.
+//if apply==0 then divides out the bgc+selection effects, otherwise
+//multiplies them into the model
+void tm_selection_bgc_codon(MarkovMatrix *mm,
+			    double selection, double bgc,
+			    int apply) {
   int i, j, k, ni, nj, codi[3], codj[3], whichdif, bgc_idx, 
-    alph_size = strlen(mm->states);
+    alph_size = strlen(mm->states), chartype[5];
   double sum, val, sbfactor[2][3], factor;
   static char *codon_mapping, *alphabet=NULL;
 
+  tm_bgc_assign_chartype(chartype, mm->states);
   if (alphabet != NULL && strcmp(alphabet, mm->states) != 0) {
     sfree(alphabet);
     sfree(codon_mapping);
@@ -2717,6 +2720,11 @@ void tm_apply_selection_bgc_codon(MarkovMatrix *mm,
     codon_mapping = get_codon_mapping(alphabet);
   }
   tm_set_bgc_sel_factors_codon(sbfactor, selection, bgc);
+  if (apply==0) {
+    for (i=0; i<2; i++)
+      for (j=0; j< 3; j++)
+	sbfactor[i][j] = 1.0/sbfactor[i][j];
+  }
 
   for (i=0; i < mm->size; i++) {
     sum = 0.0;
@@ -2763,18 +2771,16 @@ void tm_apply_selection_bgc_codon(MarkovMatrix *mm,
 }
 
 
-void tm_apply_selection_bgc(MarkovMatrix *mm, double sel, double bgc) {
-  int i, j, chartype[5], idx;
+void tm_selection_bgc_4state(MarkovMatrix *mm, double sel, double bgc,
+			     int apply) {
+  int i, j, idx, chartype[5];
   double b[3], sum, val;
 
   tm_bgc_assign_chartype(chartype, mm->states);
-
-  if (mm->size == 64) {
-    tm_apply_selection_bgc_codon(mm, sel, bgc, chartype);
-    return;
-  }
-
   tm_set_bgc_sel_factors(b, sel, bgc);
+  if (apply == 0)
+    for (i=0; i < 3; i++)
+      b[i] = 1.0/b[i];
 
   if (mm->size != 4) 
     die("sel+bgc not implemented for %i states\n", mm->size);
@@ -2795,109 +2801,34 @@ void tm_apply_selection_bgc(MarkovMatrix *mm, double sel, double bgc) {
     }
     mm_set(mm, i, i, -sum);
   }
-
-  if (mm->eigentype == REAL_NUM && bgc != 0.0)
-    mm_set_eigentype(mm, COMPLEX_NUM);
+  
+  if (apply) {
+    if (mm->eigentype == REAL_NUM && bgc != 0.0)
+      mm_set_eigentype(mm, COMPLEX_NUM);
+  }
 }
 
 
-void tm_unapply_selection_bgc_codon(MarkovMatrix *mm, 
-				    double selection, double bgc,
-				    int *chartype) {
-  int i, j, k, whichdif, ni, nj, bgc_idx, codi[3], codj[3], alph_size;
-  double sum, val, sbfactor[2][3], factor;
-  static char *codon_mapping, *alphabet=NULL;
-
-  if (alphabet != NULL && strcmp(alphabet, mm->states) != 0) {
-    sfree(alphabet);
-    sfree(codon_mapping);
-    alphabet = NULL;
+void tm_apply_selection_bgc(MarkovMatrix *mm, double sel, double bgc) {
+  if (mm->size == 64) {
+    tm_selection_bgc_codon(mm, sel, bgc, 1);
+    return;
   }
-  if (alphabet == NULL) {
-    alphabet = smalloc((strlen(mm->states)+1)*sizeof(char));
-    set_static_var((void**)&alphabet);
-    strcpy(alphabet, mm->states);
-    codon_mapping = get_codon_mapping(alphabet);
-  }
-  tm_set_bgc_sel_factors_codon(sbfactor, selection, bgc);
+  if (mm->size != 4)
+    die("sel+bgc not implemented for %i states\n", mm->size);
 
-
-  alph_size = strlen(mm->states);
-  for (i=0; i < mm->size; i++) {
-    sum = 0.0;
-    codi[0] = i / (alph_size*alph_size);
-    codi[1] = (i % (alph_size*alph_size)) / alph_size;
-    codi[2] = i % alph_size;
-    
-    for (j=0; j < mm->size; j++) {
-      if (i==j) continue;
-      codj[0] = j / (alph_size*alph_size);
-      codj[1] = (j % (alph_size*alph_size)) / alph_size;
-      codj[2] = j % alph_size;
-
-      whichdif = -1;
-      for (k=0; k<3; k++) {
-	if (codi[k] != codj[k]) {
-	  if (whichdif != -1) break;
-	  whichdif = k;
-	}
-      }
-      if (k != 3) continue;
-      
-      ni = codi[whichdif];
-      nj = codj[whichdif];
-      
-      if (chartype[ni] == chartype[nj] || chartype[ni] == -1 || chartype[nj] == -1)
-	bgc_idx = 1; //neutral
-      else if (chartype[ni] == 0 && chartype[nj] == 1)
-	bgc_idx = 2;  //strong
-      else bgc_idx = 0;  //weak
-
-      if (codon_mapping[i] == '$' || codon_mapping[j] == '$')
-	factor = 1.0;
-      else if (codon_mapping[i] == codon_mapping[j])
-	factor = sbfactor[0][bgc_idx];
-      else factor = sbfactor[1][bgc_idx];
-
-      sum += (val = mm_get(mm, i, j)/factor);
-      mm_set(mm, i, j, val);
-    }
-    mm_set(mm, i, i, -sum);
-  }
+  tm_selection_bgc_4state(mm, sel, bgc, 1);
 }
 
 
 //here we want to get the matrix back after sel+bgc is applied (for inference of
 // rate matrix parameters)
 void tm_unapply_selection_bgc(MarkovMatrix *mm, double sel, double bgc) {
-  int i, j, chartype[5], idx;
-  double b[3], sum, val;
-
-  tm_bgc_assign_chartype(chartype, mm->states);
-
   if (mm->size == 64) {
-    tm_unapply_selection_bgc_codon(mm, sel, bgc, chartype);
+    tm_selection_bgc_codon(mm, sel, bgc, 0);
     return;
   }
-
-  tm_set_bgc_sel_factors(b, sel, bgc);
-  
   if (mm->size != 4)
     die("sel+bgc not implemented for %i states\n", mm->size);
-
-  for (i=0; i < mm->size; i++) {
-    sum = 0.0;
-    for (j=0; j < mm->size; j++) {
-      if (i==j) continue;
-      if (chartype[i] == chartype[j] || chartype[i] == -1 || chartype[j] == -1)
-	idx = 1;
-      else if (chartype[i]==0 && chartype[j] == 1)
-	idx=2;  //weak to strong
-      else idx=0;  //strong to weak
-      
-      sum += (val = mm_get(mm, i, j)/b[idx]);
-      mm_set(mm, i, j, val);
-    }
-    mm_set(mm, i, i, -sum);
-  }
+  tm_selection_bgc_4state(mm, sel, bgc, 0);
 }

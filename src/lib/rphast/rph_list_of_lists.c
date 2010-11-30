@@ -34,7 +34,13 @@ SEXP rph_listOfLists_to_SEXP(ListOfLists *lol) {
       PROTECT(tempvec = 
 	      rph_listOfLists_to_SEXP((ListOfLists*)lst_get_ptr(lol->lst, col)));
       numprotect++;
-    } else {
+    } else if (lstType == GFF_PTR_LIST) {
+      PROTECT(tempvec = rph_gff_new_extptr((GFF_Set*)lst_get_ptr(lol->lst, col)));
+      numprotect++;
+    } else if (lstType == MSA_PTR_LIST) {
+      PROTECT(tempvec = rph_msa_new_extptr((MSA*)lst_get_ptr(lol->lst, col)));
+      numprotect++;
+    }  else {
       currlist = (List*)lst_get_ptr(lol->lst, col);
       lstSize = lst_size(currlist);
       if (lstType == INT_LIST) {

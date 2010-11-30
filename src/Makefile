@@ -29,7 +29,7 @@ endif
 	cp -R ../doc/man/* ${DESTDIR}/usr/share/man/man7/
 
 doc:
-	doxygen
+	cd ../; make doc 
 
 clean:
 	@for dir in $(SUB) ; do cd ${CDIR}/$$dir && ${MAKE} clean ; done

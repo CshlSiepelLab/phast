@@ -55,8 +55,11 @@ SEXP rph_phyloP(SEXP modP,
   int i, numprotect=0;
 
   p->mod = (TreeModel*)EXTPTR_PTR(modP);
-  if (msaP != R_NilValue)
+  rph_tm_register_protect(p->mod);
+  if (msaP != R_NilValue) {
     p->msa = (MSA*)EXTPTR_PTR(msaP);
+    rph_msa_register_protect(p->msa);
+  }
   if (methodP != R_NilValue) {
     strcpy(tempstr, CHARACTER_VALUE(methodP));
     if (strcmp("SPH", tempstr)==0) p->method = SPH;
@@ -75,8 +78,10 @@ SEXP rph_phyloP(SEXP modP,
     else 
       die("unknown phyloP mode %s\n", tempstr);
   }
-  if (gffP != R_NilValue) 
+  if (gffP != R_NilValue) {
     p->feats = (GFF_Set*)EXTPTR_PTR(gffP);
+    rph_gff_register_protect(p->feats);
+  }
 
   if (basewiseP != R_NilValue)
     p->base_by_base = LOGICAL_VALUE(basewiseP);
@@ -139,10 +144,6 @@ SEXP rph_phyloP(SEXP modP,
   GetRNGstate();
   phyloP(p);
   PutRNGstate();
-  if (p->msa != NULL)
-    rph_msa_protect(p->msa);
-  if (p->feats != NULL) 
-    rph_gff_protect(p->feats);
   
   if (p->outfile != NULL && p->outfile != stdout && p->outfile != stderr) 
     fclose(p->outfile);

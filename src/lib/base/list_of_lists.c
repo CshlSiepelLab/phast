@@ -318,7 +318,23 @@ void lol_push_gff(ListOfLists *lol, GFF_Set *gff, const char *name) {
 }
 
 
-//free a lol and all associated memory (if type is char free the strings)
+void lol_push_gff_ptr(ListOfLists *lol, GFF_Set *gff, const char *name) {
+  ListOfLists *gffLst = lol_new(1);
+  lol_set_class(gffLst, "feat");
+  lol_push(gffLst, gff, "externalPtr", GFF_PTR_LIST);
+  lol_push(lol, gffLst, name, LIST_LIST);
+} 
+
+void lol_push_msa_ptr(ListOfLists *lol, MSA *msa, const char *name) { 
+  ListOfLists *msaLst = lol_new(1);
+  lol_set_class(msaLst, "msa");
+  lol_push(msaLst, msa, "externalPtr", MSA_PTR_LIST);
+  lol_push(lol, msaLst, name, LIST_LIST);
+} 
+
+
+//free a lol and associated memory (if type is char free the strings)
+//Does not free GFF or MSA pointers however.
 void lol_free(ListOfLists *lol) {
   List *currlst;
   int i, j;

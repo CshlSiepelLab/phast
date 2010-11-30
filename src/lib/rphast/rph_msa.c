@@ -40,46 +40,48 @@ Last updated: 12/14/08
 void rph_msa_free(SEXP msaP) {
   MSA *msa;
   msa = (MSA*)EXTPTR_PTR(msaP);
+  rph_unregister_protected(msa);
   msa_free(msa);
 }
 
 
 void rph_msa_protect_ss(MSA_SS *ss) {
   int i;
-  rph_protect_mem(ss);
+  rph_mem_protect(ss);
   if (ss->col_tuples != NULL) {
-    rph_protect_mem(ss->col_tuples);
-    for (i=0; i < ss->ntuples; i++) 
-      rph_protect_mem(ss->col_tuples[i]);
+    rph_mem_protect(ss->col_tuples);
+    for (i=0; i < ss->alloc_ntuples; i++) 
+      if (ss->col_tuples[i] != NULL)
+	rph_mem_protect(ss->col_tuples[i]);
   }
   if (ss->tuple_idx != NULL)
-    rph_protect_mem(ss->tuple_idx);
+    rph_mem_protect(ss->tuple_idx);
   if (ss->counts != NULL)
-    rph_protect_mem(ss->counts);
+    rph_mem_protect(ss->counts);
   if (ss->cat_counts != NULL) {
-    rph_protect_mem(ss->cat_counts);
+    rph_mem_protect(ss->cat_counts);
     for (i=0; i < ss->msa->ncats; i++)
-      rph_protect_mem(ss->cat_counts[i]);
+      rph_mem_protect(ss->cat_counts[i]);
   }
 }
 
 void rph_msa_protect(MSA *msa) {
   int i;
-  rph_protect_mem(msa);
+  rph_mem_protect(msa);
   if (msa->alphabet != NULL)
-    rph_protect_mem(msa->alphabet);
+    rph_mem_protect(msa->alphabet);
   if (msa->names != NULL) {
-    rph_protect_mem(msa->names);
+    rph_mem_protect(msa->names);
     for (i=0; i < msa->nseqs; i++)
-      rph_protect_mem(msa->names[i]);
+      rph_mem_protect(msa->names[i]);
   }
   if (msa->seqs != NULL) {
-    rph_protect_mem(msa->seqs);
+    rph_mem_protect(msa->seqs);
     for (i=0; i < msa->nseqs; i++)
-      rph_protect_mem(msa->seqs[i]);
+      rph_mem_protect(msa->seqs[i]);
   }
   if (msa->categories != NULL)
-    rph_protect_mem(msa->categories);
+    rph_mem_protect(msa->categories);
   if (msa->ss != NULL) {
     if (msa != msa->ss->msa) {
       die("ss pointer mismatch\n");
@@ -87,16 +89,20 @@ void rph_msa_protect(MSA *msa) {
     rph_msa_protect_ss(msa->ss);
   }
   if (msa->is_informative != NULL)
-    rph_protect_mem(msa->is_informative);
+    rph_mem_protect(msa->is_informative);
+}
+
+
+void rph_msa_register_protect(MSA *msa) {
+  rph_register_protected_object(msa, (void (*)(void*))rph_msa_protect);
 }
 
 
 SEXP rph_msa_new_extptr(MSA *msa) {
   SEXP result;
-  rph_msa_protect(msa);
+  rph_msa_register_protect(msa);
   PROTECT(result=R_MakeExternalPtr((void*)msa, R_NilValue, R_NilValue));
   R_RegisterCFinalizerEx(result, rph_msa_free, 1);
-  rph_msa_protect(msa);
   UNPROTECT(1);
   return result;
 }
@@ -179,6 +185,8 @@ SEXP rph_msa_reduce_to_4d(SEXP msaP, SEXP gffP) {
   int i, tuple_size;
   if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
     die("cannot extract 4d sites with unordered representation of MSA");
+  rph_msa_register_protect(msa);
+  rph_gff_register_protect(gff);
   msa_free_categories(msa);
   if (msa->ss != NULL) ss_free_categories(msa->ss);
   for (i=0; i<lst_size(gff->features); i++) {
@@ -216,9 +224,6 @@ SEXP rph_msa_reduce_to_4d(SEXP msaP, SEXP gffP) {
   reduce_to_4d(msa, cm);  //this returns SS with tuple size 3
   
   ss_reduce_tuple_size(msa, tuple_size);
-
-  rph_msa_protect(msa);
-  rph_gff_protect(gff);
   return msaP;
 }
 
@@ -233,6 +238,8 @@ SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
   if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
     die("ordered representation of alignment required to extract features");
   gff=(GFF_Set*)EXTPTR_PTR(gffP);
+  rph_msa_register_protect(msa);
+  rph_gff_register_protect(gff);
   cm = cm_new_from_features(gff);
   
   /* convert GFF to coordinate frame of alignment */
@@ -278,8 +285,6 @@ SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
   msa_free_categories(msa);
   msa_update_length(msa);
   msa->idx_offset = 0;
-  rph_msa_protect(msa);
-  rph_gff_protect(gff);
   return msaP;
 }
 
@@ -310,8 +315,10 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
     refseq = fopen_fname(CHARACTER_VALUE(refseqP), "r");
   if (tupleSizeP != R_NilValue)
     tupleSize = INTEGER_VALUE(tupleSizeP);
-  if (gffP != R_NilValue) 
+  if (gffP != R_NilValue) {
     gff = (GFF_Set*)EXTPTR_PTR(gffP);
+    rph_gff_register_protect(gff);
+  }
   ordered = INTEGER_VALUE(orderedP);
 
   if (catsCycleP != R_NilValue)
@@ -485,8 +492,6 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
   // the subset of the alignment.  
   msa_free_categories(msa);
 
-  if (gff != NULL) rph_gff_protect(gff);
-
   if (numProtect > 0)
     UNPROTECT(numProtect);
   return rph_msa_new_extptr((void*)msa);
@@ -513,6 +518,7 @@ SEXP rph_msa_printSeq(SEXP msaP, SEXP fileP, SEXP formatP,
   MSA *msa;
   msa_format_type fmt;
   msa = (MSA*)EXTPTR_PTR(msaP);
+  rph_msa_register_protect(msa);
   fmt = msa_str_to_format(CHARACTER_VALUE(formatP));
   if ((int)fmt == -1) 
     fmt = FASTA;
@@ -520,7 +526,6 @@ SEXP rph_msa_printSeq(SEXP msaP, SEXP fileP, SEXP formatP,
     msa_print_to_file(CHARACTER_VALUE(fileP), 
 		      msa, fmt, INTEGER_VALUE(prettyPrintP));
   else msa_print(stdout, msa, fmt, INTEGER_VALUE(prettyPrintP));
-  rph_msa_protect(msa);
   return R_NilValue;
 }
 
@@ -537,6 +542,7 @@ SEXP rph_msa_seqs(SEXP msaP) {
   int seq;
   
   PROTECT(result = NEW_CHARACTER(msa->nseqs));
+  rph_msa_register_protect(msa);
 
   if (msa->ss != NULL) {
     /* rather than calling ss_to_msa, which will allocate an entire new
@@ -554,7 +560,6 @@ SEXP rph_msa_seqs(SEXP msaP) {
       SET_STRING_ELT(result, seq, mkChar(msa->seqs[seq]));
     }
   }
-  rph_msa_protect(msa);
   UNPROTECT(1);
   return result;
 }
@@ -654,6 +659,7 @@ SEXP rph_msa_square_brackets(SEXP msaP, SEXP rowsP, SEXP colsP) {
   int *rows=NULL, *cols=NULL, i, j, spec, nrow, ncol, numprotect=0;
 
   msa = (MSA*)EXTPTR_PTR(msaP);
+  rph_msa_register_protect(msa);
   if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
     ss_make_ordered(msa);
 
@@ -698,7 +704,6 @@ SEXP rph_msa_square_brackets(SEXP msaP, SEXP rowsP, SEXP colsP) {
       seqs[i][j] = '\0';
     }
   }
-  rph_msa_protect(msa);
   newMsa = msa_new(seqs, names, nrow, ncol, msa->alphabet);
   if (numprotect > 0) UNPROTECT(numprotect);
   return rph_msa_new_extptr(newMsa);
@@ -713,6 +718,7 @@ SEXP rph_msa_sub_alignment(SEXP msaP, SEXP seqsP, SEXP keepP,
   List *seqlist_str, *l=NULL;
   msa_coord_map *map = NULL;
 
+  rph_msa_register_protect(msa);
   if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
     ss_make_ordered(msa);
 
@@ -763,7 +769,6 @@ SEXP rph_msa_sub_alignment(SEXP msaP, SEXP seqsP, SEXP keepP,
 
   subMsa = msa_sub_alignment(msa, l, keep, startcol-1, endcol);
   subMsa->idx_offset = idx_offset;
-  rph_msa_protect(msa);
   if (subMsa == NULL)
     die("ERROR rph_msa_sub_alignment got NULL subMsa\n");
   if (numProtect > 0) UNPROTECT(numProtect);
@@ -779,6 +784,7 @@ SEXP rph_msa_strip_gaps(SEXP msaP, SEXP stripModeP, SEXP allOrAnyGaps) {
   int stripMode=-1, unordered;
 
   unordered=(msa->ss!=NULL && msa->ss->tuple_idx==NULL);
+  rph_msa_register_protect(msa);
   
   if (allOrAnyGaps != R_NilValue) {
     if (!strcmp(CHARACTER_VALUE(allOrAnyGaps), "all.gaps"))
@@ -800,7 +806,6 @@ SEXP rph_msa_strip_gaps(SEXP msaP, SEXP stripModeP, SEXP allOrAnyGaps) {
       msa->ss->tuple_idx = NULL;
     }
   }
-  rph_msa_protect(msa);
   return msaP;
 }
 
@@ -810,9 +815,10 @@ SEXP rph_msa_postprob(SEXP msaP, SEXP tmP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   ListOfLists *result = lol_new(1);
   if (msa->ss == NULL) {
+    rph_msa_register_protect(msa);
     ss_from_msas(msa, tm->order+1, 0, NULL, NULL, NULL, -1, 0);
-    rph_msa_protect(msa);
   }
+  rph_tm_register_protect(tm);
   print_post_prob_stats(tm, msa, NULL, 1, 0, 0, -1, 1, result);
   return rph_listOfLists_to_SEXP(result);
 }
@@ -823,9 +829,10 @@ SEXP rph_msa_exp_subs(SEXP msaP, SEXP tmP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   ListOfLists *result = lol_new(1);
   if (msa->ss == NULL) {
+    rph_msa_register_protect(msa);
     ss_from_msas(msa, tm->order+1, 0, NULL, NULL, NULL, -1, 0);
-    rph_msa_protect(msa);
   }
+  rph_tm_register_protect(tm);
   print_post_prob_stats(tm, msa, NULL, 0, 1, 0, -1, 1, result);
   return rph_listOfLists_to_SEXP(result);
 }
@@ -839,6 +846,7 @@ SEXP rph_msa_exp_tot_subs(SEXP msaP, SEXP tmP) {
     ss_from_msas(msa, tm->order+1, 0, NULL, NULL, NULL, -1, 0);
     rph_msa_protect(msa);
   }
+  rph_tm_register_protect(tm);
   print_post_prob_stats(tm, msa, NULL, 0, 0, 1, -1, 1, result);
   return rph_listOfLists_to_SEXP(result);
 
@@ -857,7 +865,10 @@ SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP gffP, SEXP byColumnP) {
   if (gffP != R_NilValue) {
     gff = (GFF_Set*)EXTPTR_PTR(gffP);
     if (by_column) die("cannot use by.column with features");
+    rph_gff_register_protect(gff);
   }
+  rph_msa_register_protect(msa);
+  rph_tm_register_protect(tm);
 
   tm_set_subst_matrices(tm);
 
@@ -911,29 +922,8 @@ SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP gffP, SEXP byColumnP) {
     sfree(msa->ss->tuple_idx);
     msa->ss->tuple_idx = NULL;
   }
-  rph_msa_protect(msa);
-  if (gff != NULL) rph_gff_protect(gff);
   UNPROTECT(1);
   return result;
-}
-
-
-struct base_evolve_struct {
-  MSA *msa;
-  GFF_Set *gff;
-};
-
-
-SEXP rph_msa_base_evolve_struct_get_msa(SEXP lP) {
-  struct base_evolve_struct *x = (struct base_evolve_struct*)EXTPTR_PTR(lP);
-  return rph_msa_new_extptr(x->msa);
-}
-
-
-SEXP rph_msa_base_evolve_struct_get_labels(SEXP lP, SEXP nsitesP) {
-  struct base_evolve_struct *x = (struct base_evolve_struct*)EXTPTR_PTR(lP);
-  SEXP rph_gff_new_extptr(GFF_Set *gff);
-  return rph_gff_new_extptr(x->gff);
 }
 
 
@@ -945,7 +935,6 @@ SEXP rph_msa_base_evolve(SEXP modP, SEXP nsitesP, SEXP hmmP,
   HMM *hmm=NULL;
   SEXP result, names_sexp;
   char **names;
-  struct base_evolve_struct *rv;
   GFF_Set *feats;
   GFF_Feature *newfeat;
   int currstart, currstate;
@@ -955,18 +944,21 @@ SEXP rph_msa_base_evolve(SEXP modP, SEXP nsitesP, SEXP hmmP,
   nsites = INTEGER_VALUE(nsitesP);
   if (hmmP != R_NilValue) {
     hmm = (HMM*)EXTPTR_PTR(hmmP);
+    rph_hmm_register_protect(hmm);
     nstate = hmm->nstates;
     if (LOGICAL_VALUE(getFeaturesP))
       labels = smalloc(nsites*sizeof(int));
   }
   mods = smalloc(nstate*sizeof(TreeModel*));
-  for (i=0; i<nstate; i++) 
+  for (i=0; i<nstate; i++) {
     mods[i] = (TreeModel*)EXTPTR_PTR(VECTOR_ELT(modP, i));
+    rph_tm_register_protect(mods[i]);
+  }
   msa = tm_generate_msa(nsites, hmm, mods, labels);
   seqname = msa->names[0];
   PutRNGstate();
   if (labels != NULL) {
-    rv = smalloc(sizeof(struct base_evolve_struct));
+    ListOfLists *result_lol = lol_new(2);
     feats = gff_new_set();
     names = smalloc(nstate*sizeof(char*));
     PROTECT(names_sexp = GET_NAMES(modP));
@@ -1000,9 +992,9 @@ SEXP rph_msa_base_evolve(SEXP modP, SEXP nsitesP, SEXP hmmP,
 					 GFF_NULL_FRAME,
 					 temp, TRUE);
     lst_push_ptr(feats->features, newfeat);
-    rv->msa = msa;
-    rv->gff = feats;
-    PROTECT(result=R_MakeExternalPtr((void*)rv, R_NilValue, R_NilValue));
+    lol_push_msa_ptr(result_lol, msa, "msa");
+    lol_push_gff_ptr(result_lol, feats, "feats");
+    PROTECT(result = rph_listOfLists_to_SEXP(result_lol));
     UNPROTECT(2);
     return result;
   }
@@ -1020,15 +1012,17 @@ SEXP rph_lst_new_extptr(List *l);
 
 SEXP rph_msa_split_by_gff(SEXP msaP, SEXP gffP) {
   MSA *msa, *newmsa;
-  List *rvlist;
+  ListOfLists *rv;
   GFF_Feature *feat;
   GFF_Set *gff;
   int *starts, i;
   
   msa = (MSA*)EXTPTR_PTR(msaP);
   gff = (GFF_Set*)EXTPTR_PTR(gffP);
-  rvlist = lst_new_ptr(lst_size(gff->features));
+  rv = lol_new(lst_size(gff->features));
   starts = smalloc(lst_size(gff->features)*sizeof(int));
+  rph_msa_register_protect(msa);
+  rph_gff_register_protect(gff);
 
   /* convert GFF to coordinate frame of alignment */
   for (i=0; i < lst_size(gff->features); i++) {
@@ -1044,12 +1038,9 @@ SEXP rph_msa_split_by_gff(SEXP msaP, SEXP gffP) {
     feat = lst_get_ptr(gff->features, i);
     newmsa = msa_sub_alignment(msa, NULL, -1, feat->start -1, feat->end);
     newmsa->idx_offset = starts[i]-1;
-    lst_push_ptr(rvlist, newmsa);
-    rph_msa_protect(newmsa);
+    lol_push_msa_ptr(rv, newmsa, NULL);
   }
-  rph_gff_protect(gff);
-  rph_msa_protect(msa);
-  return rph_lst_new_extptr(rvlist);
+  return rph_listOfLists_to_SEXP(rv);
 }
 
 SEXP rph_msaList_get(SEXP listP, SEXP idxP) {
@@ -1065,8 +1056,8 @@ SEXP rph_msaList_get(SEXP listP, SEXP idxP) {
 
 SEXP rph_msa_reverse_complement(SEXP msaP) {
   MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  rph_msa_register_protect(msa);
   msa_reverse_compl(msa);
-  rph_msa_protect(msa);
   return msaP;
 }
 
@@ -1083,6 +1074,7 @@ SEXP rph_msa_informative_feats(SEXP msaP,
   SEXP rph_gff_new_extptr(GFF_Set *gff);
 
   msa = (MSA*)EXTPTR_PTR(msaP);
+  rph_msa_register_protect(msa);
   if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
     ss_make_ordered(msa);
   min_informative = INTEGER_VALUE(minInformativeP);
@@ -1100,8 +1092,6 @@ SEXP rph_msa_informative_feats(SEXP msaP,
 
   feats = msa_get_informative_feats(msa, min_informative, speclist,
 				    refseq, gaps_inf);
-
-  rph_msa_protect(msa);
   if (numprotect > 0) UNPROTECT(numprotect);
   return rph_gff_new_extptr(feats);
 }
@@ -1116,8 +1106,8 @@ SEXP rph_msa_codon_clean(SEXP msaP, SEXP refseqP, SEXP strandP) {
       strand='-';
     else die("Unknown strand %s\n", CHARACTER_VALUE(strandP));
   }
+  rph_msa_register_protect(msa);
   msa_codon_clean(msa, CHARACTER_VALUE(refseqP), strand);
-  rph_msa_protect(msa);
   return msaP;
 }
 
@@ -1129,18 +1119,21 @@ SEXP rph_msa_get_base_freqs_tuples(SEXP msaP, SEXP modP) {
   SEXP rv;
   double *doubleP;
 
-  if (msa->ss == NULL) 
+  if (msa->ss == NULL) {
+    rph_msa_register_protect(msa);
     ss_from_msas(msa, mod->order+1, 0, NULL, NULL, NULL, -1,
                  subst_mod_is_codon_model(mod->subst_mod));
+  }
   nstate = int_pow(strlen(msa->alphabet), mod->order+1);
-  if (mod->backgd_freqs == NULL) 
+  if (mod->backgd_freqs == NULL) {
+    rph_tm_register_protect(mod);
     mod->backgd_freqs = vec_new(nstate);
+  }
   msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order+1, -1);
   PROTECT(rv = NEW_NUMERIC(nstate));
   doubleP = NUMERIC_POINTER(rv);
   for (i=0; i < nstate; i++) 
     doubleP[i] = vec_get(mod->backgd_freqs, i);
-  rph_msa_protect(msa);
   UNPROTECT(1);
   return rv;
 }
@@ -1160,6 +1153,7 @@ SEXP rph_msa_fraction_pairwise_diff(SEXP msaP, SEXP seq1P, SEXP seq2P,
   if (seq1P != R_NilValue) seq1 = INTEGER_VALUE(seq1P)-1;
   if (seq2P != R_NilValue) seq2 = INTEGER_VALUE(seq2P)-1;
 
+  rph_msa_register_protect(msa);
   if (seq1 != -1 && seq2 != -1) {
     PROTECT(rv = NEW_NUMERIC(1));
     dp = NUMERIC_POINTER(rv);
@@ -1186,7 +1180,6 @@ SEXP rph_msa_fraction_pairwise_diff(SEXP msaP, SEXP seq1P, SEXP seq2P,
     lol_push_matrix(lol, m, "pairwise.diff");
     PROTECT(rv = rph_listOfLists_to_SEXP(lol));
   }
-  rph_msa_protect(msa);
   UNPROTECT(1);
   return rv;
 }

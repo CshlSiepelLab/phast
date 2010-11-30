@@ -54,7 +54,7 @@ struct phyloFit_struct* phyloFit_struct_new(int rphast) {
   pf->see_for_help = rphast ? "phyloFit" : "'phyloFit -h'";
   pf->parsimony_cost_fname = NULL;
   pf->msa_fname = NULL;
-  pf->subst_mod = REV;
+  pf->subst_mod = UNDEF_MOD;
   pf->quiet = FALSE; //probably want to switch to TRUE for rphast after debugging
   pf->nratecats = 1;
   pf->use_em = FALSE;
@@ -589,6 +589,12 @@ int run_phyloFit(struct phyloFit_struct *pf) {
 
   if (input_mod != NULL && tree != NULL)
     die("ERROR: --tree is not allowed with --init-model.\n");
+
+  if (subst_mod == UNDEF_MOD) {
+    if (pf->input_mod != NULL)
+      subst_mod = pf->input_mod->subst_mod;
+    else subst_mod = REV;
+  }
 
   if (pf->gaps_as_bases && subst_mod != JC69 && subst_mod != F81 && 
       subst_mod != HKY85G && subst_mod != REV && 

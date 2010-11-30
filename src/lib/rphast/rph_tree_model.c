@@ -37,13 +37,97 @@ Last updated: 1/13/10
 SEXP rph_listOfLists_to_SEXP(ListOfLists *lol);
 
 void rph_tm_free(SEXP tmP) {
-  tm_free((TreeModel*)EXTPTR_PTR(tmP));
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  rph_unregister_protected(tm);
+  tm_free(tm);
+}
+
+
+void rph_tm_rmp_protect(TreeModel *tm) {
+  int nparams = tm_get_nparams(tm);
+  int i;
+  for (i=0; i < nparams; i++) {
+    if (tm->rate_matrix_param_row[i] != NULL) {
+      rph_lst_protect(tm->rate_matrix_param_row[i]);
+      rph_lst_protect(tm->rate_matrix_param_col[i]);
+    }
+  }
+  rph_mem_protect(tm->rate_matrix_param_row);
+  rph_mem_protect(tm->rate_matrix_param_col);
+}
+
+void rph_tm_altmod_protect(AltSubstMod *am) {
+  int i;
+  rph_mem_protect(am);
+  if (am->backgd_freqs != NULL)
+    rph_vec_protect(am->backgd_freqs);
+  if (am->rate_matrix != NULL)
+    rph_mm_protect(am->rate_matrix);
+  if (am->param_list != NULL) {
+    rph_lst_protect(am->param_list);
+    for (i=0; i < lst_size(am->param_list); i++)
+      rph_str_protect(lst_get_ptr(am->param_list, i));
+  }
+  rph_str_protect(am->defString);
+  if (am->noopt_arg != NULL)
+    rph_str_protect(am->noopt_arg);
+}
+
+
+void rph_tm_protect(TreeModel *tm) {
+  int i, j;
+  rph_mem_protect(tm);
+  rph_tree_protect(tm->tree);
+  rph_vec_protect(tm->backgd_freqs);
+  rph_mm_protect(tm->rate_matrix);
+  if (tm->msa_seq_idx != NULL) rph_mem_protect(tm->msa_seq_idx);
+  if (tm->P != NULL) {
+    for (i=0; i < tm->tree->nnodes; i++) {
+      for (j=0; j < tm->nratecats; j++)
+	rph_mm_protect(tm->P[i][j]);
+      rph_mem_protect(tm->P[i]);
+    }
+    rph_mem_protect(tm->P);
+  }
+  if (tm->rK != NULL) rph_mem_protect(tm->rK);
+  if (tm->freqK != NULL) rph_mem_protect(tm->freqK);
+  if (tm->rate_matrix_param_row != NULL) 
+    rph_tm_rmp_protect(tm);
+  if (tm->in_subtree != NULL) rph_mem_protect(tm->in_subtree);
+  if (tm->ignore_branch != NULL) rph_mem_protect(tm->ignore_branch);
+  if (tm->alt_subst_mods != NULL) {
+    rph_lst_protect(tm->alt_subst_mods);
+    for (i=0; i < lst_size(tm->alt_subst_mods); i++)
+      rph_tm_altmod_protect(lst_get_ptr(tm->alt_subst_mods, i));
+  }
+  if (tm->alt_subst_mods_node != NULL)
+    rph_mem_protect(tm->alt_subst_mods_node);
+  if (tm->all_params != NULL) rph_vec_protect(tm->all_params);
+  if (tm->param_map != NULL) rph_mem_protect(tm->param_map);
+  if (tm->bound_arg != NULL) {
+    rph_lst_protect(tm->bound_arg);
+    for (i=0; i < lst_size(tm->bound_arg); i++)
+      rph_str_protect(lst_get_ptr(tm->bound_arg, i));
+  }
+  if (tm->noopt_arg != NULL)
+    rph_str_protect(tm->noopt_arg);
+  if (tm->iupac_inv_map != NULL) {
+    for (i=0; i < 256; i++)
+      if (tm->iupac_inv_map[i] != NULL) rph_mem_protect(tm->iupac_inv_map[i]);
+    rph_mem_protect(tm->iupac_inv_map);
+  }
+}
+
+void rph_tm_register_protect(TreeModel *tm) {
+  rph_register_protected_object(tm, (void (*)(void*))rph_tm_protect);
 }
 
 
 SEXP rph_tm_new_extptr(TreeModel *tm) {
   SEXP result;
+  rph_tm_register_protect(tm);
   PROTECT(result=R_MakeExternalPtr((void*)tm, R_NilValue, R_NilValue));
+  R_RegisterCFinalizerEx(result, rph_tm_free, 1);
   UNPROTECT(1);
   return result;
 }
@@ -542,6 +626,7 @@ SEXP rph_tm_read(SEXP filenameP) {
 SEXP rph_tm_add_alt_mod(SEXP tmP, SEXP defStrP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   String *temp = str_new_charstr(CHARACTER_VALUE(defStrP));
+  rph_tm_register_protect(tm);
   tm_add_alt_mod(tm, temp);
   return R_NilValue;
 }
@@ -570,6 +655,7 @@ SEXP rph_tm_altmod_set_backgd(SEXP tmP, SEXP whichModP, SEXP backgdP) {
     die("ERROR: not enough alt subst  mods (%i %i)\n",
 	tm->alt_subst_mods == NULL ? 0 : lst_size(tm->alt_subst_mods),
 	whichMod);
+  rph_tm_register_protect(tm);
   altmod = lst_get_ptr(tm->alt_subst_mods, whichMod-1);
   if (altmod->backgd_freqs != NULL)
     vec_free(altmod->backgd_freqs);
@@ -610,6 +696,7 @@ SEXP rph_tm_altmod_set_ratematrix(SEXP tmP, SEXP whichModP, SEXP matrixP) {
   if (dim != m->nrows || dim != m->ncols)
     die("Wrong matrix dimensions in rph_tm_altmod_set_ratematrix %i %i %i\n",
 	dim, m->nrows, m->ncols);
+  rph_tm_register_protect(tm);
   altmod->rate_matrix = mm_new_from_matrix(m, tm->rate_matrix->states, 
 					   CONTINUOUS);
   return R_NilValue;
