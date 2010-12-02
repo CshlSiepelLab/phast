@@ -47,7 +47,7 @@
 #define BGC_TAG "BGC_PAR:"
 
 
-#define BGC_SEL_LIMIT 50.0
+#define BGC_SEL_LIMIT 100.0
 
 /* internal functions */
 double tm_likelihood_wrapper(Vector *params, void *data);

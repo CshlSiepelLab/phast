@@ -657,7 +657,7 @@ MSA* msa_sub_alignment(MSA *msa, List *seqlist, int include, int start_col,
   int new_len = end_col - start_col;
 
   if (new_len <= 0)
-    die("ERROR msa_sub_alignment got new_len=%i (should be >0)\n", new_len);
+    die("ERROR msa_sub_alignment got feature of length %i\n", new_len);
   if (msa->seqs==NULL && msa->ss == NULL)
     die("ERROR msa_sub_alignment: msa->seqs and msa->ss are NULL\n");
 
