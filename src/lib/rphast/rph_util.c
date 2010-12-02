@@ -127,7 +127,7 @@ void rph_add_to_mem_list(void **ptr) {
     ptr[0] = mem_available_list[mem_available_list_len-1];
     mem_available_list_len--;
   } else {
-    if (mem_list_len = mem_list_alloc_len)
+    if (mem_list_len == mem_list_alloc_len)
       rph_realloc_mem_list();
     idx = mem_list_len++;
     mem_list[idx] = (void*)ptr;
