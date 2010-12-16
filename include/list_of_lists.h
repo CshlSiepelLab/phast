@@ -65,6 +65,11 @@ void lol_push_wig(ListOfLists *lol, double *scores, MSA *msa);
 void lol_push_dbl_array(ListOfLists *lol, void *data, char *name, 
 			int ndim, int *dimsize, char ***dimname);
 
+List *lol_find_list(ListOfLists *lol, const char *lstName, 
+		    list_element_type lstType);
+
+ListOfLists *lol_find_lol(ListOfLists *lol, const char *name);
+
 void lol_free(ListOfLists *lol);
 
 #endif

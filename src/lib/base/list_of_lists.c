@@ -65,16 +65,18 @@ void lol_push_dbl(ListOfLists *lol, double *vals, int len,
 
 List *lol_find_list(ListOfLists *lol, const char *lstName, 
 		    list_element_type lstType) {
-  list_element_type currType;
   List *temp, *currResult=NULL;
   int i;
+  if (lol == NULL) return NULL;
   for (i=0; i < lst_size(lol->lst); i++) {
-    currType = lst_get_int(lol->lstType, i);
-    if (currType == lstType && 
+    if (lst_get_int(lol->lstType, i) == lstType && 
 	strcmp((char*)lst_get_ptr(lol->lstName, i), lstName)==0)
-      return lol->lst;
-    if (currType == LIST_LIST) {
-      temp = lol_find_list((ListOfLists*)lst_get_ptr(lol->lst, i), lstName, lstType);
+      currResult = (List*)lst_get_ptr(lol->lst, i);
+  }
+  for (i=0; i < lst_size(lol->lst); i++) {
+    if (lst_get_int(lol->lstType, i) == LIST_LIST) {
+      temp = lol_find_list((ListOfLists*)lst_get_ptr(lol->lst, i), 
+			   lstName, lstType);
       if (temp != NULL) {
 	if (currResult != NULL) die("lol_find_list failed: multiple lists in object named %s with same type", lstName);
 	currResult = temp;
@@ -83,6 +85,12 @@ List *lol_find_list(ListOfLists *lol, const char *lstName,
   }
   return currResult;
 }
+
+
+ListOfLists *lol_find_lol(ListOfLists *lol, const char *name) {
+  return (ListOfLists*)lol_find_list(lol, name, LIST_LIST);
+}
+
 
 
 /* The following three functions push single values onto the end of
