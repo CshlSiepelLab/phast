@@ -20,6 +20,7 @@
 #include <misc.h>
 #include <eigen.h>
 #include <prob_vector.h>
+#include <external_libs.h>
 
 #define SUM_EPSILON 0.0001
 #define ELEMENT_EPSILON 0.00001
@@ -209,50 +210,247 @@ void mm_pretty_print(FILE *F, MarkovMatrix *M) {
 }
 
 
-void mm_exp_taylor(MarkovMatrix *P, MarkovMatrix *Q, double t) {
-  Matrix *Qt, *lastQ, *newQ, *lastP;
-  Matrix *sumP;
-  double diff, fac=1.0, d;
-  int rep, i, j, n = P->size;
+//internal function used by mm_exp_higham; computes some even powers
+//of Qt and returns them in an array.  Qt should be square.
+Matrix **mm_get_QtPow(int max_m, Matrix *Qt) {
+  Matrix **QtPow = smalloc((max_m+1) * sizeof(Matrix*));
+  int i, n = Qt->nrows;
+  for (i=0; i<=max_m; i++) {
+    if (i==1 || i%2==0) QtPow[i] = mat_new(n, n);
+    else QtPow[i] = NULL;
+    if (i==0)
+      mat_set_identity(QtPow[0]);
+    else if (i==1)
+      mat_copy(QtPow[1], Qt);
+    else if (i==2)
+      mat_mult(QtPow[2], Qt, Qt);
+    else if (i==4)
+      mat_mult(QtPow[4], QtPow[2], QtPow[2]);
+    else if (i==6)
+      mat_mult(QtPow[6], QtPow[2], QtPow[4]);
+    else if (i==8)
+      mat_mult(QtPow[8], QtPow[4], QtPow[4]);
+    else if (i==10)
+      mat_mult(QtPow[10], QtPow[4], QtPow[6]);
+    else if (i==12)
+      mat_mult(QtPow[12], QtPow[6], QtPow[6]);
+  }
+  return QtPow;
+}
 
-  sumP = mat_new(n, n);
-  Qt = mat_create_copy(Q->matrix);
+//set P->matrix to exp(t * Q->matrix) using algorithm 2.3 from
+//"The Scaling and Squaring Method for the Matrix Exponential Revisited"
+//by Nicholas J. Higham.
+void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t) {
+  double b[14] = {64764752532480000, 32382376266240000, 7771770303897600,
+		  1187353796428800, 129060195264000, 10559470521600,
+		  670442572800, 33522128640, 1323241920,
+		  40840800, 960960, 16380, 182, 1};
+  double theta[14], norm, sum, *coef, mu;
+  int i, j, n = P->size, mvals[5] = {3, 5, 7, 9, 13}, mlen=5, m, mi, max_i, s;
+  LAPACK_DOUBLE mat[n*n], scale[n], matU[n*n], matV[n*n];
+  LAPACK_INT ln, ilo, ihi, info, ipiv[n];
+  char job = 'B', side='R';
+  Matrix *Qt = mat_create_copy(Q->matrix), **QtPow, **matArr, *U, *V;
+  int do_balancing=0;  //balancing is not working yet, keep this at 0!
+#ifdef SKIP_LAPACK
+  die("ERROR: LAPACK required for mm_exp_higham routine.\n");
+#else
   mat_scale(Qt, t);
   
-  mat_set_identity(sumP);
+  theta[3]=1.495585217958292e-2;
+  theta[5]=2.539398330063230e-1;
+  theta[7]=9.504178996162932e-1;
+  theta[9]=2.097847961257068e0;
+  theta[13]=5.371920351148152e0;
   
-  mat_plus_eq(sumP, Qt);
+  // % Preprocessing to reduce the norm.
+  //A ← A − μI, where μ = trace(A)/n.
+  mu = 0.0;
+  for (i=0; i < n; i++) 
+    mu += mat_get(Qt, i, i);
+  mu /= (double)n;
+  for (i=0; i < n; i++)
+    mat_set(Qt, i, i, mat_get(Qt, i, i) - mu);
   
-  lastQ = mat_create_copy(Qt);
-  newQ = mat_new(n, n);
-  lastP = mat_new(n, n);
-  
-  for (rep=2; 1; rep++) {
-    mat_mult(newQ, Qt, lastQ);  //lastQ = (Qt)^(rep-1), newQ=(Qt)^rep
-    mat_copy(lastQ, newQ);    // now lastQ is (Qt)^rep too
-    fac /= (double)rep;
-    if (fac == 0.0) break;
-    mat_scale(newQ, fac);      //scale newQ by 1/rep!
-    mat_copy(lastP, sumP);     //put previous result in lastP
-    mat_plus_eq(sumP, newQ);     //add new term
-    //check convergence
-    diff = 0;
-    for (i=0; i < n; i++) {
-      for (j=0; j < n; j++) {
-	d = mat_get(sumP, i, j) - mat_get(lastP, i, j);
-	diff += (d*d);
-	if (diff > 1.0e-8) break;
-      }
-    }
-    if (diff == 0.0 || (diff < 1.0e-8 && rep >= 10)) break;
+  //A ← D −1 AD, where D is a balancing transformation (or set D = I if
+  //balancing does not reduce the 1-norm of A).
+  ln = (LAPACK_INT)n;
+  if (do_balancing) {
+    mat_to_lapack(Qt, mat);
+    ln = (LAPACK_INT)n;
+#ifdef R_LAPACK
+    F77_CALL(dgebal)(&job, &ln, mat, &ln, &ilo, &ihi, scale, &info);
+#else
+    dgebal_(&job, &ln, mat, &ln, &ilo, &ihi, scale, &info);
+#endif
+    if (info != 0)
+      die("Error in balancing matrix in lapack routine dgebal info=%i\n", info);
+    mat_from_lapack(Qt, mat);
   }
-  //  printf("done manual exponentiation rep=%i diff=%e\n", rep, diff);
-  mat_copy(P->matrix, sumP);
-  mat_free(sumP);
-  mat_free(lastP);
-  mat_free(lastQ);
-  mat_free(newQ);
+
+  //compute 1-norm of Qt
+  norm = 0.0;
+  for (i=0; i < n; i++) {
+    sum = 0.0;
+    for (j=0; j < n; j++)
+      sum += fabs(mat_get(Qt, j, i));
+    if (sum > norm) norm = sum;
+  }
+  U = mat_new(n, n);
+  V = mat_new(n, n);
+  s = 0;
+
+  for (mi=0; mi < mlen; mi++) {
+    m = mvals[mi];
+    if (norm <= theta[m]) {
+      QtPow = mm_get_QtPow(m-1, Qt);
+      max_i = (m-1)/2;
+      mat_zero(P->matrix);
+      matArr = smalloc((max_i+1)*sizeof(Matrix*));
+      coef = smalloc((max_i+1)*sizeof(double));
+      for (i=0; i <= max_i; i++) {
+	matArr[i] = QtPow[2*i];
+	coef[i] = b[2*i+1];
+      }
+      mat_linear_comb_many(Qt, max_i+1, matArr, coef);
+      mat_mult(U, QtPow[1], Qt);
+      
+      for (i=0; i<=max_i; i++)
+	coef[i] = b[2*i];
+      mat_linear_comb_many(V, max_i+1, matArr, coef);
+      goto mm_exp_higham_solve_linear_eq;
+    }
+  }
+
+  s = ceil(log2(norm/theta[13]));
+  if (s > 0) mat_scale(Qt, 1.0/pow(2.0, s));
+  
+  m=7;
+  QtPow = mm_get_QtPow(m, Qt);
+  matArr = smalloc(5 * sizeof(Matrix*));
+  coef = smalloc(5 * sizeof(double));
+
+  //calculate U
+  //b13*A[6] + b11*A[4] + b9*A[2]
+  U = mat_new(n, n);
+  matArr[0] = QtPow[6];
+  coef[0] = b[13];
+  matArr[1] = QtPow[4];
+  coef[1] = b[11];
+  matArr[2] = QtPow[2];
+  coef[2] = b[9];
+  mat_linear_comb_many(Qt, 3, matArr, coef);
+
+  //multiply by A[6]
+  mat_mult(U, QtPow[6], Qt);
+  
+  //above + b7*A[6] + b5*A[4] + b3*A[2] + b1*I
+  matArr[3] = QtPow[0];
+  matArr[4] = U;
+  coef[0] = b[7];
+  coef[1] = b[5];
+  coef[2] = b[3];
+  coef[3] = b[1];
+  coef[4] = 1.0;
+  mat_linear_comb_many(Qt, 5, matArr, coef);
+  
+  //multiply whole thing by QtPow[1]
+  mat_mult(U, QtPow[1], Qt);
+
+  //calculate V
+  //b12*A[6] + b[10]*A[4] + b8*A[2]
+  V = mat_new(n, n);
+  coef[0] = b[12];
+  coef[1] = b[10];
+  coef[2] = b[8];
+  mat_linear_comb_many(Qt, 3, matArr, coef);
+
+  //multiply by A[6]
+  mat_mult(V, QtPow[6], Qt);
+  
+  //above + b[6]*A[6] + b[4]*A[4] + b[2]*A[2] + b0*I
+  mat_copy(Qt, V);
+  matArr[4] = Qt;
+  coef[0] = b[6];
+  coef[1] = b[4];
+  coef[2] = b[2];
+  coef[3] = b[0];
+  coef[4] = 1.0;
+  mat_linear_comb_many(V, 5, matArr, coef);
+
+ mm_exp_higham_solve_linear_eq:
+  //set U' = -U + V
+  //set V' = U + V
+  //solve U'X = V' for X
+  mat_copy(Qt, U);
+  mat_plus_eq(V, U);
+  mat_copy(U, V);
+  mat_scale(Qt, -2.0);
+  mat_plus_eq(U, Qt);
+
+  sfree(matArr);
+  sfree(coef);
+
+  mat_to_lapack(U, matU);
+  mat_to_lapack(V, matV);
+#ifdef R_LAPACK
+  F77_CALL(dgesv)(&ln, &ln, matU, &ln, ipiv, matV, &ln, &info);
+#else
+  dgesv_(&ln, &ln, matU, &ln, ipiv, matV, &ln, &info);
+#endif
+  if (info !=0)
+    die("Error solving U'X=V' in mm_exp_higham");
+  mat_from_lapack(P->matrix, matV);
+
+  //check (for testing only)
+  mat_mult(Qt, U, P->matrix);
+
+  mat_free(U);
+  mat_free(V);
+  
+  // X = r13^(2^s) by repeated squaring
+  for (i=0; i < s; i++) {
+    mat_copy(Qt, P->matrix);
+    mat_mult(P->matrix, Qt, Qt);
+  }
+
+  if (do_balancing) {
+    mat_to_lapack(P->matrix, mat);
+    // undo balancing- check- this function is meant for eigenvalues,
+    // not sure if job should be 'R' or 'L', or if it will work at all.
+#ifdef R_LAPACK
+    F77_CALL(dgebak)(&job, &side, &ln, &ilo, &ihi, scale, &ln, mat, &ln, &info);
+#else
+    dgebak_(&job, &side, &ln, &ilo, &ihi, scale, &ln, mat, &ln, &info);
+#endif
+    mat_from_lapack(P->matrix, mat);
+  }
+
+  mat_scale(P->matrix, exp(mu));
+
+  //check
+  for (i=0; i < n; i++) {
+    double sum = 0.0;
+    for (j=0; j < n; j++) {
+      double val = mat_get(P->matrix, i, j);
+      if (val < 0 && val > -1.0e-10) 
+	mat_set(P->matrix, i, j, 0.0);
+      else if (val > 1 && val-1 < 1.0e-10)
+	mat_set(P->matrix, i, j, 1.0);
+      else if (val < 0 || val > 1)
+	die("got val %e at pos %i %i in mm_exp_higham", val, i, j);
+      sum += val;
+    }
+    if (fabs(sum-1.0) > 1.0e-4)
+      die("got sum %e at pos %i in mm_exp_higham", sum, i);
+  }
+
   mat_free(Qt);
+  for (i=0; i < m; i++)
+    if (QtPow[i] != NULL) mat_free(QtPow[i]);
+  sfree(QtPow);
+#endif
   return;
 }
 
@@ -293,11 +491,11 @@ void mm_exp_complex(MarkovMatrix *P, MarkovMatrix *Q, double t) {
       (Q->evec_matrix_z == NULL || Q->evals_z == NULL || 
        Q->evec_matrix_inv_z == NULL))
     mm_diagonalize(Q);
-
-  /* Diagonalization failed: use taylor expansion instead */
+  
+  /* Diagonalization failed: use higham expansion instead */
   if (Q->evec_matrix_z == NULL || Q->evals_z == NULL ||
       Q->evec_matrix_inv_z == NULL) {
-    mm_exp_taylor(P, Q, t);
+    mm_exp_higham(P, Q, t);
     return;
   }
     
@@ -347,7 +545,7 @@ void mm_exp_real(MarkovMatrix *P, MarkovMatrix *Q, double t) {
 
   if (Q->evec_matrix_r == NULL || Q->evals_r == NULL ||
       Q->evec_matrix_inv_r == NULL) {
-    mm_exp_taylor(P, Q, t);
+    mm_exp_higham(P, Q, t);
     return;
   }
 
@@ -495,7 +693,7 @@ void mm_diagonalize_real(MarkovMatrix *M) {
   return;
   
  mm_diagonalize_real_fail:
-  //by setting eigenvalues to NULL, mm_exp will call mm_exp_taylor
+  //by setting eigenvalues to NULL, mm_exp will call mm_exp_higham
   //instead of using eigenvalues.
   if (M->evec_matrix_r != NULL)
     mat_free(M->evec_matrix_r);

@@ -405,6 +405,16 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
                   rcat_post_prob;
           }
         }
+	if (post->expected_nsubst_col != NULL) {
+	  for (nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++) {
+            n = lst_get_ptr(mod->tree->nodes, nodeidx);
+            if (n->parent == NULL) continue;
+            for (i = 0; i < nstates; i++) 
+              for (j = 0; j < nstates; j++) 
+                post->expected_nsubst_col[rcat][n->id][tupleidx][i][j] = 
+                  subst_probs[rcat][i][j][n->id] * rcat_post_prob;
+          }
+        }
       }
     }
 
@@ -595,6 +605,7 @@ void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,
 TreePosteriors *tl_new_tree_posteriors(TreeModel *mod, MSA *msa, int do_bases, 
                                        int do_substs, int do_expected_nsubst, 
                                        int do_expected_nsubst_tot,
+				       int do_expected_nsubst_col,
                                        int do_rate_cats, int do_rate_cats_exp) {
   int i, j, k, r, ntuples, nnodes, nstates;
   TreePosteriors *tp = (TreePosteriors*)smalloc(sizeof(TreePosteriors));
@@ -672,6 +683,22 @@ TreePosteriors *tl_new_tree_posteriors(TreeModel *mod, MSA *msa, int do_bases,
   }
   else tp->expected_nsubst_tot = NULL;
 
+  if (do_expected_nsubst_col) {
+    tp->expected_nsubst_col = (double*****)smalloc(mod->nratecats * sizeof(double****));
+    for (r=0; r < mod->nratecats; r++) {
+      tp->expected_nsubst_col[r] = (double****)smalloc(nnodes * sizeof(double***));
+      for (i=0; i < nnodes; i++) {
+	tp->expected_nsubst_col[r][i] = (double***)smalloc(ntuples * sizeof(double**));
+	for (j=0; j < ntuples; j++) {
+	  tp->expected_nsubst_col[r][i][j] = (double**)smalloc(nstates * sizeof(double*));
+	  for (k=0; k < nstates; k++) 
+	    tp->expected_nsubst_col[r][i][j][k] = (double*)smalloc(nstates * sizeof(double));
+	}
+      }
+    }
+  }
+  else tp->expected_nsubst_col = NULL;
+
   if (do_rate_cats) {
     tp->rcat_probs = (double**)smalloc(mod->nratecats * sizeof(double*));
     for (i = 0; i < mod->nratecats; i++)
@@ -743,6 +770,20 @@ void tl_free_tree_posteriors(TreeModel *mod, MSA *msa, TreePosteriors *tp) {
       sfree(tp->expected_nsubst_tot[r]);
     }
     sfree(tp->expected_nsubst_tot);
+  }
+  if (tp->expected_nsubst_col != NULL) {
+    for (r = 0; r < mod->nratecats; r++) {
+      for (i=0; i < nnodes; i++) {
+	for (j=0; j < ntuples; j++) {
+	  for (k=0; k < nstates; k++) 
+	    sfree(tp->expected_nsubst_col[r][i][j][k]);
+	  sfree(tp->expected_nsubst_col[r][i][j]);
+	}
+	sfree(tp->expected_nsubst_col[r][i]);
+      }
+      sfree(tp->expected_nsubst_col[r]);
+    }
+    sfree(tp->expected_nsubst_col);
   }
   if (tp->rcat_probs != NULL) {
     for (i = 0; i < mod->nratecats; i++)

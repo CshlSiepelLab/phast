@@ -47,7 +47,7 @@
 #define BGC_TAG "BGC_PAR:"
 
 
-#define BGC_SEL_LIMIT 100.0
+#define BGC_SEL_LIMIT 200.0
 
 /* internal functions */
 double tm_likelihood_wrapper(Vector *params, void *data);
@@ -3273,7 +3273,7 @@ double tm_extrapolate_and_prune(TreeModel *mod, TreeNode *extrapolate_tree,
   return scale;
 }
 
-/** Reset TreeModel with new or altered tree. */
+/* Reset TreeModel with new or altered tree. */
 void tm_reset_tree(TreeModel *mod,   /** TreeModel */
                    TreeNode *newtree /** New tree */
                    ) {
@@ -3421,5 +3421,4 @@ int tm_is_reversible(TreeModel *tm) {
   }
   return 1;
 }
-
 

@@ -69,6 +69,14 @@ struct tp_struct {
                                    second is original base, third is
                                    replacement base, fourth is
                                    branch  */
+  double *****expected_nsubst_col;
+                                /* expected number of substitutions of each
+                                   type along each branch for each rate 
+				   category, for each tuple column.
+				   First index is rate category, second
+				   is branch, third is tuple, fourth is
+				   original base, fourth is replacement base 
+				*/
   double **rcat_probs;          /* posterior probability of each rate
                                    category for each column tuple.
                                    First index is rate category,
@@ -91,6 +99,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
 TreePosteriors *tl_new_tree_posteriors(TreeModel *mod, MSA *msa, int do_bases, 
                                        int do_substs, int do_expected_nsubst, 
                                        int do_expected_nsubst_tot,
+				       int do_expected_nsubst_col,
                                        int do_rate_cats, int do_rate_cats_exp);
 void tl_free_tree_posteriors(TreeModel *mod, MSA *msa, TreePosteriors *tp);
 double tl_compute_partial_ll_suff_stats(TreeModel *mod, TreePosteriors *post);

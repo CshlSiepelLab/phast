@@ -469,6 +469,11 @@ OPTIONS:
         each site, summed across all types of substitutions. 
         Output will be to auxiliary file(s) with suffix ".expsub".
 
+    --expected-subs-col, -J
+        Output posterior expected number of substitutions of each type
+        on each branch, for each site.  Output will be to auxiliary 
+        file(s) with suffix .expcolsub
+
     --expected-total-subs, -Z
         Output posterior expected number of substitutions of each type 
         on each branch, summed across all sites.  Output will be to 

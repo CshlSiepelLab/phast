@@ -1177,6 +1177,29 @@ void free_iupac_inv_map(int **iim) {
   sfree(iim);
 }
 
+
+void *alloc_n_dimensional_array(int ndim, int *dimsize, size_t size) {
+  int i;
+  void **rv;
+  if (ndim == 1)
+    return smalloc(dimsize[0]*size);
+  rv = smalloc(dimsize[0]*sizeof(void*));
+  for (i=0; i < dimsize[0]; i++) 
+    rv[i] = alloc_n_dimensional_array(ndim-1, &(dimsize[1]), size);
+  return (void*)rv;
+}
+
+void free_n_dimensional_array(void *data, int ndim, int *dimsize) {
+  int i;
+  if (ndim > 1) {
+    for (i=0; i < dimsize[0]; i++) {
+      free_n_dimensional_array(((void**)data)[i], ndim-1, &(dimsize[1]));
+    }
+  }
+  sfree(data);
+}
+
+
 /***************************************************************************/
 /* for debugging: these functions can be called dynamically in gdb to
    print the contents of 1d and 2d arrays */

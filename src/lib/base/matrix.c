@@ -207,6 +207,25 @@ void mat_linear_comb(Matrix *dest, Matrix *src1, double coef1,
       dest->data[i][j] = coef1*src1->data[i][j] + coef2*src2->data[i][j];
 }
 
+void mat_linear_comb_many(Matrix *dest, int n, Matrix **src, double *coef) {
+  int i, j, k;
+  if (n == 0) return;
+  if (dest->nrows != src[0]->nrows || dest->ncols != src[0]->ncols)
+    die("ERROR: mat_linear_comb_many: bad dimensions\n");
+  for (i=1; i < n; i++)
+    if (src[i]->nrows != src[0]->nrows ||
+	src[i]->ncols != src[0]->ncols)
+      die("ERROR: mat_linear_comb_many: bad dimensions in mat %i\n", i);
+  for (i=0; i < dest->nrows; i++)  {
+    for (j=0; j < dest->ncols; j++) {
+      dest->data[i][j] = 0.0;
+      for (k=0; k < n; k++)
+	dest->data[i][j] += coef[k]*src[k]->data[i][j];
+    }
+  }
+}
+
+
 void mat_resize(Matrix *m, int nrows, int ncols) {
   int i;
   if (!(nrows >= 0 && ncols >= 0))
@@ -282,4 +301,19 @@ void mat_mult_diag(Matrix *A, Matrix *B, Vector *C, Matrix *D) {
         A->data[i][j] += B->data[i][k] * C->data[k] * D->data[k][j];
     }
   }
+}
+
+
+void mat_to_lapack(Matrix *m, LAPACK_DOUBLE *arr) {
+  int i, j, pos=0;
+  for (j=0; j<m->ncols; j++)
+    for (i=0; i< m->nrows; i++)
+      arr[pos++] = (LAPACK_DOUBLE)m->data[i][j];
+}
+
+void mat_from_lapack(Matrix *m, LAPACK_DOUBLE *arr) {
+  int i, j, pos=0;
+  for (j=0; j < m->ncols; j++)
+    for (i=0; i < m->nrows; i++)
+      m->data[i][j] = (double)arr[pos++];
 }

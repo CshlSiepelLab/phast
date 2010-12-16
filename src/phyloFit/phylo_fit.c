@@ -66,6 +66,7 @@ struct phyloFit_struct* phyloFit_struct_new(int rphast) {
   pf->do_bases = FALSE;
   pf->do_expected_nsubst = FALSE;
   pf->do_expected_nsubst_tot = FALSE;
+  pf->do_expected_nsubst_col = FALSE;
   pf->random_init = FALSE;
   pf->estimate_backgd = rphast ? TRUE : FALSE;  //in rphast mode we use no.opt to specify no estimate backgd
   pf->estimate_scale_only = FALSE;
@@ -116,32 +117,35 @@ void set_output_fname(String *fname, char *root, int cat, char *suffix) {
 
 
 
-int add_ratecat_names_to_lol(ListOfLists *lol, TreeModel *mod) {
-  List *l = lst_new_ptr(mod->nratecats);
+char **get_ratecat_names(TreeModel *mod, int *len) {
   int i;
-  char *tempstr1, tempstr2[100];
+  char tempstr2[100];
+  char **rv = smalloc(mod->nratecats * sizeof(char*));
   for (i=0; i < mod->nratecats; i++) {
     sprintf(tempstr2, "rate.cat.%i", i);
-    tempstr1 = smalloc((strlen(tempstr2)+1)*sizeof(char));
-    strcpy(tempstr1, tempstr2);
-    lst_push_ptr(l, tempstr1);
+    rv[i] = smalloc((strlen(tempstr2)+1)*sizeof(char));
+    strcpy(rv[i], tempstr2);
   }
-  lol_push_list(lol, l, NULL, CHAR_LIST);
-  return lst_size(l);
+  *len = mod->nratecats;
+  return rv;
 }
 
 
-int add_node_names_to_lol(ListOfLists *lol, TreeModel *mod, 
-			  int include_leaf_branches, int include_root,
-			  int add_count_column) {
-  List *l = lst_new_ptr(mod->tree->nnodes + add_count_column);
-  int node;
+char **get_node_names(TreeModel *mod, int include_leaf_branches,
+		      int include_root, int add_count_column,
+		      int *len) {
+  int node, idx=0;
   TreeNode *n;
-  char *tempstr;
+  char **rv;
+
+  *len = mod->tree->nnodes;
+  if (add_count_column) (*len)++;
+  if (!include_root) (*len)--;
+  if (!include_leaf_branches) (*len) -= (mod->tree->nnodes+1)/2;
+  rv = smalloc((*len)*sizeof(char*));
   if (add_count_column) {
-    tempstr = smalloc(6*sizeof(char));
-    strcpy(tempstr, "nsite");
-    lst_push_ptr(l, tempstr);
+    rv[idx] = smalloc(6*sizeof(char));
+    strcpy(rv[idx++], "nsite");
   }
   tr_name_ancestors(mod->tree);
   for (node = 0; node < mod->tree->nnodes; node++) {
@@ -149,48 +153,46 @@ int add_node_names_to_lol(ListOfLists *lol, TreeModel *mod,
     if (n == mod->tree && !include_root) continue;
     if ((n->lchild == NULL || n->rchild == NULL) && !include_leaf_branches)
       continue;
-    tempstr = smalloc((strlen(n->name)+1)*sizeof(char));
-    strcpy(tempstr, n->name);
-    lst_push_ptr(l, tempstr);
+    rv[idx] = smalloc((strlen(n->name)+1)*sizeof(char));
+    strcpy(rv[idx++], n->name);
   }
-  lol_push_list(lol, l, NULL, CHAR_LIST);
-  return lst_size(l);
+  return rv;
 }
 
-int add_state_names_to_lol(ListOfLists *lol, TreeModel *mod, 
-			   const char *prefix) {
-  char *tempstr;
-  List *l = lst_new_ptr(mod->rate_matrix->size);
+char **get_state_names(TreeModel *mod, const char *prefix, int *len) {
   int state, prefixlen;
+  char **rv = smalloc(mod->rate_matrix->size*sizeof(char*));
+  *len = mod->rate_matrix->size;
   if (prefix == NULL) prefixlen = 0;
   else prefixlen = strlen(prefix);
   for (state=0; state < mod->rate_matrix->size; state++) {
-    tempstr = smalloc((mod->order + 2 + prefixlen)*sizeof(char));
-    tempstr[mod->order + 1 + prefixlen] = '\0';
-    if (prefix != NULL) strcpy(tempstr, prefix);
-    get_tuple_str(tempstr+prefixlen, state, mod->order + 1, 
+    rv[state] = smalloc((mod->order + 2 + prefixlen)*sizeof(char));
+    rv[state][mod->order + 1 + prefixlen] = '\0';
+    if (prefix != NULL) strcpy(rv[state], prefix);
+    get_tuple_str(rv[state]+prefixlen, state, mod->order + 1, 
 		  mod->rate_matrix->states);
-    lst_push_ptr(l, tempstr);
   }
-  lol_push_list(lol, l, NULL, CHAR_LIST);
-  return lst_size(l);
+  return rv;
 }
 
-int add_tuple_names_to_lol(ListOfLists *lol, TreeModel *mod, 
-			   MSA *msa, int cat) {
-  List *l = lst_new_ptr(msa->ss->ntuples);
-  int tup;
-  char *tempstr;
+char **get_tuple_names(TreeModel *mod, MSA *msa, int cat, int *len) {
+  int tup, idx=0;
+  char **rv;
+  *len = 0;
+  for (tup = 0; tup < msa->ss->ntuples; tup++) {
+    if ((cat >= 0 && msa->ss->cat_counts[cat][tup] == 0) ||
+	msa->ss->counts[tup] == 0) continue;
+    (*len)++;
+  }
+  rv = smalloc((*len)*sizeof(char*));
   for (tup = 0; tup < msa->ss->ntuples; tup++) {
     checkInterruptN(tup, 1000);
     if ((cat >= 0 && msa->ss->cat_counts[cat][tup] == 0) ||
 	msa->ss->counts[tup] == 0) continue;
-    tempstr = smalloc((msa->nseqs+1)*sizeof(char));
-    tuple_to_string_pretty(tempstr, msa, tup);
-    lst_push_ptr(l, tempstr);
+    rv[idx] = smalloc((msa->nseqs+1)*sizeof(char));
+    tuple_to_string_pretty(rv[idx++], msa, tup);
   }
-  lol_push_list(lol, l, NULL, CHAR_LIST);
-  return lst_size(l);
+  return rv;
 }
 
 
@@ -204,16 +206,19 @@ int add_tuple_names_to_lol(ListOfLists *lol, TreeModel *mod,
    ".expsub", and ".exptotsub", respectively).    */
 void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root, 
                            int do_bases, int do_expected_nsubst, 
-                           int do_expected_nsubst_tot, int cat, int quiet,
+                           int do_expected_nsubst_tot, 
+			   int do_expected_nsubst_col,
+			   int cat, int quiet,
 			   ListOfLists *results) {
   String *fname = str_new(STR_MED_LEN);
   FILE *POSTPROBF, *EXPSUBF, *EXPTOTSUBF;
-  int i, tup, node, state, state2;
+  int i, j, tup, node, state, state2;
   TreeNode *n;
   char tuplestr[mod->order+2];
   char coltupstr[msa->nseqs+1];
   int ratecat;
-  ListOfLists *dobase_lol = NULL, *exp_nsub_lol=NULL, *exp_nsub_tot_lol=NULL;
+  char ***dimnames;
+
   tuplestr[mod->order+1] = '\0';
   coltupstr[msa->nseqs] = '\0';
 
@@ -229,50 +234,46 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
     fprintf(stderr, "Computing posterior probabilities and/or related stats ...\n");
   mod->tree_posteriors = tl_new_tree_posteriors(mod, msa, do_bases, 0, 
                                                 do_expected_nsubst, 
-                                                do_expected_nsubst_tot, 0, 0);
+                                                do_expected_nsubst_tot, 
+						do_expected_nsubst_col,
+						0, 0);
   tl_compute_log_likelihood(mod, msa, NULL, cat, mod->tree_posteriors);
   tr_name_ancestors(mod->tree);
 
   if (do_bases) {
     if (results != NULL) {
-      ListOfLists *dimnames_lol = lol_new(4);
-      int *dim = smalloc(4*sizeof(int));
-      double *temparr;
-      
-      dim[0] = add_ratecat_names_to_lol(dimnames_lol, mod);
-      dim[1] = add_node_names_to_lol(dimnames_lol, mod, 0, 1, 0);
-      dim[2] = add_state_names_to_lol(dimnames_lol, mod, NULL);
-      dim[3] = add_tuple_names_to_lol(dimnames_lol, mod, msa, cat);
+      double ****arr;
+      int dimsize[4];
+      dimnames = smalloc(4*sizeof(char**));
+      dimnames[0] = get_ratecat_names(mod, &dimsize[0]);
+      dimnames[1] = get_node_names(mod, 0, 1, 0, &dimsize[1]);
+      dimnames[2] = get_state_names(mod, NULL, &dimsize[2]);
+      dimnames[3] = get_tuple_names(mod, msa, cat, &dimsize[3]);
 
-
-      dobase_lol = lol_new(2 + dim[0]);
-      lol_set_class(dobase_lol, "array");
-      lol_push_lol(dobase_lol, dimnames_lol, "dimnames");
-      lol_push_int(dobase_lol, dim, 4, "dim");
-
-      temparr = smalloc(dim[3]*sizeof(double));
+      arr = (double****)alloc_n_dimensional_array(4, dimsize, sizeof(double));
       for (ratecat=0; ratecat < mod->nratecats; ratecat++) {
-	ListOfLists *ratecat_lol = lol_new(dim[1]);
+	int node_idx = 0;
 	for (node = 0; node < mod->tree->nnodes; node++) {
-	  ListOfLists *node_lol;
 	  n = (TreeNode*)lst_get_ptr(mod->tree->nodes, node);
 	  if (n->lchild == NULL || n->rchild == NULL) continue;
-	  node_lol = lol_new(dim[2]);
 	  for (state = 0 ; state < mod->rate_matrix->size; state++) {
-	    int idx=0;
+	    int tup_idx=0;
 	    for (tup=0; tup < msa->ss->ntuples; tup++) {
 	      if ((cat >=0 && msa->ss->cat_counts[cat][tup] == 0) ||
 		  msa->ss->counts[tup] == 0) continue;
-	      temparr[idx++] = mod->tree_posteriors->base_probs[ratecat][state][node][tup];
+	      arr[ratecat][node_idx][state][tup_idx++] = mod->tree_posteriors->base_probs[ratecat][state][n->id][tup];
 	    }
-	    lol_push_dbl(node_lol, temparr, dim[3], NULL);
 	  }
-	  lol_push_lol(ratecat_lol, node_lol, NULL);
 	}
-	lol_push_lol(dobase_lol, ratecat_lol, NULL);
       }
-      sfree(temparr);
-      sfree(dim);
+      lol_push_dbl_array(results, arr, "bybase", 4, dimsize, dimnames);
+      free_n_dimensional_array(arr, 4, dimsize);
+      for (i=0; i < 4; i++) {
+	for (j=0; j < dimsize[i]; j++)
+	  sfree(dimnames[i][j]);
+	sfree(dimnames[i]);
+      }
+      sfree(dimnames);
     }
     if (output_fname_root != NULL) {
       set_output_fname(fname, output_fname_root, cat, ".postprob");
@@ -323,7 +324,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 	  if (n->lchild == NULL || n->rchild == NULL) continue;
 	  for (state = 0; state < mod->rate_matrix->size; state++) 
 	    fprintf(POSTPROBF, "%6.4f ", 
-		    mod->tree_posteriors->base_probs[0][state][node][tup]);
+		    mod->tree_posteriors->base_probs[0][state][n->id][tup]);
 	}                 
 	fprintf(POSTPROBF, "\n");
       }
@@ -333,55 +334,44 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 
   if (do_expected_nsubst) {
     if (results != NULL) {
-      ListOfLists *dimnames_lol = lol_new(3);
-      int *dim = smalloc(3*sizeof(int));
-      double *temparr, *countarr;
-      int *icountarr;
+      int dimsize[3], node_idx, tup_idx;
+      double ***arr;
 
-      dim[0] = add_ratecat_names_to_lol(dimnames_lol, mod);
-      dim[1] = add_node_names_to_lol(dimnames_lol, mod, 1, 0, 1);
-      dim[2] = add_tuple_names_to_lol(dimnames_lol, mod, msa, cat);
+      dimnames = smalloc(3*sizeof(char**));
+      dimnames[0] = get_ratecat_names(mod, &dimsize[0]);
+      dimnames[1] = get_node_names(mod, 1, 0, 1, &dimsize[1]);
+      dimnames[2] = get_tuple_names(mod, msa, cat, &dimsize[2]);
 
-      exp_nsub_lol = lol_new(2 + dim[0]);
-      lol_set_class(exp_nsub_lol, "array");
-      lol_push_lol(exp_nsub_lol, dimnames_lol, "dimnames");
-      lol_push_int(exp_nsub_lol, dim, 3, "dim");
-
-      temparr = smalloc(dim[2]*sizeof(double));
-      countarr = smalloc(dim[2]*sizeof(double));
-      icountarr = smalloc(dim[2]*sizeof(int));
+      arr = alloc_n_dimensional_array(3, dimsize, sizeof(double));
       for (ratecat=0; ratecat < mod->nratecats; ratecat++) {
-	ListOfLists *ratecat_lol = lol_new(dim[1]);
-	int node_idx=0;
+	tup_idx = 0;
+	for (tup=0; tup < msa->ss->ntuples; tup++) {
+	  if ((cat >= 0 && msa->ss->cat_counts[cat][tup] == 0) ||
+	      msa->ss->counts[tup] == 0) continue;
+	  arr[ratecat][0][tup_idx++] = cat >= 0 ? msa->ss->cat_counts[cat][tup] : msa->ss->counts[tup];
+	}
+	node_idx = 1;
 	for (node=0; node < mod->tree->nnodes; node++) {
-	  int idx=0;
+	  tup_idx = 0;
 	  n = lst_get_ptr(mod->tree->nodes, node);
 	  if (n == mod->tree) continue;
 	  for (tup=0; tup < msa->ss->ntuples; tup++) {
 	    checkInterruptN(tup, 1000);
 	    if ((cat >= 0 && msa->ss->cat_counts[cat][tup] == 0) ||
 		msa->ss->counts[tup] == 0) continue;
-	    if (cat >=0) countarr[idx] = (int)msa->ss->cat_counts[cat][tup];
-	    else countarr[idx] = (int)msa->ss->counts[tup];
-	    temparr[idx++] = mod->tree_posteriors->expected_nsubst[ratecat][n->id][tup];
+	    arr[ratecat][node_idx][tup_idx++] = mod->tree_posteriors->expected_nsubst[ratecat][n->id][tup];
 	  }
-	  if (node_idx==0) {
-	    for (i=0; i < dim[2]; i++) {
-	      icountarr[i] = (int)countarr[i];
-	      if (fabs(countarr[i] - (double)icountarr[i]) > 1.0e-6) break;
-	    }
-	    if (i == dim[2]) 
-	      lol_push_int(ratecat_lol, icountarr, dim[2], NULL);
-	    else lol_push_dbl(ratecat_lol, countarr, dim[2], NULL);
-	  }
-	  lol_push_dbl(ratecat_lol, temparr, dim[2], NULL);
 	  node_idx++;
 	}
-	lol_push_lol(exp_nsub_lol, ratecat_lol, NULL);
       }
-      sfree(countarr);
-      sfree(temparr);
-      sfree(dim);
+      lol_push_dbl_array(results, arr, "exp.nsub", 3, dimsize, dimnames);
+      free_n_dimensional_array(arr, 3, dimsize);
+      for (i=0; i < 3; i++) {
+	for (j=0; j < dimsize[i]; j++)
+	  sfree(dimnames[i][j]);
+	sfree(dimnames[i]);
+      }
+      sfree(dimnames);
     }
     if (output_fname_root != NULL) {
       set_output_fname(fname, output_fname_root, cat, ".expsub");
@@ -419,38 +409,121 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
     }
   }
 
+  if (do_expected_nsubst_col) {
+    if (results != NULL) {
+      int dimsize[5];
+      double *****arr;
+      dimnames = smalloc(5*sizeof(char**));
+      dimnames[0] = get_ratecat_names(mod, &dimsize[0]);
+      dimnames[1] = get_node_names(mod, 1, 0, 1, &dimsize[1]);
+      dimnames[2] = get_tuple_names(mod, msa, cat, &dimsize[2]);
+      dimnames[3] = get_state_names(mod, "from.", &dimsize[3]);
+      dimnames[4] = get_state_names(mod, "to.", &dimsize[4]);
+      
+      arr = alloc_n_dimensional_array(5, dimsize, sizeof(double));
+      for (ratecat=0; ratecat < mod->nratecats; ratecat++) {
+	int node_idx = 1;
+	for (node = 0; node < mod->tree->nnodes; node++) {
+	  int tuple_idx=0;
+	  n = lst_get_ptr(mod->tree->nodes, node);
+	  if (n == mod->tree) continue;
+	  for (tup=0; tup < msa->ss->ntuples; tup++) {
+	    if ((cat >= 0 && msa->ss->cat_counts[cat][tup] == 0) ||
+		msa->ss->counts[tup] == 0) continue;
+	    for (state=0; state < mod->rate_matrix->size; state++) {
+	      for (state2=0; state2 < mod->rate_matrix->size; state2++) {
+		arr[ratecat][0][tuple_idx][state][state2] = cat >= 0 ? msa->ss->cat_counts[cat][tup] : msa->ss->counts[tup];
+		arr[ratecat][node_idx][tuple_idx][state][state2] = mod->tree_posteriors->expected_nsubst_col[ratecat][n->id][tup][state][state2];
+	      }
+	    }
+	    tuple_idx++;
+	  }
+	  node_idx++;
+	}
+      }
+      lol_push_dbl_array(results, arr, "col.exp.nsub", 5, dimsize, dimnames);
+      free_n_dimensional_array(arr, 5, dimsize);
+      for (i=0; i < 5; i++) {
+	for (j=0; j<dimsize[i]; j++)
+          sfree(dimnames[i][j]);
+	sfree(dimnames[i]);
+      }
+      sfree(dimnames);
+    }
+    if (output_fname_root != NULL) {
+      set_output_fname(fname, output_fname_root, cat, ".expcolsub");
+      if (!quiet) 
+	fprintf(stderr, "Writing expected numbers of substitutions per site to %s ...\n",
+		fname->chars);
+      EXPSUBF = fopen_fname(fname->chars, "w+");
+
+      /* print header */
+      fprintf(EXPSUBF, "#tuple\tcount\tbranch");
+      for (state=0; state < mod->rate_matrix->size; state++) {
+	for (state2=0; state2 < mod->rate_matrix->size; state2++) {
+	  get_tuple_str(tuplestr, state, mod->order+1, mod->rate_matrix->states);
+	  fprintf(EXPSUBF, "\t%s", tuplestr);
+	  get_tuple_str(tuplestr, state2, mod->order+1, mod->rate_matrix->states);
+	  fprintf(EXPSUBF, "->%s", tuplestr);
+	}
+      }
+      fprintf(EXPSUBF, "\n");
+
+      for (tup=0; tup < msa->ss->ntuples; tup++) {
+	if ((cat >= 0 && msa->ss->cat_counts[cat][tup] == 0) ||
+	    msa->ss->counts[tup] == 0) continue;
+	tuple_to_string_pretty(coltupstr, msa, tup);
+	for (node = 0; node < mod->tree->nnodes; node++) {
+	  n = lst_get_ptr(mod->tree->nodes, node);
+	  if (n->parent == NULL) continue;
+	  fprintf(EXPSUBF, "%s\t%.0f\t%s", coltupstr, 
+		  cat >=0 ? msa->ss->cat_counts[cat][tup] : 
+		  msa->ss->counts[tup], 
+		  n->name);
+	  for (state=0; state < mod->rate_matrix->size; state++) {
+	    for (state2=0; state2 < mod->rate_matrix->size; state2++) {
+	      fprintf(EXPSUBF, "\t%g", mod->tree_posteriors->expected_nsubst_col[0][n->id][tup][state][state2]);
+	    }
+	  }
+	  fprintf(EXPSUBF, "\n");
+	}
+      }
+      fclose(EXPSUBF);
+    }
+  }
+
   if (do_expected_nsubst_tot) {
     if (results != NULL) {
-      ListOfLists *dimnames_lol = lol_new(4);
-      int *dim = smalloc(4*sizeof(int));
-      double *temparr;
+      double ****arr;
+      int dimsize[4];
 
-      dim[0] = add_ratecat_names_to_lol(dimnames_lol, mod);
-      dim[1] = add_node_names_to_lol(dimnames_lol, mod, 1, 0, 0);
-      dim[2] = add_state_names_to_lol(dimnames_lol, mod, "from.");
-      dim[3] = add_state_names_to_lol(dimnames_lol, mod, "to.");
-
-      exp_nsub_tot_lol = lol_new(2 + dim[0]);
-      lol_set_class(exp_nsub_tot_lol, "array");
-      lol_push_lol(exp_nsub_tot_lol, dimnames_lol, "dimnames");
-      lol_push_int(exp_nsub_tot_lol, dim, 4, "dim");
-
-      temparr = smalloc(dim[3]*sizeof(double));
+      dimnames = smalloc(4*sizeof(char**));
+      dimnames[0] = get_ratecat_names(mod, &dimsize[0]);
+      dimnames[1] = get_node_names(mod, 1, 0, 0, &dimsize[1]);
+      dimnames[2] = get_state_names(mod, "from.", &dimsize[2]);
+      dimnames[3] = get_state_names(mod, "to.", &dimsize[3]);
+      
+      arr = alloc_n_dimensional_array(4, dimsize, sizeof(double));
       for (ratecat=0; ratecat < mod->nratecats; ratecat++) {
-	ListOfLists *ratecat_lol = lol_new(dim[1]);
+	int node_idx=0;
 	for (node = 0 ; node < mod->tree->nnodes; node++) {
-	  ListOfLists *node_lol = lol_new(dim[2]);
 	  n = lst_get_ptr(mod->tree->nodes, node);
 	  if (n == mod->tree) continue;
 	  for (state=0; state < mod->rate_matrix->size; state++) {
 	    for (state2=0; state2 < mod->rate_matrix->size; state2++) 
-	      temparr[state2] = mod->tree_posteriors->expected_nsubst_tot[0][state][state2][n->id];
-	    lol_push_dbl(node_lol, temparr, mod->rate_matrix->size, NULL);
+	      arr[ratecat][node_idx][state][state2] = mod->tree_posteriors->expected_nsubst_tot[ratecat][state][state2][n->id];
 	  }
-	  lol_push_lol(ratecat_lol, node_lol, NULL);
+	  node_idx++;
 	}
-	lol_push_lol(exp_nsub_tot_lol, ratecat_lol, NULL);
       }
+      lol_push_dbl_array(results, arr, "tot.exp.nsub", 4, dimsize, dimnames);
+      free_n_dimensional_array(arr, 4, dimsize);
+      for (i=0; i < 4; i++) {
+	for (j=0; j < dimsize[i]; j++)
+	  sfree(dimnames[i][j]);
+	sfree(dimnames[i]);
+      }
+      sfree(dimnames);
     }
     if (output_fname_root != NULL) {
       set_output_fname(fname, output_fname_root, cat, ".exptotsub");
@@ -502,17 +575,6 @@ horizontal axis.\n\n");
   tl_free_tree_posteriors(mod, msa, mod->tree_posteriors);
   mod->tree_posteriors = NULL;
   str_free(fname);
-
-  if (results != NULL) {
-    ListOfLists *postprob_lol = lol_new(3);
-    if (dobase_lol != NULL) 
-      lol_push_lol(postprob_lol, dobase_lol, "bybase");
-    if (exp_nsub_lol != NULL) 
-      lol_push_lol(postprob_lol, exp_nsub_lol, "exp.nsub");
-    if (exp_nsub_tot_lol != NULL) 
-      lol_push_lol(postprob_lol, exp_nsub_tot_lol, "tot.exp.nsub");
-    lol_push_lol(results, postprob_lol, "post.prob");
-  }
 }
 
 
@@ -1091,10 +1153,12 @@ int run_phyloFit(struct phyloFit_struct *pf) {
 	lol_push_treeModel(pf->results, mod, mod_fname->chars);
 
       /* output posterior probabilities, if necessary */
-      if (pf->do_bases || pf->do_expected_nsubst || pf->do_expected_nsubst_tot) {
+      if (pf->do_bases || pf->do_expected_nsubst || 
+	  pf->do_expected_nsubst_tot || pf->do_expected_nsubst_col) {
 	print_post_prob_stats(mod, msa, pf->output_fname_root, 
 			      pf->do_bases, pf->do_expected_nsubst, 
 			      pf->do_expected_nsubst_tot, 
+			      pf->do_expected_nsubst_col,
 			      cat, quiet, NULL);
       }
 

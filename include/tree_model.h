@@ -103,6 +103,7 @@ typedef struct {
 } AltSubstMod;
 
 
+
 /** Tree model object */
 struct tm_struct {
   TreeNode *tree;
@@ -208,10 +209,17 @@ struct tm_struct {
 
 typedef struct tm_struct TreeModel;
 
-TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix, 
-                  Vector *backgd_freqs, subst_mod_type subst_mod, 
-                  char *alphabet, int nratecats, double alpha,
-                  List *rate_consts, int root_leaf_id);
+
+/** Create new tree model object.*/
+TreeModel *tm_new(TreeNode *tree,  /** phylogenetic tree */
+		  MarkovMatrix *rate_matrix, 
+                  Vector *backgd_freqs, 
+		  subst_mod_type subst_mod, 
+                  char *alphabet, 
+		  int nratecats, 
+		  double alpha,
+                  List *rate_consts, 
+		  int root_leaf_id);
 
 void tm_reinit(TreeModel *tm, subst_mod_type subst_mod,
                int new_nratecats, double new_alpha, 
@@ -318,5 +326,11 @@ void tm_setup_params(TreeModel *mod);
 void tm_set_boundaries(Vector **lower_bounds, 
 		       Vector **upper_bounds, 
 		       int npar, TreeModel *mod);
+/** Initialize the preferred codons.
+    @param tm A tree model object
+    @param preferred preferred An array of character strings representing all preferred codons.  Each character string should be length 3 (null terminators are not required).
+    @param length The number of preferred codons
+ */
+void set_preferred_codons(TreeModel *tm, char **preferred, int length);
 
 #endif

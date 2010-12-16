@@ -41,6 +41,7 @@ struct phyloFit_struct {
     window_size, window_shift, use_conditionals,
     precision, likelihood_only, do_bases, 
     do_expected_nsubst, do_expected_nsubst_tot, 
+    do_expected_nsubst_col,
     random_init, estimate_backgd, estimate_scale_only,
     do_column_probs, nonoverlapping, gaps_as_bases,
     no_freqs, no_rates, assume_clock, 
@@ -69,7 +70,9 @@ struct phyloFit_struct* phyloFit_struct_new();
 int run_phyloFit(struct phyloFit_struct *pf);
 void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root, 
                            int do_bases, int do_expected_nsubst, 
-                           int do_expected_nsubst_tot, int cat, int quiet,
+                           int do_expected_nsubst_tot, 
+			   int do_expected_nsubst_col,
+			   int cat, int quiet,
 			   ListOfLists *results);
 #define BRANCH_TYPE 0
 #define SUBTREE_TYPE 1

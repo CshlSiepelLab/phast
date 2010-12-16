@@ -1057,7 +1057,8 @@ void tm_set_U2S_matrix(TreeModel *mod, Vector *params,
   int alph_size = strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int done_row[nstates];
-  int setup_mapping = (mod->rate_matrix_param_row != NULL && lst_size(mod->rate_matrix_param_row[start_idx]) == 0);
+  int setup_mapping = (mod->rate_matrix_param_row != NULL && 
+		       lst_size(mod->rate_matrix_param_row[start_idx]) == 0);
   double rowsum;
   mat_zero(mod->rate_matrix->matrix);
   

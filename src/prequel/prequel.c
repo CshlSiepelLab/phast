@@ -145,7 +145,8 @@ int main(int argc, char *argv[]) {
 
 
   mod->tree_posteriors = tl_new_tree_posteriors(mod, msa, TRUE, FALSE, 
-                                                FALSE, FALSE, FALSE, FALSE);
+                                                FALSE, FALSE, FALSE, FALSE,
+						FALSE);
 
   fprintf(stderr, "Computing posterior probabilities...\n");
 

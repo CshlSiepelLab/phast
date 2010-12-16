@@ -278,7 +278,7 @@ void tr_to_string_recur(char *str, TreeNode *n, int show_branch_lengths) {
     strcat(str, n->name);
   }
   if (show_branch_lengths && n->parent != NULL) {
-    sprintf(temp, ":%f", n->dparent);
+    sprintf(temp, ":%g", n->dparent);
     strcat(str, temp);
   }
   if (n->label != NULL) {
@@ -320,7 +320,7 @@ void tr_print_recur(FILE* f, TreeNode *n, int show_branch_lengths) {
   }
 
   if (show_branch_lengths && n->parent != NULL)
-    fprintf(f, ":%f", n->dparent);
+    fprintf(f, ":%g", n->dparent);
   if (n->label != NULL)
     fprintf(f, " # %s", n->label);
 }
@@ -544,7 +544,7 @@ void tr_print_ordered_recur(FILE* f, TreeNode *n, int *left_right,
   }
 
   if (show_branch_lengths)
-    fprintf(f, ":%f", n->dparent);
+    fprintf(f, ":%g", n->dparent);
 
   if (n->label != NULL)
     fprintf(f, " # %s", n->label);
@@ -1379,7 +1379,7 @@ void tr_print_nodes(FILE *F, TreeNode *tree) {
     fprintf(F, "\tlchild = %d\n", n->lchild == NULL ? -1 : n->lchild->id);
     fprintf(F, "\trchild = %d\n", n->rchild == NULL ? -1 : n->rchild->id);
     fprintf(F, "\tname = '%s'\n", n->name);
-    fprintf(F, "\tdparent = %f\n", n->dparent);
+    fprintf(F, "\tdparent = %g\n", n->dparent);
     if (n->label != NULL)
       fprintf(F, "\tlabel = %s\n", n->label);
     fprintf(F, "\n");

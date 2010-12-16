@@ -238,5 +238,6 @@ int file_exists(char *filename);
 char **get_iupac_map();
 int **build_iupac_inv_map(int *inv_states, int alph_size);
 void free_iupac_inv_map(int **iim);
-
+void *alloc_n_dimensional_array(int ndim, int *dimsize, size_t size);
+void free_n_dimensional_array(void *data, int ndim, int *dimsize);
 #endif

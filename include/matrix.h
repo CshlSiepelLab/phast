@@ -270,7 +270,7 @@ void mat_plus_eq(Matrix *thism, Matrix *addm);
   \sa mat_plus_eq.
 */
 void mat_minus_eq(Matrix *thism, Matrix *subm);
-/** Linear combination of matrices.
+/** Linear combination of 2 matrices.
 
   \code 
   // equivalent to this, but with matrices
@@ -286,6 +286,25 @@ void mat_minus_eq(Matrix *thism, Matrix *subm);
 */
 void mat_linear_comb(Matrix *dest, Matrix *src1, double coef1, 
                      Matrix *src2, double coef2);
+
+
+/** Linear combination of an arbitrary number of matrices.
+
+\code
+// equivalent to this, but with matrices
+dest=0;
+for (i=0; i < n; i++)
+  dest += coef[i]*src[i]
+\endcode
+
+@param dest Result matrix.
+@param n Number of src matrices.
+@param src An array of n input matrices.
+@param coef A vector of n coefficients.
+
+*/
+void mat_linear_comb_many(Matrix *dest, int n, Matrix **src,
+			  double *coef);
 
 /** Invert square, real, non-symmetric matrix
 
@@ -312,6 +331,23 @@ int mat_invert(Matrix *M_inv, Matrix *M);
    @param D Input matrix C.
 */
 void mat_mult_diag(Matrix *A, Matrix *B, Vector *C, Matrix *D);
+
+#ifndef SKIP_LAPACK
+
+/** Convert a matrix into Lapack's column-major format.
+    @param m (input) A matrix.
+    @param arr (output) A representation of m in Lapack's columns-major 
+               format.
+*/
+void mat_to_lapack(Matrix *m, LAPACK_DOUBLE *arr);
+
+/** Convert back from Lapack's column-major format to a Matrix.
+    @param m (output) A matrix
+    @param arr (input) A repesentation of a matrix in Lapack's 
+               column-major format.
+ */
+void mat_from_lapack(Matrix *m, LAPACK_DOUBLE *arr);
+#endif
 
 /* \} */
 

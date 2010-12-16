@@ -366,3 +366,49 @@ void lol_free(ListOfLists *lol) {
   if (lol->class != NULL) sfree(lol->class);
   sfree(lol);
 }
+
+
+void lol_push_dbl_array_recursive(ListOfLists *lol, void *data, int ndim,
+				  int *dimsize) {
+  ListOfLists *sublol;
+  int i;
+
+  if (ndim <= 1) 
+    die("lol_push_dbl_array_recursive expects at least 2 dimensions");
+
+  for (i=0; i < dimsize[0]; i++) {
+    if (ndim==2)
+      lol_push_dbl(lol, ((double**)data)[i], dimsize[1], NULL);
+    else {
+      sublol = lol_new(dimsize[1]);
+      lol_push_dbl_array_recursive(sublol, ((double**)data)[i], 
+				   ndim-1, &(dimsize[1]));
+      lol_push_lol(lol, sublol, NULL);
+    }
+  }
+}
+
+//push an array of any dimension onto a list-of-list.
+// data is a double(*^ndim)
+//name is the name of the entire array that is pushed onto the lol
+//ndim is the number of dimensions in the array
+//dimsize[i] gives the size of dimension i
+//dimname is a char ** giving the dimsize[i] names corresponding to dimension i
+//so if ndim=2, then dimname[0] would contain the row names and 
+//dimname[1] would contain the column names
+//Dimensions are numbered as data[0][1][2][3][...]
+void lol_push_dbl_array(ListOfLists *lol, void *data, char *name, 
+			int ndim, int *dimsize, char ***dimname) {
+  ListOfLists *arr_lol, *dimnames_lol;
+  int i;
+  if (ndim < 2) die("lol_push_dbl_array only works for >= 2 dimensions");
+  arr_lol = lol_new(dimsize[0] + 2);
+  lol_set_class(arr_lol, "array");
+  dimnames_lol = lol_new(ndim);
+  for (i=0; i < ndim; i++)
+    lol_push_charvec(dimnames_lol, dimname[i], dimsize[i], NULL);
+  lol_push_lol(arr_lol, dimnames_lol, "dimnames");
+  lol_push_int(arr_lol, dimsize, ndim, "dim");
+  lol_push_dbl_array_recursive(arr_lol, data, ndim, dimsize);
+  lol_push_lol(lol, arr_lol, name);
+}

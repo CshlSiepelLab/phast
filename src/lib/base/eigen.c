@@ -38,7 +38,6 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
                                    eigenvectors (rows) -- preallocate
                                    n x n  */
 		    ) { 
-
 #ifdef SKIP_LAPACK
   die("ERROR: LAPACK required for matrix diagonalization.\n");
 #else
@@ -54,16 +53,14 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
 	M->nrows, M->ncols);
 
   /* convert matrix to representation used by LAPACK (column-major) */
-  for (j = 0; j < n; j++) 
-    for (i = 0; i < n; i++) 
-      tmp[j*n + i] = (LAPACK_DOUBLE)mat_get(M, i, j);
+  mat_to_lapack(M, tmp);
 
 #ifdef R_LAPACK
   F77_CALL(dgeev)(&jobvl, &jobvr, &n, tmp, &n, wr, wi, vl, &n,
 		  vr, &n, work, &lwork, &info);
 #else
   dgeev_(&jobvl, &jobvr, &n, tmp, &n, wr, wi, vl, 
-         &n, vr, &n, work, &lwork, &info);
+	 &n, vr, &n, work, &lwork, &info);
 #endif
 
   if (info != 0) {
@@ -145,10 +142,18 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
         if (fabs(z.y) > EQ_THRESHOLD ||
             fabs(z.x - mat_get(M, i, j)) > EQ_THRESHOLD ||
 	    (mat_get(M, i, j) != 0.0 &&
-	     fabs(z.x - mat_get(M, i, j))/mat_get(M, i, j) > EQ_THRESHOLD) ||
+	     fabs(z.x - mat_get(M, i, j))/mat_get(M, i, j) > 1e-6) ||
 	    fabs(z2.y > EQ_THRESHOLD) ||
 	    fabs(z2.x - (i==j)) > EQ_THRESHOLD) {
-//	  printf("diagonalization failed trying taylor\n");
+	  /*	  printf("diagonalization failed i=%i j=%i\n", i, j);
+	  printf("%e\n", z.y);
+	  printf("%e %e %e\n", z.x, mat_get(M, i, j), z.x - mat_get(M, i, j));
+	  printf("%e %e %e %e %e\n",
+		 z.x, mat_get(M, i, j), z.x - mat_get(M, i, j),
+		 fabs(z.x - mat_get(M, i, j)), 
+		 fabs(z.x - mat_get(M, i, j))/mat_get(M, i, j));
+		 printf("%e %e\n", z2.y, z2.x);*/
+	  //	  printf("diagonalization failed trying taylor\n");
 	  return 1;
           die("ERROR: diagonalization failed (got %e + %ei, expected %e).\n", 
 		  z.x, z.y, mat_get(M, i, j));
@@ -176,22 +181,20 @@ int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
   char jobvl = 'N';
   char jobvr = 'N';
   LAPACK_INT n = (LAPACK_INT)M->nrows, lwork = (LAPACK_INT)100*n, info;
-  LAPACK_DOUBLE wr[n], wi[n], work[100 * n], tmp[n][n];
-  int i, j;
+  LAPACK_DOUBLE wr[n], wi[n], work[100 * n], tmp[n*n];
+  int i;
 
-  for (i = 0; i < n; i++) 
-    for (j = 0; j < n; j++)
-      tmp[i][j] = (LAPACK_DOUBLE)mat_get(M, j, i);
+  mat_to_lapack(M, tmp);
 
   if (n != M->ncols) 
     die("ERROR in mat_eigenvals: M->nrows (%i) != M->ncols (%i)\n",
 	M->nrows, M->ncols);
 
 #ifdef R_LAPACK
-  F77_CALL(dgeev)(&jobvl, &jobvr, &n, (LAPACK_DOUBLE*)tmp, &n, wr, wi, NULL,
+  F77_CALL(dgeev)(&jobvl, &jobvr, &n, tmp, &n, wr, wi, NULL,
 		  &n, NULL, &n, work, &lwork, &info);
 #else
-  dgeev_(&jobvl, &jobvr, &n, (LAPACK_DOUBLE*)tmp, &n, wr, wi, NULL, 
+  dgeev_(&jobvl, &jobvr, &n, tmp, &n, wr, wi, NULL, 
          &n, NULL, &n, work, &lwork, &info);
 #endif
 

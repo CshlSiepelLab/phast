@@ -98,7 +98,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
 
   /* package with mod any data needed to compute likelihoods */
   mod->msa = msa;               
-  mod->tree_posteriors = tl_new_tree_posteriors(mod, msa, 0, 0, 0, 1, 0, 
+  mod->tree_posteriors = tl_new_tree_posteriors(mod, msa, 0, 0, 0, 1, 0, 0,
                                                 mod->empirical_rates ? 1 : 0);
   mod->category = cat;
 

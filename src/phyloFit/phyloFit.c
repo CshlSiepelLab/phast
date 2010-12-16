@@ -81,6 +81,7 @@ int main(int argc, char *argv[]) {
     {"post-probs", 0, 0, 'P'},
     {"expected-subs", 0, 0, 'X'},
     {"expected-total-subs", 0, 0, 'Z'},
+    {"expected-subs-col", 0, 0, 'J'},
     {"column-probs", 0, 0, 'U'},
     {"rate-constants", 1, 0, 'K'},
     {"ignore-branches", 1, 0, 'b'},
@@ -94,11 +95,11 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  // NOTE: remaining shortcuts left: HjJQx
+  // NOTE: remaining shortcuts left: HjQx
 
   pf = phyloFit_struct_new(0);
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:u:Y:e:D:GVENRqLPXZUBFfnrzhWy", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:u:Y:e:D:GVENRqLPXZUBFfnrzhWyJ", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -209,6 +210,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'Z':
       pf->do_expected_nsubst_tot = TRUE;
+      break;
+    case 'J':
+      pf->do_expected_nsubst_col = TRUE;
       break;
     case 'U':
       pf->likelihood_only = TRUE;        /* force -L */

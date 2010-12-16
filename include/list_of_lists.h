@@ -62,6 +62,9 @@ void lol_push_msa_ptr(ListOfLists *lol, MSA *msa, const char *name);
 
 void lol_push_wig(ListOfLists *lol, double *scores, MSA *msa);
 
+void lol_push_dbl_array(ListOfLists *lol, void *data, char *name, 
+			int ndim, int *dimsize, char ***dimname);
+
 void lol_free(ListOfLists *lol);
 
 #endif
