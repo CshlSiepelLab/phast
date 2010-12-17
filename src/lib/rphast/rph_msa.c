@@ -1196,3 +1196,22 @@ SEXP rph_msa_fraction_pairwise_diff(SEXP msaP, SEXP seq1P, SEXP seq2P,
   UNPROTECT(1);
   return rv;
 }
+
+
+SEXP rph_msa_translate(SEXP msaP, SEXP oneFrameP, SEXP frameP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  int i, *frame, oneframe;
+  char **trans;
+  SEXP result;
+  oneframe = LOGICAL_VALUE(oneFrameP);
+  frame = INTEGER_POINTER(frameP);
+
+  trans = msa_translate(msa, oneframe, frame);
+
+  PROTECT(result = NEW_CHARACTER(msa->nseqs));
+  for (i=0; i < msa->nseqs; i++)
+    SET_STRING_ELT(result, i, mkChar(trans[i]));
+  UNPROTECT(1);
+  return result;
+  
+}

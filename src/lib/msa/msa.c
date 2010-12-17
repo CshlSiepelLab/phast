@@ -2808,3 +2808,47 @@ double msa_fraction_pairwise_diff(MSA *msa, int idx1, int idx2,
   return (double)numdif/(double)total;
 }
 
+
+/* return a char ** containing translated alignment.  If oneframe is TRUE,
+   then every third base is a new codon, regardless of gaps.  Otherwise
+   translate each species separately taking gaps into consideration.  
+   frame indicates where to start the translation, is an offset from the
+   first alignment column.  If oneframe is FALSE, frame should have length
+   msa->nseqs.  Otherwise only the first value is accessed and applies to 
+   all species.
+ */
+char **msa_translate(MSA *msa, int oneframe, int *frame) {
+  char *tempseq = smalloc((msa->length/3+2) * sizeof(char));
+  char **rv = smalloc(msa->nseqs * sizeof(char*));
+  int seq, pos, i, codpos, numgap, numn, inv_alph[256];
+  char *alphabet="ACGT", *codon_mapping, cod[3], c;
+
+  for (i = 0; i < 256; i++) inv_alph[i] = -1;
+  for (i = 0; alphabet[i] != '\0'; i++) inv_alph[(int)alphabet[i]] = i;
+  codon_mapping = get_codon_mapping(alphabet);
+
+  for (seq=0; seq < msa->nseqs; seq++) {
+    pos=0;
+    if (oneframe) i = frame[0];
+    else i = frame[seq];
+    codpos = numgap = numn = 0;
+    for ( ; i < msa->length; i++) {
+      c = msa_get_char(msa, seq, i);
+      if (oneframe == 0 && c == '-') continue;
+      cod[codpos++] = toupper(c);
+      if (c == '-') numgap++;
+      else if (inv_alph[(int)c] == -1) numn++;
+      if (codpos == 3) {
+	if (numgap == 3) tempseq[pos++] = '-';
+	else if (numn > 0 || numgap > 0) tempseq[pos++] = '*';
+	else tempseq[pos++] = codon_mapping[tuple_index(cod, inv_alph, 4)];
+	codpos = numgap = numn = 0;
+      }
+    }
+    tempseq[pos] = '\0';
+    rv[seq] = copy_charstr(tempseq);
+  }
+  sfree(codon_mapping);
+  sfree(tempseq);
+  return rv;
+}

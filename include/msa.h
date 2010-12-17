@@ -205,5 +205,5 @@ void msa_delete_cols(MSA *msa, int *delete_cols);
 void msa_realloc(MSA *msa, int new_length, int new_alloclen, int do_cats, int store_order);
 double msa_fraction_pairwise_diff(MSA *msa, int idx1, int idx2, 
 				  int ignore_missing, int ignore_gaps);
-
+char **msa_translate(MSA *msa, int oneframe, int *frame);
 #endif
