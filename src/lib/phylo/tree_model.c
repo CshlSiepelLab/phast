@@ -2446,7 +2446,8 @@ void tm_unpack_params(TreeModel *mod, Vector *params_in, int idx_offset) {
 			     mod->selection, 0.0);
 
   /* diagonalize, if necessary */
-  if (mod->subst_mod != JC69 && mod->subst_mod != F81)
+  if ((mod->subst_mod != JC69 && mod->subst_mod != F81) || 
+      mod->selection != 0.0)
     mm_diagonalize(mod->rate_matrix);
 
   /* set exponentiated version at each edge */
@@ -3421,4 +3422,5 @@ int tm_is_reversible(TreeModel *tm) {
   }
   return 1;
 }
+
 
