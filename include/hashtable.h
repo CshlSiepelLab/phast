@@ -50,6 +50,32 @@ Hashtable* hsh_new(int est_capacity);
 
 Hashtable* hsh_copy(Hashtable *ht);
 
+/** \} \name HashTable misc. functions
+ \{ */
+
+/* we'll only inline the functions likely to be used heavily in inner
+   loops */  
+
+/** Hashing function mapping key to index of array holding values 
+   @param ht Hash Table to calculate mapping for 
+   @param key Key to get index in hash table for
+   @result Index in array holding values associated with key
+*/
+static PHAST_INLINE
+unsigned int hsh_hash_func(Hashtable *ht, const char* key) {
+  unsigned int h = 0;
+  int i = 0;
+  for (i = 0; key[i] != '\0'; i++)
+    h = MULTIPLIER * h + key[i];
+  return h % ht->nbuckets;
+}
+
+/** Make a list of all the keys in the hash table.
+  @param ht Hash Table to list keys for
+  @result List of all keys in hash table ht
+*/
+List *hsh_keys(Hashtable *ht);
+
 
 /** \} \name HashTable put functions 
  \{ */
@@ -159,31 +185,7 @@ void hsh_clear_with_vals(Hashtable *ht);
 /***************************************************************************
  * inline functions; also defined in vector.c 
  ***************************************************************************/
-/** \name HashTable misc. functions
- \{ */
 
-/* we'll only inline the functions likely to be used heavily in inner
-   loops */  
-
-/** Hashing function mapping key to index of array holding values 
-   @param ht Hash Table to calculate mapping for 
-   @param key Key to get index in hash table for
-   @result Index in array holding values associated with key
-*/
-static PHAST_INLINE
-unsigned int hsh_hash_func(Hashtable *ht, const char* key) {
-  unsigned int h = 0;
-  int i = 0;
-  for (i = 0; key[i] != '\0'; i++)
-    h = MULTIPLIER * h + key[i];
-  return h % ht->nbuckets;
-}
-
-/** Make a list of all the keys in the hash table.
-  @param ht Hash Table to list keys for
-  @result List of all keys in hash table ht
-*/
-List *hsh_keys(Hashtable *ht);
 
 /** \} */
 

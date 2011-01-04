@@ -160,7 +160,7 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet);
    @result Newly allocated MSA with contents of provided file
    @todo { Does not handle interleaved PHYLIP files } 
 */
-MSA *msa_new_from_file(FILE *F, char *alphabet);
+MSA *msa_new_from_file_o(FILE *F, char *alphabet);
 
 /** Create a single MSA from multiple files.
     @param msa_fname_list List of filenames containing MSA data

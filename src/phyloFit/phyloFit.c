@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* phyloFit - fit phylogenetic model(s) to a multiple alignment
+/* phyloFit - fit phylogenetic model(s) to a multiple alignment */
  
 #include <stdlib.h>
 #include <stdio.h>
