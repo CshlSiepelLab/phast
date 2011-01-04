@@ -7,8 +7,6 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: gap_patterns.c,v 1.6 2008-11-12 02:07:59 acs Exp $ */
-
 /* Code relating to the patterns of gaps and nongaps that occur at
    each site in an alignment, which are the basis of the phylo-hmm's
    indel model */
@@ -31,20 +29,7 @@
    an object that defines the key mappings between the original
    (spooled) categories and the new "gapped categories", defined as
    category x gap pattern pairs.  */
-GapPatternMap *gp_create_gapcats(CategoryMap *cm, 
-                                 /**< Original category map (will be altered) */
-                                 List *indel_cats, 
-                                 /**< Categories for which to model
-                                    indels, by name */
-                                 TreeNode *topology, 
-                                 /**< Tree topology to be modeled */
-                                 int rooted
-                                 /**< If TRUE, consider the tree
-                                    rooted (topology->nnodes - 1
-                                    branches); if FALSE, consider it
-                                    unrooted (topology->nnodes - 2
-                                    branches)  */
-                                 ) {
+GapPatternMap *gp_create_gapcats(CategoryMap *cm, List *indel_cats, TreeNode *topology, int rooted) {
   int i, j, k, cat, gapcat, range_size;
   List *indel_cat_nos, *traversal;
   int new_dependencies = 0;

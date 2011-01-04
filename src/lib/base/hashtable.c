@@ -7,8 +7,6 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: hashtable.c,v 1.8 2009/02/19 19:44:15 agd27 Exp $*/
-
 /* hashtable - Fast, simple array-based hash table, optimized for
    'put' and 'get' ('delete' somewhat inefficient).  Stores copies of
    keys but not of data objects, which are managed as void*s (memory

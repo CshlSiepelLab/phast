@@ -7,14 +7,6 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: maf.c,v 1.29 2009-01-23 21:11:47 mt269 Exp $ */
-
-/** \file maf.c
-    Reading of alignments from MAF ("Multiple Alignment Format")
-    files, as produced by MULTIZ and TBA.  See maf.h for details.
-    \ingroup msa
-*/
-
 #include <sufficient_stats.h>
 #include <msa.h>
 #include <maf.h>
@@ -29,84 +21,10 @@
    be sorted with respect to the reference sequence.  Any blocks falling out
    of order, or which are redundant with previous blocks, will be discarded.
    This allows the MAF to be read in one pass.*/
-MSA *maf_read_cats_subset(FILE *F,          /**< MAF file */
-		   FILE *REFSEQF,    /**< optional reference sequence.  If
-					non-NULL, the indicated file will
-					be used to define bases in regions
-					of no alignment (not represented in
-					the MAF).  File format is expected
-					to be FASTA.  Ignored if
-					store_order == FALSE.  If NULL and
-					store_order == TRUE, then bases in
-					reference seq not present in MAF
-					are represented as Ns  */
-		   int tuple_size,   /**< tuple size for sufficient
-					statistics */
-		   char *alphabet,   /**< alphabet for alignment; if NULL,
-					DEFAULT_ALPHABET is assumed */
-		   GFF_Set *gff,     /**< optional GFF_Set.  If non-NULL,
-					category-specific counts will be
-					collected (cm must be non-NULL
-					also).  The gff is assumed to use
-					the indexing system of the
-					reference sequence (sequence 1).
-					Currently, a non-NULL gff implies
-					gap_strip_mode == 1 (projection
-					onto reference sequence).  */
-		   CategoryMap *cm,  /**< Used for category-specific
-					counts, ignored otherwise */
-		   int cycle_size,   /**< Label site categories
-					12...<cycle_size>...12...<cycle_size>
-					instead of using gff and cm.
-					Useful when stats are to be
-					collected for non-overlapping
-					tuples.  Use -1 to ignore. */
-		   int store_order,  /**< Whether to store order in which
-					tuples occur.  Storing order
-					requires more memory and larger
-					files, and is not necessary in many
-					cases. */
-		   char *reverse_groups, 
-		   /**< Tag defining groups in gff;
-		      indicates groups on negative strand
-		      should be reverse complemented.
-		      Ignored if NULL.  Useful when
-		      collecting counts for
-		      strand-specific categories.  Can't
-		      be used if store_order == TRUE */
-		   int gap_strip_mode,
-		   /**< Gap stripping mode.  Currently,
-		      if store_order == 1, may only have
-		      value NO_STRIP or 1 (indicating
-		      projection onto sequence 1, the
-		      reference sequence).  This is
-		      simply to avoid some complexity in
-		      coordinate mapping. */
-		   int keep_overlapping,
-		   /**< If TRUE, keep overlapping blocks,
-		      otherwise keep only first instance.
-		      Must be FALSE if store_order ==
-		      TRUE or gff != NULL or 
-		      cycle_size != -1 */
-			  List *cats_to_do,
-		   /**< If non-NULL, only loads elements of the
-		      alignment with features in this list.  
-		      Requires gff != NULL and cm != NULL */
-			  List *seqnames, 
-			  /**< If non-NULL, this is the list of sequence names
-			     to keep (if seq_keep==TRUE) or discard 
-			     (if seq_keep==FALSE) */
-			  int seq_keep
-			  /**< Only used if seqnames != NULL, determines whether
-			     to keep only or discard seqnames */
-		   ) {
-
-  /* NOTE: for now, if a GFF is defined, then all blocks are projected
-     onto the reference seq (gff != NULL -> gap_strip_mode == 1).  This
-     simplifies things somewhat, and it's rare that you want
-     category-specific counts without projecting (because gaps in the
-     reference sequence make it difficult to assign sites to categories
-     rationally).  */
+MSA *maf_read_cats_subset(FILE *F, FILE *REFSEQF, int tuple_size, 
+   char *alphabet, GFF_Set *gff, CategoryMap *cm, int cycle_size, 
+   int store_order, char *reverse_groups, int gap_strip_mode, 
+   int keep_overlapping, List *cats_to_do, List *seqnames, int seq_keep ) {
 
   int i, start_idx, length, max_tuples, block_no,  
     refseqlen = -1, do_toupper, last_refseqpos = -1;
@@ -566,70 +484,10 @@ MSA *maf_read_cats_subset(FILE *F,          /**< MAF file */
 }
 
 
-MSA *maf_read_cats(FILE *F,          /**< MAF file */
-		   FILE *REFSEQF,    /**< optional reference sequence.  If
-					non-NULL, the indicated file will
-					be used to define bases in regions
-					of no alignment (not represented in
-					the MAF).  File format is expected
-					to be FASTA.  Ignored if
-					store_order == FALSE.  If NULL and
-					store_order == TRUE, then bases in
-					reference seq not present in MAF
-					are represented as Ns  */
-		   int tuple_size,   /**< tuple size for sufficient
-					statistics */
-		   char *alphabet,   /**< alphabet for alignment; if NULL,
-					DEFAULT_ALPHABET is assumed */
-		   GFF_Set *gff,     /**< optional GFF_Set.  If non-NULL,
-					category-specific counts will be
-					collected (cm must be non-NULL
-					also).  The gff is assumed to use
-					the indexing system of the
-					reference sequence (sequence 1).
-					Currently, a non-NULL gff implies
-					gap_strip_mode == 1 (projection
-					onto reference sequence).  */
-		   CategoryMap *cm,  /**< Used for category-specific
-					counts, ignored otherwise */
-		   int cycle_size,   /**< Label site categories
-					12...<cycle_size>...12...<cycle_size>
-					instead of using gff and cm.
-					Useful when stats are to be
-					collected for non-overlapping
-					tuples.  Use -1 to ignore. */
-		   int store_order,  /**< Whether to store order in which
-					tuples occur.  Storing order
-					requires more memory and larger
-					files, and is not necessary in many
-					cases. */
-		   char *reverse_groups, 
-		   /**< Tag defining groups in gff;
-		      indicates groups on negative strand
-		      should be reverse complemented.
-		      Ignored if NULL.  Useful when
-		      collecting counts for
-		      strand-specific categories.  Can't
-		      be used if store_order == TRUE */
-		   int gap_strip_mode,
-		   /**< Gap stripping mode.  Currently,
-		      if store_order == 1, may only have
-		      value NO_STRIP or 1 (indicating
-		      projection onto sequence 1, the
-		      reference sequence).  This is
-		      simply to avoid some complexity in
-		      coordinate mapping. */
-		   int keep_overlapping,
-		   /**< If TRUE, keep overlapping blocks,
-		      otherwise keep only first instance.
-		      Must be FALSE if store_order ==
-		      TRUE or gff != NULL or 
-		      cycle_size != -1 */
-			  List *cats_to_do
-		   /**< If non-NULL, only loads elements of the
-		      alignment with features in this list.  
-		      Requires gff != NULL and cm != NULL */
-			  ) {
+MSA *maf_read_cats(FILE *F, FILE *REFSEQF, int tuple_size,  
+	char *alphabet,  GFF_Set *gff,   CategoryMap *cm, int cycle_size,
+	int store_order,  char *reverse_groups, int gap_strip_mode,
+	int keep_overlapping,List *cats_to_do) {
   return maf_read_cats_subset(F, REFSEQF, tuple_size, alphabet, gff, cm, cycle_size,
 			      store_order, reverse_groups, gap_strip_mode, 
 			      keep_overlapping, cats_to_do, NULL, 0);
@@ -642,73 +500,16 @@ MSA *maf_read(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
 		reverse_groups, gap_strip_mode, keep_overlapping, NULL);
 }
 
-/** Read An Alignment from a MAF file which is not necessarily sorted wrt the
+/* Read An Alignment from a MAF file which is not necessarily sorted wrt the
     reference sequence.  The alignment won't be
    constructed explicitly; instead, a sufficient-statistics
    representation will be extracted directly from the MAF.  Blocks
    corresponding to overlapping segments of the reference sequence are
    permitted, but all except the first one will be discarded.  */  
-MSA *maf_read_unsorted(FILE *F,          /**< MAF file */
-		       FILE *REFSEQF,    /**< optional reference sequence.  If
-					    non-NULL, the indicated file will
-					    be used to define bases in regions
-                                   of no alignment (not represented in
-                                   the MAF).  File format is expected
-                                   to be FASTA.  Ignored if
-                                   store_order == FALSE.  If NULL and
-                                   store_order == TRUE, then bases in
-                                   reference seq not present in MAF
-                                   are represented as Ns  */
-              int tuple_size,   /**< tuple size for sufficient
-                                   statistics */
-              char *alphabet,   /**< alphabet for alignment; if NULL,
-                                   DEFAULT_ALPHABET is assumed */
-              GFF_Set *gff,     /**< optional GFF_Set.  If non-NULL,
-                                   category-specific counts will be
-                                   collected (cm must be non-NULL
-                                   also).  The gff is assumed to use
-                                   the indexing system of the
-                                   reference sequence (sequence 1).
-                                   Currently, a non-NULL gff implies
-                                   gap_strip_mode == 1 (projection
-                                   onto reference sequence).  */
-              CategoryMap *cm,  /**< Used for category-specific
-                                   counts, ignored otherwise */
-              int cycle_size,   /**< Label site categories
-                                   12...<cycle_size>...12...<cycle_size>
-                                   instead of using gff and cm.
-                                   Useful when stats are to be
-                                   collected for non-overlapping
-                                   tuples.  Use -1 to ignore. */
-              int store_order,  /**< Whether to store order in which
-                                   tuples occur.  Storing order
-                                   requires more memory and larger
-                                   files, and is not necessary in many
-                                   cases. */
-              char *reverse_groups, 
-                                /**< Tag defining groups in gff;
-                                   indicates groups on negative strand
-                                   should be reverse complemented.
-                                   Ignored if NULL.  Useful when
-                                   collecting counts for
-                                   strand-specific categories.  Can't
-                                   be used if store_order == TRUE */
-              int gap_strip_mode,
-                                /**< Gap stripping mode.  Currently,
-                                   if store_order == 1, may only have
-                                   value NO_STRIP or 1 (indicating
-                                   projection onto sequence 1, the
-                                   reference sequence).  This is
-                                   simply to avoid some complexity in
-                                   coordinate mapping. */
-		       int keep_overlapping,
-                                /**< If TRUE, keep overlapping blocks,
-                                   otherwise keep only first instance.
-                                   Must be FALSE if store_order ==
-                                   TRUE or gff != NULL or 
-                                   cycle_size != -1 */
-		       List *cats_to_do
-              ) {
+MSA *maf_read_unsorted(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
+	 GFF_Set *gff, CategoryMap *cm, int cycle_size, int store_order,
+	 char *reverse_groups, int gap_strip_mode, int keep_overlapping, 
+	 List *cats_to_do ) {
 
 /* NOTE: for now, if a GFF is defined, then all blocks are projected
    onto the reference seq (gff != NULL -> gap_strip_mode == 1).  This
@@ -1042,7 +843,7 @@ MSA *maf_read_old(FILE *f, FILE *REFSEQF, int tuple_size, char *alphabet,
 }
 
 
-/** Read a block from an MAF file and store it as a "mini-msa" using
+/* Read a block from an MAF file and store it as a "mini-msa" using
    the provided object.  Allocates memory for sequences if they are
    NULL (as with first block).  Reads to next "a" line or EOF.
    Returns EOF when no more alignments are available.  Sets start
@@ -1174,7 +975,7 @@ int maf_read_block_addseq(FILE *F, MSA *mini_msa, Hashtable *name_hash,
 
 
 
-/** Read a block from an MAF file and store it as a "mini-msa" using
+/* Read a block from an MAF file and store it as a "mini-msa" using
    the provided object.  Allocates memory for sequences if they are
    NULL (as with first block).  Reads to next "a" line or EOF.
    Returns EOF when no more alignments are available.  Sets start

@@ -8,9 +8,7 @@
  ***************************************************************************/
 
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment
-   
-   $Id: phyloFit.c,v 1.38.2.2 2009-03-20 21:25:47 mt269 Exp $ */
-
+ 
 #include <stdlib.h>
 #include <stdio.h>
 #include <lists.h>

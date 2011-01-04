@@ -7,15 +7,6 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: phylo_hmm.c,v 1.31 2008-11-12 02:07:59 acs Exp $ */
-
-/** \file phylo_hmm.c
-   Code for phylo-HMMs.  Allows for automatic expansion of the state
-   space to accommodate features on the reverse strand, and for the
-   indel model described in Siepel & Haussler, RECOMB '04.  Also
-   allows for cross-product constructions involving functional states
-   and rate categories (Siepel & Haussler, RECOMB '03).  */
-
 #include <phylo_hmm.h>
 #include <dgamma.h>
 #include <sufficient_stats.h>

@@ -7,14 +7,6 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: maf_block.c,v 1.29 2009-01-23 21:11:47 mt269 Exp $ */
-
-/** \file maf_block.c
-    Reading of individual blocks from MAF ("Multiple Alignment Format")
-    files, as produced by MULTIZ and TBA.  See maf.h for details.
-    \ingroup msa
-*/
-
 #include <misc.h>
 #include <sufficient_stats.h>
 #include <msa.h>

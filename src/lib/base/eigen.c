@@ -9,7 +9,7 @@
 
 /* $Id: eigen.c,v 1.5 2008-11-16 02:32:54 acs Exp $*/
 
-/** \file eigen.c
+/* \file eigen.c
     Eigenvalue computation and matrix diagonalization.  CLAPACK is used.
     \ingroup base
 */

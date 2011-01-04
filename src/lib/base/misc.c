@@ -368,10 +368,7 @@ List *get_arg_list(char *arg) {
 }
 
 /** Returns remaining command-line arguments as a List of Strings.  */
-List *remaining_arg_list(char *argv[], /**< As passed to main  */
-                         int argc, /**< As passed to main  */
-                         int optind /**< Index of first unprocessed argument */
-                ) {
+List *remaining_arg_list(char *argv[], int argc, int optind ) {
   List *l = lst_new_ptr(argc - optind);
   int i;
   for (i = optind; i < argc; i++) 

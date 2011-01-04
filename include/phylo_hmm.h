@@ -81,10 +81,10 @@ typedef struct {
                                    with indel model (in this case, all
                                    topologies must be the same) */
   double *alpha, *beta, *tau; /**< category-specific indel
-                                   parameters for parameteric indel
+                                   parameters for parametric indel
                                    model */
   double **T, **t;              /**< branch-length factors used in
-                                   parameteric indel model */
+                                   Parametric indel model */
   EmData *em_data;              /**< Used in parameter estimation by EM  */
 } PhyloHmm;
 

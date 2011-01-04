@@ -7,14 +7,6 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: category_map.c,v 1.15 2008-11-12 02:07:59 acs Exp $ */
-
-/** \file category_map.c
-    Mapping between feature types and site categories.  See
-    category_map.h for details.
-   \ingroup feature
-*/
-
 #include "category_map.h"
 #include "gff.h"
 #include "stacks.h"
@@ -27,7 +19,7 @@
 
 static int *prec;
 
-/** Read a CategoryMap from a file */
+/* Read a CategoryMap from a file */
 CategoryMap *cm_read(FILE *F) {
   String *line, *name;
   List *l;
@@ -123,11 +115,6 @@ CategoryMap *cm_read(FILE *F) {
 
       name = str_dup((String*)lst_get_ptr(l, 1));
       str_as_int((String*)lst_get_ptr(l, 2), &cat);
-/*       if (cat == 0) { */
-/*         fprintf(stderr, "ERROR at line %d: category number must be a positive integer.\n",  */
-/*                 lineno); */
-/*         return NULL; */
-/*       } */
 
       cat2 = cat;
       if (lst_get_ptr(l, 4) != NULL) 
@@ -225,7 +212,7 @@ int compare_prec(const void* ptr1, const void* ptr2) {
   return (prec[val1] - prec[val2]);
 }
 
-/** Print a CategoryMap to a file */
+/* Print a CategoryMap to a file */
 void cm_print(CategoryMap *cm, FILE *F) {
   int i, j, k;
   List *tmpl;
@@ -279,7 +266,7 @@ void cm_print(CategoryMap *cm, FILE *F) {
   lst_free(tmpl);
 }
 
-/** Return the 'base' category for a given feature type (first
+/* Return the 'base' category for a given feature type (first
     category in range).  Returns 0 (background) if no match. */
 int cm_get_category(CategoryMap *cm, String *type) {
   int i, j;
@@ -297,25 +284,9 @@ int cm_get_category(CategoryMap *cm, String *type) {
   return 0;
 }
 
-/** Return a list of category numbers corresponding to a given list of
+/* Return a list of category numbers corresponding to a given list of
    category names and or numbers.  */
-List *cm_get_category_list(CategoryMap *cm, 
-                                /**< CategoryMap object.  May be NULL
-                                   if categories are specified by
-                                   number rather than by name.  (In
-                                   that case, this function will
-                                   reduce to conversion of strings to
-                                   integers.) */
-                           List *names, 
-                                /**< List of categories.  May be
-                                   specified by name or number (useful
-                                   when accepting input from users) */
-                           int ignore_missing
-                                /**< Whether to ignore unrecognized
-                                   types.  If FALSE, then function
-                                   will abort when it encounters an
-                                   unrecognized type. */
-                           ) {
+List *cm_get_category_list(CategoryMap *cm,  List *names, int ignore_missing) {
   int i, j, cat;
   List *retval = lst_new_int(lst_size(names));
   for (i = 0; i < lst_size(names); i++) {
@@ -340,27 +311,11 @@ List *cm_get_category_list(CategoryMap *cm,
 }
 
 
-/** Return a list of category names corresponding to a given list of
+/* Return a list of category names corresponding to a given list of
    category names and or numbers.  Doesn't allocate new names,
    just pointers to Strings in the CategoryMap object or the
    provided List */
-List *cm_get_category_str_list(CategoryMap *cm, 
-			       /**< CategoryMap object.  May be NULL
-				  if categories are specified by
-				  name rather than by number.  (In
-				  that case, this function will create
-				  a copy of names with pointers to
-				  its elements) */
-			       List *names, 
-			       /**< List of categories.  May be
-				  specified by name or number (useful
-				  when accepting input from users) */
-			       int ignore_missing
-			       /**< Whether to ignore unrecognized
-				  types.  If FALSE, then function
-				  will abort when it encounters an
-				  unrecognized type. */
-                           ) {
+List *cm_get_category_str_list(CategoryMap *cm, List *names, int ignore_missing) {
   int i, cat;
   List *retval = lst_new_ptr(lst_size(names));
   for (i = 0; i < lst_size(names); i++) {
@@ -399,7 +354,7 @@ String *cm_get_feature(CategoryMap *cm, int cat) {
   return lst_get_ptr(cm->ranges[cat]->feature_types, 0);
 }
 
-/** Obtain a unique name based on the (primary) feature type
+/* Obtain a unique name based on the (primary) feature type
    associated with the specified category number.  Returns a pointer
    to a newly allocated String.*/
 String *cm_get_feature_unique(CategoryMap *cm, int cat) {
@@ -468,7 +423,7 @@ CategoryMap *cm_create_copy(CategoryMap *src) {
   return retval;
 }
 
-/** Create a trivial CategoryMap, with feature types equal to category
+/* Create a trivial CategoryMap, with feature types equal to category
    numbers (plus an optional prefix) and ranges all of size one.  */
 CategoryMap* cm_create_trivial(int ncats, char *feature_prefix) {
   int i;
@@ -482,7 +437,7 @@ CategoryMap* cm_create_trivial(int ncats, char *feature_prefix) {
   return retval;
 }
 
-/** Create a category map with a category for each feature type in a
+/* Create a category map with a category for each feature type in a
     GFF_Set.  Category numbers are assigned in order of appearance of
     types */
 CategoryMap* cm_new_from_features(GFF_Set *feats) {
@@ -515,7 +470,7 @@ CategoryMap* cm_new_from_features(GFF_Set *feats) {
   return retval;
 }
 
-/** Create a new category map from a string that can
+/* Create a new category map from a string that can
     either be a filename or a brief "inlined" category map, e.g.,
     "NCATS = 3 ; CDS 1-3".  Useful for command-line arguments. */
 CategoryMap* cm_new_string_or_file(const char *optarg) {
@@ -549,7 +504,7 @@ CategoryMap* cm_new_string_or_file(const char *optarg) {
   return retval;
 }
 
-/** Reallocate a category map to allow for the specified size. */
+/* Reallocate a category map to allow for the specified size. */
 void cm_realloc(CategoryMap *cm, int new_ncats) {
   int i;
   int old_ncats = cm->ncats;
@@ -569,7 +524,7 @@ void cm_realloc(CategoryMap *cm, int new_ncats) {
   }
 }
 
-/** Free memory associated with category map. */
+/* Free memory associated with category map. */
 void cm_free(CategoryMap *cm) {
   int i;
   for (i = 0; i <= cm->ncats; i++) {
@@ -625,7 +580,7 @@ void cm_free_category_range(CategoryRange *cr) {
   sfree(cr);
 }
 
-/** Add new feature to CategoryMap.  Assumes a feature of the
+/* Add new feature to CategoryMap.  Assumes a feature of the
    specified type does not already exist. */
 void cm_add_feature_type(CategoryMap *cm, String *type, int cycle_size) {
   int catstart = cm->ncats + 1;
@@ -649,38 +604,14 @@ void cm_add_feature_type(CategoryMap *cm, String *type, int cycle_size) {
   }
 }
 
-/** Create a GFF_Set from a sequence of category/state numbers, using
+/* Create a GFF_Set from a sequence of category/state numbers, using
    a specified category map and mapping from raw state numbers to
    category numbers.  */
-GFF_Set *cm_labeling_as_gff(CategoryMap *cm, 
-                                /**< CategoryMap to use in mapping */
-                            int *path, 
-                                /**< Raw sequence of state/category numbers  */
-                            int length, 
-                                /**< Length of sequence */
-                            int *path_to_cat, 
-                                /**< Mapping from raw numbers to
-                                   category numbers */
-                            int *reverse_compl, 
-                                /**< Array of boolean values indicating
-                                   whether each raw-sequence value
-                                   corresponds to the reverse strand  */
-                            char *seqname, 
-                                /**< char string to use as 'seqname' in
-                                   generated GFF_Set  */
-                            char *source, 
-                                /**< char string to use as 'source' in
-                                   generated GFF_Set  */
-                            List *frame_cats, 
-                                /**< Categories for which to obtain frame
-                                   information (by name) */
-                            char *grouptag,
-                            /**< Tag to use to define groups in
-                               GFF_Set (e.g., "transcript_id") */
-                            char *idpref
-                                /**< Prefix for ids of predicted
-                                   elements (may be NULL).  Can be
-                                   used to ensure ids are unique. */
+GFF_Set *cm_labeling_as_gff(CategoryMap *cm, int *path, 
+                            int length, int *path_to_cat, 
+                            int *reverse_compl, char *seqname, 
+                            char *source, List *frame_cats, 
+                            char *grouptag,  char *idpref
                             ) {
   int beg, end, i, cat, frame, groupno;
   GFF_Set *gff = gff_new_set_init("PHAST", PHAST_VERSION);

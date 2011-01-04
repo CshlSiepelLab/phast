@@ -7,12 +7,11 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: bed.h,v 1.5 2008-11-12 02:07:59 acs Exp $ */
 
-/** \file bed.h
+/** @file bed.h
    Reading and writing of BED files.  See
    http://genome.ucsc.edu/goldenPath/help/customTrack.html 
-   \ingroup feature
+   @ingroup feature
 */ 
 
 #ifndef BED_H
@@ -20,8 +19,21 @@
 
 #include <gff.h>
 
+/** Create new feature set from file
+  @param[in] F File descriptor of BED file
+  @param[out] gff Feature set to populate with features from file  */
 void gff_read_from_bed(GFF_Set *gff, FILE *F);
 
+/** Save feature set to a file
+  @param[in] OUTF File descriptor of output file
+  @param[in] gff Feature set to save to file
+  @param[in] use_groups If TRUE, all members of a group
+                                   are described by a single line in
+                                   the BED file (12-column format); if
+                                   FALSE, any groups are ignored and
+                                   each feature gets its own line.
+  @note Features must already be grouped if use_groups == TRUE.
+*/
 void gff_print_bed(FILE *OUTF, GFF_Set *gff, int use_groups);
 
 #endif

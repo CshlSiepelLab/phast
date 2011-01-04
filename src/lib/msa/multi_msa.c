@@ -7,13 +7,6 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: multi_msa.c,v 1.2 2008-11-12 02:07:59 acs Exp $ */
-
-/** \file msa.c
-   Multiple sequence alignments.
-   \ingroup msa
-*/
-
 /*
    To do:
 	msas->ih = NULL;
@@ -51,7 +44,7 @@
 #include <local_alignment.h>
 #include <indel_history.h>
 
-/** Creates a new multi-fasta object containing alignments read from files
+/* Creates a new multi-fasta object containing alignments read from files
     specified in a config file. Config file contains the number of alignments,
     format, alphabet and list of files to be read. If "alphabet" is
     NULL, default alphabet for DNA will be used.  This routine will

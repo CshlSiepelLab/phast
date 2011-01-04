@@ -7,12 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: msa.c,v 1.62 2009-03-09 16:34:32 agd27 Exp $ */
 
-/** \file msa.c
-   Multiple sequence alignments.
-   \ingroup msa
-*/
 
 /*
    To do:
@@ -58,7 +53,7 @@
 #define FORMAT_TAG "FORMAT:"
 #define MSAFILE_TAG "MSAFILE:"
 
-/** Creates a new MSA object.  Two-dimensional character arrays must be
+/* Creates a new MSA object.  Two-dimensional character arrays must be
    passed in for sequences and names (no new memory is allocated for
    them).  The alphabet, however, will be copied into newly allocated
    memory.  If the "alphabet" argument is null, the default alphabet
@@ -101,7 +96,7 @@ MSA *msa_new(char **seqs, char **names, int nseqs, int length, char *alphabet) {
   return msa;
 }
 
-/** Creates a new alignment from the contents of the specified file,
+/* Creates a new alignment from the contents of the specified file,
    which is assumed to use the specified format.  If "alphabet" is
    NULL, default alphabet for DNA will be used.  This routine will
    abort if the sequence contains a character not in the alphabet. */
@@ -198,7 +193,7 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
   return msa;
 }
 
-/** create a copy of an MSA.  If suff_stats_only == 1, then sequences
+/* create a copy of an MSA.  If suff_stats_only == 1, then sequences
    aren't copied */
 MSA *msa_create_copy(MSA *msa, int suff_stats_only) {
   char **new_names, **new_seqs;
@@ -338,7 +333,7 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
   return msa;
 }
 
-/** Prints MSA to file, using specified format.  The "pretty_print"
+/* Prints MSA to file, using specified format.  The "pretty_print"
    option causes periods ('.') to be printed in place of characters
    that are identical to corresponding characters in the first
    sequence. */
@@ -556,7 +551,7 @@ void msa_update_length(MSA *msa) {
 }
 
 
-/** If gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all
+/* If gap_strip_mode is STRIP_ALL_GAPS or STRIP_ANY_GAPS, removes all
    columns with ALL or ANY gaps, respectively.  Otherwise, assumes a
    *projection* is desired onto the sequence whose index is
    gap_strip_mode (indexing starts with 1).  Changes are made to
@@ -919,7 +914,7 @@ void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm) {
     ss_update_categories(msa);
 }
 
-/** Return sequence index of given sequence name or -1 if not found. */
+/* Return sequence index of given sequence name or -1 if not found. */
 int msa_get_seq_idx(MSA *msa, const char *name) {
   int i, retval = -1;
   for (i = 0; retval < 0 && i < msa->nseqs; i++) 
@@ -1279,7 +1274,7 @@ void msa_reverse_compl_segment(MSA *msa, int start, int end) {
   }
 }
 
-/** Reverse complement segments of an MSA corresponding to groups of
+/* Reverse complement segments of an MSA corresponding to groups of
    features on the reverse strand.  Adjusts the coordinates in the
    GFF_Set accordingly.  This function can be used to ensure that
    sites in strand-specific categories (e.g., 1st codon position,
@@ -1290,18 +1285,7 @@ void msa_reverse_compl_segment(MSA *msa, int start, int end) {
    gff_remove_overlaps).  Strandedness is tested using
    gff_reverse_strand_only.  The GFF_Set is assumed to use the
    coordinate frame of the alignment.  */
-void msa_reverse_compl_feats(MSA *msa, 
-                                /**< Alignment object.  If NULL, only
-                                   the GFF_Set (and optionally
-                                   aux_data) will be altered */
-                             GFF_Set *feats, 
-                                /**< Set of features */
-                             int *aux_data
-                                /**< Auxiliary array of site-specific
-                                   integers (e.g., gap patterns) to be
-                                   kept in sync with the alignment
-                                   and/or GFF_Set */
-                             ) {
+void msa_reverse_compl_feats(MSA *msa, GFF_Set *feats, int *aux_data) {
   int i;
 
   if (lst_size(feats->features) == 0) return;
@@ -2072,18 +2056,7 @@ int msa_coding_clean(MSA *msa, int refseq, int min_ncodons,
    appropriate number of columns of missing data will be left between
    sites that were not adjacent in the original data set.  This
    routine ignores issues of frame (cf. msa_coding_clean, above). */
-void msa_indel_clean(MSA *msa,  /* MSA to clean */
-                     int indel_border, /* Number of chars adjacent to
-                                          each indel to discard */
-                     int min_nbases, /* Minimum number of consecutive
-                                        gapless bases (per sequence) */
-                     int min_nseqs, /* Minimum number of seqs */
-                     int tuple_size, /* Size of tuples to be
-                                        considered; tuple_size-1
-                                        columns of missing data will
-                                        be maintained between
-                                        nonadjacent columns */
-                     char mdata_char) { /* Missing data character to use */
+void msa_indel_clean(MSA *msa,  int indel_border, int min_nbases, int min_nseqs, int tuple_size, char mdata_char) { 
   int i, j, k, first_base, nempty, nbases;
   int empty_col[msa->length];
 
@@ -2439,7 +2412,7 @@ msa_format_type msa_str_to_format(const char *str) {
   return -1;
 }
 
-/** Return format type indicated by filename suffix */
+/* Return format type indicated by filename suffix */
 msa_format_type msa_format_for_suffix(char *fname) {
   msa_format_type retval = -1;
   String *s = str_new_charstr(fname);
@@ -2455,7 +2428,7 @@ msa_format_type msa_format_for_suffix(char *fname) {
   return retval;
 }
 
-/** Return appropriate filename suffix for format type */
+/* Return appropriate filename suffix for format type */
 char *msa_suffix_for_format(msa_format_type t) {
   switch (t) {
   case FASTA:
@@ -2514,7 +2487,7 @@ void msa_find_noaln(MSA *msa, int refseqidx, int min_block_size, int *noaln) {
     for (k = run_start; k < msa->length; k++) noaln[k] = 1;
 }
 
-/** Returns TRUE if alignment has missing data in all seqs but the
+/* Returns TRUE if alignment has missing data in all seqs but the
    reference seq at specified column; otherwise returns FALSE */
 int msa_missing_col(MSA *msa, int ref, int pos) {
   int i;
@@ -2526,7 +2499,7 @@ int msa_missing_col(MSA *msa, int ref, int pos) {
   return TRUE;
 }
 
-/** Given a list of sequence names and/or 1-based indices, return a
+/* Given a list of sequence names and/or 1-based indices, return a
     list of corresponding 0-based indices.  Warn if a name has no
     match.  Useful in converting command-line arguments */
 List *msa_seq_indices(MSA *msa, List *seqnames) {
@@ -2554,7 +2527,7 @@ List *msa_seq_indices(MSA *msa, List *seqnames) {
   return retval;
 }
 
-/** Mask out all alignment gaps of length greater than k by changing
+/* Mask out all alignment gaps of length greater than k by changing
     gap characters to missing data characters.  If refseq is > 0, the
     designated sequence will not be altered.  This function is useful
     when modeling micro-indels.  Warning: if MSA is stored only in
@@ -2598,13 +2571,9 @@ void msa_mask_macro_indels(MSA *msa, int k, int refseq) {
   }
 }
 
-/** Set up array indicating which sequences are to be considered
+/* Set up array indicating which sequences are to be considered
     "informative", e.g., for phylogenetic analysis */
-void msa_set_informative(MSA *msa, /**< Alignment */
-                         List *not_informative 
-                                /** List of names of sequences *not*
-                                    to be considered informative */
-                         ) {
+void msa_set_informative(MSA *msa, List *not_informative ) {
   int i;
   List *indices = msa_seq_indices(msa, not_informative);
   msa->is_informative = smalloc(msa->nseqs * sizeof(int));

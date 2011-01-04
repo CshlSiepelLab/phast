@@ -7,16 +7,6 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: trees.c,v 1.25 2008-11-12 02:07:59 acs Exp $ */
-
-/** \file trees.c 
-  Functions for manipulating phylogenetic trees.  Includes functions
-  for reading, writing, traversing, and printing.  Trees are
-  represented as rooted binary trees with non-negative real branch
-  lengths.  
-  \ingroup phylo
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>

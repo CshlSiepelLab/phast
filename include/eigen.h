@@ -7,11 +7,9 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: eigen.h,v 1.2 2008-11-12 02:07:59 acs Exp $ */
-
-/* \file eigen.h
+/** @file eigen.h
    Eigenvalue computation and matrix diagonalization.  CLAPACK is used.
-   \ingroup base
+   @ingroup base
 */
 
 #ifndef EIG_H
@@ -21,7 +19,20 @@
 #include <complex_vector.h>
 #include <complex_matrix.h>
 
+/** Diagonalize a square, real, non-symmetric matrix.
+  @param[in,out] M Input matrix to diagonalize (n x n)
+  @param[out] eval Eigen values computed from diagonalization preallocate dimension n
+  @param[out] revect Normalized matrix of right eigen vectors from diagonalization preallocate dimension (n x n)
+  @param[out] levect Normalized matrix of left eigen vectors from diagonalization preallocate dimension (n x n)
+  @result 0 on success, otherwise failure
+*/
 int mat_diagonalize(Matrix *M, Zvector *eval, Zmatrix *revect, Zmatrix *levect);
+
+/** Compute eigenvalues only of square, real non-symmetric matrix.
+  @param[in,out] M Input matrix to find eigen values from dimension (n x n)
+  @param[out] eval Eigen values, preallocate dimension n
+  @result 0 on success, otherwise failure
+*/
 int mat_eigenvals(Matrix *M, Zvector *evals);
 
 #endif

@@ -9,7 +9,7 @@
 
 /* $Id: complex_matrix.c,v 1.4 2008-11-16 02:32:54 acs Exp $*/
 
-/** \file complex_matrix.c
+/* \file complex_matrix.c
     Matrices of complex numbers
     \ingroup base
 */

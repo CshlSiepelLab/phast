@@ -9,7 +9,7 @@
 
 /* $Id: genepred.h,v 1.4 2008-11-12 02:07:59 acs Exp $ */
 
-/** \file genepred.h
+/** @file genepred.h
     Reading and writing of genepred files, used for UCSC Genome Browser.
     \ingroup feature
 */
@@ -19,8 +19,18 @@
 
 #include <gff.h>
 
+/** Fill out a GFF_Set from a genepred file.
+  @param[in] F Gff file to read from
+  @param[out] gff Gff object populated with data from file F
+ */
 void gff_read_from_genepred(GFF_Set *gff, FILE *F);
 
+/** Write a GFF_Set in genepred format.
+    @pre Features must already be grouped as desired.
+    @param OUTF Output Stream
+    @param feats Set to write to output stream
+    @note Features will be sorted within groups as a side effect.
+*/
 void gff_print_genepred(FILE *OUTF, GFF_Set *feats);
 
 #endif

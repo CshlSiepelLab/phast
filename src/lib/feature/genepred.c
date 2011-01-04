@@ -7,13 +7,6 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: genepred.c,v 1.7 2008-11-12 02:07:59 acs Exp $ */
-
-/** \file genepred.c
-    Reading and writing of genepred files, used for UCSC Genome Browser.
-    \ingroup feature
-*/
-
 #include <gff.h>
 #include <ctype.h>
 #include <misc.h>
@@ -172,11 +165,7 @@ void gff_read_from_genepred(GFF_Set *gff, FILE *F) {
 /** Write a GFF_Set in genepred format.  Features must already be
     grouped as desired.  Features will be sorted within groups as a
     side effect. */
-void gff_print_genepred(FILE *OUTF,
-                                /**< Output stream */
-                        GFF_Set *feats
-                                /**< Set to write */
-                        ) {
+void gff_print_genepred(FILE *OUTF, GFF_Set *feats) {
   int i, j;
   String *exonStarts = str_new(STR_LONG_LEN), *exonEnds = str_new(STR_LONG_LEN),
     *cdsStarts = str_new(STR_LONG_LEN), *cdsEnds = str_new(STR_LONG_LEN);

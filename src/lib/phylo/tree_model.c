@@ -2298,9 +2298,6 @@ double tm_likelihood_wrapper(Vector *params, void *data) {
   tm_unpack_params(mod, params, -1);
   val = -1 * tl_compute_log_likelihood(mod, mod->msa, NULL, mod->category,
 				       NULL);
-  /*  printf("val=%f (", val);
-  for (i=0; i < params->size; i++) printf("%e, ", params->data[i]);
-  printf(")\n");*/
   return val;
 }
 

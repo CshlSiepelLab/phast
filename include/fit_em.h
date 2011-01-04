@@ -7,7 +7,11 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: fit_em.h,v 1.3 2008-11-12 02:07:59 acs Exp $ */
+/** \file fit_em.h
+   Function for fitting tree models with EM
+   \ingroup phylo
+*/ 
+
 
 #ifndef FIT_EM_H
 #define FIT_EM_H
@@ -17,6 +21,15 @@
 #include <vector.h>
 #include <numerical_opt.h>
 
+/** 
+   Fit tree model using EM algorithm.
+   @param mod Tree Model to fit to
+   @param msa Multiple Sequence Alignment sequence data
+   @param params Parameters to fit
+   @param cat Site category in MSA
+   @param precision Precision with which to fit to model
+   @param logf output file to write to
+*/
 int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat, 
               opt_precision_type precision, FILE *logf);
 

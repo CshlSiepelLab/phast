@@ -7,8 +7,6 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: matrix.h,v 1.8 2008-11-16 02:32:54 acs Exp $ */
-
 /** \file matrix.h
    Matrices of real numbers (doubles)
    \ingroup base
@@ -20,7 +18,7 @@
 #include <vector.h>
 #include <external_libs.h>
 
-/* Equality threshold -- consider equal if this close */
+/** Equality threshold -- consider equal if this close */
 #define EQ_THRESHOLD 1e-10
 
 /** Matrix structure -- just a 2d array of doubles and its dimensions */
@@ -41,7 +39,7 @@ typedef struct matrix_struct Matrix;
   @param nrows Number of rows.
   @param ncols Number of columns.
 
-  \sa mat_new_from_array.
+  @see mat_new_from_array.
 */
 Matrix *mat_new(int nrows, int ncols);
 /** Allocate new matrix using supplied array as storage.
@@ -50,7 +48,7 @@ Matrix *mat_new(int nrows, int ncols);
   @param nrows Number of rows.
   @param ncols Number of columns.
   
-  \sa mat_new, mat_free.
+  @see mat_new, mat_free.
 */
 Matrix *mat_new_from_array(double **array, int nrows, int ncols);
 
@@ -62,21 +60,21 @@ Matrix *mat_new_from_array(double **array, int nrows, int ncols);
   @param nrows Number of rows.
   @param ncols Number of columns.
   
-  \sa mat_read.
+  @see mat_read.
 */
 Matrix *mat_new_from_file(FILE *F, int nrows, int ncols);
 
 /** Allocate a new matrix identical to given input matrix.
 
   @param src Input matrix.
-  
-  \sa mat_copy.
+  @result Newly allocated copy of src
+  @see mat_copy.
 */
 Matrix *mat_create_copy(Matrix *src);
 
 /** Free matrix.
 
-  \note It will release storage array even if matrix was created using
+  @note It will release storage array even if matrix was created using
         mat_new_from_array.
 
   @param m Input matrix.
@@ -104,30 +102,30 @@ void mat_resize(Matrix *m, int nrows, int ncols);
 
   @param m Input matrix.
   
-  \sa mat_set, mat_set_zero, mat_set_all.
+  @see mat_set, mat_set_zero, mat_set_all.
 */
 void mat_set_identity(Matrix *m);
 /** Set all matrix entries to zero.
 
   @param m Input matrix.
-  \sa mat_set, mat_set_identity, mat_set_all.
+  @see mat_set, mat_set_identity, mat_set_all.
 */
 void mat_zero(Matrix *m);
 /** Set all matrix entries to the specified value.
 
   @param m Input matrix.
   @param val Value to be stored.
-  \sa mat_set, mat_set_identity, mat_set_all.
+  @see mat_set, mat_set_identity, mat_set_all.
 */
 void mat_set_all(Matrix *m, double val);
 /** Copy all matrix entries from source to destination matrix.
 
-  \note Matrices must have the same dimensions.
+  @note Matrices must have the same dimensions.
 
   @param src Source matrix.
   @param dest Destination matrix.
   
-  \sa mat_create_copy.
+  @see mat_create_copy.
 */
 void mat_copy(Matrix *dest, Matrix *src);
 
@@ -138,7 +136,7 @@ void mat_copy(Matrix *dest, Matrix *src);
   @param m Pre allocated destination matrix.
   @param F Input file stream.
   
-  \sa mat_new_from_file, mat_print.
+  @see mat_new_from_file, mat_print.
 */
 void mat_read(Matrix *m, FILE *F);
 
@@ -149,8 +147,8 @@ void mat_read(Matrix *m, FILE *F);
   @param m Input matrix.
   @param row Row index.
   @param col Column index.
-  
-  \sa mat_get_row, mat_get_col
+  @result Element m[row][col]
+  @see mat_get_row, mat_get_col
 */
 static PHAST_INLINE 
 double mat_get(Matrix *m, int row, int col) {
@@ -162,8 +160,8 @@ double mat_get(Matrix *m, int row, int col) {
 
   @param m Input matrix.
   @param row Row index.
-  
-  \sa mat_get, mat_get_col.
+  @result Row 'row' or m, m[row]
+  @see mat_get, mat_get_col.
 */
 Vector *mat_get_row(Matrix *m, int row);
 /** Retrieve matrix column.
@@ -172,8 +170,8 @@ Vector *mat_get_row(Matrix *m, int row);
   
   @param m Input matrix.
   @param col Column index.
-  
-  \sa mat_get_row, mat_get.
+  @result Column 'col' of m, m[*][col]
+  @see mat_get_row, mat_get.
 */
 Vector *mat_get_col(Matrix *m, int col);
 /** Store value in matrix.
@@ -183,7 +181,7 @@ Vector *mat_get_col(Matrix *m, int col);
   @param col Column index.
   @param val Value to be stored.
   
-  \sa mat_set_identity,mat_zero, mat_set_all.
+  @see mat_set_identity,mat_zero, mat_set_all.
 */
 static PHAST_INLINE
 void mat_set(Matrix *m, int row, int col, double val) {
@@ -198,7 +196,7 @@ void mat_set(Matrix *m, int row, int col, double val) {
   @param m Input matrix.
   @param F Output file stream.
   
-  \sa mat_read.
+  @see mat_read.
 */
 void mat_print(Matrix *m, FILE *F);
 
@@ -209,6 +207,7 @@ void mat_print(Matrix *m, FILE *F);
 /** Create transposed version of input matrix.
 
   @param src Input matrix.
+  @result Transpose of src matrix
 */
 Matrix *mat_transpose(Matrix *src);
 /** Rescale matrix entries by given value.
@@ -270,7 +269,7 @@ void mat_plus_eq(Matrix *thism, Matrix *addm);
   \sa mat_plus_eq.
 */
 void mat_minus_eq(Matrix *thism, Matrix *subm);
-/** Linear combination of 2 matrices.
+/** Linear combination of matrices.
 
   \code 
   // equivalent to this, but with matrices
@@ -290,12 +289,12 @@ void mat_linear_comb(Matrix *dest, Matrix *src1, double coef1,
 
 /** Linear combination of an arbitrary number of matrices.
 
-\code
+@code
 // equivalent to this, but with matrices
 dest=0;
 for (i=0; i < n; i++)
   dest += coef[i]*src[i]
-\endcode
+@endcode
 
 @param dest Result matrix.
 @param n Number of src matrices.
@@ -309,13 +308,12 @@ void mat_linear_comb_many(Matrix *dest, int n, Matrix **src,
 /** Invert square, real, non-symmetric matrix
 
   Uses LU decomposition (LAPACK routines dgetrf and dgetri).
-  Returns 0 on success, 1 on failure.
-  
-  \warning Calling this is function will terminate program if Phast was not compiled
-  with LAPACK support.
   
   @param M_inv Pre allocated destination matrix.
   @param M Input matrix.
+  @result 0 on success, 1 on failure
+  @warning Calling this is function will terminate program if program was not compiled
+  with LAPACK support.
 */
 int mat_invert(Matrix *M_inv, Matrix *M);
 

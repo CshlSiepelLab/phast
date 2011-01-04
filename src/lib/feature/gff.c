@@ -9,12 +9,6 @@
 
 /* $Id: gff.c,v 1.37 2008-11-12 02:07:59 acs Exp $ */
 
-/** \file gff.c
-    Reading and writing of sequence features in General Feature Format
-    (GFF).  Obeys file specification at
-    http://www.sanger.ac.uk/Software/formats/GFF/GFF_Spec.shtml. 
-    \ingroup feature
-*/
    
 #include <gff.h>
 #include <time.h>
@@ -24,7 +18,7 @@
 #include <bed.h>
 #include <genepred.h>
 
-/** Read a set of features from a file and return a newly allocated
+/* Read a set of features from a file and return a newly allocated
    GFF_Set object.  Function reads until end-of-file is encountered or
    error occurs (aborts on error).  Comments and blank lines are
    ignored and special "meta-data" comments are parsed (see
@@ -207,7 +201,7 @@ GFF_Set* gff_read_set(FILE *F) {
   return set;
 }
 
-/** Create new GFF_Feature object with specified attributes.  Strings
+/* Create new GFF_Feature object with specified attributes.  Strings
    are copied by reference.  Returns newly allocated GFF_Feature
    object. */
 GFF_Feature *gff_new_feature(String *seqname, String *source, String *feature,
@@ -235,7 +229,7 @@ GFF_Feature *gff_new_feature(String *seqname, String *source, String *feature,
   return feat;
 }
 
-/** Create new GFF_Feature object with specified attributes.  Strings
+/* Create new GFF_Feature object with specified attributes.  Strings
    are copied by value.  Returns newly allocated GFF_Feature
    object. */
 GFF_Feature *gff_new_feature_copy_chars(const char *seqname, const char *source, 
@@ -266,7 +260,7 @@ GFF_Feature *gff_new_feature_copy_chars(const char *seqname, const char *source,
 
 
 
-/** Create a new GFF_Feature from a genomic position string of the
+/* Create a new GFF_Feature from a genomic position string of the
    type used in the UCSC genome browser, e.g.,
    chr10:102553847-102554897.  A trailing '+' or '-' will be
    interpreted as the strand; otherwise the null strand is used.  NULL
@@ -298,7 +292,7 @@ GFF_Feature *gff_new_feature_genomic_pos(String *position, String *source,
 }
 
 
-/** Create new GFF_Set object with the number of rows specified */
+/* Create new GFF_Set object with the number of rows specified */
 GFF_Set *gff_new_set_len(int len) {
   GFF_Set *set = (GFF_Set*)smalloc(sizeof(GFF_Set));
   set->features = lst_new_ptr(len);
@@ -312,14 +306,14 @@ GFF_Set *gff_new_set_len(int len) {
 }
 
 
-/** Create new GFF_Set object.  All attributes will be left as empty
+/* Create new GFF_Set object.  All attributes will be left as empty
     strings.  */
 GFF_Set *gff_new_set() {
   return (GFF_Set*)gff_new_set_len(GFF_SET_START_SIZE);
 }
 
 
-/** Create new GFF_Set object, initializing with same version, source,
+/* Create new GFF_Set object, initializing with same version, source,
     etc.\ as a template GFF_Set object */
 GFF_Set *gff_new_from_template(GFF_Set *gff) {
   GFF_Set *retval = gff_new_set_len(lst_size(gff->features));
@@ -330,7 +324,7 @@ GFF_Set *gff_new_from_template(GFF_Set *gff) {
   return retval;
 }
 
-/** Copy a GFF */
+/* Copy a GFF */
 GFF_Set *gff_set_copy(GFF_Set *gff) {
   GFF_Set *rv = gff_new_from_template(gff);
   int i;
@@ -341,7 +335,7 @@ GFF_Set *gff_set_copy(GFF_Set *gff) {
   return rv;
 }
 
-/** Create new GFF_Set object, using typical defaults and other
+/* Create new GFF_Set object, using typical defaults and other
    parameters as specified.  Sets gff version to '2' and date to current
    date, and sets source and source version as specified. */
 GFF_Set *gff_new_set_init(char *source, char *source_version) {
@@ -363,7 +357,7 @@ GFF_Set *gff_new_set_init(char *source, char *source_version) {
   return set;
 }
 
-/** Free resources associated with GFF_Set object (including all
+/* Free resources associated with GFF_Set object (including all
    features and the set object itself). */ 
 void gff_free_set(GFF_Set *set) {
   int i;
@@ -380,7 +374,7 @@ void gff_free_set(GFF_Set *set) {
   sfree(set);
 }
 
-/** Free resources associated with GFF_Feature object.  */
+/* Free resources associated with GFF_Feature object.  */
 void gff_free_feature(GFF_Feature *feat) {
   str_free(feat->seqname);
   str_free(feat->source);
@@ -389,7 +383,7 @@ void gff_free_feature(GFF_Feature *feat) {
   sfree(feat);
 }
 
-/** Output a GFF_Set to the specified stream in GFF. */
+/* Output a GFF_Set to the specified stream in GFF. */
 void gff_print_set(FILE *F, GFF_Set *set) {
   int i;
 
@@ -410,7 +404,7 @@ void gff_print_set(FILE *F, GFF_Set *set) {
     }
 }
 
-/** Print an individual GFF_Feature object as a GFF line. */
+/* Print an individual GFF_Feature object as a GFF line. */
 void gff_print_feat(FILE *F, GFF_Feature *feat) {
   char score_str[50], frame_str[50];
 
@@ -429,7 +423,7 @@ void gff_print_feat(FILE *F, GFF_Feature *feat) {
           feat->attribute->chars);    
 }
 
-/** Create an exact copy of a GFF_Feature object */
+/* Create an exact copy of a GFF_Feature object */
 GFF_Feature *gff_new_feature_copy(GFF_Feature *orig) {
   String *seqname = str_dup(orig->seqname);
   String *source = str_dup(orig->source);
@@ -442,7 +436,7 @@ GFF_Feature *gff_new_feature_copy(GFF_Feature *orig) {
 
 
 
-/** Copies a GFF set but not any groups */
+/* Copies a GFF set but not any groups */
 GFF_Set *gff_copy_set_no_groups(GFF_Set *orig) {
   GFF_Set *gff = gff_new_from_template(orig);
   int i;
@@ -456,7 +450,7 @@ GFF_Set *gff_copy_set_no_groups(GFF_Set *orig) {
 
 
 
-/** Create a new GFF_Set representing the features in a particular
+/* Create a new GFF_Set representing the features in a particular
     coordinate range.  Keeps features such that feat->start >= startcol
     and feat->end <= endcol. */
 GFF_Set *gff_subset_range(GFF_Set *set, int startcol, int endcol, 
@@ -485,7 +479,7 @@ GFF_Set *gff_subset_range(GFF_Set *set, int startcol, int endcol,
   return subset;
 }
 
-/** Like gff_subset_range, except keep any featuers that
+/* Like gff_subset_range, except keep any featuers that
     overlap with range (even if parts of the feature fall outside 
     range) **/
 GFF_Set *gff_subset_range_overlap(GFF_Set *set, int startcol, int endcol) {
@@ -512,7 +506,7 @@ GFF_Set *gff_subset_range_overlap(GFF_Set *set, int startcol, int endcol) {
 }
 
 
-/** Like gff_subset_range_overlap, but assume gff is sorted by start
+/* Like gff_subset_range_overlap, but assume gff is sorted by start
     position of feature.  Start search at index startSearchIdx and assume
     that there are no overlapping features before this index.  Reset
     startSearchIdx to the first matching feature (or leave it alone if no
@@ -543,20 +537,9 @@ GFF_Set *gff_subset_range_overlap_sorted(GFF_Set *set, int startcol, int endcol,
   return subset;
 }
 
-/** Discard any feature whose feature type is not in the specified
+/* Discard any feature whose feature type is not in the specified
     list. */
-void gff_filter_by_type(GFF_Set *gff, 
-                                /**< GFF_Set to process */
-                        List *types, 
-                                /**< Feature types to include (List of
-                                   Strings) */
-                        int exclude,
-                                /**< Exclude rather than include
-                                   specified types */
-                        FILE *discards_f
-                                /**< Discarded features will be
-                                   written here (if non-NULL) */
-                        ) {
+void gff_filter_by_type(GFF_Set *gff, List *types, int exclude, FILE *discards_f) {
   List *newfeats = lst_new_ptr(lst_size(gff->features));
   int i, changed = FALSE;
   for (i = 0; i < lst_size(gff->features); i++) {
@@ -579,7 +562,7 @@ void gff_filter_by_type(GFF_Set *gff,
     gff_ungroup(gff);
 }
 
-/** Test whether a set of GFF_Feature objects refers to the reverse
+/* Test whether a set of GFF_Feature objects refers to the reverse
    strand.  Returns 1 if no features have strand equal to '+' and at
    least one has strand equal to '-'; otherwise returns 0. */
 int gff_reverse_strand_only(List *features) {
@@ -597,22 +580,12 @@ int gff_reverse_strand_only(List *features) {
   return 1;
 }
 
-/** Adjust coordinates and strand of GFF_Feature objects to reflect
+/* Adjust coordinates and strand of GFF_Feature objects to reflect
    reverse complementation of given interval of sequence.  Also
    reverses order of appearance of features.  The features, the
    start_range, and the end_range are all assumed to use the same
    coordinate frame. */
-void gff_reverse_compl(List *features,
-                                /**< List of GFF_Feature objects */
-                       int start_range, 
-                                /**< First coordinate of interval 
-                                   (inclusive, 1-based indexing, as in
-                                   features) */
-                       int end_range
-                                /**< Last coordinate of interval
-                                   (inclusive, 1-based indexing, as in
-                                   features) */
-                       ) {
+void gff_reverse_compl(List *features, int start_range, int end_range ) {
   int i;
   for (i = 0; i < lst_size(features); i++) {
     GFF_Feature *feat = lst_get_ptr(features, i);
@@ -659,7 +632,7 @@ int gff_group_comparator(const void* ptr1, const void* ptr2) {
   return (group1->end - group2->end);
 }
 
-/** Sort features primarily by start position, and secondarily by end
+/* Sort features primarily by start position, and secondarily by end
     position (ascending order).  If features are grouped (see
     gff_group), then they will be sorted within groups, and groups
     will be sorted by start position of first feature */
@@ -694,7 +667,7 @@ void gff_sort_within_groups(GFF_Set *set) {
 }
 
 
-/** Group features by value of specified tag.  All features with
+/* Group features by value of specified tag.  All features with
     undefined values will be placed in a single group. */
 void gff_group(GFF_Set *set, char *tag) {
   char *tmpstr=smalloc((100+strlen(tag))*sizeof(char));
@@ -761,7 +734,7 @@ void gff_group(GFF_Set *set, char *tag) {
 }
 
 
-/** Group features by feature type.  All features with
+/* Group features by feature type.  All features with
     undefined values will be placed in a single group. */
 void gff_group_by_feature(GFF_Set *set) {
   int est_no_groups = max(lst_size(set->features) / 10, 1);
@@ -800,7 +773,7 @@ void gff_group_by_feature(GFF_Set *set) {
 }
 
 
-/** Group features by seqname.*/
+/* Group features by seqname.*/
 void gff_group_by_seqname(GFF_Set *set) {
   int est_no_groups = max(lst_size(set->features) / 10, 1);
   Hashtable *hash = hsh_new(est_no_groups);
@@ -879,7 +852,7 @@ int gff_group_by_seqname_existing_group(GFF_Set *set, GFF_Set *model) {
 }
 
 
-/** Remove grouping of features */
+/* Remove grouping of features */
 void gff_ungroup(GFF_Set *set) {
   int i;
   if (set->groups == NULL) return;
@@ -895,17 +868,14 @@ void gff_ungroup(GFF_Set *set) {
   set->group_tag = NULL;
 }
 
-/** Group contiguous features, e.g., an exon and adjacent splice
+/* Group contiguous features, e.g., an exon and adjacent splice
     sites.  If features have already been grouped (e.g., by transcript
     id), then subgroups are created by adding new tags. New tag values
     will be composed of the tag value for the "outer" group (e.g., the
     transcript_id) and a unique suffix indicating the "inner" group.
     In all cases, feature are sorted as a side effect, in a way that
     reflects the initial grouping, not the grouping into exons. */ 
-void gff_exon_group(GFF_Set *set, /**< Set to process  */
-                    char *tag   /**< Tag to use for new groups (e.g.,
-                                   "exon_id")  */
-                    ) {
+void gff_exon_group(GFF_Set *set, char *tag) {
   List *groups;
   int i, j;
   char tmpstr[STR_MED_LEN];
@@ -965,12 +935,7 @@ void gff_exon_group(GFF_Set *set, /**< Set to process  */
 
 /** Identify overlapping groups and remove all but the first
    one encountered.  Features must already be grouped. */
-void gff_remove_overlaps(GFF_Set *gff, 
-                                /**< Set to process */
-                         FILE *discards_f
-                                /**< If non-NULL, discarded features
-                                   will be written here */
-                         ) {
+void gff_remove_overlaps(GFF_Set *gff, FILE *discards_f) {
   int i, j, k, last_end = -1;
   List *starts, *ends, *scores, *keepers, *discards;
 
@@ -1088,7 +1053,7 @@ void gff_remove_overlaps(GFF_Set *gff,
   lst_free(discards);
 }
 
-/** Adjust coords of CDS features such that start codons are included
+/* Adjust coords of CDS features such that start codons are included
     and stop codons are excluded, as required in GTF2.  Assumes GFF is
     grouped such that at most one start codon and at most one stop
     codon occur per group. */
@@ -1134,7 +1099,7 @@ void gff_fix_start_stop(GFF_Set *gff) {
   }
 }
 
-/** Adjust coords of features of "primary" types (e.g., CDS) to
+/* Adjust coords of features of "primary" types (e.g., CDS) to
     include any features of "helper" types (e.g., start_codon).
     Features must be grouped and sorted.  No features are created or
     discarded; only coordinates are changed. */
@@ -1183,7 +1148,7 @@ void gff_absorb_helpers(GFF_Set *feats, List *primary_types,
   }
 }
 
-/** Add a gene_id tag, along with whatever other tags are in use.
+/* Add a gene_id tag, along with whatever other tags are in use.
    Required in output by some programs */
 void gff_add_gene_id(GFF_Set *feats) {
   int i, j;
@@ -1202,7 +1167,7 @@ void gff_add_gene_id(GFF_Set *feats) {
   }
 }
 
-/** remove all groups whose names are not in the specified list */
+/* remove all groups whose names are not in the specified list */
 void gff_filter_by_group(GFF_Set *feats, List *groups) {
   int i, j;
   char *tag;
@@ -1238,7 +1203,7 @@ void gff_filter_by_group(GFF_Set *feats, List *groups) {
   hsh_free(hash);
 }
 
-/** Creates 5'UTR and 3'UTR features for cases in which exon features
+/* Creates 5'UTR and 3'UTR features for cases in which exon features
     extend beyond cds features of the same group */
 void gff_create_utrs(GFF_Set *feats) {
   int i, j;
@@ -1296,7 +1261,7 @@ void gff_create_utrs(GFF_Set *feats) {
   lst_free(exons);
 }
 
-/** Creates intron features between exons of the same group */
+/* Creates intron features between exons of the same group */
 void gff_create_introns(GFF_Set *feats) {
   int i, j;
   List *exons = lst_new_ptr(20);
@@ -1332,7 +1297,7 @@ void gff_create_introns(GFF_Set *feats) {
   lst_free(exons);
 }
 
-/** Creates features for start and stop codons and 5' and 3' splice
+/* Creates features for start and stop codons and 5' and 3' splice
     sites.  Note: splice sites in UTR will only be added if UTR is
     annotated (see function above) */
 
@@ -1466,7 +1431,7 @@ String *gff_group_name(GFF_Set *feats, GFF_Feature *f) {
 }
 
 
-/** Sub-routine called by gff_flatten and gff_flatten_groups.
+/* Sub-routine called by gff_flatten and gff_flatten_groups.
     Merges overlapping or adjacent features of same type.  Assumes
     features are sorted.  When two features are merged, scores are
     summed, but attributes are ignored.  Will not merge if 'frame' is
@@ -1525,7 +1490,7 @@ void gff_flatten_sub(GFF_Set *feats, int keepGroups) {
 }
 
 
-/** Merges overlapping or adjacent features of same type.  Assumes
+/* Merges overlapping or adjacent features of same type.  Assumes
     features are sorted.  When two features are merged, scores are
     summed, but attributes are ignored.  Will not merge if 'frame' is
     non-null.  Removes group structure and combines between groups if
@@ -1535,7 +1500,7 @@ void gff_flatten(GFF_Set *feats) {
 }
 
 
-/** Merges overlapping or adjacent features of same type, if they
+/* Merges overlapping or adjacent features of same type, if they
     are they are in the same group.  Assumes features are sorted.  
     When two features are merged, scores are summed, but attributes are 
     ignored.  Will not merge if 'frame' is non-null.  */
@@ -1906,9 +1871,9 @@ GFF_Set *gff_inverse(GFF_Set *gff, GFF_Set *region0) {
 }
 
 
-//Create a new GFF where features are split.  Maxlen can be
-//a single value or a vector of integers, values wil be recycled
-//to the number of features in gff.
+/*Create a new GFF where features are split.  Maxlen can be
+a single value or a vector of integers, values wil be recycled
+to the number of features in gff. */
 GFF_Set *gff_split(GFF_Set *gff, int *maxlen, int nmaxlen, int drop,
 		   int *splitFromRight, int splitFromRight_len) {
   GFF_Set *newgff = gff_new_set();

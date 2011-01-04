@@ -7,9 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: complex_vector.c,v 1.5 2008-11-16 02:32:54 acs Exp $*/
-
-/** \file complex_vector.c
+/* \file complex_vector.c
     Vectors of complex numbers
     \ingroup base
 */

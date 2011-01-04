@@ -44,7 +44,7 @@ struct lst_struct {
   void** array;                 /**< storage array for list elements */
   int lidx;                     /**< leftmost index of active list
                                    (inclusive) */
-  int ridx;                     /**< righmost index of active list
+  int ridx;                     /**< rightmost index of active list
                                    (exclusive) */
   int CAPACITY;                 /**< current storage capacity (number
                                    of elements) */
@@ -564,7 +564,7 @@ int lst_delete_obj(List *l,
 
   @param l Target list.
   @param o Pointer to object used for comparison (see lst_push() for details).
-  @param compare Comparision function: arguments are pointers to objects in the list.
+  @param compare Comparison function: arguments are pointers to objects in the list.
                                    For example, if the list contains
                                    ints, then the function should
                                    compare "*((int*)arg1)" and
