@@ -220,6 +220,11 @@ OPTIONS:
         optimization.  If not specified will use a seed based on the
 	current time.
 
+    --no-prune,-P
+        Do not prune species from tree which are not in alignment.  Rather,
+        treat these species as having missing data in the alignment.  Missing
+        data does have an effect on the results when --method SPH is used.
+
     --help, -h
         Produce this help message.
 

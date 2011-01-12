@@ -1154,7 +1154,7 @@ int msa_add_seq(MSA *msa, char *name) {
       msa->seqs = srealloc(msa->seqs, (seqidx+1)*sizeof(char*));
   }
   msa->names[seqidx] = copy_charstr(name);
-  if (msa->alloc_len > 0) {
+  if (msa->alloc_len > 0 && msa->seqs != NULL) {
     msa->seqs[seqidx] = smalloc((msa->alloc_len+1)*sizeof(char));
     for (i=0; i < msa->alloc_len; i++) {
       for (j=0; j < msa->nseqs; j++)

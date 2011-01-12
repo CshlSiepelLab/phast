@@ -242,10 +242,10 @@ Matrix **mm_get_QtPow(int max_m, Matrix *Qt) {
 //"The Scaling and Squaring Method for the Matrix Exponential Revisited"
 //by Nicholas J. Higham.
 void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t) {
-  double b[14] = {64764752532480000, 32382376266240000, 7771770303897600,
-		  1187353796428800, 129060195264000, 10559470521600,
-		  670442572800, 33522128640, 1323241920,
-		  40840800, 960960, 16380, 182, 1};
+  double b[14] = {64764752532480000.0, 32382376266240000.0, 7771770303897600.0,
+		  1187353796428800.0, 129060195264000.0, 10559470521600.0,
+		  670442572800.0, 33522128640.0, 1323241920.0,
+		  40840800.0, 960960.0, 16380.0, 182.0, 1.0};
   double theta[14], norm, sum, *coef, mu;
   int i, j, n = P->size, mvals[5] = {3, 5, 7, 9, 13}, mlen=5, m, mi, max_i, s;
   LAPACK_DOUBLE mat[n*n], scale[n], matU[n*n], matV[n*n];

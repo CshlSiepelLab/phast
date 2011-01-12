@@ -878,6 +878,9 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
   char *used = smalloc(msa->ss->ntuples * sizeof(char));
   Vector **pow_p, **pows;
 
+  if (lst_size(feats) == 0) return NULL;
+
+
   /* find max length of feature.  Simultaneously, figure out which
      column tuples actually used (saves time below) */
   for (i = 0; i < msa->ss->ntuples; i++) used[i] = 'N';

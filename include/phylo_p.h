@@ -49,6 +49,7 @@ struct phyloP_struct {
   CategoryMap *cm;
   char *help, *mod_fname, *msa_fname;
   ListOfLists *results;
+  int no_prune;
 };
 
 struct phyloP_struct *phyloP_struct_new(int rphast);

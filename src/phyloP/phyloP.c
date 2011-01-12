@@ -44,6 +44,7 @@ int main(int argc, char *argv[]) {
     {"gff-scores", 0, 0, 'g'},
     {"do-cats", 1, 0, 'C'},
     {"catmap", 1, 0, 'M'},
+    {"no-prune", 0, 0, 'P'},
     {"seed", 1, 0, 'd'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
@@ -55,7 +56,7 @@ int main(int argc, char *argv[]) {
   srandom(now.tv_usec);
 #endif
 
-  while ((c = getopt_long(argc, argv, "m:o:i:n:pc:s:f:Fe:l:r:B:d:qwgbN:h", 
+  while ((c = getopt_long(argc, argv, "m:o:i:n:pc:s:f:Fe:l:r:B:d:qwgbPN:h", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'm':
@@ -143,6 +144,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'd':
       seed = get_arg_int_bounds(optarg, 1, INFTY);
+      break;
+    case 'P':
+      p->no_prune = TRUE;
       break;
     case 'h':
       printf("%s", HELP);
