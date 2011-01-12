@@ -302,7 +302,7 @@ void phyloP(struct phyloP_struct *p) {
     if (msa->idx_offset > 0)
       gff_add_offset(feats, -(msa->idx_offset), msa_seqlen(msa, 0));
     msa_map_gff_coords(msa, feats, p->refidx_feat, 0, 0, NULL);
-    if (lst_size(feats) == 0)
+    if (lst_size(feats->features) == 0)
       die("ERROR: no features fall in alignment");
   }
 
