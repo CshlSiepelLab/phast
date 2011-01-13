@@ -9,7 +9,7 @@
 
 /**
   @file markov_matrix.h
-  Functions for manipulating continuous and discrete Markov matrices. 
+  Manipulating continuous and discrete Markov matrices. 
   @ingroup base
 */
 #ifndef MARKOVMAT_H

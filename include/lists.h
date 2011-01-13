@@ -7,10 +7,8 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: lists.h,v 1.6 2008-11-12 02:07:59 acs Exp $ */
-
-/** \file lists.h
-   Simple array-based lists and supporting functions. 
+/** @file lists.h
+   Array-based lists and supporting functions: Add, Remove, Search, Sort, Reverse, etc.
 
    Supports storage of objects of arbitrary size.  Convenience
    functions are available for common data types such as ints,
@@ -19,7 +17,7 @@
    is important or when you need to access elements by index; use
    linked-lists instead when (mid-list) insertions and deletions are
    important. 
-   \ingroup base
+   @ingroup base
 */
 
 /*

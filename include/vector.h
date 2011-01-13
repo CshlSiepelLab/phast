@@ -7,11 +7,8 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: vector.h,v 1.4 2008-11-12 02:07:59 acs Exp $ */
-
 /** \file vector.h
-    Vectors of doubles.  Very simple implementation -- essentially
-    just an array.
+    Functions and structures to hold, manipulate, and normalize a vector of type double.
     \ingroup base
 */
 

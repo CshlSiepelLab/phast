@@ -8,7 +8,7 @@
  ***************************************************************************/
 
 /** \file matrix.h
-   Matrices of real numbers (doubles)
+   Structure to hold Matrices of real numbers (doubles) and functions to perform basic matrix operations on them
    \ingroup base
 */
 
@@ -341,7 +341,7 @@ void mat_to_lapack(Matrix *m, LAPACK_DOUBLE *arr);
 
 /** Convert back from Lapack's column-major format to a Matrix.
     @param m (output) A matrix
-    @param arr (input) A repesentation of a matrix in Lapack's 
+    @param arr (input) A representation of a matrix in Lapack's
                column-major format.
  */
 void mat_from_lapack(Matrix *m, LAPACK_DOUBLE *arr);

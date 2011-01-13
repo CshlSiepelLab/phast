@@ -10,7 +10,7 @@
 /** @file fit_column.h
    Functions to compute likelihoods for individual alignment columns,
    estimate column-by-column scale factors by maximum likelihood,
-   perform single-base LRTs, score tests, phyloP, etc
+   perform single-base LRTs, score tests, etc
    @ingroup phylo
 */ 
 
@@ -47,9 +47,9 @@ typedef struct {
   int second_derivs;            /**< Whether or not second derivatives
                                    need to be computed. */
   Vector *params;		/** Parameters */
-  Vector *lb;			/**< Lower bound of params. */
-  Vector *ub;			/**< Upper bound  of params. */
-  double init_scale;		/**< Initial scale for params. */
+  Vector *lb;			/**< Lower bound of parameters. */
+  Vector *ub;			/**< Upper bound  of parameters. */
+  double init_scale;		/**< Initial scale for parameters. */
   double init_scale_sub;	/**< Initial amount to subtract for scale. */
   Matrix ***PP;			
   Matrix ***PPP;
@@ -153,7 +153,7 @@ double col_compute_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
    version of tl_compute_likelihood for use in estimation of
    base-by-base scale factors.  It assumes a 0th order model,
    leaf-to-sequence mapping already available, probability matrices computed,
-   sufficient stats already available.  This function does allow for
+   sufficient statistics already available.  This function does allow for
    rate variation.
   @param mod Substitution model, rates and its metadata
   @param msa Sequence data and its metadata
@@ -365,7 +365,7 @@ int col_has_data(TreeModel *mod, MSA *msa, int tupleidx);
 int col_has_data_sub(TreeModel *mod, MSA *msa, int tupleidx, List *inside,
 		                     List *outside);
 
-/** Identify branches wrt which a given column tuple is uninformative,
+/** Identify branches wrt which a given column tuple are not informative,
    in the sense that all leaves beneath these branches having missing
    data.
    @param mod Tree Model to use

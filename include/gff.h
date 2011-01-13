@@ -472,7 +472,7 @@ void gff_filter_by_type(GFF_Set *gff, List *types, int exclude,
 int gff_reverse_strand_only(List *features);
 
 /** Adjust coordinates and strand of GFF_Feature objects to reflect
-   reverse complementation of given interval of sequence.  Also
+   reverse complement of given interval of sequence.  Also
    reverses order of appearance of features.  
    @pre Features, start_range, and end_range must all use the same
         coordinate frame. 

@@ -8,7 +8,7 @@
  ***************************************************************************/
 
 /** \file msa.h
-   Multiple sequence alignments.
+   Reading and writing of sequence data to Multiple Sequence Alignment (MSA) file types (fasta, phylip, etc) and manipulating data:  Reverse compliment, handle missing/gap data, identify informative sites
    \ingroup msa
 */
 
@@ -26,18 +26,19 @@
    msa_index_cols) */
 #define MSA_MAX_ORDER 5         
 
-struct msa_ss_struct;           /** Using an incomplete type in lieu of
-                                   including "sufficient_stats.h"
-                                   avoids problems caused by
-                                   reciprocal dependencies in header
-                                   files */
+/** Using an incomplete type in lieu of
+  including "sufficient_stats.h"
+  avoids problems caused by
+  reciprocal dependencies in header
+  files */
+struct msa_ss_struct;
 
 /** Multiple sequence alignment object */
 typedef struct {
   int nseqs;                    /**< Number of sequences */
   unsigned int length;          /**< Number of columns */
   char *alphabet;               /**< Alphabet (see #DEFAULT_ALPHABET) */
-  int inv_alphabet[NCHARS];
+  int inv_alphabet[NCHARS];     /**< Inverse of 'alphabet' (maps characters to their index in 'alphabet') */
   char *missing;                /**< Recognized missing data characters */
   int is_missing[NCHARS];       /**< Fast lookup of whether character
                                    is missing data char */
@@ -230,7 +231,7 @@ void msa_free_seqs(MSA *msa);
 
 /** Free MSA and all of its components
     @param msa MSA to free
-    @warning Names and Seqs are also freed even if they have been allocated externally
+    @warning Names and Sequences are also freed even if they have been allocated externally
 */
 void msa_free(MSA *msa);
 
@@ -240,7 +241,7 @@ void msa_free(MSA *msa);
    containing only 4d sites.  
    @pre Assumes that msa_label_categories has already been called using a GFF where the CDS regions on the + strand have been given feature type CDSplus and CDS regions on - have type CDSminus.
    @param msa MSA to reduce
-   @param cm Catagory Map ???
+   @param cm Category Map
 */
 void reduce_to_4d(MSA *msa, CategoryMap *cm);
 
@@ -339,8 +340,8 @@ void msa_map_free(msa_coord_map *map);
    @param msa MSA to set categories for (msa->categories may be null)
    @param gff Feature Set to map categories to
    @param cm Category Map from features to categories
-   @todo { Document "MSA" convention; Provide option to specify source sequence 
-   explicitly; What to do with overlapping categories? for now, just rely on external code to order them appropriately ...FIXME }
+   @todo Document "MSA" convention; Provide option to specify source sequence
+   explicitly; What to do with overlapping categories? for now, just rely on external code to order them appropriately ...FIXME
 */
 void msa_label_categories(MSA *msa, GFF_Set *gff, CategoryMap *cm);
 
@@ -435,7 +436,7 @@ void msa_reverse_compl_feats(MSA *msa, GFF_Set *feats, int *aux_data);
 /** Split a single MSA into multiple MSAs by category.
    @param msa MSA containing sequence data
    @param submsas List of MSAs, one entry per category
-   @param cats_to_do (Optional) Categories to use when splitting (if NULL al categories are used)
+   @param cats_to_do (Optional) Categories to use when splitting (default is all categories)
    @param tuple_size Size of tuples in sub MSAs, if > 1 then tuple_size-1 columns of "missing data" characters (Ns) will be inserted between columns that were not adjacent in the original alignment.  */
 void msa_partition_by_category(MSA *msa, List *submsas, List *cats_to_do, 
                                int tuple_size);
@@ -575,7 +576,7 @@ void msa_permute(MSA *msa);
 void msa_reorder_rows(MSA *msa, List *target_order);
 
 /** Get a single character for specified sequence and position.
-    Provides a layer of indirection to handle cases where sufficient stats are and
+    Provides a layer of indirection to handle cases where sufficient statistics are and
    are not used.
     @param msa MSA 
     @param seq Sequence index within MSA to get data from
@@ -672,7 +673,7 @@ void msa_mask_macro_indels(MSA *msa, int k, int refseq);
 */
 void msa_find_noaln(MSA *msa, int refseqidx, int min_block_size, int *noaln);
 
-/** Test for missing data at specified column (all seqs except refseq).
+/** Test for missing data at specified column (all sequences except refseq).
    @param msa MSA containing sequences
    @param ref Index of reference sequence in MSA
    @param pos Column to test for missing data
@@ -741,7 +742,7 @@ double msa_fraction_pairwise_diff(MSA *msa, int idx1, int idx2,
 				  
 /** Translate alignment.
    @param msa Alignment to translate
-   @param oneframe If oneframe is TRUE,
+   @param oneframe If TRUE,
    then every third base is a new codon, regardless of gaps.  Otherwise
    translate each species separately taking gaps into consideration.  
    @param frame Indicates where to start the translation, is an offset from the first alignment column.  

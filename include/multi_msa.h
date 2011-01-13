@@ -8,7 +8,7 @@
  ***************************************************************************/
 
 /** @file multi_msa.h
-   Multiple sequence alignments.
+   Read more than one 'Multiple Sequence Alignment' into a single object
    @ingroup msa
 */
 

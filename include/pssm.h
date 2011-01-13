@@ -7,8 +7,6 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: pssm.h,v 1.2 2008-11-12 02:07:59 acs Exp $ */
-
 #ifndef PSSM_H
 #define PSSM_H
 

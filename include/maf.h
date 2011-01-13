@@ -11,7 +11,7 @@
 
 /** \file maf.h 
     Reading of alignments from MAF ("Multiple Alignment Format")
-    files, as produced by MULTIZ and TBA.
+    files to generate Sufficient Statistics.
     (See http://www.bx.psu.edu/miller_lab.)  These functions are primarily
     concerned with extracting sufficient statistics from a MAF file
     (see sufficient_stats.c).  They avoid representing the alignment

@@ -11,7 +11,7 @@
 /* needs to be <= sizeof(int) */
 
 typedef struct {
-  SimplexGrid *sg;		/** simplex grid */
+  SimplexGrid *sg;		/** Simplex grid */
   Vector **rp;		        /** array of representative points, by code
 				    index (array has code_size elements) */
   List **codes_by_region;	/** code indices by simplex region;

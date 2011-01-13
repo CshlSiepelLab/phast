@@ -8,8 +8,8 @@
  ***************************************************************************/
 
 /** @file maf_block.h
-    Reading of alignments from MAF ("Multiple Alignment Format")
-    files, as produced by MULTIZ and TBA.
+    Reading of blocks from MAF ("Multiple Alignment Format")
+    files, without generating Sufficient Statistics.
     (See http://www.bx.psu.edu/miller_lab.)  These functions read
     a MAF file block by block, and perform operations on the block
     without the need to convert to sufficient statistic format.

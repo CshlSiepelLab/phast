@@ -7,9 +7,9 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/** \file fit_em.h
+/** @file fit_em.h
    Function for fitting tree models with EM
-   \ingroup phylo
+   @ingroup phylo
 */ 
 
 

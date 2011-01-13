@@ -8,7 +8,7 @@
  ***************************************************************************/
 
 /** @file local_alignment.h
-   Functions for dealing with pairwise local alignments.
+   Functions for dealing with pairwise local alignments and coordinate transformations.
    Primarily used for pairwise local alignments as
    produced by BLASTZ.  This code is somewhat experimental.  
 
@@ -86,7 +86,7 @@ LocalPwAlignment *la_new();
 
 /** Create a new local pairwise alignment object from a *.lav file
    @param F LAV file containing alignment information
-   @param read_seqs Whether to read in sequences refered to in LAV file
+   @param read_seqs Whether to read in sequences referred to in LAV file
    @result new pairwise alignment object with data from file
 */
 LocalPwAlignment *la_read_lav(FILE *F, int read_seqs);
@@ -129,10 +129,10 @@ MSA* la_to_msa(LocalPwAlignment *lpwa, int force_global);
    @pre Alignment blocks, and gap-less alignments within them, are
    in sorted order (wrt query sequence).  
    @param lpwa Local pairwise alignment object 
-   @param query_coord Specifies the coordinate in teh query sequence to map to target sequence coordinates
+   @param query_coord Specifies the coordinate in the query sequence to map to target sequence coordinates
    @param adjust Adjusts the mapping of coords i.e. ADJUSTRIGHT
-   @result Estimate of coordinate in target seq corresponding 
-    to coord in query seq OR -1 is returned if no reasonable 
+   @result Estimate of coordinate in target sequence corresponding
+    to coordinate in query sequence OR -1 is returned if no reasonable
     estimate is possible. 
    @note Currently does linear search (should use binary search).  
    @warning This routine should only be used with relatively close,

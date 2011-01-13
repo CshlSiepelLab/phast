@@ -9,7 +9,7 @@
 
 /**
    @file dgamma.h
-   Functions for performing gamma distribution related computations.
+   Gamma distribution related computations.
    @ingroup phylo
 */
 

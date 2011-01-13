@@ -9,8 +9,8 @@
 
 /**
    @file misc.h
-   Miscellaneous definitions and functions used throughout PHAST
-   @ingroup misc
+   Miscellaneous definitions and functions: Argument handling, PDF/CDF, Distribution draws, Codon mapping, etc.
+   @ingroup base
 */
 
 #ifndef MISC_H
@@ -63,7 +63,7 @@ struct hash_table;
 /** Convert pointer to integer */
 #define ptr_to_int(p) ((int) (long) (p))
 
-/** Safe divide, checks for div by 0 so no arithmatic errors are thrown */
+/** Safe divide, checks for div by 0 so no arithmetic errors are thrown */
 #define safediv(x, y) ((y) != 0 ? (x) / (y) : ((x) == 0 ? 0 : ((x) > 0 ? INFTY : NEGINFTY)))
 
 /** Amino Acid alphabet */
@@ -86,6 +86,9 @@ int int_pow(int x, int y) {
   return retval;
 }
 
+/** \name Log based calculation functions 
+\{ */
+
 /** Fast computation of floor(log2(x)), where x is a positive integer 
     @param x Integer to take log2 of then floor
 */
@@ -98,7 +101,7 @@ int log2_int(unsigned x) {
   }
 }
 
-/* Efficiently compute log of sum of values.  
+/** Efficiently compute log of sum of values.  
    @param l List of doubles containing values
    @result log of sum of values passed in list
    @note Thanks to David Haussler for showing me this trick.  
@@ -122,7 +125,7 @@ double log_sum(List *l) {
   return maxval + log2(expsum);        
 }
 
-/* Efficiently compute log (base e) of sum of values.  
+/** Efficiently compute log (base e) of sum of values.  
    @param l List of doubles containing values
    @result log (base e) of sum of values passed in list
    @note Thanks to David Haussler for showing me this trick.  
@@ -146,21 +149,7 @@ double log_sum_e(List *l) {
   return maxval + log(expsum);        
 }
 
-/** Return n! */
-static PHAST_INLINE
-int permutations(int n) {
-  int i, retval = 1;
-  for (i = 2; i <= n; i++) retval *= i;
-  return retval;
-}
-
-/** Return n-choose-k */
-static PHAST_INLINE 
-int combinations(int n, int k) {
-  int i, retval = 1;
-  for (i = 0; i < k; i++) retval *= (n - i);
-  return retval / permutations(k);
-}
+/** \} */
 
 /** Compute relative entropy in bits of q with respect to p, both
    probability vectors of dimension d.
@@ -180,7 +169,7 @@ double rel_entropy(double *p, double *q, int d) {
   return H;
 }
 
-/* Compute symmetric relative entropy in bits of q with respect to p, both probability vectors of dimension d.
+/** Compute symmetric relative entropy in bits of q with respect to p, both probability vectors of dimension d.
    @param q Probability distribution vector to compute relative entry of
    @param p Probability distribution vector with respect of
    @param d Dimension of probability vectors
@@ -199,6 +188,27 @@ void srandom(int seed);
  */
 void set_seed(int seed);
 
+/** \name Combination & Permutation functions
+\{ */
+
+
+/** Return n! */
+static PHAST_INLINE
+int permutations(int n) {
+  int i, retval = 1;
+  for (i = 2; i <= n; i++) retval *= i;
+  return retval;
+}
+
+/** Return n-choose-k */
+static PHAST_INLINE 
+int combinations(int n, int k) {
+  int i, retval = 1;
+  for (i = 0; i < k; i++) retval *= (n - i);
+  return retval / permutations(k);
+}
+
+
 /** Randomly choose k elements from a list of N.
     @param[in,out] selections Result array of size N to be populated with 0 (not chosen) or 1 (chosen). Elements initialized to -1 will be consitered "ineligable" and skipped.
     @param[in] N Number of elements to choose from
@@ -206,11 +216,22 @@ void set_seed(int seed);
  */ 
 void choose(int *selections, int N, int k);
 
+/** Next combination (used for enumerating combinations).
+    Call repeatedly to enumerate combinations. 
+    @param n Number of elements
+    @param k Size of index array
+    @param index Array preallocated to size k used to hold output. At end, contains indices in [0, n-1] representing the next element in the series of all possible combinations of n elements. On the first call, set indices[0] = -1 and the array will be initialized appropriately.  
+   @result TRUE on success, FALSE when no more choices possible
+*/
+int next_comb(int n, int k, int *index);
+
 /** Produce a random permutation of the designated size.
     @param permutation Result array of size N to be populated with 0 to N-1 in a random order
     @param N Number of elements in the permutation
 */
 void permute(int *permutation, int N);
+
+/** \} */
 
 /** Create map from Codons to Amino Acids.
     @param alphabet Possible characters in a sequence (assumed to contain the characters 'A', 'C', 'G',
@@ -267,7 +288,7 @@ void get_tuple_str(char *tuple_str, int tuple_idx, int tuple_size,
                will be rearranged as necessary to be consistent with it
    @note format expected to be that used by BLAST, as output by the NCBI "pam" program
    @note Characters in the file but not in 'alph' will be ignored
-   @warning Only minor testing perfomed.  Check carefully if use
+   @warning Only minor testing performed.  Check carefully if use
    without predefined alphabet or with alphabets that do not match in
    order 
 
@@ -313,7 +334,7 @@ void sfree(void *ptr);
 void phast_warning(const char *warnfmt, ...);
 
 /** Display info about unrecoverable error to console and end program.
-    @param warnfmt Format of the stringn to write to console (like printf)
+    @param warnfmt Format of the string to write to console (like printf)
 */
 void die(const char *warnfmt, ...);
 #define checkInterrupt()
@@ -321,8 +342,10 @@ void die(const char *warnfmt, ...);
 #define unif_rand(void) (1.0*random()/RAND_MAX)
 #endif
 
-/* Parse comma seperated value string or file reference into list. 
-   @param arg Comma seperated value string or file reference (using the "*" convention)
+/** \name Program argument handling functions
+\{ */
+/** Parse comma separated value string or file reference into list.
+   @param arg Comma separated value string or file reference (using the "*" convention)
    @result List of values from arg
    @note: List and all Strings are newly allocated (should be freed externally) 
 */
@@ -336,31 +359,31 @@ List *get_arg_list(char *arg);
 */
 List *remaining_arg_list(char *argv[], int argc, int optind);
 
-/** Parse comma seperated value string or file reference into list of integers.  
+/** Parse comma separated value string or file reference into list of integers.
     @param arg CSV list or file reference
     @result List of integers
 */
 List *get_arg_list_int(char *arg);
 
-/** Parse comma seperated value string or file reference into list of integers. 
+/** Parse comma separated value string or file reference into list of integers.
     @param arg CSV list or file reference
     @result List of doubles
 */
 List *get_arg_list_dbl(char *arg);
 
-/* Argument conversion with error checking (int)
+/** Argument conversion with error checking (int)
    @param arg String to convert to int
    @result Int parsed from string
  */
 int get_arg_int(char *arg);
 
-/* Argument conversion with error checking (double)
+/** Argument conversion with error checking (double)
    @param arg String to convert to double
    @result Double parsed from string
  */
 double get_arg_dbl(char *arg);
 
-/* Argument conversion with error and bounds checking (int) 
+/** Argument conversion with error and bounds checking (int) 
    @param arg String to convert to int
    @param min Minimum acceptable int
    @param max Maximum acceptable int
@@ -368,13 +391,15 @@ double get_arg_dbl(char *arg);
 */
 int get_arg_int_bounds(char *arg, int min, int max);
 
-/* Argument conversion with error and bounds checking (double) 
+/** Argument conversion with error and bounds checking (double) 
    @param arg String to convert to double
    @param min Minimum acceptable double
    @param max Maximum acceptable dobule
    @result Double parsed from string
 */
 double get_arg_dbl_bounds(char *arg, double min, double max);
+
+/** \} */
 
 /** Safe malloc 
     @param size Size of memory to allocate
@@ -416,6 +441,111 @@ int is_transition(char b1, char b2);
  */
 int is_indel(char b1, char b2);
 
+
+/** Create HashTable from String. 
+    Parse string defining mapping from old names to new and store as hash  
+    @param Input String to translate to HashMap e.g. "hg17->human; mm5->mouse; rn3->rat" 
+    @result HashTable containing data parsed from string
+    @note Can use "=" or "->" characters to indicate mapping. 
+*/
+struct hash_table *make_name_hash(char *mapstr);
+
+/** \name PDF/CDF functions 
+\{ */
+
+/** Evaluate PDF of gamma distribution with parameters a and b
+    @param x Gamma distributed variable
+    @param a Shape parameter of gamma distribution
+    @param b Rate parameter
+    @result Evaluation of PDF of Gamma dist.
+*/
+double gamma_pdf(double x, double a, double b);
+
+/** Evaluate CDF of gamma distribution with parameters a and b
+    @param x Gamma distributed variable
+    @param a Shape parameter of gamma distribution
+    @param b Rate parameter of gamma distribution
+    @param lower_tail If == TRUE returns P(X<=x), else returns P(X>=x)
+    @result evaluation of CDF of Gamma dist.
+*/
+double gamma_cdf(double x, double a, double b, int lower_tail);
+
+/** Evaluate pdf of chi-square distribution with dof degrees of freedom.
+    @param x Chi-Square distributed variable
+    @param dof Degrees of freedom
+    @result Evaluation of pdf
+*/
+double chisq_pdf(double x, double dof);
+
+/** Evaluate cdf of chi-square distribution with dof degrees of freedom.
+    @param x Chi-Square distributed variable
+    @param dof Degrees of freedom
+    @param lower_tail If lower_tail == TRUE returns P(X<=x), else returns P(X>=x)
+    @result Evaluation of cdf
+*/
+double chisq_cdf(double x, double dof, int lower_tail);
+
+/** Evaluate cdf of a 50:50 mixture of a chisq distribution with dof
+   degrees of freedom and a point mass at 0.
+   @param x Chi-Square distributed variable
+   @param dof Degrees of freedom
+   @param lower_tail If lower_tail == TRUE returns P(X<=x), else returns P(X>=x)  
+   @note This function is useful in likelihood ratio tests of bounded parameters. 
+*/
+double half_chisq_cdf(double x, double dof, int lower_tail);
+
+/** \} \name Density evaluation functions
+\{ */
+
+/** Evaluate density of Beta distribution. 
+    @param x Beta distributed variable
+    @param a Shape parameter
+    @param b Shape parameter
+    @result Density of Beta distribution
+*/
+double d_beta(double x, double a, double b);
+
+/** Evaluate density of poisson distribution.
+    @param lambda Expected number of occurrences during a given interval.
+    @param k Number of occurrences of an event during a given interval we want to find the probability of
+    @result Probability that k occurrences happen in a given interval, when we expect lambda occurrences during that interval
+*/
+double d_poisson(double lambda, int k);
+
+
+/** Evaluate density of bivariate normal, p(x, y | mu_x, mu_y, sigma_x, sigma_y, rho).
+   @param mu_x Marginal mean
+   @param mu_y Marginal mean
+   @param sigma_x Marginal standard deviation
+   @param sigma_y Marginal standard deviations
+   @param rho Correlation coefficient 
+   @result Estimate of bivariate normal density
+*/
+double bvn_p(double x, double y, double mu_x, double mu_y, double sigma_x,
+             double sigma_y, double rho);
+
+/** \} \name Distribution Draw functions 
+\{ */
+
+/** Make a draw from a beta distribution with parameters 'a' and 'b'.
+    @param a Shape parameter
+    @param b Shape parameter
+    @result Draw from distribution
+*/
+double beta_draw(double a, double b);
+
+/** Make a draw from a k-dimensional Dirichlet distribution.
+   @param k Dimensionality of distribution
+   @param theta Scale of distribution
+   @param alpha Distribution parameters given by alpha[0], ..., alpha[k-1].  
+   @result Draw from distribution
+   @note This is accomplished by sampling from gamma 
+   distributions with parameters alpha[0], ..., alpha[k-1]
+   and renormalizing.
+ */
+void dirichlet_draw(int k, double *alpha, double *theta);
+
+
 /** Make 'n' draws from a uniform distribution on the interval [min,
    max], optionally with antithetics.    
    @pre Call srandom
@@ -433,7 +563,7 @@ void unif_draw(int n, double min, double max, double *draws, int antithetics);
    @pre Call srandom
    @param N Amount of samples in binomial distribution
    @param p Probability of each sample yielding success
-   @result Number of successfull samples
+   @result Number of successful samples
    @note Computational complexity is O(N) */
 int bn_draw(int N, double p);
 
@@ -441,43 +571,209 @@ int bn_draw(int N, double p);
    'pp'.  
    @pre Call srandom
    @param N Amount of samples in binomial distribution
-   @param pp Probability of occurance of the event???
-   @result Number of successfull samples???
+   @param pp Probability of occurrence of the event???
+   @result Number of successful samples???
    @note Computational complexity is O(N) 
    @note This version uses rejection sampling unless n < 25 or n * p <
    1/25.   */
 int bn_draw_fast(int n, double pp);
+
+/** Make 'n' draws from a multinomial distribution defined by
+   probability vector 'p' with dimension 'd'. 
+   @pre Call srandom
+   @param n Number of draws to make from multinomial distribution
+   @param p Probability vector defining multinomial distribution
+   @param d Dimensionality of multinomial distribution
+   @param counts Number of counts for each category
+   @note Sum of elements in 'counts' will equal 'n'.  
+   @note Probability vector is assumed to be normalized.
+ */
 void mn_draw(int n, double *p, int d, int *counts);
-int draw_index(double *p, int size);
-struct hash_table *make_name_hash(char *mapstr);
+
+/** Make a draw from an exponential distribution with parameter
+   (expected value) 'b' 
+   @param b Defines exponential distribution
+   @result Draw from exponential distribution
+*/
 double exp_draw(double b);
-double gamma_pdf(double x, double a, double b);
-double gamma_cdf(double x, double a, double b, int lower_tail);
+
+
+/** Make a draw from a gamma distribution with parameters 'a' and 'b'.
+   @pre Call srandom
+   @param a Shape parameter of gamma distribution; If a == 1, exp_draw is
+   called.  If a > 1, Best's (1978) rejection algorithm is used, and
+   if a < 1, rejection sampling from the Weibull distribution is
+   performed
+   @param b Rate parameter of gamma distribution
+   @result Draw from distribution
+   @note Both algorithms used as described in "Non-Uniform 
+   Random Variate Generation" by Luc Devroye, available 
+   online at http://cg.scs.carleton.ca/~luc/rnbookindex.html
+*/
 double gamma_draw(double a, double b);
-double chisq_pdf(double x, double dof);
-double chisq_cdf(double x, double dof, int lower_tail);
-double half_chisq_cdf(double x, double dof, int lower_tail);
-double d_beta(double x, double a, double b);
-double beta_draw(double a, double b);
-void dirichlet_draw(int k, double *alpha, double *theta);
-int next_comb(int n, int k, int *index);
+
+/** Given a probability vector, draw an index. 
+   @pre Call srandom externally
+   @param p Probability vector
+   @param size Number of elements in probability vector
+   @result Index drawn from probability vector
+*/
+int draw_index(double *p, int size);
+
+
+/** \} */
+
+
+
+/** Incomplete Gamma function.
+    @param a Shape of integrand
+    @param x End of integral if type='p' or Beginning of integral if type='q'
+    @param type 'p' means first half of integral, 'q' means second half (see p. 171)
+    @result Integration result
+ */
 double incomplete_gamma(double a, double x, char type);
-double d_poisson(double lambda, int k);
+
+/** \name Cumulative distribution probability functions
+ \{ */
+
+/** Evaluate P(x <= k | lambda) (first 1/2 of integral)
+    Return P(x <= k | lambda), for a variable x that obeys a Poisson
+   distribution with parameter lambda
+    @param lambda Expected number of occurrences during a given interval.
+    @param k Number of occurrences of an event during a given interval we want to find the probability of
+    @result Probability that k occurrences happen in or prior to a given interval, when we expect lambda occurrences during that interval
+*/
 double cum_poisson(double lambda, int k);
+
+/** Evaluate P(x <= k | lambda) (last 1/2 of integral)
+    Return P(x <= k | lambda), for a variable x that obeys a Poisson
+   distribution with parameter lambda
+    @param lambda Expected number of occurrences during a given interval.
+    @param k Number of occurrences of an event during a given interval we want to find the probability of
+    @result Probability that k occurrences happen in or prior to a given interval, when we expect lambda occurrences during that interval
+*/
 double cum_poisson_c(double lambda, int k);
+
+/** Return P(x <= a | mu, sigma) for a variable a that obeys a normal ???
+   distribution with mean mu and s.d. sigma. 
+   @param mu Mean of distribution
+   @param sigma Standard deviation of distribution
+   @param a Number of occurrences in a given interval
+   @result Probability that 'a' occurrences will happen within or prior to a given interval
+*/
 double cum_norm(double mu, double sigma, double a);
+
+/** Return P(x >= a | mu, sigma) for a variable a that obeys a normal ???
+   distribution with mean mu and s.d. sigma.  
+   Use this function instead of 1-cum_norm when a is large (better precision) 
+   @param mu Mean of distribution
+   @param sigma Standard deviation of distribution
+   @param a Number of occurrences in a given interval
+   @result Probability that 'a' occurrences happen in or after a given interval
+*/
 double cum_norm_c(double mu, double sigma, double a);
+
+/** Return inverse of standard normal, i.e, inv_cum_norm(p) = a such
+   that cum_norm(0, 1, a) = p.  
+   @param p Probability that 'a' inquiries happen during an interval ???
+   @result Number of occurrences that relate to the specified probability
+   @note The function is approximated using an algorithm by Peter Acklam
+    given at http://home.online.no/~pjacklam/notes/invnorm/. 
+*/
 double inv_cum_norm(double p);
-double bvn_p(double x, double y, double mu_x, double mu_y, double sigma_x,
-             double sigma_y, double rho);
+/** \} */
+
+
+/** Compute min and max of (central) confidence interval.
+   @param mu Mean of normal distribution
+   @param sigma Standard deviation of normal distribution
+   @param interval_size Size of confidence interval (between 0 and 1) 
+   @param min_x Min of central confidence interval
+   @param max_x Max of central confidence interval
+  */
 void norm_confidence_interval(double mu, double sigma, double interval_size, 
                               double *min_x, double *max_x);
+
+/** Save sequence in file as fasta format.
+    @param F File descriptor to save sequence with
+    @param seq Sequence chars to write out
+    @param name Name of the sequence   
+    @param len Length of the sequence chars
+*/
 void print_seq_fasta(FILE *F, char *seq, char *name, int len);
+
+/** Return time in seconds since start_time.
+    @param timeval Struct used to get current time value
+    @param start_time Time in the past that an event started at
+    @result Number of seconds since the time defined in start_time
+*/
 double get_elapsed_time(struct timeval *start_time);
+
+/** Check to see if a file is present and readable on the file system
+  @param filename path of file to check for
+  @result 1 if exists and readable
+*/
 int file_exists(char *filename);
+
+/** \name IUPAC mapping functions 
+\{ */
+
+/** Return a static mapping from IUPAC ambiguity characters to the bases
+   that they represent.
+   @code
+   e.g.
+   retval['R'] = "AG";
+   retval['Y'] = "CT";
+   @endcode
+   @result Ambiguity characters -> bases map
+*/
 char **get_iupac_map();
+
+/** Build an inverse mapping that allows an IUPAC ambiguity character
+   to be mapped to an array, alph_size elements, with 1s or 0s
+   indicating presence or absence of each character in the set
+   associated with the IUPAC character.  This array obeys the indexing
+   of the provided inv_states.  For use in computing likelihoods with
+   ambiguity characters 
+   @param inv_states Inverse states array mapping states to unique numbers
+   @param alph_size Number of entries in inv_states (size of alphabet)
+   @code
+   e.g. 
+      inv_states['A'] = 0
+      inv_states['T'] = 1
+      inv_states['G'] = 2
+      inv_states['C'] = 3
+
+      alph_size = 4
+                       ATGC
+      retval[(int)'R']  =  '1010'
+      retval[(int)'Y']  =  '0101'
+   @endcode
+*/
 int **build_iupac_inv_map(int *inv_states, int alph_size);
+
+/** Free inverse iupac mapping object. 
+    @param iim Inverse IUPAC mapping object to free.
+*/
 void free_iupac_inv_map(int **iim);
+
+/** \} \name 'n' Dimensional array functions
+\{  */
+
+/** Allocate an 'n' dimensional array.
+    @param ndim Number of dimensions in array
+    @param dimsize Array of int describing size of each dimension
+    @param Size of 1 dimensional array
+    @result Pointer to 'n' dimensional array
+*/
 void *alloc_n_dimensional_array(int ndim, int *dimsize, size_t size);
+
+/** Free an 'n' dimensional array.
+    @param Pointer to 'n' dimensional array
+    @param ndim Number of dimensions in array
+    @param dimsize Array of int describing size of each dimension
+ */
 void free_n_dimensional_array(void *data, int ndim, int *dimsize);
+
+/** \} */
 #endif

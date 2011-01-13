@@ -7,8 +7,6 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: genepred.h,v 1.4 2008-11-12 02:07:59 acs Exp $ */
-
 /** @file genepred.h
     Reading and writing of genepred files, used for UCSC Genome Browser.
     \ingroup feature

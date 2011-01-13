@@ -19,8 +19,8 @@
 typedef enum { INT_LIST, /**< List of Integers */
 	       DBL_LIST, /**< List of Doubles */
 	       CHAR_LIST,  /**< List of Chars */
-		   MSA_PTR_LIST, /**< List of pointers to MSAs */
-		   GFF_PTR_LIST, /**< List of pointers to GFFs */
+		   MSA_PTR_LIST, /**< List of data from MSAs */
+		   GFF_PTR_LIST, /**< List of data from GFFs */
 	       LIST_LIST  /**< List of Lists */
 	      } list_element_type;
 
@@ -58,7 +58,7 @@ void lol_free(ListOfLists *lol);
 /** \name List of List push functions 
  \{ */
 
-/** Add an object to the end of a list of lists object
+/** Append an object to a list of lists
   @param[in,out] lol List of Lists
   @param[in] data object to be added to list of lists
   @param[in] name name of object being added
@@ -68,7 +68,7 @@ void lol_push(ListOfLists *lol, void *data,
 	      const char *name, 
 	      list_element_type listType);
 
-/** Add a list to the end of a list of lists object
+/** Append a list to list of lists
   @param[in,out] lol List of Lists
   @param[in] data List to be added to list of lists
   @param[in] name name of list being added
@@ -78,7 +78,7 @@ void lol_push(ListOfLists *lol, void *data,
 void lol_push_list(ListOfLists *lol, List *data, 
 		   const char *name, list_element_type listType);
 
-/** Add a list to the end of a list of lists object
+/** Append a list of lists to list of lists
   @param[in,out] lol List of Lists
   @param[in] data List of Lists to be added to list of lists
   @param[in] name name of list of lists being added
@@ -87,7 +87,7 @@ void lol_push_list(ListOfLists *lol, List *data,
 void lol_push_lol(ListOfLists *lol, 
 		  ListOfLists *data, const char *name);
 
-/** Add a list of doubles to end of list of lists
+/** Append a list of doubles to list of lists
   @param[in,out] lol List of Lists
   @param[in] vals Array of doubles to be added to list of lists
   @param[in] len number of doubles to be added to the list
@@ -96,7 +96,7 @@ void lol_push_lol(ListOfLists *lol,
 */
 void lol_push_dbl(ListOfLists *lol, double *vals, int len,
 		  const char *name);
-/** Add a list of integers to end of list of lists
+/** Append a list of integers to list of lists
   @param[in,out] lol List of Lists
   @param[in] vals Array of integers to be added to list of lists
   @param[in] len number of integers to be added to the list
@@ -106,17 +106,45 @@ void lol_push_dbl(ListOfLists *lol, double *vals, int len,
 void lol_push_int(ListOfLists *lol, int *vals, int len, 
 		  const char *name);
 
-/** Add a character vector to end of list of lists
+/** Append a *char string to list of lists
   @param[in,out] lol List of Lists
-  @param[in] vals character vector to be added to list of lists
-  @param[in] len length of character vector to be added to the list
-  @param[in] name name of character vector being added
+  @param[in] vals *char string to be added to list of lists
+  @param[in] len length of string to be added to the list
+  @param[in] name name of string being added
   @see lol_push
 */
 void lol_push_charvec(ListOfLists *lol, char **vals, int len,
 		      const char *name);
 
-/** Add a matrix to end of list of lists
+/** Append data from a Matrix to list of lists
+  A single list is appended to the list of lists (lol).
+  The appended list contains the matrix rows and names
+  @code
+  //Layout of list to append
+  matrixList->
+	     //Rows with their column number as name
+	      1-> 	  (list)
+		  //Data at row 1, column 1 through n
+		  2.4	     (double)
+		  2.5        (double)
+		  ...	    
+		   n	     (double)
+	      2-> 	  (list)
+		  ...
+		  ...
+		  ...
+	      ...
+	      n 	  (list)
+		  ...
+		  ...
+		  ...
+	      row.names-> (list)
+		  //Row numbers
+	          1	  (char string)
+		  2	  (char string)
+		  ...
+		  n	  (char string)
+  @endcode
   @param[in,out] lol List of Lists
   @param[in] mat Matrix to be added to list of lists
   @param[in] name name of the Matrix being added
@@ -125,7 +153,7 @@ void lol_push_charvec(ListOfLists *lol, char **vals, int len,
 void lol_push_matrix(ListOfLists *lol, Matrix *mat, 
 		     const char *name);
 
-/** Add an MSA to end of list of lists
+/** Append an MSA to list of lists
   @param[in,out] lol List of Lists
   @param[in] msa msa to be added to list of lists
   @param[in] name name of msa being added
@@ -133,7 +161,33 @@ void lol_push_matrix(ListOfLists *lol, Matrix *mat,
 */
 void lol_push_msa(ListOfLists *lol, MSA *msa, const char *name);
 
-/** Add a Tree Model to end of list of lists
+/** Append data from a Tree Model to list of lists.
+  A single list is appended to the list of lists (lol).
+  The appended list contains up to 13 lists as shown below (depending on available data)
+  @code
+  //Layout of list to append
+  treeModList->
+	      alphabet		(char string)
+	      backgd 		(double)
+	      rate.matrix 	(matrix)
+	      subst.mod		(char string)
+	      likelihood	(double)
+	      alpha		(double)
+	      nratecats		(int)
+	      rate.consts	(double)
+	      rate.weights	(double)
+	      selection		(double)
+	      tree		(char string)
+	      root.leaf		(int)
+	      alt.model->	(list)
+		     	  model->	(list) //For each alternative model
+			  	subst.mod	(char string)
+	      		  	backgd		(double)
+			  	rate.matrix	(matrix)
+			  	selection	(double)
+			  	bgc		(double)
+			  	defn		(char string)
+  @endcode
   @param[in,out] lol List of Lists
   @param[in] tm Tree Model to be added to list of lists
   @param[in] name name of Tree Model being added
@@ -142,16 +196,31 @@ void lol_push_msa(ListOfLists *lol, MSA *msa, const char *name);
 void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
 			const char *name);
 
-/** Add an GFF to end of list of lists
+/** Append data from a GFF to list of lists.
+    A single list is appended to the list of lists (lol).
+    The appended list contains 5 to 9 lists as shown below (depending on available data)
+    @code
+    //Layout of list to append
+     gffList->
+              List of sequence names (char string)
+	      List of source   	 (char string)
+	      List of feature   	 (char string)
+	      List of start     	 (int)
+	      List of end       	 (int)
+	      List of score	    	 (double)
+	      List of strand    	 (char)
+	      List of frame     	 (int)
+	      List of attribute 	 (char)
+  @endcode
   @param[in,out] lol List of Lists
-  @param[in] gff gff to be added to list of lists
+  @param[in] gff Feature Set containing data to add to list of lists
   @param[in] name name of gff being added
   @see lol_push
 */
 void lol_push_gff(ListOfLists *lol, GFF_Set *gff,
 		  const char *name);
 
-/** Add a WIG to end of list of lists
+/** Append a WIG to list of lists
   @param[in,out] lol List of Lists
   @param[in] scores Array of conservation scores to be added to list of lists along with corresponding msa
   @param[in] msa msa to be added to list of lists along with corresponding scores
@@ -159,21 +228,21 @@ void lol_push_gff(ListOfLists *lol, GFF_Set *gff,
 */
 void lol_push_wig(ListOfLists *lol, double *scores, MSA *msa);
 
-/** Add a GFF (via pointer) to end of list of lists 
+/** Append a GFF (via pointer) to list of lists 
   @param[in,out] lol List of Lists
   @param[in] gff Feature Set to add
   @param[in] name Name to refer to Feature Set by
 */
 void lol_push_gff_ptr(ListOfLists *lol, GFF_Set *gff, const char *name);
 
-/** Add a MSA (via pointer) to end of list of lists 
+/** Append a MSA (via pointer) to list of lists 
   @param lol[in,out] lol List of Lists
   @param[in] msa Multiple Alignment to add
   @param[in] name Name to refer to MSA by
 */
 void lol_push_msa_ptr(ListOfLists *lol, MSA *msa, const char *name);
 
-/** Add a Double Array to the end of list of lists 
+/** Append a Double Array to list of lists 
    @param lol[in,out] lol List of Lists
    @param data[in] Array of doubles to add 
    @param name[in] Name to refer to Double Array by

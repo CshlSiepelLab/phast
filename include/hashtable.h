@@ -182,11 +182,6 @@ void hsh_clear(Hashtable *ht);
 */
 void hsh_clear_with_vals(Hashtable *ht);
 
-/***************************************************************************
- * inline functions; also defined in vector.c 
- ***************************************************************************/
-
-
 /** \} */
 
 #endif

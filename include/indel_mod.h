@@ -55,13 +55,13 @@ typedef struct {
   BranchIndelModel **branch_mods; /**< Indel models for each branch */
 } IndelModel;
 
-/** Model sufficent statistics for per branch */
+/** Model sufficient statistics for per branch */
 typedef struct {
   Matrix *trans_counts; /**< Transition counts */
   Vector *beg_counts;   /**< Beginning counts */
 } BranchIndelSuffStats;
 
-/** Model sufficent statistics per dataset */
+/** Model sufficient statistics per dataset */
 typedef struct {
   TreeNode *tree; /**< Tree structure */
   BranchIndelSuffStats **branch_counts; /**< List of model statistics per branch */
@@ -190,7 +190,7 @@ double im_likelihood(IndelModel *im, IndelSuffStats *iss);
 /** Create Branch Indel Sufficient Statistics.
     @param ih Indel History to calculate statistics on
     @param child_id ID of first node of branch to get statistics for in tree
-    @result Branch indel sufficent statistics
+    @result Branch indel sufficient statistics
 */
 BranchIndelSuffStats *im_suff_stats_branch(IndelHistory *ih, int child_id);
 

@@ -188,7 +188,7 @@ ALIASES                =
 # For instance, some of the names that are used will be different. The list 
 # of all members will be omitted, etc.
 
-OPTIMIZE_OUTPUT_FOR_C  = NO
+OPTIMIZE_OUTPUT_FOR_C  = YES
 
 # Set the OPTIMIZE_OUTPUT_JAVA tag to YES if your project consists of Java sources 
 # only. Doxygen will then generate output that is more tailored for Java. 
@@ -373,7 +373,7 @@ SHOW_USED_FILES        = YES
 # then setting the SHOW_DIRECTORIES tag to YES will show the directory hierarchy 
 # in the documentation.
 
-SHOW_DIRECTORIES       = YES
+SHOW_DIRECTORIES       = NO
 
 #---------------------------------------------------------------------------
 # configuration options related to warning and progress messages
@@ -545,7 +545,7 @@ REFERENCED_BY_RELATION = YES
 # then for each documented function all documented entities 
 # called/used by that function will be listed.
 
-REFERENCES_RELATION    = YES
+REFERENCES_RELATION    = NO
 
 # If the VERBATIM_HEADERS tag is set to YES (the default) then Doxygen 
 # will generate a verbatim copy of the header file for each class for 
@@ -813,7 +813,7 @@ RTF_EXTENSIONS_FILE    =
 # If the GENERATE_MAN tag is set to YES (the default) Doxygen will 
 # generate man pages
 
-GENERATE_MAN           = YES
+GENERATE_MAN           = NO
 
 # The MAN_OUTPUT tag is used to specify where the man pages will be put. 
 # If a relative path is entered the value of OUTPUT_DIRECTORY will be 
@@ -1163,4 +1163,6 @@ DOT_CLEANUP            = YES
 # The SEARCHENGINE tag specifies whether or not a search engine should be 
 # used. If set to NO the values of all tags below this one will be ignored.
 
-SEARCHENGINE           = NO
+SEARCHENGINE           = YES
+
+SERVER_BASED_SEARCH    = YES

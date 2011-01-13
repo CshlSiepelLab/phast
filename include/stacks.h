@@ -7,9 +7,6 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-
-/* $Id: stacks.h,v 1.2 2008-11-12 02:07:59 acs Exp $ */
-
 /** @file stacks.h
    Simple array-based stacks and supporting functions.
 
@@ -42,7 +39,7 @@ typedef List Stack;
    @param nelements Initial capacity of new stack
    @param elementz Size of each element (bytes)
    @result newly allocated stack
-   @note stack will grow as needed, but is most efficent when nelements=expected stack size
+   @note stack will grow as needed, but is most efficient when nelements=expected stack size
 */
 static PHAST_INLINE
 Stack* stk_new(int nelements,	/* Starting number of elements */
@@ -53,7 +50,7 @@ Stack* stk_new(int nelements,	/* Starting number of elements */
 /** Create new stack of integers. 
    @param nelements Initial capacity of stack of integers the stack
    @result newly allocated Stack object that stores integers. 
-   @note stack will grow as needed, but is most efficent when nelements=expected stack size
+   @note stack will grow as needed, but is most efficient when nelements=expected stack size
    @see stk_new*/
 static PHAST_INLINE
 Stack* stk_new_int(int nelements) /* Starting number of elements */
@@ -62,7 +59,7 @@ Stack* stk_new_int(int nelements) /* Starting number of elements */
 /** Create new stack of doubles. 
    @param nelements Initial capacity of new stack
    @result newly allocated Stack object that stores doubles. 
-   @note stack will grow as needed, but is most efficent when nelements=expected stack size
+   @note stack will grow as needed, but is most efficient when nelements=expected stack size
    @see stk_new*/
 static PHAST_INLINE
 Stack* stk_new_dbl(int nelements) /* Starting number of elements */
@@ -72,7 +69,7 @@ Stack* stk_new_dbl(int nelements) /* Starting number of elements */
 /** Create new stack of pointers.
    @param nelements Initial capacity of new stack 
    @result newly allocated Stack object, that stores pointers 
-   @note stack will grow as needed, but is most efficent when nelements=expected stack size
+   @note stack will grow as needed, but is most efficient when nelements=expected stack size
    @see stk_new*/
 static PHAST_INLINE
 Stack* stk_new_ptr(int nelements)

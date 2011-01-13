@@ -24,7 +24,7 @@
 /** Information about a pattern of either gaps or non-gaps */
 typedef struct {
   int ncats;			/**< Number of categories from data file */
-  int ngap_cats;		/**< Number of gap categories ??? */
+  int ngap_cats;		/**< Number of gap categories */
   int ngap_patterns;		/**< Number of phylogenetic gap patterns (2 per branch + 1 for complex gap patterns) */
   int nbranches;		/**< Number of branches from data file  */
   TreeNode *topology;		/**< Topology of nodes from data file  */

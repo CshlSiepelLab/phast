@@ -13,7 +13,7 @@
    LRTs, score tests, etc. for multi-column features.  Generalization
    of fit_columm.c to features.  Makes use of several of the
    single-column functions. 
-   \ingroup phylo
+   @ingroup phylo
 */
 
 #ifndef FIT_FEAT_H
@@ -43,7 +43,7 @@ FeatFitData *ff_init_fit_data(TreeModel *mod,  MSA *msa, scale_type stype,
 /** \name Feature Fit Data cleanup function
  \{ */
 
-/** Free metadata and memrory for fitting scale factors */
+/** Free metadata and memory for fitting scale factors */
 void ff_free_fit_data(FeatFitData *d);
 
 /** \name Feature Fit Data likelihood calculation functions 
@@ -198,7 +198,7 @@ void ff_gerp(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
 /** \name Feature Fit Data check sufficient data to perform analysis functions
  \{ */
 
-/** Identify branches wrt which a given column feature is uninformative,
+/** Identify branches wrt which a given column feature are not informative,
    in the sense that all leaves beneath these branches having only missing
    data.  Will set (preallocated) array has_data[i] = I(branch above
    node i is informative).  Will also set *nspec equal to number of

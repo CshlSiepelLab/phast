@@ -32,7 +32,7 @@ typedef struct {
 
 /** Create a new matrix of nrows * ncols containing complex numbers
   @param nrows Number of rows in new matrix
-  @param ncols Number of cols in new matrix
+  @param ncols Number of columns in new matrix
   @result Newly created Zmatrix of size nrows * ncols
 */
 Zmatrix *zmat_new(int nrows, int ncols);
@@ -55,7 +55,7 @@ void zmat_free(Zmatrix *m);
     @param m Matrix containing element to get
     @param row Row within Matrix containing element to get
     @param col Column within Matrix containing element to get
-    @result Complex number specified by row & col within matrix
+    @result Complex number specified by row & column within matrix
     */
 static PHAST_INLINE
 Complex zmat_get(Zmatrix *m, int row, int col) {
@@ -66,7 +66,7 @@ Complex zmat_get(Zmatrix *m, int row, int col) {
     @param m Matrix containing element to set
     @param row Row within matrix containing element to set
     @param col Column within matrix containing element to set
-    @param val Value to set element of matrix to (identified by row & col)
+    @param val Value to set element of matrix to (identified by row & column)
  */
 static PHAST_INLINE
 void zmat_set(Zmatrix *m, int row, int col, Complex val) {
