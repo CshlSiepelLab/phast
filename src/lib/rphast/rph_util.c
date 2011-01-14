@@ -1,23 +1,30 @@
 #include <rph_util.h>
 
-static void **mem_list=NULL;
-static int mem_list_len=0;
-static int mem_list_alloc_len=0;
-static void ***static_mem_list=NULL;
-static int static_mem_list_len=0;
-static int static_mem_list_alloc_len=0;
-static void **mem_available_list=NULL;
-static int mem_available_list_len = 0;
-static int mem_available_alloc_len = 0;
+typedef struct mem_list_type MemList;
 
 struct protected_object_struct {
   void *object;
   void (*function)(void*);
 };
-static struct protected_object_struct *protected_objects = NULL;
-static int num_protected_objects=0;
-static int protected_objects_alloc_len=0;
 
+struct mem_list_type {
+  void **mem_list;
+  int mem_list_len;
+  int mem_list_alloc_len;
+  void ***static_mem_list;
+  int static_mem_list_len;
+  int static_mem_list_alloc_len;
+  void **mem_available_list;
+  int mem_available_list_len;
+  int mem_available_alloc_len;
+  struct protected_object_struct *protected_objects;
+  int num_protected_objects;
+  int protected_objects_alloc_len;
+};
+
+static MemList *big_memlist=NULL;
+static MemList *memlist=NULL;
+static int num_memlist=0;
 
 #define MEM_LIST_START_SIZE 100000
 #define MEM_LIST_INCREASE_SIZE 1000000
@@ -30,7 +37,7 @@ static int protected_objects_alloc_len=0;
   1. All C memory allocation  happens via smalloc.  smalloc(n) allocates
      an object x of size n+sizeof(void*), and returns ((void**)x)[1].  At
      x[0] is stored a void* pointer to mem_list[i], where mem_list is a 
-     void ** and mem_list[i] points to x.
+     void** and mem_list[i] points to x.
 
   2. All memory frees should happen via sfree.  This frees x and sets
      mem_list[i] to NULL, and adds mem_list[i] to mem_available_list.
@@ -39,10 +46,10 @@ static int protected_objects_alloc_len=0;
      is automatically called once the C function has returned.  rph_free_all
      frees all memory pointed to by mem_list.
 
-  4. Any memory that should not be freed by rph_free_all needs to
-     be "protected".  protection is done by setting mem_list[i] and x[0] to
-     NULL without freeing x.  All protected memory should have finalizers
-     arranged to prevent memory leaks.
+  4. Any memory associated with external pointer objects that should not be 
+     freed by rph_free_all needs to be "protected".  protection is done by 
+     setting mem_list[i] and x[0] to NULL without freeing x.  All protected 
+     memory should have finalizers arranged to prevent memory leaks.
 
   5. Any C function which takes an external pointer object and potentially
      assigns new memory to any part of that object needs to re-protect the
@@ -95,23 +102,47 @@ static int protected_objects_alloc_len=0;
 
 
 #ifdef USE_RPHAST_MEMORY_HANDLER
+
+void rph_init_memlist() {
+  memlist->mem_list=NULL;
+  memlist->mem_list_len=0;
+  memlist->mem_list_alloc_len=0;
+  memlist->static_mem_list=NULL;
+  memlist->static_mem_list_len=0;
+  memlist->static_mem_list_alloc_len=0;
+  memlist->mem_available_list=NULL;
+  memlist->mem_available_list_len = 0;
+  memlist->mem_available_alloc_len = 0;
+  memlist->protected_objects = NULL;
+  memlist->num_protected_objects=0;
+  memlist->protected_objects_alloc_len=0;
+}
+
+SEXP rph_new_mem_handler() {
+  if (big_memlist == NULL) 
+    big_memlist = malloc((num_memlist+1)*sizeof(MemList));
+  else big_memlist = realloc(big_memlist, (num_memlist+1)*sizeof(MemList));
+  memlist = &big_memlist[num_memlist];
+  rph_init_memlist();
+  num_memlist++;
+}
+
 void rph_make_mem_list() {
-  mem_list = malloc(MEM_LIST_START_SIZE * sizeof(void*));
-  mem_list_len = 0;
-  mem_list_alloc_len = MEM_LIST_START_SIZE;
+  memlist->mem_list = malloc(MEM_LIST_START_SIZE * sizeof(void*));
+  memlist->mem_list_alloc_len = MEM_LIST_START_SIZE;
 }
 
 void rph_realloc_mem_list() {
   int i;
-  void *old_mem_list = mem_list, **ptr;
-  if (mem_available_list_len != 0) die("error");  //we shouldn't be reallocating if there are available spots, so we don't have to worry about these pointers being destroyed
-  mem_list_alloc_len += MEM_LIST_INCREASE_SIZE;
-  mem_list = realloc(mem_list, mem_list_alloc_len*sizeof(void*));
-  if (mem_list != old_mem_list) {
-    for (i=0; i < mem_list_len; i++) {
-      if (mem_list[i] != NULL) {
-	ptr = (void**)mem_list[i];
-	ptr[0] = &mem_list[i];
+  void *old_mem_list = memlist->mem_list, **ptr;
+  if (memlist->mem_available_list_len != 0) die("error");  //we shouldn't be reallocating if there are available spots, so we don't have to worry about these pointers being destroyed
+  memlist->mem_list_alloc_len += MEM_LIST_INCREASE_SIZE;
+  memlist->mem_list = realloc(memlist->mem_list, memlist->mem_list_alloc_len*sizeof(void*));
+  if (memlist->mem_list != old_mem_list) {
+    for (i=0; i < memlist->mem_list_len; i++) {
+      if (memlist->mem_list[i] != NULL) {
+	ptr = (void**)memlist->mem_list[i];
+	ptr[0] = &memlist->mem_list[i];
       }
     }
   }
@@ -120,30 +151,30 @@ void rph_realloc_mem_list() {
 
 void rph_add_to_mem_list(void **ptr) {
   int idx;
-  if (mem_list == NULL)
+  if (memlist->mem_list == NULL)
     rph_make_mem_list();
-  if (mem_available_list_len != 0) {
-    *((void**)mem_available_list[mem_available_list_len-1]) = (void*)ptr;
-    ptr[0] = mem_available_list[mem_available_list_len-1];
-    mem_available_list_len--;
+  if (memlist->mem_available_list_len != 0) {
+    *((void**)memlist->mem_available_list[memlist->mem_available_list_len-1]) = (void*)ptr;
+    ptr[0] = memlist->mem_available_list[memlist->mem_available_list_len-1];
+    memlist->mem_available_list_len--;
   } else {
-    if (mem_list_len == mem_list_alloc_len)
+    if (memlist->mem_list_len == memlist->mem_list_alloc_len)
       rph_realloc_mem_list();
-    idx = mem_list_len++;
-    mem_list[idx] = (void*)ptr;
-    ptr[0] = &mem_list[idx];
+    idx = memlist->mem_list_len++;
+    memlist->mem_list[idx] = (void*)ptr;
+    ptr[0] = &memlist->mem_list[idx];
   }
 }
 
 void rph_add_to_mem_available_list(void *val) {
-  if (mem_available_list == NULL) {
-    mem_available_list = malloc(MEM_LIST_START_SIZE*sizeof(void*));
-    mem_available_alloc_len = MEM_LIST_START_SIZE;
-  } else if (mem_available_list_len == mem_available_alloc_len) {
-    mem_available_alloc_len += MEM_LIST_INCREASE_SIZE;
-    mem_available_list = realloc(mem_available_list, mem_available_alloc_len*sizeof(void*));
+  if (memlist->mem_available_list == NULL) {
+    memlist->mem_available_list = malloc(MEM_LIST_START_SIZE*sizeof(void*));
+    memlist->mem_available_alloc_len = MEM_LIST_START_SIZE;
+  } else if (memlist->mem_available_list_len == memlist->mem_available_alloc_len) {
+    memlist->mem_available_alloc_len += MEM_LIST_INCREASE_SIZE;
+    memlist->mem_available_list = realloc(memlist->mem_available_list, memlist->mem_available_alloc_len*sizeof(void*));
   }
-  mem_available_list[mem_available_list_len++] = val;
+  memlist->mem_available_list[memlist->mem_available_list_len++] = val;
 }
 
 #endif
@@ -164,28 +195,29 @@ void rph_mem_protect(void *ptr0) {
 
 void rph_register_protected_object(void *ptr, void (*function)(void*)) {
   int idx;
-  if (protected_objects == NULL) {
-    protected_objects = malloc(100*sizeof(struct protected_object_struct));
-    protected_objects_alloc_len = 100;
+  if (memlist->protected_objects == NULL) {
+    memlist->protected_objects = malloc(100*sizeof(struct protected_object_struct));
+    memlist->protected_objects_alloc_len = 100;
   }
-  idx = num_protected_objects++;
-  if (idx == protected_objects_alloc_len) {
-    protected_objects_alloc_len += 1000;
-    protected_objects = realloc(protected_objects, 
-				protected_objects_alloc_len*
-				sizeof(struct protected_object_struct));
+  idx = memlist->num_protected_objects++;
+  if (idx == memlist->protected_objects_alloc_len) {
+    memlist->protected_objects_alloc_len += 1000;
+    memlist->protected_objects = realloc(memlist->protected_objects, 
+					memlist->protected_objects_alloc_len*
+					sizeof(struct protected_object_struct));
   }
-  protected_objects[idx].object = ptr;
-  protected_objects[idx].function = function;
+  memlist->protected_objects[idx].object = ptr;
+  memlist->protected_objects[idx].function = function;
 }
 
 //this is inefficient but the protected_objects list is generally length
 //1 or 2, and currently should not exceed 4.
 void rph_unregister_protected(void *ptr) {
   int i;
-  for (i=0; i < num_protected_objects; i++) {
-    if (protected_objects[i].object == ptr) {
-      protected_objects[i].object = NULL;
+  if (memlist == NULL) return;
+  for (i=0; i < memlist->num_protected_objects; i++) {
+    if (memlist->protected_objects[i].object == ptr) {
+      memlist->protected_objects[i].object = NULL;
       break;
     }
   }
@@ -195,37 +227,46 @@ void rph_unregister_protected(void *ptr) {
 SEXP rph_free_all() {
   int i;
 #ifdef USE_RPHAST_MEMORY_HANDLER
-  if (protected_objects != NULL) {
-    for (i=0; i < num_protected_objects; i++) {
-      if (protected_objects[i].object != NULL) 
-	(*protected_objects[i].function)(protected_objects[i].object);
+  if (memlist->protected_objects != NULL) {
+    for (i=0; i < memlist->num_protected_objects; i++) {
+      if (memlist->protected_objects[i].object != NULL) 
+	(*memlist->protected_objects[i].function)(memlist->protected_objects[i].object);
     }
-    if (protected_objects != NULL) {
-      free(protected_objects);
-      protected_objects = NULL;
-      num_protected_objects = 0;
-      protected_objects_alloc_len = 0;
+    if (memlist->protected_objects != NULL) {
+      free(memlist->protected_objects);
+      memlist->protected_objects = NULL;
+      memlist->num_protected_objects = 0;
+      memlist->protected_objects_alloc_len = 0;
     }
   }
-  if (mem_list == NULL) return R_NilValue;
-  for (i=0; i < mem_list_len; i++) {
-    if (mem_list[i] != NULL) 
-      free(mem_list[i]);
+  if (memlist->mem_list != NULL) {
+    for (i=0; i < memlist->mem_list_len; i++) {
+      if (memlist->mem_list[i] != NULL) 
+	free(memlist->mem_list[i]);
+    }
+    free(memlist->mem_list);
+    for (i=0; i < memlist->static_mem_list_len; i++)
+      *(memlist->static_mem_list[i]) = NULL;
+    free(memlist->static_mem_list);
+    memlist->mem_list = NULL;
+    memlist->static_mem_list = NULL;
+    memlist->mem_list_alloc_len = memlist->mem_list_len = 0;
+    memlist->static_mem_list_len = memlist->static_mem_list_alloc_len = 0;
+    if (memlist->mem_available_list != NULL) {
+      free(memlist->mem_available_list);
+      memlist->mem_available_list = NULL;
+    }
+    memlist->mem_available_list_len = memlist->mem_available_alloc_len = 0;
   }
-  free(mem_list);
-  for (i=0; i < static_mem_list_len; i++)
-    *(static_mem_list[i]) = NULL;
-  free(static_mem_list);
-  mem_list = NULL;
-  static_mem_list = NULL;
-  mem_list_alloc_len = mem_list_len = 0;
-  static_mem_list_len = static_mem_list_alloc_len = 0;
-  if (mem_available_list != NULL) {
-    free(mem_available_list);
-    mem_available_list = NULL;
-  }
-  mem_available_list_len = mem_available_alloc_len = 0;
 #endif
+  num_memlist--;
+  if (num_memlist > 0)
+    memlist = &big_memlist[num_memlist-1];
+  else {
+    memlist = NULL;
+    free(big_memlist);
+    big_memlist = NULL;
+  }
   return R_NilValue;
 }
 
@@ -248,18 +289,18 @@ void *smalloc(size_t size) {
 
 void set_static_var(void **ptr) {
 #ifdef USE_RPHAST_MEMORY_HANDLER
-  if (static_mem_list_len == static_mem_list_alloc_len) {
-    if (static_mem_list_alloc_len == 0) {
-      static_mem_list_alloc_len = MEM_LIST_START_SIZE;
-      static_mem_list = malloc(static_mem_list_alloc_len*sizeof(void**));
+  if (memlist->static_mem_list_len == memlist->static_mem_list_alloc_len) {
+    if (memlist->static_mem_list_alloc_len == 0) {
+      memlist->static_mem_list_alloc_len = MEM_LIST_START_SIZE;
+      memlist->static_mem_list = malloc(memlist->static_mem_list_alloc_len*sizeof(void**));
     }
     else {
-      static_mem_list_alloc_len += MEM_LIST_INCREASE_SIZE;
-      static_mem_list = realloc(static_mem_list,
-				static_mem_list_alloc_len*sizeof(void*));
+      memlist->static_mem_list_alloc_len += MEM_LIST_INCREASE_SIZE;
+      memlist->static_mem_list = realloc(memlist->static_mem_list,
+					 memlist->static_mem_list_alloc_len*sizeof(void*));
     }
   }
-  static_mem_list[static_mem_list_len++] = ptr;
+  memlist->static_mem_list[memlist->static_mem_list_len++] = ptr;
 #endif
 }
 
@@ -456,3 +497,5 @@ SEXP rph_lst_new_extptr(List *l) {
   UNPROTECT(1);
   return result;
 }
+
+
