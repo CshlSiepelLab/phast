@@ -56,17 +56,17 @@ typedef enum {VITERBI, /**< Viterbi for speedy HMM solving */
 typedef struct {
   int nstates;  /**< Number of current states in model */
   MarkovMatrix *transition_matrix; /**< Probabilities of moving from one state to another */
-  Matrix *transition_score_matrix; /**< entries are logs of entries
+  Matrix *transition_score_matrix; /**< Entries are logs of entries
 				     in transition matrix. */
   Vector *begin_transitions, /**< Beginning state transition probabilities */
   	 *end_transitions,   /**< Ending state transition probabilities */
-    	 *begin_transition_scores,  /**< entries are log of entries in vector */
-	 *end_transition_scores,   /**< entries are log of entries in vector */
-	 *eq_freqs;		   /**< equilibrium frequencies */
-  List **predecessors,		/**< list of predecessor states in HMM */ 
-  **successors;			/**< list of successor states in HMM */
-  List *begin_successors, /**< initial path to take of successors */
- *end_predecessors;	  /**< final path taken of predecessors */
+    	 *begin_transition_scores,  /**< Entries are log of entries in vector */
+	 *end_transition_scores,   /**< Entries are log of entries in vector */
+	 *eq_freqs;		   /**< Equilibrium frequencies */
+  List **predecessors,		/**< List of predecessor states in HMM, for each state i, the list of states that have a transition to that state */ 
+  **successors;			/**< List of successor states in HMM, for each state i, the list of states that state i has a transition to */
+  List *begin_successors, /**< List of states for which the begin state has a transition to */
+ *end_predecessors;	  /**< List of states that have a transition to the end state */
 } HMM;
 
 
