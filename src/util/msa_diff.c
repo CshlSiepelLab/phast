@@ -26,6 +26,7 @@ int main(int argc, char *argv[]) {
   int ignore_base_id = FALSE, ignore_gap_type = FALSE;
   char *alphabet = "ACGT";
   msa_format_type format1 = FASTA, format2 = FASTA;
+  FILE *infile1, *infile2;
 
   struct option long_opts[] = {
     {"ignore-base-id", 0, 0, 'b'},
@@ -70,18 +71,22 @@ int main(int argc, char *argv[]) {
     die("Two filenames required.  Try 'msa_diff -h'.\n");
 
   set_seed(-1);
-
+  infile1 = fopen_fname(argv[optind], "r");
+  format1 = msa_format_for_content(infile1);
   if (format1 == MAF) 
     msa1 = maf_read(fopen_fname(argv[optind], "r"), NULL, 1, alphabet,
                     NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
   else
-    msa1 = msa_new_from_file(fopen_fname(argv[optind], "r"), 
+    msa1 = msa_new_from_file_define_format(fopen_fname(argv[optind], "r"), 
                              format1, alphabet);
+
+  infile2 = fopen_fname(argv[optind+1], "r");
+  format2 = msa_format_for_content(infile2);
   if (format2 == MAF)
     msa2 = maf_read(fopen_fname(argv[optind+1], "r"), NULL, 1, alphabet,
                     NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
   else 
-    msa2 = msa_new_from_file(fopen_fname(argv[optind+1], "r"), 
+    msa2 = msa_new_from_file_define_format(fopen_fname(argv[optind+1], "r"), 
                              format2, alphabet);
 
   common_names = smalloc(msa1->nseqs * sizeof(void*));

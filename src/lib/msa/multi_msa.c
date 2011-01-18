@@ -114,7 +114,7 @@ Multi_MSA *msa_multimsa_new(FILE *F, int do_ih) {
 
       fprintf(stderr, "\t%s (%d of %d)\n", msa_fname, (i+1), msas->nblocks);
       msa_f = fopen_fname(msa_fname, "r");
-      msa = msa_new_from_file(msa_f, format, (char*)alphabet->chars);
+      msa = msa_new_from_file_define_format(msa_f, format, (char*)alphabet->chars);
       str_cpy_charstr(fname, msa_fname);
       str_remove_path(fname);
       str_root(fname, '.');

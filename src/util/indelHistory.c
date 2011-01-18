@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
       die("Two arguments required.  Try 'indelHistory -h'.\n");
 
     fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
-    msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, "ACGTNB^.-");
+    msa = msa_new_from_file(fopen_fname(argv[optind], "r"), "ACGTNB^.-");
 
     if (msa->seqs == NULL && (msa->ss == NULL || msa->ss->tuple_idx == NULL))
       die("ERROR: ordered representation of alignment required.\n");

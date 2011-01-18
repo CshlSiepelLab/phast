@@ -100,7 +100,7 @@ MSA *msa_new(char **seqs, char **names, int nseqs, int length, char *alphabet) {
    which is assumed to use the specified format.  If "alphabet" is
    NULL, default alphabet for DNA will be used.  This routine will
    abort if the sequence contains a character not in the alphabet. */
-MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
+MSA *msa_new_from_file_define_format(FILE *F, msa_format_type format, char *alphabet) {
   int i, j, k=-1, nseqs, len, do_toupper;
   MSA *msa;
   String *tmpstr;
@@ -145,14 +145,14 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
 
     if (format == PHYLIP) {
       if (1 != fscanf(F, "%s", msa->names[i]))
-	die("ERROR: error reading alignment\n");
+	die("ERROR: error reading phylip alignment\n");
                                 /* FIXME: this won't handle the weird
                                  * case in true PHYLIP format in which
                                  * the name is not separated from the
                                  * sequence by whitespace */ 
     }
     else if (format == FASTA) {
-      if (fgets(line, MAX_LINE_LEN, F) == NULL) die("ERROR reading alignment");
+      if (fgets(line, MAX_LINE_LEN, F) == NULL) die("ERROR reading alignment, unable to read line from MSA");
       for (j = 0; line[j] != 0 && (line[j] == '>' || isspace(line[j])); j++);
       strcpy(msa->names[i], &line[j]);
     }
@@ -160,7 +160,7 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
     j = 0;
     while (j < len) {
       checkInterruptN(j, 1000);
-      if (fgets(line, MAX_LINE_LEN, F)==NULL) die("ERROR reading alignment");
+      if (fgets(line, MAX_LINE_LEN, F)==NULL) die("ERROR reading alignment, unable to read line from MSA");
       for (k = 0; line[k] != '\0'; k++) {
         char base;
         if (isspace(line[k])) continue;
@@ -192,6 +192,17 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet) {
 
   return msa;
 }
+
+MSA *msa_new_from_file(FILE *F, char *alphabet) {
+  msa_format_type input_format = msa_format_for_content(F);
+  if(input_format == -1)
+  {
+    die("ERROR: Unable to determine the alignment file format\n");
+  }
+  
+   return msa_new_from_file_define_format(F, input_format, alphabet);
+}
+
 
 /* create a copy of an MSA.  If suff_stats_only == 1, then sequences
    aren't copied */
@@ -2140,7 +2151,7 @@ void msa_indel_clean(MSA *msa,  int indel_border, int min_nbases, int min_nseqs,
    the sequences in the combined MSA (missing sequences will be
    replaced with gaps).  All source MSAs must share the same alphabet,
    and each must contain a subset of the names in 'seqnames'.  */
-MSA *msa_concat_from_files(List *fnames, msa_format_type format, 
+MSA *msa_concat_from_files(List *fnames, 
                            List *seqnames, char *alphabet) {
   MSA *retval;
   int nseqs = lst_size(seqnames);
@@ -2167,7 +2178,7 @@ MSA *msa_concat_from_files(List *fnames, msa_format_type format,
   for (i = 0; i < lst_size(fnames); i++) {
     String *fname = lst_get_ptr(fnames, i);
     if ((F = fopen(fname->chars, "r")) == NULL || 
-        (source_msa = msa_new_from_file(F, format, alphabet)) == NULL) 
+        (source_msa = msa_new_from_file(F, alphabet)) == NULL) 
       die("ERROR: cannot read MSA from %s.\n", fname->chars);
 
     if (source_msa->seqs == NULL) {
@@ -2427,6 +2438,72 @@ msa_format_type msa_format_for_suffix(char *fname) {
   str_free(s);
   return retval;
 }
+
+/* Return format type indicated by file contents */
+msa_format_type msa_format_for_content(FILE *F) {
+  msa_format_type retval = 2;
+  String *line = str_new(STR_MED_LEN);
+  List *matches = lst_new_ptr(3);
+  Regex *ss_re, *phylip_re, *fasta_re, *lav_re, *maf_re;  
+  
+  //using peek instead of read as we don't want to affect file/stream position
+  str_peek_next_line(line, F);
+
+  //Regexs to identify files by first line of content
+  ss_re = str_re_new("^NSEQS[[:space:]]*=[[:space:]]*([0-9]+)");
+  phylip_re = str_re_new("^([[:space:]]*([0-9]+))[[:space:]]*[[:space:]]*([0-9]+)");  
+  fasta_re = str_re_new("^>.*");
+  lav_re = str_re_new("^#:lav.*");
+  maf_re = str_re_new("^##maf[[:space:]]version=1.*");
+
+  //Check if file has a Sufficent Statistics header
+  if(str_re_match(line, ss_re, matches, 1) >= 0) {
+    retval = SS;
+  }
+  //Check if file has a PHYLIP/MPM header
+   else if (str_re_match(line, phylip_re, matches, 3) >= 0) {
+    retval = PHYLIP;
+    int* sequences = malloc(sizeof(int));
+
+    /*MPM has no distinct header from PHYLIP, we need to examine the
+     data to determine whether it is MPM or PHYLIP format.  Is MPM if
+     (#lines_in_file == (2 * #sequences_from_header + 1)) 
+     && (Length(3rd_line) < #columns_from_header) */
+    str_as_int(((String*)lst_get_ptr(matches, 2)), sequences);
+    int lines_in_file = get_nlines_in_file(F);
+    if(lines_in_file == (1 + (2 * *sequences)))
+    {
+      int* columns = malloc(sizeof(int));
+      str_as_int(((String*)lst_get_ptr(matches, 3)), columns);
+
+      str_peek_line(line, F, 3);
+      if (line->length < *columns)
+        retval = MPM;
+     
+      free(columns);
+    }
+    free(sequences);
+  }
+  //Check if file has a FASTA header
+   else if (str_re_match(line, fasta_re, matches, 1) >= 0) {
+    retval= FASTA;
+  }
+  //Check if file has a LAV header
+   else if (str_re_match(line, lav_re, matches, 1) >= 0) {
+    retval = LAV;
+  }
+  //Check if file has a MAF header
+   else if (str_re_match(line, maf_re, matches, 1) >= 0) {
+    retval = MAF;
+  }
+  str_re_free(ss_re);
+  str_re_free(phylip_re);
+  str_re_free(fasta_re);
+  str_re_free(lav_re);
+  str_re_free(maf_re);
+  return retval;
+}
+
 
 /* Return appropriate filename suffix for format type */
 char *msa_suffix_for_format(msa_format_type t) {

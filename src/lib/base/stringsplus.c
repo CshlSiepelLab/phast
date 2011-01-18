@@ -138,6 +138,94 @@ int str_index_of(String *s, String *substr) {
   return ((int)(ptr - s->chars) / sizeof(char)); /* is this right? */
 }
 
+/* Peek at next line in file */
+int str_peek_next_line(String *s, FILE *F) {
+  char buffer[BUFFERSIZE];
+  int stop = 0, abort = 0, i=0, buffer_used=0;
+  
+  str_clear(s);
+
+  do {
+    buffer[BUFFERSIZE - 2] = '\n'; 
+    if (fgets(buffer, BUFFERSIZE, F) == NULL)
+      abort = 1;
+    else {
+      if (buffer[BUFFERSIZE - 2] == '\n' || buffer[BUFFERSIZE - 2] == '\0') {
+    stop = 1;
+    /* the penultimate character (immediately preceding the null
+       terminator) will NOT be a carriage return or null terminator if
+       and only if the length of the line exceeds the size of the
+       buffer */
+      }
+      str_append_charstr(s, buffer); 
+    }
+    //Determine how many characters of the buffer were used
+    buffer_used=-1;
+    i=0;
+    while (buffer[i] != '\0')
+    {  
+      buffer_used++; 
+      i++;
+    }
+    //write back the characters we read since this is only peek
+    ungetc('\n', F);
+    for(i=buffer_used;i>0; i--)
+    {
+      ungetc(buffer[i-1], F);
+    }
+  } while (!stop && !abort);
+  return abort ? EOF : 0;
+}
+
+
+
+/* Peek at next line in file */
+int str_peek_line(String *s, FILE *F, int L) {
+  char buffer[BUFFERSIZE];
+  int stop = 0, abort = 0, i=0, buffer_used=0;
+  
+  str_clear(s);
+
+  do {
+    buffer[BUFFERSIZE - 2] = '\n'; 
+    if (fgets(buffer, BUFFERSIZE, F) == NULL)
+      abort = 1;
+    else {
+      if (buffer[BUFFERSIZE - 2] == '\n' || buffer[BUFFERSIZE - 2] == '\0') {
+       stop = 1;
+    /* the penultimate character (immediately preceding the null
+       terminator) will NOT be a carriage return or null terminator if
+       and only if the length of the line exceeds the size of the
+       buffer */
+       if( L > 1)
+        {
+          str_clear(s);
+          str_peek_line(s, F, L-1);
+        }else
+          str_append_charstr(s, buffer);
+      } else 
+         str_append_charstr(s, buffer);
+      
+    }
+    //Determine how many characters of the buffer were used
+    buffer_used=-1;
+    i=0;
+    while (buffer[i] != '\0')
+    {  
+      buffer_used++; 
+      i++;
+    }
+    //write back the characters we read since this is only peek
+    ungetc('\n', F);
+    for(i=buffer_used;i>0; i--)
+    {
+      ungetc(buffer[i-1], F);
+    }
+  } while (!stop && !abort);
+  return abort ? EOF : 0;
+}
+
+
 void str_substring(String *dest, String *src, int startidx, int len) {
   str_clear(dest);
   if (startidx < 0 || startidx >= src->length)

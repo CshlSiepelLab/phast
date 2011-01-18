@@ -10,6 +10,7 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment */
  
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <lists.h>
 #include <stringsplus.h>
@@ -38,6 +39,7 @@ int main(int argc, char *argv[]) {
   String *optstr;
   List *tmplist = NULL; 
   struct phyloFit_struct *pf;
+  FILE *infile = NULL;
   
   struct option long_opts[] = {
     {"msa", 1, 0, 'm'},
@@ -313,12 +315,31 @@ int main(int argc, char *argv[]) {
 
   set_seed(seed);
 
+  //Check to see if input file is passed by pipe
+  if(!isatty(0)) {
+    rewind(stdin);   
+    infile = stdin;
+    msa_fname = "stdin";
+    pf->msa_fname = msa_fname;
+  }
+
   if (msa_fname == NULL) {
-    if (optind >= argc) 
+    if ((optind >= argc) || (!isatty(0))) 
       die("ERROR: missing alignment filename.  Type 'phyloFit -h' for usage.\n");
     msa_fname = argv[optind];
     pf->msa_fname = msa_fname;
   }
+
+  if (infile == NULL)
+  {
+    if ((infile = fopen(msa_fname, "r")) == NULL) 
+      die("ERROR: cannot open alignment file %s.\n", msa_fname);
+  }
+
+  input_format = msa_format_for_content(infile);
+
+  if (input_format == -1)
+      die("ERROR: unrecognized alignment format.    Type 'phyloFit -h' for usage.\n");
 
   if (pf->nonoverlapping && (pf->use_conditionals || pf->gff != NULL || 
 			     pf->cats_to_do_str || input_format == SS))
@@ -328,7 +349,7 @@ int main(int argc, char *argv[]) {
   /* read alignment */
   if (!pf->quiet) fprintf(stderr, "Reading alignment from %s ...\n", msa_fname);
   if (input_format == MAF) {
-    pf->msa = maf_read(fopen_fname(msa_fname, "r"), NULL, 
+    pf->msa = maf_read(infile, NULL, 
 		       tm_order(pf->subst_mod) + 1, 
 		       NULL, pf->gff, pf->cm, 
 		       pf->nonoverlapping ? tm_order(pf->subst_mod) + 1 : -1, 
@@ -337,7 +358,7 @@ int main(int argc, char *argv[]) {
       msa_reset_alphabet(pf->msa, alph);
   }
   else 
-    pf->msa = msa_new_from_file(fopen_fname(msa_fname, "r"), 
+    pf->msa = msa_new_from_file_define_format(infile, 
 				input_format, alph);
 
   /* set up for categories */

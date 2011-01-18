@@ -8,6 +8,7 @@
  ***************************************************************************/
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -31,6 +32,7 @@
 
 int main(int argc, char *argv[]) {
   char c;
+  char *msa_fname = NULL;
   int opt_idx, i, old_nnodes;
   MSA *msa;
   List *pruned_names = lst_new_ptr(5), *tmpl;
@@ -152,8 +154,8 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (optind != argc - 2) 
-    die("Two arguments required.  Try 'dless -h'.\n");
+  if (optind != argc - 1 - isatty(0))
+    die("Missing alignment file or model file.  Try 'dless -h'.\n");
 
   if (set_transitions && (gamma != -1 || omega != -1))
     die("ERROR: --transitions and --target-coverage/--expected-length cannot be used together.\n");
@@ -166,9 +168,8 @@ int main(int argc, char *argv[]) {
   if (gamma != -1)
     nu = gamma/(1-gamma) * mu;
 
-  fprintf(stderr, "Reading tree model from %s...\n", argv[optind+1]);
-  msa_f = fopen_fname(argv[optind], "r");
-  source_mod = tm_new_from_file(fopen_fname(argv[optind+1], "r"), 1);
+  fprintf(stderr, "Reading tree model from %s...\n", argv[optind+(isatty(0))]);
+  source_mod = tm_new_from_file(fopen_fname(argv[optind+(isatty(0))], "r"), 1);
 
   if (source_mod->nratecats > 1) 
     die("ERROR: rate variation not currently supported.\n");
@@ -180,13 +181,25 @@ int main(int argc, char *argv[]) {
     phast_warning("WARNING: p-value computation assumes reversibility and your model is non-reversible.\n");
 
   /* read alignment */
-  fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
+  if(!isatty(0)) {
+     rewind(stdin);
+     msa_f = stdin;
+     msa_fname = "stdin";
+   } else {
+     msa_fname = argv[optind];
+     if ((msa_f = fopen(msa_fname, "r")) == NULL) 
+       die("ERROR: cannot open alignment file %s.\n", msa_fname);
+   }
+
+  fprintf(stderr, "Reading alignment from %s...\n", msa_fname);
+  msa_format = msa_format_for_content(msa_f);
+
   if (msa_format == MAF) {
     msa = maf_read(msa_f, refseq_f, 1, NULL, NULL, NULL, -1, TRUE, NULL, 
                    NO_STRIP, FALSE); 
   }
   else 
-    msa = msa_new_from_file(msa_f, msa_format, NULL);
+    msa = msa_new_from_file_define_format(msa_f, msa_format, NULL);
 
   if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
   msa_remove_N_from_alph(msa);
@@ -263,7 +276,7 @@ int main(int argc, char *argv[]) {
   /* set seqname and idpref, if necessary */
   if (seqname == NULL || idpref == NULL) {
     /* derive default from file name root */
-    String *tmp = str_new_charstr(argv[optind]);
+    String *tmp = str_new_charstr(msa_fname);
     if (!str_equals_charstr(tmp, "-")) {
       str_remove_path(tmp);
       str_root(tmp, '.');

@@ -217,7 +217,7 @@ int main(int argc, char* argv[]) {
       if (!quiet_mode)
         fprintf(stderr, "Reading alignment from %s ...\n", 
                 F == stdin ? "stdin" : msa_fname->chars);
-      msa = msa_new_from_file(F, input_format, NULL);
+      msa = msa_new_from_file(F, NULL);
       fclose(F);
 
     }

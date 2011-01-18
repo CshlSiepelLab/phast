@@ -1197,6 +1197,32 @@ void free_n_dimensional_array(void *data, int ndim, int *dimsize) {
 }
 
 
+int get_nlines_in_file(FILE *F) {
+  char buffer[BUFFERSIZE];
+  String *line = str_new(STR_MED_LEN);
+  int stop = 0, abort = 0,  lines=0;
+ 
+  do {
+    buffer[BUFFERSIZE - 2] = '\n'; 
+    if (fgets(buffer, BUFFERSIZE, F) == NULL)
+      abort = 1;
+    else {
+      if (buffer[BUFFERSIZE - 2] == '\n' || buffer[BUFFERSIZE - 2] == '\0') {
+       str_append_charstr(line, buffer);
+       str_double_trim(line);
+       lines = lines + (line->length > 0) ;
+      } 
+      str_append_charstr(line, buffer);
+    }
+    //Determine how many characters of the buffer were used
+   
+  } while (!abort);
+  fseek ( F , 1 , SEEK_SET );
+  return lines;
+
+}
+
+
 /***************************************************************************/
 /* for debugging: these functions can be called dynamically in gdb to
    print the contents of 1d and 2d arrays */

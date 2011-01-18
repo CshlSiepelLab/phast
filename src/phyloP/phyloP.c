@@ -173,13 +173,14 @@ int main(int argc, char *argv[]) {
   if (!p->prior_only) {
     p->msa_fname = argv[optind+1];
     msa_f = fopen_fname(p->msa_fname, "r");
+    msa_format = msa_format_for_content(msa_f);
     if (msa_format == MAF) 
       p->msa = maf_read_cats(msa_f, NULL, 1, NULL, 
 			     p->cats_to_do==NULL ? NULL : p->feats, p->cm, -1, 
 			     (p->feats == NULL && p->base_by_base==0) ? FALSE : TRUE, /* --features requires order */
 			     NULL, NO_STRIP, FALSE, p->cats_to_do); 
     else 
-      p->msa = msa_new_from_file(msa_f, msa_format, NULL);
+      p->msa = msa_new_from_file_define_format(msa_f, msa_format, NULL);
     fclose(msa_f);
 
     /* if base_by_base and undefined chrom, use filename root as chrom */

@@ -28,6 +28,7 @@ void set_param_descriptions(char **descriptions, TreeModel *mod) {
   int nrv_params = tm_get_nratevarparams(mod);
   int nrm_params = tm_get_nratematparams(mod);
   int i, j, idx;
+  char *tempstr = smalloc((mod->order+2)*sizeof(char));
 
   if (mod->estimate_branchlens != TM_BRANCHLENS_ALL)
     die("ERROR set_param_descriptions: mod->estimate_branchlens != TM_BRANCHLENS_ALL\n");
@@ -36,6 +37,14 @@ void set_param_descriptions(char **descriptions, TreeModel *mod) {
   if (mod->alt_subst_mods != NULL)
     die("ERROR set_param_descriptions: mod->alt_subst_mods is not NULL\n");
 
+  /* Tree scale descriptions */
+  if (mod->estimate_branchlens != TM_BRANCHLENS_ALL) {
+    sprintf(descriptions[mod->scale_idx], "tree scale");
+    if (mod->subtree_root != NULL)
+      sprintf(descriptions[mod->scale_idx+1], "subtree scale");
+  }
+
+  /* Branch length descriptions */
   traversal = tr_preorder(mod->tree);
   idx=0;
   for (i = 0; i < lst_size(traversal); i++) {
@@ -57,6 +66,16 @@ void set_param_descriptions(char **descriptions, TreeModel *mod) {
     idx++;
   }
 
+  /* Background frequency descriptions */
+  if (mod->backgd_idx >= 0) {
+   for (i=0; i < mod->backgd_freqs->size; i++) {
+      get_tuple_str(tempstr, i, mod->order+1, mod->rate_matrix->states);
+      tempstr[mod->order+1] = '\0';
+      sprintf(descriptions[mod->backgd_idx + i], "background freq(%s)", tempstr);
+   } 
+  }
+
+  /* Rate variation descriptions */
   for (i = 0; i < nrv_params; i++) {
     if (nrv_params == 1) 
       strcpy(descriptions[mod->ratevar_idx+i], "alpha");
@@ -64,8 +83,11 @@ void set_param_descriptions(char **descriptions, TreeModel *mod) {
       sprintf(descriptions[mod->ratevar_idx+i], "rate var #%d", i+1);
   }
 
+  /* Rate matrix value descriptions */
   if (nrm_params == 1)
+  {
     strcpy(descriptions[mod->ratematrix_idx], "kappa");
+  }
   else {
     for (i = 0; i < nrm_params; i++) {
       List *rows = mod->rate_matrix_param_row[mod->ratematrix_idx+i];
@@ -81,6 +103,7 @@ void set_param_descriptions(char **descriptions, TreeModel *mod) {
     }
   }
   str_free(str);
+  free(tempstr);
 }
 
 int main(int argc, char *argv[]) {
@@ -114,7 +137,6 @@ int main(int argc, char *argv[]) {
   TreeModel *subtreeModel=NULL;
   List *scaleLst=NULL, *subtreeScaleLst=NULL, *nsitesLst=NULL;
   FILE *scaleFile;
-  
 
   struct option long_opts[] = {
     {"nsites", 1, 0, 'L'},
@@ -282,10 +304,11 @@ int main(int argc, char *argv[]) {
     else {
       if (subtreeName != NULL) 
 	die("subtree option only works if .mod file given (parametric mode)\n");
+      input_format = msa_format_for_content(INF);
       if (input_format == MAF)
         msa = maf_read(INF, NULL, 1, NULL, NULL, NULL, -1, FALSE, NULL, NO_STRIP, FALSE);
       else
-        msa = msa_new_from_file(INF, input_format, NULL);
+        msa = msa_new_from_file_define_format(INF, input_format, NULL);
 
       /* represent as SS and get rid of seqs (important below) */
       if (msa->ss == NULL) {
@@ -474,6 +497,7 @@ int main(int argc, char *argv[]) {
         for (j = 0; j < nparams; j++) {
           estimates[j] = lst_new_dbl(nreps);
           descriptions[j] = smalloc(STR_MED_LEN * sizeof(char));
+	  descriptions[j][0] = '\0';
         }
         set_param_descriptions(descriptions, thismod);
       }
@@ -497,7 +521,10 @@ int main(int argc, char *argv[]) {
     printf("%-7s %-25s %9s %9s %9s %9s %9s %9s %9s %9s %9s\n", "param", 
            "description", "mean", "stdev", "median", "min", "max", "95%_min", 
            "95%_max", "90%_min", "90%_max");
+    int param_num = 0;
     for (j = 0; j < nparams; j++) {
+      if (strlen(descriptions[j]) < 1)
+        continue;
       double mean = lst_dbl_mean(estimates[j]);
       double stdev = lst_dbl_stdev(estimates[j]);
       double quantiles[] = {0, 0.025, 0.05, 0.5, 0.95, 0.975, 1};
@@ -506,10 +533,11 @@ int main(int argc, char *argv[]) {
       lst_dbl_quantiles(estimates[j], quantiles, 7, quantile_vals);
 
       printf("%-7d %-25s %9.5f %9.5f %9.5f %9.5f %9.5f %9.5f %9.5f %9.5f %9.5f\n", 
-             j, descriptions[j], mean, stdev, quantile_vals[3], quantile_vals[0], 
+             param_num, descriptions[j], mean, stdev, quantile_vals[3], quantile_vals[0], 
              quantile_vals[6], quantile_vals[1], quantile_vals[5], quantile_vals[2], 
              quantile_vals[4]);
       vec_set(ave_params, j, mean);
+      param_num++;
     }
 
     if (ave_model != NULL) {

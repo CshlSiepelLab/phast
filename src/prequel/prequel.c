@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
     die("ERROR: --no-probs can't be used with --suff-stats or --encode.\n");
 
   msa_f = fopen_fname(argv[optind], "r");
-
+  msa_format = msa_format_for_content(msa_f);
   fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
   if (msa_format == MAF) {
     msa = maf_read(msa_f, refseq_f, 1, NULL, NULL, NULL, -1, !suff_stats, NULL,
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
     /* (no need to store order if suff_stats mode) */
   }
   else 
-    msa = msa_new_from_file(msa_f, msa_format, NULL);
+    msa = msa_new_from_file_define_format(msa_f, msa_format, NULL);
 
   if (msa->ss == NULL) {
     fprintf(stderr, "Extracting sufficient statistics...\n");

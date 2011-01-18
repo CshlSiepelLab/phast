@@ -984,6 +984,8 @@ int main(int argc, char *argv[]) {
   char *groupby = "transcript_id";
   msa_coord_map *map;
   int *countNs, *countCDSs;
+  FILE *infile;
+  char *msa_fname;
 
   struct option long_opts[] = {
     {"start", 0, 0, 's'},
@@ -1094,13 +1096,16 @@ int main(int argc, char *argv[]) {
   set_seed(-1);
 
   gff = gff_read_set(fopen_fname(argv[optind], "r"));
+  msa_fname = argv[optind+1];
+  infile = fopen_fname(msa_fname, "r");
+  msa_format = msa_format_for_content(infile);
   if (msa_format == MAF) {
-    msa = maf_read(fopen_fname(argv[optind+1], "r"), 
+    msa = maf_read(infile, 
                    rseq_fname == NULL ? NULL : fopen_fname(rseq_fname, "r"), 
                    1, NULL, NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE); 
   }
   else {
-    msa = msa_new_from_file(fopen_fname(argv[optind+1], "r"),
+    msa = msa_new_from_file_define_format(infile,
                             msa_format, NULL); 
     if (msa->ss == NULL) 
       ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1, 0);

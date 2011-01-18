@@ -47,7 +47,7 @@ EXAMPLES:
     2. Compute conservation scores in a sliding window of size 100.
 
         phastOdds --background-mods neutral.mod --feature-mods conserved.mod \
-            --window 100 > scores.dat
+            --window 100 alignment.fa > scores.dat
 
        (Window is advanced one site at a time.  Window boundaries are
        defined in the coordinate frame of the multiple alignment, but

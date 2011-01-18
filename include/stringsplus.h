@@ -209,6 +209,23 @@ String *str_dup(String *src);
 */
 int str_index_of(String *s, String *substr);
 
+/** Read a line from a file without modifying file read position (peek). 
+   @pre Destination String must be initialized externally.
+   @param s String to fill with next line from file
+   @param F File descriptor to file to peek into
+   @results 0 on success, EOF if end-of-file or error.
+*/
+int str_peek_next_line(String *s, FILE *F);
+
+/** Read any specified line from a file without modifying file read position (peek).
+   @pre Destination String must be initialized externally.
+   @param s String to fill with the line from file
+   @param F File descriptor to file to peek into
+   @param L Line number to read from file
+   @results 0 on success, EOF if end-of-file or error.
+*/
+int str_peek_line(String *s, FILE *F, int L);
+
 /** Obtain substring.  
    @pre Destination String s must be initialized externally.  
    @param dest Destination string
@@ -559,6 +576,7 @@ List *str_list_as_dbl(List *str_list);
   @result 1 if list includes specified string, 0 otherwise. 
  */
 int str_in_list_idx(String *s, List *l, int *idx);
+
 
 
 #endif

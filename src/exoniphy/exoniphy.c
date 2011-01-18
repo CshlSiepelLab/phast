@@ -10,6 +10,7 @@
 /* $Id: exoniphy.c,v 1.44 2008-11-12 02:07:59 acs Exp $ */
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <getopt.h>
 #include <phylo_hmm.h>
@@ -92,6 +93,7 @@ int main(int argc, char* argv[]) {
 
   /* other variables */
   FILE* F;
+  FILE *infile;
   PhyloHmm *phmm;
   MSA *msa;
   TreeModel **mod;
@@ -103,6 +105,7 @@ int main(int argc, char* argv[]) {
   int i, j, ncats, ncats_unspooled, trial, ntrials, opt_idx, gc_cat;
   double gc;
   char tmpstr[STR_LONG_LEN];
+  char *msa_fname = NULL;
   String *fname_str = str_new(STR_LONG_LEN), *str;
 
   while ((c = getopt_long(argc, argv, "i:D:c:H:m:s:p:g:B:T:L:F:IW:N:n:b:e:A:xSYUhq", 
@@ -189,8 +192,9 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  if (optind != argc - 1) 
-    die("ERROR: alignment filename is required argument.  Try 'exoniphy -h' for help.\n");
+  if ((optind != argc - 1) && (isatty(0))) {
+      die("ERROR: alignment filename is required argument.  Try 'exoniphy -h' for help.\n");
+  }
 
   set_seed(-1);
 
@@ -222,15 +226,27 @@ int main(int argc, char* argv[]) {
     extrapolate_tree = tr_new_from_file(fopen_fname(extrapolate_tree_fname, "r"));
 
   /* read alignment */
-  if (!quiet)
-    fprintf(stderr, "Reading alignment from %s...\n", 
-            !strcmp(argv[optind], "-") ? "stdin" : argv[optind]);
   
+   if(!isatty(0)) {
+     rewind(stdin);
+     infile = stdin;
+     msa_fname = "stdin";
+   } else {
+     msa_fname = argv[optind];
+     if ((infile = fopen(msa_fname, "r")) == NULL) 
+       die("ERROR: cannot open alignment file %s.\n", msa_fname);
+   }
+
+   if (!quiet)
+    fprintf(stderr, "Reading alignment from %s...\n",  msa_fname);
+
+
+   msa_format = msa_format_for_content(infile);
   if (msa_format == MAF)
-    msa = maf_read(fopen_fname(argv[optind], "r"), NULL, 1, NULL, NULL, 
+    msa = maf_read(infile, NULL, 1, NULL, NULL, 
                    NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
   else
-    msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
+    msa = msa_new_from_file_define_format(infile, msa_format, NULL);
   if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
   msa_remove_N_from_alph(msa);
 
@@ -251,7 +267,7 @@ int main(int argc, char* argv[]) {
 
   /* use filename root for default seqname and/or idpref */
   if (seqname == NULL || idpref == NULL) {
-    String *tmp = str_new_charstr(argv[optind]);
+    String *tmp = str_new_charstr(msa_fname);
     if (!str_equals_charstr(tmp, "-")) {
       str_remove_path(tmp);
       str_root(tmp, '.');
@@ -332,7 +348,9 @@ int main(int argc, char* argv[]) {
               no_cns ? "default-no-cns.cm" : "default.cm");
     #endif
     if (!quiet) fprintf(stderr, "Reading default category map from %s...\n", tmpstr);
-    cm = cm_read(fopen_fname(tmpstr, "r"));
+    if ((cm = cm_read(fopen_fname(tmpstr, "r"))) == NULL)
+      die("Unable to open default category map %s...\n", tmpstr);
+
     if (no_gaps_str == NULL) 
       no_gaps_str = get_arg_list("10,11,20,21,cds5\'ss,cds3\'ss,start_codon,stop_codon");
     if (inform_reqd == NULL) 

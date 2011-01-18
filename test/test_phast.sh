@@ -8,6 +8,32 @@
 # Commands that do not start with @ are run only once (using the default
 # $PATH).  Lines starting with "*" are comments.
 
+******************* phastOdds ******************
+
+phyloFit -i SS --tree "((hg16, panTro1), (mm3, rn3))" -o hpmr hpmrc.ss --quiet
+
+# let's go through the examples given in phastOdds--help
+tree_doctor --scale 3.0 hpmr.mod > hpmr_fast.mod
+@phastOdds --background-mods hpmr.mod --feature-mods hpmr_fast.mod --features elemcfa.bed hpmrc.fa
+@phastOdds --background-mods hpmr.mod --feature-mods hpmr_fast.mod --window 100 hpmrc.fa -v
+@phastOdds --background-mods hpmr.mod --feature-mods hpmr_fast.mod -y hpmrc.fa
+#@phastOdds --background-mods hpmr.mod --feature-mods hpmr_fast.mod --background-hmm coding.hmm --feature-hmm noncoding.hmm --features elemcfa.bed --output-bed hpmrc.fa
+
+#@phastCons  hpmrc.ss hpmr.mod,hpmr_fast.mod
+#@phastCons  hpmrc.ss --rho  0.5 hpmr.mod
+#msa_view -i SS --end 1000 -o SS hpmrc.ss > hpmrc_short.ss
+#!tempTree.cons.mod !tempTree.noncons.mod @phastCons  hpmrc.ss hpmr.mod --estimate-trees tempTree
+#@phastCons --target-coverage 0.25 --expected-length 12 hpmrc.ss hpmr.mod,hpmr_fast.mod
+#@phastCons --transitions 0.01,0.02 hpmrc.ss hpmr.mod,hpmr_fast.mod
+#!tempRho.cons.mod !tempRho.noncons.mod @phastCons --target-coverage 0.25 --expected-length 12 --estimate-rho tempRho --no-post-probs hpmrc.ss hpmr.mod
+#!tempTree.cons.mod !tempTree.noncons.mod @phastCons --target-coverage 0.25 --expected-length 12 --estimate-trees tempTree --no-post-probs hpmrc_short.ss $
+#@phastCons hpmrc.ss hpmr.mod,hpmr_fast.mod 
+#!tempTree.cons.mod !tempTree.noncons.mod @phastCons --target-coverage 0.25 --estimate-rho tempTree hpmrc.ss hpmr.mod
+
+# now do at least minimal testing on each option.  (or at least the ones that seem useful)
+#--gc,-G
+#!tempRho.cons.mod !tempRho.noncons.mod @phastCons --gc 0.8 --estimate-rho tempRho hpmrc_short.ss hpmr.mod
+
 ******************** phyloP ********************
 
 phyloFit hmrc.ss --tree "(human, (mouse,rat), cow)" -i SS --quiet

@@ -337,7 +337,7 @@ while (<INFILE>) {
 	}
 	if ($bin2) {
 	    system("$bin2/$cmd >$tempPrefix.2.stdout 2>$tempPrefix.2.stderr");
-	    print `grep -iE "error|abort|fail|assertion" $tempPrefix.1.stderr`;
+            print `grep -iE "error|abort|fail|assertion" $tempPrefix.1.stderr`;
 	    foreach $file (@compareFiles) {
 		system("rm -f $tempPrefix.2.$file");
 		system("mv $file $tempPrefix.2.$file") if (-e $file);

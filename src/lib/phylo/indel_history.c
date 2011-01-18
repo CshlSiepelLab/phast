@@ -646,14 +646,11 @@ IndelHistory *ih_reconstruct(MSA *msa, TreeNode *tree) {
   for (i = 0; i < tree->nnodes; i++) {
     for (j = 0; j < msa->length; j++) {
       if (tup_hist[msa->ss->tuple_idx[j]][i] != BASE) {
-	if (leaf_to_seq[i] < 0)
-	  die("ERROR ih_reconstruct leaf_to_seq[%i]=%i should be >=0\n",
-	      i, leaf_to_seq[i]);
-/* 	fprintf(stderr, "i %d, j %d, seqidx %d, ", i, j, leaf_to_seq[i]); */
+	if (leaf_to_seq[i] >= 0) 
+        {
 	  c = ss_get_char_tuple(msa, msa->ss->tuple_idx[j], leaf_to_seq[i], 0);
-/* 	fprintf(stderr, "c %c\n", c); */
-	if (c==GAP_CHAR) die("ERROR ih_reconstruct got GAP_CHAR\n");
-	if (msa->is_missing[(int)c]) die("ERROR ih_reconstruct got missing data\n");
+	  if (!(c==GAP_CHAR || msa->is_missing[(int)c])) die("ERROR reconstructing history in indel_history.c \n");
+        }
         ih->indel_strings[i][j] = tup_hist[msa->ss->tuple_idx[j]][i];
       }
     }

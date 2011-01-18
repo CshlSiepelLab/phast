@@ -288,6 +288,10 @@ SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
   return msaP;
 }
 
+/** @todo Parameter formatP is not needed, the file format is automatically
+    detected.  The formatP parameter can be taken out on the next build of
+    rphast
+ */
 SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP, 
 		  SEXP do4dP, SEXP alphabetP, 
 		  SEXP tupleSizeP, SEXP refseqP, SEXP orderedP,
@@ -403,12 +407,13 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
   }
 
   infile = fopen_fname(CHARACTER_VALUE(filenameP), "r");
+  fmt = msa_format_for_content(infile);
   if (fmt == MAF) {  //reads and automatically converts to SS format
     msa = maf_read_cats_subset(infile, refseq, tupleSize, alphabet, gff, cm, 
 			       cycle_size, ordered, reverse_groups_tag,
 			       NO_STRIP, 0, cats_to_do, seqnames, seq_keep);
   } else {
-    msa = msa_new_from_file(infile, fmt, alphabet);
+    msa = msa_new_from_file_define_format(infile, fmt, alphabet);
     if (idxOffsetP != R_NilValue) msa->idx_offset = INTEGER_VALUE(idxOffsetP);
   }
   if ((fmt != MAF || do4d) && gff != NULL) {

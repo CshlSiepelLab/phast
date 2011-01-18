@@ -645,6 +645,12 @@ int main(int argc, char* argv[]) {
     if (startcol != 1 || endcol != -1)
       die("ERROR: --start and --end not supported with --aggregate.\n");
 
+
+    
+    FILE *infile = fopen_fname(((String*)lst_get_ptr(msa_fname_list, 0))->chars, "r");
+    input_format = msa_format_for_content(infile);
+    fclose(infile);
+
     if (input_format == MAF && rseq_fname != NULL)
       fprintf(stderr, "WARNING: --refseq ignored with --aggregate.\n");
 
@@ -660,7 +666,7 @@ int main(int argc, char* argv[]) {
       gap_strip_mode = STRIP_ALL_GAPS;
 
     if (output_format == SS && !ordered_stats) {
-      msa = ss_aggregate_from_files(msa_fname_list, input_format, 
+      msa = ss_aggregate_from_files(msa_fname_list, 
                                     aggregate_list, tuple_size, 
                                     cats_to_do, cycle_size);
                                 /* avoid creating aggregate alignment
@@ -668,11 +674,12 @@ int main(int argc, char* argv[]) {
       cats_done = TRUE;         /* in this case, cats are taken care of */
     }
     else 
-      msa = msa_concat_from_files(msa_fname_list, input_format, 
+      msa = msa_concat_from_files(msa_fname_list, 
                                   aggregate_list, alphabet);
   }
 
   else if (input_format == MAF) {
+    input_format = msa_format_for_content(fopen_fname(infname, "r"));
     FILE *RSEQF = NULL;
 
     if (rseq_fname != NULL) RSEQF = fopen_fname(rseq_fname, "r");
@@ -687,7 +694,9 @@ int main(int argc, char* argv[]) {
   }
 
   else {
-    msa = msa_new_from_file(fopen_fname(infname, "r"), input_format, alphabet);
+
+    input_format = msa_format_for_content(fopen_fname(infname, "r"));
+    msa = msa_new_from_file_define_format(fopen_fname(infname, "r"), input_format, alphabet);
     if (msa == NULL) die ("ERROR reading %s.\n", infname);
   }
 

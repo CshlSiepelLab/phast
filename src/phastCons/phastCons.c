@@ -68,6 +68,8 @@ int main(int argc, char *argv[]) {
   };
 
   /* other vars */
+  FILE *infile;
+  char *msa_fname;
   char c;
   int opt_idx, i, coding_potential=FALSE;
   List *tmpl = NULL;
@@ -327,21 +329,26 @@ int main(int argc, char *argv[]) {
   }
 
   /* read alignment */
+  msa_fname = argv[optind];
+  if ((infile = fopen(msa_fname, "r")) == NULL) 
+       die("ERROR: cannot open alignment file %s.\n", msa_fname);
+
+  msa_format = msa_format_for_content(infile);
   if (p->results_f != NULL)
-    fprintf(p->results_f, "Reading alignment from %s...\n", argv[optind]);
+    fprintf(p->results_f, "Reading alignment from %s...\n", msa_fname);
   if (msa_format == MAF) {
     List *keepSeqs = tr_leaf_names(p->mod[0]->tree);
-    p->msa = maf_read_cats_subset(fopen_fname(argv[optind], "r"), NULL, 1, NULL, NULL, 
+    p->msa = maf_read_cats_subset(infile, NULL, 1, NULL, NULL, 
 				  NULL, -1, TRUE, NULL, NO_STRIP, FALSE, NULL, keepSeqs, 1);
     lst_free_strings(keepSeqs);
     lst_free(keepSeqs);
   }
   else
-    p->msa = msa_new_from_file(fopen_fname(argv[optind], "r"), msa_format, NULL);
+    p->msa = msa_new_from_file_define_format(infile, msa_format, NULL);
 
   /* use file name root for default seqname */
   if (p->viterbi_f != NULL && (p->seqname == NULL || p->idpref == NULL)) {
-    String *tmp = str_new_charstr(argv[optind]);
+    String *tmp = str_new_charstr(msa_fname);
     if (!str_equals_charstr(tmp, "-")) {
       str_remove_path(tmp);
       str_root(tmp, '.');

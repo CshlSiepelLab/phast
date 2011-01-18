@@ -136,7 +136,8 @@ struct tm_struct {
   MarkovMatrix ***P;            /**< Probability matrices for edges,
                                    indexed by node id and rate category */
   double *rK, *freqK;           /**< Rate constants and frequencies */
-  List **rate_matrix_param_row, **rate_matrix_param_col;
+  List **rate_matrix_param_row, /**< Rate matrix parameter row */
+  **rate_matrix_param_col;	/**< Rate matrix parameter column */
   int root_leaf_id;             /**< Indicates id of leaf node to be
                                    Interpreted as the root.  Must be
                                    a child of the actual root of the
@@ -144,8 +145,10 @@ struct tm_struct {
                                    value (-1), but if non-negative, the
                                    distance to its parent will be
                                    constrained to be zero.  */
-  int allow_gaps;
-  int allow_but_penalize_gaps;
+  int allow_gaps;		/**< If TRUE, gaps are not allowed to be
+				   taken into account for a model */
+  int allow_but_penalize_gaps;  /**< If TRUE, gaps are allowed but are
+				   penalized */
   int inform_reqd;              /**< If TRUE, only "informative" sites
                                    will be given non-zero probability */
   int estimate_backgd;          /**< Estimate background frequencies as free
@@ -192,12 +195,14 @@ struct tm_struct {
 				   if param_map[i]==j, then it is the j'th
 				   element in the vector of parameters which
 				   are optimized */
-  int scale_idx, bl_idx, ratematrix_idx, backgd_idx, ratevar_idx,
-    selection_idx;
-                                /**< These are the indices in all_params that
-				   show where scale, branchlens, rateMatrix,
-				   backgd_freqs, and rate variation parameters
-				   are stored */
+ /* These are the indices in all_params that show where scale, branchlens, rateMatrix,
+    backgd_freqs, and rate variation parameters are stored*/
+  int scale_idx,		/**< Starting index of scale parameters in parameter vector*/ 
+  bl_idx, 			/**< Starting index of branch length parameters in parameter vector */
+  ratematrix_idx, 		/**< Starting index of rate matrix info in parameter vector */
+  backgd_idx, 			/**< Starting index of background frequency info in parameter vector */
+  ratevar_idx,			/**< Starting index of rate variation parameters in parameter vector */
+  selection_idx;		/**< Starting index of selection parameters in parameter vector */
   List *bound_arg;              /**< Used by phyloFit, this is a copy of the
 				   command-line argument(s) which specify
 				   boundaries on parameters */

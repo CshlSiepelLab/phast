@@ -265,8 +265,7 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Reading alignment(s) ...\n");
   for (i = 0, j = 0; i < lst_size(msa_name_list); i++) {
     String *name = lst_get_ptr(msa_name_list, i);
-    MSA *msa = msa_new_from_file(fopen_fname(name->chars, "r"), 
-                                 msa_format, NULL);
+    MSA *msa = msa_new_from_file(fopen_fname(name->chars, "r"),  NULL);
     if (nseqs == -1) nseqs = msa->nseqs;
     if (!meme_mode &&
         (msa->length - msa_num_gapped_cols(msa, STRIP_ANY_GAPS, -1, -1) < 300 ||

@@ -153,7 +153,7 @@ MSA *msa_create_copy(MSA *msa, int suff_stats_only);
    @result Newly allocated MSA with contents of provided file
    @todo { Does not handle interleaved PHYLIP files } 
 */
-MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet);
+MSA *msa_new_from_file_define_format(FILE *F, msa_format_type format, char *alphabet);
 
 /** Creates a new alignment from the contents of the specified file.
    @param F File descriptor of file containing alignment data
@@ -161,16 +161,15 @@ MSA *msa_new_from_file(FILE *F, msa_format_type format, char *alphabet);
    @result Newly allocated MSA with contents of provided file
    @todo { Does not handle interleaved PHYLIP files } 
 */
-MSA *msa_new_from_file_o(FILE *F, char *alphabet);
+MSA *msa_new_from_file(FILE *F, char *alphabet);
 
 /** Create a single MSA from multiple files.
     @param msa_fname_list List of filenames containing MSA data
-    @param input_format Format of files to be read in
     @param seqnames List of sequence names to define order of sequences in combined MSA
     @param alphabet (Optional) Alphabet used in MSA files, if NULL Default Alphabet is used
     @result Newly created MSA populated with MSA data from multiple files    
  */
-MSA *msa_concat_from_files(List *msa_fname_list, msa_format_type input_format, 
+MSA *msa_concat_from_files(List *msa_fname_list, 
                            List *seqnames, char *alphabet);
 
 /** Create a new alignment from a FASTA file.
@@ -597,9 +596,15 @@ msa_format_type msa_str_to_format(const char *str);
 /** Get file format based on filename suffix.
     This is no longer used, file type is automatically detected 
     @param fname Filename to determine file format for
-    @result Of type msa_format_type determined by filename suffix
+    @result File format determined by filename suffix
  */
 msa_format_type msa_format_for_suffix(char *fname);
+
+/** Get file format based on file contents 
+    @param F File descriptor to file (or stdin) containing file data
+    @result File format determined by file contents
+*/
+msa_format_type msa_format_for_content(FILE *F);
 
 /** Get the appropriate filename suffix depending on msa_format_type.
     @param t Format type 
@@ -750,4 +755,5 @@ double msa_fraction_pairwise_diff(MSA *msa, int idx1, int idx2,
    @note If oneframe is FALSE, frame should have length msa->nseqs.  Otherwise only the first value is accessed and applies to all species.
 */
 char **msa_translate(MSA *msa, int oneframe, int *frame);
+
 #endif

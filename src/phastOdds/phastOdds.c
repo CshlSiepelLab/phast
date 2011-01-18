@@ -40,6 +40,8 @@ int main(int argc, char *argv[]) {
     *winscore_pos=NULL, *winscore_neg=NULL;
   int *no_alignment=NULL;
   List *pruned_names;
+  char *msa_fname;
+  FILE *infile;
 
   int opt_idx;
   struct option long_opts[] = {
@@ -156,11 +158,14 @@ int main(int argc, char *argv[]) {
     die("ERROR: too few arguments.  Try '%s -h'.\n", argv[0]);
 
   if (verbose) fprintf(stderr, "Reading alignment ...\n");
+  msa_fname = argv[optind];
+  infile = fopen_fname(msa_fname, "r");
+  inform = msa_format_for_content(infile);
   if (inform == MAF)
-    msa = maf_read(fopen_fname(argv[optind], "r"), NULL, 1, NULL, NULL, 
+    msa = maf_read(infile, NULL, 1, NULL, NULL, 
                    NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
   else
-    msa = msa_new_from_file(fopen_fname(argv[optind], "r"), inform, NULL);
+    msa = msa_new_from_file_define_format(infile, inform, NULL);
   if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
   msa_remove_N_from_alph(msa);
 

@@ -591,10 +591,12 @@ int main(int argc, char* argv[]) {
 
   if (cats_to_do_str != NULL) cats_to_do = cm_get_category_list(cm, cats_to_do_str, FALSE);
 
+  FILE *infile = fopen_fname(msa_fname, "r");
+  input_format = msa_format_for_content(infile);
   if (input_format == MAF) {
     if (gff != NULL) fprintf(stderr, "WARNING: use of --features with a MAF file currently forces a projection onto the reference sequence.\n");
 
-    msa = maf_read_cats(fopen_fname(msa_fname, "r"), 
+    msa = maf_read_cats(infile, 
                    rseq_fname == NULL ? NULL : fopen_fname(rseq_fname, "r"), 
                    tuple_size, NULL, gff, cm, -1, TRUE, NULL, NO_STRIP, FALSE,
 		   cats_to_do); 
@@ -602,7 +604,7 @@ int main(int argc, char* argv[]) {
        reverse strand in MAF case */
   }
   else {
-    msa = msa_new_from_file(fopen_fname(msa_fname, "r"),
+    msa = msa_new_from_file_define_format(infile,
                             input_format, NULL); 
 
     if (gff != NULL) {

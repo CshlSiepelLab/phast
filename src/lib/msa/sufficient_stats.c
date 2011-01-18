@@ -414,7 +414,7 @@ void ss_free_pooled_msa(PooledMSA *pmsa) {
 /* TODO: support collection of ordered sufficient stats -- possible
    now using idx_offset arg of ss_from_msas.  See maf_read in maf.c
    and warning message in msa_view.c. */
-MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
+MSA *ss_aggregate_from_files(List *fnames,
                              List *seqnames, int tuple_size, List *cats_to_do, 
                              int cycle_size) {
 
@@ -424,6 +424,7 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
   MSA *source_msa = NULL;
   int i, j;
   FILE *F;
+  msa_format_type format;
   char **names = (char**)smalloc(nseqs * sizeof(char*));
 
   /* set up names for new MSA object */
@@ -441,13 +442,14 @@ MSA *ss_aggregate_from_files(List *fnames, msa_format_type format,
     fprintf(stderr, "Reading alignment from %s ...\n", fname->chars);
 
     F = fopen_fname(fname->chars, "r");
+    format = msa_format_for_content(F);
     if (format == MAF)
       source_msa = maf_read_cats(F, NULL, tuple_size, NULL, NULL, NULL, cycle_size, 
                             FALSE, NULL, NO_STRIP, FALSE, cats_to_do); 
                                 /* note: assuming unordered, not allowing
                                    overlapping blocks */
     else 
-      source_msa = msa_new_from_file(F, format, NULL);
+      source_msa = msa_new_from_file_define_format(F, format, NULL);
     fclose(F);
 
     if (source_msa->seqs == NULL && 

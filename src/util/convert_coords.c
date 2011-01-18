@@ -107,15 +107,16 @@ int main(int argc, char* argv[]) {
 
   /* handle case of local alignment specially -- avoid representing
      the alignment explicitly */
+  if ((F = fopen(msa_fname, "r")) == NULL) {
+    die("ERROR: cannot open %s.\n", msa_fname);
+  }
+  format = msa_format_for_content(F);
   if (format == LAV) {
     LocalPwAlignment *lpwa = NULL;
 /*     int i; */
 
     fprintf(stderr, "WARNING: in local alignment mode, coordinates may only be mapped from query (reference) sequence to target (aligned) sequence.\n"); 
 
-    if ((F = fopen(msa_fname, "r")) == NULL) {
-      die("ERROR: cannot open %s.\n", msa_fname);
-    }
     lpwa = la_read_lav(F, 0);
     la_gff_transform(lpwa, gff);
 /*     for (i = 0; i < lst_size(gff->features); i++) { */
@@ -126,10 +127,7 @@ int main(int argc, char* argv[]) {
   }
 
   else {                        /* normal alignment */
-    if ((F = fopen(msa_fname, "r")) == NULL) {
-      die("ERROR: cannot open %s.\n", msa_fname);
-    }
-    msa = msa_new_from_file(F, format, NULL);
+    msa = msa_new_from_file_define_format(F, format, NULL);
     fclose(F);
 
     msa_map_gff_coords(msa, gff, src_ref, dest_ref, offset, NULL);

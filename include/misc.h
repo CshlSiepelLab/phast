@@ -776,4 +776,6 @@ void *alloc_n_dimensional_array(int ndim, int *dimsize, size_t size);
 void free_n_dimensional_array(void *data, int ndim, int *dimsize);
 
 /** \} */
+
+int get_nlines_in_file(FILE *F);
 #endif
