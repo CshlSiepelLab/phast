@@ -292,3 +292,26 @@ List* lst_new_dbl(int nelements)
 List* lst_new_ptr(int nelements) 
 { return lst_new(nelements, sizeof(void*)); }
 
+
+
+/********************************************************************/
+/*     Non-inline version of inline functions                       */
+/********************************************************************/
+
+int lst_size_non_inline(List *l)
+{ return l->ridx - l->lidx;}
+
+int lst_get_int_non_inline(List* l, int i) {
+  int *ptr = (int*)lst_get(l, i);
+  return (ptr == NULL ? 0 : *ptr);
+}
+
+void* lst_get_ptr_non_inline(List* l, int i) {
+  void **ptr =  (void**)lst_get(l, i);
+  return (ptr == NULL ? NULL : *ptr);
+}
+
+double lst_get_dbl_non_inline(List* l, int i) {
+  double *ptr =  (double*)lst_get(l, i);
+  return (ptr == NULL ? 0 : *ptr);
+}

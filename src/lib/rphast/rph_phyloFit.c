@@ -72,7 +72,7 @@ SEXP rph_phyloFit(SEXP msaP,
   if (initModP != R_NilValue) {
     pf->input_mod = (TreeModel*)EXTPTR_PTR(initModP);
     pf->subst_mod = pf->input_mod->subst_mod;
-    rph_tm_register_protect(pf->input_mod);
+    tm_register_protect(pf->input_mod);
   } else pf->subst_mod = rph_get_subst_mod(substModP);
   
   pf->estimate_scale_only = LOGICAL_VALUE(scaleOnlyP);
@@ -121,7 +121,7 @@ SEXP rph_phyloFit(SEXP msaP,
 
   if (gffP != R_NilValue) {
     pf->gff = (GFF_Set*)EXTPTR_PTR(gffP);
-    rph_gff_register_protect(pf->gff);
+    gff_register_protect(pf->gff);
   }
 
   if (ninfSitesP != R_NilValue)
@@ -167,7 +167,7 @@ SEXP rph_phyloFit(SEXP msaP,
     pf->selection = NUMERIC_VALUE(selectionP);
   }
   
-  rph_msa_register_protect(pf->msa);
+  msa_register_protect(pf->msa);
 
   run_phyloFit(pf);
   rv = PROTECT(rph_listOfLists_to_SEXP(pf->results));

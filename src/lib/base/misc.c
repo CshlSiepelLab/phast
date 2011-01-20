@@ -431,7 +431,7 @@ double get_arg_dbl_bounds(char *arg, double min, double max) {
 }
 
 //rphast versions defined in rph_util.c
-#ifndef RPHAST
+#ifndef USE_PHAST_MEMORY_HANDLER
 /* safe malloc and realloc */
 void *smalloc(size_t size) {
   void *retval = malloc(size);
@@ -439,9 +439,6 @@ void *smalloc(size_t size) {
     die("FATAL ERROR: out of memory.\n");
   return retval;
 }
-
-void set_static_var(void **ptr) {}
-
 
 void *srealloc(void *ptr, size_t size) {
   void *retval = realloc(ptr, size);
