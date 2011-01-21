@@ -321,12 +321,7 @@ int rphast_fprintf(FILE *f, const char *format, ...);
 #define checkInterrupt() R_CheckUserInterrupt()
 #define checkInterruptN(i, n) if ((i)%(n) == 0) R_CheckUserInterrupt()
 
-/** Static memory free
-    @param ptr Pointer to object to free
-*/
-void sfree(void *ptr);
-#else
-#define sfree free
+#else 
 
 /** Display a warning on the console.
     @param warnfmt Format of the string to write to console (like printf)
@@ -406,11 +401,21 @@ double get_arg_dbl_bounds(char *arg, double min, double max);
 */
 void *smalloc(size_t size);
 
-/** Save re-malloc 
+/** Safe re-malloc 
     @param ptr Pointer to memory to reallocate
     @param size New size
 */
 void *srealloc(void *ptr, size_t size);
+
+#ifdef USE_PHAST_MEMORY_HANDLER
+/** Safe memory free
+    @param ptr Pointer to object to free
+*/
+void sfree(void *ptr);
+#else
+#define sfree free
+#endif
+
 void set_static_var(void **ptr);
 
 /** Copy a string

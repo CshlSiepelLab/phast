@@ -1197,7 +1197,7 @@ void free_n_dimensional_array(void *data, int ndim, int *dimsize) {
 int get_nlines_in_file(FILE *F) {
   char buffer[BUFFERSIZE];
   String *line = str_new(STR_MED_LEN);
-  int stop = 0, abort = 0,  lines=0;
+  int abort = 0,  lines=0;
  
   do {
     buffer[BUFFERSIZE - 2] = '\n'; 
