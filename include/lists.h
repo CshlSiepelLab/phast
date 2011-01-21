@@ -297,7 +297,7 @@ int lst_get_int(List* l, int i) {
 
   \sa lst_get_int
 */
-int lst_get_int_not_inline(List *l, int i);
+int lst_get_int_non_inline(List *l, int i);
 
 
 /** Retrieve ith double in list .
