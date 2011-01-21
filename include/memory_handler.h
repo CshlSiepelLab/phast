@@ -19,7 +19,7 @@
     phast_free_all().  Once phast_free_all() is called, a new memory 
     handler needs to be created before any allocation can occur.
     Objects can be protected from being freed by phast_free_all() via 
-    protect functions, in which case the use needs to arrange to free
+    protect functions, in which case the user needs to arrange to free
     them manually.
 
     If phast_new_mem_handler() is called multiple times without calling
