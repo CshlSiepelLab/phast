@@ -315,7 +315,7 @@ void hmm_cross_product(HMM *dest, HMM *src1, HMM *src2);
 void hmm_reset(HMM *hmm);
 
 /**
-  Reverse and compliment a sequence strand
+  Reverse and complement a sequence strand
 Given an HMM, some of whose states represent strand-specific
    phenomena in DNA (e.g., coding regions, UTRs, introns), create a
    new HMM with a second version of all such states, corresponding to

@@ -482,8 +482,8 @@ void maf_peek(FILE *F, char ***names, Hashtable *name_hash,
    @param[in] end_idx Ending of interval for which to extract features  
    @param[in] gff_idx Feature number to start extracting from in GFF
    @param[in] cm Category Map used for category ranges of features
-   @param[in] reverse_compl Whether to reverse compliment '-' strands
-   @param[in] tuple_size Size of tuples, used in reverse complimenting
+   @param[in] reverse_compl Whether to reverse complement '-' strands
+   @param[in] tuple_size Size of tuples, used in reverse complementing
    @note Shifts all coords such that start_idx is position 1 
 */
 void maf_block_sub_gff(GFF_Set *sub_gff, GFF_Set *gff, int start_idx, 

@@ -8,7 +8,7 @@
  ***************************************************************************/
 
 /** \file msa.h
-   Reading and writing of sequence data to Multiple Sequence Alignment (MSA) file types (fasta, phylip, etc) and manipulating data:  Reverse compliment, handle missing/gap data, identify informative sites
+   Reading and writing of sequence data to Multiple Sequence Alignment (MSA) file types (fasta, phylip, etc) and manipulating data:  Reverse complement, handle missing/gap data, identify informative sites
    \ingroup msa
 */
 
@@ -371,40 +371,40 @@ void msa_add_seq_ss(MSA *msa, int new_nseq);
   \{ */
 
 /** Returns complement of a single DNA base.  
-    @param c Single DNA base to compliment
+    @param c Single DNA base to complement
     @return Compliment of single DNA base
     @note Leaves all bases but A,C,G,T unchanged. 
 */
 char msa_compl_char(char c);
 
 /** Reverse complements a DNA sequence.
-    @param seq Sequence data to reverse compliment
+    @param seq Sequence data to reverse complement
     @param length Length of sequence data in chars 
 */
 void msa_reverse_compl_seq(char *seq, int length);
 
 /** Reverse complements a segment of a sequence 
-    @param seq Sequence data containing segment to reverse compliment
-    @param start Starting index of sequence to reverse compliment
-    @param end Ending index of sequence to reverse compliment
+    @param seq Sequence data containing segment to reverse complement
+    @param start Starting index of sequence to reverse complement
+    @param end Ending index of sequence to reverse complement
 */
 void msa_reverse_compl_seq_segment(char *seq, int start, int end);
 
 /** Reverse complements an entire MSA. 
-    @param msa MSA to reverse compliment
+    @param msa MSA to reverse complement
 */
 void msa_reverse_compl(MSA *msa);
 
 /** Reverse complements a segment of an MSA.
-   @param msa MSA containing segments to reverse compliment
-   @param start Starting index of sequences in MSA to reverse compliment
-   @param end Ending index of sequences in MSA to reverse compliment
+   @param msa MSA containing segments to reverse complement
+   @param start Starting index of sequences in MSA to reverse complement
+   @param end Ending index of sequences in MSA to reverse complement
  */
 void msa_reverse_compl_segment(MSA *msa, int start, int end);
 
 /** Reverse complements all segments of an MSA corresponding to "groups"
    in a GFF that appear to be completely on the reverse strand.  
-   @param msa MSA containing segments to reverse compliment
+   @param msa MSA containing segments to reverse complement
    @param gff Feature Set to create groups from
    @param aux_data Auxiliary array of site-specific integers (e.g., gap patterns) to be kept in sync with the alignment and/or GFF_Set
    @note The GFF is partitioned into "groups" using gff_partition_by_group,

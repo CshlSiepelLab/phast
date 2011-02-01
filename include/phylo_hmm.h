@@ -75,7 +75,7 @@ typedef struct {
                                    no gap pattern) */
   int nratecats;                /**< Number of rate categories (for
                                    cross-product constructions) */
-  int reflected;                /**< Whether "reflected" for reverse compliment */
+  int reflected;                /**< Whether "reflected" for reverse complement */
   double **emissions;           /**< Values computed by
                                    phmm_compute_emissions */
   double **forward;             /**< Forward scores */
