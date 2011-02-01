@@ -188,8 +188,9 @@ OPTIONS:
 
  (Input/output)
     --msa-format, -i PHYLIP|FASTA|MPM|SS|MAF
-        (Default SS) Alignment file format.  Note that the msa_view
-        program can also be used to convert between formats.
+        Alignment file format.  Default is to guess format based on 
+        file contents.  Note that the msa_view program can be used to 
+        convert between formats.
 
     --viterbi [alternatively --most-conserved], -V <fname>
         Predict discrete elements using the Viterbi algorithm and

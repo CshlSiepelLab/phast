@@ -10,7 +10,6 @@
 /* $Id: exoniphy.c,v 1.44 2008-11-12 02:07:59 acs Exp $ */
 
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <getopt.h>
 #include <phylo_hmm.h>
@@ -47,7 +46,7 @@ double GC_THRESHOLDS[] = {0.40, 0.45, 0.50, 0.55, -1};
 int main(int argc, char* argv[]) {
 
   /* variables for options, with defaults */
-  int msa_format = SS;
+  int msa_format = -1;
   int quiet = FALSE, reflect_hmm = FALSE, score = FALSE, indels = FALSE, 
     no_cns = FALSE;
   double bias = NEGINFTY;
@@ -192,7 +191,7 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  if ((optind != argc - 1) && (isatty(0))) {
+  if (optind != argc - 1) {
       die("ERROR: alignment filename is required argument.  Try 'exoniphy -h' for help.\n");
   }
 
@@ -226,27 +225,26 @@ int main(int argc, char* argv[]) {
     extrapolate_tree = tr_new_from_file(fopen_fname(extrapolate_tree_fname, "r"));
 
   /* read alignment */
-  
-   if(!isatty(0)) {
-     rewind(stdin);
-     infile = stdin;
-     msa_fname = "stdin";
-   } else {
-     msa_fname = argv[optind];
-     if ((infile = fopen(msa_fname, "r")) == NULL) 
-       die("ERROR: cannot open alignment file %s.\n", msa_fname);
-   }
+  msa_fname = argv[optind];
+  if ((infile = fopen(msa_fname, "r")) == NULL) 
+    die("ERROR: cannot open alignment file %s.\n", msa_fname);
 
-   if (!quiet)
+  if (msa_format == -1) {
+    msa_format = msa_format_for_content(infile);
+    if (msa_format == -1)
+      die("ERROR detecting alignment format.  Try 'exoniphy -h' for help.\n");
+  }
+  if (!quiet)
     fprintf(stderr, "Reading alignment from %s...\n",  msa_fname);
 
-
-   msa_format = msa_format_for_content(infile);
   if (msa_format == MAF)
     msa = maf_read(infile, NULL, 1, NULL, NULL, 
                    NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
   else
     msa = msa_new_from_file_define_format(infile, msa_format, NULL);
+
+  fclose(infile);
+
   if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
   msa_remove_N_from_alph(msa);
 

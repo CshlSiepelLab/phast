@@ -45,8 +45,8 @@ OPTIONS:
         1/omega.
 
     --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
-        Alignment format (default FASTA).  Note that the program
-        msa_view can be used for conversion.
+        Alignment format (default is to guess format from file contents).  
+	Note that the program msa_view can be used for conversion.
 
     --refseq, -M <fname>
         (for use with --msa-format MAF) Read the complete text of the

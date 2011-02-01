@@ -161,14 +161,14 @@ OPTIONS:\n\
 \n\
  (File formats, gap stripping, reordering, etc.)\n\
     --in-format, -i PHYLIP|FASTA|MPM|MAF|SS\n\
-        (Default FASTA) Input file format.  FASTA is as usual.  PHYLIP\n\
-        is compatible with the formats used in the PHYLIP and PAML\n\
-        packages.  MPM is the format used by the MultiPipMaker aligner\n\
-        and some other of Webb Miller's older tools.  MAF (\"Multiple\n\
-        Alignment Format\") is used by MULTIZ/TBA and the UCSC Genome\n\
-        Browser.  SS is a simple format describing the sufficient\n\
-        statistics for phylogenetic inference (distinct columns or\n\
-        tuple of columns and their counts).  Use --out-format SS with\n\
+        (Default is to guess format from file contents).  Input file\n\
+        format.  FASTA is as usual.  PHYLIP is compatible with the formats\n\
+        used in the PHYLIP and PAML packages.  MPM is the format used by the\n\
+        MultiPipMaker aligner and some other of Webb Miller's older tools.\n\
+        MAF (\"Multiple Alignment Format\") is used by MULTIZ/TBA and the\n\
+        UCSC Genome Browser.  SS is a simple format describing the\n\
+        sufficient statistics for phylogenetic inference (distinct columns\n\
+        or tuple of columns and their counts).  Use --out-format SS with\n\
         --in-format MAF for best efficiency (explicit alignment is\n\
         never created).  Also, use --unordered-ss if possible.\n\
 \n\
@@ -398,7 +398,7 @@ void fill_with_Ns(MSA *msa, List *fill_N_list, msa_coord_map *map) {
 
 int main(int argc, char* argv[]) {
   MSA *msa = NULL, *sub_msa = NULL, *split_msa = NULL;
-  msa_format_type input_format = FASTA, output_format = FASTA;
+  msa_format_type input_format = -1, output_format = FASTA;
   List *seqlist_str = NULL, *l = NULL, *tmpl = NULL;
   char *infname = NULL, *clean_seqname = NULL, *rseq_fname = NULL,
     *reverse_groups_tag = NULL, *alphabet = NULL;
@@ -676,28 +676,30 @@ int main(int argc, char* argv[]) {
     else 
       msa = msa_concat_from_files(msa_fname_list, 
                                   aggregate_list, alphabet);
-  }
+  } else {
+    FILE *infile = fopen_fname(infname, "r");
+    if (input_format == -1) {
+      input_format = msa_format_for_content(infile);
+      if (input_format == -1)
+	die("ERROR: unknown alignment format.  Try 'msa_view -h' for help\n");
+    }
+    if (input_format == MAF) {
+      FILE *RSEQF = NULL;
+      
+      if (rseq_fname != NULL) RSEQF = fopen_fname(rseq_fname, "r");
+      
+      msa = maf_read_cats(infile, RSEQF, tuple_size, 
+			  alphabet, gff, cm, cycle_size, 
+			  output_format != SS || ordered_stats, 
+			  reverse_groups_tag, gap_strip_mode, 
+			  maf_keep_overlapping, cats_to_do);
+      /* store order unless output is SS and
+	 no ordered stats */
+      if (RSEQF != NULL) fclose(RSEQF);
+    } else msa = msa_new_from_file_define_format(infile, input_format, alphabet);
 
-  else if (input_format == MAF) {
-    input_format = msa_format_for_content(fopen_fname(infname, "r"));
-    FILE *RSEQF = NULL;
-
-    if (rseq_fname != NULL) RSEQF = fopen_fname(rseq_fname, "r");
-
-    msa = maf_read_cats(fopen_fname(infname, "r"), RSEQF, tuple_size, 
-		        alphabet, gff, cm, cycle_size, 
-		        output_format != SS || ordered_stats, 
-		        reverse_groups_tag, gap_strip_mode, 
-			maf_keep_overlapping, cats_to_do);
-                                /* store order unless output is SS and
-                                   no ordered stats */
-  }
-
-  else {
-
-    input_format = msa_format_for_content(fopen_fname(infname, "r"));
-    msa = msa_new_from_file_define_format(fopen_fname(infname, "r"), input_format, alphabet);
     if (msa == NULL) die ("ERROR reading %s.\n", infname);
+    fclose(infile);
   }
 
   if (unmask)

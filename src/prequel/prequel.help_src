@@ -138,8 +138,8 @@ OPTIONS:
         files.  Output files will have suffix ".bin" rather than ".probs"
 
     --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
-        Alignment format (default FASTA).  Note that the program
-        msa_view can be used for conversion.
+        Alignment format (default is to guess format from file content).
+	Note that the program msa_view can be used for conversion.
 
     --refseq, -r <fname>
         (for use with --msa-format MAF) Read the complete text of the

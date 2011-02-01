@@ -2423,6 +2423,7 @@ msa_format_type msa_str_to_format(const char *str) {
   return -1;
 }
 
+
 /* Return format type indicated by filename suffix */
 msa_format_type msa_format_for_suffix(char *fname) {
   msa_format_type retval = -1;
@@ -2441,7 +2442,7 @@ msa_format_type msa_format_for_suffix(char *fname) {
 
 /* Return format type indicated by file contents */
 msa_format_type msa_format_for_content(FILE *F) {
-  msa_format_type retval = 2;
+  msa_format_type retval = -1;
   String *line = str_new(STR_MED_LEN);
   List *matches = lst_new_ptr(3);
   Regex *ss_re, *phylip_re, *fasta_re, *lav_re, *maf_re;  

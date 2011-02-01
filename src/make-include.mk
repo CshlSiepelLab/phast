@@ -43,7 +43,7 @@ TARGETLIB = ${LIB}/libphast.a
 # an appropriate alternative
 ifneq ($(TARGETOS), Windows)
  #for debugging
- #CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG
+# CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG
  # for best performance
 CFLAGS = -O3 
  # some other options

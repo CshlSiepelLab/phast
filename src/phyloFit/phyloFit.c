@@ -10,7 +10,6 @@
 /* phyloFit - fit phylogenetic model(s) to a multiple alignment */
  
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <lists.h>
 #include <stringsplus.h>
@@ -33,13 +32,13 @@
 
 int main(int argc, char *argv[]) {
   char *msa_fname = NULL, *alph = "ACGT";
-  msa_format_type input_format = FASTA;
+  msa_format_type input_format = -1;
   char c;
   int opt_idx, seed=-1;
   String *optstr;
   List *tmplist = NULL; 
   struct phyloFit_struct *pf;
-  FILE *infile = NULL;
+  FILE *infile;
   
   struct option long_opts[] = {
     {"msa", 1, 0, 'm'},
@@ -315,31 +314,21 @@ int main(int argc, char *argv[]) {
 
   set_seed(seed);
 
-  //Check to see if input file is passed by pipe
-  if(!isatty(0)) {
-    rewind(stdin);   
-    infile = stdin;
-    msa_fname = "stdin";
-    pf->msa_fname = msa_fname;
-  }
-
   if (msa_fname == NULL) {
-    if ((optind >= argc) || (!isatty(0))) 
+    if (optind >= argc) 
       die("ERROR: missing alignment filename.  Type 'phyloFit -h' for usage.\n");
     msa_fname = argv[optind];
     pf->msa_fname = msa_fname;
   }
 
-  if (infile == NULL)
-  {
-    if ((infile = fopen(msa_fname, "r")) == NULL) 
-      die("ERROR: cannot open alignment file %s.\n", msa_fname);
-  }
+  if ((infile = fopen(msa_fname, "r")) == NULL) 
+    die("ERROR: cannot open alignment file %s.\n", msa_fname);
 
-  input_format = msa_format_for_content(infile);
-
-  if (input_format == -1)
+  if (input_format == -1) {
+    input_format = msa_format_for_content(infile);
+    if (input_format == -1)
       die("ERROR: unrecognized alignment format.    Type 'phyloFit -h' for usage.\n");
+  }
 
   if (pf->nonoverlapping && (pf->use_conditionals || pf->gff != NULL || 
 			     pf->cats_to_do_str || input_format == SS))

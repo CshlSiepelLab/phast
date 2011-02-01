@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
 
   int ignore_base_id = FALSE, ignore_gap_type = FALSE;
   char *alphabet = "ACGT";
-  msa_format_type format1 = FASTA, format2 = FASTA;
+  msa_format_type format1 = -1, format2 = -1;
   FILE *infile1, *infile2;
 
   struct option long_opts[] = {
@@ -72,7 +72,11 @@ int main(int argc, char *argv[]) {
 
   set_seed(-1);
   infile1 = fopen_fname(argv[optind], "r");
-  format1 = msa_format_for_content(infile1);
+  if (format1 == -1) {
+    format1 = msa_format_for_content(infile1);
+    if (format1 == -1) 
+      die("ERROR: unknown alignment format for 1st alignment.  Try 'msa_diff -h' for help.\n");
+  }
   if (format1 == MAF) 
     msa1 = maf_read(fopen_fname(argv[optind], "r"), NULL, 1, alphabet,
                     NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
@@ -81,7 +85,11 @@ int main(int argc, char *argv[]) {
                              format1, alphabet);
 
   infile2 = fopen_fname(argv[optind+1], "r");
-  format2 = msa_format_for_content(infile2);
+  if (format2 == -1) {
+    format2 = msa_format_for_content(infile2);
+    if (format2 == -1)
+      die("ERROR: unknown alignment format for 2nd alignment.  Try 'msa_diff -h' for help.\n");
+  }
   if (format2 == MAF)
     msa2 = maf_read(fopen_fname(argv[optind+1], "r"), NULL, 1, alphabet,
                     NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE);

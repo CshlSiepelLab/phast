@@ -106,7 +106,7 @@ OPTIONS:
 
     --msa-format, -i <type>
         Input format for alignment.  May be FASTA, PHYLIP, MPM, SS, or
-        MAF (default FASTA)
+        MAF (default is to guess format from file contents).
 
     --refidx, -r <ref_seq>
         Index of reference sequence for coordinates.  Use 0 to

@@ -8,7 +8,6 @@
  ***************************************************************************/
 
 #include <stdlib.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -60,7 +59,7 @@ int main(int argc, char *argv[]) {
 
   /* arguments and defaults for options */
   FILE *refseq_f = NULL, *msa_f = NULL;
-  msa_format_type msa_format = FASTA;
+  msa_format_type msa_format = -1;
   TreeModel *source_mod;
   double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU, 
     phi = DEFAULT_PHI, gamma = -1, omega = -1, 
@@ -154,7 +153,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (optind != argc - 1 - isatty(0))
+  if (optind != argc - 1)
     die("Missing alignment file or model file.  Try 'dless -h'.\n");
 
   if (set_transitions && (gamma != -1 || omega != -1))
@@ -168,8 +167,8 @@ int main(int argc, char *argv[]) {
   if (gamma != -1)
     nu = gamma/(1-gamma) * mu;
 
-  fprintf(stderr, "Reading tree model from %s...\n", argv[optind+(isatty(0))]);
-  source_mod = tm_new_from_file(fopen_fname(argv[optind+(isatty(0))], "r"), 1);
+  fprintf(stderr, "Reading tree model from %s...\n", argv[optind]);
+  source_mod = tm_new_from_file(fopen_fname(argv[optind], "r"), 1);
 
   if (source_mod->nratecats > 1) 
     die("ERROR: rate variation not currently supported.\n");
@@ -181,18 +180,14 @@ int main(int argc, char *argv[]) {
     phast_warning("WARNING: p-value computation assumes reversibility and your model is non-reversible.\n");
 
   /* read alignment */
-  if(!isatty(0)) {
-     rewind(stdin);
-     msa_f = stdin;
-     msa_fname = "stdin";
-   } else {
-     msa_fname = argv[optind];
-     if ((msa_f = fopen(msa_fname, "r")) == NULL) 
-       die("ERROR: cannot open alignment file %s.\n", msa_fname);
-   }
+  msa_f = fopen_fname(argv[optind], "r");
 
-  fprintf(stderr, "Reading alignment from %s...\n", msa_fname);
-  msa_format = msa_format_for_content(msa_f);
+  fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
+  if (msa_format == -1) {
+    msa_format = msa_format_for_content(msa_f);
+    if (msa_format == -1)
+      die("ERROR:  unknown alignment format.  Try 'dless -h' for help\n");
+  }
 
   if (msa_format == MAF) {
     msa = maf_read(msa_f, refseq_f, 1, NULL, NULL, NULL, -1, TRUE, NULL, 

@@ -74,7 +74,8 @@ OPTIONS:
         and then invoke clean_genes with "--groupby exon_id".
 
     --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
-        (Default SS) Alignment file format. 
+        Alignment file format.  Default is to guess format from file 
+        contents.
 
     --refseq, -r <seqfile.fa>
         (Required with --msa-format MAF)  Complete reference 

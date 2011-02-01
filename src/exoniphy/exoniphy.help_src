@@ -61,7 +61,8 @@ OPTIONS:
 
  (Input and output)
     --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS 
-        (default SS) File format of input alignment.
+       File format of input alignment.  Default is to guess alignment
+       format from file contents.
  
     --score, -S
         Report log-odds scores for predictions, equal to their log

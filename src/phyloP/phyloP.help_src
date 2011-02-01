@@ -122,7 +122,7 @@ EXAMPLES:
 OPTIONS:
 
     --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
-        Alignment format (default FASTA).  
+        Alignment format (default is to guess format from file contents).
 
     --method, -m SPH|LRT|SCORE|GERP
         Method used to compute p-values or conservation/acceleration scores

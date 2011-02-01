@@ -66,7 +66,8 @@ OPTIONS:
         Number of replicates.  Default is 100.
 
     --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
-        (non-parametric case only)  Alignment format.  Default is FASTA.
+        (non-parametric case only)  Alignment format.  Default is to guess
+	format from file contents.        
 
     --alignments-only, -a <fname_root>
         Generate alignments and write them to files with given filename

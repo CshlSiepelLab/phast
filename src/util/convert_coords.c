@@ -45,13 +45,14 @@ OPTIONS:\n\
                     alignment is a sub-alignment of the alignment (or \n\
                     sequence) for which the coordinates are specified.\n\
     -i FASTA|PHYLIP|MPM|SS\n\
-                    (default FASTA) Alignment format.\n\n");  
+                    Alignment format.  Default is to guess format from file\n\
+                    contents\n\n");  
 } 
 
 int main(int argc, char* argv[]) {
   FILE* F;
   MSA *msa;
-  msa_format_type format = FASTA;
+  msa_format_type format = -1;
   int src_ref = -1, dest_ref = 0, offset = 0;
   char *msa_fname = NULL, *feat_fname = NULL;
   GFF_Set *gff;
@@ -110,7 +111,11 @@ int main(int argc, char* argv[]) {
   if ((F = fopen(msa_fname, "r")) == NULL) {
     die("ERROR: cannot open %s.\n", msa_fname);
   }
-  format = msa_format_for_content(F);
+  if (format == -1) {
+    format = msa_format_for_content(F);
+    if (format == -1)
+      die("ERROR: unknown alignment format.  Try 'convert_coords -h' for help\n");
+  }
   if (format == LAV) {
     LocalPwAlignment *lpwa = NULL;
 /*     int i; */

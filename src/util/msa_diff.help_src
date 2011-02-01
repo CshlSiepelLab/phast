@@ -6,10 +6,10 @@ DESCRIPTION: Compare two multiple alignments and report differences.
 
 OPTIONS:
     --format1, -i FASTA|SS|PHYLIP|MPM|MAF
-        Format of first alignment (default FASTA).
+        Format of first alignment (default is to guess format from file contents).
 
     --format2, -j FASTA|SS|PHYLIP|MPM|MAF
-        Format of second alignment (default FASTA).
+        Format of second alignment (default is to guess format from file contents).
 
     --alphabet, -a <alphabet_string>
         Use given string for alphabet.  Can be used to accommodate

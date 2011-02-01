@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
   String *tmpstr;
   char *mods_fname = NULL;
   List *mod_fname_list;
-  msa_format_type msa_format = SS;
+  msa_format_type msa_format = -1;
 
   while ((c = getopt_long(argc, argv, 
 			  "S:H:V:ni:k:l:C:G:zt:E:R:T:O:r:xL:sN:P:g:U:c:e:IY:D:JM:F:pA:Xqh", 
@@ -333,7 +333,11 @@ int main(int argc, char *argv[]) {
   if ((infile = fopen(msa_fname, "r")) == NULL) 
        die("ERROR: cannot open alignment file %s.\n", msa_fname);
 
-  msa_format = msa_format_for_content(infile);
+  if (msa_format == -1) {
+    msa_format = msa_format_for_content(infile);
+    if (msa_format == -1)
+      die("ERROR detecting alignment format.  Try 'phastCons -h' for help.\n");
+  }
   if (p->results_f != NULL)
     fprintf(p->results_f, "Reading alignment from %s...\n", msa_fname);
   if (msa_format == MAF) {

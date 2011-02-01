@@ -442,7 +442,8 @@ MSA *ss_aggregate_from_files(List *fnames,
     fprintf(stderr, "Reading alignment from %s ...\n", fname->chars);
 
     F = fopen_fname(fname->chars, "r");
-    format = msa_format_for_content(F);
+    if ((format = msa_format_for_content(F)) == -1)
+      die("ERROR: Could not detect file format in %s\n", fname->chars);
     if (format == MAF)
       source_msa = maf_read_cats(F, NULL, tuple_size, NULL, NULL, NULL, cycle_size, 
                             FALSE, NULL, NO_STRIP, FALSE, cats_to_do); 

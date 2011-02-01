@@ -118,14 +118,14 @@ OPTIONS:
         recommended with context-dependent models (see below).
 
     --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS
-        (default FASTA) Alignment format.  FASTA is as usual.  PHYLIP
-        is compatible with the formats used in the PHYLIP and PAML
-        packages.  MPM is the format used by the MultiPipMaker aligner
-        and some other of Webb Miller's older tools.  MAF ("Multiple
-        Alignment Format") is used by MULTIZ/TBA and the UCSC Genome
-        Browser.  SS is a simple format describing the sufficient
-        statistics for phylogenetic inference (distinct columns or
-        tuple of columns and their counts).  Note that the program
+        (default is to guess format from file contents) Alignment format.  
+        FASTA is as usual.  PHYLIP is compatible with the formats used in 
+        the PHYLIP and PAML packages.  MPM is the format used by the 
+        MultiPipMaker aligner and some other of Webb Miller's older tools.  
+        MAF ("Multiple Alignment Format") is used by MULTIZ/TBA and the 
+        UCSC Genome Browser.  SS is a simple format describing the 
+	sufficient statistics for phylogenetic inference (distinct columns
+        or tuple of columns and their counts).  Note that the program
         "msa_view" can be used for file conversion.
 
     --out-root, -o <output_fname_root>
