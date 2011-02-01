@@ -19,7 +19,7 @@
 #include <subst_distrib.h>
 #include <prob_vector.h>
 #include <prob_matrix.h>
-#include <phyloP.h>
+#include <phylo_p_print.h>
 #include <list_of_lists.h>
 
 void print_quantiles(FILE *outfile, Vector *distrib, ListOfLists *result) {

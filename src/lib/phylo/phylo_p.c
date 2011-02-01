@@ -19,7 +19,7 @@
 #include <prob_vector.h>
 #include <prob_matrix.h>
 #include "list_of_lists.h"
-#include "phyloP.h"
+#include "phylo_p_print.h"
 #include "phylo_p.h"
 #include "fit_column.h"
 #include "fit_feature.h"

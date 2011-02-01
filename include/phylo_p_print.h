@@ -7,12 +7,12 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-/* $Id: phyloP.h,v 1.10 2008-11-12 02:07:59 acs Exp $ */
+/* $Id: phylo_p_print.h,v 1.10 2008-11-12 02:07:59 acs Exp $ */
 
 /* Functions that output data computed by phyloP */
 
-#ifndef PHYLOP_H
-#define PHYLOP_H
+#ifndef PHYLO_P_PRINT_H
+#define PHYLO_P_PRINT_H
 
 #include <list_of_lists.h>
 
