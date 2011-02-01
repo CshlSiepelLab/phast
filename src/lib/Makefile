@@ -14,6 +14,8 @@ ifdef CLAPACKPATH		# only do below if using CLAPACK
 
 all: liblinks phastlib
 
+sharedlib: liblinks sharedphastlib
+
 # by default, CLAPACK uses non-standard library names, which confuses
 # the compiler.  We'll just create symbolic links in ${PHAST}/lib that
 # have proper names
@@ -36,10 +38,15 @@ else				# no CLAPACK: links not necessary
 
 all: phastlib
 
+sharedlib: sharedphastlib
+
 endif
 
 phastlib:
 	for dir in ${PACKAGES}; do cd ${CDIR}/$$dir && ${MAKE} ; done
+
+sharedphastlib:
+	for dir in ${PACKAGES}; do cd ${CDIR}/$$dir && ${MAKE} sharedlib ; done
 
 clean:
 	for dir in ${PACKAGES}; do cd ${CDIR}/$$dir && ${MAKE} clean ; done

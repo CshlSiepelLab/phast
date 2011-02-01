@@ -6,6 +6,9 @@ OBJS =  $(addsuffix .o,$(basename $(wildcard *.c)))
 
 all: ${TARGETLIB}(${OBJS})
 
+sharedlib: CFLAGS += -fPIC
+sharedlib: all
+
 %.o: %.c ../../make-include.mk
 	$(CC) -I. $(CFLAGS) -DHAVE_CONFIG_H -c $< -o $@ 
 
