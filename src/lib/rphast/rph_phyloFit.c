@@ -73,7 +73,8 @@ SEXP rph_phyloFit(SEXP msaP,
     pf->input_mod = (TreeModel*)EXTPTR_PTR(initModP);
     pf->subst_mod = pf->input_mod->subst_mod;
     tm_register_protect(pf->input_mod);
-  } else pf->subst_mod = rph_get_subst_mod(substModP);
+  } 
+  pf->subst_mod = rph_get_subst_mod(substModP);
   
   pf->estimate_scale_only = LOGICAL_VALUE(scaleOnlyP);
   
