@@ -18,8 +18,9 @@ endif
 
 sharedlib:
 	cd ${CDIR}/lib && ${MAKE} sharedlib 
-	gcc ${CFLAGS} -fPIC -shared ${LFLAGS} ${LIBPATH} -o libphast.so ${LIBPATH} ${LIBS} `find lib/ -name "*.o"`
-	mv libphast.so ../lib/
+	gcc ${CFLAGS} -shared ${LFLAGS} ${LIBPATH} -o libphast.so `find lib/ -name "*.o"` ${LIBS}
+	mkdir -p ../lib/sharedlib
+	mv libphast.so ../lib/sharedlib/
 
 install:
 ifndef DESTDIR
