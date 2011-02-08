@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
   char c;
   int opt_idx, old_nnodes, i;
 
-  msa_format_type msa_format = FASTA;
+  msa_format_type msa_format = UNKNOWN_FORMAT;
   int output_alignment = FALSE, ia_names = FALSE;
   
   struct option long_opts[] = {
@@ -73,11 +73,16 @@ int main(int argc, char *argv[]) {
   }
 
   else {
+    FILE *mfile;
     if (optind != argc - 2) 
       die("Two arguments required.  Try 'indelHistory -h'.\n");
 
     fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
-    msa = msa_new_from_file(fopen_fname(argv[optind], "r"), "ACGTNB^.-");
+    mfile = fopen_fname(argv[optind], "r");
+    if (msa_format == UNKNOWN_FORMAT) 
+      msa_format = msa_format_for_content(mfile, 1);
+    msa = msa_new_from_file_define_format(mfile, msa_format, "ACGTNB^.-");
+    fclose(mfile);
 
     if (msa->seqs == NULL && (msa->ss == NULL || msa->ss->tuple_idx == NULL))
       die("ERROR: ordered representation of alignment required.\n");

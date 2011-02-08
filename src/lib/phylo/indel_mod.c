@@ -406,7 +406,7 @@ void im_estimate(IndelModel *im, IndelHistory *ih, IndelSuffStats *ss,
   vec_set_all(ub, 0.5);
 
   opt_bfgs(im_likelihood_wrapper, params, d, &neglogl, lb, ub, logf,  
-           im_likelihood_gradient, OPT_HIGH_PREC, NULL);  
+           im_likelihood_gradient, OPT_HIGH_PREC, NULL, NULL);  
 
   im_set_all(im, vec_get(params, 0), vec_get(params, 1), 
              vec_get(params, 2), im->tree);

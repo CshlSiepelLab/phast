@@ -9,12 +9,8 @@
 
 /* $Id: trees.c,v 1.25 2008-11-12 02:07:59 acs Exp $ */
 
-/** \file phylo_fit.c 
-  Functions for manipulating phylogenetic trees.  Includes functions
-  for reading, writing, traversing, and printing.  Trees are
-  represented as rooted binary trees with non-negative real branch
-  lengths.  
-  \ingroup phylo
+/*
+  Contains phyloFit function, the main engine behind the phyloFit program.
 */
 
 #include <stdlib.h>
@@ -56,7 +52,7 @@ struct phyloFit_struct* phyloFit_struct_new(int rphast) {
   pf->msa_fname = NULL;
   pf->subst_mod = UNDEF_MOD;
   pf->quiet = FALSE; //probably want to switch to TRUE for rphast after debugging
-  pf->nratecats = 1;
+  pf->nratecats = -1;
   pf->use_em = FALSE;
   pf->window_size = -1;
   pf->window_shift = -1;
@@ -100,6 +96,7 @@ struct phyloFit_struct* phyloFit_struct_new(int rphast) {
   pf->input_mod = NULL;
   pf->use_selection = 0;
   pf->selection = 0.0;
+  pf->max_em_its = -1;
   
   pf->results = rphast ? lol_new(2) : NULL;
   return pf;
@@ -896,21 +893,41 @@ int run_phyloFit(struct phyloFit_struct *pf) {
 
       if (input_mod == NULL) 
         mod = tm_new(tr_create_copy(tree), NULL, NULL, subst_mod, 
-                     msa->alphabet, pf->nratecats, pf->alpha, 
-		     pf->rate_consts, root_leaf_id);
+                     msa->alphabet, pf->nratecats == -1 ? 1 : pf->nratecats, 
+		     pf->alpha, pf->rate_consts, root_leaf_id);
       else if (pf->likelihood_only)
         mod = input_mod;
       else {
-        double newalpha = 
-          (input_mod->nratecats > 1 && pf->alpha == DEFAULT_ALPHA ? 
-           input_mod->alpha : pf->alpha);
-                                /* if the input_mod has a meaningful
-                                   alpha and a non-default alpha has
-                                   not been specified, then use
-                                   input_mod's alpha  */
+	List *rate_consts, *freq;
+	double alpha;
+	int nratecats;
+
+	if (pf->nratecats != -1) {
+	  nratecats = pf->nratecats;
+	  alpha = pf->alpha;
+	  rate_consts = pf->rate_consts;
+	  freq = NULL;
+	} else {
+	  nratecats = input_mod->nratecats;
+	  alpha = input_mod->alpha;
+	  if (input_mod->rK != NULL) {
+	    rate_consts = lst_new_dbl(input_mod->nratecats);
+	    for (i=0; i < input_mod->nratecats; i++)
+	      lst_push_dbl(rate_consts, input_mod->rK[i]);
+	  } else rate_consts = NULL;
+	  if (input_mod->freqK != NULL) {
+	    freq = lst_new_dbl(input_mod->nratecats);
+	    for (i=0; i < input_mod->nratecats; i++)
+	      lst_push_dbl(freq, input_mod->freqK[i]);
+	  } else freq = NULL;
+	}
         mod = input_mod;
-        tm_reinit(mod, subst_mod, pf->nratecats, newalpha, 
-		  pf->rate_consts, NULL);
+        tm_reinit(mod, subst_mod, nratecats, alpha, 
+		  rate_consts, freq);
+	if (rate_consts != pf->rate_consts)
+	  lst_free(rate_consts);
+	if (freq != NULL) 
+	  lst_free(freq);
       }
 
       if (pf->use_selection) {
@@ -1079,7 +1096,6 @@ int run_phyloFit(struct phyloFit_struct *pf) {
             msa->seqs = NULL;
           }
         }
-
         if (pf->random_init) 
           params = tm_params_init_random(mod);
         else if (input_mod != NULL) 
@@ -1094,8 +1110,8 @@ int run_phyloFit(struct phyloFit_struct *pf) {
           /* in some cases, the eq freqs are needed for
              initialization, but now they should be re-estimated --
              UNLESS user specifies --no-freqs */
-          vec_free(mod->backgd_freqs);
-          mod->backgd_freqs = NULL;
+	  vec_free(mod->backgd_freqs);
+	  mod->backgd_freqs = NULL;
         }
 
 
@@ -1113,7 +1129,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
         }
 
         if (pf->use_em)
-          tm_fit_em(mod, msa, params, cat, pf->precision, pf->logf);
+          tm_fit_em(mod, msa, params, cat, pf->precision, pf->max_em_its, pf->logf);
         else
           tm_fit(mod, msa, params, cat, pf->precision, pf->logf, pf->quiet);
 

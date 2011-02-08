@@ -80,38 +80,38 @@ EXAMPLES:\n\
     6. Extract sufficient statistics from a MAF file for a complete\n\
     human chromosome.  (Can be used by phyloFit.)\n\
 \n\
-        msa_view chr1.maf --in-format MAF --out-format SS > chr1.ss\n\
+        msa_view chr1.maf --out-format SS > chr1.ss\n\
 \n\
     7. As in (6), but include information about regions of the\n\
     reference sequence not present in the MAF file, and include a\n\
     representation of the order in which alignment columns occur\n\
     (needed by programs such as phastCons or exoniphy).  \n\
 \n\
-        msa_view chr1.maf --in-format MAF --refseq chr1.fa\n\
+        msa_view chr1.maf --refseq chr1.fa\n\
             --out-format SS > chr1.ordered.ss\n\
 \n\
     8. As in (6), but collect statistics for pairs of adjacent sites\n\
     (can be used by phyloFit to estimate a dinucleotide model).\n\
 \n\
-        msa_view chr1.maf --in-format MAF --out-format SS \n\
+        msa_view chr1.maf --out-format SS \n\
             --tuple-size 2 > chr1.pairs.ss\n\
 \n\
     9. Pool sufficient statistics from several human chromosomes.\n\
 \n\
-        msa_view --in-format SS --aggregate human,mouse,rat \n\
+        msa_view --aggregate human,mouse,rat \n\
             --out-format SS chr1.ss chr2.ss chr3.ss > chr123.ss\n\
 \n\
     10. Extract separate sufficient statistics for the three codon\n\
     positions, as defined by annotations in a GFF file.\n\
 \n\
-        msa_view chr1.maf --in-format MAF --features chr22.gff \n\
+        msa_view chr1.maf --features chr22.gff \n\
             --catmap \"NCATS = 3; CDS 1-3\" --out-format SS \n\
             > chr22.pos.ss\n\
 \n\
     11. As in (10), but re-orient genes on - strand so that stats\n\
     reflect + strand.  Assume genes are defined by tag \"transcript_id\".\n\
 \n\
-        msa_view chr1.maf --in-format MAF --features chr22.gff \n\
+        msa_view chr1.maf --features chr22.gff \n\
             --catmap \"NCATS = 3; CDS 1-3\" --reverse-groups transcript_id\n\
             --out-format SS > chr22.pos.ss\n\
 \n\
@@ -398,7 +398,7 @@ void fill_with_Ns(MSA *msa, List *fill_N_list, msa_coord_map *map) {
 
 int main(int argc, char* argv[]) {
   MSA *msa = NULL, *sub_msa = NULL, *split_msa = NULL;
-  msa_format_type input_format = -1, output_format = FASTA;
+  msa_format_type input_format = UNKNOWN_FORMAT, output_format = FASTA;
   List *seqlist_str = NULL, *l = NULL, *tmpl = NULL;
   char *infname = NULL, *clean_seqname = NULL, *rseq_fname = NULL,
     *reverse_groups_tag = NULL, *alphabet = NULL;
@@ -463,7 +463,7 @@ int main(int argc, char* argv[]) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
-      if (input_format == -1) die("ERROR: bad input format.  Try 'msa_view -h' for help.\n");
+      if (input_format == UNKNOWN_FORMAT) die("ERROR: bad input format.  Try 'msa_view -h' for help.\n");
       break;
     case 's':
       startcol = get_arg_int(optarg);
@@ -490,7 +490,7 @@ int main(int argc, char* argv[]) {
       break;
     case 'o':
       output_format = msa_str_to_format(optarg);
-      if (output_format == -1) die("ERROR: bad output format.  Try 'msa_view -h' for help.\n");
+      if (output_format == UNKNOWN_FORMAT) die("ERROR: bad output format.  Try 'msa_view -h' for help.\n");
       break;
     case 'a':
       alphabet = optarg;
@@ -648,7 +648,7 @@ int main(int argc, char* argv[]) {
 
     
     FILE *infile = fopen_fname(((String*)lst_get_ptr(msa_fname_list, 0))->chars, "r");
-    input_format = msa_format_for_content(infile);
+    input_format = msa_format_for_content(infile, 1);
     fclose(infile);
 
     if (input_format == MAF && rseq_fname != NULL)
@@ -678,11 +678,8 @@ int main(int argc, char* argv[]) {
                                   aggregate_list, alphabet);
   } else {
     FILE *infile = fopen_fname(infname, "r");
-    if (input_format == -1) {
-      input_format = msa_format_for_content(infile);
-      if (input_format == -1)
-	die("ERROR: unknown alignment format.  Try 'msa_view -h' for help\n");
-    }
+    if (input_format == UNKNOWN_FORMAT)
+      input_format = msa_format_for_content(infile, 1);
     if (input_format == MAF) {
       FILE *RSEQF = NULL;
       

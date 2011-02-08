@@ -64,6 +64,7 @@ SEXP rph_phastCons(SEXP msaP,
   p->mod = (TreeModel**)smalloc(p->nummod*sizeof(TreeModel*));
   for (i=0; i<p->nummod; i++) {
     p->mod[i]=(TreeModel*)EXTPTR_PTR(VECTOR_ELT(modP, i));
+    p->mod[i]->use_conditionals = 1;
   }
   if (rhoP != R_NilValue) 
     p->rho = NUMERIC_VALUE(rhoP);

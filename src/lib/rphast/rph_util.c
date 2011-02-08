@@ -80,4 +80,88 @@ SEXP rph_lst_new_extptr(List *l) {
   return result;
 }
 
+struct rph_likelihood_struct {
+  SEXP functionCall;
+  SEXP env;
+};
+
+
+double rph_likelihood_wrapper(Vector *params, void *data) {
+  SEXP paramsP, funcVal, fcall, env, fn;
+  double *paramsd, rv;
+  int i;
+  env = ((struct rph_likelihood_struct*)data)->env;
+  fn = ((struct rph_likelihood_struct*)data)->functionCall;
+  if (!isFunction(fn)) 
+    die("rph_likelihood_wrapper: fn is not a function");
+  if (!isEnvironment(env)) 
+    die("rph_likelihood_wrapper: env is not an environment");
+  PROTECT(paramsP = NEW_NUMERIC(params->size));
+  paramsd = NUMERIC_POINTER(paramsP);
+  for (i=0; i < params->size; i++)
+    paramsd[i] = params->data[i];
+  PROTECT(fcall = lang2(fn, paramsP));
+  PROTECT(funcVal = eval(fcall, env));
+  rv = NUMERIC_VALUE(funcVal);
+  UNPROTECT(3);
+  return -rv;
+}
+
+
+SEXP rph_opt_bfgs(SEXP likelihoodFunctionP, SEXP paramsP, 
+		  SEXP lowerP, SEXP upperP, SEXP precisionP, 
+		  SEXP logfileP, SEXP envP) {
+  
+  struct rph_likelihood_struct *data = smalloc(sizeof(struct rph_likelihood_struct));
+  Vector *params, *lower=NULL, *upper=NULL;
+  int i, numprotect=1, numeval;
+  opt_precision_type precision;
+  double retval, val;
+  ListOfLists *result;
+  FILE *logfile=NULL;
+ 
+  if (!isFunction(likelihoodFunctionP)) 
+    die("rph_opt_bfgs: likelihoodFunction is not funtion\n");
+  PROTECT(paramsP = AS_NUMERIC(paramsP));
+  params = vec_new_from_array(NUMERIC_POINTER(paramsP), LENGTH(paramsP));
+  if (lowerP != R_NilValue) {
+    PROTECT(lowerP = AS_NUMERIC(lowerP)); numprotect++;
+    lower = vec_new_from_array(NUMERIC_POINTER(lowerP), LENGTH(lowerP));
+    for (i=0; i < lower->size; i++) {
+      val = vec_get(lower, i);
+      if (!isfinite(val))
+	vec_set(lower, i, INFTY * (signbit(val)!=0 ? -1 : 1.0));
+    }
+  }
+  if (upperP != R_NilValue) {
+    PROTECT(upperP = AS_NUMERIC(upperP)); numprotect++;
+    upper = vec_new_from_array(NUMERIC_POINTER(upperP), LENGTH(upperP));
+    for (i=0; i <  upper->size; i++) {
+      val = vec_get(upper, i);
+      if (!isfinite(val))
+	vec_set(upper, i, INFTY * (signbit(val)!=0 ? -1 : 1.0));
+    }
+  }
+  precision = get_precision(CHARACTER_VALUE(precisionP));
+  if (precision == OPT_UNKNOWN_PREC) die("unknown precision");
+
+  data->functionCall = likelihoodFunctionP;
+  data->env = envP;
+  if (logfileP != R_NilValue) 
+    logfile = fopen_fname(CHARACTER_VALUE(logfileP), "a");
+
+  opt_bfgs(rph_likelihood_wrapper, params, data, &retval, lower, 
+	   upper, logfile, NULL, precision, NULL, &numeval);
+
+  if (logfile != NULL)
+    fclose(logfile);
+
+  //need to create a list with likelihood value and parameter estimates
+  result = lol_new(3);
+  lol_push_dbl(result, &retval, 1, "value");
+  lol_push_dbl(result, params->data, params->size, "par");
+  lol_push_int(result, &numeval, 1, "neval");
+  UNPROTECT(numprotect);
+  return rph_listOfLists_to_SEXP(result);
+}
 

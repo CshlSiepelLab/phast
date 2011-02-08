@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
 
   /* arguments and defaults for options */
   FILE *refseq_f = NULL;
-  msa_format_type msa_format = -1;
+  msa_format_type msa_format = UNKNOWN_FORMAT;
   int suff_stats = FALSE, exclude = FALSE, keep_gaps = FALSE, do_probs = TRUE;
   List *seqlist = NULL;
   PbsCode *code = NULL;
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'i':
       msa_format = msa_str_to_format(optarg);
-      if (msa_format == -1)
+      if (msa_format == UNKNOWN_FORMAT)
 	die("ERROR: unrecognized alignment format.\n");
       break;
     case 'S':
@@ -98,11 +98,8 @@ int main(int argc, char *argv[]) {
     die("ERROR: --no-probs can't be used with --suff-stats or --encode.\n");
 
   msa_f = fopen_fname(argv[optind], "r");
-  if (msa_format == -1) {
-    msa_format = msa_format_for_content(msa_f);
-    if (msa_format == -1) 
-      die("Unrecognized alignment format.  Try --msa-format option.\n");
-  }
+  if (msa_format == UNKNOWN_FORMAT)
+    msa_format = msa_format_for_content(msa_f, 1);
   fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
   if (msa_format == MAF) {
     msa = maf_read(msa_f, refseq_f, 1, NULL, NULL, NULL, -1, !suff_stats, NULL,

@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
     refidx = 1, base_by_base = FALSE, windowWig = FALSE;
   TreeModel **backgd_mods = NULL, **feat_mods = NULL;
   HMM *backgd_hmm = NULL, *feat_hmm = NULL;
-  msa_format_type inform = -1;
+  msa_format_type inform = UNKNOWN_FORMAT;
   GFF_Set *features = NULL;
   MSA *msa, *msa_compl=NULL;
   double **backgd_emissions, **feat_emissions, **mem, **dummy_emissions,
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'i':
       inform = msa_str_to_format(optarg);
-      if (inform == -1) die("Bad argument to -i.\n");
+      if (inform == UNKNOWN_FORMAT) die("Bad argument to -i.\n");
       break;
     case 'r':
       refidx = get_arg_int_bounds(optarg, 0, INFTY);
@@ -160,11 +160,8 @@ int main(int argc, char *argv[]) {
   if (verbose) fprintf(stderr, "Reading alignment ...\n");
   msa_fname = argv[optind];
   infile = fopen_fname(msa_fname, "r");
-  if (inform == -1) {
-    inform = msa_format_for_content(infile);
-    if (inform == -1)
-      die("ERROR: unknown alignment format.  Try 'phastOdds -h' for help\n");
-  }
+  if (inform == UNKNOWN_FORMAT)
+    inform = msa_format_for_content(infile, 1);
   if (inform == MAF)
     msa = maf_read(infile, NULL, 1, NULL, NULL, 
                    NULL, -1, TRUE, NULL, NO_STRIP, FALSE);

@@ -81,9 +81,10 @@ typedef enum {PHYLIP,           /**< PHYLIP format  */
                                    is maintained of how many times it
                                    occurs */
               LAV,              /**< lav format, used by BLASTZ */
-              MAF               /**< Multiple Alignment Format (MAF)
-                                   used by MULTIZ and TBA  */
-} msa_format_type;
+              MAF,              /**< Multiple Alignment Format (MAF)
+				    used by MULTIZ and TBA  */
+	      UNKNOWN_FORMAT    /**< Format unknown */
+} msa_format_type; 
 
 /** Strip all gaps (used with msa_strip_gaps) */
 #define STRIP_ALL_GAPS -2 
@@ -459,6 +460,13 @@ Vector *msa_get_base_freqs(MSA *msa, int start, int end);
 */
 void msa_get_base_freqs_tuples(MSA *msa, Vector *freqs, int k, int cat);
 
+/** Get background frequencies for codon data based on 3x4 model of codon
+    frequencies.
+    @param backgd (output) The background frequencies.  On input should be initialized to a vector of size 64.
+    @param msa (input) An alignment object, assumed to represent in-frame codons.
+ */
+void msa_get_backgd_3x4(Vector *backgd, MSA *msa);
+
 /** Get length of a particular sequence (alignment length minus gaps).
     @param msa MSA containing sequence to measure
     @param seqidx Index of sequence to measure
@@ -587,6 +595,12 @@ char msa_get_char(MSA *msa, int seq, int pos);
 /** \name MSA File Format functions 
    \{ */
 
+/** Translate format type into char*.
+    @param format An msa format
+    @result A char* describing the format (either "SS", "MAF", "FASTA", "PHYLIP", "MPM", or "UNKNOWN")
+ */
+char *msa_format_to_str(msa_format_type format);
+
 /** Translate string to msa_format_type.
     @param str String to translate into msa_format_type
     @result Of type msa_format_type that corresponds to str
@@ -594,17 +608,18 @@ char msa_get_char(MSA *msa, int seq, int pos);
 msa_format_type msa_str_to_format(const char *str);
 
 /** Get file format based on filename suffix.
-    This is no longer used, file type is automatically detected 
     @param fname Filename to determine file format for
     @result File format determined by filename suffix
+    @seealso msa_format_for_content
  */
-msa_format_type msa_format_for_suffix(char *fname);
+msa_format_type msa_format_for_suffix(const char *fname);
 
 /** Get file format based on file contents 
     @param F File descriptor to file (or stdin) containing file data
+    @param die_if_unknown If TRUE, then exit with an error message if the format cannot be detected
     @result File format determined by file contents
 */
-msa_format_type msa_format_for_content(FILE *F);
+msa_format_type msa_format_for_content(FILE *F, int die_if_unknown);
 
 /** Get the appropriate filename suffix depending on msa_format_type.
     @param t Format type 
@@ -695,15 +710,15 @@ int msa_missing_col(MSA *msa, int ref, int pos);
 */
 void msa_strip_gaps(MSA *msa, int gap_strip_mode);
 
-/** Get number of gaped columns.
-   @param msa MSA containing sequence to measure gaped columns
+/** Get number of gapped columns.
+   @param msa MSA containing sequence to measure gapped columns
    @param gap_strip_mode How to handle gaps when counting columns
    @param start Site at which to start counting
    @param end Site at which to stop counting
-   @result Number of gaped columns
-   @note If mode == STRIP_ANY_GAPS, a gaped column is one containing at least one gap
+   @result Number of gapped columns
+   @note If mode == STRIP_ANY_GAPS, a gapped column is one containing at least one gap
    @note if mode ==
-   STRIP_ALL_GAPS, a gaped column is one containing only gaps
+   STRIP_ALL_GAPS, a gapped column is one containing only gaps
 */
 int msa_num_gapped_cols(MSA *msa, int gap_strip_mode, int start, int end);
 

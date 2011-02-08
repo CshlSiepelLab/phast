@@ -88,11 +88,14 @@ void zvec_zero(Zvector *v);
 
 /** Vector add.
 For each element in thisv add the corresponding element from addv 
-[3,4,5,2] thisv (initial)
+@code
+e.g.
+[3,4,5,2] // thisv (initial)
 +
-[1,2,2,1] addv
+[1,2,2,1] // addv
 =
-[4,6,7,3] thisv (end)
+[4,6,7,3] //thisv (end)
+@endcode
   @param[in,out] thisv vector to be modified
   @param[in] addv  vector containing complex numbers
 */

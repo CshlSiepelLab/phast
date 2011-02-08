@@ -47,6 +47,7 @@ SEXP rph_phyloFit(SEXP msaP,
 		  SEXP initParsimonyP,
 		  SEXP clockP,
 		  SEXP emP,
+		  SEXP maxEmItsP,
 		  SEXP precisionP,
 		  SEXP gffP,
 		  SEXP ninfSitesP,
@@ -100,22 +101,18 @@ SEXP rph_phyloFit(SEXP msaP,
   pf->random_init = LOGICAL_VALUE(initRandomP);
 
   pf->init_backgd_from_data = LOGICAL_VALUE(initBackgdFromDataP);
-
+  
   pf->init_parsimony = LOGICAL_VALUE(initParsimonyP);
   
   pf->assume_clock = LOGICAL_VALUE(clockP);
 
   pf->use_em = LOGICAL_VALUE(emP);
 
-  if (strcmp(CHARACTER_VALUE(precisionP), "LOW")==0)
-    pf->precision = OPT_LOW_PREC;
-  else if (strcmp(CHARACTER_VALUE(precisionP), "MED")==0)
-    pf->precision = OPT_MED_PREC;
-  else if (strcmp(CHARACTER_VALUE(precisionP), "HIGH")==0)
-    pf->precision = OPT_HIGH_PREC;
-  else if (strcmp(CHARACTER_VALUE(precisionP), "VERY_HIGH")==0)
-    pf->precision = OPT_VERY_HIGH_PREC;
-  else {
+  if (maxEmItsP != R_NilValue)
+    pf->max_em_its = INTEGER_VALUE(maxEmItsP);
+
+  pf->precision = get_precision(CHARACTER_VALUE(precisionP));
+  if (pf->precision == OPT_UNKNOWN_PREC) {
     die_message = "invalid precision";
     goto rph_phyloFit_end;
   }
@@ -167,7 +164,7 @@ SEXP rph_phyloFit(SEXP msaP,
     pf->use_selection = TRUE;
     pf->selection = NUMERIC_VALUE(selectionP);
   }
-  
+
   msa_register_protect(pf->msa);
 
   run_phyloFit(pf);

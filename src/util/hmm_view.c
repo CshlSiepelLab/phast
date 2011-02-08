@@ -22,7 +22,7 @@ PROGRAM: hmm_view\n\
 \n\
 DESCRIPTION: produces a graphical description of the state-transition\n\
 structure of a phylo-HMM, which can be converted to a viewable image\n\
-using the 'dot' program.\n\
+using the 'dot' program. (http://www.graphviz.org)\n\
 \n\
 USAGE: hmm_view [OPTIONS] <hmm_fname> <cat_map_fname>|<cat_map_str>\n\
 \n\

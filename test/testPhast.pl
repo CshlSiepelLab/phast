@@ -123,7 +123,7 @@ options:\
   print summary to this file.\
 --appendTime,-a\
   (For use with --time).  Append time statistics to timeFile rather than
-  overwritin.\
+  overwriting.\
 --script-name,-i <scriptName>
   name of script with testing commands. Default is test_phast.sh.
 --no-quit,-n\

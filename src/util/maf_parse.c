@@ -346,7 +346,7 @@ int main(int argc, char* argv[]) {
       break;
     case 'o':
       output_format = msa_str_to_format(optarg);
-      if (output_format == -1) 
+      if (output_format == UNKNOWN_FORMAT) 
 	die("ERROR: bad output format.  Try \"maf_parse -h\" for help.\n");
       if (output_format != MAF)
 	die("Sorry, only MAF format output has been implemented right now.\n");

@@ -86,15 +86,15 @@ struct tp_struct;
 
 
 /** Defines alternative substitution model for a particular branch */
-typedef struct {
-  subst_mod_type subst_mod; 
+typedef struct alt_subst_mod {
+  subst_mod_type subst_mod;    /**< Substitution model */
   Vector *backgd_freqs;        /**< Eq freqs (set to NULL if separate_backgd=0) */
   MarkovMatrix *rate_matrix;   /**< Rate matrix (set to NULL if separate_model=0) */
 /* Indices in main model parameters where lineage-specific paramers start */  
   int ratematrix_idx,		/**< Indices of rate matrix model parameters */ 
-  backgd_idx, 			/**< Indices of background frequency parameters */
-  selection_idx, 		/**< Indices of selection parameters */
-  bgc_idx;			/**< Indices of bias gene conversion parameters */
+  backgd_idx, 			/**< Index of first background frequency parameter */
+  selection_idx, 		/**< Index of selection parameter */
+  bgc_idx;			/**< Index of bias gene conversion parameter */
   double selection,		/**< Optional selection parameters for this model (only used if selection_idx >=0 ) */
   bgc;       			/**< Optional bgc parameters for this model (only used if bgc_idx >=0 ) */
   int separate_model;   /**< ==1 if no parameters shared with main model */
@@ -104,6 +104,9 @@ typedef struct {
   String *defString;    /**< Name of alternative Model. This is the argument given to phyloFit
 			   to define the alternative model */
   String *noopt_arg;    /**< Which parameters to hold constant (represented as a command line argument) */
+  struct alt_subst_mod *share_sel, /**< If not NULL, share selection parameter with another altSubstMod */
+    *share_bgc;  /**< If not NULL, share bgc parameter with another altSubstMod */
+  /** Note: could implement sharing with other parameters, hasn't been needed yet */
 } AltSubstMod;
 
 
@@ -121,7 +124,7 @@ struct tm_struct {
   MSA *msa;                     /**< (Optional) MSA from which TreeModel
                                    was estimated; for use in tm_fit */
   int category;                 /**< (Optional) site category in MSA or -1 */
-  int order;
+  int order;                    /**< Order of model */
   double alpha;                 /**< For gamma or discrete-gamma rate
                                    variation; set to 0 for constant rate */
   int nratecats;                /**< Number of rate categories, discrete gamma */
@@ -148,7 +151,7 @@ struct tm_struct {
   int allow_gaps;		/**< If TRUE, gaps are not allowed to be
 				   taken into account for a model */
   int allow_but_penalize_gaps;  /**< If TRUE, gaps are allowed but are
-				   penalized */
+				   penalized NOTE: not used */
   int inform_reqd;              /**< If TRUE, only "informative" sites
                                    will be given non-zero probability */
   int estimate_backgd;          /**< Estimate background frequencies as free
@@ -178,13 +181,14 @@ struct tm_struct {
   int empirical_rates;          /**< Indicates "empirical"
                                    (non-parametric) model for
                                    rate-variation */
+  int site_model;               /* TRUE if this is a Nielsen-Yang site model; indicates parameterization for site categories */
   int estimate_ratemat;         /**< Indicates whether rate-matrix
                                    parameters should be estimated */
-  AltSubstMod **alt_subst_mods_node; /**< Pointer to alt_subst_mod for 
-				       each branch*/
+  AltSubstMod ***alt_subst_mods_ptr; /**< Pointer to alt_subst_mod for 
+				       each branch and each rate category */
 
   List *alt_subst_mods;         /**< List of relevant AltSubstMods for 
-                                   this tree.  alt_subst_mods_node above are 
+                                   this tree.  alt_subst_mods_ptr above are 
 				   usually pointers to elements in this 
 				   list */
   Vector *all_params;           /**< All parameters relevant to this model */
@@ -293,14 +297,6 @@ void tm_print(FILE *F, TreeModel *tm);
    @param tm Tree Model to copy from
    @param altmod_str Alternate substitution model */
 AltSubstMod* tm_add_alt_mod(TreeModel *tm, String *altmod_str);
-
-/** Initialize the preferred codons.
-    @param tm A tree model object
-    @param preferred preferred An array of character strings representing all preferred codons.  Each character string should be length 3 (null terminators are not required).
-    @param length The number of preferred codons
- */
-void set_preferred_codons(TreeModel *tm, char **preferred, int length);
-
 
 /** Tree Model to save to file
    @param F File descriptor to save Tree Model to
@@ -644,6 +640,8 @@ void tm_set_ignore_branches(TreeModel *mod, List *ignore_branches);
     @param error_fname Filename to save to
     @param appendToFile Whether to append to file or overwrite
 */
+void tm_free_alt_subst_mods(TreeModel *tm);
+
 void tm_variance(TreeModel *mod, MSA *msa, Vector *params, int cat, char *error_fname, int appendToFile);
 
 
@@ -660,5 +658,17 @@ void tm_set_boundaries(Vector **lower_bounds,
 		       Vector **upper_bounds, 
 		       int npar, TreeModel *mod);
 
+struct likelihood_wrapper_struct {
+  MSA *align;
+  TreeModel *mod;
+  void (*unpackFunction)(Vector *params, TreeModel *mod);
+  double (*likelihoodFunction)(Vector *params, void *data);
+};
 
+
+void tm_site_model_set_ml_weights(TreeModel *mod, Vector *params, 
+				  double *counts);
+void tm_setup_site_model(TreeModel *mod, const char *foreground, int bgc, 
+			 int alt_hypothesis, double selNeg, double selPlus,
+			 double initBgc, double *initWeights);
 #endif

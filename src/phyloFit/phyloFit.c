@@ -32,7 +32,7 @@
 
 int main(int argc, char *argv[]) {
   char *msa_fname = NULL, *alph = "ACGT";
-  msa_format_type input_format = -1;
+  msa_format_type input_format = UNKNOWN_FORMAT;
   char c;
   int opt_idx, seed=-1;
   String *optstr;
@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'i':
       input_format = msa_str_to_format(optarg);
-      if (input_format == -1)
+      if (input_format == UNKNOWN_FORMAT)
         die("ERROR: unrecognized alignment format.    Type 'phyloFit -h' for usage.\n");
       break;
     case 'l':
@@ -324,11 +324,8 @@ int main(int argc, char *argv[]) {
   if ((infile = fopen(msa_fname, "r")) == NULL) 
     die("ERROR: cannot open alignment file %s.\n", msa_fname);
 
-  if (input_format == -1) {
-    input_format = msa_format_for_content(infile);
-    if (input_format == -1)
-      die("ERROR: unrecognized alignment format.    Type 'phyloFit -h' for usage.\n");
-  }
+  if (input_format == UNKNOWN_FORMAT)
+    input_format = msa_format_for_content(infile, 1);
 
   if (pf->nonoverlapping && (pf->use_conditionals || pf->gff != NULL || 
 			     pf->cats_to_do_str || input_format == SS))

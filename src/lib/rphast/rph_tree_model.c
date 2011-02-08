@@ -335,6 +335,17 @@ SEXP rph_tm_selection(SEXP tmP) {
 }
 
 
+SEXP rph_tm_site_model(SEXP tmP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
+  int *resultP;
+  SEXP result;
+  PROTECT(result = NEW_LOGICAL(1));
+  resultP = LOGICAL_POINTER(result);
+  resultP[0] = tm->site_model;
+  UNPROTECT(1);
+  return result;
+}
+  
 SEXP rph_tm_nratecats(SEXP tmP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   SEXP result;
@@ -399,7 +410,7 @@ SEXP rph_tm_rootLeaf(SEXP tmP) {
 SEXP rph_tm_new(SEXP treeP, SEXP alphabetP, SEXP backgdP, SEXP matrixP, 
 		SEXP substModP, SEXP lnlP, SEXP alphaP, SEXP nratecatsP,
 		SEXP rKP, SEXP freqKP, SEXP rootLeafP,
-		SEXP selectionP) {
+		SEXP selectionP, SEXP siteModelP) {
   TreeModel *tm;
   TreeNode *tree;
   MarkovMatrix *rateMatrix;
@@ -492,6 +503,8 @@ SEXP rph_tm_new(SEXP treeP, SEXP alphabetP, SEXP backgdP, SEXP matrixP,
     tm->selection_idx = 0;
   }
 
+  if (siteModelP != R_NilValue && LOGICAL_VALUE(siteModelP))
+    tm->site_model = TRUE;
 
   if (freqKP != R_NilValue) {
     PROTECT(freqKP = AS_NUMERIC(freqKP));
@@ -754,3 +767,20 @@ SEXP rph_tm_unapply_selection_bgc(SEXP matrixP, SEXP alphabetP,
   return result;
 }
 
+SEXP rph_tm_setup_site_model(SEXP treeModelP, SEXP foregroundP, SEXP bgcP, 
+			     SEXP altHypothesisP, SEXP selNegP, SEXP selPlusP, 
+			     SEXP initBgcP, SEXP initWeightsP) {
+  TreeModel *tm = (TreeModel*)EXTPTR_PTR(treeModelP);
+  double *initWeights=NULL;
+  if (initWeightsP != R_NilValue) {
+    PROTECT(initWeightsP = AS_NUMERIC(initWeightsP));
+    initWeights = NUMERIC_POINTER(initWeightsP);
+  }
+  tm_register_protect(tm);
+  tm_setup_site_model(tm, CHARACTER_VALUE(foregroundP), LOGICAL_VALUE(bgcP), 
+		      LOGICAL_VALUE(altHypothesisP), NUMERIC_VALUE(selNegP), 
+		      NUMERIC_VALUE(selPlusP), NUMERIC_VALUE(initBgcP),
+		      initWeights);
+  if (initWeightsP != R_NilValue) UNPROTECT(1);
+  return treeModelP;
+}

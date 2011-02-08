@@ -802,19 +802,19 @@ void tl_free_tree_posteriors(TreeModel *mod, MSA *msa, TreePosteriors *tp) {
    are not considered. */
 double tl_compute_partial_ll_suff_stats(TreeModel *mod, TreePosteriors *post) {
   double retval = 0;
-  int i, j, k, rcat;
+  int i, j, k, cat;
   TreeNode *n;
   int nstates = mod->rate_matrix->size;
 
-  for (rcat = 0; rcat < mod->nratecats; rcat++) {
+  for (cat = 0; cat < mod->nratecats; cat++) {
     for (i = 0; i < mod->tree->nnodes; i++) {
       MarkovMatrix *subst_mat;
       if (i == mod->tree->id) continue; /* skip root */
       n = lst_get_ptr(mod->tree->nodes, i);
-      subst_mat = mod->P[n->id][rcat];
+      subst_mat = mod->P[n->id][cat];
       for (j = 0; j < nstates; j++) { /* from tuple */
         for (k = 0; k < nstates; k++) { /* to tuple */
-          retval += (post->expected_nsubst_tot[rcat][j][k][i] *
+          retval += (post->expected_nsubst_tot[cat][j][k][i] *
                      log2(mm_get(subst_mat, j, k)));
         }
       }

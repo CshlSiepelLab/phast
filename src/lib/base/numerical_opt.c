@@ -93,6 +93,19 @@
 FILE *debugf = NULL;
 #endif
 
+opt_precision_type get_precision(const char *prec) {
+   if (strcmp(prec, "LOW")==0)
+     return OPT_LOW_PREC;
+   if (strcmp(prec, "MED")==0)
+     return OPT_MED_PREC;
+   if (strcmp(prec, "HIGH")==0)
+     return OPT_HIGH_PREC;
+   if (strcmp(prec, "VERY_HIGH")==0)
+     return OPT_VERY_HIGH_PREC;
+   return OPT_UNKNOWN_PREC;
+}
+
+
 /* Numerically compute the gradient for the specified function at the
    specified parameter values.  Vector "grad" must already be
    allocated.  Will pass on to the specified function the auxiliary
@@ -377,7 +390,8 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
              Vector *upper_bounds, FILE *logf,
              void (*compute_grad)(Vector *grad, Vector *params,
                                   void *data, Vector *lb, Vector *ub),
-             opt_precision_type precision, Matrix *inv_Hessian) {
+             opt_precision_type precision, Matrix *inv_Hessian,
+	     int *num_evals) {
   
   int check, i, its, n = params->size, success = 0, nevals = 0, 
     params_at_bounds = 0, new_at_bounds, changed_dimension = 0,
@@ -388,6 +402,9 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
   Matrix *H, *first_frac, *sec_frac, *bfgs_term;
   opt_deriv_method deriv_method = OPT_DERIV_FORWARD;
   struct timeval start_time, end_time;
+
+  if (precision == OPT_UNKNOWN_PREC)
+    die("unknown precision in opt_bfgs");
 
   if (logf != NULL)
     gettimeofday(&start_time, NULL);
@@ -782,6 +799,8 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
   mat_free(first_frac);
   mat_free(sec_frac);
   mat_free(bfgs_term);
+  if (num_evals != NULL)
+    *num_evals = nevals;
 
   if (success == 0) {
     if (logf != NULL)

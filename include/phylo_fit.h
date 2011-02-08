@@ -47,7 +47,7 @@ struct phyloFit_struct {
     no_freqs, no_rates, assume_clock, 
     init_parsimony, parsimony_only, no_branchlens,
     label_categories, symfreq, init_backgd_from_data,
-    use_selection;
+    use_selection, max_em_its;
   unsigned int nsites_threshold;
   TreeNode *tree;
   CategoryMap *cm;

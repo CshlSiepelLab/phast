@@ -542,7 +542,7 @@ void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode,
       vec_set(d->params, 1, d->init_scale_sub);
       d->tupleidx = tup;
       if (opt_bfgs(col_likelihood_wrapper, d->params, d, &lnl, d->lb, 
-                   d->ub, logf, NULL, OPT_HIGH_PREC, NULL) != 0)
+                   d->ub, logf, NULL, OPT_HIGH_PREC, NULL, NULL) != 0)
         ;                       /* do nothing; warning will be
                                    produced if problem */
       jp->mod->scale = d->params->data[0];

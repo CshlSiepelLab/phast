@@ -1005,7 +1005,7 @@ void reestimate_trees(void **models, int nmodels, void *data,
   vec_copy(phmm->mods[1]->all_params, params);
 
   if (opt_bfgs(likelihood_wrapper, opt_params, phmm, &ll, lower_bounds, 
-               NULL, logf, NULL, OPT_MED_PREC, phmm->em_data->H) != 0)
+               NULL, logf, NULL, OPT_MED_PREC, phmm->em_data->H, NULL) != 0)
     die("ERROR returned by opt_bfgs.\n");
 
   if (logf != NULL) 

@@ -46,7 +46,7 @@ double GC_THRESHOLDS[] = {0.40, 0.45, 0.50, 0.55, -1};
 int main(int argc, char* argv[]) {
 
   /* variables for options, with defaults */
-  int msa_format = -1;
+  int msa_format = UNKNOWN_FORMAT;
   int quiet = FALSE, reflect_hmm = FALSE, score = FALSE, indels = FALSE, 
     no_cns = FALSE;
   double bias = NEGINFTY;
@@ -112,7 +112,7 @@ int main(int argc, char* argv[]) {
     switch(c) {
     case 'i':
       msa_format = msa_str_to_format(optarg);
-      if (msa_format == -1) die("ERROR: bad alignment format.\n");
+      if (msa_format == UNKNOWN_FORMAT) die("ERROR: bad alignment format.\n");
       break;
     case 'D':
       data_path = str_new_charstr(optarg);
@@ -229,11 +229,8 @@ int main(int argc, char* argv[]) {
   if ((infile = fopen(msa_fname, "r")) == NULL) 
     die("ERROR: cannot open alignment file %s.\n", msa_fname);
 
-  if (msa_format == -1) {
-    msa_format = msa_format_for_content(infile);
-    if (msa_format == -1)
-      die("ERROR detecting alignment format.  Try 'exoniphy -h' for help.\n");
-  }
+  if (msa_format == UNKNOWN_FORMAT)
+    msa_format = msa_format_for_content(infile, 1);
   if (!quiet)
     fprintf(stderr, "Reading alignment from %s...\n",  msa_fname);
 

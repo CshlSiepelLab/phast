@@ -442,8 +442,7 @@ MSA *ss_aggregate_from_files(List *fnames,
     fprintf(stderr, "Reading alignment from %s ...\n", fname->chars);
 
     F = fopen_fname(fname->chars, "r");
-    if ((format = msa_format_for_content(F)) == -1)
-      die("ERROR: Could not detect file format in %s\n", fname->chars);
+    format = msa_format_for_content(F, 1);
     if (format == MAF)
       source_msa = maf_read_cats(F, NULL, tuple_size, NULL, NULL, NULL, cycle_size, 
                             FALSE, NULL, NO_STRIP, FALSE, cats_to_do); 
@@ -1338,8 +1337,8 @@ void ss_strip_gaps(MSA *msa, int gap_strip_mode) {
    sequences but the reference sequence.  If msa->categories is
    non-NULL, it will be adjusted accordingly */
 /* FIXME: what about category counts?  what happens in ss_strip_gaps? */
-void ss_strip_missing(MSA *msa, /**< Input alignment; will be altered */
-                      int refseq /**< Index of reference sequence
+void ss_strip_missing(MSA *msa, /* Input alignment; will be altered */
+                      int refseq /* Index of reference sequence
                                     (indexing starts with 1) */
                       ) { 
   int i, j;

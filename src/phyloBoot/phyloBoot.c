@@ -304,11 +304,8 @@ int main(int argc, char *argv[]) {
     else {
       if (subtreeName != NULL) 
 	die("subtree option only works if .mod file given (parametric mode)\n");
-      if (input_format == -1) {
-	input_format = msa_format_for_content(INF);
-	if (input_format == -1)
-	  die("ERROR detecting alignment format.  Try 'phyloBoot -h' for help.\n");
-      }
+      if (input_format == -1)
+	input_format = msa_format_for_content(INF, 1);
       if (input_format == MAF)
         msa = maf_read(INF, NULL, 1, NULL, NULL, NULL, -1, FALSE, NULL, NO_STRIP, FALSE);
       else
@@ -467,7 +464,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Estimating model for replicate %d of %d...\n", i+1, nreps);
 
       if (use_em)
-        tm_fit_em(thismod, msa, params, -1, precision, NULL);
+        tm_fit_em(thismod, msa, params, -1, precision, -1, NULL);
       else
         tm_fit(thismod, msa, params, -1, precision, NULL, quiet);
 

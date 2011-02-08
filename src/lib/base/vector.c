@@ -41,6 +41,12 @@ void vec_free(Vector *v) {
   sfree(v);
 }
 
+
+void vec_realloc(Vector *v, int new_size) {
+  v->data = srealloc(v->data, new_size * sizeof(double));
+  v->size = new_size;
+}
+
 void vec_set_all(Vector *v, double val) {
   int i;
   for (i = 0; i < v->size; i++)

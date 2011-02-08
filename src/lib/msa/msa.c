@@ -104,6 +104,9 @@ MSA *msa_new_from_file_define_format(FILE *F, msa_format_type format, char *alph
   int i, j, k=-1, nseqs, len, do_toupper;
   MSA *msa;
   String *tmpstr;
+  
+  if (format == UNKNOWN_FORMAT)
+    die("unknown alignment format\n");
 
   if (format == FASTA) 
     return (msa_read_fasta(F, alphabet));
@@ -194,13 +197,8 @@ MSA *msa_new_from_file_define_format(FILE *F, msa_format_type format, char *alph
 }
 
 MSA *msa_new_from_file(FILE *F, char *alphabet) {
-  msa_format_type input_format = msa_format_for_content(F);
-  if(input_format == -1)
-  {
-    die("ERROR: Unable to determine the alignment file format\n");
-  }
-  
-   return msa_new_from_file_define_format(F, input_format, alphabet);
+  msa_format_type input_format = msa_format_for_content(F, 1);
+  return msa_new_from_file_define_format(F, input_format, alphabet);
 }
 
 
@@ -1150,8 +1148,8 @@ void msa_add_seq_ss(MSA *msa, int new_nseqs) {
 
 /* Adds a sequence name to the msa, and allocates space for the sequence.
    Assumes sequence is not already present!  Returns the new sequence index. 
-  Fills in new sequence with missing data, except for columns where all other
-  sequences contain a gap, then it fills in a gap instead */
+   Fills in new sequence with missing data, except for columns where all other
+   sequences contain a gap, then it fills in a gap instead */
 int msa_add_seq(MSA *msa, char *name) {
   int i, j, seqidx = msa->nseqs;
   
@@ -1600,6 +1598,81 @@ void msa_get_base_freqs_tuples(MSA *msa, Vector *freqs, int k, int cat) {
   for (i = 0; i < freqs->size; i++) sum += vec_get(freqs, i);
   vec_scale(freqs, 1.0/sum);
 }
+
+
+/* Compute backgd frequencies using a 3x4 model.  Assumes msa represents codon
+   data and is in frame.  Frequencies are obtained across all species.
+ */
+void msa_get_backgd_3x4(Vector *backgd, MSA *msa) {
+  double freq[4][3], sum;
+  int i, j, spec, numcodon=msa->length/3, alph_size = strlen(msa->alphabet);
+  char cod[4], *codon_mapping = get_codon_mapping(msa->alphabet);
+  cod[3] = '\0';
+  
+  if (numcodon == 0) return;
+
+  if (numcodon*3 != msa->length) 
+    die("msa_get_backgd_3x4 expected codon data; msa length is not multiple of 3");
+  for (i=0; i < 4; i++)
+    for (j=0; j < 3; j++)
+      freq[i][j] = 0.0;
+  if (msa->seqs != NULL) {
+    for (spec=0; spec < msa->nseqs; spec++) {
+      for (i=0; i < numcodon; i++) {
+	for (j=0; j < 3; j++) {
+	  cod[j] = msa->seqs[spec][i*3+j];
+	  if (msa->is_missing[(int)cod[j]]) break;
+	}
+	if (j == 3 && 
+	    codon_mapping[tuple_index(cod, msa->inv_alphabet, alph_size)] != '$') {
+	  for (j=0; j < 3; j++)
+	    freq[msa->inv_alphabet[(int)cod[j]]][j]++;
+	}
+      }
+    }
+  } else {  //in this case, codons are stored as non-overlapping tuples
+    if (msa->ss != NULL) 
+      die("msa_get_backgd_3x4: no seqs or ss in msa?");  // this won't happen
+    if (msa->ss->tuple_size != 3)
+      die("msa_get_backgd_3x4: expected ss->tuple_size=3");
+    for (i=0; i < msa->ss->ntuples; i++) {
+      for (spec=0; spec < msa->nseqs; spec++) {
+	for (j=0; j < 3; j++) {
+	  cod[j] = col_string_to_char(msa, msa->ss->col_tuples[i], spec, msa->ss->tuple_size, j-2);
+	  if (msa->is_missing[(int)cod[j]]) break;
+	}
+	if (j == 3 && 
+	    codon_mapping[tuple_index(cod, msa->inv_alphabet, alph_size)] != '$') {
+	  for (j=0; j < 3; j++)
+	    freq[msa->inv_alphabet[(int)cod[j]]][j] += msa->ss->counts[i];
+	}
+      }
+    }
+  }	
+
+  for (i=0; i < 3; i++) {
+    sum = 0.0;
+    for (j=0; j < 4; j++)
+      sum += freq[j][i];
+    for (j=0; j < 4; j++)
+      freq[j][i] /= sum;
+  }
+
+  sum = 0.0;
+  for (i=0; i < 64; i++) {
+    if (codon_mapping[i] == '$') vec_set(backgd, i, 0.0);
+    else {
+      vec_set(backgd, i, 1.0);
+      get_tuple_str(cod, i, 3, msa->alphabet);
+      for (j=0; j < 3; j++)
+	vec_set(backgd, i, vec_get(backgd, i)*freq[msa->inv_alphabet[(int)cod[j]]][j]);
+      sum += vec_get(backgd, i);
+    }
+  }
+  vec_scale(backgd, 1.0/sum);
+  sfree(codon_mapping);
+}
+
 
 /* return the length of a particular sequence (alignment length minus 
    gaps */
@@ -2420,20 +2493,31 @@ msa_format_type msa_str_to_format(const char *str) {
   else if (!strcmp(str, "PHYLIP")) return PHYLIP;
   else if (!strcmp(str, "MAF")) return MAF;
   else if (!strcmp(str, "LAV")) return LAV;
-  return -1;
+  return UNKNOWN_FORMAT;
 }
 
 
+char *msa_format_to_str(msa_format_type format) {
+  if (format == FASTA) return "FASTA";
+  if (format == PHYLIP) return "PHYLIP";
+  if (format == MPM) return "MPM";
+  if (format == SS) return "SS";
+  if (format == MAF) return "MAF";
+  return "UNKNOWN";
+}
+
 /* Return format type indicated by filename suffix */
-msa_format_type msa_format_for_suffix(char *fname) {
-  msa_format_type retval = -1;
+msa_format_type msa_format_for_suffix(const char *fname) {
+  msa_format_type retval = UNKNOWN_FORMAT;
   String *s = str_new_charstr(fname);
   str_suffix(s, '.');
+  str_tolower(s);
   if (str_equals_charstr(s, "mpm")) retval = MPM;
   else if (str_equals_charstr(s, "fa")) retval = FASTA;
   else if (str_equals_charstr(s, "ss")) retval = SS;
   else if (str_equals_charstr(s, "lav")) retval = LAV;
-  else if (str_equals_charstr(s, "ph")) retval = PHYLIP;
+  else if (str_equals_charstr(s, "ph") ||
+	   str_equals_charstr(s, "phy")) retval = PHYLIP;
   else if (str_equals_charstr(s, "maf")) retval = MAF;
   else if (str_equals_charstr(s, "lav")) retval = LAV;
   str_free(s);
@@ -2441,8 +2525,8 @@ msa_format_type msa_format_for_suffix(char *fname) {
 }
 
 /* Return format type indicated by file contents */
-msa_format_type msa_format_for_content(FILE *F) {
-  msa_format_type retval = -1;
+msa_format_type msa_format_for_content(FILE *F, int die_if_unknown) {
+  msa_format_type retval = UNKNOWN_FORMAT;
   String *line = str_new(STR_MED_LEN);
   List *matches = lst_new_ptr(3);
   Regex *ss_re, *phylip_re, *fasta_re, *lav_re, *maf_re;  
@@ -2455,7 +2539,7 @@ msa_format_type msa_format_for_content(FILE *F) {
   phylip_re = str_re_new("^([[:space:]]*([0-9]+))[[:space:]]*[[:space:]]*([0-9]+)");  
   fasta_re = str_re_new("^>.*");
   lav_re = str_re_new("^#:lav.*");
-  maf_re = str_re_new("^##maf[[:space:]]version=1.*");
+  maf_re = str_re_new("^##maf");
 
   //Check if file has a Sufficent Statistics header
   if(str_re_match(line, ss_re, matches, 1) >= 0) {
@@ -2502,6 +2586,8 @@ msa_format_type msa_format_for_content(FILE *F) {
   str_re_free(fasta_re);
   str_re_free(lav_re);
   str_re_free(maf_re);
+  if (retval == UNKNOWN_FORMAT && die_if_unknown)
+    die("Unable to determine alignment format\n");
   return retval;
 }
 

@@ -576,6 +576,7 @@ int mm_sample_state(MarkovMatrix *M, int state) {
 
 /* as above but by character */
 char mm_sample_backgd(char *labels, Vector *backgd) {
+  if (strlen(labels) != backgd->size) die("mm_sample_backgd: got num_labels=%i but backgd->size=%i\n", strlen(labels), backgd->size);
   return labels[pv_draw_idx(backgd)];
 }
 
@@ -734,7 +735,7 @@ void mm_renormalize(MarkovMatrix *M) {
     else if (rowsum != 1)       /* renormalize */
       for (j = 0; j < M->size; j++) 
         mat_set(M->matrix, i, j,
-                       mat_get(M->matrix, i, j) / rowsum);
+		mat_get(M->matrix, i, j) / rowsum);
                      
   }
 }

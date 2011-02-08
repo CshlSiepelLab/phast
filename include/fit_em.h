@@ -31,6 +31,6 @@
    @param logf output file to write to
 */
 int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat, 
-              opt_precision_type precision, FILE *logf);
+              opt_precision_type precision, int max_its, FILE *logf);
 
 #endif

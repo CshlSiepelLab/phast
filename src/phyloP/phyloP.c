@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
   struct phyloP_struct *p = phyloP_struct_new(0);
   char c;
   FILE *msa_f = NULL;
-  msa_format_type msa_format = -1;
+  msa_format_type msa_format = UNKNOWN_FORMAT;
 
   /* other variables */
   int opt_idx, seed = -1;
@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'i':
       msa_format = msa_str_to_format(optarg);
-      if (msa_format == -1)
+      if (msa_format == UNKNOWN_FORMAT)
         die("ERROR: unrecognized alignment format.\n");
       break;
     case 'g':
@@ -173,11 +173,8 @@ int main(int argc, char *argv[]) {
   if (!p->prior_only) {
     p->msa_fname = argv[optind+1];
     msa_f = fopen_fname(p->msa_fname, "r");
-    if (msa_format == -1) {
-      msa_format = msa_format_for_content(msa_f);
-      if (msa_format == -1)
-	die("ERROR detecting alignment format.  Try 'phyloP -h' for help\n");
-    }
+    if (msa_format == UNKNOWN_FORMAT)
+      msa_format = msa_format_for_content(msa_f, 1);
     if (msa_format == MAF) 
       p->msa = maf_read_cats(msa_f, NULL, 1, NULL, 
 			     p->cats_to_do==NULL ? NULL : p->feats, p->cm, -1, 

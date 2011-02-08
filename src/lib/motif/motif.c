@@ -198,7 +198,7 @@ List* mtf_find(void *data, int multiseq, int motif_size, int nmotifs,
                           lower_bounds, upper_bounds, NULL,
                           NUMERICAL_DERIVS ? NULL : 
                           mtf_compute_conditional_grad, 
-                          OPT_LOW_PREC, NULL);
+                          OPT_LOW_PREC, NULL, NULL);
 
         m->score *= -1;
 

@@ -238,26 +238,27 @@ SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
 
 
 
+
+
+SEXP rph_msa_format_for_suffix(SEXP filenameP) {
+  msa_format_type t = msa_format_for_suffix(CHARACTER_VALUE(filenameP));
+  SEXP result;
+  PROTECT(result = NEW_CHARACTER(1));
+  SET_STRING_ELT(result, 0, mkChar(msa_format_to_str(t)));
+  UNPROTECT(1);
+  return result;
+}
+
+
 SEXP rph_msa_format_for_content(SEXP filenameP) {
   FILE *infile = fopen_fname(CHARACTER_VALUE(filenameP), "r");
-  msa_format_type t = msa_format_for_content(infile);
-  switch (t) {
-  case -1:
-    return R_NilValue;
-  case FASTA:
-    return mkChar("FASTA");
-  case PHYLIP:
-    return mkChar("PHYLIP");
-  case MPM:
-    return mkChar("MPM");
-  case SS:
-    return mkChar("SS");
-  case MAF:
-    return mkChar("MAF");
-  default:
-    return R_NilValue;
-  }
-  return R_NilValue;
+  msa_format_type t = msa_format_for_content(infile, 0);
+  SEXP result;
+  fclose(infile);
+  PROTECT(result = NEW_CHARACTER(1));
+  SET_STRING_ELT(result, 0, mkChar(msa_format_to_str(t)));
+  UNPROTECT(1);
+  return result;
 }
 
 
@@ -278,8 +279,8 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
   String *fourD_refseq = NULL;
 
   fmt = msa_str_to_format(CHARACTER_VALUE(formatP));
-  if ((int)fmt == -1) 
-    fmt = FASTA;
+  if (fmt == UNKNOWN_FORMAT) 
+    die("Unknown alignment format\n");
   if (alphabetP != R_NilValue) {
     alphabet = smalloc((strlen(CHARACTER_VALUE(alphabetP))+1)*sizeof(char));
     strcpy(alphabet, CHARACTER_VALUE(alphabetP));
@@ -478,7 +479,7 @@ SEXP rph_msa_valid_fmt_str(SEXP formatP) {
   PROTECT( result = allocVector(LGLSXP, 1));
   resultP = LOGICAL_POINTER(result);
   fmt = msa_str_to_format(CHARACTER_VALUE(formatP));
-  resultP[0] = (fmt != -1);
+  resultP[0] = (fmt != UNKNOWN_FORMAT);
   UNPROTECT(1);
   return result;
 }
@@ -493,7 +494,7 @@ SEXP rph_msa_printSeq(SEXP msaP, SEXP fileP, SEXP formatP,
   msa = (MSA*)EXTPTR_PTR(msaP);
   msa_register_protect(msa);
   fmt = msa_str_to_format(CHARACTER_VALUE(formatP));
-  if ((int)fmt == -1) 
+  if (fmt == UNKNOWN_FORMAT) 
     fmt = FASTA;
   if (fileP != R_NilValue)
     msa_print_to_file(CHARACTER_VALUE(fileP), 
@@ -1125,6 +1126,23 @@ SEXP rph_msa_get_base_freqs_tuples(SEXP msaP, SEXP modP) {
 }
 
 
+SEXP rph_msa_freq3x4(SEXP msaP) {
+  Vector *backgd = vec_new(64);
+  double *doubleP;
+  int i;
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  SEXP rv;
+
+  msa_get_backgd_3x4(backgd, msa);
+  PROTECT(rv = NEW_NUMERIC(64));
+  doubleP = NUMERIC_POINTER(rv);
+  for (i=0; i < 64; i++)
+    doubleP[i] = vec_get(backgd, i);
+  UNPROTECT(1);
+  return rv;
+}
+
+
 SEXP rph_msa_fraction_pairwise_diff(SEXP msaP, SEXP seq1P, SEXP seq2P, 
 				    SEXP ignoreMissingP, SEXP ignoreGapsP) {
   MSA *msa = (MSA*)EXTPTR_PTR(msaP);
@@ -1188,3 +1206,5 @@ SEXP rph_msa_translate(SEXP msaP, SEXP oneFrameP, SEXP frameP) {
   return result;
   
 }
+
+

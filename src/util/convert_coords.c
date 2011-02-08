@@ -52,7 +52,7 @@ OPTIONS:\n\
 int main(int argc, char* argv[]) {
   FILE* F;
   MSA *msa;
-  msa_format_type format = -1;
+  msa_format_type format = UNKNOWN_FORMAT;
   int src_ref = -1, dest_ref = 0, offset = 0;
   char *msa_fname = NULL, *feat_fname = NULL;
   GFF_Set *gff;
@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
       break;
     case 'i':
       format = msa_str_to_format(optarg);
-      if (format == -1) die("ERROR: bad alignment format.\n");
+      if (format == UNKNOWN_FORMAT) die("ERROR: bad alignment format.\n");
       break;
     case 'p':
       offset = get_arg_int(optarg);
@@ -111,11 +111,8 @@ int main(int argc, char* argv[]) {
   if ((F = fopen(msa_fname, "r")) == NULL) {
     die("ERROR: cannot open %s.\n", msa_fname);
   }
-  if (format == -1) {
-    format = msa_format_for_content(F);
-    if (format == -1)
-      die("ERROR: unknown alignment format.  Try 'convert_coords -h' for help\n");
-  }
+  if (format == UNKNOWN_FORMAT)
+    format = msa_format_for_content(F, 1);
   if (format == LAV) {
     LocalPwAlignment *lpwa = NULL;
 /*     int i; */

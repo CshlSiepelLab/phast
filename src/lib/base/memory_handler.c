@@ -485,8 +485,11 @@ void tm_protect(TreeModel *tm) {
     for (i=0; i < lst_size(tm->alt_subst_mods); i++)
       tm_altmod_protect(lst_get_ptr(tm->alt_subst_mods, i));
   }
-  if (tm->alt_subst_mods_node != NULL)
-    phast_mem_protect(tm->alt_subst_mods_node);
+  if (tm->alt_subst_mods_ptr != NULL) {
+    for (i=0; i < tm->tree->nnodes; i++)
+      phast_mem_protect(tm->alt_subst_mods_ptr[i]);
+    phast_mem_protect(tm->alt_subst_mods_ptr);
+  }
   if (tm->all_params != NULL) vec_protect(tm->all_params);
   if (tm->param_map != NULL) phast_mem_protect(tm->param_map);
   if (tm->bound_arg != NULL) {

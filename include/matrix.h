@@ -204,6 +204,14 @@ void mat_print(Matrix *m, FILE *F);
 
 /** \{ */
 
+/** Compare two matrices.
+  @param A 1st matrix.
+  @param B 2nd matrix.
+  @result Returns 1 if A and B are same dimensions and data in every 
+  row and column are the same.  Otherwise returns 0.
+ */
+int mat_equal(Matrix *A, Matrix *B);
+
 /** Create transposed version of input matrix.
 
   @param src Input matrix.

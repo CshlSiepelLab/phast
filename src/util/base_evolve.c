@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'o':
       msa_format = msa_str_to_format(optarg);
-      if (msa_format == -1)
+      if (msa_format == UNKNOWN_FORMAT)
         die("ERROR: unrecognized alignment format.\n");
       break;
     case 'f':

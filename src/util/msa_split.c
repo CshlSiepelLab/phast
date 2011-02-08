@@ -396,7 +396,7 @@ void adjust_split_indices_for_blocks(MSA *msa, List *split_indices_list,
 int main(int argc, char* argv[]) {
   FILE* F;
   MSA *msa;
-  msa_format_type input_format = -1, output_format = FASTA;
+  msa_format_type input_format = UNKNOWN_FORMAT, output_format = FASTA;
   char *msa_fname = NULL, *split_indices_str = NULL, 
     *out_fname_root = "msa_split", *rseq_fname = NULL, *group_tag = NULL;
   GFF_Set *gff = NULL;
@@ -454,7 +454,7 @@ int main(int argc, char* argv[]) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
-      if (input_format == -1) die("ERROR: bad input alignment format.\n");
+      if (input_format == UNKNOWN_FORMAT) die("ERROR: bad input alignment format.\n");
       break;
     case 'M':
       rseq_fname = optarg;
@@ -516,7 +516,7 @@ int main(int argc, char* argv[]) {
       break;
     case 'o':
       output_format = msa_str_to_format(optarg);
-      if (output_format == -1) die("ERROR: bad output alignment format.\n");
+      if (output_format == UNKNOWN_FORMAT) die("ERROR: bad output alignment format.\n");
       break;
     case 'O': 
       order_list = get_arg_list(optarg);
@@ -593,11 +593,8 @@ int main(int argc, char* argv[]) {
   if (cats_to_do_str != NULL) cats_to_do = cm_get_category_list(cm, cats_to_do_str, FALSE);
 
   FILE *infile = fopen_fname(msa_fname, "r");
-  if (input_format == -1) {
-    input_format = msa_format_for_content(infile);
-    if (input_format == -1)
-      die("ERROR: unknown alignment format.  Try 'msa_split -h' for help\n");
-  }
+  if (input_format == UNKNOWN_FORMAT)
+    input_format = msa_format_for_content(infile, 1);
   if (input_format == MAF) {
     if (gff != NULL) fprintf(stderr, "WARNING: use of --features with a MAF file currently forces a projection onto the reference sequence.\n");
 

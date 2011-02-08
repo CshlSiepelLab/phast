@@ -78,6 +78,12 @@ Vector* vec_create_copy(Vector *src);
 */
 void vec_free(Vector *v);
 
+/** Change the size of a vector.
+    Vector contents from [0, min(new_size, old_size)] are not affected.
+    @param v Vector to be re-sized
+    @param new_size New vector length */
+void vec_realloc(Vector *v, int new_size);
+
 /** \} */
 
 /** \name Vector initialization operations. */

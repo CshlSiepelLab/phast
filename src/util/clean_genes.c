@@ -974,7 +974,7 @@ int main(int argc, char *argv[]) {
   char c;
   MSA *msa;
   GFF_Set *gff;
-  msa_format_type msa_format = -1;
+  msa_format_type msa_format = UNKNOWN_FORMAT;
   List *keepers, *problems = lst_new_ptr(10), 
     *ends_adjusted = lst_new_ptr(1), *starts_adjusted = lst_new_ptr(1), 
     *discards=NULL, *intron_splice = lst_new_ptr(10);
@@ -1055,7 +1055,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'i':
       msa_format = msa_str_to_format(optarg);
-      if (msa_format == -1) die("Bad alignment format.\n");
+      if (msa_format == UNKNOWN_FORMAT) die("Bad alignment format.\n");
       break;
     case 'r':
       rseq_fname = optarg;
@@ -1098,11 +1098,8 @@ int main(int argc, char *argv[]) {
   gff = gff_read_set(fopen_fname(argv[optind], "r"));
   msa_fname = argv[optind+1];
   infile = fopen_fname(msa_fname, "r");
-  if (msa_format == -1) {
-    msa_format = msa_format_for_content(infile);
-    if (msa_format == -1)
-      die("ERROR: unknown alignment format.  Try 'clean_genes -h' for help\n");
-  }
+  if (msa_format == UNKNOWN_FORMAT)
+    msa_format = msa_format_for_content(infile, 1);
   if (msa_format == MAF) {
     msa = maf_read(infile, 
                    rseq_fname == NULL ? NULL : fopen_fname(rseq_fname, "r"), 

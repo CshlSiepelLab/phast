@@ -380,7 +380,7 @@ double bd_estimate_transitions(BDPhyloHmm *bdphmm, MSA *msa) {
   }
 
   opt_bfgs(lnl_wrapper, params, bdphmm, &retval, lb, ub, stderr, NULL, 
-           OPT_HIGH_PREC, NULL);
+           OPT_HIGH_PREC, NULL, NULL);
 
   unpack_params(params, bdphmm);
 

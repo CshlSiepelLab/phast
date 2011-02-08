@@ -122,8 +122,9 @@ int mm_sample_state(MarkovMatrix *M, int state);
 char mm_sample_char(MarkovMatrix *M, char c);
 //int mm_sample_vector(Vector *v);
 /**  Sample by background
-   @param labels ???
-   @param backgd ???
+   @param labels a character string indicating the Markov Matrix's alphabet, ie, "ACGT"
+   @param backgd A vector giving the frequency of each state (values should be in (0,1) and sum to 1).
+   @result A character representing the sampled state.
 */
 char mm_sample_backgd(char *labels, Vector *backgd);
 

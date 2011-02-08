@@ -125,7 +125,7 @@ typedef struct {
     @param hmm If indel_mode == MISSING_DATA or indel_mode ==
      PARAMETERIC, then an HMM for functional categories (with
      nstates == cm->ncats + 1) should be passed in; otherwise (indel_mode ==
-     NONPARAMETERIC), an hmm for the full gaped (but not 'reflected')
+     NONPARAMETERIC), an hmm for the full gapped (but not 'reflected')
      phylo-HMM should be passed in. NULL may also be given, in which
      case a trivial, single-state HMM will be created.  Any HMM that is
      passed in will be left unchanged (a copy will be created) 

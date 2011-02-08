@@ -199,6 +199,8 @@ void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
       lol_push_dbl(tmList, tm->rK, tm->nratecats, "rate.consts");
     if (tm->freqK != NULL)
       lol_push_dbl(tmList, tm->freqK, tm->nratecats, "rate.weights");
+    if (tm->site_model)
+      lol_push_int(tmList, &tm->site_model, 1, "site.model");
   }
   if (tm->selection_idx >= 0)
     lol_push_dbl(tmList, &(tm->selection), 1, "selection");

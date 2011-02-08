@@ -23,7 +23,7 @@
 
 /** Create a new PhyloHmm object. Optionally expands original HMM to
     allow for features on both the positive and negative strands. */
-PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
+PhyloHmm *phmm_new(HMM *hmm,    /* HMM.  If indel_mode ==
                                    MISSING_DATA or indel_mode ==
                                    PARAMETERIC, then an HMM for
                                    functional cateogories (with
@@ -38,25 +38,25 @@ PhyloHmm *phmm_new(HMM *hmm,    /**< HMM.  If indel_mode ==
                                    passed in will be left unchanged (a
                                    copy will be created) */
                    TreeModel **tree_models, 
-                                /**< Array of TreeModel objects.
+                                /* Array of TreeModel objects.
                                    Number of elements is assumed to
                                    equal number of categories
                                    (cm->ncats+1)  */
                    CategoryMap *cm, 
-                                /**< CategoryMap.  A copy is created,
+                                /* CategoryMap.  A copy is created,
                                    orig. isn't touched.  If NULL, a
                                    trivial map is created, with a
                                    separate category for every HMM
                                    state.  Must be non-NULL if
                                    indel_mode != MISSING_DATA. */
                    List *pivot_cats,  
-                                /**< Categories (by name or number)
+                                /* Categories (by name or number)
                                    about which to "reflect" the HMM.
                                    Allows for prediction on both
                                    strands (see hmm_reverse_compl).
                                    Pass NULL for no reflection */
                    indel_mode_type indel_mode 
-                                /**< How to model indels.  Allowable
+                                /* How to model indels.  Allowable
                                      values are MISSING_DATA,
                                      PARAMETERIC, and
                                      NONPARAMETERIC. */
@@ -293,13 +293,13 @@ void phmm_create_autocorr_hmm(HMM *hmm, double lambda) {
    autocorr HMM defined by 'lambda'.  Update all mappings
    appropriately.  Weight-matrix tree models are not scaled.  */
 void phmm_rates_cross(PhyloHmm *phmm, 
-                                /**< PhyloHmm to be altered */
+                                /* PhyloHmm to be altered */
                       int nratecats, 
-                                /**< Number of rate categories. */
+                                /* Number of rate categories. */
                       double lambda,
-                                /**< Autocorrelation parameter  */
+                                /* Autocorrelation parameter  */
                       int expand_cats
-                                /**< whether to expand the category
+                                /* whether to expand the category
                                    map to reflect the rate categories
                                    (useful, e.g., in prediction of
                                    rate categories).  Currently not
@@ -317,7 +317,7 @@ void phmm_rates_cross(PhyloHmm *phmm,
 
   if (nratecats <= 1) 
     die("ERROR: phmm_rate_cats requires nratecats > 1.\n");
-
+  
   if (phmm->indel_mode != MISSING_DATA)
     die("ERROR: phmm_rates_cross cannot be used with indel model (parameteric or nonparameteric).\n");
 
@@ -343,6 +343,9 @@ void phmm_rates_cross(PhyloHmm *phmm,
 
   /* copy and scale tree models */
   for (mod = 0; mod < phmm->nmods; mod++) {
+    if (phmm->mods[mod]->alt_subst_mods != NULL)
+      die("ERROR: phmm_rates_cross cannot handel lineage-specific models");
+
     if (phmm->mods[mod]->tree == NULL) { /* weight matrix */
       old_mod_to_new_base[mod] = thismod_new;
       new_mods[thismod_new++] = phmm->mods[mod]; /* just reuse same object */
@@ -514,11 +517,11 @@ void phmm_free(PhyloHmm *phmm) {
     phmm_viterbi_features, phmm_posterior_probs, and phmm_lnl
     (often only needs to be run once). */
 void phmm_compute_emissions(PhyloHmm *phmm,
-                                /**< Initialized PhyloHmm */
+                                /* Initialized PhyloHmm */
                             MSA *msa,
-                                /**< Source alignment */
+                                /* Source alignment */
                             int quiet
-                                /**< Determins whether progress is
+                                /* Determins whether progress is
                                    reported to stderr */
                             ) {
 
@@ -528,8 +531,7 @@ void phmm_compute_emissions(PhyloHmm *phmm,
   /* allocate new memory if emissions is NULL; otherwise reuse */ 
 
   if (new_alloc) {
-    if (phmm->emissions == NULL)
-      phmm->emissions = smalloc(phmm->hmm->nstates * sizeof(double*));  
+    phmm->emissions = smalloc(phmm->hmm->nstates * sizeof(double*));  
     phmm->alloc_len = msa->length;
   }
   if (phmm->alloc_len < msa->length)
@@ -636,19 +638,19 @@ void phmm_compute_emissions(PhyloHmm *phmm,
     Emissions must have already been computed (see
     phmm_compute_emissions) */
 GFF_Set* phmm_predict_viterbi(PhyloHmm *phmm, 
-                                /**< PhyloHmm object */
+                                /* PhyloHmm object */
                               char *seqname,
-                                /**< seqname for feature set (e.g.,
+                                /* seqname for feature set (e.g.,
                                    "chr1") */
                               char *grouptag,
-                                /**< tag to use for groups (e.g.,
+                                /* tag to use for groups (e.g.,
                                    "exon_id", "transcript_id"); if
                                    NULL, a default will be used */
                               char *idpref,
-                                /**< prefix for assigned ids (e.g.,
+                                /* prefix for assigned ids (e.g.,
                                    "chr1.15") (may be NULL) */
                               List *frame
-                                /**< names of features for which to obtain
+                                /* names of features for which to obtain
                                    frame (NULL to ignore) */
                                ) {
   int *path = (int*)smalloc(phmm->alloc_len * sizeof(int));
@@ -673,25 +675,25 @@ GFF_Set* phmm_predict_viterbi(PhyloHmm *phmm,
     to any of the specified categories.  Emissions must have already
     been computed (see phmm_compute_emissions) */
 GFF_Set* phmm_predict_viterbi_cats(PhyloHmm *phmm, 
-                                   /**< PhyloHmm object */
+                                   /* PhyloHmm object */
                                    List *cats,
-                                   /**< categories of interest, by
+                                   /* categories of interest, by
                                       name or number */
                                    char *seqname,
-                                   /**< seqname for feature set (e.g.,
+                                   /* seqname for feature set (e.g.,
                                       "chr1") */
                                    char *grouptag,
-                                   /**< tag to use for groups (e.g.,
+                                   /* tag to use for groups (e.g.,
                                       "exon_id", "transcript_id"); if
                                       NULL, a default will be used */
                                    char *idpref,
-                                   /**< prefix for assigned ids (e.g.,
+                                   /* prefix for assigned ids (e.g.,
                                       "chr1.15") (may be NULL) */
                                    List *frame,
-                                   /**< features for which to obtain
+                                   /* features for which to obtain
                                       frame (NULL to ignore) */
                                    char *new_type
-                                   /**< replace type of each retained
+                                   /* replace type of each retained
                                       feature with this string if
                                       non-NULL (old types may no
                                       longer make sense, because of
@@ -782,12 +784,12 @@ double **phmm_new_postprobs(PhyloHmm *phmm) {
     phmm_compute_emissions).  Computes log likelihood as a side
     effect. */
 double* phmm_postprobs_cats(PhyloHmm *phmm, 
-                                /**< PhyloHmm object */
+                                /* PhyloHmm object */
                               List *cats, 
-                                /**< Categories of interest, by name
+                                /* Categories of interest, by name
                                    or number */
                               double *lnl
-                                /**< if non-NULL, will point to log
+                                /* if non-NULL, will point to log
                                    likelihood on return */
                               ) {
   int i, j, state;
@@ -862,22 +864,22 @@ double phmm_fit_lambda(PhyloHmm *phmm, double *lambda, FILE *logf) {
 
 /** Score a set of predicted features using log odds scoring. */
 void phmm_score_predictions(PhyloHmm *phmm, 
-                                /**< PhyloHmm object */
+                                /* PhyloHmm object */
                             GFF_Set *preds, 
-                                /**< Predictions to score */
+                                /* Predictions to score */
                             List *score_cats, 
-                                /**< Categories to score (specify by
+                                /* Categories to score (specify by
                                    name or number) */
                             List *helper_cats,  
-                                /**< Secondary categories to be
+                                /* Secondary categories to be
                                    included in scoring if adjacent to
                                    main cats.  Pass NULL if none. */
                             List *null_cats,
-                                /**< Categories in null model.  Pass
+                                /* Categories in null model.  Pass
                                    NULL to use all categories not in
                                    score_cats or helper_cats */
                             int score_only_score_cats
-                                /**< Restrict scoring to features
+                                /* Restrict scoring to features
                                    matching score_cats; if FALSE,
                                    all features are scored */
                             )  {
@@ -1119,19 +1121,19 @@ int phmm_get_obs_idx_em(void *data, int sample, int position) {
   return msa->ss->tuple_idx[position];
 }
 
-/** General routine to estimate the parameters of a phylo-HMM by EM.
+/* General routine to estimate the parameters of a phylo-HMM by EM.
    Can be used with or without the indel model, and for estimation of
    transition params only or transition params and tree models.
    Returns ln likelihood. */
 double phmm_fit_em(PhyloHmm *phmm, 
-                   MSA *msa,     /** NULL means not to estimate tree
+                   MSA *msa,     /* NULL means not to estimate tree
                                     models (emissions must be
                                     precomputed) */
                    int fix_functional,
-                                /**< Whether to fix transition
+                                /* Whether to fix transition
                                    parameters of functional HMM */
                    int fix_indel,
-                                /**< Whether to fix indel parameters */
+                                /* Whether to fix indel parameters */
                    FILE *logf
                    ) {
   double retval;
@@ -1514,7 +1516,7 @@ void phmm_em_estim_indels(PhyloHmm *phmm, IndelEstimData *ied) {
     vec_set(params, 1, phmm->beta[i]);
     vec_set(params, 2, phmm->tau[i]);
     opt_bfgs(indel_max_function, params, ied, &retval, lb, NULL, NULL, 
-             indel_max_gradient, OPT_HIGH_PREC, NULL); 
+             indel_max_gradient, OPT_HIGH_PREC, NULL, NULL); 
     phmm->alpha[i] = vec_get(params, 0);
     phmm->beta[i] = vec_get(params, 1);
     phmm->tau[i] = vec_get(params, 2);

@@ -138,7 +138,7 @@ int main(int argc, char *argv[]) {
   List *msas, *motifs;
   SeqSet *seqset = NULL;
   PooledMSA *pmsa = NULL;
-  msa_format_type msa_format = FASTA;
+  msa_format_type msa_format = UNKNOWN_FORMAT;
   Vector *backgd_mnmod = NULL;
   Hashtable *hash=NULL;
   String *output_prefix = str_new_charstr("phastm.");
@@ -154,7 +154,8 @@ int main(int argc, char *argv[]) {
       break;
     case 'i':
       msa_format = msa_str_to_format(optarg);
-      if (msa_format < 0) die("ERROR: bad input format.\n");
+      if (msa_format == UNKNOWN_FORMAT) 
+	die("ERROR: bad input format.\n");
       break;
     case 'b':
       backgd_mod = tm_new_from_file(fopen_fname(optarg, "r"), 1);
@@ -265,7 +266,14 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Reading alignment(s) ...\n");
   for (i = 0, j = 0; i < lst_size(msa_name_list); i++) {
     String *name = lst_get_ptr(msa_name_list, i);
-    MSA *msa = msa_new_from_file(fopen_fname(name->chars, "r"),  NULL);
+    FILE *mfile = fopen_fname(name->chars, "r");
+    msa_format_type temp_format;
+    MSA *msa;
+    if (msa_format == UNKNOWN_FORMAT)
+      temp_format = msa_format_for_content(mfile, 1);
+    else temp_format = msa_format;
+    msa = msa_new_from_file_define_format(mfile, temp_format, NULL);
+    fclose(mfile);
     if (nseqs == -1) nseqs = msa->nseqs;
     if (!meme_mode &&
         (msa->length - msa_num_gapped_cols(msa, STRIP_ANY_GAPS, -1, -1) < 300 ||

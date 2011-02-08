@@ -201,7 +201,8 @@ msa_view  -o FASTA hpmrc.ss > hpmrc.fa
 !phyloFit.mod @phyloFit hpmrc.ss -D 12345 --EM --subst-mod REV --tree "(hg16, (mm3,rn3), galGal2)" --gaps-as-bases
 !phyloFit.mod !phyloFit.postprob @phyloFit hmrc.ss -D 12345 --subst-mod REV --EM --init-model rev.mod --post-probs --lnl
 !phyloFit.mod @phyloFit hmrc.ss -D 12345 --subst-mod REV --EM --tree "(human, (mouse,rat))"
-!phyloFit.mod @phyloFit -D 12345 hpmrc.fa --tree "(((hg16,panTro2),(rn3,mm3)),galGal2)"
+!phyloFit.mod @phyloFit -D 12345 hpmrc.fa --EM --tree "(((hg16,panTro2),(rn3,mm3)),galGal2)"
+!phyloFit.mod @phyloFit -D 12345 hpmrc.fa --EM --nrates 3 --tree "(((hg16,panTro2),(rn3,mm3)),galGal2)"
 
 # test some of the higher order models (they are slow so use small simulated data set)
 base_evolve --nsites 100 rev.mod > simulated.fa

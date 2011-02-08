@@ -641,25 +641,25 @@ List *tr_postorder(TreeNode *tr) {
 
 /** Provide x-y coordinates for layout. */
 void tr_layout_xy(TreeNode *tree, 
-                  int x0,       /**< Upper left x bound */
-                  int y0,       /**< Upper left y bound  */
-                  int x1,       /**< Lower right x bound */
-                  int y1,       /**< Lower right y bound  */
-                  int *x,       /**< On return, will contain
+                  int x0,       /* Upper left x bound */
+                  int y0,       /* Upper left y bound  */
+                  int x1,       /* Lower right x bound */
+                  int y1,       /* Lower right y bound  */
+                  int *x,       /* On return, will contain
                                    x-coordinates for nodes, in order
                                    of tree->nodes.  Must be
                                    preallocated. */
-                  int *y,       /**< On return, will contain
+                  int *y,       /* On return, will contain
                                    y-coordinates for nodes, in order
                                    of tree->nodes.  Must be
                                    preallocated. */
                   int use_branch_lens, 
-                                /**< If TRUE, tree will be laid out
+                                /* If TRUE, tree will be laid out
                                    such that edges are proportional to
                                    branch lengths (dparent
                                    attributes) */
                   int horizontal
-                                /**< If TRUE, tree will be laid out
+                                /* If TRUE, tree will be laid out
                                    with root on left and leaves on
                                    right; otherwise, root will be at
                                    top and leaves at bottom */
@@ -726,23 +726,23 @@ void tr_layout_xy(TreeNode *tree,
 } 
 
 /** Print a (very basic!) postscript rendering of a tree. */
-void tr_print_ps(FILE *F,       /**< Destination file */
+void tr_print_ps(FILE *F,       /* Destination file */
                  TreeNode *tree, 
                                 /**< Tree root */
                  int show_branch_lens,
-                                /**< Whether to print branch lengths
+                                /* Whether to print branch lengths
                                    by edges */
                  int square_branches,
-                                /**< If TRUE, branches will be
+                                /* If TRUE, branches will be
                                    right-angled, otherwise will be
                                    diagonal */
                  int use_branch_lens, 
-                                /**< If TRUE, tree will be laid out
+                                /* If TRUE, tree will be laid out
                                    such that edges are proportional to
                                    branch lengths (dparent
                                    attributes) */
                  int horizontal_layout
-                                /**< If TRUE, tree will be laid out
+                                /* If TRUE, tree will be laid out
                                    with root on left and leaves on
                                    right; otherwise, root will be at
                                    top and leaves at bottom */
@@ -955,12 +955,12 @@ void tr_scale_subtree(TreeNode *t, TreeNode *sub, double scale_const,
 /** Prune away all leaves whose names are in (or not in) the specified
     list.  Nodes will be removed and branches combined (branch lengths
     added) to restore as a proper binary tree.  */
-void tr_prune(TreeNode **t,     /**< Tree to prune (may be altered
+void tr_prune(TreeNode **t,     /* Tree to prune (may be altered
                                    because root can change) */
-              List *names,      /**< List of names.  On return, will
+              List *names,      /* List of names.  On return, will
                                    contain list of names of leaves
                                    that were pruned away.  */
-              int all_but       /**< if FALSE, prune leaves *in*
+              int all_but       /* if FALSE, prune leaves *in*
                                    'names'; if TRUE, prune leaves *not
                                    in* 'names'  */
               ) {

@@ -272,7 +272,7 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
       //      vec_set(d2->cdata->params, 1, 0.01);
       if (opt_bfgs(ff_likelihood_wrapper, d2->cdata->params, d2, &alt_lnl, 
                    d2->cdata->lb, d2->cdata->ub, logf, NULL, 
-                   OPT_HIGH_PREC, NULL) != 0)
+                   OPT_HIGH_PREC, NULL, NULL) != 0)
         ;                         /* do nothing; nonzero exit typically
                                      occurs when max iterations is
                                      reached; a warning is printed to
@@ -291,7 +291,7 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
 	vec_set(d2->cdata->params, 1, 1.0);
 	if (opt_bfgs(ff_likelihood_wrapper, d2->cdata->params, d2, &alt_lnl, 
 		     d2->cdata->lb, d2->cdata->ub, logf, NULL, 
-		     OPT_HIGH_PREC, NULL) != 0)
+		     OPT_HIGH_PREC, NULL, NULL) != 0)
 	  if (delta_lnl <= -0.1)
 	    die("ERROR ff_lrts_sub: delta_lnl (%f) <= -0.1\n", delta_lnl);
       }

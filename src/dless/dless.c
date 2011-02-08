@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
 
   /* arguments and defaults for options */
   FILE *refseq_f = NULL, *msa_f = NULL;
-  msa_format_type msa_format = -1;
+  msa_format_type msa_format = UNKNOWN_FORMAT;
   TreeModel *source_mod;
   double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU, 
     phi = DEFAULT_PHI, gamma = -1, omega = -1, 
@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'i':
       msa_format = msa_str_to_format(optarg);
-      if (msa_format == -1)
+      if (msa_format == UNKNOWN_FORMAT)
         die("ERROR: unrecognized alignment format.\n");
       break;
     case 'N':
@@ -183,11 +183,8 @@ int main(int argc, char *argv[]) {
   msa_f = fopen_fname(argv[optind], "r");
 
   fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
-  if (msa_format == -1) {
-    msa_format = msa_format_for_content(msa_f);
-    if (msa_format == -1)
-      die("ERROR:  unknown alignment format.  Try 'dless -h' for help\n");
-  }
+  if (msa_format == UNKNOWN_FORMAT) 
+    msa_format = msa_format_for_content(msa_f, 1);
 
   if (msa_format == MAF) {
     msa = maf_read(msa_f, refseq_f, 1, NULL, NULL, NULL, -1, TRUE, NULL, 
