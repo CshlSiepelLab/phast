@@ -58,6 +58,15 @@
  */
 void phast_new_mem_handler();
 
+/** Get the size of the memory handler stack.
+
+    @return the size of the memory handler stack, or -1 phast was compiled
+    without memory handler support.  The size of the memory handler stack 
+    is equal to the number of times phast_new_mem_handler() has been called 
+    minus the number of times phast_free_all()  has been called.
+ */
+int phast_num_memory_handlers();
+
 /** First protects any memory which has been registered for protection.
     Then free all memory which is not protected, that has been allocated
     since the last call to phast_new_mem_handler().  Pop the current

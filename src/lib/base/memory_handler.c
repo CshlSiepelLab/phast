@@ -138,6 +138,15 @@ void phast_new_mem_handler() {
 #endif
 }
 
+
+int phast_num_memory_handlers() {
+#ifdef USE_PHAST_MEMORY_HANDLER
+  return num_memlist;
+#else
+  return -1;
+#endif
+}
+
 void phast_make_mem_list() {
 #ifdef USE_PHAST_MEMORY_HANDLER
   memlist->mem_list = malloc(MEM_LIST_START_SIZE * sizeof(void*));
