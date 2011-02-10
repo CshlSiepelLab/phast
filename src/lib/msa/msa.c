@@ -1165,13 +1165,14 @@ int msa_add_seq(MSA *msa, char *name) {
   msa->names[seqidx] = copy_charstr(name);
   if (msa->alloc_len > 0 && msa->seqs != NULL) {
     msa->seqs[seqidx] = smalloc((msa->alloc_len+1)*sizeof(char));
-    for (i=0; i < msa->alloc_len; i++) {
+    for (i=0; i < msa->length; i++) {
       for (j=0; j < msa->nseqs; j++)
 	if (msa->seqs[j][i] != GAP_CHAR) break;
       if (j == msa->nseqs)
 	msa->seqs[seqidx][i] = GAP_CHAR;
       else msa->seqs[seqidx][i] = msa->missing[0];
     }
+    msa->seqs[seqidx][i] = '\0';
   }
   if (msa->ss != NULL)
     msa_add_seq_ss(msa, seqidx+1);

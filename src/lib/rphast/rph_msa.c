@@ -990,8 +990,10 @@ SEXP rph_msa_base_evolve(SEXP modP, SEXP nsitesP, SEXP hmmP,
 
 
 SEXP rph_msa_concat(SEXP aggregate_msaP, SEXP source_msaP) {
-  msa_concatenate((MSA*)EXTPTR_PTR(aggregate_msaP), 
-		  (MSA*)EXTPTR_PTR(source_msaP));
+  MSA *aggregate_msa = (MSA*)EXTPTR_PTR(aggregate_msaP);
+  MSA *source_msa = (MSA*)EXTPTR_PTR(source_msaP);
+  msa_register_protect(aggregate_msa);
+  msa_concatenate(aggregate_msa, source_msa);
   return aggregate_msaP;
 }
 
