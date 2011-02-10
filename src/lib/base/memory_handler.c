@@ -133,6 +133,8 @@ void phast_new_mem_handler() {
   memlist = &big_memlist[num_memlist];
   phast_init_memlist();
   num_memlist++;
+#else
+  phast_warning("warning: phast_new_memory_handler: memory handler not turned on.  To use, recompile with -DUSE_PHAST_MEMORY_HANDLER.\n");
 #endif
 }
 
