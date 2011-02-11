@@ -139,7 +139,7 @@ void phast_new_mem_handler() {
 }
 
 
-int phast_num_memory_handlers() {
+int phast_num_mem_handlers() {
 #ifdef USE_PHAST_MEMORY_HANDLER
   return num_memlist;
 #else

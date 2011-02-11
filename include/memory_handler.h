@@ -65,7 +65,7 @@ void phast_new_mem_handler();
     is equal to the number of times phast_new_mem_handler() has been called 
     minus the number of times phast_free_all()  has been called.
  */
-int phast_num_memory_handlers();
+int phast_num_mem_handlers();
 
 /** First protects any memory which has been registered for protection.
     Then free all memory which is not protected, that has been allocated
