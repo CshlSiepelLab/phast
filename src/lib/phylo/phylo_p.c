@@ -95,7 +95,7 @@ TreeModel* fit_tree_model(TreeModel *source_mod, MSA *msa,
   tm_init_rmp(source_mod);           /* (no. params changes) */
   params = tm_params_new_init_from_model(retval);
 
-  tm_fit(retval, msa, params, -1, OPT_HIGH_PREC, NULL, 1);
+  tm_fit(retval, msa, params, -1, OPT_HIGH_PREC, NULL, 1, NULL);
 
   oldscale = vec_get(params, retval->scale_idx);
 

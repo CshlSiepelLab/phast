@@ -343,7 +343,7 @@ int main(int argc, char *argv[]) {
                           pmsa->pooled_msa->alphabet, 1, 0, NULL, -1);
       tm_fit(backgd_mod, pmsa->pooled_msa, 
              tm_params_init(backgd_mod, .1, 5, 0), 
-             -1, OPT_MED_PREC, NULL, 0);
+             -1, OPT_MED_PREC, NULL, 0, NULL);
     }
   }
 

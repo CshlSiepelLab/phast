@@ -631,6 +631,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
   GFF_Set *gff = pf->gff;
   int quiet = pf->quiet;
   TreeModel *input_mod = pf->input_mod;
+  FILE *error_file=NULL;
 
   if (pf->no_freqs)
     pf->init_backgd_from_data = FALSE;
@@ -865,6 +866,9 @@ int run_phyloFit(struct phyloFit_struct *pf) {
     }
     msa_map_free(map);
   }
+
+  if (pf->error_fname != NULL)
+    error_file = fopen_fname(pf->error_fname, "w");
   
   /* now estimate models (window by window, if necessary) */
   mod_fname = str_new(STR_MED_LEN);
@@ -1129,14 +1133,10 @@ int run_phyloFit(struct phyloFit_struct *pf) {
         }
 
         if (pf->use_em)
-          tm_fit_em(mod, msa, params, cat, pf->precision, pf->max_em_its, pf->logf);
+          tm_fit_em(mod, msa, params, cat, pf->precision, pf->max_em_its, pf->logf, error_file);
         else
-          tm_fit(mod, msa, params, cat, pf->precision, pf->logf, pf->quiet);
-
-        if (pf->error_fname != NULL)
-	  tm_variance(mod, msa, params, cat, pf->error_fname, i!=0 || win!=0);
-
-      }  
+          tm_fit(mod, msa, params, cat, pf->precision, pf->logf, pf->quiet, error_file);
+      }
 
       if (pf->output_fname_root != NULL) 
 	str_cpy_charstr(mod_fname, pf->output_fname_root);
@@ -1206,6 +1206,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
     if (pf->window_coords != NULL) 
       msa_free(msa);
   }
+  if (error_file != NULL) fclose(error_file);
   if (parsimony_cost_file != NULL) fclose(parsimony_cost_file); 
   str_free(mod_fname);
   str_free(tmpstr);

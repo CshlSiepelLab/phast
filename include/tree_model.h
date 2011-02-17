@@ -405,10 +405,13 @@ void tm_scale_params(TreeModel *mod, Vector *params, double scale_factor);
    @param precision Precision with which BFGS calculations should be made
    @param logf File descriptor of log file
    @param quiet Whether to report errors/warnings to stderr
+   @param error_file If non-NULL, write estimate, variance, and 95% 
+   confidence interval for each parameter to this file.
    @returns 0 on success, 1 on failure
  */
 int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat, 
-           opt_precision_type precision, FILE *logf, int quiet);
+           opt_precision_type precision, FILE *logf, int quiet,
+	   FILE *error_file);
 
 /** Set specified TreeModel according to specified parameter vector.
    Exact behavior depends on substitution model.
@@ -642,7 +645,7 @@ void tm_set_ignore_branches(TreeModel *mod, List *ignore_branches);
 */
 void tm_free_alt_subst_mods(TreeModel *tm);
 
-void tm_variance(TreeModel *mod, MSA *msa, Vector *params, int cat, char *error_fname, int appendToFile);
+void tm_variance(FILE *outfile, TreeModel *mod, MSA *msa, Vector *params, int cat);
 
 
 /** Calculate Lower/Upper bounds for each parameter or if not empty, get them from parsing mod->bound_arg

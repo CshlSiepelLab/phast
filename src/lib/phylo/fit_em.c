@@ -46,7 +46,8 @@ void remove_ratevar_from_param_map(TreeModel *mod, Vector *params);
 
 /* fit a tree model using EM */
 int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat, 
-              opt_precision_type precision, int max_its, FILE *logf) {
+              opt_precision_type precision, int max_its, FILE *logf,
+	      FILE *error_file) {
   double ll, improvement;
   Vector *lower_bounds, *upper_bounds, *opt_params;
   int retval = 0, it, i, home_stretch = 0, nratecats, npar;
@@ -277,6 +278,9 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
   }
 
   mod->lnL = ll;
+
+  if (error_file != NULL)
+    tm_variance(error_file, mod, msa, mod->all_params, cat);
 
   /* take care of final scaling of rate matrix and branch lengths */
   branchlen_scale = 1;

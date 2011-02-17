@@ -29,8 +29,11 @@
    @param cat Site category in MSA
    @param precision Precision with which to fit to model
    @param logf output file to write to
+   @param error_file If non-NULL, write estimate, variance, and 95% 
+   confidence interval for each parameter to this file.
 */
 int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat, 
-              opt_precision_type precision, int max_its, FILE *logf);
+              opt_precision_type precision, int max_its, FILE *logf,
+	      FILE *error_file);
 
 #endif

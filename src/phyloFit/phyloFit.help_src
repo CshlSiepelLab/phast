@@ -252,7 +252,7 @@ OPTIONS:
         length zero).
 
     --error, -e <filename>
-	For each parameter, report estimate, variance, and 95% confidence
+	For each parameter, report estimate, variance, and 95\% confidence
         interval, printed to given filename, one parameter per line.
 
     --no-opt, -O <param_list>

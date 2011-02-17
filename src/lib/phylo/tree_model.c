@@ -1855,7 +1855,8 @@ void tm_check_boundaries(Vector *opt_params, Vector *lower_bounds,
    initial values for the optimization procedure.  Fuction returns 0
    on success, 1 on failure.  */  
 int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat, 
-           opt_precision_type precision, FILE *logf, int quiet) {
+           opt_precision_type precision, FILE *logf, int quiet,
+	   FILE *error_file) {
   double ll;
   Vector *lower_bounds, *upper_bounds, *opt_params;
   int i, retval = 0, npar, nstate, numeval;
@@ -1929,6 +1930,9 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
   tm_unpack_params(mod, opt_params, -1);
   vec_copy(params, mod->all_params);
   vec_free(opt_params);
+
+  if (error_file != NULL)
+    tm_variance(error_file, mod, msa, mod->all_params, cat);
 
   if (mod->scale_during_opt == 0 && 
       mod->subst_mod != JC69 && mod->subst_mod != F81)
@@ -3513,9 +3517,8 @@ void tm_free_alt_subst_mods(TreeModel *tm) {
 }
 
 
-void tm_variance(TreeModel *mod, MSA *msa, Vector *allParams, int cat, 
-		 char *error_fname, int appendToFile) {
-  FILE *outfile = fopen_fname(error_fname, appendToFile ? "a" : "w");
+void tm_variance(FILE *outfile, TreeModel *mod, MSA *msa, Vector *allParams, 
+		 int cat) {
   double delta=1.0e-6, origParam, origLike, like1, like2, var, sd;
   int idx;
   Vector *optParams;
@@ -3547,7 +3550,6 @@ void tm_variance(TreeModel *mod, MSA *msa, Vector *allParams, int cat,
   }
   tm_unpack_params(mod, optParams, -1);
   vec_free(optParams);
-  fclose(outfile);
 }
 
 

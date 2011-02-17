@@ -1105,7 +1105,7 @@ void phmm_estim_mods_em(void **models, int nmodels, void *data,
 
     /* FIXME: need to use state_to_cat, etc. in deciding which categories to use */
 
-    tm_fit(phmm->mods[k], phmm->em_data->msa, params, k, OPT_HIGH_PREC, logf, 1);
+    tm_fit(phmm->mods[k], phmm->em_data->msa, params, k, OPT_HIGH_PREC, logf, 1, NULL);
     vec_free(params); 
   }
 
