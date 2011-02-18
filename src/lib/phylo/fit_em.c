@@ -71,12 +71,8 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
 		 subst_mod_is_codon_model(mod->subst_mod));
   }
 
-  if (mod->backgd_freqs == NULL) { 
-    mod->backgd_freqs = vec_new(mod->rate_matrix->size);
-    if (mod->subst_mod == JC69 || mod->subst_mod == K80)
-      vec_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
-    else
-      msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order + 1, cat);
+  if (mod->backgd_freqs == NULL) {
+    tm_init_backgd(mod, msa, cat);
     for (i=0; i<mod->backgd_freqs->size; i++)
       vec_set(params, mod->backgd_idx+i, vec_get(mod->backgd_freqs, i));
   }

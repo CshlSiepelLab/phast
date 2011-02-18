@@ -230,6 +230,7 @@ OPTIONS:
     --estimate-freqs, -F
         Estimate equilibrium frequencies by maximum likelihood, rather
         than approximating them by the relative frequencies in the data.
+	If using the SSREV model, this option implies --sym-freqs.
 
     --sym-freqs, -W
         Estimate equilibrium frequencies, assuming freq(A)=freq(T) and

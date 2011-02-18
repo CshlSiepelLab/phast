@@ -359,6 +359,17 @@ void tm_free_alt_subst_mod(AltSubstMod *am);
 void tm_scale_model(TreeModel *tm, Vector *params, int scale_blens,
 		    int reset_subst_matrices);
 
+
+/** Allocate (if necessary) and initialize backgd frequencies based on observed frequencies in MSA.
+    If model is symmetric (SSREV) then makes backgd frequencies symmetric.
+    If mod->backgd_freqs is already allocated, it is not reallocated and assumed to be the correct size.
+    @param mod A Tree model object.  mod->backgd_freqs will be set by this function.
+    @param msa An MSA object
+    @param cat The category of the msa to use to compute the backgd
+ */
+void tm_init_backgd(TreeModel *mod, MSA *msa, int cat);
+
+
 /** Modifies equilibrium frequency of a model in such a way that
    reversibility is maintained.
    @param tm Tree Model containing equilibrium frequency to change
@@ -401,7 +412,7 @@ void tm_scale_params(TreeModel *mod, Vector *params, double scale_factor);
 /** Fit a tree model to data using BFGS (multidimensional optimization algorithm)
    @param mod Tree Model containing desired tree topology to fit, substitution model, and (if appropriate) background frequencies
    @param params Initial values for optimization procedure
-   @param cat Model category
+   @param cat MSA category
    @param precision Precision with which BFGS calculations should be made
    @param logf File descriptor of log file
    @param quiet Whether to report errors/warnings to stderr

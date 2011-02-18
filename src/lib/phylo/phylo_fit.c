@@ -940,7 +940,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
       }
 
       mod->noopt_arg = pf->nooptstr == NULL ? NULL : str_new_charstr(pf->nooptstr->chars);
-      mod->eqfreq_sym = pf->symfreq;
+      mod->eqfreq_sym = pf->symfreq || subst_mod == SSREV;
       if (pf->bound_arg != NULL) {
 	mod->bound_arg = lst_new_ptr(lst_size(pf->bound_arg));
 	for (j=0; j < lst_size(pf->bound_arg); j++) {

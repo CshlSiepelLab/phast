@@ -159,7 +159,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
     tm->selection_idx = -1;
   tm->rate_matrix_param_row = tm->rate_matrix_param_col = NULL;
   tm->noopt_arg = NULL;
-  tm->eqfreq_sym = 0;
+  tm->eqfreq_sym = (tm->subst_mod == SSREV);
   tm->bound_arg = NULL;
   tm->scale_during_opt = 0;
   tm->iupac_inv_map = NULL;
@@ -241,6 +241,8 @@ void tm_reinit(TreeModel *tm,   /* TreeModel object to reinitialize  */
   else if (!subst_mod_is_reversible(new_subst_mod) && 
 	   tm->rate_matrix->eigentype == REAL_NUM)
     mm_set_eigentype(tm->rate_matrix, COMPLEX_NUM);    
+  if (tm->subst_mod == SSREV)
+    tm->eqfreq_sym = TRUE;
 }
 
 void tm_free(TreeModel *tm) {
@@ -1167,6 +1169,32 @@ void tm_scale_model(TreeModel *mod, Vector *params, int scale_blens,
 }
 
 
+void tm_init_backgd(TreeModel *mod, MSA *msa, int cat) {
+  if (mod->backgd_freqs == NULL) 
+    mod->backgd_freqs = vec_new(mod->rate_matrix->size);
+  if (mod->subst_mod == JC69 || mod->subst_mod == K80)
+    vec_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
+  else
+    msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order + 1, cat);
+ 
+  //may want to generalize and create a is_symmetric_model function if
+  // we ever add other symmetric models...
+  if (mod->subst_mod == SSREV) {
+    //need to set the freq of A and T equal, and the freq of C and G equal
+    //don't assume freq(GC) = 1 - freq(AT) in case this is ever used for
+    // a model with gaps
+    double freqAT = vec_get(mod->backgd_freqs, msa->inv_alphabet[(int)'A']) +
+      vec_get(mod->backgd_freqs, msa->inv_alphabet[(int)'T']);
+    double freqGC = vec_get(mod->backgd_freqs, msa->inv_alphabet[(int)'C']) +
+      vec_get(mod->backgd_freqs, msa->inv_alphabet[(int)'G']);
+    vec_set(mod->backgd_freqs, msa->inv_alphabet[(int)'A'], freqAT/2.0);
+    vec_set(mod->backgd_freqs, msa->inv_alphabet[(int)'T'], freqAT/2.0);
+    vec_set(mod->backgd_freqs, msa->inv_alphabet[(int)'C'], freqGC/2.0);
+    vec_set(mod->backgd_freqs, msa->inv_alphabet[(int)'G'], freqGC/2.0);
+  }
+}
+
+
 /* Modifies equilibrium frequency of a model in such a way that
    reversibility is maintained */
 void tm_mod_freqs(TreeModel *mod, Vector *newfreqs) {
@@ -1869,12 +1897,8 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
   }
   nstate = int_pow(strlen(msa->alphabet), mod->order+1);
 
-  if (mod->backgd_freqs == NULL) { 
-    mod->backgd_freqs = vec_new(nstate);
-    if (mod->subst_mod == JC69 || mod->subst_mod == K80)
-      vec_set_all(mod->backgd_freqs, 1.0/mod->backgd_freqs->size);
-    else
-      msa_get_base_freqs_tuples(msa, mod->backgd_freqs, mod->order + 1, cat);
+  if (mod->backgd_freqs == NULL)  {
+    tm_init_backgd(mod, msa, cat);
     for (i=0; i<mod->backgd_freqs->size; i++)
       vec_set(params, mod->backgd_idx+i, vec_get(mod->backgd_freqs, i));
   }
