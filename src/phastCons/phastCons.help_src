@@ -3,9 +3,8 @@ PROGRAM: phastCons
 USAGE: phastCons [OPTIONS] alignment m1.mod,m2.mod,... > scores.wig
 
     The alignment file can be in any of several file formats (see
-    --msa-format); SS format is assumed by default.  The phylogenetic
-    models must be in the .mod format produced by the phyloFit
-    program.
+    --msa-format).  The phylogenetic models must be in the .mod format 
+    produced by the phyloFit program.
 
 DESCRIPTION:
 
