@@ -413,9 +413,9 @@ void tm_scale_params(TreeModel *mod, Vector *params, double scale_factor);
    @param mod Tree Model containing desired tree topology to fit, substitution model, and (if appropriate) background frequencies
    @param params Initial values for optimization procedure
    @param cat MSA category
-   @param precision Precision with which BFGS calculations should be made
+   @param precision Precision describing BFGS convergence criteria
    @param logf File descriptor of log file
-   @param quiet Whether to report errors/warnings to stderr
+   @param quiet Whether to report progress to stderr
    @param error_file If non-NULL, write estimate, variance, and 95% 
    confidence interval for each parameter to this file.
    @returns 0 on success, 1 on failure

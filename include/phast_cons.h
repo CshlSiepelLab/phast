@@ -37,59 +37,59 @@
 struct phastCons_struct {
   MSA *msa;		/**< Multiple Sequence Alignment */
   int post_probs,	/**< Whether to use posterior probabilities */
-  score,		/**< Whether to calculate a score */
-  quiet,		/**< Whether to display warnings/errors on stderr */
-  gff,			/**< Feature Set */
-  FC,			/**< Whether to use Felsenstein/Churchill model */
-  estim_lambda,		/**< Whether to estimate lambda via ML or have it provided by user */
-  estim_transitions,    /**< Whether to estimate transitions or have it provided by user */
-  two_state,		/**< ???*/
-  indels,		/**< Whether to expand HMM state space to model indels as described in Siepel & Haussler (2004)*/
-  indels_only,		/**< Whether to expand HMM state space to model indels in a single HMM state */
-  estim_indels,		/**< Whether to estimate indels */
-  estim_trees,		/**< Whether to estimate free parameters of tree models */
-  ignore_missing,	/**< Whether to ignore regions of missing data in all sequences but the reference
-			     sequence (excluding sequences specified by --not-informative) when 
-			     estimating transition probabilities */
-  estim_rho,		/**< Whether to estimate the rho parameter */
-  set_transitions,	/**< Whether user supplies mu, nu for transition information, otherwise estimated */
-  viterbi,		/**< Whether to use Viterbi algorithm to predict discrete elements */
-  compute_likelihood; 	/**< Whether to compute the likelihood */
+    score,		/**< Whether to calculate a score */
+    quiet,		/**< Whether to display warnings/errors on stderr */
+    gff,		/**< Feature Set */
+    FC,			/**< Whether to use Felsenstein/Churchill model */
+    estim_lambda,	/**< Whether to estimate lambda via ML or have it provided by user */
+    estim_transitions,  /**< Whether to estimate transitions or have it provided by user */
+    two_state,		/**< ???*/
+    indels,		/**< Whether to expand HMM state space to model indels as described in Siepel & Haussler (2004)*/
+    indels_only,	/**< Whether to expand HMM state space to model indels in a single HMM state */
+    estim_indels,	/**< Whether to estimate indels */
+    estim_trees,	/**< Whether to estimate free parameters of tree models */
+    ignore_missing,	/**< Whether to ignore regions of missing data in all sequences but the reference
+			   sequence (excluding sequences specified by --not-informative) when 
+			   estimating transition probabilities */
+    estim_rho,		/**< Whether to estimate the rho parameter */
+    set_transitions,	/**< Whether user supplies mu, nu for transition information, otherwise estimated */
+    viterbi,		/**< Whether to use Viterbi algorithm to predict discrete elements */
+    compute_likelihood; /**< Whether to compute the likelihood */
   int nrates,		/**< Number of rates for first tree model */
-  nrates2,		/**< Number of rates for second tree model */
-  refidx,		/**< Index of reference sequence */
-  max_micro_indel;	/**< Maximum length of an alignment gap, any gap longer is treated as missing data*/
+    nrates2,		/**< Number of rates for second tree model */
+    refidx,		/**< Index of reference sequence */
+    max_micro_indel;	/**< Maximum length of an alignment gap, any gap longer is treated as missing data*/
   double lambda,	/**< Lambda parameter value */ 
-  mu,			/**< Transitions mu value */
-  nu,			/**< Transitions nu value */
-  alpha_0,		/**< Rate of insertion events per substitution per site in Conserved state */
-  beta_0,		/**< Rate of deletion events per substitution per site in Conserved state */
-  tau_0,		/**< Approximately the inverse of the expected indel length in Conserved state */
-  alpha_1,		/**< Rate of insertion events per substitution per site in Non-Conserved state */
-  beta_1,		/**< Rate of deletion events per substitution per site in Non-Conserved state */
-  tau_1,		/**< Approximately the inverse of the expected indel length in Non-Conserved state */
-  gc,			/**< G+C Content value */
-  gamma,		/**< Gamma parameter value */
-  rho,			/**< Rho parameter value */
-  omega;		/**< Expected length of a conserved element Omega */
+    mu,			/**< Transitions mu value */
+    nu,			/**< Transitions nu value */
+    alpha_0,		/**< Rate of insertion events per substitution per site in Conserved state */
+    beta_0,		/**< Rate of deletion events per substitution per site in Conserved state */
+    tau_0,		/**< Approximately the inverse of the expected indel length in Conserved state */
+    alpha_1,		/**< Rate of insertion events per substitution per site in Non-Conserved state */
+    beta_1,		/**< Rate of deletion events per substitution per site in Non-Conserved state */
+    tau_1,		/**< Approximately the inverse of the expected indel length in Non-Conserved state */
+    gc,			/**< G+C Content value */
+    gamma,		/**< Gamma parameter value */
+    rho,		/**< Rho parameter value */
+    omega;		/**< Expected length of a conserved element Omega */
   FILE *viterbi_f,	/**< File descriptor for printing out predictions */
-  *lnl_f,		/**< File descriptor to save log likelihood results and parameters used to calculate it */
-  *log_f,		/**< File descriptor to save general info */
-  *post_probs_f,	/**< File descriptor to save posterior probs */
-  *results_f,		/**< File descriptor to save results */
-  *progress_f;		/**< File descriptor to save progress */
+    *lnl_f,		/**< File descriptor to save log likelihood results and parameters used to calculate it */
+    *log_f,		/**< File descriptor to save general info */
+    *post_probs_f,	/**< File descriptor to save posterior probs */
+    *results_f,		/**< File descriptor to save results */
+    *progress_f;	/**< File descriptor to save progress */
   List *states,		/**< List of states of interest in the phylo-HMM, specified by number (starts at 0), or if --catmap, by category name */
-  *pivot_states,	/**< List of "pivot" states to "reflect" forward strand HMM around specified by number (starts at 0), or if --catmap, by category name*/
-  *inform_reqd,		/**< List of states that must have "informative" columns (i.e., columns with more than two non-missing-data characters) use "none" to disable  */
-  *not_informative;	/**< List of sequences not to consider when deciding if a column is "informative" or not */ 
+    *pivot_states,	/**< List of "pivot" states to "reflect" forward strand HMM around specified by number (starts at 0), or if --catmap, by category name*/
+    *inform_reqd,	/**< List of states that must have "informative" columns (i.e., columns with more than two non-missing-data characters) use "none" to disable  */
+    *not_informative;	/**< List of sequences not to consider when deciding if a column is "informative" or not */ 
   TreeModel **mod;	/**< List of tree models for MSAs */
   int nummod;		/**< Number of tree models for MSAs */
   char *seqname,	/**< Sequence name for reference sequence */
-  *idpref,		/**< Prefix for assigned ids */
-  *estim_trees_fname_root,	/**< Root part of filename for tree models i.e. %s.cons.mod or %s.noncons.mod */
-  *extrapolate_tree_fname;	/**< Filepath to tree file used to extrapolate a larger set of species*/
-  HMM *hmm;			/**< Hidden Markov Model */
-  Hashtable *alias_hash;	/**< Sequence name aliases e.g., "hg17=human; mm5=mouse; rn3=rat" */
+    *idpref,		/**< Prefix for assigned ids */
+    *estim_trees_fname_root,	/**< Root part of filename for tree models i.e. %s.cons.mod or %s.noncons.mod */
+    *extrapolate_tree_fname;	/**< Filepath to tree file used to extrapolate a larger set of species*/
+  HMM *hmm;		       /**< Hidden Markov Model */
+  Hashtable *alias_hash;       /**< Sequence name aliases e.g., "hg17=human; mm5=mouse; rn3=rat" */
   TreeNode *extrapolate_tree;	/**< Root of tree used for extrapolation of larget set of species */
   CategoryMap *cm;		/**< Category Map */
   ListOfLists *results;		/**< Holds results of phast_cons analyses */
