@@ -84,7 +84,8 @@ SEXP rph_phyloFit(SEXP msaP,
     strcpy(pf->subtree_name, CHARACTER_VALUE(scaleSubtreeP));
   }
   
-  pf->nratecats = INTEGER_VALUE(nratesP);
+  if (nratesP != R_NilValue)
+    pf->nratecats = INTEGER_VALUE(nratesP);
   
   if (alphaP != R_NilValue)
     pf->alpha = NUMERIC_VALUE(alphaP);

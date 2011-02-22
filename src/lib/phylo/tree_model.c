@@ -3325,12 +3325,12 @@ int tm_get_neqfreqparams(TreeModel *mod) {
 
 int tm_get_nratevarparams(TreeModel *mod) {
   if (mod->nratecats > 1 || mod->alpha < 0) {
-    if (!mod->empirical_rates)  /* discrete gamma (alpha parameter) */
-      return 1;
-    else if (mod->site_model) {
+    if (mod->site_model) {
       if (mod->nratecats == 4) return 2;   /* nielsen-yang parameterization 2 parameters-> 4 categories */
       if (mod->nratecats == 8) return 3;  /* nielsen-yang plus one param for bgc frequency */
     }
+    else if (!mod->empirical_rates)  /* discrete gamma (alpha parameter) */
+      return 1;
     else if (mod->nratecats > 1) /* empirical rates */
       return mod->nratecats;
     else if (mod->alpha < 0)    /* empirical rates but temp. disabled */
