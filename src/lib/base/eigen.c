@@ -139,7 +139,9 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
 	  z = z_add(z, z_mul(zvec_get(eval, k), temp));
 	  z2 = z_add(z2, temp);
 	}
-        if (fabs(z.y) > EQ_THRESHOLD ||
+        if (isnan(z.y) ||
+	    isnan(z.x) ||
+	    fabs(z.y) > EQ_THRESHOLD ||
             fabs(z.x - mat_get(M, i, j)) > EQ_THRESHOLD ||
 	    (mat_get(M, i, j) != 0.0 &&
 	     fabs(z.x - mat_get(M, i, j))/mat_get(M, i, j) > 1e-6) ||
@@ -153,7 +155,7 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
 		 fabs(z.x - mat_get(M, i, j)), 
 		 fabs(z.x - mat_get(M, i, j))/mat_get(M, i, j));
 		 printf("%e %e\n", z2.y, z2.x);*/
-	  //	  printf("diagonalization failed trying taylor\n");
+	  //	  printf("diagonalization failed trying higham\n");
 	  return 1;
           die("ERROR: diagonalization failed (got %e + %ei, expected %e).\n", 
 		  z.x, z.y, mat_get(M, i, j));
