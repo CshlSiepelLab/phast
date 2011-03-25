@@ -1022,9 +1022,9 @@ void tm_set_R2S_matrix(TreeModel *mod, Vector *params,
     mm_set(mod->rate_matrix, i, i, -1 * rowsum);
   }
   
-  if (start_idx != params->size)
+  /*  if (start_idx != params->size)
     die("ERROR: tm_set_R2S_matrix start_idx (%i) != params->size (%i)\n",
-	start_idx, params->size);
+    start_idx, params->size);*/
 }
 
 void tm_set_U2_matrix(TreeModel *mod, Vector *params, int start_idx) {
@@ -1862,9 +1862,9 @@ void tm_init_mat_R2S(TreeModel *mod, Vector *params,
     }        
     done_row[i] = done_row[i_comp] = 1;
   }
-  if (parm_idx != params->size)
+  /*  if (parm_idx != params->size)
     die("ERROR tm_init_mat_R2S: parm_idx (%i) != params->size (%i)\n",
-	parm_idx, params->size);
+    parm_idx, params->size);*/
 }
 
 /* initialize U2 as if HKY2 */

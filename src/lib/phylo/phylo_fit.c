@@ -916,13 +916,13 @@ int run_phyloFit(struct phyloFit_struct *pf) {
 	  alpha = input_mod->alpha;
 	  if (input_mod->rK != NULL) {
 	    rate_consts = lst_new_dbl(input_mod->nratecats);
-	    for (i=0; i < input_mod->nratecats; i++)
-	      lst_push_dbl(rate_consts, input_mod->rK[i]);
+	    for (j=0; j < input_mod->nratecats; j++)
+	      lst_push_dbl(rate_consts, input_mod->rK[j]);
 	  } else rate_consts = NULL;
 	  if (input_mod->freqK != NULL) {
 	    freq = lst_new_dbl(input_mod->nratecats);
-	    for (i=0; i < input_mod->nratecats; i++)
-	      lst_push_dbl(freq, input_mod->freqK[i]);
+	    for (j=0; j < input_mod->nratecats; j++)
+	      lst_push_dbl(freq, input_mod->freqK[j]);
 	  } else freq = NULL;
 	}
         mod = input_mod;
