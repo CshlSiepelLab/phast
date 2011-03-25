@@ -34,9 +34,10 @@ typedef struct {
                                    semi-standardized.  One suggestion
                                    is to use the EMBL/DDBJ/GenBank
                                    feature table as a standard */
-  int start, end;               /**< start and end positions.
-                                   Convention is to start numbering
-                                   with 1, and to make the range
+  int start,					/**< Start position.  Convention
+									is to start numbering with 1 */
+  end;              		 	/**< End positions.
+                                   Convention is make the range
                                    inclusive. */
   double score;                 /**< arbitrary floating-point score.  If
                                    null, set score_is_null (see
