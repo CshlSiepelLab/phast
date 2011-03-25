@@ -30,13 +30,11 @@ Last updated: 3/18/2011
 #include <sufficient_stats.h>
 #include <local_alignment.h>
 #include <indel_history.h>
+#include <tfbs.h>
 
 
-/** Read a MEME text format file and extract Position Weight Matrix (PWM)
-    @param filename Full Path to MEME formated file containing at least one PWM
-    @result List of PWMs found in file
-*/
-List *pwm_read(char *filename)
+//////////////////////////////////////////
+List *read_pwm(const char *filename)
 { 
   List *result;
   Matrix *pwm = NULL;
@@ -54,7 +52,7 @@ List *pwm_read(char *filename)
   result = lst_new_ptr(1);
   //letter-probability matrix: alength= 4 w= 8 nsites= 2 E= 1.5e+004 
 
-  pssm_re = str_re_new("^letter\-probability matrix\: alength= ([0-9]+) w= ([0-9]+)");
+  pssm_re = str_re_new("^letter-probability matrix: alength= ([0-9]+) w= ([0-9]+)");
   motif_name_re = str_re_new("^MOTIF[[:space:]]+(.+?)[[:space:]].*");
   //open file
   if( (F = fopen(filename, "r")) == NULL)
@@ -107,12 +105,8 @@ List *pwm_read(char *filename)
 }
 
 
-/** Read in non-aligned Multiple Sequences.
-    @param filename Full path to file of type FASTA
-    @param alphabet Characters allowed in sequences (normally 'ACGT')
-    @result List of MSA objects with one sequence per MSA.
-*/
-List *ms_read(char *filename, char *alphabet)
+//////////////////////////////////////////////////
+List *ms_read(const char *filename, const char *alphabet)
 {
   
   FILE * F;
@@ -139,7 +133,7 @@ List *ms_read(char *filename, char *alphabet)
 
         sequence = smalloc((new_str->length+1)*sizeof(char*));
 	sequence[0] = copy_charstr(new_str->chars);
-        msa = msa_new(sequence, name, 1, new_str->length, alphabet);
+        msa = msa_new(sequence, name, 1, new_str->length, copy_charstr(alphabet));
         lst_push_ptr(mss, msa);
         
       }
@@ -165,7 +159,7 @@ List *ms_read(char *filename, char *alphabet)
   {
     sequence = smalloc((new_str->length+1)*sizeof(char*));
     sequence[0] = copy_charstr(new_str->chars);
-    msa = msa_new(sequence, name, 1, new_str->length, alphabet);
+    msa = msa_new(sequence, name, 1, new_str->length, copy_charstr(alphabet));
     lst_push_ptr(mss, msa);
   }
   
@@ -195,12 +189,7 @@ List *ms_read(char *filename, char *alphabet)
   return mss;
 }
 
-/** Build Markov Matrix of order norder 
-    @param group GC content group of sequences
-    @param norder Specifies order of the markov matrix to construct
-    @param lowerOrderMM Markov Matrix of order (norder-1), or NULL if order=0
-    @result Markov Matrix of order 'norder'
- */
+///////////////////////////////////////////////////////////////////////////////
 Matrix *mm_build_helper(ListOfLists *group, int norder, Matrix *lowerOrderMM)
 {
 	int numMS, alph_size, i, endOfSeqs, j, ignore, tup_idx, l, alph_idx, s;
@@ -276,12 +265,7 @@ Matrix *mm_build_helper(ListOfLists *group, int norder, Matrix *lowerOrderMM)
 	   return mm;
 }
 
-/** Calculate Markov Models for all groups 
-    @param msGroupListP List of GC groups containing sequences
-    @param norderP Order of the Markov Model to construct
-	@result List of Markov Models (1 per group)
-	@note Each Markov Model contains norder Markov Matrices i.e. norder=3 matrices of norder 1, 2, 3
-*/
+////////////////////////////////////////////////////////////////////
 List *mm_build(ListOfLists *msGroupListP, int norderP)
 {
    int i, j, k, s, currentGroup, numMS, endOfSeqs;
@@ -380,10 +364,7 @@ List *mm_build(ListOfLists *msGroupListP, int norderP)
    return MarkovModelList;
 }
 
-/** Identifies column of a PWM or Markov Matrix corrisponding to a single base.
-    @param base Single character i.e. 'A' or 'T'
-    @result Integer 0 to 3 specifying column that contains data for that base
-*/
+//////////////////////////////////////////////////////
 int basetocol(char base)
 {
  //Put next base from sequence in opening at end of array (opened by shift above)
@@ -397,13 +378,20 @@ int basetocol(char base)
     }
 }
 
-/** Scores sequences for matches to motif represented as PWM.
-    @param ms Single sequence to scan for matches to PWM
-    @param mm Markov Model of GC content group sequence belongs to
-    @param pwm Position Weight Matrix representing a Motif to scan for
-    @param mmOrder Order of the Markov Model
-    @result List of scores, one per base
-*/
+////////////////////////////////////////////////////////////////////
+int basesToRow(int *previousBases, int norderP, int alph_size)
+{
+  int col = 0;
+  int i;
+  for (i=norderP-1; i > 0; i--)
+  {
+    col += int_pow(alph_size, i) * previousBases[i]; 
+  }
+
+  return col;
+}
+
+//////////////////////////////////////////////////////////////////////////////////
 List *mm_compute_scores(MSA *ms, List *MarkovMatrices, Matrix *pwm, int mmOrder)
 {
   //ms = Current sequence 
@@ -498,14 +486,12 @@ List *mm_compute_scores(MSA *ms, List *MarkovMatrices, Matrix *pwm, int mmOrder)
      else
      {
       lst_push_dbl(scores, (PWMprob - MMprob));
-      printf("PWMprob=%f, MMprob=%f\n", PWMprob, MMprob);
+      //printf("PWMprob=%f, MMprob=%f\n", PWMprob, MMprob);
       }
     
 
   }
   
   return scores; // log(pwm/mm)
-
-  
 }
 

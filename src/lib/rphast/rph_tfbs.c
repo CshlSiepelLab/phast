@@ -28,12 +28,13 @@ Last updated: 2/15/2011
 #include <rph_util.h>
 #include <Rdefines.h>
 #include <R_ext/Random.h>
+#include <tfbs.h>
 
 //ncols and nrows have a name collision with Matrix->ncols, Matrix->nrows
 #undef ncols
 #undef nrows
 
-SEXP *ms_group_by_gc(List *MSs, int ngroups);
+SEXP ms_group_by_gc(List *MSs, int ngroups);
 char *mm_simulate_seq(List *mmP, int norderP, int alph_size, int lengthP);
 
 
@@ -277,7 +278,7 @@ SEXP rph_ms_clip_to_supplied_windows(SEXP msListP, SEXP windowsP)
       //Find the sequence with the same name as the feature
       if(strcmp(ms->names[0], feature->seqname->chars) == 0)
       {
-	//Copy the name of the sequence for making a new MSA
+	    //Copy the name of the sequence for making a new MSA
         name = smalloc(feature->seqname->length+1*sizeof(char*));
         name[0] = copy_charstr(feature->seqname->chars);
 	
@@ -317,38 +318,21 @@ SEXP rph_ms_clip_to_supplied_windows(SEXP msListP, SEXP windowsP)
 }
 
 
-/** RPHAST Lookup row of Markov Matrix corrisponding to bases i.e 'AT' == 3
-    @param norderP Order of Markov Matrix represented
-    @param alph_size Alphabet size of data represented in Markov Matrix
-    @param Integer specifying row of Markov Matrix mapped to given bases
-*/
-int basesToRow(int *previousBases, int norderP, int alph_size)
-{
-  int col = 0;
-  int i;
-  for (i=norderP-1; i > 0; i--)
-  {
-    col += int_pow(alph_size, i) * previousBases[i]; 
-  }
-
-  return col;
-}
-
 /** RPHAST Read Position Weight Matrix (PWM) from file
     @param filenameP Full path to MEME file containing at least one PWM
     @result List of Matrices (PWMs) 
 */
-SEXP rph_pwm_read(SEXP filenameP)
+SEXP rph_read_pwm(SEXP filenameP)
 {
   int i, numProtect=0;
   SEXP result;
   Matrix *pwm;
-  ListOfLists *pwms;
+  List *pwms;
 
   if (filenameP == R_NilValue)
     die("ERROR: No positition weight matrix filename was provided");
 
-  pwms = pwm_read(CHARACTER_VALUE(filenameP));
+  pwms = read_pwm(CHARACTER_VALUE(filenameP));
   
   PROTECT(result = allocVector(VECSXP, lst_size(pwms)));
   for(i=0; i< lst_size(pwms); i++)
@@ -393,16 +377,16 @@ Matrix *SEXP_to_Matrix(SEXP Smatrix)
 SEXP rph_compute_scores(SEXP msGroupListP, SEXP pwmP, SEXP mmListP, SEXP mmOrderP)
 {
   int numGroups, numPositiveScores=0,  site, currentGroupNum, i, numMS, currentSequence, numProtected =0;
-  char currentStrand = "-";
+  char *currentStrand = "-";
   MSA *ms;
   double score;
   Matrix *mm;
   Matrix *pwm;
-  List *scores, *MarkovMatrices;
+  List *scores, *MarkovMatrices, *groupScores;
   ListOfLists *groups;
   ListOfLists *currentGroup;
   SEXP result;
-  SEXP groupScores;
+  SEXP SgroupScores;
   SEXP scoreEntry;
   int mmOrder = INTEGER_VALUE(mmOrderP);
   pwm = SEXP_to_Matrix(pwmP); 
@@ -429,7 +413,8 @@ SEXP rph_compute_scores(SEXP msGroupListP, SEXP pwmP, SEXP mmListP, SEXP mmOrder
     numPositiveScores =0;
     currentGroup = lst_get_ptr(groups->lst, currentGroupNum);
     numMS = lst_size(currentGroup->lst);
-    PROTECT(groupScores = allocVector(VECSXP, numMS));
+    groupScores = lst_new_ptr(1);
+
     numProtected++;
     for(currentSequence=0; currentSequence < numMS; currentSequence++) //For each sequence in the group
     {
@@ -455,10 +440,7 @@ SEXP rph_compute_scores(SEXP msGroupListP, SEXP pwmP, SEXP mmListP, SEXP mmOrder
           SEXP Sstrand;
           PROTECT(Sstrand = allocVector(STRSXP, 1));
           numProtected++;
-          if (currentStrand == "-")
-            SET_STRING_ELT(Sstrand, 0, mkChar("-"));
-          else
-            SET_STRING_ELT(Sstrand, 0, mkChar("+"));
+          SET_STRING_ELT(Sstrand, 0, mkChar(currentStrand));
           SET_VECTOR_ELT(scoreEntry, 1, Sstrand);
           
           SEXP Sbase;
@@ -479,13 +461,18 @@ SEXP rph_compute_scores(SEXP msGroupListP, SEXP pwmP, SEXP mmListP, SEXP mmOrder
           INTEGER(SseqLen)[0] = ms->length;
           SET_VECTOR_ELT(scoreEntry, 4, SseqLen);
           
-          SET_VECTOR_ELT(groupScores, numPositiveScores, scoreEntry);
+          lst_push_ptr(groupScores, scoreEntry);
           numPositiveScores++;
         }
       }
      
     }
-    SET_VECTOR_ELT(result, currentGroupNum, groupScores);
+    PROTECT(SgroupScores = allocVector(VECSXP, numPositiveScores));
+    for(i=0; i < lst_size(groupScores); i++)
+    {
+      SET_VECTOR_ELT(SgroupScores, i, lst_get_ptr(groupScores, i));
+    }
+    SET_VECTOR_ELT(result, currentGroupNum, SgroupScores);
     
   }
   UNPROTECT(numProtected);
@@ -538,7 +525,7 @@ SEXP rph_mm_simulate_seq(SEXP mmP, SEXP norderP, SEXP alph_sizeP, SEXP lengthP)
     }
     
     seq = mm_simulate_seq(MarkovMatrices, norder, alph_size, length);
-    printf("simulated seq %s\n", seq);
+    //printf("simulated seq %s\n", seq);
     sequence = smalloc((length+1)*sizeof(char*));
     sequence[0] = copy_charstr(seq);
     name = smalloc(100*sizeof(char*));
@@ -637,7 +624,7 @@ char *dtoa(double num)
     @param ngroups Number of GC content level groups
     @result List of groups each containing list of pointers to MSAs each of which has one sequence
 */
-SEXP *ms_group_by_gc(List *MSs, int ngroups)
+SEXP ms_group_by_gc(List *MSs, int ngroups)
 {
   int numMS = lst_size(MSs);
   int i, j, gcCount;
