@@ -763,7 +763,7 @@ AltSubstMod* tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
   altmod->defString = str_new_charstr(altmod_str->chars);
   altmod->separate_backgd = 0;
   altmod->selection_idx = mod->selection_idx;
-  altmod->selection = mod->selection;
+  altmod->selection = 0.0;
   altmod->bgc = 0.0;
   altmod->bgc_idx = -1;
   templst = lst_new_ptr(3);
@@ -988,7 +988,7 @@ void tm_set_subst_matrices(TreeModel *tm) {
 	  subst_mod = altmod->subst_mod;
 	  rate_matrix = altmod->rate_matrix;
 	  if (rate_matrix==NULL) rate_matrix = tm->rate_matrix;
-	  selection = altmod->selection;
+	  selection = tm->selection + altmod->selection;
 	  bgc = altmod->bgc;
 	}
 	else {
@@ -2453,6 +2453,7 @@ void tm_unpack_params(TreeModel *mod, Vector *params_in, int idx_offset) {
   mod->scale_sub = vec_get(params, mod->scale_idx+1);
   if (mod->selection_idx >= 0)
     mod->selection = vec_get(params, mod->selection_idx);
+  else mod->selection = 0.0;
   i=0;
   if (mod->estimate_branchlens == TM_BRANCHLENS_CLOCK) {
     /* molecular clock; set total height of each node from parameter
@@ -2571,9 +2572,10 @@ void tm_unpack_params(TreeModel *mod, Vector *params_in, int idx_offset) {
       mod->rate_matrix = altmod->rate_matrix;
       mat_copy(oldMatrix, mod->rate_matrix->matrix);
       tm_set_rate_matrix_sel_bgc(mod, params, altmod->ratematrix_idx,
-				 altmod->selection, altmod->bgc);
+				 altmod->selection + mod->selection, 
+				 altmod->bgc);
       if ((altmod->subst_mod != JC69 && altmod->subst_mod != F81) || 
-	  (altmod->selection != 0.0 || altmod->bgc != 0.0)) {
+	  (altmod->selection + mod->selection != 0.0 || altmod->bgc != 0.0)) {
 	if (!mat_equal(oldMatrix, altmod->rate_matrix->matrix)) 
 	  mm_diagonalize(altmod->rate_matrix);
       }
@@ -3227,7 +3229,7 @@ void tm_params_init_from_model(TreeModel *mod, Vector *params) {
       if (altmod->bgc_idx >= 0)
 	vec_set(params, altmod->bgc_idx, altmod->bgc);
       tm_rate_params_init_from_model(mod, params, altmod->ratematrix_idx,
-				     altmod->selection, altmod->bgc);
+				     altmod->selection + mod->selection, altmod->bgc);
       for (i=0; i < mod->backgd_freqs->size; i++)
 	vec_set(params, altmod->backgd_idx+i, vec_get(mod->backgd_freqs, i));
       mod->subst_mod = tempmod;

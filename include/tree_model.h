@@ -95,7 +95,7 @@ typedef struct alt_subst_mod {
   backgd_idx, 			/**< Index of first background frequency parameter */
   selection_idx, 		/**< Index of selection parameter */
   bgc_idx;			/**< Index of bias gene conversion parameter */
-  double selection,		/**< Optional selection parameters for this model (only used if selection_idx >=0 ) */
+  double selection,		/**< Optional selection parameters for this model (only used if selection_idx >=0 ) .  Total selection on the model is the sum of this parameter and the selection value in the main model.*/
   bgc;       			/**< Optional bgc parameters for this model (only used if bgc_idx >=0 ) */
   int separate_model;   /**< ==1 if no parameters shared with main model */
   int separate_backgd;  /**< ==1 if no background frequencies shared with non-alternate substitution model */
