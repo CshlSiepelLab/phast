@@ -39,7 +39,7 @@ struct hash_table;
 /** Threshold for log_sum function
     @see log_sum
  */
-#define SUM_LOG_THRESHOLD -10  
+#define SUM_LOG_THRESHOLD -50  
 
 /** Shortcut for 2^x */
 #define exp2(x) (pow(2,x))
