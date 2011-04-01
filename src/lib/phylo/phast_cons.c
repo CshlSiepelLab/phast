@@ -1103,8 +1103,8 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
     else nu = nu1;
 
     /* double check that derivative is really zero */
-    if (!(fabs(-z*C[0][0]/(1-z*nu) + (C[0][1] + C[1][0])/nu - C[1][1]/(1-nu)) < 1e-4))
-      die("ERROR phmm_estim_trans_em_coverage: derivative not zero?\n");
+//    if (!(fabs(-z*C[0][0]/(1-z*nu) + (C[0][1] + C[1][0])/nu - C[1][1]/(1-nu)) < 1e-4))
+//     die("ERROR phmm_estim_trans_em_coverage: derivative not zero?\n");
 
     mu = z * nu;
     if (!(nu >= 0 && nu <= 1 && mu >= 0 && mu <= 1))
