@@ -383,7 +383,7 @@ int phastCons(struct phastCons_struct *p) {
   if (FC && estim_lambda) {
     if (!quiet) fprintf(results_f, "Finding MLE for lambda...");
     lnl = phmm_fit_lambda(phmm, &lambda, log_f);
-    if (!quiet) fprintf(results_f, " (lambda = %f)\n", lambda);
+    if (!quiet) fprintf(results_f, " (lambda = %g)\n", lambda);
     if (results != NULL) lol_push_dbl(results, &lambda, 1, "lambda");
     phmm_update_cross_prod(phmm, lambda);
   }
@@ -415,15 +415,15 @@ int phastCons(struct phastCons_struct *p) {
       if (!quiet) {
 	fprintf(results_f, "(");
 	if (estim_transitions)
-	  fprintf(results_f, "mu = %f. nu = %f%s", mu, nu, 
+	  fprintf(results_f, "mu = %g. nu = %g%s", mu, nu, 
 		  estim_indels || estim_rho ? ", " : "");
 	if (estim_indels)
 	  fprintf(results_f, 
-		  "alpha_0 = %f, beta_0 = %f, tau_0 = %f, alpha_1 = %f, beta_1 = %f, tau_1 = %f%s", 
+		  "alpha_0 = %g, beta_0 = %g, tau_0 = %g, alpha_1 = %g, beta_1 = %g, tau_1 = %g%s", 
 		  alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1, 
 		  estim_rho ? ", " : "");
 	if (estim_rho) 
-	  fprintf(results_f, "rho = %f", rho);
+	  fprintf(results_f, "rho = %g", rho);
 	fprintf(results_f, ")\n");
       } 
       if (results != NULL) {
@@ -647,13 +647,13 @@ int phastCons(struct phastCons_struct *p) {
       lol_push_dbl(results, &lnl, 1, "likelihood");
     if (lnl_f != NULL) {
       fprintf(lnl_f, "lnL = %.4f\n", lnl); 
-      if (FC) fprintf(lnl_f, "(lambda = %f)\n", lambda);
+      if (FC) fprintf(lnl_f, "(lambda = %g)\n", lambda);
       else if (two_state && (estim_transitions || estim_indels)) {
 	fprintf(lnl_f, "(");
 	if (estim_transitions)
-	  fprintf(lnl_f, "mu = %f, nu = %f%s", mu, nu, estim_indels ? ", " : "");
+	  fprintf(lnl_f, "mu = %g, nu = %g%s", mu, nu, estim_indels ? ", " : "");
 	if (estim_indels)
-	  fprintf(lnl_f, "alpha_0 = %f, beta_0 = %f, tau_0 = %f, alpha_1 = %f, beta_1 = %f, tau_1 = %f", alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1);
+	  fprintf(lnl_f, "alpha_0 = %g, beta_0 = %g, tau_0 = %g, alpha_1 = %g, beta_1 = %g, tau_1 = %g", alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1);
 	fprintf(lnl_f, ")\n");
       }
     }
@@ -836,9 +836,9 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
     double mu = vec_get(params_in, i);
     if (mu < 0 && abs(mu) < TM_IMAG_EPS) /* consider close enough to 0 */
       vec_set(params_in, i, mu=0);
-    if (mu < 0) die("ERROR: parameter %d has become negative (%f).\n", i, mu);
+    if (mu < 0) die("ERROR: parameter %d has become negative (%g).\n", i, mu);
     if (isinf(mu) || isnan(mu))
-      die("ERROR: parameter %d is no longer finite (%f).\n", i, mu);
+      die("ERROR: parameter %d is no longer finite (%g).\n", i, mu);
   }
   for (i = 0; i<params->size; i++) {
     if (mod->param_map[i] >= 0) 
@@ -1103,8 +1103,8 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
     else nu = nu1;
 
     /* double check that derivative is really zero */
-    if (!(fabs(-z*C[0][0]/(1-z*nu) + (C[0][1] + C[1][0])/nu - C[1][1]/(1-nu)) < 1e-6))
-      die("ERROR phmm_estim_trans_em_coverage: derivate not zero?\n");
+    if (!(fabs(-z*C[0][0]/(1-z*nu) + (C[0][1] + C[1][0])/nu - C[1][1]/(1-nu)) < 1e-4))
+      die("ERROR phmm_estim_trans_em_coverage: derivative not zero?\n");
 
     mu = z * nu;
     if (!(nu >= 0 && nu <= 1 && mu >= 0 && mu <= 1))
