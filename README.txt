@@ -70,8 +70,8 @@ NOTES
 
     - The most recent source code of Phast can be obtained from our public
       subversion server.  If you are set up to use subversion, you may want
-      to try checkout out the latest version before submitting a bug
-      report.  To download the latest code simply run the command as follows
+      to check out the latest version before submitting a bug report.
+      To download the latest code simply run the command as follows
       'svn co http://compgen.bscb.cornell.edu/svnrepo/phast/trunk/phast'.
       The source code will be saved in a folder called 'phast' in the 
       directory where the command was run. You can substitute SVN code for
