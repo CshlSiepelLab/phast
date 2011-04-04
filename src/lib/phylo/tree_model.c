@@ -762,7 +762,7 @@ AltSubstMod* tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
   altmod = tm_new_alt_subst_mod(UNDEF_MOD, NULL, NULL);
   altmod->defString = str_new_charstr(altmod_str->chars);
   altmod->separate_backgd = 0;
-  altmod->selection_idx = mod->selection_idx;
+  altmod->selection_idx = -1;
   altmod->selection = 0.0;
   altmod->bgc = 0.0;
   altmod->bgc_idx = -1;
