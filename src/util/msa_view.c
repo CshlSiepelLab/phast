@@ -623,7 +623,7 @@ int main(int argc, char* argv[]) {
     for (i=0; i<lst_size(gff->features); i++) {
       GFF_Feature *f = lst_get_ptr(gff->features, i);
       if (f->frame == GFF_NULL_FRAME) f->frame = 0;
-      if (fourD_refseq == NULL) fourD_refseq = f->seqname;
+      if (fourD_refseq == NULL) fourD_refseq = str_new_charstr(f->seqname->chars);
       else if (!str_equals(fourD_refseq, f->seqname))
 	die("--4d requires all features have same source column");
       if (str_equals_charstr(f->feature, "CDS") && f->strand != '-')
