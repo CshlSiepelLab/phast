@@ -659,7 +659,7 @@ SEXP rph_msa_square_brackets(SEXP msaP, SEXP rowsP, SEXP colsP) {
     if (rows == NULL) spec = i;
     else {
       spec = rows[i]-1; //convert to 0-based numbers from R indices
-      if (rows[i] >= msa->nseqs) 
+      if (spec < 0 || spec >= msa->nseqs) 
 	die("invalid row in rph_msa_square_brackets");
     }
     names[i] = copy_charstr(msa->names[spec]);
