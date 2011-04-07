@@ -592,7 +592,7 @@ void tm_set_JC69_matrix(TreeModel *mod) {
   for (i = 0; i < mod->rate_matrix->size; i++) {
     for (j = 0; j < mod->rate_matrix->size; j++) {
       if (j == i) continue;
-      mm_set(mod->rate_matrix, i, j, 1.0/mod->rate_matrix->size);
+      mm_set(mod->rate_matrix, i, j, 1.0/(mod->rate_matrix->size-1));
     }
     mm_set(mod->rate_matrix, i, i, -1);
   }
