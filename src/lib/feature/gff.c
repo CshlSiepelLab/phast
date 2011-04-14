@@ -1625,25 +1625,31 @@ int *gff_get_seqname(GFF_Set *gff, Hashtable *seqname_hash, int *nseq) {
 
 GFF_Set *gff_overlap_gff(GFF_Set *gff, GFF_Set *filter_gff, int numbaseOverlap,
 			 double percentOverlap, int nonOverlapping,
-			 int overlappingFragments) {
+			 int overlappingFragments,
+			 GFF_Set *overlapping_frags) {
   int i, j, g, feat2_start_idx, numbase, group_size[2];
   int overlapStart, overlapEnd, currOverlapStart, currOverlapEnd, overlap_total;
   double frac;
   GFF_Feature *feat1, *feat2, *newfeat;
   GFF_FeatureGroup *group1, *group2;
   GFF_Set *rv = gff_new_set();
+  
 
   if (nonOverlapping && overlappingFragments) {
     die("gff_overlap cannot be used with non-overlapping and overlappingFragments");
   }
   if (numbaseOverlap <= 0 && percentOverlap <=0)
     die("either numbaseOverlap should be >=1 or percentOverlap should be in (0, 1)");
+  if (overlapping_frags != NULL && !overlappingFragments)
+    phast_warning("overlapping_frags arg only used when overlappingFragments==TRUE");
 
   //make sure both gffs are sorted by seqname and start position
   gff_group_by_seqname(gff);
   gff_group_by_seqname_existing_group(filter_gff, gff);
   gff_sort_within_groups(gff);
   gff_sort_within_groups(filter_gff);
+  if (overlapping_frags != NULL) 
+    gff_clear_set(overlapping_frags);
   
   for (g=0; g<lst_size(gff->groups); g++) {
     checkInterrupt();
@@ -1687,6 +1693,8 @@ GFF_Set *gff_overlap_gff(GFF_Set *gff, GFF_Set *filter_gff, int numbaseOverlap,
 	      newfeat->start = currOverlapStart;
 	      newfeat->end = currOverlapEnd;
 	      lst_push_ptr(rv->features, newfeat);
+	      if (overlapping_frags != NULL) 
+		lst_push_ptr(overlapping_frags->features, gff_new_feature_copy(feat2));
 	    }
 	  }
 	} else {

@@ -295,6 +295,12 @@ void gff_group(GFF_Set *set, char *tag);
 */
 void gff_group_by_feature(GFF_Set *set);
 
+/** Group features by sequence name
+    @param set Feature set
+ */
+void gff_group_by_seqname(GFF_Set *set);
+
+
 /** Group contiguous features, e.g., an exon and adjacent splice
     sites.  If features have already been grouped (e.g., by transcript
     id), then subgroups are created by adding new tags. New tag values
@@ -537,19 +543,21 @@ void gff_add_offset(GFF_Set *gff, int offset, int maxCoord);
   The amount of overlap is defined by the parameters passed in.
   @param First feature set to overlap with the second feature set
   @param Second feature set to overlap with the first feature set
-  @param numbase_overlap Number of bases that should overlap in the new GFF
-  @param percentOverlap Percent of bases that should overlap in the new GFF
-  @param nonOverlapping Number of non-overlapping bases
-  @param overlappingFragments Number of overlapping fragments
-  @result New GFF that is the combination of two GFFs by partial overlapping
-  @warning Numbase_overlap and percentOverlap are exclusive
-  @warning NonOverlapping and overlappingFragments are exclusive
+  @param numbase_overlap Minimum number of overlapping bases to consider fragments overlapping (or -1 to use percentOverlap only)
+  @param percentOverlap Minimum percent of bases in a single feature of filter_gff that must overlap with gff to consider fragments overlapping (or use -1 to use numbase_overlap only).
+  @param nonOverlapping If TRUE, return non-overlapping fragments instead of overlapping.
+  @param overlappingFragments If FALSE, entire records of gff are selected based on whether they meet overlap criteria with filterGff.  Otherwise, only overlapping portion of gff fragments are returned.  In this case, the same fragments may be returned multiple times if they overlap with multiple elemnts of gffFilter.
+  @param[output] overlapping_frag (Only used when overlappingFragments is TRUE).  If non-NULL, should be an (already allocated) gff object.  This object will be cleared, and filled with the elements from filter_gff which selected the fragments in the return value.  There will be a one-to-one corrrespondence between the elements in the return value and overlapping_frag.  
+  @result New GFF that meets the criteria described by the above parameters.
+  @note nonOverlapping and overlappingFragments cannot both be TRUE
+  @note At least one of numbaseOverlap and percentOverlap needs to be > 0
 */
 GFF_Set *gff_overlap_gff(GFF_Set *gff, GFF_Set *filter_gff,
-			 int numbase_overlap, 
+			 int numbaseOverlap, 
 			 double percentOverlap,
 			 int nonOverlapping,
-			 int overlappingFragments);
+			 int overlappingFragments,
+			 GFF_Set *overlapping_frag);
 
 /** 
   Create a new GFF containing the features outside a region.
@@ -561,11 +569,11 @@ GFF_Set *gff_inverse(GFF_Set *gff, GFF_Set *region0);
 
 /**
   Create a new GFF where features are split.  
-  @param maxlen Maximum length of each split, can be single value, or a vector of integers corresponding to different splits
-  @param nmaxlen Number of maximum lengths specified in maxlen (only > 1 for a vector of integers, otherwise 1).
+  @param maxlen Length to split by.  Array will be recycled to match the number of features in the gff.
+  @param nmaxlen Length of maxlen array.
   @param drop Whether to include splits that are not exactly the size of maxlen
-  @param splitFromRight Vector of integer [0-1] for each split, whether to split from the right or the left 
-  @param splitFromRightLen Amount of integers in splitFromRight, will wrap around if necessary
+  @param splitFromRight Array of integer [0-1] for each split, TRUE indicates to split from the right, FALSE means split from the left.  Array will be recycled to match the number of features in GFF.
+  @param splitFromRightLen Length of splitFromRight array.
   @result New GFF with split features
 */
 GFF_Set *gff_split(GFF_Set *gff, int *maxlen, int nmaxlen,
