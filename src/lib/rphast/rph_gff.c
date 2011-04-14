@@ -508,7 +508,7 @@ SEXP rph_gff_overlapSelect(SEXP gffP, SEXP filter_gffP,
 			   SEXP percentOverlapP,
 			   SEXP nonOverlappingP,
 			   SEXP overlappingFragmentsP) {
-  GFF_Set *gff, *filter_gff;
+  GFF_Set *gff, *filter_gff, *overlapping_gff=NULL;
   int numbaseOverlap, nonOverlapping;
   double percentOverlap, overlappingFragments;
 
@@ -527,10 +527,18 @@ SEXP rph_gff_overlapSelect(SEXP gffP, SEXP filter_gffP,
   if (overlappingFragmentsP == R_NilValue)
     overlappingFragments = FALSE;
   else overlappingFragments = LOGICAL_VALUE(overlappingFragmentsP);
+  
+  if (overlappingFragments) overlapping_gff = gff_new_set();
 
   filter_gff = gff_overlap_gff(gff, filter_gff,
 			       numbaseOverlap, percentOverlap, nonOverlapping,
-			       overlappingFragments);
+			       overlappingFragments, overlapping_gff);
+  if (overlappingFragments) {
+    ListOfLists *rv = lol_new(2);
+    lol_push_gff_ptr(rv, filter_gff, "frags");
+    lol_push_gff_ptr(rv, overlapping_gff, "filter.frags");
+    return rph_listOfLists_to_SEXP(rv);
+  }
   return rph_gff_new_extptr(filter_gff);
 }
 
@@ -607,13 +615,13 @@ SEXP rph_gff_featureBits(SEXP gffListP, SEXP orP, SEXP returnGffP) {
   if (!or && numGff >= 2) {
     newgff = gff_overlap_gff(lst_get_ptr(gfflist, 0),
 			     lst_get_ptr(gfflist, 1),
-			     1, -1.0, FALSE, TRUE);
+			     1, -1.0, FALSE, TRUE, NULL);
     numbit = gff_flatten_mergeAll(newgff);
     for (i=2; i < numGff; i++) {
       checkInterrupt();
       gff = gff_overlap_gff(newgff,
 			    lst_get_ptr(gfflist, i),
-			    1, -1.0, FALSE, TRUE);
+			    1, -1.0, FALSE, TRUE, NULL);
       numbit = gff_flatten_mergeAll(gff);
       gff_free_set(newgff);
       newgff = gff;
@@ -678,6 +686,7 @@ SEXP rph_gff_split(SEXP gffP, SEXP maxLengthP, SEXP dropP, SEXP splitFromRightP)
 SEXP rph_gff_sort(SEXP gffP) {
   GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
   gff_register_protect(gff);
+  gff_group_by_seqname(gff);
   gff_sort(gff);
   return gffP;
 }
@@ -689,5 +698,13 @@ SEXP rph_gff_nonOverlapping_genes(SEXP gffP) {
   gff_register_protect(gff);
   gff_group(gff, "transcript_id");
   gff_remove_overlaps(gff, NULL);
+  return gffP;
+}
+
+
+SEXP rph_gff_flatten(SEXP gffP) {
+  GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
+  gff_register_protect(gff);
+  gff_flatten_within_groups(gff);
   return gffP;
 }
