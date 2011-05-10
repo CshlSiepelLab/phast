@@ -261,6 +261,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 	      arr[ratecat][node_idx][state][tup_idx++] = mod->tree_posteriors->base_probs[ratecat][state][n->id][tup];
 	    }
 	  }
+	  node_idx++;
 	}
       }
       lol_push_dbl_array(results, arr, "bybase", 4, dimsize, dimnames);
