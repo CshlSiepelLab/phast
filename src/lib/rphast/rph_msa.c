@@ -684,6 +684,54 @@ SEXP rph_msa_square_brackets(SEXP msaP, SEXP rowsP, SEXP colsP) {
 }
 
 
+// function for [<-.msa
+// R code already checks that valueP can be recycled to expected length
+// and that rowsP==colsP or rowsP==NULL or colsP==NULL.  If rowsP==NULL
+// or colsP == NULL this indicates all rows/columns respectively
+SEXP rph_msa_square_bracket_equals(SEXP msaP, SEXP rowsP, SEXP colsP,
+				   SEXP valueP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  int i, j, *rows=NULL, *cols=NULL, nrow, ncol, numprotect=0, pos, row, col;
+  msa_register_protect(msa);
+
+  if (msa->ss != NULL) {
+    //cannot have ss because changing the sequence will change the ss
+    ss_to_msa(msa);
+    ss_free(msa->ss);
+    msa->ss = NULL;
+  }
+  if (rowsP != R_NilValue) {
+    nrow = LENGTH(rowsP);
+    PROTECT(rowsP = AS_INTEGER(rowsP));
+    rows = INTEGER_POINTER(rowsP);
+    numprotect++;
+  } else nrow = msa->nseqs;
+  
+  if (colsP != R_NilValue) {
+    ncol = LENGTH(colsP);
+    PROTECT(colsP = AS_INTEGER(colsP));
+    cols = INTEGER_POINTER(colsP);
+    numprotect++;
+  } else ncol = msa->length;
+
+  pos = 0;
+  for (i=0; i < ncol; i++) {
+    if (colsP == R_NilValue) col=i;
+    else col = cols[i]-1;
+    for (j=0; j < nrow; j++) {
+      if (rowsP == R_NilValue) row = j;
+      else row = rows[j]-1;
+      msa->seqs[row][col] = CHARACTER_VALUE(STRING_ELT(valueP, pos++))[0];
+      if (pos == LENGTH(valueP)) pos = 0;
+    }
+  }
+  if (numprotect > 0)
+    UNPROTECT(numprotect);
+  return msaP;
+}
+
+
+
 SEXP rph_msa_sub_alignment(SEXP msaP, SEXP seqsP, SEXP keepP, 
 			   SEXP startcolP, SEXP endcolP, 
 			   SEXP refseqNameP) {
