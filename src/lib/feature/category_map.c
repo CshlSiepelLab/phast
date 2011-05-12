@@ -491,7 +491,9 @@ CategoryMap* cm_new_string_or_file(const char *optarg) {
     F = fopen_fname(fname, "w+");
     fprintf(F, "%s", str->chars);
     fclose(F);
-    retval = cm_read(fopen_fname(fname, "r"));
+    F = fopen_fname(fname, "r");
+    retval = cm_read(F);
+    fclose(F);
     unlink(fname);
   }
   else {
