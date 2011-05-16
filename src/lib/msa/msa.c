@@ -1466,11 +1466,12 @@ void msa_print_stats(MSA *msa, FILE *F, char *label, int header, int start,
   }
 }
 
+
 /* Returns a (newly allocated) vector of size strlen(alphabet),
-   consisting of frequencies listed in the order of the alphabet. If
+   consisting of base counts listed in the order of the alphabet. If
    start and end are *not* -1, freqs are based on the indicated interval
    (half-open, 0-based) */
-Vector *msa_get_base_freqs(MSA *msa, int start, int end) {
+Vector *msa_get_base_counts(MSA *msa, int start, int end) {
   int i, j, size = strlen(msa->alphabet);
   double sum = 0;
   int s = start > 0 ? start : 0, e = end > 0 ? end : msa->length;
@@ -1517,10 +1518,22 @@ Vector *msa_get_base_freqs(MSA *msa, int start, int end) {
       }
     }
   }
-
-  if (sum == 0) vec_zero(base_freqs);
-  else vec_scale(base_freqs, 1.0/sum);
   return base_freqs;
+}
+
+/* Returns a (newly allocated) vector of size strlen(alphabet),
+   consisting of frequencies listed in the order of the alphabet. If
+   start and end are *not* -1, freqs are based on the indicated interval
+   (half-open, 0-based) */
+Vector *msa_get_base_freqs(MSA *msa, int start, int end) {
+  Vector *rv = msa_get_base_counts(msa, start, end);
+  double sum = 0;
+  int i;
+  for (i=0; i < rv->size; i++)
+    sum += vec_get(rv, i);
+  if (sum == 0.0) vec_zero(rv);
+  else vec_scale(rv, 1.0/sum);
+  rv;
 }
 
 /* similar to above function but returns the frequencies of k-tuples

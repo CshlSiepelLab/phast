@@ -122,6 +122,34 @@ SEXP rph_is_msa(SEXP msaP) {
 		       msa->names != NULL && msa->length > 0);
 }
 
+SEXP rph_msa_base_freq(SEXP msaP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  ListOfLists *lol = lol_new(3);
+  char **alph;
+  int i, alph_size = strlen(msa->alphabet);
+  Vector *base_counts;
+  double sum=0.0;
+  alph = smalloc(alph_size*sizeof(char*));
+  for (i=0; i < alph_size; i++) {
+    alph[i] = smalloc(2*sizeof(char));
+    alph[i][0] = msa->alphabet[i];
+    alph[i][1] = '\0';
+  }
+  lol_push_charvec(lol, alph, alph_size, "states");
+  
+  base_counts = msa_get_base_counts(msa, -1, -1);
+  lol_push_dbl(lol, base_counts->data, base_counts->size, "counts");
+  
+  sum = 0;
+  for (i=0; i < base_counts->size; i++)
+    sum += vec_get(base_counts, i);
+  if (sum != 0.0)
+    vec_scale(base_counts, 1.0/sum);
+  lol_push_dbl(lol, base_counts->data, base_counts->size, "freq");
+  lol_set_class(lol, "data.frame");
+  return rph_listOfLists_to_SEXP(lol);
+}
+
 
 /* Note: this changes the object passed in */
 SEXP rph_msa_reduce_to_4d(SEXP msaP, SEXP gffP) {

@@ -442,6 +442,15 @@ void msa_partition_by_category(MSA *msa, List *submsas, List *cats_to_do,
                                int tuple_size);
 
 
+/** Get counts for each base.
+   @param start (Optional) If not -1, frequencies calculated starting from this interval
+   @param end (Optional) If not -1, frequencies calculated stopping at this interval
+   @note start and end are half-open, 0-based
+   @result Newly allocated vector containing base counts (size of strlen(alphabet) listed in order of the alphabet)
+ */
+Vector *msa_get_base_counts(MSA *msa, int start, int end);
+
+
 /** Get frequencies for each base.
    @param start (Optional) If not -1, frequencies calculated starting from this interval
    @param end (Optional) If not -1, frequencies calculated stopping at this interval
