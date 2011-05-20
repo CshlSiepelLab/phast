@@ -31,35 +31,30 @@ SEXP rph_listOfLists_to_SEXP(ListOfLists *lol) {
     checkInterrupt();
     lstType = lst_get_int(lol->lstType, col);
     if (lstType == LIST_LIST) {
-      PROTECT(tempvec = 
-	      rph_listOfLists_to_SEXP((ListOfLists*)lst_get_ptr(lol->lst, col)));
-      numprotect++;
+      SET_VECTOR_ELT(result, col,
+	             rph_listOfLists_to_SEXP((ListOfLists*)lst_get_ptr(lol->lst, col)));
     } else if (lstType == GFF_PTR_LIST) {
-      PROTECT(tempvec = rph_gff_new_extptr((GFF_Set*)lst_get_ptr(lol->lst, col)));
-      numprotect++;
+      SET_VECTOR_ELT(result, col,
+		     rph_gff_new_extptr((GFF_Set*)lst_get_ptr(lol->lst, col)));
     } else if (lstType == MSA_PTR_LIST) {
-      PROTECT(tempvec = rph_msa_new_extptr((MSA*)lst_get_ptr(lol->lst, col)));
-      numprotect++;
+      SET_VECTOR_ELT(result, col, rph_msa_new_extptr((MSA*)lst_get_ptr(lol->lst, col)));
     }  else {
       currlist = (List*)lst_get_ptr(lol->lst, col);
       lstSize = lst_size(currlist);
       if (lstType == INT_LIST) {
-	PROTECT(tempvec = allocVector(INTSXP, lstSize));
-	numprotect++;
+	SET_VECTOR_ELT(result, col, tempvec = allocVector(INTSXP, lstSize));
 	intp = INTEGER_POINTER(tempvec);
 	for (i=0; i<lstSize; i++) {
 	  intp[i] = lst_get_int(currlist, i);
 	}
       } else if (lstType == DBL_LIST) {
-	PROTECT(tempvec = allocVector(REALSXP, lstSize));
-	numprotect++;
+	SET_VECTOR_ELT(result, col, tempvec = allocVector(REALSXP, lstSize));
 	doublep = NUMERIC_POINTER(tempvec);
 	for (i=0; i < lstSize; i++) {
 	  doublep[i] = lst_get_dbl(currlist, i);
 	}
       } else if (lstType == CHAR_LIST) {
-	PROTECT(tempvec = allocVector(STRSXP, lstSize));
-	numprotect++;
+	SET_VECTOR_ELT(result, col, tempvec = allocVector(STRSXP, lstSize));
 	for (i=0; i < lstSize; i++) {
 	  SET_STRING_ELT(tempvec, i, mkChar((char*)lst_get_ptr(currlist, i)));
 	}
@@ -68,7 +63,6 @@ SEXP rph_listOfLists_to_SEXP(ListOfLists *lol) {
       }
     }
 
-    SET_VECTOR_ELT(result, col, tempvec);
     if (lol->lstName != NULL && lst_size(lol->lstName) > col) {
       char *name = lst_get_ptr(lol->lstName, col);
       if ((void*)name != NULL)
