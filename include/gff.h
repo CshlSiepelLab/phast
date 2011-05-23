@@ -352,12 +352,12 @@ void gff_ungroup(GFF_Set *set);
     @pre Features are sorted 
     @pre Features frames must be null (GFF_NULL_FRAME)
     @note Attributes are ignored in merge
-    @note Groups are ignored in merge and removed
+    @note Groups are ignored in merge and removed unless no features are changed
      */
 void gff_flatten(GFF_Set *feats);
 
 /** Merges overlapping or adjacent features of same type, if they
-    are they are in the same group.  Assumes features are sorted.  
+    are they are in the same group.  Sorts the features within groups.
     When two features are merged, scores are summed, but attributes are 
     ignored.  Will not merge if 'frame' is non-null.  */
 void gff_flatten_within_groups(GFF_Set *feats);

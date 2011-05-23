@@ -1430,14 +1430,12 @@ String *gff_group_name(GFF_Set *feats, GFF_Feature *f) {
   return ((GFF_FeatureGroup*)lst_get_ptr(feats->groups, idx))->name;
 }
 
-
-/* Sub-routine called by gff_flatten and gff_flatten_groups.
-    Merges overlapping or adjacent features of same type.  Assumes
+/* Merges overlapping or adjacent features of same type.  Assumes
     features are sorted.  When two features are merged, scores are
     summed, but attributes are ignored.  Will not merge if 'frame' is
-    non-null.  If keepGroups, will not combine features in different
-    groups, and will preserve group structure*/
-void gff_flatten_sub(GFF_Set *feats, int keepGroups) {
+    non-null.  Removes group structure and combines between groups if
+    they are defined */
+void gff_flatten(GFF_Set *feats) {
   List *keepers;
   GFF_Feature *last;
   int i, changed = FALSE;
@@ -1454,20 +1452,7 @@ void gff_flatten_sub(GFF_Set *feats, int keepGroups) {
     if (last->end >= this->start - 1 && last->strand == this->strand && 
 	str_equals(last->feature, this->feature) && 
 	last->frame == GFF_NULL_FRAME && this->frame == GFF_NULL_FRAME) {
-      //need to see if two features are in same group.  Unfortunately 
-      //no efficient way to do this
-      if (keepGroups && feats->groups != NULL) {
-	int thisGrp, lastGrp, thispos;
-	thisGrp = gff_group_idx(feats, this, &thispos);
-	lastGrp = gff_group_idx(feats, last, NULL);
-
-	//don't combine if this/last are in different groups
-	if (thisGrp != lastGrp) continue;
-
-	//otherwise need to remove this from group list
-	lst_delete_idx(lst_get_ptr(feats->groups, thisGrp), thispos);
-      }
-      last->end = this->end;
+      last->end = max(last->end, this->end);
       if (!last->score_is_null && !this->score_is_null) 
 	last->score += this->score;
       /* (ignore attribute) */
@@ -1482,7 +1467,7 @@ void gff_flatten_sub(GFF_Set *feats, int keepGroups) {
   if (changed) {
     lst_free(feats->features);
     feats->features = keepers;
-    if (feats->groups != NULL && keepGroups==0) 
+    if (feats->groups != NULL) 
       gff_ungroup(feats);
   }
   else 
@@ -1490,56 +1475,54 @@ void gff_flatten_sub(GFF_Set *feats, int keepGroups) {
 }
 
 
-/* Merges overlapping or adjacent features of same type.  Assumes
-    features are sorted.  When two features are merged, scores are
-    summed, but attributes are ignored.  Will not merge if 'frame' is
-    non-null.  Removes group structure and combines between groups if
-    they are defined */
-void gff_flatten(GFF_Set *feats) {
-  gff_flatten_sub(feats, 0);
-}
-
-
 /* Merges overlapping or adjacent features of same type, if they
-    are they are in the same group.  Assumes features are sorted.  
+    are they are in the same group. 
     When two features are merged, scores are summed, but attributes are 
     ignored.  Will not merge if 'frame' is non-null.  */
 void gff_flatten_within_groups(GFF_Set *feats) {
-  List *keepers;
+  List *keepers, *group_keepers;
   GFF_Feature *last;
-  int i, changed = FALSE;
+  GFF_FeatureGroup *group;
+  int i, g, changed = FALSE;
 
   if (lst_size(feats->features) <= 1) return;
+  if (feats->groups == NULL) 
+    return gff_flatten(feats);
 
   keepers = lst_new_ptr(lst_size(feats->features));
-  last = lst_get_ptr(feats->features, 0);
-  lst_push_ptr(keepers, last);
+  gff_sort(feats);
 
-  for (i = 1; i < lst_size(feats->features); i++) {
-    GFF_Feature *this = lst_get_ptr(feats->features, i);
-    checkInterruptN(i, 1000);
-    if (last->end >= this->start - 1 && last->strand == this->strand && 
-	str_equals(last->feature, this->feature) && 
-	last->frame == GFF_NULL_FRAME && this->frame == GFF_NULL_FRAME) {
-      last->end = this->end;
-      if (!last->score_is_null && !this->score_is_null) 
-	last->score += this->score;
-      /* (ignore attribute) */
-      gff_free_feature(this);
-      changed = TRUE;
+  for (g = 0; g < lst_size(feats->groups); g++) {
+    group = lst_get_ptr(feats->groups, g);
+    if (lst_size(group->features) <= 1) continue;
+    group_keepers = lst_new_ptr(lst_size(group->features));
+    last = lst_get_ptr(group->features, 0);
+    lst_push_ptr(keepers, last);
+    lst_push_ptr(group_keepers, last);
+    for (i = 1; i < lst_size(group->features); i++) {
+      GFF_Feature *this = lst_get_ptr(group->features, i);
+      checkInterruptN(i, 1000);
+      if (last->end >= this->start - 1 && last->strand == this->strand && 
+	  str_equals(last->feature, this->feature) && 
+	  last->frame == GFF_NULL_FRAME && this->frame == GFF_NULL_FRAME) {
+
+	last->end = max(last->end, this->end);
+	if (!last->score_is_null && !this->score_is_null) 
+	  last->score += this->score;
+	/* (ignore attribute) */
+	gff_free_feature(this);
+      }
+      else {
+	lst_push_ptr(keepers, this);
+	lst_push_ptr(group_keepers, this);
+	last = this;
+      }
     }
-    else {
-      lst_push_ptr(keepers, this);
-      last = this;
-    }
+    lst_free(group->features);
+    group->features = group_keepers;
   }
-  if (changed) {
-    lst_free(feats->features);
-    feats->features = keepers;
-    if (feats->groups != NULL) gff_ungroup(feats);
-  }
-  else 
-    lst_free(keepers);
+  lst_free(feats->features);
+  feats->features = keepers;
 }
 
 
