@@ -1533,7 +1533,7 @@ Vector *msa_get_base_freqs(MSA *msa, int start, int end) {
     sum += vec_get(rv, i);
   if (sum == 0.0) vec_zero(rv);
   else vec_scale(rv, 1.0/sum);
-  rv;
+  return rv;
 }
 
 /* similar to above function but returns the frequencies of k-tuples
