@@ -2562,7 +2562,7 @@ msa_format_type msa_format_for_content(FILE *F, int die_if_unknown) {
   //Check if file has a PHYLIP/MPM header
    else if (str_re_match(line, phylip_re, matches, 3) >= 0) {
     retval = PHYLIP;
-    int* sequences = malloc(sizeof(int));
+    int* sequences = smalloc(sizeof(int));
 
     /*MPM has no distinct header from PHYLIP, we need to examine the
      data to determine whether it is MPM or PHYLIP format.  Is MPM if
@@ -2572,7 +2572,7 @@ msa_format_type msa_format_for_content(FILE *F, int die_if_unknown) {
     int lines_in_file = get_nlines_in_file(F);
     if(lines_in_file == (1 + (2 * *sequences)))
     {
-      int* columns = malloc(sizeof(int));
+      int* columns = smalloc(sizeof(int));
       str_as_int(((String*)lst_get_ptr(matches, 3)), columns);
 
       str_peek_line(line, F, 3);
