@@ -2579,9 +2579,9 @@ msa_format_type msa_format_for_content(FILE *F, int die_if_unknown) {
       if (line->length < *columns)
         retval = MPM;
      
-      free(columns);
+      sfree(columns);
     }
-    free(sequences);
+    sfree(sequences);
   }
   //Check if file has a FASTA header
    else if (str_re_match(line, fasta_re, matches, 1) >= 0) {
