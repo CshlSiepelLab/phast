@@ -638,10 +638,36 @@ void msa_protect(MSA *msa) {
 }
 
 
+void ms_protect(MS *ms) {
+  int i;
+  phast_mem_protect(ms);
+
+  if (ms->names != NULL) {
+    phast_mem_protect(ms->names);
+    for (i=0; i < ms->nseqs; i++)
+      phast_mem_protect(ms->names[i]);
+  }
+  if (ms->seqs != NULL) {
+    phast_mem_protect(ms->seqs);
+    for (i=0; i < ms->nseqs; i++)
+      phast_mem_protect(ms->seqs[i]);
+  }
+  if (ms->idx_offsets != NULL) {
+    phast_mem_protect(ms->idx_offsets);
+  }
+  if (ms->alphabet != NULL) {
+    phast_mem_protect(ms->alphabet);
+  }
+
+}
+
 void msa_register_protect(MSA *msa) {
   phast_register_protected_object(msa, (void (*)(void*))msa_protect);
 }
 
+void ms_register_protect(MS *ms) {
+  phast_register_protected_object(ms, (void (*)(void*))ms_protect);
+}
 
 
 void hmm_protect(HMM *hmm) {

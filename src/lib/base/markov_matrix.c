@@ -248,8 +248,11 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t) {
 		  40840800.0, 960960.0, 16380.0, 182.0, 1.0};
   double theta[14], norm, sum, *coef, mu;
   int i, j, n = P->size, mvals[5] = {3, 5, 7, 9, 13}, mlen=5, m, mi, max_i, s;
+#ifndef SKIP_LAPACK
   LAPACK_DOUBLE mat[n*n], scale[n], matU[n*n], matV[n*n];
   LAPACK_INT ln, ilo, ihi, info, ipiv[n];
+#endif
+
   char job = 'B', side='R';
   Matrix *Qt = mat_create_copy(Q->matrix), **QtPow, **matArr, *U, *V;
   int do_balancing=0;  //balancing is not working yet, keep this at 0!

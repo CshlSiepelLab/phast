@@ -2,6 +2,7 @@
 #include <misc.h>
 #include <tree_likelihoods.h>
 #include <list_of_lists.h>
+#include <ms.h>
 
 //make a new list of lists (LOL)
 ListOfLists *lol_new(int approx_size) {
@@ -342,6 +343,12 @@ void lol_push_msa_ptr(ListOfLists *lol, MSA *msa, const char *name) {
   lol_push(lol, msaLst, name, LIST_LIST);
 } 
 
+void lol_push_ms_ptr(ListOfLists *lol, MS *ms, const char *name) { 
+  ListOfLists *msLst = lol_new(1);
+  lol_set_class(msLst, "ms");
+  lol_push(msLst, ms, "externalPtr", MS_PTR_LIST);
+  lol_push(lol, msLst, name, LIST_LIST);
+} 
 
 //free a lol and associated memory (if type is char free the strings)
 //Does not free GFF or MSA pointers however.

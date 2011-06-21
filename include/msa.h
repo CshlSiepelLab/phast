@@ -368,12 +368,12 @@ int msa_add_seq(MSA *msa, char *name);
          sequences contain a gap, then it fills in a gap instead. */
 void msa_add_seq_ss(MSA *msa, int new_nseq);
 
-/** \name MSA Reverse / Reverse Compliment
+/** \name MSA Reverse / Reverse Complement
   \{ */
 
 /** Returns complement of a single DNA base.  
     @param c Single DNA base to complement
-    @return Compliment of single DNA base
+    @return Complement of single DNA base
     @note Leaves all bases but A,C,G,T unchanged. 
 */
 char msa_compl_char(char c);

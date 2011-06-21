@@ -43,9 +43,9 @@ TARGETLIB = ${LIB}/libphast.a
 # an appropriate alternative
 ifneq ($(TARGETOS), Windows)
  #for debugging
-# CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG
+ CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG
  # for best performance
- CFLAGS = -O3 
+ #CFLAGS = -O3 
  # some other options
  #CFLAGS = -mcpu=opteron -O3
  #CFLAGS = -mcpu=pentiumpro -O3 
@@ -99,16 +99,10 @@ ifndef VECLIB
   # platform-specific suffix used for CLAPACK libraries; use the same
   #value as in CLAPACK's "make.inc" file
   ifneq ($(TARGETOS), Windows)
-    ifndef CLAPACKPATH
-      CLAPACKPATH = /usr/local/software/clapack
-    endif 
     #Automatically detects PLAT type by looking in CLAPACKPATH for blas*.a and extracts the * part
     PLAT = $(shell find ${CLAPACKPATH}/ -name '*.a' -exec expr match {} '.*blas\(.*\).a' \; | tr -d "\n")
   else
     # PLAT is empty for windows builds
-    ifndef CLAPACKPATH
-      CLAPACKPATH = /usr/local/software/clapack-windows
-    endif
     PLAT =
   endif
   # F2C libraries used by CLAPACK; most users won't need to edit

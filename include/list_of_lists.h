@@ -1,5 +1,6 @@
 #include <lists.h>
 #include <tree_model.h>
+#include <ms.h>
 /* Recursive list structure emulating R's lists.  List of particular list types:
    char*, integer, or double currently supported */
 
@@ -21,7 +22,8 @@ typedef enum { INT_LIST, /**< List of Integers */
 	       CHAR_LIST,  /**< List of Chars */
 		   MSA_PTR_LIST, /**< List of data from MSAs */
 		   GFF_PTR_LIST, /**< List of data from GFFs */
-	       LIST_LIST  /**< List of Lists */
+	       LIST_LIST,  /**< List of Lists */
+	       MS_PTR_LIST, /**< List of MSs */
 	      } list_element_type;
 
 /** Basic List of Lists object used recursively to create List of Lists  
@@ -241,6 +243,14 @@ void lol_push_gff_ptr(ListOfLists *lol, GFF_Set *gff, const char *name);
   @param[in] name Name to refer to MSA by
 */
 void lol_push_msa_ptr(ListOfLists *lol, MSA *msa, const char *name);
+
+/** Append an MS to list of lists
+  @param[in,out] lol List of Lists
+  @param[in] ms ms to be added to list of lists
+  @param[in] name name of ms being added
+  @see lol_push
+*/
+void lol_push_ms_ptr(ListOfLists *lol, MS *ms, const char *name);
 
 /** Append a Double Array to list of lists 
    @param lol[in,out] lol List of Lists

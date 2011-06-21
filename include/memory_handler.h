@@ -43,6 +43,7 @@
 #include "tree_model.h"
 #include "gff.h"
 #include "msa.h"
+#include "ms.h"
 #include "matrix.h"
 #include "complex_matrix.h"
 #include "vector.h"
@@ -235,6 +236,10 @@ void cm_register_protect(CategoryMap *cm);
 /** Register an MSA object for protection 
     @param An MSA object */
 void msa_register_protect(MSA *msa);
+
+/** Register an MS object for protection
+    @param An MS object */
+void ms_register_protect(MS *ms);
 
 /** Register an HMM object for protection 
     @param An HMM object */

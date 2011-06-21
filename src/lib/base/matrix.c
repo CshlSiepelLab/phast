@@ -312,7 +312,7 @@ int mat_equal(Matrix *A, Matrix *B) {
   return 1;
 }
 
-
+#ifndef SKIP_LAPACK
 void mat_to_lapack(Matrix *m, LAPACK_DOUBLE *arr) {
   int i, j, pos=0;
   for (j=0; j<m->ncols; j++)
@@ -326,3 +326,5 @@ void mat_from_lapack(Matrix *m, LAPACK_DOUBLE *arr) {
     for (i=0; i < m->nrows; i++)
       m->data[i][j] = (double)arr[pos++];
 }
+
+#endif

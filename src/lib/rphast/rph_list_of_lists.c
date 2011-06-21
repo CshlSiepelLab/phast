@@ -38,7 +38,9 @@ SEXP rph_listOfLists_to_SEXP(ListOfLists *lol) {
 		     rph_gff_new_extptr((GFF_Set*)lst_get_ptr(lol->lst, col)));
     } else if (lstType == MSA_PTR_LIST) {
       SET_VECTOR_ELT(result, col, rph_msa_new_extptr((MSA*)lst_get_ptr(lol->lst, col)));
-    }  else {
+    } else if (lstType == MS_PTR_LIST) {
+      SET_VECTOR_ELT(result, col, rph_ms_new_extptr((MS*)lst_get_ptr(lol->lst, col)));
+    } else {
       currlist = (List*)lst_get_ptr(lol->lst, col);
       lstSize = lst_size(currlist);
       if (lstType == INT_LIST) {
