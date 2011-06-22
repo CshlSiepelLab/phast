@@ -118,7 +118,7 @@ void ms_print_to_file(const char *filename, MS *ms);
     @return List of ngroups MS objects, each containing sequences with a 
     different subset of the input sequences
 */
-List *ms_group(MS *inputMS, int ngroups);
+List *ms_group(MS *inputMS, int ngroups, double *quantile_vals_out);
 
 
 /** Calculate GC content for each sequence, determine quantiles of n groups,

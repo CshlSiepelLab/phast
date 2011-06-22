@@ -684,8 +684,7 @@ GFF_Set *ms_score(char *seqName, char *seqData, int seqLen, int seqIdxOff, int s
 
 
 /////////////////////////////////////////////////
-List *ms_group(MS *inputMS, int ngroups) {
-  double quantile_values[ngroups];
+List *ms_group(MS *inputMS, int ngroups, double *quantile_vals_out) {
   List *seqToBin, *listOfOutputMS;
   int numSeqsPerGroup[ngroups], seqsWritten[ngroups];
   char ***seqs;
@@ -695,7 +694,7 @@ List *ms_group(MS *inputMS, int ngroups) {
   MS *tmpMS;
 
   listOfOutputMS = lst_new_ptr(ngroups);
-  seqToBin = ms_group_to_bin(inputMS, ngroups, quantile_values);
+  seqToBin = ms_group_to_bin(inputMS, ngroups, quantile_vals_out);
   
   //Initialize number of sequences per group & seqs written  to zero
   for(i=0; i<ngroups; i++) {

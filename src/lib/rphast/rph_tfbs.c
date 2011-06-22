@@ -337,7 +337,7 @@ SEXP rph_ms_group(SEXP sequencesP, SEXP ngroupsP)
 {
   int i, ngroups = INTEGER_VALUE(ngroupsP);
   List *listOfMS;
-  ListOfLists *lol;
+  ListOfLists *lol, *msList;
   MS *inputMS;
   double *quantile_vals_out = smalloc(ngroups * sizeof(double));
 
@@ -347,13 +347,15 @@ SEXP rph_ms_group(SEXP sequencesP, SEXP ngroupsP)
   inputMS = SEXP_to_group(sequencesP);
     
   //Perform the grouping
-  listOfMS = ms_group(inputMS, ngroups);
-
-  lol = lol_new(1);
+  listOfMS = ms_group(inputMS, ngroups, quantile_vals_out);
+  
+  lol = lol_new(2);
+  msList = lol_new(lst_size(listOfMS));
   for(i=0; i< lst_size(listOfMS); i++) {
-    lol_push_ms_ptr(lol, (MS*)lst_get_ptr(listOfMS, i), "map");
+    lol_push_ms_ptr(msList, (MS*)lst_get_ptr(listOfMS, i), "");
   }
-  //lol_push_dbl(lol, quantile_vals_out, ngroups, "quantile_vals");
+  lol_push_lol(lol, msList, "ms");
+  lol_push_dbl(lol, quantile_vals_out, ngroups, "quantiles");
   return rph_listOfLists_to_SEXP(lol);
 }
 
