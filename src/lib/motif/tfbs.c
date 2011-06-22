@@ -615,7 +615,7 @@ double calcMMscore(char *seqData, int base, List *MarkovMatrices, int conservati
 
 //////////////////////////////////////////////////////////////////////////////////
 GFF_Set *ms_score(char *seqName, char *seqData, int seqLen, int seqIdxOff, int seqAlphLen, List *MarkovMatrices, Matrix *pwm, Matrix *reverseCmpPWM, int conservative, double threshold, char *strand) { 
-  int i k,j,l,col;
+  int i, k,j,l,col;
   double MMprob, PWMprob=0, ReversePWMprob=0;
   GFF_Set *scores = gff_new_set();
   double *MMprobs = (double*)smalloc((pwm->nrows+1) * sizeof(double));    //Sliding window of mmOrder previous MM probabilities

@@ -275,22 +275,23 @@ SEXP rph_ms_square_brackets(SEXP msP, SEXP rowsP) {
     numprotect++;
   } else nrow = ms->nseqs;
 
-
   names = smalloc(nrow*sizeof(char*));
   seqs = smalloc(nrow*sizeof(char*));
   offsets = smalloc(nrow*sizeof(int));
   for (i=0; i < nrow; i++) {
     checkInterrupt();
     if (rows == NULL) spec = i;
-    else {
-      spec = rows[i]-1; //convert to 0-based numbers from R indices
-      if (spec < 0 || spec >= ms->nseqs) 
-        die("invalid row in rph_ms_square_brackets");
+    else spec = rows[i]-1; //convert to 0-based numbers from R indices
+    if (spec < 0 || spec >= (ms->nseqs)) { 
+      names[i] = copy_charstr("");
+      seqs[i] = copy_charstr("");
+      offsets[i] = 0;
+    } else {
+      names[i] = copy_charstr(ms->names[spec]);
+      seqs[i] = copy_charstr(ms->seqs[spec]);
+      offsets[i] = ms->idx_offsets[spec];
     }
-    names[i] = copy_charstr(ms->names[spec]);
-    seqs[i] = copy_charstr(ms->seqs[spec]);
-    offsets[i] = ms->idx_offsets[spec];
-  }
+}
 
   newMs = ms_new(seqs, names, nrow, ms->alphabet, 0,1);
   newMs->idx_offsets = offsets;
