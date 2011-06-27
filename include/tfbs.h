@@ -105,34 +105,21 @@ int basesToRow(int *previousBases, int norder, int alph_size);
 */
 void ms_print(FILE *F, MS *ms);
 
+void ms_print_fasta(FILE *F, MS *ms);
+
 /** Prints MS to file in FASTA format.  (wrapper for ms_print)
    @param filename Full Path to where file should be written
    @param ms MS object containing sequences & names to write out
 */
 void ms_print_to_file(const char *filename, MS *ms);
 
-/** Group each sequence by its GC content into one of 'ngroups' groups.
-    @param inputMS MS object containing at least one sequence
-    @apram ngroups Number of groups to split sequences into, should be > 1
-    and <= # sequences in inputMS
-    @return List of ngroups MS objects, each containing sequences with a 
-    different subset of the input sequences
-*/
-List *ms_group(MS *inputMS, int ngroups, double *quantile_vals_out);
+/** Compute GC content of each sequence in an ms
+    @param ms MS object
+    @return A vector of the same length as the number of sequences in ms, 
+    containing the GC fraction of each sequence.
+ */
+Vector *ms_gc_content(MS *ms);
 
-
-/** Calculate GC content for each sequence, determine quantiles of n groups,
-    determine which group each sequence should go in.
-    @param inputMS MS object containing at least one sequence
-    @param ngroups Number of groups to split sequences into, should be > 1
-    	 and <= # sequences in inputMS
-    @param quantile_vals_out If not NULL, then fill pointer with Double 
-    	 array of quantile values
-    @return List of integers, one for each sequence in the same order as inputMS
-    		with each integer from 0 to ngroups-1 specifying which group the
-    		sequence should go into
-*/
-List *ms_group_to_bin(MS *inputMS, int ngroups, double *quantile_vals_out);
 
 /** Scores sequences for matches to motif represented as PWM.
     @param seqName Name of the sequence being scored

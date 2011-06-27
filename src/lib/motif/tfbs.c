@@ -222,7 +222,7 @@ MS *ms_read(const char *filename, const char *alphabet) {
 	die("ERROR: Unable to open FASTA file \n");
 
   if (descrip_re == NULL) 
-    descrip_re = str_re_new("[[:space:]]*>[[:space:]]*([^[:space:]]+)");
+    descrip_re = str_re_new("[[:space:]]*>[[:space:]]*(.+)");
 
   line_no=1;
   while ((str_readline(line, F)) != EOF) {
@@ -683,135 +683,27 @@ GFF_Set *ms_score(char *seqName, char *seqData, int seqLen, int seqIdxOff, int s
 }
 
 
-/////////////////////////////////////////////////
-List *ms_group(MS *inputMS, int ngroups, double *quantile_vals_out) {
-  List *seqToBin, *listOfOutputMS;
-  int numSeqsPerGroup[ngroups], seqsWritten[ngroups];
-  char ***seqs;
-  char ***names;
-  int **offsets;
-  int i, group;
-  MS *tmpMS;
-
-  listOfOutputMS = lst_new_ptr(ngroups);
-  seqToBin = ms_group_to_bin(inputMS, ngroups, quantile_vals_out);
-  
-  //Initialize number of sequences per group & seqs written  to zero
-  for(i=0; i<ngroups; i++) {
-    numSeqsPerGroup[i] = 0;
-    seqsWritten[i] = 0;
-  }
-  
-  //Count how many sequences each group has
-  for(i=0; i<inputMS->nseqs; i++)  {
-    numSeqsPerGroup[lst_get_int(seqToBin, i)]++;
-  }
-
-  seqs = (char***)smalloc(ngroups * sizeof(char**));
-  names = (char***)smalloc(ngroups * sizeof(char**));
-  offsets = (int**)smalloc(ngroups *sizeof(int*));
-  
-  //Initialize each MS object sequences to support number of sequences per group
-  for(i=0; i<ngroups; i++) {
-    seqs[i] = (char**)smalloc(numSeqsPerGroup[i] * sizeof(char*));
-    names[i] = (char**)smalloc(numSeqsPerGroup[i] * sizeof(char*));
-    offsets[i] = (int*)smalloc(numSeqsPerGroup[i] *sizeof(int));
-  }
-
-  //Copy from seq in MS to group
-  for(i=0; i<inputMS->nseqs; i++) {
-    group = lst_get_int(seqToBin, i);
-    //seqs[group][seqsWritten[group]] = inputMS->seqs[i]; //Unfortunately we can't avoid copying the strings since it causes a free error when R closes, and creates a dependency on the object being grouped
-    seqs[group][seqsWritten[group]] = (char*)smalloc(strlen(inputMS->seqs[i])+1 * sizeof(char));
-    strcpy(seqs[group][seqsWritten[group]], inputMS->seqs[i]);
-
-    //names[group][seqsWritten[group]] = inputMS->names[i];
-    names[group][seqsWritten[group]] = (char*)smalloc(strlen(inputMS->names[i])+1 * sizeof(char));
-    strcpy(names[group][seqsWritten[group]], inputMS->names[i]);
-
-    offsets[group][seqsWritten[group]] = inputMS->idx_offsets[i];
-    seqsWritten[group]++;
-  }
-
-  //Create MS objects
-  for(i=0; i<ngroups; i++) {
-    tmpMS = ms_new(seqs[i], names[i], numSeqsPerGroup[i] , NULL, 0, 1);
-    tmpMS->idx_offsets = offsets[i];
-    // *ms_new(char **seqs, char **names, int nseqs, const char *alphabet, double rangeLow, double rangeHigh) {
-    lst_push_ptr(listOfOutputMS, tmpMS);
-  }
-  
-  return listOfOutputMS;
-}
-
-////////////////////////////////////////////////
-List *ms_group_to_bin(MS *inputMS, int ngroups, double *quantile_vals_out) {
-  if (ngroups <= 0) //Must be at least one group
-    die("To perform grouping, at least one group (default group) must exist");
-  double previousGcBin, gcContent;
-  double q[ngroups];
-  double quantile_vals[ngroups + 1];
-  int i, j, gcCount, atCount, acgtCount;
-  List *gcContentScores = lst_new_dbl(1);
-  List *gcContentScoresUnsorted = lst_new_dbl(1);
-	
-
-  for (i = 0; i < inputMS->nseqs; i++) {
+Vector *ms_gc_content(MS *ms) {
+  Vector *rv = vec_new(ms->nseqs);
+  int gcCount, atCount, acgtCount, i, j;
+  for (i = 0; i < ms->nseqs; i++) {
     //GC calc
     gcCount = 0;
     atCount = 0;
     //Caclulate GC content
-    for (j = 0; j < strlen(inputMS->seqs[i]); j++)
+    for (j = 0; j < strlen(ms->seqs[i]); j++)
       {
-        if ((inputMS->seqs[i][j] == 'G') || (inputMS->seqs[i][j] == 'C'))
+        if ((ms->seqs[i][j] == 'G') || (ms->seqs[i][j] == 'C'))
           gcCount = gcCount + 1;
-        else if ((inputMS->seqs[i][j] == 'A') || (inputMS->seqs[i][j] == 'T'))
+        else if ((ms->seqs[i][j] == 'A') || (ms->seqs[i][j] == 'T'))
           atCount = atCount + 1;
       }
     //fprintf(stderr, " gc found %d, gc score %f\n", gcCount, ((double)gcCount / (double)ms->length));
 
     acgtCount = atCount + gcCount;
-    lst_push_dbl(gcContentScores, ((double)gcCount / (double)acgtCount));
-    lst_push_dbl(gcContentScoresUnsorted, ((double)gcCount / (double)acgtCount));
+    vec_set(rv, i, ((double)gcCount/(double)acgtCount));
   }
-
-  //Sort list of scores via quick sort
-  lst_qsort_dbl(gcContentScores, ASCENDING);
-
-  //Calculate parameter for quantile calculation
-	
-  for (i = 1; i <= ngroups; i++) {
-    q[i - 1] = i * ((double)1 / (double)ngroups);
-    //printf("q[%d] = %f\n", i, q[i-1]);
-  }
-
-  //Calculate quantiles
-  lst_dbl_quantiles(gcContentScores, q, ngroups, quantile_vals);
-
-  //quantile_vals_out = quantile_vals;
-
-  for(i=0;i<ngroups;i++) {
-    //printf("quantile val%f\n", quantile_vals[i]);
-    quantile_vals_out[i] = quantile_vals[i];
-  }
-    
-  List *seqToBin = lst_new_int(inputMS->nseqs);
-
-  //Determine into which bin each sequence goes into (to be able to allocate memory correctly for each bin)
-  for(i = 0; i < inputMS->nseqs; i++) {
-    previousGcBin =0;
-    gcContent = lst_get_dbl(gcContentScoresUnsorted, i);
-    for(j=0; j<ngroups; j++) {
-      if(!isnan(quantile_vals[j])) //Invalid quantile entries are NaN
-        {
-          if(gcContent >= previousGcBin && gcContent <= quantile_vals[j]) {
-            lst_push_int(seqToBin, j);
-            break;
-          }
-          previousGcBin=quantile_vals[j];  
-        }
-    }
-  }
-
-  return seqToBin;
+  return rv;
 }
+
+

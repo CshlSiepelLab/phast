@@ -240,6 +240,7 @@ void lst_dbl_quantiles(List *l, double *quantiles, int nquantiles,
   }
 }
 
+
 /****************************************************************************/
 /*          Comparison functions for use with numeric lists                 */
 /****************************************************************************/

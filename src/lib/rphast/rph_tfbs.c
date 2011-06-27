@@ -275,6 +275,7 @@ SEXP rph_ms_square_brackets(SEXP msP, SEXP rowsP) {
     numprotect++;
   } else nrow = ms->nseqs;
 
+
   names = smalloc(nrow*sizeof(char*));
   seqs = smalloc(nrow*sizeof(char*));
   offsets = smalloc(nrow*sizeof(int));
@@ -300,63 +301,13 @@ SEXP rph_ms_square_brackets(SEXP msP, SEXP rowsP) {
 }
 
 
-
-/** RPHAST determine which group each sequence belongs to based on GC content
-    @param sequencesP SEXP pointer to MS object
-    @param ngroupsP Pointer to number of quantiles to create
-    @result List of int, one for each sequence specifying the sequences group
-*/
-SEXP rph_ms_group_to_bin(SEXP sequencesP, SEXP ngroupsP)
-{
-  int ngroups = INTEGER_VALUE(ngroupsP);
-  List *listOfInt;
-  ListOfLists *lol;
-  MS *inputMS;
-  double *quantile_vals_out = smalloc(ngroups * sizeof(double));
-
-  if (ngroups < 1)
-    die("Number of gc content groups must be at least 1");
-
-  inputMS = SEXP_to_group(sequencesP);
-    
-  //Perform the grouping
-  listOfInt = ms_group_to_bin(inputMS, ngroups, quantile_vals_out);
-
-  lol = lol_new(1);
-  lol_push_list(lol, listOfInt, "map", INT_LIST);
-  lol_push_dbl(lol, quantile_vals_out, ngroups, "quantile_vals");
-  return rph_listOfLists_to_SEXP(lol);
-}
-
-/** RPHAST group sequences by their GC content
-    @param sequencesP SEXP pointer to MS object
-    @param ngroupsP Pointer to number of quantiles to create
-    @result List of MS objects, each with its own GC range.
-*/
-SEXP rph_ms_group(SEXP sequencesP, SEXP ngroupsP)
-{
-  int i, ngroups = INTEGER_VALUE(ngroupsP);
-  List *listOfMS;
-  ListOfLists *lol, *msList;
-  MS *inputMS;
-  double *quantile_vals_out = smalloc(ngroups * sizeof(double));
-
-  if (ngroups < 1)
-    die("Number of gc content groups must be at least 1");
-
-  inputMS = SEXP_to_group(sequencesP);
-    
-  //Perform the grouping
-  listOfMS = ms_group(inputMS, ngroups, quantile_vals_out);
-  
-  lol = lol_new(2);
-  msList = lol_new(lst_size(listOfMS));
-  for(i=0; i< lst_size(listOfMS); i++) {
-    lol_push_ms_ptr(msList, (MS*)lst_get_ptr(listOfMS, i), "");
-  }
-  lol_push_lol(lol, msList, "ms");
-  lol_push_dbl(lol, quantile_vals_out, ngroups, "quantiles");
-  return rph_listOfLists_to_SEXP(lol);
+SEXP rph_ms_gc_content(SEXP sequencesP) {
+  Vector *gc_content;
+  ListOfLists *result;
+  gc_content = ms_gc_content(SEXP_to_group(sequencesP));
+  result = lol_new(1);
+  lol_push_dbl(result, gc_content->data, gc_content->size, "gc.content");
+  return rph_listOfLists_to_SEXP(result);
 }
 
 
