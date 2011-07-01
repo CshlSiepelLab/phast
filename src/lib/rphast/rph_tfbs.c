@@ -569,6 +569,7 @@ SEXP rph_ms_score(SEXP inputMSP, SEXP pwmP, SEXP markovModelP, SEXP nOrderP, SEX
   MS *inputMS;
 
   ListOfLists *result;
+  printf("RPH_MS_SCORE called.\n");
   nOrder = INTEGER_VALUE(nOrderP);
   threshold = NUMERIC_VALUE(thresholdP);
   conservative = asLogical(conservativeP);

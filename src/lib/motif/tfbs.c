@@ -661,8 +661,9 @@ GFF_Set *ms_score(char *seqName, char *seqData, int seqLen, int seqIdxOff, int s
     if (i < (seqLen - pwm->nrows)) //Only if there are more bases in this sequence to test
       MMprobs[pwm->nrows-1] = calcMMscore(seqData, i+pwm->nrows,  //Calculate MM probability for site at (i+pwm->nrows)
                                           MarkovMatrices, conservative);			
-            
-    if (((PWMprob - MMprob) > threshold) && ((strcmp(strand, "+") == 0) || (strcmp(strand, "both") == 0) || ((strcmp(strand, "best") == 0) && ((PWMprob - MMprob) > (ReversePWMprob - MMprob))))) {			//If we have a positive score add it to the list of scores
+
+    printf("Seq score %f .\n", (PWMprob -MMprob));            
+    if (((PWMprob - MMprob) > threshold) && ((strcmp(strand, "+") == 0) || (strcmp(strand, "both") == 0) || ((strcmp(strand, "best") == 0) && ((PWMprob - MMprob) >= (ReversePWMprob - MMprob))))) {			//If we have a positive score add it to the list of scores
       GFF_Feature *feat = gff_new_feature(str_new_charstr(seqName), str_new_charstr(""), 
                                           str_new_charstr(""), seqIdxOff+i+1, 
                                           seqIdxOff+i+pwm->nrows, (PWMprob - MMprob), '+', 
