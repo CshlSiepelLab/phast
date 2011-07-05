@@ -94,7 +94,9 @@ void ms_print(FILE *F, MS *ms) {
     checkInterrupt();
     fprintf(F, "  Name    %s\n", ms->names[i]);
     fprintf(F, "  Offset  %d\n", ms->idx_offsets[i]);
-    fprintf(F, "  Seq     %s\n\n", ms->seqs[i]);
+    fprintf(F, "  Seq     %s\n", ms->seqs[i]);
+    if(i != (ms->nseqs-1))
+      fprintf(F, "\n");
   }
 }
 
@@ -662,7 +664,6 @@ GFF_Set *ms_score(char *seqName, char *seqData, int seqLen, int seqIdxOff, int s
       MMprobs[pwm->nrows-1] = calcMMscore(seqData, i+pwm->nrows,  //Calculate MM probability for site at (i+pwm->nrows)
                                           MarkovMatrices, conservative);			
 
-    printf("Seq score %f .\n", (PWMprob -MMprob));            
     if (((PWMprob - MMprob) > threshold) && ((strcmp(strand, "+") == 0) || (strcmp(strand, "both") == 0) || ((strcmp(strand, "best") == 0) && ((PWMprob - MMprob) >= (ReversePWMprob - MMprob))))) {			//If we have a positive score add it to the list of scores
       GFF_Feature *feat = gff_new_feature(str_new_charstr(seqName), str_new_charstr(""), 
                                           str_new_charstr(""), seqIdxOff+i+1, 
