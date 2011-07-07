@@ -159,7 +159,7 @@ Vector *pv_convolve(Vector *p, int n, double epsilon) {
        purposes of bounding. */
     pv_stats(p, &mean, &var);
     max_nsd = -inv_cum_norm(epsilon) + 1; 
-    max_x = ceil(n * mean + max_nsd * sqrt(n * var));
+    max_x = max(ceil(n * mean + max_nsd * sqrt(n * var)), p->size);
   }
 
   q_i = vec_new(max_x);

@@ -1254,7 +1254,7 @@ void base64_encode_block( unsigned char in[3], unsigned char out[4], int len )
   out[3] = (unsigned char) (len > 2 ? b64[ in[2] & 0x3f ] : '=');
 }
 
-char *base64_encode( char *inStr )
+char *base64_encode(const char *inStr )
 {
   unsigned char in[3], out[4], *finalOut;
   int i, len, origLen, ch, blocksout = 0;
