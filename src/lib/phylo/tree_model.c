@@ -1324,8 +1324,11 @@ MSA *tm_generate_msa(int ncolumns,
 	rate_matrix = altmod->rate_matrix;
       }
     }
-    if (backgd == NULL)
+    if (backgd == NULL) {
       backgd = classmods[class]->backgd_freqs;
+      if (backgd == NULL)
+	die("ERROR tm_generate_msa: model's background frequencies are not assigned\n");
+    }
     if (rate_matrix == NULL)
       rate_matrix = classmods[class]->rate_matrix;
 
@@ -1430,6 +1433,8 @@ MSA *tm_generate_msa_scaleLst(List *nsitesLst, List *scaleLst,
 	  mod->alt_subst_mods_ptr[mod->tree->id][cat]->backgd_freqs != NULL)
 	backgd = mod->alt_subst_mods_ptr[mod->tree->id][cat]->backgd_freqs;
       else backgd = mod->backgd_freqs;
+      if (backgd == NULL)
+	die("tm_generate_msa_scaleLst: model's backgrounds are not assigned");
       
       newchar[mod->tree->id] = 
 	mm_sample_backgd(mod->rate_matrix->states, backgd);
@@ -1514,6 +1519,9 @@ MSA *tm_generate_msa_random_subtree(int ncolumns, TreeModel *mod,
 	mod->alt_subst_mods_ptr[mod->tree->id][cat]->backgd_freqs != NULL)
       backgd = mod->alt_subst_mods_ptr[mod->tree->id][cat]->backgd_freqs;
     else backgd = mod->backgd_freqs;
+    
+    if (backgd == NULL)
+      die("tm_generate_msa_random_subtree: model's background frequencies are not assigned\n");
 
     newchar[mod->tree->id] = 
       mm_sample_backgd(mod->rate_matrix->states, backgd);
