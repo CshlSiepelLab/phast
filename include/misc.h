@@ -720,13 +720,6 @@ double get_elapsed_time(struct timeval *start_time);
 */
 int file_exists(char *filename);
 
-/** Base64 encode an input string.
-    @param inStr String to base 64 encode
-    @result base64 encoded string
-*/
-char *base64_encode( const char *inStr );
-
-
 
 /** \name IUPAC mapping functions 
 \{ */

@@ -451,7 +451,7 @@ SEXP rph_ms_split_gff(SEXP sequencesP, SEXP featuresP)
   //For each window
   for (currentFeature = 0, outputSeqNum=0; currentFeature < lst_size(gff->features); currentFeature++) {
     feature = (GFF_Feature*)lst_get_ptr(gff->features, currentFeature);		
-
+    
     //For each sequence
     for (currentSequence = 0; currentSequence < inputMS->nseqs; currentSequence++) {
 			
@@ -460,12 +460,21 @@ SEXP rph_ms_split_gff(SEXP sequencesP, SEXP featuresP)
       if (strcmp(inputMS->names[currentSequence], feature->seqname->chars) == 0) {
 				
         //Copy the name of the sequence for inclusion in outputMS
+        //        if(feature->start <= inputMS->idx_offsets[currentSequence])
+        feature->start = feature->start - inputMS->idx_offsets[currentSequence];
+        feature->end = feature->end - inputMS->idx_offsets[currentSequence];
+  
+        printf("Start %d, end %d.\n", feature->start, feature->end);
         outputMS->names[outputSeqNum] = (char*)smalloc(feature->seqname->length + 1 * sizeof(char*));
         outputMS->names[outputSeqNum] = copy_charstr(feature->seqname->chars);
+
+        if (feature->start < 1)
+          feature->start = 1;
 
         lengthOfSubSequence = (feature->end - feature->start)+1;
 
         //Check if window specified is within bounds of sequence
+       
         if ((feature->start > 0) && ((feature->start-1+ lengthOfSubSequence) <= strlen(inputMS->seqs[currentSequence]))) {
 					
           //Copy substring from sequence and create new MSA to hold subsequence specified by window
@@ -474,7 +483,7 @@ SEXP rph_ms_split_gff(SEXP sequencesP, SEXP featuresP)
           outputMS->seqs[outputSeqNum][lengthOfSubSequence] = '\0';
 					
           //Set index offset
-          outputMS->idx_offsets[outputSeqNum] = feature->start;
+          outputMS->idx_offsets[outputSeqNum] = feature->start-1 + inputMS->idx_offsets[currentSequence];
           outputSeqNum++;
         }else
           Rf_warning("Feature %s from %d to %d is outside sequence boundaries\n", feature->seqname->chars, feature->start, feature->end);

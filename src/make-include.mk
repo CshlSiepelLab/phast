@@ -98,10 +98,22 @@ endif
 ifndef VECLIB
   # platform-specific suffix used for CLAPACK libraries; use the same
   #value as in CLAPACK's "make.inc" file
-  ifneq ($(TARGETOS), Windows)
+ifneq ($(TARGETOS), Windows)
+ifndef CLAPACKPATH
+   CHECKFILE = $(shell if [ -d /usr/local/software/clapack ]; then echo "true"; fi) 
+   ifeq ($(CHECKFILE),true)
+    CLAPACKPATH = /usr/local/software/clapack
+	  #else
+	echo $(CHECKFILE) # "Error: You must either define a path to CLAPACK or specify SKIP_LAPACK when building"
+  endif 
+  endif 
+
     #Automatically detects PLAT type by looking in CLAPACKPATH for blas*.a and extracts the * part
     PLAT = $(shell find ${CLAPACKPATH}/ -name '*.a' -exec expr match {} '.*blas\(.*\).a' \; | tr -d "\n")
   else
+    ifndef CLAPACKPATH
+	    CLAPACKPATH = /usr/local/software/clapack-windows
+    endif
     # PLAT is empty for windows builds
     PLAT =
   endif

@@ -107,15 +107,6 @@ double rph_likelihood_wrapper(Vector *params, void *data) {
   return -rv;
 }
 
-
-SEXP rph_base64_encode(SEXP inStrP) {
-  SEXP result;
-  PROTECT(result = NEW_CHARACTER(1));
-  SET_STRING_ELT(result, 0, mkChar(base64_encode(CHARACTER_VALUE(inStrP))));
-  UNPROTECT(1);
-  return result;
-}
-
 SEXP rph_opt_bfgs(SEXP likelihoodFunctionP, SEXP paramsP, 
 		  SEXP lowerP, SEXP upperP, SEXP precisionP, 
 		  SEXP logfileP, SEXP envP) {
