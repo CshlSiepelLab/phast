@@ -1486,8 +1486,10 @@ void gff_flatten_within_groups(GFF_Set *feats) {
   int i, g, changed = FALSE;
 
   if (lst_size(feats->features) <= 1) return;
-  if (feats->groups == NULL) 
-    return gff_flatten(feats);
+  if (feats->groups == NULL) { 
+    gff_flatten(feats);
+    return;
+  }
 
   keepers = lst_new_ptr(lst_size(feats->features));
   gff_sort(feats);
