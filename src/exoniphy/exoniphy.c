@@ -324,7 +324,7 @@ int main(int argc, char* argv[]) {
     for (i = 0; i < lst_size(model_fname_list); i++) {
       str = lst_get_ptr(model_fname_list, i);
       #if defined(__MINGW32__)
-        sprintf(tmpstr, "%s\\exoniphy\\mammals\\%s", dat_path->chars, str->chars);
+        sprintf(tmpstr, "%s\\exoniphy\\mammals\\%s", data_path->chars, str->chars);
       #else
         sprintf(tmpstr, "%s/exoniphy/mammals/%s", data_path->chars, str->chars);
       #endif
