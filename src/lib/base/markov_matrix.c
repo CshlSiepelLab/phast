@@ -242,23 +242,21 @@ Matrix **mm_get_QtPow(int max_m, Matrix *Qt) {
 //"The Scaling and Squaring Method for the Matrix Exponential Revisited"
 //by Nicholas J. Higham.
 void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t) {
+#ifdef SKIP_LAPACK
+  die("ERROR: LAPACK required for mm_exp_higham routine.\n");
+#else
   double b[14] = {64764752532480000.0, 32382376266240000.0, 7771770303897600.0,
 		  1187353796428800.0, 129060195264000.0, 10559470521600.0,
 		  670442572800.0, 33522128640.0, 1323241920.0,
 		  40840800.0, 960960.0, 16380.0, 182.0, 1.0};
   double theta[14], norm, sum, *coef, mu;
   int i, j, n = P->size, mvals[5] = {3, 5, 7, 9, 13}, mlen=5, m, mi, max_i, s;
-#ifndef SKIP_LAPACK
   LAPACK_DOUBLE mat[n*n], scale[n], matU[n*n], matV[n*n];
   LAPACK_INT ln, ilo, ihi, info, ipiv[n];
-#endif
 
   char job = 'B', side='R';
   Matrix *Qt = mat_create_copy(Q->matrix), **QtPow, **matArr, *U, *V;
   int do_balancing=0;  //balancing is not working yet, keep this at 0!
-#ifdef SKIP_LAPACK
-  die("ERROR: LAPACK required for mm_exp_higham routine.\n");
-#else
   mat_scale(Qt, t);
   
   theta[3]=1.495585217958292e-2;

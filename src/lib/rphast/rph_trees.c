@@ -113,7 +113,7 @@ SEXP rph_tree_prune(SEXP treeStr, SEXP seqsP, SEXP allButP) {
     tempStr = str_new_charstr(CHAR(STRING_ELT(seqsP, i)));
     lst_push_ptr(names, tempStr);
   }
-  tr_prune(&tr, names, INTEGER_VALUE(allButP));
+  tr_prune(&tr, names, INTEGER_VALUE(allButP), NULL);
   temp = tr_to_string(tr, 1);
   PROTECT(result = NEW_CHARACTER(1));
   SET_STRING_ELT(result, 0, mkChar(temp));

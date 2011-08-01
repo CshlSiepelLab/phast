@@ -3401,7 +3401,7 @@ void tm_prune(TreeModel *mod,   /* TreeModel whose tree is to be pruned  */
                                    leaves on return.  Must be
                                    pre-allocated */
               ) {
-  int i, j, old_nnodes = mod->tree->nnodes;
+  int i, j, old_nnodes = mod->tree->nnodes, *id_map = NULL;
 
   if (mod->tree->nnodes < 3)
     die("ERROR tm_prune: tree has %i nodes (should have at least 3)\n", 
@@ -3411,10 +3411,15 @@ void tm_prune(TreeModel *mod,   /* TreeModel whose tree is to be pruned  */
   for (i = 0; i < msa->nseqs; i++)
     lst_push_ptr(names, str_new_charstr(msa->names[i]));
 
-  tr_prune(&mod->tree, names, TRUE);
+  if (mod->alt_subst_mods_ptr != NULL)
+    id_map = smalloc(mod->tree->nnodes*sizeof(int));
 
-  if (mod->tree == NULL)
+  tr_prune(&mod->tree, names, TRUE, id_map);
+
+  if (mod->tree == NULL) {
+    if (id_map != NULL) sfree(id_map);
     return;                     /* whole tree pruned away; special case */
+  }
 
   if (lst_size(names) > 0) {
     /* free memory for eliminated nodes */
@@ -3430,6 +3435,22 @@ void tm_prune(TreeModel *mod,   /* TreeModel whose tree is to be pruned  */
     tm_free_rmp(mod);
     tm_init_rmp(mod);
   }
+
+  /* re-map alt_subst_mods_ptr if necessary */
+  if (mod->alt_subst_mods_ptr != NULL) {
+    AltSubstMod ***old = mod->alt_subst_mods_ptr;
+    mod->alt_subst_mods_ptr = smalloc(mod->tree->nnodes * sizeof(AltSubstMod**));
+    for (i=0; i < old_nnodes; i++) {
+      if (id_map[i] == -1) {
+	for (j=0; j < mod->nratecats; j++)
+	  sfree(old[i][j]);
+	sfree(old[i]);
+      } else 
+	mod->alt_subst_mods_ptr[id_map[i]] = old[i];
+    }
+    sfree(old);
+    sfree(id_map);
+  }
 }
 
 /** Extrapolate tree model and prune leaves not represented in
@@ -3441,7 +3462,7 @@ double tm_extrapolate_and_prune(TreeModel *mod, TreeNode *extrapolate_tree,
   double scale = tr_scale_by_subtree(t, mod->tree);
   for (i = 0; i < msa->nseqs; i++)
     lst_push_ptr(pruned_names, str_new_charstr(msa->names[i]));
-  tr_prune(&t, pruned_names, TRUE);
+  tr_prune(&t, pruned_names, TRUE, NULL);
   tm_reset_tree(mod, t);
   return scale;
 }

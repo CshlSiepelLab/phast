@@ -960,9 +960,13 @@ void tr_prune(TreeNode **t,     /* Tree to prune (may be altered
               List *names,      /* List of names.  On return, will
                                    contain list of names of leaves
                                    that were pruned away.  */
-              int all_but       /* if FALSE, prune leaves *in*
+              int all_but,       /* if FALSE, prune leaves *in*
                                    'names'; if TRUE, prune leaves *not
                                    in* 'names'  */
+              int *id_map        /* if not NULL, should be allocated to 
+				    the number of nodes in original tree.
+				    On return, will be filled in with the
+				    new id for each node */
               ) {
 
   TreeNode *n;
@@ -1057,11 +1061,17 @@ void tr_prune(TreeNode **t,     /* Tree to prune (may be altered
   if (*t != NULL && (*t)->postorder != NULL) (*t)->postorder = NULL;
 
   /* reset ids, nodes, nnodes, heights */
+  if (id_map != NULL) {
+    for (i=0; i < lst_size(traversal); i++)
+      id_map[i] = -1;
+  }
   if (*t != NULL) {
     (*t)->nnodes = new_nnodes;
     traversal = tr_preorder(*t);
     for (i = 0; i < lst_size(traversal); i++) {
       n = lst_get_ptr(traversal, i);
+      if (id_map != NULL)
+	id_map[n->id] = i;
       n->id = i;
       if (n != *t) n->nnodes = -1;
     }
@@ -1090,7 +1100,7 @@ void tr_prune_supertree(TreeNode **t, TreeNode *node) {
       lst_push_ptr(prune_names, s);
     }
   }
-  tr_prune(t, prune_names, FALSE);
+  tr_prune(t, prune_names, FALSE, NULL);
   lst_free_strings(prune_names);
   lst_free(prune_names);
   sfree(inSub);
@@ -1109,7 +1119,7 @@ void tr_prune_subtree(TreeNode **t, TreeNode *node) {
       lst_push_ptr(prune_names, s);
     }
   }
-  tr_prune(t, prune_names, TRUE);
+  tr_prune(t, prune_names, TRUE, NULL);
   lst_free_strings(prune_names);
   lst_free(prune_names);
 }
@@ -1237,7 +1247,7 @@ double tr_scale_by_subtree(TreeNode *tree, TreeNode *sub) {
 
   /* Now scale */
   n = tr_create_copy(tree);
-  tr_prune(&n, sub_names, TRUE);
+  tr_prune(&n, sub_names, TRUE, NULL);
   scale = tr_total_len(sub) / tr_total_len(n);
   tr_scale(tree, scale);
   tr_free(n);

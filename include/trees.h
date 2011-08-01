@@ -308,8 +308,11 @@ double tr_scale_by_subtree(TreeNode *tree, TreeNode *sub);
     @param[in,out] names List of names.  On return, will contain list of names of leaves
            that were pruned away.
     @param[in] all_but if FALSE, prune leaves *in* 'names'; if TRUE, prune leaves *not in* 'names'
+    @param[out] id_map if not NULL, should be allocated to the number of nodes 
+    in original tree. On return, will be filled in with the new id for each 
+    node
 */
-void tr_prune(TreeNode **t, List *names, int all_but);
+void tr_prune(TreeNode **t, List *names, int all_but, int *id_map);
 
 /** Prune away all nodes not in the specified subtree.
     @param t Root node of tree to prune

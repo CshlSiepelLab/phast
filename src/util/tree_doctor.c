@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (prune_names != NULL) {
-    tr_prune(&tree, prune_names, prune_all_but);
+    tr_prune(&tree, prune_names, prune_all_but, NULL);
     if (mod != NULL) mod->tree = tree; /* root may have changed */
   }
 

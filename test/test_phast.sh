@@ -99,9 +99,7 @@ phyloFit --quiet --tree "((hg16, panTro1), (mm3, rn3))" -o hpmr-ratevar --alpha 
 #--target-coverage is tested in examples above
 #--expected-length is tested in examples above
 #--msa-format,-i
-msa_view -o FASTA hpmrc.ss > hpmrc.fa
 @phastCons hpmrc.fa hpmr.mod
-rm hpmrc.fa
 #--viterbi,--most-conserved
 !elements.bed @phastCons --most-conserved elements.bed hpmrc.ss hpmr.mod
 !elements.gff @phastCons --viterbi elements.gff hpmrc.ss hpmr.mod
@@ -186,7 +184,6 @@ seed=124
 !phyloFit.mod @phyloFit -D 12345 hpmrc.ss --subst-mod REV --tree "(hg16, (mm3,rn3), galGal2)" --gaps-as-bases
 !phyloFit.mod !phyloFit.postprob @phyloFit hmrc.ss --subst-mod REV --init-model rev.mod --post-probs --lnl
 !phyloFit.mod @phyloFit -D 12345 hmrc.ss --subst-mod REV --tree "(human, (mouse,rat))"
-msa_view  -o FASTA hpmrc.ss > hpmrc.fa
 !phyloFit.mod @phyloFit -D 12345 hpmrc.fa --tree "(((hg16,panTro2),(rn3,mm3)),galGal2)"
 
 # try most of the above again with --EM
