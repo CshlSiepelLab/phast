@@ -154,6 +154,14 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
       mod->alt_subst_mods != NULL ||
       mod->selection_idx >= 0)
     mod->scale_during_opt = 1;
+  if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
+    for (i=0; i < mod->tree->nnodes; i++) {
+      TreeNode *n = lst_get_ptr(mod->tree->nodes, i);
+      if (n != mod->tree && n->hold_constant)
+	mod->scale_during_opt = 1;
+    }
+  }
+
 
   for (it = 1;  ; it++) {
     double tmp;

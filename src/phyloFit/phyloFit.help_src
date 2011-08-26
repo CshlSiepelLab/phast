@@ -266,6 +266,14 @@ OPTIONS:
 	(respectively).  There are also substitution model-specific 
 	parameters such as "kappa" (transition/transversion rate ratio).
 
+        Note: to hold certain branches constant, but optimize others,
+        put an exclamation point in the newick-formatted tree after the
+        branch lengths that should be held constant.  This can be useful
+        for enforcing a star-phylogeny.  However, note that the two branches
+        coming from root of tree are treated as one.  So they should both
+        be held constant, or not held constant.  This option does *not* work
+        with --scale-only or --clock.
+
     --bound <param_name[lower_bound,upper_bound]>
         Set boundaries for parameter.  lower_bound or upper_bound may be
 	empty string to keep default.  For example --bound gc_param[1,] will

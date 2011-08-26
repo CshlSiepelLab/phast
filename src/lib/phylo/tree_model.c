@@ -1950,6 +1950,13 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
       mod->alt_subst_mods != NULL ||
       mod->selection_idx >= 0)
     mod->scale_during_opt = 1;
+  if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
+    for (i=0; i < mod->tree->nnodes; i++) {
+      TreeNode *n = lst_get_ptr(mod->tree->nodes, i);
+      if (n != mod->tree && n->hold_constant)
+	mod->scale_during_opt = 1;
+    }
+  }
   
   if (!quiet) fprintf(stderr, "numpar = %i\n", opt_params->size);
   retval = opt_bfgs(tm_likelihood_wrapper, opt_params, (void*)mod, &ll, 
@@ -2163,7 +2170,7 @@ void tm_setup_params(TreeModel *mod) {
     for (node_idx=0; node_idx < lst_size(traversal); node_idx++) {
       n = lst_get_ptr(traversal, node_idx);
       if (n->parent == NULL) continue;  //skip root
-      if (mod->root_leaf_id == n->id) {
+      if (mod->root_leaf_id == n->id || n->hold_constant) {
 	temp_idx++;
 	continue;  //don't optimize
       }
@@ -2681,6 +2688,20 @@ void tm_init_rootleaf(TreeModel *mod, Vector *params) {
   return;
 }
   
+void tm_init_const_branches(TreeModel *mod, Vector *params) {
+  int node_idx, temp_idx=0;
+  List *traversal = tr_preorder(mod->tree);
+  TreeNode *n;
+
+  for (node_idx=0; node_idx < lst_size(traversal); node_idx++) {
+    n = lst_get_ptr(traversal, node_idx);
+    if (n->parent == NULL) continue;  //skip root
+    if (n->hold_constant)
+      vec_set(params, mod->bl_idx + temp_idx, n->dparent);
+    temp_idx++;
+  }
+}
+
 
 /* initializes all branch lengths to designated constant; initializes
    rate-matrix params using specified kappa; kappa ignored for JC69;
@@ -2718,6 +2739,7 @@ Vector *tm_params_init(TreeModel *mod, double branchlen, double kappa,
     for (i = 0; i < nbranches; i++) 
       vec_set(params, mod->bl_idx+i, branchlen);
     tm_init_rootleaf(mod, params);
+    tm_init_const_branches(mod, params);
   }
 
   if (mod->backgd_freqs == NULL) {
@@ -2828,6 +2850,7 @@ Vector *tm_params_init_random(TreeModel *mod) {
               0.01 + (0.5 - 0.01) * unif_rand());
               /* we'll use the interval from 0.01 to 0.5 */
     tm_init_rootleaf(mod, params);
+    tm_init_const_branches(mod, params);
   }
 
   if (mod->nratecats > 1) {
@@ -3123,6 +3146,7 @@ double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod,
   sfree(numMinState);
   sfree(nodecost);
   //  printf("totalCost=%f\n", totalCost);
+  tm_init_const_branches(mod, params);
   return totalCost;
 }
 

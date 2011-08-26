@@ -57,7 +57,9 @@ struct tree_node {
                                    sign and a character string.  Used 
 				   to indicate which lineage-specific 
 				   model to use */
-
+  int hold_constant;            /**< If 1, do not optimize this branch length. 
+                                   Indicated by an exclamation point after the
+                                   branch length */
   List *nodes;                  /**< List of nodes: ith element is a
                                    pointer to the node with id = i (Only guaranteed to be defined for
      				   the TreeNode at the root of a tree, defined on initialization) */
@@ -401,6 +403,8 @@ void tr_name_ancestors(TreeNode *tree);
     subtree.  
     @warning ids will not be altered, so they will no longer be 
     consistent with a preorder traversal of the tree 
+    @warning will not maintain memory of which branches are to be held
+    constant
   @param tree Tree to re-root
   @param newroot The new root for specified tree
   @param include_branch If include_branch == FALSE, the selected node will become
