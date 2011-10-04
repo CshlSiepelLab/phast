@@ -88,7 +88,9 @@ OPTIONS:
 
     --read-mods, -R <fname_list>
         Read estimated models from list of filenames instead of generating
-        alignments and estimating parameters. Can be used to compute
+        alignments and estimating parameters.  fname_list can be comma-
+        delimited list of files, or, if preceded by a '*', the name of a 
+        file containing the file names (one per line).  Can be used to compute
         statistics for replicates that have been processed separately (see
         --alignments-only).  When this option is used, the primary argument
         to the program (<model_fname>|<msa_fname>) will be ignored.

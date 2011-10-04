@@ -542,6 +542,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (ave_model != NULL) {
+      for (i=0; i < repmod->all_params->size; i++) repmod->param_map[i]=i;
       tm_unpack_params(repmod, ave_params, -1);
       if (!quiet) fprintf(stderr, "Writing average model to %s...\n", ave_model);
       tm_print(fopen_fname(ave_model, "w+"), repmod);

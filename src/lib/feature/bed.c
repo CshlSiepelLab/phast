@@ -73,8 +73,10 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F) {
         sprintf(group, "id \"bed.%d\"", id++);
         
       if (lst_size(l) >= 5) {
-        if ((str_as_int(lst_get_ptr(l, 4), &score) != 0))
+        if ((str_as_int(lst_get_ptr(l, 4), &score) != 0)) {
+	  phast_warning("score columns should contain integer\n");
           is_error = 1;
+	}
         score_is_null = 0;
       }
       if (lst_size(l) >= 6 && 
