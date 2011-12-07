@@ -12,6 +12,7 @@
 #include "phast.help"
 
 int main(int argc, char *argv[]) {
+  printf("PHAST %s\n", PHAST_VERSION);
   printf("%s", HELP);
   return 0;
 }
