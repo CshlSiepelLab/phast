@@ -189,6 +189,10 @@ List *pwm_read(const char *filename) {
       pwm = NULL;
     }
   }
+  if (currBase == nBases && pwm != NULL) 
+    lst_push_ptr(result, pwm);
+  else if (pwm != NULL) 
+    die("Premature end of PWM file\n");
   str_re_free(motif_name_re);
   str_re_free(pssm_re);
   fclose(F);
