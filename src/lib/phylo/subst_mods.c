@@ -2110,9 +2110,7 @@ void tm_init_mat_U3S(TreeModel *mod, Vector *params,
   for (i = 0; i < nstates; i++) done_row[i] = 0;
   for (i = 0; i < nstates; i++) {
     int b1_i, b2_i, b3_i, b1_j, b2_j, b3_j;
-    int b1_comp_i, b2_comp_i, b3_comp_i, b1_comp_j, b2_comp_j, b3_comp_j,
-
-      i_comp;
+    int b1_comp_i, b2_comp_i, b3_comp_i, i_comp;
 
     if (done_row[i]) continue;
 
@@ -2140,16 +2138,6 @@ void tm_init_mat_U3S(TreeModel *mod, Vector *params,
       b1_j = j / (alph_size*alph_size);
       b2_j = (j % (alph_size*alph_size)) / alph_size;
       b3_j = j % alph_size;
-
-      b1_comp_j =               /* idx of compl of first char */
-        mod->rate_matrix->inv_states[(int)msa_compl_char(mod->rate_matrix->
-                                                         states[b1_j])];
-      b2_comp_j =               /* idx of compl of second char */
-        mod->rate_matrix->inv_states[(int)msa_compl_char(mod->rate_matrix->
-                                                         states[b2_j])];
-      b3_comp_j =               /* idx of compl of second char */
-        mod->rate_matrix->inv_states[(int)msa_compl_char(mod->rate_matrix->
-                                                         states[b3_j])];
 
       if ((b1_i != b1_j && b2_i != b2_j) || (b1_i != b1_j && b3_i != b3_j) || 
           (b2_i != b2_j && b3_i != b3_j)) 
@@ -2549,8 +2537,7 @@ void tm_init_mat_from_model_U3S(TreeModel *mod, Vector *params,
   for (i = 0; i < nstates; i++) done_row[i] = 0;
   for (i = 0; i < nstates; i++) {
     int b1_i, b2_i, b3_i, b1_j, b2_j, b3_j;
-    int b1_comp_i, b2_comp_i, b3_comp_i, b1_comp_j, b2_comp_j, b3_comp_j,
-      i_comp;
+    int b1_comp_i, b2_comp_i, b3_comp_i, i_comp;
 
     if (done_row[i]) continue;
 
@@ -2578,16 +2565,6 @@ void tm_init_mat_from_model_U3S(TreeModel *mod, Vector *params,
       b1_j = j / (alph_size*alph_size);
       b2_j = (j % (alph_size*alph_size)) / alph_size;
       b3_j = j % alph_size;
-
-      b1_comp_j =               /* idx of compl of first char */
-        mod->rate_matrix->inv_states[(int)msa_compl_char(mod->rate_matrix->
-                                                         states[b1_j])];
-      b2_comp_j =               /* idx of compl of second char */
-        mod->rate_matrix->inv_states[(int)msa_compl_char(mod->rate_matrix->
-                                                         states[b2_j])];
-      b3_comp_j =               /* idx of compl of second char */
-        mod->rate_matrix->inv_states[(int)msa_compl_char(mod->rate_matrix->
-                                                         states[b3_j])];
 
       if ((b1_i != b1_j && b2_i != b2_j) || (b1_i != b1_j && b3_i != b3_j) || 
           (b2_i != b2_j && b3_i != b3_j)) 

@@ -394,7 +394,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
 	     int *num_evals) {
   
   int check, i, its, n = params->size, success = 0, nevals = 0, 
-    params_at_bounds = 0, new_at_bounds, changed_dimension = 0,
+    params_at_bounds = 0, new_at_bounds, //changed_dimension = 0,
     trunc, already_failed = 0, minsf;
   double den, fac, fae, fval, stpmax, temp, test, lambda, fval_old,
     deriv_epsilon = DERIV_EPSILON;
@@ -466,7 +466,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
      of xi accordingly */
   if (params_at_bounds) {
     project_vector(xi, at_bounds);
-    changed_dimension = 1;
+    //    changed_dimension = 1;
   }
 /*   for (i = 0; i < at_bounds->size; i++)  */
 /*     vec_set(at_bounds, i, OPT_NO_BOUND); */
@@ -484,7 +484,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
                                      at_bounds, 1)) > 0) {
       params_at_bounds += new_at_bounds;
       project_vector(xi, at_bounds); 
-      changed_dimension = 1;
+      //      changed_dimension = 1;
     }
     vec_scale(xi, -1);
 
@@ -624,7 +624,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
                                      at_bounds, 1)) > 0) {
       params_at_bounds += new_at_bounds;
       project_vector(xi, at_bounds); 
-      changed_dimension = 1;
+      //      changed_dimension = 1;
     }
 
     /* see about relaxing some constraints (enlarging H) */
@@ -660,7 +660,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
         mat_set(H, max_idx, max_idx, 1);
         vec_set(at_bounds, max_idx, OPT_NO_BOUND); 
         params_at_bounds--;
-        changed_dimension = 1;
+	//        changed_dimension = 1;
       }
     }
 
@@ -680,7 +680,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
        are no params currently at the bounds, then we need not do
        anything (H already taken care of, dg and xi can remain as
        they are).  */
-    changed_dimension = 0;
+    //    changed_dimension = 0;
     /*     } */
 
     /* compute product of current inv Hessian and difference in
