@@ -42,7 +42,6 @@ SEXP rph_tree_read(SEXP filename) {
   SEXP result;
   char *currStr, **strvec;
   int i, pos=0, currLen=10000, numparen=0, numtrees_alloc=1000, numtrees=0;
-  TreeNode *tempTree;
 
   infile = fopen_fname(CHARACTER_VALUE(filename), "r");
   currStr = smalloc((currLen+2)*sizeof(char));
@@ -76,8 +75,6 @@ SEXP rph_tree_read(SEXP filename) {
       strvec[numtrees] = smalloc((strlen(currStr)+1)*sizeof(char));
       strcpy(strvec[numtrees], currStr);
 
-      //check to make sure phast can read this tree
-      tempTree = tr_new_from_string(strvec[numtrees]);
       numtrees++;
     }
     else break;

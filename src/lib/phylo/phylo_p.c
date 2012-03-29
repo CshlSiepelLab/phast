@@ -142,8 +142,6 @@ void phyloP(struct phyloP_struct *p) {
   method_type method;
   mode_type mode;
   FILE *logf;
-  List *cats_to_do;
-  CategoryMap *cm;
   char *mod_fname, *msa_fname, *help;
   FILE *outfile;
   ListOfLists *results;
@@ -179,8 +177,6 @@ void phyloP(struct phyloP_struct *p) {
   mode = p->mode;
   logf = p->logf;
   mod = p->mod;
-  cats_to_do = p->cats_to_do;
-  cm = p->cm;
   help = p->help;
   mod_fname = p->mod_fname;
   msa_fname = p->msa_fname;

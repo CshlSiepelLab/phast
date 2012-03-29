@@ -432,7 +432,6 @@ SEXP rph_ms_split_gff(SEXP sequencesP, SEXP featuresP)
   GFF_Feature *feature;
   GFF_Set *gff;
   MS *outputMS;
-  List *clipedSubSequences;
   MS *inputMS;
 
   gff = (GFF_Set*)EXTPTR_PTR(featuresP);
@@ -446,8 +445,6 @@ SEXP rph_ms_split_gff(SEXP sequencesP, SEXP featuresP)
   outputMS->names = (char**)smalloc(outputNseqs * sizeof(char*));
   outputMS->idx_offsets = (int*)smalloc(outputNseqs * sizeof(int));
 	
-  clipedSubSequences = lst_new_ptr(lst_size(gff->features));
-
   //For each window
   for (currentFeature = 0, outputSeqNum=0; currentFeature < lst_size(gff->features); currentFeature++) {
     feature = (GFF_Feature*)lst_get_ptr(gff->features, currentFeature);		
@@ -568,7 +565,7 @@ Matrix *SEXP_to_Matrix(SEXP matrixP)
 */
 SEXP rph_ms_score(SEXP inputMSP, SEXP pwmP, SEXP markovModelP, SEXP nOrderP, SEXP conservativeP, SEXP thresholdP, SEXP strandP)
 {
-  int site, i, currentSequence, conservative, nOrder;
+  int site, i, currentSequence, conservative;
   double threshold;
   char *strand;
   GFF_Feature *score;
@@ -578,7 +575,6 @@ SEXP rph_ms_score(SEXP inputMSP, SEXP pwmP, SEXP markovModelP, SEXP nOrderP, SEX
   MS *inputMS;
   ListOfLists *result;
 
-  nOrder = INTEGER_VALUE(nOrderP);
   threshold = NUMERIC_VALUE(thresholdP);
   conservative = asLogical(conservativeP);
   strand = (char*)translateChar(STRING_ELT(strandP, 0));

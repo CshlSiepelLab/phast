@@ -132,7 +132,7 @@ List *pwm_read(const char *filename) {
   Matrix *pwm = NULL;
   int i, currBase, nBases = 0;
   FILE * F;
-  char *motifName;
+  //  char *motifName;
   String *line = str_new(STR_MED_LEN);
   List *l = lst_new_ptr(3);
   List *probabilitiesStr = lst_new_ptr(4);
@@ -155,7 +155,7 @@ List *pwm_read(const char *filename) {
   while ((str_readline(line, F)) != EOF) {
     //If line matches Motif name
     if (str_re_match(line, motif_name_re, l, 1) > 0) {
-      motifName = copy_charstr(((String*)lst_get_ptr(l, 1))->chars);
+      //      motifName = copy_charstr(((String*)lst_get_ptr(l, 1))->chars);
       //printf("motifName=%s\n", motifName);
     }
     //If line matches beginning of a probability matrix

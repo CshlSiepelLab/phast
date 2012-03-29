@@ -440,7 +440,6 @@ TreeModel *tm_new_from_file(FILE *f, int discard_likelihood) {
       vec_free(tmpvect);                     
     }
     else if (!strcmp(tag, RATE_WEIGHTS_TAG)) {
-      Vector *rate_weights;
       if (nratecats < 0) 
         die("ERROR: NRATECATS must precede RATE_WEIGHTS in tree model file.\n");
       rate_weights = vec_new_from_file(f, nratecats);
@@ -839,7 +838,7 @@ AltSubstMod* tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
     altmod->separate_model = 1;
   }
   else {
-    int tempidx, j;
+    int j;
     //otherwise it is a list of parameters to be optimized.  Use the 
     //same subst model as main model, but optimize these parameters
     //separately.
@@ -867,7 +866,6 @@ AltSubstMod* tm_add_alt_mod(TreeModel *mod, String *altmod_str) {
 	lst_delete_idx(altmod->param_list, i+1);
       }
     }
-    tempidx=0;
     for (j=0; j<lst_size(altmod->param_list); j++) {
       String *param_name = str_new_charstr(((String*)lst_get_ptr(altmod->param_list, j))->chars);
       int sharemod = -1;
@@ -1895,7 +1893,7 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
 	   FILE *error_file) {
   double ll;
   Vector *lower_bounds, *upper_bounds, *opt_params;
-  int i, retval = 0, npar, nstate, numeval;
+  int i, retval = 0, npar, numeval;
 
   if (msa->ss == NULL) {
     if (msa->seqs == NULL)
@@ -1903,7 +1901,6 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
     ss_from_msas(msa, mod->order+1, 0, NULL, NULL, NULL, -1, 
 		 subst_mod_is_codon_model(mod->subst_mod));
   }
-  nstate = int_pow(strlen(msa->alphabet), mod->order+1);
 
   if (mod->backgd_freqs == NULL)  {
     tm_init_backgd(mod, msa, cat);

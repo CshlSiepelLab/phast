@@ -1039,7 +1039,7 @@ void reestimate_rho(void **models, int nmodels, void *data,
 
   PhyloHmm *phmm = (PhyloHmm*)data;
   int obsidx;
-  double ll, ax, bx, cx, fa, fb, fc;
+  double ax, bx, cx, fa, fb, fc;
 
   for (obsidx = 0; obsidx < nobs; obsidx++) 
     phmm->em_data->msa->ss->cat_counts[0][obsidx] = E[0][obsidx];
@@ -1050,8 +1050,8 @@ void reestimate_rho(void **models, int nmodels, void *data,
   bx = phmm->em_data->rho;
   ax = max(0.1, phmm->em_data->rho - .05);
   mnbrak(&ax, &bx, &cx, &fa, &fb, &fc, likelihood_wrapper_rho, phmm, logf);
-  ll = opt_brent(ax, bx, cx, likelihood_wrapper_rho, 5e-3, 
-		 &phmm->em_data->rho, phmm, logf);
+  opt_brent(ax, bx, cx, likelihood_wrapper_rho, 5e-3, 
+	    &phmm->em_data->rho, phmm, logf);
 
   if (logf != NULL) 
     fprintf(logf, "END RE-ESTIMATION OF RHO\n\n");

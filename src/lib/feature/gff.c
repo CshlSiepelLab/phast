@@ -58,7 +58,6 @@ GFF_Set* gff_read_set(FILE *F) {
     if (line->length == 0) continue;
 
     if (!done_with_header && str_starts_with_charstr(line, "##")) {
-      int unrecognized = 0;
       if (spec_comment_re == NULL)
         spec_comment_re = str_re_new("^[[:space:]]*##[[:space:]]*([^[:space:]]+)[[:space:]]+([^[:space:]]+)([[:space:]]+([^[:space:]]+))?");
  
@@ -77,13 +76,7 @@ GFF_Set* gff_read_set(FILE *F) {
         }
         else if (str_equals_nocase_charstr(tag, GFF_DATE_TAG))
           str_cpy(set->date, val1);
-        else unrecognized = 1;
       }
-      else unrecognized = 1;
-
-/*       if (unrecognized) */
-/*         fprintf(stderr, "WARNING: unrecognized meta-data: '%s'\n",  */
-/*                 line->chars); */
       lst_free_strings(substrs);
 
       continue;
@@ -1483,7 +1476,7 @@ void gff_flatten_within_groups(GFF_Set *feats) {
   List *keepers, *group_keepers;
   GFF_Feature *last;
   GFF_FeatureGroup *group;
-  int i, g, changed = FALSE;
+  int i, g;
 
   if (lst_size(feats->features) <= 1) return;
   if (feats->groups == NULL) { 

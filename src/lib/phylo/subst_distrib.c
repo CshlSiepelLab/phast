@@ -1033,7 +1033,7 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
     *post_var_right, *post_var_tot;
   double this_min_left, this_min_right, this_max_left, this_max_right, 
     this_min_tot, this_max_tot, prior_site_mean_left, prior_site_var_left,
-    prior_site_mean_right, prior_site_var_right, sd_l, sd_r, rho;
+    prior_site_mean_right, prior_site_var_right, rho;
   double  prior_mean_left, prior_var_left, prior_mean_right, prior_var_right;
   int prior_min_left, prior_max_left, prior_min_right, prior_max_right;
   p_value_joint_stats *stats = smalloc(lst_size(feats) * 
@@ -1237,8 +1237,6 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
     stats[idx].post_max_tot = ceil(this_max_tot);
 
     /* conditional p-values */
-    sd_l = sqrt(stats[idx].prior_var_left);
-    sd_r = sqrt(stats[idx].prior_var_right);
     cond = prior != NULL ? pm_x_given_tot(prior, stats[idx].post_min_tot) :
       pm_x_given_tot_indep(stats[idx].post_min_tot, prior_marg_left, prior_marg_right);
     stats[idx].cond_p_cons_left = pv_p_value(cond, stats[idx].post_max_left, 
