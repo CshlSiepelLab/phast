@@ -629,11 +629,12 @@ GFF_Set *ms_score(char *seqName, char *seqData, int seqLen, int seqIdxOff, int s
   if ((conservative != 0) && (conservative != 1))
     die("ERROR: Conserverative (boolean) value must be 0 or 1");
 	
-  if (seqLen-(pwm->nrows+1) < 0 )								//Check to see if the sequence is shorter than the pwm
+  if (seqLen < pwm->nrows)  //Check to see if the sequence is shorter than the pwm
     return scores;
 
   for (i = 0; i <= pwm->nrows; i++)							//Calculate MM scores from sites 0 to pwm->nrows
-    MMprobs[i] = calcMMscore(seqData, i, MarkovMatrices, conservative);
+    if (i < seqLen)
+      MMprobs[i] = calcMMscore(seqData, i, MarkovMatrices, conservative);
 		
   for (i = 0; i <= seqLen-(pwm->nrows); i++) {				//For each base in the sequence
     PWMprob = 0; MMprob = 0; ReversePWMprob = 0;
@@ -661,12 +662,13 @@ GFF_Set *ms_score(char *seqName, char *seqData, int seqLen, int seqIdxOff, int s
       }
     }
 	
-    for (l = 0; l < pwm->nrows; l++)		//Shift probs left to make room for next
-      MMprobs[l] = MMprobs[l + 1];
+    if (i < (seqLen - pwm->nrows)) { //Only if there are more bases in this sequence to test
+      for (l = 0; l < pwm->nrows; l++)		//Shift probs left to make room for next
+	MMprobs[l] = MMprobs[l + 1];
 
-    if (i < (seqLen - pwm->nrows)) //Only if there are more bases in this sequence to test
       MMprobs[pwm->nrows-1] = calcMMscore(seqData, i+pwm->nrows,  //Calculate MM probability for site at (i+pwm->nrows)
-                                          MarkovMatrices, conservative);			
+                                          MarkovMatrices, conservative);
+    }
 
     if (((PWMprob - MMprob) > threshold) && ((strcmp(strand, "+") == 0) || (strcmp(strand, "both") == 0) || ((strcmp(strand, "best") == 0) && ((PWMprob - MMprob) >= (ReversePWMprob - MMprob))))) {			//If we have a positive score add it to the list of scores
       GFF_Feature *feat = gff_new_feature(str_new_charstr(seqName), str_new_charstr(""), 

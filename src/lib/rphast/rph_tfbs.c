@@ -604,7 +604,7 @@ SEXP rph_ms_score(SEXP inputMSP, SEXP pwmP, SEXP markovModelP, SEXP nOrderP, SEX
                       strlen(inputMS->seqs[currentSequence]), inputMS->idx_offsets[currentSequence],
                       strlen(inputMS->alphabet), MarkovMatrices, pwm, reverseCompPWM, 
                       conservative, threshold, strand);
-		
+
     //Add scores to list of scores for current group
     for (site = 0; site < lst_size(scores->features); site++) {
       score = (GFF_Feature*)lst_get_ptr(scores->features, site);

@@ -590,6 +590,7 @@ SEXP rph_gff_inverse(SEXP gffP, SEXP regionP) {
   gff = (GFF_Set*)EXTPTR_PTR(gffP);
   gff_register_protect(gff);
   region = (GFF_Set*)EXTPTR_PTR(regionP);  
+  gff_register_protect(region);
   notgff = gff_inverse(gff, region);
   return rph_gff_new_extptr(notgff);
 }

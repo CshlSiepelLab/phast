@@ -16,6 +16,7 @@
 
 #include <fit_feature.h>
 #include <fit_column.h>
+#include <misc.h>
 #include <sufficient_stats.h>
 #include <tree_likelihoods.h>
 

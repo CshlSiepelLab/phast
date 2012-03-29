@@ -11,7 +11,9 @@
 
 /* Functions for fitting tree models by EM */
 
+
 #include <fit_em.h>
+#include <misc.h>
 #include <tree_model.h>
 #include <stringsplus.h>
 #include <ctype.h>

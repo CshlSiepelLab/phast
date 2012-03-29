@@ -8,6 +8,7 @@
  ***************************************************************************/
 
 #include <phylo_hmm.h>
+#include <misc.h>
 #include <dgamma.h>
 #include <sufficient_stats.h>
 #include <gap_patterns.h>

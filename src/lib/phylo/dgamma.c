@@ -54,7 +54,7 @@ double LnGamma (double x)
 
    if(x<=0) {
       die("lnGamma not implemented for x<0");
-      if((int)x-x==0) { puts("lnGamma undefined"); return(-1); }
+      if((int)x-x==0) { phast_warning("lnGamma undefined"); return(-1); }
       for (fneg=1; x<0; x++) fneg/=x;
       if(fneg<0) die("strange!! check lngamma");
       fneg=log(fneg);
