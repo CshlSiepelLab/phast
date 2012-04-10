@@ -111,10 +111,9 @@ LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
       fname = str_new(tmpstr->length-2); /* remove quotes */
       str_substring(fname, tmpstr, 1, tmpstr->length-2);
       if (read_seqs) {
-        if ((F2 = fopen(fname->chars, "r")) == NULL) {
-          die("ERROR: cannot read sequence from %s.\n", fname->chars);
-        }
+        F2 = phast_fopen(fname->chars, "r");
         seq = msa_read_seq_fasta(F2);
+	phast_fclose(F2);
       }
 
       for (i = 0; i < lst_size(fields); i++) 

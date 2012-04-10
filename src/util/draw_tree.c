@@ -77,11 +77,11 @@ int main(int argc, char *argv[]) {
   suffix = str_new_charstr(argv[optind]);
   str_suffix(suffix, '.');
   if (str_equals_charstr(suffix, "mod")) {
-    TreeModel *tmp = tm_new_from_file(fopen_fname(argv[optind], "r"), 1);
+    TreeModel *tmp = tm_new_from_file(phast_fopen(argv[optind], "r"), 1);
     tree = tmp->tree;
   }
   else 
-    tree = tr_new_from_file(fopen_fname(argv[optind], "r"));
+    tree = tr_new_from_file(phast_fopen(argv[optind], "r"));
 
   tr_print_ps(stdout, tree, show_branch_lens, square_branches, draw_to_scale, 
               horizontal);

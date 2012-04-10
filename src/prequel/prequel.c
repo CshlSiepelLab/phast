@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
   while ((c = getopt_long(argc, argv, "r:i:s:e:knxSh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'r':
-      refseq_f = fopen_fname(optarg, "r");
+      refseq_f = phast_fopen(optarg, "r");
       break;
     case 'i':
       msa_format = msa_str_to_format(optarg);
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
       suff_stats = TRUE;
       break;
     case 'e':
-      code = pbs_new_from_file(fopen_fname(optarg, "r"));
+      code = pbs_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 's':
       seqlist = get_arg_list(optarg);
@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
   if (!do_probs && (suff_stats || code != NULL))
     die("ERROR: --no-probs can't be used with --suff-stats or --encode.\n");
 
-  msa_f = fopen_fname(argv[optind], "r");
+  msa_f = phast_fopen(argv[optind], "r");
   if (msa_format == UNKNOWN_FORMAT)
     msa_format = msa_format_for_content(msa_f, 1);
   fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
   else if (msa->ss->tuple_idx == NULL && !suff_stats)
     die("ERROR: ordered representation of alignment required unless --suff-stats.\n");
 
-  mod_f = fopen_fname(argv[optind+1], "r");
+  mod_f = phast_fopen(argv[optind+1], "r");
   out_root = argv[optind+2];
 
   mod = tm_new_from_file(mod_f, 1);
@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
     if (suff_stats) {
       if (out_f == NULL) {
         sprintf(out_fname, "%s.stats", out_root);
-        out_f = fopen_fname(out_fname, "w+");
+        out_f = phast_fopen(out_fname, "w+");
 
         fprintf(out_f, "#count\t");
         for (j = 0; j < mod->rate_matrix->size; j++) 
@@ -201,7 +201,7 @@ int main(int argc, char *argv[]) {
     else if (code == NULL && do_probs) {	/* ordinary sequence-by-sequence 
 						   output */
       sprintf(out_fname, "%s.%s.probs", out_root, n->name);
-      out_f = fopen_fname(out_fname, "w+");
+      out_f = phast_fopen(out_fname, "w+");
 
       fprintf(out_f, "#");
       for (j = 0; j < mod->rate_matrix->size; j++) 
@@ -221,7 +221,7 @@ int main(int argc, char *argv[]) {
                     j == mod->rate_matrix->size - 1 ? '\n' : '\t');
       }
 
-      fclose(out_f);
+      phast_fclose(out_f);
     }
 
     else if (code == NULL && !do_probs) {	/* write point estimates
@@ -251,9 +251,9 @@ int main(int argc, char *argv[]) {
 
       /* print in FASTA format */
       sprintf(out_fname, "%s.%s.fa", out_root, n->name);
-      out_f = fopen_fname(out_fname, "w+");
+      out_f = phast_fopen(out_fname, "w+");
       print_seq_fasta(out_f, outseq, n->name, len);
-      fclose(out_f);
+      phast_fclose(out_f);
       sfree(outseq); 
     }
 
@@ -283,7 +283,7 @@ int main(int argc, char *argv[]) {
 
       /* now write site by site */
       sprintf(out_fname, "%s.%s.bin", out_root, n->name);
-      out_f = fopen_fname(out_fname, "w+");
+      out_f = phast_fopen(out_fname, "w+");
       for (i = 0; i < msa->length; i++) {
         if (keep_gaps || encoded[msa->ss->tuple_idx[i]] != code->gap_code)
           pbs_write_binary(code, encoded[msa->ss->tuple_idx[i]], out_f);

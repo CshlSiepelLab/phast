@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
       indel_cats = get_arg_list(optarg);
       break;
     case 't':
-      tree = tr_new_from_file(fopen_fname(optarg, "r"));
+      tree = tr_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 'C':
       cats_to_show = get_arg_list(optarg);
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
 
   set_seed(-1);
 
-  hmm = hmm_new_from_file(fopen_fname(argv[optind], "r"));
+  hmm = hmm_new_from_file(phast_fopen(argv[optind], "r"));
   cm = cm_new_string_or_file(argv[optind+1]);
 
   show_cat = smalloc((cm->ncats+1) * sizeof(int));

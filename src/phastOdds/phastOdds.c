@@ -64,29 +64,29 @@ int main(int argc, char *argv[]) {
   while ((c = getopt_long(argc, argv, "B:b:F:f:r:g:w:W:i:ydvh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'B':
-      backgd_hmm = hmm_new_from_file(fopen_fname(optarg, "r"));
+      backgd_hmm = hmm_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 'b':
       l = get_arg_list(optarg);
       backgd_nmods = lst_size(l);
       backgd_mods = smalloc(backgd_nmods * sizeof(void*));
       for (i = 0; i < backgd_nmods; i++) 
-        backgd_mods[i] = tm_new_from_file(fopen_fname(((String*)lst_get_ptr(l, i))->chars, "r"), 1);
+        backgd_mods[i] = tm_new_from_file(phast_fopen(((String*)lst_get_ptr(l, i))->chars, "r"), 1);
       lst_free_strings(l); lst_free(l);
       break;
     case 'F':
-      feat_hmm = hmm_new_from_file(fopen_fname(optarg, "r"));
+      feat_hmm = hmm_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 'f':
       l = get_arg_list(optarg);
       feat_nmods = lst_size(l);
       feat_mods = smalloc(feat_nmods * sizeof(void*));
       for (i = 0; i < feat_nmods; i++) 
-        feat_mods[i] = tm_new_from_file(fopen_fname(((String*)lst_get_ptr(l, i))->chars, "r"), 1);
+        feat_mods[i] = tm_new_from_file(phast_fopen(((String*)lst_get_ptr(l, i))->chars, "r"), 1);
       lst_free_strings(l); lst_free(l);
       break;
     case 'g':
-      features = gff_read_set(fopen_fname(optarg, "r"));
+      features = gff_read_set(phast_fopen(optarg, "r"));
       break;
     case 'w':
       winsize = get_arg_int(optarg);
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
 
   if (verbose) fprintf(stderr, "Reading alignment ...\n");
   msa_fname = argv[optind];
-  infile = fopen_fname(msa_fname, "r");
+  infile = phast_fopen(msa_fname, "r");
   if (inform == UNKNOWN_FORMAT)
     inform = msa_format_for_content(infile, 1);
   if (inform == MAF)

@@ -511,7 +511,7 @@ int main(int argc, char* argv[]) {
       aggregate_list = get_arg_list(optarg);
       break;
     case 'g':
-      gff = gff_read_set(fopen_fname(optarg, "r"));
+      gff = gff_read_set(phast_fopen(optarg, "r"));
       break;
     case 'c':
       cm = cm_new_string_or_file(optarg);
@@ -647,9 +647,9 @@ int main(int argc, char* argv[]) {
 
 
     
-    FILE *infile = fopen_fname(((String*)lst_get_ptr(msa_fname_list, 0))->chars, "r");
+    FILE *infile = phast_fopen(((String*)lst_get_ptr(msa_fname_list, 0))->chars, "r");
     input_format = msa_format_for_content(infile, 1);
-    fclose(infile);
+    phast_fclose(infile);
 
     if (input_format == MAF && rseq_fname != NULL)
       fprintf(stderr, "WARNING: --refseq ignored with --aggregate.\n");
@@ -677,13 +677,13 @@ int main(int argc, char* argv[]) {
       msa = msa_concat_from_files(msa_fname_list, 
                                   aggregate_list, alphabet);
   } else {
-    FILE *infile = fopen_fname(infname, "r");
+    FILE *infile = phast_fopen(infname, "r");
     if (input_format == UNKNOWN_FORMAT)
       input_format = msa_format_for_content(infile, 1);
     if (input_format == MAF) {
       FILE *RSEQF = NULL;
       
-      if (rseq_fname != NULL) RSEQF = fopen_fname(rseq_fname, "r");
+      if (rseq_fname != NULL) RSEQF = phast_fopen(rseq_fname, "r");
       
       msa = maf_read_cats(infile, RSEQF, tuple_size, 
 			  alphabet, gff, cm, cycle_size, 
@@ -692,11 +692,11 @@ int main(int argc, char* argv[]) {
 			  maf_keep_overlapping, cats_to_do);
       /* store order unless output is SS and
 	 no ordered stats */
-      if (RSEQF != NULL) fclose(RSEQF);
+      if (RSEQF != NULL) phast_fclose(RSEQF);
     } else msa = msa_new_from_file_define_format(infile, input_format, alphabet);
 
     if (msa == NULL) die ("ERROR reading %s.\n", infname);
-    fclose(infile);
+    phast_fclose(infile);
   }
 
   if (unmask)
@@ -894,9 +894,9 @@ int main(int argc, char* argv[]) {
 	  msa_strip_gaps(split_msa, gap_strip_mode);
 	snprintf(out_fname, STR_MED_LEN, "%s.%s.fa", out_root, 
 		 sub_msa->names[i]);
-	outfile = fopen(out_fname, "w");
+	outfile = phast_fopen(out_fname, "w");
 	msa_print(outfile, split_msa, FASTA, pretty_print);
-	fclose(outfile);
+	phast_fclose(outfile);
       }
     }
     

@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 
   if (read_hist_fname != NULL) {
     fprintf(stderr, "Reading indel history from %s...\n", read_hist_fname);
-    ih = ih_new_from_file(fopen_fname(read_hist_fname, "r"));
+    ih = ih_new_from_file(phast_fopen(read_hist_fname, "r"));
   }
 
   else {
@@ -78,17 +78,17 @@ int main(int argc, char *argv[]) {
       die("Two arguments required.  Try 'indelHistory -h'.\n");
 
     fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
-    mfile = fopen_fname(argv[optind], "r");
+    mfile = phast_fopen(argv[optind], "r");
     if (msa_format == UNKNOWN_FORMAT) 
       msa_format = msa_format_for_content(mfile, 1);
     msa = msa_new_from_file_define_format(mfile, msa_format, "ACGTNB^.-");
-    fclose(mfile);
+    phast_fclose(mfile);
 
     if (msa->seqs == NULL && (msa->ss == NULL || msa->ss->tuple_idx == NULL))
       die("ERROR: ordered representation of alignment required.\n");
 
     fprintf(stderr, "Reading tree from %s...\n", argv[optind+1]);
-    source_mod = tm_new_from_file(fopen_fname(argv[optind+1], "r"), 1);
+    source_mod = tm_new_from_file(phast_fopen(argv[optind+1], "r"), 1);
     
     /* prune tree, if necessary */
     old_nnodes = source_mod->tree->nnodes;

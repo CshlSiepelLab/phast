@@ -52,8 +52,8 @@ int main(int argc, char *argv[]) {
   if (optind != argc - 2) 
     die("Two arguments required.  Try 'pbsEncode -h'.\n");
     
-  prob_f = fopen_fname(argv[optind], "r");
-  code = pbs_new_from_file(fopen_fname(argv[optind+1], "r"));
+  prob_f = phast_fopen(argv[optind], "r");
+  code = pbs_new_from_file(phast_fopen(argv[optind+1], "r"));
   v = vec_new(code->sg->d);
   
   while (str_readline(line, prob_f) != EOF) {

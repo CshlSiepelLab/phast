@@ -71,13 +71,13 @@ int main(int argc, char *argv[]) {
       columns = TRUE;
       break;
     case 'f':
-      feats = gff_read_set(fopen_fname(optarg, "r"));
+      feats = gff_read_set(phast_fopen(optarg, "r"));
       break;
     case 'r':
       reference = optarg;
       break;
     case 'l':
-      logf = fopen_fname(optarg, "w+");
+      logf = phast_fopen(optarg, "w+");
       break;
     case 'h':
       printf("%s", HELP);
@@ -96,8 +96,8 @@ int main(int argc, char *argv[]) {
 
   set_seed(-1);
 
-  ih = ih_new_from_file(fopen_fname(argv[optind], "r"));
-  tree = tr_new_from_file(fopen_fname(argv[optind+1], "r"));
+  ih = ih_new_from_file(phast_fopen(argv[optind], "r"));
+  tree = tr_new_from_file(phast_fopen(argv[optind+1], "r"));
 
   /* ensure trees are compatible */
   if (tree->nnodes != ih->tree->nnodes)

@@ -71,24 +71,24 @@ int main(int argc, char *argv[]) {
     die("Two filenames required.  Try 'msa_diff -h'.\n");
 
   set_seed(-1);
-  infile1 = fopen_fname(argv[optind], "r");
+  infile1 = phast_fopen(argv[optind], "r");
   if (format1 == UNKNOWN_FORMAT)
     format1 = msa_format_for_content(infile1, 1);
   if (format1 == MAF) 
-    msa1 = maf_read(fopen_fname(argv[optind], "r"), NULL, 1, alphabet,
+    msa1 = maf_read(phast_fopen(argv[optind], "r"), NULL, 1, alphabet,
                     NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
   else
-    msa1 = msa_new_from_file_define_format(fopen_fname(argv[optind], "r"), 
+    msa1 = msa_new_from_file_define_format(phast_fopen(argv[optind], "r"), 
                              format1, alphabet);
 
-  infile2 = fopen_fname(argv[optind+1], "r");
+  infile2 = phast_fopen(argv[optind+1], "r");
   if (format2 == UNKNOWN_FORMAT)
     format2 = msa_format_for_content(infile2, 1);
   if (format2 == MAF)
-    msa2 = maf_read(fopen_fname(argv[optind+1], "r"), NULL, 1, alphabet,
+    msa2 = maf_read(phast_fopen(argv[optind+1], "r"), NULL, 1, alphabet,
                     NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
   else 
-    msa2 = msa_new_from_file_define_format(fopen_fname(argv[optind+1], "r"), 
+    msa2 = msa_new_from_file_define_format(phast_fopen(argv[optind+1], "r"), 
                              format2, alphabet);
 
   common_names = smalloc(msa1->nseqs * sizeof(void*));

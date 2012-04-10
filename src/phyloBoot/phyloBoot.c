@@ -205,9 +205,9 @@ int main(int argc, char *argv[]) {
       nreps = lst_size(tmpl);
       input_mods = smalloc(nreps * sizeof(void*));
       for (i = 0; i < lst_size(tmpl); i++) {
-        FILE *F = fopen_fname(((String*)lst_get_ptr(tmpl, i))->chars, "r");
+        FILE *F = phast_fopen(((String*)lst_get_ptr(tmpl, i))->chars, "r");
         input_mods[i] = tm_new_from_file(F, 1);
-        fclose(F);
+        phast_fclose(F);
       }
       lst_free_strings(tmpl); lst_free(tmpl);
       break;
@@ -244,7 +244,7 @@ int main(int argc, char *argv[]) {
                                    at command line */
         tree = tr_new_from_string(optarg);
       else 
-        tree = tr_new_from_file(fopen_fname(optarg, "r"));
+        tree = tr_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 's':
       subst_mod = tm_get_subst_mod_type(optarg);
@@ -264,7 +264,7 @@ int main(int argc, char *argv[]) {
       else die("ERROR: --precision must be LOW, MED, or HIGH.\n\n");
       break;
     case 'M':
-      init_mod = tm_new_from_file(fopen_fname(optarg, "r"), 1);
+      init_mod = tm_new_from_file(phast_fopen(optarg, "r"), 1);
       break;
     case 'r':
       random_init = 1;
@@ -287,7 +287,7 @@ int main(int argc, char *argv[]) {
     if (optind != argc - 1) 
       die("Input filename required.  Try '%s -h'.\n", argv[0]);
 
-    INF = fopen_fname(argv[optind], "r");
+    INF = phast_fopen(argv[optind], "r");
 
     tmpstr = str_new_charstr(argv[optind]);
     if (str_ends_with_charstr(tmpstr, ".mod")) {
@@ -360,7 +360,7 @@ int main(int argc, char *argv[]) {
 	double tempScale, tempSubtreeScale;
 	int tempNumSite;
 	if (subtreeSwitchProb!=0.0) die("ERROR: Cannot use --subtree-switch with --scale-file (not implemented)\n");
-	scaleFile = fopen_fname(scaleFileName, "r");
+	scaleFile = phast_fopen(scaleFileName, "r");
 	scaleLst = lst_new_dbl(100);
 	subtreeScaleLst = lst_new_dbl(100);
 	nsitesLst = lst_new_int(100);
@@ -375,7 +375,7 @@ int main(int argc, char *argv[]) {
 	  lst_push_dbl(subtreeScaleLst, tempSubtreeScale);
 	  nsites += tempNumSite;
 	}
-	fclose(scaleFile);
+	phast_fclose(scaleFile);
       }
       if (nsites == -1) nsites = default_nsites;
     }
@@ -414,7 +414,7 @@ int main(int argc, char *argv[]) {
         sprintf(fname, "%s.%d.%s", dump_msas_root, i+1, 
                 msa_suffix_for_format(dump_format));
         if (!quiet) fprintf(stderr, "Dumping alignment to %s...\n", fname);
-        F = fopen_fname(fname, "w+");
+        F = phast_fopen(fname, "w+");
 
         if (dump_format == SS) { /* output ss */
           if (msa->ss == NULL)   /* (only happens in parametric case) */
@@ -434,7 +434,7 @@ int main(int argc, char *argv[]) {
             msa->seqs = NULL;
           }
         }
-        fclose(F);
+        phast_fclose(F);
       }
     }
 
@@ -471,9 +471,9 @@ int main(int argc, char *argv[]) {
       if (dump_mods_root != NULL) {
         sprintf(fname, "%s.%d.mod", dump_mods_root, i+1);
         if (!quiet) fprintf(stderr, "Dumping model to %s...\n", fname);
-        F = fopen_fname(fname, "w+");
+        F = phast_fopen(fname, "w+");
         tm_print(F, thismod);
-        fclose(F);
+        phast_fclose(F);
       }
     } 
 
@@ -545,7 +545,7 @@ int main(int argc, char *argv[]) {
       for (i=0; i < repmod->all_params->size; i++) repmod->param_map[i]=i;
       tm_unpack_params(repmod, ave_params, -1);
       if (!quiet) fprintf(stderr, "Writing average model to %s...\n", ave_model);
-      tm_print(fopen_fname(ave_model, "w+"), repmod);
+      tm_print(phast_fopen(ave_model, "w+"), repmod);
     }
     vec_free(ave_params);
   }

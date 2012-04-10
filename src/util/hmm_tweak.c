@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
       indel_cats = get_arg_list(optarg);
       break;
     case 'u':
-      tree = tr_new_from_file(fopen_fname(optarg, "r"));
+      tree = tr_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 'F':
       from_patterns = str_list_as_int(get_arg_list(optarg));
@@ -145,8 +145,8 @@ int main(int argc, char *argv[]) {
 
   set_seed(-1);
     
-  hmm = hmm_new_from_file(fopen_fname(argv[optind], "r"));
-  cm = cm_read(fopen_fname(argv[optind+1], "r"));
+  hmm = hmm_new_from_file(phast_fopen(argv[optind], "r"));
+  cm = cm_read(phast_fopen(argv[optind+1], "r"));
 
   fcat = smalloc((cm->ncats+1) * sizeof(int));
   if (from_cats != NULL) {

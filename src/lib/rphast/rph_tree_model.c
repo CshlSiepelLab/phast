@@ -537,10 +537,10 @@ SEXP rph_tm_print(SEXP tmP, SEXP filenameP, SEXP appendP) {
   else {
     if (LOGICAL_VALUE(appendP)) 
       mode = "a";
-    outfile = fopen_fname(CHARACTER_VALUE(filenameP), mode);
+    outfile = phast_fopen(CHARACTER_VALUE(filenameP), mode);
   }
   tm_print(outfile, tm);
-  if (outfile != stdout) fclose(outfile);
+  if (outfile != stdout) phast_fclose(outfile);
   return R_NilValue;
 }
 
@@ -550,9 +550,9 @@ SEXP rph_tm_read(SEXP filenameP) {
   TreeModel *tm;
   if (filenameP == R_NilValue)
     die("filename cannot be NULL");
-  infile = fopen_fname(CHARACTER_VALUE(filenameP), "r");
+  infile = phast_fopen(CHARACTER_VALUE(filenameP), "r");
   tm = tm_new_from_file(infile, 0);
-  fclose(infile);
+  phast_fclose(infile);
   return rph_tm_new_extptr(tm);
 }
 

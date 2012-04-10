@@ -488,18 +488,18 @@ CategoryMap* cm_new_string_or_file(const char *optarg) {
 
     /* we'll just dump a little tmp file and read it with cm_read */
     sprintf(fname, "cm.tmp.%d", getpid());
-    F = fopen_fname(fname, "w+");
+    F = phast_fopen(fname, "w+");
     fprintf(F, "%s", str->chars);
-    fclose(F);
-    F = fopen_fname(fname, "r");
+    phast_fclose(F);
+    F = phast_fopen(fname, "r");
     retval = cm_read(F);
-    fclose(F);
+    phast_fclose(F);
     unlink(fname);
   }
   else {
-    F = fopen_fname(str->chars, "r");
+    F = phast_fopen(str->chars, "r");
     retval = cm_read(F);
-    fclose(F);
+    phast_fclose(F);
   }
 
   str_free(str);
@@ -874,10 +874,10 @@ int cm_get_unspooled_state(CategoryMap *cm, int spooled_state,
 CategoryMap* cm_read_from_fname(char *fname) {
   CategoryMap *cm = NULL;
   FILE *F;
-  if ((F = fopen(fname, "r")) == NULL || 
-      (cm = cm_read(F)) == NULL) 
+  F = phast_fopen(fname, "r"); 
+  if ((cm = cm_read(F)) == NULL)
     die("ERROR: cannot read category map from %s.\n", fname);
-  fclose(F);
+  phast_fclose(F);
   return cm;
 }
 

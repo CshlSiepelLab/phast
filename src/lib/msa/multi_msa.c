@@ -113,23 +113,23 @@ Multi_MSA *msa_multimsa_new(FILE *F, int do_ih) {
       }
 
       fprintf(stderr, "\t%s (%d of %d)\n", msa_fname, (i+1), msas->nblocks);
-      msa_f = fopen_fname(msa_fname, "r");
+      msa_f = phast_fopen(msa_fname, "r");
       msa = msa_new_from_file_define_format(msa_f, format, (char*)alphabet->chars);
       str_cpy_charstr(fname, msa_fname);
       str_remove_path(fname);
       str_root(fname, '.');
       lst_push(msas->seqnames, str_dup(fname));
       msas->blocks[i] = msa;
-      fclose(msa_f);
+      phast_fclose(msa_f);
 
       if (do_ih) {
 	if (ih_fname == NULL)
 	  die("ERROR: --indel-model requires an indel history for all alignment files! Try 'dmsample -h'\n");
 	fprintf(stderr, "\tReading indel history for %s from %s\n", msa_fname, 
 		ih_fname);
-	ih_f = fopen_fname(ih_fname, "r");
+	ih_f = phast_fopen(ih_fname, "r");
 	msas->ih[i] = ih_new_from_file(ih_f);
-	fclose(ih_f);
+	phast_fclose(ih_f);
       }
       i++;
     }

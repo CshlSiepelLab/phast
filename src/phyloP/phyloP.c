@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
       p->branch_name = get_arg_list(optarg);
       break;
     case 'f':
-      p->feats = gff_read_set(fopen_fname(optarg, "r"));
+      p->feats = gff_read_set(phast_fopen(optarg, "r"));
       break;
     case 'F':
       p->fit_model = TRUE;
@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
       if (!strcmp(optarg, "-"))
         p->logf = stderr;
       else
-        p->logf = fopen_fname(optarg, "w+");
+        p->logf = phast_fopen(optarg, "w+");
       break;
     case 'C':
       cats_to_do_str = get_arg_list(optarg);
@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
     die("ERROR: bad arguments.  Try 'phyloP -h'.\n");
   p->mod_fname = argv[optind];
 
-  p->mod = tm_new_from_file(fopen_fname(p->mod_fname, "r"), 1);
+  p->mod = tm_new_from_file(phast_fopen(p->mod_fname, "r"), 1);
 
   if (cats_to_do_str != NULL) {
     if (p->cm == NULL) die("ERROR: --cats-to-do requires --catmap option\n");
@@ -172,7 +172,7 @@ int main(int argc, char *argv[]) {
 
   if (!p->prior_only) {
     p->msa_fname = argv[optind+1];
-    msa_f = fopen_fname(p->msa_fname, "r");
+    msa_f = phast_fopen(p->msa_fname, "r");
     if (msa_format == UNKNOWN_FORMAT)
       msa_format = msa_format_for_content(msa_f, 1);
     if (msa_format == MAF) 
@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
 			     NULL, NO_STRIP, FALSE, p->cats_to_do); 
     else 
       p->msa = msa_new_from_file_define_format(msa_f, msa_format, NULL);
-    fclose(msa_f);
+    phast_fclose(msa_f);
 
     /* if base_by_base and undefined chrom, use filename root as chrom */
     if (p->base_by_base && p->chrom == NULL) {

@@ -104,7 +104,7 @@ SEXP rph_phyloP(SEXP modP,
   else if (p->msa != NULL)
     p->chrom = copy_charstr(p->msa->names[p->refidx-1]);
   if (outfileP != R_NilValue) {
-    p->outfile = fopen_fname(CHARACTER_VALUE(outfileP), "w");
+    p->outfile = phast_fopen(CHARACTER_VALUE(outfileP), "w");
   }
   if (outfileOnlyP != R_NilValue && LOGICAL_VALUE(outfileOnlyP)) {
     lol_free(p->results);
@@ -147,7 +147,7 @@ SEXP rph_phyloP(SEXP modP,
   PutRNGstate();
   
   if (p->outfile != NULL && p->outfile != stdout && p->outfile != stderr) 
-    fclose(p->outfile);
+    phast_fclose(p->outfile);
   if (p->results != NULL) {
     PROTECT(rv = rph_listOfLists_to_SEXP(p->results));
     numprotect++;

@@ -279,10 +279,10 @@ SEXP rph_msa_format_for_suffix(SEXP filenameP) {
 
 
 SEXP rph_msa_format_for_content(SEXP filenameP) {
-  FILE *infile = fopen_fname(CHARACTER_VALUE(filenameP), "r");
+  FILE *infile = phast_fopen(CHARACTER_VALUE(filenameP), "r");
   msa_format_type t = msa_format_for_content(infile, 0);
   SEXP result;
-  fclose(infile);
+  phast_fclose(infile);
   PROTECT(result = NEW_CHARACTER(1));
   SET_STRING_ELT(result, 0, mkChar(msa_format_to_str(t)));
   UNPROTECT(1);
@@ -314,7 +314,7 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
     strcpy(alphabet, CHARACTER_VALUE(alphabetP));
   }
   if (refseqP != R_NilValue) 
-    refseq = fopen_fname(CHARACTER_VALUE(refseqP), "r");
+    refseq = phast_fopen(CHARACTER_VALUE(refseqP), "r");
   if (tupleSizeP != R_NilValue)
     tupleSize = INTEGER_VALUE(tupleSizeP);
   if (gffP != R_NilValue) {
@@ -404,7 +404,7 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
     }
   }
 
-  infile = fopen_fname(CHARACTER_VALUE(filenameP), "r");
+  infile = phast_fopen(CHARACTER_VALUE(filenameP), "r");
   if (fmt == MAF) {  //reads and automatically converts to SS format
     msa = maf_read_cats_subset(infile, refseq, tupleSize, alphabet, gff, cm, 
 			       cycle_size, ordered, reverse_groups_tag,
@@ -471,8 +471,8 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
   if (ordered==0) msa->idx_offset = 0;
 
   if (refseq != NULL)
-    fclose(refseq);
-  fclose(infile);
+    phast_fclose(refseq);
+  phast_fclose(infile);
   
   /* If we have caluclated sufficient statistics, they are more up-to-date
      than the sequences.  The sequences may contain the full alignment

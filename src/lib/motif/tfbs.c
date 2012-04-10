@@ -119,9 +119,9 @@ void ms_print_fasta(FILE *F, MS *ms) {
 
 ///////////////////////////////////////
 void ms_print_to_file(const char *filename, MS *ms) {
-  FILE *outfile = fopen_fname(filename, "w");
+  FILE *outfile = phast_fopen(filename, "w");
   ms_print_fasta(outfile, ms);
-  fclose(outfile);
+  phast_fclose(outfile);
 }
 
 
@@ -147,8 +147,7 @@ List *pwm_read(const char *filename) {
   pssm_re = str_re_new("^letter-probability matrix: alength= ([0-9]+) w= ([0-9]+)");
   motif_name_re = str_re_new("^MOTIF[[:space:]]+(.+?)[[:space:]].*");
   //open PWM file
-  if ( (F = fopen(filename, "r")) == NULL)
-    die("ERROR: Unable to open MEME file containing PWM \n");
+  F = phast_fopen(filename, "r");
   currBase = 0;
   nBases = -1;
   //For each line in the MEME file
@@ -195,7 +194,7 @@ List *pwm_read(const char *filename) {
     die("Premature end of PWM file\n");
   str_re_free(motif_name_re);
   str_re_free(pssm_re);
-  fclose(F);
+  phast_fclose(F);
   return result;
 }
 
@@ -224,8 +223,7 @@ MS *ms_read(const char *filename, const char *alphabet) {
   MS *ms;
   FILE * F;
 
-  if ( (F = fopen(filename, "r")) == NULL)
-	die("ERROR: Unable to open FASTA file \n");
+  F = phast_fopen(filename, "r");
 
   if (descrip_re == NULL) 
     descrip_re = str_re_new("[[:space:]]*>[[:space:]]*(.+)");
@@ -300,7 +298,7 @@ MS *ms_read(const char *filename, const char *alphabet) {
   lst_free(seqs);
   lst_free(l);
   str_free(line);
-  fclose(F);
+  phast_fclose(F);
   return ms;
 }
 

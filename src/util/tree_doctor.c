@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
                   PHAST_HOME);
         #endif
       }
-      extrapolate_tree = tr_new_from_file(fopen_fname(optarg, "r"));
+      extrapolate_tree = tr_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 'p':
       prune_names = get_arg_list(optarg);
@@ -222,9 +222,9 @@ int main(int argc, char *argv[]) {
       suffix = str_new_charstr(optarg);
       str_suffix(suffix, '.');
       if (str_equals_charstr(suffix, "nh"))
-        merge_tree = tr_new_from_file(fopen_fname(optarg, "r"));
+        merge_tree = tr_new_from_file(phast_fopen(optarg, "r"));
       else {
-        merge_mod = tm_new_from_file(fopen_fname(optarg, "r"), 1);
+        merge_mod = tm_new_from_file(phast_fopen(optarg, "r"), 1);
         merge_tree = merge_mod->tree;
       }
       break;
@@ -291,11 +291,11 @@ int main(int argc, char *argv[]) {
   suffix = str_new_charstr(argv[optind]);
   str_suffix(suffix, '.');
   if (inNewick || str_equals_charstr(suffix, "nh")) {
-    tree = tr_new_from_file(fopen_fname(argv[optind], "r"));
+    tree = tr_new_from_file(phast_fopen(argv[optind], "r"));
     tree_only = TRUE;           /* can't output tree model in this case */
   }
   else {
-    mod = tm_new_from_file(fopen_fname(argv[optind], "r"), 1);
+    mod = tm_new_from_file(phast_fopen(argv[optind], "r"), 1);
     tree = mod->tree;
   }
 

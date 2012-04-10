@@ -1067,16 +1067,16 @@ int main(int argc, char *argv[]) {
       offset3 = get_arg_int(optarg);
       break;
     case 'L':
-      logf = fopen_fname(optarg, "w+");
+      logf = phast_fopen(optarg, "w+");
       break;
     case 'M':
-      mlogf = fopen_fname(optarg, "w+");
+      mlogf = phast_fopen(optarg, "w+");
       break;
     case 'S':
-      statsf = fopen_fname(optarg, "w+");
+      statsf = phast_fopen(optarg, "w+");
       break;
     case 'd':
-      discardf = fopen_fname(optarg, "w+");
+      discardf = phast_fopen(optarg, "w+");
       break;
     case 'x':
       no_output = 1;
@@ -1095,14 +1095,14 @@ int main(int argc, char *argv[]) {
   
   set_seed(-1);
 
-  gff = gff_read_set(fopen_fname(argv[optind], "r"));
+  gff = gff_read_set(phast_fopen(argv[optind], "r"));
   msa_fname = argv[optind+1];
-  infile = fopen_fname(msa_fname, "r");
+  infile = phast_fopen(msa_fname, "r");
   if (msa_format == UNKNOWN_FORMAT)
     msa_format = msa_format_for_content(infile, 1);
   if (msa_format == MAF) {
     msa = maf_read(infile, 
-                   rseq_fname == NULL ? NULL : fopen_fname(rseq_fname, "r"), 
+                   rseq_fname == NULL ? NULL : phast_fopen(rseq_fname, "r"), 
                    1, NULL, NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE); 
   }
   else {
@@ -1437,10 +1437,10 @@ int main(int argc, char *argv[]) {
     fprintf(statsf, "%s", STATS_DESCRIPTION);
   }
 
-  if (logf != NULL) fclose(logf);
-  if (mlogf != NULL) fclose(mlogf);
-  if (statsf != NULL) fclose(statsf);
-  if (discardf != NULL) fclose(discardf);
+  if (logf != NULL) phast_fclose(logf);
+  if (mlogf != NULL) phast_fclose(mlogf);
+  if (statsf != NULL) phast_fclose(statsf);
+  if (discardf != NULL) phast_fclose(discardf);
 
   return 0;
 }

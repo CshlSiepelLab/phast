@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
       dim = get_arg_int_bounds(optarg, 1, INFTY);
       break;
     case 'l':
-      logf = fopen_fname(optarg, "w+");
+      logf = phast_fopen(optarg, "w+");
       break;
     case 'h':
       printf("%s", HELP);
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
     if (optind != argc - 1) 
       die("ERROR: Bad arguments.  Try 'pbsTrain -h'.\n");
 
-    STATSF = fopen_fname(argv[optind], "r");
+    STATSF = phast_fopen(argv[optind], "r");
 
     /* read stats */
     while (str_readline(line, STATSF) != EOF) {

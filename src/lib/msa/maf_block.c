@@ -658,7 +658,7 @@ FILE *mafBlock_open_outfile(char *fn, int argc, char *argv[]) {
   FILE *outfile;
   int i;
   if (fn != NULL) 
-    outfile = fopen(fn, "w");
+    outfile = phast_fopen(fn, "w");
   else outfile = stdout;
   if (outfile == NULL) return NULL;
   fprintf(outfile, "##maf version=1\n#");
@@ -670,7 +670,7 @@ FILE *mafBlock_open_outfile(char *fn, int argc, char *argv[]) {
 
 void mafBlock_close_outfile(FILE *outfile) {
   fprintf(outfile, "#eof\n");
-  if (outfile != stdout) fclose(outfile);
+  if (outfile != stdout) phast_fclose(outfile);
 }
 
 String *mafBlock_get_refSpec(MafBlock *block) {

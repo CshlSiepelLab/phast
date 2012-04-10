@@ -105,25 +105,25 @@ void dump(char *prefix, GFF_Feature *real, GFF_Feature *pred, pred_type t,
     String *fname = str_new(STR_SHORT_LEN);
     str_cpy_charstr(fname, prefix);
     str_append_charstr(fname, ".log.cr");
-    CRF = fopen_fname(fname->chars, "w+");
+    CRF = phast_fopen(fname->chars, "w+");
     str_cpy_charstr(fname, prefix);
     str_append_charstr(fname, ".log.pc");
-    PCF = fopen_fname(fname->chars, "w+");
+    PCF = phast_fopen(fname->chars, "w+");
     str_cpy_charstr(fname, prefix);
     str_append_charstr(fname, ".log.nc");
-    NCF = fopen_fname(fname->chars, "w+");
+    NCF = phast_fopen(fname->chars, "w+");
     str_cpy_charstr(fname, prefix);
     str_append_charstr(fname, ".log.we");
-    WEF = fopen_fname(fname->chars, "w+");
+    WEF = phast_fopen(fname->chars, "w+");
     str_cpy_charstr(fname, prefix);
     str_append_charstr(fname, ".log.me");
-    MEF = fopen_fname(fname->chars, "w+");
+    MEF = phast_fopen(fname->chars, "w+");
     str_cpy_charstr(fname, prefix);
     str_append_charstr(fname, ".log.ol");
-    OLF = fopen_fname(fname->chars, "w+");
+    OLF = phast_fopen(fname->chars, "w+");
     str_cpy_charstr(fname, prefix);
     str_append_charstr(fname, ".summary");
-    SUMF = fopen_fname(fname->chars, "w+");
+    SUMF = phast_fopen(fname->chars, "w+");
     str_free(fname);
   }
 
@@ -304,20 +304,20 @@ int main(int argc, char* argv[]) {
     GFF_Feature *feat_real, *feat_pred=NULL;
 
     real_fname = (String*)lst_get_ptr(real_fname_list, nfile);
-    if ((F = fopen(real_fname->chars, "r"))
-        == NULL || (gff_real = gff_read_set(F)) == NULL) {
+    F = phast_fopen(real_fname->chars, "r");
+    if ((gff_real = gff_read_set(F)) == NULL) {
       die("ERROR: Unable to read file \"%s\".\n", 
 	  real_fname->chars);
     }
-    fclose(F);
+    phast_fclose(F);
 
     pred_fname = (String*)lst_get_ptr(pred_fname_list, nfile);
-    if ((F = fopen(pred_fname->chars, "r"))
-        == NULL || (gff_pred = gff_read_set(F)) == NULL) {
+    F = phast_fopen(pred_fname->chars, "r");
+    if ((gff_pred = gff_read_set(F)) == NULL) {
       die("ERROR: Unable to read file \"%s\".\n", 
 	  pred_fname->chars);
     }
-    fclose(F);
+    phast_fclose(F);
 
     seqlen = lst_get_int(seq_len_list, nfile);
 

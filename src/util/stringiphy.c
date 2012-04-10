@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
 
   set_seed(-1);
     
-  exons = gff_read_set(fopen_fname(argv[optind], "r"));
+  exons = gff_read_set(phast_fopen(argv[optind], "r"));
 
   gff_group(exons, "transcript_id");
   gff_sort(exons);

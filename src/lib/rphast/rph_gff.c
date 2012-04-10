@@ -53,10 +53,10 @@ SEXP rph_gff_copy(SEXP gffP) {
 
 
 SEXP rph_gff_read(SEXP filename) {
-  FILE *infile = fopen_fname(CHARACTER_VALUE(filename), "r");
+  FILE *infile = phast_fopen(CHARACTER_VALUE(filename), "r");
   SEXP rv;
   PROTECT(rv = rph_gff_new_extptr(gff_read_set(infile)));
-  fclose(infile);
+  phast_fclose(infile);
   UNPROTECT(1);
   return rv;
 }
@@ -211,10 +211,10 @@ SEXP rph_gff_print(SEXP filename, SEXP gff) {
   FILE *outfile;
   if (filename == R_NilValue)
     outfile = stdout;
-  else outfile = fopen_fname(CHARACTER_VALUE(filename), "w");
+  else outfile = phast_fopen(CHARACTER_VALUE(filename), "w");
   
   gff_print_set(outfile, (GFF_Set*)EXTPTR_PTR(gff));
-  if (outfile != stdout) fclose(outfile);
+  if (outfile != stdout) phast_fclose(outfile);
   return R_NilValue;
 }
 

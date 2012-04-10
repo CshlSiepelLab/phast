@@ -61,10 +61,10 @@ int main(int argc, char *argv[]) {
   
   set_seed(-1);
     
-  mod = tm_new_from_file(fopen_fname(argv[optind], "r"), 1);
+  mod = tm_new_from_file(phast_fopen(argv[optind], "r"), 1);
   
   if (pbs_mode != NONE)
-    code = pbs_new_from_file(fopen_fname(argv[optind+1], "r"));
+    code = pbs_new_from_file(phast_fopen(argv[optind+1], "r"));
 
   alph_size = mod->rate_matrix->size;
   P = mm_new(alph_size, NULL, DISCRETE);

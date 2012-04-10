@@ -468,9 +468,7 @@ int main(int argc, char* argv[]) {
     die("ERROR: missing required arguments or illegal combination of arguments.\nTry \"display_rate_matrix -h\" for help.\n");
   }
 
-  if ((F = fopen(argv[optind], "r")) == NULL) {
-    die("ERROR: Can't open %s.\n", argv[optind]);
-  }
+  F = phast_fopen(argv[optind], "r");
   model = tm_new_from_file(F, 1);
 
   if (context_ti_tv) {

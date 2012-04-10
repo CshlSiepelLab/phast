@@ -86,11 +86,11 @@ int main(int argc, char *argv[]) {
       p->states = get_arg_list(optarg);
       break;
     case 'H':
-      p->hmm = hmm_new_from_file(fopen_fname(optarg, "r"));
+      p->hmm = hmm_new_from_file(phast_fopen(optarg, "r"));
       p->two_state = FALSE;
       break;
     case 'V':
-      p->viterbi_f = fopen_fname(optarg, "w+");
+      p->viterbi_f = phast_fopen(optarg, "w+");
       tmpstr = str_new_charstr(optarg);
       if (str_ends_with_charstr(tmpstr, ".gff")) 
 	p->gff = TRUE;
@@ -172,7 +172,7 @@ int main(int argc, char *argv[]) {
     case 'g':
       if (!strcmp(optarg, "-")) 
 	p->log_f = stderr;
-      else p->log_f = fopen_fname(optarg, "w+");
+      else p->log_f = phast_fopen(optarg, "w+");
       break;
     case 'r':
       p->refidx = get_arg_int_bounds(optarg, 0, INFTY);
@@ -226,7 +226,7 @@ int main(int argc, char *argv[]) {
       p->cm = cm_new_string_or_file(optarg);
       break;
     case 'L':
-      p->lnl_f = fopen_fname(optarg, "w+");
+      p->lnl_f = phast_fopen(optarg, "w+");
       break;
     case 'N':
       p->seqname = optarg;
@@ -272,7 +272,7 @@ int main(int argc, char *argv[]) {
     #endif
   }
   if (p->extrapolate_tree_fname != NULL)
-    p->extrapolate_tree = tr_new_from_file(fopen_fname(p->extrapolate_tree_fname, "r"));
+    p->extrapolate_tree = tr_new_from_file(phast_fopen(p->extrapolate_tree_fname, "r"));
 
   mods_fname = (optind == argc - 2 ? argv[argc - 1] : NULL);
   /* if there are two args, mods are the second one; otherwise will
@@ -294,7 +294,7 @@ int main(int argc, char *argv[]) {
       #endif
       if (p->results_f!=NULL) 
 	fprintf(p->results_f, "Reading HMM from %s...\n", tmp);
-      p->hmm = hmm_new_from_file(fopen_fname(tmp, "r"));
+      p->hmm = hmm_new_from_file(phast_fopen(tmp, "r"));
     }
     if (mods_fname == NULL) {
       #if defined(__MINGW32__)
@@ -325,14 +325,13 @@ int main(int argc, char *argv[]) {
 
     if (p->results_f != NULL)
       fprintf(p->results_f, "Reading tree model from %s...\n", fname->chars);
-    p->mod[i] = tm_new_from_file(fopen_fname(fname->chars, "r"), 1);
+    p->mod[i] = tm_new_from_file(phast_fopen(fname->chars, "r"), 1);
     p->mod[i]->use_conditionals = 1;     
   }
 
   /* read alignment */
   msa_fname = argv[optind];
-  if ((infile = fopen(msa_fname, "r")) == NULL) 
-       die("ERROR: cannot open alignment file %s.\n", msa_fname);
+  infile = phast_fopen(msa_fname, "r");
 
   if (msa_format == UNKNOWN_FORMAT)
     msa_format = msa_format_for_content(infile, 1);

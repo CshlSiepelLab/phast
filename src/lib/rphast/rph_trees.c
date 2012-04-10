@@ -43,7 +43,7 @@ SEXP rph_tree_read(SEXP filename) {
   char *currStr, **strvec;
   int i, pos=0, currLen=10000, numparen=0, numtrees_alloc=1000, numtrees=0;
 
-  infile = fopen_fname(CHARACTER_VALUE(filename), "r");
+  infile = phast_fopen(CHARACTER_VALUE(filename), "r");
   currStr = smalloc((currLen+2)*sizeof(char));
   strvec = smalloc(numtrees_alloc*sizeof(char*));
   while (1) {
@@ -79,7 +79,7 @@ SEXP rph_tree_read(SEXP filename) {
     }
     else break;
   }
-  fclose(infile);
+  phast_fclose(infile);
   PROTECT(result = NEW_CHARACTER(numtrees));
   for (i=0; i<numtrees; i++) 
     SET_STRING_ELT(result, i, mkChar(strvec[i]));

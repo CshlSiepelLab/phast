@@ -235,7 +235,7 @@ OPTIONS:\n\
 
 void write_sub_msa(MSA *submsa, char *fname, msa_format_type output_format, 
                    int tuple_size, int ordered_stats) {
-  FILE *F = fopen_fname(fname, "w+");
+  FILE *F = phast_fopen(fname, "w+");
 
   /* create sufficient stats, if necessary */
   if (output_format == SS) {
@@ -248,7 +248,7 @@ void write_sub_msa(MSA *submsa, char *fname, msa_format_type output_format,
   else 
     msa_print(F, submsa, output_format, 0);
 
-  fclose(F);
+  phast_fclose(F);
 }
 
 /* print header for summary file */
@@ -460,7 +460,7 @@ int main(int argc, char* argv[]) {
       rseq_fname = optarg;
       break;
     case 'g':
-      gff = gff_read_set(fopen_fname(optarg, "r"));
+      gff = gff_read_set(phast_fopen(optarg, "r"));
       break;
     case 'c':
       cm = cm_new_string_or_file(optarg);
@@ -592,14 +592,14 @@ int main(int argc, char* argv[]) {
 
   if (cats_to_do_str != NULL) cats_to_do = cm_get_category_list(cm, cats_to_do_str, FALSE);
 
-  FILE *infile = fopen_fname(msa_fname, "r");
+  FILE *infile = phast_fopen(msa_fname, "r");
   if (input_format == UNKNOWN_FORMAT)
     input_format = msa_format_for_content(infile, 1);
   if (input_format == MAF) {
     if (gff != NULL) fprintf(stderr, "WARNING: use of --features with a MAF file currently forces a projection onto the reference sequence.\n");
 
     msa = maf_read_cats(infile, 
-                   rseq_fname == NULL ? NULL : fopen_fname(rseq_fname, "r"), 
+                   rseq_fname == NULL ? NULL : phast_fopen(rseq_fname, "r"), 
                    tuple_size, NULL, gff, cm, -1, TRUE, NULL, NO_STRIP, FALSE,
 		   cats_to_do); 
     /* NOTE: no support yet for reverse complementing groups on
@@ -744,7 +744,7 @@ int main(int argc, char* argv[]) {
   if (output_summary) {
     sum_fname = str_new_charstr(out_fname_root);
     str_append_charstr(sum_fname, ".sum");
-    fopen_fname(sum_fname->chars, "w+");
+    phast_fopen(sum_fname->chars, "w+");
 
     /* print header */
     write_summary_header(SUM_F, msa->alphabet, gap_strip_mode);
@@ -866,11 +866,11 @@ int main(int argc, char* argv[]) {
 			     NULL);
 
 	  sprintf(subfname, "%s.%d-%d.gff", out_fname_root, orig_start, orig_end);
-	  F = fopen_fname(subfname, "w+");
+	  F = phast_fopen(subfname, "w+");
 	  if (!quiet_mode)
 	    fprintf(stderr, "Writing GFF subset %d to %s...\n", i+1, subfname);
 	  gff_print_set(F, sub_gff);
-	  fclose(F);
+	  phast_fclose(F);
 	}
 	gff_free_set(sub_gff);
       }
@@ -932,7 +932,7 @@ int main(int argc, char* argv[]) {
   if (SUM_F != NULL) {
     if (!quiet_mode) 
       fprintf(stderr, "Writing summary to %s...\n", sum_fname->chars);
-    fclose(SUM_F);
+    phast_fclose(SUM_F);
   }
 
   if (!quiet_mode)

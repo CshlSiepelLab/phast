@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
                                    at command line */
         pf->tree = tr_new_from_string(optarg);
       else 
-        pf->tree = tr_new_from_file(fopen_fname(optarg, "r"));
+        pf->tree = tr_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 's':
       pf->subst_mod = tm_get_subst_mod_type(optarg);
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
         die("ERROR: illegal substitution model.     Type \"phyloFit -h\" for usage.\n");
       break;
     case 'g':
-      pf->gff = gff_read_set(fopen_fname(optarg, "r"));
+      pf->gff = gff_read_set(phast_fopen(optarg, "r"));
       break;
     case 'c':
       pf->cm = cm_new_string_or_file(optarg);
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
     case 'l':
       if (!strcmp(optarg, "-"))
 	pf->logf = stderr;
-      else pf->logf = fopen_fname(optarg, "w+");
+      else pf->logf = phast_fopen(optarg, "w+");
       break;
     case 'N':
       pf->use_conditionals = 1;
@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
       else die("ERROR: --precision must be LOW, MED, or HIGH.\n\n");
       break;
     case 'M':
-      pf->input_mod = tm_new_from_file(fopen_fname(optarg, "r"), 1);
+      pf->input_mod = tm_new_from_file(phast_fopen(optarg, "r"), 1);
       break;
     case 'r':
       pf->random_init = TRUE;
@@ -321,8 +321,7 @@ int main(int argc, char *argv[]) {
     pf->msa_fname = msa_fname;
   }
 
-  if ((infile = fopen(msa_fname, "r")) == NULL) 
-    die("ERROR: cannot open alignment file %s.\n", msa_fname);
+  infile = phast_fopen(msa_fname, "r");
 
   if (input_format == UNKNOWN_FORMAT)
     input_format = msa_format_for_content(infile, 1);
@@ -354,7 +353,7 @@ int main(int argc, char *argv[]) {
   run_phyloFit(pf);
 
   if (pf->logf != NULL && pf->logf != stderr && pf->logf != stdout)
-    fclose(pf->logf);
+    phast_fclose(pf->logf);
   if (!pf->quiet) fprintf(stderr, "Done.\n");
   sfree(pf);
   

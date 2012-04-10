@@ -98,19 +98,15 @@ int main(int argc, char* argv[]) {
 
   set_seed(-1);
 
-  if ((F = fopen(feat_fname, "r")) == NULL) {
-    die("ERROR: cannot open %s.\n", feat_fname);
-  }
+  F = phast_fopen(feat_fname, "r");
   if ((gff = gff_read_set(F)) == NULL) { 
     die("ERROR: error reading %s.\n", feat_fname);
   }
-  fclose(F);
+  phast_fclose(F);
 
   /* handle case of local alignment specially -- avoid representing
      the alignment explicitly */
-  if ((F = fopen(msa_fname, "r")) == NULL) {
-    die("ERROR: cannot open %s.\n", msa_fname);
-  }
+  F = phast_fopen(msa_fname, "r");
   if (format == UNKNOWN_FORMAT)
     format = msa_format_for_content(F, 1);
   if (format == LAV) {
@@ -130,7 +126,7 @@ int main(int argc, char* argv[]) {
 
   else {                        /* normal alignment */
     msa = msa_new_from_file_define_format(F, format, NULL);
-    fclose(F);
+    phast_fclose(F);
 
     msa_map_gff_coords(msa, gff, src_ref, dest_ref, offset, NULL);
     msa_free(msa);

@@ -183,7 +183,7 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
       if (i == lst_size(outfileList)) {
 	die("ERROR: too many files open in maf_parse\n");
       } else {
-	fclose(outfile);
+	phast_fclose(outfile);
 	lst_set_ptr(outfileList, i, NULL);
       }
       outfile = mafBlock_open_outfile(fname, argc, argv);
@@ -194,7 +194,7 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
   }
   outfile = (FILE*)lst_get_ptr(outfileList, idx);
   if (outfile == NULL) { //has already been opened but then closed.
-    outfile = fopen(fname, "a");
+    outfile = phast_fopen(fname, "a");
     while (outfile == NULL) {
       for (i=0; i<lst_size(outfileList); i++) {
 	outfile = (FILE*)lst_get_ptr(outfileList, i);
@@ -203,10 +203,10 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
       if (i == lst_size(outfileList)) {
 	die("ERROR: too many files open in maf_parse\n");
       } else {
-	fclose(outfile);
+	phast_fclose(outfile);
 	lst_set_ptr(outfileList, i, NULL);
       }
-      outfile = fopen(fname, "a");
+      outfile = phast_fopen(fname, "a");
     }
   }
   sfree(fname);
@@ -235,7 +235,7 @@ void close_outfiles(List *outfileList, Hashtable *outfileHash) {
   for (i=0; i<lst_size(keys); i++) {
     if (done[i]) continue;
     fname = (char*)lst_get_ptr(keys, i);
-    outfile = fopen_fname(fname, "a");
+    outfile = phast_fopen(fname, "a");
     mafBlock_close_outfile(outfile);
   }
   sfree(done);
@@ -318,7 +318,7 @@ int main(int argc, char* argv[]) {
       useRefseq = FALSE;
       break;
     case 'g':
-      gff = gff_read_set(fopen_fname(optarg, "r"));
+      gff = gff_read_set(phast_fopen(optarg, "r"));
       gff_sort(gff);
       stripILines=TRUE;
       stripELines=TRUE;
@@ -403,7 +403,7 @@ int main(int argc, char* argv[]) {
   /* Check to see if --do-cats names a feature which is length 1. 
      If so, set output_format to SS ? or FASTA ? */
   
-  mfile = fopen_fname(maf_fname, "r");
+  mfile = phast_fopen(maf_fname, "r");
   block = mafBlock_read_next(mfile, NULL, NULL);
 
   if (splitInterval == -1 && gff==NULL) {
@@ -524,6 +524,6 @@ int main(int argc, char* argv[]) {
     msa_free(msa);
   }
   if (gff != NULL) gff_free_set(gff);
-  fclose(mfile);
+  phast_fclose(mfile);
   return 0;
 }

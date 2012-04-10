@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
 
   set_seed(-1);
 
-  mod = tm_new_from_file(fopen_fname(argv[optind], "r"), 1);
+  mod = tm_new_from_file(phast_fopen(argv[optind], "r"), 1);
 
   if (!tm_is_reversible(mod)) 
     die("ERROR: reversible input model required.\n");

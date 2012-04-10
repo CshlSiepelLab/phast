@@ -457,8 +457,8 @@ int phastCons(struct phastCons_struct *p) {
 	if (!quiet)
 	  fprintf(results_f, "Writing re-estimated tree models to %s and %s...\n", 
 		  cons_fname, noncons_fname);
-	tm_print(fopen_fname(cons_fname, "w+"), phmm->mods[0]);
-	tm_print(fopen_fname(noncons_fname, "w+"), phmm->mods[1]);
+	tm_print(phast_fopen(cons_fname, "w+"), phmm->mods[0]);
+	tm_print(phast_fopen(noncons_fname, "w+"), phmm->mods[1]);
       }
       if (results != NULL) {
 	ListOfLists *tmplist = lol_new(2);

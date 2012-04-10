@@ -24,6 +24,11 @@
 //avoid conflict with R
 #undef choose
 
+#ifdef RPHAST
+FILE *rphast_stdout=(FILE*)0;
+FILE *rphast_stderr=(FILE*)1;
+#endif
+
 static const char b64[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /* fill an array with 1s or zeroes, indicating a random choice of k
@@ -271,18 +276,25 @@ Matrix* read_subst_mat(FILE *F, char *alph) {
 /* simple wrapper for fopen that opens specified filename or aborts
    with appropriate error message.  Saves typing in mains for
    command-line programs */
-FILE* fopen_fname(const char *fname, char *mode) {
+FILE* phast_fopen(const char *fname, char *mode) {
   FILE *F = NULL;
   if (!strcmp(fname, "-")) {
     if (strcmp(mode, "r") == 0)
       return stdin;
     else if (strcmp(mode, "w+") == 0)
       return stdout;
-    else die("ERROR: bad args to fopen_fname.\n");
+    else die("ERROR: bad args to phast_fopen.\n");
   }
   if ((F = fopen(fname, mode)) == NULL) 
     die("ERROR: cannot open %s.\n", fname);
+  register_open_file(F);
   return F;
+}
+
+
+void phast_fclose(FILE *f) {
+  fclose(f);
+  unregister_open_file(f);
 }
 
 /* print error message and die with exit 1; saves typing in mains */
@@ -347,13 +359,11 @@ List *get_arg_list(char *arg) {
   if (str_starts_with_charstr(argstr, "*")) {
     FILE *F;
     String *fname_str;
-    if ((F = fopen(&argstr->chars[1], "r")) == NULL) {
-      die("ERROR: Cannot open file %s.\n", &argstr->chars[1]);
-    }
+    F = phast_fopen(&argstr->chars[1], "r");
     fname_str = str_new(STR_MED_LEN);
     str_slurp(fname_str, F);
     str_split(fname_str, NULL, l);
-    fclose(F);
+    phast_fclose(F);
     str_free(fname_str);
   }
   else {

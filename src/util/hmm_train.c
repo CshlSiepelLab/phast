@@ -156,7 +156,7 @@ int main(int argc, char* argv[]) {
                                    at command line */
         tree = tr_new_from_string(optarg);
       else 
-        tree = tr_new_from_file(fopen_fname(optarg, "r"));
+        tree = tr_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 'q':
       quiet_mode = TRUE;
@@ -213,12 +213,12 @@ int main(int argc, char* argv[]) {
   for (msa_idx = 0; msa_idx < nmsas; msa_idx++) {
     if (msa_fname_list != NULL) {
       msa_fname = (String*)lst_get_ptr(msa_fname_list, msa_idx);
-      F = fopen_fname(msa_fname->chars, "r");
+      F = phast_fopen(msa_fname->chars, "r");
       if (!quiet_mode)
         fprintf(stderr, "Reading alignment from %s ...\n", 
                 F == stdin ? "stdin" : msa_fname->chars);
       msa = msa_new_from_file(F, NULL);
-      fclose(F);
+      phast_fclose(F);
 
     }
     else {                      /* only lengths of alignments specified */
@@ -229,7 +229,7 @@ int main(int argc, char* argv[]) {
     gff_fname = (String*)lst_get_ptr(gff_fname_list, msa_idx);
     if (!quiet_mode)
       fprintf(stderr, "Reading annotations from %s ...\n", gff_fname->chars);
-    gff = gff_read_set(fopen_fname(gff_fname->chars, "r"));
+    gff = gff_read_set(phast_fopen(gff_fname->chars, "r"));
 
     /* convert GFF to coordinate frame of alignment */
     if (msa_length_list == NULL) {

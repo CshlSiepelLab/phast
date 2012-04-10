@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
       if (optarg[0] == '(')
         nametree = tr_new_from_string(optarg);
       else 
-        nametree = tr_new_from_file(fopen_fname(optarg, "r"));
+        nametree = tr_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 'h':
       usage(argv[0]);
@@ -97,13 +97,13 @@ int main(int argc, char *argv[]) {
   for (t = 0; t < ntrees; t++) {
     String *fname = lst_get_ptr(tree_fnames, t);
     if (mod) {
-      TreeModel *m = tm_new_from_file(F = fopen_fname(fname->chars, "r"), 1);
+      TreeModel *m = tm_new_from_file(F = phast_fopen(fname->chars, "r"), 1);
       tree[t] = tr_create_copy(m->tree);
       tm_free(m);
-      fclose(F);
+      phast_fclose(F);
     }
     else
-      tree[t] = tr_new_from_file(fopen_fname(fname->chars, "r"));
+      tree[t] = tr_new_from_file(phast_fopen(fname->chars, "r"));
   }
 
   /* initialization */

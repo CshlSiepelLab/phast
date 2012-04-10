@@ -56,8 +56,8 @@ int main(int argc, char *argv[]) {
 
   set_seed(-1);
     
-  prob_f = fopen_fname(argv[optind], "rb");
-  code = pbs_new_from_file(fopen_fname(argv[optind+1], "r"));
+  prob_f = phast_fopen(argv[optind], "rb");
+  code = pbs_new_from_file(phast_fopen(argv[optind+1], "r"));
 
   if (start > 1) {
     if (fseek(prob_f, (start - 1) * code->nbytes, SEEK_SET) != 0)

@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
       refidx = get_arg_int_bounds(optarg, 0, INFTY);
       break;
     case 'M':
-      refseq_f = fopen_fname(optarg, "r");
+      refseq_f = phast_fopen(optarg, "r");
       break;
     case 'i':
       msa_format = msa_str_to_format(optarg);
@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'H':
       fprintf(stderr, "Reading indel history from %s...\n", optarg);
-      ih = ih_new_from_file(fopen_fname(optarg, "r"));
+      ih = ih_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 'h':
       printf("%s", HELP);
@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
     nu = gamma/(1-gamma) * mu;
 
   fprintf(stderr, "Reading tree model from %s...\n", argv[optind]);
-  source_mod = tm_new_from_file(fopen_fname(argv[optind], "r"), 1);
+  source_mod = tm_new_from_file(phast_fopen(argv[optind], "r"), 1);
 
   if (source_mod->nratecats > 1) 
     die("ERROR: rate variation not currently supported.\n");
@@ -180,7 +180,7 @@ int main(int argc, char *argv[]) {
     phast_warning("WARNING: p-value computation assumes reversibility and your model is non-reversible.\n");
 
   /* read alignment */
-  msa_f = fopen_fname(argv[optind], "r");
+  msa_f = phast_fopen(argv[optind], "r");
 
   fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
   if (msa_format == UNKNOWN_FORMAT) 

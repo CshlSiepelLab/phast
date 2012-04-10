@@ -718,7 +718,7 @@ void hmm_train_update_counts(Matrix *trans_counts, Vector *state_counts,
 /* for debugging */
 void hmm_dump_matrices(HMM *hmm, double **emission_scores, int seqlen,
                        double **full_scores, int **backptr) {
-  FILE *F = fopen("hmm.debug", "w+");
+  FILE *F = phast_fopen("hmm.debug", "w+");
   int i, j;
   char tmpstr[50];
 
@@ -771,7 +771,7 @@ void hmm_dump_matrices(HMM *hmm, double **emission_scores, int seqlen,
     }
   }
 
-  fclose(F);
+  phast_fclose(F);
 }
 
 /* creates and returns a trivial HMM, with a single state that

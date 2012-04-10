@@ -147,13 +147,13 @@ SEXP rph_opt_bfgs(SEXP likelihoodFunctionP, SEXP paramsP,
   data->functionCall = likelihoodFunctionP;
   data->env = envP;
   if (logfileP != R_NilValue) 
-    logfile = fopen_fname(CHARACTER_VALUE(logfileP), "a");
+    logfile = phast_fopen(CHARACTER_VALUE(logfileP), "a");
 
   opt_bfgs(rph_likelihood_wrapper, params, data, &retval, lower, 
 	   upper, logfile, NULL, precision, NULL, &numeval);
 
   if (logfile != NULL)
-    fclose(logfile);
+    phast_fclose(logfile);
 
   //need to create a list with likelihood value and parameter estimates
   result = lol_new(3);

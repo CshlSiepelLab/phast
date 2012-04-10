@@ -55,17 +55,17 @@ int main(int argc, char *argv[]) {
   
   set_seed(-1);
 
-  INF = fopen_fname(argv[optind], "r");
+  INF = phast_fopen(argv[optind], "r");
 
   /* scan for number of lines */
   if (!strcmp(argv[optind], "-")) { /* if stdin, need temp file */
     char tmpstr[20];
     sprintf(tmpstr, "choose_lines.%d", getpid());
-    F = fopen_fname(tmpstr, "w+");
+    F = phast_fopen(tmpstr, "w+");
     for (n = 0; str_readline(line, INF) != EOF; n++) 
       fprintf(F, "%s", line->chars);
-    fclose(F);
-    INF = fopen_fname(tmpstr, "r");
+    phast_fclose(F);
+    INF = phast_fopen(tmpstr, "r");
   }
   else 
     for (n = 0; str_readline(line, INF) != EOF; n++);

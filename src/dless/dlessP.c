@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
       refidx = get_arg_int_bounds(optarg, 0, INFTY);
       break;
     case 'M':
-      refseq_f = fopen_fname(optarg, "r");
+      refseq_f = phast_fopen(optarg, "r");
       break;
     case 'i':
       msa_format = msa_str_to_format(optarg);
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
         die("ERROR: unrecognized alignment format.\n");
       break;
     case 't':
-      timing_f = fopen_fname(optarg, "w+");;
+      timing_f = phast_fopen(optarg, "w+");;
       break;
     case 'H':
       htmldir = optarg;
@@ -99,13 +99,13 @@ int main(int argc, char *argv[]) {
   /* read input files; do alignment last, because it may be slow */
 
   /* read tree model */
-  mod = tm_new_from_file(fopen_fname(argv[optind+1], "r"), 1);
+  mod = tm_new_from_file(phast_fopen(argv[optind+1], "r"), 1);
 
   /* read predictions */
-  predictions = gff_read_set(fopen_fname(argv[optind+2], "r"));
+  predictions = gff_read_set(phast_fopen(argv[optind+2], "r"));
 
   /* read alignment */
-  msa_f = fopen_fname(argv[optind], "r");
+  msa_f = phast_fopen(argv[optind], "r");
   if (msa_format == UNKNOWN_FORMAT)
     msa_format = msa_format_for_content(msa_f, 1);
   fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
@@ -207,7 +207,7 @@ void do_p_values(BDPhyloHmm *bdphmm, GFF_Set *predictions,
 
   for (i = 0; i < lst_size(types); i++) {
     List *feats_this_type = lst_get_ptr(type_lists, i);
-    TreeNode *orig_tree, *subtree_root, *tmp;
+    TreeNode *orig_tree, *subtree_root=NULL, *tmp;
     event_t event_type;
     p_value_stats *stats_cons = NULL;
     p_value_joint_stats *stats_bd = NULL;
@@ -325,7 +325,7 @@ void write_html(char *htmldir, GFF_Feature *feat, void *stats,
     s_bd = stats;
 
   sprintf(tmpstr, "%s/%s.html", htmldir, id->chars); 
-  F = fopen_fname(tmpstr, "w+");
+  F = phast_fopen(tmpstr, "w+");
 
   fprintf(F, "\
  <!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML//EN\">\n\
@@ -383,7 +383,7 @@ void write_html(char *htmldir, GFF_Feature *feat, void *stats,
 
   fprintf(F, "</body> </html>\n");
     
-  fclose(F);
+  phast_fclose(F);
 }
 
 void write_stats(FILE *F, GFF_Feature *feat, void *stats,

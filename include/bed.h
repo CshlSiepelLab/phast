@@ -38,7 +38,7 @@
       char *filename = "file.bed";
       GFF_Set *FeatureSet = gff_new_set();
 
-      gff_read_from_bed(FeatureSet, fopen_fname(filename, "r"));
+      gff_read_from_bed(FeatureSet, phast_fopen(filename, "r"));
     }
   @endcode
 */
@@ -64,7 +64,7 @@ void gff_read_from_bed(GFF_Set *gff, FILE *F);
       char *filename = "file.bed";
       GFF_Set *FeatureSet = gff_new_set();
 
-      gff_read_from_bed(FeatureSet, fopen_fname(filename, "r"));
+      gff_read_from_bed(FeatureSet, phast_fopen(filename, "r"));
       gff_print_bed(stdout, FeatureSet, FALSE); //If we had groups we would have used TRUE
     }
     OUTPUT:

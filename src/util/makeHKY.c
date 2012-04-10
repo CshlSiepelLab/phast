@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
       t = get_arg_dbl_bounds(optarg, 0, INFTY);
       break;
     case 'T':
-      tree = tr_new_from_file(fopen_fname(optarg, "r"));
+      tree = tr_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 'h':
       printf("%s", HELP);

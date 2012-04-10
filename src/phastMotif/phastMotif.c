@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
   while ((c = getopt(argc, argv, "t:i:b:sk:md:pn:I:R:P:w:c:SB:o:HDxh")) != -1) {
     switch (c) {
     case 't':
-      tree = tr_new_from_file(fopen_fname(optarg, "r"));
+      tree = tr_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 'i':
       msa_format = msa_str_to_format(optarg);
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
 	die("ERROR: bad input format.\n");
       break;
     case 'b':
-      backgd_mod = tm_new_from_file(fopen_fname(optarg, "r"), 1);
+      backgd_mod = tm_new_from_file(phast_fopen(optarg, "r"), 1);
       break;
     case 's':
       separate_backgd = 1;
@@ -266,14 +266,14 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Reading alignment(s) ...\n");
   for (i = 0, j = 0; i < lst_size(msa_name_list); i++) {
     String *name = lst_get_ptr(msa_name_list, i);
-    FILE *mfile = fopen_fname(name->chars, "r");
+    FILE *mfile = phast_fopen(name->chars, "r");
     msa_format_type temp_format;
     MSA *msa;
     if (msa_format == UNKNOWN_FORMAT)
       temp_format = msa_format_for_content(mfile, 1);
     else temp_format = msa_format;
     msa = msa_new_from_file_define_format(mfile, temp_format, NULL);
-    fclose(mfile);
+    phast_fclose(mfile);
     if (nseqs == -1) nseqs = msa->nseqs;
     if (!meme_mode &&
         (msa->length - msa_num_gapped_cols(msa, STRIP_ANY_GAPS, -1, -1) < 300 ||
@@ -385,7 +385,7 @@ int main(int argc, char *argv[]) {
       String *fname = str_dup(output_prefix);
       str_append_int(fname, i+1);
       str_append_charstr(fname, ".html");
-      mtf_print_html(fopen_fname(fname->chars, "w+"), m);
+      mtf_print_html(phast_fopen(fname->chars, "w+"), m);
       str_free(fname);
     }
 
@@ -395,14 +395,14 @@ int main(int argc, char *argv[]) {
   if (do_html) {
     String *fname = str_dup(output_prefix);
     str_append_charstr(fname, "index.html");
-    mtf_print_summary_html(fopen_fname(fname->chars, "w+"), 
+    mtf_print_summary_html(phast_fopen(fname->chars, "w+"), 
                            motifs, output_prefix);
     str_free(fname);
   }
   if (do_bed) {
     String *fname = str_dup(output_prefix);
     str_append_charstr(fname, "bed");
-    gff_print_bed(fopen_fname(fname->chars, "w+"),
+    gff_print_bed(phast_fopen(fname->chars, "w+"),
                   bedfeats, FALSE);
     str_free(fname);
   }

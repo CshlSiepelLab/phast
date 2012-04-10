@@ -124,7 +124,7 @@ int main(int argc, char* argv[]) {
       model_fname_list = get_arg_list(optarg);
       break;
     case 'H':
-      hmm = hmm_new_from_file(fopen_fname(optarg, "r"));
+      hmm = hmm_new_from_file(phast_fopen(optarg, "r"));
       break;
     case 'x':
       no_cns = TRUE;
@@ -222,12 +222,11 @@ int main(int argc, char* argv[]) {
     #endif
   }
   if (extrapolate_tree_fname != NULL)
-    extrapolate_tree = tr_new_from_file(fopen_fname(extrapolate_tree_fname, "r"));
+    extrapolate_tree = tr_new_from_file(phast_fopen(extrapolate_tree_fname, "r"));
 
   /* read alignment */
   msa_fname = argv[optind];
-  if ((infile = fopen(msa_fname, "r")) == NULL) 
-    die("ERROR: cannot open alignment file %s.\n", msa_fname);
+  infile = phast_fopen(msa_fname, "r");
 
   if (msa_format == UNKNOWN_FORMAT)
     msa_format = msa_format_for_content(infile, 1);
@@ -240,7 +239,7 @@ int main(int argc, char* argv[]) {
   else
     msa = msa_new_from_file_define_format(infile, msa_format, NULL);
 
-  fclose(infile);
+  phast_fclose(infile);
 
   if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
   msa_remove_N_from_alph(msa);
@@ -288,7 +287,7 @@ int main(int argc, char* argv[]) {
       sprintf(tmpstr, "%s/exoniphy/mammals/%s", data_path->chars, default_hmm);
     #endif
     if (!quiet) fprintf(stderr, "Reading default HMM from %s...\n", tmpstr);
-    hmm = hmm_new_from_file(fopen_fname(tmpstr, "r"));
+    hmm = hmm_new_from_file(phast_fopen(tmpstr, "r"));
     reflect_hmm = TRUE;
     if (bias == NEGINFTY) bias = -3.33;
   }
@@ -313,7 +312,7 @@ int main(int argc, char* argv[]) {
       sprintf(tmpstr, "%s/exoniphy/%s-gc%d", data_path->chars, 
               no_cns ? "models-no-cns" : "models", gc_cat);
     #endif
-    str_slurp(fname_str, fopen_fname(tmpstr, "r"));
+    str_slurp(fname_str, phast_fopen(tmpstr, "r"));
     str_split(fname_str, NULL, model_fname_list);
     if (!quiet) 
       #if defined(__MINGW32__)
@@ -343,7 +342,7 @@ int main(int argc, char* argv[]) {
               no_cns ? "default-no-cns.cm" : "default.cm");
     #endif
     if (!quiet) fprintf(stderr, "Reading default category map from %s...\n", tmpstr);
-    if ((cm = cm_read(fopen_fname(tmpstr, "r"))) == NULL)
+    if ((cm = cm_read(phast_fopen(tmpstr, "r"))) == NULL)
       die("Unable to open default category map %s...\n", tmpstr);
 
     if (no_gaps_str == NULL) 
@@ -366,10 +365,10 @@ int main(int argc, char* argv[]) {
     List *pruned_names = lst_new_ptr(msa->nseqs);
     int old_nnodes;
 
-    F = fopen_fname(fname->chars, "r");
+    F = phast_fopen(fname->chars, "r");
     mod[i] = tm_new_from_file(F, 1);
     mod[i]->use_conditionals = 1;
-    fclose(F);
+    phast_fclose(F);
 
     old_nnodes = mod[i]->tree->nnodes;
     /* extrapolate tree and/or prune away extra species */
@@ -467,7 +466,7 @@ int main(int argc, char* argv[]) {
     if (sens_spec_fname_root != NULL) { 
       char tmpstr[STR_MED_LEN];
       sprintf(tmpstr, "%s.v%d.gff", sens_spec_fname_root, trial+1);
-      gff_print_set(fopen_fname(tmpstr, "w+"), predictions);      
+      gff_print_set(phast_fopen(tmpstr, "w+"), predictions);      
       if (trial < ntrials - 1)     /* also set up for next iteration */
         phmm_add_bias(phmm, backgd_types, (SCALE_RANGE_MAX - SCALE_RANGE_MIN)/
                       (NSENS_SPEC_TRIES-1));

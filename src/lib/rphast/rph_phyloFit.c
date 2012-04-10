@@ -154,7 +154,7 @@ SEXP rph_phyloFit(SEXP msaP,
 
   if (logFileP != R_NilValue) {
     if (IS_CHARACTER(logFileP)) 
-      pf->logf = fopen_fname(CHARACTER_VALUE(logFileP), "w+");
+      pf->logf = phast_fopen(CHARACTER_VALUE(logFileP), "w+");
     else if (IS_LOGICAL(logFileP) &&
 	     LOGICAL_VALUE(logFileP)) {
       pf->logf = stdout;
@@ -174,7 +174,7 @@ SEXP rph_phyloFit(SEXP msaP,
 
  rph_phyloFit_end:
   if (pf->logf != NULL && pf->logf != stdout && pf->logf != stderr)
-    fclose(pf->logf);
+    phast_fclose(pf->logf);
   PutRNGstate();
   if (die_message != NULL) die(die_message);
   if (numProtect > 0) 

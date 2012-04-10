@@ -173,7 +173,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
     
     /* if appropriate, dump intermediate version of model for inspection */
     if (mod->order >= 2) {
-      F = fopen(tmp_mod_fname, "w+"); tm_print(F, mod); fclose(F);
+      F = phast_fopen(tmp_mod_fname, "w+"); tm_print(F, mod); phast_fclose(F);
     }
 
     /* obtain posterior probabilities and likelihood */

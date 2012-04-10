@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
       break;
     case 'e':
       l = get_arg_list(optarg);
-      embed_mod = tm_new_from_file(fopen_fname(((String*)lst_get_ptr(l, 0))->chars, "r"), 1);
+      embed_mod = tm_new_from_file(phast_fopen(((String*)lst_get_ptr(l, 0))->chars, "r"), 1);
       embed_len = get_arg_dbl_bounds(((String*)lst_get_ptr(l, 1))->chars, 1, INFTY);
       break;
     case 's':
@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
   if (optind == argc - 1)       /* single tree model */
     hmm = hmm_create_trivial();
   else {
-    hmm = hmm_new_from_file(fopen_fname(argv[optind], "r"));
+    hmm = hmm_new_from_file(phast_fopen(argv[optind], "r"));
     optind++;
   }
 
@@ -94,11 +94,11 @@ int main(int argc, char *argv[]) {
 
   mods = smalloc(hmm->nstates * sizeof(void*));
   for (i = 0; i < hmm->nstates; i++) {
-    F = fopen_fname(argv[optind+i], "r");
+    F = phast_fopen(argv[optind+i], "r");
     mods[i] = tm_new_from_file(F, 1);
     if (mods[i]->nratecats != 1)
       die("ERROR: rate variation currently not supported.\n");
-    fclose(F);
+    phast_fclose(F);
   }  
 
   /* generate alignment and labels */
@@ -126,9 +126,9 @@ int main(int argc, char *argv[]) {
     sfree(path_to_cat);
     sfree(reverse_compl);
 
-    F = fopen_fname(features_fname, "w+");
+    F = phast_fopen(features_fname, "w+");
     gff_print_set(F, feats);
-    fclose(F);
+    phast_fclose(F);
   }
 
   /* add embedded element, if necessary */

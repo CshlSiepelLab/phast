@@ -29,6 +29,9 @@ struct mem_list_type {
   struct protected_object_struct *protected_objects;
   int num_protected_objects;
   int protected_objects_alloc_len;
+  FILE **open_files;
+  int num_open_files;
+  int open_files_alloc_len;
 };
 
 static MemList *memlist=NULL;
@@ -37,8 +40,10 @@ static MemList *big_memlist = NULL;
 static int num_memlist=0;
 #endif
 
+#define FILE_LIST_SIZE 100
 #define MEM_LIST_START_SIZE 100000
 #define MEM_LIST_INCREASE_SIZE 1000000
+
 
 /*
   RPHAST memory handler.  Basic idea (see next section for usage rules):
@@ -123,6 +128,9 @@ void phast_init_memlist() {
   memlist->protected_objects = NULL;
   memlist->num_protected_objects=0;
   memlist->protected_objects_alloc_len=0;
+  memlist->open_files = NULL;
+  memlist->num_open_files = 0;
+  memlist->open_files_alloc_len = 0;
 }
 
 void phast_new_mem_handler() {
@@ -280,6 +288,14 @@ void phast_free_all() {
       memlist->mem_available_list = NULL;
     }
     memlist->mem_available_list_len = memlist->mem_available_alloc_len = 0;
+    for (i=0; i < memlist->num_open_files; i++) {
+      if (memlist->open_files[i] != NULL) 
+	fclose(memlist->open_files[i]);
+    }
+    if (memlist->open_files != NULL)
+      free(memlist->open_files);
+    memlist->num_open_files = 0;
+    memlist->open_files_alloc_len = 0;
   }
   num_memlist--;
   if (num_memlist > 0)
@@ -310,6 +326,40 @@ void set_static_var(void **ptr) {
 #endif
 }
 
+
+
+/* This is not very efficient but there should never be a huge number
+   of open files
+ */
+void register_open_file(FILE *F) {
+#ifdef USE_PHAST_MEMORY_HANDLER
+  int i;
+  for (i=0; i < memlist->num_open_files; i++)
+    if (memlist->open_files[i]==NULL) {
+      memlist->open_files[i] = F;
+      return;
+    }
+  if (memlist->open_files_alloc_len <= memlist->num_open_files) {
+    if (memlist->open_files == NULL) 
+      memlist->open_files = malloc(FILE_LIST_SIZE*sizeof(FILE*));
+    else memlist->open_files = realloc(memlist->open_files, 
+				       (memlist->open_files_alloc_len + FILE_LIST_SIZE)*sizeof(FILE*));
+  }
+  memlist->open_files[memlist->num_open_files++] = F;
+#endif
+}
+
+void unregister_open_file(FILE *F) {
+#ifdef USE_PHAST_MEMORY_HANDLER
+  int i;
+  for (i=0; i < memlist->num_open_files; i++)
+    if (memlist->open_files[i] == F) {
+      memlist->open_files[i] = NULL;
+      return;
+    }
+  die("Memory handler error: could not un-register file\n");
+#endif
+}
 
 /* without mem handler versions of smalloc, srealloc, sfree defined in misc.h */
 #ifdef USE_PHAST_MEMORY_HANDLER  

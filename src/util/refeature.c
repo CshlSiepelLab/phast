@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
       include = get_arg_list(optarg);
       break;
     case 'l':
-      groups_f = fopen_fname(optarg, "r");
+      groups_f = phast_fopen(optarg, "r");
       break;
     case 'g':
       groupby = optarg;
@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
       output_format = BED;
       break;
     case 'd':
-      discards_f = fopen_fname(optarg, "w+");
+      discards_f = phast_fopen(optarg, "w+");
       break;
     case 's':
       sort = TRUE;
@@ -192,7 +192,7 @@ int main(int argc, char *argv[]) {
 
   set_seed(-1);
 
-  gff = gff_read_set(fopen_fname(argv[optind], "r"));
+  gff = gff_read_set(phast_fopen(argv[optind], "r"));
 
   if (lst_size(gff->features) == 0) exit(0); /* helps avoid unexpected
                                                 behavior below */

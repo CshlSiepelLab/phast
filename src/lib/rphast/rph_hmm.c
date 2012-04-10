@@ -90,9 +90,9 @@ SEXP rph_hmm_new(SEXP matrixP, SEXP eqFreqP, SEXP beginFreqP,
 
 SEXP rph_hmm_new_from_file(SEXP filenameP) {
   HMM *hmm;
-  FILE *f = fopen_fname(CHARACTER_VALUE(filenameP), "r");
+  FILE *f = phast_fopen(CHARACTER_VALUE(filenameP), "r");
   hmm = hmm_new_from_file(f);
-  fclose(f);
+  phast_fclose(f);
   return rph_hmm_new_extptr(hmm);
 }
 
@@ -105,11 +105,11 @@ SEXP rph_hmm_print(SEXP hmmP, SEXP filenameP, SEXP appendP) {
     if (LOGICAL_VALUE(appendP))
       mode="a";
     else mode="w";
-    f = fopen_fname(CHARACTER_VALUE(filenameP), mode);
+    f = phast_fopen(CHARACTER_VALUE(filenameP), mode);
   }
   hmm = (HMM*)EXTPTR_PTR(hmmP);
   hmm_print(f, hmm);
-  if (f != stdout) fclose(f);
+  if (f != stdout) phast_fclose(f);
   return R_NilValue;
 }
   

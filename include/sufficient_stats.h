@@ -81,7 +81,7 @@ typedef struct {
      int tuple_size = 3; 
 
      //Read multiple alignment fasta file
-     MSA *msa = msa_new_from_file(fopen_fname(filename, "r"), alphabet); 
+     MSA *msa = msa_new_from_file(phast_fopen(filename, "r"), alphabet); 
 
      //Generate Sufficient Statistics
      //Tuple Size of 3, Preserve order

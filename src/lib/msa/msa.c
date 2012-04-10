@@ -383,9 +383,9 @@ void msa_print(FILE *F, MSA *msa, msa_format_type format, int pretty_print) {
 
 void msa_print_to_file(const char *filename, MSA *msa, msa_format_type format, 
 		       int pretty_print) {
-  FILE *outfile = fopen_fname(filename, "w");
+  FILE *outfile = phast_fopen(filename, "w");
   msa_print(outfile, msa, format, pretty_print);
-  fclose(outfile);
+  phast_fclose(outfile);
 }
 
 
@@ -2264,8 +2264,8 @@ MSA *msa_concat_from_files(List *fnames,
 
   for (i = 0; i < lst_size(fnames); i++) {
     String *fname = lst_get_ptr(fnames, i);
-    if ((F = fopen(fname->chars, "r")) == NULL || 
-        (source_msa = msa_new_from_file(F, alphabet)) == NULL) 
+    F = phast_fopen(fname->chars, "r"); 
+    if ((source_msa = msa_new_from_file(F, alphabet)) == NULL) 
       die("ERROR: cannot read MSA from %s.\n", fname->chars);
 
     if (source_msa->seqs == NULL) {
@@ -2316,7 +2316,7 @@ MSA *msa_concat_from_files(List *fnames,
     msa_concatenate(retval, source_msa);
 
     msa_free(source_msa);
-    fclose(F);
+    phast_fclose(F);
   }
 
   hsh_free(name_hash);

@@ -425,7 +425,7 @@ int opt_bfgs(double (*f)(Vector*, void*), Vector *params,
   bfgs_term = mat_new(n, n);
 
 #ifdef DEBUG
-  debugf = fopen("opt.debug", "w+");
+  debugf = fopen_name("opt.debug", "w+");
 #endif
 
   fval = f(params, data);       /* Calculate starting function value

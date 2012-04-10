@@ -441,7 +441,7 @@ MSA *ss_aggregate_from_files(List *fnames,
     checkInterrupt();
     fprintf(stderr, "Reading alignment from %s ...\n", fname->chars);
 
-    F = fopen_fname(fname->chars, "r");
+    F = phast_fopen(fname->chars, "r");
     format = msa_format_for_content(F, 1);
     if (format == MAF)
       source_msa = maf_read_cats(F, NULL, tuple_size, NULL, NULL, NULL, cycle_size, 
@@ -450,7 +450,7 @@ MSA *ss_aggregate_from_files(List *fnames,
                                    overlapping blocks */
     else 
       source_msa = msa_new_from_file_define_format(F, format, NULL);
-    fclose(F);
+    phast_fclose(F);
 
     if (source_msa->seqs == NULL && 
         source_msa->ss->tuple_size != tuple_size) 
@@ -563,8 +563,7 @@ void msa_read_AXT(MSA *msa, List *axt_fnames) {
     msa->seqs[i+1][msa->length] = '\0';
     strcpy(msa->names[i+1], axtfname->chars); /* ?? */
 
-    if ((F = fopen(axtfname->chars, "r")) == NULL) 
-      die("ERROR: unable to open %s\n", axtfname->chars);
+    F = phast_fopen(axtfname->chars, "r");
 
     line_no=0;
     /* FIXME: need to deal with strand!  Also, soft masking ... */
