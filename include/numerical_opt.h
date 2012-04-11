@@ -84,11 +84,6 @@ void opt_derivs_1d(double *deriv, double *deriv2, double x, double fx,
                                             double ub),
 		   double deriv_epsilon);
 
-int opt_bfgs_1d(double (*f)(double, void*), double (*x), void *data, 
-                  double *fx, int sigfigs, double lb, double ub, FILE *logf, 
-                  double (*compute_deriv)(double x, void *data, double lb, 
-                                          double ub));
-
 void opt_lnsrch_1d(double direction, double xold, double fold, double *x, 
                    double *fx, double deriv, double (*func)(double, void*), 
                    void *data, int *nevals, double *final_lambda, FILE *logf);
