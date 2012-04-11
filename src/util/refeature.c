@@ -15,6 +15,7 @@
 #include <bed.h>
 #include <genepred.h>
 #include <hashtable.h>
+#include <wig.h>
 
 /* to do: add an option to insert features for splice sites or
    start/stop coords at exon boundaries ('addsignals'); */
@@ -91,8 +92,10 @@ OPTIONS:\n\
         necessary).  Warning: does not correctly handle case of splice\n\
         site in middle of start or stop codon.\n\
 \n\
-    --output, -o gff|bed|genepred\n\
-        Output format (default gff).\n\
+    --output, -o gff|bed|genepred|wig\n\
+        Output format (default gff).  Note that wig output is fixedStep\n\
+        can only be used if all elements have a score and are of equal\n\
+        length.\n\
 \n\
     --simplebed, -b\n\
         (for use with --output bed) Create a separate line for each\n\
@@ -115,7 +118,7 @@ int main(int argc, char *argv[]) {
   char *groupby = "transcript_id", *exongroup_tag = NULL;
   int unique = FALSE, sort = FALSE, simplebed = FALSE, fix_start_stop = FALSE,
     add_utrs = FALSE, add_introns = FALSE, add_signals = FALSE;
-  enum {GFF, BED, GENEPRED} output_format = GFF;
+  enum {GFF, BED, GENEPRED, WIG} output_format = GFF;
   FILE *discards_f = NULL, *groups_f = NULL;
 
   struct option long_opts[] = {
@@ -141,6 +144,7 @@ int main(int argc, char *argv[]) {
     case 'o':
       if (!strcmp("bed", optarg)) output_format = BED;
       else if (!strcmp("genepred", optarg)) output_format = GENEPRED;
+      else if (!strcmp("wig", optarg)) output_format = WIG;
       else if (strcmp("gff", optarg)) die("ERROR: bad output format.\n");
       break;
     case 'i':
@@ -234,8 +238,11 @@ int main(int argc, char *argv[]) {
     gff_print_bed(stdout, gff, !simplebed);
   else if (output_format == GENEPRED)
     gff_print_genepred(stdout, gff);
+  else if (output_format == WIG)
+    wig_print(stdout, gff);
   else 
     gff_print_set(stdout, gff);
+  gff_free_set(gff);
   
   return 0;
 }

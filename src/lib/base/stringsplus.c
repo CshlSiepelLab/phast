@@ -179,7 +179,7 @@ int str_peek_next_line(String *s, FILE *F) {
 
 
 
-/* Peek at next line in file */
+/* Recursively peek at line L in file */
 int str_peek_line(String *s, FILE *F, int L) {
   char buffer[BUFFERSIZE];
   int stop = 0, abort = 0, i=0, buffer_used=0;
