@@ -860,16 +860,18 @@ SEXP rph_msa_strip_gaps(SEXP msaP, SEXP stripModeP, SEXP allOrAnyGaps) {
 }
 
 
-SEXP rph_msa_postprob(SEXP msaP, SEXP tmP) {
+SEXP rph_msa_postprob(SEXP msaP, SEXP tmP, SEXP doEverySiteP) {
   MSA *msa = (MSA*)EXTPTR_PTR(msaP);
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   ListOfLists *result = lol_new(1);
+  int doEverySite = LOGICAL_VALUE(doEverySiteP);
   if (msa->ss == NULL) {
     msa_register_protect(msa);
-    ss_from_msas(msa, tm->order+1, 0, NULL, NULL, NULL, -1, 0);
+    ss_from_msas(msa, tm->order+1, doEverySite, NULL, NULL, NULL, -1, 0);
   }
   tm_register_protect(tm);
-  print_post_prob_stats(tm, msa, NULL, 1, 0, 0, 0, -1, 1, result);
+  print_post_prob_stats(tm, msa, NULL, 1, 0, 0, 0, doEverySite,
+			-1, 1, result);
   return rph_listOfLists_to_SEXP(result);
 }
 
@@ -883,7 +885,7 @@ SEXP rph_msa_exp_subs(SEXP msaP, SEXP tmP) {
     ss_from_msas(msa, tm->order+1, 0, NULL, NULL, NULL, -1, 0);
   }
   tm_register_protect(tm);
-  print_post_prob_stats(tm, msa, NULL, 0, 1, 0, 0, -1, 1, result);
+  print_post_prob_stats(tm, msa, NULL, 0, 1, 0, 0, 0, -1, 1, result);
   return rph_listOfLists_to_SEXP(result);
 }
 
@@ -897,7 +899,7 @@ SEXP rph_msa_exp_tot_subs(SEXP msaP, SEXP tmP) {
     msa_protect(msa);
   }
   tm_register_protect(tm);
-  print_post_prob_stats(tm, msa, NULL, 0, 0, 1, 0, -1, 1, result);
+  print_post_prob_stats(tm, msa, NULL, 0, 0, 1, 0, 0, -1, 1, result);
   return rph_listOfLists_to_SEXP(result);
 }
 
@@ -910,7 +912,7 @@ SEXP rph_msa_exp_col_subs(SEXP msaP, SEXP tmP) {
     msa_protect(msa);
   }
   tm_register_protect(tm);
-  print_post_prob_stats(tm, msa, NULL, 0, 0, 0, 1, -1, 1, result);
+  print_post_prob_stats(tm, msa, NULL, 0, 0, 0, 1, 0, -1, 1, result);
   return rph_listOfLists_to_SEXP(result);
 }
 

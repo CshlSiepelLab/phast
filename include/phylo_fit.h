@@ -72,6 +72,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
                            int do_bases, int do_expected_nsubst, 
                            int do_expected_nsubst_tot, 
 			   int do_expected_nsubst_col,
+			   int do_every_site,
 			   int cat, int quiet,
 			   ListOfLists *results);
 #define BRANCH_TYPE 0

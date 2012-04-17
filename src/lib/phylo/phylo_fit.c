@@ -172,6 +172,22 @@ char **get_state_names(TreeModel *mod, const char *prefix, int *len) {
   return rv;
 }
 
+
+char **get_site_names(MSA *msa, int *len) {
+  char **rv;
+  char tempch[100];
+  int i;
+  *len = (int)msa->length;
+  rv = smalloc((*len) * sizeof(char*));
+  for (i=0; i < *len; i++) {
+    sprintf(tempch, "%i", i+1);
+    rv[i] = smalloc((strlen(tempch)+1)*sizeof(char));
+    strcpy(rv[i], tempch);
+  }
+  return rv;
+}
+
+
 char **get_tuple_names(TreeModel *mod, MSA *msa, int cat, int *len) {
   int tup, idx=0;
   char **rv;
@@ -205,6 +221,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
                            int do_bases, int do_expected_nsubst, 
                            int do_expected_nsubst_tot, 
 			   int do_expected_nsubst_col,
+			   int do_every_site,
 			   int cat, int quiet,
 			   ListOfLists *results) {
   String *fname = str_new(STR_MED_LEN);
@@ -215,6 +232,11 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
   char coltupstr[msa->nseqs+1];
   int ratecat;
   char ***dimnames;
+
+  if (msa->ss == NULL) 
+    die("Error: print_post_prob_stats needs sufficient statistics");
+  if (do_every_site && msa->ss->tuple_idx == NULL)
+    die("Error in print_post_prob_stats: do_every_site option requires ordered sufficient statistics");
 
   tuplestr[mod->order+1] = '\0';
   coltupstr[msa->nseqs] = '\0';
@@ -245,7 +267,9 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
       dimnames[0] = get_ratecat_names(mod, &dimsize[0]);
       dimnames[1] = get_node_names(mod, 0, 1, 0, &dimsize[1]);
       dimnames[2] = get_state_names(mod, NULL, &dimsize[2]);
-      dimnames[3] = get_tuple_names(mod, msa, cat, &dimsize[3]);
+      if (do_every_site)
+	dimnames[3] = get_site_names(msa, &dimsize[3]);
+      else dimnames[3] = get_tuple_names(mod, msa, cat, &dimsize[3]);
 
       arr = (double****)alloc_n_dimensional_array(4, dimsize, sizeof(double));
       for (ratecat=0; ratecat < mod->nratecats; ratecat++) {
@@ -253,12 +277,20 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 	for (node = 0; node < mod->tree->nnodes; node++) {
 	  n = (TreeNode*)lst_get_ptr(mod->tree->nodes, node);
 	  if (n->lchild == NULL || n->rchild == NULL) continue;
-	  for (state = 0 ; state < mod->rate_matrix->size; state++) {
-	    int tup_idx=0;
-	    for (tup=0; tup < msa->ss->ntuples; tup++) {
-	      if ((cat >=0 && msa->ss->cat_counts[cat][tup] == 0) ||
-		  msa->ss->counts[tup] == 0) continue;
-	      arr[ratecat][node_idx][state][tup_idx++] = mod->tree_posteriors->base_probs[ratecat][state][n->id][tup];
+	  if (do_every_site) {
+	    for (i=0; i < msa->length; i++) {
+	      for (state=0; state < mod->rate_matrix->size; state++) {
+		arr[ratecat][node_idx][state][i] = mod->tree_posteriors->base_probs[ratecat][state][n->id][msa->ss->tuple_idx[i]];
+	      }
+	    }
+	  } else {
+	    for (state = 0 ; state < mod->rate_matrix->size; state++) {
+	      int tup_idx=0;
+	      for (tup=0; tup < msa->ss->ntuples; tup++) {
+		if ((cat >=0 && msa->ss->cat_counts[cat][tup] == 0) ||
+		    msa->ss->counts[tup] == 0) continue;
+		arr[ratecat][node_idx][state][tup_idx++] = mod->tree_posteriors->base_probs[ratecat][state][n->id][tup];
+	      }
 	    }
 	  }
 	  node_idx++;
@@ -1175,7 +1207,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
 	print_post_prob_stats(mod, msa, pf->output_fname_root, 
 			      pf->do_bases, pf->do_expected_nsubst, 
 			      pf->do_expected_nsubst_tot, 
-			      pf->do_expected_nsubst_col,
+			      pf->do_expected_nsubst_col, 0,
 			      cat, quiet, NULL);
       }
 
