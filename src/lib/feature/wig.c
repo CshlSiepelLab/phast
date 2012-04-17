@@ -184,7 +184,7 @@ void wig_print(FILE *outfile, GFF_Set *set) {
 	else fprintf(outfile, "\n");
 	
       }
-      fprintf(outfile, "%f\n", feat->score);
+      fprintf(outfile, "%g\n", feat->score);
       lastStart = feat->start;
     }
   }
