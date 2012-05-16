@@ -47,9 +47,10 @@ GFF_Set* gff_read_set(FILE *F) {
 
 
   lineno=0;
-  while (str_peek_line(line, F, ++lineno) != EOF) {
+  while (str_peek_next_line(line, F) != EOF) {
+    lineno++;
     str_double_trim(line);
-    if (line->length == 0) continue;
+
     if (str_starts_with_charstr(line, "##")) {
       if (spec_comment_re == NULL)
 	spec_comment_re = str_re_new("^[[:space:]]*##[[:space:]]*([^[:space:]]+)[[:space:]]+([^[:space:]]+)([[:space:]]+([^[:space:]]+))?");
@@ -71,45 +72,47 @@ GFF_Set* gff_read_set(FILE *F) {
       }
       lst_free_strings(substrs);
     }
-    else if (str_starts_with_charstr(line, "#")) continue;
-    else {
-      // first non-comment line; get format and get out of this loop
-      /* check to see if the file's a BED or a
+    if (line->length == 0 || str_starts_with_charstr(line, "#")) {
+      str_readline(line, F);
+      continue;
+    }
+
+    // first non-comment line; get format and get out of this loop
+    /* check to see if the file's a BED or a
        genepred or a wig.  If there are 3-8 or 12 columns, and if the 2nd and
        3rd columns are integers, then we'll try reading it as a BED.
        If >=10 columns and cols 4-7 are integers, we'll try reading it
        as a genepred.  If starts with fixedStep or variableStep, check
        for other wig arguments and try reading as wig.
-      */
-      str_split(line, "\t", l);
-      if (((lst_size(l) >= 3 && lst_size(l) <= 8) || lst_size(l)==12) &&
-	  str_as_int(lst_get_ptr(l, 1), &start)==0 &&
-	  str_as_int(lst_get_ptr(l, 2), &end)==0) {
-	gff_read_from_bed(set, F);
-      } else if ((lst_size(l) >= 10 && 
-		  str_as_int(lst_get_ptr(l, 3), &start) == 0 && 
-		  str_as_int(lst_get_ptr(l, 4), &end) == 0 &&
-		  str_as_int(lst_get_ptr(l, 5), &start) == 0 &&
-		  str_as_int(lst_get_ptr(l, 6), &end) == 0) ||
-		 (lst_size(l) >= 11 &&  //this is genepred with bin column
-		  str_as_int(lst_get_ptr(l, 0), &start) == 0 &&
-		  str_as_int(lst_get_ptr(l, 4), &start) == 0 &&
-		  str_as_int(lst_get_ptr(l, 5), &start) == 0 &&
-		  str_as_int(lst_get_ptr(l, 6), &start) == 0 &&
-		  str_as_int(lst_get_ptr(l, 7), &start) == 0)) {
-	isGFF=FALSE;
-        gff_read_from_genepred(set, F);
-        break;
-      }
-      lst_free_strings(l);
-      if (isGFF && wig_parse_header(line, NULL, NULL, NULL, NULL, NULL)) {
-	gff_free_set(set);
-	set = gff_read_wig(F);
-	isGFF=FALSE;
-      }
-      
-      break;  //get out of loop since we have seen a non-comment line
+    */
+    str_split(line, "\t", l);
+    if (((lst_size(l) >= 3 && lst_size(l) <= 8) || lst_size(l)==12) &&
+	str_as_int(lst_get_ptr(l, 1), &start)==0 &&
+	str_as_int(lst_get_ptr(l, 2), &end)==0) {
+      gff_read_from_bed(set, F);
+    } else if ((lst_size(l) >= 10 && 
+		str_as_int(lst_get_ptr(l, 3), &start) == 0 && 
+		str_as_int(lst_get_ptr(l, 4), &end) == 0 &&
+		str_as_int(lst_get_ptr(l, 5), &start) == 0 &&
+		str_as_int(lst_get_ptr(l, 6), &end) == 0) ||
+	       (lst_size(l) >= 11 &&  //this is genepred with bin column
+		str_as_int(lst_get_ptr(l, 0), &start) == 0 &&
+		str_as_int(lst_get_ptr(l, 4), &start) == 0 &&
+		str_as_int(lst_get_ptr(l, 5), &start) == 0 &&
+		str_as_int(lst_get_ptr(l, 6), &start) == 0 &&
+		str_as_int(lst_get_ptr(l, 7), &start) == 0)) {
+      isGFF=FALSE;
+      gff_read_from_genepred(set, F);
+      break;
     }
+    lst_free_strings(l);
+    if (isGFF && wig_parse_header(line, NULL, NULL, NULL, NULL, NULL)) {
+      gff_free_set(set);
+      set = gff_read_wig(F);
+      isGFF=FALSE;
+    }
+    lineno--;
+    break;  //get out of loop since we have seen a non-comment line
   }
 
   if (isGFF) {
