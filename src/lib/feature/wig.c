@@ -147,11 +147,12 @@ GFF_Set *gff_read_wig(FILE *F) {
 }
 
 
-/* prints wig in fixedStep format*/
+/* prints wig in fixedStep format.  
+   Side-effect: groups features by seqname and sorts */
 void wig_print(FILE *outfile, GFF_Set *set) {
   GFF_FeatureGroup *group;
   GFF_Feature *feat;
-  int i, j, span=-1, currstep, lastStart;
+  int i, j, span=-1, step=-1, lastStart;
   gff_group_by_seqname(set);
   gff_sort(set);
   
@@ -159,6 +160,7 @@ void wig_print(FILE *outfile, GFF_Set *set) {
      to be the same across file */
   for (i=0; i < lst_size(set->groups); i++) {
     group = lst_get_ptr(set->groups, i);
+    lastStart = -1;
     for (j=0; j < lst_size(group->features); j++) {
       feat = lst_get_ptr(group->features, j);
       if (feat->score_is_null) 
@@ -166,6 +168,11 @@ void wig_print(FILE *outfile, GFF_Set *set) {
       if (span == -1) span = feat->end - feat->start + 1;
       else if (feat->end - feat->start + 1 != span) 
 	die("Cannot print this feature as a fixedStep wig due to variable span\n (all elements should have same length)");
+      if (j != 0) {
+	if (step == -1 || feat->start - lastStart < step)
+	  step = feat->start - lastStart;
+      }
+      lastStart = feat->start;
     }
   }
   
@@ -173,13 +180,9 @@ void wig_print(FILE *outfile, GFF_Set *set) {
     group = lst_get_ptr(set->groups, i);
     for (j=0; j < lst_size(group->features); j++) {
       feat = lst_get_ptr(group->features, j);
-      if (j==0 || lastStart + currstep != feat->start) {
-	if (j == lst_size(group->features)-1) currstep = 1;
-	else {
-	  currstep = ((GFF_Feature*)lst_get_ptr(group->features, j+1))->start - feat->start;
-	}
-	fprintf(outfile, "fixedStep chrom=%s start=%i step=%i", 
-		feat->seqname->chars, feat->start, currstep);
+      if (j==0 || lastStart + step != feat->start) {
+	fprintf(outfile, "fixedStep chrom=%s start=%i step=%i",
+		feat->seqname->chars, feat->start, step);
 	if (span != 1) fprintf(outfile, " span=%i\n", span);
 	else fprintf(outfile, "\n");
 	

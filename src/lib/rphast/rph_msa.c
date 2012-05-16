@@ -479,7 +479,7 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
      whereas the sufficient statistics only the part of the alignment
      that was requested.  Remove the sequences to prevent downstream
      phast functions from working with them */
-  if (msa->ss != NULL && gff != NULL) 
+  if (msa->ss != NULL) 
     msa_free_seqs(msa);
   
   /* This should probably be somewhere in the main code, but I'm not 

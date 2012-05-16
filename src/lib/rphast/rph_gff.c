@@ -450,12 +450,12 @@ SEXP rph_gff_one_attribute(SEXP gffP, SEXP tagP) {
   ListOfLists *lol;
   List *l1, *l2;
   int numtag, numval, i, j, k, resultLen, maxResultLen=10;
-  String *currStr, *tag;
+  String *currStr, *tag, *currTag;
   char **result;
   SEXP rv;
   SEXP rph_listOfLists_to_SEXP(ListOfLists *lol);
 
-
+  
   if (lst_size(gff->features) == 0) return R_NilValue;
   gff_register_protect(gff);
   result = smalloc(maxResultLen*sizeof(char*));    
@@ -472,15 +472,19 @@ SEXP rph_gff_one_attribute(SEXP gffP, SEXP tagP) {
     for (j=0; j < numtag; j++) {
       currStr = (String*)lst_get_ptr(l1, j);
       str_double_trim(currStr);
-
-      //split into tag val val ... by whitespace unless enclosed in quotes
-      numval =  str_split_with_quotes(currStr, NULL, l2);
-      if (numval > 1) {
-	currStr = (String*)lst_get_ptr(l2, 0);
-	str_double_trim(currStr);
-	if (str_equals(tag, currStr)) {  //tag matches target, add all values to list
-	  for (k=1; k < numval; k++) {
-	    currStr = (String*)lst_get_ptr(l2, k);
+      
+      //first try gff version 3, see if we have tag=val format
+      numval = str_split_with_quotes(currStr, "=", l2);
+      if (numval == 2) {
+	currTag = (String*)lst_get_ptr(l2, 0);
+	str_double_trim(currTag);
+	if (str_equals(tag, currTag)) {  // tag matches target, add all values to list
+	  currStr = str_new_charstr(((String*)lst_get_ptr(l2, 1))->chars);
+	  lst_free_strings(l2);
+	  numval = str_split_with_quotes(currStr, ",", l2);
+	  str_free(currStr);
+	  for (k=0; k < numval; k++) {
+	    currStr = lst_get_ptr(l2, k);
 	    str_double_trim(currStr);
 	    str_remove_quotes(currStr);
 	    if (resultLen > maxResultLen) {
@@ -490,6 +494,29 @@ SEXP rph_gff_one_attribute(SEXP gffP, SEXP tagP) {
 	    result[resultLen++] = copy_charstr(currStr->chars);
 	  }
 	}
+      } else {
+	lst_free_strings(l2);
+	
+	//gff version 2
+	//split into tag val val ... by whitespace unless enclosed in quotes
+	numval =  str_split_with_quotes(currStr, NULL, l2);
+	if (numval > 1) {
+	  currStr = (String*)lst_get_ptr(l2, 0);
+	  str_double_trim(currStr);
+	  if (str_equals(tag, currStr)) {  //tag matches target, add all values to list
+	    for (k=1; k < numval; k++) {
+	      currStr = (String*)lst_get_ptr(l2, k);
+	      str_double_trim(currStr);
+	      str_remove_quotes(currStr);
+	      if (resultLen > maxResultLen) {
+		maxResultLen += 100;
+		result = srealloc(result, maxResultLen*sizeof(char*));
+	      }
+	      result[resultLen++] = copy_charstr(currStr->chars);
+	    }
+	  }
+	}
+	lst_free_strings(l2);
       }
     }
     if (resultLen == 0) 
