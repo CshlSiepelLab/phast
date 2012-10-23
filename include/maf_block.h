@@ -173,8 +173,10 @@ void mafBlock_strip_ieLines(MafBlock *block);
      Change all bases with quality score <= cutoff to N
      @param block Maf Block to threshold
      @param cutoff Threshold value; each base's quality score must be greater than cutoff, otherwise it is changed to 'N'
+     @param outfile File to output coordinates of masked bases to, if not NULL.  Coordinates will be relative to refseq, and the final column gives the name of the species which was masked.
+     @note If outfile is not null, note that masked bases which align to a gap in refseq may not be indicated in the outfile.
 */
-void mafBlock_mask_bases(MafBlock *block, int cutoff);
+void mafBlock_mask_bases(MafBlock *block, int cutoff, FILE *outfile);
 
 /** \} \name MAF block get info functions 
    \{ */

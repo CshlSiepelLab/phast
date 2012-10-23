@@ -842,18 +842,50 @@ void mafBlock_strip_ieLines(MafBlock*block) {
 }
 
 //change all bases with quality score <= cutoff to N
-void mafBlock_mask_bases(MafBlock *block, int cutoff) {
+void mafBlock_mask_bases(MafBlock *block, int cutoff, FILE *outfile) {
   MafSubBlock *sub;
-  int i, j;
+  int i, j, *coord=NULL, firstCoord, lastCoord, firstMasked;
+  char *refseq, *refseqName;
+  if (outfile != NULL) {
+    coord = smalloc(block->seqlen*sizeof(int));
+    sub = (MafSubBlock*)lst_get_ptr(block->data, 0);
+    refseq = sub->seq->chars;
+    firstCoord = sub->start;
+    refseqName = sub->src->chars;
+    for (i=0; i < block->seqlen; i++) {
+      if (refseq[i] != '-')
+	coord[i] = firstCoord++;
+      else coord[i] = -1;
+    }
+    lastCoord = firstCoord;
+  }
+
   for (i=0; i<lst_size(block->data); i++) {
     sub = (MafSubBlock*)lst_get_ptr(block->data, i);
     if (sub->quality==NULL) continue;
+    firstMasked=-1;
     for (j=0; j<block->seqlen; j++) {
-      if (sub->quality->chars[j]=='-' || sub->quality->chars[j]=='F') continue;
-      if (sub->quality->chars[j] - '0' <= cutoff)
-	sub->seq->chars[j]='N';
+      if (sub->quality->chars[j] == '-' && refseq[j]=='-') continue;
+      if ((sub->quality->chars[j] != '-' && sub->quality->chars[j] != 'F')
+	  && sub->quality->chars[j] - '0' <= cutoff) {
+	sub->seq->chars[j] = 'N';
+	if (firstMasked == -1 && refseq[j]!='-')
+	  firstMasked = j;
+      }
+      else if (firstMasked != -1) {
+	if (outfile != NULL) {
+	  fprintf(outfile, "%s\t%i\t%i\t%s\n", 
+		  refseqName, coord[firstMasked], coord[j], sub->src->chars);
+	}
+	firstMasked = -1;
+      }
     }
+    if (outfile != NULL && firstMasked != -1) 
+      fprintf(outfile, "%s\t%i\t%i\t%s\n", refseqName, coord[firstMasked], lastCoord, sub->src->chars);
   }
+  
+  if (outfile != NULL) sfree(coord);
+
 }
 
 /* mask any indels that start in this block.  An indel will be "masked" if

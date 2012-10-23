@@ -135,6 +135,14 @@ OPTIONS:\n\
         represents min(9, floor(PHRED_score/5)).  Bases without any\n\
         quality score will not be masked.\n\
 \n\
+    --masked-file, -m <filename>\n\
+       (For use with --mask-bases).  Write a file containing all the\n\
+       regions masked for low quality.  The file will be in 0-based\n\
+       coordinates relative to the refseq, with an additional column\n\
+       giving the name of the species masked.  Note that low-quality bases\n\
+       masked at alignment columns with a gap in the reference sequence\n\
+       may not be represented in the output file.\n\
+\n\
  (Other)\n\
     --strip-i-lines, -I\n\
         Remove lines in MAF starting with i.\n\
@@ -246,17 +254,18 @@ void close_outfiles(List *outfileList, Hashtable *outfileHash) {
 
 
 int main(int argc, char* argv[]) {
-  char *maf_fname = NULL, *out_root_fname = "maf_parse";
+  char *maf_fname = NULL, *out_root_fname = "maf_parse", *masked_fn = NULL;
   String *refseq = NULL, *currRefseq;
   int opt_idx, startcol = 1, endcol = -1, include = 1, splitInterval = -1;
   char c, outfilename[1000], splitFormat[100]="%s%.1i.maf", *group_tag = NULL;
   List *order_list = NULL, *seqlist_str = NULL, *cats_to_do_str=NULL, *cats_to_do=NULL;
   MafBlock *block;
-  FILE *mfile, *outfile=NULL;
+  FILE *mfile, *outfile=NULL, *masked_file=NULL;
   int useRefseq=TRUE, currLen=-1, blockIdx=0, currSize, sortWarned=0;
   int lastIdx = 0, currStart=0, by_category = FALSE, i, pretty_print = FALSE;
   int lastStart = -1, gffSearchIdx=0;
   GFF_Set *gff = NULL, *gffSub;
+  GFF_Feature *feat;
   CategoryMap *cm = NULL;
   int base_mask_cutoff = -1, stripILines=FALSE, stripELines=FALSE;//, numspec=0;
   List *outfileList=NULL;
@@ -281,6 +290,7 @@ int main(int argc, char* argv[]) {
     {"catmap", 1, 0, 'c'},
     {"by-group", 1, 0, 'P'},
     {"mask-bases", 1, 0, 'b'},
+    {"masked-file", 1, 0, 'm'},
     {"strip-i-lines", 0, 0, 'I'},
     {"strip-e-lines", 0, 0, 'E'},
     {"help", 0, 0, 'h'},
@@ -288,7 +298,7 @@ int main(int argc, char* argv[]) {
   };
 
 
-  while ((c = getopt_long(argc, argv, "s:e:l:O:r:S:d:g:c:P:b:o:pLnxEIh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "s:e:l:O:r:S:d:g:c:P:b:o:m:pLnxEIh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 's':
       startcol = get_arg_int(optarg);
@@ -337,6 +347,9 @@ int main(int argc, char* argv[]) {
       break;
     case 'b':
       base_mask_cutoff = atoi(optarg);
+      break;
+    case 'm':
+      masked_fn = optarg;
       break;
     case 'E':
       stripELines=TRUE;
@@ -400,6 +413,12 @@ int main(int argc, char* argv[]) {
       gff_filter_by_type(gff, cats_to_do, 0, NULL);
   }
 
+  if (masked_fn != NULL) {
+    if (base_mask_cutoff == -1)
+      die("ERROR: need to use --mask-bases with --masked-file");
+    masked_file = phast_fopen(masked_fn, "w");
+  }
+
   /* Check to see if --do-cats names a feature which is length 1. 
      If so, set output_format to SS ? or FASTA ? */
   
@@ -423,7 +442,7 @@ int main(int argc, char* argv[]) {
     if (stripELines)
       mafBlock_strip_eLines(block);
     if (base_mask_cutoff != -1)
-      mafBlock_mask_bases(block, base_mask_cutoff);
+      mafBlock_mask_bases(block, base_mask_cutoff, masked_file);
     //TODO: still need to implement (either here or elsewhere)
     //    if (indel_mask_cutoff != -1) 
     //      mafBlock_mask_indels(block, indel_mask_cutoff, mfile);
@@ -485,7 +504,7 @@ int main(int argc, char* argv[]) {
 	gff_sort(gffSub);
 	gff_flatten_within_groups(gffSub);
 	for (i=0; i<lst_size(gffSub->features); i++) {
-	  GFF_Feature *feat = (GFF_Feature*)lst_get_ptr(gffSub->features, i);
+	  feat = (GFF_Feature*)lst_get_ptr(gffSub->features, i);
 	  MafBlock *subBlock = mafBlock_copy(block);
 	  mafBlock_trim(subBlock, feat->start, feat->end, refseq, 0);
 	  if (by_category) 
@@ -514,6 +533,8 @@ int main(int argc, char* argv[]) {
     mafBlock_free(block);
     block = mafBlock_read_next(mfile, NULL, NULL);
   }
+
+  if (masked_file != NULL) fclose(masked_file);
 
   if (output_format == MAF) {
     if (by_category || group_tag != NULL)
