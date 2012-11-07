@@ -34,9 +34,9 @@ sub basename($) {
  ($second, $minute, $hour, $dayOfMonth, $month, $yearOffset, $dayOfWeek, $dayOfYear, $daylightSavings) = localtime();
  $year = 1900 + $yearOffset;
  $theTime = "$months[$month] $year";
- $outputname =  $dir . basename($ARGV[0]) . '.7';
- unlink($dir . basename($ARGV[0]) . '.7');
- open (OUTPUT, '>'. $dir . basename($ARGV[0]) . '.7');
+ $outputname =  $dir . basename($ARGV[0]) . '.1';
+ unlink($dir . basename($ARGV[0]) . '.1');
+ open (OUTPUT, '>'. $dir . basename($ARGV[0]) . '.1');
 sub trim($)
 {
         my $string = shift;
@@ -61,7 +61,7 @@ $header = <<END;
 .sp
 ..
 .\"
-.TH $ProgramName 7 "$theTime" "Phast Package" "Phast Program"
+.TH $ProgramName 1 "$theTime" "Phast Package" "Phast Program"
 END
 print OUTPUT $header;
 
