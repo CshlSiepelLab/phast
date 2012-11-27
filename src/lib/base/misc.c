@@ -276,7 +276,7 @@ Matrix* read_subst_mat(FILE *F, char *alph) {
 /* simple wrapper for fopen that opens specified filename or aborts
    with appropriate error message.  Saves typing in mains for
    command-line programs */
-FILE* phast_fopen(const char *fname, char *mode) {
+FILE* phast_fopen_no_exit(const char *fname, char *mode) {
   FILE *F = NULL;
   if (!strcmp(fname, "-")) {
     if (strcmp(mode, "r") == 0)
@@ -285,12 +285,17 @@ FILE* phast_fopen(const char *fname, char *mode) {
       return stdout;
     else die("ERROR: bad args to phast_fopen.\n");
   }
-  if ((F = fopen(fname, mode)) == NULL) 
-    die("ERROR: cannot open %s.\n", fname);
-  register_open_file(F);
+  F = fopen(fname, mode);
+  if (F != NULL) register_open_file(F);
   return F;
 }
 
+FILE* phast_fopen(const char *fname, char *mode) {
+  FILE *F = phast_fopen_no_exit(fname, mode);
+  if (F == NULL)
+    die("ERROR: cannot open %s.\n", fname);
+  return F;
+}
 
 void phast_fclose(FILE *f) {
   fclose(f);

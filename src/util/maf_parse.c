@@ -202,7 +202,7 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
   }
   outfile = (FILE*)lst_get_ptr(outfileList, idx);
   if (outfile == NULL) { //has already been opened but then closed.
-    outfile = phast_fopen(fname, "a");
+    outfile = phast_fopen_no_exit(fname, "a");
     while (outfile == NULL) {
       for (i=0; i<lst_size(outfileList); i++) {
 	outfile = (FILE*)lst_get_ptr(outfileList, i);
@@ -214,8 +214,9 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
 	phast_fclose(outfile);
 	lst_set_ptr(outfileList, i, NULL);
       }
-      outfile = phast_fopen(fname, "a");
+      outfile = phast_fopen_no_exit(fname, "a");
     }
+    lst_set_ptr(outfileList, idx, (void*)outfile);
   }
   sfree(fname);
   return outfile;

@@ -1492,7 +1492,7 @@ void gff_flatten_within_groups(GFF_Set *feats) {
 
   for (g = 0; g < lst_size(feats->groups); g++) {
     group = lst_get_ptr(feats->groups, g);
-    if (lst_size(group->features) <= 1) continue;
+    if (lst_size(group->features) == 0 ) continue;
     group_keepers = lst_new_ptr(lst_size(group->features));
     last = lst_get_ptr(group->features, 0);
     lst_push_ptr(keepers, last);

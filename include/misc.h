@@ -299,8 +299,16 @@ Matrix* read_subst_mat(FILE *F, char *alph);
     @param fname Full path to file
     @param mode Open mode i.e. w, r, r+, w+, etc.
     @result File descriptor 
+    @note Exits with error message if open unsuccessful
  */
 FILE* phast_fopen(const char *fname, char *mode);
+
+/** Open a file by filename and get file descriptor.
+    @param fname Full path to file
+    @param mode Open mode i.e. w, r, r+, w+, etc.
+    @result File descriptor 
+ */
+FILE* phast_fopen_no_exit(const char *fname, char *mode);
 
 
 void phast_fclose(FILE *f);
