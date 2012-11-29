@@ -900,8 +900,10 @@ int main(int argc, char* argv[]) {
       }
     }
     
-    else                          /* print alignment */
+    else {                         /* print alignment */
+      msa_update_length(sub_msa);
       msa_print(stdout, sub_msa, output_format, pretty_print);
+    }
   }
 
   if (sub_msa != msa) msa_free(sub_msa);
