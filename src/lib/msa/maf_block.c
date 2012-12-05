@@ -836,9 +836,57 @@ void mafBlock_strip_eLines(MafBlock *block) {
 }
 
 //strip both i- and e-lines
-void mafBlock_strip_ieLines(MafBlock*block) {
+void mafBlock_strip_ieLines(MafBlock *block) {
   mafBlock_strip_iLines(block);
   mafBlock_strip_eLines(block);
+}
+
+
+void mafBlock_mask_region(MafBlock *block, GFF_Set *feat_orig, List *speclist) {
+  MafSubBlock *refblock, *maskblock;
+  int coord, i, j, spec_idx;
+  GFF_Set *feat;
+  GFF_Feature *f, *prevf=NULL;
+  int next_feat_idx = 1;
+  char **maskseq;
+  int num_mask_seq=0;
+  if (feat_orig == NULL || lst_size(feat_orig->features) == 0L) return;
+  maskseq = smalloc(lst_size(speclist)*sizeof(char*));
+  for (i=0; i < lst_size(speclist); i++) {
+    spec_idx = hsh_get_int(block->specMap, ((String*)lst_get_ptr(speclist, i))->chars);
+    if (spec_idx == -1) continue;
+    maskblock = lst_get_ptr(block->data, spec_idx);
+    if (maskblock->seq == NULL) continue;
+    maskseq[num_mask_seq++] = maskblock->seq->chars;
+  }
+  if (num_mask_seq == 0) {
+    sfree(maskseq);
+    return;
+  }
+  feat = gff_copy_set_no_groups(feat_orig);
+  gff_flatten_mergeAll(feat);
+  f = lst_get_ptr(feat->features, 0);
+
+  refblock = lst_get_ptr(block->data, 0);
+  coord = refblock->start;
+  for (i=0; i < block->seqlen; i++) {
+    if (refblock->seq->chars[i] != '-') coord++;  //this is 1-based coordinate
+    if (coord > f->end) {
+      if (next_feat_idx == lst_size(feat->features))
+	break;
+      prevf = f;
+      f = lst_get_ptr(feat->features, next_feat_idx++);
+      if (f->start <= prevf->end) {
+	die("Error: feats not sorted in mafBlock_mask_region");  //shouldn't happen
+      }
+    }
+    if (coord >= f->start && coord <= f->end) {
+      for (j=0; j < num_mask_seq; j++)
+	if (maskseq[j][i] != '-') maskseq[j][i] = 'N';
+    }
+  }
+  gff_free_set(feat);
+  sfree(maskseq);
 }
 
 //change all bases with quality score <= cutoff to N

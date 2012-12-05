@@ -107,7 +107,9 @@ OPTIONS:\n\
         alignment (reference sequence).  By default, outputs subset of \n\
         MAF which are labeled in annotations file.  But can be used with\n\
         --by-category, --by-group, and/or --do-cats to split MAF by\n\
-        annotation type.  Implies --strip-i-lines, --strip-e-lines\n\
+        annotation type.  Or if used with --mask-features, is only used\n\
+        to determine regions to mask.  Implies --strip-i-lines, \n\
+        --strip-e-lines\n\
 \n\
     --by-category, -L\n\
         (Requires --features).  Split by category, as defined by\n\
@@ -142,6 +144,12 @@ OPTIONS:\n\
        giving the name of the species masked.  Note that low-quality bases\n\
        masked at alignment columns with a gap in the reference sequence\n\
        may not be represented in the output file.\n\
+\n\
+    --mask-features -M <spec>\n\
+      (Requires --features).  Mask all bases annotated in features in the\n\
+      given species (can be a comma-delimited list of species).  Note that\n\
+      coordinates are always in terms of refseq, even if a different species\n\
+      is being masked.\n\
 \n\
  (Other)\n\
     --strip-i-lines, -I\n\
@@ -273,6 +281,8 @@ int main(int argc, char* argv[]) {
   Hashtable *outfileHash=NULL;//, *specNameHash=NULL;
   msa_format_type output_format = MAF;
   MSA *msa = NULL;//, **catMsa;
+  char *mask_features_spec_arg=NULL;
+  List *mask_features_spec=NULL;
   
 
   struct option long_opts[] = {
@@ -294,12 +304,13 @@ int main(int argc, char* argv[]) {
     {"masked-file", 1, 0, 'm'},
     {"strip-i-lines", 0, 0, 'I'},
     {"strip-e-lines", 0, 0, 'E'},
+    {"mask-features", 1, 0, 'M'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
 
-  while ((c = getopt_long(argc, argv, "s:e:l:O:r:S:d:g:c:P:b:o:m:pLnxEIh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "s:e:l:O:r:S:d:g:c:P:b:o:m:M:pLnxEIh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 's':
       startcol = get_arg_int(optarg);
@@ -351,6 +362,9 @@ int main(int argc, char* argv[]) {
       break;
     case 'm':
       masked_fn = optarg;
+      break;
+    case 'M':
+      mask_features_spec_arg = optarg;
       break;
     case 'E':
       stripELines=TRUE;
@@ -418,6 +432,17 @@ int main(int argc, char* argv[]) {
     if (base_mask_cutoff == -1)
       die("ERROR: need to use --mask-bases with --masked-file");
     masked_file = phast_fopen(masked_fn, "w");
+  }
+
+  if (mask_features_spec_arg != NULL) {
+    if (gff==NULL)
+      die("ERROR: need --features with --mask-features");
+    mask_features_spec = lst_new_ptr(10);
+    str_split(str_new_charstr(mask_features_spec_arg), ",", mask_features_spec);
+    for (i=0; i < lst_size(mask_features_spec); i++) {
+      fprintf(stderr, "masking species %s within features\n", 
+	      ((String*)lst_get_ptr(mask_features_spec, i))->chars);
+    }
   }
 
   /* Check to see if --do-cats names a feature which is length 1. 
@@ -495,8 +520,17 @@ int main(int argc, char* argv[]) {
       currLen += currSize;
     }
     else outfile = stdout;
+    if (gff != NULL && mask_features_spec != NULL) {
+      gffSub = gff_subset_range_overlap_sorted(gff, currStart+1, lastIdx,
+					       &gffSearchIdx);
+      if (gffSub != NULL) {
+	mafBlock_mask_region(block, gffSub, mask_features_spec);
+	gff_free_set(gffSub);
+      }
+      mafBlock_print(outfile, block, pretty_print);
 
-    if (gff != NULL) {
+
+    } else if (gff != NULL) {
       gffSub = gff_subset_range_overlap_sorted(gff, currStart+1, lastIdx, 
 					       &gffSearchIdx);
       if (gffSub != NULL) {
