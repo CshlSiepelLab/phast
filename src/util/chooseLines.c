@@ -22,14 +22,13 @@ DESCRIPTION:  Randomly choose k lines from a file of n lines, for 0 < k < n.\n\
 USAGE:        %s [OPTIONS] <infile>\n\
 OPTIONS:\n\
     -k <k>    Number of lines to choose (default is all lines).\n\
-    -r        Randomize order (not implemented).\n\
     -h        Print this help message.\n\n", prog, prog);
   exit(0);
 }
 
 int main(int argc, char *argv[]) {
   FILE *INF, *F;
-  int i, n, k = -1, randomize = 0;
+  int i, n, k = -1;
   String *line = str_new(STR_MED_LEN);
   int *chosen;
   char c;
@@ -39,9 +38,6 @@ int main(int argc, char *argv[]) {
     case 'k':
       k = atoi(optarg);
       if (k <= 0) die("ERROR: k must be greater than 0.\n");
-      break;
-    case 'r':
-      randomize = 1;
       break;
     case 'h':
       usage(argv[0]);
