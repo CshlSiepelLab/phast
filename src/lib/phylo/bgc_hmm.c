@@ -58,15 +58,18 @@ TreeModel **bgchmm_setup_mods(TreeModel *init_mod,
   // All others held constant.
 
   npar=0;
-  if (estimate_scale)
+  if (estimate_scale) {
+    fprintf(stderr, "estimating tree scale\n");
     scale_pos = npar++;
-  else scale_pos = -1;
-  if (estimate_rho) 
+  } else scale_pos = -1;
+  if (estimate_rho) {
+    fprintf(stderr, "estimating rho (conserved state scale)\n");
     cons_scale_pos = npar++;
-  else cons_scale_pos = -1;
-  if (estimate_bgc && do_bgc)
+  } else cons_scale_pos = -1;
+  if (estimate_bgc && do_bgc) {
+    fprintf(stderr, "estimating bgc strength parameter B\n");
     bgc_pos = npar++;
-  else bgc_pos = -1;
+  } else bgc_pos = -1;
   if (npar_rv != NULL) 
     *npar_rv = npar;
 
@@ -255,6 +258,12 @@ int bgcHmm(struct bgchmm_struct *b) {
   data->bgc_expected_length = b->bgc_expected_length;
   data->estimate_bgc_target_coverage = b->estimate_bgc_target_coverage;
   data->estimate_bgc_expected_length = b->estimate_bgc_expected_length;
+  if (data->estimate_bgc_target_coverage) 
+    fprintf(stderr, "estimating gBGC target coverage by EM\n");
+  if (data->estimate_bgc_expected_length)
+    fprintf(stderr, "estimating gBGC expected length by EM\n");
+  if (data->estimate_cons_transitions)
+    fprintf(stderr, "estimating transition rates between neutral/conserved states by EM\n");
 
   if (do_bgc)
     numstate = 4;
@@ -284,12 +293,14 @@ int bgcHmm(struct bgchmm_struct *b) {
     emissions[i] = smalloc(nsite * sizeof(double));
 
   //Here is the main function call: optimize the HMM!
+  fprintf(stderr, "calling hmm_train_by_em...");
   likelihood=hmm_train_by_em(hmm, mods, data, 1, &nsite, NULL, 
 			     bgchmm_compute_emissions,
 			     npar > 0 ? bgchmm_estimate_states : NULL, 
 			     bgchmm_estimate_transitions, 
 			     bgchmm_get_obs_idx, 
 			     NULL, emissions, NULL);
+  fprintf(stderr, "Done.\n\n");
   bgchmm_get_rates(hmm, &bgc_in_rate, &bgc_out_rate, &nu, &mu);
   
   //output results
@@ -423,7 +434,7 @@ int bgcHmm(struct bgchmm_struct *b) {
 	  for (j=0; j < reflen; j++) {
 	    fprintf(post_probs_f, "%i", msa->idx_offset + 1 + j);
 	    for (k=0; k < hmm->nstates; k++)
-	      fprintf(post_probs_f, "\t%.5g", postprobs[k][j]);
+	      fprintf(post_probs_f, "\t%0.5g", postprobs[k][j]);
 	    fprintf(post_probs_f, "\n");
 	  }
 	}
@@ -691,7 +702,7 @@ void bgchmm_estimate_states(TreeModel **mods, int nmod, void *data0, double **E,
   use_nmod = nmod;
   for (i=0; i < nmod; i++) usemods[i] = mods[i];
   
-  tm_fit_multi(usemods, use_nmod, &msa, 1, OPT_VERY_HIGH_PREC, NULL, 0);
+  tm_fit_multi(usemods, use_nmod, &msa, 1, OPT_VERY_HIGH_PREC, NULL, 1);
   sfree(usemods);
 }
 

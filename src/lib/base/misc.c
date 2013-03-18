@@ -279,9 +279,9 @@ Matrix* read_subst_mat(FILE *F, char *alph) {
 FILE* phast_fopen_no_exit(const char *fname, char *mode) {
   FILE *F = NULL;
   if (!strcmp(fname, "-")) {
-    if (strcmp(mode, "r") == 0)
+    if (mode[0]=='r') 
       return stdin;
-    else if (strcmp(mode, "w+") == 0)
+    else if (mode[0]=='w')
       return stdout;
     else die("ERROR: bad args to phast_fopen.\n");
   }
@@ -298,8 +298,10 @@ FILE* phast_fopen(const char *fname, char *mode) {
 }
 
 void phast_fclose(FILE *f) {
-  fclose(f);
-  unregister_open_file(f);
+  if (f != stdout && f!=stderr) {
+    fclose(f);
+    unregister_open_file(f);
+  }
 }
 
 /* print error message and die with exit 1; saves typing in mains */

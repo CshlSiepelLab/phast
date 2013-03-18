@@ -310,6 +310,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
       if (!quiet) 
 	fprintf(stderr, "Writing posterior probabilities to %s ...\n", 
 		fname->chars);
+
       POSTPROBF = phast_fopen(fname->chars, "w+");
       
       /* print header */

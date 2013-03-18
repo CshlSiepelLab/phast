@@ -65,7 +65,8 @@ int main(int argc, char *argv[]) {
     {"output-tracts", 1, 0, 'g'},
     {"posteriors", 1, 0, 'p'},
     {"output-mods", 1, 0, 'm'},
-    {"help", 0, 0, 'h'}};
+    {"help", 0, 0, 'h'},
+    {0,0,0,0}};
 
   while ((c = getopt_long(argc, argv, "B:b:L:l:C:c:R:E:T:S:s:f:g:p:m:Wh", long_opts, &opt_idx))
 	 != -1) {
@@ -129,6 +130,7 @@ int main(int argc, char *argv[]) {
       printf("%s", HELP);
       exit(0);
     case '?':
+    default:
       die("Bad argument.  Try '%s -h'.\n", argv[0]);
     }
   }

@@ -120,11 +120,13 @@ OPTIONS:\n\
  (Obtaining sub-alignments and combining alignments)\n\
     --start, -s <start_col>\n\
         Starting column of sub-alignment (indexing starts with 1).\n\
-        Default is 1.\n\
+        Default is 1.  Note that coordinates use the frame of reference\n\
+        of the entire alignment unless --refidx 1 is specified.\n\
 \n\
     --end, -e <end_col>\n\
         Ending column of sub-alignment.  Default is length of\n\
-        alignment.\n\
+        alignment.  Note that coordinates use the frame of reference\n\
+        of the entire alignment unless --refidx 1 is specified.\n\
 \n\
     --seqs, -l <seq_list>\n\
         Comma-separated list of sequences to include (default)\n\
