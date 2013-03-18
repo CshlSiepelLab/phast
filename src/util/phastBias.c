@@ -72,13 +72,13 @@ int main(int argc, char *argv[]) {
 	 != -1) {
     switch (c) {
     case 'B':
-      b->bgc = get_arg_dbl_bounds(optarg, 0, INFINITY);
+      b->bgc = get_arg_dbl_bounds(optarg, 0, INFTY);
       break;
     case 'b':
       b->estimate_bgc = get_arg_int_bounds(optarg, 0, 1);
       break;
     case 'L':
-      b->bgc_expected_length = get_arg_dbl_bounds(optarg, 0, INFINITY);
+      b->bgc_expected_length = get_arg_dbl_bounds(optarg, 0, INFTY);
       break;
     case 'l':
       b->estimate_bgc_expected_length = get_arg_int_bounds(optarg, 0, 1);
@@ -90,17 +90,17 @@ int main(int argc, char *argv[]) {
       b->estimate_bgc_target_coverage = get_arg_int_bounds(optarg, 0, 1);
       break;
     case 'R':
-      b->rho = get_arg_dbl_bounds(optarg, 0, INFINITY);
+      b->rho = get_arg_dbl_bounds(optarg, 0, INFTY);
       if (b->rho > 1.0) phast_warning("Warning: rho is a scale for conserved states and is usually less than 1, got %f", b->rho);
       break;
     case 'E':
-      b->cons_expected_length = get_arg_dbl_bounds(optarg, 0, INFINITY);
+      b->cons_expected_length = get_arg_dbl_bounds(optarg, 0, INFTY);
       break;
     case 'T':
       b->cons_target_coverage = get_arg_dbl_bounds(optarg, 0, 1);
       break;
     case 'S':
-      b->scale = get_arg_dbl_bounds(optarg, 0, INFINITY);
+      b->scale = get_arg_dbl_bounds(optarg, 0, INFTY);
       break;
     case 's':
       b->estimate_scale = get_arg_int_bounds(optarg, 0, 1);
