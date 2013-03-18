@@ -116,8 +116,8 @@ int main(int argc, char *argv[]) {
     /* compute log likelihoods of all columns */
     cons_lprob = smalloc(nlabels * sizeof(double));
     noncons_lprob = smalloc(nlabels * sizeof(double));
-    tl_compute_log_likelihood(cons_mod, msa, cons_lprob, -1, NULL);
-    tl_compute_log_likelihood(noncons_mod, msa, noncons_lprob, -1, NULL);
+    tl_compute_log_likelihood(cons_mod, msa, cons_lprob, NULL, -1, NULL);
+    tl_compute_log_likelihood(noncons_mod, msa, noncons_lprob, NULL, -1, NULL);
 
     H = H_alt = 0;		/* H is relative entropy of cons wrt
 				   noncons; H_alt is relative entropy

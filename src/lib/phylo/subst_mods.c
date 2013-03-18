@@ -270,6 +270,10 @@ int subst_mod_is_codon_model(int subst_mod) {
 }
 
 
+/* Note: it is a little weird to return 2 for codon models here, they are 
+   really 0th order models representing 3 bases each, but in most contexts,
+   returning 2 is more appropriate.  Maybe this function should be renamed?
+ */
 int tm_order(int subst_mod) {
   if (subst_mod == R2 || subst_mod == U2 || 
       subst_mod == R2S || subst_mod == U2S)
@@ -2868,4 +2872,25 @@ void tm_unapply_selection_bgc(MarkovMatrix *mm, double sel, double bgc) {
   if (mm->size != 4)
     die("sel+bgc not implemented for %i states\n", mm->size);
   tm_selection_bgc_4state(mm, sel, bgc, 0);
+}
+
+
+subst_mod_type tm_codon_version(subst_mod_type subst_mod) {
+  if (subst_mod == HKY85   || subst_mod == HKY_CODON)   return HKY_CODON;
+  if (subst_mod == REV   || subst_mod == REV_CODON)   return REV_CODON;
+  if (subst_mod == SSREV || subst_mod == SSREV_CODON) return SSREV_CODON;
+  phast_warning("No codon version for substitution model %s\n",
+		tm_get_subst_mod_string(subst_mod));
+  return UNDEF_MOD;
+}
+
+
+subst_mod_type tm_nucleotide_version(subst_mod_type subst_mod) {
+  if (subst_mod == HKY85   || subst_mod == HKY_CODON)   return HKY85;
+  if (subst_mod == REV   || subst_mod == REV_CODON)   return REV;
+  if (subst_mod == SSREV || subst_mod == SSREV_CODON) return SSREV;
+  if (tm_order(subst_mod) == 0) return subst_mod;
+  phast_warning("No nucleotide version for substitution model %s\n",
+		tm_get_subst_mod_string(subst_mod));
+  return UNDEF_MOD;
 }

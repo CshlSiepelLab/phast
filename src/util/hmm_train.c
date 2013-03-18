@@ -235,7 +235,7 @@ int main(int argc, char* argv[]) {
     if (msa_length_list == NULL) {
       if (!quiet_mode)
         fprintf(stderr, "Mapping annotations to alignment ...\n");
-      msa_map_gff_coords(msa, gff, 1, 0, 0, NULL); /* assume seq 1 is ref */
+      msa_map_gff_coords(msa, gff, 1, 0, 0); /* assume seq 1 is ref */
     }
 
     if (model_indels_str != NULL) {

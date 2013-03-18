@@ -128,7 +128,7 @@ int main(int argc, char* argv[]) {
     msa = msa_new_from_file_define_format(F, format, NULL);
     phast_fclose(F);
 
-    msa_map_gff_coords(msa, gff, src_ref, dest_ref, offset, NULL);
+    msa_map_gff_coords(msa, gff, src_ref, dest_ref, offset);
     msa_free(msa);
   }
 

@@ -294,14 +294,13 @@ void bd_handle_missing_data(BDPhyloHmm *bdphmm, MSA *msa) {
 /* compute log odds scores for predictions (wrt neutral), using
    previously computed emissions */
 void bd_score_predictions(BDPhyloHmm *bdphmm, GFF_Set *predictions) {
-  int i, j, state, len;
+  int i, j, state;
   GFF_Feature *f;
 
   for (i = 0; i < lst_size(predictions->features); i++) {
     f = lst_get_ptr(predictions->features, i);
     f->score = 0;
     f->score_is_null = FALSE;
-    len = f->end - f->start + 1;
     state = cm_get_category(bdphmm->phmm->cm, f->feature);
     for (j = f->start-1; j < f->end; j++) 
       f->score += (bdphmm->phmm->emissions[state][j] - 

@@ -1730,23 +1730,24 @@ GFF_Set *gff_overlap_gff(GFF_Set *gff, GFF_Set *filter_gff, int numbaseOverlap,
     are not merged).
     If numbits is not null, compute the coverage of the gff.
  */
-int gff_flatten_mergeAll(GFF_Set *gff) {
+long gff_flatten_mergeAll(GFF_Set *gff) {
   GFF_Feature *last, *this;
-  int i, j, numbits=0;
+  int i, j;
+  long numbits=0;
   List *newfeats = lst_new_ptr(lst_size(gff->features));
   gff_group_by_seqname(gff);
   gff_sort_within_groups(gff);
   for (i=0; i<lst_size(gff->groups); i++) {
     GFF_FeatureGroup *group = lst_get_ptr(gff->groups, i);
     last = lst_get_ptr(group->features, 0);
-    numbits += (last->end - last->start + 1);
+    numbits += (long)(last->end - last->start + 1);
     lst_push_ptr(newfeats, last);   //always keep first feature
     for (j=1; j<lst_size(group->features); j++) {
       checkInterruptN(j, 1000);
       this = lst_get_ptr(group->features, j);
       if (this->start <= last->end) {  //merge with previous
 	if (last->end < this->end) {
-	  numbits += (this->end - last->end);
+	  numbits += (long)(this->end - last->end);
 	  last->end = this->end;
 	}
 	if (!str_equals(last->source, this->source))
@@ -1763,7 +1764,7 @@ int gff_flatten_mergeAll(GFF_Set *gff) {
 	gff_free_feature(this);
       } else {  //no overlap
 	last = this;
-	numbits += (this->end - this->start + 1);
+	numbits += (long)(this->end - this->start + 1);
 	lst_push_ptr(newfeats, this);
       }
     }
@@ -1847,12 +1848,17 @@ GFF_Set *gff_inverse(GFF_Set *gff, GFF_Set *region0) {
       if (currEnd >= regionStart)
 	regionStart = currEnd + 1;
     }
-    if (regionStart != -1 && regionStart <= regionEnd) {
+    while (regionStart != -1 && regionStart <= regionEnd) {
       newfeat = gff_new_feature_copy_chars(regionFeat->seqname->chars,
 					   "gff_inverse", "inverse feat",
 					   regionStart, regionEnd, 0, '.',
 					   GFF_NULL_FRAME, ".", TRUE);
       lst_push_ptr(notGff->features, newfeat);
+      regionIdx++;
+      if (regionIdx >= lst_size(regionG->features)) break;
+      regionFeat = lst_get_ptr(regionG->features, regionIdx);
+      regionStart = regionFeat->start;
+      regionEnd = regionFeat->end;
     }
   }
   gff_free_set(region);
@@ -1902,3 +1908,31 @@ GFF_Set *gff_split(GFF_Set *gff, int *maxlen, int nmaxlen, int drop,
   }
   return newgff;
 }
+
+//create GFF_Set by thresholding an array of scores.
+//firstIdx should be 1-based coordinate
+//set feature score to sum of scores in each element
+GFF_Set *gff_from_wig_threshold(char *seqname, int firstIdx, 
+				double *scores, int numscore, 
+				double threshold, char *src, char *featureName) {
+  GFF_Set *rv=gff_new_set();
+  GFF_Feature *feat=NULL;
+  int i;
+  for (i=0; i < numscore; i++) {
+    if (scores[i] > threshold) {
+      if (feat == NULL) {
+	feat = gff_new_feature_copy_chars(seqname, 
+			       src == NULL ? "wig_threshold" : src,
+			       featureName == NULL ? "threshold_element" : featureName,
+			       i + firstIdx, i + firstIdx, 
+			       0, '.', GFF_NULL_FRAME,".", 0);
+	lst_push_ptr(rv->features, feat);
+      }
+      feat->end = i + firstIdx;
+      feat->score += scores[i];
+    } else feat = NULL;
+  }
+  return rv;
+}
+
+	

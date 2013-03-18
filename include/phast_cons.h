@@ -87,7 +87,8 @@ struct phastCons_struct {
   char *seqname,	/**< Sequence name for reference sequence */
     *idpref,		/**< Prefix for assigned ids */
     *estim_trees_fname_root,	/**< Root part of filename for tree models i.e. %s.cons.mod or %s.noncons.mod */
-    *extrapolate_tree_fname;	/**< Filepath to tree file used to extrapolate a larger set of species*/
+    *extrapolate_tree_fname,	/**< Filepath to tree file used to extrapolate a larger set of species*/
+    *bgc_branch;        /**< If not NULL, assume a two-state HMM with and without bgc on the named branch*/
   HMM *hmm;		       /**< Hidden Markov Model */
   Hashtable *alias_hash;       /**< Sequence name aliases e.g., "hg17=human; mm5=mouse; rn3=rat" */
   TreeNode *extrapolate_tree;	/**< Root of tree used for extrapolation of larget set of species */
@@ -130,6 +131,7 @@ void setup_two_state(HMM **hmm, CategoryMap **cm, double mu, double nu);
    @param estim_indels Whether to estimate indels
    @param estim_trees Whether to estimate trees
    @param estim_rho Whether to estimate rho
+   @param estim_trees_partial Whether this is an HMM where we want to estimate parameters which are shared across tree models
    @param mu (Optional) Transitions value
    @param nu (Optional) Transitions value
    @param alpha_0 (Optional) Rate of insertion events per substitution per site in Conserved state 
@@ -143,7 +145,8 @@ void setup_two_state(HMM **hmm, CategoryMap **cm, double mu, double nu);
    @param logf File descriptor of where to save log info 
    @result Log Likelihood. */
 double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
-                     int estim_trees, int estim_rho, double *mu, double *nu, 
+                     int estim_trees, int estim_rho,
+		     double *mu, double *nu, 
                      double *alpha_0, double *beta_0, double *tau_0, 
                      double *alpha_1, double *beta_1, double *tau_1, 
                      double *rho, double gamma, FILE *logf);
@@ -156,7 +159,7 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
    @param nobs Number of objects in E[0]
    @param logf File descriptor of where to save logs
 */
-void reestimate_trees(void **models, int nmodels, void *data, 
+void reestimate_trees(TreeModel **models, int nmodels, void *data, 
                       double **E, int nobs, FILE *logf);
 
 /** re-estimate only scale parameter rho (only the first model for the conserved state needs to be considered)   
@@ -167,7 +170,7 @@ void reestimate_trees(void **models, int nmodels, void *data,
    @param nobs Number of objects in E[0]
    @param logf File descriptor of where to save logs
 */
-void reestimate_rho(void **models, int nmodels, void *data, 
+void reestimate_rho(TreeModel **models, int nmodels, void *data, 
 		    double **E, int nobs, FILE *logf);
 
 /** Maximize HMM transition parameters subject to constrain implied by

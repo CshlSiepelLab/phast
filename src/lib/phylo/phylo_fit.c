@@ -256,7 +256,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
                                                 do_expected_nsubst_tot, 
 						do_expected_nsubst_col,
 						0, 0);
-  tl_compute_log_likelihood(mod, msa, NULL, cat, mod->tree_posteriors);
+  tl_compute_log_likelihood(mod, msa, NULL, NULL, cat, mod->tree_posteriors);
   tr_name_ancestors(mod->tree);
 
   if (do_bases) {
@@ -815,7 +815,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
     }
 
     /* convert GFF to coordinate frame of alignment */
-    msa_map_gff_coords(msa, gff, 1, 0, 0, NULL);
+    msa_map_gff_coords(msa, gff, 1, 0, 0);
 
     /* reverse complement segments of MSA corresponding to features on
        reverse strand (if necessary) */
@@ -1096,7 +1096,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
           for (j = 0; j < msa->length; j++)
             msa->ss->tuple_idx[j] = j;
         }
-        mod->lnL = tl_compute_log_likelihood(mod, msa, col_log_probs, cat, NULL) * 
+        mod->lnL = tl_compute_log_likelihood(mod, msa, col_log_probs, NULL, cat, NULL) * 
           log(2);
         if (pf->do_column_probs) {
 	  //we don't need to implement this in RPHAST because there is

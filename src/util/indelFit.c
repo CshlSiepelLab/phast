@@ -172,7 +172,7 @@ int *get_cats(IndelHistory *ih, GFF_Set *feats, CategoryMap *cm,
     dummy_msa = msa_new(&seq, NULL, 1, ih->ncols, NULL);
 
     /* map features to alignment space */
-    msa_map_gff_coords(dummy_msa, feats, 1, 0, 0, NULL);
+    msa_map_gff_coords(dummy_msa, feats, 1, 0, 0);
   }
   else 
     /* (no need to map features, no need for seq) */

@@ -89,7 +89,6 @@
 #ifndef CAT_MAP_H
 #define CAT_MAP_H
 
-#include "hmm.h"
 #include "gff.h"
 #include "lists.h"
 #include "stringsplus.h"

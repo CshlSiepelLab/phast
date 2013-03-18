@@ -334,7 +334,7 @@ void ss_realloc(MSA *msa, int tuple_size, int max_ntuples, int do_cats,
    Also, this function assumes all msas have same names, nseqs, and
    alphabet (it uses those of the first) */
 PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size, int ncats, 
-                               List *cats_to_do) {
+                               List *cats_to_do, int non_overlapping) {
   int i, j;
   MSA *rep_msa;
   PooledMSA *pmsa = (PooledMSA*)smalloc(sizeof(PooledMSA));
@@ -364,11 +364,11 @@ PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size, int ncats,
     if (smsa->nseqs != rep_msa->nseqs)
       die("ERROR: All MSA's must contain the same number of species! The offending sequence is: %s\n", pmsa->pooled_msa->names[i]);
     if (smsa->ss == NULL)
-      ss_from_msas(smsa, tuple_size, 1, cats_to_do, NULL, NULL, -1, 0);
+      ss_from_msas(smsa, tuple_size, 1, cats_to_do, NULL, NULL, -1, non_overlapping);
                                 /* assume we want ordered suff stats
                                    for source alignments */
     ss_from_msas(pmsa->pooled_msa, tuple_size, 0, cats_to_do, 
-                 smsa, tuple_hash, -1, 0);
+                 smsa, tuple_hash, -1, non_overlapping);
     pmsa->lens[i] = smsa->length;
 
     /* keep around a mapping from the tuple indices of each source

@@ -107,6 +107,8 @@ MSA *msa_new_from_file_define_format(FILE *F, msa_format_type format, char *alph
   
   if (format == UNKNOWN_FORMAT)
     die("unknown alignment format\n");
+  if (format == MAF)
+    die("msa_new_from_file_define_format cannot read MAF files\n");
 
   if (format == FASTA) 
     return (msa_read_fasta(F, alphabet));
@@ -198,6 +200,8 @@ MSA *msa_new_from_file_define_format(FILE *F, msa_format_type format, char *alph
 
 MSA *msa_new_from_file(FILE *F, char *alphabet) {
   msa_format_type input_format = msa_format_for_content(F, 1);
+  if (input_format == MAF) 
+    die("msa_new_from_file detected MAF file, but cannot handle MAF files.  Try maf_read or another input format.\n");
   return msa_new_from_file_define_format(F, input_format, alphabet);
 }
 
@@ -951,7 +955,7 @@ int msa_get_seq_idx(MSA *msa, const char *name) {
    of range, they will be truncated. If cm is non-NULL, features
    within groups will be forced to be contiguous. */
 void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq, 
-                        int offset, CategoryMap *cm) {
+                        int offset) {
 
   msa_coord_map **maps;
   int fseq = from_seq;
@@ -1103,6 +1107,41 @@ void msa_map_gff_coords(MSA *msa, GFF_Set *gff, int from_seq, int to_seq,
     if (maps[i] != NULL) msa_map_free(maps[i]);
   sfree(maps);
 }
+
+
+/* Note gff gets modified by this (non-overlapping features removed,
+  all coordinates in features mapped to frame of reference of entire 
+  MSA*/
+MSA **msa_split_by_gff(MSA *msa, GFF_Set *gff) {
+  MSA **msas = NULL;
+  int *starts, i;
+  GFF_Feature *feat;
+
+  starts = smalloc(lst_size(gff->features) * sizeof(int));
+  for (i=0; i < lst_size(gff->features); i++) {
+    checkInterruptN(i, 1000);
+    feat = lst_get_ptr(gff->features, i);
+    starts[i] = feat->start;
+    feat->start -= msa->idx_offset;
+    feat->end -= msa->idx_offset;
+  }
+  msa_map_gff_coords(msa, gff, -1, 0, 0);
+  if (lst_size(gff->features) == 0) {
+    sfree(starts);
+    return NULL;
+  }
+  
+  msas = smalloc(lst_size(gff->features) * sizeof(MSA*));
+  for (i=0; i < lst_size(gff->features); i++) {
+    feat = lst_get_ptr(gff->features, i);
+    msas[i] = msa_sub_alignment(msa, NULL, -1, feat->start - 1, feat->end);
+    msas[i]->idx_offset = starts[i] - 1;
+  }
+  sfree(starts);
+  return msas;
+}
+
+
 
 /* for convenience when going from one sequence to another.  use map=NULL to
    indicate frame of entire alignment.
@@ -1619,23 +1658,23 @@ void msa_get_base_freqs_tuples(MSA *msa, Vector *freqs, int k, int cat) {
  */
 void msa_get_backgd_3x4(Vector *backgd, MSA *msa) {
   double freq[4][3], sum;
-  int i, j, spec, numcodon=msa->length/3, alph_size = strlen(msa->alphabet);
+  int i, j, spec, numcodon, alph_size = strlen(msa->alphabet);
   char cod[4], *codon_mapping = get_codon_mapping(msa->alphabet);
   cod[3] = '\0';
   
-  if (numcodon == 0) return;
-
-  if (numcodon*3 != msa->length) 
-    die("msa_get_backgd_3x4 expected codon data; msa length is not multiple of 3");
   for (i=0; i < 4; i++)
     for (j=0; j < 3; j++)
       freq[i][j] = 0.0;
   if (msa->seqs != NULL) {
+    numcodon = msa->length/3;
+    if (numcodon == 0) return;
+    if (numcodon*3 != msa->length) 
+      die("msa_get_backgd_3x4 expected codon data; msa length is not multiple of 3");
     for (spec=0; spec < msa->nseqs; spec++) {
       for (i=0; i < numcodon; i++) {
 	for (j=0; j < 3; j++) {
 	  cod[j] = msa->seqs[spec][i*3+j];
-	  if (msa->is_missing[(int)cod[j]]) break;
+	  if (msa->inv_alphabet[(int)cod[j]] == -1) break;
 	}
 	if (j == 3 && 
 	    codon_mapping[tuple_index(cod, msa->inv_alphabet, alph_size)] != '$') {
@@ -1645,15 +1684,15 @@ void msa_get_backgd_3x4(Vector *backgd, MSA *msa) {
       }
     }
   } else {  //in this case, codons are stored as non-overlapping tuples
-    if (msa->ss != NULL) 
-      die("msa_get_backgd_3x4: no seqs or ss in msa?");  // this won't happen
+    if (msa->ss == NULL) 
+      die("msa_get_backgd_3x4: no seqs or ss in msa?");  // this shouldn't happen
     if (msa->ss->tuple_size != 3)
       die("msa_get_backgd_3x4: expected ss->tuple_size=3");
     for (i=0; i < msa->ss->ntuples; i++) {
       for (spec=0; spec < msa->nseqs; spec++) {
 	for (j=0; j < 3; j++) {
 	  cod[j] = col_string_to_char(msa, msa->ss->col_tuples[i], spec, msa->ss->tuple_size, j-2);
-	  if (msa->is_missing[(int)cod[j]]) break;
+	  if (msa->is_missing[(int)cod[j]] || cod[j]==GAP_CHAR) break;
 	}
 	if (j == 3 && 
 	    codon_mapping[tuple_index(cod, msa->inv_alphabet, alph_size)] != '$') {
@@ -1819,7 +1858,7 @@ GFF_Set *msa_get_informative_feats(MSA *msa,
       useSpec[i] = lst_get_int(specList, i);
   }
   if (msa->ss != NULL && msa->ss->tuple_idx == NULL && msa->seqs == NULL)
-    die("need ordered alignment for msa_get_informative_sites");
+    die("need ordered alignment for msa_get_informative_feats");
   if (msa->ss != NULL && msa->ss->tuple_idx != NULL) {
     is_informative = smalloc(msa->ss->ntuples*sizeof(int));
     for (i=0; i < msa->ss->ntuples; i++) {
@@ -2600,6 +2639,8 @@ msa_format_type msa_format_for_content(FILE *F, int die_if_unknown) {
   str_re_free(fasta_re);
   str_re_free(lav_re);
   str_re_free(maf_re);
+  str_free(line);
+  lst_free(matches);
   if (retval == UNKNOWN_FORMAT && die_if_unknown)
     die("Unable to determine alignment format\n");
   return retval;

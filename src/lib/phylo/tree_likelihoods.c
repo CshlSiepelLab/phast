@@ -38,8 +38,8 @@ int tuple_index_missing_data(char *tuple, int *inv_alph, int *is_missing,
    If 'post' is non-NULL each of its attributes must either be NULL or
    previously allocated to the required size. */
 double tl_compute_log_likelihood(TreeModel *mod, MSA *msa, 
-                                 double *col_scores, int cat,
-                                 TreePosteriors *post) {
+                                 double *col_scores, double *tuple_scores,
+				 int cat, TreePosteriors *post) {
 
   int i, j;
   double retval = 0;
@@ -53,7 +53,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
   double **inside_joint = NULL, **inside_marginal = NULL, 
     **outside_joint = NULL, **outside_marginal = NULL, 
     ****subst_probs = NULL;
-  double *tuple_scores=NULL;
+  double *curr_tuple_scores=NULL;
   double rcat_prob[mod->nratecats];
   double tmp[nstates];
 
@@ -133,11 +133,13 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
   if (!defined) {
     tm_set_subst_matrices(mod);
   }
-  if (col_scores != NULL) {
-    tuple_scores = (double*)smalloc(msa->ss->ntuples * sizeof(double));
+  if (col_scores != NULL && tuple_scores == NULL)
+    curr_tuple_scores = (double*)smalloc(msa->ss->ntuples * sizeof(double));
+  else if (tuple_scores != NULL) 
+    curr_tuple_scores = tuple_scores;
+  if (curr_tuple_scores != NULL) 
     for (tupleidx = 0; tupleidx < msa->ss->ntuples; tupleidx++)
-      tuple_scores[tupleidx] = 0;
-  }
+      curr_tuple_scores[tupleidx] = 0;
 
   if (post != NULL && post->expected_nsubst_tot != NULL) {
     for (rcat = 0; rcat < mod->nratecats; rcat++)
@@ -198,6 +200,8 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
 	      if (n->name == NULL)
 		die("ERROR tl_compute_log_likelihood: n->name is NULL\n");
               thisseq = mod->msa_seq_idx[n->id];
+	      if (thisseq < 0) 
+		die("ERROR tl_compute_log_likelihood: expected a leaf node\n");
 
               /* first figure out whether there is a match for each
                  character in each position; we'll call this the record of
@@ -421,13 +425,17 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
     if (mod->order > 0 && mod->use_conditionals == 1 && !skip_fels) 
       total_prob /= marg_tot; 
 
+    /*    if (total_prob > 1.0) {
+      if (total_prob - 1.0 < 1.0e-6) total_prob = 1.0;
+      else die("got total_prob=%.10g\n", total_prob);
+      }*/
     total_prob = log2(total_prob);
 
-    if (col_scores != NULL && 
+    if (curr_tuple_scores != NULL && 
         (cat < 0 || msa->ss->cat_counts[cat][tupleidx] > 0))
-      tuple_scores[tupleidx] = total_prob;
-    /* NOTE: tuple_scores contains the
-     *unweighted* (log) probabilities. */
+      curr_tuple_scores[tupleidx] = total_prob;
+    /* NOTE: curr_tuple_scores contains the
+       (log) probabilities *unweighted* by tuple counts */
 
     total_prob *= (cat >= 0 ? msa->ss->cat_counts[cat][tupleidx] : 
                    msa->ss->counts[tupleidx]); /* log space */
@@ -450,12 +458,12 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
     if (cat >= 0) 
       for (i = 0; i < msa->length; i++)
         col_scores[i] = msa->categories[i] == cat ?
-          tuple_scores[msa->ss->tuple_idx[i]] :
+          curr_tuple_scores[msa->ss->tuple_idx[i]] :
           NEGINFTY;
     else
       for (i = 0; i < msa->length; i++)
-        col_scores[i] = tuple_scores[msa->ss->tuple_idx[i]];
-    sfree(tuple_scores);
+        col_scores[i] = curr_tuple_scores[msa->ss->tuple_idx[i]];
+    if (tuple_scores == NULL) sfree(curr_tuple_scores);
   }
   if (post != NULL) {
     for (rcat = 0; rcat < mod->nratecats; rcat++) {

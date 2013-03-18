@@ -72,17 +72,20 @@ Vector *vec_new_from_file(FILE *F, int size);
 */
 Vector* vec_create_copy(Vector *src);
 
+/** Change the size of a vector
+
+    @param v vector to be resized
+    @param new_size New vector length
+    @return v.  v->data has been reallocated and v->size updated.
+    @note This behaves like regular realloc, in that it will not affect elements 0..min(old_size, new_size)-1.  If new_size > old_size, elements with indices [old_size, ..., new_size-1] will not be initialized.
+*/
+Vector *vec_realloc(Vector *v, int new_size);
+
 /** Release memory used by vector.
   
   @param v Vector to be freed.
 */
 void vec_free(Vector *v);
-
-/** Change the size of a vector.
-    Vector contents from [0, min(new_size, old_size)] are not affected.
-    @param v Vector to be re-sized
-    @param new_size New vector length */
-void vec_realloc(Vector *v, int new_size);
 
 /** \} */
 

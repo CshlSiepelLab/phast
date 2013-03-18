@@ -241,7 +241,7 @@ Matrix **mm_get_QtPow(int max_m, Matrix *Qt) {
 //set P->matrix to exp(t * Q->matrix) using algorithm 2.3 from
 //"The Scaling and Squaring Method for the Matrix Exponential Revisited"
 //by Nicholas J. Higham.
-void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t) {
+void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t, int do_mu) {
 #ifdef SKIP_LAPACK
   die("ERROR: LAPACK required for mm_exp_higham routine.\n");
 #else
@@ -249,7 +249,7 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t) {
 		  1187353796428800.0, 129060195264000.0, 10559470521600.0,
 		  670442572800.0, 33522128640.0, 1323241920.0,
 		  40840800.0, 960960.0, 16380.0, 182.0, 1.0};
-  double theta[14], norm, sum, *coef, mu;
+  double theta[14], norm, sum, *coef, mu=0.0, val;
   int i, j, n = P->size, mvals[5] = {3, 5, 7, 9, 13}, mlen=5, m, mi, max_i, s;
   LAPACK_DOUBLE mat[n*n], scale[n], matU[n*n], matV[n*n];
   LAPACK_INT ln, ilo, ihi, info, ipiv[n];
@@ -267,12 +267,14 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t) {
   
   // % Preprocessing to reduce the norm.
   //A ← A − μI, where μ = trace(A)/n.
-  mu = 0.0;
-  for (i=0; i < n; i++) 
-    mu += mat_get(Qt, i, i);
-  mu /= (double)n;
-  for (i=0; i < n; i++)
-    mat_set(Qt, i, i, mat_get(Qt, i, i) - mu);
+  if (do_mu) {
+    mu = 0.0;
+    for (i=0; i < n; i++) 
+      mu += mat_get(Qt, i, i);
+    mu /= (double)n;
+    for (i=0; i < n; i++)
+      mat_set(Qt, i, i, mat_get(Qt, i, i) - mu);
+  }
   
   //A ← D −1 AD, where D is a balancing transformation (or set D = I if
   //balancing does not reduce the 1-norm of A).
@@ -428,14 +430,17 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t) {
     mat_from_lapack(P->matrix, mat);
   }
 
-  mat_scale(P->matrix, exp(mu));
+  if (do_mu) 
+    mat_scale(P->matrix, exp(mu));
 
   //check
   for (i=0; i < n; i++) {
     double sum = 0.0;
     for (j=0; j < n; j++) {
-      double val = mat_get(P->matrix, i, j);
-      if (val < 0 && val > -1.0e-10) 
+      val = mat_get(P->matrix, i, j);
+      if (isinf(val) || isnan(val)) 
+	die("got nan/inf val in matrix in mm_exp_higham t=%f i=%i j=%i\n", t, i, j);
+      else if (val < 0 && val > -1.0e-10) 
 	mat_set(P->matrix, i, j, 0.0);
       else if (val > 1 && val-1 < 1.0e-10)
 	mat_set(P->matrix, i, j, 1.0);
@@ -496,7 +501,7 @@ void mm_exp_complex(MarkovMatrix *P, MarkovMatrix *Q, double t) {
   /* Diagonalization failed: use higham expansion instead */
   if (Q->evec_matrix_z == NULL || Q->evals_z == NULL ||
       Q->evec_matrix_inv_z == NULL) {
-    mm_exp_higham(P, Q, t);
+    mm_exp_higham(P, Q, t, 1);
     return;
   }
     
@@ -546,7 +551,7 @@ void mm_exp_real(MarkovMatrix *P, MarkovMatrix *Q, double t) {
 
   if (Q->evec_matrix_r == NULL || Q->evals_r == NULL ||
       Q->evec_matrix_inv_r == NULL) {
-    mm_exp_higham(P, Q, t);
+    mm_exp_higham(P, Q, t, 1);
     return;
   }
 

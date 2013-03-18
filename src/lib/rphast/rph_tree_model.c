@@ -517,6 +517,7 @@ SEXP rph_tm_new(SEXP treeP, SEXP alphabetP, SEXP backgdP, SEXP matrixP,
     for (i=0; i<tm->nratecats; i++)
       tm->freqK[i] = doubleP[i];
     normalize_probs(tm->freqK, tm->nratecats);
+    tm->empirical_rates = TRUE;
   }
 
   if (lnlP != R_NilValue)
@@ -666,7 +667,7 @@ SEXP rph_tree_model_set_matrix(SEXP tmP, SEXP paramsP, SEXP scaleP) {
   double *params;
   Vector *paramVec=NULL;
   int numparam, paramlen, scale = LOGICAL_VALUE(scaleP);
-  if (scale) tm->scale_during_opt = 1;
+  tm->scale_during_opt = scale;
   if (paramsP == R_NilValue) {
     params = NULL;
     paramlen = 0;
@@ -683,7 +684,9 @@ SEXP rph_tree_model_set_matrix(SEXP tmP, SEXP paramsP, SEXP scaleP) {
   }
   if (numparam != 0) 
     paramVec = vec_new_from_array(params, numparam);
-  tm_set_rate_matrix(tm, paramVec, 0);
+
+  tm_set_rate_matrix_sel_bgc(tm, paramVec, 0, tm->selection, 0.0);
+
   UNPROTECT(1);
   return R_NilValue;  //don't need to return the value since it's the one passed in
 }

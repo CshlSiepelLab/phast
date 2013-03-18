@@ -26,6 +26,7 @@ Last updated: 1/5/2010
 #include <misc.h>
 #include <list_of_lists.h>
 #include <rph_util.h>
+#include <limits.h>
 
 #include <Rdefines.h>
 
@@ -624,7 +625,8 @@ SEXP rph_gff_inverse(SEXP gffP, SEXP regionP) {
 
 
 SEXP rph_gff_featureBits(SEXP gffListP, SEXP orP, SEXP returnGffP) {
-  int numGff, i, j, or, returnGff, numbit=0;
+  int numGff, i, j, or, returnGff;
+  long numbit = 0;
   List *gfflist;
   GFF_Set *gff, *newgff=NULL;
   GFF_Feature *feat, *newfeat;
@@ -669,8 +671,14 @@ SEXP rph_gff_featureBits(SEXP gffListP, SEXP orP, SEXP returnGffP) {
   }
   if (returnGff) 
     return rph_gff_new_extptr(newgff);
-  PROTECT(rv = allocVector(INTSXP, 1));
-  INTEGER(rv)[0] = numbit;
+  
+  if (numbit > INT_MAX) {
+    PROTECT(rv = allocVector(REALSXP, 1));
+    REAL(rv)[0] = numbit;
+  } else {
+    PROTECT(rv = allocVector(INTSXP, 1));
+    INTEGER(rv)[0] = numbit;
+  }
   UNPROTECT(1);
   return rv;
 }

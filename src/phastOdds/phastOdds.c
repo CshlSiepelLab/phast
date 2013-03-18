@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
   /* convert to coord frame of alignment */
   if (features != NULL && refidx != 0) {
     if (verbose) fprintf(stderr, "Mapping coordinates ...\n");
-    msa_map_gff_coords(msa, features, refidx, 0, 0, NULL); 
+    msa_map_gff_coords(msa, features, refidx, 0, 0); 
     if (lst_size(features->features) == 0)
       die("ERROR: no features within coordinate range of alignment.\n");
   }
@@ -328,13 +328,13 @@ int main(int argc, char *argv[]) {
       if (verbose) 
         fprintf(stderr, "Computing emissions for background model #%d ...\n", i+1);
       tl_compute_log_likelihood(backgd_mods[i], thismsa, 
-                                backgd_emissions[i], 1, NULL);
+                                backgd_emissions[i], NULL, 1, NULL);
     }
     for (i = 0; i < feat_nmods; i++) {
       if (verbose) 
         fprintf(stderr, "Computing emissions for features model #%d ...\n", i+1);
       tl_compute_log_likelihood(feat_mods[i], thismsa, 
-                                feat_emissions[i], 1, NULL);
+                                feat_emissions[i], NULL, 1, NULL);
     }
 
     /* now compute scores */
@@ -434,7 +434,7 @@ int main(int argc, char *argv[]) {
   else if (features != NULL) {  /* features output */
     /* return to coord frame of reference seq (also, replace offset) */
     if (refidx != 0)
-      msa_map_gff_coords(msa, features, 0, refidx, msa->idx_offset, NULL); 
+      msa_map_gff_coords(msa, features, 0, refidx, msa->idx_offset); 
     else if (msa->idx_offset != 0) {
       for (i = 0; i < lst_size(features->features); i++) {
         GFF_Feature *f = lst_get_ptr(features->features, i);

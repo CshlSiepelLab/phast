@@ -274,7 +274,7 @@ MSA *maf_read_cats_subset(FILE *F, FILE *REFSEQF, int tuple_size,
          mini_gff to the coords of the mini_msa */
       /* NOTE: not necessary because automatically projecting */
 /*       if (map == NULL && lst_size(mini_gff->features) > 0)  */
-/*         msa_map_gff_coords(mini_msa, mini_gff, 1, 0, 0, cm); */
+/*         msa_map_gff_coords(mini_msa, mini_gff, 1, 0, 0); */
 
       if (reverse_groups != NULL && lst_size(mini_gff->features) > 0) {
 	gff_group(mini_gff, reverse_groups);
@@ -645,7 +645,7 @@ MSA *maf_read_unsorted(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
          mini_gff to the coords of the mini_msa */
       /* NOTE: not necessary because automatically projecting */
 /*       if (map == NULL && lst_size(mini_gff->features) > 0)  */
-/*         msa_map_gff_coords(mini_msa, mini_gff, 1, 0, 0, cm); */
+/*         msa_map_gff_coords(mini_msa, mini_gff, 1, 0, 0); */
 
       if (reverse_groups != NULL && lst_size(mini_gff->features) > 0) {
           gff_group(mini_gff, reverse_groups);

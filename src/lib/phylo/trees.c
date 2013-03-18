@@ -1334,14 +1334,31 @@ void tr_partition_nodes(TreeNode *tree, TreeNode *sub, List *inside,
   sfree(mark);
 }
 
+
+/* recursive version of tr_leaf_names that works for nodes that are
+   not the root of the tree */
+void tr_leaf_names_rec(TreeNode *tree, List *rv) {
+  if (tree->lchild == NULL) 
+    lst_push_ptr(rv, str_new_charstr(tree->name));
+  else {
+    tr_leaf_names_rec(tree->lchild, rv);
+    tr_leaf_names_rec(tree->rchild, rv);
+  }
+}
+
 /** Return a list of the leaf names in a given tree */
 List *tr_leaf_names(TreeNode *tree) {
   List *retval = lst_new_ptr((tree->nnodes + 1) / 2);
   int i;
-  for (i = 0; i < tree->nnodes; i++) {
-    TreeNode *n = lst_get_ptr(tree->nodes, i);
-    if (n->lchild == NULL && n->rchild == NULL)
-      lst_push_ptr(retval, str_new_charstr(n->name));
+  if (tree->nodes == NULL) {
+    // do this recursively if tree->nodes is NULL (usually true for non-root nodes)
+    tr_leaf_names_rec(tree, retval);
+  } else {
+    for (i = 0; i < tree->nnodes; i++) {
+      TreeNode *n = lst_get_ptr(tree->nodes, i);
+      if (n->lchild == NULL && n->rchild == NULL)
+	lst_push_ptr(retval, str_new_charstr(n->name));
+    }
   }
   return retval;
 }

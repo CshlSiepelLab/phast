@@ -29,6 +29,7 @@
 #include <misc.h>
 #include <numerical_opt.h>
 #include <subst_mods.h>
+#include <hmm.h>
 
 /** Maximum alphabet size */
 #define MAX_ALPH_SIZE 100
@@ -424,6 +425,21 @@ int tm_fit(TreeModel *mod, MSA *msa, Vector *params, int cat,
            opt_precision_type precision, FILE *logf, int quiet,
 	   FILE *error_file);
 
+
+/** Fit several tree models (which share parameters) to data using BFGS
+    @param mod Array of tree models
+    @param nmod Length of mod array
+    @param msa Array of msas.  There should be one for each mod, or a single msa with nmod categories.  In that case mod[i] will apply to category i+1 (i in 0,...,nmod-1).
+    @param nmsa Length of msa array.
+    @param precision Precision describing BFGS convergence criteria
+    @param logf log file
+    @param quiet Whether to report progress to stderr
+    @returns 0 on success, 1 on failure
+ */
+int tm_fit_multi(TreeModel **mod, int nmod, MSA **msa, int nmsa,
+		 opt_precision_type precision,
+		 FILE *logf, int quiet);
+
 /** Set specified TreeModel according to specified parameter vector.
    Exact behavior depends on substitution model.
    @param mod Tree Model to adjust parameter vector for
@@ -465,8 +481,9 @@ Vector *tm_params_new_init_from_model(TreeModel *mod);
 /** Functions to initialize a parameter vector from an existing tree model
    @param[in] mod Tree Model used to generate parameter vector
    @param[out] params Parameter vector
+   @param[in] setup_params If TRUE, calls tm_setup_params to set scale_idx, bl_idx, backgd_idx, etc to determine which parameters are stored where in the parameter vector.  Otherwise assume this has already been done.
  */
-void tm_params_init_from_model(TreeModel *mod, Vector *params);
+void tm_params_init_from_model(TreeModel *mod, Vector *params, int setup_params);
 
 /** Initialize branch lengths to average number of mutations under parsimony, and apply Jukes Cantor correction.
   @param params (Optional) If params is NULL, sets the branch lengths in mod->tree directly. Otherwise sets the parameter vector
@@ -490,8 +507,10 @@ double tm_params_init_branchlens_parsimony(Vector *params,
    are to be optimized are stored in the optimization vector.  Parameters
    which are held constant have param_map[i]=-1.  
    @param mod Tree Model
+   @param offset The first position to use for parameter indices (usually 0).
+   @result The number of parameters in this model
  */
-void tm_setup_params(TreeModel *mod);
+int tm_setup_params(TreeModel *mod, int offset);
 
 /** \} \name Tree Model get counts
 \{  */
@@ -666,11 +685,21 @@ void tm_variance(FILE *outfile, TreeModel *mod, MSA *msa, Vector *params, int ca
    @param upper_bounds Unallocated vector pointer
    @param npar Number of parameters
    @param mod Tree Model to estimate bounds for
-   @note Sets lower and upper bounds each to NULL if no boundaries are needed 
+   @param allocate_default If TRUE, allocate space for lower_bounds and upper_bounds even if the boundaries are negative and positive infinity, respectively.  If FALSE, set lower_bounds and upper_bounds to NULL to indicate these "default" boundaries.
  */
-void tm_set_boundaries(Vector **lower_bounds, 
+void tm_new_boundaries(Vector **lower_bounds, 
 		       Vector **upper_bounds, 
-		       int npar, TreeModel *mod);
+		       int npar, TreeModel *mod,
+		       int allocate_default);
+
+
+/** Set lower/upper boundaries for each parameter describing a tree model
+    @param lower_bounds A vector describing the lower bound for each parameter
+    @param upper_bounds A vector describing the upper bound for each parameter
+    @param mod A tree model object
+ */
+void tm_set_boundaries(Vector *lower_bounds, Vector *upper_bounds,
+		       TreeModel *mod);
 
 struct likelihood_wrapper_struct {
   MSA *align;
@@ -685,4 +714,7 @@ void tm_site_model_set_ml_weights(TreeModel *mod, Vector *params,
 void tm_setup_site_model(TreeModel *mod, const char *foreground, int bgc, 
 			 int alt_hypothesis, double selNeg, double selPlus,
 			 double initBgc, double *initWeights);
+
+List *tm_setup_bgc_model_hmm(TreeModel *mod, const char *foreground, double selNeg,
+			     double selPos, double initBgc, double *initWeights);
 #endif

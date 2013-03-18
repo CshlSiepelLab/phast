@@ -328,7 +328,7 @@ void phmm_compute_emissions_em(double **emissions, void **models, int nmodels,
     @param nobs Number of objects in each category
     @param logf File descriptor to log to
 */
-void phmm_estim_mods_em(void **models, int nmodels, void *data, 
+void phmm_estim_mods_em(TreeModel **models, int nmodels, void *data, 
                         double **E, int nobs, FILE *logf);
 
 /** Return observation index associated with given position, here a tuple index.

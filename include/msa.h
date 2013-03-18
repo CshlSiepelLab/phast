@@ -160,6 +160,8 @@ MSA *msa_new_from_file_define_format(FILE *F, msa_format_type format, char *alph
    @param F File descriptor of file containing alignment data
    @param alphabet (Optional) Chars allowed in sequences, if NULL default alphabet for DNA will be used.
    @result Newly allocated MSA with contents of provided file
+   @note Does not handle MAF files or interleaved PHYLIP files.
+   @see maf_read for MAF file reading
    @todo { Does not handle interleaved PHYLIP files } 
 */
 MSA *msa_new_from_file(FILE *F, char *alphabet);
@@ -311,11 +313,20 @@ int msa_map_msa_to_seq(msa_coord_map *map, int pos);
    @param from_seq Starting part of an index between 1 and nseqs, or 0 (for the frame of the entire alignment), or -1 (to infer feature by feature by sequence name)
    @param to_seq Ending part of an index between 1 and nseqs, or 0 (for the frame of the entire alignment)
    @param offset Added to start and end of each feature coords
-   @param cm (Optional) Coordinate Map, if non-NULL, features within groups will be forced to be contiguous
    @note Features whose start and end coords are out of range will be dropped; if only the start or the end is out of range, they will be truncated.
 */
 void msa_map_gff_coords(MSA *msa, GFF_Set *set, int from_seq, int to_seq, 
-                        int offset, CategoryMap *cm);
+                        int offset);
+
+
+/** Returns an array of msa objects, one for each feature.
+    @param msa MSA object
+    @param gff Features object.  Will be modified by this function!  (See note)
+    @return An array of newly allocated MSA objects, one for each feature in the gff which overlaps with the msa.  NULL if no features overlap.  The length of the array is equal to the number of features in the gff when the function returns.
+    @note The gff is heavily modified by this function; elements that do not overlap with the MSA are removed, and others have their coordinates changed to the MSA frame of alignment.
+ */
+MSA **msa_split_by_gff(MSA *msa, GFF_Set *gff);
+
 
 /** Converts coordinate from one map to coordinate on another.
     For convenience when going from one sequence to another.  

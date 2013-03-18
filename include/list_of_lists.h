@@ -222,14 +222,6 @@ void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
 void lol_push_gff(ListOfLists *lol, GFF_Set *gff,
 		  const char *name);
 
-/** Append a WIG to list of lists
-  @param[in,out] lol List of Lists
-  @param[in] scores Array of conservation scores to be added to list of lists along with corresponding msa
-  @param[in] msa msa to be added to list of lists along with corresponding scores
-  @see lol_push
-*/
-void lol_push_wig(ListOfLists *lol, double *scores, MSA *msa);
-
 /** Append a GFF (via pointer) to list of lists 
   @param[in,out] lol List of Lists
   @param[in] gff Feature Set to add

@@ -298,7 +298,7 @@ int main(int argc, char *argv[]) {
   }
   if (!meme_mode) {
     fprintf(stderr, "Extracting and pooling sufficient statistics ...\n");
-    pmsa = ss_pooled_from_msas(msas, 1, size, NULL);
+    pmsa = ss_pooled_from_msas(msas, 1, size, NULL, 0);
     msa_remove_N_from_alph(pmsa->pooled_msa);
   }
 

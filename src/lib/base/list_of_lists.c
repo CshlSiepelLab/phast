@@ -231,7 +231,7 @@ void lol_push_treeModel(ListOfLists *lol, TreeModel *tm,
       lol_push_charvec(currAltMod, &(altmod->defString->chars), 1, "defn");
       lol_push_lol(altModList, currAltMod, NULL);
     }
-    lol_push_lol(tmList, altModList, "alt.model");
+    lol_push_lol(tmList, altModList, "ls.model");
   }
 
   lol_set_class(tmList, "tm");

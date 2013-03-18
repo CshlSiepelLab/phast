@@ -612,7 +612,7 @@ int main(int argc, char* argv[]) {
     if (gff != NULL) {
       if (!quiet_mode)
 	fprintf(stderr, "Mapping feature coordinates to frame of alignment...\n");
-      msa_map_gff_coords(msa, gff, 1, 0, 0, NULL);
+      msa_map_gff_coords(msa, gff, 1, 0, 0);
 
       if (strand_sensitive) {
         if (!quiet_mode)
@@ -861,9 +861,8 @@ int main(int argc, char* argv[]) {
 	else {  /* write gff file for subset */
 	  /* map coords back to original frame(s) of ref */
 	  msa_map_gff_coords(sub_msa, sub_gff, 0, 1, 
-			     output_format == SS ? sub_msa->idx_offset : 0, 
+			     output_format == SS ? sub_msa->idx_offset : 0);
 			     /* if output SS, add offset */
-			     NULL);
 
 	  sprintf(subfname, "%s.%d-%d.gff", out_fname_root, orig_start, orig_end);
 	  F = phast_fopen(subfname, "w+");

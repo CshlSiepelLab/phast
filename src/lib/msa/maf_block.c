@@ -842,7 +842,7 @@ void mafBlock_strip_ieLines(MafBlock *block) {
 }
 
 
-void mafBlock_mask_region(MafBlock *block, GFF_Set *feat_orig, List *speclist) {
+void mafBlock_mask_region(MafBlock *block, GFF_Set *mask_feats, List *speclist) {
   MafSubBlock *refblock, *maskblock;
   int coord, i, j, spec_idx;
   GFF_Set *feat;
@@ -850,7 +850,7 @@ void mafBlock_mask_region(MafBlock *block, GFF_Set *feat_orig, List *speclist) {
   int next_feat_idx = 1;
   char **maskseq;
   int num_mask_seq=0;
-  if (feat_orig == NULL || lst_size(feat_orig->features) == 0L) return;
+  if (mask_feats == NULL || lst_size(mask_feats->features) == 0L) return;
   maskseq = smalloc(lst_size(speclist)*sizeof(char*));
   for (i=0; i < lst_size(speclist); i++) {
     spec_idx = hsh_get_int(block->specMap, ((String*)lst_get_ptr(speclist, i))->chars);
@@ -863,7 +863,7 @@ void mafBlock_mask_region(MafBlock *block, GFF_Set *feat_orig, List *speclist) {
     sfree(maskseq);
     return;
   }
-  feat = gff_copy_set_no_groups(feat_orig);
+  feat = gff_copy_set_no_groups(mask_feats);
   gff_flatten_mergeAll(feat);
   f = lst_get_ptr(feat->features, 0);
 

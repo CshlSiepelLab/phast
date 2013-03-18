@@ -368,7 +368,7 @@ void gff_flatten_within_groups(GFF_Set *feats);
     @param feats Feature Set to merge
     @result Number bases after merge
  */
-int gff_flatten_mergeAll(GFF_Set *feats);
+long gff_flatten_mergeAll(GFF_Set *feats);
 
 /** \} \name GFF Comparator functions
  \{ */
@@ -578,6 +578,21 @@ GFF_Set *gff_inverse(GFF_Set *gff, GFF_Set *region0);
 */
 GFF_Set *gff_split(GFF_Set *gff, int *maxlen, int nmaxlen,
 		   int drop, int *splitFromRight, int splitFromRight_len);
+
+/** 
+  Create a GFF by thresholding an array of scores.
+  @param seqname Sequence name to use in GFF
+  @param firstIdx The coordinate of the first score (1-based)
+  @param scores The array of scores to be thresholded; should represent a contiguous region starting with position firstIdx.
+  @param numscore The length of the scores array
+  @param threshold The threshold to use.  All coordinates with scores >= threshold will be included in resulting GFF.
+  @param src The source string to use in the GFF
+  @param featureName The name to give each feature
+  @result A GFF_Set with features representing all regions with scores >= threshold.
+*/
+GFF_Set *gff_from_wig_threshold(char *seqname, int firstIdx, double *scores,
+				int numscore, double threshold, char *src,
+				char *featureName);
 
 /** \} */
 #endif

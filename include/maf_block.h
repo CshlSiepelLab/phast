@@ -169,6 +169,13 @@ void mafBlock_strip_eLines(MafBlock *block);
 */
 void mafBlock_strip_ieLines(MafBlock *block);
 
+/** Mask a region of the alignment.
+    @param block MafBlock to mask
+    @param mask_feats features defining regions of alignment to mask
+    @param speclist A list of character vectors identifying species to mask
+ */
+void mafBlock_mask_region(MafBlock *block, GFF_Set *mask_feats, List *speclist);
+
 /**  Threshold all bases based on quality score.
      Change all bases with quality score <= cutoff to N
      @param block Maf Block to threshold

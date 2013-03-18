@@ -154,11 +154,13 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
    @param tuple_size Number of columns that make up a tuple  (e.g., if tuple_size==1, then each column is considered individually, and if tuple_size==2, then each is considered wrt its predecessor)
    @param ncats Number of categories
    @param cats_to_do (Optional) List of category numbers to generate sufficient statistics for; defaults to all
+   @param non_overlapping If TRUE, then for tuples of size > 1, only collect sufficient statistics for non-overlapping tuples (useful for codons).
    @result MSAs pooled into a single PooledMSA object
    @note The source_msas parameter will be referenced in the resulting PooledMSA object so please don't delete it
 */
 PooledMSA *ss_pooled_from_msas(List *source_msas, int tuple_size, 
-                               int ncats, List *cats_to_do);
+                               int ncats, List *cats_to_do, 
+			       int non_overlapping);
 
 /** Create an aggregate MSA from a list of MSA filenames.
    @param fnames List of filenames of MSAs

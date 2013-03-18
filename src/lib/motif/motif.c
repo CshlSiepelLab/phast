@@ -314,7 +314,7 @@ void phy_compute_emissions(double **emissions, void **models, int nmodels,
                                    ignored by setting to NULL */
       MSA *smsa = lst_get_ptr(pmsa->source_msas, sample);
       tl_compute_log_likelihood((TreeModel*)models[k], smsa, 
-                                emissions[k], -1, NULL);
+                                emissions[k], NULL, -1, NULL);
       for (i = 0; i < smsa->length; i++) emissions[k][i] *= conv_factor;
                                 /* convert to natural log scale */
     }
@@ -630,7 +630,7 @@ void mtf_compute_inner_derivs_phy(double **derivs, Motif *m,
   for (mod = 1; mod <= m->motif_size; mod++) {
     int nparams_this_model = tm_get_nparams(m->ph_mods[mod]);
     tm_unpack_params(m->ph_mods[mod], params, base_param_idx);
-    tl_compute_log_likelihood(m->ph_mods[mod], dummy_msa, col_ll, -1, NULL);
+    tl_compute_log_likelihood(m->ph_mods[mod], dummy_msa, col_ll, NULL, -1, NULL);
     for (k = 0; k < nparams_this_model; k++) {
       double origparm;
       i = base_param_idx + k;   /* index of parameter of interest */
@@ -638,7 +638,7 @@ void mtf_compute_inner_derivs_phy(double **derivs, Motif *m,
       vec_set(params, i, origparm + DERIV_EPSILON);
       tm_unpack_params(m->ph_mods[mod], params, base_param_idx);
       tl_compute_log_likelihood(m->ph_mods[mod], dummy_msa, col_ll_tweak, 
-                                -1, NULL);
+                                NULL, -1, NULL);
 
       for (j = 0; j < dummy_msa->ss->ntuples; j++)
         derivs[i][j] = conv_factor * (col_ll_tweak[j] - col_ll[j]) / 
@@ -1885,7 +1885,7 @@ void mtf_add_features(Motif *m, GFF_Set *gff) {
 /*   *bestlogl = NEGINFTY; */
 
   /* estimate background model */
-/*   pmsa = ss_pooled_from_msas(msas, 1, motif_size, NULL); */
+/*   pmsa = ss_pooled_from_msas(msas, 1, motif_size, NULL, 0); */
 
 /*   msa_remove_N_from_alph(pmsa->pooled_msa); */
 /*   for (i = 0; i < lst_size(pmsa->source_msas); i++) */

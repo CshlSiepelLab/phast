@@ -61,6 +61,8 @@ SEXP rph_phyloFit(SEXP msaP,
   double *doubleP;
   char *die_message=NULL;
   SEXP rv=R_NilValue;
+  List *new_rate_consts = NULL;
+  List *new_rate_weights = NULL;
 
   GetRNGstate(); //seed R's random number generator
   pf = phyloFit_struct_new(1);  //sets appropriate defaults for RPHAST mode
@@ -70,11 +72,55 @@ SEXP rph_phyloFit(SEXP msaP,
   if (treeStrP != R_NilValue) 
     pf->tree = rph_tree_new(treeStrP);
 
+  pf->use_em = LOGICAL_VALUE(emP);
+
+  if (rateConstantsP != R_NilValue) {
+    PROTECT(rateConstantsP = AS_NUMERIC(rateConstantsP));
+    numProtect++;
+    doubleP = NUMERIC_POINTER(rateConstantsP);
+    new_rate_consts = lst_new_dbl(LENGTH(rateConstantsP));
+    for (i=0; i < LENGTH(rateConstantsP); i++)
+      lst_push_dbl(new_rate_consts, doubleP[i]);
+//    pf->use_em = 1;
+  }
+
   if (initModP != R_NilValue) {
     pf->input_mod = (TreeModel*)EXTPTR_PTR(initModP);
     pf->subst_mod = pf->input_mod->subst_mod;
     tm_register_protect(pf->input_mod);
-  } 
+    
+    if (new_rate_consts == NULL && pf->input_mod->rK != NULL && pf->input_mod->nratecats > 1) {
+      new_rate_consts = lst_new_dbl(pf->input_mod->nratecats);
+      for (i=0; i < pf->input_mod->nratecats; i++) 
+	lst_push_dbl(new_rate_consts, pf->input_mod->rK[i]);
+//      pf-> = 1;
+    }
+
+    if (pf->input_mod->empirical_rates && pf->input_mod->freqK != NULL && pf->input_mod->nratecats > 1) {
+      new_rate_weights = lst_new_dbl(pf->input_mod->nratecats);
+      for (i=0; i < pf->input_mod->nratecats; i++)
+	lst_push_dbl(new_rate_weights, pf->input_mod->freqK[i]);
+    }
+
+    tm_reinit(pf->input_mod, 
+	      rph_get_subst_mod(substModP),
+	      nratesP == R_NilValue ? pf->input_mod->nratecats : INTEGER_VALUE(nratesP),
+	      NUMERIC_VALUE(alphaP),
+	      new_rate_consts,
+	      new_rate_weights);
+  } else {
+    if (nratesP != R_NilValue)
+      pf->nratecats = INTEGER_VALUE(nratesP);
+    if (alphaP != R_NilValue)
+      pf->alpha = NUMERIC_VALUE(alphaP);
+    if (rateConstantsP != R_NilValue) {
+      pf->rate_consts = new_rate_consts;
+      if (nratesP == R_NilValue)
+	pf->nratecats = lst_size(new_rate_consts);
+      else if (lst_size(new_rate_consts) != pf->nratecats) 
+	die("length of new_rate_consts does not match nratecats\n");
+    }
+  }
   pf->subst_mod = rph_get_subst_mod(substModP);
   
   pf->estimate_scale_only = LOGICAL_VALUE(scaleOnlyP);
@@ -84,21 +130,6 @@ SEXP rph_phyloFit(SEXP msaP,
     strcpy(pf->subtree_name, CHARACTER_VALUE(scaleSubtreeP));
   }
   
-  if (nratesP != R_NilValue)
-    pf->nratecats = INTEGER_VALUE(nratesP);
-  
-  if (alphaP != R_NilValue)
-    pf->alpha = NUMERIC_VALUE(alphaP);
-
-  if (rateConstantsP != R_NilValue) {
-    PROTECT(rateConstantsP = AS_NUMERIC(rateConstantsP));
-    numProtect++;
-    doubleP = NUMERIC_POINTER(rateConstantsP);
-    pf->rate_consts = lst_new_dbl(LENGTH(rateConstantsP));
-    for (i=0; i<LENGTH(rateConstantsP); i++)
-      lst_push_dbl(pf->rate_consts, doubleP[i]);
-  }
-
   pf->random_init = LOGICAL_VALUE(initRandomP);
 
   pf->init_backgd_from_data = LOGICAL_VALUE(initBackgdFromDataP);
@@ -106,8 +137,6 @@ SEXP rph_phyloFit(SEXP msaP,
   pf->init_parsimony = LOGICAL_VALUE(initParsimonyP);
   
   pf->assume_clock = LOGICAL_VALUE(clockP);
-
-  pf->use_em = LOGICAL_VALUE(emP);
 
   if (maxEmItsP != R_NilValue)
     pf->max_em_its = INTEGER_VALUE(maxEmItsP);

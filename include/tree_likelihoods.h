@@ -114,6 +114,7 @@ void tl_dump_matrices(TreeModel *mod, double **inside_vals,
    @param[in] mod Tree Model to compute likelihood for
    @param[in] msa Multiple Alignment containing data related to tree model
    @param[out] col_scores (Optional) Log likelihood score per column
+   @param[out] tuple_scores (Optional) Log likelihood score per tuple
    @param[in] cat Whether to use categories
    @param[out] post (Optional) Computed posterior probabilities; If NULL, no
    posterior probabilities (or related quantities) will be computed.
@@ -122,7 +123,9 @@ void tl_dump_matrices(TreeModel *mod, double **inside_vals,
    @result Log likelihood of entire tree model specified
 */
 double tl_compute_log_likelihood(TreeModel *mod, MSA *msa, 
-                                 double *col_scores, int cat,
+                                 double *col_scores, 
+				 double *tuple_scores, 
+				 int cat,
                                  TreePosteriors *post);
 
 /** Create a new TreePosteriors object.

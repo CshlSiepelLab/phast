@@ -298,7 +298,7 @@ int main(int argc, char *argv[]) {
   /* convert GFF to coord frame of reference sequence and adjust
      coords by idx_offset, if necessary  */
   if (refidx != 0 || msa->idx_offset != 0)
-    msa_map_gff_coords(msa, predictions, 0, refidx, msa->idx_offset, NULL);
+    msa_map_gff_coords(msa, predictions, 0, refidx, msa->idx_offset);
 
   if (refidx != 0) 
     gff_flatten(predictions);	

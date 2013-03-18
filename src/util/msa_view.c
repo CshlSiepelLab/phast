@@ -751,7 +751,7 @@ int main(int argc, char* argv[]) {
         f->end -= msa->idx_offset;
       }
     }
-    msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
+    msa_map_gff_coords(msa, gff, -1, 0, 0);
 
     if (reverse_groups_tag != NULL) { /* reverse complement by group */
       if (input_format == SS) {

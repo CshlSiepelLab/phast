@@ -101,7 +101,7 @@ int main(int argc, char* argv[]) {
   GFF_Set *predictions;
   String *data_path=NULL;
   char c;
-  int i, j, ncats, ncats_unspooled, trial, ntrials, opt_idx, gc_cat;
+  int i, j, ncats, trial, ntrials, opt_idx, gc_cat;
   double gc;
   char tmpstr[STR_LONG_LEN];
   char *msa_fname = NULL;
@@ -352,8 +352,6 @@ int main(int argc, char* argv[]) {
   }
 
   ncats = cm->ncats + 1;
-  ncats_unspooled = cm->unspooler != NULL ? cm->unspooler->nstates_unspooled : 
-    ncats;
 
   /* read tree models */
   if (lst_size(model_fname_list) != ncats) 
@@ -460,7 +458,7 @@ int main(int argc, char* argv[]) {
 
     /* convert to coord frame of reference sequence and adjust for
        idx_offset.  FIXME: make clear in help page assuming refidx 1 */
-    msa_map_gff_coords(msa, predictions, 0, 1, msa->idx_offset, NULL);
+    msa_map_gff_coords(msa, predictions, 0, 1, msa->idx_offset);
 
     /* output predictions */
     if (sens_spec_fname_root != NULL) { 

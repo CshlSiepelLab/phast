@@ -167,4 +167,3 @@ SEXP rph_hmm_endFreq(SEXP hmmP) {
   return result;
 }
 
-

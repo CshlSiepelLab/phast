@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
     }
   }
   if (refidx != 0) {
-    msa_map_gff_coords(msa, predictions, refidx, 0, 0, NULL);
+    msa_map_gff_coords(msa, predictions, refidx, 0, 0);
     map = msa_build_coord_map(msa, refidx);
   }
 

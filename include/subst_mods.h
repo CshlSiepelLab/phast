@@ -102,6 +102,7 @@ int tm_get_nratematparams(struct tm_struct *mod);
 /** Get the order of a substitution model
     @param subst_mod subst_mod_type Substitution Model i.e. R2 or U2S
     @result Order of the substitution model specified
+    @note Although codon models (such as HKY_CODON, REV_CODON, and SSREV_CODON) are technically 0th order models representing 3 bases, tm_order returns 2 for these models.
  */
 int tm_order(int subst_mod);
 
@@ -198,4 +199,24 @@ void tm_apply_selection_bgc(MarkovMatrix *mm, double sel, double bgc);
 */
 void tm_unapply_selection_bgc(MarkovMatrix *mm, double sel, double bgc);
  /** \} */
+/** \name Misc
+\{ */
+
+/** Get the substitution model with same meaning/parameterization but which corresponds to codons
+    @param subst_mod A nucleotide substitution model
+    @return The "codon version" of subst_mod, which has the same parameterization but has been expanded from 4x4 to 64x64, or UNDEF_MOD if none exists
+    @note if subst_mod is a codon model, returns subst_mod
+    @note Most substitution models do not have codon version.  Currently only HKY85, REV, and SSREV do.  Prints a warning if result is UNDEF_MOD.
+ */
+subst_mod_type tm_codon_version(subst_mod_type subst_mod);
+
+
+/** Get the substitution model with the same meaning/parameterization but which corresponds to nucleotides
+   @param subst_mod A codon substitution model
+   @return The "nucleotide version" of subst_mod, which has the same parameterization but uses a 4x4 matrix rather than 64x64
+   @note if subst_mod is a nucleotide model, returns itself
+   @note Prints a warning if result is UNDEF_MOD.
+ */
+subst_mod_type tm_nucleotide_version(subst_mod_type subst_mod);
+/** \} */
 #endif

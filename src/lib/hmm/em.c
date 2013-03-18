@@ -62,7 +62,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
                        int *sample_lens, Matrix *pseudocounts, 
                        void (*compute_emissions)(double**, void**, int, void*, 
                                                  int, int), 
-                       void (*estimate_state_models)(void**, int, void*, 
+                       void (*estimate_state_models)(TreeModel**, int, void*, 
                                                      double**, int, FILE*),
                        void (*estimate_transitions)(HMM*, void*, double**),
                        int (*get_observation_index)(void*, int, int),
@@ -71,7 +71,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
 
   int i, k, l, s, obsidx, nobs=0, maxlen = 0, done, it;
   double **emissions, **forward_scores, **backward_scores, **E = NULL, **A;
-  double *totalE = NULL, *totalA;
+  double *totalA, **tempA, sum;
   double total_logl, prev_total_logl, val;
   List *val_list;
 
@@ -89,7 +89,8 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
     gettimeofday(&start_time, NULL);
 
   for (s = 0; s < nsamples; s++)
-    if (sample_lens[s] > maxlen) maxlen = sample_lens[s];
+    if (sample_lens[s] > maxlen) 
+      maxlen = sample_lens[s];
 
   forward_scores = (double**)smalloc(hmm->nstates * sizeof(double*));
   backward_scores = (double**)smalloc(hmm->nstates * sizeof(double*));
@@ -106,16 +107,18 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
       emissions[i] = (double*)smalloc(maxlen * sizeof(double));
   }
   A = (double**)smalloc(hmm->nstates * sizeof(double*));
+  tempA = (double**)smalloc(hmm->nstates * sizeof(double*));
   totalA = (double*)smalloc(hmm->nstates * sizeof(double));
-  for (k = 0; k < hmm->nstates; k++) 
+  for (k = 0; k < hmm->nstates; k++) {
     A[k] = (double*)smalloc(hmm->nstates * sizeof(double));
+    tempA[k] = (double*)smalloc(hmm->nstates * sizeof(double));
+  }
 
   if (estimate_state_models) {
     nobs = get_observation_index(data, -1, -1); /* this is a bit
                                                    clumsy, but will do
                                                    for now */
     E = (double**)smalloc(hmm->nstates * sizeof(double*));
-    totalE = (double*)smalloc(hmm->nstates * sizeof(double));
     for (k = 0; k < hmm->nstates; k++) 
       E[k] = (double*)smalloc(nobs * sizeof(double));
   }
@@ -131,14 +134,14 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
 
     /* initialize 'A' and 'E' counts (see below) */
     for (k = 0; k < hmm->nstates; k++) {
-      for (l = 0; l < hmm->nstates; l++) A[k][l] = 0;
+      for (l = 0; l < hmm->nstates; l++) 
+	A[k][l] = 0;
       totalA[k] = 0;
     }
     if (estimate_state_models != NULL) {
-      for (k = 0; k < hmm->nstates; k++) {
-        for (obsidx = 0; obsidx < nobs; obsidx++) E[k][obsidx] = 0;
-        totalE[k] = 0;
-      }
+      for (k = 0; k < hmm->nstates; k++)
+        for (obsidx = 0; obsidx < nobs; obsidx++) 
+	  E[k][obsidx] = 0;
     }
 
     for (s = 0; s < nsamples; s++) {
@@ -174,6 +177,7 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
                                     backward_scores[l][i]));
           this_logp = log_sum(val_list);
           obsidx = get_observation_index(data, s, i);
+	  if (obsidx == -1) continue;
           for (k = 0; k < hmm->nstates; k++) {
             /* compute expected number of times each state emits each
                distinct observation ('E' in Durbin et al.'s notation; see
@@ -181,25 +185,31 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
             val = exp2(forward_scores[k][i] + backward_scores[k][i] - 
                        this_logp);
             E[k][obsidx] += val;
-            totalE[k] += val;
           }
-        }
-           
+	}
+   
         /* compute expected number of transitions from each state to
            each other ('A' in Durbin et al.'s notation, pp. 63-64) */
 	if (i != sample_lens[s]-1) {
-        for (k = 0; k < hmm->nstates; k++) {
-          for (l = 0; l < hmm->nstates; l++) {
-            val = exp2(forward_scores[k][i] + 
-                       hmm_get_transition_score(hmm, k, l) + 
-                       emissions[l][i+1] + backward_scores[l][i+1] - 
-                       logp_fw);
-                                /* FIXME: begin and end states? start
-                                   and end idx */
-            A[k][l] += val;
-            totalA[k] += val;
-          }
-        }
+	  sum = 0.0;
+	  for (k = 0; k < hmm->nstates; k++) {
+	    for (l = 0; l < hmm->nstates; l++) {
+	      val = exp2(forward_scores[k][i] + 
+			 hmm_get_transition_score(hmm, k, l) + 
+			 emissions[l][i+1] + backward_scores[l][i+1] - 
+			 logp_fw);
+	      /* FIXME: begin and end states? start
+		 and end idx */
+	      sum += (tempA[k][l] = val);
+	      //	      totalA[k] += val;
+	    }
+	  }
+	  for (k=0; k < hmm->nstates; k++) {
+	    for (l = 0; l < hmm->nstates; l++) {
+	      A[k][l] += tempA[k][l]/sum;
+	      totalA[k] += tempA[k][l]/sum;
+	    }
+	  }
 	}
       }
     }
@@ -213,6 +223,10 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
       else 
         default_log_function(logf, total_logl, hmm, NULL, it == 1);
     }
+    //    fprintf(stderr, "ll=%f\n", total_logl);
+
+    if (total_logl < prev_total_logl) 
+      phast_warning("WARNING: likelihood decreased during EM: it %i total_logl=%.10g, prev_total_logl=%.10g\n", it, total_logl, prev_total_logl);
 
     /* check convergence */
     if (fabs(total_logl - prev_total_logl) <= EM_CONVERGENCE_THRESHOLD)
@@ -235,13 +249,13 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
       hmm_reset(hmm);
 
       /* FIXME: need to use pseudocounts here */  
-
+           
       /* re-estimate state models */
       if (estimate_state_models  != NULL)
         estimate_state_models(models, hmm->nstates, data, E, nobs, logf);
     }
   }
-
+  //  fprintf(stderr, "done it=%i ll=%f\n", it, total_logl);
   if (logf != NULL) {
     gettimeofday(&end_time, NULL);
     fprintf(logf, "\nNumber of iterations: %d\nTotal time: %.4f sec.\n", it, 
@@ -254,17 +268,17 @@ double hmm_train_by_em(HMM *hmm, void *models, void *data, int nsamples,
     sfree(backward_scores[i]);
     if (emissions_alloc == NULL) sfree(emissions[i]);
     sfree(A[i]);
+    sfree(tempA[i]);
     if (estimate_state_models != NULL) sfree(E[i]);
   }
   sfree(forward_scores);
   sfree(backward_scores);
   if (emissions_alloc == NULL) sfree(emissions);
   sfree(A);
+  sfree(tempA);
   sfree(totalA);
-  if (estimate_state_models != NULL) {
+  if (estimate_state_models != NULL)
     sfree(E);
-    sfree(totalE);
-  }
   lst_free(val_list);
 
   return total_logl;

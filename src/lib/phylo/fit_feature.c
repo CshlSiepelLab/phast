@@ -231,6 +231,8 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
                                      data for supertree/subtree case */
 
   /* init ColFitData -- one for null model, one for alt */
+  modcpy->estimate_branchlens = TM_BRANCHLENS_ALL;
+  modcpy->subtree_root = NULL;
   d = ff_init_fit_data(modcpy, msa, ALL, NNEUT, FALSE);
   d2 = ff_init_fit_data(mod, msa, SUBTREE, mode, FALSE); 
                                 /* mod has the subtree info, modcpy

@@ -1167,7 +1167,6 @@ int main(int argc, char *argv[]) {
     GFF_Feature *feat;
     status_type status = OKAY;
     cds_gap_type gt = FSHIFT_BAD;
-    int no_alignment;
     problems_clear(problems);
 
     /* make sure have frame info for CDSs */
@@ -1202,7 +1201,7 @@ int main(int argc, char *argv[]) {
       /* Check first to make sure there's alignment across species in
          the cds; if not, there's no need to look at individual
          features. */
-      for (j = 0, no_alignment = 0; j < lst_size(gfeatures); j++) { 
+      for (j = 0; j < lst_size(gfeatures); j++) { 
         feat = lst_get_ptr(gfeatures, j);
         if (str_equals_charstr(feat->feature, GFF_CDS_TYPE) &&
             is_incomplete_alignment(feat, msa)) {
@@ -1325,7 +1324,7 @@ int main(int argc, char *argv[]) {
           }
           if (Nstatus == MY_FAIL) {
             problem_add(problems, NULL, TOO_MANY_Ns, -1, -1);
-            if (status == MY_OKAY) status = TOO_MANY_Ns;
+            if (status == OKAY) status = TOO_MANY_Ns;
           }
           else if (Nstatus == MY_WARN) 
             problem_add(problems, NULL, WARN_Ns, -1, -1);

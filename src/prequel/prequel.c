@@ -155,7 +155,7 @@ int main(int argc, char *argv[]) {
     die("ERROR: --gibbs not implemented yet.");
   /*     gb_sample_ancestral_seqs(mod, msa, mod->tree_posteriors, gibbs_nsamples); */
   else
-    tl_compute_log_likelihood(mod, msa, NULL, -1, mod->tree_posteriors);
+    tl_compute_log_likelihood(mod, msa, NULL, NULL, -1, mod->tree_posteriors);
 
   fprintf(stderr, "Reconstructing indels by parsimony...\n");
   do_indels(msa, mod);

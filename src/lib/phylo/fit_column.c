@@ -830,6 +830,7 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
   modcpy = tm_create_copy(mod);   /* need separate copy of tree model
                                      with different internal scaling
                                      data for supertree/subtree case */
+  modcpy->subtree_root = NULL;
 
   /* init ColFitData -- one for null model, one for alt */
   d = col_init_fit_data(modcpy, msa, ALL, NNEUT, FALSE);

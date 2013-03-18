@@ -28,17 +28,17 @@ ifndef DESTDIR
 endif
 	mkdir -p ${DESTDIR}/usr/bin/
 	mkdir -p ${DESTDIR}/opt/phast/data/
-	mkdir -p ${DESTDIR}/usr/share/man/man7/
+	mkdir -p ${DESTDIR}/usr/share/man/man1/
 	cp ../bin/* ${DESTDIR}/usr/bin/
 	cp -R ../data/* ${DESTDIR}/opt/phast/data/
-	cp -R ../doc/man/* ${DESTDIR}/usr/share/man/man7/
+	cp -R ../doc/man/* ${DESTDIR}/usr/share/man/man1/
 
 doc:
 	cd ../; make doc 
 
 clean:
 	@for dir in $(SUB) ; do cd ${CDIR}/$$dir && ${MAKE} clean ; done
-	rm -rf ../bin ../lib
+	rm -rf ../bin ../lib ../doc
 
 manpages:
 	@for file in `ls ../bin` ; do perl help2man.pl ../bin/$$file ; done

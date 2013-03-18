@@ -596,7 +596,7 @@ void phmm_compute_emissions(PhyloHmm *phmm,
 
       tl_compute_log_likelihood(phmm->mods[mod], 
                                 phmm->reverse_compl[i] ? msa_compl : msa,
-                                phmm->emissions[i], -1, NULL);
+                                phmm->emissions[i], NULL, -1, NULL);
       if (!phmm->reverse_compl[i]) phmm->state_pos[mod] = i;
       else phmm->state_neg[mod] = i;            
     }
@@ -1071,7 +1071,7 @@ void phmm_compute_emissions_em(double **emissions, void **models, int nmodels,
 }
 
 /* re-estimate phylogenetic models based on expected counts */
-void phmm_estim_mods_em(void **models, int nmodels, void *data, 
+void phmm_estim_mods_em(TreeModel **models, int nmodels, void *data, 
                         double **E, int nobs, FILE *logf) {
 
   /* FIXME: what about when multiple states per model?  Need to

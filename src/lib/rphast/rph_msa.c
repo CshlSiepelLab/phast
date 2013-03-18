@@ -192,7 +192,7 @@ SEXP rph_msa_reduce_to_4d(SEXP msaP, SEXP gffP) {
       f->start -= msa->idx_offset;
       f->end -= msa->idx_offset;
     }
-    msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
+    msa_map_gff_coords(msa, gff, -1, 0, 0);
   }
   msa_label_categories(msa, gff, cm);
   msa_strip_gaps(msa, msa_get_seq_idx(msa, fourD_refseq->chars)+1);
@@ -227,7 +227,7 @@ SEXP rph_msa_extract_feature(SEXP msaP, SEXP gffP) {
       f->end -= msa->idx_offset;
     }
   }
-  msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
+  msa_map_gff_coords(msa, gff, -1, 0, 0);
   msa_label_categories(msa, gff, cm);
 
   if (msa->ss != NULL) {
@@ -290,6 +290,9 @@ SEXP rph_msa_format_for_content(SEXP filenameP) {
 }
 
 
+
+/* TODO: fix so that if features has only one row it can return them ordered!
+ */
 SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP, 
 		  SEXP do4dP, SEXP alphabetP, 
 		  SEXP tupleSizeP, SEXP refseqP, SEXP orderedP,
@@ -411,7 +414,8 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
 			       NO_STRIP, 0, cats_to_do, seqnames, seq_keep);
   } else {
     msa = msa_new_from_file_define_format(infile, fmt, alphabet);
-    if (idxOffsetP != R_NilValue) msa->idx_offset = INTEGER_VALUE(idxOffsetP);
+    if (fmt != SS && idxOffsetP != R_NilValue) 
+      msa->idx_offset = INTEGER_VALUE(idxOffsetP);
   }
   if ((fmt != MAF || do4d) && gff != NULL) {
     if (msa->ss != NULL && msa->ss->tuple_idx == NULL)
@@ -426,7 +430,7 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
 	f->end -= msa->idx_offset;
       }
     }
-    msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
+    msa_map_gff_coords(msa, gff, -1, 0, 0);
     if (reverse_groups_tag != NULL) { /*reverse complement by group */
       if (fmt == SS) {
 	ss_to_msa(msa);
@@ -698,7 +702,7 @@ SEXP rph_msa_square_brackets(SEXP msaP, SEXP rowsP, SEXP colsP) {
     } else {
       seqs[i] = smalloc((ncol+1)*sizeof(char));
       for (j=0; j<ncol; j++) {
-	checkInterruptN(j, 10000);
+	checkInterrupt();
 	if (cols[j] > msa->length) 
 	  die("invalid column in rph_msa_square_brackets");
 	seqs[i][j] = msa_get_char(msa, spec, cols[j]-1);
@@ -710,7 +714,6 @@ SEXP rph_msa_square_brackets(SEXP msaP, SEXP rowsP, SEXP colsP) {
   if (numprotect > 0) UNPROTECT(numprotect);
   return rph_msa_new_extptr(newMsa);
 }
-
 
 // function for [<-.msa
 // R code already checks that valueP can be recycled to expected length
@@ -747,6 +750,7 @@ SEXP rph_msa_square_bracket_equals(SEXP msaP, SEXP rowsP, SEXP colsP,
     if (colsP == R_NilValue) col=i;
     else col = cols[i]-1;
     for (j=0; j < nrow; j++) {
+      checkInterrupt();
       if (rowsP == R_NilValue) row = j;
       else row = rows[j]-1;
       msa->seqs[row][col] = CHARACTER_VALUE(STRING_ELT(valueP, pos++))[0];
@@ -757,8 +761,6 @@ SEXP rph_msa_square_bracket_equals(SEXP msaP, SEXP rowsP, SEXP colsP,
     UNPROTECT(numprotect);
   return msaP;
 }
-
-
 
 SEXP rph_msa_sub_alignment(SEXP msaP, SEXP seqsP, SEXP keepP, 
 			   SEXP startcolP, SEXP endcolP, 
@@ -957,7 +959,7 @@ SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP gffP, SEXP byColumnP) {
   resultP = NUMERIC_POINTER(result);
 
 
-  likelihood = log2*tl_compute_log_likelihood(tm, msa, col_probs, -1, NULL);
+  likelihood = log2*tl_compute_log_likelihood(tm, msa, col_probs, NULL, -1, NULL);
   if (by_column) {
     for (i=0; i<msa->length; i++)
       resultP[i] = log2*col_probs[i];
@@ -969,7 +971,7 @@ SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP gffP, SEXP byColumnP) {
 	feat->end -= msa->idx_offset;
       }
     }
-    msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
+    msa_map_gff_coords(msa, gff, -1, 0, 0);
     for (i=0; i < lst_size(gff->features); i++) {
       checkInterruptN(i, 1000);
       feat=(GFF_Feature*)lst_get_ptr(gff->features, i);
@@ -1078,37 +1080,25 @@ SEXP rph_msa_concat(SEXP aggregate_msaP, SEXP source_msaP) {
 SEXP rph_lst_new_extptr(List *l);
 
 SEXP rph_msa_split_by_gff(SEXP msaP, SEXP gffP) {
-  MSA *msa, *newmsa;
+  MSA *msa, **msas;
   ListOfLists *rv;
-  GFF_Feature *feat;
   GFF_Set *gff;
-  int *starts, i;
+  int i, num_msa;
   
   msa = (MSA*)EXTPTR_PTR(msaP);
   gff = (GFF_Set*)EXTPTR_PTR(gffP);
-  rv = lol_new(lst_size(gff->features));
-  starts = smalloc(lst_size(gff->features)*sizeof(int));
   msa_register_protect(msa);
   gff_register_protect(gff);
 
-  /* convert GFF to coordinate frame of alignment */
-  for (i=0; i < lst_size(gff->features); i++) {
-    checkInterruptN(i, 1000);
-    feat = lst_get_ptr(gff->features, i);
-    starts[i] = feat->start;
-    feat->start -= msa->idx_offset;
-    feat->end -= msa->idx_offset;
-  }
-  msa_map_gff_coords(msa, gff, -1, 0, 0, NULL);
-
-  for (i=0; i < lst_size(gff->features); i++) {
-    feat = lst_get_ptr(gff->features, i);
-    newmsa = msa_sub_alignment(msa, NULL, -1, feat->start -1, feat->end);
-    newmsa->idx_offset = starts[i]-1;
-    lol_push_msa_ptr(rv, newmsa, NULL);
-  }
+  msas = msa_split_by_gff(msa, gff);
+  if (msas == NULL) return R_NilValue;
+  num_msa = lst_size(gff->features);
+  rv = lol_new(num_msa);
+  for (i=0; i < num_msa; i++) 
+    lol_push_msa_ptr(rv, msas[i], NULL);
   return rph_listOfLists_to_SEXP(rv);
 }
+
 
 SEXP rph_msaList_get(SEXP listP, SEXP idxP) {
   List* l= (List*)EXTPTR_PTR(listP);
