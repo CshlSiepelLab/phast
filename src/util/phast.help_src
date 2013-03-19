@@ -1,16 +1,18 @@
 	The PHAST package contains the following programs:
-	all_dists		hmm_tweak		pbsTrain
-	base_evolve		hmm_view		phastCons
-	chooseLines		indelFit		phastMotif
-	clean_genes		indelHistory		phastOdds
-	consEntropy		maf_parse		phyloBoot
-	convert_coords		makeHKY			phyloFit
-	display_rate_matrix	modFreqs		phyloP
-	dless			msa_diff		prequel
-	dlessP			msa_split		refeature
-	draw_tree		msa_view		stringiphy
-	eval_predictions	pbsDecode		treeGen
-	exoniphy		pbsEncode		tree_doctor
-	hmm_train		pbsScoreMatrix
+
+        all_dists            hmm_view        phastBias
+        base_evolve          indelFit        phastCons
+        chooseLines          indelHistory    phastMotif
+        clean_genes          maf_parse       phastOdds
+        consEntropy          makeHKY         phyloBoot
+        convert_coords       modFreqs        phyloFit
+        display_rate_matrix  msa_diff        phyloP
+        dless                msa_split       prequel
+        dlessP               msa_view        refeature
+        draw_tree            pbsDecode       stringiphy
+        eval_predictions     pbsEncode       test
+        exoniphy             pbsScoreMatrix  tree_doctor
+        hmm_train            pbsTrain        treeGen
+        hmm_tweak            phast
 
 	For help, type the program's name followed by -h in your command line window.
