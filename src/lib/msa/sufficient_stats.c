@@ -72,7 +72,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
                   Hashtable *existing_hash,
                   int idx_offset, int non_overlapping) {
   int i, j, do_cats, idx, upper_bound;
-  long int max_tuples;
+  int max_tuples;
   MSA_SS *main_ss, *source_ss = NULL;
   Hashtable *tuple_hash = NULL;
   int *do_cat_number = NULL;
@@ -117,9 +117,10 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
       upper_bound = source_msa->ss->ntuples;
     else if (source_msa != NULL) upper_bound = source_msa->length;
     else upper_bound = min(msa->length, MAX_NTUPLE_ALLOC);
-    max_tuples = min(pow(strlen(msa->alphabet)+ strlen(msa->missing) + 1, 
+    max_tuples = min((int)pow(strlen(msa->alphabet)+ (int)strlen(msa->missing) + 1, 
                          msa->nseqs * tuple_size),
                      upper_bound);
+    if (max_tuples < 0) max_tuples = upper_bound;  //protect against overflow
     ss_new(msa, tuple_size, max_tuples, do_cats, store_order);
     if (source_msa != NULL) msa->length = source_msa->length;
   }
@@ -136,7 +137,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
       upper_bound = msa->ss->ntuples + source_msa->ss->ntuples;
     else
       upper_bound = msa->ss->ntuples + source_msa->length;
-    max_tuples = min(pow(strlen(msa->alphabet) + strlen(msa->missing) + 1, 
+    max_tuples = min((int)pow(strlen(msa->alphabet) + (int)strlen(msa->missing) + 1, 
                          msa->nseqs * tuple_size),
                      upper_bound);
     ss_realloc(msa, tuple_size, max_tuples, do_cats, store_order);
@@ -144,7 +145,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
 
 
   main_ss = msa->ss;
-  tuple_hash = existing_hash != NULL ? existing_hash : hsh_new(max_tuples/3);
+  tuple_hash = existing_hash != NULL ? existing_hash : hsh_new((int)((double)max_tuples/3));
 
   if (source_msa != NULL && source_msa->ss != NULL)
     source_ss = source_msa->ss;
@@ -1060,7 +1061,7 @@ void ss_reverse_compl(MSA *msa) {
   }
 
   /* reverse complement column tuples; counts remain unaltered */
-  midpt = ceil(ss->tuple_size/2.0);
+  midpt = (int)ceil(ss->tuple_size/2.0);
   for (i = 0; i < ss->ntuples; i++) {
     checkInterruptN(i, 1000);
     for (j = 0; j < msa->nseqs; j++) {
@@ -1085,7 +1086,7 @@ void ss_reverse_compl(MSA *msa) {
   }
 
   /* reverse order */
-  midpt = ceil(msa->length/2.0);
+  midpt = (int)ceil(msa->length/2.0);
   idx1 = ss->tuple_size - 1; /* note offset due to edge effect */
   idx2 = msa->length - 1;
   for (; idx1 < idx2; idx1++, idx2--) {

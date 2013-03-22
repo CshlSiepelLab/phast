@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
   char *seqname = NULL, *idpref = NULL;
   IndelHistory *ih = NULL;
 
-  while ((c = getopt_long(argc, argv, "R:t:p:E:C:r:M:i:N:P:I:H:h", long_opts, &opt_idx)) != -1) {
+  while ((c = (char)getopt_long(argc, argv, "R:t:p:E:C:r:M:i:N:P:I:H:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'R':
       rho = get_arg_dbl_bounds(optarg, 0, 1);

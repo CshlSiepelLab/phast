@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
   int *chosen;
   char c;
 
-  while ((c = getopt(argc, argv, "k:rh")) != -1) {
+  while ((c = (char)getopt(argc, argv, "k:rh")) != -1) {
     switch (c) {
     case 'k':
       k = atoi(optarg);

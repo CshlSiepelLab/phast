@@ -72,7 +72,7 @@ OPTIONS:\n\
 /* given a model, return the tuple of characters corresponding to the
    specified state */
 void get_state_tuple(TreeModel *mod, char *tuple, int state) {
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int tuple_idx;
   for (tuple_idx = -1*mod->order; tuple_idx <= 0; tuple_idx++) {
     int projection = (state / int_pow(alph_size, -1 * tuple_idx)) % 
@@ -90,7 +90,7 @@ Matrix* read_subst_scores(TreeModel *mod, FILE *F) {
                                         mod->rate_matrix->size);
   String *line = str_new(STR_MED_LEN), *tuple1, *tuple2;
   List *l = lst_new_ptr(3);
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int *inv_alph = mod->rate_matrix->inv_states;
   double val;
   mat_set_all(retval, NEGINFTY);
@@ -124,7 +124,7 @@ Matrix* read_subst_scores(TreeModel *mod, FILE *F) {
    changed!).  Equilibrium frequencies are ignored.  */ 
 Matrix *read_paml_matrix(FILE *F, char *alph) {
   char *paml_alph = "ARNDCQEGHILKMFPSTWYV$";
-  int size = strlen(paml_alph);
+  int size = (int)strlen(paml_alph);
   Matrix *retval = mat_new(size, size);
   List *fields = lst_new_ptr(100);
   String *line = str_new(STR_MED_LEN);
@@ -172,7 +172,7 @@ Matrix *read_paml_matrix(FILE *F, char *alph) {
 
 Matrix* unproject_rates(TreeModel *mod_tuples, TreeModel *mod_single) {
   int dim = mod_tuples->rate_matrix->size;
-  int alph_size = strlen(mod_tuples->rate_matrix->states);
+  int alph_size = (int)strlen(mod_tuples->rate_matrix->states);
   char tuple_i[mod_tuples->order+1], tuple_j[mod_tuples->order+1];
   int position, i, j;
   Matrix *retval = mat_new(dim, dim);
@@ -187,7 +187,7 @@ Matrix* unproject_rates(TreeModel *mod_tuples, TreeModel *mod_single) {
 
       get_tuple_str(tuple_j, j, mod_tuples->order+1, 
                     mod_tuples->rate_matrix->states);
-      position = mod_tuples->order - floor(log(abs(i - j))/log(alph_size));
+      position = mod_tuples->order - (int)(floor(log(abs(i - j))/log(alph_size)));
       mat_set(retval, i, j, 
                      mm_get(mod_single->rate_matrix, 
                             mod_single->rate_matrix->inv_states[(int)tuple_i[position]],
@@ -200,7 +200,7 @@ Matrix* unproject_rates(TreeModel *mod_tuples, TreeModel *mod_single) {
 /* this function implements the -C option */
 void do_context_dependent_ti_tv(TreeModel *mod) {
   char *alph = mod->rate_matrix->states;
-  int alph_size = strlen(alph);
+  int alph_size = (int)strlen(alph);
   char tuple_i[mod->order+2], tuple_j[mod->order+2];
   double context_ti[alph_size][alph_size], context_tv[alph_size][alph_size],
     ti_AT_5_pyrim[3][3], tv_AT_5_pyrim[3][3],
@@ -390,7 +390,7 @@ int main(int argc, char* argv[]) {
   Matrix *subst_mat = NULL;
   List *matrix_list = lst_new_ptr(20), *traversal = NULL;
 
-  while ((c = getopt(argc, argv, "t:fedlLiM:N:A:B:aszSECh")) != -1) {
+  while ((c = (char)getopt(argc, argv, "t:fedlLiM:N:A:B:aszSECh")) != -1) {
    switch(c) {
     case 't':
       if (optarg[0] == 'A') all_branches = 1;
@@ -516,7 +516,7 @@ int main(int argc, char* argv[]) {
   else 
     lst_push_ptr(matrix_list, model->rate_matrix);
 
-  alph_size = strlen(model->rate_matrix->states);
+  alph_size = (int)strlen(model->rate_matrix->states);
   nstates = model->rate_matrix->size;
 
   if (subst_mat_fname != NULL) {

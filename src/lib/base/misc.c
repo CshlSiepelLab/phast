@@ -52,10 +52,10 @@ void choose(int *selections, int N, int k) {
 
   /* if RPHAST RNG is seeded externally */
 #ifndef RPHAST
-  srandom(time(NULL));
+  srandom((unsigned int)time(NULL));
 #endif
   for (i = 0; i < k && lst_size(eligible) > 0; i++) {
-    int randidx = rint(1.0 * (lst_size(eligible)-1) * unif_rand());
+    int randidx = (int)rint(1.0 * (lst_size(eligible)-1) * unif_rand());
     int item = lst_get_int(eligible, randidx);
     selections[item] = 1;
     
@@ -93,11 +93,11 @@ void permute(int *permutation, int N) {
 
   /* if RPHAST RNG is seeded externally */
 #ifndef RPHAST
-  srandom(time(NULL));
+  srandom((unsigned int)time(NULL));
 #endif
 
   for (i = 0; i < N; i++) {
-    randidx = rint(1.0 * (lst_size(eligible)-1) * unif_rand());
+    randidx = (int)rint(1.0 * (lst_size(eligible)-1) * unif_rand());
     if (!(randidx >= 0 && randidx < lst_size(eligible)))
       die("ERROR permute: randidx=%i, should be in [0, %i)\n",
 	  randidx, lst_size(eligible));
@@ -120,7 +120,7 @@ void permute(int *permutation, int N) {
    will be mapped to '$' characters, and tuples not in {A,C,G,T}^3 to
    null characters ('\0'). */
 char* get_codon_mapping(char *alphabet) {
-  int alph_size = strlen(alphabet);
+  int alph_size = (int)strlen(alphabet);
   int nstates = int_pow(alph_size, 3);
   char *retval = (char*)smalloc(nstates * sizeof(char)); 
                                 /* NOTE: no null terminator */
@@ -166,7 +166,7 @@ char* get_codon_mapping(char *alphabet) {
    is not in the specified alphabet. */
 int tuple_index(char *tuple, int *inv_alph, int alph_size) {
   int retval = 0, i;
-  int tuple_size = strlen(tuple);
+  int tuple_size = (int)strlen(tuple);
   for (i = 0; i < tuple_size; i++) {
     if (inv_alph[(int)tuple[tuple_size-i-1]] < 0) return -1;
     retval += inv_alph[(int)tuple[tuple_size-i-1]] * int_pow(alph_size, i);
@@ -181,7 +181,7 @@ int tuple_index(char *tuple, int *inv_alph, int alph_size) {
    also required  */
 void get_tuple_str(char *tuple_str, int tuple_idx, int tuple_size, 
                    char *alphabet) {
-  int k, remainder, alph_size = strlen(alphabet);
+  int k, remainder, alph_size = (int)strlen(alphabet);
   remainder = tuple_idx;
   for (k = 0; k < tuple_size; k++) {
     tuple_str[tuple_size-k-1] = alphabet[remainder % alph_size];
@@ -227,8 +227,8 @@ Matrix* read_subst_mat(FILE *F, char *alph) {
       str_remove_all_whitespace(line);
       strcpy(file_alph, line->chars);
       if (!predefined_alph) strcpy(alph, line->chars);
-      file_size = strlen(file_alph); 
-      size = strlen(alph);
+      file_size = (int)strlen(file_alph); 
+      size = (int)strlen(alph);
       retval = mat_new(size, size);
       mat_zero(retval);
     }
@@ -329,7 +329,7 @@ void set_seed(int seed) {
   if (seed < 0) {
     struct timeval now;
     gettimeofday(&now, NULL);
-    srandom(now.tv_usec);
+    srandom((unsigned int)now.tv_usec);
   } else srandom(seed);
 }
 
@@ -469,7 +469,7 @@ void *srealloc(void *ptr, size_t size) {
 
 /* make a copy of word, allocating just enough space.*/
 char *copy_charstr(const char *word) {
-  int len = strlen(word);
+  int len = (int)strlen(word);
   char *retval = smalloc((len+1)*sizeof(char));
   strcpy(retval, word);
   return retval;
@@ -478,7 +478,7 @@ char *copy_charstr(const char *word) {
 
 /* return 1 if a change from b1 to b2 is a transition, and 0 otherwise */
 int is_transition(char b1, char b2) {
-  b1 = toupper(b1); b2 = toupper(b2);
+  b1 = (char)toupper(b1); b2 = (char)toupper(b2);
   return ((b1 == 'A' && b2 == 'G') || 
           (b1 == 'G' && b2 == 'A') || 
           (b1 == 'T' && b2 == 'C') || 
@@ -600,7 +600,7 @@ int bn_draw_fast(int n, double pp) {
   }
 
   if (p != pp) bn1 = n - bn1;   /* undo symmetry transformation */
-  return bn1;
+  return (int)bn1;
 }
 
 /* structure and comparison function used in mn_draw */
@@ -648,7 +648,7 @@ void mn_draw(int n, double *p, int d, int *counts) {
 
   /* now populate counts */
   for (i = 0; i < d; i++)
-    counts[data[i].idx] = data[i].count;
+    counts[data[i].idx] = (int)data[i].count;
 
   sfree(data);
 }

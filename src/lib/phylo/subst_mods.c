@@ -246,10 +246,10 @@ int tm_get_nratematparams(TreeModel *mod) {
   case HKY_CODON:
     return 1;
   case REV_CODON:
-    n = strlen(mod->rate_matrix->states);
+    n = (int)strlen(mod->rate_matrix->states);
     return (n*n-n)/2;
   case SSREV_CODON:
-    n = strlen(mod->rate_matrix->states);
+    n = (int)strlen(mod->rate_matrix->states);
     return (n*n-n)/2 - n/2 - 2*((n/2*2)!=n);
   default:
     die("ERROR: tm_get_nrateparams unknown substitution model\n");
@@ -700,7 +700,7 @@ void tm_set_GC_matrix(TreeModel *mod, double kappa, int kappa_idx, double alpha)
 
   //first scale eq frequencies
   for (i=0; i<mod->rate_matrix->size; i++) {
-    c = toupper(mod->rate_matrix->states[i]);
+    c = (char)toupper(mod->rate_matrix->states[i]);
     if (c=='G' || c=='C')
       vec_set(mod->backgd_freqs, i, vec_get(mod->backgd_freqs, i)*alpha);
     sum += vec_get(mod->backgd_freqs, i);
@@ -892,7 +892,7 @@ void tm_set_UNREST_matrix(TreeModel *mod, Vector *params, int start_idx) {
 
 void tm_set_R2_matrix(TreeModel *mod, Vector *params, int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int setup_mapping = (mod->rate_matrix_param_row != NULL && 
 		       lst_size(mod->rate_matrix_param_row[start_idx]) == 0);
   if (mod->backgd_freqs == NULL)
@@ -938,7 +938,7 @@ void tm_set_R2_matrix(TreeModel *mod, Vector *params, int start_idx) {
 void tm_set_R2S_matrix(TreeModel *mod, Vector *params, 
                             int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int done_row[nstates];
   int setup_mapping = (mod->rate_matrix_param_row != NULL && 
@@ -1033,7 +1033,7 @@ void tm_set_R2S_matrix(TreeModel *mod, Vector *params,
 
 void tm_set_U2_matrix(TreeModel *mod, Vector *params, int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int setup_mapping = (mod->rate_matrix_param_row != NULL && 
 		       lst_size(mod->rate_matrix_param_row[start_idx]) == 0);
   mat_zero(mod->rate_matrix->matrix);
@@ -1071,7 +1071,7 @@ void tm_set_U2_matrix(TreeModel *mod, Vector *params, int start_idx) {
 void tm_set_U2S_matrix(TreeModel *mod, Vector *params, 
                                int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int done_row[nstates];
   int setup_mapping = (mod->rate_matrix_param_row != NULL && 
@@ -1153,7 +1153,7 @@ void tm_set_U2S_matrix(TreeModel *mod, Vector *params,
    of arbitrary order */
 void tm_set_R3_matrix(TreeModel *mod, Vector *params, int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int setup_mapping = (mod->rate_matrix_param_row != NULL && 
 		       lst_size(mod->rate_matrix_param_row[start_idx]) == 0);
   if (mod->backgd_freqs == NULL)
@@ -1203,7 +1203,7 @@ void tm_set_R3_matrix(TreeModel *mod, Vector *params, int start_idx) {
 
 void tm_set_R3S_matrix(TreeModel *mod, Vector *params, int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int setup_mapping = (mod->rate_matrix_param_row != NULL && 
 		       lst_size(mod->rate_matrix_param_row[start_idx]) == 0);
@@ -1307,7 +1307,7 @@ void tm_set_R3S_matrix(TreeModel *mod, Vector *params, int start_idx) {
 
 void tm_set_U3_matrix(TreeModel *mod, Vector *params, int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int setup_mapping = (mod->rate_matrix_param_row != NULL && 
 		       lst_size(mod->rate_matrix_param_row[start_idx]) == 0);
   mat_zero(mod->rate_matrix->matrix);
@@ -1349,7 +1349,7 @@ void tm_set_U3_matrix(TreeModel *mod, Vector *params, int start_idx) {
 void tm_set_U3S_matrix(TreeModel *mod, Vector *params, 
                                int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int done_row[nstates];
   int setup_mapping = (mod->rate_matrix_param_row != NULL && 
@@ -1442,7 +1442,7 @@ void tm_set_U3S_matrix(TreeModel *mod, Vector *params,
 
 
 void tm_set_HKY_CODON_matrix(TreeModel *mod, double kappa, int kappa_idx) {
-  int i, j, k, alph_size = strlen(mod->rate_matrix->states), codi[3], codj[3],
+  int i, j, k, alph_size = (int)strlen(mod->rate_matrix->states), codi[3], codj[3],
     whichdif;
   double val1, val2;
   int setup_mapping = 
@@ -1525,7 +1525,7 @@ void tm_set_REV_CODON_matrix(TreeModel *mod, Vector *params, int start_idx) {
   if (revmat == NULL) {
     int idx=0;
     states = copy_charstr(mod->rate_matrix->states);
-    alph_size = strlen(states);
+    alph_size = (int)strlen(states);
     revmat = smalloc(alph_size*sizeof(double*));
     set_static_var((void**)&revmat);
     for (i=0; i < alph_size; i++) 
@@ -1596,7 +1596,7 @@ void tm_set_SSREV_CODON_matrix(TreeModel *mod, Vector *params, int start_idx) {
   if (revmat == NULL) {
     int idx=0;
     states = copy_charstr(mod->rate_matrix->states);
-    alph_size = strlen(states);
+    alph_size = (int)strlen(states);
     revmat = smalloc(alph_size*sizeof(double*));
     set_static_var((void**)&revmat);
     for (i=0; i < alph_size; i++) 
@@ -1789,7 +1789,7 @@ void tm_init_mat_UNREST(TreeModel *mod, Vector *params, int parm_idx,
 void tm_init_mat_R2(TreeModel *mod, Vector *params, int parm_idx, 
                       double kappa) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   for (i = 0; i < mod->rate_matrix->size; i++) {
     int b1_i, b2_i, b1_j, b2_j;
     b1_i = i / alph_size;
@@ -1816,7 +1816,7 @@ void tm_init_mat_R2(TreeModel *mod, Vector *params, int parm_idx,
 void tm_init_mat_R2S(TreeModel *mod, Vector *params, 
                           int parm_idx, double kappa) {
   int i;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int done_row[nstates];
 
@@ -1875,7 +1875,7 @@ void tm_init_mat_R2S(TreeModel *mod, Vector *params,
 void tm_init_mat_U2(TreeModel *mod, Vector *params, 
                          int parm_idx, double kappa) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   for (i = 0; i < mod->rate_matrix->size; i++) {
     int b1_i, b2_i, b1_j, b2_j;
     b1_i = i / alph_size;
@@ -1905,7 +1905,7 @@ void tm_init_mat_U2(TreeModel *mod, Vector *params,
 void tm_init_mat_U2S(TreeModel *mod, Vector *params, 
                              int parm_idx, double kappa) {
   int i;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int done_row[nstates];
 
@@ -1968,7 +1968,7 @@ void tm_init_mat_U2S(TreeModel *mod, Vector *params,
 void tm_init_mat_R3(TreeModel *mod, Vector *params, int parm_idx, 
                     double kappa) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   for (i = 0; i < mod->rate_matrix->size; i++) {
     int b1_i, b2_i, b3_i, b1_j, b2_j, b3_j;
     b1_i = i / (alph_size*alph_size);
@@ -2000,7 +2000,7 @@ void tm_init_mat_R3(TreeModel *mod, Vector *params, int parm_idx,
 void tm_init_mat_R3S(TreeModel *mod, Vector *params, int parm_idx, 
                      double kappa) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int done_row[nstates];
 
@@ -2071,7 +2071,7 @@ void tm_init_mat_R3S(TreeModel *mod, Vector *params, int parm_idx,
 void tm_init_mat_U3(TreeModel *mod, Vector *params, 
                     int parm_idx, double kappa) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   for (i = 0; i < mod->rate_matrix->size; i++) {
     int b1_i, b2_i, b3_i, b1_j, b2_j, b3_j;
     b1_i = i / (alph_size*alph_size);
@@ -2107,7 +2107,7 @@ void tm_init_mat_U3(TreeModel *mod, Vector *params,
 void tm_init_mat_U3S(TreeModel *mod, Vector *params, 
                      int parm_idx, double kappa) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int done_row[nstates];
 
@@ -2169,7 +2169,7 @@ void tm_init_mat_U3S(TreeModel *mod, Vector *params,
 
 void tm_init_mat_GY(TreeModel *mod, double kappa, double omega) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   char *aa = get_codon_mapping(mod->rate_matrix->states);
   for (i = 0; i < mod->rate_matrix->size; i++) {
     int b1_i, b2_i, b3_i, b1_j, b2_j, b3_j;
@@ -2252,7 +2252,7 @@ void tm_init_mat_from_model_UNREST(TreeModel *mod, Vector *params,
 void tm_init_mat_from_model_R2(TreeModel *mod, Vector *params, 
                                int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
 
   if (mod->backgd_freqs == NULL)
     die("tm_init_mat_from_model_R2: mod->backgd_freqs is NULL\n");
@@ -2279,7 +2279,7 @@ void tm_init_mat_from_model_R2(TreeModel *mod, Vector *params,
 void tm_init_mat_from_model_U2(TreeModel *mod, Vector *params, 
                                int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   for (i = 0; i < mod->rate_matrix->size; i++) {
     int b1_i, b2_i, b1_j, b2_j;
     b1_i = i / alph_size;
@@ -2301,7 +2301,7 @@ void tm_init_mat_from_model_U2(TreeModel *mod, Vector *params,
 void tm_init_mat_from_model_R2S(TreeModel *mod, Vector *params, 
                                 int start_idx) {
   int i;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int done_row[nstates];
 
@@ -2357,7 +2357,7 @@ void tm_init_mat_from_model_R2S(TreeModel *mod, Vector *params,
 void tm_init_mat_from_model_U2S(TreeModel *mod, Vector *params, 
                                 int start_idx) {
   int i;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int done_row[nstates];
 
@@ -2408,7 +2408,7 @@ void tm_init_mat_from_model_U2S(TreeModel *mod, Vector *params,
 void tm_init_mat_from_model_R3(TreeModel *mod, Vector *params, 
                                int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
 
   if (mod->backgd_freqs == NULL)
     die("tm_init_mat_from_model_R3: mod->backgd_freqs is NULL\n");
@@ -2439,7 +2439,7 @@ void tm_init_mat_from_model_R3(TreeModel *mod, Vector *params,
 void tm_init_mat_from_model_R3S(TreeModel *mod, Vector *params, 
                                int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int done_row[nstates];
   for (i = 0; i < nstates; i++) done_row[i] = 0;
@@ -2507,7 +2507,7 @@ void tm_init_mat_from_model_R3S(TreeModel *mod, Vector *params,
 void tm_init_mat_from_model_U3(TreeModel *mod, Vector *params, 
                                int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   for (i = 0; i < mod->rate_matrix->size; i++) {
     int b1_i, b2_i, b3_i, b1_j, b2_j, b3_j;
     b1_i = i / (alph_size*alph_size);
@@ -2534,7 +2534,7 @@ void tm_init_mat_from_model_U3(TreeModel *mod, Vector *params,
 void tm_init_mat_from_model_U3S(TreeModel *mod, Vector *params, 
                                int start_idx) {
   int i, j;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int done_row[nstates];
 
@@ -2591,7 +2591,7 @@ void tm_init_mat_from_model_REV_CODON(TreeModel *mod, Vector *params,
 
   if (states==NULL)
     die("tm_init_mat_from_model_REV_CODON: mod->rate_matrix->states is NULL\n");
-  nstate = strlen(states);
+  nstate = (int)strlen(states);
 
   if (mod->backgd_freqs == NULL)
     die("tm_init_mat_from_model_REV_CODON: mod->backgd_freqs is NULL\n");
@@ -2612,7 +2612,7 @@ void tm_init_mat_from_model_SSREV_CODON(TreeModel *mod, Vector *params,
 
   if (states == NULL)
     die("tm_init_mat_from_model_SSREV_CODON: mod->rate_matrix->states is NULL\n");
-  nstate = strlen(states);
+  nstate = (int)strlen(states);
 
   if (mod->backgd_freqs == NULL)
     die("tm_init_mat_from_model_SSREV: mod->backgd_freqs is NULL\n");
@@ -2724,10 +2724,10 @@ void tm_set_bgc_sel_factors_codon(double factor[2][3], double sel, double bgc) {
 //sets chartype[i] to 0 if state[i] is a weak state, 1 if it is a strong
 //state, or -1 otherwise
 void tm_bgc_assign_chartype(int* chartype, char *states) {
-  int i, nstate = strlen(states);
+  int i, nstate = (int)strlen(states);
   char c;
   for (i=0; i < nstate; i++) {
-    c = toupper(states[i]);
+    c = (char)toupper(states[i]);
     if (c == 'C' || c== 'G') chartype[i] = 1; //"strong" state
     else if (c=='A' || c=='T') chartype[i] = 0; //"weak" state
     else chartype[i] = -1;  //gap or unknown state
@@ -2742,7 +2742,7 @@ void tm_selection_bgc_codon(MarkovMatrix *mm,
 			    double selection, double bgc,
 			    int apply) {
   int i, j, k, ni, nj, codi[3], codj[3], whichdif, bgc_idx, 
-    alph_size = strlen(mm->states), chartype[5];
+    alph_size = (int)strlen(mm->states), chartype[5];
   double sum, val, sbfactor[2][3], factor;
   static char *codon_mapping, *alphabet=NULL;
 
@@ -2753,7 +2753,7 @@ void tm_selection_bgc_codon(MarkovMatrix *mm,
     alphabet = NULL;
   }
   if (alphabet == NULL) {
-    alphabet = smalloc((strlen(mm->states)+1)*sizeof(char));
+    alphabet = smalloc(((int)strlen(mm->states)+1)*sizeof(char));
     set_static_var((void**)&alphabet);
     strcpy(alphabet, mm->states);
     codon_mapping = get_codon_mapping(alphabet);

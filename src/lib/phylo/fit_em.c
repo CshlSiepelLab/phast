@@ -414,7 +414,7 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
 
   TreeModel *mod = (TreeModel*)data;
   MarkovMatrix *P, *Q = mod->rate_matrix;
-  int alph_size = strlen(mod->rate_matrix->states);
+  int alph_size = (int)strlen(mod->rate_matrix->states);
   int nstates = mod->rate_matrix->size;
   int ndigits = mod->order + 1;
   int nneighbors = ((alph_size-1) * ndigits + 1);
@@ -687,7 +687,7 @@ void compute_grad_em_approx(Vector *grad, Vector *params, void *data,
                                    wrt rate weights (they're already
                                    incorporated into the post
                                    probs) */
-    int nrc = mod->nratecats > 1 ? mod->nratecats : -mod->alpha;
+    int nrc = mod->nratecats > 1 ? mod->nratecats : -(int)mod->alpha;
     for (; nrc >= 1; nrc--) {
       grad_idx = mod->param_map[mod->ratevar_idx + nrc - 1];
       if (grad_idx >= 0)
@@ -1122,7 +1122,7 @@ void compute_grad_em_exact(Vector *grad, Vector *params, void *data,
                                    wrt rate weights (they're already
                                    incorporated into the post
                                    probs) */
-    int nrc = mod->nratecats > 1 ? mod->nratecats : -mod->alpha;
+    int nrc = mod->nratecats > 1 ? mod->nratecats : -(int)mod->alpha;
     for (; nrc >= 1; nrc--) {
       grad_idx = mod->param_map[mod->ratevar_idx + nrc - 1];
       if (grad_idx >= 0)

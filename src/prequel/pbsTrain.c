@@ -25,7 +25,8 @@ int main(int argc, char *argv[]) {
   String *line = str_new(STR_MED_LEN), *args = str_new(STR_MED_LEN);
   List *fields = lst_new_ptr(5), *vectors = lst_new_ptr(1000), 
     *counts = lst_new_int(1000);
-  double dim = -1, error = -1;
+  int dim = -1;
+  double error = -1;
   PbsCode *code;
   char comment[1000];
   time_t t;
@@ -54,7 +55,7 @@ int main(int argc, char *argv[]) {
     if (i < argc - 1) str_append_char(args, ' ');
   }
 
-  while ((c = getopt_long(argc, argv, "n:b:l:Gxh", long_opts, &opt_idx)) != -1) {
+  while ((c = (char)getopt_long(argc, argv, "n:b:l:Gxh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'n':
       nrows = get_arg_int_bounds(optarg, 1, INFTY);

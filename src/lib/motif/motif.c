@@ -96,8 +96,8 @@ List* mtf_find(void *data, int multiseq, int motif_size, int nmotifs,
   Hashtable *hash;
 
   cons_str[motif_size] = '\0';
-  alph_size = multiseq ? strlen(pmsa->pooled_msa->alphabet) : 
-    strlen(seqset->set->alphabet);
+  alph_size = multiseq ? (int)strlen(pmsa->pooled_msa->alphabet) : 
+    (int)strlen(seqset->set->alphabet);
   alpha = smalloc(alph_size * sizeof(double));
   for (i = 0; i < alph_size; i++) alpha[i] = 1;      
   for (i = 0; i <= motif_size; i++) freqs[i] = vec_new(alph_size);
@@ -297,7 +297,7 @@ void mn_estim_mods(void **models, int nmodels, void *data,
    the inv_alphabet for the specified sequence and position */
 int mn_get_obs_idx(void *data, int sample, int position) {
   MSA *set = ((SeqSet*)data)->set;
-  if (sample < 0 || position < 0) return strlen(set->alphabet);
+  if (sample < 0 || position < 0) return (int)strlen(set->alphabet);
                                 /* this hack lets the EM code figure
                                    out the size of state space */
   return set->inv_alphabet[(int)set->seqs[sample][position]];
@@ -880,7 +880,7 @@ void mtf_draw_multinomial(Vector *v, double *alpha) {
 /* scan a set of DNA sequences for the most prevalent n-tuples of bases */
 void mtf_get_common_ntuples(SeqSet *s, List *tuples, int tuple_size, 
                             int number) {
-  int alph_size = strlen(s->set->alphabet);
+  int alph_size = (int)strlen(s->set->alphabet);
   int idx, cutoff, i, j, k;
   int ntuples = int_pow(alph_size, tuple_size), high = ntuples/alph_size;
   int *counts = smalloc(ntuples * sizeof(int));
@@ -940,10 +940,10 @@ void mtf_sample_ntuples(SeqSet *s, List *tuples, int tuple_size, int number) {
   tuple[tuple_size] = '\0';
   /* for simplicity, we'll assume they're all about the same length,
      and sample number/seqset->nseqs from each sequence */
-  n = ceil(1.0 * number/s->set->nseqs);
+  n = (int)ceil(1.0 * number/s->set->nseqs);
   for (i = 0; i < s->set->nseqs && lst_size(tuples) < number; i++) {
     for (j = 0; j < n && lst_size(tuples) < number; j++) {
-      int start = rint(1.0 * (s->lens[i] - tuple_size) * unif_rand());
+      int start = (int)rint(1.0 * (s->lens[i] - tuple_size) * unif_rand());
       strncpy(tuple, &s->set->seqs[i][start], tuple_size);
       lst_push_ptr(tuples, str_new_charstr(tuple));
     }
@@ -1006,8 +1006,8 @@ void mtf_winnow_starts(void *data, List *origseqs, int ntochoose,
   SeqSet *ss = !multiseq ? data : NULL;
   PooledMSA *pmsa = multiseq ? data : NULL;
   Vector **freqs = smalloc((motif_size + 1) * sizeof(void*));
-  int alph_size = multiseq ? strlen(pmsa->pooled_msa->alphabet) : 
-    strlen(ss->set->alphabet);
+  int alph_size = multiseq ? (int)strlen(pmsa->pooled_msa->alphabet) : 
+    (int)strlen(ss->set->alphabet);
   int *inv_alphabet = multiseq ? pmsa->pooled_msa->inv_alphabet :
     ss->set->inv_alphabet;
   int nsamples = multiseq ? lst_size(pmsa->source_msas) : ss->set->nseqs;
@@ -1244,7 +1244,7 @@ Motif* mtf_new(int motif_size, int multiseq, Vector **freqs,
     m->refseq = -1;
   }
 
-  m->alph_size = strlen(m->alphabet);
+  m->alph_size = (int)strlen(m->alphabet);
   m->postprob = smalloc(n * sizeof(double));
   m->bestposition = smalloc(n * sizeof(int));
   m->samplescore = smalloc(n * sizeof(double));

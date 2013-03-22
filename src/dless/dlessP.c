@@ -34,7 +34,8 @@ void do_p_values(BDPhyloHmm *bdphmm, GFF_Set *predictions,
 void write_html(char *htmldir, GFF_Feature *feat, void *stats,
                 event_t type, char *subtree_root_name, String *id);
 void write_stats(FILE *F, GFF_Feature *feat, void *stats,
-                 event_t type, char *subtree_root_name, String *id);
+                 event_t type, char *subtree_root_name, String *id,
+		 int write_header);
 
 int main(int argc, char *argv[]) {
   char c;
@@ -64,7 +65,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "r:M:i:t:h", long_opts, &opt_idx)) != -1) {
+  while ((c = (char)getopt_long(argc, argv, "r:M:i:t:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'r':
       refidx = get_arg_int_bounds(optarg, 0, INFTY);
@@ -203,7 +204,7 @@ void do_p_values(BDPhyloHmm *bdphmm, GFF_Set *predictions,
   gff_partition_by_type(predictions, types, type_lists);
 
   /* write header of output file */
-  write_stats(stdout, NULL, NULL, -1, NULL, NULL);
+  write_stats(stdout, NULL, NULL, 0, NULL, NULL, 1);
 
   for (i = 0; i < lst_size(types); i++) {
     List *feats_this_type = lst_get_ptr(type_lists, i);
@@ -288,7 +289,7 @@ void do_p_values(BDPhyloHmm *bdphmm, GFF_Set *predictions,
 
       write_stats(stdout, f, 
                   event_type == CONS ? (void*)(&stats_cons[j]) : (void*)(&stats_bd[j]), 
-                  event_type, subtree_root->name, id);
+                  event_type, subtree_root->name, id, 0);
 
       if (htmldir != NULL)
         write_html(htmldir, f, 
@@ -387,14 +388,15 @@ void write_html(char *htmldir, GFF_Feature *feat, void *stats,
 }
 
 void write_stats(FILE *F, GFF_Feature *feat, void *stats,
-                 event_t type, char *subtree_root_name, String *id) {
+                 event_t type, char *subtree_root_name, String *id,
+		 int write_header) {
 
   p_value_stats *s_cons = NULL;
   p_value_joint_stats *s_bd = NULL;
 
-  if (type == -1) {             /* code to print header */
+  if (write_header) {             /* code to print header */
     fprintf(F, "#chr\tstart\tend\tid\tscore\ttype\tbranch\tpConsSub\tpConsSup\tpConsSubCond\tpConsSupCond\tcondApprox\tpriorMeanSub\tpriorVarSub\tpriorMinSub\tpriorMaxSub\tpostMeanSub\tpostVarSub\tpriorMeanSup\tpriorVarSup\tpriorMinSup\tpriorMaxSup\tpostMeanSup\tpostVarSup\n");
-    return;
+    if (feat == NULL) return;
   }
 
   if (type == CONS)

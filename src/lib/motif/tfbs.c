@@ -107,7 +107,7 @@ void ms_print_fasta(FILE *F, MS *ms) {
   for (i = 0; i < ms->nseqs; i++) {
     checkInterrupt();
     fprintf(F, ">%s\n", ms->names[i]);
-    seqLen = strlen(ms->seqs[i]);
+    seqLen = (int)strlen(ms->seqs[i]);
     for (j = 0; j < seqLen; j += OUTPUT_LINE_LEN) {
       checkInterruptN(j, 100);
       for (k = 0; k < OUTPUT_LINE_LEN && j + k < seqLen; k++) 
@@ -280,7 +280,7 @@ MS *ms_read(const char *filename, const char *alphabet) {
 	
     // scan chars and adjust if necessary 
     for (j = 0; j < s->length; j++) {
-      ms->seqs[i][j] = do_toupper ? toupper(s->chars[j]) : s->chars[j];
+      ms->seqs[i][j] = do_toupper ? (char)toupper(s->chars[j]) : s->chars[j];
       if (ms->seqs[i][j] == '.' && ms->inv_alphabet[(int)'.'] == -1) 
         ms->seqs[i][j] = ms->missing[0]; // interpret '.' as missing
       //   data; maybe no longer
@@ -319,14 +319,14 @@ Matrix *mm_build_helper(MS *inputMS, int norder, int pseudoCount, int considerRe
   
   vec_zero(freqs);
   
-  alph_size = strlen(inputMS->alphabet);
+  alph_size = (int)strlen(inputMS->alphabet);
   
   //Apply Pseudo-Counts
   vec_set_all(freqs, pseudoCount);
   
   //For each sequence
   for (j = 0; j < inputMS->nseqs; j++) { 
-    seqLen = strlen(inputMS->seqs[j]);
+    seqLen = (int)strlen(inputMS->seqs[j]);
     //For each site
     for (i = 0; i < seqLen; i++) { 
       checkInterruptN(i, 10000);
@@ -355,7 +355,7 @@ Matrix *mm_build_helper(MS *inputMS, int norder, int pseudoCount, int considerRe
       for (j = 0; j < inputMS->nseqs; j++) { 
         
         //For each site
-        for (i = strlen(inputMS->seqs[j]); i >= 0 ; i--) { 
+        for (i = (int)strlen(inputMS->seqs[j]); i >= 0 ; i--) { 
           checkInterruptN(i, 10000);
           ignore = 0;
           tup_idx = 0;

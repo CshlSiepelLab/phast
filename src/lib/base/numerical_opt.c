@@ -1358,7 +1358,7 @@ int opt_sigfig(double val1, double val2) {
   tmp = pow(10, floor(log10(val1)));
   val1 /= tmp; val2 /= tmp;
   for (sf = 0; sf < 30; sf++) { /* never look at more than 30 digits */
-    tv1 = floor(val1); tv2 = floor(val2);
+    tv1 = (int)floor(val1); tv2 = (int)floor(val2);
     if (tv1 != tv2 || (val1 < 1e-30 && val2 < 1e-30)) break;
                                 /* avoid pathological roundoff cases */
     val1 = (val1 - tv1) * 10;   /* avoid overflow */

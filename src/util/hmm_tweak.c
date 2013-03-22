@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
   double gp_sum[5] = {0, 0, 0, 0, 0};
   int gp_count[5] = {0, 0, 0, 0, 0};
 
-  while ((c = getopt(argc, argv, "m:a:e:f:t:i:u:F:T:zyRh")) != -1) {
+  while ((c = (char)getopt(argc, argv, "m:a:e:f:t:i:u:F:T:zyRh")) != -1) {
     switch (c) {
     case 'm':
       mult_fact = get_arg_dbl(optarg);

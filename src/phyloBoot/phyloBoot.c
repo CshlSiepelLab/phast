@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
   
-  while ((c = getopt_long(argc, argv, "L:n:i:d:a:m:o:xR:qht:s:k:Ep:M:S:w:l:P:F:D:r", 
+  while ((c = (char)getopt_long(argc, argv, "L:n:i:d:a:m:o:xR:qht:s:k:Ep:M:S:w:l:P:F:D:r", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'L':

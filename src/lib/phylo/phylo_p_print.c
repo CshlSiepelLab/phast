@@ -329,11 +329,11 @@ void print_p_joint(FILE *outfile, char *node_name, char *mod_fname,
      subst. in the subtree and the smallest reasonable estimate of the
      number of subst. in the whole tree*/
 
-  cond = pm_x_given_tot(prior_joint, post_min_tot);
+  cond = pm_x_given_tot(prior_joint, (int)post_min_tot);
   cond_cons_p_sub = pv_p_value(cond, post_max_sub, LOWER);
   vec_free(cond);
 
-  cond = pm_x_given_tot(prior_joint, post_max_tot);
+  cond = pm_x_given_tot(prior_joint, (int)post_max_tot);
   cond_anti_cons_p_sub = pv_p_value(cond, post_min_sub, UPPER);
   vec_free(cond);
 

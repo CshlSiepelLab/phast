@@ -827,7 +827,7 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
   /* check parameter values */
   for (i = 0; i < params_in->size; i++) {
     double mu = vec_get(params_in, i);
-    if (mu < 0 && abs(mu) < TM_IMAG_EPS) /* consider close enough to 0 */
+    if (mu < 0 && fabs(mu) < TM_IMAG_EPS) /* consider close enough to 0 */
       vec_set(params_in, i, mu=0);
     if (mu < 0) die("ERROR: parameter %d has become negative (%g).\n", i, mu);
     if (isinf(mu) || isnan(mu))

@@ -44,7 +44,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
   int i, j;
   double retval = 0;
   int nstates = mod->rate_matrix->size;
-  int alph_size = strlen(mod->rate_matrix->states); 
+  int alph_size = (int)strlen(mod->rate_matrix->states); 
   int npasses = (mod->order > 0 && mod->use_conditionals == 1 ? 2 : 1); 
   int pass, col_offset, k, nodeidx, rcat, /* colidx, */ tupleidx, defined;
   TreeNode *n;
@@ -211,8 +211,8 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
                 int *iupac_prob = NULL;
 
                 if (pass == 0 || col_offset < 0) {
-                  char thischar = (int)ss_get_char_tuple(msa, tupleidx, 
-                                                         thisseq, col_offset);
+                  char thischar = ss_get_char_tuple(msa, tupleidx, 
+						    thisseq, col_offset);
                   observed_state = mod->rate_matrix->inv_states[(int)thischar];
                   if (observed_state < 0)
                     iupac_prob = mod->iupac_inv_map[(int)thischar];
@@ -483,7 +483,7 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
    matrices for much anymore */
 void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa, 
                                              double *col_scores, int cat) {
-  int i, seq, idx, alph_size = strlen(msa->alphabet);
+  int i, seq, idx, alph_size = (int)strlen(msa->alphabet);
   double retval = 0;
   char tuple[mod->order + 2];
   Vector *margfreqs = 
@@ -843,7 +843,7 @@ double tl_compute_partial_ll_suff_stats(TreeModel *mod, TreePosteriors *post) {
    assumed to be gap characters or Ns. */
 Vector *get_marginal_eq_freqs (char *alphabet, int tuple_size, 
 			       Vector *eq_freqs) {
-  int alph_size = strlen(alphabet);
+  int alph_size = (int)strlen(alphabet);
   int ntuples = int_pow(alph_size, tuple_size);
   int i;
   Vector *retval = vec_new(int_pow(alph_size+1, tuple_size));
@@ -888,7 +888,7 @@ Vector *get_marginal_eq_freqs (char *alphabet, int tuple_size,
 int tuple_index_missing_data(char *tuple, int *inv_alph, int *is_missing,
                              int alph_size) {
   int retval = 0, i;
-  int tuple_size = strlen(tuple);
+  int tuple_size = (int)strlen(tuple);
   for (i = 0; i < tuple_size; i++) {
     int charidx = inv_alph[(int)tuple[tuple_size-i-1]];
     if (charidx < 0) {

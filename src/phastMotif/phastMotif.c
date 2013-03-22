@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
   char c;
   GFF_Set *bedfeats = NULL;
 
-  while ((c = getopt(argc, argv, "t:i:b:sk:md:pn:I:R:P:w:c:SB:o:HDxh")) != -1) {
+  while ((c = (char)getopt(argc, argv, "t:i:b:sk:md:pn:I:R:P:w:c:SB:o:HDxh")) != -1) {
     switch (c) {
     case 't':
       tree = tr_new_from_file(phast_fopen(optarg, "r"));
@@ -335,7 +335,7 @@ int main(int argc, char *argv[]) {
                                    backgd isn't really part of the
                                    estimation procedure */
     if (meme_mode) {
-      backgd_mnmod = vec_new(strlen(seqset->set->alphabet));
+      backgd_mnmod = vec_new((int)strlen(seqset->set->alphabet));
       mtf_estim_backgd_mn(seqset, backgd_mnmod);
     }
     else {

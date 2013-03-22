@@ -70,7 +70,7 @@ Matrix **get_substs_and_bases_given_jumps(JumpProcess *jp, int jmax,
 int get_njumps_max(double lambda, double t_max, double epsilon) {
   int j;
   double mean = ceil(lambda * t_max);
-  for (j = mean; ; j++)
+  for (j = (int)mean; ; j++)
     if (d_poisson(mean, j) < epsilon) break;
   j++;
   return max(10, j);
@@ -391,7 +391,7 @@ Vector *sub_posterior_distrib_alignment(JumpProcess *jp, MSA *msa) {
   for (tup = 0; tup < msa->ss->ntuples; tup++) {
     checkInterruptN(tup, 1000);
     tup_p[tup] = sub_posterior_distrib_site(jp, msa, tup); 
-    counts[tup] = msa->ss->counts[tup]; /* have to convert to int */
+    counts[tup] = (int)msa->ss->counts[tup]; /* have to convert to int */
   }
 
   retval = pv_convolve_many(tup_p, counts, msa->ss->ntuples, jp->epsilon);
@@ -569,7 +569,7 @@ void sub_pval_per_site_subtree(JumpProcess *jp, MSA *msa, mode_type mode,
          misleading in the rare case in which msub and msup are both
          very large */
       else 
-        cond = pm_x_given_tot(prior, msub[tup] + msup[tup]); 
+        cond = pm_x_given_tot(prior, (int)(msub[tup] + msup[tup]));
 
       if (mode == NNEUT) {
         if (ceil(msub[tup]) >= cond->size)
@@ -809,7 +809,7 @@ Matrix *sub_posterior_joint_distrib_alignment(JumpProcess *jp, MSA *msa) {
   for (tup = 0; tup < msa->ss->ntuples; tup++) {
     checkInterruptN(tup, 1000);
     tup_p[tup] = sub_joint_distrib_site(jp, msa, tup); 
-    counts[tup] = msa->ss->counts[tup]; /* have to convert to int */
+    counts[tup] = (int)msa->ss->counts[tup]; /* have to convert to int */
   }
 
   retval = pm_convolve_many(tup_p, counts, msa->ss->ntuples, jp->epsilon);
@@ -961,8 +961,8 @@ p_value_stats *sub_p_value_many(JumpProcess *jp, MSA *msa, List *feats,
     else 
       this_min = this_max = stats[idx].post_mean;
 
-    stats[idx].post_min = floor(this_min);
-    stats[idx].post_max = ceil(this_max);
+    stats[idx].post_min = (int)floor(this_min);
+    stats[idx].post_max = (int)ceil(this_max);
 
     stats[idx].p_cons = pv_p_value(prior, stats[idx].post_max, LOWER);
     stats[idx].p_anti_cons = pv_p_value(prior, stats[idx].post_min, UPPER);    
@@ -991,8 +991,8 @@ int max_convolve_len(int max_convolve_size, double max_nsd,
                      double mean_r, double sd_r) {
   double maxsize;
 
-  int l = sqrt(max_convolve_size / 
-               ((mean_l + max_nsd * sd_l) * (mean_r + max_nsd * sd_r)));
+  int l = (int)sqrt(max_convolve_size / 
+		    ((mean_l + max_nsd * sd_l) * (mean_r + max_nsd * sd_r)));
   /* (lower bound on max, obtained by replacing sqrt(l) with l) */
 
   /* can solve exactly for max, but you have to work with a messy
@@ -1154,9 +1154,9 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
         if (len > 25) {
           /* use central limit theorem to limit size of matrix to keep
              track of */
-          max_nrows = ceil(len * prior_site_mean_left + 
+          max_nrows = (int)ceil(len * prior_site_mean_left + 
                            max_nsd * sqrt(len * prior_site_var_left));
-          max_ncols = ceil(len * prior_site_mean_right + 
+          max_ncols = (int)ceil(len * prior_site_mean_right + 
                            max_nsd * sqrt(len * prior_site_var_right));
         }
         else {
@@ -1229,12 +1229,12 @@ sub_p_value_joint_many(JumpProcess *jp, MSA *msa, List *feats,
       this_min_tot = this_max_tot = stats[idx].post_mean_tot;
     }
 
-    stats[idx].post_min_left = floor(this_min_left);
-    stats[idx].post_max_left = ceil(this_max_left);
-    stats[idx].post_min_right = floor(this_min_right);
-    stats[idx].post_max_right = ceil(this_max_right);
-    stats[idx].post_min_tot = floor(this_min_tot);
-    stats[idx].post_max_tot = ceil(this_max_tot);
+    stats[idx].post_min_left = (int)floor(this_min_left);
+    stats[idx].post_max_left = (int)ceil(this_max_left);
+    stats[idx].post_min_right = (int)floor(this_min_right);
+    stats[idx].post_max_right = (int)ceil(this_max_right);
+    stats[idx].post_min_tot = (int)floor(this_min_tot);
+    stats[idx].post_max_tot = (int)ceil(this_max_tot);
 
     /* conditional p-values */
     cond = prior != NULL ? pm_x_given_tot(prior, stats[idx].post_min_tot) :

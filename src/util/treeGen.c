@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "h", long_opts, &opt_idx)) != -1) {
+  while ((c = (char)getopt_long(argc, argv, "h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'h':
       printf("%s", HELP);
@@ -111,8 +111,8 @@ int main(int argc, char *argv[]) {
         /* decide whether adding leaf to this branch is consistent
            with monophyletic groups */
         if (groups != NULL) {
-          int branchgroup = n->dparent;
-          int ancgroup = n->parent->dparent;
+          int branchgroup = (int)n->dparent;
+          int ancgroup = (int)n->parent->dparent;
           if (nextgroup > 0 && used[nextgroup]) { 
                                 /* group is represented in the tree */
             if (nextgroup != branchgroup) {

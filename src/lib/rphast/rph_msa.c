@@ -367,7 +367,7 @@ SEXP rph_msa_read(SEXP filenameP, SEXP formatP, SEXP gffP,
     cmStr = smalloc(cmStrLen*sizeof(char));
     sprintf(cmStr, "NCATS = %i", LENGTH(docatsP));
     for (i=0; i<LENGTH(docatsP); i++) {
-      cmStrLen = strlen(cmStr);
+      cmStrLen = (int)strlen(cmStr);
       sprintf(&cmStr[cmStrLen], "; %s %i", CHAR(STRING_ELT(docatsP, i)), i+1);
     }
     cm = cm_new_string_or_file(cmStr);
@@ -1181,7 +1181,7 @@ SEXP rph_msa_get_base_freqs_tuples(SEXP msaP, SEXP modP) {
     ss_from_msas(msa, mod->order+1, 0, NULL, NULL, NULL, -1,
                  subst_mod_is_codon_model(mod->subst_mod));
   }
-  nstate = int_pow(strlen(msa->alphabet), mod->order+1);
+  nstate = int_pow((int)strlen(msa->alphabet), mod->order+1);
   if (mod->backgd_freqs == NULL) {
     tm_register_protect(mod);
     mod->backgd_freqs = vec_new(nstate);

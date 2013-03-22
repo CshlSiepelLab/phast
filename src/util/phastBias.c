@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
     {"help", 0, 0, 'h'},
     {0,0,0,0}};
 
-  while ((c = getopt_long(argc, argv, "B:b:L:l:C:c:R:E:T:S:s:f:g:p:m:Wh", long_opts, &opt_idx))
+  while ((c = (char)getopt_long(argc, argv, "B:b:L:l:C:c:R:E:T:S:s:f:g:p:m:Wh", long_opts, &opt_idx))
 	 != -1) {
     switch (c) {
     case 'B':

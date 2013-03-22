@@ -1,3 +1,4 @@
+
 /***************************************************************************
  * PHAST: PHylogenetic Analysis with Space/Time models
  * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
@@ -35,7 +36,7 @@ List* lst_new(int nelements, int elementsz) {
   l->array = (void**)smalloc(nelements * elementsz);
   if (l->array == NULL)
     die("ERROR lst_new l->array is NULL\n");
-  l->step = ceil(l->elementsz * 1.0/sizeof(void*));
+  l->step = (int)ceil(l->elementsz * 1.0/sizeof(void*));
   return l;
 }
 
@@ -218,14 +219,14 @@ double lst_dbl_stdev(List *l) {
 /* assumes list is sorted in ascending order */
 void lst_dbl_quantiles(List *l, double *quantiles, int nquantiles, 
                        double *quantile_vals) {
-  int i, max_idx = lst_size(l) - 1;
+  int i, lower_idx, upper_idx, max_idx = lst_size(l) - 1;
   for (i = 0; i < nquantiles; i++) {
-    double lower_idx, upper_idx, lower_val, upper_val;
+    double lower_val, upper_val;
     if (!(quantiles[i] >= 0 && quantiles[i] <= 1))
       die("ERROR lst_dbl_quantiles: quantiles[%i]=%f, should be in [0,1]\n",
 	  i, quantiles[i]);
-    lower_idx = floor(quantiles[i] * max_idx);
-    upper_idx = ceil(quantiles[i] * max_idx);
+    lower_idx = (int)floor(quantiles[i] * max_idx);
+    upper_idx = (int)ceil(quantiles[i] * max_idx);
     lower_val = lst_get_dbl(l, lower_idx);
     upper_val = lst_get_dbl(l, upper_idx);
 

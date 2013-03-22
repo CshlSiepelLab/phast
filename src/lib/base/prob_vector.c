@@ -159,7 +159,7 @@ Vector *pv_convolve(Vector *p, int n, double epsilon) {
        purposes of bounding. */
     pv_stats(p, &mean, &var);
     max_nsd = -inv_cum_norm(epsilon) + 1; 
-    max_x = max(ceil(n * mean + max_nsd * sqrt(n * var)), p->size);
+    max_x = max((int)ceil(n * mean + max_nsd * sqrt(n * var)), p->size);
   }
 
   q_i = vec_new(max_x);
@@ -219,7 +219,7 @@ Vector **pv_convolve_save(Vector *p, int n, double epsilon) {
        this seems okay for purposes of bounding. */
     pv_stats(p, &mean, &var);
     max_nsd = -inv_cum_norm(epsilon) + 1; 
-    max_x = ceil(n * mean + max_nsd * sqrt(n * var));
+    max_x = (int)ceil(n * mean + max_nsd * sqrt(n * var));
   }
 
   /* compute convolution recursively */
@@ -281,7 +281,7 @@ Vector *pv_convolve_many(Vector **p, int *counts, int n, double epsilon) {
       tot_var += var * count;
     }
     max_nsd = -inv_cum_norm(epsilon) + 1; 
-    max_x = ceil(tot_mean + max_nsd * sqrt(tot_var));
+    max_x = (int)ceil(tot_mean + max_nsd * sqrt(tot_var));
   }
 
   q_i = vec_new(max_x);
@@ -325,7 +325,7 @@ Vector *pv_convolve_many(Vector **p, int *counts, int n, double epsilon) {
    point where < epsilon */
 Vector *pv_poisson(double lambda, double epsilon) {
   int j;
-  Vector *pois = vec_new(max(10 * lambda, 50));
+  Vector *pois = vec_new(max((int)(10.0 * lambda), 50));
   vec_zero(pois);
   pois->data[0] = exp(-lambda);
   for (j = 1; j < pois->size; j++) {

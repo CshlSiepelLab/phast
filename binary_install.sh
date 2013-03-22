@@ -42,23 +42,27 @@ if [ -z "$1" ]; then
 fi
 
 #If we have previously run this script, remove old phast repos
-if [ -f /etc/apt/sources.list ]; then
-  sed 's/.*phast.*//g' -i /etc/apt/sources.list
-elif [ -f /etc/yum.conf ]; then
-  awk '/\[all\]/{c=3}!(c&&c--)' /etc/yum.conf > /etc/yumtemp.conf && mv /etc/yumtemp.conf /etc/yum.conf
-fi
+#if [ -f /etc/apt/sources.list ]; then
+#  sed 's/.*phast.*//g' -i /etc/apt/sources.list
+#elif [ -f /etc/yum.conf ]; then
+#  awk '/\[all\]/{c=3}!(c&&c--)' /etc/yum.conf > /etc/yumtemp.conf && mv /etc/yumtemp.conf /etc/yum.conf
+#fi
 
 #dectect OS and add correct link to compgen repository
 if [ -f /etc/apt/sources.list ]; then
   updatetype=apt
   echo "Apt-Get compatable system"
-  echo "deb http://compgen.bscb.cornell.edu/phast/apt all free" >> /etc/apt/sources.list
+  mkdir -p /etc/apt/sources.list.d
+  echo "deb http://compgen.bscb.cornell.edu/phast/apt all free" > /etc/apt/sources.list.d/phast.list
 elif [ -f /etc/yum.conf ]; then
   updatetype=yum
   echo "Detected yum compatable system"
-  echo "[phast]" >> /etc/yum.conf
-  echo "baseurl=http://compgen.bscb.cornell.edu/phast/yum" >> /etc/yum.conf
-  echo "gpgcheck=0" >> /etc/yum.conf
+  yumfile=/etc/yum.repos.d/phast.repo
+  mkdir -p `dirname $yumfile`
+  echo "[phast]" > $yumfile
+  echo "name=phast" >> $yumfile
+  echo "baseurl=http://compgen.bscb.cornell.edu/phast/yum" >> $yumfile
+  echo "gpgcheck=0" >> $yumfile
 elif [ "`cat /etc/*release | grep -i opensuse`" != "" ]; then
   updatetype=zypper
   echo "Detected zypper compatable system"

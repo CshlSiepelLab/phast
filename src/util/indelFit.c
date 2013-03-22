@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "a:b:t:Lcf:r:l:h", long_opts, &opt_idx)) != -1) {
+  while ((c = (char)getopt_long(argc, argv, "a:b:t:Lcf:r:l:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'a':
       alpha = get_arg_dbl_bounds(optarg, 0, 1);

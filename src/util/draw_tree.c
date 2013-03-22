@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
   char c;
   String *suffix;
 
-  while ((c = getopt(argc, argv, "dbvsh")) != -1) {
+  while ((c = (char)getopt(argc, argv, "dbvsh")) != -1) {
     switch(c) {
     case 'd':
       square_branches = 0;

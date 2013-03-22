@@ -37,7 +37,7 @@ MarkovMatrix* mm_new(int size, const char *states, mm_type type) {
   M->matrix = mat_new(size, size);
   mat_zero(M->matrix);
   M->size = size;
-  alph_size = states == NULL ? size : strlen(states);
+  alph_size = states == NULL ? size : (int)strlen(states);
   M->states = (char*)smalloc((alph_size+1) * sizeof(char));
 
   if (states == NULL) {
@@ -326,7 +326,7 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t, int do_mu) {
     }
   }
 
-  s = ceil(log2(norm/theta[13]));
+  s = (int)ceil(log2(norm/theta[13]));
   if (s > 0) mat_scale(Qt, 1.0/pow(2.0, s));
   
   m=7;

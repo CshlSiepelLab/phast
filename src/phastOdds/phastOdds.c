@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "B:b:F:f:r:g:w:W:i:ydvh", long_opts, &opt_idx)) != -1) {
+  while ((c = (char)getopt_long(argc, argv, "B:b:F:f:r:g:w:W:i:ydvh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'B':
       backgd_hmm = hmm_new_from_file(phast_fopen(optarg, "r"));

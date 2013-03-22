@@ -673,7 +673,7 @@ void gff_group(GFF_Set *set, char *tag) {
   Hashtable *hash = hsh_new(est_no_groups);
   String *nullstr = str_new(1); /* empty string represents missing or
                                    null value for tag */
-  int i, taglen = strlen(tag);
+  int i, taglen = (int)strlen(tag);
 
   if (set->groups != NULL)
     gff_ungroup(set);

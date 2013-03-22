@@ -310,7 +310,7 @@ int main(int argc, char* argv[]) {
   };
 
 
-  while ((c = getopt_long(argc, argv, "s:e:l:O:r:S:d:g:c:P:b:o:m:M:pLnxEIh", long_opts, &opt_idx)) != -1) {
+  while ((c = (char)getopt_long(argc, argv, "s:e:l:O:r:S:d:g:c:P:b:o:m:M:pLnxEIh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 's':
       startcol = get_arg_int(optarg);
@@ -486,7 +486,7 @@ int main(int argc, char* argv[]) {
       if (0 == mafBlock_trim(block, startcol, endcol, refseq, useRefseq ? 0 : lastIdx))
 	goto get_next_block;
 
-    currSize = mafBlock_get_size(block, refseq);
+    currSize = (int)mafBlock_get_size(block, refseq);
     if (useRefseq) {
       currStart = mafBlock_get_start(block, refseq);
       if (currStart < lastIdx && sortWarned == 0) {

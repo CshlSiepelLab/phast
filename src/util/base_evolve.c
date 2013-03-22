@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "n:o:f:c:e:s:h", long_opts, &opt_idx)) != -1) {
+  while ((c = (char)getopt_long(argc, argv, "n:o:f:c:e:s:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'n':
       nsites = get_arg_int_bounds(optarg, 1, INFTY);
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
     case 'e':
       l = get_arg_list(optarg);
       embed_mod = tm_new_from_file(phast_fopen(((String*)lst_get_ptr(l, 0))->chars, "r"), 1);
-      embed_len = get_arg_dbl_bounds(((String*)lst_get_ptr(l, 1))->chars, 1, INFTY);
+      embed_len = get_arg_int_bounds(((String*)lst_get_ptr(l, 1))->chars, 1, INFTY);
       break;
     case 's':
       seed = get_arg_int_bounds(optarg, 1, INFTY);

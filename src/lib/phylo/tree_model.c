@@ -76,7 +76,7 @@ TreeModel *tm_new(TreeNode *tree, MarkovMatrix *rate_matrix,
   else if (backgd_freqs != NULL)
     nstate = backgd_freqs->size;
   else if (alphabet != NULL)
-    nstate = int_pow(strlen(alphabet), tm->order+1);
+    nstate = int_pow((int)strlen(alphabet), tm->order+1);
   else die("ERROR: tm_new needs either alphabet, rate_matrix, or backgd to get number of states\n");
 
   if (tree == NULL) {           /* weight matrix */
@@ -2099,7 +2099,7 @@ int tm_fit_multi(TreeModel **mod, int nmod, MSA **msa, int nmsa,
 		   subst_mod_is_codon_model(mod[i]->subst_mod));
     }
   }
-  nstate = int_pow(strlen(msa[0]->alphabet), mod[0]->order+1);
+  nstate = int_pow((int)strlen(msa[0]->alphabet), mod[0]->order+1);
 
   for (j=0; j < nmod; j++) {
     if (mod[j]->tree == NULL) die("ERROR tm_fit_multi: no tree in mod %i\n", j);
@@ -2374,7 +2374,7 @@ int tm_setup_params(TreeModel *mod, int offset) {
       if (mod->order != 0)
 	die("ERROR tm_setup_params eqfreq_sym==1 mod->order=%i\n", mod->order);
       for (i=0; i<size; i++) {
-	c = tolower(mod->rate_matrix->states[i]);
+	c = (char)tolower(mod->rate_matrix->states[i]);
 	switch (c) {
 	case 'g':
 	case 'c':
@@ -2553,7 +2553,7 @@ int tm_setup_params(TreeModel *mod, int offset) {
 	  }
 	  if (parenpos >= 0) {
 	    currparam->chars[parenpos] = '[';
-	    currparam->length = strlen(currparam->chars);
+	    currparam->length = (int)strlen(currparam->chars);
 	  }
 	  lst_free_strings(tmplst);
 	  lst_free(tmplst);
@@ -3226,7 +3226,7 @@ void tm_fitch_rec_up(int *nodecost, TreeNode *tree,
 double tm_params_init_branchlens_parsimony(Vector *params, TreeModel *mod, 
 					   MSA *msa, int cat) {
   int i, numnode = mod->tree->nnodes;
-  int numstate=strlen(msa->alphabet), **minState, *numMinState;
+  int numstate=(int)strlen(msa->alphabet), **minState, *numMinState;
   int tupleIdx, spec, node, rootMinState, *nodecost, params_idx;
   double *brlen, weight, denom=0, totalCost=0;
   List *traversal;
@@ -3587,7 +3587,7 @@ int tm_get_nratevarparams(TreeModel *mod) {
     else if (mod->nratecats > 1) /* empirical rates */
       return mod->nratecats;
     else if (mod->alpha < 0)    /* empirical rates but temp. disabled */
-      return -mod->alpha;       /* (here, nratecats is stored as -alpha) */
+      return -(int)mod->alpha;       /* (here, nratecats is stored as -alpha) */
   }
   return 0;
 }

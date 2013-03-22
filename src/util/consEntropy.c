@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "H:N::h", long_opts, &opt_idx)) != -1) {
+  while ((c = (char)getopt_long(argc, argv, "H:N::h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'H':
       H = get_arg_dbl_bounds(optarg, 0, INFTY);
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
     nleaves = (cons_mod->tree->nnodes + 1)/2;
     leaf_labels = smalloc((nleaves + 1) * sizeof(char));
     leaf_labels[nleaves] = '\0';
-    alph_size = strlen(cons_mod->rate_matrix->states);
+    alph_size = (int)strlen(cons_mod->rate_matrix->states);
     nlabels = int_pow(alph_size, nleaves);
 
     /* define dummy MSA */

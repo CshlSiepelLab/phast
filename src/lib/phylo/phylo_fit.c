@@ -161,7 +161,7 @@ char **get_state_names(TreeModel *mod, const char *prefix, int *len) {
   char **rv = smalloc(mod->rate_matrix->size*sizeof(char*));
   *len = mod->rate_matrix->size;
   if (prefix == NULL) prefixlen = 0;
-  else prefixlen = strlen(prefix);
+  else prefixlen = (int)strlen(prefix);
   for (state=0; state < mod->rate_matrix->size; state++) {
     rv[state] = smalloc((mod->order + 2 + prefixlen)*sizeof(char));
     rv[state][mod->order + 1 + prefixlen] = '\0';

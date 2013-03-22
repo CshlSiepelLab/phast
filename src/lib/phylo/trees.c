@@ -60,7 +60,7 @@ TreeNode *tr_new_from_file(FILE *f) {
 /** Parse a Newick-formatted tree from a character string */
 TreeNode *tr_new_from_string(const char *treestr) { 
   TreeNode *root, *node, *newnode;
-  int i, in_distance = FALSE, in_label=FALSE, len = strlen(treestr), nopen_parens = 0,
+  int i, in_distance = FALSE, in_label=FALSE, len = (int)strlen(treestr), nopen_parens = 0,
     nclose_parens = 0, already_allowed = FALSE;
   char c;
   String *diststr = str_new(STR_SHORT_LEN), *labelstr = str_new(STR_SHORT_LEN);
@@ -288,7 +288,7 @@ void tr_print(FILE* f, TreeNode *root, int show_branch_lengths) {
 
   /* It's simplest to do this recursively. */
   tr_print_recur(f, root, show_branch_lengths);
-  len = strlen(root->name);
+  len = (int)strlen(root->name);
   if (len == 0 || root->name[len-1] != ';')
     fprintf(f, ";");
   fprintf(f, "\n");
@@ -727,10 +727,10 @@ void tr_layout_xy(TreeNode *tree,
       n = lst_get_ptr(traversal, i); 
       if (horizontal == 0) 
         y[n->id] = n->parent == NULL ? y0 :
-          y[n->parent->id] - n->dparent*scale;
+          y[n->parent->id] - (int)(n->dparent*scale);
       else
         x[n->id] = n->parent == NULL ? x0 :
-          x[n->parent->id] + n->dparent*scale;
+          x[n->parent->id] + (int)(n->dparent*scale);
     }
   }
 } 
@@ -785,7 +785,7 @@ basefont setfont\n");
         yoffset = -6;
       }
       else {
-        xoffset = -3 * (n->name != NULL ? strlen(n->name) : 0);
+        xoffset = -3 * (n->name != NULL ? (int)strlen(n->name) : 0);
         yoffset = -18;
       }
 

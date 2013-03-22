@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "s:p:P:g:m:r:R:B:S:D:l:L:adtNbnh", 
+  while ((c = (char)getopt_long(argc, argv, "s:p:P:g:m:r:R:B:S:D:l:L:adtNbnh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 's':

@@ -30,10 +30,10 @@ typedef struct {
   String *seq;  /**< Sequence data of sub block */
   String *src,   /**< Source of sequence data */
     *specName;  /**< Part of src before the first '.' */
-  int start;   /**< Starting column */
+  long start;   /**< Starting column */
   int size;    /**< Length of the block */
   char strand; /**< Type of strand of the sequence*/
-  int srcSize; /**< Size of the source */
+  long srcSize; /**< Size of the source */
   int numLine;  /**< Number of lines corresponding to this 
 			species in this block. */
   char lineType[4];  /**< type of line i, either 's', 'q', 'i', 'e' */
@@ -199,7 +199,7 @@ String *mafBlock_get_refSpec(MafBlock *block);
     @param specName Name of the species to get starting index of
     @result Starting index of species, OR -1 if species does not exist in given$
 */
-int mafBlock_get_start(MafBlock *block, String *specName);
+long mafBlock_get_start(MafBlock *block, String *specName);
 
 /** Get number of bases (non-gaps) in alignment for a given species. 
     @param block Maf Block containing species specName sequence data

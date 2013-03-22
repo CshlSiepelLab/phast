@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "bga:i:j:h", long_opts, &opt_idx)) != -1) {
+  while ((c = (char)getopt_long(argc, argv, "bga:i:j:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       ignore_base_id = TRUE;

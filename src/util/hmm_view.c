@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
   char c;
   String *source, *sink;
 
-  while ((c = getopt(argc, argv, "k:i:t:C:xh")) != -1) {
+  while ((c = (char)getopt(argc, argv, "k:i:t:C:xh")) != -1) {
     switch(c) {
     case 'k':
       nratecats = get_arg_int(optarg);

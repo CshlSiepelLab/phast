@@ -27,7 +27,7 @@ String *str_new(int starting_nchars) {
 }
 
 String *str_new_charstr(const char *str) {
-  String *s = str_new(strlen(str));
+  String *s = str_new((int)strlen(str));
   str_cpy_charstr(s, str);
   return s;
 }
@@ -82,7 +82,7 @@ void str_nappend_charstr(String *s, const char *charstr, int len) {
 
 /* uses NULL terminator of charstr */
 void str_append_charstr(String *s, const char *charstr) {
-  str_nappend_charstr(s, charstr, strlen(charstr));
+  str_nappend_charstr(s, charstr, (int)strlen(charstr));
 }
 
 void str_append_char(String *s, char c) {
@@ -445,7 +445,7 @@ int str_starts_with(String *s, String *substr) {
 }
 
 int str_starts_with_charstr(String *s, const char *substr) {
-  int len = strlen(substr);
+  int len = (int)strlen(substr);
   if (len > s->length) return 0;
   return (strncmp(s->chars, substr, len) == 0);
 }
@@ -457,7 +457,7 @@ int str_ends_with(String *s, String *substr) {
 }
 
 int str_ends_with_charstr(String *s, const char *substr) {
-  int len = strlen(substr);
+  int len = (int)strlen(substr);
   if (len > s->length) return 0;
   return (strncmp(&s->chars[s->length - len], substr, len) == 0);
 }
@@ -666,11 +666,11 @@ List *str_list_as_dbl(List *str_list) {
 void str_toupper(String *s) {
   int i;
   for (i = 0; i < s->length; i++)
-    s->chars[i] = toupper(s->chars[i]);
+    s->chars[i] = (char)toupper(s->chars[i]);
 }
 
 void str_tolower(String *s) {
   int i;
   for (i = 0; i < s->length; i++)
-    s->chars[i] = tolower(s->chars[i]);
+    s->chars[i] = (char)tolower(s->chars[i]);
 }

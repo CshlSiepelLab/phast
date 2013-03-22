@@ -132,9 +132,9 @@ Matrix *pm_convolve(Matrix *p, int n, double epsilon) {
     Vector *marg_y = pm_marg_y(p);
     pv_stats(marg_x, &mean, &var);
     max_nsd = -inv_cum_norm(epsilon) + 1; 
-    max_nrows = ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
+    max_nrows = (int)ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
     pv_stats(marg_y, &mean, &var);
-    max_ncols = ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
+    max_ncols = (int)ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
     vec_free(marg_x);
     vec_free(marg_y);
   }
@@ -203,9 +203,9 @@ Matrix **pm_convolve_save(Matrix *p, int n, double epsilon) {
     Vector *marg_y = pm_marg_y(p);
     pv_stats(marg_x, &mean, &var);
     max_nsd = -inv_cum_norm(epsilon) + 1; 
-    max_nrows = max(1, ceil(n * mean + max_nsd * sqrt(n * var)));
+    max_nrows = max(1, (int)ceil(n * mean + max_nsd * sqrt(n * var)));
     pv_stats(marg_y, &mean, &var);
-    max_ncols = max(1, ceil(n * mean + max_nsd * sqrt(n * var)));
+    max_ncols = max(1, (int)ceil(n * mean + max_nsd * sqrt(n * var)));
     vec_free(marg_x);
     vec_free(marg_y);
   }
@@ -284,8 +284,8 @@ Matrix *pm_convolve_many(Matrix **p, int *counts, int n, double epsilon) {
     }
 
     max_nsd = -inv_cum_norm(epsilon) + 1; 
-    max_nrows = ceil(tot_mean_x + max_nsd * sqrt(tot_var_x)) + 1;
-    max_ncols = ceil(tot_mean_y + max_nsd * sqrt(tot_var_y)) + 1;
+    max_nrows = (int)ceil(tot_mean_x + max_nsd * sqrt(tot_var_x)) + 1;
+    max_ncols = (int)ceil(tot_mean_y + max_nsd * sqrt(tot_var_y)) + 1;
   }
 
   q_i = mat_new(max_nrows, max_ncols);
@@ -400,9 +400,9 @@ Matrix *pm_convolve_fast(Matrix *p, int n, double epsilon) {
     Vector *marg_y = pm_marg_y(p);
     pv_stats(marg_x, &mean, &var);
     max_nsd = -inv_cum_norm(epsilon) + 1; 
-    max_nrows = ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
+    max_nrows = (int)ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
     pv_stats(marg_y, &mean, &var);
-    max_ncols = ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
+    max_ncols = (int)ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
     vec_free(marg_x);
     vec_free(marg_y);
   }

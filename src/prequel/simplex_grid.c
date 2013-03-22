@@ -113,7 +113,7 @@ SimplexRegion *sxg_get_region(SimplexGrid *g, Vector *p) {
     die("ERROR sxg_get_region: g->d should be < 256 but is %i\n", g->d);
   for (i = 0; i < g->d; i++) {
     if (vec_get(p, i) == 1) coord[i] = g->nrows - 1;
-    else coord[i] = vec_get(p, i) * g->nrows;
+    else coord[i] = (int)(vec_get(p, i) * g->nrows);
     alpha -= coord[i];
   }
   if (alpha < 1 || alpha > g->d-1)
@@ -134,7 +134,7 @@ unsigned sxg_max_nrows(int dim, int nregs) {
   /* The number of regions is upper bounded by (nrows + dim - 1)^dim /
      dim!.  Therefore, we know nrows can be at least floor((nregs *
      dim!)^(1/dim) - dim + 1)  */
-  int nrows = floor(pow(nregs * permutations(dim), 1.0/dim) - dim + 1);
+  int nrows = (int)floor(pow(nregs * permutations(dim), 1.0/dim) - dim + 1);
 
   while (sxg_nregions(dim, nrows+1) < nregs)
     nrows++;
