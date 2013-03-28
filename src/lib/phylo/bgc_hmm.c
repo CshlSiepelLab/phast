@@ -340,8 +340,8 @@ int bgcHmm(struct bgchmm_struct *b) {
     }
   }
 
-  //output viterbi path
-  if (b->viterbi_fn != NULL || results != NULL) {  //need to make a GFF_Set out of viterbi elements and push them onto results and/or output them to viterbi_fn
+  //output viterbi path - don't bother with this anymore since viterbi results don't correspond to posterior probs very well - threshold posteriors at 0.5 instead
+  /*  if (b->viterbi_fn != NULL || results != NULL) {  //need to make a GFF_Set out of viterbi elements and push them onto results and/or output them to viterbi_fn
     ListOfLists *viterbi_lol = lol_new(2);
     
     path = smalloc(nsite * sizeof(int));
@@ -355,7 +355,7 @@ int bgcHmm(struct bgchmm_struct *b) {
     if (results != NULL)
       lol_push_lol(results, viterbi_lol, "viterbi");
     sfree(path);
-  }
+    }*/
   
   //output random paths
   if (b->random_path > 0 && results != NULL) {
@@ -402,7 +402,7 @@ int bgcHmm(struct bgchmm_struct *b) {
     for (i=0,j=0; i < msa->length; i++) {
       if (msa_get_char(msa, 0, i) != GAP_CHAR) {
 	if (i != j) {
-	  for (k=0; k < hmm->nstates; j++) 
+	  for (k=0; k < hmm->nstates; k++) 
 	    postprobs[k][j] = postprobs[k][i];
 	}
 	j++;
@@ -476,8 +476,6 @@ int bgcHmm(struct bgchmm_struct *b) {
     for (j=0; j < hmm->nstates; j++)
       sfree(postprobs[j]);
     sfree(postprobs);
-    
-    if (results != NULL) sfree(coord);
     sfree(prob_bgc);
   }
   return 0;
@@ -582,7 +580,7 @@ void bgchmm_output_path(int *path, int nsite, MSA *msa, int do_bgc,
 //FIXME: this is a bit over-zealous if bgc acts on several branches;
 // currently it combines the requirements for all branches.
 int *bgchmm_get_informative(MSA *msa, char *foregd, TreeNode *tree) {
-  List *foregd_nodes = lst_new_ptr(1), *leaf_names, *informative_nodes = lst_new_ptr(4), *inside=lst_new_ptr(tree->nnodes/2), *outside = lst_new_ptr(tree->nnodes/2);
+  List *foregd_nodes = lst_new_ptr(1), *leaf_names=NULL, *informative_nodes = lst_new_ptr(4), *inside=lst_new_ptr(tree->nnodes/2), *outside = lst_new_ptr(tree->nnodes/2);
   TreeNode *node, *parent, *sib;
   int i, j, k, tupleidx, col, *spec, *rv, numleaf, have_informative;
   char c;
@@ -627,7 +625,7 @@ int *bgchmm_get_informative(MSA *msa, char *foregd, TreeNode *tree) {
     for (j=-1; j < lst_size(informative_nodes); j++) {
       if (j != -1)  //first loop leaf_names already defined from outside
 	leaf_names = tr_leaf_names((TreeNode*)lst_get_ptr(informative_nodes, j));
-      if (lst_size(leaf_names) == 0) continue;
+      if (leaf_names == NULL || lst_size(leaf_names) == 0) continue;
       numleaf = lst_size(leaf_names);
       spec = smalloc(numleaf*sizeof(int));
       for (k=0; k < numleaf; k++)

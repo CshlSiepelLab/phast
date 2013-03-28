@@ -895,21 +895,20 @@ void mafBlock_mask_region(MafBlock *block, GFF_Set *mask_feats, List *speclist) 
 void mafBlock_mask_bases(MafBlock *block, int cutoff, FILE *outfile) {
   MafSubBlock *sub;
   int i, j, firstMasked;
-  char *refseq, *refseqName;
-  long firstCoord, lastCoord, *coord=NULL;
-  if (outfile != NULL) {
-    coord = smalloc(block->seqlen*sizeof(long));
-    sub = (MafSubBlock*)lst_get_ptr(block->data, 0);
-    refseq = sub->seq->chars;
-    firstCoord = sub->start;
-    refseqName = sub->src->chars;
-    for (i=0; i < block->seqlen; i++) {
-      if (refseq[i] != '-')
-	coord[i] = firstCoord++;
-      else coord[i] = -1;
-    }
-    lastCoord = firstCoord;
+  char *refseq=NULL, *refseqName;
+  long firstCoord, lastCoord=-1, *coord;
+
+  sub = (MafSubBlock*)lst_get_ptr(block->data, 0);
+  refseq = sub->seq->chars;
+  coord = smalloc(block->seqlen*sizeof(long));
+  firstCoord = sub->start;
+  refseqName = sub->src->chars;
+  for (i=0; i < block->seqlen; i++) {
+    if (refseq[i] != '-')
+      coord[i] = firstCoord++;
+    else coord[i] = -1;
   }
+  lastCoord = firstCoord;
 
   for (i=0; i<lst_size(block->data); i++) {
     sub = (MafSubBlock*)lst_get_ptr(block->data, i);
@@ -934,9 +933,7 @@ void mafBlock_mask_bases(MafBlock *block, int cutoff, FILE *outfile) {
     if (outfile != NULL && firstMasked != -1) 
       fprintf(outfile, "%s\t%li\t%li\t%s\n", refseqName, coord[firstMasked], lastCoord, sub->src->chars);
   }
-  
-  if (outfile != NULL) sfree(coord);
-
+  sfree(coord);
 }
 
 /* mask any indels that start in this block.  An indel will be "masked" if
