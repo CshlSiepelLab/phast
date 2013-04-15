@@ -3008,8 +3008,10 @@ char **msa_translate(MSA *msa, int oneframe, int *frame) {
   char *tempseq = smalloc((msa->length/3+2) * sizeof(char));
   char **rv = smalloc(msa->nseqs * sizeof(char*));
   int seq, pos, i, codpos, numgap, numn, inv_alph[256];
-  char *alphabet="ACGT", *codon_mapping, cod[3], c;
+  char *alphabet="ACGT", *codon_mapping, cod[4], c;
+  int k;
 
+  cod[3]='\0';
   for (i = 0; i < 256; i++) inv_alph[i] = -1;
   for (i = 0; alphabet[i] != '\0'; i++) inv_alph[(int)alphabet[i]] = i;
   codon_mapping = get_codon_mapping(alphabet);
@@ -3028,7 +3030,18 @@ char **msa_translate(MSA *msa, int oneframe, int *frame) {
       if (codpos == 3) {
 	if (numgap == 3) tempseq[pos++] = '-';
 	else if (numn > 0 || numgap > 0) tempseq[pos++] = '*';
-	else tempseq[pos++] = codon_mapping[tuple_index(cod, inv_alph, 4)];
+	else {
+	  /*	  printf("cod=%c%c%c\n", cod[0], cod[1], cod[2]);
+	  fflush(stdout);
+	  for (k=0; k < 3; k++) {
+	    printf("inv_alph[%i]=%i\n", k, inv_alph[cod[k]]);
+	    fflush(stdout);
+	  }
+	  printf("tuple_idx=%i\n", tuple_index(cod, inv_alph, 4));
+	  fflush(stdout);
+	  printf("codon_mapping=%c\n", codon_mapping[tuple_index(cod, inv_alph, 4)]);*/
+	  tempseq[pos++] = codon_mapping[tuple_index(cod, inv_alph, 4)];
+	}
 	codpos = numgap = numn = 0;
       }
     }

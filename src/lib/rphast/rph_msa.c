@@ -1274,7 +1274,6 @@ SEXP rph_msa_translate(SEXP msaP, SEXP oneFrameP, SEXP frameP) {
     SET_STRING_ELT(result, i, mkChar(trans[i]));
   UNPROTECT(1);
   return result;
-  
 }
 
 

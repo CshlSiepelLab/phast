@@ -745,3 +745,14 @@ SEXP rph_gff_flatten(SEXP gffP) {
   gff_flatten_within_groups(gff);
   return gffP;
 }
+
+
+SEXP rph_gff_convert_coords(SEXP gffP, SEXP msaP, SEXP toP) {
+  GFF_Set *gff;
+  MSA *msa=(MSA*)EXTPTR_PTR(msaP);
+  int to=INTEGER_VALUE(toP);
+  
+  gff = gff_copy_set_no_groups((GFF_Set*)EXTPTR_PTR(gffP));
+  msa_map_gff_coords(msa, gff, -1, to, 0);
+  return rph_gff_new_extptr(gff);
+}
