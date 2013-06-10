@@ -94,7 +94,7 @@ void hsh_put(Hashtable *ht, const char* key, void* val) {
     ht->keys[bucket] = lst_new_ptr(LOADING_FACTOR);
     ht->vals[bucket] = lst_new_ptr(LOADING_FACTOR);
   }
-  keycpy = smalloc(sizeof(char) * (strlen(key) + 1));
+  keycpy = (char*)smalloc(sizeof(char) * (strlen(key) + 1));
   strcpy(keycpy, key);
 
   lst_push_ptr(ht->keys[bucket], keycpy);
