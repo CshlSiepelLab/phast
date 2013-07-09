@@ -3009,7 +3009,6 @@ char **msa_translate(MSA *msa, int oneframe, int *frame) {
   char **rv = smalloc(msa->nseqs * sizeof(char*));
   int seq, pos, i, codpos, numgap, numn, inv_alph[256];
   char *alphabet="ACGT", *codon_mapping, cod[4], c;
-  int k;
 
   cod[3]='\0';
   for (i = 0; i < 256; i++) inv_alph[i] = -1;
@@ -3031,7 +3030,8 @@ char **msa_translate(MSA *msa, int oneframe, int *frame) {
 	if (numgap == 3) tempseq[pos++] = '-';
 	else if (numn > 0 || numgap > 0) tempseq[pos++] = '*';
 	else {
-	  /*	  printf("cod=%c%c%c\n", cod[0], cod[1], cod[2]);
+	  /* int k;
+          printf("cod=%c%c%c\n", cod[0], cod[1], cod[2]);
 	  fflush(stdout);
 	  for (k=0; k < 3; k++) {
 	    printf("inv_alph[%i]=%i\n", k, inv_alph[cod[k]]);

@@ -141,12 +141,13 @@ MSA *maf_read_cats_subset(FILE *F, FILE *REFSEQF, int tuple_size,
       msa->alloc_len = 50000;
     max_tuples =  max(1000000, (int)pow(strlen(msa->alphabet)+strlen(msa->missing)+1, 
 				   2 * msa->nseqs * tuple_size));
-    if (max_tuples > 10000000 || max_tuples < 0) max_tuples = 10000000;
-    if (max_tuples < 1000000) max_tuples = 1000000;
   }
   else 
     max_tuples = min(1000000,
 		     (int)pow(strlen(msa->alphabet)+strlen(msa->missing)+1, 2 * msa->nseqs * tuple_size));
+
+  if (max_tuples > 10000000 || max_tuples < 0) max_tuples = 10000000;
+  if (max_tuples < 1000000) max_tuples = 1000000;
 
   tuple_hash = hsh_new(max_tuples); 
   ss_new(msa, tuple_size, max_tuples, gff != NULL || cycle_size > 0 ? 1 : 0, 
