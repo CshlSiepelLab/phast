@@ -598,12 +598,14 @@ MSA *maf_read_unsorted(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
     msa->length = map != NULL ? map->msa_len : refseqlen;
     max_tuples = min(msa->length,
                      (int)pow(strlen(msa->alphabet)+strlen(msa->missing)+1, msa->nseqs * tuple_size));
+    if (max_tuples < 0) max_tuples = msa->length;
     if (max_tuples > 1000000) max_tuples = 1000000; 
   }
   else {
     msa->length = 0;
     max_tuples = min(50000,
                      (int)pow(strlen(msa->alphabet)+strlen(msa->missing)+1, msa->nseqs * tuple_size));
+    if (max_tuples < 0) max_tuples = 50000;
   }
 
   tuple_hash = hsh_new(max_tuples); 
