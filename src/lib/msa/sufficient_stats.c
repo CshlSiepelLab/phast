@@ -130,7 +130,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
                                    proper preallocation; otherwise
                                    (this case), realloc to accommodate
                                    new source msa */
-    int newlen = effective_offset + source_msa->length;
+    int newlen = effective_offset + msa->length + source_msa->length;
     msa_realloc(msa, newlen, newlen+100000, 
 		do_cats, store_order);
     if (source_msa->ss != NULL) 
@@ -140,6 +140,7 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
     max_tuples = min((int)pow(strlen(msa->alphabet) + (int)strlen(msa->missing) + 1, 
                          msa->nseqs * tuple_size),
                      upper_bound);
+    if (max_tuples < 0) max_tuples = upper_bound;
     ss_realloc(msa, tuple_size, max_tuples, do_cats, store_order);
   }
 
