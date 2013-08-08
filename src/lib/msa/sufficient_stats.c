@@ -125,12 +125,14 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
     if (source_msa != NULL) msa->length = source_msa->length;
   }
   else {  //if (idx_offset < 0) {    
+    // msa->ss != NULL so  we know source_msa != NULL
     /* if storing order based on source
                                    alignments and offset, then assume
                                    proper preallocation; otherwise
                                    (this case), realloc to accommodate
                                    new source msa */
-    int newlen = effective_offset + msa->length + source_msa->length;
+    //    int newlen = effective_offset + msa->length + source_msa->length;
+    int newlen = effective_offset + source_msa->length;
     msa_realloc(msa, newlen, newlen+100000, 
 		do_cats, store_order);
     if (source_msa->ss != NULL) 
