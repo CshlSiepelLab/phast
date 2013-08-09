@@ -340,7 +340,9 @@ int bgcHmm(struct bgchmm_struct *b) {
     lol_push_dbl(results, &mu, 1, "mu");
     lol_push_dbl(results, &nu, 1, "nu");
     lol_push_dbl(results, &mods[0]->scale, 1, "scale");
-    lol_push_dbl(results, &mods[1]->scale_sub, 1, "rho");
+    lol_push_dbl(results, &mods[1]->selection, 1, "sel");
+    if (mods[1]->scale_sub != 1.0)
+      lol_push_dbl(results, &mods[1]->scale_sub, 1, "rho");
     if (do_bgc) 
       lol_push_dbl(results, &(((AltSubstMod*)lst_get_ptr(mods[2]->alt_subst_mods, 0))->bgc), 1, "bgc");
   }
@@ -544,10 +546,10 @@ char *bgchmm_get_state_name(int state, int do_bgc) {
     return("conserved");
   case 2: 
     if (!do_bgc) die("Got state=%i but do_bgc==FALSE\n", state);
-    return("gBGC_neutral");
+    return("gBGC.neutral");
   case 3: 
     if (!do_bgc) die("Got state=%i but do_bgc==FALSE\n", state);
-    return("gBGC_conserved");
+    return("gBGC.conserved");
   }
   die("ERROR bgchmm_get_state_name got state=%i do_bgc=%i\n", state, do_bgc);
   return("error");
