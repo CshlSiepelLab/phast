@@ -31,12 +31,11 @@ SEXP rph_bgc_hmm(SEXP msaP,
 		 SEXP doBgcP,
 		 SEXP bgcP,
 		 SEXP estimateBgcP,
-		 SEXP selP,
 		 SEXP bgcExpectedLengthP,
 		 SEXP estimateBgcExpectedLengthP,
 		 SEXP bgcTargetCoverageP,
 		 SEXP estimateBgcTargetCoverageP,
-		 SEXP rhoP,
+		 SEXP selP,
 		 SEXP consExpectedLengthP,
 		 SEXP consTargetCoverageP,
 		 SEXP estimateScaleP,
@@ -58,7 +57,8 @@ SEXP rph_bgc_hmm(SEXP msaP,
   p->estimate_bgc_expected_length = LOGICAL_VALUE(estimateBgcExpectedLengthP);
   p->bgc_target_coverage = NUMERIC_VALUE(bgcTargetCoverageP);
   p->estimate_bgc_target_coverage = LOGICAL_VALUE(estimateBgcTargetCoverageP);
-  p->rho = NUMERIC_VALUE(rhoP);
+  p->rho = 1.0;
+  p->sel = NUMERIC_VALUE(selP);
   p->cons_expected_length = NUMERIC_VALUE(consExpectedLengthP);
   p->cons_target_coverage = NUMERIC_VALUE(consTargetCoverageP);
   p->estimate_scale = LOGICAL_VALUE(estimateScaleP);
