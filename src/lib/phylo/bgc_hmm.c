@@ -404,7 +404,7 @@ int bgcHmm(struct bgchmm_struct *b) {
   }
   
   //now look at posteriors
-  if (b->post_probs != NONE || b->tract_fn) {
+  if (b->post_probs != NONE || b->tract_fn || b->results != NULL) {
     double **postprobs, *prob_bgc;
     int k, *coord=NULL, reflen;
     
@@ -459,7 +459,7 @@ int bgcHmm(struct bgchmm_struct *b) {
       }
     }
     
-    if (results != NULL) {
+    if (results != NULL && b->post_probs) {
       ListOfLists *wigList = lol_new(2);
       lol_push_int(wigList, coord, reflen, "coord");
       // fix me: can we get actualy state name from category map?  Problem
