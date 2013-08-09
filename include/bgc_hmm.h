@@ -44,12 +44,13 @@ struct bgchmm_struct {
   double cons_expected_length;
   double cons_target_coverage;
   double bgc;  //bgc parameter B
+  double sel;  //sel parameter in conserved state
   double bgc_target_coverage;
   double bgc_expected_length;
   char *foregd_branch;
   char *viterbi_fn;
   char *tract_fn;
-  char *non_informative_fn;
+  char *informative_fn;
   char *mods_fn;
   int estimate_bgc;
   int estimate_scale;
@@ -86,7 +87,7 @@ int bgcHmm(struct bgchmm_struct *b);
 struct bgchmm_struct *bgchmm_struct_new(int rphast);
 
 TreeModel **bgchmm_setup_mods(TreeModel *init_mod, char *foregd_branch,
-			      int do_bgc, double bgc, double rho, 
+			      int do_bgc, double bgc, double sel, double rho, 
 			      double scale, int estimate_bgc,
 			      int estimate_rho, int estimate_scale,
 			      int eqfreqs_from_msa, MSA *align, int *npar);
@@ -105,6 +106,8 @@ void bgchmm_get_rates(HMM *hmm, double *bgc_in, double *bgc_out, double *cons_in
 void bgchmm_estimate_states(TreeModel **mods, int nmod, void *data, double **E, int nobs, FILE *logfile);
 
 int *bgchmm_get_informative(MSA *msa, char *foregd, TreeNode *tree);
+
+void bgchmm_print_informative(MSA *msa, int *bgc_informative, ListOfLists *results, char *informative_fn, int reverse);
 
 char *bgchmm_get_state_name(int state, int do_bgc);
 

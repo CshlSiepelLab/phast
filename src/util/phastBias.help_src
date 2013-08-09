@@ -130,14 +130,16 @@ OUTPUT OPTIONS:
        <output_root>.neutral.mod, <output_root>.gBGC_cons.mod, and
        <output_root>.gBGC_neutral.mod.
 
-# need to fix this function before releasing this option- it should
-# work OK for leaf branches but not internal ones.
-#    --not-informative <file.gff>
-#       Print a GFF File to file.gff giving regions of the alignment which
-#       are not informative for gBGC on the branch being tested.  Coordinates
-#       will be in the frame of reference of the first sequence in the
-#       alignment.  "Informative" sites have non-missing data 
-#
+    --informative-fn,-i <file.gff>
+       Print a GFF containing regions of the alignment which are informative
+       for gBGC. Note: only works properly if foreground branch is a single
+       branch (not a group of branches). 
+
+    --informative-only,-o
+      (To be used with --informative-fn). Print the informative regions, then
+      quit.
+
+
 REFERENCES:
 
     Capra JA, Hubisz MJ, Kostka D, Pollard KS, Siepel A: A Model-Based Analysis

@@ -65,10 +65,12 @@ int main(int argc, char *argv[]) {
     {"output-tracts", 1, 0, 'g'},
     {"posteriors", 1, 0, 'p'},
     {"output-mods", 1, 0, 'm'},
+    {"informative-fn", 1, 0, 'i'},
+    {"informative-only", 0, 0, 'o'},
     {"help", 0, 0, 'h'},
     {0,0,0,0}};
 
-  while ((c = (char)getopt_long(argc, argv, "B:b:L:l:C:c:R:E:T:S:s:f:g:p:m:Wh", long_opts, &opt_idx))
+  while ((c = (char)getopt_long(argc, argv, "B:b:L:l:C:c:R:E:T:S:s:f:g:p:m:i:oWh", long_opts, &opt_idx))
 	 != -1) {
     switch (c) {
     case 'B':
@@ -125,6 +127,12 @@ int main(int argc, char *argv[]) {
       break;
     case 'W':
       b->post_probs = NONE;
+      break;
+    case 'i':
+      b->informative_fn = optarg;
+      break;
+    case 'o':
+      b->informative_only=TRUE;
       break;
     case 'h':
       printf("%s", HELP);

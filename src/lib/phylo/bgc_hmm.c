@@ -36,6 +36,7 @@ TreeModel **bgchmm_setup_mods(TreeModel *init_mod,
 			      char *foregd_branch,
 			      int do_bgc,
 			      double bgc,
+			      double sel,
 			      double rho,
 			      double init_scale,
 			      int estimate_bgc,
@@ -124,6 +125,10 @@ TreeModel **bgchmm_setup_mods(TreeModel *init_mod,
   for (i=0; i < mods[nmod]->tree->nnodes; i++)
     mods[nmod]->in_subtree[i] = 1;
   mods[nmod]->param_map[mods[nmod]->scale_idx+1] = cons_scale_pos;
+  if (sel != 0.0) {
+    mods[nmod]->selection = sel;
+    tm_apply_selection_bgc(mods[nmod]->rate_matrix, sel, 0);
+  }
   nmod++;
 
   if (do_bgc) {
@@ -146,6 +151,13 @@ TreeModel **bgchmm_setup_mods(TreeModel *init_mod,
     for (i=0; i < mods[nmod]->tree->nnodes; i++)
       mods[nmod]->in_subtree[i] = 1;
     vec_set(mods[nmod]->all_params, mods[nmod]->scale_idx + 1, rho);
+    if (sel != 0.0) {
+      mods[nmod]->selection = sel;
+      tm_apply_selection_bgc(mods[nmod]->rate_matrix, sel, 0);
+      altmod = lst_get_ptr(mods[nmod]->alt_subst_mods, 0);
+      tm_unapply_selection_bgc(altmod->rate_matrix, 0, bgc);
+      tm_apply_selection_bgc(altmod->rate_matrix, sel, bgc);
+    }
     nmod++;
   }
 
@@ -167,12 +179,13 @@ struct bgchmm_struct *bgchmm_struct_new(int rphast) {
   rv->msa = NULL;  //msa and mod need to be set before bgcHmm can be called
   rv->mod = NULL;
   rv->scale = 1.0;
-  rv->rho = 0.31;
+  rv->rho = 1.0;
   rv->cons_expected_length = 45;
   rv->cons_target_coverage = 0.3;
   rv->bgc_target_coverage = 0.01;
   rv->bgc_expected_length = 1000;
   rv->bgc = 3.0;
+  rv->sel = -2.01483;
   rv->foregd_branch = NULL;  //this needs to be set too unless gff==NULL and do_bgc==FALSE
   rv->estimate_bgc_target_coverage = TRUE;
   rv->estimate_bgc_expected_length = FALSE;
@@ -189,7 +202,7 @@ struct bgchmm_struct *bgchmm_struct_new(int rphast) {
   rv->random_path = 0;
   rv->get_likelihoods = FALSE;
   rv->informative_only = FALSE;
-  rv->non_informative_fn = NULL;
+  rv->informative_fn = NULL;
   rv->mods_fn = NULL;
   rv->tract_fn = NULL;
   return rv;
@@ -208,8 +221,9 @@ int bgcHmm(struct bgchmm_struct *b) {
   int do_bgc;
   ListOfLists *results = b->results;
   FILE *post_probs_f = b->post_probs_f;
-  void bgchmm_print_non_informative(struct bgchmm_data_struct *data, ListOfLists *results,
-				    char *non_informative_fn);
+  void bgchmm_print_informative(MSA *msa, int *informative, 
+				ListOfLists *results,
+				char *informative_fn, int reverse);
 
   /*  TODO: prune tree so it has only sequences in msa; prune MSA so it only has sequences in tree, make warning. 
    */
@@ -258,12 +272,6 @@ int bgcHmm(struct bgchmm_struct *b) {
   data->bgc_expected_length = b->bgc_expected_length;
   data->estimate_bgc_target_coverage = b->estimate_bgc_target_coverage;
   data->estimate_bgc_expected_length = b->estimate_bgc_expected_length;
-  if (data->estimate_bgc_target_coverage) 
-    fprintf(stderr, "estimating gBGC target coverage by EM\n");
-  if (data->estimate_bgc_expected_length)
-    fprintf(stderr, "estimating gBGC expected length by EM\n");
-  if (data->estimate_cons_transitions)
-    fprintf(stderr, "estimating transition rates between neutral/conserved states by EM\n");
 
   if (do_bgc)
     numstate = 4;
@@ -276,14 +284,22 @@ int bgcHmm(struct bgchmm_struct *b) {
 
   if (do_bgc) {
     data->bgc_informative = bgchmm_get_informative(data->msa, b->foregd_branch, b->mod->tree);
-    if (b->informative_only || results != NULL || b->non_informative_fn != NULL)
-      bgchmm_print_non_informative(data, results, b->non_informative_fn);
+    if (b->informative_only || results != NULL || b->informative_fn != NULL)
+      bgchmm_print_informative(data->msa, data->bgc_informative, results, b->informative_fn, 0);
     if (b->informative_only) return 0;
   } else data->bgc_informative=NULL;
 
+  if (data->estimate_bgc_target_coverage) 
+    fprintf(stderr, "estimating gBGC target coverage by EM\n");
+  if (data->estimate_bgc_expected_length)
+    fprintf(stderr, "estimating gBGC expected length by EM\n");
+  if (data->estimate_cons_transitions)
+    fprintf(stderr, "estimating transition rates between neutral/conserved states by EM\n");
+
+
   //set up treeModels and setup param_map so that relevant parameters are optimized
   mods = bgchmm_setup_mods(b->mod, b->foregd_branch, do_bgc, 
-			   b->bgc, b->rho, b->scale, 
+			   b->bgc, b->sel, b->rho, b->scale, 
 			   b->estimate_bgc, b->estimate_rho, b->estimate_scale,
 			   b->eqfreqs_from_msa, msa, &npar);
   
@@ -481,37 +497,41 @@ int bgcHmm(struct bgchmm_struct *b) {
   return 0;
 }
 
-void bgchmm_print_non_informative(struct bgchmm_data_struct *data, ListOfLists *results,
-				  char *non_informative_fn) {
+void bgchmm_print_informative(MSA *msa, int *bgc_informative, 
+			      ListOfLists *results,
+			      char *informative_fn,
+			      int reverse) {
   //create a GFF containing non-informative regions of alignment (if any)
-  GFF_Set *non_informative_gff;
+  GFF_Set *informative_gff;
   GFF_Feature *feat;
-  int *non_informative, i, j;
-  MSA *msa = data->msa;
+  int *informative, i, j;
 
-  non_informative = smalloc(msa->length * sizeof(int));
-  for (i=0; i < msa->length; i++) 
-    non_informative[i] = !data->bgc_informative[msa->ss->tuple_idx[i]];
+  informative = smalloc(msa->length * sizeof(int));
+  for (i=0; i < msa->length; i++)  {
+    informative[i] = bgc_informative[msa->ss->tuple_idx[i]];
+    if (reverse) informative[i] = !informative[i];
+  }
   
-  non_informative_gff = gff_new_set();
+  informative_gff = gff_new_set();
   for (i=0; i < msa->length; i++) {
     if (msa_get_char(msa, 0, i) == GAP_CHAR) continue;
-    if (non_informative[i]) {
+    if (informative[i]) {
       for (j=i+1; j < msa->length; j++)
-	if (!non_informative[j]) break;
-      feat = gff_new_feature_copy_chars(msa->names[0], "bgcHmm", "non_informative",
+	if (!informative[j]) break;
+      feat = gff_new_feature_copy_chars(msa->names[0], "bgcHmm", reverse ? "non_informative" : "informative",
 					i+1, j,
 					0, '+', GFF_NULL_FRAME, ".", TRUE);
-      lst_push_ptr(non_informative_gff->features, feat);
+      lst_push_ptr(informative_gff->features, feat);
       i = j-1;
     }
   }
-  msa_map_gff_coords(msa, non_informative_gff, 0, 1, msa->idx_offset);
+  msa_map_gff_coords(msa, informative_gff, 0, 1, msa->idx_offset);
   if (results != NULL)
-    lol_push_gff(results, non_informative_gff, "not.informative");
-  if (non_informative_fn != NULL) {
-    FILE *outfile = phast_fopen(non_informative_fn, "w");
-    gff_print_set(outfile, non_informative_gff);
+    lol_push_gff(results, informative_gff, 
+		 reverse ? "not.informative" : "informative");
+  if (informative_fn != NULL) {
+    FILE *outfile = phast_fopen(informative_fn, "w");
+    gff_print_set(outfile, informative_gff);
     fclose(outfile);
   }
 }
@@ -572,8 +592,8 @@ void bgchmm_output_path(int *path, int nsite, MSA *msa, int do_bgc,
 }
 
 
-//return an array of coordinates containing all tuples in MSA that are not 
-// informative enough to detect bgc on a particular branch.  We require at least 
+//return an array of length msa->ss->ntuples with 1/0 indicating that the site is
+//or is not informative for gBGC on a particular branch.  We require at least 
 // one piece of non-missing data above the sister node and an additional outgroup 
 // node.  If the node is a leaf, there must be data at this leaf.  Otherwise, 
 // there must be data above each of the children of the node.
@@ -585,6 +605,8 @@ int *bgchmm_get_informative(MSA *msa, char *foregd, TreeNode *tree) {
   int i, j, k, tupleidx, col, *spec, *rv, numleaf, have_informative;
   char c;
   //use msa_get_informative_feats(msa, 1, List *specList, 0, 0)
+  if (msa->ss == NULL) 
+    ss_from_msas(msa, 1, 1, NULL, NULL, NULL, -1, FALSE);
 
   //first need to find all foregd branches
   node = tr_get_node(tree, foregd);

@@ -15,6 +15,7 @@ Melissa Hubisz
 Last updated: 4/21/2010
 *****************************************************/
 #include "bgc_hmm.h"
+#include "list_of_lists.h"
 #include <rph_util.h>
 #include <Rdefines.h>
 #include <R_ext/Random.h>
@@ -30,6 +31,7 @@ SEXP rph_bgc_hmm(SEXP msaP,
 		 SEXP doBgcP,
 		 SEXP bgcP,
 		 SEXP estimateBgcP,
+		 SEXP selP,
 		 SEXP bgcExpectedLengthP,
 		 SEXP estimateBgcExpectedLengthP,
 		 SEXP bgcTargetCoverageP,
@@ -51,6 +53,7 @@ SEXP rph_bgc_hmm(SEXP msaP,
   p->do_bgc = LOGICAL_VALUE(doBgcP);
   p->bgc = NUMERIC_VALUE(bgcP);
   p->estimate_bgc = LOGICAL_VALUE(estimateBgcP);
+  p->sel = NUMERIC_VALUE(selP);
   p->bgc_expected_length = NUMERIC_VALUE(bgcExpectedLengthP);
   p->estimate_bgc_expected_length = LOGICAL_VALUE(estimateBgcExpectedLengthP);
   p->bgc_target_coverage = NUMERIC_VALUE(bgcTargetCoverageP);
@@ -68,4 +71,21 @@ SEXP rph_bgc_hmm(SEXP msaP,
 
   PutRNGstate();
   return rph_listOfLists_to_SEXP(p->results);
+}
+
+SEXP rph_bgc_hmm_get_informative(SEXP msaP, 
+				 SEXP modP, 
+				 SEXP foregroundP) {
+  MSA *msa = (MSA*)EXTPTR_PTR(msaP);
+  TreeModel *mod = (TreeModel*)EXTPTR_PTR(modP);
+  char *foregd = copy_charstr(CHARACTER_VALUE(foregroundP));
+  ListOfLists *results = lol_new(1);
+  int *bgc_informative;
+  List *names = lst_new_ptr(mod->tree->nnodes/2);
+  msa_register_protect(msa);
+  tm_register_protect(mod);
+  tm_prune(mod, msa, names);
+  bgc_informative = bgchmm_get_informative(msa, foregd, mod->tree);
+  bgchmm_print_informative(msa, bgc_informative, results, NULL, 0);
+  return rph_listOfLists_to_SEXP(results);
 }
