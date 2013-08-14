@@ -488,7 +488,7 @@ int bgcHmm(struct bgchmm_struct *b) {
 	fclose(outfile);
       }
       if (results != NULL)
-	lol_push_gff_ptr(results, bgc_tracts, "tracts");
+	lol_push_gff(results, bgc_tracts, "tracts");
       else gff_free_set(bgc_tracts);
     }
     for (j=0; j < hmm->nstates; j++)
