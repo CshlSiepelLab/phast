@@ -120,6 +120,13 @@ void ms_print_to_file(const char *filename, MS *ms);
  */
 Vector *ms_gc_content(MS *ms);
 
+/* Scores a markov model on a specific sequence.
+   @param seqData Sequence being scored
+   @param base Current base for testing
+   @param MarkovMatrices Markov Model source
+   @param conservative Whether to treat regions containing 'N' as possible binding sites
+ */
+double calcMMscore(char *seqData, int base, List *MarkovMatrices, int conservative);
 
 /** Scores sequences for matches to motif represented as PWM.
     @param seqName Name of the sequence being scored

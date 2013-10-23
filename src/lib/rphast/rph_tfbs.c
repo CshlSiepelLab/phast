@@ -553,6 +553,165 @@ Matrix *SEXP_to_Matrix(SEXP matrixP)
   return result;
 }
 
+
+// CGD: ADDED 17-October-2013
+// Function modified from ms_score to return a SEXP which can be passed into R.
+// List structure represesnts: scores on the plus strand and scores on the minus strand, for both the motif and background models. 
+/** RPHAST Compute scores for a given sequence.
+    @param seqName Name of the sequence to scan
+    @param seqData Char representation of the DNA sequence
+    @param seqLen Length of the DNA sequence
+    @param seqIdxOff ?? Offsets for the sequence 
+    @param seqAlphLen ?? Length of the seqeunce alphabet
+    @param MarkovMatrices Pointer to Markov Model used for the background
+    @param pwm Pointer to matrix to be used as Position Weight Matrix (PWM) to score for matches against
+    @param reverseCmpPWM Pointer to the reverse complement matrix
+    @param conservative Pointer to logical whether to treat regions containing 'N' as possible binding sites
+    @result An R list structure representing the posterior probability of every base in every strand in both backgorund and motif states.
+*/
+SEXP ms_posterior_list(char *seqName, char *seqData, int seqLen, int seqIdxOff, int seqAlphLen, List *MarkovMatrices, Matrix *pwm, Matrix *reverseCmpPWM, int conservative) {
+  int i, k,j,l,col;
+  double MMprob, PWMprob=0, ReversePWMprob=0;
+//  GFF_Set *scores = gff_new_set(); // CGD: Changed return type.
+  double *MMprobs = (double*)smalloc((pwm->nrows+1) * sizeof(double));    //Sliding window of mmOrder previous MM probabilities
+
+  // CGD: Create R list type.
+  SEXP scores, motif, motif_plus, motif_minus, background;
+  PROTECT(scores = allocVector(VECSXP, 2));
+  PROTECT(motif = allocVector(VECSXP, 2));
+  PROTECT(background = allocVector(REALSXP, seqLen-(pwm->nrows)+1));
+  PROTECT(motif_plus = allocVector(REALSXP, seqLen-(pwm->nrows)+1));
+  PROTECT(motif_minus = allocVector(REALSXP, seqLen-(pwm->nrows)+1));
+  SET_VECTOR_ELT(motif, 0, motif_plus);
+  SET_VECTOR_ELT(motif, 1, motif_minus);
+  SET_VECTOR_ELT(scores, 0, motif);
+  SET_VECTOR_ELT(scores, 1, background);
+
+  // Set list names.
+  SEXP model_COL_Names, score_COL_Names;
+  PROTECT(model_COL_Names = NEW_CHARACTER(2));
+  SET_STRING_ELT(model_COL_Names, 0, mkChar("Forward"));
+  SET_STRING_ELT(model_COL_Names, 1, mkChar("Reverse"));
+  setAttrib(motif, R_NamesSymbol, model_COL_Names);
+
+  PROTECT(score_COL_Names = NEW_CHARACTER(2));
+  SET_STRING_ELT(score_COL_Names, 0, mkChar("MotifModel"));
+  SET_STRING_ELT(score_COL_Names, 1, mkChar("Background"));
+  setAttrib(scores, R_NamesSymbol, score_COL_Names);
+
+
+  double *mmPlusScore= REAL(motif_plus);
+  double *mmMinusScore= REAL(motif_minus);
+  double *backgroundScore= REAL(background);
+
+  if ((conservative != 0) && (conservative != 1))
+    die("ERROR: Conserverative (boolean) value must be 0 or 1");
+
+  if (seqLen < pwm->nrows)  //Check to see if the sequence is shorter than the pwm
+    return(scores);
+
+  for (i = 0; i <= pwm->nrows; i++)                                                     //Calculate MM scores from sites 0 to pwm->nrows
+    if (i < seqLen)
+      MMprobs[i] = calcMMscore(seqData, i, MarkovMatrices, conservative);
+
+  for (i = 0; i <= seqLen-(pwm->nrows); i++) {                          //For each base in the sequence
+    PWMprob = 0; MMprob = 0; ReversePWMprob = 0;
+
+    for (k = 0, j = i; k < pwm->nrows; k++, j++) {              //Sum PWM, ReversePWM, MM probabilities for score calculation
+      col = basetocol(seqData[j]);
+      if (col >= 0)
+        {
+          PWMprob += mat_get(pwm, k, col);
+          ReversePWMprob += mat_get(reverseCmpPWM, k, col);
+          MMprob += MMprobs[k];
+        }
+      else {
+        if (conservative)
+          {
+            PWMprob = log(0);                   //If we get something other than the expected language (i.e. A,C,T,G) i.e. N, then our probability is -Inf
+            ReversePWMprob = log(0);
+            break;
+          }
+        else
+          {
+            PWMprob = 0;
+            ReversePWMprob = 0;
+          }
+      }
+    }
+
+    if (i < (seqLen - pwm->nrows)) { //Only if there are more bases in this sequence to test
+      for (l = 0; l < pwm->nrows; l++)          //Shift probs left to make room for next
+        MMprobs[l] = MMprobs[l + 1];
+
+      MMprobs[pwm->nrows-1] = calcMMscore(seqData, i+pwm->nrows,  //Calculate MM probability for site at (i+pwm->nrows)
+                                          MarkovMatrices, conservative);
+    }
+
+    // CGD: Record values here.
+    backgroundScore[i] = MMprob;
+    mmPlusScore[i] = PWMprob;
+    mmMinusScore[i] = ReversePWMprob;
+
+  }
+  sfree(MMprobs);
+  unprotect(7); // CGD: Must unprotect.
+  return(scores);
+}
+
+
+
+// CGD (dankoc@gmail.com): ADDED 17-October-2013
+// Intended to return vectors of the posterior probabilies under the motif and background models into R
+// Formats as a list() structure.
+/** RPHAST Compute scores for each base in every sequence in every group
+    @param inputMSP SEXP pointer to MS object containing sequences
+    @param pwmP SEXP pointer to R matrix to be used as Position Weight Matrix (PWM) to score for matches against
+    @param markovModelP SEXP pointer to Markov Model (List of Matrices in R) generated by build.mm for provided MS object
+    @param nOrderP  SEXP pointer to Integer specifying order of Markov Model used
+    @param conservativeP SEXP pointer to logical whether to treat regions containing 'N' as possible binding sites
+    @result An R list structure representing the posterior probability of every base in every sequence in every group
+*/
+SEXP rph_ms_posterior(SEXP inputMSP, SEXP pwmP, SEXP markovModelP, SEXP nOrderP, SEXP conservativeP)
+{
+  int site, i, currentSequence, conservative;
+  double threshold;
+  
+  
+  Matrix *mm, *pwm, *reverseCompPWM;
+  List *MarkovMatrices;
+
+  MS *inputMS;
+  ListOfLists *result;
+  inputMS = SEXP_to_group(inputMSP);
+
+  // CGD: Return types.
+  SEXP scores, locus_score;
+  PROTECT(scores = allocVector(VECSXP, inputMS->nseqs));
+  conservative = asLogical(conservativeP);
+  pwm = SEXP_to_Matrix(pwmP);
+  reverseCompPWM = mat_reverse_complement(pwm);
+
+  result = lol_new(1);
+
+  MarkovMatrices = lst_new_ptr(length(markovModelP));
+  for (i = 0; i < length(markovModelP); i++) {
+    mm = SEXP_to_Matrix(VECTOR_ELT(markovModelP, i));
+    lst_push_ptr(MarkovMatrices, mm);
+  }
+
+  for (currentSequence = 0; currentSequence < inputMS->nseqs; currentSequence++) { //For each sequence in the inputMS
+    locus_score = ms_posterior_list(inputMS->names[currentSequence], inputMS->seqs[currentSequence],
+                      strlen(inputMS->seqs[currentSequence]), inputMS->idx_offsets[currentSequence],
+                      strlen(inputMS->alphabet), MarkovMatrices, pwm, reverseCompPWM,
+                      conservative);
+    SET_VECTOR_ELT(scores, currentSequence, locus_score);
+  }
+
+  unprotect(1);
+  return(scores);
+}
+
 /** RPHAST Compute scores for each base in every sequence in every group
     @param inputMSP SEXP pointer to MS object containing sequences
     @param pwmP SEXP pointer to R matrix to be used as Position Weight Matrix (PWM) to score for matches against
