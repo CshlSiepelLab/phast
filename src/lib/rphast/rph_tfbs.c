@@ -786,40 +786,47 @@ SEXP rph_ms_simulate(SEXP mmP, SEXP norderP, SEXP alph_sizeP, SEXP lengthP) //do
 {
   MS *outputMS;
   char *seq;
-  char *name = "Simulated";
+  char *name = (char*)smalloc(sizeof(char));
   List *MarkovMatrices;
   int norder, alph_size, mmNum;
-  unsigned int length;
+  unsigned int *length;
   GetRNGstate();	//Get RNG state from R
     
   norder = INTEGER_VALUE(norderP);
   alph_size = INTEGER_VALUE(alph_sizeP);
-  length = (unsigned int)INTEGER_VALUE(lengthP);
+  length = (unsigned int*)INTEGER(lengthP);//(unsigned int)INTEGER_VALUE(lengthP);
+  int nSeqs = Rf_nrows(lengthP);
 
   MarkovMatrices = lst_new_ptr(length(mmP));
   for (mmNum = 0; mmNum < length(mmP); mmNum++)
     lst_push_ptr(MarkovMatrices, SEXP_to_Matrix(VECTOR_ELT(mmP, mmNum)));
-  seq = ms_simulate(MarkovMatrices, norder, alph_size, length);
-  //printf("simulated seq %s\n", seq);
-	
-  //Setup output MS specifying number of sequences and copying alphabet from inputMS
-  outputMS = ms_new(NULL, NULL, 1,  NULL, 0, 1);
-  //Allocate memory for pointers to each sequence
-  outputMS->seqs = (char**)smalloc(sizeof(char*));
-  outputMS->names = (char**)smalloc(sizeof(char*));
-  outputMS->idx_offsets = (int*)smalloc(sizeof(int));
 
-  outputMS->names[0] = (char*)smalloc((strlen(name)+1) * sizeof(char));
-  strncpy(outputMS->names[0], name, strlen(name));
-  outputMS->names[0][strlen(name)] = '\0';
+  outputMS = ms_new(NULL, NULL, nSeqs,  NULL, 0, 1);
+
+  //Setup output MS specifying number of sequences and copying alphabet from inputMS
+  //Allocate memory for pointers to each sequence
+  outputMS->seqs = (char**)smalloc(sizeof(char*)*nSeqs);
+  outputMS->names = (char**)smalloc(sizeof(char*)*nSeqs);
+  outputMS->idx_offsets = (int*)smalloc(sizeof(int)*nSeqs);
+
+  for(int i = 0; i < nSeqs; i++) {
+    seq = ms_simulate(MarkovMatrices, norder, alph_size, length[i]);
+    //printf("simulated seq %s\n", seq);
+
+    snprintf(name, 10, "S%d", i);
+    outputMS->names[i] = (char*)smalloc((strlen(name)+1) * sizeof(char));
+    strncpy(outputMS->names[i], name, strlen(name));
+    outputMS->names[i][strlen(name)] = '\0';
+
+    //Copy subset of sequence bases
+    outputMS->seqs[i] = (char*)smalloc((length[i] + 1) * sizeof(char));
+    strncpy(outputMS->seqs[i], seq, length[i]);
+    outputMS->seqs[i][length[i]] = '\0';
+    sfree(seq);
 	   
-  //Copy subset of sequence bases
-  outputMS->seqs[0] = (char*)smalloc((length + 1) * sizeof(char));
-  strncpy(outputMS->seqs[0], seq, length);
-  outputMS->seqs[0][length] = '\0';
-	   
-  //Set length & index offset of new sequence
-  outputMS->idx_offsets[0] = 0;
+    //Set length & index offset of new sequence
+    outputMS->idx_offsets[i] = 0;
+  }
   PutRNGstate();
 	   
   return group_to_SEXP(outputMS, FALSE);

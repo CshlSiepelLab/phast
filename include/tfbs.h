@@ -32,7 +32,6 @@ char *dtoa(double num);
     @param seqs 2D array, one entry per sequence containing the bases.
     @param names 2D array, one entry per sequence containing name
     @param nseqs number of sequences in this MS
-    @param lengths 2D array, one entry per sequence containing length of sequence
     @param alphabet characters thare are valid bases
     @param rangeLow Lower bound of %GC content this bin will hold (between 0 and 1)
     @param rangeHigh Upper bound of %GC content this bin will hold (between 0 and 1) 
