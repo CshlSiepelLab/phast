@@ -658,7 +658,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
   int free_cm = FALSE, free_cats_to_do_str=FALSE, free_tree=FALSE,
     free_window_coords = FALSE;
 
-  //copy some heavily used variables directly from pf for easy access
+  //copy some heavily used variables directly from pf
   MSA *msa = pf->msa;
   int subst_mod = pf->subst_mod;
   TreeNode *tree = pf->tree;

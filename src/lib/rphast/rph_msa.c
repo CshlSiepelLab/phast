@@ -867,11 +867,17 @@ SEXP rph_msa_postprob(SEXP msaP, SEXP tmP, SEXP doEverySiteP) {
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   ListOfLists *result = lol_new(1);
   int doEverySite = LOGICAL_VALUE(doEverySiteP);
+  List *names;
   if (msa->ss == NULL) {
     msa_register_protect(msa);
     ss_from_msas(msa, tm->order+1, doEverySite, NULL, NULL, NULL, -1, 0);
   }
   tm_register_protect(tm);
+  names = lst_new_ptr(msa->nseqs);
+  tm_prune(tm, msa, names);
+  if (tm->tree->nnodes == 0) {
+    die("No match for leaves of tree in alignment");
+  }
   print_post_prob_stats(tm, msa, NULL, 1, 0, 0, 0, doEverySite,
 			-1, 1, result);
   return rph_listOfLists_to_SEXP(result);
@@ -882,11 +888,17 @@ SEXP rph_msa_exp_subs(SEXP msaP, SEXP tmP) {
   MSA *msa = (MSA*)EXTPTR_PTR(msaP);
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   ListOfLists *result = lol_new(1);
+  List *names;
   if (msa->ss == NULL) {
     msa_register_protect(msa);
     ss_from_msas(msa, tm->order+1, 0, NULL, NULL, NULL, -1, 0);
   }
   tm_register_protect(tm);
+  names = lst_new_ptr(msa->nseqs);
+  tm_prune(tm, msa, names);
+  if (tm->tree->nnodes == 0) {
+    die("No match for leaves of tree in alignment");
+  }
   print_post_prob_stats(tm, msa, NULL, 0, 1, 0, 0, 0, -1, 1, result);
   return rph_listOfLists_to_SEXP(result);
 }
@@ -896,11 +908,17 @@ SEXP rph_msa_exp_tot_subs(SEXP msaP, SEXP tmP) {
   MSA *msa = (MSA*)EXTPTR_PTR(msaP);
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   ListOfLists *result = lol_new(1);
+  List *names;
   if (msa->ss == NULL) {
     ss_from_msas(msa, tm->order+1, 0, NULL, NULL, NULL, -1, 0);
     msa_protect(msa);
   }
   tm_register_protect(tm);
+  names = lst_new_ptr(msa->nseqs);
+  tm_prune(tm, msa, names);
+  if (tm->tree->nnodes == 0) {
+    die("No match for leaves of tree in alignment");
+  }
   print_post_prob_stats(tm, msa, NULL, 0, 0, 1, 0, 0, -1, 1, result);
   return rph_listOfLists_to_SEXP(result);
 }
@@ -909,11 +927,17 @@ SEXP rph_msa_exp_col_subs(SEXP msaP, SEXP tmP) {
   MSA *msa = (MSA*)EXTPTR_PTR(msaP);
   TreeModel *tm = (TreeModel*)EXTPTR_PTR(tmP);
   ListOfLists *result = lol_new(1);
+  List *names;
   if (msa->ss == NULL) {
     ss_from_msas(msa, tm->order+1, 0, NULL, NULL, NULL, -1, 0);
     msa_protect(msa);
   }
   tm_register_protect(tm);
+  names = lst_new_ptr(msa->nseqs);
+  tm_prune(tm, msa, names);
+  if (tm->tree->nnodes == 0) {
+    die("No match for leaves of tree in alignment");
+  }
   print_post_prob_stats(tm, msa, NULL, 0, 0, 0, 1, 0, -1, 1, result);
   return rph_listOfLists_to_SEXP(result);
 }
@@ -927,6 +951,7 @@ SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP gffP, SEXP byColumnP) {
   SEXP result;
   GFF_Set *gff=NULL;
   GFF_Feature *feat;
+  List *names;
 
   by_column = LOGICAL_VALUE(byColumnP);
   if (gffP != R_NilValue) {
@@ -937,7 +962,11 @@ SEXP rph_msa_likelihood(SEXP msaP, SEXP tmP, SEXP gffP, SEXP byColumnP) {
   if (msa->ss == NULL)
     msa_register_protect(msa);
   tm_register_protect(tm);
-
+  names = lst_new_ptr(msa->nseqs);
+  tm_prune(tm, msa, names);
+  if (tm->tree->nnodes == 0) {
+    die("No match for leaves of tree in alignment");
+  }
   tm_set_subst_matrices(tm);
 
   if (by_column) {
