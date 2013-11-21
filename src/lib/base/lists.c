@@ -33,10 +33,10 @@ List* lst_new(int nelements, int elementsz) {
   l->ridx = l->lidx = 0;
   l->CAPACITY = nelements;
   l->elementsz = elementsz;
-  l->array = (void**)smalloc(nelements * elementsz);
+  l->step = (int)ceil(l->elementsz * 1.0/sizeof(void*));
+  l->array = (void**)smalloc(nelements * l->step * sizeof(void*));
   if (l->array == NULL)
     die("ERROR lst_new l->array is NULL\n");
-  l->step = (int)ceil(l->elementsz * 1.0/sizeof(void*));
   return l;
 }
 

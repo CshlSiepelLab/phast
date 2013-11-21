@@ -290,7 +290,7 @@ tree_doctor --name-ancestors rev-em.mod --scale 2.0 > rev-em-scaled-named.mod
 !phyloFit.win-1.mod !phyloFit.win-2.mod !phyloFit.win-3.mod !phyloFit.win-4.mod !phyloFit.win-5.mod !phyloFit.win-6.mod @phyloFit --tree "((human,(mouse,rat)mouse-rat),cow)" --windows 20,15 simulated.fa --min-informative 15 -D 12345
 #--windows-explicit
 !phyloFit.win-1.mod !phyloFit.win-2.mod @phyloFit  --tree "((human,(mouse,rat)mouse-rat),cow)" --windows-explicit 1,20,25,45 simulated.fa --min-informative 15 -D 12345
-echo "1\t20\n25\t45" > windows.txt
+echo -e "1\t20\n25\t45" > windows.txt
 !phyloFit.win-1.mod !phyloFit.win-2.mod @phyloFit  --tree "((human,(mouse,rat)mouse-rat),cow)" --windows-explicit '*windows.txt' simulated.fa --min-informative 15 -D 12345
 rm -f windows.txt
 

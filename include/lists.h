@@ -72,9 +72,10 @@ void *srealloc(void *ptr, size_t size);
 
 static PHAST_INLINE
 void lst_arr_set(List *l, int i, void *o) {
-  if (((unsigned int)l->elementsz) <= sizeof(void*))
-    l->array[i] = *((void**)o);	/* ?? */
-  else
+  //  if (l->step == 1)
+    //    l->array[i] = *((void**)o);	/* ?? */
+    /* l->array[i] = (void*)(*o);
+  else*/
     memcpy(&l->array[i * l->step], o, l->elementsz);
 }
 
