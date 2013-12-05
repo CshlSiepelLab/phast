@@ -44,6 +44,15 @@ static int num_memlist=0;
 #define MEM_LIST_START_SIZE 100000
 #define MEM_LIST_INCREASE_SIZE 1000000
 
+#ifdef RPHAST
+#undef malloc 
+#define malloc(x) (void*)Calloc((x),char)
+#undef realloc
+#define realloc(x,n) (void*)Realloc((x),(n),char)
+#undef free
+#define free(x) Free((x))
+#endif
+
 
 /*
   RPHAST memory handler.  Basic idea (see next section for usage rules):
@@ -394,7 +403,11 @@ void sfree(void *ptr0) {
     phast_add_to_mem_available_list(ptr[0]);
     *(void**)ptr[0] = NULL;
   }
+#ifdef RPHAST
+  Free(ptr);
+#else
   free((void*)ptr);
+#endif
 }
 #endif
 
