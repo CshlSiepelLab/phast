@@ -674,15 +674,12 @@ SEXP ms_posterior_list(char *seqName, char *seqData, int seqLen, int seqIdxOff, 
 */
 SEXP rph_ms_posterior(SEXP inputMSP, SEXP pwmP, SEXP markovModelP, SEXP nOrderP, SEXP conservativeP)
 {
-  int site, i, currentSequence, conservative;
-  double threshold;
-  
+  int i, currentSequence, conservative;
   
   Matrix *mm, *pwm, *reverseCompPWM;
   List *MarkovMatrices;
 
   MS *inputMS;
-  ListOfLists *result;
   inputMS = SEXP_to_group(inputMSP);
 
   // CGD: Return types.
@@ -691,8 +688,6 @@ SEXP rph_ms_posterior(SEXP inputMSP, SEXP pwmP, SEXP markovModelP, SEXP nOrderP,
   conservative = asLogical(conservativeP);
   pwm = SEXP_to_Matrix(pwmP);
   reverseCompPWM = mat_reverse_complement(pwm);
-
-  result = lol_new(1);
 
   MarkovMatrices = lst_new_ptr(length(markovModelP));
   for (i = 0; i < length(markovModelP); i++) {
@@ -786,7 +781,7 @@ SEXP rph_ms_simulate(SEXP mmP, SEXP norderP, SEXP alph_sizeP, SEXP lengthP) //do
 {
   MS *outputMS;
   char *seq;
-  char *name = (char*)smalloc(sizeof(char));
+  char *name = (char*)smalloc(100*sizeof(char));
   List *MarkovMatrices;
   int norder, alph_size, mmNum;
   unsigned int *length;
