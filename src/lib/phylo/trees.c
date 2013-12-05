@@ -1066,15 +1066,16 @@ void tr_prune(TreeNode **t,     /* Tree to prune (may be altered
     }
   }
 
-  /* finally, free postorder list */
-  lst_free(traversal); 
-  if (*t != NULL && (*t)->postorder != NULL) (*t)->postorder = NULL;
-
   /* reset ids, nodes, nnodes, heights */
   if (id_map != NULL) {
     for (i=0; i < lst_size(traversal); i++)
       id_map[i] = -1;
   }
+
+  /* finally, free postorder list */
+  lst_free(traversal); 
+  if (*t != NULL && (*t)->postorder != NULL) (*t)->postorder = NULL;
+
   if (*t != NULL) {
     (*t)->nnodes = new_nnodes;
     traversal = tr_preorder(*t);
