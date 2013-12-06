@@ -510,7 +510,7 @@ void lst_push(List *l,
 */
 static PHAST_INLINE
 void lst_push_int(List *l, int i) 
-{  lst_push(l, &i); }
+{  int ii[10]; ii[0]=i; lst_push(l, ii); }
 
 
 /** Push double onto end of list .
