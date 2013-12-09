@@ -38,7 +38,7 @@ void lol_push(ListOfLists *lol, void *data, const char *name,
     strcpy(tempname, name);
   }
   lst_push_ptr(lol->lstName, (void*)tempname);
-  lst_push_int(lol->lstType, (int)listType);
+  lst_push_int(lol->lstType, listType);
 }
 
 

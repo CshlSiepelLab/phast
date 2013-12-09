@@ -72,10 +72,9 @@ void *srealloc(void *ptr, size_t size);
 
 static PHAST_INLINE
 void lst_arr_set(List *l, int i, void *o) {
-  //  if (l->step == 1)
-    //    l->array[i] = *((void**)o);	/* ?? */
-    /* l->array[i] = (void*)(*o);
-  else*/
+  if (l->step == 1)
+    l->array[i] = *((void**)o);	/* ?? */
+  else
     memcpy(&l->array[i * l->step], o, l->elementsz);
 }
 
@@ -388,7 +387,7 @@ void lst_set(List *l, int i,
 */
 static PHAST_INLINE
 void lst_set_int(List *l, int idx, int i)
-{  lst_set(l, idx, &i); }
+{  int ii[10]; ii[0]=i; lst_set(l, idx, ii); }
 
 
 /** Set value of ith double in list. 
