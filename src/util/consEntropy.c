@@ -94,6 +94,9 @@ int main(int argc, char *argv[]) {
     leaf_labels[nleaves] = '\0';
     alph_size = (int)strlen(cons_mod->rate_matrix->states);
     nlabels = int_pow(alph_size, nleaves);
+    if (nlabels <= 0) {
+      die("Sorry, consEntropy only works for small numbers of species (overflow computing %i^%i)", alph_size, nleaves);
+    }
 
     /* define dummy MSA */
     msa = msa_new(NULL, NULL, nleaves, nlabels, cons_mod->rate_matrix->states);
