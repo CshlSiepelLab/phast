@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
       p->cm = cm_new_string_or_file(optarg);
       break;
     case 'd':
-      seed = get_arg_int_bounds(optarg, 1, INFTY);
+      seed = get_arg_int_bounds(optarg, 0, INFTY);
       break;
     case 'P':
       p->no_prune = TRUE;
