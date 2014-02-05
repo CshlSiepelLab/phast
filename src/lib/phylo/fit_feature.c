@@ -231,7 +231,6 @@ void ff_lrts_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
                                      data for supertree/subtree case */
 
   /* init ColFitData -- one for null model, one for alt */
-  modcpy->estimate_branchlens = TM_BRANCHLENS_ALL;
   modcpy->subtree_root = NULL;
   d = ff_init_fit_data(modcpy, msa, ALL, NNEUT, FALSE);
   d2 = ff_init_fit_data(mod, msa, SUBTREE, mode, FALSE); 
@@ -421,6 +420,7 @@ void ff_score_tests_sub(TreeModel *mod, MSA *msa, GFF_Set *gff, mode_type mode,
   TreeModel *modcpy = tm_create_copy(mod); /* need separate copy of tree model
                                               with different internal scaling
                                               data for supertree/subtree case */
+  modcpy->subtree_root = NULL;
 
   /* init FeatFitData -- one for null model, one for alt */
   d = ff_init_fit_data(modcpy, msa, ALL, NNEUT, FALSE);

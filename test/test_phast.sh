@@ -60,6 +60,17 @@ tree_doctor --name-ancestors phyloFit.mod > phyloFit-named.mod
 @phyloP --epsilon 0.0001 phyloFit-named.mod hmrc_short.ss
 @phyloP --confidence-interval 0.05 phyloFit-named.mod hmrc_short.ss
 @phyloP --quantiles --null 100 phyloFit-named.mod
+
+
+# want to try subtree with LRT, SCORE, SPH, with both --base-by-base and --features
+# note that bugs in SCORE method mean tests will fail against revisions < 6563
+@phyloP --method LRT --subtree mouse-rat --mode CONACC --base-by-base phyloFit-named.mod hmrc.ss
+@phyloP --method LRT --subtree mouse-rat --mode CONACC --features temp.bed phyloFit-named.mod hmrc.ss
+@phyloP --method SCORE --subtree mouse-rat --mode CONACC --base-by-base phyloFit-named.mod hmrc.ss
+@phyloP --method SCORE --subtree mouse-rat --mode CONACC --features temp.bed phyloFit-named.mod hmrc.ss
+@phyloP --method SPH --subtree mouse-rat --mode CONACC --base-by-base phyloFit-named.mod hmrc.ss
+@phyloP --method SPH --subtree mouse-rat --mode CONACC --features temp.bed phyloFit-named.mod hmrc.ss
+
 rm -f hmrc_short.ss phyloFit.mod phyloFit-named.mod temp.bed
 
 
