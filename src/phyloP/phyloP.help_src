@@ -86,7 +86,7 @@ EXAMPLES:
 
         phyloP --posterior neutral.mod alignment.fa > posterior.txt
 
-    5. Compute conservation scores (-log p-values) for each site in an
+    5. Compute conservation scores (-log10 p-values) for each site in an
     alignment and output them in the fixed-step wig format (see
     http://genome.ucsc.edu/goldenPath/help/wiggle.html).  Use the
     likelihood ratio test (LRT) method.
@@ -97,7 +97,7 @@ EXAMPLES:
     (ACC), scores of nonneutrality (NNEUT), or scores that summarize
     conservation and acceleration (CONACC).  The --base-by-base option can
     be used to output additional statistics of interest (estimated scale
-    factors, log likelihood ratios, etc.).  As discussed above, several
+    factors, log10 likelihood ratios, etc.).  As discussed above, several
     arguments to --method are possible.
     
     6. Similarly, compute scores describing lineage-specific conservation
@@ -116,7 +116,7 @@ EXAMPLES:
 
     This option can also be used with --subtree.  The --gff-scores option
     can be used to output the original features in GFF format with scores
-    equal to -log p.  Note that the input file can be in GFF instead of BED
+    equal to -log10 p.  Note that the input file can be in GFF instead of BED
     format.
 
 OPTIONS:
@@ -141,10 +141,10 @@ OPTIONS:
 
     --wig-scores, -w
         Compute separate p-values per site, and then compute site-specific
-        conservation (acceleration) scores as -log(p).  Output base-by-base
+        conservation (acceleration) scores as -log10(p).  Output base-by-base
         scores in fixed-step wig format, using the coordinate system of the
         reference sequence (see --refidx).  In GERP mode, outputs rejected
-        substitutions per site instead of -log p-values.
+        substitutions per site instead of -log10 p-values.
 
     --base-by-base, -b
         Like --wig-scores, but outputs multiple values per site, in a
@@ -163,7 +163,7 @@ OPTIONS:
 
     --mode, -o CON|ACC|NNEUT|CONACC
         (For use with --wig-scores, --base-by-base, or --features) Whether
-        to compute one-sided p-values so that small p (large -log p)
+        to compute one-sided p-values so that small p (large -log10 p)
         indicates unexpected conservation (CON; the default) or
         acceleration (ACC); or two-sided p-values such that small p
         indicates an unexpected departure from neutrality (NNEUT).  The
@@ -182,7 +182,7 @@ OPTIONS:
 
     --gff-scores, -g
         (For use with features)  Instead of a table, output a GFF and
-        assign each feature a score equal to its -log p-value.
+        assign each feature a score equal to its -log10 p-value.
 
     --subtree, -s <node-name>
         (Not available in GERP mode) Partition the tree into the subtree
