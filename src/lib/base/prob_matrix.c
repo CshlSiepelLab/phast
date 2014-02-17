@@ -393,16 +393,16 @@ Matrix *pm_convolve_fast(Matrix *p, int n, double epsilon) {
   if (n == 1)
     return mat_create_copy(p);
 
-  if (n > 50) {
+  if (n > 50 && max_nrows + max_ncols > 1000) {
     /* use central limit theorem to limit size of matrix to
        keep track of.  Here work with marginal distributions */
     Vector *marg_x = pm_marg_x(p);
     Vector *marg_y = pm_marg_y(p);
     pv_stats(marg_x, &mean, &var);
     max_nsd = -inv_cum_norm(epsilon) + 1; 
-    max_nrows = (int)ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
+    max_nrows = min(max_nrows, (int)ceil(n * mean + max_nsd * 5*sqrt(n * var)) + 1);
     pv_stats(marg_y, &mean, &var);
-    max_ncols = (int)ceil(n * mean + max_nsd * sqrt(n * var)) + 1;
+    max_ncols = min(max_ncols, (int)ceil(n * mean + max_nsd * 5*sqrt(n * var)) + 1);
     vec_free(marg_x);
     vec_free(marg_y);
   }
