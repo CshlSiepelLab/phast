@@ -311,8 +311,11 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 	fprintf(stderr, "Writing posterior probabilities to %s ...\n", 
 		fname->chars);
 
-      POSTPROBF = phast_fopen(fname->chars, "w+");
-      
+      if (strcmp(output_fname_root, "-") != 0)
+        POSTPROBF = fopen_fname(fname->chars, "w+");
+      else
+        POSTPROBF = stdout;
+       
       /* print header */
       fprintf(POSTPROBF, "%-6s ", "#");
       for (i = 0; i < msa->nseqs; i++) fprintf(POSTPROBF, " ");
@@ -359,7 +362,8 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 	}                 
 	fprintf(POSTPROBF, "\n");
       }
-      phast_fclose(POSTPROBF);
+      if (strcmp(output_fname_root, "-") != 0)
+	phast_fclose(POSTPROBF);
     }
   }
 
@@ -409,8 +413,11 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
       if (!quiet) 
 	fprintf(stderr, "Writing expected numbers of substitutions to %s ...\n", 
 		fname->chars);
-      EXPSUBF = phast_fopen(fname->chars, "w+");
-      
+      if (strcmp(output_fname_root, "-") != 0)
+        EXPSUBF = fopen_fname(fname->chars, "w+");
+      else
+        EXPSUBF = stdout;
+
       fprintf(EXPSUBF, "%-3s %10s %7s ", "#", "tuple", "count");
       for (node = 0; node < mod->tree->nnodes; node++) {
 	n = lst_get_ptr(tr_postorder(mod->tree), node);
@@ -436,7 +443,8 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 	}                 
 	fprintf(EXPSUBF, "%7.4f\n", total);
       }
-      phast_fclose(EXPSUBF);
+      if (strcmp(output_fname_root, "-") != 0)
+	phast_fclose(EXPSUBF);
     }
   }
 
@@ -486,7 +494,10 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
       if (!quiet) 
 	fprintf(stderr, "Writing expected numbers of substitutions per site to %s ...\n",
 		fname->chars);
-      EXPSUBF = phast_fopen(fname->chars, "w+");
+      if (strcmp(output_fname_root, "-") != 0)
+	EXPSUBF = fopen_fname(fname->chars, "w+");
+      else
+        EXPSUBF = stdout;
 
       /* print header */
       fprintf(EXPSUBF, "#tuple\tcount\tbranch");
@@ -519,7 +530,8 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 	  fprintf(EXPSUBF, "\n");
 	}
       }
-      phast_fclose(EXPSUBF);
+      if (strcmp(output_fname_root, "-") != 0)
+	phast_fclose(EXPSUBF);
     }
   }
 
@@ -561,7 +573,10 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
       if (!quiet) 
 	fprintf(stderr, "Writing total expected numbers of substitutions to %s ...\n", 
 		fname->chars);
-      EXPTOTSUBF = phast_fopen(fname->chars, "w+");
+      if (strcmp(output_fname_root, "-") != 0)
+        EXPTOTSUBF = fopen_fname(fname->chars, "w+");
+      else
+        EXPTOTSUBF = stdout;
       
       fprintf(EXPTOTSUBF, "\n\
 A separate matrix of expected numbers of substitutions is shown for each\n\
@@ -599,7 +614,8 @@ horizontal axis.\n\n");
 	}
 	fprintf(EXPTOTSUBF, "\n\n");
       }
-      phast_fclose(EXPTOTSUBF);
+      if (strcmp(output_fname_root, "-") != 0)
+	phast_fclose(EXPTOTSUBF);
     }
   }
 
@@ -885,7 +901,10 @@ int run_phyloFit(struct phyloFit_struct *pf) {
     if (pf->output_fname_root != NULL) {
       sumfname = str_new_charstr(pf->output_fname_root);
       str_append_charstr(sumfname, ".win-sum");
-      WINDOWF = phast_fopen(sumfname->chars, "w+");
+      if (strcmp(pf->output_fname_root, "-") != 0)
+        WINDOWF = fopen_fname(sumfname->chars, "w+");
+      else
+        WINDOWF = stdout;
       str_free(sumfname);
     } 
     print_window_summary(WINDOWF, NULL, 0, 0, NULL, NULL, 0, 0, TRUE);
@@ -1109,10 +1128,14 @@ int run_phyloFit(struct phyloFit_struct *pf) {
           if (!quiet) 
             fprintf(stderr, "Writing column probabilities to %s ...\n", 
                     colprob_fname->chars);
-          F = phast_fopen(colprob_fname->chars, "w+");
+	  if (strcmp(pf->output_fname_root, "-") != 0)
+            F = fopen_fname(colprob_fname->chars, "w+");
+	  else
+            F = stdout;
           for (j = 0; j < msa->length; j++)
             fprintf(F, "%d\t%.6f\n", j, col_log_probs[j]);
-          phast_fclose(F);
+	  if (strcmp(pf->output_fname_root, "-") != 0)
+	    phast_fclose(F);
           str_free(colprob_fname);
           sfree(col_log_probs);
         }
@@ -1195,9 +1218,13 @@ int run_phyloFit(struct phyloFit_struct *pf) {
       if (pf->output_fname_root != NULL) {
 	if (!quiet) fprintf(stderr, "Writing model to %s ...\n", 
 			    mod_fname->chars);
-	F = phast_fopen(mod_fname->chars, "w+");
+	if (strcmp(pf->output_fname_root, "-") != 0)
+          F = fopen_fname(mod_fname->chars, "w+");
+        else
+          F = stdout;
 	tm_print(F, mod);
-	phast_fclose(F);
+	if (strcmp(pf->output_fname_root, "-") != 0)
+	  phast_fclose(F);
       }
       if (pf->results != NULL)
 	lol_push_treeModel(pf->results, mod, mod_fname->chars);
@@ -1240,6 +1267,9 @@ int run_phyloFit(struct phyloFit_struct *pf) {
     if (pf->window_coords != NULL) 
       msa_free(msa);
   }
+  if (WINDOWF != NULL && strcmp(pf->output_fname_root, "-") != 0)
+    phast_fclose(WINDOWF);
+
   if (error_file != NULL) phast_fclose(error_file);
   if (parsimony_cost_file != NULL) phast_fclose(parsimony_cost_file); 
   str_free(mod_fname);
