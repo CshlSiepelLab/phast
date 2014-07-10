@@ -312,7 +312,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 		fname->chars);
 
       if (strcmp(output_fname_root, "-") != 0)
-        POSTPROBF = fopen_fname(fname->chars, "w+");
+        POSTPROBF = phast_fopen(fname->chars, "w+");
       else
         POSTPROBF = stdout;
        
@@ -414,7 +414,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 	fprintf(stderr, "Writing expected numbers of substitutions to %s ...\n", 
 		fname->chars);
       if (strcmp(output_fname_root, "-") != 0)
-        EXPSUBF = fopen_fname(fname->chars, "w+");
+        EXPSUBF = phast_fopen(fname->chars, "w+");
       else
         EXPSUBF = stdout;
 
@@ -495,7 +495,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 	fprintf(stderr, "Writing expected numbers of substitutions per site to %s ...\n",
 		fname->chars);
       if (strcmp(output_fname_root, "-") != 0)
-	EXPSUBF = fopen_fname(fname->chars, "w+");
+	EXPSUBF = phast_fopen(fname->chars, "w+");
       else
         EXPSUBF = stdout;
 
@@ -574,7 +574,7 @@ void print_post_prob_stats(TreeModel *mod, MSA *msa, char *output_fname_root,
 	fprintf(stderr, "Writing total expected numbers of substitutions to %s ...\n", 
 		fname->chars);
       if (strcmp(output_fname_root, "-") != 0)
-        EXPTOTSUBF = fopen_fname(fname->chars, "w+");
+        EXPTOTSUBF = phast_fopen(fname->chars, "w+");
       else
         EXPTOTSUBF = stdout;
       
@@ -902,7 +902,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
       sumfname = str_new_charstr(pf->output_fname_root);
       str_append_charstr(sumfname, ".win-sum");
       if (strcmp(pf->output_fname_root, "-") != 0)
-        WINDOWF = fopen_fname(sumfname->chars, "w+");
+        WINDOWF = phast_fopen(sumfname->chars, "w+");
       else
         WINDOWF = stdout;
       str_free(sumfname);
@@ -1129,7 +1129,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
             fprintf(stderr, "Writing column probabilities to %s ...\n", 
                     colprob_fname->chars);
 	  if (strcmp(pf->output_fname_root, "-") != 0)
-            F = fopen_fname(colprob_fname->chars, "w+");
+            F = phast_fopen(colprob_fname->chars, "w+");
 	  else
             F = stdout;
           for (j = 0; j < msa->length; j++)
@@ -1219,7 +1219,7 @@ int run_phyloFit(struct phyloFit_struct *pf) {
 	if (!quiet) fprintf(stderr, "Writing model to %s ...\n", 
 			    mod_fname->chars);
 	if (strcmp(pf->output_fname_root, "-") != 0)
-          F = fopen_fname(mod_fname->chars, "w+");
+          F = phast_fopen(mod_fname->chars, "w+");
         else
           F = stdout;
 	tm_print(F, mod);
