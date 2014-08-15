@@ -39,6 +39,7 @@ int main(int argc, char *argv[]) {
   List *tmplist = NULL; 
   struct phyloFit_struct *pf;
   FILE *infile;
+  int store_order=0;
   
   struct option long_opts[] = {
     {"msa", 1, 0, 'm'},
@@ -160,6 +161,7 @@ int main(int argc, char *argv[]) {
         die("ERROR: illegal arguments to --windows.\n");
       lst_free_strings(tmplist);
       lst_free(tmplist);
+      store_order = 1;
       break;
     case 'v':
       tmplist = get_arg_list(optarg);
@@ -167,6 +169,7 @@ int main(int argc, char *argv[]) {
         die("ERROR: argument to --windows-explicit must be a list of even length.\n");
       pf->window_coords = str_list_as_int(tmplist);
       lst_free(tmplist);
+      store_order = 1;
       break;
     case 'E':
       pf->use_em = TRUE;
@@ -338,7 +341,7 @@ int main(int argc, char *argv[]) {
 		       tm_order(pf->subst_mod) + 1, 
 		       NULL, pf->gff, pf->cm, 
 		       pf->nonoverlapping ? tm_order(pf->subst_mod) + 1 : -1, 
-		       FALSE, pf->reverse_group_tag, NO_STRIP, FALSE);
+		       store_order, pf->reverse_group_tag, NO_STRIP, FALSE);
     if (pf->gaps_as_bases) 
       msa_reset_alphabet(pf->msa, alph);
   }
