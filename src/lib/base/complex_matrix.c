@@ -1,6 +1,6 @@
 /***************************************************************************
  * PHAST: PHylogenetic Analysis with Space/Time models
- * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
+ * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell
  * University.  All rights reserved.
  *
  * This source code is distributed under a BSD-style license.  See the
@@ -105,7 +105,7 @@ void zmat_scale(Zmatrix *m, double scale_factor) {
 void zmat_print(Zmatrix *m, FILE *F) {
   int i, j;
   for (i = 0; i < m->nrows; i++) {
-    for (j = 0; j < m->ncols; j++) 
+    for (j = 0; j < m->ncols; j++)
       fprintf(F, "%14.6e %14.6e ", m->data[i][j].x, m->data[i][j].y);
     fprintf(F, "\n");
   }
@@ -127,20 +127,20 @@ Zmatrix *zmat_new_from_file(FILE *F, int nrows, int ncols) {
 
 void zmat_mult(Zmatrix *prod, Zmatrix *m1, Zmatrix *m2) {
   int i, j, k;
-  if (!(m1->ncols == m2->nrows && m1->nrows == m2->ncols && 
+  if (!(m1->ncols == m2->nrows && m1->nrows == m2->ncols &&
 	prod->nrows == m1->nrows && prod->ncols == m2->ncols))
     die("ERROR zmat_mult: bad dimensions\n");
   zmat_zero(prod);
-  for (i = 0; i < prod->nrows; i++) 
-    for (j = 0; j < prod->ncols; j++) 
-      for (k = 0; k < m1->ncols; k++) 
+  for (i = 0; i < prod->nrows; i++)
+    for (j = 0; j < prod->ncols; j++)
+      for (k = 0; k < m1->ncols; k++)
 	prod->data[i][j] = z_add(prod->data[i][j],
 				 z_mul(m1->data[i][k], m2->data[k][j]));
 }
 
 void zmat_vec_mult(Zvector *prod, Zmatrix *m, Zvector *v) {
   int i, j;
-  if (!(m->nrows == v->size && v->size == prod->size))
+  if (!(m->nrows == prod->size && v->size == m->ncols))
     die("ERROR zmat_vec_mult: bad dimensions\n");
   for (i = 0; i < m->nrows; i++) {
     prod->data[i] = z_set(0, 0);
@@ -154,14 +154,14 @@ void zmat_vec_mult(Zvector *prod, Zmatrix *m, Zvector *v) {
 /* multiply two complex matrices whose product is expected to be real */
 void zmat_mult_real(Matrix *prod, Zmatrix *m1, Zmatrix *m2) {
   int i, j, k;
-  if (!(m1->ncols == m2->nrows && m1->nrows == m2->ncols && 
+  if (!(m1->ncols == m2->nrows && m1->nrows == m2->ncols &&
 	prod->nrows == m1->nrows && prod->ncols == m2->ncols))
     die("ERROR zmat_mult_real: bad dimensions\n");
   mat_zero(prod);
   for (i = 0; i < prod->nrows; i++) {
     for (j = 0; j < prod->ncols; j++) {
       Complex z = z_set(0, 0);
-      for (k = 0; k < m1->ncols; k++) 
+      for (k = 0; k < m1->ncols; k++)
 	z = z_add(z, z_mul(m1->data[i][k], m2->data[k][j]));
       if (z.y > 1e-6)
 	die("ERROR in zmat_mult_real: product of complex matrices not real.\n");
@@ -175,7 +175,7 @@ void zmat_plus_eq(Zmatrix *thism, Zmatrix *addm) {
   if (!(thism->nrows == addm->nrows && thism->ncols == addm->ncols))
     die("ERROR zmat_plus_eq: bad dimensions\n");
   for (i = 0; i < thism->nrows; i++)
-    for (j = 0; j < thism->ncols; j++)  
+    for (j = 0; j < thism->ncols; j++)
       thism->data[i][j] = z_add(thism->data[i][j], addm->data[i][j]);
 }
 
@@ -184,7 +184,7 @@ void zmat_minus_eq(Zmatrix *thism, Zmatrix *subm) {
   if (!(thism->nrows == subm->nrows && thism->ncols == subm->ncols))
     die("ERROR zmat_minus_eq: bad dimensions\n");
   for (i = 0; i < thism->nrows; i++)
-    for (j = 0; j < thism->ncols; j++)  
+    for (j = 0; j < thism->ncols; j++)
       thism->data[i][j] = z_sub(thism->data[i][j], subm->data[i][j]);
 }
 
@@ -201,11 +201,11 @@ void zmat_mult_real_diag(Matrix *A, Zmatrix *B, Zvector *C, Zmatrix *D,
   Zmatrix *tmp;
 
   if (!(A->nrows == A->ncols && A->nrows == B->nrows &&
-	B->nrows == B->ncols && B->nrows == C->size && 
+	B->nrows == B->ncols && B->nrows == C->size &&
 	C->size == D->nrows && D->nrows == D->ncols))
     die("ERROR zmat_mult_real_diag: bad dimensions\n");
 
-  if (scratch == NULL) 
+  if (scratch == NULL)
     tmp= zmat_new(size, size);
   else {
     if (!(scratch->nrows == size && scratch->ncols == size))
@@ -214,9 +214,9 @@ void zmat_mult_real_diag(Matrix *A, Zmatrix *B, Zvector *C, Zmatrix *D,
   }
 
   /* first compute tmp = C*D */
-  for (i = 0; i < size; i++) 
-    for (j = 0; j < size; j++) 
-      zmat_set(tmp, i, j, z_mul(zvec_get(C, i), zmat_get(D, i, j))); 
+  for (i = 0; i < size; i++)
+    for (j = 0; j < size; j++)
+      zmat_set(tmp, i, j, z_mul(zvec_get(C, i), zmat_get(D, i, j)));
 
   /* now compute A = B*tmp */
   zmat_mult_real(A, B, tmp);
@@ -237,7 +237,7 @@ int zmat_as_real(Matrix *dest, Zmatrix *src, int strict) {
       dest->data[i][j] = src->data[i][j].x;
       if (src->data[i][j].y >= 1e-6) {
 	rv = 1;
-	if (strict) 
+	if (strict)
 	  die("ERROR in zmat_as_real: src matrix has imaginary component %ei",
 	      src->data[i][j].y);
       }
