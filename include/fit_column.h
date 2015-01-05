@@ -1,6 +1,6 @@
 /***************************************************************************
  * PHAST: PHylogenetic Analysis with Space/Time models
- * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
+ * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell
  * University.  All rights reserved.
  *
  * This source code is distributed under a BSD-style license.  See the
@@ -12,7 +12,7 @@
    estimate column-by-column scale factors by maximum likelihood,
    perform single-base LRTs, score tests, etc
    @ingroup phylo
-*/ 
+*/
 
 #ifndef FIT_COL_H
 #define FIT_COL_H
@@ -51,7 +51,7 @@ typedef struct {
   Vector *ub;			/**< Upper bound  of parameters. */
   double init_scale;		/**< Initial scale for parameters. */
   double init_scale_sub;	/**< Initial amount to subtract for scale. */
-  Matrix ***PP;			
+  Matrix ***PP;
   Matrix ***PPP;
   Matrix ***QQ;
   Matrix ***QQQ;
@@ -91,7 +91,7 @@ typedef struct {
   @param[in] mod Tree Model to initialize Column Fit Data in
   @param[in] msa Multiple Sequence Alignment sequence data
   @param[in] stype Use whole tree or subtree
-  @param[in] mode which type of scoring to use i.e. CON, ACC, NNEUT, CONACC   
+  @param[in] mode which type of scoring to use i.e. CON, ACC, NNEUT, CONACC
   @param[in] second_derivs initial second derivative for Column Fit Data
 */
 ColFitData *col_init_fit_data(TreeModel *mod, MSA *msa, scale_type stype,
@@ -116,8 +116,8 @@ void col_free_fit_data(ColFitData *d);
 double col_likelihood_wrapper(Vector *params, void *data);
 
 /** Wrapper for likelihood function for use in parameter estimation;
-   version for use with opt_newton_1d 
-  @param x scale to use with model 
+   version for use with opt_newton_1d
+  @param x scale to use with model
   @param data Column Fit Data
   @result Estimated log likelihood
   @warning data must be able to cast to type ColFitData
@@ -126,7 +126,7 @@ double col_likelihood_wrapper_1d(double x, void *data);
 
 
 /** Compute and return the log likelihood of a tree model with respect
-   to a single column tuple in an alignment.  
+   to a single column tuple in an alignment.
 
    This is a pared-down
    version of tl_compute_log_likelihood for use in estimation of
@@ -137,7 +137,7 @@ double col_likelihood_wrapper_1d(double x, void *data);
   @param mod Substitution model, rates and its metadata
   @param msa Sequence data and its metadata
   @param tupleidx Which column to compute log likelihood for
-  @param scratch Pre-allocated memory used as scratch space when computing likelihood 
+  @param scratch Pre-allocated memory used as scratch space when computing likelihood
   @result Estimated log likelihood
   @note This function is simply a wrapper for col_compute_likelihood and computes log() on the result
   @note Uses log rather than log2
@@ -147,7 +147,7 @@ double col_compute_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
                                   double **scratch);
 
 /** Compute and return the likelihood of a tree model with respect
-   to a single column tuple in an alignment.  
+   to a single column tuple in an alignment.
 
    This is a paired-down
    version of tl_compute_likelihood for use in estimation of
@@ -158,7 +158,7 @@ double col_compute_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
   @param mod Substitution model, rates and its metadata
   @param msa Sequence data and its metadata
   @param tupleidx Which column to compute likelihood for
-  @param scratch Pre-allocated memory used as scratch space when computing likelihood 
+  @param scratch Pre-allocated memory used as scratch space when computing likelihood
   @result Estimated Log likelihood
 */
 double col_compute_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
@@ -181,9 +181,9 @@ double col_compute_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
    @param[out] tuple_llrs (Optional) raw likelihood ratios
    @param logf Location to save output
    @note Must define mode as CON (for 0 <= scale <= 1), ACC
-   (for 1 <= scale), NNEUT (0 <= scale), or CONACC (0 <= scale) */ 
+   (for 1 <= scale), NNEUT (0 <= scale), or CONACC (0 <= scale) */
 
-void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals, 
+void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
               double *tuple_scales, double *tuple_llrs, FILE *logf);
 
 /** Perform a likelihood ratio test for each column tuple in a subtree of an alignment.
@@ -196,10 +196,10 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
     @param[out] tuple_llrs (Optional) Log Likelihood RS ratio
     @param[in] logf output file to write to
     @see col_grad_wrapper
-*/ 
-void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode, 
-                  double *tuple_pvals, double *tuple_null_scales, 
-                  double *tuple_scales, double *tuple_sub_scales, 
+*/
+void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
+                  double *tuple_pvals, double *tuple_null_scales,
+                  double *tuple_scales, double *tuple_sub_scales,
                   double *tuple_llrs, FILE *logf);
 
 
@@ -207,10 +207,10 @@ void col_lrts_sub(TreeModel *mod, MSA *msa, mode_type mode,
  \{ */
 
 
-void col_scale_derivs_num(ColFitData *d, double *first_deriv, 
+void col_scale_derivs_num(ColFitData *d, double *first_deriv,
                           double *second_deriv);
 
-void col_scale_derivs_subtree_num(ColFitData *d, Vector *gradient, 
+void col_scale_derivs_subtree_num(ColFitData *d, Vector *gradient,
                                   Matrix *hessian);
 
 /**
@@ -224,7 +224,7 @@ void col_scale_derivs_subtree_num(ColFitData *d, Vector *gradient,
    @result log likelihood
    @note This version assumes a single scale parameter; see below for the subtree version.
 */
-double col_scale_derivs(ColFitData *d, double *first_deriv, 
+double col_scale_derivs(ColFitData *d, double *first_deriv,
                         double *second_deriv, double ***scratch);
 
 /** Compute the first and (optionally) second derivatives with respect
@@ -237,7 +237,7 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
    @result Estimated log likelihood
    @note  This version assumes scale parameters for the whole tree and for the subtree.
   */
-double col_scale_derivs_subtree(ColFitData *d, Vector *gradient, 
+double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
                                 Matrix *hessian, double ***scratch);
 
 /** \name Column Fit Data gradient calculation functions
@@ -247,13 +247,13 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
   Used in parameter estimation.
   @param[out] grad gradient
   @param params NOT USED
-  @param[in] data column data used to determine gradient 
+  @param[in] data column data used to determine gradient
   @param lb NOT USED
   @param UB NOT USED
   @result Estimated log likelihood
-  @warning data must be able to cast to type ColFitData 
+  @warning data must be able to cast to type ColFitData
  */
-void col_grad_wrapper(Vector *grad, Vector *params, void *data, 
+void col_grad_wrapper(Vector *grad, Vector *params, void *data,
                       Vector *lb, Vector *ub);
 
 
@@ -261,15 +261,15 @@ void col_grad_wrapper(Vector *grad, Vector *params, void *data,
  \{ */
 
 /** Calculate scores of full tree using column fit data
-  @param[in] mod Tree Model to perform likelihood test on  
+  @param[in] mod Tree Model to perform likelihood test on
   @param[in] msa Multiple Sequence Alignment sequence data.
-  @param[out] tuple_pvals (Optional) Computed p-values 
+  @param[out] tuple_pvals (Optional) Computed p-values
   @param[out] tuple_derivs (Optional) Computed first derivatives by tuple column
   @param[out] tuple_teststats (Optional) Statistics for each test  (first_derivative^2 / fim)
   @see col_score_tests_sub
 */
-void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode, 
-                     double *tuple_pvals, double *tuple_derivs, 
+void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode,
+                     double *tuple_pvals, double *tuple_derivs,
                      double *tuple_teststats);
 
 
@@ -284,8 +284,8 @@ void col_score_tests(TreeModel *mod, MSA *msa, mode_type mode,
   @param[out] tuple_teststats (Optional) statistics or each test (first_derivative^2 / fim)
 */
 void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
-                         double *tuple_pvals, double *tuple_null_scales, 
-                         double *tuple_derivs, double *tuple_sub_derivs, 
+                         double *tuple_pvals, double *tuple_null_scales,
+                         double *tuple_derivs, double *tuple_sub_derivs,
                          double *tuple_teststats, FILE *logf);
 
 
@@ -301,8 +301,8 @@ void col_score_tests_sub(TreeModel *mod, MSA *msa, mode_type mode,
    @param[out] tuple_nspecies (Optional) number of species with data
    @note Gaps and missing data are handled by working with the induced subtree.
  */
-void col_gerp(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_nneut, 
-              double *tuple_nobs, double *tuple_nrejected, 
+void col_gerp(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_nneut,
+              double *tuple_nobs, double *tuple_nrejected,
               double *tuple_nspecies, FILE *logf);
 
 
@@ -328,7 +328,7 @@ void col_free_fim_grid(FimGrid *g);
    required.  Estimation is done by sampling */
 double col_estimate_fim(TreeModel *mod);
 
-/** Retrieve estimated Fisher Information Matrix for given scale 
+/** Retrieve estimated Fisher Information Matrix for given scale
    function; uses linear interpolation from pre-computed grid
    @param g Fisher Information Matrix(FIM) Grid holding FIM to return
    @param scale Only return matrix with this scale
@@ -340,11 +340,11 @@ Matrix *col_get_fim_sub(FimGrid *g, double scale);
  \{ */
 
 /** Check if a column has enough data to perform an analysis.
-    @param mod Tree Model 
+    @param mod Tree Model
     @param msa Multiple Sequence Alignment sequence data
     @param tupleidx Column to check for enough data
-    @result TRUE if column has two or more actual bases (not gaps or 
-    missing data), otherwise FALSE   
+    @result TRUE if column has two or more actual bases (not gaps or
+    missing data), otherwise FALSE
 
  */
 int col_has_data(TreeModel *mod, MSA *msa, int tupleidx);
@@ -358,7 +358,7 @@ int col_has_data(TreeModel *mod, MSA *msa, int tupleidx);
     @result TRUE if column has at least one base in the subtree of
    interest, at least one in the supertree of interest, and at least
    three bases total (the minimum required for a meaningful subtree
-   test), otherwise returns FALSE.  
+   test), otherwise returns FALSE.
     @warning If inside and outside are both NULL, then returns TRUE if there
    are at least three bases total.
 */
@@ -375,7 +375,7 @@ int col_has_data_sub(TreeModel *mod, MSA *msa, int tupleidx, List *inside,
    node i is informative).
    @param nspec number of leaves that have data
  */
-void col_find_missing_branches(TreeModel *mod, MSA *msa, int tupleidx, 
+void col_find_missing_branches(TreeModel *mod, MSA *msa, int tupleidx,
                                int *has_data, int *nspec);
 /** \} */
 #endif
