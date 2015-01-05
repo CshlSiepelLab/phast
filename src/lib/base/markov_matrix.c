@@ -1,6 +1,6 @@
 /***************************************************************************
  * PHAST: PHylogenetic Analysis with Space/Time models
- * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
+ * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell
  * University.  All rights reserved.
  *
  * This source code is distributed under a BSD-style license.  See the
@@ -41,15 +41,15 @@ MarkovMatrix* mm_new(int size, const char *states, mm_type type) {
   M->states = (char*)smalloc((alph_size+1) * sizeof(char));
 
   if (states == NULL) {
-    for (i = 0; i < alph_size; i++) 
-      M->states[i] = i < 26 ? ('A' + (char)i) : 'Z'; 
+    for (i = 0; i < alph_size; i++)
+      M->states[i] = i < 26 ? ('A' + (char)i) : 'Z';
                                 /* avoid non-alphanumeric */
     /* FIXME: not actually using these for anything; probably should
        just rip them out */
 
     M->states[alph_size] = '\0';
   }
-  else 
+  else
     strcpy(M->states, states);
 
   M->type = type;
@@ -79,17 +79,17 @@ MarkovMatrix* mm_new_from_counts(Matrix *counts, const char *states) {
   M->matrix = mat_new(counts->nrows, counts->ncols);
   mat_zero(M->matrix);
   for (i = 0; i < counts->nrows; i++) {
-    for (j = 0, rowsum = 0; j < counts->ncols; j++) 
+    for (j = 0, rowsum = 0; j < counts->ncols; j++)
       rowsum += mat_get(counts, i, j);
     if (rowsum == 0) mat_set(M->matrix, i, i, 1); /* keeps valid */
-    else 
-      for (j = 0; j < counts->ncols; j++) 
-        mat_set(M->matrix, i, j, 
+    else
+      for (j = 0; j < counts->ncols; j++)
+        mat_set(M->matrix, i, j,
                 safediv(mat_get(counts, i, j), rowsum));
                                 /* safediv no longer necessary? */
   }
   mm_validate(M);
-  return M;  
+  return M;
 }
 
 void mm_free(MarkovMatrix *M) {
@@ -145,19 +145,19 @@ int mm_validate(MarkovMatrix *M) {
 
   /* ensure square */
   if (M->matrix->nrows != M->matrix->ncols)
-    die("ERROR: Matrix is not square (%d x %d)", 
-	(int)M->matrix->nrows, (int)M->matrix->ncols);    
+    die("ERROR: Matrix is not square (%d x %d)",
+	(int)M->matrix->nrows, (int)M->matrix->ncols);
   M->size = M->matrix->nrows;
 
   /* ensure rows sum to one (or zero) */
   targetval = M->type == DISCRETE ? 1 : 0;
   for (i = 0; i < M->size; i++) {
     double sum = 0.0, diag;
-    for (j = 0; j < M->size; j++) 
+    for (j = 0; j < M->size; j++)
       if (i != j)
 	sum += mm_get(M, i, j);
     diag = mm_get(M, i, i);
-    if (abs(sum + diag - targetval) > SUM_EPSILON) {
+    if (fabs(sum + diag - targetval) > SUM_EPSILON) {
       fprintf(stderr, "Error validating Markov  matrix: rows do not sum to %.1f (+-%f). %f %f\n", targetval, SUM_EPSILON, sum, diag);
       return 1;
     } /*else if (sum != -diag)
@@ -167,10 +167,10 @@ int mm_validate(MarkovMatrix *M) {
 }
 
 
-/* element access by state character 
+/* element access by state character
    FIXME: this won't work with higher-order models */
 double mm_get_by_state(MarkovMatrix *M, char from, char to) {
-  return(mat_get(M->matrix, M->inv_states[(int)from], 
+  return(mat_get(M->matrix, M->inv_states[(int)from],
                         M->inv_states[(int)to]));
 }
 
@@ -258,24 +258,24 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t, int do_mu) {
   Matrix *Qt = mat_create_copy(Q->matrix), **QtPow, **matArr, *U, *V;
   int do_balancing=0;  //balancing is not working yet, keep this at 0!
   mat_scale(Qt, t);
-  
+
   theta[3]=1.495585217958292e-2;
   theta[5]=2.539398330063230e-1;
   theta[7]=9.504178996162932e-1;
   theta[9]=2.097847961257068e0;
   theta[13]=5.371920351148152e0;
-  
+
   // % Preprocessing to reduce the norm.
   //A ← A − μI, where μ = trace(A)/n.
   if (do_mu) {
     mu = 0.0;
-    for (i=0; i < n; i++) 
+    for (i=0; i < n; i++)
       mu += mat_get(Qt, i, i);
     mu /= (double)n;
     for (i=0; i < n; i++)
       mat_set(Qt, i, i, mat_get(Qt, i, i) - mu);
   }
-  
+
   //A ← D −1 AD, where D is a balancing transformation (or set D = I if
   //balancing does not reduce the 1-norm of A).
   ln = (LAPACK_INT)n;
@@ -318,7 +318,7 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t, int do_mu) {
       }
       mat_linear_comb_many(Qt, max_i+1, matArr, coef);
       mat_mult(U, QtPow[1], Qt);
-      
+
       for (i=0; i<=max_i; i++)
 	coef[i] = b[2*i];
       mat_linear_comb_many(V, max_i+1, matArr, coef);
@@ -328,7 +328,7 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t, int do_mu) {
 
   s = (int)ceil(log2(norm/theta[13]));
   if (s > 0) mat_scale(Qt, 1.0/pow(2.0, s));
-  
+
   m=7;
   QtPow = mm_get_QtPow(m, Qt);
   matArr = smalloc(5 * sizeof(Matrix*));
@@ -347,7 +347,7 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t, int do_mu) {
 
   //multiply by A[6]
   mat_mult(U, QtPow[6], Qt);
-  
+
   //above + b7*A[6] + b5*A[4] + b3*A[2] + b1*I
   matArr[3] = QtPow[0];
   matArr[4] = U;
@@ -357,7 +357,7 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t, int do_mu) {
   coef[3] = b[1];
   coef[4] = 1.0;
   mat_linear_comb_many(Qt, 5, matArr, coef);
-  
+
   //multiply whole thing by QtPow[1]
   mat_mult(U, QtPow[1], Qt);
 
@@ -371,7 +371,7 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t, int do_mu) {
 
   //multiply by A[6]
   mat_mult(V, QtPow[6], Qt);
-  
+
   //above + b[6]*A[6] + b[4]*A[4] + b[2]*A[2] + b0*I
   mat_copy(Qt, V);
   matArr[4] = Qt;
@@ -411,7 +411,7 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t, int do_mu) {
 
   mat_free(U);
   mat_free(V);
-  
+
   // X = r13^(2^s) by repeated squaring
   for (i=0; i < s; i++) {
     mat_copy(Qt, P->matrix);
@@ -430,7 +430,7 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t, int do_mu) {
     mat_from_lapack(P->matrix, mat);
   }
 
-  if (do_mu) 
+  if (do_mu)
     mat_scale(P->matrix, exp(mu));
 
   //check
@@ -438,9 +438,9 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t, int do_mu) {
     double sum = 0.0;
     for (j=0; j < n; j++) {
       val = mat_get(P->matrix, i, j);
-      if (isinf(val) || isnan(val)) 
+      if (isinf(val) || isnan(val))
 	die("got nan/inf val in matrix in mm_exp_higham t=%f i=%i j=%i\n", t, i, j);
-      else if (val < 0 && val > -1.0e-10) 
+      else if (val < 0 && val > -1.0e-10)
 	mat_set(P->matrix, i, j, 0.0);
       else if (val > 1 && val-1 < 1.0e-10)
 	mat_set(P->matrix, i, j, 1.0);
@@ -493,23 +493,23 @@ void mm_exp_complex(MarkovMatrix *P, MarkovMatrix *Q, double t) {
   }
 
   /* Diagonalize (if necessary) */
-  if (Q->diagonalize_error != 1 && 
-      (Q->evec_matrix_z == NULL || Q->evals_z == NULL || 
+  if (Q->diagonalize_error != 1 &&
+      (Q->evec_matrix_z == NULL || Q->evals_z == NULL ||
        Q->evec_matrix_inv_z == NULL))
     mm_diagonalize(Q);
-  
+
   /* Diagonalization failed: use higham expansion instead */
   if (Q->evec_matrix_z == NULL || Q->evals_z == NULL ||
       Q->evec_matrix_inv_z == NULL) {
     mm_exp_higham(P, Q, t, 1);
     return;
   }
-    
+
   /* Compute P(t) = S exp(Dt) S^-1.  Start by computing exp(Dt) S^-1 */
   for (i = 0; i < n; i++) {
     Complex exp_dt_i =
       z_exp(z_mul_real(zvec_get(Q->evals_z, i), t));
-    for (j = 0; j < n; j++) 
+    for (j = 0; j < n; j++)
       zmat_set(tmp, i, j, z_mul(exp_dt_i, zmat_get(Q->evec_matrix_inv_z, i, j)));
   }
 
@@ -535,7 +535,7 @@ void mm_exp_real(MarkovMatrix *P, MarkovMatrix *Q, double t) {
   }
 
   if (exp_evals == NULL || last_size != Q->size) {
-    if (exp_evals != NULL) 
+    if (exp_evals != NULL)
       vec_free(exp_evals);
 
     exp_evals = vec_new(Q->size);
@@ -544,8 +544,8 @@ void mm_exp_real(MarkovMatrix *P, MarkovMatrix *Q, double t) {
   }
 
   /* Diagonalize (if necessary) */
-  if (Q->diagonalize_error != 1 && 
-      (Q->evec_matrix_r == NULL || Q->evals_r == NULL || 
+  if (Q->diagonalize_error != 1 &&
+      (Q->evec_matrix_r == NULL || Q->evals_r == NULL ||
        Q->evec_matrix_inv_r == NULL))
     mm_diagonalize(Q);
 
@@ -556,7 +556,7 @@ void mm_exp_real(MarkovMatrix *P, MarkovMatrix *Q, double t) {
   }
 
   /* Compute P(t) = S exp(Dt) S^-1 */
-  for (i = 0; i < n; i++) 
+  for (i = 0; i < n; i++)
     exp_evals->data[i] = exp(Q->evals_r->data[i] * t);
 
   mat_mult_diag(P->matrix, Q->evec_matrix_r, exp_evals, Q->evec_matrix_inv_r);
@@ -639,7 +639,7 @@ MarkovMatrix *mm_create_copy(MarkovMatrix *src) {
   return(retval);
 }
 
-void mm_diagonalize_complex(MarkovMatrix *M) { 
+void mm_diagonalize_complex(MarkovMatrix *M) {
   if (M->evec_matrix_z == NULL)
     M->evec_matrix_z = zmat_new(M->size, M->size);
   if (M->evals_z == NULL)
@@ -656,9 +656,9 @@ void mm_diagonalize_complex(MarkovMatrix *M) {
     M->diagonalize_error = 1;
   }
   else M->diagonalize_error = 0;
-} 
+}
 
-void mm_diagonalize_real(MarkovMatrix *M) { 
+void mm_diagonalize_real(MarkovMatrix *M) {
   /* use existing routines then "cast" complex matrices/vectors as real */
 
   /* keep temp storage around -- this function will be called many
@@ -683,7 +683,7 @@ void mm_diagonalize_real(MarkovMatrix *M) {
     size = M->size;
   }
 
-  if (1 == mat_diagonalize(M->matrix, evals_z, evecs_z, evecs_inv_z)) 
+  if (1 == mat_diagonalize(M->matrix, evals_z, evecs_z, evecs_inv_z))
     goto mm_diagonalize_real_fail;
 
   M->diagonalize_error = 0;
@@ -698,7 +698,7 @@ void mm_diagonalize_real(MarkovMatrix *M) {
       zmat_as_real(M->evec_matrix_inv_r, evecs_inv_z, FALSE))
     goto mm_diagonalize_real_fail;
   return;
-  
+
  mm_diagonalize_real_fail:
   //by setting eigenvalues to NULL, mm_exp will call mm_exp_higham
   //instead of using eigenvalues.
@@ -711,12 +711,12 @@ void mm_diagonalize_real(MarkovMatrix *M) {
   M->evec_matrix_r = M->evec_matrix_inv_r = NULL;
   M->evals_r = NULL;
   M->diagonalize_error = 1;
-} 
+}
 
-void mm_diagonalize(MarkovMatrix *M) { 
-  if (M->eigentype == COMPLEX_NUM) 
+void mm_diagonalize(MarkovMatrix *M) {
+  if (M->eigentype == COMPLEX_NUM)
     mm_diagonalize_complex(M);
-  else 
+  else
     mm_diagonalize_real(M);
 }
 
@@ -731,7 +731,7 @@ void mm_renormalize(MarkovMatrix *M) {
     die("ERROR mm_renormalize:  M->type should be discrete\n");
   for (i = 0; i < M->size; i++) {
     double rowsum = 0;
-    for (j = 0; j < M->size; j++) 
+    for (j = 0; j < M->size; j++)
       rowsum += mat_get(M->matrix, i, j);
 
     if (rowsum == 0)            /* in this case, assume an "absorbing"
@@ -739,9 +739,9 @@ void mm_renormalize(MarkovMatrix *M) {
       mat_set(M->matrix, i, i, 1);
 
     else if (rowsum != 1)       /* renormalize */
-      for (j = 0; j < M->size; j++) 
+      for (j = 0; j < M->size; j++)
         mat_set(M->matrix, i, j,
 		mat_get(M->matrix, i, j) / rowsum);
-                     
+
   }
 }
