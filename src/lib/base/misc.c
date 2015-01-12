@@ -68,7 +68,7 @@ void choose(int *selections, int N, int k) {
   }
   lst_free(eligible);
 }
-
+#ifndef RPHAST
 #if defined(__MINGW32__)
 /*these functions inplemented by lib iberty in mingw do not work correctly
 the C standard rand() and srand() have been subsituted and give an answer close
@@ -83,7 +83,7 @@ void srandom(int seed)
   srand(seed);
 }
 #endif
-
+#endif
 /* produce a random permutation of the designated size; 'permutation'
    must be allocated externally  */
 void permute(int *permutation, int N) {
