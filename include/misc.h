@@ -1,6 +1,6 @@
 /***************************************************************************
  * PHAST: PHylogenetic Analysis with Space/Time models
- * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
+ * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell
  * University.  All rights reserved.
  *
  * This source code is distributed under a BSD-style license.  See the
@@ -23,6 +23,7 @@
 #include <lists.h>
 #include <time.h>
 #include <string.h>
+#include <stdint.h>
 #include <sys/time.h>
 #include <external_libs.h>
 struct hash_table;
@@ -39,7 +40,7 @@ struct hash_table;
 /** Threshold for log_sum function
     @see log_sum
  */
-#define SUM_LOG_THRESHOLD -50  
+#define SUM_LOG_THRESHOLD -50
 
 /** Shortcut for 2^x */
 #define exp2(x) (pow(2,x))
@@ -59,9 +60,9 @@ struct hash_table;
 #endif
 
 /** Convert integer to pointer */
-#define int_to_ptr(i) ((void*) (long) (i))
+#define int_to_ptr(i) ((void*) (intptr_t) (i))
 /** Convert pointer to integer */
-#define ptr_to_int(p) ((int) (long) (p))
+#define ptr_to_int(p) ((int) (intptr_t) (p))
 
 /** Safe divide, checks for div by 0 so no arithmetic errors are thrown */
 #define safediv(x, y) ((y) != 0 ? (x) / (y) : ((x) == 0 ? 0 : ((x) > 0 ? INFTY : NEGINFTY)))
@@ -80,16 +81,16 @@ struct hash_table;
     @result x^y
  */
 static PHAST_INLINE
-int int_pow(int x, int y) { 
+int int_pow(int x, int y) {
   int retval = 1, i;
   for (i = 0; i < y; i++) retval *= x;
   return retval;
 }
 
-/** \name Log based calculation functions 
+/** \name Log based calculation functions
 \{ */
 
-/** Fast computation of floor(log2(x)), where x is a positive integer 
+/** Fast computation of floor(log2(x)), where x is a positive integer
     @param x Integer to take log2 of then floor
 */
 static PHAST_INLINE
@@ -101,11 +102,11 @@ int log2_int(unsigned x) {
   }
 }
 
-/** Efficiently compute log of sum of values.  
+/** Efficiently compute log of sum of values.
    @param l List of doubles containing values
    @result log of sum of values passed in list
-   @note Thanks to David Haussler for showing me this trick.  
-   @warning Sorts list as side effect. 
+   @note Thanks to David Haussler for showing me this trick.
+   @warning Sorts list as side effect.
 */
 static PHAST_INLINE
 double log_sum(List *l) {
@@ -115,21 +116,21 @@ double log_sum(List *l) {
   if (lst_size(l) > 1)
     lst_qsort_dbl(l, DESCENDING);
 
-  maxval = lst_get_dbl(l, 0);  
+  maxval = lst_get_dbl(l, 0);
   expsum = 1;
   k = 1;
 
   while (k < lst_size(l) && lst_get_dbl(l, k) - maxval > SUM_LOG_THRESHOLD)
     expsum += exp2(lst_get_dbl(l, k++) - maxval);
-  
-  return maxval + log2(expsum);        
+
+  return maxval + log2(expsum);
 }
 
-/** Efficiently compute log (base e) of sum of values.  
+/** Efficiently compute log (base e) of sum of values.
    @param l List of doubles containing values
    @result log (base e) of sum of values passed in list
-   @note Thanks to David Haussler for showing me this trick.  
-   @warning Sorts list as side effect. 
+   @note Thanks to David Haussler for showing me this trick.
+   @warning Sorts list as side effect.
 */
 static PHAST_INLINE
 double log_sum_e(List *l) {
@@ -139,14 +140,14 @@ double log_sum_e(List *l) {
   if (lst_size(l) > 1)
     lst_qsort_dbl(l, DESCENDING);
 
-  maxval = lst_get_dbl(l, 0);  
+  maxval = lst_get_dbl(l, 0);
   expsum = 1;
   k = 1;
 
   while (k < lst_size(l) && lst_get_dbl(l, k) - maxval > SUM_LOG_THRESHOLD)
     expsum += exp(lst_get_dbl(l, k++) - maxval);
-  
-  return maxval + log(expsum);        
+
+  return maxval + log(expsum);
 }
 
 /** \} */
@@ -163,7 +164,7 @@ double rel_entropy(double *p, double *q, int d) {
   double H = 0;
   for (i = 0; i < d; i++) {
     if (p[i] == 0) continue;
-    if (q[i] == 0) return INFTY;    
+    if (q[i] == 0) return INFTY;
     H += p[i] * (log2(p[i]) - log2(q[i]));
   }
   return H;
@@ -179,9 +180,11 @@ double sym_rel_entropy(double *p, double *q, int d) {
   double re1 = rel_entropy(p, q, d), re2 = rel_entropy(q, p, d);
   return min(re1, re2);
 }
+#ifndef RPHAST
 #if defined(__MINGW32__)
 int random();
 void srandom(int seed);
+#endif
 #endif
 /** Specify the Random Number Generator seed number.
     @param seed Starting number for RNG
@@ -201,7 +204,7 @@ int permutations(int n) {
 }
 
 /** Return n-choose-k */
-static PHAST_INLINE 
+static PHAST_INLINE
 int combinations(int n, int k) {
   int i, retval = 1;
   for (i = 0; i < k; i++) retval *= (n - i);
@@ -213,14 +216,14 @@ int combinations(int n, int k) {
     @param[in,out] selections Result array of size N to be populated with 0 (not chosen) or 1 (chosen). Elements initialized to -1 will be consitered "ineligable" and skipped.
     @param[in] N Number of elements to choose from
     @param[in] k Number of elements to choose
- */ 
+ */
 void choose(int *selections, int N, int k);
 
 /** Next combination (used for enumerating combinations).
-    Call repeatedly to enumerate combinations. 
+    Call repeatedly to enumerate combinations.
     @param n Number of elements
     @param k Size of index array
-    @param index Array preallocated to size k used to hold output. At end, contains indices in [0, n-1] representing the next element in the series of all possible combinations of n elements. On the first call, set indices[0] = -1 and the array will be initialized appropriately.  
+    @param index Array preallocated to size k used to hold output. At end, contains indices in [0, n-1] representing the next element in the series of all possible combinations of n elements. On the first call, set indices[0] = -1 and the array will be initialized appropriately.
    @result TRUE on success, FALSE when no more choices possible
 */
 int next_comb(int n, int k, int *index);
@@ -242,14 +245,14 @@ void permute(int *permutation, int N);
     @code
      char *alph = "ACGT";
      get_codon_mapping(alph);
-    
- 
+
+
 //    Result  K N K N T TTTRSRSIIMIQHQHPPPPRRRRLLLLEDEDAAAAGGGGVVVV$Y$YSSSS$CWCLFLF
 //            | | | | | |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
 //    Codons  a a a a a aaaaaaaaaaaccccccccccccccccggggggggggggggggtttttttttttttttt
 //            a a a a c cccggggttttaaaaccccggggttttaaaaccccggggttttaaaaccccggggtttt
 //            a c g t a cgtacgtacgtacgtacgtacgtacgtacgtacgtacgtacgtacgtacgtacgtacgt
-//      
+//
 //    AAA=K, AAC=N, AAG=K, AAT=N, ACA=T.... etc.
 
     @endcode
@@ -261,7 +264,7 @@ char* get_codon_mapping(char *alphabet);
    @param[in] inv_alph Inverse alphabet that maps chars (as int) to indices of alphabet array
    @param[in] alph_size Size of the alphabet
    @result Array index used for 'codons' array OR -1 if char not in alphabet encountered
-   @note A "digital" indexing scheme is assumed in which the right-most character in 
+   @note A "digital" indexing scheme is assumed in which the right-most character in
          the tuple is considered the least significant digit.
    @note Inverse of get_tuple_str
    @see get_tuple_str
@@ -277,7 +280,7 @@ int tuple_index(char *tuple, int *inv_alph, int alph_size);
    @note Inverse of tuple_index
    @see tuple_index
 */
-void get_tuple_str(char *tuple_str, int tuple_idx, int tuple_size, 
+void get_tuple_str(char *tuple_str, int tuple_idx, int tuple_size,
                    char *alphabet);
 /** Read a substitution matrix from the specified file.
    @param F File descriptor of file containing substitution matrix
@@ -290,7 +293,7 @@ void get_tuple_str(char *tuple_str, int tuple_idx, int tuple_size,
    @note Characters in the file but not in 'alph' will be ignored
    @warning Only minor testing performed.  Check carefully if use
    without predefined alphabet or with alphabets that do not match in
-   order 
+   order
 
 */
 Matrix* read_subst_mat(FILE *F, char *alph);
@@ -298,7 +301,7 @@ Matrix* read_subst_mat(FILE *F, char *alph);
 /** Open a file by filename and get file descriptor.
     @param fname Full path to file
     @param mode Open mode i.e. w, r, r+, w+, etc.
-    @result File descriptor 
+    @result File descriptor
     @note Exits with error message if open unsuccessful
  */
 FILE* phast_fopen(const char *fname, const char *mode);
@@ -306,7 +309,7 @@ FILE* phast_fopen(const char *fname, const char *mode);
 /** Open a file by filename and get file descriptor.
     @param fname Full path to file
     @param mode Open mode i.e. w, r, r+, w+, etc.
-    @result File descriptor 
+    @result File descriptor
  */
 FILE* phast_fopen_no_exit(const char *fname, const char *mode);
 
@@ -331,7 +334,7 @@ extern FILE *rphast_stderr;
     @param f File descriptor of file to write to OR stdout to write to R console OR stderr to write to R error console.
     @param format Format of the string to write like sprintf
     @param ... Parameters like sprintf
-    @result Success == 1  
+    @result Success == 1
   */
 int rphast_fprintf(FILE *f, const char *format, ...);
 #undef fprintf
@@ -339,7 +342,7 @@ int rphast_fprintf(FILE *f, const char *format, ...);
 #define checkInterrupt() R_CheckUserInterrupt()
 #define checkInterruptN(i, n) if ((i)%(n) == 0) R_CheckUserInterrupt()
 
-#else 
+#else
 
 /** Display a warning on the console.
     @param warnfmt Format of the string to write to console (like printf)
@@ -360,11 +363,11 @@ void die(const char *warnfmt, ...);
 /** Parse comma separated value string or file reference into list.
    @param arg Comma separated value string or file reference (using the "*" convention)
    @result List of values from arg
-   @note: List and all Strings are newly allocated (should be freed externally) 
+   @note: List and all Strings are newly allocated (should be freed externally)
 */
 List *get_arg_list(char *arg);
 
-/** Returns remaining command-line arguments as a List of Strings. 
+/** Returns remaining command-line arguments as a List of Strings.
   @param argv As passed to main
   @param argc As passed to main
   @param optind Index of first unprocessed argument
@@ -396,7 +399,7 @@ int get_arg_int(char *arg);
  */
 double get_arg_dbl(char *arg);
 
-/** Argument conversion with error and bounds checking (int) 
+/** Argument conversion with error and bounds checking (int)
    @param arg String to convert to int
    @param min Minimum acceptable int
    @param max Maximum acceptable int
@@ -404,7 +407,7 @@ double get_arg_dbl(char *arg);
 */
 int get_arg_int_bounds(char *arg, int min, int max);
 
-/** Argument conversion with error and bounds checking (double) 
+/** Argument conversion with error and bounds checking (double)
    @param arg String to convert to double
    @param min Minimum acceptable double
    @param max Maximum acceptable dobule
@@ -414,12 +417,12 @@ double get_arg_dbl_bounds(char *arg, double min, double max);
 
 /** \} */
 
-/** Safe malloc 
+/** Safe malloc
     @param size Size of memory to allocate
 */
 void *smalloc(size_t size);
 
-/** Safe re-malloc 
+/** Safe re-malloc
     @param ptr Pointer to memory to reallocate
     @param size New size
 */
@@ -445,11 +448,11 @@ void set_static_var(void **ptr);
 */
 char *copy_charstr(const char *word);
 
-/** Normalize a probability vector.  
-   @pre All values nonnegative.  
+/** Normalize a probability vector.
+   @pre All values nonnegative.
    @param p Probability vector to normalize
    @param size Number of elements in vector p
-   @result Normalization constant 
+   @result Normalization constant
 */
 double normalize_probs(double *p, int size);
 
@@ -468,15 +471,15 @@ int is_transition(char b1, char b2);
 int is_indel(char b1, char b2);
 
 
-/** Create HashTable from String. 
-    Parse string defining mapping from old names to new and store as hash  
-    @param Input String to translate to HashMap e.g. "hg17->human; mm5->mouse; rn3->rat" 
+/** Create HashTable from String.
+    Parse string defining mapping from old names to new and store as hash
+    @param Input String to translate to HashMap e.g. "hg17->human; mm5->mouse; rn3->rat"
     @result HashTable containing data parsed from string
-    @note Can use "=" or "->" characters to indicate mapping. 
+    @note Can use "=" or "->" characters to indicate mapping.
 */
 struct hash_table *make_name_hash(char *mapstr);
 
-/** \name PDF/CDF functions 
+/** \name PDF/CDF functions
 \{ */
 
 /** Evaluate PDF of gamma distribution with parameters a and b
@@ -515,15 +518,15 @@ double chisq_cdf(double x, double dof, int lower_tail);
    degrees of freedom and a point mass at 0.
    @param x Chi-Square distributed variable
    @param dof Degrees of freedom
-   @param lower_tail If lower_tail == TRUE returns P(X<=x), else returns P(X>=x)  
-   @note This function is useful in likelihood ratio tests of bounded parameters. 
+   @param lower_tail If lower_tail == TRUE returns P(X<=x), else returns P(X>=x)
+   @note This function is useful in likelihood ratio tests of bounded parameters.
 */
 double half_chisq_cdf(double x, double dof, int lower_tail);
 
 /** \} \name Density evaluation functions
 \{ */
 
-/** Evaluate density of Beta distribution. 
+/** Evaluate density of Beta distribution.
     @param x Beta distributed variable
     @param a Shape parameter
     @param b Shape parameter
@@ -544,13 +547,13 @@ double d_poisson(double lambda, int k);
    @param mu_y Marginal mean
    @param sigma_x Marginal standard deviation
    @param sigma_y Marginal standard deviations
-   @param rho Correlation coefficient 
+   @param rho Correlation coefficient
    @result Estimate of bivariate normal density
 */
 double bvn_p(double x, double y, double mu_x, double mu_y, double sigma_x,
              double sigma_y, double rho);
 
-/** \} \name Distribution Draw functions 
+/** \} \name Distribution Draw functions
 \{ */
 
 /** Make a draw from a beta distribution with parameters 'a' and 'b'.
@@ -563,9 +566,9 @@ double beta_draw(double a, double b);
 /** Make a draw from a k-dimensional Dirichlet distribution.
    @param k Dimensionality of distribution
    @param theta Scale of distribution
-   @param alpha Distribution parameters given by alpha[0], ..., alpha[k-1].  
+   @param alpha Distribution parameters given by alpha[0], ..., alpha[k-1].
    @result Draw from distribution
-   @note This is accomplished by sampling from gamma 
+   @note This is accomplished by sampling from gamma
    distributions with parameters alpha[0], ..., alpha[k-1]
    and renormalizing.
  */
@@ -573,19 +576,19 @@ void dirichlet_draw(int k, double *alpha, double *theta);
 
 
 /** Make 'n' draws from a uniform distribution on the interval [min,
-   max], optionally with antithetics.    
+   max], optionally with antithetics.
    @pre Call srandom
    @param[in] n Number of draws to make from uniform distribution
    @param[in] min Low end of interval to make draws on
    @param[in] max High end of interval to make draws on
    @param[out] draws Resulting draws
    @param[in] antithetics (Optional) If == 1 use antithetics
-   @note Designed for use with real (floating-point) numbers.  
+   @note Designed for use with real (floating-point) numbers.
  */
 void unif_draw(int n, double min, double max, double *draws, int antithetics);
 
 /** Make a draw from a binomial distribution with parameters 'N' and
-   'p'.  
+   'p'.
    @pre Call srandom
    @param N Amount of samples in binomial distribution
    @param p Probability of each sample yielding success
@@ -594,30 +597,30 @@ void unif_draw(int n, double min, double max, double *draws, int antithetics);
 int bn_draw(int N, double p);
 
 /** Make a draw from a binomial distribution with parameters 'n' and
-   'pp'.  
+   'pp'.
    @pre Call srandom
    @param N Amount of samples in binomial distribution
    @param pp Probability of occurrence of the event???
    @result Number of successful samples???
-   @note Computational complexity is O(N) 
+   @note Computational complexity is O(N)
    @note This version uses rejection sampling unless n < 25 or n * p <
    1/25.   */
 int bn_draw_fast(int n, double pp);
 
 /** Make 'n' draws from a multinomial distribution defined by
-   probability vector 'p' with dimension 'd'. 
+   probability vector 'p' with dimension 'd'.
    @pre Call srandom
    @param n Number of draws to make from multinomial distribution
    @param p Probability vector defining multinomial distribution
    @param d Dimensionality of multinomial distribution
    @param counts Number of counts for each category
-   @note Sum of elements in 'counts' will equal 'n'.  
+   @note Sum of elements in 'counts' will equal 'n'.
    @note Probability vector is assumed to be normalized.
  */
 void mn_draw(int n, double *p, int d, int *counts);
 
 /** Make a draw from an exponential distribution with parameter
-   (expected value) 'b' 
+   (expected value) 'b'
    @param b Defines exponential distribution
    @result Draw from exponential distribution
 */
@@ -632,13 +635,13 @@ double exp_draw(double b);
    performed
    @param b Rate parameter of gamma distribution
    @result Draw from distribution
-   @note Both algorithms used as described in "Non-Uniform 
-   Random Variate Generation" by Luc Devroye, available 
+   @note Both algorithms used as described in "Non-Uniform
+   Random Variate Generation" by Luc Devroye, available
    online at http://cg.scs.carleton.ca/~luc/rnbookindex.html
 */
 double gamma_draw(double a, double b);
 
-/** Given a probability vector, draw an index. 
+/** Given a probability vector, draw an index.
    @pre Call srandom externally
    @param p Probability vector
    @param size Number of elements in probability vector
@@ -681,7 +684,7 @@ double cum_poisson(double lambda, int k);
 double cum_poisson_c(double lambda, int k);
 
 /** Return P(x <= a | mu, sigma) for a variable a that obeys a normal ???
-   distribution with mean mu and s.d. sigma. 
+   distribution with mean mu and s.d. sigma.
    @param mu Mean of distribution
    @param sigma Standard deviation of distribution
    @param a Number of occurrences in a given interval
@@ -690,8 +693,8 @@ double cum_poisson_c(double lambda, int k);
 double cum_norm(double mu, double sigma, double a);
 
 /** Return P(x >= a | mu, sigma) for a variable a that obeys a normal ???
-   distribution with mean mu and s.d. sigma.  
-   Use this function instead of 1-cum_norm when a is large (better precision) 
+   distribution with mean mu and s.d. sigma.
+   Use this function instead of 1-cum_norm when a is large (better precision)
    @param mu Mean of distribution
    @param sigma Standard deviation of distribution
    @param a Number of occurrences in a given interval
@@ -700,11 +703,11 @@ double cum_norm(double mu, double sigma, double a);
 double cum_norm_c(double mu, double sigma, double a);
 
 /** Return inverse of standard normal, i.e, inv_cum_norm(p) = a such
-   that cum_norm(0, 1, a) = p.  
+   that cum_norm(0, 1, a) = p.
    @param p Probability that 'a' inquiries happen during an interval ???
    @result Number of occurrences that relate to the specified probability
    @note The function is approximated using an algorithm by Peter Acklam
-    given at http://home.online.no/~pjacklam/notes/invnorm/. 
+    given at http://home.online.no/~pjacklam/notes/invnorm/.
 */
 double inv_cum_norm(double p);
 /** \} */
@@ -713,17 +716,17 @@ double inv_cum_norm(double p);
 /** Compute min and max of (central) confidence interval.
    @param mu Mean of normal distribution
    @param sigma Standard deviation of normal distribution
-   @param interval_size Size of confidence interval (between 0 and 1) 
+   @param interval_size Size of confidence interval (between 0 and 1)
    @param min_x Min of central confidence interval
    @param max_x Max of central confidence interval
   */
-void norm_confidence_interval(double mu, double sigma, double interval_size, 
+void norm_confidence_interval(double mu, double sigma, double interval_size,
                               double *min_x, double *max_x);
 
 /** Save sequence in file as fasta format.
     @param F File descriptor to save sequence with
     @param seq Sequence chars to write out
-    @param name Name of the sequence   
+    @param name Name of the sequence
     @param len Length of the sequence chars
 */
 void print_seq_fasta(FILE *F, char *seq, char *name, int len);
@@ -742,7 +745,7 @@ double get_elapsed_time(struct timeval *start_time);
 int file_exists(char *filename);
 
 
-/** \name IUPAC mapping functions 
+/** \name IUPAC mapping functions
 \{ */
 
 /** Return a static mapping from IUPAC ambiguity characters to the bases
@@ -761,11 +764,11 @@ char **get_iupac_map();
    indicating presence or absence of each character in the set
    associated with the IUPAC character.  This array obeys the indexing
    of the provided inv_states.  For use in computing likelihoods with
-   ambiguity characters 
+   ambiguity characters
    @param inv_states Inverse states array mapping states to unique numbers
    @param alph_size Number of entries in inv_states (size of alphabet)
    @code
-   e.g. 
+   e.g.
       inv_states['A'] = 0
       inv_states['T'] = 1
       inv_states['G'] = 2
@@ -779,7 +782,7 @@ char **get_iupac_map();
 */
 int **build_iupac_inv_map(int *inv_states, int alph_size);
 
-/** Free inverse iupac mapping object. 
+/** Free inverse iupac mapping object.
     @param iim Inverse IUPAC mapping object to free.
 */
 void free_iupac_inv_map(int **iim);
