@@ -1473,13 +1473,17 @@ void gff_flatten(GFF_Set *feats) {
 
 /* Merges overlapping or adjacent features of same type, if they
     are they are in the same group. 
-    When two features are merged, scores are summed, but attributes are 
-    ignored.  Will not merge if 'frame' is non-null.  */
-void gff_flatten_within_groups(GFF_Set *feats) {
+    If weightedAverageScore is 1, then scores become the weighted sum
+     of merged features (weighted by feature length).
+    If weightedAverageScore is 0, then scores are summed.
+    Attributes are ignored. Will not merge if 'frame' is non-null */
+void gff_flatten_within_groups(GFF_Set *feats, int weightedAverageScore) {
   List *keepers, *group_keepers;
   GFF_Feature *last;
   GFF_FeatureGroup *group;
   int i, g;
+  double score_sum;
+  double len_sum;
 
   if (lst_size(feats->features) <= 1) return;
   if (feats->groups == NULL) { 
@@ -1497,6 +1501,10 @@ void gff_flatten_within_groups(GFF_Set *feats) {
     last = lst_get_ptr(group->features, 0);
     lst_push_ptr(keepers, last);
     lst_push_ptr(group_keepers, last);
+    if (weightedAverageScore && !last->score_is_null) {
+	score_sum = last->score * (last->end - last->start + 1);
+	len_sum = last->end - last->start + 1;
+    }
     for (i = 1; i < lst_size(group->features); i++) {
       GFF_Feature *this = lst_get_ptr(group->features, i);
       checkInterruptN(i, 1000);
@@ -1505,17 +1513,32 @@ void gff_flatten_within_groups(GFF_Set *feats) {
 	  last->frame == GFF_NULL_FRAME && this->frame == GFF_NULL_FRAME) {
 
 	last->end = max(last->end, this->end);
-	if (!last->score_is_null && !this->score_is_null) 
-	  last->score += this->score;
+	if (!last->score_is_null && !this->score_is_null)  {
+	    if (weightedAverageScore) {
+		score_sum += this->score * (this->end - this->start + 1);
+		len_sum += this->end - this->start + 1;
+	    } else {
+		last->score += this->score;
+	    }
+	} else if (this->score_is_null) last->score_is_null = 1;
+	  
 	/* (ignore attribute) */
 	gff_free_feature(this);
       }
       else {
+	  if (weightedAverageScore) {
+	      if ( !last->score_is_null )
+		  last->score = score_sum/len_sum;
+	      score_sum = this->score;
+	      len_sum = this->end - this->start + 1;
+	  }
 	lst_push_ptr(keepers, this);
 	lst_push_ptr(group_keepers, this);
 	last = this;
       }
     }
+    if (weightedAverageScore && !last->score_is_null)
+	last->score = score_sum/len_sum;
     lst_free(group->features);
     group->features = group_keepers;
   }

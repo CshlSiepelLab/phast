@@ -358,9 +358,10 @@ void gff_flatten(GFF_Set *feats);
 
 /** Merges overlapping or adjacent features of same type, if they
     are they are in the same group.  Sorts the features within groups.
-    When two features are merged, scores are summed, but attributes are 
-    ignored.  Will not merge if 'frame' is non-null.  */
-void gff_flatten_within_groups(GFF_Set *feats);
+    When two features are merged, scores are summed, unless weightedAverageScore is true.
+    If weightedAverageScore is true, will average the score using feature lengths as weights.
+    Attributes are ignored.  Will not merge if 'frame' is non-null.  */
+void gff_flatten_within_groups(GFF_Set *feats, int weightedAverageScore);
 
 /** Flatten a GFF without regard to strand, score, feature type (though do merge these
     appropriately).  

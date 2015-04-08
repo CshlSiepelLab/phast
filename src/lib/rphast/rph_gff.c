@@ -738,11 +738,11 @@ SEXP rph_gff_nonOverlapping_genes(SEXP gffP) {
 }
 
 
-SEXP rph_gff_flatten(SEXP gffP) {
+SEXP rph_gff_flatten(SEXP gffP, SEXP weightedAverageScoreP) {
   GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
   gff_register_protect(gff);
   gff_group_by_seqname(gff);
-  gff_flatten_within_groups(gff);
+  gff_flatten_within_groups(gff, INTEGER_VALUE(weightedAverageScoreP));
   return gffP;
 }
 

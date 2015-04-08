@@ -537,7 +537,7 @@ int main(int argc, char* argv[]) {
 	if (by_category) gff_group_by_feature(gffSub);
 	else if (group_tag != NULL) gff_group(gffSub, group_tag);
 	gff_sort(gffSub);
-	gff_flatten_within_groups(gffSub);
+	gff_flatten_within_groups(gffSub, 0);
 	for (i=0; i<lst_size(gffSub->features); i++) {
 	  feat = (GFF_Feature*)lst_get_ptr(gffSub->features, i);
 	  MafBlock *subBlock = mafBlock_copy(block);
