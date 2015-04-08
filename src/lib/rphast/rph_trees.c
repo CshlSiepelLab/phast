@@ -1,6 +1,6 @@
 /***************************************************************************
  * PHAST: PHylogenetic Analysis with Space/Time models
- * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
+ * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell
  * University.  All rights reserved.
  *
  * This source code is distributed under a BSD-style license.  See the
@@ -34,7 +34,7 @@ TreeNode* rph_tree_new(SEXP treeStr) {
 }
 
 
-/* read in a tree from a file.  Return character string 
+/* read in a tree from a file.  Return character string
    representing tree */
 SEXP rph_tree_read(SEXP filename) {
   FILE *infile;
@@ -81,7 +81,7 @@ SEXP rph_tree_read(SEXP filename) {
   }
   phast_fclose(infile);
   PROTECT(result = NEW_CHARACTER(numtrees));
-  for (i=0; i<numtrees; i++) 
+  for (i=0; i<numtrees; i++)
     SET_STRING_ELT(result, i, mkChar(strvec[i]));
   UNPROTECT(1);
   return result;
@@ -130,8 +130,8 @@ SEXP rph_tree_name_ancestors(SEXP treeStr) {
   UNPROTECT(1);
   return result;
 }
-  
-  
+
+
 
 SEXP rph_tree_subtree(SEXP treeStr, SEXP nodeStr) {
   TreeNode *tr = rph_tree_new(treeStr);
@@ -190,18 +190,18 @@ SEXP rph_tree_scale(SEXP treeStr, SEXP scaleP, SEXP nodeStr,
     if (n == NULL) {
       tr_name_ancestors(tr);
       n = tr_get_node(tr, CHARACTER_VALUE(nodeStr));
-      if (n == NULL) 
+      if (n == NULL)
 	die("No node named %s in %s\n", CHARACTER_VALUE(nodeStr),
 	    CHARACTER_VALUE(treeStr));
     }
     tr_scale_subtree(tr, n, scale, includeLeading);
-  } 
+  }
   else tr_scale(tr, scale);
   newTreeStr = tr_to_string(tr, 1);
   PROTECT(result = NEW_CHARACTER(1));
   SET_STRING_ELT(result, 0, mkChar(newTreeStr));
   UNPROTECT(1);
-  return result;    
+  return result;
 }
 
 
@@ -211,7 +211,7 @@ SEXP rph_tree_rename(SEXP treeVec, SEXP oldNamesP, SEXP newNamesP) {
   SEXP result;
   Hashtable *hash = hsh_new(20);
   char *str;
-  
+
   for (i=0; i<LENGTH(oldNamesP); i++) {
     str = smalloc((strlen(CHAR(STRING_ELT(newNamesP, i)))+1)*sizeof(char));
     strcpy(str, CHAR(STRING_ELT(newNamesP, i)));
@@ -224,7 +224,7 @@ SEXP rph_tree_rename(SEXP treeVec, SEXP oldNamesP, SEXP newNamesP) {
     //    tr = tr_new_from_string(CHAR(STRING_ELT(treeVec, treeIdx)));
     for (i=0; i<tr->nnodes; i++) {
       n = lst_get_ptr(tr->nodes, i);
-      if (n->name != NULL && n->name[0] != '\0' &&
+      if (n->name[0] != '\0' &&
 	  (str = hsh_get(hash, n->name)) != (char*)-1)
 	strcpy(n->name, str);
     }
@@ -240,7 +240,7 @@ SEXP rph_tree_nodeName(SEXP treeP, SEXP idP) {
   TreeNode *tr, *n;
   int id;
   SEXP result;
-  
+
   if (idP == R_NilValue || treeP == R_NilValue) return R_NilValue;
   id = INTEGER_VALUE(idP);
   tr = rph_tree_new(treeP);
@@ -285,9 +285,9 @@ SEXP rph_tree_branchlen(SEXP treeP) {
 SEXP rph_tree_depth(SEXP treeP, SEXP nodeP) {
   TreeNode *tr = rph_tree_new(treeP), *node;
   SEXP rv;
-  
+
   node = tr_get_node(tr, CHARACTER_VALUE(nodeP));
-  if (node == NULL) 
+  if (node == NULL)
     die("no node named %s", CHARACTER_VALUE(nodeP));
   PROTECT(rv = NEW_NUMERIC(1));
   REAL(rv)[0] = tr_distance_to_root(node);
@@ -305,14 +305,14 @@ SEXP rph_tree_label_branches(SEXP treeP, SEXP nodep, SEXP labelP) {
   PROTECT(result = NEW_CHARACTER(numtree));
   for (i=0; i < numtree; i++) {
     tr = rph_tree_new(STRING_ELT(treeP, i));
-    for (j = 0; j < LENGTH(nodep); j++) 
+    for (j = 0; j < LENGTH(nodep); j++)
       tr_label_node(tr, CHARACTER_VALUE(STRING_ELT(nodep, j)), label);
     SET_STRING_ELT(result, i, mkChar(tr_to_string(tr, 1)));
   }
   UNPROTECT(1);
   return result;
 }
-  
+
 SEXP rph_tree_label_subtree(SEXP treeP, SEXP nodeP,
 			    SEXP includeLeadingBranchP,
 			    SEXP labelP) {
@@ -399,7 +399,7 @@ SEXP rph_tree_summary_parent(SEXP treeP) {
   }
   for (i=0; i < nnode; i++) {
     node = (TreeNode*)lst_get_ptr(nodes, i);
-    if (node->parent == NULL) 
+    if (node->parent == NULL)
       parent[idmap[node->id]] = -1;
     else parent[idmap[node->id]] = idmap[node->parent->id] + 1;
   }
@@ -426,7 +426,7 @@ SEXP rph_tree_summary_lchild(SEXP treeP) {
   }
   for (i=0; i < nnode; i++) {
     node = (TreeNode*)lst_get_ptr(nodes, i);
-    if (node->lchild == NULL) 
+    if (node->lchild == NULL)
       lchild[idmap[node->id]] = -1;
     else lchild[idmap[node->id]] = idmap[node->lchild->id] + 1;
   }
@@ -453,7 +453,7 @@ SEXP rph_tree_summary_rchild(SEXP treeP) {
   }
   for (i=0; i < nnode; i++) {
     node = (TreeNode*)lst_get_ptr(nodes, i);
-    if (node->rchild == NULL) 
+    if (node->rchild == NULL)
       rchild[idmap[node->id]] = -1;
     else rchild[idmap[node->id]] = idmap[node->rchild->id] + 1;
   }
@@ -472,7 +472,7 @@ SEXP rph_tree_summary_label(SEXP treeP) {
     if (node->label != NULL) break;
   }
   if (i == nnodes) return R_NilValue;
-  
+
   PROTECT(result = NEW_CHARACTER(nnodes));
   for (i=0; i < nnodes; i++) {
     node = (TreeNode*)lst_get_ptr(nodes, i);

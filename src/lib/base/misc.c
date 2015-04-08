@@ -29,8 +29,6 @@ FILE *rphast_stdout=(FILE*)0;
 FILE *rphast_stderr=(FILE*)1;
 #endif
 
-static const char b64[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
 /* fill an array with 1s or zeroes, indicating a random choice of k
    elements from a list of N.  The array 'selections' must already be
    allocated to be of length N, and should be initialized.

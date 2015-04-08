@@ -1,6 +1,6 @@
 /***************************************************************************
  * PHAST: PHylogenetic Analysis with Space/Time models
- * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
+ * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell
  * University.  All rights reserved.
  *
  * This source code is distributed under a BSD-style license.  See the
@@ -23,49 +23,49 @@
 
 struct phastCons_struct *phastCons_struct_new(int rphast) {
   struct phastCons_struct *p = smalloc(sizeof(struct phastCons_struct));
-  p->post_probs = TRUE; 
-  p->score = FALSE; 
-  p->gff = FALSE; 
-  p->FC = FALSE; 
+  p->post_probs = TRUE;
+  p->score = FALSE;
+  p->gff = FALSE;
+  p->FC = FALSE;
   p->estim_lambda = TRUE;
-  p->estim_transitions = TRUE; 
-  p->two_state = TRUE; 
+  p->estim_transitions = TRUE;
+  p->two_state = TRUE;
   p->indels = FALSE;
-  p->indels_only = FALSE; 
+  p->indels_only = FALSE;
   p->estim_indels = TRUE;
-  p->estim_trees = FALSE; 
-  p->ignore_missing = FALSE; 
+  p->estim_trees = FALSE;
+  p->ignore_missing = FALSE;
   p->estim_rho = FALSE;
   p->set_transitions = FALSE;
   p->nrates = -1;
   p->nrates2 = -1;
-  p->refidx = 1; 
+  p->refidx = 1;
   p->max_micro_indel = 20;
-  p->lambda = 0.9; 
-  p->mu = 0.01; 
-  p->nu = 0.01; 
-  p->alpha_0 = 0.05; 
+  p->lambda = 0.9;
+  p->mu = 0.01;
+  p->nu = 0.01;
+  p->alpha_0 = 0.05;
   p->beta_0 = 0.05;
-  p->tau_0 = 0.45; 
-  p->alpha_1 = 0.05; 
-  p->beta_1 = 0.05; 
+  p->tau_0 = 0.45;
+  p->alpha_1 = 0.05;
+  p->beta_1 = 0.05;
   p->tau_1 = 0.2;
   p->gc = -1;
-  p->gamma = -1; 
-  p->rho = DEFAULT_RHO; 
+  p->gamma = -1;
+  p->rho = DEFAULT_RHO;
   p->omega = -1;
   p->viterbi_f = NULL;
   p->viterbi = FALSE;
-  p->lnl_f = NULL; 
+  p->lnl_f = NULL;
   p->log_f = NULL;
-  p->states = NULL; 
-  p->pivot_states = NULL; 
+  p->states = NULL;
+  p->pivot_states = NULL;
   p->inform_reqd = NULL;
   p->mod=NULL;
   p->nummod=0;
   p->not_informative = NULL;
   p->seqname = NULL;
-  p->idpref = NULL; 
+  p->idpref = NULL;
   p->estim_trees_fname_root = NULL;
   p->extrapolate_tree_fname = NULL;
   p->hmm = NULL;
@@ -83,7 +83,7 @@ struct phastCons_struct *phastCons_struct_new(int rphast) {
 
 int phastCons(struct phastCons_struct *p) {
   int post_probs, score, quiet, gff, FC, estim_lambda,
-    estim_transitions, two_state, indels, 
+    estim_transitions, two_state, indels,
     indels_only, estim_indels,
     estim_trees, ignore_missing, estim_rho, set_transitions,
     nummod, viterbi, compute_likelihood;
@@ -117,7 +117,7 @@ int phastCons(struct phastCons_struct *p) {
   FC = p->FC;
   estim_lambda = p->estim_lambda;
   estim_transitions = p->estim_transitions;
-  two_state = p->two_state; 
+  two_state = p->two_state;
   indels = p->indels;
   indels_only = p->indels_only;
   estim_indels = p->estim_indels;
@@ -126,7 +126,7 @@ int phastCons(struct phastCons_struct *p) {
   estim_rho = p->estim_rho;
   set_transitions = p->set_transitions;
   nrates = p->nrates;
-  nrates2 = p->nrates2; 
+  nrates2 = p->nrates2;
   refidx = p->refidx;
   max_micro_indel = p->max_micro_indel;
   lambda = p->lambda;
@@ -147,7 +147,7 @@ int phastCons(struct phastCons_struct *p) {
   log_f = p->log_f;
   states = p->states;
   pivot_states = p->pivot_states;
-  inform_reqd = p->inform_reqd; 
+  inform_reqd = p->inform_reqd;
   not_informative = p->not_informative;
   mod = p->mod;
   nummod = p->nummod;
@@ -176,19 +176,19 @@ int phastCons(struct phastCons_struct *p) {
   if (indels_only && (hmm != NULL || FC))
     die("ERROR: --indels-only cannot be used with --hmm or --FC.\n");
 
-  if ((estim_trees || gamma != -1 || estim_rho || 
+  if ((estim_trees || gamma != -1 || estim_rho ||
        omega != -1 || set_transitions) && !two_state)
     die("ERROR: --estimate-trees, --target-coverage, --expected-length, --transitions,\nand --estimate-rho can only be used with default two-state HMM.\n");
 
   if (set_transitions && (gamma != -1 || omega != -1))
     die("ERROR: --transitions and --target-coverage/--expected-length cannot be used together.\n");
 
-  if (omega != -1 && gamma == -1) 
+  if (omega != -1 && gamma == -1)
     die("ERROR: --expected-length requires --target-coverage.\n");
 
-  if (cm != NULL && hmm == NULL) 
+  if (cm != NULL && hmm == NULL)
     die("ERROR: --catmap can only be used with --hmm.\n");
-  
+
   if (indels == TRUE && FC)
     die("ERROR: --indels cannot be used with --FC.\n");
 
@@ -197,11 +197,11 @@ int phastCons(struct phastCons_struct *p) {
 
   if (!indels) estim_indels = FALSE;
 
-  if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
+  if (msa_alph_has_lowercase(msa)) msa_toupper(msa);
   msa_remove_N_from_alph(msa);  /* for backward compatibility */
-  if (msa->ss == NULL) 
-    ss_from_msas(msa, nummod==0 ? 1 : mod[0]->order+1, 
-		 TRUE, NULL, NULL, NULL, -1, 
+  if (msa->ss == NULL)
+    ss_from_msas(msa, nummod==0 ? 1 : mod[0]->order+1,
+		 TRUE, NULL, NULL, NULL, -1,
 		 nummod == 0 ? 0 : subst_mod_is_codon_model(mod[0]->subst_mod));
   if (msa->ss->tuple_idx == NULL)
     die("ERROR: Ordered representation of alignment required.\n");
@@ -224,7 +224,7 @@ int phastCons(struct phastCons_struct *p) {
     if (msa->seqs == NULL) { ss_to_msa(msa); ss_free(msa->ss); msa->ss = NULL; }
     if (strlen(msa->missing) < 2)
       die("ERROR strlen(msa->missing)=%i\n", strlen(msa->missing));
-    for (i = 0; i < msa->length; i++) 
+    for (i = 0; i < msa->length; i++)
       if (msa->is_missing[(int)msa->seqs[0][i]]) msa->seqs[0][i] = msa->missing[1];
                                 /* msa->missing[0] is used in msa_mask_macro_indels */
     msa_mask_macro_indels(msa, max_micro_indel, 0);
@@ -253,10 +253,10 @@ int phastCons(struct phastCons_struct *p) {
 
     /* extrapolate tree and/or prune away extra species */
     if (extrapolate_tree != NULL) {
-      double scale = tm_extrapolate_and_prune(mod[i], extrapolate_tree, 
+      double scale = tm_extrapolate_and_prune(mod[i], extrapolate_tree,
                                               msa, pruned_names);
-      if (!quiet) 
-        fprintf(results_f, "Extrapolating based on %s (scale=%f)...\n", 
+      if (!quiet)
+        fprintf(results_f, "Extrapolating based on %s (scale=%f)...\n",
                 extrapolate_tree_fname, scale);
     }
     else
@@ -267,7 +267,7 @@ int phastCons(struct phastCons_struct *p) {
     if (!quiet && lst_size(pruned_names) > 0) {
       fprintf(results_f, "WARNING: pruned away leaves of tree with no match in alignment (");
       for (j = 0; j < lst_size(pruned_names); j++)
-        fprintf(results_f, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars, 
+        fprintf(results_f, "%s%s", ((String*)lst_get_ptr(pruned_names, j))->chars,
                 j < lst_size(pruned_names) - 1 ? ", " : ").\n");
     }
 
@@ -275,8 +275,8 @@ int phastCons(struct phastCons_struct *p) {
     if (refidx > 0) {
       for (j = 0, found = FALSE; !found && j < mod[i]->tree->nnodes; j++) {
 	TreeNode *n = lst_get_ptr(mod[i]->tree->nodes, j);
-	if (n->lchild == NULL && n->rchild == NULL && 
-	    n->name != NULL && !strcmp(n->name, msa->names[refidx-1]))
+	if (n->lchild == NULL && n->rchild == NULL &&
+	    !strcmp(n->name, msa->names[refidx-1]))
 	  found = TRUE;
       }
       if (!found) die("ERROR: no match for reference sequence in tree.\n");
@@ -290,23 +290,23 @@ int phastCons(struct phastCons_struct *p) {
   if (two_state) {
     if (nummod == 2 && (estim_trees || estim_rho))
       die("ERROR: If re-estimating tree models, pass in only one model for initialization.\n");
-    if (mod[0]->empirical_rates || 
+    if (mod[0]->empirical_rates ||
 	(nummod == 2 && mod[1]->empirical_rates))
       die("ERROR: nonparameteric rate variation not allowed with default two-state HMM.\n");
 
     /* set equilibrium frequencies if estimating tree models */
-    if (estim_trees || (gc != -1 && estim_rho)) 
+    if (estim_trees || (gc != -1 && estim_rho))
       init_eqfreqs(mod[0], msa, gc);
-    
+
     if (nummod == 1) { /* create 2nd tree model &
 			  rescale first */
       mod = srealloc(mod, 2 * sizeof(void*));
       mod[1] = tm_create_copy(mod[0]);
       if (!estim_rho) tm_scale_branchlens(mod[0], rho, TRUE);
     }
-    if (nrates != -1 && nrates != mod[0]->nratecats) 
+    if (nrates != -1 && nrates != mod[0]->nratecats)
       tm_reinit(mod[0], mod[0]->subst_mod, nrates, mod[0]->alpha, NULL, NULL);
-    if (nrates2 != -1 && nrates2 != mod[1]->nratecats) 
+    if (nrates2 != -1 && nrates2 != mod[1]->nratecats)
       tm_reinit(mod[1], mod[1]->subst_mod, nrates2, mod[1]->alpha, NULL, NULL);
   }
   else if (FC) {
@@ -326,19 +326,19 @@ int phastCons(struct phastCons_struct *p) {
     lst_push_ptr(states, str_new_charstr("0"));
   }
 
-  /* set require-informative to states if null; set to null if "none" */ 
+  /* set require-informative to states if null; set to null if "none" */
   if (inform_reqd == NULL)
     inform_reqd = states;
-  else if (lst_size(inform_reqd) == 1 && 
-	   str_equals_charstr(lst_get_ptr(inform_reqd, 0), "none")) 
+  else if (lst_size(inform_reqd) == 1 &&
+	   str_equals_charstr(lst_get_ptr(inform_reqd, 0), "none"))
     inform_reqd = NULL;
 
   if (two_state) {
-    if (!quiet) 
+    if (!quiet)
       fprintf(results_f, "Creating 'conserved' and 'nonconserved' states in HMM...\n");
     if (gamma != -1) {
       nu = gamma/(1-gamma) * mu;
-      if (nu >= 1) 
+      if (nu >= 1)
         die("ERROR: mu=%f and gamma=%f imply nu >= 1.\n", mu, gamma);
     }
     setup_two_state(&hmm, &cm, mu, nu);
@@ -357,7 +357,7 @@ int phastCons(struct phastCons_struct *p) {
   phmm = phmm_new(hmm, mod, cm, pivot_states, indel_mode);
 
   if (FC) {
-    if (!quiet) 
+    if (!quiet)
       fprintf(results_f, "Creating %d scaled versions of tree model...\n", nrates);
     phmm_rates_cross(phmm, nrates, lambda, TRUE);
   }
@@ -368,12 +368,12 @@ int phastCons(struct phastCons_struct *p) {
     List *l = cm_get_category_list(cm, inform_reqd, 0);
     for (i = 0; i < lst_size(l); i++) {
       int modno = lst_get_int(l, i);
-      if (modno < 0 || modno >= phmm->nmods) 
+      if (modno < 0 || modno >= phmm->nmods)
         die("ERROR: illegal argument to --require-informative.\n");
       phmm->mods[modno]->inform_reqd = TRUE;
     }
     lst_free(l);
-  }        
+  }
   if (free_cm) cm_free(cm);
 
   /* compute emissions */
@@ -389,43 +389,43 @@ int phastCons(struct phastCons_struct *p) {
   }
 
   /* estimate mu and nu and indel params, if necessary */
-  else if (two_state && 
+  else if (two_state &&
 	   (estim_transitions || estim_indels || estim_trees || estim_rho)) {
     char cons_fname[STR_MED_LEN], noncons_fname[STR_MED_LEN];
     if (!quiet) {
       fprintf(results_f, "Finding MLE for (");
-      if (estim_transitions) 
-        fprintf(results_f, "mu, nu%s", estim_indels || estim_trees || estim_rho 
+      if (estim_transitions)
+        fprintf(results_f, "mu, nu%s", estim_indels || estim_trees || estim_rho
 		? ", " : "");
-      if (estim_indels) 
+      if (estim_indels)
         fprintf(results_f, "alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1%s",
                 estim_trees || estim_rho ? ", " : "");
       if (estim_trees)
         fprintf(results_f, "[tree models]");
-      else if (estim_rho) 
+      else if (estim_rho)
         fprintf(results_f, "rho");
       fprintf(results_f, ")...\n");
     }
-    lnl = fit_two_state(phmm, msa, estim_transitions, estim_indels, 
+    lnl = fit_two_state(phmm, msa, estim_transitions, estim_indels,
 			estim_trees, estim_rho,
-                        &mu, &nu, &alpha_0, &beta_0, &tau_0, 
+                        &mu, &nu, &alpha_0, &beta_0, &tau_0,
                         &alpha_1, &beta_1, &tau_1, &rho,
                         gamma, log_f);
     if (estim_transitions || estim_indels || estim_rho) {
       if (!quiet) {
 	fprintf(results_f, "(");
 	if (estim_transitions)
-	  fprintf(results_f, "mu = %g. nu = %g%s", mu, nu, 
+	  fprintf(results_f, "mu = %g. nu = %g%s", mu, nu,
 		  estim_indels || estim_rho ? ", " : "");
 	if (estim_indels)
-	  fprintf(results_f, 
-		  "alpha_0 = %g, beta_0 = %g, tau_0 = %g, alpha_1 = %g, beta_1 = %g, tau_1 = %g%s", 
-		  alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1, 
+	  fprintf(results_f,
+		  "alpha_0 = %g, beta_0 = %g, tau_0 = %g, alpha_1 = %g, beta_1 = %g, tau_1 = %g%s",
+		  alpha_0, beta_0, tau_0, alpha_1, beta_1, tau_1,
 		  estim_rho ? ", " : "");
-	if (estim_rho) 
+	if (estim_rho)
 	  fprintf(results_f, "rho = %g", rho);
 	fprintf(results_f, ")\n");
-      } 
+      }
       if (results != NULL) {
 	double *temp;
 	if (estim_transitions) {
@@ -455,7 +455,7 @@ int phastCons(struct phastCons_struct *p) {
 	sprintf(cons_fname, "%s.cons.mod", estim_trees_fname_root);
 	sprintf(noncons_fname, "%s.noncons.mod", estim_trees_fname_root);
 	if (!quiet)
-	  fprintf(results_f, "Writing re-estimated tree models to %s and %s...\n", 
+	  fprintf(results_f, "Writing re-estimated tree models to %s and %s...\n",
 		  cons_fname, noncons_fname);
 	tm_print(phast_fopen(cons_fname, "w+"), phmm->mods[0]);
 	tm_print(phast_fopen(noncons_fname, "w+"), phmm->mods[1]);
@@ -487,10 +487,10 @@ int phastCons(struct phastCons_struct *p) {
      proper coord conversion */
   if (indels && (post_probs || viterbi)) {
     ss_free(msa->ss); msa->ss = NULL; /* msa->seqs must already exist */
-    for (i = 0; i < msa->length; i++) 
+    for (i = 0; i < msa->length; i++)
       if (msa->seqs[0][i] == msa->missing[0]) msa->seqs[0][i] = GAP_CHAR;
   }
-    
+
   /* Viterbi */
   if (viterbi) {
     GFF_Set *predictions;
@@ -499,10 +499,10 @@ int phastCons(struct phastCons_struct *p) {
     predictions = phmm_predict_viterbi_cats(phmm, states, seqname, NULL,
                                             idpref, NULL, "phastCons_predicted");
     /* note that selected state numbers are also cat numbers  */
-   
+
     /* score predictions, if necessary */
-    if (score) { 
-      if (!quiet) fprintf(results_f, "Scoring predictions...\n");            
+    if (score) {
+      if (!quiet) fprintf(results_f, "Scoring predictions...\n");
       phmm_score_predictions(phmm, predictions, states, NULL, NULL, FALSE);
     }
 
@@ -511,8 +511,8 @@ int phastCons(struct phastCons_struct *p) {
     if (refidx != 0 || msa->idx_offset != 0)
       msa_map_gff_coords(msa, predictions, 0, refidx, msa->idx_offset);
 
-    if (refidx != 0) 
-      gff_flatten(predictions);	
+    if (refidx != 0)
+      gff_flatten(predictions);
     /* necessary because coord conversion might create overlapping
        features (can happen in deletions in reference sequence) */
 
@@ -521,7 +521,7 @@ int phastCons(struct phastCons_struct *p) {
       if (gff)
 	gff_print_set(viterbi_f, predictions);
       else                        /* BED format */
-	gff_print_bed(viterbi_f, predictions, FALSE); 
+	gff_print_bed(viterbi_f, predictions, FALSE);
     }
     if (results != NULL)
       lol_push_gff(results, predictions, two_state ? "most.conserved" :
@@ -545,7 +545,7 @@ int phastCons(struct phastCons_struct *p) {
 	  postprobsNoMissing[j] = smalloc(msa->length*sizeof(double));
 	coord = smalloc(msa->length*sizeof(int));
       }
-      
+
       /* print to post_probs_f */
       last = -INFTY;
       for (j = 0, k = 0; j < msa->length; j++) {
@@ -553,8 +553,8 @@ int phastCons(struct phastCons_struct *p) {
 	if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
 	  if (!msa_missing_col(msa, refidx, j)) {
 	    if (post_probs_f != NULL) {
-	      if (k > last + 1) 
-		fprintf(post_probs_f, "fixedStep chrom=%s start=%d step=1\n", seqname, 
+	      if (k > last + 1)
+		fprintf(post_probs_f, "fixedStep chrom=%s start=%d step=1\n", seqname,
 			k + msa->idx_offset + 1);
 	      for (l=0; l < phmm->hmm->nstates; l++) {
 		if (l != 0) fprintf(post_probs_f, "\t");
@@ -564,7 +564,7 @@ int phastCons(struct phastCons_struct *p) {
 	    }
 	    if (results != NULL) {
 	      coord[idx] = k + msa->idx_offset + 1;
-	      for (l=0; l < phmm->hmm->nstates; l++) 
+	      for (l=0; l < phmm->hmm->nstates; l++)
 		postprobsNoMissing[l][idx] = postprobs[l][j];
 	      idx++;
 	    }
@@ -578,7 +578,7 @@ int phastCons(struct phastCons_struct *p) {
 	char temp[100];
 	lol_push_int(wigList, coord, idx, "coord");
 	// fix me: can we get actualy state name from category map?  Problem
-        //is some states may have same name.  May need to append strand 
+        //is some states may have same name.  May need to append strand
         // and/or index?
 	for (j=0; j < phmm->hmm->nstates; j++) {
 	  //	  sprintf(temp, "%s", cm_get_feature(cm, state_to_cat(phmm->j)));
@@ -587,7 +587,7 @@ int phastCons(struct phastCons_struct *p) {
 	}
 	lol_set_class(wigList, "data.frame");
 	lol_push_lol(results, wigList, "post.prob.wig");
-	for (j=0; j < phmm->hmm->nstates; j++) 
+	for (j=0; j < phmm->hmm->nstates; j++)
 	  sfree(postprobsNoMissing[j]);
 	sfree(postprobsNoMissing);
 	sfree(coord);
@@ -603,7 +603,7 @@ int phastCons(struct phastCons_struct *p) {
 	postprobsNoMissing = smalloc(msa->length*sizeof(double));
 	coord = smalloc(msa->length*sizeof(int));
       }
-      
+
       /* print to post_probs_f */
       last = -INFTY;
       for (j = 0, k = 0; j < msa->length; j++) {
@@ -611,8 +611,8 @@ int phastCons(struct phastCons_struct *p) {
 	if (refidx == 0 || msa_get_char(msa, refidx-1, j) != GAP_CHAR) {
 	  if (!msa_missing_col(msa, refidx, j)) {
 	    if (post_probs_f != NULL) {
-	      if (k > last + 1) 
-		fprintf(post_probs_f, "fixedStep chrom=%s start=%d step=1\n", seqname, 
+	      if (k > last + 1)
+		fprintf(post_probs_f, "fixedStep chrom=%s start=%d step=1\n", seqname,
 			k + msa->idx_offset + 1);
 	      fprintf(post_probs_f, "%.3f\n", postprobs[j]);
 	    }
@@ -641,12 +641,12 @@ int phastCons(struct phastCons_struct *p) {
   if (compute_likelihood) {
     if (lnl > 0) {              /* may have already been computed */
       if (!quiet) fprintf(results_f, "Computing total log likelihood...\n");
-      lnl = phmm_lnl(phmm); 
+      lnl = phmm_lnl(phmm);
     }
     if (results != NULL)
       lol_push_dbl(results, &lnl, 1, "likelihood");
     if (lnl_f != NULL) {
-      fprintf(lnl_f, "lnL = %.4f\n", lnl); 
+      fprintf(lnl_f, "lnL = %.4f\n", lnl);
       if (FC) fprintf(lnl_f, "(lambda = %g)\n", lambda);
       else if (two_state && (estim_transitions || estim_indels)) {
 	fprintf(lnl_f, "(");
@@ -690,11 +690,11 @@ void setup_two_state(HMM **hmm, CategoryMap **cm, double mu, double nu) {
 /* Version of compute_emissions for use when estimating rho only (see
    fit_two_state, below); makes use of fact that emissions for
    nonconserved state need not be recomputed */
-void compute_emissions_estim_rho(double **emissions, void **models, 
-				 int nmodels, void *data, int sample, 
+void compute_emissions_estim_rho(double **emissions, void **models,
+				 int nmodels, void *data, int sample,
 				 int length) {
   PhyloHmm *phmm = (PhyloHmm*)data;
-  tl_compute_log_likelihood(phmm->mods[0], phmm->em_data->msa, 
+  tl_compute_log_likelihood(phmm->mods[0], phmm->em_data->msa,
 			    phmm->emissions[0], NULL,  -1, NULL);
 }
 
@@ -704,9 +704,9 @@ void compute_emissions_estim_rho(double **emissions, void **models,
    the tree models themselves may be estimated.  Returns ln
    likelihood. */
 double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
-                     int estim_trees, int estim_rho, double *mu, double *nu, 
-                     double *alpha_0, double *beta_0, double *tau_0, 
-                     double *alpha_1, double *beta_1, double *tau_1, 
+                     int estim_trees, int estim_rho, double *mu, double *nu,
+                     double *alpha_0, double *beta_0, double *tau_0,
+                     double *alpha_1, double *beta_1, double *tau_1,
                      double *rho, double gamma, FILE *logf) {
   double retval;
   void (*compute_emissions_func)(double **, void **, int, void*, int, int);
@@ -735,11 +735,11 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
     phmm->tau[1] = *tau_1;
   }
 
-  phmm_reset(phmm); 
+  phmm_reset(phmm);
 
   if (estim_trees || estim_rho) {
     msa->ncats = phmm->nmods - 1;   /* ?? */
-    if (msa->ss == NULL) 
+    if (msa->ss == NULL)
       ss_from_msas(msa, phmm->mods[0]->order+1, TRUE, NULL, NULL, NULL, -1,
 		   subst_mod_is_codon_model(phmm->mods[0]->subst_mod));
     else if (msa->ss->cat_counts == NULL)
@@ -748,21 +748,21 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
 
   if (estim_trees)
     compute_emissions_func = phmm_compute_emissions_em;
-  else if (estim_rho) 
+  else if (estim_rho)
     compute_emissions_func = compute_emissions_estim_rho;
   else compute_emissions_func = NULL;
 
   if (estim_trees) {
-    retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, NULL, 
+    retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, NULL,
                              compute_emissions_func, reestimate_trees,
-                             gamma > 0 ? 
-                             phmm_estim_trans_em_coverage : phmm_estim_trans_em, 
-                             phmm_get_obs_idx_em, 
+                             gamma > 0 ?
+                             phmm_estim_trans_em_coverage : phmm_estim_trans_em,
+                             phmm_get_obs_idx_em,
                              phmm_log_em, phmm->emissions, logf) * log(2);
 
 
     /* have to do final rescaling of tree models to get units of subst/site */
-    if (phmm->mods[0]->subst_mod != JC69 && phmm->mods[0]->subst_mod != F81) {   
+    if (phmm->mods[0]->subst_mod != JC69 && phmm->mods[0]->subst_mod != F81) {
                                 /* JC69 and F81 are exceptions */
       tm_scale_model(phmm->mods[0], NULL, 1, 0);
       tm_scale_model(phmm->mods[1], NULL, 1, 0);
@@ -776,25 +776,25 @@ double fit_two_state(PhyloHmm *phmm, MSA *msa, int estim_func, int estim_indels,
     phmm->mods[0]->scale = phmm->em_data->rho;
     tm_set_subst_matrices(phmm->mods[0]);
 
-    retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, NULL, 
+    retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, &phmm->alloc_len, NULL,
                              compute_emissions_func, reestimate_rho,
-                             gamma > 0 ? 
-                             phmm_estim_trans_em_coverage : phmm_estim_trans_em, 
-                             phmm_get_obs_idx_em, 
+                             gamma > 0 ?
+                             phmm_estim_trans_em_coverage : phmm_estim_trans_em,
+                             phmm_get_obs_idx_em,
                              phmm_log_em, phmm->emissions, logf) * log(2);
 
     /* do final rescaling of conserved tree */
-    tm_scale_branchlens(phmm->mods[0], phmm->em_data->rho, FALSE);  
+    tm_scale_branchlens(phmm->mods[0], phmm->em_data->rho, FALSE);
     phmm->mods[0]->scale = 1;
 
     phmm->mods[0]->lnL = phmm->mods[1]->lnL = retval;
   }
 
   else {                        /* not estimating tree models */
-    retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1, 
+    retval = hmm_train_by_em(phmm->hmm, phmm->mods, phmm, 1,
                              &phmm->alloc_len, NULL, NULL, NULL,
-                             gamma > 0 ? 
-                             phmm_estim_trans_em_coverage : phmm_estim_trans_em, 
+                             gamma > 0 ?
+                             phmm_estim_trans_em_coverage : phmm_estim_trans_em,
                              NULL, phmm_log_em, phmm->emissions, logf) * log(2);
   }
 
@@ -834,13 +834,13 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
       die("ERROR: parameter %d is no longer finite (%g).\n", i, mu);
   }
   for (i = 0; i<params->size; i++) {
-    if (mod->param_map[i] >= 0) 
+    if (mod->param_map[i] >= 0)
       vec_set(params, i,
 	      vec_get(params_in, mod->param_map[i]));
   }
 
   if (mod->estimate_branchlens == TM_SCALE_ONLY)
-    mod->scale = vec_get(params, mod->scale_idx); 
+    mod->scale = vec_get(params, mod->scale_idx);
   else if (mod->estimate_branchlens == TM_BRANCHLENS_ALL) {
     traversal = tr_preorder(mod->tree);
     i=0;
@@ -848,10 +848,10 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
       n = lst_get_ptr(traversal, nodeidx);
       if (n->parent == NULL) continue;
 
-      if ((n == mod->tree->lchild || n == mod->tree->rchild) && 
+      if ((n == mod->tree->lchild || n == mod->tree->rchild) &&
 	  tm_is_reversible(mod))
 	n->dparent = vec_get(params, mod->bl_idx+i)/2.0;
-      else 
+      else
 	n->dparent = vec_get(params, mod->bl_idx+i);
       i++;
       if (n->id == mod->root_leaf_id)
@@ -860,11 +860,11 @@ void unpack_params_mod(TreeModel *mod, Vector *params_in) {
   }
 
   /* next parameters are for rate variation */
-  if (mod->nratecats > 1) 
+  if (mod->nratecats > 1)
     mod->alpha = vec_get(params, mod->ratevar_idx);
 
   tm_set_rate_matrix(mod, params, mod->ratematrix_idx);
-  
+
 /* diagonalize, if necessary */
   if (mod->subst_mod != JC69 && mod->subst_mod != F81)
     mm_diagonalize(mod->rate_matrix);
@@ -877,17 +877,17 @@ void unpack_params_phmm(PhyloHmm *phmm, Vector *params) {
   unpack_params_mod(phmm->mods[1], params);
   phmm->em_data->rho = vec_get(params, params->size - 1);
   tm_scale_branchlens(phmm->mods[0], phmm->em_data->rho, FALSE);
-  
-  if (phmm->mods[0]->nratecats > 1) 
-    DiscreteGamma(phmm->mods[0]->freqK, phmm->mods[0]->rK, phmm->mods[0]->alpha, 
-                  phmm->mods[0]->alpha, phmm->mods[0]->nratecats, 0); 
-  if (phmm->mods[1]->nratecats > 1) 
-    DiscreteGamma(phmm->mods[1]->freqK, phmm->mods[1]->rK, phmm->mods[1]->alpha, 
-                  phmm->mods[1]->alpha, phmm->mods[1]->nratecats, 0); 
+
+  if (phmm->mods[0]->nratecats > 1)
+    DiscreteGamma(phmm->mods[0]->freqK, phmm->mods[0]->rK, phmm->mods[0]->alpha,
+                  phmm->mods[0]->alpha, phmm->mods[0]->nratecats, 0);
+  if (phmm->mods[1]->nratecats > 1)
+    DiscreteGamma(phmm->mods[1]->freqK, phmm->mods[1]->rK, phmm->mods[1]->alpha,
+                  phmm->mods[1]->alpha, phmm->mods[1]->nratecats, 0);
   tm_set_subst_matrices(phmm->mods[0]);
   tm_set_subst_matrices(phmm->mods[1]);
 }
- 
+
 /* Wrapper for computation of likelihood, for use by reestimate_trees (below) */
 double likelihood_wrapper(Vector *params, void *data) {
   PhyloHmm *phmm = (PhyloHmm*)data;
@@ -904,7 +904,7 @@ double likelihood_wrapper(Vector *params, void *data) {
 }
 
 /* Re-estimate phylogenetic model based on expected counts (M step of EM) */
-void reestimate_trees(TreeModel **models, int nmodels, void *data, 
+void reestimate_trees(TreeModel **models, int nmodels, void *data,
                       double **E, int nobs, FILE *logf) {
 
   PhyloHmm *phmm = (PhyloHmm*)data;
@@ -918,10 +918,10 @@ void reestimate_trees(TreeModel **models, int nmodels, void *data,
      need to use state_to_cat, etc. in deciding which categories to
      use */
 
-  for (k = 0; k < phmm->nmods; k++) 
-    for (obsidx = 0; obsidx < nobs; obsidx++) 
+  for (k = 0; k < phmm->nmods; k++)
+    for (obsidx = 0; obsidx < nobs; obsidx++)
       phmm->em_data->msa->ss->cat_counts[k][obsidx] = E[k][obsidx];
-  
+
   /* This will set up params in phmm->mods[0] and phmm->mods[1].  The
      tree models should be the same at this point, since only one model
      is allowed for --estimate-trees.  Therefore the parameter setup
@@ -938,10 +938,10 @@ void reestimate_trees(TreeModel **models, int nmodels, void *data,
   haveratevar=(phmm->mods[0]->nratecats > 1 ||
 	       phmm->mods[1]->nratecats > 1);
   for (i=0; i<2; i++) {
-    if (phmm->mods[i]->nratecats > 1 && phmm->mods[i]->empirical_rates) 
+    if (phmm->mods[i]->nratecats > 1 && phmm->mods[i]->empirical_rates)
       die("ERROR: --estimate-trees not implemented with empirical rate model.");
     orig_nratecats[i] = phmm->mods[i]->nratecats;
-    if (haveratevar && phmm->mods[i]->nratecats ==1) 
+    if (haveratevar && phmm->mods[i]->nratecats ==1)
       phmm->mods[i]->nratecats = phmm->mods[!i]->nratecats;
   }
 
@@ -954,7 +954,7 @@ void reestimate_trees(TreeModel **models, int nmodels, void *data,
     if (phmm->mods[0]->param_map[i] >= npar)
       npar = phmm->mods[1]->param_map[i]+1;
   if (orig_nratecats[1] > 1) {
-    if (orig_nratecats[0] > 1) 
+    if (orig_nratecats[0] > 1)
       phmm->mods[1]->param_map[phmm->mods[1]->ratevar_idx] = npar++;
     else if (orig_nratecats[0]==1) {
       phmm->mods[0]->param_map[phmm->mods[0]->ratevar_idx] = -1;
@@ -968,12 +968,12 @@ void reestimate_trees(TreeModel **models, int nmodels, void *data,
 
   opt_params = vec_new(npar);
   for (i=0; i<params->size; i++)
-    if (phmm->mods[0]->param_map[i] >= 0) 
+    if (phmm->mods[0]->param_map[i] >= 0)
       vec_set(opt_params, phmm->mods[0]->param_map[i],
 	      vec_get(params, i));
   for (i=0; i<2; i++) {
-    if (phmm->mods[i]->nratecats > 1) 
-      vec_set(opt_params, phmm->mods[i]->param_map[phmm->mods[i]->ratevar_idx], 
+    if (phmm->mods[i]->nratecats > 1)
+      vec_set(opt_params, phmm->mods[i]->param_map[phmm->mods[i]->ratevar_idx],
 	      phmm->mods[i]->alpha);
   }
   vec_set(opt_params, npar - 1, phmm->em_data->rho);
@@ -997,11 +997,11 @@ void reestimate_trees(TreeModel **models, int nmodels, void *data,
   vec_copy(phmm->mods[0]->all_params, params);
   vec_copy(phmm->mods[1]->all_params, params);
 
-  if (opt_bfgs(likelihood_wrapper, opt_params, phmm, &ll, lower_bounds, 
+  if (opt_bfgs(likelihood_wrapper, opt_params, phmm, &ll, lower_bounds,
                NULL, logf, NULL, OPT_MED_PREC, phmm->em_data->H, NULL) != 0)
     die("ERROR returned by opt_bfgs.\n");
 
-  if (logf != NULL) 
+  if (logf != NULL)
     fprintf(logf, "END RE-ESTIMATION OF TREE MODEL\n\n");
 
   unpack_params_phmm(phmm, opt_params);
@@ -1009,7 +1009,7 @@ void reestimate_trees(TreeModel **models, int nmodels, void *data,
   if (phmm->indel_mode == PARAMETERIC)
     phmm_set_branch_len_factors(phmm);
 
-  vec_free(params); 
+  vec_free(params);
   vec_free(opt_params);
   vec_free(lower_bounds);
   vec_free(upper_bounds);
@@ -1021,21 +1021,21 @@ double likelihood_wrapper_rho(double rho, void *data) {
   PhyloHmm *phmm = (PhyloHmm*)data;
   phmm->mods[0]->scale = rho;
   tm_set_subst_matrices(phmm->mods[0]);
-  return -tl_compute_log_likelihood(phmm->mods[0], phmm->em_data->msa, 
+  return -tl_compute_log_likelihood(phmm->mods[0], phmm->em_data->msa,
 				    NULL, NULL, 0, NULL);
 }
 
 /* Similar to reestimate_trees, but re-estimate only scale parameter
    rho; only the first model (for the conserved state) needs to be
    considered */
-void reestimate_rho(TreeModel **models, int nmodels, void *data, 
+void reestimate_rho(TreeModel **models, int nmodels, void *data,
 		    double **E, int nobs, FILE *logf) {
 
   PhyloHmm *phmm = (PhyloHmm*)data;
   int obsidx;
   double ax, bx, cx, fa, fb, fc;
 
-  for (obsidx = 0; obsidx < nobs; obsidx++) 
+  for (obsidx = 0; obsidx < nobs; obsidx++)
     phmm->em_data->msa->ss->cat_counts[0][obsidx] = E[0][obsidx];
 
   if (logf != NULL)
@@ -1044,11 +1044,11 @@ void reestimate_rho(TreeModel **models, int nmodels, void *data,
   bx = phmm->em_data->rho;
   ax = max(0.1, phmm->em_data->rho - .05);
   mnbrak(&ax, &bx, &cx, &fa, &fb, &fc, likelihood_wrapper_rho, phmm, logf);
-  opt_brent(ax, bx, cx, likelihood_wrapper_rho, 5e-3, 
+  opt_brent(ax, bx, cx, likelihood_wrapper_rho, 5e-3,
 	    &phmm->em_data->rho, phmm, logf);
   //  printf("ll=%f rho=%f\n", ll, phmm->em_data->rho);
 
-  if (logf != NULL) 
+  if (logf != NULL)
     fprintf(logf, "END RE-ESTIMATION OF RHO\n\n");
 
   if (phmm->indel_mode == PARAMETERIC)
@@ -1093,7 +1093,7 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
     nu1 = (-b + tmp) / (2*a);
     nu2 = (-b - tmp) / (2*a);
     /* only one root can be valid */
-    if (nu1 < 1e-10 || z * nu1 > 1 - 1e-10)                                 
+    if (nu1 < 1e-10 || z * nu1 > 1 - 1e-10)
       nu = nu2;                   /* (allow for rounding errors) */
     else nu = nu1;
 
@@ -1127,7 +1127,7 @@ void phmm_estim_trans_em_coverage(HMM *hmm, void *data, double **A) {
    with given G+C content or estimate from alignment */
 void init_eqfreqs(TreeModel *mod, MSA *msa, double gc) {
   if (gc != -1) {               /* gc specified */
-    if (strlen(mod->rate_matrix->states) != 4 || 
+    if (strlen(mod->rate_matrix->states) != 4 ||
         mod->rate_matrix->inv_states[(int)'A'] < 0 ||
         mod->rate_matrix->inv_states[(int)'C'] < 0 ||
         mod->rate_matrix->inv_states[(int)'G'] < 0 ||
@@ -1135,13 +1135,13 @@ void init_eqfreqs(TreeModel *mod, MSA *msa, double gc) {
       die("ERROR: Four-character DNA alphabet required with --gc.\n");
     if (! (gc > 0 && gc < 1))
       die("ERROR init_eqfreqs got gc=%e\n", gc);
-    vec_set(mod->backgd_freqs, 
+    vec_set(mod->backgd_freqs,
                    mod->rate_matrix->inv_states[(int)'G'], gc/2);
-    vec_set(mod->backgd_freqs, 
+    vec_set(mod->backgd_freqs,
                    mod->rate_matrix->inv_states[(int)'C'], gc/2);
-    vec_set(mod->backgd_freqs, 
+    vec_set(mod->backgd_freqs,
                    mod->rate_matrix->inv_states[(int)'A'], (1-gc)/2);
-    vec_set(mod->backgd_freqs, 
+    vec_set(mod->backgd_freqs,
                    mod->rate_matrix->inv_states[(int)'T'], (1-gc)/2);
   }
   else {                        /* estimate from alignment */
