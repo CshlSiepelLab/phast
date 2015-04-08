@@ -1482,8 +1482,8 @@ void gff_flatten_within_groups(GFF_Set *feats, int weightedAverageScore) {
   GFF_Feature *last;
   GFF_FeatureGroup *group;
   int i, g;
-  double score_sum;
-  double len_sum;
+  double score_sum=0;
+  double len_sum=0;
 
   if (lst_size(feats->features) <= 1) return;
   if (feats->groups == NULL) { 
@@ -1501,7 +1501,7 @@ void gff_flatten_within_groups(GFF_Set *feats, int weightedAverageScore) {
     last = lst_get_ptr(group->features, 0);
     lst_push_ptr(keepers, last);
     lst_push_ptr(group_keepers, last);
-    if (weightedAverageScore && !last->score_is_null) {
+    if (weightedAverageScore) {
 	score_sum = last->score * (last->end - last->start + 1);
 	len_sum = last->end - last->start + 1;
     }
