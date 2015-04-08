@@ -24,12 +24,12 @@
 /* Diagonalize a square, real, nonsymmetric matrix.  Computes vector
    of eigenvalues and matrices of right and left eigenvectors,
    normalized so that they are inverses.  Returns 0 on success, 1 on
-   failure. */ 
+   failure. */
 int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
-                    Zvector *eval, 
+                    Zvector *eval,
                                 /* computed vector of eigenvectors --
                                    preallocate dim. n */
-                    Zmatrix *revect, 
+                    Zmatrix *revect,
                                 /* computed matrix of right
                                    eigenvectors (columns) --
                                    preallocate n x n */
@@ -37,7 +37,7 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
                                 /* computed matrix of left
                                    eigenvectors (rows) -- preallocate
                                    n x n  */
-		    ) { 
+		    ) {
 #ifdef SKIP_LAPACK
   die("ERROR: LAPACK required for matrix diagonalization.\n");
 #else
@@ -59,12 +59,12 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
   F77_CALL(dgeev)(&jobvl, &jobvr, &n, tmp, &n, wr, wi, vl, &n,
 		  vr, &n, work, &lwork, &info);
 #else
-  dgeev_(&jobvl, &jobvr, &n, tmp, &n, wr, wi, vl, 
+  dgeev_(&jobvl, &jobvr, &n, tmp, &n, wr, wi, vl,
 	 &n, vr, &n, work, &lwork, &info);
 #endif
 
   if (info != 0) {
-    fprintf(stderr, "ERROR executing the LAPACK 'dgeev' routine.\n"); 
+    fprintf(stderr, "ERROR executing the LAPACK 'dgeev' routine.\n");
     return 1;
   }
 
@@ -73,15 +73,15 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
     zvec_set(eval, j, z);
 
     /* if there are repeated eigenvalues, diagonalization may fail */
-    for (k = 0; !check && k < j; k++) 
+    for (k = 0; !check && k < j; k++)
       if (z_abs(z_sub(zvec_get(eval, k), z)) < 1.0e-4)
         check = 1;
 
     if (wi[j] == 0)             /* real eigenvalue */
       eval_type = REALVAL;
-    else if (j < n-1 && wr[j] == wr[j+1] && wi[j] == -wi[j+1]) 
+    else if (j < n-1 && wr[j] == wr[j+1] && wi[j] == -wi[j+1])
       eval_type = CONJ1;        /* first in conjugate pair */
-    else if (j > 0 && wr[j-1] == wr[j] && wi[j-1] == -wi[j]) 
+    else if (j > 0 && wr[j-1] == wr[j] && wi[j-1] == -wi[j])
       eval_type = CONJ2;        /* second in conjugate pair */
     else
       die("ERROR in mat_diagonalize: complex eigenvalue does not have a conjugate pair");
@@ -127,7 +127,7 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
       Complex scaled_val =  z_div(oldval, dotprod);
       zmat_set(levect, i, j, scaled_val);
     }
-  }  
+  }
 
   /* verify correctness, if necessary */
   if (check) {
@@ -145,19 +145,19 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
             fabs(z.x - mat_get(M, i, j)) > EQ_THRESHOLD ||
 	    (mat_get(M, i, j) != 0.0 &&
 	     fabs(z.x - mat_get(M, i, j))/mat_get(M, i, j) > 1e-6) ||
-	    fabs(z2.y > EQ_THRESHOLD) ||
+	    fabs(z2.y) > EQ_THRESHOLD ||
 	    fabs(z2.x - (i==j)) > EQ_THRESHOLD) {
 	  /*	  printf("diagonalization failed i=%i j=%i\n", i, j);
 	  printf("%e\n", z.y);
 	  printf("%e %e %e\n", z.x, mat_get(M, i, j), z.x - mat_get(M, i, j));
 	  printf("%e %e %e %e %e\n",
 		 z.x, mat_get(M, i, j), z.x - mat_get(M, i, j),
-		 fabs(z.x - mat_get(M, i, j)), 
+		 fabs(z.x - mat_get(M, i, j)),
 		 fabs(z.x - mat_get(M, i, j))/mat_get(M, i, j));
 		 printf("%e %e\n", z2.y, z2.x);*/
 	  //	  printf("diagonalization failed trying higham\n");
 	  return 1;
-          die("ERROR: diagonalization failed (got %e + %ei, expected %e).\n", 
+          die("ERROR: diagonalization failed (got %e + %ei, expected %e).\n",
 		  z.x, z.y, mat_get(M, i, j));
 	}
       }
@@ -170,8 +170,8 @@ int mat_diagonalize(Matrix *M, /* input matrix (n x n) */
 
 
 /* Compute eigenvalues only of square, real nonsymmetric matrix.
-   Returns 0 on success, 1 on failure.  
-*/ 
+   Returns 0 on success, 1 on failure.
+*/
 int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
 		  Zvector *evals
 				/* computed vector of eigenvalues
@@ -188,7 +188,7 @@ int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
 
   mat_to_lapack(M, tmp);
 
-  if (n != M->ncols) 
+  if (n != M->ncols)
     die("ERROR in mat_eigenvals: M->nrows (%i) != M->ncols (%i)\n",
 	M->nrows, M->ncols);
 
@@ -196,12 +196,12 @@ int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
   F77_CALL(dgeev)(&jobvl, &jobvr, &n, tmp, &n, wr, wi, NULL,
 		  &n, NULL, &n, work, &lwork, &info);
 #else
-  dgeev_(&jobvl, &jobvr, &n, tmp, &n, wr, wi, NULL, 
+  dgeev_(&jobvl, &jobvr, &n, tmp, &n, wr, wi, NULL,
          &n, NULL, &n, work, &lwork, &info);
 #endif
 
   if (info != 0) {
-    fprintf(stderr, "ERROR executing the LAPACK 'dgeev' routine.\n"); 
+    fprintf(stderr, "ERROR executing the LAPACK 'dgeev' routine.\n");
     return 1;
   }
 
@@ -212,5 +212,5 @@ int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
 
 #endif
   return 0;
-}                     
+}
 
