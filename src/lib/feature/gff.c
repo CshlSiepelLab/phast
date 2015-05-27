@@ -1529,7 +1529,7 @@ void gff_flatten_within_groups(GFF_Set *feats, int weightedAverageScore) {
 	  if (weightedAverageScore) {
 	      if ( !last->score_is_null )
 		  last->score = score_sum/len_sum;
-	      score_sum = this->score;
+	      score_sum = this->score * (this->end - this->start + 1);
 	      len_sum = this->end - this->start + 1;
 	  }
 	lst_push_ptr(keepers, this);
