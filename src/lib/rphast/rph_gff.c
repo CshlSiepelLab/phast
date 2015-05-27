@@ -1,6 +1,6 @@
 /***************************************************************************
  * PHAST: PHylogenetic Analysis with Space/Time models
- * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
+ * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell
  * University.  All rights reserved.
  *
  * This source code is distributed under a BSD-style license.  See the
@@ -152,7 +152,7 @@ SEXP rph_gff_dataframe(SEXP gffPtr) {
   }
   vec[6] = strand;
   checkInterrupt();
-      
+
   PROTECT(frame = NEW_INTEGER(len));
   intp = INTEGER_POINTER(frame);
   for (i=0; i<len; i++) {
@@ -182,15 +182,15 @@ SEXP rph_gff_dataframe(SEXP gffPtr) {
     if (feat->attribute->length != 0) {
       have[attributePos] = 1;
       SET_STRING_ELT(attribute, i, mkChar(feat->attribute->chars));
-    } else 
+    } else
       SET_STRING_ELT(attribute, i, mkChar("."));
   }
   vec[8] = attribute;
   checkInterrupt();
-  
+
   listlen = 0;
   for (i=0; i<9; i++) listlen += have[i];
-  
+
   PROTECT(header = allocVector(STRSXP, listlen));
   PROTECT(result = allocVector(VECSXP, listlen));
   listlen = 0;
@@ -213,7 +213,7 @@ SEXP rph_gff_print(SEXP filename, SEXP gff) {
   if (filename == R_NilValue)
     outfile = stdout;
   else outfile = phast_fopen(CHARACTER_VALUE(filename), "w");
-  
+
   gff_print_set(outfile, (GFF_Set*)EXTPTR_PTR(gff));
   if (outfile != stdout) phast_fclose(outfile);
   return R_NilValue;
@@ -244,10 +244,10 @@ SEXP rph_gff_new(SEXP seqnameP, SEXP srcP, SEXP featureP, SEXP startP, SEXP endP
   int *start, *end, frame=GFF_NULL_FRAME, *frameVec=NULL;
   double *scoreVec=NULL, score;
   char strand;
-  
+
   PROTECT(seqnameP = AS_CHARACTER(seqnameP));
-  PROTECT(srcP = AS_CHARACTER(srcP));  
-  PROTECT(featureP = AS_CHARACTER(featureP));  
+  PROTECT(srcP = AS_CHARACTER(srcP));
+  PROTECT(featureP = AS_CHARACTER(featureP));
   PROTECT(startP = AS_INTEGER(startP));
   start = INTEGER_POINTER(startP);
   PROTECT(endP = AS_INTEGER(endP));
@@ -456,10 +456,10 @@ SEXP rph_gff_one_attribute(SEXP gffP, SEXP tagP) {
   SEXP rv;
   SEXP rph_listOfLists_to_SEXP(ListOfLists *lol);
 
-  
+
   if (lst_size(gff->features) == 0) return R_NilValue;
   gff_register_protect(gff);
-  result = smalloc(maxResultLen*sizeof(char*));    
+  result = smalloc(maxResultLen*sizeof(char*));
   tag = str_new_charstr(CHARACTER_VALUE(tagP));
   str_double_trim(tag);
   lol = lol_new(lst_size(gff->features));
@@ -473,7 +473,7 @@ SEXP rph_gff_one_attribute(SEXP gffP, SEXP tagP) {
     for (j=0; j < numtag; j++) {
       currStr = (String*)lst_get_ptr(l1, j);
       str_double_trim(currStr);
-      
+
       //first try gff version 3, see if we have tag=val format
       numval = str_split_with_quotes(currStr, "=", l2);
       if (numval == 2) {
@@ -497,7 +497,7 @@ SEXP rph_gff_one_attribute(SEXP gffP, SEXP tagP) {
 	}
       } else {
 	lst_free_strings(l2);
-	
+
 	//gff version 2
 	//split into tag val val ... by whitespace unless enclosed in quotes
 	numval =  str_split_with_quotes(currStr, NULL, l2);
@@ -520,7 +520,7 @@ SEXP rph_gff_one_attribute(SEXP gffP, SEXP tagP) {
 	lst_free_strings(l2);
       }
     }
-    if (resultLen == 0) 
+    if (resultLen == 0)
       result[resultLen++] = copy_charstr("");  //empty string will be converted to NA later
     lol_push_charvec(lol, result, resultLen, NULL);
     for (j=0; j < resultLen; j++) sfree(result[j]);
@@ -531,7 +531,7 @@ SEXP rph_gff_one_attribute(SEXP gffP, SEXP tagP) {
 }
 
 
-SEXP rph_gff_overlapSelect(SEXP gffP, SEXP filter_gffP, 
+SEXP rph_gff_overlapSelect(SEXP gffP, SEXP filter_gffP,
 			   SEXP numbaseOverlapP,
 			   SEXP percentOverlapP,
 			   SEXP nonOverlappingP,
@@ -555,7 +555,7 @@ SEXP rph_gff_overlapSelect(SEXP gffP, SEXP filter_gffP,
   if (overlappingFragmentsP == R_NilValue)
     overlappingFragments = FALSE;
   else overlappingFragments = LOGICAL_VALUE(overlappingFragmentsP);
-  
+
   if (overlappingFragments) overlapping_gff = gff_new_set();
 
   filter_gff = gff_overlap_gff(gff, filter_gff,
@@ -617,7 +617,7 @@ SEXP rph_gff_inverse(SEXP gffP, SEXP regionP) {
   GFF_Set *gff, *region, *notgff;
   gff = (GFF_Set*)EXTPTR_PTR(gffP);
   gff_register_protect(gff);
-  region = (GFF_Set*)EXTPTR_PTR(regionP);  
+  region = (GFF_Set*)EXTPTR_PTR(regionP);
   gff_register_protect(region);
   notgff = gff_inverse(gff, region);
   return rph_gff_new_extptr(notgff);
@@ -669,9 +669,9 @@ SEXP rph_gff_featureBits(SEXP gffListP, SEXP orP, SEXP returnGffP) {
     }
     numbit = gff_flatten_mergeAll(newgff);
   }
-  if (returnGff) 
+  if (returnGff)
     return rph_gff_new_extptr(newgff);
-  
+
   if (numbit > INT_MAX) {
     PROTECT(rv = allocVector(REALSXP, 1));
     REAL(rv)[0] = numbit;
@@ -692,7 +692,7 @@ SEXP rph_gff_append(SEXP gffListP) {
     gff_register_protect(gff);
     for (j=0; j < lst_size(gff->features); j++) {
       checkInterruptN(j, 1000);
-      lst_push_ptr(newgff->features, 
+      lst_push_ptr(newgff->features,
 		   gff_new_feature_copy(lst_get_ptr(gff->features, j)));
     }
   }
@@ -712,7 +712,7 @@ SEXP rph_gff_split(SEXP gffP, SEXP maxLengthP, SEXP dropP, SEXP splitFromRightP)
   PROTECT(splitFromRightP = AS_INTEGER(splitFromRightP));
   splitFromRight = INTEGER_POINTER(splitFromRightP);
   splitFrom_size = LENGTH(splitFromRightP);
-  newgff = gff_split(gff, maxlen, maxlen_size, drop, 
+  newgff = gff_split(gff, maxlen, maxlen_size, drop,
 		     splitFromRight, splitFrom_size);
   UNPROTECT(2);
   return rph_gff_new_extptr(newgff);
@@ -738,11 +738,13 @@ SEXP rph_gff_nonOverlapping_genes(SEXP gffP) {
 }
 
 
-SEXP rph_gff_flatten(SEXP gffP, SEXP weightedAverageScoreP) {
+SEXP rph_gff_flatten(SEXP gffP, SEXP weightedAverageScoreP,
+                     SEXP minScoreP) {
   GFF_Set *gff = (GFF_Set*)EXTPTR_PTR(gffP);
   gff_register_protect(gff);
   gff_group_by_seqname(gff);
-  gff_flatten_within_groups(gff, INTEGER_VALUE(weightedAverageScoreP));
+  gff_flatten_within_groups(gff, INTEGER_VALUE(weightedAverageScoreP),
+                            INTEGER_VALUE(minScoreP));
   return gffP;
 }
 
@@ -751,7 +753,7 @@ SEXP rph_gff_convert_coords(SEXP gffP, SEXP msaP, SEXP toP) {
   GFF_Set *gff;
   MSA *msa=(MSA*)EXTPTR_PTR(msaP);
   int to=INTEGER_VALUE(toP);
-  
+
   gff = gff_copy_set_no_groups((GFF_Set*)EXTPTR_PTR(gffP));
   msa_map_gff_coords(msa, gff, -1, to, 0);
   return rph_gff_new_extptr(gff);

@@ -1,6 +1,6 @@
 /***************************************************************************
  * PHAST: PHylogenetic Analysis with Space/Time models
- * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
+ * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell
  * University.  All rights reserved.
  *
  * This source code is distributed under a BSD-style license.  See the
@@ -167,10 +167,10 @@ OPTIONS:\n\
   This is a bit messy because in some cases (splitting by feature) there may
   be more output files than the OS can handle.  But it would be computationally
   expensive to check and see which files are finished, assuming that the MAF is
-  sorted.  
+  sorted.
 
   So, if it tries to open a file and fails, it the goes through the list of
-  filehandles, finds an open one, closes it, and tries to open the new one 
+  filehandles, finds an open one, closes it, and tries to open the new one
   again.  Repeat until successful.
 
   Then, if a filehandle needs to be re-opened, it is opened with append.  Again,
@@ -231,7 +231,7 @@ FILE *get_outfile(List *outfileList, Hashtable *outfileHash, String *name, char 
 }
 
 
-/* Closes all outfiles.  If already closed, reopen with append, add #eof 
+/* Closes all outfiles.  If already closed, reopen with append, add #eof
    closer, and close again.  see comment above at get_outfile */
 void close_outfiles(List *outfileList, Hashtable *outfileHash) {
   List *keys = hsh_keys(outfileHash);
@@ -283,7 +283,7 @@ int main(int argc, char* argv[]) {
   MSA *msa = NULL;//, **catMsa;
   char *mask_features_spec_arg=NULL;
   List *mask_features_spec=NULL;
-  
+
 
   struct option long_opts[] = {
     {"start", 1, 0, 's'},
@@ -374,7 +374,7 @@ int main(int argc, char* argv[]) {
       break;
     case 'o':
       output_format = msa_str_to_format(optarg);
-      if (output_format == UNKNOWN_FORMAT) 
+      if (output_format == UNKNOWN_FORMAT)
 	die("ERROR: bad output format.  Try \"maf_parse -h\" for help.\n");
       if (output_format != MAF)
 	die("Sorry, only MAF format output has been implemented right now.\n");
@@ -390,13 +390,13 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  if (optind >= argc) 
+  if (optind >= argc)
     die("Missing alignment filename.  Try 'maf_parse -h' for help.\n");
-  else if (optind == argc - 1) 
+  else if (optind == argc - 1)
     maf_fname = argv[optind];
-  else 
+  else
     die("ERROR: Too many arguments.  Try 'maf_parse -h' for help.\n");
-  
+
   set_seed(-1);
 
   if (startcol < 1 || (endcol != -1 && endcol < startcol))
@@ -406,10 +406,10 @@ int main(int argc, char* argv[]) {
     die("ERROR: --by-category and --by-group require --features.  Try \"maf_parse -h\""
 	" for help.\n");
 
-  if (group_tag != NULL && by_category) 
+  if (group_tag != NULL && by_category)
     die("ERROR: --by-category and --by-group cannot be used together.  Try \"maf_parse -h\""
 	" for help.\n");
-  
+
   if (splitInterval != -1 && gff != NULL)
     die("ERROR: can't use --split and --features together.  Try \"maf_parse -h\""
 	"for help\n");
@@ -419,12 +419,12 @@ int main(int argc, char* argv[]) {
     outfileHash = hsh_new(100);
   }
 
-  if (gff != NULL && cm == NULL) 
+  if (gff != NULL && cm == NULL)
     cm = cm_new_from_features(gff);
 
   if (cats_to_do_str != NULL) {
     cats_to_do = cm_get_category_str_list(cm, cats_to_do_str, FALSE);
-    if (gff != NULL) 
+    if (gff != NULL)
       gff_filter_by_type(gff, cats_to_do, 0, NULL);
   }
 
@@ -440,14 +440,14 @@ int main(int argc, char* argv[]) {
     mask_features_spec = lst_new_ptr(10);
     str_split(str_new_charstr(mask_features_spec_arg), ",", mask_features_spec);
     for (i=0; i < lst_size(mask_features_spec); i++) {
-      fprintf(stderr, "masking species %s within features\n", 
+      fprintf(stderr, "masking species %s within features\n",
 	      ((String*)lst_get_ptr(mask_features_spec, i))->chars);
     }
   }
 
-  /* Check to see if --do-cats names a feature which is length 1. 
+  /* Check to see if --do-cats names a feature which is length 1.
      If so, set output_format to SS ? or FASTA ? */
-  
+
   mfile = phast_fopen(maf_fname, "r");
   block = mafBlock_read_next(mfile, NULL, NULL);
 
@@ -461,7 +461,7 @@ int main(int argc, char* argv[]) {
       mafBlock_reorder(block, order_list);
     if (seqlist_str != NULL)
       mafBlock_subSpec(block, seqlist_str, include);
-    if (mafBlock_numSpec(block)==0 || mafBlock_all_gaps(block)) 
+    if (mafBlock_numSpec(block)==0 || mafBlock_all_gaps(block))
       goto get_next_block;
     if (stripILines)
       mafBlock_strip_iLines(block);
@@ -470,19 +470,19 @@ int main(int argc, char* argv[]) {
     if (base_mask_cutoff != -1)
       mafBlock_mask_bases(block, base_mask_cutoff, masked_file);
     //TODO: still need to implement (either here or elsewhere)
-    //    if (indel_mask_cutoff != -1) 
+    //    if (indel_mask_cutoff != -1)
     //      mafBlock_mask_indels(block, indel_mask_cutoff, mfile);
 
     if (useRefseq) {  //get refseq and check that it is consistent in MAF file
       currRefseq = mafBlock_get_refSpec(block);
-      if (refseq == NULL) 
+      if (refseq == NULL)
 	refseq = str_new_charstr(currRefseq->chars);
       else if (str_compare(refseq, currRefseq)!=0)
 	die("Error: refseq not consistent in MAF (got %s, %s)\n",
 	    refseq->chars, currRefseq->chars);
     }
-    
-    if (startcol != 1 || endcol != -1) 
+
+    if (startcol != 1 || endcol != -1)
       if (0 == mafBlock_trim(block, startcol, endcol, refseq, useRefseq ? 0 : lastIdx))
 	goto get_next_block;
 
@@ -498,7 +498,7 @@ int main(int argc, char* argv[]) {
 
     if (currStart < lastStart) gffSearchIdx = 0;
     lastStart = currStart;
-    
+
     lastIdx = currStart + currSize;
 
     //split by length
@@ -531,22 +531,22 @@ int main(int argc, char* argv[]) {
 
 
     } else if (gff != NULL) {
-      gffSub = gff_subset_range_overlap_sorted(gff, currStart+1, lastIdx, 
+      gffSub = gff_subset_range_overlap_sorted(gff, currStart+1, lastIdx,
 					       &gffSearchIdx);
       if (gffSub != NULL) {
 	if (by_category) gff_group_by_feature(gffSub);
 	else if (group_tag != NULL) gff_group(gffSub, group_tag);
 	gff_sort(gffSub);
-	gff_flatten_within_groups(gffSub, 0);
+	gff_flatten_within_groups(gffSub, 0, 0);
 	for (i=0; i<lst_size(gffSub->features); i++) {
 	  feat = (GFF_Feature*)lst_get_ptr(gffSub->features, i);
 	  MafBlock *subBlock = mafBlock_copy(block);
 	  mafBlock_trim(subBlock, feat->start, feat->end, refseq, 0);
-	  if (by_category) 
+	  if (by_category)
 	    outfile = get_outfile(outfileList, outfileHash, feat->feature, out_root_fname,
 				  argc, argv);
-	  else if (group_tag != NULL) 
-	    outfile = get_outfile(outfileList, outfileHash, 
+	  else if (group_tag != NULL)
+	    outfile = get_outfile(outfileList, outfileHash,
 				  gff_group_name(gffSub, feat), out_root_fname,
 				  argc, argv);
 	  else outfile = stdout;
@@ -559,11 +559,11 @@ int main(int argc, char* argv[]) {
       }
     }
     else {
-      if (output_format == MAF) 
+      if (output_format == MAF)
 	mafBlock_print(outfile, block, pretty_print);
       //      else msa = msa_add_mafBlock(mafBlock, msa, );
     }
-    
+
   get_next_block:
     mafBlock_free(block);
     block = mafBlock_read_next(mfile, NULL, NULL);
