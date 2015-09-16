@@ -780,9 +780,6 @@ void lst_dbl_quantiles(List *l, double *quantiles, int nquantiles,
 
 /** \} */
 
-static PHAST_INLINE
-int lst_find_int(List *l, int i) 
-{ return lst_find(l, &i); }
 
 static PHAST_INLINE
 int lst_find_dbl(List *l, double d) 
