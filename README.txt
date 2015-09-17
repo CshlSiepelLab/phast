@@ -43,7 +43,7 @@ and are suggested for new users.
 
 The Phast package should compile cleanly in most standard linux or
 linux-like environments (including MacOS).  If you encounter problems
-compiling, please report them to phast-help-l@cornell.edu.  We'll do our
+compiling, please report them to phasthelp@cshl.edu.  We'll do our
 best to help you work around them and to avoid similar problems in the
 future.
 
