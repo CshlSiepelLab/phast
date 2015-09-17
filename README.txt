@@ -72,7 +72,7 @@ NOTES
       subversion server.  If you are set up to use subversion, you may want
       to check out the latest version before submitting a bug report.
       To download the latest code simply run the command as follows
-      'svn co http://compgen.cshll.edu/svnrepo/phast/trunk/phast'.
+      'svn co http://compgen.cshl.edu/svnrepo/phast/trunk/phast'.
       The source code will be saved in a folder called 'phast' in the 
       directory where the command was run. You can substitute SVN code for
       the *.tgz formated code download from our site and build by following
