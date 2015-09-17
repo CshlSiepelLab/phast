@@ -10,11 +10,11 @@ and are suggested for new users.
 
 -Installing using Binaries
   Phast binaries for Windows, MacOSX, and Linux can be downloaded from the 
-    main PHAST page: http://compgen.bscb.cornell.edu/phast
+    main PHAST page: http://compgen.cshl.edu/phast
 
 -Compiling from Source	
   MacOSX
-    1. Download a copy of Phast from http://compgen.bscb.cornell.edu/phast/ 
+    1. Download a copy of Phast from http://compgen.cshl.edu/phast/ 
 	and extract the file phast*.tgz using 'tar -xvzf phast*.tgz'
     2. Change directory to 'phast/src/' and run the command 'make'
     3. The Phast binaries should be located in the 'phast/bin/' directory.
@@ -28,7 +28,7 @@ and are suggested for new users.
        Note: Building Clapack can take several minutes depending on your system
     
     Part 2 - Installing Phast
-    4. Download a copy of Phast from http://compgen.bscb.cornell.edu/phast/ 
+    4. Download a copy of Phast from http://compgen.cshl.edu/phast/ 
 	and extract the contents of phast*.tgz using 'tar -xvzf phast*.tgz'
     5. Change directory to 'phast/src/' and run 'make CLAPACKPATH=/usr/local/software/clapack'
 	replacing '/usr/local/software/clapack' with the path of your
@@ -72,7 +72,7 @@ NOTES
       subversion server.  If you are set up to use subversion, you may want
       to check out the latest version before submitting a bug report.
       To download the latest code simply run the command as follows
-      'svn co http://compgen.bscb.cornell.edu/svnrepo/phast/trunk/phast'.
+      'svn co http://compgen.cshll.edu/svnrepo/phast/trunk/phast'.
       The source code will be saved in a folder called 'phast' in the 
       directory where the command was run. You can substitute SVN code for
       the *.tgz formated code download from our site and build by following
