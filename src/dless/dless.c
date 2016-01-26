@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (optind != argc - 1)
+  if (optind != argc - 2)
     die("Missing alignment file or model file.  Try 'dless -h'.\n");
 
   if (set_transitions && (gamma != -1 || omega != -1))
@@ -167,8 +167,8 @@ int main(int argc, char *argv[]) {
   if (gamma != -1)
     nu = gamma/(1-gamma) * mu;
 
-  fprintf(stderr, "Reading tree model from %s...\n", argv[optind]);
-  source_mod = tm_new_from_file(phast_fopen(argv[optind], "r"), 1);
+  fprintf(stderr, "Reading tree model from %s...\n", argv[optind+1]);
+  source_mod = tm_new_from_file(phast_fopen(argv[optind+1], "r"), 1);
 
   if (source_mod->nratecats > 1) 
     die("ERROR: rate variation not currently supported.\n");
