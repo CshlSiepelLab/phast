@@ -1,6 +1,6 @@
 /***************************************************************************
  * PHAST: PHylogenetic Analysis with Space/Time models
- * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
+ * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell
  * University.  All rights reserved.
  *
  * This source code is distributed under a BSD-style license.  See the
@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
     {"refidx", 1, 0, 'r'},
     {"rho", 1, 0, 'R'},
     {"phi", 1, 0, 'p'},
-    {"transitions", 1, 0, 't'},    
+    {"transitions", 1, 0, 't'},
     {"expected-length", 1, 0, 'E'},
     {"target-coverage", 1, 0, 'C'},
     {"seqname", 1, 0, 'N'},
@@ -61,11 +61,11 @@ int main(int argc, char *argv[]) {
   FILE *refseq_f = NULL, *msa_f = NULL;
   msa_format_type msa_format = UNKNOWN_FORMAT;
   TreeModel *source_mod;
-  double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU, 
-    phi = DEFAULT_PHI, gamma = -1, omega = -1, 
+  double rho = DEFAULT_RHO, mu = DEFAULT_MU, nu = DEFAULT_NU,
+    phi = DEFAULT_PHI, gamma = -1, omega = -1,
     alpha_c = -1, beta_c = -1, tau_c = -1,
     alpha_n = -1, beta_n = -1, tau_n = -1;
-  int set_transitions = FALSE, refidx = 1, estim_phi = TRUE, 
+  int set_transitions = FALSE, refidx = 1, estim_phi = TRUE,
     estim_gamma = TRUE, estim_omega = TRUE;
   char *seqname = NULL, *idpref = NULL;
   IndelHistory *ih = NULL;
@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
       else optarg = &optarg[1];
       set_transitions = TRUE;
       tmpl = get_arg_list_dbl(optarg);
-      if (lst_size(tmpl) != 2) 
+      if (lst_size(tmpl) != 2)
         die("ERROR: bad argument to --transitions.\n");
       mu = lst_get_dbl(tmpl, 0);
       nu = lst_get_dbl(tmpl, 1);
@@ -136,8 +136,8 @@ int main(int argc, char *argv[]) {
       else {
         alpha_c = alpha_n; beta_c = beta_n; tau_c = tau_n;
       }
-      if (alpha_c <= 0 || alpha_c >= 1 || beta_c <= 0 || beta_c >= 1 || 
-          tau_c <= 0 || tau_c >= 1 || alpha_n <= 0 || alpha_n >= 1 || 
+      if (alpha_c <= 0 || alpha_c >= 1 || beta_c <= 0 || beta_c >= 1 ||
+          tau_c <= 0 || tau_c >= 1 || alpha_n <= 0 || alpha_n >= 1 ||
           beta_n <= 0 || beta_n >= 1 || tau_n <= 0 || tau_n >= 1)
         die("ERROR: bad argument to --indel-model.\n");
       break;
@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
   fprintf(stderr, "Reading tree model from %s...\n", argv[optind+1]);
   source_mod = tm_new_from_file(phast_fopen(argv[optind+1], "r"), 1);
 
-  if (source_mod->nratecats > 1) 
+  if (source_mod->nratecats > 1)
     die("ERROR: rate variation not currently supported.\n");
 
   if (source_mod->order > 0)
@@ -180,20 +180,21 @@ int main(int argc, char *argv[]) {
     phast_warning("WARNING: p-value computation assumes reversibility and your model is non-reversible.\n");
 
   /* read alignment */
-  msa_f = phast_fopen(argv[optind], "r");
+  msa_fname = argv[optind];
+  msa_f = phast_fopen(msa_fname, "r");
 
   fprintf(stderr, "Reading alignment from %s...\n", argv[optind]);
-  if (msa_format == UNKNOWN_FORMAT) 
+  if (msa_format == UNKNOWN_FORMAT)
     msa_format = msa_format_for_content(msa_f, 1);
 
   if (msa_format == MAF) {
-    msa = maf_read(msa_f, refseq_f, 1, NULL, NULL, NULL, -1, TRUE, NULL, 
-                   NO_STRIP, FALSE); 
+    msa = maf_read(msa_f, refseq_f, 1, NULL, NULL, NULL, -1, TRUE, NULL,
+                   NO_STRIP, FALSE);
   }
-  else 
+  else
     msa = msa_new_from_file_define_format(msa_f, msa_format, NULL);
 
-  if (msa_alph_has_lowercase(msa)) msa_toupper(msa); 
+  if (msa_alph_has_lowercase(msa)) msa_toupper(msa);
   msa_remove_N_from_alph(msa);
 
   if (msa->ss == NULL) {
@@ -212,7 +213,7 @@ int main(int argc, char *argv[]) {
   if (lst_size(pruned_names) > 0) {
     fprintf(stderr, "WARNING: pruned away leaves of tree with no match in alignment (");
     for (i = 0; i < lst_size(pruned_names); i++)
-      fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, i))->chars, 
+      fprintf(stderr, "%s%s", ((String*)lst_get_ptr(pruned_names, i))->chars,
               i < lst_size(pruned_names) - 1 ? ", " : ").\n");
   }
 
@@ -243,8 +244,8 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  bdphmm = bd_new(source_mod, rho, mu, nu, phi, alpha_c, beta_c, tau_c, 
-                  alpha_n, beta_n, tau_n, estim_gamma, estim_omega, 
+  bdphmm = bd_new(source_mod, rho, mu, nu, phi, alpha_c, beta_c, tau_c,
+                  alpha_n, beta_n, tau_n, estim_gamma, estim_omega,
                   estim_phi);
 
   /* compute emissions */
@@ -274,7 +275,7 @@ int main(int argc, char *argv[]) {
       str_root(tmp, '.');
       if (idpref == NULL) idpref = copy_charstr(tmp->chars);
       str_root(tmp, '.');         /* apply one more time for double suffix */
-      if (seqname == NULL) seqname = tmp->chars;    
+      if (seqname == NULL) seqname = tmp->chars;
     }
     else if (seqname == NULL) seqname = "refseq";
   }
@@ -288,7 +289,7 @@ int main(int argc, char *argv[]) {
   /* score predictions */
   fprintf(stderr, "Scoring predictions...\n");
   bd_score_predictions(bdphmm, predictions);
-  
+
   /* can free emissions now */
   for (i = 0; i < bdphmm->phmm->hmm->nstates; i++)
     sfree(bdphmm->phmm->emissions[i]);
@@ -300,8 +301,8 @@ int main(int argc, char *argv[]) {
   if (refidx != 0 || msa->idx_offset != 0)
     msa_map_gff_coords(msa, predictions, 0, refidx, msa->idx_offset);
 
-  if (refidx != 0) 
-    gff_flatten(predictions);	
+  if (refidx != 0)
+    gff_flatten(predictions);
   /* necessary because coord conversion might create overlapping
      features (can happen in deletions in reference sequence) */
 
@@ -310,7 +311,7 @@ int main(int argc, char *argv[]) {
   gff_print_set(stdout, predictions);
 
   fprintf(stderr, "Done.\n");
-  
+
   return 0;
 }
 
