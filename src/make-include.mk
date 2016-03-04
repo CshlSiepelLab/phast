@@ -133,7 +133,7 @@ endif
 # vecLib
 ifdef VECLIB
 CFLAGS += -DVECLIB
-LIBS = -lphast -framework vecLib -lc -lm
+LIBS = -lphast -framework Accelerate -lc -lm
 
 # CLAPACK
 else
