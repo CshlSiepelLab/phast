@@ -34,16 +34,16 @@
 typedef enum {OKAY, BAD_REF, BAD_REF_START, BAD_REF_STOP, BAD_REF_5_SPLICE,
               BAD_REF_3_SPLICE, BAD_REF_ORF, BAD_REF_INDEL_STRICT_FAIL,
               NO_ALN, BAD_START, BAD_STOP, BAD_5_SPLICE, BAD_3_SPLICE, 
-              BAD_5_SPLICE_UTR, BAD_3_SPLICE_UTR, NONSENSE, FSHIFT, 
-              BAD_INTRON, TOO_MANY_Ns, WARN_FSHIFT, WARN_Ns, NTYPES} 
+              BAD_5_SPLICE_UTR, BAD_3_SPLICE_UTR, NONSENSE, FRAMESHIFT, 
+              BAD_INTRON, TOO_MANY_Ns, WARN_FRAMESHIFT, WARN_Ns, NTYPES} 
 status_type;                    /* NTYPES marks the total number */
 
-/* possible gap types for cds exon -- frame-shift gaps (FSHIFT_BAD),
-   no apparent frame shift (FSHIFT_OK), all gaps multiple of 3 in len
+/* possible gap types for cds exon -- frame-shift gaps (FRAMESHIFT_BAD),
+   no apparent frame shift (FRAMESHIFT_OK), all gaps multiple of 3 in len
    (CLN_GAPS), gaps mult. of 3 and nonoverlapping (NOVRLP_CLN_GAPS),
    and no gaps present (NGAPS).  Defined in order of least to most
    stringent criterion (ordering gets used) */
-typedef enum {FSHIFT_BAD, FSHIFT_OK, CLN_GAPS, 
+typedef enum {FRAMESHIFT_BAD, FRAMESHIFT_OK, CLN_GAPS, 
               NOVRLP_CLN_GAPS, NGAPS, NGAP_TYPES} 
 cds_gap_type;                   /* NGAP_TYPES marks the total number */
 
@@ -102,7 +102,7 @@ typedef struct Problem {
   status_type status;
   int start;
   int end;
-  cds_gap_type cds_gap;  /* if status if FSHIFT */
+  cds_gap_type cds_gap;  /* if status if FRAMESHIFT */
 } Problem;
 
 /* create a new problem.  feat can be null for whole gene.
@@ -311,7 +311,7 @@ int gap_compare(const void *ptr1, const void* ptr2) {
   return g1->start - g2->start;
 }
 /* scans a cds for gaps.  Returns CLN_GAPS, NOVRLP_CLN_GAPS, NO_GAPS,
-   or FSHIFT_BAD; doesn't try to check for compensatory indels, which
+   or FRAMESHIFT_BAD; doesn't try to check for compensatory indels, which
    is more complicated (this is left for the special-purpose function
    below) */
 int scan_for_gaps(GFF_Feature *feat, MSA *msa, Problem **problem) {
@@ -322,7 +322,7 @@ int scan_for_gaps(GFF_Feature *feat, MSA *msa, Problem **problem) {
   cds_gap_type retval = NGAPS;
   List *gaps = lst_new_ptr(10);
 
-  for (j = 0; retval != FSHIFT_BAD && j < msa->nseqs; j++) {
+  for (j = 0; retval != FRAMESHIFT_BAD && j < msa->nseqs; j++) {
     for (i = msa_start; i <= msa_end; i++) {
       if (ss_get_char_pos(msa, i, j, 0) == GAP_CHAR) {
         int gap_start, gap_end;
@@ -336,9 +336,9 @@ int scan_for_gaps(GFF_Feature *feat, MSA *msa, Problem **problem) {
         gap_end--;              /* inclusive */
 
         if ((gap_end - gap_start + 1) % 3 != 0) {
-          retval = FSHIFT_BAD;
-          *problem = problem_new(feat, FSHIFT, gap_start, gap_end);
-          (*problem)->cds_gap = FSHIFT_BAD;
+          retval = FRAMESHIFT_BAD;
+          *problem = problem_new(feat, FRAMESHIFT, gap_start, gap_end);
+          (*problem)->cds_gap = FRAMESHIFT_BAD;
           break;
         }
 
@@ -449,18 +449,18 @@ int is_fshift_okay(GFF_Feature *feat, MSA *msa) {
    "clean" gaps (all multiples of 3 in length; CLEAN_GAPS)
    non-overlapping clean gaps (NOVRLP_CLN_GAPS), "okay" gaps (only
    temporary frame shifts, corrected by compensatory indels;
-   FSHIFT_OK), or real frame-shift gaps (FSHIFT_BAD) */
+   FRAMESHIFT_OK), or real frame-shift gaps (FRAMESHIFT_BAD) */
 cds_gap_type get_cds_gap_type(GFF_Feature *feat, MSA *msa, List *problems) {
   Problem *problem = NULL;
   cds_gap_type retval = scan_for_gaps(feat, msa, &problem);
 
-  if (retval == FSHIFT_BAD && is_fshift_okay(feat, msa)) {
-    retval = FSHIFT_OK;
+  if (retval == FRAMESHIFT_BAD && is_fshift_okay(feat, msa)) {
+    retval = FRAMESHIFT_OK;
                                 /* most of the time the call to
                                    is_fshift_okay won't be
                                    necessary */
-    problem->status = WARN_FSHIFT;
-    problem->cds_gap = FSHIFT_OK;
+    problem->status = WARN_FRAMESHIFT;
+    problem->cds_gap = FRAMESHIFT_OK;
   }
   if (problem != NULL) {
     lst_push_ptr(problems, problem);
@@ -669,9 +669,9 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
     case NONSENSE:
       reason = "Nonsense mutation";
       break;
-    case FSHIFT:
+    case FRAMESHIFT:
       {
-        if (problem->cds_gap ==  FSHIFT_OK) 
+        if (problem->cds_gap ==  FRAMESHIFT_OK) 
           reason = "Frame-shift gap [gaps not clean]";
         else if (problem->cds_gap == CLN_GAPS) 
           reason = "Frame-shift gap [gaps clean but overlapping/near boundary]";
@@ -689,7 +689,7 @@ void write_log(FILE *logf, GFF_FeatureGroup *group, status_type status,
       reason = "Too many Ns";
       print_alignment = FALSE;
       break;
-    case WARN_FSHIFT:
+    case WARN_FRAMESHIFT:
       reason = "Frame shift gap (with compensatory gap)";
       break;
     case WARN_Ns:
@@ -741,13 +741,13 @@ char *status_type_str(status_type status) {
     return "bad_3_splice_utr";
   case NONSENSE:
     return "nonsense";
-  case FSHIFT:
+  case FRAMESHIFT:
     return "frameshift";
   case BAD_INTRON:
     return "bad_intron";
   case TOO_MANY_Ns:
     return "too_many_Ns";
-  case WARN_FSHIFT:
+  case WARN_FRAMESHIFT:
     return "warning_fshift";
   case WARN_Ns:
     return "warning_Ns";
@@ -980,7 +980,7 @@ int main(int argc, char *argv[]) {
     *discards=NULL, *intron_splice = lst_new_ptr(10);
   char *rseq_fname = NULL;
   FILE *logf = NULL, *mlogf = NULL, *statsf = NULL, *discardf = NULL;
-  cds_gap_type fshift_mode = FSHIFT_BAD;
+  cds_gap_type fshift_mode = FRAMESHIFT_BAD;
   char *groupby = "transcript_id";
   msa_coord_map *map;
   int *countNs, *countCDSs;
@@ -1029,11 +1029,11 @@ int main(int argc, char *argv[]) {
       break;
     case 'f':
       check_alignment = 1;
-      fshift_mode = FSHIFT_OK;
+      fshift_mode = FRAMESHIFT_OK;
       break;
     case 'c':
       check_alignment = check_start = check_stop = check_splice = check_nonsense = 1;
-      if (fshift_mode < FSHIFT_OK) fshift_mode = FSHIFT_OK;
+      if (fshift_mode < FRAMESHIFT_OK) fshift_mode = FRAMESHIFT_OK;
       break;
     case 'N':
       Nfrac = get_arg_dbl_bounds(optarg, 0, 1);
@@ -1166,7 +1166,7 @@ int main(int argc, char *argv[]) {
     List *gfeatures = group->features;
     GFF_Feature *feat;
     status_type status = OKAY;
-    cds_gap_type gt = FSHIFT_BAD;
+    cds_gap_type gt = FRAMESHIFT_BAD;
     problems_clear(problems);
 
     /* make sure have frame info for CDSs */
@@ -1295,9 +1295,9 @@ int main(int argc, char *argv[]) {
 
           else if (str_equals_charstr(feat->feature, GFF_CDS_TYPE)) {
  
-            if (fshift_mode > FSHIFT_BAD 
+            if (fshift_mode > FRAMESHIFT_BAD 
 		&& (gt = get_cds_gap_type(feat, msa, problems)) < fshift_mode) {
-              if (status == OKAY || status == NONSENSE) status = FSHIFT;
+              if (status == OKAY || status == NONSENSE) status = FRAMESHIFT;
             }
 
             if (check_nonsense && !is_nonsense_clean(feat, msa, problems)) {
@@ -1336,8 +1336,8 @@ int main(int argc, char *argv[]) {
             for (j = 0; j < lst_size(problems); j++) {
               struct Problem *problem = lst_get_ptr(problems, j);
               status_type ftype = problem->status;
-              if ((ftype == FSHIFT || ftype == NONSENSE) && 
-                  status != FSHIFT && status != NONSENSE)
+              if ((ftype == FRAMESHIFT || ftype == NONSENSE) && 
+                  status != FRAMESHIFT && status != NONSENSE)
                 continue;       /* don't count secondary frame shifts
                                    and nonsense mutations */ 
 
@@ -1350,7 +1350,7 @@ int main(int argc, char *argv[]) {
 
           /* also keep track of the total number of "conserved exons", and
              the number having each kind of gap */
-          if ((status == OKAY || (status == FSHIFT && gt >= FSHIFT_OK))) {
+          if ((status == OKAY || (status == FRAMESHIFT && gt >= FRAMESHIFT_OK))) {
             nconserved_exons++;
             nce_gap_type[gt]++;     /* number of conserved exons having
                                        given type of gaps */
@@ -1429,10 +1429,10 @@ int main(int argc, char *argv[]) {
             nconsid[BAD_5_SPLICE], nfail[BAD_3_SPLICE], nconsid[BAD_3_SPLICE],
             nfail[BAD_5_SPLICE_UTR], nconsid[BAD_5_SPLICE_UTR],
             nfail[BAD_3_SPLICE_UTR], nconsid[BAD_3_SPLICE_UTR], 
-            nfail[BAD_INTRON], nfail[NONSENSE], nfail[FSHIFT], 
+            nfail[BAD_INTRON], nfail[NONSENSE], nfail[FRAMESHIFT], 
             nfail[TOO_MANY_Ns], nconserved_exons, nce_gap_type[NGAPS], 
             nce_gap_type[NOVRLP_CLN_GAPS], nce_gap_type[CLN_GAPS], 
-            nce_gap_type[FSHIFT_OK]);
+            nce_gap_type[FRAMESHIFT_OK]);
     fprintf(statsf, "%s", STATS_DESCRIPTION);
   }
 
