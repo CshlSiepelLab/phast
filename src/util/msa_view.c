@@ -627,7 +627,7 @@ int main(int argc, char* argv[]) {
       if (f->frame == GFF_NULL_FRAME) f->frame = 0;
       if (fourD_refseq == NULL) fourD_refseq = str_new_charstr(f->seqname->chars);
       else if (!str_equals(fourD_refseq, f->seqname))
-	die("--4d requires all features have same source column");
+	die("--4d requires all features are on the same chromosome");
       if (str_equals_charstr(f->feature, "CDS") && f->strand != '-')
 	str_cpy_charstr(f->feature, "CDSplus");
       else if (str_equals_charstr(f->feature, "CDS") && f->strand == '-')
