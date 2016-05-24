@@ -87,6 +87,17 @@ int int_pow(int x, int y) {
   return retval;
 }
 
+/** Take x,y & max as int and cast x & y as double
+ *  * raise x to the power y. return min(x^y,max) as int*/
+
+static PHAST_INLINE
+int pow_bounded(int x, int y, int max) {
+  double z = pow((double) x, (double) y);
+  return ( z > (double) max ? max : (int)z);
+}
+
+
+
 /** \name Log based calculation functions
 \{ */
 
