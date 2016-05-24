@@ -117,8 +117,8 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
       upper_bound = source_msa->ss->ntuples;
     else if (source_msa != NULL) upper_bound = source_msa->length;
     else upper_bound = min(msa->length, MAX_NTUPLE_ALLOC);
-    max_tuples = min((int)pow(strlen(msa->alphabet)+ (int)strlen(msa->missing) + 1, 
-                         msa->nseqs * tuple_size),
+    max_tuples = pow_bounded(strlen(msa->alphabet)+ (int)strlen(msa->missing) + 1,
+                         msa->nseqs * tuple_size,   
                      upper_bound);
     if (max_tuples < 0) max_tuples = upper_bound;  //protect against overflow
     ss_new(msa, tuple_size, max_tuples, do_cats, store_order);
@@ -139,8 +139,8 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
       upper_bound = msa->ss->ntuples + source_msa->ss->ntuples;
     else
       upper_bound = msa->ss->ntuples + source_msa->length;
-    max_tuples = min((int)pow(strlen(msa->alphabet) + (int)strlen(msa->missing) + 1, 
-                         msa->nseqs * tuple_size),
+      max_tuples = pow_bounded(strlen(msa->alphabet) + (int)strlen(msa->missing) + 1,
+                         msa->nseqs * tuple_size,
                      upper_bound);
     if (max_tuples < 0) max_tuples = upper_bound;
     ss_realloc(msa, tuple_size, max_tuples, do_cats, store_order);
