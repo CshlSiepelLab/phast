@@ -37,39 +37,39 @@ tree_doctor --scale 3.0 hpmr.mod > hpmr_fast.mod
 ******************** phyloP ********************
 
 phyloFit hmrc.ss --tree "(human, (mouse,rat), cow)" --quiet
-@phyloP --null 10 phyloFit.mod
+@phyloP  --seed 123 --null 10 phyloFit.mod
 msa_view -o SS --end 100 hmrc.ss > hmrc_short.ss
-@phyloP phyloFit.mod hmrc_short.ss
-@phyloP --method LRT --base-by-base phyloFit.mod hmrc.ss
-@phyloP --method LRT --mode CONACC --wig-scores phyloFit.mod hmrc.ss
-@phyloP -d 12345 --method SCORE --mode NNEUT --base-by-base phyloFit.mod hmrc.ss
-@phyloP --method GERP --mode ACC --wig-scores phyloFit.mod hmrc.ss
-@phyloP --method GERP --base-by-base phyloFit.mod hmrc.ss
-@phyloP -d 12345 --method SCORE --wig-scores phyloFit.mod hmrc.ss
-@phyloP --method LRT --wig-scores phyloFit.mod hmrc.ss
-@phyloP --method LRT --base-by-base phyloFit.mod hmrc.ss
-@phyloP -d 12345 --method SCORE --wig-scores --refidx 2 phyloFit.mod hmrc.ss
+@phyloP  --seed 123 phyloFit.mod hmrc_short.ss
+@phyloP  --seed 123 --method LRT --base-by-base phyloFit.mod hmrc.ss
+@phyloP  --seed 123 --method LRT --mode CONACC --wig-scores phyloFit.mod hmrc.ss
+@phyloP  --seed 123 -d 12345 --method SCORE --mode NNEUT --base-by-base phyloFit.mod hmrc.ss
+@phyloP  --seed 123 --method GERP --mode ACC --wig-scores phyloFit.mod hmrc.ss
+@phyloP  --seed 123 --method GERP --base-by-base phyloFit.mod hmrc.ss
+@phyloP  --seed 123 -d 12345 --method SCORE --wig-scores phyloFit.mod hmrc.ss
+@phyloP  --seed 123 --method LRT --wig-scores phyloFit.mod hmrc.ss
+@phyloP  --seed 123 --method LRT --base-by-base phyloFit.mod hmrc.ss
+@phyloP  --seed 123 -d 12345 --method SCORE --wig-scores --refidx 2 phyloFit.mod hmrc.ss
 echo -e "chr1\t0\t10\nchr1\t50\t100\nchr1\t200\t300" > temp.bed
-@phyloP --method LRT --mode CONACC --features temp.bed phyloFit.mod hmrc.ss
-@phyloP --method SCORE --features temp.bed -g phyloFit.mod hmrc.ss
+@phyloP  --seed 123 --method LRT --mode CONACC --features temp.bed phyloFit.mod hmrc.ss
+@phyloP  --seed 123 --method SCORE --features temp.bed -g phyloFit.mod hmrc.ss
 tree_doctor --name-ancestors phyloFit.mod > phyloFit-named.mod
-@phyloP --method LRT --mode CONACC --subtree mouse-rat --base-by-base phyloFit-named.mod hmrc.ss
-@phyloP --method LRT --mode ACC --branch mouse-rat -w phyloFit-named.mod hmrc.ss
-@phyloP --posterior phyloFit.mod hmrc_short.ss
-@phyloP --fit-model -w --subtree mouse-rat phyloFit-named.mod hmrc_short.ss
-@phyloP --epsilon 0.0001 phyloFit-named.mod hmrc_short.ss
-@phyloP --confidence-interval 0.05 phyloFit-named.mod hmrc_short.ss
-@phyloP --quantiles --null 100 phyloFit-named.mod
+@phyloP  --seed 123 --method LRT --mode CONACC --subtree mouse-rat --base-by-base phyloFit-named.mod hmrc.ss
+@phyloP  --seed 123 --method LRT --mode ACC --branch mouse-rat -w phyloFit-named.mod hmrc.ss
+@phyloP  --seed 123 --posterior phyloFit.mod hmrc_short.ss
+@phyloP  --seed 123 --fit-model -w --subtree mouse-rat phyloFit-named.mod hmrc_short.ss
+@phyloP  --seed 123 --epsilon 0.0001 phyloFit-named.mod hmrc_short.ss
+@phyloP  --seed 123 --confidence-interval 0.05 phyloFit-named.mod hmrc_short.ss
+@phyloP  --seed 123 --quantiles --null 100 phyloFit-named.mod
 
 
 # want to try subtree with LRT, SCORE, SPH, with both --base-by-base and --features
 # note that bugs in SCORE method mean tests will fail against revisions < 6563
-@phyloP --method LRT --subtree mouse-rat --mode CONACC --base-by-base phyloFit-named.mod hmrc.ss
-@phyloP --method LRT --subtree mouse-rat --mode CONACC --features temp.bed phyloFit-named.mod hmrc.ss
-@phyloP --method SCORE --subtree mouse-rat --mode CONACC --base-by-base phyloFit-named.mod hmrc.ss
-@phyloP --method SCORE --subtree mouse-rat --mode CONACC --features temp.bed phyloFit-named.mod hmrc.ss
-@phyloP --method SPH --subtree mouse-rat --mode CONACC --base-by-base phyloFit-named.mod hmrc.ss
-@phyloP --method SPH --subtree mouse-rat --mode CONACC --features temp.bed phyloFit-named.mod hmrc.ss
+@phyloP  --seed 123 --method LRT --subtree mouse-rat --mode CONACC --base-by-base phyloFit-named.mod hmrc.ss
+@phyloP  --seed 123 --method LRT --subtree mouse-rat --mode CONACC --features temp.bed phyloFit-named.mod hmrc.ss
+@phyloP  --seed 123 --method SCORE --subtree mouse-rat --mode CONACC --base-by-base phyloFit-named.mod hmrc.ss
+@phyloP  --seed 123 --method SCORE --subtree mouse-rat --mode CONACC --features temp.bed phyloFit-named.mod hmrc.ss
+@phyloP  --seed 123 --method SPH --subtree mouse-rat --mode CONACC --base-by-base phyloFit-named.mod hmrc.ss
+@phyloP  --seed 123 --method SPH --subtree mouse-rat --mode CONACC --features temp.bed phyloFit-named.mod hmrc.ss
 
 rm -f hmrc_short.ss phyloFit.mod phyloFit-named.mod temp.bed
 
