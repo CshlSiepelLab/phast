@@ -139,12 +139,10 @@ MSA *maf_read_cats_subset(FILE *F, FILE *REFSEQF, int tuple_size,
       msa->alloc_len = msa->length = refseqlen;  //this may still not be big enough because of gaps in refseq
     else 
       msa->alloc_len = 50000;
-    max_tuples =  max(1000000, (int)pow(strlen(msa->alphabet)+strlen(msa->missing)+1, 
-				   2 * msa->nseqs * tuple_size));
+    max_tuples = pow_bounded(strlen(msa->alphabet)+strlen(msa->missing)+1, 2 * msa->nseqs * tuple_size, 1000000);
   }
   else 
-    max_tuples = min(1000000,
-		     (int)pow(strlen(msa->alphabet)+strlen(msa->missing)+1, 2 * msa->nseqs * tuple_size));
+    max_tuples = pow_bounded(strlen(msa->alphabet)+strlen(msa->missing)+1, 2 * msa->nseqs * tuple_size, 1000000);
 
   if (max_tuples > 10000000 || max_tuples < 0) max_tuples = 10000000;
   if (max_tuples < 1000000) max_tuples = 1000000;
@@ -596,15 +594,13 @@ MSA *maf_read_unsorted(FILE *F, FILE *REFSEQF, int tuple_size, char *alphabet,
 
   if (store_order) {
     msa->length = map != NULL ? map->msa_len : refseqlen;
-    max_tuples = min(msa->length,
-                     (int)pow(strlen(msa->alphabet)+strlen(msa->missing)+1, msa->nseqs * tuple_size));
+    max_tuples = pow_bounded(strlen(msa->alphabet)+strlen(msa->missing)+1, msa->nseqs * tuple_size, msa->length);
     if (max_tuples < 0) max_tuples = msa->length;
     if (max_tuples > 1000000) max_tuples = 1000000; 
   }
   else {
     msa->length = 0;
-    max_tuples = min(50000,
-                     (int)pow(strlen(msa->alphabet)+strlen(msa->missing)+1, msa->nseqs * tuple_size));
+    max_tuples = pow_bounded(strlen(msa->alphabet)+strlen(msa->missing)+1, msa->nseqs * tuple_size, 50000);
     if (max_tuples < 0) max_tuples = 50000;
   }
 
