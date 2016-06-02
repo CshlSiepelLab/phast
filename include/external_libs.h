@@ -33,7 +33,7 @@
 #else
 
 #ifdef VECLIB
-#include <vecLib/clapack.h>
+#include <Accelerate/Accelerate.h>
 #define LAPACK_INT __CLPK_integer
 #define LAPACK_DOUBLE __CLPK_doublereal
 #else
