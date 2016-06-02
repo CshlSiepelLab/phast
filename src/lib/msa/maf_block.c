@@ -13,7 +13,7 @@
 #include <maf_block.h>
 #include <hashtable.h>
 #include <ctype.h>
-
+#include <assert.h>
 
 MafBlock *mafBlock_new() {
   MafBlock *block = smalloc(sizeof(MafBlock));
@@ -201,7 +201,10 @@ void mafBlock_add_iLine(String *line, MafSubBlock *sub) {
   
   for (i=0; i<6; i++) str_free((String*)lst_get_ptr(l, i));
   lst_free(l);
+  if (sub->numLine >= 4) die("Error: bad MAF file");
   sub->lineType[sub->numLine++] = 'i';
+
+
 }
 
 
@@ -247,7 +250,9 @@ void mafBlock_add_qLine(String *line, MafSubBlock *sub) {
    
   for (i=0; i<2; i++) str_free((String*)lst_get_ptr(l, i));
   lst_free(l);
+  if (sub->numLine >= 4) die("Error: bad MAF file");
   sub->lineType[sub->numLine++] = 'q';
+
 }
 
 
@@ -710,7 +715,8 @@ void mafSubBlock_strip_iLine(MafSubBlock *sub) {
   for (i=0; i<sub->numLine; i++) 
     if (sub->lineType[i]=='i') break;
   if (i < sub->numLine) {
-    for (j=i+1; j<sub->numLine; j++) {
+    assert(i < 4);
+    for (j=i+1; j<sub->numLine && j<4; j++) {
       sub->lineType[j-1] = sub->lineType[j];
       if (sub->lineType[j] == 'i')
 	die("ERROR mafSubBlock_strip_iLine: sub->lineType[%i]=%c\n",
