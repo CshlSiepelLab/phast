@@ -76,8 +76,9 @@ List *lol_find_list(ListOfLists *lol, const char *lstName,
   }
   for (i=0; i < lst_size(lol->lst); i++) {
     if (lst_get_int(lol->lstType, i) == LIST_LIST) {
-      temp = lol_find_list((ListOfLists*)lst_get_ptr(lol->lst, i), 
-			   lstName, lstType);
+      ListOfLists *currList = (ListOfLists*)lst_get_ptr(lol->lst, i);
+      list_element_type currListType = lst_get_int(currList->lstType, i);
+      temp = lol_find_list(currList, lstName, currListType);
       if (temp != NULL) {
 	if (currResult != NULL) die("lol_find_list failed: multiple lists in object named %s with same type", lstName);
 	currResult = temp;
