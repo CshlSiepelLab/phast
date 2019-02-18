@@ -294,16 +294,17 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
    representing its diagonal elements.  */
 void mat_mult_diag(Matrix *A, Matrix *B, Vector *C, Matrix *D) {
 
-/*  int i, j, k;
+  int i, j, k;
+  if (C->size != 4) {
   for (i = 0; i < C->size; i++) {
     for (j = 0; j < C->size; j++) {
       A->data[i][j] = 0;
       for (k = 0; k < C->size; k++)
         A->data[i][j] += B->data[i][k] * C->data[k] * D->data[k][j];
-    }
+      }
+    } 
   }
-}
-*/
+  else {
 
 A->data[0][0] = B->data[0][0] * C->data[0] * D->data[0][0] + B->data[0][1] * C->data[1] * D->data[1][0] + B->data[0][2] * C->data[2] * D->data[2][0] + B->data[0][3] * C->data[3] * D->data[3][0];
 A->data[0][1] = B->data[0][0] * C->data[0] * D->data[0][1] + B->data[0][1] * C->data[1] * D->data[1][1] + B->data[0][2] * C->data[2] * D->data[2][1] + B->data[0][3] * C->data[3] * D->data[3][1];
@@ -321,7 +322,7 @@ A->data[3][0] = B->data[3][0] * C->data[0] * D->data[0][0] + B->data[3][1] * C->
 A->data[3][1] = B->data[3][0] * C->data[0] * D->data[0][1] + B->data[3][1] * C->data[1] * D->data[1][1] + B->data[3][2] * C->data[2] * D->data[2][1] + B->data[3][3] * C->data[3] * D->data[3][1];
 A->data[3][2] = B->data[3][0] * C->data[0] * D->data[0][2] + B->data[3][1] * C->data[1] * D->data[1][2] + B->data[3][2] * C->data[2] * D->data[2][2] + B->data[3][3] * C->data[3] * D->data[3][2];
 A->data[3][3] = B->data[3][0] * C->data[0] * D->data[0][3] + B->data[3][1] * C->data[1] * D->data[1][3] + B->data[3][2] * C->data[2] * D->data[2][3] + B->data[3][3] * C->data[3] * D->data[3][3];
-
+  }
 
 }
 int mat_equal(Matrix *A, Matrix *B) {
