@@ -501,6 +501,7 @@ double hmm_max_or_sum(HMM *hmm, double **full_scores, double **emission_scores,
   }
 
   if (mode == VITERBI) {
+    int initialized = 0;
     for (k = 0; k < lst_size(hmm->predecessors[i]); k++) {
       int pred;
       double candidate;
@@ -509,9 +510,10 @@ double hmm_max_or_sum(HMM *hmm, double **full_scores, double **emission_scores,
       candidate = full_scores[pred][j-1] + 
         hmm_get_transition_score(hmm, pred, i);
 
-      if (candidate > retval) {
+      if (candidate > retval || initialized == 0) {
         retval = candidate;
         backptr[i][j] = pred;
+        initialized=1;
       }
     }
   }
