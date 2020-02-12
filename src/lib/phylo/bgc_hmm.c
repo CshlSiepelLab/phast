@@ -235,11 +235,12 @@ int bgcHmm(struct bgchmm_struct *b) {
     char warning_str[10000];
     if (lst_size(pruned_names) == (old_nnodes + 1)/2) 
       die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names");
+
     sprintf(warning_str, "WARNING: Pruned away leaves of tree with no match in alignment (%s", 
 	    ((String*)lst_get_ptr(pruned_names, 0))->chars);
     for (j=1; j < lst_size(pruned_names); j++) 
-      sprintf(warning_str, "%s, %s", warning_str, ((String*)lst_get_ptr(pruned_names, j))->chars);
-    sprintf(warning_str, "%s)\n", warning_str);
+      strcat(warning_str, ((String*)lst_get_ptr(pruned_names, j))->chars);
+    strcat(warning_str, ")\n");
     phast_warning(warning_str);
   }
 

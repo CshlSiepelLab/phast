@@ -348,12 +348,12 @@ SEXP rph_ms_split_size(SEXP sequencesP, SEXP windowSizeP)
         {
           //Copy name of sequence
           outputMS->names[outputSeqNum] = (char*)smalloc((strlen(inputMS->names[inputSeqNum])+1) * sizeof(char));
-          strncpy(outputMS->names[outputSeqNum], inputMS->names[inputSeqNum], strlen(inputMS->names[inputSeqNum]));
+	  strcpy(outputMS->names[outputSeqNum], inputMS->names[inputSeqNum]);
           outputMS->names[outputSeqNum][strlen(inputMS->names[inputSeqNum])] = '\0';
 	   
           //Copy subset of sequence bases
           outputMS->seqs[outputSeqNum] = (char*)smalloc((windowSize + 1) * sizeof(char));
-          strncpy(outputMS->seqs[outputSeqNum], inputMS->seqs[inputSeqNum] + nextCutAt, windowSize);
+	  strncpy(outputMS->seqs[outputSeqNum], inputMS->seqs[inputSeqNum] + nextCutAt, windowSize);
           outputMS->seqs[outputSeqNum][windowSize] = '\0';
 	   
           //Set index offset of new sequence
@@ -368,13 +368,13 @@ SEXP rph_ms_split_size(SEXP sequencesP, SEXP windowSizeP)
         {
           //Copy name of sequence
           outputMS->names[outputSeqNum] = (char*)smalloc((strlen(inputMS->names[inputSeqNum])+1) * sizeof(char*));
-          strncpy(outputMS->names[outputSeqNum], inputMS->names[inputSeqNum], strlen(inputMS->names[inputSeqNum]));
+	  strcpy(outputMS->names[outputSeqNum], inputMS->names[inputSeqNum]);
           outputMS->names[outputSeqNum][strlen(inputMS->names[inputSeqNum])] = '\0';
 	   
           //Copy subset of sequence bases 
           inputSeqLen = strlen(inputMS->seqs[inputSeqNum]);
           outputMS->seqs[outputSeqNum] = (char*)smalloc((inputSeqLen-nextCutAt + 1) * sizeof(char*));
-          strncpy(outputMS->seqs[outputSeqNum], inputMS->seqs[inputSeqNum] + nextCutAt, inputSeqLen-nextCutAt);
+	  strncpy(outputMS->seqs[outputSeqNum], inputMS->seqs[inputSeqNum] + nextCutAt, inputSeqLen-nextCutAt);
           outputMS->seqs[outputSeqNum][inputSeqLen-nextCutAt] = '\0';
 	   
           //Set index offset of the new sequence
@@ -476,7 +476,7 @@ SEXP rph_ms_split_gff(SEXP sequencesP, SEXP featuresP)
 					
           //Copy substring from sequence and create new MSA to hold subsequence specified by window
           outputMS->seqs[outputSeqNum] = (char*)smalloc((lengthOfSubSequence + 1) * sizeof(char));
-          strncpy(outputMS->seqs[outputSeqNum], inputMS->seqs[currentSequence] + (feature->start-1), lengthOfSubSequence);
+	  strcpy(outputMS->seqs[outputSeqNum], inputMS->seqs[currentSequence] + (feature->start-1));
           outputMS->seqs[outputSeqNum][lengthOfSubSequence] = '\0';
 					
           //Set index offset
@@ -808,14 +808,14 @@ SEXP rph_ms_simulate(SEXP mmP, SEXP norderP, SEXP alph_sizeP, SEXP lengthP) //do
     seq = ms_simulate(MarkovMatrices, norder, alph_size, length[i]);
     //printf("simulated seq %s\n", seq);
 
-    snprintf(name, 10, "S%d", i);
+    sprintf(name, "S%d", i);
     outputMS->names[i] = (char*)smalloc((strlen(name)+1) * sizeof(char));
-    strncpy(outputMS->names[i], name, strlen(name));
+    strcpy(outputMS->names[i], name);
     outputMS->names[i][strlen(name)] = '\0';
 
     //Copy subset of sequence bases
     outputMS->seqs[i] = (char*)smalloc((length[i] + 1) * sizeof(char));
-    strncpy(outputMS->seqs[i], seq, length[i]);
+    strcpy(outputMS->seqs[i], seq);
     outputMS->seqs[i][length[i]] = '\0';
     sfree(seq);
 	   
