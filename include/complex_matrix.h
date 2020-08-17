@@ -15,7 +15,7 @@
 #ifndef ZMAT_H
 #define ZMAT_H
 
-#include <complex.h>
+#include <phast_complex.h>
 #include <complex_vector.h>
 #include <external_libs.h>
 

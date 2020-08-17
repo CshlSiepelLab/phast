@@ -15,7 +15,7 @@
 #ifndef ZVEC_H
 #define ZVEC_H
 
-#include <complex.h>
+#include <phast_complex.h>
 #include <stdio.h>
 #include <external_libs.h>
 

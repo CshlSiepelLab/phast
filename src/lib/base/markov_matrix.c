@@ -16,7 +16,7 @@
 #include <math.h>
 #include <matrix.h>
 #include <markov_matrix.h>
-#include <complex.h>
+#include <phast_complex.h>
 #include <misc.h>
 #include <eigen.h>
 #include <prob_vector.h>

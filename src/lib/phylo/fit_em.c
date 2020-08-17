@@ -26,7 +26,7 @@
 #include <matrix.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <complex.h>
+#include <phast_complex.h>
 #include <math.h>
 #include <dgamma.h>
 
