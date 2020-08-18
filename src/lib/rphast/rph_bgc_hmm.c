@@ -14,9 +14,9 @@ The RPHAST handles to the phastCons program
 Melissa Hubisz
 Last updated: 4/21/2010
 *****************************************************/
-#include "bgc_hmm.h"
-#include "list_of_lists.h"
-#include <rph_util.h>
+#include "phast_bgc_hmm.h"
+#include "phast_list_of_lists.h"
+#include <phast_rph_util.h>
 #include <Rdefines.h>
 #include <R_ext/Random.h>
 

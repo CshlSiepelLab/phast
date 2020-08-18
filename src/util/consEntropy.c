@@ -10,10 +10,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <misc.h>
-#include <tree_model.h>
-#include <msa.h>
-#include <tree_likelihoods.h>
+#include <phast_misc.h>
+#include <phast_tree_model.h>
+#include <phast_msa.h>
+#include <phast_tree_likelihoods.h>
 #include "consEntropy.help"
 
 /* solve for new expected length given L_min*H using Newton's method */

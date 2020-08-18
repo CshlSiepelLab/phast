@@ -11,12 +11,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <msa.h>
+#include <phast_msa.h>
 #include <getopt.h>
 #include <ctype.h>
-#include <sufficient_stats.h>
-#include <local_alignment.h>
-#include <maf.h>
+#include <phast_sufficient_stats.h>
+#include <phast_local_alignment.h>
+#include <phast_maf.h>
 
 /* minimum number of codons required for -L */
 #define MIN_NCODONS 10

@@ -11,12 +11,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <msa.h>
-#include <gff.h>
-#include <sufficient_stats.h>
+#include <phast_msa.h>
+#include <phast_gff.h>
+#include <phast_sufficient_stats.h>
 #include <getopt.h>
-#include <maf.h>
-#include <external_libs.h>
+#include <phast_maf.h>
+#include <phast_external_libs.h>
 #include "clean_genes.help"
 
 /* types of features examined */

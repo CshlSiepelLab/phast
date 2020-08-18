@@ -18,14 +18,14 @@
 #include <stdio.h>
 #include <getopt.h>
 #include <ctype.h>
-#include <misc.h>
-#include <sufficient_stats.h>
-#include <local_alignment.h>
-#include <trees.h>
-#include <rph_util.h>
+#include <phast_misc.h>
+#include <phast_sufficient_stats.h>
+#include <phast_local_alignment.h>
+#include <phast_trees.h>
+#include <phast_rph_util.h>
 #include <Rdefines.h>
 #include <R_ext/Random.h>
-#include <tfbs.h>
+#include <phast_tfbs.h>
 #include <R.h>
 #include <Rinternals.h>
 

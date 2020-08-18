@@ -18,7 +18,7 @@
 #define COMPLEX_H
 
 #include <math.h>
-#include <external_libs.h>
+#include <phast_external_libs.h>
 
 /** Structure representing complex number */
 typedef struct {

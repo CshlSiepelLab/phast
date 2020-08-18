@@ -10,10 +10,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <misc.h>
-#include <tree_model.h>
-#include <prob_vector.h>
-#include <subst_mods.h>
+#include <phast_misc.h>
+#include <phast_tree_model.h>
+#include <phast_prob_vector.h>
+#include <phast_subst_mods.h>
 #include "makeHKY.help"
 
 #define ALPHABET "ACGT"

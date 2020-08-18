@@ -10,9 +10,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <misc.h>
-#include <msa.h>
-#include <maf.h>
+#include <phast_misc.h>
+#include <phast_msa.h>
+#include <phast_maf.h>
 #include "msa_diff.help" 
 
 int main(int argc, char *argv[]) {

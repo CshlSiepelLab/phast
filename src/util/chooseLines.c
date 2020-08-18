@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <misc.h>
-#include <stringsplus.h>
+#include <phast_misc.h>
+#include <phast_stringsplus.h>
 #include <sys/types.h>
 #include <unistd.h>
 

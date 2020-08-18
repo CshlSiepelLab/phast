@@ -10,12 +10,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <misc.h>
-#include <tree_model.h>
-#include <msa.h>
-#include <gff.h>
-#include <indel_history.h>
-#include <indel_mod.h>
+#include <phast_misc.h>
+#include <phast_tree_model.h>
+#include <phast_msa.h>
+#include <phast_gff.h>
+#include <phast_indel_history.h>
+#include <phast_indel_mod.h>
 #include "indelFit.help"
 
 int *get_cats(IndelHistory *ih, GFF_Set *feats, CategoryMap *cm,

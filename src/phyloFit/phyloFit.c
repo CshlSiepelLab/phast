@@ -11,22 +11,22 @@
  
 #include <stdlib.h>
 #include <stdio.h>
-#include <lists.h>
-#include <stringsplus.h>
-#include <msa.h>
-#include <gff.h>
-#include <category_map.h>
+#include <phast_lists.h>
+#include <phast_stringsplus.h>
+#include <phast_msa.h>
+#include <phast_gff.h>
+#include <phast_category_map.h>
 #include <getopt.h>
-#include <tree_model.h>
-#include <fit_em.h>
-#include <subst_mods.h>
-#include <local_alignment.h>
+#include <phast_tree_model.h>
+#include <phast_fit_em.h>
+#include <phast_subst_mods.h>
+#include <phast_local_alignment.h>
 #include <ctype.h>
-#include <tree_likelihoods.h>
-#include <numerical_opt.h>
-#include <sufficient_stats.h>
-#include <maf.h>
-#include <phylo_fit.h>
+#include <phast_tree_likelihoods.h>
+#include <phast_numerical_opt.h>
+#include <phast_sufficient_stats.h>
+#include <phast_maf.h>
+#include <phast_phylo_fit.h>
 #include "phyloFit.help"
 
 

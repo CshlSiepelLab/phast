@@ -12,12 +12,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <phylo_hmm.h>
-#include <gff.h>
-#include <category_map.h>
-#include <sufficient_stats.h>
-#include <stringsplus.h>
-#include <maf.h>
+#include <phast_phylo_hmm.h>
+#include <phast_gff.h>
+#include <phast_category_map.h>
+#include <phast_sufficient_stats.h>
+#include <phast_stringsplus.h>
+#include <phast_maf.h>
 #include "exoniphy.help"
 
 /* default background feature types; used when scoring predictions and

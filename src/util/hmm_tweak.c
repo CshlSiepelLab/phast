@@ -10,10 +10,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <misc.h>
-#include <hmm.h>
-#include <category_map.h>
-#include <gap_patterns.h>
+#include <phast_misc.h>
+#include <phast_hmm.h>
+#include <phast_category_map.h>
+#include <phast_gap_patterns.h>
 
 void usage(char *prog) {
   printf("\n\

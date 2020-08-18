@@ -17,15 +17,15 @@ Last updated: 1/5/2010
 *****************************************************/
 #include <stdlib.h>
 #include <stdio.h>
-#include <msa.h>
+#include <phast_msa.h>
 #include <getopt.h>
 #include <ctype.h>
-#include <sufficient_stats.h>
-#include <local_alignment.h>
-#include <gff.h>
-#include <misc.h>
-#include <list_of_lists.h>
-#include <rph_util.h>
+#include <phast_sufficient_stats.h>
+#include <phast_local_alignment.h>
+#include <phast_gff.h>
+#include <phast_misc.h>
+#include <phast_list_of_lists.h>
+#include <phast_rph_util.h>
 #include <limits.h>
 
 #include <Rdefines.h>

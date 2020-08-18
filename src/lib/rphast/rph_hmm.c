@@ -22,13 +22,13 @@ Last updated: 12/14/08
 #include <Rdefines.h>
 #undef Matrix
 #undef nrows
-#include <hmm.h>
+#include <phast_hmm.h>
 #include <math.h>
-#include <rph_util.h>
-#include <misc.h>
-#include <markov_matrix.h>
-#include <vector.h>
-#include <list_of_lists.h>
+#include <phast_rph_util.h>
+#include <phast_misc.h>
+#include <phast_markov_matrix.h>
+#include <phast_vector.h>
+#include <phast_list_of_lists.h>
 
 
 void rph_hmm_free(SEXP hmmP) {
