@@ -17,16 +17,16 @@ Last updated: 1/5/2010
 *****************************************************/
 #include <stdlib.h>
 #include <stdio.h>
-#include <msa.h>
+#include <phast_msa.h>
 #include <getopt.h>
 #include <ctype.h>
-#include <misc.h>
-#include <sufficient_stats.h>
-#include <local_alignment.h>
-#include <category_map.h>
+#include <phast_misc.h>
+#include <phast_sufficient_stats.h>
+#include <phast_local_alignment.h>
+#include <phast_category_map.h>
 
 #include <Rdefines.h>
-#include <rph_util.h>
+#include <phast_rph_util.h>
 
 void rph_cm_free(SEXP cmP) {
   CategoryMap *cm = (CategoryMap*)EXTPTR_PTR(cmP);

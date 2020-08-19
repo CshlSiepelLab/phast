@@ -19,15 +19,15 @@ Last updated: 1/13/10
 #include <stdio.h>
 #include <getopt.h>
 #include <ctype.h>
-#include <sufficient_stats.h>
-#include <local_alignment.h>
-#include <tree_model.h>
-#include <matrix.h>
-#include <tree_likelihoods.h>
-#include <list_of_lists.h>
-#include <misc.h>
+#include <phast_sufficient_stats.h>
+#include <phast_local_alignment.h>
+#include <phast_tree_model.h>
+#include <phast_matrix.h>
+#include <phast_tree_likelihoods.h>
+#include <phast_list_of_lists.h>
+#include <phast_misc.h>
 #include <Rdefines.h>
-#include <rph_util.h>
+#include <phast_rph_util.h>
 
 //these are defined as macros in R and we don't want them overriding
 // phast's matrix->nrows and matrix->ncols

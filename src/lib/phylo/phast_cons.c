@@ -10,14 +10,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <misc.h>
-#include <phylo_hmm.h>
-#include <em.h>
-#include <sufficient_stats.h>
-#include <bed.h>
-#include <dgamma.h>
-#include <tree_likelihoods.h>
-#include <maf.h>
+#include <phast_misc.h>
+#include <phast_phylo_hmm.h>
+#include <phast_em.h>
+#include <phast_sufficient_stats.h>
+#include <phast_bed.h>
+#include <phast_dgamma.h>
+#include <phast_tree_likelihoods.h>
+#include <phast_maf.h>
 #include "phast_cons.h"
 
 

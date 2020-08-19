@@ -10,10 +10,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <misc.h>
+#include <phast_misc.h>
 #include "pbsScoreMatrix.help"
-#include <pbs_code.h>
-#include <tree_model.h>
+#include <phast_pbs_code.h>
+#include <phast_tree_model.h>
 
 int main(int argc, char *argv[]) {
   char c;

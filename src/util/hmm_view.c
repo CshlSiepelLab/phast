@@ -11,10 +11,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "hmm.h"
+#include "phast_hmm.h"
 #include <getopt.h>
-#include "category_map.h"
-#include "gap_patterns.h"
+#include "phast_category_map.h"
+#include "phast_gap_patterns.h"
 
 void print_usage() {
     printf("\n\

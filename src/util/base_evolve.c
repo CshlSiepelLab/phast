@@ -10,10 +10,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <misc.h>
-#include <msa.h>
-#include <category_map.h>
-#include <tree_model.h>
+#include <phast_misc.h>
+#include <phast_msa.h>
+#include <phast_category_map.h>
+#include <phast_tree_model.h>
 #include <time.h>
 #include "base_evolve.help"
 

@@ -10,13 +10,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <misc.h>
-#include <msa.h>
-#include <maf.h>
-#include <sufficient_stats.h>
-#include <numerical_opt.h>
-#include <tree_model.h>
-#include <fit_em.h>
+#include <phast_misc.h>
+#include <phast_msa.h>
+#include <phast_maf.h>
+#include <phast_sufficient_stats.h>
+#include <phast_numerical_opt.h>
+#include <phast_tree_model.h>
+#include <phast_fit_em.h>
 #include <time.h>
 #include "phyloBoot.help"
 

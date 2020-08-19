@@ -7,9 +7,9 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-#include "phylo_p.h"
+#include "phast_phylo_p.h"
 #include "phyloP.help"
-#include <misc.h>
+#include <phast_misc.h>
 
 
 int main(int argc, char *argv[]) {

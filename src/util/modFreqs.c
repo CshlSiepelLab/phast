@@ -10,9 +10,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <misc.h>
-#include <tree_model.h>
-#include <prob_vector.h>
+#include <phast_misc.h>
+#include <phast_tree_model.h>
+#include <phast_prob_vector.h>
 #include "modFreqs.help"
 
 int main(int argc, char *argv[]) {

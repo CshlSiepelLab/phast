@@ -11,8 +11,8 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <trees.h>
-#include <tree_model.h>
+#include <phast_trees.h>
+#include <phast_tree_model.h>
 #include <getopt.h>
 
 void print_usage() {

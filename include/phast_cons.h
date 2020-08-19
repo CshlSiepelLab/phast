@@ -21,14 +21,14 @@
 /** Default starting alpha for dgamma */
 #define DEFAULT_ALPHA 1
 
-#include <tree_model.h>
-#include <msa.h>
-#include <category_map.h>
-#include <stringsplus.h>
-#include <lists.h>
-#include <gff.h>
-#include "phylo_hmm.h"
-#include "list_of_lists.h"
+#include <phast_tree_model.h>
+#include <phast_msa.h>
+#include <phast_category_map.h>
+#include <phast_stringsplus.h>
+#include <phast_lists.h>
+#include <phast_gff.h>
+#include "phast_phylo_hmm.h"
+#include "phast_list_of_lists.h"
 
 /** Default RHO */
 #define DEFAULT_RHO 0.3
