@@ -16,7 +16,7 @@
 #include <phast_tree_model.h>
 
 int main(int argc, char *argv[]) {
-  char c;
+  signed char c;
   int opt_idx, bl, i, j, k, l, alph_size;
   PbsCode *code = NULL;
   TreeModel *mod;
@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
   /* argument variables and defaults */
   enum {FULL, HALF, NONE} pbs_mode = FULL;
 
-  while ((c = (char)getopt_long(argc, argv, "a:b:h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "a:b:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 't':
       lst_push_dbl(branchlens, get_arg_dbl_bounds(optarg, 0, INFTY));

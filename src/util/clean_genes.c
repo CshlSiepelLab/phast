@@ -971,7 +971,7 @@ int main(int argc, char *argv[]) {
   int ncons_tested, nkept, nconserved_exons;
   int nce_gap_type[NGAP_TYPES], nconsid[NTYPES], nfail[NTYPES];
   double Nfrac = 0.05;
-  char c;
+  signed char c;
   MSA *msa;
   GFF_Set *gff;
   msa_format_type msa_format = UNKNOWN_FORMAT;
@@ -1012,7 +1012,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = (char)getopt_long(argc, argv, "N:i:r:L:M:S:g:d:stlnfceICxh", 
+  while ((c = getopt_long(argc, argv, "N:i:r:L:M:S:g:d:stlnfceICxh", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 's':

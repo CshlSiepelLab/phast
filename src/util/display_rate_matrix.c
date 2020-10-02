@@ -383,14 +383,14 @@ int main(int argc, char* argv[]) {
     cpg_tv = 0, non_cpg_ti = 0, non_cpg_tv = 0, cpg_eqfreq = 0;
   char *rate_format_string = "%8.6f";
   MarkovMatrix *M;
-  char c;
+  signed char c;
   char tuple[5], tuple2[5]; /* , aa_alph[50]; */
   char *subst_mat_fname = NULL, *subst_score_fname = NULL, 
     *subst_mat_fname_paml = NULL, *order1_mod_fname = NULL;
   Matrix *subst_mat = NULL;
   List *matrix_list = lst_new_ptr(20), *traversal = NULL;
 
-  while ((c = (char)getopt(argc, argv, "t:fedlLiM:N:A:B:aszSECh")) != -1) {
+  while ((c = getopt(argc, argv, "t:fedlLiM:N:A:B:aszSECh")) != -1) {
    switch(c) {
     case 't':
       if (optarg[0] == 'A') all_branches = 1;

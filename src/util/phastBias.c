@@ -44,7 +44,7 @@
 
 int main(int argc, char *argv[]) {
   FILE *infile;
-  char c;
+  signed char c;
   int opt_idx;
   msa_format_type msa_format;
   struct bgchmm_struct *b = bgchmm_struct_new(0);
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
     {"help", 0, 0, 'h'},
     {0,0,0,0}};
 
-  while ((c = (char)getopt_long(argc, argv, "B:b:L:l:C:c:R:E:T:S:s:f:g:p:m:i:oWh", long_opts, &opt_idx))
+  while ((c = getopt_long(argc, argv, "B:b:L:l:C:c:R:E:T:S:s:f:g:p:m:i:oWh", long_opts, &opt_idx))
 	 != -1) {
     switch (c) {
     case 'B':

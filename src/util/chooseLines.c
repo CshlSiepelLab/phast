@@ -31,9 +31,9 @@ int main(int argc, char *argv[]) {
   int i, n, k = -1;
   String *line = str_new(STR_MED_LEN);
   int *chosen;
-  char c;
+  signed char c;
 
-  while ((c = (char)getopt(argc, argv, "k:rh")) != -1) {
+  while ((c = getopt(argc, argv, "k:rh")) != -1) {
     switch (c) {
     case 'k':
       k = atoi(optarg);

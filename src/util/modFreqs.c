@@ -16,7 +16,7 @@
 #include "modFreqs.help"
 
 int main(int argc, char *argv[]) {
-  char c;
+  signed char c;
   int opt_idx;
   Vector *newfreqs = vec_new(4);
   TreeModel *mod;
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = (char)getopt_long(argc, argv, "h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'h':
       printf("%s", HELP);

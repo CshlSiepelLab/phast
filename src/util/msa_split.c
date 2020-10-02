@@ -411,7 +411,7 @@ int main(int argc, char* argv[]) {
     *cats_to_do = NULL;  
   String *sum_fname = NULL;
   FILE *SUM_F = NULL;
-  char c;
+  signed char c;
   int nallgaps, nallgaps_strip, nanygaps, nanygaps_strip, 
     length_strip, i;
   Vector *freqs, *freqs_strip;
@@ -450,7 +450,7 @@ int main(int argc, char* argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = (char)getopt_long(argc, argv, "i:M:g:c:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:F:l:xSzqh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "i:M:g:c:p:d:n:sfG:r:o:L:C:T:w:I:O:B:P:F:l:xSzqh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);

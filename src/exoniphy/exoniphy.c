@@ -100,14 +100,14 @@ int main(int argc, char* argv[]) {
   CategoryMap *cm = NULL;
   GFF_Set *predictions;
   String *data_path=NULL;
-  char c;
+  signed char c;
   int i, j, ncats, trial, ntrials, opt_idx, gc_cat;
   double gc;
   char tmpstr[STR_LONG_LEN];
   char *msa_fname = NULL;
   String *fname_str = str_new(STR_LONG_LEN), *str;
 
-  while ((c = (char)getopt_long(argc, argv, "i:D:c:H:m:s:p:g:B:T:L:F:IW:N:n:b:e:A:xSYUhq", 
+  while ((c = getopt_long(argc, argv, "i:D:c:H:m:s:p:g:B:T:L:F:IW:N:n:b:e:A:xSYUhq", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':

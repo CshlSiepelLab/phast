@@ -20,7 +20,7 @@
 
 int main(int argc, char *argv[]) {
   FILE *STATSF;
-  char c;
+  signed char c;
   int opt_idx, i, max_nrows;
   String *line = str_new(STR_MED_LEN), *args = str_new(STR_MED_LEN);
   List *fields = lst_new_ptr(5), *vectors = lst_new_ptr(1000), 
@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
     if (i < argc - 1) str_append_char(args, ' ');
   }
 
-  while ((c = (char)getopt_long(argc, argv, "n:b:l:Gxh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "n:b:l:Gxh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'n':
       nrows = get_arg_int_bounds(optarg, 1, INFTY);

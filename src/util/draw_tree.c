@@ -40,10 +40,10 @@ int main(int argc, char *argv[]) {
   int draw_to_scale = 1;
 
   TreeNode *tree;
-  char c;
+  signed char c;
   String *suffix;
 
-  while ((c = (char)getopt(argc, argv, "dbvsh")) != -1) {
+  while ((c = getopt(argc, argv, "dbvsh")) != -1) {
     switch(c) {
     case 'd':
       square_branches = 0;

@@ -218,7 +218,7 @@ void compute_and_print_stats(FILE *F, String *real_name, String *pred_name,
 int main(int argc, char* argv[]) {
   FILE* F;
   GFF_Set *gff_real=NULL, *gff_pred=NULL;
-  char c;
+  signed char c;
   List *real_fname_list = NULL, *pred_fname_list = NULL, 
     *feat_list = NULL, *seq_len_list = NULL, *l = NULL;
   int nfile, i, j;
@@ -229,7 +229,7 @@ int main(int argc, char* argv[]) {
     tot_nexons_pred = 0, dump_exons = 0, nnc = -1, tot_nnc = -1, 
     nc_threshold = 0;
 
-  while ((c = (char)getopt(argc, argv, "r:p:f:l:d:n:h")) != -1) {
+  while ((c = getopt(argc, argv, "r:p:f:l:d:n:h")) != -1) {
     switch(c) {
     case 'r':
       real_fname_list = get_arg_list(optarg);

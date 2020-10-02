@@ -26,7 +26,7 @@
    alignment */
 
 int main(int argc, char *argv[]) {
-  char c;
+  signed char c;
   List *l;
   int i, j, strand, bed_output = 0, backgd_nmods = -1, feat_nmods = -1, 
     winsize = -1, verbose = 0, max_nmods, memblocksize, old_nleaves,
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = (char)getopt_long(argc, argv, "B:b:F:f:r:g:w:W:i:ydvh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "B:b:F:f:r:g:w:W:i:ydvh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'B':
       backgd_hmm = hmm_new_from_file(phast_fopen(optarg, "r"));

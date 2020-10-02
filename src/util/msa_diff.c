@@ -16,7 +16,7 @@
 #include "msa_diff.help" 
 
 int main(int argc, char *argv[]) {
-  char c;
+  signed char c;
   int opt_idx;
   MSA *msa1, *msa2;
   int i, j, ncommon, len, ndiffs, lastsame, same, diffstart, col;
@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = (char)getopt_long(argc, argv, "bga:i:j:h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "bga:i:j:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       ignore_base_id = TRUE;

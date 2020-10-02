@@ -118,12 +118,12 @@ int main(int argc, char* argv[]) {
   Matrix *traincounts = NULL;
   Vector *begcounts = NULL, *statecounts = NULL;
   CategoryMap *cm = NULL;
-  char c;
+  signed char c;
   GapPatternMap *gpm = NULL;
   GFF_Set *gff;
   char *reverse_groups_tag = NULL;
 
-  while ((c = (char)getopt(argc, argv, "i:g:c:m:M:R:I:n:t:P:G:qh")) != -1) {
+  while ((c = getopt(argc, argv, "i:g:c:m:M:R:I:n:t:P:G:qh")) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
