@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
   /* other vars */
   FILE *infile;
   char *msa_fname;
-  char c;
+  signed char c;
   int opt_idx, i, coding_potential=FALSE;
   List *tmpl = NULL;
   String *tmpstr;
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
   List *mod_fname_list;
   msa_format_type msa_format = UNKNOWN_FORMAT;
 
-  while ((c = (char)getopt_long(argc, argv, 
+  while ((c = getopt_long(argc, argv, 
 			  "S:H:V:ni:k:l:C:G:zt:E:R:T:O:r:xL:sN:P:g:U:c:e:IY:D:JM:F:pA:Xqh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {

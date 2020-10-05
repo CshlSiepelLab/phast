@@ -56,9 +56,9 @@ int main(int argc, char* argv[]) {
   int src_ref = -1, dest_ref = 0, offset = 0;
   char *msa_fname = NULL, *feat_fname = NULL;
   GFF_Set *gff;
-  char c;
+  signed char c;
 
-  while ((c = (char)getopt(argc, argv, "hm:f:s:d:i:p:n:")) != -1) {
+  while ((c = getopt(argc, argv, "hm:f:s:d:i:p:n:")) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;

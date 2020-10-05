@@ -16,7 +16,7 @@
 
 int main(int argc, char *argv[]) {
   FILE *prob_f;
-  char c;
+  signed char c;
   int opt_idx, i, nlines = 0, ngaps = 0;
   unsigned idx;
   PbsCode *code;
@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
 
   set_seed(-1);
 
-  while ((c = (char)getopt_long(argc, argv, "Gh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "Gh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'G':
       discard_gaps = TRUE;

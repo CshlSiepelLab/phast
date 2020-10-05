@@ -144,10 +144,10 @@ int main(int argc, char *argv[]) {
   String *output_prefix = str_new_charstr("phastm.");
   double *has_motif = NULL;
   double prior = PRIOR;
-  char c;
+  signed char c;
   GFF_Set *bedfeats = NULL;
 
-  while ((c = (char)getopt(argc, argv, "t:i:b:sk:md:pn:I:R:P:w:c:SB:o:HDxh")) != -1) {
+  while ((c = getopt(argc, argv, "t:i:b:sk:md:pn:I:R:P:w:c:SB:o:HDxh")) != -1) {
     switch (c) {
     case 't':
       tree = tr_new_from_file(phast_fopen(optarg, "r"));

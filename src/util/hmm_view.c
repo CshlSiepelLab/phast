@@ -48,10 +48,10 @@ int main(int argc, char *argv[]) {
   int *new_to_old=NULL, *show_cat;
   TreeNode *tree = NULL;
   double t;
-  char c;
+  signed char c;
   String *source, *sink;
 
-  while ((c = (char)getopt(argc, argv, "k:i:t:C:xh")) != -1) {
+  while ((c = getopt(argc, argv, "k:i:t:C:xh")) != -1) {
     switch(c) {
     case 'k':
       nratecats = get_arg_int(optarg);

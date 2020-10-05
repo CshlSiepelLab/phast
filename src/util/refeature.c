@@ -111,7 +111,7 @@ OPTIONS:\n\
 }
 
 int main(int argc, char *argv[]) {
-  char c;
+  signed char c;
   int opt_idx;
   GFF_Set *gff;
   List *include = NULL;
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = (char)getopt_long(argc, argv, "o:i:l:g:e:d:UISfusbh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "o:i:l:g:e:d:UISfusbh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'o':
       if (!strcmp("bed", optarg)) output_format = BED;

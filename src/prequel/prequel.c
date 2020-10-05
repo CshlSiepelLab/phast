@@ -20,7 +20,7 @@
 void do_indels(MSA *msa, TreeModel *mod);
 
 int main(int argc, char *argv[]) {
-  char c;
+  signed char c;
   int opt_idx, node;
   FILE *out_f = NULL, *msa_f, *mod_f;
   char *out_root;
@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
   PbsCode *code = NULL;
   int gibbs_nsamples = -1;
 
-  while ((c = (char)getopt_long(argc, argv, "r:i:s:e:knxSh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "r:i:s:e:knxSh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'r':
       refseq_f = phast_fopen(optarg, "r");

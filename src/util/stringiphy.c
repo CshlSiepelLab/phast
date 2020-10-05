@@ -62,7 +62,7 @@ void regroup(GFF_FeatureGroup *g, char *gene_tag, char *gene_val) {
 
 int main(int argc, char *argv[]) {
   GFF_Set *exons;
-  char c;
+  signed char c;
   int i, j, opt_idx;
   List *group_data;
 
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = (char)getopt_long(argc, argv, "h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'h':
       usage(argv[0]);

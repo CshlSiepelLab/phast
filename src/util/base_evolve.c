@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
   MSA *msa;
   int *labels = NULL, *path_to_cat, *reverse_compl;
   GFF_Set *feats;
-  char c;
+  signed char c;
   int opt_idx, i, j, seed = -1;
   List *l;
 
@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = (char)getopt_long(argc, argv, "n:o:f:c:e:s:h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "n:o:f:c:e:s:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'n':
       nsites = get_arg_int_bounds(optarg, 1, INFTY);

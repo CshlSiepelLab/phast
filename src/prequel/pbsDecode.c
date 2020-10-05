@@ -16,7 +16,7 @@
 
 int main(int argc, char *argv[]) {
   FILE *prob_f;
-  char c;
+  signed char c;
   int opt_idx, i, nvals = 0, ngaps = 0, pos = 0;
   unsigned int idx;
   PbsCode *code;
@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
   /* options and defaults */
   int start = -1, end = -1, discard_gaps = FALSE;
 
-  while ((c = (char)getopt_long(argc, argv, "s:e:Gh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "s:e:Gh", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 's':
       start = get_arg_int_bounds(optarg, 1, INFTY);

@@ -38,7 +38,7 @@ void write_stats(FILE *F, GFF_Feature *feat, void *stats,
 		 int write_header);
 
 int main(int argc, char *argv[]) {
-  char c;
+  signed char c;
   int i, opt_idx, old_nnodes;
   FILE *msa_f;
   TreeModel *mod;
@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = (char)getopt_long(argc, argv, "r:M:i:t:h", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "r:M:i:t:h", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'r':
       refidx = get_arg_int_bounds(optarg, 0, INFTY);

@@ -266,7 +266,8 @@ int main(int argc, char* argv[]) {
   char *maf_fname = NULL, *out_root_fname = "maf_parse", *masked_fn = NULL;
   String *refseq = NULL, *currRefseq;
   int opt_idx, startcol = 1, endcol = -1, include = 1, splitInterval = -1;
-  char c, outfilename[1000], splitFormat[100]="%s%.1i.maf", *group_tag = NULL;
+  signed char c;
+  char outfilename[1000], splitFormat[100]="%s%.1i.maf", *group_tag = NULL;
   List *order_list = NULL, *seqlist_str = NULL, *cats_to_do_str=NULL, *cats_to_do=NULL;
   MafBlock *block;
   FILE *mfile, *outfile=NULL, *masked_file=NULL;
@@ -310,7 +311,7 @@ int main(int argc, char* argv[]) {
   };
 
 
-  while ((c = (char)getopt_long(argc, argv, "s:e:l:O:r:S:d:g:c:P:b:o:m:M:pLnxEIh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "s:e:l:O:r:S:d:g:c:P:b:o:m:M:pLnxEIh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 's':
       startcol = get_arg_int(optarg);

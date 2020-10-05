@@ -411,7 +411,8 @@ int main(int argc, char* argv[]) {
     cycle_size = -1, maf_keep_overlapping = FALSE, collapse_missing = FALSE,
     fourD = FALSE, mark_missing_maxsize = -1, missing_as_indels = FALSE,
     unmask = FALSE, split_all = FALSE;
-  char c, *out_root=NULL, out_fname[STR_MED_LEN];
+  signed char c;
+  char *out_root=NULL, out_fname[STR_MED_LEN];
   List *cats_to_do = NULL, *aggregate_list = NULL, *msa_fname_list = NULL, 
     *order_list = NULL, *fill_N_list = NULL;
   msa_coord_map *map = NULL;
@@ -461,7 +462,7 @@ int main(int argc, char* argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = (char)getopt_long(argc, argv, "i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:X:fuDVxPzRSk4mh", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "i:o:s:e:l:G:r:T:a:g:c:C:L:I:A:M:O:w:N:Y:X:fuDVxPzRSk4mh", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
       input_format = msa_str_to_format(optarg);
