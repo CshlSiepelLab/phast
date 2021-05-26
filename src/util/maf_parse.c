@@ -11,13 +11,13 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <phast_msa.h>
+#include <phast/msa.h>
 #include <getopt.h>
 #include <ctype.h>
-#include <phast_sufficient_stats.h>
-#include <phast_local_alignment.h>
-#include <phast_maf.h>
-#include <phast_maf_block.h>
+#include <phast/sufficient_stats.h>
+#include <phast/local_alignment.h>
+#include <phast/maf.h>
+#include <phast/maf_block.h>
 
 void print_usage() {
     printf("\n\

@@ -13,8 +13,8 @@
    $Id: stringsplus.c,v 1.12 2009-02-19 23:33:48 agd27 Exp $ */
 
 #include <pcre.h>
-#include "phast_stringsplus.h"
-#include "phast_misc.h"
+#include "phast/stringsplus.h"
+#include "phast/misc.h"
 #include <stdlib.h>
 #include <ctype.h>
 

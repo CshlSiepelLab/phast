@@ -12,17 +12,17 @@
 /* Motif-finding routines */
 
 #include <math.h>
-#include "phast_motif.h"
-#include "phast_em.h"
-#include "phast_msa.h"
+#include "phast/motif.h"
+#include "phast/em.h"
+#include "phast/msa.h"
 #include "time.h"
-#include "phast_sufficient_stats.h"
-#include "phast_tree_model.h"
-#include "phast_tree_likelihoods.h"
-#include "phast_stacks.h"
+#include "phast/sufficient_stats.h"
+#include "phast/tree_model.h"
+#include "phast/tree_likelihoods.h"
+#include "phast/stacks.h"
 #include "ctype.h"
-#include "phast_external_libs.h"
-#include "phast_misc.h"
+#include "phast/external_libs.h"
+#include "phast/misc.h"
 
 #define DERIV_EPSILON 1e-6
 

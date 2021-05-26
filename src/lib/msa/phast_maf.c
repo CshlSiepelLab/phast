@@ -7,12 +7,12 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-#include <phast_sufficient_stats.h>
-#include <phast_msa.h>
-#include <phast_maf.h>
+#include <phast/sufficient_stats.h>
+#include <phast/msa.h>
+#include <phast/maf.h>
 #include <ctype.h>
-#include <phast_maf_block.h>
-#include <phast_misc.h>
+#include <phast/maf_block.h>
+#include <phast/misc.h>
 
 
 /** Read An Alignment from a MAF file.  The alignment won't be

@@ -19,11 +19,11 @@ Last updated: 1/13/10
 #include <stdio.h>
 #include <getopt.h>
 #include <ctype.h>
-#include <phast_sufficient_stats.h>
-#include <phast_local_alignment.h>
-#include <phast_subst_mods.h>
-#include <phast_external_libs.h>
-#include <phast_misc.h>
+#include <phast/sufficient_stats.h>
+#include <phast/local_alignment.h>
+#include <phast/subst_mods.h>
+#include <phast/external_libs.h>
+#include <phast/misc.h>
 
 #include <Rdefines.h>
 

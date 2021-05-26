@@ -12,10 +12,10 @@
 /* Experimental code for training a phylo-HMM by EM, including its
    phylogenetic models. */
 
-#include <phast_em.h>
-#include <phast_misc.h>
-#include <phast_sufficient_stats.h>
-#include <phast_fit_em.h>
+#include <phast/em.h>
+#include <phast/misc.h>
+#include <phast/sufficient_stats.h>
+#include <phast/fit_em.h>
 #include <sys/time.h>
 
 /* generic log function: show log likelihood and all HMM transitions

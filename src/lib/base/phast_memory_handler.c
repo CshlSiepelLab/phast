@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-#include <phast_memory_handler.h>
+#include <phast/memory_handler.h>
 
 typedef struct mem_list_type MemList;
 

@@ -9,11 +9,11 @@
 
 /* $Id: indel_history.c,v 1.10 2008-12-10 18:09:17 agd27 Exp $ */
 
-#include <phast_trees.h>
-#include <phast_msa.h>
-#include <phast_sufficient_stats.h>
-#include <phast_indel_history.h>
-#include <phast_misc.h>
+#include <phast/trees.h>
+#include <phast/msa.h>
+#include <phast/sufficient_stats.h>
+#include <phast/indel_history.h>
+#include <phast/misc.h>
 
 /* note: when there are nested indels a (compact) indel history is
    *not* a most parsimonious description of indel events; however it

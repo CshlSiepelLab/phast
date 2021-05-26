@@ -4,8 +4,8 @@
 
 #include <stdio.h>
 #include <math.h>
-#include <phast_dgamma.h>
-#include <phast_misc.h>
+#include <phast/dgamma.h>
+#include <phast/misc.h>
 
 #define FOR(i,n) for(i=0; i<n; i++)
 

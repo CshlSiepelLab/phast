@@ -9,12 +9,12 @@
 
 /* $Id: tree_likelihoods.c,v 1.14 2008-11-12 02:07:59 acs Exp $ */
 
-#include <phast_tree_likelihoods.h>
-#include <phast_subst_mods.h>
-#include <phast_markov_matrix.h>
-#include <phast_subst_mods.h>
-#include <phast_dgamma.h>
-#include <phast_sufficient_stats.h>
+#include <phast/tree_likelihoods.h>
+#include <phast/subst_mods.h>
+#include <phast/markov_matrix.h>
+#include <phast/subst_mods.h>
+#include <phast/dgamma.h>
+#include <phast/sufficient_stats.h>
 
 /* Computation of likelihoods for columns of a given multiple
    alignment, according to a given tree model.  */

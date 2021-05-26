@@ -12,10 +12,10 @@
     \ingroup feature
 */
 
-#include <phast_gff.h>
+#include <phast/gff.h>
 #include <ctype.h>
-#include <phast_hashtable.h>
-#include <phast_misc.h>
+#include <phast/hashtable.h>
+#include <phast/misc.h>
 
 /** Fill out a GFF_Set from a BED file. */
 void gff_read_from_bed(GFF_Set *gff, FILE *F) {

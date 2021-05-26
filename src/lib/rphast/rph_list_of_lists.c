@@ -1,7 +1,7 @@
 #include "phast_misc.h"
 #include "phast_list_of_lists.h"
 #include <Rdefines.h>
-#include <phast_rph_util.h>
+#include <phast/rph_util.h>
 
 //convert from C ListOfLists object to a list in R.
 SEXP rph_listOfLists_to_SEXP(ListOfLists *lol) {

@@ -10,20 +10,20 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_msa.h>
-#include <phast_maf.h>
-#include <phast_tree_model.h>
-#include <phast_sufficient_stats.h>
-#include <phast_subst_distrib.h>
-#include <phast_prob_vector.h>
-#include <phast_prob_matrix.h>
-#include "phast_list_of_lists.h"
-#include "phast_phylo_p_print.h"
-#include "phast_phylo_p.h"
-#include "phast_fit_column.h"
-#include "phast_fit_feature.h"
-#include "phast_trees.h"
+#include <phast/misc.h>
+#include <phast/msa.h>
+#include <phast/maf.h>
+#include <phast/tree_model.h>
+#include <phast/sufficient_stats.h>
+#include <phast/subst_distrib.h>
+#include <phast/prob_vector.h>
+#include <phast/prob_matrix.h>
+#include "phast/list_of_lists.h"
+#include "phast/phylo_p_print.h"
+#include "phast/phylo_p.h"
+#include "phast/fit_column.h"
+#include "phast/fit_feature.h"
+#include "phast/trees.h"
 
 
 /* initialize phyloP options to default (may be different for rphast) */

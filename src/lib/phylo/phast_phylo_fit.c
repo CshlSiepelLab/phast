@@ -15,25 +15,25 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <phast_lists.h>
-#include <phast_stringsplus.h>
-#include <phast_msa.h>
-#include <phast_gff.h>
-#include <phast_category_map.h>
+#include <phast/lists.h>
+#include <phast/stringsplus.h>
+#include <phast/msa.h>
+#include <phast/gff.h>
+#include <phast/category_map.h>
 #include <getopt.h>
-#include <phast_tree_model.h>
-#include <phast_fit_em.h>
-#include <phast_subst_mods.h>
-#include <phast_local_alignment.h>
+#include <phast/tree_model.h>
+#include <phast/fit_em.h>
+#include <phast/subst_mods.h>
+#include <phast/local_alignment.h>
 #include <ctype.h>
-#include <phast_tree_likelihoods.h>
-#include <phast_numerical_opt.h>
-#include <phast_sufficient_stats.h>
-#include <phast_maf.h>
-#include <phast_phylo_fit.h>
-#include <phast_stacks.h>
-#include <phast_trees.h>
-#include <phast_misc.h>
+#include <phast/tree_likelihoods.h>
+#include <phast/numerical_opt.h>
+#include <phast/sufficient_stats.h>
+#include <phast/maf.h>
+#include <phast/phylo_fit.h>
+#include <phast/stacks.h>
+#include <phast/trees.h>
+#include <phast/misc.h>
 
 /* initialize phyloFit options to defaults (slightly different
    for rphast).

@@ -7,10 +7,10 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-#include <phast_gff.h>
+#include <phast/gff.h>
 #include <ctype.h>
-#include <phast_misc.h>
-#include <phast_hashtable.h>
+#include <phast/misc.h>
+#include <phast/hashtable.h>
 
 #define GENEPRED_SOURCE "genepred"
 

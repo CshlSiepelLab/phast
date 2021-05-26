@@ -12,10 +12,10 @@
    state, one state per birth event and one state per death event per
    branch of tree */
 
-#include <phast_bd_phylo_hmm.h>
-#include <phast_lists.h>
-#include <phast_sufficient_stats.h>
-#include <phast_numerical_opt.h>
+#include <phast/bd_phylo_hmm.h>
+#include <phast/lists.h>
+#include <phast/sufficient_stats.h>
+#include <phast/numerical_opt.h>
 
 /* create a new birth-death phylo-HMM based on parameter values */
 BDPhyloHmm *bd_new(TreeModel *source_mod, double rho, double mu, 

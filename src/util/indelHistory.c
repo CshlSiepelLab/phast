@@ -12,12 +12,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_msa.h>
-#include <phast_tree_model.h>
-#include <phast_hashtable.h>
-#include <phast_sufficient_stats.h>
-#include <phast_indel_history.h>
+#include <phast/misc.h>
+#include <phast/msa.h>
+#include <phast/tree_model.h>
+#include <phast/hashtable.h>
+#include <phast/sufficient_stats.h>
+#include <phast/indel_history.h>
 #include "indelHistory.help"
 
 int main(int argc, char *argv[]) {

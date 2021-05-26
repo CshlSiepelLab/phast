@@ -17,11 +17,11 @@ Last updated: 4/10/2012
 *****************************************************/
 #include <stdlib.h>
 #include <stdio.h>
-#include <phast_misc.h>
-#include <phast_gff.h>
-#include <phast_list_of_lists.h>
-#include <phast_rph_util.h>
-#include <phast_wig.h>
+#include <phast/misc.h>
+#include <phast/gff.h>
+#include <phast/list_of_lists.h>
+#include <phast/rph_util.h>
+#include <phast/wig.h>
 
 #include <Rdefines.h>
 

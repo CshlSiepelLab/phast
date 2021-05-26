@@ -14,9 +14,9 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "phast_tree_model.h"
+#include "phast/tree_model.h"
 #include <getopt.h>
-#include <phast_stringsplus.h>
+#include <phast/stringsplus.h>
 #include <ctype.h>
 
 void print_usage() {

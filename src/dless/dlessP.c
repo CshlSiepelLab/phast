@@ -13,13 +13,13 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_bd_phylo_hmm.h>
-#include <phast_msa.h>
-#include <phast_maf.h>
-#include <phast_sufficient_stats.h>
-#include <phast_tree_model.h>
-#include <phast_subst_distrib.h>
+#include <phast/misc.h>
+#include <phast/bd_phylo_hmm.h>
+#include <phast/msa.h>
+#include <phast/maf.h>
+#include <phast/sufficient_stats.h>
+#include <phast/tree_model.h>
+#include <phast/subst_distrib.h>
 #include "dlessP.help"
 
 /* maximum size of matrix for which to do explicit convolution of

@@ -10,12 +10,12 @@
 /* $Id: misc.c,v 1.37 2008-12-10 18:09:17 agd27 Exp $ */
 
 #include <stdlib.h>
-#include <phast_misc.h>
-#include <phast_lists.h>
-#include <phast_stacks.h>
-#include <phast_stringsplus.h>
+#include <phast/misc.h>
+#include <phast/lists.h>
+#include <phast/stacks.h>
+#include <phast/stringsplus.h>
 #include <stdarg.h>
-#include <phast_hashtable.h>
+#include <phast/hashtable.h>
 #include <unistd.h>
 #include <assert.h>
 

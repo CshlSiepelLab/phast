@@ -7,10 +7,10 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-#include "phast_misc.h"
-#include "phast_sufficient_stats.h"
-#include "phast_maf.h"
-#include "phast_queues.h"
+#include "phast/misc.h"
+#include "phast/sufficient_stats.h"
+#include "phast/maf.h"
+#include "phast/queues.h"
 
 #define MAX_NTUPLE_ALLOC 100000
                                 /* maximum number of tuples to

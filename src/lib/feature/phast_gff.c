@@ -10,14 +10,14 @@
 /* $Id: gff.c,v 1.37 2008-11-12 02:07:59 acs Exp $ */
 
 
-#include <phast_gff.h>
+#include <phast/gff.h>
 #include <time.h>
-#include <phast_hashtable.h>
-#include <phast_misc.h>
+#include <phast/hashtable.h>
+#include <phast/misc.h>
 #include <ctype.h>
-#include <phast_bed.h>
-#include <phast_genepred.h>
-#include <phast_wig.h>
+#include <phast/bed.h>
+#include <phast/genepred.h>
+#include <phast/wig.h>
 
 /* Read a set of features from a file and return a newly allocated
    GFF_Set object.  Function reads until end-of-file is encountered or

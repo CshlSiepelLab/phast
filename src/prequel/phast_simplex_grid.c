@@ -1,9 +1,9 @@
 /* grid for d-dimensional probability simplex: partitions into regions
    that intersect hypercubes in d-dimensional space */
 
-#include <phast_simplex_grid.h>
-#include <phast_misc.h>
-#include <phast_external_libs.h>
+#include <phast/simplex_grid.h>
+#include <phast/misc.h>
+#include <phast/external_libs.h>
 
 /* return single index from coords in d dimensions */
 static PHAST_INLINE

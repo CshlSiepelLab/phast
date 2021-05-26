@@ -15,10 +15,10 @@
 */
 
 #include <stdlib.h>
-#include <phast_eigen.h>
+#include <phast/eigen.h>
 #include <math.h>
-#include <phast_external_libs.h>
-#include <phast_misc.h>
+#include <phast/external_libs.h>
+#include <phast/misc.h>
 
 
 /* Diagonalize a square, real, nonsymmetric matrix.  Computes vector

@@ -13,15 +13,15 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_maf.h>
-#include <phast_sufficient_stats.h>
-#include <phast_tree_likelihoods.h>
-#include <phast_phylo_hmm.h>
-#include <phast_indel_history.h>
-#include <phast_indel_mod.h>
-#include <phast_subst_distrib.h>
-#include <phast_bd_phylo_hmm.h>
+#include <phast/misc.h>
+#include <phast/maf.h>
+#include <phast/sufficient_stats.h>
+#include <phast/tree_likelihoods.h>
+#include <phast/phylo_hmm.h>
+#include <phast/indel_history.h>
+#include <phast/indel_mod.h>
+#include <phast/subst_distrib.h>
+#include <phast/bd_phylo_hmm.h>
 #include "dless.help"
 
 #define DEFAULT_RHO 0.3

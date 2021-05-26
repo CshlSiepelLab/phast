@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_pbs_code.h>
+#include <phast/misc.h>
+#include <phast/pbs_code.h>
 #include "pbsDecode.help"
 
 int main(int argc, char *argv[]) {

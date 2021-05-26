@@ -1,8 +1,8 @@
 #include <stdlib.h>
-#include <phast_misc.h>
-#include <phast_tree_likelihoods.h>
-#include <phast_list_of_lists.h>
-#include <phast_ms.h>
+#include <phast/misc.h>
+#include <phast/tree_likelihoods.h>
+#include <phast/list_of_lists.h>
+#include <phast/ms.h>
 
 //make a new list of lists (LOL)
 ListOfLists *lol_new(int approx_size) {

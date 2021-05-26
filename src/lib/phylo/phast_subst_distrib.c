@@ -15,12 +15,12 @@
 /* number of significant figures to which to estimate column scale
    parameters */
 
-#include <phast_subst_distrib.h>
-#include <phast_misc.h>
-#include <phast_sufficient_stats.h>
-#include <phast_prob_vector.h>
-#include <phast_prob_matrix.h>
-#include <phast_fit_column.h>
+#include <phast/subst_distrib.h>
+#include <phast/misc.h>
+#include <phast/sufficient_stats.h>
+#include <phast/prob_vector.h>
+#include <phast/prob_matrix.h>
+#include <phast/fit_column.h>
 
 /* (used below) compute and return a set of matrices giving p(b, n |
    j), the probability of n substitutions and a final base b given j

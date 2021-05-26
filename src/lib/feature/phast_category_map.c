@@ -7,11 +7,11 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-#include "phast_category_map.h"
-#include "phast_gff.h"
-#include "phast_stacks.h"
-#include "phast_misc.h"
-#include <phast_hashtable.h>
+#include "phast/category_map.h"
+#include "phast/gff.h"
+#include "phast/stacks.h"
+#include "phast/misc.h"
+#include <phast/hashtable.h>
 #include <unistd.h>
 
 //this has a conflict with RPHAST

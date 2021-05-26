@@ -10,14 +10,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_trees.h>
-#include <phast_tree_model.h>
-#include <phast_msa.h>
-#include <phast_motif.h>
+#include <phast/misc.h>
+#include <phast/trees.h>
+#include <phast/tree_model.h>
+#include <phast/msa.h>
+#include <phast/motif.h>
 #include <ctype.h>
-#include <phast_sufficient_stats.h>
-#include <phast_bed.h>
+#include <phast/sufficient_stats.h>
+#include <phast/bed.h>
 
 #define DEFAULT_SIZE 10
 #define DEFAULT_NUMBER 3

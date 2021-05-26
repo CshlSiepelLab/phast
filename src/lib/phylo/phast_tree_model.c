@@ -9,23 +9,23 @@
 
 /* $Id: tree_model.c,v 1.42 2009-03-20 18:16:48 agd27 Exp $ */
 
-#include <phast_tree_model.h>
-#include <phast_subst_mods.h>
-#include <phast_stacks.h>
-#include <phast_stringsplus.h>
+#include <phast/tree_model.h>
+#include <phast/subst_mods.h>
+#include <phast/stacks.h>
+#include <phast/stringsplus.h>
 #include <ctype.h>
-#include <phast_numerical_opt.h>
-#include <phast_markov_matrix.h>
-#include <phast_tree_likelihoods.h>
+#include <phast/numerical_opt.h>
+#include <phast/markov_matrix.h>
+#include <phast/tree_likelihoods.h>
 #include <time.h>
 #include <sys/time.h>
-#include <phast_sufficient_stats.h>
-#include <phast_matrix.h>
+#include <phast/sufficient_stats.h>
+#include <phast/matrix.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <phast_dgamma.h>
+#include <phast/dgamma.h>
 #include <math.h>
-#include <phast_misc.h>
+#include <phast/misc.h>
 
 #define ALPHABET_TAG "ALPHABET:"
 #define BACKGROUND_TAG "BACKGROUND:"

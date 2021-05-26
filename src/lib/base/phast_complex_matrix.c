@@ -14,8 +14,8 @@
     \ingroup base
 */
 
-#include <phast_misc.h>
-#include <phast_complex_matrix.h>
+#include <phast/misc.h>
+#include <phast/complex_matrix.h>
 
 Zmatrix *zmat_new(int nrows, int ncols) {
   int i;

@@ -32,17 +32,17 @@
 #include <ctype.h>
 #include <time.h>
 
-#include <phast_lists.h>
-#include <phast_stacks.h>
-#include <phast_msa.h>
-#include <phast_multi_msa.h>
-#include <phast_misc.h>
-#include <phast_gff.h>
-#include <phast_category_map.h>
-#include <phast_hashtable.h>
-#include <phast_sufficient_stats.h>
-#include <phast_local_alignment.h>
-#include <phast_indel_history.h>
+#include <phast/lists.h>
+#include <phast/stacks.h>
+#include <phast/msa.h>
+#include <phast/multi_msa.h>
+#include <phast/misc.h>
+#include <phast/gff.h>
+#include <phast/category_map.h>
+#include <phast/hashtable.h>
+#include <phast/sufficient_stats.h>
+#include <phast/local_alignment.h>
+#include <phast/indel_history.h>
 
 /* Creates a new multi-fasta object containing alignments read from files
     specified in a config file. Config file contains the number of alignments,

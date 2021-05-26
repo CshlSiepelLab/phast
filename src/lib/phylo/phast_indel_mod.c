@@ -11,10 +11,10 @@
 
 /* simple model of insertions and deletions, assumes given indel history */
 
-#include <phast_misc.h>
-#include <phast_indel_mod.h>
-#include <phast_numerical_opt.h>
-#include <phast_external_libs.h>
+#include <phast/misc.h>
+#include <phast/indel_mod.h>
+#include <phast/numerical_opt.h>
+#include <phast/external_libs.h>
 
 BranchIndelModel *im_new_branch(double alpha, double beta, double tau,
                                 double t) {

@@ -13,10 +13,10 @@
    management expected to be done externally) */
 
 #include <stdlib.h>
-#include <phast_lists.h>
-#include <phast_hashtable.h>
+#include <phast/lists.h>
+#include <phast/hashtable.h>
 #include <math.h>
-#include <phast_misc.h>
+#include <phast/misc.h>
 
 /* Create new hashtable with initial capacity as specified (in number
    of items).  

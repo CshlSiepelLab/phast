@@ -10,15 +10,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_tree_model.h>
-#include <phast_hmm.h>
-#include <phast_msa.h>
-#include <phast_maf.h>
-#include <phast_sufficient_stats.h>
-#include <phast_gff.h>
-#include <phast_bed.h>
-#include <phast_tree_likelihoods.h>
+#include <phast/misc.h>
+#include <phast/tree_model.h>
+#include <phast/hmm.h>
+#include <phast/msa.h>
+#include <phast/maf.h>
+#include <phast/sufficient_stats.h>
+#include <phast/gff.h>
+#include <phast/bed.h>
+#include <phast/tree_likelihoods.h>
 #include "phastOdds.help"
 
 #define MIN_BLOCK_SIZE 30

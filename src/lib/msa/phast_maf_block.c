@@ -7,11 +7,11 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-#include <phast_misc.h>
-#include <phast_sufficient_stats.h>
-#include <phast_msa.h>
-#include <phast_maf_block.h>
-#include <phast_hashtable.h>
+#include <phast/misc.h>
+#include <phast/sufficient_stats.h>
+#include <phast/msa.h>
+#include <phast/maf_block.h>
+#include <phast/hashtable.h>
 #include <ctype.h>
 #include <assert.h>
 

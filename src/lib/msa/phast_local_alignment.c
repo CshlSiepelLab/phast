@@ -29,8 +29,8 @@
 
 
 
-#include "phast_local_alignment.h"
-#include "phast_misc.h"
+#include "phast/local_alignment.h"
+#include "phast/misc.h"
 #include <math.h>
 
 LocalPwAlignment *la_new() {

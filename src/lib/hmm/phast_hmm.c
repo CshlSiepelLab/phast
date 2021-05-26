@@ -9,13 +9,13 @@
 
 /* $Id: hmm.c,v 1.16 2009-03-09 16:33:04 agd27 Exp $ */
 
-#include "phast_hmm.h"
+#include "phast/hmm.h"
 #include <math.h>
-#include <phast_misc.h>
-#include "phast_queues.h"
-#include "phast_stacks.h"
-#include <phast_vector.h>
-#include <phast_prob_vector.h>
+#include <phast/misc.h>
+#include "phast/queues.h"
+#include "phast/stacks.h"
+#include <phast/vector.h>
+#include <phast/prob_vector.h>
 #include <time.h>
 
 /* Library of functions for manipulation of hidden Markov models.

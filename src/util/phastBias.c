@@ -8,7 +8,7 @@
  ***************************************************************************/
 
 
-#include "phast_bgc_hmm.h"
+#include "phast/bgc_hmm.h"
 #include "phastBias.help"
 
 /* Basic idea: 

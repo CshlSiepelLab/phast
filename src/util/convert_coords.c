@@ -11,10 +11,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <phast_msa.h>
-#include <phast_gff.h>
+#include <phast/msa.h>
+#include <phast/gff.h>
 #include <getopt.h>
-#include <phast_local_alignment.h>
+#include <phast/local_alignment.h>
 
 void print_usage() {
   fprintf(stderr, "USAGE: convert_coords -m <msa_fname> -f <feature_fname> [-s <src_frame>] [-d <dest_frame>] [-p] [-n] [-i PHYLIP|FASTA|MPM]\n\

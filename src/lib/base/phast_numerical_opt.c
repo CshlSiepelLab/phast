@@ -10,14 +10,14 @@
 /* $Id: numerical_opt.c,v 1.16 2009-01-16 03:15:18 acs Exp $ */
 
 #include <stdlib.h>
-#include <phast_numerical_opt.h>
-#include <phast_matrix.h>
-#include <phast_markov_matrix.h>
+#include <phast/numerical_opt.h>
+#include <phast/matrix.h>
+#include <phast/markov_matrix.h>
 #include <math.h>
-#include <phast_misc.h>
+#include <phast/misc.h>
 #include <sys/time.h>
-#include <phast_vector.h>
-#include <phast_external_libs.h>
+#include <phast/vector.h>
+#include <phast/external_libs.h>
 
 /* Numerical optimization of one-dimensional and multi-dimensional functions */
 

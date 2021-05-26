@@ -16,9 +16,9 @@
    such that p(x,y) < epsilon for x >= x_max, y >= x_max, where
    epsilon is an input parameter. */
 
-#include <phast_prob_matrix.h>
-#include <phast_prob_vector.h>
-#include <phast_misc.h>
+#include <phast/prob_matrix.h>
+#include <phast/prob_vector.h>
+#include <phast/misc.h>
 
 void pm_mean(Matrix *p, double *mean_x, double *mean_y) {
   int x, y;

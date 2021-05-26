@@ -10,8 +10,8 @@
 /** discrete encodings of probabilistic biological sequences */
 
 
-#include <phast_misc.h>
-#include <phast_pbs_code.h>
+#include <phast/misc.h>
+#include <phast/pbs_code.h>
 #include <time.h>
 
 PbsCode *pbs_new(int dim, int nrows, int nbytes) {

@@ -10,15 +10,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_phylo_hmm.h>
-#include <phast_em.h>
-#include <phast_sufficient_stats.h>
-#include <phast_bed.h>
-#include <phast_dgamma.h>
-#include <phast_tree_likelihoods.h>
-#include <phast_maf.h>
-#include "phast_cons.h"
+#include <phast/misc.h>
+#include <phast/phylo_hmm.h>
+#include <phast/em.h>
+#include <phast/sufficient_stats.h>
+#include <phast/bed.h>
+#include <phast/dgamma.h>
+#include <phast/tree_likelihoods.h>
+#include <phast/maf.h>
+#include "phast/cons.h"
 
 
 struct phastCons_struct *phastCons_struct_new(int rphast) {

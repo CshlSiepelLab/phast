@@ -13,14 +13,14 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_msa.h>
-#include <phast_sufficient_stats.h>
-#include <phast_subst_distrib.h>
-#include <phast_prob_vector.h>
-#include <phast_prob_matrix.h>
-#include <phast_phylo_p_print.h>
-#include <phast_list_of_lists.h>
+#include <phast/misc.h>
+#include <phast/msa.h>
+#include <phast/sufficient_stats.h>
+#include <phast/subst_distrib.h>
+#include <phast/prob_vector.h>
+#include <phast/prob_matrix.h>
+#include <phast/phylo_p_print.h>
+#include <phast/list_of_lists.h>
 
 void print_quantiles(FILE *outfile, Vector *distrib, ListOfLists *result) {
   int *quantiles = pv_quantiles(distrib);

@@ -10,12 +10,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_gff.h>
-#include <phast_bed.h>
-#include <phast_genepred.h>
-#include <phast_hashtable.h>
-#include <phast_wig.h>
+#include <phast/misc.h>
+#include <phast/gff.h>
+#include <phast/bed.h>
+#include <phast/genepred.h>
+#include <phast/hashtable.h>
+#include <phast/wig.h>
 
 /* to do: add an option to insert features for splice sites or
    start/stop coords at exon boundaries ('addsignals'); */

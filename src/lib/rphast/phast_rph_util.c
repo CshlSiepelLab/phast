@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-#include <phast_rph_util.h>
+#include <phast/rph_util.h>
 
 SEXP rph_new_mem_handler() {
   phast_new_mem_handler();

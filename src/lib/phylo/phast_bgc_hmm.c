@@ -7,7 +7,7 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-#include "phast_bgc_hmm.h"
+#include "phast/bgc_hmm.h"
 
 /* 
    Like phastCons, but with two versions of each state: with and without

@@ -14,9 +14,9 @@
    perform single-base LRTs, score tests, phyloP, etc. */
 
 #include <stdlib.h>
-#include <phast_fit_column.h>
-#include <phast_sufficient_stats.h>
-#include <phast_tree_likelihoods.h>
+#include <phast/fit_column.h>
+#include <phast/sufficient_stats.h>
+#include <phast/tree_likelihoods.h>
 #include <time.h>
 
 #define DERIV_EPSILON 1e-6

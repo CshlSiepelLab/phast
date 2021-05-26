@@ -16,16 +16,16 @@ Last updated: 4/8/2010
 *****************************************************/
 #include <stdlib.h>
 #include <stdio.h>
-#include <phast_msa.h>
+#include <phast/msa.h>
 #include <getopt.h>
 #include <ctype.h>
-#include <phast_misc.h>
-#include <phast_sufficient_stats.h>
-#include <phast_local_alignment.h>
-#include <phast_trees.h>
-#include <phast_phylo_p.h>
-#include <phast_rph_util.h>
-#include <phast_memory_handler.h>
+#include <phast/misc.h>
+#include <phast/sufficient_stats.h>
+#include <phast/local_alignment.h>
+#include <phast/trees.h>
+#include <phast/phylo_p.h>
+#include <phast/rph_util.h>
+#include <phast/memory_handler.h>
 
 #include <Rdefines.h>
 

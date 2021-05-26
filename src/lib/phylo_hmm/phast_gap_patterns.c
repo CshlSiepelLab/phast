@@ -11,10 +11,10 @@
    each site in an alignment, which are the basis of the phylo-hmm's
    indel model */
 
-#include <phast_gap_patterns.h>
-#include <phast_category_map.h>
-#include <phast_sufficient_stats.h>
-#include <phast_misc.h>
+#include <phast/gap_patterns.h>
+#include <phast/category_map.h>
+#include <phast/sufficient_stats.h>
+#include <phast/misc.h>
 
 /** Expands the set of categories in the specified cat map such that
    each designated "indel category" is replaced by ngap_patterns

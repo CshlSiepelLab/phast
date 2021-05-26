@@ -12,8 +12,8 @@
     \ingroup base
 */
 
-#include <phast_misc.h>
-#include <phast_complex_vector.h>
+#include <phast/misc.h>
+#include <phast/complex_vector.h>
 
 
 Zvector *zvec_new(int size) {

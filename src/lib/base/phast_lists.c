@@ -24,9 +24,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include "phast_lists.h"
-#include "phast_stringsplus.h"
-#include <phast_misc.h>
+#include "phast/lists.h"
+#include "phast/stringsplus.h"
+#include <phast/misc.h>
 
 List* lst_new(int nelements, int elementsz) {
   List *l = (List*)smalloc(sizeof(List));

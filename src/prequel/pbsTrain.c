@@ -13,9 +13,9 @@
 #include <time.h>
 #include <sys/time.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_stringsplus.h>
-#include <phast_pbs_code.h>
+#include <phast/misc.h>
+#include <phast/stringsplus.h>
+#include <phast/pbs_code.h>
 #include "pbsTrain.help"
 
 int main(int argc, char *argv[]) {

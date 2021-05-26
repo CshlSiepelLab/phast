@@ -10,9 +10,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_tree_model.h>
-#include <phast_hashtable.h>
+#include <phast/misc.h>
+#include <phast/tree_model.h>
+#include <phast/hashtable.h>
 
 void usage(char *prog) {
   printf("\n\

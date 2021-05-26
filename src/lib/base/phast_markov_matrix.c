@@ -14,13 +14,13 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <math.h>
-#include <phast_matrix.h>
-#include <phast_markov_matrix.h>
-#include <phast_complex.h>
-#include <phast_misc.h>
-#include <phast_eigen.h>
-#include <phast_prob_vector.h>
-#include <phast_external_libs.h>
+#include <phast/matrix.h>
+#include <phast/markov_matrix.h>
+#include <phast/complex.h>
+#include <phast/misc.h>
+#include <phast/eigen.h>
+#include <phast/prob_vector.h>
+#include <phast/external_libs.h>
 
 #define SUM_EPSILON 0.0001
 #define ELEMENT_EPSILON 0.00001

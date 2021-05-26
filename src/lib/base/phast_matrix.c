@@ -11,10 +11,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <phast_matrix.h>
-#include <phast_external_libs.h>
+#include <phast/matrix.h>
+#include <phast/external_libs.h>
 #include <math.h>
-#include <phast_misc.h>
+#include <phast/misc.h>
 
 Matrix *mat_new(int nrows, int ncols) {
   int i;

@@ -11,10 +11,10 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "phast_gff.h"
+#include "phast/gff.h"
 #include <getopt.h>
 #include <math.h>
-#include <phast_misc.h>
+#include <phast/misc.h>
 
 void print_usage() {
   printf("USAGE: eval_predictions -r <real_fname_list> -p <pred_fname_list>\n\

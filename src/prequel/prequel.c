@@ -10,11 +10,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_tree_likelihoods.h>
-#include <phast_sufficient_stats.h>
-#include <phast_maf.h>
-#include <phast_pbs_code.h>
+#include <phast/misc.h>
+#include <phast/tree_likelihoods.h>
+#include <phast/sufficient_stats.h>
+#include <phast/maf.h>
+#include <phast/pbs_code.h>
 #include "prequel.help"
 
 void do_indels(MSA *msa, TreeModel *mod);

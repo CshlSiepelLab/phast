@@ -15,8 +15,8 @@
    Poisson), vectors are truncated at size x_max such that p(y) <
    epsilon for y >= x_max, where epsilon is an input parameter. */
 
-#include <phast_prob_vector.h>
-#include <phast_misc.h>
+#include <phast/prob_vector.h>
+#include <phast/misc.h>
 
 /* compute mean and variance */
 void pv_stats(Vector *p, double *mean, double *var) {  

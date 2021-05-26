@@ -7,14 +7,14 @@
  * file LICENSE.txt for details.
  ***************************************************************************/
 
-#include <phast_phylo_hmm.h>
-#include <phast_misc.h>
-#include <phast_dgamma.h>
-#include <phast_sufficient_stats.h>
-#include <phast_gap_patterns.h>
-#include <phast_tree_likelihoods.h>
-#include <phast_subst_mods.h>
-#include <phast_em.h>
+#include <phast/phylo_hmm.h>
+#include <phast/misc.h>
+#include <phast/dgamma.h>
+#include <phast/sufficient_stats.h>
+#include <phast/gap_patterns.h>
+#include <phast/tree_likelihoods.h>
+#include <phast/subst_mods.h>
+#include <phast/em.h>
 
 /* initial values for alpha, beta, tau; possibly should be passed in instead */
 #define ALPHA_INIT 0.05

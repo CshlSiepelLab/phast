@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_trees.h>
+#include <phast/misc.h>
+#include <phast/trees.h>
 #include "treeGen.help"
 
 int num_rooted_topologies(int n);

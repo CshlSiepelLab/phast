@@ -9,10 +9,10 @@
 
 /* $Id: wig.c,v 1.37 2008-11-12 02:07:59 acs Exp $ */
 
-#include <phast_misc.h>
-#include <phast_wig.h>
-#include <phast_gff.h>
-#include <phast_stringsplus.h>
+#include <phast/misc.h>
+#include <phast/wig.h>
+#include <phast/gff.h>
+#include <phast/stringsplus.h>
 
 
 /* returns 1 if line is a wig header, 0 otherwise

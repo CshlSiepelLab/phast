@@ -10,10 +10,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include "phast_stacks.h"
-#include "phast_trees.h"
-#include "phast_misc.h"
-#include "phast_stringsplus.h"
+#include "phast/stacks.h"
+#include "phast/trees.h"
+#include "phast/misc.h"
+#include "phast/stringsplus.h"
 
 
 static int idcounter = 0;

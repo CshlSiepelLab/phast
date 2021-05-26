@@ -9,9 +9,9 @@
 
 /* $Id: vector.c,v 1.3 2008-11-12 02:07:59 acs Exp $*/
 
-#include <phast_vector.h>
-#include <phast_misc.h>
-#include <phast_lists.h>
+#include <phast/vector.h>
+#include <phast/misc.h>
+#include <phast/lists.h>
 
 Vector *vec_new(int size) {
   Vector *v = smalloc(sizeof(Vector));

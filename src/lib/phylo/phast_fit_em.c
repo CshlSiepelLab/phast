@@ -12,23 +12,23 @@
 /* Functions for fitting tree models by EM */
 
 
-#include <phast_fit_em.h>
-#include <phast_misc.h>
-#include <phast_tree_model.h>
-#include <phast_stringsplus.h>
+#include <phast/fit_em.h>
+#include <phast/misc.h>
+#include <phast/tree_model.h>
+#include <phast/stringsplus.h>
 #include <ctype.h>
-#include <phast_numerical_opt.h>
-#include <phast_tree_likelihoods.h>
-#include <phast_subst_mods.h>
+#include <phast/numerical_opt.h>
+#include <phast/tree_likelihoods.h>
+#include <phast/subst_mods.h>
 #include <time.h>
 #include <sys/time.h>
-#include <phast_sufficient_stats.h>
-#include <phast_matrix.h>
+#include <phast/sufficient_stats.h>
+#include <phast/matrix.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <phast_complex.h>
+#include <phast/complex.h>
 #include <math.h>
-#include <phast_dgamma.h>
+#include <phast/dgamma.h>
 
 #define DERIV_EPSILON 1e-5      
                                 /* used for numerical est. of derivatives */

@@ -16,15 +16,15 @@ Last updated: 1/5/2010
 *****************************************************/
 #include <stdlib.h>
 #include <stdio.h>
-#include <phast_msa.h>
+#include <phast/msa.h>
 #include <getopt.h>
 #include <ctype.h>
-#include <phast_misc.h>
-#include <phast_sufficient_stats.h>
-#include <phast_local_alignment.h>
-#include <phast_trees.h>
-#include <phast_phylo_fit.h>
-#include <phast_rph_util.h>
+#include <phast/misc.h>
+#include <phast/sufficient_stats.h>
+#include <phast/local_alignment.h>
+#include <phast/trees.h>
+#include <phast/phylo_fit.h>
+#include <phast/rph_util.h>
 
 #include <Rdefines.h>
 #include <R_ext/Random.h>

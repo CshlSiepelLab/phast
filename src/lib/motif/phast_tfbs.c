@@ -13,23 +13,23 @@
 
    Nick Peterson
 *****************************************************/
-#include <phast_msa.h>
+#include <phast/msa.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <time.h>
 #include <stdio.h>
 
-#include <phast_list_of_lists.h>
-#include <phast_lists.h>
-#include <phast_stacks.h>
-#include <phast_misc.h>
-#include <phast_gff.h>
-#include <phast_category_map.h>
-#include <phast_hashtable.h>
-#include <phast_sufficient_stats.h>
-#include <phast_local_alignment.h>
-#include <phast_indel_history.h>
-#include <phast_tfbs.h>
+#include <phast/list_of_lists.h>
+#include <phast/lists.h>
+#include <phast/stacks.h>
+#include <phast/misc.h>
+#include <phast/gff.h>
+#include <phast/category_map.h>
+#include <phast/hashtable.h>
+#include <phast/sufficient_stats.h>
+#include <phast/local_alignment.h>
+#include <phast/indel_history.h>
+#include <phast/tfbs.h>
 
 
 //////////////////////////////////////////

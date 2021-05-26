@@ -15,14 +15,14 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <phast_msa.h>
-#include <phast_hmm.h>
+#include <phast/msa.h>
+#include <phast/hmm.h>
 #include <getopt.h>
-#include <phast_gff.h>
-#include <phast_category_map.h>
-#include <phast_sufficient_stats.h>
-#include <phast_stringsplus.h>
-#include <phast_gap_patterns.h>
+#include <phast/gff.h>
+#include <phast/category_map.h>
+#include <phast/sufficient_stats.h>
+#include <phast/stringsplus.h>
+#include <phast/gap_patterns.h>
 
 /* categories for which complex gap patterns are prohibited;
    temporarily hardwired */

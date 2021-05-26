@@ -11,13 +11,13 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include "phast_sufficient_stats.h"
-#include "phast_msa.h"
+#include "phast/sufficient_stats.h"
+#include "phast/msa.h"
 #include <getopt.h>
 #include <ctype.h>
 #include <math.h>
-#include "phast_gff.h"
-#include "phast_maf.h"
+#include "phast/gff.h"
+#include "phast/maf.h"
 
 #define DOWNSTREAM_OTHER "other"
 #define NSITES_BETWEEN_BLOCKS 30

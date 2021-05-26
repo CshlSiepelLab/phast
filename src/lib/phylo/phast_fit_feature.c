@@ -14,11 +14,11 @@
    of fit_columm.c to features.  Makes use of several of the
    single-column functions. */
 
-#include <phast_fit_feature.h>
-#include <phast_fit_column.h>
-#include <phast_misc.h>
-#include <phast_sufficient_stats.h>
-#include <phast_tree_likelihoods.h>
+#include <phast/fit_feature.h>
+#include <phast/fit_column.h>
+#include <phast/misc.h>
+#include <phast/sufficient_stats.h>
+#include <phast/tree_likelihoods.h>
 
 #define SIGFIGS 4
 /* number of significant figures to which to estimate scale

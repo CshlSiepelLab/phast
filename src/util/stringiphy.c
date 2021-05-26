@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_gff.h>
+#include <phast/misc.h>
+#include <phast/gff.h>
 
 typedef enum {INITIAL, INTERNAL, TERMINAL, SINGLETON} ExonType;
 

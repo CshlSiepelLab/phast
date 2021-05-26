@@ -13,11 +13,11 @@
    was originally set up for small number of models but has become
    unwieldy... */
 
-#include <phast_subst_mods.h>
-#include <phast_tree_model.h>
-#include <phast_stringsplus.h>
+#include <phast/subst_mods.h>
+#include <phast/tree_model.h>
+#include <phast/stringsplus.h>
 #include <ctype.h>
-#include <phast_misc.h>
+#include <phast/misc.h>
 
 /* internal functions (model-specific) */
 void tm_set_JC69_matrix(TreeModel *mod);

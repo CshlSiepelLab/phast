@@ -10,9 +10,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <getopt.h>
-#include <phast_misc.h>
-#include <phast_trees.h>
-#include <phast_tree_model.h>
+#include <phast/misc.h>
+#include <phast/trees.h>
+#include <phast/tree_model.h>
 
 void usage(char *prog) {
   printf("\n\
