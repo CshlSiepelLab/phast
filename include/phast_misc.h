@@ -753,7 +753,7 @@ double get_elapsed_time(struct timeval *start_time);
   @param filename path of file to check for
   @result 1 if exists and readable
 */
-int file_exists(char *filename);
+int phast_file_exists(char *filename);
 
 
 /** \name IUPAC mapping functions

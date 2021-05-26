@@ -1103,8 +1103,9 @@ double get_elapsed_time(struct timeval *start_time) {
     (now.tv_usec - start_time->tv_usec)/1.0e6;
 }
 
-/* check to see if a file is present and readable on the filesystem */
-int file_exists(char *filename) {
+/* check to see if a file is present and readable on the filesystem.
+ * phast_ prefix added due to conflicts with htslib */
+int phast_file_exists(char *filename) {
  return (access(filename, F_OK) == 0);
 }
 
