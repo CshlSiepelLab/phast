@@ -3,7 +3,7 @@ PHAST := ${PHAST}/..
 
 # assume executable name is given by directory name
 PROGS = pbsDecode pbsEncode pbsScoreMatrix pbsTrain prequel
-MODULES = simplex_grid pbs_code
+MODULES = phast_simplex_grid phast_pbs_code
 EXEC = $(addprefix ${BIN}/,${PROGS})
 
 # assume all *.c files are source

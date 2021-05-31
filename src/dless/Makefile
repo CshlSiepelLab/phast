@@ -3,7 +3,7 @@ PHAST := ${PHAST}/..
 
 #EXEC = $(addprefix ${BIN}/,$(notdir ${PWD}))
 PROGS = dless dlessP
-MODULES = bd_phylo_hmm
+MODULES = phast_bd_phylo_hmm
 EXEC = $(addprefix ${BIN}/,${PROGS})
 
 # assume all *.c files are source
