@@ -12,29 +12,9 @@ endif
 
 ifdef CLAPACKPATH		# only do below if using CLAPACK
 
-all: liblinks phastlib
+all: phastlib
 
-sharedlib: liblinks sharedphastlib
-
-# by default, CLAPACK uses non-standard library names, which confuses
-# the compiler.  We'll just create symbolic links in ${PHAST}/lib that
-# have proper names
-liblinks: ${PHAST}/lib/liblapack.a ${PHAST}/lib/libtmg.a \
-	${PHAST}/lib/libblaswr.a 
-
-${PHAST}/lib/liblapack.a: ${CLAPACKPATH}/lapack${PLAT}.a
-	mkdir -p ${PHAST}/lib
-	${LN} -s $< $@
-
-${PHAST}/lib/libtmg.a: ${CLAPACKPATH}/tmglib${PLAT}.a
-	mkdir -p ${PHAST}/lib
-	${LN} -s $< $@
-
-${PHAST}/lib/libblaswr.a: ${CLAPACKPATH}/blas${PLAT}.a
-	mkdir -p ${PHAST}/lib
-	${LN} -s $< $@
-
-else				# no CLAPACK: links not necessary
+sharedlib: sharedphastlib
 
 all: phastlib
 

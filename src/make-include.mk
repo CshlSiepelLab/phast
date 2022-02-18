@@ -120,8 +120,6 @@ ifneq ($(TARGETOS), Windows)
     # PLAT is empty for windows builds
     PLAT =
   endif
-  # F2C libraries used by CLAPACK; most users won't need to edit
-  F2CPATH = ${CLAPACKPATH}/F2CLIBS
 endif
 
 # if neither VECLIB nor CLAPACKPATH is defined, then LAPACK will be
@@ -139,8 +137,7 @@ LIBS = -lphast -framework Accelerate -lc -lm
 else
 ifdef CLAPACKPATH
 ifneq ($(TARGETOS), Windows)
-  CFLAGS += -I${CLAPACKPATH}/INCLUDE -I${F2CPATH}
-  LIBS = -lphast -llapack -ltmg -lblaswr -lc -lf2c -lm
+  LIBS = -lphast -llapack -ltmglib -lblas -lc -lm
 else
   CFLAGS += -I${CLAPACKPATH}/INCLUDE -I${F2CPATH} -DPCRE_STATIC
   LIBS = -lphast -lm  ${CLAPACKPATH}/liblapack.a ${CLAPACKPATH}/libf2c.a ${CLAPACKPATH}/libblas.a
@@ -149,7 +146,6 @@ endif
 # older than 3.1.1
 #CFLAGS += -I${CLAPACKPATH} -I${F2CPATH}
 #LIBS = -lphast -llapack -ltmg -lblaswr -lc -lF77 -lI77 -lm
-LIBPATH += -L${F2CPATH} 
 
 # bypass
 else
