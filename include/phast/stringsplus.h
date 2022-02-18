@@ -24,7 +24,8 @@
 #ifndef STRINGSPLUS_H
 #define STRINGSPLUS_H
 
-#include <pcre.h>
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include <pcre2.h>
 #include "phast/lists.h"
 #include "stdio.h"
 
@@ -56,9 +57,6 @@ typedef struct {
   int nchars;			/**< Number of bytes currently allocated */
 } String;
 
-/** PCRE is another name for Regex */
-typedef pcre Regex;
-				
 /** \name String Allocate/Cleanup functions 
 \{ */
 
@@ -99,7 +97,7 @@ void str_clear(String *s);
 
 /** \} */
 
-/* void str_match(String *s, Regexp *r); */ /* tags? */
+/* void str_match(String *s, pcre2_compile_context *r); */ /* tags? */
 
 /** \name String Append functions */
 
@@ -385,13 +383,13 @@ int str_split(String *s, const char* delim, List *l);
    expression syntax.
    @result Newly allocated and compiled Regex object.
  */
-Regex *str_re_new(const char *re_str);
+pcre2_code *str_re_new(const unsigned char *re_str);
 
 /** Free resources associated with regular expression object. 
     @param re Regex object to free
     @note The object itself is freed also. 
 */
-void str_re_free(Regex *re);
+void str_re_free(pcre2_compile_context *re);
 
 /** Test whether the specified string matches the specified regex.
    @pre The list 'l' must be initialized externally if non-NULL.  
@@ -403,11 +401,11 @@ void str_re_free(Regex *re);
    on no match, and -2 on error.
    @note NULLs will be added for all non-matching groups in list 'l'
    @note In the list 'l', the 0th substring corresponds to the entire regex. 
-   @note This function uses the pcre_exec function of the PCRE
+   @note This function uses the pcre2_exec function of the PCRE2
    regex package.
    @warning Substrings added to List l are newly allocated and must be
    freed externally. */
-int str_re_match(String *s, Regex *re, List *l, int nsubexp);
+int str_re_match(String *s, pcre2_compile_context *re, List *l, int nsubexp);
 
 /** Search the specified string for the first instance of the specified
    regex.  
@@ -415,14 +413,14 @@ int str_re_match(String *s, Regex *re, List *l, int nsubexp);
    @param start_offset The first start_offset characters will be ignored.
    @param l (Optional) If non-NULL, it will be populated with substrings corresponding
    to subexpressions, as described under str_re_match.  
-   @note This function uses the pcre_exec function of the PCRE regex package.
+   @note This function uses the pcre2_exec function of the PCRE2 regex package.
    @result Index of first match, -1 if no match exists, or -2 if an
    internal error occurs. 
    @warning Substrings added to List l are newly allocated and must be
    freed externally. 
    @see str_re_match
 */
-int str_re_search(String *s, Regex *re, int start_offset, List *l, 
+int str_re_search(String *s, pcre2_compile_context *re, int start_offset, List *l,
                   int nsubexp);
 
 /** \} */

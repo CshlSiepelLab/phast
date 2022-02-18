@@ -196,7 +196,7 @@ void do_p_values(BDPhyloHmm *bdphmm, GFF_Set *predictions,
   JumpProcess *jp;
   List *types = lst_new_ptr(nnodes * 2), *type_lists = lst_new_ptr(nnodes * 2);
   TreeModel *mod = bdphmm->phmm->mods[0]; /* nonconserved */
-  Regex *id_re = str_re_new(".*id \"([^\"]*)\"");
+  pcre2_compile_context *id_re = str_re_new(".*id \"([^\"]*)\"");
   String *id = str_new(STR_SHORT_LEN);
   List *l = lst_new_ptr(1);
 

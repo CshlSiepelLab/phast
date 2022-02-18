@@ -85,7 +85,7 @@ void pbs_free(PbsCode *code) {
 }
 
 PbsCode *pbs_new_from_file(FILE *F) {
-  Regex *nrows_re = str_re_new("##NROWS[[:space:]]*=[[:space:]]*([0-9]+)"),
+  pcre2_compile_context *nrows_re = str_re_new("##NROWS[[:space:]]*=[[:space:]]*([0-9]+)"),
     *dimension_re = str_re_new("##DIMENSION[[:space:]]*=[[:space:]]*([0-9]+)"),
     *nbytes_re = str_re_new("##NBYTES[[:space:]]*=[[:space:]]*([0-9]+)"),
     *codesize_re = str_re_new("##CODESIZE[[:space:]]*=[[:space:]]*([0-9]+)");

@@ -38,7 +38,7 @@ GFF_Set* gff_read_set(FILE *F) {
   GFF_Feature *feat;
   GFF_Set *set;
   List *l, *substrs;
-  static Regex *spec_comment_re = NULL;
+  static pcre2_compile_context *spec_comment_re = NULL;
 
   line = str_new(STR_LONG_LEN);
   set = gff_new_set();
@@ -267,7 +267,7 @@ GFF_Feature *gff_new_feature_genomic_pos(String *position, String *source,
                                          int score_is_null) {
   GFF_Feature *retval = NULL;
   List *substrs = lst_new_ptr(4);
-  static Regex *posre = NULL;
+  static pcre2_compile_context *posre = NULL;
   if (posre == NULL)
     posre = str_re_new("(chr[_a-zA-Z0-9]+):([0-9]+)-([0-9]+)([-+])?");
 
@@ -667,7 +667,7 @@ void gff_sort_within_groups(GFF_Set *set) {
     undefined values will be placed in a single group. */
 void gff_group(GFF_Set *set, char *tag) {
   char *tmpstr=smalloc((100+strlen(tag))*sizeof(char));
-  Regex *tag_re;
+  pcre2_compile_context *tag_re;
   List *l = lst_new_ptr(1);
   int est_no_groups = max(lst_size(set->features) / 10, 1);
   Hashtable *hash = hsh_new(est_no_groups);

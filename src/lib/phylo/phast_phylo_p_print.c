@@ -749,7 +749,7 @@ void print_feats_generic(FILE *outfile, char *header, GFF_Set *gff,
   String *name;
   va_list ap;
   double *data[ncols+1];
-  Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
+  pcre2_compile_context *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
   List *l = lst_new_ptr(2);
   char **colname;
   List **resultList=NULL;

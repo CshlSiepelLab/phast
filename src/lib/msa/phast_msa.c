@@ -253,7 +253,7 @@ MSA *msa_create_copy(MSA *msa, int suff_stats_only) {
 MSA *msa_read_fasta(FILE *F, char *alphabet) {
   List *names = lst_new_ptr(10);
   List *seqs = lst_new_ptr(10);
-  static Regex *descrip_re = NULL;
+  static pcre2_compile_context *descrip_re = NULL;
   int maxlen, i, nseqs, j, do_toupper, line_no;
   String *line = str_new(STR_MED_LEN);
   List *l = lst_new_ptr(2);
@@ -1921,7 +1921,7 @@ GFF_Set *msa_get_informative_feats(MSA *msa,
 
 /* read and return a single sequence from a FASTA file */
 String *msa_read_seq_fasta(FILE *F) {
-  static Regex *descrip_re = NULL;
+  static pcre2_compile_context *descrip_re = NULL;
   String *line = str_new(STR_MED_LEN);
   String *seq = NULL;
 
@@ -2581,7 +2581,7 @@ msa_format_type msa_format_for_content(FILE *F, int die_if_unknown) {
   msa_format_type retval = UNKNOWN_FORMAT;
   String *line = str_new(STR_MED_LEN);
   List *matches = lst_new_ptr(3);
-  Regex *ss_re, *phylip_re, *fasta_re, *lav_re, *maf_re;  
+  pcre2_compile_context *ss_re, *phylip_re, *fasta_re, *lav_re, *maf_re;
   
   //using peek instead of read as we don't want to affect file/stream position
   str_peek_next_line(line, F);

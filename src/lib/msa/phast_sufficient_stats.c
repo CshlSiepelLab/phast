@@ -649,7 +649,7 @@ void ss_write(MSA *msa, FILE *F, int show_order) {
 /* make reading order optional?  alphabet argument overrides alphabet
    in file (use NULL to use version in file) */
 MSA* ss_read(FILE *F, char *alphabet) {
-  Regex *nseqs_re, *length_re, *tuple_size_re, *ntuples_re, *tuple_re, 
+  pcre2_compile_context *nseqs_re, *length_re, *tuple_size_re, *ntuples_re, *tuple_re,
     *names_re, *alph_re, *ncats_re, *order_re, *offset_re;
   String *line, *alph = NULL;
   int nseqs, length, tuple_size, ntuples, i, ncats = -99, header_done = 0, 

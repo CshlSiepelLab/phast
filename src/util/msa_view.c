@@ -358,7 +358,7 @@ OPTIONS:\n\
 
 void fill_with_Ns(MSA *msa, List *fill_N_list, msa_coord_map *map) {
   int i, j, nseq, nstart, nend;
-  Regex* fill_N_re = str_re_new("([[:digit:]]+):([[:digit:]]+)-([[:digit:]]+)");
+  pcre2_compile_context* fill_N_re = str_re_new("([[:digit:]]+):([[:digit:]]+)-([[:digit:]]+)");
   List *word_list = lst_new_ptr(4);
   for (i = 0; i < lst_size(fill_N_list); i++) {
     String *s = lst_get_ptr(fill_N_list, i);
