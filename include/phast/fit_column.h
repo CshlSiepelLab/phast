@@ -146,6 +146,8 @@ double col_likelihood_wrapper_1d(double x, void *data);
 double col_compute_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
                                   double **scratch);
 
+double col_compute_scaled_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
+		              double **scratch);
 /** Compute and return the likelihood of a tree model with respect
    to a single column tuple in an alignment.
 

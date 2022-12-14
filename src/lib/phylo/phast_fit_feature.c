@@ -25,14 +25,14 @@
    parameters (currently affects 1d parameter estimation only) */
 
 /* Compute and return the log likelihood of a tree model with respect
-   to a given feature.  Calls col_compute_log_likelihood for each
+   to a given feature.  Calls col_compute_scaled_log_likelihood for each
    column */ 
 double ff_compute_log_likelihood(TreeModel *mod, MSA *msa, GFF_Feature *feat,
                                  double **scratch) {
   double retval = 0;
   int i;
   for (i = feat->start-1; i < feat->end; i++) /* offset of one */
-    retval += col_compute_log_likelihood(mod, msa, msa->ss->tuple_idx[i], 
+    retval += col_compute_scaled_log_likelihood(mod, msa, msa->ss->tuple_idx[i], 
                                          scratch);
   return retval;
 }
