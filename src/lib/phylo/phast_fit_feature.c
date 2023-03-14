@@ -33,7 +33,7 @@ double ff_compute_log_likelihood(TreeModel *mod, MSA *msa, GFF_Feature *feat,
   int i;
   for (i = feat->start-1; i < feat->end; i++) /* offset of one */
     retval += col_compute_scaled_log_likelihood(mod, msa, msa->ss->tuple_idx[i], 
-                                         scratch);
+                                                scratch);
   return retval;
 }
 
