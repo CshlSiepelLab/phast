@@ -14,6 +14,7 @@
    perform single-base LRTs, score tests, phyloP, etc. */
 
 #include <stdlib.h>
+#include <float.h>
 #include <phast/fit_column.h>
 #include <phast/sufficient_stats.h>
 #include <phast/tree_likelihoods.h>
@@ -37,7 +38,7 @@
    sufficient stats already available.  Note that this function uses
    natural log rather than log2.  This function does allow for rate
    variation. */
-double col_compute_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
+double col_compute_scaled_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
                                   double **scratch) {
 
   int i, j, k, nodeidx, rcat;
@@ -46,15 +47,17 @@ double col_compute_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
   double total_prob = 0;
   List *traversal = tr_postorder(mod->tree);
   double **pL = NULL;
+  double log_scale = 0;
+  double scaling_threshold = DBL_MIN;
 
   if (msa->ss->tuple_size != 1)
-    die("ERROR col_compute_likelihood: need tuple size 1, got %i\n",
+    die("ERROR col_compute_scaled_log_likelihood: need tuple size 1, got %i\n",
 	msa->ss->tuple_size);
   if (mod->order != 0)
-    die("ERROR col_compute_likelihood: got mod->order of %i, expected 0\n",
+    die("ERROR col_compute_scaled_log_likelihood: got mod->order of %i, expected 0\n",
 	mod->order);
   if (!mod->allow_gaps)
-    die("ERROR col_compute_likelihood: need mod->allow_gaps to be TRUE\n");
+    die("ERROR col_compute_scaled_log_likelihood: need mod->allow_gaps to be TRUE\n");
 
   /* allocate memory or use scratch if avail */
   if (scratch != NULL)
@@ -93,8 +96,14 @@ double col_compute_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
           for (k = 0; k < nstates; k++)
             totr += pL[k][n->rchild->id] *
               mm_get(rsubst_mat, i, k);
-
-          pL[i][n->id] = totl * totr;
+          
+          if (totl * totr < scaling_threshold) {
+            pL[i][n->id] = (totl / scaling_threshold) * totr;
+            log_scale -= log(scaling_threshold);
+          }
+          else {
+            pL[i][n->id] = totl * totr;
+          }
         }
       }
     }
@@ -110,19 +119,8 @@ double col_compute_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
     sfree(pL);
   }
 
-  return(total_prob);
+  return log(total_prob) - log_scale;
 }
-
-
-
-/* See col_compute_likelihood above for notes.
-   Note that this function uses natural log rather than log2
- */
-double col_compute_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
-                                  double **scratch) {
-  return log(col_compute_likelihood(mod, msa, tupleidx, scratch));
-}
-
 
 /* version of col_scale_derivs_subst that allows for the general case
    of complex eigenvalues and eigenvectors */
@@ -298,7 +296,7 @@ void col_scale_derivs_subst(ColFitData *d) {
 
 /* Compute the first and (optionally) second derivatives with respect
    to the scale parameter for the single-column log likelihood
-   function (col_compute_log_likelihood).  This version assumes a
+   function (col_compute_scaled_log_likelihood).  This version assumes a
    single scale parameter; see below for the subtree case.  Return
    value is log likelihood, which is computed as a by-product.  Derivs
    will be stored in *first_deriv and *second_deriv.  If second_deriv
@@ -449,7 +447,7 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
 
 /* Compute the first and (optionally) second derivatives with respect
    to the scale parameters for the single-column log likelihood
-   function (col_compute_log_likelihood).  This version assumes scale
+   function (col_compute_scaled_log_likelihood).  This version assumes scale
    parameters for the whole tree and for the subtree.  Return value is
    log likelihood, which is computed as a by-product.  Derivs will be
    stored in *gradient and *hessian.  If hessian == NULL,
@@ -679,8 +677,8 @@ double col_likelihood_wrapper(Vector *params, void *data) {
   /* reestimate subst models on edges */
   tm_set_subst_matrices(d->mod);
 
-  return -1 * col_compute_log_likelihood(d->mod, d->msa, d->tupleidx,
-                                         d->fels_scratch[0]);
+  return -1 * col_compute_scaled_log_likelihood(d->mod, d->msa, d->tupleidx,
+                                                d->fels_scratch[0]);
 }
 
 /* Wrapper for likelihood function for use in parameter estimation;
@@ -695,8 +693,8 @@ double col_likelihood_wrapper_1d(double x, void *data) {
   /* reestimate subst models on edges */
   tm_set_subst_matrices(d->mod);
 
-  return -1 * col_compute_log_likelihood(d->mod, d->msa, d->tupleidx,
-                                         d->fels_scratch[0]);
+  return -1 * col_compute_scaled_log_likelihood(d->mod, d->msa, d->tupleidx,
+                                                d->fels_scratch[0]);
 }
 
 /* Wrapper for gradient function for use in parameter estimation */
@@ -771,7 +769,7 @@ void col_lrts(TreeModel *mod, MSA *msa, mode_type mode, double *tuple_pvals,
       tm_set_subst_matrices(mod);
 
       /* compute log likelihoods under null and alt hypotheses */
-      null_lnl = col_compute_log_likelihood(mod, msa, i, d->fels_scratch[0]);
+      null_lnl = col_compute_scaled_log_likelihood(mod, msa, i, d->fels_scratch[0]);
 
       vec_set(d->params, 0, d->init_scale);
       d->tupleidx = i;
@@ -1368,16 +1366,16 @@ void col_scale_derivs_num(ColFitData *d, double *first_deriv,
   double orig_scale = d->mod->scale;
   d->mod->scale += (2*DERIV_EPSILON);
   tm_set_subst_matrices(d->mod);
-  lnl1 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx,
-                                    d->fels_scratch[0]);
+  lnl1 = col_compute_scaled_log_likelihood(d->mod, d->msa, d->tupleidx,
+                                           d->fels_scratch[0]);
   d->mod->scale = orig_scale + DERIV_EPSILON;
   tm_set_subst_matrices(d->mod);
-  lnl2 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx,
-                                    d->fels_scratch[0]);
+  lnl2 = col_compute_scaled_log_likelihood(d->mod, d->msa, d->tupleidx,
+                                           d->fels_scratch[0]);
   d->mod->scale = orig_scale;
   tm_set_subst_matrices(d->mod);
-  lnl3 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx,
-                                    d->fels_scratch[0]);
+  lnl3 = col_compute_scaled_log_likelihood(d->mod, d->msa, d->tupleidx,
+                                           d->fels_scratch[0]);
   *first_deriv = (lnl2 - lnl3) / DERIV_EPSILON;
   *second_deriv = (lnl1 - 2*lnl2 + lnl3) / (DERIV_EPSILON * DERIV_EPSILON);
 }
@@ -1391,37 +1389,37 @@ void col_scale_derivs_subtree_num(ColFitData *d, Vector *gradient,
 
   d->mod->scale += (2*DERIV_EPSILON);
   tm_set_subst_matrices(d->mod);
-  lnl00 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx,
-                                    d->fels_scratch[0]);
+  lnl00 = col_compute_scaled_log_likelihood(d->mod, d->msa, d->tupleidx,
+                                            d->fels_scratch[0]);
 
   d->mod->scale = orig_scale + DERIV_EPSILON;
   tm_set_subst_matrices(d->mod);
-  lnl0 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx,
-                                    d->fels_scratch[0]);
+  lnl0 = col_compute_scaled_log_likelihood(d->mod, d->msa, d->tupleidx,
+                                           d->fels_scratch[0]);
 
   d->mod->scale = orig_scale + DERIV_EPSILON;
   d->mod->scale_sub = orig_scale_sub + DERIV_EPSILON;
   tm_set_subst_matrices(d->mod);
-  lnl01 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx,
-                                    d->fels_scratch[0]);
+  lnl01 = col_compute_scaled_log_likelihood(d->mod, d->msa, d->tupleidx,
+                                            d->fels_scratch[0]);
 
   d->mod->scale = orig_scale;
   d->mod->scale_sub = orig_scale_sub + DERIV_EPSILON;
   tm_set_subst_matrices(d->mod);
-  lnl1 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx,
-                                    d->fels_scratch[0]);
+  lnl1 = col_compute_scaled_log_likelihood(d->mod, d->msa, d->tupleidx,
+                                           d->fels_scratch[0]);
 
   d->mod->scale = orig_scale;
   d->mod->scale_sub = orig_scale_sub + (2*DERIV_EPSILON);
   tm_set_subst_matrices(d->mod);
-  lnl11 = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx,
-                                    d->fels_scratch[0]);
+  lnl11 = col_compute_scaled_log_likelihood(d->mod, d->msa, d->tupleidx,
+                                            d->fels_scratch[0]);
 
   d->mod->scale = orig_scale;
   d->mod->scale_sub = orig_scale_sub;
   tm_set_subst_matrices(d->mod);
-  lnl = col_compute_log_likelihood(d->mod, d->msa, d->tupleidx,
-                                    d->fels_scratch[0]);
+  lnl = col_compute_scaled_log_likelihood(d->mod, d->msa, d->tupleidx,
+                                          d->fels_scratch[0]);
 
   gradient->data[0] = (lnl0 - lnl) / DERIV_EPSILON;
   gradient->data[1] = (lnl1 - lnl) / DERIV_EPSILON;

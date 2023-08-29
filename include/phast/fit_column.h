@@ -143,9 +143,8 @@ double col_likelihood_wrapper_1d(double x, void *data);
   @note Uses log rather than log2
 */
 
-double col_compute_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
-                                  double **scratch);
-
+double col_compute_scaled_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
+		                                   double **scratch);
 /** Compute and return the likelihood of a tree model with respect
    to a single column tuple in an alignment.
 
@@ -229,7 +228,7 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
 
 /** Compute the first and (optionally) second derivatives with respect
    to the scale parameters for the single-column log likelihood
-   function (col_compute_log_likelihood).
+   function (col_compute_scaled_log_likelihood).
    @param[in] d Column Data to analyze
    @param[out] gradient gradient from first partial derivative
    @param[out] hessian (optional) second order partial derivative
