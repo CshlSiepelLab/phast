@@ -2,7 +2,7 @@
 # this file defines variables used by all Makefiles
 ###########################################################################
 
-# If the user did not specify a Operating System to target, determine what OS this system is using 
+# If the user did not specify a Operating System to target, determine what OS this system is using
 ifndef TARGETOS
   TARGETOS := $(shell uname -s)
 endif
@@ -25,7 +25,7 @@ ifeq ($(TARGETOS), Windows)
   AR = /usr/bin/i586-mingw32msvc-ar
 else
   ifeq ($(TARGETOS), LSB)
-    CC = lsbcc -fno-stack-protector    
+    CC = lsbcc -fno-stack-protector
   else
     CC = gcc
 #     CC=/home/mt269/hdf5/bin/h5cc
@@ -51,14 +51,14 @@ ifneq ($(TARGETOS), Windows)
  CFLAGS = -O3 -Wall
  # some other options
  #CFLAGS = -mcpu=opteron -O3
- #CFLAGS = -mcpu=pentiumpro -O3 
+ #CFLAGS = -mcpu=pentiumpro -O3
 else
   CFLAGS = -O3
 endif
 
 PHAST_VERSION=\"$(shell cat ${PHAST}/version)\"
 CFLAGS += -I${INC} -DPHAST_VERSION=${PHAST_VERSION} -DPHAST_HOME=\"${PHAST_HOME}\" -I${PHAST}/src/lib/pcre -fno-strict-aliasing
-LIBPATH = -L${LIB} 
+LIBPATH = -L${LIB}
 
 # uncomment these lines for profiling (add -g for line-by-line
 # profiling and -a for monitoring of basic blocks)
@@ -103,14 +103,14 @@ ifndef VECLIB
   #value as in CLAPACK's "make.inc" file
 ifneq ($(TARGETOS), Windows)
   ifndef CLAPACKPATH
-    CHECKFILE = $(shell if [ -d /usr/local/software/clapack ]; then echo "true"; fi) 
+    CHECKFILE = $(shell if [ -d /usr/local/software/clapack ]; then echo "true"; fi)
     ifeq ($(CHECKFILE),true )
       CLAPACKPATH = /usr/local/software/clapack
-    endif 
-  endif 
+    endif
+  endif
     ifndef CLAPACKPATH
       CLAPACKPATH = /usr/local/software/clapack
-    endif 
+    endif
     #Automatically detects PLAT type by looking in CLAPACKPATH for blas*.a and extracts the * part
     PLAT = $(shell find ${CLAPACKPATH}/ -name '*.a' -exec expr match {} '.*blas\(.*\).a' \; | tr -d "\n")
   else
@@ -140,7 +140,7 @@ else
 ifdef CLAPACKPATH
 ifneq ($(TARGETOS), Windows)
   CFLAGS += -I${CLAPACKPATH}/INCLUDE -I${F2CPATH}
-  LIBS = -lphast -llapack -ltmg -lblaswr -lc -lf2c -lm
+  LIBS = -lphast -llapack -ltmglib -lblas -lc -lm -lpcre2-8 $(LDFLAGS)
 else
   CFLAGS += -I${CLAPACKPATH}/INCLUDE -I${F2CPATH} -DPCRE_STATIC
   LIBS = -lphast -lm  ${CLAPACKPATH}/liblapack.a ${CLAPACKPATH}/libf2c.a ${CLAPACKPATH}/libblas.a
@@ -149,7 +149,7 @@ endif
 # older than 3.1.1
 #CFLAGS += -I${CLAPACKPATH} -I${F2CPATH}
 #LIBS = -lphast -llapack -ltmg -lblaswr -lc -lF77 -lI77 -lm
-LIBPATH += -L${F2CPATH} 
+LIBPATH += -L${F2CPATH}
 
 # bypass
 else
@@ -158,7 +158,7 @@ ifneq ($(TARGETOS), Windows)
   LIBS = -lphast -lc -lm
 else
   CFLAGS += -DSKIP_LAPACK -DPCRE_STATIC
-  LIBS = -lphast -lm  
+  LIBS = -lphast -lm
 endif
 endif
 endif

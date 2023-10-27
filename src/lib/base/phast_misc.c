@@ -669,7 +669,7 @@ int draw_index(double *p, int size) {
    character as well as "->" to indicate mapping.  */
 struct hash_table *make_name_hash(char *mapstr) {
   Hashtable *retval = hsh_new(20);
-  Regex *map_re = str_re_new("^[[:space:]]*([A-Za-z0-9_]+)[[:space:]]*(->|=)[[:space:]]*([A-Za-z0-9_]+)[[:space:]]*");
+  pcre2_compile_context *map_re = str_re_new("^[[:space:]]*([A-Za-z0-9_]+)[[:space:]]*(->|=)[[:space:]]*([A-Za-z0-9_]+)[[:space:]]*");
   List *mappings = lst_new_ptr(20), *names = lst_new_ptr(3);
   String *s = str_new_charstr(mapstr);
   int i;

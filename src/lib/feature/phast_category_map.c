@@ -26,11 +26,11 @@ CategoryMap *cm_read(FILE *F) {
   int cat, cat2, lineno, i, cm_read_error;
   CategoryMap *cm = NULL;
   CategoryRange *existing_range;
-  static Regex *cat_range_re = NULL;
-  static Regex *ncats_re = NULL;
-  static Regex *fill_re = NULL;
-  static Regex *label_re = NULL;
-  static Regex *extend_re = NULL;
+  static pcre2_compile_context *cat_range_re = NULL;
+  static pcre2_compile_context *ncats_re = NULL;
+  static pcre2_compile_context *fill_re = NULL;
+  static pcre2_compile_context *label_re = NULL;
+  static pcre2_compile_context *extend_re = NULL;
   int has_dependencies = 0;
 
   line = str_new(STR_SHORT_LEN);

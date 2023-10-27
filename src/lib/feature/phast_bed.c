@@ -140,7 +140,7 @@ void gff_print_bed(FILE *OUTF,  GFF_Set *gff, int use_groups) {
   if (lst_size(gff->features) == 0) return; /* now can assume at least one feature */
 
   if (!use_groups) {
-    Regex *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
+    pcre2_compile_context *tag_val_re = str_re_new("[[:alnum:]_.]+[[:space:]]+(\"[^\"]*\"|[^[:space:]]+)");
     List *l = lst_new_ptr(2);
     int ncols = 4;
 
