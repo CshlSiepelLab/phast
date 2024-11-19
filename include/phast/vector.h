@@ -265,6 +265,8 @@ void vec_normalize(Vector *v);
 void vec_ave(Vector *dest_v, struct lst_struct *source_vs, 
 	     struct lst_struct *counts);
 
+double vec_sum(Vector *v);
+
 /* \} */
 
 #endif
