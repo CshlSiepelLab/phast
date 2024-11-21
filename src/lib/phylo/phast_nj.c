@@ -46,10 +46,10 @@ void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
       }
     }
   }
-
+  
   /* now reset Q */
   for (i = 0; i < maxidx; i++) {
-    if (vec_get(active, i)) {
+    if (vec_get(active, i) == TRUE) {
       for (j = i+1; j < maxidx; j++) {
 	if (vec_get(active, j) == TRUE) {
 	  double qij = (n-2) * mat_get(D, i, j) - vec_get(sums, i) -
@@ -80,7 +80,7 @@ void nj_updateD(Matrix *D, int u, int v, int w, Vector *active, Vector *sums) {
     die("ERROR nj_updateD: indices out of order\n");
 
   mat_set(D, u, w, 0.5 * mat_get(D, u, v) +
-	  1/(2*(n-2)) * (vec_get(sums, u) - vec_get(sums, v)));
+	  1.0/(2.0*(n-2)) * (vec_get(sums, u) - vec_get(sums, v)));
 
   mat_set(D, v, w, mat_get(D, u, v) - mat_get(D, u, w));
     
@@ -140,7 +140,9 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names) {
     /* main loop, over internal nodes w */
     for (w = n; w < N; w++) {   
       nj_resetQ(Q, D, active, sums, &u, &v, w);
+
       nj_updateD(D, u, v, w, active, sums);
+      
       node_w = tr_new_node();
       lst_push_ptr(nodes, node_w);
 
@@ -178,7 +180,7 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names) {
     
     /* finish set up of tree */
     root->nnodes = N+1;
-y    
+    
     lst_free(nodes);
     vec_free(active);
     vec_free(sums);

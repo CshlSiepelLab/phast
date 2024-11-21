@@ -8,5 +8,12 @@ OPTIONS:
     --format, -i FASTA|SS|PHYLIP|MPM|MAF
         Format of first alignment (default is to guess format from file contents).
 
+    --distances, -d <infile.dist>
+        Use distance matrix from <infile.dist>. In this case, alignment.fa
+	will be ignored.
+
+    --out-dists, -o <outfile.dist>
+        Output computed distance matrix to <outfile.dist>.
+
     --help, -h
         Display this help message and exit.
