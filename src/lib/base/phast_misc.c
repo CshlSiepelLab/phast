@@ -495,6 +495,7 @@ double normalize_probs(double *p, int size) {
   int i;
   double sum = 0;
   for (i = 0; i < size; i++) sum += p[i];
+  if(sum == 0) return sum;
   for (i = 0; i < size; i++) p[i] /= sum;  
   return sum;
 }
