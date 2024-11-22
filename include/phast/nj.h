@@ -1,5 +1,4 @@
-/***************************************************************************
- * PHAST: PHylogenetic Analysis with Space/Time models
+/* PHylogenetic Analysis with Space/Time models
  * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
  * University.  All rights reserved.
  *
@@ -29,6 +28,11 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names);
 
 double nj_compute_JC_dist(MSA *msa, int i, int j);
 
-Matrix *nj_compute_JC_matr (MSA *msa);
+Matrix *nj_compute_JC_matr(MSA *msa);
 
+void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval);
+		 
+void nj_points_to_distances(Vector *points, Vector *D);
+
+TreeNode* nj_mvn_sample_tree(Vector *mu, Matrix *sigma, int n, char **names);		 
 #endif
