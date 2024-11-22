@@ -203,3 +203,10 @@ void vec_ave(Vector *dest_v, List *source_vs, List *counts) {
   vec_scale(dest_v, 1/n);
 }
 
+double vec_sum(Vector *v) {
+  double sum=0;
+  int i;
+  for (i=0; i<v->size; i++) 
+    sum += v->data[i];
+  return(sum);
+}

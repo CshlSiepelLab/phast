@@ -1,0 +1,19 @@
+PROGRAM: nj_var
+
+USAGE: nj_var [OPTIONS] alignment.fa > tree.nh
+
+DESCRIPTION: Infer a phylogeny by neighbor-joining or an NJ-based variational approximation. 
+
+OPTIONS:
+    --format, -i FASTA|SS|PHYLIP|MPM|MAF
+        Format of first alignment (default is to guess format from file contents).
+
+    --distances, -d <infile.dist>
+        Use distance matrix from <infile.dist>. In this case, alignment.fa
+	will be ignored.
+
+    --out-dists, -o <outfile.dist>
+        Output computed distance matrix to <outfile.dist>.
+
+    --help, -h
+        Display this help message and exit.
