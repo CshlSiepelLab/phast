@@ -1,5 +1,2 @@
-descrip.                     A         C         G         T       G+C    length  all_gaps some_gaps
 descrip.                      A          C          G          T        G+C     length   all_gaps  some_gaps
-
-hmrc.ss                 0.3258    0.1913    0.1827    0.3001    0.3740     95927         0     82185
 hmrc.ss                 0.3258     0.1913     0.1827     0.3001     0.3740      95927          0      82185
