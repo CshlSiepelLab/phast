@@ -12,7 +12,8 @@
    
    $Id: stringsplus.c,v 1.12 2009-02-19 23:33:48 agd27 Exp $ */
 
-#include <pcre.h>
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include <pcre2.h>
 #include "phast/stringsplus.h"
 #include "phast/misc.h"
 #include <stdlib.h>
@@ -462,47 +463,51 @@ int str_ends_with_charstr(String *s, const char *substr) {
   return (strncmp(&s->chars[s->length - len], substr, len) == 0);
 }
 
-Regex *str_re_new(const char *re_str) {
-  Regex *re;
-  const char *errstr;
-  int erroffset;
+pcre2_code *str_re_new(const unsigned char *re_str) {
+  pcre2_code *re;
+  int errorcode;
+  PCRE2_SIZE erroffset;
 
-  re = pcre_compile(re_str, 0, &errstr, &erroffset, NULL);
+  re = pcre2_compile(re_str, PCRE2_ZERO_TERMINATED, 0, &errorcode, &erroffset, NULL);
   if (re == NULL) {
-    die("ERROR: cannot compile regular expression '%s' (%d): %s\n",
-	re_str, erroffset, errstr);
+    die("ERROR: cannot compile regular expression '%s' (%d): %d\n",
+	re_str, erroffset, errorcode);
   }
   return re;
 }
 
 
-//NOTE Regex are allocated by pcre; do not use sfree
-void str_re_free(Regex *re) {
+//NOTE Regex are allocated by pcre2; do not use sfree
+void str_re_free(pcre2_compile_context *re) {
   if (re != NULL)
     free(re);
 }
 
 
 #define OVECCOUNT 300
-int str_re_match_sub(String *s, Regex *re, List *l, int offset, int nsubexp, 
+int str_re_match_sub(String *s, pcre2_code *re, List *l, int offset, int nsubexp,
 		     int *first_match) {
-  int i, len, rc, ovector[OVECCOUNT], rv;
+  int i, len, rc, rv;
+  PCRE2_SIZE *ovector;
+
   String *substr;
+  pcre2_match_data *match_data = pcre2_match_data_create(OVECCOUNT, NULL);
 
   /* WARNING: lst_clear DOES NOT free memory associated with the contents,
      so must free substrings from previous calls if these are no longer being
      used or there will be a memory leak! */
   if (l != NULL) lst_clear(l);
 
-  rc = pcre_exec(re, NULL, s->chars, s->length, offset, 0, ovector, OVECCOUNT);
-  if (rc == PCRE_ERROR_NOMATCH) return -1;
+  rc = pcre2_match(re, s->chars, s->length, offset, 0, match_data, NULL);
+  if (rc == PCRE2_ERROR_NOMATCH) return -1;
   if (rc < 0) return -2;  //any other error
   if (first_match != NULL) (*first_match) = ovector[0];
+  ovector = pcre2_get_ovector_pointer(match_data);
   rv = ovector[1]-ovector[0];
   if (rc >= 0 && l != NULL) {
     if (rc == 0) {
       printf("nsubexp=%i rc=%i\n", nsubexp, rc);
-      fprintf(stderr, "Warning: pcre_exec only has room for %d captured substrings.  May need to increase OVECCOUNT and re-compile\n", OVECCOUNT/3);
+      fprintf(stderr, "Warning: pcre2_exec only has room for %d captured substrings.  May need to increase OVECCOUNT and re-compile\n", OVECCOUNT/3);
       rc = OVECCOUNT/3;
     }
     for (i = 0; i < rc && i <= nsubexp; i++) {
@@ -523,11 +528,11 @@ int str_re_match_sub(String *s, Regex *re, List *l, int offset, int nsubexp,
 }
 
 
-int str_re_match(String *s, Regex *re, List *l, int nsubexp) {
+int str_re_match(String *s, pcre2_compile_context *re, List *l, int nsubexp) {
   return str_re_match_sub(s, re, l, 0, nsubexp, NULL);
 }
 
-int str_re_search(String *s, Regex *re, int start_offset, List *l,
+int str_re_search(String *s, pcre2_compile_context *re, int start_offset, List *l,
 		  int nsubexp) {
   int first_match_idx, rc;
   rc = str_re_match_sub(s, re, l, start_offset, nsubexp, &first_match_idx);

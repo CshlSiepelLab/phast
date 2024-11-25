@@ -137,8 +137,8 @@ List *pwm_read(const char *filename) {
   List *l = lst_new_ptr(3);
   List *probabilitiesStr = lst_new_ptr(4);
   List *probabilitiesDbl;
-  Regex *pssm_re = NULL;
-  Regex *motif_name_re = NULL;
+  pcre2_compile_context *pssm_re = NULL;
+  pcre2_compile_context *motif_name_re = NULL;
   int alphabetLength;
 
   result = lst_new_ptr(1);
@@ -215,7 +215,7 @@ int ms_alph_has_lowercase(MS *ms) {
 MS *ms_read(const char *filename, const char *alphabet) {
   List *names = lst_new_ptr(10);
   List *seqs = lst_new_ptr(10);
-  static Regex *descrip_re = NULL;
+  static pcre2_compile_context *descrip_re = NULL;
   int i, nseqs, j, do_toupper, line_no;
   String *line = str_new(STR_MED_LEN);
   List *l = lst_new_ptr(2);

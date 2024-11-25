@@ -47,7 +47,7 @@ LocalPwAlignment *la_read_lav(FILE *F, int read_seqs) {
   int line_no=0;
   LocalPwAlignment *lpwa = la_new();
   List *fields = lst_new_ptr(6);
-  Regex *stanza_start_re = str_re_new("^([dshaxm])[[:space:]]*{");
+  pcre2_compile_context *stanza_start_re = str_re_new("^([dshaxm])[[:space:]]*{");
   AlignmentBlock *aln_block = NULL;
   char stanza_type = '\0';
   int i;
