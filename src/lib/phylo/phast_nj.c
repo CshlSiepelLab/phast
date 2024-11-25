@@ -15,6 +15,8 @@
 #include "phast/misc.h"
 #include "phast/stringsplus.h"
 #include "phast/nj.h"
+/* #include <gsl.h>*/
+#include <gsl/gsl_randist.h>
 
 /* Reset Q matrix based on distance matrix.  Assume upper triangular
    square Q and D.  Only touches active rows and columns of Q and D up
@@ -214,7 +216,7 @@ double nj_compute_JC_dist(MSA *msa, int i, int j) {
 
 /* based on a multiple alignment, build and return a distance matrix
    using the Jukes-Cantor model.  Assume DNA alphabet */
-Matrix *nj_compute_JC_matr (MSA *msa) {
+Matrix *nj_compute_JC_matr(MSA *msa) {
   int i, j;
   Matrix *retval = mat_new(msa->nseqs, msa->nseqs);
 
@@ -227,3 +229,122 @@ Matrix *nj_compute_JC_matr (MSA *msa) {
 
   return retval;  
 }
+
+
+/* sample a vector from a multivariate normal distribution with the
+   given mean vector and covariance matrix. Uses the GSL under the hood */
+void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval) {
+  gsl_vector *gsl_mu = gsl_vector_alloc(mu->size);
+  gsl_matrix *gsl_sigma = gsl_matrix_alloc(sigma->nrow, sigma->ncol);
+  static gsl_rng *r = NULL;
+  int i, j;
+
+  if (r == NULL) 
+    r = gsl_rng_alloc(gsl_rng_taus);
+  
+  /* convert to gsl objects */
+  for (i = 0; i < mu->size; i++)
+    gsl_vec_set(gsl_mu, i, vec_get(mu, i));
+  for (i = 0; i < sigma->nrow; i++)
+    for (j = 0; j < sigma->ncol; j++)
+      gsl_mat_set(gsl_sigma, i, j, mat_get(sigma, i, j));
+ 
+  gsl_linalg_cholesky_decomp1(gsl_sigma);
+  gsl_ran_multivariate_gaussian(r, gsl_mu, gsl_sigma, gsl_retval);
+
+  /* copy result back to phast vector */
+  for (i = 0; i < mu->size; i++)
+    vec_set(retval, i, gsl_vector_get(gsl_retval, i));
+
+  gsl_vector_free(gsl_mu);
+  gsl_matrix_free(gsl_sigma);
+}
+
+/* convert an nd-dimensional vector to an nxn upper triangular
+   distance matrix.  Assumes each taxon is represented as a point in
+   d-dimensional space and computes Euclidean distances between these
+   points */ 
+void nj_points_to_distances(Vector *points, Vector *D) {
+  int i, j, k, vidx1, vidx2, n, d;
+  double sum;
+
+  n = D->nrow;
+  d = points->size / n;
+  
+  if (points->size != n*d || D->nrow != D->ncol) {
+    die("ERROR nj_points_to_distances: bad dimensions\n");
+  }
+
+  mat_zero(D);
+  for (i = 0; i < n; i++) {
+    vidx1 = i*d;
+    for (j = i+1; j < n; j++) {
+      vidx2 = j*d;
+      sum = 0;
+      for (k = 0; k < d; k++) {
+	sum += pow(vec_get(points, vidx1 + k) - vec_get(points, vidx2 + k), 2);
+      }
+      mat_set(D, vidx1, vidx2, sqrt(sum));
+    }
+  }
+}
+
+/* sample a tree from a multivariate normal averaging distribution
+   with the given mean vector and covariance matrix.  Each taxon is
+   represented as a point in a d-dimensional, distances are assumed to
+   be Euclidean, and tree is computed by neighbor-joining */
+TreeNode* nj_mvn_sample_tree(Vector *mu, Matrix *sigma, int n, char **names) {
+  int d = mu->size / n;
+  TreeNode *tree;
+  Matrix *D;
+  Vector *points;
+
+  if (mu->size != n*d || sigma->nrow != mu->size || sigma->ncol != mu->size)
+    die("ERROR nj_mvn-sample_tree: bad dimensions\n");
+
+  points = vec_new(mu->size);
+  D = mat_new(n, n);
+  
+  nj_sample_mvn(mu, sigma, points);
+  nj_points_to_distances(points, D);
+  tree = nj_infer_tree(D, names);
+  
+  vec_free(points);
+  mat_free(D);
+
+  return(tree); 
+}
+
+/* compute the gradient of the log likelihood for a tree model with
+   respect to the free parameters for the MVN averaging distribution.
+   This version uses numerical methods */
+
+/*
+take a tree model as input (?)    [try to reuse if possible]
+also take alignment
+  
+loop through params
+perturb each param by small epsilon
+call sample tree
+replace tree in model
+recalculate likelihood
+calculate derivative and put in return vector
+
+  be careful about other parts of tree model; maybe instantiate new one each time?
+*/
+
+
+/* optimize variational model by gradient ascent.  Takes initial tree model and alignment and distance matrix, dimensionality of Euclidean space to work in */
+
+/*
+  create starting values of mu from distances.  can do from gram matrix but requires more code.  for now just initialize randomly.  better test anyway
+
+
+  iterate until (approximate) convergence
+  inner loop: iterate over minibatch of MVN samples
+  for each sample:
+  sample tree, build tree model, compute gradient wrt free parameters [above]
+  add sparsity penalty based on current draw
+  average all of those values for the minibatch and update parameters at given learning rate
+  report parameter values to a log file
+*/
