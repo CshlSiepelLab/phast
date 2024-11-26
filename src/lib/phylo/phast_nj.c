@@ -282,7 +282,8 @@ void nj_points_to_distances(Vector *points, Vector *D) {
       vidx2 = j*d;
       sum = 0;
       for (k = 0; k < d; k++) {
-	sum += pow(vec_get(points, vidx1 + k) - vec_get(points, vidx2 + k), 2);
+        sum += pow(vec_get(points, vidx1 + k) -
+                   vec_get(points, vidx2 + k), 2);
       }
       mat_set(D, vidx1, vidx2, sqrt(sum));
     }
@@ -299,7 +300,7 @@ TreeNode* nj_mvn_sample_tree(Vector *mu, Matrix *sigma, int n, char **names) {
   Matrix *D;
   Vector *points;
 
-  if (mu->size != n*d || sigma->nrow != mu->size || sigma->ncol != mu->size)
+  if (mu->size != n*d || sigma->nrow != n || sigma->ncol != n)
     die("ERROR nj_mvn-sample_tree: bad dimensions\n");
 
   points = vec_new(mu->size);
@@ -316,8 +317,61 @@ TreeNode* nj_mvn_sample_tree(Vector *mu, Matrix *sigma, int n, char **names) {
 }
 
 /* compute the gradient of the log likelihood for a tree model with
-   respect to the free parameters for the MVN averaging distribution.
-   This version uses numerical methods */
+   respect to the free parameters of the MVN averaging distribution,
+   starting from a given MVN sample (points).  This version uses
+   numerical methods */
+void nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
+                           Vector *points, Vector *grad) {
+  int n = MSA->nseqs;
+  int d = mu->size / n;
+  int i, k;
+  double porig, ll_base, ll;
+  
+  if (mu->size != n*d || sigma->nrow != n || sigma->ncol != n || grad->size != mu->size)
+    die("ERROR in nj_compute_model_grad: bad parameters\n");
+
+  /* set up tree model and get baseline log likelihood */
+  /* FIXME: can we pass some of this in and avoid one call? */
+  nj_points_to_distances(points, D);
+  tree = nj_infer_tree(D, names);
+  tr_free(mod->tree);   /* FIXME: where first allocated? */
+  mod->tree = tree;
+  tm_set_subst_matrices(mod);
+  ll_base = tl_compute_log_likelihood(mod, msa, NULL, NULL, -1, NULL);
+
+  /* Perturb each point and propagate
+     perturbation through distance calculation, neighbor-joining
+     reconstruction, and likelihood calculation on tree */
+ 
+  for (i = 0; i < n; i++) {
+  for (k = 0; k < d; k++) {
+  porig = vec_get(points, i*d + k);
+  vec_set(points, i*d + k, porig + DERIV_EPS);
+  nj_points_to_distances(points, D);
+  tree = nj_infer_tree(D, names);
+
+  tr_free(mod->tree);   /* FIXME */
+  mod->tree = tree;
+  tm_set_subst_matrices(mod);  
+  ll = tl_compute_log_likelihood(mod, msa, NULL, NULL, -1, NULL);
+
+  deriv = (ll - ll_base) / DERIV_EPS; /* CHECK */
+
+  /* the partial derivative wrt the mean parameter is equal to the
+     derivative with respect to the point, because the mean is just a
+     translation of a 0-mean MVN variable via the reparameterization
+     trick */
+  vec_set(grad, i*d + k, deriv);
+
+  /* the partial derivative wrt the variance parameter, however, has an additional factor */
+  vorig = vec_get(sigma, i*d + k);
+  vec_set(grad, i*d + k + n, deriv * 0.5 * sqrt(vorig));
+  /* FIXME: need an additional factor here equal to the original standardized
+     random variate sampled; pass in or recompute? */
+}
+}
+}  
+
 
 /*
 take a tree model as input (?)    [try to reuse if possible]

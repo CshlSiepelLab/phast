@@ -19,6 +19,8 @@
 #include <phast/msa.h>
 #include <phast/trees.h>
 
+#define DERIV_EPS 1e-6
+
 void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
 	       int *v, int maxidx);
 
