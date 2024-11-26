@@ -15,8 +15,7 @@
 #include "phast/misc.h"
 #include "phast/stringsplus.h"
 #include "phast/nj.h"
-/* #include <gsl.h>*/
-#include <gsl/gsl_randist.h>
+#include "phast/tree_likelihoods.h"
 
 /* Reset Q matrix based on distance matrix.  Assume upper triangular
    square Q and D.  Only touches active rows and columns of Q and D up
@@ -233,7 +232,8 @@ Matrix *nj_compute_JC_matr(MSA *msa) {
 
 /* sample a vector from a multivariate normal distribution with the
    given mean vector and covariance matrix. Uses the GSL under the hood */
-void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval) {
+/*
+  void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval) {
   gsl_vector *gsl_mu = gsl_vector_alloc(mu->size);
   gsl_matrix *gsl_sigma = gsl_matrix_alloc(sigma->nrow, sigma->ncol);
   static gsl_rng *r = NULL;
@@ -242,7 +242,6 @@ void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval) {
   if (r == NULL) 
     r = gsl_rng_alloc(gsl_rng_taus);
   
-  /* convert to gsl objects */
   for (i = 0; i < mu->size; i++)
     gsl_vec_set(gsl_mu, i, vec_get(mu, i));
   for (i = 0; i < sigma->nrow; i++)
@@ -252,26 +251,50 @@ void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval) {
   gsl_linalg_cholesky_decomp1(gsl_sigma);
   gsl_ran_multivariate_gaussian(r, gsl_mu, gsl_sigma, gsl_retval);
 
-  /* copy result back to phast vector */
   for (i = 0; i < mu->size; i++)
     vec_set(retval, i, gsl_vector_get(gsl_retval, i));
 
   gsl_vector_free(gsl_mu);
   gsl_matrix_free(gsl_sigma);
 }
+*/
 
+/* sample a vector from a standard multivariate normal distribution,
+   with zero mean and identity covariance.  */
+void nj_sample_std_mvn(Vector *retval) {
+  int i;
+  static int seeded = 0;
+  double u1, u2, z1, z2;
+  
+  if (!seeded) {
+    srandom((unsigned int)time(NULL));
+    seeded = 1;
+  }
+
+  /* draw indep samples from standard normal using Box-Muller transform */
+  for (i = 0; i < retval->size; i += 2) {
+    u1 = unif_rand();
+    u2 = unif_rand();
+    z1 = sqrt(-2 * log(u1)) * cos(2 * M_PI * u2);
+    z2 = sqrt(-2 * log(u1)) * sin(2 * M_PI * u2);
+    vec_set(retval, i, z1);
+    if (i+1 < retval->size)
+      vec_set(retval, i+1, z2);
+  }  
+}
+  
 /* convert an nd-dimensional vector to an nxn upper triangular
    distance matrix.  Assumes each taxon is represented as a point in
    d-dimensional space and computes Euclidean distances between these
    points */ 
-void nj_points_to_distances(Vector *points, Vector *D) {
+void nj_points_to_distances(Vector *points, Matrix *D) {
   int i, j, k, vidx1, vidx2, n, d;
   double sum;
 
-  n = D->nrow;
+  n = D->nrows;
   d = points->size / n;
   
-  if (points->size != n*d || D->nrow != D->ncol) {
+  if (points->size != n*d || D->nrows != D->ncols) {
     die("ERROR nj_points_to_distances: bad dimensions\n");
   }
 
@@ -294,6 +317,7 @@ void nj_points_to_distances(Vector *points, Vector *D) {
    with the given mean vector and covariance matrix.  Each taxon is
    represented as a point in a d-dimensional, distances are assumed to
    be Euclidean, and tree is computed by neighbor-joining */
+/*
 TreeNode* nj_mvn_sample_tree(Vector *mu, Matrix *sigma, int n, char **names) {
   int d = mu->size / n;
   TreeNode *tree;
@@ -315,6 +339,7 @@ TreeNode* nj_mvn_sample_tree(Vector *mu, Matrix *sigma, int n, char **names) {
 
   return(tree); 
 }
+*/
 
 /* compute the gradient of the log likelihood for a tree model with
    respect to the free parameters of the MVN averaging distribution,
@@ -322,18 +347,21 @@ TreeNode* nj_mvn_sample_tree(Vector *mu, Matrix *sigma, int n, char **names) {
    numerical methods */
 void nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
                            Vector *points, Vector *grad) {
-  int n = MSA->nseqs;
+  int n = msa->nseqs;
   int d = mu->size / n;
   int i, k;
-  double porig, ll_base, ll;
+  double porig, ll_base, ll, deriv, vorig;
+  TreeNode *tree;
+  Matrix *D = mat_new(n, n);
   
-  if (mu->size != n*d || sigma->nrow != n || sigma->ncol != n || grad->size != mu->size)
+  if (mu->size != n*d || sigma->nrows != n || sigma->ncols != n ||
+      grad->size != mu->size)
     die("ERROR in nj_compute_model_grad: bad parameters\n");
 
   /* set up tree model and get baseline log likelihood */
   /* FIXME: can we pass some of this in and avoid one call? */
   nj_points_to_distances(points, D);
-  tree = nj_infer_tree(D, names);
+  tree = nj_infer_tree(D, msa->names);
   tr_free(mod->tree);   /* FIXME: where first allocated? */
   mod->tree = tree;
   tm_set_subst_matrices(mod);
@@ -344,32 +372,34 @@ void nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
      reconstruction, and likelihood calculation on tree */
  
   for (i = 0; i < n; i++) {
-  for (k = 0; k < d; k++) {
-  porig = vec_get(points, i*d + k);
-  vec_set(points, i*d + k, porig + DERIV_EPS);
-  nj_points_to_distances(points, D);
-  tree = nj_infer_tree(D, names);
+    for (k = 0; k < d; k++) {
+      porig = vec_get(points, i*d + k);
+      vec_set(points, i*d + k, porig + DERIV_EPS);
+      nj_points_to_distances(points, D);
+      tree = nj_infer_tree(D, msa->names);
 
-  tr_free(mod->tree);   /* FIXME */
-  mod->tree = tree;
-  tm_set_subst_matrices(mod);  
-  ll = tl_compute_log_likelihood(mod, msa, NULL, NULL, -1, NULL);
+      tr_free(mod->tree);   /* FIXME */
+      mod->tree = tree;
+      tm_set_subst_matrices(mod);  
+      ll = tl_compute_log_likelihood(mod, msa, NULL, NULL, -1, NULL);
+      
+      deriv = (ll - ll_base) / DERIV_EPS; /* CHECK */
 
-  deriv = (ll - ll_base) / DERIV_EPS; /* CHECK */
+      /* the partial derivative wrt the mean parameter is equal to the
+	 derivative with respect to the point, because the mean is just a
+	 translation of a 0-mean MVN variable via the reparameterization
+	 trick */
+      vec_set(grad, i*d + k, deriv);
 
-  /* the partial derivative wrt the mean parameter is equal to the
-     derivative with respect to the point, because the mean is just a
-     translation of a 0-mean MVN variable via the reparameterization
-     trick */
-  vec_set(grad, i*d + k, deriv);
-
-  /* the partial derivative wrt the variance parameter, however, has an additional factor */
-  vorig = vec_get(sigma, i*d + k);
-  vec_set(grad, i*d + k + n, deriv * 0.5 * sqrt(vorig));
-  /* FIXME: need an additional factor here equal to the original standardized
-     random variate sampled; pass in or recompute? */
-}
-}
+      /* the partial derivative wrt the variance parameter, however,
+	 has an additional factor */
+      vorig = mat_get(sigma, i*d + k, i*d + k);
+      vec_set(grad, i*d + k + n, deriv * 0.5 * sqrt(vorig));
+      /* FIXME: need an additional factor here equal to the original
+	 standardized random variate sampled; pass in or recompute? */
+    }
+  }
+  mat_free(D);
 }  
 
 
