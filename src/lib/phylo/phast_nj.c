@@ -282,7 +282,22 @@ void nj_sample_std_mvn(Vector *retval) {
       vec_set(retval, i+1, z2);
   }  
 }
+
+/* sample a vector from a multivariate normal distribution with mean mu and covariance sigma. */
+/* FIXME: for now this assumes diagonal sigma */
+void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval) {
+  int i;
   
+  if (mu->size != sigma->nrows || mu->size != sigma->ncols || retval->size != mu->size)
+    die("ERROR in nj_sample_mvn: bad dimension\n");
+  
+  nj_sample_std_mvn(retval);
+  for (i = 0; i < retval->size; i++) {
+    double v = vec_get(mu, i) + sqrt(mat_get(sigma, i, i)) * vec_get(retval, i);
+    vec_set(retval, i, v);
+  }
+}
+
 /* convert an nd-dimensional vector to an nxn upper triangular
    distance matrix.  Assumes each taxon is represented as a point in
    d-dimensional space and computes Euclidean distances between these
@@ -313,46 +328,18 @@ void nj_points_to_distances(Vector *points, Matrix *D) {
   }
 }
 
-/* sample a tree from a multivariate normal averaging distribution
-   with the given mean vector and covariance matrix.  Each taxon is
-   represented as a point in a d-dimensional, distances are assumed to
-   be Euclidean, and tree is computed by neighbor-joining */
-/*
-TreeNode* nj_mvn_sample_tree(Vector *mu, Matrix *sigma, int n, char **names) {
-  int d = mu->size / n;
-  TreeNode *tree;
-  Matrix *D;
-  Vector *points;
-
-  if (mu->size != n*d || sigma->nrow != n || sigma->ncol != n)
-    die("ERROR nj_mvn-sample_tree: bad dimensions\n");
-
-  points = vec_new(mu->size);
-  D = mat_new(n, n);
-  
-  nj_sample_mvn(mu, sigma, points);
-  nj_points_to_distances(points, D);
-  tree = nj_infer_tree(D, names);
-  
-  vec_free(points);
-  mat_free(D);
-
-  return(tree); 
-}
-*/
-
 /* compute the gradient of the log likelihood for a tree model with
    respect to the free parameters of the MVN averaging distribution,
-   starting from a given MVN sample (points).  This version uses
-   numerical methods */
-void nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
-                           Vector *points, Vector *grad) {
+   starting from a given MVN sample (points). Returns log likelihood
+   of current model, which is computed as a by-product.  This version
+   uses numerical methods */
+double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
+                           Vector *points, Vector *grad, Matrix *D) {
   int n = msa->nseqs;
   int d = mu->size / n;
   int i, k;
-  double porig, ll_base, ll, deriv, vorig;
+  double porig, ll_base, ll, deriv, vorig, stdrv;
   TreeNode *tree;
-  Matrix *D = mat_new(n, n);
   
   if (mu->size != n*d || sigma->nrows != n || sigma->ncols != n ||
       grad->size != mu->size)
@@ -367,9 +354,9 @@ void nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
   tm_set_subst_matrices(mod);
   ll_base = tl_compute_log_likelihood(mod, msa, NULL, NULL, -1, NULL);
 
-  /* Perturb each point and propagate
-     perturbation through distance calculation, neighbor-joining
-     reconstruction, and likelihood calculation on tree */
+  /* Perturb each point and propagate perturbation through distance
+     calculation, neighbor-joining reconstruction, and likelihood
+     calculation on tree */
  
   for (i = 0; i < n; i++) {
     for (k = 0; k < d; k++) {
@@ -393,42 +380,77 @@ void nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
 
       /* the partial derivative wrt the variance parameter, however,
 	 has an additional factor */
+
       vorig = mat_get(sigma, i*d + k, i*d + k);
-      vec_set(grad, i*d + k + n, deriv * 0.5 * sqrt(vorig));
-      /* FIXME: need an additional factor here equal to the original
-	 standardized random variate sampled; pass in or recompute? */
+      stdrv = (vorig - vec_get(mu, i*d + k)) / sqrt(mat_get(sigma, i*d + k, i*d + k));  
+      vec_set(grad, i*d + k + n, deriv * 0.5 * sqrt(vorig) * stdrv);
+      /* CHECK: need a factor here equal to the original
+	 standardized random variate sampled; have I recomputed correctly? */
     }
   }
-  mat_free(D);
+  return ll_base;
 }  
 
 
-/*
-take a tree model as input (?)    [try to reuse if possible]
-also take alignment
+/* optimize variational model by stochastic gradient ascent.  Takes
+   initial tree model and alignment and distance matrix,
+   dimensionality of Euclidean space to work in.  Note: alters
+   distance matrix */
+
+void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, int dim, int nminibatch, double learnrate) {
+
+  Vector *mu, *points, *grad, *avegrad;
+  Matrix *sigma;
+  int n = msa->nseqs, i, stop = FALSE;
+  double ll;
   
-loop through params
-perturb each param by small epsilon
-call sample tree
-replace tree in model
-recalculate likelihood
-calculate derivative and put in return vector
+  mu = vec_new(n*dim);
+  sigma = mat_new(n*dim, n*dim);
+  points = vec_new(n*dim);
+  grad = vec_new(n*dim*2);
+  avegrad = vec_new(n*dim*2);
+  
+  /* create starting values of mu from distances.  can do from gram
+     matrix but requires more code.  for now just initialize
+     randomly. */
+  nj_sample_std_mvn(mu);
+  mat_set_identity(sigma);
 
-  be careful about other parts of tree model; maybe instantiate new one each time?
-*/
+  do {
+    for (i = 0; i < nminibatch; i++) {
+      /* sample points from MVN averaging distribution */
+      nj_sample_mvn(mu, sigma, points);
+      
+      /* compute likelihood and gradient */
+      ll = nj_compute_model_grad(mod, mu, sigma, msa, points, grad, D);
+
+      /* add gradient to running total */
+      vec_plus_eq(avegrad, grad);
+      
+      /* add terms from entropy */
+    }
+
+    /* divide by nminibatch to get expected gradient */
+    vec_scale(avegrad, 1.0/nminibatch);
+    
+    /* FIXME report parameter values to a log file */
+
+    /* update mu and sigma based on gradient and current learning rate */
+    for (i = 0; i < n*dim; i++) {
+      vec_set(mu, i, vec_get(mu, i) + learnrate * vec_get(avegrad, i));
+      mat_set(sigma, i, i, mat_get(sigma, i, i) + learnrate * vec_get(avegrad, i + n*dim));
+    }
+    
+    /* FIXME: what are stopping criteria? */    
+
+  } while(!stop);
+    
+
+  vec_free(grad);
+  vec_free(avegrad);
+  vec_free(points);
+  vec_free(mu);
+  mat_free(sigma);
+}
 
 
-/* optimize variational model by gradient ascent.  Takes initial tree model and alignment and distance matrix, dimensionality of Euclidean space to work in */
-
-/*
-  create starting values of mu from distances.  can do from gram matrix but requires more code.  for now just initialize randomly.  better test anyway
-
-
-  iterate until (approximate) convergence
-  inner loop: iterate over minibatch of MVN samples
-  for each sample:
-  sample tree, build tree model, compute gradient wrt free parameters [above]
-  add sparsity penalty based on current draw
-  average all of those values for the minibatch and update parameters at given learning rate
-  report parameter values to a log file
-*/

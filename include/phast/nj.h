@@ -37,11 +37,16 @@ Matrix *nj_compute_JC_matr(MSA *msa);
 
 void nj_sample_std_mvn(Vector *retval);
 
+void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval);
+
 void nj_points_to_distances(Vector *points, Matrix *D);
 
 /* TreeNode* nj_mvn_sample_tree(Vector *mu, Matrix *sigma, int n, char **names); */
 
-void nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
-                           Vector *points, Vector *grad);
+double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
+			     Vector *points, Vector *grad, Matrix *D);
+
+void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, int dim,
+			int nminibatch, double learnrate);
 
 #endif
