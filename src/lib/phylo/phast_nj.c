@@ -562,3 +562,107 @@ void nj_reset_tree_model(TreeModel *mod, TreeNode *newtree) {
      matrices to be recomputed */
   tm_set_subst_matrices(mod);
 }
+
+/* FIXME: create a struct that contains the index and a pointer to the eval vector */
+   
+/* comparison function for sorting by eigenvalues (below) */
+/** Structure representing complex number */
+typedef struct {
+  int idx;
+  Vector *evals;		       
+} Evidx;
+
+int nj_eigen_compare_desc(const void* ptr1, const void* ptr2) {
+  Evidx *idx1 = (Evidx*)ptr1;
+  Evidx *idx2 = (Evidx*)ptr2;
+  double eval1 = vec_get(idx1->evals, idx1->idx);
+  double eval2 = vec_get(idx2->evals, idx2->idx);
+  return (eval2 - eval1);
+}
+
+/* generate an approximate set of points from a distance matrix, for
+   use in initializing the variational inference algorithm.  */
+Vector *nj_estimate_points_from_distances(Matrix *D, int dim) {
+  int n = D->nrows;
+  Matrix *Dsq, *G, *revec_real;
+  Zvector *eval;
+  Zmatrix *revec, *levec;
+  Vector *eval_real, *points;
+  int i, j, d;
+
+  /* FIXME: assume real eigenvalues?  test? */
+  
+  if (D->nrows != D->ncols)
+    die("ERROR in nj_estimate_points_from_distances: bad dimensions\n");
+
+  /* build matrix of squared distances; note that D is upper
+     triangular but Dsq must be symmetric */
+  Dsq = mat_new(n, n);
+  for (i = 0; i < n; i++) {
+    mat_set(Dsq, i, i, 0);
+    for (j = i; j < n; j++) {
+      d2 = mat_get(D, i, j) * mat_get(D, i, j);
+      mat_set(Dsq, i, j, d2);
+      mat_set(Dsq, j, i, d2);
+    }
+  }
+
+  /* build gram matrix */
+  G = mat_new(n, n);
+  for (i = 0; i < n; i++)
+    for (j = 0; j < n; j++)
+      mat_set(G, i, j, mat_get(Dsq, i, 1) + mat_get(Dsq, 1, j) -
+	      mat_get(Dsq, i, j));
+
+  /* find eigendecomposition of G */
+  eval = zvec_new(n);
+  revec = zmat_new(n, n);
+  levec = zmat_new(n, n);
+  mat_diagonalize(G, eval, revec, levec);
+
+  /* convert eigenvalues and right eigenvectors to real numbers; will
+     fail if they have imaginary component but they should not because
+     G is symmetric by construction */
+  eval_real = vec_new(n);
+  revect_real = mat_new(n, n);
+  zvec_as_real(eval_real, eval, TRUE);
+  zmat_as_real(revec);
+  
+  /* sort indices by corresponding eigenvalues from largest to smallest */
+  eiglst = lst_new_ptr(n);
+  for (i = 0; i < n; i++) {
+    Evidx *obj = malloc(sizeof(Evidx));
+    obj->idx = i;
+    obj->evals = eval_real;
+    lst_set_ptr(eiglst, i, obj);
+  }
+  lst_qsort(eiglst, nj_eigen_compare_desc);
+
+  /* FIXME: what to do with zero eigenvalues?  random numbers? */
+  
+  /* create a vector of points based on the first 'dim' eigenvalues */
+  points = vec_new(n * dim);
+  for (d = 0; d < dim; d++) {
+    Evidx *obj = lst_get_ptr(eiglst, d);
+    double evalsqrt = sqrt(vec_get(eval_real, obj->idx));
+
+    /* product of evalsqrt and corresponding column of revec will define
+       the dth component of each point */ 
+    for (i = 0; i < n; i++)
+      vec_set(points, i*dim + d, evalsqrt * mat_get(revec_real, i, evalidx));
+  }  
+
+  for (i = 0; i < n; i++)
+    free((Evidx*)lst_get_ptr(eiglst, i));
+  lst_free(eiglst);
+  
+  mat_free(Dsq);
+  mat_free(G);
+  zvec_free(eval);
+  zmat_free(revec);
+  zmat_free(levec);
+  vec_free(eval_real);
+  mat_free(revec_real);
+  
+  return points;
+}
