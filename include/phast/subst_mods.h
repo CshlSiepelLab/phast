@@ -139,6 +139,8 @@ void tm_rate_params_init_from_model(struct tm_struct *mod, Vector *params,
  /** \} \name Set rate matrix 
 \{ */
 
+void tm_set_JC69_matrix(struct tm_struct *mod);
+
 /** Initialize rate-matrix parameters in Models rate-matrix
     @param mod Tree Model containing rate-matrix to initialize
     @param kappa Interacts with background frequency in case of transition to set rate-matrix values

@@ -94,7 +94,6 @@ TreeNode *tr_new_from_string(const char *s);
    @result Newly allocated tree node
 */
 TreeNode *tr_new_node();
-
 /** \} */
 
 /** Add specified child to specified parent, creating all requisite

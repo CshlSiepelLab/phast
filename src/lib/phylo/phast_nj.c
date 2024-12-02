@@ -27,7 +27,7 @@ void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
 	       int *v, int maxidx) {
   int i, j, n = 0;
   double min = INFINITY;
-
+  
   if ((D->nrows != D->ncols) || (D->nrows != Q->nrows) ||
       (D->nrows != Q->ncols))
     die("ERROR nj_setQ: dimension mismatch\n");
@@ -40,10 +40,10 @@ void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
     if (vec_get(active, i) == TRUE) {
       n++;
       for (j = i+1; j < maxidx; j++) {
-	if (vec_get(active, j) == TRUE) {
-	  sums->data[i] += mat_get(D, i, j);
-	  sums->data[j] += mat_get(D, i, j);
-	}
+        if (vec_get(active, j) == TRUE) {
+          sums->data[i] += mat_get(D, i, j);
+          sums->data[j] += mat_get(D, i, j);
+        }
       }
     }
   }
@@ -52,19 +52,22 @@ void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
   for (i = 0; i < maxidx; i++) {
     if (vec_get(active, i) == TRUE) {
       for (j = i+1; j < maxidx; j++) {
-	if (vec_get(active, j) == TRUE) {
-	  double qij = (n-2) * mat_get(D, i, j) - vec_get(sums, i) -
-	    vec_get(sums, j);
-	  mat_set(Q, i, j, qij);
-	  if (qij < min) {
-	    min = qij;
-	    *u = i;
-	    *v = j;
-	  }
-	}
+        if (vec_get(active, j) == TRUE) {
+          double qij = (n-2) * mat_get(D, i, j) - vec_get(sums, i) -
+            vec_get(sums, j);
+          mat_set(Q, i, j, qij);
+          if (qij < min) {
+            min = qij;
+            *u = i;
+            *v = j;
+          }
+        }
       }
     }
   }
+
+  if (min == INFINITY)
+    die("ERROR in nj_resetQ: fewer than two active taxa\n");
 }
 
 /* Update distance matrix after operation that joins neighbors u and v
@@ -125,6 +128,7 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names) {
     active = vec_new(N); vec_set_all(active, FALSE);
     sums = vec_new(N); vec_zero(sums);
     nodes = lst_new_ptr(N);
+    tr_reset_id();
     
     for (i = 0; i < n; i++) {
       node_u = tr_new_node();
@@ -132,7 +136,7 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names) {
       lst_push_ptr(nodes, node_u);
       vec_set(active, i, TRUE);
       for (j = i+1; j < n; j++)
-	mat_set(D, i, j, mat_get(initD, i, j));
+        mat_set(D, i, j, mat_get(initD, i, j));
     }
    
     /* set up Q */
@@ -181,7 +185,8 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names) {
     
     /* finish set up of tree */
     root->nnodes = N+1;
-    
+    tr_set_nnodes(root);
+
     lst_free(nodes);
     vec_free(active);
     vec_free(sums);
@@ -228,36 +233,6 @@ Matrix *nj_compute_JC_matr(MSA *msa) {
 
   return retval;  
 }
-
-
-/* sample a vector from a multivariate normal distribution with the
-   given mean vector and covariance matrix. Uses the GSL under the hood */
-/*
-  void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval) {
-  gsl_vector *gsl_mu = gsl_vector_alloc(mu->size);
-  gsl_matrix *gsl_sigma = gsl_matrix_alloc(sigma->nrow, sigma->ncol);
-  static gsl_rng *r = NULL;
-  int i, j;
-
-  if (r == NULL) 
-    r = gsl_rng_alloc(gsl_rng_taus);
-  
-  for (i = 0; i < mu->size; i++)
-    gsl_vec_set(gsl_mu, i, vec_get(mu, i));
-  for (i = 0; i < sigma->nrow; i++)
-    for (j = 0; j < sigma->ncol; j++)
-      gsl_mat_set(gsl_sigma, i, j, mat_get(sigma, i, j));
- 
-  gsl_linalg_cholesky_decomp1(gsl_sigma);
-  gsl_ran_multivariate_gaussian(r, gsl_mu, gsl_sigma, gsl_retval);
-
-  for (i = 0; i < mu->size; i++)
-    vec_set(retval, i, gsl_vector_get(gsl_retval, i));
-
-  gsl_vector_free(gsl_mu);
-  gsl_matrix_free(gsl_sigma);
-}
-*/
 
 /* sample a vector from a standard multivariate normal distribution,
    with zero mean and identity covariance.  */
@@ -323,7 +298,7 @@ void nj_points_to_distances(Vector *points, Matrix *D) {
         sum += pow(vec_get(points, vidx1 + k) -
                    vec_get(points, vidx2 + k), 2);
       }
-      mat_set(D, vidx1, vidx2, sqrt(sum));
+      mat_set(D, i, j, sqrt(sum));
     }
   }
 }
@@ -334,89 +309,100 @@ void nj_points_to_distances(Vector *points, Matrix *D) {
    of current model, which is computed as a by-product.  This version
    uses numerical methods */
 double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
-                           Vector *points, Vector *grad, Matrix *D) {
+                             Vector *points, Vector *grad, Matrix *D) {
   int n = msa->nseqs;
   int d = mu->size / n;
   int i, k;
-  double porig, ll_base, ll, deriv, vorig, stdrv;
-  TreeNode *tree;
+  double porig, ll_base, ll, deriv, stdrv, sd;
+  TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
   
-  if (mu->size != n*d || sigma->nrows != n || sigma->ncols != n ||
-      grad->size != mu->size)
+  if (mu->size != n*d || sigma->nrows != n*d || sigma->ncols != n*d ||
+      grad->size != 2*mu->size)
     die("ERROR in nj_compute_model_grad: bad parameters\n");
 
   /* set up tree model and get baseline log likelihood */
-  /* FIXME: can we pass some of this in and avoid one call? */
   nj_points_to_distances(points, D);
   tree = nj_infer_tree(D, msa->names);
-  tr_free(mod->tree);   /* FIXME: where first allocated? */
-  mod->tree = tree;
-  tm_set_subst_matrices(mod);
+  orig_tree = tr_create_copy(tree);   /* restore at the end */
+  nj_reset_tree_model(mod, tree);
   ll_base = tl_compute_log_likelihood(mod, msa, NULL, NULL, -1, NULL);
-
+  
   /* Perturb each point and propagate perturbation through distance
      calculation, neighbor-joining reconstruction, and likelihood
      calculation on tree */
  
   for (i = 0; i < n; i++) {
     for (k = 0; k < d; k++) {
-      porig = vec_get(points, i*d + k);
-      vec_set(points, i*d + k, porig + DERIV_EPS);
+      int pidx = i*d + k;
+      porig = vec_get(points, pidx);
+      vec_set(points, pidx, porig + DERIV_EPS);
       nj_points_to_distances(points, D);
       tree = nj_infer_tree(D, msa->names);
-
-      tr_free(mod->tree);   /* FIXME */
-      mod->tree = tree;
-      tm_set_subst_matrices(mod);  
+      nj_reset_tree_model(mod, tree);      
       ll = tl_compute_log_likelihood(mod, msa, NULL, NULL, -1, NULL);
-      
-      deriv = (ll - ll_base) / DERIV_EPS; /* CHECK */
+      deriv = (ll - ll_base) / DERIV_EPS; 
 
       /* the partial derivative wrt the mean parameter is equal to the
-	 derivative with respect to the point, because the mean is just a
-	 translation of a 0-mean MVN variable via the reparameterization
-	 trick */
-      vec_set(grad, i*d + k, deriv);
+         derivative with respect to the point, because the point is just a
+         translation of a 0-mean MVN variable via the reparameterization
+         trick */
+      vec_set(grad, pidx, deriv);
 
       /* the partial derivative wrt the variance parameter, however,
-	 has an additional factor */
-
-      vorig = mat_get(sigma, i*d + k, i*d + k);
-      stdrv = (vorig - vec_get(mu, i*d + k)) / sqrt(mat_get(sigma, i*d + k, i*d + k));  
-      vec_set(grad, i*d + k + n, deriv * 0.5 * sqrt(vorig) * stdrv);
-      /* CHECK: need a factor here equal to the original
-	 standardized random variate sampled; have I recomputed correctly? */
+         has an additional factor */
+      //      vorig = mat_get(sigma, pidx, pidx);
+      sd = sqrt(mat_get(sigma, pidx, pidx));
+      stdrv = (porig - vec_get(mu, pidx)) / sd;  /* orig standard normal rv */
+      vec_set(grad, (i+n)*d + k, deriv * 0.5 * stdrv / sd);
+      /* CHECK: this is complicated */
+      
+      vec_set(points, pidx, porig); /* restore orig */
     }
   }
+  nj_reset_tree_model(mod, orig_tree);
   return ll_base;
 }  
 
 
-/* optimize variational model by stochastic gradient ascent.  Takes
-   initial tree model and alignment and distance matrix,
-   dimensionality of Euclidean space to work in.  Note: alters
-   distance matrix */
+/* optimize variational model by stochastic gradient ascent using the
+   Adam algorithm.  Takes initial tree model and alignment and
+   distance matrix, dimensionality of Euclidean space to work in.
+   Note: alters distance matrix */
+void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix *sigma,
+                        int dim, int nminibatch, double learnrate, FILE *logf) {
 
-void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, int dim, int nminibatch, double learnrate) {
+  Vector *points, *grad, *avegrad, *m, *m_prev, *v, *v_prev;
+  int n = msa->nseqs, i, j, t, stop = FALSE;
+  double ll, avell, avell_prev = -INFTY, det;
 
-  Vector *mu, *points, *grad, *avegrad;
-  Matrix *sigma;
-  int n = msa->nseqs, i, stop = FALSE;
-  double ll;
+  if (mu->size != n*dim || sigma->nrows != n*dim || sigma->ncols != n*dim)
+    die("ERROR in nj_variational_inf: bad dimensions\n");
   
-  mu = vec_new(n*dim);
-  sigma = mat_new(n*dim, n*dim);
-  points = vec_new(n*dim);
-  grad = vec_new(n*dim*2);
-  avegrad = vec_new(n*dim*2);
+  points = vec_new(mu->size);
+  grad = vec_new(2*mu->size);
+  avegrad = vec_new(2*mu->size);
+  m = vec_new(2*mu->size);
+  m_prev = vec_new(2*mu->size);
+  v = vec_new(2*mu->size);
+  v_prev = vec_new(2*mu->size);
   
   /* create starting values of mu from distances.  can do from gram
      matrix but requires more code.  for now just initialize
      randomly. */
   nj_sample_std_mvn(mu);
+  vec_scale(mu, 0.1);
   mat_set_identity(sigma);
+  mat_scale(sigma, 0.1);
 
+  /* initialize moments for Adam algorithm */
+  vec_zero(m);  vec_zero(m_prev);
+  vec_zero(v);  vec_zero(v_prev);
+  t = 0;
+  
   do {
+    vec_zero(avegrad);
+    avell = 0;
+
     for (i = 0; i < nminibatch; i++) {
       /* sample points from MVN averaging distribution */
       nj_sample_mvn(mu, sigma, points);
@@ -424,33 +410,155 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, int dim, int nminib
       /* compute likelihood and gradient */
       ll = nj_compute_model_grad(mod, mu, sigma, msa, points, grad, D);
 
-      /* add gradient to running total */
-      vec_plus_eq(avegrad, grad);
+      /* add terms for KLD (equation 7, Doersch arXiv 2016) */
+      det = 1;
+      for (j = 0; j < sigma->nrows; j++) {
+        ll -= 0.5 * (mat_get(sigma, j, j) + vec_get(mu, j) * vec_get(mu, j)); 
+         /* 1/2 trace of sigma and inner product of mu with itself*/
+        
+        det *= mat_get(sigma, j, j); /* also compute determinant of sigma */
+      }
       
-      /* add terms from entropy */
+      ll += 0.5 * dim;  /* 1/2 of dimension */
+      ll += 0.5 * log(det); /* 1/2 of log determinant of sigma */
+      
+      avell += ll;
+
+      /* add gradient of KLD */
+      for (j = 0; j < grad->size; j++) {
+        double gj;
+
+        if (j < n*dim)  /* partial deriv wrt mu_j is just -mu_j */
+          gj = -1.0*vec_get(mu, j);
+        else            /* partial deriv wrt sigma_j is more
+                           complicated because of the log
+                           determinant */
+          gj = 0.5 * (-1.0 + 1.0/mat_get(sigma, j-mu->size, j-mu->size));  
+
+        vec_set(grad, j, vec_get(grad, j) + gj);
+      }
+
+      /* add gradient to running total */
+      vec_plus_eq(avegrad, grad); 
     }
 
     /* divide by nminibatch to get expected gradient */
     vec_scale(avegrad, 1.0/nminibatch);
+    avell /= nminibatch;
     
-    /* FIXME report parameter values to a log file */
+    /* Adam updates; see Kingma & Ba, arxiv 2014 */
+    t++;
+    for (j = 0; j < avegrad->size; j++) {
+      double mhatj, vhatj;
+      vec_set(m, j, ADAM_BETA1 * vec_get(m_prev, j) + (1.0 - ADAM_BETA1) * vec_get(avegrad, j));
+      vec_set(v, j, ADAM_BETA2 * vec_get(v_prev, j) +
+              (1.0 - ADAM_BETA2) * vec_get(avegrad, j) * vec_get(avegrad, j));
+      mhatj = vec_get(m, j) / (1.0 - pow(ADAM_BETA1, t));
+      vhatj = vec_get(v, j) / (1.0 - pow(ADAM_BETA2, t));
 
-    /* update mu and sigma based on gradient and current learning rate */
-    for (i = 0; i < n*dim; i++) {
-      vec_set(mu, i, vec_get(mu, i) + learnrate * vec_get(avegrad, i));
-      mat_set(sigma, i, i, mat_get(sigma, i, i) + learnrate * vec_get(avegrad, i + n*dim));
+      /* update mu or sigma, depending on parameter index */
+      if (j < n*dim)
+        vec_set(mu, j, vec_get(mu, j) + learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
+        /*        vec_set(mu, j, vec_get(mu, j) + learnrate * vec_get(avegrad, j)); *//* FIXME: temporary */ 
+      else {
+        mat_set(sigma, j-mu->size, j-mu->size, mat_get(sigma, j-mu->size, j-mu->size) +
+                learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
+        /* mat_set(sigma, j-mu->size, j-mu->size, mat_get(sigma, j-mu->size, j-mu->size) +
+           learnrate * vec_get(avegrad, j)); */
+
+        /* don't allow sigma to go negative */
+        if (mat_get(sigma, j-mu->size, j-mu->size) < 0.001)
+          mat_set(sigma, j-mu->size, j-mu->size, 0.001);
+      }
     }
+    vec_copy(m_prev, m);
+    vec_copy(v_prev, v);
     
-    /* FIXME: what are stopping criteria? */    
+    /* report gradient and parameters to a log file */
+    if (logf != NULL) {
+      fprintf(logf, "***\nIteration %d: ELB = %f\n", t, avell);
+      fprintf(logf, "mu:\t");
+      vec_print(mu, logf);
+      fprintf(logf, "sigma:\n");
+      mat_print(sigma, logf);
+      fprintf(logf, "gradient:\t");
+      vec_print(avegrad, logf);
+      fprintf(logf, "Adam m:\t");
+      vec_print(m, logf);
+      fprintf(logf, "Adam v:\t");
+      vec_print(v, logf);
+      tr_print(logf, nj_mean(mu, dim, msa->names), TRUE);
+      fprintf(logf, "distance matrix:\n");
+      nj_points_to_distances(mu, D);
+      mat_print(D, logf);
+    }
 
-  } while(!stop);
+    /* for now just stop when the likelihood stops improving; will have to revisit */
+    if (avell <= avell_prev)   /* FIXME: improve */
+      stop = TRUE;
+
+  } while(stop == FALSE);
     
 
   vec_free(grad);
   vec_free(avegrad);
   vec_free(points);
-  vec_free(mu);
-  mat_free(sigma);
+  vec_free(m);
+  vec_free(m_prev);
+  vec_free(v);
+  vec_free(v_prev);
 }
 
+/* sample a list of trees from the approximate posterior distribution
+   and return as a new list */
+List *nj_var_sample(int nsamples, int dim, Vector *mu, Matrix *sigma, char** names) {
+  List *retval = lst_new_ptr(nsamples);
+  int i, n = mu->size / dim;
+  Matrix *D = mat_new(n, n);
+  TreeNode *tree;
+  Vector *points = vec_new(n*dim);
+  
+  if (n * dim != mu->size || mu->size != sigma->nrows || mu->size != sigma->ncols)
+    die("ERROR in nj_var_sample: bad dimensions\n");
+ 
+  for (i = 0; i < nsamples; i++) {
+     nj_sample_mvn(mu, sigma, points);
+     nj_points_to_distances(points, D);
+     tree = nj_infer_tree(D, names);
+     lst_push_ptr(retval, tree);
+  }
+  
+  mat_free(D);
+  vec_free(points);
+  return(retval);
+}
 
+/* return a single tree representing the approximate posterior mean */
+TreeNode *nj_mean(Vector *mu, int dim, char **names) {
+  int n = mu->size / dim;
+  Matrix *D = mat_new(n, n);
+  TreeNode *tree;
+  
+  if (n * dim != mu->size)
+    die("ERROR in nj_mean: bad dimensions\n");
+  
+  nj_points_to_distances(mu, D);
+  tree = nj_infer_tree(D, names);
+  
+  mat_free(D);
+  return(tree);
+}
+
+/* fully reset a tree model for use in likelihood calculations with a
+   new tree */
+void nj_reset_tree_model(TreeModel *mod, TreeNode *newtree) {
+  if (mod->tree != NULL)
+    tr_free(mod->tree);
+
+  mod->tree = newtree;
+  
+  /* the size of the tree won't change, so we don't need to do a full
+     call to tm_reset_tree; we just need to force the substitution
+     matrices to be recomputed */
+  tm_set_subst_matrices(mod);
+}
