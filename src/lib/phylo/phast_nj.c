@@ -16,6 +16,7 @@
 #include "phast/stringsplus.h"
 #include "phast/nj.h"
 #include "phast/tree_likelihoods.h"
+#include "phast/eigen.h"
 
 /* Reset Q matrix based on distance matrix.  Assume upper triangular
    square Q and D.  Only touches active rows and columns of Q and D up
@@ -589,7 +590,8 @@ Vector *nj_estimate_points_from_distances(Matrix *D, int dim) {
   Zmatrix *revec, *levec;
   Vector *eval_real, *points;
   int i, j, d;
-
+  List *eiglst;
+  
   /* FIXME: assume real eigenvalues?  test? */
   
   if (D->nrows != D->ncols)
@@ -601,7 +603,7 @@ Vector *nj_estimate_points_from_distances(Matrix *D, int dim) {
   for (i = 0; i < n; i++) {
     mat_set(Dsq, i, i, 0);
     for (j = i; j < n; j++) {
-      d2 = mat_get(D, i, j) * mat_get(D, i, j);
+      double d2 = mat_get(D, i, j) * mat_get(D, i, j);
       mat_set(Dsq, i, j, d2);
       mat_set(Dsq, j, i, d2);
     }
@@ -624,9 +626,9 @@ Vector *nj_estimate_points_from_distances(Matrix *D, int dim) {
      fail if they have imaginary component but they should not because
      G is symmetric by construction */
   eval_real = vec_new(n);
-  revect_real = mat_new(n, n);
+  revec_real = mat_new(n, n);
   zvec_as_real(eval_real, eval, TRUE);
-  zmat_as_real(revec);
+  zmat_as_real(revec_real, revec, TRUE);
   
   /* sort indices by corresponding eigenvalues from largest to smallest */
   eiglst = lst_new_ptr(n);
@@ -649,7 +651,7 @@ Vector *nj_estimate_points_from_distances(Matrix *D, int dim) {
     /* product of evalsqrt and corresponding column of revec will define
        the dth component of each point */ 
     for (i = 0; i < n; i++)
-      vec_set(points, i*dim + d, evalsqrt * mat_get(revec_real, i, evalidx));
+      vec_set(points, i*dim + d, evalsqrt * mat_get(revec_real, i, obj->idx));
   }  
 
   for (i = 0; i < n; i++)
