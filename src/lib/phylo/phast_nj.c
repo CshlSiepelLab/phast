@@ -23,7 +23,6 @@
    to maxidx. As a side-effect set u and v to the indices of the
    closest neighbors.  Also update sums to sum of distances from each
    node */
-/* FIXME: pass in max n to consider, avoid wasted operations */
 void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
 	       int *v, int maxidx) {
   int i, j, n = 0;
@@ -259,7 +258,8 @@ void nj_sample_std_mvn(Vector *retval) {
   }  
 }
 
-/* sample a vector from a multivariate normal distribution with mean mu and covariance sigma. */
+/* sample a vector from a multivariate normal distribution with mean
+   mu and covariance sigma. */
 /* FIXME: for now this assumes diagonal sigma */
 void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval) {
   int i;
@@ -387,14 +387,6 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   v = vec_new(2*mu->size);
   v_prev = vec_new(2*mu->size);
   
-  /* create starting values of mu from distances.  can do from gram
-     matrix but requires more code.  for now just initialize
-     randomly. */
-  nj_sample_std_mvn(mu);
-  vec_scale(mu, 0.1);
-  mat_set_identity(sigma);
-  mat_scale(sigma, 0.1);
-
   /* initialize moments for Adam algorithm */
   vec_zero(m);  vec_zero(m_prev);
   vec_zero(v);  vec_zero(v_prev);
@@ -574,8 +566,8 @@ typedef struct {
 } Evidx;
 
 int nj_eigen_compare_desc(const void* ptr1, const void* ptr2) {
-  Evidx *idx1 = (Evidx*)ptr1;
-  Evidx *idx2 = (Evidx*)ptr2;
+  Evidx *idx1 = *((Evidx**)ptr1);
+  Evidx *idx2 = *((Evidx**)ptr2);
   double eval1 = vec_get(idx1->evals, idx1->idx);
   double eval2 = vec_get(idx2->evals, idx2->idx);
   return (eval2 - eval1);
@@ -583,18 +575,18 @@ int nj_eigen_compare_desc(const void* ptr1, const void* ptr2) {
 
 /* generate an approximate set of points from a distance matrix, for
    use in initializing the variational inference algorithm.  */
-Vector *nj_estimate_points_from_distances(Matrix *D, int dim) {
+void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigma) {
   int n = D->nrows;
   Matrix *Dsq, *G, *revec_real;
   Zvector *eval;
   Zmatrix *revec, *levec;
-  Vector *eval_real, *points;
-  int i, j, d;
+  Vector *eval_real;
+  int i, j, d, N;
   List *eiglst;
-  
-  /* FIXME: assume real eigenvalues?  test? */
-  
-  if (D->nrows != D->ncols)
+  double rowsum_orig = 0, rowsum_new = 0, x = 0, x2 = 0;
+    
+  if (D->nrows != D->ncols || mu->size != n * dim || sigma->nrows != mu->size ||
+      sigma->ncols != mu->size)
     die("ERROR in nj_estimate_points_from_distances: bad dimensions\n");
 
   /* build matrix of squared distances; note that D is upper
@@ -602,7 +594,7 @@ Vector *nj_estimate_points_from_distances(Matrix *D, int dim) {
   Dsq = mat_new(n, n);
   for (i = 0; i < n; i++) {
     mat_set(Dsq, i, i, 0);
-    for (j = i; j < n; j++) {
+    for (j = i + 1; j < n; j++) {
       double d2 = mat_get(D, i, j) * mat_get(D, i, j);
       mat_set(Dsq, i, j, d2);
       mat_set(Dsq, j, i, d2);
@@ -622,6 +614,8 @@ Vector *nj_estimate_points_from_distances(Matrix *D, int dim) {
   levec = zmat_new(n, n);
   mat_diagonalize(G, eval, revec, levec);
 
+  /* CHECK: Are they guaranteed to be sorted already? */
+  
   /* convert eigenvalues and right eigenvectors to real numbers; will
      fail if they have imaginary component but they should not because
      G is symmetric by construction */
@@ -630,20 +624,21 @@ Vector *nj_estimate_points_from_distances(Matrix *D, int dim) {
   zvec_as_real(eval_real, eval, TRUE);
   zmat_as_real(revec_real, revec, TRUE);
   
-  /* sort indices by corresponding eigenvalues from largest to smallest */
+  /* sort eigenvalues from largest to smallest */   /* FIXME: only keep nonzero? */
   eiglst = lst_new_ptr(n);
   for (i = 0; i < n; i++) {
     Evidx *obj = malloc(sizeof(Evidx));
     obj->idx = i;
     obj->evals = eval_real;
-    lst_set_ptr(eiglst, i, obj);
+    lst_push_ptr(eiglst, obj);
   }
   lst_qsort(eiglst, nj_eigen_compare_desc);
 
   /* FIXME: what to do with zero eigenvalues?  random numbers? */
+
+  /* FIXME: rescale */
   
   /* create a vector of points based on the first 'dim' eigenvalues */
-  points = vec_new(n * dim);
   for (d = 0; d < dim; d++) {
     Evidx *obj = lst_get_ptr(eiglst, d);
     double evalsqrt = sqrt(vec_get(eval_real, obj->idx));
@@ -651,12 +646,37 @@ Vector *nj_estimate_points_from_distances(Matrix *D, int dim) {
     /* product of evalsqrt and corresponding column of revec will define
        the dth component of each point */ 
     for (i = 0; i < n; i++)
-      vec_set(points, i*dim + d, evalsqrt * mat_get(revec_real, i, obj->idx));
+      vec_set(mu, i*dim + d, evalsqrt * mat_get(revec_real, i, obj->idx));
   }  
 
+  /* rescale the matrix to match the original distance matrix */
+  /* use sum of first row to normalize */
+  nj_points_to_distances(mu, Dsq);   /* reuse Dsq here, no longer needed */
+  for (j = 1; j < n; j++) {
+    rowsum_orig += mat_get(D, 0, j);
+    rowsum_new += mat_get(Dsq, 0, j);
+  }
+  vec_scale(mu, rowsum_orig/rowsum_new);
+  
   for (i = 0; i < n; i++)
     free((Evidx*)lst_get_ptr(eiglst, i));
   lst_free(eiglst);
+
+  /* initialize sigma to the identity scaled by 1/n of the variance
+     across pairwise distances */
+  mat_set_identity(sigma);
+  for (i = 0; i < n; i++) {
+    for (j = i+1; j < n; j++) {
+      x += mat_get(D, i, j);
+      x2 += mat_get(D, i, j) * mat_get(D, i, j);
+    }
+  }
+  N = n * (n-1)/2;
+  mat_scale(sigma, 1.0/N * (x2/N - x*x/(N*N)));
+  
+  /* FIXME: temporary, for testing */
+  nj_points_to_distances(mu, D);
+  mat_print(D, stdout);
   
   mat_free(Dsq);
   mat_free(G);
@@ -665,6 +685,4 @@ Vector *nj_estimate_points_from_distances(Matrix *D, int dim) {
   zmat_free(levec);
   vec_free(eval_real);
   mat_free(revec_real);
-  
-  return points;
 }

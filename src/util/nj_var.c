@@ -28,7 +28,7 @@ int main(int argc, char *argv[]) {
   signed char c;
   int opt_idx, i, ntips = 0, nsamples = DEFAULT_NSAMPLES, dim = DEFAULT_DIM,
     batchsize = DEFAULT_BATCHSIZE;
-  unsigned int nj_only = FALSE;
+  unsigned int nj_only = FALSE, random_start = FALSE;
   MSA *msa = NULL;
 
   char *alphabet = "ACGT";
@@ -59,11 +59,12 @@ int main(int argc, char *argv[]) {
     {"out-dists", 1, 0, 'o'},
     {"nsamples", 1, 0, 's'},
     {"learnrate", 1, 0, 'r'},
+    {"random-start", 0, 0, 'R'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:d:D:hi:jkl:m:n:o:r:s:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:d:D:hi:jkl:m:n:o:r:Rs:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'd':
       indistfile = phast_fopen(optarg, "r");
@@ -110,6 +111,9 @@ int main(int argc, char *argv[]) {
       if (learnrate <= 0)
         die("ERROR: --learnrate must be nonnegative\n");
       break;
+    case 'R':
+      random_start = TRUE;
+      break;
     case 's':
       nsamples = atoi(optarg);
       if (nsamples <= 0)
@@ -146,13 +150,13 @@ int main(int argc, char *argv[]) {
     if (names == NULL || ntips <= 0)
       die("Bad arguments.  Try 'nj_var -h'.\n");
     D = mat_new_from_file(indistfile, ntips, ntips);
-  }
+  } 
 
-  /* we need a starting tree in all cases */
   tree = nj_infer_tree(D, names);
   
-  if (nj_only == TRUE) /* in this case, just print the starting tree */    
+  if (nj_only == TRUE) { /* in this case, just print the starting tree */      
     tr_print(stdout, tree, TRUE);
+  }
 
   else {  /* full variational inference */
     if (msa == NULL)
@@ -167,9 +171,17 @@ int main(int argc, char *argv[]) {
       tm_set_JC69_matrix(mod);
     else 
       tm_set_HKY_matrix(mod, kappa, -1);   /* FIXME: estimate kappa from msa */
-    
+
+    /* initialize parameters of multivariate normal */    
     mu = vec_new(msa->nseqs * dim);
     sigma = mat_new(msa->nseqs * dim, msa->nseqs * dim);
+    if (random_start == TRUE) {
+      nj_sample_std_mvn(mu); vec_scale(mu, 0.1);
+      mat_set_identity(sigma); mat_scale(sigma, 0.1);
+    }
+    else
+      nj_estimate_mvn_from_distances(D, dim, mu, sigma);
+
     nj_variational_inf(mod, msa, D, mu, sigma, dim, batchsize, learnrate, logfile);
     trees = nj_var_sample(nsamples, dim, mu, sigma, msa->names);
     for (i = 0; i < nsamples; i++)

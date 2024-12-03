@@ -10,7 +10,8 @@ alignment, in which case they are estimated using the Jukes-Cantor model,
 or by providing a distance matrix (--distances). In case of --nj-only, the
 tree will be estimated directly from those distances with no further
 refinement.  Otherwise the posterior distribution will be refined by
-variational inference and then sampled from.
+variational inference and then sampled from. Optimization is by stochastic
+gradient ascent using the Adam algorithm.
 
 OPTIONS:
     --format, -i FASTA|SS|PHYLIP|MPM|MAF
@@ -19,7 +20,7 @@ OPTIONS:
 
     --batchsize, -b <N>
         Set mini-batch size in stochastic gradient ascent to <N> (default
-        10).  Here the minibatch size is the number of phylogenetic trees
+        20).  Here the minibatch size is the number of phylogenetic trees
         sampled from the approximate posterior for each update of the
         variational parameters.
 
@@ -36,17 +37,17 @@ OPTIONS:
     --hky85, -k
         Use the HKY85 substitution model for likelihood calculations
         (default is Jukes Cantor). The transition-transversion rate ratio
-        (kappa) will be approximated from the pairwise comparisons.
+        (kappa) will be approximated from the pairwise comparisons
 
     --logfile, -l <logfile.txt>
-        Output log of iterations of variational inference to specified file
+        Output detailed log for variational inference to specified file
 
     --mean, -m <meantree.nh>
         Output a single tree reflecting the mean of the approximate
         posterior distribution to the specified file
 
     --names, -n [namelist]
-        Specify names for taxa in comma-separated list.  Useful with --distances.
+        Specify names for taxa in comma-separated list.  For use with --distances
 
     --nj-only, -j
         Simply estimate and output a single tree using the neighbor-joining
@@ -58,9 +59,12 @@ OPTIONS:
         Otherwise will represent posterior mean values of distances after
         convergence of variational algorithm
 
-    --learnrate, -r <R>
-        Set the learning rate for stochastic gradient ascent to <R>
-        (default 0.001)
+    --learnrate, -r <alpha>
+        Set learning rate for Adam algorithm to <alpha> (default 0.001)
+
+    --random-start, -R
+        Initialize variational inference randomly rather than from initial
+        distance matrix (the default)
 
     --nsamples, -s 
         Number of samples to output (default 100) after convergence.
