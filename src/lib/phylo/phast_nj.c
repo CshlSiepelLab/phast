@@ -573,7 +573,7 @@ int nj_eigen_compare_desc(const void* ptr1, const void* ptr2) {
   return (eval2 - eval1);
 }
 
-/* generate an approximate set of points from a distance matrix, for
+/* generate an approximate mu and sigma from a distance matrix, for
    use in initializing the variational inference algorithm.  */
 void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigma) {
   int n = D->nrows;
@@ -613,8 +613,6 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
   revec = zmat_new(n, n);
   levec = zmat_new(n, n);
   mat_diagonalize(G, eval, revec, levec);
-
-  /* CHECK: Are they guaranteed to be sorted already? */
   
   /* convert eigenvalues and right eigenvectors to real numbers; will
      fail if they have imaginary component but they should not because
@@ -635,8 +633,6 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
   lst_qsort(eiglst, nj_eigen_compare_desc);
 
   /* FIXME: what to do with zero eigenvalues?  random numbers? */
-
-  /* FIXME: rescale */
   
   /* create a vector of points based on the first 'dim' eigenvalues */
   for (d = 0; d < dim; d++) {
