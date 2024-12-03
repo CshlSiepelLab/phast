@@ -351,11 +351,9 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
 
       /* the partial derivative wrt the variance parameter, however,
          has an additional factor */
-      //      vorig = mat_get(sigma, pidx, pidx);
       sd = sqrt(mat_get(sigma, pidx, pidx));
       stdrv = (porig - vec_get(mu, pidx)) / sd;  /* orig standard normal rv */
       vec_set(grad, (i+n)*d + k, deriv * 0.5 * stdrv / sd);
-      /* CHECK: this is complicated */
       
       vec_set(points, pidx, porig); /* restore orig */
     }
@@ -374,8 +372,11 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
 
   Vector *points, *grad, *avegrad, *m, *m_prev, *v, *v_prev;
   int n = msa->nseqs, i, j, t, stop = FALSE;
-  double ll, avell, avell_prev = -INFTY, det;
-
+  double ll, avell, det, running_tot = 0, last_running_tot = -INFTY;
+  
+  /* TEMPORARY: make this a parameter */
+  int nbatches_conv = 10;
+  
   if (mu->size != n*dim || sigma->nrows != n*dim || sigma->ncols != n*dim)
     die("ERROR in nj_variational_inf: bad dimensions\n");
   
@@ -460,8 +461,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
            learnrate * vec_get(avegrad, j)); */
 
         /* don't allow sigma to go negative */
-        if (mat_get(sigma, j-mu->size, j-mu->size) < 0.001)
-          mat_set(sigma, j-mu->size, j-mu->size, 0.001);
+        if (mat_get(sigma, j-mu->size, j-mu->size) < MIN_VAR)
+          mat_set(sigma, j-mu->size, j-mu->size, MIN_VAR);
       }
     }
     vec_copy(m_prev, m);
@@ -486,10 +487,17 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       mat_print(D, logf);
     }
 
-    /* for now just stop when the likelihood stops improving; will have to revisit */
-    if (avell <= avell_prev)   /* FIXME: improve */
-      stop = TRUE;
-
+    /* check total likelihood every nbatches_conv to decide whether to stop */
+    running_tot += avell;
+    if (t % nbatches_conv == 0) {
+      if (running_tot <= last_running_tot)
+	stop = TRUE; /* FIXME: better to revert to previous parameters? */
+      else {
+	last_running_tot = running_tot;
+	running_tot = 0;
+      }
+    }
+    
   } while(stop == FALSE);
     
 
@@ -669,10 +677,6 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
   }
   N = n * (n-1)/2;
   mat_scale(sigma, 1.0/N * (x2/N - x*x/(N*N)));
-  
-  /* FIXME: temporary, for testing */
-  nj_points_to_distances(mu, D);
-  mat_print(D, stdout);
   
   mat_free(Dsq);
   mat_free(G);

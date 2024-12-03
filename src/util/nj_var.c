@@ -22,7 +22,7 @@
 #define DEFAULT_DIM 3
 #define DEFAULT_BATCHSIZE 20
 #define DEFAULT_LEARNRATE 0.001
-#define DEFAULT_KAPPA 5.0
+#define DEFAULT_KAPPA 4
 
 int main(int argc, char *argv[]) {
   signed char c;

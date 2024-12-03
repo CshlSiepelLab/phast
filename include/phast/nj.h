@@ -20,8 +20,7 @@
 #include <phast/trees.h>
 #include <phast/tree_model.h>
 
-#define DERIV_EPS 1e-3
-/* FIXME: maybe 1e-5 better? */
+#define DERIV_EPS 1e-5
 
 /* tuning parameters for Adam algorithm.  These will be kept at the
    default values.  The learning rate (called alpha) will be passed in
@@ -29,6 +28,9 @@
 #define ADAM_BETA1 0.9
 #define ADAM_BETA2 0.999
 #define ADAM_EPS 1e-8
+
+/* don't allow variance terms to get smaller than this value */
+#define MIN_VAR 1e-6
 
 
 void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
