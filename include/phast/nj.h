@@ -69,5 +69,6 @@ void nj_reset_tree_model(TreeModel *mod, TreeNode *newtree);
 
 void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigma);
 
+void nj_test_D(Matrix *D);
 
 #endif

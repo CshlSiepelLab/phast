@@ -82,13 +82,21 @@ void nj_updateD(Matrix *D, int u, int v, int w, Vector *active, Vector *sums) {
     die("ERROR nj_updateD: dimension mismatch\n");
   if (v <= u || w <= v)
     die("ERROR nj_updateD: indices out of order\n");
-
+  if (n <= 2)
+    die("ERROR nj_updateD: too few active nodes\n");
+  
   mat_set(D, u, w, 0.5 * mat_get(D, u, v) +
 	  1.0/(2.0*(n-2)) * (vec_get(sums, u) - vec_get(sums, v)));
 
   mat_set(D, v, w, mat_get(D, u, v) - mat_get(D, u, w));
-    
-	     
+
+  /* we can't let the distances go negative in this implementation
+     because it will mess up the likelihood calculation */
+  if (mat_get(D, u, w) < 0)
+    mat_set(D, u, w, 0);
+  if (mat_get(D, v, w) < 0)
+    mat_set(D, v, w, 0);
+  
   vec_set(active, u, FALSE);
   vec_set(active, v, FALSE);
 
@@ -101,6 +109,9 @@ void nj_updateD(Matrix *D, int u, int v, int w, Vector *active, Vector *sums) {
       dv = (v < k ? mat_get(D, v, k) : mat_get(D, k, v));
       
       mat_set(D, k, w, 0.5 * (du + dv - mat_get(D, u, v)));
+
+      if (mat_get(D, k, w) < 0)
+	mat_set(D, k, w, 0);
     }
   }
   
@@ -108,7 +119,8 @@ void nj_updateD(Matrix *D, int u, int v, int w, Vector *active, Vector *sums) {
 }
 
 
-/* Main function to infer the tree from a starting distance matrix */
+/* Main function to infer the tree from a starting distance matrix.
+   Does not alter the provided distance matrix */
 TreeNode* nj_infer_tree(Matrix *initD, char **names) {
     int n = initD->nrows;
     int N = 2*n - 2;   /* number of nodes in unrooted tree */
@@ -206,6 +218,7 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names) {
    Jukes-Cantor model */
 double nj_compute_JC_dist(MSA *msa, int i, int j) {
   int k, diff = 0, n = 0;
+  double d;
   for (k = 0; k < msa->length; k++) {
     if (msa->seqs[i][k] == GAP_CHAR || msa->seqs[j][k] == GAP_CHAR ||
 	msa->is_missing[(int)msa->seqs[i][k]] ||
@@ -215,7 +228,10 @@ double nj_compute_JC_dist(MSA *msa, int i, int j) {
     if (msa->seqs[i][k] != msa->seqs[j][k])
       diff++;
   }
-  return -0.75 * log(1 - 4.0/3 * diff/n);   /* Jukes-Cantor correction */
+  d = -0.75 * log(1 - 4.0/3 * diff/n);   /* Jukes-Cantor correction */
+  if (d < 0 || !isfinite(d))
+    d = 0;
+  return d;
 }
 
 /* based on a multiple alignment, build and return a distance matrix
@@ -685,4 +701,21 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
   zmat_free(levec);
   vec_free(eval_real);
   mat_free(revec_real);
+}
+
+/* ensure a distance matrix is square, upper triangular, has zeroes on
+   main diagonal, and has all non-negative entries.  */
+void nj_test_D(Matrix *D) {
+  int n = D->nrows;
+  int i, j;
+  if (n != D->ncols)
+    die("ERROR in nj_test_D: bad dimensions in distance matrix D\n");
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < n; j++) {
+      if (j <= i && mat_get(D, i, j) != 0)
+	die("ERROR in nj_test_D: distance matrix must be upper triangular and have zeroes on main diagonal.\n");
+      else if (mat_get(D, i, j) < 0 || !isfinite(mat_get(D, i, j)))
+	die("ERROR in nj_test_D: entries in distance matrix must be nonnegative and finite\n");
+    }
+  }
 }

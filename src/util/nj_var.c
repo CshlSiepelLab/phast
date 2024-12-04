@@ -152,6 +152,11 @@ int main(int argc, char *argv[]) {
     D = mat_new_from_file(indistfile, ntips, ntips);
   } 
 
+  /* make sure valid distance matrix */
+  nj_test_D(D);
+
+
+  /* build the tree; need this in all cases */
   tree = nj_infer_tree(D, names);
   
   if (nj_only == TRUE) { /* in this case, just print the starting tree */      
