@@ -228,9 +228,16 @@ double nj_compute_JC_dist(MSA *msa, int i, int j) {
     if (msa->seqs[i][k] != msa->seqs[j][k])
       diff++;
   }
-  d = -0.75 * log(1 - 4.0/3 * diff/n);   /* Jukes-Cantor correction */
-  if (d < 0 || !isfinite(d))
-    d = 0;
+  if (diff/n >= 0.75)
+    /* in this case, there are too many differences for the correction
+       to work.  We basically want the distance to be "really long" but
+       not so long that it completely skews the tree or makes it
+       impossible for the variational algorithm to recover.  */
+    d = 3.0;
+  else
+    d = -0.75 * log(1 - 4.0/3 * diff/n);   /* Jukes-Cantor correction */
+
+  assert(isfinite(d));
   return d;
 }
 
