@@ -71,4 +71,6 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
 
 void nj_test_D(Matrix *D);
 
+double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad);
+
 #endif

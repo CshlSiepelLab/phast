@@ -16,6 +16,7 @@
 #include <phast/nj.h>
 #include <phast/tree_model.h>
 #include <phast/subst_mods.h>
+#include <phast/sufficient_stats.h>
 #include "nj_var.help"
 
 #define DEFAULT_NSAMPLES 100
@@ -144,6 +145,9 @@ int main(int argc, char *argv[]) {
 
     D = nj_compute_JC_matr(msa);
     names = msa->names;
+
+    if (msa->ss == NULL)
+      ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
   }
   
   else {
