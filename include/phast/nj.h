@@ -44,7 +44,9 @@ double nj_compute_JC_dist(MSA *msa, int i, int j);
 
 Matrix *nj_compute_JC_matr(MSA *msa);
 
-/* void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval);*/
+Matrix *nj_tree_to_distances(TreeNode *tree);
+
+double nj_distance_on_tree(TreeNode *root, TreeNode *n1, TreeNode *n2);
 
 void nj_sample_std_mvn(Vector *retval);
 

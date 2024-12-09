@@ -259,6 +259,64 @@ Matrix *nj_compute_JC_matr(MSA *msa) {
   return retval;  
 }
 
+/* compute a distance matrix from a tree, defining each pairwise
+   distance as the edge length between the corresponding taxa */ 
+Matrix *nj_tree_to_distances(TreeNode *tree) {
+  List *leaves = lst_new_ptr(tree->nnodes);
+  TreeNode *n;
+  int i, j;
+  Matrix *D;
+  
+  assert(tree->nodes != NULL);  /* assume list of nodes exists */
+  
+  for (i = 0; i < tree->nnodes; i++) {
+    n = lst_get_ptr(tree->nodes, i);
+    if (n->lchild == NULL && n->rchild == NULL)
+      lst_push_ptr(leaves, n);
+  }
+
+  D = mat_new(lst_size(leaves), lst_size(leaves));
+  mat_zero(D);
+
+  for (i = 0; i < lst_size(leaves); i++)
+    for (j = i+1; j < lst_size(leaves); j++)
+      mat_set(D, i, j, nj_distance_on_tree(tree, lst_get_ptr(leaves, i),
+					   lst_get_ptr(leaves, j)));
+    
+  lst_free(leaves);
+
+  return(D);
+}
+
+double nj_distance_on_tree(TreeNode *root, TreeNode *n1, TreeNode *n2) {
+  double dist[root->nnodes];
+  int id;
+  TreeNode *n;
+  double totd1, totd2;
+  
+  /* initialize distance from n1 to each ancestor to be -1 */
+  for (id = 0; id <= root->nnodes; id++)
+    dist[id] = -1;
+  
+  /* find distance to each ancestor of n1 */
+  for (n = n1, totd1 = 0; n->parent != NULL; n = n->parent) {
+    totd1 += n->dparent;
+    dist[n->parent->id] = totd1;
+  }
+  dist[root->id] = totd1;
+
+  /* now trace ancestry of n2 until an ancestor of n1 is found */
+  for (n = n2, totd2 = 0; dist[n->id] == -1 && n->parent != NULL; n = n->parent) 
+    totd2 += n->dparent;
+
+  if (n->parent == NULL && dist[n->id] == -1)
+    die("ERROR in nj_distance_on_tree: got to root without finding LCA\n");
+  
+  /* at this point, it must be true that n is the LCA of n1 and n2 */ 
+  return totd2 + dist[n->id];
+  
+}
+
 /* sample a vector from a standard multivariate normal distribution,
    with zero mean and identity covariance.  */
 void nj_sample_std_mvn(Vector *retval) {

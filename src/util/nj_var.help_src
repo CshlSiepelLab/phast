@@ -39,6 +39,10 @@ OPTIONS:
         Use distance matrix from <infile.dist>. In this case (and if
         --hky85 is not selected), alignment.fa will be ignored
 
+    --nj-only, -j
+        Simply estimate and output a single tree using the neighbor-joining
+        algorithm; do not follow with variational inference
+	
     --hky85, -k
         Use the HKY85 substitution model for likelihood calculations
         (default is Jukes Cantor). The transition-transversion rate ratio
@@ -59,10 +63,6 @@ OPTIONS:
     --names, -n [namelist]
         Specify names for taxa in comma-separated list.  For use with --distances
 
-    --nj-only, -j
-        Simply estimate and output a single tree using the neighbor-joining
-        algorithm; do not follow with variational inference
-
     --out-dists, -o <outfile.dist>
         Output distance matrix to <outfile.dist>.  In case of --nj-only,
         will simply output initial matrix estimated from alignment.
@@ -78,6 +78,14 @@ OPTIONS:
 
     --nsamples, -s 
         Number of samples to output (default 100) after convergence.
+
+    --tree, -t <file.nh>
+        Obtain pairwise distances from specified tree, rather than from a
+	distance matrix or the alignment.  Alterative to --distances.
+
+    --treemodel, -T <file.mod>
+        Use the specified tree model for initialization and likelihood calculations.
+	Overrides use of JC69 or HKY85 substitution models. 
 
     --help, -h
         Display this help message and exit.

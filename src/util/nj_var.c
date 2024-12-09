@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
   msa_format_type format = UNKNOWN_FORMAT;
   FILE *infile = NULL, *indistfile = NULL, *outdistfile = NULL, *logfile = NULL,
     *postmeanfile = NULL;
-  Matrix *D;
+  Matrix *D = NULL;
   TreeNode *tree;
   List *namestr, *trees;
   subst_mod_type subst_mod = JC69;
@@ -49,6 +49,7 @@ int main(int argc, char *argv[]) {
   MarkovMatrix *rmat = NULL;
   Vector *mu = NULL;
   Matrix *sigma = NULL;
+  TreeNode *init_tree = NULL;
 
   struct option long_opts[] = {
     {"format", 1, 0, 'i'},
@@ -66,11 +67,13 @@ int main(int argc, char *argv[]) {
     {"nsamples", 1, 0, 's'},
     {"learnrate", 1, 0, 'r'},
     {"random-start", 0, 0, 'R'},
+    {"tree", 1, 0, 't'},
+    {"treemodel", 1, 0, 'T'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:hi:jkl:m:M:n:o:r:Rs:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:hi:jkl:m:M:n:o:r:Rt:T:s:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -135,6 +138,13 @@ int main(int argc, char *argv[]) {
       if (nsamples <= 0)
         die("ERROR: --nsamples must be > 0\n");
       break;
+    case 't':
+      init_tree = tr_new_from_file(phast_fopen(optarg, "r"));
+      break;
+    case 'T':
+      mod = tm_new_from_file(phast_fopen(optarg, "r"), 1);
+      init_tree = mod->tree;
+      break;
     case 'h':
       printf("%s", HELP); 
       exit(0);
@@ -142,12 +152,16 @@ int main(int argc, char *argv[]) {
       die("Bad argument.  Try 'nj_var -h'.\n");
     }
   }
- 
-  if (((indistfile == NULL || subst_mod == HKY85) && optind != argc - 1) ||
-      (indistfile != NULL && subst_mod == JC69 && optind != argc))
-    die("Bad arguments.  Try 'nj_var -h'.\n");
+
+  if (init_tree != NULL && indistfile != NULL)
+    die("Cannot specify both --tree/-treemod and --distances\n");
   
-  if (indistfile == NULL) {   /* read alignment */
+  if ((indistfile == NULL && init_tree == NULL && mod == NULL) ||
+      subst_mod == HKY85) {   /* read alignment */
+
+    if (optind != argc - 1)
+      die("ERROR: alignment file required.\n");
+    
     infile = phast_fopen(argv[optind], "r");
     if (format == UNKNOWN_FORMAT)
       format = msa_format_for_content(infile, 1);
@@ -158,43 +172,50 @@ int main(int argc, char *argv[]) {
       msa = msa_new_from_file_define_format(phast_fopen(argv[optind], "r"), 
 					    format, alphabet);
 
-    D = nj_compute_JC_matr(msa);
-    names = msa->names;
-
     if (msa->ss == NULL)
       ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
+
+    names = msa->names;
   }
   
-  else {
-    if (names == NULL || ntips <= 0)
-      die("Bad arguments.  Try 'nj_var -h'.\n");
-    D = mat_new_from_file(indistfile, ntips, ntips);
-  } 
 
-  /* make sure valid distance matrix */
+  /* get a distance matrix */
+  if (init_tree != NULL)
+    D = nj_tree_to_distances(init_tree);
+  else if (indistfile != NULL) {
+    D = mat_new_from_file(indistfile, ntips, ntips);
+    if (names == NULL || ntips <= 0)
+      die("ERROR: --names required with --distances.  Try 'nj_var -h'.\n");
+  }
+  else if (msa != NULL)
+    D = nj_compute_JC_matr(msa);
+  else
+    die("ERROR: no distance matrix available\n");
+  
+  /* make sure valid */
   nj_test_D(D);
 
-
-  /* build the tree; need this in all cases */
+  /* we'll need a tree in any case */
   tree = nj_infer_tree(D, names);
-  
-  if (nj_only == TRUE) { /* in this case, just print the starting tree */      
+
+  if (nj_only == TRUE) /* just print in this case */
     tr_print(stdout, tree, TRUE);
-  }
 
   else {  /* full variational inference */
     if (msa == NULL)
       die("ERROR: Alignment required for variational inference\n");
 
-    /* set up a tree model */
-    rmat = mm_new(strlen(msa->alphabet), msa->alphabet, CONTINUOUS);    
-    mod = tm_new(tree, rmat, NULL, subst_mod, msa->alphabet, 1, 1, NULL, -1);
-    tm_init_backgd(mod, msa, -1); 
+    /* set up a tree model if necessary */
+    if (mod == NULL) {
+      rmat = mm_new(strlen(msa->alphabet), msa->alphabet, CONTINUOUS);    
+      mod = tm_new(tree, rmat, NULL, subst_mod, msa->alphabet, 1, 1, NULL, -1);
+      tm_init_backgd(mod, msa, -1); 
     
-    if (subst_mod == JC69)
-      tm_set_JC69_matrix(mod);
-    else 
-      tm_set_HKY_matrix(mod, kappa, -1);   /* FIXME: estimate kappa from msa */
+      if (subst_mod == JC69)
+	tm_set_JC69_matrix(mod);
+      else 
+	tm_set_HKY_matrix(mod, kappa, -1);   /* FIXME: estimate kappa from msa */
+    }
 
     /* initialize parameters of multivariate normal */    
     mu = vec_new(msa->nseqs * dim);
@@ -206,8 +227,8 @@ int main(int argc, char *argv[]) {
     else
       nj_estimate_mvn_from_distances(D, dim, mu, sigma);
 
-    nj_variational_inf(mod, msa, D, mu, sigma, dim, batchsize, learnrate, nbatches_conv,
-                       min_nbatches, logfile);
+    nj_variational_inf(mod, msa, D, mu, sigma, dim, batchsize, learnrate,
+		       nbatches_conv, min_nbatches, logfile);
     trees = nj_var_sample(nsamples, dim, mu, sigma, msa->names);
     for (i = 0; i < nsamples; i++)
       tr_print(stdout, (TreeNode*)lst_get_ptr(trees, i), TRUE);
