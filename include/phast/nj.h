@@ -58,7 +58,8 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
 			     Vector *points, Vector *grad, Matrix *D);
 
 void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix *sigma,
-                        int dim, int nminibatch, double learnrate, FILE *logf);
+                        int dim, int nminibatch, double learnrate, int nbatches_conv, int min_nbatches,
+                        FILE *logf);
 
 List *nj_var_sample(int nsamples, int dim, Vector *mu, Matrix *sigma,
                     char** names);

@@ -393,14 +393,13 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
    distance matrix, dimensionality of Euclidean space to work in.
    Note: alters distance matrix */
 void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix *sigma,
-                        int dim, int nminibatch, double learnrate, FILE *logf) {
+                        int dim, int nminibatch, double learnrate, int nbatches_conv, int min_nbatches,
+                        FILE *logf) {
 
-  Vector *points, *grad, *avegrad, *m, *m_prev, *v, *v_prev;
-  int n = msa->nseqs, i, j, t, stop = FALSE;
-  double ll, avell, running_tot = 0, last_running_tot = -INFTY;
-  
-  /* TEMPORARY: make this a parameter */
-  int nbatches_conv = 10;
+  Vector *points, *grad, *avegrad, *m, *m_prev, *v, *v_prev, *best_mu;
+  Matrix *best_sigma;
+  int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1;
+  double ll, avell, bestll = -INFTY, running_tot = 0, last_running_tot = -INFTY;
   
   if (mu->size != n*dim || sigma->nrows != n*dim || sigma->ncols != n*dim)
     die("ERROR in nj_variational_inf: bad dimensions\n");
@@ -412,6 +411,9 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   m_prev = vec_new(2*mu->size);
   v = vec_new(2*mu->size);
   v_prev = vec_new(2*mu->size);
+
+  best_mu = vec_new(mu->size);
+  best_sigma = mat_new(sigma->nrows, sigma->ncols);
   
   /* initialize moments for Adam algorithm */
   vec_zero(m);  vec_zero(m_prev);
@@ -464,6 +466,14 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     /* divide by nminibatch to get expected gradient */
     vec_scale(avegrad, 1.0/nminibatch);
     avell /= nminibatch;
+
+    /* store parameters if best yet */
+    if (avell < bestll) {
+      avell = bestll;
+      bestt = t;
+      vec_copy(best_mu, mu);
+      mat_copy(best_sigma, sigma);
+    }
     
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
     t++;
@@ -478,12 +488,9 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       /* update mu or sigma, depending on parameter index */
       if (j < n*dim)
         vec_set(mu, j, vec_get(mu, j) + learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
-        /*        vec_set(mu, j, vec_get(mu, j) + learnrate * vec_get(avegrad, j)); *//* FIXME: temporary */ 
       else {
         mat_set(sigma, j-mu->size, j-mu->size, mat_get(sigma, j-mu->size, j-mu->size) +
                 learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
-        /* mat_set(sigma, j-mu->size, j-mu->size, mat_get(sigma, j-mu->size, j-mu->size) +
-           learnrate * vec_get(avegrad, j)); */
 
         /* don't allow sigma to go negative */
         if (mat_get(sigma, j-mu->size, j-mu->size) < MIN_VAR)
@@ -511,21 +518,31 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       nj_points_to_distances(mu, D);
       mat_print(D, logf);
     }
-
+    
     /* check total likelihood every nbatches_conv to decide whether to stop */
     running_tot += avell;
-    if (t % nbatches_conv == 0) {
-      if (running_tot <= last_running_tot)
-	stop = TRUE; /* FIXME: better to revert to previous parameters? */
+    if (t >= min_nbatches && t % nbatches_conv == 0) {
+      if (running_tot >= last_running_tot)
+        stop = TRUE;
       else {
-	last_running_tot = running_tot;
-	running_tot = 0;
+        last_running_tot = running_tot;
+        running_tot = 0;
       }
     }
     
   } while(stop == FALSE);
     
+  vec_copy(mu, best_mu);
+  mat_copy(sigma, best_sigma);
 
+  if (logf != NULL) {
+    fprintf(logf, "Reverting to parameters from iteration %d\n", bestt);
+     fprintf(logf, "mu:\t");
+     vec_print(mu, logf);
+     fprintf(logf, "sigma:\n");
+     mat_print(sigma, logf);
+  }
+  
   vec_free(grad);
   vec_free(avegrad);
   vec_free(points);
@@ -533,6 +550,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   vec_free(m_prev);
   vec_free(v);
   vec_free(v_prev);
+  vec_free(best_mu);
+  mat_free(best_sigma);
 }
 
 /* sample a list of trees from the approximate posterior distribution

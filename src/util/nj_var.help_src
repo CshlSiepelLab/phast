@@ -24,6 +24,11 @@ OPTIONS:
         sampled from the approximate posterior for each update of the
         variational parameters.
 
+    --nbatches-conv, -c <N>
+        Set number of mini-batches over which to average when assessing
+        convergence to <N> (default 10).  Larger values will lead to
+        longer convergence times but may find better solutions.
+
     --dimensionality, -D <D>
         Set dimensionality of the Euclidean space in which taxa are
         represented to <D> (default 3).  Higher values will allow for
@@ -45,6 +50,11 @@ OPTIONS:
     --mean, -m <meantree.nh>
         Output a single tree reflecting the mean of the approximate
         posterior distribution to the specified file
+
+    --min-nbatches, M <N>
+        Set minimum number of mini-batches before convergence to <N>
+        (default 30).  Larger values will lead to longer convergence times
+        but may find better solutions.
 
     --names, -n [namelist]
         Specify names for taxa in comma-separated list.  For use with --distances
