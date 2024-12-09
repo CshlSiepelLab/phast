@@ -155,10 +155,10 @@ int main(int argc, char *argv[]) {
 
   if (init_tree != NULL && indistfile != NULL)
     die("Cannot specify both --tree/-treemod and --distances\n");
-  
-  if ((indistfile == NULL && init_tree == NULL && mod == NULL) ||
-      subst_mod == HKY85) {   /* read alignment */
 
+  if (nj_only && (indistfile != NULL || init_tree != NULL))
+    fprintf(stderr, "No alignment needed....\n");
+  else {
     if (optind != argc - 1)
       die("ERROR: alignment file required.\n");
     
@@ -174,11 +174,9 @@ int main(int argc, char *argv[]) {
 
     if (msa->ss == NULL)
       ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
-
-    names = msa->names;
   }
-  
 
+    
   /* get a distance matrix */
   if (init_tree != NULL)
     D = nj_tree_to_distances(init_tree);
@@ -196,6 +194,8 @@ int main(int argc, char *argv[]) {
   nj_test_D(D);
 
   /* we'll need a tree in any case */
+  if (names == NULL && msa != NULL)
+    names = msa->names;
   tree = nj_infer_tree(D, names);
 
   if (nj_only == TRUE) /* just print in this case */
