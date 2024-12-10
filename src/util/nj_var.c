@@ -155,16 +155,14 @@ int main(int argc, char *argv[]) {
 
   if (init_tree != NULL && indistfile != NULL)
     die("Cannot specify both --tree/-treemod and --distances\n");
-
+  
   if (nj_only && (indistfile != NULL || init_tree != NULL)) {
     if (optind != argc) 
       die("ERROR: No alignment needed in this case.  Too many arguments.  Try 'nj_var -h'.\n");
   }
   else {
-    if (optind < argc - 1)
+    if (optind != argc - 1)
       die("ERROR: alignment file required.\n");
-    else if (optind > argc - 1)
-      die("ERROR: too many arguments.  Try 'nj_var -h'.\n");             
     
     infile = phast_fopen(argv[optind], "r");
     if (format == UNKNOWN_FORMAT)
@@ -178,28 +176,43 @@ int main(int argc, char *argv[]) {
 
     if (msa->ss == NULL)
       ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
+
+    names = msa->names;
+    ntips = msa->nseqs;
   }
+  
+  if (msa == NULL && names == NULL) {
+    if (init_tree) {
+      List *namelst = tr_leaf_names(init_tree); /* have to convert to char arrays */
+      ntips = lst_size(namelst);
+      names = smalloc(sizeof(char*)*ntips);
+      for (i = 0; i < ntips; i++) {
+        String *str = lst_get_ptr(namelst, i);
+        names[i] = smalloc(sizeof(char) * (str->length+1));
+        strcpy(names[i], str->chars);
+      }
+    }
+    else 
+      die("ERROR: must specify alignment, --tree/--treemod, or --names.\n");
+  }
+
+  /* at this point, names and ntips must be defined even if we don't have an alignment */
 
     
   /* get a distance matrix */
   if (init_tree != NULL)
-    D = nj_tree_to_distances(mod);  /* FIXME: need to set up mod.  what to do if no MSA? */
-  else if (indistfile != NULL) {
+    D = nj_tree_to_distances(init_tree, names, ntips);  
+  else if (indistfile != NULL) 
     D = mat_new_from_file(indistfile, ntips, ntips);
-    if (names == NULL || ntips <= 0)
-      die("ERROR: --names required with --distances.  Try 'nj_var -h'.\n");
-  }
   else if (msa != NULL)
     D = nj_compute_JC_matr(msa);
   else
     die("ERROR: no distance matrix available\n");
   
-  /* make sure valid */
+  /* we must have a distance matrix now; make sure valid */
   nj_test_D(D);
 
-  /* we'll need a tree in any case */
-  if (names == NULL && msa != NULL)
-    names = msa->names;
+  /* we'll need a NJ tree in any case */
   tree = nj_infer_tree(D, names);
 
   if (nj_only == TRUE) /* just print in this case */

@@ -44,7 +44,7 @@ double nj_compute_JC_dist(MSA *msa, int i, int j);
 
 Matrix *nj_compute_JC_matr(MSA *msa);
 
-Matrix *nj_tree_to_distances(TreeModel *mod);
+Matrix *nj_tree_to_distances(TreeNode *tree, char **names, int n);
 
 double nj_distance_on_tree(TreeNode *root, TreeNode *n1, TreeNode *n2);
 
@@ -75,5 +75,9 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
 void nj_test_D(Matrix *D);
 
 double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad);
+
+int *nj_build_seq_idx(List *leaves, char **names) ;
+
+int nj_get_seq_idx(char **names, char *name, int n);
 
 #endif

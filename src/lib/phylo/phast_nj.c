@@ -261,12 +261,13 @@ Matrix *nj_compute_JC_matr(MSA *msa) {
 
 /* compute a distance matrix from a tree, defining each pairwise
    distance as the edge length between the corresponding taxa */ 
-Matrix *nj_tree_to_distances(TreeModel *mod) {
-  TreeNode *n1, *n2, *tree = mod->tree;
+Matrix *nj_tree_to_distances(TreeNode *tree, char **names, int n) {
+  TreeNode *n1, *n2;
   List *leaves = lst_new_ptr(tree->nnodes);
   int i, j, ii, jj;
   Matrix *D;
   double dist;
+  int *seq_idx;
   
   assert(tree->nodes != NULL);  /* assume list of nodes exists */
   
@@ -276,24 +277,31 @@ Matrix *nj_tree_to_distances(TreeModel *mod) {
       lst_push_ptr(leaves, n1);
   }
 
-  D = mat_new(lst_size(leaves), lst_size(leaves));
+  if (lst_size(leaves) != n)
+    die("ERROR in nj_tree_to_distances: number of names must match number of leaves in tree.\n");
+  
+  D = mat_new(n, n);
   mat_zero(D);
 
+  seq_idx = nj_build_seq_idx(leaves, names);
+  
   for (i = 0; i < lst_size(leaves); i++) {
     n1 = lst_get_ptr(leaves, i);
-    ii = mod->msa_seq_idx[n1->id];   /* convert to seq indices for matrix */
+    ii = seq_idx[n1->id];   /* convert to seq indices for matrix */
     for (j = i+1; j < lst_size(leaves); j++) {
       n2 = lst_get_ptr(leaves, j);
-      jj = mod->msa_seq_idx[j];
+      jj = seq_idx[n2->id];
       dist = nj_distance_on_tree(tree, n1, n2);
       if (ii < jj)
         mat_set(D, ii, jj, dist);
       else
         mat_set(D, jj, ii, dist);
-      }
+    }
   }
-  lst_free(leaves);
 
+  lst_free(leaves);
+  sfree(seq_idx);
+  
   return(D);
 }
 
@@ -1005,4 +1013,28 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
   }
 
   return ll;
+}
+
+/* Build index of leaf ids to sequence indices based on a name
+   list. */
+int *nj_build_seq_idx(List *leaves, char **names) {
+  int i;  
+  int *retval = smalloc(lst_size(leaves)*2 * sizeof(int));
+  for (i = 0; i < lst_size(leaves)*2; i++) retval[i] = -1;
+  for (i = 0; i < lst_size(leaves); i++) {
+    TreeNode *n = lst_get_ptr(leaves, i);
+    retval[n->id] = nj_get_seq_idx(names, n->name, lst_size(leaves));
+    if (retval[n->id] < 0)
+      die("ERROR: leaf '%s' not found in name list.\n", n->name);
+  }
+  return retval;
+}
+
+/* Return index of given sequence name or -1 if not found. */
+int nj_get_seq_idx(char **names, char *name, int n) {
+  int i, retval = -1;
+  for (i = 0; retval < 0 && i < n; i++) 
+    if (!strcmp(name, names[i]))
+      retval = i;
+  return retval;
 }
