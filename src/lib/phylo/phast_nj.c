@@ -254,35 +254,44 @@ Matrix *nj_compute_JC_matr(MSA *msa) {
   for (i = 0; i < msa->nseqs; i++) 
     for (j = i+1; j < msa->nseqs; j++) 
       mat_set(retval, i, j,
-	      nj_compute_JC_dist(msa, i, j));
+              nj_compute_JC_dist(msa, i, j));
 
   return retval;  
 }
 
 /* compute a distance matrix from a tree, defining each pairwise
    distance as the edge length between the corresponding taxa */ 
-Matrix *nj_tree_to_distances(TreeNode *tree) {
+Matrix *nj_tree_to_distances(TreeModel *mod) {
+  TreeNode *n1, *n2, *tree = mod->tree;
   List *leaves = lst_new_ptr(tree->nnodes);
-  TreeNode *n;
-  int i, j;
+  int i, j, ii, jj;
   Matrix *D;
+  double dist;
   
   assert(tree->nodes != NULL);  /* assume list of nodes exists */
   
   for (i = 0; i < tree->nnodes; i++) {
-    n = lst_get_ptr(tree->nodes, i);
-    if (n->lchild == NULL && n->rchild == NULL)
-      lst_push_ptr(leaves, n);
+    n1 = lst_get_ptr(tree->nodes, i);
+    if (n1->lchild == NULL && n1->rchild == NULL)
+      lst_push_ptr(leaves, n1);
   }
 
   D = mat_new(lst_size(leaves), lst_size(leaves));
   mat_zero(D);
 
-  for (i = 0; i < lst_size(leaves); i++)
-    for (j = i+1; j < lst_size(leaves); j++)
-      mat_set(D, i, j, nj_distance_on_tree(tree, lst_get_ptr(leaves, i),
-					   lst_get_ptr(leaves, j)));
-    
+  for (i = 0; i < lst_size(leaves); i++) {
+    n1 = lst_get_ptr(leaves, i);
+    ii = mod->msa_seq_idx[n1->id];   /* convert to seq indices for matrix */
+    for (j = i+1; j < lst_size(leaves); j++) {
+      n2 = lst_get_ptr(leaves, j);
+      jj = mod->msa_seq_idx[j];
+      dist = nj_distance_on_tree(tree, n1, n2);
+      if (ii < jj)
+        mat_set(D, ii, jj, dist);
+      else
+        mat_set(D, jj, ii, dist);
+      }
+  }
   lst_free(leaves);
 
   return(D);

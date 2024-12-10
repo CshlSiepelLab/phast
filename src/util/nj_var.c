@@ -156,21 +156,25 @@ int main(int argc, char *argv[]) {
   if (init_tree != NULL && indistfile != NULL)
     die("Cannot specify both --tree/-treemod and --distances\n");
 
-  if (nj_only && (indistfile != NULL || init_tree != NULL))
-    fprintf(stderr, "No alignment needed....\n");
+  if (nj_only && (indistfile != NULL || init_tree != NULL)) {
+    if (optind != argc) 
+      die("ERROR: No alignment needed in this case.  Too many arguments.  Try 'nj_var -h'.\n");
+  }
   else {
-    if (optind != argc - 1)
+    if (optind < argc - 1)
       die("ERROR: alignment file required.\n");
+    else if (optind > argc - 1)
+      die("ERROR: too many arguments.  Try 'nj_var -h'.\n");             
     
     infile = phast_fopen(argv[optind], "r");
     if (format == UNKNOWN_FORMAT)
       format = msa_format_for_content(infile, 1);
     if (format == MAF) 
       msa = maf_read(phast_fopen(argv[optind], "r"), NULL, 1, alphabet,
-		     NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
+                     NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
     else
       msa = msa_new_from_file_define_format(phast_fopen(argv[optind], "r"), 
-					    format, alphabet);
+                                            format, alphabet);
 
     if (msa->ss == NULL)
       ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
@@ -179,7 +183,7 @@ int main(int argc, char *argv[]) {
     
   /* get a distance matrix */
   if (init_tree != NULL)
-    D = nj_tree_to_distances(init_tree);
+    D = nj_tree_to_distances(mod);  /* FIXME: need to set up mod.  what to do if no MSA? */
   else if (indistfile != NULL) {
     D = mat_new_from_file(indistfile, ntips, ntips);
     if (names == NULL || ntips <= 0)

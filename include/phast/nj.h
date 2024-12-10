@@ -44,7 +44,7 @@ double nj_compute_JC_dist(MSA *msa, int i, int j);
 
 Matrix *nj_compute_JC_matr(MSA *msa);
 
-Matrix *nj_tree_to_distances(TreeNode *tree);
+Matrix *nj_tree_to_distances(TreeModel *mod);
 
 double nj_distance_on_tree(TreeNode *root, TreeNode *n1, TreeNode *n2);
 
