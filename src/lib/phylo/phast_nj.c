@@ -543,8 +543,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     avell /= nminibatch;
 
     /* store parameters if best yet */
-    if (avell < bestll) {
-      avell = bestll;
+    if (avell > bestll) {
+      bestll = avell;
       bestt = t;
       vec_copy(best_mu, mu);
       mat_copy(best_sigma, sigma);
@@ -596,8 +596,10 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     
     /* check total likelihood every nbatches_conv to decide whether to stop */
     running_tot += avell;
-    if (t >= min_nbatches && t % nbatches_conv == 0) {
-      if (running_tot >= last_running_tot)
+    if (t % nbatches_conv == 0) {
+      if (logf != NULL)
+        fprintf(logf, "Average for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
+      if (t >= min_nbatches && running_tot <= last_running_tot)
         stop = TRUE;
       else {
         last_running_tot = running_tot;
