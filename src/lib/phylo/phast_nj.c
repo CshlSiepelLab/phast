@@ -488,7 +488,9 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   v_prev = vec_new(2*mu->size);
 
   best_mu = vec_new(mu->size);
+  vec_copy(best_mu, mu);
   best_sigma = mat_new(sigma->nrows, sigma->ncols);
+  mat_copy(best_sigma, sigma);
   
   /* initialize moments for Adam algorithm */
   vec_zero(m);  vec_zero(m_prev);
@@ -542,8 +544,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     vec_scale(avegrad, 1.0/nminibatch);
     avell /= nminibatch;
 
-    /* store parameters if best yet */
-    if (avell > bestll) {
+    /* store parameters if best yet and min exceeded */
+    if (avell > bestll && t > min_nbatches) {
       bestll = avell;
       bestt = t;
       vec_copy(best_mu, mu);
@@ -577,7 +579,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     
     /* report gradient and parameters to a log file */
     if (logf != NULL) {
-      fprintf(logf, "***\nIteration %d: ELB = %f\n", t, avell);
+      fprintf(logf, "***\nIteration %d: ELB = %f\n", t, avell);  
       fprintf(logf, "mu:\t");
       vec_print(mu, logf);
       fprintf(logf, "sigma:\n");
