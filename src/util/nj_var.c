@@ -229,9 +229,9 @@ int main(int argc, char *argv[]) {
       tm_init_backgd(mod, msa, -1); 
     
       if (subst_mod == JC69)
-	tm_set_JC69_matrix(mod);
+        tm_set_JC69_matrix(mod);
       else 
-	tm_set_HKY_matrix(mod, kappa, -1);   /* FIXME: estimate kappa from msa */
+        tm_set_HKY_matrix(mod, kappa, -1);   /* FIXME: estimate kappa from msa */
     }
 
     /* initialize parameters of multivariate normal */    

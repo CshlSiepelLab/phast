@@ -431,10 +431,15 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
   /* Perturb each point and propagate perturbation through distance
      calculation, neighbor-joining reconstruction, and likelihood
      calculation on tree */
- 
-  for (i = 0; i < n; i++) {
+
+  vec_zero(grad);
+  for (i = 1; i < n; i++) {   /* note: we can skip the first point and the first d-1 dimensions of the second */
     for (k = 0; k < d; k++) {
       int pidx = i*d + k;
+
+      if (i == 1 && k < d-1)
+        continue;
+      
       porig = vec_get(points, pidx);
       vec_set(points, pidx, porig + DERIV_EPS);
       nj_points_to_distances(points, D);
@@ -474,7 +479,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   Vector *points, *grad, *avegrad, *m, *m_prev, *v, *v_prev, *best_mu;
   Matrix *best_sigma;
   int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1;
-  double ll, avell, bestll = -INFTY, running_tot = 0, last_running_tot = -INFTY;
+  double ll, avell, kld, avekld, bestelb = -INFTY, running_tot = 0, last_running_tot = -INFTY;
   
   if (mu->size != n*dim || sigma->nrows != n*dim || sigma->ncols != n*dim)
     die("ERROR in nj_variational_inf: bad dimensions\n");
@@ -491,6 +496,18 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   vec_copy(best_mu, mu);
   best_sigma = mat_new(sigma->nrows, sigma->ncols);
   mat_copy(best_sigma, sigma);
+
+  /* set up log file */
+  if (logf != NULL) {
+    fprintf(logf, "# nj_var logfile\n");
+    fprintf(logf, "state\tll\tkld\telb\t");
+    for (j = 0; j < mu->size; j++)
+      fprintf(logf, "mu.%d\t", j);
+    for (i = 0; i < D->nrows; i++)
+      for (j = i+1; j < D->ncols; j++)
+        fprintf(logf, "D.%d.%d\t", i, j);
+    fprintf(logf, "\n");
+  }
   
   /* initialize moments for Adam algorithm */
   vec_zero(m);  vec_zero(m_prev);
@@ -500,39 +517,48 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   do {
     vec_zero(avegrad);
     avell = 0;
+    avekld = 0;
 
     for (i = 0; i < nminibatch; i++) {
       /* sample points from MVN averaging distribution */
       nj_sample_mvn(mu, sigma, points);
+
+      /* force first 2d-1 to be zero (not dof) */
+      for (j = 0; j < 2*dim - 1; j++) {
+        vec_set(mu, j, 0);
+        mat_set(sigma, j, j, 0);
+      }
       
       /* compute likelihood and gradient */
       ll = nj_compute_model_grad(mod, mu, sigma, msa, points, grad, D);
 
       /* add terms for KLD (equation 7, Doersch arXiv 2016) */
+      kld = 0;
       for (j = 0; j < sigma->nrows; j++) {
-        ll -= 0.5 * (mat_get(sigma, j, j) + vec_get(mu, j) * vec_get(mu, j)); 
+        kld -= 0.5 * (mat_get(sigma, j, j) + vec_get(mu, j) * vec_get(mu, j)); 
          /* 1/2 trace of sigma and inner product of mu with itself*/
-        
-        ll -= 0.5 * log(mat_get(sigma, j, j)); /* contribution to log determinant of sigma */
+
+        if (mat_get(sigma, j, j) > 0)
+          kld -= 0.5 * log(mat_get(sigma, j, j)); /* contribution to log determinant of sigma */
       }
       
-      ll += 0.5 * dim;  /* 1/2 of dimension */
+      kld += 0.5 * dim;  /* 1/2 of dimension */
 
-      assert(isfinite(ll));
-      
       avell += ll;
-
+      avekld += kld;
+      
       /* add gradient of KLD */
       for (j = 0; j < grad->size; j++) {
         double gj;
 
         if (j < n*dim)  /* partial deriv wrt mu_j is just -mu_j */
           gj = -1.0*vec_get(mu, j);
-        else            /* partial deriv wrt sigma_j is more
+        else {            /* partial deriv wrt sigma_j is more
                            complicated because of the log
                            determinant */
-          gj = 0.5 * (-1.0 + 1.0/mat_get(sigma, j-mu->size, j-mu->size));  
-
+          if (mat_get(sigma, j-mu->size, j-mu->size) > 0) /* the ones we don't change will be zero */
+            gj = 0.5 * (-1.0 + 1.0/mat_get(sigma, j-mu->size, j-mu->size));  
+        }
         vec_set(grad, j, vec_get(grad, j) + gj);
       }
 
@@ -543,10 +569,11 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     /* divide by nminibatch to get expected gradient */
     vec_scale(avegrad, 1.0/nminibatch);
     avell /= nminibatch;
+    avekld /= nminibatch;
 
     /* store parameters if best yet and min exceeded */
-    if (avell > bestll && t > min_nbatches) {
-      bestll = avell;
+    if (avell + avekld > bestelb && t > min_nbatches) {
+      bestelb = avell + avekld;
       bestt = t;
       vec_copy(best_mu, mu);
       mat_copy(best_sigma, sigma);
@@ -554,8 +581,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
     t++;
-    for (j = 0; j < avegrad->size; j++) {
-      double mhatj, vhatj;
+    for (j = 2*dim - 1; j < avegrad->size; j++) {   /* skip first 2*dim - 1 updates */
+      double mhatj, vhatj;      
       vec_set(m, j, ADAM_BETA1 * vec_get(m_prev, j) + (1.0 - ADAM_BETA1) * vec_get(avegrad, j));
       vec_set(v, j, ADAM_BETA2 * vec_get(v_prev, j) +
               (1.0 - ADAM_BETA2) * vec_get(avegrad, j) * vec_get(avegrad, j));
@@ -577,12 +604,19 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     vec_copy(m_prev, m);
     vec_copy(v_prev, v);
     
-    /* report gradient and parameters to a log file */
+    /* report to log file */
     if (logf != NULL) {
-      fprintf(logf, "***\nIteration %d: ELB = %f\n", t, avell);  
-      fprintf(logf, "mu:\t");
-      vec_print(mu, logf);
-      fprintf(logf, "sigma:\n");
+      fprintf(logf, "%d\t%f\t%f\t%f\t", t, avell, avekld, avell + avekld);
+      for (j = 0; j < mu->size; j++)
+        fprintf(logf, "%f\t", vec_get(mu, j));
+      nj_points_to_distances(mu, D);
+      for (i = 0; i < D->nrows; i++)
+        for (j = i+1; j < D->ncols; j++)
+          fprintf(logf, "%f\t", mat_get(D, i, j));
+      fprintf(logf, "\n");
+        
+      /* extra stuff, for debugging */
+      /*      fprintf(logf, "sigma:\n");
       mat_print(sigma, logf);
       fprintf(logf, "gradient:\t");
       vec_print(avegrad, logf);
@@ -592,15 +626,15 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       vec_print(v, logf);
       tr_print(logf, nj_mean(mu, dim, msa->names), TRUE);
       fprintf(logf, "distance matrix:\n");
-      nj_points_to_distances(mu, D);
-      mat_print(D, logf);
+      nj_points_to_distances(mu, D); 
+      mat_print(D, logf); */
     }
     
-    /* check total likelihood every nbatches_conv to decide whether to stop */
-    running_tot += avell;
+    /* check total elb every nbatches_conv to decide whether to stop */
+    running_tot += avell + avekld;
     if (t % nbatches_conv == 0) {
       if (logf != NULL)
-        fprintf(logf, "Average for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
+        fprintf(logf, "#Average for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
       if (t >= min_nbatches && running_tot <= last_running_tot)
         stop = TRUE;
       else {
@@ -615,11 +649,11 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   mat_copy(sigma, best_sigma);
 
   if (logf != NULL) {
-    fprintf(logf, "Reverting to parameters from iteration %d\n", bestt);
+    fprintf(logf, "# Reverting to parameters from iteration %d; ", bestt);
      fprintf(logf, "mu:\t");
      vec_print(mu, logf);
-     fprintf(logf, "sigma:\n");
-     mat_print(sigma, logf);
+     /*     fprintf(logf, "sigma:\n");
+            mat_print(sigma, logf); */
   }
   
   vec_free(grad);
@@ -844,7 +878,7 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
   double total_prob = 0;
   List *traversal;
   double **pL = NULL, **pLbar = NULL;
-  double log_scale = 0;
+  double log_scale;
   double scaling_threshold = DBL_MIN;
   double ll = 0;
   double tmp[nstates];
@@ -883,6 +917,7 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
 
   traversal = tr_postorder(mod->tree);
   for (tupleidx = 0; tupleidx < msa->ss->ntuples; tupleidx++) {
+    log_scale = 0;
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
       n = lst_get_ptr(traversal, nodeidx);
       if (n->lchild == NULL) {
