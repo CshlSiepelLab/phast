@@ -40,6 +40,11 @@ OPTIONS:
         Use distance matrix from <infile.dist>. In this case (and if
         --hky85 is not selected), alignment.fa will be ignored
 
+    --embedding-dists, -e <outfile.dist>
+        Output a distance matrix based on the initial embedding of points.
+        Can be compared with input distances.  Useful for evaluating
+        fidelity of embedding schemes.
+
     --hky85, -k
         Use the HKY85 substitution model for likelihood calculations
         (default is Jukes Cantor). The transition-transversion rate ratio
@@ -100,11 +105,11 @@ OPTIONS:
 
     --tree, -t <file.nh>
         Obtain pairwise distances from specified tree, rather than from a
-	distance matrix or the alignment.  Alterative to --distances.
+	    distance matrix or the alignment.  Alterative to --distances.
 
     --treemodel, -T <file.mod>
         Use the specified tree model for initialization and likelihood calculations.
-	Overrides use of JC69 or HKY85 substitution models. 
+	    Overrides use of JC69 or HKY85 substitution models. 
 
     --help, -h
         Display this help message and exit.

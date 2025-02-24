@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
   char **names = NULL;
   msa_format_type format = UNKNOWN_FORMAT;
   FILE *infile = NULL, *indistfile = NULL, *outdistfile = NULL, *logfile = NULL,
-    *postmeanfile = NULL;
+    *postmeanfile = NULL, *embeddingdistfile = NULL;
   Matrix *D = NULL;
   TreeNode *tree;
   List *namestr, *trees;
@@ -57,6 +57,7 @@ int main(int argc, char *argv[]) {
     {"nbatches-conv", 1, 0, 'c'},
     {"dimensionality", 1, 0, 'D'},
     {"distances", 1, 0, 'd'},
+    {"embedding-dists", 1, 0, 'e'},
     {"hky85", 0, 0, 'k'}, 
     {"hyperbolic", 0, 0, 'H'}, 
     {"logfile", 1, 0, 'l'},
@@ -75,7 +76,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:hHi:jkK:l:m:M:n:o:r:Rt:T:s:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:e:hHi:jkK:l:m:M:n:o:r:Rt:T:s:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -94,6 +95,9 @@ int main(int argc, char *argv[]) {
       dim = atoi(optarg);
       if (dim <= 0)
         die("ERROR: --dimensionality must be positive\n");
+      break;
+    case 'e':
+      embeddingdistfile = phast_fopen(optarg, "w");
       break;
     case 'H':
       hyperbolic = TRUE;
@@ -250,6 +254,16 @@ int main(int argc, char *argv[]) {
         nj_estimate_mvn_from_distances(D, dim, mu, sigma);
     }
 
+    /* in this case, output the embedded distances before doing variational inference */
+    if (embeddingdistfile != NULL) {
+      if (hyperbolic)
+        nj_points_to_distances_hyperbolic(mu, D, negcurvature); 
+      else
+        nj_points_to_distances(mu, D);  
+      mat_print(D, embeddingdistfile);
+      exit(0);   /* FIXME: REMOVE ONCE WORKING */
+    }
+    
     nj_variational_inf(mod, msa, D, mu, sigma, dim, hyperbolic, negcurvature, batchsize,
                        learnrate, nbatches_conv, min_nbatches, logfile);
     trees = nj_var_sample(nsamples, dim, mu, sigma, msa->names, hyperbolic, negcurvature);
@@ -261,8 +275,12 @@ int main(int argc, char *argv[]) {
   }
 
   if (outdistfile != NULL) {
-    if (nj_only == FALSE)
-      nj_points_to_distances(mu, D);  /* reset D to posterior mean */
+    if (nj_only == FALSE) {
+      if (hyperbolic)
+        nj_points_to_distances_hyperbolic(mu, D, negcurvature);  /* reset D to posterior mean */
+      else
+        nj_points_to_distances(mu, D);  
+    }
     mat_print(D, outdistfile);
   }
     
