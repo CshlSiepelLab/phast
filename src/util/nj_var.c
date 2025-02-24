@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
   int opt_idx, i, ntips = 0, nsamples = DEFAULT_NSAMPLES, dim = DEFAULT_DIM,
     batchsize = DEFAULT_BATCHSIZE, nbatches_conv = DEFAULT_NBATCHES_CONV,
     min_nbatches = DEFAULT_MIN_NBATCHES;
-  unsigned int nj_only = FALSE, random_start = FALSE;
+  unsigned int nj_only = FALSE, random_start = FALSE, hyperbolic = FALSE;
   MSA *msa = NULL;
 
   char *alphabet = "ACGT";
@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
   List *namestr, *trees;
   subst_mod_type subst_mod = JC69;
   TreeModel *mod = NULL;
-  double kappa = DEFAULT_KAPPA, learnrate = DEFAULT_LEARNRATE;
+  double kappa = DEFAULT_KAPPA, learnrate = DEFAULT_LEARNRATE, negcurvature = 1;
   MarkovMatrix *rmat = NULL;
   Vector *mu = NULL;
   Matrix *sigma = NULL;
@@ -55,13 +55,15 @@ int main(int argc, char *argv[]) {
     {"format", 1, 0, 'i'},
     {"batchsize", 1, 0, 'b'},
     {"nbatches-conv", 1, 0, 'c'},
-    {"distances", 1, 0, 'd'},
     {"dimensionality", 1, 0, 'D'},
+    {"distances", 1, 0, 'd'},
     {"hky85", 0, 0, 'k'}, 
+    {"hyperbolic", 0, 0, 'H'}, 
     {"logfile", 1, 0, 'l'},
     {"mean", 1, 0, 'm'},
     {"min-nbatches", 1, 0, 'M'},
     {"names", 1, 0, 'n'},
+    {"negcurvature", 1, 0, 'K'},
     {"nj-only", 0, 0, 'j'},
     {"out-dists", 1, 0, 'o'},
     {"nsamples", 1, 0, 's'},
@@ -73,7 +75,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:hi:jkl:m:M:n:o:r:Rt:T:s:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:hHi:jkK:l:m:M:n:o:r:Rt:T:s:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -93,16 +95,16 @@ int main(int argc, char *argv[]) {
       if (dim <= 0)
         die("ERROR: --dimensionality must be positive\n");
       break;
-    case 'i':
-      format = msa_str_to_format(optarg);
-      if (format == UNKNOWN_FORMAT) 
-        die("ERROR: bad input format.\n");
-      break;
-    case 'j':
-      nj_only = TRUE;
+    case 'H':
+      hyperbolic = TRUE;
       break;
     case 'k':
       subst_mod = HKY85;
+      break;
+    case 'K':
+      negcurvature = atof(optarg);
+      if (negcurvature <= 0)
+        die("ERROR: --negcurvature must be positive\n");
       break;
     case 'l':
       logfile = phast_fopen(optarg, "w");
@@ -241,17 +243,21 @@ int main(int argc, char *argv[]) {
       nj_sample_std_mvn(mu); vec_scale(mu, 0.1);
       mat_set_identity(sigma); mat_scale(sigma, 0.1);
     }
-    else
-      nj_estimate_mvn_from_distances(D, dim, mu, sigma);
+    else {
+      if (hyperbolic)
+        nj_estimate_mvn_from_distances_hyperbolic(D, dim, mu, sigma, negcurvature);
+      else
+        nj_estimate_mvn_from_distances(D, dim, mu, sigma);
+    }
 
-    nj_variational_inf(mod, msa, D, mu, sigma, dim, batchsize, learnrate,
-		       nbatches_conv, min_nbatches, logfile);
-    trees = nj_var_sample(nsamples, dim, mu, sigma, msa->names);
+    nj_variational_inf(mod, msa, D, mu, sigma, dim, hyperbolic, negcurvature, batchsize,
+                       learnrate, nbatches_conv, min_nbatches, logfile);
+    trees = nj_var_sample(nsamples, dim, mu, sigma, msa->names, hyperbolic, negcurvature);
     for (i = 0; i < nsamples; i++)
       tr_print(stdout, (TreeNode*)lst_get_ptr(trees, i), TRUE);
 
     if (postmeanfile != NULL)
-      tr_print(postmeanfile, nj_mean(mu, dim, msa->names), TRUE);
+      tr_print(postmeanfile, nj_mean(mu, dim, msa->names, hyperbolic, negcurvature), TRUE);
   }
 
   if (outdistfile != NULL) {

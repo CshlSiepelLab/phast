@@ -30,23 +30,29 @@ OPTIONS:
         longer convergence times but may find better solutions.
 
     --dimensionality, -D <D>
-        Set dimensionality of the Euclidean space in which taxa are
+        Set dimensionality of the space in which taxa are
         represented to <D> (default 3).  Higher values will allow for
         richer representations of phylogenies but will take more time and
-        may fail to converge.
+        may fail to converge.  Embedding can be in either a Euclidean
+        (the default) or a hyperbolic (see --hyperbolic) space.
 
     --distances, -d <infile.dist>
         Use distance matrix from <infile.dist>. In this case (and if
         --hky85 is not selected), alignment.fa will be ignored
 
-    --nj-only, -j
-        Simply estimate and output a single tree using the neighbor-joining
-        algorithm; do not follow with variational inference
-	
     --hky85, -k
         Use the HKY85 substitution model for likelihood calculations
         (default is Jukes Cantor). The transition-transversion rate ratio
         (kappa) will be approximated from the pairwise comparisons
+        
+    --hyperbolic, -H
+        Use an embedding of the taxa in a hyperbolic space rather than a
+        Euclidean one.  Taxa are situated on a D-dimensional hyperboloid
+        such that the (D+1)-dimensional Lorentz inner product is fixed at
+        -1, as described in Macaulay et al. PLOS Computational Biology
+        19(4):e1011084 (2023).  The distances between points are computed
+        using the arcosh function and scaled according to the specified
+        curvature (see --negcurvature).
 
     --logfile, -l <logfile.txt>
         Output detailed log for variational inference to specified file
@@ -63,6 +69,19 @@ OPTIONS:
     --names, -n [namelist]
         Specify names for taxa in comma-separated list.  For use with --distances
 
+     --negcurvature, -K, <K>
+        (for use with --hyperbolic) Set the negative curvature of the
+        hyperbolic embedding space to <K> (default 1).  A larger value
+        causes the space to be more curved and stretches how far apart they
+        occur. As discussed by Macaulay et al. PLOS Computational Biology
+        19(4):e1011084 (2023), larger values help to ensure additivity of
+        distances but may restrict exploration of topologies.  As <K>
+        approaches zero, the space approaches a Euclidean space.
+
+    --nj-only, -j
+        Simply estimate and output a single tree using the neighbor-joining
+        algorithm; do not follow with variational inference
+	
     --out-dists, -o <outfile.dist>
         Output distance matrix to <outfile.dist>.  In case of --nj-only,
         will simply output initial matrix estimated from alignment.

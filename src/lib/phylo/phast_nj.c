@@ -404,12 +404,53 @@ void nj_points_to_distances(Vector *points, Matrix *D) {
   }
 }
 
+/* convert an nd-dimensional vector to an nxn upper triangular
+   distance matrix.  Assumes each taxon is represented as a point in
+   d-dimensional space and computes hyperbolic distances between these
+   points */ 
+void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D, double negcurvature) {
+  int i, j, k, vidx1, vidx2, n, d;
+  double lor_inner, ss1, ss2, x0_1, x0_2;
+
+  n = D->nrows;
+  d = points->size / n;
+  
+  if (points->size != n*d || D->nrows != D->ncols) {
+    die("ERROR nj_points_to_distances_hyperbolic: bad dimensions\n");
+  }
+
+  mat_zero(D);
+  for (i = 0; i < n; i++) {
+    vidx1 = i*d;
+    for (j = i+1; j < n; j++) {
+      vidx2 = j*d;
+      lor_inner = 0;
+      ss1 = 1;
+      ss2 = 1;
+      for (k = 0; k < d; k++) {
+        lor_inner += vec_get(points, vidx1 + k) * vec_get(points, vidx2 + k);
+        ss1 += pow(vec_get(points, vidx1 + k), 2);
+        ss2 += pow(vec_get(points, vidx2 + k), 2);
+      }
+      x0_1 = sqrt(ss1); /* the 0th dimension for each point is determined by the
+                           others, to stay on the hyperboloid */
+      x0_2 = sqrt(ss2);
+
+      lor_inner -= x0_1 * x0_2;  /* last term of Lorentz inner product */
+      
+      mat_set(D, i, j, 1/sqrt(negcurvature) * acosh(-lor_inner));
+      /* distance between two points on the sheet, scaled by the curvature */
+    }
+  }
+}
+
 /* compute the gradient of the log likelihood for a tree model with
    respect to the free parameters of the MVN averaging distribution,
    starting from a given MVN sample (points). Returns log likelihood
    of current model, which is computed as a by-product.  This version
    uses numerical methods */
 double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
+                             unsigned int hyperbolic, double negcurvature,
                              Vector *points, Vector *grad, Matrix *D) {
   int n = msa->nseqs;
   int d = mu->size / n;
@@ -422,7 +463,11 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
     die("ERROR in nj_compute_model_grad: bad parameters\n");
 
   /* set up tree model and get baseline log likelihood */
-  nj_points_to_distances(points, D);
+  if (hyperbolic)
+    nj_points_to_distances_hyperbolic(points, D, negcurvature);
+  else
+    nj_points_to_distances(points, D);
+    
   tree = nj_infer_tree(D, msa->names);
   orig_tree = tr_create_copy(tree);   /* restore at the end */
   nj_reset_tree_model(mod, tree);
@@ -442,7 +487,12 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
       
       porig = vec_get(points, pidx);
       vec_set(points, pidx, porig + DERIV_EPS);
-      nj_points_to_distances(points, D);
+
+      if (hyperbolic)
+        nj_points_to_distances_hyperbolic(points, D, negcurvature); 
+      else
+       nj_points_to_distances(points, D);
+
       tree = nj_infer_tree(D, msa->names);
       nj_reset_tree_model(mod, tree);      
       ll = nj_compute_log_likelihood(mod, msa, NULL);
@@ -473,8 +523,9 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
    distance matrix, dimensionality of Euclidean space to work in.
    Note: alters distance matrix */
 void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix *sigma,
-                        int dim, int nminibatch, double learnrate, int nbatches_conv, int min_nbatches,
-                        FILE *logf) {
+                        int dim, unsigned int hyperbolic, double negcurvature,
+                        int nminibatch, double learnrate, int nbatches_conv,
+                        int min_nbatches, FILE *logf) {
 
   Vector *points, *grad, *avegrad, *m, *m_prev, *v, *v_prev, *best_mu;
   Matrix *best_sigma;
@@ -530,7 +581,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       }
       
       /* compute likelihood and gradient */
-      ll = nj_compute_model_grad(mod, mu, sigma, msa, points, grad, D);
+      ll = nj_compute_model_grad(mod, mu, sigma, msa, hyperbolic, negcurvature, 
+                                 points, grad, D);
 
       /* add terms for KLD (equation 7, Doersch arXiv 2016) */
       kld = 0;
@@ -549,7 +601,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       
       /* add gradient of KLD */
       for (j = 0; j < grad->size; j++) {
-        double gj;
+        double gj = 0.0;
 
         if (j < n*dim)  /* partial deriv wrt mu_j is just -mu_j */
           gj = -1.0*vec_get(mu, j);
@@ -609,7 +661,10 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       fprintf(logf, "%d\t%f\t%f\t%f\t", t, avell, avekld, avell + avekld);
       for (j = 0; j < mu->size; j++)
         fprintf(logf, "%f\t", vec_get(mu, j));
-      nj_points_to_distances(mu, D);
+      if (hyperbolic)
+        nj_points_to_distances_hyperbolic(mu, D, negcurvature);
+      else
+        nj_points_to_distances(mu, D);
       for (i = 0; i < D->nrows; i++)
         for (j = i+1; j < D->ncols; j++)
           fprintf(logf, "%f\t", mat_get(D, i, j));
@@ -669,7 +724,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
 
 /* sample a list of trees from the approximate posterior distribution
    and return as a new list */
-List *nj_var_sample(int nsamples, int dim, Vector *mu, Matrix *sigma, char** names) {
+List *nj_var_sample(int nsamples, int dim, Vector *mu, Matrix *sigma, char** names,
+                    unsigned int hyperbolic, double negcurvature) {
   List *retval = lst_new_ptr(nsamples);
   int i, n = mu->size / dim;
   Matrix *D = mat_new(n, n);
@@ -681,7 +737,12 @@ List *nj_var_sample(int nsamples, int dim, Vector *mu, Matrix *sigma, char** nam
  
   for (i = 0; i < nsamples; i++) {
      nj_sample_mvn(mu, sigma, points);
-     nj_points_to_distances(points, D);
+
+     if (hyperbolic)
+       nj_points_to_distances_hyperbolic(points, D, negcurvature);
+     else
+       nj_points_to_distances(points, D);
+
      tree = nj_infer_tree(D, names);
      lst_push_ptr(retval, tree);
   }
@@ -692,15 +753,20 @@ List *nj_var_sample(int nsamples, int dim, Vector *mu, Matrix *sigma, char** nam
 }
 
 /* return a single tree representing the approximate posterior mean */
-TreeNode *nj_mean(Vector *mu, int dim, char **names) {
+TreeNode *nj_mean(Vector *mu, int dim, char **names, unsigned int hyperbolic,
+                  double negcurvature) {
   int n = mu->size / dim;
   Matrix *D = mat_new(n, n);
   TreeNode *tree;
   
   if (n * dim != mu->size)
     die("ERROR in nj_mean: bad dimensions\n");
+
+  if (hyperbolic)
+    nj_points_to_distances_hyperbolic(mu, D, negcurvature);
+  else
+    nj_points_to_distances(mu, D);
   
-  nj_points_to_distances(mu, D);
   tree = nj_infer_tree(D, names);
   
   mat_free(D);
@@ -837,6 +903,106 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
   
   mat_free(Dsq);
   mat_free(G);
+  zvec_free(eval);
+  zmat_free(revec);
+  zmat_free(levec);
+  vec_free(eval_real);
+  mat_free(revec_real);
+}
+
+/* generate an approximate mu and sigma from a distance matrix, for
+   use in initializing the variational inference algorithm. In this
+   version, use the 'hydra' algorithm to solve the problem
+   approximately in hyperbolic space (Keller-Ressel & Nargang,
+   arXiv:1903.08977, 2019) */
+void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
+                                               Matrix *sigma, double negcurvature) {
+  int n = D->nrows;
+  Matrix *A, *revec_real;
+  Zvector *eval;
+  Zmatrix *revec, *levec;
+  Vector *eval_real;
+  int i, j, d, N;
+  List *eiglst;
+  double rowsum_orig = 0, rowsum_new = 0, x = 0, x2 = 0;
+    
+  if (D->nrows != D->ncols || mu->size != n * dim || sigma->nrows != mu->size ||
+      sigma->ncols != mu->size)
+    die("ERROR in nj_estimate_points_from_distances: bad dimensions\n");
+
+  /* build matrix A of transformed distances; note that D is upper
+     triangular but A must be symmetric */
+  A = mat_new(n, n);
+  for (i = 0; i < n; i++) {
+    mat_set(A, i, i, 0);
+    for (j = i + 1; j < n; j++) {
+      double a = cosh(sqrt(negcurvature) * mat_get(D, i, j));
+      mat_set(A, i, j, a);
+      mat_set(A, j, i, a);
+    }
+  }
+
+  /* find eigendecomposition of A */
+  eval = zvec_new(n);
+  revec = zmat_new(n, n);
+  levec = zmat_new(n, n);
+  mat_diagonalize(A, eval, revec, levec);
+  
+  /* convert eigenvalues and right eigenvectors to real numbers; will
+     fail if they have imaginary component but they should not because
+     G is symmetric by construction */
+  eval_real = vec_new(n);
+  revec_real = mat_new(n, n);
+  zvec_as_real(eval_real, eval, TRUE);
+  zmat_as_real(revec_real, revec, TRUE);
+  
+  /* sort eigenvalues from largest to smallest */ 
+  eiglst = lst_new_ptr(n);
+  for (i = 0; i < n; i++) {
+    Evidx *obj = malloc(sizeof(Evidx));
+    obj->idx = i;
+    obj->evals = eval_real;
+    lst_push_ptr(eiglst, obj);
+  }
+  lst_qsort(eiglst, nj_eigen_compare_desc);
+  
+  /* create a vector of points based on the first 'dim' eigenvalues */
+  for (d = 0; d < dim; d++) {
+    Evidx *obj = lst_get_ptr(eiglst, d);
+    double evalsqrt = sqrt(vec_get(eval_real, obj->idx));
+
+    /* product of evalsqrt and corresponding column of revec will define
+       the dth component of each point */ 
+    for (i = 0; i < n; i++)
+      vec_set(mu, i*dim + d, evalsqrt * mat_get(revec_real, i, obj->idx));
+  }  
+
+  /* rescale the matrix to match the original distance matrix. FIXME: DO I NEED THIS?*/
+  /* use sum of first row to normalize */
+  /* nj_points_to_distances_hyperbolic(mu, A, negcurvature);    */
+  /* for (j = 1; j < n; j++) { */
+  /*   rowsum_orig += mat_get(D, 0, j); */
+  /*   rowsum_new += mat_get(A, 0, j); */
+  /* } */
+  /* vec_scale(mu, rowsum_orig/rowsum_new); */
+  
+  for (i = 0; i < n; i++)
+    free((Evidx*)lst_get_ptr(eiglst, i));
+  lst_free(eiglst);
+
+  /* initialize sigma to the identity scaled by 1/n of the variance
+     across pairwise distances */
+  mat_set_identity(sigma);
+  for (i = 0; i < n; i++) {
+    for (j = i+1; j < n; j++) {
+      x += mat_get(D, i, j);
+      x2 += mat_get(D, i, j) * mat_get(D, i, j);
+    }
+  }
+  N = n * (n-1)/2;
+  mat_scale(sigma, 1.0/N * (x2/N - x*x/(N*N)));
+  
+  mat_free(A);
   zvec_free(eval);
   zmat_free(revec);
   zmat_free(levec);

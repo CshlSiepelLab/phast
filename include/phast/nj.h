@@ -54,23 +54,33 @@ void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval);
 
 void nj_points_to_distances(Vector *points, Matrix *D);
 
+void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D,
+                                       double negcurvature);
+
 /* TreeNode* nj_mvn_sample_tree(Vector *mu, Matrix *sigma, int n, char **names); */
 
 double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
-			     Vector *points, Vector *grad, Matrix *D);
+                             unsigned int hyperbolic, double negcurvature,
+                             Vector *points, Vector *grad, Matrix *D);
 
 void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix *sigma,
-                        int dim, int nminibatch, double learnrate, int nbatches_conv, int min_nbatches,
-                        FILE *logf);
+                        int dim, unsigned int hyperbolic, double negcurvature,
+                        int nminibatch, double learnrate, int nbatches_conv,
+                        int min_nbatches, FILE *logf);
 
 List *nj_var_sample(int nsamples, int dim, Vector *mu, Matrix *sigma,
-                    char** names);
+                    char** names, unsigned int hyperbolic,
+                    double negcurvature);
 
-TreeNode *nj_mean(Vector *mu, int dim, char **names);
+TreeNode *nj_mean(Vector *mu, int dim, char **names,
+                  unsigned int hyperbolic, double negcurvature);
 
 void nj_reset_tree_model(TreeModel *mod, TreeNode *newtree);
 
 void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigma);
+
+void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
+                                               Matrix *sigma, double negcurvature);
 
 void nj_test_D(Matrix *D);
 
