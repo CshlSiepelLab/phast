@@ -437,8 +437,10 @@ void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D, double negcurv
       x0_2 = sqrt(ss2);
 
       lor_inner -= x0_1 * x0_2;  /* last term of Lorentz inner product */
-      
-      mat_set(D, i, j, 1/sqrt(negcurvature) * acosh(-lor_inner));
+      if (fabs(1.0 + lor_inner) < 1.0e-8)
+        mat_set(D, i, j, 0);
+      else
+        mat_set(D, i, j, 1/sqrt(negcurvature) * acosh(-lor_inner));
       /* distance between two points on the sheet, scaled by the curvature */
     }
   }
@@ -918,23 +920,26 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
 void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
                                                Matrix *sigma, double negcurvature) {
   int n = D->nrows;
-  Matrix *A, *revec_real;
+  Matrix *A, *revec_real, *levec_real;
   Zvector *eval;
   Zmatrix *revec, *levec;
   Vector *eval_real;
-  int i, j, d, N;
+  int i, j, k, d, N;
   List *eiglst;
   double rowsum_orig = 0, rowsum_new = 0, x = 0, x2 = 0;
     
   if (D->nrows != D->ncols || mu->size != n * dim || sigma->nrows != mu->size ||
       sigma->ncols != mu->size)
-    die("ERROR in nj_estimate_points_from_distances: bad dimensions\n");
+    die("ERROR in nj_estimate_points_from_distances_hyperbolic: bad dimensions\n");
 
+  fprintf(stderr, "Orig distances\n");
+  mat_print(D, stderr);
+  
   /* build matrix A of transformed distances; note that D is upper
      triangular but A must be symmetric */
   A = mat_new(n, n);
   for (i = 0; i < n; i++) {
-    mat_set(A, i, i, 0);
+    mat_set(A, i, i, 1);
     for (j = i + 1; j < n; j++) {
       double a = cosh(sqrt(negcurvature) * mat_get(D, i, j));
       mat_set(A, i, j, a);
@@ -942,6 +947,9 @@ void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
     }
   }
 
+  fprintf(stderr, "Orig A:\n");
+  mat_print(A, stderr);
+  
   /* find eigendecomposition of A */
   eval = zvec_new(n);
   revec = zmat_new(n, n);
@@ -950,11 +958,45 @@ void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
   
   /* convert eigenvalues and right eigenvectors to real numbers; will
      fail if they have imaginary component but they should not because
-     G is symmetric by construction */
+     A is symmetric by construction */
   eval_real = vec_new(n);
   revec_real = mat_new(n, n);
   zvec_as_real(eval_real, eval, TRUE);
   zmat_as_real(revec_real, revec, TRUE);
+
+  /* TEMPORARY.  Recompute A from its diagonalization and output it */
+  fprintf(stderr, "\n\nReconstructed A:\n");
+  levec_real = mat_new(n, n);
+  zmat_as_real(levec_real, levec, TRUE);
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < n; j++) {
+      double a = 0;
+      for (k = 0; k < n; k++)
+        a += mat_get(levec_real, k, i) * vec_get(eval_real, k) * mat_get(revec_real, j, k);
+      mat_set(A, i, j, a);
+    }
+  }
+  mat_print(A, stderr);
+
+  fprintf(stderr, "\n\nReconstructed distances:\n");
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < n; j++) {
+      double a = mat_get(A, i, j);
+      double dist = (fabs(a-1.0) < 1.0e-8 ? 0 : 1/sqrt(negcurvature) * acosh(a));
+      mat_set(A, i, j, dist);
+    }
+  }
+  mat_print(A, stderr);
+  
+  /* negate all but the first eigenvalue as described in Keller-Ressel & Nargang */
+  /* CHECK: can we be sure the first one is the largest at this stage? */
+  for (i = 1; i < n; i++) {
+    double ev = -vec_get(eval_real, i);
+    if (ev < 0) ev = 0;
+    vec_set(eval_real, i, ev);
+  }
+
+  vec_print(eval_real, stderr);
   
   /* sort eigenvalues from largest to smallest */ 
   eiglst = lst_new_ptr(n);
@@ -977,14 +1019,15 @@ void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
       vec_set(mu, i*dim + d, evalsqrt * mat_get(revec_real, i, obj->idx));
   }  
 
+  
   /* rescale the matrix to match the original distance matrix. FIXME: DO I NEED THIS?*/
   /* use sum of first row to normalize */
-  /* nj_points_to_distances_hyperbolic(mu, A, negcurvature);    */
-  /* for (j = 1; j < n; j++) { */
-  /*   rowsum_orig += mat_get(D, 0, j); */
-  /*   rowsum_new += mat_get(A, 0, j); */
-  /* } */
-  /* vec_scale(mu, rowsum_orig/rowsum_new); */
+  /* nj_points_to_distances_hyperbolic(mu, A, negcurvature);     */
+  /* for (j = 1; j < n; j++) {  */
+  /*   rowsum_orig += mat_get(D, 0, j);  */
+  /*   rowsum_new += mat_get(A, 0, j);  */
+  /* }  */
+  /* vec_scale(mu, rowsum_orig/rowsum_new);  */
   
   for (i = 0; i < n; i++)
     free((Evidx*)lst_get_ptr(eiglst, i));

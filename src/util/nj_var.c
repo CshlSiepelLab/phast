@@ -224,6 +224,22 @@ int main(int argc, char *argv[]) {
   if (nj_only == TRUE) /* just print in this case */
     tr_print(stdout, tree, TRUE);
 
+  else if (embeddingdistfile != NULL) {
+    /* in this case, embed the distances and output them */
+    mu = vec_new(msa->nseqs * dim);
+    sigma = mat_new(msa->nseqs * dim, msa->nseqs * dim);
+    if (hyperbolic) {
+      nj_estimate_mvn_from_distances_hyperbolic(D, dim, mu, sigma, negcurvature);
+      vec_print(mu, stderr);
+      nj_points_to_distances_hyperbolic(mu, D, negcurvature); 
+    }
+    else {
+      nj_estimate_mvn_from_distances(D, dim, mu, sigma);
+      nj_points_to_distances(mu, D);  
+    }
+    mat_print(D, embeddingdistfile);
+  }
+  
   else {  /* full variational inference */
     if (msa == NULL)
       die("ERROR: Alignment required for variational inference\n");
@@ -252,16 +268,6 @@ int main(int argc, char *argv[]) {
         nj_estimate_mvn_from_distances_hyperbolic(D, dim, mu, sigma, negcurvature);
       else
         nj_estimate_mvn_from_distances(D, dim, mu, sigma);
-    }
-
-    /* in this case, output the embedded distances before doing variational inference */
-    if (embeddingdistfile != NULL) {
-      if (hyperbolic)
-        nj_points_to_distances_hyperbolic(mu, D, negcurvature); 
-      else
-        nj_points_to_distances(mu, D);  
-      mat_print(D, embeddingdistfile);
-      exit(0);   /* FIXME: REMOVE ONCE WORKING */
     }
     
     nj_variational_inf(mod, msa, D, mu, sigma, dim, hyperbolic, negcurvature, batchsize,
