@@ -803,7 +803,9 @@ int nj_eigen_compare_desc(const void* ptr1, const void* ptr2) {
   Evidx *idx2 = *((Evidx**)ptr2);
   double eval1 = vec_get(idx1->evals, idx1->idx);
   double eval2 = vec_get(idx2->evals, idx2->idx);
-  return (eval2 - eval1);
+  if (eval1 == eval2) return 0;
+  else if (eval1 < eval2) return 1;
+  return -1;
 }
 
 /* generate an approximate mu and sigma from a distance matrix, for
@@ -926,14 +928,11 @@ void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
   Vector *eval_real;
   int i, j, k, d, N;
   List *eiglst;
-  double rowsum_orig = 0, rowsum_new = 0, x = 0, x2 = 0;
+  double x = 0, x2 = 0;
     
   if (D->nrows != D->ncols || mu->size != n * dim || sigma->nrows != mu->size ||
       sigma->ncols != mu->size)
     die("ERROR in nj_estimate_points_from_distances_hyperbolic: bad dimensions\n");
-
-  fprintf(stderr, "Orig distances\n");
-  mat_print(D, stderr);
   
   /* build matrix A of transformed distances; note that D is upper
      triangular but A must be symmetric */
@@ -946,9 +945,6 @@ void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
       mat_set(A, j, i, a);
     }
   }
-
-  fprintf(stderr, "Orig A:\n");
-  mat_print(A, stderr);
   
   /* find eigendecomposition of A */
   eval = zvec_new(n);
@@ -964,40 +960,6 @@ void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
   zvec_as_real(eval_real, eval, TRUE);
   zmat_as_real(revec_real, revec, TRUE);
 
-  /* TEMPORARY.  Recompute A from its diagonalization and output it */
-  fprintf(stderr, "\n\nReconstructed A:\n");
-  levec_real = mat_new(n, n);
-  zmat_as_real(levec_real, levec, TRUE);
-  for (i = 0; i < n; i++) {
-    for (j = 0; j < n; j++) {
-      double a = 0;
-      for (k = 0; k < n; k++)
-        a += mat_get(levec_real, k, i) * vec_get(eval_real, k) * mat_get(revec_real, j, k);
-      mat_set(A, i, j, a);
-    }
-  }
-  mat_print(A, stderr);
-
-  fprintf(stderr, "\n\nReconstructed distances:\n");
-  for (i = 0; i < n; i++) {
-    for (j = 0; j < n; j++) {
-      double a = mat_get(A, i, j);
-      double dist = (fabs(a-1.0) < 1.0e-8 ? 0 : 1/sqrt(negcurvature) * acosh(a));
-      mat_set(A, i, j, dist);
-    }
-  }
-  mat_print(A, stderr);
-  
-  /* negate all but the first eigenvalue as described in Keller-Ressel & Nargang */
-  /* CHECK: can we be sure the first one is the largest at this stage? */
-  for (i = 1; i < n; i++) {
-    double ev = -vec_get(eval_real, i);
-    if (ev < 0) ev = 0;
-    vec_set(eval_real, i, ev);
-  }
-
-  vec_print(eval_real, stderr);
-  
   /* sort eigenvalues from largest to smallest */ 
   eiglst = lst_new_ptr(n);
   for (i = 0; i < n; i++) {
@@ -1007,28 +969,21 @@ void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
     lst_push_ptr(eiglst, obj);
   }
   lst_qsort(eiglst, nj_eigen_compare_desc);
-  
-  /* create a vector of points based on the first 'dim' eigenvalues */
+
+  /* create a vector of points based on eigenvalues (n-dim+1) through
+     n (1st dimension will be implicit) */
   for (d = 0; d < dim; d++) {
-    Evidx *obj = lst_get_ptr(eiglst, d);
-    double evalsqrt = sqrt(vec_get(eval_real, obj->idx));
+    int eigd = n - dim + d;
+    Evidx *obj = lst_get_ptr(eiglst, eigd); 
+    double ev = -vec_get(eval_real, obj->idx);
+    if (ev < 0) ev = 0;
 
     /* product of evalsqrt and corresponding column of revec will define
        the dth component of each point */ 
     for (i = 0; i < n; i++)
-      vec_set(mu, i*dim + d, evalsqrt * mat_get(revec_real, i, obj->idx));
+      vec_set(mu, i*dim + d, sqrt(ev) * mat_get(revec_real, i, obj->idx));
   }  
 
-  
-  /* rescale the matrix to match the original distance matrix. FIXME: DO I NEED THIS?*/
-  /* use sum of first row to normalize */
-  /* nj_points_to_distances_hyperbolic(mu, A, negcurvature);     */
-  /* for (j = 1; j < n; j++) {  */
-  /*   rowsum_orig += mat_get(D, 0, j);  */
-  /*   rowsum_new += mat_get(A, 0, j);  */
-  /* }  */
-  /* vec_scale(mu, rowsum_orig/rowsum_new);  */
-  
   for (i = 0; i < n; i++)
     free((Evidx*)lst_get_ptr(eiglst, i));
   lst_free(eiglst);

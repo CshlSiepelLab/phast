@@ -230,7 +230,6 @@ int main(int argc, char *argv[]) {
     sigma = mat_new(msa->nseqs * dim, msa->nseqs * dim);
     if (hyperbolic) {
       nj_estimate_mvn_from_distances_hyperbolic(D, dim, mu, sigma, negcurvature);
-      vec_print(mu, stderr);
       nj_points_to_distances_hyperbolic(mu, D, negcurvature); 
     }
     else {
