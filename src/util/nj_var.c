@@ -223,12 +223,6 @@ int main(int argc, char *argv[]) {
   /* we must have a distance matrix now; make sure valid */
   nj_test_D(D);
 
-  /* we'll need a NJ tree in any case */
-  tree = nj_infer_tree(D, names);
-
-  if (nj_only == TRUE) /* just print in this case */
-    tr_print(stdout, tree, TRUE);
-
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */
     if (outdistfile == NULL)
@@ -242,52 +236,62 @@ int main(int argc, char *argv[]) {
     else 
       nj_estimate_mvn_from_distances(D, dim, mu, sigma);
   }
-  
-  else if (nj_only == FALSE) {  /* full variational inference */
-    if (msa == NULL)
-      die("ERROR: Alignment required for variational inference\n");
 
-    /* set up a tree model if necessary */
-    if (mod == NULL) {
-      rmat = mm_new(strlen(msa->alphabet), msa->alphabet, CONTINUOUS);    
-      mod = tm_new(tree, rmat, NULL, subst_mod, msa->alphabet, 1, 1, NULL, -1);
-      tm_init_backgd(mod, msa, -1); 
+  else {
+    /* we'll need a starting NJ tree for either variational inference
+       or NJ */
+    tree = nj_infer_tree(D, names);
+
+    if (nj_only == TRUE) /* just print in this case */
+      tr_print(stdout, tree, TRUE);
+ 
+    else {  /* full variational inference */
+      if (msa == NULL)
+        die("ERROR: Alignment required for variational inference\n");
+
+      /* set up a tree model if necessary */
+      if (mod == NULL) {
+        rmat = mm_new(strlen(msa->alphabet), msa->alphabet, CONTINUOUS);    
+        mod = tm_new(tree, rmat, NULL, subst_mod, msa->alphabet, 1, 1, NULL, -1);
+        tm_init_backgd(mod, msa, -1); 
     
-      if (subst_mod == JC69)
-        tm_set_JC69_matrix(mod);
-      else 
-        tm_set_HKY_matrix(mod, kappa, -1);   /* FIXME: estimate kappa from msa */
+        if (subst_mod == JC69)
+          tm_set_JC69_matrix(mod);
+        else 
+          tm_set_HKY_matrix(mod, kappa, -1);   /* FIXME: estimate kappa from msa */
     }
 
-    /* initialize parameters of multivariate normal */    
-    mu = vec_new(msa->nseqs * dim);
-    sigma = mat_new(msa->nseqs * dim, msa->nseqs * dim);
-    if (random_start == TRUE) {
-      nj_sample_std_mvn(mu); vec_scale(mu, 0.1);
-      mat_set_identity(sigma); mat_scale(sigma, 0.1);
-    }
-    else {
-      if (hyperbolic)
-        nj_estimate_mvn_from_distances_hyperbolic(D, dim, mu, sigma, negcurvature);
-      else
-        nj_estimate_mvn_from_distances(D, dim, mu, sigma);
-    }
+      /* initialize parameters of multivariate normal */    
+      mu = vec_new(msa->nseqs * dim);
+      sigma = mat_new(msa->nseqs * dim, msa->nseqs * dim);
+      if (random_start == TRUE) {
+        nj_sample_std_mvn(mu); vec_scale(mu, 0.1);
+        mat_set_identity(sigma); mat_scale(sigma, 0.1);
+      }
+      else {
+        if (hyperbolic)
+          nj_estimate_mvn_from_distances_hyperbolic(D, dim, mu, sigma, negcurvature);
+        else
+          nj_estimate_mvn_from_distances(D, dim, mu, sigma);
+      }
     
-    nj_variational_inf(mod, msa, D, mu, sigma, dim, hyperbolic,
-                       negcurvature, batchsize, learnrate,
-                       nbatches_conv, min_nbatches, logfile);
-    trees = nj_var_sample(nsamples, dim, mu, sigma, msa->names,
-                          hyperbolic, negcurvature);
-    for (i = 0; i < nsamples; i++)
-      tr_print(stdout, (TreeNode*)lst_get_ptr(trees, i), TRUE);
+      nj_variational_inf(mod, msa, D, mu, sigma, dim, hyperbolic,
+                         negcurvature, batchsize, learnrate,
+                         nbatches_conv, min_nbatches, logfile);
+      trees = nj_var_sample(nsamples, dim, mu, sigma, msa->names,
+                            hyperbolic, negcurvature);
+      for (i = 0; i < nsamples; i++)
+        tr_print(stdout, (TreeNode*)lst_get_ptr(trees, i), TRUE);
 
-    if (postmeanfile != NULL)
-      tr_print(postmeanfile, nj_mean(mu, dim, msa->names,
+      if (postmeanfile != NULL)
+        tr_print(postmeanfile, nj_mean(mu, dim, msa->names,
                                      hyperbolic, negcurvature), TRUE);
+    }
   }
 
   if (outdistfile != NULL) {
-    if (nj_only == FALSE || embedding_only == TRUE) {
+    if (embedding_only == TRUE || nj_only == FALSE) {
+      /* in this case need to reset D */
       if (hyperbolic)
         nj_points_to_distances_hyperbolic(mu, D, negcurvature);  
       else
