@@ -32,14 +32,15 @@ int main(int argc, char *argv[]) {
   int opt_idx, i, ntips = 0, nsamples = DEFAULT_NSAMPLES, dim = DEFAULT_DIM,
     batchsize = DEFAULT_BATCHSIZE, nbatches_conv = DEFAULT_NBATCHES_CONV,
     min_nbatches = DEFAULT_MIN_NBATCHES;
-  unsigned int nj_only = FALSE, random_start = FALSE, hyperbolic = FALSE;
+  unsigned int nj_only = FALSE, random_start = FALSE,
+    hyperbolic = FALSE, embedding_only = FALSE;
   MSA *msa = NULL;
 
   char *alphabet = "ACGT";
   char **names = NULL;
   msa_format_type format = UNKNOWN_FORMAT;
   FILE *infile = NULL, *indistfile = NULL, *outdistfile = NULL, *logfile = NULL,
-    *postmeanfile = NULL, *embeddingdistfile = NULL;
+    *postmeanfile = NULL;
   Matrix *D = NULL;
   TreeNode *tree;
   List *namestr, *trees;
@@ -57,7 +58,7 @@ int main(int argc, char *argv[]) {
     {"nbatches-conv", 1, 0, 'c'},
     {"dimensionality", 1, 0, 'D'},
     {"distances", 1, 0, 'd'},
-    {"embedding-dists", 1, 0, 'e'},
+    {"embedding-only", 0, 0, 'e'},
     {"hky85", 0, 0, 'k'}, 
     {"hyperbolic", 0, 0, 'H'}, 
     {"logfile", 1, 0, 'l'},
@@ -76,7 +77,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:e:hHi:jkK:l:m:M:n:o:r:Rt:T:s:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:jkK:l:m:M:n:o:r:Rt:T:s:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -97,10 +98,13 @@ int main(int argc, char *argv[]) {
         die("ERROR: --dimensionality must be positive\n");
       break;
     case 'e':
-      embeddingdistfile = phast_fopen(optarg, "w");
+      embedding_only = TRUE;
       break;
     case 'H':
       hyperbolic = TRUE;
+      break;
+    case 'j':
+      nj_only = TRUE;
       break;
     case 'k':
       subst_mod = HKY85;
@@ -162,7 +166,8 @@ int main(int argc, char *argv[]) {
   if (init_tree != NULL && indistfile != NULL)
     die("Cannot specify both --tree/-treemod and --distances\n");
   
-  if (nj_only && (indistfile != NULL || init_tree != NULL)) {
+  if ((nj_only || embedding_only) &&
+      (indistfile != NULL || init_tree != NULL)) {
     if (optind != argc) 
       die("ERROR: No alignment needed in this case.  Too many arguments.  Try 'nj_var -h'.\n");
   }
@@ -224,22 +229,21 @@ int main(int argc, char *argv[]) {
   if (nj_only == TRUE) /* just print in this case */
     tr_print(stdout, tree, TRUE);
 
-  else if (embeddingdistfile != NULL) {
-    /* in this case, embed the distances and output them */
-    mu = vec_new(msa->nseqs * dim);
-    sigma = mat_new(msa->nseqs * dim, msa->nseqs * dim);
-    if (hyperbolic) {
-      nj_estimate_mvn_from_distances_hyperbolic(D, dim, mu, sigma, negcurvature);
-      nj_points_to_distances_hyperbolic(mu, D, negcurvature); 
-    }
-    else {
+  if (embedding_only == TRUE) {
+    /* in this case, embed the distances now */
+    if (outdistfile == NULL)
+      die("ERROR: must use --out-dists with -embedding-only\n");
+
+    mu = vec_new(ntips * dim);
+    sigma = mat_new(ntips * dim, ntips * dim);
+    if (hyperbolic)
+      nj_estimate_mvn_from_distances_hyperbolic(D, dim, mu, sigma,
+                                                negcurvature);
+    else 
       nj_estimate_mvn_from_distances(D, dim, mu, sigma);
-      nj_points_to_distances(mu, D);  
-    }
-    mat_print(D, embeddingdistfile);
   }
   
-  else {  /* full variational inference */
+  else if (nj_only == FALSE) {  /* full variational inference */
     if (msa == NULL)
       die("ERROR: Alignment required for variational inference\n");
 
@@ -269,20 +273,23 @@ int main(int argc, char *argv[]) {
         nj_estimate_mvn_from_distances(D, dim, mu, sigma);
     }
     
-    nj_variational_inf(mod, msa, D, mu, sigma, dim, hyperbolic, negcurvature, batchsize,
-                       learnrate, nbatches_conv, min_nbatches, logfile);
-    trees = nj_var_sample(nsamples, dim, mu, sigma, msa->names, hyperbolic, negcurvature);
+    nj_variational_inf(mod, msa, D, mu, sigma, dim, hyperbolic,
+                       negcurvature, batchsize, learnrate,
+                       nbatches_conv, min_nbatches, logfile);
+    trees = nj_var_sample(nsamples, dim, mu, sigma, msa->names,
+                          hyperbolic, negcurvature);
     for (i = 0; i < nsamples; i++)
       tr_print(stdout, (TreeNode*)lst_get_ptr(trees, i), TRUE);
 
     if (postmeanfile != NULL)
-      tr_print(postmeanfile, nj_mean(mu, dim, msa->names, hyperbolic, negcurvature), TRUE);
+      tr_print(postmeanfile, nj_mean(mu, dim, msa->names,
+                                     hyperbolic, negcurvature), TRUE);
   }
 
   if (outdistfile != NULL) {
-    if (nj_only == FALSE) {
+    if (nj_only == FALSE || embedding_only == TRUE) {
       if (hyperbolic)
-        nj_points_to_distances_hyperbolic(mu, D, negcurvature);  /* reset D to posterior mean */
+        nj_points_to_distances_hyperbolic(mu, D, negcurvature);  
       else
         nj_points_to_distances(mu, D);  
     }
