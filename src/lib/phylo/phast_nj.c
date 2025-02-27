@@ -480,12 +480,15 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
      calculation on tree */
 
   vec_zero(grad);
-  for (i = 1; i < n; i++) {   /* note: we can skip the first point and the first d-1 dimensions of the second */
+  /* TEMPORARY: TRYING WITHOUT */
+  /* for (i = 1; i < n; i++) {   /\* note: we can skip the first point and the first d-1 dimensions of the second *\/ */
+  for (i = 0; i < n; i++) {   /* note: we can skip the first point and the first d-1 dimensions of the second */
     for (k = 0; k < d; k++) {
       int pidx = i*d + k;
 
-      if (i == 1 && k < d-1)
-        continue;
+      /* TEMPORARY: TRYING WITHOUT */
+      /* if (i == 1 && k < d-1) */
+      /*   continue; */
       
       porig = vec_get(points, pidx);
       vec_set(points, pidx, porig + DERIV_EPS);
@@ -577,10 +580,11 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       nj_sample_mvn(mu, sigma, points);
 
       /* force first 2d-1 to be zero (not dof) */
-      for (j = 0; j < 2*dim - 1; j++) {
-        vec_set(mu, j, 0);
-        mat_set(sigma, j, j, 0);
-      }
+      /* TEMPORARY: TRY WITHOUT */
+      /* for (j = 0; j < 2*dim - 1; j++) { */
+      /*   vec_set(mu, j, 0); */
+      /*   mat_set(sigma, j, j, 0); */
+      /* } */
       
       /* compute likelihood and gradient */
       ll = nj_compute_model_grad(mod, mu, sigma, msa, hyperbolic, negcurvature, 
@@ -635,7 +639,9 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
     t++;
-    for (j = 2*dim - 1; j < avegrad->size; j++) {   /* skip first 2*dim - 1 updates */
+    /* for (j = 2*dim - 1; j < avegrad->size; j++) {   /\* skip first 2*dim - 1 updates *\/ */
+    /* TEMPORARY: TRYING WITHOUT */
+    for (j = 0; j < avegrad->size; j++) {   /* skip first 2*dim - 1 updates */
       double mhatj, vhatj;      
       vec_set(m, j, ADAM_BETA1 * vec_get(m_prev, j) + (1.0 - ADAM_BETA1) * vec_get(avegrad, j));
       vec_set(v, j, ADAM_BETA2 * vec_get(v_prev, j) +
@@ -922,11 +928,11 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
 void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
                                                Matrix *sigma, double negcurvature) {
   int n = D->nrows;
-  Matrix *A, *revec_real, *levec_real;
+  Matrix *A, *revec_real;
   Zvector *eval;
   Zmatrix *revec, *levec;
   Vector *eval_real;
-  int i, j, k, d, N;
+  int i, j, d, N;
   List *eiglst;
   double x = 0, x2 = 0;
     
