@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
     batchsize = DEFAULT_BATCHSIZE, nbatches_conv = DEFAULT_NBATCHES_CONV,
     min_nbatches = DEFAULT_MIN_NBATCHES;
   unsigned int nj_only = FALSE, random_start = FALSE,
-    hyperbolic = FALSE, embedding_only = FALSE;
+    hyperbolic = FALSE, embedding_only = FALSE, importance_sampling = FALSE;
   MSA *msa = NULL;
 
   char *alphabet = "ACGT";
@@ -278,8 +278,19 @@ int main(int argc, char *argv[]) {
       nj_variational_inf(mod, msa, D, mu, sigma, dim, hyperbolic,
                          negcurvature, batchsize, learnrate,
                          nbatches_conv, min_nbatches, logfile);
-      trees = nj_var_sample(nsamples, dim, mu, sigma, msa->names,
-                            hyperbolic, negcurvature);
+
+      if (importance_sampling == TRUE) {
+        /* sample 10x as many then importance sample; make free param? */
+        List *origtrees = nj_var_sample(10*nsamples, dim, mu, sigma,
+                                        msa->names, hyperbolic,
+                                        negcurvature);
+        trees = nj_importance_sample(nsamples, origtrees, mod, msa);        
+      }
+
+      else /* otherwise just sample directly from posterior */
+        trees = nj_var_sample(nsamples, dim, mu, sigma, msa->names,
+                              hyperbolic, negcurvature);
+
       for (i = 0; i < nsamples; i++)
         tr_print(stdout, (TreeNode*)lst_get_ptr(trees, i), TRUE);
 

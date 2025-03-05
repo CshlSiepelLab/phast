@@ -230,7 +230,7 @@ double nj_compute_JC_dist(MSA *msa, int i, int j) {
     if (msa->seqs[i][k] != msa->seqs[j][k])
       diff++;
   }
-  if (diff/n >= 0.75)
+  if ((double)diff/n >= 0.75)
     /* in this case, there are too many differences for the correction
        to work.  We basically want the distance to be "really long" but
        not so long that it completely skews the tree or makes it
@@ -1246,4 +1246,42 @@ int nj_get_seq_idx(char **names, char *name, int n) {
     if (!strcmp(name, names[i]))
       retval = i;
   return retval;
+}
+
+/* subsample from a set of trees by importance sampling, using
+   likelihoods as weights.  Warning: tree objects in returned list
+   will be shared with those in primary list and may repeat */
+List *nj_importance_sample(int nsamples, List *trees,
+                           TreeModel *mod, MSA *msa) {
+  List *retval = lst_new_ptr(nsamples);
+  Vector *weights = vec_new(nsamples);
+  double ll, maxll = -INFTY;
+  int i;
+  
+  /* calculate importance weights from likelihoods */
+  for (i = 0; i < lst_size(trees); i++) {
+    TreeNode *t = lst_get_ptr(trees, i);    
+    nj_reset_tree_model(mod, t);   /* CHECK: okay here? */
+    ll = nj_compute_log_likelihood(mod, msa, NULL);
+    vec_set(weights, i, ll);
+    if (ll > maxll) maxll = ll;
+  }
+  assert(isfinite(maxll));
+
+  /* exponentiate and renormalize */
+  for (i = 0; i < lst_size(trees); i++) {
+    ll = vec_get(weights,i);
+    vec_set(weights, i, exp(ll-maxll));  /* avoids underflow */
+  }
+  pv_normalize(weights);
+
+  /* now draw nsamples */
+  for (i = 0; i < nsamples; i++) {
+    int j = pv_draw_idx(weights);
+    lst_push_ptr(retval, lst_get_ptr(trees, j));
+  }
+
+         
+         
+  return(retval);
 }

@@ -59,6 +59,13 @@ OPTIONS:
         using the arcosh function and scaled according to the specified
         curvature (see --negcurvature).
 
+    --importance-sampling, -I
+        Refine final set of samples by importance sampling, using the full
+        likelihood function.  Produces a substantially improved
+        approximation of the posterior distribution at the cost of
+        additional likelihood evaluations.  Begins with a sample ten times
+        as large as the target sample size (see --nsamples).
+
     --logfile, -l <logfile.txt>
         Output detailed log for variational inference to specified file
 

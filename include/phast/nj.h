@@ -90,4 +90,6 @@ int *nj_build_seq_idx(List *leaves, char **names) ;
 
 int nj_get_seq_idx(char **names, char *name, int n);
 
+List *nj_importance_sample(int nsamples, List *trees,
+                           TreeModel *mod, MSA *msa);
 #endif
