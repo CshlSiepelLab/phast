@@ -52,6 +52,8 @@ void nj_sample_std_mvn(Vector *retval);
 
 void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval);
 
+double nj_mvn_dens(Vector *mu, Matrix *sigma, Vector *x);
+
 void nj_points_to_distances(Vector *points, Matrix *D);
 
 void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D,
@@ -70,7 +72,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
 
 List *nj_var_sample(int nsamples, int dim, Vector *mu, Matrix *sigma,
                     char** names, unsigned int hyperbolic,
-                    double negcurvature);
+                    double negcurvature, Vector *logdens);
 
 TreeNode *nj_mean(Vector *mu, int dim, char **names,
                   unsigned int hyperbolic, double negcurvature);
@@ -90,6 +92,6 @@ int *nj_build_seq_idx(List *leaves, char **names) ;
 
 int nj_get_seq_idx(char **names, char *name, int n);
 
-List *nj_importance_sample(int nsamples, List *trees,
+List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
                            TreeModel *mod, MSA *msa);
 #endif

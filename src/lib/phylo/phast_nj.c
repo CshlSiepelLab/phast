@@ -374,6 +374,22 @@ void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval) {
   }
 }
 
+/* return MVN density function for a given vector x.  Currently assumes diagonal sigma */
+double nj_mvn_dens(Vector *mu, Matrix *sigma, Vector *x) {
+  double retval = -x->size/2 * log(2 * M_PI);
+  int i;
+
+  if (mu->size != sigma->nrows || mu->size != sigma->ncols || x->size != mu->size)
+    die("ERROR in nj_mvn_dens: bad dimension\n");
+  
+  for (i = 0; i < x->size; i++) {
+    retval -= 0.5 * log(mat_get(sigma, i, i));
+    retval -= 0.5 * pow(vec_get(x, i) - vec_get(mu, i), 2) * mat_get(sigma, i, i);
+  }
+
+  return retval;
+}
+
 /* convert an nd-dimensional vector to an nxn upper triangular
    distance matrix.  Assumes each taxon is represented as a point in
    d-dimensional space and computes Euclidean distances between these
@@ -535,7 +551,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   Vector *points, *grad, *avegrad, *m, *m_prev, *v, *v_prev, *best_mu;
   Matrix *best_sigma;
   int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1;
-  double ll, avell, kld, avekld, bestelb = -INFTY, running_tot = 0, last_running_tot = -INFTY;
+  double ll, avell, kld, avekld, bestelb = -INFTY, bestll = -INFTY,
+    running_tot = 0, last_running_tot = -INFTY;
   
   if (mu->size != n*dim || sigma->nrows != n*dim || sigma->ncols != n*dim)
     die("ERROR in nj_variational_inf: bad dimensions\n");
@@ -590,11 +607,11 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       ll = nj_compute_model_grad(mod, mu, sigma, msa, hyperbolic, negcurvature, 
                                  points, grad, D);
 
-      /* add terms for KLD (equation 7, Doersch arXiv 2016) */
+      /* add (negative) terms for KLD (equation 7, Doersch arXiv 2016) */
       kld = 0;
       for (j = 0; j < sigma->nrows; j++) {
         kld -= 0.5 * (mat_get(sigma, j, j) + vec_get(mu, j) * vec_get(mu, j)); 
-         /* 1/2 trace of sigma and inner product of mu with itself*/
+         /* 1/2 trace of sigma and inner product of mu with itself */
 
         if (mat_get(sigma, j, j) > 0)
           kld -= 0.5 * log(mat_get(sigma, j, j)); /* contribution to log determinant of sigma */
@@ -605,7 +622,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       avell += ll;
       avekld += kld;
       
-      /* add gradient of KLD */
+      /* add (negative) gradient of KLD */
       for (j = 0; j < grad->size; j++) {
         double gj = 0.0;
 
@@ -629,9 +646,10 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     avell /= nminibatch;
     avekld /= nminibatch;
 
-    /* store parameters if best yet and min exceeded */
-    if (avell + avekld > bestelb && t > min_nbatches) {
-      bestelb = avell + avekld;
+    /* store parameters if best yet */
+    if (avell - avekld > bestelb) {
+      bestelb = avell - avekld;
+      bestll = avell;  /* not necessarily best ll but ll corresponding to bestelb */
       bestt = t;
       vec_copy(best_mu, mu);
       mat_copy(best_sigma, sigma);
@@ -666,7 +684,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     
     /* report to log file */
     if (logf != NULL) {
-      fprintf(logf, "%d\t%f\t%f\t%f\t", t, avell, avekld, avell + avekld);
+      fprintf(logf, "%d\t%f\t%f\t%f\t", t, avell, avekld, avell - avekld);
       for (j = 0; j < mu->size; j++)
         fprintf(logf, "%f\t", vec_get(mu, j));
       if (hyperbolic)
@@ -694,7 +712,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     }
     
     /* check total elb every nbatches_conv to decide whether to stop */
-    running_tot += avell + avekld;
+    running_tot += avell - avekld;
     if (t % nbatches_conv == 0) {
       if (logf != NULL)
         fprintf(logf, "#Average for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
@@ -712,7 +730,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   mat_copy(sigma, best_sigma);
 
   if (logf != NULL) {
-    fprintf(logf, "# Reverting to parameters from iteration %d; ", bestt);
+    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, ",
+            bestt+1, bestelb, bestll);
      fprintf(logf, "mu:\t");
      vec_print(mu, logf);
      /*     fprintf(logf, "sigma:\n");
@@ -731,9 +750,10 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
 }
 
 /* sample a list of trees from the approximate posterior distribution
-   and return as a new list */
+   and return as a new list.  If logdens is non-null, return
+   corresponding vector of log densities for the samples */
 List *nj_var_sample(int nsamples, int dim, Vector *mu, Matrix *sigma, char** names,
-                    unsigned int hyperbolic, double negcurvature) {
+                    unsigned int hyperbolic, double negcurvature, Vector *logdens) {
   List *retval = lst_new_ptr(nsamples);
   int i, n = mu->size / dim;
   Matrix *D = mat_new(n, n);
@@ -746,6 +766,10 @@ List *nj_var_sample(int nsamples, int dim, Vector *mu, Matrix *sigma, char** nam
   for (i = 0; i < nsamples; i++) {
      nj_sample_mvn(mu, sigma, points);
 
+     if (logdens != NULL) 
+       vec_set(logdens, i, nj_mvn_dens(mu, sigma, points));
+     /* FIXME: need Jacobian in hyperbolic case */
+     
      if (hyperbolic)
        nj_points_to_distances_hyperbolic(points, D, negcurvature);
      else
@@ -1128,11 +1152,13 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
     }
   
     /* termination */
+    total_prob = 0;
     for (i = 0; i < nstates; i++)
       total_prob += vec_get(mod->backgd_freqs, i) *
 	pL[i][mod->tree->id] * mod->freqK[rcat];
     
     ll += (log(total_prob) - log_scale) * msa->ss->counts[tupleidx];
+
     assert(isfinite(ll));
 
 
@@ -1248,21 +1274,26 @@ int nj_get_seq_idx(char **names, char *name, int n) {
   return retval;
 }
 
-/* subsample from a set of trees by importance sampling, using
-   likelihoods as weights.  Warning: tree objects in returned list
-   will be shared with those in primary list and may repeat */
-List *nj_importance_sample(int nsamples, List *trees,
+/* subsample from a set of trees by importance sampling, using ratio
+   of likelihoods to sampling density as weights.  Warning: tree
+   objects in returned list will be shared with those in primary list
+   and may repeat */
+List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
                            TreeModel *mod, MSA *msa) {
   List *retval = lst_new_ptr(nsamples);
   Vector *weights = vec_new(nsamples);
   double ll, maxll = -INFTY;
   int i;
+
+  if (lst_size(trees) != nsamples || logdens == NULL || logdens->size != nsamples)
+    die("ERROR in nj_importance_sample: bad input.\n");
   
   /* calculate importance weights from likelihoods */
   for (i = 0; i < lst_size(trees); i++) {
     TreeNode *t = lst_get_ptr(trees, i);    
-    nj_reset_tree_model(mod, t);   /* CHECK: okay here? */
+    nj_reset_tree_model(mod, t);  
     ll = nj_compute_log_likelihood(mod, msa, NULL);
+    ll -= vec_get(logdens, i);
     vec_set(weights, i, ll);
     if (ll > maxll) maxll = ll;
   }
@@ -1281,7 +1312,5 @@ List *nj_importance_sample(int nsamples, List *trees,
     lst_push_ptr(retval, lst_get_ptr(trees, j));
   }
 
-         
-         
   return(retval);
 }

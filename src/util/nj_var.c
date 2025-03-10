@@ -281,15 +281,16 @@ int main(int argc, char *argv[]) {
 
       if (importance_sampling == TRUE) {
         /* sample 10x as many then importance sample; make free param? */
+        Vector *logdens = vec_new(10*nsamples);
         List *origtrees = nj_var_sample(10*nsamples, dim, mu, sigma,
                                         msa->names, hyperbolic,
-                                        negcurvature);
-        trees = nj_importance_sample(nsamples, origtrees, mod, msa);        
+                                        negcurvature, logdens);
+        trees = nj_importance_sample(nsamples, origtrees, logdens, mod, msa);        
       }
 
       else /* otherwise just sample directly from posterior */
         trees = nj_var_sample(nsamples, dim, mu, sigma, msa->names,
-                              hyperbolic, negcurvature);
+                              hyperbolic, negcurvature, NULL);
 
       for (i = 0; i < nsamples; i++)
         tr_print(stdout, (TreeNode*)lst_get_ptr(trees, i), TRUE);
