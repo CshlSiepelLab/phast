@@ -551,7 +551,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   Vector *points, *grad, *avegrad, *m, *m_prev, *v, *v_prev, *best_mu;
   Matrix *best_sigma;
   int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1;
-  double ll, avell, kld, avekld, bestelb = -INFTY, bestll = -INFTY,
+  double ll, avell, kld, avekld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY;
   
   if (mu->size != n*dim || sigma->nrows != n*dim || sigma->ncols != n*dim)
@@ -607,32 +607,32 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       ll = nj_compute_model_grad(mod, mu, sigma, msa, hyperbolic, negcurvature, 
                                  points, grad, D);
 
-      /* add (negative) terms for KLD (equation 7, Doersch arXiv 2016) */
+      /* compute the KLD (equation 7, Doersch arXiv 2016) */
       kld = 0;
       for (j = 0; j < sigma->nrows; j++) {
-        kld -= 0.5 * (mat_get(sigma, j, j) + vec_get(mu, j) * vec_get(mu, j)); 
+        kld += 0.5 * (mat_get(sigma, j, j) + vec_get(mu, j) * vec_get(mu, j)); 
          /* 1/2 trace of sigma and inner product of mu with itself */
 
         if (mat_get(sigma, j, j) > 0)
           kld -= 0.5 * log(mat_get(sigma, j, j)); /* contribution to log determinant of sigma */
       }
       
-      kld += 0.5 * dim;  /* 1/2 of dimension */
+      kld -= 0.5 * dim;  /* 1/2 of dimension */
 
       avell += ll;
       avekld += kld;
       
-      /* add (negative) gradient of KLD */
+      /* incorporate gradient of KLD.  Must be subtracted rather than added */
       for (j = 0; j < grad->size; j++) {
         double gj = 0.0;
 
-        if (j < n*dim)  /* partial deriv wrt mu_j is just -mu_j */
+        if (j < n*dim)  /* partial deriv wrt mu_j is just mu_j */
           gj = -1.0*vec_get(mu, j);
         else {            /* partial deriv wrt sigma_j is more
-                           complicated because of the log
+                           complicated because of the trace and log
                            determinant */
           if (mat_get(sigma, j-mu->size, j-mu->size) > 0) /* the ones we don't change will be zero */
-            gj = 0.5 * (-1.0 + 1.0/mat_get(sigma, j-mu->size, j-mu->size));  
+            gj = 0.5 * (-1.0 + 1.0/mat_get(sigma, j-mu->size, j-mu->size));   /* first term trace, second log det */
         }
         vec_set(grad, j, vec_get(grad, j) + gj);
       }
@@ -650,6 +650,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     if (avell - avekld > bestelb) {
       bestelb = avell - avekld;
       bestll = avell;  /* not necessarily best ll but ll corresponding to bestelb */
+      bestkld = avekld;  /* same comment */
       bestt = t;
       vec_copy(best_mu, mu);
       mat_copy(best_sigma, sigma);
@@ -695,20 +696,6 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
         for (j = i+1; j < D->ncols; j++)
           fprintf(logf, "%f\t", mat_get(D, i, j));
       fprintf(logf, "\n");
-        
-      /* extra stuff, for debugging */
-      /*      fprintf(logf, "sigma:\n");
-      mat_print(sigma, logf);
-      fprintf(logf, "gradient:\t");
-      vec_print(avegrad, logf);
-      fprintf(logf, "Adam m:\t");
-      vec_print(m, logf);
-      fprintf(logf, "Adam v:\t");
-      vec_print(v, logf);
-      tr_print(logf, nj_mean(mu, dim, msa->names), TRUE);
-      fprintf(logf, "distance matrix:\n");
-      nj_points_to_distances(mu, D); 
-      mat_print(D, logf); */
     }
     
     /* check total elb every nbatches_conv to decide whether to stop */
@@ -730,12 +717,10 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   mat_copy(sigma, best_sigma);
 
   if (logf != NULL) {
-    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, ",
-            bestt+1, bestelb, bestll);
+    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, ",
+            bestt+1, bestelb, bestll, bestkld);
      fprintf(logf, "mu:\t");
      vec_print(mu, logf);
-     /*     fprintf(logf, "sigma:\n");
-            mat_print(sigma, logf); */
   }
   
   vec_free(grad);
