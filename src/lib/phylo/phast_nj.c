@@ -870,7 +870,7 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
   eval_real = vec_new(n);
   revec_real = mat_new(n, n);
   zvec_as_real(eval_real, eval, TRUE);
-  zmat_as_real(revec_real, revec, TRUE);
+  zmat_as_real(revec_real, revec, FALSE);
   
   /* sort eigenvalues from largest to smallest */   /* FIXME: only keep nonzero? */
   eiglst = lst_new_ptr(n);
