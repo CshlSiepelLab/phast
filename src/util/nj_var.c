@@ -60,7 +60,8 @@ int main(int argc, char *argv[]) {
     {"distances", 1, 0, 'd'},
     {"embedding-only", 0, 0, 'e'},
     {"hky85", 0, 0, 'k'}, 
-    {"hyperbolic", 0, 0, 'H'}, 
+    {"hyperbolic", 0, 0, 'H'},
+    {"importance-sampling", 0, 0, 'I'},
     {"logfile", 1, 0, 'l'},
     {"mean", 1, 0, 'm'},
     {"min-nbatches", 1, 0, 'M'},
@@ -77,7 +78,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:jkK:l:m:M:n:o:r:Rt:T:s:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:o:r:Rt:T:s:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -102,6 +103,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'H':
       hyperbolic = TRUE;
+      break;
+    case 'I':
+      importance_sampling = TRUE;
       break;
     case 'j':
       nj_only = TRUE;
@@ -280,12 +284,12 @@ int main(int argc, char *argv[]) {
                          nbatches_conv, min_nbatches, logfile);
 
       if (importance_sampling == TRUE) {
-        /* sample 10x as many then importance sample; make free param? */
-        Vector *logdens = vec_new(10*nsamples);
-        List *origtrees = nj_var_sample(10*nsamples, dim, mu, sigma,
+        /* sample 100x as many then importance sample; make free param? */
+        Vector *logdens = vec_new(100*nsamples);
+        List *origtrees = nj_var_sample(100*nsamples, dim, mu, sigma,
                                         msa->names, hyperbolic,
                                         negcurvature, logdens);
-        trees = nj_importance_sample(nsamples, origtrees, logdens, mod, msa);        
+        trees = nj_importance_sample(nsamples, origtrees, logdens, mod, msa, logfile);        
       }
 
       else /* otherwise just sample directly from posterior */

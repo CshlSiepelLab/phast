@@ -702,7 +702,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     running_tot += avell - avekld;
     if (t % nbatches_conv == 0) {
       if (logf != NULL)
-        fprintf(logf, "#Average for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
+        fprintf(logf, "# Average for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
       if (t >= min_nbatches && running_tot <= last_running_tot)
         stop = TRUE;
       else {
@@ -1264,38 +1264,57 @@ int nj_get_seq_idx(char **names, char *name, int n) {
    objects in returned list will be shared with those in primary list
    and may repeat */
 List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
-                           TreeModel *mod, MSA *msa) {
+                           TreeModel *mod, MSA *msa, FILE *logf) {
   List *retval = lst_new_ptr(nsamples);
-  Vector *weights = vec_new(nsamples);
-  double ll, maxll = -INFTY;
-  int i;
+  Vector *weights = vec_new(lst_size(trees));
+  Vector *lls = vec_new(lst_size(trees));
+  double ll, maxll = -INFTY, maxweight = -INFTY, sampll = 0;
+  int i, count = 0;
 
-  if (lst_size(trees) != nsamples || logdens == NULL || logdens->size != nsamples)
+  if (logdens->size != lst_size(trees))
     die("ERROR in nj_importance_sample: bad input.\n");
   
   /* calculate importance weights from likelihoods */
   for (i = 0; i < lst_size(trees); i++) {
     TreeNode *t = lst_get_ptr(trees, i);    
-    nj_reset_tree_model(mod, t);  
+    mod->tree = t;
     ll = nj_compute_log_likelihood(mod, msa, NULL);
+    if (ll > maxll) maxll = ll;
+    vec_set(lls, i, ll);
     ll -= vec_get(logdens, i);
     vec_set(weights, i, ll);
-    if (ll > maxll) maxll = ll;
+    if (ll > maxweight) maxweight = ll;
   }
-  assert(isfinite(maxll));
+  assert(maxweight > -INFTY);
 
   /* exponentiate and renormalize */
   for (i = 0; i < lst_size(trees); i++) {
     ll = vec_get(weights,i);
-    vec_set(weights, i, exp(ll-maxll));  /* avoids underflow */
+    vec_set(weights, i, exp(ll-maxweight));  /* avoids underflow */
   }
   pv_normalize(weights);
 
+  for (i = 0; i < lst_size(trees); i++) 
+    if (vec_get(weights, i) > 1.0/(lst_size(trees)*10))
+      count++;
+
+  if (count < nsamples)
+    fprintf(stderr, "Warning: only %d trees eligible for importance sampling...\n", count);
+    
   /* now draw nsamples */
   for (i = 0; i < nsamples; i++) {
     int j = pv_draw_idx(weights);
+    assert(j >= 0 && j < lst_size(trees));
     lst_push_ptr(retval, lst_get_ptr(trees, j));
+    sampll += vec_get(lls, j);
   }
 
+  if (logf != NULL)
+    fprintf(logf, "# Importance sampling from %d eligible trees out of %d; maxlnl = %f; ave sampled lnl = %f\n",
+            count, lst_size(trees), maxll, sampll/nsamples);
+
+  vec_free(weights);
+  vec_free(lls);
+  
   return(retval);
 }
