@@ -973,7 +973,7 @@ void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
   eval_real = vec_new(n);
   revec_real = mat_new(n, n);
   zvec_as_real(eval_real, eval, TRUE);
-  zmat_as_real(revec_real, revec, TRUE);
+  zmat_as_real(revec_real, revec, FALSE);
 
   /* sort eigenvalues from largest to smallest */ 
   eiglst = lst_new_ptr(n);
