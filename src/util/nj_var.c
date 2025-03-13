@@ -115,8 +115,8 @@ int main(int argc, char *argv[]) {
       break;
     case 'K':
       negcurvature = atof(optarg);
-      if (negcurvature <= 0)
-        die("ERROR: --negcurvature must be positive\n");
+      if (negcurvature < 0)
+        die("ERROR: --negcurvature must be nonnegative\n");
       break;
     case 'l':
       logfile = phast_fopen(optarg, "w");
@@ -169,6 +169,10 @@ int main(int argc, char *argv[]) {
 
   if (init_tree != NULL && indistfile != NULL)
     die("Cannot specify both --tree/-treemod and --distances\n");
+
+  if (hyperbolic == TRUE && negcurvature == 0) 
+    hyperbolic = FALSE;
+  /* for convenience in scripting; nonhyperbolic considered special case of hyperbolic */
   
   if ((nj_only || embedding_only) &&
       (indistfile != NULL || init_tree != NULL)) {
