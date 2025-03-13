@@ -496,16 +496,10 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
      calculation on tree */
 
   vec_zero(grad);
-  /* TEMPORARY: TRYING WITHOUT */
-  /* for (i = 1; i < n; i++) {   /\* note: we can skip the first point and the first d-1 dimensions of the second *\/ */
-  for (i = 0; i < n; i++) {   /* note: we can skip the first point and the first d-1 dimensions of the second */
+  for (i = 0; i < n; i++) {  
     for (k = 0; k < d; k++) {
       int pidx = i*d + k;
 
-      /* TEMPORARY: TRYING WITHOUT */
-      /* if (i == 1 && k < d-1) */
-      /*   continue; */
-      
       porig = vec_get(points, pidx);
       vec_set(points, pidx, porig + DERIV_EPS);
 
@@ -595,13 +589,6 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     for (i = 0; i < nminibatch; i++) {
       /* sample points from MVN averaging distribution */
       nj_sample_mvn(mu, sigma, points);
-
-      /* force first 2d-1 to be zero (not dof) */
-      /* TEMPORARY: TRY WITHOUT */
-      /* for (j = 0; j < 2*dim - 1; j++) { */
-      /*   vec_set(mu, j, 0); */
-      /*   mat_set(sigma, j, j, 0); */
-      /* } */
       
       /* compute likelihood and gradient */
       ll = nj_compute_model_grad(mod, mu, sigma, msa, hyperbolic, negcurvature, 
@@ -658,9 +645,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
     
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
     t++;
-    /* for (j = 2*dim - 1; j < avegrad->size; j++) {   /\* skip first 2*dim - 1 updates *\/ */
-    /* TEMPORARY: TRYING WITHOUT */
-    for (j = 0; j < avegrad->size; j++) {   /* skip first 2*dim - 1 updates */
+    for (j = 0; j < avegrad->size; j++) {   
       double mhatj, vhatj;      
       vec_set(m, j, ADAM_BETA1 * vec_get(m_prev, j) + (1.0 - ADAM_BETA1) * vec_get(avegrad, j));
       vec_set(v, j, ADAM_BETA2 * vec_get(v_prev, j) +
@@ -881,8 +866,6 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
     lst_push_ptr(eiglst, obj);
   }
   lst_qsort(eiglst, nj_eigen_compare_desc);
-
-  /* FIXME: what to do with zero eigenvalues?  random numbers? */
   
   /* create a vector of points based on the first 'dim' eigenvalues */
   for (d = 0; d < dim; d++) {
