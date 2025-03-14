@@ -540,10 +540,10 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
 void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix *sigma,
                         int dim, unsigned int hyperbolic, double negcurvature,
                         int nminibatch, double learnrate, int nbatches_conv,
-                        int min_nbatches, FILE *logf) {
+                        int min_nbatches, Vector *sigmapar, enum covar_type covar_param,
+                        CovarData *data, FILE *logf) {
 
-  Vector *points, *grad, *avegrad, *m, *m_prev, *v, *v_prev, *best_mu;
-  Matrix *best_sigma;
+  Vector *points, *grad, *avegrad, *m, *m_prev, *v, *v_prev, *best_mu, *best_sigmapar;
   int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1;
   double ll, avell, kld, avekld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY;
@@ -561,8 +561,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
 
   best_mu = vec_new(mu->size);
   vec_copy(best_mu, mu);
-  best_sigma = mat_new(sigma->nrows, sigma->ncols);
-  mat_copy(best_sigma, sigma);
+  best_sigmapar = vec_new(sigmapar->size);
+  vec_copy(best_sigmapar, sigmapar);
 
   /* set up log file */
   if (logf != NULL) {
@@ -597,11 +597,11 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       /* compute the KLD (equation 7, Doersch arXiv 2016) */
       kld = 0;
       for (j = 0; j < sigma->nrows; j++) {
-        kld += 0.5 * (mat_get(sigma, j, j) + vec_get(mu, j) * vec_get(mu, j)); 
+        kld += 0.5 * (vec_get(sigmapar, j) + vec_get(mu, j) * vec_get(mu, j)); 
          /* 1/2 trace of sigma and inner product of mu with itself */
 
-        if (mat_get(sigma, j, j) > 0)
-          kld -= 0.5 * log(mat_get(sigma, j, j)); /* contribution to log determinant of sigma */
+        if (vec_get(sigmapar, j) > 0)
+          kld -= 0.5 * log(vec_get(sigmapar, j)); /* contribution to log determinant of sigma */
       }
       
       kld -= 0.5 * dim;  /* 1/2 of dimension */
@@ -618,8 +618,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
         else {            /* partial deriv wrt sigma_j is more
                            complicated because of the trace and log
                            determinant */
-          if (mat_get(sigma, j-mu->size, j-mu->size) > 0) /* the ones we don't change will be zero */
-            gj = 0.5 * (-1.0 + 1.0/mat_get(sigma, j-mu->size, j-mu->size));   /* first term trace, second log det */
+          gj = 0.5 * (-1.0 + 1.0/vec_get(sigmapar, j-mu->size));   /* first term trace, second log det */
         }
         vec_set(grad, j, vec_get(grad, j) + gj);
       }
@@ -640,7 +639,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       bestkld = avekld;  /* same comment */
       bestt = t;
       vec_copy(best_mu, mu);
-      mat_copy(best_sigma, sigma);
+      vec_copy(best_sigmapar, sigmapar);
     }
     
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
@@ -657,14 +656,16 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       if (j < n*dim)
         vec_set(mu, j, vec_get(mu, j) + learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
       else {
-        mat_set(sigma, j-mu->size, j-mu->size, mat_get(sigma, j-mu->size, j-mu->size) +
+        vec_set(sigmapar, j-mu->size, vec_get(sigmapar, j-mu->size) +
                 learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
 
         /* don't allow sigma to go negative */
-        if (mat_get(sigma, j-mu->size, j-mu->size) < MIN_VAR)
-          mat_set(sigma, j-mu->size, j-mu->size, MIN_VAR);
+        if (vec_get(sigmapar, j-mu->size) < MIN_VAR)
+          vec_set(sigmapar, j-mu->size, MIN_VAR);
       }
     }
+    nj_update_covariance(sigma, sigmapar, covar_param, data);
+    
     vec_copy(m_prev, m);
     vec_copy(v_prev, v);
     
@@ -699,8 +700,9 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   } while(stop == FALSE);
     
   vec_copy(mu, best_mu);
-  mat_copy(sigma, best_sigma);
-
+  vec_copy(sigmapar, best_sigmapar);
+  nj_update_covariance(sigma, sigmapar, covar_param, data);
+  
   if (logf != NULL) {
     fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, ",
             bestt+1, bestelb, bestll, bestkld);
@@ -716,7 +718,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
   vec_free(v);
   vec_free(v_prev);
   vec_free(best_mu);
-  mat_free(best_sigma);
+  vec_free(best_sigmapar);
 }
 
 /* sample a list of trees from the approximate posterior distribution
@@ -810,7 +812,9 @@ int nj_eigen_compare_desc(const void* ptr1, const void* ptr2) {
 
 /* generate an approximate mu and sigma from a distance matrix, for
    use in initializing the variational inference algorithm.  */
-void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigma) {
+void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigma,
+                                    Vector *sigmapar, enum covar_type covar_param,
+                                    CovarData *data) {
   int n = D->nrows;
   Matrix *Dsq, *G, *revec_real;
   Zvector *eval;
@@ -893,7 +897,6 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
 
   /* initialize sigma to the identity scaled by 1/n of the variance
      across pairwise distances */
-  mat_set_identity(sigma);
   for (i = 0; i < n; i++) {
     for (j = i+1; j < n; j++) {
       x += mat_get(D, i, j);
@@ -901,7 +904,9 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
     }
   }
   N = n * (n-1)/2;
-  mat_scale(sigma, 1.0/N * (x2/N - x*x/(N*N)));
+
+  vec_set_all(sigmapar, 1.0/N * (x2/N - x*x/(N*N)));
+  nj_update_covariance(sigma, sigmapar, covar_param, data);
   
   mat_free(Dsq);
   mat_free(G);
@@ -918,7 +923,9 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigm
    approximately in hyperbolic space (Keller-Ressel & Nargang,
    arXiv:1903.08977, 2019) */
 void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
-                                               Matrix *sigma, double negcurvature) {
+                                               Matrix *sigma, double negcurvature,
+                                               Vector *sigmapar, enum covar_type covar_param,
+                                               CovarData *data) {
   int n = D->nrows;
   Matrix *A, *revec_real;
   Zvector *eval;
@@ -988,7 +995,6 @@ void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
 
   /* initialize sigma to the identity scaled by 1/n of the variance
      across pairwise distances */
-  mat_set_identity(sigma);
   for (i = 0; i < n; i++) {
     for (j = i+1; j < n; j++) {
       x += mat_get(D, i, j);
@@ -996,7 +1002,9 @@ void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
     }
   }
   N = n * (n-1)/2;
-  mat_scale(sigma, 1.0/N * (x2/N - x*x/(N*N)));
+
+  vec_set_all(sigmapar, 1.0/N * (x2/N - x*x/(N*N)));
+  nj_update_covariance(sigma, sigmapar, covar_param, data);
   
   mat_free(A);
   zvec_free(eval);
@@ -1300,4 +1308,41 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
   vec_free(lls);
   
   return(retval);
+}
+
+/* define new vector of covariance parameters depending on parameterization type */
+Vector *nj_new_sigma_params(int ntips, int dim, enum covar_type covar_param) {
+  int npars = 2;
+  Vector *retval;
+  
+  if (covar_param == DIAG)
+    npars = ntips * dim;
+
+  retval = vec_new(npars);
+
+  return retval;
+}
+
+/* update sigma based on the parameters and (optionally) an auxiliary data object */
+void nj_update_covariance(Matrix *sigma, Vector *sigma_params, 
+                          enum covar_type covar_param, CovarData *data) {
+  int i;
+
+  if (sigma->nrows != sigma->ncols || 
+      (covar_param != DIAG && covar_param != DIST))
+    die("ERROR in nj_update_covariance: bad input.\n");
+  
+  mat_zero(sigma);
+  if (covar_param == DIAG) {
+    assert(sigma_params->size == sigma->nrows);
+    for (i = 0; i < sigma->nrows; i++)
+      mat_set(sigma, i, i, vec_get(sigma_params, i));
+  }
+  else { /* DIST case */
+    assert(sigma_params->size == 2 && data != NULL);
+    mat_copy(sigma, data->dist);  /* FIXME: what about scale? */
+    for (i = 0; i < sigma->nrows; i++)
+      mat_set(sigma, i, i, vec_get(sigma_params, 1));
+    mat_scale(sigma, vec_get(sigma_params, 0));
+  }  
 }

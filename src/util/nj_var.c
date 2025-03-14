@@ -35,6 +35,7 @@ int main(int argc, char *argv[]) {
   unsigned int nj_only = FALSE, random_start = FALSE,
     hyperbolic = FALSE, embedding_only = FALSE, importance_sampling = FALSE;
   MSA *msa = NULL;
+  enum covar_type covar_param = DIAG;
 
   char *alphabet = "ACGT";
   char **names = NULL;
@@ -48,9 +49,10 @@ int main(int argc, char *argv[]) {
   TreeModel *mod = NULL;
   double kappa = DEFAULT_KAPPA, learnrate = DEFAULT_LEARNRATE, negcurvature = 1;
   MarkovMatrix *rmat = NULL;
-  Vector *mu = NULL;
+  Vector *mu = NULL, *sigmapar = NULL;
   Matrix *sigma = NULL;
   TreeNode *init_tree = NULL;
+  CovarData *covar_data = NULL;
 
   struct option long_opts[] = {
     {"format", 1, 0, 'i'},
@@ -238,11 +240,14 @@ int main(int argc, char *argv[]) {
 
     mu = vec_new(ntips * dim);
     sigma = mat_new(ntips * dim, ntips * dim);
+    sigmapar = nj_new_sigma_params(ntips, dim, covar_param);
     if (hyperbolic)
       nj_estimate_mvn_from_distances_hyperbolic(D, dim, mu, sigma,
-                                                negcurvature);
+                                                negcurvature, sigmapar,
+                                                covar_param, covar_data);
     else 
-      nj_estimate_mvn_from_distances(D, dim, mu, sigma);
+      nj_estimate_mvn_from_distances(D, dim, mu, sigma, sigmapar,
+                                     covar_param, covar_data);
   }
 
   else {
@@ -272,20 +277,26 @@ int main(int argc, char *argv[]) {
       /* initialize parameters of multivariate normal */    
       mu = vec_new(msa->nseqs * dim);
       sigma = mat_new(msa->nseqs * dim, msa->nseqs * dim);
+      sigmapar = nj_new_sigma_params(ntips, dim, covar_param);
       if (random_start == TRUE) {
         nj_sample_std_mvn(mu); vec_scale(mu, 0.1);
-        mat_set_identity(sigma); mat_scale(sigma, 0.1);
+        vec_set_all(sigmapar, 0.1);
+        nj_update_covariance(sigma, sigmapar, covar_param, covar_data); /* FIXME initialize covar_data */
       }
       else {
         if (hyperbolic)
-          nj_estimate_mvn_from_distances_hyperbolic(D, dim, mu, sigma, negcurvature);
+          nj_estimate_mvn_from_distances_hyperbolic(D, dim, mu, sigma,
+                                                    negcurvature, sigmapar,
+                                                    covar_param, covar_data);
         else
-          nj_estimate_mvn_from_distances(D, dim, mu, sigma);
+          nj_estimate_mvn_from_distances(D, dim, mu, sigma, sigmapar,
+                                         covar_param, covar_data);
       }
     
       nj_variational_inf(mod, msa, D, mu, sigma, dim, hyperbolic,
                          negcurvature, batchsize, learnrate,
-                         nbatches_conv, min_nbatches, logfile);
+                         nbatches_conv, min_nbatches, sigmapar,
+                         covar_param, covar_data, logfile);
 
       if (importance_sampling == TRUE) {
         /* sample 100x as many then importance sample; make free param? */

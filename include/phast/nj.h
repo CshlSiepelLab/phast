@@ -32,6 +32,17 @@
 /* don't allow variance terms to get smaller than this value */
 #define MIN_VAR 1e-6
 
+/* types of parameterization for covariance matrix: diagonal only or
+   diagonal plus nondiagonal terms inversely proportional to initial
+   pairwise distances */
+enum covar_type {DIAG, DIST};
+  
+/* auxiliary data for parameterization of covariance matrix */
+typedef struct {
+  Matrix *dist;
+  Vector *evals;
+} CovarData;
+  
 
 void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
 	       int *v, int maxidx);
@@ -68,7 +79,8 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
 void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix *sigma,
                         int dim, unsigned int hyperbolic, double negcurvature,
                         int nminibatch, double learnrate, int nbatches_conv,
-                        int min_nbatches, FILE *logf);
+                        int min_nbatches, Vector *sigmapar, enum covar_type covar_param,
+                        CovarData *data, FILE *logf);
 
 List *nj_var_sample(int nsamples, int dim, Vector *mu, Matrix *sigma,
                     char** names, unsigned int hyperbolic,
@@ -79,10 +91,16 @@ TreeNode *nj_mean(Vector *mu, int dim, char **names,
 
 void nj_reset_tree_model(TreeModel *mod, TreeNode *newtree);
 
-void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu, Matrix *sigma);
+void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu,
+                                    Matrix *sigma, Vector *sigmapar,
+                                    enum covar_type covar_param,
+                                    CovarData *data);
 
 void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
-                                               Matrix *sigma, double negcurvature);
+                                               Matrix *sigma, double negcurvature,
+                                               Vector *sigmapar,
+                                               enum covar_type covar_param,
+                                               CovarData *data);
 
 void nj_test_D(Matrix *D);
 
@@ -94,4 +112,10 @@ int nj_get_seq_idx(char **names, char *name, int n);
 
 List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
                            TreeModel *mod, MSA *msa, FILE *logf);
+
+Vector *nj_new_sigma_params(int ntips, int dim, enum covar_type covar_param);
+
+void nj_update_covariance(Matrix *sigma, Vector *sigma_params, 
+                          enum covar_type covar_param, CovarData *data);
+
 #endif
