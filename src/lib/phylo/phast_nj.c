@@ -469,7 +469,9 @@ void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D, double negcurv
    uses numerical methods */
 double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
                              unsigned int hyperbolic, double negcurvature,
-                             Vector *points, Vector *grad, Matrix *D) {
+                             Vector *points, Vector *grad, Matrix *D,
+                             Vector *sigmapar, enum covar_type covar_param,
+                             CovarData *data) {
   int n = msa->nseqs;
   int d = mu->size / n;
   int i, k;
@@ -520,14 +522,23 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
       vec_set(grad, pidx, deriv);
 
       /* the partial derivative wrt the variance parameter, however,
-         has an additional factor */
-      sd = sqrt(mat_get(sigma, pidx, pidx));
-      stdrv = (porig - vec_get(mu, pidx)) / sd;  /* orig standard normal rv */
-      vec_set(grad, (i+n)*d + k, deriv * 0.5 * stdrv / sd);
+         is more complicated */
+      if (covar_param == DIAG) {
+        /* in the DIAG case, the partial derivative wrt the
+           corresponding variance parameter can be computed directly
+           based on a single point and coordinate */
+        sd = sqrt(vec_get(sigmapar, pidx));
+        stdrv = (porig - vec_get(mu, pidx)) / sd;  /* orig standard normal rv */
+        vec_set(grad, (i+n)*d + k, deriv * 0.5 * stdrv / sd);
+      }
+      else {
+        /* in the DIST case, .... FIXME this gets complicated */
+      }
       
       vec_set(points, pidx, porig); /* restore orig */
     }
   }
+
   nj_reset_tree_model(mod, orig_tree);
   return ll_base;
 }  
@@ -592,7 +603,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix 
       
       /* compute likelihood and gradient */
       ll = nj_compute_model_grad(mod, mu, sigma, msa, hyperbolic, negcurvature, 
-                                 points, grad, D);
+                                 points, grad, D, sigmapar, covar_param, data);
 
       /* compute the KLD (equation 7, Doersch arXiv 2016) */
       kld = 0;

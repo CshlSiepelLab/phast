@@ -74,7 +74,9 @@ void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D,
 
 double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
                              unsigned int hyperbolic, double negcurvature,
-                             Vector *points, Vector *grad, Matrix *D);
+                             Vector *points, Vector *grad, Matrix *D,
+                             Vector *sigmapar, enum covar_type covar_param,
+                             CovarData *data);
 
 void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix *sigma,
                         int dim, unsigned int hyperbolic, double negcurvature,
