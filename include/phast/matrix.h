@@ -325,6 +325,13 @@ void mat_linear_comb_many(Matrix *dest, int n, Matrix **src,
 */
 int mat_invert(Matrix *M_inv, Matrix *M);
 
+
+/* Compute the Cholesky factorization of a real symmetric positive
+   definite matrix using LAPACK dpotrf routine. Populates L with lower
+   triangular matrix such that L L^T = M. Returns 0 on success, 1 on
+   failure. */
+int mat_cholesky(Matrix *L, Matrix *M);
+
 /** Pre and post multiply a diagonal matrix.
 
    Compute A = B * C * D where A, B, C, D are square matrices of the

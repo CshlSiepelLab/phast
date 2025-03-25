@@ -289,6 +289,46 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
   return 0;
 }
 
+/* Compute the Cholesky factorization of a real symmetric positive
+   definite matrix using LAPACK dpotrf routine. Populates L with lower
+   triangular matrix such that L L^T = M. Returns 0 on success, 1 on
+   failure. */
+int mat_cholesky(Matrix *L, Matrix *M) {
+#ifdef SKIP_LAPACK
+  die("ERROR: LAPACK required for Cholesky factorization.\n");
+#else
+  int i, j;
+  LAPACK_INT info, n = (LAPACK_INT)M->nrows;
+  LAPACK_DOUBLE tmp[n][n];
+  char mode = 'L';
+
+  if (!(M->nrows == M->ncols && L->nrows == L->ncols &&
+	M->nrows == L->nrows))
+    die("ERROR mat_cholesky: bad dimensions\n");
+
+  for (i = 0; i < n; i++)
+    for (j = 0; j < n; j++)
+      tmp[i][j] = (LAPACK_DOUBLE)mat_get(M, j, i);
+
+#ifdef R_LAPACK
+  F77_CALL(dpotrf)(&mode, &n, (LAPACK_DOUBLE*)tmp, &n, &info);
+#else
+  dpotrf_(&mode, &n, (LAPACK_DOUBLE*)tmp, &n, &info);
+#endif
+
+  if (info != 0) {
+    fprintf(stderr, "ERROR: unable to compute Cholesky factorization of matrix; dpotrf returned value of %d.\n", (int)info);
+    return 1;
+  }
+
+  for (i = 0; i < M->nrows; i++)
+    for (j = 0; j < M->nrows; j++)
+      mat_set(L, i, j, (double)tmp[j][i]);
+
+#endif
+  return 0;
+}
+
 /* Compute A = B * C * D where A, B, C, D are square matrices of the
    same dimension, and C is diagonal.  C is described by a vector
    representing its diagonal elements.  */

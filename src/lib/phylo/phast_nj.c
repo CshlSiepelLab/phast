@@ -1381,7 +1381,7 @@ CovarData *nj_new_covar_data(int covar_dim) {
    decomposition for use in gradient calculations. Store everything in
    CovarData */
 void nj_laplacian_pinv(CovarData *data) {
-  int i, j, dim = data->dist->nrow;
+  int i, j, dim = data->dist->nrow, retval;
   double grandmean = 0;
 
   /* define Laplacian pseudoinverse as double centered version of distance matrix */
@@ -1406,16 +1406,15 @@ void nj_laplacian_pinv(CovarData *data) {
       mat_set(Lapl_pinv, i, j, -0.5 * (mat_get(data->dist, i, j) - vec_get(row_mean, i)
                                          - vec_get(row_mean, j) + grandmean));
 
-  /* finally recompute the Cholesky decomposition */ 
+  /* finally recompute the Cholesky decomposition */
+  retval = mat_cholesky(data->cholL, data->Lapl_pinv);
+  if (retval != 0)
+    die("ERROR in nj_laplacian_pinv. Cannot compute Cholesky decomposition of Laplacian pseudoinverse.\n");
 }
 
 
 
-/* fill out covariance matrix from parameter and L+. Do this in nj_update_covariance */
 
-
+/* FIXME: TODO */
 /* update log determinant and gradient in var inference */
 /* update gradient of lambda in gradient function */
-/* how to initialize lambda? */
-
-/* keep around both the distance matrix and the cholesky decomp? */
