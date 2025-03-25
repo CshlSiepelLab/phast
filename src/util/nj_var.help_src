@@ -110,6 +110,12 @@ OPTIONS:
     --nsamples, -s 
         Number of samples to output (default 100) after convergence.
 
+    --distance-covar, -S
+        Use a parameterization of the covariance matrix for the
+        multivariate normal variational distribution that is based on the
+        distance matrix for the taxa, rather than assuming a diagonal
+        covariance matrix (the default).
+        
     --tree, -t <file.nh>
         Obtain pairwise distances from specified tree, rather than from a
 	    distance matrix or the alignment.  Alterative to --distances.

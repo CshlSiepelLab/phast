@@ -74,13 +74,14 @@ int main(int argc, char *argv[]) {
     {"nsamples", 1, 0, 's'},
     {"learnrate", 1, 0, 'r'},
     {"random-start", 0, 0, 'R'},
+    {"distance-covar", 0, 0, 'S'},
     {"tree", 1, 0, 't'},
     {"treemodel", 1, 0, 'T'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:o:r:Rt:T:s:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:o:r:Rt:T:Ss:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -153,6 +154,9 @@ int main(int argc, char *argv[]) {
       nsamples = atoi(optarg);
       if (nsamples <= 0)
         die("ERROR: --nsamples must be > 0\n");
+      break;
+    case 'S':
+      covar_param = DIST;
       break;
     case 't':
       init_tree = tr_new_from_file(phast_fopen(optarg, "r"));
@@ -233,6 +237,9 @@ int main(int argc, char *argv[]) {
   /* we must have a distance matrix now; make sure valid */
   nj_test_D(D);
 
+  if (covar_param == DIST)
+    covar_data = nj_new_covar_data(ntips * dim);
+  
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */
     if (outdistfile == NULL)
@@ -281,7 +288,7 @@ int main(int argc, char *argv[]) {
       if (random_start == TRUE) {
         nj_sample_std_mvn(mu); vec_scale(mu, 0.1);
         vec_set_all(sigmapar, 0.1);
-        nj_update_covariance(sigma, sigmapar, covar_param, covar_data); /* FIXME initialize covar_data */
+        nj_update_covariance(sigma, sigmapar, covar_param, covar_data); 
       }
       else {
         if (hyperbolic)

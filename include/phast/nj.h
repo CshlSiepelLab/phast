@@ -33,14 +33,18 @@
 #define MIN_VAR 1e-6
 
 /* types of parameterization for covariance matrix: diagonal only or
-   diagonal plus nondiagonal terms inversely proportional to initial
-   pairwise distances */
+   version proportional to Laplacian pseudoinverse based on pairwise
+   distances */
 enum covar_type {DIAG, DIST};
   
-/* auxiliary data for parameterization of covariance matrix */
+/* auxiliary data for parameterization of covariance matrix in DIST
+   case */
+#define LAMBDA_INIT 0.1
 typedef struct {
-  Matrix *dist;
-  Vector *evals;
+  double lambda;  /* scale parameter for covariance matrix */
+  Matrix *dist;   /* distance matrix on which covariance is based */
+  Matrix *Lapl_pinv;  /* Laplacian pseudoinverse */
+  Matrix *cholL;  /* lower triangular from Cholesky decomp */
 } CovarData;
   
 

@@ -533,6 +533,13 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
       }
       else {
         /* in the DIST case, .... FIXME this gets complicated */
+        /* add to grad..... always same element of gradient vector */
+        idx = n*d;
+        colsum = 
+        stdrv is same
+          still have 0.5 * stdrv    but now / sqrt(lambda)
+          also have to weight by sum over corresponding column of cholL   [correct?]
+        vec_set(grad, XXX, )
       }
       
       vec_set(points, pidx, porig); /* restore orig */
@@ -1323,7 +1330,7 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
 
 /* define new vector of covariance parameters depending on parameterization type */
 Vector *nj_new_sigma_params(int ntips, int dim, enum covar_type covar_param) {
-  int npars = 2;
+  int npars = 1;
   Vector *retval;
   
   if (covar_param == DIAG)
@@ -1334,7 +1341,9 @@ Vector *nj_new_sigma_params(int ntips, int dim, enum covar_type covar_param) {
   return retval;
 }
 
-/* update sigma based on the parameters and (optionally) an auxiliary data object */
+/* update sigma based on the parameters and (optionally) an auxiliary
+   data object. In DIST case, leaves underlying distance matrix and
+   derived matrices unchanged */
 void nj_update_covariance(Matrix *sigma, Vector *sigma_params, 
                           enum covar_type covar_param, CovarData *data) {
   int i;
@@ -1350,10 +1359,63 @@ void nj_update_covariance(Matrix *sigma, Vector *sigma_params,
       mat_set(sigma, i, i, vec_get(sigma_params, i));
   }
   else { /* DIST case */
-    assert(sigma_params->size == 2 && data != NULL);
-    mat_copy(sigma, data->dist);  /* FIXME: what about scale? */
-    for (i = 0; i < sigma->nrows; i++)
-      mat_set(sigma, i, i, vec_get(sigma_params, 1));
-    mat_scale(sigma, vec_get(sigma_params, 0));
-  }  
+    assert(sigma_params->size == 1 && data != NULL);
+    data->lambda = vec_get(sigma_params, 0);
+    mat_copy(sigma, data->Lapl_pinv);
+    mat_scale(sigma, data->lambda);
+  }
 }
+
+/* create a new CovarData object of the desired dimension for use in the DIST parameterization of covariance */
+CovarData *nj_new_covar_data(int covar_dim) {
+  CovarData *retval = smalloc(sizeof(CovarData));   /* check */
+  retval->lambda = LAMBDA_INIT;
+  retval->dist = mat_new(covar_dim, covar_dim);
+  retval->Lapl_pinv = mat_new(covar_dim, covar_dim);
+  retval->cholL = mat_new(covar_dim, covar_dim);
+  return (retval);
+}
+
+/* define Laplacian pseudoinverse from distance matrix, for use with
+   DIST parameterization of covariance.  Also compute Cholesky
+   decomposition for use in gradient calculations. Store everything in
+   CovarData */
+void nj_laplacian_pinv(CovarData *data) {
+  int i, j, dim = data->dist->nrow;
+  double grandmean = 0;
+
+  /* define Laplacian pseudoinverse as double centered version of distance matrix */
+
+  /* first compute column/row means and grand mean */
+  row_mean = vec_new(dim);
+  vec_zero(row_mean);
+  for (i = 0; i < dim; i++) {
+    double rowsum = 0
+    for (j = 0; j < dim; j++) {
+      double val = mat_get(data->dist, i, j);     
+      rowsum += val;
+      grandmean += val;
+    }
+    vec_set(row_mean(i, rowsum/dim));
+  }
+  grandmean /= (dim * dim);
+
+  /* now double center */
+  for (i = 0; i < dim; i++) 
+    for (j = 0; j < dim; j++) 
+      mat_set(Lapl_pinv, i, j, -0.5 * (mat_get(data->dist, i, j) - vec_get(row_mean, i)
+                                         - vec_get(row_mean, j) + grandmean));
+
+  /* finally recompute the Cholesky decomposition */ 
+}
+
+
+
+/* fill out covariance matrix from parameter and L+. Do this in nj_update_covariance */
+
+
+/* update log determinant and gradient in var inference */
+/* update gradient of lambda in gradient function */
+/* how to initialize lambda? */
+
+/* keep around both the distance matrix and the cholesky decomp? */
