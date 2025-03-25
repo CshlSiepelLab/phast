@@ -36,6 +36,7 @@ static int idcounter = 0;
 /* bottom-right y */
 #define BR_Y 700
 
+#define THRESHOLD_BRANCH_LENGTH 1e-8
 
 /** Parse a tree from a file in Newick (New Hampshire) format */
 TreeNode *tr_new_from_file(FILE *f) {
@@ -82,6 +83,9 @@ TreeNode *tr_new_from_string(const char *treestr) {
           die("ERROR: Can't parse distance in tree (\"%s\").\n",
               diststr->chars);
 	in_distance = FALSE;
+        if(node->dparent < THRESHOLD_BRANCH_LENGTH){
+          node->dparent = 0;
+        }      
       }
     }
 
