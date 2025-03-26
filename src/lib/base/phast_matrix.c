@@ -81,6 +81,13 @@ void mat_set_all(Matrix *m, double val) {
       m->data[i][j] = val;
 }
 
+void mat_add_const(Matrix *m, double val) {
+  int i, j;
+  for (i = 0; i < m->nrows; i++)
+    for (j = 0; j < m->ncols; j++)
+      m->data[i][j] += val;
+}
+
 void mat_copy(Matrix *dest, Matrix *src) {
   int i, j;
   if (dest->nrows != src->nrows)

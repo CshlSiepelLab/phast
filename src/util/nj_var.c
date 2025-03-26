@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
   nj_test_D(D);
 
   if (covar_param == DIST)
-    covar_data = nj_new_covar_data(ntips * dim);
+    covar_data = nj_new_covar_data(D);
   
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */

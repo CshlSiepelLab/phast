@@ -124,4 +124,8 @@ Vector *nj_new_sigma_params(int ntips, int dim, enum covar_type covar_param);
 void nj_update_covariance(Matrix *sigma, Vector *sigma_params, 
                           enum covar_type covar_param, CovarData *data);
 
+CovarData *nj_new_covar_data(Matrix *dist);
+
+void nj_laplacian_pinv(CovarData *data);
+
 #endif

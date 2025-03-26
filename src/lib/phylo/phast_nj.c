@@ -522,25 +522,36 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
       vec_set(grad, pidx, deriv);
 
       /* the partial derivative wrt the variance parameter, however,
-         is more complicated */
-      if (covar_param == DIAG) {
+         is more complicated, because of the reparameterization trick */
+
+      /* first rederive the original standard normal rv */
+      sd = sqrt(vec_get(sigmapar, pidx));
+      stdrv = (porig - vec_get(mu, pidx)) / sd; 
+      
+      if (covar_param == DIAG)
         /* in the DIAG case, the partial derivative wrt the
            corresponding variance parameter can be computed directly
-           based on a single point and coordinate */
-        sd = sqrt(vec_get(sigmapar, pidx));
-        stdrv = (porig - vec_get(mu, pidx)) / sd;  /* orig standard normal rv */
+           based on a single point and coordinate */        
         vec_set(grad, (i+n)*d + k, deriv * 0.5 * stdrv / sd);
-      }
-      else {
+      
+      else 
         /* in the DIST case, .... FIXME this gets complicated */
         /* add to grad..... always same element of gradient vector */
-        idx = n*d;
-        colsum = 
-        stdrv is same
-          still have 0.5 * stdrv    but now / sqrt(lambda)
-          also have to weight by sum over corresponding column of cholL   [correct?]
-        vec_set(grad, XXX, )
-      }
+
+        /* i is a taxon.  k is a dimension.  index of sigma is i*d + k (pidx) */
+        
+        /* the coordinate of the gradient is n*d [should be last element] */
+        /* we're adding to the gradient; make sure zero to start */
+
+        /* calculate sum of corresponding column of cholL. store in
+           colsum.  for now do each time but see about storing */
+
+        /* set lambda_grad to 0 outside of loop */
+        /* set lambda to correct val outside of loop; or just access via data */
+        lambda_grad += deriv * 0.5 * stdrv / sqrt(lambda) * colsum;
+
+        /* outside of loop set corresponding value of grad */
+
       
       vec_set(points, pidx, porig); /* restore orig */
     }
@@ -1359,20 +1370,40 @@ void nj_update_covariance(Matrix *sigma, Vector *sigma_params,
       mat_set(sigma, i, i, vec_get(sigma_params, i));
   }
   else { /* DIST case */
+    int dim, n, j, k, d1, d2;
+
     assert(sigma_params->size == 1 && data != NULL);
+    dim = sigma->nrows / data->Lapl_pinv->nrows; /* dimensionality */
+    n = data->Lapl_pinv->nrows;  /* number of taxa */    
     data->lambda = vec_get(sigma_params, 0);
-    mat_copy(sigma, data->Lapl_pinv);
+
+    /* Lapl_inv is n x n but sigma is n*dim x n*dim; we need to
+       project upward.  Covariance terms for unequal coordinate axes
+       (dimensions) are all zero assuming standard Brownian motion */
+    for (i = 0; i < n; i++) {   /* row of Lapl_inv [taxa] */
+      for (j = 0; j < n; j++) { /* col of Lapl_inv [taxa] */
+        for (d = 0; d < dim; d++) {  /* dimension for row and col
+                                        (only care about case where
+                                        they are the same) */
+          int sig_row = i*dim + d, sig_col = j*dim + d; /* corresponding row and 
+                                                           col of sigma */
+          mat_set(sigma, sig_row, sig_col, k, mat_get(data->Lapl_pinv, i, j));
+          /* cases where dimensions different implicitly left as zero */
+      }
+    }
+
     mat_scale(sigma, data->lambda);
   }
 }
 
-/* create a new CovarData object of the desired dimension for use in the DIST parameterization of covariance */
-CovarData *nj_new_covar_data(int covar_dim) {
+/* create a new CovarData object of the desired dimension for use in
+   the DIST parameterization of covariance */
+CovarData *nj_new_covar_data(Matrix *dist) {
   CovarData *retval = smalloc(sizeof(CovarData));   /* check */
   retval->lambda = LAMBDA_INIT;
-  retval->dist = mat_new(covar_dim, covar_dim);
-  retval->Lapl_pinv = mat_new(covar_dim, covar_dim);
-  retval->cholL = mat_new(covar_dim, covar_dim);
+  retval->dist = dist;
+  retval->Lapl_pinv = mat_new(dist->ncol, dist->nrow);
+  retval->cholL = mat_new(dist->ncol, dist->nrow);
   return (retval);
 }
 
@@ -1382,9 +1413,10 @@ CovarData *nj_new_covar_data(int covar_dim) {
    CovarData */
 void nj_laplacian_pinv(CovarData *data) {
   int i, j, dim = data->dist->nrow, retval;
-  double grandmean = 0;
+  double grandmean = 0, mindiag = INFTY;
 
-  /* define Laplacian pseudoinverse as double centered version of distance matrix */
+  /* define Laplacian pseudoinverse as double centered version of
+     distance matrix */
 
   /* first compute column/row means and grand mean */
   row_mean = vec_new(dim);
@@ -1401,11 +1433,23 @@ void nj_laplacian_pinv(CovarData *data) {
   grandmean /= (dim * dim);
 
   /* now double center */
-  for (i = 0; i < dim; i++) 
-    for (j = 0; j < dim; j++) 
-      mat_set(Lapl_pinv, i, j, -0.5 * (mat_get(data->dist, i, j) - vec_get(row_mean, i)
-                                         - vec_get(row_mean, j) + grandmean));
-
+  for (i = 0; i < dim; i++) {
+    for (j = 0; j < dim; j++) {
+      double val = -0.5 * (mat_get(data->dist, i, j) - vec_get(row_mean, i)
+                           - vec_get(row_mean, j) + grandmean);
+      mat_set(Lapl_pinv, i, j, val);
+      if (i == j && val < mindiag)
+        mindiag = val;
+    }
+  }
+      
+  /* this matrix is only defined up to a constant shift.  For it
+     to define a valid covariance matrix (up to a scale constant) all
+     values on the main diagonal must be nonnegative.  We can shift it
+     so that the minimum such element is zero, thereby fixing one
+     point and defining the others relative to it */
+  mat_add_const(Lapl_pinv, -mindiag);
+  
   /* finally recompute the Cholesky decomposition */
   retval = mat_cholesky(data->cholL, data->Lapl_pinv);
   if (retval != 0)

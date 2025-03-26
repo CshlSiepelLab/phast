@@ -118,6 +118,15 @@ void mat_zero(Matrix *m);
   @see mat_set, mat_set_identity, mat_set_all.
 */
 void mat_set_all(Matrix *m, double val);
+
+/** Add specified value to all matrix entries.
+
+  @param m Input matrix.
+  @param val Value to be added.
+  @see mat_set, mat_set_identity, mat_set_all.
+*/
+void mat_add_const(Matrix *m, double val);
+
 /** Copy all matrix entries from source to destination matrix.
 
   @note Matrices must have the same dimensions.
