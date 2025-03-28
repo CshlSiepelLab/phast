@@ -17,3 +17,5 @@ ${TARGETLIB}(${OBJS}) : ${OBJS}
 
 clean:
 	rm -f *.o 
+
+.NOTPARALLEL:
