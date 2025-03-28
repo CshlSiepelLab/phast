@@ -1075,6 +1075,12 @@ void tm_set_subst_matrices(TreeModel *tm) {
                          n->dparent * branch_scale * tm->rK[j]);
       
       else {                     /* full matrix exponentiation */
+        if (isnan(n->dparent) || isnan(branch_scale) || isnan(tm->rK[j])) {
+          fprintf(stderr, "ERROR: NaN detected in matrix exponentiation parameters:\n");
+          fprintf(stderr, "dparent: %f, branch_scale: %f, rK[%d]: %f\n", 
+                  n->dparent, branch_scale, j, tm->rK[j]);
+          die("NaN detected in matrix exponentiation parameters\n");
+        }
         mm_exp(tm->P[i][j], rate_matrix, 
                n->dparent * branch_scale * tm->rK[j]);
       }
