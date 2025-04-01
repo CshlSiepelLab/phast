@@ -475,7 +475,7 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
   int n = msa->nseqs;
   int d = mu->size / n;
   int i, k;
-  double porig, ll_base, ll, deriv, stdrv, sd;
+  double porig, ll_base, ll, deriv, stdrv, sd, lambda_grad, sqrtl;
   TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
   
   if (mu->size != n*d || sigma->nrows != n*d || sigma->ncols != n*d ||
@@ -498,6 +498,10 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
      calculation on tree */
 
   vec_zero(grad);
+  lambda_grad = 0;
+  if (covar_parm == DIST)
+    sqrtl = sqrt(data->lambda);
+
   for (i = 0; i < n; i++) {  
     for (k = 0; k < d; k++) {
       int pidx = i*d + k;
@@ -535,27 +539,16 @@ double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa
         vec_set(grad, (i+n)*d + k, deriv * 0.5 * stdrv / sd);
       
       else 
-        /* in the DIST case, .... FIXME this gets complicated */
-        /* add to grad..... always same element of gradient vector */
-
-        /* i is a taxon.  k is a dimension.  index of sigma is i*d + k (pidx) */
-        
-        /* the coordinate of the gradient is n*d [should be last element] */
-        /* we're adding to the gradient; make sure zero to start */
-
-        /* calculate sum of corresponding column of cholL. store in
-           colsum.  for now do each time but see about storing */
-
-        /* set lambda_grad to 0 outside of loop */
-        /* set lambda to correct val outside of loop; or just access via data */
-        lambda_grad += deriv * 0.5 * stdrv / sqrt(lambda) * colsum;
-
-        /* outside of loop set corresponding value of grad */
-
+        /* in the DIST case, we add to a running total and update at the end */
+        lambda_grad += deriv * 0.5 * stdrv / sqrtl * vec_get(data->chol_colsum, i);
       
       vec_set(points, pidx, porig); /* restore orig */
     }
   }
+  if (covar_param == DIST) /* in this case, need to update the final
+                              gradient component corresponding to the
+                              lambda parameter */
+    vec__set(grad, n*d, lambda_grad)
 
   nj_reset_tree_model(mod, orig_tree);
   return ll_base;
@@ -1402,8 +1395,9 @@ CovarData *nj_new_covar_data(Matrix *dist) {
   CovarData *retval = smalloc(sizeof(CovarData));   /* check */
   retval->lambda = LAMBDA_INIT;
   retval->dist = dist;
-  retval->Lapl_pinv = mat_new(dist->ncol, dist->nrow);
-  retval->cholL = mat_new(dist->ncol, dist->nrow);
+  retval->Lapl_pinv = mat_new(dist->nrow, dist->ncol);
+  retval->cholL = mat_new(dist->nrow, dist->ncol);
+  retval->col_colsum = vec_new(dist->ncol);
   return (retval);
 }
 
@@ -1454,11 +1448,12 @@ void nj_laplacian_pinv(CovarData *data) {
   retval = mat_cholesky(data->cholL, data->Lapl_pinv);
   if (retval != 0)
     die("ERROR in nj_laplacian_pinv. Cannot compute Cholesky decomposition of Laplacian pseudoinverse.\n");
+
+
+  /* also recompute the column sums of the Cholesky matrix for use in
+     gradient calculations */
+  vec_zero(data->chol_colsum);
+  for (j = 0; j < dim; j++)  /* column */
+    for (i = 0; i < dim; i++)  /* row */
+      vec_set(data->chol_colsum, j, mat_get(data->cholL, i, j))      
 }
-
-
-
-
-/* FIXME: TODO */
-/* update log determinant and gradient in var inference */
-/* update gradient of lambda in gradient function */
