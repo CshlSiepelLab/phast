@@ -1,0 +1,35 @@
+/* PHylogenetic Analysis with Space/Time models
+ * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
+ * University.  All rights reserved.
+ *
+ * This source code is distributed under a BSD-style license.  See the
+ * file LICENSE.txt for details.
+ ***************************************************************************/
+
+#ifndef MVN_H
+#define MVN_H
+
+#include <stdio.h>
+#include <phast/matrix.h>
+
+enum mvn_type {MVN_STD, MVN_IDENTITY, MVN_DIAG, MVN_GEN};
+
+typedef struct {
+  int dim; /* dimensionality */
+  Vector *mu; /* mean vector */
+  Matrix *sigma;   /* covariance matrix*/
+  Matrix *cholL;  /* lower triangular matrix from Cholesky
+                     decomposition of covariance matrix */
+  enum mvn_type type;
+} MVN;
+
+MVN *mvn_new(int dim, Vector *mu, Matrix *sigma, enum mvn_type type);
+
+void mvn_sample_std(Vector *retval);
+
+void mvn_sample(MVN *mvn, Vector *retval);
+
+void mvn_update_cholesky(MVN *mvn);
+
+double mvn_dens(MVN *mvn, Vector *x);
+#endif

@@ -10,6 +10,12 @@
 /* Multivariate normal distributions */
 
 
+#include <phast/mvn.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+#include <phast/misc.h>
+
 /* Create a new MVN object of specified dimension.  If mean is NULL,
    initialize to vector of zeroes.  If covariance matrix sigma is
    NULL, initialize to identity matrix. */
@@ -38,13 +44,15 @@ MVN *mvn_new(int dim, Vector *mu, Matrix *sigma, enum mvn_type type) {
         mvn->type = MVN_IDENTITY;
   }    
   else {  /* sigma is specified; mu may or may not be */
-    if (sigma->nrow != dim || sigma->ncol != dim)
+    if (sigma->nrows != dim || sigma->ncols != dim)
       die("ERROR in mvn_new: bad dimension in covariance matrix.\n");
     mvn->sigma = sigma;
     mvn->type = type;  /* note user may still specify something other than MVN_GEN */
   }
 
-  mvn->cholL = NULL;   /* will be updated as needed */  
+  mvn->cholL = NULL;   /* will be updated as needed */
+
+  return mvn;
 }
              
 /* Sample a vector from a standard multivariate normal distribution,
@@ -75,25 +83,29 @@ void mvn_sample_std(Vector *retval) {
    mu and covariance sigma. */
 void mvn_sample(MVN *mvn, Vector *retval) {
   int i, j;
+
+  if (mvn->dim != retval->size)
+    die("ERROR in mvn_sample: bad dimensions.\n");
   
   mvn_sample_std(retval);
 
-  if (mvn->type == MVN_STD)
-    return retval;
-  else if (mvn->type == MVN_IDENTITY)
-    vec_plus_eq(retval, mu);
+  /* do nothing if mvn->type == MVN_STD */
+
+  if (mvn->type == MVN_IDENTITY)
+    vec_plus_eq(retval, mvn->mu);  
   else if (mvn->type == MVN_DIAG) {
     for (i = 0; i < mvn->dim; i++) 
-      vec_set(retval, i, vec_get(mu, i) + sqrt(mat_get(sigma, i, i)) * vec_get(retval, i));
+      vec_set(retval, i, vec_get(mvn->mu, i) + sqrt(mat_get(mvn->sigma, i, i)) *
+              vec_get(retval, i));
   }
   else {   /* general covariance matrix.  Assume Cholesky already
               updated (responsibility of calling code) */
     for (i = 0; i < mvn->dim; i++) {
       double covarsum = 0;
       for (j = 0; j < mvn->dim; j++) {
-        covarsum += mat_get(mvn->cholL, j) * vec_get(retval, j);    /* CHECK!!! */
+        covarsum += mat_get(mvn->cholL, i, j) * vec_get(retval, j);    /* CHECK!!! */
       }
-      vec_set(retval, i, vec_get(mu, i) + covarsum);
+      vec_set(retval, i, vec_get(mvn->mu, i) + covarsum);
     }
   }       
 }
@@ -104,17 +116,24 @@ void mvn_update_cholesky(MVN *mvn) {
     die("ERROR in nj_laplacian_pinv. Cannot compute Cholesky decomposition of Laplacian pseudoinverse.\n");
 }
 
-/* return MVN density function for a given vector x.  Currently assumes diagonal sigma */
-double nj_mvn_dens(Vector *mu, Matrix *sigma, Vector *x) {
+/* return MVN density function for a given vector x. */
+/* FIXME: do log density instead */
+double mvn_dens(MVN *mvn, Vector *x) {
   double retval = -x->size/2 * log(2 * M_PI);
   int i;
 
-  if (mu->size != sigma->nrows || mu->size != sigma->ncols || x->size != mu->size)
-    die("ERROR in nj_mvn_dens: bad dimension\n");
-  
-  for (i = 0; i < x->size; i++) {
-    retval -= 0.5 * log(mat_get(sigma, i, i));
-    retval -= 0.5 * pow(vec_get(x, i) - vec_get(mu, i), 2) * mat_get(sigma, i, i);
+  if (x->size != mvn->dim)
+    die("ERROR in mvn_dens: bad dimension\n");
+
+  if (mvn->type == MVN_STD || mvn->type == MVN_IDENTITY || mvn->type == MVN_DIAG) {
+    for (i = 0; i < x->size; i++) {
+      retval -= 0.5 * log(mat_get(mvn->sigma, i, i));
+      retval -= 0.5 * pow(vec_get(x, i) - vec_get(mvn->mu, i), 2) *
+        mat_get(mvn->sigma, i, i);
+    }
+  }
+  else {
+    /* use cholesky decomposition */
   }
 
   return retval;

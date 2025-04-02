@@ -17,6 +17,7 @@
 #include <phast/tree_model.h>
 #include <phast/subst_mods.h>
 #include <phast/sufficient_stats.h>
+#include <phast/mvn.h>
 #include "nj_var.help"
 
 #define DEFAULT_NSAMPLES 100
@@ -49,8 +50,8 @@ int main(int argc, char *argv[]) {
   TreeModel *mod = NULL;
   double kappa = DEFAULT_KAPPA, learnrate = DEFAULT_LEARNRATE, negcurvature = 1;
   MarkovMatrix *rmat = NULL;
-  Vector *mu = NULL, *sigmapar = NULL;
-  Matrix *sigma = NULL;
+  Vector *sigmapar = NULL;
+  MVN *mvn = NULL;
   TreeNode *init_tree = NULL;
   CovarData *covar_data = NULL;
 
@@ -245,15 +246,14 @@ int main(int argc, char *argv[]) {
     if (outdistfile == NULL)
       die("ERROR: must use --out-dists with -embedding-only\n");
 
-    mu = vec_new(ntips * dim);
-    sigma = mat_new(ntips * dim, ntips * dim);
+    mvn = mvn_new(ntips * dim, NULL, NULL, MVN_STD);
     sigmapar = nj_new_sigma_params(ntips, dim, covar_param);
     if (hyperbolic)
-      nj_estimate_mvn_from_distances_hyperbolic(D, dim, mu, sigma,
+      nj_estimate_mvn_from_distances_hyperbolic(D, dim, mvn,
                                                 negcurvature, sigmapar,
                                                 covar_param, covar_data);
     else 
-      nj_estimate_mvn_from_distances(D, dim, mu, sigma, sigmapar,
+      nj_estimate_mvn_from_distances(D, dim, mvn, sigmapar,
                                      covar_param, covar_data);
   }
 
@@ -281,26 +281,25 @@ int main(int argc, char *argv[]) {
           tm_set_HKY_matrix(mod, kappa, -1);   /* FIXME: estimate kappa from msa */
     }
 
-      /* initialize parameters of multivariate normal */    
-      mu = vec_new(msa->nseqs * dim);
-      sigma = mat_new(msa->nseqs * dim, msa->nseqs * dim);
+      /* initialize parameters of multivariate normal */
+      mvn = mvn_new(msa->nseqs*dim, NULL, NULL, (covar_param == DIST ? MVN_GEN : MVN_DIAG));
       sigmapar = nj_new_sigma_params(ntips, dim, covar_param);
       if (random_start == TRUE) {
-        nj_sample_std_mvn(mu); vec_scale(mu, 0.1);
+        mvn_sample_std(mvn->mu); vec_scale(mvn->mu, 0.1);
         vec_set_all(sigmapar, 0.1);
-        nj_update_covariance(sigma, sigmapar, covar_param, covar_data); 
+        nj_update_covariance(mvn, sigmapar, covar_param, covar_data); 
       }
       else {
         if (hyperbolic)
-          nj_estimate_mvn_from_distances_hyperbolic(D, dim, mu, sigma,
+          nj_estimate_mvn_from_distances_hyperbolic(D, dim, mvn,
                                                     negcurvature, sigmapar,
                                                     covar_param, covar_data);
         else
-          nj_estimate_mvn_from_distances(D, dim, mu, sigma, sigmapar,
+          nj_estimate_mvn_from_distances(D, dim, mvn, sigmapar,
                                          covar_param, covar_data);
       }
     
-      nj_variational_inf(mod, msa, D, mu, sigma, dim, hyperbolic,
+      nj_variational_inf(mod, msa, D, mvn, dim, hyperbolic,
                          negcurvature, batchsize, learnrate,
                          nbatches_conv, min_nbatches, sigmapar,
                          covar_param, covar_data, logfile);
@@ -308,21 +307,21 @@ int main(int argc, char *argv[]) {
       if (importance_sampling == TRUE) {
         /* sample 100x as many then importance sample; make free param? */
         Vector *logdens = vec_new(100*nsamples);
-        List *origtrees = nj_var_sample(100*nsamples, dim, mu, sigma,
+        List *origtrees = nj_var_sample(100*nsamples, dim, mvn,
                                         msa->names, hyperbolic,
                                         negcurvature, logdens);
         trees = nj_importance_sample(nsamples, origtrees, logdens, mod, msa, logfile);        
       }
 
       else /* otherwise just sample directly from posterior */
-        trees = nj_var_sample(nsamples, dim, mu, sigma, msa->names,
+        trees = nj_var_sample(nsamples, dim, mvn, msa->names,
                               hyperbolic, negcurvature, NULL);
 
       for (i = 0; i < nsamples; i++)
         tr_print(stdout, (TreeNode*)lst_get_ptr(trees, i), TRUE);
 
       if (postmeanfile != NULL)
-        tr_print(postmeanfile, nj_mean(mu, dim, msa->names,
+        tr_print(postmeanfile, nj_mean(mvn->mu, dim, msa->names,
                                      hyperbolic, negcurvature), TRUE);
     }
   }
@@ -331,9 +330,9 @@ int main(int argc, char *argv[]) {
     if (embedding_only == TRUE || nj_only == FALSE) {
       /* in this case need to reset D */
       if (hyperbolic)
-        nj_points_to_distances_hyperbolic(mu, D, negcurvature);  
+        nj_points_to_distances_hyperbolic(mvn->mu, D, negcurvature);  
       else
-        nj_points_to_distances(mu, D);  
+        nj_points_to_distances(mvn->mu, D);  
     }
     mat_print(D, outdistfile);
   }

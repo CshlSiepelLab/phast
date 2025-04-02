@@ -19,6 +19,7 @@
 #include <phast/msa.h>
 #include <phast/trees.h>
 #include <phast/tree_model.h>
+#include <phast/mvn.h>
 
 #define DERIV_EPS 1e-5
 
@@ -45,6 +46,7 @@ typedef struct {
   Matrix *dist;   /* distance matrix on which covariance is based */
   Matrix *Lapl_pinv;  /* Laplacian pseudoinverse */
   Matrix *cholL;  /* lower triangular from Cholesky decomp */
+  Vector *chol_colsum; /* column sums of Cholesky matrix */
 } CovarData;
   
 
@@ -63,12 +65,6 @@ Matrix *nj_tree_to_distances(TreeNode *tree, char **names, int n);
 
 double nj_distance_on_tree(TreeNode *root, TreeNode *n1, TreeNode *n2);
 
-void nj_sample_std_mvn(Vector *retval);
-
-void nj_sample_mvn(Vector *mu, Matrix *sigma, Vector *retval);
-
-double nj_mvn_dens(Vector *mu, Matrix *sigma, Vector *x);
-
 void nj_points_to_distances(Vector *points, Matrix *D);
 
 void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D,
@@ -76,19 +72,19 @@ void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D,
 
 /* TreeNode* nj_mvn_sample_tree(Vector *mu, Matrix *sigma, int n, char **names); */
 
-double nj_compute_model_grad(TreeModel *mod, Vector *mu, Matrix *sigma, MSA *msa,
+double nj_compute_model_grad(TreeModel *mod, MVN *mvn, MSA *msa,
                              unsigned int hyperbolic, double negcurvature,
                              Vector *points, Vector *grad, Matrix *D,
                              Vector *sigmapar, enum covar_type covar_param,
                              CovarData *data);
 
-void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, Vector *mu, Matrix *sigma,
+void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, MVN *mvn,
                         int dim, unsigned int hyperbolic, double negcurvature,
                         int nminibatch, double learnrate, int nbatches_conv,
                         int min_nbatches, Vector *sigmapar, enum covar_type covar_param,
                         CovarData *data, FILE *logf);
 
-List *nj_var_sample(int nsamples, int dim, Vector *mu, Matrix *sigma,
+List *nj_var_sample(int nsamples, int dim, MVN *mvn,
                     char** names, unsigned int hyperbolic,
                     double negcurvature, Vector *logdens);
 
@@ -97,13 +93,13 @@ TreeNode *nj_mean(Vector *mu, int dim, char **names,
 
 void nj_reset_tree_model(TreeModel *mod, TreeNode *newtree);
 
-void nj_estimate_mvn_from_distances(Matrix *D, int dim, Vector *mu,
-                                    Matrix *sigma, Vector *sigmapar,
+void nj_estimate_mvn_from_distances(Matrix *D, int dim, MVN *mvn,
+                                    Vector *sigmapar,
                                     enum covar_type covar_param,
                                     CovarData *data);
 
-void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, Vector *mu,
-                                               Matrix *sigma, double negcurvature,
+void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, MVN *mvn,
+                                               double negcurvature,
                                                Vector *sigmapar,
                                                enum covar_type covar_param,
                                                CovarData *data);
@@ -121,7 +117,7 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
 
 Vector *nj_new_sigma_params(int ntips, int dim, enum covar_type covar_param);
 
-void nj_update_covariance(Matrix *sigma, Vector *sigma_params, 
+void nj_update_covariance(MVN *mvn, Vector *sigma_params, 
                           enum covar_type covar_param, CovarData *data);
 
 CovarData *nj_new_covar_data(Matrix *dist);
