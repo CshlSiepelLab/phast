@@ -712,7 +712,7 @@ List *nj_var_sample(int nsamples, int dim, MVN *mvn, char** names,
      mvn_sample(mvn, points);
 
      if (logdens != NULL) 
-       vec_set(logdens, i, mvn_dens(mvn, points));
+       vec_set(logdens, i, mvn_log_dens(mvn, points));
      /* FIXME: need Jacobian in hyperbolic case */
      
      if (hyperbolic)

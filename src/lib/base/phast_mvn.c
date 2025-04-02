@@ -116,10 +116,9 @@ void mvn_update_cholesky(MVN *mvn) {
     die("ERROR in nj_laplacian_pinv. Cannot compute Cholesky decomposition of Laplacian pseudoinverse.\n");
 }
 
-/* return MVN density function for a given vector x. */
-/* FIXME: do log density instead */
-double mvn_dens(MVN *mvn, Vector *x) {
-  double retval = -x->size/2 * log(2 * M_PI);
+/* return log density function of MVN for a given vector x. */
+double mvn_log_dens(MVN *mvn, Vector *x) {
+  double retval = -x->size/2 * log(2 * M_PI) - 0.5 * mvn_log_det(mvn);
   int i;
 
   if (x->size != mvn->dim)
@@ -127,13 +126,37 @@ double mvn_dens(MVN *mvn, Vector *x) {
 
   if (mvn->type == MVN_STD || mvn->type == MVN_IDENTITY || mvn->type == MVN_DIAG) {
     for (i = 0; i < x->size; i++) {
-      retval -= 0.5 * log(mat_get(mvn->sigma, i, i));
       retval -= 0.5 * pow(vec_get(x, i) - vec_get(mvn->mu, i), 2) *
         mat_get(mvn->sigma, i, i);
     }
   }
   else {
-    /* use cholesky decomposition */
+    /* compute the quadratic form using the Cholesky lower triangular matrix */
+    Vector *z = vec_create_copy(x), *y = vec_new(x->size);
+    vec_minus_eq(z, mvn->mu);
+    mat_forward_subst(mvn->cholL, z, y);
+    retval -= 0.5 * log(vec_norm(y));
+    vec_free(z); vec_free(y);
+  }
+
+  return retval;
+}
+
+/* return log determinant of covariance matrix */
+double mvn_log_det(MVN *mvn) {
+  int i;
+  double retval = 0;  /* this will be the answer if type MVN_STD or MVN_IDENTITY */
+
+  if (mvn->type == MVN_DIAG) {
+    for (i = 0; i < mvn->dim; i++)
+      retval += log(mat_get(mvn->sigma, i, i));
+  }
+  else if (mvn->type == MVN_GEN) { /* in this case, use the Cholesky factorization */
+    if (mvn->cholL == NULL)
+      die("ERROR in mvn_log_det: Cholesky factorization not avaialable.\n");
+
+    for (i = 0; i < mvn->dim; i++)
+      retval += 2*log(mat_get(mvn->cholL, i, i));   /* determinant is sum of squares on main diag */
   }
 
   return retval;

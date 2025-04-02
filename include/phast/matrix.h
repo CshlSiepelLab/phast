@@ -373,4 +373,7 @@ void mat_from_lapack(Matrix *m, LAPACK_DOUBLE *arr);
 
 /* \} */
 
+/* Solve Ly = z for y, where L is lower-triangular, via forward substitution */
+void mat_forward_subst(Matrix *L, Vector *z, Vector* y);
+
 #endif

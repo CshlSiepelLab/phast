@@ -396,4 +396,22 @@ void mat_from_lapack(Matrix *m, LAPACK_DOUBLE *arr) {
       m->data[i][j] = (double)arr[pos++];
 }
 
+/* Solve Ly = z for y, where L is lower-triangular, via forward substitution */
+void mat_forward_subst(Matrix *L, Vector *z, Vector* y) {
+  int dim = L->nrows;
+  int i, j;
+  
+  if (dim != L->ncols || dim != z->size || dim != y->size)
+    die("ERROR in mat_forward_subst: bad dimensions.\n");
+  
+  for (i = 0; i < dim; i++) {
+    double sum = 0;
+    for (j = 0; j < i; ++j) 
+      sum += mat_get(L, i, j) * vec_get(y, j);
+
+    vec_set(y, i, (vec_get(z, i) - sum) / mat_get(L, i, i));
+  }
+}
+
+
 #endif

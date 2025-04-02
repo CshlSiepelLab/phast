@@ -31,5 +31,8 @@ void mvn_sample(MVN *mvn, Vector *retval);
 
 void mvn_update_cholesky(MVN *mvn);
 
-double mvn_dens(MVN *mvn, Vector *x);
+double mvn_log_dens(MVN *mvn, Vector *x);
+
+double mvn_log_det(MVN *mvn);
+
 #endif
