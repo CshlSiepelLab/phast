@@ -126,7 +126,7 @@ double mvn_log_dens(MVN *mvn, Vector *x) {
 
   if (mvn->type == MVN_STD || mvn->type == MVN_IDENTITY || mvn->type == MVN_DIAG) {
     for (i = 0; i < x->size; i++) {
-      retval -= 0.5 * pow(vec_get(x, i) - vec_get(mvn->mu, i), 2) *
+      retval -= 0.5 * pow(vec_get(x, i) - vec_get(mvn->mu, i), 2) /
         mat_get(mvn->sigma, i, i);
     }
   }
