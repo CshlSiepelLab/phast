@@ -23,6 +23,8 @@ MVN *mvn_new(int dim, Vector *mu, Matrix *sigma, enum mvn_type type) {
   MVN *mvn = smalloc(sizeof(MVN));
   mvn->dim = dim;
 
+  assert(mvn->dim > 0);
+  
   if (mu == NULL) { /* standard normal case */
     if (sigma != NULL)
       die("ERROR in mvn_new: if mu is NULL then sigma must be NULL also.\n");
@@ -50,6 +52,9 @@ MVN *mvn_new(int dim, Vector *mu, Matrix *sigma, enum mvn_type type) {
     mvn->type = type;  /* note user may still specify something other than MVN_GEN */
   }
 
+  if (mvn->dim == 1 && mvn->type == MVN_GEN)  /* force to MVN_DIAG in this case to avoid Cholesky decomp */
+    mvn->type = MVN_DIAG;
+  
   mvn->cholL = NULL;   /* will be updated as needed */
 
   return mvn;
@@ -89,8 +94,8 @@ void mvn_sample(MVN *mvn, Vector *retval) {
   
   mvn_sample_std(retval);
 
-  /* do nothing if mvn->type == MVN_STD */
-
+  /* do nothing if MVN_STD */
+  
   if (mvn->type == MVN_IDENTITY)
     vec_plus_eq(retval, mvn->mu);  
   else if (mvn->type == MVN_DIAG) {
@@ -98,27 +103,34 @@ void mvn_sample(MVN *mvn, Vector *retval) {
       vec_set(retval, i, vec_get(mvn->mu, i) + sqrt(mat_get(mvn->sigma, i, i)) *
               vec_get(retval, i));
   }
-  else {   /* general covariance matrix.  Assume Cholesky already
-              updated (responsibility of calling code) */
+  else if (mvn->type == MVN_GEN) {   /* general covariance matrix.  Assume Cholesky already
+                                        updated (responsibility of calling code) */
+    Vector *tmp = vec_create_copy(retval);
     for (i = 0; i < mvn->dim; i++) {
       double covarsum = 0;
-      for (j = 0; j < mvn->dim; j++) {
-        covarsum += mat_get(mvn->cholL, i, j) * vec_get(retval, j);    /* CHECK!!! */
-      }
+      for (j = 0; j <= i; j++) 
+        covarsum += mat_get(mvn->cholL, i, j) * vec_get(tmp, j);
       vec_set(retval, i, vec_get(mvn->mu, i) + covarsum);
     }
+    vec_free(tmp);
   }       
 }
 
 void mvn_update_cholesky(MVN *mvn) {
-  int retval = mat_cholesky(mvn->cholL, mvn->sigma);
+  int retval;
+
+  if (mvn->cholL == NULL)
+    mvn->cholL = mat_new(mvn->dim, mvn->dim);
+
+  retval = mat_cholesky(mvn->cholL, mvn->sigma);
+  
   if (retval != 0)
-    die("ERROR in nj_laplacian_pinv. Cannot compute Cholesky decomposition of Laplacian pseudoinverse.\n");
+    die("ERROR in mvn_update_cholesky. Cannot compute Cholesky decomposition.\n");
 }
 
 /* return log density function of MVN for a given vector x. */
 double mvn_log_dens(MVN *mvn, Vector *x) {
-  double retval = -x->size/2 * log(2 * M_PI) - 0.5 * mvn_log_det(mvn);
+  double retval = -x->size/2.0 * log(2 * M_PI) - 0.5 * mvn_log_det(mvn);
   int i;
 
   if (x->size != mvn->dim)
@@ -135,7 +147,7 @@ double mvn_log_dens(MVN *mvn, Vector *x) {
     Vector *z = vec_create_copy(x), *y = vec_new(x->size);
     vec_minus_eq(z, mvn->mu);
     mat_forward_subst(mvn->cholL, z, y);
-    retval -= 0.5 * log(vec_norm(y));
+    retval -= 0.5 * pow(vec_norm(y),2);
     vec_free(z); vec_free(y);
   }
 

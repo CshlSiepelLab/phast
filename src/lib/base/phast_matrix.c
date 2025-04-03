@@ -328,9 +328,14 @@ int mat_cholesky(Matrix *L, Matrix *M) {
     return 1;
   }
 
-  for (i = 0; i < M->nrows; i++)
-    for (j = 0; j < M->nrows; j++)
-      mat_set(L, i, j, (double)tmp[j][i]);
+  for (i = 0; i < M->nrows; i++) {
+    for (j = 0; j < M->nrows; j++) {
+      if (j <= i)
+        mat_set(L, i, j, (double)tmp[j][i]);
+      else
+        mat_set(L, i, j, 0);
+    }
+  }
 
 #endif
   return 0;
@@ -406,7 +411,7 @@ void mat_forward_subst(Matrix *L, Vector *z, Vector* y) {
   
   for (i = 0; i < dim; i++) {
     double sum = 0;
-    for (j = 0; j < i; ++j) 
+    for (j = 0; j < i; j++) 
       sum += mat_get(L, i, j) * vec_get(y, j);
 
     vec_set(y, i, (vec_get(z, i) - sum) / mat_get(L, i, i));
