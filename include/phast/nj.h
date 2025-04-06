@@ -122,6 +122,8 @@ void nj_update_covariance(MVN *mvn, Vector *sigma_params,
 
 CovarData *nj_new_covar_data(Matrix *dist);
 
+void nj_dump_covar_data(CovarData *data, FILE *F);
+
 void nj_laplacian_pinv(CovarData *data);
 
 #endif

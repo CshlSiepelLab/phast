@@ -5,28 +5,43 @@
 #include <phast/nj.h>
 #include <phast/mvn.h>
 
-#define MVNDIM 2
+#define MVNDIM 20
 
 int main(int argc, char *argv[]) {
-  int i;
+  int i, j;
   Vector *x = vec_new(MVNDIM);
-  MVN *mvn = mvn_new(MVNDIM, NULL, NULL, MVN_STD);
+  MVN *mvn = mvn_new(MVNDIM, NULL, NULL);
   /* check: what happens other types; is this sensible? */
 
-  vec_set(mvn->mu, 0, 10);
-  vec_set(mvn->mu, 1, -10);
+  for (i = 0; i < MVNDIM; i++) {
+    vec_set(mvn->mu, i, i);
+    for (j = 0; j < MVNDIM; j++) {
+      if (i == j)
+        mat_set(mvn->sigma, i, j, 0.5);
+      else
+        mat_set(mvn->sigma, i, j, 0.1);          
+    }
+  }
   
-  mat_set(mvn->sigma, 0, 0, 0.8);
-  mat_set(mvn->sigma, 0, 1, -.2);
-  mat_set(mvn->sigma, 1, 0, -.2);
-  mat_set(mvn->sigma, 1, 1, 0.8);
-  mvn->type = MVN_GEN;
-  mvn_update_cholesky(mvn);
+  mvn_update_type(mvn);
+  mvn_preprocess(mvn, TRUE);
   
   for (i = 0; i < 1000; i++) {
+    double ldens1, ldet1, ldens2, ldet2;
     mvn_sample(mvn, x);
-
     vec_print(x, stdout);
+
+    /* mvn_preprocess(mvn, TRUE); */
+    ldens1 = mvn_log_dens(mvn, x);
+    ldet1 = mvn_log_det(mvn);
+    /*    mvn_print(mvn, stdout); */
+
+    /* mvn_preprocess(mvn, TRUE); */
+    ldens2 = mvn_log_dens(mvn, x);
+    ldet2 = mvn_log_det(mvn);
+    /*    mvn_print(mvn, stdout); */
+
+    printf("%f\t%f\t%f\t%f\n", ldens1, ldens2, ldet1, ldet2);
   }
   return(0);
 }

@@ -43,7 +43,7 @@ OPTIONS:
     --embedding-only, -e 
         (use with --out-dists) Calculate a distance matrix based on the
         initial embedding of points.  Can be compared with input distances
-        to evaluate fidelity of embedding schemes.
+        to evaluate fidelity of various embedding schemes.
 
     --hky85, -k
         Use the HKY85 substitution model for likelihood calculations
@@ -115,7 +115,12 @@ OPTIONS:
         multivariate normal variational distribution that is based on the
         distance matrix for the taxa, rather than assuming a diagonal
         covariance matrix (the default).
-        
+
+    --mvn-dump, -V
+        Dump the starting multivariate normal distribution and associated
+        data.  Useful with --distance-covar for debugging or analysis. Use
+        with options for variational inference.
+
     --tree, -t <file.nh>
         Obtain pairwise distances from specified tree, rather than from a
 	    distance matrix or the alignment.  Alterative to --distances.

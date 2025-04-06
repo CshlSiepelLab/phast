@@ -789,8 +789,6 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, MVN *mvn,
                                     CovarData *data) {
   int n = D->nrows;
   Matrix *Dsq, *G, *revec_real;
-  Zvector *eval;
-  Zmatrix *revec, *levec;
   Vector *eval_real;
   int i, j, d, N;
   List *eiglst;
@@ -819,20 +817,14 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, MVN *mvn,
 	      mat_get(Dsq, i, j));
 
   /* find eigendecomposition of G */
-  eval = zvec_new(n);
-  revec = zmat_new(n, n);
-  levec = zmat_new(n, n);
-  mat_diagonalize(G, eval, revec, levec);
-  
-  /* convert eigenvalues and right eigenvectors to real numbers; will
-     fail if they have imaginary component but they should not because
-     G is symmetric by construction */
   eval_real = vec_new(n);
   revec_real = mat_new(n, n);
-  zvec_as_real(eval_real, eval, TRUE);
-  zmat_as_real(revec_real, revec, FALSE);
+  mat_diagonalize_sym(G, eval_real, revec_real);
   
-  /* sort eigenvalues from largest to smallest */   /* FIXME: only keep nonzero? */
+  /* sort eigenvalues from largest to smallest */
+  /* (eigenvalues are now guaranteed to be returned from smallest to
+     largest so the sorting step could be avoided but will leave it
+     for now */
   eiglst = lst_new_ptr(n);
   for (i = 0; i < n; i++) {
     Evidx *obj = malloc(sizeof(Evidx));
@@ -877,13 +869,12 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, MVN *mvn,
   N = n * (n-1)/2;
 
   vec_set_all(sigmapar, 1.0/N * (x2/N - x*x/(N*N)));
+  if (covar_param == DIST) /* set up the Laplacian pseudoinverse */
+    nj_laplacian_pinv(data);
   nj_update_covariance(mvn, sigmapar, covar_param, data);
   
   mat_free(Dsq);
   mat_free(G);
-  zvec_free(eval);
-  zmat_free(revec);
-  zmat_free(levec);
   vec_free(eval_real);
   mat_free(revec_real);
 }
@@ -899,8 +890,6 @@ void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, MVN *mvn,
                                                CovarData *data) {
   int n = D->nrows;
   Matrix *A, *revec_real;
-  Zvector *eval;
-  Zmatrix *revec, *levec;
   Vector *eval_real;
   int i, j, d, N;
   List *eiglst;
@@ -922,19 +911,10 @@ void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, MVN *mvn,
   }
   
   /* find eigendecomposition of A */
-  eval = zvec_new(n);
-  revec = zmat_new(n, n);
-  levec = zmat_new(n, n);
-  mat_diagonalize(A, eval, revec, levec);
-  
-  /* convert eigenvalues and right eigenvectors to real numbers; will
-     fail if they have imaginary component but they should not because
-     A is symmetric by construction */
   eval_real = vec_new(n);
   revec_real = mat_new(n, n);
-  zvec_as_real(eval_real, eval, TRUE);
-  zmat_as_real(revec_real, revec, FALSE);
-
+  mat_diagonalize_sym(A, eval_real, revec_real);
+  
   /* sort eigenvalues from largest to smallest */ 
   eiglst = lst_new_ptr(n);
   for (i = 0; i < n; i++) {
@@ -974,12 +954,11 @@ void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, MVN *mvn,
   N = n * (n-1)/2;
 
   vec_set_all(sigmapar, 1.0/N * (x2/N - x*x/(N*N)));
+  if (covar_param == DIST) /* set up the Laplacian pseudoinverse */
+    nj_laplacian_pinv(data);
   nj_update_covariance(mvn, sigmapar, covar_param, data);
   
   mat_free(A);
-  zvec_free(eval);
-  zmat_free(revec);
-  zmat_free(levec);
   vec_free(eval_real);
   mat_free(revec_real);
 }
@@ -1331,6 +1310,7 @@ void nj_update_covariance(MVN *mvn, Vector *sigma_params,
     }
     mat_scale(mvn->sigma, data->lambda);
   }
+  mvn_update_type(mvn);
 }
 
 /* create a new CovarData object of the desired dimension for use in
@@ -1345,24 +1325,37 @@ CovarData *nj_new_covar_data(Matrix *dist) {
   return (retval);
 }
 
+void nj_dump_covar_data(CovarData *data, FILE *F) {
+  fprintf(F, "CovarData\nlambda: %f\n", data->lambda);
+  fprintf(F, "distance matrix:\n");
+  mat_print(data->dist, F);
+  fprintf(F, "Laplacian pseudoinverse:\n");
+  mat_print(data->Lapl_pinv, F);
+  fprintf(F, "Cholesky lower-triangular:\n");
+  mat_print(data->cholL, F);
+  fprintf(F, "Cholesky column sums:\n");
+  vec_print(data->chol_colsum, F);
+}
+
 /* define Laplacian pseudoinverse from distance matrix, for use with
    DIST parameterization of covariance.  Also compute Cholesky
    decomposition for use in gradient calculations. Store everything in
    CovarData */
 void nj_laplacian_pinv(CovarData *data) {
-  int i, j, dim = data->dist->nrows, retval;
-  double grandmean = 0, mindiag = INFTY;
+  int i, j, dim = data->dist->nrows;
+  double grandmean = 0, mindiag = INFTY, val, x;
   Vector *row_mean = vec_new(dim);
   
   /* define Laplacian pseudoinverse as double centered version of
      distance matrix */
-
+  
   /* first compute column/row means and grand mean */
   vec_zero(row_mean);
   for (i = 0; i < dim; i++) {
     double rowsum = 0;
     for (j = 0; j < dim; j++) {
-      double val = mat_get(data->dist, i, j);     
+      val = (j >= i ? mat_get(data->dist, i, j) : mat_get(data->dist, j, i));
+      /* stored in upper triangular form */
       rowsum += val;
       grandmean += val;
     }
@@ -1373,8 +1366,12 @@ void nj_laplacian_pinv(CovarData *data) {
   /* now double center */
   for (i = 0; i < dim; i++) {
     for (j = 0; j < dim; j++) {
-      double val = -0.5 * (mat_get(data->dist, i, j) - vec_get(row_mean, i)
-                           - vec_get(row_mean, j) + grandmean);
+      x = (j >= i ? mat_get(data->dist, i, j) : mat_get(data->dist, j, i));
+      val = -0.5 * (x - vec_get(row_mean, i) - vec_get(row_mean, j) + grandmean);
+
+      if (i == j)
+        val += 1.0e-6; /* CHECK: avoids singular matrix */
+      
       mat_set(data->Lapl_pinv, i, j, val);
       if (i == j && val < mindiag)
         mindiag = val;
@@ -1386,14 +1383,14 @@ void nj_laplacian_pinv(CovarData *data) {
      values on the main diagonal must be nonnegative.  We can shift it
      so that the minimum such element is zero, thereby fixing one
      point and defining the others relative to it */
-  mat_add_const(data->Lapl_pinv, -mindiag);
+  mat_add_const(data->Lapl_pinv, -mindiag);    
   
   /* finally recompute the Cholesky decomposition */
-  retval = mat_cholesky(data->cholL, data->Lapl_pinv);
+  /*  retval = mat_cholesky(data->cholL, data->Lapl_pinv);
   if (retval != 0)
     die("ERROR in nj_laplacian_pinv. Cannot compute Cholesky decomposition of Laplacian pseudoinverse.\n");
-
-
+  */
+  
   /* also recompute the column sums of the Cholesky matrix for use in
      gradient calculations */
   vec_zero(data->chol_colsum);

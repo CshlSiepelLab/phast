@@ -20,19 +20,27 @@ typedef struct {
   Matrix *sigma;   /* covariance matrix*/
   Matrix *cholL;  /* lower triangular matrix from Cholesky
                      decomposition of covariance matrix */
+  Vector *evals;  /* eigendecomposition of covariance matrix */
+  Matrix *evecs; /* for cases in which Cholesky cannot be obtained */
   enum mvn_type type;
 } MVN;
 
-MVN *mvn_new(int dim, Vector *mu, Matrix *sigma, enum mvn_type type);
+MVN *mvn_new(int dim, Vector *mu, Matrix *sigma);
+
+void mvn_free(MVN *mvn);
+
+void mvn_update_type(MVN *mvn);
 
 void mvn_sample_std(Vector *retval);
 
 void mvn_sample(MVN *mvn, Vector *retval);
 
-void mvn_update_cholesky(MVN *mvn);
+void mvn_preprocess(MVN *mvn, unsigned int force_eigen);
 
 double mvn_log_dens(MVN *mvn, Vector *x);
 
 double mvn_log_det(MVN *mvn);
+
+void mvn_print(MVN *mvn, FILE *F);
 
 #endif

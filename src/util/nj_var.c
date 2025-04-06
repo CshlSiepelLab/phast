@@ -34,7 +34,8 @@ int main(int argc, char *argv[]) {
     batchsize = DEFAULT_BATCHSIZE, nbatches_conv = DEFAULT_NBATCHES_CONV,
     min_nbatches = DEFAULT_MIN_NBATCHES;
   unsigned int nj_only = FALSE, random_start = FALSE,
-    hyperbolic = FALSE, embedding_only = FALSE, importance_sampling = FALSE;
+    hyperbolic = FALSE, embedding_only = FALSE, importance_sampling = FALSE,
+    mvn_dump = FALSE;
   MSA *msa = NULL;
   enum covar_type covar_param = DIAG;
 
@@ -82,7 +83,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:o:r:Rt:T:Ss:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:o:r:Rt:T:VSs:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -166,6 +167,9 @@ int main(int argc, char *argv[]) {
       mod = tm_new_from_file(phast_fopen(optarg, "r"), 1);
       init_tree = mod->tree;
       break;
+    case 'V':
+      mvn_dump = TRUE;
+      break;
     case 'h':
       printf("%s", HELP); 
       exit(0);
@@ -238,7 +242,7 @@ int main(int argc, char *argv[]) {
   /* we must have a distance matrix now; make sure valid */
   nj_test_D(D);
 
-  if (covar_param == DIST)
+  if (covar_param == DIST) 
     covar_data = nj_new_covar_data(D);
   
   if (embedding_only == TRUE) {
@@ -246,7 +250,7 @@ int main(int argc, char *argv[]) {
     if (outdistfile == NULL)
       die("ERROR: must use --out-dists with -embedding-only\n");
 
-    mvn = mvn_new(ntips * dim, NULL, NULL, MVN_STD);
+    mvn = mvn_new(ntips * dim, NULL, NULL);
     sigmapar = nj_new_sigma_params(ntips, dim, covar_param);
     if (hyperbolic)
       nj_estimate_mvn_from_distances_hyperbolic(D, dim, mvn,
@@ -282,7 +286,7 @@ int main(int argc, char *argv[]) {
     }
 
       /* initialize parameters of multivariate normal */
-      mvn = mvn_new(msa->nseqs*dim, NULL, NULL, (covar_param == DIST ? MVN_GEN : MVN_DIAG));
+      mvn = mvn_new(msa->nseqs*dim, NULL, NULL);
       sigmapar = nj_new_sigma_params(ntips, dim, covar_param);
       if (random_start == TRUE) {
         mvn_sample_std(mvn->mu); vec_scale(mvn->mu, 0.1);
@@ -298,7 +302,14 @@ int main(int argc, char *argv[]) {
           nj_estimate_mvn_from_distances(D, dim, mvn, sigmapar,
                                          covar_param, covar_data);
       }
-    
+
+      if (mvn_dump) {  /* in this case, just dump the MVN and associated data for inspection */
+        mvn_print(mvn, stdout);
+        if (covar_param == DIST) 
+          nj_dump_covar_data(covar_data, stdout);
+        exit(0);
+      }
+      
       nj_variational_inf(mod, msa, D, mvn, dim, hyperbolic,
                          negcurvature, batchsize, learnrate,
                          nbatches_conv, min_nbatches, sigmapar,

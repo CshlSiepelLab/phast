@@ -214,3 +214,51 @@ int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
   return 0;
 }
 
+/* Diagonalize a square, real, symmetric matrix.  Computes vector of
+   eigenvalues and matrice of (right) eigenvectors, guaranteed to be
+   orthonormal.  Returns 0 on success, 1 on failure. */
+int mat_diagonalize_sym(Matrix *M, /* input matrix (n x n) */
+                        Vector *eval,
+                                /* computed vector of eigenvectors --
+                                   preallocate dim. n */
+                        Matrix *evec
+                                /* computed matrix of (right)
+                                   eigenvectors (columns) --
+                                   preallocate n x n */
+		    ) {
+#ifdef SKIP_LAPACK
+  die("ERROR: LAPACK required for matrix diagonalization (mat_diagonalize_sym).\n");
+#else
+  char jobz = 'V', uplo = 'U';
+  LAPACK_INT n = (LAPACK_INT)M->nrows, lwork = (LAPACK_INT)(100*M->nrows), info;
+  LAPACK_DOUBLE tmp[n*n], w[n], work[100 * n];
+  int i, j;
+
+  if (n != M->ncols)
+    die("ERROR in mat_diagonalize_sym: M->nrows (%i) != M->ncols (%i)\n",
+        M->nrows, M->ncols);
+
+  /* convert matrix to representation used by LAPACK (column-major) */
+  mat_to_lapack(M, tmp);
+
+#ifdef R_LAPACK
+  F77_CALL(dsyev)(&jobz, &uplo, &n, tmp, &n, w, work, &lwork, &info);
+#else
+  dsyev_(&jobz, &uplo, &n, tmp, &n, w, work, &lwork, &info);
+#endif
+
+  if (info != 0) {
+    fprintf(stderr, "ERROR executing the LAPACK 'dsyev' routine.\n");
+    return 1;
+  }
+
+  for (j = 0; j < n; j++) {     /* column */
+    vec_set(eval, j, w[j]);
+
+    for (i = 0; i < n; i++)    /* row */
+      mat_set(evec, i, j, tmp[j*n + i]);
+  }
+  
+#endif
+  return 0;
+}
