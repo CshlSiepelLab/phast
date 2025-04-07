@@ -5,11 +5,11 @@
 #include <phast/nj.h>
 #include <phast/mvn.h>
 
-#define MVNDIM 20
+#define MVNDIM 5
 
 int main(int argc, char *argv[]) {
   int i, j;
-  Vector *x = vec_new(MVNDIM);
+  Vector *x = vec_new(MVNDIM), *x_std = vec_new(MVNDIM);
   MVN *mvn = mvn_new(MVNDIM, NULL, NULL);
   /* check: what happens other types; is this sensible? */
 
@@ -26,11 +26,14 @@ int main(int argc, char *argv[]) {
   mvn_update_type(mvn);
   mvn_preprocess(mvn, TRUE);
   
-  for (i = 0; i < 1000; i++) {
+  for (i = 0; i < 10; i++) {
     double ldens1, ldet1, ldens2, ldet2;
     mvn_sample(mvn, x);
     vec_print(x, stdout);
 
+    mvn_rederive_std(mvn, x, x_std);
+    vec_print(x_std, stdout);
+    
     /* mvn_preprocess(mvn, TRUE); */
     ldens1 = mvn_log_dens(mvn, x);
     ldet1 = mvn_log_det(mvn);

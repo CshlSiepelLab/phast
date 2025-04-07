@@ -157,7 +157,7 @@ void mvn_sample(MVN *mvn, Vector *retval) {
     else if (mvn->evals != NULL) {
       for (i = 0; i < mvn->dim; i++) {
         double covarsum = 0;
-        for (j = 0; j < mvn->dim; j++)
+        for (j = 0; j < mvn->dim; j++) 
           covarsum += mat_get(mvn->evecs, i, j) * sqrt(vec_get(mvn->evals, j)) * vec_get(tmp, j); 
         vec_set(retval, i, vec_get(mvn->mu, i) + covarsum);
       }
@@ -197,7 +197,7 @@ void mvn_preprocess(MVN *mvn, unsigned int force_eigen) {
 
   if (force_eigen == TRUE || retval != 0) {
     /* do eigendecomposition instead */
-    int i, j;
+    int i;
 
     if (mvn->cholL != NULL) {
       mat_free(mvn->cholL);
@@ -252,7 +252,7 @@ double mvn_log_dens(MVN *mvn, Vector *x) {
       vec_zero(y);
       for (i = 0; i < mvn->dim; i++) {
         for (j = 0; j < mvn->dim; j++)
-          vec_set(y, i, vec_get(y, i) + mat_get(mvn->evecs, j, i) * vec_get(z, j));  /* note must use transpose of revecs here */
+          vec_set(y, i, vec_get(y, i) + mat_get(mvn->evecs, j, i) * vec_get(z, j));  /* note must use transpose of evecs here */
         dotprod += pow(vec_get(y, i), 2) / vec_get(mvn->evals, i); /* weight by inverse eigenvalue */
       }
     }
@@ -307,5 +307,38 @@ void mvn_print(MVN *mvn, FILE *F){
   if (mvn->evecs != NULL) {
     fprintf(F, "evecs:\n");
     mat_print(mvn->evecs, F);
+  }
+}
+
+/* obtain the underlying standard mvn used to generate to a
+   non-standard mvn.  Useful for calculations based on the
+   reparameterization trick */ 
+void mvn_rederive_std(MVN *mvn, Vector *x, Vector *x_std) {
+  int i, j;
+  if (mvn->dim != x->size || x->size != x_std->size)
+    die("ERROR in mvn_rederive_std: bad dimension.\n");
+  if (mvn->type == MVN_GEN) {
+    Vector *y = vec_create_copy(x);
+    vec_minus_eq(y, mvn->mu);
+    if (mvn->cholL != NULL)  /* can do by forward substitution */
+      mat_forward_subst(mvn->cholL, y, x_std);
+    else if (mvn->evals != NULL) { /* here need full matrix mult */
+      vec_zero(x_std);
+      for (i = 0; i < mvn->dim; i++) {
+        for (j = 0; j < mvn->dim; j++) {
+          double val = mat_get(mvn->evecs, j, i) * vec_get(y, j);
+          /* note implicit transpose of eigenvector matrix */
+          vec_set(x_std, i, vec_get(x_std, i) + val);
+        }
+        vec_set(x_std, i, vec_get(x_std, i)/sqrt(vec_get(mvn->evals, i)));
+      }
+    }
+    else
+      die("ERROR in mvn_derive_std: must have either Cholesky or eigendecomposition.  Call mvn_preprocess first.\n");
+    vec_free(y);
+  }
+  else { /* in diagonal cases can be done element by element */
+    for (i = 0; i < mvn->dim; i++)
+      vec_set(x_std, i, (vec_get(x, i) - vec_get(mvn->mu, i)) / sqrt(mat_get(mvn->sigma, i, i)));
   }
 }

@@ -43,4 +43,6 @@ double mvn_log_det(MVN *mvn);
 
 void mvn_print(MVN *mvn, FILE *F);
 
+void mvn_rederive_std(MVN *mvn, Vector *x, Vector *x_std);
+
 #endif

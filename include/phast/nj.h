@@ -45,10 +45,19 @@ typedef struct {
   double lambda;  /* scale parameter for covariance matrix */
   Matrix *dist;   /* distance matrix on which covariance is based */
   Matrix *Lapl_pinv;  /* Laplacian pseudoinverse */
-  Matrix *cholL;  /* lower triangular from Cholesky decomp */
-  Vector *chol_colsum; /* column sums of Cholesky matrix */
+  Vector *Lapl_pinv_evals; /* eigendecomposition of Lapl_pinv */
+  Matrix *Lapl_pinv_evecs;
+  Vector *Lapl_pinv_sqrt_evals; /* precompute for efficiency */
 } CovarData;
   
+/* bundle of MVNs sharing the same covariance matrix; for efficiency in DIST case */
+typedef struct {
+  int ntips; /* number of taxa */
+  int d; /* number of dimensions, equal to number of component MVNs */
+  Vector **mu; /* array of mean vectors */
+  MVN *mvn; /* MVN object with shared covariance and associated preprocessing */
+  enum covar_type type;
+} multi_MVN;
 
 void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
 	       int *v, int maxidx);
@@ -69,8 +78,6 @@ void nj_points_to_distances(Vector *points, Matrix *D);
 
 void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D,
                                        double negcurvature);
-
-/* TreeNode* nj_mvn_sample_tree(Vector *mu, Matrix *sigma, int n, char **names); */
 
 double nj_compute_model_grad(TreeModel *mod, MVN *mvn, MSA *msa,
                              unsigned int hyperbolic, double negcurvature,
@@ -125,5 +132,13 @@ CovarData *nj_new_covar_data(Matrix *dist);
 void nj_dump_covar_data(CovarData *data, FILE *F);
 
 void nj_laplacian_pinv(CovarData *data);
+
+multi_MVN *nj_multi_mvn_new(MVN *mvn, int d, enum covar_type type);
+
+void nj_multi_mvn_sample(multi_MVN *mmvn, Vector *retval);
+
+double nj_multi_mvn_log_dens(multi_MVN *mmvn, Vector *x);
+
+double nj_multi_mvn_log_det(multi_MVN *mmvn);
 
 #endif
