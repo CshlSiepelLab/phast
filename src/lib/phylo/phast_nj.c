@@ -419,9 +419,10 @@ double nj_compute_model_grad(TreeModel *mod, MVN *mvn, MSA *msa,
                              CovarData *data) {
   int n = msa->nseqs;
   int d = mvn->dim / n;
-  int i, k;
-  double porig, ll_base, ll, deriv, stdrv, sd, lambda_grad, sqrtl;
+  int i, j, k;
+  double porig, ll_base, ll, deriv, lambda_grad;
   TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
+  Vector *points_std = vec_new(points->size);
   
   if (mvn->dim != n*d)
     die("ERROR in nj_compute_model_grad: bad parameters\n");
@@ -429,8 +430,8 @@ double nj_compute_model_grad(TreeModel *mod, MVN *mvn, MSA *msa,
   if (covar_param == DIST) {
     if (grad->size != mvn->dim + 1)
       die("ERROR in nj_compute_model_grad: bad gradient dimension.\n");
-    if (data->cholL == NULL)
-      die("ERROR in nj_compute_model_grad: Cholesky decomposition required in DIST case.\n");
+    if (data->Lapl_pinv_evals == NULL)
+      die("ERROR in nj_compute_model_grad: eigendecomposition required in DIST case.\n");
   }
   else if (grad->size != 2*mvn->dim)  /* DIAG case */
     die("ERROR in nj_compute_model_grad: bad gradient dimension.\n");
@@ -452,9 +453,12 @@ double nj_compute_model_grad(TreeModel *mod, MVN *mvn, MSA *msa,
 
   vec_zero(grad);
   lambda_grad = 0;
-  if (covar_param == DIST)
-    sqrtl = sqrt(data->lambda);
 
+  /* to propagate derivatives through the reparameterization trick, we
+     need to rederive the original standard normal rv that was used to
+     generate porig */
+  mvn_rederive_std(mvn, points, points_std);        
+  
   for (i = 0; i < n; i++) {  
     for (k = 0; k < d; k++) {
       int pidx = i*d + k;
@@ -480,20 +484,20 @@ double nj_compute_model_grad(TreeModel *mod, MVN *mvn, MSA *msa,
 
       /* the partial derivative wrt the variance parameter, however,
          is more complicated, because of the reparameterization trick */
-
-      /* first rederive the original standard normal rv */
-      sd = sqrt(vec_get(sigmapar, pidx));
-      stdrv = (porig - vec_get(mvn->mu, pidx)) / sd; 
       
-      if (covar_param == DIAG)
+      if (covar_param == DIAG) 
         /* in the DIAG case, the partial derivative wrt the
            corresponding variance parameter can be computed directly
-           based on a single point and coordinate */        
-        vec_set(grad, (i+n)*d + k, deriv * 0.5 * stdrv / sd);
+           based on a single point and coordinate */
+        vec_set(grad, (i+n)*d + k, deriv * vec_get(points_std, pidx) * 0.5 / sqrt(vec_get(sigmapar, pidx)));
       
-      else 
+      else {
         /* in the DIST case, we add to a running total and update at the end */
-        lambda_grad += deriv * 0.5 * stdrv / sqrtl * vec_get(data->chol_colsum, i);
+        for (j = 0; j < n; j++)
+          lambda_grad += deriv * vec_get(points_std, pidx) * mat_get(data->Lapl_pinv_evecs, i, j) *
+            vec_get(data->Lapl_pinv_sqrt_evals, j);
+        /* we'll apply the scale factor of 1/(2 * sqrt(lambda)) once at the end for efficiency (below) */
+      }
       
       vec_set(points, pidx, porig); /* restore orig */
     }
@@ -501,9 +505,10 @@ double nj_compute_model_grad(TreeModel *mod, MVN *mvn, MSA *msa,
   if (covar_param == DIST) /* in this case, need to update the final
                               gradient component corresponding to the
                               lambda parameter */
-    vec_set(grad, n*d, lambda_grad);
+    vec_set(grad, n*d, lambda_grad * 0.5 / sqrt(data->lambda)); /* now apply scale factor */
 
   nj_reset_tree_model(mod, orig_tree);
+  vec_free(points_std);
   return ll_base;
 }  
 
@@ -521,7 +526,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, MVN *mvn,
   Vector *points, *grad, *avegrad, *m, *m_prev, *v, *v_prev, *best_mu, *best_sigmapar;
   int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim;
   double ll, avell, kld, avekld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
-    running_tot = 0, last_running_tot = -INFTY;
+    running_tot = 0, last_running_tot = -INFTY, trace, innerprod;
   
   if (mvn->dim != n*dim)
     die("ERROR in nj_variational_inf: bad dimensions\n");
@@ -572,16 +577,15 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, MVN *mvn,
 
       /* compute the KLD (equation 7, Doersch arXiv 2016) */
       kld = 0;
+      /* we'll need the trace of sigma and the inner product of mu with itself */
+      trace = 0;
+      innerprod = 0;
       for (j = 0; j < mvn->dim; j++) {
-        kld += 0.5 * (vec_get(sigmapar, j) + vec_get(mvn->mu, j) * vec_get(mvn->mu, j)); 
-         /* 1/2 trace of sigma and inner product of mu with itself */
-
-        if (vec_get(sigmapar, j) > 0)
-          kld -= 0.5 * log(vec_get(sigmapar, j)); /* contribution to log determinant of sigma */
+        trace += mat_get(mvn->sigma, j, j);
+        innerprod += vec_get(mvn->mu, j) * vec_get(mvn->mu, j); 
       }
-      
-      kld -= 0.5 * dim;  /* 1/2 of dimension */
 
+      kld += 0.5 * (trace + innerprod - mvn->dim - mvn_log_det(mvn)); 
       avell += ll;
       avekld += kld;
       
@@ -592,9 +596,12 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, MVN *mvn,
         if (j < n*dim)  /* partial deriv wrt mu_j is just mu_j */
           gj = -1.0*vec_get(mvn->mu, j);
         else {            /* partial deriv wrt sigma_j is more
-                           complicated because of the trace and log
-                           determinant */
-          gj = 0.5 * (-1.0 + 1.0/vec_get(sigmapar, j-mvn->mu->size));   /* first term trace, second log det */
+                             complicated because of the trace and log
+                             determinant */
+          if (covar_param == DIAG) 
+            gj = 0.5 * (-1.0 + 1.0/vec_get(sigmapar, j-mvn->mu->size));   /* first term trace, second log det */
+          else
+            gj = 0.5 * (-trace + mvn->dim) / data->lambda;
         }
         vec_set(grad, j, vec_get(grad, j) + gj);
       }
@@ -1320,8 +1327,9 @@ CovarData *nj_new_covar_data(Matrix *dist) {
   retval->lambda = LAMBDA_INIT;
   retval->dist = dist;
   retval->Lapl_pinv = mat_new(dist->nrows, dist->ncols);
-  retval->cholL = mat_new(dist->nrows, dist->ncols);
-  retval->chol_colsum = vec_new(dist->ncols);
+  retval->Lapl_pinv_evals = vec_new(dist->nrows);
+  retval->Lapl_pinv_sqrt_evals = vec_new(dist->nrows);
+  retval->Lapl_pinv_evecs = mat_new(dist->nrows, dist->nrows);
   return (retval);
 }
 
@@ -1331,19 +1339,19 @@ void nj_dump_covar_data(CovarData *data, FILE *F) {
   mat_print(data->dist, F);
   fprintf(F, "Laplacian pseudoinverse:\n");
   mat_print(data->Lapl_pinv, F);
-  fprintf(F, "Cholesky lower-triangular:\n");
-  mat_print(data->cholL, F);
-  fprintf(F, "Cholesky column sums:\n");
-  vec_print(data->chol_colsum, F);
+  fprintf(F, "Eigenvalues:\n");
+  vec_print(data->Lapl_pinv_evals, F);
+  fprintf(F, "Eigenvectors:\n");
+  mat_print(data->Lapl_pinv_evecs, F);
 }
 
 /* define Laplacian pseudoinverse from distance matrix, for use with
-   DIST parameterization of covariance.  Also compute Cholesky
-   decomposition for use in gradient calculations. Store everything in
-   CovarData */
+   DIST parameterization of covariance.  Also compute
+   eigendecomposition for use in gradient calculations. Store
+   everything in CovarData object */
 void nj_laplacian_pinv(CovarData *data) {
   int i, j, dim = data->dist->nrows;
-  double grandmean = 0, mindiag = INFTY, val, x;
+  double grandmean = 0, epsilon, val, x;
   Vector *row_mean = vec_new(dim);
   
   /* define Laplacian pseudoinverse as double centered version of
@@ -1368,35 +1376,91 @@ void nj_laplacian_pinv(CovarData *data) {
     for (j = 0; j < dim; j++) {
       x = (j >= i ? mat_get(data->dist, i, j) : mat_get(data->dist, j, i));
       val = -0.5 * (x - vec_get(row_mean, i) - vec_get(row_mean, j) + grandmean);
-
-      if (i == j)
-        val += 1.0e-6; /* CHECK: avoids singular matrix */
-      
       mat_set(data->Lapl_pinv, i, j, val);
-      if (i == j && val < mindiag)
-        mindiag = val;
     }
   }
       
-  /* this matrix is only defined up to a constant shift.  For it
-     to define a valid covariance matrix (up to a scale constant) all
-     values on the main diagonal must be nonnegative.  We can shift it
-     so that the minimum such element is zero, thereby fixing one
-     point and defining the others relative to it */
-  mat_add_const(data->Lapl_pinv, -mindiag);    
-  
-  /* finally recompute the Cholesky decomposition */
-  /*  retval = mat_cholesky(data->cholL, data->Lapl_pinv);
-  if (retval != 0)
-    die("ERROR in nj_laplacian_pinv. Cannot compute Cholesky decomposition of Laplacian pseudoinverse.\n");
-  */
-  
-  /* also recompute the column sums of the Cholesky matrix for use in
-     gradient calculations */
-  vec_zero(data->chol_colsum);
-  for (j = 0; j < dim; j++)  /* column */
-    for (i = 0; i < dim; i++)  /* row */
-      vec_set(data->chol_colsum, j, mat_get(data->cholL, i, j));
+  /* this matrix is only defined up to a translation because it is
+     based on pairwise distances.  For it to define a valid covariance
+     matrix (up to a scale constant) we need to ensure that it is
+     positive definite.  We can do this by adding epsilon * I to it,
+     where epsilon is equal to the smallest eigenvalue plus a small
+     margin.  This will preserve the eigenvectors but shift all
+     eigenvalues upward by epsilon */
+  mat_diagonalize_sym(data->Lapl_pinv, data->Lapl_pinv_evals, data->Lapl_pinv_evecs);
+
+  epsilon = vec_get(data->Lapl_pinv_evals, 0) + 1e-6;
+  /* mat_diagonalize_sym guarantees eigenvalues are in ascending order */
+
+  for (i = 0; i < dim; i++) {
+    mat_set(data->Lapl_pinv, i, i, mat_get(data->Lapl_pinv, i, i) + epsilon);
+    vec_set(data->Lapl_pinv_evals, i, vec_get(data->Lapl_pinv_evals, i) + epsilon);
+    vec_set(data->Lapl_pinv_sqrt_evals, i, sqrt(vec_get(data->Lapl_pinv_evals, i)));
+    /* precompute these also for speed */
+  }
 
   vec_free(row_mean);
+}
+
+/* wrapper functions to take advantage of special covariance structure
+   of the MVN with the DIST parameterization -- a product of MVNs that
+   share the same covariance matrix */
+
+multi_MVN *nj_multi_mvn_new(MVN *mvn, int d, enum covar_type type) {
+  multi_MVN *retval = smalloc(sizeof(multi_MVN));
+  retval->d = d;
+  retval->ntips = mvn->dim;
+  retval->mvn = mvn;
+  retval->type = type;
+
+  if (type == DIST) {
+    int i;
+    /* clear the orig mu vector; will handle it just by pointer swapping */
+    vec_free(retval->mvn->mu);
+    retval->mu = smalloc(d * sizeof(Vector*));
+    for (i = 0; i < d; i++)
+      retval->mu[i] = vec_new(retval->ntips);
+  }
+  else
+    retval->mu = NULL;
+  
+  return retval;
+}
+
+void nj_multi_mvn_sample(multi_MVN *mmvn, Vector *retval) {
+  if (mmvn->type == DIAG)  /* in this case it's just as efficient to use the full MVN */
+    mvn_sample(mmvn->mvn, retval);
+  else {
+    Vector *xcomp = vec_new(mmvn->ntips);
+    int d, i;
+    for (d = 0; d < mmvn->d; d++) {    
+      mvn_sample(mmvn->mvn, xcomp);
+      for (i = 0; i < mmvn->ntips; i++) /* fill in coords along axis d */
+        vec_set(retval, i*mmvn->d + d, vec_get(xcomp, i));
+    }
+  }
+}
+
+double nj_multi_mvn_log_dens(multi_MVN *mmvn, Vector *x) {
+  double retval = 0;
+  if (mmvn->type == DIAG)  /* in this case it's just as efficient to use the full MVN */
+    retval = mvn_log_dens(mmvn->mvn, x);
+  else {
+    Vector *xcomp = vec_new(mmvn->ntips);
+    int d, i;
+    for (d = 0; d < mmvn->d; d++) {
+      for (i = 0; i < mmvn->ntips; i++) /* fill xcomp with coords along axis d */
+        vec_set(xcomp, i, vec_get(x, i*mmvn->d + d));
+      mmvn->mvn->mu = mmvn->mu[d]; /* swap in the appropriate mean */
+      retval += mvn_log_dens(mmvn->mvn, xcomp); /* total density is sum of component densities */
+    }
+  }
+  return retval;
+}
+
+double nj_multi_mvn_log_det(multi_MVN *mmvn) {
+  if (mmvn->type == DIAG)
+    return mvn_log_det(mmvn->mvn);
+  else 
+    return mmvn->d * mvn_log_det(mmvn->mvn);
 }
