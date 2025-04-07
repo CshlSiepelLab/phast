@@ -412,28 +412,26 @@ void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D, double negcurv
    starting from a given MVN sample (points). Returns log likelihood
    of current model, which is computed as a by-product.  This version
    uses numerical methods */
-double nj_compute_model_grad(TreeModel *mod, MVN *mvn, MSA *msa,
+double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
                              unsigned int hyperbolic, double negcurvature,
                              Vector *points, Vector *grad, Matrix *D,
                              Vector *sigmapar, enum covar_type covar_param,
                              CovarData *data) {
   int n = msa->nseqs;
-  int d = mvn->dim / n;
+  int d = mmvn->d;
+  int dim = n*d;
   int i, j, k;
   double porig, ll_base, ll, deriv, lambda_grad;
   TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
   Vector *points_std = vec_new(points->size);
   
-  if (mvn->dim != n*d)
-    die("ERROR in nj_compute_model_grad: bad parameters\n");
-
   if (covar_param == DIST) {
-    if (grad->size != mvn->dim + 1)
+    if (grad->size != dim + 1)
       die("ERROR in nj_compute_model_grad: bad gradient dimension.\n");
     if (data->Lapl_pinv_evals == NULL)
       die("ERROR in nj_compute_model_grad: eigendecomposition required in DIST case.\n");
   }
-  else if (grad->size != 2*mvn->dim)  /* DIAG case */
+  else if (grad->size != 2*dim)  /* DIAG case */
     die("ERROR in nj_compute_model_grad: bad gradient dimension.\n");
   
   /* set up tree model and get baseline log likelihood */
@@ -457,7 +455,7 @@ double nj_compute_model_grad(TreeModel *mod, MVN *mvn, MSA *msa,
   /* to propagate derivatives through the reparameterization trick, we
      need to rederive the original standard normal rv that was used to
      generate porig */
-  mvn_rederive_std(mvn, points, points_std);        
+  nj_multi_mvn_rederive_std(mmvn, points, points_std);        
   
   for (i = 0; i < n; i++) {  
     for (k = 0; k < d; k++) {
@@ -791,9 +789,9 @@ int nj_eigen_compare_desc(const void* ptr1, const void* ptr2) {
 
 /* generate an approximate mu and sigma from a distance matrix, for
    use in initializing the variational inference algorithm.  */
-void nj_estimate_mvn_from_distances(Matrix *D, int dim, MVN *mvn,
-                                    Vector *sigmapar, enum covar_type covar_param,
-                                    CovarData *data) {
+void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
+                                     Vector *sigmapar, enum covar_type covar_param,
+                                     CovarData *data) {
   int n = D->nrows;
   Matrix *Dsq, *G, *revec_real;
   Vector *eval_real;
@@ -878,7 +876,7 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, MVN *mvn,
   vec_set_all(sigmapar, 1.0/N * (x2/N - x*x/(N*N)));
   if (covar_param == DIST) /* set up the Laplacian pseudoinverse */
     nj_laplacian_pinv(data);
-  nj_update_covariance(mvn, sigmapar, covar_param, data);
+  nj_update_covariance(mmvn, sigmapar, covar_param, data);
   
   mat_free(Dsq);
   mat_free(G);
@@ -891,7 +889,7 @@ void nj_estimate_mvn_from_distances(Matrix *D, int dim, MVN *mvn,
    version, use the 'hydra' algorithm to solve the problem
    approximately in hyperbolic space (Keller-Ressel & Nargang,
    arXiv:1903.08977, 2019) */
-void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, MVN *mvn,
+void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *mmvn,
                                                double negcurvature,
                                                Vector *sigmapar, enum covar_type covar_param,
                                                CovarData *data) {
@@ -1406,6 +1404,7 @@ void nj_laplacian_pinv(CovarData *data) {
    of the MVN with the DIST parameterization -- a product of MVNs that
    share the same covariance matrix */
 
+/* create a multi-MVN from a MVN */
 multi_MVN *nj_multi_mvn_new(MVN *mvn, int d, enum covar_type type) {
   multi_MVN *retval = smalloc(sizeof(multi_MVN));
   retval->d = d;
@@ -1433,11 +1432,29 @@ void nj_multi_mvn_sample(multi_MVN *mmvn, Vector *retval) {
   else {
     Vector *xcomp = vec_new(mmvn->ntips);
     int d, i;
-    for (d = 0; d < mmvn->d; d++) {    
+    for (d = 0; d < mmvn->d; d++) {
+      mmvn->mvn->mu = mmvn->mu[d]; /* swap in the appropriate mean */
       mvn_sample(mmvn->mvn, xcomp);
       for (i = 0; i < mmvn->ntips; i++) /* fill in coords along axis d */
         vec_set(retval, i*mmvn->d + d, vec_get(xcomp, i));
     }
+  }
+}
+
+/* return the a new object representing the full MVN induced by a
+   multi MVN.  Leaves original unchanged */
+MVN *nj_multi_mvn_as_mvn(multi_MVN *mmvn) {
+  if (mmvn->type == DIAG)  
+    return mvn_copy(mmvn->mvn);
+  else {
+    int d, i;
+    int dim = mmvn->d * mmvn->ntips;
+    MVN *retval = mvn_new(dim, vec_new(dim), mat_create_copy(mmvn->mvn->sigma));
+    for (d = 0; d < mmvn->d; d++) 
+      for (i = 0; i < mmvn->ntips; i++) /* fill in coords along axis d */
+        vec_set(retval->mu, i*mmvn->d + d, vec_get(mmvn->mu[d], i));
+    mvn_update_type(retval);
+    return retval;
   }
 }
 
@@ -1464,3 +1481,5 @@ double nj_multi_mvn_log_det(multi_MVN *mmvn) {
   else 
     return mmvn->d * mvn_log_det(mmvn->mvn);
 }
+
+void nj_multi_mvn_rederive_std(multi_MVN **mmvn, points, points_std)

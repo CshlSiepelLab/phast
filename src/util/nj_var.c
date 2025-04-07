@@ -333,7 +333,7 @@ int main(int argc, char *argv[]) {
 
       if (postmeanfile != NULL)
         tr_print(postmeanfile, nj_mean(mvn->mu, dim, msa->names,
-                                     hyperbolic, negcurvature), TRUE);
+                                       hyperbolic, negcurvature), TRUE);
     }
   }
 

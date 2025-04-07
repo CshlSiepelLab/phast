@@ -54,6 +54,10 @@ MVN *mvn_new(int dim, Vector *mu, Matrix *sigma) {
   return mvn;
 }
 
+MVN *mvn_copy(MVN *mvn) {
+  return mvn_new(mvn->dim, vec_create_copy(mvn->mu), mat_create_copy(mvn->sigma));
+}
+
 void mvn_free(MVN *mvn) {
   vec_free(mvn->mu);
   mat_free(mvn->sigma);

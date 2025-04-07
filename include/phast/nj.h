@@ -85,27 +85,27 @@ double nj_compute_model_grad(TreeModel *mod, MVN *mvn, MSA *msa,
                              Vector *sigmapar, enum covar_type covar_param,
                              CovarData *data);
 
-void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, MVN *mvn,
+void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, mutli_MVN *mmvn,
                         int dim, unsigned int hyperbolic, double negcurvature,
                         int nminibatch, double learnrate, int nbatches_conv,
                         int min_nbatches, Vector *sigmapar, enum covar_type covar_param,
                         CovarData *data, FILE *logf);
 
-List *nj_var_sample(int nsamples, int dim, MVN *mvn,
+List *nj_var_sample(int nsamples, int dim, multi_MVN *mmvn,
                     char** names, unsigned int hyperbolic,
                     double negcurvature, Vector *logdens);
 
-TreeNode *nj_mean(Vector *mu, int dim, char **names,
+TreeNode *nj_mean(multi_MVN *mmvn, int dim, char **names,
                   unsigned int hyperbolic, double negcurvature);
 
 void nj_reset_tree_model(TreeModel *mod, TreeNode *newtree);
 
-void nj_estimate_mvn_from_distances(Matrix *D, int dim, MVN *mvn,
+void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
                                     Vector *sigmapar,
                                     enum covar_type covar_param,
                                     CovarData *data);
 
-void nj_estimate_mvn_from_distances_hyperbolic(Matrix *D, int dim, MVN *mvn,
+void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *mmvn,
                                                double negcurvature,
                                                Vector *sigmapar,
                                                enum covar_type covar_param,
@@ -124,7 +124,7 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
 
 Vector *nj_new_sigma_params(int ntips, int dim, enum covar_type covar_param);
 
-void nj_update_covariance(MVN *mvn, Vector *sigma_params, 
+void nj_update_covariance(multi_MVN *mmvn, Vector *sigma_params, 
                           enum covar_type covar_param, CovarData *data);
 
 CovarData *nj_new_covar_data(Matrix *dist);
@@ -136,6 +136,8 @@ void nj_laplacian_pinv(CovarData *data);
 multi_MVN *nj_multi_mvn_new(MVN *mvn, int d, enum covar_type type);
 
 void nj_multi_mvn_sample(multi_MVN *mmvn, Vector *retval);
+
+void nj_multi_mvn_combine_means(multi_MVN *mmvn, Vector *mu);
 
 double nj_multi_mvn_log_dens(multi_MVN *mmvn, Vector *x);
 
