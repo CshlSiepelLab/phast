@@ -79,13 +79,13 @@ void nj_points_to_distances(Vector *points, Matrix *D);
 void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D,
                                        double negcurvature);
 
-double nj_compute_model_grad(TreeModel *mod, MVN *mvn, MSA *msa,
+double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
                              unsigned int hyperbolic, double negcurvature,
                              Vector *points, Vector *grad, Matrix *D,
                              Vector *sigmapar, enum covar_type covar_param,
                              CovarData *data);
 
-void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, mutli_MVN *mmvn,
+void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
                         int dim, unsigned int hyperbolic, double negcurvature,
                         int nminibatch, double learnrate, int nbatches_conv,
                         int min_nbatches, Vector *sigmapar, enum covar_type covar_param,
@@ -142,5 +142,20 @@ void nj_multi_mvn_combine_means(multi_MVN *mmvn, Vector *mu);
 double nj_multi_mvn_log_dens(multi_MVN *mmvn, Vector *x);
 
 double nj_multi_mvn_log_det(multi_MVN *mmvn);
+
+void nj_multi_mvn_project_down(multi_MVN *mmvn, Vector *x_full,
+                               Vector *x_d, int d);
+
+void nj_multi_mvn_project_up(multi_MVN *mmvn, Vector *x_d,
+                             Vector *x_full, int d);
+
+void nj_multi_mvn_rederive_std(multi_MVN *mmvn, Vector *points,
+                               Vector *points_std);
+
+double nj_multi_mvn_trace(multi_MVN *mmvn);
+
+double nj_multi_mvn_mu2(multi_MVN *mmvn);
+
+void nj_multi_mvn_print(multi_MVN *mmvn, FILE *F);
 
 #endif

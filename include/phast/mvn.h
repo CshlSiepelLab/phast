@@ -45,4 +45,8 @@ void mvn_print(MVN *mvn, FILE *F);
 
 void mvn_rederive_std(MVN *mvn, Vector *x, Vector *x_std);
 
+double mvn_trace(MVN *mvn);
+
+double mvn_mu2(MVN *mvn);
+
 #endif

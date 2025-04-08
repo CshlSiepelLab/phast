@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
   double kappa = DEFAULT_KAPPA, learnrate = DEFAULT_LEARNRATE, negcurvature = 1;
   MarkovMatrix *rmat = NULL;
   Vector *sigmapar = NULL;
-  MVN *mvn = NULL;
+  multi_MVN *mmvn = NULL;
   TreeNode *init_tree = NULL;
   CovarData *covar_data = NULL;
 
@@ -250,14 +250,14 @@ int main(int argc, char *argv[]) {
     if (outdistfile == NULL)
       die("ERROR: must use --out-dists with -embedding-only\n");
 
-    mvn = mvn_new(ntips * dim, NULL, NULL);
+    mmvn = nj_multi_mvn_new(ntips, dim, covar_param);
     sigmapar = nj_new_sigma_params(ntips, dim, covar_param);
     if (hyperbolic)
-      nj_estimate_mvn_from_distances_hyperbolic(D, dim, mvn,
+      nj_estimate_mvn_from_distances_hyperbolic(D, dim, mmvn,
                                                 negcurvature, sigmapar,
                                                 covar_param, covar_data);
     else 
-      nj_estimate_mvn_from_distances(D, dim, mvn, sigmapar,
+      nj_estimate_mvn_from_distances(D, dim, mmvn, sigmapar,
                                      covar_param, covar_data);
   }
 
@@ -286,31 +286,33 @@ int main(int argc, char *argv[]) {
     }
 
       /* initialize parameters of multivariate normal */
-      mvn = mvn_new(msa->nseqs*dim, NULL, NULL);
+      mmvn = nj_multi_mvn_new(ntips, dim, covar_param);
       sigmapar = nj_new_sigma_params(ntips, dim, covar_param);
       if (random_start == TRUE) {
-        mvn_sample_std(mvn->mu); vec_scale(mvn->mu, 0.1);
+        if (covar_parm == DIST)
+          die("ERROR: --random-start cannot be used with --distance-covar.\n");
+        mvn_sample_std(mmvn->mvn->mu); vec_scale(mmvn->mvn->mu, 0.1);
         vec_set_all(sigmapar, 0.1);
-        nj_update_covariance(mvn, sigmapar, covar_param, covar_data); 
+        nj_update_covariance(mmvn, sigmapar, covar_param, covar_data); 
       }
       else {
         if (hyperbolic)
-          nj_estimate_mvn_from_distances_hyperbolic(D, dim, mvn,
+          nj_estimate_mvn_from_distances_hyperbolic(D, dim, mmvn,
                                                     negcurvature, sigmapar,
                                                     covar_param, covar_data);
         else
-          nj_estimate_mvn_from_distances(D, dim, mvn, sigmapar,
+          nj_estimate_mvn_from_distances(D, dim, mmvn, sigmapar,
                                          covar_param, covar_data);
       }
 
       if (mvn_dump) {  /* in this case, just dump the MVN and associated data for inspection */
-        mvn_print(mvn, stdout);
+        nj_multi_mvn_print(mmvn, stdout);
         if (covar_param == DIST) 
           nj_dump_covar_data(covar_data, stdout);
         exit(0);
       }
       
-      nj_variational_inf(mod, msa, D, mvn, dim, hyperbolic,
+      nj_variational_inf(mod, msa, D, mmvn, dim, hyperbolic,
                          negcurvature, batchsize, learnrate,
                          nbatches_conv, min_nbatches, sigmapar,
                          covar_param, covar_data, logfile);
@@ -318,14 +320,14 @@ int main(int argc, char *argv[]) {
       if (importance_sampling == TRUE) {
         /* sample 100x as many then importance sample; make free param? */
         Vector *logdens = vec_new(100*nsamples);
-        List *origtrees = nj_var_sample(100*nsamples, dim, mvn,
+        List *origtrees = nj_var_sample(100*nsamples, dim, mmvn,
                                         msa->names, hyperbolic,
                                         negcurvature, logdens);
         trees = nj_importance_sample(nsamples, origtrees, logdens, mod, msa, logfile);        
       }
 
       else /* otherwise just sample directly from posterior */
-        trees = nj_var_sample(nsamples, dim, mvn, msa->names,
+        trees = nj_var_sample(nsamples, dim, mmvn, msa->names,
                               hyperbolic, negcurvature, NULL);
 
       for (i = 0; i < nsamples; i++)
@@ -340,10 +342,20 @@ int main(int argc, char *argv[]) {
   if (outdistfile != NULL) {
     if (embedding_only == TRUE || nj_only == FALSE) {
       /* in this case need to reset D */
-      if (hyperbolic)
-        nj_points_to_distances_hyperbolic(mvn->mu, D, negcurvature);  
+      Vector *mu_full;
+      int d;
+      if (covar_data == DIAG)
+        mu_full = mmvm->mvn->mu;
+      else /* DIST: first have to project up */
+        mu_full = vec_new(ntips*dim);
+        for (d = 0; d < dim; d++)
+          nj_multi_mvn_project_up(mmvm, mmvn->mvm->mu[d], mu_full, d);
+      }
       else
-        nj_points_to_distances(mvn->mu, D);  
+      if (hyperbolic)
+        nj_points_to_distances_hyperbolic(mu_full, D, negcurvature);  
+      else
+        nj_points_to_distances(mu_full, D);  
     }
     mat_print(D, outdistfile);
   }

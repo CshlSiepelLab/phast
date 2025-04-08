@@ -346,3 +346,21 @@ void mvn_rederive_std(MVN *mvn, Vector *x, Vector *x_std) {
       vec_set(x_std, i, (vec_get(x, i) - vec_get(mvn->mu, i)) / sqrt(mat_get(mvn->sigma, i, i)));
   }
 }
+
+/* return trace of covariance matrix */
+double mvn_trace(MVN *mvn) {
+  double retval = 0;
+  int i;
+  for (i = 0; i < mvn->dim; i++)
+    retval += mat_get(mvn->sigma, i, i);
+  return retval;
+}
+
+/* return mu \dot mu */
+double mvn_mu2(MVN *mvn) {
+  double retval = 0;
+  int i;
+  for (i = 0; i < mvn->dim; i++)
+    retval += pow(vec_get(mvn->mu, i), 2);
+  return retval;
+}
