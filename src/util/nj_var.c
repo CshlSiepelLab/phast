@@ -79,6 +79,7 @@ int main(int argc, char *argv[]) {
     {"distance-covar", 0, 0, 'S'},
     {"tree", 1, 0, 't'},
     {"treemodel", 1, 0, 'T'},
+    {"mvn-dump", 0, 0, 'V'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };

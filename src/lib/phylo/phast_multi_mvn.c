@@ -35,7 +35,7 @@ multi_MVN *mmvn_new(int n, int d, enum covar_type type) {
 multi_MVN *mmvn_new_from_mvn(MVN *mvn, int d, enum covar_type type) {
   multi_MVN *retval = smalloc(sizeof(multi_MVN));
   retval->d = d;
-  retval->ntips = mvn->dim;
+  retval->ntips = (type == DIST ? mvn->dim : mvn->dim / d);
   retval->mvn = mvn;
   retval->type = type;
 
@@ -179,15 +179,21 @@ void mmvn_restore_mu(multi_MVN *mmvn, Vector *mu_saved) {
 }
 
 void mmvn_print(multi_MVN *mmvn, FILE *F, unsigned int in_line,
-                        unsigned int do_covariance) {
+                unsigned int verbose) {
   int j;
+  Vector *mu_full = vec_new(mmvn->d * mmvn->ntips);
+  mmvn_save_mu(mmvn, mu_full);
   if (!in_line)
     fprintf(F, "mu: ");
-  for (j = 0; j < mmvn->mvn->mu->size; j++)
-    fprintf(F, "%f\t", vec_get(mmvn->mvn->mu, j));
+  for (j = 0; j < mu_full->size; j++)
+    fprintf(F, "%f\t", vec_get(mu_full, j));
   if (!in_line)
     fprintf(F, "\n");
-  /* FIXME: print covariance.   also handle multiple mu dimensions! and handle DIAG */
+  if (verbose) {
+    fprintf(F, "Component MVN:\n");
+    mvn_print(mmvn->mvn, F);
+  }
+  vec_free(mu_full);
 }
 
 double mmvn_get_mu_el(multi_MVN *mmvn, int i) {

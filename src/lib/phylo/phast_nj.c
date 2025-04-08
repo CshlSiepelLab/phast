@@ -1283,8 +1283,8 @@ void nj_update_covariance(multi_MVN *mmvn, Vector *sigma_params,
 
   mat_zero(mmvn->mvn->sigma);
   if (covar_param == DIAG) {
-    assert(mmvn->type == DIAG && sigma_params->size == mmvn->d);
-    for (i = 0; i < mmvn->mvn->dim; i++)
+    assert(mmvn->type == DIAG && sigma_params->size == mmvn->d * mmvn->ntips);
+    for (i = 0; i < sigma_params->size; i++)
       mat_set(mmvn->mvn->sigma, i, i, vec_get(sigma_params, i));
   }
   else { /* DIST case */
@@ -1293,6 +1293,10 @@ void nj_update_covariance(multi_MVN *mmvn, Vector *sigma_params,
     data->lambda = vec_get(sigma_params, 0);
     mat_copy(mmvn->mvn->sigma, data->Lapl_pinv);
     mat_scale(mmvn->mvn->sigma, data->lambda);
+    if (mmvn->mvn->evecs == NULL) {
+      mmvn->mvn->evecs = mat_new(mmvn->ntips, mmvn->ntips);
+      mmvn->mvn->evals = vec_new(mmvn->ntips);
+    }
     mat_copy(mmvn->mvn->evecs, data->Lapl_pinv_evecs); /* can simply derive eigendecomposition from Lapl_pinv */
     vec_copy(mmvn->mvn->evals, data->Lapl_pinv_evals);
     vec_scale(mmvn->mvn->evals, data->lambda);
