@@ -20,6 +20,8 @@
 #include <phast/trees.h>
 #include <phast/tree_model.h>
 #include <phast/mvn.h>
+#include <phast/multi_mvn.h>
+#include <phast/misc.h>
 
 #define DERIV_EPS 1e-5
 
@@ -33,11 +35,6 @@
 /* don't allow variance terms to get smaller than this value */
 #define MIN_VAR 1e-6
 
-/* types of parameterization for covariance matrix: diagonal only or
-   version proportional to Laplacian pseudoinverse based on pairwise
-   distances */
-enum covar_type {DIAG, DIST};
-  
 /* auxiliary data for parameterization of covariance matrix in DIST
    case */
 #define LAMBDA_INIT 0.1
@@ -50,14 +47,6 @@ typedef struct {
   Vector *Lapl_pinv_sqrt_evals; /* precompute for efficiency */
 } CovarData;
   
-/* bundle of MVNs sharing the same covariance matrix; for efficiency in DIST case */
-typedef struct {
-  int ntips; /* number of taxa */
-  int d; /* number of dimensions, equal to number of component MVNs */
-  Vector **mu; /* array of mean vectors */
-  MVN *mvn; /* MVN object with shared covariance and associated preprocessing */
-  enum covar_type type;
-} multi_MVN;
 
 void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
 	       int *v, int maxidx);
@@ -95,7 +84,7 @@ List *nj_var_sample(int nsamples, int dim, multi_MVN *mmvn,
                     char** names, unsigned int hyperbolic,
                     double negcurvature, Vector *logdens);
 
-TreeNode *nj_mean(multi_MVN *mmvn, int dim, char **names,
+TreeNode *nj_mean(Vector *mu, int dim, char **names,
                   unsigned int hyperbolic, double negcurvature);
 
 void nj_reset_tree_model(TreeModel *mod, TreeNode *newtree);
@@ -133,29 +122,7 @@ void nj_dump_covar_data(CovarData *data, FILE *F);
 
 void nj_laplacian_pinv(CovarData *data);
 
-multi_MVN *nj_multi_mvn_new(MVN *mvn, int d, enum covar_type type);
-
-void nj_multi_mvn_sample(multi_MVN *mmvn, Vector *retval);
-
-void nj_multi_mvn_combine_means(multi_MVN *mmvn, Vector *mu);
-
-double nj_multi_mvn_log_dens(multi_MVN *mmvn, Vector *x);
-
-double nj_multi_mvn_log_det(multi_MVN *mmvn);
-
-void nj_multi_mvn_project_down(multi_MVN *mmvn, Vector *x_full,
-                               Vector *x_d, int d);
-
-void nj_multi_mvn_project_up(multi_MVN *mmvn, Vector *x_d,
-                             Vector *x_full, int d);
-
-void nj_multi_mvn_rederive_std(multi_MVN *mmvn, Vector *points,
-                               Vector *points_std);
-
-double nj_multi_mvn_trace(multi_MVN *mmvn);
-
-double nj_multi_mvn_mu2(multi_MVN *mmvn);
-
-void nj_multi_mvn_print(multi_MVN *mmvn, FILE *F);
+void nj_mmvn_to_distances(multi_MVN *mmvn, Matrix *D, unsigned int hyperbolic,
+                          double negcurvature);
 
 #endif
