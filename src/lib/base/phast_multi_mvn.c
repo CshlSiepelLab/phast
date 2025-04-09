@@ -44,6 +44,7 @@ multi_MVN *mmvn_new(int n, int d, enum mvn_type type) {
   }
 
   retval->mvn = mvn_new(retval->n, NULL, NULL);
+  retval->mvn->type = type;
   retval->type = type;
   
   if (type == MVN_GEN) {
