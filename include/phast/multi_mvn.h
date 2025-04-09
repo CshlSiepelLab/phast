@@ -12,21 +12,20 @@
 #include <stdio.h>
 #include <phast/matrix.h>
 #include <phast/mvn.h>
-#include <phast/misc.h>
 
 /* bundle of MVNs sharing the same covariance matrix */
 typedef struct {
-  int ntips; /* number of taxa */
+  int n; /* number of points */
   int d; /* number of dimensions, equal to number of component MVNs */
   Vector **mu; /* array of mean vectors */
   MVN *mvn; /* MVN object with shared covariance and associated
                preprocessing */
-  enum covar_type type;
+  enum mvn_type type;
 } multi_MVN;
 
-multi_MVN *mmvn_new(int n, int d, enum covar_type type);
+multi_MVN *mmvn_new(int n, int d, enum mvn_type type);
 
-multi_MVN *mmvn_new_from_mvn(MVN *mvn, int d, enum covar_type type);
+multi_MVN *mmvn_new_from_mvn(MVN *mvn, int n, int d, enum mvn_type type);
 
 void mmvn_sample(multi_MVN *mmvn, Vector *retval);
 

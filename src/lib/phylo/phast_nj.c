@@ -525,7 +525,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   double ll, avell, kld, avekld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace, innerprod;
   
-  if (mmvn->d != dim || mmvn->ntips != n)
+  if (mmvn->d != dim || mmvn->n != n)
     die("ERROR in nj_variational_inf: bad dimensions\n");
 
   points = vec_new(fulld);
@@ -700,9 +700,9 @@ List *nj_var_sample(int nsamples, int dim, multi_MVN *mmvn, char** names,
                     unsigned int hyperbolic, double negcurvature, Vector *logdens) {
   List *retval = lst_new_ptr(nsamples);
   int i;
-  Matrix *D = mat_new(mmvn->ntips, mmvn->ntips);
+  Matrix *D = mat_new(mmvn->n, mmvn->n);
   TreeNode *tree;
-  Vector *points = vec_new(mmvn->d * mmvn->ntips);
+  Vector *points = vec_new(mmvn->d * mmvn->n);
   
   for (i = 0; i < nsamples; i++) {
      mmvn_sample(mmvn, points);
@@ -791,7 +791,7 @@ void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
   double rowsum_orig = 0, rowsum_new = 0, x = 0, x2 = 0;
   Vector *mu_full = vec_new(dim*n);
     
-  if (D->nrows != D->ncols || mmvn->d != dim || mmvn->ntips != n)
+  if (D->nrows != D->ncols || mmvn->d != dim || mmvn->n != n)
     die("ERROR in nj_estimate_points_from_distances: bad dimensions\n");
 
   /* build matrix of squared distances; note that D is upper
@@ -895,7 +895,7 @@ void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *m
   double x = 0, x2 = 0;
   Vector *mu_full = vec_new(dim*n);
     
-  if (D->nrows != D->ncols || mmvn->d != dim || mmvn->ntips != n)
+  if (D->nrows != D->ncols || mmvn->d != dim || mmvn->n != n)
     die("ERROR in nj_estimate_points_from_distances_hyperbolic: bad dimensions\n");
   
   /* build matrix A of transformed distances; note that D is upper
@@ -1283,19 +1283,19 @@ void nj_update_covariance(multi_MVN *mmvn, Vector *sigma_params,
 
   mat_zero(mmvn->mvn->sigma);
   if (covar_param == DIAG) {
-    assert(mmvn->type == DIAG && sigma_params->size == mmvn->d * mmvn->ntips);
+    assert(mmvn->type == DIAG && sigma_params->size == mmvn->d * mmvn->n);
     for (i = 0; i < sigma_params->size; i++)
       mat_set(mmvn->mvn->sigma, i, i, vec_get(sigma_params, i));
   }
   else { /* DIST case */
     assert(sigma_params->size == 1 && data != NULL && mmvn->type == DIST &&
-           data->Lapl_pinv->nrows == mmvn->ntips);
+           data->Lapl_pinv->nrows == mmvn->n);
     data->lambda = vec_get(sigma_params, 0);
     mat_copy(mmvn->mvn->sigma, data->Lapl_pinv);
     mat_scale(mmvn->mvn->sigma, data->lambda);
     if (mmvn->mvn->evecs == NULL) {
-      mmvn->mvn->evecs = mat_new(mmvn->ntips, mmvn->ntips);
-      mmvn->mvn->evals = vec_new(mmvn->ntips);
+      mmvn->mvn->evecs = mat_new(mmvn->n, mmvn->n);
+      mmvn->mvn->evals = vec_new(mmvn->n);
     }
     mat_copy(mmvn->mvn->evecs, data->Lapl_pinv_evecs); /* can simply derive eigendecomposition from Lapl_pinv */
     vec_copy(mmvn->mvn->evals, data->Lapl_pinv_evals);
@@ -1391,7 +1391,7 @@ void nj_mmvn_to_distances(multi_MVN *mmvn, Matrix *D, unsigned int hyperbolic,
   if (mmvn->type == DIAG) 
     full_mu = mmvn->mvn->mu;
   else {
-    full_mu = vec_new(mmvn->d * mmvn->ntips);
+    full_mu = vec_new(mmvn->d * mmvn->n);
     mmvn_save_mu(mmvn, full_mu);
   }
 

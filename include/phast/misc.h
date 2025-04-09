@@ -37,11 +37,6 @@ struct hash_table;
 /** Negative Infinity, for various reasons, it's often useful to represent infinity and negative infinity as very large numbers */
 #define NEGINFTY -INFTY
 
-/* types of parameterization for covariance matrix: diagonal only or
-   version proportional to Laplacian pseudoinverse based on pairwise
-   distances */
-enum covar_type {DIAG, DIST};
-  
 /** Threshold for log_sum function
     @see log_sum
  */

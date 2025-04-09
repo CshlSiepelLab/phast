@@ -136,6 +136,9 @@ void mvn_sample(MVN *mvn, Vector *retval) {
   
   mvn_sample_std(retval);
 
+  printf("orig sample: ");
+  vec_print(retval, stdout);
+  
   /* do nothing if MVN_STD */
   
   if (mvn->type == MVN_IDENTITY)
@@ -314,7 +317,7 @@ void mvn_print(MVN *mvn, FILE *F){
   }
 }
 
-/* obtain the underlying standard mvn used to generate to a
+/* obtain the underlying standard mvn used to generate a
    non-standard mvn.  Useful for calculations based on the
    reparameterization trick */ 
 void mvn_rederive_std(MVN *mvn, Vector *x, Vector *x_std) {

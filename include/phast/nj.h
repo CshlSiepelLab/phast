@@ -35,6 +35,11 @@
 /* don't allow variance terms to get smaller than this value */
 #define MIN_VAR 1e-6
 
+/* types of parameterization for covariance matrix: diagonal only or
+   version proportional to Laplacian pseudoinverse based on pairwise
+   distances */
+enum covar_type {DIAG, DIST};
+  
 /* auxiliary data for parameterization of covariance matrix in DIST
    case */
 #define LAMBDA_INIT 0.1
@@ -46,7 +51,6 @@ typedef struct {
   Matrix *Lapl_pinv_evecs;
   Vector *Lapl_pinv_sqrt_evals; /* precompute for efficiency */
 } CovarData;
-  
 
 void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
 	       int *v, int maxidx);

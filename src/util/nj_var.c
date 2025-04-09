@@ -251,15 +251,15 @@ int main(int argc, char *argv[]) {
     if (outdistfile == NULL)
       die("ERROR: must use --out-dists with -embedding-only\n");
 
-    mmvn = mmvn_new(ntips, dim, covar_param);
+    mmvn = mmvn_new(ntips, dim, (covar_param == DIST ? MVN_GEN : MVN_DIAG));
     sigmapar = nj_new_sigma_params(ntips, dim, covar_param);
     if (hyperbolic)
       nj_estimate_mmvn_from_distances_hyperbolic(D, dim, mmvn,
-                                                negcurvature, sigmapar,
-                                                covar_param, covar_data);
-    else 
+                                                 negcurvature, sigmapar,
+                                                 covar_param, covar_data);
+    else
       nj_estimate_mmvn_from_distances(D, dim, mmvn, sigmapar,
-                                     covar_param, covar_data);
+                                      covar_param, covar_data);
   }
 
   else {
@@ -269,25 +269,25 @@ int main(int argc, char *argv[]) {
 
     if (nj_only == TRUE) /* just print in this case */
       tr_print(stdout, tree, TRUE);
- 
+
     else {  /* full variational inference */
       if (msa == NULL)
         die("ERROR: Alignment required for variational inference\n");
 
       /* set up a tree model if necessary */
       if (mod == NULL) {
-        rmat = mm_new(strlen(msa->alphabet), msa->alphabet, CONTINUOUS);    
+        rmat = mm_new(strlen(msa->alphabet), msa->alphabet, CONTINUOUS);
         mod = tm_new(tree, rmat, NULL, subst_mod, msa->alphabet, 1, 1, NULL, -1);
-        tm_init_backgd(mod, msa, -1); 
-    
+        tm_init_backgd(mod, msa, -1);
+        
         if (subst_mod == JC69)
           tm_set_JC69_matrix(mod);
-        else 
+        else
           tm_set_HKY_matrix(mod, kappa, -1);   /* FIXME: estimate kappa from msa */
-    }
+      }
 
       /* initialize parameters of multivariate normal */
-      mmvn = mmvn_new(ntips, dim, covar_param);
+      mmvn = mmvn_new(ntips, dim, (covar_param == DIST ? MVN_GEN : MVN_DIAG));
       sigmapar = nj_new_sigma_params(ntips, dim, covar_param);
       if (random_start == TRUE) {
         if (covar_param == DIST)
@@ -335,7 +335,7 @@ int main(int argc, char *argv[]) {
         tr_print(stdout, (TreeNode*)lst_get_ptr(trees, i), TRUE);
 
       if (postmeanfile != NULL) {
-        Vector *mu_full = vec_new(mmvn->d * mmvn->ntips);
+        Vector *mu_full = vec_new(mmvn->d * mmvn->n);
         mmvn_save_mu(mmvn, mu_full);
         tr_print(postmeanfile, nj_mean(mu_full, dim, msa->names,
                                        hyperbolic, negcurvature), TRUE);
