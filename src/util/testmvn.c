@@ -15,6 +15,7 @@ int main(int argc, char *argv[]) {
   Vector *x = vec_new(MVN_N * MVN_D), *x_std = vec_new(MVN_N * MVN_D);
   MVN *mvn;
   multi_MVN *mmvn;
+  Matrix *shared_sigma = mat_new(MVN_N, MVN_N);
 
   /* set up standard MVN */
   mvn = mvn_new(MVN_N * MVN_D, NULL, NULL);
@@ -27,8 +28,8 @@ int main(int argc, char *argv[]) {
           idx2 = j*MVN_D + d2;
           if (idx1 == idx2)
             val = 0.5;
-          /*          else if (d == d2)
-                      val = 0.2; */
+          else if (d == d2)
+            val = 0.2; 
           else
             val = 0;
           mat_set(mvn->sigma, idx1, idx2, val);
@@ -40,24 +41,20 @@ int main(int argc, char *argv[]) {
   mvn_preprocess(mvn, TRUE);  
 
   /* set up equivalent multi MVN */
-  mmvn = mmvn_new(MVN_N, MVN_D, MVN_DIAG);  
-  mmvn_restore_mu(mmvn, mvn->mu);
+  mmvn = mmvn_new(MVN_N, MVN_D, MVN_GEN);  
+  mmvn_set_mu(mmvn, mvn->mu);
 
-  mat_copy(mmvn->mvn->sigma, mvn->sigma);
-  /*
   for (i = 0; i < MVN_N; i++) {
     for (j = 0; j < MVN_N; j++) {
       if (i == j)
         val = 0.5;
       else
         val = 0.2;
-      mat_set(mmvn->mvn->sigma, i, j, val);
+      mat_set(shared_sigma, i, j, val);
     }
   }  
-*/
 
-  mvn_update_type(mmvn->mvn);  /* FIXME: is this happening in main prog? */
-  mvn_preprocess(mmvn->mvn, TRUE); 
+  mmvn_set_sigma(mmvn, shared_sigma); 
   
   for (i = 0; i < 10; i++) {
     double ldens1, ldet1, ldens2, ldet2, trace1, trace2, mu2_1, mu2_2;

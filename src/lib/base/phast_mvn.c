@@ -73,10 +73,14 @@ void mvn_free(MVN *mvn) {
 void mvn_update_type(MVN *mvn) {
   int mean_zero = TRUE, diag_covar = TRUE, ident_covar = TRUE;
   int i, j;
+
+  assert(mvn->sigma != NULL);
   
-  for (i = 0; mean_zero == TRUE && i < mvn->dim; i++)
-    if (vec_get(mvn->mu, i) != 0)
-      mean_zero = FALSE;
+  if (mvn->mu != NULL) /* otherwise treat as mean not zero; can happen
+                          with multi-MVNs*/
+    for (i = 0; mean_zero == TRUE && i < mvn->dim; i++)
+      if (vec_get(mvn->mu, i) != 0)
+        mean_zero = FALSE;
 
   for (i = 0; diag_covar == TRUE && i < mvn->dim; i++) 
     for (j = 0; diag_covar == TRUE && j < i; j++) 

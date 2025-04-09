@@ -60,6 +60,31 @@ multi_MVN *mmvn_new(int n, int d, enum mvn_type type) {
   return retval;
 }
 
+/* set the mean parameters */
+void mmvn_set_mu(multi_MVN *mmvn, Vector *mu) {
+  assert(mu->size == mmvn->d * mmvn->n);
+  if (mmvn->type != MVN_GEN)
+    vec_copy(mmvn->mvn->mu, mu);
+  else {
+    for (int d = 0; d < mmvn->d; d++)
+      mmvn_project_down(mmvn, mu, mmvn->mu[d], d);
+  }
+  mvn_update_type(mmvn->mvn);
+}
+
+/* set shared covariance */
+void mmvn_set_sigma(multi_MVN *mmvn, Matrix *sigma) {
+  assert(sigma->nrows == mmvn->n &&
+         sigma->nrows == sigma->ncols);
+  mat_copy(mmvn->mvn->sigma, sigma);
+  mvn_update_type(mmvn->mvn);
+  mmvn_preprocess(mmvn, TRUE);
+}
+
+void mmvn_preprocess(multi_MVN *mmvn, unsigned int force_eigen) {
+  mvn_preprocess(mmvn->mvn, force_eigen);
+}
+
 void mmvn_sample(multi_MVN *mmvn, Vector *retval) {
   if (mmvn->type != MVN_GEN)  /* in this case it's just as efficient
                                  to use the full MVN */
@@ -180,18 +205,6 @@ void mmvn_save_mu(multi_MVN *mmvn, Vector *mu_saved) {
     assert(mu_saved->size == mmvn->d * mmvn->n);
     for (d = 0; d < mmvn->d; d++)
       mmvn_project_up(mmvn, mmvn->mu[d], mu_saved, d);
-  }
-}
-
-/* restore the mean parameters from a saved version */
-void mmvn_restore_mu(multi_MVN *mmvn, Vector *mu_saved) {
-  if (mmvn->type != MVN_GEN)
-    vec_copy(mmvn->mvn->mu, mu_saved);
-  else {
-    int d;
-    assert(mu_saved->size == mmvn->d * mmvn->n);
-    for (d = 0; d < mmvn->d; d++)
-      mmvn_project_down(mmvn, mu_saved, mmvn->mu[d], d);
   }
 }
 

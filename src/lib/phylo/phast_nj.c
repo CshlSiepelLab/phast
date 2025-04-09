@@ -672,7 +672,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     
   } while(stop == FALSE);
 
-  mmvn_restore_mu(mmvn, best_mu);
+  mmvn_set_mu(mmvn, best_mu);
   vec_copy(sigmapar, best_sigmapar);
   nj_update_covariance(mmvn, sigmapar, covar_param, data);
   
@@ -850,7 +850,7 @@ void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
     rowsum_new += mat_get(Dsq, 0, j);
   }
   vec_scale(mu_full, rowsum_orig/rowsum_new);
-  mmvn_restore_mu(mmvn, mu_full);
+  mmvn_set_mu(mmvn, mu_full);
   
   for (i = 0; i < n; i++)
     free((Evidx*)lst_get_ptr(eiglst, i));
@@ -938,7 +938,7 @@ void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *m
     for (i = 0; i < n; i++)
       vec_set(mu_full, i*dim + d, sqrt(ev) * mat_get(revec_real, i, obj->idx));
   }   
-  mmvn_restore_mu(mmvn, mu_full); 
+  mmvn_set_mu(mmvn, mu_full); 
   
   for (i = 0; i < n; i++)
     free((Evidx*)lst_get_ptr(eiglst, i));

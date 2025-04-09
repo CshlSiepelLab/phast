@@ -1,4 +1,5 @@
-/* PHylogenetic Analysis with Space/Time models
+/***************************************************************************
+ * PHylogenetic Analysis with Space/Time models
  * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
  * University.  All rights reserved.
  *
@@ -25,6 +26,12 @@ typedef struct {
 
 multi_MVN *mmvn_new(int n, int d, enum mvn_type type);
 
+void mmvn_set_mu(multi_MVN *mmvn, Vector *mu);
+
+void mmvn_set_sigma(multi_MVN *mmvn, Matrix *sigma);
+
+void mmvn_preprocess(multi_MVN *mmvn, unsigned int force_eigen);
+
 void mmvn_sample(multi_MVN *mmvn, Vector *retval);
 
 void mmvn_combine_means(multi_MVN *mmvn, Vector *mu);
@@ -47,8 +54,6 @@ double mmvn_trace(multi_MVN *mmvn);
 double mmvn_mu2(multi_MVN *mmvn);
 
 void mmvn_save_mu(multi_MVN *mmvn, Vector *mu_saved);
-
-void mmvn_restore_mu(multi_MVN *mmvn, Vector *mu_saved);
 
 void mmvn_print(multi_MVN *mmvn, FILE *F, unsigned int in_line,
                         unsigned int do_covariance);
