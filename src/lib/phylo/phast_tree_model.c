@@ -3995,7 +3995,7 @@ void tm_setup_site_model_func(TreeModel *mod, int ncat, const char *foreground,
       }
       /*      printf("cat %i fore %i has new altmod %i %i\n", cat, fore,
 	      selpar, dobgc);*/
-      sprintf(tempch, "%s#%i", fore ? foreground : "backgd", cat);
+      snprintf(tempch, 10000, "%s#%i", fore ? foreground : "backgd", cat);
       str_cpy_charstr(tempstr, tempch);
       //check for other models that it may apply to
       for (cat1=cat; cat1 < ncat; cat1++) {
@@ -4006,7 +4006,7 @@ void tm_setup_site_model_func(TreeModel *mod, int ncat, const char *foreground,
 	  if (!dobgc && fore1==1 && have_bgc[cat1]) continue;
 	  if (fore1 && foregd_sel_param[cat1] != selpar) continue;
 	  if (!fore1 && backgd_sel_param[cat1] != selpar) continue;
-	  sprintf(tempch, ",%s#%i", fore1 ? foreground : "backgd", cat1);
+	  snprintf(tempch, 10000, ",%s#%i", fore1 ? foreground : "backgd", cat1);
 	  str_append_charstr(tempstr, tempch);
 	  if (!fore1) doneback[cat1] = 1;
 	  else donefore[cat1] = 1;
@@ -4019,14 +4019,14 @@ void tm_setup_site_model_func(TreeModel *mod, int ncat, const char *foreground,
 	bgcmod = mod->alt_subst_mods == NULL ? 1 : lst_size(mod->alt_subst_mods)+1;
       }
       else if (dobgc) {
-	sprintf(tempch, "bgc#%i", bgcmod);
+        snprintf(tempch, 10000, "bgc#%i", bgcmod);
 	str_append_charstr(tempstr, tempch);
       }
 
       if (sel_param_opt[selpar]) {
 	if (dobgc) str_append_charstr(tempstr, ",");
 	if (selmod[selpar] != -1) {
-	  sprintf(tempch, "sel#%i", selmod[selpar]);
+	  snprintf(tempch, 10000, "sel#%i", selmod[selpar]);
 	  str_append_charstr(tempstr, tempch);
 	} else {
 	  str_append_charstr(tempstr, "sel");

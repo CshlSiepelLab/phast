@@ -34,13 +34,13 @@ String *str_new_charstr(const char *str) {
 
 String *str_new_int(int i) {
   char tmp[STR_SHORT_LEN];
-  sprintf(tmp, "%d", i);
+  snprintf(tmp, STR_SHORT_LEN, "%d", i);
   return str_new_charstr(tmp);
 }
 
 String *str_new_dbl(double d) {
   char tmp[STR_SHORT_LEN];
-  sprintf(tmp, "%f", d);
+  snprintf(tmp, STR_SHORT_LEN, "%f", d);
   return str_new_charstr(tmp);
 }
 
@@ -91,14 +91,14 @@ void str_append_char(String *s, char c) {
 
 void str_append_int(String *s, int i) {
   char tmp[STR_SHORT_LEN];
-  sprintf(tmp, "%d", i);
+  snprintf(tmp, STR_SHORT_LEN, "%d", i);
   str_append_charstr(s, tmp);
 }
 
 /* defaults to 9 digits beyond decimal pt */
 void str_append_dbl(String *s, double d) {
   char tmp[(int)ceil(log10(d)) + 1 + 10];
-  sprintf(tmp, "%.9f", d);
+  snprintf(tmp, STR_SHORT_LEN, "%.9f", d);
   str_append_charstr(s, tmp);
 }
 

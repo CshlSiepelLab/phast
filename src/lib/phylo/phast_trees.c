@@ -272,11 +272,11 @@ void tr_to_string_recur(char *str, TreeNode *n, int show_branch_lengths) {
     strcat(str, n->name);
   }
   if (show_branch_lengths && n->parent != NULL) {
-    sprintf(temp, ":%g", n->dparent);
+    snprintf(temp, 100, ":%g", n->dparent);
     strcat(str, temp);
   }
   if (n->label != NULL) {
-    sprintf(temp, " # %s", n->label);
+    snprintf(temp, 100, " # %s", n->label);
     strcat(str, temp);
   }
 }

@@ -75,9 +75,10 @@ void mvn_update_type(MVN *mvn) {
   int i, j;
 
   assert(mvn->sigma != NULL);
-  
-  if (mvn->mu != NULL) /* otherwise treat as mean not zero; can happen
-                          with multi-MVNs*/
+
+  if (mvn->mu == NULL)
+    mean_zero = FALSE; /* can happen with multi-MVNs */
+  else
     for (i = 0; mean_zero == TRUE && i < mvn->dim; i++)
       if (vec_get(mvn->mu, i) != 0)
         mean_zero = FALSE;
@@ -304,7 +305,10 @@ double mvn_log_det(MVN *mvn) {
 void mvn_print(MVN *mvn, FILE *F){
   fprintf(F, "MVN (dim %d, type %d)\n", mvn->dim, mvn->type);
   fprintf(F, "mu: ");
-  vec_print(mvn->mu, F);
+  if (mvn->mu == NULL)
+    fprintf(F, "<NULL>\n");
+  else
+    vec_print(mvn->mu, F);
   fprintf(F, "sigma:\n");
   mat_print(mvn->sigma, F);
   if (mvn->cholL != NULL) {

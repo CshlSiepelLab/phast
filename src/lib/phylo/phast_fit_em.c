@@ -93,7 +93,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
 
     strcpy(tmpstr, "phast");
 
-    sprintf(tmp_mod_fname, "fit_em.%s.%d.mod", tmpstr, getpid());
+    snprintf(tmp_mod_fname, 20, "fit_em.%s.%d.mod", tmpstr, getpid());
   }
 
   if (logf != NULL)
@@ -368,7 +368,7 @@ void tm_log_em(FILE *logf, int header_only, double val, Vector *params) {
   if (header_only) {
     fprintf(logf, "%15s ", "f(x)");
     for (i = 0; i < params->size; i++) {
-      sprintf(tmp, "x_%d", i);
+      snprintf(tmp, 30, "x_%d", i);
       fprintf(logf, "%15s ", tmp);
     }
     fprintf(logf, "\n");

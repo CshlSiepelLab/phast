@@ -69,7 +69,6 @@ void mmvn_set_mu(multi_MVN *mmvn, Vector *mu) {
     for (int d = 0; d < mmvn->d; d++)
       mmvn_project_down(mmvn, mu, mmvn->mu[d], d);
   }
-  mvn_update_type(mmvn->mvn);
 }
 
 /* set shared covariance */
@@ -77,7 +76,6 @@ void mmvn_set_sigma(multi_MVN *mmvn, Matrix *sigma) {
   assert(sigma->nrows == mmvn->n &&
          sigma->nrows == sigma->ncols);
   mat_copy(mmvn->mvn->sigma, sigma);
-  mvn_update_type(mmvn->mvn);
   mmvn_preprocess(mmvn, TRUE);
 }
 

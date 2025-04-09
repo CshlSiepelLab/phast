@@ -75,7 +75,7 @@ TreeModel **bgchmm_setup_mods(TreeModel *init_mod,
     *npar_rv = npar;
 
   if (do_bgc) {
-    sprintf(tempstr, "%s:%s", foregd_branch, "bgc[0,]");
+    snprintf(tempstr, 1000, "%s:%s", foregd_branch, "bgc[0,]");
     altmod_str = str_new_charstr(tempstr);
     nmod=4;
   } else nmod=2;
@@ -236,7 +236,7 @@ int bgcHmm(struct bgchmm_struct *b) {
     if (lst_size(pruned_names) == (old_nnodes + 1)/2) 
       die("ERROR: no match for leaves of tree in alignment (leaf names must match alignment names");
 
-    sprintf(warning_str, "WARNING: Pruned away leaves of tree with no match in alignment (%s", 
+    snprintf(warning_str, 10000, "WARNING: Pruned away leaves of tree with no match in alignment (%s", 
 	    ((String*)lst_get_ptr(pruned_names, 0))->chars);
     for (j=1; j < lst_size(pruned_names); j++) 
       strcat(warning_str, ((String*)lst_get_ptr(pruned_names, j))->chars);
@@ -352,7 +352,7 @@ int bgcHmm(struct bgchmm_struct *b) {
     FILE *outfile;
     char outfn[1000];
     for (i = 0 ; i < hmm->nstates; i++) {
-      sprintf(outfn, "%s.%s.mod", b->mods_fn, bgchmm_get_state_name(i, do_bgc));
+      snprintf(outfn, 1000, "%s.%s.mod", b->mods_fn, bgchmm_get_state_name(i, do_bgc));
       outfile = phast_fopen(outfn, "w");
       tm_print(outfile, mods[i]);
       fclose(outfile);
@@ -388,7 +388,7 @@ int bgcHmm(struct bgchmm_struct *b) {
     hmm_forward(hmm, emissions, nsite, forward_scores);
     for (i=0; i < b->random_path; i++) {
       currpath = lol_new(2);
-      sprintf(tempname, "random.path.%i", i+1);
+      snprintf(tempname, 1000, "random.path.%i", i+1);
       hmm_stochastic_traceback(hmm, forward_scores, nsite, path);
       if (b->get_likelihoods) {
 	path_likelihood = hmm_path_likelihood(hmm, emissions, nsite, path);
