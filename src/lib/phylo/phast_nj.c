@@ -574,10 +574,11 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
 
       /* compute the KLD (equation 7, Doersch arXiv 2016) */
       kld = 0;
-      /* we'll need the trace of sigma and the inner product of mu with itself */
+
+      /* we'll need the trace of sigma and the inner product of mu with itself as well as the log determinant */
       trace = mmvn_trace(mmvn);
       innerprod = mmvn_mu2(mmvn);
-
+    
       kld += 0.5 * (trace + innerprod - fulld - mmvn_log_det(mmvn)); 
       avell += ll;
       avekld += kld;
