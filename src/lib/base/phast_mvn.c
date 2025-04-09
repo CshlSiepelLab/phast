@@ -136,9 +136,6 @@ void mvn_sample(MVN *mvn, Vector *retval) {
   
   mvn_sample_std(retval);
 
-  printf("orig sample: ");
-  vec_print(retval, stdout);
-  
   /* do nothing if MVN_STD */
   
   if (mvn->type == MVN_IDENTITY)
@@ -182,6 +179,9 @@ void mvn_sample(MVN *mvn, Vector *retval) {
 void mvn_preprocess(MVN *mvn, unsigned int force_eigen) {
   int retval = 1;
 
+  if (mvn->type != MVN_GEN)
+    return;
+  
   if (force_eigen == FALSE) {
     if (mvn->cholL == NULL)
       mvn->cholL = mat_new(mvn->dim, mvn->dim);

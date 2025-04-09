@@ -25,8 +25,6 @@ typedef struct {
 
 multi_MVN *mmvn_new(int n, int d, enum mvn_type type);
 
-multi_MVN *mmvn_new_from_mvn(MVN *mvn, int n, int d, enum mvn_type type);
-
 void mmvn_sample(multi_MVN *mmvn, Vector *retval);
 
 void mmvn_combine_means(multi_MVN *mmvn, Vector *mu);

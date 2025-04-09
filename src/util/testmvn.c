@@ -27,8 +27,8 @@ int main(int argc, char *argv[]) {
           idx2 = j*MVN_D + d2;
           if (idx1 == idx2)
             val = 0.5;
-          else if (d == d2)
-            val = 0.2;
+          /*          else if (d == d2)
+                      val = 0.2; */
           else
             val = 0;
           mat_set(mvn->sigma, idx1, idx2, val);
@@ -37,12 +37,14 @@ int main(int argc, char *argv[]) {
     }
   }  
   mvn_update_type(mvn);
-  mvn_preprocess(mvn, TRUE);  /* CHECK: when does this happen with a multi_mvn? */
+  mvn_preprocess(mvn, TRUE);  
 
   /* set up equivalent multi MVN */
-  mmvn = mmvn_new(MVN_N, MVN_D, MVN_GEN);  
+  mmvn = mmvn_new(MVN_N, MVN_D, MVN_DIAG);  
   mmvn_restore_mu(mmvn, mvn->mu);
 
+  mat_copy(mmvn->mvn->sigma, mvn->sigma);
+  /*
   for (i = 0; i < MVN_N; i++) {
     for (j = 0; j < MVN_N; j++) {
       if (i == j)
@@ -52,12 +54,11 @@ int main(int argc, char *argv[]) {
       mat_set(mmvn->mvn->sigma, i, j, val);
     }
   }  
+*/
 
   mvn_update_type(mmvn->mvn);  /* FIXME: is this happening in main prog? */
   mvn_preprocess(mmvn->mvn, TRUE); 
   
-  /* try diagonal and other parameterization */
-
   for (i = 0; i < 10; i++) {
     double ldens1, ldet1, ldens2, ldet2, trace1, trace2, mu2_1, mu2_2;
     printf("Draw #%d:\n", i+1);
@@ -119,5 +120,15 @@ int main(int argc, char *argv[]) {
   printf("MMVN:\n");
   mmvn_print(mmvn, stdout, FALSE, TRUE);
 
+
+  for (i = 0; i < mmvn->n * mmvn->d; i++) 
+    printf("Mu element %d: %f\n", i, mmvn_get_mu_el(mmvn, i));
+
+  for (i = 0; i < mmvn->n * mmvn->d; i++) 
+    mmvn_set_mu_el(mmvn, i, 100-i);
+
+  for (i = 0; i < mmvn->n * mmvn->d; i++) 
+    printf("Mu element %d: %f\n", i, mmvn_get_mu_el(mmvn, i));
+  
   return(0);
 }

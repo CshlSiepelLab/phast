@@ -29,33 +29,32 @@
    case) */
 
 /* create a new multi-MVN of desired type from scratch, for n points
-   and dimension d */
+   and dimension d. If type != MVN_GEN, will just wrap a single MVN */
 multi_MVN *mmvn_new(int n, int d, enum mvn_type type) {
-  MVN *mvn = NULL;
-  if (type == MVN_GEN) 
-    mvn = mvn_new(n, NULL, NULL);
-  else
-    mvn = mvn_new(n*d, NULL, NULL);
-  return mmvn_new_from_mvn(mvn, n, d, type);
-}
-
-/* create a multi-MVN from an MVN; original MVN is canibalized */
-multi_MVN *mmvn_new_from_mvn(MVN *mvn, int n, int d, enum mvn_type type) {
+  int i;
   multi_MVN *retval = smalloc(sizeof(multi_MVN));
-  retval->d = d;
-  retval->n = n;
-  retval->mvn = mvn;
-  retval->type = type;
 
+  if (type != MVN_GEN) {
+    retval->n = n*d;
+    retval->d = 1;
+  }
+  else {
+    retval->n = n;
+    retval->d = d;
+  }
+
+  retval->mvn = mvn_new(retval->n, NULL, NULL);
+  retval->type = type;
+  
   if (type == MVN_GEN) {
-    int i;
     /* clear the orig mu vector; will handle it just by pointer swapping */
     vec_free(retval->mvn->mu);
+    retval->mvn->mu = NULL;
     retval->mu = smalloc(d * sizeof(Vector*));
     for (i = 0; i < d; i++)
       retval->mu[i] = vec_new(retval->n);
   }
-  else
+  else 
     retval->mu = NULL;
   
   return retval;
