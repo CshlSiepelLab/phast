@@ -520,10 +520,10 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
                         int min_nbatches, Vector *sigmapar, enum covar_type covar_param,
                         CovarData *data, FILE *logf) {
 
-  Vector *points, *grad, *avegrad, *m, *m_prev, *v, *v_prev, *best_mu, *best_sigmapar;
+  Vector *points, *grad, *kldgrad, *avegrad, *m, *m_prev, *v, *v_prev, *best_mu, *best_sigmapar;
   int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim, fulld = n*dim;
-  double ll, avell, kld, avekld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
-    running_tot = 0, last_running_tot = -INFTY, trace, innerprod;
+  double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
+    running_tot = 0, last_running_tot = -INFTY, trace;
   
   if (mmvn->d * mmvn->n != dim * n)
     die("ERROR in nj_variational_inf: bad dimensions\n");
@@ -531,6 +531,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   points = vec_new(fulld);
   graddim = (covar_param == DIST ? fulld + 1 : 2*fulld);
   grad = vec_new(graddim);  
+  kldgrad = vec_new(graddim);
   avegrad = vec_new(graddim);
   m = vec_new(graddim);
   m_prev = vec_new(graddim);
@@ -546,6 +547,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   if (logf != NULL) {
     fprintf(logf, "# nj_var logfile\n");
     fprintf(logf, "state\tll\tkld\telb\t");
+    if (covar_param == DIST)
+      fprintf(logf, "lambda\t");
     for (j = 0; j < fulld; j++)
       fprintf(logf, "mu.%d\t", j);
     for (i = 0; i < D->nrows; i++)
@@ -560,60 +563,51 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   t = 0;
   
   do {
+    /* we can precompute the KLD because it does not depend on the data under this model */
+    /* (see equation 7, Doersch arXiv 2016) */
+    trace = mmvn_trace(mmvn);  /* we'll reuse this */
+    kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - mmvn_log_det(mmvn));
+
+    /* we can also precompute the contribution of the KLD to the gradient */
+    /* Note must be subtracted rather than added */
+    for (j = 0; j < grad->size; j++) {
+      double gj = 0.0;
+
+      if (j < n*dim)  /* partial deriv wrt mu_j is just mu_j */
+        gj = -1.0*mmvn_get_mu_el(mmvn, j);
+      else {            /* partial deriv wrt sigma_j is more
+                           complicated because of the trace and log
+                           determinant */
+        if (covar_param == DIAG) 
+          gj = 0.5 * (-1.0 + 1.0/vec_get(sigmapar, j-fulld));   /* first term trace, second log det */
+        else
+          gj = 0.5 * (-trace + fulld) / data->lambda;
+      }
+      vec_set(kldgrad, j, gj);
+    }
+
+    /* now sample a minibatch from the MVN averaging distribution and
+       compute log likelihoods and gradients */
     vec_zero(avegrad);
     avell = 0;
-    avekld = 0;
-
     for (i = 0; i < nminibatch; i++) {
-      /* sample points from MVN averaging distribution */
       mmvn_sample(mmvn, points);
-      
-      /* compute likelihood and gradient */
       ll = nj_compute_model_grad(mod, mmvn, msa, hyperbolic, negcurvature, 
                                  points, grad, D, sigmapar, covar_param, data);
-
-      /* compute the KLD (equation 7, Doersch arXiv 2016) */
-      kld = 0;
-
-      /* we'll need the trace of sigma and the inner product of mu with itself as well as the log determinant */
-      trace = mmvn_trace(mmvn);
-      innerprod = mmvn_mu2(mmvn);
-    
-      kld += 0.5 * (trace + innerprod - fulld - mmvn_log_det(mmvn)); 
       avell += ll;
-      avekld += kld;
-      
-      /* incorporate gradient of KLD.  Must be subtracted rather than added */
-      for (j = 0; j < grad->size; j++) {
-        double gj = 0.0;
-
-        if (j < n*dim)  /* partial deriv wrt mu_j is just mu_j */
-          gj = -1.0*mmvn_get_mu_el(mmvn, j);
-        else {            /* partial deriv wrt sigma_j is more
-                             complicated because of the trace and log
-                             determinant */
-          if (covar_param == DIAG) 
-            gj = 0.5 * (-1.0 + 1.0/vec_get(sigmapar, j-fulld));   /* first term trace, second log det */
-          else
-            gj = 0.5 * (-trace + fulld) / data->lambda;
-        }
-        vec_set(grad, j, vec_get(grad, j) + gj);
-      }
-
-      /* add gradient to running total */
-      vec_plus_eq(avegrad, grad); 
+      vec_plus_eq(avegrad, grad);
     }
 
     /* divide by nminibatch to get expected gradient */
     vec_scale(avegrad, 1.0/nminibatch);
     avell /= nminibatch;
-    avekld /= nminibatch;
+    vec_plus_eq(avegrad, kldgrad);
 
     /* store parameters if best yet */
-    if (avell - avekld > bestelb) {
-      bestelb = avell - avekld;
+    if (avell - kld > bestelb) {
+      bestelb = avell - kld;
       bestll = avell;  /* not necessarily best ll but ll corresponding to bestelb */
-      bestkld = avekld;  /* same comment */
+      bestkld = kld;  /* same comment */
       bestt = t;
       mmvn_save_mu(mmvn, best_mu);
       vec_copy(best_sigmapar, sigmapar);
@@ -649,7 +643,9 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     
     /* report to log file */
     if (logf != NULL) {
-      fprintf(logf, "%d\t%f\t%f\t%f\t", t, avell, avekld, avell - avekld);
+      fprintf(logf, "%d\t%f\t%f\t%f\t", t, avell, kld, avell - kld);
+      if (covar_param == DIST)
+        fprintf(logf, "%f\t", data->lambda);
       mmvn_print(mmvn, logf, TRUE, FALSE);
       nj_mmvn_to_distances(mmvn, D, hyperbolic, negcurvature);
       for (i = 0; i < D->nrows; i++)
@@ -659,7 +655,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     }
     
     /* check total elb every nbatches_conv to decide whether to stop */
-    running_tot += avell - avekld;
+    running_tot += avell - kld;
     if (t % nbatches_conv == 0) {
       if (logf != NULL)
         fprintf(logf, "# Average for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
@@ -685,6 +681,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   
   vec_free(grad);
   vec_free(avegrad);
+  vec_free(kldgrad);
   vec_free(points);
   vec_free(m);
   vec_free(m_prev);
