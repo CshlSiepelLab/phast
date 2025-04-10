@@ -676,6 +676,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   if (logf != NULL) {
     fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, ",
             bestt+1, bestelb, bestll, bestkld);
+    if (covar_param == DIST)
+      fprintf(logf, "lambda: %f, ", vec_get(sigmapar, 0));
     mmvn_print(mmvn, logf, TRUE, FALSE);
   }
   
@@ -857,7 +859,7 @@ void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
 
   if (covar_param == DIST) { /* set up the Laplacian pseudoinverse */
     nj_laplacian_pinv(data);
-    vec_set_all(sigmapar, 1);
+    vec_set_all(sigmapar, 0.1);
   }
   else {
     /* initialize sigma to the identity scaled by 1/n of the variance
@@ -949,7 +951,7 @@ void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *m
 
   if (covar_param == DIST) { /* set up the Laplacian pseudoinverse */
     nj_laplacian_pinv(data);
-    vec_set_all(sigmapar, 1);
+    vec_set_all(sigmapar, 0.1);
   }
   else {
     /* initialize sigma to the identity scaled by 1/n of the variance
