@@ -487,13 +487,18 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
            corresponding variance parameter can be computed directly
            based on a single point and coordinate */
         vec_set(grad, (i+n)*d + k, deriv * vec_get(points_std, pidx) * 0.5 / sqrt(vec_get(sigmapar, pidx)));
+      /* FIXME: with exp parameterization,, use 0.5 * sqrt(vec_get(sigmapar, pidx)) in place of 0.5 / sqrt(vec_get(sigmapar, pidx)) */
       
       else {
         /* in the DIST case, we add to a running total and update at the end */
         for (j = 0; j < n; j++)
-          lambda_grad += deriv * vec_get(points_std, pidx) * mat_get(data->Lapl_pinv_evecs, i, j) *
-            vec_get(data->Lapl_pinv_sqrt_evals, j);
+          /* lambda_grad += deriv * vec_get(points_std, pidx) * mat_get(data->Lapl_pinv_evecs, i, j) * */
+          /*   vec_get(data->Lapl_pinv_sqrt_evals, j); */
+          lambda_grad += deriv * mat_get(data->Lapl_pinv_evecs, i, j) *
+            vec_get(data->Lapl_pinv_sqrt_evals, j) * vec_get(points_std, j*d + k);
         /* we'll apply the scale factor of 1/(2 * sqrt(lambda)) once at the end for efficiency (below) */
+
+        /* FIXME: instead of vec_get(points_std, pidx) here I need the points_std corresponding to j, which I believe is vec_get(points_std, j*d + k).  Or do I have to sum over k also? */
       }
       
       vec_set(points, pidx, porig); /* restore orig */
@@ -503,6 +508,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
                               gradient component corresponding to the
                               lambda parameter */
     vec_set(grad, dim, lambda_grad * 0.5 / sqrt(data->lambda)); /* now apply scale factor */
+  /* FIXME: if we parameterize with theta = exp(lambda) then the scale factor at the end is 0.5 * sqrt(exp(theta)) */
 
   nj_reset_tree_model(mod, orig_tree);
   vec_free(points_std);
