@@ -486,7 +486,8 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
         /* in the DIAG case, the partial derivative wrt the
            corresponding variance parameter can be computed directly
            based on a single point and coordinate */
-        vec_set(grad, (i+n)*d + k, deriv * vec_get(points_std, pidx) * 0.5 / sqrt(vec_get(sigmapar, pidx)));
+        /* vec_set(grad, (i+n)*d + k, deriv * vec_get(points_std, pidx) * 0.5 / sqrt(vec_get(sigmapar, pidx))); */
+        vec_set(grad, (i+n)*d + k, deriv * vec_get(points_std, pidx) * 0.5 * exp(0.5 * vec_get(sigmapar, pidx)));
       /* FIXME: with exp parameterization,, use 0.5 * sqrt(vec_get(sigmapar, pidx)) in place of 0.5 / sqrt(vec_get(sigmapar, pidx)) */
       
       else {
@@ -507,7 +508,8 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   if (covar_param == DIST) /* in this case, need to update the final
                               gradient component corresponding to the
                               lambda parameter */
-    vec_set(grad, dim, lambda_grad * 0.5 / sqrt(data->lambda)); /* now apply scale factor */
+    /* vec_set(grad, dim, lambda_grad * 0.5 / sqrt(data->lambda)); /\* now apply scale factor *\/ */
+    vec_set(grad, dim, lambda_grad * 0.5 * sqrt(data->lambda)); /* now apply scale factor; assumes parameter is log(lambda) */
   /* FIXME: if we parameterize with theta = exp(lambda) then the scale factor at the end is 0.5 * sqrt(exp(theta)) */
 
   nj_reset_tree_model(mod, orig_tree);
@@ -575,7 +577,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - mmvn_log_det(mmvn));
 
     /* we can also precompute the contribution of the KLD to the gradient */
-    /* Note must be subtracted rather than added */
+    /* Note must be subtracted rather than added, so compute the gradient of -KLD */
     for (j = 0; j < grad->size; j++) {
       double gj = 0.0;
 
@@ -585,7 +587,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
                            complicated because of the trace and log
                            determinant */
         if (covar_param == DIAG) 
-          gj = 0.5 * (-1.0 + 1.0/vec_get(sigmapar, j-fulld));   /* first term trace, second log det */
+          gj = 0.5 * (-1.0 + 1.0/mat_get(mmvn->mvn->sigma, j-fulld, j-fulld));   /* first term trace, second log det */
         else
           gj = 0.5 * (-trace + fulld) / data->lambda;
       }
@@ -638,8 +640,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
                 learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
 
         /* don't allow sigma to go negative */
-        if (vec_get(sigmapar, j-fulld) < MIN_VAR)
-          vec_set(sigmapar, j-fulld, MIN_VAR);
+        /* if (vec_get(sigmapar, j-fulld) < MIN_VAR) */
+        /*   vec_set(sigmapar, j-fulld, MIN_VAR); */
       }
     }
     nj_update_covariance(mmvn, sigmapar, covar_param, data);
@@ -683,7 +685,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, ",
             bestt+1, bestelb, bestll, bestkld);
     if (covar_param == DIST)
-      fprintf(logf, "lambda: %f, ", vec_get(sigmapar, 0));
+      fprintf(logf, "lambda: %f, ", data->lambda);
     mmvn_print(mmvn, logf, TRUE, FALSE);
   }
   
@@ -865,7 +867,7 @@ void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
 
   if (covar_param == DIST) { /* set up the Laplacian pseudoinverse */
     nj_laplacian_pinv(data);
-    vec_set_all(sigmapar, 0.1);
+    vec_set_all(sigmapar, log(LAMBDA_INIT));
   }
   else {
     /* initialize sigma to the identity scaled by 1/n of the variance
@@ -877,7 +879,7 @@ void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
       }
     }
     N = n * (n-1)/2;
-    vec_set_all(sigmapar, 1.0/N * (x2/N - x*x/(N*N)));
+    vec_set_all(sigmapar, log(1.0/N * (x2/N - x*x/(N*N))));
   }
 
   nj_update_covariance(mmvn, sigmapar, covar_param, data);
@@ -957,7 +959,7 @@ void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *m
 
   if (covar_param == DIST) { /* set up the Laplacian pseudoinverse */
     nj_laplacian_pinv(data);
-    vec_set_all(sigmapar, 0.1);
+    vec_set_all(sigmapar, log(LAMBDA_INIT));
   }
   else {
     /* initialize sigma to the identity scaled by 1/n of the variance
@@ -969,7 +971,7 @@ void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *m
       }
     }
     N = n * (n-1)/2;
-    vec_set_all(sigmapar, 1.0/N * (x2/N - x*x/(N*N)));
+    vec_set_all(sigmapar, log(1.0/N * (x2/N - x*x/(N*N))));
   }
 
   nj_update_covariance(mmvn, sigmapar, covar_param, data);
@@ -1296,23 +1298,26 @@ void nj_update_covariance(multi_MVN *mmvn, Vector *sigma_params,
                           enum covar_type covar_param, CovarData *data) {
   int i;
 
+  /* Note: all variance parameters now stored as log values and must
+     be exponentiated */
   mat_zero(mmvn->mvn->sigma);
   if (covar_param == DIAG) {
     assert(mmvn->type != MVN_GEN && sigma_params->size == mmvn->d * mmvn->n);
-    for (i = 0; i < sigma_params->size; i++)
-      mat_set(mmvn->mvn->sigma, i, i, vec_get(sigma_params, i));
+    for (i = 0; i < sigma_params->size; i++) 
+      mat_set(mmvn->mvn->sigma, i, i, exp(vec_get(sigma_params, i)));
   }
   else { /* DIST case */
     assert(sigma_params->size == 1 && data != NULL && mmvn->type == MVN_GEN &&
            data->Lapl_pinv->nrows == mmvn->n);
-    data->lambda = vec_get(sigma_params, 0);
+    data->lambda = exp(vec_get(sigma_params, 0));
     mat_copy(mmvn->mvn->sigma, data->Lapl_pinv);
     mat_scale(mmvn->mvn->sigma, data->lambda);
     if (mmvn->mvn->evecs == NULL) {
       mmvn->mvn->evecs = mat_new(mmvn->n, mmvn->n);
       mmvn->mvn->evals = vec_new(mmvn->n);
     }
-    mat_copy(mmvn->mvn->evecs, data->Lapl_pinv_evecs); /* can simply derive eigendecomposition from Lapl_pinv */
+    mat_copy(mmvn->mvn->evecs, data->Lapl_pinv_evecs); /* can simply derive eigendecomposition 
+                                                          from Lapl_pinv */
     vec_copy(mmvn->mvn->evals, data->Lapl_pinv_evals);
     vec_scale(mmvn->mvn->evals, data->lambda);
   }

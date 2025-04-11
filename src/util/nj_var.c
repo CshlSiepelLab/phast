@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
         if (covar_param == DIST)
           die("ERROR: --random-start cannot be used with --distance-covar.\n");
         mvn_sample_std(mmvn->mvn->mu); vec_scale(mmvn->mvn->mu, 0.1);
-        vec_set_all(sigmapar, 0.1);
+        vec_set_all(sigmapar, log(0.1));
         nj_update_covariance(mmvn, sigmapar, covar_param, covar_data); 
       }
       else {
