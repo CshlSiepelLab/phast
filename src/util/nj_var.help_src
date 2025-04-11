@@ -110,8 +110,15 @@ OPTIONS:
     --nsamples, -s 
         Number of samples to output (default 100) after convergence.
 
-    --distance-covar, -S
-        Use a parameterization of the covariance matrix for the
+    --covar, -S DIAG|DIST|DISTDIAG
+        (default DIAG) Parameterization to use for covariance matrix for
+        the multivariate normal variational distribution.  DIAG assumes no
+        covariance between points.  DIST assumes a matrix proportional to
+        the (double centered) distance matrix for the taxa.  DISTDIAG uses
+        the DIST strategy for covariance terms but models diagonal variance
+        terms using a separate parameter.
+
+Use a parameterization of the covariance matrix for the
         multivariate normal variational distribution that is based on the
         distance matrix for the taxa, rather than assuming a diagonal
         covariance matrix (the default).

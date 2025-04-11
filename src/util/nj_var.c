@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
     {"nsamples", 1, 0, 's'},
     {"learnrate", 1, 0, 'r'},
     {"random-start", 0, 0, 'R'},
-    {"distance-covar", 0, 0, 'S'},
+    {"distance-covar", 1, 0, 'S'},
     {"tree", 1, 0, 't'},
     {"treemodel", 1, 0, 'T'},
     {"mvn-dump", 0, 0, 'V'},
@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:o:r:Rt:T:VSs:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:o:r:Rt:T:VS:s:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -159,7 +159,13 @@ int main(int argc, char *argv[]) {
         die("ERROR: --nsamples must be > 0\n");
       break;
     case 'S':
-      covar_param = DIST;
+      if (!strcmp(optarg, "DIAG"))
+      covar_param = DIAG;
+      else if (!strcmp(optarg, "DIST"))
+        covar_param = DIST;
+      else if (!strcmp(optarg, "DISTDIAG"))
+        p->method = DISTDIAG;
+      else die("ERROR: bad argument to --covar (-S).\n");
       break;
     case 't':
       init_tree = tr_new_from_file(phast_fopen(optarg, "r"));
