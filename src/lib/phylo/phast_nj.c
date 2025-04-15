@@ -486,35 +486,33 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
       /* the partial derivative wrt the variance parameter, however,
          is more complicated, because of the reparameterization trick */
       
-      if (data->type == DIAG) 
+      if (data->type == CONST)
+        lambda_grad += deriv * vec_get(points_std, pidx);
+      else if (data->type == DIAG) 
         /* in the DIAG case, the partial derivative wrt the
            corresponding variance parameter can be computed directly
            based on a single point and coordinate */
-        /* vec_set(grad, (i+n)*d + k, deriv * vec_get(points_std, pidx) * 0.5 / sqrt(vec_get(sigmapar, pidx))); */
         vec_set(grad, (i+n)*d + k, deriv * vec_get(points_std, pidx) * 0.5 * exp(0.5 * vec_get(sigmapar, pidx)));
-      /* FIXME: with exp parameterization,, use 0.5 * sqrt(vec_get(sigmapar, pidx)) in place of 0.5 / sqrt(vec_get(sigmapar, pidx)) */
       
-      else {
+      else if (data->type == DIST) {
         /* in the DIST case, we add to a running total and update at the end */
         for (j = 0; j < n; j++)
-          /* lambda_grad += deriv * vec_get(points_std, pidx) * mat_get(data->Lapl_pinv_evecs, i, j) * */
-          /*   vec_get(data->Lapl_pinv_sqrt_evals, j); */
           lambda_grad += deriv * mat_get(data->Lapl_pinv_evecs, i, j) *
             vec_get(data->Lapl_pinv_sqrt_evals, j) * vec_get(points_std, j*d + k);
         /* we'll apply the scale factor of 1/(2 * sqrt(lambda)) once at the end for efficiency (below) */
-
-        /* FIXME: instead of vec_get(points_std, pidx) here I need the points_std corresponding to j, which I believe is vec_get(points_std, j*d + k).  Or do I have to sum over k also? */
       }
+      else
+        ; /* FIXME: complicated */
       
       vec_set(points, pidx, porig); /* restore orig */
     }
   }
-  if (data->type == DIST) /* in this case, need to update the final
+  if (data->type == CONST || data->type == DIST) /* in this case, need to update the final
                               gradient component corresponding to the
                               lambda parameter */
     /* vec_set(grad, dim, lambda_grad * 0.5 / sqrt(data->lambda)); /\* now apply scale factor *\/ */
-    vec_set(grad, dim, lambda_grad * 0.5 * sqrt(data->lambda)); /* now apply scale factor; assumes parameter is log(lambda) */
-  /* FIXME: if we parameterize with theta = exp(lambda) then the scale factor at the end is 0.5 * sqrt(exp(theta)) */
+    vec_set(grad, dim, lambda_grad * 0.5 * sqrt(data->lambda));
+  /* now apply scale factor; assumes parameter is log(lambda) */
 
   nj_reset_tree_model(mod, orig_tree);
   vec_free(points_std);
