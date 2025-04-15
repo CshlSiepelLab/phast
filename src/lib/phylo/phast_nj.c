@@ -579,7 +579,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     /* (see equation 7, Doersch arXiv 2016) */
     trace = mmvn_trace(mmvn);  /* we'll reuse this */
     kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - mmvn_log_det(mmvn));
-
+    
     /* we can also precompute the contribution of the KLD to the gradient */
     /* Note must be subtracted rather than added, so compute the gradient of -KLD */
     for (j = 0; j < grad->size; j++) {
@@ -590,10 +590,16 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       else {            /* partial deriv wrt sigma_j is more
                            complicated because of the trace and log
                            determinant */
-        if (data->type == DIAG) 
-          gj = 0.5 * (-1.0 + 1.0/mat_get(mmvn->mvn->sigma, j-fulld, j-fulld));   /* first term trace, second log det */
-        else
-          gj = 0.5 * (-trace + fulld) / data->lambda;
+        if (data->type == CONST)
+          gj = 0.5 * fulld * (1.0 - data->lambda);
+        else if (data->type == DIAG) 
+          /* gj = 0.5 * (-1.0 + 1.0/mat_get(mmvn->mvn->sigma, j-fulld, j-fulld));  */ /* first term trace, second log det */
+          gj = 0.5 * (1.0 - mat_get(mmvn->mvn->sigma, j-fulld, j-fulld));  /* CHECK: above wrong? */
+        else if (data->type == DIST)
+          /* gj = 0.5 * (-trace + fulld) / data->lambda; */
+          gj = 0.5 * (-trace + fulld); /* CHECK: above seems wrong */
+        else /* LOWR */
+          ; /* more complicated; has to be done for elements of sigmapar */
       }
       vec_set(kldgrad, j, gj);
     }
