@@ -27,12 +27,13 @@
 #define DEFAULT_NBATCHES_CONV 10
 #define DEFAULT_MIN_NBATCHES 30
 #define DEFAULT_KAPPA 4
+#define DEFAULT_RANK 3
 
 int main(int argc, char *argv[]) {
   signed char c;
   int opt_idx, i, ntips = 0, nsamples = DEFAULT_NSAMPLES, dim = DEFAULT_DIM,
     batchsize = DEFAULT_BATCHSIZE, nbatches_conv = DEFAULT_NBATCHES_CONV,
-    min_nbatches = DEFAULT_MIN_NBATCHES;
+    min_nbatches = DEFAULT_MIN_NBATCHES, rank = DEFAULT_RANK;
   unsigned int nj_only = FALSE, random_start = FALSE,
     hyperbolic = FALSE, embedding_only = FALSE, importance_sampling = FALSE,
     mvn_dump = FALSE;
@@ -51,7 +52,6 @@ int main(int argc, char *argv[]) {
   TreeModel *mod = NULL;
   double kappa = DEFAULT_KAPPA, learnrate = DEFAULT_LEARNRATE, negcurvature = 1;
   MarkovMatrix *rmat = NULL;
-  Vector *sigmapar = NULL;
   multi_MVN *mmvn = NULL;
   TreeNode *init_tree = NULL;
   CovarData *covar_data = NULL;
@@ -80,11 +80,12 @@ int main(int argc, char *argv[]) {
     {"tree", 1, 0, 't'},
     {"treemodel", 1, 0, 'T'},
     {"mvn-dump", 0, 0, 'V'},
+    {"rank", 1, 0, 'W'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:o:r:Rt:T:VS:s:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:o:r:Rt:T:VW:S:s:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -160,11 +161,13 @@ int main(int argc, char *argv[]) {
       break;
     case 'S':
       if (!strcmp(optarg, "DIAG"))
-      covar_param = DIAG;
+        covar_param = DIAG;
+      else if (!strcmp(optarg, "CONST"))
+        covar_param = CONST;
       else if (!strcmp(optarg, "DIST"))
         covar_param = DIST;
-      else if (!strcmp(optarg, "DISTDIAG"))
-        p->method = DISTDIAG;
+      else if (!strcmp(optarg, "LOWR"))
+        covar_param = LOWR;
       else die("ERROR: bad argument to --covar (-S).\n");
       break;
     case 't':
@@ -176,6 +179,11 @@ int main(int argc, char *argv[]) {
       break;
     case 'V':
       mvn_dump = TRUE;
+      break;
+    case 'W':
+      rank = atoi(optarg);
+      if (rank <= 0)
+        die("ERROR: --rank must be positive\n");
       break;
     case 'h':
       printf("%s", HELP); 
@@ -191,6 +199,9 @@ int main(int argc, char *argv[]) {
   if (hyperbolic == TRUE && negcurvature == 0) 
     hyperbolic = FALSE;
   /* for convenience in scripting; nonhyperbolic considered special case of hyperbolic */
+
+  if (rank != DEFAULT_RANK && covar_parm != LOWR)
+    fprintf("WARNING: --rank ignored when --covar is not LOWR\n");
   
   if ((nj_only || embedding_only) &&
       (indistfile != NULL || init_tree != NULL)) {
@@ -249,23 +260,16 @@ int main(int argc, char *argv[]) {
   /* we must have a distance matrix now; make sure valid */
   nj_test_D(D);
 
-  if (covar_param == DIST) 
-    covar_data = nj_new_covar_data(D);
+  covar_data = nj_new_covar_data(covar_param, D, dim, rank);
   
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */
     if (outdistfile == NULL)
       die("ERROR: must use --out-dists with -embedding-only\n");
 
-    mmvn = mmvn_new(ntips, dim, (covar_param == DIST ? MVN_GEN : MVN_DIAG));
-    sigmapar = nj_new_sigma_params(ntips, dim, covar_param);
-    if (hyperbolic)
-      nj_estimate_mmvn_from_distances_hyperbolic(D, dim, mmvn,
-                                                 negcurvature, sigmapar,
-                                                 covar_param, covar_data);
-    else
-      nj_estimate_mmvn_from_distances(D, dim, mmvn, sigmapar,
-                                      covar_param, covar_data);
+    mmvn = mmvn_new(ntips, dim, covar_data->mvn_type);
+    nj_estimate_mmvn_from_distances(D, dim, mmvn, negcurvature,
+                                    covar_data, hyperbolic);
   }
 
   else {
@@ -293,36 +297,23 @@ int main(int argc, char *argv[]) {
       }
 
       /* initialize parameters of multivariate normal */
-      mmvn = mmvn_new(ntips, dim, (covar_param == DIST ? MVN_GEN : MVN_DIAG));
-      sigmapar = nj_new_sigma_params(ntips, dim, covar_param);
-      if (random_start == TRUE) {
-        if (covar_param == DIST)
-          die("ERROR: --random-start cannot be used with --distance-covar.\n");
+      mmvn = mmvn_new(ntips, dim, covar_data->mvn_type);
+      if (random_start == TRUE) 
         mvn_sample_std(mmvn->mvn->mu); vec_scale(mmvn->mvn->mu, 0.1);
-        vec_set_all(sigmapar, log(0.1));
-        nj_update_covariance(mmvn, sigmapar, covar_param, covar_data); 
-      }
-      else {
-        if (hyperbolic)
-          nj_estimate_mmvn_from_distances_hyperbolic(D, dim, mmvn,
-                                                    negcurvature, sigmapar,
-                                                    covar_param, covar_data);
-        else
-          nj_estimate_mmvn_from_distances(D, dim, mmvn, sigmapar,
-                                         covar_param, covar_data);
-      }
+      else 
+        nj_estimate_mmvn_from_distances(D, dim, mmvn, negcurvature,
+                                        covar_data, hyperbolic);
 
       if (mvn_dump) {  /* in this case, just dump the MVN and associated data for inspection */
         mmvn_print(mmvn, stdout, FALSE, TRUE);
-        if (covar_param == DIST) 
-          nj_dump_covar_data(covar_data, stdout);
+        nj_dump_covar_data(covar_data, stdout);
         exit(0);
       }
       
       nj_variational_inf(mod, msa, D, mmvn, dim, hyperbolic,
                          negcurvature, batchsize, learnrate,
-                         nbatches_conv, min_nbatches, sigmapar,
-                         covar_param, covar_data, logfile);
+                         nbatches_conv, min_nbatches, 
+                         covar_data, logfile);
 
       if (importance_sampling == TRUE) {
         /* sample 100x as many then importance sample; make free param? */

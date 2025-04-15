@@ -35,18 +35,23 @@
 /* don't allow variance terms to get smaller than this value */
 #define MIN_VAR 1e-6
 
-/* types of parameterization for covariance matrix: diagonal only,
-   proportional to Laplacian pseudoinverse based on pairwise
-   distances, or a combination (DIST for covar terms, constant for
-   variance terms) */
-enum covar_type {DIAG, DIST, DISTDIAG};
+/* types of parameterization for covariance matrix: constant (and
+   diagonal), diagonal with free variances, proportional to Laplacian
+   pseudoinverse based on pairwise distances, or low-rank
+   approximation to full matrix */
+enum covar_type {CONST, DIAG, DIST, LOWR};
   
 /* auxiliary data for parameterization of covariance matrix in DIST
    case */
 #define LAMBDA_INIT 0.1
 typedef struct {
+  enum covar_type type;
+  int nseqs;
+  int dim;
+  Vector *params;
   double lambda;  /* scale parameter for covariance matrix (DIST case) */
   Matrix *dist;   /* distance matrix on which covariance is based */
+  int lowrank;
   Matrix *Lapl_pinv;  /* Laplacian pseudoinverse */
   Vector *Lapl_pinv_evals; /* eigendecomposition of Lapl_pinv */
   Matrix *Lapl_pinv_evecs;
@@ -76,14 +81,12 @@ void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D,
 double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
                              unsigned int hyperbolic, double negcurvature,
                              Vector *points, Vector *grad, Matrix *D,
-                             Vector *sigmapar, enum covar_type covar_param,
                              CovarData *data);
 
 void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
                         int dim, unsigned int hyperbolic, double negcurvature,
                         int nminibatch, double learnrate, int nbatches_conv,
-                        int min_nbatches, Vector *sigmapar, enum covar_type covar_param,
-                        CovarData *data, FILE *logf);
+                        int min_nbatches, CovarData *data, FILE *logf);
 
 List *nj_var_sample(int nsamples, int dim, multi_MVN *mmvn,
                     char** names, unsigned int hyperbolic,
@@ -95,14 +98,14 @@ TreeNode *nj_mean(Vector *mu, int dim, char **names,
 void nj_reset_tree_model(TreeModel *mod, TreeNode *newtree);
 
 void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
-                                    Vector *sigmapar,
-                                    enum covar_type covar_param,
-                                    CovarData *data);
+                                     double negcurvature, CovarData *data,
+                                     unsigned int use_hyperbolic);
+
+void nj_estimate_mmvn_from_distances_euclidean(Matrix *D, int dim, multi_MVN *mmvn,
+                                               CovarData *data);
 
 void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *mmvn,
                                                double negcurvature,
-                                               Vector *sigmapar,
-                                               enum covar_type covar_param,
                                                CovarData *data);
 
 void nj_test_D(Matrix *D);
@@ -116,12 +119,10 @@ int nj_get_seq_idx(char **names, char *name, int n);
 List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
                            TreeModel *mod, MSA *msa, FILE *logf);
 
-Vector *nj_new_sigma_params(int ntips, int dim, enum covar_type covar_param);
+void nj_update_covariance(multi_MVN *mmvn, CovarData *data);
 
-void nj_update_covariance(multi_MVN *mmvn, Vector *sigma_params, 
-                          enum covar_type covar_param, CovarData *data);
-
-CovarData *nj_new_covar_data(Matrix *dist);
+CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
+                             int rank);
 
 void nj_dump_covar_data(CovarData *data, FILE *F);
 

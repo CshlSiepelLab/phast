@@ -84,11 +84,11 @@ OPTIONS:
      --negcurvature, -K, <K>
         (for use with --hyperbolic) Set the negative curvature of the
         hyperbolic embedding space to <K> (default 1).  A larger value
-        causes the space to be more curved and stretches how far apart they
-        occur. As discussed by Macaulay et al. PLOS Computational Biology
-        19(4):e1011084 (2023), larger values help to ensure additivity of
-        distances but may restrict exploration of topologies.  As <K>
-        approaches zero, the space approaches a Euclidean space.
+        causes the space to be more curved and stretches how far apart the
+        points occur. As discussed by Macaulay et al. PLOS Computational
+        Biology 19(4):e1011084 (2023), larger values help to ensure
+        additivity of distances but may restrict exploration of topologies.
+        As <K> approaches zero, the space approaches a Euclidean space.
 
     --nj-only, -j
         Simply estimate and output a single tree using the neighbor-joining
@@ -110,23 +110,26 @@ OPTIONS:
     --nsamples, -s 
         Number of samples to output (default 100) after convergence.
 
-    --covar, -S DIAG|DIST|DISTDIAG
+    --covar, -S CONST|DIAG|DIST|LOWR
         (default DIAG) Parameterization to use for covariance matrix for
         the multivariate normal variational distribution.  DIAG assumes no
-        covariance between points.  DIST assumes a matrix proportional to
-        the (double centered) distance matrix for the taxa.  DISTDIAG uses
-        the DIST strategy for covariance terms but models diagonal variance
-        terms using a separate parameter.
+        covariance between points but free variance at each point (<ntaxa>
+        * <dim> d.o.f.).  CONST is like DIAG but all points have the same
+        variance (1 d.o.f.). DIST assumes a cov. matrix proportional to the
+        (initial) (double centered) distance matrix for the taxa, which can
+        be shown to be the expected structure for Brownian motion along the
+        branches of an unrooted tree (1 d.o.f.). LOWR instead assumes a
+        generally parameterized low-rank approximation of the full
+        covariance matrix (<ntaxa> * <rank> d.o.f. see --rank).
 
-Use a parameterization of the covariance matrix for the
-        multivariate normal variational distribution that is based on the
-        distance matrix for the taxa, rather than assuming a diagonal
-        covariance matrix (the default).
+    --rank, -W <rank>
+        (default 3) Rank of low-rank approximation of covariance matrix in
+        case of --covar LOWR. 
 
     --mvn-dump, -V
         Dump the starting multivariate normal distribution and associated
-        data.  Useful with --distance-covar for debugging or analysis. Use
-        with options for variational inference.
+        data.  Useful with for debugging or analysis. Use with options for
+        variational inference.
 
     --tree, -t <file.nh>
         Obtain pairwise distances from specified tree, rather than from a

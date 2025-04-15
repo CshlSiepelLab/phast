@@ -416,7 +416,6 @@ void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D, double negcurv
 double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
                              unsigned int hyperbolic, double negcurvature,
                              Vector *points, Vector *grad, Matrix *D,
-                             Vector *sigmapar, enum covar_type covar_param,
                              CovarData *data) {
   int n = msa->nseqs; /* number of taxa */
   int d = mmvn->n * mmvn->d / n; /* dimensionality; have to accommodate diagonal case */
@@ -425,15 +424,15 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   double porig, ll_base, ll, deriv, lambda_grad;
   TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
   Vector *points_std = vec_new(points->size);
-  
-  if (covar_param == DIST) {
-    if (grad->size != dim + 1)
-      die("ERROR in nj_compute_model_grad: bad gradient dimension.\n");
-    if (data->Lapl_pinv_evals == NULL)
-      die("ERROR in nj_compute_model_grad: eigendecomposition required in DIST case.\n");
-  }
-  else if (grad->size != 2*dim)  /* DIAG case */
+  Vector *sigmapar = data->params;
+
+  if (grad->size != dim + data->params->size)
     die("ERROR in nj_compute_model_grad: bad gradient dimension.\n");
+  
+  if (data->type == DIST && data->Lapl_pinv_evals == NULL)
+    die("ERROR in nj_compute_model_grad: Laplacian pseudoinverse and eigendecomposition required in DIST case.\n");
+  else if (data->type == LOWR && XXXXXX)
+    die("ERROR in nj_compute_model_grad: XXXX required in LOWR case.\n");
   
   /* set up tree model and get baseline log likelihood */
   if (hyperbolic)
@@ -482,7 +481,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
       /* the partial derivative wrt the variance parameter, however,
          is more complicated, because of the reparameterization trick */
       
-      if (covar_param == DIAG) 
+      if (data->type == DIAG) 
         /* in the DIAG case, the partial derivative wrt the
            corresponding variance parameter can be computed directly
            based on a single point and coordinate */
@@ -505,7 +504,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
       vec_set(points, pidx, porig); /* restore orig */
     }
   }
-  if (covar_param == DIST) /* in this case, need to update the final
+  if (data->type == DIST) /* in this case, need to update the final
                               gradient component corresponding to the
                               lambda parameter */
     /* vec_set(grad, dim, lambda_grad * 0.5 / sqrt(data->lambda)); /\* now apply scale factor *\/ */
@@ -525,10 +524,10 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
 void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
                         int dim, unsigned int hyperbolic, double negcurvature,
                         int nminibatch, double learnrate, int nbatches_conv,
-                        int min_nbatches, Vector *sigmapar, enum covar_type covar_param,
-                        CovarData *data, FILE *logf) {
+                        int min_nbatches, CovarData *data, FILE *logf) {
 
   Vector *points, *grad, *kldgrad, *avegrad, *m, *m_prev, *v, *v_prev, *best_mu, *best_sigmapar;
+  Vector *sigmapar = data->params;
   int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim, fulld = n*dim;
   double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace;
@@ -537,7 +536,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     die("ERROR in nj_variational_inf: bad dimensions\n");
 
   points = vec_new(fulld);
-  graddim = (covar_param == DIST ? fulld + 1 : 2*fulld);
+  graddim = fulld + data->params->size;
   grad = vec_new(graddim);  
   kldgrad = vec_new(graddim);
   avegrad = vec_new(graddim);
@@ -555,7 +554,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   if (logf != NULL) {
     fprintf(logf, "# nj_var logfile\n");
     fprintf(logf, "state\tll\tkld\telb\t");
-    if (covar_param == DIST)
+    if (data->type == DIST)
       fprintf(logf, "lambda\t");
     for (j = 0; j < fulld; j++)
       fprintf(logf, "mu.%d\t", j);
@@ -586,7 +585,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       else {            /* partial deriv wrt sigma_j is more
                            complicated because of the trace and log
                            determinant */
-        if (covar_param == DIAG) 
+        if (data->type == DIAG) 
           gj = 0.5 * (-1.0 + 1.0/mat_get(mmvn->mvn->sigma, j-fulld, j-fulld));   /* first term trace, second log det */
         else
           gj = 0.5 * (-trace + fulld) / data->lambda;
@@ -601,7 +600,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     for (i = 0; i < nminibatch; i++) {
       mmvn_sample(mmvn, points);
       ll = nj_compute_model_grad(mod, mmvn, msa, hyperbolic, negcurvature, 
-                                 points, grad, D, sigmapar, covar_param, data);
+                                 points, grad, D, data);
       avell += ll;
       vec_plus_eq(avegrad, grad);
     }
@@ -644,7 +643,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
         /*   vec_set(sigmapar, j-fulld, MIN_VAR); */
       }
     }
-    nj_update_covariance(mmvn, sigmapar, covar_param, data);
+    nj_update_covariance(mmvn, data);
     
     vec_copy(m_prev, m);
     vec_copy(v_prev, v);
@@ -652,7 +651,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     /* report to log file */
     if (logf != NULL) {
       fprintf(logf, "%d\t%f\t%f\t%f\t", t, avell, kld, avell - kld);
-      if (covar_param == DIST)
+      if (data->type == DIST)
         fprintf(logf, "%f\t", data->lambda);
       mmvn_print(mmvn, logf, TRUE, FALSE);
       nj_mmvn_to_distances(mmvn, D, hyperbolic, negcurvature);
@@ -679,12 +678,12 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
 
   mmvn_set_mu(mmvn, best_mu);
   vec_copy(sigmapar, best_sigmapar);
-  nj_update_covariance(mmvn, sigmapar, covar_param, data);
+  nj_update_covariance(mmvn, sigmapar, data);
   
   if (logf != NULL) {
     fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, ",
             bestt+1, bestelb, bestll, bestkld);
-    if (covar_param == DIST)
+    if (data->type == DIST)
       fprintf(logf, "lambda: %f, ", data->lambda);
     mmvn_print(mmvn, logf, TRUE, FALSE);
   }
@@ -790,16 +789,26 @@ int nj_eigen_compare_desc(const void* ptr1, const void* ptr2) {
 /* generate an approximate multivariate normal distribution from a distance matrix, for
    use in initializing the variational inference algorithm.  */
 void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
-                                     Vector *sigmapar, enum covar_type covar_param,
-                                     CovarData *data) {
+                                     double negcurvature, CovarData *data,
+                                     unsigned int use_hyperbolic) {
+  if (use_hyperbolic)
+    nj_estimate_mmvn_from_distances_hyperbolic(D, dim, mmvn, negcurvature, data);
+  else
+    nj_estimate_mmvn_from_distances_euclidean(D, dim, mmvn, data);  
+}
+
+/* generate an approximate multivariate normal distribution from a distance matrix, for
+   use in initializing the variational inference algorithm.  */
+void nj_estimate_mmvn_from_distances_euclidean(Matrix *D, int dim, multi_MVN *mmvn,
+                                               CovarData *data) {
   int n = D->nrows;
   Matrix *Dsq, *G, *revec_real;
-  Vector *eval_real;
+  Vector *eval_real, *sigmapar = data->params;
   int i, j, d, N;
   List *eiglst;
   double rowsum_orig = 0, rowsum_new = 0, x = 0, x2 = 0;
   Vector *mu_full = vec_new(dim*n);
-    
+  
   if (D->nrows != D->ncols || mmvn->d * mmvn->n != dim * n)
     die("ERROR in nj_estimate_points_from_distances: bad dimensions\n");
 
@@ -860,29 +869,9 @@ void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
   }
   vec_scale(mu_full, rowsum_orig/rowsum_new);
   mmvn_set_mu(mmvn, mu_full);
-  
-  for (i = 0; i < n; i++)
-    free((Evidx*)lst_get_ptr(eiglst, i));
-  lst_free(eiglst);
 
-  if (covar_param == DIST) { /* set up the Laplacian pseudoinverse */
-    nj_laplacian_pinv(data);
-    vec_set_all(sigmapar, log(LAMBDA_INIT));
-  }
-  else {
-    /* initialize sigma to the identity scaled by 1/n of the variance
-       across pairwise distances */
-    for (i = 0; i < n; i++) {
-      for (j = i+1; j < n; j++) {
-        x += mat_get(D, i, j);
-        x2 += mat_get(D, i, j) * mat_get(D, i, j);
-      }
-    }
-    N = n * (n-1)/2;
-    vec_set_all(sigmapar, log(1.0/N * (x2/N - x*x/(N*N))));
-  }
-
-  nj_update_covariance(mmvn, sigmapar, covar_param, data);
+  /* covariance parameters should already be initialized */
+  nj_update_covariance(mmvn, data);
   
   mat_free(Dsq);
   mat_free(G);
@@ -897,12 +886,10 @@ void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
    approximately in hyperbolic space (Keller-Ressel & Nargang,
    arXiv:1903.08977, 2019) */
 void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *mmvn,
-                                               double negcurvature,
-                                               Vector *sigmapar, enum covar_type covar_param,
-                                               CovarData *data) {
+                                               double negcurvature, CovarData *data) {
   int n = D->nrows;
   Matrix *A, *revec_real;
-  Vector *eval_real;
+  Vector *eval_real, *sigmapar = data->params;
   int i, j, d, N;
   List *eiglst;
   double x = 0, x2 = 0;
@@ -957,24 +944,8 @@ void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *m
     free((Evidx*)lst_get_ptr(eiglst, i));
   lst_free(eiglst);
 
-  if (covar_param == DIST) { /* set up the Laplacian pseudoinverse */
-    nj_laplacian_pinv(data);
-    vec_set_all(sigmapar, log(LAMBDA_INIT));
-  }
-  else {
-    /* initialize sigma to the identity scaled by 1/n of the variance
-       across pairwise distances */
-    for (i = 0; i < n; i++) {
-      for (j = i+1; j < n; j++) {
-        x += mat_get(D, i, j);
-        x2 += mat_get(D, i, j) * mat_get(D, i, j);
-      }
-    }
-    N = n * (n-1)/2;
-    vec_set_all(sigmapar, log(1.0/N * (x2/N - x*x/(N*N))));
-  }
-
-  nj_update_covariance(mmvn, sigmapar, covar_param, data);
+  /* covariance parameters should already be initialized */
+  nj_update_covariance(mmvn, data);
   
   mat_free(A);
   vec_free(eval_real);
@@ -1278,30 +1249,17 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
   return(retval);
 }
 
-/* define new vector of covariance parameters depending on parameterization type */
-Vector *nj_new_sigma_params(int ntips, int dim, enum covar_type covar_param) {
-  int npars = 1;
-  Vector *retval;
-  
-  if (covar_param == DIAG)
-    npars = ntips * dim;
-
-  retval = vec_new(npars);
-
-  return retval;
-}
-
 /* update covariance matrix based on the parameters and (optionally)
    an auxiliary data object. In DIST case, leaves underlying distance
    matrix and derived matrices unchanged */
-void nj_update_covariance(multi_MVN *mmvn, Vector *sigma_params, 
-                          enum covar_type covar_param, CovarData *data) {
+void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
   int i;
-
+  Vector *sigma_params = data->params;
+  
   /* Note: all variance parameters now stored as log values and must
      be exponentiated */
   mat_zero(mmvn->mvn->sigma);
-  if (covar_param == DIAG) {
+  if (data->type == DIAG) {
     assert(mmvn->type != MVN_GEN && sigma_params->size == mmvn->d * mmvn->n);
     for (i = 0; i < sigma_params->size; i++) 
       mat_set(mmvn->mvn->sigma, i, i, exp(vec_get(sigma_params, i)));
@@ -1323,16 +1281,60 @@ void nj_update_covariance(multi_MVN *mmvn, Vector *sigma_params,
   }
 }
 
-/* create a new CovarData object of the desired dimension for use in
-   the DIST parameterization of covariance */
-CovarData *nj_new_covar_data(Matrix *dist) {
-  CovarData *retval = smalloc(sizeof(CovarData));   /* check */
+/* create a new CovarData object appropriate for the choice of parameterization */
+CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim, int rank) {
+  CovarData *retval = smalloc(sizeof(CovarData));
+  retval->type = covar_param;
   retval->lambda = LAMBDA_INIT;
+  retval->mvn_type = MVN_DIAG;
   retval->dist = dist;
-  retval->Lapl_pinv = mat_new(dist->nrows, dist->ncols);
-  retval->Lapl_pinv_evals = vec_new(dist->nrows);
-  retval->Lapl_pinv_sqrt_evals = vec_new(dist->nrows);
-  retval->Lapl_pinv_evecs = mat_new(dist->nrows, dist->nrows);
+  retval->nseqs = dist->nrows;
+  reval->dim = dim;
+  retval->Lapl_pinv = NULL;
+  retval->Lapl_pinv_evals = NULL;
+  retval->Lapl_pinv_sqrt_evals = NULL;
+  retval->Lapl_pinv_evecs = NULL;
+  retval->lowrank = -1;
+  
+  if (covar_param == CONST) {
+    /* store constant */
+    retval->params = vec_new(1);
+    vec_set(retval->params, 0, log(retval->lambda));  /* use lambda for scale; log parameterization */
+  }
+  else if (covar_param == DIAG) {
+    int i, j;
+    double x = 0, x2 = 0, N;
+    retval->params = vec_new(retval->dim * retval->nseqs);
+    /* initialize sigma parameters to (log of) identity scaled by
+       1/n of the variance across pairwise distances */
+    for (i = 0; i < n; i++) {
+      for (j = i+1; j < n; j++) {
+        x += mat_get(dist, i, j);
+        x2 += mat_get(dist, i, j) * mat_get(D, i, j);
+      }
+    }
+    N = retval->nseqs * (retval->nseqs-1)/2.0;
+    vec_set_all(retval->params, log(1.0/N * (x2/N - x*x/(N*N))));
+  }  
+  else if (covar_param == DIST) {
+    retval->mvn_type = MVN_GEN;
+    retval->params = vec_new(1);
+    vec_set(retval->params, 0, log(retval->lambda);
+    retval->Lapl_pinv = mat_new(dist->nrows, dist->ncols);
+    retval->Lapl_pinv_evals = vec_new(dist->nrows);
+    retval->Lapl_pinv_sqrt_evals = vec_new(dist->nrows);
+    retval->Lapl_pinv_evecs = mat_new(dist->nrows, dist->nrows);
+    nj_laplacian_pinv(retval);  /* set up the Laplacian pseudoinverse */
+  }
+  else if (covar_param == LOWR) {
+    retval->lowrank = rank;
+    retval->mvn_type = MVN_GEN;
+    retval->params = vec_new(retval->lowrank * retval->nseqs);
+    vec_set_all(retval->params, 0.1); /* initialize to 0.1; note no log parameterization in this case */
+  }
+  else
+    die("ERROR in nj_new_covar_data: unrecognized type.\n");
+
   return (retval);
 }
 
@@ -1405,6 +1407,7 @@ void nj_laplacian_pinv(CovarData *data) {
   vec_free(row_mean);
 }
 
+/* wrapper for nj_points_to_distances functions */
 void nj_mmvn_to_distances(multi_MVN *mmvn, Matrix *D, unsigned int hyperbolic,
                           double negcurvature) {
   Vector *full_mu;
