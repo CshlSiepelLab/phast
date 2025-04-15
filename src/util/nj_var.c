@@ -200,8 +200,8 @@ int main(int argc, char *argv[]) {
     hyperbolic = FALSE;
   /* for convenience in scripting; nonhyperbolic considered special case of hyperbolic */
 
-  if (rank != DEFAULT_RANK && covar_parm != LOWR)
-    fprintf("WARNING: --rank ignored when --covar is not LOWR\n");
+  if (rank != DEFAULT_RANK && covar_param != LOWR)
+    fprintf(stderr, "WARNING: --rank ignored when --covar is not LOWR\n");
   
   if ((nj_only || embedding_only) &&
       (indistfile != NULL || init_tree != NULL)) {
@@ -298,8 +298,10 @@ int main(int argc, char *argv[]) {
 
       /* initialize parameters of multivariate normal */
       mmvn = mmvn_new(ntips, dim, covar_data->mvn_type);
-      if (random_start == TRUE) 
-        mvn_sample_std(mmvn->mvn->mu); vec_scale(mmvn->mvn->mu, 0.1);
+      if (random_start == TRUE) {
+        mvn_sample_std(mmvn->mvn->mu);
+        vec_scale(mmvn->mvn->mu, 0.1);
+      }
       else 
         nj_estimate_mmvn_from_distances(D, dim, mmvn, negcurvature,
                                         covar_data, hyperbolic);

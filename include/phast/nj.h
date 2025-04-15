@@ -45,17 +45,21 @@ enum covar_type {CONST, DIAG, DIST, LOWR};
    case */
 #define LAMBDA_INIT 0.1
 typedef struct {
-  enum covar_type type;
-  int nseqs;
-  int dim;
-  Vector *params;
-  double lambda;  /* scale parameter for covariance matrix (DIST case) */
+  enum covar_type type; /* type of parameterization */
+  int nseqs; /* number of taxa in tree */
+  int dim; /* dimension of point embedding */
+  enum mvn_type mvn_type;
+  Vector *params; /* vector of free parameters */
+  double lambda;  /* scale parameter for covariance matrix 
+                     (DIST or CONST cases) */
   Matrix *dist;   /* distance matrix on which covariance is based */
-  int lowrank;
-  Matrix *Lapl_pinv;  /* Laplacian pseudoinverse */
-  Vector *Lapl_pinv_evals; /* eigendecomposition of Lapl_pinv */
+  int lowrank;  /* dimension of low-rank approximation if LOWR or -1
+                   otherwise */
+  Matrix *Lapl_pinv;  /* Laplacian pseudoinverse (DIST) */
+  Vector *Lapl_pinv_evals; /* eigendecomposition of Lapl_pinv (DIST) */
   Matrix *Lapl_pinv_evecs;
-  Vector *Lapl_pinv_sqrt_evals; /* precompute for efficiency */
+  Vector *Lapl_pinv_sqrt_evals; /* precompute for efficiency (DIST) */
+  Matrix *R; /* used for LOWR; has dimension lowrank x nseqs */
 } CovarData;
 
 void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
@@ -73,7 +77,10 @@ Matrix *nj_tree_to_distances(TreeNode *tree, char **names, int n);
 
 double nj_distance_on_tree(TreeNode *root, TreeNode *n1, TreeNode *n2);
 
-void nj_points_to_distances(Vector *points, Matrix *D);
+void nj_points_to_distances(Vector *points, Matrix *D,
+                            double negcurvature, unsigned int use_hyperbolic);
+
+void nj_points_to_distances_euclidean(Vector *points, Matrix *D);
 
 void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D,
                                        double negcurvature);
@@ -122,7 +129,7 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
 void nj_update_covariance(multi_MVN *mmvn, CovarData *data);
 
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
-                             int rank);
+                             int dim, int rank);
 
 void nj_dump_covar_data(CovarData *data, FILE *F);
 

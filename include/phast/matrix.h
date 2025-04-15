@@ -376,4 +376,8 @@ void mat_from_lapack(Matrix *m, LAPACK_DOUBLE *arr);
 /* Solve Ly = z for y, where L is lower-triangular, via forward substitution */
 void mat_forward_subst(Matrix *L, Vector *z, Vector* y);
 
+/* set G to be the Gram matrix of A, such that G = A x A^T.  Assumes G
+   is square nxn and A is nxk such that k <= n */
+void mat_set_gram(Matrix *G, Matrix *A);
+
 #endif

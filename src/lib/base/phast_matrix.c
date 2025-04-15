@@ -418,5 +418,21 @@ void mat_forward_subst(Matrix *L, Vector *z, Vector* y) {
   }
 }
 
+/* set G to be the Gram matrix of A, such that G = A x A^T.  Assumes G
+   is square nxn and A is nxk such that k <= n */
+void mat_set_gram(Matrix *G, Matrix *A) {
+  int n = G->nrows, k = A->ncols, i, j, l;
+  if (G->ncols != n || A->nrows != n)
+    die("ERROR in mat_set_gram: bad dimensions.\n");
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < n; j++) {
+      double innerprod = 0.0;
+      for (l = 0; l < k; l++)
+        innerprod += mat_get(A, i, l) * mat_get(A, j, l);
+      mat_set(G, i, j, innerprod);
+      /* element i, j of G is innerproduct of rows i and j in A */
+    }
+  }
+}
 
 #endif
