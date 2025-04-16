@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
     {"nsamples", 1, 0, 's'},
     {"learnrate", 1, 0, 'r'},
     {"random-start", 0, 0, 'R'},
-    {"distance-covar", 1, 0, 'S'},
+    {"covar", 1, 0, 'S'},
     {"tree", 1, 0, 't'},
     {"treemodel", 1, 0, 'T'},
     {"mvn-dump", 0, 0, 'V'},

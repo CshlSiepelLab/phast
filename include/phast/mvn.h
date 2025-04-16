@@ -34,6 +34,8 @@ void mvn_update_type(MVN *mvn);
 
 void mvn_sample_std(Vector *retval);
 
+void mvn_map_std(MVN *mvn, Vector *rv);
+
 void mvn_sample(MVN *mvn, Vector *retval);
 
 void mvn_preprocess(MVN *mvn, unsigned int force_eigen);

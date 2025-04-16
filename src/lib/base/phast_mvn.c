@@ -134,33 +134,38 @@ void mvn_sample_std(Vector *retval) {
 /* Sample a vector from a multivariate normal distribution with mean
    mu and covariance sigma. */
 void mvn_sample(MVN *mvn, Vector *retval) {
-  int i, j;
-
   if (mvn->dim != retval->size)
     die("ERROR in mvn_sample: bad dimensions.\n");
   
   mvn_sample_std(retval);
 
-  /* do nothing if MVN_STD */
-  
+  if (mvn->type != MVN_STD)
+    mvn_map_std(mvn, retval);
+}
+
+/* Map a standard MVN variable to a general MVN variable.  On input,
+   rv should be a draw from mvn_sample_std, on output it will be a
+   random variate from the distribution defined by mvn */
+void mvn_map_std(MVN *mvn, Vector *rv) {
+  int i, j;
   if (mvn->type == MVN_IDENTITY)
-    vec_plus_eq(retval, mvn->mu);  
+    vec_plus_eq(rv, mvn->mu);  
   else if (mvn->type == MVN_DIAG) {
     for (i = 0; i < mvn->dim; i++) 
-      vec_set(retval, i, vec_get(mvn->mu, i) + sqrt(mat_get(mvn->sigma, i, i)) *
-              vec_get(retval, i));
+      vec_set(rv, i, vec_get(mvn->mu, i) + sqrt(mat_get(mvn->sigma, i, i)) *
+              vec_get(rv, i));
   }
   else if (mvn->type == MVN_GEN) {
     /* general covariance matrix. Assume Cholesky or eigencomposition
        already updated (responsibility of calling code) */
-    Vector *tmp = vec_create_copy(retval);
+    Vector *tmp = vec_create_copy(rv);
 
     if (mvn->cholL != NULL) { /* use Cholesky if possible */
       for (i = 0; i < mvn->dim; i++) {
         double covarsum = 0;
         for (j = 0; j <= i; j++) 
           covarsum += mat_get(mvn->cholL, i, j) * vec_get(tmp, j);
-        vec_set(retval, i, vec_get(mvn->mu, i) + covarsum);
+        vec_set(rv, i, vec_get(mvn->mu, i) + covarsum);
       }
     }
     else if (mvn->evals != NULL) {
@@ -168,14 +173,13 @@ void mvn_sample(MVN *mvn, Vector *retval) {
         double covarsum = 0;
         for (j = 0; j < mvn->dim; j++) 
           covarsum += mat_get(mvn->evecs, i, j) * sqrt(vec_get(mvn->evals, j)) * vec_get(tmp, j); 
-        vec_set(retval, i, vec_get(mvn->mu, i) + covarsum);
+        vec_set(rv, i, vec_get(mvn->mu, i) + covarsum);
       }
     }
     else
-      die("ERROR in mvn_sample: must have either Cholesky or eigendecomposition.  Call mvn_preprocess first.\n");
-
+      die("ERROR in mvn_map_std: must have either Cholesky or eigendecomposition.  Call mvn_preprocess first.\n");
+    
     vec_free(tmp);
-  }       
 }
 
 /* pre-calculate Cholesky decomposition or eigendecomposition of

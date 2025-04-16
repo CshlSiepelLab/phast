@@ -100,6 +100,22 @@ void mmvn_sample(multi_MVN *mmvn, Vector *retval) {
   }
 }
 
+void mmvn_map_std(multi_MVN *mmvn, Vector *retval) {
+  if (mmvn->type != MVN_GEN) 
+    mvn_map_std(mmvn->mvn, retval);
+  else {
+    Vector *xcomp = vec_new(mmvn->n);
+    int d;
+    assert(retval->size == mmvn->d * mmvn->n);
+    for (d = 0; d < mmvn->d; d++) {
+      mmvn_project_down(mmvn, retval, xcomp, d);
+      mmvn->mvn->mu = mmvn->mu[d]; /* swap in the appropriate mean */
+      mvn_map_std(mmvn->mvn, xcomp);
+      mmvn_project_up(mmvn, xcomp, retval, d);
+    }
+  }
+}
+
 double mmvn_log_dens(multi_MVN *mmvn, Vector *x) {
   double retval = 0;
   if (mmvn->type != MVN_GEN)  /* in this case it's just as efficient

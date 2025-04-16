@@ -433,7 +433,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   int d = mmvn->n * mmvn->d / n; /* dimensionality; have to accommodate diagonal case */
   int dim = n*d; /* full dimension of point vector */
   int i, j, k;
-  double porig, ll_base, ll, deriv, lambda_grad;
+  double porig, ll_base, ll, deriv, loglambda_grad;
   TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
   Vector *points_std = vec_new(points->size);
   Vector *sigmapar = data->params;
@@ -462,7 +462,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
      calculation, neighbor-joining reconstruction, and likelihood
      calculation on tree */
   vec_zero(grad);
-  lambda_grad = 0;
+  loglambda_grad = 0;
   for (i = 0; i < n; i++) {  
     for (k = 0; k < d; k++) {
       int pidx = i*d + k;
@@ -487,7 +487,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
          is more complicated, because of the reparameterization trick */
       
       if (data->type == CONST)
-        lambda_grad += deriv * vec_get(points_std, pidx);
+        loglambda_grad += deriv * vec_get(points_std, pidx);
       else if (data->type == DIAG) 
         /* in the DIAG case, the partial derivative wrt the
            corresponding variance parameter can be computed directly
@@ -497,8 +497,8 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
       else if (data->type == DIST) {
         /* in the DIST case, we add to a running total and update at the end */
         for (j = 0; j < n; j++)
-          lambda_grad += deriv * mat_get(data->Lapl_pinv_evecs, i, j) *
-            vec_get(data->Lapl_pinv_sqrt_evals, j) * vec_get(points_std, j*d + k);
+          loglambda_grad += deriv * mat_get(data->Lapl_pinv_evecs, i, j) *
+            vec_get(data->Lapl_pinv_sqrt_evals, j) * vec_get(points_std, j*d + k); /* CHECK */
         /* we'll apply the scale factor of 1/(2 * sqrt(lambda)) once at the end for efficiency (below) */
       }
       else
@@ -510,8 +510,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   if (data->type == CONST || data->type == DIST) /* in this case, need to update the final
                               gradient component corresponding to the
                               lambda parameter */
-    /* vec_set(grad, dim, lambda_grad * 0.5 / sqrt(data->lambda)); /\* now apply scale factor *\/ */
-    vec_set(grad, dim, lambda_grad * 0.5 * sqrt(data->lambda));
+    vec_set(grad, dim, loglambda_grad * 0.5 * sqrt(data->lambda));
   /* now apply scale factor; assumes parameter is log(lambda) */
 
   nj_reset_tree_model(mod, orig_tree);
@@ -519,6 +518,88 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   return ll_base;
 }  
 
+/* version of nj_compute_model_grad that calculates all derivatives
+   numerically, to check correctness of analytical calculations.  The
+   check knows nothing about the details of the parameterization; it
+   just uses a brute force numerical calculation */
+double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
+                                   unsigned int hyperbolic, double negcurvature,
+                                   Vector *points, Vector *grad, Matrix *D,
+                                   CovarData *data) {
+  int n = msa->nseqs; /* number of taxa */
+  int d = mmvn->n * mmvn->d / n; /* dimensionality; have to accommodate diagonal case */
+  int dim = n*d; /* full dimension of point vector */
+  int i, j, k;
+  double porig, ll_base, ll, deriv, loglambda_grad;
+  TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
+  Vector *points_std = vec_new(points->size);
+  Vector *sigmapar = data->params;
+
+  if (grad->size != dim + data->params->size)
+    die("ERROR in nj_compute_model_grad_check: bad gradient dimension.\n");
+  
+  /* set up tree model and get baseline log likelihood */
+  nj_points_to_distances(points, D, negcurvature, hyperbolic);    
+  tree = nj_infer_tree(D, msa->names);
+  orig_tree = tr_create_copy(tree);   /* restore at the end */
+  nj_reset_tree_model(mod, tree);
+  ll_base = nj_compute_log_likelihood(mod, msa, NULL);
+
+  /* to propagate derivatives through the reparameterization trick, we
+     need to rederive the original standard normal rv that was used to
+     generate points */
+  mmvn_rederive_std(mmvn, points, points_std);
+  
+  /* Now perturb each point and propagate perturbation through distance
+     calculation, neighbor-joining reconstruction, and likelihood
+     calculation on tree */
+  vec_zero(grad);
+  loglambda_grad = 0;
+  for (i = 0; i < n; i++) {  
+    for (k = 0; k < d; k++) {
+      int pidx = i*d + k;
+
+      porig = vec_get(points, pidx);
+      vec_set(points, pidx, porig + DERIV_EPS);
+
+      nj_points_to_distances(points, D, negcurvature, hyperbolic); 
+
+      tree = nj_infer_tree(D, msa->names);
+      nj_reset_tree_model(mod, tree);      
+      ll = nj_compute_log_likelihood(mod, msa, NULL);
+      deriv = (ll - ll_base) / DERIV_EPS; 
+
+      /* the mean is straightforward but check it anyway to be sure */
+      mu_orig = mmvn_get_mu_el(mmvn, pidx);
+      mmvn_set_mu_el(mmvn, pidx, mu_orig + DERIV_EPS);
+      vec_copy(points_tweak, points_std);
+      mmvn_map_std(mmvn, points_tweak);
+      dx_dmu = (vec_get(points_tweak, pidx) - vec_get(points, pidx)) / DERIV_EPS; /* should be 1! */
+      vec_set(grad, pidx, deriv * dx_dmu);
+      mmvn_set_mu_el(mmvn, pidx, mu_orig);
+            
+      vec_set(points, pidx, porig); /* restore orig */
+    }
+  }
+
+  /* for the variance parameters, we have to consider potential changes to entire vector of points */
+  for (loop i over sigmapars) { 
+    origp = vec_get(sigmapar, i);
+    vec_set(sigmapar, i, origp + DERIV_EPS);
+    vec_copy(points, tweak, points_std);
+    nj_update_variance();
+    mmvn_map_std(mmvn, points_tweak);
+    dx_dsigma = (vector minus points_tweak, points);
+    vec_set(sigmapar, i, origp);
+
+    /* now iterate over j and propagate deriv * dx_dsigma.  matrix mult I think.  dot product.  set grad fulld + i */
+  }
+  
+
+  nj_reset_tree_model(mod, orig_tree);
+  vec_free(points_std);
+  return ll_base;
+}  
 
 /* optimize variational model by stochastic gradient ascent using the
    Adam algorithm.  Takes initial tree model and alignment and
@@ -579,7 +660,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - mmvn_log_det(mmvn));
     
     /* we can also precompute the contribution of the KLD to the gradient */
-    /* Note must be subtracted rather than added, so compute the gradient of -KLD */
+    /* Note KLD is subtracted rather than added, so compute the gradient of -KLD */
     for (j = 0; j < grad->size; j++) {
       double gj = 0.0;
 
@@ -589,13 +670,11 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
                            complicated because of the trace and log
                            determinant */
         if (data->type == CONST)
-          gj = 0.5 * fulld * (1.0 - data->lambda);
+          gj = 0.5 * (fulld - trace);
         else if (data->type == DIAG) 
-          /* gj = 0.5 * (-1.0 + 1.0/mat_get(mmvn->mvn->sigma, j-fulld, j-fulld));  */ /* first term trace, second log det */
-          gj = 0.5 * (1.0 - mat_get(mmvn->mvn->sigma, j-fulld, j-fulld));  /* CHECK: above wrong? */
+          gj = 0.5 * (1.0 - mat_get(mmvn->mvn->sigma, j-fulld, j-fulld)); 
         else if (data->type == DIST)
-          /* gj = 0.5 * (-trace + fulld) / data->lambda; */
-          gj = 0.5 * (-trace + fulld); /* CHECK: above seems wrong */
+          gj = 0.5 * (-trace + fulld); 
         else /* LOWR */
           ; /* more complicated; has to be done for elements of sigmapar */
       }
@@ -1263,7 +1342,7 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
     data->lambda = exp(vec_get(sigma_params, 0));
     mat_scale(mmvn->mvn->sigma, data->lambda);
   }
-  if (data->type == DIAG) {
+  else if (data->type == DIAG) {
     for (i = 0; i < sigma_params->size; i++) 
       mat_set(mmvn->mvn->sigma, i, i, exp(vec_get(sigma_params, i)));
   }

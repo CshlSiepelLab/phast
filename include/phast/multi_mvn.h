@@ -34,6 +34,8 @@ void mmvn_preprocess(multi_MVN *mmvn, unsigned int force_eigen);
 
 void mmvn_sample(multi_MVN *mmvn, Vector *retval);
 
+void mmvn_map_std(multi_MVN *mmvn, Vector *retval);
+
 void mmvn_combine_means(multi_MVN *mmvn, Vector *mu);
 
 double mmvn_log_dens(multi_MVN *mmvn, Vector *x);

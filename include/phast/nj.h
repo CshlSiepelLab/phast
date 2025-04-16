@@ -90,6 +90,11 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
                              Vector *points, Vector *grad, Matrix *D,
                              CovarData *data);
 
+double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
+                                   unsigned int hyperbolic, double negcurvature,
+                                   Vector *points, Vector *grad, Matrix *D,
+                                   CovarData *data);
+
 void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
                         int dim, unsigned int hyperbolic, double negcurvature,
                         int nminibatch, double learnrate, int nbatches_conv,
