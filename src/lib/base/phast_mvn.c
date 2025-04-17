@@ -180,6 +180,7 @@ void mvn_map_std(MVN *mvn, Vector *rv) {
       die("ERROR in mvn_map_std: must have either Cholesky or eigendecomposition.  Call mvn_preprocess first.\n");
     
     vec_free(tmp);
+  }
 }
 
 /* pre-calculate Cholesky decomposition or eigendecomposition of

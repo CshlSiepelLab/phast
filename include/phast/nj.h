@@ -43,7 +43,7 @@ enum covar_type {CONST, DIAG, DIST, LOWR};
   
 /* auxiliary data for parameterization of covariance matrix in DIST
    case */
-#define LAMBDA_INIT 0.1
+#define LAMBDA_INIT 0.001
 typedef struct {
   enum covar_type type; /* type of parameterization */
   int nseqs; /* number of taxa in tree */

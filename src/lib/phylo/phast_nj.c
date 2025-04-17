@@ -498,8 +498,9 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
         /* in the DIST case, we add to a running total and update at the end */
         for (j = 0; j < n; j++)
           loglambda_grad += deriv * mat_get(data->Lapl_pinv_evecs, i, j) *
-            vec_get(data->Lapl_pinv_sqrt_evals, j) * vec_get(points_std, j*d + k); /* CHECK */
-        /* we'll apply the scale factor of 1/(2 * sqrt(lambda)) once at the end for efficiency (below) */
+            vec_get(data->Lapl_pinv_sqrt_evals, j) * vec_get(points_std, j*d + k); 
+        /* we'll apply the scale factor of 1/(2 * sqrt(lambda)) once
+           at the end for efficiency (below) */
       }
       else
         ; /* FIXME: complicated */
@@ -529,11 +530,12 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   int n = msa->nseqs; /* number of taxa */
   int d = mmvn->n * mmvn->d / n; /* dimensionality; have to accommodate diagonal case */
   int dim = n*d; /* full dimension of point vector */
-  int i, j, k;
-  double porig, ll_base, ll, deriv, loglambda_grad;
+  int i, j;
+  double porig, ll_base, ll, deriv;
   TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
-  Vector *points_std = vec_new(points->size);
+  Vector *points_std = vec_new(points->size), *points_tweak = vec_new(points->size);
   Vector *sigmapar = data->params;
+  Vector *dL_dx = vec_new(points->size);
 
   if (grad->size != dim + data->params->size)
     die("ERROR in nj_compute_model_grad_check: bad gradient dimension.\n");
@@ -553,51 +555,60 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   /* Now perturb each point and propagate perturbation through distance
      calculation, neighbor-joining reconstruction, and likelihood
      calculation on tree */
-  vec_zero(grad);
-  loglambda_grad = 0;
-  for (i = 0; i < n; i++) {  
-    for (k = 0; k < d; k++) {
-      int pidx = i*d + k;
+  for (i = 0; i < dim; i++) {
+    double mu_orig, dxi_dmui;
 
-      porig = vec_get(points, pidx);
-      vec_set(points, pidx, porig + DERIV_EPS);
+    porig = vec_get(points, i);
+    vec_set(points, i, porig + DERIV_EPS);
 
-      nj_points_to_distances(points, D, negcurvature, hyperbolic); 
-
-      tree = nj_infer_tree(D, msa->names);
-      nj_reset_tree_model(mod, tree);      
-      ll = nj_compute_log_likelihood(mod, msa, NULL);
-      deriv = (ll - ll_base) / DERIV_EPS; 
-
-      /* the mean is straightforward but check it anyway to be sure */
-      mu_orig = mmvn_get_mu_el(mmvn, pidx);
-      mmvn_set_mu_el(mmvn, pidx, mu_orig + DERIV_EPS);
-      vec_copy(points_tweak, points_std);
-      mmvn_map_std(mmvn, points_tweak);
-      dx_dmu = (vec_get(points_tweak, pidx) - vec_get(points, pidx)) / DERIV_EPS; /* should be 1! */
-      vec_set(grad, pidx, deriv * dx_dmu);
-      mmvn_set_mu_el(mmvn, pidx, mu_orig);
+    nj_points_to_distances(points, D, negcurvature, hyperbolic); 
+    tree = nj_infer_tree(D, msa->names);
+    nj_reset_tree_model(mod, tree);      
+    ll = nj_compute_log_likelihood(mod, msa, NULL);
+    deriv = (ll - ll_base) / DERIV_EPS; 
+    vec_set(dL_dx, i, deriv); /* derive of log likelihood wrt dim i of
+                                 point; need to save this for later */
+    
+    /* the mean is straightforward but check it anyway to be sure */
+    mu_orig = mmvn_get_mu_el(mmvn, i);
+    mmvn_set_mu_el(mmvn, i, mu_orig + DERIV_EPS);
+    vec_copy(points_tweak, points_std);
+    mmvn_map_std(mmvn, points_tweak);
+    dxi_dmui = (vec_get(points_tweak, i) - porig) / DERIV_EPS;
+    /* should be 1! */
+    vec_set(grad, i, deriv * dxi_dmui);
+    mmvn_set_mu_el(mmvn, i, mu_orig);
             
-      vec_set(points, pidx, porig); /* restore orig */
-    }
+    vec_set(points, i, porig); /* restore orig */
   }
 
-  /* for the variance parameters, we have to consider potential changes to entire vector of points */
-  for (loop i over sigmapars) { 
-    origp = vec_get(sigmapar, i);
+  /* for the variance parameters, we have to consider potential
+     changes to entire vector of points */
+  for (i = 0; i < sigmapar->size; i++) {
+    double dL_dp = 0, origp = vec_get(sigmapar, i);    
     vec_set(sigmapar, i, origp + DERIV_EPS);
-    vec_copy(points, tweak, points_std);
-    nj_update_variance();
+    nj_update_covariance(mmvn, data);
+    vec_copy(points_tweak, points_std);
     mmvn_map_std(mmvn, points_tweak);
-    dx_dsigma = (vector minus points_tweak, points);
-    vec_set(sigmapar, i, origp);
+    vec_minus_eq(points_tweak, points);
+    vec_scale(points_tweak, 1.0/DERIV_EPS); /* now contains dx / dp
+                                               where p is the variance
+                                               parameter */
 
-    /* now iterate over j and propagate deriv * dx_dsigma.  matrix mult I think.  dot product.  set grad fulld + i */
+    /* dL/dp is a dot product of dL/dx and dx/dp */
+    for (j = 0; j < points_tweak->size; j++)
+      dL_dp += vec_get(dL_dx, j) * vec_get(points_tweak, j);
+
+    vec_set(grad, i + dim, dL_dp);
+    vec_set(sigmapar, i, origp); /* restore orig */
   }
   
+  nj_update_covariance(mmvn, data); /* make sure to leave it in original state */
 
   nj_reset_tree_model(mod, orig_tree);
   vec_free(points_std);
+  vec_free(points_tweak);
+  vec_free(dL_dx);
   return ll_base;
 }  
 
@@ -615,6 +626,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim, fulld = n*dim;
   double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace;
+  /* Vector *grad_check = vec_new(fulld + data->params->size);*/
   
   if (mmvn->d * mmvn->n != dim * n)
     die("ERROR in nj_variational_inf: bad dimensions\n");
@@ -686,11 +698,21 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     vec_zero(avegrad);
     avell = 0;
     for (i = 0; i < nminibatch; i++) {
+      /* double ll_check; */
+      
       mmvn_sample(mmvn, points);
       ll = nj_compute_model_grad(mod, mmvn, msa, hyperbolic, negcurvature, 
                                  points, grad, D, data);
       avell += ll;
       vec_plus_eq(avegrad, grad);
+
+      /* uncomment these lines to check gradient numerically */
+      /*      ll_check = nj_compute_model_grad_check(mod, mmvn, msa, hyperbolic, negcurvature, 
+                                             points, grad_check, D, data);
+      fprintf(logf, "analytical: ll=%f, grad=", ll);
+      vec_print(grad, logf);
+      fprintf(logf, "numerical: ll=%f, grad=", ll_check);
+      vec_print(grad_check, logf); */
     }
 
     /* divide by nminibatch to get expected gradient */
@@ -707,14 +729,26 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       mmvn_save_mu(mmvn, best_mu);
       vec_copy(best_sigmapar, sigmapar);
     }
-    
+
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
     t++;
     for (j = 0; j < avegrad->size; j++) {   
-      double mhatj, vhatj;      
-      vec_set(m, j, ADAM_BETA1 * vec_get(m_prev, j) + (1.0 - ADAM_BETA1) * vec_get(avegrad, j));
+      double mhatj, vhatj, scaled_grad;
+
+      /* rescale gradient components by approximate inverse Fisher
+         information; seems to help to put them on the same scale */
+      scaled_grad = vec_get(avegrad, j);
+      if (j < fulld) /* mean gradients */
+        scaled_grad *= mat_get(mmvn->mvn->sigma, j, j);
+      /* FIXME: for DIST and LOWR case need helper function to extract
+         corresponding sigma element */
+      else /* variance gradients */
+        scaled_grad /= 2;  /* FIXME: works in exp cases but maybe not LOWR? */
+
+      
+      vec_set(m, j, ADAM_BETA1 * vec_get(m_prev, j) + (1.0 - ADAM_BETA1) * scaled_grad);
       vec_set(v, j, ADAM_BETA2 * vec_get(v_prev, j) +
-              (1.0 - ADAM_BETA2) * vec_get(avegrad, j) * vec_get(avegrad, j));
+              (1.0 - ADAM_BETA2) * scaled_grad * scaled_grad);
       mhatj = vec_get(m, j) / (1.0 - pow(ADAM_BETA1, t));
       vhatj = vec_get(v, j) / (1.0 - pow(ADAM_BETA2, t));
 
@@ -725,10 +759,6 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       else {
         vec_set(sigmapar, j-fulld, vec_get(sigmapar, j-fulld) +
                 learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
-
-        /* don't allow sigma to go negative */
-        /* if (vec_get(sigmapar, j-fulld) < MIN_VAR) */
-        /*   vec_set(sigmapar, j-fulld, MIN_VAR); */
       }
     }
     nj_update_covariance(mmvn, data);
@@ -774,9 +804,11 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     if (data->type == DIST || data->type == CONST)
       fprintf(logf, "lambda: %f, ", data->lambda);
     mmvn_print(mmvn, logf, TRUE, FALSE);
+    fprintf(logf, "\n");
   }
   
   vec_free(grad);
+  /*  vec_free(grad_check); */
   vec_free(avegrad);
   vec_free(kldgrad);
   vec_free(points);
