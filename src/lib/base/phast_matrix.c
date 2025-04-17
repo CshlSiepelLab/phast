@@ -425,12 +425,15 @@ void mat_set_gram(Matrix *G, Matrix *A) {
   if (G->ncols != n || A->nrows != n)
     die("ERROR in mat_set_gram: bad dimensions.\n");
   for (i = 0; i < n; i++) {
-    for (j = 0; j < n; j++) {
+    for (j = i; j < n; j++) {
       double innerprod = 0.0;
       for (l = 0; l < k; l++)
         innerprod += mat_get(A, i, l) * mat_get(A, j, l);
       mat_set(G, i, j, innerprod);
-      /* element i, j of G is innerproduct of rows i and j in A */
+      if (i != j)
+        mat_set(G, j, i, innerprod);        
+      /* elements i, j (and j, i) of G equal inner product 
+         of rows i and j in A */
     }
   }
 }

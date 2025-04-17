@@ -502,9 +502,6 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
         /* we'll apply the scale factor of 1/(2 * sqrt(lambda)) once
            at the end for efficiency (below) */
       }
-      else
-        ; /* FIXME: complicated */
-      
       vec_set(points, pidx, porig); /* restore orig */
     }
   }
@@ -514,6 +511,39 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
     vec_set(grad, dim, loglambda_grad * 0.5 * sqrt(data->lambda));
   /* now apply scale factor; assumes parameter is log(lambda) */
 
+  else if (data->type == LOWR) { /* in this case have to sum across
+                                    dimensions because there is a
+                                    many-to-many relationship with the
+                                    variance parameters */
+    for (i = 0; i < n; i++) {
+      for (j = 0; j < data->lowrank; j++) {
+        for (k = 0; k < d; k++) {
+        //        double lowrgrad = 0.1;
+          vec_set(grad, dim + i*data->lowrank + j, vec_get(grad, dim + i*data->lowrank + j) +
+                  vec_get(grad, j*d+k) * vec_get(points_std, j*d + k));
+
+
+                   //          lowrgrad += vec_get(grad, i*d+k) * vec_get(points_std, j*data->lowrank + k);
+
+                   //        vec_set(grad, dim + i*data->lowrank + j, lowrgrad);
+        /* update for parameter corresponding to element R[i, j],
+           which has index in grad of dim + (i*data->lowrank) + j.
+           The gradient is a dot product of dL/dx and dx/dp, where L
+           is the log likelihood, x is the point, and p is the
+           variance parameter.  In this case, dxj/dp is simply zj, the
+           corresponding standardized variable.
+        */
+        }
+      }
+    }
+  }
+  /*        vec_set(grad, dim + (i*data->lowrank) + j,
+                  vec_get(grad, dim + (i*data->lowrank) + j) +
+                  vec_get(points_std, j*d + k) * vec_get(grad, j*d + k));*/
+  
+ 
+
+  
   nj_reset_tree_model(mod, orig_tree);
   vec_free(points_std);
   return ll_base;
@@ -626,7 +656,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim, fulld = n*dim;
   double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace;
-  /* Vector *grad_check = vec_new(fulld + data->params->size);*/
+  Vector *grad_check = vec_new(fulld + data->params->size);
   
   if (mmvn->d * mmvn->n != dim * n)
     die("ERROR in nj_variational_inf: bad dimensions\n");
@@ -688,7 +718,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
         else if (data->type == DIST)
           gj = 0.5 * (-trace + fulld); 
         else /* LOWR */
-          ; /* more complicated; has to be done for elements of sigmapar */
+          gj = 0;
+          /* more complicated; has to be done for elements of sigmapar */
       }
       vec_set(kldgrad, j, gj);
     }
@@ -698,7 +729,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     vec_zero(avegrad);
     avell = 0;
     for (i = 0; i < nminibatch; i++) {
-      /* double ll_check; */
+      double ll_check; 
       
       mmvn_sample(mmvn, points);
       ll = nj_compute_model_grad(mod, mmvn, msa, hyperbolic, negcurvature, 
@@ -707,12 +738,12 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       vec_plus_eq(avegrad, grad);
 
       /* uncomment these lines to check gradient numerically */
-      /*      ll_check = nj_compute_model_grad_check(mod, mmvn, msa, hyperbolic, negcurvature, 
+      ll_check = nj_compute_model_grad_check(mod, mmvn, msa, hyperbolic, negcurvature, 
                                              points, grad_check, D, data);
       fprintf(logf, "analytical: ll=%f, grad=", ll);
       vec_print(grad, logf);
       fprintf(logf, "numerical: ll=%f, grad=", ll_check);
-      vec_print(grad_check, logf); */
+      vec_print(grad_check, logf); 
     }
 
     /* divide by nminibatch to get expected gradient */
@@ -738,12 +769,12 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       /* rescale gradient components by approximate inverse Fisher
          information; seems to help to put them on the same scale */
       scaled_grad = vec_get(avegrad, j);
-      if (j < fulld) /* mean gradients */
-        scaled_grad *= mat_get(mmvn->mvn->sigma, j, j);
+      //      if (j < fulld) /* mean gradients */
+      //        scaled_grad *= mat_get(mmvn->mvn->sigma, j, j);
       /* FIXME: for DIST and LOWR case need helper function to extract
          corresponding sigma element */
-      else /* variance gradients */
-        scaled_grad /= 2;  /* FIXME: works in exp cases but maybe not LOWR? */
+      //      else /* variance gradients */
+      //        scaled_grad /= 2;  /* FIXME: works in exp cases but maybe not LOWR? */
 
       
       vec_set(m, j, ADAM_BETA1 * vec_get(m_prev, j) + (1.0 - ADAM_BETA1) * scaled_grad);
@@ -808,7 +839,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   }
   
   vec_free(grad);
-  /*  vec_free(grad_check); */
+  vec_free(grad_check); 
   vec_free(avegrad);
   vec_free(kldgrad);
   vec_free(points);
@@ -1392,11 +1423,12 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
     vec_scale(mmvn->mvn->evals, data->lambda);
   }
   else {
-    int paridx = 0;
     assert(data->type == LOWR);
     for (i = 0; i < data->R->nrows; i++)
       for (j = 0; j < data->R->ncols; j++)
-        mat_set(data->R, i, j, vec_get(data->params, paridx++)); /* not log in this case */
+        mat_set(data->R, i, j, vec_get(data->params,
+                                       i*data->R->ncols + j));
+                                 /* note not log in this case */
     mat_set_gram(mmvn->mvn->sigma, data->R);
     mmvn_preprocess(mmvn, TRUE); /* it would be somewhat more
                                     efficient to derive the
@@ -1456,8 +1488,8 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
     retval->mvn_type = MVN_GEN;
     retval->params = vec_new(retval->lowrank * retval->nseqs);
     retval->R = mat_new(retval->nseqs, retval->lowrank);
-    vec_set_all(retval->params, 0.1);
-    /* initialize to 0.1; note no log parameterization in this case */
+    vec_set_all(retval->params, 0.01);
+    /* initialize to 0.01; note no log parameterization in this case */
   }
   else
     die("ERROR in nj_new_covar_data: unrecognized type.\n");
