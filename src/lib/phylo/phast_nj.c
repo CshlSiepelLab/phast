@@ -1440,6 +1440,8 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
 
 /* create a new CovarData object appropriate for the choice of parameterization */
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim, int rank) {
+  static int seeded = 0;
+  
   CovarData *retval = smalloc(sizeof(CovarData));
   retval->type = covar_param;
   retval->lambda = LAMBDA_INIT;
@@ -1484,12 +1486,26 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
     nj_laplacian_pinv(retval);  /* set up the Laplacian pseudoinverse */
   }
   else if (covar_param == LOWR) {
+    double sdev;
+    int i, j;
+    
     retval->lowrank = rank;
     retval->mvn_type = MVN_GEN;
     retval->params = vec_new(retval->lowrank * retval->nseqs);
     retval->R = mat_new(retval->nseqs, retval->lowrank);
     vec_set_all(retval->params, 0.01);
-    /* initialize to 0.01; note no log parameterization in this case */
+
+    /* initialization is tricky; we want variances on the order of
+       0.01 and expected covariances of 0 but we want to avoid
+       orthogonality; initialize randomly with appropriate distrib */
+    if (!seeded) {
+      srandom((unsigned int)time(NULL));
+      seeded = 1;
+    }
+    sdev = sqrt(0.01 / retval->lowrank); /* yields expected variance of 0.01 */
+    for (i = 0; i < retval->nseqs; i++)
+      for (j = 0; j < retval->lowrank; j++)
+        mat_set(retval->R, i, j, norm_draw(0, sdev));    
   }
   else
     die("ERROR in nj_new_covar_data: unrecognized type.\n");

@@ -652,6 +652,10 @@ double exp_draw(double b);
 */
 double gamma_draw(double a, double b);
 
+/* Make a single draw from a univariate normal distribution with mean
+   mu and standard deviation sigma */
+double norm_draw(double mu, double sigma);
+
 /** Given a probability vector, draw an index.
    @pre Call srandom externally
    @param p Probability vector

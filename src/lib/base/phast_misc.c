@@ -652,6 +652,21 @@ void mn_draw(int n, double *p, int d, int *counts) {
   sfree(data);
 }
 
+/* Make a single draw from a univariate normal distribution with mean
+   mu and standard deviation sigma. */
+double norm_draw(double mu, double sigma) {
+  double u1, u2, z;
+  
+  /* draw indep sample from standardn norm using Box-Muller
+     transform; note more  */
+  u1 = unif_rand();
+  u2 = unif_rand();
+  z = sqrt(-2 * log(u1)) * cos(2 * M_PI * u2);
+  /* TODO: create vector version for efficiency on repeated calls */
+
+  return (mu + sigma * z);
+}
+
 /** Given a probability vector, draw an index.  Call srandom externally */
 int draw_index(double *p, int size) {
   int i;
