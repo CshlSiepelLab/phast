@@ -143,4 +143,8 @@ void nj_laplacian_pinv(CovarData *data);
 void nj_mmvn_to_distances(multi_MVN *mmvn, Matrix *D, unsigned int hyperbolic,
                           double negcurvature);
 
+void nj_set_kld_grad_LOWR(Vector *kldgrad, multi_MVN *mvn, CovarData *data);
+
+double nj_log_det_LOWR(multi_MVN *mmvn, CovarData *data);
+
 #endif

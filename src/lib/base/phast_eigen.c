@@ -216,7 +216,8 @@ int mat_eigenvals(Matrix *M, /* input matrix (n x n) */
 
 /* Diagonalize a square, real, symmetric matrix.  Computes vector of
    eigenvalues and matrice of (right) eigenvectors, guaranteed to be
-   orthonormal.  Returns 0 on success, 1 on failure. */
+   orthonormal.  Eigenvalues ordered from smallest to largest.
+   Returns 0 on success, 1 on failure. */
 int mat_diagonalize_sym(Matrix *M, /* input matrix (n x n) */
                         Vector *eval,
                                 /* computed vector of eigenvectors --

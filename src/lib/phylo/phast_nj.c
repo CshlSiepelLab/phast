@@ -515,34 +515,19 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
                                     dimensions because there is a
                                     many-to-many relationship with the
                                     variance parameters */
-    for (i = 0; i < n; i++) {
-      for (j = 0; j < data->lowrank; j++) {
-        for (k = 0; k < d; k++) {
-        //        double lowrgrad = 0.1;
+    for (i = 0; i < n; i++) 
+      for (j = 0; j < data->lowrank; j++) 
+        for (k = 0; k < d; k++) 
           vec_set(grad, dim + i*data->lowrank + j, vec_get(grad, dim + i*data->lowrank + j) +
-                  vec_get(grad, j*d+k) * vec_get(points_std, j*d + k));
-
-
-                   //          lowrgrad += vec_get(grad, i*d+k) * vec_get(points_std, j*data->lowrank + k);
-
-                   //        vec_set(grad, dim + i*data->lowrank + j, lowrgrad);
-        /* update for parameter corresponding to element R[i, j],
+                  vec_get(grad, i*d + k) * vec_get(points_std, j*d + k));
+          /* update for parameter corresponding to element R[i, j],
            which has index in grad of dim + (i*data->lowrank) + j.
            The gradient is a dot product of dL/dx and dx/dp, where L
            is the log likelihood, x is the point, and p is the
            variance parameter.  In this case, dxj/dp is simply zj, the
            corresponding standardized variable.
         */
-        }
-      }
-    }
   }
-  /*        vec_set(grad, dim + (i*data->lowrank) + j,
-                  vec_get(grad, dim + (i*data->lowrank) + j) +
-                  vec_get(points_std, j*d + k) * vec_get(grad, j*d + k));*/
-  
- 
-
   
   nj_reset_tree_model(mod, orig_tree);
   vec_free(points_std);
@@ -655,8 +640,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   Vector *sigmapar = data->params;
   int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim, fulld = n*dim;
   double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
-    running_tot = 0, last_running_tot = -INFTY, trace;
-  Vector *grad_check = vec_new(fulld + data->params->size);
+    running_tot = 0, last_running_tot = -INFTY, trace, logdet;
+  //  Vector *grad_check = vec_new(fulld + data->params->size);
   
   if (mmvn->d * mmvn->n != dim * n)
     die("ERROR in nj_variational_inf: bad dimensions\n");
@@ -699,7 +684,10 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     /* we can precompute the KLD because it does not depend on the data under this model */
     /* (see equation 7, Doersch arXiv 2016) */
     trace = mmvn_trace(mmvn);  /* we'll reuse this */
-    kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - mmvn_log_det(mmvn));
+    logdet = (data->type == LOWR ? nj_log_det_LOWR(mmvn, data) : mmvn_log_det(mmvn));
+    /* LOWR case requires special handling because of zero eigenvalues */
+    
+    kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);
     
     /* we can also precompute the contribution of the KLD to the gradient */
     /* Note KLD is subtracted rather than added, so compute the gradient of -KLD */
@@ -717,19 +705,21 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
           gj = 0.5 * (1.0 - mat_get(mmvn->mvn->sigma, j-fulld, j-fulld)); 
         else if (data->type == DIST)
           gj = 0.5 * (-trace + fulld); 
-        else /* LOWR */
-          gj = 0;
-          /* more complicated; has to be done for elements of sigmapar */
+        else 
+          continue; /* LOWR case is messy; handle below */
       }
       vec_set(kldgrad, j, gj);
     }
-
+    
+    if (data->type == LOWR)
+      nj_set_kld_grad_LOWR(kldgrad, mmvn, data);
+    
     /* now sample a minibatch from the MVN averaging distribution and
        compute log likelihoods and gradients */
     vec_zero(avegrad);
     avell = 0;
     for (i = 0; i < nminibatch; i++) {
-      double ll_check; 
+      //      double ll_check; 
       
       mmvn_sample(mmvn, points);
       ll = nj_compute_model_grad(mod, mmvn, msa, hyperbolic, negcurvature, 
@@ -738,12 +728,12 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       vec_plus_eq(avegrad, grad);
 
       /* uncomment these lines to check gradient numerically */
-      ll_check = nj_compute_model_grad_check(mod, mmvn, msa, hyperbolic, negcurvature, 
-                                             points, grad_check, D, data);
-      fprintf(logf, "analytical: ll=%f, grad=", ll);
-      vec_print(grad, logf);
-      fprintf(logf, "numerical: ll=%f, grad=", ll_check);
-      vec_print(grad_check, logf); 
+      //      ll_check = nj_compute_model_grad_check(mod, mmvn, msa, hyperbolic, negcurvature, 
+      //                                             points, grad_check, D, data);
+      //      fprintf(logf, "analytical: ll=%f, grad=", ll);
+      //      vec_print(grad, logf);
+      //      fprintf(logf, "numerical: ll=%f, grad=", ll_check);
+      //      vec_print(grad_check, logf); 
     }
 
     /* divide by nminibatch to get expected gradient */
@@ -761,21 +751,18 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       vec_copy(best_sigmapar, sigmapar);
     }
 
+    /* rescale gradient by approximate inverse Fisher information to
+       put on similar scales; seems to help with optimization */
+    nj_rescale_grad(avegrad, mmvn, data);
+    
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
     t++;
     for (j = 0; j < avegrad->size; j++) {   
-      double mhatj, vhatj, scaled_grad;
+      double mhatj, vhatj, scale_grad;
 
       /* rescale gradient components by approximate inverse Fisher
          information; seems to help to put them on the same scale */
       scaled_grad = vec_get(avegrad, j);
-      //      if (j < fulld) /* mean gradients */
-      //        scaled_grad *= mat_get(mmvn->mvn->sigma, j, j);
-      /* FIXME: for DIST and LOWR case need helper function to extract
-         corresponding sigma element */
-      //      else /* variance gradients */
-      //        scaled_grad /= 2;  /* FIXME: works in exp cases but maybe not LOWR? */
-
       
       vec_set(m, j, ADAM_BETA1 * vec_get(m_prev, j) + (1.0 - ADAM_BETA1) * scaled_grad);
       vec_set(v, j, ADAM_BETA2 * vec_get(v_prev, j) +
@@ -839,7 +826,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   }
   
   vec_free(grad);
-  vec_free(grad_check); 
+  //  vec_free(grad_check); 
   vec_free(avegrad);
   vec_free(kldgrad);
   vec_free(points);
@@ -1605,4 +1592,61 @@ void nj_mmvn_to_distances(multi_MVN *mmvn, Matrix *D, unsigned int hyperbolic,
 
   if (mmvn->type == MVN_GEN)
     vec_free(full_mu);
+}
+
+/* compute partial derivatives of KLD wrt variance parameters in LOWR
+   case based on eigendecomposition of covariance matrix */
+void nj_set_kld_grad_LOWR(Vector *kldgrad, multi_MVN *mmvn, CovarData *data) {
+  int i, j, l, m;
+  int offset = mmvn->d * mmvn->n;
+  double gij, UtR;
+  for (i = 0; i < data->R->nrows; i++) {
+    for (j = 0; j < data->R->ncols; j++) {
+      for (l = 0, gij = 0.0; l < data->R->ncols; l++) {
+        for (m = 0, UtR = 0.0; m < data->R->nrows; m++) 
+          UtR += mat_get(mmvn->mvn->evecs, m, l) * mat_get(data->R, m, j);
+        gij += (1.0 - 1.0/vec_get(mmvn->mvn->evals, l)) * UtR *
+          mat_get(mmvn->mvn->evecs, i, l); /* FIXME: eval sorting */
+      }
+      gij *= 2 * mmvn->d;
+      vec_set(kldgrad, offset + i*data->R->ncols + j, -gij); /* remember to negate! */
+    }
+  }
+}
+
+/* calculate log determinant in the LOWR case; ignore n-k zero eigenvalues */
+double nj_log_det_LOWR(multi_MVN *mmvn, CovarData *data) {
+  double retval = 0.0;
+  for (int i = data->R->nrows - data->R->ncols; i < data->R->nrows; i++)
+    /* use only largest 'lowrank' eigenvalues, considering that they
+       are stored in ascending order (0s first) */
+    retval += log(vec_get(mmvn->mvn->evals, i));
+  retval *= mmvn->d;
+  return retval;
+}
+
+double nj_rescale_grad(Vector *grad, multi_MVN *mmvn, CovarData *data) {
+  /* below for CONST AND DIAG only; update */
+  for (int j = 0; j < avegrad->size; j++) {
+    scaled_grad = vec_get(avegrad, j);
+
+    /* FIXME: need copy */
+    
+    if (j < fulld) { /* mean gradients */
+      if (data->type == CONST || data->type == DIAG) 
+        scaled_grad *= mat_get(mmvn->mvn->sigma, j, j);
+      else /* DIST or LOWR */
+        /* scale by dot product of jth row of sigma with the original mean gradient */
+    }
+    else { /* variance gradients */
+      if (data->type == CONST || data->type == DIAG) 
+        scaled_grad /= 2.0;      /* CHECK: mult or divide? */
+      else if (data->type == DIST)
+        scaled_grad *= 2.0/mmvn->mvn->sigma->nrows;
+      else /* LOWR */
+        ;
+    }
+    
+    vec_set(grad, j, scaled_grad);
+  }
 }
