@@ -50,7 +50,8 @@ int main(int argc, char *argv[]) {
   List *namestr, *trees;
   subst_mod_type subst_mod = JC69;
   TreeModel *mod = NULL;
-  double kappa = DEFAULT_KAPPA, learnrate = DEFAULT_LEARNRATE, negcurvature = 1;
+  double kappa = DEFAULT_KAPPA, learnrate = DEFAULT_LEARNRATE,
+    negcurvature = 1, sparsity = -1;
   MarkovMatrix *rmat = NULL;
   multi_MVN *mmvn = NULL;
   TreeNode *init_tree = NULL;
@@ -76,6 +77,7 @@ int main(int argc, char *argv[]) {
     {"nsamples", 1, 0, 's'},
     {"learnrate", 1, 0, 'r'},
     {"random-start", 0, 0, 'R'},
+    {"sparsity", 1, 0, 'P'},
     {"covar", 1, 0, 'S'},
     {"tree", 1, 0, 't'},
     {"treemodel", 1, 0, 'T'},
@@ -85,7 +87,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:o:r:Rt:T:VW:S:s:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:o:P:r:Rt:T:VW:S:s:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -146,6 +148,11 @@ int main(int argc, char *argv[]) {
     case 'o':
       outdistfile = phast_fopen(optarg, "w");
       break;
+    case 'P':
+      sparsity = atof(optarg);
+      if (sparsity <= 0)
+        die("ERROR: --sparsity must be positive\n");
+      break;
     case 'r':
       learnrate = atof(optarg);
       if (learnrate <= 0)
@@ -202,6 +209,8 @@ int main(int argc, char *argv[]) {
 
   if (rank != DEFAULT_RANK && covar_param != LOWR)
     fprintf(stderr, "WARNING: --rank ignored when --covar is not LOWR\n");
+  if (sparsity != -1 && covar_param != LOWR)
+    fprintf(stderr, "WARNING: --sparsity ignored when --covar is not LOWR\n");
   
   if ((nj_only || embedding_only) &&
       (indistfile != NULL || init_tree != NULL)) {
@@ -260,7 +269,7 @@ int main(int argc, char *argv[]) {
   /* we must have a distance matrix now; make sure valid */
   nj_test_D(D);
 
-  covar_data = nj_new_covar_data(covar_param, D, dim, rank);
+  covar_data = nj_new_covar_data(covar_param, D, dim, rank, sparsity);
   
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */

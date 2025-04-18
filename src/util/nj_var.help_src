@@ -123,12 +123,20 @@ OPTIONS:
         covariance matrix (<ntaxa> * <rank> d.o.f. see --rank).
 
     --rank, -W <rank>
-        (default 3) Rank of low-rank approximation of covariance matrix in
-        case of --covar LOWR. 
+        (default 3) For use with --covar LOWR. Rank of low-rank
+        approximation of covariance matrix.  
 
+    --sparsity, -P <penalty>
+        For use with --covar LOWR.  Encourage sparsity of covariance matrix
+        by applying the specified penalty to off-diagonal elements.  The
+        penalty is automatically rescaled based on the size of the matrix
+        and values on the main diagonal.  A good starting point for
+        <penalty> is 2 * <ntaxa> * <rank> (roughly like deciding whether to
+        include each parameter based on AIC).
+        
     --mvn-dump, -V
         Dump the starting multivariate normal distribution and associated
-        data.  Useful with for debugging or analysis. Use with options for
+        data.  Useful with for debugging or analysis. Use with options for 
         variational inference.
 
     --tree, -t <file.nh>

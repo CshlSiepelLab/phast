@@ -60,6 +60,8 @@ typedef struct {
   Matrix *Lapl_pinv_evecs;
   Vector *Lapl_pinv_sqrt_evals; /* precompute for efficiency (DIST) */
   Matrix *R; /* used for LOWR; has dimension lowrank x nseqs */
+  double sparsity; /* multiplier for sparsity penalty */
+  double penalty; /* the current value of the penalty */
 } CovarData;
 
 void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
@@ -134,7 +136,7 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
 void nj_update_covariance(multi_MVN *mmvn, CovarData *data);
 
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
-                             int dim, int rank);
+                             int dim, int rank, double sparsity);
 
 void nj_dump_covar_data(CovarData *data, FILE *F);
 
@@ -146,5 +148,11 @@ void nj_mmvn_to_distances(multi_MVN *mmvn, Matrix *D, unsigned int hyperbolic,
 void nj_set_kld_grad_LOWR(Vector *kldgrad, multi_MVN *mvn, CovarData *data);
 
 double nj_log_det_LOWR(multi_MVN *mmvn, CovarData *data);
+
+void nj_rescale_grad(Vector *grad, Vector *rsgrad, multi_MVN *mmvn,
+                     CovarData *data);
+
+void nj_set_sparsity_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
+                                  CovarData *data);
 
 #endif

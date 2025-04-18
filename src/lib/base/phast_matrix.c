@@ -160,7 +160,7 @@ Matrix *mat_new_from_file(FILE *F, int nrows, int ncols) {
 }
 
 void mat_mult(Matrix *prod, Matrix *m1, Matrix *m2) {
-  if (!(m1->ncols == m2->nrows && m1->nrows == m2->ncols &&
+  if (!(m1->ncols == m2->nrows && 
 	prod->nrows == m1->nrows && prod->ncols == m2->ncols))
     die("ERROR mat_mult: bad matrix dimensions\n");
   int i, j, k;
@@ -168,7 +168,7 @@ void mat_mult(Matrix *prod, Matrix *m1, Matrix *m2) {
     for (j = 0; j < prod->ncols; j++) {
       prod->data[i][j] = 0;
       for (k = 0; k < m1->ncols; k++)
-	prod->data[i][j] += m1->data[i][k] * m2->data[k][j];
+        prod->data[i][j] += m1->data[i][k] * m2->data[k][j];
     }
   }
 }
