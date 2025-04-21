@@ -226,7 +226,8 @@ void mvn_preprocess(MVN *mvn, unsigned int force_eigen) {
     if (mvn->evecs == NULL)
       mvn->evecs = mat_new(mvn->dim, mvn->dim);
 
-    mat_diagonalize_sym(mvn->sigma, mvn->evals, mvn->evecs);
+    if (mat_diagonalize_sym(mvn->sigma, mvn->evals, mvn->evecs) != 0)
+      die("ERROR in mvn_preprocess: matrix diagonalization failed.\n");
 
     /* prohibit zero eigenvalues */
     for (i = 0; i < mvn->dim; i++) {

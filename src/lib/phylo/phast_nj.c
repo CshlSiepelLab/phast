@@ -22,6 +22,9 @@
 #include "phast/mvn.h"
 #include "phast/multi_mvn.h"
 
+/* uncomment below line to dump gradients to a file called "grads_log.txt" */
+#define DUMPGRAD 1
+
 /* Reset Q matrix based on distance matrix.  Assume upper triangular
    square Q and D.  Only touches active rows and columns of Q and D up
    to maxidx. As a side-effect set u and v to the indices of the
@@ -643,6 +646,11 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace, logdet, penalty = 0,
     bestpenalty = 0;
+  FILE *gradf = NULL;
+  
+#ifdef DUMPGRAD
+  gradf = phast_fopen("grads_log.txt", "w");
+#endif
   //  Vector *grad_check = vec_new(fulld + data->params->size);
   
   if (mmvn->d * mmvn->n != dim * n)
@@ -672,14 +680,25 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     fprintf(logf, "state\tll\tkld\telb\t");
     if (data->type == LOWR && data->sparsity != -1)
       fprintf(logf, "penalty\t");
-    if (data->type == DIST || data->type == CONST)
-      fprintf(logf, "lambda\t");
     for (j = 0; j < fulld; j++)
       fprintf(logf, "mu.%d\t", j);
-    for (i = 0; i < D->nrows; i++)
-      for (j = i+1; j < D->ncols; j++)
-        fprintf(logf, "D.%d.%d\t", i, j);
+    if (data->type == DIST || data->type == CONST)
+      fprintf(logf, "lambda\t");
+    else
+      for (j = 0; j < sigmapar->size; j++)
+        fprintf(logf, "sigma.%d\t", j);
+    //    for (i = 0; i < D->nrows; i++)
+    //  for (j = i+1; j < D->ncols; j++)
+    //    fprintf(logf, "D.%d.%d\t", i, j);
     fprintf(logf, "\n");
+  }
+  if (gradf != NULL) {
+    fprintf(gradf, "state\t");
+    for (j = 0; j < fulld; j++)
+      fprintf(gradf, "g_mu.%d\t", j);
+    for (j = fulld; j < grad->size; j++)
+      fprintf(gradf, "g_sig.%d\t", j-fulld);
+    fprintf(gradf, "\n");
   }
   
   /* initialize moments for Adam algorithm */
@@ -777,7 +796,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       double mhatj, vhatj, g = vec_get(rescaledgrad, j);
       
       vec_set(m, j, ADAM_BETA1 * vec_get(m_prev, j) + (1.0 - ADAM_BETA1) * g);
-      vec_set(v, j, ADAM_BETA2 * vec_get(v_prev, j) + (1.0 - ADAM_BETA2) * g);
+      vec_set(v, j, ADAM_BETA2 * vec_get(v_prev, j) + (1.0 - ADAM_BETA2) * pow(g,2));
       mhatj = vec_get(m, j) / (1.0 - pow(ADAM_BETA1, t));
       vhatj = vec_get(v, j) / (1.0 - pow(ADAM_BETA2, t));
 
@@ -799,14 +818,25 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       fprintf(logf, "%d\t%f\t%f\t%f\t", t, avell, kld, avell - kld);
       if (data->type == LOWR && data->sparsity != -1)
         fprintf(logf, "%f\t", data->penalty);
-      if (data->type == DIST || data->type == CONST)
-        fprintf(logf, "%f\t", data->lambda);
       mmvn_print(mmvn, logf, TRUE, FALSE);
-      nj_mmvn_to_distances(mmvn, D, hyperbolic, negcurvature);
-      for (i = 0; i < D->nrows; i++)
-        for (j = i+1; j < D->ncols; j++)
-          fprintf(logf, "%f\t", mat_get(D, i, j));
+      if (data->type == DIST || data->type == CONST)
+        fprintf(logf, "%f", data->lambda);
+      else
+        for (j = 0; j < sigmapar->size; j++)
+          fprintf(logf, "%f\t", vec_get(sigmapar, j));
       fprintf(logf, "\n");
+      //      nj_mmvn_to_distances(mmvn, D, hyperbolic, negcurvature);
+      //for (i = 0; i < D->nrows; i++)
+      //  for (j = i+1; j < D->ncols; j++)
+      //    fprintf(logf, "%f\t", mat_get(D, i, j));
+    }
+    if (gradf != NULL) {
+      //      vec_print(avegrad, gradf);
+      //vec_print(kldgrad, gradf);
+      fprintf(gradf, "%d\t", t);
+      for (j = 0; j < rescaledgrad->size; j++)
+        fprintf(gradf, "%f\t", vec_get(rescaledgrad, j));
+      fprintf(gradf, "\n");
     }
     
     /* check total elb every nbatches_conv to decide whether to stop */
@@ -835,7 +865,11 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       fprintf(logf, "penalty: %f, ", bestpenalty);
     if (data->type == DIST || data->type == CONST)
       fprintf(logf, "lambda: %f, ", data->lambda);
-    mmvn_print(mmvn, logf, TRUE, FALSE);
+    else {
+      fprintf(logf, "sigmapar: ");
+      vec_print(sigmapar, logf);
+    }
+    //    mmvn_print(mmvn, logf, TRUE, FALSE);
     fprintf(logf, "\n");
   }
   
@@ -981,7 +1015,8 @@ void nj_estimate_mmvn_from_distances_euclidean(Matrix *D, int dim, multi_MVN *mm
   /* find eigendecomposition of G */
   eval_real = vec_new(n);
   revec_real = mat_new(n, n);
-  mat_diagonalize_sym(G, eval_real, revec_real);
+  if (mat_diagonalize_sym(G, eval_real, revec_real) != 0)
+    die("ERROR in nj_estimate_mmvn_from_distances_euclidean: diagonalization failed.\n");
   
   /* sort eigenvalues from largest to smallest */
   /* (eigenvalues are now guaranteed to be returned from smallest to
@@ -1059,8 +1094,9 @@ void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *m
   /* find eigendecomposition of A */
   eval_real = vec_new(n);
   revec_real = mat_new(n, n);
-  mat_diagonalize_sym(A, eval_real, revec_real);
-  
+  if (mat_diagonalize_sym(A, eval_real, revec_real) != 0)
+    die("ERROR in nj_estimate_mmvn_from_distances_hyperbolic: diagonalization failed.\n");
+
   /* sort eigenvalues from largest to smallest */ 
   eiglst = lst_new_ptr(n);
   for (i = 0; i < n; i++) {
@@ -1499,7 +1535,6 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
     retval->mvn_type = MVN_GEN;
     retval->params = vec_new(retval->lowrank * retval->nseqs);
     retval->R = mat_new(retval->nseqs, retval->lowrank);
-    vec_set_all(retval->params, 0.01);
 
     /* initialization is tricky; we want variances on the order of
        0.01 and expected covariances of 0 but we want to avoid
@@ -1509,9 +1544,13 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
       seeded = 1;
     }
     sdev = sqrt(0.01 / retval->lowrank); /* yields expected variance of 0.01 */
-    for (i = 0; i < retval->nseqs; i++)
-      for (j = 0; j < retval->lowrank; j++)
-        mat_set(retval->R, i, j, norm_draw(0, sdev));    
+    for (i = 0; i < retval->nseqs; i++) {
+      for (j = 0; j < retval->lowrank; j++) {
+        double draw = norm_draw(0, sdev);
+        mat_set(retval->R, i, j, draw);
+        vec_set(retval->params, i*retval->lowrank + j, draw);
+      }
+    }
   }
   else
     die("ERROR in nj_new_covar_data: unrecognized type.\n");
@@ -1581,7 +1620,9 @@ void nj_laplacian_pinv(CovarData *data) {
      it, where epsilon is equal to the smallest eigenvalue plus a
      small margin.  This will preserve the eigenvectors but shift all
      eigenvalues upward by epsilon */
-  mat_diagonalize_sym(data->Lapl_pinv, data->Lapl_pinv_evals, data->Lapl_pinv_evecs);
+  if (mat_diagonalize_sym(data->Lapl_pinv, data->Lapl_pinv_evals, data->Lapl_pinv_evecs) != 0)
+    die("ERROR in nj_laplacian_pinv: diagonalization failed.\n");
+    
 
   epsilon = vec_get(data->Lapl_pinv_evals, 0) + 1e-6;
   /* mat_diagonalize_sym guarantees eigenvalues are in ascending order */
