@@ -143,6 +143,22 @@ void mvn_sample(MVN *mvn, Vector *retval) {
     mvn_map_std(mvn, retval);
 }
 
+/* Like mvn_sample, but sample a pair of antithetic random variates to
+   reduce variance */
+void mvn_sample_anti(MVN *mvn, Vector *retval1, Vector *retval2) {
+  if (mvn->dim != retval1->size || mvn->dim != retval2->size)
+    die("ERROR in mvn_sample: bad dimensions.\n");
+  
+  mvn_sample_std(retval1);
+  vec_copy(retval2, retval1);
+  vec_scale(retval2, -1.0);
+
+  if (mvn->type != MVN_STD) {
+    mvn_map_std(mvn, retval1);
+    mvn_map_std(mvn, retval2);
+  }
+}
+
 /* Map a standard MVN variable to a general MVN variable.  On input,
    rv should be a draw from mvn_sample_std, on output it will be a
    random variate from the distribution defined by mvn */

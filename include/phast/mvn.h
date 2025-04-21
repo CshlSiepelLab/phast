@@ -38,6 +38,8 @@ void mvn_map_std(MVN *mvn, Vector *rv);
 
 void mvn_sample(MVN *mvn, Vector *retval);
 
+void mvn_sample_anti(MVN *mvn, Vector *retval1, Vector *retval2);
+
 void mvn_preprocess(MVN *mvn, unsigned int force_eigen);
 
 double mvn_log_dens(MVN *mvn, Vector *x);

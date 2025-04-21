@@ -97,6 +97,27 @@ void mmvn_sample(multi_MVN *mmvn, Vector *retval) {
       mvn_sample(mmvn->mvn, xcomp);
       mmvn_project_up(mmvn, xcomp, retval, d);
     }
+    vec_free(xcomp);
+  }
+}
+
+void mmvn_sample_anti(multi_MVN *mmvn, Vector *retval1, Vector *retval2) {
+  if (mmvn->type != MVN_GEN)  /* in this case it's just as efficient
+                                 to use the full MVN */
+    mvn_sample_anti(mmvn->mvn, retval1, retval2);
+  else {
+    Vector *xcomp1 = vec_new(mmvn->n), *xcomp2 = vec_new(mmvn->n);
+    int d;
+    assert(retval1->size == mmvn->d * mmvn->n &&
+           retval2->size == mmvn->d * mmvn->n);
+    for (d = 0; d < mmvn->d; d++) {
+      mmvn->mvn->mu = mmvn->mu[d]; /* swap in the appropriate mean */
+      mvn_sample_anti(mmvn->mvn, xcomp1, xcomp2);
+      mmvn_project_up(mmvn, xcomp1, retval1, d);
+      mmvn_project_up(mmvn, xcomp2, retval2, d);
+    }
+    vec_free(xcomp1);
+    vec_free(xcomp2);
   }
 }
 
