@@ -121,6 +121,9 @@ void mmvn_sample_anti(multi_MVN *mmvn, Vector *retval1, Vector *retval2) {
   }
 }
 
+/* Map a standard multi_MVN variable to a general multi_MVN variable.
+   On input, rv should be a draw from mvn_sample_std, on output it
+   will be a random variate from the distribution defined by mmvn */
 void mmvn_map_std(multi_MVN *mmvn, Vector *retval) {
   if (mmvn->type != MVN_GEN) 
     mvn_map_std(mmvn->mvn, retval);

@@ -509,8 +509,8 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
     }
   }
   if (data->type == CONST || data->type == DIST) /* in this case, need to update the final
-                              gradient component corresponding to the
-                              lambda parameter */
+                                                    gradient component corresponding to the
+                                                    lambda parameter */
     vec_set(grad, dim, loglambda_grad * 0.5 * sqrt(data->lambda));
   /* now apply scale factor; assumes parameter is log(lambda) */
 
@@ -613,6 +613,14 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
      changes to entire vector of points */
   for (i = 0; i < sigmapar->size; i++) {
     double dL_dp = 0, origp = vec_get(sigmapar, i);    
+
+    fprintf(stderr, "R:\n");
+    mat_print(data->R, stderr);
+
+    fprintf(stderr, "MVN:\n");
+    mmvn_print(mmvn, stderr, FALSE, TRUE);
+    
+
     vec_set(sigmapar, i, origp + DERIV_EPS);
 
     /* temporary */
@@ -630,22 +638,6 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
     fprintf(stderr, "numerical mapped original points:\n"); 
     vec_print(points, stderr);
 
-    /* alternative calculation of points_tweak directly from R */
-    /* assume Rij already updated from nj_update_covariance */
-    vec_zero(points_tweak);
-    for (int ii = 0; ii < mmvn->n; ii++) {   /* row of R */
-      for (int jj = 0; jj < data->R->ncols; jj++) { /* col of R */
-        for (int dd = 0; dd < mmvn->d; dd++) { /* dimension/slice of points */
-          double dotprodijd = 0.0; /* dot product of ii'th row of R with points_std, considering slice dd */
-          int pointsidxi = ii*mmvn->d + dd;
-          for (int kk = 0; kk < data->R->ncols; kk++) 
-            dotprodijd += mat_get(data->R, ii, kk) * vec_get(points_std, kk*mmvn->d + dd);          
-          vec_set(points_tweak, pointsidxi, mmvn_get_mu_el(mmvn, pointsidxi) + dotprodijd);
-        }
-      }
-    }
-    fprintf(stderr, "numerical alternative tweaked points:\n");
-    vec_print(points_tweak, stderr);
     
     vec_minus_eq(points_tweak, points);
     vec_scale(points_tweak, 1.0/DERIV_EPS); /* now contains dx / dp
