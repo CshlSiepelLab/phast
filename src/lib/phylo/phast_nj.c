@@ -690,7 +690,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
                         int min_nbatches, CovarData *data, FILE *logf) {
 
   Vector *points, *grad, *kldgrad, *avegrad, *m, *m_prev, *v, *v_prev,
-    *best_mu, *best_sigmapar, *rescaledgrad, *sparsitygrad;
+    *best_mu, *best_sigmapar, *rescaledgrad, *sparsitygrad, *pointsnext;
   Vector *sigmapar = data->params;
   int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim, fulld = n*dim;
   double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
@@ -707,6 +707,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     die("ERROR in nj_variational_inf: bad dimensions\n");
 
   points = vec_new(fulld);
+  pointsnext = vec_new(fulld);
   graddim = fulld + data->params->size;
   grad = vec_new(graddim);  
   kldgrad = vec_new(graddim);
@@ -802,8 +803,13 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     avell = 0;
     for (i = 0; i < nminibatch; i++) {
       double ll_check; 
+
+      /* use antithetic sampling to reduce variance */
+      if (i % 2 == 0)
+        mmvn_sample_anti(mmvn, points, pointsnext);
+      else
+        vec_copy(points, pointsnext);
       
-      mmvn_sample(mmvn, points);
       ll = nj_compute_model_grad(mod, mmvn, msa, hyperbolic, negcurvature, 
                                  points, grad, D, data);
       avell += ll;
@@ -931,6 +937,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   if (data->type == LOWR && data->sparsity != -1)
     vec_free(sparsitygrad);
   vec_free(points);
+  vec_free(pointsnext);
   vec_free(m);
   vec_free(m_prev);
   vec_free(v);
