@@ -1522,7 +1522,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
       }
     }
     vec_set_all(retval->params, log(1.0/N * (x2/N - x*x/(N*N))) + 2*log(POINTSCALE));
-    /* note scale by log of POINTSCALE^2 */
+    /* note scale by (log of) POINTSCALE^2 */
   }  
   else if (covar_param == DIST) {
     retval->mvn_type = MVN_GEN;
