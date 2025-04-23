@@ -260,6 +260,10 @@ void mat_mult(Matrix *prod, Matrix *m1, Matrix *m2);
   @param v Input vector.
 */
 void mat_vec_mult(Vector *prod, Matrix *m, Vector *v);
+
+/* multiply the transpose of m by v and store results in prod */
+void mat_vec_mult_transp(Vector *prod, Matrix *m, Vector *v);
+
 /** Matrix increment.
 
   \code 
@@ -376,8 +380,17 @@ void mat_from_lapack(Matrix *m, LAPACK_DOUBLE *arr);
 /* Solve Ly = z for y, where L is lower-triangular, via forward substitution */
 void mat_forward_subst(Matrix *L, Vector *z, Vector* y);
 
+/* Solve L^T y = z for y, where L is lower-triangular (hence L^T is
+   upper triangular), via backward substitution */
+void mat_backward_subst(Matrix *L, Vector *z, Vector* y);
+
 /* set G to be the Gram matrix of A, such that G = A x A^T.  Assumes G
    is square nxn and A is nxk such that k <= n */
 void mat_set_gram(Matrix *G, Matrix *A);
+
+/* similar to mat_set_gram but instead set G = A^T x A.  This is
+   sometimes called the Gram matrix of column (rather than row)
+   vectors */
+void mat_set_gram_col(Matrix *G, Matrix *A);
 
 #endif

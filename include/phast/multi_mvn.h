@@ -36,6 +36,9 @@ void mmvn_sample(multi_MVN *mmvn, Vector *retval);
 
 void mmvn_sample_anti(multi_MVN *mmvn, Vector *retval1, Vector *retval2);
 
+void mmvn_sample_anti_keep(multi_MVN *mmvn, Vector *retval1,
+                           Vector *retval2, Vector *origstd);
+
 void mmvn_map_std(multi_MVN *mmvn, Vector *retval);
 
 void mmvn_combine_means(multi_MVN *mmvn, Vector *mu);

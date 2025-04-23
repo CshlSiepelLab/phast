@@ -50,12 +50,41 @@ MVN *mvn_new(int dim, Vector *mu, Matrix *sigma) {
   mvn->cholL = NULL;   /* will be updated as needed */
   mvn->evals = NULL;
   mvn->evecs = NULL;
+  mvn->lowR = NULL;
+  mvn->lowRmvn = NULL;
   
   return mvn;
 }
 
+MVN *mvn_new_LOWR(int dim, Vector *mu, Matrix *R) {
+  MVN *retval = mvn_new(dim, mu, NULL);
+  if (dim != mu->size || mu->size != R->nrows || R->ncols > R->nrows)
+    die("ERROR in mvn_new_LOWR: bad dimension.\n");
+  retval->type = MVN_LOWR;
+  retval->lowR = R;
+  mvn_reset_LOWR(retval);
+  return retval;
+}
+
+/* reset covariance matrix and other auxiliary data based on low-rank representation */
+void mvn_reset_LOWR(MVN *mvn) {
+  assert(mvn->type == MVN_LOWR && mvn->lowR != NULL);
+
+  if (mvn->lowRmvn == NULL)
+    mvn->lowRmvn = mvn_new(mvn->lowR->ncols, NULL, NULL);
+  /* what if size has changed? free and reset? */
+  
+  mat_set_gram(mvn->sigma, mvn->lowR);
+  mat_set_gram_col(mvn->lowRmvn->sigma, mvn->lowR);
+  mvn->lowRmvn->type = MVN_GEN;
+  mvn_preprocess(mvn->lowRmvn, FALSE);
+}
+
 MVN *mvn_copy(MVN *mvn) {
-  return mvn_new(mvn->dim, vec_create_copy(mvn->mu), mat_create_copy(mvn->sigma));
+  if (mvn->type == MVN_LOWR)
+    return mvn_new_LOWR(mvn->dim, vec_create_copy(mvn->mu), mat_create_copy(mvn->lowR));
+  else
+    return mvn_new(mvn->dim, vec_create_copy(mvn->mu), mat_create_copy(mvn->sigma));
 }
 
 void mvn_free(MVN *mvn) {
@@ -67,6 +96,10 @@ void mvn_free(MVN *mvn) {
     vec_free(mvn->evals);
   if (mvn->evecs != NULL)
     mat_free(mvn->evecs);
+  if (mvn->lowR != NULL)
+    mat_free(mvn->lowR);
+  if (mvn->lowRmvn != NULL)
+    mvn_free(mvn->lowRmvn);
   free(mvn);
 }
 
@@ -105,6 +138,7 @@ void mvn_update_type(MVN *mvn) {
     mvn->type = MVN_GEN;
 
   /* notice that if dim == 1, MVN_GEN is not possible but the other three are possible */
+  /* note that MVN_LOWR will never be used by this function; has to be set separately */
 }
 
 /* Sample a vector from a standard multivariate normal distribution,
@@ -136,34 +170,99 @@ void mvn_sample_std(Vector *retval) {
 void mvn_sample(MVN *mvn, Vector *retval) {
   if (mvn->dim != retval->size)
     die("ERROR in mvn_sample: bad dimensions.\n");
-  
-  mvn_sample_std(retval);
 
-  if (mvn->type != MVN_STD)
-    mvn_map_std(mvn, retval);
+  Vector *lowrv = NULL;
+
+  if (mvn->type == MVN_LOWR) { /* in this case sample in the lower
+                                  dim */
+    lowrv = vec_new(mvn->lowR->ncols);
+    mvn_sample_std(lowrv);
+  }
+  else 
+    mvn_sample_std(retval);    
+
+  if (mvn->type != MVN_STD)  /* already correct if MVN_STD */
+    mvn_map_std(mvn, retval, lowrv);
+
+  if (lowrv != NULL)
+    vec_free(lowrv);
 }
 
 /* Like mvn_sample, but sample a pair of antithetic random variates to
    reduce variance */
 void mvn_sample_anti(MVN *mvn, Vector *retval1, Vector *retval2) {
   if (mvn->dim != retval1->size || mvn->dim != retval2->size)
-    die("ERROR in mvn_sample: bad dimensions.\n");
-  
-  mvn_sample_std(retval1);
-  vec_copy(retval2, retval1);
-  vec_scale(retval2, -1.0);
+    die("ERROR in mvn_sample_anti: bad dimensions.\n");
 
-  if (mvn->type != MVN_STD) {
-    mvn_map_std(mvn, retval1);
-    mvn_map_std(mvn, retval2);
+  if (mvn->type != MVN_LOWR) {
+    mvn_sample_std(retval1);
+    vec_copy(retval2, retval1);
+    vec_scale(retval2, -1.0);
+
+    if (mvn->type != MVN_STD) {
+      mvn_map_std(mvn, retval1, NULL);
+      mvn_map_std(mvn, retval2, NULL);
+    }
+  }
+  else { /* LOWR case -- sample in k dim and project up */
+    int k = mvn->lowR->ncols;
+    Vector *proj1 = vec_new(k), *proj2 = vec_new(k);
+    mvn_sample_std(proj1);
+    vec_copy(proj2, proj1);
+    vec_scale(proj2, -1.0);
+    mvn_map_std(mvn, retval1, proj1);
+    mvn_map_std(mvn, retval2, proj2);
+    vec_free(proj1);
+    vec_free(proj2);
+  }
+}
+
+/* Like mvn_sample_anti_keep, but keeps track of the original standard
+   normal variate for use in downstream calculations */
+void mvn_sample_anti_keep(MVN *mvn, Vector *retval1,
+                          Vector *retval2, Vector *origstd) {
+  if (mvn->dim != retval1->size || mvn->dim != retval2->size)
+    die("ERROR in mvn_sample_anti_keep: bad dimensions.\n");
+
+  if (mvn->type == MVN_LOWR && origstd->size != mvn->lowR->ncols)
+    die("ERROR in mvn_sample_anti_keep: origstd must have low-rank dimension in MVN_LOWR case.\n");
+  else if (mvn->type != MVN_LOWR && origstd->size != mvn->dim)
+    die("ERROR in mvn_sample_anti_keep: bad dimension in origstd.\n");
+  
+  if (mvn->type != MVN_LOWR) {
+    mvn_sample_std(retval1);
+    vec_copy(origstd, retval1);
+    vec_copy(retval2, retval1);
+    vec_scale(retval2, -1.0);
+
+    if (mvn->type != MVN_STD) {
+      mvn_map_std(mvn, retval1, NULL);
+      mvn_map_std(mvn, retval2, NULL);
+    }
+  }
+  else { /* LOWR case -- sample in k dim and project up */
+    int k = mvn->lowR->ncols;
+    Vector *proj1 = vec_new(k), *proj2 = vec_new(k);
+    mvn_sample_std(proj1);
+    vec_copy(origstd, proj1);
+    vec_copy(proj2, proj1);
+    vec_scale(proj2, -1.0);
+    mvn_map_std(mvn, retval1, proj1);
+    mvn_map_std(mvn, retval2, proj2);
+    vec_free(proj1);
+    vec_free(proj2);
   }
 }
 
 /* Map a standard MVN variable to a general MVN variable.  On input,
    rv should be a draw from mvn_sample_std, on output it will be a
-   random variate from the distribution defined by mvn */
-void mvn_map_std(MVN *mvn, Vector *rv) {
+   random variate from the distribution defined by mvn.  In the
+   MVN_LOWR case, must supply a separate input rv of the lower
+   dimension k (lowrv).  In other cases, pass NULL for this
+   variable. */
+void mvn_map_std(MVN *mvn, Vector *rv, Vector *lowrv) {
   int i, j;
+  
   if (mvn->type == MVN_IDENTITY)
     vec_plus_eq(rv, mvn->mu);  
   else if (mvn->type == MVN_DIAG) {
@@ -196,6 +295,14 @@ void mvn_map_std(MVN *mvn, Vector *rv) {
       die("ERROR in mvn_map_std: must have either Cholesky or eigendecomposition.  Call mvn_preprocess first.\n");
     
     vec_free(tmp);
+  }
+  else {
+    int k = mvn->lowR->ncols;
+    assert(mvn->type == MVN_LOWR);
+    if (lowrv == NULL || lowrv->size != k) 
+      die("ERROR in mvn_map_std: must supply lowrv of correct dimension in MVN_LOWR case.\n");
+    mat_vec_mult(rv, mvn->lowR, lowrv); /* project up via lowR */
+    vec_plus_eq(rv, mvn->mu); /* add mu */
   }
 }
 
@@ -269,6 +376,14 @@ double mvn_log_dens(MVN *mvn, Vector *x) {
         mat_get(mvn->sigma, i, i);
     }
   }
+  else if (mvn->type == MVN_LOWR) {
+    /* in this case, we need to project x down to k dimensions and
+       compute its density under the embedded low-rank MVN */
+    Vector *z = vec_create_copy(x), *a = vec_new(mvn->lowR->ncols);
+    vec_minus_eq(z, mvn->mu);
+    mvn_project_LOWR(mvn, z, a);
+    retval = mvn_log_dens(mvn->lowRmvn, a);
+  }
   else {
     /* more complicated for MVN_GEN */
     Vector *z = vec_create_copy(x), *y = vec_new(x->size);
@@ -308,6 +423,8 @@ double mvn_log_det(MVN *mvn) {
     for (i = 0; i < mvn->dim; i++)
       retval += log(mat_get(mvn->sigma, i, i)); 
   }
+  else if (mvn->type == MVN_LOWR) /* just delegate to low-rank MVN */
+    retval = mvn_log_det(mvn->lowRmvn);
   else if (mvn->type == MVN_GEN) { /* harder in this case */
     if (mvn->cholL != NULL) { /* use Cholesky if available */
       for (i = 0; i < mvn->dim; i++)
@@ -374,18 +491,27 @@ void mvn_rederive_std(MVN *mvn, Vector *x, Vector *x_std) {
       die("ERROR in mvn_derive_std: must have either Cholesky or eigendecomposition.  Call mvn_preprocess first.\n");
     vec_free(y);
   }
-  else { /* in diagonal cases can be done element by element */
+  else if (mvn->type != MVN_LOWR) { /* in diagonal cases can be done element by element */
     for (i = 0; i < mvn->dim; i++)
       vec_set(x_std, i, (vec_get(x, i) - vec_get(mvn->mu, i)) / sqrt(mat_get(mvn->sigma, i, i)));
   }
+  else if (mvn->type == MVN_LOWR)
+    /* we'll punt in this case for now, don't need */
+    die("ERROR in mvn_rederive_std: MVN_LOWR case not supported.\n");
 }
 
 /* return trace of covariance matrix */
 double mvn_trace(MVN *mvn) {
   double retval = 0;
   int i;
+
+  if (mvn->type == MVN_LOWR) /* in this case we can just use the trace of
+                                the embedded low-rank MVN */
+    return mvn_trace(mvn->lowRmvn);
+  
   for (i = 0; i < mvn->dim; i++)
     retval += mat_get(mvn->sigma, i, i);
+
   return retval;
 }
 
@@ -396,4 +522,27 @@ double mvn_mu2(MVN *mvn) {
   for (i = 0; i < mvn->dim; i++)
     retval += pow(vec_get(mvn->mu, i), 2);
   return retval;
+}
+
+/* project a vector in n dimensions representing a zero-mean MVN with
+   covariance R x R^T down to the embedded k-dimensional MVN that lies
+   in the column space of R.  The new vector a can be assumed to be an
+   MVN with zero mean and covariance R^T x R. Assumes Cholesky
+   decomposition is available for the embedded low-rank MVN */
+void mvn_project_LOWR(MVN *mvn, Vector *z, Vector *a) {
+  int n = mvn->lowR->nrows, k = mvn->lowR->ncols;
+  Vector *b = vec_new(k), *y = vec_new(k);
+
+  assert(z->size == n && a->size == k && mvn->lowRmvn != NULL &&
+         mvn->lowRmvn->cholL != NULL);
+    
+  mat_vec_mult_transp(b, mvn->lowR, z); /* start by computing b = R^T z */
+
+  /* now because we already have the Cholesky decomposition, we can
+     compute (R^T R)^-1 by forward and backward substitution, making
+     use of (R^T R)^-1 = (L L^T)^-1 */
+  mat_forward_subst(mvn->lowRmvn->cholL, b, y); /* solve Ly = b for y */
+  mat_backward_subst(mvn->lowRmvn->cholL, y, a); /* solve L^Ta = y for a */
+  vec_free(b);
+  vec_free(y);
 }

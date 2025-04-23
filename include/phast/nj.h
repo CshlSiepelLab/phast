@@ -90,12 +90,14 @@ void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D,
 
 double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
                              unsigned int hyperbolic, double negcurvature,
-                             Vector *points, Vector *grad, Matrix *D,
+                             Vector *points, Vector *points_std,
+                             Vector *grad, Matrix *D,
                              CovarData *data);
 
 double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
                                    unsigned int hyperbolic, double negcurvature,
-                                   Vector *points, Vector *grad, Matrix *D,
+                                   Vector *points, Vector *points_std,
+                                   Vector *grad, Matrix *D,
                                    CovarData *data);
 
 void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
@@ -147,8 +149,6 @@ void nj_mmvn_to_distances(multi_MVN *mmvn, Matrix *D, unsigned int hyperbolic,
                           double negcurvature);
 
 void nj_set_kld_grad_LOWR(Vector *kldgrad, multi_MVN *mvn, CovarData *data);
-
-double nj_log_det_LOWR(multi_MVN *mmvn, CovarData *data);
 
 void nj_rescale_grad(Vector *grad, Vector *rsgrad, multi_MVN *mmvn,
                      CovarData *data);

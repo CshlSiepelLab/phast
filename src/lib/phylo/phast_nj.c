@@ -430,7 +430,8 @@ void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D, double negcurv
    uses numerical methods */
 double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
                              unsigned int hyperbolic, double negcurvature,
-                             Vector *points, Vector *grad, Matrix *D,
+                             Vector *points, Vector *points_std,
+                             Vector *grad, Matrix *D,
                              CovarData *data) {
   int n = msa->nseqs; /* number of taxa */
   int d = mmvn->n * mmvn->d / n; /* dimensionality; have to accommodate diagonal case */
@@ -438,7 +439,6 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   int i, j, k;
   double porig, ll_base, ll, deriv, loglambda_grad;
   TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
-  Vector *points_std = vec_new(points->size);
   Vector *sigmapar = data->params;
 
   if (grad->size != dim + data->params->size)
@@ -456,11 +456,6 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   nj_reset_tree_model(mod, tree);
   ll_base = nj_compute_log_likelihood(mod, msa, NULL);
 
-  /* to propagate derivatives through the reparameterization trick, we
-     need to rederive the original standard normal rv that was used to
-     generate points */
-  mmvn_rederive_std(mmvn, points, points_std);
-  
   /* Now perturb each point and propagate perturbation through distance
      calculation, neighbor-joining reconstruction, and likelihood
      calculation on tree */
@@ -518,12 +513,6 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
                                     dimensions because there is a
                                     many-to-many relationship with the
                                     variance parameters */
-    fprintf(stderr, "analytical dL/dx:\n");
-    vec_print(grad, stderr);
-    fprintf(stderr, "analytical dx/dp:\n");
-    vec_print(points_std, stderr);
-
-    
     for (i = 0; i < n; i++) 
       for (j = 0; j < data->lowrank; j++) 
         for (k = 0; k < d; k++) 
@@ -536,13 +525,9 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
              variance parameter.  In this case, dxj/dp is simply zj, the
              corresponding standardized variable.
           */
-
-    fprintf(stderr, "Analytical gradient:\n");
-    vec_print(grad, stderr);
   }
 
   nj_reset_tree_model(mod, orig_tree);
-  vec_free(points_std);
   return ll_base;
 }  
 
@@ -552,7 +537,8 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
    just uses a brute force numerical calculation */
 double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
                                    unsigned int hyperbolic, double negcurvature,
-                                   Vector *points, Vector *grad, Matrix *D,
+                                   Vector *points, Vector *points_std,
+                                   Vector *grad, Matrix *D,
                                    CovarData *data) {
   int n = msa->nseqs; /* number of taxa */
   int d = mmvn->n * mmvn->d / n; /* dimensionality; have to accommodate diagonal case */
@@ -560,7 +546,7 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   int i, j;
   double porig, ll_base, ll, deriv;
   TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
-  Vector *points_std = vec_new(points->size), *points_tweak = vec_new(points->size);
+  Vector *points_tweak = vec_new(points->size);
   Vector *sigmapar = data->params;
   Vector *dL_dx = vec_new(points->size);
 
@@ -574,11 +560,6 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   nj_reset_tree_model(mod, tree);
   ll_base = nj_compute_log_likelihood(mod, msa, NULL);
 
-  /* to propagate derivatives through the reparameterization trick, we
-     need to rederive the original standard normal rv that was used to
-     generate points */
-  mmvn_rederive_std(mmvn, points, points_std);
-  
   /* Now perturb each point and propagate perturbation through distance
      calculation, neighbor-joining reconstruction, and likelihood
      calculation on tree */
@@ -613,60 +594,26 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
      changes to entire vector of points */
   for (i = 0; i < sigmapar->size; i++) {
     double dL_dp = 0, origp = vec_get(sigmapar, i);    
-
-    fprintf(stderr, "R:\n");
-    mat_print(data->R, stderr);
-
-    fprintf(stderr, "MVN:\n");
-    mmvn_print(mmvn, stderr, FALSE, TRUE);
-    
-
     vec_set(sigmapar, i, origp + DERIV_EPS);
-
-    /* temporary */
-    
     nj_update_covariance(mmvn, data);
-
     vec_copy(points_tweak, points_std);
-
-    fprintf(stderr, "numerical orig std points:\n");
-    vec_print(points_tweak, stderr);
     mmvn_map_std(mmvn, points_tweak);
-
-    fprintf(stderr, "numerical mapped tweaked points:\n");
-    vec_print(points_tweak, stderr);
-    fprintf(stderr, "numerical mapped original points:\n"); 
-    vec_print(points, stderr);
-
-    
     vec_minus_eq(points_tweak, points);
     vec_scale(points_tweak, 1.0/DERIV_EPS); /* now contains dx / dp
                                                where p is the variance
                                                parameter */
-    fprintf(stderr, "numerical dx/dp:\n"); 
-    vec_print(points_tweak, stderr);
 
-    fprintf(stderr, "numerical dL/dx:\n"); 
-    vec_print(dL_dx, stderr);
-    
     /* dL/dp is a dot product of dL/dx and dx/dp */
     for (j = 0; j < points_tweak->size; j++)
       dL_dp += vec_get(dL_dx, j) * vec_get(points_tweak, j);
-
-    fprintf(stderr, "dL_dp: %f\n", dL_dp);
     
     vec_set(grad, i + dim, dL_dp);
     vec_set(sigmapar, i, origp); /* restore orig */
   }
-
-  fprintf(stderr, "Numerical gradient:\n");
-  vec_print(grad, stderr);
-  exit(0);
   
   nj_update_covariance(mmvn, data); /* make sure to leave it in original state */
 
   nj_reset_tree_model(mod, orig_tree);
-  vec_free(points_std);
   vec_free(points_tweak);
   vec_free(dL_dx);
   return ll_base;
@@ -682,7 +629,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
                         int min_nbatches, CovarData *data, FILE *logf) {
 
   Vector *points, *grad, *kldgrad, *avegrad, *m, *m_prev, *v, *v_prev,
-    *best_mu, *best_sigmapar, *rescaledgrad, *sparsitygrad, *pointsnext;
+    *best_mu, *best_sigmapar, *rescaledgrad, *sparsitygrad, *pointsnext,
+    *points_std;
   Vector *sigmapar = data->params;
   int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim, fulld = n*dim;
   double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
@@ -693,12 +641,13 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
 #ifdef DUMPGRAD
   gradf = phast_fopen("grads_log.txt", "w");
 #endif
-  Vector *grad_check = vec_new(fulld + data->params->size);
+  //  Vector *grad_check = vec_new(fulld + data->params->size);
   
   if (mmvn->d * mmvn->n != dim * n)
     die("ERROR in nj_variational_inf: bad dimensions\n");
 
   points = vec_new(fulld);
+  points_std = vec_new(fulld);
   pointsnext = vec_new(fulld);
   graddim = fulld + data->params->size;
   grad = vec_new(graddim);  
@@ -753,8 +702,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     /* we can precompute the KLD because it does not depend on the data under this model */
     /* (see equation 7, Doersch arXiv 2016) */
     trace = mmvn_trace(mmvn);  /* we'll reuse this */
-    logdet = (data->type == LOWR ? nj_log_det_LOWR(mmvn, data) : mmvn_log_det(mmvn));
-    /* LOWR case requires special handling because of zero eigenvalues */
+    logdet = mmvn_log_det(mmvn);
     
     kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);
     
@@ -794,26 +742,31 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     vec_zero(avegrad);
     avell = 0;
     for (i = 0; i < nminibatch; i++) {
-      double ll_check; 
-
+      /* double ll_check; */ 
+      
       /* use antithetic sampling to reduce variance */
+      /* do this in a way that keeps track of the original standard
+         normal variable (points_std) for use in computing
+         gradients */
       if (i % 2 == 0)
-        mmvn_sample_anti(mmvn, points, pointsnext);
-      else
+        mmvn_sample_anti_keep(mmvn, points, pointsnext, points_std);
+      else {
         vec_copy(points, pointsnext);
+        vec_scale(points_std, -1.0);
+      }
       
       ll = nj_compute_model_grad(mod, mmvn, msa, hyperbolic, negcurvature, 
-                                 points, grad, D, data);
+                                 points, points_std, grad, D, data);
       avell += ll;
       vec_plus_eq(avegrad, grad);
 
       /* uncomment these lines to check gradient numerically */
-      ll_check = nj_compute_model_grad_check(mod, mmvn, msa, hyperbolic, negcurvature, 
-                                             points, grad_check, D, data);
-      fprintf(logf, "analytical: ll=%f, grad=", ll);
-      vec_print(grad, logf);
-      fprintf(logf, "numerical: ll=%f, grad=", ll_check);
-      vec_print(grad_check, logf); 
+      /* ll_check = nj_compute_model_grad_check(mod, mmvn, msa, hyperbolic, negcurvature,  */
+      /*                                        points, grad_check, D, data); */
+      /* fprintf(logf, "analytical: ll=%f, grad=", ll); */
+      /* vec_print(grad, logf); */
+      /* fprintf(logf, "numerical: ll=%f, grad=", ll_check); */
+      /* vec_print(grad_check, logf);  */
     }
 
     /* divide by nminibatch to get expected gradient */
@@ -922,13 +875,14 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   }
   
   vec_free(grad);
-  vec_free(grad_check); 
+  /* vec_free(grad_check);  */
   vec_free(avegrad);
   vec_free(rescaledgrad);
   vec_free(kldgrad);
   if (data->type == LOWR && data->sparsity != -1)
     vec_free(sparsitygrad);
   vec_free(points);
+  vec_free(points_std);
   vec_free(pointsnext);
   vec_free(m);
   vec_free(m_prev);
@@ -1581,7 +1535,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
     int i, j;
     
     retval->lowrank = rank;
-    retval->mvn_type = MVN_GEN;
+    retval->mvn_type = MVN_LOWR;
     retval->params = vec_new(retval->lowrank * retval->nseqs);
     retval->R = mat_new(retval->nseqs, retval->lowrank);
 
@@ -1692,7 +1646,7 @@ void nj_laplacian_pinv(CovarData *data) {
 void nj_mmvn_to_distances(multi_MVN *mmvn, Matrix *D, unsigned int hyperbolic,
                           double negcurvature) {
   Vector *full_mu;
-  if (mmvn->type != MVN_GEN) 
+  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR) 
     full_mu = mmvn->mvn->mu;
   else {
     full_mu = vec_new(mmvn->d * mmvn->n);
@@ -1701,7 +1655,7 @@ void nj_mmvn_to_distances(multi_MVN *mmvn, Matrix *D, unsigned int hyperbolic,
 
   nj_points_to_distances(full_mu, D, negcurvature, hyperbolic);
 
-  if (mmvn->type == MVN_GEN)
+  if (mmvn->type == MVN_GEN || mmvn->type == MVN_LOWR)
     vec_free(full_mu);
 }
 
@@ -1724,17 +1678,6 @@ void nj_set_kld_grad_LOWR(Vector *kldgrad, multi_MVN *mmvn, CovarData *data) {
       vec_set(kldgrad, offset + i*data->R->ncols + j, -gij); /* remember to negate! */
     }
   }
-}
-
-/* calculate log determinant in the LOWR case; ignore n-k zero eigenvalues */
-double nj_log_det_LOWR(multi_MVN *mmvn, CovarData *data) {
-  double retval = 0.0;
-  for (int i = data->R->nrows - data->R->ncols; i < data->R->nrows; i++)
-    /* use only largest 'lowrank' eigenvalues, considering that they
-       are stored in ascending order (0s first) */
-    retval += log(vec_get(mmvn->mvn->evals, i));
-  retval *= mmvn->d;
-  return retval;
 }
 
 void nj_rescale_grad(Vector *grad, Vector *rsgrad, multi_MVN *mmvn, CovarData *data) {

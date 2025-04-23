@@ -185,6 +185,19 @@ void mat_vec_mult(Vector *prod, Matrix *m, Vector *v) {
   }
 }
 
+/* multiply the transpose of m by v and store results in prod */
+void mat_vec_mult_transp(Vector *prod, Matrix *m, Vector *v) {
+  int i, j;
+  if (!(m->ncols == prod->size && v->size == m->nrows))
+    die("ERROR mat_vec_mult_transp: bad dimensions\n");
+  for (i = 0; i < m->ncols; i++) {
+    prod->data[i] = 0;
+    for (j = 0; j < m->nrows; j++) {
+      prod->data[i] += m->data[j][i] * v->data[j];
+    }
+  }
+}
+
 void mat_plus_eq(Matrix *thism, Matrix *addm) {
   int i, j;
   if (!(thism->nrows == addm->nrows && thism->ncols == addm->ncols))
@@ -418,6 +431,27 @@ void mat_forward_subst(Matrix *L, Vector *z, Vector* y) {
   }
 }
 
+/* Solve L^T y = z for y, where L is lower-triangular (hence L^T is
+   upper triangular), via backward substitution */
+void mat_backward_subst(Matrix *L, Vector *z, Vector* y) {
+  int dim = L->nrows;
+  int i, j;
+  
+  if (dim != L->ncols || dim != z->size || dim != y->size)
+    die("ERROR in mat_backward_subst: bad dimensions.\n");
+
+  /* use y in place of a and z in place of y */
+  
+  for (i = dim-1; i >= 0; i--) {
+    vec_set(y, i, (vec_get(z, i)));
+    
+    for (j = i+1; j < dim; j++)
+      vec_set(y, i, vec_get(y, i) - mat_get(L, j, i) * vec_get(y, j));
+
+    vec_set(y, i, vec_get(y, i) / mat_get(L, i, i));
+  }
+}
+
 /* set G to be the Gram matrix of A, such that G = A x A^T.  Assumes G
    is square nxn and A is nxk such that k <= n */
 void mat_set_gram(Matrix *G, Matrix *A) {
@@ -429,6 +463,27 @@ void mat_set_gram(Matrix *G, Matrix *A) {
       double innerprod = 0.0;
       for (l = 0; l < k; l++)
         innerprod += mat_get(A, i, l) * mat_get(A, j, l);
+      mat_set(G, i, j, innerprod);
+      if (i != j)
+        mat_set(G, j, i, innerprod);        
+      /* elements i, j (and j, i) of G equal inner product 
+         of rows i and j in A */
+    }
+  }
+}
+
+/* similar to mat_set_gram but instead set G = A^T x A.  This is
+   sometimes called the Gram matrix of column (rather than row)
+   vectors */
+void mat_set_gram_col(Matrix *G, Matrix *A) {
+  int k = G->nrows, n = A->nrows, i, j, l;
+  if (G->ncols != k || A->ncols != k)
+    die("ERROR in mat_set_gram_col: bad dimensions.\n");
+  for (i = 0; i < k; i++) {
+    for (j = i; j < k; j++) {
+      double innerprod = 0.0;
+      for (l = 0; l < n; l++)
+        innerprod += mat_get(A, l, i) * mat_get(A, l, j);
       mat_set(G, i, j, innerprod);
       if (i != j)
         mat_set(G, j, i, innerprod);        

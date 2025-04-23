@@ -34,7 +34,7 @@ multi_MVN *mmvn_new(int n, int d, enum mvn_type type) {
   int i;
   multi_MVN *retval = smalloc(sizeof(multi_MVN));
 
-  if (type != MVN_GEN) {
+  if (type != MVN_GEN && type != MVN_LOWR) {
     retval->n = n*d;
     retval->d = 1;
   }
@@ -47,7 +47,7 @@ multi_MVN *mmvn_new(int n, int d, enum mvn_type type) {
   retval->mvn->type = type;
   retval->type = type;
   
-  if (type == MVN_GEN) {
+  if (type == MVN_GEN || type == MVN_LOWR) {
     /* clear the orig mu vector; will handle it just by pointer swapping */
     vec_free(retval->mvn->mu);
     retval->mvn->mu = NULL;
@@ -64,7 +64,7 @@ multi_MVN *mmvn_new(int n, int d, enum mvn_type type) {
 /* set the mean parameters */
 void mmvn_set_mu(multi_MVN *mmvn, Vector *mu) {
   assert(mu->size == mmvn->d * mmvn->n);
-  if (mmvn->type != MVN_GEN)
+  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR)
     vec_copy(mmvn->mvn->mu, mu);
   else {
     for (int d = 0; d < mmvn->d; d++)
@@ -76,6 +76,8 @@ void mmvn_set_mu(multi_MVN *mmvn, Vector *mu) {
 void mmvn_set_sigma(multi_MVN *mmvn, Matrix *sigma) {
   assert(sigma->nrows == mmvn->n &&
          sigma->nrows == sigma->ncols);
+  if (mmvn->type == MVN_LOWR)
+    die("ERROR in mmvn_set_sigma: do not set sigma directly in LOWR case!\n");
   mat_copy(mmvn->mvn->sigma, sigma);
   mmvn_preprocess(mmvn, TRUE);
 }
@@ -85,8 +87,8 @@ void mmvn_preprocess(multi_MVN *mmvn, unsigned int force_eigen) {
 }
 
 void mmvn_sample(multi_MVN *mmvn, Vector *retval) {
-  if (mmvn->type != MVN_GEN)  /* in this case it's just as efficient
-                                 to use the full MVN */
+  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR)
+    /* in this case it's just as efficient to use the full MVN */
     mvn_sample(mmvn->mvn, retval);
   else {
     Vector *xcomp = vec_new(mmvn->n);
@@ -101,9 +103,10 @@ void mmvn_sample(multi_MVN *mmvn, Vector *retval) {
   }
 }
 
+/* antithetic sampling */
 void mmvn_sample_anti(multi_MVN *mmvn, Vector *retval1, Vector *retval2) {
-  if (mmvn->type != MVN_GEN)  /* in this case it's just as efficient
-                                 to use the full MVN */
+  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR)
+    /* in this case it's just as efficient to use the full MVN */
     mvn_sample_anti(mmvn->mvn, retval1, retval2);
   else {
     Vector *xcomp1 = vec_new(mmvn->n), *xcomp2 = vec_new(mmvn->n);
@@ -121,12 +124,36 @@ void mmvn_sample_anti(multi_MVN *mmvn, Vector *retval1, Vector *retval2) {
   }
 }
 
+/* version of mmvn_sample_anti_keep that keeps the standard normal rv
+   used to generate the sampled values.  Useful for calculations that
+   depend on the reparameterization trick */
+void mmvn_sample_anti_keep(multi_MVN *mmvn, Vector *retval1,
+                           Vector *retval2, Vector *origstd) {
+  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR)
+    /* in this case it's just as efficient to use the full MVN */
+    mvn_sample_anti_keep(mmvn->mvn, retval1, retval2, origstd);
+  else {
+    Vector *xcomp1 = vec_new(mmvn->n), *xcomp2 = vec_new(mmvn->n);
+    int d;
+    assert(retval1->size == mmvn->d * mmvn->n &&
+           retval2->size == mmvn->d * mmvn->n);
+    for (d = 0; d < mmvn->d; d++) {
+      mmvn->mvn->mu = mmvn->mu[d]; /* swap in the appropriate mean */
+      mvn_sample_anti_keep(mmvn->mvn, xcomp1, xcomp2, origstd);
+      mmvn_project_up(mmvn, xcomp1, retval1, d);
+      mmvn_project_up(mmvn, xcomp2, retval2, d);
+    }
+    vec_free(xcomp1);
+    vec_free(xcomp2);
+  }
+}
+
 /* Map a standard multi_MVN variable to a general multi_MVN variable.
    On input, rv should be a draw from mvn_sample_std, on output it
    will be a random variate from the distribution defined by mmvn */
 void mmvn_map_std(multi_MVN *mmvn, Vector *retval) {
-  if (mmvn->type != MVN_GEN) 
-    mvn_map_std(mmvn->mvn, retval);
+  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR) 
+    mvn_map_std(mmvn->mvn, retval, NULL);
   else {
     Vector *xcomp = vec_new(mmvn->n);
     int d;
@@ -134,7 +161,7 @@ void mmvn_map_std(multi_MVN *mmvn, Vector *retval) {
     for (d = 0; d < mmvn->d; d++) {
       mmvn_project_down(mmvn, retval, xcomp, d);
       mmvn->mvn->mu = mmvn->mu[d]; /* swap in the appropriate mean */
-      mvn_map_std(mmvn->mvn, xcomp);
+      mvn_map_std(mmvn->mvn, xcomp, NULL);
       mmvn_project_up(mmvn, xcomp, retval, d);
     }
   }
@@ -142,8 +169,8 @@ void mmvn_map_std(multi_MVN *mmvn, Vector *retval) {
 
 double mmvn_log_dens(multi_MVN *mmvn, Vector *x) {
   double retval = 0;
-  if (mmvn->type != MVN_GEN)  /* in this case it's just as efficient
-                                 to use the full MVN */
+  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR)
+    /* in this case it's just as efficient to use the full MVN */
     retval = mvn_log_dens(mmvn->mvn, x);
   else {
     Vector *x_d = vec_new(mmvn->n);
@@ -162,7 +189,7 @@ double mmvn_log_dens(multi_MVN *mmvn, Vector *x) {
 }
 
 double mmvn_log_det(multi_MVN *mmvn) {
-  if (mmvn->type != MVN_GEN)
+  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR)
     return mvn_log_det(mmvn->mvn);
   else 
     return mmvn->d * mvn_log_det(mmvn->mvn);
@@ -174,7 +201,8 @@ double mmvn_log_det(multi_MVN *mmvn) {
 void mmvn_project_down(multi_MVN *mmvn, Vector *x_full, Vector *x_d, int d) {
   int i;
   assert(x_d->size == mmvn->n &&
-         x_full->size == mmvn->n * mmvn->d && mmvn->type == MVN_GEN);
+         x_full->size == mmvn->n * mmvn->d &&
+         (mmvn->type == MVN_GEN || mmvn->type == MVN_LOWR));
   for (i = 0; i < mmvn->n; i++) 
     vec_set(x_d, i, vec_get(x_full, i*mmvn->d + d));
 }
@@ -184,7 +212,8 @@ void mmvn_project_down(multi_MVN *mmvn, Vector *x_full, Vector *x_d, int d) {
 void mmvn_project_up(multi_MVN *mmvn, Vector *x_d, Vector *x_full, int d) {
   int i;
   assert(x_d->size == mmvn->n &&
-         x_full->size == mmvn->n * mmvn->d && mmvn->type == MVN_GEN);
+         x_full->size == mmvn->n * mmvn->d &&
+         (mmvn->type == MVN_GEN || mmvn->type == MVN_LOWR));
   for (i = 0; i < mmvn->n; i++) 
     vec_set(x_full, i*mmvn->d + d, vec_get(x_d, i));
 }
@@ -195,7 +224,10 @@ void mmvn_project_up(multi_MVN *mmvn, Vector *x_d, Vector *x_full, int d) {
    differences in eigenvector directionality.  Both values, however,
    will lie on the same contour of the density function. */
 void mmvn_rederive_std(multi_MVN *mmvn, Vector *points, Vector *points_std) {
-  if (mmvn->type != MVN_GEN) 
+  if (mmvn->type == MVN_LOWR)
+    /* punt in this case for now, don't need */
+    die("ERROR in mmvn_rederive_std: MVN_LOWR case not supported.\n");
+  else if (mmvn->type != MVN_GEN) 
     mvn_rederive_std(mmvn->mvn, points, points_std);
   else {
     /* rederive the component standard mvns and project each one up */
@@ -213,7 +245,7 @@ void mmvn_rederive_std(multi_MVN *mmvn, Vector *points, Vector *points_std) {
 
 /* return trace of covariance for a multi MVN */
 double mmvn_trace(multi_MVN *mmvn) {
-  if (mmvn->type != MVN_GEN)
+  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR)
     return mvn_trace(mmvn->mvn);
   else
     return mmvn->d * mvn_trace(mmvn->mvn);
@@ -221,7 +253,7 @@ double mmvn_trace(multi_MVN *mmvn) {
 
 /* return trace of covariance for a multi MVN */
 double mmvn_mu2(multi_MVN *mmvn) {
-  if (mmvn->type != MVN_GEN)
+  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR)
     return mvn_mu2(mmvn->mvn);
   else {
     double retval = 0;
@@ -237,7 +269,7 @@ double mmvn_mu2(multi_MVN *mmvn) {
 /* save the mean parameters from a multi MVN in a vector for future
    retrieval */
 void mmvn_save_mu(multi_MVN *mmvn, Vector *mu_saved) {
-  if (mmvn->type != MVN_GEN)
+  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR)
     vec_copy(mu_saved, mmvn->mvn->mu);
   else {
     int d;
@@ -266,7 +298,7 @@ void mmvn_print(multi_MVN *mmvn, FILE *F, unsigned int in_line,
 }
 
 double mmvn_get_mu_el(multi_MVN *mmvn, int i) {
-  if (mmvn->type != MVN_GEN)
+  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR)
     return vec_get(mmvn->mvn->mu, i);
   else {
     int d = i % mmvn->d, taxon = i / mmvn->d;
@@ -275,7 +307,7 @@ double mmvn_get_mu_el(multi_MVN *mmvn, int i) {
 }
 
 void mmvn_set_mu_el(multi_MVN *mmvn, int i, double val) {
-  if (mmvn->type != MVN_GEN)
+  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR)
     vec_set(mmvn->mvn->mu, i, val);
   else {
     int d = i % mmvn->d, taxon = i / mmvn->d;
