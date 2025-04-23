@@ -27,6 +27,7 @@ struct MVN {
   Matrix *evecs; /* for cases in which Cholesky cannot be obtained */
   Matrix *lowR; /* for low-rank parameterization */
   MVN *lowRmvn; /* embedded low-rank MVN */
+  Matrix *lowR_invRtR; /* precomputed inverse of R^T R */
   enum mvn_type type;
 };
 
@@ -34,7 +35,7 @@ MVN *mvn_new(int dim, Vector *mu, Matrix *sigma);
 
 MVN *mvn_new_LOWR(int dim, Vector *mu, Matrix *R);
 
-void mvn_reset_LOWR(MVN *mvn);
+void mvn_reset_LOWR(MVN *mvn, Matrix *R);
 
 void mvn_free(MVN *mvn);
 
@@ -66,5 +67,7 @@ double mvn_trace(MVN *mvn);
 double mvn_mu2(MVN *mvn);
 
 void mvn_project_LOWR(MVN *mvn, Vector *z, Vector *a);
+
+void mvn_invert_RtR_LOWR(MVN *mvn);
 
 #endif

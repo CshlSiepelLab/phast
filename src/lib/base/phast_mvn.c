@@ -52,6 +52,7 @@ MVN *mvn_new(int dim, Vector *mu, Matrix *sigma) {
   mvn->evecs = NULL;
   mvn->lowR = NULL;
   mvn->lowRmvn = NULL;
+  mvn->lowR_invRtR = NULL;
   
   return mvn;
 }
@@ -61,23 +62,36 @@ MVN *mvn_new_LOWR(int dim, Vector *mu, Matrix *R) {
   if (dim != mu->size || mu->size != R->nrows || R->ncols > R->nrows)
     die("ERROR in mvn_new_LOWR: bad dimension.\n");
   retval->type = MVN_LOWR;
-  retval->lowR = R;
-  mvn_reset_LOWR(retval);
+  mvn_reset_LOWR(retval, R);
   return retval;
 }
 
-/* reset covariance matrix and other auxiliary data based on low-rank representation */
-void mvn_reset_LOWR(MVN *mvn) {
-  assert(mvn->type == MVN_LOWR && mvn->lowR != NULL);
+/* reset covariance matrix and other auxiliary data based on low-rank
+   representation */
+void mvn_reset_LOWR(MVN *mvn, Matrix *R) {
+  assert(mvn->type == MVN_LOWR && mvn->sigma->nrows == R->nrows &&
+         R->ncols <= R->nrows);
 
-  if (mvn->lowRmvn == NULL)
-    mvn->lowRmvn = mvn_new(mvn->lowR->ncols, NULL, NULL);
-  /* what if size has changed? free and reset? */
+  if (mvn->lowR == NULL)
+    mvn->lowR = mat_create_copy(R);
+  else
+    mat_copy(mvn->lowR, R);
   
+  if (mvn->lowRmvn == NULL) 
+    mvn->lowRmvn = mvn_new(mvn->lowR->ncols, NULL, NULL);
+  else
+    assert(mvn->lowRmvn->dim == mvn->lowR->ncols);
+
+  if (mvn->lowR_invRtR == NULL)
+    mvn->lowR_invRtR = mat_new(mvn->lowR->ncols, mvn->lowR->ncols);
+  else
+    assert(mvn->lowR_invRtR->nrows == mvn->lowR->ncols);
+
+  mvn->lowRmvn->type = MVN_GEN;
   mat_set_gram(mvn->sigma, mvn->lowR);
   mat_set_gram_col(mvn->lowRmvn->sigma, mvn->lowR);
-  mvn->lowRmvn->type = MVN_GEN;
-  mvn_preprocess(mvn->lowRmvn, FALSE);
+  mvn_preprocess(mvn->lowRmvn, FALSE); /* will do Cholesky */
+  mvn_invert_RtR_LOWR(mvn); /* uses Cholesky */
 }
 
 MVN *mvn_copy(MVN *mvn) {
@@ -100,6 +114,8 @@ void mvn_free(MVN *mvn) {
     mat_free(mvn->lowR);
   if (mvn->lowRmvn != NULL)
     mvn_free(mvn->lowRmvn);
+  if (mvn->lowR_invRtR != NULL)
+    mat_free(mvn->lowR_invRtR);
   free(mvn);
 }
 
@@ -313,7 +329,8 @@ void mvn_preprocess(MVN *mvn, unsigned int force_eigen) {
   int retval = 1;
 
   if (mvn->type != MVN_GEN)
-    return;
+    return; /* NOTE: includes MVN_LOWR; in this case we don't want to
+               preprocess the outer MVN, only the embedded one */
   
   if (force_eigen == FALSE) {
     if (mvn->cholL == NULL)
@@ -527,22 +544,42 @@ double mvn_mu2(MVN *mvn) {
 /* project a vector in n dimensions representing a zero-mean MVN with
    covariance R x R^T down to the embedded k-dimensional MVN that lies
    in the column space of R.  The new vector a can be assumed to be an
-   MVN with zero mean and covariance R^T x R. Assumes Cholesky
-   decomposition is available for the embedded low-rank MVN */
+   MVN with zero mean and covariance R^T x R.  */
 void mvn_project_LOWR(MVN *mvn, Vector *z, Vector *a) {
   int n = mvn->lowR->nrows, k = mvn->lowR->ncols;
-  Vector *b = vec_new(k), *y = vec_new(k);
-
+  Vector *b = vec_new(k);
+  
   assert(z->size == n && a->size == k && mvn->lowRmvn != NULL &&
-         mvn->lowRmvn->cholL != NULL);
+         mvn->lowR_invRtR != NULL);
     
   mat_vec_mult_transp(b, mvn->lowR, z); /* start by computing b = R^T z */
 
-  /* now because we already have the Cholesky decomposition, we can
-     compute (R^T R)^-1 by forward and backward substitution, making
-     use of (R^T R)^-1 = (L L^T)^-1 */
-  mat_forward_subst(mvn->lowRmvn->cholL, b, y); /* solve Ly = b for y */
-  mat_backward_subst(mvn->lowRmvn->cholL, y, a); /* solve L^Ta = y for a */
+  /* now we can just pre-multiply by the precomputed inverse of R^T x R */
+  mat_vec_mult(a, mvn->lowR_invRtR, b);
+
+  vec_free(b);
+}
+
+/* compute the inverse of R^T x R for use in projecting n-dimensional
+   vectors down to the k-dimensional subspace spanned by R.  Can be
+   precomputed and stored for efficiency.  Uses Cholesky decomposition
+   of R^T x R. */
+void mvn_invert_RtR_LOWR(MVN *mvn) {
+  int k = mvn->lowR->ncols;
+  Vector *b = vec_new(k), *y = vec_new(k), *x = vec_new(k);
+  assert(mvn->lowRmvn->cholL != NULL);
+  
+  for (int j = 0; j < k; j++) { /* columns */
+    vec_zero(b);
+    vec_set(b, j, 1.0);
+    mat_forward_subst(mvn->lowRmvn->cholL, b, y);  /* solve L y = b for y */
+    mat_backward_subst(mvn->lowRmvn->cholL, y, x); /* solve L^T x = y for x */
+
+    /* fill out appropriate column of inv matrix */
+    for (int i = 0; i < k; i++)   /* rows */
+      mat_set(mvn->lowR_invRtR, i, j, vec_get(x, i));
+  }
   vec_free(b);
   vec_free(y);
+  vec_free(x);
 }

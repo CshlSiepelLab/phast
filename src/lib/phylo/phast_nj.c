@@ -25,6 +25,11 @@
 /* uncomment below line to dump gradients to a file called "grads_log.txt" */
 #define DUMPGRAD 1
 
+/* scale factor applied to all points in embedded space.  Helps
+   address the problem that branch lenghts tend to be small so means
+   and variances are close to zero without rescaling */
+#define POINTSCALE 100
+
 /* Reset Q matrix based on distance matrix.  Assume upper triangular
    square Q and D.  Only touches active rows and columns of Q and D up
    to maxidx. As a side-effect set u and v to the indices of the
@@ -376,7 +381,7 @@ void nj_points_to_distances_euclidean(Vector *points, Matrix *D) {
         sum += pow(vec_get(points, vidx1 + k) -
                    vec_get(points, vidx2 + k), 2);
       }
-      mat_set(D, i, j, sqrt(sum));
+      mat_set(D, i, j, sqrt(sum) / POINTSCALE);
     }
   }
 }
@@ -417,8 +422,9 @@ void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D, double negcurv
       if (fabs(1.0 + lor_inner) < 1.0e-8)
         mat_set(D, i, j, 0);
       else
-        mat_set(D, i, j, 1/sqrt(negcurvature) * acosh(-lor_inner));
+        mat_set(D, i, j, 1/sqrt(negcurvature) * acosh(-lor_inner) / POINTSCALE);
       /* distance between two points on the sheet, scaled by the curvature */
+      /* CHECK: is linear rescaling okay here? */
     }
   }
 }
@@ -729,7 +735,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     }
     
     if (data->type == LOWR) {
-      nj_set_kld_grad_LOWR(kldgrad, mmvn, data);
+      nj_set_kld_grad_LOWR(kldgrad, mmvn);
 
       if (data->sparsity != -1) { /* can also precompute */
         nj_set_sparsity_penalty_LOWR(sparsitygrad, mmvn, data);
@@ -1024,7 +1030,7 @@ void nj_estimate_mmvn_from_distances_euclidean(Matrix *D, int dim, multi_MVN *mm
   /* sort eigenvalues from largest to smallest */
   /* (eigenvalues are now guaranteed to be returned from smallest to
      largest so the sorting step could be avoided but will leave it
-     for now */
+     for now) */
   eiglst = lst_new_ptr(n);
   for (i = 0; i < n; i++) {
     Evidx *obj = malloc(sizeof(Evidx));
@@ -1052,7 +1058,7 @@ void nj_estimate_mmvn_from_distances_euclidean(Matrix *D, int dim, multi_MVN *mm
     rowsum_orig += mat_get(D, 0, j);
     rowsum_new += mat_get(Dsq, 0, j);
   }
-  vec_scale(mu_full, rowsum_orig/rowsum_new);
+  vec_scale(mu_full, rowsum_orig/rowsum_new); 
   mmvn_set_mu(mmvn, mu_full);
 
   /* covariance parameters should already be initialized */
@@ -1472,12 +1478,9 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
         mat_set(data->R, i, j, vec_get(data->params,
                                        i*data->R->ncols + j));
                                  /* note not log in this case */
-    mat_set_gram(mmvn->mvn->sigma, data->R);
-    mmvn_preprocess(mmvn, TRUE); /* it would be somewhat more
-                                    efficient to derive the
-                                    eigendecomposition from the SVD of
-                                    R but this makes better use of
-                                    existing code */
+
+    /* update the mvn accordingly */
+    mvn_reset_LOWR(mmvn->mvn, data->R);
   }
 }
 
@@ -1488,7 +1491,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   
   CovarData *retval = smalloc(sizeof(CovarData));
   retval->type = covar_param;
-  retval->lambda = LAMBDA_INIT;
+  retval->lambda = LAMBDA_INIT * pow(POINTSCALE, 2);
   retval->mvn_type = MVN_DIAG;
   retval->dist = dist;
   retval->nseqs = dist->nrows;
@@ -1518,7 +1521,8 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
         x2 += mat_get(dist, i, j) * mat_get(dist, i, j);
       }
     }
-    vec_set_all(retval->params, log(1.0/N * (x2/N - x*x/(N*N))));
+    vec_set_all(retval->params, log(1.0/N * (x2/N - x*x/(N*N))) + 2*log(POINTSCALE));
+    /* note scale by log of POINTSCALE^2 */
   }  
   else if (covar_param == DIST) {
     retval->mvn_type = MVN_GEN;
@@ -1546,9 +1550,9 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
       srandom((unsigned int)time(NULL));
       seeded = 1;
     }
-    sdev = sqrt(0.01 / retval->lowrank); /* yields expected variance
-                                            of 0.01 and expected
-                                            covariances of 0 */
+    sdev = sqrt(0.01 / retval->lowrank) * POINTSCALE; /* yields expected variance
+                                                         of 0.01 and expected
+                                                         covariances of 0 */
     for (i = 0; i < retval->nseqs; i++) {
       for (j = 0; j < retval->lowrank; j++) {
         double draw = norm_draw(0, sdev);
@@ -1660,24 +1664,24 @@ void nj_mmvn_to_distances(multi_MVN *mmvn, Matrix *D, unsigned int hyperbolic,
 }
 
 /* compute partial derivatives of KLD wrt variance parameters in LOWR
-   case based on eigendecomposition of covariance matrix */
-void nj_set_kld_grad_LOWR(Vector *kldgrad, multi_MVN *mmvn, CovarData *data) {
-  int i, j, l, m;
+   case */
+void nj_set_kld_grad_LOWR(Vector *kldgrad, multi_MVN *mmvn) {
+  int i, j;
   int offset = mmvn->d * mmvn->n;
-  double gij, UtR;
-  for (i = 0; i < data->R->nrows; i++) {
-    for (j = 0; j < data->R->ncols; j++) {
-      for (l = 0, gij = 0.0; l < data->R->ncols; l++) {
-        int evaloffset = data->R->nrows - data->R->ncols; /* skip first evals; these will be zero */
-        for (m = 0, UtR = 0.0; m < data->R->nrows; m++) 
-          UtR += mat_get(mmvn->mvn->evecs, m, evaloffset + l) * mat_get(data->R, m, j);
-        gij += (1.0 - 1.0/vec_get(mmvn->mvn->evals, evaloffset + l)) * UtR *
-          mat_get(mmvn->mvn->evecs, i, evaloffset + l);
-      }
-      gij *= mmvn->d;
-      vec_set(kldgrad, offset + i*data->R->ncols + j, -gij); /* remember to negate! */
-    }
-  }
+  Matrix *Rgrad = mat_new(mmvn->mvn->lowR->nrows, mmvn->mvn->lowR->ncols);
+
+  /* calculate partial derivatives using matrix operations, making use
+     of precomputed R^T x R */
+  mat_mult(Rgrad, mmvn->mvn->lowR, mmvn->mvn->lowR_invRtR);
+  mat_minus_eq(Rgrad, mmvn->mvn->lowR);
+  mat_scale(Rgrad, mmvn->d);  /* note: computing negative gradient; that is what we need */
+
+  /* populate vector from matrix */
+  for (i = 0; i < mmvn->mvn->lowR->nrows; i++) 
+    for (j = 0; j < mmvn->mvn->lowR->ncols; j++) 
+      vec_set(kldgrad, offset + i*mmvn->mvn->lowR->ncols + j, mat_get(Rgrad, i, j));
+
+  mat_free(Rgrad);
 }
 
 void nj_rescale_grad(Vector *grad, Vector *rsgrad, multi_MVN *mmvn, CovarData *data) {
