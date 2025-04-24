@@ -393,4 +393,9 @@ void mat_set_gram(Matrix *G, Matrix *A);
    vectors */
 void mat_set_gram_col(Matrix *G, Matrix *A);
 
+/* set G to a double centered version of square matrix D.  Set
+   upper_triangular to TRUE if D is represented in upper triangular
+   form */
+void mat_double_center(Matrix *G, Matrix *D, unsigned int upper_triangular);
+
 #endif

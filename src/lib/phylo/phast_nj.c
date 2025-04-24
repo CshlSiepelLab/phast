@@ -26,9 +26,13 @@
 #define DUMPGRAD 1
 
 /* scale factor applied to all points in embedded space.  Helps
-   address the problem that branch lenghts tend to be small so means
-   and variances are close to zero without rescaling */
-#define POINTSCALE 100
+   address the problem that branch lengths tend to be small so means
+   and variances are very close to zero */
+#define POINTSCALE 20
+
+/* use this as a floor for variance parameters.  Avoids drift to ever
+   smaller values */
+#define VARFLOOR 1.0e-2
 
 /* Reset Q matrix based on distance matrix.  Assume upper triangular
    square Q and D.  Only touches active rows and columns of Q and D up
@@ -445,7 +449,6 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   int i, j, k;
   double porig, ll_base, ll, deriv, loglambda_grad;
   TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
-  Vector *sigmapar = data->params;
 
   if (grad->size != dim + data->params->size)
     die("ERROR in nj_compute_model_grad: bad gradient dimension.\n");
@@ -496,7 +499,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
         /* in the DIAG case, the partial derivative wrt the
            corresponding variance parameter can be computed directly
            based on a single point and coordinate */
-        vec_set(grad, (i+n)*d + k, deriv * vec_get(points_std, pidx) * 0.5 * exp(0.5 * vec_get(sigmapar, pidx)));
+        vec_set(grad, (i+n)*d + k, deriv * vec_get(points_std, pidx) * 0.5 * sqrt(mat_get(mmvn->mvn->sigma, pidx, pidx)));
       
       else if (data->type == DIST) {
         /* in the DIST case, we add to a running total and update at the end */
@@ -711,6 +714,9 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     logdet = mmvn_log_det(mmvn);
     
     kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);
+
+    /* TEMPORARY - try rescaling */
+    kld *= 1.0/pow(POINTSCALE, 2);
     
     /* we can also precompute the contribution of the KLD to the gradient */
     /* Note KLD is subtracted rather than added, so compute the gradient of -KLD */
@@ -742,6 +748,9 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
         penalty = data->penalty;
       }
     }
+
+    /* TEMPORARY */
+    vec_scale(kldgrad, 1.0/pow(POINTSCALE, 2));
     
     /* now sample a minibatch from the MVN averaging distribution and
        compute log likelihoods and gradients */
@@ -958,26 +967,9 @@ void nj_reset_tree_model(TreeModel *mod, TreeNode *newtree) {
      likelihood function is invoked */
 }
 
-   
-/* comparison function for sorting by eigenvalues (below) */
-/** Structure representing complex number */
-typedef struct {
-  int idx;
-  Vector *evals;		       
-} Evidx;
-
-int nj_eigen_compare_desc(const void* ptr1, const void* ptr2) {
-  Evidx *idx1 = *((Evidx**)ptr1);
-  Evidx *idx2 = *((Evidx**)ptr2);
-  double eval1 = vec_get(idx1->evals, idx1->idx);
-  double eval2 = vec_get(idx2->evals, idx2->idx);
-  if (eval1 == eval2) return 0;
-  else if (eval1 < eval2) return 1;
-  return -1;
-}
-
-/* generate an approximate multivariate normal distribution from a distance matrix, for
-   use in initializing the variational inference algorithm.  */
+/* generate an approximate multivariate normal distribution from a
+   distance matrix, for use in initializing the variational inference
+   algorithm.  */
 void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
                                      double negcurvature, CovarData *data,
                                      unsigned int use_hyperbolic) {
@@ -995,8 +987,6 @@ void nj_estimate_mmvn_from_distances_euclidean(Matrix *D, int dim, multi_MVN *mm
   Matrix *Dsq, *G, *revec_real;
   Vector *eval_real;
   int i, j, d;
-  List *eiglst;
-  double rowsum_orig = 0, rowsum_new = 0;
   Vector *mu_full = vec_new(dim*n);
   
   if (D->nrows != D->ncols || mmvn->d * mmvn->n != dim * n)
@@ -1014,51 +1004,25 @@ void nj_estimate_mmvn_from_distances_euclidean(Matrix *D, int dim, multi_MVN *mm
     }
   }
 
-  /* build gram matrix */
+  /* double center */
   G = mat_new(n, n);
-  for (i = 0; i < n; i++)
-    for (j = 0; j < n; j++)
-      mat_set(G, i, j, mat_get(Dsq, i, 1) + mat_get(Dsq, 1, j) -
-	      mat_get(Dsq, i, j));
-
+  mat_double_center(G, Dsq, FALSE);
+  
   /* find eigendecomposition of G */
   eval_real = vec_new(n);
   revec_real = mat_new(n, n);
   if (mat_diagonalize_sym(G, eval_real, revec_real) != 0)
     die("ERROR in nj_estimate_mmvn_from_distances_euclidean: diagonalization failed.\n");
   
-  /* sort eigenvalues from largest to smallest */
-  /* (eigenvalues are now guaranteed to be returned from smallest to
-     largest so the sorting step could be avoided but will leave it
-     for now) */
-  eiglst = lst_new_ptr(n);
-  for (i = 0; i < n; i++) {
-    Evidx *obj = malloc(sizeof(Evidx));
-    obj->idx = i;
-    obj->evals = eval_real;
-    lst_push_ptr(eiglst, obj);
-  }
-  lst_qsort(eiglst, nj_eigen_compare_desc);
-  
   /* create a vector of points based on the first 'dim' eigenvalues */
-  for (d = 0; d < dim; d++) {
-    Evidx *obj = lst_get_ptr(eiglst, d);
-    double evalsqrt = sqrt(vec_get(eval_real, obj->idx));
-
+  for (d = 0; d < dim; d++)
     /* product of evalsqrt and corresponding column of revec will define
-       the dth component of each point */ 
+       the dth component of each point */    
     for (i = 0; i < n; i++)
-      vec_set(mu_full, i*dim + d, evalsqrt * mat_get(revec_real, i, obj->idx));
-  }  
+      vec_set(mu_full, i*dim + d, sqrt(vec_get(eval_real, n-1-d)) * mat_get(revec_real, i, n-1-d));
 
-  /* rescale the matrix to match the original distance matrix */
-  /* use sum of first row to normalize */
-  nj_points_to_distances(mu_full, Dsq, 0, FALSE);   /* reuse Dsq here, no longer needed */
-  for (j = 1; j < n; j++) {
-    rowsum_orig += mat_get(D, 0, j);
-    rowsum_new += mat_get(Dsq, 0, j);
-  }
-  vec_scale(mu_full, rowsum_orig/rowsum_new); 
+  /* rescale */
+  vec_scale(mu_full, POINTSCALE);
   mmvn_set_mu(mmvn, mu_full);
 
   /* covariance parameters should already be initialized */
@@ -1082,7 +1046,6 @@ void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *m
   Matrix *A, *revec_real;
   Vector *eval_real;
   int i, j, d;
-  List *eiglst;
   Vector *mu_full = vec_new(dim*n);
     
   if (D->nrows != D->ncols || mmvn->d * mmvn->n != dim * n)
@@ -1106,35 +1069,19 @@ void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *m
   if (mat_diagonalize_sym(A, eval_real, revec_real) != 0)
     die("ERROR in nj_estimate_mmvn_from_distances_hyperbolic: diagonalization failed.\n");
 
-  /* sort eigenvalues from largest to smallest */ 
-  eiglst = lst_new_ptr(n);
-  for (i = 0; i < n; i++) {
-    Evidx *obj = malloc(sizeof(Evidx));
-    obj->idx = i;
-    obj->evals = eval_real;
-    lst_push_ptr(eiglst, obj);
-  }
-  lst_qsort(eiglst, nj_eigen_compare_desc);
-
-  /* create a vector of points based on eigenvalues (n-dim+1) through
-     n (1st dimension will be implicit) */
+  /* create a vector of points based on the first 'dim' eigenvalues */
   for (d = 0; d < dim; d++) {
-    int eigd = n - dim + d;
-    Evidx *obj = lst_get_ptr(eiglst, eigd); 
-    double ev = -vec_get(eval_real, obj->idx);
-    if (ev < 0) ev = 0;
-
     /* product of evalsqrt and corresponding column of revec will define
-       the dth component of each point */ 
-    for (i = 0; i < n; i++)
-      vec_set(mu_full, i*dim + d, sqrt(ev) * mat_get(revec_real, i, obj->idx));
-  }   
+       the dth component of each point */
+    double ev = -vec_get(eval_real, n-1-d);
+    if (ev < 0) ev = 1e-6;
+    for (i = 0; i < n; i++) 
+      vec_set(mu_full, i*dim + d, sqrt(ev) * mat_get(revec_real, i, n-1-d));
+  }
+
+  vec_scale(mu_full, POINTSCALE);
   mmvn_set_mu(mmvn, mu_full); 
   
-  for (i = 0; i < n; i++)
-    free((Evidx*)lst_get_ptr(eiglst, i));
-  lst_free(eiglst);
-
   /* covariance parameters should already be initialized */
   nj_update_covariance(mmvn, data);
   
@@ -1451,15 +1398,15 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
   mat_zero(mmvn->mvn->sigma);
   if (data->type == CONST) {
     mat_set_identity(mmvn->mvn->sigma);
-    data->lambda = exp(vec_get(sigma_params, 0));
+    data->lambda = VARFLOOR + exp(vec_get(sigma_params, 0));
     mat_scale(mmvn->mvn->sigma, data->lambda);
   }
   else if (data->type == DIAG) {
     for (i = 0; i < sigma_params->size; i++) 
-      mat_set(mmvn->mvn->sigma, i, i, exp(vec_get(sigma_params, i)));
+      mat_set(mmvn->mvn->sigma, i, i, VARFLOOR + exp(vec_get(sigma_params, i)));
   }
   else if (data->type == DIST) { 
-    data->lambda = exp(vec_get(sigma_params, 0));
+    data->lambda = VARFLOOR + exp(vec_get(sigma_params, 0));
     mat_copy(mmvn->mvn->sigma, data->Lapl_pinv);
     mat_scale(mmvn->mvn->sigma, data->lambda);
     if (mmvn->mvn->evecs == NULL) {
@@ -1592,36 +1539,13 @@ void nj_dump_covar_data(CovarData *data, FILE *F) {
    eigendecomposition for use in gradient calculations. Store
    everything in CovarData object */
 void nj_laplacian_pinv(CovarData *data) {
-  int i, j, dim = data->dist->nrows;
-  double grandmean = 0, epsilon, val, x;
-  Vector *row_mean = vec_new(dim);
+  int i, dim = data->dist->nrows;
+  double epsilon;
   
   /* define Laplacian pseudoinverse as double centered version of
      distance matrix */
+  mat_double_center(data->Lapl_pinv, data->dist, TRUE);
   
-  /* first compute column/row means and grand mean */
-  vec_zero(row_mean);
-  for (i = 0; i < dim; i++) {
-    double rowsum = 0;
-    for (j = 0; j < dim; j++) {
-      val = (j >= i ? mat_get(data->dist, i, j) : mat_get(data->dist, j, i));
-      /* stored in upper triangular form */
-      rowsum += val;
-      grandmean += val;
-    }
-    vec_set(row_mean, i, rowsum/dim);
-  }
-  grandmean /= (dim * dim);
-
-  /* now double center */
-  for (i = 0; i < dim; i++) {
-    for (j = 0; j < dim; j++) {
-      x = (j >= i ? mat_get(data->dist, i, j) : mat_get(data->dist, j, i));
-      val = -0.5 * (x - vec_get(row_mean, i) - vec_get(row_mean, j) + grandmean);
-      mat_set(data->Lapl_pinv, i, j, val);
-    }
-  }
-      
   /* this matrix is only defined up to a translation because it is
      based on pairwise distances.  For it to define a valid covariance
      matrix (up to a positive scale constant) we need to ensure that
@@ -1630,8 +1554,7 @@ void nj_laplacian_pinv(CovarData *data) {
      small margin.  This will preserve the eigenvectors but shift all
      eigenvalues upward by epsilon */
   if (mat_diagonalize_sym(data->Lapl_pinv, data->Lapl_pinv_evals, data->Lapl_pinv_evecs) != 0)
-    die("ERROR in nj_laplacian_pinv: diagonalization failed.\n");
-    
+    die("ERROR in nj_laplacian_pinv: diagonalization failed.\n");    
 
   epsilon = vec_get(data->Lapl_pinv_evals, 0) + 1e-6;
   /* mat_diagonalize_sym guarantees eigenvalues are in ascending order */
@@ -1642,8 +1565,6 @@ void nj_laplacian_pinv(CovarData *data) {
     vec_set(data->Lapl_pinv_sqrt_evals, i, sqrt(vec_get(data->Lapl_pinv_evals, i)));
     /* precompute these also for speed */
   }
-
-  vec_free(row_mean);
 }
 
 /* wrapper for nj_points_to_distances functions */

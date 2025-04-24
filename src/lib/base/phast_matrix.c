@@ -493,4 +493,37 @@ void mat_set_gram_col(Matrix *G, Matrix *A) {
   }
 }
 
+/* set G to a double centered version of square matrix D.  Set
+   upper_triangular to TRUE if D is represented in upper triangular
+   form */
+void mat_double_center(Matrix *G, Matrix *D, unsigned int upper_triangular) {
+  int i, j, n = D->nrows;
+  double grandmean = 0, val, x;
+  Vector *row_mean = vec_new(n);
+  if (D->ncols != n || G->nrows != n || G->ncols != n) 
+    die("ERROR in mat_double_center: bad dimensions.\n");
+
+  /* first compute column/row means and grand mean */  
+  for (i = 0; i < n; i++) {
+    double rowsum = 0;
+    for (j = 0; j < n; j++) {
+      val = (!upper_triangular || j >= i ? mat_get(D, i, j) : mat_get(D, j, i));
+      rowsum += val;
+      grandmean += val;
+    }
+    vec_set(row_mean, i, rowsum/n);
+  }
+  grandmean /= (n * n);
+  
+  /* now double center */
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < n; j++) {
+      x = (!upper_triangular || j >= i ? mat_get(D, i, j) : mat_get(D, j, i));
+      val = -0.5 * (x - vec_get(row_mean, i) - vec_get(row_mean, j) + grandmean);
+      mat_set(G, i, j, val);
+    }
+  }
+  vec_free(row_mean);
+}
+
 #endif
