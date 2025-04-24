@@ -656,7 +656,6 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     die("ERROR in nj_variational_inf: bad dimensions\n");
 
   points = vec_new(fulld);
-  points_std = vec_new(fulld);
   pointsnext = vec_new(fulld);
   graddim = fulld + data->params->size;
   grad = vec_new(graddim);  
@@ -667,6 +666,13 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
   m_prev = vec_new(graddim);
   v = vec_new(graddim);
   v_prev = vec_new(graddim);
+
+  if (data->type == LOWR) /* in this case, the underlying standard
+                             normal MVN is of the lower dimension */
+    points_std = vec_new(data->lowrank * dim);
+  else
+    points_std = vec_new(fulld);
+
   if (data->type == LOWR && data->sparsity != -1)
     sparsitygrad = vec_new(graddim);
   
