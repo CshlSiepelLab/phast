@@ -129,34 +129,23 @@ void mmvn_sample_anti(multi_MVN *mmvn, Vector *retval1, Vector *retval2) {
    depend on the reparameterization trick */
 void mmvn_sample_anti_keep(multi_MVN *mmvn, Vector *retval1,
                            Vector *retval2, Vector *origstd) {
-  int d;
-  if (mmvn->type == MVN_GEN) {
-    Vector *xcomp1 = vec_new(mmvn->n), *xcomp2 = vec_new(mmvn->n);
-    assert(retval1->size == mmvn->d * mmvn->n &&
-           retval2->size == mmvn->d * mmvn->n);
-    for (d = 0; d < mmvn->d; d++) {
-      mmvn->mvn->mu = mmvn->mu[d]; /* swap in the appropriate mean */
-      mvn_sample_anti_keep(mmvn->mvn, xcomp1, xcomp2, origstd);
-      mmvn_project_up(mmvn, xcomp1, retval1, d);
-      mmvn_project_up(mmvn, xcomp2, retval2, d);
-    }
-    vec_free(xcomp1);
-    vec_free(xcomp2);
-  }
-  else if (mmvn->type == MVN_LOWR) { 
-    int k = origstd->size / mmvn->d;
+  if (mmvn->type == MVN_GEN || mmvn->type == MVN_LOWR) {
+    int d, k = (mmvn->type == MVN_LOWR ? mmvn->mvn->lowR->ncols : mmvn->n);
     Vector *xcomp1 = vec_new(mmvn->n), *xcomp2 = vec_new(mmvn->n),
-      stdlowr = vec_new(k);
+      *stdproj = vec_new(k);
     assert(retval1->size == mmvn->d * mmvn->n &&
-           retval2->size == mmvn->d * mmvn->n);
+           retval2->size == mmvn->d * mmvn->n &&
+           origstd->size == k * mmvn->d);
     for (d = 0; d < mmvn->d; d++) {
       mmvn->mvn->mu = mmvn->mu[d]; /* swap in the appropriate mean */
-      mvn_sample_anti_keep(mmvn->mvn, xcomp1, xcomp2, stdlowr);
+      mvn_sample_anti_keep(mmvn->mvn, xcomp1, xcomp2, stdproj);
       mmvn_project_up(mmvn, xcomp1, retval1, d);
       mmvn_project_up(mmvn, xcomp2, retval2, d);
+      mmvn_project_up(mmvn, stdproj, origstd, d);
     }
     vec_free(xcomp1);
     vec_free(xcomp2);
+    vec_free(stdproj);
   }
   else
     /* in this case it's just as efficient to use the full MVN */
@@ -226,10 +215,12 @@ void mmvn_project_down(multi_MVN *mmvn, Vector *x_full, Vector *x_d, int d) {
    project them up to the full n*d dimensional space */
 void mmvn_project_up(multi_MVN *mmvn, Vector *x_d, Vector *x_full, int d) {
   int i;
-  assert(x_d->size == mmvn->n &&
-         x_full->size == mmvn->n * mmvn->d &&
-         (mmvn->type == MVN_GEN || mmvn->type == MVN_LOWR));
-  for (i = 0; i < mmvn->n; i++) 
+  assert((mmvn->type == MVN_GEN || mmvn->type == MVN_LOWR) &&
+         (x_d->size == mmvn->n ||
+          mmvn->type == MVN_LOWR && x_d->size == mmvn->mvn->lowR->ncols) &&
+         (x_full->size == mmvn->n * mmvn->d ||
+          mmvn->type == MVN_LOWR && x_full->size == mmvn->mvn->lowR->ncols * mmvn->d));
+  for (i = 0; i < x_d->size; i++) 
     vec_set(x_full, i*mmvn->d + d, vec_get(x_d, i));
 }
 
