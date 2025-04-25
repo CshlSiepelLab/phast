@@ -129,12 +129,9 @@ void mmvn_sample_anti(multi_MVN *mmvn, Vector *retval1, Vector *retval2) {
    depend on the reparameterization trick */
 void mmvn_sample_anti_keep(multi_MVN *mmvn, Vector *retval1,
                            Vector *retval2, Vector *origstd) {
-  if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR)
-    /* in this case it's just as efficient to use the full MVN */
-    mvn_sample_anti_keep(mmvn->mvn, retval1, retval2, origstd);
-  else {
+  int d;
+  if (mmvn->type == MVN_GEN) {
     Vector *xcomp1 = vec_new(mmvn->n), *xcomp2 = vec_new(mmvn->n);
-    int d;
     assert(retval1->size == mmvn->d * mmvn->n &&
            retval2->size == mmvn->d * mmvn->n);
     for (d = 0; d < mmvn->d; d++) {
@@ -146,6 +143,24 @@ void mmvn_sample_anti_keep(multi_MVN *mmvn, Vector *retval1,
     vec_free(xcomp1);
     vec_free(xcomp2);
   }
+  else if (mmvn->type == MVN_LOWR) { 
+    int k = origstd->size / mmvn->d;
+    Vector *xcomp1 = vec_new(mmvn->n), *xcomp2 = vec_new(mmvn->n),
+      stdlowr = vec_new(k);
+    assert(retval1->size == mmvn->d * mmvn->n &&
+           retval2->size == mmvn->d * mmvn->n);
+    for (d = 0; d < mmvn->d; d++) {
+      mmvn->mvn->mu = mmvn->mu[d]; /* swap in the appropriate mean */
+      mvn_sample_anti_keep(mmvn->mvn, xcomp1, xcomp2, stdlowr);
+      mmvn_project_up(mmvn, xcomp1, retval1, d);
+      mmvn_project_up(mmvn, xcomp2, retval2, d);
+    }
+    vec_free(xcomp1);
+    vec_free(xcomp2);
+  }
+  else
+    /* in this case it's just as efficient to use the full MVN */
+    mvn_sample_anti_keep(mmvn->mvn, retval1, retval2, origstd);
 }
 
 /* Map a standard multi_MVN variable to a general multi_MVN variable.
