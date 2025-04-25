@@ -1404,7 +1404,7 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
   mat_zero(mmvn->mvn->sigma);
   if (data->type == CONST) {
     mat_set_identity(mmvn->mvn->sigma);
-    data->lambda = VARFLOOR + exp(vec_get(sigma_params, 0));
+    data->lambda = (VARFLOOR + exp(vec_get(sigma_params, 0)));
     mat_scale(mmvn->mvn->sigma, data->lambda);
   }
   else if (data->type == DIAG) {
