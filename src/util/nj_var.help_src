@@ -126,6 +126,13 @@ OPTIONS:
         (default 3) For use with --covar LOWR. Rank of low-rank
         approximation of covariance matrix.  
 
+    --natural-grad, -N
+        During stochastic gradient ascent, use approximate natural
+        gradient scale by multiplying each gradient by the corresponding
+        approximate inverse Fisher information. Improves convergence in
+        some cases, but may fail when variance parameters get very small.
+        Currently untested in DIST and LOWR cases.
+
     --sparsity, -P <penalty>
         For use with --covar LOWR.  Encourage sparsity of covariance matrix
         by applying the specified penalty to off-diagonal elements.  The

@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
     min_nbatches = DEFAULT_MIN_NBATCHES, rank = DEFAULT_RANK;
   unsigned int nj_only = FALSE, random_start = FALSE,
     hyperbolic = FALSE, embedding_only = FALSE, importance_sampling = FALSE,
-    mvn_dump = FALSE;
+    mvn_dump = FALSE, natural_grad = FALSE;
   MSA *msa = NULL;
   enum covar_type covar_param = DIAG;
 
@@ -73,6 +73,7 @@ int main(int argc, char *argv[]) {
     {"names", 1, 0, 'n'},
     {"negcurvature", 1, 0, 'K'},
     {"nj-only", 0, 0, 'j'},
+    {"natural-grad", 0, 0, 'N'},
     {"out-dists", 1, 0, 'o'},
     {"nsamples", 1, 0, 's'},
     {"learnrate", 1, 0, 'r'},
@@ -87,7 +88,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:o:P:r:Rt:T:VW:S:s:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:No:P:r:Rt:T:VW:S:s:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -144,6 +145,9 @@ int main(int argc, char *argv[]) {
       names = smalloc(ntips * sizeof(char*));
       for (i = 0; i < ntips; i++)
         names[i] = ((String*)lst_get_ptr(namestr, i))->chars;
+      break;
+    case 'N':
+      natural_grad = TRUE;
       break;
     case 'o':
       outdistfile = phast_fopen(optarg, "w");
@@ -269,7 +273,7 @@ int main(int argc, char *argv[]) {
   /* we must have a distance matrix now; make sure valid */
   nj_test_D(D);
 
-  covar_data = nj_new_covar_data(covar_param, D, dim, rank, sparsity);
+  covar_data = nj_new_covar_data(covar_param, D, dim, natural_grad, rank, sparsity);
   
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */

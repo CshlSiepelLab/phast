@@ -12,7 +12,8 @@
 int main(int argc, char *argv[]) {
   int i, j, d, d2, idx1, idx2;
   double val;
-  Vector *x = vec_new(MVN_N * MVN_D), *x_std = vec_new(MVN_N * MVN_D);
+  Vector *x = vec_new(MVN_N * MVN_D), *x_std = vec_new(MVN_N * MVN_D),
+    *xnext = vec_new(MVN_N * MVN_D);
   MVN *mvn;
   multi_MVN *mmvn;
   Matrix *shared_sigma = mat_new(MVN_N, MVN_N);
@@ -126,6 +127,19 @@ int main(int argc, char *argv[]) {
 
   for (i = 0; i < mmvn->n * mmvn->d; i++) 
     printf("Mu element %d: %f\n", i, mmvn_get_mu_el(mmvn, i));
+
+
+  /* sample with antithetics */
+  printf("------\nAntithetic sampling from MMVN:\n-----\n");
+  for (i = 0; i < 10000; i++) {
+    if (i % 2 == 0)
+      mmvn_sample_anti_keep(mmvn, x, xnext, x_std);
+    else {
+      vec_copy(x, xnext);
+      vec_scale(x_std, -1.0);
+    }
+    vec_print(x, stdout);
+  }
   
   return(0);
 }

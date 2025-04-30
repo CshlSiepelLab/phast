@@ -23,6 +23,7 @@
 #include <phast/multi_mvn.h>
 #include <phast/misc.h>
 
+/* for numerical derivatives */
 #define DERIV_EPS 1e-5
 
 /* tuning parameters for Adam algorithm.  These will be kept at the
@@ -33,8 +34,18 @@
 #define ADAM_BETA2 0.9
 #define ADAM_EPS 1e-8
 
-/* don't allow variance terms to get smaller than this value */
-#define MIN_VAR 1e-6
+/* scale factor applied to all points in embedded space.  Helps
+   address the problem that branch lengths tend to be small so means
+   and variances can get close to zero */
+#define POINTSCALE 100
+
+/* use this as a floor for variance parameters.  Avoids drift to ever
+   smaller values */
+#define VARFLOOR 1.0e-3
+
+/* initialization of lambda, which is scale factor for covariance
+   matrix in DIST and CONST parameterizations */
+#define LAMBDA_INIT (1.0e-5 * POINTSCALE * POINTSCALE)
 
 /* types of parameterization for covariance matrix: constant (and
    diagonal), diagonal with free variances, proportional to Laplacian
@@ -44,7 +55,6 @@ enum covar_type {CONST, DIAG, DIST, LOWR};
   
 /* auxiliary data for parameterization of covariance matrix in DIST
    case */
-#define LAMBDA_INIT 0.001
 typedef struct {
   enum covar_type type; /* type of parameterization */
   int nseqs; /* number of taxa in tree */
@@ -53,13 +63,14 @@ typedef struct {
   Vector *params; /* vector of free parameters */
   double lambda;  /* scale parameter for covariance matrix 
                      (DIST or CONST cases) */
+  unsigned int natural_grad; /* whether to rescale for natural
+                                gradients during optimization */
   Matrix *dist;   /* distance matrix on which covariance is based */
   int lowrank;  /* dimension of low-rank approximation if LOWR or -1
                    otherwise */
   Matrix *Lapl_pinv;  /* Laplacian pseudoinverse (DIST) */
   Vector *Lapl_pinv_evals; /* eigendecomposition of Lapl_pinv (DIST) */
   Matrix *Lapl_pinv_evecs;
-  Vector *Lapl_pinv_sqrt_evals; /* precompute for efficiency (DIST) */
   Matrix *R; /* used for LOWR; has dimension lowrank x nseqs */
   double sparsity; /* multiplier for sparsity penalty */
   double penalty; /* the current value of the penalty */
@@ -139,7 +150,8 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
 void nj_update_covariance(multi_MVN *mmvn, CovarData *data);
 
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
-                             int dim, int rank, double sparsity);
+                             int dim, unsigned int natural_grad,
+                             int rank, double sparsity);
 
 void nj_dump_covar_data(CovarData *data, FILE *F);
 

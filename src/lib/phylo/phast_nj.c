@@ -22,17 +22,9 @@
 #include "phast/mvn.h"
 #include "phast/multi_mvn.h"
 
-/* uncomment below line to dump gradients to a file called "grads_log.txt" */
+/* uncomment to dump gradients to a file called "grads_log.txt" */
 #define DUMPGRAD 1
 
-/* scale factor applied to all points in embedded space.  Helps
-   address the problem that branch lengths tend to be small so means
-   and variances are very close to zero */
-#define POINTSCALE 20
-
-/* use this as a floor for variance parameters.  Avoids drift to ever
-   smaller values */
-#define VARFLOOR 1.0e-2
 
 /* Reset Q matrix based on distance matrix.  Assume upper triangular
    square Q and D.  Only touches active rows and columns of Q and D up
@@ -493,30 +485,23 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
       /* the partial derivative wrt the variance parameter, however,
          is more complicated, because of the reparameterization trick */
       
-      if (data->type == CONST)
-        loglambda_grad += deriv * vec_get(points_std, pidx);
+      if (data->type == CONST || data->type == DIST)
+        loglambda_grad += 0.5 * deriv * (porig - mmvn_get_mu_el(mmvn, pidx));
+      /* assumes log parameterization of scale factor lambda */
+      
       else if (data->type == DIAG) 
         /* in the DIAG case, the partial derivative wrt the
            corresponding variance parameter can be computed directly
            based on a single point and coordinate */
-        vec_set(grad, (i+n)*d + k, deriv * vec_get(points_std, pidx) * 0.5 * sqrt(mat_get(mmvn->mvn->sigma, pidx, pidx)));
+        vec_set(grad, (i+n)*d + k, 0.5 * deriv * (porig - mmvn_get_mu_el(mmvn, pidx)));
       
-      else if (data->type == DIST) {
-        /* in the DIST case, we add to a running total and update at the end */
-        for (j = 0; j < n; j++)
-          loglambda_grad += deriv * mat_get(data->Lapl_pinv_evecs, i, j) *
-            vec_get(data->Lapl_pinv_sqrt_evals, j) * vec_get(points_std, j*d + k); 
-        /* we'll apply the scale factor of 1/(2 * sqrt(lambda)) once
-           at the end for efficiency (below) */
-      }
       vec_set(points, pidx, porig); /* restore orig */
     }
   }
   if (data->type == CONST || data->type == DIST) /* in this case, need to update the final
                                                     gradient component corresponding to the
                                                     lambda parameter */
-    vec_set(grad, dim, loglambda_grad * 0.5 * sqrt(data->lambda));
-  /* now apply scale factor; assumes parameter is log(lambda) */
+    vec_set(grad, dim, loglambda_grad); 
 
   else if (data->type == LOWR) { /* in this case have to sum across
                                     dimensions because there is a
@@ -689,11 +674,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       fprintf(logf, "penalty\t");
     for (j = 0; j < fulld; j++)
       fprintf(logf, "mu.%d\t", j);
-    if (data->type == DIST || data->type == CONST)
-      fprintf(logf, "lambda\t");
-    else
-      for (j = 0; j < sigmapar->size; j++)
-        fprintf(logf, "sigma.%d\t", j);
+    for (j = 0; j < sigmapar->size; j++)
+      fprintf(logf, "sigma.%d\t", j);
     //    for (i = 0; i < D->nrows; i++)
     //  for (j = i+1; j < D->ncols; j++)
     //    fprintf(logf, "D.%d.%d\t", i, j);
@@ -734,12 +716,10 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       else {            /* partial deriv wrt sigma_j is more
                            complicated because of the trace and log
                            determinant */
-        if (data->type == CONST)
+        if (data->type == CONST || data->type == DIST)
           gj = 0.5 * (fulld - trace);
         else if (data->type == DIAG) 
           gj = 0.5 * (1.0 - mat_get(mmvn->mvn->sigma, j-fulld, j-fulld)); 
-        else if (data->type == DIST)
-          gj = 0.5 * (-trace + fulld); 
         else 
           continue; /* LOWR case is messy; handle below */
       }
@@ -776,6 +756,14 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
         vec_scale(points_std, -1.0);
       }
       
+      /* fprintf(stderr, "points: "); */
+      /* vec_print(points, stderr); */
+      /* fprintf(stderr, "points_std: "); */
+      /* vec_print(points_std, stderr); */
+      for (j = 0; j < points->size; j++)
+        fprintf(stderr, "%f\t", vec_get(points, j)-mmvn_get_mu_el(mmvn, j));
+      fprintf(stderr, "\n");
+      
       ll = nj_compute_model_grad(mod, mmvn, msa, hyperbolic, negcurvature, 
                                  points, points_std, grad, D, data);
       avell += ll;
@@ -810,7 +798,10 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
 
     /* rescale gradient by approximate inverse Fisher information to
        put on similar scales; seems to help with optimization */
-    nj_rescale_grad(avegrad, rescaledgrad, mmvn, data);
+    if (data->natural_grad == TRUE)
+      nj_rescale_grad(avegrad, rescaledgrad, mmvn, data);
+    else
+      vec_copy(rescaledgrad, avegrad);
     
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
     t++;
@@ -841,11 +832,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       if (data->type == LOWR && data->sparsity != -1)
         fprintf(logf, "%f\t", data->penalty);
       mmvn_print(mmvn, logf, TRUE, FALSE);
-      if (data->type == DIST || data->type == CONST)
-        fprintf(logf, "%f", data->lambda);
-      else
-        for (j = 0; j < sigmapar->size; j++)
-          fprintf(logf, "%f\t", vec_get(sigmapar, j));
+      for (j = 0; j < sigmapar->size; j++)
+        fprintf(logf, "%f\t", vec_get(sigmapar, j));
       fprintf(logf, "\n");
       //      nj_mmvn_to_distances(mmvn, D, hyperbolic, negcurvature);
       //for (i = 0; i < D->nrows; i++)
@@ -866,7 +854,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     if (t % nbatches_conv == 0) {
       if (logf != NULL)
         fprintf(logf, "# Average for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
-      if (t >= min_nbatches && running_tot <= last_running_tot)
+      if (t >= min_nbatches && 1.001*running_tot <= last_running_tot*0.999)
+        /* sometimes get stuck increasingly asymptotically; stop if increase not more than about 0.1% */
         stop = TRUE;
       else {
         last_running_tot = running_tot;
@@ -885,12 +874,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
             bestt+1, bestelb, bestll, bestkld);
     if (data->type == LOWR && data->sparsity != -1)
       fprintf(logf, "penalty: %f, ", bestpenalty);
-    if (data->type == DIST || data->type == CONST)
-      fprintf(logf, "lambda: %f, ", data->lambda);
-    else {
-      fprintf(logf, "sigmapar: ");
-      vec_print(sigmapar, logf);
-    }
+    fprintf(logf, "sigmapar: ");
+    vec_print(sigmapar, logf);
     //    mmvn_print(mmvn, logf, TRUE, FALSE);
     fprintf(logf, "\n");
   }
@@ -1411,10 +1396,11 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
     for (i = 0; i < sigma_params->size; i++) 
       mat_set(mmvn->mvn->sigma, i, i, VARFLOOR + exp(vec_get(sigma_params, i)));
   }
-  else if (data->type == DIST) { 
+  else if (data->type == DIST) {
     data->lambda = VARFLOOR + exp(vec_get(sigma_params, 0));
     mat_copy(mmvn->mvn->sigma, data->Lapl_pinv);
     mat_scale(mmvn->mvn->sigma, data->lambda);
+
     if (mmvn->mvn->evecs == NULL) {
       mmvn->mvn->evecs = mat_new(mmvn->n, mmvn->n);
       mmvn->mvn->evals = vec_new(mmvn->n);
@@ -1438,20 +1424,20 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
 }
 
 /* create a new CovarData object appropriate for the choice of parameterization */
-CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim, int rank,
-                             double sparsity) {
+CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
+                             unsigned int natural_grad, int rank, double sparsity) {
   static int seeded = 0;
   
   CovarData *retval = smalloc(sizeof(CovarData));
   retval->type = covar_param;
-  retval->lambda = LAMBDA_INIT * pow(POINTSCALE, 2);
+  retval->lambda = LAMBDA_INIT;
   retval->mvn_type = MVN_DIAG;
   retval->dist = dist;
   retval->nseqs = dist->nrows;
   retval->dim = dim;
+  retval->natural_grad = natural_grad;
   retval->Lapl_pinv = NULL;
   retval->Lapl_pinv_evals = NULL;
-  retval->Lapl_pinv_sqrt_evals = NULL;
   retval->Lapl_pinv_evecs = NULL;
   retval->lowrank = -1;
   retval->R = NULL;
@@ -1460,7 +1446,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   if (covar_param == CONST) {
     /* store constant */
     retval->params = vec_new(1);
-    vec_set(retval->params, 0, log(retval->lambda));  /* use lambda for scale; log parameterization */
+    vec_set(retval->params, 0, log(retval->lambda-VARFLOOR));  /* use lambda for scale; log parameterization */
   }
   else if (covar_param == DIAG) {
     int i, j;
@@ -1474,18 +1460,17 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
         x2 += mat_get(dist, i, j) * mat_get(dist, i, j);
       }
     }
-    vec_set_all(retval->params, log(1.0/N * (x2/N - x*x/(N*N))) + 2*log(POINTSCALE));
+    vec_set_all(retval->params, log(1.0/(N*N) * (x2/N - x*x/(N*N))) + 2*log(POINTSCALE));
     /* note scale by (log of) POINTSCALE^2 */
   }  
   else if (covar_param == DIST) {
     retval->mvn_type = MVN_GEN;
     retval->params = vec_new(1);
-    vec_set(retval->params, 0, log(retval->lambda));
+    vec_set(retval->params, 0, log(retval->lambda-VARFLOOR));
     retval->Lapl_pinv = mat_new(dist->nrows, dist->ncols);
     retval->Lapl_pinv_evals = vec_new(dist->nrows);
-    retval->Lapl_pinv_sqrt_evals = vec_new(dist->nrows);
     retval->Lapl_pinv_evecs = mat_new(dist->nrows, dist->nrows);
-    nj_laplacian_pinv(retval);  /* set up the Laplacian pseudoinverse */
+    nj_laplacian_pinv(retval);  /* set up the Laplacian pseudoinverse */    
   }
   else if (covar_param == LOWR) {
     double sdev;
@@ -1503,9 +1488,9 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
       srandom((unsigned int)time(NULL));
       seeded = 1;
     }
-    sdev = sqrt(0.01 / retval->lowrank) * POINTSCALE; /* yields expected variance
-                                                         of 0.01 and expected
-                                                         covariances of 0 */
+    sdev = sqrt(LAMBDA_INIT / retval->lowrank); /* yields expected variance
+                                                   of LAMBDA_INIT and expected
+                                                   covariances of 0 */
     for (i = 0; i < retval->nseqs; i++) {
       for (j = 0; j < retval->lowrank; j++) {
         double draw = norm_draw(0, sdev);
@@ -1546,7 +1531,7 @@ void nj_dump_covar_data(CovarData *data, FILE *F) {
    everything in CovarData object */
 void nj_laplacian_pinv(CovarData *data) {
   int i, dim = data->dist->nrows;
-  double epsilon;
+  double epsilon, trace;
   
   /* define Laplacian pseudoinverse as double centered version of
      distance matrix */
@@ -1568,9 +1553,14 @@ void nj_laplacian_pinv(CovarData *data) {
   for (i = 0; i < dim; i++) {
     mat_set(data->Lapl_pinv, i, i, mat_get(data->Lapl_pinv, i, i) + epsilon);
     vec_set(data->Lapl_pinv_evals, i, vec_get(data->Lapl_pinv_evals, i) + epsilon);
-    vec_set(data->Lapl_pinv_sqrt_evals, i, sqrt(vec_get(data->Lapl_pinv_evals, i)));
-    /* precompute these also for speed */
   }
+
+  /* finally, rescale so average diagonal element is one (in space of
+     final sigma), putting matrix on the same scale as the identity
+     matrix used for the CONST parameterization */
+  trace = vec_sum(data->Lapl_pinv_evals);
+  mat_scale(data->Lapl_pinv, data->nseqs / (trace * data->dim));
+  vec_scale(data->Lapl_pinv_evals, data->nseqs / (trace * data->dim));
 }
 
 /* wrapper for nj_points_to_distances functions */
@@ -1611,6 +1601,8 @@ void nj_set_kld_grad_LOWR(Vector *kldgrad, multi_MVN *mmvn) {
   mat_free(Rgrad);
 }
 
+/* rescale gradients by approximate inverse Fisher information for approx
+   natural gradient scale */
 void nj_rescale_grad(Vector *grad, Vector *rsgrad, multi_MVN *mmvn, CovarData *data) {
   int i, j, fulld = mmvn->n * mmvn->d;
   for (i = 0; i < grad->size; i++) {
@@ -1618,8 +1610,8 @@ void nj_rescale_grad(Vector *grad, Vector *rsgrad, multi_MVN *mmvn, CovarData *d
     
     if (i < fulld) { /* mean gradients */
       if (data->type == CONST || data->type == DIAG) 
-        g *= mat_get(mmvn->mvn->sigma, i, i);
-      else { /* DIST or LOWR */ 
+        g *= mat_get(mmvn->mvn->sigma, i, i); /* these are all the same in the CONST case */
+      else { /* DIST or LOWR */ /* CHECK: this code untested */
         /* scale by dot product of corresponding row of sigma with the original gradient */
         double dotp = 0.0;
         int sigmarow = i / mmvn->d;  /* project down to sigma */
@@ -1630,10 +1622,12 @@ void nj_rescale_grad(Vector *grad, Vector *rsgrad, multi_MVN *mmvn, CovarData *d
       }
     }
     else { /* variance gradients */
-      if (data->type == CONST || data->type == DIAG) 
-        g *= 0.5; /* assumes variance is exp(parameter) */
+      if (data->type == CONST)
+        g *= 2/(mmvn->n * mmvn->d); /* assumes variance is exp(parameter) */
+      else if (data->type == DIAG)
+        g *= 2; /* assumes variance is exp(parameter) */
       else if (data->type == DIST)
-        g *= 2.0/mmvn->n;
+        g *= 2/(mmvn->n-1); /* assumes variance is exp(parameter) */
       else
         break; /* handle LOWR case below */
     }
@@ -1641,7 +1635,7 @@ void nj_rescale_grad(Vector *grad, Vector *rsgrad, multi_MVN *mmvn, CovarData *d
     vec_set(rsgrad, i, g);
   }
 
-  if (data->type == LOWR) {
+  if (data->type == LOWR) { /* CHECK: this code as yet untested */
     /* in this case the rescaled variance gradients can be obtained by
        matrix multiplication with sigma */
 
