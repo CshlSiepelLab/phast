@@ -168,4 +168,7 @@ void nj_rescale_grad(Vector *grad, Vector *rsgrad, multi_MVN *mmvn,
 void nj_set_sparsity_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
                                   CovarData *data);
 
+void nj_set_LASSO_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
+                               CovarData *data);
+
 #endif

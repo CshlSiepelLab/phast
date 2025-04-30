@@ -20,13 +20,13 @@ OPTIONS:
 
     --batchsize, -b <N>
         Set mini-batch size in stochastic gradient ascent to <N> (default
-        20).  Here the minibatch size is the number of phylogenetic trees
+        10).  Here the minibatch size is the number of phylogenetic trees
         sampled from the approximate posterior for each update of the
         variational parameters.
 
     --nbatches-conv, -c <N>
         Set number of mini-batches over which to average when assessing
-        convergence to <N> (default 10).  Larger values will lead to
+        convergence to <N> (default 50).  Larger values will lead to
         longer convergence times but may find better solutions.
 
     --dimensionality, -D <D>
@@ -75,7 +75,7 @@ OPTIONS:
 
     --min-nbatches, M <N>
         Set minimum number of mini-batches before convergence to <N>
-        (default 30).  Larger values will lead to longer convergence times
+        (default 200).  Larger values will lead to longer convergence times
         but may find better solutions.
 
     --names, -n [namelist]
@@ -98,10 +98,10 @@ OPTIONS:
         Output distance matrix to <outfile.dist>.  In case of --nj-only,
         will simply output initial matrix estimated from alignment.
         Otherwise will represent posterior mean values of distances after
-        convergence of variational algorithm
+        convergence of variational algorithm.
 
     --learnrate, -r <alpha>
-        Set learning rate for Adam algorithm to <alpha> (default 0.001)
+        Set learning rate for Adam algorithm to <alpha> (default 0.05).
 
     --random-start, -R
         Initialize variational inference randomly rather than from initial

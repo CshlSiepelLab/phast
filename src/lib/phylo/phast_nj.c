@@ -704,7 +704,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);
 
     /* TEMPORARY - try rescaling */
-    kld *= 1.0/pow(POINTSCALE, 2);
+    kld *= 1.0/POINTSCALE;
     
     /* we can also precompute the contribution of the KLD to the gradient */
     /* Note KLD is subtracted rather than added, so compute the gradient of -KLD */
@@ -730,13 +730,13 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       nj_set_kld_grad_LOWR(kldgrad, mmvn);
 
       if (data->sparsity != -1) { /* can also precompute */
-        nj_set_sparsity_penalty_LOWR(sparsitygrad, mmvn, data);
+        nj_set_LASSO_penalty_LOWR(sparsitygrad, mmvn, data);
         penalty = data->penalty;
       }
     }
 
     /* TEMPORARY */
-    vec_scale(kldgrad, 1.0/pow(POINTSCALE, 2));
+    vec_scale(kldgrad, 1.0/POINTSCALE);
     
     /* now sample a minibatch from the MVN averaging distribution and
        compute log likelihoods and gradients */
@@ -755,14 +755,6 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
         vec_copy(points, pointsnext);
         vec_scale(points_std, -1.0);
       }
-      
-      /* fprintf(stderr, "points: "); */
-      /* vec_print(points, stderr); */
-      /* fprintf(stderr, "points_std: "); */
-      /* vec_print(points_std, stderr); */
-      for (j = 0; j < points->size; j++)
-        fprintf(stderr, "%f\t", vec_get(points, j)-mmvn_get_mu_el(mmvn, j));
-      fprintf(stderr, "\n");
       
       ll = nj_compute_model_grad(mod, mmvn, msa, hyperbolic, negcurvature, 
                                  points, points_std, grad, D, data);
@@ -1677,8 +1669,8 @@ void nj_set_sparsity_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
   /* rescale the penalty factor */
   scale *= (n-1);   
   /* If all nondiagonal entries were like the diagonal ones, this
-     would be the expected value of the raw penalty.  We will
-     rescale it so this expected value is one */
+     would be the expected value of the raw penalty.  We will rescale
+     it so this expected value is one. */
     
   data->penalty = data->sparsity/scale * penalty; 
 
@@ -1704,4 +1696,64 @@ void nj_set_sparsity_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
   mat_free(sigprime);
   mat_free(Rgrad);
 }
+
+ /* Same as above but use an L1 (LASSO) penalty instead of an L2
+    (ridge) penalty */
+void nj_set_LASSO_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
+                               CovarData *data) {  
+  double penalty = 0, scale = 0;
+  Matrix *sign = mat_new(mmvn->mvn->sigma->nrows, mmvn->mvn->sigma->ncols),
+    *Rgrad = mat_new(data->R->nrows, data->R->ncols);
+  int i, j, n = mmvn->n, d = mmvn->d;
   
+  assert(data->type == LOWR && data->sparsity != -1);
+
+  for (i = 0; i < n; i++) {
+    for (j = i+1; j < n; j++)
+      penalty += 2 * fabs(mat_get(mmvn->mvn->sigma, i, j));
+    scale += fabs(mat_get(mmvn->mvn->sigma, i, i));
+  }
+
+  /* rescale the penalty factor */
+  scale *= (n-1);   
+  /* If all nondiagonal entries were like the diagonal ones, this
+     would be the expected value of the raw penalty.  We will rescale
+     it so this expected value is one. */
+    
+  data->penalty = data->sparsity/scale * penalty; 
+
+  /* calculate gradient in matrix form */
+
+  /* first derive a sign matrix from sigma */
+  mat_zero(sign);
+  for (i = 0; i < sign->nrows; i++) {
+    for (j = i+1; j < sign->nrows; j++) {
+      if (mat_get(mmvn->mvn->sigma, i, j) > 0) {
+        mat_set(sign, i, j, 1);
+        mat_set(sign, j, i, 1);
+      }
+      else if (mat_get(mmvn->mvn->sigma, i, j) < 0) {
+        mat_set(sign, i, j, -1);
+        mat_set(sign, j, i, -1);
+      }
+      /* otherwise leave 0 */
+    }
+  }
+  
+  /* multiply by 2R * sparsity for gradient */
+  mat_mult(Rgrad, sign, data->R);
+  mat_scale(Rgrad, 2.0 * data->sparsity/scale);
+    
+  /* finally add entries to corresponding gradient components */
+  vec_zero(grad);
+  for (i = 0; i < data->R->nrows; i++)
+    for (j = 0; j < data->R->ncols; j++)
+      vec_set(grad, n*d + i*data->R->ncols + j,
+              vec_get(grad,  n*d + i*data->R->ncols + j) - 
+              mat_get(Rgrad, i, j));
+  /* note have to subtract because makes negative contribution */
+
+  mat_free(sign);
+  mat_free(Rgrad);
+}
+
