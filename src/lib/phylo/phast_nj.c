@@ -703,8 +703,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     
     kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);
 
-    /* TEMPORARY - try rescaling */
-    kld *= 1.0/POINTSCALE;
+    kld *= data->kld_upweight/pow(POINTSCALE,2);
     
     /* we can also precompute the contribution of the KLD to the gradient */
     /* Note KLD is subtracted rather than added, so compute the gradient of -KLD */
@@ -730,13 +729,13 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       nj_set_kld_grad_LOWR(kldgrad, mmvn);
 
       if (data->sparsity != -1) { /* can also precompute */
-        nj_set_LASSO_penalty_LOWR(sparsitygrad, mmvn, data);
+        //        nj_set_LASSO_penalty_LOWR(sparsitygrad, mmvn, data);
+        nj_set_sparsity_penalty_LOWR(sparsitygrad, mmvn, data);
         penalty = data->penalty;
       }
     }
 
-    /* TEMPORARY */
-    vec_scale(kldgrad, 1.0/POINTSCALE);
+    vec_scale(kldgrad, data->kld_upweight/pow(POINTSCALE,2));
     
     /* now sample a minibatch from the MVN averaging distribution and
        compute log likelihoods and gradients */
@@ -1415,9 +1414,11 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
   }
 }
 
-/* create a new CovarData object appropriate for the choice of parameterization */
+/* create a new CovarData object appropriate for the choice of
+   parameterization */
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
-                             unsigned int natural_grad, int rank, double sparsity) {
+                             unsigned int natural_grad, double kld_upweight,
+                             int rank, double sparsity) {
   static int seeded = 0;
   
   CovarData *retval = smalloc(sizeof(CovarData));
@@ -1428,6 +1429,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   retval->nseqs = dist->nrows;
   retval->dim = dim;
   retval->natural_grad = natural_grad;
+  retval->kld_upweight = kld_upweight;
   retval->Lapl_pinv = NULL;
   retval->Lapl_pinv_evals = NULL;
   retval->Lapl_pinv_evecs = NULL;
@@ -1727,7 +1729,7 @@ void nj_set_LASSO_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
   /* first derive a sign matrix from sigma */
   mat_zero(sign);
   for (i = 0; i < sign->nrows; i++) {
-    for (j = i+1; j < sign->nrows; j++) {
+    for (j = i+1; j < sign->ncols; j++) {
       if (mat_get(mmvn->mvn->sigma, i, j) > 0) {
         mat_set(sign, i, j, 1);
         mat_set(sign, j, i, 1);

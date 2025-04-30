@@ -65,6 +65,7 @@ typedef struct {
                      (DIST or CONST cases) */
   unsigned int natural_grad; /* whether to rescale for natural
                                 gradients during optimization */
+  double kld_upweight; /* optional upweighting factor for KLD in ELBO */
   Matrix *dist;   /* distance matrix on which covariance is based */
   int lowrank;  /* dimension of low-rank approximation if LOWR or -1
                    otherwise */
@@ -151,7 +152,8 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data);
 
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
                              int dim, unsigned int natural_grad,
-                             int rank, double sparsity);
+                             double kld_upweight, int rank,
+                             double sparsity);
 
 void nj_dump_covar_data(CovarData *data, FILE *F);
 

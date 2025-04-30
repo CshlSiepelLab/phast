@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
   subst_mod_type subst_mod = JC69;
   TreeModel *mod = NULL;
   double kappa = DEFAULT_KAPPA, learnrate = DEFAULT_LEARNRATE,
-    negcurvature = 1, sparsity = -1;
+    negcurvature = 1.0, sparsity = -1.0, kld_upweight = 1.0;
   MarkovMatrix *rmat = NULL;
   multi_MVN *mmvn = NULL;
   TreeNode *init_tree = NULL;
@@ -82,6 +82,7 @@ int main(int argc, char *argv[]) {
     {"covar", 1, 0, 'S'},
     {"tree", 1, 0, 't'},
     {"treemodel", 1, 0, 'T'},
+    {"upweight-kld", 1, 0, 'U'},
     {"mvn-dump", 0, 0, 'V'},
     {"rank", 1, 0, 'W'},
     {"help", 0, 0, 'h'},
@@ -127,6 +128,11 @@ int main(int argc, char *argv[]) {
       negcurvature = atof(optarg);
       if (negcurvature < 0)
         die("ERROR: --negcurvature must be nonnegative\n");
+      break;
+    case 'U':
+      kld_upweight = atof(optarg);
+      if (kld_upweight < 1)
+        die("ERROR: --upweight-kld must be at least 1.0\n");
       break;
     case 'l':
       logfile = phast_fopen(optarg, "w");
@@ -273,7 +279,8 @@ int main(int argc, char *argv[]) {
   /* we must have a distance matrix now; make sure valid */
   nj_test_D(D);
 
-  covar_data = nj_new_covar_data(covar_param, D, dim, natural_grad, rank, sparsity);
+  covar_data = nj_new_covar_data(covar_param, D, dim, natural_grad, kld_upweight,
+                                 rank, sparsity);
   
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */

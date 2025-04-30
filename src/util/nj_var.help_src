@@ -154,5 +154,14 @@ OPTIONS:
         Use the specified tree model for initialization and likelihood calculations.
 	    Overrides use of JC69 or HKY85 substitution models. 
 
+    --upweight-kld, -U <factor>
+       The variational objective function (ELBO) is the difference between
+        an expected log likelihood and a KL divergence from a standard
+        multivariate normal prior, but for most data sets the LL strongly
+        dominates.  This option will upweight the KLD by the specified
+        factor and therefore push the approximate posterior toward simpler
+        solutions (mean values closer to zero, covariance matrix closer to
+        identity). Use a logfile for guidance.
+
     --help, -h
         Display this help message and exit.
