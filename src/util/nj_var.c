@@ -279,8 +279,8 @@ int main(int argc, char *argv[]) {
   /* we must have a distance matrix now; make sure valid */
   nj_test_D(D);
 
-  covar_data = nj_new_covar_data(covar_param, D, dim, natural_grad, kld_upweight,
-                                 rank, sparsity);
+  covar_data = nj_new_covar_data(covar_param, D, dim, natural_grad,
+                                 kld_upweight, rank, sparsity);
   
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */
