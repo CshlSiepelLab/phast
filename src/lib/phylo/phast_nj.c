@@ -420,7 +420,6 @@ void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D, double negcurv
       else
         mat_set(D, i, j, 1/sqrt(negcurvature) * acosh(-lor_inner) / POINTSCALE);
       /* distance between two points on the sheet, scaled by the curvature */
-      /* CHECK: is linear rescaling okay here? */
     }
   }
 }
@@ -1039,7 +1038,7 @@ void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *m
   for (i = 0; i < n; i++) {
     mat_set(A, i, i, 1);
     for (j = i + 1; j < n; j++) {
-      double a = cosh(sqrt(negcurvature) * mat_get(D, i, j));
+      double a = cosh(sqrt(negcurvature) * mat_get(D, i, j) * POINTSCALE);
       mat_set(A, i, j, a);
       mat_set(A, j, i, a);
     }
@@ -1055,13 +1054,13 @@ void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *m
   for (d = 0; d < dim; d++) {
     /* product of evalsqrt and corresponding column of revec will define
        the dth component of each point */
-    double ev = -vec_get(eval_real, n-1-d);
+    double ev = -vec_get(eval_real, d); // n-1-d);
     if (ev < 0) ev = 1e-6;
     for (i = 0; i < n; i++) 
-      vec_set(mu_full, i*dim + d, sqrt(ev) * mat_get(revec_real, i, n-1-d));
+      vec_set(mu_full, i*dim + d, sqrt(ev) * mat_get(revec_real, i, d)); //n-1-d));
   }
 
-  vec_scale(mu_full, POINTSCALE);
+  //  vec_scale(mu_full, POINTSCALE);
   mmvn_set_mu(mmvn, mu_full); 
   
   /* covariance parameters should already be initialized */
