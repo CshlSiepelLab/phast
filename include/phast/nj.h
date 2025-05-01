@@ -34,10 +34,13 @@
 #define ADAM_BETA2 0.9
 #define ADAM_EPS 1e-8
 
-/* scale factor applied to all points in embedded space.  Helps
-   address the problem that branch lengths tend to be small so means
-   and variances can get close to zero */
-#define POINTSCALE 100
+/* rescale embedding space so that maximum distances are equal to
+   these values in the Euclidean and hyperbolic cases,
+   respectively. Helps address the problem that branch lengths tend to
+   be small so means and variances can get close to zero.  But scaling
+   needs to be different for the two geometries */
+#define POINTSPAN_EUC 50
+#define POINTSPAN_HYP 3
 
 /* use this as a floor for variance parameters.  Avoids drift to ever
    smaller values */
@@ -45,7 +48,7 @@
 
 /* initialization of lambda, which is scale factor for covariance
    matrix in DIST and CONST parameterizations */
-#define LAMBDA_INIT (1.0e-5 * POINTSCALE * POINTSCALE)
+#define LAMBDA_INIT 1.0e-5
 
 /* types of parameterization for covariance matrix: constant (and
    diagonal), diagonal with free variances, proportional to Laplacian
@@ -63,6 +66,7 @@ typedef struct {
   Vector *params; /* vector of free parameters */
   double lambda;  /* scale parameter for covariance matrix 
                      (DIST or CONST cases) */
+  double pointscale; /* scale factor for geometry */
   unsigned int natural_grad; /* whether to rescale for natural
                                 gradients during optimization */
   double kld_upweight; /* optional upweighting factor for KLD in ELBO */
@@ -75,6 +79,8 @@ typedef struct {
   Matrix *R; /* used for LOWR; has dimension lowrank x nseqs */
   double sparsity; /* multiplier for sparsity penalty */
   double penalty; /* the current value of the penalty */
+  unsigned int hyperbolic; /* whether or not hyperbolic geometry is used */
+  double negcurvature; /* for hyperbolic case */
 } CovarData;
 
 void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
@@ -92,13 +98,11 @@ Matrix *nj_tree_to_distances(TreeNode *tree, char **names, int n);
 
 double nj_distance_on_tree(TreeNode *root, TreeNode *n1, TreeNode *n2);
 
-void nj_points_to_distances(Vector *points, Matrix *D,
-                            double negcurvature, unsigned int use_hyperbolic);
+void nj_points_to_distances(Vector *points, CovarData *data);
 
-void nj_points_to_distances_euclidean(Vector *points, Matrix *D);
+void nj_points_to_distances_euclidean(Vector *points, CovarData *data);
 
-void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D,
-                                       double negcurvature);
+void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data);
 
 double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
                              unsigned int hyperbolic, double negcurvature,
@@ -117,25 +121,18 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
                         int nminibatch, double learnrate, int nbatches_conv,
                         int min_nbatches, CovarData *data, FILE *logf);
 
-List *nj_var_sample(int nsamples, int dim, multi_MVN *mmvn,
-                    char** names, unsigned int hyperbolic,
-                    double negcurvature, Vector *logdens);
+List *nj_var_sample(int nsamples, multi_MVN *mmvn, CovarData *data,
+                    char** names, Vector *logdens);
 
-TreeNode *nj_mean(Vector *mu, int dim, char **names,
-                  unsigned int hyperbolic, double negcurvature);
+TreeNode *nj_mean(Vector *mu, char **names, CovarData *data);
 
 void nj_reset_tree_model(TreeModel *mod, TreeNode *newtree);
 
-void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
-                                     double negcurvature, CovarData *data,
-                                     unsigned int use_hyperbolic);
+void nj_estimate_mmvn_from_distances(CovarData *data, multi_MVN *mmvn);
 
-void nj_estimate_mmvn_from_distances_euclidean(Matrix *D, int dim, multi_MVN *mmvn,
-                                               CovarData *data);
+void nj_estimate_mmvn_from_distances_euclidean(CovarData *data, multi_MVN *mmvn);
 
-void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *mmvn,
-                                               double negcurvature,
-                                               CovarData *data);
+void nj_estimate_mmvn_from_distances_hyperbolic(CovarData *data, multi_MVN *mmvn);
 
 void nj_test_D(Matrix *D);
 
@@ -153,14 +150,14 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data);
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
                              int dim, unsigned int natural_grad,
                              double kld_upweight, int rank,
-                             double sparsity);
+                             double sparsity, unsigned int hyperbolic,
+                             double negcurvature);
 
 void nj_dump_covar_data(CovarData *data, FILE *F);
 
 void nj_laplacian_pinv(CovarData *data);
 
-void nj_mmvn_to_distances(multi_MVN *mmvn, Matrix *D, unsigned int hyperbolic,
-                          double negcurvature);
+void nj_mmvn_to_distances(multi_MVN *mmvn, CovarData *data);
 
 void nj_set_kld_grad_LOWR(Vector *kldgrad, multi_MVN *mvn);
 
@@ -172,5 +169,7 @@ void nj_set_sparsity_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
 
 void nj_set_LASSO_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
                                CovarData *data);
+
+void nj_set_pointscale(CovarData *data);
 
 #endif

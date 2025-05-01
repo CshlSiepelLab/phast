@@ -344,21 +344,21 @@ double nj_distance_on_tree(TreeNode *root, TreeNode *n1, TreeNode *n2) {
    distance matrix.  Assumes each taxon is represented as a point in
    d-dimensional space.  Wrapper for versions that assume either
    Euclidean or hyperbolic geometry */
-void nj_points_to_distances(Vector *points, Matrix *D, double negcurvature,
-                            unsigned int use_hyperbolic) {
-  if (use_hyperbolic)
-    nj_points_to_distances_hyperbolic(points, D, negcurvature);
+void nj_points_to_distances(Vector *points, CovarData *data) {
+  if (data->hyperbolic)
+    nj_points_to_distances_hyperbolic(points, data);
   else
-    nj_points_to_distances_euclidean(points, D);
+    nj_points_to_distances_euclidean(points, data);
 }
   
 /* convert an nd-dimensional vector to an nxn upper triangular
    distance matrix.  Assumes each taxon is represented as a point in
    d-dimensional space and computes Euclidean distances between these
    points */ 
-void nj_points_to_distances_euclidean(Vector *points, Matrix *D) {
+void nj_points_to_distances_euclidean(Vector *points, CovarData *data) {
   int i, j, k, vidx1, vidx2, n, d;
   double sum;
+  Matrix *D = data->dist;
 
   n = D->nrows;
   d = points->size / n;
@@ -377,7 +377,7 @@ void nj_points_to_distances_euclidean(Vector *points, Matrix *D) {
         sum += pow(vec_get(points, vidx1 + k) -
                    vec_get(points, vidx2 + k), 2);
       }
-      mat_set(D, i, j, sqrt(sum) / POINTSCALE);
+      mat_set(D, i, j, sqrt(sum) / data->pointscale);
     }
   }
 }
@@ -386,10 +386,11 @@ void nj_points_to_distances_euclidean(Vector *points, Matrix *D) {
    distance matrix.  Assumes each taxon is represented as a point in
    d-dimensional space and computes hyperbolic distances between these
    points */ 
-void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D, double negcurvature) {
+void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data) {
   int i, j, k, vidx1, vidx2, n, d;
   double lor_inner, ss1, ss2, x0_1, x0_2;
-
+  Matrix *D = data->dist;
+  
   n = D->nrows;
   d = points->size / n;
   
@@ -418,8 +419,10 @@ void nj_points_to_distances_hyperbolic(Vector *points, Matrix *D, double negcurv
       if (fabs(1.0 + lor_inner) < 1.0e-8)
         mat_set(D, i, j, 0);
       else
-        mat_set(D, i, j, 1/sqrt(negcurvature) * acosh(-lor_inner) / POINTSCALE);
+        mat_set(D, i, j, 1/sqrt(data->negcurvature) * acosh(-lor_inner) / data->pointscale);
       /* distance between two points on the sheet, scaled by the curvature */
+
+      assert(isfinite(mat_get(D, i, j)) && mat_get(D, i, j) > 0);
     }
   }
 }
@@ -450,7 +453,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
     die("ERROR in nj_compute_model_grad: low-rank matrix R required in LOWR case.\n");
   
   /* set up tree model and get baseline log likelihood */
-  nj_points_to_distances(points, D, negcurvature, hyperbolic);    
+  nj_points_to_distances(points, data);    
   tree = nj_infer_tree(D, msa->names);
   orig_tree = tr_create_copy(tree);   /* restore at the end */
   nj_reset_tree_model(mod, tree);
@@ -468,7 +471,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
       porig = vec_get(points, pidx);
       vec_set(points, pidx, porig + DERIV_EPS);
 
-      nj_points_to_distances(points, D, negcurvature, hyperbolic); 
+      nj_points_to_distances(points, data); 
 
       tree = nj_infer_tree(D, msa->names);
       nj_reset_tree_model(mod, tree);      
@@ -547,7 +550,7 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
     die("ERROR in nj_compute_model_grad_check: bad gradient dimension.\n");
   
   /* set up tree model and get baseline log likelihood */
-  nj_points_to_distances(points, D, negcurvature, hyperbolic);    
+  nj_points_to_distances(points, data);    
   tree = nj_infer_tree(D, msa->names);
   orig_tree = tr_create_copy(tree);   /* restore at the end */
   nj_reset_tree_model(mod, tree);
@@ -562,7 +565,7 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
     porig = vec_get(points, i);
     vec_set(points, i, porig + DERIV_EPS);
 
-    nj_points_to_distances(points, D, negcurvature, hyperbolic); 
+    nj_points_to_distances(points, data); 
     tree = nj_infer_tree(D, msa->names);
     nj_reset_tree_model(mod, tree);      
     ll = nj_compute_log_likelihood(mod, msa, NULL);
@@ -702,7 +705,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     
     kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);
 
-    kld *= data->kld_upweight/pow(POINTSCALE,2);
+    kld *= data->kld_upweight/pow(data->pointscale,2);
     
     /* we can also precompute the contribution of the KLD to the gradient */
     /* Note KLD is subtracted rather than added, so compute the gradient of -KLD */
@@ -734,7 +737,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       }
     }
 
-    vec_scale(kldgrad, data->kld_upweight/pow(POINTSCALE,2));
+    vec_scale(kldgrad, data->kld_upweight/pow(data->pointscale,2));
     
     /* now sample a minibatch from the MVN averaging distribution and
        compute log likelihoods and gradients */
@@ -758,14 +761,6 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
                                  points, points_std, grad, D, data);
       avell += ll;
       vec_plus_eq(avegrad, grad);
-
-      /* uncomment these lines to check gradient numerically */
-      /* ll_check = nj_compute_model_grad_check(mod, mmvn, msa, hyperbolic, negcurvature,  */
-      /*                                        points, grad_check, D, data); */
-      /* fprintf(logf, "analytical: ll=%f, grad=", ll); */
-      /* vec_print(grad, logf); */
-      /* fprintf(logf, "numerical: ll=%f, grad=", ll_check); */
-      /* vec_print(grad_check, logf);  */
     }
 
     /* divide by nminibatch to get expected gradient */
@@ -891,11 +886,11 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
 /* sample a list of trees from the approximate posterior distribution
    and return as a new list.  If logdens is non-null, return
    corresponding vector of log densities for the samples */
-List *nj_var_sample(int nsamples, int dim, multi_MVN *mmvn, char** names,
-                    unsigned int hyperbolic, double negcurvature, Vector *logdens) {
+List *nj_var_sample(int nsamples, multi_MVN *mmvn, CovarData *data, char** names,
+                    Vector *logdens) {
   List *retval = lst_new_ptr(nsamples);
   int i;
-  int n = mmvn->n * mmvn->d / dim;
+  int n = data->nseqs;
   Matrix *D = mat_new(n, n);
   TreeNode *tree;
   Vector *points = vec_new(mmvn->d * mmvn->n);
@@ -907,7 +902,7 @@ List *nj_var_sample(int nsamples, int dim, multi_MVN *mmvn, char** names,
        vec_set(logdens, i, mmvn_log_dens(mmvn, points));
      /* FIXME: need Jacobian in hyperbolic case */
      
-     nj_points_to_distances(points, D, negcurvature, hyperbolic);
+     nj_points_to_distances(points, data);
      tree = nj_infer_tree(D, names);
      lst_push_ptr(retval, tree);
   }
@@ -918,16 +913,15 @@ List *nj_var_sample(int nsamples, int dim, multi_MVN *mmvn, char** names,
 }
 
 /* return a single tree representing the approximate posterior mean */
-TreeNode *nj_mean(Vector *mu, int dim, char **names, unsigned int hyperbolic,
-                  double negcurvature) {
-  int n = mu->size / dim;
+TreeNode *nj_mean(Vector *mu, char **names, CovarData *data) {
+  int n = data->nseqs;
   Matrix *D = mat_new(n, n);
   TreeNode *tree;
   
-  if (n * dim != mu->size)
+  if (n * data->dim != mu->size)
     die("ERROR in nj_mean: bad dimensions\n");
 
-  nj_points_to_distances(mu, D, negcurvature, hyperbolic);  
+  nj_points_to_distances(mu, data);  
   tree = nj_infer_tree(D, names);
   
   mat_free(D);
@@ -951,26 +945,24 @@ void nj_reset_tree_model(TreeModel *mod, TreeNode *newtree) {
 /* generate an approximate multivariate normal distribution from a
    distance matrix, for use in initializing the variational inference
    algorithm.  */
-void nj_estimate_mmvn_from_distances(Matrix *D, int dim, multi_MVN *mmvn,
-                                     double negcurvature, CovarData *data,
-                                     unsigned int use_hyperbolic) {
-  if (use_hyperbolic)
-    nj_estimate_mmvn_from_distances_hyperbolic(D, dim, mmvn, negcurvature, data);
+void nj_estimate_mmvn_from_distances(CovarData *data, multi_MVN *mmvn) {
+  if (data->hyperbolic)
+    nj_estimate_mmvn_from_distances_hyperbolic(data, mmvn);
   else
-    nj_estimate_mmvn_from_distances_euclidean(D, dim, mmvn, data);  
+    nj_estimate_mmvn_from_distances_euclidean(data, mmvn);  
 }
 
 /* generate an approximate multivariate normal distribution from a distance matrix, for
    use in initializing the variational inference algorithm.  */
-void nj_estimate_mmvn_from_distances_euclidean(Matrix *D, int dim, multi_MVN *mmvn,
-                                               CovarData *data) {
+void nj_estimate_mmvn_from_distances_euclidean(CovarData *data, multi_MVN *mmvn) {
+  Matrix *D = data->dist;
   int n = D->nrows;
   Matrix *Dsq, *G, *revec_real;
   Vector *eval_real;
   int i, j, d;
-  Vector *mu_full = vec_new(dim*n);
+  Vector *mu_full = vec_new(data->dim * n);
   
-  if (D->nrows != D->ncols || mmvn->d * mmvn->n != dim * n)
+  if (D->nrows != D->ncols || mmvn->d * mmvn->n != data->dim * n)
     die("ERROR in nj_estimate_points_from_distances: bad dimensions\n");
 
   /* build matrix of squared distances; note that D is upper
@@ -996,14 +988,15 @@ void nj_estimate_mmvn_from_distances_euclidean(Matrix *D, int dim, multi_MVN *mm
     die("ERROR in nj_estimate_mmvn_from_distances_euclidean: diagonalization failed.\n");
   
   /* create a vector of points based on the first 'dim' eigenvalues */
-  for (d = 0; d < dim; d++)
+  for (d = 0; d < data->dim; d++)
     /* product of evalsqrt and corresponding column of revec will define
        the dth component of each point */    
     for (i = 0; i < n; i++)
-      vec_set(mu_full, i*dim + d, sqrt(vec_get(eval_real, n-1-d)) * mat_get(revec_real, i, n-1-d));
+      vec_set(mu_full, i*data->dim + d,
+              sqrt(vec_get(eval_real, n-1-d)) * mat_get(revec_real, i, n-1-d));
 
   /* rescale */
-  vec_scale(mu_full, POINTSCALE);
+  vec_scale(mu_full, data->pointscale);
   mmvn_set_mu(mmvn, mu_full);
 
   /* covariance parameters should already be initialized */
@@ -1021,15 +1014,15 @@ void nj_estimate_mmvn_from_distances_euclidean(Matrix *D, int dim, multi_MVN *mm
    version, use the 'hydra' algorithm to solve the problem
    approximately in hyperbolic space (Keller-Ressel & Nargang,
    arXiv:1903.08977, 2019) */
-void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *mmvn,
-                                               double negcurvature, CovarData *data) {
+void nj_estimate_mmvn_from_distances_hyperbolic(CovarData *data, multi_MVN *mmvn) {
+  Matrix *D = data->dist;
   int n = D->nrows;
   Matrix *A, *revec_real;
   Vector *eval_real;
   int i, j, d;
-  Vector *mu_full = vec_new(dim*n);
+  Vector *mu_full = vec_new(data->dim*n);
     
-  if (D->nrows != D->ncols || mmvn->d * mmvn->n != dim * n)
+  if (D->nrows != D->ncols || mmvn->d * mmvn->n != data->dim * n)
     die("ERROR in nj_estimate_points_from_distances_hyperbolic: bad dimensions\n");
   
   /* build matrix A of transformed distances; note that D is upper
@@ -1038,7 +1031,7 @@ void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *m
   for (i = 0; i < n; i++) {
     mat_set(A, i, i, 1);
     for (j = i + 1; j < n; j++) {
-      double a = cosh(sqrt(negcurvature) * mat_get(D, i, j) * POINTSCALE);
+      double a = cosh(sqrt(data->negcurvature) * mat_get(D, i, j) * data->pointscale);
       mat_set(A, i, j, a);
       mat_set(A, j, i, a);
     }
@@ -1051,16 +1044,18 @@ void nj_estimate_mmvn_from_distances_hyperbolic(Matrix *D, int dim, multi_MVN *m
     die("ERROR in nj_estimate_mmvn_from_distances_hyperbolic: diagonalization failed.\n");
 
   /* create a vector of points based on the first 'dim' eigenvalues */
-  for (d = 0; d < dim; d++) {
+  for (d = 0; d < data->dim; d++) {
     /* product of evalsqrt and corresponding column of revec will define
        the dth component of each point */
-    double ev = -vec_get(eval_real, d); // n-1-d);
+    double ev = -vec_get(eval_real, d);
+    assert(isfinite(ev));
     if (ev < 0) ev = 1e-6;
-    for (i = 0; i < n; i++) 
-      vec_set(mu_full, i*dim + d, sqrt(ev) * mat_get(revec_real, i, d)); //n-1-d));
+    for (i = 0; i < n; i++) {
+      vec_set(mu_full, i*data->dim + d, sqrt(ev) * mat_get(revec_real, i, d)); 
+      assert(isfinite(vec_get(mu_full, i*data->dim + d)));
+    }
   }
 
-  //  vec_scale(mu_full, POINTSCALE);
   mmvn_set_mu(mmvn, mu_full); 
   
   /* covariance parameters should already be initialized */
@@ -1380,6 +1375,7 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
   if (data->type == CONST) {
     mat_set_identity(mmvn->mvn->sigma);
     data->lambda = (VARFLOOR + exp(vec_get(sigma_params, 0)));
+    assert(isfinite(data->lambda));
     mat_scale(mmvn->mvn->sigma, data->lambda);
   }
   else if (data->type == DIAG) {
@@ -1417,7 +1413,8 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
    parameterization */
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
                              unsigned int natural_grad, double kld_upweight,
-                             int rank, double sparsity) {
+                             int rank, double sparsity, unsigned int hyperbolic,
+                             double negcurvature) {
   static int seeded = 0;
   
   CovarData *retval = smalloc(sizeof(CovarData));
@@ -1435,11 +1432,15 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   retval->lowrank = -1;
   retval->R = NULL;
   retval->sparsity = sparsity;
+  retval->hyperbolic = hyperbolic;
+  retval->negcurvature = negcurvature;
+  
+  nj_set_pointscale(retval);
   
   if (covar_param == CONST) {
     /* store constant */
     retval->params = vec_new(1);
-    vec_set(retval->params, 0, log(retval->lambda-VARFLOOR));  /* use lambda for scale; log parameterization */
+    vec_set(retval->params, 0, log(max(retval->lambda-VARFLOOR, VARFLOOR)));  /* use lambda for scale; log parameterization */
   }
   else if (covar_param == DIAG) {
     int i, j;
@@ -1453,13 +1454,13 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
         x2 += mat_get(dist, i, j) * mat_get(dist, i, j);
       }
     }
-    vec_set_all(retval->params, log(1.0/(N*N) * (x2/N - x*x/(N*N))) + 2*log(POINTSCALE));
-    /* note scale by (log of) POINTSCALE^2 */
+    vec_set_all(retval->params, log(1.0/(N*N) * (x2/N - x*x/(N*N))) + 2*log(retval->pointscale));
+    /* note scale by (log of) pointscale^2 */
   }  
   else if (covar_param == DIST) {
     retval->mvn_type = MVN_GEN;
     retval->params = vec_new(1);
-    vec_set(retval->params, 0, log(retval->lambda-VARFLOOR));
+    vec_set(retval->params, 0, log(max(retval->lambda-VARFLOOR, VARFLOOR)));
     retval->Lapl_pinv = mat_new(dist->nrows, dist->ncols);
     retval->Lapl_pinv_evals = vec_new(dist->nrows);
     retval->Lapl_pinv_evecs = mat_new(dist->nrows, dist->nrows);
@@ -1557,8 +1558,7 @@ void nj_laplacian_pinv(CovarData *data) {
 }
 
 /* wrapper for nj_points_to_distances functions */
-void nj_mmvn_to_distances(multi_MVN *mmvn, Matrix *D, unsigned int hyperbolic,
-                          double negcurvature) {
+void nj_mmvn_to_distances(multi_MVN *mmvn, CovarData *data) {
   Vector *full_mu;
   if (mmvn->type != MVN_GEN && mmvn->type != MVN_LOWR) 
     full_mu = mmvn->mvn->mu;
@@ -1567,7 +1567,7 @@ void nj_mmvn_to_distances(multi_MVN *mmvn, Matrix *D, unsigned int hyperbolic,
     mmvn_save_mu(mmvn, full_mu);
   }
 
-  nj_points_to_distances(full_mu, D, negcurvature, hyperbolic);
+  nj_points_to_distances(full_mu, data);
 
   if (mmvn->type == MVN_GEN || mmvn->type == MVN_LOWR)
     vec_free(full_mu);
@@ -1758,3 +1758,17 @@ void nj_set_LASSO_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
   mat_free(Rgrad);
 }
 
+/* set scale factor for geometry depending on starting distance matrix */
+void nj_set_pointscale(CovarData *data) {
+  /* find max pairwise distance */
+  double maxd = 0;
+  for (int i = 0; i < data->dist->nrows; i++)
+    for (int j = i; j < data->dist->ncols; j++)
+      if (mat_get(data->dist, i, j) > maxd)
+        maxd = mat_get(data->dist, i, j);
+
+  if (data->hyperbolic == TRUE)
+    data->pointscale = POINTSPAN_HYP / maxd;
+  else
+    data->pointscale = POINTSPAN_EUC / maxd;
+}
