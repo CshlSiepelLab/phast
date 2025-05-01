@@ -1,17 +1,18 @@
-PROGRAM: nj_var
+PROGRAM: varPHAST
 
-USAGE: nj_var [OPTIONS] alignment.fa > trees.nh
+USAGE: varPHAST [OPTIONS] alignment.fa > trees.nh
 
-DESCRIPTION: Infer a phylogeny by neighbor-joining or an NJ-based
-variational approximation. By default, outputs trees sampled from
-approximate posterior, with one New-Hampshire-formatted tree per line.
-Initial pairwise distances may be specified either via a multiple
-alignment, in which case they are estimated using the Jukes-Cantor model,
-or by providing a distance matrix (--distances). In case of --nj-only, the
-tree will be estimated directly from those distances with no further
-refinement.  Otherwise the posterior distribution will be refined by
-variational inference and then sampled from. Optimization is by stochastic
-gradient ascent using the Adam algorithm.
+DESCRIPTION: Infer a posterior distribution of phylogenetic trees using a
+neighbor-joining-based variational approximation. By default, outputs trees
+sampled from approximate posterior, with one New-Hampshire-formatted tree
+per line.  If the --nj-only option is selected, a single tree will be
+estimated by NJ and output.  Initial pairwise distances may be specified
+either via a multiple alignment, in which case they are estimated using the
+Jukes-Cantor model, or by providing a distance matrix (--distances).
+Variational optimization is by stochastic gradient ascent using the Adam
+algorithm. By default, an embedding in a Euclidean space is used, but a
+hyperbolic geometry can be used instead by selecting the --hyperbolic
+option.
 
 OPTIONS:
     --format, -i FASTA|SS|PHYLIP|MPM|MAF
@@ -111,7 +112,7 @@ OPTIONS:
         Number of samples to output (default 100) after convergence.
 
     --covar, -S CONST|DIAG|DIST|LOWR
-        (default DIAG) Parameterization to use for covariance matrix for
+        (default CONST) Parameterization to use for covariance matrix for
         the multivariate normal variational distribution.  DIAG assumes no
         covariance between points but free variance at each point (<ntaxa>
         * <dim> d.o.f.).  CONST is like DIAG but all points have the same

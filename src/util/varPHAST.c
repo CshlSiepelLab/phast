@@ -18,7 +18,7 @@
 #include <phast/subst_mods.h>
 #include <phast/sufficient_stats.h>
 #include <phast/mvn.h>
-#include "nj_var.help"
+#include "varPHAST.help"
 
 #define DEFAULT_NSAMPLES 100
 #define DEFAULT_DIM 3
@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
     hyperbolic = FALSE, embedding_only = FALSE, importance_sampling = FALSE,
     mvn_dump = FALSE, natural_grad = FALSE;
   MSA *msa = NULL;
-  enum covar_type covar_param = DIAG;
+  enum covar_type covar_param = CONST;
 
   char *alphabet = "ACGT";
   char **names = NULL;
