@@ -23,7 +23,7 @@
 #include "phast/multi_mvn.h"
 
 /* uncomment to dump gradients to a file called "grads_log.txt" */
-#define DUMPGRAD 1
+//#define DUMPGRAD 1
 
 
 /* Reset Q matrix based on distance matrix.  Assume upper triangular
@@ -1436,6 +1436,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   retval->negcurvature = negcurvature;
   
   nj_set_pointscale(retval);
+  retval->lambda *= pow(retval->pointscale, 2);
   
   if (covar_param == CONST) {
     /* store constant */

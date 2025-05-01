@@ -35,7 +35,8 @@ OPTIONS:
         represented to <D> (default 3).  Higher values will allow for
         richer representations of phylogenies but will take more time and
         may fail to converge.  Embedding can be in either a Euclidean
-        (the default) or a hyperbolic (see --hyperbolic) space.
+        (the default) or a hyperbolic (see --hyperbolic) space. In
+        principle, --hyperbolic may allow for lower choices of <D>.
 
     --distances, -d <infile.dist>
         Use distance matrix from <infile.dist>. In this case (and if
@@ -46,7 +47,7 @@ OPTIONS:
         initial embedding of points.  Can be compared with input distances
         to evaluate fidelity of various embedding schemes.
 
-    --hky85, -k
+    --hky85, -k  [NOT YET SUPPORTED]
         Use the HKY85 substitution model for likelihood calculations
         (default is Jukes Cantor). The transition-transversion rate ratio
         (kappa) will be approximated from the pairwise comparisons
@@ -64,7 +65,7 @@ OPTIONS:
         Refine final set of samples by importance sampling, using the full
         likelihood function.  Produces a substantially improved
         approximation of the posterior distribution at the cost of
-        additional likelihood evaluations.  Begins with a sample ten times
+        additional likelihood evaluations.  Begins with a sample 100 times
         as large as the target sample size (see --nsamples).
 
     --logfile, -l <logfile.txt>
@@ -72,7 +73,7 @@ OPTIONS:
 
     --mean, -m <meantree.nh>
         Output a single tree reflecting the mean of the approximate
-        posterior distribution to the specified file
+        posterior distribution to the specified file. 
 
     --min-nbatches, M <N>
         Set minimum number of mini-batches before convergence to <N>
