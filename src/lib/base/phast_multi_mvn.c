@@ -25,8 +25,7 @@
    reusing precomputed Cholesky or eigendecompositions.  The routines
    are written in a general enough manner to handle diagonal
    covariance matrices as well, in which case the underlying MVN is
-   left intact (because there are no real gains in efficiency in this
-   case) */
+   left intact (because there are no real gains in efficiency here) */
 
 /* create a new multi-MVN of desired type from scratch, for n points
    and dimension d. If type != MVN_GEN, will just wrap a single MVN */

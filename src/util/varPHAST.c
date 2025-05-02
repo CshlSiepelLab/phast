@@ -331,8 +331,7 @@ int main(int argc, char *argv[]) {
         exit(0);
       }
       
-      nj_variational_inf(mod, msa, D, mmvn, dim, hyperbolic,
-                         negcurvature, batchsize, learnrate,
+      nj_variational_inf(mod, msa, mmvn, batchsize, learnrate,
                          nbatches_conv, min_nbatches, 
                          covar_data, logfile);
 

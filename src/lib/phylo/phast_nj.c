@@ -373,10 +373,9 @@ void nj_points_to_distances_euclidean(Vector *points, CovarData *data) {
     for (j = i+1; j < n; j++) {
       vidx2 = j*d;
       sum = 0;
-      for (k = 0; k < d; k++) {
+      for (k = 0; k < d; k++) 
         sum += pow(vec_get(points, vidx1 + k) -
                    vec_get(points, vidx2 + k), 2);
-      }
       mat_set(D, i, j, sqrt(sum) / data->pointscale);
     }
   }
@@ -433,16 +432,15 @@ void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data) {
    of current model, which is computed as a by-product.  This version
    uses numerical methods */
 double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
-                             unsigned int hyperbolic, double negcurvature,
                              Vector *points, Vector *points_std,
-                             Vector *grad, Matrix *D,
-                             CovarData *data) {
+                             Vector *grad, CovarData *data) {
   int n = msa->nseqs; /* number of taxa */
   int d = mmvn->n * mmvn->d / n; /* dimensionality; have to accommodate diagonal case */
   int dim = n*d; /* full dimension of point vector */
   int i, j, k;
   double porig, ll_base, ll, deriv, loglambda_grad;
   TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
+  Matrix *D = data->dist;
 
   if (grad->size != dim + data->params->size)
     die("ERROR in nj_compute_model_grad: bad gradient dimension.\n");
@@ -532,10 +530,8 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
    check knows nothing about the details of the parameterization; it
    just uses a brute force numerical calculation */
 double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
-                                   unsigned int hyperbolic, double negcurvature,
                                    Vector *points, Vector *points_std,
-                                   Vector *grad, Matrix *D,
-                                   CovarData *data) {
+                                   Vector *grad, CovarData *data) {
   int n = msa->nseqs; /* number of taxa */
   int d = mmvn->n * mmvn->d / n; /* dimensionality; have to accommodate diagonal case */
   int dim = n*d; /* full dimension of point vector */
@@ -545,7 +541,8 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   Vector *points_tweak = vec_new(points->size);
   Vector *sigmapar = data->params;
   Vector *dL_dx = vec_new(points->size);
-
+  Matrix *D = data->dist;
+  
   if (grad->size != dim + data->params->size)
     die("ERROR in nj_compute_model_grad_check: bad gradient dimension.\n");
   
@@ -619,8 +616,7 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
    Adam algorithm.  Takes initial tree model and alignment and
    distance matrix, dimensionality of Euclidean space to work in.
    Note: alters distance matrix */
-void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
-                        int dim, unsigned int hyperbolic, double negcurvature,
+void nj_variational_inf(TreeModel *mod, MSA *msa, multi_MVN *mmvn,
                         int nminibatch, double learnrate, int nbatches_conv,
                         int min_nbatches, CovarData *data, FILE *logf) {
 
@@ -628,16 +624,17 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
     *best_mu, *best_sigmapar, *rescaledgrad, *sparsitygrad, *pointsnext,
     *points_std;
   Vector *sigmapar = data->params;
-  int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim, fulld = n*dim;
+  int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim,
+    dim = data->dim, fulld = n*dim;
   double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace, logdet, penalty = 0,
     bestpenalty = 0;
   FILE *gradf = NULL;
+  Matrix *D = data->dist;
   
 #ifdef DUMPGRAD
   gradf = phast_fopen("grads_log.txt", "w");
 #endif
-  //  Vector *grad_check = vec_new(fulld + data->params->size);
   
   if (mmvn->d * mmvn->n != dim * n)
     die("ERROR in nj_variational_inf: bad dimensions\n");
@@ -670,7 +667,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
 
   /* set up log file */
   if (logf != NULL) {
-    fprintf(logf, "# nj_var logfile\n");
+    fprintf(logf, "# varPHAST logfile\n");
     fprintf(logf, "state\tll\tkld\telb\t");
     if (data->type == LOWR && data->sparsity != -1)
       fprintf(logf, "penalty\t");
@@ -678,9 +675,6 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       fprintf(logf, "mu.%d\t", j);
     for (j = 0; j < sigmapar->size; j++)
       fprintf(logf, "sigma.%d\t", j);
-    //    for (i = 0; i < D->nrows; i++)
-    //  for (j = i+1; j < D->ncols; j++)
-    //    fprintf(logf, "D.%d.%d\t", i, j);
     fprintf(logf, "\n");
   }
   if (gradf != NULL) {
@@ -757,8 +751,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
         vec_scale(points_std, -1.0);
       }
       
-      ll = nj_compute_model_grad(mod, mmvn, msa, hyperbolic, negcurvature, 
-                                 points, points_std, grad, D, data);
+      ll = nj_compute_model_grad(mod, mmvn, msa, points, points_std,
+                                 grad, data);
       avell += ll;
       vec_plus_eq(avegrad, grad);
     }
@@ -820,10 +814,6 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       for (j = 0; j < sigmapar->size; j++)
         fprintf(logf, "%f\t", vec_get(sigmapar, j));
       fprintf(logf, "\n");
-      //      nj_mmvn_to_distances(mmvn, D, hyperbolic, negcurvature);
-      //for (i = 0; i < D->nrows; i++)
-      //  for (j = i+1; j < D->ncols; j++)
-      //    fprintf(logf, "%f\t", mat_get(D, i, j));
     }
     if (gradf != NULL) {
       //      vec_print(avegrad, gradf);
@@ -861,12 +851,10 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
       fprintf(logf, "penalty: %f, ", bestpenalty);
     fprintf(logf, "sigmapar: ");
     vec_print(sigmapar, logf);
-    //    mmvn_print(mmvn, logf, TRUE, FALSE);
     fprintf(logf, "\n");
   }
   
   vec_free(grad);
-  /* vec_free(grad_check);  */
   vec_free(avegrad);
   vec_free(rescaledgrad);
   vec_free(kldgrad);
@@ -890,8 +878,6 @@ List *nj_var_sample(int nsamples, multi_MVN *mmvn, CovarData *data, char** names
                     Vector *logdens) {
   List *retval = lst_new_ptr(nsamples);
   int i;
-  int n = data->nseqs;
-  Matrix *D = mat_new(n, n);
   TreeNode *tree;
   Vector *points = vec_new(mmvn->d * mmvn->n);
   
@@ -903,28 +889,24 @@ List *nj_var_sample(int nsamples, multi_MVN *mmvn, CovarData *data, char** names
      /* FIXME: need Jacobian in hyperbolic case */
      
      nj_points_to_distances(points, data);
-     tree = nj_infer_tree(D, names);
+     tree = nj_infer_tree(data->dist, names);
      lst_push_ptr(retval, tree);
   }
   
-  mat_free(D);
   vec_free(points);
   return(retval);
 }
 
 /* return a single tree representing the approximate posterior mean */
 TreeNode *nj_mean(Vector *mu, char **names, CovarData *data) {
-  int n = data->nseqs;
-  Matrix *D = mat_new(n, n);
   TreeNode *tree;
   
-  if (n * data->dim != mu->size)
+  if (data->nseqs * data->dim != mu->size)
     die("ERROR in nj_mean: bad dimensions\n");
 
   nj_points_to_distances(mu, data);  
-  tree = nj_infer_tree(D, names);
+  tree = nj_infer_tree(data->dist, names);
   
-  mat_free(D);
   return(tree);
 }
 
@@ -953,7 +935,7 @@ void nj_estimate_mmvn_from_distances(CovarData *data, multi_MVN *mmvn) {
 }
 
 /* generate an approximate multivariate normal distribution from a distance matrix, for
-   use in initializing the variational inference algorithm.  */
+   use in initializing the variational inference algorithm. Uses multidimensional scaling  */
 void nj_estimate_mmvn_from_distances_euclidean(CovarData *data, multi_MVN *mmvn) {
   Matrix *D = data->dist;
   int n = D->nrows;

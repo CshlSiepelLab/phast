@@ -105,19 +105,14 @@ void nj_points_to_distances_euclidean(Vector *points, CovarData *data);
 void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data);
 
 double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
-                             unsigned int hyperbolic, double negcurvature,
                              Vector *points, Vector *points_std,
-                             Vector *grad, Matrix *D,
-                             CovarData *data);
+                             Vector *grad, CovarData *data);
 
 double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
-                                   unsigned int hyperbolic, double negcurvature,
                                    Vector *points, Vector *points_std,
-                                   Vector *grad, Matrix *D,
-                                   CovarData *data);
+                                   Vector *grad, CovarData *data);
 
-void nj_variational_inf(TreeModel *mod, MSA *msa, Matrix *D, multi_MVN *mmvn,
-                        int dim, unsigned int hyperbolic, double negcurvature,
+void nj_variational_inf(TreeModel *mod, MSA *msa, multi_MVN *mmvn,
                         int nminibatch, double learnrate, int nbatches_conv,
                         int min_nbatches, CovarData *data, FILE *logf);
 
