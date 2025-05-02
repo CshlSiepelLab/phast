@@ -61,13 +61,6 @@ OPTIONS:
         using the arcosh function and scaled according to the specified
         curvature (see --negcurvature).
 
-    --importance-sampling, -I
-        Refine final set of samples by importance sampling, using the full
-        likelihood function.  Produces a substantially improved
-        approximation of the posterior distribution at the cost of
-        additional likelihood evaluations.  Begins with a sample 100 times
-        as large as the target sample size (see --nsamples).
-
     --logfile, -l <logfile.txt>
         Output detailed log for variational inference to specified file
 
@@ -95,6 +88,12 @@ OPTIONS:
     --nj-only, -j
         Simply estimate and output a single tree using the neighbor-joining
         algorithm; do not follow with variational inference
+
+    --rejection-sampling, -J
+        Refine final set of samples by rejection sampling, using the full
+        likelihood function.  Produces a substantially sharpened
+        approximation of the posterior distribution at the cost of
+        additional likelihood evaluations.  
 	
     --out-dists, -o <outfile.dist>
         Output distance matrix to <outfile.dist>.  In case of --nj-only,

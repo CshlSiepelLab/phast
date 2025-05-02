@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
     batchsize = DEFAULT_BATCHSIZE, nbatches_conv = DEFAULT_NBATCHES_CONV,
     min_nbatches = DEFAULT_MIN_NBATCHES, rank = DEFAULT_RANK;
   unsigned int nj_only = FALSE, random_start = FALSE,
-    hyperbolic = FALSE, embedding_only = FALSE, importance_sampling = FALSE,
+    hyperbolic = FALSE, embedding_only = FALSE, rejection_sampling = FALSE,
     mvn_dump = FALSE, natural_grad = FALSE;
   MSA *msa = NULL;
   enum covar_type covar_param = CONST;
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
     {"embedding-only", 0, 0, 'e'},
     {"hky85", 0, 0, 'k'}, 
     {"hyperbolic", 0, 0, 'H'},
-    {"importance-sampling", 0, 0, 'I'},
+    {"rejection-sampling", 0, 0, 'J'},
     {"logfile", 1, 0, 'l'},
     {"mean", 1, 0, 'm'},
     {"min-nbatches", 1, 0, 'M'},
@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHIi:jkK:l:m:M:n:No:P:r:Rt:T:VW:S:s:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:jJkK:l:m:M:n:No:P:r:Rt:T:VW:S:s:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -115,8 +115,8 @@ int main(int argc, char *argv[]) {
     case 'H':
       hyperbolic = TRUE;
       break;
-    case 'I':
-      importance_sampling = TRUE;
+    case 'J':
+      rejection_sampling = TRUE;
       break;
     case 'j':
       nj_only = TRUE;
@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
       printf("%s", HELP); 
       exit(0);
     case '?':
-      die("Bad argument.  Try 'nj_var -h'.\n");
+      die("Bad argument.  Try 'varPHAST -h'.\n");
     }
   }
 
@@ -225,7 +225,7 @@ int main(int argc, char *argv[]) {
   if ((nj_only || embedding_only) &&
       (indistfile != NULL || init_tree != NULL)) {
     if (optind != argc) 
-      die("ERROR: No alignment needed in this case.  Too many arguments.  Try 'nj_var -h'.\n");
+      die("ERROR: No alignment needed in this case.  Too many arguments.  Try 'varPHAST -h'.\n");
   }
   else {
     if (optind != argc - 1)
@@ -335,15 +335,10 @@ int main(int argc, char *argv[]) {
                          nbatches_conv, min_nbatches, 
                          covar_data, logfile);
 
-      if (importance_sampling == TRUE) {
-        /* sample 100x as many then importance sample; make free param? */
-        Vector *logdens = vec_new(100*nsamples);
-        List *origtrees = nj_var_sample(100*nsamples, mmvn, covar_data,
-                                        msa->names, logdens);
-        trees = nj_importance_sample(nsamples, origtrees, logdens, mod, msa, logfile);        
-      }
+      if (rejection_sampling == TRUE) 
+        trees = nj_var_sample_rejection(nsamples, mmvn, covar_data, mod, msa, logfile);
 
-      else /* otherwise just sample directly from posterior */
+      else /* otherwise just sample directly from approx posterior */
         trees = nj_var_sample(nsamples, mmvn, covar_data, msa->names, NULL);
 
       for (i = 0; i < nsamples; i++)

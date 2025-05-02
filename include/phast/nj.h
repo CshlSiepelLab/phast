@@ -167,4 +167,8 @@ void nj_set_LASSO_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
 
 void nj_set_pointscale(CovarData *data);
 
+List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
+                              CovarData *data, TreeModel *mod,
+                              MSA *msa, FILE *logf);
+
 #endif

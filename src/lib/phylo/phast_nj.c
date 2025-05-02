@@ -630,7 +630,6 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, multi_MVN *mmvn,
     running_tot = 0, last_running_tot = -INFTY, trace, logdet, penalty = 0,
     bestpenalty = 0;
   FILE *gradf = NULL;
-  Matrix *D = data->dist;
   
 #ifdef DUMPGRAD
   gradf = phast_fopen("grads_log.txt", "w");
@@ -1337,6 +1336,9 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
     fprintf(logf, "# Importance sampling from %d eligible trees of %d; avelnl: %f, maxlnl: %f\n",
             count, lst_size(trees), sampll/nsamples, maxll);
 
+
+  
+
   vec_free(weights);
   vec_free(lls);
   
@@ -1752,4 +1754,72 @@ void nj_set_pointscale(CovarData *data) {
     data->pointscale = POINTSPAN_HYP / maxd;
   else
     data->pointscale = POINTSPAN_EUC / maxd;
+}
+
+/* Like nj_var_sample, but use rejection sampling to sharpen the
+   approximate posterior */
+List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
+                              CovarData *data, TreeModel *mod,
+                              MSA *msa, FILE *logf) {
+  List *retval = lst_new_ptr(nsamples), *init_samples = lst_new_ptr(nsamples * 10);
+  Vector *points = vec_new(mmvn->d * mmvn->n);
+  double logM = -INFTY, lnl, mvnl, u, avelnl = 0;
+  double ll[nsamples * 10], mvnll[nsamples * 10];
+  int i, ntot;
+
+  /* collect an initial sample to approximate the upper bound on the
+     log ratio of densities */
+  for (i = 0; i < nsamples * 10; i++) {
+    mmvn_sample(mmvn, points);
+    nj_points_to_distances(points, data);
+    mod->tree = nj_infer_tree(data->dist, msa->names);
+    lst_push_ptr(init_samples, mod->tree);
+
+    ll[i] = nj_compute_log_likelihood(mod, msa, NULL);
+    mvnll[i] = mmvn_log_dens(mmvn, points);
+    if (ll[i] - mvnll[i] > logM) 
+      logM = ll[i] - mvnll[i];
+  }
+
+  /* subsample from those by rejection sampling */
+  logM += log(1.05); /* provide a little buffer */
+  for (i = 0; i < lst_size(init_samples) &&
+         lst_size(retval) < nsamples; i++) {
+    u = unif_rand();
+    if (u < exp(ll[i] - mvnll[i] - logM)) {
+      lst_push_ptr(retval, lst_get_ptr(init_samples, i));
+      avelnl += ll[i];
+    }
+    else
+      tr_free(lst_get_ptr(init_samples, i));
+  }
+  ntot = i; /* total number examined */
+  for (; i < lst_size(init_samples); i++) /* free any remaining trees */
+    tr_free(lst_get_ptr(init_samples, i));
+  
+  /* if necessary, continue until target is met */
+  while (lst_size(retval) < nsamples) {
+    ntot++;
+    mmvn_sample(mmvn, points);
+    nj_points_to_distances(points, data);
+    mod->tree = nj_infer_tree(data->dist, msa->names);
+
+    lnl = nj_compute_log_likelihood(mod, msa, NULL);
+    mvnl = mmvn_log_dens(mmvn, points);
+    u = unif_rand();
+    if (u < exp(lnl - mvnl - logM)) {
+      lst_push_ptr(retval, mod->tree);
+      avelnl += lnl;
+    }
+    else
+      tr_free(mod->tree);
+  } 
+
+  if (logf != NULL)
+    fprintf(logf, "# Rejection sampling from %d trees (acceptance rate %.3f); avelnl: %f\n",
+            ntot, nsamples*1.0/ntot, avelnl/nsamples);
+  
+  lst_free(init_samples);
+  vec_free(points);
+  return(retval);
 }
