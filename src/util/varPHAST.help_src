@@ -8,11 +8,11 @@ sampled from approximate posterior, with one New-Hampshire-formatted tree
 per line.  If the --nj-only option is selected, a single tree will be
 estimated by NJ and output.  Initial pairwise distances may be specified
 either via a multiple alignment, in which case they are estimated using the
-Jukes-Cantor model, or by providing a distance matrix (--distances).
-Variational optimization is by stochastic gradient ascent using the Adam
-algorithm. By default, an embedding in a Euclidean space is used, but a
-hyperbolic geometry can be used instead by selecting the --hyperbolic
-option.
+Jukes-Cantor model, or by providing a distance matrix (--distances) or
+starting tree (--tree).  Variational optimization is by stochastic gradient
+ascent using the Adam algorithm. By default, an embedding in a Euclidean
+space is used, but a hyperbolic geometry can be used instead by selecting
+the --hyperbolic option.
 
 OPTIONS:
     --format, -i FASTA|SS|PHYLIP|MPM|MAF
@@ -150,11 +150,11 @@ OPTIONS:
 
     --tree, -t <file.nh>
         Obtain pairwise distances from specified tree, rather than from a
-	    distance matrix or the alignment.  Alterative to --distances.
+        distance matrix or the alignment.  Alterative to --distances.
 
     --treemodel, -T <file.mod>
         Use the specified tree model for initialization and likelihood calculations.
-	    Overrides use of JC69 or HKY85 substitution models. 
+        Overrides use of JC69 or HKY85 substitution models. 
 
     --upweight-kld, -U <factor>
        The variational objective function (ELBO) is the difference between
