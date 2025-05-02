@@ -851,7 +851,6 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, multi_MVN *mmvn,
       fprintf(logf, "penalty: %f, ", bestpenalty);
     fprintf(logf, "sigmapar: ");
     vec_print(sigmapar, logf);
-    fprintf(logf, "\n");
   }
   
   vec_free(grad);
@@ -886,7 +885,6 @@ List *nj_var_sample(int nsamples, multi_MVN *mmvn, CovarData *data, char** names
 
      if (logdens != NULL) 
        vec_set(logdens, i, mmvn_log_dens(mmvn, points));
-     /* FIXME: need Jacobian in hyperbolic case */
      
      nj_points_to_distances(points, data);
      tree = nj_infer_tree(data->dist, names);
@@ -1336,8 +1334,8 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
   }
 
   if (logf != NULL)
-    fprintf(logf, "# Importance sampling from %d eligible trees out of %d; maxlnl = %f; ave sampled lnl = %f\n",
-            count, lst_size(trees), maxll, sampll/nsamples);
+    fprintf(logf, "# Importance sampling from %d eligible trees of %d; avelnl: %f, maxlnl: %f\n",
+            count, lst_size(trees), sampll/nsamples, maxll);
 
   vec_free(weights);
   vec_free(lls);
