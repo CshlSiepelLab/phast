@@ -206,7 +206,7 @@ void phyloP(struct phyloP_struct *p) {
     die("ERROR: --quantiles cannot be used with --subtree.\n");
   if (feats != NULL && (fit_model || prior_only || post_only))
     die("ERROR: --features cannot be used with --null, --posterior, or --fit-model.\n");
-  if (base_by_base && (ci != -1 || feats!=NULL || prior_only || post_only))
+  if ((base_by_base || output_wig) && (ci != -1 || feats!=NULL || prior_only || post_only))
     die("ERROR: --wig-scores and --base-by-base cannot be used with --null, --posterior, --features, --quantiles, or --confidence-interval.\n");
   if (method == GERP && subtree_name != NULL)
     die("ERROR: --subtree not supported with --method GERP.\n");
@@ -214,7 +214,7 @@ void phyloP(struct phyloP_struct *p) {
     die("ERROR --branch not supported with --method GERP or --method SPH\n");
   if (branch_name != NULL && subtree_name != NULL)
     die("ERROR: can use only one of --subtree or --branch options\n");
-  if (method != SPH && feats==NULL && !base_by_base)
+  if (method != SPH && feats==NULL && !base_by_base && !output_wig)
     die("ERROR: need base-by-base, wig-scores, or features unless method is SPH\n");
   if (prior_only && msa==NULL && nsites < 0)
     die("ERROR: need to specify nsites or msa to get prior");
@@ -225,7 +225,7 @@ void phyloP(struct phyloP_struct *p) {
     if (msa_alph_has_lowercase(msa)) msa_toupper(msa);     
     msa_remove_N_from_alph(msa);
 
-    if ((feats != NULL || base_by_base) && msa->ss->tuple_idx == NULL)
+    if ((feats != NULL || base_by_base || output_wig) && msa->ss->tuple_idx == NULL)
       die("ERROR: ordered alignment required.\n");
 
      if (p->no_prune) {
@@ -305,7 +305,7 @@ void phyloP(struct phyloP_struct *p) {
   /* SPH method */
   if (method == SPH) {
     /* fit model to whole data set if necessary */
-    if (fit_model && (!base_by_base && feats == NULL)) 
+    if (fit_model && !base_by_base && !output_wig && feats == NULL)
       mod_fitted = fit_tree_model(mod, msa, subtree_name, &scale, &sub_scale);
 
     /* set up for subtree mode */
@@ -316,11 +316,11 @@ void phyloP(struct phyloP_struct *p) {
       sub_reroot(mod, subtree_name);
       if (mod_fitted != NULL) sub_reroot(mod_fitted, subtree_name);
       /* note: rerooting has to be done before creating jump process */
-      if (fit_model && base_by_base) 
+      if (fit_model && (base_by_base || output_wig))
         mod->subtree_root = mod->tree->lchild; /* for rescaling */
     }
     /* if base-by-base, use larger default epsilon */
-    if (base_by_base && epsilon < 0)
+    if ((base_by_base || output_wig) && epsilon < 0)
       epsilon = DEFAULT_EPSILON_BASE_BY_BASE;
     else if (epsilon < 0) epsilon = DEFAULT_EPSILON;
     /* jump process for prior */
@@ -330,7 +330,7 @@ void phyloP(struct phyloP_struct *p) {
     if (mod_fitted != NULL)
       jp_post = sub_define_jump_process(mod_fitted, epsilon, 
                                         tr_max_branchlen(mod->tree));
-    else if (fit_model && base_by_base) 
+    else if (fit_model && (base_by_base || output_wig))
       jp_post = sub_define_jump_process(mod, epsilon, 
                                         10 * tr_max_branchlen(mod->tree));
     else
@@ -339,26 +339,26 @@ void phyloP(struct phyloP_struct *p) {
 
     /* now actually compute and print output */
     if (subtree_name == NULL) {   /* full-tree mode */
-      if (base_by_base) {
+      if (base_by_base || output_wig) {
         /* compute p-vals and (optionally) posterior means/variances per
            tuple, then print to stdout in wig or wig-like format */  
         pvals = smalloc(msa->ss->ntuples * sizeof(double));
-	if (results != NULL || !output_wig) {
+	if (results != NULL || base_by_base) {
           post_means = smalloc(msa->ss->ntuples * sizeof(double));
           post_vars = smalloc(msa->ss->ntuples * sizeof(double));
         }
         sub_pval_per_site(jp, msa, mode, fit_model, &prior_mean, &prior_var, 
                           pvals, post_means, post_vars, logf);
 
-        if (outfile != NULL && output_wig)
+        if (outfile != NULL && !base_by_base)
           print_wig(outfile, msa, pvals, chrom, refidx, TRUE, NULL);
-	if ((outfile != NULL && !output_wig) || results!=NULL) {
+	if ((outfile != NULL && base_by_base) || results!=NULL) {
 	  char str[1000];
 	  sprintf(str, "#neutral mean = %.3f var = %.3f\n#post_mean post_var pval", 
                   prior_mean, prior_var);
-          print_base_by_base(output_wig ? NULL : outfile, 
+          print_base_by_base(base_by_base ? outfile : NULL,
 			     str, chrom, msa, NULL, 
-			     refidx, results, FALSE, TRUE, 3,
+			     refidx, results, output_wig, TRUE, 3,
 			     "post.mean", post_means, 
                              "post.var", post_vars, "pval", pvals);
         }
@@ -399,14 +399,14 @@ void phyloP(struct phyloP_struct *p) {
       }
     }
     else {			/* SPH and supertree/subtree */
-      if (base_by_base) {
+      if (base_by_base || output_wig) {
         /* compute p-vals and (optionally) posterior means/variances per
            tuple, then print to stdout in wig or wig-like format */  
         double *post_means_sub = NULL, *post_vars_sub = NULL, 
           *post_means_sup = NULL, *post_vars_sup = NULL;
         double prior_mean_sub, prior_var_sub, prior_mean_sup, prior_var_sup;
         pvals = smalloc(msa->ss->ntuples * sizeof(double));
-        if (results != NULL || !output_wig) {
+        if (results != NULL || base_by_base) {
           post_means_sub = smalloc(msa->ss->ntuples * sizeof(double)); 
           post_means_sup = smalloc(msa->ss->ntuples * sizeof(double)); 
           post_vars_sub = smalloc(msa->ss->ntuples * sizeof(double)); 
@@ -418,15 +418,15 @@ void phyloP(struct phyloP_struct *p) {
                                   post_vars_sub, post_means_sup, post_vars_sup, 
                                   logf);
 
-        if (output_wig) 
+        if (!base_by_base)
           print_wig(outfile, msa, pvals, chrom, refidx, TRUE, results);
-	if (results != NULL || !output_wig) {
+	if (results != NULL || base_by_base) {
           char str[1000];
           sprintf(str, "#neutral mean_sub = %.3f var_sub = %.3f mean_sup = %.3f  var_sup = %.3f\n#post_mean_sub post_var_sub post_mean_sup post_var_sup pval", 
                   prior_mean_sub, prior_var_sub, prior_mean_sup, prior_var_sup);
-          print_base_by_base(output_wig ? NULL : outfile, 
+          print_base_by_base(base_by_base ? outfile : NULL,
 			     str, chrom, msa, NULL, 
-			     refidx, results, FALSE, TRUE, 5, 
+			     refidx, results, output_wig, TRUE, 5,
 			     "post.mean.sub", post_means_sub, 
                              "post.var.sub", post_vars_sub, 
 			     "post.mean.sup", post_means_sup, 
@@ -483,36 +483,36 @@ void phyloP(struct phyloP_struct *p) {
 
   /* LRT method */
   else if (method == LRT) {
-    if (base_by_base) { 
+    if (base_by_base || output_wig) {
       pvals = smalloc(msa->ss->ntuples * sizeof(double));
-      if (results != NULL || !output_wig) {
+      if (results != NULL || base_by_base) {
         llrs = smalloc(msa->ss->ntuples * sizeof(double));
         scales = smalloc(msa->ss->ntuples * sizeof(double));
       }
       if (subtree_name == NULL && branch_name == NULL) { /* no subtree case */
         col_lrts(mod, msa, mode, pvals, scales, llrs, logf);
-        if (output_wig) 
+        if (!base_by_base)
           print_wig(outfile, msa, pvals, chrom, refidx, TRUE, NULL);
-	if (results != NULL || !output_wig)
-          print_base_by_base(output_wig ? NULL : outfile, 
+	if (results != NULL || base_by_base)
+          print_base_by_base(base_by_base ? outfile : NULL,
 			     "#scale lnlratio pval", 
-			     chrom, msa, NULL, refidx, results, FALSE, TRUE, 3, 
+			     chrom, msa, NULL, refidx, results, output_wig, TRUE, 3,
                              "scale", scales, "lnlratio", llrs, "pval", pvals);
       }
       else {                    /* subtree case */
-        if (results != NULL || !output_wig) {
+        if (results != NULL || base_by_base) {
           sub_scales = smalloc(msa->ss->ntuples * sizeof(double));
           null_scales = smalloc(msa->ss->ntuples * sizeof(double));
         }
         col_lrts_sub(mod, msa, mode, pvals, null_scales, scales, sub_scales, 
                      llrs, logf);
 
-        if (output_wig) 
+        if (!base_by_base)
           print_wig(outfile, msa, pvals, chrom, refidx, TRUE, NULL);
-	if (results != NULL || !output_wig)
-          print_base_by_base(output_wig ? NULL : outfile, 
+	if (results != NULL || base_by_base)
+          print_base_by_base(base_by_base ? outfile : NULL,
 			     "#null_scale alt_scale alt_subscale lnlratio pval", 
-                             chrom, msa, NULL, refidx, results, FALSE, TRUE, 5, 
+                             chrom, msa, NULL, refidx, results, output_wig, TRUE, 5,
 			     "null.scale", null_scales, "alt.scale", scales,
                              "alt.subscale", sub_scales, "lnlratio", llrs,
 			     "pval", pvals);
@@ -562,9 +562,9 @@ void phyloP(struct phyloP_struct *p) {
 
   /* SCORE method */
   else if (method == SCORE) {
-    if (base_by_base) {
+    if (base_by_base || output_wig) {
       pvals = smalloc(msa->ss->ntuples * sizeof(double));
-      if (results != NULL || !output_wig) {
+      if (results != NULL || base_by_base) {
         teststats = smalloc(msa->ss->ntuples * sizeof(double));
         derivs = smalloc(msa->ss->ntuples * sizeof(double));
       }
@@ -572,17 +572,17 @@ void phyloP(struct phyloP_struct *p) {
       if (subtree_name == NULL && branch_name == NULL) { /* no subtree case */
         col_score_tests(mod, msa, mode, pvals, derivs, 
                         teststats);
-        if (output_wig) 
+        if (!base_by_base)
           print_wig(outfile, msa, pvals, chrom, refidx, TRUE, NULL);
-	if (results != NULL || !output_wig)
-          print_base_by_base(output_wig ? NULL : outfile, 
+	if (results != NULL || base_by_base)
+          print_base_by_base(base_by_base ? outfile : NULL,
 			     "#deriv teststat pval", 
-			     chrom, msa, NULL, refidx, results, FALSE, TRUE, 3, 
+			     chrom, msa, NULL, refidx, results, output_wig, TRUE, 3,
                              "deriv", derivs, "teststat", teststats, 
 			     "pval", pvals);
       }
       else {                    /* subtree case */
-        if (results != NULL || !output_wig) {
+        if (results != NULL || base_by_base) {
           null_scales = smalloc(msa->ss->ntuples * sizeof(double));
           sub_derivs = smalloc(msa->ss->ntuples * sizeof(double));
         }
@@ -590,12 +590,12 @@ void phyloP(struct phyloP_struct *p) {
         col_score_tests_sub(mod, msa, mode, pvals, null_scales, derivs, 
                             sub_derivs, teststats, logf);
 
-        if (output_wig) 
+        if (!base_by_base)
           print_wig(outfile, msa, pvals, chrom, refidx, TRUE, NULL);
-	if (results != NULL || !output_wig)
-          print_base_by_base(output_wig ? NULL : outfile, 
+	if (results != NULL || base_by_base)
+          print_base_by_base(base_by_base ? outfile : NULL,
 			     "#scale deriv subderiv teststat pval", 
-			     chrom, msa, NULL, refidx, results, FALSE, TRUE, 5, 
+			     chrom, msa, NULL, refidx, results, output_wig, TRUE, 5,
 			     "scale", null_scales, "deriv", derivs, 
                              "subderiv", sub_derivs, "teststat", teststats, 
 			     "pval", pvals);
@@ -647,18 +647,18 @@ void phyloP(struct phyloP_struct *p) {
   /* GERP method */
   else if (method == GERP) { 
     char *formatstr[4] = {"%.3f", "%.3f", "%.3f", "%.0f"};
-    if (base_by_base) {
+    if (base_by_base || output_wig) {
       nrejected = smalloc(msa->ss->ntuples * sizeof(double));
-      if (results != NULL || !output_wig) {
+      if (results != NULL || base_by_base) {
         nneut = smalloc(msa->ss->ntuples * sizeof(double));
         nobs = smalloc(msa->ss->ntuples * sizeof(double));
         nspec = smalloc(msa->ss->ntuples * sizeof(double));
       }
       col_gerp(mod, msa, mode, nneut, nobs, nrejected, nspec, logf);
-      if (output_wig) 
+      if (!base_by_base)
         print_wig(outfile, msa, nrejected, chrom, refidx, FALSE, NULL);
-      if (results != NULL || !output_wig) {
-        print_base_by_base(output_wig ? NULL : outfile, 
+      if (results != NULL || base_by_base) {
+        print_base_by_base(base_by_base ? outfile : NULL,
 			   "#nneut nobs nrej nspec", chrom, 
 			   msa, formatstr, refidx, results, FALSE, FALSE, 4, 
 			   "nneut", nneut, "nobs", nobs, "nrej", nrejected, 
