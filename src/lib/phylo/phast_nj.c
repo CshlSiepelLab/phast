@@ -21,6 +21,7 @@
 #include "phast/markov_matrix.h"
 #include "phast/mvn.h"
 #include "phast/multi_mvn.h"
+#include "phast/heap.h"
 
 /* uncomment to dump gradients to a file called "grads_log.txt" */
 //#define DUMPGRAD 1
@@ -119,7 +120,7 @@ void nj_updateD(Matrix *D, int u, int v, int w, Vector *active, Vector *sums) {
       mat_set(D, k, w, 0.5 * (du + dv - mat_get(D, u, v)));
 
       if (mat_get(D, k, w) < 0)
-	mat_set(D, k, w, 0);
+        mat_set(D, k, w, 0);
     }
   }
   
@@ -166,6 +167,8 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names) {
     for (w = n; w < N; w++) {   
       nj_resetQ(Q, D, active, sums, &u, &v, w);
 
+      fprintf(stderr, "Joining %d and %d (%f)\n", u, v, mat_get(Q, u, v));
+      
       nj_updateD(D, u, v, w, active, sums);
       
       node_w = tr_new_node();
@@ -186,16 +189,16 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names) {
     root = tr_new_node();
     for (i = 0; i < N; i++) {
       if (vec_get(active, i) == TRUE) {
-	if (node_u == NULL) {
-	  u = i;
-	  node_u = lst_get_ptr(nodes, i);
-	}
-	else if (node_v == NULL) {
-	  v = i;
-	  node_v = lst_get_ptr(nodes, i);
-	}
-	else
-	  die("ERROR nj_infer_tree: more than two nodes left at root\n");
+        if (node_u == NULL) {
+          u = i;
+          node_u = lst_get_ptr(nodes, i);
+        }
+        else if (node_v == NULL) {
+          v = i;
+          node_v = lst_get_ptr(nodes, i);
+        }
+        else
+          die("ERROR nj_infer_tree: more than two nodes left at root\n");
       }
     }
     tr_add_child(root, node_u);
@@ -225,14 +228,19 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names) {
     int n = initD->nrows;
     int N = 2*n - 2;   /* number of nodes in unrooted tree */
     int i, j, u = -1, v = -1, w;
-    Matrix *D, *Q;
+    Matrix *D;
     Vector *sums, *active;
-    List *nodes;  /* could just be an array */
+    List *nodes;  
     TreeNode *node_u, *node_v, *node_w, *root;
     HeapNode *heap = NULL;
+    NJHeapNode *hn, *newhn;
+    int rev[N];
     
     if (initD->nrows != initD->ncols || n < 3)
       die("ERROR nj_infer_tree: bad distance matrix\n");
+    
+    /* initialize revision numbers for all nodes */
+    for (i = 0; i < N; i++) rev[i] = 0;
 
     /* create a larger distance matrix of dimension N x N to
        accommodate internal nodes; also set up list of active nodes
@@ -242,52 +250,55 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names) {
     sums = vec_new(N); vec_zero(sums);
     nodes = lst_new_ptr(N);
     tr_reset_id();
-    
     for (i = 0; i < n; i++) {
       node_u = tr_new_node();
       strcat(node_u->name, names[i]);
       lst_push_ptr(nodes, node_u);
       vec_set(active, i, TRUE);
-      for (j = i+1; j < n; j++)
-        mat_set(D, i, j, mat_get(initD, i, j));
-    }
-   
-    /* set up Q */
-    //    Q = mat_new(N, N); mat_zero(Q);
-
-    // new version
-    /* Set up heap with Q nodes */
-    /* can we adapt update Q? */
-    for (int i = 0; i < taxon_count; ++i) {
-      if (!active[i]) continue;
-      for (int j = i+1; j < taxon_count; ++j) {
-        if (!active[j]) continue;
-        QEntry *q = compute_Q(i, j);
-        heap = insert(heap, q);
+      for (j = i+1; j < n; j++) {
+        double d = mat_get(initD, i, j);
+        mat_set(D, i, j, d);
+        sums->data[i] += d;
+        sums->data[j] += d;
       }
     }
 
-    while (remaining_active_taxa() > 3) {
-      NJHeapNode *q;
-      while (1) {
-        heap = hp_delete_min(heap, &q);
-        if (q->rev_i == rev[q->i] && q->rev_j == rev[q->j]) {
-          break; // fresh and valid
-        } else {
-          // Stale, recompute and reinsert
-          QEntry *new_q = compute_Q(q->i, q->j);
-          heap = insert(heap, new_q);
-          free(q);
+    /* also set up the heap for Q values */
+    for (i = 0; i < n; i++) {
+      for (j = i+1; j < n; j++) {
+        hn = nj_heap_computeQ(i, j, n, D, sums, rev);
+        heap = hp_insert(heap, hn->val, hn);
+      }
+    }
+    
+    /* main loop, over internal nodes w */
+    for (w = n; w < N; w++) {
+
+      /* get the minimum Q value from the heap; use lazy evaluation */
+      while (TRUE) {
+        heap = hp_delete_min(heap, (void**)&hn);
+
+        if (vec_get(active, hn->i) == FALSE || vec_get(active, hn->j) == FALSE) {
+          free(hn);
+          continue;
+        }
+        else if (hn->rev_i == rev[hn->i] && hn->rev_j == rev[hn->j]) 
+          break; /* valid and active */
+        else {
+          /* active but stale; recompute */
+          newhn = nj_heap_computeQ(hn->i, hn->j, n, D, sums, rev);
+          heap = hp_insert(heap, newhn->val, newhn);
+          free(hn);
         }
       }
-      ;  /* more */
-    }
-    /* main loop, over internal nodes w */
-    for (w = n; w < N; w++) {   
-      nj_resetQ(Q, D, active, sums, &u, &v, w);
 
-      nj_updateD(D, u, v, w, active, sums);
+      fprintf(stderr, "Joining %d and %d (%f)\n", hn->i, hn->j, hn->val);
       
+      /* join u and v; w is the new node */
+      u = hn->i;
+      v = hn->j;
+      nj_updateD(D, u, v, w, active, sums);
+      n--;  /* one fewer active nodes */
       node_w = tr_new_node();
       lst_push_ptr(nodes, node_w);
 
@@ -298,6 +309,30 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names) {
       tr_add_child(node_w, node_v);
       node_u->dparent = mat_get(D, u, w);
       node_v->dparent = mat_get(D, v, w);
+
+      /* update row sums and revision numbers */
+      vec_set(sums, w, 0);  
+      for (i = 0; i < w; i++) {
+        if (vec_get(active, i) == TRUE) {   /* note that u and v themselves 
+                                               are no longer active */
+          double du = (u < i ? mat_get(D, u, i) : mat_get(D, i, u)); /* upper triangular */
+          double dv = (v < i ? mat_get(D, v, i) : mat_get(D, i, v));
+          sums->data[i] += (mat_get(D, i, w) - du - dv); /* can be updated */
+          sums->data[w] += mat_get(D, i, w); /* have compute from scratch */
+        }
+        rev[i]++;
+      }
+      rev[w]++;
+
+      /* finally, add new Q values to the heap */
+      for (i = 0; i < w; i++) {
+        if (vec_get(active, i) == TRUE) {
+          newhn = nj_heap_computeQ(i, w, n, D, sums, rev); /* add to heap */
+          heap = hp_insert(heap, newhn->val, newhn);
+        }
+      }
+
+      free(hn);
     }
 
     /* there should be exactly two active nodes left. Join them under
@@ -306,16 +341,16 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names) {
     root = tr_new_node();
     for (i = 0; i < N; i++) {
       if (vec_get(active, i) == TRUE) {
-	if (node_u == NULL) {
-	  u = i;
-	  node_u = lst_get_ptr(nodes, i);
-	}
-	else if (node_v == NULL) {
-	  v = i;
-	  node_v = lst_get_ptr(nodes, i);
-	}
-	else
-	  die("ERROR nj_infer_tree: more than two nodes left at root\n");
+        if (node_u == NULL) {
+          u = i;
+          node_u = lst_get_ptr(nodes, i);
+        }
+        else if (node_v == NULL) {
+          v = i;
+          node_v = lst_get_ptr(nodes, i);
+        }
+        else
+          die("ERROR nj_fast_infer: more than two nodes left at root\n");
       }
     }
     tr_add_child(root, node_u);
@@ -331,10 +366,19 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names) {
     vec_free(active);
     vec_free(sums);
     mat_free(D);
-    mat_free(Q);
-
     
     return root;
+}
+
+NJHeapNode* nj_heap_computeQ(int i, int j, int n, Matrix *D, Vector *sums, int *rev) {
+    NJHeapNode *hn = malloc(sizeof(NJHeapNode));
+    hn->i = i;
+    hn->j = j;
+    hn->val = (n - 2) * mat_get(D, i, j) - vec_get(sums, i) -
+      vec_get(sums, j);
+    hn->rev_i = rev[i];
+    hn->rev_j = rev[j];
+    return hn;
 }
 
 /* compute pairwise distance between two DNA seqs using the

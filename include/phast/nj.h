@@ -85,6 +85,7 @@ typedef struct {
 
 /* for use with min-heap in fast nj algorithm */
 typedef struct NJHeapData {
+  double val;
   int i, j; 
   int rev_i, rev_j; // for lazy validation
 } NJHeapNode;
@@ -95,6 +96,11 @@ void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
 void nj_updateD(Matrix *D, int u, int v, int w, Vector *active, Vector *sums);
 
 TreeNode* nj_infer_tree(Matrix *initD, char **names);
+
+TreeNode* nj_fast_infer(Matrix *initD, char **names);
+
+NJHeapNode* nj_heap_computeQ(int i, int j, int n, Matrix *D,
+                             Vector *sums, int *rev);
 
 double nj_compute_JC_dist(MSA *msa, int i, int j);
 

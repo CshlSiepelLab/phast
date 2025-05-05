@@ -28,12 +28,12 @@ HeapNode* hp_meld(HeapNode *a, HeapNode *b) {
   if (b == NULL)
     return a;
   if (a->val <= b->val) {
-    b->sibling = a->child;
+    b->sibling = a->child; /* put b in front of a's children */
     a->child = b;
     return a;
   }
   else {
-    a->sibling = b->child;
+    a->sibling = b->child; /* put a in front of b's children */
     b->child = a;
     return b;
   }
@@ -55,6 +55,7 @@ HeapNode* hp_meld_two_pass(HeapNode *node) {
   a->sibling = NULL;
   b->sibling = NULL;
   return hp_meld(hp_meld(a, b), hp_meld_two_pass(rest));
+  /* FIXME: better to do iteratively */
 }
 
 HeapNode* hp_delete_min(HeapNode *heap, void **min_auxdata) {
@@ -63,4 +64,25 @@ HeapNode* hp_delete_min(HeapNode *heap, void **min_auxdata) {
   HeapNode *new_heap = hp_meld_two_pass(heap->child);
   free(heap);
   return new_heap;
+}
+
+void hp_dump(HeapNode *heap, FILE *F) {
+  if (heap == NULL)
+    return;
+  
+  fprintf(F, "Heap Node:\n\tval = %f\n", heap->val);
+
+  if (heap->sibling == NULL)
+    fprintf(F, "\tsibling = NULL\n");
+  else {
+    fprintf(F, "\tsibling = (%f)\n", heap->sibling->val);
+    hp_dump(heap->sibling, F);
+  }
+
+  if (heap->child == NULL)
+    fprintf(F, "\tchild = NULL\n");
+  else {
+    fprintf(F, "\tchild = (%f)\n", heap->child->val);
+    hp_dump(heap->child, F);
+  }
 }
