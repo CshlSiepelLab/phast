@@ -83,6 +83,12 @@ typedef struct {
   double negcurvature; /* for hyperbolic case */
 } CovarData;
 
+/* for use with min-heap in fast nj algorithm */
+typedef struct NJHeapData {
+  int i, j; 
+  int rev_i, rev_j; // for lazy validation
+} NJHeapNode;
+
 void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
 	       int *v, int maxidx);
 

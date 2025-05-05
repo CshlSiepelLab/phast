@@ -215,12 +215,127 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names) {
 
     
     return root;
-
-    /* FIXME: perhaps use a mapping from source indices to Q indices
-       so that Q can stay small?  keep track of size of Q on each
-       iteration */
 }
 
+/* Faster version of function to infer the tree from a starting
+   distance matrix. Uses a min-heap for efficient lookup of minimum Q
+   values, with lazy evaluation to avoid unnecessary computations.
+   Does not alter the provided distance matrix */
+TreeNode* nj_fast_infer(Matrix *initD, char **names) {
+    int n = initD->nrows;
+    int N = 2*n - 2;   /* number of nodes in unrooted tree */
+    int i, j, u = -1, v = -1, w;
+    Matrix *D, *Q;
+    Vector *sums, *active;
+    List *nodes;  /* could just be an array */
+    TreeNode *node_u, *node_v, *node_w, *root;
+    HeapNode *heap = NULL;
+    
+    if (initD->nrows != initD->ncols || n < 3)
+      die("ERROR nj_infer_tree: bad distance matrix\n");
+
+    /* create a larger distance matrix of dimension N x N to
+       accommodate internal nodes; also set up list of active nodes
+       and starting tree nodes */
+    D = mat_new(N, N); mat_zero(D);
+    active = vec_new(N); vec_set_all(active, FALSE);
+    sums = vec_new(N); vec_zero(sums);
+    nodes = lst_new_ptr(N);
+    tr_reset_id();
+    
+    for (i = 0; i < n; i++) {
+      node_u = tr_new_node();
+      strcat(node_u->name, names[i]);
+      lst_push_ptr(nodes, node_u);
+      vec_set(active, i, TRUE);
+      for (j = i+1; j < n; j++)
+        mat_set(D, i, j, mat_get(initD, i, j));
+    }
+   
+    /* set up Q */
+    //    Q = mat_new(N, N); mat_zero(Q);
+
+    // new version
+    /* Set up heap with Q nodes */
+    /* can we adapt update Q? */
+    for (int i = 0; i < taxon_count; ++i) {
+      if (!active[i]) continue;
+      for (int j = i+1; j < taxon_count; ++j) {
+        if (!active[j]) continue;
+        QEntry *q = compute_Q(i, j);
+        heap = insert(heap, q);
+      }
+    }
+
+    while (remaining_active_taxa() > 3) {
+      NJHeapNode *q;
+      while (1) {
+        heap = hp_delete_min(heap, &q);
+        if (q->rev_i == rev[q->i] && q->rev_j == rev[q->j]) {
+          break; // fresh and valid
+        } else {
+          // Stale, recompute and reinsert
+          QEntry *new_q = compute_Q(q->i, q->j);
+          heap = insert(heap, new_q);
+          free(q);
+        }
+      }
+      ;  /* more */
+    }
+    /* main loop, over internal nodes w */
+    for (w = n; w < N; w++) {   
+      nj_resetQ(Q, D, active, sums, &u, &v, w);
+
+      nj_updateD(D, u, v, w, active, sums);
+      
+      node_w = tr_new_node();
+      lst_push_ptr(nodes, node_w);
+
+      /* attach child nodes to parent and set branch lengths */
+      node_u = lst_get_ptr(nodes, u);
+      node_v = lst_get_ptr(nodes, v);
+      tr_add_child(node_w, node_u);
+      tr_add_child(node_w, node_v);
+      node_u->dparent = mat_get(D, u, w);
+      node_v->dparent = mat_get(D, v, w);
+    }
+
+    /* there should be exactly two active nodes left. Join them under
+       a root. */
+    node_u = NULL; node_v = NULL;
+    root = tr_new_node();
+    for (i = 0; i < N; i++) {
+      if (vec_get(active, i) == TRUE) {
+	if (node_u == NULL) {
+	  u = i;
+	  node_u = lst_get_ptr(nodes, i);
+	}
+	else if (node_v == NULL) {
+	  v = i;
+	  node_v = lst_get_ptr(nodes, i);
+	}
+	else
+	  die("ERROR nj_infer_tree: more than two nodes left at root\n");
+      }
+    }
+    tr_add_child(root, node_u);
+    tr_add_child(root, node_v);
+    node_u->dparent = mat_get(D, u, v) / 2;
+    node_v->dparent = mat_get(D, u, v) / 2;
+    
+    /* finish set up of tree */
+    root->nnodes = N+1;
+    tr_set_nnodes(root);
+
+    lst_free(nodes);
+    vec_free(active);
+    vec_free(sums);
+    mat_free(D);
+    mat_free(Q);
+
+    
+    return root;
+}
 
 /* compute pairwise distance between two DNA seqs using the
    Jukes-Cantor model */
