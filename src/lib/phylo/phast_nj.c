@@ -609,9 +609,17 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
     die("ERROR in nj_compute_model_grad: low-rank matrix R required in LOWR case.\n");
   
   /* obtain gradient with respect to points, dL/dx */
-  //  ll_base = nj_dL_dx_dumb(points, dL_dx, mod, msa, data); 
-  ll_base = nj_dL_dx_smarter(points, dL_dx, mod, msa, data); 
+  ll_base = nj_dL_dx_dumb(points, dL_dx, mod, msa, data); 
+  printf("Full numerical (%f):\n", ll_base);
+  vec_print(dL_dx, stdout);
 
+  ll_base = nj_dL_dx_smarter(points, dL_dx, mod, msa, data);
+  printf("Chain rule (%f):\n", ll_base);
+  vec_print(dL_dx, stdout);
+  
+
+  exit(0);
+  
   /* now derive partial derivatives wrt free parameters from dL/dx */
   vec_zero(grad);
   loglambda_grad = 0;
@@ -1244,8 +1252,8 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
     pL[j] = smalloc((mod->tree->nnodes+1) * sizeof(double));
 
   if (branchgrad != NULL) {
-    if (branchgrad->size != mod->tree->nnodes)
-      die("ERROR in nj_compute_log_likelihood: size of branchgrad must equal number of nodes in tree\n");
+    if (branchgrad->size != mod->tree->nnodes-2) /* unrooted */
+      die("ERROR in nj_compute_log_likelihood: size of branchgrad must be 2n-3\n");
     vec_zero(branchgrad);
     pLbar = smalloc(nstates * sizeof(double*));
     for (j = 0; j < nstates; j++)
@@ -1306,6 +1314,8 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
     for (i = 0; i < nstates; i++)
       total_prob += vec_get(mod->backgd_freqs, i) *
         pL[i][mod->tree->id] * mod->freqK[rcat];
+
+    printf("total_prob: %f (log_scale %f)\n", total_prob, log_scale);
     
     ll += (log(total_prob) - log_scale) * msa->ss->counts[tupleidx];
 
@@ -1359,7 +1369,7 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
         n = lst_get_ptr(traversal, nodeidx);
         par = n->parent;
 	
-        if (par == NULL)  /* should be the last one visited but let's be safe */
+        if (par == NULL || n == mod->tree->rchild) 
           continue;
        
         /* recompute total probability based on current node, to
@@ -1368,20 +1378,28 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
           for (j = 0; j < nstates; j++) /* child state */
             base_prob += pL[j][n->id] * pLbar[i][par->id] *
               mm_get(mod->P[n->id][rcat], i, j);
-       
+
+        printf("base_prob (node %d): %f\n", nodeidx, base_prob);
+        
         /* recompute subst_mat with perturbed branch length */
         mm_cpy(temp_subst_mat, mod->P[n->id][rcat]);
         mm_exp(mod->P[n->id][rcat], mod->rate_matrix, n->dparent + DERIV_EPS);
+
+        /* FIXME: do this analytically using diagonalization? has to be model-dependent */
         
         for (i = 0; i < nstates; i++) /* parent state */
           for (j = 0; j < nstates; j++) /* child state */
             new_prob += pL[j][n->id] * pLbar[i][par->id] *
               mm_get(mod->P[n->id][rcat], i, j);
-        
+
+        printf("new_prob (node %d): %f\n", nodeidx, new_prob);
+
         /* restore original subst_mat */
         mm_cpy(mod->P[n->id][rcat], temp_subst_mat);
-        
-        vec_set(branchgrad, nodeidx, (log(new_prob) - log(base_prob)) / DERIV_EPS);
+
+        assert(nodeidx < branchgrad->size);
+        vec_set(branchgrad, nodeidx, (log(new_prob) - log(base_prob)) / DERIV_EPS *
+                msa->ss->counts[tupleidx]);
       }
     }
   }
@@ -2032,14 +2050,28 @@ double nj_dL_dx_smarter(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
   /* calculate dL/dt numerically, obtain log likelihood as byproduct */
   ll_base = nj_dL_dt_num(dL_dt, mod, msa);
 
+  printf("dL_dt [numerical] (%f):\n", ll_base);
+  vec_print(dL_dt, stdout);
+
+  /* now try it with analytical derivs */
+  ll_base = nj_compute_log_likelihood(mod, msa, dL_dt);
+
+  printf("dL_dt [analytical] (%f):\n", ll_base);
+  vec_print(dL_dt, stdout);
+  
   /* calculate dt/dD Jacobian matrix numerically */
   nj_dt_dD_num(dt_dD, data->dist, mod, msa);
-
+  printf("dt_dD:\n");
+  mat_print(dt_dD, stdout);
+  
   /* apply chain rule to get dL/dD gradient (a vector of dim ndist) */
   mat_vec_mult_transp(dL_dD, dt_dD, dL_dt);
   /* (note taking transpose of both vector and matrix and expressing
      result as column vector) */
 
+  printf("dL_dD\n");
+  vec_print(dL_dD, stdout);
+  
   /* finally multiply by dD/dx analytically to obtain final gradient */
   vec_zero(dL_dx);
   for (i = 0; i < n; i++) {
@@ -2098,6 +2130,7 @@ void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa) {
   
   /* perturb each pairwise distance and measure effect on each branch */
   trav_orig = tr_postorder(mod->tree);
+  mat_zero(dt_dD);
   for (i = 0; i < n; i++) {
     for (j = i+1; j < n; j++) {
       double orig_d = mat_get(D, i, j);
@@ -2117,7 +2150,26 @@ void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa) {
         /* CHECK: factor of two correction for other branch from root? */
         
         orign = lst_get_ptr(trav_orig, nodeidx);
+
+        /* printf("Orig node %d:\n", orign->id); */
+        /* printf("\tparent = %d\n", orign->parent == NULL ? -1 : orign->parent->id); */
+        /* printf("\tlchild = %d\n", orign->lchild == NULL ? -1 : orign->lchild->id); */
+        /* printf("\trchild = %d\n", orign->rchild == NULL ? -1 : orign->rchild->id); */
+        /* printf("\tname = '%s'\n", orign->name); */
+        /* printf("\tdparent = %g\n", orign->dparent); */
+
+        /* printf("New node %d:\n", node->id); */
+        /* printf("\tparent = %d\n", node->parent == NULL ? -1 : node->parent->id); */
+        /* printf("\tlchild = %d\n", node->lchild == NULL ? -1 : node->lchild->id); */
+        /* printf("\trchild = %d\n", node->rchild == NULL ? -1 : node->rchild->id); */
+        /* printf("\tname = '%s'\n", node->name); */
+        /* printf("\tdparent = %g\n", node->dparent); */
+
+        if (node->id != orign->id) continue;
+        
+        assert(nodeidx < 2*n - 3);
         mat_set(dt_dD, nodeidx, nj_i_j_to_dist(i, j, n), (node->dparent - orign->dparent) / DERIV_EPS);
+        //        printf("Deriv: %f\n", mat_get(dt_dD, nodeidx, nj_i_j_to_dist(i, j, n)));
       }
       
       mat_set(D, i, j, orig_d);
