@@ -270,7 +270,7 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
   LAPACK_DOUBLE tmp[n][n], work[lwork];
 
   if (!(M->nrows == M->ncols && M_inv->nrows == M_inv->ncols &&
-	M->nrows == M_inv->nrows))
+        M->nrows == M_inv->nrows))
     die("ERROR mat_invert: bad dimensions\n");
 
   for (i = 0; i < n; i++)

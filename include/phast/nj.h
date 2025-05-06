@@ -183,4 +183,22 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
                               CovarData *data, TreeModel *mod,
                               MSA *msa, FILE *logf);
 
+double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
+                     CovarData *data);
+
+double nj_dL_dx_smarter(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
+                        CovarData *data);
+
+double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, MSA *msa);
+
+void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa);
+
+int nj_i_j_to_dist(int i, int j, int n);
+
+void nj_dist_to_i_j(int pwidx, int *i, int *j, int n);
+
+double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
+                         CovarData *data);
+
+
 #endif
