@@ -1364,7 +1364,7 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
       traversal = tr_postorder(mod->tree);
       for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
         TreeNode *par;
-        double base_prob = 0, new_prob = 0;
+        double base_prob = 0, new_prob = 0, tmp;
         
         n = lst_get_ptr(traversal, nodeidx);
         par = n->parent;
@@ -1379,7 +1379,37 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
             base_prob += pL[j][n->id] * pLbar[i][par->id] *
               mm_get(mod->P[n->id][rcat], i, j);
 
-        printf("base_prob (node %d): %f\n", nodeidx, base_prob);
+        //        mat_print(mod->P[n->id][rcat]->matrix, stdout);
+        
+        //        printf("base_prob (node %d): %f\n", nodeidx, base_prob);
+
+        /* alt base prob calculation */
+        base_prob = 0;
+        for (i = 0; i < nstates; i++)
+          base_prob += pL[i][n->id] * pLbar[i][n->id];
+
+        printf("base_prob alt (node %d: %s): %f\n", nodeidx, n->lchild == NULL ? "leaf" : "internal", base_prob);
+
+        base_prob = 0;
+        for (j = 0; j < nstates; j++) {
+          double tmp1 = 0, tmp2 = 0;
+          TreeNode *sibling = (n == n->parent->lchild ?
+                               n->parent->rchild : n->parent->lchild);
+
+          if (sibling != NULL) {
+            for (k = 0; k < nstates; k++)
+              tmp1 += pL[k][sibling->id] * mm_get(mod->P[sibling->id][rcat], j, k);
+          }
+          else tmp1 = 1;
+            
+          for (i = 0; i < nstates; i++) 
+            tmp2 += pLbar[i][par->id] * mm_get(mod->P[n->id][rcat], i, j);
+
+          printf("lhs-rhs (%d): %f = %f\n", j, pLbar[j][n->id], tmp1 * tmp2);
+          base_prob += tmp1 * tmp2 * pL[j][n->id];
+        }
+        printf("base_prob alt2 (node %d): %f\n", nodeidx, base_prob);
+
         
         /* recompute subst_mat with perturbed branch length */
         mm_cpy(temp_subst_mat, mod->P[n->id][rcat]);
@@ -1392,7 +1422,7 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
             new_prob += pL[j][n->id] * pLbar[i][par->id] *
               mm_get(mod->P[n->id][rcat], i, j);
 
-        printf("new_prob (node %d): %f\n", nodeidx, new_prob);
+        //        printf("new_prob (node %d): %f\n", nodeidx, new_prob);
 
         /* restore original subst_mat */
         mm_cpy(mod->P[n->id][rcat], temp_subst_mat);
