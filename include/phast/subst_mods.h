@@ -69,6 +69,8 @@ void tm_set_probs_JC69(struct tm_struct *mod, MarkovMatrix *P, double t);
 */
 void tm_set_probs_F81(Vector *backgd_freqs, MarkovMatrix *P, double scale, double t);
 
+void tm_grad_JC69(struct tm_struct *mod, Matrix *grad, double t);
+
 /** Setup probability matrix by copying an existing probability matrix.
     Set matrix such that element (i,j) has value pi_j, as for an
      infinitely long branch

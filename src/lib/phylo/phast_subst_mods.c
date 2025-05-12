@@ -585,6 +585,26 @@ void tm_set_probs_independent(TreeModel *mod, MarkovMatrix *P) {
       mm_set(P, i, j, vec_get(mod->backgd_freqs, j));
 }
 
+/* analytical gradients of elements of rate matrix with respect to
+   branch length */
+/* FIXME: generalize to other subst models */
+void tm_grad_JC69(TreeModel *mod, Matrix *grad, double t) {
+  int i, j;
+  double scale = mod->rate_matrix->size * 1.0/(mod->rate_matrix->size - 1);
+  if (t < 0)
+    die("ERROR in tm_grad_JC69: t must be nonnegative.\n");
+  if (grad->nrows != mod->rate_matrix->size || grad->ncols != mod->rate_matrix->size)
+    die("ERROR in tm_grad_JC69: bad dimension.\n");
+  for (i = 0; i < mod->rate_matrix->size; i++) {
+    for (j = 0; j < mod->rate_matrix->size; j++) {
+      if (i == j)
+        mat_set(grad, i, j, (1 - 1.0/mod->rate_matrix->size) * -scale * exp(-t * scale));
+      else
+        mat_set(grad, i, j, 1.0/mod->rate_matrix->size * scale * exp(-t * scale));
+    }
+  }
+}
+
 
 /***************************************************************************/
 /* Functions to map from parameter vectors to rate matrices -- one         */
