@@ -2088,7 +2088,8 @@ double nj_dL_dx_smarter(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
 }
 
 /* compute the gradient of the log likelihood with respect to the
-   individual branch lengths.  This version uses numerical methods */
+   individual branch lengths.  This version uses numerical methods
+   (mostly useful for testing analytical version) */
 double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, MSA *msa) {
   int nodeidx;
   double ll, ll_base = nj_compute_log_likelihood(mod, msa, NULL);
@@ -2144,25 +2145,27 @@ void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa) {
         
         orign = lst_get_ptr(trav_orig, nodeidx);
 
-        /* printf("Orig node %d:\n", orign->id); */
-        /* printf("\tparent = %d\n", orign->parent == NULL ? -1 : orign->parent->id); */
-        /* printf("\tlchild = %d\n", orign->lchild == NULL ? -1 : orign->lchild->id); */
-        /* printf("\trchild = %d\n", orign->rchild == NULL ? -1 : orign->rchild->id); */
-        /* printf("\tname = '%s'\n", orign->name); */
-        /* printf("\tdparent = %g\n", orign->dparent); */
+        printf("Orig node %d:\n", orign->id);
+        printf("\tparent = %d\n", orign->parent == NULL ? -1 : orign->parent->id);
+        printf("\tlchild = %d\n", orign->lchild == NULL ? -1 : orign->lchild->id);
+        printf("\trchild = %d\n", orign->rchild == NULL ? -1 : orign->rchild->id);
+        printf("\tname = '%s'\n", orign->name);
+        printf("\tdparent = %g\n", orign->dparent);
 
-        /* printf("New node %d:\n", node->id); */
-        /* printf("\tparent = %d\n", node->parent == NULL ? -1 : node->parent->id); */
-        /* printf("\tlchild = %d\n", node->lchild == NULL ? -1 : node->lchild->id); */
-        /* printf("\trchild = %d\n", node->rchild == NULL ? -1 : node->rchild->id); */
-        /* printf("\tname = '%s'\n", node->name); */
-        /* printf("\tdparent = %g\n", node->dparent); */
+        printf("New node %d:\n", node->id);
+        printf("\tparent = %d\n", node->parent == NULL ? -1 : node->parent->id);
+        printf("\tlchild = %d\n", node->lchild == NULL ? -1 : node->lchild->id);
+        printf("\trchild = %d\n", node->rchild == NULL ? -1 : node->rchild->id);
+        printf("\tname = '%s'\n", node->name);
+        printf("\tdparent = %g\n", node->dparent);
 
+
+        
         if (node->id != orign->id) continue;
         
         assert(nodeidx < 2*n - 3);
         mat_set(dt_dD, nodeidx, nj_i_j_to_dist(i, j, n), (node->dparent - orign->dparent) / DERIV_EPS);
-        //        printf("Deriv: %f\n", mat_get(dt_dD, nodeidx, nj_i_j_to_dist(i, j, n)));
+        printf("Deriv: %f\n", mat_get(dt_dD, nodeidx, nj_i_j_to_dist(i, j, n)));
       }
       
       mat_set(D, i, j, orig_d);
