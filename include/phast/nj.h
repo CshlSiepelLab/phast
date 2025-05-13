@@ -95,9 +95,9 @@ void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
 
 void nj_updateD(Matrix *D, int u, int v, int w, Vector *active, Vector *sums);
 
-TreeNode* nj_infer_tree(Matrix *initD, char **names);
+TreeNode* nj_infer_tree(Matrix *initD, char **names, Matrix *dt_dD);
 
-TreeNode* nj_fast_infer(Matrix *initD, char **names);
+TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD);
 
 NJHeapNode* nj_heap_computeQ(int i, int j, int n, Matrix *D,
                              Vector *sums, int *rev);
@@ -199,6 +199,16 @@ void nj_dist_to_i_j(int pwidx, int *i, int *j, int n);
 
 double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
                          CovarData *data);
+
+
+void nj_backprop(double **Jk, double **Jnext, int n, int f, int g, int u,
+                 Vector *active);
+
+void nj_backprop_init(double **Jk, int n);
+
+void nj_backprop_set_dt_dD(double **Jk, Matrix *dt_dD, int n, int f, int g,
+                           int branch_idx_f, int branch_idx_g, Vector *rowsum);
+
 
 
 #endif
