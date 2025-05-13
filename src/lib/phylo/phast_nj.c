@@ -106,11 +106,8 @@ void nj_updateD(Matrix *D, int u, int v, int w, Vector *active, Vector *sums) {
   if (mat_get(D, v, w) < 0)
     mat_set(D, v, w, 0);
   
-  vec_set(active, u, FALSE);
-  vec_set(active, v, FALSE);
-
   for (k = 0; k < w; k++) {
-    if (vec_get(active, k) == TRUE) {
+    if (vec_get(active, k) == TRUE && w != u && w != v) {
       double du, dv;
 
       /* needed because of upper triangular constraint */
@@ -123,8 +120,6 @@ void nj_updateD(Matrix *D, int u, int v, int w, Vector *active, Vector *sums) {
         mat_set(D, k, w, 0);
     }
   }
-  
-  vec_set(active, w, TRUE);
 }
 
 
@@ -140,13 +135,13 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
     Vector *sums, *active;
     List *nodes;  /* could just be an array */
     TreeNode *node_u, *node_v, *node_w, *root;
-    int npairs = n * (n-1) / 2;
+    int npairs = n * (n-1) / 2, Npairs = N * (N-1) / 2;
     double **Jk = NULL, **Jnext = NULL;
     
     if (initD->nrows != initD->ncols || n < 3)
       die("ERROR nj_infer_tree: bad distance matrix\n");
 
-    if (dt_dD != NULL && (dt_dD->nrows != N-1 || dt_dD->ncols != npairs))
+    if (dt_dD != NULL && (dt_dD->nrows != N || dt_dD->ncols != npairs))
       die("ERROR nj_infer_tree: bad dimension in dt_dD\n");
     
     /* create a larger distance matrix of dimension N x N to
@@ -172,14 +167,14 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
 
     /* set up backprop data */
     if (dt_dD != NULL) {
+      Jk = malloc(Npairs * sizeof(double*));
+      Jnext = malloc(Npairs * sizeof(double*));
+      for (i = 0; i < Npairs; i++) {
+        Jk[i] = malloc(Npairs * sizeof(double));
+        Jnext[i] = malloc(Npairs * sizeof(double));
+      }
       nj_backprop_init(Jk, n);
       mat_zero(dt_dD);
-      Jk = malloc(npairs * sizeof(double*));
-      Jnext = malloc(npairs * sizeof(double*));
-      for (i = 0; i < npairs; i++) {
-        Jk[i] = malloc(npairs * sizeof(double));
-        Jnext[i] = malloc(npairs * sizeof(double));
-      }
     }
     
     /* main loop, over internal nodes w */
@@ -189,10 +184,7 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
       //      fprintf(stderr, "Joining %d and %d (%f)\n", u, v, mat_get(Q, u, v));
       
       nj_updateD(D, u, v, w, active, sums);
-      
-      if (dt_dD != NULL)
-        nj_backprop(Jk, Jnext, n, u, v, w, active);
-      
+                    
       node_w = tr_new_node();
       lst_push_ptr(nodes, node_w);
 
@@ -204,9 +196,15 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
       node_u->dparent = mat_get(D, u, w);
       node_v->dparent = mat_get(D, v, w);
 
-      /* check that rowsum is correct */
-      if (dt_dD != NULL)
-        nj_backprop_set_dt_dD(Jk, dt_dD, n, u, v, node_u->id, node_v->id, sums);
+      if (dt_dD != NULL) {
+        nj_backprop_set_dt_dD(Jk, dt_dD, n, u, v, node_u->id, node_v->id, active);
+        nj_backprop(Jk, Jnext, n, u, v, w, active);
+      }
+
+      /* this has to be done after the backprop calls */
+      vec_set(active, u, FALSE);
+      vec_set(active, v, FALSE);
+      vec_set(active, w, TRUE);
     }
 
     /* there should be exactly two active nodes left. Join them under
@@ -232,10 +230,11 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
     node_u->dparent = mat_get(D, u, v) / 2;
     node_v->dparent = mat_get(D, u, v) / 2;
 
-    assert(w == N); /* make sure last node */
-    nj_backprop(Jk, Jnext, n, u, v, w, active);
-    nj_backprop_set_dt_dD(Jk, dt_dD, n, u, v, node_u->id, node_v->id, sums);
-    /* FIXME: do something with that factor of 1/2? */
+    if (dt_dD != NULL) {
+      assert(w == N); /* make sure last node */
+      nj_backprop(Jk, Jnext, n, u, v, w, active);
+      nj_backprop_set_dt_dD(Jk, dt_dD, n, u, v, node_u->id, node_v->id, active);
+    }
     
     /* finish set up of tree */
     root->nnodes = N+1;
@@ -248,7 +247,7 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
     mat_free(Q);
 
     if (dt_dD != NULL) {
-      for (i = 0; i < npairs; i++) {
+      for (i = 0; i < Npairs; i++) {
         free(Jk[i]);
         free(Jnext[i]);
       }
@@ -276,13 +275,13 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
     HeapNode *heap = NULL;
     NJHeapNode *hn, *newhn;
     int rev[N];
-    int npairs = n * (n-1) / 2;
+    int npairs = n * (n-1) / 2, Npairs = N * (N-1) / 2;
     double **Jk = NULL, **Jnext = NULL;
     
     if (initD->nrows != initD->ncols || n < 3)
       die("ERROR nj_infer_tree: bad distance matrix\n");
 
-    if (dt_dD != NULL && (dt_dD->nrows != N-1 || dt_dD->ncols != npairs))
+    if (dt_dD != NULL && (dt_dD->nrows != N || dt_dD->ncols != npairs))
       die("ERROR nj_infer_tree: bad dimension in dt_dD\n");
     
     /* initialize revision numbers for all nodes */
@@ -320,14 +319,14 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
 
     /* set up backprop data */
     if (dt_dD != NULL) {
+      Jk = malloc(Npairs * sizeof(double*));
+      Jnext = malloc(Npairs * sizeof(double*));
+      for (i = 0; i < Npairs; i++) {
+        Jk[i] = malloc(Npairs * sizeof(double));
+        Jnext[i] = malloc(Npairs * sizeof(double));
+      }
       nj_backprop_init(Jk, n);
       mat_zero(dt_dD);
-      Jk = malloc(npairs * sizeof(double*));
-      Jnext = malloc(npairs * sizeof(double*));
-      for (i = 0; i < npairs; i++) {
-        Jk[i] = malloc(npairs * sizeof(double));
-        Jnext[i] = malloc(npairs * sizeof(double));
-      }
     }
     
     /* main loop, over internal nodes w */
@@ -357,13 +356,9 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
       u = hn->i;
       v = hn->j;
       nj_updateD(D, u, v, w, active, sums);
-      n--;  /* one fewer active nodes */
       node_w = tr_new_node();
       lst_push_ptr(nodes, node_w);
 
-      if (dt_dD != NULL)
-        nj_backprop(Jk, Jnext, n, hn->i, hn->j, w, active);
-      
       /* attach child nodes to parent and set branch lengths */
       node_u = lst_get_ptr(nodes, u);
       node_v = lst_get_ptr(nodes, v);
@@ -386,9 +381,17 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
       }
       rev[w]++;
       
-      if (dt_dD != NULL)
-        nj_backprop_set_dt_dD(Jk, dt_dD, n, u, v, node_u->id, node_v->id, sums);
-      
+      if (dt_dD != NULL) {
+        nj_backprop_set_dt_dD(Jk, dt_dD, n, u, v, node_u->id, node_v->id, active);
+        nj_backprop(Jk, Jnext, n, hn->i, hn->j, w, active);
+      }
+
+      /* this has to be done after the backprop calls */
+      vec_set(active, u, FALSE);
+      vec_set(active, v, FALSE);
+      vec_set(active, w, TRUE);
+      n--;  /* one fewer active nodes */
+
       /* finally, add new Q values to the heap */
       for (i = 0; i < w; i++) {
         if (vec_get(active, i) == TRUE) {
@@ -423,9 +426,11 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
     node_u->dparent = mat_get(D, u, v) / 2;
     node_v->dparent = mat_get(D, u, v) / 2;
 
-    assert(w == N); /* make sure last node */
-    nj_backprop(Jk, Jnext, n, u, v, w, active);
-    nj_backprop_set_dt_dD(Jk, dt_dD, n, u, v, node_u->id, node_v->id, sums);
+    if (dt_dD != NULL) {
+      assert(w == N); /* make sure last node */
+      nj_backprop(Jk, Jnext, n, u, v, w, active);
+      nj_backprop_set_dt_dD(Jk, dt_dD, n, u, v, node_u->id, node_v->id, active);
+    }
     
     /* finish set up of tree */
     root->nnodes = N+1;
@@ -437,7 +442,7 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
     mat_free(D);
 
     if (dt_dD != NULL) {
-      for (i = 0; i < npairs; i++) {
+      for (i = 0; i < Npairs; i++) {
         free(Jk[i]);
         free(Jnext[i]);
       }
@@ -691,8 +696,8 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   printf("Full numerical (%f):\n", ll_base);
   vec_print(dL_dx, stdout);
 
-  ll_base = nj_dL_dx_smarter(points, dL_dx, mod, msa, data);
-  printf("Chain rule (%f):\n", ll_base);
+  ll_base = nj_dL_dx_smartest(points, dL_dx, mod, msa, data);
+  printf("Smart version rule (%f):\n", ll_base);
   vec_print(dL_dx, stdout);
   
 
@@ -1330,8 +1335,8 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
     pL[j] = smalloc((mod->tree->nnodes+1) * sizeof(double));
 
   if (branchgrad != NULL) {
-    if (branchgrad->size != mod->tree->nnodes-2) /* unrooted */
-      die("ERROR in nj_compute_log_likelihood: size of branchgrad must be 2n-3\n");
+    if (branchgrad->size != mod->tree->nnodes-1) /* rooted */
+      die("ERROR in nj_compute_log_likelihood: size of branchgrad must be 2n-2\n");
     vec_zero(branchgrad);
     pLbar = smalloc(nstates * sizeof(double*));
     for (j = 0; j < nstates; j++)
@@ -2100,7 +2105,8 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
    for the complicated bits */
 double nj_dL_dx_smarter(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
                         CovarData *data) {
-  int n = data->nseqs, nbranches = 2*n-3, ndist = n * (n-1) / 2;
+  int n = data->nseqs, nbranches = 2*n-2, /* work with rooted tree */
+    ndist = n * (n-1) / 2;
   Vector *dL_dt = vec_new(nbranches);
   Matrix *dt_dD = mat_new(nbranches, ndist);
   Vector *dL_dD = vec_new(ndist);
@@ -2218,19 +2224,19 @@ void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa) {
         
         orign = lst_get_ptr(trav_orig, nodeidx);
 
-        printf("Orig node %d:\n", orign->id);
-        printf("\tparent = %d\n", orign->parent == NULL ? -1 : orign->parent->id);
-        printf("\tlchild = %d\n", orign->lchild == NULL ? -1 : orign->lchild->id);
-        printf("\trchild = %d\n", orign->rchild == NULL ? -1 : orign->rchild->id);
-        printf("\tname = '%s'\n", orign->name);
-        printf("\tdparent = %g\n", orign->dparent);
+        /* printf("Orig node %d:\n", orign->id); */
+        /* printf("\tparent = %d\n", orign->parent == NULL ? -1 : orign->parent->id); */
+        /* printf("\tlchild = %d\n", orign->lchild == NULL ? -1 : orign->lchild->id); */
+        /* printf("\trchild = %d\n", orign->rchild == NULL ? -1 : orign->rchild->id); */
+        /* printf("\tname = '%s'\n", orign->name); */
+        /* printf("\tdparent = %g\n", orign->dparent); */
 
-        printf("New node %d:\n", node->id);
-        printf("\tparent = %d\n", node->parent == NULL ? -1 : node->parent->id);
-        printf("\tlchild = %d\n", node->lchild == NULL ? -1 : node->lchild->id);
-        printf("\trchild = %d\n", node->rchild == NULL ? -1 : node->rchild->id);
-        printf("\tname = '%s'\n", node->name);
-        printf("\tdparent = %g\n", node->dparent);
+        /* printf("New node %d:\n", node->id); */
+        /* printf("\tparent = %d\n", node->parent == NULL ? -1 : node->parent->id); */
+        /* printf("\tlchild = %d\n", node->lchild == NULL ? -1 : node->lchild->id); */
+        /* printf("\trchild = %d\n", node->rchild == NULL ? -1 : node->rchild->id); */
+        /* printf("\tname = '%s'\n", node->name); */
+        /* printf("\tdparent = %g\n", node->dparent); */
 
 
         
@@ -2238,7 +2244,7 @@ void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa) {
         
         assert(nodeidx < 2*n - 3);
         mat_set(dt_dD, nodeidx, nj_i_j_to_dist(i, j, n), (node->dparent - orign->dparent) / DERIV_EPS);
-        printf("Deriv: %f\n", mat_get(dt_dD, nodeidx, nj_i_j_to_dist(i, j, n)));
+        /* printf("Deriv: %f\n", mat_get(dt_dD, nodeidx, nj_i_j_to_dist(i, j, n))); */
       }
       
       mat_set(D, i, j, orig_d);
@@ -2277,7 +2283,8 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
   /* repeat above but call analytical versions of nj_dL_dt and nj_dt_dD */
   /* possibly can reuse and just give it an option */
 
-  int n = data->nseqs, nbranches = 2*n-3, ndist = n * (n-1) / 2;
+  int n = data->nseqs, nbranches = 2*n-2,  /* have to work with the rooted tree here */
+    ndist = n * (n-1) / 2;
   Vector *dL_dt = vec_new(nbranches);
   Matrix *dt_dD = mat_new(nbranches, ndist);
   Vector *dL_dD = vec_new(ndist);
@@ -2298,6 +2305,13 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
   
   printf("dt_dD:\n");
   mat_print(dt_dD, stdout);
+
+  /* temporary -- also do dt_dD numerically */
+  nj_dt_dD_num(dt_dD, data->dist, mod, msa);
+  printf("dt_dD (numerical):\n");
+  mat_print(dt_dD, stdout);
+
+  exit(0);
   
   /* apply chain rule to get dL/dD gradient (a vector of dim ndist) */
   mat_vec_mult_transp(dL_dD, dt_dD, dL_dt);
@@ -2341,15 +2355,17 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
 void nj_backprop(double **Jk, double **Jnext, int n, int f, int g, int u,
                  Vector *active) {
   int i, j, a, b;
+  int total_nodes = 2*n - 2; /* total possible in final tree */
+  int npairs = (total_nodes * (total_nodes - 1)) / 2;
   
   /* update Jnext for distances involving new node u */
-  for (i = 0; i < n; ++i) {
+  for (i = 0; i < total_nodes; i++) {
     if (vec_get(active,i) == FALSE || i == f || i == g) continue;  
 
-    int idx_ui = nj_i_j_to_dist(u, i, n);
-    int idx_fi = nj_i_j_to_dist(f, i, n);
-    int idx_gi = nj_i_j_to_dist(g, i, n);
-    int idx_fg = nj_i_j_to_dist(f, g, n);
+    int idx_ui = nj_i_j_to_dist(u, i, total_nodes);
+    int idx_fi = nj_i_j_to_dist(f, i, total_nodes);
+    int idx_gi = nj_i_j_to_dist(g, i, total_nodes);
+    int idx_fg = nj_i_j_to_dist(f, g, total_nodes);
 
     for (a = 0; a < n; a++) {
       for (b = a + 1; b < n; b++) {
@@ -2363,16 +2379,16 @@ void nj_backprop(double **Jk, double **Jnext, int n, int f, int g, int u,
   }
 
   /* all other entries are copied without change */
-  for (i = 0; i < n; i++) {
-    for (j = i + 1; j < n; j++) {
+  for (i = 0; i < total_nodes; i++) {
+    for (j = i + 1; j < total_nodes; j++) {
       if ((i == f || i == g) || (j == f || j == g) ||
           vec_get(active, i) == FALSE || vec_get(active, j) == FALSE)
       continue;
 
-      int idx_ij = nj_i_j_to_dist(i, j, n);
+      int idx_ij = nj_i_j_to_dist(i, j, total_nodes);
       for (a = 0; a < n; a++) {
         for (b = a + 1; b < n; b++) {
-          int idx_ab = nj_i_j_to_dist(a, b, n);
+          int idx_ab = nj_i_j_to_dist(a, b, total_nodes);
           Jnext[idx_ij][idx_ab] = Jk[idx_ij][idx_ab];
         }
       }
@@ -2382,7 +2398,8 @@ void nj_backprop(double **Jk, double **Jnext, int n, int f, int g, int u,
 
 /* initialize Jk at the beginning of the NJ alg */
 void nj_backprop_init(double **Jk, int n) {
-  int i, j, n_pairs = n * (n - 1) / 2;
+  int i, j, total_nodes = 2*n - 2,
+    n_pairs = total_nodes * (total_nodes - 1) / 2;
 
   for (i = 0; i < n_pairs; ++i) 
     for (j = 0; j < n_pairs; ++j) 
@@ -2390,7 +2407,7 @@ void nj_backprop_init(double **Jk, int n) {
 
   for (i = 0; i < n; ++i) {
     for (j = i + 1; j < n; ++j) {
-      int idx_ij = nj_i_j_to_dist(i, j, n);
+      int idx_ij = nj_i_j_to_dist(i, j, total_nodes);
       Jk[idx_ij][idx_ij] = 1;  /* deriv of d_{ij} wrt itself */
     }
   }
@@ -2399,36 +2416,57 @@ void nj_backprop_init(double **Jk, int n) {
 /* for use in backpropation with NJ.  Sets appropriate elements of
    Jacobian dt_dD after two neighbors f and g are joined */
 void nj_backprop_set_dt_dD(double **Jk, Matrix *dt_dD, int n, int f, int g,
-                           int branch_idx_f, int branch_idx_g, Vector *rowsum) {
-  int i, a, b;
-  double sum_diff = 0.0;
+                           int branch_idx_f, int branch_idx_g, Vector *active) {
+  int a, b, m;
+  int total_nodes = 2*n - 2;
   int idx_fg = nj_i_j_to_dist(f, g, n);
+  int nk = vec_sum(active);
 
-  /* compute sum of row differences (r_f - r_g) / (n - 2) */
-  for (i = 0; i < n; i++) {
-    if (i == f || i == g)
-      continue;
-    sum_diff += (vec_get(rowsum, nj_i_j_to_dist(f, i, n)) -
-                 vec_get(rowsum, nj_i_j_to_dist(g, i, n)));
-    /* CHECK!!! */
+  /* the final call, with nk = 2, is a special case */
+  if (nk == 2) {
+    /* directly set the final branch derivative */
+    for (a = 0; a < n; a++) {
+      for (b = a + 1; b < n; b++) {
+        int idx_ab = nj_i_j_to_dist(a, b, total_nodes);
+        int idx_ab_dt_dD = nj_i_j_to_dist(a, b, n);
+        
+        /* branch derivative is equal to the value in Jk */
+        mat_set(dt_dD, branch_idx_f, idx_ab, Jk[idx_fg][idx_ab_dt_dD]);
+      }
+    }
+    return;
   }
-  sum_diff /= (n - 2);
-
-  /* branch length f to u */
+    
+  /* branch derivative for f -> u */
   for (a = 0; a < n; a++) {
     for (b = a + 1; b < n; b++) {
-      int idx_ab = nj_i_j_to_dist(a, b, n);
-      mat_set(dt_dD, branch_idx_f, idx_ab, 
-              0.5 * Jk[idx_fg][idx_ab] + (0.5 / (n - 2)) * sum_diff);
+      int idx_ab = nj_i_j_to_dist(a, b, total_nodes);
+      int idx_ab_dt_dD = nj_i_j_to_dist(a, b, n);  /* note smaller dimension; doesn't 
+                                                      need to contain internal nodes */
+      double sum_diff = 0;
+
+      for (m = 0; m < total_nodes; m++) {
+        if (vec_get(active, m) == FALSE || m == f || m == g)
+          continue;
+
+        int idx_fm = nj_i_j_to_dist(f, m, n);
+        int idx_gm = nj_i_j_to_dist(g, m, n);
+        sum_diff += Jk[idx_fm][idx_ab] - Jk[idx_gm][idx_ab];
+      }
+
+      mat_set(dt_dD, branch_idx_f, idx_ab_dt_dD, 0.5 * Jk[idx_fg][idx_ab] +
+              (0.5 / (nk - 2)) * sum_diff);
+      assert(isfinite(mat_get(dt_dD, branch_idx_f, idx_ab_dt_dD)));
     }
   }
 
-  /* branch length g to u */
+  /* branch derivative for g -> u */
   for (a = 0; a < n; a++) {
     for (b = a + 1; b < n; b++) {
       int idx_ab = nj_i_j_to_dist(a, b, n);
-      mat_set(dt_dD, branch_idx_g, idx_ab,
-              Jk[idx_fg][idx_ab] - mat_get(dt_dD, branch_idx_f, idx_ab));
+      int idx_ab_dt_dD = nj_i_j_to_dist(a, b, n); 
+      mat_set(dt_dD, branch_idx_g, idx_ab_dt_dD, Jk[idx_fg][idx_ab] -
+        mat_get(dt_dD, branch_idx_f, idx_ab_dt_dD));
     }
   }
 }
