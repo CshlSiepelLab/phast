@@ -207,7 +207,7 @@ void nj_backprop(double **Jk, double **Jnext, int n, int f, int g, int u,
 void nj_backprop_init(double **Jk, int n);
 
 void nj_backprop_set_dt_dD(double **Jk, Matrix *dt_dD, int n, int f, int g,
-                           int branch_idx_f, int branch_idx_g, Vector *rowsum);
+                           int branch_idx_f, int branch_idx_g, Vector *active);
 
 
 
