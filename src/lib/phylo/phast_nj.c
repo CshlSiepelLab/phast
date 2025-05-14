@@ -101,9 +101,9 @@ void nj_updateD(Matrix *D, int u, int v, int w, Vector *active, Vector *sums) {
 
   /* we can't let the distances go negative in this implementation
      because it will mess up the likelihood calculation */
-  if (mat_get(D, u, w) < 0)
+  if (signbit(mat_get(D, u, w))) /* covers -0 case */
     mat_set(D, u, w, 0);
-  if (mat_get(D, v, w) < 0)
+  if (signbit(mat_get(D, v, w)))
     mat_set(D, v, w, 0);
   
   for (k = 0; k < w; k++) {
@@ -180,8 +180,6 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
     /* main loop, over internal nodes w */
     for (w = n; w < N; w++) {   
       nj_resetQ(Q, D, active, sums, &u, &v, w);
-
-      //      fprintf(stderr, "Joining %d and %d (%f)\n", u, v, mat_get(Q, u, v));
       
       nj_updateD(D, u, v, w, active, sums);                    
       node_w = tr_new_node();
@@ -195,6 +193,8 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
       node_u->dparent = mat_get(D, u, w);
       node_v->dparent = mat_get(D, v, w);
 
+      //      fprintf(stderr, "Joining %d (%s) and %d (%s) (%f, %f, %f)\n", u, node_u->lchild == NULL ? node_u->name : "int", v,  node_v->lchild == NULL ? node_v->name : "int", mat_get(Q, u, v), mat_get(D, u, w), mat_get(D, v, w));
+    
       if (dt_dD != NULL) {
         nj_backprop_set_dt_dD(Jk, dt_dD, n, u, v, node_u->id, node_v->id, active);
         nj_backprop(Jk, Jnext, n, u, v, w, active);
@@ -231,6 +231,8 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
     tr_add_child(root, node_v);
     node_u->dparent = mat_get(D, u, v) / 2;
     node_v->dparent = mat_get(D, u, v) / 2;
+
+    //    fprintf(stderr, "Joining last two: %d (%s) and %d (%s) (%f)\n", u, node_u->lchild == NULL ? node_u->name : "int", v,  node_v->lchild == NULL ? node_v->name : "int", mat_get(D, u, v));
 
     if (dt_dD != NULL) 
       nj_backprop_set_dt_dD(Jk, dt_dD, n, u, v, node_u->id, node_v->id, active);
@@ -348,10 +350,8 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
         free(hn);
       }
     }
-
-      //      fprintf(stderr, "Joining %d and %d (%f)\n", hn->i, hn->j, hn->val);
       
-      /* join u and v; w is the new node */
+    /* join u and v; w is the new node */
     u = hn->i;
     v = hn->j;
     nj_updateD(D, u, v, w, active, sums);
@@ -365,6 +365,8 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
     tr_add_child(node_w, node_v);
     node_u->dparent = mat_get(D, u, w);
     node_v->dparent = mat_get(D, v, w);
+
+    //    fprintf(stderr, "Joining %d (%s) and %d (%s) (%f, %f, %f)\n", u, node_u->lchild == NULL ? node_u->name : "int", v,  node_v->lchild == NULL ? node_v->name : "int", hn->val, mat_get(D, u, w), mat_get(D, v, w));
     
     /* update row sums and revision numbers */
     vec_set(sums, w, 0);  
@@ -426,6 +428,8 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   tr_add_child(root, node_v);
   node_u->dparent = mat_get(D, u, v) / 2;
   node_v->dparent = mat_get(D, u, v) / 2;
+
+  //  fprintf(stderr, "Joining last two: %d (%s) and %d (%s) (%f)\n", u, node_u->lchild == NULL ? node_u->name : "int", v,  node_v->lchild == NULL ? node_v->name : "int", mat_get(D, u, v));
 
   if (dt_dD != NULL) 
     nj_backprop_set_dt_dD(Jk, dt_dD, orign, u, v, node_u->id, node_v->id, active);
@@ -690,13 +694,8 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
     die("ERROR in nj_compute_model_grad: low-rank matrix R required in LOWR case.\n");
   
   /* obtain gradient with respect to points, dL/dx */
-  /* ll_base = nj_dL_dx_dumb(points, dL_dx, mod, msa, data);  */
-  /* printf("Full numerical (%f):\n", ll_base); */
-  /* vec_print(dL_dx, stdout); */
-
+  //ll_base = nj_dL_dx_dumb(points, dL_dx, mod, msa, data);
   ll_base = nj_dL_dx_smartest(points, dL_dx, mod, msa, data);
-  /* printf("Smart version (%f):\n", ll_base); */
-  /* vec_print(dL_dx, stdout); */
   
   /* now derive partial derivatives wrt free parameters from dL/dx */
   vec_zero(grad);
@@ -2286,8 +2285,7 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
   
   /* set up baseline objects */
   nj_points_to_distances(x, data);    
-  //  tree = nj_infer_tree(data->dist, msa->names, dt_dD);
-  tree = nj_fast_infer(data->dist, msa->names, dt_dD);
+  tree = nj_infer_tree(data->dist, msa->names, dt_dD);
   nj_reset_tree_model(mod, tree);
 
   /* calculate log likelihood and analytical gradient */
@@ -2338,7 +2336,6 @@ void nj_backprop(double **Jk, double **Jnext, int n, int f, int g, int u,
                  Vector *active) {
   int i, j, a, b;
   int total_nodes = 2*n - 2; /* total possible in final tree */
-  int npairs = (total_nodes * (total_nodes - 1)) / 2;
   
   /* update Jnext for distances involving new node u */
   for (i = 0; i < total_nodes; i++) {
