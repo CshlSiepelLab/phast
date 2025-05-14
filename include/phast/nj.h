@@ -201,14 +201,14 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
                          CovarData *data);
 
 
-void nj_backprop(double **Jk, double **Jnext, int n, int f, int g, int u,
+void nj_backprop(double *Jk, double *Jnext, int n, int f, int g, int u,
                  Vector *active);
 
-void nj_backprop_init(double **Jk, int n);
+void nj_backprop_init(double *Jk, int n);
 
-void nj_backprop_set_dt_dD(double **Jk, Matrix *dt_dD, int n, int f, int g,
+void nj_backprop_set_dt_dD(double *Jk, Matrix *dt_dD, int n, int f, int g,
                            int branch_idx_f, int branch_idx_g, Vector *active);
 
-void nj_update_Jk(double **Jk, double **Jnext, int n);
+void nj_update_Jk(double *Jk, double *Jnext, int n);
 
 #endif
