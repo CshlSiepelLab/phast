@@ -295,10 +295,7 @@ int main(int argc, char *argv[]) {
   else {
     /* we'll need a starting NJ tree for either variational inference
        or NJ */
-    int k;
-    for (k =0; k < 10000; k++)
-      //      tree = nj_infer_tree(D, names, NULL);
-      tree = nj_fast_infer(D, names, NULL);
+    tree = nj_infer_tree(D, names, NULL);
 
     if (nj_only == TRUE) /* just print in this case */
       tr_print(stdout, tree, TRUE);
