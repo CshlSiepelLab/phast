@@ -93,7 +93,7 @@ int tm_fit_em(TreeModel *mod, MSA *msa, Vector *params, int cat,
 
     strcpy(tmpstr, "phast");
 
-    snprintf(tmp_mod_fname, 20, "fit_em.%s.%d.mod", tmpstr, getpid());
+    snprintf(tmp_mod_fname, STR_SHORT_LEN, "fit_em.%s.%d.mod", tmpstr, getpid());
   }
 
   if (logf != NULL)

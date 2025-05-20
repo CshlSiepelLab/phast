@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <assert.h>
 #include "phast/misc.h"
 #include "phast/stringsplus.h"
 #include "phast/mvn.h"
@@ -216,9 +217,9 @@ void mmvn_project_up(multi_MVN *mmvn, Vector *x_d, Vector *x_full, int d) {
   int i;
   assert((mmvn->type == MVN_GEN || mmvn->type == MVN_LOWR) &&
          (x_d->size == mmvn->n ||
-          mmvn->type == MVN_LOWR && x_d->size == mmvn->mvn->lowR->ncols) &&
+          (mmvn->type == MVN_LOWR && x_d->size == mmvn->mvn->lowR->ncols)) &&
          (x_full->size == mmvn->n * mmvn->d ||
-          mmvn->type == MVN_LOWR && x_full->size == mmvn->mvn->lowR->ncols * mmvn->d));
+          (mmvn->type == MVN_LOWR && x_full->size == mmvn->mvn->lowR->ncols * mmvn->d)));
   for (i = 0; i < x_d->size; i++) 
     vec_set(x_full, i*mmvn->d + d, vec_get(x_d, i));
 }

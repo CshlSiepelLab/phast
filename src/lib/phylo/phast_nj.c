@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <assert.h>
+#include <float.h>
 #include "phast/stacks.h"
 #include "phast/trees.h"
 #include "phast/misc.h"
