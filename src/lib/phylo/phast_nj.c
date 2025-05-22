@@ -24,6 +24,7 @@
 #include "phast/mvn.h"
 #include "phast/multi_mvn.h"
 #include "phast/heap.h"
+#include "phast/crispr.h"
 
 /* uncomment to dump gradients to a file called "grads_log.txt" */
 //#define DUMPGRAD 1
@@ -659,10 +660,10 @@ void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data) {
    starting from a given MVN sample (points). Returns log likelihood
    of current model, which is computed as a by-product.  This version
    uses numerical methods */
-double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
+double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, 
                              Vector *points, Vector *points_std,
                              Vector *grad, CovarData *data) {
-  int n = msa->nseqs; /* number of taxa */
+  int n = data->nseqs; /* number of taxa */
   int d = mmvn->n * mmvn->d / n; /* dimensionality; have to accommodate diagonal case */
   int dim = n*d; /* full dimension of point vector */
   int i, j, k;
@@ -678,8 +679,8 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
     die("ERROR in nj_compute_model_grad: low-rank matrix R required in LOWR case.\n");
   
   /* obtain gradient with respect to points, dL/dx */
-  //ll_base = nj_dL_dx_dumb(points, dL_dx, mod, msa, data);
-  ll_base = nj_dL_dx_smartest(points, dL_dx, mod, msa, data);
+  //ll_base = nj_dL_dx_dumb(points, dL_dx, mod, data);
+  ll_base = nj_dL_dx_smartest(points, dL_dx, mod, data);
   
   /* now derive partial derivatives wrt free parameters from dL/dx */
   vec_zero(grad);
@@ -740,10 +741,10 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
    numerically, to check correctness of analytical calculations.  The
    check knows nothing about the details of the parameterization; it
    just uses a brute force numerical calculation */
-double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
+double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, 
                                    Vector *points, Vector *points_std,
                                    Vector *grad, CovarData *data) {
-  int n = msa->nseqs; /* number of taxa */
+  int n = data->msa->nseqs; /* number of taxa */
   int d = mmvn->n * mmvn->d / n; /* dimensionality; have to accommodate diagonal case */
   int dim = n*d; /* full dimension of point vector */
   int i, j;
@@ -759,10 +760,10 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
   
   /* set up tree model and get baseline log likelihood */
   nj_points_to_distances(points, data);    
-  tree = nj_infer_tree(D, msa->names, NULL);
+  tree = nj_infer_tree(D, data->names, NULL);
   orig_tree = tr_create_copy(tree);   /* restore at the end */
   nj_reset_tree_model(mod, tree);
-  ll_base = nj_compute_log_likelihood(mod, msa, NULL);
+  ll_base = nj_compute_log_likelihood(mod, data->msa, NULL);
 
   /* Now perturb each point and propagate perturbation through distance
      calculation, neighbor-joining reconstruction, and likelihood
@@ -774,9 +775,9 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
     vec_set(points, i, porig + DERIV_EPS);
 
     nj_points_to_distances(points, data); 
-    tree = nj_infer_tree(D, msa->names, NULL);
+    tree = nj_infer_tree(D, data->names, NULL);
     nj_reset_tree_model(mod, tree);      
-    ll = nj_compute_log_likelihood(mod, msa, NULL);
+    ll = nj_compute_log_likelihood(mod, data->msa, NULL);
     deriv = (ll - ll_base) / DERIV_EPS; 
     vec_set(dL_dx, i, deriv); /* derive of log likelihood wrt dim i of
                                  point; need to save this for later */
@@ -827,7 +828,7 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
    Adam algorithm.  Takes initial tree model and alignment and
    distance matrix, dimensionality of Euclidean space to work in.
    Note: alters distance matrix */
-void nj_variational_inf(TreeModel *mod, MSA *msa, multi_MVN *mmvn,
+void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
                         int nminibatch, double learnrate, int nbatches_conv,
                         int min_nbatches, CovarData *data, FILE *logf) {
 
@@ -835,7 +836,7 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, multi_MVN *mmvn,
     *best_mu, *best_sigmapar, *rescaledgrad, *sparsitygrad, *pointsnext,
     *points_std;
   Vector *sigmapar = data->params;
-  int n = msa->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim,
+  int n = data->msa->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim,
     dim = data->dim, fulld = n*dim;
   double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace, logdet, penalty = 0,
@@ -960,9 +961,8 @@ void nj_variational_inf(TreeModel *mod, MSA *msa, multi_MVN *mmvn,
         vec_copy(points, pointsnext);
         vec_scale(points_std, -1.0);
       }
-      
-      ll = nj_compute_model_grad(mod, mmvn, msa, points, points_std,
-                                 grad, data);
+
+      ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data);
       avell += ll;
       vec_plus_eq(avegrad, grad);
     }
@@ -1603,6 +1603,7 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
 /* create a new CovarData object appropriate for the choice of
    parameterization */
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
+                             MSA *msa, CrisprMutTable* crispr_muts, char **names,
                              unsigned int natural_grad, double kld_upweight,
                              int rank, double sparsity, unsigned int hyperbolic,
                              double negcurvature) {
@@ -1610,6 +1611,9 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   
   CovarData *retval = smalloc(sizeof(CovarData));
   retval->type = covar_param;
+  retval->msa = msa;
+  retval->crispr_muts = crispr_muts;
+  retval->names = names;
   retval->lambda = LAMBDA_INIT;
   retval->mvn_type = MVN_DIAG;
   retval->dist = dist;
@@ -1969,7 +1973,7 @@ void nj_set_pointscale(CovarData *data) {
    approximate posterior */
 List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
                               CovarData *data, TreeModel *mod,
-                              MSA *msa, FILE *logf) {
+                              FILE *logf) {
   List *retval = lst_new_ptr(nsamples), *init_samples = lst_new_ptr(nsamples * 10);
   Vector *points = vec_new(mmvn->d * mmvn->n);
   double logM = -INFTY, lnl, mvnl, u, avelnl = 0;
@@ -1981,10 +1985,13 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
   for (i = 0; i < nsamples * 10; i++) {
     mmvn_sample(mmvn, points);
     nj_points_to_distances(points, data);
-    mod->tree = nj_infer_tree(data->dist, msa->names, NULL);
+    mod->tree = nj_infer_tree(data->dist, data->names, NULL);
     lst_push_ptr(init_samples, mod->tree);
 
-    ll[i] = nj_compute_log_likelihood(mod, msa, NULL);
+    if (data->crispr_muts != NULL)
+      ll[i] = cpr_compute_log_likelihood(mod, data->crispr_muts, NULL);
+    else
+      ll[i] = nj_compute_log_likelihood(mod, data->msa, NULL);
     mvnll[i] = mmvn_log_dens(mmvn, points);
     if (ll[i] - mvnll[i] > logM) 
       logM = ll[i] - mvnll[i];
@@ -2011,9 +2018,13 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
     ntot++;
     mmvn_sample(mmvn, points);
     nj_points_to_distances(points, data);
-    mod->tree = nj_infer_tree(data->dist, msa->names, NULL);
+    mod->tree = nj_infer_tree(data->dist, data->names, NULL);
 
-    lnl = nj_compute_log_likelihood(mod, msa, NULL);
+    if (data->crispr_muts != NULL)
+      lnl = cpr_compute_log_likelihood(mod, data->crispr_muts, NULL);
+    else
+      lnl = nj_compute_log_likelihood(mod, data->msa, NULL);
+        
     mvnl = mmvn_log_dens(mmvn, points);
     u = unif_rand();
     if (u < exp(lnl - mvnl - logM)) {
@@ -2039,20 +2050,23 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
 /* compute the gradient of the log likelihood with respect to the
    individual points by a very simple, fully numerical method.
    Returns log likelihood of model as by product. */
-double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
+double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod, 
                      CovarData *data) {
   double ll, ll_base, xorig, deriv;
   int i, k;
   int n = data->nseqs; /* number of taxa */
   int d = data->dim; /* dimensionality; have to accommodate diagonal case */
   TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
-  
+
+  assert(data->msa != NULL && data->crispr_muts == NULL);
+  /* this version not set up for crispr data */
+         
   /* set up tree model and get baseline log likelihood */
   nj_points_to_distances(x, data);    
-  tree = nj_infer_tree(data->dist, msa->names, NULL);
+  tree = nj_infer_tree(data->dist, data->msa->names, NULL);
   orig_tree = tr_create_copy(tree);   /* restore at the end */
   nj_reset_tree_model(mod, tree);
-  ll_base = nj_compute_log_likelihood(mod, msa, NULL);
+  ll_base = nj_compute_log_likelihood(mod, data->msa, NULL);
 
   /* Now perturb each point and propagate perturbation through distance
      calculation, neighbor-joining reconstruction, and likelihood
@@ -2065,9 +2079,9 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
       vec_set(x, idx, xorig + DERIV_EPS);
 
       nj_points_to_distances(x, data); 
-      tree = nj_infer_tree(data->dist, msa->names, NULL);
+      tree = nj_infer_tree(data->dist, data->msa->names, NULL);
       nj_reset_tree_model(mod, tree);      
-      ll = nj_compute_log_likelihood(mod, msa, NULL);
+      ll = nj_compute_log_likelihood(mod, data->msa, NULL);
       deriv = (ll - ll_base) / DERIV_EPS; 
 
       vec_set(dL_dx, idx, deriv);
@@ -2171,7 +2185,7 @@ void nj_dist_to_i_j(int pwidx, int *i, int *j, int n) {
    individual points by the chain rule and using analytical methods
    for each component.  Fastest but most complicated and error-prone
    version. */
-double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
+double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
                          CovarData *data) {
   int n = data->nseqs, nbranches = 2*n-2,  /* have to work with the rooted tree here */
     ndist = n * (n-1) / 2;
@@ -2184,8 +2198,8 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
   
   /* set up baseline objects */
   nj_points_to_distances(x, data);    
-  //tree = nj_infer_tree(data->dist, msa->names, dt_dD);
-  tree = nj_fast_infer(data->dist, msa->names, dt_dD);
+  //tree = nj_infer_tree(data->dist, data->names, dt_dD);
+  tree = nj_fast_infer(data->dist, data->names, dt_dD);
   nj_reset_tree_model(mod, tree);
 
   /* TEMPORARY: compare to numerical gradient */
@@ -2197,7 +2211,10 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
   /* exit(0); */
   
   /* calculate log likelihood and analytical gradient */
-  ll_base = nj_compute_log_likelihood(mod, msa, dL_dt);
+  if (data->crispr_muts != NULL)
+    ll_base = cpr_compute_log_likelihood(mod, data->crispr_muts, dL_dt);
+  else
+    ll_base = nj_compute_log_likelihood(mod, data->msa, dL_dt);
 
   /* apply chain rule to get dL/dD gradient (a vector of dim ndist) */
   mat_vec_mult_transp(dL_dD, dt_dD, dL_dt);

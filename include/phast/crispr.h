@@ -15,6 +15,7 @@ typedef struct {
   List *sitenames;
   List *cellnames;
   List *cellmuts;
+  Vector *eqfreqs;
 } CrisprMutTable;
 
 CrisprMutTable *cpr_new_table();
@@ -38,5 +39,12 @@ Matrix *cpr_compute_dist(CrisprMutTable *M);
 
 double cpr_compute_pw_dist(CrisprMutTable *M, int i, int j);
 
+void cpr_set_subst_matrices(TreeModel *mod, List *Pt, Vector *eqfreqs);
+
+void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs);
+
+void cpr_branch_grad(Matrix *grad, double t, Vector *eqfreqs);
+
+Vector *cpr_estim_mut_rates(CrisprMutTable *M, unsigned int ignore_silent);
 
 #endif

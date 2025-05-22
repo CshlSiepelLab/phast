@@ -35,8 +35,8 @@ int main(int argc, char *argv[]) {
     batchsize = DEFAULT_BATCHSIZE, nbatches_conv = DEFAULT_NBATCHES_CONV,
     min_nbatches = DEFAULT_MIN_NBATCHES, rank = DEFAULT_RANK;
   unsigned int nj_only = FALSE, random_start = FALSE,
-    hyperbolic = FALSE, embedding_only = FALSE, rejection_sampling = FALSE,
-    mvn_dump = FALSE, natural_grad = FALSE;
+   hyperbolic = FALSE, embedding_only = FALSE, rejection_sampling = FALSE,
+    mvn_dump = FALSE, natural_grad = FALSE, is_crispr = FALSE;
   MSA *msa = NULL;
   enum covar_type covar_param = CONST;
 
@@ -56,7 +56,8 @@ int main(int argc, char *argv[]) {
   multi_MVN *mmvn = NULL;
   TreeNode *init_tree = NULL;
   CovarData *covar_data = NULL;
-
+  CrisprMutTable *crispr_muts = NULL;
+  
   struct option long_opts[] = {
     {"format", 1, 0, 'i'},
     {"batchsize", 1, 0, 'b'},
@@ -114,6 +115,12 @@ int main(int argc, char *argv[]) {
       break;
     case 'H':
       hyperbolic = TRUE;
+      break;
+    case 'i':
+      if (!strcmp(optarg, "CRISPR"))
+        is_crispr = TRUE;
+      else
+        format = msa_str_to_format(optarg);
       break;
     case 'J':
       rejection_sampling = TRUE;
@@ -227,28 +234,37 @@ int main(int argc, char *argv[]) {
     if (optind != argc) 
       die("ERROR: No alignment needed in this case.  Too many arguments.  Try 'varPHAST -h'.\n");
   }
-  else {
+  else { /* handle alignment file or crispr mutation table */
     if (optind != argc - 1)
-      die("ERROR: alignment file required.\n");
+      die("ERROR: alignment/mutation file required.\n");
     
     infile = phast_fopen(argv[optind], "r");
-    if (format == UNKNOWN_FORMAT)
-      format = msa_format_for_content(infile, 1);
-    if (format == MAF) 
-      msa = maf_read(phast_fopen(argv[optind], "r"), NULL, 1, alphabet,
-                     NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
-    else
-      msa = msa_new_from_file_define_format(phast_fopen(argv[optind], "r"), 
-                                            format, alphabet);
+    if (is_crispr) { /* CRISPR mutation table */
+      crispr_muts = cpr_read_table(infile);
+      ntips = crispr_muts->ncells;
+      names = smalloc(ntips * sizeof(char*));
+      for (i = 0; i < ntips; i++)
+        names[i] = ((String*)lst_get_ptr(crispr_muts->cellnames, i))->chars;
+    }
+    else { /* standard alignment file */
+      if (format == UNKNOWN_FORMAT)
+        format = msa_format_for_content(infile, 1);
+      if (format == MAF) 
+        msa = maf_read(phast_fopen(argv[optind], "r"), NULL, 1, alphabet,
+                       NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
+      else
+        msa = msa_new_from_file_define_format(phast_fopen(argv[optind], "r"), 
+                                              format, alphabet);
 
-    if (msa->ss == NULL)
-      ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
+      if (msa->ss == NULL)
+        ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
 
-    names = msa->names;
-    ntips = msa->nseqs;
+      names = msa->names;
+      ntips = msa->nseqs;
+    }
   }
   
-  if (msa == NULL && names == NULL) {
+  if (msa == NULL && crispr_muts == NULL && names == NULL) {
     if (init_tree) {
       List *namelst = tr_leaf_names(init_tree); /* have to convert to char arrays */
       ntips = lst_size(namelst);
@@ -260,7 +276,7 @@ int main(int argc, char *argv[]) {
       }
     }
     else 
-      die("ERROR: must specify alignment, --tree/--treemod, or --names.\n");
+      die("ERROR: must specify alignment/mutations, --tree/--treemod, or --names.\n");
   }
 
   /* at this point, names and ntips must be defined even if we don't have an alignment */
@@ -273,15 +289,17 @@ int main(int argc, char *argv[]) {
     D = mat_new_from_file(indistfile, ntips, ntips);
   else if (msa != NULL)
     D = nj_compute_JC_matr(msa);
+  else if (crispr_muts != NULL)
+    D = cpr_compute_dist(crispr_muts);
   else
     die("ERROR: no distance matrix available\n");
   
   /* we must have a distance matrix now; make sure valid */
   nj_test_D(D);
 
-  covar_data = nj_new_covar_data(covar_param, D, dim, natural_grad,
-                                 kld_upweight, rank, sparsity, hyperbolic,
-                                 negcurvature);
+  covar_data = nj_new_covar_data(covar_param, D, dim, msa, crispr_muts, names,
+                                 natural_grad, kld_upweight, rank, sparsity,
+                                 hyperbolic, negcurvature);
   
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */
@@ -301,14 +319,16 @@ int main(int argc, char *argv[]) {
       tr_print(stdout, tree, TRUE);
 
     else {  /* full variational inference */
-      if (msa == NULL)
-        die("ERROR: Alignment required for variational inference\n");
+      if (msa == NULL && crispr_muts == NULL)
+        die("ERROR: Alignment/mutations required for variational inference\n");
 
       /* set up a tree model if necessary */
       if (mod == NULL) {
-        rmat = mm_new(strlen(msa->alphabet), msa->alphabet, CONTINUOUS);
-        mod = tm_new(tree, rmat, NULL, subst_mod, msa->alphabet, 1, 1, NULL, -1);
-        tm_init_backgd(mod, msa, -1);
+        /* note: this model will be overridden in the crispr case */
+        rmat = mm_new(strlen(DEFAULT_ALPHABET), DEFAULT_ALPHABET, CONTINUOUS);
+        mod = tm_new(tree, rmat, NULL, subst_mod, DEFAULT_ALPHABET, 1, 1, NULL, -1);
+        if (msa != NULL)
+          tm_init_backgd(mod, msa, -1);
         
         if (subst_mod == JC69)
           tm_set_JC69_matrix(mod);
@@ -331,15 +351,15 @@ int main(int argc, char *argv[]) {
         exit(0);
       }
       
-      nj_variational_inf(mod, msa, mmvn, batchsize, learnrate,
+      nj_variational_inf(mod, mmvn, batchsize, learnrate,
                          nbatches_conv, min_nbatches, 
                          covar_data, logfile);
 
       if (rejection_sampling == TRUE) 
-        trees = nj_var_sample_rejection(nsamples, mmvn, covar_data, mod, msa, logfile);
+        trees = nj_var_sample_rejection(nsamples, mmvn, covar_data, mod, logfile);
 
       else /* otherwise just sample directly from approx posterior */
-        trees = nj_var_sample(nsamples, mmvn, covar_data, msa->names, NULL);
+        trees = nj_var_sample(nsamples, mmvn, covar_data, names, NULL);
 
       for (i = 0; i < nsamples; i++)
         tr_print(stdout, (TreeNode*)lst_get_ptr(trees, i), TRUE);
@@ -347,7 +367,7 @@ int main(int argc, char *argv[]) {
       if (postmeanfile != NULL) {
         Vector *mu_full = vec_new(mmvn->d * mmvn->n);
         mmvn_save_mu(mmvn, mu_full);
-        tr_print(postmeanfile, nj_mean(mu_full, msa->names, covar_data), TRUE);
+        tr_print(postmeanfile, nj_mean(mu_full, names, covar_data), TRUE);
         vec_free(mu_full);
       }
     }

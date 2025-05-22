@@ -15,9 +15,9 @@ space is used, but a hyperbolic geometry can be used instead by selecting
 the --hyperbolic option.
 
 OPTIONS:
-    --format, -i FASTA|SS|PHYLIP|MPM|MAF
+    --format, -i FASTA|SS|PHYLIP|MPM|MAF|CRISPR
         Format of alignment (default is to guess format from file
-        contents).  
+        contents).   CRISPR format must be specified explicitly.
 
     --batchsize, -b <N>
         Set mini-batch size in stochastic gradient ascent to <N> (default

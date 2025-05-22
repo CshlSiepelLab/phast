@@ -21,6 +21,7 @@
 #include <phast/tree_model.h>
 #include <phast/mvn.h>
 #include <phast/multi_mvn.h>
+#include <phast/crispr.h>
 #include <phast/misc.h>
 
 /* for numerical derivatives */
@@ -81,6 +82,9 @@ typedef struct {
   double penalty; /* the current value of the penalty */
   unsigned int hyperbolic; /* whether or not hyperbolic geometry is used */
   double negcurvature; /* for hyperbolic case */
+  MSA *msa; /* multiple alignment under analysis if available */
+  CrisprMutTable *crispr_muts; /* alternative CRISPR mutation table */
+  char **names;
 } CovarData;
 
 /* for use with min-heap in fast nj algorithm */
@@ -116,15 +120,15 @@ void nj_points_to_distances_euclidean(Vector *points, CovarData *data);
 
 void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data);
 
-double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
+double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, 
                              Vector *points, Vector *points_std,
                              Vector *grad, CovarData *data);
 
-double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, MSA *msa,
+double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, 
                                    Vector *points, Vector *points_std,
                                    Vector *grad, CovarData *data);
 
-void nj_variational_inf(TreeModel *mod, MSA *msa, multi_MVN *mmvn,
+void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
                         int nminibatch, double learnrate, int nbatches_conv,
                         int min_nbatches, CovarData *data, FILE *logf);
 
@@ -155,7 +159,8 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
 void nj_update_covariance(multi_MVN *mmvn, CovarData *data);
 
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
-                             int dim, unsigned int natural_grad,
+                             int dim, MSA *msa, CrisprMutTable *crispr_muts,
+                             char **names, unsigned int natural_grad,
                              double kld_upweight, int rank,
                              double sparsity, unsigned int hyperbolic,
                              double negcurvature);
@@ -181,13 +186,10 @@ void nj_set_pointscale(CovarData *data);
 
 List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
                               CovarData *data, TreeModel *mod,
-                              MSA *msa, FILE *logf);
+                              FILE *logf);
 
-double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
+double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod, 
                      CovarData *data);
-
-double nj_dL_dx_smarter(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
-                        CovarData *data);
 
 double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, MSA *msa);
 
@@ -197,7 +199,7 @@ int nj_i_j_to_dist(int i, int j, int n);
 
 void nj_dist_to_i_j(int pwidx, int *i, int *j, int n);
 
-double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, MSA *msa,
+double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, 
                          CovarData *data);
 
 

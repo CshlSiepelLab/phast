@@ -6,7 +6,7 @@
    x get it to compile
    x test reading and writing, renumbering
    - implement mapping between cell names and leaf ids
-   - need to compute distance matrix for init
+   x need to compute distance matrix for init
    - figure out background freqs
    - estimate or pre-estimate relative rates?
    - handle silent states correctly
@@ -34,6 +34,7 @@ CrisprMutTable *cpr_new_table() {
   retval->nsites = 0;
   retval->ncells = 0;
   retval->nstates = 0;
+  retval->eqfreqs = NULL;
   return retval;
 }
 
@@ -57,7 +58,7 @@ CrisprMutTable *cpr_read_table(FILE *F) {
     lineno++;
     str_split(line, NULL, cols);
     if (lst_size(cols) != M->nsites + 1)
-      die("ERROR in line %d of input file: number of mutations does not match header\n");
+      die("ERROR in line %d of input file: number of mutations does not match header\n", lineno);
     lst_push_ptr(M->cellnames, lst_get_ptr(cols, 0));
     muts = lst_new_int(M->nsites);
     lst_push_ptr(M->cellmuts, muts);
@@ -158,16 +159,17 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
 
   int i, j, k, nodeidx, site, cell, state;
   int nstates = M->nstates;
-  TreeNode *n;
+  TreeNode *n, *sibling;
   double total_prob = 0;
-  List *traversal;
+  List *traversal, *Pt;
   double **pL = NULL, **pLbar = NULL;
   double log_scale;
   double scaling_threshold = DBL_MIN;
   double ll = 0;
   double tmp[nstates];
   Matrix *grad_mat = NULL;
-
+  MarkovMatrix *par_subst_mat, *sib_subst_mat;
+    
   /* set up "inside" probability matrices for pruning algorithm */
   pL = smalloc(nstates * sizeof(double*));
   for (j = 0; j < nstates; j++)
@@ -177,6 +179,10 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
   Pt = lst_new_ptr(mod->tree->nnodes);
   for (nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++)
     lst_push_ptr(Pt, mm_new(nstates, NULL, DISCRETE));
+
+  /* compute equilibrium freqs if not yet available */
+  if (M->eqfreqs == NULL)
+    M->eqfreqs = cpr_estim_mut_rates(M, FALSE);
   
   if (branchgrad != NULL) {
     if (branchgrad->size != mod->tree->nnodes-1) /* rooted */
@@ -191,9 +197,9 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
 
   /* FIXME: set up a mapping from cell numbers to leaf numbers */
   
-  cpr_set_subst_matrices(mod, Pt); /* set up P matrices for each edge;
-                                      we'll keep this separate from the
-                                      TreeModel in this case */
+  cpr_set_subst_matrices(mod, Pt, M->eqfreqs); /* set up P matrices for each edge;
+                                               we'll keep this separate from the
+                                               TreeModel in this case */
 
   traversal = tr_postorder(mod->tree);
   for (site = 0; site < M->nsites; site++) {
@@ -213,8 +219,8 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
       }
       else {
         /* general recursive case */
-        MarkovMatrix *lsubst_mat = mod->P[n->lchild->id];
-        MarkovMatrix *rsubst_mat = mod->P[n->rchild->id];
+        MarkovMatrix *lsubst_mat = lst_get_ptr(Pt, n->lchild->id);
+        MarkovMatrix *rsubst_mat = lst_get_ptr(Pt, n->rchild->id);
         for (i = 0; i < nstates; i++) {
           double totl = 0, totr = 0;
           for (j = 0; j < nstates; j++)
@@ -260,10 +266,10 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
             pLbar[i][n->id] = vec_get(mod->backgd_freqs, i);   /* FIXME */
         }
         else {            /* recursive case */
-          TreeNode *sibling = (n == n->parent->lchild ?
+          sibling = (n == n->parent->lchild ?
                                n->parent->rchild : n->parent->lchild);
-          MarkovMatrix *par_subst_mat = mod->P[n->id];
-          MarkovMatrix *sib_subst_mat = mod->P[sibling->id];
+          par_subst_mat = lst_get_ptr(Pt, n->id);
+          sib_subst_mat = lst_get_ptr(Pt, sibling->id);
           	  
           for (j = 0; j < nstates; j++) { /* parent state */
             tmp[j] = 0;
@@ -284,7 +290,7 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
       /* now compute branchwise derivatives in a final pass */
       traversal = mod->tree->nodes;
       for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
-        TreeNode *par, *sib;
+        TreeNode *par;
         double base_prob = total_prob, deriv = 0;
         
         n = lst_get_ptr(traversal, nodeidx);
@@ -293,19 +299,21 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
         if (par == NULL || n == mod->tree->rchild) 
           continue;
        
-        sib = (n == n->parent->lchild ?
-               n->parent->rchild : n->parent->lchild);
+        sibling = (n == n->parent->lchild ?
+                   n->parent->rchild : n->parent->lchild);
 
+        sib_subst_mat = lst_get_ptr(Pt, sibling->id);
+        
         /* this part is just a constant to propagate through to the
            derivative */
         for (i = 0; i < nstates; i++) {  /* parent */
           tmp[i] = 0;
           for (k = 0; k < nstates; k++)  /* sibling */
-            tmp[i] += pL[k][sib->id] * mm_get(mod->P[sib->id], i, k);
+            tmp[i] += pL[k][sibling->id] * mm_get(sib_subst_mat, i, k);
         }
         
         /* calculate derivative analytically */
-        cpr_branch_grad(grad_mat, n->dparent, eqfreqs); 
+        cpr_branch_grad(grad_mat, n->dparent, M->eqfreqs); 
         for (i = 0; i < nstates; i++)   
           for (j = 0; j < nstates; j++)    
             deriv +=  tmp[i] * pLbar[i][par->id] * pL[j][n->id] * mat_get(grad_mat, i, j);  
@@ -396,43 +404,69 @@ void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs) {
 
   /* silent state is the last one */
   int j, silst = P->size - 1;
+  double scale = 0.0; /* FIXME: pass in */
   
   /* substitution probabilities from 0 (unedited) state to all edited
      (and not silent) states */
   for (j = 1; j < silst; j++)
-    mm_set(0, j, vec_get(eqfreq, j) * exp(-t * scale) * (1 - exp(-t)));
-  mm_set(0, 0, exp(-t*(1+scale)));
+    mm_set(P, 0, j, vec_get(eqfreqs, j) * exp(-t * scale) * (1 - exp(-t)));
+  mm_set(P, 0, 0, exp(-t*(1+scale)));
   
   /* substitution probabilities from edited states to themselves */
   for (j = 1; j < silst; j++)
-    mm_set(j, j, exp(-t * scale));
+    mm_set(P, j, j, exp(-t * scale));
 
   /* substitution probabilities to silent state */
-  for (j = 0, j < silst, j++)
-    mm_set(j, silst, 1 - exp(-t * scale));
-  mm_set(silst, silst, 1); /* absorbing state */
+  for (j = 0; j < silst; j++)
+    mm_set(P, j, silst, 1 - exp(-t * scale));
+  mm_set(P, silst, silst, 1); /* absorbing state */
 }
 
 /* compute gradients of elements of substitution matrix with respect
    to branch length */
-cpr_branch_grad(Matrix *grad, double t, Vector *eqfreqs) {
-  int j, silst = P->size - 1;
+void cpr_branch_grad(Matrix *grad, double t, Vector *eqfreqs) {
+  int j, silst = grad->ncols - 1;
+  double scale = 0.0; /* FIXME: pass in */
   mat_zero(grad);
   
   /* derivatives of substitution probabilities from 0 (unedited) state
      to all edited (and not silent) states */
   for (j = 1; j < silst; j++)
-    mat_set(grad, 0, j, vec_get(eqfreq, j) *
+    mat_set(grad, 0, j, vec_get(eqfreqs, j) *
             (-scale * exp(-t*scale) * (1 - exp(-t)) +
              exp(-t * (1+scale))));
-  mm_set(0, 0, -(1+scale) * exp(-t*(1+scale)));
+  mat_set(grad, 0, 0, -(1+scale) * exp(-t*(1+scale)));
   
   /* derivatives of substitution probabilities from edited states to
      themselves */
   for (j = 1; j < silst; j++)
-    mm_set(j, j, -scale * exp(-t * scale));
+    mat_set(grad, j, j, -scale * exp(-t * scale));
 
   /* derivatives of substitution probabilities to silent state */
-  for (j = 0, j < silst, j++)
-    mm_set(j, silst, scale * exp(-t * scale));
+  for (j = 0; j < silst; j++)
+    mat_set(grad, j, silst, scale * exp(-t * scale));
 }
+
+/* estimate relative mutation rates based on relative frequencies in
+   data set.  Returns a vector of size M->nstates + 1, with the last
+   element representing the relative frequency of the silent state.
+   If ignore_silent == TRUE, that frequency will be forced to zero.
+   To ensure all other states have nonzero values, it may be helpful to
+   preprocess with cpr_renumber_states */
+Vector *cpr_estim_mut_rates(CrisprMutTable *M, unsigned int ignore_silent) {
+  Vector *retval = vec_new(M->nstates + 1);
+  int silentstate = M->nstates;
+  vec_zero(retval);
+  for (int i = 0; i < M->ncells; i++) {
+    for (int j = 0; j < M->ncells; j++) {
+      int mut = cpr_get_mut(M, i, j);
+      if (mut == -1 && ignore_silent == FALSE)
+        vec_set(retval, silentstate, vec_get(retval, silentstate) + 1.0);
+      else
+        vec_set(retval, mut, vec_get(retval, mut) + 1.0);
+    }
+  }
+  pv_normalize(retval);
+  return retval;
+}
+
