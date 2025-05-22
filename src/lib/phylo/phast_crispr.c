@@ -201,6 +201,9 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
                                                we'll keep this separate from the
                                                TreeModel in this case */
 
+  if (mod->msa_seq_idx == NULL)
+    cpr_build_seq_idx(mod, M);
+  
   traversal = tr_postorder(mod->tree);
   for (site = 0; site < M->nsites; site++) {
     log_scale = 0;
@@ -208,10 +211,10 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
       n = lst_get_ptr(traversal, nodeidx);
       if (n->lchild == NULL) {
         /* leaf: base case of recursion */
-        cell = 5; /*XXXXXX();*/ /* FIXME: map from leaf index to cell number */
-        state = cpr_get_mut(M, site, cell);
+        cell = mod->msa_seq_idx[n->id]; /* -1 if not found */
+        state = cell >= 0 ? cpr_get_mut(M, site, cell) : -1;  /* FIXME: silent states */
         for (i = 0; i < nstates; i++) {
-          if (i == state)  /* FIXME: what to do with silent states? -1 */
+          if (state < 0 || i == state) 
             pL[i][n->id] = 1;
           else
             pL[i][n->id] = 0;
@@ -244,9 +247,8 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
   
     /* termination */
     total_prob = 0;
-    for (i = 0; i < nstates; i++)  /* FIXME: how to handle background freqs? */
-      total_prob += vec_get(mod->backgd_freqs, i) *
-        pL[i][mod->tree->id] * mod->freqK[0];
+    for (i = 0; i < nstates; i++) 
+      total_prob += vec_get(M->eqfreqs, i) * pL[i][mod->tree->id];
     
     ll += (log(total_prob) - log_scale);
 
@@ -263,7 +265,7 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
 
         if (n->parent == NULL) { /* base case */
           for (i = 0; i < nstates; i++)
-            pLbar[i][n->id] = vec_get(mod->backgd_freqs, i);   /* FIXME */
+            pLbar[i][n->id] = vec_get(M->eqfreqs, i);
         }
         else {            /* recursive case */
           sibling = (n == n->parent->lchild ?
@@ -379,7 +381,7 @@ double cpr_compute_pw_dist(CrisprMutTable *M, int i, int j) {
      is the mle for the time elapsed in units of expected mutations
      per site */
 
-  if (d > 3)
+  if (n == 0 || d > 3)
     d = 3; /* set a max to keep the initialization reasonable */
 
   return d;
@@ -470,3 +472,24 @@ Vector *cpr_estim_mut_rates(CrisprMutTable *M, unsigned int ignore_silent) {
   return retval;
 }
 
+/*  Build index of leaf ids to cell indices based on matching names.
+    Leaves not present in the alignment will be ignored.  Also, it's
+    not required that there's a leaf for every sequence in the
+    alignment. This is a version of tm_build_seq_idx adapted to work
+    with a CrisprMutTable */
+void cpr_build_seq_idx(TreeModel *mod, CrisprMutTable *M) {
+  int i, idx;  
+  mod->msa_seq_idx = smalloc(mod->tree->nnodes * sizeof(int));
+  /* let's just reuse this even though it's misnamed for the purpose */
+  
+  for (i = 0; i < mod->tree->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(mod->tree->nodes, i);
+    mod->msa_seq_idx[i] = -1;
+    if (n->lchild == NULL && n->rchild == NULL) {
+      String *namestr = str_new_charstr(n->name);
+      if (str_in_list_idx(namestr, M->cellnames, &idx) == 1)
+        mod->msa_seq_idx[i] = idx;
+      str_free(namestr);
+    }
+  }
+}

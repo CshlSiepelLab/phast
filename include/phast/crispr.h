@@ -47,4 +47,6 @@ void cpr_branch_grad(Matrix *grad, double t, Vector *eqfreqs);
 
 Vector *cpr_estim_mut_rates(CrisprMutTable *M, unsigned int ignore_silent);
 
+void cpr_build_seq_idx(TreeModel *mod, CrisprMutTable *M);
+
 #endif
