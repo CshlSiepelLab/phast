@@ -34,4 +34,9 @@ void cpr_renumber_states(CrisprMutTable *M);
 double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
                                   Vector *branchgrad);
 
+Matrix *cpr_compute_dist(CrisprMutTable *M);
+
+double cpr_compute_pw_dist(CrisprMutTable *M, int i, int j);
+
+
 #endif

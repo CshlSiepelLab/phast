@@ -585,8 +585,8 @@ void tm_set_probs_independent(TreeModel *mod, MarkovMatrix *P) {
       mm_set(P, i, j, vec_get(mod->backgd_freqs, j));
 }
 
-/* analytical gradients of elements of rate matrix with respect to
-   branch length */
+/* analytical gradients of elements of substitution matrix with
+   respect to branch length */
 /* FIXME: generalize to other subst models */
 void tm_grad_JC69(TreeModel *mod, Matrix *grad, double t) {
   int i, j;
