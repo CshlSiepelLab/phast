@@ -18,6 +18,19 @@ typedef struct {
   Vector *eqfreqs;
 } CrisprMutTable;
 
+/* auxiliary data used to keep track of restricted ancestral state
+   possibilities in likelihood calculation; allows for greatly
+   accelerated algorithm */
+typedef struct {
+  int nstates; /* total number of states excluding silent */
+  int nnodes; /* total number of nodes in tree; root is included but
+                 will be ignored */
+  int NORESTRICT; /* code indicating no restrictions on state */
+  List *nodetypes; /* element i is type for node->id == i */
+  List *statelists; /* element i is list of eligible states for
+                       node->id == i */
+} CrisprAncestralStateSets;
+
 CrisprMutTable *cpr_new_table();
 
 CrisprMutTable *cpr_read_table(FILE *F);
@@ -48,5 +61,13 @@ void cpr_branch_grad(Matrix *grad, double t, Vector *eqfreqs);
 Vector *cpr_estim_mut_rates(CrisprMutTable *M, unsigned int ignore_silent);
 
 void cpr_build_seq_idx(TreeModel *mod, CrisprMutTable *M);
+
+void cpr_build_state_sets(CrisprAncestralStateSets *sets);
+
+CrisprAncestralStateSets *cpr_new_state_sets(int nstates, int nnodes);
+
+void cpr_free_state_sets(CrisprAncestralStateSets *sets);
+
+
 
 #endif

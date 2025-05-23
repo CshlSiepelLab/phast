@@ -5,16 +5,16 @@
    x make header file
    x get it to compile
    x test reading and writing, renumbering
-   - implement mapping between cell names and leaf ids
+   x implement mapping between cell names and leaf ids
    x need to compute distance matrix for init
-   - figure out background freqs
-   - estimate or pre-estimate relative rates?
+   x figure out background freqs
+   x estimate or pre-estimate relative rates?
    - handle silent states correctly
    - more efficient state traversal
-   - exponentiation of rate matrix; make sure freeing any old subst matrices and replacing them.  Use the markov-matrix machinery but replace the exponentiation with something here.  maybe better to keep separate from tree model
-   - implement derivative
+   x exponentiation of rate matrix; make sure freeing any old subst matrices and replacing them.  Use the markov-matrix machinery but replace the exponentiation with something here.  maybe better to keep separate from tree model
+   x implement derivative
    - don't forget to come back and clean up scale factor
-   - need to handle new subst model and call appropriate special case functions through varPHAST (also update help msg)
+   x need to handle new subst model and call appropriate special case functions through varPHAST (also update help msg)
    - clean up comments
  */
 
@@ -169,7 +169,8 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
   double tmp[nstates];
   Matrix *grad_mat = NULL;
   MarkovMatrix *par_subst_mat, *sib_subst_mat;
-    
+  static CrisprAncestralStateSets *ancsets = NULL;
+      
   /* set up "inside" probability matrices for pruning algorithm */
   pL = smalloc(nstates * sizeof(double*));
   for (j = 0; j < nstates; j++)
@@ -194,18 +195,33 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
       pLbar[j] = smalloc((mod->tree->nnodes+1) * sizeof(double));
     grad_mat = mat_new(nstates, nstates);
   }
-
-  /* FIXME: set up a mapping from cell numbers to leaf numbers */
   
   cpr_set_subst_matrices(mod, Pt, M->eqfreqs); /* set up P matrices for each edge;
-                                               we'll keep this separate from the
-                                               TreeModel in this case */
+                                                  we'll keep this separate from the
+                                                  TreeModel in this case */
 
   if (mod->msa_seq_idx == NULL)
     cpr_build_seq_idx(mod, M);
+
+  /* also set up ancestral state sets if not already available */
+  if (ancsets == NULL)
+    ancsets = cpr_new_state_sets(nstates, mod->tree->nnodes);
+  else if (ancsets->nstates != nstates) {  /* if number has changed have to rebuild */
+    cpr_free_state_sets(ancsets);
+    ancsets = cpr_new_state_sets(nstates, mod->tree->nnodes);
+  }
+  if (lst_size(ancsets->statelists) == 0)
+    cpr_build_state_sets(ancsets);
   
   traversal = tr_postorder(mod->tree);
   for (site = 0; site < M->nsites; site++) {
+
+    /* first zero out all pL values because with the "smart"
+       algorithm, we won't visit most elements in the matrix */
+    for (nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++)
+      for (i = 0; i < nstates; i++)
+        pL[i][nodeidx] = 0;
+    
     log_scale = 0;
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
       n = lst_get_ptr(traversal, nodeidx);
@@ -213,17 +229,62 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
         /* leaf: base case of recursion */
         cell = mod->msa_seq_idx[n->id]; /* -1 if not found */
         state = cell >= 0 ? cpr_get_mut(M, site, cell) : -1;  /* FIXME: silent states */
-        for (i = 0; i < nstates; i++) {
-          if (state < 0 || i == state) 
-            pL[i][n->id] = 1;
-          else
-            pL[i][n->id] = 0;
-        }
+        pL[state][n->id] = 1;
+
+        /* also update nodetype */
+        if (state == 0) /* unedited */
+          lst_set_int(ancsets->nodetypes, n->id, 0);
+        else if (state > 0) /* derived edit */
+          lst_set_int(ancsets->nodetypes, n->id, state);
+        else
+          lst_set_int(ancsets->nodetypes, n->id, ancsets->NORESTRICT);
       }
       else {
         /* general recursive case */
         MarkovMatrix *lsubst_mat = lst_get_ptr(Pt, n->lchild->id);
         MarkovMatrix *rsubst_mat = lst_get_ptr(Pt, n->rchild->id);
+        int lchildtype, rchildtype, thistype;
+        
+        /* first set nodetype based on nodetypes of children */
+        lchildtype = lst_get_int(ancsets->nodetypes, n->lchild->id);
+        rchildtype = lst_get_int(ancsets->nodetypes, n->rchild->id);
+        if (lchildtype == 0 || rchildtype == 0) /* if either child is
+                                                   unedited, parent
+                                                   must be unedited */
+          thistype = 0;
+        else if (lchildtype < ancsets->NORESTRICT &&
+                 rchildtype < ancsets->NORESTRICT &&
+                 lchildtype != rchildtype) /* if children have
+                                              different edits, parent
+                                              must be unedited */
+          thistype = 0;
+        else if (lchildtype == rchildtype && 
+                 lchildtype < ancsets->NORESTRICT) /* if children have
+                                                      same edits,
+                                                      parent must
+                                                      share it or be
+                                                      unedited */
+          
+          thistype = lchildtype;
+        else if (lchildtype < ancsets->NORESTRICT &&
+                 rchildtype == ancsets->NORESTRICT) /* if one edited
+                                                      child, parent
+                                                      must have same
+                                                      edit or be
+                                                      unedited */
+          thistype = lchildtype;
+        
+        else if (rchildtype < ancsets->NORESTRICT &&
+                 lchildtype == ancsets->NORESTRICT) /* converse case */
+          thistype = rchildtype;
+
+        else /* otherwise we have to consider all possible states */
+          thistype = ancsets->NORESTRICT;
+
+        lst_set_int(ancsets->nodetypes, n->id, thistype);
+        
+        /* FIXME: set lists based on type for parent and children */
+        
         for (i = 0; i < nstates; i++) {
           double totl = 0, totr = 0;
           for (j = 0; j < nstates; j++)
@@ -247,7 +308,7 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
   
     /* termination */
     total_prob = 0;
-    for (i = 0; i < nstates; i++) 
+    for (i = 0; i < nstates; i++) /* FIXME: use type */
       total_prob += vec_get(M->eqfreqs, i) * pL[i][mod->tree->id];
     
     ll += (log(total_prob) - log_scale);
@@ -492,4 +553,61 @@ void cpr_build_seq_idx(TreeModel *mod, CrisprMutTable *M) {
       str_free(namestr);
     }
   }
+}
+
+/* build lists of eligible ancestral states, for use in accelerating
+   likelihood calculation */
+void cpr_build_state_sets(CrisprAncestralStateSets *sets) {
+  /* CHECK: should last list also include silent state?  or is that implicit? */
+  
+  int i;
+  List *l;
+  
+  assert(lst_size(sets->statelists) == 0); /* should always start empty */
+  
+  /* list indicating unedited state only; this will be used for any
+     node that has an unedited descendant or >=2 distinct
+     derived descendants */
+  l = lst_new_int(1);
+  lst_push_int(l, 0);
+  lst_push_ptr(sets->statelists, l);
+  
+  /* lists indicating unedited state and one particular derived state.
+     These will be used for nodes that have a single derived state as
+     a descendant */
+  for (i = 1; i < sets->nstates; i++) {
+    l = lst_new_int(2);
+    lst_push_int(l, 0);
+    lst_push_int(l, i);
+    lst_push_ptr(sets->statelists, l);
+  }
+  
+  /* list indicating all possible states; This will be used in all
+     other cases */
+  l = lst_new_int(sets->nstates);
+  for (i = 0; i < sets->nstates; i++)
+    lst_push_int(l, i);
+  lst_push_ptr(sets->statelists, l);
+}
+
+CrisprAncestralStateSets *cpr_new_state_sets(int nstates, int nnodes) {
+  CrisprAncestralStateSets *retval = malloc(sizeof(CrisprAncestralStateSets));
+  retval->nstates = nstates;
+  retval->nnodes = nnodes;
+  retval->NORESTRICT = nstates; /* last one will always be the unrestricted set */
+  retval->nodetypes = lst_new_int(nnodes);
+  retval->statelists = lst_new_ptr(nstates + 1);
+  return retval;
+}
+
+void cpr_free_state_sets(CrisprAncestralStateSets *sets) {
+    /* discard inner lists */
+  if (sets->statelists != NULL) {
+    for (int i = 0; i < lst_size(sets->statelists); i++)
+      lst_free(lst_get_ptr(sets->statelists, i));
+    lst_free(sets->statelists);
+  }
+  if (sets->nodetypes != NULL)
+    lst_free(sets->nodetypes);
+  free(sets);
 }
