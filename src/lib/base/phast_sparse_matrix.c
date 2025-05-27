@@ -38,7 +38,7 @@ void spmat_zero(SparseMatrix *sm) {
 
 void spmat_copy(SparseMatrix *dest, SparseMatrix *src) {
   assert(dest->nrows == src->nrows && dest->ncols == src->ncols);
-  for (int i = 0; i < src->nrows; i++)
+  for (int i = 0; i < src->nrows; i++) 
     spvec_copy(dest->rows[i], src->rows[i]);
 }
 

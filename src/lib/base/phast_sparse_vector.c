@@ -2,6 +2,9 @@
    (idx, val), sorted by idx.  Optimized for set and get rather than
    multiplication or addition. */
 
+/* FIXME: store the element structs contiguously rather than via
+   pointers for better cache behavior */
+
 #include <stdlib.h>
 #include <assert.h>
 #include <phast/lists.h>
@@ -39,6 +42,8 @@ void spvec_zero(SparseVector *svec) {
 
 void spvec_copy(SparseVector *dest, SparseVector *src) {
   assert(dest->dim == src->dim);
+  if (dest->nnonzero == 0 && src->nnonzero == 0)
+    return; /* shortcut if both empty */
   dest->sorted = src->sorted;
   dest->nnonzero = src->nnonzero;
   spvec_zero(dest);
