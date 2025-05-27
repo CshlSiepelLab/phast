@@ -263,38 +263,43 @@ int main(int argc, char *argv[]) {
       ntips = msa->nseqs;
     }
   }
-  
-  if (msa == NULL && crispr_muts == NULL && names == NULL) {
-    if (init_tree) {
-      List *namelst = tr_leaf_names(init_tree); /* have to convert to char arrays */
-      ntips = lst_size(namelst);
-      names = smalloc(sizeof(char*)*ntips);
-      for (i = 0; i < ntips; i++) {
-        String *str = lst_get_ptr(namelst, i);
-        names[i] = smalloc(sizeof(char) * (str->length+1));
-        strcpy(names[i], str->chars);
-      }
+
+  /* case where we have a tree only, no alignment or mutation table */
+  if (msa == NULL && crispr_muts == NULL && names == NULL && init_tree) {
+    List *namelst = tr_leaf_names(init_tree); /* have to convert to char arrays */
+    ntips = lst_size(namelst);
+    names = smalloc(sizeof(char*)*ntips);
+    for (i = 0; i < ntips; i++) {
+      String *str = lst_get_ptr(namelst, i);
+      names[i] = smalloc(sizeof(char) * (str->length+1));
+      strcpy(names[i], str->chars);
     }
-    else 
-      die("ERROR: must specify alignment/mutations, --tree/--treemod, or --names.\n");
   }
-
-  /* at this point, names and ntips must be defined even if we don't have an alignment */
-
     
   /* get a distance matrix */
   if (init_tree != NULL)
     D = nj_tree_to_distances(init_tree, names, ntips);  
-  else if (indistfile != NULL) 
-    D = mat_new_from_file(indistfile, ntips, ntips);
+  else if (indistfile != NULL) {
+    D = mat_new_from_file_square(indistfile);
+    ntips = D->nrows;
+    /* in this case we may still be missing names; just assign numbers */
+    if (names == NULL) {
+      names = smalloc(sizeof(char*)*ntips);
+      for (i = 0; i < ntips; i++) {
+        names[i] = smalloc(STR_SHORT_LEN * sizeof(char));
+        snprintf(names[i], STR_SHORT_LEN, "leaf_%d", i);
+      }
+    }
+  }
   else if (msa != NULL)
     D = nj_compute_JC_matr(msa);
   else if (crispr_muts != NULL)
     D = cpr_compute_dist(crispr_muts);
   else
     die("ERROR: no distance matrix available\n");
-  
-  /* we must have a distance matrix now; make sure valid */
+
+  /* at this point, names and ntips must be defined even if we don't have an alignment */
+  /* We must also have a distance matrix now; make sure valid */
   nj_test_D(D);
 
   covar_data = nj_new_covar_data(covar_param, D, dim, msa, crispr_muts, names,
@@ -313,7 +318,7 @@ int main(int argc, char *argv[]) {
   else {
     /* we'll need a starting NJ tree for either variational inference
        or NJ */
-    tree = nj_infer_tree(D, names, NULL);
+    tree = nj_fast_infer(D, names, NULL);
 
     if (nj_only == TRUE) /* just print in this case */
       tr_print(stdout, tree, TRUE);

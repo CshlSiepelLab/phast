@@ -64,6 +64,9 @@ Matrix *mat_new_from_array(double **array, int nrows, int ncols);
 */
 Matrix *mat_new_from_file(FILE *F, int nrows, int ncols);
 
+/* read square matrix from file without knowing size */
+Matrix *mat_new_from_file_square(FILE *F);
+
 /** Allocate a new matrix identical to given input matrix.
 
   @param src Input matrix.

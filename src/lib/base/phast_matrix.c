@@ -15,6 +15,7 @@
 #include <phast/external_libs.h>
 #include <math.h>
 #include <phast/misc.h>
+#include <phast/stringsplus.h>
 
 Matrix *mat_new(int nrows, int ncols) {
   int i;
@@ -157,6 +158,20 @@ Matrix *mat_new_from_file(FILE *F, int nrows, int ncols) {
   Matrix *m = mat_new(nrows, ncols);
   mat_read(m, F);
   return m;
+}
+
+/* read square matrix from file without knowing size */
+Matrix *mat_new_from_file_square(FILE *F) {
+  String *firstl = str_new(STR_MED_LEN);
+  List *dummy = lst_new_ptr(100);
+  int i, size;
+  if (str_peek_next_line(firstl, F) != 0)
+    die("ERROR reading matrix.\n");
+  str_split(firstl, NULL, dummy);
+  size = lst_size(dummy) - 1; /* leading whitespace */
+  for (i = 0; i < lst_size(dummy); i++) str_free(lst_get_ptr(dummy, i));
+  lst_free(dummy);
+  return mat_new_from_file(F, size, size);
 }
 
 void mat_mult(Matrix *prod, Matrix *m1, Matrix *m2) {

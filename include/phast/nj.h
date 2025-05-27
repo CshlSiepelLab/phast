@@ -21,6 +21,7 @@
 #include <phast/tree_model.h>
 #include <phast/mvn.h>
 #include <phast/multi_mvn.h>
+#include <phast/sparse_matrix.h>
 #include <phast/crispr.h>
 #include <phast/misc.h>
 
@@ -206,7 +207,12 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
 void nj_backprop(double *Jk, double *Jnext, int n, int f, int g, int u,
                  Vector *active);
 
+void nj_backprop_sparse(SparseMatrix *Jk, SparseMatrix *Jnext, int n, int f, int g, int u,
+                        Vector *active);
+
 void nj_backprop_init(double *Jk, int n);
+
+void nj_backprop_init_sparse(SparseMatrix *Jk, int n);
 
 void nj_backprop_set_dt_dD(double *Jk, Matrix *dt_dD, int n, int f, int g,
                            int branch_idx_f, int branch_idx_g, Vector *active);

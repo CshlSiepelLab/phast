@@ -127,7 +127,7 @@ void cpr_set_mut(CrisprMutTable *M, int cell, int site, int val) {
 }
 
 /* renumber states so they fall densely between 0 and nstates - 1,
-   with -1 set aside to represent silent states [CHECK] */
+   with -1 set aside to represent silent states */
 void cpr_renumber_states(CrisprMutTable *M) {
   int i, j, newnstates;
   int *statemap = malloc(M->nstates * sizeof(int));
@@ -149,16 +149,18 @@ void cpr_renumber_states(CrisprMutTable *M) {
 }
 
 /* Compute and return the log likelihood of a tree model with respect
-   to a CRISPR mutation table.  This is derived from
-   nj_compute_log_likelihood but customized for the irreversible
+   to a CRISPR mutation table.  This function is derived from
+   nj_compute_log_likelihood but is customized for the irreversible
    CRISPR mutation model of Seidel and Stadler (Proc. R. Soc. B
    289:20221844, 2022). If branchgrad is non-null, it will be
    populated with the gradient of the log likelihood with respect to
    the individual branches of the tree, in post-order.  */
-double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *branchgrad) {
+double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
+                                  Vector *branchgrad) {
 
   int i, j, k, nodeidx, site, cell, state;
-  int nstates = M->nstates;
+  int nstates = M->nstates + 1;  /* have to accommodate silent state */
+  int silst = nstates - 1; /* silent state will always be last */
   TreeNode *n, *sibling;
   double total_prob = 0;
   List *traversal, *Pt;
@@ -216,7 +218,7 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
   traversal = tr_postorder(mod->tree);
   for (site = 0; site < M->nsites; site++) {
 
-    /* first zero out all pL values because with the "smart"
+    /* first zero out all pL values because with the smart
        algorithm, we won't visit most elements in the matrix */
     for (nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++)
       for (i = 0; i < nstates; i++)
@@ -224,17 +226,28 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
     
     log_scale = 0;
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
+      int mut;
+      
       n = lst_get_ptr(traversal, nodeidx);
       if (n->lchild == NULL) {
         /* leaf: base case of recursion */
-        cell = mod->msa_seq_idx[n->id]; /* -1 if not found */
-        state = cell >= 0 ? cpr_get_mut(M, site, cell) : -1;  /* FIXME: silent states */
+        cell = mod->msa_seq_idx[n->id];
+        if (cell == -1)
+          die("ERROR in cpr_compute_log_likelihood: leaf '%s' not found in mutation table.\n",
+              n->name);
+
+        mut = cpr_get_mut(M, cell, site);
+        if (mut == -1)
+          state = silst;
+        else
+          state = mut;
+
         pL[state][n->id] = 1;
 
         /* also update nodetype */
         if (state == 0) /* unedited */
           lst_set_int(ancsets->nodetypes, n->id, 0);
-        else if (state > 0) /* derived edit */
+        else if (state > 0 && state < silst) /* derived edit */
           lst_set_int(ancsets->nodetypes, n->id, state);
         else
           lst_set_int(ancsets->nodetypes, n->id, ancsets->NORESTRICT);
@@ -295,7 +308,7 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
             totr += pL[k][n->rchild->id] *
               mm_get(rsubst_mat, i, k);
           
-          if (totl * totr < scaling_threshold) {
+          if (totl > 0 && totr > 0 && totl * totr < scaling_threshold) {
             pL[i][n->id] = (totl / scaling_threshold) * totr;
             log_scale -= log(scaling_threshold);
           }
@@ -330,7 +343,7 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M, Vector *bra
         }
         else {            /* recursive case */
           sibling = (n == n->parent->lchild ?
-                               n->parent->rchild : n->parent->lchild);
+                     n->parent->rchild : n->parent->lchild);
           par_subst_mat = lst_get_ptr(Pt, n->id);
           sib_subst_mat = lst_get_ptr(Pt, sibling->id);
           	  
@@ -454,60 +467,61 @@ void cpr_set_subst_matrices(TreeModel *mod, List *Pt, Vector *eqfreqs) {
   for (int nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++) {
     TreeNode *n = lst_get_ptr(mod->tree->nodes, nodeidx);
     MarkovMatrix *P = lst_get_ptr(Pt, nodeidx);
-    if (n->parent == NULL) continue;
-    cpr_set_branch_matrix(P, n->dparent, eqfreqs); 
+    if (n->parent != NULL) 
+      cpr_set_branch_matrix(P, n->dparent, eqfreqs); 
   }    
 }
 
-void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs) {
-  /* FIXME: make sure other code expects silent state last */
-  /* should already have zeroes for all but the defined rates */
-
-  /* what does the scale factor mean? how to compute? */
-
-  /* silent state is the last one */
-  int j, silst = P->size - 1;
-  double scale = 0.0; /* FIXME: pass in */
+/* set P = exp(Qt) matrix for branch length t, using parameterization
+   of Mai, Chu, and Raphael, doi:10.1101/2024.03.05.583638 */  
+void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs) {  
+  int j, silst = P->size - 1; /* silent state is the last one */
+  double silent_rate = vec_get(eqfreqs, silst); /* for now, use pre-estimated rate */
+  double scale = 1-silent_rate; /* have to rescale so that editing rate is 1 */
+  t *= scale;
+  mat_zero(P->matrix);
   
   /* substitution probabilities from 0 (unedited) state to all edited
      (and not silent) states */
   for (j = 1; j < silst; j++)
-    mm_set(P, 0, j, vec_get(eqfreqs, j) * exp(-t * scale) * (1 - exp(-t)));
-  mm_set(P, 0, 0, exp(-t*(1+scale)));
+    mm_set(P, 0, j, vec_get(eqfreqs, j) * exp(-t * silent_rate) * (1 - exp(-t)));
+  mm_set(P, 0, 0, exp(-t*(1+silent_rate)));
   
   /* substitution probabilities from edited states to themselves */
   for (j = 1; j < silst; j++)
-    mm_set(P, j, j, exp(-t * scale));
+    mm_set(P, j, j, exp(-t * silent_rate));
 
   /* substitution probabilities to silent state */
   for (j = 0; j < silst; j++)
-    mm_set(P, j, silst, 1 - exp(-t * scale));
+    mm_set(P, j, silst, 1 - exp(-t * silent_rate));
   mm_set(P, silst, silst, 1); /* absorbing state */
 }
 
 /* compute gradients of elements of substitution matrix with respect
    to branch length */
 void cpr_branch_grad(Matrix *grad, double t, Vector *eqfreqs) {
-  int j, silst = grad->ncols - 1;
-  double scale = 0.0; /* FIXME: pass in */
+  int j, silst = grad->ncols - 1; 
+  double silent_rate = vec_get(eqfreqs, silst); 
+  double scale = 1-silent_rate; /* have to rescale so that editing rate is 1 */
+  t *= scale;
   mat_zero(grad);
   
   /* derivatives of substitution probabilities from 0 (unedited) state
      to all edited (and not silent) states */
   for (j = 1; j < silst; j++)
     mat_set(grad, 0, j, vec_get(eqfreqs, j) *
-            (-scale * exp(-t*scale) * (1 - exp(-t)) +
-             exp(-t * (1+scale))));
-  mat_set(grad, 0, 0, -(1+scale) * exp(-t*(1+scale)));
+            (-silent_rate * exp(-t*silent_rate) * (1 - exp(-t)) +
+             exp(-t * (1+silent_rate))));
+  mat_set(grad, 0, 0, -(1+silent_rate) * exp(-t*(1+silent_rate)));
   
   /* derivatives of substitution probabilities from edited states to
      themselves */
   for (j = 1; j < silst; j++)
-    mat_set(grad, j, j, -scale * exp(-t * scale));
+    mat_set(grad, j, j, -silent_rate * exp(-t * silent_rate));
 
   /* derivatives of substitution probabilities to silent state */
   for (j = 0; j < silst; j++)
-    mat_set(grad, j, silst, scale * exp(-t * scale));
+    mat_set(grad, j, silst, silent_rate * exp(-t * silent_rate));
 }
 
 /* estimate relative mutation rates based on relative frequencies in
@@ -521,11 +535,11 @@ Vector *cpr_estim_mut_rates(CrisprMutTable *M, unsigned int ignore_silent) {
   int silentstate = M->nstates;
   vec_zero(retval);
   for (int i = 0; i < M->ncells; i++) {
-    for (int j = 0; j < M->ncells; j++) {
+    for (int j = 0; j < M->nsites; j++) {
       int mut = cpr_get_mut(M, i, j);
       if (mut == -1 && ignore_silent == FALSE)
         vec_set(retval, silentstate, vec_get(retval, silentstate) + 1.0);
-      else
+      else if (mut >= 0)
         vec_set(retval, mut, vec_get(retval, mut) + 1.0);
     }
   }

@@ -21,6 +21,7 @@
 #include "phast/eigen.h"
 #include "phast/sufficient_stats.h"
 #include "phast/markov_matrix.h"
+#include "phast/sparse_matrix.h"
 #include "phast/mvn.h"
 #include "phast/multi_mvn.h"
 #include "phast/heap.h"
@@ -36,7 +37,7 @@
    closest neighbors.  Also update sums to sum of distances from each
    node */
 void nj_resetQ(Matrix *Q, Matrix *D, Vector *active, Vector *sums, int *u,
-	       int *v, int maxidx) {
+               int *v, int maxidx) {
   int i, j, n = 0;
   double min = INFINITY;
   
@@ -279,7 +280,7 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   if (dt_dD != NULL && (dt_dD->nrows != N || dt_dD->ncols != npairs))
     die("ERROR nj_fast_infer: bad dimension in dt_dD\n");
     
-    /* initialize revision numbers for all nodes */
+  /* initialize revision numbers for all nodes */
   for (i = 0; i < N; i++) rev[i] = 0;
 
   /* create a larger distance matrix of dimension N x N to
@@ -304,7 +305,7 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
     }
   }
 
-    /* also set up the heap for Q values */
+  /* also set up the heap for Q values */
   for (i = 0; i < n; i++) {
     for (j = i+1; j < n; j++) {
       hn = nj_heap_computeQ(i, j, n, D, sums, rev);
@@ -836,7 +837,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     *best_mu, *best_sigmapar, *rescaledgrad, *sparsitygrad, *pointsnext,
     *points_std;
   Vector *sigmapar = data->params;
-  int n = data->msa->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim,
+  int n = data->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim,
     dim = data->dim, fulld = n*dim;
   double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace, logdet, penalty = 0,
@@ -2198,7 +2199,6 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   
   /* set up baseline objects */
   nj_points_to_distances(x, data);    
-  //tree = nj_infer_tree(data->dist, data->names, dt_dD);
   tree = nj_fast_infer(data->dist, data->names, dt_dD);
   nj_reset_tree_model(mod, tree);
 
@@ -2290,6 +2290,39 @@ void nj_backprop(double *Jk, double *Jnext, int n, int f, int g, int u,
   }
 }
 
+/* version of function above that uses a sparse matrix implementation
+   to avoid explosion in size of Jk and Jnext */
+void nj_backprop_sparse(SparseMatrix *Jk, SparseMatrix *Jnext, int n, int f, int g, int u,
+                        Vector *active) {
+  int i, a, b;
+  int total_nodes = 2*n - 2; /* total possible in final tree */
+  
+  /* most of Jk will be unchanged so start with a copy */
+  spmat_copy(Jnext, Jk);
+  
+  /* now update distances involving new node u */
+  for (i = 0; i < total_nodes; i++) {
+    if (vec_get(active, i) == FALSE || i == f || i == g || i == u) continue;  
+
+    int idx_ui = nj_i_j_to_dist(u, i, total_nodes);
+    int idx_fi = nj_i_j_to_dist(f, i, total_nodes);
+    int idx_gi = nj_i_j_to_dist(g, i, total_nodes);
+    int idx_fg = nj_i_j_to_dist(f, g, total_nodes);
+
+    for (a = 0; a < n; a++) {
+      for (b = a + 1; b < n; b++) {
+        int idx_ab = nj_i_j_to_dist(a, b, n);
+
+        /* recursive update rule for new distance from u to i */
+        spmat_set_sorted(Jnext, idx_ui, idx_ab,
+                         0.5 * (spmat_get(Jk, idx_fi, idx_ab) +
+                                spmat_get(Jk, idx_gi, idx_ab) -
+                                spmat_get(Jk, idx_fg, idx_ab)));        
+      }
+    }
+  }
+}
+
 /* initialize Jk at the beginning of the NJ alg */
 void nj_backprop_init(double *Jk, int n) {
   int i, j, total_nodes = 2*n - 2;
@@ -2303,6 +2336,21 @@ void nj_backprop_init(double *Jk, int n) {
       int idx_ij_row = nj_i_j_to_dist(i, j, total_nodes);
       int idx_ij_col = nj_i_j_to_dist(i, j, n);
       Jk[idx_ij_row*npairs_small+idx_ij_col] = 1;  /* deriv of d_{ij} wrt itself */
+    }
+  }
+}
+
+/* version that uses sparse matrix */
+void nj_backprop_init_sparse(SparseMatrix *Jk, int n) {
+  int i, j, total_nodes = 2*n - 2;
+
+  spmat_zero(Jk); /* CHECK: necessary here? */
+  
+  for (i = 0; i < n; i++) {
+    for (j = i + 1; j < n; j++) {
+      int idx_ij_row = nj_i_j_to_dist(i, j, total_nodes);
+      int idx_ij_col = nj_i_j_to_dist(i, j, n);
+      spmat_set_sorted(Jk, idx_ij_row, idx_ij_col, 1.0);  /* deriv of d_{ij} wrt itself */
     }
   }
 }
