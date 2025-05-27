@@ -142,15 +142,16 @@ SparseVectorElement *spvec_bsearch(SparseVector *svec, int idx) {
    otherwise.  If the query is smaller than all values in the list
    *lidx will be set to -1 and FALSE will be returned */
 unsigned int spvec_bsearch_idx(SparseVector *svec, int idx, int *lidx) {
-  SparseVectorElement *candidate;
   int l = 0;
   int r = lst_size(svec->elementlist) - 1;
+  SparseVectorElement *candidate = lst_get_ptr(svec->elementlist, 0);
 
-  if (r < 0 || idx < ((SparseVectorElement*)lst_get_ptr(svec->elementlist, 0))->idx) {
+  if (r < 0 || idx < candidate->idx) {
     *lidx = -1;
     return FALSE;
   }
-  if (idx > ((SparseVectorElement*)lst_get_ptr(svec->elementlist, r))->idx) {
+  candidate = lst_get_ptr(svec->elementlist, r);
+  if (idx > candidate->idx) {
     *lidx = r;
     return FALSE;
   }
