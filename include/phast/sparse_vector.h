@@ -24,8 +24,6 @@ SparseVector *spvec_new(int dim, int starting_size);
 
 void spvec_free(SparseVector *svec);
 
-SparseVectorElement *spvec_new_el(int idx, double val);
-
 void spvec_zero(SparseVector *svec);
 
 void spvec_copy(SparseVector *dest, SparseVector *src);
@@ -43,6 +41,8 @@ void spvec_sort_by_idx(SparseVector *svec);
 double spvec_get(SparseVector *svec, int idx);
 
 SparseVectorElement *spvec_bsearch(SparseVector *svec, int idx);
+
+SparseVectorElement* spvec_linsearch(SparseVector *svec, int idx);
 
 unsigned int spvec_bsearch_idx(SparseVector *svec, int idx, int *lidx);
 

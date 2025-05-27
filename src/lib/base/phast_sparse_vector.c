@@ -2,9 +2,6 @@
    (idx, val), sorted by idx.  Optimized for set and get rather than
    multiplication or addition. */
 
-/* FIXME: store the element structs contiguously rather than via
-   pointers for better cache behavior */
-
 #include <stdlib.h>
 #include <assert.h>
 #include <phast/lists.h>
@@ -13,7 +10,7 @@
 
 SparseVector *spvec_new(int dim, int starting_size) {
   SparseVector *svec = malloc(sizeof(SparseVector));
-  svec->elementlist = lst_new_ptr(starting_size);
+  svec->elementlist = lst_new(starting_size, sizeof(SparseVectorElement));
   svec->sorted = TRUE;
   svec->nnonzero = 0;
   svec->dim = dim;
@@ -25,13 +22,6 @@ void spvec_free(SparseVector *svec) {
   lst_free(svec->elementlist);
   free(svec);
 }                                            
-
-SparseVectorElement *spvec_new_el(int idx, double val) {
-  SparseVectorElement *el = malloc(sizeof(SparseVectorElement));
-  el->idx = idx;
-  el->val = val;
-  return el;
-}
 
 void spvec_zero(SparseVector *svec) {
   for (int i = 0; i < lst_size(svec->elementlist); i++)
@@ -47,10 +37,9 @@ void spvec_copy(SparseVector *dest, SparseVector *src) {
   dest->sorted = src->sorted;
   dest->nnonzero = src->nnonzero;
   spvec_zero(dest);
-  for (int i = 0; i < lst_size(src->elementlist); i++) {
-    SparseVectorElement *oldel = lst_get_ptr(src->elementlist, i);
-    SparseVectorElement *newel = spvec_new_el(oldel->idx, oldel->val);
-    lst_push_ptr(dest->elementlist, newel);
+  for (int i = 0; i < lst_size(src->elementlist); i++) {    
+    SparseVectorElement *oldel = lst_get(src->elementlist, i);
+    lst_push(dest->elementlist, &oldel); /* will copy by value */
   }
 }
 
@@ -65,12 +54,12 @@ void spvec_set(SparseVector *svec, int idx, double val) {
   
   /* find the insertion point */
   if (spvec_bsearch_idx(svec, idx, &lidx) == TRUE) {
-    el = lst_get_ptr(svec->elementlist, lidx); /* found; update val */
+    el = lst_get(svec->elementlist, lidx); /* found; update val */
     el->val = val;
   }
   else {   /* otherwise insert it at the correct place */
-    el = spvec_new_el(idx, val);
-    lst_insert_idx(svec->elementlist, lidx, el);
+    SparseVectorElement newel = {idx, val};
+    lst_insert_idx(svec->elementlist, lidx, &newel);
   }
   svec->nnonzero++;
 }
@@ -78,11 +67,12 @@ void spvec_set(SparseVector *svec, int idx, double val) {
 /* O(1) set for use when elements can be added in sorted order by
    idx; often possible when working from a loop */
 void spvec_set_sorted(SparseVector *svec, int idx, double val) {
+  SparseVectorElement newel = {idx, val};
   assert(idx >= 0 && idx < svec->dim);
   if (val == 0)
     return;
   
-  lst_push_ptr(svec->elementlist, spvec_new_el(idx, val));
+  lst_push(svec->elementlist, &newel);
   svec->nnonzero++;
 }
 
@@ -90,26 +80,27 @@ void spvec_set_sorted(SparseVector *svec, int idx, double val) {
    Calling code must avoid setting multiple values with the same
    index */
 void spvec_set_lazy(SparseVector *svec, int idx, double val) {
+  SparseVectorElement newel = {idx, val};
   assert(idx >= 0 && idx < svec->dim);
   if (val == 0)
     return;
-  lst_push_ptr(svec->elementlist, spvec_new_el(idx, val));
-  /* note: there may be dups; have to resolve later */
+  lst_push(svec->elementlist, &newel);
   svec->nnonzero++;
   svec->sorted = FALSE;
 }
 
 int spvec_compare_asc(const void* ptr1, const void* ptr2) {
-  SparseVectorElement *el1 = (SparseVectorElement*)ptr1;
-  SparseVectorElement *el2 = (SparseVectorElement*)ptr2;
-  if (el1->idx == el2->idx) return 0;  /* shouldn't happen */
-  else if (el1->idx < el2->idx) return -1;
+  SparseVectorElement el1 = *((SparseVectorElement*)ptr1);
+  SparseVectorElement el2 = *((SparseVectorElement*)ptr2);
+  if (el1.idx == el2.idx) return 0;  /* shouldn't happen */
+  else if (el1.idx < el2.idx) return -1;
   return 1;                    
 }
 
 /* sort elements by index */
 void spvec_sort_by_idx(SparseVector *svec) {
   lst_qsort(svec->elementlist, spvec_compare_asc);
+  svec->sorted = TRUE;
 }
 
 /* returns val if found or zero otherwise.  Takes O(log n) */
@@ -117,22 +108,39 @@ double spvec_get(SparseVector *svec, int idx) {
   SparseVectorElement *el;
   assert(idx >= 0 && idx < svec->dim);
   if (svec->sorted == FALSE)
-    spvec_sort_by_idx(svec);  
-  el = spvec_bsearch(svec, idx);
+    spvec_sort_by_idx(svec);
+
+  if (lst_size(svec->elementlist) < 10)
+    el = spvec_linsearch(svec, idx);
+  else
+    el = spvec_bsearch(svec, idx);
+  
   if (el == NULL)
     return 0;
+  
   return el->val;
 }
 
 /* Binary search for an index, returns element if found or NULL otherwise */
-SparseVectorElement *spvec_bsearch(SparseVector *svec, int idx) {
+SparseVectorElement* spvec_bsearch(SparseVector *svec, int idx) {
   SparseVectorElement *match = NULL;
   int lidx;
   
   if (spvec_bsearch_idx(svec, idx, &lidx))
-    match = lst_get_ptr(svec->elementlist, lidx);
+    match = lst_get(svec->elementlist, lidx);
 
   return match;
+}
+
+/* Linear search.  Faster when list is short */
+SparseVectorElement* spvec_linsearch(SparseVector *svec, int idx) {
+  SparseVectorElement *match = NULL, *candidate;
+  for (int i = 0; match == NULL && i < lst_size(svec->elementlist); i++) {
+    candidate = lst_get(svec->elementlist, i);
+    if (candidate->idx == idx)
+      match = candidate;
+  }
+  return match;    
 }
 
 /* Binary search for a given index, finds its list index if
@@ -144,13 +152,13 @@ SparseVectorElement *spvec_bsearch(SparseVector *svec, int idx) {
 unsigned int spvec_bsearch_idx(SparseVector *svec, int idx, int *lidx) {
   int l = 0;
   int r = lst_size(svec->elementlist) - 1;
-  SparseVectorElement *candidate = lst_get_ptr(svec->elementlist, 0);
+  SparseVectorElement *candidate = lst_get(svec->elementlist, 0);
 
   if (r < 0 || idx < candidate->idx) {
     *lidx = -1;
     return FALSE;
   }
-  candidate = lst_get_ptr(svec->elementlist, r);
+  candidate = lst_get(svec->elementlist, r);
   if (idx > candidate->idx) {
     *lidx = r;
     return FALSE;
@@ -158,7 +166,7 @@ unsigned int spvec_bsearch_idx(SparseVector *svec, int idx, int *lidx) {
   
   while (l <= r) {
     int m = (l + r)/2;
-    candidate = lst_get_ptr(svec->elementlist, m);
+    candidate = lst_get(svec->elementlist, m);
     if (idx == candidate->idx) {
       *lidx = m;
       return TRUE;
