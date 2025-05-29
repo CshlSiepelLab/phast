@@ -24,23 +24,21 @@ void spvec_free(SparseVector *svec) {
 }                                            
 
 void spvec_zero(SparseVector *svec) {
-  for (int i = 0; i < lst_size(svec->elementlist); i++)
-    free(lst_get_ptr(svec->elementlist, i));
   lst_clear(svec->elementlist);
   svec->nnonzero = 0;
 }
 
 void spvec_copy(SparseVector *dest, SparseVector *src) {
   assert(dest->dim == src->dim);
+  dest->sorted = src->sorted;
   if (dest->nnonzero == 0 && src->nnonzero == 0)
     return; /* shortcut if both empty */
-  dest->sorted = src->sorted;
-  dest->nnonzero = src->nnonzero;
   spvec_zero(dest);
   for (int i = 0; i < lst_size(src->elementlist); i++) {    
     SparseVectorElement *oldel = lst_get(src->elementlist, i);
     lst_push(dest->elementlist, &oldel); /* will copy by value */
   }
+  dest->nnonzero = src->nnonzero;
 }
 
 /* general set; maintains ascending order by idx but takes O(log n),
@@ -107,6 +105,7 @@ void spvec_sort_by_idx(SparseVector *svec) {
 double spvec_get(SparseVector *svec, int idx) {
   SparseVectorElement *el;
   assert(idx >= 0 && idx < svec->dim);
+
   if (svec->sorted == FALSE)
     spvec_sort_by_idx(svec);
 

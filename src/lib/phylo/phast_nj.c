@@ -272,7 +272,8 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   NJHeapNode *hn, *newhn;
   int rev[N];
   int npairs = n * (n-1) / 2, Npairs = N * (N-1) / 2;
-  double *Jk = NULL, *Jnext = NULL;
+  //  double *Jk = NULL, *Jnext = NULL;
+  static SparseMatrix *Jk = NULL, *Jnext = NULL;
     
   if (initD->nrows != initD->ncols || n < 3)
     die("ERROR nj_fast_infer: bad distance matrix\n");
@@ -315,9 +316,15 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
 
   /* set up backprop data */
   if (dt_dD != NULL) {
-    Jk = malloc(Npairs * npairs * sizeof(double*));
-    Jnext = malloc(Npairs * npairs * sizeof(double*));
-    nj_backprop_init(Jk, n);
+    if (Jk == NULL) { /* first call */
+      Jk = spmat_new(Npairs, npairs, 100);
+      Jnext = spmat_new(Npairs, npairs, 100);
+    }
+    else { assert(Npairs == Jk->nrows && npairs == Jk->ncols); }
+    //    Jk = malloc(Npairs * npairs * sizeof(double*));
+    //  Jnext = malloc(Npairs * npairs * sizeof(double*));
+    nj_backprop_init_sparse(Jk, n);
+    //  nj_backprop_init(Jk, n);
     mat_zero(dt_dD);
   }
     
@@ -371,8 +378,10 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
     rev[w]++;
     
     if (dt_dD != NULL) {
-      nj_backprop_set_dt_dD(Jk, dt_dD, orign, u, v, node_u->id, node_v->id, active);
-      nj_backprop(Jk, Jnext, orign, hn->i, hn->j, w, active);
+            nj_backprop_set_dt_dD_sparse(Jk, dt_dD, orign, u, v, node_u->id, node_v->id, active);
+            nj_backprop_sparse(Jk, Jnext, orign, hn->i, hn->j, w, active);
+      //      nj_backprop_set_dt_dD(Jk, dt_dD, orign, u, v, node_u->id, node_v->id, active);
+      //nj_backprop(Jk, Jnext, orign, hn->i, hn->j, w, active);
     }
 
     /* this has to be done after the backprop calls */
@@ -382,9 +391,10 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
     n--;  /* one fewer active nodes */
 
     if (dt_dD != NULL) {
-      free(Jk);
-      Jk = Jnext;
-      Jnext = malloc(Npairs * npairs * sizeof(double));
+      //free(Jk);
+      spmat_copy(Jk, Jnext);
+      //    Jk = Jnext;
+      //Jnext = malloc(Npairs * npairs * sizeof(double));
     }
       
     /* finally, add new Q values to the heap */
@@ -422,7 +432,8 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   node_v->dparent = mat_get(D, u, v) / 2;
 
   if (dt_dD != NULL) 
-    nj_backprop_set_dt_dD(Jk, dt_dD, orign, u, v, node_u->id, node_v->id, active);
+        nj_backprop_set_dt_dD_sparse(Jk, dt_dD, orign, u, v, node_u->id, node_v->id, active);
+  //nj_backprop_set_dt_dD(Jk, dt_dD, orign, u, v, node_u->id, node_v->id, active);
   
   /* finish set up of tree */
   root->nnodes = N+1;
@@ -433,10 +444,10 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   vec_free(sums);
   mat_free(D);
 
-  if (dt_dD != NULL) {
-    free(Jk);
-    free(Jnext);
-  }
+  //    if (dt_dD != NULL) {
+  //  free(Jk);
+  //  free(Jnext);
+  //}
     
   return root;
 }
@@ -2200,6 +2211,7 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   /* set up baseline objects */
   nj_points_to_distances(x, data);    
   tree = nj_fast_infer(data->dist, data->names, dt_dD);
+  //tree = nj_infer_tree(data->dist, data->names, dt_dD);
   nj_reset_tree_model(mod, tree);
 
   /* TEMPORARY: compare to numerical gradient */
@@ -2344,7 +2356,7 @@ void nj_backprop_init(double *Jk, int n) {
 void nj_backprop_init_sparse(SparseMatrix *Jk, int n) {
   int i, j, total_nodes = 2*n - 2;
 
-  spmat_zero(Jk); /* CHECK: necessary here? */
+  spmat_zero(Jk); 
   
   for (i = 0; i < n; i++) {
     for (j = i + 1; j < n; j++) {
@@ -2412,3 +2424,57 @@ void nj_backprop_set_dt_dD(double *Jk, Matrix *dt_dD, int n, int f, int g,
   }
 }
 
+/* version that uses sparse matrix */
+void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f, int g,
+                                  int branch_idx_f, int branch_idx_g, Vector *active) {
+  int a, b, m;
+  int total_nodes = 2*n - 2;
+  int idx_fg = nj_i_j_to_dist(f, g, total_nodes);
+  int nk = vec_sum(active);
+
+  /* the final call, with nk = 2, is a special case */
+  if (nk == 2) {
+    /* directly set the final branch derivative */
+    for (a = 0; a < n; a++) {
+      for (b = a + 1; b < n; b++) {
+        int idx_ab = nj_i_j_to_dist(a, b, n);
+        
+        /* branch derivative is equal to the value in Jk times 1/2
+           because of the way we split the last branch in the unrooted
+           tree */
+        mat_set(dt_dD, branch_idx_f, idx_ab, 0.5 * spmat_get(Jk, idx_fg, idx_ab));
+      }
+    }
+    return;
+  }
+    
+  /* branch derivative for f -> u */
+  for (a = 0; a < n; a++) {
+    for (b = a + 1; b < n; b++) {
+      int idx_ab = nj_i_j_to_dist(a, b, n);
+      double sum_diff = 0;
+
+      for (m = 0; m < total_nodes; m++) {
+        if (vec_get(active, m) == FALSE || m == f || m == g)
+          continue;
+
+        int idx_fm = nj_i_j_to_dist(f, m, total_nodes);
+        int idx_gm = nj_i_j_to_dist(g, m, total_nodes);
+        sum_diff += spmat_get(Jk, idx_fm, idx_ab) - spmat_get(Jk, idx_gm, idx_ab);
+      }
+
+      mat_set(dt_dD, branch_idx_f, idx_ab, 0.5 * spmat_get(Jk, idx_fg, idx_ab) +
+              (0.5 / (nk - 2)) * sum_diff);
+      assert(isfinite(mat_get(dt_dD, branch_idx_f, idx_ab)));
+    }
+  }
+
+  /* branch derivative for g -> u */
+  for (a = 0; a < n; a++) {
+    for (b = a + 1; b < n; b++) {
+      int idx_ab = nj_i_j_to_dist(a, b, n);
+      mat_set(dt_dD, branch_idx_g, idx_ab, spmat_get(Jk, idx_fg, idx_ab) -
+              mat_get(dt_dD, branch_idx_f, idx_ab));
+    }
+  }
+}

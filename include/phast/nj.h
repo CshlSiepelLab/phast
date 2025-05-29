@@ -217,4 +217,7 @@ void nj_backprop_init_sparse(SparseMatrix *Jk, int n);
 void nj_backprop_set_dt_dD(double *Jk, Matrix *dt_dD, int n, int f, int g,
                            int branch_idx_f, int branch_idx_g, Vector *active);
 
+void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f, int g,
+                                  int branch_idx_f, int branch_idx_g, Vector *active);
+
 #endif
