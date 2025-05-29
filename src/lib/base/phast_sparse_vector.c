@@ -36,7 +36,7 @@ void spvec_copy(SparseVector *dest, SparseVector *src) {
   spvec_zero(dest);
   for (int i = 0; i < lst_size(src->elementlist); i++) {    
     SparseVectorElement *oldel = lst_get(src->elementlist, i);
-    lst_push(dest->elementlist, &oldel); /* will copy by value */
+    lst_push(dest->elementlist, oldel); /* will copy by value */
   }
   dest->nnonzero = src->nnonzero;
 }
