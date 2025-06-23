@@ -33,6 +33,11 @@ OPTIONS:
         mouse, and rat are used (estimated as described in Siepel &
         Haussler, 2004).
 
+    --models-path, -M <path>
+        Path to prepend to tree model filenames specified with
+        --tree-models.  Useful when tree model files are in a
+        different directory than the current working directory.
+
     --catmap, -c <fname>|<string>
         Mapping of feature types to category numbers.  Can give either
         a filename or an "inline" description of a simple category

@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
     no_cns = FALSE;
   double bias = NEGINFTY;
   char *seqname = NULL, *grouptag = "transcript_id", *sens_spec_fname_root = NULL,
-    *idpref = NULL, *extrapolate_tree_fname = NULL, *newname;
+    *idpref = NULL, *extrapolate_tree_fname = NULL, *newname, *models_path = NULL;
   List *model_fname_list = NULL, *no_gaps_str = NULL, *inform_reqd = NULL,
     *not_informative = NULL,
     *backgd_types = get_arg_list(DEFAULT_BACKGD_TYPES), 
@@ -65,6 +65,7 @@ int main(int argc, char* argv[]) {
   struct option long_opts[] = {
     {"hmm", 1, 0, 'H'},
     {"tree-models", 1, 0, 'm'},
+    {"model-path", 1, 0, 'M'},
     {"catmap", 1, 0, 'c'},
     {"msa-format", 1, 0, 'i'},
     {"data-path", 1, 0, 'D'}, 
@@ -107,7 +108,7 @@ int main(int argc, char* argv[]) {
   char *msa_fname = NULL;
   String *fname_str = str_new(STR_LONG_LEN), *str;
 
-  while ((c = getopt_long(argc, argv, "i:D:c:H:m:s:p:g:B:T:L:F:IW:N:n:b:e:A:xSYUhq", 
+  while ((c = getopt_long(argc, argv, "i:D:c:H:m:M:s:p:g:B:T:L:F:IW:N:n:b:e:A:xSYUhq", 
                           long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'i':
@@ -122,6 +123,9 @@ int main(int argc, char* argv[]) {
       break;
     case 'm':
       model_fname_list = get_arg_list(optarg);
+      break;
+    case 'M':
+      models_path = optarg;
       break;
     case 'H':
       hmm = hmm_new_from_file(phast_fopen(optarg, "r"));
@@ -356,6 +360,19 @@ int main(int argc, char* argv[]) {
   /* read tree models */
   if (lst_size(model_fname_list) != ncats) 
     die("ERROR: number of tree models must equal number of site categories.\n");
+    
+  /* prepend models_path to tree model filenames if specified */
+  if (models_path != NULL) {
+    for (i = 0; i < lst_size(model_fname_list); i++) {
+      str = lst_get_ptr(model_fname_list, i);
+      #if defined(__MINGW32__)
+        sprintf(tmpstr, "%s\\%s", models_path, str->chars);
+      #else
+        sprintf(tmpstr, "%s/%s", models_path, str->chars);
+      #endif
+      str_cpy_charstr(str, tmpstr);
+    }
+  }
     
   mod = (TreeModel**)smalloc(sizeof(TreeModel*) * ncats);
   for (i = 0; i < ncats; i++) {
