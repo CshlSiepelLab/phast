@@ -379,6 +379,8 @@ void tr_partition_leaves(TreeNode *tree, TreeNode *sub, List *inside,
 void tr_partition_nodes(TreeNode *tree, TreeNode *sub, List *inside, 
 			List *outside);
 
+void tr_list_leaves(TreeNode *tree, List **leaf_lst);
+
 /** Return a list of the leaf names in a given tree 
     @param tree Tree containing leaf names
     @result List of leaf names

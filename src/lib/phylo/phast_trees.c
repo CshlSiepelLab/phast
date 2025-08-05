@@ -1335,6 +1335,27 @@ void tr_partition_nodes(TreeNode *tree, TreeNode *sub, List *inside,
   sfree(mark);
 }
 
+/* List the leaves beneath every node of the tree */
+void tr_list_leaves(TreeNode *tree, List **leaf_lst) {
+  int i, j;
+  TreeNode *n;
+  List *trav = tr_postorder(tree);
+  
+  for (i = 0; i < lst_size(trav); i++) {
+    n = lst_get_ptr(trav, i);
+    if (n->lchild == NULL) {
+      lst_clear(leaf_lst[n->id]);
+      lst_push_ptr(leaf_lst[n->id], n);
+    }
+    else {
+      lst_clear(leaf_lst[n->id]);
+      for (j = 0; j < lst_size(leaf_lst[n->lchild->id]); j++)
+        lst_push_ptr(leaf_lst[n->id], lst_get_ptr(leaf_lst[n->lchild->id], j));
+      for (j = 0; j < lst_size(leaf_lst[n->rchild->id]); j++)
+        lst_push_ptr(leaf_lst[n->id], lst_get_ptr(leaf_lst[n->rchild->id], j));
+    }
+  }
+}
 
 /* recursive version of tr_leaf_names that works for nodes that are
    not the root of the tree */
