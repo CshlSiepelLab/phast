@@ -14,6 +14,7 @@
 #include <phast/msa.h>
 #include <phast/maf.h>
 #include <phast/nj.h>
+#include <phast/upgma.h>
 #include <phast/tree_model.h>
 #include <phast/subst_mods.h>
 #include <phast/sufficient_stats.h>
@@ -36,7 +37,7 @@ int main(int argc, char *argv[]) {
     min_nbatches = DEFAULT_MIN_NBATCHES, rank = DEFAULT_RANK;
   unsigned int nj_only = FALSE, random_start = FALSE,
    hyperbolic = FALSE, embedding_only = FALSE, rejection_sampling = FALSE,
-    mvn_dump = FALSE, natural_grad = FALSE, is_crispr = FALSE;
+    mvn_dump = FALSE, natural_grad = FALSE, is_crispr = FALSE, ultrametric = FALSE;
   MSA *msa = NULL;
   enum covar_type covar_param = CONST;
 
@@ -84,13 +85,14 @@ int main(int argc, char *argv[]) {
     {"tree", 1, 0, 't'},
     {"treemodel", 1, 0, 'T'},
     {"upweight-kld", 1, 0, 'U'},
+    {"ultrametric", 0, 0, 'C'},
     {"mvn-dump", 0, 0, 'V'},
     {"rank", 1, 0, 'W'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:jJkK:l:m:M:n:No:P:r:Rt:T:VW:S:s:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:jJkK:l:m:M:n:No:P:r:Rt:T:VW:S:s:C", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -204,6 +206,9 @@ int main(int argc, char *argv[]) {
     case 'V':
       mvn_dump = TRUE;
       break;
+    case 'C':
+      ultrametric = TRUE;
+      break;
     case 'W':
       rank = atoi(optarg);
       if (rank <= 0)
@@ -245,6 +250,7 @@ int main(int argc, char *argv[]) {
       names = smalloc(ntips * sizeof(char*));
       for (i = 0; i < ntips; i++)
         names[i] = ((String*)lst_get_ptr(crispr_muts->cellnames, i))->chars;
+      ultrametric = TRUE; 
     }
     else { /* standard alignment file */
       if (format == UNKNOWN_FORMAT)
@@ -304,7 +310,7 @@ int main(int argc, char *argv[]) {
 
   covar_data = nj_new_covar_data(covar_param, D, dim, msa, crispr_muts, names,
                                  natural_grad, kld_upweight, rank, sparsity,
-                                 hyperbolic, negcurvature);
+                                 hyperbolic, negcurvature, ultrametric);
   
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */
@@ -316,9 +322,9 @@ int main(int argc, char *argv[]) {
   }
 
   else {
-    /* we'll need a starting NJ tree for either variational inference
-       or NJ */
-    tree = nj_fast_infer(D, names, NULL);
+    /* we'll need a starting tree for either variational inference
+       or NJ-only */
+    tree = nj_inf(D, names, NULL, covar_data);
 
     if (nj_only == TRUE) /* just print in this case */
       tr_print(stdout, tree, TRUE);

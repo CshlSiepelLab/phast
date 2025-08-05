@@ -41,7 +41,8 @@ void upgma_find_min(Matrix *D, Vector *active, int *u, int *v) {
     die("ERROR in upgma_find_min: fewer than two active taxa\n");
 }
 
-void upgma_updateD(Matrix *D, int u, int v, int w, Vector *active, Vector *sizes) {
+void upgma_updateD(Matrix *D, int u, int v, int w, Vector *active, Vector *sizes,
+                   Vector *heights) {
   double size_u = vec_get(sizes, u);
   double size_v = vec_get(sizes, v);
   double size_w = size_u + size_v;
@@ -55,12 +56,22 @@ void upgma_updateD(Matrix *D, int u, int v, int w, Vector *active, Vector *sizes
     double dnew = (size_u * duk + size_v * dvk) / size_w;
 
     mat_set(D, k, w, dnew);
+    if (signbit(mat_get(D, k, w)))
+      mat_set(D, k, w, 0);
   }
 
-  double d_uv = mat_get(D, u, v) / 2.0;
-  mat_set(D, u, w, d_uv);
-  mat_set(D, v, w, d_uv);
+  double hw = mat_get(D, u, v) / 2.0;
+  mat_set(D, u, w, hw - vec_get(heights, u));
+  mat_set(D, v, w, hw - vec_get(heights, v));
+  vec_set(heights, w, hw);
   vec_set(sizes, w, size_w);
+
+  /* we can't let the distances go negative in this implementation
+     because it will mess up the likelihood calculation */
+  if (signbit(mat_get(D, u, w))) /* covers -0 case */
+    mat_set(D, u, w, 0);
+  if (signbit(mat_get(D, v, w)))
+    mat_set(D, v, w, 0);
 }
 
 /* version of nj_infer_tree simplified to use the UPGMA algorithm and
@@ -72,9 +83,10 @@ TreeNode* upgma_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
   int N = 2*n - 2;
   int i, j, u = -1, v = -1, w;
   Matrix *D;
-  Vector *active, *sizes;
+  Vector *active, *sizes, *heights;
   List *nodes;
   TreeNode *node_u, *node_v, *node_w, *root;
+  double hw;
 
   if (initD->nrows != initD->ncols || n < 2)
     die("ERROR upgma_infer_tree: bad distance matrix\n");
@@ -82,6 +94,7 @@ TreeNode* upgma_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
   D = mat_new(N, N); mat_zero(D);
   active = vec_new(N); vec_set_all(active, FALSE);
   sizes = vec_new(N); vec_zero(sizes);  /* FIXME.  Use list of ints */
+  heights = vec_new(N);
   nodes = lst_new_ptr(N);
   tr_reset_id();
 
@@ -98,7 +111,7 @@ TreeNode* upgma_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
   /* main loop, over internal nodes w */
   for (w = n; w < N; w++) {
     upgma_find_min(D, active, &u, &v);  // find closest pair
-    upgma_updateD(D, u, v, w, active, sizes);
+    upgma_updateD(D, u, v, w, active, sizes, heights);
 
     node_w = tr_new_node();
     lst_push_ptr(nodes, node_w);
@@ -134,9 +147,12 @@ TreeNode* upgma_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
   }
   tr_add_child(root, node_u);
   tr_add_child(root, node_v);
-  node_u->dparent = mat_get(D, u, v) / 2.0;
-  node_v->dparent = mat_get(D, u, v) / 2.0;
 
+  hw = mat_get(D, u, v) / 2.0;
+  node_u->dparent = hw - vec_get(heights, u);
+  node_v->dparent = hw - vec_get(heights, v);
+  vec_set(heights, root->id, hw);
+ 
   root->nnodes = N+1;
   tr_set_nnodes(root);
 
@@ -147,13 +163,15 @@ TreeNode* upgma_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
   lst_free(nodes);
   vec_free(active);
   vec_free(sizes);
+  vec_free(heights);
   mat_free(D);
 
   return root;
 }
 
 void upgma_set_dt_dD(TreeNode *tree, Matrix* dt_dD) {
-  int i, j, k;
+  int i, j, k, nleaves;
+  Matrix *H;
   
   /* initialize lists for leaves beneath each node */
   List **leaf_lst = smalloc(tree->nnodes * sizeof(void*));
@@ -162,7 +180,11 @@ void upgma_set_dt_dD(TreeNode *tree, Matrix* dt_dD) {
 
   /* populate lists of leaves */
   tr_list_leaves(tree, leaf_lst);
+  nleaves = lst_size(leaf_lst[tree->id]);
 
+  /* now compute node height derivatives */
+  H = mat_new(tree->nnodes, nleaves * (nleaves - 1) / 2); /* CHECK */
+  mat_zero(H);
   for (i = 0; i < tree->nnodes; i++) {
     TreeNode *n = lst_get_ptr(tree->nodes, i);
 
@@ -170,14 +192,34 @@ void upgma_set_dt_dD(TreeNode *tree, Matrix* dt_dD) {
       List *lleaves = leaf_lst[n->lchild->id];
       List *rleaves = leaf_lst[n->rchild->id];
       double weight = 1.0 / (2.0 * lst_size(lleaves) * lst_size(rleaves));
-      for (j = 0; j < lst_size(lleaves); j++) 
-        for (k = 0; k < lst_size(rleaves); k++) 
-          mat_set(dt_dD, i, nj_i_j_to_dist(j, k, tree->nnodes), weight); 
+
+      for (j = 0; j < lst_size(lleaves); j++) {
+        TreeNode *ll = lst_get_ptr(lleaves, j);
+        for (k = 0; k < lst_size(rleaves); k++) {
+          TreeNode *rl = lst_get_ptr(rleaves, k);
+          int col = nj_i_j_to_dist(ll->id, rl->id, tree->nnodes);
+          mat_set(H, i, col, weight);
+        }
+      }            
     }
   }
+
+  /* finally convert height Jacobian H to branch length Jacobian */
+  mat_zero(dt_dD);
+  for (i = 0; i < tree->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(tree->nodes, i);
+    if (n->parent == NULL) continue;
+
+    for (j = 0; j < dt_dD->ncols; j++) {
+      double val = mat_get(H, n->parent->id, j) - mat_get(H, i, j);
+      mat_set(dt_dD, i, j, val);
+    }
+  }
+  
   for (i = 0; i < tree->nnodes; i++) 
     lst_free(leaf_lst[i]);
   free(leaf_lst);
+  mat_free(H);
 }
 
 UPGMAHeapNode* upgma_heap_node(int i, int j, Matrix *D) {
@@ -193,11 +235,12 @@ TreeNode* upgma_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   int N = 2*n - 2;
   int i, j, u = -1, v = -1, w;
   Matrix *D;
-  Vector *active, *sizes;
+  Vector *active, *sizes, *heights;
   List *nodes;
   TreeNode *node_u, *node_v, *node_w, *root;
   HeapNode *heap = NULL;
   UPGMAHeapNode *hn, *newhn;
+  double hw;
 
   if (initD->nrows != initD->ncols || n < 2)
     die("ERROR upgma_fast_infer: bad distance matrix\n");
@@ -205,6 +248,7 @@ TreeNode* upgma_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   D = mat_new(N, N); mat_zero(D);
   active = vec_new(N); vec_set_all(active, FALSE);
   sizes = vec_new(N); vec_zero(sizes);
+  heights = vec_new(N);
   nodes = lst_new_ptr(N);
   tr_reset_id();
 
@@ -236,7 +280,7 @@ TreeNode* upgma_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
     /* join u and v; w is the new node */
     u = hn->i;
     v = hn->j;
-    upgma_updateD(D, u, v, w, active, sizes);
+    upgma_updateD(D, u, v, w, active, sizes, heights);
     node_w = tr_new_node();
     lst_push_ptr(nodes, node_w);
 
@@ -283,8 +327,11 @@ TreeNode* upgma_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   }
   tr_add_child(root, node_u);
   tr_add_child(root, node_v);
-  node_u->dparent = mat_get(D, u, v) / 2.0;
-  node_v->dparent = mat_get(D, u, v) / 2.0;
+
+  hw = mat_get(D, u, v) / 2.0;
+  node_u->dparent = hw - vec_get(heights, u);
+  node_v->dparent = hw - vec_get(heights, v);
+  vec_set(heights, root->id, hw);
 
   root->nnodes = N + 1;
   tr_set_nnodes(root);
@@ -295,6 +342,7 @@ TreeNode* upgma_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   lst_free(nodes);
   vec_free(active);
   vec_free(sizes);
+  vec_free(heights);
   mat_free(D);
 
   return root;

@@ -26,6 +26,7 @@
 #include "phast/multi_mvn.h"
 #include "phast/heap.h"
 #include "phast/crispr.h"
+#include "phast/upgma.h"
 
 /* uncomment to dump gradients to a file called "grads_log.txt" */
 //#define DUMPGRAD 1
@@ -772,7 +773,7 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn,
   
   /* set up tree model and get baseline log likelihood */
   nj_points_to_distances(points, data);    
-  tree = nj_infer_tree(D, data->names, NULL);
+  tree = nj_inf(D, data->names, NULL, data);
   orig_tree = tr_create_copy(tree);   /* restore at the end */
   nj_reset_tree_model(mod, tree);
   ll_base = nj_compute_log_likelihood(mod, data->msa, NULL);
@@ -787,7 +788,7 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn,
     vec_set(points, i, porig + DERIV_EPS);
 
     nj_points_to_distances(points, data); 
-    tree = nj_infer_tree(D, data->names, NULL);
+    tree = nj_inf(D, data->names, NULL, data);
     nj_reset_tree_model(mod, tree);      
     ll = nj_compute_log_likelihood(mod, data->msa, NULL);
     deriv = (ll - ll_base) / DERIV_EPS; 
@@ -1109,7 +1110,7 @@ List *nj_var_sample(int nsamples, multi_MVN *mmvn, CovarData *data, char** names
        vec_set(logdens, i, mmvn_log_dens(mmvn, points));
      
      nj_points_to_distances(points, data);
-     tree = nj_infer_tree(data->dist, names, NULL);
+     tree = nj_inf(data->dist, names, NULL, data);
      lst_push_ptr(retval, tree);
   }
   
@@ -1125,7 +1126,7 @@ TreeNode *nj_mean(Vector *mu, char **names, CovarData *data) {
     die("ERROR in nj_mean: bad dimensions\n");
 
   nj_points_to_distances(mu, data);  
-  tree = nj_infer_tree(data->dist, names, NULL);
+  tree = nj_inf(data->dist, names, NULL, data);
   
   return(tree);
 }
@@ -1618,7 +1619,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
                              MSA *msa, CrisprMutTable* crispr_muts, char **names,
                              unsigned int natural_grad, double kld_upweight,
                              int rank, double sparsity, unsigned int hyperbolic,
-                             double negcurvature) {
+                             double negcurvature, unsigned int ultrametric) {
   static int seeded = 0;
   
   CovarData *retval = smalloc(sizeof(CovarData));
@@ -1641,6 +1642,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   retval->sparsity = sparsity;
   retval->hyperbolic = hyperbolic;
   retval->negcurvature = negcurvature;
+  retval->ultrametric = ultrametric;
   
   nj_set_pointscale(retval);
   retval->lambda *= pow(retval->pointscale, 2);
@@ -1997,7 +1999,7 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
   for (i = 0; i < nsamples * 10; i++) {
     mmvn_sample(mmvn, points);
     nj_points_to_distances(points, data);
-    mod->tree = nj_infer_tree(data->dist, data->names, NULL);
+    mod->tree = nj_inf(data->dist, data->names, NULL, data);
     lst_push_ptr(init_samples, mod->tree);
 
     if (data->crispr_muts != NULL)
@@ -2030,7 +2032,7 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
     ntot++;
     mmvn_sample(mmvn, points);
     nj_points_to_distances(points, data);
-    mod->tree = nj_infer_tree(data->dist, data->names, NULL);
+    mod->tree = nj_inf(data->dist, data->names, NULL, data);
 
     if (data->crispr_muts != NULL)
       lnl = cpr_compute_log_likelihood(mod, data->crispr_muts, NULL);
@@ -2075,7 +2077,7 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod,
          
   /* set up tree model and get baseline log likelihood */
   nj_points_to_distances(x, data);    
-  tree = nj_infer_tree(data->dist, data->msa->names, NULL);
+  tree = nj_inf(data->dist, data->msa->names, NULL, data);
   orig_tree = tr_create_copy(tree);   /* restore at the end */
   nj_reset_tree_model(mod, tree);
   ll_base = nj_compute_log_likelihood(mod, data->msa, NULL);
@@ -2091,7 +2093,7 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod,
       vec_set(x, idx, xorig + DERIV_EPS);
 
       nj_points_to_distances(x, data); 
-      tree = nj_infer_tree(data->dist, data->msa->names, NULL);
+      tree = nj_inf(data->dist, data->msa->names, NULL, data);
       nj_reset_tree_model(mod, tree);      
       ll = nj_compute_log_likelihood(mod, data->msa, NULL);
       deriv = (ll - ll_base) / DERIV_EPS; 
@@ -2134,7 +2136,7 @@ double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, MSA *msa) {
 
 /* compute the Jacobian matrix for 2n-3 branch lengths wrt n-choose-2
    pairwise distances.  This version uses numerical methods */
-void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa) {
+void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa, CovarData *data) {
   TreeNode *tree, *orign, *node;
   int i, j, n = msa->nseqs, nodeidx;
   List *trav_tree, *trav_orig;
@@ -2146,7 +2148,7 @@ void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa) {
     for (j = i+1; j < n; j++) {
       double orig_d = mat_get(D, i, j);
       mat_set(D, i, j, orig_d + DERIV_EPS);
-      tree = nj_infer_tree(D, msa->names, NULL);
+      tree = nj_inf(D, msa->names, NULL, data);
 
       /* compare the trees, branch by branch */
       /* we will assume the same topology although that will
@@ -2210,8 +2212,7 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   
   /* set up baseline objects */
   nj_points_to_distances(x, data);    
-  tree = nj_fast_infer(data->dist, data->names, dt_dD);
-  //tree = nj_infer_tree(data->dist, data->names, dt_dD);
+  tree = nj_inf(data->dist, data->names, dt_dD, data);
   nj_reset_tree_model(mod, tree);
 
   /* TEMPORARY: compare to numerical gradient */
@@ -2477,4 +2478,15 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
               mat_get(dt_dD, branch_idx_f, idx_ab));
     }
   }
+}
+
+/* wrapper for various distance-based tree inference algorithms */
+TreeNode *nj_inf(Matrix *D, char **names, Matrix *dt_dD,
+                 CovarData *covar_data) {
+  if (covar_data->ultrametric)
+    return nj_fast_infer(D, names, dt_dD);
+  //    return nj_infer_tree(D, names, dt_dD);  /* non-heap version */
+  else
+    return upgma_fast_infer(D, names, dt_dD);
+  //    return upgma_infer_tree(D, names, dt_dD); /* non-heap version */
 }

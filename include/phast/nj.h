@@ -85,6 +85,7 @@ typedef struct {
   double negcurvature; /* for hyperbolic case */
   MSA *msa; /* multiple alignment under analysis if available */
   CrisprMutTable *crispr_muts; /* alternative CRISPR mutation table */
+  unsigned int ultrametric; /* whether or not tree is ultrametric */
   char **names;
 } CovarData;
 
@@ -164,7 +165,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
                              char **names, unsigned int natural_grad,
                              double kld_upweight, int rank,
                              double sparsity, unsigned int hyperbolic,
-                             double negcurvature);
+                             double negcurvature, unsigned int ultrametric);
 
 void nj_dump_covar_data(CovarData *data, FILE *F);
 
@@ -194,7 +195,7 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod,
 
 double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, MSA *msa);
 
-void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa);
+void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa, CovarData *data);
 
 int nj_i_j_to_dist(int i, int j, int n);
 
@@ -220,4 +221,6 @@ void nj_backprop_set_dt_dD(double *Jk, Matrix *dt_dD, int n, int f, int g,
 void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f, int g,
                                   int branch_idx_f, int branch_idx_g, Vector *active);
 
+TreeNode *nj_inf(Matrix *D, char **names, Matrix *dt_dD,
+                 CovarData *covar_data);
 #endif

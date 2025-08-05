@@ -29,7 +29,7 @@ typedef struct {
 void upgma_find_min(Matrix *D, Vector *active, int *u, int *v);
 
 void upgma_updateD(Matrix *D, int u, int v, int w, Vector *active,
-                   Vector *sizes);
+                   Vector *sizes, Vector *heights);
 
 TreeNode* upgma_infer_tree(Matrix *initD, char **names, Matrix *dt_dD);
 

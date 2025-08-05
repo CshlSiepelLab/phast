@@ -17,7 +17,8 @@ the --hyperbolic option.
 OPTIONS:
     --format, -i FASTA|SS|PHYLIP|MPM|MAF|CRISPR
         Format of alignment (default is to guess format from file
-        contents).   CRISPR format must be specified explicitly.
+        contents).   CRISPR format must be specified explicitly.  Note that
+        CRISPR forces --ultrametric.
 
     --batchsize, -b <N>
         Set mini-batch size in stochastic gradient ascent to <N> (default
@@ -154,6 +155,11 @@ OPTIONS:
     --treemodel, -T <file.mod>
         Use the specified tree model for initialization and likelihood calculations.
         Overrides use of JC69 or HKY85 substitution models. 
+
+    --ultrametric, -C
+        Forces estimated trees to be ultrametric, by using the UPGMA
+        algorithm instead of the neighbor-joining algorithm.  Can be used
+        with --nj-only.
 
     --upweight-kld, -U <factor>
        The variational objective function (ELBO) is the difference between
