@@ -195,7 +195,7 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod,
 
 double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, MSA *msa);
 
-void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa, CovarData *data);
+void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, CovarData *data);
 
 int nj_i_j_to_dist(int i, int j, int n);
 

@@ -170,45 +170,48 @@ TreeNode* upgma_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
 }
 
 void upgma_set_dt_dD(TreeNode *tree, Matrix* dt_dD) {
-  int i, j, k, nleaves;
+  int i, j, k;
   Matrix *H;
-  
+  int nnodes = tree->nnodes, nleaves = (nnodes+2)/2, ndist = nleaves * (nleaves-1) / 2;
+    
   /* initialize lists for leaves beneath each node */
-  List **leaf_lst = smalloc(tree->nnodes * sizeof(void*));
-  for (i = 0; i < tree->nnodes; i++) 
-    leaf_lst[i] = lst_new_ptr(tree->nnodes);
+  List **leaf_lst = smalloc(nnodes * sizeof(void*));
+  for (i = 0; i < nnodes; i++) 
+    leaf_lst[i] = lst_new_ptr(nnodes);
 
   /* populate lists of leaves */
   tr_list_leaves(tree, leaf_lst);
-  nleaves = lst_size(leaf_lst[tree->id]);
+  assert(lst_size(leaf_lst[tree->id]) == nleaves);
 
   /* now compute node height derivatives */
-  H = mat_new(tree->nnodes, nleaves * (nleaves - 1) / 2); /* CHECK */
+  H = mat_new(nnodes, ndist); 
   mat_zero(H);
-  for (i = 0; i < tree->nnodes; i++) {
-    TreeNode *n = lst_get_ptr(tree->nodes, i);
+  for (i = 0; i < nnodes; i++) {
+    TreeNode *n = lst_get_ptr(tree->nodes, i), *ll, *rl;
+    List *lleaves, *rleaves;
+    double weight;
+    
+    if (n->lchild == NULL || n->rchild == NULL)
+      continue;
 
-    if (n->lchild != NULL) {
-      List *lleaves = leaf_lst[n->lchild->id];
-      List *rleaves = leaf_lst[n->rchild->id];
-      double weight = 1.0 / (2.0 * lst_size(lleaves) * lst_size(rleaves));
+    lleaves = leaf_lst[n->lchild->id];
+    rleaves = leaf_lst[n->rchild->id];
+    weight = 1.0 / (2.0 * lst_size(lleaves) * lst_size(rleaves));
 
-      for (j = 0; j < lst_size(lleaves); j++) {
-        TreeNode *ll = lst_get_ptr(lleaves, j);
-        for (k = 0; k < lst_size(rleaves); k++) {
-          TreeNode *rl = lst_get_ptr(rleaves, k);
-          int col = nj_i_j_to_dist(ll->id, rl->id, tree->nnodes);
-          mat_set(H, i, col, weight);
-        }
-      }            
+    for (j = 0; j < lst_size(lleaves); j++) {
+      ll = lst_get_ptr(lleaves, j);
+      for (k = 0; k < lst_size(rleaves); k++) {
+        rl = lst_get_ptr(rleaves, k);
+        mat_set(H, i, nj_i_j_to_dist(ll->id, rl->id, nleaves), weight);
+      }
     }
   }
 
   /* finally convert height Jacobian H to branch length Jacobian */
   mat_zero(dt_dD);
-  for (i = 0; i < tree->nnodes; i++) {
+  for (i = 0; i < nnodes; i++) {
     TreeNode *n = lst_get_ptr(tree->nodes, i);
-    if (n->parent == NULL) continue;
+    if (n == tree || n == tree->rchild) continue; /* deal with unrooted tree */
 
     for (j = 0; j < dt_dD->ncols; j++) {
       double val = mat_get(H, n->parent->id, j) - mat_get(H, i, j);
@@ -216,7 +219,7 @@ void upgma_set_dt_dD(TreeNode *tree, Matrix* dt_dD) {
     }
   }
   
-  for (i = 0; i < tree->nnodes; i++) 
+  for (i = 0; i < nnodes; i++) 
     lst_free(leaf_lst[i]);
   free(leaf_lst);
   mat_free(H);

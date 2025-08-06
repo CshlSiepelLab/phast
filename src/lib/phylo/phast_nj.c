@@ -2135,10 +2135,11 @@ double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, MSA *msa) {
 }
 
 /* compute the Jacobian matrix for 2n-3 branch lengths wrt n-choose-2
-   pairwise distances.  This version uses numerical methods */
-void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa, CovarData *data) {
+   pairwise distances.  This version uses numerical methods and is
+   intended for validation of the analytical version */
+void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, CovarData *data) {
   TreeNode *tree, *orign, *node;
-  int i, j, n = msa->nseqs, nodeidx;
+  int i, j, n = data->msa->nseqs, nodeidx;
   List *trav_tree, *trav_orig;
   
   /* perturb each pairwise distance and measure effect on each branch */
@@ -2148,7 +2149,7 @@ void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa, CovarData 
     for (j = i+1; j < n; j++) {
       double orig_d = mat_get(D, i, j);
       mat_set(D, i, j, orig_d + DERIV_EPS);
-      tree = nj_inf(D, msa->names, NULL, data);
+      tree = nj_inf(D, data->msa->names, NULL, data);
 
       /* compare the trees, branch by branch */
       /* we will assume the same topology although that will
@@ -2165,7 +2166,8 @@ void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, MSA *msa, CovarData 
         if (node->id != orign->id) continue;
         
         assert(nodeidx < 2*n - 3);
-        mat_set(dt_dD, nodeidx, nj_i_j_to_dist(i, j, n), (node->dparent - orign->dparent) / DERIV_EPS);
+        mat_set(dt_dD, nodeidx, nj_i_j_to_dist(i, j, n),
+                (node->dparent - orign->dparent) / DERIV_EPS);
       }
       
       mat_set(D, i, j, orig_d);
@@ -2218,7 +2220,7 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   /* TEMPORARY: compare to numerical gradient */
   /* fprintf(stdout, "dt_dD (analytical):\n"); */
   /* mat_print(dt_dD, stdout); */
-  /* nj_dt_dD_num(dt_dD, data->dist, mod, msa); */
+  /* nj_dt_dD_num(dt_dD, data->dist, mod, data); */
   /* fprintf(stdout, "dt_dD (numerical):\n"); */
   /* mat_print(dt_dD, stdout); */
   /* exit(0); */
@@ -2484,9 +2486,9 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
 TreeNode *nj_inf(Matrix *D, char **names, Matrix *dt_dD,
                  CovarData *covar_data) {
   if (covar_data->ultrametric)
-    return nj_fast_infer(D, names, dt_dD);
-  //    return nj_infer_tree(D, names, dt_dD);  /* non-heap version */
-  else
     return upgma_fast_infer(D, names, dt_dD);
   //    return upgma_infer_tree(D, names, dt_dD); /* non-heap version */
+  else
+    return nj_fast_infer(D, names, dt_dD);
+  //    return nj_infer_tree(D, names, dt_dD);  /* non-heap version */
 }
