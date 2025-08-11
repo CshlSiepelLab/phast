@@ -100,7 +100,8 @@ void cpr_print_table(CrisprMutTable *M, FILE *F) {
     fprintf(F, "%s\t", ((String*)lst_get_ptr(M->cellnames, i))->chars);
     for (j = 0; j < M->nsites; j++) 
       fprintf(F, "%d%c", cpr_get_mut(M, i, j),
-              j == M->nsites - 1 ? '\n' : '\t');      
+              j == M->nsites - 1 ? '\n' : '\t');
+    fprintf(F, "\n");
   }
 }
 
@@ -165,19 +166,26 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
   double total_prob = 0;
   List *traversal, *Pt;
   double **pL = NULL, **pLbar = NULL;
-  double log_scale;
-  double scaling_threshold = DBL_MIN;
+  double scaling_threshold = DBL_MIN * 1.0e10;  /* need some padding */
+  double lscaling_threshold = log(scaling_threshold);
   double ll = 0;
   double tmp[nstates];
   Matrix *grad_mat = NULL;
   MarkovMatrix *par_subst_mat, *sib_subst_mat;
   static CrisprAncestralStateSets *ancsets = NULL;
+  Vector *lscale, *lscale_o; /* inside and outside versions */
+  unsigned int rescale;
       
   /* set up "inside" probability matrices for pruning algorithm */
   pL = smalloc(nstates * sizeof(double*));
   for (j = 0; j < nstates; j++)
     pL[j] = smalloc((mod->tree->nnodes+1) * sizeof(double));
 
+  /* we also need to keep track of the log scale of every node for
+     underflow purposes */
+  lscale = vec_new(mod->tree->nnodes+1); 
+  lscale_o = vec_new(mod->tree->nnodes+1); 
+  
   /* set up branchwise substitution probability matrices */
   Pt = lst_new_ptr(mod->tree->nnodes);
   for (nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++)
@@ -189,7 +197,7 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
   
   if (branchgrad != NULL) {
     if (branchgrad->size != mod->tree->nnodes-1) /* rooted */
-      die("ERROR in nj_compute_log_likelihood: size of branchgrad must be 2n-2\n");
+      die("ERROR in cpr_compute_log_likelihood: size of branchgrad must be 2n-2\n");
     vec_zero(branchgrad);
     /* set up complementary "outside" probability matrices */
     pLbar = smalloc(nstates * sizeof(double*));
@@ -220,11 +228,13 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
 
     /* first zero out all pL values because with the smart
        algorithm, we won't visit most elements in the matrix */
-    for (nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++)
-      for (i = 0; i < nstates; i++)
+    for (nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++) 
+      for (i = 0; i < nstates; i++) 
         pL[i][nodeidx] = 0;
+
+    /* also reset scale */
+    vec_zero(lscale); vec_zero(lscale);
     
-    log_scale = 0;
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
       int mut;
       
@@ -297,7 +307,8 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
         lst_set_int(ancsets->nodetypes, n->id, thistype);
         
         /* FIXME: set lists based on type for parent and children */
-        
+
+        rescale = FALSE;
         for (i = 0; i < nstates; i++) {
           double totl = 0, totr = 0;
           for (j = 0; j < nstates; j++)
@@ -307,14 +318,18 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
           for (k = 0; k < nstates; k++)
             totr += pL[k][n->rchild->id] *
               mm_get(rsubst_mat, i, k);
-          
-          if (totl > 0 && totr > 0 && totl * totr < scaling_threshold) {
-            pL[i][n->id] = (totl / scaling_threshold) * totr;
-            log_scale -= log(scaling_threshold);
-          }
-          else {
-            pL[i][n->id] = totl * totr;
-          }
+
+          pL[i][n->id] = totl * totr;
+          if (totl > 0 && totr > 0 && pL[i][n->id] < scaling_threshold) 
+            rescale = TRUE;          
+        }
+
+        vec_set(lscale, n->id, vec_get(lscale, n->lchild->id) +
+                vec_get(lscale, n->rchild->id));
+        if (rescale == TRUE) { /* have to rescale for all states */
+          vec_set(lscale, n->id, vec_get(lscale, n->id) - lscaling_threshold);
+          for (i = 0; i < nstates; i++)
+            pL[i][n->id] /= scaling_threshold;             
         }
       }
     }
@@ -324,7 +339,7 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
     for (i = 0; i < nstates; i++) /* FIXME: use type */
       total_prob += vec_get(M->eqfreqs, i) * pL[i][mod->tree->id];
     
-    ll += (log(total_prob) - log_scale);
+    ll += (log(total_prob) - vec_get(lscale, mod->tree->id));
 
     assert(isfinite(ll));
 
@@ -332,7 +347,6 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
        across the tree to compute "outside" probabilities */
     if (branchgrad != NULL) {
       traversal = tr_preorder(mod->tree);
-      assert(log_scale == 0); /* not yet generalized to handle scale factor */
 
       for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
         n = lst_get_ptr(traversal, nodeidx);
@@ -346,7 +360,8 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
                      n->parent->rchild : n->parent->lchild);
           par_subst_mat = lst_get_ptr(Pt, n->id);
           sib_subst_mat = lst_get_ptr(Pt, sibling->id);
-          	  
+
+          rescale = FALSE;
           for (j = 0; j < nstates; j++) { /* parent state */
             tmp[j] = 0;
             for (k = 0; k < nstates; k++)  /* sibling state */
@@ -356,9 +371,21 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
           
           for (i = 0; i < nstates; i++) { /* child state */
             pLbar[i][n->id] = 0;
-            for (j = 0; j < nstates; j++)  /* parent state */
+            for (j = 0; j < nstates; j++) { /* parent state */
               pLbar[i][n->id] +=
                 tmp[j] * mm_get(par_subst_mat, j, i);
+              if (tmp[j] > 0 && mm_get(par_subst_mat, j, i) > 0 &&
+                  pLbar[i][n->id] < scaling_threshold)
+                rescale = TRUE;
+            }
+          }
+
+          vec_set(lscale_o, n->id, vec_get(lscale_o, n->parent->id) +
+                  vec_get(lscale, sibling->id));
+          if (rescale == TRUE) { /* rescale for all states */
+            vec_set(lscale_o, n->id, vec_get(lscale_o, n->id) - lscaling_threshold);
+            for (i = 0; i < nstates; i++)
+              pLbar[i][n->id] /= scaling_threshold;     
           }
         }
       }
@@ -391,11 +418,16 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
         /* calculate derivative analytically */
         cpr_branch_grad(grad_mat, n->dparent, M->eqfreqs); 
         for (i = 0; i < nstates; i++)   
-          for (j = 0; j < nstates; j++)    
-            deriv +=  tmp[i] * pLbar[i][par->id] * pL[j][n->id] * mat_get(grad_mat, i, j);  
+          for (j = 0; j < nstates; j++) {    
+            deriv +=  tmp[i] * pLbar[i][par->id] * pL[j][n->id] * mat_get(grad_mat, i, j);
+          }
 
         deriv *= 1.0 / base_prob; /* because need deriv of log P */
 
+        /* adjust for all relevant scale terms */
+        deriv *= exp(vec_get(lscale, sibling->id) + vec_get(lscale_o, par->id) +
+                     vec_get(lscale, n->id));
+        
         vec_set(branchgrad, nodeidx, vec_get(branchgrad, nodeidx) + deriv );
       }
     }
@@ -416,6 +448,9 @@ double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
     mat_free(grad_mat);
   }
 
+  vec_free(lscale);
+  vec_free(lscale_o);
+  
   return ll;
 }
 
@@ -476,7 +511,7 @@ void cpr_set_subst_matrices(TreeModel *mod, List *Pt, Vector *eqfreqs) {
    of Mai, Chu, and Raphael, doi:10.1101/2024.03.05.583638 */  
 void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs) {  
   int j, silst = P->size - 1; /* silent state is the last one */
-  double silent_rate = vec_get(eqfreqs, silst); /* for now, use pre-estimated rate */
+  double silent_rate = 0.381; /*vec_get(eqfreqs, silst);*/ /* for now, use pre-estimated rate */
   double scale = 1-silent_rate; /* have to rescale so that editing rate is 1 */
   t *= scale;
   mat_zero(P->matrix);
@@ -501,7 +536,7 @@ void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs) {
    to branch length */
 void cpr_branch_grad(Matrix *grad, double t, Vector *eqfreqs) {
   int j, silst = grad->ncols - 1; 
-  double silent_rate = vec_get(eqfreqs, silst); 
+  double silent_rate = 0.381; /* vec_get(eqfreqs, silst); */
   double scale = 1-silent_rate; /* have to rescale so that editing rate is 1 */
   t *= scale;
   mat_zero(grad);
@@ -624,4 +659,39 @@ void cpr_free_state_sets(CrisprAncestralStateSets *sets) {
   if (sets->nodetypes != NULL)
     lst_free(sets->nodetypes);
   free(sets);
+}
+
+/* renumber mutation states so they are dense for each site; needed for
+   sitewise mutation matrices */
+CrisprMutTable *cpr_renumber_by_site(CrisprMutTable *origM) {
+  CrisprMutTable *M = ?????;
+  int i, j, k, state, newstate;
+  int map[origM->nstates]; /* CHECK */
+  
+  /* set up a per-column nstates also */
+  /* and a per-column eq freqs */
+  /* a flag to indicate col-specific version? */
+  
+  for (j = 0; j < origM->nsites; j++) {
+    /* create mapping for col j */
+    for (k = 0; k < origM->nstates; k++)
+      map[k] = -1;
+    newnstates = 1;
+    
+    for (i = 0; i < origM->ncells; i++) {
+      state = cpr_get_mut(origM, i, j);
+      assert(state < M->nstates);  /* CHECK FINAL */
+      
+      if (state == -1 || state == 0)
+        newstate = state;
+      else {
+        if (map[state] == -1)
+          map[state] = newnstates++;
+        
+        newstate = map[state];
+      }
+      cpr_set_mut(M, i, j, newstate);=     
+    }
+  }
+  return M;
 }
