@@ -16,7 +16,26 @@ typedef struct {
   List *cellnames;
   List *cellmuts;
   Vector *eqfreqs;
+  int *sitewise_nstates; 
 } CrisprMutTable;
+
+/* model for mutations along branches of a phylogenetic tree; allows
+   for either a single model for all sites (like TiDeTree) or a
+   separate model for each site (like LAML) */
+typedef enum {GLOBAL, SITEWISE} xxx;
+typedef enum {UNIF, EMPIRICAL} xxxx;
+typedef struct {
+  enum {GLOBAL, SITEWISE} model_type;
+  int nsites;
+  int ncells;
+  double silencing_rate; 
+  TreeModel *mod; /* encapsulates tree with branch lengths and some auxiliary data */
+  CrisprMutTable *mut;
+  int nstates;
+  enum {UNIF, EMPIRICAL} eqfreqs_type;
+  Vector *eqfreqs;  /* global eq freqs */
+  List *sitewise_eqfreqs; /* one vector per site */
+} CrisprMutModel;
 
 /* auxiliary data used to keep track of restricted ancestral state
    possibilities in likelihood calculation; allows for greatly

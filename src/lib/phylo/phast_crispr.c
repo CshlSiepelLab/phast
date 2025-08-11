@@ -35,7 +35,30 @@ CrisprMutTable *cpr_new_table() {
   retval->ncells = 0;
   retval->nstates = 0;
   retval->eqfreqs = NULL;
+  retval->sitewise_nstates = NULL;
   return retval;
+}
+
+CrisprMutTable *cpr_copy_table(CrisprMutTable *orig) {
+  CrisprMutTable *copy = cpr_new_table();
+  int i, j;
+
+  copy->nsites = orig->nsites;
+  copy->ncells = orig->ncells;
+  copy->nstates = orig->nstates;
+  
+  for (i = 0; i < lst_size(orig->sitenames); i++) 
+    lst_push_ptr(copy->sitenames, str_dup(lst_get_ptr(orig->sitenames, i)));
+  for (i = 0; i < lst_size(orig->cellnames); i++) 
+    lst_push_ptr(copy->cellnames, str_dup(lst_get_ptr(orig->cellnames, i)));
+  for (i = 0; i < orig->ncells; i++) {
+    List *muts = lst_new_int(orig->nsites);
+    lst_push_ptr(copy->cellmuts, muts);
+    for (j = 0; j < orig->nsites; j++) 
+      lst_push_int(muts, cpr_get_mut(orig, i, j));
+  }  
+
+  return copy;
 }
 
 CrisprMutTable *cpr_read_table(FILE *F) {
@@ -582,6 +605,33 @@ Vector *cpr_estim_mut_rates(CrisprMutTable *M, unsigned int ignore_silent) {
   return retval;
 }
 
+/* estimate relative mutation rates based on relative frequencies in
+   data set, but separately for each site.  Returns a list of vectors,
+   such that the last element in each vector represents the relative
+   frequency of the silent state.  If ignore_silent == TRUE, that
+   frequency will be forced to zero.  Assumes mutation matrix was
+   created by cpr_new_sitewise_table */
+Vector *cpr_estim_sitewise_mut_rates(CrisprMutTable *M, unsigned int ignore_silent) {
+  int i, j;
+  List *sitewise_eqfreqs = lst_new_ptr(M->nsites);
+  for (j = 0; j < M->nsites; j++) {
+    Vector *f = vec_new(M->sitewise_nstates[j] + 1);
+    int silentstate = M->sitewise_nstates[j];
+    vec_zero(f);
+    for (i = 0; i < M->ncells; i++) {
+      int mut = cpr_get_mut(M, i, j);
+      if (mut == -1 && ignore_silent == FALSE)
+        vec_set(f, silentstate, vec_get(f, silentstate) + 1.0);
+      else if (mut >= 0)
+        vec_set(f, mut, vec_get(f, mut) + 1.0);
+    }
+    pv_normalize(retval);
+    lst_push_ptr(sitewise_eqfreqs, retval);
+  }
+  
+  return sitewise_eqfreqs;
+}
+
 /*  Build index of leaf ids to cell indices based on matching names.
     Leaves not present in the alignment will be ignored.  Also, it's
     not required that there's a leaf for every sequence in the
@@ -663,35 +713,127 @@ void cpr_free_state_sets(CrisprAncestralStateSets *sets) {
 
 /* renumber mutation states so they are dense for each site; needed for
    sitewise mutation matrices */
-CrisprMutTable *cpr_renumber_by_site(CrisprMutTable *origM) {
-  CrisprMutTable *M = ?????;
+CrisprMutTable *cpr_new_sitewise_table(CrisprMutTable *origM) {
   int i, j, k, state, newstate;
-  int map[origM->nstates]; /* CHECK */
-  
-  /* set up a per-column nstates also */
-  /* and a per-column eq freqs */
-  /* a flag to indicate col-specific version? */
+  CrisprMutTable *M = cpr_copy_table(origM);
+  int map[origM->nstates]; 
+
+  M->sitewise_nstates = smalloc(origM->nsites * sizeof(int));
   
   for (j = 0; j < origM->nsites; j++) {
     /* create mapping for col j */
     for (k = 0; k < origM->nstates; k++)
       map[k] = -1;
-    newnstates = 1;
+    M->sitewise_nstates[j] = 1;
     
     for (i = 0; i < origM->ncells; i++) {
       state = cpr_get_mut(origM, i, j);
-      assert(state < M->nstates);  /* CHECK FINAL */
+      assert(state < origM->nstates);  
       
       if (state == -1 || state == 0)
         newstate = state;
       else {
         if (map[state] == -1)
-          map[state] = newnstates++;
+          map[state] = M->sizewise_nstates[j]++;
         
         newstate = map[state];
       }
-      cpr_set_mut(M, i, j, newstate);=     
+      cpr_set_mut(M, i, j, newstate);
     }
   }
   return M;
+}
+
+/* create and return a new model based on a given mutation matrix and tree model */
+CrisprMutModel *cpr_new_model(CrisprMutTable *M, TreeModel *mod, enum{GLOBAL, SITEWISE} modtype,
+                              enum{UNIF, EMPIRICAL} eqtype) {
+  CrisprMutModel *retval = smalloc(sizeof(CrisprMutModel));
+  retval->model_type = type;
+  reval->mod = mod;
+  retval->mut = M;
+  retval->nsites = M->nsites;
+  retval->ncells = M->ncells;
+  retval->nstates = M->nstates;
+  retval->silencing_rate = -1;
+  retval->eqfreqs = NULL;
+  retval->sitewise_eqfreqs = NULL;
+  retval->eqfreqs_type = eqtype;
+}
+  
+/* preprocessing steps for likelihood calculations -- compute
+   equilibrium frequencies, initialize substitution models, etc. This
+   function allocates new memory and should be called only once prior
+   to repeated likelihood calculations */
+void cpr_prep_model(CrisprMutModel *cprmod) {
+  int j, nodeidx;
+  List *thisPt;
+  
+  if (cprmod->model_type == SITEWISE) {
+    cprmod->mut = cpr_new_sitewise_table(cprmod->mut); /* replace with pointer to new table */
+    
+    /* compute equilibrium frequencies */
+    cprmod->sitewise_eqfreqs = cpr_estim_sitewise_mut_rates(cprmod->mut, FALSE);  
+ 
+    /* allocate memory for sitewise, branchwise substitution matrices */
+    cprmod->Pt = lst_new_ptr(cprmod->nsites);
+    for (j = 0; j < cprmod->nsites; j++) {
+      thisPt = lst_new_ptr(mod->tree->nnodes);
+      for (nodeidx = 0; nodeidx < cprmod->mod->tree->nnodes; nodeidx++)
+        lst_push_ptr(thisPt, mm_new(nstates, NULL, DISCRETE));
+      lst_push_ptr(cprmod->Pt, thisPt);
+    }
+  }
+  else {
+    /* no need to alter the mutation table in this case; just build
+       global eq freqs */
+    cprmod->eqfreqs = cpr_estim_mut_rates(cprmod->mut, FALSE);
+
+    /* make all sitewise eqfreqs point to the global eqfreqs */
+    for (j = 0; j < cprmod->nsites; j++) 
+      lst_push_ptr(cprmod->sitewise_eqfreqs, cprmod->eqfreqs);
+    
+    /* build one list of substitution matrices and make
+       all sitewise models point to it */
+    cprmod->Pt = lst_new_ptr(cprmod->nsites);
+    thisPt = lst_new_ptr(mod->tree->nnodes);
+    for (nodeidx = 0; nodeidx < cprmod->mod->tree->nnodes; nodeidx++)
+      lst_push_ptr(thisPt, mm_new(nstates, NULL, DISCRETE));
+    for (j = 0; j < cprmod->nsites; j++) 
+      lst_push_ptr(cprmod->Pt, thisPt);
+  }
+}
+
+/* free memory allocated by cpr_prep_model */
+void cpr_free_model(CrisprMutModel *cprmod) {
+  int j;
+  List *l;
+  if (cprmod->model_type == SITEWISE) {
+    for (j = 0; j < cprmod->nsites; j++) {
+      vec_free(lst_get_ptr(cprmod->sitewise_eqfreqs, j));
+      l = lst_get_ptr(cprmod->Pt, j);
+      for (nodeidx = 0; nodeidx < cprmod->mod->tree->nnodes; nodeidx++)
+        mm_free(lst_get_ptr(l, nodeidx));
+      lst_free(l);
+    }
+  }
+  else {
+    l = lst_get_ptr(cprmod->Pt, 0);
+    for (nodeidx = 0; nodeidx < cprmod->mod->tree->nnodes; nodeidx++)
+      mm_free(lst_get_ptr(l, nodeidx));
+    lst_free(l);
+  }
+  vec_free(cprmod->eqfreqs);
+  lst_free(cprmod->sitewise_eqfreqs);
+  lst_free(cprmod->Pt);
+}
+
+/* update substitution matrices for a new set of branch lengths */
+void cpr_update_model(CrisprMutModel *cprmod) {
+  if (cprmod->model_type == SITEWISE) {
+    for (j = 0; j < cprmod->nsites; j++) 
+      cpr_set_subst_matrices(cprmod->mod, lst_get_ptr(cprmod->Pt, j),
+                             lst_get_ptr(cprmod->sitewise_eqfreqs, j));                                              
+  }
+  else 
+    cpr_set_subst_matrices(mod, lst_get_ptr(cprmod->Pt, 0), cprmod->eqfreqs);
 }
