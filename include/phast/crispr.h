@@ -15,24 +15,24 @@ typedef struct {
   List *sitenames;
   List *cellnames;
   List *cellmuts;
-  Vector *eqfreqs;
   int *sitewise_nstates; 
 } CrisprMutTable;
 
 /* model for mutations along branches of a phylogenetic tree; allows
    for either a single model for all sites (like TiDeTree) or a
    separate model for each site (like LAML) */
-typedef enum {GLOBAL, SITEWISE} xxx;
-typedef enum {UNIF, EMPIRICAL} xxxx;
+enum crispr_model_type {GLOBAL, SITEWISE};
+enum crispr_eqfreqs_type {UNIF, EMPIRICAL};
 typedef struct {
-  enum {GLOBAL, SITEWISE} model_type;
+  enum crispr_model_type model_type;
   int nsites;
   int ncells;
   double silencing_rate; 
   TreeModel *mod; /* encapsulates tree with branch lengths and some auxiliary data */
   CrisprMutTable *mut;
   int nstates;
-  enum {UNIF, EMPIRICAL} eqfreqs_type;
+  List *Pt;
+  enum crispr_eqfreqs_type eqfreqs_type;
   Vector *eqfreqs;  /* global eq freqs */
   List *sitewise_eqfreqs; /* one vector per site */
 } CrisprMutModel;
@@ -64,7 +64,7 @@ void cpr_set_mut(CrisprMutTable *M, int cell, int site, int val);
 
 void cpr_renumber_states(CrisprMutTable *M);
 
-double cpr_compute_log_likelihood(TreeModel *mod, CrisprMutTable *M,
+double cpr_compute_log_likelihood(CrisprMutModel *cprmod,
                                   Vector *branchgrad);
 
 Matrix *cpr_compute_dist(CrisprMutTable *M);
@@ -77,7 +77,11 @@ void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs);
 
 void cpr_branch_grad(Matrix *grad, double t, Vector *eqfreqs);
 
-Vector *cpr_estim_mut_rates(CrisprMutTable *M, unsigned int ignore_silent);
+Vector *cpr_estim_mut_rates(CrisprMutTable *M,
+                            enum crispr_eqfreqs_type type);
+
+List *cpr_estim_sitewise_mut_rates(CrisprMutTable *M,
+                                   enum crispr_eqfreqs_type type);
 
 void cpr_build_seq_idx(TreeModel *mod, CrisprMutTable *M);
 
@@ -87,6 +91,18 @@ CrisprAncestralStateSets *cpr_new_state_sets(int nstates, int nnodes);
 
 void cpr_free_state_sets(CrisprAncestralStateSets *sets);
 
+CrisprMutTable *cpr_new_sitewise_table(CrisprMutTable *origM);
 
+CrisprMutModel *cpr_new_model(CrisprMutTable *M, TreeModel *mod,
+                              enum crispr_model_type modtype,
+                              enum crispr_eqfreqs_type eqtype);
+
+void cpr_prep_model(CrisprMutModel *cprmod);
+
+void cpr_print_model(CrisprMutModel *cprmod, FILE *F);
+
+void cpr_free_model(CrisprMutModel *cprmod);
+
+void cpr_update_model(CrisprMutModel *cprmod);
 
 #endif

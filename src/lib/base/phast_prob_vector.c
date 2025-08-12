@@ -418,4 +418,7 @@ int pv_draw_idx(Vector *pv) {
   return pv_draw_idx_arr(pv->data, pv->size);
 }
 
-
+void pv_set_uniform(Vector *pv) {
+  for (int i = 0; i < pv->size; i++)
+    vec_set(pv, i, 1.0/pv->size);
+}
