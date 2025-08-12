@@ -77,11 +77,11 @@ TreeNode *tr_new_from_string(const char *treestr) {
         continue;
       }
       else {
-	str_double_trim(diststr);
+        str_double_trim(diststr);
         if (str_as_dbl(diststr, &node->dparent) != 0)
           die("ERROR: Can't parse distance in tree (\"%s\").\n",
               diststr->chars);
-	in_distance = FALSE;
+        in_distance = FALSE;
       }
     }
 
@@ -91,12 +91,12 @@ TreeNode *tr_new_from_string(const char *treestr) {
         continue;
       }
       else {
-	str_double_trim(labelstr);
-	node->label = copy_charstr(labelstr->chars);
-	in_label = FALSE;
+        str_double_trim(labelstr);
+        node->label = copy_charstr(labelstr->chars);
+        in_label = FALSE;
       }
     }
-
+    
     if (c == '(') {
       tr_add_child(node, newnode = tr_new_node());
       node = newnode;
@@ -111,11 +111,9 @@ TreeNode *tr_new_from_string(const char *treestr) {
           already_allowed = TRUE;
         else
           die("ERROR (tree parser): invalid binary tree (too many children)\n");
-                                /* we'll prohibit multinary
-                                   branchings, except that we'll allow
-                                   a single trinary branch immediately
-                                   below the root (common with
-                                   reversible models) */
+        /* we'll prohibit multinary branchings, except that we'll
+           allow a single trinary branch immediately below the root
+           (common with reversible models) */
       }
 
       tr_add_child(node->parent, newnode = tr_new_node());
@@ -143,6 +141,15 @@ TreeNode *tr_new_from_string(const char *treestr) {
     }
   }
 
+  /* sometimes there is a final distance; we will allow this to be
+     captured as a leading distance to the root node */
+  if (in_distance) {
+    str_double_trim(diststr);
+    if (diststr->length > 0 && str_as_dbl(diststr, &root->dparent) != 0)
+      die("ERROR: Can't parse final distance in tree (\"%s\").\n",
+          diststr->chars);    
+  }
+    
   if (nopen_parens != nclose_parens)
     die("ERROR: mismatching parens in tree.\n");
 
@@ -313,7 +320,7 @@ void tr_print_recur(FILE* f, TreeNode *n, int show_branch_lengths) {
     fprintf(f, "%s", n->name);
   }
 
-  if (show_branch_lengths && n->parent != NULL)
+  if (show_branch_lengths && (n->parent != NULL || n->dparent > 0))
     fprintf(f, ":%g", n->dparent);
   if (n->hold_constant)
     fprintf(f, "!");

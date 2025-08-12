@@ -189,7 +189,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
   double scaling_threshold = DBL_MIN * 1.0e10;  /* need some padding */
   double lscaling_threshold = log(scaling_threshold);
   double ll = 0;
-  double tmp[cprmod->nstates+1];
+  double tmp[cprmod->nstates+1], root_eqfreqs[cprmod->nstates+1];
   Matrix *grad_mat = NULL;
   MarkovMatrix *par_subst_mat, *sib_subst_mat;
   static CrisprAncestralStateSets *ancsets = NULL;
@@ -224,7 +224,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
 
   /* also set up ancestral state sets if not already available */
   if (ancsets == NULL)
-    ancsets = cpr_new_state_sets(nstates + 1, cprmod->mod->tree->nnodes);
+    ancsets = cpr_new_state_sets(cprmod->nstates + 1, cprmod->mod->tree->nnodes);
   else if (ancsets->nstates != cprmod->nstates + 1) {  /* if number has changed have to rebuild */
     cpr_free_state_sets(ancsets);
     ancsets = cpr_new_state_sets(cprmod->nstates+1, cprmod->mod->tree->nnodes);
@@ -236,7 +236,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
   for (site = 0; site < cprmod->nsites; site++) {
     int silst;
     List *Pt = lst_get_ptr(cprmod->Pt, site);
-    Vector *eqfreqs = lst_get_ptr(cprmod->sitewise_eqfreqs, site);
+    MarkovMatrix *leading_Pt;
       
     nstates = cprmod->mut->sitewise_nstates[site] + 1; /* have to allow for silent state */
     silst = nstates - 1; /* silent state will always be last */
@@ -249,6 +249,15 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
 
     /* also reset scale */
     vec_zero(lscale); vec_zero(lscale);
+
+    /* this model allows a leading branch to the root of the tree but
+       forces the unedited state at the start of that branch.  We can
+       simulate this behavior by setting the root eq freqs equal to
+       the conditional distribution at the end of the branch given the
+       unedited state at the start */
+    leading_Pt = lst_get_ptr(Pt, cprmod->mod->tree->id); 
+    for (i = 0; i < nstates; i++)
+      root_eqfreqs[i] = mm_get(leading_Pt, 0, i);
     
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
       int mut;
@@ -349,11 +358,10 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
       }
     }
   
-    /* termination: assume unedited state at root */
-    total_prob = pL[0][cprmod->mod->tree->id];
-    /* total_prob = 0; */
-    /* for (i = 0; i < nstates; i++)  */
-    /*   total_prob += vec_get(eqfreqs, i) * pL[i][cprmod->mod->tree->id]; */
+    /* termination */
+    total_prob = 0;
+    for (i = 0; i < nstates; i++)
+      total_prob += root_eqfreqs[i] * pL[i][cprmod->mod->tree->id];
     
     ll += (log(total_prob) - vec_get(lscale, cprmod->mod->tree->id));
 
@@ -368,9 +376,8 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
         n = lst_get_ptr(traversal, nodeidx);
 
         if (n->parent == NULL) { /* base case */
-          pLbar[0][n->id] = 1.0; /* assume unedited state */
-          for (i = 1; i < nstates; i++)
-            pLbar[i][n->id] = 0;
+          for (i = 0; i < nstates; i++)
+            pLbar[i][n->id] = root_eqfreqs[i];
         }
         else {            /* recursive case */
           sibling = (n == n->parent->lchild ?
@@ -433,7 +440,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
         }
         
         /* calculate derivative analytically */
-        cpr_branch_grad(grad_mat, n->dparent, eqfreqs); 
+        cpr_branch_grad(grad_mat, n->dparent, lst_get_ptr(cprmod->sitewise_mutrates, site)); 
         for (i = 0; i < nstates; i++)   
           for (j = 0; j < nstates; j++) {    
             deriv +=  tmp[i] * pLbar[i][par->id] * pL[j][n->id] * mat_get(grad_mat, i, j);
@@ -515,8 +522,7 @@ void cpr_set_subst_matrices(TreeModel *mod, List *Pt, Vector *eqfreqs) {
   for (int nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++) {
     TreeNode *n = lst_get_ptr(mod->tree->nodes, nodeidx);
     MarkovMatrix *P = lst_get_ptr(Pt, nodeidx);
-    if (n->parent != NULL) 
-      cpr_set_branch_matrix(P, n->dparent, eqfreqs); 
+    cpr_set_branch_matrix(P, n->dparent, eqfreqs); 
   }    
 }
 
@@ -524,9 +530,7 @@ void cpr_set_subst_matrices(TreeModel *mod, List *Pt, Vector *eqfreqs) {
    of Mai, Chu, and Raphael, doi:10.1101/2024.03.05.583638 */  
 void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs) {  
   int j, silst = P->size - 1; /* silent state is the last one */
-  double silent_rate = 0.381; /*vec_get(eqfreqs, silst);*/ /* for now, use pre-estimated rate */
-  double scale = 1-silent_rate; /* have to rescale so that editing rate is 1 */
-  t *= scale;
+  double silent_rate = 0.381; /* for now, fix; need to pass in */
   mat_zero(P->matrix);
   
   /* substitution probabilities from 0 (unedited) state to all edited
@@ -547,17 +551,15 @@ void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs) {
 
 /* compute gradients of elements of substitution matrix with respect
    to branch length */
-void cpr_branch_grad(Matrix *grad, double t, Vector *eqfreqs) {
+void cpr_branch_grad(Matrix *grad, double t, Vector *mutrates) {
   int j, silst = grad->ncols - 1; 
-  double silent_rate = 0.381; /* vec_get(eqfreqs, silst); */
-  double scale = 1-silent_rate; /* have to rescale so that editing rate is 1 */
-  t *= scale;
+  double silent_rate = 0.381; /* for now, fix; need to pass in */
   mat_zero(grad);
   
   /* derivatives of substitution probabilities from 0 (unedited) state
      to all edited (and not silent) states */
   for (j = 1; j < silst; j++)
-    mat_set(grad, 0, j, vec_get(eqfreqs, j) *
+    mat_set(grad, 0, j, vec_get(mutrates, j) *
             (-silent_rate * exp(-t*silent_rate) * (1 - exp(-t)) +
              exp(-t * (1+silent_rate))));
   mat_set(grad, 0, 0, -(1+silent_rate) * exp(-t*(1+silent_rate)));
@@ -576,8 +578,8 @@ void cpr_branch_grad(Matrix *grad, double t, Vector *eqfreqs) {
    data set.  Returns a vector of size M->nstates.  To ensure all
    other states have nonzero values, it may be helpful to preprocess
    with cpr_renumber_states */
-Vector *cpr_estim_mut_rates(CrisprMutTable *M,
-                            enum crispr_eqfreqs_type type) {
+Vector *cpr_estim_mutrates(CrisprMutTable *M,
+                            enum crispr_mutrates_type type) {
   int i, j;
   Vector *retval = vec_new(M->nstates);
   vec_zero(retval);
@@ -604,10 +606,10 @@ Vector *cpr_estim_mut_rates(CrisprMutTable *M,
    data set, but separately for each site.  Returns a list of
    vectors. Assumes mutation matrix has been re-indexed using
    cpr_new_sitewise_table */
-List *cpr_estim_sitewise_mut_rates(CrisprMutTable *M,
-                                   enum crispr_eqfreqs_type type) {
+List *cpr_estim_sitewise_mutrates(CrisprMutTable *M,
+                                  enum crispr_mutrates_type type) {
   int i, j, mut;
-  List *sitewise_eqfreqs = lst_new_ptr(M->nsites);
+  List *sitewise_mutrates = lst_new_ptr(M->nsites);
   for (j = 0; j < M->nsites; j++) {
     Vector *f = vec_new(M->sitewise_nstates[j]);
     vec_zero(f);
@@ -626,10 +628,10 @@ List *cpr_estim_sitewise_mut_rates(CrisprMutTable *M,
       pv_normalize(f);
     }
     
-    lst_push_ptr(sitewise_eqfreqs, f);
+    lst_push_ptr(sitewise_mutrates, f);
   }
   
-  return sitewise_eqfreqs;
+  return sitewise_mutrates;
 }
 
 /*  Build index of leaf ids to cell indices based on matching names.
@@ -746,7 +748,7 @@ CrisprMutTable *cpr_new_sitewise_table(CrisprMutTable *origM) {
 /* create and return a new model based on a given mutation matrix and tree model */
 CrisprMutModel *cpr_new_model(CrisprMutTable *M, TreeModel *mod,
                               enum crispr_model_type modtype,
-                              enum crispr_eqfreqs_type eqtype) {
+                              enum crispr_mutrates_type mrtype) {
   CrisprMutModel *retval = smalloc(sizeof(CrisprMutModel));
   retval->model_type = modtype;
   retval->mod = mod;
@@ -755,9 +757,9 @@ CrisprMutModel *cpr_new_model(CrisprMutTable *M, TreeModel *mod,
   retval->ncells = M->ncells;
   retval->nstates = M->nstates;
   retval->silencing_rate = -1;
-  retval->eqfreqs = NULL;
-  retval->sitewise_eqfreqs = NULL;
-  retval->eqfreqs_type = eqtype;
+  retval->mutrates = NULL;
+  retval->sitewise_mutrates = NULL;
+  retval->mutrates_type = mrtype;
   return retval;
 }
   
@@ -773,8 +775,8 @@ void cpr_prep_model(CrisprMutModel *cprmod) {
     cprmod->mut = cpr_new_sitewise_table(cprmod->mut); /* replace with pointer to new table */
     
     /* compute equilibrium frequencies */
-    cprmod->sitewise_eqfreqs = cpr_estim_sitewise_mut_rates(cprmod->mut,
-                                                            cprmod->eqfreqs_type);  
+    cprmod->sitewise_mutrates = cpr_estim_sitewise_mutrates(cprmod->mut,
+                                                            cprmod->mutrates_type);  
  
     /* allocate memory for sitewise, branchwise substitution matrices */
     cprmod->Pt = lst_new_ptr(cprmod->nsites);
@@ -788,12 +790,12 @@ void cpr_prep_model(CrisprMutModel *cprmod) {
   else {
     /* no need to alter the mutation table in this case; just build
        global eq freqs */
-    cprmod->eqfreqs = cpr_estim_mut_rates(cprmod->mut,
-                                          cprmod->eqfreqs_type);
+    cprmod->mutrates = cpr_estim_mutrates(cprmod->mut,
+                                         cprmod->mutrates_type);
 
     /* make all sitewise eqfreqs point to the global eqfreqs */
     for (j = 0; j < cprmod->nsites; j++) 
-      lst_push_ptr(cprmod->sitewise_eqfreqs, cprmod->eqfreqs);
+      lst_push_ptr(cprmod->sitewise_mutrates, cprmod->mutrates);
     
     /* build one list of substitution matrices and make
        all sitewise models point to it */
@@ -816,10 +818,10 @@ void cpr_print_model(CrisprMutModel *cprmod, FILE *F) {
   if (cprmod->model_type == SITEWISE) {
     for (j = 0; j < cprmod->nsites; j++) {
       List *thisPt = lst_get_ptr(cprmod->Pt, j);
-      Vector *eqfreqs = lst_get_ptr(cprmod->sitewise_eqfreqs, j);
+      Vector *mutrates = lst_get_ptr(cprmod->sitewise_mutrates, j);
       fprintf(F, "Model for site %d:\n", j);
-      fprintf(F, "Eq freqs:\n");
-      vec_print(eqfreqs, F);
+      fprintf(F, "Mutation rates:\n");
+      vec_print(mutrates, F);
       for (nodeidx = 0; nodeidx < cprmod->mod->tree->nnodes; nodeidx++) {
         TreeNode *n = lst_get_ptr(cprmod->mod->tree->nodes, nodeidx);
         MarkovMatrix *mm = lst_get_ptr(thisPt, nodeidx);
@@ -838,7 +840,7 @@ void cpr_free_model(CrisprMutModel *cprmod) {
   List *l;
   if (cprmod->model_type == SITEWISE) {
     for (j = 0; j < cprmod->nsites; j++) {
-      vec_free(lst_get_ptr(cprmod->sitewise_eqfreqs, j));
+      vec_free(lst_get_ptr(cprmod->sitewise_mutrates, j));
       l = lst_get_ptr(cprmod->Pt, j);
       for (nodeidx = 0; nodeidx < cprmod->mod->tree->nnodes; nodeidx++)
         mm_free(lst_get_ptr(l, nodeidx));
@@ -851,8 +853,8 @@ void cpr_free_model(CrisprMutModel *cprmod) {
       mm_free(lst_get_ptr(l, nodeidx));
     lst_free(l);
   }
-  vec_free(cprmod->eqfreqs);
-  lst_free(cprmod->sitewise_eqfreqs);
+  vec_free(cprmod->mutrates);
+  lst_free(cprmod->sitewise_mutrates);
   lst_free(cprmod->Pt);
 }
 
@@ -862,8 +864,8 @@ void cpr_update_model(CrisprMutModel *cprmod) {
   if (cprmod->model_type == SITEWISE) {
     for (j = 0; j < cprmod->nsites; j++) 
       cpr_set_subst_matrices(cprmod->mod, lst_get_ptr(cprmod->Pt, j),
-                             lst_get_ptr(cprmod->sitewise_eqfreqs, j));                                              
+                             lst_get_ptr(cprmod->sitewise_mutrates, j));                                              
   }
   else 
-    cpr_set_subst_matrices(cprmod->mod, lst_get_ptr(cprmod->Pt, 0), cprmod->eqfreqs);
+    cpr_set_subst_matrices(cprmod->mod, lst_get_ptr(cprmod->Pt, 0), cprmod->mutrates);
 }

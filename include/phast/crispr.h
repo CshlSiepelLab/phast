@@ -22,7 +22,7 @@ typedef struct {
    for either a single model for all sites (like TiDeTree) or a
    separate model for each site (like LAML) */
 enum crispr_model_type {GLOBAL, SITEWISE};
-enum crispr_eqfreqs_type {UNIF, EMPIRICAL};
+enum crispr_mutrates_type {UNIF, EMPIRICAL};
 typedef struct {
   enum crispr_model_type model_type;
   int nsites;
@@ -33,9 +33,9 @@ typedef struct {
   CrisprMutTable *mut;
   int nstates;
   List *Pt;
-  enum crispr_eqfreqs_type eqfreqs_type;
-  Vector *eqfreqs;  /* global eq freqs */
-  List *sitewise_eqfreqs; /* one vector per site */
+  enum crispr_mutrates_type mutrates_type;
+  Vector *mutrates;  /* global mutation rates */
+  List *sitewise_mutrates; /* one vector per site */
 } CrisprMutModel;
 
 /* auxiliary data used to keep track of restricted ancestral state
@@ -72,17 +72,17 @@ Matrix *cpr_compute_dist(CrisprMutTable *M);
 
 double cpr_compute_pw_dist(CrisprMutTable *M, int i, int j);
 
-void cpr_set_subst_matrices(TreeModel *mod, List *Pt, Vector *eqfreqs);
+void cpr_set_subst_matrices(TreeModel *mod, List *Pt, Vector *mutrates);
 
-void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs);
+void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *mutrates);
 
 void cpr_branch_grad(Matrix *grad, double t, Vector *eqfreqs);
 
-Vector *cpr_estim_mut_rates(CrisprMutTable *M,
-                            enum crispr_eqfreqs_type type);
+Vector *cpr_estim_mutrates(CrisprMutTable *M,
+                            enum crispr_mutrates_type type);
 
-List *cpr_estim_sitewise_mut_rates(CrisprMutTable *M,
-                                   enum crispr_eqfreqs_type type);
+List *cpr_estim_sitewise_mutrates(CrisprMutTable *M,
+                                   enum crispr_mutrates_type type);
 
 void cpr_build_seq_idx(TreeModel *mod, CrisprMutTable *M);
 
@@ -96,7 +96,7 @@ CrisprMutTable *cpr_new_sitewise_table(CrisprMutTable *origM);
 
 CrisprMutModel *cpr_new_model(CrisprMutTable *M, TreeModel *mod,
                               enum crispr_model_type modtype,
-                              enum crispr_eqfreqs_type eqtype);
+                              enum crispr_mutrates_type eqtype);
 
 void cpr_prep_model(CrisprMutModel *cprmod);
 
