@@ -28,7 +28,8 @@ typedef struct {
   int nsites;
   int ncells;
   double silencing_rate; 
-  TreeModel *mod; /* encapsulates tree with branch lengths and some auxiliary data */
+  TreeModel *mod; /* encapsulates tree with branch lengths 
+                     and some auxiliary data */
   CrisprMutTable *mut;
   int nstates;
   List *Pt;
