@@ -224,19 +224,16 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
 
   /* also set up ancestral state sets if not already available */
   if (ancsets == NULL)
-    ancsets = cpr_new_state_sets(cprmod->nstates + 1, cprmod->mod->tree->nnodes);
-  else if (ancsets->nstates != cprmod->nstates + 1) {  /* if number has changed have to rebuild */
-    cpr_free_state_sets(ancsets);
-    ancsets = cpr_new_state_sets(cprmod->nstates+1, cprmod->mod->tree->nnodes);
-  }
-  if (lst_size(ancsets->statelists) == 0)
-    cpr_build_state_sets(ancsets);
+    ancsets = cpr_new_state_sets(cprmod->mod->tree->nnodes);
+  if (cprmod->mod->tree->nnodes > ancsets->nnodes) /* in case number of nodes grows */
+    cpr_state_sets_resize(ancsets, cprmod->mod->tree->nnodes);
   
   traversal = tr_postorder(cprmod->mod->tree);
   for (site = 0; site < cprmod->nsites; site++) {
     int silst;
     List *Pt = lst_get_ptr(cprmod->Pt, site);
     MarkovMatrix *leading_Pt;
+    List *par_states, *lchild_states, *rchild_states;
       
     nstates = cprmod->mut->sitewise_nstates[site] + 1; /* have to allow for silent state */
     silst = nstates - 1; /* silent state will always be last */
@@ -261,7 +258,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
     
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
       int mut;
-      
+
       n = lst_get_ptr(traversal, nodeidx);
       if (n->lchild == NULL) {
         /* leaf: base case of recursion */
@@ -291,6 +288,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
         MarkovMatrix *lsubst_mat = lst_get_ptr(Pt, n->lchild->id);
         MarkovMatrix *rsubst_mat = lst_get_ptr(Pt, n->rchild->id);
         int lchildtype, rchildtype, thistype;
+        int pstate, lcstate, rcstate;
         
         /* first set nodetype based on nodetypes of children */
         lchildtype = lst_get_int(ancsets->nodetypes, n->lchild->id);
@@ -299,21 +297,21 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
                                                    unedited, parent
                                                    must be unedited */
           thistype = 0;
-        else if (lchildtype < ancsets->NORESTRICT &&
-                 rchildtype < ancsets->NORESTRICT &&
+        else if (lchildtype != ancsets->NORESTRICT &&
+                 rchildtype != ancsets->NORESTRICT &&
                  lchildtype != rchildtype) /* if children have
                                               different edits, parent
                                               must be unedited */
           thistype = 0;
         else if (lchildtype == rchildtype && 
-                 lchildtype < ancsets->NORESTRICT) /* if children have
+                 lchildtype != ancsets->NORESTRICT) /* if children have
                                                       same edits,
                                                       parent must
                                                       share it or be
                                                       unedited */
           
           thistype = lchildtype;
-        else if (lchildtype < ancsets->NORESTRICT &&
+        else if (lchildtype != ancsets->NORESTRICT &&
                  rchildtype == ancsets->NORESTRICT) /* if one edited
                                                       child, parent
                                                       must have same
@@ -321,7 +319,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
                                                       unedited */
           thistype = lchildtype;
         
-        else if (rchildtype < ancsets->NORESTRICT &&
+        else if (rchildtype != ancsets->NORESTRICT &&
                  lchildtype == ancsets->NORESTRICT) /* converse case */
           thistype = rchildtype;
 
@@ -329,40 +327,54 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
           thistype = ancsets->NORESTRICT;
 
         lst_set_int(ancsets->nodetypes, n->id, thistype);
+
+        /* now get corresponding sets of eligible states */
+        par_states = cpr_get_state_set(ancsets, thistype, nstates);
+        lchild_states = cpr_get_state_set(ancsets, lchildtype, nstates);
+        rchild_states = cpr_get_state_set(ancsets, rchildtype, nstates);
         
-        /* FIXME: set lists based on type for parent and children */
-
         rescale = FALSE;
-        for (i = 0; i < nstates; i++) {
-          double totl = 0, totr = 0;
-          for (j = 0; j < nstates; j++)
-            totl += pL[j][n->lchild->id] *
-              mm_get(lsubst_mat, i, j);
-          
-          for (k = 0; k < nstates; k++)
-            totr += pL[k][n->rchild->id] *
-              mm_get(rsubst_mat, i, k);
 
-          pL[i][n->id] = totl * totr;
-          if (totl > 0 && totr > 0 && pL[i][n->id] < scaling_threshold) 
+        for (i = 0; i < lst_size(par_states); i++) {
+          double totl = 0, totr = 0;
+          pstate = lst_get_int(par_states, i);
+          for (j = 0; j < lst_size(lchild_states); j++) {
+            lcstate = lst_get_int(lchild_states, j);
+            totl += pL[lcstate][n->lchild->id] *
+              mm_get(lsubst_mat, pstate, lcstate);
+          }
+          for (k = 0; k < lst_size(rchild_states); k++) {
+            rcstate = lst_get_int(rchild_states, k);
+            totl += pL[rcstate][n->lchild->id] *
+              mm_get(lsubst_mat, pstate, rcstate);
+          }
+        
+          pL[pstate][n->id] = totl * totr;
+          if (totl > 0 && totr > 0 && pL[pstate][n->id] < scaling_threshold) 
             rescale = TRUE;          
         }
 
+        /* deal with nodewise scaling */
         vec_set(lscale, n->id, vec_get(lscale, n->lchild->id) +
                 vec_get(lscale, n->rchild->id));
         if (rescale == TRUE) { /* have to rescale for all states */
           vec_set(lscale, n->id, vec_get(lscale, n->id) - lscaling_threshold);
-          for (i = 0; i < nstates; i++)
-            pL[i][n->id] /= scaling_threshold;             
+          for (i = 0; i < lst_size(par_states); i++) {
+            pstate = lst_get_int(par_states, i);
+            pL[pstate][n->id] /= scaling_threshold;
+          }
         }
       }
     }
   
     /* termination */
+    par_states = cpr_get_state_set(ancsets,
+                                   lst_get_int(ancsets->nodetypes, cprmod->mod->tree->id), nstates);
     total_prob = 0;
-    for (i = 0; i < nstates; i++)
-      total_prob += root_eqfreqs[i] * pL[i][cprmod->mod->tree->id];
-    
+    for (i = 0; i < lst_size(par_states); i++) {
+      int rstate = lst_get_int(par_states, i);
+      total_prob += root_eqfreqs[rstate] * pL[rstate][cprmod->mod->tree->id];
+    }    
     ll += (log(total_prob) - vec_get(lscale, cprmod->mod->tree->id));
 
     assert(isfinite(ll));
@@ -656,60 +668,77 @@ void cpr_build_seq_idx(TreeModel *mod, CrisprMutTable *M) {
   }
 }
 
-/* build lists of eligible ancestral states, for use in accelerating
-   likelihood calculation */
-void cpr_build_state_sets(CrisprAncestralStateSets *sets) {
-  /* CHECK: should last list also include silent state?  or is that implicit? */
-  
-  int i;
-  List *l;
-  
-  assert(lst_size(sets->statelists) == 0); /* should always start empty */
-  
-  /* list indicating unedited state only; this will be used for any
-     node that has an unedited descendant or >=2 distinct
-     derived descendants */
-  l = lst_new_int(1);
-  lst_push_int(l, 0);
-  lst_push_ptr(sets->statelists, l);
-  
-  /* lists indicating unedited state and one particular derived state.
-     These will be used for nodes that have a single derived state as
-     a descendant */
-  for (i = 1; i < sets->nstates; i++) {
-    l = lst_new_int(2);
-    lst_push_int(l, 0);
-    lst_push_int(l, i);
-    lst_push_ptr(sets->statelists, l);
-  }
-  
-  /* list indicating all possible states; This will be used in all
-     other cases */
-  l = lst_new_int(sets->nstates);
-  for (i = 0; i < sets->nstates; i++)
-    lst_push_int(l, i);
-  lst_push_ptr(sets->statelists, l);
-}
-
-CrisprAncestralStateSets *cpr_new_state_sets(int nstates, int nnodes) {
+CrisprAncestralStateSets *cpr_new_state_sets(int nnodes) {
   CrisprAncestralStateSets *retval = malloc(sizeof(CrisprAncestralStateSets));
-  retval->nstates = nstates;
   retval->nnodes = nnodes;
-  retval->NORESTRICT = nstates; /* last one will always be the unrestricted set */
+  retval->NORESTRICT = -1; 
   retval->nodetypes = lst_new_int(nnodes);
-  retval->statelists = lst_new_ptr(nstates + 1);
+  retval->unr_lists = lst_new_ptr(100); /* starting size; will realloc */
+  retval->restr_lists = lst_new_ptr(100); 
   return retval;
 }
 
-void cpr_free_state_sets(CrisprAncestralStateSets *sets) {
-  /* discard inner lists */
-  if (sets->statelists != NULL) {
-    for (int i = 0; i < lst_size(sets->statelists); i++)
-      lst_free(lst_get_ptr(sets->statelists, i));
-    lst_free(sets->statelists);
+void cpr_state_sets_resize(CrisprAncestralStateSets *sets, int newnnodes) {
+  lst_free(sets->nodetypes);
+  sets->nodetypes = lst_new_int(newnnodes);
+  sets->nnodes = newnnodes;
+}
+
+/* efficiently retrieve ancestral state set for a given node type and
+   total number of states, using caching.  Specifically, if nodetype
+   is UNRESTRICTED, returns a list of integers from 0 to nstates - 1
+   inclusive.  If nodetype has another (restricted) value, returns a
+   list of two integers consisting of 0 and that value.  If nodetype
+   is 0, returns a list containing zero only. */
+List *cpr_get_state_set(CrisprAncestralStateSets *set, int nodetype, int nstates) {
+  int i, j;
+  if (nodetype == set->NORESTRICT) {
+    if (nstates >= lst_size(set->unr_lists)) {
+      /* fill in all of the ones up to the requested size and cache them */
+      for (i = lst_size(set->unr_lists); i <= nstates; i++) {
+        List *l = lst_new_int(i);
+        for (j = 0; j < i; j++)
+          lst_push_int(l, j);
+        lst_push_ptr(set->unr_lists, l); /* the ith element of
+                                            unr_lists will be a list
+                                            of integers from 0 to i,
+                                            inclusive */
+      }
+    }
+    return lst_get_ptr(set->unr_lists, nstates);
   }
-  if (sets->nodetypes != NULL)
-    lst_free(sets->nodetypes);
+  else { /* restricted list; includes the 0 case */
+    if (nodetype >= lst_size(set->restr_lists)) {
+      /* fill in all of the ones up to the requested size and cache them */
+      for (i = lst_size(set->restr_lists); i <= nodetype; i++) {
+        List *l = lst_new_int(2);
+        lst_push_int(l, 0);
+        if (i > 0)
+          lst_push_int(l, i);
+        lst_push_ptr(set->restr_lists, l); /* the ith element of
+                                            restr_lists will be a list
+                                            consisting of 0 and i (or
+                                            just 0 if i == 0) */
+      }
+    }
+    return lst_get_ptr(set->restr_lists, nodetype);
+  }
+}
+
+void cpr_free_state_sets(CrisprAncestralStateSets *sets) {
+  int i;
+  List *l;
+  lst_free(sets->nodetypes);
+  for (i = 0; i < lst_size(sets->unr_lists); i++) {
+    l = lst_get_ptr(sets->unr_lists, i);
+    if (l == NULL) break; /* non-NULL must be contiguous */
+    lst_free(l);
+  }
+  for (i = 0; i < lst_size(sets->restr_lists); i++) {
+    l = lst_get_ptr(sets->restr_lists, i);
+    if (l == NULL) break;
+    lst_free(l);
+  }
   free(sets);
 }
 

@@ -42,13 +42,14 @@ typedef struct {
    possibilities in likelihood calculation; allows for greatly
    accelerated algorithm */
 typedef struct {
-  int nstates; /* total number of states excluding silent */
   int nnodes; /* total number of nodes in tree; root is included but
                  will be ignored */
   int NORESTRICT; /* code indicating no restrictions on state */
   List *nodetypes; /* element i is type for node->id == i */
-  List *statelists; /* element i is list of eligible states for
-                       node->id == i */
+  List *unr_lists; /* element i is list containing all integers from 0
+                      to i inclusive (cached) */
+  List *restr_lists; /* element i is list containing 0 and i
+                        (cached) */
 } CrisprAncestralStateSets;
 
 CrisprMutTable *cpr_new_table();
@@ -86,9 +87,11 @@ List *cpr_estim_sitewise_mutrates(CrisprMutTable *M,
 
 void cpr_build_seq_idx(TreeModel *mod, CrisprMutTable *M);
 
-void cpr_build_state_sets(CrisprAncestralStateSets *sets);
+CrisprAncestralStateSets *cpr_new_state_sets(int nnodes);
 
-CrisprAncestralStateSets *cpr_new_state_sets(int nstates, int nnodes);
+void cpr_state_sets_resize(CrisprAncestralStateSets *sets, int newnnodes);
+
+List *cpr_get_state_set(CrisprAncestralStateSets *set, int nodetype, int nstates);
 
 void cpr_free_state_sets(CrisprAncestralStateSets *sets);
 
