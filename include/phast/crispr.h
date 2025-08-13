@@ -45,11 +45,12 @@ typedef struct {
   int nnodes; /* total number of nodes in tree; root is included but
                  will be ignored */
   int NORESTRICT; /* code indicating no restrictions on state */
-  List *nodetypes; /* element i is type for node->id == i */
+  int *nodetypes; /* element i is type for node->id == i */
   List *unr_lists; /* element i is list containing all integers from 0
                       to i inclusive (cached) */
   List *restr_lists; /* element i is list containing 0 and i
                         (cached) */
+  List *sil_lists; /* element i is list consisting only of node i, for i > 1 */
 } CrisprAncestralStateSets;
 
 CrisprMutTable *cpr_new_table();
@@ -91,7 +92,8 @@ CrisprAncestralStateSets *cpr_new_state_sets(int nnodes);
 
 void cpr_state_sets_resize(CrisprAncestralStateSets *sets, int newnnodes);
 
-List *cpr_get_state_set(CrisprAncestralStateSets *set, int nodetype, int nstates);
+List *cpr_get_state_set(CrisprAncestralStateSets *set, TreeNode *n,
+                        int nstates);
 
 void cpr_free_state_sets(CrisprAncestralStateSets *sets);
 
