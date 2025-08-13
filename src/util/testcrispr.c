@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
   cpr_prep_model(cprmod);
   cpr_update_model(cprmod);
   /* cpr_print_model(cprmod, stdout); */
-  /* exit(0); */
+  /* exit(0);  */
 
   
   /* compute likelihood and output */
@@ -53,4 +53,5 @@ int main(int argc, char *argv[]) {
   /* FIXME: later check gradients */
   
   cpr_free_table(M);
+  cpr_free_model(cprmod);
 }

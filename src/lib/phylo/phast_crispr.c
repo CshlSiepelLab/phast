@@ -1,22 +1,6 @@
 /* handling of crispr mutation models for phylogeny reconstruction */
 /* reads tab-delimited mutation data, calculates substitution probabilities, custom pruning algorithm for better efficiency */
 
-/* still to do
-   x make header file
-   x get it to compile
-   x test reading and writing, renumbering
-   x implement mapping between cell names and leaf ids
-   x need to compute distance matrix for init
-   x figure out background freqs
-   x estimate or pre-estimate relative rates?
-   - handle silent states correctly
-   - more efficient state traversal
-   x exponentiation of rate matrix; make sure freeing any old subst matrices and replacing them.  Use the markov-matrix machinery but replace the exponentiation with something here.  maybe better to keep separate from tree model
-   x implement derivative
-   - don't forget to come back and clean up scale factor
-   x need to handle new subst model and call appropriate special case functions through varPHAST (also update help msg)
-   - clean up comments
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -186,7 +170,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
   double total_prob = 0;
   List *traversal;
   double **pL = NULL, **pLbar = NULL;
-  double scaling_threshold = DBL_MIN * 1.0e10;  /* need some padding */
+  double scaling_threshold = DBL_MIN * 1.0e10; /* need some padding */
   double lscaling_threshold = log(scaling_threshold);
   double ll = 0;
   double tmp[cprmod->nstates+1], root_eqfreqs[cprmod->nstates+1];
@@ -830,6 +814,7 @@ CrisprMutModel *cpr_new_model(CrisprMutTable *M, TreeModel *mod,
   retval->silencing_rate = -1;
   retval->mutrates = NULL;
   retval->sitewise_mutrates = NULL;
+  retval->Pt = NULL;
   retval->mutrates_type = mrtype;
   return retval;
 }
@@ -862,9 +847,10 @@ void cpr_prep_model(CrisprMutModel *cprmod) {
     /* no need to alter the mutation table in this case; just build
        global eq freqs */
     cprmod->mutrates = cpr_estim_mutrates(cprmod->mut,
-                                         cprmod->mutrates_type);
+                                          cprmod->mutrates_type);
 
     /* make all sitewise eqfreqs point to the global eqfreqs */
+    cprmod->sitewise_mutrates = lst_new_ptr(cprmod->nsites);
     for (j = 0; j < cprmod->nsites; j++) 
       lst_push_ptr(cprmod->sitewise_mutrates, cprmod->mutrates);
     
@@ -886,22 +872,18 @@ void cpr_print_model(CrisprMutModel *cprmod, FILE *F) {
           (cprmod->model_type == SITEWISE ? "SITEWISE" : "GLOBAL"), cprmod->nsites,
           cprmod->ncells, cprmod->nstates, cprmod->silencing_rate);
   
-  if (cprmod->model_type == SITEWISE) {
-    for (j = 0; j < cprmod->nsites; j++) {
-      List *thisPt = lst_get_ptr(cprmod->Pt, j);
-      Vector *mutrates = lst_get_ptr(cprmod->sitewise_mutrates, j);
-      fprintf(F, "Model for site %d:\n", j);
-      fprintf(F, "Mutation rates:\n");
-      vec_print(mutrates, F);
-      for (nodeidx = 0; nodeidx < cprmod->mod->tree->nnodes; nodeidx++) {
-        TreeNode *n = lst_get_ptr(cprmod->mod->tree->nodes, nodeidx);
-        MarkovMatrix *mm = lst_get_ptr(thisPt, nodeidx);
-        fprintf(F, "Node %d (dparent %f):\nPt:\n", n->id, n->dparent);
-        mm_pretty_print(F, mm);
-      }
+  for (j = 0; j < cprmod->nsites; j++) {
+    List *thisPt = lst_get_ptr(cprmod->Pt, j);
+    Vector *mutrates = lst_get_ptr(cprmod->sitewise_mutrates, j);
+    fprintf(F, "Model for site %d:\n", j);
+    fprintf(F, "Mutation rates:\n");
+    vec_print(mutrates, F);
+    for (nodeidx = 0; nodeidx < cprmod->mod->tree->nnodes; nodeidx++) {
+      TreeNode *n = lst_get_ptr(cprmod->mod->tree->nodes, nodeidx);
+      MarkovMatrix *mm = lst_get_ptr(thisPt, nodeidx);
+      fprintf(F, "Node %d (dparent %f):\nPt:\n", n->id, n->dparent);
+      mm_pretty_print(F, mm);
     }
-  }
-  else {
   }
 }
 
@@ -924,9 +906,12 @@ void cpr_free_model(CrisprMutModel *cprmod) {
       mm_free(lst_get_ptr(l, nodeidx));
     lst_free(l);
   }
-  vec_free(cprmod->mutrates);
-  lst_free(cprmod->sitewise_mutrates);
-  lst_free(cprmod->Pt);
+  if (cprmod->mutrates != NULL)
+    vec_free(cprmod->mutrates);
+  if (cprmod->sitewise_mutrates != NULL)
+    lst_free(cprmod->sitewise_mutrates);
+  if (cprmod->Pt != NULL)
+    lst_free(cprmod->Pt);
 }
 
 /* update substitution matrices for a new set of branch lengths */
