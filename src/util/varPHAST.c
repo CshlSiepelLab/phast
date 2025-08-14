@@ -58,6 +58,9 @@ int main(int argc, char *argv[]) {
   TreeNode *init_tree = NULL;
   CovarData *covar_data = NULL;
   CrisprMutTable *crispr_muts = NULL;
+  CrisprMutModel *crispr_mod = NULL;
+  enum crispr_model_type crispr_modtype = SITEWISE;
+  enum crispr_mutrates_type crispr_muttype = UNIF;
   
   struct option long_opts[] = {
     {"format", 1, 0, 'i'},
@@ -88,11 +91,13 @@ int main(int argc, char *argv[]) {
     {"ultrametric", 0, 0, 'C'},
     {"mvn-dump", 0, 0, 'V'},
     {"rank", 1, 0, 'W'},
+    {"crispr-modtype", 1, 0, 'Y'},
+    {"crispr-mutprior", 1, 0, 'p'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:jJkK:l:m:M:n:No:P:r:Rt:T:VW:S:s:C", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:jJkK:l:m:M:n:No:P:r:Rt:T:VW:S:s:CY:p:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -214,6 +219,20 @@ int main(int argc, char *argv[]) {
       if (rank <= 0)
         die("ERROR: --rank must be positive\n");
       break;
+    case 'Y':
+      if (!strcmp(optarg, "SITEWISE"))
+        crispr_modtype = SITEWISE;
+      else if (!strcmp(optarg, "GLOBAL"))
+        crispr_modtype = GLOBAL;
+      else die("ERROR: bad argument to --crispr-modtype (-Y).\n");
+      break;
+    case 'p':
+      if (!strcmp(optarg, "UNIF"))
+        crispr_muttype = UNIF;
+      else if (!strcmp(optarg, "EMPIRICAL"))
+        crispr_muttype = EMPIRICAL;
+      else die("ERROR: bad argument to --crispr-mutprior (-p).\n");
+      break;
     case 'h':
       printf("%s", HELP); 
       exit(0);
@@ -250,7 +269,9 @@ int main(int argc, char *argv[]) {
       names = smalloc(ntips * sizeof(char*));
       for (i = 0; i < ntips; i++)
         names[i] = ((String*)lst_get_ptr(crispr_muts->cellnames, i))->chars;
-      ultrametric = TRUE; 
+      ultrametric = TRUE;
+      crispr_mod = cpr_new_model(crispr_muts, NULL, crispr_modtype, crispr_muttype);
+      /* leave tree model null for now; fill in later */
     }
     else { /* standard alignment file */
       if (format == UNKNOWN_FORMAT)
@@ -308,7 +329,7 @@ int main(int argc, char *argv[]) {
   /* We must also have a distance matrix now; make sure valid */
   nj_test_D(D);
 
-  covar_data = nj_new_covar_data(covar_param, D, dim, msa, crispr_muts, names,
+  covar_data = nj_new_covar_data(covar_param, D, dim, msa, crispr_mod, names,
                                  natural_grad, kld_upweight, rank, sparsity,
                                  hyperbolic, negcurvature, ultrametric);
   
@@ -335,13 +356,16 @@ int main(int argc, char *argv[]) {
 
       /* set up a tree model if necessary */
       if (mod == NULL) {
-        /* note: this model will be overridden in the crispr case */
+        /* note: this model is just a dummy in the crispr case; tree
+           will be used but subst model will be ignored */
         rmat = mm_new(strlen(DEFAULT_ALPHABET), DEFAULT_ALPHABET, CONTINUOUS);
         mod = tm_new(tree, rmat, NULL, subst_mod, DEFAULT_ALPHABET, 1, 1, NULL, -1);
         if (msa != NULL)
           tm_init_backgd(mod, msa, -1);
         
-        if (subst_mod == JC69)
+        if (is_crispr)
+          crispr_mod->mod = mod;
+        else if (subst_mod == JC69)
           tm_set_JC69_matrix(mod);
         else
           tm_set_HKY_matrix(mod, kappa, -1);   /* FIXME: estimate kappa from msa */

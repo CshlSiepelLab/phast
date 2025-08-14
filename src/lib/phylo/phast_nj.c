@@ -1616,7 +1616,7 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
 /* create a new CovarData object appropriate for the choice of
    parameterization */
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
-                             MSA *msa, CrisprMutTable* crispr_muts, char **names,
+                             MSA *msa, CrisprMutModel* crispr_mod, char **names,
                              unsigned int natural_grad, double kld_upweight,
                              int rank, double sparsity, unsigned int hyperbolic,
                              double negcurvature, unsigned int ultrametric) {
@@ -1625,7 +1625,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   CovarData *retval = smalloc(sizeof(CovarData));
   retval->type = covar_param;
   retval->msa = msa;
-  retval->crispr_muts = crispr_muts;
+  retval->crispr_mod = crispr_mod;
   retval->names = names;
   retval->lambda = LAMBDA_INIT;
   retval->mvn_type = MVN_DIAG;
@@ -2002,8 +2002,8 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
     mod->tree = nj_inf(data->dist, data->names, NULL, data);
     lst_push_ptr(init_samples, mod->tree);
 
-    if (data->crispr_muts != NULL)
-      ll[i] = cpr_compute_log_likelihood(mod, data->crispr_muts, NULL);
+    if (data->crispr_mod != NULL)
+      ll[i] = cpr_compute_log_likelihood(data->crispr_mod, NULL);
     else
       ll[i] = nj_compute_log_likelihood(mod, data->msa, NULL);
     mvnll[i] = mmvn_log_dens(mmvn, points);
@@ -2034,8 +2034,8 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
     nj_points_to_distances(points, data);
     mod->tree = nj_inf(data->dist, data->names, NULL, data);
 
-    if (data->crispr_muts != NULL)
-      lnl = cpr_compute_log_likelihood(mod, data->crispr_muts, NULL);
+    if (data->crispr_mod != NULL)
+      lnl = cpr_compute_log_likelihood(data->crispr_mod, NULL);
     else
       lnl = nj_compute_log_likelihood(mod, data->msa, NULL);
         
@@ -2072,7 +2072,7 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod,
   int d = data->dim; /* dimensionality; have to accommodate diagonal case */
   TreeNode *tree, *orig_tree;   /* has to be rebuilt repeatedly; restore at end */
 
-  assert(data->msa != NULL && data->crispr_muts == NULL);
+  assert(data->msa != NULL && data->crispr_mod == NULL);
   /* this version not set up for crispr data */
          
   /* set up tree model and get baseline log likelihood */
@@ -2226,8 +2226,8 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   /* exit(0); */
   
   /* calculate log likelihood and analytical gradient */
-  if (data->crispr_muts != NULL)
-    ll_base = cpr_compute_log_likelihood(mod, data->crispr_muts, dL_dt);
+  if (data->crispr_mod != NULL)
+    ll_base = cpr_compute_log_likelihood(data->crispr_mod, dL_dt);
   else
     ll_base = nj_compute_log_likelihood(mod, data->msa, dL_dt);
 

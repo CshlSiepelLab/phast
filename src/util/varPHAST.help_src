@@ -161,6 +161,19 @@ OPTIONS:
         algorithm instead of the neighbor-joining algorithm.  Can be used
         with --nj-only.
 
+    --crispr-modtype, -Y SITEWISE|GLOBAL
+        (default SITEWISE) Model type for CRISPR mutations.  May be GLOBAL
+        (single rate matrix across all sites) or SITEWISE (separate rate
+        matrix per site).  Use SITEWISE for comparison with LAML or GLOBAL
+        for comparison with TiDeTree. 
+
+    --crispr-mutprior, -p UNIF|EMPIRICAL
+        (default UNIF) Mutation-rate priors for CRISPR model. May be UNIF
+        (uniform distribution for all edits) or EMPIRICAL (use relative
+        frequencies at tips of tree).  Whether distribution is applied
+        across all sites or separately for each one depends on
+        --crispr-modtype.
+        
     --upweight-kld, -U <factor>
        The variational objective function (ELBO) is the difference between
         an expected log likelihood and a KL divergence from a standard
@@ -169,6 +182,6 @@ OPTIONS:
         factor and therefore push the approximate posterior toward simpler
         solutions (mean values closer to zero, covariance matrix closer to
         identity). Use a logfile for guidance.
-
+        
     --help, -h
         Display this help message and exit.

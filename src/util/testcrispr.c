@@ -13,6 +13,7 @@ int main(int argc, char *argv[]) {
   double ll;
   CrisprMutTable *newM;
   CrisprMutModel *cprmod;
+  Vector *grad;
   FILE *F = phast_fopen(argv[1], "r");
   CrisprMutTable *M = cpr_read_table(F);
   cpr_renumber_states(M); 
@@ -46,12 +47,14 @@ int main(int argc, char *argv[]) {
 
   
   /* compute likelihood and output */
-  ll = cpr_compute_log_likelihood(cprmod, NULL);
+  grad = vec_new(mod->tree->nnodes);
+  ll = cpr_compute_log_likelihood(cprmod, grad);
 
   printf("Log likelihood: %f\n", ll);
-  
-  /* FIXME: later check gradients */
-  
+
+  printf("Gradient:\n");
+  vec_print(grad, stdout);
+    
   cpr_free_table(M);
   cpr_free_model(cprmod);
 }

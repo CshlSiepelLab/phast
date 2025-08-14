@@ -168,9 +168,9 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
   int nstates;
   TreeNode *n, *sibling;
   double total_prob = 0;
-  List *traversal;
+  List *traversal, *pre_trav;
   double **pL = NULL, **pLbar = NULL;
-  double scaling_threshold = DBL_MIN * 1.0e10; /* need some padding */
+  double scaling_threshold = DBL_MIN * 1.0e10;  /* need some padding */
   double lscaling_threshold = log(scaling_threshold);
   double ll = 0;
   double tmp[cprmod->nstates+1], root_eqfreqs[cprmod->nstates+1];
@@ -225,12 +225,14 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
     
     /* first zero out all pL values because with the smart
        algorithm, we won't visit most elements in the matrix */
-    for (nodeidx = 0; nodeidx < cprmod->mod->tree->nnodes; nodeidx++) 
+    for (nodeidx = 0; nodeidx < cprmod->mod->tree->nnodes; nodeidx++) {
+      ancsets->nodetypes[nodeidx] = -99; /* also initialize these */
       for (i = 0; i < nstates; i++) 
         pL[i][nodeidx] = 0;
+    }
 
     /* also reset scale */
-    vec_zero(lscale); vec_zero(lscale);
+    vec_zero(lscale); vec_zero(lscale_o);
 
     /* this model allows a leading branch to the root of the tree but
        forces the unedited state at the start of that branch.  We can
@@ -245,6 +247,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
       int mut;
 
       n = lst_get_ptr(traversal, nodeidx);
+
       if (n->lchild == NULL) {
         /* leaf: base case of recursion */
         cell = cprmod->mod->msa_seq_idx[n->id];
@@ -272,6 +275,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
         /* first set nodetype based on nodetypes of children */
         lchildtype = ancsets->nodetypes[n->lchild->id];
         rchildtype = ancsets->nodetypes[n->rchild->id];
+        
         if (lchildtype == 0 || rchildtype == 0) /* if either child is
                                                    unedited, parent
                                                    must be unedited */
@@ -359,10 +363,10 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
     /* to compute gradients efficiently, need to make a second pass
        across the tree to compute "outside" probabilities */
     if (branchgrad != NULL) {
-      traversal = tr_preorder(cprmod->mod->tree);
+      pre_trav = tr_preorder(cprmod->mod->tree);
 
-      for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
-        n = lst_get_ptr(traversal, nodeidx);
+      for (nodeidx = 0; nodeidx < lst_size(pre_trav); nodeidx++) {
+        n = lst_get_ptr(pre_trav, nodeidx);
 
         if (n->parent == NULL) { /* base case */
           par_states = cpr_get_state_set(ancsets, n, nstates);
@@ -415,12 +419,11 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
       }
 
       /* now compute branchwise derivatives in a final pass */
-      traversal = cprmod->mod->tree->nodes;
-      for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
+      for (nodeidx = 0; nodeidx < lst_size(cprmod->mod->tree->nodes); nodeidx++) {
         TreeNode *par;
         double base_prob = total_prob, deriv = 0;
         
-        n = lst_get_ptr(traversal, nodeidx);
+        n = lst_get_ptr(cprmod->mod->tree->nodes, nodeidx);
         par = n->parent;
 	
         if (par == NULL || n == cprmod->mod->tree->rchild) 
@@ -456,9 +459,9 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
         deriv *= 1.0 / base_prob; /* because need deriv of log P */
 
         /* adjust for all relevant scale terms */
-        deriv *= exp(vec_get(lscale, sibling->id) + vec_get(lscale_o, par->id) +
-                     vec_get(lscale, n->id));
-        
+        deriv *= exp(vec_get(lscale, cprmod->mod->tree->id) - vec_get(lscale, sibling->id) -
+                     vec_get(lscale_o, par->id) - vec_get(lscale, n->id));
+
         vec_set(branchgrad, nodeidx, vec_get(branchgrad, nodeidx) + deriv );
       }
     }
@@ -537,7 +540,7 @@ void cpr_set_subst_matrices(TreeModel *mod, List *Pt, Vector *eqfreqs) {
    of Mai, Chu, and Raphael, doi:10.1101/2024.03.05.583638 */  
 void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs) {  
   int j, silst = P->size - 1; /* silent state is the last one */
-  double silent_rate = 0.381; /* for now, fix; need to pass in */
+  double silent_rate =0.42074017197259317; /* for now, fix; need to pass in */
   mat_zero(P->matrix);
   
   /* substitution probabilities from 0 (unedited) state to all edited
@@ -560,7 +563,7 @@ void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs) {
    to branch length */
 void cpr_branch_grad(Matrix *grad, double t, Vector *mutrates) {
   int j, silst = grad->ncols - 1; 
-  double silent_rate = 0.381; /* for now, fix; need to pass in */
+  double silent_rate = 0.42074017197259317; /* for now, fix; need to pass in */
   mat_zero(grad);
   
   /* derivatives of substitution probabilities from 0 (unedited) state

@@ -84,7 +84,7 @@ typedef struct {
   unsigned int hyperbolic; /* whether or not hyperbolic geometry is used */
   double negcurvature; /* for hyperbolic case */
   MSA *msa; /* multiple alignment under analysis if available */
-  CrisprMutTable *crispr_muts; /* alternative CRISPR mutation table */
+  CrisprMutModel *crispr_mod; /* model for CRISPR mutation if needed */
   unsigned int ultrametric; /* whether or not tree is ultrametric */
   char **names;
 } CovarData;
@@ -161,7 +161,7 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
 void nj_update_covariance(multi_MVN *mmvn, CovarData *data);
 
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
-                             int dim, MSA *msa, CrisprMutTable *crispr_muts,
+                             int dim, MSA *msa, CrisprMutModel *crispr_mod,
                              char **names, unsigned int natural_grad,
                              double kld_upweight, int rank,
                              double sparsity, unsigned int hyperbolic,
