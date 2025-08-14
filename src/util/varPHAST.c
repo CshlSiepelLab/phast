@@ -363,8 +363,10 @@ int main(int argc, char *argv[]) {
         if (msa != NULL)
           tm_init_backgd(mod, msa, -1);
         
-        if (is_crispr)
+        if (is_crispr) {
           crispr_mod->mod = mod;
+          cpr_prep_model(crispr_mod);
+        }
         else if (subst_mod == JC69)
           tm_set_JC69_matrix(mod);
         else

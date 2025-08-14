@@ -203,6 +203,7 @@ void upgma_set_dt_dD(TreeNode *tree, Matrix* dt_dD) {
       for (k = 0; k < lst_size(rleaves); k++) {
         rl = lst_get_ptr(rleaves, k);
         mat_set(H, i, nj_i_j_to_dist(ll->id, rl->id, nleaves), weight);
+        assert(nj_i_j_to_dist(ll->id, rl->id, nleaves) < ndist);
       }
     }
   }
