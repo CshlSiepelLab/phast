@@ -560,7 +560,7 @@ double nj_distance_on_tree(TreeNode *root, TreeNode *n1, TreeNode *n2) {
   double totd1, totd2;
   
   /* initialize distance from n1 to each ancestor to be -1 */
-  for (id = 0; id <= root->nnodes; id++)
+  for (id = 0; id < root->nnodes; id++)
     dist[id] = -1;
   
   /* find distance to each ancestor of n1 */

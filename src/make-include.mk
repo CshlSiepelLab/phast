@@ -28,8 +28,8 @@ else
     CC = lsbcc -fno-stack-protector    
   else
     CC = gcc
-#     CC=/home/mt269/hdf5/bin/h5cc
-#    CC=/home/melissa/llvm-build/Debug+Asserts/bin/clang
+#use for diagnosing memory leak
+#CC = clang -fsanitize=address -fno-omit-frame-pointer    
   endif
   AR = ar
 endif

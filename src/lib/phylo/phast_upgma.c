@@ -252,7 +252,7 @@ TreeNode* upgma_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   D = mat_new(N, N); mat_zero(D);
   active = vec_new(N); vec_set_all(active, FALSE);
   sizes = vec_new(N); vec_zero(sizes);
-  heights = vec_new(N);
+  heights = vec_new(N+1);
   nodes = lst_new_ptr(N);
   tr_reset_id();
 

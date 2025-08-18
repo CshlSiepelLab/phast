@@ -222,6 +222,8 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
       
     nstates = cprmod->mut->sitewise_nstates[site] + 1; /* have to allow for silent state */
     silst = nstates - 1; /* silent state will always be last */
+
+    assert(grad_mat->nrows >= nstates);
     
     /* first zero out all pL values because with the smart
        algorithm, we won't visit most elements in the matrix */
@@ -562,10 +564,10 @@ void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs) {
 /* compute gradients of elements of substitution matrix with respect
    to branch length */
 void cpr_branch_grad(Matrix *grad, double t, Vector *mutrates) {
-  int j, silst = grad->ncols - 1; 
+  int j, silst = mutrates->size - 1; 
   double silent_rate = 0.42074017197259317; /* for now, fix; need to pass in */
   mat_zero(grad);
-  
+         
   /* derivatives of substitution probabilities from 0 (unedited) state
      to all edited (and not silent) states */
   for (j = 1; j < silst; j++)
@@ -629,7 +631,7 @@ List *cpr_estim_sitewise_mutrates(CrisprMutTable *M,
       vec_set(f, mut, 1.0/(M->sitewise_nstates[j]-1.0));
     }
 
-    else{
+    else {
       for (i = 0; i < M->ncells; i++) {
         int mut = cpr_get_mut(M, i, j);
         if (mut > 0)
