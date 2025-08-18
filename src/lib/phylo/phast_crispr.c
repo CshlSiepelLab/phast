@@ -223,8 +223,6 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
     nstates = cprmod->mut->sitewise_nstates[site] + 1; /* have to allow for silent state */
     silst = nstates - 1; /* silent state will always be last */
 
-    assert(grad_mat->nrows >= nstates);
-    
     /* first zero out all pL values because with the smart
        algorithm, we won't visit most elements in the matrix */
     for (nodeidx = 0; nodeidx < cprmod->mod->tree->nnodes; nodeidx++) {
@@ -435,6 +433,11 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
                    n->parent->rchild : n->parent->lchild);
 
         sib_subst_mat = lst_get_ptr(Pt, sibling->id);
+
+        /* get corresponding sets of eligible states */
+        par_states = cpr_get_state_set(ancsets, par, nstates);
+        child_states = cpr_get_state_set(ancsets, n, nstates);
+        sib_states = cpr_get_state_set(ancsets, sibling, nstates);
         
         /* this part is just a constant to propagate through to the
            derivative */
@@ -458,23 +461,27 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
           }
         }
 
-        deriv *= 1.0 / base_prob; /* because need deriv of log P */
+        /* adjust for all relevant scale terms; do everything in log space */
+        deriv *= exp(vec_get(lscale, cprmod->mod->tree->id)
+                     - vec_get(lscale, sibling->id) - vec_get(lscale_o, par->id)
+                     - vec_get(lscale, n->id) - log(base_prob));
+        /* note division by base_prob because we need deriv of log P */
+        
+        /* deriv *= exp(vec_get(lscale, cprmod->mod->tree->id) - vec_get(lscale, sibling->id) - */
+        /*              vec_get(lscale_o, par->id) - vec_get(lscale, n->id)) / base_prob; */
 
-        /* adjust for all relevant scale terms */
-        deriv *= exp(vec_get(lscale, cprmod->mod->tree->id) - vec_get(lscale, sibling->id) -
-                     vec_get(lscale_o, par->id) - vec_get(lscale, n->id));
 
         vec_set(branchgrad, nodeidx, vec_get(branchgrad, nodeidx) + deriv );
       }
     }
   }
   
-  for (j = 0; j < nstates; j++)
+  for (j = 0; j < cprmod->nstates+1; j++)
     sfree(pL[j]);
   sfree(pL);
 
   if (branchgrad != NULL) {
-    for (j = 0; j < nstates; j++)
+    for (j = 0; j < cprmod->nstates+1; j++)
       sfree(pLbar[j]);
     sfree(pLbar);
     mat_free(grad_mat);
@@ -530,25 +537,25 @@ double cpr_compute_pw_dist(CrisprMutTable *M, int i, int j) {
 
 /* set a substitution matrix for each edge based on current branch
    lengths and sitewise rate parameters */
-void cpr_set_subst_matrices(TreeModel *mod, List *Pt, Vector *eqfreqs) {
+void cpr_set_subst_matrices(TreeModel *mod, List *Pt, Vector *mutrates) {
   for (int nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++) {
     TreeNode *n = lst_get_ptr(mod->tree->nodes, nodeidx);
     MarkovMatrix *P = lst_get_ptr(Pt, nodeidx);
-    cpr_set_branch_matrix(P, n->dparent, eqfreqs); 
+    cpr_set_branch_matrix(P, n->dparent, mutrates); 
   }    
 }
 
 /* set P = exp(Qt) matrix for branch length t, using parameterization
    of Mai, Chu, and Raphael, doi:10.1101/2024.03.05.583638 */  
-void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs) {  
+void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *mutrates) {  
   int j, silst = P->size - 1; /* silent state is the last one */
-  double silent_rate =0.42074017197259317; /* for now, fix; need to pass in */
+  double silent_rate =0.3981361479473547; /* for now, fix; need to pass in */
   mat_zero(P->matrix);
   
   /* substitution probabilities from 0 (unedited) state to all edited
      (and not silent) states */
   for (j = 1; j < silst; j++)
-    mm_set(P, 0, j, vec_get(eqfreqs, j) * exp(-t * silent_rate) * (1 - exp(-t)));
+    mm_set(P, 0, j, vec_get(mutrates, j) * exp(-t * silent_rate) * (1 - exp(-t)));
   mm_set(P, 0, 0, exp(-t*(1+silent_rate)));
   
   /* substitution probabilities from edited states to themselves */
@@ -565,7 +572,7 @@ void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *eqfreqs) {
    to branch length */
 void cpr_branch_grad(Matrix *grad, double t, Vector *mutrates) {
   int j, silst = mutrates->size - 1; 
-  double silent_rate = 0.42074017197259317; /* for now, fix; need to pass in */
+  double silent_rate = 0.3981361479473547; /* for now, fix; need to pass in */
   mat_zero(grad);
          
   /* derivatives of substitution probabilities from 0 (unedited) state

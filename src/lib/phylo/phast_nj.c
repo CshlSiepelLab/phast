@@ -2109,14 +2109,19 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod,
 /* compute the gradient of the log likelihood with respect to the
    individual branch lengths.  This version uses numerical methods
    (mostly useful for testing analytical version) */
-double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, MSA *msa) {
+double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, CovarData *data) {
   int nodeidx;
-  double ll, ll_base = nj_compute_log_likelihood(mod, msa, NULL);
+  double ll, ll_base;
   List *traversal;
+
+  if (data->crispr_mod != NULL)
+    ll_base = cpr_compute_log_likelihood(data->crispr_mod, NULL);
+  else
+    ll_base = nj_compute_log_likelihood(mod, data->msa, NULL);
   
   /* perturb each branch and recompute likelihood */
   traversal = mod->tree->nodes;
-  assert(dL_dt->size == lst_size(traversal) - 2); /* because unrooted tree */
+  assert(dL_dt->size == lst_size(traversal) - 1); 
   vec_zero(dL_dt);
   for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
     TreeNode *node = lst_get_ptr(traversal, nodeidx);
@@ -2127,7 +2132,12 @@ double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, MSA *msa) {
                    implicitly unrooted */
     
     node->dparent += DERIV_EPS;
-    ll = nj_compute_log_likelihood(mod, msa, NULL);
+
+    if (data->crispr_mod != NULL)
+      ll = cpr_compute_log_likelihood(data->crispr_mod, NULL);
+    else
+      ll = nj_compute_log_likelihood(mod, data->msa, NULL);
+
     vec_set(dL_dt, nodeidx, (ll - ll_base) / DERIV_EPS);
     node->dparent = orig_t;
   }
@@ -2231,6 +2241,14 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   else
     ll_base = nj_compute_log_likelihood(mod, data->msa, dL_dt);
 
+  /* TEMPORARY: compare dL_dt to numerical version */
+  fprintf(stdout, "dL_dt (analytical):\n");
+  vec_print(dL_dt, stdout);
+  nj_dL_dt_num(dL_dt, mod, data);
+  fprintf(stdout, "dL_dt (numerical):\n");
+  vec_print(dL_dt, stdout);
+  exit(0);
+  
   /* apply chain rule to get dL/dD gradient (a vector of dim ndist) */
   mat_vec_mult_transp(dL_dD, dt_dD, dL_dt);
   /* (note taking transpose of both vector and matrix and expressing

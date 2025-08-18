@@ -193,7 +193,7 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
 double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod, 
                      CovarData *data);
 
-double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, MSA *msa);
+double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, CovarData *data);
 
 void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, CovarData *data);
 
