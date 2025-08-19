@@ -27,9 +27,9 @@ else
   ifeq ($(TARGETOS), LSB)
     CC = lsbcc -fno-stack-protector    
   else
-    CC = gcc
+#    CC = gcc
 #use for diagnosing memory leak
-#CC = clang -fsanitize=address -fno-omit-frame-pointer    
+CC = clang -fsanitize=address -fno-omit-frame-pointer    
   endif
   AR = ar
 endif

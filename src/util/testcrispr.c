@@ -31,6 +31,9 @@ int main(int argc, char *argv[]) {
   /* read starting tree */
   tree = tr_new_from_file(phast_fopen(argv[2], "r"));
 
+  /* tree needs to be indexed correctly */
+  tr_enforce_unrooted_indexing(tree);
+
   /* dummy tree model */
   rmat = mm_new(strlen(DEFAULT_ALPHABET), DEFAULT_ALPHABET,
                 CONTINUOUS);
@@ -38,7 +41,6 @@ int main(int argc, char *argv[]) {
                1, 1, NULL, -1);
   tm_set_JC69_matrix(mod);
 
-  /* dump model */
   cprmod = cpr_new_model(newM, mod, SITEWISE, UNIF);
   cpr_prep_model(cprmod);
   cpr_update_model(cprmod);

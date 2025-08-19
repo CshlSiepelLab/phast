@@ -470,8 +470,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
         /* deriv *= exp(vec_get(lscale, cprmod->mod->tree->id) - vec_get(lscale, sibling->id) - */
         /*              vec_get(lscale_o, par->id) - vec_get(lscale, n->id)) / base_prob; */
 
-
-        vec_set(branchgrad, nodeidx, vec_get(branchgrad, nodeidx) + deriv );
+        vec_set(branchgrad, n->id, vec_get(branchgrad, n->id) + deriv);
       }
     }
   }

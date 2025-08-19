@@ -182,43 +182,37 @@ void tr_set_nnodes(TreeNode *tree) {
   stk_push_ptr(stack, tree);
   while ((node = stk_pop_ptr(stack)) != NULL) {
 
-    /* explicitly ensure -1 to start */
-    node->nnodes = -1;
-    
     if (! ((node->lchild == NULL && node->rchild == NULL) ||
            (node->lchild != NULL && node->rchild != NULL)))
       die("Invalid tree");
 
-    if (node->lchild == NULL) {
-      node->nnodes = 1;
-      node->height = 0;
-      if (node->id >= lst_size(tree->nodes))
-        for (j = lst_size(tree->nodes); j <= node->id; j++)
-          lst_push_ptr(tree->nodes, NULL); /* this hack necessary
-                                              because original estimate
-                                              of size of list may be
-                                              wrong */
-      lst_set_ptr(tree->nodes, node->id, node);
-    }
-    else if (node->lchild->nnodes != -1 && node->rchild->nnodes != -1) {
-      /* internal node whose children have been visited */
-      node->nnodes = node->lchild->nnodes + node->rchild->nnodes + 1;
-      node->height = max(node->lchild->height, node->rchild->height) + 1;
-
+    if (node->nnodes == -99) {
+      /* node has been visited; process it now */
+    
+      if (node->lchild == NULL) {
+        node->nnodes = 1;
+        node->height = 0;
+      }
+      else {
+        node->nnodes = node->lchild->nnodes + node->rchild->nnodes + 1;
+        node->height = max(node->lchild->height, node->rchild->height) + 1;
+      }
+      
       for (j = lst_size(tree->nodes); j <= node->id; j++)
-        lst_push_ptr(tree->nodes, NULL); /* this hack necessary
-                                            because original estimate
-                                            of size of list may be
-                                            wrong */
+        lst_push_ptr(tree->nodes, NULL); /* in case original size is wrong */
       lst_set_ptr(tree->nodes, node->id, node);
     }
-    else {			/* internal node whose children have
-                       not yet been visited */
+    else {
+      /* first visit; mark and push children */
+      node->nnodes = -99;
       stk_push_ptr(stack, node);
-      stk_push_ptr(stack, node->lchild);
-      stk_push_ptr(stack, node->rchild);
-    }
+      if (node->lchild != NULL) {
+        stk_push_ptr(stack, node->lchild);
+        stk_push_ptr(stack, node->rchild);
+      }
+    }    
   }
+  
   stk_free(stack);
 
   /* in certain cases, the indexing will have gaps, e.g., if nodes

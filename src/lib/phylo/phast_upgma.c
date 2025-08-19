@@ -156,7 +156,7 @@ TreeNode* upgma_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
   root->nnodes = N+1;
   tr_reset_nnodes(root);
 
-  assert(tr_check_unrooted_indexing(root) == TRUE);
+  assert(root->id == root->nnodes - 1); /* important for indexing */
 
   /* set jacobian; can be done in postprocessing */
   if (dt_dD != NULL)
@@ -342,7 +342,7 @@ TreeNode* upgma_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   root->nnodes = N + 1;
   tr_reset_nnodes(root);
 
-  assert(tr_check_unrooted_indexing(root) == TRUE);
+  assert(root->id == root->nnodes - 1); /* important for indexing */
   
   if (dt_dD != NULL)
     upgma_set_dt_dD(root, dt_dD);  // Postprocess

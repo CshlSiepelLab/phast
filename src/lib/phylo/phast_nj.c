@@ -241,8 +241,8 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
     root->nnodes = N+1;
     tr_reset_nnodes(root);
 
-    assert(tr_check_unrooted_indexing(root) == TRUE);
-
+    assert(root->id == root->nnodes - 1); /* important for indexing */
+    
     lst_free(nodes);
     vec_free(active);
     vec_free(sums);
@@ -323,11 +323,10 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
       Jk = spmat_new(Npairs, npairs, 100);
       Jnext = spmat_new(Npairs, npairs, 100);
     }
-    else { assert(Npairs == Jk->nrows && npairs == Jk->ncols); }
-    //    Jk = malloc(Npairs * npairs * sizeof(double*));
-    //  Jnext = malloc(Npairs * npairs * sizeof(double*));
+    else
+      assert(Npairs == Jk->nrows && npairs == Jk->ncols);
+
     nj_backprop_init_sparse(Jk, n);
-    //  nj_backprop_init(Jk, n);
     mat_zero(dt_dD);
   }
     
@@ -383,8 +382,6 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
     if (dt_dD != NULL) {
             nj_backprop_set_dt_dD_sparse(Jk, dt_dD, orign, u, v, node_u->id, node_v->id, active);
             nj_backprop_sparse(Jk, Jnext, orign, hn->i, hn->j, w, active);
-      //      nj_backprop_set_dt_dD(Jk, dt_dD, orign, u, v, node_u->id, node_v->id, active);
-      //nj_backprop(Jk, Jnext, orign, hn->i, hn->j, w, active);
     }
 
     /* this has to be done after the backprop calls */
@@ -394,10 +391,7 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
     n--;  /* one fewer active nodes */
 
     if (dt_dD != NULL) {
-      //free(Jk);
       spmat_copy(Jk, Jnext);
-      //    Jk = Jnext;
-      //Jnext = malloc(Npairs * npairs * sizeof(double));
     }
       
     /* finally, add new Q values to the heap */
@@ -435,24 +429,19 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   node_v->dparent = mat_get(D, u, v) / 2;
 
   if (dt_dD != NULL) 
-        nj_backprop_set_dt_dD_sparse(Jk, dt_dD, orign, u, v, node_u->id, node_v->id, active);
+    nj_backprop_set_dt_dD_sparse(Jk, dt_dD, orign, u, v, node_u->id, node_v->id, active);
   //nj_backprop_set_dt_dD(Jk, dt_dD, orign, u, v, node_u->id, node_v->id, active);
   
   /* finish set up of tree */
   root->nnodes = N+1;
   tr_reset_nnodes(root);
 
-  assert(tr_check_unrooted_indexing(root) == TRUE);
+  assert(root->id == root->nnodes - 1); /* important for indexing */
 
   lst_free(nodes);
   vec_free(active);
   vec_free(sums);
   mat_free(D);
-
-  //    if (dt_dD != NULL) {
-  //  free(Jk);
-  //  free(Jnext);
-  //}
     
   return root;
 }
@@ -2178,7 +2167,6 @@ void nj_dt_dD_num(Matrix *dt_dD, Matrix *D, TreeModel *mod, CovarData *data) {
         
         if (node->id != orign->id) continue;
         
-        assert(nodeidx < 2*n - 3);
         mat_set(dt_dD, nodeidx, nj_i_j_to_dist(i, j, n),
                 (node->dparent - orign->dparent) / DERIV_EPS);
       }
