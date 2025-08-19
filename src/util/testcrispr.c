@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
 
   
   /* compute likelihood and output */
-  grad = vec_new(mod->tree->nnodes);
+  grad = vec_new(mod->tree->nnodes - 1);
   ll = cpr_compute_log_likelihood(cprmod, grad);
 
   printf("Log likelihood: %f\n", ll);

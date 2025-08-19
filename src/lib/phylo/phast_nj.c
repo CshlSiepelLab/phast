@@ -239,7 +239,9 @@ TreeNode* nj_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
     
     /* finish set up of tree */
     root->nnodes = N+1;
-    tr_set_nnodes(root);
+    tr_reset_nnodes(root);
+
+    assert(tr_check_unrooted_indexing(root) == TRUE);
 
     lst_free(nodes);
     vec_free(active);
@@ -438,7 +440,9 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   
   /* finish set up of tree */
   root->nnodes = N+1;
-  tr_set_nnodes(root);
+  tr_reset_nnodes(root);
+
+  assert(tr_check_unrooted_indexing(root) == TRUE);
 
   lst_free(nodes);
   vec_free(active);
@@ -671,8 +675,7 @@ void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data) {
 /* compute the gradient of the log likelihood for a tree model with
    respect to the free parameters of the MVN averaging distribution,
    starting from a given MVN sample (points). Returns log likelihood
-   of current model, which is computed as a by-product.  This version
-   uses numerical methods */
+   of current model, which is computed as a by-product.  */
 double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, 
                              Vector *points, Vector *points_std,
                              Vector *grad, CovarData *data) {

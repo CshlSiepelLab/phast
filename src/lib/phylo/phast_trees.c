@@ -192,8 +192,8 @@ void tr_set_nnodes(TreeNode *tree) {
     if (node->lchild == NULL) {
       node->nnodes = 1;
       node->height = 0;
-      if (node->id >= tree->nnodes)
-        for (j = tree->nnodes; j <= node->id; j++)
+      if (node->id >= lst_size(tree->nodes))
+        for (j = lst_size(tree->nodes); j <= node->id; j++)
           lst_push_ptr(tree->nodes, NULL); /* this hack necessary
                                               because original estimate
                                               of size of list may be
@@ -205,7 +205,7 @@ void tr_set_nnodes(TreeNode *tree) {
       node->nnodes = node->lchild->nnodes + node->rchild->nnodes + 1;
       node->height = max(node->lchild->height, node->rchild->height) + 1;
 
-      for (j = tree->nnodes; j <= node->id; j++)
+      for (j = lst_size(tree->nodes); j <= node->id; j++)
         lst_push_ptr(tree->nodes, NULL); /* this hack necessary
                                             because original estimate
                                             of size of list may be
@@ -225,7 +225,6 @@ void tr_set_nnodes(TreeNode *tree) {
      have been deleted or added in a strange way. Let's force it to be
      dense */
   if (tree->nnodes != lst_size(tree->nodes)) {
-    int i, j;
     for (i = 0, j = 0; i < lst_size(tree->nodes); i++) {
       node = lst_get_ptr(tree->nodes, i);
       if (node == NULL)
