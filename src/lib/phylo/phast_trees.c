@@ -153,6 +153,16 @@ TreeNode *tr_new_from_string(const char *treestr) {
   if (nopen_parens != nclose_parens)
     die("ERROR: mismatching parens in tree.\n");
 
+  /* sometimes tree is nonbinary near root, if extra parens are included.  Remove extra nodes */
+  while (root->rchild == NULL && root->lchild != NULL) {
+    node = root;
+    root = root->lchild;
+    root->parent = NULL;
+    root->dparent += node->dparent;
+    root->nnodes = node->nnodes-1;
+    sfree(node);
+  }
+   
   tr_set_nnodes(root);
   str_free(diststr);
   str_free(labelstr);
@@ -171,6 +181,10 @@ void tr_set_nnodes(TreeNode *tree) {
   stack = stk_new_ptr(tree->nnodes);
   stk_push_ptr(stack, tree);
   while ((node = stk_pop_ptr(stack)) != NULL) {
+
+    /* explicitly ensure -1 to start */
+    node->nnodes = -1;
+    
     if (! ((node->lchild == NULL && node->rchild == NULL) ||
            (node->lchild != NULL && node->rchild != NULL)))
       die("Invalid tree");
@@ -187,6 +201,7 @@ void tr_set_nnodes(TreeNode *tree) {
       lst_set_ptr(tree->nodes, node->id, node);
     }
     else if (node->lchild->nnodes != -1 && node->rchild->nnodes != -1) {
+      /* internal node whose children have been visited */
       node->nnodes = node->lchild->nnodes + node->rchild->nnodes + 1;
       node->height = max(node->lchild->height, node->rchild->height) + 1;
 
@@ -205,6 +220,24 @@ void tr_set_nnodes(TreeNode *tree) {
     }
   }
   stk_free(stack);
+
+  /* in certain cases, the indexing will have gaps, e.g., if nodes
+     have been deleted or added in a strange way. Let's force it to be
+     dense */
+  if (tree->nnodes != lst_size(tree->nodes)) {
+    int i, j;
+    for (i = 0, j = 0; i < lst_size(tree->nodes); i++) {
+      node = lst_get_ptr(tree->nodes, i);
+      if (node == NULL)
+        continue;
+      if (i != j) {
+        node->id = j;
+        lst_set_ptr(tree->nodes, j, node);
+        j++;
+      }
+    }
+    tree->nodes->ridx = tree->nodes->lidx + j; /* resets size */
+  }
 }
 
 /* Create and initialize a new tree node */
@@ -1658,4 +1691,82 @@ void tr_get_labelled_nodes(TreeNode *tree, const char *label, List *rv) {
     if (node->label != NULL && strcmp(node->label, label)==0)
       lst_push_ptr(rv, node);
   }
+}
+
+/* checks that last two node ids correspond to root and right child of
+   root.  Useful in cases in which indexing is used for branches of
+   the induced unrooted tree, excluding those two nodes.  If this
+   condition is true, the first nnodes - 2 ids (and first nnodes - 2
+   entries of the 'nodes' list) correspond to branches of the unrooted
+   tree. */
+int tr_check_unrooted_indexing(TreeNode *root) {
+  if (root == NULL || root->lchild == NULL || root->rchild == NULL || root->nnodes < 3)
+    return FALSE;
+  if (root->id >= root->nnodes - 2 && root->rchild->id >= root->nnodes - 2)
+    return TRUE;
+  return FALSE;        
+}
+
+/* renumber nodes to ensure unrooted indexing */
+void tr_enforce_unrooted_indexing(TreeNode *tree) {
+  TreeNode *l1, *l2, *swap;
+  int tmp;
+  
+  /* we'll assume the nodes list exists */
+  assert(tree->nodes != NULL && lst_size(tree->nodes) == tree->nnodes);
+
+  if (tree->nnodes < 3)
+    return; /* nothing to do */
+  
+  /* locate the current last two nodes */
+  l1 = lst_get_ptr(tree->nodes, tree->nnodes-1);
+  l2 = lst_get_ptr(tree->nodes, tree->nnodes-2);
+
+  if (tree->id < tree->nnodes - 2) { /* need to swap */
+    swap = (l1 == tree->rchild ? l2 : l1); /* swap with l1 unless l1
+                                              is already rchild, in
+                                              which case swap with
+                                              l2 */
+    tmp = swap->id;
+    swap->id = tree->id;
+    tree->id = tmp;
+  }
+  
+  if (tree->rchild->id < tree->nnodes - 2) { /* need to swap */
+    swap = l2;  /* swap with l2 */
+    assert(l2->id != tree->id); /* can't be true that we've already
+                                   swapped with l2; if we had,
+                                   tree->rchild would already be
+                                   valid */
+    tmp = swap->id;
+    swap->id = tree->rchild->id;
+    tree->rchild->id = tmp;
+  }
+
+  assert(tr_check_unrooted_indexing(tree));
+  
+  tr_reset_nnodes(tree);
+}
+
+/* rebuild nnodes, height, and nodes list; reset predefined
+   traversals.  Should be used after tree restructuring or renumbering
+   of nodes */
+void tr_reset_nnodes(TreeNode *tree) {
+  if (tree->nodes != NULL) {
+    lst_free(tree->nodes);
+    tree->nodes = NULL;
+  }
+  if (tree->postorder != NULL) {
+    lst_free(tree->postorder);
+    tree->postorder = NULL;
+  }
+  if (tree->preorder != NULL) {
+    lst_free(tree->preorder);
+    tree->preorder = NULL;
+  }
+  if (tree->inorder != NULL) {
+    lst_free(tree->inorder);
+    tree->inorder = NULL;
+  }
+  tr_set_nnodes(tree);
 }

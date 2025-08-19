@@ -461,4 +461,10 @@ void tr_label_subtree(TreeNode *tree, const char *subtreeNode,
 void tr_get_labelled_nodes(TreeNode *tree, const char *label, List *rv);
 /** \} */
 
+int tr_check_unrooted_indexing(TreeNode *root);
+
+void tr_enforce_unrooted_indexing(TreeNode *tree);
+
+void tr_reset_nnodes(TreeNode *tree);
+
 #endif 
