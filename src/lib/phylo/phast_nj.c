@@ -2233,12 +2233,12 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
     ll_base = nj_compute_log_likelihood(mod, data->msa, dL_dt);
 
   /* TEMPORARY: compare dL_dt to numerical version */
-  fprintf(stdout, "dL_dt (analytical):\n");
-  vec_print(dL_dt, stdout);
-  nj_dL_dt_num(dL_dt, mod, data);
-  fprintf(stdout, "dL_dt (numerical):\n");
-  vec_print(dL_dt, stdout);
-  exit(0);
+  /* fprintf(stdout, "dL_dt (analytical):\n"); */
+  /* vec_print(dL_dt, stdout); */
+  /* nj_dL_dt_num(dL_dt, mod, data); */
+  /* fprintf(stdout, "dL_dt (numerical):\n"); */
+  /* vec_print(dL_dt, stdout); */
+  /* exit(0); */
   
   /* apply chain rule to get dL/dD gradient (a vector of dim ndist) */
   mat_vec_mult_transp(dL_dD, dt_dD, dL_dt);
