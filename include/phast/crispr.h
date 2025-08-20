@@ -8,6 +8,9 @@
 #include <phast/tree_model.h>
 #include <phast/vector.h>
 
+/* initialization of silencing rate */
+#define CPR_SIL_RATE_INIT 0.4
+
 typedef struct {
   int nsites;
   int ncells;
@@ -27,7 +30,6 @@ typedef struct {
   enum crispr_model_type model_type;
   int nsites;
   int ncells;
-  double silencing_rate; 
   TreeModel *mod; /* encapsulates tree with branch lengths 
                      and some auxiliary data */
   CrisprMutTable *mut;
@@ -36,6 +38,12 @@ typedef struct {
   enum crispr_mutrates_type mutrates_type;
   Vector *mutrates;  /* global mutation rates */
   List *sitewise_mutrates; /* one vector per site */
+  double sil_rate;  /* rate of silencing */
+  double deriv_sil; /* latest partial deriv of log likelihood wrt
+                       sil_rate */
+  double leading_t; /* length of leading branch to root */
+  double deriv_leading_t; /* latest partial deriv of leading branch
+                              len */
 } CrisprMutModel;
 
 /* auxiliary data used to keep track of restricted ancestral state
@@ -74,11 +82,17 @@ Matrix *cpr_compute_dist(CrisprMutTable *M);
 
 double cpr_compute_pw_dist(CrisprMutTable *M, int i, int j);
 
-void cpr_set_subst_matrices(TreeModel *mod, List *Pt, Vector *mutrates);
+void cpr_set_subst_matrices(TreeModel *mod, double silent_rate,
+                            List *Pt, Vector *mutrates);
 
-void cpr_set_branch_matrix(MarkovMatrix *P, double t, Vector *mutrates);
+void cpr_set_branch_matrix(MarkovMatrix *P, double t, double silent_rate,
+                           Vector *mutrates);
 
-void cpr_branch_grad(Matrix *grad, double t, Vector *eqfreqs);
+void cpr_branch_grad(Matrix *grad, double t, double silent_rate,
+                     Vector *eqfreqs);
+
+void cpr_silent_rate_grad(Matrix *grad, double t, double silent_rate,
+                          Vector *mutrates);
 
 Vector *cpr_estim_mutrates(CrisprMutTable *M,
                             enum crispr_mutrates_type type);
