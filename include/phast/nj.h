@@ -86,6 +86,9 @@ typedef struct {
   MSA *msa; /* multiple alignment under analysis if available */
   CrisprMutModel *crispr_mod; /* model for CRISPR mutation if needed */
   unsigned int ultrametric; /* whether or not tree is ultrametric */
+  double hky_kappa; /* for use in estimating kappa as a nuisance
+                       parameter in HKY case */
+  double deriv_hky_kappa;
   char **names;
 } CovarData;
 
@@ -223,4 +226,19 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
 
 TreeNode *nj_inf(Matrix *D, char **names, Matrix *dt_dD,
                  CovarData *covar_data);
+
+int nj_get_num_nuisance_params(TreeModel *mod, CovarData *data);
+
+char *nj_get_nuisance_param_name(TreeModel *mod, CovarData *data, int idx);
+
+void nj_update_nuis_grad(TreeModel *mod, CovarData *data, Vector *nuis_grad);
+
+void nj_save_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data);
+
+void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data);
+
+void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc);
+
+double nj_nuis_param_get(TreeModel *mod, CovarData *data, int idx);
+
 #endif

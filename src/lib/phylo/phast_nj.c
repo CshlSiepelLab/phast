@@ -847,6 +847,13 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     running_tot = 0, last_running_tot = -INFTY, trace, logdet, penalty = 0,
     bestpenalty = 0;
   FILE *gradf = NULL;
+
+  /* for nuisance parameters; these are parameters that are optimized
+     by stochastic gradient descent but are not fully sampled via the
+     variational distribution */
+  int n_nuisance_params = nj_get_num_nuisance_params(mod, data);
+  Vector *nuis_grad, *ave_nuis_grad, *m_nuis, *v_nuis, *m_nuis_prev,
+    *v_nuis_prev, *best_nuis_params;
   
 #ifdef DUMPGRAD
   gradf = phast_fopen("grads_log.txt", "w");
@@ -866,6 +873,16 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   m_prev = vec_new(graddim);
   v = vec_new(graddim);
   v_prev = vec_new(graddim);
+
+  if (n_nuisance_params > 0) {
+    nuis_grad = vec_new(n_nuisance_params);
+    ave_nuis_grad = vec_new(n_nuisance_params);
+    m_nuis = vec_new(n_nuisance_params);
+    v_nuis = vec_new(n_nuisance_params);
+    m_nuis_prev = vec_new(n_nuisance_params);
+    v_nuis_prev = vec_new(n_nuisance_params);
+    best_nuis_params = vec_new(n_nuisance_params);
+  }
 
   if (data->type == LOWR) /* in this case, the underlying standard
                              normal MVN is of the lower dimension */
@@ -891,6 +908,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       fprintf(logf, "mu.%d\t", j);
     for (j = 0; j < sigmapar->size; j++)
       fprintf(logf, "sigma.%d\t", j);
+    for (j = 0; j < n_nuisance_params; j++)
+      fprintf(logf, "%s\t", nj_get_nuisance_param_name(mod, data, j));
     fprintf(logf, "\n");
   }
   if (gradf != NULL) {
@@ -905,6 +924,10 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   /* initialize moments for Adam algorithm */
   vec_zero(m);  vec_zero(m_prev);
   vec_zero(v);  vec_zero(v_prev);
+  if (n_nuisance_params > 0) {
+    vec_zero(m_nuis);  vec_zero(m_nuis_prev);
+    vec_zero(v_nuis);  vec_zero(v_nuis_prev);
+  }
   t = 0;
   
   do {
@@ -941,7 +964,6 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       nj_set_kld_grad_LOWR(kldgrad, mmvn);
 
       if (data->sparsity != -1) { /* can also precompute */
-        //        nj_set_LASSO_penalty_LOWR(sparsitygrad, mmvn, data);
         nj_set_sparsity_penalty_LOWR(sparsitygrad, mmvn, data);
         penalty = data->penalty;
       }
@@ -952,10 +974,10 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     /* now sample a minibatch from the MVN averaging distribution and
        compute log likelihoods and gradients */
     vec_zero(avegrad);
+    if (n_nuisance_params > 0)
+      vec_zero(ave_nuis_grad);
     avell = 0;
-    for (i = 0; i < nminibatch; i++) {
-      /* double ll_check; */ 
-      
+    for (i = 0; i < nminibatch; i++) {      
       /* use antithetic sampling to reduce variance */
       /* do this in a way that keeps track of the original standard
          normal variable (points_std) for use in computing
@@ -970,6 +992,11 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data);
       avell += ll;
       vec_plus_eq(avegrad, grad);
+
+      if (n_nuisance_params > 0) {
+        nj_update_nuis_grad(mod, data, nuis_grad);
+        vec_plus_eq(ave_nuis_grad, nuis_grad);
+      }
     }
 
     /* divide by nminibatch to get expected gradient */
@@ -978,6 +1005,9 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     vec_plus_eq(avegrad, kldgrad);
     if (data->type == LOWR && data->sparsity != -1)
       vec_plus_eq(avegrad, sparsitygrad);
+
+    if (n_nuisance_params > 0) 
+      vec_scale(ave_nuis_grad, 1.0/nminibatch);
     
     /* store parameters if best yet */
     if (avell - kld > bestelb) {
@@ -988,6 +1018,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       bestt = t;
       mmvn_save_mu(mmvn, best_mu);
       vec_copy(best_sigmapar, sigmapar);
+      nj_save_nuis_params(best_nuis_params, mod, data);
     }
 
     /* rescale gradient by approximate inverse Fisher information to
@@ -996,6 +1027,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       nj_rescale_grad(avegrad, rescaledgrad, mmvn, data);
     else
       vec_copy(rescaledgrad, avegrad);
+    /* we won't do this with nuisance params */
     
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
     t++;
@@ -1019,6 +1051,18 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     vec_copy(m_prev, m);
     vec_copy(v_prev, v);
+
+    /* same thing for nuisance params, if necessary */
+    for (j = 0; j < n_nuisance_params; j++) {   
+      double mhatj_nuis, vhatj_nuis, g = vec_get(ave_nuis_grad, j);
+      vec_set(m_nuis, j, ADAM_BETA1 * vec_get(m_nuis_prev, j) + (1.0 - ADAM_BETA1) * g);
+      vec_set(v_nuis, j, ADAM_BETA2 * vec_get(v_nuis_prev, j) + (1.0 - ADAM_BETA2) * pow(g,2));
+      mhatj_nuis = vec_get(m_nuis, j) / (1.0 - pow(ADAM_BETA1, t));
+      vhatj_nuis = vec_get(v_nuis, j) / (1.0 - pow(ADAM_BETA2, t));
+      nj_nuis_param_pluseq(mod, data, j, learnrate * mhatj_nuis / (sqrt(vhatj_nuis) + ADAM_EPS));
+    }    
+    vec_copy(m_nuis_prev, m_nuis);
+    vec_copy(v_nuis_prev, v_nuis);
     
     /* report to log file */
     if (logf != NULL) {
@@ -1028,6 +1072,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       mmvn_print(mmvn, logf, TRUE, FALSE);
       for (j = 0; j < sigmapar->size; j++)
         fprintf(logf, "%f\t", vec_get(sigmapar, j));
+      for (j = 0; j < n_nuisance_params; j++)
+        fprintf(logf, "%f\t", nj_nuis_param_get(mod, data, j)); 
       fprintf(logf, "\n");
     }
     if (gradf != NULL) {
@@ -1058,14 +1104,16 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   mmvn_set_mu(mmvn, best_mu);
   vec_copy(sigmapar, best_sigmapar);
   nj_update_covariance(mmvn, data);
+  if (n_nuisance_params > 0)
+    nj_update_nuis_params(best_nuis_params, mod, data);
   
   if (logf != NULL) {
     fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, ",
             bestt+1, bestelb, bestll, bestkld);
     if (data->type == LOWR && data->sparsity != -1)
       fprintf(logf, "penalty: %f, ", bestpenalty);
-    fprintf(logf, "sigmapar: ");
-    vec_print(sigmapar, logf);
+    /* fprintf(logf, "sigmapar: "); */
+    /* vec_print(sigmapar, logf); */
   }
   
   vec_free(grad);
@@ -1083,6 +1131,17 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   vec_free(v_prev);
   vec_free(best_mu);
   vec_free(best_sigmapar);
+
+  if (n_nuisance_params > 0) {
+    vec_free(nuis_grad);
+    vec_free(ave_nuis_grad);
+    vec_free(m_nuis);
+    vec_free(v_nuis);
+    vec_free(m_nuis_prev);
+    vec_free(v_nuis_prev);
+    vec_free(best_nuis_params);
+  }
+    
 }
 
 /* sample a list of trees from the approximate posterior distribution
@@ -2500,4 +2559,125 @@ TreeNode *nj_inf(Matrix *D, char **names, Matrix *dt_dD,
   else
     return nj_fast_infer(D, names, dt_dD);
   //    return nj_infer_tree(D, names, dt_dD);  /* non-heap version */
+}
+
+/* helper functions for nuisance parameters in variational
+   inference. For now these include only the HKY ti/tv parameter for
+   DNA models and the silencing rate and leading branch length for
+   CRISPR models */
+int nj_get_num_nuisance_params(TreeModel *mod, CovarData *data) {
+  if (data->crispr_mod != NULL)
+    return 2;
+  else if (mod->subst_mod == HKY85)
+    return 1;
+  else
+    return 0;
+}
+
+char *nj_get_nuisance_param_name(TreeModel *mod, CovarData *data, int idx) {
+  if (data->crispr_mod != NULL) { 
+    if (idx == 0)
+      return "nu";
+    else if (idx == 1)
+      return ("lead_t");
+    else
+      die("ERROR in nj_get_nuisance_param_name: index out of bounds.\n");
+  }
+  else if (mod->subst_mod == HKY85) {
+    if (idx == 0)
+      return "kappa";
+    else
+      die("ERROR in nj_get_nuisance_param_name: index out of bounds.\n");
+  }
+  die("ERROR in nj_get_nuisance_param_name: no nuisance parameters defined.\n");
+  return NULL;
+}
+
+/* update nuis_grad based on current gradients */
+void nj_update_nuis_grad(TreeModel *mod, CovarData *data, Vector *nuis_grad) {
+  if (data->crispr_mod != NULL) {
+    assert(nuis_grad->size == 2);
+    vec_set(nuis_grad, 0, data->crispr_mod->deriv_sil);
+    vec_set(nuis_grad, 1, data->crispr_mod->deriv_leading_t);
+  }
+  else if (mod->subst_mod == HKY85) {
+    assert(nuis_grad->size == 1);
+    vec_set(nuis_grad, 0, data->deriv_hky_kappa);
+  }
+  else
+    die("ERROR in nj_update_nuis_grad: no nuisance parameters defined\n");
+}
+
+/* save current values of nuisance params */
+void nj_save_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data) {
+  if (data->crispr_mod != NULL) {
+    assert(stored_vals->size == 2);
+    vec_set(stored_vals, 0, data->crispr_mod->sil_rate);
+    vec_set(stored_vals, 1, data->crispr_mod->leading_t);
+  }
+  else if (mod->subst_mod == HKY85) {
+    assert(stored_vals->size == 1);
+    vec_set(stored_vals, 0, data->hky_kappa);
+  }
+  else
+    die("ERROR in nj_save_nuis_params: no nuisance parameters defined\n");
+}
+
+/* update all nuisance parameters based on vector of stored values */
+void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data) {
+  if (data->crispr_mod != NULL) {
+    assert(stored_vals->size == 2);
+    data->crispr_mod->sil_rate = vec_get(stored_vals, 0);
+    data->crispr_mod->leading_t = vec_get(stored_vals, 1);
+  }
+  else if (mod->subst_mod == HKY85) {
+    assert(stored_vals->size == 1);
+    data->hky_kappa = vec_get(stored_vals, 0);
+    tm_set_HKY_matrix(mod, data->hky_kappa, -1);
+  }
+  else
+    die("ERROR in nj_update_nuis_params: no nuisance parameters defined\n");
+}
+
+/* add to single nuisance parameter */
+void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) {
+  if (data->crispr_mod != NULL) {
+    if (idx == 0)
+      data->crispr_mod->sil_rate += inc;
+    else if (idx == 1)
+      data->crispr_mod->leading_t += inc;
+    else
+      die("ERROR in nuis_param_pluseq: index out of bounds.\n");
+  }
+  else if (mod->subst_mod == HKY85) {
+    if (idx == 0) {
+      data->hky_kappa += inc;
+      tm_set_HKY_matrix(mod, data->hky_kappa, -1);
+    }
+    else
+      die("ERROR in nuis_param_pluseq: index out of bounds.\n");
+  }
+  else
+    die("ERROR in nj_nuis_param_pluseq: no nuisance parameters defined\n");
+}
+
+/* return value of single nuisance parameter */
+double nj_nuis_param_get(TreeModel *mod, CovarData *data, int idx) {
+  if (data->crispr_mod != NULL) {
+    if (idx == 0)
+      return data->crispr_mod->sil_rate;
+    else if (idx == 1)
+      return data->crispr_mod->leading_t;
+    else
+      die("ERROR in nuis_param_pluseq: index out of bounds.\n");
+  }
+  else if (mod->subst_mod == HKY85) {
+    if (idx == 0)
+      return data->hky_kappa;
+    else
+      die("ERROR in nuis_param_pluseq: index out of bounds.\n");
+  }
+  else
+    die("ERROR in nj_nuis_param_get: no nuisance parameters defined\n");
+  return -1;
 }
