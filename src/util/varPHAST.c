@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
   List *namestr, *trees;
   subst_mod_type subst_mod = JC69;
   TreeModel *mod = NULL;
-  double kappa = DEFAULT_KAPPA, learnrate = DEFAULT_LEARNRATE,
+  double learnrate = DEFAULT_LEARNRATE,
     negcurvature = 1.0, sparsity = -1.0, kld_upweight = 1.0;
   MarkovMatrix *rmat = NULL;
   multi_MVN *mmvn = NULL;
@@ -369,8 +369,10 @@ int main(int argc, char *argv[]) {
         }
         else if (subst_mod == JC69)
           tm_set_JC69_matrix(mod);
-        else
-          tm_set_HKY_matrix(mod, kappa, -1);   /* FIXME: estimate kappa from msa */
+        else {
+          covar_data->hky_kappa = DEFAULT_KAPPA;
+          tm_set_HKY_matrix(mod, covar_data->hky_kappa, -1);
+        }
       }
 
       /* initialize parameters of multivariate normal */

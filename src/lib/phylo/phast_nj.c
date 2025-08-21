@@ -1018,7 +1018,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       bestt = t;
       mmvn_save_mu(mmvn, best_mu);
       vec_copy(best_sigmapar, sigmapar);
-      nj_save_nuis_params(best_nuis_params, mod, data);
+      if (n_nuisance_params > 0)
+        nj_save_nuis_params(best_nuis_params, mod, data);
     }
 
     /* rescale gradient by approximate inverse Fisher information to
@@ -1059,7 +1060,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       vec_set(v_nuis, j, ADAM_BETA2 * vec_get(v_nuis_prev, j) + (1.0 - ADAM_BETA2) * pow(g,2));
       mhatj_nuis = vec_get(m_nuis, j) / (1.0 - pow(ADAM_BETA1, t));
       vhatj_nuis = vec_get(v_nuis, j) / (1.0 - pow(ADAM_BETA2, t));
-      nj_nuis_param_pluseq(mod, data, j, learnrate * mhatj_nuis / (sqrt(vhatj_nuis) + ADAM_EPS));
+      nj_nuis_param_pluseq(mod, data, j, learnrate/25 * mhatj_nuis / (sqrt(vhatj_nuis) + ADAM_EPS));
+      /* in general, these seem to do better with a lower learning rate */
     }    
     vec_copy(m_nuis_prev, m_nuis);
     vec_copy(v_nuis_prev, v_nuis);
@@ -1385,7 +1387,7 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
       pLbar[j] = smalloc((mod->tree->nnodes+1) * sizeof(double));
     grad_mat = mat_new(nstates, nstates);
   }
-  
+
   tm_set_subst_matrices(mod);  /* just call this in all cases; we'll be tweaking the model a lot */
 
   /* get sequence index if not already there */
@@ -2642,16 +2644,25 @@ void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data)
 /* add to single nuisance parameter */
 void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) {
   if (data->crispr_mod != NULL) {
-    if (idx == 0)
+    if (idx == 0) {
+      /* data->crispr_mod->sil_rate = 0.4; */
       data->crispr_mod->sil_rate += inc;
-    else if (idx == 1)
+      if (data->crispr_mod->sil_rate < 0)
+        data->crispr_mod->sil_rate = 0;
+    }
+    else if (idx == 1) {
       data->crispr_mod->leading_t += inc;
+      if (data->crispr_mod->leading_t < 0)
+        data->crispr_mod->leading_t = 0;
+    }
     else
       die("ERROR in nuis_param_pluseq: index out of bounds.\n");
   }
   else if (mod->subst_mod == HKY85) {
     if (idx == 0) {
       data->hky_kappa += inc;
+      if (data->hky_kappa < 0)
+        data->hky_kappa = 0;
       tm_set_HKY_matrix(mod, data->hky_kappa, -1);
     }
     else

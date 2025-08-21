@@ -520,7 +520,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
           * mat_get(grad_mat, 0, cstate);
       }
       /* rescale */
-      cprmod->deriv_leading_t *= exp(vec_get(lscale, cprmod->mod->tree->id) - log(total_prob));  /* CHECK */
+      cprmod->deriv_leading_t *= exp(vec_get(lscale, cprmod->mod->tree->id) - log(total_prob)); 
 
       /* leading branch also contributes to derivative of silent rate */
       this_deriv_sil = 0;
@@ -654,7 +654,7 @@ void cpr_branch_grad(Matrix *grad, double t, double silent_rate, Vector *mutrate
 }
 
 /* compute gradients of elements of substitution matrix with respect
-   to the  */
+   to the silencing rate */
 void cpr_silent_rate_grad(Matrix *grad, double t, double silent_rate, Vector *mutrates) {
   int j, silst = grad->nrows - 1;
   double Es = exp(-silent_rate * t);
@@ -908,7 +908,7 @@ CrisprMutModel *cpr_new_model(CrisprMutTable *M, TreeModel *mod,
   retval->ncells = M->ncells;
   retval->nstates = M->nstates;
   retval->sil_rate = CPR_SIL_RATE_INIT;
-  retval->leading_t = 0;
+  retval->leading_t = 0.05;
   retval->mutrates = NULL;
   retval->sitewise_mutrates = NULL;
   retval->Pt = NULL;

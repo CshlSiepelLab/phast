@@ -71,6 +71,14 @@ void tm_set_probs_F81(Vector *backgd_freqs, MarkovMatrix *P, double scale, doubl
 
 void tm_grad_JC69(struct tm_struct *mod, Matrix *grad, double t);
 
+static unsigned int is_purine(char c);
+
+void tm_grad_HKY_dkappa(struct tm_struct *mod, Matrix *grad,
+                        double kappa, double t);
+
+void tm_grad_HKY_dt(struct tm_struct *mod, Matrix *grad,
+                    double kappa, double t);
+
 /** Setup probability matrix by copying an existing probability matrix.
     Set matrix such that element (i,j) has value pi_j, as for an
      infinitely long branch

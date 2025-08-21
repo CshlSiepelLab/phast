@@ -587,7 +587,6 @@ void tm_set_probs_independent(TreeModel *mod, MarkovMatrix *P) {
 
 /* analytical gradients of elements of substitution matrix with
    respect to branch length */
-/* FIXME: generalize to other subst models */
 void tm_grad_JC69(TreeModel *mod, Matrix *grad, double t) {
   int i, j;
   double scale = mod->rate_matrix->size * 1.0/(mod->rate_matrix->size - 1);
@@ -605,6 +604,143 @@ void tm_grad_JC69(TreeModel *mod, Matrix *grad, double t) {
   }
 }
 
+static unsigned int is_purine(char c) {
+  return (c == 'A' || c == 'G');
+}
+
+/* dP/dt for HKY */
+void tm_grad_HKY_dt(TreeModel *mod, Matrix *grad, double kappa, double t) {
+  double mu, E1, E2, E3, dE1_dt, dE2_dt, dE3_dt, piR, piY, B, BR, BY;
+  
+  if (t < 0)
+    die("ERROR in tm_grad_HKY_dt: t must be nonnegative.\n");
+  if (grad->nrows != mod->rate_matrix->size || grad->ncols != mod->rate_matrix->size)
+    die("ERROR in tm_grad_HKY_dt: bad dimension.\n");
+
+  piR = 0; piY = 0;
+  BR = 1; BY = 1;
+  for (int i = 0; i < mod->rate_matrix->size; i++) {
+    if (is_purine(mod->rate_matrix->states[i])) {
+      piR += vec_get(mod->backgd_freqs, i);
+      BR *= vec_get(mod->backgd_freqs, i);
+    }
+    else {
+      piY += vec_get(mod->backgd_freqs, i);
+      BY *= vec_get(mod->backgd_freqs, i);
+    }
+  }
+  B = BR * BY;
+  mu = 1.0 / (2.0 * (kappa * B + piR * piY));
+
+  E1 = exp(-mu * t);
+  E2 = exp(-mu * (kappa * piR + piY) * t);
+  E3 = exp(-mu * (kappa * piY + piR) * t);
+
+
+  dE1_dt = -mu * E1;
+  dE2_dt = -mu * (kappa * piR + piY) * E2;
+  dE3_dt = -mu * (kappa * piY + piR) * E3;
+
+  for (int i = 0; i < grad->nrows; i++) {
+    for (int j = 0; j < grad->ncols; j++) {
+      if (i == j) {
+        /* diagonal elements: distinguish purine vs pyrimidine */
+        if (is_purine(mod->rate_matrix->states[i])) {
+          double pi_i = vec_get(mod->backgd_freqs, i);
+          int other_pur = (i + 2) % 4;
+          double pi_ip = vec_get(mod->backgd_freqs, other_pur);
+          mat_set(grad, i, j, -(piY/piR) * pi_i * dE1_dt - (pi_ip/piR) * dE2_dt);
+        }
+        else {
+          double pi_i = vec_get(mod->backgd_freqs, i);
+          int other_pyr = (i + 2) % 4;
+          double pi_ip = vec_get(mod->backgd_freqs, other_pyr);
+          mat_set(grad, i, j, - (piR/piY) * pi_i * dE1_dt - (pi_ip/piY) * dE3_dt);
+        }
+      }
+      else {
+        int from = mod->rate_matrix->states[i];
+        int to = mod->rate_matrix->states[j];
+        double pi_j = vec_get(mod->backgd_freqs,j);
+        if (is_transition(from, to)) {
+          if (is_purine(from))
+            mat_set(grad,i,j, - (piY/piR) * pi_j * dE1_dt + (pi_j/piR) * dE2_dt);
+          else 
+            mat_set(grad,i,j, - (piR/piY) * pi_j * dE1_dt + (pi_j/piY) * dE3_dt);
+        }
+        else 
+          mat_set(grad,i,j, pi_j * -dE1_dt);
+      }
+    }
+  }
+}
+
+/* dP/dkappa for HKY */
+  void tm_grad_HKY_dkappa(TreeModel *mod, Matrix *grad, double kappa, double t) {
+  double mu, E1, E2, E3, dE1_dk, dE2_dk, dE3_dk, piR, piY, B, BR, BY, dmu_dk;
+
+  if (t < 0)
+    die("ERROR in tm_grad_HKY_dkappa: t must be nonnegative.\n");
+  if (grad->nrows != mod->rate_matrix->size || grad->ncols != mod->rate_matrix->size)
+    die("ERROR in tm_grad_HKY_dkappa: bad dimension.\n");
+
+  piR = 0; piY = 0;
+  BR = 1; BY = 1;
+  for (int i = 0; i < mod->rate_matrix->size; i++) {
+    if (is_purine(mod->rate_matrix->states[i])) {
+      piR += vec_get(mod->backgd_freqs, i);
+      BR *= vec_get(mod->backgd_freqs, i);
+    }
+    else {
+      piY += vec_get(mod->backgd_freqs, i);
+      BY *= vec_get(mod->backgd_freqs, i);
+    }
+  }
+  B = BR * BY;
+  mu = 1.0 / (2.0 * (kappa * B + piR * piY));
+
+  E1 = exp(-mu * t);
+  E2 = exp(-mu * (kappa * piR + piY) * t);
+  E3 = exp(-mu * (kappa * piY + piR) * t);
+
+
+  dmu_dk = -2.0 * B * mu * mu;
+  dE1_dk = -t * E1 * dmu_dk;
+  dE2_dk = -t * E2 * ((kappa * piR + piY) * dmu_dk + mu * piR);
+  dE3_dk = -t * E3 * ((kappa * piY + piR) * dmu_dk + mu * piY);
+
+  for (int i = 0; i < grad->nrows; i++) {
+    for (int j = 0; j < grad->ncols; j++) {
+      if (i == j) {
+        if (is_purine(mod->rate_matrix->states[i])) {
+          double pi_i = vec_get(mod->backgd_freqs, i);
+          int other_pur = (i + 2) % 4;
+          double pi_ip = vec_get(mod->backgd_freqs, other_pur);          
+          mat_set(grad, i, j, (piY/piR) * pi_i * dE1_dk + (pi_ip/piR) * dE2_dk);
+        }
+        else {
+          double pi_i = vec_get(mod->backgd_freqs, i);
+          int other_pyr = (i + 2) % 4;
+          double pi_ip = vec_get(mod->backgd_freqs, other_pyr);          
+          mat_set(grad, i, j, (piR/piY) * pi_i * dE1_dk + (pi_ip/piY) * dE3_dk);
+        }
+      }
+      else {
+        int from = mod->rate_matrix->states[i];
+        int to = mod->rate_matrix->states[j];
+        double pi_j = vec_get(mod->backgd_freqs, j);
+        if (is_transition(from, to)) {
+          if (is_purine(from))
+            mat_set(grad, i, j, (piY/piR) * pi_j * dE1_dk - (pi_j/piR) * dE2_dk);
+          else
+            mat_set(grad, i, j, (piR/piY) * pi_j * dE1_dk - (pi_j/piY) * dE3_dk);
+        }
+        else 
+          mat_set(grad,i,j, -pi_j * dE1_dk);
+      }
+    }
+  }
+}
 
 /***************************************************************************/
 /* Functions to map from parameter vectors to rate matrices -- one         */
