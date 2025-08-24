@@ -289,9 +289,6 @@ MafBlock *mafBlock_read_next(FILE *mfile, Hashtable *specHash, int *numSpec) {
     //if 's' or 'e', then this is first line of data for this species
     else if (firstchar == 's' || firstchar == 'e') {
       sub = mafBlock_get_subBlock(currLine);
-      if (hsh_get_int(block->specMap, sub->src->chars) != -1) 
-	die("ERROR: mafBlock has two alignments with same srcName (%s)\n", 
-	    sub->src->chars);
       hsh_put_int(block->specMap, sub->src->chars, lst_size(block->data));
       hsh_put_int(block->specMap, sub->specName->chars, lst_size(block->data));
       lst_push_ptr(block->data, (void*)sub);
