@@ -115,7 +115,7 @@ SEXP rph_phyloP(SEXP modP,
     if (strcmp(format, "default")==0);
     else if (strcmp(format, "wig")==0) {
       p->output_wig = TRUE;
-      if (! (p->base_by_base)) die("need basewise scores for wig output");
+      p->base_by_base = FALSE;
     }
     else if (strcmp(format, "gff")==0) {
       p->output_gff = TRUE;

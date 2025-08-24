@@ -118,7 +118,6 @@ int main(int argc, char *argv[]) {
       p->quantiles_only = TRUE;
       break;
     case 'w':
-      p->base_by_base = TRUE;
       p->output_wig = TRUE;
       break;
     case 'b':
@@ -178,14 +177,14 @@ int main(int argc, char *argv[]) {
     if (msa_format == MAF) 
       p->msa = maf_read_cats(msa_f, NULL, 1, NULL, 
 			     p->cats_to_do==NULL ? NULL : p->feats, p->cm, -1, 
-			     (p->feats == NULL && p->base_by_base==0) ? FALSE : TRUE, /* --features requires order */
+			     p->feats != NULL || p->base_by_base || p->output_wig, /* --features requires order */
 			     NULL, NO_STRIP, FALSE, p->cats_to_do); 
     else 
       p->msa = msa_new_from_file_define_format(msa_f, msa_format, NULL);
     phast_fclose(msa_f);
 
-    /* if base_by_base and undefined chrom, use filename root as chrom */
-    if (p->base_by_base && p->chrom == NULL) {
+    /* if base_by_base or output_wig and undefined chrom, use filename root as chrom */
+    if ((p->base_by_base || p->output_wig) && p->chrom == NULL) {
       String *tmpstr = str_new_charstr(p->msa_fname);
       if (str_equals_charstr(tmpstr, "-")) p->chrom = "NA";
       else {
