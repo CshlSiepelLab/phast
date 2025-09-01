@@ -768,7 +768,7 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn,
   tree = nj_inf(D, data->names, NULL, data);
   orig_tree = tr_create_copy(tree);   /* restore at the end */
   nj_reset_tree_model(mod, tree);
-  ll_base = nj_compute_log_likelihood(mod, data->msa, NULL);
+  ll_base = nj_compute_log_likelihood(mod, data, NULL);
 
   /* Now perturb each point and propagate perturbation through distance
      calculation, neighbor-joining reconstruction, and likelihood
@@ -782,7 +782,7 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn,
     nj_points_to_distances(points, data); 
     tree = nj_inf(D, data->names, NULL, data);
     nj_reset_tree_model(mod, tree);      
-    ll = nj_compute_log_likelihood(mod, data->msa, NULL);
+    ll = nj_compute_log_likelihood(mod, data, NULL);
     deriv = (ll - ll_base) / DERIV_EPS; 
     vec_set(dL_dx, i, deriv); /* derive of log likelihood wrt dim i of
                                  point; need to save this for later */
@@ -1344,12 +1344,11 @@ void nj_test_D(Matrix *D) {
    to an alignment.  This is a pared-down version of
    tl_compute_log_likelihood.  It assumes a 0th order model,
    sufficient stats already available, and no rate variation.  It also
-   makes use a scaling factor to avoid underflow with large trees.  If
+   makes use of scaling factors to avoid underflow with large trees.  If
    branchgrad is non-null, it will be populated with the gradient of
    the log likelihood with respect to the individual branches of the
-   tree, in post-order.  Note that this function uses natural log
-   rather than log2.  */
-double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
+   tree, in post-order.   */
+double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branchgrad) {
 
   int i, j, k, nodeidx, rcat = 0, tupleidx;
   int nstates = mod->rate_matrix->size;
@@ -1357,11 +1356,13 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
   double total_prob = 0;
   List *traversal;
   double **pL = NULL, **pLbar = NULL;
-  double log_scale;
-  double scaling_threshold = DBL_MIN;
-  double ll = 0;
+  Vector *lscale, *lscale_o; /* inside and outside versions */
+  double scaling_threshold = DBL_MIN * 1.0e10; /* need some padding */
+  double lscaling_threshold = log(scaling_threshold), ll = 0;
   double tmp[nstates];
   Matrix *grad_mat = NULL;
+  unsigned int rescale;
+  MSA *msa = data->msa;
   
   if (msa->ss->tuple_size != 1)
     die("ERROR nj_compute_log_likelihood: need tuple size 1, got %i\n",
@@ -1378,6 +1379,11 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
   for (j = 0; j < nstates; j++)
     pL[j] = smalloc((mod->tree->nnodes+1) * sizeof(double));
 
+  /* we also need to keep track of the log scale of every node for
+     underflow purposes */
+  lscale = vec_new(mod->tree->nnodes+1); 
+  lscale_o = vec_new(mod->tree->nnodes+1);
+  
   if (branchgrad != NULL) {
     if (branchgrad->size != mod->tree->nnodes-1) /* rooted */
       die("ERROR in nj_compute_log_likelihood: size of branchgrad must be 2n-2\n");
@@ -1386,19 +1392,24 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
     for (j = 0; j < nstates; j++)
       pLbar[j] = smalloc((mod->tree->nnodes+1) * sizeof(double));
     grad_mat = mat_new(nstates, nstates);
+    if (mod->subst_mod == HKY85)
+      data->deriv_hky_kappa = 0.0;
   }
 
   tm_set_subst_matrices(mod);  /* just call this in all cases; we'll be tweaking the model a lot */
-
+  
   /* get sequence index if not already there */
   if (mod->msa_seq_idx == NULL)
     tm_build_seq_idx(mod, msa);
 
-  traversal = tr_postorder(mod->tree);
   for (tupleidx = 0; tupleidx < msa->ss->ntuples; tupleidx++) {
-    log_scale = 0;
+    /* reset scale */
+    vec_zero(lscale); vec_zero(lscale_o);
+    
+    traversal = tr_postorder(mod->tree);
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
       n = lst_get_ptr(traversal, nodeidx);
+
       if (n->lchild == NULL) {
         /* leaf: base case of recursion */
         int state = mod->rate_matrix->
@@ -1415,6 +1426,8 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
         /* general recursive case */
         MarkovMatrix *lsubst_mat = mod->P[n->lchild->id][rcat];
         MarkovMatrix *rsubst_mat = mod->P[n->rchild->id][rcat];
+        
+        rescale = FALSE;
         for (i = 0; i < nstates; i++) {
           double totl = 0, totr = 0;
           for (j = 0; j < nstates; j++)
@@ -1424,14 +1437,19 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
           for (k = 0; k < nstates; k++)
             totr += pL[k][n->rchild->id] *
               mm_get(rsubst_mat, i, k);
-          
-          if (totl * totr < scaling_threshold) {
-            pL[i][n->id] = (totl / scaling_threshold) * totr;
-            log_scale -= log(scaling_threshold);
-          }
-          else {
-            pL[i][n->id] = totl * totr;
-          }
+
+          pL[i][n->id] = totl * totr;
+          if (totl > 0 && totr > 0 && pL[i][n->id] < scaling_threshold)
+            rescale = TRUE;
+        }
+
+        /* deal with nodewise scaling */
+        vec_set(lscale, n->id, vec_get(lscale, n->lchild->id) +
+                vec_get(lscale, n->rchild->id));
+        if (rescale == TRUE) { /* have to rescale for all states */
+          vec_set(lscale, n->id, vec_get(lscale, n->id) - lscaling_threshold);
+          for (i = 0; i < nstates; i++) 
+            pL[i][n->id] /= scaling_threshold;
         }
       }
     }
@@ -1442,15 +1460,13 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
       total_prob += vec_get(mod->backgd_freqs, i) *
         pL[i][mod->tree->id] * mod->freqK[rcat];
     
-    ll += (log(total_prob) - log_scale) * msa->ss->counts[tupleidx];
-
+    ll += (log(total_prob) - vec_get(lscale, mod->tree->id)) * msa->ss->counts[tupleidx];
     assert(isfinite(ll));
 
     /* to compute gradients efficiently, need to make a second pass
        across the tree to compute "outside" probabilities */
-    if (branchgrad != NULL) {
+    if (branchgrad != NULL) { 
       traversal = tr_preorder(mod->tree);
-      assert(log_scale == 0); /* not yet generalized to handle scale factor */
 
       for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
         n = lst_get_ptr(traversal, nodeidx);
@@ -1464,7 +1480,8 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
                                n->parent->rchild : n->parent->lchild);
           MarkovMatrix *par_subst_mat = mod->P[n->id][rcat];
           MarkovMatrix *sib_subst_mat = mod->P[sibling->id][rcat];
-          	  
+          rescale = FALSE;
+          
           for (j = 0; j < nstates; j++) { /* parent state */
             tmp[j] = 0;
             for (k = 0; k < nstates; k++)  /* sibling state */
@@ -1474,23 +1491,45 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
           
           for (i = 0; i < nstates; i++) { /* child state */
             pLbar[i][n->id] = 0;
-            for (j = 0; j < nstates; j++)  /* parent state */
+            for (j = 0; j < nstates; j++) { /* parent state */
               pLbar[i][n->id] +=
                 tmp[j] * mm_get(par_subst_mat, j, i);
+              if (tmp[j] > 0 && mm_get(par_subst_mat, j, i) > 0 &&
+                  pLbar[i][n->id] < scaling_threshold)
+                rescale = TRUE;
+            }
+          }
+          vec_set(lscale_o, n->id, vec_get(lscale_o, n->parent->id) +
+                  vec_get(lscale, sibling->id));
+          if (rescale == TRUE) { /* rescale for all states */
+            vec_set(lscale_o, n->id, vec_get(lscale_o, n->id) - lscaling_threshold);
+            for (i = 0; i < nstates; i++)
+              pLbar[i][n->id] /= scaling_threshold;     
           }
         }
       }
 
+      /* TEMPORARY: check inside/outside */
+      /* for (nodeidx = 0; nodeidx < lst_size(mod->tree->nodes); nodeidx++) { */
+      /*   double pr = 0; */
+      /*   n = lst_get_ptr(mod->tree->nodes, nodeidx); */
+      /*   assert(vec_get(lscale, n->id) == 0 && vec_get(lscale_o, n->id) == 0); */
+      /*   for (j = 0; j < nstates; j++) */
+      /*     pr += pL[j][n->id] * pLbar[j][n->id]; */
+      /*   printf("Tuple %d, node %d: %f (%f)\n", tupleidx, nodeidx, log(pr), log(total_prob)); */
+      /* } */
+
+      
       /* now compute branchwise derivatives in a final pass */
       traversal = mod->tree->nodes;
       for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
         TreeNode *par, *sib;
-        double base_prob = total_prob, deriv = 0;
+        double base_prob = total_prob, deriv;
         
         n = lst_get_ptr(traversal, nodeidx);
         par = n->parent;
 	
-        if (par == NULL || n == mod->tree->rchild) 
+        if (par == NULL) 
           continue;
        
         sib = (n == n->parent->lchild ?
@@ -1503,18 +1542,47 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
           for (k = 0; k < nstates; k++)  /* sibling */
             tmp[i] += pL[k][sib->id] * mm_get(mod->P[sib->id][rcat], i, k);
         }
+
+        if (n != mod->tree->rchild) { /* skip branch to right of root because unrooted */
+          /* calculate derivative analytically */
+          deriv = 0;
+          if (mod->subst_mod == JC69)
+            tm_grad_JC69(mod, grad_mat, n->dparent);
+          else if (mod->subst_mod == HKY85) 
+            tm_grad_HKY_dt(mod, grad_mat, data->hky_kappa, n->dparent); 
+          else
+            die("ERROR in nj_compute_log_likelihood: only JC69 and HKY85 substitution models are supported.\n");
+          
+          for (i = 0; i < nstates; i++)   
+            for (j = 0; j < nstates; j++)    
+              deriv +=  tmp[i] * pLbar[i][par->id] * pL[j][n->id] * mat_get(grad_mat, i, j);
+
+          /* adjust for all relevant scale terms; do everything in log space */
+          deriv *= exp(vec_get(lscale, mod->tree->id)
+                       - vec_get(lscale, sib->id) - vec_get(lscale_o, par->id)
+                       - vec_get(lscale, n->id) - log(base_prob));
+          /* note division by base_prob because we need deriv of log P */
         
-        /* calculate derivative analytically */
-        assert(mod->subst_mod == JC69); /* FIXME: have to generalize to other models */
-        tm_grad_JC69(mod, grad_mat, n->dparent);
-        for (i = 0; i < nstates; i++)   
-          for (j = 0; j < nstates; j++)    
-            deriv +=  tmp[i] * pLbar[i][par->id] * pL[j][n->id] * mat_get(grad_mat, i, j);
+          vec_set(branchgrad, n->id, vec_get(branchgrad, n->id) +
+                  deriv * msa->ss->counts[tupleidx]);
+        }
 
-        deriv *= 1.0 / base_prob; /* because need deriv of log P */
+        /* in this case, we need a partial derivative for kappa also;
+           it has to be aggregated across all branches */
+        if (mod->subst_mod == HKY85) {
+          double this_deriv_kappa = 0;
+          tm_grad_HKY_dkappa(mod, grad_mat, data->hky_kappa, n->dparent);
+          for (i = 0; i < nstates; i++) 
+            for (j = 0; j < nstates; j++) 
+              this_deriv_kappa += tmp[i] * pLbar[i][par->id] * pL[j][n->id] *
+                mat_get(grad_mat, i, j);
 
-        vec_set(branchgrad, nodeidx, vec_get(branchgrad, nodeidx) +
-                                             deriv * msa->ss->counts[tupleidx]);
+          /* adjust for all relevant scale terms; do everything in log space */
+          this_deriv_kappa *= exp(vec_get(lscale, mod->tree->id)
+                                  - vec_get(lscale, sib->id) - vec_get(lscale_o, par->id)
+                                  - vec_get(lscale, n->id) - log(base_prob));
+          data->deriv_hky_kappa += (this_deriv_kappa * msa->ss->counts[tupleidx]);        
+        }
       }
     }
   }
@@ -1530,6 +1598,9 @@ double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad) {
     mat_free(grad_mat);
   }
 
+  vec_free(lscale);
+  vec_free(lscale_o);
+  
   return ll;
 }
 
@@ -1562,7 +1633,7 @@ int nj_get_seq_idx(char **names, char *name, int n) {
    objects in returned list will be shared with those in primary list
    and may repeat */
 List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
-                           TreeModel *mod, MSA *msa, FILE *logf) {
+                           TreeModel *mod, CovarData *data, FILE *logf) {
   List *retval = lst_new_ptr(nsamples);
   Vector *weights = vec_new(lst_size(trees));
   Vector *lls = vec_new(lst_size(trees));
@@ -1576,7 +1647,7 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
   for (i = 0; i < lst_size(trees); i++) {
     TreeNode *t = lst_get_ptr(trees, i);    
     mod->tree = t;
-    ll = nj_compute_log_likelihood(mod, msa, NULL);
+    ll = nj_compute_log_likelihood(mod, data, NULL);
     if (ll > maxll) maxll = ll;
     vec_set(lls, i, ll);
     ll -= vec_get(logdens, i);
@@ -2058,7 +2129,7 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
     if (data->crispr_mod != NULL)
       ll[i] = cpr_compute_log_likelihood(data->crispr_mod, NULL);
     else
-      ll[i] = nj_compute_log_likelihood(mod, data->msa, NULL);
+      ll[i] = nj_compute_log_likelihood(mod, data, NULL);
     mvnll[i] = mmvn_log_dens(mmvn, points);
     if (ll[i] - mvnll[i] > logM) 
       logM = ll[i] - mvnll[i];
@@ -2090,7 +2161,7 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
     if (data->crispr_mod != NULL)
       lnl = cpr_compute_log_likelihood(data->crispr_mod, NULL);
     else
-      lnl = nj_compute_log_likelihood(mod, data->msa, NULL);
+      lnl = nj_compute_log_likelihood(mod, data, NULL);
         
     mvnl = mmvn_log_dens(mmvn, points);
     u = unif_rand();
@@ -2133,7 +2204,7 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod,
   tree = nj_inf(data->dist, data->msa->names, NULL, data);
   orig_tree = tr_create_copy(tree);   /* restore at the end */
   nj_reset_tree_model(mod, tree);
-  ll_base = nj_compute_log_likelihood(mod, data->msa, NULL);
+  ll_base = nj_compute_log_likelihood(mod, data, NULL);
 
   /* Now perturb each point and propagate perturbation through distance
      calculation, neighbor-joining reconstruction, and likelihood
@@ -2148,7 +2219,7 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod,
       nj_points_to_distances(x, data); 
       tree = nj_inf(data->dist, data->msa->names, NULL, data);
       nj_reset_tree_model(mod, tree);      
-      ll = nj_compute_log_likelihood(mod, data->msa, NULL);
+      ll = nj_compute_log_likelihood(mod, data, NULL);
       deriv = (ll - ll_base) / DERIV_EPS; 
 
       vec_set(dL_dx, idx, deriv);
@@ -2170,7 +2241,7 @@ double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, CovarData *data) {
   if (data->crispr_mod != NULL)
     ll_base = cpr_compute_log_likelihood(data->crispr_mod, NULL);
   else
-    ll_base = nj_compute_log_likelihood(mod, data->msa, NULL);
+    ll_base = nj_compute_log_likelihood(mod, data, NULL);
   
   /* perturb each branch and recompute likelihood */
   traversal = mod->tree->nodes;
@@ -2189,7 +2260,7 @@ double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, CovarData *data) {
     if (data->crispr_mod != NULL)
       ll = cpr_compute_log_likelihood(data->crispr_mod, NULL);
     else
-      ll = nj_compute_log_likelihood(mod, data->msa, NULL);
+      ll = nj_compute_log_likelihood(mod, data, NULL);
 
     vec_set(dL_dt, nodeidx, (ll - ll_base) / DERIV_EPS);
     node->dparent = orig_t;
@@ -2291,7 +2362,7 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   if (data->crispr_mod != NULL)
     ll_base = cpr_compute_log_likelihood(data->crispr_mod, dL_dt);
   else
-    ll_base = nj_compute_log_likelihood(mod, data->msa, dL_dt);
+    ll_base = nj_compute_log_likelihood(mod, data, dL_dt);
 
   /* TEMPORARY: compare dL_dt to numerical version */
   /* fprintf(stdout, "dL_dt (analytical):\n"); */

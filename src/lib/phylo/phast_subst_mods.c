@@ -604,7 +604,7 @@ void tm_grad_JC69(TreeModel *mod, Matrix *grad, double t) {
   }
 }
 
-static unsigned int is_purine(char c) {
+unsigned int is_purine(char c) {
   return (c == 'A' || c == 'G');
 }
 
@@ -620,64 +620,55 @@ void tm_grad_HKY_dt(TreeModel *mod, Matrix *grad, double kappa, double t) {
   piR = 0; piY = 0;
   BR = 1; BY = 1;
   for (int i = 0; i < mod->rate_matrix->size; i++) {
+    double pi_i = vec_get(mod->backgd_freqs, i);
     if (is_purine(mod->rate_matrix->states[i])) {
-      piR += vec_get(mod->backgd_freqs, i);
-      BR *= vec_get(mod->backgd_freqs, i);
+      piR += pi_i;
+      BR *= pi_i;
     }
     else {
-      piY += vec_get(mod->backgd_freqs, i);
-      BY *= vec_get(mod->backgd_freqs, i);
+      piY += pi_i;
+      BY *= pi_i;
     }
   }
-  B = BR * BY;
-  mu = 1.0 / (2.0 * (kappa * B + piR * piY));
+  mu = 1.0 / (2.0 * (kappa * (BR + BY) + piR * piY));
 
   E1 = exp(-mu * t);
   E2 = exp(-mu * (kappa * piR + piY) * t);
   E3 = exp(-mu * (kappa * piY + piR) * t);
-
 
   dE1_dt = -mu * E1;
   dE2_dt = -mu * (kappa * piR + piY) * E2;
   dE3_dt = -mu * (kappa * piY + piR) * E3;
 
   for (int i = 0; i < grad->nrows; i++) {
+    double rowsum = 0.0;
+    int from = mod->rate_matrix->states[i];
+
     for (int j = 0; j < grad->ncols; j++) {
-      if (i == j) {
-        /* diagonal elements: distinguish purine vs pyrimidine */
-        if (is_purine(mod->rate_matrix->states[i])) {
-          double pi_i = vec_get(mod->backgd_freqs, i);
-          int other_pur = (i + 2) % 4;
-          double pi_ip = vec_get(mod->backgd_freqs, other_pur);
-          mat_set(grad, i, j, -(piY/piR) * pi_i * dE1_dt - (pi_ip/piR) * dE2_dt);
-        }
-        else {
-          double pi_i = vec_get(mod->backgd_freqs, i);
-          int other_pyr = (i + 2) % 4;
-          double pi_ip = vec_get(mod->backgd_freqs, other_pyr);
-          mat_set(grad, i, j, - (piR/piY) * pi_i * dE1_dt - (pi_ip/piY) * dE3_dt);
-        }
-      }
-      else {
-        int from = mod->rate_matrix->states[i];
-        int to = mod->rate_matrix->states[j];
-        double pi_j = vec_get(mod->backgd_freqs,j);
-        if (is_transition(from, to)) {
-          if (is_purine(from))
-            mat_set(grad,i,j, - (piY/piR) * pi_j * dE1_dt + (pi_j/piR) * dE2_dt);
-          else 
-            mat_set(grad,i,j, - (piR/piY) * pi_j * dE1_dt + (pi_j/piY) * dE3_dt);
-        }
+      if (i == j) continue;
+      int to = mod->rate_matrix->states[j];
+      double pi_j = vec_get(mod->backgd_freqs,j);
+      double gij = 0.0;
+      
+      if (is_transition(from, to)) {
+        if (is_purine(from))
+          gij = piY/piR * pi_j * dE1_dt - (pi_j/piR) * dE2_dt;
         else 
-          mat_set(grad,i,j, pi_j * -dE1_dt);
+         gij = piR/piY * pi_j * dE1_dt - (pi_j/piY) * dE3_dt;
       }
+      else /* transversion */
+        gij = pi_j * -dE1_dt;
+
+      mat_set(grad, i, j, gij);
+      rowsum += gij;
     }
+    mat_set(grad, i, i, -rowsum);
   }
 }
 
 /* dP/dkappa for HKY */
   void tm_grad_HKY_dkappa(TreeModel *mod, Matrix *grad, double kappa, double t) {
-  double mu, E1, E2, E3, dE1_dk, dE2_dk, dE3_dk, piR, piY, B, BR, BY, dmu_dk;
+  double mu, E1, E2, E3, dE1_dk, dE2_dk, dE3_dk, piR, piY, S, BR, BY, dmu_dk;
 
   if (t < 0)
     die("ERROR in tm_grad_HKY_dkappa: t must be nonnegative.\n");
@@ -687,58 +678,50 @@ void tm_grad_HKY_dt(TreeModel *mod, Matrix *grad, double kappa, double t) {
   piR = 0; piY = 0;
   BR = 1; BY = 1;
   for (int i = 0; i < mod->rate_matrix->size; i++) {
+    double pi_i = vec_get(mod->backgd_freqs, i);
     if (is_purine(mod->rate_matrix->states[i])) {
-      piR += vec_get(mod->backgd_freqs, i);
-      BR *= vec_get(mod->backgd_freqs, i);
+      piR += pi_i;
+      BR *= pi_i;
     }
     else {
-      piY += vec_get(mod->backgd_freqs, i);
-      BY *= vec_get(mod->backgd_freqs, i);
+      piY += pi_i;
+      BY *= pi_i;
     }
   }
-  B = BR * BY;
-  mu = 1.0 / (2.0 * (kappa * B + piR * piY));
+  S = BR + BY;
+  mu = 1.0 / (2.0 * (kappa * S + piR * piY));
 
   E1 = exp(-mu * t);
   E2 = exp(-mu * (kappa * piR + piY) * t);
   E3 = exp(-mu * (kappa * piY + piR) * t);
 
 
-  dmu_dk = -2.0 * B * mu * mu;
+  dmu_dk = -2.0 * S * mu * mu;
   dE1_dk = -t * E1 * dmu_dk;
   dE2_dk = -t * E2 * ((kappa * piR + piY) * dmu_dk + mu * piR);
   dE3_dk = -t * E3 * ((kappa * piY + piR) * dmu_dk + mu * piY);
 
   for (int i = 0; i < grad->nrows; i++) {
+    double rowsum = 0.0;
+    int from = mod->rate_matrix->states[i];
     for (int j = 0; j < grad->ncols; j++) {
-      if (i == j) {
-        if (is_purine(mod->rate_matrix->states[i])) {
-          double pi_i = vec_get(mod->backgd_freqs, i);
-          int other_pur = (i + 2) % 4;
-          double pi_ip = vec_get(mod->backgd_freqs, other_pur);          
-          mat_set(grad, i, j, (piY/piR) * pi_i * dE1_dk + (pi_ip/piR) * dE2_dk);
-        }
-        else {
-          double pi_i = vec_get(mod->backgd_freqs, i);
-          int other_pyr = (i + 2) % 4;
-          double pi_ip = vec_get(mod->backgd_freqs, other_pyr);          
-          mat_set(grad, i, j, (piR/piY) * pi_i * dE1_dk + (pi_ip/piY) * dE3_dk);
-        }
+      if (i == j) continue;
+      int to = mod->rate_matrix->states[j];
+      double pi_j = vec_get(mod->backgd_freqs, j);
+      double gij;
+      if (is_transition(from, to)) {
+        if (is_purine(from))
+          gij = piY/piR * pi_j * dE1_dk - (pi_j/piR) * dE2_dk;
+        else
+          gij = piR/piY * pi_j * dE1_dk - (pi_j/piY) * dE3_dk;
       }
-      else {
-        int from = mod->rate_matrix->states[i];
-        int to = mod->rate_matrix->states[j];
-        double pi_j = vec_get(mod->backgd_freqs, j);
-        if (is_transition(from, to)) {
-          if (is_purine(from))
-            mat_set(grad, i, j, (piY/piR) * pi_j * dE1_dk - (pi_j/piR) * dE2_dk);
-          else
-            mat_set(grad, i, j, (piR/piY) * pi_j * dE1_dk - (pi_j/piY) * dE3_dk);
-        }
-        else 
-          mat_set(grad,i,j, -pi_j * dE1_dk);
-      }
+      else 
+        gij = -pi_j * dE1_dk;
+
+      mat_set(grad, i, j, gij);
+      rowsum += gij;
     }
+    mat_set(grad, i, i, -rowsum);
   }
 }
 

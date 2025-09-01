@@ -152,14 +152,14 @@ void nj_estimate_mmvn_from_distances_hyperbolic(CovarData *data, multi_MVN *mmvn
 
 void nj_test_D(Matrix *D);
 
-double nj_compute_log_likelihood(TreeModel *mod, MSA *msa, Vector *branchgrad);
+double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branchgrad);
 
 int *nj_build_seq_idx(List *leaves, char **names) ;
 
 int nj_get_seq_idx(char **names, char *name, int n);
 
 List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
-                           TreeModel *mod, MSA *msa, FILE *logf);
+                           TreeModel *mod, CovarData *data, FILE *logf);
 
 void nj_update_covariance(multi_MVN *mmvn, CovarData *data);
 
