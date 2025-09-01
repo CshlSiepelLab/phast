@@ -199,6 +199,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
     pLbar = smalloc((cprmod->nstates+1) * sizeof(double*));
     for (j = 0; j < (cprmod->nstates+1); j++)
       pLbar[j] = smalloc((cprmod->mod->tree->nnodes+1) * sizeof(double));
+    cprmod->deriv_sil = 0.0;
   }
 
   cprmod->mod->tree->dparent = cprmod->leading_t; /* update length of leading branch */
@@ -432,7 +433,6 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
       
       /* now compute branchwise derivatives in a final pass */
       grad_mat = mat_new(nstates, nstates);
-      cprmod->deriv_sil = 0.0;
       for (nodeidx = 0; nodeidx < lst_size(cprmod->mod->tree->nodes); nodeidx++) {
         TreeNode *par;
         double base_prob = total_prob, deriv;
