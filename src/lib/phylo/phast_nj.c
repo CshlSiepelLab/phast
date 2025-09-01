@@ -1357,7 +1357,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
   List *traversal;
   double **pL = NULL, **pLbar = NULL;
   Vector *lscale, *lscale_o; /* inside and outside versions */
-  double scaling_threshold = DBL_MIN * 1.0e10; /* need some padding */
+  double scaling_threshold = DBL_MIN * 1.0e10;  /* need some padding */
   double lscaling_threshold = log(scaling_threshold), ll = 0;
   double tmp[nstates];
   Matrix *grad_mat = NULL;
