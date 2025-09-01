@@ -48,10 +48,10 @@ OPTIONS:
         initial embedding of points.  Can be compared with input distances
         to evaluate fidelity of various embedding schemes.
 
-    --hky85, -k  [NOT YET SUPPORTED]
+    --hky85, -k 
         Use the HKY85 substitution model for likelihood calculations
         (default is Jukes Cantor). The transition-transversion rate ratio
-        (kappa) will be approximated from the pairwise comparisons
+        (kappa) will be estimated from the data.
         
     --hyperbolic, -H
         Use an embedding of the taxa in a hyperbolic space rather than a

@@ -1060,11 +1060,12 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       vec_set(v_nuis, j, ADAM_BETA2 * vec_get(v_nuis_prev, j) + (1.0 - ADAM_BETA2) * pow(g,2));
       mhatj_nuis = vec_get(m_nuis, j) / (1.0 - pow(ADAM_BETA1, t));
       vhatj_nuis = vec_get(v_nuis, j) / (1.0 - pow(ADAM_BETA2, t));
-      nj_nuis_param_pluseq(mod, data, j, learnrate/25 * mhatj_nuis / (sqrt(vhatj_nuis) + ADAM_EPS));
-      /* in general, these seem to do better with a lower learning rate */
-    }    
-    vec_copy(m_nuis_prev, m_nuis);
-    vec_copy(v_nuis_prev, v_nuis);
+      nj_nuis_param_pluseq(mod, data, j, learnrate * mhatj_nuis / (sqrt(vhatj_nuis) + ADAM_EPS));
+    }
+    if (n_nuisance_params > 0) {
+      vec_copy(m_nuis_prev, m_nuis);
+      vec_copy(v_nuis_prev, v_nuis);
+    }
     
     /* report to log file */
     if (logf != NULL) {
@@ -1110,12 +1111,11 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     nj_update_nuis_params(best_nuis_params, mod, data);
   
   if (logf != NULL) {
-    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, ",
+    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f",
             bestt+1, bestelb, bestll, bestkld);
     if (data->type == LOWR && data->sparsity != -1)
-      fprintf(logf, "penalty: %f, ", bestpenalty);
-    /* fprintf(logf, "sigmapar: "); */
-    /* vec_print(sigmapar, logf); */
+      fprintf(logf, ", penalty: %f", bestpenalty);
+    fprintf(logf, "\n");
   }
   
   vec_free(grad);
@@ -2707,6 +2707,8 @@ void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data)
     assert(stored_vals->size == 1);
     data->hky_kappa = vec_get(stored_vals, 0);
     tm_set_HKY_matrix(mod, data->hky_kappa, -1);
+    tm_scale_rate_matrix(mod);
+    mm_diagonalize(mod->rate_matrix);
   }
   else
     die("ERROR in nj_update_nuis_params: no nuisance parameters defined\n");
@@ -2735,6 +2737,8 @@ void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) 
       if (data->hky_kappa < 0)
         data->hky_kappa = 0;
       tm_set_HKY_matrix(mod, data->hky_kappa, -1);
+      tm_scale_rate_matrix(mod);
+      mm_diagonalize(mod->rate_matrix);
     }
     else
       die("ERROR in nuis_param_pluseq: index out of bounds.\n");
