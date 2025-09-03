@@ -684,8 +684,10 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn,
     die("ERROR in nj_compute_model_grad: low-rank matrix R required in LOWR case.\n");
   
   /* obtain gradient with respect to points, dL/dx */
-  //ll_base = nj_dL_dx_dumb(points, dL_dx, mod, data);
   ll_base = nj_dL_dx_smartest(points, dL_dx, mod, data);
+
+  if (!isfinite(ll_base)) /* can happen with crispr model; force calling code to deal with it */
+    return ll_base;
   
   /* now derive partial derivatives wrt free parameters from dL/dx */
   vec_zero(grad);
@@ -770,6 +772,10 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn,
   nj_reset_tree_model(mod, tree);
   ll_base = nj_compute_log_likelihood(mod, data, NULL);
 
+  if (!isfinite(ll_base)) /* can happen with crispr model; force
+                             calling code to deal with it */
+    return ll_base;
+  
   /* Now perturb each point and propagate perturbation through distance
      calculation, neighbor-joining reconstruction, and likelihood
      calculation on tree */
@@ -783,6 +789,11 @@ double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn,
     tree = nj_inf(D, data->names, NULL, data);
     nj_reset_tree_model(mod, tree);      
     ll = nj_compute_log_likelihood(mod, data, NULL);
+
+    if (!isfinite(ll)) /* can happen with crispr model; force
+                          calling code to deal with it */
+      return ll;
+
     deriv = (ll - ll_base) / DERIV_EPS; 
     vec_set(dL_dx, i, deriv); /* derive of log likelihood wrt dim i of
                                  point; need to save this for later */
@@ -977,19 +988,31 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     if (n_nuisance_params > 0)
       vec_zero(ave_nuis_grad);
     avell = 0;
-    for (i = 0; i < nminibatch; i++) {      
-      /* use antithetic sampling to reduce variance */
-      /* do this in a way that keeps track of the original standard
-         normal variable (points_std) for use in computing
-         gradients */
-      if (i % 2 == 0)
-        mmvn_sample_anti_keep(mmvn, points, pointsnext, points_std);
-      else {
-        vec_copy(points, pointsnext);
-        vec_scale(points_std, -1.0);
-      }
+    for (i = 0; i < nminibatch; i++) {
+      int bail = 0;
+      do {
+        /* use antithetic sampling to reduce variance */
+        /* do this in a way that keeps track of the original standard
+           normal variable (points_std) for use in computing
+           gradients */
+        if (i % 2 == 0 || bail > 0)
+          mmvn_sample_anti_keep(mmvn, points, pointsnext, points_std);
+        else {
+          vec_copy(points, pointsnext);
+          vec_scale(points_std, -1.0);
+        }
+        
+        ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data);
 
-      ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data);
+        bail++;
+        if (bail > 10)
+          die("ERROR in nj_variational_inf: repeatedly sampling zero-probability trees.\n");
+      } while (!isfinite(ll));  /* in certain cases under the
+                                   irreversible CRISPR model, trees
+                                   can have likelihoods of zero; we'll
+                                   try to just keep sampling if that
+                                   happens */
+      
       avell += ll;
       vec_plus_eq(avegrad, grad);
 
@@ -1648,6 +1671,8 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
     TreeNode *t = lst_get_ptr(trees, i);    
     mod->tree = t;
     ll = nj_compute_log_likelihood(mod, data, NULL);
+    if (!isfinite(ll))  /* can happen with crispr model */
+      ll = -INFTY;
     if (ll > maxll) maxll = ll;
     vec_set(lls, i, ll);
     ll -= vec_get(logdens, i);
@@ -1681,9 +1706,6 @@ List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
   if (logf != NULL)
     fprintf(logf, "# Importance sampling from %d eligible trees of %d; avelnl: %f, maxlnl: %f\n",
             count, lst_size(trees), sampll/nsamples, maxll);
-
-
-  
 
   vec_free(weights);
   vec_free(lls);
@@ -2121,15 +2143,20 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
   /* collect an initial sample to approximate the upper bound on the
      log ratio of densities */
   for (i = 0; i < nsamples * 10; i++) {
-    mmvn_sample(mmvn, points);
-    nj_points_to_distances(points, data);
-    mod->tree = nj_inf(data->dist, data->names, NULL, data);
-    lst_push_ptr(init_samples, mod->tree);
+    do {
+      mmvn_sample(mmvn, points);
+      nj_points_to_distances(points, data);
+      mod->tree = nj_inf(data->dist, data->names, NULL, data);
 
-    if (data->crispr_mod != NULL)
-      ll[i] = cpr_compute_log_likelihood(data->crispr_mod, NULL);
-    else
-      ll[i] = nj_compute_log_likelihood(mod, data, NULL);
+      if (data->crispr_mod != NULL)
+        ll[i] = cpr_compute_log_likelihood(data->crispr_mod, NULL);
+      else
+        ll[i] = nj_compute_log_likelihood(mod, data, NULL);
+
+      if (!isfinite(ll[i])) tr_free(mod->tree);
+    } while (!isfinite(ll[i]));  /* need for the crispr case */
+
+    lst_push_ptr(init_samples, mod->tree);  
     mvnll[i] = mmvn_log_dens(mmvn, points);
     if (ll[i] - mvnll[i] > logM) 
       logM = ll[i] - mvnll[i];
@@ -2154,15 +2181,19 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
   /* if necessary, continue until target is met */
   while (lst_size(retval) < nsamples) {
     ntot++;
-    mmvn_sample(mmvn, points);
-    nj_points_to_distances(points, data);
-    mod->tree = nj_inf(data->dist, data->names, NULL, data);
+    do {
+      mmvn_sample(mmvn, points);
+      nj_points_to_distances(points, data);
+      mod->tree = nj_inf(data->dist, data->names, NULL, data);
 
-    if (data->crispr_mod != NULL)
-      lnl = cpr_compute_log_likelihood(data->crispr_mod, NULL);
-    else
-      lnl = nj_compute_log_likelihood(mod, data, NULL);
-        
+      if (data->crispr_mod != NULL)
+        lnl = cpr_compute_log_likelihood(data->crispr_mod, NULL);
+      else
+        lnl = nj_compute_log_likelihood(mod, data, NULL);
+
+      if (!isfinite(lnl)) tr_free(mod->tree);
+    } while (!isfinite(lnl)); /* need for crispr case */
+    
     mvnl = mmvn_log_dens(mmvn, points);
     u = unif_rand();
     if (u < exp(lnl - mvnl - logM)) {
@@ -2206,6 +2237,10 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod,
   nj_reset_tree_model(mod, tree);
   ll_base = nj_compute_log_likelihood(mod, data, NULL);
 
+  if (!isfinite(ll_base)) /* can happen with crispr; force calling
+                             code to deal with it */
+    return ll_base;
+  
   /* Now perturb each point and propagate perturbation through distance
      calculation, neighbor-joining reconstruction, and likelihood
      calculation on tree */  
@@ -2220,6 +2255,13 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod,
       tree = nj_inf(data->dist, data->msa->names, NULL, data);
       nj_reset_tree_model(mod, tree);      
       ll = nj_compute_log_likelihood(mod, data, NULL);
+
+      if (!isfinite(ll)) { /* can happen with crispr; force calling
+                              code to deal with it */
+        nj_reset_tree_model(mod, orig_tree);
+        return ll;
+      }
+      
       deriv = (ll - ll_base) / DERIV_EPS; 
 
       vec_set(dL_dx, idx, deriv);
@@ -2242,6 +2284,10 @@ double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, CovarData *data) {
     ll_base = cpr_compute_log_likelihood(data->crispr_mod, NULL);
   else
     ll_base = nj_compute_log_likelihood(mod, data, NULL);
+
+  if (!isfinite(ll_base)) /* can happen with crispr; force calling
+                             code to deal with it */
+    return ll_base;
   
   /* perturb each branch and recompute likelihood */
   traversal = mod->tree->nodes;
@@ -2262,6 +2308,10 @@ double nj_dL_dt_num(Vector *dL_dt, TreeModel *mod, CovarData *data) {
     else
       ll = nj_compute_log_likelihood(mod, data, NULL);
 
+    if (!isfinite(ll)) /* can happen with crispr; force calling
+                          code to deal with it */
+      return ll;
+    
     vec_set(dL_dt, nodeidx, (ll - ll_base) / DERIV_EPS);
     node->dparent = orig_t;
   }
@@ -2364,6 +2414,10 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   else
     ll_base = nj_compute_log_likelihood(mod, data, dL_dt);
 
+  if (!isfinite(ll_base)) /* can happen with crispr; force calling
+                             code to deal with it */
+    return ll_base;
+  
   /* TEMPORARY: compare dL_dt to numerical version */
   /* fprintf(stdout, "dL_dt (analytical):\n"); */
   /* vec_print(dL_dt, stdout); */

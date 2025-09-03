@@ -335,7 +335,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
         
           pL[pstate][n->id] = totl * totr;
           if (totl > 0 && totr > 0 && pL[pstate][n->id] < scaling_threshold) 
-            rescale = TRUE;          
+            rescale = TRUE;
         }
 
         /* deal with nodewise scaling */
@@ -360,11 +360,14 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
     }    
     ll += (log(total_prob) - vec_get(lscale, cprmod->mod->tree->id));
 
-    assert(isfinite(ll));
-
+    if (!isfinite(ll)) break;  /* this is possible with the crispr
+                                  model (total_prob == 0); in this
+                                  case we'll bail out and return
+                                  -inf */
+  
     /* to compute gradients efficiently, need to make a second pass
        across the tree to compute "outside" probabilities */
-    if (branchgrad != NULL) {
+    if (branchgrad != NULL) {  
       pre_trav = tr_preorder(cprmod->mod->tree);
 
       for (nodeidx = 0; nodeidx < lst_size(pre_trav); nodeidx++) {
