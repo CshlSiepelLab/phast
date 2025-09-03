@@ -90,6 +90,8 @@ typedef struct {
                        parameter in HKY case */
   double deriv_hky_kappa;
   char **names;
+  unsigned int no_zero_br; /* force all branches to be nonzero;
+                              sometimes needed with CRISPR model */
 } CovarData;
 
 /* for use with min-heap in fast nj algorithm */
@@ -240,5 +242,7 @@ void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data)
 void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc);
 
 double nj_nuis_param_get(TreeModel *mod, CovarData *data, int idx);
+
+void nj_repair_zero_br(TreeNode *t);
 
 #endif

@@ -1005,8 +1005,11 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
         ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data);
 
         bail++;
-        if (bail > 10)
-          die("ERROR in nj_variational_inf: repeatedly sampling zero-probability trees.\n");
+        if (bail > 10) {
+          assert(bail < 15); /* prohibit infinite loop */
+          fprintf(stderr, "WARNING: repeatedly sampling zero-probability trees. Prohibiting zero-length branches.\n");
+          data->no_zero_br = TRUE;
+        }
       } while (!isfinite(ll));  /* in certain cases under the
                                    irreversible CRISPR model, trees
                                    can have likelihoods of zero; we'll
@@ -1725,7 +1728,7 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
   if (data->type == CONST) {
     mat_set_identity(mmvn->mvn->sigma);
     data->lambda = (VARFLOOR + exp(vec_get(sigma_params, 0)));
-    assert(isfinite(data->lambda));
+    if (!isfinite(data->lambda)) data->lambda = VARFLOOR;
     mat_scale(mmvn->mvn->sigma, data->lambda);
   }
   else if (data->type == DIAG) {
@@ -1789,6 +1792,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   retval->hyperbolic = hyperbolic;
   retval->negcurvature = negcurvature;
   retval->ultrametric = ultrametric;
+  retval->no_zero_br = FALSE;
   
   nj_set_pointscale(retval);
   retval->lambda *= pow(retval->pointscale, 2);
@@ -2680,8 +2684,12 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
 /* wrapper for various distance-based tree inference algorithms */
 TreeNode *nj_inf(Matrix *D, char **names, Matrix *dt_dD,
                  CovarData *covar_data) {
-  if (covar_data->ultrametric)
-    return upgma_fast_infer(D, names, dt_dD);
+  if (covar_data->ultrametric) {
+    TreeNode *t = upgma_fast_infer(D, names, dt_dD);
+    if (covar_data->no_zero_br == TRUE)
+      nj_repair_zero_br(t);
+    return t;
+  }
   //    return upgma_infer_tree(D, names, dt_dD); /* non-heap version */
   else
     return nj_fast_infer(D, names, dt_dD);
@@ -2820,4 +2828,12 @@ double nj_nuis_param_get(TreeModel *mod, CovarData *data, int idx) {
   else
     die("ERROR in nj_nuis_param_get: no nuisance parameters defined\n");
   return -1;
+}
+
+void nj_repair_zero_br(TreeNode *t) {
+  for (int nodeidx = 0; nodeidx < lst_size(t->nodes); nodeidx++) {
+    TreeNode *n = lst_get_ptr(t->nodes, nodeidx);
+    if (n->parent != NULL && n->dparent <= 0)
+      n->dparent = 1e-3;
+  }
 }
