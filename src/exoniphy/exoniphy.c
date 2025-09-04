@@ -238,7 +238,7 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "Reading alignment from %s...\n",  msa_fname);
 
   if (msa_format == MAF)
-    msa = maf_read(infile, NULL, 1, NULL, NULL, 
+    msa = maf_read(infile, NULL, 3, NULL, NULL, 
                    NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
   else
     msa = msa_new_from_file_define_format(infile, msa_format, NULL);
