@@ -1,6 +1,6 @@
-PROGRAM: varPHAST
+PROGRAM: vine [Variational Inference with Node Embedding]
 
-USAGE: varPHAST [OPTIONS] alignment.fa > trees.nh
+USAGE: vine [OPTIONS] alignment.fa > trees.nh
 
 DESCRIPTION: Infer a posterior distribution of phylogenetic trees using a
 neighbor-joining-based variational approximation. By default, outputs trees

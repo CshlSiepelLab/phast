@@ -19,7 +19,7 @@
 #include <phast/subst_mods.h>
 #include <phast/sufficient_stats.h>
 #include <phast/mvn.h>
-#include "varPHAST.help"
+#include "vine.help"
 
 #define DEFAULT_NSAMPLES 100
 #define DEFAULT_DIM 3
