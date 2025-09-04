@@ -849,7 +849,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
                         int min_nbatches, CovarData *data, FILE *logf) {
 
   Vector *points, *grad, *kldgrad, *avegrad, *m, *m_prev, *v, *v_prev,
-    *best_mu, *best_sigmapar, *rescaledgrad, *sparsitygrad, *pointsnext,
+    *best_mu, *best_sigmapar, *rescaledgrad, *sparsitygrad = NULL, *pointsnext,
     *points_std;
   Vector *sigmapar = data->params;
   int n = data->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim,
@@ -863,8 +863,9 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
      by stochastic gradient descent but are not fully sampled via the
      variational distribution */
   int n_nuisance_params = nj_get_num_nuisance_params(mod, data);
-  Vector *nuis_grad, *ave_nuis_grad, *m_nuis, *v_nuis, *m_nuis_prev,
-    *v_nuis_prev, *best_nuis_params;
+  Vector *nuis_grad = NULL, *ave_nuis_grad = NULL, *m_nuis = NULL,
+    *v_nuis = NULL, *m_nuis_prev = NULL, *v_nuis_prev = NULL,
+    *best_nuis_params = NULL;
   
 #ifdef DUMPGRAD
   gradf = phast_fopen("grads_log.txt", "w");

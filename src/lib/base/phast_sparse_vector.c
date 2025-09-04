@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <phast/misc.h>
 #include <phast/lists.h>
 #include <phast/sparse_vector.h>
 #include <phast/sparse_matrix.h>
