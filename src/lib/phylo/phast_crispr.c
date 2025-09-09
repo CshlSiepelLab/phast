@@ -615,6 +615,7 @@ void cpr_set_subst_matrices(TreeModel *mod, double silent_rate,
 void cpr_set_branch_matrix(MarkovMatrix *P, double t, double silent_rate, Vector *mutrates) {  
   int j, silst = P->size - 1; /* silent state is the last one */
   mat_zero(P->matrix);
+  assert(mutrates->size == P->size-1);
   
   /* substitution probabilities from 0 (unedited) state to all edited
      (and not silent) states */
