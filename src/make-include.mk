@@ -28,8 +28,8 @@ else
     CC = lsbcc -fno-stack-protector    
   else
     CC = gcc
-#use for diagnosing memory leak
-#CC = clang -fsanitize=address -fno-omit-frame-pointer    
+#use for diagnosing memory leak on Mac
+#CC = clang -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer
   endif
   AR = ar
 endif
@@ -46,10 +46,11 @@ TARGETLIB = ${LIB}/libphast.a
 ifneq ($(TARGETOS), Windows)
  #for debugging
 # CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG -DNDEBUG -mtune=native -fno-strict-aliasing -fPIC -O2 -pedantic -Wconversion -Wno-sign-conversion
-#CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG
+CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG
  # for best performance
 #CFLAGS = -O3 -Wall
-CFLAGS = -O2 -g 
+# for profiling
+#CFLAGS = -O2 -g 
  # some other options
  #CFLAGS = -mcpu=opteron -O3
  #CFLAGS = -mcpu=pentiumpro -O3 

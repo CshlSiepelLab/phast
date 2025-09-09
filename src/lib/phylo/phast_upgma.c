@@ -100,7 +100,7 @@ TreeNode* upgma_infer_tree(Matrix *initD, char **names, Matrix *dt_dD) {
 
   for (i = 0; i < n; i++) {
     node_u = tr_new_node();
-    strcat(node_u->name, names[i]);
+    strcpy(node_u->name, names[i]);
     lst_push_ptr(nodes, node_u);
     vec_set(active, i, TRUE);
     vec_set(sizes, i, 1.0); /* FIXME */
@@ -256,6 +256,7 @@ TreeNode* upgma_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   sizes = vec_new(N); vec_zero(sizes);
   heights = vec_new(N+1);
   nodes = lst_new_ptr(N);
+  vec_zero(heights);
   tr_reset_id();
 
   /* Initialize leaf nodes and heap */
