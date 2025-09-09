@@ -1266,8 +1266,8 @@ void nj_estimate_mmvn_from_distances_euclidean(CovarData *data, multi_MVN *mmvn)
   mat_double_center(G, Dsq, FALSE);
   
   /* find eigendecomposition of G */
-  eval_real = vec_new(n);
-  revec_real = mat_new(n, n);
+  eval_real = vec_new(n); vec_zero(eval_real);
+  revec_real = mat_new(n, n); mat_zero(revec_real);
   if (mat_diagonalize_sym(G, eval_real, revec_real) != 0)
     die("ERROR in nj_estimate_mmvn_from_distances_euclidean: diagonalization failed.\n");
   
