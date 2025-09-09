@@ -158,7 +158,6 @@ void lst_free(List* l);
 */
 void lst_cpy(List* dest, List* src);
 
-
 /** Obtain size of list (number of elements).
    Returns number of elements 
 
@@ -788,5 +787,17 @@ int lst_find_dbl(List *l, double d)
 static PHAST_INLINE
 int lst_find_ptr(List *l, void *ptr) 
 { return lst_find(l, &ptr); }
+
+/* uses memcpy */
+static inline void lst_cpy_fast(List *dest, List *src) {
+  dest->lidx = src->lidx;
+  dest->ridx = src->ridx;
+  assert(dest->elementsz == src->elementsz);
+  if (dest->CAPACITY < lst_size(src)) {
+    dest->CAPACITY = lst_size(src);
+    dest->array = (void**)srealloc(dest->array, dest->CAPACITY * dest->elementsz);
+  }
+  memcpy(dest->array, src->array, lst_size(src) * src->elementsz);
+}
 
 #endif

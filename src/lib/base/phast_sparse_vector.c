@@ -46,21 +46,20 @@ void spvec_copy(SparseVector *dest, SparseVector *src) {
    where n is svec->nnonzero */
 void spvec_set(SparseVector *svec, int idx, double val) {
   int lidx = -1;
-  SparseVectorElement *el = NULL;
   assert(idx >= 0 && idx < svec->dim);
   if (val == 0)
     return;
   
   /* find the insertion point */
   if (spvec_bsearch_idx(svec, idx, &lidx) == TRUE) {
-    el = lst_get(svec->elementlist, lidx); /* found; update val */
+    SparseVectorElement *el = lst_get(svec->elementlist, lidx); /* found; update val */
     el->val = val;
   }
   else {   /* otherwise insert it at the correct place */
     SparseVectorElement newel = {idx, val};
     lst_insert_idx(svec->elementlist, lidx, &newel);
+    svec->nnonzero++;
   }
-  svec->nnonzero++;
 }
 
 /* O(1) set for use when elements can be added in sorted order by
@@ -110,7 +109,7 @@ double spvec_get(SparseVector *svec, int idx) {
   if (svec->sorted == FALSE)
     spvec_sort_by_idx(svec);
 
-  if (lst_size(svec->elementlist) < 10)
+  if (lst_size(svec->elementlist) < 16)
     el = spvec_linsearch(svec, idx);
   else
     el = spvec_bsearch(svec, idx);

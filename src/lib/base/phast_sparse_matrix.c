@@ -61,3 +61,4 @@ double spmat_get(SparseMatrix *sm, int row, int col) {
   assert(row >= 0 && row < sm->nrows && col >= 0 && col < sm->ncols);
   return spvec_get(sm->rows[row], col);
 }
+

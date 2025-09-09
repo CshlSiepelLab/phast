@@ -22,6 +22,7 @@
 #include "phast/sufficient_stats.h"
 #include "phast/markov_matrix.h"
 #include "phast/sparse_matrix.h"
+#include "phast/lists.h"
 #include "phast/mvn.h"
 #include "phast/multi_mvn.h"
 #include "phast/heap.h"
@@ -391,7 +392,7 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
     n--;  /* one fewer active nodes */
 
     if (dt_dD != NULL) {
-      spmat_copy(Jk, Jnext);
+      spmat_copy_fast(Jk, Jnext);
     }
       
     /* finally, add new Q values to the heap */
@@ -2505,6 +2506,44 @@ void nj_backprop(double *Jk, double *Jnext, int n, int f, int g, int u,
   }
 }
 
+/* helper for nj_backprop_sparse; see below */
+static inline void nj_backprop_fast_linear_comb(const SparseVector *rf,   // row idx_fi
+                                                const SparseVector *rg,   // row idx_gi
+                                                const SparseVector *rfg,  // row idx_fg
+                                                SparseVector *rout        // row idx_ui (will be overwritten)
+                                                ) {
+  /* assumes sorted already */
+  spvec_zero(rout); /* clear destination */
+
+  /* use direct access to underlying arrays */
+  const SparseVectorElement *af = (SparseVectorElement*)rf->elementlist->array;
+  const SparseVectorElement *ag = (SparseVectorElement*)rg->elementlist->array;
+  const SparseVectorElement *ah = (SparseVectorElement*)rfg->elementlist->array;
+  int nf = lst_size(rf->elementlist),
+      ng = lst_size(rg->elementlist),
+      nh = lst_size(rfg->elementlist);
+  int i = 0, j = 0, k = 0;
+
+  /* merge union of indices with 0.5*(f + g - fg) */
+  while (i < nf || j < ng || k < nh) {
+    int ci = (i<nf) ? af[i].idx : INT_MAX;
+    int cj = (j<ng) ? ag[j].idx : INT_MAX;
+    int ck = (k<nh) ? ah[k].idx : INT_MAX;
+    int c  = (ci<cj ? (ci<ck ? ci:ck) : (cj<ck?cj:ck));
+
+    double vf = (ci==c) ? af[i].val : 0.0;
+    double vg = (cj==c) ? ag[j].val : 0.0;
+    double vh = (ck==c) ? ah[k].val : 0.0;
+    double v  = 0.5 * (vf + vg - vh);
+
+    if (v != 0.0) spvec_set_sorted(rout, c, v);
+
+    if (ci==c) ++i;
+    if (cj==c) ++j;
+    if (ck==c) ++k;
+  }
+}
+
 /* version of function above that uses a sparse matrix implementation
    to avoid explosion in size of Jk and Jnext */
 void nj_backprop_sparse(SparseMatrix *Jk, SparseMatrix *Jnext, int n, int f, int g, int u,
@@ -2513,7 +2552,7 @@ void nj_backprop_sparse(SparseMatrix *Jk, SparseMatrix *Jnext, int n, int f, int
   int total_nodes = 2*n - 2; /* total possible in final tree */
   
   /* most of Jk will be unchanged so start with a copy */
-  spmat_copy(Jnext, Jk);
+  spmat_copy_fast(Jnext, Jk);
   
   /* now update distances involving new node u */
   for (i = 0; i < total_nodes; i++) {
@@ -2524,17 +2563,22 @@ void nj_backprop_sparse(SparseMatrix *Jk, SparseMatrix *Jnext, int n, int f, int
     int idx_gi = nj_i_j_to_dist(g, i, total_nodes);
     int idx_fg = nj_i_j_to_dist(f, g, total_nodes);
 
-    for (a = 0; a < n; a++) {
-      for (b = a + 1; b < n; b++) {
-        int idx_ab = nj_i_j_to_dist(a, b, n);
+    /* use helper function to combine values from three rows in one pass */
+    nj_backprop_fast_linear_comb(Jk->rows[idx_fi], Jk->rows[idx_gi],
+                                 Jk->rows[idx_fg], Jnext->rows[idx_ui]);
 
-        /* recursive update rule for new distance from u to i */
-        spmat_set_sorted(Jnext, idx_ui, idx_ab,
-                         0.5 * (spmat_get(Jk, idx_fi, idx_ab) +
-                                spmat_get(Jk, idx_gi, idx_ab) -
-                                spmat_get(Jk, idx_fg, idx_ab)));        
-      }
-    }
+    /* old version; too expensive */
+    /* for (a = 0; a < n; a++) { */
+    /*   for (b = a + 1; b < n; b++) { */
+    /*     int idx_ab = nj_i_j_to_dist(a, b, n); */
+
+    /*     /\* recursive update rule for new distance from u to i *\/ */
+    /*     spmat_set_sorted(Jnext, idx_ui, idx_ab, */
+    /*                      0.5 * (spmat_get(Jk, idx_fi, idx_ab) + */
+    /*                             spmat_get(Jk, idx_gi, idx_ab) - */
+    /*                             spmat_get(Jk, idx_fg, idx_ab)));         */
+    /*   } */
+    /* } */
   }
 }
 
@@ -2630,56 +2674,135 @@ void nj_backprop_set_dt_dD(double *Jk, Matrix *dt_dD, int n, int f, int g,
 /* version that uses sparse matrix */
 void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f, int g,
                                   int branch_idx_f, int branch_idx_g, Vector *active) {
-  int a, b, m;
   int total_nodes = 2*n - 2;
   int idx_fg = nj_i_j_to_dist(f, g, total_nodes);
   int nk = vec_sum(active);
+  int n_ab = n*(n-1)/2;
+  double *sum_diff = malloc(sizeof(double) * n_ab);
 
   /* the final call, with nk = 2, is a special case */
   if (nk == 2) {
+    // just copy 0.5 * row idx_fg into branch f
+    const SparseVector *rfg = Jk->rows[idx_fg];
+    /* first zero the whole dt_dD row */
+    for (int ab = 0; ab < n_ab; ab++) mat_set(dt_dD, branch_idx_f, ab, 0.0);
+    const SparseVectorElement *a = (SparseVectorElement*)rfg->elementlist->array;
+    int nz = lst_size(rfg->elementlist);
+    /* now fill in non-zero entries */
+    for (int t = 0; t < nz; t++)
+      mat_set(dt_dD, branch_idx_f, a[t].idx, 0.5 * a[t].val);
+
+    /* old version -- too slow */
     /* directly set the final branch derivative */
-    for (a = 0; a < n; a++) {
-      for (b = a + 1; b < n; b++) {
-        int idx_ab = nj_i_j_to_dist(a, b, n);
+    /* for (a = 0; a < n; a++) { */
+    /*   for (b = a + 1; b < n; b++) { */
+    /*     int idx_ab = nj_i_j_to_dist(a, b, n); */
         
-        /* branch derivative is equal to the value in Jk times 1/2
-           because of the way we split the last branch in the unrooted
-           tree */
-        mat_set(dt_dD, branch_idx_f, idx_ab, 0.5 * spmat_get(Jk, idx_fg, idx_ab));
-      }
-    }
+    /*     /\* branch derivative is equal to the value in Jk times 1/2 */
+    /*        because of the way we split the last branch in the unrooted */
+    /*        tree *\/ */
+    /*     mat_set(dt_dD, branch_idx_f, idx_ab, 0.5 * spmat_get(Jk, idx_fg, idx_ab)); */
+    /*   } */
+    /* } */
+    
     return;
   }
-    
-  /* branch derivative for f -> u */
-  for (a = 0; a < n; a++) {
-    for (b = a + 1; b < n; b++) {
-      int idx_ab = nj_i_j_to_dist(a, b, n);
-      double sum_diff = 0;
 
-      for (m = 0; m < total_nodes; m++) {
-        if (vec_get(active, m) == FALSE || m == f || m == g)
-          continue;
+  for (int ab = 0; ab < n_ab; ab++) sum_diff[ab] = 0.0;
+  /* for each active m (excluding f,g), accumulate sparse diffs */
+  for (int m = 0; m < total_nodes; m++) {
+    if (vec_get(active, m) == FALSE || m == f || m == g)
+      continue;
 
-        int idx_fm = nj_i_j_to_dist(f, m, total_nodes);
-        int idx_gm = nj_i_j_to_dist(g, m, total_nodes);
-        sum_diff += spmat_get(Jk, idx_fm, idx_ab) - spmat_get(Jk, idx_gm, idx_ab);
+    int idx_fm = nj_i_j_to_dist(f, m, total_nodes);
+    int idx_gm = nj_i_j_to_dist(g, m, total_nodes);
+
+    const SparseVectorElement *rf = (SparseVectorElement*)Jk->rows[idx_fm]->elementlist->array;
+    const SparseVectorElement *rg = (SparseVectorElement*)Jk->rows[idx_gm]->elementlist->array;
+    int nf = lst_size(Jk->rows[idx_fm]->elementlist);
+    int ng = lst_size(Jk->rows[idx_gm]->elementlist);
+    int i = 0, j = 0;
+
+    /* branch derivative for f->u; first merge the two rows then
+       scatter (+1 for f, -1 for g) */
+    while (i < nf || j < ng) {
+      int cf = (i<nf) ? rf[i].idx : INT_MAX;
+      int cg = (j<ng) ? rg[j].idx : INT_MAX;
+      if (cf == cg) {
+        sum_diff[cf] += (rf[i].val - rg[j].val);
+        i++; j++;
       }
-
-      mat_set(dt_dD, branch_idx_f, idx_ab, 0.5 * spmat_get(Jk, idx_fg, idx_ab) +
-              (0.5 / (nk - 2)) * sum_diff);
-      assert(isfinite(mat_get(dt_dD, branch_idx_f, idx_ab)));
+      else if (cf < cg) {
+        sum_diff[cf] += rf[i].val;
+        i++;
+      }
+      else {
+        sum_diff[cg] -= rg[j].val;
+        j++;
+      }
     }
   }
 
+  /* branch derivative for f -> u */
+  /* for (a = 0; a < n; a++) { */
+  /*   for (b = a + 1; b < n; b++) { */
+  /*     int idx_ab = nj_i_j_to_dist(a, b, n); */
+  /*     double sum_diff = 0; */
+
+  /*     for (m = 0; m < total_nodes; m++) { */
+  /*       if (vec_get(active, m) == FALSE || m == f || m == g) */
+  /*         continue; */
+
+  /*       int idx_fm = nj_i_j_to_dist(f, m, total_nodes); */
+  /*       int idx_gm = nj_i_j_to_dist(g, m, total_nodes); */
+  /*       sum_diff += spmat_get(Jk, idx_fm, idx_ab) - spmat_get(Jk, idx_gm, idx_ab); */
+  /*     } */
+
+  /*     mat_set(dt_dD, branch_idx_f, idx_ab, 0.5 * spmat_get(Jk, idx_fg, idx_ab) + */
+  /*             (0.5 / (nk - 2)) * sum_diff); */
+  /*     assert(isfinite(mat_get(dt_dD, branch_idx_f, idx_ab))); */
+  /*   } */
+  /* } */
+
+  /* set dt_dD row for branch f: 0.5*Jk[idx_fg,:] + (0.5/(nk-2))*sum_diff */
+  const SparseVectorElement *ah = (SparseVectorElement*)Jk->rows[idx_fg]->elementlist->array;
+  int nh = lst_size(Jk->rows[idx_fg]->elementlist);
+
+  /* start from (0.5/(nk-2))*sum_diff (dense) */
+  double scale = 0.5 / (nk - 2);
+  for (int ab = 0; ab < n_ab; ab++)
+    mat_set(dt_dD, branch_idx_f, ab, scale * sum_diff[ab]);
+
+  /* now add the sparse 0.5 * Jk[idx_fg,:] */
+  for (int t = 0; t < nh; t++) {
+    int ab = ah[t].idx;
+    mat_set(dt_dD, branch_idx_f, ab,
+            mat_get(dt_dD, branch_idx_f, ab) + 0.5 * ah[t].val);
+  }
+
+  /* branch derivative for g->u; g = Jk[idx_fg,:] - branch f 
+     do it densely; add sparse afterwards */
+  for (int ab = 0; ab < n_ab; ab++) {
+    double jf = mat_get(dt_dD, branch_idx_f, ab);
+    mat_set(dt_dD, branch_idx_g, ab, -jf); /* temporarily 0, will add Jk[idx_fg,:] */ 
+  }
+
+  for (int t = 0; t < nh; t++) {
+    int ab = ah[t].idx;
+    mat_set(dt_dD, branch_idx_g, ab,
+            mat_get(dt_dD, branch_idx_g, ab) + ah[t].val);
+  }
+  
   /* branch derivative for g -> u */
-  for (a = 0; a < n; a++) {
-    for (b = a + 1; b < n; b++) {
-      int idx_ab = nj_i_j_to_dist(a, b, n);
-      mat_set(dt_dD, branch_idx_g, idx_ab, spmat_get(Jk, idx_fg, idx_ab) -
-              mat_get(dt_dD, branch_idx_f, idx_ab));
-    }
-  }
+  /* for (a = 0; a < n; a++) { */
+  /*   for (b = a + 1; b < n; b++) { */
+  /*     int idx_ab = nj_i_j_to_dist(a, b, n); */
+  /*     mat_set(dt_dD, branch_idx_g, idx_ab, spmat_get(Jk, idx_fg, idx_ab) - */
+  /*             mat_get(dt_dD, branch_idx_f, idx_ab)); */
+  /*   } */
+  /* } */
+
+  free(sum_diff);
 }
 
 /* wrapper for various distance-based tree inference algorithms */

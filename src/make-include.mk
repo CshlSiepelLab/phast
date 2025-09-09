@@ -48,7 +48,8 @@ ifneq ($(TARGETOS), Windows)
 # CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG -DNDEBUG -mtune=native -fno-strict-aliasing -fPIC -O2 -pedantic -Wconversion -Wno-sign-conversion
 #CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG
  # for best performance
-CFLAGS = -O3 -Wall
+#CFLAGS = -O3 -Wall
+CFLAGS = -O2 -g 
  # some other options
  #CFLAGS = -mcpu=opteron -O3
  #CFLAGS = -mcpu=pentiumpro -O3 
