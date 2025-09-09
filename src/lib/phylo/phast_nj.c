@@ -1388,7 +1388,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
   double scaling_threshold = DBL_MIN * 1.0e10;  /* need some padding */
   double lscaling_threshold = log(scaling_threshold), ll = 0;
   double tmp[nstates];
-  Matrix *grad_mat = NULL;
+  Matrix **grad_mat, **grad_mat_kappa;
   unsigned int rescale;
   MSA *msa = data->msa;
   
@@ -1419,9 +1419,16 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
     pLbar = smalloc(nstates * sizeof(double*));
     for (j = 0; j < nstates; j++)
       pLbar[j] = smalloc((mod->tree->nnodes+1) * sizeof(double));
-    grad_mat = mat_new(nstates, nstates);
     if (mod->subst_mod == HKY85)
       data->deriv_hky_kappa = 0.0;
+    grad_mat = malloc(mod->tree->nnodes * sizeof(void*));
+    for (j = 0; j < mod->tree->nnodes; j++)
+      grad_mat[j] = mat_new(nstates, nstates);
+    if (mod->subst_mod == HKY85) {
+      grad_mat_kappa = malloc(mod->tree->nnodes * sizeof(void*));
+    for (j = 0; j < mod->tree->nnodes; j++)
+      grad_mat_kappa[j] = mat_new(nstates, nstates);
+    }
   }
 
   tm_set_subst_matrices(mod);  /* just call this in all cases; we'll be tweaking the model a lot */
@@ -1574,16 +1581,19 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
         if (n != mod->tree->rchild) { /* skip branch to right of root because unrooted */
           /* calculate derivative analytically */
           deriv = 0;
-          if (mod->subst_mod == JC69)
-            tm_grad_JC69(mod, grad_mat, n->dparent);
-          else if (mod->subst_mod == HKY85) 
-            tm_grad_HKY_dt(mod, grad_mat, data->hky_kappa, n->dparent); 
-          else
-            die("ERROR in nj_compute_log_likelihood: only JC69 and HKY85 substitution models are supported.\n");
+          /* only do this first time through */
+          if (tupleidx == 0) {
+            if (mod->subst_mod == JC69)
+              tm_grad_JC69(mod, grad_mat[n->id], n->dparent);
+            else if (mod->subst_mod == HKY85) 
+              tm_grad_HKY_dt(mod, grad_mat[n->id], data->hky_kappa, n->dparent); 
+            else
+              die("ERROR in nj_compute_log_likelihood: only JC69 and HKY85 substitution models are supported.\n");
+          }
           
           for (i = 0; i < nstates; i++)   
             for (j = 0; j < nstates; j++)    
-              deriv +=  tmp[i] * pLbar[i][par->id] * pL[j][n->id] * mat_get(grad_mat, i, j);
+              deriv +=  tmp[i] * pLbar[i][par->id] * pL[j][n->id] * mat_get(grad_mat[n->id], i, j);
 
           /* adjust for all relevant scale terms; do everything in log space */
           deriv *= exp(vec_get(lscale, mod->tree->id)
@@ -1599,11 +1609,12 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
            it has to be aggregated across all branches */
         if (mod->subst_mod == HKY85) {
           double this_deriv_kappa = 0;
-          tm_grad_HKY_dkappa(mod, grad_mat, data->hky_kappa, n->dparent);
+          if (tupleidx == 0)
+            tm_grad_HKY_dkappa(mod, grad_mat_kappa[n->id], data->hky_kappa, n->dparent);
           for (i = 0; i < nstates; i++) 
             for (j = 0; j < nstates; j++) 
               this_deriv_kappa += tmp[i] * pLbar[i][par->id] * pL[j][n->id] *
-                mat_get(grad_mat, i, j);
+                mat_get(grad_mat_kappa[n->id], i, j);
 
           /* adjust for all relevant scale terms; do everything in log space */
           this_deriv_kappa *= exp(vec_get(lscale, mod->tree->id)
@@ -1623,7 +1634,14 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
     for (j = 0; j < nstates; j++)
       sfree(pLbar[j]);
     sfree(pLbar);
-    mat_free(grad_mat);
+    for (j = 0; j < mod->tree->nnodes; j++)      
+      mat_free(grad_mat[j]);
+    free(grad_mat);
+    if (mod->subst_mod == HKY85) {
+      for (j = 0; j < mod->tree->nnodes; j++)      
+        mat_free(grad_mat_kappa[j]);
+      free(grad_mat_kappa);
+    }
   }
 
   vec_free(lscale);

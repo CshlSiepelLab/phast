@@ -348,6 +348,7 @@ TreeNode* upgma_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
   if (dt_dD != NULL)
     upgma_set_dt_dD(root, dt_dD);  // Postprocess
 
+  hp_free(heap);
   lst_free(nodes);
   vec_free(active);
   vec_free(sizes);

@@ -12,6 +12,7 @@
    decrease-key, delete-min all O(log n) or better). */
 
 #include <phast/heap.h>
+#include <phast/stacks.h>
 
 HeapNode* hp_new_node(double val, void *auxdata) {
   HeapNode *node = malloc(sizeof(HeapNode));
@@ -60,10 +61,29 @@ HeapNode* hp_meld_two_pass(HeapNode *node) {
 
 HeapNode* hp_delete_min(HeapNode *heap, void **min_auxdata) {
   if (heap == NULL) return NULL;
-  *min_auxdata = heap->auxdata;
+  if (min_auxdata != NULL) *min_auxdata = heap->auxdata;
   HeapNode *new_heap = hp_meld_two_pass(heap->child);
   free(heap);
   return new_heap;
+}
+
+/* warning: does not free auxdata */
+void hp_free(HeapNode *heap) {
+  if (heap == NULL) 
+    return;
+
+  Stack *st = stk_new_ptr(128);   /* initial cap; grows as needed */
+  stk_push_ptr(st, heap);
+
+  while (!stk_empty(st)) {
+    HeapNode *node = (HeapNode*)stk_pop_ptr(st);
+    if (node == NULL) continue;
+    if (node->sibling != NULL) stk_push_ptr(st, node->sibling);
+    if (node->child != NULL) stk_push_ptr(st, node->child);
+    free(node);
+  }
+
+  stk_free(st);
 }
 
 void hp_dump(HeapNode *heap, FILE *F) {
