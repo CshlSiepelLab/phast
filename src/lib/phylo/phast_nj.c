@@ -439,6 +439,13 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
 
   assert(root->id == root->nnodes - 1); /* important for indexing */
 
+  /* drain heap */
+  while (heap != NULL) {
+    heap = hp_delete_min(heap, (void**)&hn);
+    free(hn);
+  }
+  
+  hp_free(heap);
   lst_free(nodes);
   vec_free(active);
   vec_free(sums);
