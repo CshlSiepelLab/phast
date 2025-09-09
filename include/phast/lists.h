@@ -35,6 +35,7 @@
 
 #include <string.h>
 #include <stdlib.h> 
+#include <assert.h> 
 #include <phast/external_libs.h>
 
 /** Basic List object */

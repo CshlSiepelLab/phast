@@ -15,6 +15,7 @@
 #define NJ_H
 
 #include <stdio.h>
+#include <limits.h>
 #include <phast/matrix.h>
 #include <phast/msa.h>
 #include <phast/trees.h>

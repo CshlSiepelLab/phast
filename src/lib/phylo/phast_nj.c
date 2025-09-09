@@ -2548,7 +2548,7 @@ static inline void nj_backprop_fast_linear_comb(const SparseVector *rf,   // row
    to avoid explosion in size of Jk and Jnext */
 void nj_backprop_sparse(SparseMatrix *Jk, SparseMatrix *Jnext, int n, int f, int g, int u,
                         Vector *active) {
-  int i, a, b;
+  int i;
   int total_nodes = 2*n - 2; /* total possible in final tree */
   
   /* most of Jk will be unchanged so start with a copy */
