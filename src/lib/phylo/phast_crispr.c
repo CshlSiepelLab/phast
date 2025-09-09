@@ -614,71 +614,76 @@ void cpr_set_subst_matrices(TreeModel *mod, double silent_rate,
    of Mai, Chu, and Raphael, doi:10.1101/2024.03.05.583638 */  
 void cpr_set_branch_matrix(MarkovMatrix *P, double t, double silent_rate, Vector *mutrates) {  
   int j, silst = P->size - 1; /* silent state is the last one */
+  double exp_t_sil = exp(-t * silent_rate),
+    one_min_exp_t_sil = 1 - exp_t_sil,
+    exp_t_sil_one_min_exp_t = exp_t_sil * (1 - exp(-t));
   mat_zero(P->matrix);
   assert(mutrates->size == P->size-1);
   
   /* substitution probabilities from 0 (unedited) state to all edited
      (and not silent) states */
   for (j = 1; j < silst; j++)
-    mm_set(P, 0, j, vec_get(mutrates, j) * exp(-t * silent_rate) * (1 - exp(-t)));
+    mm_set(P, 0, j, vec_get(mutrates, j) * exp_t_sil_one_min_exp_t);
   mm_set(P, 0, 0, exp(-t*(1+silent_rate)));
   
   /* substitution probabilities from edited states to themselves */
   for (j = 1; j < silst; j++)
-    mm_set(P, j, j, exp(-t * silent_rate));
+    mm_set(P, j, j, exp_t_sil);
 
   /* substitution probabilities to silent state */
   for (j = 0; j < silst; j++)
-    mm_set(P, j, silst, 1 - exp(-t * silent_rate));
+    mm_set(P, j, silst, one_min_exp_t_sil);
   mm_set(P, silst, silst, 1); /* absorbing state */
 }
 
 /* compute gradients of elements of substitution matrix with respect
    to branch length */
 void cpr_branch_grad(Matrix *grad, double t, double silent_rate, Vector *mutrates) {
-  int j, silst = grad->nrows - 1; 
+  int j, silst = grad->nrows - 1;
+  double A = (-silent_rate * exp(-t*silent_rate) * (1 - exp(-t)) +
+              exp(-t * (1+silent_rate))),
+    B = silent_rate * exp(-t * silent_rate);
   mat_zero(grad);
          
   /* derivatives of substitution probabilities from 0 (unedited) state
      to all edited (and not silent) states */
   for (j = 1; j < silst; j++)
-    mat_set(grad, 0, j, vec_get(mutrates, j) *
-            (-silent_rate * exp(-t*silent_rate) * (1 - exp(-t)) +
-             exp(-t * (1+silent_rate))));
+    mat_set(grad, 0, j, vec_get(mutrates, j) * A);
   mat_set(grad, 0, 0, -(1+silent_rate) * exp(-t*(1+silent_rate)));
   
   /* derivatives of substitution probabilities from edited states to
      themselves */
   for (j = 1; j < silst; j++)
-    mat_set(grad, j, j, -silent_rate * exp(-t * silent_rate));
+    mat_set(grad, j, j, -B);
 
   /* derivatives of substitution probabilities to silent state */
   for (j = 0; j < silst; j++)
-    mat_set(grad, j, silst, silent_rate * exp(-t * silent_rate));
+    mat_set(grad, j, silst, B);
 }
 
 /* compute gradients of elements of substitution matrix with respect
    to the silencing rate */
 void cpr_silent_rate_grad(Matrix *grad, double t, double silent_rate, Vector *mutrates) {
   int j, silst = grad->nrows - 1;
-  double Es = exp(-silent_rate * t);
-  double E1 = exp(-t);    
+  double Es = -t * exp(-silent_rate * t);
+  double E1 = exp(-t);
+  double A = Es * (1.0-E1);
   mat_zero(grad);
          
   /* derivatives of substitution probabilities from 0 (unedited) state
      to all edited (and not silent) states */
   for (j = 1; j < silst; j++)
-    mat_set(grad, 0, j, vec_get(mutrates, j) * -t * Es * (1.0-E1));
+    mat_set(grad, 0, j, vec_get(mutrates, j) * A);
   mat_set(grad, 0, 0, -t * exp(-t*(1.0+silent_rate)));
   
   /* derivatives of substitution probabilities from edited states to
      themselves */
   for (j = 1; j < silst; j++)
-    mat_set(grad, j, j, -t * Es);
+    mat_set(grad, j, j, Es);
 
   /* derivatives of substitution probabilities to silent state */
   for (j = 0; j < silst; j++)
-    mat_set(grad, j, silst, t * Es);
+    mat_set(grad, j, silst, -Es);
 }
 
 /* estimate relative mutation rates based on relative frequencies in
