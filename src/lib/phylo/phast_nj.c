@@ -696,7 +696,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn,
 
   if (!isfinite(ll_base)) /* can happen with crispr model; force calling code to deal with it */
     return ll_base;
-  
+        
   /* now derive partial derivatives wrt free parameters from dL/dx */
   vec_zero(grad);
   loglambda_grad = 0;
@@ -1011,17 +1011,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
           vec_scale(points_std, -1.0);
         }
 
-        /* TEMPORARY.  Check sample */
-        printf("iteration %d, minibatch sample %d\n", t, i);
-        for (j = 0; j < points->size; j++)
-          assert(isfinite(vec_get(points, j)));
-        
         ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data);
 
-        /* TEMPORARY.  Check gradient */
-        for (j = 0; j < grad->size; j++)
-          assert(isfinite(vec_get(grad, j)));
-        
         if (++bail > 10 && !isfinite(ll)) {
           assert(bail < 15); /* prohibit infinite loop */
           fprintf(stderr, "WARNING: repeatedly sampling zero-probability trees. Prohibiting zero-length branches.\n");
@@ -1076,9 +1067,6 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
     t++;
-    printf("updating parameters #%d...\n", t);
-    vec_print(avegrad, stdout);
-    vec_print(rescaledgrad, stdout);
     for (j = 0; j < rescaledgrad->size; j++) {   
       double mhatj, vhatj, g = vec_get(rescaledgrad, j);
       
@@ -1501,7 +1489,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
         vec_set(lscale, n->id, vec_get(lscale, n->lchild->id) +
                 vec_get(lscale, n->rchild->id));
         if (rescale == TRUE) { /* have to rescale for all states */
-          vec_set(lscale, n->id, vec_get(lscale, n->id) - lscaling_threshold);
+          vec_set(lscale, n->id, vec_get(lscale, n->id) + lscaling_threshold);
           for (i = 0; i < nstates; i++) 
             pL[i][n->id] /= scaling_threshold;
         }
@@ -1514,7 +1502,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
       total_prob += vec_get(mod->backgd_freqs, i) *
         pL[i][mod->tree->id] * mod->freqK[rcat];
     
-    ll += (log(total_prob) - vec_get(lscale, mod->tree->id)) * msa->ss->counts[tupleidx];
+    ll += (log(total_prob) + vec_get(lscale, mod->tree->id)) * msa->ss->counts[tupleidx];
     assert(isfinite(ll));
 
     /* to compute gradients efficiently, need to make a second pass
@@ -1556,7 +1544,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
           vec_set(lscale_o, n->id, vec_get(lscale_o, n->parent->id) +
                   vec_get(lscale, sibling->id));
           if (rescale == TRUE) { /* rescale for all states */
-            vec_set(lscale_o, n->id, vec_get(lscale_o, n->id) - lscaling_threshold);
+            vec_set(lscale_o, n->id, vec_get(lscale_o, n->id) + lscaling_threshold);
             for (i = 0; i < nstates; i++)
               pLbar[i][n->id] /= scaling_threshold;     
           }
@@ -2450,7 +2438,7 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   /* fprintf(stdout, "dt_dD (numerical):\n"); */
   /* mat_print(dt_dD, stdout); */
   /* exit(0); */
-  
+
   /* calculate log likelihood and analytical gradient */
   if (data->crispr_mod != NULL)
     ll_base = cpr_compute_log_likelihood(data->crispr_mod, dL_dt);
@@ -2853,14 +2841,6 @@ TreeNode *nj_inf(Matrix *D, char **names, Matrix *dt_dD,
                  CovarData *covar_data) {
   if (covar_data->ultrametric) {
     TreeNode *t = upgma_fast_infer(D, names, dt_dD);
-
-    /* TEMPORARY: check for NaNs */
-    for (int nodeidx = 0; nodeidx < lst_size(t->nodes); nodeidx++) {
-      TreeNode *n = lst_get_ptr(t->nodes, nodeidx);
-    if (n->parent != NULL &&
-        (n->dparent < 0 || !isfinite(n->dparent)))
-      die("bad tree\n");
-    }
 
     if (covar_data->no_zero_br == TRUE)
       nj_repair_zero_br(t);
