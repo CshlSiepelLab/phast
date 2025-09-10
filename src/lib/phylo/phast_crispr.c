@@ -512,7 +512,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
           }
         }
 
-        /* adjust for all relevant scale terms; do everything in log space */
+        /* adjust for all relevant scale terms */
         this_deriv_sil *= exp(expon);
         cprmod->deriv_sil += this_deriv_sil;        
       }

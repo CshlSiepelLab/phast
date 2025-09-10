@@ -2603,18 +2603,6 @@ void nj_backprop_sparse(SparseMatrix *Jk, SparseMatrix *Jnext, int n, int f, int
     nj_backprop_fast_linear_comb(Jk->rows[idx_fi], Jk->rows[idx_gi],
                                  Jk->rows[idx_fg], Jnext->rows[idx_ui]);
 
-    /* old version; too expensive */
-    /* for (a = 0; a < n; a++) { */
-    /*   for (b = a + 1; b < n; b++) { */
-    /*     int idx_ab = nj_i_j_to_dist(a, b, n); */
-
-    /*     /\* recursive update rule for new distance from u to i *\/ */
-    /*     spmat_set_sorted(Jnext, idx_ui, idx_ab, */
-    /*                      0.5 * (spmat_get(Jk, idx_fi, idx_ab) + */
-    /*                             spmat_get(Jk, idx_gi, idx_ab) - */
-    /*                             spmat_get(Jk, idx_fg, idx_ab)));         */
-    /*   } */
-    /* } */
   }
 }
 
@@ -2718,8 +2706,9 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
 
   /* the final call, with nk = 2, is a special case */
   if (nk == 2) {
-    // just copy 0.5 * row idx_fg into branch f
+    /* just copy 0.5 * row idx_fg into branch f */
     const SparseVector *rfg = Jk->rows[idx_fg];
+
     /* first zero the whole dt_dD row */
     for (int ab = 0; ab < n_ab; ab++) mat_set(dt_dD, branch_idx_f, ab, 0.0);
     const SparseVectorElement *a = (SparseVectorElement*)rfg->elementlist->array;
@@ -2728,18 +2717,6 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
     for (int t = 0; t < nz; t++)
       mat_set(dt_dD, branch_idx_f, a[t].idx, 0.5 * a[t].val);
 
-    /* old version -- too slow */
-    /* directly set the final branch derivative */
-    /* for (a = 0; a < n; a++) { */
-    /*   for (b = a + 1; b < n; b++) { */
-    /*     int idx_ab = nj_i_j_to_dist(a, b, n); */
-        
-    /*     /\* branch derivative is equal to the value in Jk times 1/2 */
-    /*        because of the way we split the last branch in the unrooted */
-    /*        tree *\/ */
-    /*     mat_set(dt_dD, branch_idx_f, idx_ab, 0.5 * spmat_get(Jk, idx_fg, idx_ab)); */
-    /*   } */
-    /* } */
     free(sum_diff);
     return;
   }
@@ -2780,27 +2757,6 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
     }
   }
 
-  /* branch derivative for f -> u */
-  /* for (a = 0; a < n; a++) { */
-  /*   for (b = a + 1; b < n; b++) { */
-  /*     int idx_ab = nj_i_j_to_dist(a, b, n); */
-  /*     double sum_diff = 0; */
-
-  /*     for (m = 0; m < total_nodes; m++) { */
-  /*       if (vec_get(active, m) == FALSE || m == f || m == g) */
-  /*         continue; */
-
-  /*       int idx_fm = nj_i_j_to_dist(f, m, total_nodes); */
-  /*       int idx_gm = nj_i_j_to_dist(g, m, total_nodes); */
-  /*       sum_diff += spmat_get(Jk, idx_fm, idx_ab) - spmat_get(Jk, idx_gm, idx_ab); */
-  /*     } */
-
-  /*     mat_set(dt_dD, branch_idx_f, idx_ab, 0.5 * spmat_get(Jk, idx_fg, idx_ab) + */
-  /*             (0.5 / (nk - 2)) * sum_diff); */
-  /*     assert(isfinite(mat_get(dt_dD, branch_idx_f, idx_ab))); */
-  /*   } */
-  /* } */
-
   /* set dt_dD row for branch f: 0.5*Jk[idx_fg,:] + (0.5/(nk-2))*sum_diff */
   const SparseVectorElement *ah = (SparseVectorElement*)Jk->rows[idx_fg]->elementlist->array;
   int nh = lst_size(Jk->rows[idx_fg]->elementlist);
@@ -2830,15 +2786,6 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
             mat_get(dt_dD, branch_idx_g, ab) + ah[t].val);
   }
   
-  /* branch derivative for g -> u */
-  /* for (a = 0; a < n; a++) { */
-  /*   for (b = a + 1; b < n; b++) { */
-  /*     int idx_ab = nj_i_j_to_dist(a, b, n); */
-  /*     mat_set(dt_dD, branch_idx_g, idx_ab, spmat_get(Jk, idx_fg, idx_ab) - */
-  /*             mat_get(dt_dD, branch_idx_f, idx_ab)); */
-  /*   } */
-  /* } */
-
   free(sum_diff);
 }
 
