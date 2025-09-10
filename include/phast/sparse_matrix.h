@@ -16,6 +16,31 @@ typedef struct {
   SparseVector **rows;
 } SparseMatrix;
 
+/* these are for fast copying */
+static inline void spmat_copy_fast(SparseMatrix *dest, const SparseMatrix *src) {
+  assert(dest->nrows == src->nrows && dest->ncols == src->ncols);
+  for (int r = 0; r < src->nrows; r++)
+    spvec_copy_fast(dest->rows[r], src->rows[r]);
+}
+
+/* ensure row is unique before modifying */
+static inline void spmat_ensure_unique_row(SparseMatrix *dest, int r) {
+  SparseVector *row = dest->rows[r];
+
+  if (dest->rows[r]->refcnt > 1) {
+    SparseVector *clone = spvec_clone_fast(row);
+    spvec_release(row);
+    dest->rows[r] = clone; 
+  }
+}
+
+static inline void spmat_replace_row_empty(SparseMatrix *M, int r, int capacity_hint) {
+  SparseVector *old = M->rows[r];
+  SparseVector *new = spvec_new(M->ncols, capacity_hint > 0 ? capacity_hint : 8);
+  M->rows[r] = new;
+  spvec_release(old);
+}
+
 SparseMatrix *spmat_new(int nrows, int ncols, int colsize);
 
 void spmat_free(SparseMatrix *sm);
@@ -32,18 +57,6 @@ void spmat_set_sorted(SparseMatrix *sm, int row, int col, double val);
 
 double spmat_get(SparseMatrix *sm, int row, int col);
 
-/* fast copy using memcpy by row */
-static inline void spvec_copy_fast(SparseVector *dest, const SparseVector *src) {
-  assert(dest->dim == src->dim);
-  lst_cpy_fast(dest->elementlist, src->elementlist);  
-  dest->nnonzero = src->nnonzero;
-  dest->sorted   = src->sorted;  
-}
-
-static inline void spmat_copy_fast(SparseMatrix *dest, const SparseMatrix *src) {
-  assert(dest->nrows == src->nrows && dest->ncols == src->ncols);
-  for (int r = 0; r < src->nrows; r++)
-    spvec_copy_fast(dest->rows[r], src->rows[r]);
-}
+void spmat_copy_shallow(SparseMatrix *dest, const SparseMatrix *src);
 
 #endif

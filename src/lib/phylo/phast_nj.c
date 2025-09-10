@@ -392,7 +392,7 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
     n--;  /* one fewer active nodes */
 
     if (dt_dD != NULL) {
-      spmat_copy_fast(Jk, Jnext);
+      spmat_copy_shallow(Jk, Jnext);
     }
       
     /* finally, add new Q values to the heap */
@@ -2577,7 +2577,7 @@ void nj_backprop_sparse(SparseMatrix *Jk, SparseMatrix *Jnext, int n, int f, int
   int total_nodes = 2*n - 2; /* total possible in final tree */
   
   /* most of Jk will be unchanged so start with a copy */
-  spmat_copy_fast(Jnext, Jk);
+  spmat_copy_shallow(Jnext, Jk);
   
   /* now update distances involving new node u */
   for (i = 0; i < total_nodes; i++) {
@@ -2588,6 +2588,11 @@ void nj_backprop_sparse(SparseMatrix *Jk, SparseMatrix *Jnext, int n, int f, int
     int idx_gi = nj_i_j_to_dist(g, i, total_nodes);
     int idx_fg = nj_i_j_to_dist(f, g, total_nodes);
 
+    /* ensure destination row is deep copy before writing */
+    spmat_replace_row_empty(Jnext, idx_ui, lst_size(Jk->rows[idx_fi]->elementlist) +
+                            lst_size(Jk->rows[idx_gi]->elementlist) +
+                            lst_size(Jk->rows[idx_fg]->elementlist));
+    
     /* use helper function to combine values from three rows in one pass */
     nj_backprop_fast_linear_comb(Jk->rows[idx_fi], Jk->rows[idx_gi],
                                  Jk->rows[idx_fg], Jnext->rows[idx_ui]);
@@ -2729,11 +2734,12 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
     /*     mat_set(dt_dD, branch_idx_f, idx_ab, 0.5 * spmat_get(Jk, idx_fg, idx_ab)); */
     /*   } */
     /* } */
-    
+    free(sum_diff);
     return;
   }
 
   for (int ab = 0; ab < n_ab; ab++) sum_diff[ab] = 0.0;
+  
   /* for each active m (excluding f,g), accumulate sparse diffs */
   for (int m = 0; m < total_nodes; m++) {
     if (vec_get(active, m) == FALSE || m == f || m == g)

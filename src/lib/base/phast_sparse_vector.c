@@ -15,6 +15,7 @@ SparseVector *spvec_new(int dim, int starting_size) {
   svec->sorted = TRUE;
   svec->nnonzero = 0;
   svec->dim = dim;
+  svec->refcnt = 1;
   return svec;
 }
 

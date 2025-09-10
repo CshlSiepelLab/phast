@@ -62,3 +62,12 @@ double spmat_get(SparseMatrix *sm, int row, int col) {
   return spvec_get(sm->rows[row], col);
 }
 
+/* shallow copy for speed when only subset of rows are changed */
+void spmat_copy_shallow(SparseMatrix *dest, const SparseMatrix *src) {
+  assert(dest->nrows == src->nrows && dest->ncols == src->ncols);
+  for (int i = 0; i < src->nrows; i++) {
+    spvec_release(dest->rows[i]);
+    dest->rows[i] = src->rows[i];
+    spvec_retain(dest->rows[i]);
+  }
+}

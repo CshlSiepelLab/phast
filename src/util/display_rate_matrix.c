@@ -17,6 +17,7 @@
 #include "phast/tree_model.h"
 #include <getopt.h>
 #include <phast/stringsplus.h>
+#include <phast/matrix.h>
 #include <ctype.h>
 
 void print_usage() {

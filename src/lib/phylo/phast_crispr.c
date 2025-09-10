@@ -617,7 +617,7 @@ void cpr_set_branch_matrix(MarkovMatrix *P, double t, double silent_rate, Vector
   double exp_t_sil = exp(-t * silent_rate),
     one_min_exp_t_sil = 1 - exp_t_sil,
     exp_t_sil_one_min_exp_t = exp_t_sil * (1 - exp(-t));
-  mat_zero(P->matrix);
+  /*  mat_zero(P->matrix);*/
   assert(mutrates->size == P->size-1);
   
   /* substitution probabilities from 0 (unedited) state to all edited
@@ -627,9 +627,14 @@ void cpr_set_branch_matrix(MarkovMatrix *P, double t, double silent_rate, Vector
   mm_set(P, 0, 0, exp(-t*(1+silent_rate)));
   
   /* substitution probabilities from edited states to themselves */
-  for (j = 1; j < silst; j++)
+  for (j = 1; j < silst; j++) {
     mm_set(P, j, j, exp_t_sil);
-
+    for (int i = 1; i < j; i++) {  /* all others zero */
+      mm_set(P, i, j, 0);
+      mm_set(P, j, i, 0);
+    }
+  }
+  
   /* substitution probabilities to silent state */
   for (j = 0; j < silst; j++)
     mm_set(P, j, silst, one_min_exp_t_sil);
@@ -668,7 +673,7 @@ void cpr_silent_rate_grad(Matrix *grad, double t, double silent_rate, Vector *mu
   double Es = -t * exp(-silent_rate * t);
   double E1 = exp(-t);
   double A = Es * (1.0-E1);
-  mat_zero(grad);
+  /*  mat_zero(grad);*/
          
   /* derivatives of substitution probabilities from 0 (unedited) state
      to all edited (and not silent) states */
@@ -678,12 +683,18 @@ void cpr_silent_rate_grad(Matrix *grad, double t, double silent_rate, Vector *mu
   
   /* derivatives of substitution probabilities from edited states to
      themselves */
-  for (j = 1; j < silst; j++)
+  for (j = 1; j < silst; j++) {
     mat_set(grad, j, j, Es);
+    for (int i = 1; i < j; i++) {
+      mat_set(grad, i, j, 0);
+      mat_set(grad, j, i, 0);
+    }
+  }
 
   /* derivatives of substitution probabilities to silent state */
   for (j = 0; j < silst; j++)
     mat_set(grad, j, silst, -Es);
+  mat_set(grad, silst, silst, 0);
 }
 
 /* estimate relative mutation rates based on relative frequencies in

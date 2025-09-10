@@ -68,13 +68,6 @@ void mat_set_identity(Matrix *m) {
       m->data[i][j] = (i == j ? 1 : 0);
 }
 
-void mat_zero(Matrix *m) {
-  int i, j;
-  for (i = 0; i < m->nrows; i++)
-    for (j = 0; j < m->ncols; j++)
-      m->data[i][j] = 0;
-}
-
 void mat_set_all(Matrix *m, double val) {
   int i, j;
   for (i = 0; i < m->nrows; i++)

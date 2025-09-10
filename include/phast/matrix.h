@@ -108,12 +108,7 @@ void mat_resize(Matrix *m, int nrows, int ncols);
   @see mat_set, mat_set_zero, mat_set_all.
 */
 void mat_set_identity(Matrix *m);
-/** Set all matrix entries to zero.
 
-  @param m Input matrix.
-  @see mat_set, mat_set_identity, mat_set_all.
-*/
-void mat_zero(Matrix *m);
 /** Set all matrix entries to the specified value.
 
   @param m Input matrix.
@@ -166,6 +161,20 @@ static PHAST_INLINE
 double mat_get(Matrix *m, int row, int col) {
   return m->data[row][col];
 }
+
+/** Set all matrix entries to zero.
+
+  @param m Input matrix.
+  @see mat_set, mat_set_identity, mat_set_all.
+*/
+static PHAST_INLINE
+void mat_zero(Matrix *m) {
+  int i, j;
+  for (i = 0; i < m->nrows; i++)
+    for (j = 0; j < m->ncols; j++)
+      m->data[i][j] = 0;
+}
+
 /** Retrieve matrix row.
 
   Allocates a new vector and copies row values from input matrix.
