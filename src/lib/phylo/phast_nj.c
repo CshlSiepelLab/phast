@@ -1507,7 +1507,8 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
 
     /* to compute gradients efficiently, need to make a second pass
        across the tree to compute "outside" probabilities */
-    if (branchgrad != NULL) { 
+    if (branchgrad != NULL) {
+      double expon;
       traversal = tr_preorder(mod->tree);
 
       for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
@@ -1603,11 +1604,18 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
               deriv +=  tmp[i] * pLbar[i][par->id] * pL[j][n->id] * mat_get(grad_mat[n->id], i, j);
 
           /* adjust for all relevant scale terms; do everything in log space */
-          deriv *= exp(vec_get(lscale, mod->tree->id)
-                       - vec_get(lscale, sib->id) - vec_get(lscale_o, par->id)
-                       - vec_get(lscale, n->id) - log(base_prob));
+          expon = -vec_get(lscale, mod->tree->id)
+            + vec_get(lscale, sib->id) + vec_get(lscale_o, par->id)
+            + vec_get(lscale, n->id) - log(base_prob);
           /* note division by base_prob because we need deriv of log P */
-        
+
+          /* avoid overflow */
+          if (expon > 700.0) expon = 700.0;
+          if (expon < -745.0) expon = -745.0;
+          
+          deriv *= exp(expon);
+          assert(isfinite(deriv));
+                  
           vec_set(branchgrad, n->id, vec_get(branchgrad, n->id) +
                   deriv * msa->ss->counts[tupleidx]);
         }
@@ -1623,10 +1631,8 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
               this_deriv_kappa += tmp[i] * pLbar[i][par->id] * pL[j][n->id] *
                 mat_get(grad_mat_kappa[n->id], i, j);
 
-          /* adjust for all relevant scale terms; do everything in log space */
-          this_deriv_kappa *= exp(vec_get(lscale, mod->tree->id)
-                                  - vec_get(lscale, sib->id) - vec_get(lscale_o, par->id)
-                                  - vec_get(lscale, n->id) - log(base_prob));
+          /* adjust for all relevant scale terms */
+          this_deriv_kappa *= exp(expon);        
           data->deriv_hky_kappa += (this_deriv_kappa * msa->ss->counts[tupleidx]);        
         }
       }
