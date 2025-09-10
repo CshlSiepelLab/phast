@@ -1010,13 +1010,22 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
           vec_copy(points, pointsnext);
           vec_scale(points_std, -1.0);
         }
+
+        /* TEMPORARY.  Check sample */
+        printf("iteration %d, minibatch sample %d\n", t, i);
+        for (j = 0; j < points->size; j++)
+          assert(isfinite(vec_get(points, j)));
         
         ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data);
 
-        bail++;
-        if (bail > 10) {
+        /* TEMPORARY.  Check gradient */
+        for (j = 0; j < grad->size; j++)
+          assert(isfinite(vec_get(grad, j)));
+        
+        if (++bail > 10 && !isfinite(ll)) {
           assert(bail < 15); /* prohibit infinite loop */
           fprintf(stderr, "WARNING: repeatedly sampling zero-probability trees. Prohibiting zero-length branches.\n");
+          tr_print(stderr, mod->tree, TRUE);
           data->no_zero_br = TRUE;
         }
       } while (!isfinite(ll));  /* in certain cases under the
@@ -1067,6 +1076,9 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
     t++;
+    printf("updating parameters #%d...\n", t);
+    vec_print(avegrad, stdout);
+    vec_print(rescaledgrad, stdout);
     for (j = 0; j < rescaledgrad->size; j++) {   
       double mhatj, vhatj, g = vec_get(rescaledgrad, j);
       
@@ -2841,14 +2853,21 @@ TreeNode *nj_inf(Matrix *D, char **names, Matrix *dt_dD,
                  CovarData *covar_data) {
   if (covar_data->ultrametric) {
     TreeNode *t = upgma_fast_infer(D, names, dt_dD);
+
+    /* TEMPORARY: check for NaNs */
+    for (int nodeidx = 0; nodeidx < lst_size(t->nodes); nodeidx++) {
+      TreeNode *n = lst_get_ptr(t->nodes, nodeidx);
+    if (n->parent != NULL &&
+        (n->dparent < 0 || !isfinite(n->dparent)))
+      die("bad tree\n");
+    }
+
     if (covar_data->no_zero_br == TRUE)
       nj_repair_zero_br(t);
     return t;
   }
-  //    return upgma_infer_tree(D, names, dt_dD); /* non-heap version */
   else
     return nj_fast_infer(D, names, dt_dD);
-  //    return nj_infer_tree(D, names, dt_dD);  /* non-heap version */
 }
 
 /* helper functions for nuisance parameters in variational

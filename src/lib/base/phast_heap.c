@@ -45,7 +45,7 @@ HeapNode* hp_insert(HeapNode *heap, double val, void *auxdata) {
   return hp_meld(heap, node);
 }
 
-HeapNode* hp_meld_two_pass(HeapNode *node) {
+HeapNode* hp_meld_two_pass_recur(HeapNode *node) {
   if (node == NULL || node->sibling == NULL)
     return node;
 
@@ -57,6 +57,48 @@ HeapNode* hp_meld_two_pass(HeapNode *node) {
   b->sibling = NULL;
   return hp_meld(hp_meld(a, b), hp_meld_two_pass(rest));
   /* FIXME: better to do iteratively */
+}
+
+/* iterative version of two-pass meld, needed for larger heaps */
+/* Phase 1: pairwise meld siblings left->right, pushing results on a stack (via sibling).
+   Phase 2: pop stack right->left, melding into a single root. */
+HeapNode* hp_meld_two_pass(HeapNode *first) {
+  if (first == NULL || first->sibling == NULL)
+    return first;
+
+  /* ----- pass 1: pair neighbors and push merged pairs onto stack ----- */
+  HeapNode *stack = NULL;
+  HeapNode *p = first;
+
+  while (p != NULL) {
+    HeapNode *a = p;
+    HeapNode *b = a->sibling;
+    HeapNode *next = (b != NULL ? b->sibling : NULL);
+
+    /* detach a and (maybe) b from the sibling chain */
+    a->sibling = NULL;
+    if (b != NULL) b->sibling = NULL;
+
+    /* pairwise meld a and b (if b exists) */
+    if (b != NULL) a = hp_meld(a, b);
+
+    /* push result onto stack (reuse sibling as stack next) */
+    a->sibling = stack;
+    stack = a;
+
+    p = next;
+  }
+
+  /* ----- pass 2: meld stack right->left into a single heap ----- */
+  HeapNode *acc = NULL;
+  while (stack != NULL) {
+    HeapNode *t = stack;
+    stack = stack->sibling;
+    t->sibling = NULL;
+    acc = (acc == NULL) ? t : hp_meld(acc, t);
+  }
+
+  return acc;
 }
 
 HeapNode* hp_delete_min(HeapNode *heap, void **min_auxdata) {

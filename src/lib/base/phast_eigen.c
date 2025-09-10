@@ -232,13 +232,22 @@ int mat_diagonalize_sym(Matrix *M, /* input matrix (n x n) */
 #else
   char jobz = 'V', uplo = 'U';
   LAPACK_INT n = (LAPACK_INT)M->nrows, lwork = (LAPACK_INT)(100*M->nrows), info;
-  LAPACK_DOUBLE tmp[n*n], w[n], work[100 * n];
   int i, j;
 
-  if (n != M->ncols)
+  if (n != (LAPACK_INT)M->ncols)
     die("ERROR in mat_diagonalize_sym: M->nrows (%i) != M->ncols (%i)\n",
         M->nrows, M->ncols);
 
+  /* allocate working memory */
+  LAPACK_DOUBLE *tmp  = (LAPACK_DOUBLE*)malloc((size_t)n * (size_t)n * sizeof(*tmp));
+  LAPACK_DOUBLE *w    = (LAPACK_DOUBLE*)malloc((size_t)n * sizeof(*w));
+  LAPACK_DOUBLE *work = (LAPACK_DOUBLE*)malloc((size_t)lwork * sizeof(*work));
+  if (tmp == NULL || w == NULL || work == NULL) {
+    fprintf(stderr, "ERROR mat_diagonalize_sym: out of memory (n=%d).\n", (int)n);
+    free(work); free(w); free(tmp);
+    return 1;
+  }
+  
   /* convert matrix to representation used by LAPACK (column-major) */
   mat_to_lapack(M, tmp);
 
@@ -257,9 +266,10 @@ int mat_diagonalize_sym(Matrix *M, /* input matrix (n x n) */
     vec_set(eval, j, w[j]);
 
     for (i = 0; i < n; i++)    /* row */
-      mat_set(evec, i, j, tmp[j*n + i]);
+      mat_set(evec, i, j, tmp[j*(size_t)n + i]);
   }
-  
+
+  free(work); free(w); free(tmp);
 #endif
   return 0;
 }

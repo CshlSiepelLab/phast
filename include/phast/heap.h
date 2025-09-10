@@ -27,6 +27,7 @@ typedef struct HeapNode {
 HeapNode* hp_new_node(double val, void *auxdata);
 HeapNode* hp_meld(HeapNode *a, HeapNode *b);
 HeapNode* hp_insert(HeapNode *heap, double val, void *auxdata);
+HeapNode* hp_meld_two_pass_recur(HeapNode *node);
 HeapNode* hp_meld_two_pass(HeapNode *node);
 HeapNode* hp_delete_min(HeapNode *heap, void **min_auxdata);
 void hp_free(HeapNode *heap);
