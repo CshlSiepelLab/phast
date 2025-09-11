@@ -392,7 +392,10 @@ TreeNode* nj_fast_infer(Matrix *initD, char **names, Matrix *dt_dD) {
     n--;  /* one fewer active nodes */
 
     if (dt_dD != NULL) {
-      spmat_copy_shallow(Jk, Jnext);
+      /* swap pointers to avoid deep copy */
+      SparseMatrix *tmp = Jk; 
+      Jk = Jnext; 
+      Jnext = tmp;
     }
       
     /* finally, add new Q values to the heap */
@@ -1142,8 +1145,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     if (t % nbatches_conv == 0) {
       if (logf != NULL)
         fprintf(logf, "# Average for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
-      /* if (t >= min_nbatches && 1.001*running_tot <= last_running_tot*0.999)*/
-      if (t > 10) /* TEMPORARY: stop after 10 iterations for profiling */
+      if (t >= min_nbatches && 1.001*running_tot <= last_running_tot*0.999)
         /* sometimes get stuck increasingly asymptotically; stop if increase not more than about 0.1% */
         stop = TRUE;
       else {
@@ -2595,9 +2597,11 @@ void nj_backprop_sparse(SparseMatrix *Jk, SparseMatrix *Jnext, int n, int f, int
                         Vector *active) {
   int i;
   int total_nodes = 2*n - 2; /* total possible in final tree */
-  
-  /* most of Jk will be unchanged so start with a copy */
-  spmat_copy_shallow(Jnext, Jk);
+
+  /* double buffering Jk and Jnext to avoid expensive copy.  Keep
+     track of which destination rows are rebuilt */
+  unsigned char *touched = (unsigned char*)calloc(Jk->nrows, 1);
+  if (!touched) die("nj_backprop_sparse: out of memory\n");
   
   /* now update distances involving new node u */
   for (i = 0; i < total_nodes; i++) {
@@ -2617,7 +2621,19 @@ void nj_backprop_sparse(SparseMatrix *Jk, SparseMatrix *Jnext, int n, int f, int
     nj_backprop_fast_linear_comb(Jk->rows[idx_fi], Jk->rows[idx_gi],
                                  Jk->rows[idx_fg], Jnext->rows[idx_ui]);
 
+    touched[idx_ui] = 1;
   }
+
+  /* Alias all untouched rows from Jk into Jnext (avoid data copy) */
+  for (int r = 0; r < Jk->nrows; r++) {
+    if (touched[r] == 1) continue;
+    if (Jnext->rows[r] == Jk->rows[r]) continue;  /* already aliased (rare) */
+    spvec_release(Jnext->rows[r]);
+    Jnext->rows[r] = Jk->rows[r];
+    spvec_retain(Jnext->rows[r]);
+  }
+
+  free(touched);
 }
 
 /* initialize Jk at the beginning of the NJ alg */

@@ -198,11 +198,17 @@ void mat_vec_mult_transp(Vector *prod, Matrix *m, Vector *v) {
   int i, j;
   if (!(m->ncols == prod->size && v->size == m->nrows))
     die("ERROR mat_vec_mult_transp: bad dimensions\n");
-  for (i = 0; i < m->ncols; i++) {
-    prod->data[i] = 0;
-    for (j = 0; j < m->nrows; j++) {
-      prod->data[i] += m->data[j][i] * v->data[j];
-    }
+
+  /* initialize result */
+  for (i = 0; i < m->ncols; i++)
+    prod->data[i] = 0.0;
+
+  /* cache-friendly row loop */
+  for (j = 0; j < m->nrows; j++) {
+    const double *row = m->data[j];   /* contiguous row */
+    double scale = v->data[j];
+    for (i = 0; i < m->ncols; i++)
+      prod->data[i] += row[i] * scale;
   }
 }
 
