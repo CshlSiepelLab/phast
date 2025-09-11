@@ -190,7 +190,9 @@ TreeNode *tr_new_from_string(const char *treestr) {
     root->nnodes = node->nnodes-1;
     sfree(node);
   }
-   
+
+  tr_collapse_unary_nodes(&root);
+  
   tr_set_nnodes(root);
   str_free(diststr);
   str_free(labelstr);
@@ -427,7 +429,7 @@ void tr_cpy(TreeNode *dest, TreeNode *src) {
   }
 
   /* now copy node by node */
-  tr_node_cpy(dest, src);       /* copy root */
+
   stk_push_ptr(stack, src);
   stk_push_ptr(cpystack, dest);
   while ((n = stk_pop_ptr(stack)) != NULL) {
@@ -1790,4 +1792,57 @@ void tr_reset_nnodes(TreeNode *tree) {
     tree->inorder = NULL;
   }
   tr_set_nnodes(tree);
+}
+
+/* collapse any nodes that have exactly one child. */
+void tr_collapse_unary_nodes(TreeNode **rootp) {
+  TreeNode *x, *root = *rootp;
+  if (root == NULL) return;
+
+  /* Two stacks for reverse-postorder traversal */
+  Stack *st  = stk_new_ptr(root->nnodes);
+  Stack *out = stk_new_ptr(root->nnodes);   /* reverse postorder */
+
+  /* Build reverse postorder (children pushed before parent is processed) */
+  stk_push_ptr(st, root);
+  while ((x = stk_pop_ptr(st)) != NULL) {
+    stk_push_ptr(out, x);
+    if (x->lchild != NULL) stk_push_ptr(st, x->lchild);
+    if (x->rchild != NULL) stk_push_ptr(st, x->rchild);
+  }
+
+  /* Process nodes in postorder */
+  while ((x = (TreeNode*)stk_pop_ptr(out)) != NULL) {
+    /* Collapse chains of unary nodes bottom-up */
+    while ((x->lchild != NULL) ^ (x->rchild != NULL)) { /* exactly one child */
+      TreeNode *child  = x->lchild ? x->lchild : x->rchild;
+      TreeNode *parent = x->parent;
+
+      /* accumulate branch length */
+      child->dparent += x->dparent;
+
+      /* rewire parent -> child */
+      if (parent != NULL) {
+        if (parent->lchild == x)
+          parent->lchild = child;
+        else
+          parent->rchild = child;
+        child->parent = parent;
+      }
+      else {
+        /* x was the root */
+        child->parent = NULL;
+        *rootp = child;
+      }
+
+      /* free collapsed node; continue in case of a unary chain */
+      sfree(x);
+
+      /* continue while structure */
+      x = child;
+    }
+  }
+
+  stk_free(st);
+  stk_free(out);
 }

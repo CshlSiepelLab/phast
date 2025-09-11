@@ -467,4 +467,6 @@ void tr_enforce_unrooted_indexing(TreeNode *tree);
 
 void tr_reset_nnodes(TreeNode *tree);
 
+void tr_collapse_unary_nodes(TreeNode **rootp);
+
 #endif 
