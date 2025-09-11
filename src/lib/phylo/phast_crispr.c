@@ -342,7 +342,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
         vec_set(lscale, n->id, vec_get(lscale, n->lchild->id) +
                 vec_get(lscale, n->rchild->id));
         if (rescale == TRUE) { /* have to rescale for all states */
-          vec_set(lscale, n->id, vec_get(lscale, n->id) - lscaling_threshold);
+          vec_set(lscale, n->id, vec_get(lscale, n->id) + lscaling_threshold);
           for (i = 0; i < lst_size(par_states); i++) {
             pstate = lst_get_int(par_states, i);
             pL[pstate][n->id] /= scaling_threshold;
@@ -358,7 +358,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
       int rstate = lst_get_int(par_states, i);
       total_prob += root_eqfreqs[rstate] * pL[rstate][cprmod->mod->tree->id];
     }    
-    ll += (log(total_prob) - vec_get(lscale, cprmod->mod->tree->id));
+    ll += (log(total_prob) + vec_get(lscale, cprmod->mod->tree->id));
 
     if (!isfinite(ll)) break;  /* this is possible with the crispr
                                   model (total_prob == 0); in this
@@ -367,7 +367,9 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
   
     /* to compute gradients efficiently, need to make a second pass
        across the tree to compute "outside" probabilities */
-    if (branchgrad != NULL) {  
+    if (branchgrad != NULL) {
+      double expon;
+      
       pre_trav = tr_preorder(cprmod->mod->tree);
 
       for (nodeidx = 0; nodeidx < lst_size(pre_trav); nodeidx++) {
@@ -416,7 +418,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
           vec_set(lscale_o, n->id, vec_get(lscale_o, n->parent->id) +
                   vec_get(lscale, sibling->id));
           if (rescale == TRUE) { /* rescale for all states */
-            vec_set(lscale_o, n->id, vec_get(lscale_o, n->id) - lscaling_threshold);
+            vec_set(lscale_o, n->id, vec_get(lscale_o, n->id) + lscaling_threshold);
             for (i = 0; i < lst_size(child_states); i++)
               pLbar[lst_get_int(child_states, i)][n->id] /= scaling_threshold;     
           }
@@ -482,11 +484,17 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
           }
 
           /* adjust for all relevant scale terms; do everything in log space */
-          deriv *= exp(vec_get(lscale, cprmod->mod->tree->id)
-                       - vec_get(lscale, sibling->id) - vec_get(lscale_o, par->id)
-                       - vec_get(lscale, n->id) - log(base_prob));
+          expon = -vec_get(lscale, cprmod->mod->tree->id)
+            + vec_get(lscale, sibling->id) + vec_get(lscale_o, par->id)
+            + vec_get(lscale, n->id) - log(base_prob);
           /* note division by base_prob because we need deriv of log P */
-        
+
+          /* avoid overflow */
+          if (expon > 700.0) expon = 700.0;
+          if (expon < -745.0) expon = -745.0;
+          
+          deriv *= exp(expon);
+          assert(isfinite(deriv));
           vec_set(branchgrad, n->id, vec_get(branchgrad, n->id) + deriv);
         }
         
@@ -504,13 +512,10 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
           }
         }
 
-        /* adjust for all relevant scale terms; do everything in log space */
-        this_deriv_sil *= exp(vec_get(lscale, cprmod->mod->tree->id)
-                              - vec_get(lscale, sibling->id) - vec_get(lscale_o, par->id)
-                              - vec_get(lscale, n->id) - log(base_prob));
+        /* adjust for all relevant scale terms */
+        this_deriv_sil *= exp(expon);
         cprmod->deriv_sil += this_deriv_sil;        
       }
-
 
       /* also compute gradient for leading branch */
       child_states = cpr_get_state_set(ancsets, cprmod->mod->tree, nstates);
@@ -523,7 +528,11 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
           * mat_get(grad_mat, 0, cstate);
       }
       /* rescale */
-      cprmod->deriv_leading_t *= exp(vec_get(lscale, cprmod->mod->tree->id) - log(total_prob)); 
+      /*      expon = vec_get(lscale, cprmod->mod->tree->id) - log(total_prob); */
+      expon = -log(total_prob);
+      if (expon > 700.0) expon = 700.0;
+      if (expon < -745.0) expon = -745.0;
+      cprmod->deriv_leading_t *= exp(expon); 
 
       /* leading branch also contributes to derivative of silent rate */
       this_deriv_sil = 0;
@@ -534,7 +543,7 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
         this_deriv_sil +=  pL[cstate][cprmod->mod->tree->id]
           * mat_get(grad_mat, 0, cstate);
       }
-      this_deriv_sil *= exp(vec_get(lscale, cprmod->mod->tree->id) - log(total_prob));
+      this_deriv_sil *= exp(expon);
       cprmod->deriv_sil += this_deriv_sil;        
       
       mat_free(grad_mat);

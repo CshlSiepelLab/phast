@@ -710,7 +710,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn,
 
   if (!isfinite(ll_base)) /* can happen with crispr model; force calling code to deal with it */
     return ll_base;
-  
+        
   /* now derive partial derivatives wrt free parameters from dL/dx */
   vec_zero(grad);
   loglambda_grad = 0;
@@ -1025,17 +1025,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
           vec_scale(points_std, -1.0);
         }
 
-        /* TEMPORARY.  Check sample */
-        printf("iteration %d, minibatch sample %d\n", t, i);
-        for (j = 0; j < points->size; j++)
-          assert(isfinite(vec_get(points, j)));
-        
         ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data);
 
-        /* TEMPORARY.  Check gradient */
-        for (j = 0; j < grad->size; j++)
-          assert(isfinite(vec_get(grad, j)));
-        
         if (++bail > 10 && !isfinite(ll)) {
           assert(bail < 15); /* prohibit infinite loop */
           fprintf(stderr, "WARNING: repeatedly sampling zero-probability trees. Prohibiting zero-length branches.\n");
@@ -1090,9 +1081,6 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
     t++;
-    printf("updating parameters #%d...\n", t);
-    vec_print(avegrad, stdout);
-    vec_print(rescaledgrad, stdout);
     for (j = 0; j < rescaledgrad->size; j++) {   
       double mhatj, vhatj, g = vec_get(rescaledgrad, j);
       
@@ -1515,7 +1503,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
         vec_set(lscale, n->id, vec_get(lscale, n->lchild->id) +
                 vec_get(lscale, n->rchild->id));
         if (rescale == TRUE) { /* have to rescale for all states */
-          vec_set(lscale, n->id, vec_get(lscale, n->id) - lscaling_threshold);
+          vec_set(lscale, n->id, vec_get(lscale, n->id) + lscaling_threshold);
           for (i = 0; i < nstates; i++) 
             pL[i][n->id] /= scaling_threshold;
         }
@@ -1528,12 +1516,13 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
       total_prob += vec_get(mod->backgd_freqs, i) *
         pL[i][mod->tree->id] * mod->freqK[rcat];
     
-    ll += (log(total_prob) - vec_get(lscale, mod->tree->id)) * msa->ss->counts[tupleidx];
+    ll += (log(total_prob) + vec_get(lscale, mod->tree->id)) * msa->ss->counts[tupleidx];
     assert(isfinite(ll));
 
     /* to compute gradients efficiently, need to make a second pass
        across the tree to compute "outside" probabilities */
-    if (branchgrad != NULL) { 
+    if (branchgrad != NULL) {
+      double expon;
       traversal = tr_preorder(mod->tree);
 
       for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
@@ -1570,7 +1559,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
           vec_set(lscale_o, n->id, vec_get(lscale_o, n->parent->id) +
                   vec_get(lscale, sibling->id));
           if (rescale == TRUE) { /* rescale for all states */
-            vec_set(lscale_o, n->id, vec_get(lscale_o, n->id) - lscaling_threshold);
+            vec_set(lscale_o, n->id, vec_get(lscale_o, n->id) + lscaling_threshold);
             for (i = 0; i < nstates; i++)
               pLbar[i][n->id] /= scaling_threshold;     
           }
@@ -1629,11 +1618,18 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
               deriv +=  tmp[i] * pLbar[i][par->id] * pL[j][n->id] * mat_get(grad_mat[n->id], i, j);
 
           /* adjust for all relevant scale terms; do everything in log space */
-          deriv *= exp(vec_get(lscale, mod->tree->id)
-                       - vec_get(lscale, sib->id) - vec_get(lscale_o, par->id)
-                       - vec_get(lscale, n->id) - log(base_prob));
+          expon = -vec_get(lscale, mod->tree->id)
+            + vec_get(lscale, sib->id) + vec_get(lscale_o, par->id)
+            + vec_get(lscale, n->id) - log(base_prob);
           /* note division by base_prob because we need deriv of log P */
-        
+
+          /* avoid overflow */
+          if (expon > 700.0) expon = 700.0;
+          if (expon < -745.0) expon = -745.0;
+          
+          deriv *= exp(expon);
+          assert(isfinite(deriv));
+                  
           vec_set(branchgrad, n->id, vec_get(branchgrad, n->id) +
                   deriv * msa->ss->counts[tupleidx]);
         }
@@ -1649,10 +1645,8 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
               this_deriv_kappa += tmp[i] * pLbar[i][par->id] * pL[j][n->id] *
                 mat_get(grad_mat_kappa[n->id], i, j);
 
-          /* adjust for all relevant scale terms; do everything in log space */
-          this_deriv_kappa *= exp(vec_get(lscale, mod->tree->id)
-                                  - vec_get(lscale, sib->id) - vec_get(lscale_o, par->id)
-                                  - vec_get(lscale, n->id) - log(base_prob));
+          /* adjust for all relevant scale terms */
+          this_deriv_kappa *= exp(expon);        
           data->deriv_hky_kappa += (this_deriv_kappa * msa->ss->counts[tupleidx]);        
         }
       }
@@ -2464,7 +2458,7 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   /* fprintf(stdout, "dt_dD (numerical):\n"); */
   /* mat_print(dt_dD, stdout); */
   /* exit(0); */
-  
+
   /* calculate log likelihood and analytical gradient */
   if (data->crispr_mod != NULL)
     ll_base = cpr_compute_log_likelihood(data->crispr_mod, dL_dt);
@@ -2623,18 +2617,6 @@ void nj_backprop_sparse(SparseMatrix *Jk, SparseMatrix *Jnext, int n, int f, int
     nj_backprop_fast_linear_comb(Jk->rows[idx_fi], Jk->rows[idx_gi],
                                  Jk->rows[idx_fg], Jnext->rows[idx_ui]);
 
-    /* old version; too expensive */
-    /* for (a = 0; a < n; a++) { */
-    /*   for (b = a + 1; b < n; b++) { */
-    /*     int idx_ab = nj_i_j_to_dist(a, b, n); */
-
-    /*     /\* recursive update rule for new distance from u to i *\/ */
-    /*     spmat_set_sorted(Jnext, idx_ui, idx_ab, */
-    /*                      0.5 * (spmat_get(Jk, idx_fi, idx_ab) + */
-    /*                             spmat_get(Jk, idx_gi, idx_ab) - */
-    /*                             spmat_get(Jk, idx_fg, idx_ab)));         */
-    /*   } */
-    /* } */
   }
 }
 
@@ -2738,8 +2720,9 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
 
   /* the final call, with nk = 2, is a special case */
   if (nk == 2) {
-    // just copy 0.5 * row idx_fg into branch f
+    /* just copy 0.5 * row idx_fg into branch f */
     const SparseVector *rfg = Jk->rows[idx_fg];
+
     /* first zero the whole dt_dD row */
     for (int ab = 0; ab < n_ab; ab++) mat_set(dt_dD, branch_idx_f, ab, 0.0);
     const SparseVectorElement *a = (SparseVectorElement*)rfg->elementlist->array;
@@ -2748,18 +2731,6 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
     for (int t = 0; t < nz; t++)
       mat_set(dt_dD, branch_idx_f, a[t].idx, 0.5 * a[t].val);
 
-    /* old version -- too slow */
-    /* directly set the final branch derivative */
-    /* for (a = 0; a < n; a++) { */
-    /*   for (b = a + 1; b < n; b++) { */
-    /*     int idx_ab = nj_i_j_to_dist(a, b, n); */
-        
-    /*     /\* branch derivative is equal to the value in Jk times 1/2 */
-    /*        because of the way we split the last branch in the unrooted */
-    /*        tree *\/ */
-    /*     mat_set(dt_dD, branch_idx_f, idx_ab, 0.5 * spmat_get(Jk, idx_fg, idx_ab)); */
-    /*   } */
-    /* } */
     free(sum_diff);
     return;
   }
@@ -2800,27 +2771,6 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
     }
   }
 
-  /* branch derivative for f -> u */
-  /* for (a = 0; a < n; a++) { */
-  /*   for (b = a + 1; b < n; b++) { */
-  /*     int idx_ab = nj_i_j_to_dist(a, b, n); */
-  /*     double sum_diff = 0; */
-
-  /*     for (m = 0; m < total_nodes; m++) { */
-  /*       if (vec_get(active, m) == FALSE || m == f || m == g) */
-  /*         continue; */
-
-  /*       int idx_fm = nj_i_j_to_dist(f, m, total_nodes); */
-  /*       int idx_gm = nj_i_j_to_dist(g, m, total_nodes); */
-  /*       sum_diff += spmat_get(Jk, idx_fm, idx_ab) - spmat_get(Jk, idx_gm, idx_ab); */
-  /*     } */
-
-  /*     mat_set(dt_dD, branch_idx_f, idx_ab, 0.5 * spmat_get(Jk, idx_fg, idx_ab) + */
-  /*             (0.5 / (nk - 2)) * sum_diff); */
-  /*     assert(isfinite(mat_get(dt_dD, branch_idx_f, idx_ab))); */
-  /*   } */
-  /* } */
-
   /* set dt_dD row for branch f: 0.5*Jk[idx_fg,:] + (0.5/(nk-2))*sum_diff */
   const SparseVectorElement *ah = (SparseVectorElement*)Jk->rows[idx_fg]->elementlist->array;
   int nh = lst_size(Jk->rows[idx_fg]->elementlist);
@@ -2850,15 +2800,6 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
             mat_get(dt_dD, branch_idx_g, ab) + ah[t].val);
   }
   
-  /* branch derivative for g -> u */
-  /* for (a = 0; a < n; a++) { */
-  /*   for (b = a + 1; b < n; b++) { */
-  /*     int idx_ab = nj_i_j_to_dist(a, b, n); */
-  /*     mat_set(dt_dD, branch_idx_g, idx_ab, spmat_get(Jk, idx_fg, idx_ab) - */
-  /*             mat_get(dt_dD, branch_idx_f, idx_ab)); */
-  /*   } */
-  /* } */
-
   free(sum_diff);
 }
 
@@ -2867,14 +2808,6 @@ TreeNode *nj_inf(Matrix *D, char **names, Matrix *dt_dD,
                  CovarData *covar_data) {
   if (covar_data->ultrametric) {
     TreeNode *t = upgma_fast_infer(D, names, dt_dD);
-
-    /* TEMPORARY: check for NaNs */
-    for (int nodeidx = 0; nodeidx < lst_size(t->nodes); nodeidx++) {
-      TreeNode *n = lst_get_ptr(t->nodes, nodeidx);
-    if (n->parent != NULL &&
-        (n->dparent < 0 || !isfinite(n->dparent)))
-      die("bad tree\n");
-    }
 
     if (covar_data->no_zero_br == TRUE)
       nj_repair_zero_br(t);
