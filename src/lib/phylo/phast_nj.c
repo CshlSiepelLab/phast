@@ -1142,15 +1142,15 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     if (t % nbatches_conv == 0) {
       if (logf != NULL)
         fprintf(logf, "# Average for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
-      if (t >= min_nbatches && 1.001*running_tot <= last_running_tot*0.999)
+      /* if (t >= min_nbatches && 1.001*running_tot <= last_running_tot*0.999)*/
+      if (t > 10) /* TEMPORARY: stop after 10 iterations for profiling */
         /* sometimes get stuck increasingly asymptotically; stop if increase not more than about 0.1% */
         stop = TRUE;
       else {
         last_running_tot = running_tot;
         running_tot = 0;
       }
-    }
-    
+    }    
   } while(stop == FALSE);
 
   mmvn_set_mu(mmvn, best_mu);
