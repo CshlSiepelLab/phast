@@ -58,11 +58,38 @@ TreeNode *tr_new_from_file(FILE *f) {
   return retval;
 }
 
+/* Helper function for tr_new_from_string that accommodates
+   multifurcations.  Will create dummy node and zero-length branch if
+   needed to accommodate a multinary branching. */
+static TreeNode *tr_add_child_multifurc(TreeNode *parent, TreeNode *newchild) {
+  if (parent->lchild == NULL || parent->rchild == NULL) {
+    tr_add_child(parent, newchild);         /* existing helper; sets parent links */
+    return newchild;
+  }
+
+  /* in this case, parent is already binary: create dummy node */
+  TreeNode *old_right = parent->rchild;
+  TreeNode *dummy = tr_new_node();
+  dummy->dparent = 0.0;
+  dummy->parent = parent;
+
+  /* replace parent's right child */
+  parent->rchild = dummy;
+
+  dummy->lchild = old_right;
+  old_right->parent = dummy;
+
+  dummy->rchild = newchild;
+  newchild->parent = dummy;
+
+  return newchild;
+}
+
 /** Parse a Newick-formatted tree from a character string */
 TreeNode *tr_new_from_string(const char *treestr) {
   TreeNode *root, *node, *newnode;
   int i, in_distance = FALSE, in_label=FALSE, len = (int)strlen(treestr), nopen_parens = 0,
-    nclose_parens = 0, already_allowed = FALSE;
+    nclose_parens = 0;
   char c;
   String *diststr = str_new(STR_SHORT_LEN), *labelstr = str_new(STR_SHORT_LEN);
 
@@ -106,18 +133,18 @@ TreeNode *tr_new_from_string(const char *treestr) {
     }
     else if (c == ',') {
       if (node->parent == NULL)
-        die("ERROR: invalid binary tree (check parens).\n");
-      if (node->parent->lchild != NULL && node->parent->rchild != NULL){
-        if (node->parent == root && !already_allowed)
-          already_allowed = TRUE;
-        else
-          die("ERROR (tree parser): invalid binary tree (too many children)\n");
-        /* we'll prohibit multinary branchings, except that we'll
-           allow a single trinary branch immediately below the root
-           (common with reversible models) */
-      }
+        die("ERROR: invalid tree (check parens).\n");
 
-      tr_add_child(node->parent, newnode = tr_new_node());
+      /* create the new sibling node to attach */
+      newnode = tr_new_node();
+
+      /* if parent already has two children, insert a zero-length dummy node. */
+      if (node->parent->lchild != NULL && node->parent->rchild != NULL) 
+        root->nnodes++;
+
+      /* attach new node (creates dummy node if needed) */
+      tr_add_child_multifurc(node->parent, newnode);
+      
       node = newnode;
       root->nnodes++;
     }

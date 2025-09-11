@@ -517,23 +517,37 @@ Matrix *nj_tree_to_distances(TreeNode *tree, char **names, int n) {
   Matrix *D;
   double dist;
   int *seq_idx;
+  unsigned int all_zeroes = TRUE;
   
   assert(tree->nodes != NULL);  /* assume list of nodes exists */
   
   for (i = 0; i < tree->nnodes; i++) {
     n1 = lst_get_ptr(tree->nodes, i);
+    if (all_zeroes == TRUE && n1->dparent > 0) all_zeroes = FALSE;
     if (n1->lchild == NULL && n1->rchild == NULL)
       lst_push_ptr(leaves, n1);
   }
-
+  
   if (lst_size(leaves) != n)
     die("ERROR in nj_tree_to_distances: number of names must match number of leaves in tree.\n");
+
+  /* if the input tree had no branch lengths defined, all will have
+     values of zero, which will be a problem.  In this case,
+     just initialize them all to a small constant value */
+  if (all_zeroes == TRUE) {
+    for (i = 0; i < tree->nnodes; i++) {
+      n1 = lst_get_ptr(tree->nodes, i);
+      if (n1->parent != NULL)
+        n1->dparent = 0.1;
+    }
+  }
   
   D = mat_new(n, n);
   mat_zero(D);
 
   seq_idx = nj_build_seq_idx(leaves, names);
-  
+
+  /* O(n^2) operation but seems plenty fast in practice */
   for (i = 0; i < lst_size(leaves); i++) {
     n1 = lst_get_ptr(leaves, i);
     ii = seq_idx[n1->id];   /* convert to seq indices for matrix */
