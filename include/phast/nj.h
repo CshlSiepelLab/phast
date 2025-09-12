@@ -246,4 +246,44 @@ double nj_nuis_param_get(TreeModel *mod, CovarData *data, int idx);
 
 void nj_repair_zero_br(TreeNode *t);
 
+/* these are used for the hyperbolic geometry to stabilize the acosh
+   calculations */
+/* Same thresholds in BOTH places (distance and gradient) */
+#define ACOSH_EPS   1e-8     /* near u≈1 */
+#define ACOSH_HUGE  1e+8     /* asymptotic regime */
+
+/* Stable acosh: series near 1, log form at very large u */
+static inline double acosh_stable(double u) {
+  if (u < 1.0) u = 1.0;                      /* safety */
+  double e = u - 1.0;
+  if (e < ACOSH_EPS) {
+    /* acosh(1+e) ≈ sqrt(2e) * (1 - e/12) */
+    double ef = fmax(e, 1e-18);
+    double rt = sqrt(2.0*ef);
+    return rt * (1.0 - e/12.0);
+  }
+  if (u > ACOSH_HUGE) {
+    /* acosh(u) ~ log(2u) with tiny relative error */
+    return log(u) + log(2.0);
+  }
+  /* log1p reduces cancellation when u≈1 */
+  return log1p((u - 1.0) + sqrt((u - 1.0) * (u + 1.0)));
+}
+
+/* Stable derivative d/du acosh(u): series near 1, asymptotic at large u */
+static inline double d_acosh_du_stable(double u) {
+  if (u < 1.0) u = 1.0;
+  double e = u - 1.0;
+  if (e < ACOSH_EPS) {
+    double ef = fmax(e, 1e-18);
+    /* d/du acosh(1+e) ≈ (1/√(2e)) * (1 - e/4) */
+    return (1.0 / sqrt(2.0 * ef)) * (1.0 - e/4.0);
+  }
+  if (u > ACOSH_HUGE) {
+    /* 1/√(u^2-1) ≈ (1/u) * (1 + 1/(2u^2))  for large u  */
+    return (1.0 / u) * (1.0 + 1.0 / (2.0 * u * u));
+  }
+  return 1.0 / sqrt(u * u - 1.0);
+}
+
 #endif

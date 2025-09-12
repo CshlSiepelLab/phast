@@ -648,7 +648,7 @@ void nj_points_to_distances_euclidean(Vector *points, CovarData *data) {
    points */ 
 void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data) {
   int i, j, k, vidx1, vidx2, n, d;
-  double lor_inner, ss1, ss2, x0_1, x0_2, eps, Dij, u;
+  double lor_inner, ss1, ss2, x0_1, x0_2, Dij, u;
   Matrix *D = data->dist;
   double alpha = 1.0 / sqrt(data->negcurvature);   /* curvature radius */
 
@@ -680,23 +680,8 @@ void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data) {
 
       lor_inner -= x0_1 * x0_2;  /* last term of Lorentz inner product */
 
-      /* here we adjust hyperbolic distance when points are very close
-         in such a way that distance function is smooth near zero */
-
-      u = -lor_inner;                       /* = x0_i x0_j - x_i·x_j, must be >= 1 clamp for safety */
-      if (u < 1.0) u = 1.0;
-      eps = u - 1.0;                                   /* small when points are close */
-      if (eps < 0) eps = 0.0;
-      
-      if (eps < 1e-8) {
-        /* acosh(1+e) = sqrt(2e) * [ 1 - (e/12) + O(e^2) ] — smooth & unbiased approx */
-        double rt = sqrt(2.0*eps);
-        double acosh_u = rt * (1.0 - eps/12.0); 
-        Dij = (alpha / data->pointscale) * acosh_u;
-        /* distance between points on the sheet, scaled by the curvature */
-      }
-      else 
-        Dij = (alpha / data->pointscale) * acosh(u); /* standard version */
+      u = -lor_inner;
+      Dij = (alpha / data->pointscale) * acosh_stable(u);
 
       mat_set(D, i, j, Dij);      
       assert(isfinite(Dij) && Dij >= 0);
@@ -2200,19 +2185,12 @@ void nj_set_LASSO_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
 
 /* set scale factor for geometry depending on starting distance matrix */
 void nj_set_pointscale(CovarData *data) {
-  /* find max pairwise distance */
-  /* double maxd = 0; */
-  /* for (int i = 0; i < data->dist->nrows; i++) */
-  /*   for (int j = i; j < data->dist->ncols; j++) */
-  /*     if (mat_get(data->dist, i, j) > maxd) */
-  /*       maxd = mat_get(data->dist, i, j); */
-
   /* find median pairwise distance */
   double medianD = mat_median_upper_triang(data->dist);  /* off-diagonal median */
   if (medianD <= 0.0 || !isfinite(medianD)) 
     data->pointscale = 1.0;   /* safe backup */
   else if (data->hyperbolic == TRUE)
-    data->pointscale = POINTSPAN_HYP / medianD;
+    data->pointscale = POINTSPAN_HYP / (medianD * sqrt(data->negcurvature));
   else
     data->pointscale = POINTSPAN_EUC / medianD;
 }
@@ -2514,6 +2492,7 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   vec_zero(dL_dx);
 
   if (data->hyperbolic) {
+    
     /* first precompute x0[i] = sqrt(1 + ||x_i||^2) */
     double *x0 = (double*)smalloc(n * sizeof(double));
     double alpha = 1.0 / sqrt(data->negcurvature);   /* curvature radius */
@@ -2528,9 +2507,8 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
     }
 
     /* accumulate pairwise contributions */
-    int near = 0, far = 0;
     for (i = 0; i < n; i++) {
-      double denom_inv;
+      double denom_inv, pref;
       int base_i = i * data->dim;
       for (j = i + 1; j < n; j++) {
         int base_j = j * data->dim;
@@ -2538,6 +2516,10 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
         /* weight = dL/dD_ij */
         double weight = vec_get(dL_dD, nj_i_j_to_dist(i, j, n));
 
+        /* down-weight saturated pairs with large distance */
+        double Dij = mat_get(data->dist, i, j);
+        if (Dij > 10) weight *= (10 / Dij);           /* soft clip: in (0,1] */
+ 
         /* u = x0_i*x0_j - <x_i, x_j>  (equals -Lorentz inner product) */
         double dot_spatial = 0.0;
         for (d = 0; d < data->dim; d++) 
@@ -2546,28 +2528,8 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
         /* prefactor; clamp sqrt(u^2 - 1) for stability */
         double u = x0[i] * x0[j] - dot_spatial;
         
-        /* diagnostics */
-        if (u - 1.0 < 1e-6) near++;
-        else if (u > 50) far++;
-        
-        /* use the same smooth approx near zero that we use in
-           nj_points_to_distances_hyperbolic */
-
-        /* derivative of acosh: d/du acosh(u) ~ 1/sqrt(2e) near u≈1 */
-        if (u < 1.0) u = 1.0;
-        double eps = u - 1.0;
-        if (eps < 0.0) eps = 0.0;                 /* clamp like distance path */
-
-        if (eps < 1e-8) {
-          double ef = fmax(eps, 1e-18);
-          denom_inv = 1.0 / sqrt(2.0*ef) * (1.0 - eps/4.0);
-        }
-        else {
-          double uu = u * u;
-          denom_inv = 1.0 / sqrt(uu - 1.0);
-        }
-        
-        double pref = (alpha / data->pointscale) * denom_inv;
+        denom_inv = d_acosh_du_stable(u);         /* = d/du acosh(u) */        
+        pref = (alpha / data->pointscale) * denom_inv;
         
         /* dD/dx_i and dD/dx_j contributions */
         for (d = 0; d < data->dim; d++) {
@@ -2586,10 +2548,8 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
       }
     }
 
-    /*    fprintf(stderr,"u near1: %.1f%%  u huge: %.1f%%\n", 100.0*near/(n*(n-1)/2), 100.0*far/(n*(n-1)/2)); */
-    
     /* add a small radius prior to prevent points from "ballooning" away from zero */
-    const double lambda_base = 1e-4;                     /* tune: 1e-5..5e-4 */
+    const double lambda_base = 1e-5; 
     const double lambda_eff  = lambda_base / (data->pointscale*data->pointscale);
       
     for (i = 0; i < ndim; i++)

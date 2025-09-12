@@ -610,7 +610,7 @@ unsigned int is_purine(char c) {
 
 /* dP/dt for HKY */
 void tm_grad_HKY_dt(TreeModel *mod, Matrix *grad, double kappa, double t) {
-  double mu, E1, E2, E3, dE1_dt, dE2_dt, dE3_dt, piR, piY, B, BR, BY;
+  double mu, E1, E2, E3, dE1_dt, dE2_dt, dE3_dt, piR, piY, BR, BY;
   
   if (t < 0)
     die("ERROR in tm_grad_HKY_dt: t must be nonnegative.\n");
@@ -652,9 +652,9 @@ void tm_grad_HKY_dt(TreeModel *mod, Matrix *grad, double kappa, double t) {
       
       if (is_transition(from, to)) {
         if (is_purine(from))
-          gij = piY/piR * pi_j * dE1_dt - (pi_j/piR) * dE2_dt;
+          gij = piY/piR * pi_j * -dE1_dt - (pi_j/piR) * -dE2_dt;
         else 
-         gij = piR/piY * pi_j * dE1_dt - (pi_j/piY) * dE3_dt;
+         gij = piR/piY * pi_j * -dE1_dt - (pi_j/piY) * -dE3_dt;
       }
       else /* transversion */
         gij = pi_j * -dE1_dt;

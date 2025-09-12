@@ -332,7 +332,7 @@ int main(int argc, char *argv[]) {
   covar_data = nj_new_covar_data(covar_param, D, dim, msa, crispr_mod, names,
                                  natural_grad, kld_upweight, rank, sparsity,
                                  hyperbolic, negcurvature, ultrametric);
-  
+
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */
     if (outdistfile == NULL)
