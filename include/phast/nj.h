@@ -42,8 +42,8 @@
    respectively. Helps address the problem that branch lengths tend to
    be small so means and variances can get close to zero.  But scaling
    needs to be different for the two geometries */
-#define POINTSPAN_EUC 50
-#define POINTSPAN_HYP 3
+#define POINTSPAN_EUC 25
+#define POINTSPAN_HYP 4
 
 /* use this as a floor for variance parameters.  Avoids drift to ever
    smaller values */
@@ -51,7 +51,7 @@
 
 /* initialization of lambda, which is scale factor for covariance
    matrix in DIST and CONST parameterizations */
-#define LAMBDA_INIT 1.0e-5
+#define LAMBDA_INIT 1.0e-4
 
 /* types of parameterization for covariance matrix: constant (and
    diagonal), diagonal with free variances, proportional to Laplacian

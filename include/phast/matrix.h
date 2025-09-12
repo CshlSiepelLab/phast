@@ -410,4 +410,6 @@ void mat_set_gram_col(Matrix *G, Matrix *A);
    form */
 void mat_double_center(Matrix *G, Matrix *D, unsigned int upper_triangular);
 
+double mat_median_upper_triang(Matrix *M);
+
 #endif

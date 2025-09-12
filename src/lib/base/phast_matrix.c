@@ -540,4 +540,29 @@ void mat_double_center(Matrix *G, Matrix *D, unsigned int upper_triangular) {
   vec_free(row_mean);
 }
 
+/* return median value in an upper triangular (distance) square
+   matrix */
+double mat_median_upper_triang(Matrix *M) {
+  assert(M->nrows == M->ncols && M->nrows > 1);
+  int n = M->nrows * (M->nrows-1) / 2;
+  double median;
+  
+  /* build a sorted list of values */
+  List *l = lst_new_dbl(n);
+  for (int i = 0; i < M->nrows; i++)
+    for (int j = i+1; j < M->nrows; j++)
+      lst_push_dbl(l, mat_get(M, i, j));
+
+  lst_qsort_dbl(l, ASCENDING);
+
+  if (n & 1) 
+    median = lst_get_dbl(l, n/2);
+  else 
+    median = 0.5 * (lst_get_dbl(l, n/2 - 1) +
+                    lst_get_dbl(l, n/2));
+
+  lst_free(l);
+  return median;
+}
+
 #endif

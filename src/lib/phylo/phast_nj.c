@@ -623,9 +623,8 @@ void nj_points_to_distances_euclidean(Vector *points, CovarData *data) {
   n = D->nrows;
   d = points->size / n;
   
-  if (points->size != n*d || D->nrows != D->ncols) {
-    die("ERROR nj_points_to_distances: bad dimensions\n");
-  }
+  if (points->size != n*d || D->nrows != D->ncols) 
+    die("ERROR nj_points_to_distances_euclidean: bad dimensions\n");
 
   mat_zero(D);
   for (i = 0; i < n; i++) {
@@ -633,9 +632,11 @@ void nj_points_to_distances_euclidean(Vector *points, CovarData *data) {
     for (j = i+1; j < n; j++) {
       vidx2 = j*d;
       sum = 0;
-      for (k = 0; k < d; k++) 
-        sum += pow(vec_get(points, vidx1 + k) -
-                   vec_get(points, vidx2 + k), 2);
+      for (k = 0; k < d; k++) {
+        double diff = vec_get(points, vidx1 + k) -
+          vec_get(points, vidx2 + k);
+        sum += diff*diff;
+      }
       mat_set(D, i, j, sqrt(sum) / data->pointscale);
     }
   }
@@ -647,9 +648,10 @@ void nj_points_to_distances_euclidean(Vector *points, CovarData *data) {
    points */ 
 void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data) {
   int i, j, k, vidx1, vidx2, n, d;
-  double lor_inner, ss1, ss2, x0_1, x0_2;
+  double lor_inner, ss1, ss2, x0_1, x0_2, eps, Dij, u;
   Matrix *D = data->dist;
-  
+  double alpha = 1.0 / sqrt(data->negcurvature);   /* curvature radius */
+
   n = D->nrows;
   d = points->size / n;
   
@@ -666,22 +668,38 @@ void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data) {
       ss1 = 1;
       ss2 = 1;
       for (k = 0; k < d; k++) {
-        lor_inner += vec_get(points, vidx1 + k) * vec_get(points, vidx2 + k);
-        ss1 += pow(vec_get(points, vidx1 + k), 2);
-        ss2 += pow(vec_get(points, vidx2 + k), 2);
+        double xi = vec_get(points, vidx1 + k);
+        double xj = vec_get(points, vidx2 + k);
+        lor_inner += xi * xj ;
+        ss1 += xi * xi;
+        ss2 += xj * xj;
       }
       x0_1 = sqrt(ss1); /* the 0th dimension for each point is determined by the
                            others, to stay on the hyperboloid */
       x0_2 = sqrt(ss2);
 
       lor_inner -= x0_1 * x0_2;  /* last term of Lorentz inner product */
-      if (fabs(1.0 + lor_inner) < 1.0e-8)
-        mat_set(D, i, j, 0);
-      else
-        mat_set(D, i, j, 1/sqrt(data->negcurvature) * acosh(-lor_inner) / data->pointscale);
-      /* distance between two points on the sheet, scaled by the curvature */
 
-      assert(isfinite(mat_get(D, i, j)) && mat_get(D, i, j) > 0);
+      /* here we adjust hyperbolic distance when points are very close
+         in such a way that distance function is smooth near zero */
+
+      u = -lor_inner;                       /* = x0_i x0_j - x_i·x_j, must be >= 1 clamp for safety */
+      if (u < 1.0) u = 1.0;
+      eps = u - 1.0;                                   /* small when points are close */
+      if (eps < 0) eps = 0.0;
+      
+      if (eps < 1e-8) {
+        /* acosh(1+e) = sqrt(2e) * [ 1 - (e/12) + O(e^2) ] — smooth & unbiased approx */
+        double rt = sqrt(2.0*eps);
+        double acosh_u = rt * (1.0 - eps/12.0); 
+        Dij = (alpha / data->pointscale) * acosh_u;
+        /* distance between points on the sheet, scaled by the curvature */
+      }
+      else 
+        Dij = (alpha / data->pointscale) * acosh(u); /* standard version */
+
+      mat_set(D, i, j, Dij);      
+      assert(isfinite(Dij) && Dij >= 0);
     }
   }
 }
@@ -710,6 +728,14 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn,
   
   /* obtain gradient with respect to points, dL/dx */
   ll_base = nj_dL_dx_smartest(points, dL_dx, mod, data);
+
+  /* TEMPORARY: compare with numerical version */
+  /* printf("analytical (%f):\n", ll_base); */
+  /* vec_print(dL_dx, stdout); */
+  /* ll_base = nj_dL_dx_dumb(points, dL_dx, mod, data); */
+  /* printf("numerical (%f):\n", ll_base); */
+  /* vec_print(dL_dx, stdout); */
+  /* exit(0); */
 
   if (!isfinite(ll_base)) /* can happen with crispr model; force calling code to deal with it */
     return ll_base;
@@ -975,7 +1001,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);
 
-    kld *= data->kld_upweight/pow(data->pointscale,2);
+    kld *= data->kld_upweight/(data->pointscale*data->pointscale); 
     
     /* we can also precompute the contribution of the KLD to the gradient */
     /* Note KLD is subtracted rather than added, so compute the gradient of -KLD */
@@ -1006,7 +1032,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       }
     }
 
-    vec_scale(kldgrad, data->kld_upweight/pow(data->pointscale,2));
+    vec_scale(kldgrad, data->kld_upweight/(data->pointscale*data->pointscale));
     
     /* now sample a minibatch from the MVN averaging distribution and
        compute log likelihoods and gradients */
@@ -1295,13 +1321,18 @@ void nj_estimate_mmvn_from_distances_euclidean(CovarData *data, multi_MVN *mmvn)
     die("ERROR in nj_estimate_mmvn_from_distances_euclidean: diagonalization failed.\n");
   
   /* create a vector of points based on the first 'dim' eigenvalues */
-  for (d = 0; d < data->dim; d++)
+  for (d = 0; d < data->dim; d++) {
+    double eval = vec_get(eval_real, n-1-d);
+    if (eval < 0) eval = 0;
+    double sqeval = sqrt(eval);
     /* product of evalsqrt and corresponding column of revec will define
        the dth component of each point */    
-    for (i = 0; i < n; i++)
+    for (i = 0; i < n; i++) {
       vec_set(mu_full, i*data->dim + d,
-              sqrt(vec_get(eval_real, n-1-d)) * mat_get(revec_real, i, n-1-d));
-
+              sqeval * mat_get(revec_real, i, n-1-d));
+    }
+  }
+  
   /* rescale */
   vec_scale(mu_full, data->pointscale);
   mmvn_set_mu(mmvn, mu_full);
@@ -1844,7 +1875,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   retval->no_zero_br = FALSE;
   
   nj_set_pointscale(retval);
-  retval->lambda *= pow(retval->pointscale, 2);
+  retval->lambda *= retval->pointscale * retval->pointscale;
   
   if (covar_param == CONST) {
     /* store constant */
@@ -2170,16 +2201,20 @@ void nj_set_LASSO_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
 /* set scale factor for geometry depending on starting distance matrix */
 void nj_set_pointscale(CovarData *data) {
   /* find max pairwise distance */
-  double maxd = 0;
-  for (int i = 0; i < data->dist->nrows; i++)
-    for (int j = i; j < data->dist->ncols; j++)
-      if (mat_get(data->dist, i, j) > maxd)
-        maxd = mat_get(data->dist, i, j);
+  /* double maxd = 0; */
+  /* for (int i = 0; i < data->dist->nrows; i++) */
+  /*   for (int j = i; j < data->dist->ncols; j++) */
+  /*     if (mat_get(data->dist, i, j) > maxd) */
+  /*       maxd = mat_get(data->dist, i, j); */
 
-  if (data->hyperbolic == TRUE)
-    data->pointscale = POINTSPAN_HYP / maxd;
+  /* find median pairwise distance */
+  double medianD = mat_median_upper_triang(data->dist);  /* off-diagonal median */
+  if (medianD <= 0.0 || !isfinite(medianD)) 
+    data->pointscale = 1.0;   /* safe backup */
+  else if (data->hyperbolic == TRUE)
+    data->pointscale = POINTSPAN_HYP / medianD;
   else
-    data->pointscale = POINTSPAN_EUC / maxd;
+    data->pointscale = POINTSPAN_EUC / medianD;
 }
 
 /* Like nj_var_sample, but use rejection sampling to sharpen the
@@ -2290,10 +2325,6 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod,
   nj_reset_tree_model(mod, tree);
   ll_base = nj_compute_log_likelihood(mod, data, NULL);
 
-  if (!isfinite(ll_base)) /* can happen with crispr; force calling
-                             code to deal with it */
-    return ll_base;
-  
   /* Now perturb each point and propagate perturbation through distance
      calculation, neighbor-joining reconstruction, and likelihood
      calculation on tree */  
@@ -2308,12 +2339,6 @@ double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod,
       tree = nj_inf(data->dist, data->msa->names, NULL, data);
       nj_reset_tree_model(mod, tree);      
       ll = nj_compute_log_likelihood(mod, data, NULL);
-
-      if (!isfinite(ll)) { /* can happen with crispr; force calling
-                              code to deal with it */
-        nj_reset_tree_model(mod, orig_tree);
-        return ll;
-      }
       
       deriv = (ll - ll_base) / DERIV_EPS; 
 
@@ -2440,7 +2465,7 @@ void nj_dist_to_i_j(int pwidx, int *i, int *j, int n) {
 double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
                          CovarData *data) {
   int n = data->nseqs, nbranches = 2*n-2,  /* have to work with the rooted tree here */
-    ndist = n * (n-1) / 2;
+    ndist = n * (n-1) / 2, ndim = data->nseqs * data->dim;
   Vector *dL_dt = vec_new(nbranches);
   Matrix *dt_dD = mat_new(nbranches, ndist);
   Vector *dL_dD = vec_new(ndist);
@@ -2484,23 +2509,115 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   /* (note taking transpose of both vector and matrix and expressing
      result as column vector) */
 
-  /* finally multiply by dD/dx to obtain final gradient */
+  /* finally multiply by dD/dx to obtain final gradient.  This part is
+     different for the euclidean and hyperbolic geometries */
   vec_zero(dL_dx);
-  for (i = 0; i < n; i++) {
-    for (j = i + 1; j < n; j++) {
-      double dist_ij = mat_get(data->dist, i, j);
-      double weight = vec_get(dL_dD, nj_i_j_to_dist(i, j, n)); 
-        
+
+  if (data->hyperbolic) {
+    /* first precompute x0[i] = sqrt(1 + ||x_i||^2) */
+    double *x0 = (double*)smalloc(n * sizeof(double));
+    double alpha = 1.0 / sqrt(data->negcurvature);   /* curvature radius */
+    for (i = 0; i < n; i++) {
+      double ss = 1.0;
+      int base = i * data->dim;
       for (d = 0; d < data->dim; d++) {
-        int idx_i = i * data->dim + d;
-        int idx_j = j * data->dim + d;
+        double xid = vec_get(x, base + d);
+        ss += xid * xid;
+      }
+      x0[i] = sqrt(ss);
+    }
+
+    /* accumulate pairwise contributions */
+    int near = 0, far = 0;
+    for (i = 0; i < n; i++) {
+      double denom_inv;
+      int base_i = i * data->dim;
+      for (j = i + 1; j < n; j++) {
+        int base_j = j * data->dim;
+
+        /* weight = dL/dD_ij */
+        double weight = vec_get(dL_dD, nj_i_j_to_dist(i, j, n));
+
+        /* u = x0_i*x0_j - <x_i, x_j>  (equals -Lorentz inner product) */
+        double dot_spatial = 0.0;
+        for (d = 0; d < data->dim; d++) 
+          dot_spatial += vec_get(x, base_i + d) * vec_get(x, base_j + d);
+
+        /* prefactor; clamp sqrt(u^2 - 1) for stability */
+        double u = x0[i] * x0[j] - dot_spatial;
+        
+        /* diagnostics */
+        if (u - 1.0 < 1e-6) near++;
+        else if (u > 50) far++;
+        
+        /* use the same smooth approx near zero that we use in
+           nj_points_to_distances_hyperbolic */
+
+        /* derivative of acosh: d/du acosh(u) ~ 1/sqrt(2e) near u≈1 */
+        if (u < 1.0) u = 1.0;
+        double eps = u - 1.0;
+        if (eps < 0.0) eps = 0.0;                 /* clamp like distance path */
+
+        if (eps < 1e-8) {
+          double ef = fmax(eps, 1e-18);
+          denom_inv = 1.0 / sqrt(2.0*ef) * (1.0 - eps/4.0);
+        }
+        else {
+          double uu = u * u;
+          denom_inv = 1.0 / sqrt(uu - 1.0);
+        }
+        
+        double pref = (alpha / data->pointscale) * denom_inv;
+        
+        /* dD/dx_i and dD/dx_j contributions */
+        for (d = 0; d < data->dim; d++) {
+          int idx_i = base_i + d;
+          int idx_j = base_j + d;
+          double xid = vec_get(x, idx_i);
+          double xjd = vec_get(x, idx_j);
+
+          double gi = pref * (-xjd + (x0[j] / x0[i]) * xid);  /* dD_ij/dx_i^d */
+          double gj = pref * (-xid + (x0[i] / x0[j]) * xjd);  /* dD_ij/dx_j^d */
+
+          /* accumulate weighted by w_ij = dL/dD_ij */
+          vec_set(dL_dx, idx_i, vec_get(dL_dx, idx_i) + weight * gi);
+          vec_set(dL_dx, idx_j, vec_get(dL_dx, idx_j) + weight * gj);
+        }
+      }
+    }
+
+    /*    fprintf(stderr,"u near1: %.1f%%  u huge: %.1f%%\n", 100.0*near/(n*(n-1)/2), 100.0*far/(n*(n-1)/2)); */
+    
+    /* add a small radius prior to prevent points from "ballooning" away from zero */
+    const double lambda_base = 1e-4;                     /* tune: 1e-5..5e-4 */
+    const double lambda_eff  = lambda_base / (data->pointscale*data->pointscale);
+      
+    for (i = 0; i < ndim; i++)
+      vec_set(dL_dx, i, vec_get(dL_dx, i) - 2.0 * lambda_eff * vec_get(x, i));
+
+    sfree(x0);
+  }
+  else { /* euclidean version is simpler */
+    for (i = 0; i < n; i++) {
+      int base_i = i * data->dim;
+      for (j = i + 1; j < n; j++) {
+        int base_j = j * data->dim;
+        double dist_ij = mat_get(data->dist, i, j);
+        double weight = vec_get(dL_dD, nj_i_j_to_dist(i, j, n));
+
+        if (dist_ij < 1e-15) dist_ij = 1e-15;
+        
+        for (d = 0; d < data->dim; d++) {
+          int idx_i = base_i + d;
+          int idx_j = base_j + d;
             
-        double coord_diff = vec_get(x, idx_i) - vec_get(x, idx_j);
-        double grad_contrib = weight * coord_diff / (dist_ij * data->pointscale * data->pointscale);
-        /* need two factors of pointscale, one for the coord_diff, one for the distance */
+          double coord_diff = vec_get(x, idx_i) - vec_get(x, idx_j);
+          double grad_contrib = weight * coord_diff / (dist_ij * data->pointscale * data->pointscale);
+          /* need two factors of pointscale, one for the coord_diff, one for the distance */
             
-        vec_set(dL_dx, idx_i, vec_get(dL_dx, idx_i) + grad_contrib);
-        vec_set(dL_dx, idx_j, vec_get(dL_dx, idx_j) - grad_contrib);
+          vec_set(dL_dx, idx_i, vec_get(dL_dx, idx_i) + grad_contrib);
+          vec_set(dL_dx, idx_j, vec_get(dL_dx, idx_j) - grad_contrib);
+        }
       }
     }
   }
