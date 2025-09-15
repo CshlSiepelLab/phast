@@ -2185,12 +2185,6 @@ void nj_set_LASSO_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
 
 /* set scale factor for geometry depending on starting distance matrix */
 void nj_set_pointscale(CovarData *data) {
-  double maxd = 0;
-  for (int i = 0; i < data->dist->nrows; i++)
-    for (int j = i; j < data->dist->ncols; j++)
-      if (mat_get(data->dist, i, j) > maxd)
-        maxd = mat_get(data->dist, i, j);
- 
   /* find median pairwise distance */
   double medianD = mat_median_upper_triang(data->dist);  /* off-diagonal median */
   if (medianD <= 0.0 || !isfinite(medianD)) 
@@ -2198,8 +2192,7 @@ void nj_set_pointscale(CovarData *data) {
   else if (data->hyperbolic == TRUE)
     data->pointscale = POINTSPAN_HYP / (medianD * sqrt(data->negcurvature));
   else
-    /*    data->pointscale = POINTSPAN_EUC / medianD; */
-    data->pointscale = POINTSPAN_EUC / maxd;
+    data->pointscale = POINTSPAN_EUC / medianD; 
 }
 
 /* Like nj_var_sample, but use rejection sampling to sharpen the
