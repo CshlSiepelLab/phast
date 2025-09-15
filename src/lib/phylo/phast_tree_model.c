@@ -1113,7 +1113,7 @@ void tm_set_subst_matrix(TreeModel *tm, MarkovMatrix *P, double t) {
   else if (tm->subst_mod == F81)
     tm_set_probs_F81(tm->backgd_freqs, P, scaling_const, t);
   else if (tm->subst_mod == HKY85)
-    tm_set_probs_HKY85(tm->backgd_freqs, P, t);
+    tm_set_probs_HKY85(tm, P, t);
   else 
     mm_exp(P, tm->rate_matrix, t);
 }
