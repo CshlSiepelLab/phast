@@ -71,7 +71,12 @@ void tm_set_probs_F81(Vector *backgd_freqs, MarkovMatrix *P, double scale, doubl
 
 void tm_grad_JC69(struct tm_struct *mod, Matrix *grad, double t);
 
-unsigned int is_purine(char c);
+static inline
+unsigned int is_purine(char c) {
+  return (c == 'A' || c == 'G');
+}
+
+void tm_set_probs_HKY85(struct tm_struct *mod, MarkovMatrix *P, double t);
 
 void tm_grad_HKY_dkappa(struct tm_struct *mod, Matrix *grad,
                         double kappa, double t);

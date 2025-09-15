@@ -604,8 +604,67 @@ void tm_grad_JC69(TreeModel *mod, Matrix *grad, double t) {
   }
 }
 
-unsigned int is_purine(char c) {
-  return (c == 'A' || c == 'G');
+void tm_set_probs_HKY85(TreeModel *mod, MarkovMatrix *P, double t) {
+  int i, j;
+  if (t < 0)
+    die("ERROR in tm_set_probs_HKY85: t must be nonnegative.\n");
+
+  double mu, E1, E2, E3, piR, piY, BR, BY, pij, kappa;
+
+  /* we have to reverse engineer kappa from first row of the rate
+     matrix in this case because not available in calling code */
+  double ti = -1, tv = -1;
+  for (j = 1; (ti == -1 || tv == -1) && j < mod->rate_matrix->size; j++) {
+    if (is_transition(mod->rate_matrix->states[0], mod->rate_matrix->states[j]))
+      ti = mm_get(mod->rate_matrix, 0, j) / vec_get(mod->backgd_freqs, j);
+    else if (tv == -1)
+      tv = mm_get(mod->rate_matrix, 0, j) / vec_get(mod->backgd_freqs, j);
+  }
+  assert(ti > 0 && tv > 0);
+  kappa = ti/tv;
+  
+  piR = 0; piY = 0;
+  BR = 1; BY = 1;
+  for (int i = 0; i < mod->rate_matrix->size; i++) {
+    double pi_i = vec_get(mod->backgd_freqs, i);
+    if (is_purine(mod->rate_matrix->states[i])) {
+      piR += pi_i;
+      BR *= pi_i;
+    }
+    else {
+      piY += pi_i;
+      BY *= pi_i;
+    }
+  }
+  mu = 1.0 / (2.0 * (kappa * (BR + BY) + piR * piY));
+
+  E1 = exp(-mu * t);
+  E2 = exp(-mu * (kappa * piR + piY) * t);
+  E3 = exp(-mu * (kappa * piY + piR) * t);
+
+  for (i = 0; i < mod->rate_matrix->size; i++) {
+    double rowsum = 0.0;
+    int from = mod->rate_matrix->states[i];
+
+    for (j = 0; j <  mod->rate_matrix->size; j++) {
+      if (i == j) continue;
+      int to = mod->rate_matrix->states[j];
+      double pi_j = vec_get(mod->backgd_freqs,j);
+      
+      if (is_transition(from, to)) {
+        if (is_purine(from))
+          pij = pi_j * (1.0 - E1) + (pi_j/piR) * (E1 - E2);
+        else 
+          pij = pi_j * (1.0 - E1) + (pi_j/piY) * (E1 - E3);
+      }
+      else /* transversion */
+        pij = pi_j * (1.0 - E1);
+
+      mm_set(P, i, j, pij);
+      rowsum += pij;
+    }
+    mm_set(P, i, i, 1-rowsum);
+  }
 }
 
 /* dP/dt for HKY */
@@ -652,9 +711,9 @@ void tm_grad_HKY_dt(TreeModel *mod, Matrix *grad, double kappa, double t) {
       
       if (is_transition(from, to)) {
         if (is_purine(from))
-          gij = piY/piR * pi_j * -dE1_dt - (pi_j/piR) * -dE2_dt;
+          gij = (pi_j/piR) * (-dE2_dt) - (piY/piR) * pi_j * (-dE1_dt);
         else 
-         gij = piR/piY * pi_j * -dE1_dt - (pi_j/piY) * -dE3_dt;
+          gij = (pi_j/piY) * (-dE3_dt) - (piR/piY) * pi_j * (-dE1_dt);
       }
       else /* transversion */
         gij = pi_j * -dE1_dt;
@@ -711,12 +770,12 @@ void tm_grad_HKY_dt(TreeModel *mod, Matrix *grad, double kappa, double t) {
       double gij;
       if (is_transition(from, to)) {
         if (is_purine(from))
-          gij = piY/piR * pi_j * dE1_dk - (pi_j/piR) * dE2_dk;
+          gij = (pi_j/piR) * (-dE2_dk) - (piY/piR) * pi_j * (-dE1_dk);
         else
-          gij = piR/piY * pi_j * dE1_dk - (pi_j/piY) * dE3_dk;
+          gij = (pi_j/piY) * (-dE3_dk) - (piR/piY) * pi_j * (-dE1_dk);
       }
       else 
-        gij = -pi_j * dE1_dk;
+        gij = pi_j * -dE1_dk;
 
       mat_set(grad, i, j, gij);
       rowsum += gij;

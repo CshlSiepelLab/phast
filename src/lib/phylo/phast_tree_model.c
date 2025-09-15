@@ -1073,7 +1073,10 @@ void tm_set_subst_matrices(TreeModel *tm) {
       else if (subst_mod == F81 && selection == 0.0 && bgc == 0.0)
         tm_set_probs_F81(backgd_freqs, tm->P[i][j], curr_scaling_const, 
                          n->dparent * branch_scale * tm->rK[j]);
-      
+      else if (subst_mod == HKY85 && selection==0.0 && bgc == 0.0)
+        tm_set_probs_HKY85(tm, tm->P[i][j], 
+                          n->dparent * branch_scale * tm->rK[j]);
+            
       else {                     /* full matrix exponentiation */
         mm_exp(tm->P[i][j], rate_matrix, 
                n->dparent * branch_scale * tm->rK[j]);
@@ -1109,6 +1112,8 @@ void tm_set_subst_matrix(TreeModel *tm, MarkovMatrix *P, double t) {
     tm_set_probs_JC69(tm, P, t);
   else if (tm->subst_mod == F81)
     tm_set_probs_F81(tm->backgd_freqs, P, scaling_const, t);
+  else if (tm->subst_mod == HKY85)
+    tm_set_probs_HKY85(tm->backgd_freqs, P, t);
   else 
     mm_exp(P, tm->rate_matrix, t);
 }

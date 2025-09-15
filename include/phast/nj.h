@@ -42,7 +42,8 @@
    respectively. Helps address the problem that branch lengths tend to
    be small so means and variances can get close to zero.  But scaling
    needs to be different for the two geometries */
-#define POINTSPAN_EUC 25
+/* #define POINTSPAN_EUC 25 */
+#define POINTSPAN_EUC 50
 #define POINTSPAN_HYP 4
 
 /* use this as a floor for variance parameters.  Avoids drift to ever
