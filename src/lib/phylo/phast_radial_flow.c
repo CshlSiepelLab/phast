@@ -40,27 +40,38 @@ void rf_update(RadialFlow *rf) {
    d.  returns log determinant of Jacobian of transformation */
 double rf_forward (RadialFlow *rf, Vector *y, Vector *x) {
   assert(y->size == x->size && y->size == rf->npoints * rf->ndim);
-  double diff[rf->ndim];
+  double *diff = (double*)malloc(sizeof(double) * rf->ndim);
   double logdet = 0;
   int d;
   
   for (int i = 0; i < rf->npoints; i++) {
     int idx;
-    double r2 = 0, r, h, bh;
+    double r2 = 0, r, h, h2, bh, A, B;
     for (d = 0; d < rf->ndim; d++) {
       idx = i*rf->ndim + d;
-      diff[d] = vec_get(x, idx) - vec_get(rf->ctr, idx);
+      diff[d] = vec_get(x, idx) - vec_get(rf->ctr, d);
       r2 += diff[d] * diff[d];
     }
     r = sqrt(r2);
-    h = 1 / (rf->alpha + r);
+    if (r < 1e-18) r = 1e-18;  /* avoid dividing by very small number */
+
+    h = 1.0 / (rf->alpha + r);
+    h2 = h * h;
+    bh = rf->beta * h; 
+    A  = 1.0 + bh;
+    B  = A - rf->beta * h2 * r;
+
     for (d = 0; d < rf->ndim; d++) {
       idx = i*rf->ndim + d;
-      vec_set(y, idx, vec_get(x, idx) + h * diff[d]);
+      vec_set(y, idx, vec_get(x, idx) + bh * diff[d]);
     }
-    bh = rf->beta*h;
-    logdet += (rf->ndim - 1) * log(1 + bh) + log(1 + bh - bh*h*r);
+
+    if (A <= 0.0) A = RF_EPS;
+    if (B <= 0.0) B = RF_EPS;
+    
+    logdet += (rf->ndim - 1) * log(A) + log(B);
   }
+  free(diff);
   return logdet;
 }
 
@@ -89,14 +100,12 @@ void rf_backprop(RadialFlow *rf, Vector *x, Vector *newgrad, Vector *origgrad,
     }
 
     r = sqrt(r2);  
-    if (r < 1e-18) r = 1e-18;  /* avoid dividing by very small number */
-      
     h = 1.0 / (rf->alpha + r);
     h2 = h*h;
     h_prime = -h2;
     bh = rf->beta * h;
     A = 1.0 + bh;
-    B = 1.0 + bh + rf->beta * h_prime * r;
+    B = A + rf->beta * h_prime * r;
     dF_dr = rf->beta * (-(rf->ndim - 1) * h2 / A + (-2.0 * h2 + 2.0 * r * h2 * h) / B);
 
     for (d = 0; d < rf->ndim; d++) {
