@@ -249,6 +249,10 @@ double nj_nuis_param_get(TreeModel *mod, CovarData *data, int idx);
 
 void nj_repair_zero_br(TreeNode *t);
 
+void nj_sample_points(multi_MVN *mmvn, CovarData *data, Vector *points,
+                      Vector *points_std, double *logdet);
+
+
 /* these are used for the hyperbolic geometry to stabilize the acosh
    calculations */
 /* Same thresholds in BOTH places (distance and gradient) */

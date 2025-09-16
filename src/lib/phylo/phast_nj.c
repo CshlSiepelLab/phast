@@ -885,7 +885,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
                         int min_nbatches, CovarData *data, FILE *logf) {
 
   Vector *points, *grad, *kldgrad, *avegrad, *m, *m_prev, *v, *v_prev,
-    *best_mu, *best_sigmapar, *rescaledgrad, *sparsitygrad = NULL, *pointsnext,
+    *best_mu, *best_sigmapar, *rescaledgrad, *sparsitygrad = NULL, 
     *points_std;
   Vector *sigmapar = data->params;
   int n = data->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim,
@@ -911,7 +911,6 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     die("ERROR in nj_variational_inf: bad dimensions\n");
 
   points = vec_new(fulld);
-  pointsnext = vec_new(fulld);
   graddim = fulld + data->params->size;
   grad = vec_new(graddim);  
   kldgrad = vec_new(graddim);
@@ -1027,20 +1026,18 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     avell = 0;
     for (i = 0; i < nminibatch; i++) {
       int bail = 0;
+      double rf_logdet = 0;
       do {
-        /* use antithetic sampling to reduce variance */
         /* do this in a way that keeps track of the original standard
            normal variable (points_std) for use in computing
-           gradients */
-        if (i % 2 == 0 || bail > 0)
-          mmvn_sample_anti_keep(mmvn, points, pointsnext, points_std);
-        else {
-          vec_copy(points, pointsnext);
-          vec_scale(points_std, -1.0);
-        }
-
+           gradients.  Also use antithetic sampling to reduce
+           variance */
+        nj_sample_points(mmvn, data, points, points_std, &rf_logdet);
+ 
         ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data);
 
+        /* this addresses a problem that sometimes occurs with the
+           CRISPR model */
         if (++bail > 10 && !isfinite(ll)) {
           assert(bail < 15); /* prohibit infinite loop */
           fprintf(stderr, "WARNING: repeatedly sampling zero-probability trees. Prohibiting zero-length branches.\n");
@@ -1188,7 +1185,6 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     vec_free(sparsitygrad);
   vec_free(points);
   vec_free(points_std);
-  vec_free(pointsnext);
   vec_free(m);
   vec_free(m_prev);
   vec_free(v);
@@ -1219,14 +1215,14 @@ List *nj_var_sample(int nsamples, multi_MVN *mmvn, CovarData *data, char** names
   Vector *points = vec_new(mmvn->d * mmvn->n);
   
   for (i = 0; i < nsamples; i++) {
-     mmvn_sample(mmvn, points);
+    nj_sample_points(mmvn, data, points, NULL, NULL);
 
-     if (logdens != NULL) 
-       vec_set(logdens, i, mmvn_log_dens(mmvn, points));
+    if (logdens != NULL) 
+      vec_set(logdens, i, mmvn_log_dens(mmvn, points));
      
-     nj_points_to_distances(points, data);
-     tree = nj_inf(data->dist, names, NULL, data);
-     lst_push_ptr(retval, tree);
+    nj_points_to_distances(points, data);
+    tree = nj_inf(data->dist, names, NULL, data);
+    lst_push_ptr(retval, tree);
   }
   
   vec_free(points);
@@ -2216,7 +2212,7 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
      log ratio of densities */
   for (i = 0; i < nsamples * 10; i++) {
     do {
-      mmvn_sample(mmvn, points);
+      nj_sample_points(mmvn, data, points, NULL, NULL);
       nj_points_to_distances(points, data);
       mod->tree = nj_inf(data->dist, data->names, NULL, data);
 
@@ -2254,7 +2250,7 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
   while (lst_size(retval) < nsamples) {
     ntot++;
     do {
-      mmvn_sample(mmvn, points);
+      nj_sample_points(mmvn, data, points, NULL, NULL);
       nj_points_to_distances(points, data);
       mod->tree = nj_inf(data->dist, data->names, NULL, data);
 
@@ -2972,66 +2968,71 @@ char *nj_get_nuisance_param_name(TreeModel *mod, CovarData *data, int idx) {
 
 /* update nuis_grad based on current gradients */
 void nj_update_nuis_grad(TreeModel *mod, CovarData *data, Vector *nuis_grad) {
+  int idx = 0;
   if (data->crispr_mod != NULL) {
-    if (idx <= 1) {
-      vec_set(nuis_grad, 0, data->crispr_mod->deriv_sil);
-      vec_set(nuis_grad, 1, data->crispr_mod->deriv_leading_t);
-    }
-    else idx -= 2; /* subtract crispr params for below */
+    vec_set(nuis_grad, idx++, data->crispr_mod->deriv_sil);
+    vec_set(nuis_grad, idx++, data->crispr_mod->deriv_leading_t);
   }
   else if (mod->subst_mod == HKY85) {
-    if (idx == 0)
-      vec_set(nuis_grad, 0, data->deriv_hky_kappa);
-    else idx -= 1;
+    vec_set(nuis_grad, idx++, data->deriv_hky_kappa);
   }
 
- /* if we get here, must be for radial flow */
-  assert(data->rf != NULL);
-
-  if (idx 
-  
-  else
-    die("ERROR in nj_update_nuis_grad: no nuisance parameters defined\n");
+  if (data->rf != NULL) {
+    for (int i = 0; i < data->rf->ctr_grad->size; i++)
+      vec_set(nuis_grad, idx++, vec_get(data->rf->ctr_grad, i));
+    vec_set(nuis_grad, idx++, data->rf->a_grad);
+    vec_set(nuis_grad, idx++, data->rf->b_grad);
+  }
+  assert(idx == nuis_grad->size);
 }
 
 /* save current values of nuisance params */
 void nj_save_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data) {
+  int idx = 0;
   if (data->crispr_mod != NULL) {
-    assert(stored_vals->size == 2);
-    vec_set(stored_vals, 0, data->crispr_mod->sil_rate);
-    vec_set(stored_vals, 1, data->crispr_mod->leading_t);
+    vec_set(stored_vals, idx++, data->crispr_mod->sil_rate);
+    vec_set(stored_vals, idx++, data->crispr_mod->leading_t);
   }
-  else if (mod->subst_mod == HKY85) {
-    assert(stored_vals->size == 1);
-    vec_set(stored_vals, 0, data->hky_kappa);
-  }
-  else
-    die("ERROR in nj_save_nuis_params: no nuisance parameters defined\n");
+  else if (mod->subst_mod == HKY85) 
+    vec_set(stored_vals, idx++, data->hky_kappa);
+
+  if (data->rf != NULL) {
+    for (int i = 0; i < data->rf->ctr->size; i++)
+      vec_set(stored_vals, idx++, vec_get(data->rf->ctr, i));
+    vec_set(stored_vals, idx++, data->rf->a);
+    vec_set(stored_vals, idx++, data->rf->b);
+  }      
+  assert(idx == stored_vals->size);
 }
 
 /* update all nuisance parameters based on vector of stored values */
 void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data) {
+  int idx = 0;
   if (data->crispr_mod != NULL) {
-    assert(stored_vals->size == 2);
-    data->crispr_mod->sil_rate = vec_get(stored_vals, 0);
-    data->crispr_mod->leading_t = vec_get(stored_vals, 1);
+    data->crispr_mod->sil_rate = vec_get(stored_vals, idx++);
+    data->crispr_mod->leading_t = vec_get(stored_vals, idx++);
   }
   else if (mod->subst_mod == HKY85) {
-    assert(stored_vals->size == 1);
-    data->hky_kappa = vec_get(stored_vals, 0);
+    data->hky_kappa = vec_get(stored_vals, idx++);
     tm_set_HKY_matrix(mod, data->hky_kappa, -1);
     tm_scale_rate_matrix(mod);
     mm_diagonalize(mod->rate_matrix);
   }
-  else
-    die("ERROR in nj_update_nuis_params: no nuisance parameters defined\n");
+
+  if (data->rf != NULL) {
+    for (int i = 0; i < data->rf->ctr->size; i++)
+      vec_set(data->rf->ctr, i, vec_get(stored_vals, idx++));    
+    data->rf->a = vec_get(stored_vals, idx++);
+    data->rf->b = vec_get(stored_vals, idx++);
+    rf_update(data->rf);
+  }      
+  assert(idx == stored_vals->size);
 }
 
 /* add to single nuisance parameter */
 void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) {
   if (data->crispr_mod != NULL) {
     if (idx == 0) {
-      /* data->crispr_mod->sil_rate = 0.4; */
       data->crispr_mod->sil_rate += inc;
       if (data->crispr_mod->sil_rate < 0)
         data->crispr_mod->sil_rate = 0;
@@ -3042,7 +3043,7 @@ void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) 
         data->crispr_mod->leading_t = 0;
     }
     else
-      die("ERROR in nuis_param_pluseq: index out of bounds.\n");
+      idx -= 2; /* subtract for below */
   }
   else if (mod->subst_mod == HKY85) {
     if (idx == 0) {
@@ -3053,11 +3054,23 @@ void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) 
       tm_scale_rate_matrix(mod);
       mm_diagonalize(mod->rate_matrix);
     }
+    else idx -= 1;      
+  }
+
+  /* if we get here, must be for radial flow */
+  assert(data->rf != NULL);
+
+  if (idx < data->rf->ctr->size) 
+    vec_set(data->rf->ctr, idx, vec_get(data->rf->ctr, idx) + inc);
+  else {
+    int offset = idx - data->rf->ctr->size;
+    if (offset == 0)
+      data->rf->a += inc;
+    else if (offset == 1)
+      data->rf->b += inc;
     else
       die("ERROR in nuis_param_pluseq: index out of bounds.\n");
   }
-  else
-    die("ERROR in nj_nuis_param_pluseq: no nuisance parameters defined\n");
 }
 
 /* return value of single nuisance parameter */
@@ -3068,16 +3081,28 @@ double nj_nuis_param_get(TreeModel *mod, CovarData *data, int idx) {
     else if (idx == 1)
       return data->crispr_mod->leading_t;
     else
-      die("ERROR in nuis_param_pluseq: index out of bounds.\n");
+      idx -= 2; /* subtract for below */
   }
   else if (mod->subst_mod == HKY85) {
     if (idx == 0)
       return data->hky_kappa;
-    else
-      die("ERROR in nuis_param_pluseq: index out of bounds.\n");
+    else idx -= 1;      
   }
-  else
-    die("ERROR in nj_nuis_param_get: no nuisance parameters defined\n");
+
+  /* if we get here, must be for radial flow */
+  assert(data->rf != NULL);
+
+  if (idx < data->rf->ctr->size) 
+    return vec_get(data->rf->ctr, idx);
+  else {
+    int offset = idx - data->rf->ctr->size;
+    if (offset == 0)
+      return data->rf->a;
+    else if (offset == 1)
+      return data->rf->b;
+    else
+      die("ERROR in nuis_param_get: index out of bounds.\n");
+  }
   return -1;
 }
 
@@ -3088,3 +3113,52 @@ void nj_repair_zero_br(TreeNode *t) {
       n->dparent = 1e-3;
   }
 }
+
+/* sample points from variational distribution.  This is a wrapper
+   that encapsulates the radial flow layer (if selected) and
+   antithetic sampling.  If points_std is non-NULL, it will be used to
+   store the baseline standard normal variate for use in downstream
+   calculations in variational inference. Antithetic sampling is only
+   used in this case */
+void nj_sample_points(multi_MVN *mmvn, CovarData *data, Vector *points, Vector *points_std,
+                      double *logdet) {
+  static int i = 0;
+  static Vector *cachedpoints = NULL, *cachedstd = NULL;
+  
+  if (points_std == NULL) 
+    mmvn_sample(mmvn, points); /* simple in this case */
+  else {
+    /* otherwise we have to make use of caching for antithetic sampling */
+    if (cachedpoints != NULL && cachedpoints->size != points->size) {
+      vec_free(cachedpoints);
+      vec_free(cachedstd);
+      cachedpoints = NULL; /* force realloc */
+    }
+    if (cachedpoints == NULL) {
+      cachedpoints = vec_new(points->size);
+      cachedstd = vec_new(points->size);
+      i = 0; /* force new sample */
+    }
+    
+    if (i % 2 == 0) { /* new sample, update caches */
+      mmvn_sample_anti_keep(mmvn, points, cachedpoints, points_std);
+      vec_copy(cachedstd, points_std);
+    }
+    else { /* just use cache to define sample */
+      vec_copy(points, cachedpoints);
+      vec_copy(points_std, cachedstd);
+      vec_scale(points_std, -1.0);
+    }
+    i++;
+  }
+
+  /* finally apply the radial flow if activated */
+  if (data->rf != NULL) {
+    Vector *tmppoints = vec_new(points->size);
+    double ldet = rf_forward(data->rf, tmppoints, points);
+    vec_copy(points, tmppoints);
+    vec_free(tmppoints);
+    if (logdet != NULL) (*logdet) = ldet; /* for use in calling code */
+  }
+}
+

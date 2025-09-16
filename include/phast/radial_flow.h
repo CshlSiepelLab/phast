@@ -19,6 +19,9 @@ typedef struct {
   double b; /* raw parameter, unconstrained */
   double alpha; /* alpha = softplus(a) + eps */
   double beta; /* beta = -alpha + softplus(b) + eps */
+  Vector *ctr_grad;
+  double a_grad;
+  double b_grad;
 } RadialFlow;
 
 RadialFlow *rf_new(int npoints, int ndim);
