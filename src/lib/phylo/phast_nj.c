@@ -1833,7 +1833,8 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
                              MSA *msa, CrisprMutModel* crispr_mod, char **names,
                              unsigned int natural_grad, double kld_upweight,
                              int rank, double sparsity, unsigned int hyperbolic,
-                             double negcurvature, unsigned int ultrametric) {
+                             double negcurvature, unsigned int ultrametric,
+                             unsigned int radial_flow) {
   static int seeded = 0;
   
   CovarData *retval = smalloc(sizeof(CovarData));
@@ -1858,7 +1859,12 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   retval->negcurvature = negcurvature;
   retval->ultrametric = ultrametric;
   retval->no_zero_br = FALSE;
-  
+
+  if (radial_flow == TRUE)
+    retval->rf = rf_new(retval->nseqs, dim);
+  else
+    retval->rf = NULL;
+
   nj_set_pointscale(retval);
   retval->lambda *= retval->pointscale * retval->pointscale;
   
@@ -2915,44 +2921,75 @@ TreeNode *nj_inf(Matrix *D, char **names, Matrix *dt_dD,
    DNA models and the silencing rate and leading branch length for
    CRISPR models */
 int nj_get_num_nuisance_params(TreeModel *mod, CovarData *data) {
+  int retval = 0;
+
   if (data->crispr_mod != NULL)
-    return 2;
+    retval += 2;
   else if (mod->subst_mod == HKY85)
-    return 1;
-  else
-    return 0;
+    retval += 1;
+
+  if (data->rf != NULL)
+    retval += data->rf->ctr->size + 2;
+    
+  return retval;
 }
 
 char *nj_get_nuisance_param_name(TreeModel *mod, CovarData *data, int idx) {
-  if (data->crispr_mod != NULL) { 
+  assert(idx >= 0);
+  if (data->crispr_mod != NULL) {
     if (idx == 0)
       return "nu";
     else if (idx == 1)
       return ("lead_t");
-    else
-      die("ERROR in nj_get_nuisance_param_name: index out of bounds.\n");
+    else idx -= 2;  /* subtract crispr params for below */
   }
   else if (mod->subst_mod == HKY85) {
-    if (idx == 0)
+    if (idx == 0) 
       return "kappa";
+    else idx -= 1;
+  }
+  
+  /* if we get here, must be for radial flow */
+  assert(data->rf != NULL);
+
+  if (idx < data->rf->ctr->size) {
+    char *tmp = smalloc(10 * sizeof(char));;
+    snprintf(tmp, 15, "rf_ctr[%d]", idx);
+    return tmp;
+  }
+  else {
+    int offset = idx - data->rf->ctr->size;
+    if (offset == 0)
+      return "rf_a";
+    else if (offset == 1)
+      return "rf_b";
     else
       die("ERROR in nj_get_nuisance_param_name: index out of bounds.\n");
   }
-  die("ERROR in nj_get_nuisance_param_name: no nuisance parameters defined.\n");
+
   return NULL;
 }
 
 /* update nuis_grad based on current gradients */
 void nj_update_nuis_grad(TreeModel *mod, CovarData *data, Vector *nuis_grad) {
   if (data->crispr_mod != NULL) {
-    assert(nuis_grad->size == 2);
-    vec_set(nuis_grad, 0, data->crispr_mod->deriv_sil);
-    vec_set(nuis_grad, 1, data->crispr_mod->deriv_leading_t);
+    if (idx <= 1) {
+      vec_set(nuis_grad, 0, data->crispr_mod->deriv_sil);
+      vec_set(nuis_grad, 1, data->crispr_mod->deriv_leading_t);
+    }
+    else idx -= 2; /* subtract crispr params for below */
   }
   else if (mod->subst_mod == HKY85) {
-    assert(nuis_grad->size == 1);
-    vec_set(nuis_grad, 0, data->deriv_hky_kappa);
+    if (idx == 0)
+      vec_set(nuis_grad, 0, data->deriv_hky_kappa);
+    else idx -= 1;
   }
+
+ /* if we get here, must be for radial flow */
+  assert(data->rf != NULL);
+
+  if (idx 
+  
   else
     die("ERROR in nj_update_nuis_grad: no nuisance parameters defined\n");
 }

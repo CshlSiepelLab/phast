@@ -128,6 +128,14 @@ OPTIONS:
         (default 3) For use with --covar LOWR. Rank of low-rank
         approximation of covariance matrix.  
 
+    --radial-flow, -F
+        Add a radial-flow layer on top of the multivariate normal
+        variational distribution, to accommodate nonlinearities in the
+        posterior distribution. Estimates a single center point in <D>
+        dimensions as well as a scale parameter alpha and strength
+        parameter beta describing the manner in which points are pulled
+        radially toward the center.
+
     --natural-grad, -N
         During stochastic gradient ascent, use approximate natural
         gradient scale by multiplying each gradient by the corresponding
@@ -159,7 +167,8 @@ OPTIONS:
     --ultrametric, -C
         Forces estimated trees to be ultrametric, by using the UPGMA
         algorithm instead of the neighbor-joining algorithm.  Can be used
-        with --nj-only.
+        with --nj-only to produce a fast approximate tree.  On by default
+        with -i CRISPR.
 
     --crispr-modtype, -Y SITEWISE|GLOBAL
         (default SITEWISE) Model type for CRISPR mutations.  May be GLOBAL

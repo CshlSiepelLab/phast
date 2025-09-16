@@ -37,7 +37,8 @@ int main(int argc, char *argv[]) {
     min_nbatches = DEFAULT_MIN_NBATCHES, rank = DEFAULT_RANK;
   unsigned int nj_only = FALSE, random_start = FALSE,
    hyperbolic = FALSE, embedding_only = FALSE, rejection_sampling = FALSE,
-    mvn_dump = FALSE, natural_grad = FALSE, is_crispr = FALSE, ultrametric = FALSE;
+    mvn_dump = FALSE, natural_grad = FALSE, is_crispr = FALSE, ultrametric = FALSE,
+    radial_flow = FALSE;
   MSA *msa = NULL;
   enum covar_type covar_param = CONST;
 
@@ -91,13 +92,14 @@ int main(int argc, char *argv[]) {
     {"ultrametric", 0, 0, 'C'},
     {"mvn-dump", 0, 0, 'V'},
     {"rank", 1, 0, 'W'},
+    {"radial-flow", 0, 0, 'F'}, 
     {"crispr-modtype", 1, 0, 'Y'},
     {"crispr-mutprior", 1, 0, 'p'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:jJkK:l:m:M:n:No:P:r:Rt:T:VW:S:s:CY:p:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:FjJkK:l:m:M:n:No:P:r:Rt:T:VW:S:s:CY:p:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -122,6 +124,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'H':
       hyperbolic = TRUE;
+      break;
+    case 'F':
+      radial_flow = TRUE;
       break;
     case 'i':
       if (!strcmp(optarg, "CRISPR"))
@@ -331,7 +336,7 @@ int main(int argc, char *argv[]) {
 
   covar_data = nj_new_covar_data(covar_param, D, dim, msa, crispr_mod, names,
                                  natural_grad, kld_upweight, rank, sparsity,
-                                 hyperbolic, negcurvature, ultrametric);
+                                 hyperbolic, negcurvature, ultrametric, radial_flow);
 
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */
