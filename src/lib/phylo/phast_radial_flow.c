@@ -18,7 +18,8 @@ RadialFlow *rf_new(int npoints, int ndim) {
   rf->ctr_grad = vec_new(ndim);
   vec_zero(rf->ctr_grad);
   rf->a = log(exp(1) - 1); /* initial values that cause near identity transformation */
-  rf->b = -10;
+  rf->b = inv_softplus(0.002);
+  rf->r_med = 1;
   rf->a_grad = rf->b_grad = 0;
   rf_update(rf);
   return rf;
@@ -26,13 +27,20 @@ RadialFlow *rf_new(int npoints, int ndim) {
 
 void rf_free(RadialFlow *rf) {
   vec_free(rf->ctr);
+  vec_free(rf->ctr_grad);
   sfree(rf);
 }
 
 /* update alpha and beta according to new value of raw parameters a and b */
 void rf_update(RadialFlow *rf) {
   rf->alpha = softplus(rf->a) + RF_EPS;
-  rf->beta = -rf->alpha + softplus(rf->b) + RF_EPS;
+  rf->beta = softplus(rf->b) + RF_EPS;
+}
+
+/* can be used to set the overall scale to some target value.  Should
+   be rougly the median radius of points from the center */
+void rf_rescale(RadialFlow *rf, double scale) {
+`  rf->r_med = scale;
 }
 
 /* assumes points x, computes y = f(x) where x is an input set of
@@ -46,7 +54,7 @@ double rf_forward (RadialFlow *rf, Vector *y, Vector *x) {
   
   for (int i = 0; i < rf->npoints; i++) {
     int idx;
-    double r2 = 0, r, h, h2, bh, A, B;
+    double r2 = 0, r, rhat, h, h2, bh, A, B;
     for (d = 0; d < rf->ndim; d++) {
       idx = i*rf->ndim + d;
       diff[d] = vec_get(x, idx) - vec_get(rf->ctr, d);
@@ -55,20 +63,21 @@ double rf_forward (RadialFlow *rf, Vector *y, Vector *x) {
     r = sqrt(r2);
     if (r < 1e-18) r = 1e-18;  /* avoid dividing by very small number */
 
-    h = 1.0 / (rf->alpha + r);
+    rhat = r/ rf->r_med; /* scale adjustment */
+    h = 1.0 / (rf->alpha + rhat);
     h2 = h * h;
     bh = rf->beta * h; 
     A  = 1.0 + bh;
-    B  = A - rf->beta * h2 * r;
+    B  = A - rf->beta * h2 * rhat;
 
     for (d = 0; d < rf->ndim; d++) {
       idx = i*rf->ndim + d;
       vec_set(y, idx, vec_get(x, idx) + bh * diff[d]);
     }
 
-    if (A <= 0.0) A = RF_EPS;
-    if (B <= 0.0) B = RF_EPS;
-    
+    assert(rf->beta >= 0);
+    assert(A > 0 && B > 0);
+        
     logdet += (rf->ndim - 1) * log(A) + log(B);
   }
   free(diff);
@@ -76,37 +85,43 @@ double rf_forward (RadialFlow *rf, Vector *y, Vector *x) {
 }
 
 /* param grad: first d components are derivs wrt ctr; then deriv wrt alpha and deriv wrt beta */
-void rf_backprop(RadialFlow *rf, Vector *x, Vector *newgrad, Vector *origgrad,
-                 Vector *paramgrad) {
+void rf_backprop(RadialFlow *rf, Vector *x, Vector *newgrad, Vector *origgrad) {
   double *u = (double*)malloc(sizeof(double) * rf->ndim);
 
   assert(x->size == rf->npoints * rf->ndim && x->size == newgrad->size &&
          x->size == origgrad->size);
-  assert(paramgrad->size == rf->ndim + 2);
   
   double alpha_grad = 0, beta_grad = 0;
-  Vector *ctr_grad = vec_new(rf->ndim); vec_zero(ctr_grad);
   int d;
   
+  vec_zero(rf->ctr_grad);
   for (int i = 0; i < rf->npoints; i++) {
     int idx;
-    double r2 = 0, u_dot_g = 0, r, h, h2, h_prime, bh, A, B, dF_dr;
+    double r2 = 0, u_dot_g = 0, r, h, h2, h_prime, bh, A, B, dF_dr, dF_drhat;
     
     for (d = 0; d < rf->ndim; d++) {
       idx = i*rf->ndim + d;
-      u[d] = vec_get(x, idx) - vec_get(rf->ctr, idx);
+      u[d] = vec_get(x, idx) - vec_get(rf->ctr, d);
       r2 += u[d] * u[d];
       u_dot_g += u[d] * vec_get(origgrad, idx);
     }
 
-    r = sqrt(r2);  
-    h = 1.0 / (rf->alpha + r);
+    r = sqrt(r2);
+    if (r < 1e-18) r = 1e-18;  /* avoid dividing by very small number */
+    double rhat = r / rf->r_med; /* scale adjustment */
+    
+    h = 1.0 / (rf->alpha + rhat);
     h2 = h*h;
-    h_prime = -h2;
+    h_prime = -h2 / rf->r_med;
     bh = rf->beta * h;
     A = 1.0 + bh;
     B = A + rf->beta * h_prime * r;
-    dF_dr = rf->beta * (-(rf->ndim - 1) * h2 / A + (-2.0 * h2 + 2.0 * r * h2 * h) / B);
+
+    assert(rf->beta >= 0);
+    assert(A > 0 && B > 0);    
+    
+    dF_drhat = rf->beta * (-(rf->ndim - 1) * h2 / A + (-2.0 * h2 + 2.0 * rhat * h2 * h) / B);
+    dF_dr = dF_drhat / rf->r_med;
 
     for (d = 0; d < rf->ndim; d++) {
       idx = i*rf->ndim + d;
@@ -122,7 +137,7 @@ void rf_backprop(RadialFlow *rf, Vector *x, Vector *newgrad, Vector *origgrad,
 
     /* gradients with respect to parameters */
     alpha_grad += rf->beta * -h2 * u_dot_g +
-      rf->beta * (-(rf->ndim - 1) * h2 / A + (-h2 + 2.0 * r * h2 * h) / B);
+      rf->beta * (-(rf->ndim - 1) * h2 / A + (-h2 + 2.0 * rhat * h2 * h) / B);
 
     beta_grad += h * u_dot_g + (rf->ndim - 1) * h / A + (h + h_prime * r) / B;
 
@@ -131,22 +146,13 @@ void rf_backprop(RadialFlow *rf, Vector *x, Vector *newgrad, Vector *origgrad,
       int idx = i*rf->ndim + d;
       double ctrg = -rf->beta * h * vec_get(origgrad, idx) + rf->beta * h2/r * u_dot_g * u[d]
         - dF_dr / r * u[d];
-      vec_set(ctr_grad, d, vec_get(ctr_grad, d) + ctrg);
+      vec_set(rf->ctr_grad, d, vec_get(rf->ctr_grad, d) + ctrg);
     }
   }
-  free(u);
 
-  /* finally populate paramgrad */
-  int j = 0;
-  for (d = 0; d < rf->ndim; d++)
-    vec_set(paramgrad, j++, vec_get(ctr_grad, d));
-    
   /* have to apply chain rule for a and b */
-  double a_grad = alpha_grad * 1.0 / (1.0 + exp(-rf->a));
-  double b_grad = beta_grad * 1.0 / (1.0 + exp(-rf->b));
+  rf->a_grad = alpha_grad * 1.0 / (1.0 + exp(-rf->a));
+  rf->b_grad = beta_grad * 1.0 / (1.0 + exp(-rf->b));
 
-  vec_set(paramgrad, j++, a_grad);
-  vec_set(paramgrad, j++, b_grad);
-
-  vec_free(ctr_grad);
+  free(u);
 }

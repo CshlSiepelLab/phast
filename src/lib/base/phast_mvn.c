@@ -386,7 +386,7 @@ double mvn_log_dens(MVN *mvn, Vector *x) {
   int i, j;
 
   if (x->size != mvn->dim)
-    die("ERROR in mvn_dens: bad dimension\n");
+    die("ERROR in mvn_log_dens: bad dimension\n");
 
   if (mvn->type == MVN_STD || mvn->type == MVN_IDENTITY || mvn->type == MVN_DIAG) {
     for (i = 0; i < x->size; i++) {

@@ -134,7 +134,8 @@ OPTIONS:
         posterior distribution. Estimates a single center point in <D>
         dimensions as well as a scale parameter alpha and strength
         parameter beta describing the manner in which points are pulled
-        radially toward the center.
+        radially toward the center. This option is currently not compatible
+        with --hyperbolic.
 
     --natural-grad, -N
         During stochastic gradient ascent, use approximate natural

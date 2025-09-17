@@ -892,7 +892,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     dim = data->dim, fulld = n*dim;
   double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace, logdet, penalty = 0,
-    bestpenalty = 0;
+    bestpenalty = 0, ave_rf_logdet, best_rf_logdet = -INFTY;
   FILE *gradf = NULL;
 
   /* for nuisance parameters; these are parameters that are optimized
@@ -948,7 +948,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   /* set up log file */
   if (logf != NULL) {
     fprintf(logf, "# varPHAST logfile\n");
-    fprintf(logf, "state\tll\tkld\telb\t");
+    fprintf(logf, "state\tll\tkld\trfld\telb\t");
     if (data->type == LOWR && data->sparsity != -1)
       fprintf(logf, "penalty\t");
     for (j = 0; j < fulld; j++)
@@ -1024,9 +1024,11 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     if (n_nuisance_params > 0)
       vec_zero(ave_nuis_grad);
     avell = 0;
+    ave_rf_logdet = 0;
     for (i = 0; i < nminibatch; i++) {
       int bail = 0;
-      double rf_logdet = 0;
+      double rf_logdet = 0; /* log det of Jacobian for radial flow;
+                               will only be set if needed */
       do {
         /* do this in a way that keeps track of the original standard
            normal variable (points_std) for use in computing
@@ -1036,22 +1038,21 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
  
         ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data);
 
-        /* this addresses a problem that sometimes occurs with the
-           CRISPR model */
         if (++bail > 10 && !isfinite(ll)) {
-          assert(bail < 15); /* prohibit infinite loop */
           fprintf(stderr, "WARNING: repeatedly sampling zero-probability trees. Prohibiting zero-length branches.\n");
-          tr_print(stderr, mod->tree, TRUE);
           data->no_zero_br = TRUE;
+          assert(bail < 15); /* prohibit infinite loop */
         }
       } while (!isfinite(ll));  /* in certain cases under the
                                    irreversible CRISPR model, trees
                                    can have likelihoods of zero; we'll
                                    try to just keep sampling if that
-                                   happens */
+                                   happens and if necessary constrain
+                                   the tree structure */
       
       avell += ll;
       vec_plus_eq(avegrad, grad);
+      ave_rf_logdet += rf_logdet;
 
       if (n_nuisance_params > 0) {
         nj_update_nuis_grad(mod, data, nuis_grad);
@@ -1063,6 +1064,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     vec_scale(avegrad, 1.0/nminibatch);
     avell /= nminibatch;
     vec_plus_eq(avegrad, kldgrad);
+    ave_rf_logdet /= nminibatch;
     if (data->type == LOWR && data->sparsity != -1)
       vec_plus_eq(avegrad, sparsitygrad);
 
@@ -1070,11 +1072,12 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       vec_scale(ave_nuis_grad, 1.0/nminibatch);
     
     /* store parameters if best yet */
-    if (avell - kld > bestelb) {
-      bestelb = avell - kld - penalty;
+    if (avell - kld + ave_rf_logdet - penalty > bestelb) {
+      bestelb = avell - kld - +ave_rf_logdet - penalty;
       bestll = avell;  /* not necessarily best ll but ll corresponding to bestelb */
       bestkld = kld;  /* same comment */
-      bestpenalty = penalty; /* same */
+      bestpenalty = penalty; 
+      best_rf_logdet = ave_rf_logdet;
       bestt = t;
       mmvn_save_mu(mmvn, best_mu);
       vec_copy(best_sigmapar, sigmapar);
@@ -1129,7 +1132,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     /* report to log file */
     if (logf != NULL) {
-      fprintf(logf, "%d\t%f\t%f\t%f\t", t, avell, kld, avell - kld);
+      fprintf(logf, "%d\t%f\t%f\t%f\t%f\t", t, avell, kld, ave_rf_logdet, avell - kld + ave_rf_logdet - penalty);
       if (data->type == LOWR && data->sparsity != -1)
         fprintf(logf, "%f\t", data->penalty);
       mmvn_print(mmvn, logf, TRUE, FALSE);
@@ -1149,10 +1152,10 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     }
     
     /* check total elb every nbatches_conv to decide whether to stop */
-    running_tot += avell - kld - penalty;
+    running_tot += avell - kld + ave_rf_logdet - penalty;
     if (t % nbatches_conv == 0) {
       if (logf != NULL)
-        fprintf(logf, "# Average for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
+        fprintf(logf, "# Average ELBO for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
       if (t >= min_nbatches && 1.001*running_tot <= last_running_tot*0.999)
         /* sometimes get stuck increasingly asymptotically; stop if increase not more than about 0.1% */
         stop = TRUE;
@@ -1170,8 +1173,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     nj_update_nuis_params(best_nuis_params, mod, data);
   
   if (logf != NULL) {
-    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f",
-            bestt+1, bestelb, bestll, bestkld);
+    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, RFLD: %.2f",
+            bestt+1, bestelb, bestll, bestkld, best_rf_logdet);
     if (data->type == LOWR && data->sparsity != -1)
       fprintf(logf, ", penalty: %f", bestpenalty);
     fprintf(logf, "\n");
@@ -1856,8 +1859,10 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   retval->ultrametric = ultrametric;
   retval->no_zero_br = FALSE;
 
-  if (radial_flow == TRUE)
+  if (radial_flow == TRUE) {
     retval->rf = rf_new(retval->nseqs, dim);
+    rf_rescale(retval->rf, POINTSPAN_EUC/sqrt(2));
+  }
   else
     retval->rf = NULL;
 
@@ -2582,6 +2587,21 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
         }
       }
     }
+
+    /* in case of radial flow, need one more step in the chain rule.
+       Note that this is supported only in the Euclidean case for now;
+       need to move this call outside of 'else' if hyperbolic support
+       is added */
+    if (data->rf != NULL) {
+      /* here what we called dL_dx is actually the gradient wrt the
+         radially transformed points, y.  We need to back-propagate
+         through the radial flow to obtain the real dL_dx */
+      Vector *dL_dy = vec_create_copy(dL_dx);
+      rf_backprop(data->rf, x, dL_dx, dL_dy);
+      /* note that the gradients wrt the parameters a, b, and ctr are
+         computed as side-effects and stored inside rf */
+      vec_free(dL_dy);
+    }
   }
   
   vec_free(dL_dt);
@@ -3020,8 +3040,10 @@ void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data)
   }
 
   if (data->rf != NULL) {
+    /* TEMPORARY: disable update of center */
     for (int i = 0; i < data->rf->ctr->size; i++)
-      vec_set(data->rf->ctr, i, vec_get(stored_vals, idx++));    
+      idx++;
+      /* vec_set(data->rf->ctr, i, vec_get(stored_vals, idx++)); */
     data->rf->a = vec_get(stored_vals, idx++);
     data->rf->b = vec_get(stored_vals, idx++);
     rf_update(data->rf);
@@ -3057,19 +3079,19 @@ void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) 
     else idx -= 1;      
   }
 
-  /* if we get here, must be for radial flow */
-  assert(data->rf != NULL);
-
-  if (idx < data->rf->ctr->size) 
-    vec_set(data->rf->ctr, idx, vec_get(data->rf->ctr, idx) + inc);
-  else {
-    int offset = idx - data->rf->ctr->size;
-    if (offset == 0)
-      data->rf->a += inc;
-    else if (offset == 1)
-      data->rf->b += inc;
-    else
-      die("ERROR in nuis_param_pluseq: index out of bounds.\n");
+  if (data->rf != NULL) {
+    if (idx < data->rf->ctr->size)
+      ;  /* TEMPORARY */
+      /* vec_set(data->rf->ctr, idx, vec_get(data->rf->ctr, idx) + inc); */
+    else {
+      int offset = idx - data->rf->ctr->size;
+      if (offset == 0)
+        data->rf->a += inc;
+      else if (offset == 1)
+        data->rf->b += inc;
+      else
+        die("ERROR in nuis_param_pluseq: index out of bounds.\n");
+    }
   }
 }
 

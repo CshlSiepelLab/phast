@@ -249,6 +249,9 @@ int main(int argc, char *argv[]) {
   if (init_tree != NULL && indistfile != NULL)
     die("Cannot specify both --tree/-treemod and --distances\n");
 
+  if (hyperbolic == TRUE && radial_flow == TRUE)
+    die("Cannot use --radial-flow with --hyperbolic.\n");
+  
   if (hyperbolic == TRUE && negcurvature == 0) 
     hyperbolic = FALSE;
   /* for convenience in scripting; nonhyperbolic considered special case of hyperbolic */

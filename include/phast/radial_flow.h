@@ -11,17 +11,22 @@ static inline double softplus(double x) {
   return log(1 + exp(x));
 }
 
+static inline double inv_softplus(double sp) {
+  return log(exp(sp)-1);
+}
+
 typedef struct {
-  int npoints;
+  int npoints; /* flow applies to npoints points, each in ndim dimensions */
   int ndim;
-  Vector *ctr;
+  Vector *ctr; /* center of flow, another point in ndim dimensions */
   double a; /* raw parameter, unconstrained */
   double b; /* raw parameter, unconstrained */
   double alpha; /* alpha = softplus(a) + eps */
-  double beta; /* beta = -alpha + softplus(b) + eps */
-  Vector *ctr_grad;
+  double beta; /* beta = softplus(b) + eps */
+  Vector *ctr_grad; /* gradients */
   double a_grad;
   double b_grad;
+  double r_med; /* used to keep scale-free */
 } RadialFlow;
 
 RadialFlow *rf_new(int npoints, int ndim);
@@ -30,9 +35,11 @@ void rf_free(RadialFlow *rf);
 
 void rf_update(RadialFlow *rf);
 
+void rf_rescale(RadialFlow *rf, double scale);
+
 double rf_forward (RadialFlow *rf, Vector *y, Vector *x);
 
 void rf_backprop(RadialFlow *rf, Vector *x, Vector *newgrad,
-                 Vector *origgrad, Vector *paramgrad);
+                 Vector *origgrad);
 
 #endif
