@@ -40,7 +40,7 @@ void rf_update(RadialFlow *rf) {
 /* can be used to set the overall scale to some target value.  Should
    be rougly the median radius of points from the center */
 void rf_rescale(RadialFlow *rf, double scale) {
-`  rf->r_med = scale;
+  rf->r_med = scale;
 }
 
 /* assumes points x, computes y = f(x) where x is an input set of

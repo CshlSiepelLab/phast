@@ -130,12 +130,20 @@ OPTIONS:
 
     --radial-flow, -F
         Add a radial-flow layer on top of the multivariate normal
-        variational distribution, to accommodate nonlinearities in the
+        variational distribution, to radial nonlinearities in the
         posterior distribution. Estimates a single center point in <D>
         dimensions as well as a scale parameter alpha and strength
         parameter beta describing the manner in which points are pulled
         radially toward the center. This option is currently not compatible
         with --hyperbolic.
+
+   --planar-flow, -Z
+        Add a radial-flow layer on top of the multivariate normal
+        variational distribution, to accommodate directional skew and
+        curvature. Estimates two vectors in <D> dimensions plus an
+        intercept term to define a hyperplane toward which the posterior
+        can be pulled.  Can be used in combination with --radial-flow but
+        is not compatible with --hyperbolic.
 
     --natural-grad, -N
         During stochastic gradient ascent, use approximate natural

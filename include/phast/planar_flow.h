@@ -5,11 +5,7 @@
 #include <math.h>
 #include "phast/vector.h"
 
-#define RF_EPS 1.0e-6
-
-/* reuse the same numerically-stable helpers you had */
-static inline double softplus(double x) { return log1p(exp(x)); }
-static inline double inv_softplus(double sp) { return log(exp(sp) - 1.0); }
+#define PF_EPS 1.0e-6
 
 /* Planar flow:
    y = x + u * tanh(w^T x + b)
@@ -35,10 +31,7 @@ typedef struct {
 PlanarFlow *pf_new(int npoints, int ndim);
 void pf_free(PlanarFlow *pf);
 
-/* optional “update” hook to keep parity with radial API (noop for planar) */
-static inline void pf_update(PlanarFlow *pf) { (void)pf; }
-
-/* forward: y = f(x); returns sum over points of log|det J| */
+/* forward: y = f(x); returns log|det J| */
 double pf_forward(PlanarFlow *pf, Vector *y, Vector *x);
 
 /* backprop:

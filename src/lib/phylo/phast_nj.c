@@ -892,7 +892,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     dim = data->dim, fulld = n*dim;
   double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace, logdet, penalty = 0,
-    bestpenalty = 0, ave_rf_logdet, best_rf_logdet = -INFTY;
+    bestpenalty = 0, ave_nf_logdet, best_nf_logdet = -INFTY;
   FILE *gradf = NULL;
 
   /* for nuisance parameters; these are parameters that are optimized
@@ -948,7 +948,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   /* set up log file */
   if (logf != NULL) {
     fprintf(logf, "# varPHAST logfile\n");
-    fprintf(logf, "state\tll\tkld\trfld\telb\t");
+    fprintf(logf, "state\tll\tkld\tnfld\telb\t");
     if (data->type == LOWR && data->sparsity != -1)
       fprintf(logf, "penalty\t");
     for (j = 0; j < fulld; j++)
@@ -1024,17 +1024,17 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     if (n_nuisance_params > 0)
       vec_zero(ave_nuis_grad);
     avell = 0;
-    ave_rf_logdet = 0;
+    ave_nf_logdet = 0;
     for (i = 0; i < nminibatch; i++) {
       int bail = 0;
-      double rf_logdet = 0; /* log det of Jacobian for radial flow;
+      double nf_logdet = 0; /* log det of Jacobian for normalizing flows;
                                will only be set if needed */
       do {
         /* do this in a way that keeps track of the original standard
            normal variable (points_std) for use in computing
            gradients.  Also use antithetic sampling to reduce
            variance */
-        nj_sample_points(mmvn, data, points, points_std, &rf_logdet);
+        nj_sample_points(mmvn, data, points, points_std, &nf_logdet);
  
         ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data);
 
@@ -1052,7 +1052,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       
       avell += ll;
       vec_plus_eq(avegrad, grad);
-      ave_rf_logdet += rf_logdet;
+      ave_nf_logdet += nf_logdet;
 
       if (n_nuisance_params > 0) {
         nj_update_nuis_grad(mod, data, nuis_grad);
@@ -1064,7 +1064,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     vec_scale(avegrad, 1.0/nminibatch);
     avell /= nminibatch;
     vec_plus_eq(avegrad, kldgrad);
-    ave_rf_logdet /= nminibatch;
+    ave_nf_logdet /= nminibatch;
     if (data->type == LOWR && data->sparsity != -1)
       vec_plus_eq(avegrad, sparsitygrad);
 
@@ -1072,12 +1072,12 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       vec_scale(ave_nuis_grad, 1.0/nminibatch);
     
     /* store parameters if best yet */
-    if (avell - kld + ave_rf_logdet - penalty > bestelb) {
-      bestelb = avell - kld - +ave_rf_logdet - penalty;
+    if (avell - kld + ave_nf_logdet - penalty > bestelb) {
+      bestelb = avell - kld + ave_nf_logdet - penalty;
       bestll = avell;  /* not necessarily best ll but ll corresponding to bestelb */
       bestkld = kld;  /* same comment */
       bestpenalty = penalty; 
-      best_rf_logdet = ave_rf_logdet;
+      best_nf_logdet = ave_nf_logdet;
       bestt = t;
       mmvn_save_mu(mmvn, best_mu);
       vec_copy(best_sigmapar, sigmapar);
@@ -1132,7 +1132,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     /* report to log file */
     if (logf != NULL) {
-      fprintf(logf, "%d\t%f\t%f\t%f\t%f\t", t, avell, kld, ave_rf_logdet, avell - kld + ave_rf_logdet - penalty);
+      fprintf(logf, "%d\t%f\t%f\t%f\t%f\t", t, avell, kld, ave_nf_logdet, avell - kld + ave_nf_logdet - penalty);
       if (data->type == LOWR && data->sparsity != -1)
         fprintf(logf, "%f\t", data->penalty);
       mmvn_print(mmvn, logf, TRUE, FALSE);
@@ -1152,7 +1152,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     }
     
     /* check total elb every nbatches_conv to decide whether to stop */
-    running_tot += avell - kld + ave_rf_logdet - penalty;
+    running_tot += avell - kld + ave_nf_logdet - penalty;
     if (t % nbatches_conv == 0) {
       if (logf != NULL)
         fprintf(logf, "# Average ELBO for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
@@ -1174,7 +1174,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   
   if (logf != NULL) {
     fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, RFLD: %.2f",
-            bestt+1, bestelb, bestll, bestkld, best_rf_logdet);
+            bestt+1, bestelb, bestll, bestkld, best_nf_logdet);
     if (data->type == LOWR && data->sparsity != -1)
       fprintf(logf, ", penalty: %f", bestpenalty);
     fprintf(logf, "\n");
@@ -1833,7 +1833,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
                              unsigned int natural_grad, double kld_upweight,
                              int rank, double sparsity, unsigned int hyperbolic,
                              double negcurvature, unsigned int ultrametric,
-                             unsigned int radial_flow) {
+                             unsigned int radial_flow, unsigned int planar_flow) {
   static int seeded = 0;
   
   CovarData *retval = smalloc(sizeof(CovarData));
@@ -1866,6 +1866,11 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   else
     retval->rf = NULL;
 
+  if (planar_flow == TRUE) 
+    retval->pf = pf_new(retval->nseqs, dim);
+  else
+    retval->pf = NULL;
+    
   nj_set_pointscale(retval);
   retval->lambda *= retval->pointscale * retval->pointscale;
   
@@ -2602,6 +2607,13 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
          computed as side-effects and stored inside rf */
       vec_free(dL_dy);
     }
+
+    /* similar for planar flow */
+    if (data->pf != NULL) {
+      Vector *dL_dy = vec_create_copy(dL_dx);
+      pf_backprop(data->pf, x, dL_dx, dL_dy);
+      vec_free(dL_dy);
+    }
   }
   
   vec_free(dL_dt);
@@ -2946,7 +2958,10 @@ int nj_get_num_nuisance_params(TreeModel *mod, CovarData *data) {
 
   if (data->rf != NULL)
     retval += data->rf->ctr->size + 2;
-    
+
+  if (data->pf != NULL)
+    retval += data->pf->ndim * 2 + 1;
+  
   return retval;
 }
 
@@ -2957,7 +2972,7 @@ char *nj_get_nuisance_param_name(TreeModel *mod, CovarData *data, int idx) {
       return "nu";
     else if (idx == 1)
       return ("lead_t");
-    else idx -= 2;  /* subtract crispr params for below */
+    else idx -= 2;  /* incrementally subtract each set of indices */
   }
   else if (mod->subst_mod == HKY85) {
     if (idx == 0) 
@@ -2965,24 +2980,43 @@ char *nj_get_nuisance_param_name(TreeModel *mod, CovarData *data, int idx) {
     else idx -= 1;
   }
   
-  /* if we get here, must be for radial flow */
-  assert(data->rf != NULL);
-
-  if (idx < data->rf->ctr->size) {
-    char *tmp = smalloc(10 * sizeof(char));;
-    snprintf(tmp, 15, "rf_ctr[%d]", idx);
-    return tmp;
-  }
-  else {
-    int offset = idx - data->rf->ctr->size;
-    if (offset == 0)
-      return "rf_a";
-    else if (offset == 1)
-      return "rf_b";
-    else
-      die("ERROR in nj_get_nuisance_param_name: index out of bounds.\n");
+  if (data->rf != NULL) {
+    if (idx < data->rf->ctr->size) {
+      char *tmp = smalloc(15 * sizeof(char));
+      snprintf(tmp, 15, "rf_ctr[%d]", idx);
+      return tmp;
+    }
+    else {
+      idx -= data->rf->ctr->size;
+      if (idx == 0)
+        return "rf_a";
+      else if (idx == 1)
+        return "rf_b";
+      else idx -= 2;
+    }
   }
 
+  if (data->pf != NULL) {
+    if (idx < data->pf->ndim) {
+      char *tmp = smalloc(15 * sizeof(char));
+      snprintf(tmp, 15, "pf_u[%d]", idx);
+      return tmp;
+    }
+    else if (idx < 2 * data->pf->ndim) {
+      idx -= data->pf->ndim;
+      char *tmp = smalloc(15 * sizeof(char));
+      snprintf(tmp, 15, "pf_w[%d]", idx);
+      return tmp;
+    }
+    else {
+      idx -= 2 * data->pf->ndim;
+      if (idx == 0)
+        return "pf_b";
+      else
+        die("ERROR in nj_get_nuisance_param_name: index out of bounds.\n");
+    }
+  }
+    
   return NULL;
 }
 
@@ -3003,6 +3037,15 @@ void nj_update_nuis_grad(TreeModel *mod, CovarData *data, Vector *nuis_grad) {
     vec_set(nuis_grad, idx++, data->rf->a_grad);
     vec_set(nuis_grad, idx++, data->rf->b_grad);
   }
+
+  if (data->pf != NULL) {
+    for (int i = 0; i < data->pf->ndim; i++)
+      vec_set(nuis_grad, idx++, vec_get(data->pf->u_grad, i));
+    for (int i = 0; i < data->pf->ndim; i++)
+      vec_set(nuis_grad, idx++, vec_get(data->pf->w_grad, i));
+    vec_set(nuis_grad, idx++, data->pf->b_grad);
+  }
+  
   assert(idx == nuis_grad->size);
 }
 
@@ -3021,7 +3064,16 @@ void nj_save_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data) {
       vec_set(stored_vals, idx++, vec_get(data->rf->ctr, i));
     vec_set(stored_vals, idx++, data->rf->a);
     vec_set(stored_vals, idx++, data->rf->b);
-  }      
+  }
+
+  if (data->pf != NULL) {
+    for (int i = 0; i < data->pf->ndim; i++)
+      vec_set(stored_vals, idx++, vec_get(data->pf->u, i));
+    for (int i = 0; i < data->pf->ndim; i++)
+      vec_set(stored_vals, idx++, vec_get(data->pf->w, i));
+    vec_set(stored_vals, idx++, data->pf->b);
+  }
+    
   assert(idx == stored_vals->size);
 }
 
@@ -3047,7 +3099,16 @@ void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data)
     data->rf->a = vec_get(stored_vals, idx++);
     data->rf->b = vec_get(stored_vals, idx++);
     rf_update(data->rf);
-  }      
+  }
+
+  if (data->pf != NULL) {
+    for (int i = 0; i < data->pf->ndim; i++)
+      vec_set(data->pf->u, i, vec_get(stored_vals, idx++)); 
+    for (int i = 0; i < data->pf->ndim; i++)
+      vec_set(data->pf->w, i, vec_get(stored_vals, idx++)); 
+    data->pf->b = vec_get(stored_vals, idx++);
+  }
+    
   assert(idx == stored_vals->size);
 }
 
@@ -3084,13 +3145,29 @@ void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) 
       ;  /* TEMPORARY */
       /* vec_set(data->rf->ctr, idx, vec_get(data->rf->ctr, idx) + inc); */
     else {
-      int offset = idx - data->rf->ctr->size;
-      if (offset == 0)
+      idx -= data->rf->ctr->size;
+      if (idx == 0)
         data->rf->a += inc;
-      else if (offset == 1)
+      else if (idx == 1)
         data->rf->b += inc;
       else
-        die("ERROR in nuis_param_pluseq: index out of bounds.\n");
+        idx -= 2;
+    }
+  }
+
+  if (data->pf != NULL) {
+    if (idx < data->pf->ndim)
+      vec_set(data->pf->u, idx, vec_get(data->pf->u, idx) + inc);
+    else if (idx < 2 * data->pf->ndim) {
+      idx -= data->pf->ndim;
+      vec_set(data->pf->w, idx, vec_get(data->pf->w, idx) + inc);
+    }
+    else {
+      idx -= 2 * data->pf->ndim;
+      if (idx == 0)
+        data->pf->b += inc;
+      else
+        die("ERROR in nj_nuis_param_pluseq: index out of bounds.\n");
     }
   }
 }
@@ -3111,20 +3188,36 @@ double nj_nuis_param_get(TreeModel *mod, CovarData *data, int idx) {
     else idx -= 1;      
   }
 
-  /* if we get here, must be for radial flow */
-  assert(data->rf != NULL);
-
-  if (idx < data->rf->ctr->size) 
-    return vec_get(data->rf->ctr, idx);
-  else {
-    int offset = idx - data->rf->ctr->size;
-    if (offset == 0)
-      return data->rf->a;
-    else if (offset == 1)
-      return data->rf->b;
-    else
-      die("ERROR in nuis_param_get: index out of bounds.\n");
+  if (data->rf != NULL) {
+    if (idx < data->rf->ctr->size) 
+      return vec_get(data->rf->ctr, idx);
+    else {
+      idx -= data->rf->ctr->size;
+      if (idx == 0)
+        return data->rf->a;
+      else if (idx == 1)
+        return data->rf->b;
+      else
+        idx -= 2;
+    }
   }
+
+  if (data->pf != NULL) {
+    if (idx < data->pf->ndim) 
+      return vec_get(data->pf->u, idx);
+    else if (idx < 2 * data->pf->ndim) {
+      idx -= data->pf->ndim;
+      return vec_get(data->pf->w, idx);
+    }
+    else {
+      idx -= 2 * data->pf->ndim;
+      if (idx == 0)
+        return data->pf->b;
+      else
+        die("ERROR in nuis_param_get: index out of bounds.\n");
+    }
+  }
+  
   return -1;
 }
 
@@ -3146,7 +3239,9 @@ void nj_sample_points(multi_MVN *mmvn, CovarData *data, Vector *points, Vector *
                       double *logdet) {
   static int i = 0;
   static Vector *cachedpoints = NULL, *cachedstd = NULL;
-  
+  Vector *tmppoints = (data->rf != NULL || data->pf != NULL) ?
+    vec_new(points->size) : NULL;
+      
   if (points_std == NULL) 
     mmvn_sample(mmvn, points); /* simple in this case */
   else {
@@ -3173,14 +3268,20 @@ void nj_sample_points(multi_MVN *mmvn, CovarData *data, Vector *points, Vector *
     }
     i++;
   }
-
-  /* finally apply the radial flow if activated */
+  
+  /* finally apply the normalizing flows if activated */
   if (data->rf != NULL) {
-    Vector *tmppoints = vec_new(points->size);
     double ldet = rf_forward(data->rf, tmppoints, points);
     vec_copy(points, tmppoints);
-    vec_free(tmppoints);
     if (logdet != NULL) (*logdet) = ldet; /* for use in calling code */
   }
+
+  if (data->pf != NULL) {
+    double ldet = pf_forward(data->pf, tmppoints, points);
+    vec_copy(points, tmppoints);
+    if (logdet != NULL) (*logdet) += ldet; /* for use in calling code */
+  }
+
+  if (tmppoints != NULL) vec_free(tmppoints);    
 }
 

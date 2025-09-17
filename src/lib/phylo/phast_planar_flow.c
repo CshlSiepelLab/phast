@@ -1,3 +1,5 @@
+/* this version written by ChatGPT with limited hand editing */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -19,10 +21,9 @@ PlanarFlow *pf_new(int npoints, int ndim) {
 
   /* tiny random init so the layer is near-identity but not dead */
   for (int d = 0; d < ndim; d++) {
-    vec_set(pf->u, d, 0.05 * rand_stdnormal());  /* or your RNG */
-    vec_set(pf->w, d, 0.05 * rand_stdnormal());
+    vec_set(pf->u, d, norm_draw(0, 0.05));
+    vec_set(pf->w, d, norm_draw(0, 0.05));
   }
-  pf->b = 0.0;
 
   pf->u_grad = vec_new(ndim); vec_zero(pf->u_grad);
   pf->w_grad = vec_new(ndim); vec_zero(pf->w_grad);
@@ -78,7 +79,7 @@ double pf_forward(PlanarFlow *pf, Vector *y, Vector *x) {
     double det_term = 1.0 + dt * u_dot_w;
 
     /* For training, we expect det_term > 0. Add a tiny floor for stability. */
-    if (det_term <= RF_EPS) det_term = RF_EPS;
+    if (det_term <= PF_EPS) det_term = PF_EPS;
     logdet_sum += log(det_term);
   }
 
@@ -126,19 +127,19 @@ void pf_backprop(PlanarFlow *pf, Vector *x, Vector *newgrad, Vector *origgrad) {
 
     /* u^T g_y and w^T g_y (the latter only for an alternative form; not needed) */
     double u_dot_gy = 0.0;
-    double w_dot_gy = 0.0;
+    /*    double w_dot_gy = 0.0; */
     for (int d = 0; d < D; d++) {
       int idx = i*D + d;
       double gy = vec_get(origgrad, idx);
       u_dot_gy += vec_get(pf->u, d) * gy;
-      w_dot_gy += vec_get(pf->w, d) * gy; /* not used below, but handy if you refactor */
+      /*      w_dot_gy += vec_get(pf->w, d) * gy; */ /* not used below, but handy if you refactor */
     }
 
     /* psi = dt * w, u^T psi, denom for logdet grads */
     double u_dot_w = 0.0;
     for (int d = 0; d < D; d++) u_dot_w += vec_get(pf->u, d) * vec_get(pf->w, d);
     double denom = 1.0 + dt * u_dot_w;
-    if (denom <= RF_EPS) denom = RF_EPS;
+    if (denom <= PF_EPS) denom = PF_EPS;
 
     /* g_x = J^T g_y + d/dx logdet */
     /* J^T g_y = g_y + psi * (u^T g_y) */

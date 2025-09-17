@@ -26,6 +26,7 @@
 #include <phast/crispr.h>
 #include <phast/misc.h>
 #include <phast/radial_flow.h>
+#include <phast/planar_flow.h>
 
 /* for numerical derivatives */
 #define DERIV_EPS 1e-5
@@ -94,7 +95,8 @@ typedef struct {
   char **names;
   unsigned int no_zero_br; /* force all branches to be nonzero;
                               sometimes needed with CRISPR model */
-  RadialFlow *rf; /* optional radial flow layer (NULL if none) */
+  RadialFlow *rf; /* optional flow layers (NULL if none) */
+  PlanarFlow *pf;
 } CovarData;
 
 /* for use with min-heap in fast nj algorithm */
@@ -174,7 +176,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
                              double kld_upweight, int rank,
                              double sparsity, unsigned int hyperbolic,
                              double negcurvature, unsigned int ultrametric,
-                             unsigned int radial_flow);
+                             unsigned int radial_flow, unsigned int planar_flow);
 
 void nj_dump_covar_data(CovarData *data, FILE *F);
 
