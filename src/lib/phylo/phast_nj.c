@@ -983,9 +983,28 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     trace = mmvn_trace(mmvn);  /* we'll reuse this */
     logdet = mmvn_log_det(mmvn);
     
-    kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);
+    /* kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);*/
 
+    /* TEMPORARY: put a floor on variance contribution to keep variance from crashing */
+    double tau = 1e-3; /* try 1e-3 .. 1e-2 */
+    double mu2    = mmvn_mu2(mmvn);
+    double kld_mu   = 0.5 * mu2;
+    double kld_lambda_raw, kld_lambda_floored;
+
+    if (data->type == CONST) {
+      /* recover lambda from trace */
+      kld_lambda_raw = 0.5 * fulld * (data->lambda - 1.0 - log(data->lambda));
+      kld_lambda_floored = (kld_lambda_raw < tau ? tau : kld_lambda_raw);
+      kld = kld_mu + kld_lambda_floored;
+    }
+    else 
+      /* fallback to original general formula */
+      kld = 0.5 * (trace + mu2 - fulld - logdet);
+    /* END TEMPORARY */
+    
     kld *= data->kld_upweight/(data->pointscale*data->pointscale); 
+
+     
     
     /* we can also precompute the contribution of the KLD to the gradient */
     /* Note KLD is subtracted rather than added, so compute the gradient of -KLD */
@@ -997,6 +1016,23 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       else {            /* partial deriv wrt sigma_j is more
                            complicated because of the trace and log
                            determinant */
+        /* TEMPORARY: floor version */
+        if (data->type == CONST) {
+          /* Parameter here is rho = log(lambda).
+             dKL/d rho = (d/2) * (lambda - 1)
+             => grad of -KL wrt rho is (d/2) * (1 - lambda)
+             If the lambda-term was floored, zero this piece. */
+          double dKL_drho = 0.5 * fulld * (data->lambda - 1.0);
+          double gj_rho   = -dKL_drho;                /* = 0.5 * d * (1 - lambda) */
+
+          double kld_lambda_raw = 0.5 * fulld * (data->lambda - 1.0 - log(data->lambda));
+          if (kld_lambda_raw < tau)
+            gj_rho = 0.0;                             /* stop pushing when floored */
+          
+          gj = gj_rho;
+        }
+        /* END TEMPORARY */
+        
         if (data->type == CONST || data->type == DIST)
           gj = 0.5 * (fulld - trace);
         else if (data->type == DIAG) 
@@ -1107,9 +1143,14 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       if (j < fulld)
         mmvn_set_mu_el(mmvn, j, mmvn_get_mu_el(mmvn, j) +
                                learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
-      else 
-        vec_set(sigmapar, j-fulld, vec_get(sigmapar, j-fulld) +
-                learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
+      else {
+        /* TEMPORARY: clipping variance update to avoid crashing */
+        double step = learnrate * 0.3 * mhatj / (sqrt(vhatj) + ADAM_EPS);
+        if (step > 0.01) step = 0.01;
+        else if (step < -0.01) step = -0.01;
+        
+        vec_set(sigmapar, j-fulld, vec_get(sigmapar, j-fulld) + step);
+      }
     }
     nj_update_covariance(mmvn, data);
     
@@ -1123,7 +1164,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       vec_set(v_nuis, j, ADAM_BETA2 * vec_get(v_nuis_prev, j) + (1.0 - ADAM_BETA2) * pow(g,2));
       mhatj_nuis = vec_get(m_nuis, j) / (1.0 - pow(ADAM_BETA1, t));
       vhatj_nuis = vec_get(v_nuis, j) / (1.0 - pow(ADAM_BETA2, t));
-      nj_nuis_param_pluseq(mod, data, j, learnrate * mhatj_nuis / (sqrt(vhatj_nuis) + ADAM_EPS));
+      nj_nuis_param_pluseq(mod, data, j, learnrate * 0.3 * mhatj_nuis / (sqrt(vhatj_nuis) + ADAM_EPS));
+      /* TEMPORARY: factor of 0.1 above to slow learning of nuisance params */
     }
     if (n_nuisance_params > 0) {
       vec_copy(m_nuis_prev, m_nuis);
@@ -1791,13 +1833,22 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
   mat_zero(mmvn->mvn->sigma);
   if (data->type == CONST) {
     mat_set_identity(mmvn->mvn->sigma);
-    data->lambda = (VARFLOOR + exp(vec_get(sigma_params, 0)));
-    if (!isfinite(data->lambda)) data->lambda = VARFLOOR;
+    data->lambda = exp(vec_get(sigma_params, 0));
+    if (!isfinite(data->lambda) || data->lambda < VARFLOOR) {
+      data->lambda = VARFLOOR;
+      vec_set(sigma_params, 0, log(VARFLOOR)); /* keeps param from running away */
+    }
     mat_scale(mmvn->mvn->sigma, data->lambda);
   }
   else if (data->type == DIAG) {
-    for (i = 0; i < sigma_params->size; i++) 
-      mat_set(mmvn->mvn->sigma, i, i, VARFLOOR + exp(vec_get(sigma_params, i)));
+    for (i = 0; i < sigma_params->size; i++) {
+      double lambda_i = exp(vec_get(sigma_params, i));
+      if (lambda_i < VARFLOOR) {
+        lambda_i = VARFLOOR;
+        vec_set(sigma_params, i, log(VARFLOOR));
+      }
+      mat_set(mmvn->mvn->sigma, i, i, lambda_i);
+    }
   }
   else if (data->type == DIST) {
     data->lambda = VARFLOOR + exp(vec_get(sigma_params, 0));
@@ -2462,9 +2513,17 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   TreeNode *tree;
   double ll_base;
   int i, j, d;
-  
-  /* set up baseline objects */
-  nj_points_to_distances(x, data);    
+
+  /* TEMPORARY: whiten lambda to avoid crashing */
+  double l0 = LAMBDA_INIT * data->pointscale * data->pointscale;
+  double scale = sqrt(l0 / data->lambda);
+  double ps_save = data->pointscale;
+  /* data->pointscale = ps_save / scale; */
+  /* mat_scale(data->dist, scale); */
+  /* END TEMPORARY */
+
+   /* set up baseline objects */
+  nj_points_to_distances(x, data);
   tree = nj_inf(data->dist, data->names, dt_dD, data);
   nj_reset_tree_model(mod, tree);
 
@@ -2586,7 +2645,10 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
           double coord_diff = vec_get(x, idx_i) - vec_get(x, idx_j);
           double grad_contrib = weight * coord_diff / (dist_ij * data->pointscale * data->pointscale);
           /* need two factors of pointscale, one for the coord_diff, one for the distance */
-            
+
+          /* TEMPORARY */
+          /* grad_contrib *= (scale * scale); */
+          
           vec_set(dL_dx, idx_i, vec_get(dL_dx, idx_i) + grad_contrib);
           vec_set(dL_dx, idx_j, vec_get(dL_dx, idx_j) - grad_contrib);
         }
@@ -2615,7 +2677,9 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
       vec_free(dL_dy);
     }
   }
-  
+
+  data->pointscale = ps_save;
+    
   vec_free(dL_dt);
   mat_free(dt_dD);
   vec_free(dL_dD);

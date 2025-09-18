@@ -21,8 +21,8 @@ PlanarFlow *pf_new(int npoints, int ndim) {
 
   /* tiny random init so the layer is near-identity but not dead */
   for (int d = 0; d < ndim; d++) {
-    vec_set(pf->u, d, norm_draw(0, 0.05));
-    vec_set(pf->w, d, norm_draw(0, 0.05));
+    vec_set(pf->u, d, norm_draw(0, 0.5));
+    vec_set(pf->w, d, norm_draw(0, 0.5));
   }
 
   pf->u_grad = vec_new(ndim); vec_zero(pf->u_grad);
