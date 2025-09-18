@@ -53,7 +53,7 @@
 
 /* initialization of lambda, which is scale factor for covariance
    matrix in DIST and CONST parameterizations */
-#define LAMBDA_INIT 1.0e-4
+#define LAMBDA_INIT 1
 
 /* types of parameterization for covariance matrix: constant (and
    diagonal), diagonal with free variances, proportional to Laplacian
@@ -134,7 +134,8 @@ void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data);
 
 double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, 
                              Vector *points, Vector *points_std,
-                             Vector *grad, CovarData *data);
+                             Vector *grad, CovarData *data,
+                             double *nf_logdet);
 
 double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, 
                                    Vector *points, Vector *points_std,
@@ -213,7 +214,7 @@ int nj_i_j_to_dist(int i, int j, int n);
 void nj_dist_to_i_j(int pwidx, int *i, int *j, int n);
 
 double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, 
-                         CovarData *data);
+                         CovarData *data, double *nf_logdet);
 
 
 void nj_backprop(double *Jk, double *Jnext, int n, int f, int g, int u,
@@ -251,9 +252,11 @@ double nj_nuis_param_get(TreeModel *mod, CovarData *data, int idx);
 
 void nj_repair_zero_br(TreeNode *t);
 
-void nj_sample_points(multi_MVN *mmvn, CovarData *data, Vector *points,
-                      Vector *points_std, double *logdet);
+void nj_sample_points(multi_MVN *mmvn, Vector *points,
+                      Vector *points_std);
 
+void nj_apply_normalizing_flows(Vector *points_y, Vector *points_x,
+                                CovarData *data, double *logdet);
 
 /* these are used for the hyperbolic geometry to stabilize the acosh
    calculations */

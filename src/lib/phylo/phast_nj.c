@@ -695,7 +695,7 @@ void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data) {
    of current model, which is computed as a by-product.  */
 double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, 
                              Vector *points, Vector *points_std,
-                             Vector *grad, CovarData *data) {
+                             Vector *grad, CovarData *data, double *nf_logdet) {
   int n = data->nseqs; /* number of taxa */
   int d = mmvn->n * mmvn->d / n; /* dimensionality; have to accommodate diagonal case */
   int dim = n*d; /* full dimension of point vector */
@@ -712,7 +712,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn,
     die("ERROR in nj_compute_model_grad: low-rank matrix R required in LOWR case.\n");
   
   /* obtain gradient with respect to points, dL/dx */
-  ll_base = nj_dL_dx_smartest(points, dL_dx, mod, data);
+  ll_base = nj_dL_dx_smartest(points, dL_dx, mod, data, nf_logdet);
 
   /* TEMPORARY: compare with numerical version */
   /* printf("analytical (%f):\n", ll_base); */
@@ -749,14 +749,19 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn,
         /* in the DIAG case, the partial derivative wrt the
            corresponding variance parameter can be computed directly
            based on a single point and coordinate */
-        vec_set(grad, (i+n)*d + k, 0.5 * vec_get(dL_dx, pidx) * (porig - mmvn_get_mu_el(mmvn, pidx)));
+        vec_set(grad, (i+n)*d + k, 0.5 * vec_get(dL_dx, pidx) * (porig - mmvn_get_mu_el(mmvn, pidx))); 
       
     }
   }
-  if (data->type == CONST || data->type == DIST) /* in this case, need to update the final
-                                                    gradient component corresponding to the
-                                                    lambda parameter */
-    vec_set(grad, dim, loglambda_grad); 
+  if (data->type == CONST || data->type == DIST) { /* in this case, need to update the final
+                                                      gradient component corresponding to the
+                                                      lambda parameter */
+    /*  vec_set(grad, dim, 0); */  /* TEMPORARY DISABLE */
+    /* TEMPORARY: add an L2 penalty for loglambda */
+    /*    fprintf(stderr, "loglambda = %f, loglambda_grad = %f, now %f\n", log(data->lambda), loglambda_grad, loglambda_grad -50 * log(data->lambda)); */
+    loglambda_grad += -10 * log(data->lambda);
+    vec_set(grad, dim, loglambda_grad);
+  }
 
   else if (data->type == LOWR) { /* in this case have to sum across
                                     dimensions because there is a
@@ -983,28 +988,26 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     trace = mmvn_trace(mmvn);  /* we'll reuse this */
     logdet = mmvn_log_det(mmvn);
     
-    /* kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);*/
+    kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);
 
     /* TEMPORARY: put a floor on variance contribution to keep variance from crashing */
-    double tau = 1e-3; /* try 1e-3 .. 1e-2 */
-    double mu2    = mmvn_mu2(mmvn);
-    double kld_mu   = 0.5 * mu2;
-    double kld_lambda_raw, kld_lambda_floored;
+    /* double tau = 1e-3; /\* try 1e-3 .. 1e-2 *\/ */
+    /* double mu2    = mmvn_mu2(mmvn); */
+    /* double kld_mu   = 0.5 * mu2; */
+    /* double kld_lambda_raw, kld_lambda_floored; */
 
-    if (data->type == CONST) {
-      /* recover lambda from trace */
-      kld_lambda_raw = 0.5 * fulld * (data->lambda - 1.0 - log(data->lambda));
-      kld_lambda_floored = (kld_lambda_raw < tau ? tau : kld_lambda_raw);
-      kld = kld_mu + kld_lambda_floored;
-    }
-    else 
-      /* fallback to original general formula */
-      kld = 0.5 * (trace + mu2 - fulld - logdet);
+    /* if (data->type == CONST) { */
+    /*   /\* recover lambda from trace *\/ */
+    /*   kld_lambda_raw = 0.5 * fulld * (data->lambda - 1.0 - log(data->lambda)); */
+    /*   kld_lambda_floored = (kld_lambda_raw < tau ? tau : kld_lambda_raw); */
+    /*   kld = kld_mu + kld_lambda_floored; */
+    /* } */
+    /* else  */
+    /*   /\* fallback to original general formula *\/ */
+    /*   kld = 0.5 * (trace + mu2 - fulld - logdet); */
     /* END TEMPORARY */
     
-    kld *= data->kld_upweight/(data->pointscale*data->pointscale); 
-
-     
+    kld *= data->kld_upweight/(data->pointscale*data->pointscale);      
     
     /* we can also precompute the contribution of the KLD to the gradient */
     /* Note KLD is subtracted rather than added, so compute the gradient of -KLD */
@@ -1017,20 +1020,20 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
                            complicated because of the trace and log
                            determinant */
         /* TEMPORARY: floor version */
-        if (data->type == CONST) {
-          /* Parameter here is rho = log(lambda).
-             dKL/d rho = (d/2) * (lambda - 1)
-             => grad of -KL wrt rho is (d/2) * (1 - lambda)
-             If the lambda-term was floored, zero this piece. */
-          double dKL_drho = 0.5 * fulld * (data->lambda - 1.0);
-          double gj_rho   = -dKL_drho;                /* = 0.5 * d * (1 - lambda) */
+        /* if (data->type == CONST) { */
+        /*   /\* Parameter here is rho = log(lambda). */
+        /*      dKL/d rho = (d/2) * (lambda - 1) */
+        /*      => grad of -KL wrt rho is (d/2) * (1 - lambda) */
+        /*      If the lambda-term was floored, zero this piece. *\/ */
+        /*   double dKL_drho = 0.5 * fulld * (data->lambda - 1.0); */
+        /*   double gj_rho   = -dKL_drho;                /\* = 0.5 * d * (1 - lambda) *\/ */
 
-          double kld_lambda_raw = 0.5 * fulld * (data->lambda - 1.0 - log(data->lambda));
-          if (kld_lambda_raw < tau)
-            gj_rho = 0.0;                             /* stop pushing when floored */
+        /*   double kld_lambda_raw = 0.5 * fulld * (data->lambda - 1.0 - log(data->lambda)); */
+        /*   if (kld_lambda_raw < tau) */
+        /*     gj_rho = 0.0;                             /\* stop pushing when floored *\/ */
           
-          gj = gj_rho;
-        }
+        /*   gj = gj_rho; */
+        /* } */
         /* END TEMPORARY */
         
         if (data->type == CONST || data->type == DIST)
@@ -1070,9 +1073,9 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
            normal variable (points_std) for use in computing
            gradients.  Also use antithetic sampling to reduce
            variance */
-        nj_sample_points(mmvn, data, points, points_std, &nf_logdet);
+        nj_sample_points(mmvn, points, points_std);
  
-        ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data);
+        ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data, &nf_logdet);
 
         if (++bail > 10 && !isfinite(ll)) {
           fprintf(stderr, "WARNING: repeatedly sampling zero-probability trees. Prohibiting zero-length branches.\n");
@@ -1145,11 +1148,12 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
                                learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
       else {
         /* TEMPORARY: clipping variance update to avoid crashing */
-        double step = learnrate * 0.3 * mhatj / (sqrt(vhatj) + ADAM_EPS);
-        if (step > 0.01) step = 0.01;
-        else if (step < -0.01) step = -0.01;
-        
-        vec_set(sigmapar, j-fulld, vec_get(sigmapar, j-fulld) + step);
+        /* double step = learnrate * 0.3 * mhatj / (sqrt(vhatj) + ADAM_EPS); */
+        /* if (step > 0.01) step = 0.01; */
+        /* else if (step < -0.01) step = -0.01; */
+
+        vec_set(sigmapar, j-fulld, vec_get(sigmapar, j-fulld) +
+                learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS));
       }
     }
     nj_update_covariance(mmvn, data);
@@ -1257,20 +1261,22 @@ List *nj_var_sample(int nsamples, multi_MVN *mmvn, CovarData *data, char** names
   List *retval = lst_new_ptr(nsamples);
   int i;
   TreeNode *tree;
-  Vector *points = vec_new(mmvn->d * mmvn->n);
+  Vector *points_x = vec_new(mmvn->d * mmvn->n), *points_y = vec_new(mmvn->d * mmvn->n);
   
   for (i = 0; i < nsamples; i++) {
-    nj_sample_points(mmvn, data, points, NULL, NULL);
-
+    nj_sample_points(mmvn, points_x, NULL);
+    
     if (logdens != NULL) 
-      vec_set(logdens, i, mmvn_log_dens(mmvn, points));
+      vec_set(logdens, i, mmvn_log_dens(mmvn, points_x));
      
-    nj_points_to_distances(points, data);
+    nj_apply_normalizing_flows(points_y, points_x, data, NULL);
+    nj_points_to_distances(points_y, data);
     tree = nj_inf(data->dist, names, NULL, data);
     lst_push_ptr(retval, tree);
   }
   
-  vec_free(points);
+  vec_free(points_x);
+  vec_free(points_y);
   return(retval);
 }
 
@@ -1923,7 +1929,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
     retval->pf = NULL;
     
   nj_set_pointscale(retval);
-  retval->lambda *= retval->pointscale * retval->pointscale;
+  /*  retval->lambda *= retval->pointscale * retval->pointscale; */
   
   if (covar_param == CONST) {
     /* store constant */
@@ -2264,7 +2270,7 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
                               CovarData *data, TreeModel *mod,
                               FILE *logf) {
   List *retval = lst_new_ptr(nsamples), *init_samples = lst_new_ptr(nsamples * 10);
-  Vector *points = vec_new(mmvn->d * mmvn->n);
+  Vector *points_x = vec_new(mmvn->d * mmvn->n), *points_y = vec_new(mmvn->d * mmvn->n);
   double logM = -INFTY, lnl, mvnl, u, avelnl = 0;
   double ll[nsamples * 10], mvnll[nsamples * 10];
   int i, ntot;
@@ -2273,8 +2279,9 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
      log ratio of densities */
   for (i = 0; i < nsamples * 10; i++) {
     do {
-      nj_sample_points(mmvn, data, points, NULL, NULL);
-      nj_points_to_distances(points, data);
+      nj_sample_points(mmvn, points_x, NULL);
+      nj_apply_normalizing_flows(points_y, points_x, data, NULL);
+      nj_points_to_distances(points_y, data);
       mod->tree = nj_inf(data->dist, data->names, NULL, data);
 
       if (data->crispr_mod != NULL)
@@ -2286,7 +2293,7 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
     } while (!isfinite(ll[i]));  /* need for the crispr case */
 
     lst_push_ptr(init_samples, mod->tree);  
-    mvnll[i] = mmvn_log_dens(mmvn, points);
+    mvnll[i] = mmvn_log_dens(mmvn, points_x);
     if (ll[i] - mvnll[i] > logM) 
       logM = ll[i] - mvnll[i];
   }
@@ -2311,8 +2318,9 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
   while (lst_size(retval) < nsamples) {
     ntot++;
     do {
-      nj_sample_points(mmvn, data, points, NULL, NULL);
-      nj_points_to_distances(points, data);
+      nj_sample_points(mmvn, points_x, NULL);
+      nj_apply_normalizing_flows(points_y, points_x, data, NULL);
+      nj_points_to_distances(points_y, data);
       mod->tree = nj_inf(data->dist, data->names, NULL, data);
 
       if (data->crispr_mod != NULL)
@@ -2323,7 +2331,7 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
       if (!isfinite(lnl)) tr_free(mod->tree);
     } while (!isfinite(lnl)); /* need for crispr case */
     
-    mvnl = mmvn_log_dens(mmvn, points);
+    mvnl = mmvn_log_dens(mmvn, points_x);
     u = unif_rand();
     if (u < exp(lnl - mvnl - logM)) {
       lst_push_ptr(retval, mod->tree);
@@ -2338,7 +2346,8 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
             ntot, nsamples*1.0/ntot, avelnl/nsamples);
   
   lst_free(init_samples);
-  vec_free(points);
+  vec_free(points_x);
+  vec_free(points_y);  
   return(retval);
 }
 
@@ -2504,26 +2513,33 @@ void nj_dist_to_i_j(int pwidx, int *i, int *j, int n) {
    for each component.  Fastest but most complicated and error-prone
    version. */
 double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
-                         CovarData *data) {
+                         CovarData *data, double *nj_logdet) {
   int n = data->nseqs, nbranches = 2*n-2,  /* have to work with the rooted tree here */
     ndist = n * (n-1) / 2, ndim = data->nseqs * data->dim;
   Vector *dL_dt = vec_new(nbranches);
   Matrix *dt_dD = mat_new(nbranches, ndist);
   Vector *dL_dD = vec_new(ndist);
+  Vector *dL_dy = vec_new(dL_dx->size);
+  Vector *y = vec_new(x->size);
   TreeNode *tree;
   double ll_base;
   int i, j, d;
 
-  /* TEMPORARY: whiten lambda to avoid crashing */
-  double l0 = LAMBDA_INIT * data->pointscale * data->pointscale;
+  /* convert x to y using normalizing flows if available */
+  nj_apply_normalizing_flows(y, x, data, nj_logdet);
+  
+  /* TEMPORARY: whiten lambda to avoid crashing variance */
+  double l0 = LAMBDA_INIT; /* * data->pointscale * data->pointscale;*/
   double scale = sqrt(l0 / data->lambda);
-  double ps_save = data->pointscale;
+  /* double ps_save = data->pointscale; */
+  /* Vector *y_save = vec_create_copy(y); */
+  /* vec_scale(y, scale); */
   /* data->pointscale = ps_save / scale; */
   /* mat_scale(data->dist, scale); */
   /* END TEMPORARY */
 
    /* set up baseline objects */
-  nj_points_to_distances(x, data);
+  nj_points_to_distances(y, data);
   tree = nj_inf(data->dist, data->names, dt_dD, data);
   nj_reset_tree_model(mod, tree);
 
@@ -2558,9 +2574,9 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   /* (note taking transpose of both vector and matrix and expressing
      result as column vector) */
 
-  /* finally multiply by dD/dx to obtain final gradient.  This part is
+  /* finally multiply by dD/dy to obtain gradient wrt y.  This part is
      different for the euclidean and hyperbolic geometries */
-  vec_zero(dL_dx);
+  vec_zero(dL_dy);
 
   if (data->hyperbolic) {
     
@@ -2613,8 +2629,8 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
           double gj = pref * (-xid + (x0[i] / x0[j]) * xjd);  /* dD_ij/dx_j^d */
 
           /* accumulate weighted by w_ij = dL/dD_ij */
-          vec_set(dL_dx, idx_i, vec_get(dL_dx, idx_i) + weight * gi);
-          vec_set(dL_dx, idx_j, vec_get(dL_dx, idx_j) + weight * gj);
+          vec_set(dL_dy, idx_i, vec_get(dL_dy, idx_i) + weight * gi);
+          vec_set(dL_dy, idx_j, vec_get(dL_dy, idx_j) + weight * gj);
         }
       }
     }
@@ -2624,9 +2640,12 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
     const double lambda_eff  = lambda_base / (data->pointscale*data->pointscale);
       
     for (i = 0; i < ndim; i++)
-      vec_set(dL_dx, i, vec_get(dL_dx, i) - 2.0 * lambda_eff * vec_get(x, i));
+      vec_set(dL_dy, i, vec_get(dL_dy, i) - 2.0 * lambda_eff * vec_get(x, i));
 
     sfree(x0);
+
+    /* in this case normalizing flows are not allowed, so we'll just copy directly into dL/dx */
+    vec_copy(dL_dx, dL_dy);
   }
   else { /* euclidean version is simpler */
     for (i = 0; i < n; i++) {
@@ -2645,44 +2664,45 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
           double coord_diff = vec_get(x, idx_i) - vec_get(x, idx_j);
           double grad_contrib = weight * coord_diff / (dist_ij * data->pointscale * data->pointscale);
           /* need two factors of pointscale, one for the coord_diff, one for the distance */
-
-          /* TEMPORARY */
-          /* grad_contrib *= (scale * scale); */
           
-          vec_set(dL_dx, idx_i, vec_get(dL_dx, idx_i) + grad_contrib);
-          vec_set(dL_dx, idx_j, vec_get(dL_dx, idx_j) - grad_contrib);
+          vec_set(dL_dy, idx_i, vec_get(dL_dy, idx_i) + grad_contrib);
+          vec_set(dL_dy, idx_j, vec_get(dL_dy, idx_j) - grad_contrib);
         }
       }
     }
 
-    /* in case of radial flow, need one more step in the chain rule.
+    /* TEMPORARY: whitening */
+    /* vec_scale(dL_dy, scale); */
+  
+    /* in case of normalizing flows, need one more step in the chain rule.
        Note that this is supported only in the Euclidean case for now;
        need to move this call outside of 'else' if hyperbolic support
        is added */
-    if (data->rf != NULL) {
-      /* here what we called dL_dx is actually the gradient wrt the
-         radially transformed points, y.  We need to back-propagate
-         through the radial flow to obtain the real dL_dx */
-      Vector *dL_dy = vec_create_copy(dL_dx);
+    if (data->rf != NULL && data->pf != NULL) {
+      /* apply both; need temporary vector */
+      Vector *tmp = vec_new(dL_dx->size);
+      rf_backprop(data->rf, x, tmp, dL_dy);
+      pf_backprop(data->pf, x, dL_dx, tmp);
+      vec_free(tmp);
+    }    
+    else if (data->rf != NULL) 
+      /* We need to back-propagate through the radial flow to obtain
+         the real dL_dx */
       rf_backprop(data->rf, x, dL_dx, dL_dy);
       /* note that the gradients wrt the parameters a, b, and ctr are
          computed as side-effects and stored inside rf */
-      vec_free(dL_dy);
-    }
-
-    /* similar for planar flow */
-    if (data->pf != NULL) {
-      Vector *dL_dy = vec_create_copy(dL_dx);
+    else if (data->pf != NULL) 
       pf_backprop(data->pf, x, dL_dx, dL_dy);
-      vec_free(dL_dy);
-    }
+      /* similar for planar flow */
+    else
+      vec_copy(dL_dx, dL_dy);
   }
 
-  data->pointscale = ps_save;
-    
   vec_free(dL_dt);
   mat_free(dt_dD);
   vec_free(dL_dD);
+  vec_free(dL_dy);
+  vec_free(y);
 
   return ll_base;  
 }
@@ -3294,17 +3314,13 @@ void nj_repair_zero_br(TreeNode *t) {
 }
 
 /* sample points from variational distribution.  This is a wrapper
-   that encapsulates the radial flow layer (if selected) and
-   antithetic sampling.  If points_std is non-NULL, it will be used to
-   store the baseline standard normal variate for use in downstream
-   calculations in variational inference. Antithetic sampling is only
-   used in this case */
-void nj_sample_points(multi_MVN *mmvn, CovarData *data, Vector *points, Vector *points_std,
-                      double *logdet) {
+   that encapsulates the use of antithetic sampling.  If points_std is
+   non-NULL, it will be used to store the baseline standard normal
+   variate for use in downstream calculations in variational
+   inference. Antithetic sampling is only used in this case */
+void nj_sample_points(multi_MVN *mmvn, Vector *points, Vector *points_std) {
   static int i = 0;
-  static Vector *cachedpoints = NULL, *cachedstd = NULL;
-  Vector *tmppoints = (data->rf != NULL || data->pf != NULL) ?
-    vec_new(points->size) : NULL;
+  static Vector *cachedpoints = NULL, *cachedstd = NULL;  
       
   if (points_std == NULL) 
     mmvn_sample(mmvn, points); /* simple in this case */
@@ -3332,20 +3348,36 @@ void nj_sample_points(multi_MVN *mmvn, CovarData *data, Vector *points, Vector *
     }
     i++;
   }
-  
-  /* finally apply the normalizing flows if activated */
-  if (data->rf != NULL) {
-    double ldet = rf_forward(data->rf, tmppoints, points);
-    vec_copy(points, tmppoints);
-    if (logdet != NULL) (*logdet) = ldet; /* for use in calling code */
-  }
-
-  if (data->pf != NULL) {
-    double ldet = pf_forward(data->pf, tmppoints, points);
-    vec_copy(points, tmppoints);
-    if (logdet != NULL) (*logdet) += ldet; /* for use in calling code */
-  }
-
-  if (tmppoints != NULL) vec_free(tmppoints);    
 }
 
+/* given points_x, apply normalizing flows to compute points_y as y =
+   f(x).  Optionally opulates *logdet with total log determinate of
+   Jacobian (if non-NULL) */
+void nj_apply_normalizing_flows(Vector *points_y, Vector *points_x,
+                                CovarData *data, double *logdet) {
+  double ldet = 0;
+  assert(points_x->size == points_y->size);
+  
+  if (data->rf == NULL && data->pf == NULL) {
+    if (logdet != NULL) *logdet = 0;
+    vec_copy(points_y, points_x);
+    return;
+  }
+
+  if (data->rf != NULL && data->pf != NULL) {
+    /* in this case we need an intermediate vector */
+    Vector *tmp = vec_new(points_x->size);
+    ldet = rf_forward(data->rf, tmp, points_x);
+    ldet += pf_forward(data->pf, points_y, tmp);
+    vec_free(tmp);
+  }
+ 
+  else if (data->rf != NULL) 
+    ldet = rf_forward(data->rf, points_y, points_x);
+
+  else if (data->pf != NULL) 
+    ldet = pf_forward(data->pf, points_y, points_x);
+
+  if (logdet != NULL)
+    (*logdet) = ldet; 
+}
