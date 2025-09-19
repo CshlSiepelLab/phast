@@ -753,15 +753,10 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn,
       
     }
   }
-  if (data->type == CONST || data->type == DIST) { /* in this case, need to update the final
+  if (data->type == CONST || data->type == DIST)  /* in this case, need to update the final
                                                       gradient component corresponding to the
                                                       lambda parameter */
-    /*  vec_set(grad, dim, 0); */  /* TEMPORARY DISABLE */
-    /* TEMPORARY: add an L2 penalty for loglambda */
-    /*    fprintf(stderr, "loglambda = %f, loglambda_grad = %f, now %f\n", log(data->lambda), loglambda_grad, loglambda_grad -50 * log(data->lambda)); */
-    loglambda_grad += -10 * log(data->lambda);
     vec_set(grad, dim, loglambda_grad);
-  }
 
   else if (data->type == LOWR) { /* in this case have to sum across
                                     dimensions because there is a
@@ -895,7 +890,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   Vector *sigmapar = data->params;
   int n = data->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim,
     dim = data->dim, fulld = n*dim;
-  double ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
+  double elb, ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace, logdet, penalty = 0,
     bestpenalty = 0, ave_nf_logdet, best_nf_logdet = -INFTY;
   FILE *gradf = NULL;
@@ -925,6 +920,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   m_prev = vec_new(graddim);
   v = vec_new(graddim);
   v_prev = vec_new(graddim);
+  sparsitygrad = vec_new(graddim);
 
   if (n_nuisance_params > 0) {
     nuis_grad = vec_new(n_nuisance_params);
@@ -941,9 +937,6 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     points_std = vec_new(data->lowrank * dim);
   else
     points_std = vec_new(fulld);
-
-  if (data->type == LOWR && data->sparsity != -1)
-    sparsitygrad = vec_new(graddim);
   
   best_mu = vec_new(fulld);
   mmvn_save_mu(mmvn, best_mu);
@@ -954,8 +947,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   if (logf != NULL) {
     fprintf(logf, "# varPHAST logfile\n");
     fprintf(logf, "state\tll\tkld\tnfld\telb\t");
-    if (data->type == LOWR && data->sparsity != -1)
-      fprintf(logf, "penalty\t");
+    fprintf(logf, "penalty\t");
     for (j = 0; j < fulld; j++)
       fprintf(logf, "mu.%d\t", j);
     for (j = 0; j < sigmapar->size; j++)
@@ -990,23 +982,6 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);
 
-    /* TEMPORARY: put a floor on variance contribution to keep variance from crashing */
-    /* double tau = 1e-3; /\* try 1e-3 .. 1e-2 *\/ */
-    /* double mu2    = mmvn_mu2(mmvn); */
-    /* double kld_mu   = 0.5 * mu2; */
-    /* double kld_lambda_raw, kld_lambda_floored; */
-
-    /* if (data->type == CONST) { */
-    /*   /\* recover lambda from trace *\/ */
-    /*   kld_lambda_raw = 0.5 * fulld * (data->lambda - 1.0 - log(data->lambda)); */
-    /*   kld_lambda_floored = (kld_lambda_raw < tau ? tau : kld_lambda_raw); */
-    /*   kld = kld_mu + kld_lambda_floored; */
-    /* } */
-    /* else  */
-    /*   /\* fallback to original general formula *\/ */
-    /*   kld = 0.5 * (trace + mu2 - fulld - logdet); */
-    /* END TEMPORARY */
-    
     kld *= data->kld_upweight/(data->pointscale*data->pointscale);      
     
     /* we can also precompute the contribution of the KLD to the gradient */
@@ -1019,23 +994,6 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       else {            /* partial deriv wrt sigma_j is more
                            complicated because of the trace and log
                            determinant */
-        /* TEMPORARY: floor version */
-        /* if (data->type == CONST) { */
-        /*   /\* Parameter here is rho = log(lambda). */
-        /*      dKL/d rho = (d/2) * (lambda - 1) */
-        /*      => grad of -KL wrt rho is (d/2) * (1 - lambda) */
-        /*      If the lambda-term was floored, zero this piece. *\/ */
-        /*   double dKL_drho = 0.5 * fulld * (data->lambda - 1.0); */
-        /*   double gj_rho   = -dKL_drho;                /\* = 0.5 * d * (1 - lambda) *\/ */
-
-        /*   double kld_lambda_raw = 0.5 * fulld * (data->lambda - 1.0 - log(data->lambda)); */
-        /*   if (kld_lambda_raw < tau) */
-        /*     gj_rho = 0.0;                             /\* stop pushing when floored *\/ */
-          
-        /*   gj = gj_rho; */
-        /* } */
-        /* END TEMPORARY */
-        
         if (data->type == CONST || data->type == DIST)
           gj = 0.5 * (fulld - trace);
         else if (data->type == DIAG) 
@@ -1046,14 +1004,12 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       vec_set(kldgrad, j, gj);
     }
     
-    if (data->type == LOWR) {
+    if (data->type == LOWR) 
       nj_set_kld_grad_LOWR(kldgrad, mmvn);
 
-      if (data->sparsity != -1) { /* can also precompute */
-        nj_set_sparsity_penalty_LOWR(sparsitygrad, mmvn, data);
-        penalty = data->penalty;
-      }
-    }
+    /* can also pre-compute variance penalty */
+    nj_compute_variance_penalty(sparsitygrad, mmvn, data);
+    penalty = data->var_pen;
 
     vec_scale(kldgrad, data->kld_upweight/(data->pointscale*data->pointscale));
     
@@ -1104,17 +1060,17 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     avell /= nminibatch;
     vec_plus_eq(avegrad, kldgrad);
     ave_nf_logdet /= nminibatch;
-    if (data->type == LOWR && data->sparsity != -1)
-      vec_plus_eq(avegrad, sparsitygrad);
+    vec_plus_eq(avegrad, sparsitygrad);
 
     if (n_nuisance_params > 0) 
       vec_scale(ave_nuis_grad, 1.0/nminibatch);
     
     /* store parameters if best yet */
-    if (avell - kld + ave_nf_logdet - penalty > bestelb) {
-      bestelb = avell - kld + ave_nf_logdet - penalty;
+    elb = avell - kld + ave_nf_logdet - penalty;
+    if (elb > bestelb) {
+      bestelb = elb;
       bestll = avell;  /* not necessarily best ll but ll corresponding to bestelb */
-      bestkld = kld;  /* same comment */
+      bestkld = kld;  
       bestpenalty = penalty; 
       best_nf_logdet = ave_nf_logdet;
       bestt = t;
@@ -1147,11 +1103,6 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
         mmvn_set_mu_el(mmvn, j, mmvn_get_mu_el(mmvn, j) +
                                learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
       else {
-        /* TEMPORARY: clipping variance update to avoid crashing */
-        /* double step = learnrate * 0.3 * mhatj / (sqrt(vhatj) + ADAM_EPS); */
-        /* if (step > 0.01) step = 0.01; */
-        /* else if (step < -0.01) step = -0.01; */
-
         vec_set(sigmapar, j-fulld, vec_get(sigmapar, j-fulld) +
                 learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS));
       }
@@ -1178,9 +1129,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     /* report to log file */
     if (logf != NULL) {
-      fprintf(logf, "%d\t%f\t%f\t%f\t%f\t", t, avell, kld, ave_nf_logdet, avell - kld + ave_nf_logdet - penalty);
-      if (data->type == LOWR && data->sparsity != -1)
-        fprintf(logf, "%f\t", data->penalty);
+      fprintf(logf, "%d\t%f\t%f\t%f\t%f\t%f\t", t, avell, kld, ave_nf_logdet, elb, data->var_pen);
       mmvn_print(mmvn, logf, TRUE, FALSE);
       for (j = 0; j < sigmapar->size; j++)
         fprintf(logf, "%f\t", vec_get(sigmapar, j));
@@ -1189,8 +1138,6 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       fprintf(logf, "\n");
     }
     if (gradf != NULL) {
-      //      vec_print(avegrad, gradf);
-      //vec_print(kldgrad, gradf);
       fprintf(gradf, "%d\t", t);
       for (j = 0; j < rescaledgrad->size; j++)
         fprintf(gradf, "%f\t", vec_get(rescaledgrad, j));
@@ -1198,7 +1145,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     }
     
     /* check total elb every nbatches_conv to decide whether to stop */
-    running_tot += avell - kld + ave_nf_logdet - penalty;
+    running_tot += elb;
     if (t % nbatches_conv == 0) {
       if (logf != NULL)
         fprintf(logf, "# Average ELBO for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
@@ -1218,20 +1165,15 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   if (n_nuisance_params > 0)
     nj_update_nuis_params(best_nuis_params, mod, data);
   
-  if (logf != NULL) {
-    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, RFLD: %.2f",
-            bestt+1, bestelb, bestll, bestkld, best_nf_logdet);
-    if (data->type == LOWR && data->sparsity != -1)
-      fprintf(logf, ", penalty: %f", bestpenalty);
-    fprintf(logf, "\n");
-  }
+  if (logf != NULL) 
+    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, RFLD: %.2f, penalty: %.2f\n",
+            bestt+1, bestelb, bestll, bestkld, best_nf_logdet, bestpenalty);
   
   vec_free(grad);
   vec_free(avegrad);
   vec_free(rescaledgrad);
   vec_free(kldgrad);
-  if (data->type == LOWR && data->sparsity != -1)
-    vec_free(sparsitygrad);
+  vec_free(sparsitygrad);
   vec_free(points);
   vec_free(points_std);
   vec_free(m);
@@ -1249,8 +1191,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     vec_free(m_nuis_prev);
     vec_free(v_nuis_prev);
     vec_free(best_nuis_params);
-  }
-    
+  }    
 }
 
 /* sample a list of trees from the approximate posterior distribution
@@ -1888,7 +1829,7 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
                              MSA *msa, CrisprMutModel* crispr_mod, char **names,
                              unsigned int natural_grad, double kld_upweight,
-                             int rank, double sparsity, unsigned int hyperbolic,
+                             int rank, double var_reg, unsigned int hyperbolic,
                              double negcurvature, unsigned int ultrametric,
                              unsigned int radial_flow, unsigned int planar_flow) {
   static int seeded = 0;
@@ -1910,7 +1851,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   retval->Lapl_pinv_evecs = NULL;
   retval->lowrank = -1;
   retval->R = NULL;
-  retval->sparsity = sparsity;
+  retval->var_reg = var_reg;
   retval->hyperbolic = hyperbolic;
   retval->negcurvature = negcurvature;
   retval->ultrametric = ultrametric;
@@ -2146,111 +2087,74 @@ void nj_rescale_grad(Vector *grad, Vector *rsgrad, multi_MVN *mmvn, CovarData *d
   }
 }
 
- /* Compute sparsity penalty and its gradient in LOWR case */
-void nj_set_sparsity_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
-                                  CovarData *data) {  
-  double penalty = 0, scale = 0;
-  Matrix *sigprime, *Rgrad = mat_new(data->R->nrows, data->R->ncols);
-  int i, j, n = mmvn->n, d = mmvn->d;
-  
-  assert(data->type == LOWR && data->sparsity != -1);
-
-  for (i = 0; i < n; i++) {
-    for (j = i+1; j < n; j++)
-      penalty += 2 * pow(mat_get(mmvn->mvn->sigma, i, j), 2);
-    scale += pow(mat_get(mmvn->mvn->sigma, i, i), 2);
-  }
-
-  /* rescale the penalty factor */
-  scale *= (n-1);   
-  /* If all nondiagonal entries were like the diagonal ones, this
-     would be the expected value of the raw penalty.  We will rescale
-     it so this expected value is one. */
-    
-  data->penalty = data->sparsity/scale * penalty; 
-
-  /* calculate gradient in matrix form */
-  /* first make copy of sigma with 0s on main diagonal */
-  sigprime = mat_create_copy(mmvn->mvn->sigma);
-  for (i = 0; i < sigprime->nrows; i++)
-    mat_set(sigprime, i, i, 0);
-  
-  /* multiply by 4R * sparsity for gradient */
-  mat_mult(Rgrad, sigprime, data->R);
-  mat_scale(Rgrad, 4.0 * data->sparsity/scale);
-    
-  /* finally add entries to corresponding gradient components */
-  vec_zero(grad);
-  for (i = 0; i < data->R->nrows; i++)
-    for (j = 0; j < data->R->ncols; j++)
-      vec_set(grad, n*d + i*data->R->ncols + j,
-              vec_get(grad,  n*d + i*data->R->ncols + j) - 
-              mat_get(Rgrad, i, j));
-  /* note have to subtract because makes negative contribution */
-
-  mat_free(sigprime);
-  mat_free(Rgrad);
-}
-
- /* Same as above but use an L1 (LASSO) penalty instead of an L2
-    (ridge) penalty */
-void nj_set_LASSO_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
+ /* Compute penalty for variance and its gradient  */
+void nj_compute_variance_penalty(Vector *grad, multi_MVN *mmvn,
                                CovarData *data) {  
   double penalty = 0, scale = 0;
-  Matrix *sign = mat_new(mmvn->mvn->sigma->nrows, mmvn->mvn->sigma->ncols),
-    *Rgrad = mat_new(data->R->nrows, data->R->ncols);
   int i, j, n = mmvn->n, d = mmvn->d;
+  int start_idx = n*d;  /* starting index for variance parameters */
   
-  assert(data->type == LOWR && data->sparsity != -1);
-
-  for (i = 0; i < n; i++) {
-    for (j = i+1; j < n; j++)
-      penalty += 2 * fabs(mat_get(mmvn->mvn->sigma, i, j));
-    scale += fabs(mat_get(mmvn->mvn->sigma, i, i));
+  if (data->type == CONST || data->type == DIST) {
+    /* L2 penalty applied to log lambda (which is the free parameter) */
+    double loglambda = log(data->lambda);
+    double mult = data->var_reg * PENALTY_LOGLAMBDA_CONST;  /* constant applied to log lambda */
+    data->var_pen = mult * loglambda * loglambda; /* L2 penalty */
+    vec_set(grad, start_idx, -2.0 * mult * loglambda); /* derivative of L2 penalty; 
+                                                          negative because penalty 
+                                                          will be subtracted */
   }
-
-  /* rescale the penalty factor */
-  scale *= (n-1);   
-  /* If all nondiagonal entries were like the diagonal ones, this
-     would be the expected value of the raw penalty.  We will rescale
-     it so this expected value is one. */
-    
-  data->penalty = data->sparsity/scale * penalty; 
-
-  /* calculate gradient in matrix form */
-
-  /* first derive a sign matrix from sigma */
-  mat_zero(sign);
-  for (i = 0; i < sign->nrows; i++) {
-    for (j = i+1; j < sign->ncols; j++) {
-      if (mat_get(mmvn->mvn->sigma, i, j) > 0) {
-        mat_set(sign, i, j, 1);
-        mat_set(sign, j, i, 1);
-      }
-      else if (mat_get(mmvn->mvn->sigma, i, j) < 0) {
-        mat_set(sign, i, j, -1);
-        mat_set(sign, j, i, -1);
-      }
-      /* otherwise leave 0 */
+  else if (data->type == DIAG) {
+    /* similar to above but L2 penalty applied to each diagonal element */
+    data->var_pen = 0;
+    double mult = data->var_reg * PENALTY_LOGLAMBDA_DIAG;
+    for (i = 0; i < data->params->size; i++) {
+      double loglambda_i = vec_get(data->params, i);
+      data->var_pen += mult * loglambda_i * loglambda_i;
+      vec_set(grad, start_idx + i, -2.0 * mult * loglambda_i); 
     }
   }
+  else {
+    assert (data->type == LOWR);
+    Matrix *sigprime, *Rgrad = mat_new(data->R->nrows, data->R->ncols);
   
-  /* multiply by 2R * sparsity for gradient */
-  mat_mult(Rgrad, sign, data->R);
-  mat_scale(Rgrad, 2.0 * data->sparsity/scale);
-    
-  /* finally add entries to corresponding gradient components */
-  vec_zero(grad);
-  for (i = 0; i < data->R->nrows; i++)
-    for (j = 0; j < data->R->ncols; j++)
-      vec_set(grad, n*d + i*data->R->ncols + j,
-              vec_get(grad,  n*d + i*data->R->ncols + j) - 
-              mat_get(Rgrad, i, j));
-  /* note have to subtract because makes negative contribution */
+    for (i = 0; i < n; i++) {
+      for (j = i+1; j < n; j++)
+        penalty += 2 * mat_get(mmvn->mvn->sigma, i, j) * mat_get(mmvn->mvn->sigma, i, j);
+      scale += mat_get(mmvn->mvn->sigma, i, i) * mat_get(mmvn->mvn->sigma, i, i);
+    }
 
-  mat_free(sign);
-  mat_free(Rgrad);
+    /* rescale the penalty factor */
+    scale *= (n-1);   
+    /* If all nondiagonal entries were like the diagonal ones, this
+       would be the expected value of the raw penalty.  We will rescale
+       it so this expected value is one. */
+    
+    data->var_pen = data->var_reg/scale * penalty; 
+
+    /* calculate gradient in matrix form */
+    /* first make copy of sigma with 0s on main diagonal */
+    sigprime = mat_create_copy(mmvn->mvn->sigma);
+    for (i = 0; i < sigprime->nrows; i++)
+      mat_set(sigprime, i, i, 0);
+  
+    /* multiply by 4R * sparsity for gradient */
+    mat_mult(Rgrad, sigprime, data->R);
+    mat_scale(Rgrad, 4.0 * data->var_reg/scale);
+    
+    /* finally add entries to corresponding gradient components */
+    vec_zero(grad);
+    for (i = 0; i < data->R->nrows; i++)
+      for (j = 0; j < data->R->ncols; j++)
+        vec_set(grad, start_idx + i*data->R->ncols + j,
+                vec_get(grad, start_idx + i*data->R->ncols + j) - 
+                mat_get(Rgrad, i, j));
+    /* note have to subtract because makes negative contribution */
+    
+    mat_free(sigprime);
+    mat_free(Rgrad);
+  }
 }
+
 
 /* set scale factor for geometry depending on starting distance matrix */
 void nj_set_pointscale(CovarData *data) {
@@ -2528,16 +2432,6 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   /* convert x to y using normalizing flows if available */
   nj_apply_normalizing_flows(y, x, data, nj_logdet);
   
-  /* TEMPORARY: whiten lambda to avoid crashing variance */
-  double l0 = LAMBDA_INIT; /* * data->pointscale * data->pointscale;*/
-  double scale = sqrt(l0 / data->lambda);
-  /* double ps_save = data->pointscale; */
-  /* Vector *y_save = vec_create_copy(y); */
-  /* vec_scale(y, scale); */
-  /* data->pointscale = ps_save / scale; */
-  /* mat_scale(data->dist, scale); */
-  /* END TEMPORARY */
-
    /* set up baseline objects */
   nj_points_to_distances(y, data);
   tree = nj_inf(data->dist, data->names, dt_dD, data);
@@ -2671,9 +2565,6 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
       }
     }
 
-    /* TEMPORARY: whitening */
-    /* vec_scale(dL_dy, scale); */
-  
     /* in case of normalizing flows, need one more step in the chain rule.
        Note that this is supported only in the Euclidean case for now;
        need to move this call outside of 'else' if hyperbolic support
@@ -3176,10 +3067,12 @@ void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data)
   }
 
   if (data->rf != NULL) {
-    /* TEMPORARY: disable update of center */
-    for (int i = 0; i < data->rf->ctr->size; i++)
-      idx++;
-      /* vec_set(data->rf->ctr, i, vec_get(stored_vals, idx++)); */
+    if (data->rf->center_update == TRUE)
+      for (int i = 0; i < data->rf->ctr->size; i++)
+        vec_set(data->rf->ctr, i, vec_get(stored_vals, idx++));
+    else
+      idx += data->rf->ctr->size;
+    
     data->rf->a = vec_get(stored_vals, idx++);
     data->rf->b = vec_get(stored_vals, idx++);
     rf_update(data->rf);
@@ -3225,9 +3118,10 @@ void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) 
   }
 
   if (data->rf != NULL) {
-    if (idx < data->rf->ctr->size)
-      ;  /* TEMPORARY */
-      /* vec_set(data->rf->ctr, idx, vec_get(data->rf->ctr, idx) + inc); */
+    if (idx < data->rf->ctr->size) {
+      if (data->rf->center_update == TRUE)
+        vec_set(data->rf->ctr, idx, vec_get(data->rf->ctr, idx) + inc);
+    }
     else {
       idx -= data->rf->ctr->size;
       if (idx == 0)

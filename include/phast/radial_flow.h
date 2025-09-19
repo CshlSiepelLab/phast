@@ -27,6 +27,9 @@ typedef struct {
   double a_grad;
   double b_grad;
   double r_med; /* used to keep scale-free */
+  unsigned int center_update; /* can be used to turn off update of
+                                 center; currently left on by
+                                 default */
 } RadialFlow;
 
 RadialFlow *rf_new(int npoints, int ndim);

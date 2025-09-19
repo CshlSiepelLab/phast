@@ -1,182 +1,80 @@
 PROGRAM: vine [Variational Inference with Node Embedding]
 
-USAGE: vine [OPTIONS] alignment.fa > trees.nh
+USAGE: vine [OPTIONS] alignment.fa > trees.nwk
 
 DESCRIPTION: Infer a posterior distribution of phylogenetic trees using a
-neighbor-joining-based variational approximation. By default, outputs trees
-sampled from approximate posterior, with one New-Hampshire-formatted tree
-per line.  If the --nj-only option is selected, a single tree will be
-estimated by NJ and output.  Initial pairwise distances may be specified
-either via a multiple alignment, in which case they are estimated using the
-Jukes-Cantor model, or by providing a distance matrix (--distances) or
-starting tree (--tree).  Variational optimization is by stochastic gradient
-ascent using the Adam algorithm. By default, an embedding in a Euclidean
-space is used, but a hyperbolic geometry can be used instead by selecting
-the --hyperbolic option.
+neighbor-joining- or UPGMA-based variational approximation. By default,
+outputs trees sampled from approximate posterior, with one Newick-formatted
+tree per line.  If the --nj-only option is selected, a single tree will be
+estimated by NJ (or UPGMA) and output.  The --ultrametric option forces use
+of UPGMA rather than NJ. Supports analysis of either DNA alignments or
+mutation matrices from CRISPR-based cell lineage barcoding
+experiments. Initial pairwise distances may be specified either via the
+alignment/mutation matrix (the default) or by providing a starting
+distance matrix (--distances) or starting tree (--tree).  Variational
+optimization is by stochastic gradient ascent using the Adam algorithm. By
+default, an embedding in a Euclidean space is used, but a hyperbolic
+geometry can be used instead by selecting the --hyperbolic option.
 
-OPTIONS:
+TYPICAL COMMANDS:
+    For DNA:
+        vine myalignment.fa --logfile log --hky85 --tree starting-tree.nwk \
+            > samples.nwk
+
+    For CRISPR:
+        vine mymatrix.tsv --format CRISPR --logfile log --tree \
+            starting-crispr.nwk > samples-crispr.nwk
+        
+MAIN OPTIONS:
+    --help, -h
+        Display this help message and exit.
+        
+    --dimensionality, -D <D>
+        Set dimensionality of the space in which taxa are represented to
+        <D> (default 5).  Higher values will allow for richer
+        representations of phylogenies but typically take more time to
+        converge.  Embedding can be in either a Euclidean (the default) or
+        a hyperbolic (see --hyperbolic) space. 
+
     --format, -i FASTA|SS|PHYLIP|MPM|MAF|CRISPR
         Format of alignment (default is to guess format from file
-        contents).   CRISPR format must be specified explicitly.  Note that
+        contents). CRISPR format must be specified explicitly.  Note that
         CRISPR forces --ultrametric.
-
-    --batchsize, -b <N>
-        Set mini-batch size in stochastic gradient ascent to <N> (default
-        10).  Here the minibatch size is the number of phylogenetic trees
-        sampled from the approximate posterior for each update of the
-        variational parameters.
-
-    --nbatches-conv, -c <N>
-        Set number of mini-batches over which to average when assessing
-        convergence to <N> (default 50).  Larger values will lead to
-        longer convergence times but may find better solutions.
-
-    --dimensionality, -D <D>
-        Set dimensionality of the space in which taxa are
-        represented to <D> (default 3).  Higher values will allow for
-        richer representations of phylogenies but will take more time and
-        may fail to converge.  Embedding can be in either a Euclidean
-        (the default) or a hyperbolic (see --hyperbolic) space. In
-        principle, --hyperbolic may allow for lower choices of <D>.
-
-    --distances, -d <infile.dist>
-        Use distance matrix from <infile.dist>. In this case (and if
-        --hky85 is not selected), alignment.fa will be ignored
-
-    --embedding-only, -e 
-        (use with --out-dists) Calculate a distance matrix based on the
-        initial embedding of points.  Can be compared with input distances
-        to evaluate fidelity of various embedding schemes.
-
+        
     --hky85, -k 
         Use the HKY85 substitution model for likelihood calculations
         (default is Jukes Cantor). The transition-transversion rate ratio
         (kappa) will be estimated from the data.
-        
-    --hyperbolic, -H
-        Use an embedding of the taxa in a hyperbolic space rather than a
-        Euclidean one.  Taxa are situated on a D-dimensional hyperboloid
-        such that the (D+1)-dimensional Lorentz inner product is fixed at
-        -1, as described in Macaulay et al. PLOS Computational Biology
-        19(4):e1011084 (2023).  The distances between points are computed
-        using the arcosh function and scaled according to the specified
-        curvature (see --negcurvature).
 
     --logfile, -l <logfile.txt>
         Output detailed log for variational inference to specified file
 
     --mean, -m <meantree.nh>
         Output a single tree reflecting the mean of the approximate
-        posterior distribution to the specified file. 
+        posterior distribution to the specified file.
 
     --min-nbatches, M <N>
         Set minimum number of mini-batches before convergence to <N>
         (default 200).  Larger values will lead to longer convergence times
         but may find better solutions.
 
-    --names, -n [namelist]
-        Specify names for taxa in comma-separated list.  For use with --distances
-
-     --negcurvature, -K, <K>
-        (for use with --hyperbolic) Set the negative curvature of the
-        hyperbolic embedding space to <K> (default 1).  A larger value
-        causes the space to be more curved and stretches how far apart the
-        points occur. As discussed by Macaulay et al. PLOS Computational
-        Biology 19(4):e1011084 (2023), larger values help to ensure
-        additivity of distances but may restrict exploration of topologies.
-        As <K> approaches zero, the space approaches a Euclidean space.
+    --nsamples, -s 
+        Number of samples to output (default 100) after convergence.
 
     --nj-only, -j
         Simply estimate and output a single tree using the neighbor-joining
-        algorithm; do not follow with variational inference
-
+        algorithm; do not follow with variational inference. If
+        --ultrametric is selected will use UPGMA instead of NJ.
+        
     --rejection-sampling, -J
         Refine final set of samples by rejection sampling, using the full
         likelihood function.  Produces a substantially sharpened
         approximation of the posterior distribution at the cost of
-        additional likelihood evaluations.  
-	
-    --out-dists, -o <outfile.dist>
-        Output distance matrix to <outfile.dist>.  In case of --nj-only,
-        will simply output initial matrix estimated from alignment.
-        Otherwise will represent posterior mean values of distances after
-        convergence of variational algorithm.
-
-    --learnrate, -r <alpha>
-        Set learning rate for Adam algorithm to <alpha> (default 0.05).
-
-    --random-start, -R
-        Initialize variational inference randomly rather than from initial
-        distance matrix (the default)
-
-    --nsamples, -s 
-        Number of samples to output (default 100) after convergence.
-
-    --covar, -S CONST|DIAG|DIST|LOWR
-        (default CONST) Parameterization to use for covariance matrix for
-        the multivariate normal variational distribution.  DIAG assumes no
-        covariance between points but free variance at each point (<ntaxa>
-        * <dim> d.o.f.).  CONST is like DIAG but all points have the same
-        variance (1 d.o.f.). DIST assumes a cov. matrix proportional to the
-        (initial) (double centered) distance matrix for the taxa, which can
-        be shown to be the expected structure for Brownian motion along the
-        branches of an unrooted tree (1 d.o.f.). LOWR instead assumes a
-        generally parameterized low-rank approximation of the full
-        covariance matrix (<ntaxa> * <rank> d.o.f. see --rank).
-
-    --rank, -W <rank>
-        (default 3) For use with --covar LOWR. Rank of low-rank
-        approximation of covariance matrix.  
-
-    --radial-flow, -F
-        Add a radial-flow layer on top of the multivariate normal
-        variational distribution, to radial nonlinearities in the
-        posterior distribution. Estimates a single center point in <D>
-        dimensions as well as a scale parameter alpha and strength
-        parameter beta describing the manner in which points are pulled
-        radially toward the center. This option is currently not compatible
-        with --hyperbolic.
-
-   --planar-flow, -Z
-        Add a radial-flow layer on top of the multivariate normal
-        variational distribution, to accommodate directional skew and
-        curvature. Estimates two vectors in <D> dimensions plus an
-        intercept term to define a hyperplane toward which the posterior
-        can be pulled.  Can be used in combination with --radial-flow but
-        is not compatible with --hyperbolic.
-
-    --natural-grad, -N
-        During stochastic gradient ascent, use approximate natural
-        gradient scale by multiplying each gradient by the corresponding
-        approximate inverse Fisher information. Improves convergence in
-        some cases, but may fail when variance parameters get very small.
-        Currently untested in DIST and LOWR cases.
-
-    --sparsity, -P <penalty>
-        For use with --covar LOWR.  Encourage sparsity of covariance matrix
-        by applying the specified penalty to off-diagonal elements.  The
-        penalty is automatically rescaled based on the size of the matrix
-        and the values on the main diagonal.  A good starting point for
-        <penalty> is 2 * <ntaxa> * <rank> (roughly like deciding whether to
-        include each parameter based on AIC).
-        
-    --mvn-dump, -V
-        Dump the starting multivariate normal distribution and associated
-        data.  Useful with for debugging or analysis. Use with options for 
-        variational inference.
-
-    --tree, -t <file.nh>
-        Obtain pairwise distances from specified tree, rather than from a
-        distance matrix or the alignment.  Alterative to --distances.
-
-    --treemodel, -T <file.mod>
-        Use the specified tree model for initialization and likelihood calculations.
-        Overrides use of JC69 or HKY85 substitution models. 
+        additional likelihood evaluations (which are generally cheap).  
 
     --ultrametric, -C
         Forces estimated trees to be ultrametric, by using the UPGMA
-        algorithm instead of the neighbor-joining algorithm.  Can be used
-        with --nj-only to produce a fast approximate tree.  On by default
+        algorithm instead of the neighbor-joining algorithm. On by default
         with -i CRISPR.
 
     --crispr-modtype, -Y SITEWISE|GLOBAL
@@ -192,14 +90,133 @@ OPTIONS:
         across all sites or separately for each one depends on
         --crispr-modtype.
         
+OPTIMIZATION:
+    --batchsize, -b <N>
+       Set mini-batch size in stochastic gradient ascent to <N> (default
+       10).  Here the minibatch size is the number of phylogenetic trees
+       sampled from the approximate posterior for each update of the
+       variational parameters.
+
+    --learnrate, -r <alpha>
+       Set learning rate for Adam algorithm to <alpha> (default 0.05).
+        
+    --nbatches-conv, -c <N>
+       Set number of mini-batches over which to average when assessing
+       convergence to <N> (default 50).  Larger values will lead to
+       longer convergence times but may find better solutions.
+
+    --natural-grad, -N
+       (experimental) During stochastic gradient ascent, use approximate
+       natural gradient scale by multiplying each gradient by the
+       corresponding approximate inverse Fisher information. Improves
+       convergence in some cases.
+
     --upweight-kld, -U <factor>
        The variational objective function (ELBO) is the difference between
-        an expected log likelihood and a KL divergence from a standard
-        multivariate normal prior, but for most data sets the LL strongly
-        dominates.  This option will upweight the KLD by the specified
-        factor and therefore push the approximate posterior toward simpler
-        solutions (mean values closer to zero, covariance matrix closer to
-        identity). Use a logfile for guidance.
-        
-    --help, -h
-        Display this help message and exit.
+       an expected log likelihood and a KL divergence from a standard
+       multivariate normal prior, but for most data sets the LL strongly
+       dominates.  This option will upweight the KLD by the specified
+       factor and therefore push the approximate posterior toward simpler
+       solutions (mean values closer to zero, covariance matrix closer to
+       identity). Use a logfile for guidance.        
+
+INITIALIZATION:
+    --distances, -d <infile.dist>
+       Use distance matrix from <infile.dist>. In this case, alignment.fa
+       will be ignored
+
+    --names, -n [namelist]
+       Specify names for taxa in comma-separated list.  For use with
+       --distances.
+
+    --tree, -t <file.nh>
+       Obtain pairwise distances from specified tree, rather than from a
+       distance matrix or the alignment.  Alterative to --distances.
+
+    --treemodel, -T <file.mod>
+       Use the specified PHAST tree model for initialization and
+       likelihood calculations.  Overrides use of JC69 or HKY85
+       substitution models.
+
+    --random-start, -R
+       Initialize variational inference randomly rather than from initial
+       distance matrix (the default)
+
+COVARIANCE:
+    --covar, -S CONST|DIAG|DIST|LOWR
+       (default CONST) Parameterization to use for covariance matrix for
+       the multivariate normal variational distribution.  DIAG assumes no
+       covariance between points but free variance at each point (<ntaxa>
+       * <dim> d.o.f.).  CONST is like DIAG but all points have the same
+       variance (1 d.o.f.). DIST assumes a cov. matrix proportional to the
+       (initial) (double centered) distance matrix for the taxa, which can
+       be shown to be the expected structure for Brownian motion along the
+       branches of an unrooted tree (1 d.o.f.). LOWR instead assumes a
+       generally parameterized low-rank approximation of the full
+       covariance matrix (<ntaxa> * <rank> d.o.f. see --rank).
+
+    --rank, -W <rank>
+       (default 3) For use with --covar LOWR. Rank of low-rank
+       approximation of covariance matrix.  
+
+    --radial-flow, -F
+       Add a radial-flow layer on top of the multivariate normal
+       variational distribution, to capture radial nonlinearities in the
+       posterior distribution. Estimates a single center point in <D>
+       dimensions as well as a scale parameter alpha and strength
+       parameter beta describing the manner in which points are pulled
+       radially toward the center. This option is currently not compatible
+       with --hyperbolic.
+
+    --planar-flow, -Z
+       Add a planar-flow layer on top of the multivariate normal
+       variational distribution, to accommodate directional skew and
+       curvature. Estimates two vectors in <D> dimensions plus an
+       intercept term to define a hyperplane toward which the posterior
+       can be pulled.  Can be used in combination with --radial-flow but
+       is not compatible with --hyperbolic.
+
+    --var-reg, -v <multiplier>
+       The variance of the approximate posterior tends to shrink so a
+       regularizer is used to keep it from collapsing. (For most
+       parameterizations, an L2 penalty is appiled to the log variance). This
+       option can be used to alter the default penalty by a multiplicative
+       factor. Use values > 1 to inflate the variance further or values
+       between 0 and 1 to give it more latitude to shrink (tends to improve
+       the ELBO).  A value of zero will disable regularization.
+
+HYPERBOLIC GEOMETRY:
+    --hyperbolic, -H
+       Use an embedding of the taxa in a hyperbolic space rather than a
+       Euclidean one.  Taxa are situated on a D-dimensional hyperboloid
+       such that the (D+1)-dimensional Lorentz inner product is fixed at
+       -1, as described in Macaulay et al. PLOS Computational Biology
+       19(4):e1011084 (2023).  The distances between points are computed
+       using the arcosh function and scaled according to the specified
+       curvature (see --negcurvature).
+ 
+     --negcurvature, -K, <K>
+       (for use with --hyperbolic) Set the negative curvature of the
+       hyperbolic embedding space to <K> (default 1).  A larger value
+       causes the space to be more curved and stretches how far apart the
+       points occur. As discussed by Macaulay et al. PLOS Computational
+       Biology 19(4):e1011084 (2023), larger values help to ensure
+       additivity of distances but may restrict exploration of topologies.
+       As <K> approaches zero, the space approaches a Euclidean space.
+
+DIAGNOSTICS:
+    --mvn-dump, -V
+       Dump the starting multivariate normal distribution and associated
+       data.  Useful for debugging or analysis. Use with options for 
+       variational inference.
+
+    --out-dists, -o <outfile.dist>
+       Output distance matrix to <outfile.dist>.  In case of --nj-only,
+       will simply output initial matrix estimated from alignment.
+       Otherwise will represent posterior mean values of distances after
+       convergence of variational algorithm.
+
+    --embedding-only, -e 
+       (use with --out-dists) Calculate a distance matrix based on the
+       initial embedding of points.  Can be compared with input distances
+       to evaluate fidelity of various embedding schemes.

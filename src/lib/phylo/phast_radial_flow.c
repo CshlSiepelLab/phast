@@ -22,6 +22,7 @@ RadialFlow *rf_new(int npoints, int ndim) {
   rf->r_med = 1;
   rf->a_grad = rf->b_grad = 0;
   rf_update(rf);
+  rf->center_update = TRUE; /* can change to disable update */
   return rf;
 }
 

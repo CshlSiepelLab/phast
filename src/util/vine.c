@@ -22,7 +22,7 @@
 #include "vine.help"
 
 #define DEFAULT_NSAMPLES 100
-#define DEFAULT_DIM 3
+#define DEFAULT_DIM 5
 #define DEFAULT_BATCHSIZE 10
 #define DEFAULT_LEARNRATE 0.05
 #define DEFAULT_NBATCHES_CONV 50
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
   subst_mod_type subst_mod = JC69;
   TreeModel *mod = NULL;
   double learnrate = DEFAULT_LEARNRATE,
-    negcurvature = 1.0, sparsity = -1.0, kld_upweight = 1.0;
+    negcurvature = 1.0, var_reg = 1.0, kld_upweight = 1.0;
   MarkovMatrix *rmat = NULL;
   multi_MVN *mmvn = NULL;
   TreeNode *init_tree = NULL;
@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
     {"nsamples", 1, 0, 's'},
     {"learnrate", 1, 0, 'r'},
     {"random-start", 0, 0, 'R'},
-    {"sparsity", 1, 0, 'P'},
+    {"var-reg", 1, 0, 'v'},
     {"covar", 1, 0, 'S'},
     {"tree", 1, 0, 't'},
     {"treemodel", 1, 0, 'T'},
@@ -100,7 +100,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:FZjJkK:l:m:M:n:No:P:r:Rt:T:VW:S:s:CY:p:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:FZjJkK:l:m:M:n:No:v:r:Rt:T:VW:S:s:CY:p:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -178,10 +178,10 @@ int main(int argc, char *argv[]) {
     case 'o':
       outdistfile = phast_fopen(optarg, "w");
       break;
-    case 'P':
-      sparsity = atof(optarg);
-      if (sparsity <= 0)
-        die("ERROR: --sparsity must be positive\n");
+    case 'v':
+      var_reg = atof(optarg);
+      if (var_reg < 0)
+        die("ERROR: --var-reg must be non-negative\n");
       break;
     case 'r':
       learnrate = atof(optarg);
@@ -262,8 +262,6 @@ int main(int argc, char *argv[]) {
 
   if (rank != DEFAULT_RANK && covar_param != LOWR)
     fprintf(stderr, "WARNING: --rank ignored when --covar is not LOWR\n");
-  if (sparsity != -1 && covar_param != LOWR)
-    fprintf(stderr, "WARNING: --sparsity ignored when --covar is not LOWR\n");
   
   if ((nj_only || embedding_only) &&
       (indistfile != NULL || init_tree != NULL)) {
@@ -342,7 +340,7 @@ int main(int argc, char *argv[]) {
   nj_test_D(D);
 
   covar_data = nj_new_covar_data(covar_param, D, dim, msa, crispr_mod, names,
-                                 natural_grad, kld_upweight, rank, sparsity,
+                                 natural_grad, kld_upweight, rank, var_reg,
                                  hyperbolic, negcurvature, ultrametric, radial_flow,
                                  planar_flow);
 

@@ -51,6 +51,11 @@
    smaller values */
 #define VARFLOOR 1.0e-3
 
+/* constants used for regularization of variance parameters; can be
+   altered multiplicatively using --var-reg option */
+#define PENALTY_LOGLAMBDA_CONST 5
+#define PENALTY_LOGLAMBDA_DIAG 3
+
 /* initialization of lambda, which is scale factor for covariance
    matrix in DIST and CONST parameterizations */
 #define LAMBDA_INIT 1
@@ -82,8 +87,8 @@ typedef struct {
   Vector *Lapl_pinv_evals; /* eigendecomposition of Lapl_pinv (DIST) */
   Matrix *Lapl_pinv_evecs;
   Matrix *R; /* used for LOWR; has dimension lowrank x nseqs */
-  double sparsity; /* multiplier for sparsity penalty */
-  double penalty; /* the current value of the penalty */
+  double var_reg; /* multiplier for variance regularizer */
+  double var_pen; /* the current value of the variance penalty */
   unsigned int hyperbolic; /* whether or not hyperbolic geometry is used */
   double negcurvature; /* for hyperbolic case */
   MSA *msa; /* multiple alignment under analysis if available */
@@ -175,7 +180,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
                              int dim, MSA *msa, CrisprMutModel *crispr_mod,
                              char **names, unsigned int natural_grad,
                              double kld_upweight, int rank,
-                             double sparsity, unsigned int hyperbolic,
+                             double var_reg, unsigned int hyperbolic,
                              double negcurvature, unsigned int ultrametric,
                              unsigned int radial_flow, unsigned int planar_flow);
 
@@ -190,11 +195,7 @@ void nj_set_kld_grad_LOWR(Vector *kldgrad, multi_MVN *mvn);
 void nj_rescale_grad(Vector *grad, Vector *rsgrad, multi_MVN *mmvn,
                      CovarData *data);
 
-void nj_set_sparsity_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
-                                  CovarData *data);
-
-void nj_set_LASSO_penalty_LOWR(Vector *grad, multi_MVN *mmvn,
-                               CovarData *data);
+void nj_compute_variance_penalty(Vector *grad, multi_MVN *mmvn, CovarData *data);
 
 void nj_set_pointscale(CovarData *data);
 
