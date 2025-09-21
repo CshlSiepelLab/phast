@@ -547,7 +547,7 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
         MarkovMatrix *rsubst_mat = d->mod->P[n->rchild->id][rcat];
         for (i = 0; i < nstates; i++) {
           double totl = 0, totr = 0, A = 0, B = 0, C = 0, D = 0, E = 0,
-            F = 0, G = 0, H = 0, I = 0, J = 0;
+            F = 0, G = 0, H = 0, I_ = 0, J = 0;
           for (j = 0; j < nstates; j++) {
             totl += L[j][n->lchild->id] * mm_get(lsubst_mat, i, j);
 
@@ -581,7 +581,7 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
               G += L[j][n->lchild->id] * d->QQQ[n->lchild->id][rcat]->data[i][j] +
                 2 * MM[j][n->lchild->id] * d->QQ[n->lchild->id][rcat]->data[i][j] +
                 MMM[j][n->lchild->id] * mm_get(lsubst_mat, i, j);
-              I += L[j][n->lchild->id] * d->RRR[n->lchild->id][rcat]->data[i][j] +
+              I_ += L[j][n->lchild->id] * d->RRR[n->lchild->id][rcat]->data[i][j] +
                 MM[j][n->lchild->id] * d->PP[n->lchild->id][rcat]->data[i][j] +
                 LL[j][n->lchild->id] * d->QQ[n->lchild->id][rcat]->data[i][j] +
                 NNN[j][n->lchild->id] * mm_get(lsubst_mat, i, j);
@@ -602,7 +602,7 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
 
             LLL[i][n->id] = totr*E + 2*A*B + totl*F;
             MMM[i][n->id] = totr*G + 2*C*D + totl*H;
-            NNN[i][n->id] = totr*I + A*D + B*C + totl*J;
+            NNN[i][n->id] = totr*I_ + A*D + B*C + totl*J;
           }
         }
       }

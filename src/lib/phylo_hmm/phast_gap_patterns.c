@@ -216,7 +216,7 @@ void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa) {
   int *gap_code, *leaf_to_seq, *tuple_patterns;
   TreeNode *n;
   String *namestr = str_new(STR_SHORT_LEN);
-  int complex = gpm->nbranches*2 + 1;
+  int complex_ = gpm->nbranches*2 + 1;
   TreeNode *tree = gpm->topology;
 
   /* require ordered sufficient statistics representation */
@@ -265,7 +265,7 @@ void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa) {
                                 /* both children have ambiguous codes;
                                    there is no scenario involving only
                                    one indel event */
-            tuple_patterns[tup] = complex;
+            tuple_patterns[tup] = complex_;
             break;        
           }
 
@@ -308,7 +308,7 @@ void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa) {
           }
           else {                /* different and unambiguous */
             if (++nchanges > 1) {
-              tuple_patterns[tup] = complex;
+              tuple_patterns[tup] = complex_;
               break;
             } 
             if (n == tree) {    /* special case: indel on branch
@@ -325,7 +325,7 @@ void gp_set_phylo_patterns(GapPatternMap *gpm, int *patterns, MSA *msa) {
       }        
     }
 
-    if (tuple_patterns[tup] == complex || nchanges == 0) 
+    if (tuple_patterns[tup] == complex_ || nchanges == 0)
                                 /* either zero or more than one indel
                                    events; do nothing (tuple_patterns[tup]
                                    already correct) */
