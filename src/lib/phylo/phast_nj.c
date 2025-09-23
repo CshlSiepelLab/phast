@@ -1474,9 +1474,15 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
 
       if (n->lchild == NULL) {
         /* leaf: base case of recursion */
+        int thisseq = mod->msa_seq_idx[n->id];
+        
+        if (thisseq < 0) 
+          die("No match in alignment for leaf %s.\n", n->name);
+        
         int state = mod->rate_matrix->
           inv_states[(int)ss_get_char_tuple(msa, tupleidx,
-                                            mod->msa_seq_idx[n->id], 0)];
+                                            thisseq, 0)];
+
         for (i = 0; i < nstates; i++) {
           if (state < 0 || i == state)
             pL[i][n->id] = 1;

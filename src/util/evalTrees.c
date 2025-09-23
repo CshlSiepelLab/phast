@@ -91,13 +91,21 @@ int main(int argc, char *argv[]) {
       mod = tm_new(tree, rmat, NULL, kappa > 0 ? HKY85 : JC69, DEFAULT_ALPHABET,
                    1, 1, NULL, -1);
       tm_init_backgd(mod, msa, -1);
-      if (kappa > 0) /* create HKY model */
+      if (kappa > 0) /* create HKY model */ {
+        fprintf(stderr, "Using HKY85 with kappa = %f...\n", kappa);
         tm_set_HKY_matrix(mod, kappa, -1);
-      else           /* create JC model */
+      }
+      else {           /* create JC model */
+        fprintf(stderr, "Using JC69...\n");
         tm_set_JC69_matrix(mod);
+      }
     }
     else
       nj_reset_tree_model(mod, tree);
+
+    /* have to force index rebuild because node ids can change */
+    sfree(mod->msa_seq_idx);
+    tm_build_seq_idx(mod, msa);
     
     ll = nj_compute_log_likelihood(mod, data, NULL);
 
@@ -109,6 +117,7 @@ int main(int argc, char *argv[]) {
 
   printf("Successfully processed %d trees.\nAverage loglikelihood: %f\nPer site: %f\n",
          lineno, lltot / lineno, lltot / (lineno * msa->length));
+  fprintf(stderr, "Done processing %d trees.\n", lineno);
 }
 
 
