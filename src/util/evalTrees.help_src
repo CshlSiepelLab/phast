@@ -1,0 +1,3 @@
+evalTrees <treefile> <alignment>
+-k --hky-kappa <kappa>
+-m --tree-model <file.mod>

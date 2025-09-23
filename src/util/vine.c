@@ -246,7 +246,7 @@ int main(int argc, char *argv[]) {
       printf("%s", HELP); 
       exit(0);
     case '?':
-      die("Bad argument.  Try 'varPHAST -h'.\n");
+      die("Bad argument.  Try 'vine -h'.\n");
     }
   }
 
@@ -287,11 +287,10 @@ int main(int argc, char *argv[]) {
       if (format == UNKNOWN_FORMAT)
         format = msa_format_for_content(infile, 1);
       if (format == MAF) 
-        msa = maf_read(phast_fopen(argv[optind], "r"), NULL, 1, alphabet,
+        msa = maf_read(infile, NULL, 1, alphabet,
                        NULL, NULL, -1, TRUE, NULL, NO_STRIP, FALSE);
       else
-        msa = msa_new_from_file_define_format(phast_fopen(argv[optind], "r"), 
-                                              format, alphabet);
+        msa = msa_new_from_file_define_format(infile, format, alphabet);
 
       if (msa->ss == NULL)
         ss_from_msas(msa, 1, TRUE, NULL, NULL, NULL, -1, 0);
