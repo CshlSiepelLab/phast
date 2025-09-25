@@ -674,3 +674,17 @@ void str_tolower(String *s) {
   for (i = 0; i < s->length; i++)
     s->chars[i] = (char)tolower(s->chars[i]);
 }
+
+/* returns TRUE iff two sorted lists of strings are identical */
+unsigned int str_list_equal(List *l1, List *l2) {
+  int n = lst_size(l1);
+  if (n != lst_size(l2))
+    return FALSE;
+  for (int i = 0; i < n; i++) {
+    String *s1 = lst_get_ptr(l1, i);
+    String *s2 = lst_get_ptr(l2, i);
+    if (str_equals(s1, s2) == FALSE)
+      return FALSE;
+  }
+  return TRUE;
+}

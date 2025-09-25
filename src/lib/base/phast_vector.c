@@ -210,3 +210,37 @@ double vec_sum(Vector *v) {
     sum += v->data[i];
   return(sum);
 }
+
+/* compute mean and standard deviation from a vector */
+void vec_mean_stdev(Vector *v, double *mean, double *stdev) {
+  double s = 0, ss = 0;
+  double n = v->size;
+  for (int i = 0; i < n; i++) {
+    double x = vec_get(v, i);
+    s += x;
+    ss += (x * x);
+  }
+  (*mean) = s / n;
+  (*stdev) = sqrt(n/(n-1) * (ss/n - ((*mean) * (*mean))));
+}
+
+/* create a list of doubles from a Vector */
+List *vec_to_list(Vector *v) {
+  List *l = lst_new_dbl(v->size);
+  for (int i = 0; i < v->size; i++)
+    lst_push_dbl(l, vec_get(v, i));
+  return l;    
+}
+
+/* compute various summary statistics for an arbitrary vector of real
+   numbers.  Mean and standard deviation are required.  Other
+   statistics computed if pointers are non-NULL. */ 
+void vec_summary_stats(Vector *v, double *mean, double *stdev,
+                       double *median, double *min, double *max,
+                       double *min_95CI, double *max_95CI,
+                       double *q25, double *q75) {
+
+  List *l = vec_to_list(v);
+  lst_dbl_stats(l, mean, stdev, median, min, max, min_95CI, max_95CI, q25, q75);
+  lst_free(l);
+}

@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <phast/external_libs.h>
+#include <phast/lists.h>
 
 struct lst_struct;
 
@@ -266,6 +267,17 @@ void vec_ave(Vector *dest_v, struct lst_struct *source_vs,
 	     struct lst_struct *counts);
 
 double vec_sum(Vector *v);
+
+void vec_mean_stdev(Vector *v, double *mean, double *stdev);
+
+List *vec_to_list(Vector *v);
+
+void vec_summary_stats(Vector *v, double *mean, double *stdev,
+                       double *median, double *min, double *max,
+                       double *min_95CI, double *max_95CI,
+                       double *q25, double *q75);
+
+
 
 /* \} */
 

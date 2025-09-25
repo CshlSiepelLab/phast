@@ -1846,3 +1846,4 @@ void tr_collapse_unary_nodes(TreeNode **rootp) {
   stk_free(st);
   stk_free(out);
 }
+

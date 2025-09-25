@@ -777,9 +777,12 @@ double lst_dbl_stdev(List *l);
 void lst_dbl_quantiles(List *l, double *quantiles, int nquantiles, 
                        double *quantile_vals);
 
-
 /** \} */
 
+void lst_dbl_stats(List *l, double *mean, double *stdev,
+                   double *median, double *min, double *max,
+                   double *min_95CI, double *max_95CI,
+                   double *q25, double *q75);
 
 static PHAST_INLINE
 int lst_find_dbl(List *l, double d) 
@@ -800,5 +803,10 @@ static inline void lst_cpy_fast(List *dest, List *src) {
   }
   memcpy(dest->array, src->array, lst_size(src) * src->elementsz);
 }
+
+int lst_str_compare_asc(const void* ptr1, const void* ptr2);
+int lst_str_compare_desc(const void* ptr1, const void* ptr2);
+void lst_qsort_str(List *l, order_t ord);
+
 
 #endif

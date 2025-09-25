@@ -274,6 +274,18 @@ int lst_dbl_compare_desc(const void* ptr1, const void* ptr2) {
   return -1;                    
 }
 
+int lst_str_compare_asc(const void* ptr1, const void* ptr2) {
+  String *val1 = *((String**)ptr1);
+  String *val2 = *((String**)ptr2);
+  return str_compare(val1, val2);                   
+}
+
+int lst_str_compare_desc(const void* ptr1, const void* ptr2) {
+  String *val1 = *((String**)ptr1);
+  String *val2 = *((String**)ptr2);
+  return -str_compare(val1, val2);            
+}
+
 /** Sort list of integers using qsort */
 void lst_qsort_int(List *l, order_t ord) 
 { lst_qsort(l, ord == ASCENDING ? lst_int_compare_asc : 
@@ -282,6 +294,10 @@ void lst_qsort_int(List *l, order_t ord)
 void lst_qsort_dbl(List *l, order_t ord) 
 { lst_qsort(l, ord == ASCENDING ? lst_dbl_compare_asc : 
             lst_dbl_compare_desc); }
+
+void lst_qsort_str(List *l, order_t ord) 
+{ lst_qsort(l, ord == ASCENDING ? lst_str_compare_asc : 
+            lst_str_compare_desc); }
 
 List* lst_new_int(int nelements) 
 { return lst_new(nelements, max(sizeof(int), sizeof(void*))); }
@@ -294,6 +310,72 @@ List* lst_new_dbl(int nelements)
 List* lst_new_ptr(int nelements) 
 { return lst_new(nelements, sizeof(void*)); }
 
+/* return single quantile from sorted list of doubles.  For use
+   below */
+static inline double quant(List *l, double p) {
+  int n = lst_size(l);
+  if (p <= 0) return lst_get_dbl(l, 0);
+  if (p >= 1) return lst_get_dbl(l, n-1);  
+  double h = (n - 1) * p;
+  int lo = (int)floor(h);
+  int hi = (int)ceil(h);
+  double w = h - lo;                 
+  return lst_get_dbl(l, lo) +
+    w * (lst_get_dbl(l, hi) - lst_get_dbl(l, lo));
+}
+
+/* compute various summary statistics for lists of doubles.  Mean and
+   standard deviation are required.  Other statistics computed if
+   pointers are non-NULL. */
+void lst_dbl_stats(List *l, double *mean, double *stdev,
+                   double *median, double *min, double *max,
+                   double *min_95CI, double *max_95CI,
+                   double *q25, double *q75) {
+  double s = 0, ss = 0;
+  double n = lst_size(l);
+  for (int i = 0; i < n; i++) {
+    double x = lst_get_dbl(l, i);
+    s += x;
+    ss += (x * x);
+  }
+  (*mean) = s / n;
+  if (n == 1 || ss == 0)
+    (*stdev) = 0;
+  else
+    (*stdev) = sqrt(n/(n-1) * (ss/n - ((*mean) * (*mean))));
+
+  if (median == NULL && min == NULL && max == NULL && min_95CI == NULL
+      && max_95CI == NULL && q25 == NULL && q75 == NULL)
+    return;
+  
+  /* copy into another list and sort */      
+  List *l2 = lst_new_dbl(lst_size(l));
+  lst_cpy(l2, l);
+  lst_qsort_dbl(l2, ASCENDING);  
+  
+  if (min != NULL)
+    (*min) = lst_get_dbl(l2, 0);
+
+  if (max != NULL)
+    (*max) = lst_get_dbl(l2, n-1);
+
+  if (median != NULL)
+    (*median) = quant(l2, 0.5);
+
+  if (min_95CI != NULL)
+    (*min_95CI) = quant(l2, 0.025);
+
+  if (max_95CI != NULL)
+    (*max_95CI) = quant(l2, 0.975);
+
+  if (q25 != NULL)
+    (*q25) = quant(l2, 0.25);
+
+  if (q75 != NULL)
+    (*q75) = quant(l2, 0.75);
+
+  lst_free(l2);
+}
 
 
 /********************************************************************/
