@@ -1165,9 +1165,14 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   if (n_nuisance_params > 0)
     nj_update_nuis_params(best_nuis_params, mod, data);
   
-  if (logf != NULL) 
-    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, RFLD: %.2f, penalty: %.2f\n",
+  if (logf != NULL) {
+    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, RFLD: %.2f, penalty: %.2f",
             bestt+1, bestelb, bestll, bestkld, best_nf_logdet, bestpenalty);
+    for (j = 0; j < n_nuisance_params; j++) /* print these also if available */
+      fprintf(logf, ", %s: %.4f\t", nj_get_nuisance_param_name(mod, data, j),
+              nj_nuis_param_get(mod, data, j));
+    fprintf(logf, "\n");
+  }
   
   vec_free(grad);
   vec_free(avegrad);
@@ -1526,10 +1531,12 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
     total_prob = 0;
     for (i = 0; i < nstates; i++)
       total_prob += vec_get(mod->backgd_freqs, i) *
-        pL[i][mod->tree->id] * mod->freqK[rcat];
+        pL[i][mod->tree->id] * mod->freqK[rcat];      
     
     ll += (log(total_prob) + vec_get(lscale, mod->tree->id)) * msa->ss->counts[tupleidx];
-    assert(isfinite(ll));
+
+    if (!isfinite(ll)) break; /* can happen with zero-length branches;
+                                 make calling code deal with it */
 
     /* to compute gradients efficiently, need to make a second pass
        across the tree to compute "outside" probabilities */

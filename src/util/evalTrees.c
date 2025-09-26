@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
   int opt_idx, lineno = 0, i, j, nleaves = 0, npairs = 0;
   CovarData *data;
   char c;
-  FILE *treefile, *msafile;
+  FILE *treefile, *msafile = NULL;
   MarkovMatrix *rmat;
   msa_format_type format;
   TreeNode *topol_ref = NULL;
@@ -44,9 +44,15 @@ int main(int argc, char *argv[]) {
   char **names = NULL;
   Matrix *D = NULL;
   List **Dij_list = NULL;
+  int is_crispr = FALSE;
+  CrisprMutTable *crispr_muts = NULL;
+  CrisprMutModel *crispr_mod = NULL;
+  enum crispr_model_type crispr_modtype = SITEWISE;
+  enum crispr_mutrates_type crispr_muttype = UNIF;
   
   struct option long_opts[] = {
     {"hky-kappa", 1, 0, 'k'},
+    {"crispr", 0, 0, 'k'},
     {"tree-model", 1, 0, 'm'},
     {"model-fit", 1, 0, 'f'},
     {"topology", 1, 0, 't'},
@@ -54,7 +60,7 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "f:k:m:t:h", 
+  while ((c = getopt_long(argc, argv, "f:k:m:t:ch", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'k':
@@ -68,12 +74,13 @@ int main(int argc, char *argv[]) {
     case 'f':
       msafname = optarg;
       msafile = phast_fopen(optarg, "r");
-      format = msa_format_for_content(msafile, 1);
-      evalaln = msa_new_from_file_define_format(msafile, format, DEFAULT_ALPHABET);
       break;
     case 't':
       topolfname = optarg;
       topol_ref = tr_new_from_file(phast_fopen(topolfname, "r"));
+      break;
+    case 'c':
+      is_crispr = TRUE;
       break;
     case 'h':
       printf("%s", HELP); 
@@ -86,6 +93,17 @@ int main(int argc, char *argv[]) {
   if (optind != argc - 1)
     die("Missing required argument.  Try '%s -h'.\n", argv[0]);
 
+    /* open dna or crispr file */
+  if (is_crispr == TRUE) {
+    if (msafile == NULL)
+      die("Option --crispr requires --model-fit.\n");
+    crispr_muts = cpr_read_table(msafile);
+  }
+  else if (msafile != NULL) {
+    format = msa_format_for_content(msafile, 1);
+    evalaln = msa_new_from_file_define_format(msafile, format, DEFAULT_ALPHABET);
+  }
+  
   if (evalaln == NULL && (mod != NULL || kappa > 0)) 
     die("Options --tree-model and --hky-kappa require --model-fit.\n");
   
@@ -95,22 +113,27 @@ int main(int argc, char *argv[]) {
   if (evalaln != NULL && topol_ref != NULL)
     die("Options --model-fit and --topology are mutually exclusive.\n");
 
+  if (is_crispr && (mod != NULL || kappa > 0))
+    die("Options --tree-model and --hky-kappa are incompatible with --crispr.\n");
+  
   /* open tree file */
   treefname = argv[optind];
   fprintf(stderr, "Reading trees from %s...\n", treefname);
   treefile = phast_fopen(treefname, "r");  
   
   /* set up for --model-fit */
-  if (evalaln != NULL) {
+  if (evalaln != NULL || is_crispr == TRUE) {
     fprintf(stderr, "Evaluating model fit on %s...\n", msafname);
-    
-    if (evalaln->ss == NULL)
-    ss_from_msas(evalaln, 1, TRUE, NULL, NULL, NULL, -1, 0);
 
-    /* this is mostly a dummy; only the alignment is used */
+    if (evalaln != NULL && evalaln->ss == NULL)
+      ss_from_msas(evalaln, 1, TRUE, NULL, NULL, NULL, -1, 0);
+    else if (is_crispr)
+      crispr_mod = cpr_new_model(crispr_muts, NULL, crispr_modtype, crispr_muttype);
+      
+    /* this is mostly a dummy; only the msa or crispr mod is used */
     D = mat_new(5, 5);
-    data = nj_new_covar_data(CONST, D, 1, evalaln, NULL, NULL, FALSE, 1.0, 3,
-                             1.0, FALSE, -1, FALSE, FALSE, FALSE);
+    data = nj_new_covar_data(CONST, D, 1, evalaln, crispr_mod, NULL, FALSE,
+                             1.0, 3, 1.0, FALSE, -1, FALSE, FALSE, FALSE);
     lldists = lst_new_dbl(1000);
   }
   else if (topol_ref != NULL) {
@@ -121,12 +144,13 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Computing pairwise-distance stats...\n");
   
   while (str_readline(line, treefile) != EOF) {
-    lineno++;
     str_double_trim(line);
 
     if (line->length == 0)
       continue;
-    
+
+    lineno++;
+
     if (line->chars[0] != '(')
       die("ERROR in line %d: Input does not look like a Newick-formatted tree.\n",
           lineno);
@@ -140,26 +164,41 @@ int main(int argc, char *argv[]) {
         rmat = mm_new(strlen(DEFAULT_ALPHABET), DEFAULT_ALPHABET, CONTINUOUS);
         mod = tm_new(tree, rmat, NULL, kappa > 0 ? HKY85 : JC69, DEFAULT_ALPHABET,
                      1, 1, NULL, -1);
-        tm_init_backgd(mod, evalaln, -1);
-        if (kappa > 0) /* create HKY model */ {
-          fprintf(stderr, "Using HKY85 with kappa = %f...\n", kappa);
-          tm_set_HKY_matrix(mod, kappa, -1);
+        if (is_crispr) {  /* tree model just a dummy in this case */
+          crispr_mod->mod = mod;
+          cpr_prep_model(crispr_mod);
         }
-        else {           /* create JC model */
-          fprintf(stderr, "Using JC69...\n");
-          tm_set_JC69_matrix(mod);
+        else {
+          tm_init_backgd(mod, evalaln, -1);
+          if (kappa > 0) /* create HKY model */ {
+            fprintf(stderr, "Using HKY85 with kappa = %f...\n", kappa);
+            tm_set_HKY_matrix(mod, kappa, -1);
+          }
+          else {           /* create JC model */
+            fprintf(stderr, "Using JC69...\n");
+            tm_set_JC69_matrix(mod);
+          }
         }
       }
       else
         nj_reset_tree_model(mod, tree);
 
-      /* have to force index rebuild because node ids can change */
-      sfree(mod->msa_seq_idx);
-      tm_build_seq_idx(mod, evalaln);
-    
-      ll = nj_compute_log_likelihood(mod, data, NULL);
+      if (evalaln != NULL) {
+        /* have to force index rebuild because node ids can change */
+        sfree(mod->msa_seq_idx);
+        tm_build_seq_idx(mod, evalaln);
+        ll = nj_compute_log_likelihood(mod, data, NULL);
+      }
+      else { /* crispr case */
+        sfree(crispr_mod->mod->msa_seq_idx);
+        cpr_build_seq_idx(crispr_mod->mod, crispr_mod->mut);
+        ll = cpr_compute_log_likelihood(data->crispr_mod, NULL);
+      }
 
-      lst_push_dbl(lldists, ll);
+      /* occasionally get -inf from 0-length branches; let's just
+         ignore those for now */
+      if (isfinite(ll))  
+        lst_push_dbl(lldists, ll);
     }
 
     else if (topol_ref != NULL) {

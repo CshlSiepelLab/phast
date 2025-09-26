@@ -46,9 +46,9 @@ TARGETLIB = ${LIB}/libphast.a
 ifneq ($(TARGETOS), Windows)
  #for debugging
 # CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG -DNDEBUG -mtune=native -fno-strict-aliasing -fPIC -O2 -pedantic -Wconversion -Wno-sign-conversion
-CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG
+#CFLAGS = -g -fno-inline -Wall -DPHAST_DEBUG
  # for best performance
-#CFLAGS = -O3 -Wall
+CFLAGS = -O3 -Wall
 # for profiling
 #CFLAGS = -O2 -g 
  # some other options
