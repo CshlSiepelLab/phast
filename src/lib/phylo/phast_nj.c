@@ -2211,6 +2211,9 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
 
     lst_push_ptr(init_samples, mod->tree);  
     mvnll[i] = mmvn_log_dens(mmvn, points_x);
+
+    /* FIXME: need log determinant of Jacobian in flow case */
+    
     if (ll[i] - mvnll[i] > logM) 
       logM = ll[i] - mvnll[i];
   }
@@ -2230,6 +2233,12 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
   ntot = i; /* total number examined */
   for (; i < lst_size(init_samples); i++) /* free any remaining trees */
     tr_free(lst_get_ptr(init_samples, i));
+
+  /* check to see whether it is feasible to go forward */
+  double init_acrt = lst_size(retval)/(double)lst_size(init_samples);
+  if (init_acrt < 0.001)
+    die("ERROR in nj_var_sample_rejection: acceptance rate %f too low.\n",
+        init_acrt);
   
   /* if necessary, continue until target is met */
   while (lst_size(retval) < nsamples) {
