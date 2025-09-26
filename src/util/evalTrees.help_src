@@ -29,7 +29,12 @@ OPTIONS:
 
     --tree-model, -m <file.mod>
         (for use with --model-fit) Use specified PHAST-formatted tree model
-        when evaluating log likelihood. 
+        when evaluating log likelihood.
+
+    --crispr, -c
+        (for use with --model-fit) Use CRISPR model rather than DNA
+        model. In this case, argument to --model-fit will be expected to be
+        a *.tsv-formatted mutation matrix.
 
     --topology, -t <reference.nwk>
         Instead of pairwise distances between taxa, consider the
