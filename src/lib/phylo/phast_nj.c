@@ -1891,18 +1891,19 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
     vec_set(retval->params, 0, log(max(retval->lambda-VARFLOOR, VARFLOOR)));  /* use lambda for scale; log parameterization */
   }
   else if (covar_param == DIAG) {
-    int i, j;
-    double x = 0, x2 = 0, N = retval->nseqs * (retval->nseqs-1)/2.0;
+    /* int i, j; */
+    /* double x = 0, x2 = 0, N = retval->nseqs * (retval->nseqs-1)/2.0; */
     retval->params = vec_new(retval->dim * retval->nseqs);
     /* initialize sigma parameters to (log of) identity scaled by
        1/n of the variance across pairwise distances */
-    for (i = 0; i < dist->nrows; i++) {
-      for (j = i+1; j < dist->ncols; j++) {
-        x += mat_get(dist, i, j);
-        x2 += mat_get(dist, i, j) * mat_get(dist, i, j);
-      }
-    }
-    vec_set_all(retval->params, log(1.0/(N*N) * (x2/N - x*x/(N*N))) + 2*log(retval->pointscale));
+    /* for (i = 0; i < dist->nrows; i++) { */
+    /*   for (j = i+1; j < dist->ncols; j++) { */
+    /*     x += mat_get(dist, i, j); */
+    /*     x2 += mat_get(dist, i, j) * mat_get(dist, i, j); */
+    /*   } */
+    /* } */
+    /* vec_set_all(retval->params, log(1.0/(N*N) * (x2/N - x*x/(N*N))) + 2*log(retval->pointscale)); */
+    vec_set_all(retval->params, log(max(retval->lambda-VARFLOOR, VARFLOOR)));
     /* note scale by (log of) pointscale^2 */
   }  
   else if (covar_param == DIST) {
