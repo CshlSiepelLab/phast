@@ -179,7 +179,7 @@ void mvn_sample_std(Vector *retval) {
     vec_set(retval, i, z1);
     if (i+1 < retval->size)
       vec_set(retval, i+1, z2);
-  }  
+  }
 }
 
 /* Sample a vector from a multivariate normal distribution with mean
@@ -234,7 +234,7 @@ void mvn_sample_anti(MVN *mvn, Vector *retval1, Vector *retval2) {
   }
 }
 
-/* Like mvn_sample_anti_keep, but keeps track of the original standard
+/* Like mvn_sample_anti, but keeps track of the original standard
    normal variate for use in downstream calculations */
 void mvn_sample_anti_keep(MVN *mvn, Vector *retval1,
                           Vector *retval2, Vector *origstd) {
@@ -248,6 +248,7 @@ void mvn_sample_anti_keep(MVN *mvn, Vector *retval1,
   
   if (mvn->type != MVN_LOWR) {
     mvn_sample_std(retval1);
+
     vec_copy(origstd, retval1);
     vec_copy(retval2, retval1);
     vec_scale(retval2, -1.0);
@@ -304,7 +305,8 @@ void mvn_map_std(MVN *mvn, Vector *rv, Vector *lowrv) {
       for (i = 0; i < mvn->dim; i++) {
         double covarsum = 0;
         for (j = 0; j < mvn->dim; j++) 
-          covarsum += mat_get(mvn->evecs, i, j) * sqrt(vec_get(mvn->evals, j)) * vec_get(tmp, j); 
+          covarsum += mat_get(mvn->evecs, i, j) * sqrt(vec_get(mvn->evals, j)) * vec_get(tmp, j);
+        
         vec_set(rv, i, vec_get(mvn->mu, i) + covarsum);
       }
     }

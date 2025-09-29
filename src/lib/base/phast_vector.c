@@ -244,3 +244,10 @@ void vec_summary_stats(Vector *v, double *mean, double *stdev,
   lst_dbl_stats(l, mean, stdev, median, min, max, min_95CI, max_95CI, q25, q75);
   lst_free(l);
 }
+
+unsigned int vec_isfinite(Vector *v) {
+  for (int i = 0; i < v->size; i++)
+    if (!isfinite(v->data[i]))
+      return FALSE;
+  return TRUE;
+}

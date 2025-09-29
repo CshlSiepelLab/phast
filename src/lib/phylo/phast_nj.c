@@ -1979,30 +1979,33 @@ void nj_laplacian_pinv(CovarData *data) {
      distance matrix */
   mat_double_center(data->Lapl_pinv, data->dist, TRUE);
   
-  /* this matrix is only defined up to a translation because it is
-     based on pairwise distances.  For it to define a valid covariance
-     matrix (up to a positive scale constant) we need to ensure that
-     it is positive definite.  We can do this by adding epsilon * I to
-     it, where epsilon is equal to the smallest eigenvalue plus a
-     small margin.  This will preserve the eigenvectors but shift all
-     eigenvalues upward by epsilon */
   if (mat_diagonalize_sym(data->Lapl_pinv, data->Lapl_pinv_evals, data->Lapl_pinv_evecs) != 0)
     die("ERROR in nj_laplacian_pinv: diagonalization failed.\n");    
 
-  epsilon = vec_get(data->Lapl_pinv_evals, 0) + 1e-6;
+  /* the matrix is only defined up to a translation because it is
+     based on pairwise distances.  For it to define a valid covariance
+     matrix (up to a positive scale constant) we need to ensure that
+     it is positive definite.  We can do this by adding epsilon * I to
+     it, where epsilon is equal to -1 * the smallest eigenvalue plus a
+     small margin.  This will preserve the eigenvectors but shift all
+     eigenvalues upward by epsilon */
+  double min_eval = vec_get(data->Lapl_pinv_evals, 0);
   /* mat_diagonalize_sym guarantees eigenvalues are in ascending order */
+  if (min_eval < 0) {
+    epsilon = -min_eval + 1e-6;
 
-  for (i = 0; i < dim; i++) {
-    mat_set(data->Lapl_pinv, i, i, mat_get(data->Lapl_pinv, i, i) + epsilon);
-    vec_set(data->Lapl_pinv_evals, i, vec_get(data->Lapl_pinv_evals, i) + epsilon);
+    for (i = 0; i < dim; i++) {
+      mat_set(data->Lapl_pinv, i, i, mat_get(data->Lapl_pinv, i, i) + epsilon);
+      vec_set(data->Lapl_pinv_evals, i, vec_get(data->Lapl_pinv_evals, i) + epsilon);
+    }
   }
 
   /* finally, rescale so average diagonal element is one (in space of
      final sigma), putting matrix on the same scale as the identity
      matrix used for the CONST parameterization */
   trace = vec_sum(data->Lapl_pinv_evals);
-  mat_scale(data->Lapl_pinv, data->nseqs / (trace * data->dim));
-  vec_scale(data->Lapl_pinv_evals, data->nseqs / (trace * data->dim));
+  mat_scale(data->Lapl_pinv, data->nseqs / trace);
+  vec_scale(data->Lapl_pinv_evals, data->nseqs / trace);
 }
 
 /* wrapper for nj_points_to_distances functions */
@@ -3256,6 +3259,7 @@ void nj_sample_points(multi_MVN *mmvn, Vector *points, Vector *points_std) {
     if (i % 2 == 0) { /* new sample, update caches */
       mmvn_sample_anti_keep(mmvn, points, cachedpoints, points_std);
       vec_copy(cachedstd, points_std);
+
     }
     else { /* just use cache to define sample */
       vec_copy(points, cachedpoints);

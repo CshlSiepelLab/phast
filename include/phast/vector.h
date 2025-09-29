@@ -278,6 +278,7 @@ void vec_summary_stats(Vector *v, double *mean, double *stdev,
                        double *q25, double *q75);
 
 
+unsigned int vec_isfinite(Vector *v);
 
 /* \} */
 
