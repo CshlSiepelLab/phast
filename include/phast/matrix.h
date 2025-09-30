@@ -370,6 +370,8 @@ int mat_cholesky(Matrix *L, Matrix *M);
 */
 void mat_mult_diag(Matrix *A, Matrix *B, Vector *C, Matrix *D);
 
+void mat_mult_diag_transp(Matrix *A, Matrix *B, Vector *C);
+
 #ifndef SKIP_LAPACK
 
 /** Convert a matrix into Lapack's column-major format.

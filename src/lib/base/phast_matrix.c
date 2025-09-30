@@ -404,6 +404,22 @@ A->data[3][3] = B->data[3][0] * C->data[0] * D->data[0][3] + B->data[3][1] * C->
   }
 
 }
+
+/* Compute A = B * C * B^T where A, B, and C are square matrices of
+   the same dimension, and C is diagonal.  C is described by a vector
+   representing its diagonal elements.  */
+void mat_mult_diag_transp(Matrix *A, Matrix *B, Vector *C) {
+
+  int i, j, k;
+  for (i = 0; i < C->size; i++) {
+    for (j = 0; j < C->size; j++) {
+      A->data[i][j] = 0;
+      for (k = 0; k < C->size; k++)
+        A->data[i][j] += B->data[i][k] * C->data[k] * B->data[j][k];
+    }
+  } 
+}
+
 int mat_equal(Matrix *A, Matrix *B) {
   int i, j;
   if (A->nrows != B->nrows || A->ncols != B->ncols) return 0;

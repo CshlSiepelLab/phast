@@ -1834,6 +1834,9 @@ void nj_update_covariance(multi_MVN *mmvn, CovarData *data) {
 
     /* update the mvn accordingly */
     mvn_reset_LOWR(mmvn->mvn, data->R);
+    /* it will do the Cholesky by default but we also need to force an
+       eigendecomposition */
+    mvn_preprocess(mmvn->mvn->lowRmvn, TRUE);    
   }
 }
 
@@ -1919,7 +1922,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
       srandom((unsigned int)time(NULL));
       seeded = 1;
     }
-    sdev = sqrt(LAMBDA_INIT / retval->lowrank); /* yields expected variance
+    sdev = sqrt((double)LAMBDA_INIT / retval->lowrank); /* yields expected variance
                                                    of LAMBDA_INIT and expected
                                                    covariances of 0 */
     for (i = 0; i < retval->nseqs; i++) {
@@ -2095,7 +2098,6 @@ void nj_rescale_grad(Vector *grad, Vector *rsgrad, multi_MVN *mmvn, CovarData *d
  /* Compute penalty for variance and its gradient  */
 void nj_compute_variance_penalty(Vector *grad, multi_MVN *mmvn,
                                CovarData *data) {  
-  double penalty = 0, scale = 0;
   int i, j, n = mmvn->n, d = mmvn->d;
   int start_idx = n*d;  /* starting index for variance parameters */
   
@@ -2120,31 +2122,33 @@ void nj_compute_variance_penalty(Vector *grad, multi_MVN *mmvn,
   }
   else {
     assert (data->type == LOWR);
-    Matrix *sigprime, *Rgrad = mat_new(data->R->nrows, data->R->ncols);
-  
-    for (i = 0; i < n; i++) {
-      for (j = i+1; j < n; j++)
-        penalty += 2 * mat_get(mmvn->mvn->sigma, i, j) * mat_get(mmvn->mvn->sigma, i, j);
-      scale += mat_get(mmvn->mvn->sigma, i, i) * mat_get(mmvn->mvn->sigma, i, i);
+
+    /* in this case, the analog is to use the sum of squared log
+       eigenvalues of the embedded low-rank matrix */
+    MVN *Rmvn = mmvn->mvn->lowRmvn;
+    assert(Rmvn->evals != NULL);
+    data->var_pen = 0;
+    double mult = data->var_reg * PENALTY_LOGLAMBDA_LOWR;
+    for (i = 0; i < Rmvn->dim; i++) {
+      double logeval = log(vec_get(Rmvn->evals, i));
+      data->var_pen += mult * logeval * logeval;
     }
-
-    /* rescale the penalty factor */
-    scale *= (n-1);   
-    /* If all nondiagonal entries were like the diagonal ones, this
-       would be the expected value of the raw penalty.  We will rescale
-       it so this expected value is one. */
     
-    data->var_pen = data->var_reg/scale * penalty; 
-
-    /* calculate gradient in matrix form */
-    /* first make copy of sigma with 0s on main diagonal */
-    sigprime = mat_create_copy(mmvn->mvn->sigma);
-    for (i = 0; i < sigprime->nrows; i++)
-      mat_set(sigprime, i, i, 0);
-  
-    /* multiply by 4R * sparsity for gradient */
-    mat_mult(Rgrad, sigprime, data->R);
-    mat_scale(Rgrad, 4.0 * data->var_reg/scale);
+    /* the gradient for this penalty is 2*mult * R * V * diag(log
+       eval/eval) * V^T, where R is the low-rank matrix and V comes
+       from the eigendecomposition of R R^T. */
+    Matrix *Rgrad = mat_new(data->R->nrows, data->R->ncols);
+    Matrix *tmp = mat_new(Rmvn->dim, Rmvn->dim);
+    Vector *logdiag = vec_new(Rmvn->dim);
+    for (i = 0; i < Rmvn->dim; i++) {
+      double eval = vec_get(Rmvn->evals, i);
+      if (eval < 1.0e-6) eval = 1.0e-6;
+      vec_set(logdiag, i, log(eval) / eval);
+    }
+    mat_mult_diag_transp(tmp, Rmvn->evecs, logdiag);
+    mat_mult(Rgrad, mmvn->mvn->lowR, tmp);
+    mat_scale(Rgrad, 2 * mult);
+    vec_free(logdiag);   
     
     /* finally add entries to corresponding gradient components */
     vec_zero(grad);
@@ -2155,8 +2159,8 @@ void nj_compute_variance_penalty(Vector *grad, multi_MVN *mmvn,
                 mat_get(Rgrad, i, j));
     /* note have to subtract because makes negative contribution */
     
-    mat_free(sigprime);
     mat_free(Rgrad);
+    mat_free(tmp);
   }
 }
 
@@ -3241,7 +3245,7 @@ void nj_sample_points(multi_MVN *mmvn, Vector *points, Vector *points_std) {
     }
     if (cachedpoints == NULL) {
       cachedpoints = vec_new(points->size);
-      cachedstd = vec_new(points->size);
+      cachedstd = vec_new(points_std->size);   
       i = 0; /* force new sample */
     }
     

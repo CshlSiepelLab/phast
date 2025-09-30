@@ -55,6 +55,7 @@
    altered multiplicatively using --var-reg option */
 #define PENALTY_LOGLAMBDA_CONST 5
 #define PENALTY_LOGLAMBDA_DIAG 5
+#define PENALTY_LOGLAMBDA_LOWR 0.5
 
 /* initialization of lambda, which is scale factor for covariance
    matrix in DIST and CONST parameterizations */
