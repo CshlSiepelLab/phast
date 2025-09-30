@@ -33,6 +33,7 @@ and are suggested for new users.
     5. Change directory to 'phast/src/' and run 'make CLAPACKPATH=/usr/local/software/clapack'
 	replacing '/usr/local/software/clapack' with the path of your
 	Clapack install (e.g., CLAPACKPATH=/home/username/CLAPACK-3.2.1)
+  [OPTIONAL Multithreading support] Uncomment multithreading support CFLAGS and LFLAGS options in src/make-include.mk. Set number of threads with environment variable (ex. export OMP_NUM_THREADS=4)
     6. The Phast binaries should be created in the '../bin/' directory
     
   Windows 

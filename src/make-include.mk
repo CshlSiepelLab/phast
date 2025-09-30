@@ -51,7 +51,13 @@ ifneq ($(TARGETOS), Windows)
  CFLAGS = -O3 -Wall
  # some other options
  #CFLAGS = -mcpu=opteron -O3
- #CFLAGS = -mcpu=pentiumpro -O3 
+ #CFLAGS = -mcpu=pentiumpro -O3
+
+ # for multithreading support
+ #CFLAGS = -fopenmp -O3
+ # Ensure OpenMP is also linked when used by modules' link rules
+ #LFLAGS += -fopenmp
+
 else
   CFLAGS = -O3
 endif
