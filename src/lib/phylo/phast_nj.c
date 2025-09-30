@@ -2177,23 +2177,67 @@ void nj_set_pointscale(CovarData *data) {
     data->pointscale = POINTSPAN_EUC / medianD; 
 }
 
+
+/* for use below -- looks up region corresponding given value of z^2 using binary search */
+static inline int get_region(Vector *quants, double z2) {
+    int lo = 0, hi = quants->size - 1; 
+    while (lo + 1 < hi) {
+        int mid = (lo + hi) >> 1;
+        if (z2 < vec_get(quants, mid))
+          hi = mid;
+        else
+          lo = mid;
+    }
+    return lo; 
+}
+
 /* Like nj_var_sample, but use rejection sampling to sharpen the
    approximate posterior */
 List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
                               CovarData *data, TreeModel *mod,
                               FILE *logf) {
-  List *retval = lst_new_ptr(nsamples), *init_samples = lst_new_ptr(nsamples * 10);
-  Vector *points_x = vec_new(mmvn->d * mmvn->n), *points_y = vec_new(mmvn->d * mmvn->n);
-  double logM = -INFTY, lnl, mvnl, u, avelnl = 0;
-  double ll[nsamples * 10], mvnll[nsamples * 10];
-  int i, ntot;
+  int nprop = max(nsamples * 10, 2000);
+  int dim = mmvn->d * mmvn->n;
+  int nreg = 16; /* number of regions into which to partition sampling space */
+  List *retval = lst_new_ptr(nsamples), *init_samples = lst_new_ptr(nprop),
+    *newsamp = lst_new_ptr(nsamples);
+  Vector *points_x = vec_new(dim), *points_z = vec_new(dim),
+    *points_y = vec_new(dim), *quants;
+  double lnl, mvnl, logu, z2, avelnl = 0, logdet;
+  double *ll, *mvnll, *logM;
+  int i, ntot, r;
+  int *reg;
+  unsigned int restart;
+  unsigned int *retained;
 
-  /* collect an initial sample to approximate the upper bound on the
+  ll = smalloc(nprop * sizeof(double));
+  mvnll = smalloc(nprop * sizeof(double));
+  logM = smalloc(nreg * sizeof(double));
+  reg = smalloc(nprop * sizeof(int));
+  retained = smalloc(nprop * sizeof(unsigned int));
+  for (r = 0; r < nreg; r++) logM[r] = -INFTY;
+  
+  /* preprocessing step to partition sampling space into equally sized
+     regions, with one bound per region.  Use the fact that the
+     initial standard MVN variable z is such that z^2 is chisq
+     distributed with d d.o.f.  We can therefore partition based on
+     the quantiles of the chisq distribution */
+  // e.g., central 95% split into 4 shells; 95–99% into 4; 99–99.9% into 4
+
+  quants = vec_new(nreg+1);
+  vec_set(quants, 0, 0);
+  for (r = 1; r < nreg; r++)
+    vec_set(quants, r, chisq_cdf_inv((double)r / nreg, dim));
+  vec_set(quants, nreg, INFINITY);
+  /* ith quantile ranges from quants[i] to quants[i+1], with i ranging from 0 to nreg-1 */
+
+ 
+  /* collect an initial sample to approximate the upper bounds on the
      log ratio of densities */
-  for (i = 0; i < nsamples * 10; i++) {
+  for (i = 0; i < nprop; i++) {
     do {
-      nj_sample_points(mmvn, points_x, NULL);
-      nj_apply_normalizing_flows(points_y, points_x, data, NULL);
+      nj_sample_points(mmvn, points_x, points_z);
+      nj_apply_normalizing_flows(points_y, points_x, data, &logdet);
       nj_points_to_distances(points_y, data);
       mod->tree = nj_inf(data->dist, data->names, NULL, data);
 
@@ -2202,74 +2246,113 @@ List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
       else
         ll[i] = nj_compute_log_likelihood(mod, data, NULL);
 
-      if (!isfinite(ll[i])) tr_free(mod->tree);
-    } while (!isfinite(ll[i]));  /* need for the crispr case */
-
-    lst_push_ptr(init_samples, mod->tree);  
-    mvnll[i] = mmvn_log_dens(mmvn, points_x);
-
-    /* FIXME: need log determinant of Jacobian in flow case */
+      if (!isfinite(ll[i]) || !isfinite(logdet)) tr_free(mod->tree);
+    } while (!isfinite(ll[i]) || !isfinite(logdet));  
     
-    if (ll[i] - mvnll[i] > logM) 
-      logM = ll[i] - mvnll[i];
+    lst_push_ptr(init_samples, mod->tree);
+    mvnll[i] = mmvn_log_dens(mmvn, points_x) - logdet;   /* note logdet jacobian for flows */
+
+    /* find region corresponding to quantile */
+    z2 = vec_inner_prod(points_z, points_z);
+    reg[i] = get_region(quants, z2);
+    
+    if (ll[i] - mvnll[i] > logM[reg[i]]) 
+      logM[reg[i]] = ll[i] - mvnll[i];
   }
 
-  /* subsample from those by rejection sampling */
-  logM += log(1.05); /* provide a little buffer */
-  for (i = 0; i < lst_size(init_samples) &&
-         lst_size(retval) < nsamples; i++) {
-    u = unif_rand();
-    if (u < exp(ll[i] - mvnll[i] - logM)) {
-      lst_push_ptr(retval, lst_get_ptr(init_samples, i));
-      avelnl += ll[i];
+  for (r = 0; r < nreg; r++) logM[r] += 0.7; /* provide a little buffer */
+
+  do { /* this loop allows for possible restart if envelope is exceeded */
+    /* subsample from initial set by rejection sampling */
+    restart = FALSE;
+
+    for (i = 0; i < lst_size(init_samples); i++)
+      retained[i] = FALSE; /* init */
+    
+    for (i = 0; i < lst_size(init_samples) &&
+           lst_size(retval) < nsamples; i++) {
+      logu = log(unif_rand());
+      if (logu <= ll[i] - mvnll[i] - logM[reg[i]]) {
+        lst_push_ptr(retval, lst_get_ptr(init_samples, i));
+        retained[i] = TRUE;
+        avelnl += ll[i];
+      }
     }
-    else
-      tr_free(lst_get_ptr(init_samples, i));
-  }
-  ntot = i; /* total number examined */
-  for (; i < lst_size(init_samples); i++) /* free any remaining trees */
-    tr_free(lst_get_ptr(init_samples, i));
+    ntot = i; /* total number examined */
 
-  /* check to see whether it is feasible to go forward */
-  double init_acrt = lst_size(retval)/(double)lst_size(init_samples);
-  if (init_acrt < 0.001)
-    die("ERROR in nj_var_sample_rejection: acceptance rate %f too low.\n",
-        init_acrt);
-  
-  /* if necessary, continue until target is met */
-  while (lst_size(retval) < nsamples) {
-    ntot++;
-    do {
-      nj_sample_points(mmvn, points_x, NULL);
-      nj_apply_normalizing_flows(points_y, points_x, data, NULL);
-      nj_points_to_distances(points_y, data);
-      mod->tree = nj_inf(data->dist, data->names, NULL, data);
+    /* check to see whether it is feasible to go forward */
+    double init_acrt = lst_size(retval)/(double)ntot;
+    if (init_acrt < 0.001)
+      die("ERROR in nj_var_sample_rejection: acceptance rate %f too low.  Aborting.\n",
+          init_acrt);
 
-      if (data->crispr_mod != NULL)
-        lnl = cpr_compute_log_likelihood(data->crispr_mod, NULL);
+    /* if necessary, continue until target is met */
+    while (lst_size(retval) < nsamples) {
+      ntot++;
+      do {
+        nj_sample_points(mmvn, points_x, points_z);
+        nj_apply_normalizing_flows(points_y, points_x, data, &logdet);
+        nj_points_to_distances(points_y, data);
+        mod->tree = nj_inf(data->dist, data->names, NULL, data);
+
+        if (data->crispr_mod != NULL)
+          lnl = cpr_compute_log_likelihood(data->crispr_mod, NULL);
+        else
+          lnl = nj_compute_log_likelihood(mod, data, NULL);
+
+        if (!isfinite(lnl) || !isfinite(logdet)) tr_free(mod->tree);
+      } while (!isfinite(lnl) || !isfinite(logdet)); 
+    
+      mvnl = mmvn_log_dens(mmvn, points_x) - logdet;
+      z2 = vec_inner_prod(points_z, points_z);
+      r = get_region(quants, z2);
+
+      if (lnl - mvnl > logM[r]) { /* in this case we have to start all over! */
+        logM[r] = lnl - mvnl + 0.7;
+        restart = TRUE;
+        tr_free(mod->tree);      
+        break;
+      }
+    
+      logu = log(unif_rand());
+      if (logu <= lnl - mvnl - logM[r]) {
+        lst_push_ptr(retval, mod->tree);
+        lst_push_ptr(newsamp, mod->tree); /* needed for free upon restart */
+        avelnl += lnl;
+      }
       else
-        lnl = nj_compute_log_likelihood(mod, data, NULL);
-
-      if (!isfinite(lnl)) tr_free(mod->tree);
-    } while (!isfinite(lnl)); /* need for crispr case */
-    
-    mvnl = mmvn_log_dens(mmvn, points_x);
-    u = unif_rand();
-    if (u < exp(lnl - mvnl - logM)) {
-      lst_push_ptr(retval, mod->tree);
-      avelnl += lnl;
+        tr_free(mod->tree);
     }
-    else
-      tr_free(mod->tree);
-  } 
+
+    if (restart == TRUE) { /* reset everything */
+      lst_clear(retval);
+      avelnl = 0.0;
+      for (i = 0; i < lst_size(newsamp); i++)
+        tr_free(lst_get_ptr(newsamp, i));
+      lst_clear(newsamp);
+    }
+  } while (restart == TRUE);
+
+  /* free any trees not used from initial set */
+  for (i = 0; i < lst_size(init_samples); i++)
+    if (retained[i] == FALSE)
+      tr_free(lst_get_ptr(init_samples, i));
 
   if (logf != NULL)
     fprintf(logf, "# Rejection sampling from %d trees (acceptance rate %.3f); avelnl: %f\n",
             ntot, nsamples*1.0/ntot, avelnl/nsamples);
   
   lst_free(init_samples);
+  lst_free(newsamp);
   vec_free(points_x);
-  vec_free(points_y);  
+  vec_free(points_y);
+  vec_free(points_z);
+  vec_free(quants);
+  sfree(ll);
+  sfree(mvnll);
+  sfree(logM);
+  sfree(reg);
+  sfree(retained);
   return(retval);
 }
 
@@ -3264,7 +3347,7 @@ void nj_sample_points(multi_MVN *mmvn, Vector *points, Vector *points_std) {
 }
 
 /* given points_x, apply normalizing flows to compute points_y as y =
-   f(x).  Optionally opulates *logdet with total log determinate of
+   f(x).  Optionally populates *logdet with total log determinate of
    Jacobian (if non-NULL) */
 void nj_apply_normalizing_flows(Vector *points_y, Vector *points_x,
                                 CovarData *data, double *logdet) {

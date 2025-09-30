@@ -525,6 +525,8 @@ double chisq_pdf(double x, double dof);
 */
 double chisq_cdf(double x, double dof, int lower_tail);
 
+double chisq_cdf_inv(double p, double dof);
+
 /** Evaluate cdf of a 50:50 mixture of a chisq distribution with dof
    degrees of freedom and a point mass at 0.
    @param x Chi-Square distributed variable

@@ -741,6 +741,26 @@ double chisq_cdf(double x, double dof, int lower_tail) {
   return gamma_cdf(x, dof/2, 2, lower_tail);
 }
 
+/* Evaluate inv cdf of chi-square distribution with dof degrees of
+   freedom (assuming lower_tail = TRUE).  Uses simple bisection method
+   (not super fast) */
+double chisq_cdf_inv(double p, double dof) {
+  if (p <= 0.0) return 0.0;
+  if (p >= 1.0) return INFINITY;
+  double lo = 0.0;
+  double hi = dof;   /* initial guess */
+  while (chisq_cdf(hi, dof, TRUE) < p) 
+    hi *= 2.0;    /* expand upper bound */
+  for (int i = 0; i < 100; i++) {
+    double mid = 0.5*(lo+hi);
+    double cdf = chisq_cdf(mid, dof, TRUE);
+    if (cdf > p) hi = mid;
+    else lo = mid;
+    if (hi - lo < 1e-8) break;
+  }
+  return 0.5*(lo+hi);
+}
+
 /* Evaluate cdf of a 50:50 mixture of a chisq distribution with dof
    degrees of freedom and a point mass at 0.  If lower_tail == TRUE
    returns P(X<=x), else returns P(X>=x).  This function is useful in
