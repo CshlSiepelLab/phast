@@ -172,9 +172,6 @@ int *nj_build_seq_idx(List *leaves, char **names) ;
 
 int nj_get_seq_idx(char **names, char *name, int n);
 
-List *nj_importance_sample(int nsamples, List *trees, Vector *logdens,
-                           TreeModel *mod, CovarData *data, FILE *logf);
-
 void nj_update_covariance(multi_MVN *mmvn, CovarData *data);
 
 CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
@@ -200,9 +197,6 @@ void nj_compute_variance_penalty(Vector *grad, multi_MVN *mmvn, CovarData *data)
 
 void nj_set_pointscale(CovarData *data);
 
-List *nj_var_sample_rejection(int nsamples, multi_MVN *mmvn,
-                              CovarData *data, TreeModel *mod,
-                              FILE *logf);
 
 double nj_dL_dx_dumb(Vector *x, Vector *dL_dx, TreeModel *mod, 
                      CovarData *data);

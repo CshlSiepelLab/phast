@@ -720,15 +720,15 @@ double gamma_pdf(double x, double a, double b) {
 /** Evaluate cdf of gamma distribution with parameters a and b.  If
     lower_tail == TRUE returns P(X<=x), else returns P(X>=x) */
 double gamma_cdf(double x, double a, double b, int lower_tail) {
-  if (x < 0)
-    die("ERROR gamma_cdf got x=%f\n", x);
+  if (a <= 0.0 || b <= 0.0) die("gamma_cdf: a>0, b>0 required\n");
+  if (x <= 0.0) return lower_tail ? 0.0 : 1.0;
   return incomplete_gamma(a, x/b, lower_tail ? 'p' : 'q');
 }
 
 /* Evaluate pdf of chi-square distribution with dof degrees of freedom */
 double chisq_pdf(double x, double dof) {
-  if (x < 0)
-    die("ERROR chisq_pdf got x=%f\n", x);
+  if (dof <= 0.0) die("chisq_pdf: dof>0 required\n");
+  if (x < 0.0) return 0.0;
   return gamma_pdf(x, dof/2, 2);
 }
 
@@ -736,8 +736,8 @@ double chisq_pdf(double x, double dof) {
     freedom.  If lower_tail == TRUE returns P(X<=x), else returns
     P(X>=x) */
 double chisq_cdf(double x, double dof, int lower_tail) {
-  if (x < 0)
-    die("ERROR chisq_cdf got x=%f\n", x);
+  if (dof <= 0.0) die("chisq_cdf: dof>0 required\n");
+  if (x <= 0.0) return lower_tail ? 0.0 : 1.0;
   return gamma_cdf(x, dof/2, 2, lower_tail);
 }
 
@@ -745,18 +745,24 @@ double chisq_cdf(double x, double dof, int lower_tail) {
    freedom (assuming lower_tail = TRUE).  Uses simple bisection method
    (not super fast) */
 double chisq_cdf_inv(double p, double dof) {
+  if (dof <= 0.0) die("chisq_cdf_inv: dof>0 required\n");
   if (p <= 0.0) return 0.0;
   if (p >= 1.0) return INFINITY;
   double lo = 0.0;
   double hi = dof;   /* initial guess */
+  int k = 0;
+  while (chisq_cdf(hi, dof, TRUE) < p && hi < 1e300 && ++k < 200)
+    hi *= 2.0; /* bracket */
   while (chisq_cdf(hi, dof, TRUE) < p) 
     hi *= 2.0;    /* expand upper bound */
   for (int i = 0; i < 100; i++) {
     double mid = 0.5*(lo+hi);
     double cdf = chisq_cdf(mid, dof, TRUE);
-    if (cdf > p) hi = mid;
-    else lo = mid;
-    if (hi - lo < 1e-8) break;
+    if (cdf > p)
+      hi = mid;
+    else
+      lo = mid;
+    if ((hi - lo) <= fmax(1e-12, 1e-10 * mid)) break;
   }
   return 0.5*(lo+hi);
 }
