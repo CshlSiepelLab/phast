@@ -1120,7 +1120,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       mhatj_nuis = vec_get(m_nuis, j) / (1.0 - pow(ADAM_BETA1, t));
       vhatj_nuis = vec_get(v_nuis, j) / (1.0 - pow(ADAM_BETA2, t));
       nj_nuis_param_pluseq(mod, data, j, learnrate * 0.3 * mhatj_nuis / (sqrt(vhatj_nuis) + ADAM_EPS));
-      /* TEMPORARY: factor of 0.1 above to slow learning of nuisance params */
+      /* factor of 0.3 above to slow learning of nuisance params */
     }
     if (n_nuisance_params > 0) {
       vec_copy(m_nuis_prev, m_nuis);
