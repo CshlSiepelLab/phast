@@ -1008,6 +1008,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       nj_set_kld_grad_LOWR(kldgrad, mmvn);
 
     /* can also pre-compute variance penalty */
+    vec_zero(sparsitygrad);
     nj_compute_variance_penalty(sparsitygrad, mmvn, data);
     penalty = data->var_pen;
 
@@ -3136,4 +3137,8 @@ void nj_apply_normalizing_flows(Vector *points_y, Vector *points_x,
 
   if (logdet != NULL)
     (*logdet) = ldet; 
+}
+
+/* compute log prior under a simple Yule model with relaxed local clock */
+double nj_compute_log_prior(TreeModel *mod, CovarData *data, Vector *branchgrad) {
 }
