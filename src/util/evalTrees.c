@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
   
   struct option long_opts[] = {
     {"hky-kappa", 1, 0, 'k'},
-    {"crispr", 0, 0, 'k'},
+    {"crispr", 0, 0, 'c'},
     {"tree-model", 1, 0, 'm'},
     {"model-fit", 1, 0, 'f'},
     {"topology", 1, 0, 't'},
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
 
     tree = tr_new_from_string(line->chars);
 
-    if (evalaln != NULL) {
+    if (evalaln != NULL || is_crispr) {
       if (mod == NULL) { /* do this the first time through; need a tree to initialize */        
         rmat = mm_new(strlen(DEFAULT_ALPHABET), DEFAULT_ALPHABET, CONTINUOUS);
         mod = tm_new(tree, rmat, NULL, kappa > 0 ? HKY85 : JC69, DEFAULT_ALPHABET,
@@ -243,14 +243,15 @@ int main(int argc, char *argv[]) {
   /* output results */
   fprintf(stderr, "Done processing %d trees.\n", lineno);
    
-  if (evalaln != NULL) {
+  if (evalaln != NULL || is_crispr) {
     printf("Successfully processed %d trees from %s.\n", lineno, treefname);
     printf("Log likelihood evaluated on %s:\n", msafname);
     lst_dbl_stats(lldists, &mean, &stdev, &median, &min, &max,
                   &min_95CI, &max_95CI, &q25, &q75);
     print_stats(stdout, mean, stdev, median, min, max, min_95CI,
                 max_95CI, q25, q75);
-    printf("Mean per site: %f\n", mean/evalaln->length);
+    if (evalaln != NULL)
+      printf("Mean per site: %f\n", mean/evalaln->length);
   }
   else if (topol_ref != NULL) {
     printf("Successfully processed %d trees from %s.\n", lineno, treefname);
