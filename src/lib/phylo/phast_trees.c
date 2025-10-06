@@ -208,7 +208,7 @@ void tr_set_nnodes(TreeNode *tree) {
 
   tree->nodes = lst_new_ptr(tree->nnodes);
   for (i = 0; i < tree->nnodes; i++) lst_push_ptr(tree->nodes, NULL);
-  stack = stk_new_ptr(tree->nnodes);
+  stack = stk_new_ptr(2*tree->nnodes);
   stk_push_ptr(stack, tree);
   while ((node = stk_pop_ptr(stack)) != NULL) {
 
@@ -248,7 +248,11 @@ void tr_set_nnodes(TreeNode *tree) {
   /* in certain cases, the indexing will have gaps, e.g., if nodes
      have been deleted or added in a strange way. Let's force it to be
      dense */
-  if (tree->nnodes != lst_size(tree->nodes)) {
+  int has_null = 0;
+  for (i = 0; i < lst_size(tree->nodes) && has_null == FALSE; i++)
+    if (lst_get_ptr(tree->nodes, i) == NULL) has_null = TRUE;
+
+  if (has_null) {
     for (i = 0, j = 0; i < lst_size(tree->nodes); i++) {
       node = lst_get_ptr(tree->nodes, i);
       if (node == NULL)
@@ -256,8 +260,9 @@ void tr_set_nnodes(TreeNode *tree) {
       if (i != j) {
         node->id = j;
         lst_set_ptr(tree->nodes, j, node);
-        j++;
+        lst_set_ptr(tree->nodes, i, NULL);
       }
+      j++;              
     }
     tree->nodes->ridx = tree->nodes->lidx + j; /* resets size */
   }
