@@ -240,7 +240,7 @@ int mat_diagonalize_sym(Matrix *M, /* input matrix (n x n) */
 
   /* allocate working memory */
   LAPACK_DOUBLE *tmp  = (LAPACK_DOUBLE*)malloc((size_t)n * (size_t)n * sizeof(*tmp));
-  LAPACK_DOUBLE *w    = (LAPACK_DOUBLE*)calloc((size_t)n * sizeof(*w));
+  LAPACK_DOUBLE *w    = (LAPACK_DOUBLE*)malloc((size_t)n * sizeof(*w));
   if (tmp == NULL || w == NULL) {
     fprintf(stderr, "ERROR mat_diagonalize_sym: out of memory (n=%d).\n", (int)n);
     free(w); free(tmp);
@@ -249,6 +249,7 @@ int mat_diagonalize_sym(Matrix *M, /* input matrix (n x n) */
 
   /* start from a known state (helps MSan/Valgrind even if LAPACK ignores) */
   memset(tmp, 0, (size_t)n * (size_t)n * sizeof(*tmp));
+  memset(w, 0, (size_t)n * sizeof(*w));
   
   /* convert matrix to representation used by LAPACK (column-major) */
   mat_to_lapack(M, tmp);
