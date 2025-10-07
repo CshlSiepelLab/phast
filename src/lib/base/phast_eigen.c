@@ -247,21 +247,21 @@ int mat_diagonalize_sym(Matrix *M, /* input matrix (n x n) */
     return 1;
   }
 
-  /* Start from a known state (helps MSan/Valgrind even if LAPACK ignores) */
+  /* start from a known state (helps MSan/Valgrind even if LAPACK ignores) */
   memset(tmp, 0, (size_t)n * (size_t)n * sizeof(*tmp));
   
   /* convert matrix to representation used by LAPACK (column-major) */
   mat_to_lapack(M, tmp);
 
-  /* Conservatively mirror upper -> lower so BOTH triangles are
+  /* conservatively mirror upper -> lower so BOTH triangles are
      initialized. */
   for (j = 0; j < n; j++) 
     for (i = j+1; i < n; i++) 
       /* tmp is column-major: element (i,j) stored at tmp[j*n + i] */
       tmp[i + (size_t)j * n] = tmp[j + (size_t)i * n];
 
-  /* Workspace query for optimal lwork */
-  LAPACK_DOUBLE wkopt;
+  /* workspace query for optimal lwork */
+  LAPACK_DOUBLE wkopt = 0;
   LAPACK_INT lwork = -1;
 #ifdef R_LAPACK
   F77_CALL(dsyev)(&jobz, &uplo, &n, tmp, &n, w, &wkopt, &lwork, &info);
@@ -281,7 +281,7 @@ int mat_diagonalize_sym(Matrix *M, /* input matrix (n x n) */
     free(w); free(tmp);
     return 1;
   }
-  /* Zero work (some implementations read a few bytes before writing fully) */
+  /* conservatively zero work */
   memset(work, 0, (size_t)lwork * sizeof(*work));
 
   /* compute eigenpairs; eigenvectors overwrite tmp columns */
