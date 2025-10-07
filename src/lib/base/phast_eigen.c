@@ -231,7 +231,7 @@ int mat_diagonalize_sym(Matrix *M, /* input matrix (n x n) */
   die("ERROR: LAPACK required for matrix diagonalization (mat_diagonalize_sym).\n");
 #else
   char jobz = 'V', uplo = 'U';
-  LAPACK_INT n = (LAPACK_INT)M->nrows, lwork = (LAPACK_INT)(100*M->nrows), info;
+  LAPACK_INT n = (LAPACK_INT)M->nrows, info = 0;
   int i, j;
 
   if (n != (LAPACK_INT)M->ncols)
@@ -241,16 +241,50 @@ int mat_diagonalize_sym(Matrix *M, /* input matrix (n x n) */
   /* allocate working memory */
   LAPACK_DOUBLE *tmp  = (LAPACK_DOUBLE*)malloc((size_t)n * (size_t)n * sizeof(*tmp));
   LAPACK_DOUBLE *w    = (LAPACK_DOUBLE*)malloc((size_t)n * sizeof(*w));
-  LAPACK_DOUBLE *work = (LAPACK_DOUBLE*)malloc((size_t)lwork * sizeof(*work));
-  if (tmp == NULL || w == NULL || work == NULL) {
+  if (tmp == NULL || w == NULL) {
     fprintf(stderr, "ERROR mat_diagonalize_sym: out of memory (n=%d).\n", (int)n);
-    free(work); free(w); free(tmp);
+    free(w); free(tmp);
     return 1;
   }
+
+  /* Start from a known state (helps MSan/Valgrind even if LAPACK ignores) */
+  memset(tmp, 0, (size_t)n * (size_t)n * sizeof(*tmp));
   
   /* convert matrix to representation used by LAPACK (column-major) */
   mat_to_lapack(M, tmp);
 
+  /* Conservatively mirror upper -> lower so BOTH triangles are
+     initialized. */
+  for (j = 0; j < n; j++) 
+    for (i = j+1; i < n; i++) 
+      /* tmp is column-major: element (i,j) stored at tmp[j*n + i] */
+      tmp[i + (size_t)j * n] = tmp[j + (size_t)i * n];
+
+  /* Workspace query for optimal lwork */
+  LAPACK_DOUBLE wkopt;
+  LAPACK_INT lwork = -1;
+#ifdef R_LAPACK
+  F77_CALL(dsyev)(&jobz, &uplo, &n, tmp, &n, w, &wkopt, &lwork, &info);
+#else
+  dsyev_(&jobz, &uplo, &n, tmp, &n, w, &wkopt, &lwork, &info);
+#endif
+  if (info != 0) {
+    fprintf(stderr, "ERROR dsyev workspace query failed: info=%d (arg %d invalid if <0)\n",
+            (int)info, -(int)info);
+    free(w); free(tmp);
+    return 1;
+  }
+  lwork = (LAPACK_INT) (wkopt < 1 ? 1 : (LAPACK_INT)wkopt);
+  LAPACK_DOUBLE *work = (LAPACK_DOUBLE*)malloc((size_t)lwork * sizeof(*work));
+  if (!work) {
+    fprintf(stderr, "ERROR mat_diagonalize_sym: out of memory for work (lwork=%d).\n", (int)lwork);
+    free(w); free(tmp);
+    return 1;
+  }
+  /* Zero work (some implementations read a few bytes before writing fully) */
+  memset(work, 0, (size_t)lwork * sizeof(*work));
+
+  /* compute eigenpairs; eigenvectors overwrite tmp columns */
 #ifdef R_LAPACK
   F77_CALL(dsyev)(&jobz, &uplo, &n, tmp, &n, w, work, &lwork, &info);
 #else
@@ -258,15 +292,20 @@ int mat_diagonalize_sym(Matrix *M, /* input matrix (n x n) */
 #endif
 
   if (info != 0) {
-    fprintf(stderr, "ERROR executing the LAPACK 'dsyev' routine.\n");
+    if (info < 0) 
+      fprintf(stderr, "ERROR dsyev: arg %d had an illegal value.\n", -(int)info);
+    else 
+      fprintf(stderr, "ERROR dsyev: algorithm failed to converge; %d off-diagonal elements.\n", (int)info);
+    free(work); free(w); free(tmp);
     return 1;
   }
 
+  /* export results */
   for (j = 0; j < n; j++) {     /* column */
     vec_set(eval, j, w[j]);
 
     for (i = 0; i < n; i++)    /* row */
-      mat_set(evec, i, j, tmp[j*(size_t)n + i]);
+      mat_set(evec, i, j, tmp[(size_t)j*n + i]);
   }
 
   free(work); free(w); free(tmp);
