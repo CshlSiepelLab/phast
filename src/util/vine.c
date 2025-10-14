@@ -20,6 +20,7 @@
 #include <phast/sufficient_stats.h>
 #include <phast/mvn.h>
 #include <phast/var_resampling.h>
+#include <phast/tree_prior.h>
 #include "vine.help"
 
 #define DEFAULT_NSAMPLES 100
@@ -63,6 +64,7 @@ int main(int argc, char *argv[]) {
   CrisprMutModel *crispr_mod = NULL;
   enum crispr_model_type crispr_modtype = SITEWISE;
   enum crispr_mutrates_type crispr_muttype = UNIF;
+  TreePrior *tprior = NULL;
   
   struct option long_opts[] = {
     {"format", 1, 0, 'i'},
@@ -97,11 +99,12 @@ int main(int argc, char *argv[]) {
     {"planar-flow", 0, 0, 'Z'}, 
     {"crispr-modtype", 1, 0, 'Y'},
     {"crispr-mutprior", 1, 0, 'p'},
+    {"treeprior", 0, 0, 'P'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:FZjJkK:l:m:M:n:No:v:r:Rt:T:VW:S:s:CY:p:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:FZjJkK:l:m:M:n:No:v:r:Rt:T:VW:S:s:CY:Pp:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -243,6 +246,9 @@ int main(int argc, char *argv[]) {
         crispr_muttype = EMPIRICAL;
       else die("ERROR: bad argument to --crispr-mutprior (-p).\n");
       break;
+    case 'P':
+      tprior = tp_new();
+      break;
     case 'h':
       printf("%s", HELP); 
       exit(0);
@@ -261,6 +267,9 @@ int main(int argc, char *argv[]) {
     hyperbolic = FALSE;
   /* for convenience in scripting; nonhyperbolic considered special case of hyperbolic */
 
+  if (tprior != NULL && (is_crispr == TRUE || ultrametric == TRUE))
+    die("Tree prior cannot be used with CRISPR mutation model or ultrametric trees.\n");
+  
   if (rank != DEFAULT_RANK && covar_param != LOWR)
     fprintf(stderr, "WARNING: --rank ignored when --covar is not LOWR\n");
   
@@ -342,7 +351,7 @@ int main(int argc, char *argv[]) {
   covar_data = nj_new_covar_data(covar_param, D, dim, msa, crispr_mod, names,
                                  natural_grad, kld_upweight, rank, var_reg,
                                  hyperbolic, negcurvature, ultrametric, radial_flow,
-                                 planar_flow);
+                                 planar_flow, tprior);
 
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */
@@ -400,6 +409,10 @@ int main(int argc, char *argv[]) {
         nj_dump_covar_data(covar_data, stdout);
         exit(0);
       }
+
+      /* initialize tree prior if needed (requires mod) */
+      if (tprior != NULL)
+        tp_init_nodetimes(tprior, mod);
       
       nj_variational_inf(mod, mmvn, batchsize, learnrate,
                          nbatches_conv, min_nbatches, 

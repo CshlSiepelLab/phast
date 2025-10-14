@@ -27,6 +27,7 @@
 #include <phast/misc.h>
 #include <phast/radial_flow.h>
 #include <phast/planar_flow.h>
+#include <phast/tree_prior.h>
 
 /* for numerical derivatives */
 #define DERIV_EPS 1e-5
@@ -69,7 +70,7 @@ enum covar_type {CONST, DIAG, DIST, LOWR};
   
 /* auxiliary data for parameterization of covariance matrix in DIST
    case */
-typedef struct {
+typedef struct cvdat {
   enum covar_type type; /* type of parameterization */
   int nseqs; /* number of taxa in tree */
   int dim; /* dimension of point embedding */
@@ -103,6 +104,7 @@ typedef struct {
                               sometimes needed with CRISPR model */
   RadialFlow *rf; /* optional flow layers (NULL if none) */
   PlanarFlow *pf;
+  TreePrior *treeprior; /* optional prior for tree */
 } CovarData;
 
 /* for use with min-heap in fast nj algorithm */
@@ -180,7 +182,8 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
                              double kld_upweight, int rank,
                              double var_reg, unsigned int hyperbolic,
                              double negcurvature, unsigned int ultrametric,
-                             unsigned int radial_flow, unsigned int planar_flow);
+                             unsigned int radial_flow, unsigned int planar_flow,
+                             TreePrior *treeprior);
 
 void nj_dump_covar_data(CovarData *data, FILE *F);
 

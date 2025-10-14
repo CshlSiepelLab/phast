@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
     /* this is mostly a dummy; only the msa or crispr mod is used */
     D = mat_new(5, 5);
     data = nj_new_covar_data(CONST, D, 1, evalaln, crispr_mod, NULL, FALSE,
-                             1.0, 3, 1.0, FALSE, -1, FALSE, FALSE, FALSE);
+                             1.0, 3, 1.0, FALSE, -1, FALSE, FALSE, FALSE, NULL);
     lldists = lst_new_dbl(1000);
   }
   else if (topol_ref != NULL) {

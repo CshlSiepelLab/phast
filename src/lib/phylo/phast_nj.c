@@ -892,7 +892,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     dim = data->dim, fulld = n*dim;
   double elb, ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace, logdet, penalty = 0,
-    bestpenalty = 0, ave_nf_logdet, best_nf_logdet = -INFTY;
+    bestpenalty = 0, ave_nf_logdet, best_nf_logdet = -INFTY,
+    ave_lprior, best_lprior = -INFTY;
   FILE *gradf = NULL;
 
   /* for nuisance parameters; these are parameters that are optimized
@@ -901,7 +902,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   int n_nuisance_params = nj_get_num_nuisance_params(mod, data);
   Vector *nuis_grad = NULL, *ave_nuis_grad = NULL, *m_nuis = NULL,
     *v_nuis = NULL, *m_nuis_prev = NULL, *v_nuis_prev = NULL,
-    *best_nuis_params = NULL;
+    *best_nuis_params = NULL, *prior_grad = NULL;
   
 #ifdef DUMPGRAD
   gradf = phast_fopen("grads_log.txt", "w");
@@ -932,6 +933,9 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     best_nuis_params = vec_new(n_nuisance_params);
   }
 
+  if (data->treeprior != NULL)
+    prior_grad = vec_new(graddim);  
+
   if (data->type == LOWR) /* in this case, the underlying standard
                              normal MVN is of the lower dimension */
     points_std = vec_new(data->lowrank * dim);
@@ -946,7 +950,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   /* set up log file */
   if (logf != NULL) {
     fprintf(logf, "# varPHAST logfile\n");
-    fprintf(logf, "state\tll\tkld\tnfld\telb\t");
+    fprintf(logf, "state\tll\tlprior\tkld\tnfld\telb\t");
     fprintf(logf, "penalty\t");
     for (j = 0; j < fulld; j++)
       fprintf(logf, "mu.%d\t", j);
@@ -1019,12 +1023,16 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     vec_zero(avegrad);
     if (n_nuisance_params > 0)
       vec_zero(ave_nuis_grad);
+    if (data->treeprior != NULL)
+      vec_zero(prior_grad);
     avell = 0;
+    ave_lprior = 0;
     ave_nf_logdet = 0;
     for (i = 0; i < nminibatch; i++) {
       int bail = 0;
       double nf_logdet = 0; /* log det of Jacobian for normalizing flows;
                                will only be set if needed */
+      
       do {
         /* do this in a way that keeps track of the original standard
            normal variable (points_std) for use in computing
@@ -1050,6 +1058,12 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       vec_plus_eq(avegrad, grad);
       ave_nf_logdet += nf_logdet;
 
+      /* calculate prior if needed; add gradient of branches */
+      if (data->treeprior != NULL) {
+        ave_lprior += tp_compute_log_prior(mod, data, prior_grad);
+        vec_plus_eq(avegrad, prior_grad);
+      }
+
       if (n_nuisance_params > 0) {
         nj_update_nuis_grad(mod, data, nuis_grad);
         vec_plus_eq(ave_nuis_grad, nuis_grad);
@@ -1059,6 +1073,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     /* divide by nminibatch to get expected gradient */
     vec_scale(avegrad, 1.0/nminibatch);
     avell /= nminibatch;
+    ave_lprior /= nminibatch;
     vec_plus_eq(avegrad, kldgrad);
     ave_nf_logdet /= nminibatch;
     vec_plus_eq(avegrad, sparsitygrad);
@@ -1067,10 +1082,11 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       vec_scale(ave_nuis_grad, 1.0/nminibatch);
     
     /* store parameters if best yet */
-    elb = avell - kld + ave_nf_logdet - penalty;
+    elb = avell + ave_lprior - kld + ave_nf_logdet - penalty;
     if (elb > bestelb) {
       bestelb = elb;
       bestll = avell;  /* not necessarily best ll but ll corresponding to bestelb */
+      best_lprior = ave_lprior;
       bestkld = kld;  
       bestpenalty = penalty; 
       best_nf_logdet = ave_nf_logdet;
@@ -1130,7 +1146,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     /* report to log file */
     if (logf != NULL) {
-      fprintf(logf, "%d\t%f\t%f\t%f\t%f\t%f\t", t, avell, kld, ave_nf_logdet, elb, data->var_pen);
+      fprintf(logf, "%d\t%f\t%f\t%f\t%f\t%f\t%f\t", t, avell, ave_lprior, kld, ave_nf_logdet, elb, data->var_pen);
       mmvn_print(mmvn, logf, TRUE, FALSE);
       for (j = 0; j < sigmapar->size; j++)
         fprintf(logf, "%f\t", vec_get(sigmapar, j));
@@ -1167,8 +1183,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     nj_update_nuis_params(best_nuis_params, mod, data);
   
   if (logf != NULL) {
-    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, KLD: %.2f, RFLD: %.2f, penalty: %.2f",
-            bestt+1, bestelb, bestll, bestkld, best_nf_logdet, bestpenalty);
+    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, LPRIOR: %.2f, KLD: %.2f, RFLD: %.2f, penalty: %.2f",
+            bestt+1, bestelb, bestll, best_lprior, bestkld, best_nf_logdet, bestpenalty);
     for (j = 0; j < n_nuisance_params; j++) /* print these also if available */
       fprintf(logf, ", %s: %.4f\t", nj_get_nuisance_param_name(mod, data, j),
               nj_nuis_param_get(mod, data, j));
@@ -1189,6 +1205,9 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   vec_free(best_mu);
   vec_free(best_sigmapar);
 
+  if (data->treeprior != NULL)
+    vec_free(prior_grad);
+  
   if (n_nuisance_params > 0) {
     vec_free(nuis_grad);
     vec_free(ave_nuis_grad);
@@ -1786,7 +1805,8 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
                              unsigned int natural_grad, double kld_upweight,
                              int rank, double var_reg, unsigned int hyperbolic,
                              double negcurvature, unsigned int ultrametric,
-                             unsigned int radial_flow, unsigned int planar_flow) {
+                             unsigned int radial_flow, unsigned int planar_flow,
+                             TreePrior *treeprior) {
   static int seeded = 0;
   
   CovarData *retval = smalloc(sizeof(CovarData));
@@ -1811,7 +1831,8 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   retval->negcurvature = negcurvature;
   retval->ultrametric = ultrametric;
   retval->no_zero_br = FALSE;
-
+  retval->treeprior = treeprior;
+  
   if (radial_flow == TRUE) {
     retval->rf = rf_new(retval->nseqs, dim);
     rf_rescale(retval->rf, POINTSPAN_EUC/sqrt(2));
@@ -2798,23 +2819,27 @@ int nj_get_num_nuisance_params(TreeModel *mod, CovarData *data) {
 
   if (data->pf != NULL)
     retval += data->pf->ndim * 2 + 1;
+
+  if (data->treeprior != NULL)
+    retval += (1 + data->treeprior->nodetimes->size);  
   
   return retval;
 }
 
 char *nj_get_nuisance_param_name(TreeModel *mod, CovarData *data, int idx) {
+  char *tmp;
   assert(idx >= 0);
   if (data->crispr_mod != NULL) {
     if (idx == 0)
       return "nu";
-    else if (idx == 1)
+    if (idx == 1)
       return ("lead_t");
-    else idx -= 2;  /* incrementally subtract each set of indices */
+    idx -= 2;  /* incrementally subtract each set of indices */
   }
   else if (mod->subst_mod == HKY85) {
     if (idx == 0) 
       return "kappa";
-    else idx -= 1;
+    idx -= 1;
   }
   
   if (data->rf != NULL) {
@@ -2823,43 +2848,51 @@ char *nj_get_nuisance_param_name(TreeModel *mod, CovarData *data, int idx) {
       snprintf(tmp, 15, "rf_ctr[%d]", idx);
       return tmp;
     }
-    else {
-      idx -= data->rf->ctr->size;
-      if (idx == 0)
-        return "rf_a";
-      else if (idx == 1)
-        return "rf_b";
-      else idx -= 2;
-    }
+    idx -= data->rf->ctr->size;
+    if (idx == 0)
+      return "rf_a";
+    if (idx == 1)
+      return "rf_b";
+    idx -= 2;
   }
 
   if (data->pf != NULL) {
     if (idx < data->pf->ndim) {
-      char *tmp = smalloc(15 * sizeof(char));
+      tmp = smalloc(15 * sizeof(char));
       snprintf(tmp, 15, "pf_u[%d]", idx);
       return tmp;
     }
-    else if (idx < 2 * data->pf->ndim) {
-      idx -= data->pf->ndim;
-      char *tmp = smalloc(15 * sizeof(char));
+    idx -= data->pf->ndim;
+    if (idx < data->pf->ndim) {
+      tmp = smalloc(15 * sizeof(char));
       snprintf(tmp, 15, "pf_w[%d]", idx);
       return tmp;
     }
-    else {
-      idx -= 2 * data->pf->ndim;
-      if (idx == 0)
-        return "pf_b";
-      else
-        die("ERROR in nj_get_nuisance_param_name: index out of bounds.\n");
-    }
+    idx -= data->pf->ndim;
+    if (idx == 0)
+      return "pf_b";
+    idx--;
   }
-    
+
+  if (data->treeprior != NULL) {
+    if (idx == 0)
+      return "relclock_sig";
+    idx -= 1;
+    if (idx < data->treeprior->nodetimes->size) {
+      tmp = smalloc(15 * sizeof(char));
+      snprintf(tmp, 15, "nodetime[%d]", idx);
+      return tmp;
+    }
+    idx -= data->treeprior->nodetimes->size;
+  }
+
+  die("ERROR in nj_get_nuisance_param_name: index out of bounds.\n");
   return NULL;
 }
 
 /* update nuis_grad based on current gradients */
 void nj_update_nuis_grad(TreeModel *mod, CovarData *data, Vector *nuis_grad) {
-  int idx = 0;
+  int idx = 0, i;
   if (data->crispr_mod != NULL) {
     vec_set(nuis_grad, idx++, data->crispr_mod->deriv_sil);
     vec_set(nuis_grad, idx++, data->crispr_mod->deriv_leading_t);
@@ -2869,18 +2902,24 @@ void nj_update_nuis_grad(TreeModel *mod, CovarData *data, Vector *nuis_grad) {
   }
 
   if (data->rf != NULL) {
-    for (int i = 0; i < data->rf->ctr_grad->size; i++)
+    for (i = 0; i < data->rf->ctr_grad->size; i++)
       vec_set(nuis_grad, idx++, vec_get(data->rf->ctr_grad, i));
     vec_set(nuis_grad, idx++, data->rf->a_grad);
     vec_set(nuis_grad, idx++, data->rf->b_grad);
   }
 
   if (data->pf != NULL) {
-    for (int i = 0; i < data->pf->ndim; i++)
+    for (i = 0; i < data->pf->ndim; i++)
       vec_set(nuis_grad, idx++, vec_get(data->pf->u_grad, i));
-    for (int i = 0; i < data->pf->ndim; i++)
+    for (i = 0; i < data->pf->ndim; i++)
       vec_set(nuis_grad, idx++, vec_get(data->pf->w_grad, i));
     vec_set(nuis_grad, idx++, data->pf->b_grad);
+  }
+
+  if (data->treeprior != NULL) {
+    vec_set(nuis_grad, idx++, data->treeprior->relclock_sig_grad);
+    for (i = 0; i < data->treeprior->nodetimes_grad->size; i++) 
+      vec_set(nuis_grad, idx++, vec_get(data->treeprior->nodetimes_grad, i)); 
   }
   
   assert(idx == nuis_grad->size);
@@ -2888,7 +2927,7 @@ void nj_update_nuis_grad(TreeModel *mod, CovarData *data, Vector *nuis_grad) {
 
 /* save current values of nuisance params */
 void nj_save_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data) {
-  int idx = 0;
+  int idx = 0, i;
   if (data->crispr_mod != NULL) {
     vec_set(stored_vals, idx++, data->crispr_mod->sil_rate);
     vec_set(stored_vals, idx++, data->crispr_mod->leading_t);
@@ -2897,26 +2936,32 @@ void nj_save_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data) {
     vec_set(stored_vals, idx++, data->hky_kappa);
 
   if (data->rf != NULL) {
-    for (int i = 0; i < data->rf->ctr->size; i++)
+    for (i = 0; i < data->rf->ctr->size; i++)
       vec_set(stored_vals, idx++, vec_get(data->rf->ctr, i));
     vec_set(stored_vals, idx++, data->rf->a);
     vec_set(stored_vals, idx++, data->rf->b);
   }
 
   if (data->pf != NULL) {
-    for (int i = 0; i < data->pf->ndim; i++)
+    for (i = 0; i < data->pf->ndim; i++)
       vec_set(stored_vals, idx++, vec_get(data->pf->u, i));
-    for (int i = 0; i < data->pf->ndim; i++)
+    for (i = 0; i < data->pf->ndim; i++)
       vec_set(stored_vals, idx++, vec_get(data->pf->w, i));
     vec_set(stored_vals, idx++, data->pf->b);
   }
-    
+
+  if (data->treeprior != NULL) {
+    vec_set(stored_vals, idx++, data->treeprior->relclock_sig);
+    for (i = 0; i < data->treeprior->nodetimes->size; i++) 
+      vec_set(stored_vals, idx++, vec_get(data->treeprior->nodetimes, i)); 
+  }
+  
   assert(idx == stored_vals->size);
 }
 
 /* update all nuisance parameters based on vector of stored values */
 void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data) {
-  int idx = 0;
+  int idx = 0, i;
   if (data->crispr_mod != NULL) {
     data->crispr_mod->sil_rate = vec_get(stored_vals, idx++);
     data->crispr_mod->leading_t = vec_get(stored_vals, idx++);
@@ -2930,7 +2975,7 @@ void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data)
 
   if (data->rf != NULL) {
     if (data->rf->center_update == TRUE)
-      for (int i = 0; i < data->rf->ctr->size; i++)
+      for (i = 0; i < data->rf->ctr->size; i++)
         vec_set(data->rf->ctr, i, vec_get(stored_vals, idx++));
     else
       idx += data->rf->ctr->size;
@@ -2941,13 +2986,19 @@ void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data)
   }
 
   if (data->pf != NULL) {
-    for (int i = 0; i < data->pf->ndim; i++)
+    for (i = 0; i < data->pf->ndim; i++)
       vec_set(data->pf->u, i, vec_get(stored_vals, idx++)); 
-    for (int i = 0; i < data->pf->ndim; i++)
+    for (i = 0; i < data->pf->ndim; i++)
       vec_set(data->pf->w, i, vec_get(stored_vals, idx++)); 
     data->pf->b = vec_get(stored_vals, idx++);
   }
-    
+
+  if (data->treeprior != NULL) {
+    data->treeprior->relclock_sig = vec_get(stored_vals, idx++);
+    for (i = 0; i < data->treeprior->nodetimes->size; i++) 
+      vec_set(data->treeprior->nodetimes, i, vec_get(stored_vals, idx++));
+  }
+  
   assert(idx == stored_vals->size);
 }
 
@@ -2956,16 +3007,17 @@ void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) 
   if (data->crispr_mod != NULL) {
     if (idx == 0) {
       data->crispr_mod->sil_rate += inc;
-      if (data->crispr_mod->sil_rate < 0)
+      if (data->crispr_mod->sil_rate < 0) 
         data->crispr_mod->sil_rate = 0;
+      return;
     }
-    else if (idx == 1) {
+    if (idx == 1) {
       data->crispr_mod->leading_t += inc;
-      if (data->crispr_mod->leading_t < 0)
+      if (data->crispr_mod->leading_t < 0) 
         data->crispr_mod->leading_t = 0;
+      return;
     }
-    else
-      idx -= 2; /* subtract for below */
+    idx -= 2; /* subtract for below */
   }
   else if (mod->subst_mod == HKY85) {
     if (idx == 0) {
@@ -2975,41 +3027,63 @@ void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) 
       tm_set_HKY_matrix(mod, data->hky_kappa, -1);
       tm_scale_rate_matrix(mod);
       mm_diagonalize(mod->rate_matrix);
+      return;
     }
-    else idx -= 1;      
+    idx -= 1;      
   }
 
   if (data->rf != NULL) {
-    if (idx < data->rf->ctr->size) {
-      if (data->rf->center_update == TRUE)
+    if (data->rf->center_update == TRUE) {
+      if (idx < data->rf->ctr->size) {
         vec_set(data->rf->ctr, idx, vec_get(data->rf->ctr, idx) + inc);
-    }
-    else {
+        return;
+      }
       idx -= data->rf->ctr->size;
-      if (idx == 0)
-        data->rf->a += inc;
-      else if (idx == 1)
-        data->rf->b += inc;
-      else
-        idx -= 2;
     }
+    if (idx == 0) {
+      data->rf->a += inc;
+      return;
+    }
+    if (idx == 1) {
+      data->rf->b += inc;
+      return;
+    }
+    idx -= 2;
   }
 
   if (data->pf != NULL) {
-    if (idx < data->pf->ndim)
+    if (idx < data->pf->ndim) {
       vec_set(data->pf->u, idx, vec_get(data->pf->u, idx) + inc);
-    else if (idx < 2 * data->pf->ndim) {
-      idx -= data->pf->ndim;
+      return;
+    }
+    idx -= data->pf->ndim;
+    if (idx < data->pf->ndim) {
       vec_set(data->pf->w, idx, vec_get(data->pf->w, idx) + inc);
+      return;
     }
-    else {
-      idx -= 2 * data->pf->ndim;
-      if (idx == 0)
-        data->pf->b += inc;
-      else
-        die("ERROR in nj_nuis_param_pluseq: index out of bounds.\n");
+    idx -= data->pf->ndim;
+    if (idx == 0) {
+      data->pf->b += inc;
+      return;
     }
+    idx--;
   }
+
+  if (data->treeprior != NULL) {
+    if (idx == 0) {
+      data->treeprior->relclock_sig += inc;
+      return;
+    }
+    idx--;
+    if (idx < data->treeprior->nodetimes->size) {
+      vec_set(data->treeprior->nodetimes, idx,
+              vec_get(data->treeprior->nodetimes, idx) + inc);
+      return;
+    }
+    idx -= data->treeprior->nodetimes->size;
+  }
+
+  die("ERROR in nj_nuis_param_pluseq: index out of bounds.\n");
 }
 
 /* return value of single nuisance parameter */
@@ -3017,47 +3091,51 @@ double nj_nuis_param_get(TreeModel *mod, CovarData *data, int idx) {
   if (data->crispr_mod != NULL) {
     if (idx == 0)
       return data->crispr_mod->sil_rate;
-    else if (idx == 1)
+    if (idx == 1)
       return data->crispr_mod->leading_t;
-    else
-      idx -= 2; /* subtract for below */
+    idx -= 2; /* subtract for below */
   }
   else if (mod->subst_mod == HKY85) {
     if (idx == 0)
       return data->hky_kappa;
-    else idx -= 1;      
+    idx -= 1;      
   }
 
   if (data->rf != NULL) {
-    if (idx < data->rf->ctr->size) 
-      return vec_get(data->rf->ctr, idx);
-    else {
+    if (data->rf->center_update == TRUE) {
+      if (idx < data->rf->ctr->size) 
+        return vec_get(data->rf->ctr, idx);      
       idx -= data->rf->ctr->size;
-      if (idx == 0)
-        return data->rf->a;
-      else if (idx == 1)
-        return data->rf->b;
-      else
-        idx -= 2;
     }
+    if (idx == 0)
+      return data->rf->a;
+    if (idx == 1)
+      return data->rf->b;
+    idx -= 2;
   }
 
   if (data->pf != NULL) {
     if (idx < data->pf->ndim) 
       return vec_get(data->pf->u, idx);
-    else if (idx < 2 * data->pf->ndim) {
-      idx -= data->pf->ndim;
-      return vec_get(data->pf->w, idx);
-    }
-    else {
-      idx -= 2 * data->pf->ndim;
-      if (idx == 0)
-        return data->pf->b;
-      else
-        die("ERROR in nuis_param_get: index out of bounds.\n");
-    }
+    idx -= data->pf->ndim;
+    if (idx < data->pf->ndim) 
+      return vec_get(data->pf->w, idx);    
+    idx -= data->pf->ndim;
+    if (idx == 0)
+      return data->pf->b;
+    idx--;
   }
-  
+
+  if (data->treeprior != NULL) {
+    if (idx == 0)
+      return data->treeprior->relclock_sig;
+    idx--;
+    if (idx < data->treeprior->nodetimes->size)
+      return vec_get(data->treeprior->nodetimes, idx);
+    idx -= data->treeprior->nodetimes->size;
+  }
+
+  die("ERROR in nuis_param_get: index out of bounds.\n");
   return -1;
 }
 
@@ -3139,6 +3217,3 @@ void nj_apply_normalizing_flows(Vector *points_y, Vector *points_x,
     (*logdet) = ldet; 
 }
 
-/* compute log prior under a simple Yule model with relaxed local clock */
-double nj_compute_log_prior(TreeModel *mod, CovarData *data, Vector *branchgrad) {
-}

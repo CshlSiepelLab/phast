@@ -3,17 +3,10 @@
 
 #include <stdio.h>
 #include <math.h>
+#include "phast/misc.h"
 #include "phast/vector.h"
 
 #define RF_EPS 1.0e-6
-
-static inline double softplus(double x) {
-  return log(1 + exp(x));
-}
-
-static inline double inv_softplus(double sp) {
-  return log(exp(sp)-1);
-}
 
 typedef struct {
   int npoints; /* flow applies to npoints points, each in ndim dimensions */

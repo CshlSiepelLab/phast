@@ -222,6 +222,21 @@ int combinations(int n, int k) {
   return retval / permutations(k);
 }
 
+static PHAST_INLINE
+double softplus(double x) {
+  return log(1 + exp(x));
+}
+
+static PHAST_INLINE
+double inv_softplus(double sp) {
+  return log(expm1(sp));
+}
+
+static PHAST_INLINE
+double sigmoid(double x) {
+  double z = exp(x);
+  return z / (1.0 + z);
+}
 
 /** Randomly choose k elements from a list of N.
     @param[in,out] selections Result array of size N to be populated with 0 (not chosen) or 1 (chosen). Elements initialized to -1 will be consitered "ineligable" and skipped.

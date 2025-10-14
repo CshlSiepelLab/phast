@@ -72,6 +72,11 @@ MAIN OPTIONS:
         approximation of the posterior distribution at the cost of
         additional likelihood evaluations (which are generally cheap).  
 
+    --treeprior, -P
+        Assume a simple prior distribution over tree topologies and branch
+        lengths, based on a Yule model and a relaxed local clock (with a
+        lognormally distributed clock rate per branch).        
+
     --ultrametric, -C
         Forces estimated trees to be ultrametric, by using the UPGMA
         algorithm instead of the neighbor-joining algorithm. On by default
