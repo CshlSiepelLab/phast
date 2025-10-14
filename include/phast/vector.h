@@ -47,6 +47,8 @@ Vector *vec_new(int size);
 */
 Vector *vec_new_from_array(double *array, int size);
 
+Vector *vec_view_array(double *array, int size);
+
 /** Create new vector and initialized it with values from given list.
   
   Vector size is the size of the supplied list.

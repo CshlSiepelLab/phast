@@ -62,6 +62,10 @@
    matrix in DIST and CONST parameterizations */
 #define LAMBDA_INIT 1
 
+/* number of columns of alignment to subsample in early stages of
+   algorithms */
+#define NSUBSAMPLES 300
+
 /* types of parameterization for covariance matrix: constant (and
    diagonal), diagonal with free variances, proportional to Laplacian
    pseudoinverse based on pairwise distances, or low-rank
@@ -105,6 +109,7 @@ typedef struct cvdat {
   RadialFlow *rf; /* optional flow layers (NULL if none) */
   PlanarFlow *pf;
   TreePrior *treeprior; /* optional prior for tree */
+  unsigned int subsample;
 } CovarData;
 
 /* for use with min-heap in fast nj algorithm */

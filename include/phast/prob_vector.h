@@ -145,4 +145,11 @@ int pv_draw_idx(Vector *pdf);
 
 void pv_set_uniform(Vector *pv);
 
+int pv_cdf_bsearch(const Vector *cdf, double u, p_val_type side);
+
+void pv_draw_counts(Vector *counts, Vector *cdf, int nsamples);
+
+Vector *pv_cdf_from_counts(Vector *counts, p_val_type side);
+
+
 #endif

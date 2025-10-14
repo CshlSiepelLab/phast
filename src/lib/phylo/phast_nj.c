@@ -977,6 +977,10 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     vec_zero(v_nuis);  vec_zero(v_nuis_prev);
   }
   t = 0;
+
+  /* activate subsampling if appropriate */
+  if (data->msa->length > 2 * NSUBSAMPLES)
+    data->subsample = TRUE;
   
   do {
     /* we can precompute the KLD because it does not depend on the data under this model */
@@ -1443,6 +1447,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
   Matrix **grad_mat, **grad_mat_kappa;
   unsigned int rescale;
   MSA *msa = data->msa;
+  static Vector *tuplecdf = NULL;
   
   if (msa->ss->tuple_size != 1)
     die("ERROR nj_compute_log_likelihood: need tuple size 1, got %i\n",
@@ -1489,7 +1494,21 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
   if (mod->msa_seq_idx == NULL)
     tm_build_seq_idx(mod, msa);
 
+  /* set up tuple counts, subsampling if necessary */
+  if (data->subsample == TRUE) {
+    if (tuplecdf == NULL) {
+      Vector *counts = vec_view_array(msa->ss->counts, msa->ss->ntuples);
+      tuplecdf = pv_cdf_from_counts(counts, LOWER);
+      sfree(counts); /* avoid vec_free */
+    }      
+    pv_draw_counts(tuplecounts, tuplecdf, NSUBSAMPLES);
+  }
+  else
+    tuplecounts = vec_view_array(msa->ss->counts, msa->ss->ntuples);
+      
   for (tupleidx = 0; tupleidx < msa->ss->ntuples; tupleidx++) {
+    if (vec_get(tuplecounts, tupleidx) == 0) continue; /* important when subsampling */
+
     /* reset scale */
     vec_zero(lscale); vec_zero(lscale_o);
     
@@ -1553,7 +1572,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
       total_prob += vec_get(mod->backgd_freqs, i) *
         pL[i][mod->tree->id] * mod->freqK[rcat];      
     
-    ll += (log(total_prob) + vec_get(lscale, mod->tree->id)) * msa->ss->counts[tupleidx];
+    ll += (log(total_prob) + vec_get(lscale, mod->tree->id)) * vec_get(tuplecounts, tupleidx);
 
     if (!isfinite(ll)) break; /* can happen with zero-length branches;
                                  make calling code deal with it */
@@ -1670,7 +1689,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
           assert(isfinite(deriv));
                   
           vec_set(branchgrad, n->id, vec_get(branchgrad, n->id) +
-                  deriv * msa->ss->counts[tupleidx]);
+                  deriv * vec_get(tuplecounts, tupleidx);
         }
 
         /* in this case, we need a partial derivative for kappa also;
@@ -1686,7 +1705,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
 
           /* adjust for all relevant scale terms */
           this_deriv_kappa *= exp(expon);        
-          data->deriv_hky_kappa += (this_deriv_kappa * msa->ss->counts[tupleidx]);        
+          data->deriv_hky_kappa += (this_deriv_kappa * vec_get(tuplecounts, tupleidx));
         }
       }
     }
@@ -1712,6 +1731,12 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
 
   vec_free(lscale);
   vec_free(lscale_o);
+
+  if (data->subsample == TRUE)
+    vec_free(tuplecounts);
+  else
+    sfree(tuplecounts); /* avoid vec_free in this case because
+                           underlying data not copied */
   
   return ll;
 }

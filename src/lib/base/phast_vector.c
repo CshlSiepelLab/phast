@@ -28,6 +28,15 @@ Vector *vec_new_from_array(double *array, int size) {
   return v;
 }
 
+/* allows an array to be accessed like a vector without copying
+   underlying data; use carefully; avoid vec_free */
+Vector *vec_view_array(double *array, int size) {
+  Vector *v = smalloc(sizeof(Vector));
+  v->data = array;
+  v->size = size;
+  return v;
+}
+
 Vector *vec_new_from_list(List *l) {
   int i;
   Vector *v = vec_new(lst_size(l));

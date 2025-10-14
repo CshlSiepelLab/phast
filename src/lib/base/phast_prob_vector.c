@@ -389,12 +389,15 @@ Vector *pv_cdf(Vector *pdf, p_val_type side) {
     cdf->data[0] = pdf->data[0];
     for (x = 1; x < pdf->size; x++) 
       cdf->data[x] = cdf->data[x-1] + pdf->data[x];
+    if (cdf->data[cdf->size-1] < 1.0 - 1e-12) cdf->data[cdf->size-1] = 1.0; /* numerical check */
   }
   else {
     cdf->data[pdf->size-1] = pdf->data[pdf->size-1];
     for (x = pdf->size-2; x >= 0; x--) 
       cdf->data[x] = cdf->data[x+1] + pdf->data[x];
+    if (cdf->data[0] < 1.0 - 1e-12) cdf->data[0] = 1.0;
   }
+
   return cdf;
 }
 /** Given a probability vector, draw an index.  Call srandom externally */
@@ -421,4 +424,71 @@ int pv_draw_idx(Vector *pv) {
 void pv_set_uniform(Vector *pv) {
   for (int i = 0; i < pv->size; i++)
     vec_set(pv, i, 1.0/pv->size);
+}
+
+/* Find the index corresponding to uniform u in [0,1) using a CDF.
+   For LOWER CDF (increasing): return smallest i with cdf[i] > u  (upper_bound).
+   For UPPER CDF (decreasing): return smallest i with cdf[i] > u  in a decreasing array. */
+int pv_cdf_bsearch(const Vector *cdf, double u, p_val_type side) {
+  int n = cdf->size;
+  if (n == 0) return -1;
+
+  if (side == LOWER) {
+    /* upper_bound in increasing array */
+    int lo = 0, hi = n;               /* search in [lo, hi) */
+    while (lo < hi) {
+      int mid = lo + (hi - lo) / 2;
+      if (cdf->data[mid] > u)
+        hi = mid;
+      else
+        lo = mid + 1;
+    }
+    int idx = lo - 1;                  /* lo is first > u; idx = lo-1 would be last <= u */
+    /* We want first > u => index = lo */
+    idx = lo;
+    if (idx >= n) idx = n - 1;         /* guard for u extremely close to 1.0 */
+    return idx;
+  }
+  else {
+    /* upper_bound in decreasing array */
+    int lo = 0, hi = n;               /* search in [lo, hi) */
+    while (lo < hi) {
+      int mid = lo + (hi - lo) / 2;
+      if (cdf->data[mid] > u)
+        hi = mid;
+      else
+        lo = mid + 1;
+    }
+    int idx = lo;
+    if (idx >= n) idx = n - 1;
+    return idx;
+  }
+}
+
+/* Sample counts for each index based on a given (lower) CDF vector.
+   Counts will be integers but are stored as doubles */
+void pv_draw_counts(Vector *counts, Vector *cdf, int nsamples) {
+  int m = cdf->size;
+
+  if (counts->size != cdf->size || nsamples < 0)
+    die("ERROR in pv_draw_counts: bad input.\n");
+
+  vec_zero(counts);    
+  if (m == 0 || nsamples == 0) /* handle zero case */
+    return;
+
+  for (int t = 0; t < nsamples; t++) {
+    double u = unif_rand(); 
+    if (u >= 1.0) u = nextafter(1.0, 0.0);   /* want < 1.0; this sets to largest double < 1.0 */
+    int idx = pv_cdf_bsearch(cdf, u, LOWER);
+    if (idx >= 0) counts->data[idx] += 1.0;
+  }
+}
+
+Vector *pv_cdf_from_counts(Vector *counts, p_val_type side) {
+  Vector *pdf = vec_create_copy(counts);
+  pv_normalize(pdf);
+  Vector *retval = pv_cdf(pdf, LOWER);
+  vec_free(pdf);
+  return retval;
 }
