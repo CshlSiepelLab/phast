@@ -893,7 +893,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   double elb, ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace, logdet, penalty = 0,
     bestpenalty = 0, ave_nf_logdet, best_nf_logdet = -INFTY,
-    ave_lprior, best_lprior = -INFTY;
+    ave_lprior, best_lprior = -INFTY, subsamp_rescale = 1.0;
   FILE *gradf = NULL;
 
   /* for nuisance parameters; these are parameters that are optimized
@@ -979,8 +979,12 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   t = 0;
 
   /* activate subsampling if appropriate */
-  if (data->msa->length > 2 * NSUBSAMPLES)
+  if (data->msa->length > 2 * NSUBSAMPLES) {
     data->subsample = TRUE;
+    subsamp_rescale = (double)data->msa->length / NSUBSAMPLES;
+    if (logf != NULL)
+      fprintf(logf, "# Turning on subsampling (%d sites)\n", NSUBSAMPLES);
+  }
   
   do {
     /* we can precompute the KLD because it does not depend on the data under this model */
@@ -1057,6 +1061,11 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
                                    try to just keep sampling if that
                                    happens and if necessary constrain
                                    the tree structure */
+
+      if (data->subsample == TRUE) { /* rescale ll and grad if subsampling */
+        ll *= subsamp_rescale;
+        /*        vec_scale(grad, subsamp_rescale); */
+      }
       
       avell += ll;
       vec_plus_eq(avegrad, grad);
@@ -1078,8 +1087,9 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     vec_scale(avegrad, 1.0/nminibatch);
     avell /= nminibatch;
     ave_lprior /= nminibatch;
-    vec_plus_eq(avegrad, kldgrad);
     ave_nf_logdet /= nminibatch;
+    
+    vec_plus_eq(avegrad, kldgrad);
     vec_plus_eq(avegrad, sparsitygrad);
 
     if (n_nuisance_params > 0) 
@@ -1170,13 +1180,18 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     if (t % nbatches_conv == 0) {
       if (logf != NULL)
         fprintf(logf, "# Average ELBO for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
-      if (t >= min_nbatches && 1.001*running_tot <= last_running_tot*0.999)
+      if (data->subsample == TRUE && 1.05*running_tot <= last_running_tot*0.95) {
+        data->subsample = FALSE;
+        bestelb = -INFTY; /* do not want to keep version based on subsampling */
+        if (logf != NULL)
+          fprintf(logf, "# Turning off subsampling\n");
+      }
+      else if (t >= min_nbatches && 1.001*running_tot <= last_running_tot*0.999)
         /* sometimes get stuck increasingly asymptotically; stop if increase not more than about 0.1% */
         stop = TRUE;
-      else {
-        last_running_tot = running_tot;
-        running_tot = 0;
-      }
+
+      last_running_tot = running_tot;
+      running_tot = 0;
     }    
   } while(stop == FALSE);
 
@@ -1504,6 +1519,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
     }
     else
       assert (tuplecdf->size == msa->ss->ntuples);
+    tuplecounts = vec_new(msa->ss->ntuples);
     pv_draw_counts(tuplecounts, tuplecdf, NSUBSAMPLES);
   }
   else
@@ -1860,6 +1876,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   retval->ultrametric = ultrametric;
   retval->no_zero_br = FALSE;
   retval->treeprior = treeprior;
+  retval->subsample = FALSE;
   
   if (radial_flow == TRUE) {
     retval->rf = rf_new(retval->nseqs, dim);

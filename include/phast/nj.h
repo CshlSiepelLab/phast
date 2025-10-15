@@ -64,7 +64,7 @@
 
 /* number of columns of alignment to subsample in early stages of
    algorithms */
-#define NSUBSAMPLES 300
+#define NSUBSAMPLES 500
 
 /* types of parameterization for covariance matrix: constant (and
    diagonal), diagonal with free variances, proportional to Laplacian
