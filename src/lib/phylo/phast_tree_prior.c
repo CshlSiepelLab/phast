@@ -14,7 +14,10 @@
 
 #define RELCLOCK_SIG_INIT 1
 #define BL_EPS 1.0e-6
-#define TAU_EPS 1.0e-6
+/* #define TAU_EPS 1.0e-6 */ /* TEMPORARY */
+#define TAU_EPS 5.0e-6
+#define BETA_TAU 0.5
+#define DELTA_MIN -8.0
 
 /* return a new TreePrior object with default settings; designed to be
    updated later with a particular TreeModel */
@@ -30,9 +33,10 @@ TreePrior *tp_new() {
 /* compute log prior for a tree and branch lengths under a simple Yule
    model with relaxed local clock */
 double tp_compute_log_prior(TreeModel *mod, struct cvdat *data, Vector *branchgrad) {
-  int i;
-  double sig = softplus(data->treeprior->relclock_sig), sig2 = sig * sig,
-    mu = -0.5 * sig2, lsig = log(sig), twice_sig2 = 2 * sig2;
+  int i;  
+  /* double sig = softplus(data->treeprior->relclock_sig); */
+  double sig = 0.25 + softplus(data->treeprior->relclock_sig); /* TEMPORARY */
+  double sig2 = sig * sig, mu = -0.5 * sig2, lsig = log(sig), twice_sig2 = 2 * sig2;
   double retval = 0, timesum = 0, thistime, partime, bl, tau, zi, diff, diff2, tau_d;
   NodeDist *nd;
   int nbranches = mod->tree->nnodes - 1, nleaves = (mod->tree->nnodes+1)/2;
@@ -82,7 +86,10 @@ double tp_compute_log_prior(TreeModel *mod, struct cvdat *data, Vector *branchgr
     
     /* branchlength and corresponding time difference */
     bl = BL_EPS + softplus(n->dparent);   /* avoid zeroes */
-    tau = TAU_EPS + softplus(partime - thistime);    
+    /* tau = TAU_EPS + softplus(partime - thistime);   */ /* TEMPORARY */
+    double delta = partime - thistime;
+    double delta_c = (delta < DELTA_MIN ? DELTA_MIN : delta);
+    tau = TAU_EPS + (1.0/BETA_TAU) * softplus(BETA_TAU * delta_c);    
     timesum += tau;
 
     /* precompute for below */
@@ -126,7 +133,10 @@ double tp_compute_log_prior(TreeModel *mod, struct cvdat *data, Vector *branchgr
     partime = vec_get(data->treeprior->nodetimes, map[n->parent->id]);
     
     /* contribution to node-time gradients from Yule process */
-    tau_d = (vec_get(tau_deriv, i) - (double)nbranches/timesum) * sigmoid(partime-thistime);
+    /* tau_d = (vec_get(tau_deriv, i) - (double)nbranches/timesum) * sigmoid(partime-thistime); */ /* TEMPORARY */
+    double delta = partime - thistime;
+    double dsoft = (delta < DELTA_MIN ? 0.0 : sigmoid(BETA_TAU * delta));
+    tau_d = (vec_get(tau_deriv, i) - (double)nbranches/timesum) * dsoft;
     /* (sigmoid for softplus) */
     
     /* now propagate to node times: + to parent, - to child */    
