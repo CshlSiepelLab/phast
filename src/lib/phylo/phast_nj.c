@@ -1448,6 +1448,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
   unsigned int rescale;
   MSA *msa = data->msa;
   static Vector *tuplecdf = NULL;
+  Vector *tuplecounts = NULL;
   
   if (msa->ss->tuple_size != 1)
     die("ERROR nj_compute_log_likelihood: need tuple size 1, got %i\n",
@@ -1500,7 +1501,9 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
       Vector *counts = vec_view_array(msa->ss->counts, msa->ss->ntuples);
       tuplecdf = pv_cdf_from_counts(counts, LOWER);
       sfree(counts); /* avoid vec_free */
-    }      
+    }
+    else
+      assert (tuplecdf->size == msa->ss->ntuples);
     pv_draw_counts(tuplecounts, tuplecdf, NSUBSAMPLES);
   }
   else
@@ -1689,7 +1692,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
           assert(isfinite(deriv));
                   
           vec_set(branchgrad, n->id, vec_get(branchgrad, n->id) +
-                  deriv * vec_get(tuplecounts, tupleidx);
+                  deriv * vec_get(tuplecounts, tupleidx));
         }
 
         /* in this case, we need a partial derivative for kappa also;
