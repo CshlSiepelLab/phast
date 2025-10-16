@@ -410,10 +410,6 @@ int main(int argc, char *argv[]) {
         exit(0);
       }
 
-      /* initialize tree prior if needed (requires mod) */
-      if (tprior != NULL)
-        tp_init_nodetimes(tprior, mod);
-      
       nj_variational_inf(mod, mmvn, batchsize, learnrate,
                          nbatches_conv, min_nbatches, 
                          covar_data, logfile);

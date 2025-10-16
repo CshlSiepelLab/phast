@@ -1853,13 +1853,16 @@ void tr_collapse_unary_nodes(TreeNode **rootp) {
 }
 
 /* Simpler rerooting function. Reroot tree at the midpoint of the edge
-   ABOVE newroot.  Returns the pointer to the newly created root
-   node. */
+   ABOVE newroot.  Returns the pointer to the newly created root node.
+   Note that oldroot will be removed and previous pointer will be
+   stale after calling. */
 TreeNode *tr_reroot2(TreeNode *oldroot, TreeNode *newroot) {
 
   if (newroot == NULL || newroot->parent == NULL)
     return newroot;
 
+  int nnodes = oldroot->nnodes;
+  
   TreeNode *p0     = newroot->parent;      /* parent of newroot on the split edge */
   double    w_orig = newroot->dparent;     /* original length of (newroot <-> p0) */
   double    half   = 0.5 * w_orig;
@@ -1872,7 +1875,7 @@ TreeNode *tr_reroot2(TreeNode *oldroot, TreeNode *newroot) {
     double    len_up;  /* original length curr->dparent (toward old root) */
   } PathRec;
 
-  List *plist = lst_new_ptr(oldroot->nnodes);  
+  List *plist = lst_new_ptr(nnodes);  
   for (TreeNode *t = p0, *prev_child = newroot; t != NULL; prev_child = t, t = t->parent) {
     PathRec *r = (PathRec*)smalloc(sizeof(PathRec));
     r->curr   = t;
@@ -1946,15 +1949,20 @@ TreeNode *tr_reroot2(TreeNode *oldroot, TreeNode *newroot) {
   lst_free(plist);
 
   /* rebuild metadata starting from the new root. */
+  R->nnodes = nnodes;
   tr_set_nnodes(R);
 
   return R;
 }
 
 /* Return the node beneath the edge that contains the midpoint
-   of the diameter path leaf1 <-> leaf2. */
-TreeNode *tr_find_midpoint(TreeNode *tree, TreeNode *leaf1, TreeNode *leaf2) {
-  if (tree == NULL || leaf1 == NULL || leaf2 == NULL) return NULL;
+   of the diameter path leaf1 <-> leaf2, where leaf1 and leaf2 are specified by id */
+TreeNode *tr_find_midpoint(TreeNode *tree, int leaf1_id, int leaf2_id) {
+
+  TreeNode *leaf1 = lst_get_ptr(tree->nodes, leaf1_id);
+  TreeNode *leaf2 = lst_get_ptr(tree->nodes, leaf2_id);
+
+  if (leaf1 == NULL || leaf2 == NULL) return NULL;
 
   const int N = tree->nnodes;
 
@@ -1976,7 +1984,7 @@ TreeNode *tr_find_midpoint(TreeNode *tree, TreeNode *leaf1, TreeNode *leaf2) {
   /* Climb from leaf2 to find LCA; also fill path_to_leaf2 so we can walk down later */
   TreeNode *LCA = NULL;
   double d2_to_LCA = 0.0;
-  for (TreeNode *n = leaf2, *child = NULL; n != NULL; child = n, n = n->parent) {
+  for (TreeNode *n = leaf2; n != NULL; n = n->parent) {
     if (n->parent) path_to_leaf2[n->parent->id] = n;       /* parent goes down to 'n' toward leaf2 */
     if (dist1[n->id] >= 0.0) { LCA = n; break; }           /* first intersection is LCA */
     if (n->parent == NULL) break;

@@ -72,8 +72,8 @@
    approximation to full matrix */
 enum covar_type {CONST, DIAG, DIST, LOWR};
   
-/* auxiliary data for parameterization of covariance matrix in DIST
-   case */
+/* auxiliary data for parameterization of covariance matrix; also
+   contains other metadata needed for optimization */
 typedef struct cvdat {
   enum covar_type type; /* type of parameterization */
   int nseqs; /* number of taxa in tree */
@@ -108,8 +108,14 @@ typedef struct cvdat {
                               sometimes needed with CRISPR model */
   RadialFlow *rf; /* optional flow layers (NULL if none) */
   PlanarFlow *pf;
-  TreePrior *treeprior; /* optional prior for tree */
-  unsigned int subsample;
+  TreePrior *treeprior; /* optional prior for tree (NULL if none) */
+  unsigned int subsample; /* whether or not to subsample sites in likelihood calculation */
+  int tree_diam_leaf1; /* store the ids of two leaves along a diameter
+                          of the last reconstructed tree; for use in
+                          rerooting tree in case of prior */
+  int tree_diam_leaf2;
+  int *seq_to_node_map; /* mapping from sequence indices to leaf node
+                           ids, used with leaf1 and leaf2 */
 } CovarData;
 
 /* for use with min-heap in fast nj algorithm */
@@ -261,6 +267,9 @@ void nj_sample_points(multi_MVN *mmvn, Vector *points,
 
 void nj_apply_normalizing_flows(Vector *points_y, Vector *points_x,
                                 CovarData *data, double *logdet);
+
+void nj_update_seq_to_node_map(TreeNode *tree, char **names, CovarData *data);
+
 
 /* these are used for the hyperbolic geometry to stabilize the acosh
    calculations */

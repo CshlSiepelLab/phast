@@ -41,6 +41,9 @@ double tp_compute_log_prior(TreeModel *mod, struct cvdat *data, Vector *branchgr
   NodeDist *nd;
   int nbranches = mod->tree->nnodes - 1, nleaves = (mod->tree->nnodes+1)/2;
   Vector *tau_deriv = vec_new(mod->tree->nnodes);
+
+  if (data->treeprior->nodetimes == NULL)
+    tp_init_nodetimes(data->treeprior, mod);
   
   data->treeprior->relclock_sig_grad = 0;
   vec_zero(data->treeprior->nodetimes_grad);

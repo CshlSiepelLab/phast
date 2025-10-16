@@ -618,11 +618,12 @@ void nj_points_to_distances(Vector *points, CovarData *data) {
 void nj_points_to_distances_euclidean(Vector *points, CovarData *data) {
   int i, j, k, vidx1, vidx2, n, d;
   double sum;
+  double dist, maxdist = 0;
   Matrix *D = data->dist;
 
   n = D->nrows;
   d = points->size / n;
-  
+
   if (points->size != n*d || D->nrows != D->ncols) 
     die("ERROR nj_points_to_distances_euclidean: bad dimensions\n");
 
@@ -637,7 +638,13 @@ void nj_points_to_distances_euclidean(Vector *points, CovarData *data) {
           vec_get(points, vidx2 + k);
         sum += diff*diff;
       }
-      mat_set(D, i, j, sqrt(sum) / data->pointscale);
+      dist = sqrt(sum) / data->pointscale;
+      mat_set(D, i, j, dist);
+      if (dist > maxdist) {
+        maxdist = dist;
+        data->tree_diam_leaf1 = i; /* store these for use in rerooting, if needed */
+        data->tree_diam_leaf2 = j;
+      }
     }
   }
 }
@@ -648,7 +655,7 @@ void nj_points_to_distances_euclidean(Vector *points, CovarData *data) {
    points */ 
 void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data) {
   int i, j, k, vidx1, vidx2, n, d;
-  double lor_inner, ss1, ss2, x0_1, x0_2, Dij, u;
+  double lor_inner, ss1, ss2, x0_1, x0_2, Dij, u, maxdist = 0;
   Matrix *D = data->dist;
   double alpha = 1.0 / sqrt(data->negcurvature);   /* curvature radius */
 
@@ -683,8 +690,15 @@ void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data) {
       u = -lor_inner;
       Dij = (alpha / data->pointscale) * acosh_stable(u);
 
-      mat_set(D, i, j, Dij);      
       assert(isfinite(Dij) && Dij >= 0);
+
+      mat_set(D, i, j, Dij);      
+
+      if (Dij > maxdist) {
+        maxdist = Dij;
+        data->tree_diam_leaf1 = i; /* store these for use in rerooting, if needed */
+        data->tree_diam_leaf1 = j;
+      }
     }
   }
 }
@@ -1877,7 +1891,10 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   retval->no_zero_br = FALSE;
   retval->treeprior = treeprior;
   retval->subsample = FALSE;
-  
+  retval->tree_diam_leaf1 = -1;
+  retval->tree_diam_leaf2 = -1;
+  retval->seq_to_node_map = NULL;
+    
   if (radial_flow == TRUE) {
     retval->rf = rf_new(retval->nseqs, dim);
     rf_rescale(retval->rf, POINTSPAN_EUC/sqrt(2));
@@ -2835,16 +2852,26 @@ void nj_backprop_set_dt_dD_sparse(SparseMatrix *Jk, Matrix *dt_dD, int n, int f,
 
 /* wrapper for various distance-based tree inference algorithms */
 TreeNode *nj_inf(Matrix *D, char **names, Matrix *dt_dD,
-                 CovarData *covar_data) {
-  if (covar_data->ultrametric) {
+                 CovarData *data) {
+  if (data->ultrametric) {
     TreeNode *t = upgma_fast_infer(D, names, dt_dD);
 
-    if (covar_data->no_zero_br == TRUE)
+    if (data->no_zero_br == TRUE)
       nj_repair_zero_br(t);
     return t;
   }
-  else
-    return nj_fast_infer(D, names, dt_dD);
+  else {
+    TreeNode *tree = nj_fast_infer(D, names, dt_dD);
+    if (data->treeprior != NULL) { /* need to reroot in this case */
+      if (data->seq_to_node_map == NULL) /* only need to do this once */
+        nj_update_seq_to_node_map(tree, names, data);
+      TreeNode *mp = tr_find_midpoint(tree, data->seq_to_node_map[data->tree_diam_leaf1],
+                                      data->seq_to_node_map[data->tree_diam_leaf2]);
+      TreeNode *newtree = tr_reroot2(tree, mp);
+      tree = newtree;
+    }
+    return tree;
+  }
 }
 
 /* helper functions for nuisance parameters in variational
@@ -2866,7 +2893,7 @@ int nj_get_num_nuisance_params(TreeModel *mod, CovarData *data) {
     retval += data->pf->ndim * 2 + 1;
 
   if (data->treeprior != NULL)
-    retval += (1 + data->treeprior->nodetimes->size);  
+    retval += (1 + (mod->tree->nnodes + 1)/2 - 1);
   
   return retval;
 }
@@ -2923,7 +2950,7 @@ char *nj_get_nuisance_param_name(TreeModel *mod, CovarData *data, int idx) {
     if (idx == 0)
       return "relclock_sig";
     idx -= 1;
-    if (idx < data->treeprior->nodetimes->size) {
+    if (idx < (mod->tree->nnodes + 1)/2 - 1) {
       tmp = smalloc(15 * sizeof(char));
       snprintf(tmp, 15, "nodetime[%d]", idx);
       return tmp;
@@ -3262,3 +3289,33 @@ void nj_apply_normalizing_flows(Vector *points_y, Vector *points_x,
     (*logdet) = ldet; 
 }
 
+void nj_update_seq_to_node_map(TreeNode *tree, char **names, CovarData *data) {
+  List *leaves = lst_new_ptr(tree->nnodes/2);
+  if (data->seq_to_node_map != NULL)
+    sfree(data->seq_to_node_map);
+
+  /* collect leaves */
+  for (int i = 0; i < tree->nnodes; i++) {
+    TreeNode *n = lst_get_ptr(tree->nodes, i);
+    if (n->lchild == NULL && n->rchild == NULL)
+      lst_push_ptr(leaves, n);
+  }
+
+  /* obtain mapping from leaf node ids to seq idxs */
+  int *seq_idx = nj_build_seq_idx(leaves, names);
+  
+  /* we need the inverse of this mapping */
+  data->seq_to_node_map = smalloc(data->msa->nseqs * sizeof(int));
+  for (int i = 0; i < lst_size(leaves); i++) {
+    TreeNode *n = lst_get_ptr(leaves, i);
+    int seqidx = seq_idx[n->id];
+    data->seq_to_node_map[seqidx] = n->id;
+  }
+
+  lst_free(leaves);
+  sfree(seq_idx);
+}
+
+
+
+  
