@@ -469,4 +469,8 @@ void tr_reset_nnodes(TreeNode *tree);
 
 void tr_collapse_unary_nodes(TreeNode **rootp);
 
+TreeNode *tr_reroot2(TreeNode *oldroot, TreeNode *newroot);
+
+TreeNode *tr_find_midpoint(TreeNode *tree, TreeNode *leaf1, TreeNode *leaf2);
+
 #endif 

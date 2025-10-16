@@ -1852,3 +1852,175 @@ void tr_collapse_unary_nodes(TreeNode **rootp) {
   stk_free(out);
 }
 
+/* Simpler rerooting function. Reroot tree at the midpoint of the edge
+   ABOVE newroot.  Returns the pointer to the newly created root
+   node. */
+TreeNode *tr_reroot2(TreeNode *oldroot, TreeNode *newroot) {
+
+  if (newroot == NULL || newroot->parent == NULL)
+    return newroot;
+
+  TreeNode *p0     = newroot->parent;      /* parent of newroot on the split edge */
+  double    w_orig = newroot->dparent;     /* original length of (newroot <-> p0) */
+  double    half   = 0.5 * w_orig;
+
+  /* Cache records along the path p0 -> old root (no mutation yet). */
+  typedef struct {
+    TreeNode *curr;    /* node on the path (starting at p0) */
+    TreeNode *next;    /* its original parent toward the old root (NULL at old root) */
+    TreeNode *off;     /* off-path child (sibling subtree), may be NULL */
+    double    len_up;  /* original length curr->dparent (toward old root) */
+  } PathRec;
+
+  List *plist = lst_new_ptr(oldroot->nnodes);  
+  for (TreeNode *t = p0, *prev_child = newroot; t != NULL; prev_child = t, t = t->parent) {
+    PathRec *r = (PathRec*)smalloc(sizeof(PathRec));
+    r->curr   = t;
+    r->next   = t->parent;                                  /* toward old root */
+    r->off    = (t->lchild == prev_child) ? t->rchild : t->lchild;  /* sibling subtree */
+    r->len_up = t->dparent;                                 /* upward edge length */
+    lst_push_ptr(plist, r);
+  }
+
+  /* create the new degree-2 root at the midpoint. */
+  TreeNode *R = tr_new_node();
+  R->id = oldroot->id;    /* reuse old root’s id */
+  R->parent  = NULL;
+  R->dparent = 0.0;
+
+  /* attach the two sides of the split edge to the new root, halving the length. */
+  R->lchild        = newroot;
+  newroot->parent  = R;
+  newroot->dparent = half;
+
+  R->rchild        = p0;
+  p0->parent       = R;
+  p0->dparent      = half;
+
+  /* re-orient pointers along the cached path, from p0 up to the old root.
+     Traverse plist in reverse */
+  for (int i = lst_size(plist) - 1; i >= 0; i--) {
+    PathRec *r  = (PathRec*)lst_get_ptr(plist, i);
+    TreeNode *c = r->curr;
+    TreeNode *n = r->next;
+    TreeNode *o = r->off;
+
+    /* children become: off-path subtree and the next node toward old root */
+    c->lchild = o;
+    c->rchild = n;
+
+    if (o != NULL) 
+      o->parent = c;         /* o->dparent unchanged */
+    if (n != NULL) {
+      n->parent  = c;
+      n->dparent = r->len_up;  /* preserve original upward edge length */
+    }
+  }
+
+  /* delete the old root node (degree-2) */
+  assert(lst_size(plist) > 0);
+  PathRec *last = (PathRec*)lst_get_ptr(plist, lst_size(plist) - 1);
+  TreeNode *old_root_node = last->curr;
+  TreeNode *off           = last->off;
+  TreeNode *parent_of_old =
+    (lst_size(plist) >= 2)
+    ? ((PathRec*)lst_get_ptr(plist, lst_size(plist) - 2))->curr
+    : R;
+
+  assert(off != NULL);
+  off->parent  = parent_of_old;
+  off->dparent += old_root_node->dparent;
+
+  if (parent_of_old->lchild == old_root_node)
+    parent_of_old->lchild = off;
+  else {
+    assert(parent_of_old->rchild == old_root_node);
+    parent_of_old->rchild = off;
+  }
+  
+  old_root_node->lchild = NULL; old_root_node->rchild = NULL;
+  tr_free(old_root_node); /* frees old metadata */
+  
+  for (int i = 0; i < lst_size(plist); ++i)
+    sfree(lst_get_ptr(plist, i));
+  lst_free(plist);
+
+  /* rebuild metadata starting from the new root. */
+  tr_set_nnodes(R);
+
+  return R;
+}
+
+/* Return the node beneath the edge that contains the midpoint
+   of the diameter path leaf1 <-> leaf2. */
+TreeNode *tr_find_midpoint(TreeNode *tree, TreeNode *leaf1, TreeNode *leaf2) {
+  if (tree == NULL || leaf1 == NULL || leaf2 == NULL) return NULL;
+
+  const int N = tree->nnodes;
+
+  /* dist1[id] = distance from leaf1 to ancestor 'id' (or -1 if not on leaf1->root path) */
+  double *dist1 = (double*)smalloc(N * sizeof(double));
+  /* path_to_leaf2[parent_id] = child along the path toward leaf2 (for walking LCA->leaf2) */
+  TreeNode **path_to_leaf2 = (TreeNode**)smalloc(N * sizeof(TreeNode*));
+
+  for (int i = 0; i < N; ++i) { dist1[i] = -1.0; path_to_leaf2[i] = NULL; }
+
+  /* Mark distances from leaf1 up to the root */
+  double d1_to_root = 0.0;
+  for (TreeNode *n = leaf1; n->parent != NULL; n = n->parent) {
+    d1_to_root += n->dparent;
+    dist1[n->parent->id] = d1_to_root;
+  }
+  dist1[tree->id] = d1_to_root;
+
+  /* Climb from leaf2 to find LCA; also fill path_to_leaf2 so we can walk down later */
+  TreeNode *LCA = NULL;
+  double d2_to_LCA = 0.0;
+  for (TreeNode *n = leaf2, *child = NULL; n != NULL; child = n, n = n->parent) {
+    if (n->parent) path_to_leaf2[n->parent->id] = n;       /* parent goes down to 'n' toward leaf2 */
+    if (dist1[n->id] >= 0.0) { LCA = n; break; }           /* first intersection is LCA */
+    if (n->parent == NULL) break;
+    d2_to_LCA += n->dparent;
+  }
+  assert(LCA != NULL);
+
+  const double d1_to_LCA = dist1[LCA->id];
+  const double diameter  = d1_to_LCA + d2_to_LCA;
+  double mid = 0.5 * diameter;
+
+  /* Move from leaf1 toward leaf2: first go up leaf1->LCA */
+  for (TreeNode *n = leaf1; n != LCA; n = n->parent) {
+    double w = n->dparent;                /* edge (n -> parent) */
+    if (mid < w) {                        /* midpoint lies strictly inside this edge */
+      sfree(dist1); sfree(path_to_leaf2);
+      return n;                           /* child endpoint = "beneath" the midpoint edge */
+    }
+    mid -= w;
+  }
+
+  /* If we land exactly at LCA (mid == 0), choose the edge toward leaf2 */
+  if (mid <= 0.0) {
+    TreeNode *child = path_to_leaf2[LCA->id];
+    sfree(dist1); sfree(path_to_leaf2);
+    return child != NULL ? child : LCA;           /* fallback to LCA only if degenerate */
+  }
+
+  /* Continue from LCA down toward leaf2 using cached child pointers */
+  TreeNode *prev = LCA;
+  TreeNode *cur  = path_to_leaf2[prev->id];
+  while (cur != NULL) {
+    /* Along this path we expect cur->parent == prev. Use cur->dparent as the edge length. */
+    double w = cur->dparent;
+    if (mid <= w) {
+      sfree(dist1); sfree(path_to_leaf2);
+      return cur;                          /* child endpoint beneath the midpoint edge */
+    }
+    mid -= w;
+    prev = cur;
+    cur  = path_to_leaf2[prev->id];
+  }
+
+  /* Should not happen; default to leaf2 side */
+  sfree(dist1); sfree(path_to_leaf2);
+  return leaf2;
+}
