@@ -74,7 +74,7 @@ typedef struct {
 /* hyperparameter for mean of sigma under exponential */
 #define SIG_EXP_MEAN 2
 
-TreePrior *tp_new();
+TreePrior *tp_new(enum tree_prior_type type, unsigned int relclock);
 
 double tp_compute_log_prior(TreeModel *mod, struct cvdat *data, Vector *branchgrad);
 
