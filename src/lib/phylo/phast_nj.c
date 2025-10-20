@@ -2865,6 +2865,8 @@ TreeNode *nj_inf(Matrix *D, char **names, Matrix *dt_dD,
     if (data->treeprior != NULL) { /* need to reroot in this case */
       if (data->seq_to_node_map == NULL) /* only need to do this once */
         nj_update_seq_to_node_map(tree, names, data);
+      if (data->tree_diam_leaf1 < 0 || data->tree_diam_leaf2 < 0)
+        nj_update_diam_leaves(D, data);  /* needed upon init */
       TreeNode *mp = tr_find_midpoint(tree, data->seq_to_node_map[data->tree_diam_leaf1],
                                       data->seq_to_node_map[data->tree_diam_leaf2]);
       TreeNode *newtree = tr_reroot2(tree, mp);
@@ -3316,6 +3318,19 @@ void nj_update_seq_to_node_map(TreeNode *tree, char **names, CovarData *data) {
   sfree(seq_idx);
 }
 
-
-
-  
+/* find leaves corresponding to largest distance in matrix.  Generally
+   this will be done as a side effect of nj_points_to_distances but upon initialization
+   it needs to be done separately */
+void nj_update_diam_leaves(Matrix *D, CovarData *data) {
+  double maxdist = 0;
+  for (int i = 0; i < D->nrows; i++) {
+    for (int j = i+1; j < D->ncols; j++) {
+      double dist = mat_get(D, i, j);
+      if (dist > maxdist) {
+        maxdist = dist;
+        data->tree_diam_leaf1 = i; 
+        data->tree_diam_leaf2 = j;
+      }
+    }
+  }
+}

@@ -15,6 +15,7 @@
 #include "phast/trees.h"
 #include "phast/misc.h"
 #include "phast/stringsplus.h"
+#include "phast/bitset.h"
 
 
 static int idcounter = 0;
@@ -1985,7 +1986,7 @@ TreeNode *tr_find_midpoint(TreeNode *tree, int leaf1_id, int leaf2_id) {
   TreeNode *LCA = NULL;
   double d2_to_LCA = 0.0;
   for (TreeNode *n = leaf2; n != NULL; n = n->parent) {
-    if (n->parent) path_to_leaf2[n->parent->id] = n;       /* parent goes down to 'n' toward leaf2 */
+    if (n->parent != NULL) path_to_leaf2[n->parent->id] = n;       /* parent goes down to 'n' toward leaf2 */
     if (dist1[n->id] >= 0.0) { LCA = n; break; }           /* first intersection is LCA */
     if (n->parent == NULL) break;
     d2_to_LCA += n->dparent;
@@ -2031,4 +2032,52 @@ TreeNode *tr_find_midpoint(TreeNode *tree, int leaf1_id, int leaf2_id) {
   /* Should not happen; default to leaf2 side */
   sfree(dist1); sfree(path_to_leaf2);
   return leaf2;
+}
+
+/* helper: popcount of a BitSet (uses builtin on 64-bit words) */
+static inline int bs_popcount_words(const BSet *bs) {
+  int s = 0;
+  for (int k = 0; k < bs->nwords; ++k)
+    s += __builtin_popcountll(bs->w[k]);
+  return s;
+}
+
+/* Build per-node BSets of descendant leaves. Returns a List* (ptr
+   list) of size tree->nnodes such that the i-th element is a BSet*
+   for node id i. */
+List *tr_set_leaf_bitsets(TreeNode *tree) {
+  List *post = tr_postorder(tree);
+  int nn = tree->nnodes;
+  int nleaves = (tree->nnodes + 1)/2;
+
+  /* Temporary array: BSet* by node id */
+  BSet **by_id = (BSet**)smalloc(nn * sizeof(BSet*));
+  for (int i = 0; i < nn; ++i) by_id[i] = NULL;
+
+  /* Build bitsets bottom-up */
+  for (int i = 0; i < nn; i++) {
+    TreeNode *u = (TreeNode*)lst_get_ptr(post, i);
+    by_id[u->id] = bs_new(nn);         
+
+    if (u->lchild == NULL) 
+      bs_set_bit(by_id[u->id], u->id); /* leaf: set its own node id bit */
+    else {      
+      BSet *L = by_id[u->lchild->id]; /* internal node: OR children */
+      BSet *R = by_id[u->rchild->id];
+      bs_or(by_id[u->id], L, R);
+    }
+
+    /* flip if more than half of leaves are set */
+    int ones = bs_popcount_words(by_id[u->id]);
+    if (ones > (nleaves >> 1)) 
+      bs_flip(by_id[u->id]);
+  }
+
+  /* Package into a List* indexed by node id */
+  List *retval = lst_new_ptr(nn);
+  for (int id = 0; id < nn; id++) 
+    lst_push_ptr(retval, by_id[id]);
+
+  sfree(by_id);
+  return retval;
 }

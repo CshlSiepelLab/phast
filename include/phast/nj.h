@@ -270,6 +270,8 @@ void nj_apply_normalizing_flows(Vector *points_y, Vector *points_x,
 
 void nj_update_seq_to_node_map(TreeNode *tree, char **names, CovarData *data);
 
+void nj_update_diam_leaves(Matrix *D, CovarData *data);
+
 
 /* these are used for the hyperbolic geometry to stabilize the acosh
    calculations */

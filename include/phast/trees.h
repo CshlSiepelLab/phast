@@ -473,4 +473,6 @@ TreeNode *tr_reroot2(TreeNode *oldroot, TreeNode *newroot);
 
 TreeNode *tr_find_midpoint(TreeNode *tree, int leaf1_id, int leaf2_id);
 
+List *tr_set_leaf_bitsets(TreeNode *tree);
+
 #endif 

@@ -463,6 +463,13 @@ void *srealloc(void *ptr, size_t size) {
     die("FATAL ERROR: out of memory.\n");
   return retval;
 }
+
+void *scalloc(size_t count, size_t size) {
+  void *retval = calloc(count, size);
+  if (retval == NULL)
+    die("FATAL ERROR: out of memory.\n");
+  return retval;
+}
 #endif
 
 /* make a copy of word, allocating just enough space.*/

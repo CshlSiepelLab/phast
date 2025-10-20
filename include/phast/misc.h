@@ -454,6 +454,8 @@ void *smalloc(size_t size);
 */
 void *srealloc(void *ptr, size_t size);
 
+void *scalloc(size_t count, size_t size);
+
 void register_open_file(FILE *F);
 void unregister_open_file(FILE *F);
 
