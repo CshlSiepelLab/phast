@@ -65,6 +65,8 @@ int main(int argc, char *argv[]) {
   enum crispr_model_type crispr_modtype = SITEWISE;
   enum crispr_mutrates_type crispr_muttype = UNIF;
   TreePrior *tprior = NULL;
+  enum tree_prior_type tp_type = NONE;
+  unsigned int relclock = FALSE;
   
   struct option long_opts[] = {
     {"format", 1, 0, 'i'},
@@ -99,12 +101,13 @@ int main(int argc, char *argv[]) {
     {"planar-flow", 0, 0, 'Z'}, 
     {"crispr-modtype", 1, 0, 'Y'},
     {"crispr-mutprior", 1, 0, 'p'},
-    {"treeprior", 0, 0, 'P'},
+    {"treeprior", 1, 0, 'P'},
+    {"relclock", 0, 0, 'L'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:FZjJkK:l:m:M:n:No:v:r:Rt:T:VW:S:s:CY:Pp:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:FZjJkK:l:L:m:M:n:No:v:r:Rt:T:VW:S:s:CY:Pp:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -160,6 +163,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'l':
       logfile = phast_fopen(optarg, "w");
+      break;
+    case 'L':
+      relclock = TRUE;
       break;
     case 'm':
       postmeanfile = phast_fopen(optarg, "w");
@@ -247,7 +253,11 @@ int main(int argc, char *argv[]) {
       else die("ERROR: bad argument to --crispr-mutprior (-p).\n");
       break;
     case 'P':
-      tprior = tp_new();
+      if (!strcmp(optarg, "GAMMA"))
+        tp_type = GAMMA;
+      else if (!strcmp(optarg, "YULE"))
+        tp_type = YULE;
+      else die("ERROR: bad argument to --treeprior (-P).\n");
       break;
     case 'h':
       printf("%s", HELP); 
@@ -267,6 +277,10 @@ int main(int argc, char *argv[]) {
     hyperbolic = FALSE;
   /* for convenience in scripting; nonhyperbolic considered special case of hyperbolic */
 
+  /* set up tree prior if selected */
+  if (tp_type != NONE || relclock == TRUE)
+    tprior = tp_new(tp_type, relclock);
+  
   if (tprior != NULL && (is_crispr == TRUE || ultrametric == TRUE))
     die("Tree prior cannot be used with CRISPR mutation model or ultrametric trees.\n");
   

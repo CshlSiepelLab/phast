@@ -15,7 +15,6 @@
 /* floor parameters to keep branch lengths (bl) and internode times (tau) from going to zero */
 #define BL_EPS 1.0e-6
 #define TAU_EPS 1.0e-6
-#define DELTA_CAP 12.0
 
 /* helper functions for scaled softplus parameterization of nodetime deltas (tau) */
 
@@ -61,16 +60,17 @@ static inline double ssp_inv(double y, double beta) {
 
 /* return a new TreePrior object with default settings; designed to be
    updated later with a particular TreeModel */
-TreePrior *tp_new() {
+TreePrior *tp_new(enum tree_prior_type type, unsigned int relclock) {
   TreePrior *retval = smalloc(sizeof(TreePrior));
 
-  retval->type = GAMMA;  /* TEMPORARY; need to pass in */
-  /* retval->type = GAMMA; */ /* TEMPORARY; need to pass in */
-  retval->relclock = TRUE;
+  retval->type = type;
+  retval->relclock = relclock;
 
   retval->relclock_sig = inv_softplus(SIG_INIT);
   retval->relclock_sig_grad = 0;
-  retval->nodetimes = NULL;
+
+  /* these will be initialized later, after an initial tree is available */
+  retval->nodetimes = NULL; 
   retval->nodetimes_grad = NULL;
   retval->bs2idx = NULL;
 
@@ -79,8 +79,9 @@ TreePrior *tp_new() {
   retval->relclock_lsig_sd = LSIG_SD;
   retval->relclock_sig_exp_mean = -1; 
   /* set this instead to use exp prior:  retval->relclock_sig_exp_mean = SIG_EXP_MEAN; */
+
   retval->gamma_shape = GAMMA_SHAPE;
-  retval ->gamma_scale = -1; /* will be set on first call */
+  retval ->gamma_scale = -1; /* will be set later if needed */
   
   return retval;
 }

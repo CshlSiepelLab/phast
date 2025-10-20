@@ -2862,7 +2862,7 @@ TreeNode *nj_inf(Matrix *D, char **names, Matrix *dt_dD,
   }
   else {
     TreeNode *tree = nj_fast_infer(D, names, dt_dD);
-    if (data->treeprior != NULL) { /* need to reroot in this case */
+    if (data->treeprior != NULL && data->treeprior->relclock == TRUE) { /* need to reroot in this case */
       if (data->seq_to_node_map == NULL) /* only need to do this once */
         nj_update_seq_to_node_map(tree, names, data);
       if (data->tree_diam_leaf1 < 0 || data->tree_diam_leaf2 < 0)
@@ -2894,7 +2894,7 @@ int nj_get_num_nuisance_params(TreeModel *mod, CovarData *data) {
   if (data->pf != NULL)
     retval += data->pf->ndim * 2 + 1;
 
-  if (data->treeprior != NULL)
+  if (data->treeprior != NULL && data->treeprior->relclock == TRUE)
     retval += (1 + (mod->tree->nnodes + 1)/2 - 1);
   
   return retval;
@@ -2948,7 +2948,7 @@ char *nj_get_nuisance_param_name(TreeModel *mod, CovarData *data, int idx) {
     idx--;
   }
 
-  if (data->treeprior != NULL) {
+  if (data->treeprior != NULL && data->treeprior->relclock == TRUE) {
     if (idx == 0)
       return "relclock_sig";
     idx -= 1;
@@ -2990,7 +2990,7 @@ void nj_update_nuis_grad(TreeModel *mod, CovarData *data, Vector *nuis_grad) {
     vec_set(nuis_grad, idx++, data->pf->b_grad);
   }
 
-  if (data->treeprior != NULL) {
+  if (data->treeprior != NULL && data->treeprior->relclock == TRUE) {
     vec_set(nuis_grad, idx++, data->treeprior->relclock_sig_grad);
     for (i = 0; i < data->treeprior->nodetimes_grad->size; i++) 
       vec_set(nuis_grad, idx++, vec_get(data->treeprior->nodetimes_grad, i)); 
@@ -3024,7 +3024,7 @@ void nj_save_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data) {
     vec_set(stored_vals, idx++, data->pf->b);
   }
 
-  if (data->treeprior != NULL) {
+  if (data->treeprior != NULL && data->treeprior->relclock == TRUE) {
     vec_set(stored_vals, idx++, data->treeprior->relclock_sig);
     for (i = 0; i < data->treeprior->nodetimes->size; i++) 
       vec_set(stored_vals, idx++, vec_get(data->treeprior->nodetimes, i)); 
@@ -3067,7 +3067,7 @@ void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data)
     data->pf->b = vec_get(stored_vals, idx++);
   }
 
-  if (data->treeprior != NULL) {
+  if (data->treeprior != NULL && data->treeprior->relclock == TRUE) {
     data->treeprior->relclock_sig = vec_get(stored_vals, idx++);
     for (i = 0; i < data->treeprior->nodetimes->size; i++) 
       vec_set(data->treeprior->nodetimes, i, vec_get(stored_vals, idx++));
@@ -3143,7 +3143,7 @@ void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) 
     idx--;
   }
 
-  if (data->treeprior != NULL) {
+  if (data->treeprior != NULL && data->treeprior->relclock == TRUE) {
     if (idx == 0) {
       data->treeprior->relclock_sig += inc;
       return;
@@ -3200,7 +3200,7 @@ double nj_nuis_param_get(TreeModel *mod, CovarData *data, int idx) {
     idx--;
   }
 
-  if (data->treeprior != NULL) {
+  if (data->treeprior != NULL && data->treeprior->relclock == TRUE) {
     if (idx == 0)
       return data->treeprior->relclock_sig;
     idx--;
