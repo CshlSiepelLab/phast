@@ -135,7 +135,6 @@ double tp_compute_log_prior(TreeModel *mod, struct cvdat *data, Vector *branchgr
   /* reset grads */
   tp->relclock_sig_grad = 0.0;
   vec_zero(branchgrad);
-  vec_zero(tp->nodetimes_grad);
   
   if (tp->type == GAMMA && tp->gamma_scale == -1)
     tp_init_gamma_scale(tp, mod);
@@ -145,7 +144,7 @@ double tp_compute_log_prior(TreeModel *mod, struct cvdat *data, Vector *branchgr
     return 0;
   else if (tp->relclock == FALSE) /* much simpler case (see below) */
     return tp_prior_noclock(mod, tp, branchgrad);
-  
+
   /* build per-node bitsets */
   List *bs_by_id = tr_set_leaf_bitsets(mod->tree);       /* size nn, BSet* indexed by node id */
   
@@ -153,6 +152,7 @@ double tp_compute_log_prior(TreeModel *mod, struct cvdat *data, Vector *branchgr
   if (tp->nodetimes == NULL)
     tp_init_nodetimes(tp, mod, bs_by_id);
   double beta = tp->tau_beta;
+  vec_zero(tp->nodetimes_grad);
 
   /* Track which nodetime slots are used by keys encountered this pass. */
   int K = tp->nodetimes->size;

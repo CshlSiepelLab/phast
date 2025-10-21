@@ -1219,7 +1219,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, LPRIOR: %.2f, KLD: %.2f, RFLD: %.2f, penalty: %.2f",
             bestt+1, bestelb, bestll, best_lprior, bestkld, best_nf_logdet, bestpenalty);
     for (j = 0; j < n_nuisance_params; j++) /* print these also if available */
-      fprintf(logf, ", %s: %.4f\t", nj_get_nuisance_param_name(mod, data, j),
+      fprintf(logf, ", %s: %.4f", nj_get_nuisance_param_name(mod, data, j),
               nj_nuis_param_get(mod, data, j));
     fprintf(logf, "\n");
   }
