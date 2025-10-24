@@ -28,6 +28,7 @@
 #include "phast/heap.h"
 #include "phast/crispr.h"
 #include "phast/upgma.h"
+#include "phast/adam_scheduler.h"
 
 /* uncomment to dump gradients to a file called "grads_log.txt" */
 //#define DUMPGRAD 1
@@ -992,15 +993,16 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   }
   t = 0;
 
-  /* activate subsampling if appropriate */
-  if (data->msa->length > 2 * NSUBSAMPLES) {
-    data->subsample = TRUE;
-    subsamp_rescale = (double)data->msa->length / NSUBSAMPLES;
-    if (logf != NULL)
-      fprintf(logf, "# Turning on subsampling (%d sites)\n", NSUBSAMPLES);
-  }
-  
+  /* set up scheduler; FIXME: parameterize */
+  Scheduler *s = sched_new(data->msa->length, NSUBSAMPLES, 20,
+                           learnrate, 5, 50);
+  SchedState *st = sched_new_state(s);
+  SchedDirectives *sd = smalloc(sizeof(SchedDirectives));
+
   do {
+    /* get directives from scheduler */
+    sched_next(s, st, NULL, sd);
+    
     /* we can precompute the KLD because it does not depend on the data under this model */
     /* (see equation 7, Doersch arXiv 2016) */
     trace = mmvn_trace(mmvn);  /* we'll reuse this */
@@ -1050,6 +1052,19 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     avell = 0;
     ave_lprior = 0;
     ave_nf_logdet = 0;
+
+    /* set up subsampling for this minibatch */
+    if (sd->m < data->msa->length) {
+      data->subsample = TRUE;
+      data->subsampsize = sd->m;
+      data->reuse_subsamp = !sd->resample_sites;
+      subsamp_rescale = (double)data->msa->length / data->subsampsize;
+    }
+    else { /* no subsampling */
+      data->subsample = FALSE;
+      subsamp_rescale = 1.0;
+    }
+
     for (i = 0; i < nminibatch; i++) {
       int bail = 0;
       double nf_logdet = 0; /* log det of Jacobian for normalizing flows;
@@ -1063,7 +1078,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
         nj_sample_points(mmvn, points, points_std);
  
         ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data, &nf_logdet);
-
+       
         if (++bail > 10 && !isfinite(ll)) {
           fprintf(stderr, "WARNING: repeatedly sampling zero-probability trees. Prohibiting zero-length branches.\n");
           data->no_zero_br = TRUE;
@@ -1146,10 +1161,10 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       /* update mu or sigma, depending on parameter index */
       if (j < fulld)
         mmvn_set_mu_el(mmvn, j, mmvn_get_mu_el(mmvn, j) +
-                               learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
+                               sd->lr * mhatj / (sqrt(vhatj) + ADAM_EPS)); 
       else {
         vec_set(sigmapar, j-fulld, vec_get(sigmapar, j-fulld) +
-                learnrate * mhatj / (sqrt(vhatj) + ADAM_EPS));
+                sd->lr * mhatj / (sqrt(vhatj) + ADAM_EPS));
       }
     }
     nj_update_covariance(mmvn, data);
@@ -1164,7 +1179,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       vec_set(v_nuis, j, ADAM_BETA2 * vec_get(v_nuis_prev, j) + (1.0 - ADAM_BETA2) * pow(g,2));
       mhatj_nuis = vec_get(m_nuis, j) / (1.0 - pow(ADAM_BETA1, t));
       vhatj_nuis = vec_get(v_nuis, j) / (1.0 - pow(ADAM_BETA2, t));
-      nj_nuis_param_pluseq(mod, data, j, learnrate * 0.3 * mhatj_nuis / (sqrt(vhatj_nuis) + ADAM_EPS));
+      nj_nuis_param_pluseq(mod, data, j, sd->lr * 0.3 * mhatj_nuis / (sqrt(vhatj_nuis) + ADAM_EPS));
       /* factor of 0.3 above to slow learning of nuisance params */
     }
     if (n_nuisance_params > 0) {
@@ -1237,7 +1252,10 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   vec_free(v_prev);
   vec_free(best_mu);
   vec_free(best_sigmapar);
-
+  sfree(s);
+  sfree(st);
+  sfree(sd);
+  
   if (data->treeprior != NULL)
     vec_free(prior_grad);
   
@@ -1477,7 +1495,7 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
   unsigned int rescale;
   MSA *msa = data->msa;
   static Vector *tuplecdf = NULL;
-  Vector *tuplecounts = NULL;
+  static Vector *tuplecounts = NULL;
   
   if (msa->ss->tuple_size != 1)
     die("ERROR nj_compute_log_likelihood: need tuple size 1, got %i\n",
@@ -1526,17 +1544,22 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
 
   /* set up tuple counts, subsampling if necessary */
   if (data->subsample == TRUE) {
-    if (tuplecdf == NULL) {
+    if (tuplecdf == NULL) { /* build CDF for sampling */
       Vector *counts = vec_view_array(msa->ss->counts, msa->ss->ntuples);
       tuplecdf = pv_cdf_from_counts(counts, LOWER);
       sfree(counts); /* avoid vec_free */
     }
-    else
+    else /* CDF already exists; check that it makes sense */
       assert (tuplecdf->size == msa->ss->ntuples);
-    tuplecounts = vec_new(msa->ss->ntuples);
-    pv_draw_counts(tuplecounts, tuplecdf, NSUBSAMPLES);
+    if (tuplecounts == NULL || data->reuse_subsamp == FALSE) { /* new subsample */
+      if (tuplecounts == NULL) tuplecounts = vec_new(msa->ss->ntuples);
+      else assert(tuplecounts->size == msa->ss->ntuples);
+      pv_draw_counts(tuplecounts, tuplecdf, data->subsampsize);
+    }
+    else /* in this case we are reusing the previous subsample */
+      assert(vec_sum(tuplecounts) == data->subsampsize); /* sanity */
   }
-  else
+  else /* not subsampling; just provide a 'view' of the full counts array */
     tuplecounts = vec_view_array(msa->ss->counts, msa->ss->ntuples);
       
   for (tupleidx = 0; tupleidx < msa->ss->ntuples; tupleidx++) {
@@ -1765,11 +1788,11 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
   vec_free(lscale);
   vec_free(lscale_o);
 
-  if (data->subsample == TRUE)
-    vec_free(tuplecounts);
-  else
-    sfree(tuplecounts); /* avoid vec_free in this case because
-                           underlying data not copied */
+  if (data->subsample == FALSE)
+    sfree(tuplecounts); /* in this case, it's just a wrapper for the
+                           underlying array of counts; avoid vec_free;
+                           don't do anything if subsampling because
+                           have to store for possible reuse */
   
   return ll;
 }

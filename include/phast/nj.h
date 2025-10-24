@@ -62,9 +62,9 @@
    matrix in DIST and CONST parameterizations */
 #define LAMBDA_INIT 1
 
-/* number of columns of alignment to subsample in early stages of
+/* starting number of columns of alignment to subsample in early stages of
    algorithms */
-#define NSUBSAMPLES 500
+#define NSUBSAMPLES 256
 
 /* types of parameterization for covariance matrix: constant (and
    diagonal), diagonal with free variances, proportional to Laplacian
@@ -110,6 +110,8 @@ typedef struct cvdat {
   PlanarFlow *pf;
   TreePrior *treeprior; /* optional prior for tree (NULL if none) */
   unsigned int subsample; /* whether or not to subsample sites in likelihood calculation */
+  int subsampsize; /* size of subsample (number of sites) */
+  int reuse_subsamp; /* whether or not to reuse last subsample */
   int tree_diam_leaf1; /* store the ids of two leaves along a diameter
                           of the last reconstructed tree; for use in
                           rerooting tree in case of prior */
