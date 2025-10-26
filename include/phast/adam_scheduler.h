@@ -8,7 +8,7 @@
 /* config & state */
 typedef struct {
   int    N_sites;           /* total alignment length */
-  int    m0;                /* initial sites per minibatch (e.g., 256) */
+  int    m0;                /* initial sites per minibatch */
   int    inc_every;         /* grow minibatch every 'inc_every' steps */
   double lr0;               /* base learning rate */
   double noise_const;       /* keep lr * m ~= noise_const (set to lr0*m0) */

@@ -437,12 +437,14 @@ void tp_init_nodetimes(TreePrior *tp, TreeModel *mod, List *bs_by_id) {
   sfree(t_raw);
 }
 
-/* initialize scale parameter of gamma prior based on starting tree, using empirical bayes estimator */
+/* initialize scale parameter of gamma prior based on starting tree,
+   using empirical bayes estimator */
 void tp_init_gamma_scale(TreePrior *tp, TreeModel *mod) {
   tp->gamma_scale = tp_treelen(mod) / tp->gamma_shape; /* ensure expected value equals totlen */
 }
 
-/* compute total tree length using same floor for branch lengths as used in prior computations */
+/* compute total tree length using same floor for branch lengths as
+   used in prior computations */
 double tp_treelen(TreeModel *mod) {
   double totlen = 0; /* need a version that uses same floor as tp_compute_log_prior */
   for (int i = 0; i < mod->tree->nnodes; i++) {
