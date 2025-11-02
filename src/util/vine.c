@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
     batchsize = DEFAULT_BATCHSIZE, nbatches_conv = DEFAULT_NBATCHES_CONV,
     min_nbatches = DEFAULT_MIN_NBATCHES, rank = DEFAULT_RANK;
   unsigned int nj_only = FALSE, random_start = FALSE,
-   hyperbolic = FALSE, embedding_only = FALSE, rejection_sampling = FALSE,
+    hyperbolic = FALSE, embedding_only = FALSE, rejection_sampling = FALSE,
     mvn_dump = FALSE, natural_grad = FALSE, is_crispr = FALSE, ultrametric = FALSE,
     radial_flow = FALSE, planar_flow = FALSE;
   MSA *msa = NULL;

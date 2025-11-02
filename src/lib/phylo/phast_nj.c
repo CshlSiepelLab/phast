@@ -12,12 +12,9 @@
 #include <ctype.h>
 #include <assert.h>
 #include <float.h>
-#include "phast/stacks.h"
 #include "phast/trees.h"
 #include "phast/misc.h"
-#include "phast/stringsplus.h"
 #include "phast/nj.h"
-#include "phast/tree_likelihoods.h"
 #include "phast/eigen.h"
 #include "phast/sufficient_stats.h"
 #include "phast/markov_matrix.h"
@@ -993,15 +990,17 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   }
   t = 0;
 
-  /* set up scheduler; FIXME: parameterize */
-  Scheduler *s = sched_new(data->msa->length, NSUBSAMPLES, 20,
+  /* set up scheduler */
+  Scheduler *s = sched_new(data->msa->length, NSUBSAMPLES, 30,
                            learnrate, 5, 50);
   SchedState *st = sched_new_state(s);
   SchedDirectives *sd = smalloc(sizeof(SchedDirectives));
-
+  SchedMetrics *sm = smalloc(sizeof(SchedMetrics));
+  sm->grad_norm = 0;
+  
   do {
     /* get directives from scheduler */
-    sched_next(s, st, NULL, sd);
+    sched_next(s, st, sm, sd);
     
     /* we can precompute the KLD because it does not depend on the data under this model */
     /* (see equation 7, Doersch arXiv 2016) */
@@ -1054,7 +1053,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     ave_nf_logdet = 0;
 
     /* set up subsampling for this minibatch */
-    if (sd->m < data->msa->length) {
+    if (!sd->full_grad_now) {
       data->subsample = TRUE;
       data->subsampsize = sd->m;
       data->reuse_subsamp = !sd->resample_sites;
@@ -1147,7 +1146,12 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     else
       vec_copy(rescaledgrad, avegrad);
     /* we won't do this with nuisance params */
-    
+
+    /* update scheduler with norm of gradient and clip if necessary */
+    sm->grad_norm = vec_norm(rescaledgrad);
+    if (sd->clip_norm > 0 && sm->grad_norm < sd->clip_norm)
+      vec_scale(rescaledgrad, sd->clip_norm / sm->grad_norm);
+
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
     t++;
     for (j = 0; j < rescaledgrad->size; j++) {   
@@ -1255,6 +1259,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   sfree(s);
   sfree(st);
   sfree(sd);
+  sfree(sm);
   
   if (data->treeprior != NULL)
     vec_free(prior_grad);

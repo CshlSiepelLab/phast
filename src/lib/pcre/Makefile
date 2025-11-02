@@ -12,8 +12,8 @@ sharedlib: all
 %.o: %.c ../../make-include.mk
 	$(CC) -I. $(CFLAGS) -DHAVE_CONFIG_H -c $< -o $@ 
 
-${TARGETLIB}(${OBJS}) : ${OBJS}
-	${AR} rs ${TARGETLIB} $?
+$(TARGETLIB): $(OBJS)
+	$(AR) rs $@ $^
 
 clean:
 	rm -f *.o 
