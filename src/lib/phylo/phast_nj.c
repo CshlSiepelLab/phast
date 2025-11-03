@@ -962,8 +962,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   /* set up log file */
   if (logf != NULL) {
     fprintf(logf, "# varPHAST logfile\n");
-    fprintf(logf, "state\tll\tlprior\tkld\tnfld\telb\t");
-    fprintf(logf, "penalty\t");
+    fprintf(logf, "state\tll\tlprior\tkld\tnfld\telb\tpenalty\t");
+    fprintf(logf, "subsamp\treuse\tgradnorm\tclip\t");
     for (j = 0; j < fulld; j++)
       fprintf(logf, "mu.%d\t", j);
     for (j = 0; j < sigmapar->size; j++)
@@ -991,8 +991,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   t = 0;
 
   /* set up scheduler */
-  Scheduler *s = sched_new(data->msa->length, NSUBSAMPLES, 30,
-                           learnrate, 5, 50);
+  Scheduler *s = sched_new(data->msa->length, NSUBSAMPLES, 20,
+                           learnrate, 10, 50);
   SchedState *st = sched_new_state(s);
   SchedDirectives *sd = smalloc(sizeof(SchedDirectives));
   SchedMetrics *sm = smalloc(sizeof(SchedMetrics));
@@ -1001,6 +1001,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   do {
     /* get directives from scheduler */
     sched_next(s, st, sm, sd);
+    unsigned int clipped = FALSE;
     
     /* we can precompute the KLD because it does not depend on the data under this model */
     /* (see equation 7, Doersch arXiv 2016) */
@@ -1125,7 +1126,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     /* store parameters if best yet */
     elb = avell + ave_lprior - kld + ave_nf_logdet - penalty;
-    if (elb > bestelb) {
+    if (elb > bestelb && sd->full_grad_now) {
       bestelb = elb;
       bestll = avell;  /* not necessarily best ll but ll corresponding to bestelb */
       best_lprior = ave_lprior;
@@ -1149,8 +1150,10 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
 
     /* update scheduler with norm of gradient and clip if necessary */
     sm->grad_norm = vec_norm(rescaledgrad);
-    if (sd->clip_norm > 0 && sm->grad_norm < sd->clip_norm)
+    if (sd->clip_norm > 0 && sm->grad_norm > sd->clip_norm) {
       vec_scale(rescaledgrad, sd->clip_norm / sm->grad_norm);
+      clipped = TRUE;
+    }
 
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
     t++;
@@ -1193,7 +1196,10 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     /* report to log file */
     if (logf != NULL) {
-      fprintf(logf, "%d\t%f\t%f\t%f\t%f\t%f\t%f\t", t, avell, ave_lprior, kld, ave_nf_logdet, elb, data->var_pen);
+      fprintf(logf, "%d\t%f\t%f\t%f\t%f\t%f\t%f\t", t, avell, ave_lprior, kld,
+              ave_nf_logdet, elb, data->var_pen);
+      fprintf(logf, "%d\t%d\t%f\t%d\t", data->subsampsize, data->reuse_subsamp,
+              sm->grad_norm, clipped);
       mmvn_print(mmvn, logf, TRUE, FALSE);
       for (j = 0; j < sigmapar->size; j++)
         fprintf(logf, "%f\t", vec_get(sigmapar, j));
@@ -1213,13 +1219,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     if (t % nbatches_conv == 0) {
       if (logf != NULL)
         fprintf(logf, "# Average ELBO for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
-      if (data->subsample == TRUE && 1.05*running_tot <= last_running_tot*0.95) {
-        data->subsample = FALSE;
-        bestelb = -INFTY; /* do not want to keep version based on subsampling */
-        if (logf != NULL)
-          fprintf(logf, "# Turning off subsampling\n");
-      }
-      else if (t >= min_nbatches && 1.001*running_tot <= last_running_tot*0.999)
+      if (sd->full_grad_now && t >= min_nbatches &&
+          1.001*running_tot <= last_running_tot*0.999)
         /* sometimes get stuck increasingly asymptotically; stop if increase not more than about 0.1% */
         stop = TRUE;
 
@@ -1555,14 +1556,13 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
       sfree(counts); /* avoid vec_free */
     }
     else /* CDF already exists; check that it makes sense */
-      assert (tuplecdf->size == msa->ss->ntuples);
-    if (tuplecounts == NULL || data->reuse_subsamp == FALSE) { /* new subsample */
+      assert(tuplecdf->size == msa->ss->ntuples);
+    if (tuplecounts == NULL || data->reuse_subsamp == FALSE ||
+        vec_sum(tuplecounts) != data->subsampsize) { /* need new subsample */
       if (tuplecounts == NULL) tuplecounts = vec_new(msa->ss->ntuples);
       else assert(tuplecounts->size == msa->ss->ntuples);
       pv_draw_counts(tuplecounts, tuplecdf, data->subsampsize);
     }
-    else /* in this case we are reusing the previous subsample */
-      assert(vec_sum(tuplecounts) == data->subsampsize); /* sanity */
   }
   else /* not subsampling; just provide a 'view' of the full counts array */
     tuplecounts = vec_view_array(msa->ss->counts, msa->ss->ntuples);
@@ -1793,11 +1793,13 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
   vec_free(lscale);
   vec_free(lscale_o);
 
-  if (data->subsample == FALSE)
+  if (data->subsample == FALSE) {
     sfree(tuplecounts); /* in this case, it's just a wrapper for the
                            underlying array of counts; avoid vec_free;
                            don't do anything if subsampling because
                            have to store for possible reuse */
+    tuplecounts = NULL;
+  }
   
   return ll;
 }

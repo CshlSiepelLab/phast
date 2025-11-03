@@ -13,8 +13,8 @@ Scheduler* sched_new(int N_sites, int init_subsample, int inc_every,
   s->lr_full = target_lr;
   s->lr_alpha = 0.5; /* sqrt decay */
   s->tau_full = 0.95; 
-  s->clip_max_norm = 0; /* CHECK.  Should we use this? */
-  s->adaptive_clip = FALSE; /* CHECK */
+  s->clip_max_norm = 7; /* may need further tuning */
+  s->adaptive_clip = FALSE; 
   s->persist_k = persist_k;
   s->fullgrad_every = fullgrad_every;
   s->T_total = 1000; /* CHECK */
@@ -111,7 +111,8 @@ void sched_next(const Scheduler *cfg, SchedState *st,
    */
   if (in_full_mode) {
     out->full_grad_now = 1;
-  } else if (cfg->fullgrad_every > 0 && (st->t % cfg->fullgrad_every) == 0) {
+  } else if (cfg->fullgrad_every > 0 && st->t > 0 &&
+             (st->t % cfg->fullgrad_every) == 0) {
     out->full_grad_now = 1;
   } else {
     out->full_grad_now = 0;
