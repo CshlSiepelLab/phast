@@ -992,7 +992,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
 
   /* set up scheduler */
   Scheduler *s = sched_new(data->msa->length, NSUBSAMPLES, 20,
-                           learnrate, 10, 50);
+                           learnrate, 10, 50, 30);
   SchedState *st = sched_new_state(s);
   SchedDirectives *sd = smalloc(sizeof(SchedDirectives));
   SchedMetrics *sm = smalloc(sizeof(SchedMetrics));

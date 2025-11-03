@@ -4,8 +4,9 @@
 #include <phast/adam_scheduler.h>
 
 /* set up a scheduler with appropriate defaults */
-Scheduler* sched_new(int N_sites, int init_subsample, int inc_every,
-                     double target_lr, int persist_k, int fullgrad_every) {
+Scheduler *sched_new(int N_sites, int init_subsample, int inc_every,
+                     double target_lr, int persist_k, int fullgrad_every,
+                     int clip_warmup) {
   Scheduler *s = smalloc(sizeof(Scheduler));
   s->N_sites = N_sites;
   s->m0 = init_subsample;
@@ -14,10 +15,13 @@ Scheduler* sched_new(int N_sites, int init_subsample, int inc_every,
   s->lr_alpha = 0.5; /* sqrt decay */
   s->tau_full = 0.95; 
   s->clip_max_norm = 7; /* may need further tuning */
-  s->adaptive_clip = FALSE; 
+  s->adaptive_clip = TRUE;
+  s->clip_factor = 2.0;
+  s->clip_warmup = clip_warmup;
+  s->clip_beta = 0.98;
   s->persist_k = persist_k;
   s->fullgrad_every = fullgrad_every;
-  s->T_total = 1000; /* CHECK */
+  s->T_total = 400; 
   return s;
 }
 
@@ -91,13 +95,16 @@ void sched_next(const Scheduler *cfg, SchedState *st,
 
   /* 5) Clip threshold */
   double clip = 0.0;
-  if (cfg->clip_max_norm > 0.0) {
-    clip = cfg->clip_max_norm;
-    if (cfg->adaptive_clip && st->ema_gnorm > 0.0) {
-      /* clip tracks EMA, e.g., 2x the typical norm */
-      clip = fmax(clip, 2.0 * st->ema_gnorm);
-    }
-  }
+
+  /* enable after some warmup so EMA is meaningful */
+  int warmed = (cfg->clip_warmup <= 0) || (st->t >= cfg->clip_warmup);
+
+  if (cfg->adaptive_clip && st->ema_gnorm > 0.0 && warmed) 
+    clip = cfg->clip_factor * st->ema_gnorm;
+
+  /* a small fixed floor for startup safety */
+  if (cfg->clip_max_norm > 0.0) 
+    clip = (clip > 0.0) ? fmax(clip, cfg->clip_max_norm) : cfg->clip_max_norm;
 
   /* 6) Emit directives */
   out->lr             = st->lr_t;

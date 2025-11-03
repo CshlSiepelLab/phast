@@ -17,6 +17,8 @@ typedef struct {
                                (e.g., 0.95) */
   double clip_max_norm;     /* 0 disables clipping; else L2 cap (e.g., 5.0) */
   int    adaptive_clip;     /* 1: clip threshold tracks EMA of grad norm */
+  int    clip_warmup;       /* steps before adaptive clip kicks in */
+  double clip_factor;       /* factor for adaptive clipping (e.g., 2.0) */
   double clip_beta;         /* EMA factor (e.g., 0.95) */
   int    persist_k;         /* reuse same subset of sites for k updates (e.g., 5) */
   int    fullgrad_every;    /* 0 disables; else compute full grad every K steps */
@@ -46,8 +48,9 @@ typedef struct {
 } SchedMetrics;
 
 /* API */
-Scheduler* sched_new(int N_sites, int init_subsample, int inc_every,
-                     double target_lr, int persist_k, int fullgrad_every);
+Scheduler *sched_new(int N_sites, int init_subsample, int inc_every,
+                     double target_lr, int persist_k, int fullgrad_every,
+                     int clip_warmup);
 SchedState* sched_new_state(const Scheduler *cfg);
 void sched_next(const Scheduler *cfg, SchedState *st,
                 const SchedMetrics *metrics, SchedDirectives *out);
