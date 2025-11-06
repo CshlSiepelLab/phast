@@ -9,8 +9,8 @@ all: ${TARGETLIB}(${OBJS})
 %.o: %.c ../../make-include.mk
 	$(CC) $(CFLAGS) -c $< -o $@ -DRPHAST 
 
-${TARGETLIB}(${OBJS}) : ${OBJS} 
-	${AR} rs ${TARGETLIB} $?
+$(TARGETLIB): $(OBJS)
+	$(AR) rs $@ $^
 
 clean:
 	rm -f *.o 

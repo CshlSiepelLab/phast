@@ -1,4 +1,5 @@
-/* PHylogenetic Analysis with Space/Time models
+/***************************************************************************
+ * PHylogenetic Analysis with Space/Time models
  * Copyright (c) 2002-2005 University of California, 2006-2010 Cornell 
  * University.  All rights reserved.
  *
