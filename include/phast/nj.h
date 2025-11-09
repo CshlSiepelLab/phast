@@ -29,6 +29,7 @@
 #include <phast/radial_flow.h>
 #include <phast/planar_flow.h>
 #include <phast/tree_prior.h>
+#include <phast/migration.h>
 
 /* for numerical derivatives */
 #define DERIV_EPS 1e-5
@@ -67,6 +68,9 @@
    algorithms */
 #define NSUBSAMPLES 256
 
+/* number of free parameters in GTR model */
+#define GTR_NPARAMS 6
+
 /* types of parameterization for covariance matrix: constant (and
    diagonal), diagonal with free variances, proportional to Laplacian
    pseudoinverse based on pairwise distances, or low-rank
@@ -100,10 +104,14 @@ typedef struct cvdat {
   double negcurvature; /* for hyperbolic case */
   MSA *msa; /* multiple alignment under analysis if available */
   CrisprMutModel *crispr_mod; /* model for CRISPR mutation if needed */
-  unsigned int ultrametric; /* whether or not tree is ultrametric */
+  unsigned int ultrametric;   /* whether or not tree is ultrametric */
+  MigTable *migtable; /* migration table if needed */
   double hky_kappa; /* for use in estimating kappa as a nuisance
                        parameter in HKY case */
   double deriv_hky_kappa;
+  Vector *gtr_params; /* for use in estimating GTR parameters as
+                         nuisance parameters in REV case */
+  Vector *deriv_gtr;
   char **names;
   unsigned int no_zero_br; /* force all branches to be nonzero;
                               sometimes needed with CRISPR model */
@@ -184,7 +192,7 @@ void nj_test_D(Matrix *D);
 
 double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branchgrad);
 
-int *nj_build_seq_idx(List *leaves, char **names) ;
+int *nj_build_seq_idx(List *leaves, char **names);
 
 int nj_get_seq_idx(char **names, char *name, int n);
 
@@ -197,7 +205,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist,
                              double var_reg, unsigned int hyperbolic,
                              double negcurvature, unsigned int ultrametric,
                              unsigned int radial_flow, unsigned int planar_flow,
-                             TreePrior *treeprior);
+                             TreePrior *treeprior, MigTable *mtable);
 
 void nj_dump_covar_data(CovarData *data, FILE *F);
 
@@ -228,7 +236,6 @@ void nj_dist_to_i_j(int pwidx, int *i, int *j, int n);
 
 double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, 
                          CovarData *data, double *nf_logdet);
-
 
 void nj_backprop(double *Jk, double *Jnext, int n, int f, int g, int u,
                  Vector *active);
@@ -274,6 +281,8 @@ void nj_apply_normalizing_flows(Vector *points_y, Vector *points_x,
 void nj_update_seq_to_node_map(TreeNode *tree, char **names, CovarData *data);
 
 void nj_update_diam_leaves(Matrix *D, CovarData *data);
+
+void nj_init_gtr_mapping(TreeModel *tm);
 
 
 /* these are used for the hyperbolic geometry to stabilize the acosh

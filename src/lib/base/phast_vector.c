@@ -260,3 +260,10 @@ unsigned int vec_isfinite(Vector *v) {
       return FALSE;
   return TRUE;
 }
+
+/* set elements of vector to random draws from normal distribution
+   with mean mu and standard deviation sigma */
+void vec_set_random(Vector *v, double mu, double sigma) {
+  for (int i = 0; i < v->size; i++)
+    v->data[i] = norm_draw(mu, sigma);
+}

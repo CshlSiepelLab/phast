@@ -84,6 +84,10 @@ void tm_grad_HKY_dkappa(struct tm_struct *mod, Matrix *grad,
 void tm_grad_HKY_dt(struct tm_struct *mod, Matrix *grad,
                     double kappa, double t);
 
+void tm_grad_REV_dr(struct tm_struct *mod, List *dQ_dr_lst, double t);
+
+void tm_grad_REV_dt(struct tm_struct *mod, Matrix *grad, double t);
+
 /** Setup probability matrix by copying an existing probability matrix.
     Set matrix such that element (i,j) has value pi_j, as for an
      infinitely long branch

@@ -12,9 +12,9 @@
 #include <ctype.h>
 #include <assert.h>
 #include <float.h>
+#include "phast/nj.h"
 #include "phast/trees.h"
 #include "phast/misc.h"
-#include "phast/nj.h"
 #include "phast/eigen.h"
 #include "phast/sufficient_stats.h"
 #include "phast/markov_matrix.h"
@@ -23,7 +23,6 @@
 #include "phast/mvn.h"
 #include "phast/multi_mvn.h"
 #include "phast/heap.h"
-#include "phast/crispr.h"
 #include "phast/upgma.h"
 #include "phast/adam_scheduler.h"
 
@@ -1497,12 +1496,14 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
   double scaling_threshold = DBL_MIN * 1.0e10;  /* need some padding */
   double lscaling_threshold = log(scaling_threshold), ll = 0;
   double tmp[nstates];
-  Matrix **grad_mat, **grad_mat_kappa;
+  Matrix **grad_mat, **grad_mat_HKY;
+  List **grad_mat_REV;
   unsigned int rescale;
   MSA *msa = data->msa;
+  Vector *this_deriv_gtr = NULL;
   static Vector *tuplecdf = NULL;
   static Vector *tuplecounts = NULL;
-  
+
   if (msa->ss->tuple_size != 1)
     die("ERROR nj_compute_log_likelihood: need tuple size 1, got %i\n",
 	msa->ss->tuple_size);
@@ -1532,13 +1533,27 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
       pLbar[j] = smalloc((mod->tree->nnodes+1) * sizeof(double));
     if (mod->subst_mod == HKY85)
       data->deriv_hky_kappa = 0.0;
+    else if (mod->subst_mod == REV)
+      vec_zero(data->deriv_gtr);
     grad_mat = malloc(mod->tree->nnodes * sizeof(void*));
     for (j = 0; j < mod->tree->nnodes; j++)
       grad_mat[j] = mat_new(nstates, nstates);
     if (mod->subst_mod == HKY85) {
-      grad_mat_kappa = malloc(mod->tree->nnodes * sizeof(void*));
-    for (j = 0; j < mod->tree->nnodes; j++)
-      grad_mat_kappa[j] = mat_new(nstates, nstates);
+      grad_mat_HKY = malloc(mod->tree->nnodes * sizeof(void*));
+      for (j = 0; j < mod->tree->nnodes; j++)
+        grad_mat_HKY[j] = mat_new(nstates, nstates);
+    }
+    else if (mod->subst_mod == REV) {
+      /* in this case, each node of the tree needs a list of gradient
+         matrices, one for each free GTR parameter */
+      grad_mat_REV = malloc(mod->tree->nnodes * sizeof(void*));
+      for (j = 0; j < mod->tree->nnodes; j++) {
+        grad_mat_REV[j] = lst_new_ptr(data->gtr_params->size);
+        for (int jj = 0; jj < data->gtr_params->size; jj++)
+          lst_push_ptr(grad_mat_REV[j],
+                       mat_new(nstates, nstates));
+      }
+      this_deriv_gtr = vec_new(data->gtr_params->size);
     }
   }
 
@@ -1726,10 +1741,12 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
           if (tupleidx == 0) {
             if (mod->subst_mod == JC69)
               tm_grad_JC69(mod, grad_mat[n->id], n->dparent);
-            else if (mod->subst_mod == HKY85) 
-              tm_grad_HKY_dt(mod, grad_mat[n->id], data->hky_kappa, n->dparent); 
+            else if (mod->subst_mod == HKY85)
+              tm_grad_HKY_dt(mod, grad_mat[n->id], data->hky_kappa, n->dparent);
+            else if (mod->subst_mod == REV) 
+              tm_grad_REV_dt(mod, grad_mat[n->id], n->dparent); 
             else
-              die("ERROR in nj_compute_log_likelihood: only JC69 and HKY85 substitution models are supported.\n");
+              die("ERROR in nj_compute_log_likelihood: only JC69, HKY85 and REV substitution models are supported.\n");
           }
           
           for (i = 0; i < nstates; i++)   
@@ -1753,20 +1770,39 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
                   deriv * vec_get(tuplecounts, tupleidx));
         }
 
-        /* in this case, we need a partial derivative for kappa also;
-           it has to be aggregated across all branches */
+        /* in these cases, we need a partial derivatives for substitution rates also;
+           they have to be aggregated across all branches */
         if (mod->subst_mod == HKY85) {
           double this_deriv_kappa = 0;
           if (tupleidx == 0)
-            tm_grad_HKY_dkappa(mod, grad_mat_kappa[n->id], data->hky_kappa, n->dparent);
+            tm_grad_HKY_dkappa(mod, grad_mat_HKY[n->id], data->hky_kappa, n->dparent);
           for (i = 0; i < nstates; i++) 
             for (j = 0; j < nstates; j++) 
               this_deriv_kappa += tmp[i] * pLbar[i][par->id] * pL[j][n->id] *
-                mat_get(grad_mat_kappa[n->id], i, j);
+                mat_get(grad_mat_HKY[n->id], i, j);
 
           /* adjust for all relevant scale terms */
           this_deriv_kappa *= exp(expon);        
           data->deriv_hky_kappa += (this_deriv_kappa * vec_get(tuplecounts, tupleidx));
+        }
+        else if (mod->subst_mod == REV) {
+          if (tupleidx == 0) /* first time only */
+            tm_grad_REV_dr(mod, grad_mat_REV[n->id], n->dparent);
+          /* loop over rate parameters */
+          for (int pidx = 0; pidx < data->gtr_params->size; pidx++) {
+            double pderiv = 0; /* partial deriv wrt this param */
+            Matrix *dP_dr = lst_get_ptr(grad_mat_REV[n->id], pidx);
+            for (int i = 0; i < nstates; i++) {
+              for (int j = 0; j < nstates; j++) {
+                pderiv += tmp[i] * pLbar[i][par->id] * pL[j][n->id] *
+                  mat_get(dP_dr, i, j);
+              }
+            }
+            vec_set(this_deriv_gtr, pidx, pderiv);
+          }
+          /* adjust for all relevant scale terms */
+          vec_scale(this_deriv_gtr, exp(expon));
+          vec_plus_eq(data->deriv_gtr, this_deriv_gtr);
         }
       }
     }
@@ -1785,8 +1821,18 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
     free(grad_mat);
     if (mod->subst_mod == HKY85) {
       for (j = 0; j < mod->tree->nnodes; j++)      
-        mat_free(grad_mat_kappa[j]);
-      free(grad_mat_kappa);
+        mat_free(grad_mat_HKY[j]);
+      free(grad_mat_HKY);
+    }
+    else if (mod->subst_mod == REV) {
+      for (j = 0; j < mod->tree->nnodes; j++) {
+        List *gmats = grad_mat_REV[j];
+        for (int jj = 0; jj < lst_size(gmats); jj++)
+          mat_free(lst_get_ptr(gmats, jj));
+        lst_free(gmats);
+      }
+      free(grad_mat_REV);
+      vec_free(this_deriv_gtr);
     }
   }
 
@@ -1894,7 +1940,7 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
                              int rank, double var_reg, unsigned int hyperbolic,
                              double negcurvature, unsigned int ultrametric,
                              unsigned int radial_flow, unsigned int planar_flow,
-                             TreePrior *treeprior) {
+                             TreePrior *treeprior, MigTable *mtable) {
   static int seeded = 0;
   
   CovarData *retval = smalloc(sizeof(CovarData));
@@ -1924,7 +1970,10 @@ CovarData *nj_new_covar_data(enum covar_type covar_param, Matrix *dist, int dim,
   retval->tree_diam_leaf1 = -1;
   retval->tree_diam_leaf2 = -1;
   retval->seq_to_node_map = NULL;
-    
+  retval->migtable = mtable;
+  retval->gtr_params = NULL;
+  retval->deriv_gtr = NULL;
+  
   if (radial_flow == TRUE) {
     retval->rf = rf_new(retval->nseqs, dim);
     rf_rescale(retval->rf, POINTSPAN_EUC/sqrt(2));
@@ -2917,6 +2966,8 @@ int nj_get_num_nuisance_params(TreeModel *mod, CovarData *data) {
     retval += 2;
   else if (mod->subst_mod == HKY85)
     retval += 1;
+  else if (mod->subst_mod == REV)
+    retval += data->gtr_params->size;
 
   if (data->rf != NULL)
     retval += data->rf->ctr->size + 2;
@@ -2944,6 +2995,14 @@ char *nj_get_nuisance_param_name(TreeModel *mod, CovarData *data, int idx) {
     if (idx == 0) 
       return "kappa";
     idx -= 1;
+  }
+  else if (mod->subst_mod == REV) {
+    if (idx < data->gtr_params->size) {
+      tmp = smalloc(10 * sizeof(char));
+      snprintf(tmp, 10, "gtr[%d]", idx);
+      return tmp;
+    }
+    idx -= data->gtr_params->size;
   }
   
   if (data->rf != NULL) {
@@ -3004,6 +3063,10 @@ void nj_update_nuis_grad(TreeModel *mod, CovarData *data, Vector *nuis_grad) {
   else if (mod->subst_mod == HKY85) {
     vec_set(nuis_grad, idx++, data->deriv_hky_kappa);
   }
+  else if (mod->subst_mod == REV) {
+    for (i = 0; i < data->deriv_gtr->size; i++)
+      vec_set(nuis_grad, idx++, vec_get(data->deriv_gtr, i));
+  }
 
   if (data->rf != NULL) {
     for (i = 0; i < data->rf->ctr_grad->size; i++)
@@ -3038,7 +3101,11 @@ void nj_save_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data) {
   }
   else if (mod->subst_mod == HKY85) 
     vec_set(stored_vals, idx++, data->hky_kappa);
-
+  else if (mod->subst_mod == REV) {
+    for (i = 0; i < data->gtr_params->size; i++)
+      vec_set(stored_vals, idx++, vec_get(data->gtr_params, i));
+  }
+  
   if (data->rf != NULL) {
     for (i = 0; i < data->rf->ctr->size; i++)
       vec_set(stored_vals, idx++, vec_get(data->rf->ctr, i));
@@ -3076,7 +3143,14 @@ void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data)
     tm_scale_rate_matrix(mod);
     mm_diagonalize(mod->rate_matrix);
   }
-
+  else if (mod->subst_mod == REV) {
+    for (i = 0; i < data->gtr_params->size; i++)
+      vec_set(data->gtr_params, i, vec_get(stored_vals, idx++));
+    tm_set_rate_matrix(mod, data->gtr_params, 0);
+    tm_scale_rate_matrix(mod);
+    mm_diagonalize(mod->rate_matrix);
+  }
+  
   if (data->rf != NULL) {
     if (data->rf->center_update == TRUE)
       for (i = 0; i < data->rf->ctr->size; i++)
@@ -3133,7 +3207,17 @@ void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) 
       mm_diagonalize(mod->rate_matrix);
       return;
     }
-    idx -= 1;      
+    idx -= 1;
+  } else if (mod->subst_mod == REV) {
+    if (idx < data->gtr_params->size) {
+      vec_set(data->gtr_params, idx, vec_get(data->gtr_params, idx) + inc);
+      if (vec_get(data->gtr_params, idx) < 1e-6) vec_set(data->gtr_params, idx, 1e-6);
+      tm_set_rate_matrix(mod, data->gtr_params, 0);
+      tm_scale_rate_matrix(mod);
+      mm_diagonalize(mod->rate_matrix);
+      return;
+    }
+    idx -= data->gtr_params->size;
   }
 
   if (data->rf != NULL) {
@@ -3202,7 +3286,12 @@ double nj_nuis_param_get(TreeModel *mod, CovarData *data, int idx) {
   else if (mod->subst_mod == HKY85) {
     if (idx == 0)
       return data->hky_kappa;
-    idx -= 1;      
+    idx -= 1;
+  }
+  else if (mod->subst_mod == REV) {
+    if (idx < data->gtr_params->size)
+      return vec_get(data->gtr_params, idx);
+    idx -= data->gtr_params->size;
   }
 
   if (data->rf != NULL) {
@@ -3362,5 +3451,18 @@ void nj_update_diam_leaves(Matrix *D, CovarData *data) {
         data->tree_diam_leaf2 = j;
       }
     }
+  }
+}
+
+/* custom setup for parameter mapping for GTR parameterization.  Set
+   up lists that allow each rate matrix parameter to be mapped to the
+   rows and columns in which it appears; this is a simplified version
+   of tm_init_rmp */
+void nj_init_gtr_mapping(TreeModel *tm) {
+  tm->rate_matrix_param_row = (List**)smalloc(GTR_NPARAMS * sizeof(List*));
+  tm->rate_matrix_param_col = (List**)smalloc(GTR_NPARAMS * sizeof(List*));
+  for (int i = 0; i < GTR_NPARAMS; i++) {
+    tm->rate_matrix_param_row[i] = lst_new_int(2);
+    tm->rate_matrix_param_col[i] = lst_new_int(2);
   }
 }

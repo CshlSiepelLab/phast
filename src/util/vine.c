@@ -21,6 +21,7 @@
 #include <phast/mvn.h>
 #include <phast/var_resampling.h>
 #include <phast/tree_prior.h>
+#include <phast/migration.h>
 #include "vine.help"
 
 #define DEFAULT_NSAMPLES 100
@@ -67,6 +68,7 @@ int main(int argc, char *argv[]) {
   TreePrior *tprior = NULL;
   enum tree_prior_type tp_type = NONE;
   unsigned int relclock = FALSE;
+  MigTable *migtable = NULL;
   
   struct option long_opts[] = {
     {"format", 1, 0, 'i'},
@@ -76,6 +78,7 @@ int main(int argc, char *argv[]) {
     {"distances", 1, 0, 'd'},
     {"embedding-only", 0, 0, 'e'},
     {"hky85", 0, 0, 'k'}, 
+    {"gtr", 0, 0, 'g'}, 
     {"hyperbolic", 0, 0, 'H'},
     {"rejection-sampling", 0, 0, 'J'},
     {"logfile", 1, 0, 'l'},
@@ -103,11 +106,12 @@ int main(int argc, char *argv[]) {
     {"crispr-mutprior", 1, 0, 'p'},
     {"treeprior", 1, 0, 'P'},
     {"relclock", 0, 0, 'L'},
+    {"migration", 1, 0, 'G'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:ehHi:FZjJkK:l:L:m:M:n:No:v:r:Rt:T:VW:S:s:CY:Pp:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:c:d:D:egG:hHi:FZjJkK:l:L:m:M:n:No:v:r:Rt:T:VW:S:s:CY:Pp:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
@@ -141,6 +145,12 @@ int main(int argc, char *argv[]) {
         is_crispr = TRUE;
       else
         format = msa_str_to_format(optarg);
+      break;
+    case 'g':
+      subst_mod = REV;
+      break;
+    case 'G':
+      migtable = mig_read_table(phast_fopen(optarg, "r"));
       break;
     case 'J':
       rejection_sampling = TRUE;
@@ -286,6 +296,12 @@ int main(int argc, char *argv[]) {
   
   if (rank != DEFAULT_RANK && covar_param != LOWR)
     fprintf(stderr, "WARNING: --rank ignored when --covar is not LOWR\n");
+
+  if (migtable != NULL) {
+    if (is_crispr == FALSE)
+      die("--migration requires -i CRISPR");
+    mig_check_table(migtable, crispr_muts); /* ensure same cell names */
+  }
   
   if ((nj_only || embedding_only) &&
       (indistfile != NULL || init_tree != NULL)) {
@@ -365,7 +381,7 @@ int main(int argc, char *argv[]) {
   covar_data = nj_new_covar_data(covar_param, D, dim, msa, crispr_mod, names,
                                  natural_grad, kld_upweight, rank, var_reg,
                                  hyperbolic, negcurvature, ultrametric, radial_flow,
-                                 planar_flow, tprior);
+                                 planar_flow, tprior, migtable);
 
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */
@@ -403,10 +419,18 @@ int main(int argc, char *argv[]) {
         }
         else if (subst_mod == JC69)
           tm_set_JC69_matrix(mod);
-        else {
+        else if (subst_mod == HKY85) {
           covar_data->hky_kappa = DEFAULT_KAPPA;
           tm_set_HKY_matrix(mod, covar_data->hky_kappa, -1);
         }
+        else if (subst_mod == REV) {
+          covar_data->gtr_params = vec_new(GTR_NPARAMS);
+          covar_data->deriv_gtr = vec_new(GTR_NPARAMS);
+          vec_set_random(covar_data->gtr_params, 1.0, 0.1);
+          nj_init_gtr_mapping(mod);
+          tm_set_rate_matrix(mod, covar_data->gtr_params, 0);
+        }
+        else (assert(0)); /* should not get here */
       }
 
       /* initialize parameters of multivariate normal */

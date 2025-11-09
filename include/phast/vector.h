@@ -282,6 +282,8 @@ void vec_summary_stats(Vector *v, double *mean, double *stdev,
 
 unsigned int vec_isfinite(Vector *v);
 
+void vec_set_random(Vector *v, double mu, double sigma);
+
 /* \} */
 
 #endif

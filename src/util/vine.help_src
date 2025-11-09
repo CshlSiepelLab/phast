@@ -46,6 +46,11 @@ MAIN OPTIONS:
         (default is Jukes Cantor). The transition-transversion rate ratio
         (kappa) will be estimated from the data.
 
+    --gtr, -g
+    	Use the general time reversible model (GTR) for likelihood
+    	calculations.  All free parameters will be estimated from the
+    	data.
+
     --logfile, -l <logfile.txt>
         Output detailed log for variational inference to specified file
 
@@ -208,7 +213,7 @@ HYPERBOLIC GEOMETRY:
        using the arcosh function and scaled according to the specified
        curvature (see --negcurvature).
  
-     --negcurvature, -K, <K>
+    --negcurvature, -K, <K>
        (for use with --hyperbolic) Set the negative curvature of the
        hyperbolic embedding space to <K> (default 1).  A larger value
        causes the space to be more curved and stretches how far apart the
@@ -216,6 +221,16 @@ HYPERBOLIC GEOMETRY:
        Biology 19(4):e1011084 (2023), larger values help to ensure
        additivity of distances but may restrict exploration of topologies.
        As <K> approaches zero, the space approaches a Euclidean space.
+
+CELL-STATE MODELING:
+    --migration, -G <statelabels.txt>
+        (for use with -i CRISPR) Model a migration process among cell
+        states along the branches of the phylogeny, simultaneously
+        with the mutation process (see Staklinski et al., bioRxiv
+        2025).  File must contain a list of exactly the same cell
+        labels as the mutation matrix, each followed by a single
+        string indicating its tissue or other cell state (comma
+        delimited file with two columns per line).
 
 DIAGNOSTICS:
     --mvn-dump, -V
