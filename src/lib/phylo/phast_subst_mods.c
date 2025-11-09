@@ -731,6 +731,11 @@ void tm_grad_REV_dt(TreeModel *mod, Matrix *grad, double t) {
   double g_ij, s_ik, sprime_kj, lambda_k;
   MarkovMatrix *Q = mod->rate_matrix;
 
+  if (t < 0)
+    die("ERROR in tm_grad_REV_dt: t must be nonnegative.\n");
+  if (grad->nrows != mod->rate_matrix->size || grad->ncols != mod->rate_matrix->size)
+    die("ERROR in tm_grad_REV_dt: bad dimension.\n");
+
   if (t == 0) {
     mat_copy(grad, Q->matrix); /* at t=0, dP/dt = Q */    
     return;
@@ -744,6 +749,12 @@ void tm_grad_REV_dt(TreeModel *mod, Matrix *grad, double t) {
       die("ERROR in tm_grad_REV_dt: rate matrix could not be diagonalized.\n");
     }
   }
+  /* precompute exps */
+  Vector *exp_lambda_t = vec_new(Q->size);
+  for (int k = 0; k < Q->size; k++) {
+    lambda_k = vec_get(Q->evals_r, k);
+    vec_set(exp_lambda_t, k, exp(lambda_k * t));
+  }
   for (int i = 0; i < Q->size; i++) {
     for (int j = 0; j < Q->size; j++) {
       g_ij = 0;
@@ -751,14 +762,24 @@ void tm_grad_REV_dt(TreeModel *mod, Matrix *grad, double t) {
         s_ik = mat_get(Q->evec_matrix_r, i, k);
         sprime_kj = mat_get(Q->evec_matrix_inv_r, k, j);
         lambda_k = vec_get(Q->evals_r, k);
-        g_ij += s_ik * lambda_k * exp(lambda_k * t) * sprime_kj;
+        g_ij += s_ik * lambda_k * vec_get(exp_lambda_t, k) * sprime_kj;
         /* see Siepel & Hausser 2004 Eq C.10 but in this case we omit
            the denominator and avoid summing over elements (handled by
            calling code) */
       }
       mat_set(grad, i, j, g_ij);
     }
-  }  
+  }
+  vec_free(exp_lambda_t);
+  
+  /* ensure rows sum to zero */
+  for (int i = 0; i < grad->nrows; i++) {
+    double rowsum = 0.0;
+    for (int j = 0; j < grad->ncols; j++) 
+      if (i != j)
+        rowsum += mat_get(grad, i, j);
+    mat_set(grad, i, i, -rowsum);
+  }
 }
 
 /* dP/dkappa for HKY */
@@ -846,6 +867,9 @@ void tm_grad_REV_dr(TreeModel *mod, List *dP_dr_lst, double t) {
 
   MarkovMatrix *Q = mod->rate_matrix;
 
+  if (t < 0)
+    die("ERROR in tm_grad_REV_dr: t must be nonnegative.\n");
+  
   if (Q->evec_matrix_r == NULL || Q->evals_r == NULL ||
       Q->evec_matrix_inv_r == NULL) {
     mm_diagonalize(Q);
@@ -919,10 +943,11 @@ void tm_grad_REV_dr(TreeModel *mod, List *dP_dr_lst, double t) {
       for (j = 0; j < nstates; j++) {
         if (fabs(vec_get(Q->evals_r, i) - vec_get(Q->evals_r, j)) < 1e-8)
           f[i][j] = exp((vec_get(Q->evals_r, i)) * t) * t;
-        else
-          f[i][j] = (exp((vec_get(Q->evals_r, i)) * t) 
-                     - exp((vec_get(Q->evals_r, j)) * t)) /
-            ((vec_get(Q->evals_r, i)) - (vec_get(Q->evals_r, j)));
+        else {
+          double li = vec_get(Q->evals_r, i), lj = vec_get(Q->evals_r, j);
+          double dt = t * (li - lj);
+          f[i][j] = exp(lj * t) * (expm1(dt) / (li - lj));   /* well-behaved as dt→0 */
+        }
       }
     }
 
@@ -944,6 +969,15 @@ void tm_grad_REV_dr(TreeModel *mod, List *dP_dr_lst, double t) {
           partial_p += mat_get(Q->evec_matrix_r, i, k) * tmpmat[k][j];
         mat_set(dP_dr, i, j, partial_p);
       }
+    }
+
+    /* ensure rows sum to zero */
+    for (i = 0; i < nstates; i++) {
+      double rowsum = 0.0;
+      for (j = 0; j < nstates; j++)
+        if (i != j)
+          rowsum += mat_get(dP_dr, i, j);
+      mat_set(dP_dr, i, i, -rowsum);
     }
   }
 
