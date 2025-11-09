@@ -165,7 +165,7 @@ void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data);
 double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, 
                              Vector *points, Vector *points_std,
                              Vector *grad, CovarData *data,
-                             double *nf_logdet);
+                             double *nf_logdet, double *migll);
 
 double nj_compute_model_grad_check(TreeModel *mod, multi_MVN *mmvn, 
                                    Vector *points, Vector *points_std,
@@ -235,7 +235,7 @@ int nj_i_j_to_dist(int i, int j, int n);
 void nj_dist_to_i_j(int pwidx, int *i, int *j, int n);
 
 double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod, 
-                         CovarData *data, double *nf_logdet);
+                         CovarData *data, double *nf_logdet, double *migll);
 
 void nj_backprop(double *Jk, double *Jnext, int n, int f, int g, int u,
                  Vector *active);

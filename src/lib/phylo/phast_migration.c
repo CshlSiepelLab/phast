@@ -50,7 +50,7 @@ MigTable *mig_read_table(FILE *F) {
     if (str_starts_with_charstr(line, "#")) /* comment line */
       continue;
     
-    str_split(line, NULL, cols);
+    str_split(line, ",", cols);
     if (lst_size(cols) != 2)
       die("ERROR in line %d of input file: each line must have two columns (comma-delimited)\n", lineno);
     lst_push_ptr(M->cellnames, lst_get_ptr(cols, 0));
@@ -77,16 +77,20 @@ MigTable *mig_read_table(FILE *F) {
 void mig_update_states(MigTable *M) {
   M->nparams = (M->nstates * (M->nstates - 1)) / 2;
   M->gtr_params = vec_new(M->nparams);
+  vec_set_random(M->gtr_params, 1.0, 0.1);
   M->deriv_gtr = vec_new(M->nparams);
-  M->rate_matrix =
-      mm_new(M->nstates, NULL, CONTINUOUS); /* FIXME: send in state labels */
-  M->backgd_freqs = vec_new(M->nstates);
+  vec_zero(M->deriv_gtr);
+  M->backgd_freqs = vec_new(M->nstates); /* has to be done before below */
   M->rate_matrix_param_row = (List**)smalloc(M->nparams * sizeof(List*));
   M->rate_matrix_param_col = (List**)smalloc(M->nparams * sizeof(List*));
   for (int i = 0; i < M->nparams; i++) {
     M->rate_matrix_param_row[i] = lst_new_int(2);
     M->rate_matrix_param_col[i] = lst_new_int(2);
   }
+  M->rate_matrix = mm_new(M->nstates, NULL, CONTINUOUS);
+  /* FIXME: send in state labels */
+  mig_set_REV_matrix(M, M->gtr_params);
+  vec_set_all(M->backgd_freqs, 1.0 / M->nstates);
 }
 
 /* check that migration table contains the same list of cellnames as a
@@ -268,7 +272,7 @@ double mig_compute_log_likelihood(TreeModel *mod, MigTable *mg,
     pre_trav = tr_preorder(mod->tree);
 
     for (nodeidx = 0; nodeidx < lst_size(pre_trav); nodeidx++) {
-      n = lst_get_ptr(traversal, nodeidx);
+      n = lst_get_ptr(pre_trav, nodeidx);
 
       if (n->parent == NULL) { /* base case */
         for (i = 0; i < nstates; i++)
@@ -423,11 +427,168 @@ void mig_update_subst_matrices(TreeModel *mod, MigTable *mg) {
   }
 }
 
+/* helper function to sample states at internal nodes.  Given an array of
+   doubles of dimension nstates, sample in proportion to those values and return
+   an index between 0 and nstates-1.  Original probabilities do not need to be
+   normalized */
+static inline
+int mig_sample_state(double *probs, int nstates) {
+  double total = 0, cumprob = 0;
+  for (int i = 0; i < nstates; i++)
+    total += probs[i];
+  assert(total > 0.0);
+  double r = unif_rand() * total;
+  for (int i = 0; i < nstates; i++) {
+    cumprob += probs[i];
+    if (r <= cumprob)
+      return i;
+  }
+  return nstates - 1; /* should not get here */
+}
+
+/* given a tree model and migration table, sample states at internal
+   nodes of the tree.  Populates a list parallel to mod->tree->nodes
+   whose elements are state indices */
+void mig_sample_states(TreeModel *mod, MigTable *mg, 
+                       CrisprMutModel *cprmod, List *state_samples) {
+
+  int i, j, k, nodeidx, cell, state;
+  int nstates = mg->nstates; 
+  TreeNode *n;
+  List *traversal, *pre_trav;
+  double **pL = NULL;
+  double scaling_threshold = DBL_MIN * 1.0e10;  /* need some padding */
+  double lscaling_threshold = log(scaling_threshold);
+  double root_eqfreqs[nstates];
+  MarkovMatrix *par_subst_mat, *leading_Pt, *lsubst_mat, *rsubst_mat; ;
+  Vector *lscale; /* inside and outside versions */
+  unsigned int rescale;
+
+  /* set up "inside" probability matrices */
+  pL = smalloc(nstates * sizeof(double*));
+  for (j = 0; j < nstates; j++)
+    pL[j] = smalloc((cprmod->mod->tree->nnodes+1) * sizeof(double));
+
+  /* we also need to keep track of the log scale of every node for
+     underflow purposes */
+  lscale = vec_new(mod->tree->nnodes+1); 
+  vec_zero(lscale);
+  
+  mig_update_subst_matrices(mod, mg); /* compute all necessary migration probability
+                                         matrices */
+  if (cprmod->mod->msa_seq_idx == NULL)
+    cpr_build_seq_idx(cprmod->mod, cprmod->mut);
+
+  traversal = tr_postorder(cprmod->mod->tree);
+    
+  /* this model allows a leading branch to the root of the tree but
+     forces the unedited state at the start of that branch.  We can
+     simulate this behavior by setting the root eq freqs equal to
+     the conditional distribution at the end of the branch given the
+     unedited state at the start */
+  leading_Pt = lst_get_ptr(mg->Pt, mod->tree->id); 
+  for (i = 0; i < nstates; i++)
+    root_eqfreqs[i] = mm_get(leading_Pt, 0, i);
+    
+  for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
+    n = lst_get_ptr(traversal, nodeidx);
+
+    if (n->lchild == NULL) {
+      /* leaf: base case of recursion */
+      cell = cprmod->mod->msa_seq_idx[n->id];
+      
+      if (cell == -1)
+        die("ERROR in mig_compute_log_likelihood: leaf '%s' not found in "
+            "migration table.\n", n->name);
+
+      state = lst_get_int(mg->states, cell);
+      assert(state >= 0 && state < nstates);
+      
+      for (i = 0; i < nstates; i++) {
+        if (i == state)
+          pL[i][n->id] = 1;
+        else
+          pL[i][n->id] = 0;
+      }
+
+      /* we can set the state samples for leaves now */
+      lst_set_int(state_samples, n->id, state);
+    }
+    else {
+      /* general recursive case */
+      lsubst_mat = lst_get_ptr(mg->Pt, n->lchild->id);
+      rsubst_mat = lst_get_ptr(mg->Pt, n->rchild->id);
+
+      double maxP = 0;
+      for (i = 0; i < nstates; i++) {
+        double totl = 0, totr = 0;
+        for (j = 0; j < nstates; j++)
+          totl += pL[j][n->lchild->id] *
+            mm_get(lsubst_mat, i, j);
+          
+        for (k = 0; k < nstates; k++)
+          totr += pL[k][n->rchild->id] *
+            mm_get(rsubst_mat, i, k);
+
+        pL[i][n->id] = totl * totr;
+        if (maxP < pL[i][n->id])
+          maxP = pL[i][n->id];
+      }
+      rescale = FALSE;
+      if (maxP > 0 && maxP < scaling_threshold)
+        rescale = TRUE;
+
+      /* deal with nodewise scaling */
+      vec_set(lscale, n->id, vec_get(lscale, n->lchild->id) +
+              vec_get(lscale, n->rchild->id));
+      if (rescale == TRUE) { /* have to rescale for all states */
+        vec_set(lscale, n->id, vec_get(lscale, n->id) + lscaling_threshold);
+        for (i = 0; i < nstates; i++) 
+          pL[i][n->id] /= scaling_threshold;
+      }
+    }
+  }
+
+  /* Now pass from root to leaves and sample notes based on smpled parent and
+     inside probabilities */
+  pre_trav = tr_preorder(mod->tree);
+  double *sampdens = smalloc(nstates * sizeof(double));
+  for (nodeidx = 0; nodeidx < lst_size(pre_trav); nodeidx++) {
+    n = lst_get_ptr(pre_trav, nodeidx);
+
+    if (n->parent == NULL) { /* base case */
+      for (i = 0; i < nstates; i++)
+        sampdens[i] = root_eqfreqs[i] * pL[i][n->id];
+      state = mig_sample_state(sampdens, nstates);
+      lst_set_int(state_samples, n->id, state);
+    }
+    else if (n->lchild == NULL)  /* leaf: already handled */
+      continue;
+    else { /* recursive case */
+      int parstate = lst_get_int(state_samples, n->parent->id);
+      par_subst_mat = lst_get_ptr(mg->Pt, n->id);
+
+      for (i = 0; i < nstates; i++)
+        sampdens[i] = pL[i][n->id] * mm_get(par_subst_mat, parstate, i);;
+      state = mig_sample_state(sampdens, nstates);
+
+      lst_set_int(state_samples, n->id, state);
+    }
+  }
+  
+  for (j = 0; j < nstates; j++)
+    sfree(pL[j]);
+  sfree(pL);
+  
+  vec_free(lscale);
+  sfree(sampdens);
+}
+
 /***************************************************************************
  Functions adapted from phast_subst_mods.c to handle migration models 
  ***************************************************************************/
-void mig_set_REV_matrix(MigTable *mg, Vector *params, int start_idx) {
-  int i, j;
+void mig_set_REV_matrix(MigTable *mg, Vector *params) {
+  int i, j, start_idx = 0;
   if (mg->backgd_freqs == NULL)
     die("mig_set_REV_matrix: mg->backgd_freqs is NULL\n");
   for (i = 0; i < mg->rate_matrix->size; i++) {
@@ -452,6 +613,19 @@ void mig_set_REV_matrix(MigTable *mg, Vector *params, int start_idx) {
       rowsum += mm_get(mg->rate_matrix, i, j);
     mm_set(mg->rate_matrix, i, i, -1 * rowsum);
   }
+  mig_scale_rate_matrix(mg);
+  mm_diagonalize(mg->rate_matrix);
+}
+
+void mig_scale_rate_matrix(MigTable *mg) {
+  double scale = 0;
+  for (int i = 0; i < mg->rate_matrix->size; i++) {
+    double rowsum = 0;
+    for (int j = 0; j < mg->rate_matrix->size; j++) 
+      if (j != i) rowsum += mm_get(mg->rate_matrix, i, j);
+    scale += (vec_get(mg->backgd_freqs, i) * rowsum);
+  }
+  mm_scale(mg->rate_matrix, 1.0/scale);
 }
 
 /* dP/dt for REV */

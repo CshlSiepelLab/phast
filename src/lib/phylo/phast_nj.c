@@ -704,9 +704,10 @@ void nj_points_to_distances_hyperbolic(Vector *points, CovarData *data) {
    respect to the free parameters of the MVN averaging distribution,
    starting from a given MVN sample (points). Returns log likelihood
    of current model, which is computed as a by-product.  */
-double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, 
-                             Vector *points, Vector *points_std,
-                             Vector *grad, CovarData *data, double *nf_logdet) {
+double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn, Vector *points,
+                             Vector *points_std, Vector *grad, CovarData *data,
+                             double *nf_logdet,
+                             double *migll) {
   int n = data->nseqs; /* number of taxa */
   int d = mmvn->n * mmvn->d / n; /* dimensionality; have to accommodate diagonal case */
   int dim = n*d; /* full dimension of point vector */
@@ -723,7 +724,7 @@ double nj_compute_model_grad(TreeModel *mod, multi_MVN *mmvn,
     die("ERROR in nj_compute_model_grad: low-rank matrix R required in LOWR case.\n");
   
   /* obtain gradient with respect to points, dL/dx */
-  ll_base = nj_dL_dx_smartest(points, dL_dx, mod, data, nf_logdet);
+  ll_base = nj_dL_dx_smartest(points, dL_dx, mod, data, nf_logdet, migll);
 
   /* TEMPORARY: compare with numerical version */
   /* printf("analytical (%f):\n", ll_base); */
@@ -901,7 +902,8 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   Vector *sigmapar = data->params;
   int n = data->nseqs, i, j, t, stop = FALSE, bestt = -1, graddim,
     dim = data->dim, fulld = n*dim;
-  double elb, ll, avell, kld, bestelb = -INFTY, bestll = -INFTY, bestkld = -INFTY,
+  double elb, ll, avell, migll, avemigll, kld, bestelb = -INFTY, bestll = -INFTY,
+    bestkld = -INFTY, bestmigll = -INFTY,
     running_tot = 0, last_running_tot = -INFTY, trace, logdet, penalty = 0,
     bestpenalty = 0, ave_nf_logdet, best_nf_logdet = -INFTY,
     ave_lprior, best_lprior = -INFTY, subsamp_rescale = 1.0;
@@ -961,8 +963,11 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   /* set up log file */
   if (logf != NULL) {
     fprintf(logf, "# VINE logfile\n");
-    fprintf(logf, "state\tll\tlprior\tkld\tnfld\telb\t");
-    fprintf(logf, "penalty\t");
+    fprintf(logf, "state\tll\tlprior\tkld\tnfld\telb\tpenalty\t");
+    if (data->crispr_mod == NULL)
+      fprintf(logf, "subsamp\treuse\tclip\t");
+    if (data->migtable != NULL)
+      fprintf(logf, "mig_ll\t");
     for (j = 0; j < fulld; j++)
       fprintf(logf, "mu.%d\t", j);
     for (j = 0; j < sigmapar->size; j++)
@@ -989,8 +994,9 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   }
   t = 0;
 
-  /* set up scheduler */
-  Scheduler *s = sched_new(data->msa->length, NSUBSAMPLES, 20,
+  /* set up scheduler; initialized but not currently used in CRISPR mode */
+  int maxlen = data->crispr_mod == NULL ? data->msa->length : 1000;
+  Scheduler *s = sched_new(maxlen, NSUBSAMPLES, 20,
                            learnrate, 10, 50, 30);
   SchedState *st = sched_new_state(s);
   SchedDirectives *sd = smalloc(sizeof(SchedDirectives));
@@ -1051,9 +1057,10 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     avell = 0;
     ave_lprior = 0;
     ave_nf_logdet = 0;
+    avemigll = 0;
 
-    /* set up subsampling for this minibatch */
-    if (!sd->full_grad_now) {
+    /* set up subsampling for this minibatch (but not in crispr mode) */
+    if (!sd->full_grad_now && data->crispr_mod == NULL) {
       data->subsample = TRUE;
       data->subsampsize = sd->m;
       data->reuse_subsamp = !sd->resample_sites;
@@ -1076,7 +1083,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
            variance */
         nj_sample_points(mmvn, points, points_std);
  
-        ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data, &nf_logdet);
+        ll = nj_compute_model_grad(mod, mmvn, points, points_std, grad, data, &nf_logdet, &migll);
        
         if (++bail > 10 && !isfinite(ll)) {
           fprintf(stderr, "WARNING: repeatedly sampling zero-probability trees. Prohibiting zero-length branches.\n");
@@ -1090,12 +1097,11 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
                                    happens and if necessary constrain
                                    the tree structure */
 
-      if (data->subsample == TRUE) { /* rescale ll and grad if subsampling */
+      if (data->subsample == TRUE)  /* rescale ll if subsampling */
         ll *= subsamp_rescale;
-        /*        vec_scale(grad, subsamp_rescale); */
-      }
-      
+
       avell += ll;
+      avemigll += migll;
       vec_plus_eq(avegrad, grad);
       ave_nf_logdet += nf_logdet;
 
@@ -1116,6 +1122,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     avell /= nminibatch;
     ave_lprior /= nminibatch;
     ave_nf_logdet /= nminibatch;
+    avemigll /= nminibatch;
     
     vec_plus_eq(avegrad, kldgrad);
     vec_plus_eq(avegrad, sparsitygrad);
@@ -1124,14 +1131,15 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
       vec_scale(ave_nuis_grad, 1.0/nminibatch);
     
     /* store parameters if best yet */
-    elb = avell + ave_lprior - kld + ave_nf_logdet - penalty;
-    if (elb > bestelb && sd->full_grad_now) {
+    elb = avell + ave_lprior - kld + ave_nf_logdet - penalty + avemigll;
+    if (elb > bestelb && (sd->full_grad_now || data->crispr_mod != NULL)) {
       bestelb = elb;
       bestll = avell;  /* not necessarily best ll but ll corresponding to bestelb */
       best_lprior = ave_lprior;
       bestkld = kld;  
-      bestpenalty = penalty; 
+      bestpenalty = penalty;
       best_nf_logdet = ave_nf_logdet;
+      bestmigll = avemigll;
       bestt = t;
       mmvn_save_mu(mmvn, best_mu);
       vec_copy(best_sigmapar, sigmapar);
@@ -1148,10 +1156,12 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     /* we won't do this with nuisance params */
 
     /* update scheduler with norm of gradient and clip if necessary */
-    sm->grad_norm = vec_norm(rescaledgrad);
-    if (sd->clip_norm > 0 && sm->grad_norm > sd->clip_norm) {
-      vec_scale(rescaledgrad, sd->clip_norm / sm->grad_norm);
-      clipped = TRUE;
+    if (data->crispr_mod == NULL) {
+      sm->grad_norm = vec_norm(rescaledgrad);
+      if (sd->clip_norm > 0 && sm->grad_norm > sd->clip_norm) {
+        vec_scale(rescaledgrad, sd->clip_norm / sm->grad_norm);
+        clipped = TRUE;
+      }
     }
 
     /* Adam updates; see Kingma & Ba, arxiv 2014 */
@@ -1197,8 +1207,11 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     if (logf != NULL) {
       fprintf(logf, "%d\t%f\t%f\t%f\t%f\t%f\t%f\t", t, avell, ave_lprior, kld,
               ave_nf_logdet, elb, data->var_pen);
-      fprintf(logf, "%d\t%d\t%f\t%d\t", data->subsampsize, data->reuse_subsamp,
-              sm->grad_norm, clipped);
+      if (data->crispr_mod == NULL)
+        fprintf(logf, "%d\t%d\t%f\t%d\t", data->subsampsize,
+                data->reuse_subsamp, sm->grad_norm, clipped);
+      if (data->migtable != NULL) 
+        fprintf(logf, "%f\t", avemigll); 
       mmvn_print(mmvn, logf, TRUE, FALSE);
       for (j = 0; j < sigmapar->size; j++)
         fprintf(logf, "%f\t", vec_get(sigmapar, j));
@@ -1218,7 +1231,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     if (t % nbatches_conv == 0) {
       if (logf != NULL)
         fprintf(logf, "# Average ELBO for last %d: %f\n", nbatches_conv, running_tot/nbatches_conv);
-      if (sd->full_grad_now && t >= min_nbatches &&
+      if ((sd->full_grad_now || data->crispr_mod != NULL) && t >= min_nbatches &&
           1.001*running_tot <= last_running_tot*0.999)
         /* sometimes get stuck increasingly asymptotically; stop if increase not more than about 0.1% */
         stop = TRUE;
@@ -1235,43 +1248,30 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     nj_update_nuis_params(best_nuis_params, mod, data);
   
   if (logf != NULL) {
-    fprintf(logf, "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: %.2f, LPRIOR: %.2f, KLD: %.2f, RFLD: %.2f, penalty: %.2f",
-            bestt+1, bestelb, bestll, best_lprior, bestkld, best_nf_logdet, bestpenalty);
+    fprintf(logf,
+            "# Reverting to parameters from iteration %d; ELB: %.2f, LNL: "
+            "%.2f, LPRIOR: %.2f, KLD: %.2f, RFLD: %.2f, penalty: %.2f",
+            bestt + 1, bestelb, bestll, best_lprior, bestkld, best_nf_logdet,
+            bestpenalty);
+    if (data->migtable != NULL)
+      fprintf(logf, ", MIGLL: %.2f", bestmigll);
     for (j = 0; j < n_nuisance_params; j++) /* print these also if available */
       fprintf(logf, ", %s: %.4f", nj_get_nuisance_param_name(mod, data, j),
               nj_nuis_param_get(mod, data, j));
     fprintf(logf, "\n");
   }
-  
-  vec_free(grad);
-  vec_free(avegrad);
-  vec_free(rescaledgrad);
-  vec_free(kldgrad);
-  vec_free(sparsitygrad);
-  vec_free(points);
-  vec_free(points_std);
-  vec_free(m);
-  vec_free(m_prev);
-  vec_free(v);
-  vec_free(v_prev);
-  vec_free(best_mu);
-  vec_free(best_sigmapar);
-  sfree(s);
-  sfree(st);
-  sfree(sd);
-  sfree(sm);
+
+  vec_free(grad); vec_free(avegrad); vec_free(rescaledgrad); vec_free(kldgrad);
+  vec_free(sparsitygrad); vec_free(points); vec_free(points_std); vec_free(m);
+  vec_free(m_prev); vec_free(v); vec_free(v_prev); vec_free(best_mu); vec_free(best_sigmapar);
+  sfree(s); sfree(st); sfree(sd); sfree(sm);
   
   if (data->treeprior != NULL)
     vec_free(prior_grad);
   
   if (n_nuisance_params > 0) {
-    vec_free(nuis_grad);
-    vec_free(ave_nuis_grad);
-    vec_free(m_nuis);
-    vec_free(v_nuis);
-    vec_free(m_nuis_prev);
-    vec_free(v_nuis_prev);
-    vec_free(best_nuis_params);
+    vec_free(nuis_grad); vec_free(ave_nuis_grad); vec_free(m_nuis); vec_free(v_nuis);
+    vec_free(m_nuis_prev); vec_free(v_nuis_prev); vec_free(best_nuis_params);
   }    
 }
 
@@ -2441,18 +2441,22 @@ void nj_dist_to_i_j(int pwidx, int *i, int *j, int n) {
    for each component.  Fastest but most complicated and error-prone
    version. */
 double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
-                         CovarData *data, double *nj_logdet) {
+                         CovarData *data, double *nj_logdet, double *migll) {
   int n = data->nseqs, nbranches = 2*n-2,  /* have to work with the rooted tree here */
     ndist = n * (n-1) / 2, ndim = data->nseqs * data->dim;
   Vector *dL_dt = vec_new(nbranches);
   Matrix *dt_dD = mat_new(nbranches, ndist);
   Vector *dL_dD = vec_new(ndist);
   Vector *dL_dy = vec_new(dL_dx->size);
+  Vector *migbranchgrad = data->migtable != NULL ?
+    vec_new(nbranches) : NULL;
   Vector *y = vec_new(x->size);
   TreeNode *tree;
   double ll_base;
   int i, j, d;
 
+  *migll = 0.0;
+  
   /* convert x to y using normalizing flows if available */
   nj_apply_normalizing_flows(y, x, data, nj_logdet);
   
@@ -2486,7 +2490,14 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   /* fprintf(stdout, "dL_dt (numerical):\n"); */
   /* vec_print(dL_dt, stdout); */
   /* exit(0); */
-  
+
+  /* also get migration log likelihood if needed */
+  if (data->migtable != NULL) {
+    *migll = mig_compute_log_likelihood(mod, data->migtable, data->crispr_mod,
+                                        migbranchgrad);
+    vec_plus_eq(dL_dt, migbranchgrad);
+  }
+
   /* apply chain rule to get dL/dD gradient (a vector of dim ndist) */
   mat_vec_mult_transp(dL_dD, dt_dD, dL_dt);
   /* (note taking transpose of both vector and matrix and expressing
@@ -2618,6 +2629,7 @@ double nj_dL_dx_smartest(Vector *x, Vector *dL_dx, TreeModel *mod,
   vec_free(dL_dD);
   vec_free(dL_dy);
   vec_free(y);
+  if (migbranchgrad != NULL) vec_free(migbranchgrad);
 
   return ll_base;  
 }
@@ -2977,6 +2989,9 @@ int nj_get_num_nuisance_params(TreeModel *mod, CovarData *data) {
 
   if (data->treeprior != NULL && data->treeprior->relclock == TRUE)
     retval += (1 + (mod->tree->nnodes + 1)/2 - 1);
+
+  if (data->migtable != NULL)
+    retval += data->migtable->gtr_params->size;
   
   return retval;
 }
@@ -3049,6 +3064,15 @@ char *nj_get_nuisance_param_name(TreeModel *mod, CovarData *data, int idx) {
     idx -= data->treeprior->nodetimes->size;
   }
 
+  if (data->migtable != NULL) {
+    if (idx < data->migtable->gtr_params->size) {
+      tmp = smalloc(10 * sizeof(char));
+      snprintf(tmp, 10, "mig[%d]", idx);
+      return tmp;
+    }
+    idx -= data->migtable->gtr_params->size;
+  }
+  
   die("ERROR in nj_get_nuisance_param_name: index out of bounds.\n");
   return NULL;
 }
@@ -3088,7 +3112,12 @@ void nj_update_nuis_grad(TreeModel *mod, CovarData *data, Vector *nuis_grad) {
     for (i = 0; i < data->treeprior->nodetimes_grad->size; i++) 
       vec_set(nuis_grad, idx++, vec_get(data->treeprior->nodetimes_grad, i)); 
   }
-  
+
+  if (data->migtable != NULL) {
+    for (i = 0; i < data->migtable->deriv_gtr->size; i++)
+      vec_set(nuis_grad, idx++, vec_get(data->migtable->deriv_gtr, i));
+  }
+
   assert(idx == nuis_grad->size);
 }
 
@@ -3125,6 +3154,11 @@ void nj_save_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data) {
     vec_set(stored_vals, idx++, data->treeprior->relclock_sig);
     for (i = 0; i < data->treeprior->nodetimes->size; i++) 
       vec_set(stored_vals, idx++, vec_get(data->treeprior->nodetimes, i)); 
+  }
+
+  if (data->migtable != NULL) {
+    for (i = 0; i < data->migtable->gtr_params->size; i++)
+      vec_set(stored_vals, idx++, vec_get(data->migtable->gtr_params, i));
   }
   
   assert(idx == stored_vals->size);
@@ -3176,6 +3210,12 @@ void nj_update_nuis_params(Vector *stored_vals, TreeModel *mod, CovarData *data)
     for (i = 0; i < data->treeprior->nodetimes->size; i++) 
       vec_set(data->treeprior->nodetimes, i, vec_get(stored_vals, idx++));
   }
+
+  if (data->migtable != NULL) {
+    for (i = 0; i < data->migtable->gtr_params->size; i++)
+      vec_set(data->migtable->gtr_params, i, vec_get(stored_vals, idx++));
+    mig_set_REV_matrix(data->migtable, data->migtable->gtr_params);
+  }
   
   assert(idx == stored_vals->size);
 }
@@ -3208,7 +3248,8 @@ void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) 
       return;
     }
     idx -= 1;
-  } else if (mod->subst_mod == REV) {
+  }
+  else if (mod->subst_mod == REV) {
     if (idx < data->gtr_params->size) {
       vec_set(data->gtr_params, idx, vec_get(data->gtr_params, idx) + inc);
       if (vec_get(data->gtr_params, idx) < 1e-6) vec_set(data->gtr_params, idx, 1e-6);
@@ -3271,6 +3312,16 @@ void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) 
     idx -= data->treeprior->nodetimes->size;
   }
 
+  if (data->migtable) {
+    if (idx < data->gtr_params->size) {
+      vec_set(data->migtable->gtr_params, idx, vec_get(data->migtable->gtr_params, idx) + inc);
+      if (vec_get(data->migtable->gtr_params, idx) < 1e-6) vec_set(data->migtable->gtr_params, idx, 1e-6);
+      mig_set_REV_matrix(data->migtable, data->migtable->gtr_params);
+      return;
+    }
+    idx -= data->migtable->gtr_params->size;
+  }
+
   die("ERROR in nj_nuis_param_pluseq: index out of bounds.\n");
 }
 
@@ -3328,6 +3379,11 @@ double nj_nuis_param_get(TreeModel *mod, CovarData *data, int idx) {
     idx -= data->treeprior->nodetimes->size;
   }
 
+  if (data->migtable != NULL) {
+    if (idx < data->migtable->gtr_params->size)
+      return vec_get(data->migtable->gtr_params, idx);
+    idx -= data->migtable->gtr_params->size;
+  }
   die("ERROR in nuis_param_get: index out of bounds.\n");
   return -1;
 }

@@ -10,7 +10,7 @@ all: ${TARGETLIB}(${OBJS})
 	$(CC) $(CFLAGS) -c $< -o $@ -DRPHAST 
 
 $(TARGETLIB): $(OBJS)
-	$(AR) rs $@ $^
+	$(AR) rcs $@ $^
 
 clean:
 	rm -f *.o 

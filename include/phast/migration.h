@@ -46,7 +46,12 @@ void mig_check_table(MigTable *mg, CrisprMutTable *mm);
 double mig_compute_log_likelihood(TreeModel *mod, MigTable *mg,
                                   CrisprMutModel *cprmod, Vector *branchgrad);
 
-void mig_set_REV_matrix(MigTable *mg, Vector *params, int start_idx);
+void mig_sample_states(TreeModel *mod, MigTable *mg, CrisprMutModel *cprmod,
+                       List *state_samples);
+
+void mig_set_REV_matrix(MigTable *mg, Vector *params);
+
+void mig_scale_rate_matrix(MigTable *mg);
 
 void mig_grad_REV_dr(MigTable *mg, List *dP_dr_lst, double t);
 

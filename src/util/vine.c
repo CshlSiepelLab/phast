@@ -297,11 +297,8 @@ int main(int argc, char *argv[]) {
   if (rank != DEFAULT_RANK && covar_param != LOWR)
     fprintf(stderr, "WARNING: --rank ignored when --covar is not LOWR\n");
 
-  if (migtable != NULL) {
-    if (is_crispr == FALSE)
+  if (migtable != NULL && is_crispr == FALSE)
       die("--migration requires -i CRISPR");
-    mig_check_table(migtable, crispr_muts); /* ensure same cell names */
-  }
   
   if ((nj_only || embedding_only) &&
       (indistfile != NULL || init_tree != NULL)) {
@@ -322,6 +319,9 @@ int main(int argc, char *argv[]) {
       ultrametric = TRUE;
       crispr_mod = cpr_new_model(crispr_muts, NULL, crispr_modtype, crispr_muttype);
       /* leave tree model null for now; fill in later */
+
+      if (migtable != NULL)
+        mig_check_table(migtable, crispr_muts); /* ensure same cell names */
     }
     else { /* standard alignment file */
       if (format == UNKNOWN_FORMAT)

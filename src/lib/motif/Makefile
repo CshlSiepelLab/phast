@@ -4,7 +4,7 @@ PHAST := ${PHAST}/../..
 # assume every *.c file goes in the library
 OBJS =  $(addsuffix .o,$(basename $(wildcard *.c)))
 
-all: ${TARGETLIB}(${OBJS}) 
+all: ${TARGETLIB}
 
 sharedlib: CFLAGS += -fPIC
 sharedlib: all
@@ -13,7 +13,7 @@ sharedlib: all
 	$(CC) $(CFLAGS) -c $< -o $@ 
 
 $(TARGETLIB): $(OBJS)
-	$(AR) rs $@ $^
+	$(AR) rcs $@ $^
 
 clean:
 	rm -f *.o 
