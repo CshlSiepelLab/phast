@@ -960,9 +960,9 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
 
   /* set up log file */
   if (logf != NULL) {
-    fprintf(logf, "# varPHAST logfile\n");
-    fprintf(logf, "state\tll\tlprior\tkld\tnfld\telb\tpenalty\t");
-    fprintf(logf, "subsamp\treuse\tgradnorm\tclip\t");
+    fprintf(logf, "# VINE logfile\n");
+    fprintf(logf, "state\tll\tlprior\tkld\tnfld\telb\t");
+    fprintf(logf, "penalty\t");
     for (j = 0; j < fulld; j++)
       fprintf(logf, "mu.%d\t", j);
     for (j = 0; j < sigmapar->size; j++)
