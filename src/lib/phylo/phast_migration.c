@@ -81,16 +81,17 @@ void mig_update_states(MigTable *M) {
   M->deriv_gtr = vec_new(M->nparams);
   vec_zero(M->deriv_gtr);
   M->backgd_freqs = vec_new(M->nstates); /* has to be done before below */
+  vec_set_all(M->backgd_freqs, 1.0 / M->nstates);
   M->rate_matrix_param_row = (List**)smalloc(M->nparams * sizeof(List*));
   M->rate_matrix_param_col = (List**)smalloc(M->nparams * sizeof(List*));
   for (int i = 0; i < M->nparams; i++) {
     M->rate_matrix_param_row[i] = lst_new_int(2);
     M->rate_matrix_param_col[i] = lst_new_int(2);
   }
-  M->rate_matrix = mm_new(M->nstates, NULL, CONTINUOUS);
+  M->rate_matrix = mm_new(M->nstates, NULL, DISCRETE);
+  mm_set_eigentype(M->rate_matrix, REAL_NUM);
   /* FIXME: send in state labels */
   mig_set_REV_matrix(M, M->gtr_params);
-  vec_set_all(M->backgd_freqs, 1.0 / M->nstates);
 }
 
 /* check that migration table contains the same list of cellnames as a
@@ -420,6 +421,14 @@ double mig_compute_log_likelihood(TreeModel *mod, MigTable *mg,
 
 /* set P = exp(Qt) for each branch in the tree model */
 void mig_update_subst_matrices(TreeModel *mod, MigTable *mg) {
+  if (mg->Pt == NULL) { /* first time through */
+    mg->Pt = lst_new_ptr(mod->tree->nnodes);
+    for (int nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++) {
+      MarkovMatrix *P = mm_new(mg->nstates, NULL, DISCRETE);
+      mm_set_eigentype(P, REAL_NUM);
+      lst_push_ptr(mg->Pt, P);
+    }
+  }
   for (int nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++) {
     TreeNode *n = lst_get_ptr(mod->tree->nodes, nodeidx);
     MarkovMatrix *P = lst_get_ptr(mg->Pt, nodeidx);
@@ -601,7 +610,8 @@ void mig_set_REV_matrix(MigTable *mg, Vector *params) {
       mm_set(mg->rate_matrix, j, i,
              val * vec_get(mg->backgd_freqs, i));
       rowsum += (val * vec_get(mg->backgd_freqs, j));
-
+      lst_clear(mg->rate_matrix_param_row[start_idx]);
+      lst_clear(mg->rate_matrix_param_col[start_idx]);
       lst_push_int(mg->rate_matrix_param_row[start_idx], i);
       lst_push_int(mg->rate_matrix_param_col[start_idx], j);
       lst_push_int(mg->rate_matrix_param_row[start_idx], j);

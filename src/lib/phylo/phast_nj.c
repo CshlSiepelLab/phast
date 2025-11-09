@@ -3313,7 +3313,7 @@ void nj_nuis_param_pluseq(TreeModel *mod, CovarData *data, int idx, double inc) 
   }
 
   if (data->migtable) {
-    if (idx < data->gtr_params->size) {
+    if (idx < data->migtable->gtr_params->size) {
       vec_set(data->migtable->gtr_params, idx, vec_get(data->migtable->gtr_params, idx) + inc);
       if (vec_get(data->migtable->gtr_params, idx) < 1e-6) vec_set(data->migtable->gtr_params, idx, 1e-6);
       mig_set_REV_matrix(data->migtable, data->migtable->gtr_params);
