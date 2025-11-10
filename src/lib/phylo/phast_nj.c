@@ -965,7 +965,7 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     fprintf(logf, "# VINE logfile\n");
     fprintf(logf, "state\tll\tlprior\tkld\tnfld\telb\tpenalty\t");
     if (data->crispr_mod == NULL)
-      fprintf(logf, "subsamp\treuse\tclip\t");
+      fprintf(logf, "subsamp\treuse\tgradnorm\tclip\t");
     if (data->migtable != NULL)
       fprintf(logf, "mig_ll\t");
     for (j = 0; j < fulld; j++)
