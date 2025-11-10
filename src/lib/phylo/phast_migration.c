@@ -7,6 +7,7 @@
 #include <phast/hashtable.h>
 #include <phast/crispr.h>
 #include <phast/migration.h>
+#include <phast/multiDAG.h>
 
 MigTable *mig_new() {
   MigTable *M = smalloc(sizeof(MigTable));
@@ -593,6 +594,42 @@ void mig_sample_states(TreeModel *mod, MigTable *mg,
   sfree(sampdens);
 }
 
+/* based on a tree model and list of states at all nodes, obtain a
+   multigraph representing migration events and their times */
+struct mdag *mig_get_graph(TreeModel *mod, MigTable *mg, List *state_samples) {
+  MultiDAG *g = mdag_new(mg);
+
+  /* first compute height of each node */
+  List *traversal = tr_postorder(mod->tree);
+  Vector *heights = vec_new(mod->tree->nnodes);
+  vec_set_all(heights, 0.0);
+  for (int nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
+    TreeNode *n = lst_get_ptr(traversal, nodeidx);
+    if (n->lchild == NULL) /* leaf */
+      vec_set(heights, n->id, 0.0);
+    else { /* mostly concerned with ultrametric trees here but we'll
+              take the max of both children to be safe */
+      double lht = vec_get(heights, n->lchild->id) + n->lchild->dparent;
+      double rht = vec_get(heights, n->rchild->id) + n->rchild->dparent;
+      vec_set(heights, n->id, (lht > rht ? lht : rht));
+    }
+  }  
+ 
+  for (int nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++) {
+    TreeNode *n = lst_get_ptr(mod->tree->nodes, nodeidx);
+    if (n->parent == NULL)
+      continue;
+    int childstate = lst_get_int(state_samples, n->id);
+    int parstate = lst_get_int(state_samples, n->parent->id);
+    if (childstate != parstate) {
+      double start_time = vec_get(heights, n->parent->id);
+      double end_time = vec_get(heights, n->id);
+      mdag_add_edge(g, parstate, childstate, start_time, end_time); 
+    }
+  }
+  return g;
+}
+  
 /***************************************************************************
  Functions adapted from phast_subst_mods.c to handle migration models 
  ***************************************************************************/

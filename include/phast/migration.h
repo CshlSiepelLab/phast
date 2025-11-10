@@ -14,6 +14,8 @@
 #include <phast/crispr.h>
 #include <phast/hashtable.h>
 
+struct mdag; /* forward declaration */
+
 typedef struct {
   int ncells;
   int nstates;
@@ -48,6 +50,8 @@ double mig_compute_log_likelihood(TreeModel *mod, MigTable *mg,
 
 void mig_sample_states(TreeModel *mod, MigTable *mg, CrisprMutModel *cprmod,
                        List *state_samples);
+
+struct mdag *mig_get_graph(TreeModel *mod, MigTable *mg, List *state_samples);
 
 void mig_set_REV_matrix(MigTable *mg, Vector *params);
 
