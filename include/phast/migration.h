@@ -53,6 +53,9 @@ void mig_sample_states(TreeModel *mod, MigTable *mg, CrisprMutModel *cprmod,
 
 struct mdag *mig_get_graph(TreeModel *mod, MigTable *mg, List *state_samples);
 
+struct mdag *mig_sample_graph(TreeModel *mod, MigTable *mg,
+                              CrisprMutModel *cprmod);
+
 void mig_set_REV_matrix(MigTable *mg, Vector *params);
 
 void mig_scale_rate_matrix(MigTable *mg);

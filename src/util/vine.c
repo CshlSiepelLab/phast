@@ -22,6 +22,7 @@
 #include <phast/var_resampling.h>
 #include <phast/tree_prior.h>
 #include <phast/migration.h>
+#include <phast/multiDAG.h>
 #include "vine.help"
 
 #define DEFAULT_NSAMPLES 100
@@ -49,7 +50,7 @@ int main(int argc, char *argv[]) {
   char **names = NULL;
   msa_format_type format = UNKNOWN_FORMAT;
   FILE *infile = NULL, *indistfile = NULL, *outdistfile = NULL, *logfile = NULL,
-    *postmeanfile = NULL;
+    *postmeanfile = NULL, *graphsfile = NULL;
   Matrix *D = NULL;
   TreeNode *tree;
   List *namestr, *trees;
@@ -69,6 +70,7 @@ int main(int argc, char *argv[]) {
   enum tree_prior_type tp_type = NONE;
   unsigned int relclock = FALSE;
   MigTable *migtable = NULL;
+  MultiDAGSet *mdagset = NULL;
   
   struct option long_opts[] = {
     {"format", 1, 0, 'i'},
@@ -89,6 +91,7 @@ int main(int argc, char *argv[]) {
     {"nj-only", 0, 0, 'j'},
     {"natural-grad", 0, 0, 'N'},
     {"out-dists", 1, 0, 'o'},
+    {"sample-graphs", 1, 0, 'O'},
     {"nsamples", 1, 0, 's'},
     {"learnrate", 1, 0, 'r'},
     {"random-start", 0, 0, 'R'},
@@ -198,6 +201,10 @@ int main(int argc, char *argv[]) {
     case 'o':
       outdistfile = phast_fopen(optarg, "w");
       break;
+    case 'O':
+      mdagset = mdag_set_new();
+      graphsfile = phast_fopen(optarg, "w");
+      break;
     case 'v':
       var_reg = atof(optarg);
       if (var_reg < 0)
@@ -299,6 +306,9 @@ int main(int argc, char *argv[]) {
 
   if (migtable != NULL && is_crispr == FALSE)
       die("--migration requires -i CRISPR");
+
+  if (mdagset != NULL && migtable == NULL)
+      die("--sample-graphs requires --migration");
   
   if ((nj_only || embedding_only) &&
       (indistfile != NULL || init_tree != NULL)) {
@@ -458,8 +468,17 @@ int main(int argc, char *argv[]) {
       else /* otherwise just sample directly from approx posterior */
         trees = nj_var_sample(nsamples, mmvn, covar_data, names, NULL);
 
-      for (i = 0; i < nsamples; i++)
-        tr_print(stdout, (TreeNode*)lst_get_ptr(trees, i), TRUE);
+      for (i = 0; i < nsamples; i++) {
+        TreeNode *t = (TreeNode *)lst_get_ptr(trees, i);
+        tr_print(stdout, t, TRUE);
+        if (mdagset != NULL) {
+          MultiDAG *G = mig_sample_graph(mod, migtable, crispr_mod);
+          mdag_add_to_set(mdagset, G);
+        }
+      }
+
+      if (mdagset != NULL) 
+        mdag_set_print_dot(mdagset, graphsfile);
 
       if (postmeanfile != NULL) {
         Vector *mu_full = vec_new(mmvn->d * mmvn->n);

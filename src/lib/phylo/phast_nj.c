@@ -963,7 +963,15 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
   /* set up log file */
   if (logf != NULL) {
     fprintf(logf, "# VINE logfile\n");
-    fprintf(logf, "state\tll\tlprior\tkld\tnfld\telb\tpenalty\t");
+    fprintf(logf, "state\tll\telbo\t");
+    if (data->treeprior != NULL)
+      fprintf(logf, "prior\t");
+    else
+      fprintf(logf, "kld\t");
+    if (data->var_reg != 0)
+      fprintf(logf, "penalty\t");
+    if (data->rf != NULL || data->pf != NULL)
+      fprintf(logf, "nfld\t");
     if (data->crispr_mod == NULL)
       fprintf(logf, "subsamp\treuse\tgradnorm\tclip\t");
     if (data->migtable != NULL)
@@ -1010,36 +1018,40 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     /* we can precompute the KLD because it does not depend on the data under this model */
     /* (see equation 7, Doersch arXiv 2016) */
-    trace = mmvn_trace(mmvn);  /* we'll reuse this */
-    logdet = mmvn_log_det(mmvn);
+    kld = 0;
+    vec_zero(kldgrad);
+    if (data->treeprior == NULL) { /* only do if no explicit tree prior */
+      trace = mmvn_trace(mmvn);  /* we'll reuse this */
+      logdet = mmvn_log_det(mmvn);
     
-    kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);
+      kld = 0.5 * (trace + mmvn_mu2(mmvn) - fulld - logdet);
 
-    kld *= data->kld_upweight/(data->pointscale*data->pointscale);      
+      kld *= data->kld_upweight/(data->pointscale*data->pointscale);      
     
-    /* we can also precompute the contribution of the KLD to the gradient */
-    /* Note KLD is subtracted rather than added, so compute the gradient of -KLD */
-    for (j = 0; j < grad->size; j++) {
-      double gj = 0.0;
+      /* we can also precompute the contribution of the KLD to the gradient */
+      /* Note KLD is subtracted rather than added, so compute the gradient of -KLD */
+      for (j = 0; j < grad->size; j++) {
+        double gj = 0.0;
 
-      if (j < n*dim)  /* partial deriv wrt mu_j is just mu_j */
-        gj = -1.0*mmvn_get_mu_el(mmvn, j);
-      else {            /* partial deriv wrt sigma_j is more
-                           complicated because of the trace and log
-                           determinant */
-        if (data->type == CONST || data->type == DIST)
-          gj = 0.5 * (fulld - trace);
-        else if (data->type == DIAG) 
-          gj = 0.5 * (1.0 - mat_get(mmvn->mvn->sigma, j-fulld, j-fulld)); 
-        else 
-          continue; /* LOWR case is messy; handle below */
+        if (j < n*dim)  /* partial deriv wrt mu_j is just mu_j */
+          gj = -1.0*mmvn_get_mu_el(mmvn, j);
+        else {            /* partial deriv wrt sigma_j is more
+                             complicated because of the trace and log
+                             determinant */
+          if (data->type == CONST || data->type == DIST)
+            gj = 0.5 * (fulld - trace);
+          else if (data->type == DIAG) 
+            gj = 0.5 * (1.0 - mat_get(mmvn->mvn->sigma, j-fulld, j-fulld)); 
+          else 
+            continue; /* LOWR case is messy; handle below */
+        }
+        vec_set(kldgrad, j, gj);
       }
-      vec_set(kldgrad, j, gj);
+    
+      if (data->type == LOWR) 
+        nj_set_kld_grad_LOWR(kldgrad, mmvn);
     }
     
-    if (data->type == LOWR) 
-      nj_set_kld_grad_LOWR(kldgrad, mmvn);
-
     /* can also pre-compute variance penalty */
     vec_zero(sparsitygrad);
     nj_compute_variance_penalty(sparsitygrad, mmvn, data);
@@ -1205,8 +1217,15 @@ void nj_variational_inf(TreeModel *mod, multi_MVN *mmvn,
     
     /* report to log file */
     if (logf != NULL) {
-      fprintf(logf, "%d\t%f\t%f\t%f\t%f\t%f\t%f\t", t, avell, ave_lprior, kld,
-              ave_nf_logdet, elb, data->var_pen);
+      fprintf(logf, "%d\t%f\t%f\t", t, avell, elb);
+      if (data->treeprior != NULL)
+        fprintf(logf, "%f\t", ave_lprior);
+      else
+        fprintf(logf, "%f\t", kld);
+      if (data->var_reg != 0)
+        fprintf(logf, "%f\t", data->var_pen);
+      if (data->rf != NULL || data->pf != NULL)
+        fprintf(logf, "%f\t", ave_nf_logdet);
       if (data->crispr_mod == NULL)
         fprintf(logf, "%d\t%d\t%f\t%d\t", data->subsampsize,
                 data->reuse_subsamp, sm->grad_norm, clipped);

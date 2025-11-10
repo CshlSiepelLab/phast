@@ -37,9 +37,10 @@ void mdag_free(MultiDAG *G);
 Edge *mdag_add_edge(MultiDAG *G, int from_state, int to_state,
                     double start_time, double end_time);
 void mdag_add_to_set(MultiDAGSet *S, MultiDAG *G);
+MultiDAGSet *mdag_set_new();
 void mdag_set_free(MultiDAGSet *S);
 void mdag_print_dot(MultiDAG *G, FILE *F);
-void mdg_set_print_dot(MultiDAGSet *S, FILE *F);
+void mdag_set_print_dot(MultiDAGSet *S, FILE *F);
 
 
 #endif /* MULTIDAG_H */

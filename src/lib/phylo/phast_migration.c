@@ -50,13 +50,14 @@ MigTable *mig_read_table(FILE *F) {
 
     if (str_starts_with_charstr(line, "#")) /* comment line */
       continue;
-    
+
     str_split(line, ",", cols);
     if (lst_size(cols) != 2)
       die("ERROR in line %d of input file: each line must have two columns (comma-delimited)\n", lineno);
     lst_push_ptr(M->cellnames, lst_get_ptr(cols, 0));
 
     String *statename = lst_get_ptr(cols, 1);
+    str_double_trim(statename);
     int stateno = hsh_get_int(M->statehash, statename->chars);
     if (stateno == -1) { /* new state */
       stateno = M->nstates++;
@@ -474,6 +475,11 @@ void mig_sample_states(TreeModel *mod, MigTable *mg,
   Vector *lscale; /* inside and outside versions */
   unsigned int rescale;
 
+  /* initialize state_samples */
+  lst_clear(state_samples);
+  for (i = 0; i < mod->tree->nnodes; i++)
+    lst_push_int(state_samples, -1);
+  
   /* set up "inside" probability matrices */
   pL = smalloc(nstates * sizeof(double*));
   for (j = 0; j < nstates; j++)
@@ -600,18 +606,16 @@ struct mdag *mig_get_graph(TreeModel *mod, MigTable *mg, List *state_samples) {
   MultiDAG *g = mdag_new(mg);
 
   /* first compute height of each node */
-  List *traversal = tr_postorder(mod->tree);
+  List *traversal = tr_preorder(mod->tree);
   Vector *heights = vec_new(mod->tree->nnodes);
   vec_set_all(heights, 0.0);
   for (int nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
     TreeNode *n = lst_get_ptr(traversal, nodeidx);
-    if (n->lchild == NULL) /* leaf */
+    if (n->parent == NULL) /* root */
       vec_set(heights, n->id, 0.0);
-    else { /* mostly concerned with ultrametric trees here but we'll
-              take the max of both children to be safe */
-      double lht = vec_get(heights, n->lchild->id) + n->lchild->dparent;
-      double rht = vec_get(heights, n->rchild->id) + n->rchild->dparent;
-      vec_set(heights, n->id, (lht > rht ? lht : rht));
+    else { 
+      double par_h = vec_get(heights, n->parent->id);
+      vec_set(heights, n->id, par_h + n->dparent);
     }
   }  
  
@@ -629,7 +633,16 @@ struct mdag *mig_get_graph(TreeModel *mod, MigTable *mg, List *state_samples) {
   }
   return g;
 }
-  
+
+struct mdag *mig_sample_graph(TreeModel *mod, MigTable *mg, 
+                             CrisprMutModel *cprmod) {
+  List *state_samples = lst_new_int(mod->tree->nnodes);
+  mig_sample_states(mod, mg, cprmod, state_samples);
+  struct mdag *g = mig_get_graph(mod, mg, state_samples);
+  lst_free(state_samples);
+  return g;
+}
+
 /***************************************************************************
  Functions adapted from phast_subst_mods.c to handle migration models 
  ***************************************************************************/
@@ -842,4 +855,138 @@ void mig_grad_REV_dr(MigTable *mg, List *dP_dr_lst, double t) {
   }
   sfree(dq); sfree(tmpmat); sfree(sinv_dq_s); sfree(f);
   lst_free(erows); lst_free(ecols); lst_free(distinct_rows);
+}
+
+/***************************************************************************
+ Function for printing labeled trees in Nexus format
+ ***************************************************************************/
+
+/* Print a NEXUS file with:
+ *  - TAXA block listing leaf/tip labels
+ *  - TREES block containing a single tree whose internal nodes are labeled
+ *    by the state from `state_samples` (indexed by node->id)
+ */
+void mig_print_labeled_nexus(TreeModel *mod, FILE *outf, MigTable *mg,
+                             List *state_samples) {
+
+  /* 1) Build subtree strings postorder: map TreeNode* -> String* */
+  List *trav = tr_postorder(mod->tree);
+  Hashtable *subtree = hsh_new(mod->tree->nnodes); /* key: TreeNode*, val: String* */
+
+  /* 2) Collect taxa (leaf labels) for TAXA block, unique & ordered */
+  List *taxa = lst_new_ptr(64);
+  Hashtable *seen = hsh_new(mod->tree->nnodes); /* key: char* (label), val: (void*)1 */
+
+  for (int i = 0; i < lst_size(trav); i++) {
+    TreeNode *n = lst_get_ptr(trav, i);
+    int is_leaf = (n->lchild == NULL && n->rchild == NULL);
+
+    if (is_leaf) {
+      /* Leaf: label is tip name; subtree is just the label (quoted) + :blen if non-root */
+      char tmp[64];
+      const char *lname = n->name;
+
+      /* record taxon if not seen */
+      if (hsh_get(seen, lname) == -1) {
+        /* store a copy because lname may be from n->name memory; we need stable key */
+        char *copied = copy_string(lname);
+        hsh_put(seen, copied, (void*)1);
+        lst_push_ptr(taxa, copied);
+      }
+
+      String *s = str_new(32);
+      str_append_nexus_label(s, lname);
+      if (n->parent != NULL) {
+        char bl[64];
+        snprintf(bl, sizeof(bl), ":%.*g", 10, n->dparent);
+        str_append_charstr(s, bl);
+      }
+      hsh_put(subtree, n, s);
+    } else {
+      /* Internal: combine left and right child subtrees, then append state label */
+      String *ls = (String*)hsh_get(subtree, n->lchild);
+      String *rs = (String*)hsh_get(subtree, n->rchild);
+      if (!ls || !rs)
+        die("mig_print_labeled_nexus: missing child subtree at node %d\n", n->id);
+
+      String *s = str_new(ls->length + rs->length + 64);
+      str_append_char(s, '(');
+      str_append_charstr(s, ls->chars);
+      str_append_char(s, ',');
+      str_append_charstr(s, rs->chars);
+      str_append_char(s, ')');
+
+      /* internal label from state */
+      int state = lst_get_int(state_samples, n->id);
+      str_append(s, lst_get_ptr(mg->statenames, state));
+
+      /* branch length (omit for root) */
+      if (n->parent != NULL) {
+        char bl[64];
+        snprintf(bl, sizeof(bl), ":%.*g", 10, n->dparent);
+        str_append_charstr(s, bl);
+      }
+
+      hsh_put(subtree, n, s);
+    }
+  }
+
+  /* Root string is subtree of root (root should be last in postorder) */
+  TreeNode *root = mod->tree->root;
+  String *root_str = (String*)hsh_get(subtree, root);
+  if (!root_str) die("mig_print_labeled_nexus: no root subtree\n");
+
+  /* 3) Emit NEXUS */
+  /* Tree name: use model or tree name if present */
+  const char *tname = (mod->name && *mod->name) ? mod->name :
+                      (mod->tree->name && *mod->tree->name) ? mod->tree->name :
+                      "TREE1";
+
+  /* Optional rooted/unrooted flag — set [&R] by default; adjust if you track rootedness */
+  const char *ru = "[&R]";
+
+  fprintf(outf, "#NEXUS\n\n");
+
+  /* TAXA block */
+  fprintf(outf, "BEGIN TAXA;\n");
+  fprintf(outf, "  DIMENSIONS NTAX=%d;\n", lst_size(taxa));
+  fprintf(outf, "  TAXLABELS\n");
+  for (int i = 0; i < lst_size(taxa); i++) {
+    const char *lab = (const char*)lst_get_ptr(taxa, i);
+    /* Print as NEXUS-quoted */
+    String *q = str_new(0);
+    str_append_nexus_label(q, lab);
+    fprintf(outf, "    %s\n", q->chars);
+    str_free(q);
+  }
+  fprintf(outf, "  ;\nEND;\n\n");
+
+  /* TREES block */
+  fprintf(outf, "BEGIN TREES;\n");
+  /* If you want to declare linkage to the TAXA block explicitly:
+     fprintf(outf, "  LINK TAXA = 1;\n");  // many tools infer the single TAXA block automatically */
+  fprintf(outf, "  TREE %s = %s %s;\n", tname, ru, root_str->chars);
+  fprintf(outf, "END;\n");
+
+  /* 4) Cleanup heap allocations we created */
+  /* Free all subtree strings */
+  {
+    HshIter iter;
+    for (hsh_iter_init(subtree, &iter); hsh_iter_next(subtree, &iter); ) {
+      String *s = (String*)iter.val;
+      if (s) str_free(s);
+    }
+  }
+  hsh_free(subtree);
+
+  /* Free copied taxon labels and the list */
+  for (int i = 0; i < lst_size(taxa); i++) {
+    char *lab = (char*)lst_get_ptr(taxa, i);
+    if (lab) sfree(lab);
+  }
+  lst_free(taxa);
+  hsh_free(seen);
+
+  /* final newline for friendliness */
+  fprintf(outf, "\n");
 }

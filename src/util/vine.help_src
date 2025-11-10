@@ -232,6 +232,13 @@ CELL-STATE MODELING:
         string indicating its tissue or other cell state (comma
         delimited file with two columns per line).
 
+    --sample-graphs, -O <file.dot>    
+       Sample cell-state migration graphs and output to specified file
+       in dot format, with one graph per line.  Number of graphs
+       equals <nsamples> with one sampled graph per sampled tree.
+       State labels are sampled at interior nodes of each sampled tree
+       using an inside-outside algorithm.
+
 DIAGNOSTICS:
     --mvn-dump, -V
        Dump the starting multivariate normal distribution and associated

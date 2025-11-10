@@ -48,6 +48,13 @@ void mdag_add_to_set(MultiDAGSet *S, MultiDAG *G) {
   S->ndags++;
 }
 
+MultiDAGSet *mdag_set_new() {
+  MultiDAGSet *S = smalloc(sizeof(MultiDAGSet));
+  S->dags = lst_new_ptr(100);
+  S->ndags = 0;
+  return S;
+}
+
 void mdag_set_free(MultiDAGSet *S) {
   for (int i = 0; i < lst_size(S->dags); i++) {
     MultiDAG *G = lst_get_ptr(S->dags, i);
@@ -61,19 +68,19 @@ void mdag_set_free(MultiDAGSet *S) {
    is midpoint of start and end times.  The labels for the nodes (such
    as A, B, C) are obtained from the associated MigTable */
 void mdag_print_dot(MultiDAG *S, FILE *F) {
-  fprintf(F, "digraph G%d { rankdir=LR;\n", S->id);
+  fprintf(F, "digraph G%d { graph [sortv=%d]; rankdir=LR;", S->id, S->id);
   for (int i = 0; i < lst_size(S->edges); i++) {
     Edge *e = lst_get_ptr(S->edges, i);
     String *from_name = lst_get_ptr(S->migtable->statenames, e->from_state);
     String *to_name = lst_get_ptr(S->migtable->statenames, e->to_state);
     double mid_time = (e->start_time + e->end_time) / 2.0;
-    fprintf(F, "  %s -> %s [label=\"%.4f\"];\n",
-            from_name->chars, to_name->chars, mid_time);
+    fprintf(F, "  %s_G%d -> %s_G%d [label=\"%.4f\"];", 
+            from_name->chars, S->id, to_name->chars, S->id, mid_time);
   }
   fprintf(F, "}\n");
 }
 
-void mdag_print_set_dot(MultiDAGSet *S, FILE *F) {
+void mdag_set_print_dot(MultiDAGSet *S, FILE *F) {
   for (int i = 0; i < lst_size(S->dags); i++) {
     MultiDAG *G = lst_get_ptr(S->dags, i);
     mdag_print_dot(G, F);
