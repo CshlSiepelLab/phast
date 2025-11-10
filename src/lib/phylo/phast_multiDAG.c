@@ -57,12 +57,9 @@ void mdag_set_free(MultiDAGSet *S) {
   sfree(S);
 }
 
-/* output a DAG as a single line in dot format, e.g.,
-   digraph G0 { rankdir=LR; A->B [label="%f"]; A->B [label="%f"]; B->C; C->A; }
-   Graph name is "G<id>".  Floating point label should be midpoint of start and
-   end times.  The labels for the nodes (such as A, B, C) should be obtained
-   from the associated MigTable by accessing the string associated with each
-   state id using the statenames field */
+/* output a DAG as a single line in dot format. Floating point label
+   is midpoint of start and end times.  The labels for the nodes (such
+   as A, B, C) are obtained from the associated MigTable */
 void mdag_print_dot(MultiDAG *S, FILE *F) {
   fprintf(F, "digraph G%d { rankdir=LR;\n", S->id);
   for (int i = 0; i < lst_size(S->edges); i++) {

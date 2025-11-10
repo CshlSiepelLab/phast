@@ -23,7 +23,7 @@ typedef struct mdag {
   List *edges; /* list of Edge* */
   int nedges;
   MigTable *migtable; /* associated migration table */
-  int nstates; /* for convenience; matches MigTable */
+  int nstates; /* for convenience; matches MigTable */   
 } MultiDAG;
 
 /* set of related multiDAGs, typically sampled from posterior */
