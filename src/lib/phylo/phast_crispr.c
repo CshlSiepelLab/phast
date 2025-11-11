@@ -320,20 +320,6 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
         rchild_states = cpr_get_state_set(ancsets, n->rchild, nstates);
 
 
-        /* TEMPORARY: print state sets at root */
-        /* if (n->parent == NULL) { */
-        /*   printf("Site %d root state set (type %d):", thistype, site); */
-        /*   for (i = 0; i < lst_size(par_states); i++) */
-        /*     printf(" %d", lst_get_int(par_states, i) == silst ? 99 : lst_get_int(par_states, i)); */
-        /*   printf("\nlchild state set (type %d):", lchildtype); */
-        /*   for (i = 0; i < lst_size(lchild_states); i++) */
-        /*     printf(" %d", lst_get_int(lchild_states, i) == silst ? 99 : lst_get_int(lchild_states, i)); */
-        /*   printf("\nrchild state set (type %d):", rchildtype); */
-        /*   for (i = 0; i < lst_size(rchild_states); i++) */
-        /*     printf(" %d", lst_get_int(rchild_states, i) == silst ? 99 : lst_get_int(rchild_states, i)); */
-        /*   printf("\n"); */
-        /* } */
-        
         double maxP = 0;
         for (i = 0; i < lst_size(par_states); i++) {
           double totl = 0, totr = 0;
@@ -456,17 +442,6 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
       /*   printf("Site %d, node %d: %f (%f)\n", site, nodeidx, log(pr), log(total_prob)); */
       /* } */
 
-      /* TEMPORARY: compute post prob of root states */
-      /* printf("Site %d root posteriors:\n", site); */
-      /* child_states = cpr_get_state_set(ancsets, cprmod->mod->tree, nstates); */
-      /* for (j = 0; j < lst_size(child_states); j++) { */
-      /*   cstate = lst_get_int(child_states, j); */
-      /*   double post = pL[cstate][cprmod->mod->tree->id] * pLbar[cstate][cprmod->mod->tree->id] / total_prob; */
-      /*   printf("  %f", post); */
-      /* } */
-      /* printf("\n"); */
-      
-      
       /* now compute branchwise derivatives in a final pass */
       grad_mat = mat_new(nstates, nstates);
       for (nodeidx = 0; nodeidx < lst_size(cprmod->mod->tree->nodes); nodeidx++) {
