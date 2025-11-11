@@ -70,12 +70,6 @@ MAIN OPTIONS:
         Simply estimate and output a single tree using the neighbor-joining
         algorithm; do not follow with variational inference. If
         --ultrametric is selected will use UPGMA instead of NJ.
-        
-    --rejection-sampling, -J
-        Refine final set of samples by rejection sampling, using the full
-        likelihood function.  Produces a substantially sharpened
-        approximation of the posterior distribution at the cost of
-        additional likelihood evaluations (which are generally cheap).  
 
     --treeprior, -P   GAMMA|YULE
         Assume a simple prior distribution over tree topologies and branch
@@ -123,21 +117,6 @@ OPTIMIZATION:
        convergence to <N> (default 50).  Larger values will lead to
        longer convergence times but may find better solutions.
 
-    --natural-grad, -N
-       (experimental) During stochastic gradient ascent, use approximate
-       natural gradient scale by multiplying each gradient by the
-       corresponding approximate inverse Fisher information. Improves
-       convergence in some cases.
-
-    --upweight-kld, -U <factor>
-       The variational objective function (ELBO) is the difference between
-       an expected log likelihood and a KL divergence from a standard
-       multivariate normal prior, but for most data sets the LL strongly
-       dominates.  This option will upweight the KLD by the specified
-       factor and therefore push the approximate posterior toward simpler
-       solutions (mean values closer to zero, covariance matrix closer to
-       identity). Use a logfile for guidance.        
-
 INITIALIZATION:
     --distances, -d <infile.dist>
        Use distance matrix from <infile.dist>. In this case, alignment.fa
@@ -155,10 +134,6 @@ INITIALIZATION:
        Use the specified PHAST tree model for initialization and
        likelihood calculations.  Overrides use of JC69 or HKY85
        substitution models.
-
-    --random-start, -R
-       Initialize variational inference randomly rather than from initial
-       distance matrix (the default)
 
 COVARIANCE:
     --covar, -S CONST|DIAG|DIST|LOWR
@@ -255,3 +230,27 @@ DIAGNOSTICS:
        (use with --out-dists) Calculate a distance matrix based on the
        initial embedding of points.  Can be compared with input distances
        to evaluate fidelity of various embedding schemes.
+
+EXPERIMENTAL/LITTLE USED:
+    --rejection-sampling, -J
+        Refine final set of samples by rejection sampling, using the full
+        likelihood function.  
+
+    --natural-grad, -N
+       During stochastic gradient ascent, use approximate
+       natural gradient scale by multiplying each gradient by the
+       corresponding approximate inverse Fisher information. Improves
+       convergence in some cases.
+
+    --upweight-kld, -U <factor>
+       The variational objective function (ELBO) is the difference between
+       an expected log likelihood and a KL divergence from a standard
+       multivariate normal prior, but for most data sets the LL strongly
+       dominates.  This option will upweight the KLD by the specified
+       factor and therefore push the approximate posterior toward simpler
+       solutions (mean values closer to zero, covariance matrix closer to
+       identity). Use a logfile for guidance.        
+
+    --random-start, -R
+       Initialize variational inference randomly rather than from initial
+       distance matrix (the default)
