@@ -198,7 +198,8 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
     /* set up complementary "outside" probability matrices */
     pLbar = smalloc((cprmod->nstates+1) * sizeof(double*));
     for (j = 0; j < (cprmod->nstates+1); j++)
-      pLbar[j] = smalloc((cprmod->mod->tree->nnodes+1) * sizeof(double));
+      pLbar[j] = smalloc((cprmod->mod->tree->nnodes + 1) * sizeof(double));
+    cprmod->deriv_leading_t = 0.0;
     cprmod->deriv_sil = 0.0;
   }
 
@@ -241,8 +242,8 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
        simulate this behavior by setting the root eq freqs equal to
        the conditional distribution at the end of the branch given the
        unedited state at the start */
-    leading_Pt = lst_get_ptr(Pt, cprmod->mod->tree->id); 
-    for (i = 0; i < nstates; i++)
+    leading_Pt = lst_get_ptr(Pt, cprmod->mod->tree->id);
+    for (i = 0; i < nstates; i++) 
       root_eqfreqs[i] = mm_get(leading_Pt, 0, i);
     
     for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
@@ -317,8 +318,23 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
         par_states = cpr_get_state_set(ancsets, n, nstates);
         lchild_states = cpr_get_state_set(ancsets, n->lchild, nstates);
         rchild_states = cpr_get_state_set(ancsets, n->rchild, nstates);
+
+
+        /* TEMPORARY: print state sets at root */
+        /* if (n->parent == NULL) { */
+        /*   printf("Site %d root state set (type %d):", thistype, site); */
+        /*   for (i = 0; i < lst_size(par_states); i++) */
+        /*     printf(" %d", lst_get_int(par_states, i) == silst ? 99 : lst_get_int(par_states, i)); */
+        /*   printf("\nlchild state set (type %d):", lchildtype); */
+        /*   for (i = 0; i < lst_size(lchild_states); i++) */
+        /*     printf(" %d", lst_get_int(lchild_states, i) == silst ? 99 : lst_get_int(lchild_states, i)); */
+        /*   printf("\nrchild state set (type %d):", rchildtype); */
+        /*   for (i = 0; i < lst_size(rchild_states); i++) */
+        /*     printf(" %d", lst_get_int(rchild_states, i) == silst ? 99 : lst_get_int(rchild_states, i)); */
+        /*   printf("\n"); */
+        /* } */
         
-        rescale = FALSE;
+        double maxP = 0;
         for (i = 0; i < lst_size(par_states); i++) {
           double totl = 0, totr = 0;
           pstate = lst_get_int(par_states, i);
@@ -332,11 +348,14 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
             totr += pL[rcstate][n->rchild->id] *
               mm_get(rsubst_mat, pstate, rcstate);
           }
-        
+
           pL[pstate][n->id] = totl * totr;
-          if (totl > 0 && totr > 0 && pL[pstate][n->id] < scaling_threshold) 
-            rescale = TRUE;
+          if (maxP < pL[pstate][n->id])
+            maxP = pL[pstate][n->id];
         }
+        rescale = FALSE;
+        if (maxP > 0 && maxP < scaling_threshold)
+          rescale = TRUE;
 
         /* deal with nodewise scaling */
         vec_set(lscale, n->id, vec_get(lscale, n->lchild->id) +
@@ -388,10 +407,10 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
           par_subst_mat = lst_get_ptr(Pt, n->id);
           sib_subst_mat = lst_get_ptr(Pt, sibling->id);
 
-          rescale = FALSE;
           par_states = cpr_get_state_set(ancsets, n->parent, nstates);
           child_states = cpr_get_state_set(ancsets, n, nstates);
           sib_states = cpr_get_state_set(ancsets, sibling, nstates);
+          double maxP = 0;
           for (j = 0; j < lst_size(par_states); j++) { /* parent state */
             pstate = lst_get_int(par_states, j);
             tmp[pstate] = 0;
@@ -409,12 +428,14 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
               pstate = lst_get_int(par_states, j);
               pLbar[cstate][n->id] +=
                 tmp[pstate] * mm_get(par_subst_mat, pstate, cstate);
-              if (tmp[pstate] > 0 && mm_get(par_subst_mat, pstate, cstate) > 0 &&
-                  pLbar[cstate][n->id] < scaling_threshold)
-                rescale = TRUE;
             }
+            if (maxP < pLbar[cstate][n->id])
+              maxP = pLbar[cstate][n->id];
           }
-
+          rescale = FALSE;
+          if (maxP > 0 && maxP < scaling_threshold)
+            rescale = TRUE;
+          
           vec_set(lscale_o, n->id, vec_get(lscale_o, n->parent->id) +
                   vec_get(lscale, sibling->id));
           if (rescale == TRUE) { /* rescale for all states */
@@ -434,7 +455,17 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
       /*     pr += pL[j][n->id] * pLbar[j][n->id]; */
       /*   printf("Site %d, node %d: %f (%f)\n", site, nodeidx, log(pr), log(total_prob)); */
       /* } */
-        
+
+      /* TEMPORARY: compute post prob of root states */
+      /* printf("Site %d root posteriors:\n", site); */
+      /* child_states = cpr_get_state_set(ancsets, cprmod->mod->tree, nstates); */
+      /* for (j = 0; j < lst_size(child_states); j++) { */
+      /*   cstate = lst_get_int(child_states, j); */
+      /*   double post = pL[cstate][cprmod->mod->tree->id] * pLbar[cstate][cprmod->mod->tree->id] / total_prob; */
+      /*   printf("  %f", post); */
+      /* } */
+      /* printf("\n"); */
+      
       
       /* now compute branchwise derivatives in a final pass */
       grad_mat = mat_new(nstates, nstates);
@@ -515,25 +546,26 @@ double cpr_compute_log_likelihood(CrisprMutModel *cprmod, Vector *branchgrad) {
         /* adjust for all relevant scale terms */
         this_deriv_sil *= exp(expon);
         cprmod->deriv_sil += this_deriv_sil;        
-      }
+      } /* end node loop */
 
       /* also compute gradient for leading branch */
       child_states = cpr_get_state_set(ancsets, cprmod->mod->tree, nstates);
       cpr_branch_grad(grad_mat, cprmod->mod->tree->dparent, cprmod->sil_rate,
                       lst_get_ptr(cprmod->sitewise_mutrates, site));
-      cprmod->deriv_leading_t = 0;
+      double this_deriv_leading_t = 0;
       for (j = 0; j < lst_size(child_states); j++) {
         cstate = lst_get_int(child_states, j);
-        cprmod->deriv_leading_t += pL[cstate][cprmod->mod->tree->id]
+        this_deriv_leading_t += pL[cstate][cprmod->mod->tree->id]
           * mat_get(grad_mat, 0, cstate);
       }
+
       /* rescale */
-      /*      expon = vec_get(lscale, cprmod->mod->tree->id) - log(total_prob); */
       expon = -log(total_prob);
       if (expon > 700.0) expon = 700.0;
       if (expon < -745.0) expon = -745.0;
-      cprmod->deriv_leading_t *= exp(expon); 
-
+      this_deriv_leading_t *= exp(expon);
+      cprmod->deriv_leading_t += this_deriv_leading_t;
+      
       /* leading branch also contributes to derivative of silent rate */
       this_deriv_sil = 0;
       cpr_silent_rate_grad(grad_mat, cprmod->mod->tree->dparent, cprmod->sil_rate,

@@ -1633,8 +1633,8 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
         /* general recursive case */
         MarkovMatrix *lsubst_mat = mod->P[n->lchild->id][rcat];
         MarkovMatrix *rsubst_mat = mod->P[n->rchild->id][rcat];
-        
-        rescale = FALSE;
+
+        double maxP = 0;
         for (i = 0; i < nstates; i++) {
           double totl = 0, totr = 0;
           for (j = 0; j < nstates; j++)
@@ -1646,10 +1646,13 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
               mm_get(rsubst_mat, i, k);
 
           pL[i][n->id] = totl * totr;
-          if (totl > 0 && totr > 0 && pL[i][n->id] < scaling_threshold)
-            rescale = TRUE;
+          if (maxP < pL[i][n->id])
+            maxP = pL[i][n->id];
         }
-
+        rescale = FALSE;
+        if (maxP > 0 && maxP < scaling_threshold)
+          rescale = TRUE;
+ 
         /* deal with nodewise scaling */
         vec_set(lscale, n->id, vec_get(lscale, n->lchild->id) +
                 vec_get(lscale, n->rchild->id));
@@ -1690,8 +1693,8 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
                                n->parent->rchild : n->parent->lchild);
           MarkovMatrix *par_subst_mat = mod->P[n->id][rcat];
           MarkovMatrix *sib_subst_mat = mod->P[sibling->id][rcat];
-          rescale = FALSE;
-          
+
+          double maxP = 0;
           for (j = 0; j < nstates; j++) { /* parent state */
             tmp[j] = 0;
             for (k = 0; k < nstates; k++)  /* sibling state */
@@ -1704,11 +1707,14 @@ double nj_compute_log_likelihood(TreeModel *mod, CovarData *data, Vector *branch
             for (j = 0; j < nstates; j++) { /* parent state */
               pLbar[i][n->id] +=
                 tmp[j] * mm_get(par_subst_mat, j, i);
-              if (tmp[j] > 0 && mm_get(par_subst_mat, j, i) > 0 &&
-                  pLbar[i][n->id] < scaling_threshold)
-                rescale = TRUE;
             }
+            if (maxP < pLbar[i][n->id])
+              maxP = pLbar[i][n->id];
           }
+          rescale = FALSE;
+          if (maxP > 0 && maxP < scaling_threshold)
+            rescale = TRUE;
+          
           vec_set(lscale_o, n->id, vec_get(lscale_o, n->parent->id) +
                   vec_get(lscale, sibling->id));
           if (rescale == TRUE) { /* rescale for all states */
