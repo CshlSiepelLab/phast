@@ -643,6 +643,87 @@ struct mdag *mig_sample_graph(TreeModel *mod, MigTable *mg,
   return g;
 }
 
+/* Print a NEXUS file in which each node is labeled with its sampled
+   state using BEAST-style notation embedded in the node labels */
+void mig_print_labeled_nexus(TreeModel *mod, FILE *outf, MigTable *mg,
+                             List *state_samples) {
+  TreeNode *root = mod->tree;
+  int nn = mod->tree->nnodes;
+
+  /* 1) Gather TAXA (leaf names) in any traversal; leaves are guaranteed named/unique */
+  List *trav = mod->tree->nodes;
+  List *taxa = lst_new_ptr(64);
+  for (int i = 0; i < nn; i++) {
+    TreeNode *n = lst_get_ptr(trav, i);
+    if (n->lchild == NULL && n->rchild == NULL)
+      lst_push_ptr(taxa, n->name);
+  }
+
+  /* 2) Temporarily append annotations to node names: "<name>[&state=STATE]" */
+  String **saved_names = (String**)smalloc(nn * sizeof(String*));
+  for (int i = 0; i < nn; i++)
+    saved_names[i] = NULL;
+ 
+  for (int i = 0; i < lst_size(trav); i++) {
+    TreeNode *n = lst_get_ptr(trav, i);
+    int state = lst_get_int(state_samples, n->id);
+    assert(state >= 0 && state < lst_size(mg->statenames));
+
+    /* save original name once per node so we can restore later */
+    if (saved_names[n->id] == NULL)
+      saved_names[n->id] = str_new_charstr(n->name);
+
+    String *st = str_dup((String*)lst_get_ptr(mg->statenames, state));
+
+    const char *orig = n->name;
+    String *tmpS = str_new((int)strlen(orig) + 11 /*"[&state="*/ + st->length + 1);
+    if (*orig) str_append_charstr(tmpS, orig);
+    str_append_charstr(tmpS, "[&state=");
+    str_append(tmpS, st);
+    str_append_char(tmpS, ']');
+
+    strncpy(n->name, tmpS->chars, sizeof(n->name) - 1);
+    n->name[sizeof(n->name) - 1] = '\0';
+
+    str_free(st);
+    str_free(tmpS);
+  }
+
+  /* 3) Print NEXUS file with modified names */
+  const char *tname = "TREE1";
+
+  fprintf(outf, "#NEXUS\n\n");
+
+  /* TAXA block with original leaf names (no annotations) */
+  fprintf(outf, "BEGIN TAXA;\n");
+  fprintf(outf, "  DIMENSIONS NTAX=%d;\n", lst_size(taxa));
+  fprintf(outf, "  TAXLABELS\n");
+  for (int i = 0; i < lst_size(taxa); i++) {
+    const char *lab = (const char*)lst_get_ptr(taxa, i);
+    fprintf(outf, "    %s\n", lab ? lab : "taxon");
+  }
+  fprintf(outf, "  ;\nEND;\n\n");
+
+  /* TREES block: prefix line, then let tr_print write the Newick + ';' + '\n' */
+  fprintf(outf, "BEGIN TREES;\n");
+  fprintf(outf, "  TREE %s = [&R] ", tname);
+  tr_print(outf, root, /*show_branch_lengths=*/1);
+  fprintf(outf, "END;\n\n");
+
+  /* 4) Restore original names and free temporaries */
+  for (int i = 0; i < lst_size(trav); i++) {
+  TreeNode *n = lst_get_ptr(trav, i);
+  if (saved_names[n->id]) {
+    strncpy(n->name, saved_names[n->id]->chars, sizeof(n->name) - 1);
+    n->name[sizeof(n->name) - 1] = '\0';
+    str_free(saved_names[n->id]);
+    saved_names[n->id] = NULL;
+  }
+}
+  sfree(saved_names);
+  lst_free(taxa);
+} 
+
 /***************************************************************************
  Functions adapted from phast_subst_mods.c to handle migration models 
  ***************************************************************************/
@@ -857,136 +938,3 @@ void mig_grad_REV_dr(MigTable *mg, List *dP_dr_lst, double t) {
   lst_free(erows); lst_free(ecols); lst_free(distinct_rows);
 }
 
-/***************************************************************************
- Function for printing labeled trees in Nexus format
- ***************************************************************************/
-
-/* Print a NEXUS file with:
- *  - TAXA block listing leaf/tip labels
- *  - TREES block containing a single tree whose internal nodes are labeled
- *    by the state from `state_samples` (indexed by node->id)
- */
-void mig_print_labeled_nexus(TreeModel *mod, FILE *outf, MigTable *mg,
-                             List *state_samples) {
-
-  /* 1) Build subtree strings postorder: map TreeNode* -> String* */
-  List *trav = tr_postorder(mod->tree);
-  Hashtable *subtree = hsh_new(mod->tree->nnodes); /* key: TreeNode*, val: String* */
-
-  /* 2) Collect taxa (leaf labels) for TAXA block, unique & ordered */
-  List *taxa = lst_new_ptr(64);
-  Hashtable *seen = hsh_new(mod->tree->nnodes); /* key: char* (label), val: (void*)1 */
-
-  for (int i = 0; i < lst_size(trav); i++) {
-    TreeNode *n = lst_get_ptr(trav, i);
-    int is_leaf = (n->lchild == NULL && n->rchild == NULL);
-
-    if (is_leaf) {
-      /* Leaf: label is tip name; subtree is just the label (quoted) + :blen if non-root */
-      char tmp[64];
-      const char *lname = n->name;
-
-      /* record taxon if not seen */
-      if (hsh_get(seen, lname) == -1) {
-        /* store a copy because lname may be from n->name memory; we need stable key */
-        char *copied = copy_string(lname);
-        hsh_put(seen, copied, (void*)1);
-        lst_push_ptr(taxa, copied);
-      }
-
-      String *s = str_new(32);
-      str_append_nexus_label(s, lname);
-      if (n->parent != NULL) {
-        char bl[64];
-        snprintf(bl, sizeof(bl), ":%.*g", 10, n->dparent);
-        str_append_charstr(s, bl);
-      }
-      hsh_put(subtree, n, s);
-    } else {
-      /* Internal: combine left and right child subtrees, then append state label */
-      String *ls = (String*)hsh_get(subtree, n->lchild);
-      String *rs = (String*)hsh_get(subtree, n->rchild);
-      if (!ls || !rs)
-        die("mig_print_labeled_nexus: missing child subtree at node %d\n", n->id);
-
-      String *s = str_new(ls->length + rs->length + 64);
-      str_append_char(s, '(');
-      str_append_charstr(s, ls->chars);
-      str_append_char(s, ',');
-      str_append_charstr(s, rs->chars);
-      str_append_char(s, ')');
-
-      /* internal label from state */
-      int state = lst_get_int(state_samples, n->id);
-      str_append(s, lst_get_ptr(mg->statenames, state));
-
-      /* branch length (omit for root) */
-      if (n->parent != NULL) {
-        char bl[64];
-        snprintf(bl, sizeof(bl), ":%.*g", 10, n->dparent);
-        str_append_charstr(s, bl);
-      }
-
-      hsh_put(subtree, n, s);
-    }
-  }
-
-  /* Root string is subtree of root (root should be last in postorder) */
-  TreeNode *root = mod->tree->root;
-  String *root_str = (String*)hsh_get(subtree, root);
-  if (!root_str) die("mig_print_labeled_nexus: no root subtree\n");
-
-  /* 3) Emit NEXUS */
-  /* Tree name: use model or tree name if present */
-  const char *tname = (mod->name && *mod->name) ? mod->name :
-                      (mod->tree->name && *mod->tree->name) ? mod->tree->name :
-                      "TREE1";
-
-  /* Optional rooted/unrooted flag — set [&R] by default; adjust if you track rootedness */
-  const char *ru = "[&R]";
-
-  fprintf(outf, "#NEXUS\n\n");
-
-  /* TAXA block */
-  fprintf(outf, "BEGIN TAXA;\n");
-  fprintf(outf, "  DIMENSIONS NTAX=%d;\n", lst_size(taxa));
-  fprintf(outf, "  TAXLABELS\n");
-  for (int i = 0; i < lst_size(taxa); i++) {
-    const char *lab = (const char*)lst_get_ptr(taxa, i);
-    /* Print as NEXUS-quoted */
-    String *q = str_new(0);
-    str_append_nexus_label(q, lab);
-    fprintf(outf, "    %s\n", q->chars);
-    str_free(q);
-  }
-  fprintf(outf, "  ;\nEND;\n\n");
-
-  /* TREES block */
-  fprintf(outf, "BEGIN TREES;\n");
-  /* If you want to declare linkage to the TAXA block explicitly:
-     fprintf(outf, "  LINK TAXA = 1;\n");  // many tools infer the single TAXA block automatically */
-  fprintf(outf, "  TREE %s = %s %s;\n", tname, ru, root_str->chars);
-  fprintf(outf, "END;\n");
-
-  /* 4) Cleanup heap allocations we created */
-  /* Free all subtree strings */
-  {
-    HshIter iter;
-    for (hsh_iter_init(subtree, &iter); hsh_iter_next(subtree, &iter); ) {
-      String *s = (String*)iter.val;
-      if (s) str_free(s);
-    }
-  }
-  hsh_free(subtree);
-
-  /* Free copied taxon labels and the list */
-  for (int i = 0; i < lst_size(taxa); i++) {
-    char *lab = (char*)lst_get_ptr(taxa, i);
-    if (lab) sfree(lab);
-  }
-  lst_free(taxa);
-  hsh_free(seen);
-
-  /* final newline for friendliness */
-  fprintf(outf, "\n");
-}
