@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <float.h>
 #include <phast/misc.h>
 #include <phast/stringsplus.h>
 #include <phast/hashtable.h>
