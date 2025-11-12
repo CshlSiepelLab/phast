@@ -308,13 +308,13 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "WARNING: --rank ignored when --covar is not LOWR\n");
 
   if (migtable != NULL && is_crispr == FALSE)
-      die("--migration requires -i CRISPR");
+      die("--migration requires -i CRISPR\n");
 
   if (graphsfile != NULL && migtable == NULL)
-      die("--sample-graphs requires --migration");
+      die("--sample-graphs requires --migration\n");
 
   if (nexusfile != NULL && migtable == NULL)
-      die("--labeled-trees requires --migration");
+      die("--labeled-trees requires --migration\n");
 
   if ((nj_only || embedding_only) &&
       (indistfile != NULL || init_tree != NULL)) {

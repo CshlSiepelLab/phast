@@ -847,7 +847,9 @@ void mig_set_REV_matrix(MigTable *mg, Vector *params) {
       rowsum += mm_get(mg->rate_matrix, i, j);
     mm_set(mg->rate_matrix, i, i, -1 * rowsum);
   }
-  mig_scale_rate_matrix(mg);
+  /* NOTE: do not scale in this case; have to allow migration rate to
+     be decoupled from mutation rate */
+  /* mig_scale_rate_matrix(mg); */
   mm_diagonalize(mg->rate_matrix);
 }
 
