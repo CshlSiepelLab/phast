@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
   char **names = NULL;
   msa_format_type format = UNKNOWN_FORMAT;
   FILE *infile = NULL, *indistfile = NULL, *outdistfile = NULL, *logfile = NULL,
-    *postmeanfile = NULL, *graphsfile = NULL;
+    *postmeanfile = NULL, *graphsfile = NULL, *nexusfile = NULL;
   Matrix *D = NULL;
   TreeNode *tree;
   List *namestr, *trees;
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
   enum tree_prior_type tp_type = NONE;
   unsigned int relclock = FALSE;
   MigTable *migtable = NULL;
-  MultiDAGSet *mdagset = NULL;
+  List *migstates_lst = NULL;
   
   struct option long_opts[] = {
     {"format", 1, 0, 'i'},
@@ -92,6 +92,7 @@ int main(int argc, char *argv[]) {
     {"natural-grad", 0, 0, 'N'},
     {"out-dists", 1, 0, 'o'},
     {"sample-graphs", 1, 0, 'O'},
+    {"labeled-trees", 1, 0, 'B'},
     {"nsamples", 1, 0, 's'},
     {"learnrate", 1, 0, 'r'},
     {"random-start", 0, 0, 'R'},
@@ -114,12 +115,15 @@ int main(int argc, char *argv[]) {
     {0, 0, 0, 0}
   };
 
-  while ((c = getopt_long(argc, argv, "b:c:d:D:egG:hHi:FZjJkK:l:L:m:M:n:No:v:r:Rt:T:VW:S:s:CY:Pp:", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "b:B:c:d:D:egG:hHi:FZjJkK:l:L:m:M:n:No:v:r:Rt:T:VW:S:s:CY:Pp:", long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'b':
       batchsize = atoi(optarg);
       if (batchsize <= 0)
         die("ERROR: --batchsize must be positive\n");
+      break;
+    case 'B':
+      nexusfile = phast_fopen(optarg, "w");
       break;
     case 'c':
       nbatches_conv = atoi(optarg);
@@ -202,7 +206,6 @@ int main(int argc, char *argv[]) {
       outdistfile = phast_fopen(optarg, "w");
       break;
     case 'O':
-      mdagset = mdag_set_new();
       graphsfile = phast_fopen(optarg, "w");
       break;
     case 'v':
@@ -307,9 +310,12 @@ int main(int argc, char *argv[]) {
   if (migtable != NULL && is_crispr == FALSE)
       die("--migration requires -i CRISPR");
 
-  if (mdagset != NULL && migtable == NULL)
+  if (graphsfile != NULL && migtable == NULL)
       die("--sample-graphs requires --migration");
-  
+
+  if (nexusfile != NULL && migtable == NULL)
+      die("--labeled-trees requires --migration");
+
   if ((nj_only || embedding_only) &&
       (indistfile != NULL || init_tree != NULL)) {
     if (optind != argc) 
@@ -471,15 +477,22 @@ int main(int argc, char *argv[]) {
       for (i = 0; i < nsamples; i++) {
         TreeNode *t = (TreeNode *)lst_get_ptr(trees, i);
         tr_print(stdout, t, TRUE);
-        if (mdagset != NULL) {
-          MultiDAG *G = mig_sample_graph(mod, migtable, crispr_mod);
-          mdag_add_to_set(mdagset, G);
+
+        /* in these cases we need to sample cell states for each tree */
+        if (graphsfile != NULL || nexusfile != NULL) {
+          if (migstates_lst == NULL) migstates_lst = lst_new_ptr(nsamples);
+          List *states = lst_new_ptr(t->nnodes);
+          mig_sample_states(t, migtable, crispr_mod, states);
+          lst_push_ptr(migstates_lst, states); /* mark end of sample */
         }
       }
 
-      if (mdagset != NULL) 
-        mdag_set_print_dot(mdagset, graphsfile);
-
+      /* output sampled cell states if needed */
+      if (graphsfile != NULL)
+        mig_print_set_dot(trees, graphsfile, migtable, migstates_lst);
+      if (nexusfile != NULL)
+        mig_print_set_labeled_nexus(trees, nexusfile, migtable, migstates_lst);
+      
       if (postmeanfile != NULL) {
         Vector *mu_full = vec_new(mmvn->d * mmvn->n);
         mmvn_save_mu(mmvn, mu_full);

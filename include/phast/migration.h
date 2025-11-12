@@ -48,13 +48,22 @@ void mig_check_table(MigTable *mg, CrisprMutTable *mm);
 double mig_compute_log_likelihood(TreeModel *mod, MigTable *mg,
                                   CrisprMutModel *cprmod, Vector *branchgrad);
 
-void mig_sample_states(TreeModel *mod, MigTable *mg, CrisprMutModel *cprmod,
+void mig_sample_states(TreeNode *tree, MigTable *mg, CrisprMutModel *cprmod,
                        List *state_samples);
 
-struct mdag *mig_get_graph(TreeModel *mod, MigTable *mg, List *state_samples);
+struct mdag *mig_get_graph(TreeNode *tree, MigTable *mg, List *state_samples);
 
-struct mdag *mig_sample_graph(TreeModel *mod, MigTable *mg,
+struct mdag *mig_sample_graph(TreeNode *tree, MigTable *mg,
                               CrisprMutModel *cprmod);
+
+void mig_print_labeled_nexus(TreeNode *tree, FILE *outf, MigTable *mg,
+                             List *state_samples);
+
+void mig_print_set_labeled_nexus(List *tree_lst, FILE *outf, MigTable *mg,
+                                 List *statesamps_lst);
+
+void mig_print_set_dot(List *tree_lst, FILE *outf, MigTable *mg,
+                       List *statesamps_lst);
 
 void mig_set_REV_matrix(MigTable *mg, Vector *params);
 
@@ -64,6 +73,6 @@ void mig_grad_REV_dr(MigTable *mg, List *dP_dr_lst, double t);
 
 void mig_grad_REV_dt(MigTable *mg, Matrix *grad, double t);
 
-void mig_update_subst_matrices(TreeModel *mod, MigTable *mg);
+void mig_update_subst_matrices(TreeNode *tree, MigTable *mg);
 
 #endif /* MIGRATION_H */

@@ -193,7 +193,7 @@ double mig_compute_log_likelihood(TreeModel *mod, MigTable *mg,
     this_deriv_gtr = vec_new(mg->gtr_params->size);
   }
 
-  mig_update_subst_matrices(mod, mg); /* compute all necessary migration probability
+  mig_update_subst_matrices(mod->tree, mg); /* compute all necessary migration probability
                                        matrices */
   if (cprmod->mod->msa_seq_idx == NULL)
     cpr_build_seq_idx(cprmod->mod, cprmod->mut);
@@ -423,17 +423,17 @@ double mig_compute_log_likelihood(TreeModel *mod, MigTable *mg,
 }
 
 /* set P = exp(Qt) for each branch in the tree model */
-void mig_update_subst_matrices(TreeModel *mod, MigTable *mg) {
+void mig_update_subst_matrices(TreeNode *tree, MigTable *mg) {
   if (mg->Pt == NULL) { /* first time through */
-    mg->Pt = lst_new_ptr(mod->tree->nnodes);
-    for (int nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++) {
+    mg->Pt = lst_new_ptr(tree->nnodes);
+    for (int nodeidx = 0; nodeidx < tree->nnodes; nodeidx++) {
       MarkovMatrix *P = mm_new(mg->nstates, NULL, DISCRETE);
       mm_set_eigentype(P, REAL_NUM);
       lst_push_ptr(mg->Pt, P);
     }
   }
-  for (int nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++) {
-    TreeNode *n = lst_get_ptr(mod->tree->nodes, nodeidx);
+  for (int nodeidx = 0; nodeidx < tree->nnodes; nodeidx++) {
+    TreeNode *n = lst_get_ptr(tree->nodes, nodeidx);
     MarkovMatrix *P = lst_get_ptr(mg->Pt, nodeidx);
     mm_exp(P, mg->rate_matrix, n->dparent);  /* CHECK: diagonalization, rate_matrix updated, etc */
   }
@@ -458,10 +458,10 @@ int mig_sample_state(double *probs, int nstates) {
   return nstates - 1; /* should not get here */
 }
 
-/* given a tree model and migration table, sample states at internal
-   nodes of the tree.  Populates a list parallel to mod->tree->nodes
+/* given a tree and migration table, sample states at internal
+   nodes of the tree.  Populates a list parallel to tree->nodes
    whose elements are state indices */
-void mig_sample_states(TreeModel *mod, MigTable *mg, 
+void mig_sample_states(TreeNode *tree, MigTable *mg, 
                        CrisprMutModel *cprmod, List *state_samples) {
 
   int i, j, k, nodeidx, cell, state;
@@ -478,32 +478,32 @@ void mig_sample_states(TreeModel *mod, MigTable *mg,
 
   /* initialize state_samples */
   lst_clear(state_samples);
-  for (i = 0; i < mod->tree->nnodes; i++)
+  for (i = 0; i < tree->nnodes; i++)
     lst_push_int(state_samples, -1);
   
   /* set up "inside" probability matrices */
   pL = smalloc(nstates * sizeof(double*));
   for (j = 0; j < nstates; j++)
-    pL[j] = smalloc((cprmod->mod->tree->nnodes+1) * sizeof(double));
+    pL[j] = smalloc((tree->nnodes+1) * sizeof(double));
 
   /* we also need to keep track of the log scale of every node for
      underflow purposes */
-  lscale = vec_new(mod->tree->nnodes+1); 
+  lscale = vec_new(tree->nnodes+1); 
   vec_zero(lscale);
   
-  mig_update_subst_matrices(mod, mg); /* compute all necessary migration probability
-                                         matrices */
+  mig_update_subst_matrices(tree, mg); /* compute all necessary migration probability
+                                          matrices */
   if (cprmod->mod->msa_seq_idx == NULL)
     cpr_build_seq_idx(cprmod->mod, cprmod->mut);
 
-  traversal = tr_postorder(cprmod->mod->tree);
+  traversal = tr_postorder(tree);
     
   /* this model allows a leading branch to the root of the tree but
      forces the unedited state at the start of that branch.  We can
      simulate this behavior by setting the root eq freqs equal to
      the conditional distribution at the end of the branch given the
      unedited state at the start */
-  leading_Pt = lst_get_ptr(mg->Pt, mod->tree->id); 
+  leading_Pt = lst_get_ptr(mg->Pt, tree->id); 
   for (i = 0; i < nstates; i++)
     root_eqfreqs[i] = mm_get(leading_Pt, 0, i);
     
@@ -568,7 +568,7 @@ void mig_sample_states(TreeModel *mod, MigTable *mg,
 
   /* Now pass from root to leaves and sample notes based on smpled parent and
      inside probabilities */
-  pre_trav = tr_preorder(mod->tree);
+  pre_trav = tr_preorder(tree);
   double *sampdens = smalloc(nstates * sizeof(double));
   for (nodeidx = 0; nodeidx < lst_size(pre_trav); nodeidx++) {
     n = lst_get_ptr(pre_trav, nodeidx);
@@ -601,14 +601,14 @@ void mig_sample_states(TreeModel *mod, MigTable *mg,
   sfree(sampdens);
 }
 
-/* based on a tree model and list of states at all nodes, obtain a
+/* based on a tree and list of states at all nodes, obtain a
    multigraph representing migration events and their times */
-struct mdag *mig_get_graph(TreeModel *mod, MigTable *mg, List *state_samples) {
+struct mdag *mig_get_graph(TreeNode *tree, MigTable *mg, List *state_samples) {
   MultiDAG *g = mdag_new(mg);
 
   /* first compute height of each node */
-  List *traversal = tr_preorder(mod->tree);
-  Vector *heights = vec_new(mod->tree->nnodes);
+  List *traversal = tr_preorder(tree);
+  Vector *heights = vec_new(tree->nnodes);
   vec_set_all(heights, 0.0);
   for (int nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
     TreeNode *n = lst_get_ptr(traversal, nodeidx);
@@ -620,8 +620,8 @@ struct mdag *mig_get_graph(TreeModel *mod, MigTable *mg, List *state_samples) {
     }
   }  
  
-  for (int nodeidx = 0; nodeidx < mod->tree->nnodes; nodeidx++) {
-    TreeNode *n = lst_get_ptr(mod->tree->nodes, nodeidx);
+  for (int nodeidx = 0; nodeidx < tree->nnodes; nodeidx++) {
+    TreeNode *n = lst_get_ptr(tree->nodes, nodeidx);
     if (n->parent == NULL)
       continue;
     int childstate = lst_get_int(state_samples, n->id);
@@ -635,24 +635,23 @@ struct mdag *mig_get_graph(TreeModel *mod, MigTable *mg, List *state_samples) {
   return g;
 }
 
-struct mdag *mig_sample_graph(TreeModel *mod, MigTable *mg, 
+struct mdag *mig_sample_graph(TreeNode *tree, MigTable *mg, 
                              CrisprMutModel *cprmod) {
-  List *state_samples = lst_new_int(mod->tree->nnodes);
-  mig_sample_states(mod, mg, cprmod, state_samples);
-  struct mdag *g = mig_get_graph(mod, mg, state_samples);
+  List *state_samples = lst_new_int(tree->nnodes);
+  mig_sample_states(tree, mg, cprmod, state_samples);
+  struct mdag *g = mig_get_graph(tree, mg, state_samples);
   lst_free(state_samples);
   return g;
 }
 
 /* Print a NEXUS file in which each node is labeled with its sampled
    state using BEAST-style notation embedded in the node labels */
-void mig_print_labeled_nexus(TreeModel *mod, FILE *outf, MigTable *mg,
+void mig_print_labeled_nexus(TreeNode *tree, FILE *outf, MigTable *mg,
                              List *state_samples) {
-  TreeNode *root = mod->tree;
-  int nn = mod->tree->nnodes;
+  int nn = tree->nnodes;
 
   /* 1) Gather TAXA (leaf names) in any traversal; leaves are guaranteed named/unique */
-  List *trav = mod->tree->nodes;
+  List *trav = tree->nodes;
   List *taxa = lst_new_ptr(64);
   for (int i = 0; i < nn; i++) {
     TreeNode *n = lst_get_ptr(trav, i);
@@ -708,7 +707,7 @@ void mig_print_labeled_nexus(TreeModel *mod, FILE *outf, MigTable *mg,
   /* TREES block: prefix line, then let tr_print write the Newick + ';' + '\n' */
   fprintf(outf, "BEGIN TREES;\n");
   fprintf(outf, "  TREE %s = [&R] ", tname);
-  tr_print(outf, root, /*show_branch_lengths=*/1);
+  tr_print(outf, tree, /*show_branch_lengths=*/1);
   fprintf(outf, "END;\n\n");
 
   /* 4) Restore original names and free temporaries */
@@ -723,7 +722,100 @@ void mig_print_labeled_nexus(TreeModel *mod, FILE *outf, MigTable *mg,
 }
   sfree(saved_names);
   lst_free(taxa);
-} 
+}
+
+/* Print a NEXUS file with a single header and multiple TREE lines,
+   where each node in each tree is labeled with its sampled state using
+   BEAST-style notation embedded in the node labels. */
+void mig_print_set_labeled_nexus(List *tree_lst, FILE *outf, MigTable *mg,
+                                 List *statesamps_lst) {
+  assert(lst_size(tree_lst) == lst_size(statesamps_lst));
+
+  /* Use the first model to define TAXA (leaf names) */
+  TreeNode *tree0 = (TreeNode*)lst_get_ptr(tree_lst, 0);
+  int nn0 = tree0->nnodes;
+
+  /* Gather TAXA from the first tree */
+  List *trav0 = tree0->nodes;
+  List *taxa = lst_new_ptr(64);
+  for (int i = 0; i < nn0; i++) {
+    TreeNode *n = lst_get_ptr(trav0, i);
+    if (n->lchild == NULL && n->rchild == NULL)
+      lst_push_ptr(taxa, n->name);
+  }
+
+  /* Header and TAXA block (printed once) */
+  fprintf(outf, "#NEXUS\n\n");
+  fprintf(outf, "BEGIN TAXA;\n");
+  fprintf(outf, "  DIMENSIONS NTAX=%d;\n", lst_size(taxa));
+  fprintf(outf, "  TAXLABELS\n");
+  for (int i = 0; i < lst_size(taxa); i++) {
+    const char *lab = (const char*)lst_get_ptr(taxa, i);
+    fprintf(outf, "    %s\n", lab ? lab : "taxon");
+  }
+  fprintf(outf, "  ;\nEND;\n\n");
+
+  /* TREES block with one TREE per sample */
+  fprintf(outf, "BEGIN TREES;\n");
+
+  int nsamp = lst_size(tree_lst);
+  for (int s = 0; s < nsamp; s++) {
+    TreeNode *tree = (TreeNode*)lst_get_ptr(tree_lst, s);
+    List *state_samples = (List*)lst_get_ptr(statesamps_lst, s);
+    int nn = tree->nnodes;
+
+    /* Traverse nodes for this tree */
+    List *trav = tree->nodes;
+
+    /* Temporarily append annotations to node names: "<name>[&state=STATE]" */
+    String **saved_names = (String**)smalloc(nn * sizeof(String*));
+    for (int i = 0; i < nn; i++) saved_names[i] = NULL;
+
+    for (int i = 0; i < lst_size(trav); i++) {
+      TreeNode *n = lst_get_ptr(trav, i);
+      int state = lst_get_int(state_samples, n->id);
+      assert(state >= 0 && state < lst_size(mg->statenames));
+
+      if (saved_names[n->id] == NULL)
+        saved_names[n->id] = str_new_charstr(n->name);
+
+      String *st = str_dup((String*)lst_get_ptr(mg->statenames, state));
+
+      const char *orig = n->name;
+      String *tmpS = str_new((int)strlen(orig) + 11 /*"[&state="*/ + st->length + 1);
+      if (*orig) str_append_charstr(tmpS, orig);
+      str_append_charstr(tmpS, "[&state=");
+      str_append(tmpS, st);
+      str_append_char(tmpS, ']');
+
+      strncpy(n->name, tmpS->chars, sizeof(n->name) - 1);
+      n->name[sizeof(n->name) - 1] = '\0';
+
+      str_free(st);
+      str_free(tmpS);
+    }
+
+    /* Print one TREE line for this sample */
+    fprintf(outf, "  TREE sample_%d = [&R] ", s + 1);
+    tr_print(outf, tree, /*show_branch_lengths=*/1);
+
+    /* Restore original names for this tree */
+    for (int i = 0; i < lst_size(trav); i++) {
+      TreeNode *n = lst_get_ptr(trav, i);
+      if (saved_names[n->id]) {
+        strncpy(n->name, saved_names[n->id]->chars, sizeof(n->name) - 1);
+        n->name[sizeof(n->name) - 1] = '\0';
+        str_free(saved_names[n->id]);
+        saved_names[n->id] = NULL;
+      }
+    }
+    sfree(saved_names);
+  }
+
+  fprintf(outf, "END;\n\n");
+
+  lst_free(taxa);
+}
 
 /***************************************************************************
  Functions adapted from phast_subst_mods.c to handle migration models 
@@ -939,3 +1031,17 @@ void mig_grad_REV_dr(MigTable *mg, List *dP_dr_lst, double t) {
   lst_free(erows); lst_free(ecols); lst_free(distinct_rows);
 }
 
+/* print dot file based on list of trees and list of state labels */
+void mig_print_set_dot(List *tree_lst, FILE *outf, MigTable *mg,
+                       List *statesamps_lst) {
+  assert(lst_size(tree_lst) == lst_size(statesamps_lst));
+  MultiDAGSet *set = mdag_set_new();
+  for (int i = 0; i < lst_size(tree_lst); i++) {
+    TreeNode *tree = lst_get_ptr(tree_lst, i);
+    List *state_samples = (List*)lst_get_ptr(statesamps_lst, i);
+    struct mdag *g = mig_get_graph(tree, mg, state_samples);
+    mdag_add_to_set(set, g);
+  }
+  mdag_set_print_dot(set, outf);
+  mdag_set_free(set);
+}
