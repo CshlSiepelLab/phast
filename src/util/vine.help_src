@@ -199,13 +199,13 @@ HYPERBOLIC GEOMETRY:
 
 CELL-STATE MODELING:
     --migration, -G <statelabels.txt>
-        (for use with -i CRISPR) Model a migration process among cell
-        states along the branches of the phylogeny, simultaneously
-        with the mutation process (see Staklinski et al., bioRxiv
-        2025).  File must contain a list of exactly the same cell
-        labels as the mutation matrix, each followed by a single
-        string indicating its tissue or other cell state (comma
-        delimited file with two columns per line).
+       (for use with -i CRISPR) Model a migration process among cell
+       states along the branches of the phylogeny, simultaneously
+       with the mutation process (see Staklinski et al., bioRxiv
+       2025).  File must contain a list of exactly the same cell
+       labels as the mutation matrix, each followed by a single
+       string indicating its tissue or other cell state (comma
+       delimited file with two columns per line).
 
     --sample-graphs, -O <file.dot>    
        Sample cell-state migration graphs and output to specified file
@@ -215,9 +215,9 @@ CELL-STATE MODELING:
        using an inside-outside algorithm.
 
     --labeled-trees, -B <file.nex>
-      Output complete trees with cell-state-labeled nodes in nexus
-      format.  Samples will be aligned one-to-one with both main
-      output trees and sampled graphs.
+       Output complete trees with cell-state-labeled nodes in nexus
+       format.  Samples will be aligned one-to-one with both main
+       output trees and sampled graphs.
 
 
 DIAGNOSTICS:
