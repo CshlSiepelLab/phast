@@ -93,7 +93,6 @@ void mig_update_states(MigTable *M) {
   }
   M->rate_matrix = mm_new(M->nstates, NULL, DISCRETE);
   mm_set_eigentype(M->rate_matrix, REAL_NUM);
-  /* FIXME: send in state labels */
   mig_set_REV_matrix(M, M->gtr_params);
 }
 
@@ -817,6 +816,21 @@ void mig_print_set_labeled_nexus(List *tree_lst, FILE *outf, MigTable *mg,
   lst_free(taxa);
 }
 
+/* print dot file based on list of trees and list of state labels */
+void mig_print_set_dot(List *tree_lst, FILE *outf, MigTable *mg,
+                       List *statesamps_lst) {
+  assert(lst_size(tree_lst) == lst_size(statesamps_lst));
+  MultiDAGSet *set = mdag_set_new();
+  for (int i = 0; i < lst_size(tree_lst); i++) {
+    TreeNode *tree = lst_get_ptr(tree_lst, i);
+    List *state_samples = (List*)lst_get_ptr(statesamps_lst, i);
+    struct mdag *g = mig_get_graph(tree, mg, state_samples);
+    mdag_add_to_set(set, g);
+  }
+  mdag_set_print_dot(set, outf);
+  mdag_set_free(set);
+}
+
 /***************************************************************************
  Functions adapted from phast_subst_mods.c to handle migration models 
  ***************************************************************************/
@@ -1033,17 +1047,3 @@ void mig_grad_REV_dr(MigTable *mg, List *dP_dr_lst, double t) {
   lst_free(erows); lst_free(ecols); lst_free(distinct_rows);
 }
 
-/* print dot file based on list of trees and list of state labels */
-void mig_print_set_dot(List *tree_lst, FILE *outf, MigTable *mg,
-                       List *statesamps_lst) {
-  assert(lst_size(tree_lst) == lst_size(statesamps_lst));
-  MultiDAGSet *set = mdag_set_new();
-  for (int i = 0; i < lst_size(tree_lst); i++) {
-    TreeNode *tree = lst_get_ptr(tree_lst, i);
-    List *state_samples = (List*)lst_get_ptr(statesamps_lst, i);
-    struct mdag *g = mig_get_graph(tree, mg, state_samples);
-    mdag_add_to_set(set, g);
-  }
-  mdag_set_print_dot(set, outf);
-  mdag_set_free(set);
-}
