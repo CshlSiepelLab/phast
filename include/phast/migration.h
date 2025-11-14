@@ -33,6 +33,7 @@ typedef struct {
                                    indices it affects */
   List **rate_matrix_param_col; /* for each free param, list of col
                                    indices it affects */
+  int primary_state; /* index of primary state, or -1 if none */
 } MigTable;
 
 MigTable *mig_new();
@@ -40,6 +41,8 @@ MigTable *mig_new();
 void mig_free(MigTable *M);
 
 MigTable *mig_read_table(FILE *F);
+
+int mig_set_primary_state(MigTable *M, const char *statelabel);
 
 void mig_update_states(MigTable *M);
 

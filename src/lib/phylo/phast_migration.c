@@ -26,6 +26,7 @@ MigTable *mig_new() {
   M->rate_matrix = NULL;
   M->rate_matrix_param_row = NULL;
   M->rate_matrix_param_col = NULL;
+  M->primary_state = -1;
   return M;
 }
 
@@ -75,6 +76,13 @@ MigTable *mig_read_table(FILE *F) {
   M->ncells = lst_size(M->cellnames);
   mig_update_states(M);
   return M;
+}
+
+/* set primary state by label; returns 0 on success, -1 if label not found */
+int mig_set_primary_state(MigTable *M, const char *statelabel) {
+  int idx = hsh_get_int(M->statehash, statelabel);
+  M->primary_state = idx;
+  return 0;
 }
 
 void mig_update_states(MigTable *M) {
@@ -199,14 +207,22 @@ double mig_compute_log_likelihood(TreeModel *mod, MigTable *mg,
 
   traversal = tr_postorder(cprmod->mod->tree);
     
-  /* this model allows a leading branch to the root of the tree but
-     forces the unedited state at the start of that branch.  We can
+  /* this model allows a leading branch to the root of the tree.  We can
      simulate this behavior by setting the root eq freqs equal to
-     the conditional distribution at the end of the branch given the
-     unedited state at the start */
-  leading_Pt = lst_get_ptr(mg->Pt, mod->tree->id); 
-  for (i = 0; i < nstates; i++)
-    root_eqfreqs[i] = mm_get(leading_Pt, 0, i);
+     the conditional distribution at the end of the branch  */
+  leading_Pt = lst_get_ptr(mg->Pt, mod->tree->id);
+  if (mg->primary_state != -1) { /* force primary state at root */
+    for (i = 0; i < nstates; i++)
+      root_eqfreqs[i] = mm_get(leading_Pt, mg->primary_state, i);
+  }
+  else { /* sum over root states */   /* CHECK THIS! */
+    for (i = 0; i < nstates; i++) {
+      root_eqfreqs[i] = 0;
+      for (j = 0; j < nstates; j++)
+        root_eqfreqs[i] += vec_get(mg->backgd_freqs, j) *
+          mm_get(leading_Pt, j, i);
+    }
+  }
     
   for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
     n = lst_get_ptr(traversal, nodeidx);

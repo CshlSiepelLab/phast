@@ -71,6 +71,7 @@ int main(int argc, char *argv[]) {
   unsigned int relclock = FALSE;
   MigTable *migtable = NULL;
   List *migstates_lst = NULL;
+  char *primary_state = NULL;
   
   struct option long_opts[] = {
     {"format", 1, 0, 'i'},
@@ -111,6 +112,7 @@ int main(int argc, char *argv[]) {
     {"treeprior", 1, 0, 'P'},
     {"relclock", 0, 0, 'L'},
     {"migration", 1, 0, 'G'},
+    {"primary", 1, 0, '1'},
     {"help", 0, 0, 'h'},
     {0, 0, 0, 0}
   };
@@ -279,6 +281,9 @@ int main(int argc, char *argv[]) {
         tp_type = YULE;
       else die("ERROR: bad argument to --treeprior (-P).\n");
       break;
+    case '1':
+      primary_state = optarg;
+      break;
     case 'h':
       printf("%s", HELP); 
       exit(0);
@@ -313,6 +318,9 @@ int main(int argc, char *argv[]) {
   if (graphsfile != NULL && migtable == NULL)
       die("--sample-graphs requires --migration\n");
 
+  if (primary_state != NULL && migtable == NULL)
+      die("--primary requires --migration\n");
+  
   if (nexusfile != NULL && migtable == NULL)
       die("--labeled-trees requires --migration\n");
 
@@ -396,8 +404,13 @@ int main(int argc, char *argv[]) {
 
   covar_data = nj_new_covar_data(covar_param, D, dim, msa, crispr_mod, names,
                                  natural_grad, kld_upweight, rank, var_reg,
-                                 hyperbolic, negcurvature, ultrametric, radial_flow,
-                                 planar_flow, tprior, migtable);
+                                 hyperbolic, negcurvature, ultrametric,
+                                 radial_flow, planar_flow, tprior, migtable);
+  if (primary_state != NULL) {
+    if (mig_set_primary_state(migtable, primary_state) == -1)
+      die("ERROR: primary state label '%s' not found in migration table\n",
+          primary_state);
+  }
 
   if (embedding_only == TRUE) {
     /* in this case, embed the distances now */
