@@ -207,7 +207,7 @@ CELL-STATE MODELING:
        string indicating its tissue or other cell state (comma
        delimited file with two columns per line).
 
---primary, -1 <state>       
+    --primary, -1 <state>       
        Consider designated state (as defined using --migration) to be
        "primary" and force it to be the state at the root of the tree.
        Useful when the source state is known, as in models of cancer

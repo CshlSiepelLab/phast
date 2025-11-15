@@ -215,10 +215,10 @@ double mig_compute_log_likelihood(TreeModel *mod, MigTable *mg,
     for (i = 0; i < nstates; i++)
       root_eqfreqs[i] = mm_get(leading_Pt, mg->primary_state, i);
   }
-  else { /* sum over root states */   /* CHECK THIS! */
-    for (i = 0; i < nstates; i++) {
+  else { /* sum over root states */   
+    for (i = 0; i < nstates; i++) { /* pseudo root */
       root_eqfreqs[i] = 0;
-      for (j = 0; j < nstates; j++)
+      for (j = 0; j < nstates; j++) /* actual root */
         root_eqfreqs[i] += vec_get(mg->backgd_freqs, j) *
           mm_get(leading_Pt, j, i);
     }
