@@ -58,11 +58,6 @@ MAIN OPTIONS:
         Output a single tree reflecting the mean of the approximate
         posterior distribution to the specified file.
 
-    --min-nbatches, M <N>
-        Set minimum number of mini-batches before convergence to <N>
-        (default 200).  Larger values will lead to longer convergence times
-        but may find better solutions.
-
     --nsamples, -s 
         Number of samples to output (default 100) after convergence.
 
@@ -112,6 +107,11 @@ OPTIMIZATION:
     --learnrate, -r <alpha>
        Set learning rate for Adam algorithm to <alpha> (default 0.05).
         
+    --min-nbatches, M <N>
+        Set minimum number of mini-batches before convergence to <N>
+        (default 200).  Larger values will lead to longer convergence times
+        but may find better solutions.
+
     --nbatches-conv, -c <N>
        Set number of mini-batches over which to average when assessing
        convergence to <N> (default 50).  Larger values will lead to

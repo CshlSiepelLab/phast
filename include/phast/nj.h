@@ -30,7 +30,7 @@
 #include <phast/planar_flow.h>
 #include <phast/tree_prior.h>
 #include <phast/migration.h>
-
+the 
 /* for numerical derivatives */
 #define DERIV_EPS 1e-5
 
@@ -42,7 +42,7 @@
 #define ADAM_BETA2 0.9
 #define ADAM_EPS 1e-8
 
-/* rescale embedding space so that maximum distances are equal to
+/* rescale embedding space so that median distances are equal to
    these values in the Euclidean and hyperbolic cases,
    respectively. Helps address the problem that branch lengths tend to
    be small so means and variances can get close to zero.  But scaling
