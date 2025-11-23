@@ -45,8 +45,8 @@
   /* Old CLAPACK-style API (kept for older macOS / toolchains) */
 
   /* New Accelerate LAPACK API */
-  #define LAPACK_INT    lapack_int
-  #define LAPACK_DOUBLE double
+  #define LAPACK_INT    __CLPK_integer
+  #define LAPACK_DOUBLE __CLPK_doublereal
 
 #endif  /* ACCELERATE_NEW_LAPACK */
 
