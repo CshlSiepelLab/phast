@@ -34,9 +34,23 @@
 
 #ifdef VECLIB
 #include <Accelerate/Accelerate.h>
-#define LAPACK_INT __CLPK_integer
-#define LAPACK_DOUBLE __CLPK_doublereal
+#ifdef ACCELERATE_NEW_LAPACK
+
+   /* New Accelerate LAPACK interface: use plain C types */
+    typedef int    LAPACK_INT;
+    typedef double LAPACK_DOUBLE;
+
 #else
+
+  /* Old CLAPACK-style API (kept for older macOS / toolchains) */
+
+  /* New Accelerate LAPACK API */
+  #define LAPACK_INT    lapack_int
+  #define LAPACK_DOUBLE double
+
+#endif  /* ACCELERATE_NEW_LAPACK */
+
+#else /* VECLIB not defined */
 
 #ifndef SKIP_LAPACK 
 #include <f2c.h>  

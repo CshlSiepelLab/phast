@@ -134,7 +134,7 @@ endif
 
 # vecLib
 ifdef VECLIB
-CFLAGS += -DVECLIB
+CFLAGS += -DVECLIB -DACCELERATE_NEW_LAPACK
 LIBS = -lphast -framework Accelerate -lc -lm
 
 # CLAPACK
