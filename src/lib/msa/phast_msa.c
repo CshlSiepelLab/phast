@@ -254,7 +254,7 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
   List *names = lst_new_ptr(10);
   List *seqs = lst_new_ptr(10);
   static Regex *descrip_re = NULL;
-  int maxlen, i, nseqs, j, do_toupper, line_no;
+  int maxlen, i, nseqs, j, do_toupper;
   String *line = str_new(STR_MED_LEN);
   List *l = lst_new_ptr(2);
   String *new_str = NULL;
@@ -263,7 +263,6 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
   if (descrip_re == NULL) 
     descrip_re = str_re_new("[[:space:]]*>[[:space:]]*([^[:space:]]+)");
 
-  line_no=1;
   while ((str_readline(line, F)) != EOF) {
     if (str_re_match(line, descrip_re, l, 1) > 0) {
       lst_push_ptr(names, lst_get_ptr(l, 1));
@@ -281,7 +280,6 @@ MSA *msa_read_fasta(FILE *F, char *alphabet) {
       die("ERROR in FASTA file: non-blank line preceding first description ('>') line.\n");
 
     str_append(new_str, line);
-    checkInterruptN(line_no++, 1000);
   }
 
   if (lst_size(seqs) == 0)
@@ -1511,7 +1509,6 @@ void msa_print_stats(MSA *msa, FILE *F, char *label, int header, int start,
    (half-open, 0-based) */
 Vector *msa_get_base_counts(MSA *msa, int start, int end) {
   int i, j, size = (int)strlen(msa->alphabet);
-  double sum = 0;
   int s = start > 0 ? start : 0, e = end > 0 ? end : msa->length;
   Vector *base_freqs = vec_new(size);
   vec_zero(base_freqs);
@@ -1534,7 +1531,6 @@ Vector *msa_get_base_counts(MSA *msa, int start, int end) {
           vec_set(base_freqs, idx, 
                          vec_get(base_freqs, idx) + 
                          msa->ss->counts[i]); 
-          sum += msa->ss->counts[i];
         }
       }
     }
@@ -1551,7 +1547,6 @@ Vector *msa_get_base_counts(MSA *msa, int start, int end) {
           }
           vec_set(base_freqs, idx, 
                          vec_get(base_freqs, idx) + 1); 
-          sum++;
         }
       }
     }

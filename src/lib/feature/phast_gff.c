@@ -168,7 +168,7 @@ GFF_Set* gff_read_set(FILE *F) {
       frame = GFF_NULL_FRAME;
       if (lst_size(l) > 7) {
 	String *tmp = (String*)lst_get_ptr(l, 7);
-	if (! str_equals_charstr(tmp, ".") != 0) {
+	if (str_equals_charstr(tmp, ".") == FALSE) {
 	  if (str_as_int(tmp, &frame) != 0 || frame < 0 || frame > 2)
 	    die("ERROR at line %d: illegal 'frame' ('%s').\n",
 		lineno, tmp->chars);
