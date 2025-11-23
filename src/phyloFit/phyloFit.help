@@ -1,0 +1,528 @@
+char HELP[26096] = "\nPROGRAM: phyloFit\n\
+\n\
+DESCRIPTION: \n\
+\n\
+    Fits one or more tree models to a multiple alignment of DNA\n\
+    sequences by maximum likelihood, using the specified tree topology\n\
+    and substitution model.  If categories of sites are defined via\n\
+    --features and --catmap (see below), then a separate model will be\n\
+    estimated for each category.  A description of each model will\n\
+    be written to a separate file, with the suffix \".mod\".  These\n\
+    .mod files minimally include a substitution rate matrix, a tree with\n\
+    branch lengths, and estimates of nucleotide equilibrium\n\
+    frequencies.  They may also include information about parameters\n\
+    for modeling rate variation.\n\
+\n\
+USAGE: phyloFit [OPTIONS] <msa_fname>\n\
+\n\
+    <msa_fname> should be a multiple alignment in FASTA format or\n\
+    one of several alternative formats (see --msa-format).  For\n\
+    backward compatibility, this argument may be preceded by '-m' or\n\
+    '--msa'.  Note that --tree is required in most cases.  By default,\n\
+    all output files will have the prefix \"phyloFit\" (see\n\
+    --out-root).\n\
+\n\
+EXAMPLES:\n\
+\n\
+    (If you're like me, you want some basic examples first, and a list\n\
+    of all options later.)\n\
+\n\
+    1. Compute the distance between two aligned sequences (in FASTA file\n\
+    pair.fa) under the REV model.\n\
+\n\
+        phyloFit pair.fa\n\
+\n\
+    (output is to phyloFit.mod; distance in substitutions per site\n\
+    appears in the TREE line in the output file)\n\
+\n\
+    2. Fit a phylogenetic model to an alignment of human, chimp, mouse,\n\
+    and rat sequences.  Use the HKY85 substitution model.  Write output\n\
+    to files with prefix \"myfile\".\n\
+\n\
+        phyloFit --tree \"((human,chimp),(mouse,rat))\" --subst-mod HKY85\n\
+            --out-root myfile primate-rodent.fa\n\
+\n\
+    3. As above, but use the discrete-gamma model for rate variation,\n\
+    with 4 rate categories.\n\
+\n\
+        phyloFit --tree \"((human,chimp),(mouse,rat))\" --subst-mod HKY85\n\
+            --out-root myfile --nrates 4 primate-rodent.fa\n\
+\n\
+    4. As above, but use genome-wide data, stored in the compact\n\
+    \"sufficient-statistics\" format (can be produced with \"msa_view\n\
+    -o SS\").\n\
+\n\
+        phyloFit --tree \"((human,chimp),(mouse,rat))\" --subst-mod HKY85\n\
+            --out-root myfile --nrates 4 --msa-format SS \n\
+            primate-rodent.ss\n\
+\n\
+    5. Fit a context-dependent phylogenetic model (U2S) to an\n\
+    alignment of human, mouse, and rat sequences.  Use\n\
+    an EM algorithm for parameter optimization and relax the\n\
+    convergence criteria a bit (recommended with context-dependent\n\
+    models).  Write a log file for the optimization procedure.\n\
+    Consider only non-overlapping pairs of sites.\n\
+\n\
+        phyloFit --tree \"(human,(mouse,rat))\" --subst-mod U2S --EM\n\
+            --precision MED --non-overlapping --log u2s.log --out-root\n\
+            hmr-u2s hmr.fa\n\
+\n\
+    6. As above, but allow overlapping pairs of sites, and compute\n\
+    likelihoods by assuming Markov-dependence of columns (see Siepel &\n\
+    Haussler, 2004).  The EM algorithm can no longer be used\n\
+    (optimization will be much slower).\n\
+\n\
+        phyloFit --tree \"(human,(mouse,rat))\" --subst-mod U2S\n\
+            --precision MED --log u2s-markov.log --markov hmr.fa\n\
+\n\
+    7. Compute a likelihood using parameter estimates obtained in (5)\n\
+    and an assumption of Markov dependence.  This provides a lower\n\
+    bound on the likelihood of the Markov-dependent model.\n\
+\n\
+        phyloFit --init-model hmr-u2s.mod --lnl --markov hmr.fa\n\
+\n\
+    8. Given an alignment of several mammalian sequences (mammals.fa), a\n\
+    tree topology (tree.nh), and a set of gene annotations in GFF\n\
+    (genes.gff), fit separate models to sites in 1st, 2nd, and 3rd\n\
+    codon positions.  Use the REV substitution model.  Assume coding\n\
+    regions have feature type 'CDS'.\n\
+\n\
+        phyloFit --tree tree.nh --features genes.gff --out-root mammals-rev\n\
+            --catmap \"NCATS = 3; CDS 1-3\" --do-cats 1,2,3 mammals.fa\n\
+\n\
+    (output will be to mammals-rev.cds-1.mod, mammals-rev.cds-2.mod, and \n\
+    mammals-rev.cds-3.mod)\n\
+\n\
+\n\
+OPTIONS:\n\
+\n\
+    --tree, -t <tree_fname>|<tree_string>\n\
+        (Required if more than three species, or more than two species\n\
+        and a non-reversible substitution model, e.g., UNREST, U2, U3)\n\
+        Name of file or literal string defining tree topology.  Tree\n\
+        must be in Newick format, with the label at each leaf equal to\n\
+        the index or name of the corresponding sequence in the alignment\n\
+        (indexing begins with 1).  Examples: --tree \"(1,(2,3))\", \n\
+        --tree \"(human,(mouse,rat))\".  Currently, the topology must be\n\
+        rooted.  When a reversible substitution model is used, the root\n\
+        is ignored during the optimization procedure.\n\
+\n\
+    --subst-mod, -s JC69|F81|HKY85|HKY85+Gap|REV|SSREV|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S\n\
+        (default REV).  Nucleotide substitution model.  JC69, F81, HKY85\n\
+        REV, and UNREST have the usual meanings (see, e.g., Yang, \n\
+        Goldman, and Friday, 1994).  SSREV is a strand-symmetric version\n\
+        of REV.  HKY85+Gap is an adaptation of HKY that treats gaps as a \n\
+        fifth character (courtesy of James Taylor).  The others, all\n\
+	considered \"context-dependent\", are as defined in Siepel and \n\
+        Haussler, 2004.  The options --EM and --precision MED are \n\
+        recommended with context-dependent models (see below).\n\
+\n\
+    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS\n\
+        (default is to guess format from file contents) Alignment format.  \n\
+        FASTA is as usual.  PHYLIP is compatible with the formats used in \n\
+        the PHYLIP and PAML packages.  MPM is the format used by the \n\
+        MultiPipMaker aligner and some other of Webb Miller's older tools.  \n\
+        MAF (\"Multiple Alignment Format\") is used by MULTIZ/TBA and the \n\
+        UCSC Genome Browser.  SS is a simple format describing the \n\
+	sufficient statistics for phylogenetic inference (distinct columns\n\
+        or tuple of columns and their counts).  Note that the program\n\
+        \"msa_view\" can be used for file conversion.\n\
+\n\
+    --out-root, -o <output_fname_root>\n\
+        (default \"phyloFit\").  Use specified string as root filename\n\
+        for all files created.\n\
+\n\
+    --min-informative, -I <ninf_sites>\n\
+        Require at least <ninf_sites> \"informative\" sites -- i.e., \n\
+        sites at which at least two non-gap and non-missing-data ('N'\n\
+        or '*') characters are present.  Default is 50.\n\
+\n\
+    --gaps-as-bases, -G\n\
+        Treat alignment gap characters ('-') like ordinary bases.  By\n\
+        default, they are treated as missing data.\n\
+\n\
+    --ignore-branches, -b <branches>\n\
+        Ignore specified branches in likelihood computations and parameter\n\
+        estimation, and treat the induced subtrees as independent.  Can be\n\
+        useful for likelihood ratio tests.  The argument <branches> should\n\
+        be a comma-separated list of nodes in the tree, indicating the\n\
+        branches above these nodes, e.g., human-chimp,cow-dog.  (See\n\
+        tree_doctor --name-ancestors regarding names for ancestral nodes.)\n\
+        This option does not currently work with --EM.\n\
+\n\
+    --quiet, -q\n\
+        Proceed quietly.\n\
+\n\
+    --help, -h\n\
+        Print this help message.\n\
+\n\
+\n\
+ (Options for controlling and monitoring the optimization procedure)\n\
+\n\
+    --lnl, -L\n\
+        (for use with --init-model) Simply evaluate the log likelihood of\n\
+        the specified tree model, without performing any further\n\
+        optimization.  Can be used with --post-probs, --expected-subs, and\n\
+        --expected-total-subs.\n\
+\n\
+    --EM, -E \n\
+        Fit model(s) using EM rather than the BFGS quasi-Newton\n\
+        algorithm (the default).\n\
+\n\
+    --precision, -p HIGH|MED|LOW\n\
+        (default HIGH) Level of precision to use in estimating model\n\
+        parameters.  Affects convergence criteria for iterative\n\
+        algorithms: higher precision means more iterations and longer\n\
+        execution time.\n\
+\n\
+    --log, -l <log_fname>\n\
+        Write log to <log_fname> describing details of the optimization\n\
+        procedure.\n\
+\n\
+    --init-model, -M <mod_fname>\n\
+        Initialize with specified tree model.  By choosing good\n\
+        starting values for parameters, it is possible to reduce\n\
+        execution time dramatically.  If this option is chosen, --tree\n\
+        is not allowed.  The substitution model used in the given\n\
+        model will be used unless --subst-mod is also specified.  \n\
+        Note: currently only one mod_fname may be specified; it will be \n\
+        used for all categories.\n\
+\n\
+    --init-random, -r\n\
+        Initialize parameters randomly.  Can be used multiple times to test\n\
+        whether the m.l.e. is real.\n\
+\n\
+    --seed, -D <seed>\n\
+        Provide a random number seed for choosing initial parameter values\n\
+	(usually with --init-random, though random values are used in some\n\
+        other cases as well).  Should be an integer >=1.  If not provided,\n\
+	seed is chosen based on current time.\n\
+\n\
+    --init-parsimony, -y\n\
+        Initialize branch lengths using parsimony counts for given data.\n\
+        Only currently implemented for models with single character state\n\
+	(ie, not di- or tri-nucleotides).  Other --init options such\n\
+	as --init-random or --init-model can be used in conjunction to \n\
+	initialize substitution matrix parameters.\n\
+\n\
+    --print-parsimony, -Y <filename>\n\
+        Print parsimony score to given file, and quit.  (Does not optimize\n\
+        or report likelihoods).\n\
+\n\
+    --clock, -z\n\
+        Assume a molecular clock in estimation.  Causes the distances to all\n\
+        descendant leaves to be equal for each ancestral node and cuts the\n\
+        number of free branch-length parameters roughly in half.  \n\
+\n\
+    --scale-only, -B\n\
+        (for use with --init-model) Estimate only the scale of the tree,\n\
+        rather than individual branch lengths (branch proportions fixed).\n\
+        Equilibrium frequencies and rate-matrix parameters will still be\n\
+        estimated unless --no-freqs and --no-rates are used.\n\
+\n\
+    --scale-subtree, -S <node_name>\n\
+        (for use with --scale-only) Estimate separate scale factors for\n\
+        subtree beneath identified node and rest of tree.  The branch\n\
+        leading to the subtree is included with the subtree.  If \":loss\" or\n\
+        \":gain\" is appended to <node_name>, subtree scale is constrained to\n\
+        be greater than or less than (respectively) scale for rest of tree.\n\
+\n\
+    --estimate-freqs, -F\n\
+        Estimate equilibrium frequencies by maximum likelihood, rather\n\
+        than approximating them by the relative frequencies in the data.\n\
+	If using the SSREV model, this option implies --sym-freqs.\n\
+\n\
+    --sym-freqs, -W\n\
+        Estimate equilibrium frequencies, assuming freq(A)=freq(T) and\n\
+	freq(C)=freq(G).  This only works for an alphabet ACGT (and possibly\n\
+	gap).  This option implies --estimate-freqs.\n\
+\n\
+    --no-freqs, -f\n\
+        (for use with --init-model) Do not estimate equilibrium\n\
+        frequencies; just use the ones from the given tree model.\n\
+\n\
+    --no-rates, -n\n\
+        (for use with --init-model) Do not estimate rate-matrix\n\
+        parameters; just use the ones from the given tree model.\n\
+\n\
+    --ancestor, -A <seqname>\n\
+        Treat specified sequence as the root of the tree.  The tree\n\
+        topology must define this sequence to be a child of the root\n\
+        (in practice, the branch from the root to the specified\n\
+        sequence will be retained, but will be constrained to have\n\
+        length zero).\n\
+\n\
+    --error, -e <filename>\n\
+	For each parameter, report estimate, variance, and 95%% confidence\n\
+        interval, printed to given filename, one parameter per line.\n\
+\n\
+    --no-opt, -O <param_list>\n\
+        Hold parameters listed in comma-separated param_list constant at\n\
+	initial values.  This applies only to the \"main\" model, and not to \n\
+	any models defined with the --alt-mod option.  Param list can \n\
+	contain values such as \"branches\" to hold branch lengths constant,\n\
+	\"ratematrix\", \"backgd\", or \"ratevar\" to hold entire rate matrix, \n\
+	equilibrium frequencies, or rate variation parameters constant \n\
+	(respectively).  There are also substitution model-specific \n\
+	parameters such as \"kappa\" (transition/transversion rate ratio).\n\
+\n\
+        Note: to hold certain branches constant, but optimize others,\n\
+        put an exclamation point in the newick-formatted tree after the\n\
+        branch lengths that should be held constant.  This can be useful\n\
+        for enforcing a star-phylogeny.  However, note that the two branches\n\
+        coming from root of tree are treated as one.  So they should both\n\
+        be held constant, or not held constant.  This option does *not* work\n\
+        with --scale-only or --clock.\n\
+\n\
+    --bound <param_name[lower_bound,upper_bound]>\n\
+        Set boundaries for parameter.  lower_bound or upper_bound may be\n\
+	empty string to keep default.  For example --bound gc_param[1,] will\n\
+	set the lower bound for gc_param to 1 (keeping upper bound at infinity),\n\
+	for a GC model.  Only applies to parameters for model in the \"main\" \n\
+	tree, but similar syntax can be used within the --alt-mod arguments.\n\
+    	Can be used multiple times to set boundaries for different parameters.\n\
+\n\
+    --selection <selection_param>\n\
+        Use selection in the model (is also implied if --init-model is used\n\
+        and contains selection parameter).  Selection scales rate matrix\n\
+	entries by selection_param/(1-exp(-selection-param)); this is done\n\
+        after rate matrix is scaled to set expected number of substitutions\n\
+	per unit time to 1.  If using codon models selection acts only on\n\
+	nonysynonymous mutations.\n\
+\n\
+\n\
+ (Options for modeling rate variation)\n\
+\n\
+    --nrates, -k <nratecats>\n\
+        (default 1).  Number of rate categories to use.  Specifying a\n\
+        value of greater than one causes the discrete gamma model for\n\
+        rate variation to be used (Yang, 1994).\n\
+\n\
+    --alpha, -a <alpha>\n\
+        (for use with --nrates).  Initial value for alpha, the shape\n\
+        parameter of the gamma distribution.  Default is 1.\n\
+\n\
+    --rate-constants, -K <rate_consts>\n\
+        Use a non-parameteric mixture model for rates, instead of\n\
+        assuming a gamma distribution.  The argument <rate_consts>\n\
+        must be a comma-delimited list explicitly defining the rate\n\
+        constants to be used.  The \"weight\" (mixing proportion)\n\
+        associated with each rate constant will be estimated by EM\n\
+        (this option implies --EM).  If --alpha is used with\n\
+        this option, then the mixing proportions will be initialized\n\
+        to reflect a gamma distribution with the specified shape\n\
+        parameter.\n\
+\n\
+\n\
+ (Options for separate handling of sites in different annotation categories)\n\
+\n\
+    --features, -g <fname>\n\
+        Annotations file (GFF or BED format) describing features on\n\
+        one or more sequences in the alignment.  Together with a\n\
+        category map (see --catmap), will be taken to define site\n\
+        categories, and a separate model will be estimated for each\n\
+        category.  If no category map is specified, a category will be\n\
+        assumed for each type of feature, and they will be numbered in\n\
+        the order of appearance of the features.  Features are assumed\n\
+        to use the coordinate frame of the first sequence in the\n\
+        alignment and should be non-overlapping (see 'refeature\n\
+        --unique').\n\
+\n\
+    --catmap, -c <fname>|<string>\n\
+        (optionally use with --features) Mapping of feature types to\n\
+        category numbers.  Can either give a filename or an \"inline\"\n\
+        description of a simple category map, e.g., --catmap \"NCATS =\n\
+        3 ; CDS 1-3\" or --catmap \"NCATS = 1 ; UTR 1\".  Note that\n\
+        category 0 is reserved for \"background\" (everything that is\n\
+        not described by a defined feature type).\n\
+\n\
+    --do-cats, -C <cat_list>\n\
+        (optionally use with --features) Estimate models for only the\n\
+        specified categories (comma-delimited list categories, by name\n\
+        or numbera).  Default is to fit a model for every category.\n\
+\n\
+    --reverse-groups, -R <tag>\n\
+        (optionally use with --features) Group features by <tag> (e.g.,\n\
+        \"transcript_id\" or \"exon_id\") and reverse complement\n\
+        segments of the alignment corresponding to groups on the\n\
+        reverse strand.  Groups must be non-overlapping (see refeature\n\
+        --unique).  Useful with categories corresponding to\n\
+        strand-specific phenomena (e.g., codon positions).\n\
+\n\
+\n\
+ (Options for context-dependent substitution models)\n\
+\n\
+    --markov, -N\n\
+        (for use with context-dependent substitutions models and not\n\
+        available with --EM.)  Assume Markov dependence of alignment\n\
+        columns, and compute the conditional probability of each\n\
+        column given its N-1 predecessors using the two-pass algorithm\n\
+        described by Siepel and Haussler (2004).  (Here, N is the\n\
+        \"order\" of the model, as defined by --subst-mod; e.g., N=1\n\
+        for REV, N=2 for U2S, N=3 for U3S.) The alternative (the\n\
+        default) is simply to work with joint probabilities of tuples\n\
+        of columns.  (You can ensure that these tuples are\n\
+        non-overlapping with the --non-overlapping option.)  The use\n\
+        of joint probabilities during parameter estimation allows the\n\
+        use of the --EM option and can be much faster; in addition, it\n\
+        appears to produce nearly equivalent estimates.  If desired,\n\
+        parameters can be estimated without --markov, and\n\
+        then the likelihood can be evaluated using --lnl and\n\
+        --markov together.  This gives a lower bound on the\n\
+        likelihood of the Markov-dependent model.\n\
+\n\
+    --non-overlapping, -V\n\
+        (for use with context-dependent substitution models; not\n\
+        compatible with --markov, --features, or\n\
+        --msa-format SS) Avoid using overlapping tuples of sites\n\
+        in parameter estimation.  If a dinucleotide model is selected,\n\
+        every other tuple will be considered, and if a nucleotide\n\
+        triplet model is selected, every third tuple will be\n\
+        considered.  This option cannot be used with an alignment\n\
+        represented only by unordered sufficient statistics.\n\
+\n\
+ (Option for lineage-specific models)\n\
+\n\
+   --label-branches branch1,branch2,branch3...:label\n\
+        Create a group of branches by giving a set of branches a \n\
+        single label.  The label should be a word which does not \n\
+        contain special characters (in particular, no spaces, brackets,\n\
+        parentheses, pound signs, commas, or colons).\n\
+\n\
+        The label is for use with --alt-model option below, so that an \n\
+        alternate model can be defined for a set of branches.  A branch\n\
+        is specified by the name of the node which is a descendant of\n\
+        that branch.\n\
+\n\
+        For example, \n\
+        --label-branches hg18,chimp,hg18-chimp:HC\n\
+        will apply the label \"HC\" to the hg18,chimp,and hg18-chimp \n\
+        branches in the following tree:\n\
+        (((hg18,chimp)hg18-chimp, (mouse,rat)mouse-rat)\n\
+\n\
+        The same label could be defined without using --label-branches\n\
+        by specifing the tree (either on the command-line or within\n\
+        init-model) as follows:\n\
+        (((hg18 # HC, chimp #HC)#HC, (mouse,rat))\n\
+\n\
+   --label-subtree node[+]:label\n\
+        Similar to label-branches, except labels the entire subtree\n\
+        of the named node.  If the node name is followed by a \"+\" sign,\n\
+        then includes the branch leading up to the node in the subtree.\n\
+\n\
+   --alt-model, -d <label:(model|param_list)>\n\
+        Create a lineage-specific substitution model on a group of branches.\n\
+        The group is defined by a label, which can be specified within\n\
+        the tree string (using the # sign notation), or by using the\n\
+        --label-branches or --label-subtree arguments.  If the alt-model\n\
+        applies to only a single branch, labelling is not necessary and\n\
+        the name of the node descending from the branch can be used instead.  \n\
+        See --label-branches above for more details on labelling groups of\n\
+        branches.\n\
+\n\
+	If a name of a substitution model (HKY85, REV, UNREST, etc)\n\
+	is given after the colon, then this model will be used for the\n\
+        group of branches, and parameters relevant to the model will be \n\
+        estimated separately in this group.  This model may be different \n\
+        (or the same) as the model used in the rest of the tree, but it\n\
+        must have the same number of states and be of the same order as \n\
+	the model used for the rest of the tree.\n\
+\n\
+	Alternately, a list of parameter names can be given after the colon.\n\
+	In this case, the same substitution model will be used for the \n\
+        entire tree, but the parameters listed will be estimated separately \n\
+        in the specified group of branches.\n\
+\n\
+	The parameter names are model-specific, and include \"kappa\" for\n\
+	HKY models, \"alpha\" for GC models, \"ratematrix\" to specify\n\
+	all rate-matrix parameters in general models, and \"backgd\" for\n\
+	the equilibrium background frequencies.  The parameter names\n\
+	may optionally be followed by boundaries in square brackets to\n\
+	specify parameter bounds, as described in --bound option.\n\
+\n\
+	The --alt-model argument may be used multiple times, if one\n\
+        wishes to (for example) optimize a parameter independently \n\
+        on several different groups of branches.\n\
+\n\
+	Example:\n\
+	phyloFit align.fa --subst-mod HKY85 \\\n\
+	--tree \"(human, (mouse#MR, rat#MR)#MR, cow)\"\\\n\
+	--alt-model \"MR:kappa[0, 1]\"\n\
+ \n\
+        will estimate the HKY85 parameter kappa separately on the\n\
+        mouse/rat subtree, and constrain kappa between 0 and 1.  The\n\
+        quotes are often necessary to prevent the square brakcets from\n\
+        being parsed by the shell.  The same model could be achieved with:\n\
+ \n\
+        phyloFit align.fa --subst-mod HKY85 \\\n\
+        --tree \"(human, (mouse,rat)mouse-rat, cow)\"\\\n\
+        --label-branches mouse,rat,mouse-rat:MR \\\n\
+        --alt-model \"MR:kappa[0,1]\"\n\
+\n\
+        or\n\
+\n\
+        phyloFit align.fa --subst-mod HKY85 \\\n\
+        --tree \"(human, (mouse,rat)mouse-rat, cow)\" \\\n\
+        --label-subtree \"mouse-rat+:MR\" \\\n\
+        --alt-model \"MR:kappa[0,1]\"\n\
+\n\
+ (Options for posterior probabilities)\n\
+\n\
+    --post-probs, -P\n\
+        Output posterior probabilities of all bases at all ancestral \n\
+        nodes.  Output will be to auxiliary file(s) with suffix \n\
+        \".postprobs\".\n\
+\n\
+    --expected-subs, -X\n\
+        Output posterior expected number of substitutions on each branch at\n\
+        each site, summed across all types of substitutions. \n\
+        Output will be to auxiliary file(s) with suffix \".expsub\".\n\
+\n\
+    --expected-subs-col, -J\n\
+        Output posterior expected number of substitutions of each type\n\
+        on each branch, for each site.  Output will be to auxiliary \n\
+        file(s) with suffix .expcolsub\n\
+\n\
+    --expected-total-subs, -Z\n\
+        Output posterior expected number of substitutions of each type \n\
+        on each branch, summed across all sites.  Output will be to \n\
+        auxiliary file(s) with suffix \".exptotsub\".\n\
+\n\
+    --column-probs, -U\n\
+        (for use with -init-model; implies --lnl)  Output a separate log\n\
+        probability for each type of column in the input.  Output will\n\
+        be to a file with suffix \".colprobs\".  Values are log base 2.\n\
+\n\
+\n\
+ (Options for estimation in sliding window)\n\
+\n\
+    --windows, -w <size,shift>\n\
+        Apply a sliding window to the alignment, and fit a separate\n\
+        tree to each window.  Arguments specify size of window and\n\
+        amount by which to shift it on each iteration, both in bases\n\
+        of the first sequence in the alignment (assumed to be the\n\
+        reference sequence).  Separate versions of all output files\n\
+        will be created for each window.\n\
+\n\
+    --windows-explicit, -v <window_coord_list>\n\
+        Like --windows, except that all start and end coordinates must\n\
+        be explicitly specified.  Each successive pair of numbers is\n\
+        interpreted as defining the start and end of a window.  Can be\n\
+        used with a two-column file and the '*' operator, e.g.,\n\
+        --windows-explicit '*mycoords'.\n\
+\n\
+\n\
+REFERENCES:\n\
+\n\
+    A. Siepel and D. Haussler.  2004.  Phylogenetic estimation of\n\
+      context-dependent substitution rates by maximum likelihood.\n\
+      Mol. Biol. Evol., 21:468-488.\n\
+\n\
+    Z. Yang, N. Goldman, and A. Friday.  1994. Comparison of models for\n\
+      nucleotide substution used in maximum likelihood phylogenetic\n\
+      estimation. Mol. Biol. Evol., 11:316-324.\n\
+\n\
+    Z. Yang. 1994. Maximum likelihood phylogenetic estimation from\n\
+      DNA sequences with variable rates over sites: approximate\n\
+      methods. J. Mol. Evol., 39:306-314.\n\
+";

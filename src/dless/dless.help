@@ -1,0 +1,93 @@
+char HELP[4387] = "\nPROGRAM: dless (Detection of Lineage Specific Selection)\n\
+\n\
+USAGE: dless [OPTIONS] alignment tree.mod > out.gff\n\
+\n\
+DESCRIPTION: \n\
+\n\
+    Attempts to identify elements under selection in all species or in\n\
+    some subset of species, based on a multiple alignment and a\n\
+    phylo-HMM.  In particular, detects elements that have been under\n\
+    selection since the divergence of all species in the given set,\n\
+    that were \"born\" on some branch of the tree since their divergence\n\
+    and have been under selection since, or that were present in the\n\
+    common ancestor but \"died\" (ceased to be under selection) on some\n\
+    branch of the tree.  Currently only detects negative selection,\n\
+    but extensions to detect positive selection as well are planned.\n\
+\n\
+EXAMPLES:\n\
+\n\
+OPTIONS:\n\
+\n\
+    --rho, -R <rho>\n\
+        (default 0.3)\n\
+\n\
+    --transitions, -t [~]<mu>,<nu> \n\
+        Set the transition probabilities of the two-state HMM using\n\
+        the specified values of <mu> and <nu> (both between 0 and 1).\n\
+\n\
+    --phi, -p [~]<phi>\n\
+        (default 0.5)\n\
+\n\
+    --target-coverage, -C [~]<gamma>\n\
+        (Alternative to transitions, use with --expected-length) Set\n\
+        the transition parameters such that the expected fraction of\n\
+        sites in conserved elements is <gamma> (betwen 0 and 1).  This\n\
+        is a *prior* rather than *posterior* expectation and assumes\n\
+        stationarity of the state-transition process.  This option\n\
+        causes the ratio mu/nu to be fixed at (1-gamma)/gamma, and\n\
+        together with --expected-length, completely defines the\n\
+        transition probabilities.\n\
+\n\
+    --expected-length, -E [~]<omega>\n\
+        (Alternative to --transitions, use with --target-coverage) Set\n\
+        transition probabilities such that the (prior) expected length\n\
+        of a conserved element is <omega>.  The parameter mu is set to\n\
+        1/omega.\n\
+\n\
+    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS\n\
+        Alignment format (default is to guess format from file contents).  \n\
+	Note that the program msa_view can be used for conversion.\n\
+\n\
+    --refseq, -M <fname>\n\
+        (for use with --msa-format MAF) Read the complete text of the\n\
+        reference sequence from <fname> (FASTA format) and combine it\n\
+        with the contents of the MAF file to produce a complete,\n\
+        ordered representation of the alignment.  The reference\n\
+        sequence of the MAF file is assumed to be the one that appears\n\
+        first in each block.\n\
+\n\
+    --refidx, -r <refseq_idx>\n\
+        Use coordinate frame of specified sequence in output.  Default\n\
+        value is 1, first sequence in alignment; 0 indicates\n\
+        coordinate frame of entire multiple alignment.\n\
+\n\
+    --seqname, -N <name>\n\
+        Use specified string for 'seqname' (GFF) or 'chrom' field in\n\
+        output file.  Default is obtained from input file name (double\n\
+        filename root, e.g., \"chr22\" if input file is \"chr22.35.ss\").\n\
+\n\
+    --idpref, -P <name>\n\
+        Use specified string as prefix of generated ids in output\n\
+        file.  Can be used to ensure ids are unique.  Default is\n\
+        obtained from input file name (single filename root, e.g.,\n\
+        \"chr22.35\" if input file is \"chr22.35.ss\").\n\
+\n\
+    --indel-model, -I alpha,beta,tau[,alpha2,beta2,tau2]\n\
+        Use a simple model of insertions and deletions that assumes a known\n\
+        indel history and at most one indel per branch of the tree at any\n\
+        given position.  The parameters alpha and beta are rates of\n\
+        insertion and deletion, respectively, per expected substitution per\n\
+        site, and the parameter tau is approximately the inverse of the\n\
+        expected indel length (see indelFit).  If two sets are parameters\n\
+        are given the first will be used for nonconserved regions and the\n\
+        second for conserved regions.  If --indel-history is not used, a\n\
+        history will be inferred on the fly using a simple parsimony\n\
+        algorithm.\n\
+\n\
+    --indel-history, -H <file.ih>\n\
+        (for use with --indel-model) Use the specified indel history (see\n\
+        indelHistory).\n\
+\n\
+    --help, -h\n\
+        Show this help message and exit.\n\
+";

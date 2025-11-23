@@ -1,0 +1,40 @@
+char HELP[1579] = "\nPROGRAM: dlessP\n\
+\n\
+USAGE: dlessP [OPTIONS] alignment tree.mod predictions.gff > stats.tab\n\
+\n\
+DESCRIPTION:\n\
+\n\
+    Computes various p-values and other stats of interest for dless\n\
+    predictions and writes them to a tab-delimited file.  The 'alignment'\n\
+    and 'tree.mod' arguments should be as given to DLESS, and\n\
+    'predictions.gff' should be the output of DLESS.\n\
+\n\
+OPTIONS:\n\
+    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS\n\
+        Alignment format (default is to guess format from file contents).  \n\
+	Note that the program msa_view can be used for conversion.\n\
+\n\
+    --refseq, -M <fname>\n\
+        (for use with --msa-format MAF) Read the complete text of the\n\
+        reference sequence from <fname> (FASTA format) and combine it\n\
+        with the contents of the MAF file to produce a complete,\n\
+        ordered representation of the alignment.  The reference\n\
+        sequence of the MAF file is assumed to be the one that appears\n\
+        first in each block.\n\
+\n\
+    --refidx, -r <refseq_idx>\n\
+        Use coordinate frame of specified sequence in output.  Default\n\
+        value is 1, first sequence in alignment; 0 indicates\n\
+        coordinate frame of entire multiple alignment.\n\
+\n\
+    --timing, -t <file>\n\
+        Write timing data to <file>.\n\
+\n\
+    --html, -H <dirname>\n\
+        Create a directory and write one HTML file into it per DLESS\n\
+        prediction, giving the stats for that prediction.\n\
+\n\
+    --help, -h\n\
+        Show this help message and exit.\n\
+\n\
+";

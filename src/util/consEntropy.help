@@ -1,0 +1,36 @@
+char HELP[1667] = "\nPROGRAM: consEntropy\n\
+\n\
+DESCRIPTION:\n\
+    For use with phastCons.  Given phylogenetic models for conserved and\n\
+    non-conserved states, the target coverage, and the (prior) expected\n\
+    length of a conserved element, compute the relative entropy (H) of the\n\
+    phylogenetic models, the expected minimum number of conserved sites\n\
+    required to predict conserved element (L_min), the \"phylogenetic\n\
+    information threshold\" (PIT = L_min * H), and the expected maximum\n\
+    number of nonconserved sites tolerated within a conserved element\n\
+    (L_max).  Also will make a recommendation for a new prior expected\n\
+    length based on a given target value of L_min*H (see --LminH).\n\
+\n\
+USAGE: consEntropy [OPTIONS] <target-coverage> <expected-length> \\\n\
+            [ <cons.mod> <noncons.mod> ]\n\
+\n\
+OPTIONS:\n\
+    --H, -H <value>\n\
+        Instead of computing the relative entropy from two .mod files,\n\
+        just use the specified value.  The .mod files aren't required\n\
+        in this case.\n\
+\n\
+    --LminH, -L <value> [or --NH/-N, for backward compatibility]\n\
+        Report the expected length that would produce the specified value\n\
+        of L_min * H (i.e., the specified PIT), assuming H remains constant\n\
+        (it generally won't).  Can be used iteratively to converge on a\n\
+        desired PIT.\n\
+\n\
+    --help, -h\n\
+        Print this help message.\n\
+\n\
+NOTE:\n\
+    The relative entropy is currently computed by brute force, i.e.,\n\
+    by enumerating all possible labelings of the leaves of the tree.\n\
+    This approach won't be feasible with large trees.\n\
+";

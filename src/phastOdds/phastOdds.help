@@ -1,0 +1,125 @@
+char HELP[5876] = "\nPROGRAM: phastOdds\n\
+\n\
+DESCRIPTION:\n\
+\n\
+    Compute log-odds scores based on two phylogenetic models or phylo-HMMs,\n\
+    one for features of interest (e.g., coding exons, conserved regions)\n\
+    and one for background.  Will either (1) compute a score for each\n\
+    feature in an input set, and output the same set of features with\n\
+    scores; or (2) output a separate score for each position in fixed-step\n\
+    WIG format (http://genome.ucsc.edu/goldenPath/help/wiggle.html); or (3)\n\
+    compute scores in a sliding window of designated size, and output a\n\
+    three-column file, with the index of the center of each window followed\n\
+    by the score for that window on the positive strand, then the score for\n\
+    that window on the negative strand.  The default is to assume a\n\
+    reference sequence alignment, with the reference sequence appearing\n\
+    first; feature coordinates are assumed to be defined with respect to\n\
+    the reference sequence (see --refidx).\n\
+\n\
+USAGE: phastOdds [OPTIONS] \\\n\
+            --background-mods <bmods> [--background-hmm <bhmm>] \\\n\
+            --feature-mods <fmods> [--feature-hmm <fhmm>] \\\n\
+            ( --features <feats> | --window <size> ) \\\n\
+            <alignment> \n\
+\n\
+    Arguments <bmods> and <fmods> should be comma-delimited lists of\n\
+    phylogenetic models in .mod format (as produced by phyloFit), <feats>\n\
+    may be in GFF, BED, or genepred format, and <alignment> may be in FASTA\n\
+    format or an alternative format specified by --msa-format.  HMM files\n\
+    should be in the format used by exoniphy.\n\
+\n\
+EXAMPLES:\n\
+\n\
+    (See below for more details on options)\n\
+\n\
+    1. Compute conservation scores for features in a GFF file, based on a \n\
+       model for conserved sites (conserved.mod) vs. a model of neutral\n\
+       evolution (neutral.mod).  (These models may be estimated with\n\
+       phyloFit or phastCons.)\n\
+\n\
+        phastOdds --background-mods neutral.mod --feature-mods conserved.mod \\\n\
+            --features features.gff alignment.fa > scores.gff\n\
+\n\
+       Features could alternatively be specified in BED or genepred format\n\
+       (format will be auto-recognized).  The program can be made to\n\
+       produce BED-formatted output with --output-bed.\n\
+\n\
+    2. Compute conservation scores in a sliding window of size 100.\n\
+\n\
+        phastOdds --background-mods neutral.mod --feature-mods conserved.mod \\\n\
+            --window 100 alignment.fa > scores.dat\n\
+\n\
+       (Window is advanced one site at a time.  Window boundaries are\n\
+       defined in the coordinate frame of the multiple alignment, but\n\
+       center coordinates are converted to the frame of the reference\n\
+       sequence as they are output.)\n\
+\n\
+    3. Compute a \"coding potential\" score for features in a BED file, based\n\
+       on a phylo-HMM for coding regions versus a phylo-HMM for noncoding\n\
+       DNA, with states for conserved and nonconserved sequences.\n\
+\n\
+        phastOdds --background-mods codon1.mod,codon2.mod,codon3.mod \\\n\
+            --background-hmm coding.hmm \\\n\
+            --feature-mods neutral.mod,conserved-noncoding.mod \\\n\
+            --feature-hmm noncoding.hmm \\\n\
+            --features features.bed --output-bed alignment.fa > scores.bed\n\
+\n\
+OPTIONS:\n\
+    --background-mods, -b <backgd_mods>\n\
+        (Required) Comma-delimited list of tree model (*.mod) files for\n\
+        background.  If used with --background-hmm, order of models must\n\
+        correspond to order of states in HMM.\n\
+\n\
+    --background-hmm, -B <backgd.hmm>\n\
+        HMM for background.  If there is only one backgound tree\n\
+        model, a trivial (single-state) HMM will be assumed.\n\
+\n\
+    --feature-mods, -f <feat_mods>\n\
+        (Required) Comma-delimited list of tree model (*.mod) files for\n\
+        features.  If used with --feature-hmm, order of models must\n\
+        correspond to order of states in HMM.\n\
+\n\
+    --feature-hmm, -F <feat.hmm>\n\
+        HMM for features.  If there is only one tree model for\n\
+        features, a trivial (single-state) HMM will be assumed.\n\
+\n\
+    --features, -g <feats.gff>\n\
+        (Required unless -w or -y) File defining features to be scored\n\
+        (GFF, BED, or genepred).\n\
+\n\
+    --window, -w <size>\n\
+        (Can be used instead of -g or -y) Compute scores in a sliding\n\
+        window of the specified size.\n\
+\n\
+    --base-by-base, -y \n\
+        (Can be used instead of -g or -y) Output base-by-base scores, in\n\
+        the coordinate frame of the reference sequence (or of the sequence\n\
+        specified by --refidx).  Output is in fixed-step WIG format\n\
+        (http://genome.ucsc.edu/goldenPath/help/wiggle.html).  This option\n\
+        can only be used with individual phylogenetic models, not with sets\n\
+        of models and a (nontrivial) HMM.\n\
+\n\
+    --window-wig, -W <size>\n\
+        (Can be used instead of -g or -y) Like --window but outputs scores\n\
+        in fixed-step WIG format, as with --base-by-base.  Scores for the\n\
+        positive strand only are output.\n\
+\n\
+    --msa-format, -i <type>\n\
+        Input format for alignment.  May be FASTA, PHYLIP, MPM, SS, or\n\
+        MAF (default is to guess format from file contents).\n\
+\n\
+    --refidx, -r <ref_seq>\n\
+        Index of reference sequence for coordinates.  Use 0 to\n\
+        indicate the coordinate system of the alignment as a whole.\n\
+        Default is 1, for first sequence.\n\
+\n\
+    --output-bed, -d\n\
+        (For use with -g) Generate output in bed format rather than GFF.\n\
+\n\
+    --verbose, -v\n\
+        Verbose mode.  Print messages to stderr describing what the\n\
+        program is doing.\n\
+\n\
+    --help, -h\n\
+        Print this help message.\n\
+";
