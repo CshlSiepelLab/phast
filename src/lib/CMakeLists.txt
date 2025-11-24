@@ -68,6 +68,9 @@ else()
     target_link_libraries(phast_core PUBLIC LAPACK::LAPACK BLAS::BLAS)
 endif()
 
+# also link to PCRE
+target_link_libraries(phast_core PUBLIC ${PCRE_LIBRARY})
+
 # Install the library
 install(TARGETS phast_core
   ARCHIVE DESTINATION lib

@@ -27,21 +27,27 @@ else()
 endif()
 
 
-
 # ---- Project layout ----------------------------------------------------
 
 # public headers 
 set(PHAST_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
-set(PCRE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/lib/pcre")
 
 add_subdirectory(src)
 add_subdirectory(src/lib)
 add_subdirectory(src/lib/pcre)
+
+# ---- PCRE handling  ----------------------------------------------------
+# use system / Homebrew PCRE
+find_path(PCRE_INCLUDE_DIR pcre.h)
+find_library(PCRE_LIBRARY pcre)
+
+if (NOT PCRE_INCLUDE_DIR OR NOT PCRE_LIBRARY)
+    message(FATAL_ERROR "Requested system PCRE but could not find headers or library")
+
+
 
 # ---- Installation (for Homebrew, etc.) ---------------------------------
 # Install public headers
 install(DIRECTORY "${PHAST_INCLUDE_DIR}/"
         DESTINATION include
         FILES_MATCHING PATTERN "*.h")
-install(FILES "${PCRE_INCLUDE_DIR}/pcre.h"
-        DESTINATION include)
