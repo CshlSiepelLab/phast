@@ -43,4 +43,5 @@ add_subdirectory(src/lib/pcre)
 install(DIRECTORY "${PHAST_INCLUDE_DIR}/"
         DESTINATION include
         FILES_MATCHING PATTERN "*.h")
-
+install(FILES "${PCRE_INCLUDE_DIR}/pcre.h"
+        DESTINATION include)
