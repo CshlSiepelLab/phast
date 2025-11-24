@@ -56,12 +56,6 @@ set_target_properties(phast_core PROPERTIES
     OUTPUT_NAME phast
 )
 
-#   - VECLIB tells external_libs.h to use Accelerate
-#   - ACCELERATE_NEW_LAPACK selects the new (non-CLAPACK) interface
-if(APPLE)
-    target_compile_definitions(phast_core PUBLIC VECLIB ACCELERATE_NEW_LAPACK)
-endif()
-
 target_include_directories(phast_core
     PUBLIC
         "${PHAST_INCLUDE_DIR}"    
@@ -70,6 +64,8 @@ target_include_directories(phast_core
 
 if(APPLE)
     target_link_libraries(phast_core PUBLIC "-framework Accelerate")
+else()
+    target_link_libraries(phast_core PUBLIC LAPACK::LAPACK BLAS::BLAS)
 endif()
 
 # Install the library

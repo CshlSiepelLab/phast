@@ -16,6 +16,17 @@ add_compile_options(
     -g -fno-inline -Wall -fno-strict-aliasing
 )
 
+if(APPLE)
+    add_compile_definitions(VECLIB ACCELERATE_NEW_LAPACK)
+#   - VECLIB tells external_libs.h to use Accelerate
+#   - ACCELERATE_NEW_LAPACK selects the new (non-CLAPACK) interface
+else()
+    find_package(BLAS REQUIRED)
+    find_package(LAPACK REQUIRED)
+    add_compile_definitions(PHAST_LAPACK_GENERIC)
+endif()
+
+
 
 # ---- Project layout ----------------------------------------------------
 

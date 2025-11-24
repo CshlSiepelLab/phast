@@ -23,8 +23,6 @@ target_include_directories(bd_phylo_hmm_helpers
 )
 
 if(APPLE)
-#    target_link_libraries(pbs_helpers PUBLIC "-framework Accelerate")
-#    target_link_libraries(bd_phylo_hmm_helpers PUBLIC "-framework Accelerate")
     target_compile_definitions(pbs_helpers PRIVATE VECLIB ACCELERATE_NEW_LAPACK)
     target_compile_definitions(bd_phylo_hmm_helpers PRIVATE VECLIB ACCELERATE_NEW_LAPACK)
 endif()
