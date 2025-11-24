@@ -43,7 +43,7 @@ find_library(PCRE_LIBRARY pcre)
 
 if (NOT PCRE_INCLUDE_DIR OR NOT PCRE_LIBRARY)
     message(FATAL_ERROR "Requested system PCRE but could not find headers or library")
-
+endif()
 
 
 # ---- Installation (for Homebrew, etc.) ---------------------------------
