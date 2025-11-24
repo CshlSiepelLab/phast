@@ -398,9 +398,6 @@ int main(int argc, char *argv[]) {
       }
       else {
 
-        double sum=0;
-        for (j = 0; j < msa->ss->ntuples; j++) sum+=p[j];
-
         mn_draw(nsites, p, msa->ss->ntuples, tmpcounts);
                                 /* here we simply redraw numbers of
                                    tuples from multinomial distribution
