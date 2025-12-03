@@ -950,8 +950,7 @@ double tr_total_len(TreeNode *t) {
   int i;
   for (i = 0; i < t->nnodes; i++) {
     TreeNode *n = lst_get_ptr(t->nodes, i);
-    if (n->parent != NULL)
-      retval += n->dparent;
+    retval += n->dparent;
   }
   return retval;
 }
@@ -1011,8 +1010,7 @@ void tr_scale(TreeNode *t, double scale_const) {
   int i;
   for (i = 0; i < t->nnodes; i++) {
     TreeNode *n = lst_get_ptr(t->nodes, i);
-    if (n->parent != NULL)
-      n->dparent *= scale_const;
+    n->dparent *= scale_const;
   }
 }
 
