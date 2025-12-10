@@ -110,6 +110,14 @@ Matrix *mat_transpose(Matrix *src) {
   return retval;
 }
 
+/* version that works in place */
+void mat_trans(Matrix *dest, Matrix *src) {
+  int i, j;
+  for (i = 0; i < src->nrows; i++)
+    for (j = 0; j < src->ncols; j++)
+      dest->data[j][i] = src->data[i][j];
+}
+
 void mat_scale(Matrix *m, double scale_factor) {
   int i, j;
   for (i = 0; i < m->nrows; i++)

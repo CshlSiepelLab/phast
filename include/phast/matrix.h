@@ -239,6 +239,9 @@ int mat_equal(Matrix *A, Matrix *B);
   @result Transpose of src matrix
 */
 Matrix *mat_transpose(Matrix *src);
+
+void mat_trans(Matrix *dest, Matrix *src);
+
 /** Rescale matrix entries by given value.
 
   @param m Input matrix.
