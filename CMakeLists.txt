@@ -75,6 +75,7 @@ else()
     # CMake 3.16 often provides *_LIBRARIES variables reliably (targets are less consistent)
     target_link_libraries(phast_linalg INTERFACE ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
     target_compile_definitions(phast_linalg INTERFACE PHAST_USE_SYSTEM_LAPACK)
+    add_compile_definitions(PHAST_USE_SYSTEM_LAPACK)
 endif()
 
 # ---- Project layout ----------------------------------------------------
