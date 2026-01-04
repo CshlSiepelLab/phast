@@ -27,14 +27,11 @@ endif()
 
 message(STATUS "Using system PCRE: ${PCRE_LIBRARY}")
 
-add_library(pcre::pcre UNKNOWN IMPORTED)
-set_target_properties(pcre::pcre PROPERTIES
-  IMPORTED_LOCATION "${PCRE_LIBRARY}"
-  INTERFACE_INCLUDE_DIRECTORIES "${PCRE_INCLUDE_DIR}"
-)
-
+# Export-friendly: do NOT depend on an external CMake target like pcre::pcre.
 add_library(phast_pcre INTERFACE)
-target_link_libraries(phast_pcre INTERFACE pcre::pcre)
+target_include_directories(phast_pcre INTERFACE "${PCRE_INCLUDE_DIR}")
+target_link_libraries(phast_pcre INTERFACE "${PCRE_LIBRARY}")
+
 add_library(phast::pcre ALIAS phast_pcre)
 
 # ---- Linear algebra backend (single source of truth) -------------------
