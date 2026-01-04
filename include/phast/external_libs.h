@@ -115,6 +115,19 @@ void dpotrf_(const char *uplo, const LAPACK_INT *n,
              LAPACK_DOUBLE *a, const LAPACK_INT *lda,
              LAPACK_INT *info);
 
+void dgeev_(const char *jobvl, const char *jobvr,
+            const LAPACK_INT *n,
+            LAPACK_DOUBLE *a, const LAPACK_INT *lda,
+            LAPACK_DOUBLE *wr, LAPACK_DOUBLE *wi,
+            LAPACK_DOUBLE *vl, const LAPACK_INT *ldvl,
+            LAPACK_DOUBLE *vr, const LAPACK_INT *ldvr,
+            LAPACK_DOUBLE *work, const LAPACK_INT *lwork,
+            LAPACK_INT *info);
+
+void dsyev_(const char *jobz, const char *uplo, const LAPACK_INT *n,
+            LAPACK_DOUBLE *a, const LAPACK_INT *lda, LAPACK_DOUBLE *w,
+            LAPACK_DOUBLE *work, const LAPACK_INT *lwork, LAPACK_INT *info);
+
 #endif /* PHAST_USE_SYSTEM_LAPACK */
 
 #endif /* _PHAST_EXTERNAL_LIBS_ */
