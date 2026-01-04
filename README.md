@@ -1,4 +1,4 @@
-# PHAST: PHYLOGENETIC ANALYSIS WITH SPACE/TIME MODELS
+# PHAST
 
 **PHAST (Phylogenetic Analysis with Space/Time models)** is a C-based
 toolkit for likelihood-based phylogenetic analysis with support for the
@@ -21,6 +21,7 @@ PHAST now uses a **standard CMake-based build system**.
 cmake -S . -B build
 cmake --build build
 cmake --install build
+```
 
 By default, binaries are installed to the system prefix (e.g. /usr/local/bin
 or a package-manager–controlled prefix).
