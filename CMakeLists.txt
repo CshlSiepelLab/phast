@@ -16,7 +16,7 @@ add_compile_options(
     -g -fno-inline -Wall -fno-strict-aliasing
 )
 
-# ---- PCRE handling: prefer system, fallback to bundled ------------------
+# ---- PCRE handling: require system  -----------------------------------
 
 # Try to find a system/Homebrew PCRE first
 find_path(PCRE_INCLUDE_DIR pcre.h)
