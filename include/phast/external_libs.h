@@ -26,39 +26,55 @@
 #define PHAST_INLINE inline
 #endif
 
-#ifdef R_LAPACK
-   #include <R_ext/Lapack.h>
-   #define LAPACK_INT int
-   #define LAPACK_DOUBLE double
+/* ---------------- LAPACK backend selection ----------------
+ *
+ * Exactly one of the following should be defined:
+ *   - R_LAPACK
+ *   - VECLIB
+ *   - PHAST_USE_SYSTEM_LAPACK
+ *   - PHAST_USE_CLAPACK   (legacy)
+ */
+
+#if defined(R_LAPACK)
+
+  #include <R_ext/Lapack.h>
+  typedef int    LAPACK_INT;
+  typedef double LAPACK_DOUBLE;
 
 #elif defined(VECLIB)
-   #include <Accelerate/Accelerate.h>
-   #ifdef ACCELERATE_NEW_LAPACK
-       /* New Accelerate LAPACK interface: use plain C types */
-       typedef int    LAPACK_INT;
-       typedef double LAPACK_DOUBLE;
-   #else
-     /* Old CLAPACK-style API (kept for older macOS) */
-     #define LAPACK_INT    __CLPK_integer
-     #define LAPACK_DOUBLE __CLPK_doublereal
 
-   #endif  /* ACCELERATE_NEW_LAPACK */
+  #include <Accelerate/Accelerate.h>
 
-#elif !defined(SKIP_LAPACK) && defined(PHAST_LAPACK_GENERIC)
-   /* Generic LAPACK: use C types and Fortran symbols (dgesv_, dsyev_, etc.) */
-   #define LAPACK_INT    int
-   #define LAPACK_DOUBLE double
+  #if defined(ACCELERATE_NEW_LAPACK)
+    /* New Accelerate LAPACK interface: use plain C types */
+    typedef int    LAPACK_INT;
+    typedef double LAPACK_DOUBLE;
+  #else
+    /* Old Accelerate CLAPACK-style API */
+    typedef __CLPK_integer    LAPACK_INT;
+    typedef __CLPK_doublereal LAPACK_DOUBLE;
+  #endif
 
-#elif !defined(SKIP_LAPACK)
-    /* Legacy CLAPACK + f2c path */
-    #include <f2c.h>
-    #include <clapack.h>
-    #define LAPACK_INT    integer
-    #define LAPACK_DOUBLE doublereal
+#elif defined(PHAST_USE_SYSTEM_LAPACK)
+
+  /* System LAPACK via Fortran ABI (OpenBLAS/netlib/MKL).
+     We call dgesv_(), dgeev_(), etc. directly; no clapack.h needed. */
+  typedef int    LAPACK_INT;
+  typedef double LAPACK_DOUBLE;
+
+#elif defined(PHAST_USE_CLAPACK)
+
+  /* Legacy CLAPACK + f2c (only if explicitly enabled) */
+  #include <f2c.h>
+  #include <clapack.h>
+  typedef integer    LAPACK_INT;
+  typedef doublereal LAPACK_DOUBLE;
 
 #else
-   /* SKIP_LAPACK defined: LAPACK is disabled */
 
-#endif /* R_LAPACK, VECLIB, SKIP_LAPACK, etc. */
+  #error "No LAPACK backend selected. Define one of: R_LAPACK, VECLIB, PHAST_USE_SYSTEM_LAPACK (or PHAST_USE_CLAPACK)."
 
-#endif  /* ifndef PHAST_EXTERNAL_LIBS */
+#endif
+
+#endif /* _PHAST_EXTERNAL_LIBS_ */
+
