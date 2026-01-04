@@ -1,3 +1,0 @@
-[submodule "clapack"]
-	path = clapack
-	url = https://github.com/UCSantaCruzComputationalGenomicsLab/clapack.git
