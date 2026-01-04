@@ -62,14 +62,11 @@ target_include_directories(phast_core
         "${PCRE_INCLUDE_DIR}"   
 )
 
-if(APPLE)
-    target_link_libraries(phast_core PUBLIC "-framework Accelerate")
-else()
-    target_link_libraries(phast_core PUBLIC LAPACK::LAPACK BLAS::BLAS)
-endif()
+# PHAST linear algebra backend (chosen at top-level)
+target_link_libraries(phast_core PUBLIC phast::linalg)
 
 # also link to PCRE
-target_link_libraries(phast_core PUBLIC ${PCRE_LIBRARY})
+target_link_libraries(phast_core PUBLIC phast::linalg phast_pcre)
 
 # Install the library
 install(TARGETS phast_core
