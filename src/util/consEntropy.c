@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
   double *cons_lprob, *noncons_lprob;
   char *leaf_labels;
   double H = -1, H_alt = -1, checksum1, checksum2, target_coverage, 
-    expected_len, mu, nu, L_min, L_max, new_exp_len, LminH = -1;
+    expected_len, mu, nu, L_min, L_max, new_exp_len = 0, LminH = -1;
 
   struct option long_opts[] = {
     {"LminH", 1, 0, 'L'},

@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
   char *out_root;
   TreeModel *mod;
   MSA *msa;
-  char out_fname[STR_MED_LEN];
+  char out_fname[STR_MED_LEN*2];
 
   struct option long_opts[] = {
     {"refseq", 1, 0, 'r'},
@@ -200,7 +200,7 @@ int main(int argc, char *argv[]) {
 
     else if (code == NULL && do_probs) {	/* ordinary sequence-by-sequence 
 						   output */
-      snprintf(out_fname, STR_MED_LEN, "%s.%s.probs", out_root, n->name);
+      snprintf(out_fname, STR_MED_LEN*2, "%s.%s.probs", out_root, n->name);
       out_f = phast_fopen(out_fname, "w+");
 
       fprintf(out_f, "#");
@@ -250,7 +250,7 @@ int main(int argc, char *argv[]) {
       outseq[len] = '\0';
 
       /* print in FASTA format */
-      snprintf(out_fname, STR_MED_LEN, "%s.%s.fa", out_root, n->name);
+      snprintf(out_fname, STR_MED_LEN*2, "%s.%s.fa", out_root, n->name);
       out_f = phast_fopen(out_fname, "w+");
       print_seq_fasta(out_f, outseq, n->name, len);
       phast_fclose(out_f);
@@ -282,7 +282,7 @@ int main(int argc, char *argv[]) {
       vec_free(v);
 
       /* now write site by site */
-      snprintf(out_fname, STR_MED_LEN, "%s.%s.bin", out_root, n->name);
+      snprintf(out_fname, STR_MED_LEN*2, "%s.%s.bin", out_root, n->name);
       out_f = phast_fopen(out_fname, "w+");
       for (i = 0; i < msa->length; i++) {
         if (keep_gaps || encoded[msa->ss->tuple_idx[i]] != code->gap_code)
