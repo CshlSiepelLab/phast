@@ -57,17 +57,17 @@ set_target_properties(phast_core PROPERTIES
 )
 
 target_include_directories(phast_core
-    PUBLIC
-        "${PHAST_INCLUDE_DIR}"    
-        "${PCRE_INCLUDE_DIR}"   
+  PUBLIC
+    $<BUILD_INTERFACE:${PHAST_INCLUDE_DIR}>
+    $<INSTALL_INTERFACE:include>
+
+    # PCRE headers while building from source
+    $<BUILD_INTERFACE:${PCRE_INCLUDE_DIR}>
 )
 
 add_library(phast::phast_core ALIAS phast_core)
 
-# PHAST linear algebra backend (chosen at top-level)
-target_link_libraries(phast_core PUBLIC phast::linalg)
-
-# also link to PCRE
+# PHAST linear algebra backend (chosen at top-level); also link to PCRE
 target_link_libraries(phast_core PUBLIC phast::linalg phast_pcre)
 
 # Install the library

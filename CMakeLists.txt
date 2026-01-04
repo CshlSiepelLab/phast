@@ -21,39 +21,21 @@ add_compile_options(
 # Try to find a system/Homebrew PCRE first
 find_path(PCRE_INCLUDE_DIR pcre.h)
 find_library(PCRE_LIBRARY pcre)
-
-if (PCRE_INCLUDE_DIR AND PCRE_LIBRARY)
-    message(STATUS "Using system PCRE: ${PCRE_LIBRARY}")
-    add_library(pcre::pcre UNKNOWN IMPORTED)
-    set_target_properties(pcre::pcre PROPERTIES
-        IMPORTED_LOCATION "${PCRE_LIBRARY}"
-        INTERFACE_INCLUDE_DIRECTORIES "${PCRE_INCLUDE_DIR}"
-    )
-    add_library(phast_pcre INTERFACE)
-    target_link_libraries(phast_pcre INTERFACE pcre::pcre)
-else()
-    message(STATUS "System PCRE not found; using bundled PCRE (src/lib/pcre)")
-    add_subdirectory(src/lib/pcre)
-    add_library(phast_pcre INTERFACE)
-
-    if (TARGET pcre)
-      target_link_libraries(phast_pcre INTERFACE pcre)
-    elseif (TARGET libpcre)
-      target_link_libraries(phast_pcre INTERFACE libpcre)
-    else()
-      message(FATAL_ERROR "Bundled PCRE was added but no expected PCRE target (pcre/libpcre) was defined")
-    endif()
-    
-    # Ensure legacy variables are valid for subdirs that still use them
-    set(PCRE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/lib/pcre")
-    # Expect the bundled build to define a target; if it doesn't, we’ll adapt.
-    # We'll create a consistent alias name that PHAST can link to.
-    if (TARGET pcre)
-        add_library(pcre::pcre ALIAS pcre)
-    elseif (TARGET libpcre)
-        add_library(pcre::pcre ALIAS libpcre)
-    endif()
+if(NOT PCRE_INCLUDE_DIR OR NOT PCRE_LIBRARY)
+  message(FATAL_ERROR "PCRE not found. Install libpcre development package.")
 endif()
+
+message(STATUS "Using system PCRE: ${PCRE_LIBRARY}")
+
+add_library(pcre::pcre UNKNOWN IMPORTED)
+set_target_properties(pcre::pcre PROPERTIES
+  IMPORTED_LOCATION "${PCRE_LIBRARY}"
+  INTERFACE_INCLUDE_DIRECTORIES "${PCRE_INCLUDE_DIR}"
+)
+
+add_library(phast_pcre INTERFACE)
+target_link_libraries(phast_pcre INTERFACE pcre::pcre)
+add_library(phast::pcre ALIAS phast_pcre)
 
 # ---- Linear algebra backend (single source of truth) -------------------
 
@@ -91,6 +73,11 @@ add_subdirectory(src/lib)
 install(DIRECTORY "${PHAST_INCLUDE_DIR}/"
         DESTINATION include
         FILES_MATCHING PATTERN "*.h")
+
+# Export these interface targets too, because phast_core depends on them
+install(TARGETS phast_linalg phast_pcre
+  EXPORT phastTargets
+)
 
 include(CMakePackageConfigHelpers)
 
