@@ -91,3 +91,33 @@ add_subdirectory(src/lib)
 install(DIRECTORY "${PHAST_INCLUDE_DIR}/"
         DESTINATION include
         FILES_MATCHING PATTERN "*.h")
+
+include(CMakePackageConfigHelpers)
+
+# Where to install the config files
+set(PHAST_CMAKE_DIR "lib/cmake/phast")
+
+# Install the exported targets file
+install(EXPORT phastTargets
+  NAMESPACE phast::
+  DESTINATION ${PHAST_CMAKE_DIR}
+)
+
+# Create and install phastConfig.cmake and phastConfigVersion.cmake
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/phastConfigVersion.cmake"
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+
+configure_package_config_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/phastConfig.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/phastConfig.cmake"
+  INSTALL_DESTINATION ${PHAST_CMAKE_DIR}
+)
+
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/phastConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/phastConfigVersion.cmake"
+  DESTINATION ${PHAST_CMAKE_DIR}
+)

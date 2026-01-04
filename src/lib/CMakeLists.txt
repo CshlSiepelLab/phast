@@ -62,6 +62,8 @@ target_include_directories(phast_core
         "${PCRE_INCLUDE_DIR}"   
 )
 
+add_library(phast::phast_core ALIAS phast_core)
+
 # PHAST linear algebra backend (chosen at top-level)
 target_link_libraries(phast_core PUBLIC phast::linalg)
 
@@ -70,6 +72,7 @@ target_link_libraries(phast_core PUBLIC phast::linalg phast_pcre)
 
 # Install the library
 install(TARGETS phast_core
+  EXPORT phastTargets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
 )
