@@ -577,6 +577,6 @@ List *str_list_as_dbl(List *str_list);
  */
 int str_in_list_idx(String *s, List *l, int *idx);
 
-
+unsigned int str_list_equal(List *l1, List *l2);
 
 #endif

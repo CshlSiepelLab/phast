@@ -222,6 +222,21 @@ int combinations(int n, int k) {
   return retval / permutations(k);
 }
 
+static PHAST_INLINE
+double softplus(double x) {
+  return log(1 + exp(x));
+}
+
+static PHAST_INLINE
+double inv_softplus(double sp) {
+  return log(expm1(sp));
+}
+
+static PHAST_INLINE
+double sigmoid(double x) {
+  double z = exp(x);
+  return z / (1.0 + z);
+}
 
 /** Randomly choose k elements from a list of N.
     @param[in,out] selections Result array of size N to be populated with 0 (not chosen) or 1 (chosen). Elements initialized to -1 will be consitered "ineligable" and skipped.
@@ -439,6 +454,8 @@ void *smalloc(size_t size);
 */
 void *srealloc(void *ptr, size_t size);
 
+void *scalloc(size_t count, size_t size);
+
 void register_open_file(FILE *F);
 void unregister_open_file(FILE *F);
 
@@ -524,6 +541,8 @@ double chisq_pdf(double x, double dof);
     @result Evaluation of cdf
 */
 double chisq_cdf(double x, double dof, int lower_tail);
+
+double chisq_cdf_inv(double p, double dof);
 
 /** Evaluate cdf of a 50:50 mixture of a chisq distribution with dof
    degrees of freedom and a point mass at 0.
@@ -651,6 +670,10 @@ double exp_draw(double b);
    online at http://cg.scs.carleton.ca/~luc/rnbookindex.html
 */
 double gamma_draw(double a, double b);
+
+/* Make a single draw from a univariate normal distribution with mean
+   mu and standard deviation sigma */
+double norm_draw(double mu, double sigma);
 
 /** Given a probability vector, draw an index.
    @pre Call srandom externally

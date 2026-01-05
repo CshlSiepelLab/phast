@@ -216,7 +216,7 @@ MS *ms_read(const char *filename, const char *alphabet) {
   List *names = lst_new_ptr(10);
   List *seqs = lst_new_ptr(10);
   static Regex *descrip_re = NULL;
-  int i, nseqs, j, do_toupper, line_no;
+  int i, nseqs, j, do_toupper;
   String *line = str_new(STR_MED_LEN);
   List *l = lst_new_ptr(2);
   String *n, *s, *new_str = NULL;
@@ -228,7 +228,6 @@ MS *ms_read(const char *filename, const char *alphabet) {
   if (descrip_re == NULL) 
     descrip_re = str_re_new("[[:space:]]*>[[:space:]]*(.+)");
 
-  line_no=1;
   while ((str_readline(line, F)) != EOF) {
     if (str_re_match(line, descrip_re, l, 1) > 0) {
       lst_push_ptr(names, lst_get_ptr(l, 1));
@@ -246,7 +245,6 @@ MS *ms_read(const char *filename, const char *alphabet) {
       die("ERROR in FASTA file: non-blank line preceding first description ('>') line.\n");
 
     str_append(new_str, line);
-    checkInterruptN(line_no++, 1000);
   }
 
   if (lst_size(seqs) == 0)
@@ -517,7 +515,7 @@ char *ms_simulate(List *mModel, int norder, int alph_size, int length) {
   if (length <= 0) //The length of the sequence to generate must be positive
     die("Length of sequence to generate must be at least 1");
   //printf("Called mm_simulate_seq\n");
-  int currentMMorder, i, j, k, base, a = 0, t = 0, g = 0, c = 0;
+  int currentMMorder, i, j, k, base;
   char *result = (char*)smalloc((length + 1) * sizeof(char));
   int *previousBases = smalloc((norder +1) * sizeof(int));
   double probability, r;
@@ -566,12 +564,6 @@ char *ms_simulate(List *mModel, int norder, int alph_size, int length) {
     case 2: result[base] = 'G'; break;
     case 3: result[base] = 'T'; break;
 		
-    }
-    switch (i) {
-    case 0: a++; break;
-    case 1: c++; break;
-    case 2: g++; break;
-    case 3: t++; break;
     }
   }
   //printf("a=%d, c=%d, g=%d, t=%d\n", a, c, g, t);

@@ -35,6 +35,7 @@
 
 #include <string.h>
 #include <stdlib.h> 
+#include <assert.h> 
 #include <phast/external_libs.h>
 
 /** Basic List object */
@@ -157,7 +158,6 @@ void lst_free(List* l);
   @param src Source list.
 */
 void lst_cpy(List* dest, List* src);
-
 
 /** Obtain size of list (number of elements).
    Returns number of elements 
@@ -777,9 +777,12 @@ double lst_dbl_stdev(List *l);
 void lst_dbl_quantiles(List *l, double *quantiles, int nquantiles, 
                        double *quantile_vals);
 
-
 /** \} */
 
+void lst_dbl_stats(List *l, double *mean, double *stdev,
+                   double *median, double *min, double *max,
+                   double *min_95CI, double *max_95CI,
+                   double *q25, double *q75);
 
 static PHAST_INLINE
 int lst_find_dbl(List *l, double d) 
@@ -788,5 +791,22 @@ int lst_find_dbl(List *l, double d)
 static PHAST_INLINE
 int lst_find_ptr(List *l, void *ptr) 
 { return lst_find(l, &ptr); }
+
+/* uses memcpy */
+static inline void lst_cpy_fast(List *dest, List *src) {
+  dest->lidx = src->lidx;
+  dest->ridx = src->ridx;
+  assert(dest->elementsz == src->elementsz);
+  if (dest->CAPACITY < lst_size(src)) {
+    dest->CAPACITY = lst_size(src);
+    dest->array = (void**)srealloc(dest->array, dest->CAPACITY * dest->elementsz);
+  }
+  memcpy(dest->array, src->array, lst_size(src) * src->elementsz);
+}
+
+int lst_str_compare_asc(const void* ptr1, const void* ptr2);
+int lst_str_compare_desc(const void* ptr1, const void* ptr2);
+void lst_qsort_str(List *l, order_t ord);
+
 
 #endif

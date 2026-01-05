@@ -69,6 +69,25 @@ void tm_set_probs_JC69(struct tm_struct *mod, MarkovMatrix *P, double t);
 */
 void tm_set_probs_F81(Vector *backgd_freqs, MarkovMatrix *P, double scale, double t);
 
+void tm_grad_JC69(struct tm_struct *mod, Matrix *grad, double t);
+
+static inline
+unsigned int is_purine(char c) {
+  return (c == 'A' || c == 'G');
+}
+
+void tm_set_probs_HKY85(struct tm_struct *mod, MarkovMatrix *P, double t);
+
+void tm_grad_HKY_dkappa(struct tm_struct *mod, Matrix *grad,
+                        double kappa, double t);
+
+void tm_grad_HKY_dt(struct tm_struct *mod, Matrix *grad,
+                    double kappa, double t);
+
+void tm_grad_REV_dr(struct tm_struct *mod, List *dQ_dr_lst, double t);
+
+void tm_grad_REV_dt(struct tm_struct *mod, Matrix *grad, double t);
+
 /** Setup probability matrix by copying an existing probability matrix.
     Set matrix such that element (i,j) has value pi_j, as for an
      infinitely long branch
@@ -138,6 +157,8 @@ void tm_rate_params_init_from_model(struct tm_struct *mod, Vector *params,
 				    double selection, double bgc);
  /** \} \name Set rate matrix 
 \{ */
+
+void tm_set_JC69_matrix(struct tm_struct *mod);
 
 /** Initialize rate-matrix parameters in Models rate-matrix
     @param mod Tree Model containing rate-matrix to initialize

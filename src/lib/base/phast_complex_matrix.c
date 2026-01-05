@@ -238,7 +238,7 @@ int zmat_as_real(Matrix *dest, Zmatrix *src, int strict) {
       if (src->data[i][j].y >= 1e-6) {
 	rv = 1;
 	if (strict)
-	  die("ERROR in zmat_as_real: src matrix has imaginary component %ei",
+	  die("ERROR in zmat_as_real: src matrix has imaginary component %ei\n",
 	      src->data[i][j].y);
       }
     }

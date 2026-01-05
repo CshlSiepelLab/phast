@@ -26,27 +26,109 @@
 #define PHAST_INLINE inline
 #endif
 
-#ifdef R_LAPACK
-#include <R_ext/Lapack.h>
-#define LAPACK_INT int
-#define LAPACK_DOUBLE double
+/* ---------------- LAPACK backend selection ----------------
+ *
+ * Exactly one of the following should be defined:
+ *   - R_LAPACK
+ *   - VECLIB
+ *   - PHAST_USE_SYSTEM_LAPACK
+ *   - PHAST_USE_CLAPACK   (legacy)
+ */
+
+#if defined(R_LAPACK)
+
+  #include <R_ext/Lapack.h>
+  typedef int    LAPACK_INT;
+  typedef double LAPACK_DOUBLE;
+
+#elif defined(VECLIB)
+
+  #include <Accelerate/Accelerate.h>
+
+  #if defined(ACCELERATE_NEW_LAPACK)
+    /* New Accelerate LAPACK interface: use plain C types */
+    typedef int    LAPACK_INT;
+    typedef double LAPACK_DOUBLE;
+  #else
+    /* Old Accelerate CLAPACK-style API */
+    typedef __CLPK_integer    LAPACK_INT;
+    typedef __CLPK_doublereal LAPACK_DOUBLE;
+  #endif
+
+#elif defined(PHAST_USE_SYSTEM_LAPACK)
+
+  /* System LAPACK via Fortran ABI (OpenBLAS/netlib/MKL).
+     We call dgesv_(), dgeev_(), etc. directly; no clapack.h needed. */
+  typedef int    LAPACK_INT;
+  typedef double LAPACK_DOUBLE;
+
+#elif defined(PHAST_USE_CLAPACK)
+
+  /* Legacy CLAPACK + f2c (only if explicitly enabled) */
+  #include <f2c.h>
+  #include <clapack.h>
+  typedef integer    LAPACK_INT;
+  typedef doublereal LAPACK_DOUBLE;
+
 #else
 
-#ifdef VECLIB
-#include <Accelerate/Accelerate.h>
-#define LAPACK_INT __CLPK_integer
-#define LAPACK_DOUBLE __CLPK_doublereal
-#else
+  #error "No LAPACK backend selected. Define one of: R_LAPACK, VECLIB, PHAST_USE_SYSTEM_LAPACK (or PHAST_USE_CLAPACK)."
 
-#ifndef SKIP_LAPACK 
-#include <f2c.h>  
-#include <clapack.h> 
-#define LAPACK_INT integer
-#define LAPACK_DOUBLE doublereal
-#endif  /*ifndef SKIP_LAPACK */
+#endif
 
-#endif  /*ifdef VECLIB */
+/* ------------------------------------------------------------------ */
+/* Fortran LAPACK entry points (LP64).                                  */
+/* We only declare these when using system LAPACK via Fortran ABI.      */
+/* R_LAPACK provides its own declarations via R_ext/Lapack.h, and       */
+/* Accelerate provides declarations via Accelerate headers.             */
+/* ------------------------------------------------------------------ */
 
-#endif  /* ifdef R_LAPACK */
+#if defined(PHAST_USE_SYSTEM_LAPACK) && !defined(R_LAPACK) && !defined(VECLIB)
 
-#endif  /* ifndef PHAST_EXTERNAL_LIBS */
+void dgebal_(const char *job, const LAPACK_INT *n,
+             LAPACK_DOUBLE *a, const LAPACK_INT *lda,
+             LAPACK_INT *ilo, LAPACK_INT *ihi,
+             LAPACK_DOUBLE *scale, LAPACK_INT *info);
+
+void dgebak_(const char *job, const char *side, const LAPACK_INT *n,
+             const LAPACK_INT *ilo, const LAPACK_INT *ihi,
+             const LAPACK_DOUBLE *scale, const LAPACK_INT *m,
+             LAPACK_DOUBLE *v, const LAPACK_INT *ldv, LAPACK_INT *info);
+
+void dgesv_(const LAPACK_INT *n, const LAPACK_INT *nrhs,
+            LAPACK_DOUBLE *a, const LAPACK_INT *lda,
+            LAPACK_INT *ipiv,
+            LAPACK_DOUBLE *b, const LAPACK_INT *ldb,
+            LAPACK_INT *info);
+
+void dgetrf_(const LAPACK_INT *m, const LAPACK_INT *n,
+             LAPACK_DOUBLE *a, const LAPACK_INT *lda,
+             LAPACK_INT *ipiv, LAPACK_INT *info);
+
+void dgetri_(const LAPACK_INT *n,
+             LAPACK_DOUBLE *a, const LAPACK_INT *lda,
+             const LAPACK_INT *ipiv,
+             LAPACK_DOUBLE *work, const LAPACK_INT *lwork,
+             LAPACK_INT *info);
+
+void dpotrf_(const char *uplo, const LAPACK_INT *n,
+             LAPACK_DOUBLE *a, const LAPACK_INT *lda,
+             LAPACK_INT *info);
+
+void dgeev_(const char *jobvl, const char *jobvr,
+            const LAPACK_INT *n,
+            LAPACK_DOUBLE *a, const LAPACK_INT *lda,
+            LAPACK_DOUBLE *wr, LAPACK_DOUBLE *wi,
+            LAPACK_DOUBLE *vl, const LAPACK_INT *ldvl,
+            LAPACK_DOUBLE *vr, const LAPACK_INT *ldvr,
+            LAPACK_DOUBLE *work, const LAPACK_INT *lwork,
+            LAPACK_INT *info);
+
+void dsyev_(const char *jobz, const char *uplo, const LAPACK_INT *n,
+            LAPACK_DOUBLE *a, const LAPACK_INT *lda, LAPACK_DOUBLE *w,
+            LAPACK_DOUBLE *work, const LAPACK_INT *lwork, LAPACK_INT *info);
+
+#endif /* PHAST_USE_SYSTEM_LAPACK */
+
+#endif /* _PHAST_EXTERNAL_LIBS_ */
+

@@ -403,7 +403,7 @@ void mm_exp_higham(MarkovMatrix *P, MarkovMatrix *Q, double t, int do_mu) {
   dgesv_(&ln, &ln, matU, &ln, ipiv, matV, &ln, &info);
 #endif
   if (info !=0)
-    die("Error solving U'X=V' in mm_exp_higham");
+    die("Error solving U'X=V' in mm_exp_higham\n");
   mat_from_lapack(P->matrix, matV);
 
   //check (for testing only)

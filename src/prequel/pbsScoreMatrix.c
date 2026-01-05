@@ -14,6 +14,7 @@
 #include "pbsScoreMatrix.help"
 #include <phast/pbs_code.h>
 #include <phast/tree_model.h>
+#include <phast/matrix.h>
 
 int main(int argc, char *argv[]) {
   signed char c;

@@ -1,0 +1,136 @@
+char HELP[6231] = "\nPROGRAM:        clean_genes\n\
+\n\
+DESCRIPTION:    Given a GFF describing a set of genes and a corresponding \n\
+                multiple alignment, output a new GFF with only those\n\
+                genes that meet certain \"cleanliness\" criteria. The\n\
+                coordinates in the GFF are assumed to correspond to\n\
+                the reference sequence in the alignment, which is\n\
+                assumed to be the first one listed.  Default behavior\n\
+                is simply to require that all annotated start/stop codons and\n\
+                splice sites are valid in the reference sequence (GT-AG, \n\
+                GC-AG, and AT-AC splice sites are allowed).  This can\n\
+                be used with an \"alignment\" consisting of a single\n\
+                sequence to filter out incorrect annotations.  Options\n\
+                are available to impose additional criteria as well,\n\
+                mostly having to do with conservation across species\n\
+                (see the '--conserved' option in particular).\n\
+\n\
+USAGE:          clean_genes [options] <gff_fname> <msa_fname>\n\
+\n\
+OPTIONS:        \n\
+\n\
+    --start, -s\n\
+        Require conserved start codons (all species)\n\
+\n\
+    --stop, -t\n\
+        Require conserved stop codons (all species)\n\
+\n\
+    --splice, -l    \n\
+        Require conserved splice sites (all species).  By default,\n\
+        only GT-AG, GC-AG, and AT-AC splice sites are allowed (see also\n\
+        --splice-strict)\n\
+\n\
+    --fshift, -f \n\
+        Require that no frame-shift gap is present in any species.  Frame \n\
+        shifts are evaluated with respect to the reference sequence.  Gaps \n\
+        that have non-multiple-of-three lengths are allowed if  \n\
+        compensatory gaps occur nearby (see source code for details).\n\
+\n\
+    --nonsense, -n  \n\
+        Require that no premature stop codon is present in any species.\n\
+\n\
+    --conserved, -c\n\
+        Implies --start, --stop, --splice, --fshift, and --nonsense.\n\
+        Recommended option for cross-species analysis.\n\
+\n\
+    --N-limit, -N <f>\n\
+        Maximum fraction of bases aligned to CDSs that are Ns in any\n\
+        species (<f> must be between 0 and 1).  Default is 0.05.  Set to 1\n\
+        to allow any number of Ns.\n\
+\n\
+    --clean-gaps, -e\n\
+        Require all cds gaps to be multiples of three in length.  Can be \n\
+        used with --conserved.\n\
+\n\
+    --indel-strict, -I\n\
+        Implies --clean_gaps, usually used with --conserved.  Prohibits\n\
+        overlapping cds gaps in different sequences, gaps near cds \n\
+        boundaries, and gaps in the reference sequence within and between\n\
+        flanking features (splice sites, etc.; see code for details).\n\
+        Designed for use in training a phylo-HMM with an indel model.\n\
+\n\
+    --splice-strict, -C\n\
+        Implies --splice.  Allow only GT-AG canonical splice sites.  Useful\n\
+        when training a gene finder with a simple model for splice sites.\n\
+\n\
+    --groupby, -g <tag>\n\
+        Group features according to specified tag (default\n\
+        \"transcript_id\").  If any feature within a group fails, the\n\
+        entire group will be discarded.  By choosing to group features\n\
+        according to different criteria, you can make the program\n\
+        \"clean\" the data set at different levels.  For example, to\n\
+        clean at the level of individual exons, add a tag like\n\
+        \"exon_id\" to indicate exons (see the program \"refeature\"),\n\
+        and then invoke clean_genes with \"--groupby exon_id\".\n\
+\n\
+    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS\n\
+        Alignment file format.  Default is to guess format from file \n\
+        contents.\n\
+\n\
+    --refseq, -r <seqfile.fa>\n\
+        (Required with --msa-format MAF)  Complete reference \n\
+        sequence for alignment (FASTA format).\n\
+\n\
+    --offset5, -o <n>\n\
+        (Default 0)  Offset of canonical \"GT\" with respect to boundary \n\
+        on *intron side* of annotated 5' splice sites.  Useful with\n\
+        annotations that describe a window around the canonical splice site.\n\
+\n\
+    --offset3, -p <n>\n\
+        (Default 0)  Offset of canonical \"AG\" with respect to boundary \n\
+        on intron side of annotated 3' splice sites.\n\
+\n\
+    --log, -L <fname>\n\
+        Write human-readable log to specified file.\n\
+\n\
+    --machine-log, -M <fname>\n\
+        Like --log, but produces more concise, machine-readable log.\n\
+\n\
+    --stats, -S <fname>\n\
+        Write statistics on retained and discarded features to specified file.\n\
+\n\
+    --discards, -d <fname>\n\
+        Write discarded features to specified file.\n\
+\n\
+    --no-output, -x\n\
+        Suppress output of \"cleaned\" features to stdout.  Useful if only\n\
+        log file and/or stats are of interest.\n\
+\n\
+    --help, -h\n\
+        Print this help message.\n\
+\n\
+NOTES:  Feature types are defined as follows.\n\
+\n\
+               coding exon    <-> \"CDS\"\n\
+               start codon    <-> \"start_codon\"\n\
+               stop codon     <-> \"stop_codon\"\n\
+               5' splice site <-> \"5'splice\"\n\
+               3' splice site <-> \"3'splice\"\n\
+\n\
+        In addition, splice sites in UTR can be separately designated as\n\
+        \"5'splice_utr\" and \"3'splice_utr\".  Errors in these sites will be\n\
+        given a different code in the log files, which can be useful for\n\
+        tracking purposes.\n\
+\n\
+        If evaluation is done at the level of individual exons (see\n\
+        --groupby), then splice sites are considered independently\n\
+        rather than in the context of introns.  As a result, the exons flanking\n\
+        a GT-AC or AT-AG intron might (misleadingly) be considered \"clean\".\n\
+\n\
+        With --fshift and --nonsense, it is possible for entries\n\
+        to pass through that have stop codons in the frame of the\n\
+        *reference* sequence, although they do not have any in their\n\
+        own frame.  Use --clean-gaps instead to guarantee that no stop\n\
+        codons occur in any sequence in the frame of the reference\n\
+        sequence.\n\
+";

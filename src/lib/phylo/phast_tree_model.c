@@ -1073,7 +1073,10 @@ void tm_set_subst_matrices(TreeModel *tm) {
       else if (subst_mod == F81 && selection == 0.0 && bgc == 0.0)
         tm_set_probs_F81(backgd_freqs, tm->P[i][j], curr_scaling_const, 
                          n->dparent * branch_scale * tm->rK[j]);
-      
+      else if (subst_mod == HKY85 && selection==0.0 && bgc == 0.0)
+        tm_set_probs_HKY85(tm, tm->P[i][j], 
+                          n->dparent * branch_scale * tm->rK[j]);
+            
       else {                     /* full matrix exponentiation */
         if (isnan(n->dparent) || isnan(branch_scale) || isnan(tm->rK[j])) {
           fprintf(stderr, "ERROR: NaN detected in matrix exponentiation parameters:\n");
@@ -1115,6 +1118,8 @@ void tm_set_subst_matrix(TreeModel *tm, MarkovMatrix *P, double t) {
     tm_set_probs_JC69(tm, P, t);
   else if (tm->subst_mod == F81)
     tm_set_probs_F81(tm->backgd_freqs, P, scaling_const, t);
+  else if (tm->subst_mod == HKY85)
+    tm_set_probs_HKY85(tm, P, t);
   else 
     mm_exp(P, tm->rate_matrix, t);
 }
@@ -4001,7 +4006,7 @@ void tm_setup_site_model_func(TreeModel *mod, int ncat, const char *foreground,
       }
       /*      printf("cat %i fore %i has new altmod %i %i\n", cat, fore,
 	      selpar, dobgc);*/
-      sprintf(tempch, "%s#%i", fore ? foreground : "backgd", cat);
+      snprintf(tempch, 10000, "%s#%i", fore ? foreground : "backgd", cat);
       str_cpy_charstr(tempstr, tempch);
       //check for other models that it may apply to
       for (cat1=cat; cat1 < ncat; cat1++) {
@@ -4012,7 +4017,7 @@ void tm_setup_site_model_func(TreeModel *mod, int ncat, const char *foreground,
 	  if (!dobgc && fore1==1 && have_bgc[cat1]) continue;
 	  if (fore1 && foregd_sel_param[cat1] != selpar) continue;
 	  if (!fore1 && backgd_sel_param[cat1] != selpar) continue;
-	  sprintf(tempch, ",%s#%i", fore1 ? foreground : "backgd", cat1);
+	  snprintf(tempch, 10000, ",%s#%i", fore1 ? foreground : "backgd", cat1);
 	  str_append_charstr(tempstr, tempch);
 	  if (!fore1) doneback[cat1] = 1;
 	  else donefore[cat1] = 1;
@@ -4025,14 +4030,14 @@ void tm_setup_site_model_func(TreeModel *mod, int ncat, const char *foreground,
 	bgcmod = mod->alt_subst_mods == NULL ? 1 : lst_size(mod->alt_subst_mods)+1;
       }
       else if (dobgc) {
-	sprintf(tempch, "bgc#%i", bgcmod);
+        snprintf(tempch, 10000, "bgc#%i", bgcmod);
 	str_append_charstr(tempstr, tempch);
       }
 
       if (sel_param_opt[selpar]) {
 	if (dobgc) str_append_charstr(tempstr, ",");
 	if (selmod[selpar] != -1) {
-	  sprintf(tempch, "sel#%i", selmod[selpar]);
+	  snprintf(tempch, 10000, "sel#%i", selmod[selpar]);
 	  str_append_charstr(tempstr, tempch);
 	} else {
 	  str_append_charstr(tempstr, "sel");

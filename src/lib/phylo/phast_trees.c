@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <assert.h>
 #include "phast/stacks.h"
 #include "phast/trees.h"
 #include "phast/misc.h"
@@ -58,11 +59,38 @@ TreeNode *tr_new_from_file(FILE *f) {
   return retval;
 }
 
+/* Helper function for tr_new_from_string that accommodates
+   multifurcations.  Will create dummy node and zero-length branch if
+   needed to accommodate a multinary branching. */
+static TreeNode *tr_add_child_multifurc(TreeNode *parent, TreeNode *newchild) {
+  if (parent->lchild == NULL || parent->rchild == NULL) {
+    tr_add_child(parent, newchild);         /* existing helper; sets parent links */
+    return newchild;
+  }
+
+  /* in this case, parent is already binary: create dummy node */
+  TreeNode *old_right = parent->rchild;
+  TreeNode *dummy = tr_new_node();
+  dummy->dparent = 0.0;
+  dummy->parent = parent;
+
+  /* replace parent's right child */
+  parent->rchild = dummy;
+
+  dummy->lchild = old_right;
+  old_right->parent = dummy;
+
+  dummy->rchild = newchild;
+  newchild->parent = dummy;
+
+  return newchild;
+}
+
 /** Parse a Newick-formatted tree from a character string */
 TreeNode *tr_new_from_string(const char *treestr) {
   TreeNode *root, *node, *newnode;
   int i, in_distance = FALSE, in_label=FALSE, len = (int)strlen(treestr), nopen_parens = 0,
-    nclose_parens = 0, already_allowed = FALSE;
+    nclose_parens = 0;
   char c;
   String *diststr = str_new(STR_SHORT_LEN), *labelstr = str_new(STR_SHORT_LEN);
 
@@ -78,7 +106,7 @@ TreeNode *tr_new_from_string(const char *treestr) {
         continue;
       }
       else {
-	str_double_trim(diststr);
+        str_double_trim(diststr);
         if (str_as_dbl(diststr, &node->dparent) != 0)
           die("ERROR: Can't parse distance in tree (\"%s\").\n",
               diststr->chars);
@@ -95,12 +123,12 @@ TreeNode *tr_new_from_string(const char *treestr) {
         continue;
       }
       else {
-	str_double_trim(labelstr);
-	node->label = copy_charstr(labelstr->chars);
-	in_label = FALSE;
+        str_double_trim(labelstr);
+        node->label = copy_charstr(labelstr->chars);
+        in_label = FALSE;
       }
     }
-
+    
     if (c == '(') {
       tr_add_child(node, newnode = tr_new_node());
       node = newnode;
@@ -109,20 +137,18 @@ TreeNode *tr_new_from_string(const char *treestr) {
     }
     else if (c == ',') {
       if (node->parent == NULL)
-        die("ERROR: invalid binary tree (check parens).\n");
-      if (node->parent->lchild != NULL && node->parent->rchild != NULL){
-        if (node->parent == root && !already_allowed)
-          already_allowed = TRUE;
-        else
-          die("ERROR (tree parser): invalid binary tree (too many children)\n");
-                                /* we'll prohibit multinary
-                                   branchings, except that we'll allow
-                                   a single trinary branch immediately
-                                   below the root (common with
-                                   reversible models) */
-      }
+        die("ERROR: invalid tree (check parens).\n");
 
-      tr_add_child(node->parent, newnode = tr_new_node());
+      /* create the new sibling node to attach */
+      newnode = tr_new_node();
+
+      /* if parent already has two children, insert a zero-length dummy node. */
+      if (node->parent->lchild != NULL && node->parent->rchild != NULL) 
+        root->nnodes++;
+
+      /* attach new node (creates dummy node if needed) */
+      tr_add_child_multifurc(node->parent, newnode);
+      
       node = newnode;
       root->nnodes++;
     }
@@ -147,9 +173,30 @@ TreeNode *tr_new_from_string(const char *treestr) {
     }
   }
 
+  /* sometimes there is a final distance; we will allow this to be
+     captured as a leading distance to the root node */
+  if (in_distance) {
+    str_double_trim(diststr);
+    if (diststr->length > 0 && str_as_dbl(diststr, &root->dparent) != 0)
+      die("ERROR: Can't parse final distance in tree (\"%s\").\n",
+          diststr->chars);    
+  }
+    
   if (nopen_parens != nclose_parens)
     die("ERROR: mismatching parens in tree.\n");
 
+  /* sometimes tree is nonbinary near root, if extra parens are included.  Remove extra nodes */
+  while (root->rchild == NULL && root->lchild != NULL) {
+    node = root;
+    root = root->lchild;
+    root->parent = NULL;
+    root->dparent += node->dparent;
+    root->nnodes = node->nnodes-1;
+    sfree(node);
+  }
+
+  tr_collapse_unary_nodes(&root);
+  
   tr_set_nnodes(root);
   str_free(diststr);
   str_free(labelstr);
@@ -165,43 +212,64 @@ void tr_set_nnodes(TreeNode *tree) {
 
   tree->nodes = lst_new_ptr(tree->nnodes);
   for (i = 0; i < tree->nnodes; i++) lst_push_ptr(tree->nodes, NULL);
-  stack = stk_new_ptr(tree->nnodes);
+  stack = stk_new_ptr(2*tree->nnodes);
   stk_push_ptr(stack, tree);
   while ((node = stk_pop_ptr(stack)) != NULL) {
+
     if (! ((node->lchild == NULL && node->rchild == NULL) ||
            (node->lchild != NULL && node->rchild != NULL)))
       die("Invalid tree");
 
-    if (node->lchild == NULL) {
-      node->nnodes = 1;
-      node->height = 0;
-      if (node->id >= tree->nnodes)
-        for (j = tree->nnodes; j <= node->id; j++)
-          lst_push_ptr(tree->nodes, NULL); /* this hack necessary
-                                              because original estimate
-                                              of size of list may be
-                                              wrong */
+    if (node->nnodes == -99) {
+      /* node has been visited; process it now */
+    
+      if (node->lchild == NULL) {
+        node->nnodes = 1;
+        node->height = 0;
+      }
+      else {
+        node->nnodes = node->lchild->nnodes + node->rchild->nnodes + 1;
+        node->height = max(node->lchild->height, node->rchild->height) + 1;
+      }
+      
+      for (j = lst_size(tree->nodes); j <= node->id; j++)
+        lst_push_ptr(tree->nodes, NULL); /* in case original size is wrong */
       lst_set_ptr(tree->nodes, node->id, node);
     }
-    else if (node->lchild->nnodes != -1 && node->rchild->nnodes != -1) {
-      node->nnodes = node->lchild->nnodes + node->rchild->nnodes + 1;
-      node->height = max(node->lchild->height, node->rchild->height) + 1;
-
-      for (j = tree->nnodes; j <= node->id; j++)
-        lst_push_ptr(tree->nodes, NULL); /* this hack necessary
-                                            because original estimate
-                                            of size of list may be
-                                            wrong */
-      lst_set_ptr(tree->nodes, node->id, node);
-    }
-    else {			/* internal node whose children have
-                       not yet been visited */
+    else {
+      /* first visit; mark and push children */
+      node->nnodes = -99;
       stk_push_ptr(stack, node);
-      stk_push_ptr(stack, node->lchild);
-      stk_push_ptr(stack, node->rchild);
-    }
+      if (node->lchild != NULL) {
+        stk_push_ptr(stack, node->lchild);
+        stk_push_ptr(stack, node->rchild);
+      }
+    }    
   }
+  
   stk_free(stack);
+
+  /* in certain cases, the indexing will have gaps, e.g., if nodes
+     have been deleted or added in a strange way. Let's force it to be
+     dense */
+  int has_null = 0;
+  for (i = 0; i < lst_size(tree->nodes) && has_null == FALSE; i++)
+    if (lst_get_ptr(tree->nodes, i) == NULL) has_null = TRUE;
+
+  if (has_null) {
+    for (i = 0, j = 0; i < lst_size(tree->nodes); i++) {
+      node = lst_get_ptr(tree->nodes, i);
+      if (node == NULL)
+        continue;
+      if (i != j) {
+        node->id = j;
+        lst_set_ptr(tree->nodes, j, node);
+        lst_set_ptr(tree->nodes, i, NULL);
+      }
+      j++;              
+    }
+    tree->nodes->ridx = tree->nodes->lidx + j; /* resets size */
+  }
 }
 
 /* Create and initialize a new tree node */
@@ -276,11 +344,11 @@ void tr_to_string_recur(char *str, TreeNode *n, int show_branch_lengths) {
     strcat(str, n->name);
   }
   if (show_branch_lengths && n->parent != NULL) {
-    sprintf(temp, ":%g", n->dparent);
+    snprintf(temp, 100, ":%g", n->dparent);
     strcat(str, temp);
   }
   if (n->label != NULL) {
-    sprintf(temp, " # %s", n->label);
+    snprintf(temp, 100, " # %s", n->label);
     strcat(str, temp);
   }
 }
@@ -317,7 +385,7 @@ void tr_print_recur(FILE* f, TreeNode *n, int show_branch_lengths) {
     fprintf(f, "%s", n->name);
   }
 
-  if (show_branch_lengths && n->parent != NULL)
+  if (show_branch_lengths && (n->parent != NULL || n->dparent > 0))
     fprintf(f, ":%g", n->dparent);
   if (n->hold_constant)
     fprintf(f, "!");
@@ -370,7 +438,7 @@ void tr_cpy(TreeNode *dest, TreeNode *src) {
   }
 
   /* now copy node by node */
-  tr_node_cpy(dest, src);       /* copy root */
+
   stk_push_ptr(stack, src);
   stk_push_ptr(cpystack, dest);
   while ((n = stk_pop_ptr(stack)) != NULL) {
@@ -886,8 +954,7 @@ double tr_total_len(TreeNode *t) {
   int i;
   for (i = 0; i < t->nnodes; i++) {
     TreeNode *n = lst_get_ptr(t->nodes, i);
-    if (n->parent != NULL)
-      retval += n->dparent;
+    retval += n->dparent;
   }
   return retval;
 }
@@ -947,8 +1014,7 @@ void tr_scale(TreeNode *t, double scale_const) {
   int i;
   for (i = 0; i < t->nnodes; i++) {
     TreeNode *n = lst_get_ptr(t->nodes, i);
-    if (n->parent != NULL)
-      n->dparent *= scale_const;
+    n->dparent *= scale_const;
   }
 }
 
@@ -1339,6 +1405,27 @@ void tr_partition_nodes(TreeNode *tree, TreeNode *sub, List *inside,
   sfree(mark);
 }
 
+/* List the leaves beneath every node of the tree */
+void tr_list_leaves(TreeNode *tree, List **leaf_lst) {
+  int i, j;
+  TreeNode *n;
+  List *trav = tr_postorder(tree);
+  
+  for (i = 0; i < lst_size(trav); i++) {
+    n = lst_get_ptr(trav, i);
+    if (n->lchild == NULL) {
+      lst_clear(leaf_lst[n->id]);
+      lst_push_ptr(leaf_lst[n->id], n);
+    }
+    else {
+      lst_clear(leaf_lst[n->id]);
+      for (j = 0; j < lst_size(leaf_lst[n->lchild->id]); j++)
+        lst_push_ptr(leaf_lst[n->id], lst_get_ptr(leaf_lst[n->lchild->id], j));
+      for (j = 0; j < lst_size(leaf_lst[n->rchild->id]); j++)
+        lst_push_ptr(leaf_lst[n->id], lst_get_ptr(leaf_lst[n->rchild->id], j));
+    }
+  }
+}
 
 /* recursive version of tr_leaf_names that works for nodes that are
    not the root of the tree */
@@ -1635,3 +1722,316 @@ void tr_get_labelled_nodes(TreeNode *tree, const char *label, List *rv) {
       lst_push_ptr(rv, node);
   }
 }
+
+/* checks that last two node ids correspond to root and right child of
+   root.  Useful in cases in which indexing is used for branches of
+   the induced unrooted tree, excluding those two nodes.  If this
+   condition is true, the first nnodes - 2 ids (and first nnodes - 2
+   entries of the 'nodes' list) correspond to branches of the unrooted
+   tree. */
+int tr_check_unrooted_indexing(TreeNode *root) {
+  if (root == NULL || root->lchild == NULL || root->rchild == NULL || root->nnodes < 3)
+    return FALSE;
+  if (root->id >= root->nnodes - 2 && root->rchild->id >= root->nnodes - 2)
+    return TRUE;
+  return FALSE;        
+}
+
+/* renumber nodes to ensure unrooted indexing */
+void tr_enforce_unrooted_indexing(TreeNode *tree) {
+  TreeNode *l1, *l2, *swap;
+  int tmp;
+  
+  /* we'll assume the nodes list exists */
+  assert(tree->nodes != NULL && lst_size(tree->nodes) == tree->nnodes);
+
+  if (tree->nnodes < 3)
+    return; /* nothing to do */
+  
+  /* locate the current last two nodes */
+  l1 = lst_get_ptr(tree->nodes, tree->nnodes-1);
+  l2 = lst_get_ptr(tree->nodes, tree->nnodes-2);
+
+  if (tree->id < tree->nnodes - 2) { /* need to swap */
+    swap = (l1 == tree->rchild ? l2 : l1); /* swap with l1 unless l1
+                                              is already rchild, in
+                                              which case swap with
+                                              l2 */
+    tmp = swap->id;
+    swap->id = tree->id;
+    tree->id = tmp;
+  }
+  
+  if (tree->rchild->id < tree->nnodes - 2) { /* need to swap */
+    swap = l2;  /* swap with l2 */
+    assert(l2->id != tree->id); /* can't be true that we've already
+                                   swapped with l2; if we had,
+                                   tree->rchild would already be
+                                   valid */
+    tmp = swap->id;
+    swap->id = tree->rchild->id;
+    tree->rchild->id = tmp;
+  }
+
+  assert(tr_check_unrooted_indexing(tree));
+  
+  tr_reset_nnodes(tree);
+}
+
+/* rebuild nnodes, height, and nodes list; reset predefined
+   traversals.  Should be used after tree restructuring or renumbering
+   of nodes */
+void tr_reset_nnodes(TreeNode *tree) {
+  if (tree->nodes != NULL) {
+    lst_free(tree->nodes);
+    tree->nodes = NULL;
+  }
+  if (tree->postorder != NULL) {
+    lst_free(tree->postorder);
+    tree->postorder = NULL;
+  }
+  if (tree->preorder != NULL) {
+    lst_free(tree->preorder);
+    tree->preorder = NULL;
+  }
+  if (tree->inorder != NULL) {
+    lst_free(tree->inorder);
+    tree->inorder = NULL;
+  }
+  tr_set_nnodes(tree);
+}
+
+/* collapse any nodes that have exactly one child. */
+void tr_collapse_unary_nodes(TreeNode **rootp) {
+  TreeNode *x, *root = *rootp;
+  if (root == NULL) return;
+
+  /* Two stacks for reverse-postorder traversal */
+  Stack *st  = stk_new_ptr(root->nnodes);
+  Stack *out = stk_new_ptr(root->nnodes);   /* reverse postorder */
+
+  /* Build reverse postorder (children pushed before parent is processed) */
+  stk_push_ptr(st, root);
+  while ((x = stk_pop_ptr(st)) != NULL) {
+    stk_push_ptr(out, x);
+    if (x->lchild != NULL) stk_push_ptr(st, x->lchild);
+    if (x->rchild != NULL) stk_push_ptr(st, x->rchild);
+  }
+
+  /* Process nodes in postorder */
+  while ((x = (TreeNode*)stk_pop_ptr(out)) != NULL) {
+    /* Collapse chains of unary nodes bottom-up */
+    while ((x->lchild != NULL) ^ (x->rchild != NULL)) { /* exactly one child */
+      TreeNode *child  = x->lchild ? x->lchild : x->rchild;
+      TreeNode *parent = x->parent;
+
+      /* accumulate branch length */
+      child->dparent += x->dparent;
+
+      /* rewire parent -> child */
+      if (parent != NULL) {
+        if (parent->lchild == x)
+          parent->lchild = child;
+        else
+          parent->rchild = child;
+        child->parent = parent;
+      }
+      else {
+        /* x was the root */
+        child->parent = NULL;
+        *rootp = child;
+      }
+
+      /* free collapsed node; continue in case of a unary chain */
+      sfree(x);
+
+      /* continue while structure */
+      x = child;
+    }
+  }
+
+  stk_free(st);
+  stk_free(out);
+}
+
+/* Simpler rerooting function. Reroot tree at the midpoint of the edge
+   ABOVE newroot.  Returns the pointer to the newly created root node.
+   Note that oldroot will be removed and previous pointer will be
+   stale after calling. */
+TreeNode *tr_reroot2(TreeNode *oldroot, TreeNode *newroot) {
+
+  if (newroot == NULL || newroot->parent == NULL)
+    return newroot;
+
+  int nnodes = oldroot->nnodes;
+  
+  TreeNode *p0     = newroot->parent;      /* parent of newroot on the split edge */
+  double    w_orig = newroot->dparent;     /* original length of (newroot <-> p0) */
+  double    half   = 0.5 * w_orig;
+
+  /* Cache records along the path p0 -> old root (no mutation yet). */
+  typedef struct {
+    TreeNode *curr;    /* node on the path (starting at p0) */
+    TreeNode *next;    /* its original parent toward the old root (NULL at old root) */
+    TreeNode *off;     /* off-path child (sibling subtree), may be NULL */
+    double    len_up;  /* original length curr->dparent (toward old root) */
+  } PathRec;
+
+  List *plist = lst_new_ptr(nnodes);  
+  for (TreeNode *t = p0, *prev_child = newroot; t != NULL; prev_child = t, t = t->parent) {
+    PathRec *r = (PathRec*)smalloc(sizeof(PathRec));
+    r->curr   = t;
+    r->next   = t->parent;                                  /* toward old root */
+    r->off    = (t->lchild == prev_child) ? t->rchild : t->lchild;  /* sibling subtree */
+    r->len_up = t->dparent;                                 /* upward edge length */
+    lst_push_ptr(plist, r);
+  }
+
+  /* create the new degree-2 root at the midpoint. */
+  TreeNode *R = tr_new_node();
+  R->id = oldroot->id;    /* reuse old root’s id */
+  R->parent  = NULL;
+  R->dparent = 0.0;
+
+  /* attach the two sides of the split edge to the new root, halving the length. */
+  R->lchild        = newroot;
+  newroot->parent  = R;
+  newroot->dparent = half;
+
+  R->rchild        = p0;
+  p0->parent       = R;
+  p0->dparent      = half;
+
+  /* re-orient pointers along the cached path, from p0 up to the old root.
+     Traverse plist in reverse */
+  for (int i = lst_size(plist) - 1; i >= 0; i--) {
+    PathRec *r  = (PathRec*)lst_get_ptr(plist, i);
+    TreeNode *c = r->curr;
+    TreeNode *n = r->next;
+    TreeNode *o = r->off;
+
+    /* children become: off-path subtree and the next node toward old root */
+    c->lchild = o;
+    c->rchild = n;
+
+    if (o != NULL) 
+      o->parent = c;         /* o->dparent unchanged */
+    if (n != NULL) {
+      n->parent  = c;
+      n->dparent = r->len_up;  /* preserve original upward edge length */
+    }
+  }
+
+  /* delete the old root node (degree-2) */
+  assert(lst_size(plist) > 0);
+  PathRec *last = (PathRec*)lst_get_ptr(plist, lst_size(plist) - 1);
+  TreeNode *old_root_node = last->curr;
+  TreeNode *off           = last->off;
+  TreeNode *parent_of_old =
+    (lst_size(plist) >= 2)
+    ? ((PathRec*)lst_get_ptr(plist, lst_size(plist) - 2))->curr
+    : R;
+
+  assert(off != NULL);
+  off->parent  = parent_of_old;
+  off->dparent += old_root_node->dparent;
+
+  if (parent_of_old->lchild == old_root_node)
+    parent_of_old->lchild = off;
+  else {
+    assert(parent_of_old->rchild == old_root_node);
+    parent_of_old->rchild = off;
+  }
+  
+  old_root_node->lchild = NULL; old_root_node->rchild = NULL;
+  tr_free(old_root_node); /* frees old metadata */
+  
+  for (int i = 0; i < lst_size(plist); ++i)
+    sfree(lst_get_ptr(plist, i));
+  lst_free(plist);
+
+  /* rebuild metadata starting from the new root. */
+  R->nnodes = nnodes;
+  tr_set_nnodes(R);
+
+  return R;
+}
+
+/* Return the node beneath the edge that contains the midpoint
+   of the diameter path leaf1 <-> leaf2, where leaf1 and leaf2 are specified by id */
+TreeNode *tr_find_midpoint(TreeNode *tree, int leaf1_id, int leaf2_id) {
+
+  TreeNode *leaf1 = lst_get_ptr(tree->nodes, leaf1_id);
+  TreeNode *leaf2 = lst_get_ptr(tree->nodes, leaf2_id);
+
+  if (leaf1 == NULL || leaf2 == NULL) return NULL;
+
+  const int N = tree->nnodes;
+
+  /* dist1[id] = distance from leaf1 to ancestor 'id' (or -1 if not on leaf1->root path) */
+  double *dist1 = (double*)smalloc(N * sizeof(double));
+  /* path_to_leaf2[parent_id] = child along the path toward leaf2 (for walking LCA->leaf2) */
+  TreeNode **path_to_leaf2 = (TreeNode**)smalloc(N * sizeof(TreeNode*));
+
+  for (int i = 0; i < N; ++i) { dist1[i] = -1.0; path_to_leaf2[i] = NULL; }
+
+  /* Mark distances from leaf1 up to the root */
+  double d1_to_root = 0.0;
+  for (TreeNode *n = leaf1; n->parent != NULL; n = n->parent) {
+    d1_to_root += n->dparent;
+    dist1[n->parent->id] = d1_to_root;
+  }
+  dist1[tree->id] = d1_to_root;
+
+  /* Climb from leaf2 to find LCA; also fill path_to_leaf2 so we can walk down later */
+  TreeNode *LCA = NULL;
+  double d2_to_LCA = 0.0;
+  for (TreeNode *n = leaf2; n != NULL; n = n->parent) {
+    if (n->parent != NULL) path_to_leaf2[n->parent->id] = n;       /* parent goes down to 'n' toward leaf2 */
+    if (dist1[n->id] >= 0.0) { LCA = n; break; }           /* first intersection is LCA */
+    if (n->parent == NULL) break;
+    d2_to_LCA += n->dparent;
+  }
+  assert(LCA != NULL);
+
+  const double d1_to_LCA = dist1[LCA->id];
+  const double diameter  = d1_to_LCA + d2_to_LCA;
+  double mid = 0.5 * diameter;
+
+  /* Move from leaf1 toward leaf2: first go up leaf1->LCA */
+  for (TreeNode *n = leaf1; n != LCA; n = n->parent) {
+    double w = n->dparent;                /* edge (n -> parent) */
+    if (mid < w) {                        /* midpoint lies strictly inside this edge */
+      sfree(dist1); sfree(path_to_leaf2);
+      return n;                           /* child endpoint = "beneath" the midpoint edge */
+    }
+    mid -= w;
+  }
+
+  /* If we land exactly at LCA (mid == 0), choose the edge toward leaf2 */
+  if (mid <= 0.0) {
+    TreeNode *child = path_to_leaf2[LCA->id];
+    sfree(dist1); sfree(path_to_leaf2);
+    return child != NULL ? child : LCA;           /* fallback to LCA only if degenerate */
+  }
+
+  /* Continue from LCA down toward leaf2 using cached child pointers */
+  TreeNode *prev = LCA;
+  TreeNode *cur  = path_to_leaf2[prev->id];
+  while (cur != NULL) {
+    /* Along this path we expect cur->parent == prev. Use cur->dparent as the edge length. */
+    double w = cur->dparent;
+    if (mid <= w) {
+      sfree(dist1); sfree(path_to_leaf2);
+      return cur;                          /* child endpoint beneath the midpoint edge */
+    }
+    mid -= w;
+    prev = cur;
+    cur  = path_to_leaf2[prev->id];
+  }
+
+  /* Should not happen; default to leaf2 side */
+  sfree(dist1); sfree(path_to_leaf2);
+  return leaf2;
+}
+

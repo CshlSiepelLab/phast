@@ -35,4 +35,7 @@ int mat_diagonalize(Matrix *M, Zvector *eval, Zmatrix *revect, Zmatrix *levect);
 */
 int mat_eigenvals(Matrix *M, Zvector *evals);
 
+int mat_diagonalize_sym(Matrix *M, Vector *eval, Matrix *evec);
+
+
 #endif

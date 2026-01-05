@@ -15,6 +15,7 @@
 #include <phast/external_libs.h>
 #include <math.h>
 #include <phast/misc.h>
+#include <phast/stringsplus.h>
 
 Matrix *mat_new(int nrows, int ncols) {
   int i;
@@ -67,18 +68,18 @@ void mat_set_identity(Matrix *m) {
       m->data[i][j] = (i == j ? 1 : 0);
 }
 
-void mat_zero(Matrix *m) {
-  int i, j;
-  for (i = 0; i < m->nrows; i++)
-    for (j = 0; j < m->ncols; j++)
-      m->data[i][j] = 0;
-}
-
 void mat_set_all(Matrix *m, double val) {
   int i, j;
   for (i = 0; i < m->nrows; i++)
     for (j = 0; j < m->ncols; j++)
       m->data[i][j] = val;
+}
+
+void mat_add_const(Matrix *m, double val) {
+  int i, j;
+  for (i = 0; i < m->nrows; i++)
+    for (j = 0; j < m->ncols; j++)
+      m->data[i][j] += val;
 }
 
 void mat_copy(Matrix *dest, Matrix *src) {
@@ -107,6 +108,14 @@ Matrix *mat_transpose(Matrix *src) {
     for (j = 0; j < src->ncols; j++)
       retval->data[j][i] = src->data[i][j];
   return retval;
+}
+
+/* version that works in place */
+void mat_trans(Matrix *dest, Matrix *src) {
+  int i, j;
+  for (i = 0; i < src->nrows; i++)
+    for (j = 0; j < src->ncols; j++)
+      dest->data[j][i] = src->data[i][j];
 }
 
 void mat_scale(Matrix *m, double scale_factor) {
@@ -152,8 +161,22 @@ Matrix *mat_new_from_file(FILE *F, int nrows, int ncols) {
   return m;
 }
 
+/* read square matrix from file without knowing size */
+Matrix *mat_new_from_file_square(FILE *F) {
+  String *firstl = str_new(STR_MED_LEN);
+  List *dummy = lst_new_ptr(100);
+  int i, size;
+  if (str_peek_next_line(firstl, F) != 0)
+    die("ERROR reading matrix.\n");
+  str_split(firstl, NULL, dummy);
+  size = lst_size(dummy) - 1; /* leading whitespace */
+  for (i = 0; i < lst_size(dummy); i++) str_free(lst_get_ptr(dummy, i));
+  lst_free(dummy);
+  return mat_new_from_file(F, size, size);
+}
+
 void mat_mult(Matrix *prod, Matrix *m1, Matrix *m2) {
-  if (!(m1->ncols == m2->nrows && m1->nrows == m2->ncols &&
+  if (!(m1->ncols == m2->nrows && 
 	prod->nrows == m1->nrows && prod->ncols == m2->ncols))
     die("ERROR mat_mult: bad matrix dimensions\n");
   int i, j, k;
@@ -161,7 +184,7 @@ void mat_mult(Matrix *prod, Matrix *m1, Matrix *m2) {
     for (j = 0; j < prod->ncols; j++) {
       prod->data[i][j] = 0;
       for (k = 0; k < m1->ncols; k++)
-	prod->data[i][j] += m1->data[i][k] * m2->data[k][j];
+        prod->data[i][j] += m1->data[i][k] * m2->data[k][j];
     }
   }
 }
@@ -175,6 +198,25 @@ void mat_vec_mult(Vector *prod, Matrix *m, Vector *v) {
     for (j = 0; j < m->ncols; j++) {
       prod->data[i] += m->data[i][j] * v->data[j];
     }
+  }
+}
+
+/* multiply the transpose of m by v and store results in prod */
+void mat_vec_mult_transp(Vector *prod, Matrix *m, Vector *v) {
+  int i, j;
+  if (!(m->ncols == prod->size && v->size == m->nrows))
+    die("ERROR mat_vec_mult_transp: bad dimensions\n");
+
+  /* initialize result */
+  for (i = 0; i < m->ncols; i++)
+    prod->data[i] = 0.0;
+
+  /* cache-friendly row loop */
+  for (j = 0; j < m->nrows; j++) {
+    const double *row = m->data[j];   /* contiguous row */
+    double scale = v->data[j];
+    for (i = 0; i < m->ncols; i++)
+      prod->data[i] += row[i] * scale;
   }
 }
 
@@ -250,7 +292,7 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
   LAPACK_DOUBLE tmp[n][n], work[lwork];
 
   if (!(M->nrows == M->ncols && M_inv->nrows == M_inv->ncols &&
-	M->nrows == M_inv->nrows))
+        M->nrows == M_inv->nrows))
     die("ERROR mat_invert: bad dimensions\n");
 
   for (i = 0; i < n; i++)
@@ -284,6 +326,51 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
   for (i = 0; i < M->nrows; i++)
     for (j = 0; j < M->nrows; j++)
       mat_set(M_inv, i, j, (double)tmp[j][i]);
+
+#endif
+  return 0;
+}
+
+/* Compute the Cholesky factorization of a real symmetric positive
+   definite matrix using LAPACK dpotrf routine. Populates L with lower
+   triangular matrix such that L L^T = M. Returns 0 on success, 1 on
+   failure. */
+int mat_cholesky(Matrix *L, Matrix *M) {
+#ifdef SKIP_LAPACK
+  die("ERROR: LAPACK required for Cholesky factorization.\n");
+#else
+  int i, j;
+  LAPACK_INT info, n = (LAPACK_INT)M->nrows;
+  LAPACK_DOUBLE tmp[n][n];
+  char mode = 'L';
+
+  if (!(M->nrows == M->ncols && L->nrows == L->ncols &&
+	M->nrows == L->nrows))
+    die("ERROR mat_cholesky: bad dimensions\n");
+
+  for (i = 0; i < n; i++)
+    for (j = 0; j < n; j++)
+      tmp[i][j] = (LAPACK_DOUBLE)mat_get(M, j, i);
+
+#ifdef R_LAPACK
+  F77_CALL(dpotrf)(&mode, &n, (LAPACK_DOUBLE*)tmp, &n, &info);
+#else
+  dpotrf_(&mode, &n, (LAPACK_DOUBLE*)tmp, &n, &info);
+#endif
+
+  if (info != 0) {
+    fprintf(stderr, "ERROR: unable to compute Cholesky factorization of matrix; dpotrf returned value of %d.\n", (int)info);
+    return 1;
+  }
+
+  for (i = 0; i < M->nrows; i++) {
+    for (j = 0; j < M->nrows; j++) {
+      if (j <= i)
+        mat_set(L, i, j, (double)tmp[j][i]);
+      else
+        mat_set(L, i, j, 0);
+    }
+  }
 
 #endif
   return 0;
@@ -325,6 +412,22 @@ A->data[3][3] = B->data[3][0] * C->data[0] * D->data[0][3] + B->data[3][1] * C->
   }
 
 }
+
+/* Compute A = B * C * B^T where A, B, and C are square matrices of
+   the same dimension, and C is diagonal.  C is described by a vector
+   representing its diagonal elements.  */
+void mat_mult_diag_transp(Matrix *A, Matrix *B, Vector *C) {
+
+  int i, j, k;
+  for (i = 0; i < C->size; i++) {
+    for (j = 0; j < C->size; j++) {
+      A->data[i][j] = 0;
+      for (k = 0; k < C->size; k++)
+        A->data[i][j] += B->data[i][k] * C->data[k] * B->data[j][k];
+    }
+  } 
+}
+
 int mat_equal(Matrix *A, Matrix *B) {
   int i, j;
   if (A->nrows != B->nrows || A->ncols != B->ncols) return 0;
@@ -347,6 +450,143 @@ void mat_from_lapack(Matrix *m, LAPACK_DOUBLE *arr) {
   for (j=0; j < m->ncols; j++)
     for (i=0; i < m->nrows; i++)
       m->data[i][j] = (double)arr[pos++];
+}
+
+/* Solve Ly = z for y, where L is lower-triangular, via forward substitution */
+void mat_forward_subst(Matrix *L, Vector *z, Vector* y) {
+  int dim = L->nrows;
+  int i, j;
+  
+  if (dim != L->ncols || dim != z->size || dim != y->size)
+    die("ERROR in mat_forward_subst: bad dimensions.\n");
+  
+  for (i = 0; i < dim; i++) {
+    double sum = 0;
+    for (j = 0; j < i; j++) 
+      sum += mat_get(L, i, j) * vec_get(y, j);
+
+    vec_set(y, i, (vec_get(z, i) - sum) / mat_get(L, i, i));
+  }
+}
+
+/* Solve L^T y = z for y, where L is lower-triangular (hence L^T is
+   upper triangular), via backward substitution */
+void mat_backward_subst(Matrix *L, Vector *z, Vector* y) {
+  int dim = L->nrows;
+  int i, j;
+  
+  if (dim != L->ncols || dim != z->size || dim != y->size)
+    die("ERROR in mat_backward_subst: bad dimensions.\n");
+
+  /* use y in place of a and z in place of y */
+  
+  for (i = dim-1; i >= 0; i--) {
+    vec_set(y, i, (vec_get(z, i)));
+    
+    for (j = i+1; j < dim; j++)
+      vec_set(y, i, vec_get(y, i) - mat_get(L, j, i) * vec_get(y, j));
+
+    vec_set(y, i, vec_get(y, i) / mat_get(L, i, i));
+  }
+}
+
+/* set G to be the Gram matrix of A, such that G = A x A^T.  Assumes G
+   is square nxn and A is nxk such that k <= n */
+void mat_set_gram(Matrix *G, Matrix *A) {
+  int n = G->nrows, k = A->ncols, i, j, l;
+  if (G->ncols != n || A->nrows != n)
+    die("ERROR in mat_set_gram: bad dimensions.\n");
+  for (i = 0; i < n; i++) {
+    for (j = i; j < n; j++) {
+      double innerprod = 0.0;
+      for (l = 0; l < k; l++)
+        innerprod += mat_get(A, i, l) * mat_get(A, j, l);
+      mat_set(G, i, j, innerprod);
+      if (i != j)
+        mat_set(G, j, i, innerprod);        
+      /* elements i, j (and j, i) of G equal inner product 
+         of rows i and j in A */
+    }
+  }
+}
+
+/* similar to mat_set_gram but instead set G = A^T x A.  This is
+   sometimes called the Gram matrix of column (rather than row)
+   vectors */
+void mat_set_gram_col(Matrix *G, Matrix *A) {
+  int k = G->nrows, n = A->nrows, i, j, l;
+  if (G->ncols != k || A->ncols != k)
+    die("ERROR in mat_set_gram_col: bad dimensions.\n");
+  for (i = 0; i < k; i++) {
+    for (j = i; j < k; j++) {
+      double innerprod = 0.0;
+      for (l = 0; l < n; l++)
+        innerprod += mat_get(A, l, i) * mat_get(A, l, j);
+      mat_set(G, i, j, innerprod);
+      if (i != j)
+        mat_set(G, j, i, innerprod);        
+      /* elements i, j (and j, i) of G equal inner product 
+         of rows i and j in A */
+    }
+  }
+}
+
+/* set G to a double centered version of square matrix D.  Set
+   upper_triangular to TRUE if D is represented in upper triangular
+   form */
+void mat_double_center(Matrix *G, Matrix *D, unsigned int upper_triangular) {
+  int i, j, n = D->nrows;
+  double grandmean = 0, val, x;
+  Vector *row_mean = vec_new(n);
+  if (D->ncols != n || G->nrows != n || G->ncols != n) 
+    die("ERROR in mat_double_center: bad dimensions.\n");
+
+  /* first compute column/row means and grand mean */  
+  for (i = 0; i < n; i++) {
+    double rowsum = 0;
+    for (j = 0; j < n; j++) {
+      val = (!upper_triangular || j >= i ? mat_get(D, i, j) : mat_get(D, j, i));
+      rowsum += val;
+      grandmean += val;
+    }
+    vec_set(row_mean, i, rowsum/n);
+  }
+  grandmean /= (n * n);
+  
+  /* now double center */
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < n; j++) {
+      x = (!upper_triangular || j >= i ? mat_get(D, i, j) : mat_get(D, j, i));
+      val = -0.5 * (x - vec_get(row_mean, i) - vec_get(row_mean, j) + grandmean);
+      mat_set(G, i, j, val);
+    }
+  }
+  vec_free(row_mean);
+}
+
+/* return median value in an upper triangular (distance) square
+   matrix */
+double mat_median_upper_triang(Matrix *M) {
+  assert(M->nrows == M->ncols && M->nrows > 1);
+  int n = M->nrows * (M->nrows-1) / 2;
+  double median;
+  
+  /* build a sorted list of values */
+  List *l = lst_new_dbl(n);
+  for (int i = 0; i < M->nrows; i++)
+    for (int j = i+1; j < M->nrows; j++)
+      lst_push_dbl(l, mat_get(M, i, j));
+
+  lst_qsort_dbl(l, ASCENDING);
+
+  if (n & 1) 
+    median = lst_get_dbl(l, n/2);
+  else 
+    median = 0.5 * (lst_get_dbl(l, n/2 - 1) +
+                    lst_get_dbl(l, n/2));
+
+  lst_free(l);
+  return median;
 }
 
 #endif

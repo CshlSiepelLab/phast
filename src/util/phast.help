@@ -1,0 +1,19 @@
+char HELP[953] = "\n	The PHAST package contains the following programs:\n\
+\n\
+        all_dists            hmm_view        phastBias\n\
+        base_evolve          indelFit        phastCons\n\
+        chooseLines          indelHistory    phastMotif\n\
+        clean_genes          maf_parse       phastOdds\n\
+        consEntropy          makeHKY         phyloBoot\n\
+        convert_coords       modFreqs        phyloFit\n\
+        display_rate_matrix  msa_diff        phyloP\n\
+        dless                msa_split       prequel\n\
+        dlessP               msa_view        refeature\n\
+        draw_tree            pbsDecode       stringiphy\n\
+        eval_predictions     pbsEncode       test\n\
+        exoniphy             pbsScoreMatrix  tree_doctor\n\
+        hmm_train            pbsTrain        treeGen\n\
+        hmm_tweak            phast\n\
+\n\
+	For help, type the program's name followed by -h in your command line window.\n\
+";

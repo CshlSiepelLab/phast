@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <phast/external_libs.h>
+#include <phast/lists.h>
 
 struct lst_struct;
 
@@ -45,6 +46,8 @@ Vector *vec_new(int size);
   @param size Number of elements.
 */
 Vector *vec_new_from_array(double *array, int size);
+
+Vector *vec_view_array(double *array, int size);
 
 /** Create new vector and initialized it with values from given list.
   
@@ -264,6 +267,22 @@ void vec_normalize(Vector *v);
 */
 void vec_ave(Vector *dest_v, struct lst_struct *source_vs, 
 	     struct lst_struct *counts);
+
+double vec_sum(Vector *v);
+
+void vec_mean_stdev(Vector *v, double *mean, double *stdev);
+
+List *vec_to_list(Vector *v);
+
+void vec_summary_stats(Vector *v, double *mean, double *stdev,
+                       double *median, double *min, double *max,
+                       double *min_95CI, double *max_95CI,
+                       double *q25, double *q75);
+
+
+unsigned int vec_isfinite(Vector *v);
+
+void vec_set_random(Vector *v, double mu, double sigma);
 
 /* \} */
 

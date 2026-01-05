@@ -557,7 +557,7 @@ void pbs_write_binary(PbsCode *code, unsigned code_idx, FILE *F) {
      architectures.  We'll go from high- to low-order */
 
   for (i = code->nbytes - 1; i >= 0; i--) {
-    bytes[i] = code_idx & ~(~0 << 8); /* see Kernighan and Ritchie, p. 49 */
+    bytes[i] = (unsigned char) ((unsigned int)code_idx & 0xFFu); /* see Kernighan and Ritchie, p. 49 */
     if (i > 0) code_idx >>= 8;
   }
 

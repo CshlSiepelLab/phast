@@ -1,0 +1,38 @@
+char HELP[1664] = "\nPROGRAM: indelHistory\n\
+\n\
+USAGE: indelHistory [OPTIONS] alignment.fa tree.mod > out.ih\n\
+\n\
+DESCRIPTION:\n\
+\n\
+    Obtain an \"indel history\" for an alignment and write it to a file\n\
+    describing insertions and deletions in all species using a compact\n\
+    format.  The specified alignment may either contain sequences\n\
+    corresponding only to leaves of the specified tree, in which case an\n\
+    indel history will be inferred using a simple parsimony algorithm, or\n\
+    it may contain sequences for all nodes in the tree, in which case the\n\
+    indel history will simply be extracted from the file.\n\
+\n\
+OPTIONS:\n\
+    --msa-format, -i FASTA|MAF|SS|....\n\
+        Read alignment in specified file format (default FASTA).\n\
+\n\
+    --output-alignment, -A\n\
+        Instead of a summary of indels only, output an alignment in FASTA\n\
+        format of sequences for all ancestral and leaf nodes.\n\
+\n\
+    --read-history, -H <fname>\n\
+        Read an indel history directly from the specified file.  Useful for\n\
+        debugging.  The alignment and tree arguments are not required;\n\
+        however in an alignment is given with --read-history and\n\
+        --output-alignment, then actual bases can be output for leaf\n\
+        species.\n\
+\n\
+    --ia-names, -I\n\
+        Assume ancestral sequences in alignment.fa are named according to\n\
+        the convention used by Mathieu Blanchette's inferAncestors program,\n\
+        e.g., \"RAT+MOUSE+RABBIT+\" for the last common ancestor of \"rat\",\n\
+        \"mouse\", and \"rabbit\".\n\
+\n\
+    --help, -h\n\
+        Display this help message.\n\
+";

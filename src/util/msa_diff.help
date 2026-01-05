@@ -1,0 +1,28 @@
+char HELP[1047] = "\nPROGRAM: msa_diff\n\
+\n\
+USAGE: msa_diff [OPTIONS] alignment1.fa alignment2.fa > diffs.out\n\
+\n\
+DESCRIPTION: Compare two multiple alignments and report differences.\n\
+\n\
+OPTIONS:\n\
+    --format1, -i FASTA|SS|PHYLIP|MPM|MAF\n\
+        Format of first alignment (default is to guess format from file contents).\n\
+\n\
+    --format2, -j FASTA|SS|PHYLIP|MPM|MAF\n\
+        Format of second alignment (default is to guess format from file contents).\n\
+\n\
+    --alphabet, -a <alphabet_string>\n\
+        Use given string for alphabet.  Can be used to accommodate\n\
+        nonstandard characters (e.g., 'b' for any base or '^' for insertion\n\
+        gaps, '.' for deletion gaps).  \n\
+\n\
+    --ignore-base-id, -b\n\
+        Ignore identity of bases; consider all alphabetical characters\n\
+        equivalent (e.g., A, C, G, T, N, X, b).\n\
+\n\
+    --ignore-gap-type, -g\n\
+        Ignore type of gap; consider '-', '^', and '.' all equivalent.\n\
+\n\
+    --help, -h\n\
+        Display this help message and exit.\n\
+";

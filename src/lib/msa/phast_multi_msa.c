@@ -55,7 +55,7 @@ Multi_MSA *multimsa_new_from_files(FILE *F) {
   Regex *alph_re = str_re_new("#[[:space:]]*ALPHABET[[:space:]]*=[[:space:]]*([A-Z]+)");
   Regex *format_re = str_re_new("#[[:space:]]*FORMAT[[:space:]]*=[[:space:]]*([A-Z]+)");
   
-  int i, num_msa, line_no=0;
+  int i, num_msa;
   char *msa_fname;
   FILE *msa_f;
   msa_format_type format=0;
@@ -68,8 +68,6 @@ Multi_MSA *multimsa_new_from_files(FILE *F) {
 
   while (str_readline(line, F) != EOF) {
     str_trim(line);
-    checkInterruptN(line_no, 1000);
-    line_no++;
     if (line->length == 0) continue; /* ignore blank lines */
     
     if (msas == NULL) {

@@ -1,0 +1,159 @@
+char HELP[6593] = "\nPROGRAM: phyloBoot\n\
+\n\
+USAGE: phyloBoot [OPTIONS] <model_fname>|<msa_fname>\n\
+\n\
+DESCRIPTION:\n\
+\n\
+    Generate simulated alignment data by parametric or nonparametric\n\
+    bootstrapping, and/or estimate errors in phylogenetic model parameters.\n\
+    When estimating errors in parameters, the tree topology is not inferred\n\
+    -- estimated errors are conditional on the given topology.\n\
+\n\
+    If a model is given in the form of a .mod file (<model_fname>), then\n\
+    parametric bootstrapping is performed -- i.e., synthetic data sets are\n\
+    drawn from the distribution defined by the model.  Otherwise, the input\n\
+    file is assumed to be a multiple alignment, and non-parametric\n\
+    bootstrapping is performed -- i.e., sites are drawn (with replacement)\n\
+    from the empirical distribution defined by the given alignment.  \n\
+\n\
+    The default behavior is to produce simulated alignments, estimate model\n\
+    parameters for each one, and then write a table to stdout with a row\n\
+    for each parameter and columns for the mean, standard deviation\n\
+    (approximate standard error), median, minimum, and maximum of estimated\n\
+    values, plus the boundaries of 95%% and 90%% confidence intervals.  \n\
+    \n\
+    The --alignments-only option, however, allows the parameter estimation\n\
+    step to be bypassed entirely, and the program to be used simply to\n\
+    generate simulated data sets.\n\
+\n\
+    See usage for phyloFit for additional details on tree-building\n\
+    options.\n\
+\n\
+EXAMPLES:\n\
+    \n\
+    (See below for more details on options)\n\
+\n\
+    1. Estimation of parameter errors by parametric bootstrapping.\n\
+\n\
+        phyloBoot --nreps 500 --nsites 10000 mymodel.mod > par_errors\n\
+\n\
+    2. Estimation of parameter errors by nonparametric bootstrapping.\n\
+\n\
+        phyloBoot --nreps 500 --nsites 10000 \\\n\
+            --tree \"((human,chimp),(mouse,rat))\" myalignment.fa > \\\n\
+            nonpar_errors\n\
+\n\
+    3. Parametric generation of simulated data.\n\
+    \n\
+        phyloBoot mymodel.mod --alignments-only pardata \\\n\
+            --nreps 500 --nsites 10000 \n\
+\n\
+    4. Nonparametric generation of simulated data.\n\
+    \n\
+        phyloBoot myalignment.fa --alignments-only nonpardata \\\n\
+            --nreps 500 --nsites 10000 \n\
+\n\
+OPTIONS:\n\
+\n\
+ (bootstrapping options)\n\
+\n\
+    --nsites, -L <number>\n\
+        Number of sites in sampled alignments.  If an alignment is\n\
+        given (non-parametric case), default is number of sites in\n\
+        alignment, otherwise default is 1000.\n\
+\n\
+    --nreps, -n <number>\n\
+        Number of replicates.  Default is 100.\n\
+\n\
+    --msa-format, -i FASTA|PHYLIP|MPM|MAF|SS\n\
+        (non-parametric case only)  Alignment format.  Default is to guess\n\
+	format from file contents.        \n\
+\n\
+    --alignments-only, -a <fname_root>\n\
+        Generate alignments and write them to files with given filename\n\
+        root, but do not estimate parameters.  \n\
+\n\
+    --dump-mods, -d <fname_root>\n\
+        Dump .mod files for individual estimated models (one for each\n\
+        replicate).\n\
+\n\
+    --dump-samples, -m <fname_root>\n\
+        Dump simulated alignments to files with given filename root.\n\
+        Similar to --alignments-only but does not disable parameter\n\
+        estimation.\n\
+\n\
+    --dump-format, -o FASTA|PHYLIP|MPM|SS.\n\
+        (For use with --alignments-only or --dump-samples) File format to\n\
+        use when dumping raw alignments.  Default FASTA.\n\
+\n\
+    --read-mods, -R <fname_list>\n\
+        Read estimated models from list of filenames instead of generating\n\
+        alignments and estimating parameters.  fname_list can be comma-\n\
+        delimited list of files, or, if preceded by a '*', the name of a \n\
+        file containing the file names (one per line).  Can be used to compute\n\
+        statistics for replicates that have been processed separately (see\n\
+        --alignments-only).  When this option is used, the primary argument\n\
+        to the program (<model_fname>|<msa_fname>) will be ignored.\n\
+\n\
+    --output-average, -A <fname>\n\
+        Output a tree model representing the average of all input\n\
+        models to the specified file.\n\
+\n\
+    --quiet, -q\n\
+        Proceed quietly.\n\
+\n\
+    --help, -h\n\
+        Print this help message.\n\
+\n\
+ (tree-building options)\n\
+\n\
+    --tree, -t <tree_fname>|<tree_string>\n\
+        (Required if non-parametric and more than two species) Name\n\
+        of file or literal string defining tree topology.\n\
+\n\
+    --subst-mod, -s JC69|F81|HKY85|REV|SSREV|UNREST|R2|R2S|U2|U2S|R3|R3S|U3|U3S\n\
+        (default REV).  Nucleotide substitution model.\n\
+\n\
+    --nrates, -k <nratecats>\n\
+        (default 1).  Number of rate categories to use.  Specifying a\n\
+        value of greater than one causes the discrete gamma model for\n\
+        rate variation to be used.\n\
+\n\
+    --EM, -E\n\
+        Use EM rather than the BFGS quasi-Newton algorithm for parameter\n\
+        estimation.\n\
+\n\
+    --precision, -p HIGH|MED|LOW\n\
+        (default HIGH) Level of precision to use in estimating model\n\
+        parameters.\n\
+\n\
+    --init-model, -M <mod_fname>\n\
+        Initialize optimization procedure with specified tree model.\n\
+\n\
+    --init-random, -r\n\
+        Initialize parameters randomly.\n\
+\n\
+    --scale,-P <rho>\n\
+        Scale input tree by factor rho before doing parametric simulations.\n\
+\n\
+    --subtree,-S <node>\n\
+        For use with --subtree-scale and/or subtree-switch.  Define \n\
+        subtree including all children of named node, including branch \n\
+	leading up to node.\n\
+\n\
+    --subtree-scale,-l <lambda>\n\
+        Scale subtree defined with --subtree option by factor lambda.\n\
+\n\
+    --subtree-switch,-w <prob>\n\
+        With given probability, randomly switch branches in tree from\n\
+	subtree to supertree and vice versa.  Randomization is performed\n\
+	independently for each branch in every column of simulated data.\n\
+\n\
+    --scale-file,-F <file>\n\
+        (For use with --subtree in parametric mode).  Instead of using \n\
+        --subtree-scale or --scale, read in a tab-delimited file with \n\
+        three columns: numSite,scale,subtree_scale.  For each row in the \n\
+        file phyloBoot will simulate the given number of sites with those \n\
+        scaling factors, and then will move on to the next row, so that the \n\
+        total number of sites is the sum of the first column.\n\
+";

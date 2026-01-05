@@ -28,6 +28,15 @@ Vector *vec_new_from_array(double *array, int size) {
   return v;
 }
 
+/* allows an array to be accessed like a vector without copying
+   underlying data; use carefully; avoid vec_free */
+Vector *vec_view_array(double *array, int size) {
+  Vector *v = smalloc(sizeof(Vector));
+  v->data = array;
+  v->size = size;
+  return v;
+}
+
 Vector *vec_new_from_list(List *l) {
   int i;
   Vector *v = vec_new(lst_size(l));
@@ -203,3 +212,58 @@ void vec_ave(Vector *dest_v, List *source_vs, List *counts) {
   vec_scale(dest_v, 1/n);
 }
 
+double vec_sum(Vector *v) {
+  double sum=0;
+  int i;
+  for (i=0; i<v->size; i++) 
+    sum += v->data[i];
+  return(sum);
+}
+
+/* compute mean and standard deviation from a vector */
+void vec_mean_stdev(Vector *v, double *mean, double *stdev) {
+  double s = 0, ss = 0;
+  double n = v->size;
+  for (int i = 0; i < n; i++) {
+    double x = vec_get(v, i);
+    s += x;
+    ss += (x * x);
+  }
+  (*mean) = s / n;
+  (*stdev) = sqrt(n/(n-1) * (ss/n - ((*mean) * (*mean))));
+}
+
+/* create a list of doubles from a Vector */
+List *vec_to_list(Vector *v) {
+  List *l = lst_new_dbl(v->size);
+  for (int i = 0; i < v->size; i++)
+    lst_push_dbl(l, vec_get(v, i));
+  return l;    
+}
+
+/* compute various summary statistics for an arbitrary vector of real
+   numbers.  Mean and standard deviation are required.  Other
+   statistics computed if pointers are non-NULL. */ 
+void vec_summary_stats(Vector *v, double *mean, double *stdev,
+                       double *median, double *min, double *max,
+                       double *min_95CI, double *max_95CI,
+                       double *q25, double *q75) {
+
+  List *l = vec_to_list(v);
+  lst_dbl_stats(l, mean, stdev, median, min, max, min_95CI, max_95CI, q25, q75);
+  lst_free(l);
+}
+
+unsigned int vec_isfinite(Vector *v) {
+  for (int i = 0; i < v->size; i++)
+    if (!isfinite(v->data[i]))
+      return FALSE;
+  return TRUE;
+}
+
+/* set elements of vector to random draws from normal distribution
+   with mean mu and standard deviation sigma */
+void vec_set_random(Vector *v, double mu, double sigma) {
+  for (int i = 0; i < v->size; i++)
+    v->data[i] = norm_draw(mu, sigma);
+}

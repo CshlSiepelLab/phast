@@ -1,0 +1,13 @@
+char HELP[378] = "\nPROGRAM: modFreqs\n\
+\n\
+DESCRIPTION: Change background frequencies of reversible tree model in such\n\
+a way that reversibility is maintained.\n\
+\n\
+USAGE: modFreqs tree.mod <Afreq> <Cfreq> <Gfreq> <Tfreq> > new.mod\n\
+        OR\n\
+       modFreqs tree.mod <G+Cfreq> > new.mod\n\
+\n\
+OPTIONS:\n\
+    --help, -h\n\
+        Print this help message.\n\
+";

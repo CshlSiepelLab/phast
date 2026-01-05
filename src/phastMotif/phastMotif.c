@@ -48,9 +48,6 @@ OPTIONS:\n\
               By default, the background model is estimated\n\
               in a preprocessing step, by pooling all data.\n\
 \n\
-    -s        Estimate a separate background model for each multiple alignment.\n\
-              (Not yet implemented.)\n\
-\n\
     -k <size> Learn motifs of the specified size (default is %d).\n\
 \n\
     -B <n>    Report best <n> motifs (default %d).\n\
@@ -128,7 +125,7 @@ OPTIONS:\n\
 int main(int argc, char *argv[]) {
   TreeNode *tree = NULL;
   TreeModel *backgd_mod = NULL;
-  int i, j, separate_backgd = 0, 
+  int i, j,  
     size = DEFAULT_SIZE, meme_mode = 0, profile_mode = 0, 
     nrestarts = 10, npseudocounts = 5, nsamples = -1, 
     nmostprevalent = -1, tuple_size = -1, nbest = -1, sample_parms = 0,
@@ -147,7 +144,7 @@ int main(int argc, char *argv[]) {
   signed char c;
   GFF_Set *bedfeats = NULL;
 
-  while ((c = getopt(argc, argv, "t:i:b:sk:md:pn:I:R:P:w:c:SB:o:HDxh")) != -1) {
+  while ((c = getopt(argc, argv, "t:i:b:k:md:pn:I:R:P:w:c:SB:o:HDxh")) != -1) {
     switch (c) {
     case 't':
       tree = tr_new_from_file(phast_fopen(optarg, "r"));
@@ -159,9 +156,6 @@ int main(int argc, char *argv[]) {
       break;
     case 'b':
       backgd_mod = tm_new_from_file(phast_fopen(optarg, "r"), 1);
-      break;
-    case 's':
-      separate_backgd = 1;
       break;
     case 'k':
       size = get_arg_int(optarg);

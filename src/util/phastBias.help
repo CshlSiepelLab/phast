@@ -1,0 +1,148 @@
+char HELP[6127] = "\nPROGRAM: phastBias\n\
+\n\
+USAGE: phastBias [OPTIONS] alignment neutral.mod foreground_branch > scores.wig\n\
+\n\
+    The alignment file can be in any of several file formats (see\n\
+    --msa-format).  The neutral model must be in the .mod format\n\
+    produced by the phyloFit program.  The foreground_branch should\n\
+    identify a branch of the tree (internal branches can be named\n\
+    with tree_doctor --name-ancestors).\n\
+\n\
+DESCRIPTION:\n\
+\n\
+    Identify regions of the alignment which are affected by gBGC,\n\
+    indicated by a cluster of weak-to-strong (A/T -> G/C) substitutions\n\
+    amidst a deficit of strong-to-weak substitutions on a particular\n\
+    branch of the tree.  The regions are identified by a phylo-HMM\n\
+    with four states: neutral, conserved, neutral with gBGC, and\n\
+    conserved with gBGC.\n\
+\n\
+OUTPUT:\n\
+\n\
+    phastBias produces a wig file with scores for every position in the\n\
+    alignment indicating the probability of being in one of the gBGC\n\
+    states.  It can also produce gBGC tracts by thresholding this\n\
+    probability at 0.5, or a matrix of probabilities for all four states.\n\
+    See OUTPUT OPTIONS below.\n\
+\n\
+GENERAL OPTIONS:\n\
+\n\
+    --help,-h\n\
+       Print this help message.\n\
+ \n\
+TUNING PARAMETER OPTIONS:\n\
+\n\
+  gBGC PARAMETERS:\n\
+\n\
+    --bgc <B>\n\
+      The B parameter describes the strength of gBGC.  It must be > 0.\n\
+        Too low of a value may yield false positives, as the gBGC model \n\
+        becomes indistinguishable from the non-gBGC model.\n\
+      Default: 3\n\
+\n\
+    --estimate-bgc <0|1>\n\
+      Use \"--estimate-bgc 1\" to estimate B by maximum likelihood.\n\
+      Default: 0\n\
+\n\
+    --bgc-exp-length <length>\n\
+      Set the prior expected length of gBGC tracts.  This is equivalent to\n\
+        1/alpha in the parametrization defined by Capra et al, where\n\
+        alpha is the rate out of gBGC states.\n\
+      Default: 1000\n\
+\n\
+    --estimate-bgc-exp-length <0|1>\n\
+      Use \"--estimate-bgc-exp-length 1\" to estimate this parameter by an\n\
+        expectation-maximization algorithm.\n\
+      Default: 0\n\
+\n\
+    --bgc-target-coverage <coverage>\n\
+      Set the prior for gBGC tract coverage (as a fraction between 0 and 1).\n\
+        This is represented in the model as beta/(alpha+beta), where beta\n\
+        is the rate into the gBGC state, and alpha is the rate out of the\n\
+        gBGC state.\n\
+      Default: 0.01\n\
+\n\
+    --estimate-bgc-target-coverage <0|1>\n\
+      Use \"--estimate-bgc-target-coverage 0\" to hold this parameter constant.\n\
+      Default: 1 (This is the only parameter estimated by default.)\n\
+\n\
+  CONSERVATION PARAMETERS:\n\
+     Note: it is not recommended to tune these parameters with phastBias.\n\
+       Rather, phastCons may be used to determine the best values for rho\n\
+       and the transition rates into/out of conserved elements.  See\n\
+       phastCons --help and the phastCons HOWTO (available online) to learn\n\
+       about tuning these parameters.\n\
+\n\
+    --rho <rho>\n\
+      Set the scaling factor for branch lengths in conserved states.  Rho should\n\
+        be between 0 and 1.\n\
+      Default: 0.31\n\
+    \n\
+    --cons-exp-length <length>\n\
+      Set the prior expected length of conserved elements.  This parameter is\n\
+        held constant; if you want to tune it, it is recommended to do this\n\
+        with the phastCons program under a non-gBGC model (see the \n\
+        --expected-length option in phastCons).\n\
+      Default: 45\n\
+\n\
+    --cons-target-coverage <cov>\n\
+      Set the prior for coverage of conserved elements (as a fraction \n\
+        between 0 and 1).  Like the --cons-exp-length above, this parameter\n\
+        is also held constant, but can be tuned with phastCons (see\n\
+        phastCons --transitions).\n\
+      Default: 0.3\n\
+\n\
+  OTHER PARAMETERS:\n\
+\n\
+    --scale <scale>\n\
+      Set an overall scaling factor for the branch lengths in all states.\n\
+      Default: 1\n\
+\n\
+    --estimate-scale <0|1>\n\
+      Rescale the branches in all states by a scaling factor determined by\n\
+        maximum likelihood (initialized by --scale above).\n\
+      Default: 0\n\
+\n\
+    --eqfreqs-from-msa <0|1>\n\
+      Reset equilibrium frequencies of A,C,G,T based on frequencies observed\n\
+         in the alignment.  Otherwise will not be altered from input model.\n\
+      Default: 1\n\
+\n\
+\n\
+OUTPUT OPTIONS:\n\
+    --output-tracts <file.gff>\n\
+       Print a GFF file identifying all regions with posterior probability of\n\
+       being in a gBGC state > 0.5.\n\
+\n\
+    --posteriors <none|wig|full>\n\
+       Use this option to control posterior probability output, which is \n\
+         written to stdout.  \"none\" implies do not output anything; wig outputs\n\
+         a standard fixed-step wiggle file giving the probability that each\n\
+         base is assigned to a gBGC state; \"full\" outputs a table with five\n\
+         columns.  The first column is the coordinate (1-based relative to\n\
+         the first sequence in the alignment), followed by the probabilities\n\
+         of each of the four states: neutral, conserved, gBGC neutral, \n\
+         gBGC conserved.\n\
+       Default: wig\n\
+\n\
+    --output-mods <output_root>\n\
+       Print out the tree models for all four states to <output_root>.cons.mod,\n\
+       <output_root>.neutral.mod, <output_root>.gBGC_cons.mod, and\n\
+       <output_root>.gBGC_neutral.mod.\n\
+\n\
+    --informative-fn,-i <file.gff>\n\
+       Print a GFF containing regions of the alignment which are informative\n\
+       for gBGC. Note: only works properly if foreground branch is a single\n\
+       branch (not a group of branches). \n\
+\n\
+    --informative-only,-o\n\
+      (To be used with --informative-fn). Print the informative regions, then\n\
+      quit.\n\
+\n\
+\n\
+REFERENCES:\n\
+\n\
+    Capra JA, Hubisz MJ, Kostka D, Pollard KS, Siepel A: A Model-Based Analysis\n\
+       of GC-Biased Gene Conversion in the Human and Chimpanzee Genomes.\n\
+       (Manuscript in submission).\n\
+";

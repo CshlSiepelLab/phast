@@ -139,9 +139,9 @@ void ss_from_msas(MSA *msa, int tuple_size, int store_order,
       upper_bound = msa->ss->ntuples + source_msa->ss->ntuples;
     else
       upper_bound = msa->ss->ntuples + source_msa->length;
-      max_tuples = pow_bounded(strlen(msa->alphabet) + (int)strlen(msa->missing) + 1,
-                         msa->nseqs * tuple_size,
-                     upper_bound);
+    max_tuples = pow_bounded(strlen(msa->alphabet) + (int)strlen(msa->missing) + 1,
+                             msa->nseqs * tuple_size,
+                             upper_bound);
     if (max_tuples < 0) max_tuples = upper_bound;
     ss_realloc(msa, tuple_size, max_tuples, do_cats, store_order);
   }
@@ -547,7 +547,7 @@ void ss_to_msa(MSA *msa) {
 void msa_read_AXT(MSA *msa, List *axt_fnames) {
   FILE *F;
   String *line, *ref, *targ;
-  int i, j, k, start, line_no;
+  int i, j, k, start;
   List *fields;
 
   msa->nseqs = lst_size(axt_fnames)+1;
@@ -569,11 +569,8 @@ void msa_read_AXT(MSA *msa, List *axt_fnames) {
 
     F = phast_fopen(axtfname->chars, "r");
 
-    line_no=0;
     /* FIXME: need to deal with strand!  Also, soft masking ... */
     while (str_readline(line, F) != EOF) {
-      checkInterruptN(line_no, 1000);
-      line_no++;
       str_trim(line);
 
       if (line->length == 0) continue;
@@ -653,7 +650,7 @@ MSA* ss_read(FILE *F, char *alphabet) {
     *names_re, *alph_re, *ncats_re, *order_re, *offset_re;
   String *line, *alph = NULL;
   int nseqs, length, tuple_size, ntuples, i, ncats = -99, header_done = 0, 
-    idx_offset = 0, idx, offset, line_no=0;
+    idx_offset = 0, idx, offset;
   MSA *msa = NULL;
   List *matches;
   char **names = NULL;
@@ -674,8 +671,6 @@ MSA* ss_read(FILE *F, char *alphabet) {
   nseqs = length = tuple_size = ntuples = -1;
 
   while (str_readline(line, F) != EOF) {
-    checkInterruptN(line_no, 1000);
-    line_no++;
     str_trim(line);
     if (line->length == 0) continue;
     if (line->chars[0]=='#') continue;

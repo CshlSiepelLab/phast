@@ -1,0 +1,44 @@
+char HELP[1647] = "\nPROGRAM: base_evolve\n\
+\n\
+USAGE: base_evolve [file.hmm] tree1.mod [tree2.mod tree3.mod ...] > alignment\n\
+\n\
+DESCRIPTION: \n\
+\n\
+    Produce a synthetic alignment by simulating evolution according to\n\
+    a phylogenetic model or a phylo-HMM.  Deals with base-substitution\n\
+    only, not indels.  If a multiple tree models are given, then an\n\
+    HMM file must be given showing how to transition between them.\n\
+\n\
+EXAMPLES:\n\
+\n\
+    base_evolve --nsites 500 mytree.mod > simulated.fa\n\
+\n\
+    base_evolve --nsites 500 simple-gene.hmm tree1.mod tree2.mod \\\n\
+        tree3.mod --features simulated2.gff --catmap simple-gene.cm \\\n\
+        > simulated2.fa\n\
+\n\
+OPTIONS:\n\
+\n\
+    --nsites, -n <nsites>\n\
+        Generate an alignment with <nsites> columns.  Default is 1000.\n\
+\n\
+    --msa-format, -o FASTA|PHYLIP|MPM|SS\n\
+        Output alignment in specified format.  Default is FASTA.\n\
+\n\
+    --features, -f <out.gff>\n\
+        (for use with a phylo-HMM)  Output an annotations file in GFF\n\
+        reflecting the path through the phylo-HMM.\n\
+\n\
+    --catmap, -c <map.cm>\n\
+        (for use with --features)  Use specified category map to\n\
+        define feature names.\n\
+\n\
+    --embed, -e <alt.mod>,<length>\n\
+        Embed an artificial element of the given length in the alignment,\n\
+        drawing columns from <alt.mod>.  A single element is embedded in\n\
+        the exact middle of the generated alignment.  Useful for testing\n\
+        sensitivity of methods for functional element detection.\n\
+\n\
+    --help, -h\n\
+        Display this help message and exit.\n\
+";

@@ -354,7 +354,7 @@ void phyloP(struct phyloP_struct *p) {
           print_wig(outfile, msa, pvals, chrom, refidx, TRUE, NULL);
 	if ((outfile != NULL && !output_wig) || results!=NULL) {
 	  char str[1000];
-	  sprintf(str, "#neutral mean = %.3f var = %.3f\n#post_mean post_var pval", 
+	  snprintf(str, 1000, "#neutral mean = %.3f var = %.3f\n#post_mean post_var pval", 
                   prior_mean, prior_var);
           print_base_by_base(output_wig ? NULL : outfile, 
 			     str, chrom, msa, NULL, 
@@ -422,7 +422,7 @@ void phyloP(struct phyloP_struct *p) {
           print_wig(outfile, msa, pvals, chrom, refidx, TRUE, results);
 	if (results != NULL || !output_wig) {
           char str[1000];
-          sprintf(str, "#neutral mean_sub = %.3f var_sub = %.3f mean_sup = %.3f  var_sup = %.3f\n#post_mean_sub post_var_sub post_mean_sup post_var_sup pval", 
+          snprintf(str, 1000, "#neutral mean_sub = %.3f var_sub = %.3f mean_sup = %.3f  var_sup = %.3f\n#post_mean_sub post_var_sub post_mean_sup post_var_sup pval", 
                   prior_mean_sub, prior_var_sub, prior_mean_sup, prior_var_sup);
           print_base_by_base(output_wig ? NULL : outfile, 
 			     str, chrom, msa, NULL, 

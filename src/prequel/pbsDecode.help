@@ -1,0 +1,39 @@
+char HELP[1252] = "\nPROGRAM: pbsDecode\n\
+\n\
+USAGE: pbsDecode [OPTIONS] input.bin codefile > output.probs\n\
+\n\
+DESCRIPTION: \n\
+\n\
+    Decode a binary encoding of a probabilistic biological sequence\n\
+    (PBS).  Outputs a table with a row for each position in the\n\
+    sequence and a column for each base, such that the (i,j)th value\n\
+    is the probability of base j at position i.  The same codefile\n\
+    that was used to encode the sequence should be given.\n\
+\n\
+    This program performs the inverse function of pbsEncode.\n\
+\n\
+EXAMPLE:\n\
+\n\
+    Decode an encoded ancestral sequence:\n\
+        pbsDecode anc.human-mouse.bin mammal.code > anc.human-mouse.probs\n\
+\n\
+    where \"anc.human-mouse.bin\" is a binary encoding of an ancestral\n\
+    sequence produced by pbsEncode or prequel, and \"mammal.code\" is a\n\
+    codefile produced by pbsTrain.\n\
+\n\
+OPTIONS:\n\
+\n\
+    --start, -s <sidx>\n\
+	Decode only the subsequence starting at position <sidx>.\n\
+	Indexing starts with 1.\n\
+\n\
+    --end, -e <eidx>\n\
+	Decode only the subsequence ending at position <eidx>.\n\
+	Indexing starts with 1.\n\
+\n\
+    --discard-gaps, -G\n\
+	Do not report gaps in the PBS.  \n\
+\n\
+    --help, -h\n\
+	Produce this help message.\n\
+";

@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <phast/msa.h>
+#include <phast/matrix.h>
 #include <phast/hmm.h>
 #include <getopt.h>
 #include <phast/gff.h>

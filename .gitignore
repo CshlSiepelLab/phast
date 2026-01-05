@@ -1,6 +1,5 @@
 *.a
 *.o
-*.help
 
 bin/
 doc/man/

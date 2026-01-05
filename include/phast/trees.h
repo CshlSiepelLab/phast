@@ -94,7 +94,6 @@ TreeNode *tr_new_from_string(const char *s);
    @result Newly allocated tree node
 */
 TreeNode *tr_new_node();
-
 /** \} */
 
 /** Add specified child to specified parent, creating all requisite
@@ -380,6 +379,8 @@ void tr_partition_leaves(TreeNode *tree, TreeNode *sub, List *inside,
 void tr_partition_nodes(TreeNode *tree, TreeNode *sub, List *inside, 
 			List *outside);
 
+void tr_list_leaves(TreeNode *tree, List **leaf_lst);
+
 /** Return a list of the leaf names in a given tree 
     @param tree Tree containing leaf names
     @result List of leaf names
@@ -459,5 +460,19 @@ void tr_label_subtree(TreeNode *tree, const char *subtreeNode,
  */
 void tr_get_labelled_nodes(TreeNode *tree, const char *label, List *rv);
 /** \} */
+
+int tr_check_unrooted_indexing(TreeNode *root);
+
+void tr_enforce_unrooted_indexing(TreeNode *tree);
+
+void tr_reset_nnodes(TreeNode *tree);
+
+void tr_collapse_unary_nodes(TreeNode **rootp);
+
+TreeNode *tr_reroot2(TreeNode *oldroot, TreeNode *newroot);
+
+TreeNode *tr_find_midpoint(TreeNode *tree, int leaf1_id, int leaf2_id);
+
+List *tr_set_leaf_bitsets(TreeNode *tree);
 
 #endif 

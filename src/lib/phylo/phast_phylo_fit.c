@@ -119,7 +119,7 @@ char **get_ratecat_names(TreeModel *mod, int *len) {
   char tempstr2[100];
   char **rv = smalloc(mod->nratecats * sizeof(char*));
   for (i=0; i < mod->nratecats; i++) {
-    sprintf(tempstr2, "rate.cat.%i", i);
+    snprintf(tempstr2, 100, "rate.cat.%i", i);
     rv[i] = smalloc((strlen(tempstr2)+1)*sizeof(char));
     strcpy(rv[i], tempstr2);
   }
@@ -180,7 +180,7 @@ char **get_site_names(MSA *msa, int *len) {
   *len = (int)msa->length;
   rv = smalloc((*len) * sizeof(char*));
   for (i=0; i < *len; i++) {
-    sprintf(tempch, "%i", i+1);
+    snprintf(tempch, 100, "%i", i+1);
     rv[i] = smalloc((strlen(tempch)+1)*sizeof(char));
     strcpy(rv[i], tempch);
   }
@@ -634,7 +634,7 @@ void print_window_summary(FILE* WINDOWF, List *window_coords, int win,
       fprintf(WINDOWF, "%5s %8s %8s %4s", "win", "beg", "end", "cat");
       for (i=0; i < nseqs; i++) {
 	char temp[100];
-	sprintf(temp, "GC%i", i);
+	snprintf(temp, 100, "GC%i", i);
 	fprintf(WINDOWF, " %6s", temp);
       }
       fprintf(WINDOWF, " %7s", "ninf");
@@ -748,12 +748,12 @@ int run_phyloFit(struct phyloFit_struct *pf) {
   if (tree == NULL) {
     if (input_mod != NULL) tree = input_mod->tree;
     else if (msa->nseqs == 2) {
-      sprintf(tmpchstr, "(%s,%s)", msa->names[0], msa->names[1]);
+      snprintf(tmpchstr, STR_MED_LEN, "(%s,%s)", msa->names[0], msa->names[1]);
       tree = tr_new_from_string(tmpchstr);
       free_tree = TRUE;
     }
     else if (msa->nseqs == 3 && subst_mod_is_reversible(subst_mod) && pf->alt_mod_str == NULL) {
-      sprintf(tmpchstr, "(%s,(%s,%s))", msa->names[0], msa->names[1],
+      snprintf(tmpchstr, STR_MED_LEN, "(%s,(%s,%s))", msa->names[0], msa->names[1],
               msa->names[2]);
       tree = tr_new_from_string(tmpchstr);
       free_tree = TRUE;

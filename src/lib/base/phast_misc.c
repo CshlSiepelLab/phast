@@ -463,6 +463,13 @@ void *srealloc(void *ptr, size_t size) {
     die("FATAL ERROR: out of memory.\n");
   return retval;
 }
+
+void *scalloc(size_t count, size_t size) {
+  void *retval = calloc(count, size);
+  if (retval == NULL)
+    die("FATAL ERROR: out of memory.\n");
+  return retval;
+}
 #endif
 
 /* make a copy of word, allocating just enough space.*/
@@ -652,6 +659,21 @@ void mn_draw(int n, double *p, int d, int *counts) {
   sfree(data);
 }
 
+/* Make a single draw from a univariate normal distribution with mean
+   mu and standard deviation sigma. */
+double norm_draw(double mu, double sigma) {
+  double u1, u2, z;
+  
+  /* draw indep sample from standardn norm using Box-Muller
+     transform; note more  */
+  u1 = unif_rand();
+  u2 = unif_rand();
+  z = sqrt(-2 * log(u1)) * cos(2 * M_PI * u2);
+  /* TODO: create vector version for efficiency on repeated calls */
+
+  return (mu + sigma * z);
+}
+
 /** Given a probability vector, draw an index.  Call srandom externally */
 int draw_index(double *p, int size) {
   int i;
@@ -705,15 +727,15 @@ double gamma_pdf(double x, double a, double b) {
 /** Evaluate cdf of gamma distribution with parameters a and b.  If
     lower_tail == TRUE returns P(X<=x), else returns P(X>=x) */
 double gamma_cdf(double x, double a, double b, int lower_tail) {
-  if (x < 0)
-    die("ERROR gamma_cdf got x=%f\n", x);
+  if (a <= 0.0 || b <= 0.0) die("gamma_cdf: a>0, b>0 required\n");
+  if (x <= 0.0) return lower_tail ? 0.0 : 1.0;
   return incomplete_gamma(a, x/b, lower_tail ? 'p' : 'q');
 }
 
 /* Evaluate pdf of chi-square distribution with dof degrees of freedom */
 double chisq_pdf(double x, double dof) {
-  if (x < 0)
-    die("ERROR chisq_pdf got x=%f\n", x);
+  if (dof <= 0.0) die("chisq_pdf: dof>0 required\n");
+  if (x < 0.0) return 0.0;
   return gamma_pdf(x, dof/2, 2);
 }
 
@@ -721,9 +743,35 @@ double chisq_pdf(double x, double dof) {
     freedom.  If lower_tail == TRUE returns P(X<=x), else returns
     P(X>=x) */
 double chisq_cdf(double x, double dof, int lower_tail) {
-  if (x < 0)
-    die("ERROR chisq_cdf got x=%f\n", x);
+  if (dof <= 0.0) die("chisq_cdf: dof>0 required\n");
+  if (x <= 0.0) return lower_tail ? 0.0 : 1.0;
   return gamma_cdf(x, dof/2, 2, lower_tail);
+}
+
+/* Evaluate inv cdf of chi-square distribution with dof degrees of
+   freedom (assuming lower_tail = TRUE).  Uses simple bisection method
+   (not super fast) */
+double chisq_cdf_inv(double p, double dof) {
+  if (dof <= 0.0) die("chisq_cdf_inv: dof>0 required\n");
+  if (p <= 0.0) return 0.0;
+  if (p >= 1.0) return INFINITY;
+  double lo = 0.0;
+  double hi = dof;   /* initial guess */
+  int k = 0;
+  while (chisq_cdf(hi, dof, TRUE) < p && hi < 1e300 && ++k < 200)
+    hi *= 2.0; /* bracket */
+  while (chisq_cdf(hi, dof, TRUE) < p) 
+    hi *= 2.0;    /* expand upper bound */
+  for (int i = 0; i < 100; i++) {
+    double mid = 0.5*(lo+hi);
+    double cdf = chisq_cdf(mid, dof, TRUE);
+    if (cdf > p)
+      hi = mid;
+    else
+      lo = mid;
+    if ((hi - lo) <= fmax(1e-12, 1e-10 * mid)) break;
+  }
+  return 0.5*(lo+hi);
 }
 
 /* Evaluate cdf of a 50:50 mixture of a chisq distribution with dof

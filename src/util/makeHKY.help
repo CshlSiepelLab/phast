@@ -1,0 +1,31 @@
+char HELP[1025] = "\nPROGRAM: makeHKY\n\
+\n\
+USAGE: makeHKY [OPTIONS] <kappa> > hky.mod\n\
+\n\
+DESCRIPTION:\n\
+\n\
+    Generates an HKY tree model, given kappa (the transition/transversion\n\
+    rate ratio).  The equilibrium base composition and either a branch\n\
+    length or a complete tree can be specified by the options described\n\
+    below.\n\
+\n\
+OPTIONS:\n\
+\n\
+    --gc, -g <val>\n\
+        Define base composition according to specified G+C composition,\n\
+        assuming P(A)=P(T) and P(C)=P(G).  Default is 0.4.\n\
+\n\
+    --pi, -p <pi_A,pi_C,pi_G,pi_T>\n\
+        Override --gc and define base composition explicitly.  Values will\n\
+        be renormalized to ensure they sum exactly to one.\n\
+\n\
+    --branch-length, -t <val>\n\
+        Assume a tree consisting of a single branch of specified length.\n\
+        Default value is 1.\n\
+\n\
+    --tree, -T <tree.nh>\n\
+        Override --branch-length and use specified tree.\n\
+\n\
+    --help, -h\n\
+        Display this help message and exit.\n\
+";

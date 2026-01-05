@@ -64,6 +64,9 @@ Matrix *mat_new_from_array(double **array, int nrows, int ncols);
 */
 Matrix *mat_new_from_file(FILE *F, int nrows, int ncols);
 
+/* read square matrix from file without knowing size */
+Matrix *mat_new_from_file_square(FILE *F);
+
 /** Allocate a new matrix identical to given input matrix.
 
   @param src Input matrix.
@@ -105,12 +108,7 @@ void mat_resize(Matrix *m, int nrows, int ncols);
   @see mat_set, mat_set_zero, mat_set_all.
 */
 void mat_set_identity(Matrix *m);
-/** Set all matrix entries to zero.
 
-  @param m Input matrix.
-  @see mat_set, mat_set_identity, mat_set_all.
-*/
-void mat_zero(Matrix *m);
 /** Set all matrix entries to the specified value.
 
   @param m Input matrix.
@@ -118,6 +116,15 @@ void mat_zero(Matrix *m);
   @see mat_set, mat_set_identity, mat_set_all.
 */
 void mat_set_all(Matrix *m, double val);
+
+/** Add specified value to all matrix entries.
+
+  @param m Input matrix.
+  @param val Value to be added.
+  @see mat_set, mat_set_identity, mat_set_all.
+*/
+void mat_add_const(Matrix *m, double val);
+
 /** Copy all matrix entries from source to destination matrix.
 
   @note Matrices must have the same dimensions.
@@ -154,6 +161,20 @@ static PHAST_INLINE
 double mat_get(Matrix *m, int row, int col) {
   return m->data[row][col];
 }
+
+/** Set all matrix entries to zero.
+
+  @param m Input matrix.
+  @see mat_set, mat_set_identity, mat_set_all.
+*/
+static PHAST_INLINE
+void mat_zero(Matrix *m) {
+  int i, j;
+  for (i = 0; i < m->nrows; i++)
+    for (j = 0; j < m->ncols; j++)
+      m->data[i][j] = 0;
+}
+
 /** Retrieve matrix row.
 
   Allocates a new vector and copies row values from input matrix.
@@ -218,6 +239,9 @@ int mat_equal(Matrix *A, Matrix *B);
   @result Transpose of src matrix
 */
 Matrix *mat_transpose(Matrix *src);
+
+void mat_trans(Matrix *dest, Matrix *src);
+
 /** Rescale matrix entries by given value.
 
   @param m Input matrix.
@@ -251,6 +275,10 @@ void mat_mult(Matrix *prod, Matrix *m1, Matrix *m2);
   @param v Input vector.
 */
 void mat_vec_mult(Vector *prod, Matrix *m, Vector *v);
+
+/* multiply the transpose of m by v and store results in prod */
+void mat_vec_mult_transp(Vector *prod, Matrix *m, Vector *v);
+
 /** Matrix increment.
 
   \code 
@@ -325,6 +353,13 @@ void mat_linear_comb_many(Matrix *dest, int n, Matrix **src,
 */
 int mat_invert(Matrix *M_inv, Matrix *M);
 
+
+/* Compute the Cholesky factorization of a real symmetric positive
+   definite matrix using LAPACK dpotrf routine. Populates L with lower
+   triangular matrix such that L L^T = M. Returns 0 on success, 1 on
+   failure. */
+int mat_cholesky(Matrix *L, Matrix *M);
+
 /** Pre and post multiply a diagonal matrix.
 
    Compute A = B * C * D where A, B, C, D are square matrices of the
@@ -337,6 +372,8 @@ int mat_invert(Matrix *M_inv, Matrix *M);
    @param D Input matrix C.
 */
 void mat_mult_diag(Matrix *A, Matrix *B, Vector *C, Matrix *D);
+
+void mat_mult_diag_transp(Matrix *A, Matrix *B, Vector *C);
 
 #ifndef SKIP_LAPACK
 
@@ -356,5 +393,28 @@ void mat_from_lapack(Matrix *m, LAPACK_DOUBLE *arr);
 #endif
 
 /* \} */
+
+/* Solve Ly = z for y, where L is lower-triangular, via forward substitution */
+void mat_forward_subst(Matrix *L, Vector *z, Vector* y);
+
+/* Solve L^T y = z for y, where L is lower-triangular (hence L^T is
+   upper triangular), via backward substitution */
+void mat_backward_subst(Matrix *L, Vector *z, Vector* y);
+
+/* set G to be the Gram matrix of A, such that G = A x A^T.  Assumes G
+   is square nxn and A is nxk such that k <= n */
+void mat_set_gram(Matrix *G, Matrix *A);
+
+/* similar to mat_set_gram but instead set G = A^T x A.  This is
+   sometimes called the Gram matrix of column (rather than row)
+   vectors */
+void mat_set_gram_col(Matrix *G, Matrix *A);
+
+/* set G to a double centered version of square matrix D.  Set
+   upper_triangular to TRUE if D is represented in upper triangular
+   form */
+void mat_double_center(Matrix *G, Matrix *D, unsigned int upper_triangular);
+
+double mat_median_upper_triang(Matrix *M);
 
 #endif

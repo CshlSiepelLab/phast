@@ -34,13 +34,13 @@ String *str_new_charstr(const char *str) {
 
 String *str_new_int(int i) {
   char tmp[STR_SHORT_LEN];
-  sprintf(tmp, "%d", i);
+  snprintf(tmp, STR_SHORT_LEN, "%d", i);
   return str_new_charstr(tmp);
 }
 
 String *str_new_dbl(double d) {
   char tmp[STR_SHORT_LEN];
-  sprintf(tmp, "%f", d);
+  snprintf(tmp, STR_SHORT_LEN, "%f", d);
   return str_new_charstr(tmp);
 }
 
@@ -91,14 +91,14 @@ void str_append_char(String *s, char c) {
 
 void str_append_int(String *s, int i) {
   char tmp[STR_SHORT_LEN];
-  sprintf(tmp, "%d", i);
+  snprintf(tmp, STR_SHORT_LEN, "%d", i);
   str_append_charstr(s, tmp);
 }
 
 /* defaults to 9 digits beyond decimal pt */
 void str_append_dbl(String *s, double d) {
   char tmp[(int)ceil(log10(d)) + 1 + 10];
-  sprintf(tmp, "%.9f", d);
+  snprintf(tmp, STR_SHORT_LEN, "%.9f", d);
   str_append_charstr(s, tmp);
 }
 
@@ -673,4 +673,18 @@ void str_tolower(String *s) {
   int i;
   for (i = 0; i < s->length; i++)
     s->chars[i] = (char)tolower(s->chars[i]);
+}
+
+/* returns TRUE iff two sorted lists of strings are identical */
+unsigned int str_list_equal(List *l1, List *l2) {
+  int n = lst_size(l1);
+  if (n != lst_size(l2))
+    return FALSE;
+  for (int i = 0; i < n; i++) {
+    String *s1 = lst_get_ptr(l1, i);
+    String *s2 = lst_get_ptr(l2, i);
+    if (str_equals(s1, s2) == FALSE)
+      return FALSE;
+  }
+  return TRUE;
 }

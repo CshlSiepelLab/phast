@@ -1,0 +1,47 @@
+char HELP[1716] = "\nPROGRAM: indelFit\n\
+\n\
+USAGE: indelFit [OPTIONS] indel-history.ih tree.nh > out\n\
+\n\
+DESCRIPTION: \n\
+\n\
+    Estimate the parameters of a simple indel model, given an indel history\n\
+    and a tree.  By default, writes estimates of three parameters to\n\
+    stdout: an insertion rate alpha, a deletion rate beta, and a parameter\n\
+    tau roughly equal to the inverse of the expected indel length (modulo\n\
+    adjustments required to make probabilities sum to one).\n\
+\n\
+    An indel history can be obtained with indelHistory and a tree with\n\
+    phyloFit.\n\
+\n\
+OPTIONS:\n\
+    --alpha, -a <val>\n\
+        Starting value of alpha, the insertion rate.  Default is 0.02.\n\
+\n\
+    --beta, -b <val>\n\
+        Starting value of beta, the deletion rate.  Default is 0.04.\n\
+\n\
+    --tau, -t <val>\n\
+        Starting value of tau, the length parameter.  Default is 0.05.\n\
+\n\
+    --lnl, -L\n\
+        Compute log likelihood of model only, without optimizing parameters.\n\
+        The options above can be used to set the parameters as desired.\n\
+\n\
+    --columns, -c\n\
+        Output log likelihood of each column.\n\
+\n\
+    --features, -f <file.gff>\n\
+        Estimate separate parameters for each type of feature in the given\n\
+        file, as well as for background sites.\n\
+\n\
+    --reference, -r <name>\n\
+        (For use with --features) Name of species (node of tree) defining\n\
+        coordinate frame of features.  By default, the coordinate frame of\n\
+        the entire alignment is assumed.\n\
+\n\
+    --log, -l <file>\n\
+        Write log of optimization to specified file.\n\
+\n\
+    --help, -h\n\
+        Display this help message and exit.\n\
+";
