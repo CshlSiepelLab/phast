@@ -26,6 +26,13 @@ cmake --install build
 By default, binaries are installed to the system prefix (e.g. /usr/local/bin
 or a package-manager–controlled prefix).
 
+### Multithreading Support
+Uses OpenMP with 8 threads by default if found by CMake. OpenMP is not required. To set a different number of threads, update the environment variable:
+
+```
+export OMP_NUM_THREADS=4
+```
+
 ### Documentation and support
 
 For usage of individual tools, run them with --help.
