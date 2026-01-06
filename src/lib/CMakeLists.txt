@@ -70,6 +70,10 @@ add_library(phast::phast_core ALIAS phast_core)
 # PHAST linear algebra backend (chosen at top-level); also link to PCRE
 target_link_libraries(phast_core PUBLIC phast::linalg phast_pcre)
 
+if(OpenMP_C_FOUND)
+  target_link_libraries(phast_core PUBLIC OpenMP::OpenMP_C)
+endif()
+
 # Install the library
 install(TARGETS phast_core
   EXPORT phastTargets
