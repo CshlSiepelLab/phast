@@ -18,12 +18,6 @@
 
 #ifdef _OPENMP
 #include <omp.h>
-static void phast_openmp_init_default(void) {
-  /* Only set a default if the user did NOT */
-  if (getenv("OMP_NUM_THREADS") == NULL) {
-    omp_set_num_threads(8);
-  }
-}
 #endif
 
 /* Computation of likelihoods for columns of a given multiple
@@ -66,10 +60,6 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa, double *col_scores,
   double tmp[nstates];
 
   checkInterrupt();
-
-#ifdef _OPENMP
-  phast_openmp_init_default();
-#endif
 
   /* allocate memory */
 #ifndef _OPENMP

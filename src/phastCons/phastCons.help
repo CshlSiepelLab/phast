@@ -1,4 +1,4 @@
-char HELP[21623] = "\nPROGRAM: phastCons\n\
+char HELP[21900] = "\nPROGRAM: phastCons\n\
 \n\
 USAGE: phastCons [OPTIONS] alignment m1.mod,m2.mod,... > scores.wig\n\
 \n\
@@ -207,6 +207,12 @@ OPTIONS:\n\
     --no-post-probs, -n\n\
         Suppress output of posterior probabilities.  Useful if only\n\
         discrete elements or likelihood is of interest.\n\
+\n\
+    --threads, -j <n>\n\
+        Set number of OpenMP threads (overrides OMP_NUM_THREADS).\n\
+        If OpenMP support is disabled at build time, using this option\n\
+        causes an error. If neither this nor OMP_NUM_THREADS is set,\n\
+        defaults to 1 thread.\n\
 \n\
     --log, -g <log_fname>\n\
         (Optionally use when estimating free parameters) Write log of\n\

@@ -1,4 +1,4 @@
-char HELP[26096] = "\nPROGRAM: phyloFit\n\
+char HELP[26373] = "\nPROGRAM: phyloFit\n\
 \n\
 DESCRIPTION: \n\
 \n\
@@ -149,6 +149,12 @@ OPTIONS:\n\
         branches above these nodes, e.g., human-chimp,cow-dog.  (See\n\
         tree_doctor --name-ancestors regarding names for ancestral nodes.)\n\
         This option does not currently work with --EM.\n\
+\n\
+    --threads, -j <n>\n\
+        Set number of OpenMP threads (overrides OMP_NUM_THREADS).\n\
+        If OpenMP support is disabled at build time, using this option\n\
+        causes an error. If neither this nor OMP_NUM_THREADS is set,\n\
+        defaults to 1 thread.\n\
 \n\
     --quiet, -q\n\
         Proceed quietly.\n\

@@ -27,6 +27,39 @@ if(APPLE)
     target_compile_definitions(bd_phylo_hmm_helpers PRIVATE VECLIB ACCELERATE_NEW_LAPACK)
 endif()
 
+#
+# ---- Help file generation (.help from .help_src) -----------------------
+#
+# Convert all src/**/.help_src to .help using src/munge-help.sh.
+#
+file(GLOB_RECURSE HELP_SRC_FILES
+  "${CMAKE_SOURCE_DIR}/src/*.help_src"
+)
+
+set(GENERATED_HELP_FILES)
+foreach(hs ${HELP_SRC_FILES})
+  get_filename_component(hs_dir "${hs}" DIRECTORY)
+  get_filename_component(hs_we "${hs}" NAME_WE)
+  set(out "${hs_dir}/${hs_we}.help")
+  list(APPEND GENERATED_HELP_FILES "${out}")
+
+  add_custom_command(
+    OUTPUT "${out}"
+    COMMAND bash -c
+            "bash '${CMAKE_SOURCE_DIR}/src/munge-help.sh' \
+             '${hs}' > '${out}'"
+    DEPENDS "${hs}" "${CMAKE_SOURCE_DIR}/src/munge-help.sh"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    VERBATIM
+  )
+endforeach()
+
+if(GENERATED_HELP_FILES)
+  add_custom_target(generate_help ALL
+    DEPENDS ${GENERATED_HELP_FILES}
+  )
+endif()
+
 set(PHAST_PROG_SOURCES
 dless/dless.c
 dless/dlessP.c
@@ -80,6 +113,11 @@ foreach(src ${PHAST_PROG_SOURCES})
 
   # Common link: everything links against the core PHAST library
   target_link_libraries(${tgt} PRIVATE phast_core phast_pcre)
+
+  # Ensure help files are generated before compiling the program
+  if(TARGET generate_help)
+    add_dependencies(${tgt} generate_help)
+  endif()
 
   # Attach shared helper objects where needed
   if(tgt STREQUAL "pbsDecode"

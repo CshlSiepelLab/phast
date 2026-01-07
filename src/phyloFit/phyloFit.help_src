@@ -150,6 +150,12 @@ OPTIONS:
         tree_doctor --name-ancestors regarding names for ancestral nodes.)
         This option does not currently work with --EM.
 
+    --threads, -j <n>
+        Set number of OpenMP threads (overrides OMP_NUM_THREADS).
+        If OpenMP support is disabled at build time, using this option
+        causes an error. If neither this nor OMP_NUM_THREADS is set,
+        defaults to 1 thread.
+
     --quiet, -q
         Proceed quietly.
 

@@ -29,6 +29,10 @@
 #include <phast/phylo_fit.h>
 #include "phyloFit.help"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 
 int main(int argc, char *argv[]) {
   char *msa_fname = NULL, *alph = "ACGT";
@@ -40,6 +44,10 @@ int main(int argc, char *argv[]) {
   struct phyloFit_struct *pf;
   FILE *infile;
   int store_order=0;
+ 
+#ifdef _OPENMP
+  int threads_specified = 0;
+#endif
   
   struct option long_opts[] = {
     {"msa", 1, 0, 'm'},
@@ -92,6 +100,7 @@ int main(int argc, char *argv[]) {
     {"selection", 1, 0, 0},
     {"bound", 1, 0, 'u'},
     {"seed", 1, 0, 'D'},
+    {"threads", 1, 0, 'j'},
     {0, 0, 0, 0}
   };
 
@@ -99,7 +108,7 @@ int main(int argc, char *argv[]) {
 
   pf = phyloFit_struct_new(0);
 
-  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:u:Y:e:D:GVENRqLPXZUBFfnrzhWyJ", long_opts, &opt_idx)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:t:s:g:c:C:i:o:k:a:l:w:v:M:p:A:I:K:S:b:d:O:u:Y:e:D:j:GVENRqLPXZUBFfnrzhWyJ", long_opts, &opt_idx)) != -1) {
     switch(c) {
     case 'm':
       msa_fname = optarg;
@@ -307,6 +316,22 @@ int main(int argc, char *argv[]) {
     case 'D':
       seed = get_arg_int_bounds(optarg, 1, INFTY);
       break;
+    case 'j': {
+      int threads = get_arg_int_bounds(optarg, 1, INFTY);
+#ifdef _OPENMP
+      {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%d", threads);
+        setenv("OMP_NUM_THREADS", buf, 1);
+        omp_set_num_threads(threads);
+        threads_specified = 1;
+      }
+#else
+      die("ERROR: --threads/-j requires OpenMP support; "
+          "rebuild with OpenMP enabled.");
+#endif
+      break;
+    }
     case 'h':
       printf("%s", HELP);
       exit(0);
@@ -314,6 +339,18 @@ int main(int argc, char *argv[]) {
       die("ERROR: illegal argument.     Type 'phyloFit -h' for usage.\n");
     }
   }
+
+#ifdef _OPENMP
+  /* Default conservatively to one thread if OpenMP is enabled but neither
+     -j/--threads nor OMP_NUM_THREADS was provided. */
+  if (!threads_specified) {
+    const char *omp_env = getenv("OMP_NUM_THREADS");
+    if (omp_env == NULL || *omp_env == '\0') {
+      omp_set_dynamic(0);
+      omp_set_num_threads(1);
+    }
+  }
+#endif
 
   set_seed(seed);
 

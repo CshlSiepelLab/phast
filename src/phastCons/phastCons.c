@@ -21,9 +21,18 @@
 #include "phast/cons.h"
 #include "phastCons.help"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 
 int main(int argc, char *argv[]) {
   struct phastCons_struct *p = phastCons_struct_new(0);
+
+#ifdef _OPENMP
+  int threads_specified = 0;
+#endif
+
   struct option long_opts[] = {
     {"states", 1, 0, 'S'},
     {"hmm", 1, 0, 'H'},
@@ -61,6 +70,7 @@ int main(int argc, char *argv[]) {
     {"score", 0, 0, 's'},
     {"coding-potential", 0, 0, 'p'},
     {"indels-only", 0, 0, 'J'},
+    {"threads", 1, 0, 'j'},
     {"alias", 1, 0, 'A'},
     {"quiet", 0, 0, 'q'},
     {"help", 0, 0, 'h'},
@@ -79,7 +89,7 @@ int main(int argc, char *argv[]) {
   msa_format_type msa_format = UNKNOWN_FORMAT;
 
   while ((c = getopt_long(argc, argv, 
-			  "S:H:V:ni:k:l:C:G:zt:E:R:T:O:r:xL:sN:P:g:U:c:e:IY:D:JM:F:pA:Xqh", 
+			  "S:H:V:ni:k:l:C:G:zt:E:R:T:O:r:xL:sN:P:g:U:c:e:j:IY:D:JM:F:pA:Xqh", 
                           long_opts, &opt_idx)) != -1) {
     switch (c) {
     case 'S':
@@ -243,6 +253,22 @@ int main(int argc, char *argv[]) {
     case 'A':
       p->alias_hash = make_name_hash(optarg);
       break;
+    case 'j': {
+      int threads = get_arg_int_bounds(optarg, 1, INFTY);
+#ifdef _OPENMP
+      {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%d", threads);
+        setenv("OMP_NUM_THREADS", buf, 1);
+        omp_set_num_threads(threads);
+        threads_specified = 1;
+      }
+#else
+      die("ERROR: --threads/-j requires OpenMP support; "
+          "rebuild with OpenMP enabled.");
+#endif
+      break;
+    }
     case 'q':
       p->results_f = NULL;
       break;
@@ -258,6 +284,19 @@ int main(int argc, char *argv[]) {
       (coding_potential && optind != argc - 2 && optind != argc - 1))
     die("ERROR: extra or missing arguments.  Try '%s -h'.\n", argv[0]);
 
+  
+#ifdef _OPENMP
+    /* Default conservatively to one thread if OpenMP is enabled but neither
+       -j/--threads nor OMP_NUM_THREADS was provided. */
+    if (!threads_specified) {
+      const char *omp_env = getenv("OMP_NUM_THREADS");
+      if (omp_env == NULL || *omp_env == '\0') {
+        omp_set_dynamic(0);
+        omp_set_num_threads(1);
+      }
+    }
+#endif    
+  
   set_seed(-1);
 
   if (p->extrapolate_tree_fname != NULL &&

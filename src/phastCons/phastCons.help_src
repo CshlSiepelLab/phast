@@ -208,6 +208,12 @@ OPTIONS:
         Suppress output of posterior probabilities.  Useful if only
         discrete elements or likelihood is of interest.
 
+    --threads, -j <n>
+        Set number of OpenMP threads (overrides OMP_NUM_THREADS).
+        If OpenMP support is disabled at build time, using this option
+        causes an error. If neither this nor OMP_NUM_THREADS is set,
+        defaults to 1 thread.
+
     --log, -g <log_fname>
         (Optionally use when estimating free parameters) Write log of
         optimization procedure to specified file.
