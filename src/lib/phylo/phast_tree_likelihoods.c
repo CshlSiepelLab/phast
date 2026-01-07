@@ -14,7 +14,6 @@
 #include <phast/subst_mods.h>
 #include <phast/sufficient_stats.h>
 #include <phast/tree_likelihoods.h>
-#include <stdlib.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -161,6 +160,10 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa, double *col_scores,
       post->rcat_expected_nsites[rcat] = 0;
 
 #ifdef _OPENMP
+  /* Precompute cached traversals once to avoid races inside threads. */
+  (void)tr_postorder(mod->tree);
+  (void)tr_preorder(mod->tree);
+
 // creates private per-thread variables
 #pragma omp parallel private(i, j, k, pass, col_offset, nodeidx, rcat, n,      \
                                  traversal, total_prob, marg_tot)

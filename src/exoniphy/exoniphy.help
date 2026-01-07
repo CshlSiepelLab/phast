@@ -1,4 +1,4 @@
-char HELP[9841] = "\nPROGRAM: exoniphy\n\
+char HELP[10075] = "\nPROGRAM: exoniphy\n\
 \n\
 USAGE: exoniphy <msa_fname> > predictions.gff\n\
 \n\
@@ -32,6 +32,11 @@ OPTIONS:\n\
         HMM file.  By default, a set of models appropriate for human,\n\
         mouse, and rat are used (estimated as described in Siepel &\n\
         Haussler, 2004).\n\
+\n\
+    --models-path, -M <path>\n\
+        Path to prepend to tree model filenames specified with\n\
+        --tree-models.  Useful when tree model files are in a\n\
+        different directory than the current working directory.\n\
 \n\
     --catmap, -c <fname>|<string>\n\
         Mapping of feature types to category numbers.  Can give either\n\
