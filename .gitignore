@@ -1,6 +1,9 @@
 *.a
 *.o
-
+.DS_Store
 bin/
 doc/man/
+.cache
+compile_commands.json
+*~
 
