@@ -51,12 +51,14 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa, double *col_scores,
   TreeNode *n;
   double total_prob, marg_tot;
   List *traversal;
+ #ifndef _OPENMP
   double **inside_joint = NULL, **inside_marginal = NULL,
          **outside_joint = NULL, **outside_marginal = NULL,
          ****subst_probs = NULL;
-  double *curr_tuple_scores = NULL;
   double rcat_prob[mod->nratecats];
   double tmp[nstates];
+ #endif
+  double *curr_tuple_scores = NULL;
 
   checkInterrupt();
 
