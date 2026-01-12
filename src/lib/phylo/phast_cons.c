@@ -876,6 +876,9 @@ void unpack_params_phmm(PhyloHmm *phmm, Vector *params) {
   unpack_params_mod(phmm->mods[0], params);
   unpack_params_mod(phmm->mods[1], params);
   phmm->em_data->rho = vec_get(params, params->size - 1);
+  /* Clamp rho to valid open interval (0, 1) */
+  if (phmm->em_data->rho <= 0.0) phmm->em_data->rho = 1e-6;
+  else if (phmm->em_data->rho >= 1.0) phmm->em_data->rho = 1.0 - 1e-6;
   tm_scale_branchlens(phmm->mods[0], phmm->em_data->rho, FALSE);
 
   if (phmm->mods[0]->nratecats > 1)
@@ -1019,6 +1022,9 @@ void reestimate_trees(TreeModel **models, int nmodels, void *data,
 /* Wrapper for computation of likelihood, for use by reestimate_rho (below) */
 double likelihood_wrapper_rho(double rho, void *data) {
   PhyloHmm *phmm = (PhyloHmm*)data;
+  /* Clamp rho to a safe open interval to avoid invalid scales */
+  if (rho <= 0.0) rho = 1e-6;
+  else if (rho >= 1.0) rho = 1.0 - 1e-6;
   phmm->mods[0]->scale = rho;
   tm_set_subst_matrices(phmm->mods[0]);
   return -tl_compute_log_likelihood(phmm->mods[0], phmm->em_data->msa,
@@ -1047,6 +1053,10 @@ void reestimate_rho(TreeModel **models, int nmodels, void *data,
   opt_brent(ax, bx, cx, likelihood_wrapper_rho, 5e-3,
 	    &phmm->em_data->rho, phmm, logf);
   //  printf("ll=%f rho=%f\n", ll, phmm->em_data->rho);
+
+  /* Ensure final rho stays within bounds */
+  if (phmm->em_data->rho <= 0.0) phmm->em_data->rho = 1e-6;
+  else if (phmm->em_data->rho >= 1.0) phmm->em_data->rho = 1.0 - 1e-6;
 
   if (logf != NULL)
     fprintf(logf, "END RE-ESTIMATION OF RHO\n\n");
