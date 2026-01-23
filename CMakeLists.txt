@@ -57,11 +57,6 @@ else()
     add_compile_definitions(PHAST_USE_SYSTEM_LAPACK)
 endif()
 
-# ---- Multithreading OpenMP Support--------------------------------------
-
-find_package(OpenMP)
-
-# OpenMP linking is applied where targets are defined (see src/lib/CMakeLists.txt)
 
 # ---- Project layout ----------------------------------------------------
 
