@@ -27,11 +27,22 @@ By default, binaries are installed to the system prefix (e.g. /usr/local/bin
 or a package-manager–controlled prefix).
 
 ### Multithreading Support
-Uses OpenMP with 8 threads by default if found by CMake. OpenMP is not required. To set a different number of threads, update the environment variable:
+Uses OpenMP with 8 threads by default if found by CMake. OpenMP is not
+required. To set a different number of threads, update the environment
+variable: 
 
 ```
 export OMP_NUM_THREADS=4
 ```
+
+Note for MacOS: if OpenMP is not found by default, try explicitly
+specifying the LLVM compiler, e.g., 
+```sh
+cmake -S . -B build -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm/bin/clang
+```
+
+Currently only phyloFit and phastCons can make use of multithreading (see
+-j option).
 
 ### Documentation and support
 
