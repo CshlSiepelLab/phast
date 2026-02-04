@@ -477,6 +477,9 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
                                    symmetry, only pd2[0][0],
                                    pd2[1][1], and pd2[1][0] need to be
                                    considered during computation */
+  double log_scale = 0;
+  double scaling_threshold = DBL_MIN;
+
   if (d->msa->ss->tuple_size != 1)
     die("ERROR col_scale_derivs_subtree: need tuple size 1, got %i\n",
 	d->msa->ss->tuple_size);
@@ -569,40 +572,28 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
 
           }
 
-          L[i][n->id] = totl * totr;
-          LL[i][n->id] = totr*A + totl*B;
-          MM[i][n->id] = totr*C + totl*D;
-
-          if (pd2 != NULL) {
-            for (j = 0; j < nstates; j++) {
-              E += L[j][n->lchild->id] * d->PPP[n->lchild->id][rcat]->data[i][j] +
-                2 * LL[j][n->lchild->id] * d->PP[n->lchild->id][rcat]->data[i][j] +
-                LLL[j][n->lchild->id] * mm_get(lsubst_mat, i, j);
-              G += L[j][n->lchild->id] * d->QQQ[n->lchild->id][rcat]->data[i][j] +
-                2 * MM[j][n->lchild->id] * d->QQ[n->lchild->id][rcat]->data[i][j] +
-                MMM[j][n->lchild->id] * mm_get(lsubst_mat, i, j);
-              II += L[j][n->lchild->id] * d->RRR[n->lchild->id][rcat]->data[i][j] +
-                MM[j][n->lchild->id] * d->PP[n->lchild->id][rcat]->data[i][j] +
-                LL[j][n->lchild->id] * d->QQ[n->lchild->id][rcat]->data[i][j] +
-                NNN[j][n->lchild->id] * mm_get(lsubst_mat, i, j);
+          if (totl * totr < scaling_threshold) {
+            L[i][n->id] = (totl / scaling_threshold) * totr;
+            LL[i][n->id] = ((totr * A + totl * B) / scaling_threshold);
+            MM[i][n->id] = ((totr * C + totl * D) / scaling_threshold);
+            log_scale -= log(scaling_threshold);
+            if (pd2 != NULL) {
+              LLL[i][n->id] = (totr * E + 2 * A * B + totl * F) /
+                scaling_threshold;
+              MMM[i][n->id] = (totr * G + 2 * C * D + totl * H) /
+                scaling_threshold;
+              NNN[i][n->id] = (totr * II + A * D + B * C + totl * J) /
+                scaling_threshold;
             }
-
-            for (k = 0; k < nstates; k++) {
-              F += L[k][n->rchild->id] * d->PPP[n->rchild->id][rcat]->data[i][k] +
-                2 * LL[k][n->rchild->id] * d->PP[n->rchild->id][rcat]->data[i][k] +
-                LLL[k][n->rchild->id] * mm_get(rsubst_mat, i, k);
-              H += L[k][n->rchild->id] * d->QQQ[n->rchild->id][rcat]->data[i][k] +
-                2 * MM[k][n->rchild->id] * d->QQ[n->rchild->id][rcat]->data[i][k] +
-                MMM[k][n->rchild->id] * mm_get(rsubst_mat, i, k);
-              J += L[k][n->rchild->id] * d->RRR[n->rchild->id][rcat]->data[i][k] +
-                MM[k][n->rchild->id] * d->PP[n->rchild->id][rcat]->data[i][k] +
-                LL[k][n->rchild->id] * d->QQ[n->rchild->id][rcat]->data[i][k] +
-                NNN[k][n->rchild->id] * mm_get(rsubst_mat, i, k);
+          } else {
+            L[i][n->id] = totl * totr;
+            LL[i][n->id] = totr * A + totl * B;
+            MM[i][n->id] = totr * C + totl * D;
+            if (pd2 != NULL) {
+              LLL[i][n->id] = totr * E + 2 * A * B + totl * F;
+              MMM[i][n->id] = totr * G + 2 * C * D + totl * H;
+              NNN[i][n->id] = totr * II + A * D + B * C + totl * J;
             }
-
-            LLL[i][n->id] = totr*E + 2*A*B + totl*F;
-            MMM[i][n->id] = totr*G + 2*C*D + totl*H;
-            NNN[i][n->id] = totr*II + A*D + B*C + totl*J;
           }
         }
       }
@@ -639,7 +630,7 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
   }
   pd[0] = pd[0] / total_prob; /* deriv of log */
   pd[1] = pd[1] / total_prob;
-  total_prob = log(total_prob);
+  total_prob = log(total_prob) - log_scale;
 
   if (scratch == NULL) {
     for (j = 0; j < nstates; j++) {
