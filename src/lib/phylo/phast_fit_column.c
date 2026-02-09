@@ -48,7 +48,6 @@ double col_compute_scaled_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
   List *traversal = tr_postorder(mod->tree);
   double **pL = NULL;
   double log_scale = 0;
-  double scaling_threshold = DBL_MIN;
 
   if (msa->ss->tuple_size != 1)
     die("ERROR col_compute_scaled_log_likelihood: need tuple size 1, got %i\n",
@@ -87,6 +86,7 @@ double col_compute_scaled_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
         /* general recursive case */
         MarkovMatrix *lsubst_mat = mod->P[n->lchild->id][rcat];
         MarkovMatrix *rsubst_mat = mod->P[n->rchild->id][rcat];
+        double node_sum = 0;
         for (i = 0; i < nstates; i++) {
           double totl = 0, totr = 0;
           for (j = 0; j < nstates; j++)
@@ -96,14 +96,15 @@ double col_compute_scaled_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
           for (k = 0; k < nstates; k++)
             totr += pL[k][n->rchild->id] *
               mm_get(rsubst_mat, i, k);
-          
-          if (totl * totr < scaling_threshold) {
-            pL[i][n->id] = (totl / scaling_threshold) * totr;
-            log_scale -= log(scaling_threshold);
-          }
-          else {
-            pL[i][n->id] = totl * totr;
-          }
+
+          pL[i][n->id] = totl * totr;
+          node_sum += pL[i][n->id];
+        }
+        /* Per-node scaling prevents overflow and underflow */
+        if (node_sum > 0) {
+          for (i = 0; i < nstates; i++)
+            pL[i][n->id] /= node_sum;
+          log_scale += log(node_sum);
         }
       }
     }
@@ -119,7 +120,7 @@ double col_compute_scaled_log_likelihood(TreeModel *mod, MSA *msa, int tupleidx,
     sfree(pL);
   }
 
-  return log(total_prob) - log_scale;
+  return log(total_prob) + log_scale;
 }
 
 /* version of col_scale_derivs_subst that allows for the general case
@@ -308,6 +309,7 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
   int nstates = d->mod->rate_matrix->size;
   TreeNode *n;
   double total_prob = 0;
+  double log_scale = 0;
   List *traversal = tr_postorder(d->mod->tree);
   double **L=NULL;                   /* partial likelihoods */
   double **LL=NULL;                  /* 1st deriv of partial likelihoods wrt
@@ -369,6 +371,7 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
         /* general recursive case */
         MarkovMatrix *lsubst_mat = d->mod->P[n->lchild->id][rcat];
         MarkovMatrix *rsubst_mat = d->mod->P[n->rchild->id][rcat];
+        double node_sum = 0;
         for (i = 0; i < nstates; i++) {
           double totl = 0, totr = 0, A = 0, B = 0, E = 0, F = 0;
           for (j = 0; j < nstates; j++) {
@@ -402,6 +405,17 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
 
             LLL[i][n->id] = totr*E + 2*A*B + totl*F;
           }
+          node_sum += L[i][n->id];
+        }
+        /* Per-node scaling prevents overflow and underflow */
+        if (node_sum > 0) {
+          for (i = 0; i < nstates; i++) {
+            L[i][n->id] /= node_sum;
+            LL[i][n->id] /= node_sum;
+            if (second_deriv != NULL)
+              LLL[i][n->id] /= node_sum;
+          }
+          log_scale += log(node_sum);
         }
       }
     }
@@ -429,7 +443,7 @@ double col_scale_derivs(ColFitData *d, double *first_deriv,
                                    underflow */
 
   *first_deriv = *first_deriv / total_prob; /* deriv of log */
-  total_prob = log(total_prob);
+  total_prob = log(total_prob) + log_scale;
 
   if (scratch == NULL) {
     for (j = 0; j < nstates; j++) {
@@ -478,7 +492,6 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
                                    pd2[1][1], and pd2[1][0] need to be
                                    considered during computation */
   double log_scale = 0;
-  double scaling_threshold = DBL_MIN;
 
   if (d->msa->ss->tuple_size != 1)
     die("ERROR col_scale_derivs_subtree: need tuple size 1, got %i\n",
@@ -548,6 +561,7 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
         /* general recursive case */
         MarkovMatrix *lsubst_mat = d->mod->P[n->lchild->id][rcat];
         MarkovMatrix *rsubst_mat = d->mod->P[n->rchild->id][rcat];
+        double node_sum = 0;
         for (i = 0; i < nstates; i++) {
           double totl = 0, totr = 0, A = 0, B = 0, C = 0, D = 0, E = 0,
             F = 0, G = 0, H = 0, II = 0, J = 0;
@@ -572,29 +586,29 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
 
           }
 
-          if (totl * totr < scaling_threshold) {
-            L[i][n->id] = (totl / scaling_threshold) * totr;
-            LL[i][n->id] = ((totr * A + totl * B) / scaling_threshold);
-            MM[i][n->id] = ((totr * C + totl * D) / scaling_threshold);
-            log_scale -= log(scaling_threshold);
+          L[i][n->id] = totl * totr;
+          LL[i][n->id] = totr * A + totl * B;
+          MM[i][n->id] = totr * C + totl * D;
+          if (pd2 != NULL) {
+            LLL[i][n->id] = totr * E + 2 * A * B + totl * F;
+            MMM[i][n->id] = totr * G + 2 * C * D + totl * H;
+            NNN[i][n->id] = totr * II + A * D + B * C + totl * J;
+          }
+          node_sum += L[i][n->id];
+        }
+        /* Per-node scaling prevents overflow and underflow */
+        if (node_sum > 0) {
+          for (i = 0; i < nstates; i++) {
+            L[i][n->id] /= node_sum;
+            LL[i][n->id] /= node_sum;
+            MM[i][n->id] /= node_sum;
             if (pd2 != NULL) {
-              LLL[i][n->id] = (totr * E + 2 * A * B + totl * F) /
-                scaling_threshold;
-              MMM[i][n->id] = (totr * G + 2 * C * D + totl * H) /
-                scaling_threshold;
-              NNN[i][n->id] = (totr * II + A * D + B * C + totl * J) /
-                scaling_threshold;
-            }
-          } else {
-            L[i][n->id] = totl * totr;
-            LL[i][n->id] = totr * A + totl * B;
-            MM[i][n->id] = totr * C + totl * D;
-            if (pd2 != NULL) {
-              LLL[i][n->id] = totr * E + 2 * A * B + totl * F;
-              MMM[i][n->id] = totr * G + 2 * C * D + totl * H;
-              NNN[i][n->id] = totr * II + A * D + B * C + totl * J;
+              LLL[i][n->id] /= node_sum;
+              MMM[i][n->id] /= node_sum;
+              NNN[i][n->id] /= node_sum;
             }
           }
+          log_scale += log(node_sum);
         }
       }
     }
@@ -630,7 +644,7 @@ double col_scale_derivs_subtree(ColFitData *d, Vector *gradient,
   }
   pd[0] = pd[0] / total_prob; /* deriv of log */
   pd[1] = pd[1] / total_prob;
-  total_prob = log(total_prob) - log_scale;
+  total_prob = log(total_prob) + log_scale;
 
   if (scratch == NULL) {
     for (j = 0; j < nstates; j++) {
