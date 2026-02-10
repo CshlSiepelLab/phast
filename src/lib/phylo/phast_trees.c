@@ -61,27 +61,34 @@ TreeNode *tr_new_from_file(FILE *f) {
 
 /* Helper function for tr_new_from_string that accommodates
    multifurcations.  Will create dummy node and zero-length branch if
-   needed to accommodate a multinary branching. */
+   needed to accommodate a multinary branching.  The new child is
+   placed directly under parent (as rchild) so that the parser's ')'
+   handler correctly returns to parent for name/branch assignment.
+   The existing children are grouped under a zero-length dummy node
+   (as lchild). */
 static TreeNode *tr_add_child_multifurc(TreeNode *parent, TreeNode *newchild) {
   if (parent->lchild == NULL || parent->rchild == NULL) {
     tr_add_child(parent, newchild);         /* existing helper; sets parent links */
     return newchild;
   }
 
-  /* in this case, parent is already binary: create dummy node */
+  /* parent already has two children: group them under a dummy node */
+  TreeNode *old_left = parent->lchild;
   TreeNode *old_right = parent->rchild;
   TreeNode *dummy = tr_new_node();
   dummy->dparent = 0.0;
   dummy->parent = parent;
 
-  /* replace parent's right child */
-  parent->rchild = dummy;
-
-  dummy->lchild = old_right;
+  /* group existing children under dummy */
+  dummy->lchild = old_left;
+  old_left->parent = dummy;
+  dummy->rchild = old_right;
   old_right->parent = dummy;
 
-  dummy->rchild = newchild;
-  newchild->parent = dummy;
+  /* parent now has: lchild = dummy (old children), rchild = newchild */
+  parent->lchild = dummy;
+  parent->rchild = newchild;
+  newchild->parent = parent;
 
   return newchild;
 }
