@@ -288,8 +288,10 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
   die("ERROR: LAPACK required for matrix inversion.\n");
 #else
   int i, j;
-  LAPACK_INT info, n = (LAPACK_INT)M->nrows, ipiv[n], lwork=(LAPACK_INT)n;
-  LAPACK_DOUBLE tmp[n][n], work[lwork];
+  LAPACK_INT info, n = (LAPACK_INT)M->nrows, lwork=(LAPACK_INT)n;
+  LAPACK_INT *ipiv = smalloc((size_t)n * sizeof(*ipiv));
+  LAPACK_DOUBLE *tmp = smalloc((size_t)n * (size_t)n * sizeof(*tmp));
+  LAPACK_DOUBLE *work = smalloc((size_t)lwork * sizeof(*work));
 
   if (!(M->nrows == M->ncols && M_inv->nrows == M_inv->ncols &&
         M->nrows == M_inv->nrows))
@@ -297,22 +299,25 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
 
   for (i = 0; i < n; i++)
     for (j = 0; j < n; j++)
-      tmp[i][j] = (LAPACK_DOUBLE)mat_get(M, j, i);
+      tmp[(size_t)i * (size_t)n + (size_t)j] = (LAPACK_DOUBLE)mat_get(M, j, i);
 
 #ifdef R_LAPACK
-  F77_CALL(dgetrf)(&n, &n, (LAPACK_DOUBLE*)tmp, &n, ipiv, &info);
+  F77_CALL(dgetrf)(&n, &n, tmp, &n, ipiv, &info);
 #else
-  dgetrf_(&n, &n, (LAPACK_DOUBLE*)tmp, &n, ipiv, &info);
+  dgetrf_(&n, &n, tmp, &n, ipiv, &info);
 #endif
 
   if (info != 0) {
     fprintf(stderr, "ERROR: unable to compute LU factorization of matrix (for matrix inversion); dgetrf returned value of %d.\n", (int)info);
+    sfree(ipiv);
+    sfree(tmp);
+    sfree(work);
     return 1;
   }
 #ifdef R_LAPACK
-  F77_CALL(dgetri)(&n, (LAPACK_DOUBLE*)tmp, &n, ipiv, work, &lwork, &info);
+  F77_CALL(dgetri)(&n, tmp, &n, ipiv, work, &lwork, &info);
 #else
-  dgetri_(&n, (LAPACK_DOUBLE*)tmp, &n, ipiv, work, &lwork, &info);
+  dgetri_(&n, tmp, &n, ipiv, work, &lwork, &info);
 #endif
 
   if (info != 0) {
@@ -320,12 +325,19 @@ int mat_invert(Matrix *M_inv, Matrix *M) {
       fprintf(stderr, "ERROR: matrix is singular -- cannot invert.\n");
     else
       fprintf(stderr, "ERROR: unable to invert matrix.  Element %d had an illegal value (according to dgetri).\n", (int)info);
+    sfree(ipiv);
+    sfree(tmp);
+    sfree(work);
     return 1;
   }
 
   for (i = 0; i < M->nrows; i++)
     for (j = 0; j < M->nrows; j++)
-      mat_set(M_inv, i, j, (double)tmp[j][i]);
+      mat_set(M_inv, i, j, (double)tmp[(size_t)j * (size_t)n + (size_t)i]);
+
+  sfree(ipiv);
+  sfree(tmp);
+  sfree(work);
 
 #endif
   return 0;
@@ -341,7 +353,7 @@ int mat_cholesky(Matrix *L, Matrix *M) {
 #else
   int i, j;
   LAPACK_INT info, n = (LAPACK_INT)M->nrows;
-  LAPACK_DOUBLE tmp[n][n];
+  LAPACK_DOUBLE *tmp = smalloc((size_t)n * (size_t)n * sizeof(*tmp));
   char mode = 'L';
 
   if (!(M->nrows == M->ncols && L->nrows == L->ncols &&
@@ -350,27 +362,30 @@ int mat_cholesky(Matrix *L, Matrix *M) {
 
   for (i = 0; i < n; i++)
     for (j = 0; j < n; j++)
-      tmp[i][j] = (LAPACK_DOUBLE)mat_get(M, j, i);
+      tmp[(size_t)i * (size_t)n + (size_t)j] = (LAPACK_DOUBLE)mat_get(M, j, i);
 
 #ifdef R_LAPACK
-  F77_CALL(dpotrf)(&mode, &n, (LAPACK_DOUBLE*)tmp, &n, &info);
+  F77_CALL(dpotrf)(&mode, &n, tmp, &n, &info);
 #else
-  dpotrf_(&mode, &n, (LAPACK_DOUBLE*)tmp, &n, &info);
+  dpotrf_(&mode, &n, tmp, &n, &info);
 #endif
 
   if (info != 0) {
     fprintf(stderr, "ERROR: unable to compute Cholesky factorization of matrix; dpotrf returned value of %d.\n", (int)info);
+    sfree(tmp);
     return 1;
   }
 
   for (i = 0; i < M->nrows; i++) {
     for (j = 0; j < M->nrows; j++) {
       if (j <= i)
-        mat_set(L, i, j, (double)tmp[j][i]);
+        mat_set(L, i, j, (double)tmp[(size_t)j * (size_t)n + (size_t)i]);
       else
         mat_set(L, i, j, 0);
     }
   }
+
+  sfree(tmp);
 
 #endif
   return 0;
