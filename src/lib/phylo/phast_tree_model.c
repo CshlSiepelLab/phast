@@ -3831,20 +3831,24 @@ void tm_variance(FILE *outfile, TreeModel *mod, MSA *msa, Vector *allParams,
   double delta=1.0e-6, origParam, origLike, like1, like2, var, sd;
   int idx;
   Vector *optParams;
-  
-  int nParam=0;
-  for (idx=0; idx < allParams->size; idx++) 
+  int npar;
+
+  /* Pack like tm_fit: optParams[param_map[j]], not dense over j.
+     Reversible models share one coordinate for the two root branches.  */
+  npar = 0;
+  for (idx = 0; idx < allParams->size; idx++) {
+    if (mod->param_map[idx] >= npar)
+      npar = mod->param_map[idx] + 1;
+  }
+  optParams = vec_new(npar);
+  for (idx = 0; idx < allParams->size; idx++) {
     if (mod->param_map[idx] >= 0)
-      nParam++;
-  optParams = vec_new(nParam);
-  nParam=0;
-  for (idx=0; idx<allParams->size; idx++) 
-    if (mod->param_map[idx] >= 0)
-      vec_set(optParams, nParam++, vec_get(allParams, idx));
+      vec_set(optParams, mod->param_map[idx], vec_get(allParams, idx));
+  }
 
   tm_unpack_params(mod, optParams, -1);
   origLike = tl_compute_log_likelihood(mod, msa, NULL, NULL, cat, NULL);
-  for (idx=0; idx < optParams->size; idx++) {
+  for (idx = 0; idx < npar; idx++) {
     origParam = vec_get(optParams, idx);
     vec_set(optParams, idx, origParam + 2*delta);
     tm_unpack_params(mod, optParams, -1);
