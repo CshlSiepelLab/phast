@@ -96,8 +96,6 @@ int main(int argc, char *argv[]) {
   for (i = 0; i < hmm->nstates; i++) {
     F = phast_fopen(argv[optind+i], "r");
     mods[i] = tm_new_from_file(F, 1);
-    if (mods[i]->nratecats != 1)
-      die("ERROR: rate variation currently not supported.\n");
     phast_fclose(F);
   }  
 
