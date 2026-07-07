@@ -870,6 +870,236 @@ double tl_compute_log_likelihood(TreeModel *mod, MSA *msa, double *col_scores,
   return (retval);
 }
 
+/* for use in likelihood calculations to avoid underflow */
+#define TL_REL_CUTOFF 1e-300
+
+/* Underflow-protected log likelihood computation for phyloFit's BFGS
+   optimization objective.
+   Equivalent to tl_compute_log_likelihood(mod, msa, NULL, NULL, cat, NULL)
+   for 0th-order models, but rescales partial likelihoods at every
+   internal node (max-normalization plus a per-node log-scale
+   accumulator) to avoid underflow on large trees.  Does not support posterior probabilities, per-column/per-tuple scores, or higher-order (order > 0) models; tm_likelihood_wrapper falls back to tl_compute_log_likelihood for
+   those cases. */
+double tl_compute_log_likelihood_rescaled(TreeModel *mod, MSA *msa, int cat) {
+  int i, j, k, nodeidx, rcat, tupleidx, defined;
+  double retval = 0; /* accumulated in natural-log units; converted to
+                         log2 once, at the very end */
+  int nstates = mod->rate_matrix->size;
+  int alph_size = (int)strlen(mod->rate_matrix->states);
+  TreeNode *n;
+  List *traversal;
+#ifndef _OPENMP
+  double **pL = NULL;
+  double *lscale = NULL;
+#endif
+
+  if (mod->order != 0)
+    die("ERROR tl_compute_log_likelihood_rescaled: mod->order must be 0, "
+        "got %i\n", mod->order);
+
+  checkInterrupt();
+
+  /* obtain sufficient statistics, if necessary (mirrors
+     tl_compute_log_likelihood; order==0 here, so tuple_size 1 suffices,
+     and no col-by-col mapping is needed since col_scores is unsupported) */
+  if (msa->ss != NULL) {
+    if (msa->ss->tuple_size <= mod->order)
+      die("ERROR tl_compute_log_likelihood_rescaled: tuple_size (%i) must "
+          "be greater than mod->order (%i)\n", msa->ss->tuple_size,
+          mod->order);
+  } else
+    ss_from_msas(msa, mod->order + 1, 0, NULL, NULL, NULL, -1,
+                 subst_mod_is_codon_model(mod->subst_mod));
+
+  if (cat > msa->ncats)
+    die("ERROR tl_compute_log_likelihood_rescaled: cat (%i) > msa->ncats "
+        "(%i)\n", cat, msa->ncats);
+
+  if (mod->iupac_inv_map == NULL)
+    mod->iupac_inv_map =
+        build_iupac_inv_map(mod->rate_matrix->inv_states, alph_size);
+
+  if (mod->msa_seq_idx == NULL)
+    tm_build_seq_idx(mod, msa);
+
+  /* set up prob matrices, if any are undefined */
+  for (i = 0, defined = TRUE; defined && i < mod->tree->nnodes; i++) {
+    if (((TreeNode *)lst_get_ptr(mod->tree->nodes, i))->parent == NULL)
+      continue; /* skip root */
+    for (j = 0; j < mod->nratecats; j++)
+      if (mod->P[i][j] == NULL)
+        defined = FALSE;
+  }
+  if (!defined)
+    tm_set_subst_matrices(mod);
+
+#ifndef _OPENMP
+  pL = (double **)smalloc(nstates * sizeof(double *));
+  for (j = 0; j < nstates; j++)
+    pL[j] = (double *)smalloc((mod->tree->nnodes + 1) * sizeof(double));
+  lscale = (double *)smalloc((mod->tree->nnodes + 1) * sizeof(double));
+#endif
+
+#ifdef _OPENMP
+  /* Precompute cached traversal once to avoid races inside threads. */
+  (void)tr_postorder(mod->tree);
+
+#pragma omp parallel private(i, j, k, nodeidx, rcat, n, traversal)
+  {
+    double **pL = (double **)smalloc(nstates * sizeof(double *));
+    for (j = 0; j < nstates; j++)
+      pL[j] = (double *)smalloc((mod->tree->nnodes + 1) * sizeof(double));
+    double *lscale =
+        (double *)smalloc((mod->tree->nnodes + 1) * sizeof(double));
+
+#pragma omp for schedule(static) reduction(+ : retval)
+    for (tupleidx = 0; tupleidx < msa->ss->ntuples; tupleidx++) {
+#else
+    for (tupleidx = 0; tupleidx < msa->ss->ntuples; tupleidx++) {
+#endif
+      double logLk[mod->nratecats];
+      int skip_fels = FALSE;
+
+      if ((cat >= 0 && msa->ss->cat_counts[cat][tupleidx] == 0) ||
+          (cat < 0 && msa->ss->counts[tupleidx] == 0))
+        continue;
+
+      checkInterruptN(tupleidx, 1000);
+
+      /* check for gaps and whether column is informative, if necessary */
+      if (!mod->allow_gaps)
+        for (j = 0; !skip_fels && j < msa->nseqs; j++)
+          if (ss_get_char_tuple(msa, tupleidx, j, 0) == GAP_CHAR)
+            skip_fels = TRUE;
+      if (!skip_fels && mod->inform_reqd) {
+        int ninform = 0;
+        for (j = 0; j < msa->nseqs; j++) {
+          if (msa->is_informative != NULL && !msa->is_informative[j])
+            continue;
+          else if (!msa->is_missing[(int)ss_get_char_tuple(msa, tupleidx, j,
+                                                           0)])
+            ninform++;
+        }
+        if (ninform < 2)
+          skip_fels = TRUE;
+      }
+
+      if (skip_fels) {
+        retval += -INFINITY;
+        continue;
+      }
+
+      for (rcat = 0; rcat < mod->nratecats; rcat++) {
+        double inside_sum;
+
+        for (nodeidx = 0; nodeidx <= mod->tree->nnodes; nodeidx++)
+          lscale[nodeidx] = 0.0;
+
+        traversal = tr_postorder(mod->tree);
+        for (nodeidx = 0; nodeidx < lst_size(traversal); nodeidx++) {
+          n = lst_get_ptr(traversal, nodeidx);
+
+          if (n->lchild == NULL) {
+            /* leaf: base case.  order==0, so the partial match at the single
+               relevant position *is* the total match; full IUPAC
+               ambiguity handling is preserved via mod->iupac_inv_map. */
+            int thisseq = mod->msa_seq_idx[n->id];
+            int observed_state;
+            int *iupac_prob = NULL;
+            char thischar;
+
+            if (thisseq < 0)
+              die("ERROR tl_compute_log_likelihood_rescaled: expected a "
+                  "leaf node\n");
+
+            thischar = ss_get_char_tuple(msa, tupleidx, thisseq, 0);
+            observed_state = mod->rate_matrix->inv_states[(int)thischar];
+            if (observed_state < 0)
+              iupac_prob = mod->iupac_inv_map[(int)thischar];
+
+            if (iupac_prob != NULL) {
+              for (i = 0; i < nstates; i++)
+                pL[i][n->id] = iupac_prob[i];
+            } else {
+              for (i = 0; i < nstates; i++)
+                pL[i][n->id] =
+                    (observed_state < 0 || i == observed_state) ? 1 : 0;
+            }
+          } else {
+            /* general recursive case, with node-wise rescaling to avoid
+               underflow */
+            MarkovMatrix *lsubst_mat = mod->P[n->lchild->id][rcat];
+            MarkovMatrix *rsubst_mat = mod->P[n->rchild->id][rcat];
+            double maxv = 0.0;
+
+            for (i = 0; i < nstates; i++) {
+              double totl = 0, totr = 0;
+              for (j = 0; j < nstates; j++)
+                totl += pL[j][n->lchild->id] * mm_get(lsubst_mat, i, j);
+              for (k = 0; k < nstates; k++)
+                totr += pL[k][n->rchild->id] * mm_get(rsubst_mat, i, k);
+              pL[i][n->id] = totl * totr;
+              if (pL[i][n->id] > maxv)
+                maxv = pL[i][n->id];
+            }
+
+            lscale[n->id] = lscale[n->lchild->id] + lscale[n->rchild->id];
+            if (maxv > 0.0) {
+              for (i = 0; i < nstates; i++)
+                pL[i][n->id] /= maxv;
+              lscale[n->id] += log(maxv);
+            }
+          }
+        }
+
+        inside_sum = 0.0;
+        for (i = 0; i < nstates; i++)
+          inside_sum += vec_get(mod->backgd_freqs, i) * pL[i][mod->tree->id];
+        if (inside_sum <= 0.0)
+          inside_sum = TL_REL_CUTOFF;
+
+        logLk[rcat] =
+            log(inside_sum) + lscale[mod->tree->id] + log(mod->freqK[rcat]);
+      } /* for rcat */
+
+      /* combine rate categories via a freqK-weighted log-sum-exp, so a
+         category-specific underflow can't silently zero out the whole
+         mixture in linear space */
+      {
+        double m = -INFINITY, s = 0.0, logmix;
+        for (rcat = 0; rcat < mod->nratecats; rcat++)
+          if (logLk[rcat] > m)
+            m = logLk[rcat];
+
+        if (m == -INFINITY)
+          logmix = log(TL_REL_CUTOFF);
+        else {
+          for (rcat = 0; rcat < mod->nratecats; rcat++)
+            s += exp(logLk[rcat] - m);
+          logmix = m + log(s);
+        }
+
+        retval += logmix * (cat >= 0 ? msa->ss->cat_counts[cat][tupleidx]
+                                     : msa->ss->counts[tupleidx]);
+      }
+    } /* for tupleidx */
+
+#ifdef _OPENMP
+    for (j = 0; j < nstates; j++)
+      sfree(pL[j]);
+    sfree(pL);
+    sfree(lscale);
+  } /* omp parallel */
+#else
+  for (j = 0; j < nstates; j++)
+    sfree(pL[j]);
+  sfree(pL);
+  sfree(lscale);
+#endif
+
+  return retval / log(2.0);
+}
+
 /* this is retained for possible use in the future; not using weight
    matrices for much anymore */
 void tl_compute_log_likelihood_weight_matrix(TreeModel *mod, MSA *msa,

@@ -122,11 +122,24 @@ void tl_dump_matrices(TreeModel *mod, double **inside_vals,
    previously allocated to the required size. 
    @result Log likelihood of entire tree model specified
 */
-double tl_compute_log_likelihood(TreeModel *mod, MSA *msa, 
-                                 double *col_scores, 
-				 double *tuple_scores, 
+double tl_compute_log_likelihood(TreeModel *mod, MSA *msa,
+                                 double *col_scores,
+				 double *tuple_scores,
 				 int cat,
                                  TreePosteriors *post);
+
+/** Underflow-protected variant of tl_compute_log_likelihood, used by
+   phyloFit's BFGS optimization objective.  Equivalent to
+   tl_compute_log_likelihood(mod, msa, NULL, NULL, cat, NULL) for
+   0th-order models (no posteriors, no per-column/per-tuple scores), but
+   rescales partial likelihoods at each internal node to avoid underflow
+   on large trees.
+   @param[in] mod Tree Model to compute likelihood for
+   @param[in] msa Multiple Alignment containing data related to tree model
+   @param[in] cat Whether to use categories
+   @result Log likelihood of entire tree model specified
+*/
+double tl_compute_log_likelihood_rescaled(TreeModel *mod, MSA *msa, int cat);
 
 /** Create a new TreePosteriors object.
     @param mod Tree Model of which the posterior probabilities are calculated

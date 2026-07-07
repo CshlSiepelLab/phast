@@ -2610,8 +2610,11 @@ double tm_likelihood_wrapper(Vector *params, void *data) {
   TreeModel *mod = (TreeModel*)data;
   double val;
   tm_unpack_params(mod, params, -1);
-  val = -1 * tl_compute_log_likelihood(mod, mod->msa, NULL, NULL, mod->category,
-				       NULL);
+  if (mod->order == 0)
+    val = -1 * tl_compute_log_likelihood_rescaled(mod, mod->msa, mod->category);
+  else
+    val = -1 * tl_compute_log_likelihood(mod, mod->msa, NULL, NULL, mod->category,
+					 NULL);
 /*  if (1) {
      int i;
      printf("val=%f", val);
