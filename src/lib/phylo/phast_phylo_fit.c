@@ -1116,8 +1116,11 @@ int run_phyloFit(struct phyloFit_struct *pf) {
           for (j = 0; j < msa->length; j++)
             msa->ss->tuple_idx[j] = j;
         }
-        mod->lnL = tl_compute_log_likelihood(mod, msa, col_log_probs, NULL, cat, NULL) *
-          log(2);
+        if (mod->order == 0 && col_log_probs == NULL)
+          mod->lnL = tl_compute_log_likelihood_rescaled(mod, msa, cat) * log(2);
+        else
+          mod->lnL = tl_compute_log_likelihood(mod, msa, col_log_probs, NULL, cat, NULL) *
+            log(2);
         if (pf->do_column_probs) {
 	  //we don't need to implement this in RPHAST because there is
 	  //already a msa.likelihood function
