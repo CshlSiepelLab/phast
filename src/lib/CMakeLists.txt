@@ -67,8 +67,13 @@ target_include_directories(phast_core
 
 add_library(phast::phast_core ALIAS phast_core)
 
-# PHAST linear algebra backend (chosen at top-level); also link to PCRE
-target_link_libraries(phast_core PUBLIC phast::linalg phast_pcre)
+# PHAST linear algebra backend (chosen at top-level); also link to PCRE.
+# Link libm explicitly: phast_core uses math functions (exp, log, ...) and must
+# not rely on the BLAS implementation to drag in -lm. A minimal netlib BLAS does
+# not, so consumers (and phast's own binaries) need libm here. PUBLIC so the
+# exported target propagates it to downstream consumers. Harmless on macOS
+# (libm is part of libSystem).
+target_link_libraries(phast_core PUBLIC phast::linalg phast_pcre m)
 
 # ---- Multithreading OpenMP Support--------------------------------------
 
