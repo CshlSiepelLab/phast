@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.18)
 
 project(phast
   VERSION 1.9.5
@@ -46,15 +46,25 @@ if(APPLE)
 
     # Keep your existing compile-time switches, but attach them to the linalg "interface"
     target_compile_definitions(phast_linalg INTERFACE VECLIB ACCELERATE_NEW_LAPACK)
+
+    # Record the backend so the installed package config knows not to re-resolve BLAS.
+    set(PHAST_BLAS_BACKEND "Accelerate")
 else()
-    # Use system BLAS/LAPACK elsewhere
+    # Use system BLAS/LAPACK elsewhere.
     find_package(BLAS REQUIRED)
     find_package(LAPACK REQUIRED)
 
-    # CMake 3.16 often provides *_LIBRARIES variables reliably (targets are less consistent)
-    target_link_libraries(phast_linalg INTERFACE ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+    # Link the imported targets (CMake >= 3.18) rather than the ${*_LIBRARIES} absolute
+    # paths. Absolute paths get baked into the exported target and break downstream
+    # consumers whose environment resolves BLAS differently (e.g. conda-forge ships
+    # only libopenblas.so.0, not the unversioned libopenblas.so). With imported targets,
+    # the installed phastConfig re-resolves BLAS in the consumer's environment via
+    # find_dependency() below.
+    target_link_libraries(phast_linalg INTERFACE BLAS::BLAS LAPACK::LAPACK)
     target_compile_definitions(phast_linalg INTERFACE PHAST_USE_SYSTEM_LAPACK)
     add_compile_definitions(PHAST_USE_SYSTEM_LAPACK)
+
+    set(PHAST_BLAS_BACKEND "System")
 endif()
 
 
